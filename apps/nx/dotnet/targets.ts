@@ -21,6 +21,7 @@ const Node = Schema.Struct({
     test: Schema.Boolean,
     packable: Schema.Boolean,
     publishable: Schema.Boolean,
+    pushed: Schema.Boolean,
     configuration: Schema.String,
     modes: Schema.Array(Schema.Struct({ configuration: Schema.String, runtime: Schema.NullOr(Schema.String), outputs: Schema.Array(Schema.String), published: Schema.Array(Schema.String), reports: Schema.Array(Schema.String) })),
     references: Schema.Array(Schema.Struct({ root: Schema.String, declared: Schema.String })),
@@ -103,13 +104,12 @@ const targets = (node: Node): Record<string, TargetConfiguration> => {
                 released,
                 ({ name, args }): TargetConfiguration => ({
                     command: line(['dotnet', 'pack', node.file, ...args]),
-                    configurations: { [name]: {} },
-                    defaultConfiguration: name,
+                    configurations: { [name]: { command: line(['dotnet', 'pack', node.file, '--no-build', ...args]) } },
                     dependsOn: ['build--dotnet'],
                     cache: true,
                     inputs,
                     outputs: [join('{workspaceRoot}', node.packed, '*.nupkg')],
-                    metadata: metadata('pack', `Packs the ${name} build of ${node.name} into its PackageOutputPath with dotnet pack, which builds that configuration first`),
+                    metadata: metadata('pack', `Packs the ${name} build of ${node.name} into its PackageOutputPath with dotnet pack, which builds it first, and under configuration ${name} with --no-build over the build build--dotnet wrote`),
                 }),
             ),
         }),
@@ -158,13 +158,18 @@ const targets = (node: Node): Record<string, TargetConfiguration> => {
                 inputs: [{ dependentTasksOutputFiles: '**/*', transitive: true }],
                 metadata: { description: "Uploads the files pack--dotnet wrote to the GitHub release of the version the project's manifest states through gh release upload", help: { command: 'gh release upload --help', example: { options: { dryRun: true } } } },
             },
-            'nx-release-publish': {
-                executor: `${distribution.name}:publish`,
-                options: { publish: ['dotnet', 'nuget', 'push', '--skip-duplicate'] },
-                dependsOn: ['pack--dotnet', '^nx-release-publish'],
-                inputs: [{ dependentTasksOutputFiles: '**/*', transitive: true }],
-                metadata: { description: `Pushes the package pack--dotnet wrote for ${node.name} with dotnet nuget push, which reads NUGET_API_KEY and skips a version nuget.org holds`, help: { command: 'dotnet nuget push --help', example: { options: { dryRun: true } } } },
-            },
+            ...(node.pushed && {
+                'nx-release-publish': {
+                    executor: `${distribution.name}:publish`,
+                    options: { publish: ['dotnet', 'nuget', 'push', '--skip-duplicate'], credential: 'NUGET_API_KEY', flag: '--api-key' },
+                    dependsOn: ['pack--dotnet', '^nx-release-publish'],
+                    inputs: [{ dependentTasksOutputFiles: '**/*', transitive: true }],
+                    metadata: {
+                        description: `Pushes the package pack--dotnet wrote for ${node.name} with dotnet nuget push, under the key NUGET_API_KEY holds, to the default push source NuGet resolves, which skips a version the source holds`,
+                        help: { command: 'dotnet nuget push --help', example: { options: { dryRun: true } } },
+                    },
+                },
+            }),
         }),
     };
     return Record.map(delivered, (tool): TargetConfiguration => ({ ...tool, metadata: { technologies: ['dotnet', node.language], ...tool.metadata } }));

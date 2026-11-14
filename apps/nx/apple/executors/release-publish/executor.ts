@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { createProjectFileMapUsingProjectGraph, type ExecutorContext } from '@nx/devkit';
 import cf from 'cf/package.json' with { type: 'json' };
-import { Array, Config, Effect, FileSystem, Path, Record, Redacted, Schema } from 'effect';
+import { Array, Config, Effect, FileSystem, Function, flow, Option, Path, Record, Result, Schema, String } from 'effect';
 import { createNxReleaseConfig } from 'nx/src/command-line/release/config/config';
 import { ReleaseVersion } from 'nx/src/command-line/release/utils/shared';
 import { run } from '#/executors/run/executor';
@@ -21,7 +21,7 @@ const Publish = Schema.Struct({
 }).annotate({
     title: 'Release publish',
     description:
-        "Signs a Sparkle feed for each disk image an export folder holds with generate_appcast under SPARKLE_ED_PRIVATE_KEY, pointing at the image's asset on the GitHub release nx release tags the archived app's version with, and uploads it to the R2 bucket SPARKLE_FEED_BUCKET names at the path of the app's SUFeedURL through cf r2 objects put; runs through nx release publish",
+        "Signs a Sparkle feed for each disk image an export folder holds with generate_appcast under SPARKLE_ED_PRIVATE_KEY, pointing at the image's asset on the GitHub release nx release tags the archived app's version with, and uploads it to the R2 bucket SPARKLE_FEED_BUCKET names at the path of the app's SUFeedURL through cf r2 objects put, and where a folder holds no disk image or either variable is unset names what is missing and publishes nothing; runs through nx release publish",
 });
 const Application = Schema.fromJsonString(Schema.Struct({ ApplicationPath: Schema.String, CFBundleShortVersionString: Schema.String }));
 const Assets = Schema.fromJsonString(Schema.Struct({ assets: Schema.Array(Schema.Struct({ name: Schema.String, url: Schema.URLFromString })) }));
@@ -32,7 +32,7 @@ const fed = Effect.fnUntraced(function* (context: ExecutorContext, { archive, fo
     const [fs, path, project] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Effect.fromNullishOr(context.projectName)]);
     const images = (yield* fs.readDirectory(path.join(context.root, folder))).filter((name) => path.extname(name) === '.dmg');
     if (!Array.isReadonlyArrayNonEmpty(images)) {
-        return;
+        return yield* Effect.logWarning(`Skipped the Sparkle feed of ${folder}: it holds no disk image, which pack--ditto writes where ASC_API_KEY_P8, ASC_API_KEY_ID, and ASC_API_ISSUER_ID are set`);
     }
     const printed = (command: string, args: readonly string[], input?: string) => Effect.try({ try: () => execFileSync(command, args, { encoding: 'utf8', cwd: context.root, input }), catch: refused(command, 'does not exit 0') });
     const { ApplicationPath, CFBundleShortVersionString: version } = yield* Effect.flatMap(printed('plutil', ['-extract', 'ApplicationProperties', 'json', '-o', '-', path.join(archive, 'Info.plist')]), Schema.decodeEffect(Application));
@@ -44,15 +44,19 @@ const fed = Effect.fnUntraced(function* (context: ExecutorContext, { archive, fo
     if (dry) {
         return yield* Effect.logInfo(`Would publish the Sparkle feed of ${images.join(', ')} for ${tag} through generate_appcast and cf r2 objects put`);
     }
-    const [key, bucket] = yield* Effect.all([Config.Redacted('SPARKLE_ED_PRIVATE_KEY'), Config.String('SPARKLE_FEED_BUCKET')]);
-    const feed = yield* Effect.flatMap(printed('plutil', ['-extract', 'SUFeedURL', 'raw', '-o', '-', path.join(archive, 'Products', ApplicationPath, 'Contents', 'Info.plist')]), (stated) => Schema.decodeEffect(Schema.URLFromString)(stated.trim()));
-    const { assets } = yield* Effect.flatMap(printed('gh', ['release', 'view', tag, '--json', 'assets']), Schema.decodeEffect(Assets));
-    const asset = yield* Effect.mapError(Effect.fromOption(Array.findFirst(assets, ({ name }) => name === Array.headNonEmpty(images))), refused(tag, `holds no ${Array.headNonEmpty(images)}`));
-    const staging = yield* fs.makeTempDirectoryScoped();
-    yield* Effect.forEach(images, (image) => fs.copyFile(path.join(context.root, folder, image), path.join(staging, image)), { discard: true });
-    yield* printed('generate_appcast', ['--ed-key-file', '-', '--download-url-prefix', new URL('.', asset.url).href, '-o', path.join(staging, 'appcast.xml'), staging], Redacted.value(key));
-    yield* printed(fileURLToPath(new URL(cf.bin.cf, import.meta.resolve('cf/package.json'))), ['r2', 'objects', 'put', feed.pathname.slice(1), '--bucket-name', bucket, '--file', path.join(staging, 'appcast.xml'), '--content-type', 'application/xml']);
-    return yield* Effect.logInfo(`Published the Sparkle feed of ${images.join(', ')} at ${feed.href}`);
+    const configured = (variable: string) => Effect.map(Config.option(Config.String(variable)), flow(Option.filter(String.isNonEmpty), Result.fromOption(Function.constant(variable))));
+    const held = yield* Effect.all({ key: configured('SPARKLE_ED_PRIVATE_KEY'), bucket: configured('SPARKLE_FEED_BUCKET') });
+    const signed = Effect.fnUntraced(function* ({ key, bucket }: { readonly key: string; readonly bucket: string }) {
+        const feed = yield* Effect.flatMap(printed('plutil', ['-extract', 'SUFeedURL', 'raw', '-o', '-', path.join(archive, 'Products', ApplicationPath, 'Contents', 'Info.plist')]), (stated) => Schema.decodeEffect(Schema.URLFromString)(stated.trim()));
+        const { assets } = yield* Effect.flatMap(printed('gh', ['release', 'view', tag, '--json', 'assets']), Schema.decodeEffect(Assets));
+        const asset = yield* Effect.mapError(Effect.fromOption(Array.findFirst(assets, ({ name }) => name === Array.headNonEmpty(images))), refused(tag, `holds no ${Array.headNonEmpty(images)}`));
+        const staging = yield* fs.makeTempDirectoryScoped();
+        yield* Effect.forEach(images, (image) => fs.copyFile(path.join(context.root, folder, image), path.join(staging, image)), { discard: true });
+        yield* printed('generate_appcast', ['--ed-key-file', '-', '--download-url-prefix', new URL('.', asset.url).href, '-o', path.join(staging, 'appcast.xml'), staging], key);
+        yield* printed(fileURLToPath(new URL(cf.bin.cf, import.meta.resolve('cf/package.json'))), ['r2', 'objects', 'put', feed.pathname.slice(1), '--bucket-name', bucket, '--file', path.join(staging, 'appcast.xml'), '--content-type', 'application/xml']);
+        return yield* Effect.logInfo(`Published the Sparkle feed of ${images.join(', ')} at ${feed.href}`);
+    });
+    return yield* Result.match(Result.all(held), { onFailure: () => Effect.logWarning(`Skipped the Sparkle feed of ${images.join(', ')}: ${Array.getFailures(Object.values(held)).join(' and ')} not set`), onSuccess: signed });
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

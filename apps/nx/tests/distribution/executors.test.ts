@@ -19,6 +19,9 @@ const files = {
     'tools/stage.js': "import { writeFileSync } from 'node:fs';\n\nwriteFileSync('staged/built.txt', 'built');\n",
     'tools/publish.js': recorded('published'),
     'tools/preview.js': recorded('previewed'),
+    'tools/keyed.js': recorded('keyed'),
+    'tools/unkeyed.js': recorded('unkeyed'),
+    'tools/alone.js': recorded('alone'),
     'tools/tool-clean.js': recorded('cleaned'),
     'lib/index.js': 'export const lib = 1;\n',
     'lib/staged/tracked.txt': 'source\n',
@@ -45,7 +48,10 @@ const prepared = Effect.gen(function* () {
         hollow: { command: 'true', outputs: ['{projectRoot}/absent/*.tgz'] },
         clean: { executor: `${plugin.name}:clean`, options: { targets: ['pack', 'stage'], commands: [['node', `${root}/tools/tool-clean.js`, 'swept']], cwd: 'lib' } },
         unstated: { executor: `${plugin.name}:clean` },
-        'nx-release-publish': { executor: `${plugin.name}:publish`, dependsOn: ['pack'], options: { publish: ['node', `${root}/tools/publish.js`, 'push'], preview: ['node', `${root}/tools/preview.js`, 'push'] } },
+        'nx-release-publish': { executor: `${plugin.name}:publish`, dependsOn: ['pack'], options: { publish: ['node', `${root}/tools/publish.js`, 'push'], preview: ['node', `${root}/tools/preview.js`, 'push'], credential: 'HOME' } },
+        keyed: { executor: `${plugin.name}:publish`, dependsOn: ['pack'], options: { publish: ['node', `${root}/tools/keyed.js`, 'push'], credential: 'HOME', flag: '--api-key' } },
+        unkeyed: { executor: `${plugin.name}:publish`, dependsOn: ['pack'], options: { publish: ['node', `${root}/tools/unkeyed.js`, 'push'], credential: 'RASM_FIXTURE_ABSENT_TOKEN' } },
+        alone: { executor: `${plugin.name}:publish`, options: { publish: ['node', `${root}/tools/alone.js`, 'push'], credential: 'HOME' } },
         attach: { executor: `${plugin.name}:attach`, dependsOn: ['pack'] },
         bare: { executor: `${plugin.name}:attach`, dependsOn: ['hollow'] },
     };
@@ -119,6 +125,30 @@ it.layer(workspace({ projects: ['lib'] }), { timeout: bounds.built, excludeTestS
     );
 
     methods.effect(
+        'publish uploads where its credential variable is set and names the variable and succeeds where it is not',
+        Effect.fnUntraced(function* () {
+            const rule = 'README.md PRINCIPLES "Publish targets upload where the credential variable their tool reads is set, and name the variable and succeed where it is not"';
+            const { absent, nx: run, text } = yield* Consumer;
+            const skipped = yield* run('run', 'lib:unkeyed', '--output-style=static');
+            assert.strictEqual(skipped.code, 0, `${rule}: a missing credential exits 0: ${skipped.stdout}${skipped.stderr}`);
+            assert.include(`${skipped.stdout}${skipped.stderr}`, 'RASM_FIXTURE_ABSENT_TOKEN is not set', `${rule}: the run names the missing variable`);
+            assert.deepStrictEqual(yield* absent(['tools/unkeyed.json']), ['tools/unkeyed.json'], `${rule}: the publish command does not run`);
+            const keyed = yield* run('run', 'lib:keyed', '--output-style=static');
+            const passed = yield* Effect.flatMap(text('tools/keyed.json'), Schema.decodeEffect(Arguments));
+            assert.strictEqual(keyed.code, 0, `${rule}: a set credential publishes: ${keyed.stdout}${keyed.stderr}`);
+            assert.strictEqual(passed.at(-2), '--api-key', 'dotnet nuget push --help "-k|--api-key <API_KEY>": a tool reading no variable takes the credential under its own argument, after the files');
+            assert.isTrue(
+                passed.some((file) => file.endsWith('lib/packed/lib.tgz')),
+                `${PACKAGED}: the command receives the packed file`,
+            );
+            const alone = yield* run('run', 'lib:alone', '--output-style=static');
+            assert.strictEqual(alone.code, 0, `a publish target with no packaging dependency runs its command alone: ${alone.stdout}${alone.stderr}`);
+            assert.deepStrictEqual(yield* Effect.flatMap(text('tools/alone.json'), Schema.decodeEffect(Arguments)), ['push'], 'pnpm publish --recursive takes no file: "pnpm -r publish ... will publish all the packages that have versions not yet published to the registry"');
+        }),
+        bounds.test,
+    );
+
+    methods.effect(
         'publish under a dry run runs the preview command and publishes nothing',
         Effect.fnUntraced(function* () {
             const { absent, nx: run, text } = yield* Consumer;
@@ -133,7 +163,7 @@ it.layer(workspace({ projects: ['lib'] }), { timeout: bounds.built, excludeTestS
     methods.effect(
         'publish runs the tool command with each file its packaging target declares',
         Effect.fnUntraced(function* () {
-            const publish = 'README.md DELIVERY "Publishing delivers those files by each destination\'s own command"';
+            const publish = 'README.md DELIVERY "Publishing delivers through each destination\'s own command"';
             const { nx: run, text } = yield* Consumer;
             const { code, stdout, stderr } = yield* run('release', 'publish');
             const passed = yield* Effect.flatMap(text('tools/published.json'), Schema.decodeEffect(Arguments));

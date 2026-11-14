@@ -6,6 +6,7 @@ version.workspace    = true
 edition.workspace    = true
 license.workspace    = true
 repository.workspace = true
+publish              = false
 keywords             = ["bcf", "bim", "aec", "issues"]
 categories           = ["parser-implementations", "encoding"]
 description          = "BCF 2.1 and 3.0 issue archives: topics, comments, documents, and viewpoints"

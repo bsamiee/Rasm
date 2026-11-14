@@ -6,7 +6,7 @@ import { promisify } from 'node:util';
 import { layer } from '@effect/platform-node/NodeServices';
 import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesContext, type CreateNodesResult, DependencyType, hashArray, type ProjectGraphExternalNode, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
 import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, globWithWorkspaceContext, hashFile, hashObject, hashWithWorkspaceContext, mergeTargetConfigurations, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
-import { Array, Cause, Context, Effect, Equivalence, FileSystem, Formatter, Layer, ManagedRuntime, Option, Record, Ref, Result, Schema, Struct } from 'effect';
+import { Array, Cause, Context, Effect, Equivalence, FileSystem, Formatter, Function, Layer, ManagedRuntime, Option, Record, Ref, Result, Schema, Struct } from 'effect';
 import { Node, PLUGIN, targets } from '#/targets';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -55,7 +55,7 @@ const stamped = Effect.fnUntraced(function* (workspaceRoot: string, matched: rea
 const analyzed = Effect.fnUntraced(function* (workspaceRoot: string, matched: readonly string[]) {
     const report = yield* Effect.tryPromise((signal) => {
         const running = promisify(execFile)('dotnet', [ANALYZER, workspaceRoot], { encoding: 'utf8', cwd: workspaceRoot, maxBuffer: Number.POSITIVE_INFINITY, signal });
-        running.child.stdin?.end(matched.join('\n'));
+        running.child.stdin?.on('error', Function.constVoid).end(matched.join('\n'));
         return running;
     }).pipe(Effect.flatMap(({ stdout }) => Schema.decodeEffect(Reported)(stdout)));
     const known = new Set(yield* Effect.promise(() => globWithWorkspaceContext(workspaceRoot, Array.dedupe(report.nodes.flatMap(({ inputs }) => inputs)))));

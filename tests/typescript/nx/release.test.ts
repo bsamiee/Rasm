@@ -18,7 +18,9 @@ const SOURCES = {
     version: 'nrwl/nx packages/nx/src/command-line/release/version/resolve-current-version.spec.ts: the disk resolver reads the current version from the source manifest; packages/nx/src/command-line/release/config/config.ts: projectsRelationship defaults to fixed, which gives every project of the group one version',
     delivered:
         'README.md DELIVERY: Every ecosystem and host is delivered end to end (install, package, release, publish), and none stays partly built; PRINCIPLES: Plugins present a target that runs a host or needs a platform only on a machine holding it, and tag a project a platform limits `os:<platform>`; Unreal targets exist where the engine a `.uproject` names resolves',
-    destination: "README.md DELIVERY: Publishing delivers those files by each destination's own command (`pnpm publish`, `dotnet nuget push`, `uv publish`, `yak push`)",
+    destination: "README.md DELIVERY: Publishing delivers through each destination's own command (`pnpm publish`, `cargo publish`, `dotnet nuget push`, `uv publish`, `yak push`)",
+    defaulted:
+        'README.md PRINCIPLES: `nx.json` `targetDefaults` holds one row, keyed `@nx/js:release-publish`; nrwl/nx packages/nx/src/project-graph/utils/project-configuration/target-defaults.ts: a default keyed by an executor reaches the targets running that executor, and Nx records `nx/core/package-json` as the plugin of the target it infers for a public package',
     planned:
         'README.md TASKS: Workflow `release.yml` runs `nx release --skip-publish` (one version, tag, and GitHub release); nrwl/nx e2e/release/src/first-release.test.ts nx release first run with --first-release: should not error; packages/nx/src/command-line/release/config/config.ts defaultFixedReleaseTagPattern: `v{version}`',
 } as const;
@@ -147,6 +149,28 @@ it.layer(layer, { excludeTestServices: true })((suite) => {
             assert.isNotEmpty(commands, SOURCES.destination);
             assert.isNotEmpty(published(workspace), SOURCES.destination);
             assert.deepStrictEqual(foreign(workspace, commands), [], SOURCES.destination);
+        }),
+    );
+
+    suite.effect(
+        'runs each publish target Nx core infers for a public package through the nx.json row, and leaves each publish target a plugin infers as that plugin states it',
+        Effect.fnUntraced(function* () {
+            const workspace = yield* read('fresh');
+            const stated = declared(workspace)
+                .filter(({ name }) => name === 'nx-release-publish')
+                .map(({ task, target, plugin }) => ({ task, executor: `${target.executor}`, plugin: Option.getOrUndefined(plugin), keyed: Schema.is(Published)(target.options) }));
+            const core = stated.filter(({ plugin }) => plugin === 'nx/core/package-json');
+            assert.isNotEmpty(core, SOURCES.defaulted);
+            assert.deepStrictEqual(
+                core.filter(({ keyed, executor }) => !keyed || executor === '@nx/js:release-publish'),
+                [],
+                SOURCES.defaulted,
+            );
+            assert.deepStrictEqual(
+                stated.filter(({ plugin, executor, keyed }) => plugin !== 'nx/core/package-json' && !(executor.startsWith(`${plugin}:`) && (!keyed || executor.endsWith(':publish')))),
+                [],
+                SOURCES.defaulted,
+            );
         }),
     );
 

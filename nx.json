@@ -20,7 +20,12 @@
         "@rasm/nx-vitest",
         "@rasm/nx-storybook"
     ],
-    "targetDefaults": { "@nx/js:release-publish": { "dependsOn": [ "pack--pnpm" ] } },
+    "targetDefaults": {
+        "@nx/js:release-publish": {
+            "executor": "@rasm/nx-distribution:publish",
+            "options": { "publish": [ "pnpm", "publish", "--recursive", "--filter", "{projectName}", "--no-git-checks" ], "preview": [ "pnpm", "publish", "--recursive", "--filter", "{projectName}", "--no-git-checks", "--dry-run" ], "credential": "NODE_AUTH_TOKEN" }
+        }
+    },
     "pluginsConfig": { "@nx/js": { "analyzeSourceFiles": false, "projectsAffectedByDependencyUpdates": "auto" }, "@rasm/nx-distribution": { "outputPath": ".artifacts" } },
     "release": { "projects": [ "tag:release" ], "version": { "conventionalCommits": true }, "changelog": { "workspaceChangelog": { "createRelease": "github", "file": false } }, "git": { "commitMessage": "chore: publish {version}" } }
 }

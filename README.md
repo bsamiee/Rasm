@@ -111,7 +111,7 @@ flowchart LR
 
 - Each fact sits once in the file its tool reads, and every other use derives it
 - Nx plugins infer every project, target, and dependency from manifests and tool output, with no `project.json` or hand-written `namedInputs`
-- `nx.json` `targetDefaults` holds one row, `@nx/js:release-publish` depending on `pack--pnpm`, since Nx core infers that target after every plugin
+- `nx.json` `targetDefaults` holds one row, keyed `@nx/js:release-publish`: Nx core infers that publish target for a public package after every plugin, and the row runs it as `pnpm publish --recursive`
 - `@rasm/nx-cargo` infers the `default` named input of a crate (its files, the workspace lock, manifest, toolchain, and Cargo variables), so every target of the crate reads them
 - Cargo, uv, SwiftPM, and xcodebuild targets read the committed lock (`--locked`, `--force-resolved-versions`, `-onlyUsePackageVersionsFromResolvedFile`), cargo `build` and `fix` alone bring `Cargo.lock` in line with its manifests
 - `@rasm/nx-apple` reads Xcode build settings with `-IDEPackageEnablePrebuilts=NO`, so graph creation fetches no prebuilt `swift-syntax`
@@ -170,6 +170,11 @@ flowchart LR
 
 `nx <verb> <project>` runs one project, `nx affected -t <verb>` runs changed work, and `--files=<path>` limits it to one change's reach:
 - `codegen` writes source code a project's tools derive from its schemas and configuration
+- Release projects are versioned, packed, and attached, and the switch their registry reads alone gives one a publish target
+- Registry switches are `private` in `package.json`, `publish` in `Cargo.toml`, classifier `Private :: Do Not Upload`, and `defaultPushSource` of `NuGet.config`
+- Crates stating no `version` are no release project, as Cargo publishes none
+- Publish targets upload where the credential variable their tool reads is set, and name the variable and succeed where it is not
+- Pack targets build their release form themselves, and `pack--dotnet` under `-c release` packs what `build--dotnet` wrote (`--no-build`)
 - `build` compiles or packages a project into its declared outputs
 - `pack` writes the files a release holds where they differ from the build (`.tgz`, `.nupkg`, CPack archive, app `.zip` or `.dmg`)
 - `attach` uploads the files a project's packaging targets wrote to the GitHub release of its version
@@ -191,7 +196,7 @@ Other tasks run through their own commands:
 - Workflow `release.yml` runs `nx release --skip-publish` (one version, tag, and GitHub release), `nx run-many -t attach -c release`, then `nx release publish`
 - Job `unreal` of `release.yml` then attaches the `os:linux` projects from the same image at the released commit
 - Dispatch inputs of `release.yml` are `specifier` (empty reads conventional commits), `first-release`, `dry-run`, on by default, and `publish`
-- Attach and publish targets depend on the targets that package their files (`pack--dotnet` for NuGet)
+- Attach and publish targets depend on the targets that package their files (`pack--dotnet` for NuGet), except `pnpm publish --recursive`, which takes no file
 - `doppler run --config release --command 'nx pack <app>'` packages a Mac app as workflow `release.yml` does
 - `mise bootstrap` registers the pitchfork supervisor as a login agent, on a Mac after a clone
 - `nx install @rasm/infra` runs the proxy, sign-in, and object storage containers of role `Apps` on the local Docker engine, under `rasm.localhost`
@@ -212,7 +217,10 @@ Packaging turns a build into the files its host, registry, or store takes, and i
 - Plugin technology decides a host's package and install form (UXP `.ccx`, CEP `.zxp`), never where it publishes
 - Installs serve development alone, replacing a previous build where its host loads it and skipping packaging where the host allows
 - Releases give every project one version and tag through `nx release`, and the GitHub release holds the packaged files each `attach` target uploads
-- Publishing delivers those files by each destination's own command (`pnpm publish`, `dotnet nuget push`, `uv publish`, `yak push`)
+- Publishing delivers through each destination's own command (`pnpm publish`, `cargo publish`, `dotnet nuget push`, `uv publish`, `yak push`)
+- `dotnet nuget push`, `uv publish`, `yak push`, and the Blender extensions upload deliver the files `pack` or `build` wrote
+- `pnpm publish --recursive` and `cargo publish` take no packed file: each packs its package again
+- `pnpm publish --recursive` skips a version its registry holds, as `dotnet nuget push --skip-duplicate` and the host store checks do
 - Release assets hold native files unwrapped, a folder product (Unreal plugin, `.app`) goes in a `.zip` or `.dmg`, and a `.dmg` gets a Sparkle feed in R2
 - Every ecosystem and host is delivered end to end (install, package, release, publish), and none stays partly built
 
@@ -242,7 +250,7 @@ Packaging turns a build into the files its host, registry, or store takes, and i
 |  [20]   | Local daemon                   | `[daemons]` row in `.config/mise.<os>.toml`, started with the first shell or agent session             |
 |  [21]   | Host application in CI         | Host vendor's setup action in the job needing it, its version read from the project manifest           |
 |  [22]   | Mac app release form           | Doppler `rasm/release` `ASC_API_*` rows, set notarize a `.dmg` for Sparkle, absent release a `.zip`    |
-|  [23]   | Registry token                 | Doppler `rasm/release` `NODE_AUTH_TOKEN`, `UV_PUBLISH_TOKEN`, `NUGET_API_KEY` rows its tool reads      |
+|  [23]   | Registry token                 | Doppler `rasm/release` row named as the variable its tool reads (`NODE_AUTH_TOKEN`, `YAK_TOKEN`)       |
 |  [24]   | C++ toolchain and packages     | `github:llvm/llvm-project` row of `.config/mise.toml`, `vcpkg.json` rows and `builtin-baseline`        |
 |  [25]   | Unreal Engine                  | `EngineAssociation` of a `.uproject`, found in Epic install lists                                      |
 |  [26]   | Deploy credential              | Doppler `rasm/deploy` rows named as the variable each provider reads, `DOPPLER_IAC_TOKEN` as its token |

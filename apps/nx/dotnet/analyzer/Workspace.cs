@@ -2,6 +2,7 @@ using Microsoft.Build.Definition;
 using Microsoft.Build.Evaluation;
 using Microsoft.Build.Evaluation.Context;
 using Microsoft.Build.Execution;
+using NuGet.Configuration;
 using NuGet.ProjectModel;
 
 namespace MsbuildAnalyzer;
@@ -23,6 +24,7 @@ internal sealed record Node(
     bool Test,
     bool Packable,
     bool Publishable,
+    bool Pushed,
     string Configuration,
     ImmutableArray<Mode> Modes,
     ImmutableArray<Reference> References,
@@ -95,6 +97,7 @@ internal static class Workspace {
                 instances.Exists(static instance => Flag(instance, "IsTestProject") || Flag(instance, "IsTestingPlatformApplication")),
                 Flag(outer, "IsPackable"),
                 Flag(outer, "IsPublishable"),
+                !string.IsNullOrEmpty(SettingsUtility.GetDefaultPushSource(Settings.LoadDefaultSettings(folder))),
                 configurations.Find(configuration => configuration.Equals(outer.GetPropertyValue("Configuration"), StringComparison.OrdinalIgnoreCase)).IfNone(() => configurations.Head.IfNone(outer.GetPropertyValue("Configuration"))),
                 [.. modes.Map(mode => new Mode(
                     mode.Configuration,

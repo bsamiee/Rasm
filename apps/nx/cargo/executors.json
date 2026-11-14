@@ -17,7 +17,7 @@
         "release-publish": {
             "implementation": "./dist/executors/release-publish/executor#execute",
             "schema": "./executors/release-publish/schema.json",
-            "description": "Publishes a crate with cargo publish, under a dry run with cargo publish --dry-run over the crate and its workspace dependencies; runs through nx release publish",
+            "description": "Publishes a crate with cargo publish where the registry token variable Cargo reads (CARGO_REGISTRY_TOKEN, or CARGO_REGISTRIES_<NAME>_TOKEN for a named registry) is set, and names the variable where it is not, under a dry run with cargo publish --dry-run over the crate and its workspace dependencies; runs through nx release publish",
             "hidden": true
         }
     }

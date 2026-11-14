@@ -1,7 +1,6 @@
 {
     "name": "@rasm/nx-typescript",
     "version": "0.1.0",
-    "private": true,
     "description": "Nx plugin inferring a TypeScript check or build per tsconfig.json read through the native compiler API, a publint package check, and a pnpm pack tarball per package stating a version",
     "repository": {
         "type": "git",
@@ -31,6 +30,7 @@
         "nx": "catalog:peers"
     },
     "publishConfig": {
+        "access": "public",
         "exports": {
             ".": "./dist/plugin.js",
             "./package.json": "./package.json"

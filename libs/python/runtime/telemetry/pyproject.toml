@@ -6,7 +6,7 @@ version         = "0.1.0"
 description     = "Log settings, entries as JSON records in rotated files over structlog and stdlib handlers, child process output and unhandled exceptions as entries, and OpenTelemetry instrumentation of a process or a threadless host"
 license         = "MIT"
 authors         = [{ name = "Bardia Samiee", email = "b.samiee93@gmail.com" }]
-classifiers     = ["Intended Audience :: Developers", "Operating System :: OS Independent", "Topic :: System :: Logging", "Topic :: System :: Monitoring", "Typing :: Typed"]
+classifiers     = ["Intended Audience :: Developers", "Operating System :: OS Independent", "Private :: Do Not Upload", "Topic :: System :: Logging", "Topic :: System :: Monitoring", "Typing :: Typed"]
 requires-python = ">=3.13"
 
 dependencies = [

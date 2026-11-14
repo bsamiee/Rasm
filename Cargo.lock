@@ -7201,7 +7201,7 @@ dependencies = [
 
 [[package]]
 name = "mcp-muxer-tests"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "backon",
  "claims",
@@ -10125,7 +10125,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-dependency-graph-tests"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "claims",
  "enum-map",
@@ -10377,7 +10377,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-ipc-tests"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "backon",
  "claims",
@@ -10396,7 +10396,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-lints"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "anyhow",
  "camino",
@@ -10478,7 +10478,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-mcp-tests"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "axum",
  "backon",
@@ -10573,7 +10573,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-numerical-analysis-tests"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "approx 0.6.0-rc2",
  "claims",
@@ -10790,7 +10790,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-solar-geometry-tests"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "approx 0.6.0-rc2",
  "claims",
@@ -10869,7 +10869,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-testing"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "assert_fs",
  "claims",

@@ -1,7 +1,6 @@
 {
     "name": "@rasm/nx-docker",
     "version": "0.1.0",
-    "private": true,
     "description": "Nx plugin inferring Compose projects, their checks, image builds, and service starts from docker compose's own output; the image build and start of a service join the project of the folder holding its Dockerfile, which a manifest of another plugin names",
     "repository": {
         "type": "git",
@@ -29,6 +28,7 @@
         "nx": "catalog:peers"
     },
     "publishConfig": {
+        "access": "public",
         "exports": {
             ".": "./dist/plugin.js",
             "./package.json": "./package.json",

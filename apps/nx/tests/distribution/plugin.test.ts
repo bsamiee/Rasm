@@ -144,7 +144,7 @@ it.layer(workspace(files), { timeout: bounds.built, excludeTestServices: true })
             assert.deepStrictEqual(
                 Record.map(hosts, ({ folder }) => named(graph, folder).includes('nx-release-publish')),
                 { blender: true, yak: true, uxp: false, cep: false, unreal: false },
-                'README.md DELIVERY "Publishing delivers those files by each destination\'s own command (pnpm publish, dotnet nuget push, uv publish, yak push)", "Plugin technology decides a host\'s package and install form (UXP .ccx, CEP .zxp), never where it publishes", "Fab takes no upload from a tool"; extensions.blender.org/api/v1/extensions/<id>/versions/upload/ takes a version upload',
+                'README.md DELIVERY "Publishing delivers through each destination\'s own command (pnpm publish, cargo publish, dotnet nuget push, uv publish, yak push)", "Plugin technology decides a host\'s package and install form (UXP .ccx, CEP .zxp), never where it publishes", "Fab takes no upload from a tool"; extensions.blender.org/api/v1/extensions/<id>/versions/upload/ takes a version upload',
             );
         }),
         bounds.test,

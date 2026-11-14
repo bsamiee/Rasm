@@ -6,6 +6,7 @@ version.workspace    = true
 edition.workspace    = true
 license.workspace    = true
 repository.workspace = true
+publish              = false
 keywords             = ["regression", "least-squares", "fitting"]
 categories           = ["mathematics", "science"]
 description          = "Regression over weighted observations: polynomial, nonlinear, and separable fits with estimators, uncertainty, influence, and prediction bands"

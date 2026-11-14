@@ -6,6 +6,7 @@ version.workspace    = true
 edition.workspace    = true
 license.workspace    = true
 repository.workspace = true
+publish              = false
 keywords             = ["polyline", "offset", "boolean", "geometry", "2d"]
 categories           = ["mathematics", "algorithms", "graphics"]
 description          = "Planar polylines with arcs and regions: offsets, booleans, clipping, and triangulation"

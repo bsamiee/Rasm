@@ -15,6 +15,7 @@ const VERSION = '        <Version>0.1.0</Version>\n';
 const files = {
     '.config/mise.lock': '# tool versions\n',
     'global.json': '{ "test": { "runner": "Microsoft.Testing.Platform" } }\n',
+    'NuGet.config': '<?xml version="1.0" encoding="utf-8"?>\n<configuration>\n    <config>\n        <add key="defaultPushSource" value="https://api.nuget.org/v3/index.json" />\n    </config>\n</configuration>\n',
     'Directory.Build.props': '<Project>\n    <PropertyGroup>\n        <TargetFramework>net10.0</TargetFramework>\n        <Nullable>enable</Nullable>\n    </PropertyGroup>\n</Project>\n',
     'Directory.Packages.props': '<Project>\n    <PropertyGroup>\n        <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>\n    </PropertyGroup>\n    <ItemGroup>\n        <PackageVersion Include="xunit.v3.mtp-v2" Version="4.0.3" />\n    </ItemGroup>\n</Project>\n',
     'src/Core/Fixture.Core.csproj': `<Project Sdk="Microsoft.NET.Sdk">\n    <PropertyGroup>\n${VERSION}    </PropertyGroup>\n</Project>\n`,
@@ -211,6 +212,42 @@ it.layer(
                 created.filter((file) => file.endsWith(`/${packageId}.${version}.nupkg`)),
                 `nrwl/nx e2e/dotnet/src/dotnet.test.ts "should create NuGet packages for libraries"; dotnet msbuild <project> -getProperty:PackageId -getProperty:Version: ${created.join(', ')}`,
             );
+        }),
+        bound,
+    );
+});
+
+it.layer(
+    workspace({ 'NuGet.config': '<?xml version="1.0" encoding="utf-8"?>\n<configuration />\n' }),
+    options,
+)((methods) => {
+    methods.effect(
+        'keeps the release tag, pack, and attach of a packable project and gives it no publish target where NuGet resolves no default push source',
+        Effect.fnUntraced(function* () {
+            const [{ read }, { name }] = yield* Effect.all([Consumer, member(CORE)]);
+            const { tags = [], targets = {} } = (yield* read).nodes[name]?.data ?? {};
+            assert.include(tags, 'release', 'README.md PRINCIPLES "Release projects are versioned, packed, and attached, and the switch their registry reads alone gives one a publish target"');
+            assert.containsAllKeys(targets, ['pack--dotnet', 'attach--gh'], 'README.md PRINCIPLES "Release projects are versioned, packed, and attached"');
+            assert.notProperty(targets, 'nx-release-publish', 'learn.microsoft.com dotnet nuget push --source "This option is required unless the DefaultPushSource config value is set in the NuGet config file"');
+        }),
+        bound,
+    );
+
+    methods.effect(
+        'packs the Release build with no configuration named, and under -c release packs what build--dotnet built without building again',
+        Effect.fnUntraced(function* () {
+            const [{ read, nx, absent }, { name, root, packageId, version }] = yield* Effect.all([Consumer, member(CORE)]);
+            const pack = (yield* read).nodes[name]?.data.targets?.['pack--dotnet'];
+            const { release } = pack?.configurations ?? {};
+            const packed = `${root}/bin/Release/${packageId}.${version}.nupkg`;
+            const alone = yield* nx('run', `${name}:pack--dotnet`, '--output-style=static');
+            assert.strictEqual(alone.code, 0, `learn.microsoft.com dotnet pack "By default, dotnet pack builds the project first": ${alone.stdout}${alone.stderr}`);
+            assert.deepStrictEqual(yield* absent([packed]), [], 'dotnet pack --configuration Release writes <PackageId>.<Version>.nupkg under bin/Release');
+            const after = yield* nx('run', `${name}:pack--dotnet:release`, '--skip-nx-cache', '--output-style=static');
+            assert.strictEqual(after.code, 0, `nrwl/nx packages/nx/src/tasks-runner/create-task-graph.ts: a dependency runs in the configuration the command names: ${after.stdout}${after.stderr}`);
+            assert.include(`${after.stdout}${after.stderr}`, `${name}:build--dotnet:release`, 'nrwl/nx packages/nx/src/tasks-runner/create-task-graph.ts resolveConfiguration');
+            assert.include(release?.command, '--no-build', 'learn.microsoft.com dotnet pack --no-build "Doesn\'t build the project before packing"');
+            assert.notInclude(pack?.options?.command, '--no-build', 'nrwl/nx packages/nx/src/tasks-runner/create-task-graph.ts resolveConfiguration: with no configuration named, build--dotnet runs its own default, which pack cannot assume is Release');
         }),
         bound,
     );

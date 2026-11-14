@@ -6,7 +6,7 @@ version         = "0.1.0"
 description     = "Builds, checks, approves, and publishes a declared set of Persian and Arabic font faces from their originals with rasm-typography"
 license         = "MIT"
 authors         = [{ name = "Bardia Samiee", email = "b.samiee93@gmail.com" }]
-classifiers     = ["Environment :: Console", "Intended Audience :: Developers", "Operating System :: OS Independent", "Topic :: Text Processing :: Fonts", "Typing :: Typed"]
+classifiers     = ["Environment :: Console", "Intended Audience :: Developers", "Operating System :: OS Independent", "Private :: Do Not Upload", "Topic :: Text Processing :: Fonts", "Typing :: Typed"]
 requires-python = ">=3.15"
 
 dependencies = [

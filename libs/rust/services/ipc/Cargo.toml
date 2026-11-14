@@ -6,6 +6,7 @@ version.workspace    = true
 edition.workspace    = true
 license.workspace    = true
 repository.workspace = true
+publish              = false
 keywords             = ["ipc", "socket", "single-instance"]
 categories           = ["network-programming", "os"]
 description          = "Per-user single-instance service over a local socket: instance lock, listen, connect or start, and a typed opening exchange with protocol and build identity"

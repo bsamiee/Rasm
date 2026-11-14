@@ -4,7 +4,6 @@
 
 [package]
 name              = "rasm-lints"
-version.workspace = true
 edition.workspace = true
 publish           = false
 description       = "Dylint lints over resolved names, types, and expansions Clippy lacks"

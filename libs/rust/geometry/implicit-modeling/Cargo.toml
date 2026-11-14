@@ -6,6 +6,7 @@ version.workspace    = true
 edition.workspace    = true
 license.workspace    = true
 repository.workspace = true
+publish              = false
 keywords             = ["implicit", "sdf", "lattice", "solids"]
 categories           = ["graphics", "mathematics"]
 description          = "Implicit field solids: field trees, lattices, shell walls, and octree meshing"

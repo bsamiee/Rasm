@@ -6,6 +6,7 @@ version.workspace    = true
 edition.workspace    = true
 license.workspace    = true
 repository.workspace = true
+publish              = false
 keywords             = ["interpolation", "splines", "quadrature", "numerics"]
 categories           = ["mathematics", "algorithms", "science"]
 description          = "Numerical analysis: interpolation, splines, roots, quadrature, and scattered data"

@@ -18,7 +18,7 @@
         "release-publish": {
             "implementation": "./dist/executors/release-publish/executor#execute",
             "schema": "./executors/release-publish/schema.json",
-            "description": "Publishes each host package the target's dependency targets wrote to its host's store through the store's own upload; runs through nx release publish"
+            "description": "Publishes each host package the target's dependency targets wrote to its host's store through the store's own upload, where the store's credential variable is set and the store lacks that version, and names the missing variable where it is not; runs through nx release publish"
         },
         "unreal-build": {
             "implementation": "./dist/executors/unreal-build/executor#execute",
@@ -33,7 +33,7 @@
         "publish": {
             "implementation": "./dist/executors/publish/executor#execute",
             "schema": "./executors/publish/schema.json",
-            "description": "Delivers the files a project's packaging targets wrote to its registry or store through its tool's own publish command; runs through nx release publish",
+            "description": "Delivers the files a project's packaging targets wrote to its registry or store through its tool's own publish command where the destination's credential is set, and names the missing variable where it is not; runs through nx release publish",
             "hidden": true
         },
         "attach": {

@@ -54,7 +54,7 @@ const inferred = Effect.fnUntraced(function* (cache: Read, { workspaceRoot }: Cr
             root: member.root,
             name: member.name,
             metadata: { technologies: ['python'] },
-            ...(member.published && { tags: ['release'], release: { version: { versionActions: '@rasm/nx-uv/release/version-actions', versionActionsOptions: { lock } } } }),
+            ...(member.packaged && { tags: ['release'], release: { version: { versionActions: '@rasm/nx-uv/release/version-actions', versionActionsOptions: { lock } } } }),
             ...(member.implicit !== undefined && { implicitDependencies: [...member.implicit] }),
             targets: targets(member, outputPath),
         },

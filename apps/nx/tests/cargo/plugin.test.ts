@@ -14,7 +14,7 @@ const SOURCES = { core: 'crates/core/src/lib.rs', generator: 'tools/generator/sr
 const PACKAGE = 'edition.workspace = true\nlicense.workspace = true\ndescription = "Fixture crate"\n';
 const files = {
     '.config/mise.lock': '# tool versions\n',
-    'Cargo.toml': '[workspace]\nresolver = "3"\nmembers = ["crates/*", "tools/generator"]\n\n[workspace.package]\nversion = "0.1.0"\nedition = "2024"\nlicense = "MIT"\n\n[workspace.dependencies]\nrasm-nx-fixture-middle = { path = "crates/middle", version = "0.1.0" }\n',
+    'Cargo.toml': '[workspace]\nresolver = "3"\nmembers = ["crates/*", "tools/*"]\n\n[workspace.package]\nversion = "0.1.0"\nedition = "2024"\nlicense = "MIT"\n\n[workspace.dependencies]\nrasm-nx-fixture-middle = { path = "crates/middle", version = "0.1.0" }\n',
     'vendor/shim/Cargo.toml': `[package]\nname = "rasm-nx-fixture-shim"\nversion.workspace = true\n${PACKAGE}\n[lib]\nname = "shim"\n`,
     'vendor/shim/src/lib.rs': 'pub fn unit() -> u32 {\n    1\n}\n',
     'crates/core/Cargo.toml': `[package]\nname = "rasm-nx-fixture-core"\nversion = "0.1.0"\n${PACKAGE}\n[dependencies]\ncfg-if = "1"\n\n[dependencies.rasm-nx-fixture-shim]\npath = "../../vendor/shim"\nversion = "0.1.0"\n`,
@@ -24,6 +24,8 @@ const files = {
     'crates/app/Cargo.toml': `[package]\nname = "rasm-nx-fixture-app"\nversion = "0.1.0"\n${PACKAGE}\n[dependencies]\nrasm-nx-fixture-middle.workspace = true\n`,
     'crates/app/src/main.rs': 'fn main() {\n    println!("{}", rasm_nx_fixture_middle::two());\n}\n',
     'tools/generator/Cargo.toml': `[package]\nname = "rasm-nx-fixture-generator"\nversion = "0.1.0"\npublish = false\n${PACKAGE}\n[dev-dependencies]\nrasm-nx-fixture-core = { path = "../../crates/core" }\n`,
+    'tools/draft/Cargo.toml': `[package]\nname = "rasm-nx-fixture-draft"\n${PACKAGE}`,
+    'tools/draft/src/lib.rs': 'pub fn none() {}\n',
     'tools/generator/src/main.rs': 'fn main() {}\n\n#[cfg(test)]\nmod tests {\n    #[test]\n    fn reads_core() {\n        assert_eq!(rasm_nx_fixture_core::one(), 1);\n    }\n}\n',
 };
 
@@ -59,7 +61,8 @@ const described = (path: Path.Path, root: string, { manifest_path, targets, depe
         name: String.kebabToSnake(name),
         root: folder,
         manifest: path.relative(root, manifest_path),
-        released: publish === null,
+        released: crate.version !== '0.0.0',
+        public: publish === null,
         verbs: ['build', 'test', 'check', 'fix', 'clean', ...(binary ? ['install'] : [])],
         sources: [path.relative(root, manifest_path), ...targets.map(({ src_path }) => path.relative(root, src_path))],
         dependencies: needed.map((dependency) => dependency.root),
@@ -143,6 +146,19 @@ it.layer(
     workspace(),
     options,
 )((methods) => {
+    methods.effect(
+        'releases a crate stating a version without a publish target where publish is false, and no crate stating none',
+        Effect.fnUntraced(function* () {
+            const [{ read }, draft, generator] = yield* Effect.all([Consumer, member('tools/draft'), member(GENERATOR)]);
+            const { nodes } = yield* read;
+            const held = (name: string) => ({ tagged: (nodes[name]?.data.tags ?? []).includes('release'), targets: Array.intersection(Object.keys(nodes[name]?.data.targets ?? {}), ['pack--cargo', 'attach--gh', 'nx-release-publish']) });
+            assert.deepStrictEqual(held(generator.name).tagged, true, 'README.md PRINCIPLES "Release projects are versioned, packed, and attached, and the switch their registry reads alone gives one a publish target"');
+            assert.sameMembers(held(generator.name).targets, ['pack--cargo', 'attach--gh'], 'Cargo reference manifest "publish = false" prevents a package from being published to a registry');
+            assert.deepStrictEqual(held(draft.name), { tagged: false, targets: [] }, 'README.md PRINCIPLES "Crates stating no version are no release project"; Cargo reference manifest "The version field is optional ... required for publishing packages"');
+        }),
+        bound,
+    );
+
     methods.effect(
         'names a crate by its package name with hyphens as underscores, a [lib] name set apart from it included',
         Effect.fnUntraced(function* () {

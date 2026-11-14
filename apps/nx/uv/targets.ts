@@ -263,7 +263,7 @@ const targets = (member: Member, outputPath: Option.Option<string>): Record<stri
     const delivered: Record<string, TargetConfiguration> = {
         ...tools,
         ...(written.length > 0 && { 'clean--uv': { executor: `${SHARED}:clean`, inputs: Array.dedupe(written.flatMap((name) => tools[name]?.inputs ?? [])), options: { targets: written }, metadata: { description: `Removes the outputs ${written.join(', ')} declare` } } }),
-        ...(member.published && {
+        ...(member.packaged && {
             'attach--gh': {
                 executor: `${SHARED}:attach`,
                 dependsOn: ['build--uv'],
@@ -281,7 +281,7 @@ const targets = (member: Member, outputPath: Option.Option<string>): Record<stri
         ...(member.published && {
             'nx-release-publish': {
                 executor: `${SHARED}:publish`,
-                options: { publish: published, preview: [...published, '--dry-run'] },
+                options: { publish: published, preview: [...published, '--dry-run'], credential: 'UV_PUBLISH_TOKEN' },
                 dependsOn: ['build--uv', '^nx-release-publish'],
                 inputs: [{ dependentTasksOutputFiles: '**/*', transitive: true }],
                 metadata: { description: 'Publishes the distributions build--uv wrote with uv publish, which reads UV_PUBLISH_TOKEN', help: { command: 'uv publish --help', example: { options: { dryRun: true } } } },

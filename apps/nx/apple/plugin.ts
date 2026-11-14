@@ -6,7 +6,7 @@ import { promisify } from 'node:util';
 import { layer } from '@effect/platform-node/NodeServices';
 import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, DependencyType, getOutputsForTargetAndConfiguration, hashArray, type PostTasksExecution, type PreTasksExecution, type ProjectConfiguration, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
 import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, emitPluginWorkerLog, hashObject, hashWithWorkspaceContext, mergeTargetConfigurations, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
-import { Array, Config, Context, Effect, FileSystem, Formatter, flow, Layer, ManagedRuntime, Option, Predicate, Record, Redacted, Result, Schema } from 'effect';
+import { Array, Config, Context, Effect, FileSystem, Formatter, Function, flow, Layer, ManagedRuntime, Option, Predicate, Record, Redacted, Result, Schema } from 'effect';
 import { Described, INFO, MANIFEST, type Package, packageEdges, packageParts, RESOLVED, sources } from '#/swift-package';
 import { analyzer, Options, type Part, refused, SHARED, tokened } from '#/targets';
 import { Analyzed, evaluated, xcodeParts } from '#/xcode-project';
@@ -53,7 +53,7 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: typ
         Effect.tryPromise({
             try: (signal) => {
                 const running = promisify(execFile)(command, args, { encoding: 'utf8', cwd: workspaceRoot, maxBuffer: Number.POSITIVE_INFINITY, signal });
-                running.child.stdin?.end(input);
+                running.child.stdin?.on('error', Function.constVoid).end(input);
                 return running;
             },
             catch: refused(command, 'does not exit 0'),

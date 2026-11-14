@@ -54,7 +54,7 @@ interface Host {
     readonly write?: (text: string, version: string) => Effect.Effect<string, Cause.UnknownError>;
     readonly build?: { readonly executor: string; readonly command: string; readonly lock?: string; readonly runtime?: readonly string[]; readonly pack?: (folder: Found, file: string, timestampAuthority: string) => Step };
     readonly install?: { readonly command: string; readonly probe?: Array.NonEmptyReadonlyArray<string>; readonly platforms?: readonly string[]; readonly unpacked?: true; readonly run: (found: Found) => Step };
-    readonly publish?: { readonly store: string; readonly command: string; readonly held: (found: Found, store: string) => Stored<boolean>; readonly push: (found: Found, store: string) => Stored };
+    readonly publish?: { readonly store: string; readonly command: string; readonly credential: string; readonly held: (found: Found, store: string) => Stored<boolean>; readonly push: (found: Found, store: string, token: string) => Stored };
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -235,13 +235,14 @@ const HOSTS: readonly Host[] = [
         publish: {
             store: 'https://extensions.blender.org',
             command: 'POST /api/v1/extensions/<id>/versions/upload/',
+            credential: 'BLENDER_EXTENSIONS_TOKEN',
             held: Effect.fnUntraced(function* ({ name, version, text }, store) {
                 const { platforms, build } = yield* Effect.flatMap(Effect.fromResult(Toml.parse(text)), Schema.decodeUnknownEffect(Extension));
                 const { data } = yield* HttpClient.get(`${store}/api/v1/extensions/`).pipe(Effect.flatMap(HttpClientResponse.filterStatusOk), Effect.flatMap(HttpClientResponse.schemaBodyJson(Listed)));
                 return data.some((listed) => listed.id === name && listed.version === version && Array.difference(build?.generated?.platforms ?? platforms ?? [], listed.platforms ?? []).length === 0);
             }),
-            push: Effect.fnUntraced(function* ({ at, name }, store) {
-                const [token, archive] = yield* Effect.all([Config.Redacted('BLENDER_EXTENSIONS_TOKEN'), Effect.tryPromise({ try: () => openAsBlob(at), catch: refused(at, 'does not open') })]);
+            push: Effect.fnUntraced(function* ({ at, name }, store, token) {
+                const archive = yield* Effect.tryPromise({ try: () => openAsBlob(at), catch: refused(at, 'does not open') });
                 const request = HttpClientRequest.post(`${store}/api/v1/extensions/${name}/versions/upload/`).pipe(HttpClientRequest.bearerToken(token), HttpClientRequest.bodyFormDataRecord({ version_file: new File([archive], basename(at)) }));
                 yield* Effect.flatMap(HttpClient.execute(request), HttpClientResponse.matchStatus({ 404: () => Effect.fail(refused(name, `is not listed on ${store}, upload its first version there once`)()), orElse: HttpClientResponse.filterStatusOk }));
             }),
@@ -272,6 +273,7 @@ const HOSTS: readonly Host[] = [
         publish: {
             store: 'https://yak.rhino3d.com',
             command: 'yak push',
+            credential: 'YAK_TOKEN',
             held: ({ at, name, version }, store) =>
                 Effect.flatMap(
                     HttpClient.get(`${store}/versions/${name}/${version}`),

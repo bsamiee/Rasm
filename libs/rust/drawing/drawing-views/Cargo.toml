@@ -6,6 +6,7 @@ version.workspace    = true
 edition.workspace    = true
 license.workspace    = true
 repository.workspace = true
+publish              = false
 keywords             = ["hidden-line", "drawing", "projection", "cad"]
 categories           = ["graphics", "rendering"]
 description          = "Hidden-line drawing views of solids: parallel and perspective frames, classified edges, sections, and shadows"

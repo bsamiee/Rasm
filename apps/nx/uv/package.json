@@ -1,7 +1,6 @@
 {
     "name": "@rasm/nx-uv",
     "version": "0.1.0",
-    "private": true,
     "description": "Nx plugin inferring uv workspace members, their checkers, tests, builds, and releases from uv's own workspace metadata",
     "repository": {
         "type": "git",
@@ -35,6 +34,7 @@
         "nx": "catalog:peers"
     },
     "publishConfig": {
+        "access": "public",
         "exports": {
             ".": "./dist/plugin.js",
             "./release/version-actions": "./dist/version-actions.js",

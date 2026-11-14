@@ -11,6 +11,7 @@ interface Member {
     readonly manifest: string;
     readonly version: string;
     readonly released: boolean;
+    readonly public?: boolean;
     readonly verbs: readonly string[];
     readonly sources: readonly string[];
     readonly dependencies: readonly string[];
@@ -507,12 +508,12 @@ const conforms = <R, M extends Member>({ workspace, members, built, report, tool
         );
 
         methods.effect(
-            published ? 'gives every released member a publish target that waits on the publish of each released member it depends on, and no other member one' : 'gives no member a publish target',
+            published ? 'gives every released member its registry switch leaves public a publish target that waits on the publish of each such member it depends on, and no other member one' : 'gives no member a publish target',
             Effect.fnUntraced(function* () {
                 const [{ planned }, stated] = yield* Effect.all([Consumer, members]);
                 const { tasks, dependencies } = yield* planned('run-many', `--targets=${PUBLISH.slice(1)}`);
-                const open = stated.filter(({ released }) => released && published);
-                const source = `${report}; README.md DELIVERY "Publishing delivers those files by each destination's own command"; TASKS "Attach and publish targets depend on the targets that package their files"; nrwl/nx e2e/release/src/private-js-packages.test.ts "should skip private packages"`;
+                const open = stated.filter(({ released, public: listed = true }) => released && published && listed);
+                const source = `${report}; README.md DELIVERY "Publishing delivers through each destination's own command"; TASKS "Attach and publish targets depend on the targets that package their files"; nrwl/nx e2e/release/src/private-js-packages.test.ts "should skip private packages"`;
                 assert.sameMembers(
                     Record.keys(tasks).filter((id) => id.endsWith(PUBLISH)),
                     open.map(({ name }) => `${name}${PUBLISH}`),

@@ -6,6 +6,7 @@ version.workspace    = true
 edition.workspace    = true
 license.workspace    = true
 repository.workspace = true
+publish              = false
 keywords             = ["statistics", "sampling", "sensitivity"]
 categories           = ["mathematics", "science"]
 description          = "Statistics over named bounded spaces: summaries, designs, intervals, calibration, and sensitivity"

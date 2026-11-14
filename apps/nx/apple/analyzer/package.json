@@ -1,7 +1,6 @@
 {
     "name": "@rasm/nx-apple-darwin-arm64",
     "version": "0.1.0",
-    "private": true,
     "description": "macOS arm64 build of the @rasm/nx-apple core reading Xcode projects, workspaces, and schemes",
     "repository": {
         "type": "git",
@@ -18,6 +17,7 @@
     "os": [ "darwin" ],
     "cpu": [ "arm64" ],
     "publishConfig": {
+        "access": "public",
         "executableFiles": [ "./.build/out/Products/Release/nx-apple-analyzer" ]
     }
 }

@@ -1,7 +1,6 @@
 {
     "name": "@rasm/nx-pulumi",
     "version": "0.1.0",
-    "private": true,
     "description": "Nx plugin running Pulumi Automation API inline programs as install and deploy targets of the projects they host",
     "repository": {
         "type": "git",
@@ -35,6 +34,7 @@
         "nx": "catalog:peers"
     },
     "publishConfig": {
+        "access": "public",
         "exports": {
             ".": "./dist/plugin.js",
             "./stacks": "./dist/executors/stacks.js",

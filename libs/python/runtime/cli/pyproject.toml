@@ -6,7 +6,7 @@ version         = "0.1.0"
 description     = "Process entry of a command-line tool over cyclopts: settings and per-user folders from flags and the tool's variables, each command line inside the process telemetry scope, results as JSON lines, and fault exit statuses"
 license         = "MIT"
 authors         = [{ name = "Bardia Samiee", email = "b.samiee93@gmail.com" }]
-classifiers     = ["Environment :: Console", "Intended Audience :: Developers", "Operating System :: OS Independent", "Topic :: Software Development :: Libraries", "Typing :: Typed"]
+classifiers     = ["Environment :: Console", "Intended Audience :: Developers", "Operating System :: OS Independent", "Private :: Do Not Upload", "Topic :: Software Development :: Libraries", "Typing :: Typed"]
 requires-python = ">=3.15"
 
 dependencies = [

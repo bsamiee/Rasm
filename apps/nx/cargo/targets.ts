@@ -206,7 +206,7 @@ const workspaceTargets = (workspace: Workspace): Record<string, TargetConfigurat
 
 const projectTargets = (workspace: Workspace, files: ReadonlySet<string>, reported: Option.Option<string>, member: Option.Option<Member>): Record<string, TargetConfiguration> => {
     const nested = Option.filter(member, ({ root }) => root !== workspace.root);
-    const packed = Option.map(Option.all({ held: Option.filter(member, ({ crate }) => crate.publish?.length !== 0), placed: workspace.placed }), ({ held: { crate }, placed: artifacts }) => {
+    const packed = Option.map(Option.all({ held: Option.filter(member, ({ versioned }) => versioned), placed: workspace.placed }), ({ held: { crate }, placed: artifacts }) => {
         const reached = (names: ReadonlySet<string>): ReadonlySet<string> => {
             const next = new Set([...names, ...workspace.members.filter((other) => names.has(other.crate.name)).flatMap((other) => other.crate.dependencies.filter(({ path: to }) => to !== undefined).map(({ name }) => name))]);
             return next.size === names.size ? names : reached(next);
@@ -254,17 +254,14 @@ const projectTargets = (workspace: Workspace, files: ReadonlySet<string>, report
     };
 };
 
-const released = ({ crate }: Member, cwd: string) => {
+const released = ({ crate, versioned }: Member, cwd: string) => {
     const [registry, ...others] = crate.publish ?? [];
     const named = registry === undefined || others.length > 0 || registry === 'crates-io' ? {} : { registry };
-    return Option.liftPredicate(
-        {
-            tags: ['release'],
-            release: { version: { versionActions: `${PLUGIN}/release/version-actions`, versionActionsOptions: { lock: join(cwd, LOCK), ...named } } },
-            targets: { 'nx-release-publish': { executor: `${PLUGIN}:release-publish`, options: { cwd, package: crate.name, ...named }, dependsOn: ['pack--cargo', '^nx-release-publish'], inputs: SOURCES, metadata: { description: `Publishes ${crate.name} with cargo publish` } } },
-        },
-        () => crate.publish?.length !== 0,
-    );
+    const published: Record<string, TargetConfiguration> =
+        crate.publish?.length === 0
+            ? {}
+            : { 'nx-release-publish': { executor: `${PLUGIN}:release-publish`, options: { cwd, package: crate.name, ...named }, dependsOn: ['pack--cargo', '^nx-release-publish'], inputs: SOURCES, metadata: { description: `Publishes ${crate.name} with cargo publish, which packs it from source again` } } };
+    return versioned ? { tags: ['release'], release: { version: { versionActions: `${PLUGIN}/release/version-actions`, versionActionsOptions: { lock: join(cwd, LOCK), ...named } } }, targets: published } : { targets: {} };
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------

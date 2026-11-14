@@ -6,6 +6,7 @@ version.workspace    = true
 edition.workspace    = true
 license.workspace    = true
 repository.workspace = true
+publish              = false
 keywords             = ["telemetry", "tracing", "opentelemetry", "logging", "metrics"]
 categories           = ["development-tools::debugging", "development-tools::profiling"]
 description          = "Telemetry over tracing and OpenTelemetry: measured call spans, an environment carrier, a panic record, a JSON log record formatter, a rotating log file several processes append to, OTLP providers with their resource, process metrics, and the settings rows running them for a process"

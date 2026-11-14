@@ -6,6 +6,7 @@ version.workspace    = true
 edition.workspace    = true
 license.workspace    = true
 repository.workspace = true
+publish              = false
 keywords             = ["network", "routing", "centrality", "graph"]
 categories           = ["algorithms", "science"]
 description          = "Network analysis: catchments, routes, centrality, connectivity, flows, spanning trees, and communities"

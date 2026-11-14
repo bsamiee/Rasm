@@ -6,6 +6,7 @@ version.workspace    = true
 edition.workspace    = true
 license.workspace    = true
 repository.workspace = true
+publish              = false
 keywords             = ["pdf", "documents", "signatures"]
 categories           = ["text-processing", "parser-implementations"]
 description          = "PDF documents authored, edited, read, signed, validated, and soft-proofed"

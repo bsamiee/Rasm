@@ -32,10 +32,18 @@
             "additionalItems": {
                 "type": "string"
             }
+        },
+        "credential": {
+            "type": "string",
+            "description": "Environment variable holding the destination's credential, where it is unset or empty the run publishes nothing, names the variable, and succeeds"
+        },
+        "flag": {
+            "type": "string",
+            "description": "Argument the tool takes the credential under, for a tool reading no variable itself"
         }
     },
-    "required": [ "publish" ],
+    "required": [ "publish", "credential" ],
     "additionalProperties": true,
     "title": "Publish",
-    "description": "Delivers the files a project's packaging targets wrote to its registry or store through its tool's own publish command; runs through nx release publish"
+    "description": "Delivers the files a project's packaging targets wrote to its registry or store through its tool's own publish command where the destination's credential is set, and names the missing variable where it is not; runs through nx release publish"
 }

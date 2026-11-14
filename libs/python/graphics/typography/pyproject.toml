@@ -6,7 +6,7 @@ version         = "0.1.0"
 description     = "Font engineering over bytes and design records with fontTools, ufo2ft, HarfBuzz and skia-pathops: face import, Perso-Arabic rules as data, compilation, and requirement checks"
 license         = "MIT"
 authors         = [{ name = "Bardia Samiee", email = "b.samiee93@gmail.com" }]
-classifiers     = ["Intended Audience :: Developers", "Operating System :: OS Independent", "Topic :: Multimedia :: Graphics", "Topic :: Text Processing :: Fonts", "Typing :: Typed"]
+classifiers     = ["Intended Audience :: Developers", "Operating System :: OS Independent", "Private :: Do Not Upload", "Topic :: Multimedia :: Graphics", "Topic :: Text Processing :: Fonts", "Typing :: Typed"]
 requires-python = ">=3.15"
 
 dependencies = [

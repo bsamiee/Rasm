@@ -785,7 +785,7 @@ rasm-dynamic-simulation = { path = "libs/rust/numerics/dynamic-simulation", vers
 rasm-form-finding       = { path = "libs/rust/geometry/form-finding", version = "0.1.0" }
 rasm-lints-auxiliary    = { path = "tools/dylint/auxiliary" }
 rasm-testing            = { path = "tests/rust/support" }
-rasm-mcp-tests          = { path = "libs/rust/services/tests/mcp", version = "0.1.0" }
+rasm-mcp-tests          = { path = "libs/rust/services/tests/mcp" }
 mcp-muxer               = { path = "apps/mcp/muxer" }
 
 # --- [LINTS] ----------------------------------------------------------------------------

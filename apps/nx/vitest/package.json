@@ -1,7 +1,6 @@
 {
     "name": "@rasm/nx-vitest",
     "version": "0.1.0",
-    "private": true,
     "description": "Nx plugin inferring one Vitest target per package holding a project a Vitest configuration resolves, a root configuration listing projects included, and per Vite configuration stating test",
     "repository": {
         "type": "git",
@@ -34,6 +33,7 @@
         "vitest": "catalog:peers"
     },
     "publishConfig": {
+        "access": "public",
         "exports": {
             ".": "./dist/plugin.js",
             "./package.json": "./package.json"

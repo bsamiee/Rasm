@@ -1,7 +1,6 @@
 {
     "name": "@rasm/nx-distribution",
     "version": "0.1.0",
-    "private": true,
     "description": "Nx plugin inferring host packages from their manifests, one row per kind (Blender extension, Yak package, Adobe UXP .ccx and CEP .zxp, Unreal plug-in): each row builds the package with its host tool, installs it where the host loads it, attaches it to the project's GitHub release, and publishes it to the host store taking uploads",
     "repository": {
         "type": "git",
@@ -40,6 +39,7 @@
         "nx": "catalog:peers"
     },
     "publishConfig": {
+        "access": "public",
         "exports": {
             ".": "./dist/plugin.js",
             "./release/version-actions": "./dist/version-actions.js",

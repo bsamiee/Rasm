@@ -1,6 +1,5 @@
-import { execFile } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { extname } from 'node:path';
-import { promisify } from 'node:util';
 import type { Tree } from '@nx/devkit';
 import { Array, Effect, Option, Schema } from 'effect';
 import { VersionActions } from 'nx/release';
@@ -19,15 +18,7 @@ const Versioned = Schema.fromJsonString(Schema.Struct({ version: Schema.NullOr(S
 
 const read = (tree: Tree, at: string) => Effect.mapError(Effect.fromNullishOr(tree.read(at, 'utf-8')), refused(at, 'is missing'));
 
-const piped = (command: string, args: readonly string[], input: string) =>
-    Effect.tryPromise({
-        try: (signal) => {
-            const running = promisify(execFile)(command, args, { encoding: 'utf8', maxBuffer: Number.POSITIVE_INFINITY, signal });
-            running.child.stdin?.end(input);
-            return running;
-        },
-        catch: refused(command, 'does not exit 0'),
-    }).pipe(Effect.map(({ stdout }) => stdout));
+const piped = (command: string, args: readonly string[], input: string) => Effect.try({ try: () => execFileSync(command, args, { encoding: 'utf8', maxBuffer: Number.POSITIVE_INFINITY, input }), catch: refused(command, 'does not exit 0') });
 
 const versioned = (text: string, marketing: readonly string[]) => Effect.flatMap(analyzer, (core) => piped(core, ['version', ...marketing], text)).pipe(Effect.flatMap(Schema.decodeEffect(Versioned)));
 

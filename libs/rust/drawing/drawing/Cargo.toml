@@ -6,6 +6,7 @@ version.workspace    = true
 edition.workspace    = true
 license.workspace    = true
 repository.workspace = true
+publish              = false
 keywords             = ["drawing", "vector", "cad"]
 categories           = ["graphics", "data-structures"]
 description          = "Vector drawing model: colors, pens, linetypes, hatches, regions, text, glyph runs, elements, and pages in a stated unit"

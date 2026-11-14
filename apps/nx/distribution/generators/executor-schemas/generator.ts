@@ -4,7 +4,7 @@ import { execPath } from 'node:process';
 import { promisify } from 'node:util';
 import { formatFiles, getProjects, readJson, type Tree, writeJson } from '@nx/devkit';
 import { loadTsFile, resolveImplementation, type SyncGeneratorResult } from '@nx/devkit/internal';
-import { Array, Effect, JsonSchema, Option, Path, Predicate, pipe, Record, Result, Schema } from 'effect';
+import { Array, Effect, Function, JsonSchema, Option, Path, Predicate, pipe, Record, Result, Schema } from 'effect';
 import { refused, run } from '#/executor';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -60,7 +60,7 @@ const generate = Effect.fnUntraced(function* (tree: Tree) {
             const { stdout } = yield* Effect.tryPromise({
                 try: (signal) => {
                     const running = promisify(execFile)(execPath, [bin, 'format', `--stdin-file-path=${to}`], { encoding: 'utf8', cwd: tree.root, signal });
-                    running.child.stdin?.end(input);
+                    running.child.stdin?.on('error', Function.constVoid).end(input);
                     return running;
                 },
                 catch: refused(to, 'biome format does not exit 0'),

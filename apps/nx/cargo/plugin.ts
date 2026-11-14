@@ -36,13 +36,13 @@ const inferred = Effect.fnUntraced(function* (context: CreateNodesContext, files
         const stated = Option.map(member, (held) => {
             const { default: sources } = getNamedInputs(root, context);
             const implicit = held.crate.metadata?.nx?.implicitDependencies;
-            const delivery = Option.getOrUndefined(released(held, workspace.root));
+            const delivery = released(held, workspace.root);
             return {
                 name: String.kebabToSnake(held.crate.name),
                 namedInputs: { default: crateInputs(workspace, files, held, sources) },
                 ...(implicit !== undefined && { implicitDependencies: [...implicit] }),
                 ...delivery,
-                targets: { ...targets, ...delivery?.targets },
+                targets: { ...targets, ...delivery.targets },
             };
         });
         return [root, { root, metadata: { technologies: ['rust'] }, targets, ...Option.getOrUndefined(stated) }];
