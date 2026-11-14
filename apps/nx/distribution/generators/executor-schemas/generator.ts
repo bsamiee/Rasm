@@ -38,7 +38,7 @@ const generate = Effect.fnUntraced(function* (tree: Tree) {
             const stated = pipe(
                 Option.liftPredicate(loaded, Predicate.isObject),
                 Option.flatMap((module) => Array.findFirst(Object.values(module), Schema.isSchema)),
-                Option.map(Schema.toJsonSchemaDocument),
+                Option.map((schema) => Schema.toJsonSchemaDocument(schema, { includeAnnotationKey: (key) => key.startsWith('$') })),
                 Option.map(JsonSchema.toDocumentDraft07),
                 Option.map(({ schema, schema: { description }, definitions }) => ({ description, schema: { $schema: JsonSchema.META_SCHEMA_URI_DRAFT_07, version: 2, ...schema, ...(Record.isEmptyRecord(definitions) ? {} : { definitions }) } })),
             );

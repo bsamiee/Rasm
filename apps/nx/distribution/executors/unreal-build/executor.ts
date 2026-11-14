@@ -23,7 +23,7 @@ const Unreal = Schema.Struct({
     packages: Linked,
     users: Schema.Array(Schema.String).annotate({ description: '.uproject files enabling a plug-in that sits outside their plug-in folders, each receiving the package on install', default: [] }),
     operation: Schema.Literals(['build', 'check', 'test', 'pack', 'install']).annotate({ description: 'What runs: the build, the build under UnrealBuildTool static analysis, the automation tests named after the plug-in, the archives, or the copy into each user project', default: 'build' }),
-    args: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Arguments appended to the UnrealBuildTool, AutomationTool, or UnrealEditor-Cmd command' }),
+    args: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Words after -- of the run, appended to the UnrealBuildTool, AutomationTool, or UnrealEditor-Cmd command', $default: { $source: 'unparsed' } }),
 }).annotate({
     title: 'Unreal',
     description:
