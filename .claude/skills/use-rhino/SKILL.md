@@ -80,11 +80,9 @@ Rhino runs plug-ins on its bundled .NET under the hardened runtime, and each rou
 - `--duration <dd:hh:mm:ss>` bounds a `collect` of either tool
 - People debug in VS Code through the `coreclr` launch configuration `dotnet new rhino` writes
 
-One `run_csharp` call registers a command log until Rhino quits, each command appending its English name, its result, and the lines it wrote to the command window:
+One `run_csharp` call registers a command log until Rhino quits, each command appending its English name, its result, and the lines it wrote to the command window to the `host` timeline of `watch-apps watch --record <folder>`:
 
 ```csharp
 Rhino.RhinoApp.CommandWindowCaptureEnabled = true;
 Rhino.Commands.Command.EndCommand += (sender, e) => System.IO.File.AppendAllLines("<folder>/host/rhino.log", Rhino.RhinoApp.CapturedCommandWindowStrings(true).Prepend($"{e.CommandEnglishName} {e.CommandResult}"));
 ```
-
-`watch-apps watch --record <folder>` adds each appended line to `timeline.jsonl` as a `host` entry.

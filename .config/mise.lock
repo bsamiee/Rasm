@@ -2594,6 +2594,35 @@ checksum_source = "mise-versions"
 url = "https://github.com/fonttools/fontspector/releases/download/fontspector-v1.9.1/fontspector-1.9.1-x86_64-pc-windows-gnu.zip"
 url_api = "https://api.github.com/repos/fonttools/fontspector/releases/assets/731666145"
 
+[[tools."github:harehare/mq"]]
+version = "0.10.1"
+backend = "github:harehare/mq"
+specifiers = ["latest"]
+
+[tools."github:harehare/mq"."platforms.linux-arm64"]
+checksum = "sha256:8a42a4898fd982b10f17e5bf40991a706d33117f2cf7e8fb66a94da18a5e4023"
+url = "https://github.com/harehare/mq/releases/download/v0.10.1/mq-aarch64-unknown-linux-gnu"
+url_api = "https://api.github.com/repos/harehare/mq/releases/assets/720895048"
+provenance = "github-attestations"
+
+[tools."github:harehare/mq"."platforms.linux-x64"]
+checksum = "sha256:1c08db356c9c4231df449d634f25802799b5f6ca92a7a3ef1c5c7fc682306464"
+url = "https://github.com/harehare/mq/releases/download/v0.10.1/mq-x86_64-unknown-linux-gnu"
+url_api = "https://api.github.com/repos/harehare/mq/releases/assets/720895364"
+provenance = "github-attestations"
+
+[tools."github:harehare/mq"."platforms.macos-arm64"]
+checksum = "sha256:223516efdc8f3c14f7934b3bc0791c86cc3f2c84bfa1159bb164dee3cccde083"
+url = "https://github.com/harehare/mq/releases/download/v0.10.1/mq-aarch64-apple-darwin"
+url_api = "https://api.github.com/repos/harehare/mq/releases/assets/720894847"
+provenance = "github-attestations"
+
+[tools."github:harehare/mq"."platforms.windows-x64"]
+checksum = "sha256:3c2a1ea8bc27af55178045a4d5e1a987a380c2972477456303ac0a9a5d51801f"
+url = "https://github.com/harehare/mq/releases/download/v0.10.1/mq-x86_64-pc-windows-msvc.exe"
+url_api = "https://api.github.com/repos/harehare/mq/releases/assets/720895286"
+provenance = "github-attestations"
+
 [[tools."github:kucherenko/jscpd"]]
 version = "5.4.3"
 backend = "github:kucherenko/jscpd"
@@ -4216,6 +4245,35 @@ checksum = "sha256:529e78a9cec6cd7e3e014f7ecd8bda0c113969d4ed0f2efeedb85c3094332
 url = "https://github.com/astral-sh/uv/releases/download/0.13.8/uv-x86_64-pc-windows-msvc.zip"
 url_api = "https://api.github.com/repos/astral-sh/uv/releases/assets/740313927"
 provenance = "github-attestations"
+
+[[tools.xh]]
+version = "0.26.3"
+backend = "aqua:ducaale/xh"
+specifiers = ["latest"]
+
+[tools.xh."platforms.linux-arm64"]
+checksum = "sha256:a45d8cb6c234c6850f9fc2395fc3544ab7691fb511237f00179aedba1bcd525e"
+checksum_source = "mise-versions"
+url = "https://github.com/ducaale/xh/releases/download/v0.26.3/xh-v0.26.3-aarch64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/ducaale/xh/releases/assets/661696698"
+
+[tools.xh."platforms.linux-x64"]
+checksum = "sha256:cbbf53bd76007d57d95e4bed8ba7fb3b7fcec22af4bdfc1ff119cd5de351e74f"
+checksum_source = "mise-versions"
+url = "https://github.com/ducaale/xh/releases/download/v0.26.3/xh-v0.26.3-x86_64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/ducaale/xh/releases/assets/661697813"
+
+[tools.xh."platforms.macos-arm64"]
+checksum = "sha256:50d61bd755942752b054297a1612ec191654f137f8939673cda83c686cb5b0f2"
+checksum_source = "mise-versions"
+url = "https://github.com/ducaale/xh/releases/download/v0.26.3/xh-v0.26.3-aarch64-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/ducaale/xh/releases/assets/661699462"
+
+[tools.xh."platforms.windows-x64"]
+checksum = "sha256:23d92fd78ff6a93c4e1c4de3a6b614bb8a31999acb441793630bcc37f9cd6c45"
+checksum_source = "mise-versions"
+url = "https://github.com/ducaale/xh/releases/download/v0.26.3/xh-v0.26.3-x86_64-pc-windows-msvc.zip"
+url_api = "https://api.github.com/repos/ducaale/xh/releases/assets/661699030"
 
 [[tools.yq]]
 version = "4.54.3"
