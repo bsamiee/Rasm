@@ -24,7 +24,7 @@ const Cargo = Schema.Struct({
     cwd: Schema.String.annotate({ description: 'Cargo workspace root, relative to the Nx workspace root' }),
     commands: Schema.NonEmptyArray(Command).annotate({ description: 'Cargo invocations in order, a task stopping at its first failure' }),
     package: Schema.optionalKey(Schema.String).annotate({ description: 'Package the task selects, passed to cargo as a package ID spec' }),
-    args: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Arguments appended to every command' }),
+    args: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Words after -- of the run, appended to every command', $default: { $source: 'unparsed' } }),
     outputs: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: "Paths the commands write, which the target's outputs name through {options.outputs.<n>}, each parent folder created before the run" }),
 }).annotate({
     title: 'Cargo',
