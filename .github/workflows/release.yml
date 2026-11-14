@@ -51,7 +51,6 @@ jobs:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
                   fetch-depth: 0
-                  filter: blob:none
             - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
               with:
                   xcode-version: latest
@@ -118,7 +117,6 @@ jobs:
               with:
                   ref: ${{ needs.release.outputs.commit }}
                   fetch-depth: 0
-                  filter: blob:none
             - *tools
             - *packages
             - run: nx run-many --targets=attach --configuration=release --projects=tag:os:linux

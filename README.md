@@ -48,7 +48,7 @@ Rasm/
 ├── .claude/                  # Claude Code knowledge and settings
 ├── .mcp.json                 # Claude Code MCP servers
 ├── .codex/                   # Codex knowledge and settings
-├── .agents/                  # Antigravity hooks and skill paths
+├── .agents/                  # Skills Codex and Antigravity read, Antigravity hooks
 ├── .vscode/                  # VS Code settings and recommended extensions
 ├── CLAUDE.md                 # Agent standards, AGENTS.md is its symlink
 └── README.md
@@ -152,7 +152,7 @@ flowchart LR
 - Preset `unreal` builds such a package with the compiler and flags of the plug-in's engine, into a folder named for the engine platform (`Mac`, `Linux`)
 - Rhino code runs no Rhino-hosted tests, as Rhino.Inside has no released Mac host and `RHINO_TOKEN` licenses Rhino only on Windows Server and Linux
 - Suites reading the project graph take tag `os:all`, hash one platform input, and run with no task beside them (`parallelism: false`)
-- Workflow checkouts fetch every commit and tree (`filter: blob:none`), as `nx release` reads the files each commit changed
+- Workflow checkouts fetch full history (`fetch-depth: 0`, no `filter`): `nx release` compares the files of each commit, which a partial clone fetches one commit at a time
 - Workflow checkouts keep ignored files (`clean: false`) and remove untracked ones, so caches and packages stay on a machine that keeps its checkout
 - CI jobs run as many tasks at once as their machine has cores (`NX_PARALLEL`)
 - CI job `affected` lists the affected `os:darwin` and `os:all` projects and Unreal engines, and jobs `macos` and `unreal` run where it lists one
