@@ -125,6 +125,8 @@ class Consumer extends Context.Service<
                     ...inherited,
                     NX_DAEMON: 'false',
                     NX_TUI: 'false',
+                    NX_CACHE_DIRECTORY: path.join(root, '.nx/cache'),
+                    NX_WORKSPACE_DATA_DIRECTORY: path.join(root, '.nx/workspace-data'),
                     FORCE_COLOR: '0',
                     GIT_CONFIG_GLOBAL: devNull,
                     GIT_CONFIG_NOSYSTEM: '1',
