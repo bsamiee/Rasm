@@ -1,6 +1,6 @@
 ---
 name: gog
-description: "gog CLI: safe Google Workspace automation, JSON, auth, scoped reads/writes."
+description: Use when work reads or writes Google Workspace through the gog CLI, covering command guards, auth, reads, writes, and JSON output
 ---
 
 # [GOG]
