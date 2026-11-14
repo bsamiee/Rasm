@@ -65,7 +65,7 @@ def instrumented(
     Process and runtime metrics of `SystemMetricsInstrumentor` register where its distribution is installed, without its `system.*` instruments, and `OTEL_PYTHON_SYSTEM_METRICS_EXCLUDED_METRICS` drops more.
     Records of the SDK's own loggers reach the log once per call site and are never exported, and never reach the interactive standard error.
     Scope exit shuts the three providers down together, each flushing on its own daemon thread, and waits `release` for them, a collector that is down, slow, or refusing costing the exit no more: a flush still running then ends with the process.
-    The trace context a parent wrote into the process environment is current, unhandled exceptions log under the service's logger, and fatal errors dump every thread's stack to `<path stem>.crash.log`, a file removed while empty, or to a stream sink.
+    The trace context a parent wrote into the process environment is current, unhandled exceptions log under the service's logger, and fatal errors dump every thread's stack to `<path stem>.<pid>.crash.log`, a file the process alone writes and removes while empty, or to a stream sink.
     A log folder refusing creation raises `OSError`, an exporter, protocol, or setting the SDK refuses and `OTEL_CONFIG_FILE` without `opentelemetry-configuration` raise `RuntimeError`, and a refused configuration file raises `opentelemetry.configuration.ConfigurationError`.
 
     Args:
@@ -151,7 +151,7 @@ def instrumented(
         stack.callback(context.detach, context.attach(propagate.extract(os.environ, context.get_current(), getter=EnvironmentGetter())))
         armed, dumped = not faulthandler.is_enabled(), sink
         if armed and isinstance(dumped, Path):
-            crash = dumped.with_suffix(".crash.log")
+            crash = dumped.with_suffix(f".{os.getpid()}.crash.log")
 
             def emptied() -> None:
                 if not crash.stat().st_size:

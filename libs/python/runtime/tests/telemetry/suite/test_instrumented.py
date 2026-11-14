@@ -144,3 +144,24 @@ def test_config_9_ok(tmp_path: Path) -> None:
         apply_config(LogSettings(level="info"))
         logger.info(next_message())
         assert log_lines() == [("INFO", "3")]
+
+
+def test_crash_log_survives_another_process_exit(tmp_path: Path) -> None:
+    """A process dumping a fatal error into the scope's crash log keeps its dump after a second process on the same log exits first (CPython `Lib/test/test_faulthandler.py` `test_enable_file`)."""
+    sink = tmp_path / "shared.log"
+    env = {key: value for key, value in os.environ.items() if not key.startswith(("OTEL_", "PYTHONFAULTHANDLER"))}
+    env.update(OTEL_TRACES_EXPORTER="none", OTEL_METRICS_EXPORTER="none", OTEL_LOGS_EXPORTER="none", OTEL_PYTHON_DISABLED_INSTRUMENTATIONS="system_metrics")
+    entered = (
+        "import faulthandler, sys; from pathlib import Path; from rasm_telemetry import LogSettings; from rasm_telemetry.process import instrumented; "
+        "scope = instrumented(Path(sys.argv[1]), service='crash-test', version='0', settings=LogSettings(), scopes=()); scope.__enter__(); "
+    )
+    with subprocess.Popen(
+        [sys.executable, "-c", f"{entered}print(flush=True); sys.stdin.readline(); faulthandler._sigsegv()", str(sink)], env=env, stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True
+    ) as crashing:
+        assert crashing.stdout is not None
+        crashing.stdout.readline()
+        clean = subprocess.run([sys.executable, "-c", f"{entered}scope.__exit__(None, None, None)", str(sink)], env=env, capture_output=True, text=True, check=False)
+        crashing.communicate("\n")
+    assert clean.returncode == 0, clean.stderr
+    assert [path.name for path in tmp_path.glob("*.crash.log")] == [f"shared.{crashing.pid}.crash.log"]
+    assert "Fatal Python error" in (tmp_path / f"shared.{crashing.pid}.crash.log").read_text(encoding="utf-8")
