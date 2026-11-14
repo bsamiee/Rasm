@@ -73,7 +73,10 @@
         },
         "cua-driver": {
             "command": "cua-driver",
-            "args": [ "mcp" ]
+            "args": [ "mcp" ],
+            "env": {
+                "DO_NOT_TRACK": "1"
+            }
         },
         "roslyn-codelens": {
             "type": "stdio",

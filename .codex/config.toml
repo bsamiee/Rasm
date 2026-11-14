@@ -119,6 +119,9 @@ default_tools_approval_mode = "approve"
 command                     = "cua-driver"
 args                        = ["mcp"]
 
+[mcp_servers.cua-driver.env]
+DO_NOT_TRACK = "1"
+
 [mcp_servers.node_repl.env]
 NODE_REPL_WORKER_WRAPPER = '["/bin/sh", "-c", "shift; exec mise exec -- \"$@\"", "node_repl"]'
 
