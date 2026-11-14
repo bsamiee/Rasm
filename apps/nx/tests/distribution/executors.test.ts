@@ -1,25 +1,27 @@
 import { layer } from '@effect/platform-node/NodeServices';
 import { assert, it } from '@effect/vitest';
+import js from '@nx/js/package.json' with { type: 'json' };
 import plugin from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Consumer, Packed } from '@rasm/testing/nx';
-import { Ajv } from 'ajv';
-import { Ajv2020 } from 'ajv/dist/2020.js';
-import { Duration, Effect, Layer, Predicate, Schema } from 'effect';
+import { Duration, Effect, Layer, Schema } from 'effect';
 import nx from 'nx/package.json' with { type: 'json' };
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
+const ATTACH = 'README.md DELIVERY "Releases give every project one version and tag through nx release, and the GitHub release holds the packaged files each attach target uploads"';
+const TAGGED = /git tag --annotate (?<tag>\S+)/u;
 const bounds = { built: Duration.toMillis('5 minutes'), test: Duration.toMillis('3 minutes') };
-const settings = { sync: { globalGenerators: [`${plugin.name}:executor-schemas`] }, release: { projects: ['lib'] } };
 const installed = `node_modules/${plugin.name}`;
 const recorded = (name: string) => `import { writeFileSync } from 'node:fs';\n\nwriteFileSync(new URL('./${name}.json', import.meta.url), JSON.stringify(process.argv.slice(2)));\n`;
 const files = {
-    'package.json': JSON.stringify({ name: 'consumer', private: true, type: 'module', workspaces: ['lib'], devDependencies: { nx: nx.version, [plugin.name]: '*' } }),
+    'package.json': JSON.stringify({ name: 'consumer', private: true, type: 'module', workspaces: ['lib'], devDependencies: { nx: nx.version, [js.name]: js.version, [plugin.name]: '*' } }),
     'tools/pack.js': "import { mkdirSync, writeFileSync } from 'node:fs';\n\nmkdirSync('packed', { recursive: true });\nwriteFileSync('packed/lib.tgz', 'archive');\n",
+    'tools/stage.js': "import { writeFileSync } from 'node:fs';\n\nwriteFileSync('staged/built.txt', 'built');\n",
     'tools/publish.js': recorded('published'),
     'tools/preview.js': recorded('previewed'),
     'tools/tool-clean.js': recorded('cleaned'),
     'lib/index.js': 'export const lib = 1;\n',
+    'lib/staged/tracked.txt': 'source\n',
 };
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -32,7 +34,6 @@ const Collection = Schema.fromJsonString(
         generators: Schema.optionalKey(Schema.Record(Schema.String, Schema.Struct({ factory: Schema.String, schema: Schema.String, description: Schema.String }))),
     }),
 ).annotate({ description: 'executors.json or generators.json of an Nx plugin: each entry with its implementation or factory module, option schema file, and description' });
-const Options = Schema.fromJsonString(Schema.Record(Schema.String, Schema.Unknown));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -40,10 +41,13 @@ const prepared = Effect.gen(function* () {
     const { called, committed, root, wrote } = yield* Consumer;
     const targets = {
         pack: { command: `node ${root}/tools/pack.js`, options: { cwd: 'lib' }, outputs: ['{projectRoot}/packed/lib.tgz'] },
-        clean: { executor: `${plugin.name}:clean`, options: { targets: ['pack'], commands: [['node', `${root}/tools/tool-clean.js`, 'swept']], cwd: 'lib' } },
-        unstated: { executor: `${plugin.name}:clean`, options: { commands: [], cwd: 'lib' } },
+        stage: { command: `node ${root}/tools/stage.js`, options: { cwd: 'lib' }, outputs: ['{projectRoot}/staged'] },
+        hollow: { command: 'true', outputs: ['{projectRoot}/absent/*.tgz'] },
+        clean: { executor: `${plugin.name}:clean`, options: { targets: ['pack', 'stage'], commands: [['node', `${root}/tools/tool-clean.js`, 'swept']], cwd: 'lib' } },
+        unstated: { executor: `${plugin.name}:clean` },
         'nx-release-publish': { executor: `${plugin.name}:publish`, dependsOn: ['pack'], options: { publish: ['node', `${root}/tools/publish.js`, 'push'], preview: ['node', `${root}/tools/preview.js`, 'push'] } },
         attach: { executor: `${plugin.name}:attach`, dependsOn: ['pack'] },
+        bare: { executor: `${plugin.name}:attach`, dependsOn: ['hollow'] },
     };
     yield* wrote({
         'lib/package.json': yield* Effect.orDie(Schema.encodeEffect(Json)({ name: 'lib', version: '1.2.3', type: 'module', nx: { targets } })),
@@ -59,12 +63,22 @@ const collection = (file: string) =>
         Schema.decodeEffect(Collection),
     );
 
+const uploaded = Effect.gen(function* () {
+    const { nx: run, text } = yield* Consumer;
+    const { code, stdout, stderr } = yield* run('run', 'lib:attach', '--output-style=static');
+    return { code, printed: `${stdout}${stderr}`, passed: (yield* text('tools/uploaded.txt')).trim().split('\n') };
+});
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const workspace = Layer.provideMerge(Layer.effectDiscard(prepared), Layer.provideMerge(Consumer.layer({ resolved: import.meta.url, settings, ignored: ['tools/*.json', 'tools/uploaded.txt', 'packed'], files }), Layer.provideMerge(Packed.layer(plugin.name), layer)));
+const workspace = (release: object) =>
+    Layer.provideMerge(
+        Layer.effectDiscard(prepared),
+        Layer.provideMerge(Consumer.layer({ resolved: import.meta.url, settings: { sync: { globalGenerators: [`${plugin.name}:executor-schemas`] }, release }, ignored: ['tools/*.json', 'tools/uploaded.txt', 'packed', 'built.txt'], files }), Layer.provideMerge(Packed.layer(plugin.name), layer)),
+    );
 
-it.layer(workspace, { timeout: bounds.built, excludeTestServices: true })('@rasm/nx-distribution executors and sync generator installed in a workspace', (methods) => {
-    const packaged = 'README.md TASKS "Attach and publish targets depend on the targets that package their files"';
+it.layer(workspace({ projects: ['lib'] }), { timeout: bounds.built, excludeTestServices: true })((methods) => {
+    const PACKAGED = 'README.md TASKS "Attach and publish targets depend on the targets that package their files"';
 
     methods.effect(
         'every executor and generator of the installed package states a schema file and a module that exist',
@@ -74,27 +88,6 @@ it.layer(workspace, { timeout: bounds.built, excludeTestServices: true })('@rasm
             const stated = [...Object.values(executors).map(({ implementation, schema }) => [implementation, schema] as const), ...Object.values(generators).map(({ factory, schema }) => [factory, schema] as const)];
             assert.isNotEmpty(stated, `${checks} noExecutorsOrBuildersFound, noGeneratorsOrSchematicsFound`);
             assert.deepStrictEqual(yield* absent(stated.flatMap(([module, schema]) => [`${installed}/${module.split('#')[0]}.js`, `${installed}/${schema}`])), [], `${checks} invalidSchemaPath "Schema path should point to a valid file", invalidImplementationPath "Implementation path should point to a valid file"`);
-        }),
-        bounds.test,
-    );
-
-    methods.effect(
-        'every option schema is a valid JSON Schema object',
-        Effect.fnUntraced(function* () {
-            const [{ text }, { executors = {} }, { generators = {} }] = yield* Effect.all([Consumer, collection('executors.json'), collection('generators.json')]);
-            const schemas = yield* Effect.forEach([...Object.values(executors), ...Object.values(generators)], ({ schema }) => Effect.flatMap(text(`${installed}/${schema}`), Schema.decodeEffect(Options)));
-            const drafts = new Map([
-                ['http://json-schema.org/draft-07/schema#', new Ajv({ strict: false })],
-                ['https://json-schema.org/draft/2020-12/schema', new Ajv2020({ strict: false })],
-            ]);
-            assert.deepStrictEqual(
-                schemas.map((schema) => {
-                    const { $schema: draft, type } = schema;
-                    return [Predicate.isString(draft) && drafts.get(draft)?.validateSchema(schema), type];
-                }),
-                schemas.map(() => [true, 'object']),
-                'json-schema.org meta-schema of the draft each $schema names; nrwl/nx packages/plugin/src/generators/executor/files/executor/schema.json.template "type": "object"',
-            );
         }),
         bounds.test,
     );
@@ -114,13 +107,13 @@ it.layer(workspace, { timeout: bounds.built, excludeTestServices: true })('@rasm
     );
 
     methods.effect(
-        'Nx refuses a clean target missing a required option',
+        'a clean target stating no option runs under the defaults its schema states and removes nothing',
         Effect.fnUntraced(function* () {
-            const params = 'nrwl/nx packages/nx/src/utils/params.spec.ts';
-            const { nx: run } = yield* Consumer;
-            const { code, stdout, stderr } = yield* run('run', 'lib:unstated', '--output-style=static');
-            assert.notStrictEqual(code, 0, `${params}: options missing a required property fail validation`);
-            assert.include(`${stdout}${stderr}`, "Required property 'targets' is missing", `${params} "Required property 'a' is missing"`);
+            const params = 'nrwl/nx packages/nx/src/utils/params.ts combineOptionsForExecutor: setDefaults fills each property stating a default before validateOptsAgainstSchema reads required';
+            const { nx: run, written } = yield* Consumer;
+            const [{ code, stdout, stderr }, created] = yield* written(run('run', 'lib:unstated', '--output-style=static'));
+            assert.strictEqual(code, 0, `${params}: ${stdout}${stderr}`);
+            assert.deepStrictEqual(created, [], `${params}: default targets [] names no output to remove and default commands [] runs none`);
         }),
         bounds.test,
     );
@@ -148,7 +141,7 @@ it.layer(workspace, { timeout: bounds.built, excludeTestServices: true })('@rasm
             assert.strictEqual(passed[0], 'push', `${publish}: the stated publish arguments come first`);
             assert.isTrue(
                 passed.some((file) => file.endsWith('lib/packed/lib.tgz')),
-                `${publish}; ${packaged}: the command receives lib/packed/lib.tgz, the declared output of pack`,
+                `${publish}; ${PACKAGED}: the command receives lib/packed/lib.tgz, the declared output of pack`,
             );
         }),
         bounds.test,
@@ -157,32 +150,62 @@ it.layer(workspace, { timeout: bounds.built, excludeTestServices: true })('@rasm
     methods.effect(
         'attach uploads the packaged files to the release of the version tag through gh release upload --clobber',
         Effect.fnUntraced(function* () {
-            const attach = 'README.md DELIVERY "Releases give every project one version and tag through nx release, and the GitHub release holds the packaged files each attach target uploads"';
-            const { nx: run, text } = yield* Consumer;
-            const { code, stdout, stderr } = yield* run('run', 'lib:attach', '--output-style=static');
-            const passed = (yield* text('tools/uploaded.txt')).trim().split('\n');
+            const { code, printed, passed } = yield* uploaded;
             const [command, subcommand, tag] = passed;
-            assert.strictEqual(code, 0, `nx run lib:attach exits 0: ${stdout}${stderr}`);
-            assert.deepStrictEqual([command, subcommand, tag], ['release', 'upload', 'v1.2.3'], `${attach}; nrwl/nx packages/nx/src/command-line/release/config/config.ts defaultFixedReleaseTagPattern "v{version}"; cli.github.com/manual/gh_release_upload "gh release upload <tag> <files>..."`);
+            assert.strictEqual(code, 0, `nx run lib:attach exits 0: ${printed}`);
+            assert.deepStrictEqual([command, subcommand, tag], ['release', 'upload', 'v1.2.3'], `${ATTACH}; nrwl/nx packages/nx/src/command-line/release/config/config.ts defaultFixedReleaseTagPattern "v{version}"; cli.github.com/manual/gh_release_upload "gh release upload <tag> <files>..."`);
             assert.include(passed, '--clobber', 'cli.github.com/manual/gh_release_upload --clobber "Overwrite existing assets of the same name"');
             assert.isTrue(
                 passed.some((file) => file.endsWith('lib/packed/lib.tgz')),
-                `${attach}; ${packaged}: the upload names lib/packed/lib.tgz, the declared output of pack`,
+                `${ATTACH}; ${PACKAGED}: the upload names lib/packed/lib.tgz, the declared output of pack`,
             );
         }),
         bounds.test,
     );
 
     methods.effect(
-        'clean removes each declared output, keeps source files, and runs the tool clean command',
+        'attach fails where its packaging target wrote no file, and uploads nothing',
+        Effect.fnUntraced(function* () {
+            const { nx: run, text, wrote } = yield* Consumer;
+            yield* wrote({ 'tools/uploaded.txt': '' });
+            const { code, stdout, stderr } = yield* run('run', 'lib:bare', '--output-style=static');
+            assert.notStrictEqual(code, 0, `${ATTACH}; cli.github.com/manual/gh_release_upload "gh release upload <tag> <files>...": an upload names at least one file`);
+            assert.include(`${stdout}${stderr}`, 'lib/absent', 'root CLAUDE.md "Messages ... exact subject, values over prose": the failure names the declared output holding no file');
+            assert.strictEqual(yield* text('tools/uploaded.txt'), '', 'gh runs for no upload');
+        }),
+        bounds.test,
+    );
+
+    methods.effect(
+        'clean removes each declared output, keeps each file the workspace tracks, and runs the tool clean command',
         Effect.fnUntraced(function* () {
             const clean = 'README.md TASKS "clean removes the outputs a project\'s targets declare and runs its tool\'s clean"';
             const { absent, nx: run, text } = yield* Consumer;
-            yield* run('run', 'lib:pack', '--output-style=static');
+            yield* run('run-many', '--targets=pack,stage', '--output-style=static');
             const { code, stdout, stderr } = yield* run('run', 'lib:clean', '--output-style=static');
             assert.strictEqual(code, 0, `nx run lib:clean exits 0: ${stdout}${stderr}`);
-            assert.deepStrictEqual(yield* absent(['lib/packed/lib.tgz', 'lib/index.js']), ['lib/packed/lib.tgz'], `${clean}: the declared output goes and a source file stays`);
+            assert.deepStrictEqual(
+                yield* absent(['lib/packed/lib.tgz', 'lib/staged/built.txt', 'lib/staged/tracked.txt', 'lib/index.js']),
+                ['lib/packed/lib.tgz', 'lib/staged/built.txt'],
+                `${clean}: each file a target wrote under its declared outputs goes, and lib/staged/tracked.txt, a tracked source file under a declared output, stays`,
+            );
             assert.deepStrictEqual(yield* Effect.flatMap(text('tools/cleaned.json'), Schema.decodeEffect(Arguments)), ['swept'], `${clean}: the tool's own clean command runs`);
+        }),
+        bounds.test,
+    );
+});
+
+it.layer(workspace({ projects: ['lib'], releaseTag: { pattern: '{projectName}@{version}' } }), { timeout: bounds.built, excludeTestServices: true })((methods) => {
+    methods.effect(
+        'attach uploads to the tag nx release gives a fixed group whose tag pattern names the project',
+        Effect.fnUntraced(function* () {
+            const { nx: run } = yield* Consumer;
+            const planned = yield* run('release', '1.2.4', '--dry-run', '--skip-publish', '--first-release', '--verbose');
+            const { tag } = TAGGED.exec(`${planned.stdout}${planned.stderr}`)?.groups ?? {};
+            const { code, printed, passed } = yield* uploaded;
+            assert.strictEqual(code, 0, `nx run lib:attach exits 0: ${printed}`);
+            assert.include(tag, '1.2.4', `nx release 1.2.4 --dry-run --verbose prints its git tag command: ${planned.stdout}${planned.stderr}`);
+            assert.strictEqual(passed[2], tag?.replace('1.2.4', '1.2.3'), `${ATTACH}; nrwl/nx packages/nx/src/command-line/release/utils/shared.ts createGitTagValues: a fixed group gets one tag, interpolated from version and group name alone`);
         }),
         bounds.test,
     );

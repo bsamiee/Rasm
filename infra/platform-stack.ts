@@ -29,7 +29,7 @@ interface Row {
 
 const hosts = {
     'lucky.parametric-arsenal.cloud': { address: '31.97.131.41', tags: ['tag:server'], role: { _tag: 'Cache', name: 'nx-cache', kept: Duration.weeks(1) } },
-    'derby.parametric-arsenal.cloud': { address: '45.90.223.193', tags: ['tag:server'], role: { _tag: 'Runner', packages: ['build-essential', 'pkg-config', 'python-is-python3', 'unzip', 'zip'] } },
+    'derby.parametric-arsenal.cloud': { address: '45.90.223.193', tags: ['tag:server'], role: { _tag: 'Runner', packages: ['build-essential', 'libsqlite3-dev', 'pkg-config', 'sqlite3', 'unzip', 'zip'] } },
 } as const satisfies Record.ReadonlyRecord<string, Row>;
 const local = { host: 'local.rasm.localhost', owner: 'owner@rasm.localhost' } as const;
 

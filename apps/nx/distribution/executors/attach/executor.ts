@@ -1,11 +1,11 @@
 import { createProjectFileMapUsingProjectGraph, type ExecutorContext } from '@nx/devkit';
 import { FsTree } from '@nx/devkit/internal';
 import { Completed } from '@rasm/process';
-import { Effect } from 'effect';
+import { Array, Effect } from 'effect';
 import { ChildProcess, CommandLine } from 'effect/process';
 import { createNxReleaseConfig } from 'nx/src/command-line/release/config/config';
 import { createReleaseGraph } from 'nx/src/command-line/release/utils/release-graph';
-import { ReleaseVersion } from 'nx/src/command-line/release/utils/shared';
+import { createGitTagValues } from 'nx/src/command-line/release/utils/shared';
 import { Dry, dried, packaged, refused, run } from '#/executor';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -24,9 +24,9 @@ const tagged = Effect.fnUntraced(function* (context: ExecutorContext, project: s
     const { error, nxReleaseConfig } = yield* Effect.tryPromise({ try: () => createNxReleaseConfig(context.projectGraph, owned, context.nxJsonConfiguration?.release), catch: failed });
     const resolved = yield* Effect.mapError(Effect.fromNullishOr(nxReleaseConfig), () => failed(error?.code));
     const graph = yield* Effect.tryPromise({ try: () => createReleaseGraph({ tree, projectGraph: context.projectGraph, nxReleaseConfig: resolved, filters: {}, firstRelease: false, verbose: context.isVerbose, skipVersionResolution: true }), catch: failed });
-    const [{ name, releaseTag }, actions] = yield* Effect.mapError(Effect.all([Effect.fromNullishOr(graph.projectToReleaseGroup.get(project)), Effect.fromNullishOr(graph.projectsToVersionActions.get(project))]), refused(project, 'has no git tag: no release group of nx.json release holds it'));
+    const [group, actions] = yield* Effect.mapError(Effect.all([Effect.fromNullishOr(graph.projectToReleaseGroup.get(project)), Effect.fromNullishOr(graph.projectsToVersionActions.get(project))]), refused(project, 'has no git tag: no release group of nx.json release holds it'));
     const { currentVersion } = yield* Effect.tryPromise({ try: () => actions.readCurrentVersionFromSourceManifest(tree), catch: refused(project, 'has no git tag: its manifest states no version') }).pipe(Effect.flatMap(Effect.fromNullishOr));
-    return new ReleaseVersion({ version: currentVersion, releaseTagPattern: releaseTag.pattern, projectName: project, releaseGroupName: name }).gitTag;
+    return yield* Effect.mapError(Effect.fromOption(Array.head(createGitTagValues([group], new Map([[group, new Set([project])]]), { [project]: { currentVersion, newVersion: currentVersion, dependentProjects: [] } }))), failed);
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

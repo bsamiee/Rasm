@@ -30,7 +30,8 @@
         "@xml-tools/ast": "catalog:",
         "@xml-tools/parser": "catalog:",
         "effect": "catalog:",
-        "jsonc-parser": "catalog:"
+        "jsonc-parser": "catalog:",
+        "yaml": "catalog:"
     },
     "devDependencies": {
         "@types/node": "catalog:",

@@ -25,6 +25,9 @@
         "targets": {
             "build--vite": {
                 "inputs": [ "...", "{workspaceRoot}/apps/creative-cloud/atelier/macos/Resources/AppIcon.icon/Assets/Atelier.svg" ]
+            },
+            "build": {
+                "inputs": [ "...", "{workspaceRoot}/apps/creative-cloud/atelier/macos/Resources/AppIcon.icon/Assets/Atelier.svg" ]
             }
         }
     }

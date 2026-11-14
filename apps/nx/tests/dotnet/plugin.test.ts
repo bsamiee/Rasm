@@ -7,10 +7,10 @@ import { Array, Duration, Effect, Layer, Path, Schema } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const REPORT = 'dotnet msbuild <project> -getProperty -getItem:ProjectReference -getItem:Compile';
+const REPORT = 'dotnet msbuild <project> -getProperty -getItem:ProjectReference -getItem:Compile -getItem:None, TargetPath under -p:Configuration=Release where IsPublishable is true; nrwl/nx e2e/dotnet/src/dotnet-configurations.test.ts "should publish with Release configuration by default"';
 const [APP, CORE, TESTS, PROPS] = ['src/App', 'src/Core', 'tests/Core.Tests', 'Directory.Build.props'] as const;
 const SOURCES = { core: 'src/Core/Numbers.cs', tests: 'tests/Core.Tests/NumbersTests.cs' } as const;
-const PROPERTIES = ['MSBuildProjectName', 'Version', 'PackageId', 'IsPackable', 'IsTestProject', 'IsTestingPlatformApplication', 'TargetPath'] as const;
+const PROPERTIES = ['MSBuildProjectName', 'Version', 'PackageId', 'IsPackable', 'IsPublishable', 'IsTestProject', 'IsTestingPlatformApplication', 'TargetPath'] as const;
 const VERSION = '        <Version>0.1.0</Version>\n';
 const files = {
     '.config/mise.lock': '# tool versions\n',
@@ -33,13 +33,13 @@ const Item = Schema.Struct({ FullPath: Schema.String });
 const Found = Schema.fromJsonString(Schema.Struct({ searchResult: Schema.Array(Schema.Struct({ packages: Schema.Array(Schema.Struct({ id: Schema.String, version: Schema.String })) })) })).annotate({
     description: 'JSON dotnet package search --format json prints: per source the packages matching the id, oldest version first',
 });
-const Evaluated = Schema.fromJsonString(Schema.Struct({ Properties: Schema.Record(Schema.Literals(PROPERTIES), Schema.String), Items: Schema.Struct({ ProjectReference: Schema.Array(Item), Compile: Schema.Array(Item) }) })).annotate({
+const Evaluated = Schema.fromJsonString(Schema.Struct({ Properties: Schema.Record(Schema.Literals(PROPERTIES), Schema.String), Items: Schema.Struct({ ProjectReference: Schema.Array(Item), Compile: Schema.Array(Item), None: Schema.Array(Item) }) })).annotate({
     description: 'JSON dotnet msbuild <project> -getProperty -getItem prints: the properties and items MSBuild evaluates for one project',
 });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const described = (path: Path.Path, root: string, manifest: string, { Properties: stated, Items: { ProjectReference, Compile } }: typeof Evaluated.Type) => ({
+const described = (path: Path.Path, root: string, manifest: string, { Properties: stated, Items: { ProjectReference, Compile, None } }: typeof Evaluated.Type, target: string) => ({
     name: stated.MSBuildProjectName,
     version: stated.Version,
     packageId: stated.PackageId,
@@ -47,15 +47,20 @@ const described = (path: Path.Path, root: string, manifest: string, { Properties
     manifest,
     released: stated.IsPackable === 'true',
     verbs: ['build', 'clean', ...(stated.IsTestProject === 'true' || stated.IsTestingPlatformApplication === 'true' ? ['test'] : []), ...(stated.IsPackable === 'true' ? ['pack'] : [])],
-    target: path.relative(root, stated.TargetPath),
-    sources: [manifest, ...Compile.map(({ FullPath }) => path.relative(root, FullPath)).filter((file) => !file.split(path.sep).includes('obj'))],
+    target: path.relative(root, target),
+    sources: [manifest, ...[...Compile, ...None].map(({ FullPath }) => path.relative(root, FullPath)).filter((file) => !file.split(path.sep).includes('obj'))],
     dependencies: ProjectReference.map(({ FullPath }) => path.relative(root, path.dirname(FullPath))),
 });
 
 const evaluated = Effect.fnUntraced(function* (manifest: string) {
     const [{ root, called }, path] = yield* Effect.all([Consumer, Path.Path]);
-    const { code, stdout } = yield* called('dotnet', ['msbuild', manifest, ...PROPERTIES.map((property) => `-getProperty:${property}`), '-getItem:ProjectReference', '-getItem:Compile']);
-    return Number(code) === 0 ? [described(path, root, manifest, yield* Schema.decodeEffect(Evaluated)(stdout))] : [];
+    const read = (...selected: readonly string[]) => called('dotnet', ['msbuild', manifest, ...selected]);
+    const { code, stdout } = yield* read(...PROPERTIES.map((property) => `-getProperty:${property}`), '-getItem:ProjectReference', '-getItem:Compile', '-getItem:None');
+    if (Number(code) !== 0) {
+        return [];
+    }
+    const [stated, published] = yield* Effect.all([Schema.decodeEffect(Evaluated)(stdout), read('-p:Configuration=Release', '-getProperty:TargetPath')]);
+    return [described(path, root, manifest, stated, stated.Properties.IsPublishable === 'true' ? published.stdout.trim() : stated.Properties.TargetPath)];
 }, Effect.orDie);
 
 const members = Effect.gen(function* () {
@@ -112,7 +117,7 @@ conforms({
         verbs: ['build'],
         dependent: APP,
         upstream: (mark) => ({ [SOURCES.core]: files[SOURCES.core].replace('One() => 1;', `One() => 1;\n\n    public static int Probe_${mark}() => 7;`) }),
-        outside: (mark) => ({ [SOURCES.tests]: `${files[SOURCES.tests]}// ${mark}\n`, 'src/App/notes.md': `${mark}\n` }),
+        outside: (mark) => ({ [SOURCES.tests]: `${files[SOURCES.tests]}// ${mark}\n`, 'src/notes.md': `${mark}\n` }),
         tested: TESTS,
         failing: { [SOURCES.tests]: files[SOURCES.tests].replace('Assert.Equal(1,', 'Assert.Equal(2,') },
     },

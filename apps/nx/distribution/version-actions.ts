@@ -40,7 +40,7 @@ class HostVersionActions extends VersionActions {
     }
 
     override readCurrentVersionFromRegistry() {
-        return run(Effect.fail(refused(this.projectGraphNode.name, 'reads no current version from a host store; use the disk or git-tag current version resolver')()));
+        return Promise.resolve(null);
     }
 
     override readCurrentVersionOfDependency() {

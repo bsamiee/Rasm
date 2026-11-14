@@ -3,11 +3,11 @@ import { assert, it } from '@effect/vitest';
 import type { ProjectGraph } from '@nx/devkit';
 import plugin from '@rasm/nx-docker/package.json' with { type: 'json' };
 import { Consumer, Packed } from '@rasm/testing/nx';
-import { Array, Effect, Formatter, Layer, Path, Predicate, Record, Result, Schema } from 'effect';
+import { Array, Effect, Formatter, Layer, Option, Path, Predicate, Record, Schema } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const UNREAD = /--version|mise\.lock|node_modules|@rasm\/nx-|TOKEN|SECRET|PASSWORD|CREDENTIAL/u;
+const UNREAD = /(?:^|[\s"'])-{0,2}version\b|mise\.lock|node_modules|@rasm\/nx-|TOKEN|SECRET|PASSWORD|CREDENTIAL/u;
 const bounds = { built: '5 minutes', test: 120_000 } as const;
 const files = {
     'shared/compose.base.yaml': 'services:\n    store:\n        image: valkey/valkey:8\n',
@@ -15,16 +15,19 @@ const files = {
     'infra/compose.yaml':
         'include:\n    - ../shared/compose.base.yaml\nservices:\n    api:\n        build:\n            context: ../apps/api\n        ports:\n            - "8080:8080"\n        environment:\n            API_TOKEN: $API_TOKEN\n        depends_on:\n            - store\n    traces:\n        image: jaegertracing/jaeger:2\n        profiles:\n            - observed\n',
     'ops/package.json': '{ "name": "ops", "type": "module" }\n',
-    'ops/compose.yaml': 'services:\n    proxy:\n        image: traefik:v3\n',
+    'ops/compose.yaml': 'services:\n    proxy:\n        image: traefik:v3\n    site:\n        build:\n            context: ../libs/site/dist\n            dockerfile: ../../../ops/site.Dockerfile\n',
     'apps/api/package.json': '{ "name": "api", "type": "module" }\n',
     'apps/api/Dockerfile': 'FROM scratch\nCOPY package.json /package.json\n',
+    'libs/site/project.json': '{ "name": "site", "targets": { "build": { "command": "true", "outputs": ["{projectRoot}/dist"] } } }\n',
+    'ops/site.Dockerfile': 'FROM scratch\nCOPY . /site\n',
 };
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Model = Schema.fromJsonString(Schema.Struct({ services: Schema.Record(Schema.String, Schema.Struct({ build: Schema.optionalKey(Schema.Struct({ context: Schema.String })), image: Schema.optionalKey(Schema.String) })) })).annotate({
-    description: 'Fields of the model docker compose config --format json prints: each service with the build context it resolves, or its image',
+const Model = Schema.fromJsonString(Schema.Struct({ services: Schema.Record(Schema.String, Schema.Struct({ build: Schema.optionalKey(Schema.Struct({ context: Schema.String, dockerfile: Schema.String })) })) })).annotate({
+    description: 'Fields of the model docker compose config --format json prints: each service with the build context and Dockerfile it resolves, where it builds an image',
 });
+const Profiled = Schema.Record(Schema.String, Schema.Struct({ env: Schema.Record(Schema.String, Schema.String) })).annotate({ description: 'Configurations of an nx:run-commands target, each stating the env option of nx/src/executors/run-commands/schema.json' });
 const Names = Schema.fromJsonString(Schema.Array(Schema.String));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -37,15 +40,27 @@ const composed = Effect.fnUntraced(function* (folder: string, ...args: readonly 
     return yield* checked;
 });
 
+const started = Effect.fnUntraced(function* (variables: Readonly<Record<string, string>>, ...flags: readonly string[]) {
+    const { called } = yield* Consumer;
+    const { checked } = yield* called('env', [...Record.collect(variables, (name, value) => `${name}=${value}`), 'docker', 'compose', ...flags, 'config', '--services'], 'infra');
+    return (yield* checked).trim().split('\n').toSorted();
+});
+
+const recipes = Effect.fnUntraced(function* (folder: string) {
+    const [{ root }, path] = yield* Effect.all([Consumer, Path.Path]);
+    const { services } = yield* Effect.flatMap(composed(folder, '--format', 'json'), Schema.decodeEffect(Model));
+    return Array.getSomes(Object.values(services).map(({ build }) => Option.fromUndefinedOr(build))).map(({ context, dockerfile }) => path.relative(root, path.dirname(path.resolve(context, dockerfile))));
+});
+
 const tooled = ({ nodes }: Pick<ProjectGraph, 'nodes'>, project: string, verb: string) => Record.filter(nodes[project]?.data.targets ?? {}, (_, name) => name.startsWith(`${verb}--`));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const workspace = (stated: Readonly<Record<string, string>>) => Layer.provideMerge(Consumer.layer({ resolved: import.meta.url, settings: { plugins: [plugin.name] }, ignored: [], files: stated }), Layer.provideMerge(Packed.layer(plugin.name), layer));
 
-it.layer(workspace(files), { timeout: bounds.built, excludeTestServices: true })('@rasm/nx-docker over two Compose projects and one image', (methods) => {
+it.layer(workspace(files), { timeout: bounds.built, excludeTestServices: true })((methods) => {
     const spec = 'nrwl/nx packages/docker/src/plugins/plugin.spec.ts';
-    const tasks = 'README.md TASKS "nx install @rasm/infra starts local services of infra/compose.yaml, -c <profile> adds the services of one profile"';
+    const tasks = 'README.md TASKS "install puts a local build into its host or starts local services"';
     const api = 'nrwl/nx packages/nx/src/project-graph/plugins/public-api.ts CreateNodesV2';
 
     methods.effect(
@@ -74,14 +89,16 @@ it.layer(workspace(files), { timeout: bounds.built, excludeTestServices: true })
     );
 
     methods.effect(
-        'each Compose profile is a configuration of the install target',
+        'each Compose profile is a configuration of the install target, selecting the services docker compose --profile selects',
         Effect.fnUntraced(function* () {
+            const selects = 'docs.docker.com/compose/how-tos/profiles "Start specific profiles": COMPOSE_PROFILES selects the services --profile selects';
             const [graph, profiles] = yield* Effect.all([read, composed('infra', '--profiles')]);
+            const [install] = Object.values(tooled(graph, 'infra', 'install'));
+            const { observed } = yield* Schema.decodeUnknownEffect(Profiled)(install?.configurations);
+            const [stated, flagged, plain] = [yield* started(observed?.env ?? {}), yield* started({}, '--profile', 'observed'), yield* started({})];
             assert.deepStrictEqual(profiles.trim().split('\n'), ['observed'], 'docker compose config --profiles lists profile observed');
-            assert.isTrue(
-                Object.values(tooled(graph, 'infra', 'install')).every(({ configurations = {} }) => 'observed' in configurations),
-                tasks,
-            );
+            assert.deepStrictEqual(stated, flagged, `${tasks}; ${selects}`);
+            assert.deepStrictEqual(Array.difference(stated, plain), ['traces'], `${selects}: service traces starts under profile observed alone`);
         }),
         bounds.test,
     );
@@ -89,17 +106,33 @@ it.layer(workspace(files), { timeout: bounds.built, excludeTestServices: true })
     methods.effect(
         'the project holding the Dockerfile of a service gets the image build and the service start',
         Effect.fnUntraced(function* () {
-            const [{ root }, path, graph] = yield* Effect.all([Consumer, Path.Path, read]);
-            const { services } = yield* Effect.flatMap(composed('infra', '--format', 'json'), Schema.decodeEffect(Model));
-            const contexts = Array.filterMap(Object.values(services), ({ build }) => (build === undefined ? Result.failVoid : Result.succeed(path.relative(root, build.context))));
-            assert.deepStrictEqual(contexts, ['apps/api'], 'docker compose config resolves the build context of service api');
+            const [graph, folders] = yield* Effect.all([read, Effect.forEach(['infra', 'ops'], recipes)]);
+            assert.deepStrictEqual(folders.flat(), ['apps/api', 'ops'], 'docker compose config resolves the Dockerfile of service api under apps/api and of service site under ops');
             assert.deepStrictEqual(
                 Object.values(graph.nodes)
                     .filter(({ name }) => !(Record.isEmptyRecord(tooled(graph, name, 'build')) || Record.isEmptyRecord(tooled(graph, name, 'serve'))))
-                    .map(({ data }) => data.root),
-                contexts,
+                    .map(({ data }) => data.root)
+                    .toSorted(),
+                folders.flat(),
                 `${spec} "should create nodes based on Dockerfile": the Dockerfile folder holds the image build; README.md TASKS "serve ... starts the Compose services whose Dockerfile it holds, which stay up"`,
             );
+        }),
+        bounds.test,
+    );
+
+    methods.effect(
+        'a build context under the declared output of another project gives the Compose project an edge to it, and its image build waits for that build',
+        Effect.fnUntraced(function* () {
+            const reported = 'README.md PRINCIPLES "Manifest nx tables state only a dependency or path no manifest row or tool reports": docker compose config reports build context libs/site/dist, the declared output of site:build';
+            const [{ planned }, { dependencies }] = yield* Effect.all([Consumer, read]);
+            const { ops = [] } = dependencies;
+            const waits = (yield* planned('run', 'ops:build--compose')).dependencies;
+            assert.include(
+                ops.map(({ target }) => target),
+                'site',
+                reported,
+            );
+            assert.include(Object.values(waits).flatMap(Array.map(({ id }) => id)), 'site:build', `${reported}; nx/schemas/project-schema.json dependsOn "^build"`);
         }),
         bounds.test,
     );
@@ -141,7 +174,7 @@ it.layer(workspace(files), { timeout: bounds.built, excludeTestServices: true })
     );
 
     methods.effect(
-        'no input of an inferred target is a --version command, plugin source, mise.lock, or a credential variable',
+        'no input of an inferred target is a version command (--version, -version, <tool> version), plugin source, mise.lock, or a credential variable',
         Effect.fnUntraced(function* () {
             const rows = Object.values((yield* read).nodes)
                 .flatMap(({ data }) => Object.values(data.targets ?? {}))
@@ -177,11 +210,26 @@ it.layer(workspace(files), { timeout: bounds.built, excludeTestServices: true })
         }),
         bounds.test,
     );
+
+    methods.effect(
+        'an edit to a Compose file included from outside the project folder moves the install configurations on the next read',
+        Effect.fnUntraced(function* () {
+            const { wrote } = yield* Consumer;
+            yield* wrote({ 'shared/compose.base.yaml': `${files['shared/compose.base.yaml']}    cache:\n        image: valkey/valkey:8\n        profiles:\n            - cached\n` });
+            const [graph, profiles] = yield* Effect.all([read, composed('infra', '--profiles')]);
+            assert.deepStrictEqual(
+                Object.values(tooled(graph, 'infra', 'install')).map(({ configurations = {} }) => Record.keys(configurations).toSorted()),
+                [profiles.trim().split('\n').toSorted()],
+                'docs.docker.com/compose/how-tos/multiple-compose-files/include: an included file is part of the model docker compose config resolves; nrwl/nx packages/nx/src/project-graph/nx-deps-cache.spec.ts: a changed file invalidates what was computed from it',
+            );
+        }),
+        bounds.test,
+    );
 });
 
-it.layer(workspace({ ...files, 'ops/compose.yaml': 'services:\n    proxy:\n        image: [traefik\n' }), { timeout: bounds.built, excludeTestServices: true })('@rasm/nx-docker with a Compose file that fails to load', (methods) => {
+it.layer(workspace({ ...files, 'ops/compose.yaml': 'services:\n    proxy:\n        image: [traefik\n' }), { timeout: bounds.built, excludeTestServices: true })((methods) => {
     methods.effect(
-        'the failure names the Compose file and every other project keeps its targets',
+        'a Compose file that fails to load is named in the failure, and every other project keeps its targets',
         Effect.fnUntraced(function* () {
             const errors = 'nrwl/nx packages/nx/src/project-graph/error-types.ts AggregateCreateNodesError';
             const graph = yield* read;

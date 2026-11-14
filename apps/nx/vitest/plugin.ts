@@ -9,6 +9,7 @@ import { layer } from '@effect/platform-node/NodeServices';
 import { AggregateCreateNodesError, type CreateNodes, type CreateNodesContext, createNodesFromFiles, detectPackageManager, getPackageManagerCommand, normalizePath, type ProjectConfiguration, type TargetConfiguration } from '@nx/devkit';
 import { getLockFileName, getNamedInputs, hashObject, hashWithWorkspaceContext, PluginCache, quoteShellArg, retryOnRequireEsmRace, workspaceDataDirectory } from '@nx/devkit/internal';
 import { walkTsconfigExtendsChain } from '@nx/js/internal';
+import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Cause, Effect, Equal, FileSystem, Function, Option, Predicate, Record, Schema } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -21,7 +22,7 @@ const EXTENSIONS = '{js,mjs,ts,cjs,mts,cts}';
 const SUITE = `vitest.config.${EXTENSIONS}`;
 const MODE = { TEST: 'true', VITEST: 'true', NODE_ENV: 'test' } as const;
 const REPORTS: Record.ReadonlyRecord<string, string> = { html: '.vitest', blob: '.vitest/blob' };
-const SHARED = '@rasm/nx-distribution';
+const SHARED = distribution.name;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -161,7 +162,7 @@ const targets = (home: string, { loaded: configs, triggers, folders }: Resolved,
     const held = Option.toArray(within);
     const flags = held.flatMap((at) => directed(relative(home, at)));
     const outside = Array.dedupe([...chain, ...configs, ...inputs]).filter((at) => root !== '.' && !at.startsWith(`${root}/`));
-    return {
+    const tools: Record<string, TargetConfiguration> = {
         'test--vitest': {
             command: [['vitest', 'run', ...projects.flatMap((name) => ['--project', name])].map(quoteShellArg).join(' '), ...Array.match(flags, { onEmpty: () => [], onNonEmpty: (stated) => ['{args}', stated.map(quoteShellArg).join(' ')] })].join(' '),
             options: { cwd: home },
@@ -176,8 +177,13 @@ const targets = (home: string, { loaded: configs, triggers, folders }: Resolved,
             options: { targets: ['test--vitest'], commands: [['vitest', '--clearCache']], cwd: home },
             metadata: { description: 'Removes the outputs test--vitest declares and every Vitest cache with vitest --clearCache', help: { command: `${exec} vitest --help`, example: {} } },
         },
-        test: { dependsOn: ['test--*'] },
-        clean: { dependsOn: ['clean--*'] },
+    };
+    return {
+        ...tools,
+        ...Record.map(
+            Array.groupBy(Object.entries(tools), ([label]) => label.slice(0, label.indexOf('--'))),
+            (members, verb): TargetConfiguration => ({ dependsOn: [`${verb}--*`], ...Array.match(Array.dedupe(members.flatMap(([, { inputs: hashed = [] }]) => hashed)), { onEmpty: () => ({}), onNonEmpty: (unique) => ({ inputs: ['...', ...unique] }) }) }),
+        ),
     };
 };
 

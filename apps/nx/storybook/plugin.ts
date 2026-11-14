@@ -8,12 +8,13 @@ import { AggregateCreateNodesError, type CreateNodes, type CreateNodesContext, c
 import { calculateHashesForCreateNodes, getLockFileName, getNamedInputs, hashObject, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
 import { walkTsconfigExtendsChain } from '@nx/js/internal';
 import web from '@nx/web/package.json' with { type: 'json' };
-import { Array, Cause, Effect, FileSystem, Option, Predicate, pipe, Schema } from 'effect';
+import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
+import { Array, Cause, Effect, FileSystem, Option, Predicate, pipe, Record, Schema } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const MODE = { NODE_ENV: 'production' } as const;
-const SHARED = '@rasm/nx-distribution';
+const SHARED = distribution.name;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -79,7 +80,7 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string) {
 const targets = (root: string, packages: readonly string[], chain: readonly string[], upstream: string, output: Option.Option<string>, exec: string): Record<string, TargetConfiguration> => {
     const inputs = ['default', upstream, ...chain.map((at) => join('{workspaceRoot}', at)), { externalDependencies: Array.dedupe(['storybook', ...packages]) }];
     const written = Option.getOrElse(output, () => join(root, 'storybook-static'));
-    return {
+    const tools: Record<string, TargetConfiguration> = {
         'build--storybook': {
             command: ['storybook', 'build', ...Option.match(output, { onNone: () => [], onSome: (at) => ['--output-dir', relative(root, at)] })].map(quoteShellArg).join(' '),
             options: { cwd: root },
@@ -107,10 +108,13 @@ const targets = (root: string, packages: readonly string[], chain: readonly stri
             metadata: { description: 'Serves the project stories from the Storybook development server', help: { command: `${exec} storybook dev --help`, example: { args: ['--port=<port>'] } } },
         },
         'clean--storybook': { executor: `${SHARED}:clean`, options: { targets: ['build--storybook'] }, metadata: { description: 'Removes the outputs build--storybook declares' } },
-        build: { dependsOn: ['build--*'] },
-        preview: { dependsOn: ['preview--*'] },
-        serve: { dependsOn: ['serve--*'] },
-        clean: { dependsOn: ['clean--*'] },
+    };
+    return {
+        ...tools,
+        ...Record.map(
+            Array.groupBy(Object.entries(tools), ([label]) => label.slice(0, label.indexOf('--'))),
+            (members, verb): TargetConfiguration => ({ dependsOn: [`${verb}--*`], ...Array.match(Array.dedupe(members.flatMap(([, { inputs: hashed = [] }]) => hashed)), { onEmpty: () => ({}), onNonEmpty: (unique) => ({ inputs: ['...', ...unique] }) }) }),
+        ),
     };
 };
 

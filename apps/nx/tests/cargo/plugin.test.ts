@@ -90,16 +90,14 @@ const built = Effect.fnUntraced(function* ({ id, crate }: Effect.Success<typeof 
 const bound = Duration.toMillis('5 minutes');
 const options = { timeout: bound, excludeTestServices: true } as const;
 
-const locked = Layer.effectDiscard(
-    Effect.gen(function* () {
-        const { called, committed } = yield* Consumer;
-        yield* called('cargo', ['generate-lockfile']);
-        yield* committed('lock');
-    }),
-);
+const locked = Effect.fnUntraced(function* (locks: readonly (readonly [string, ...string[]])[]) {
+    const { called, committed } = yield* Consumer;
+    yield* Effect.forEach(locks, ([command, ...args]) => called(command, args));
+    yield* committed('lock');
+});
 
-const workspace = (stated: Readonly<Record<string, string>> = {}, release: object = {}, plugins: readonly string[] = [plugin.name]) =>
-    locked.pipe(
+const workspace = (stated: Readonly<Record<string, string>> = {}, release: object = {}, plugins: readonly string[] = [plugin.name], locks: readonly (readonly [string, ...string[]])[] = [['cargo', 'generate-lockfile']]) =>
+    Layer.effectDiscard(locked(locks)).pipe(
         Layer.provideMerge(Consumer.layer({ resolved: import.meta.url, settings: { plugins: [...plugins], release: { projects: ['tag:release'], ...release } }, ignored: ['target', '.installed', '.venv'], files: { ...files, ...stated } })),
         Layer.provideMerge(Packed.layer(...plugins)),
         Layer.provideMerge(layer),
@@ -297,7 +295,15 @@ it.layer(
 });
 
 it.layer(
-    workspace({ 'pyproject.toml': '[tool.uv.workspace]\nmembers = ["packages/*"]\n', 'packages/shim/pyproject.toml': '[project]\nname = "rasm-nx-fixture-shim"\nversion = "0.1.0"\nrequires-python = ">=3.13"\ndependencies = []\n' }, {}, [plugin.name, uv.name]),
+    workspace(
+        { 'pyproject.toml': '[tool.uv.workspace]\nmembers = ["packages/*"]\n', 'packages/shim/pyproject.toml': '[project]\nname = "rasm-nx-fixture-shim"\nversion = "0.1.0"\nrequires-python = ">=3.13"\ndependencies = []\n' },
+        {},
+        [plugin.name, uv.name],
+        [
+            ['cargo', 'generate-lockfile'],
+            ['uv', 'lock'],
+        ],
+    ),
     options,
 )((methods) => {
     methods.effect(

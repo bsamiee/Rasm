@@ -77,10 +77,16 @@ const delivered = (options: typeof Options.Type, tools: Readonly<Record<string, 
         const row = options[name];
         return row === false ? Result.failVoid : Result.succeed(row === undefined ? target : mergeTargetConfigurations(row, target));
     });
-    const verbs = Record.keys(kept)
-        .filter((name) => name.includes('--'))
-        .map((name) => name.slice(0, name.indexOf('--')));
-    return { ...kept, ...Record.fromIterableWith(Array.dedupe(verbs), (verb): [string, TargetConfiguration] => [verb, { dependsOn: [`${verb}--*`] }]) };
+    return {
+        ...kept,
+        ...Record.map(
+            Array.groupBy(
+                Object.entries(kept).filter(([label]) => label.includes('--')),
+                ([label]) => label.slice(0, label.indexOf('--')),
+            ),
+            (members, verb): TargetConfiguration => ({ dependsOn: [`${verb}--*`], ...Array.match(Array.dedupe(members.flatMap(([, { inputs: hashed = [] }]) => hashed)), { onEmpty: () => ({}), onNonEmpty: (unique) => ({ inputs: ['...', ...unique] }) }) }),
+        ),
+    };
 };
 
 const projected = (nodes: readonly Node[], options: typeof Options.Type) => {
@@ -114,8 +120,9 @@ const inferred = Effect.fnUntraced(function* (matched: readonly string[], option
     const [fs, edges, stated] = yield* Effect.all([FileSystem.FileSystem, Edges, Schema.decodeUnknownEffect(Options)(options ?? {})]);
     const cache = new PluginCache<{ readonly report: Report; readonly digest: string }>(join(workspaceDataDirectory, `dotnet-${hashObject(options ?? {})}.hash`));
     const held = yield* Effect.findFirst(Array.fromNullishOr(cache.get(PLUGIN)), (stored) => Effect.map(stamped(workspaceRoot, matched, stored.report), (now) => now === stored.digest));
-    const report = yield* Option.match(held, { onSome: (stored) => Effect.succeed(stored.report), onNone: () => analyzed(workspaceRoot, matched) });
-    yield* Option.isNone(held) && report.failures.length === 0 ? Effect.map(stamped(workspaceRoot, matched, report), (digest) => cache.set(PLUGIN, { report, digest })) : Effect.void;
+    const read = yield* Effect.result(Option.match(held, { onSome: (stored) => Effect.succeed(stored.report), onNone: () => analyzed(workspaceRoot, matched) }));
+    const report = Result.getOrElse(read, (): Report => ({ nodes: [], failures: [], evaluated: [] }));
+    yield* Option.isNone(held) && Result.isSuccess(read) && report.failures.length === 0 ? Effect.map(stamped(workspaceRoot, matched, report), (digest) => cache.set(PLUGIN, { report, digest })) : Effect.void;
     cache.writeToDisk();
     yield* Ref.set(edges, related(workspaceRoot, report));
     const solutions = yield* Effect.forEach(
@@ -131,7 +138,7 @@ const inferred = Effect.fnUntraced(function* (matched: readonly string[], option
             }),
     );
     const results = [...projected(report.nodes, stated), ...solutions];
-    const failures = report.failures.map(({ file, message }): [string, Error] => [file, new Cause.UnknownError(file, message)]);
+    const failures = [...Option.toArray(Option.map(Result.getFailure(read), (error): [null, Error] => [null, new Cause.UnknownError(error, error.message)])), ...report.failures.map(({ file, message }): [string, Error] => [file, new Cause.UnknownError(file, message)])];
     return yield* failures.length === 0 ? Effect.succeed(results) : Effect.fail(new AggregateCreateNodesError(failures, results));
 });
 

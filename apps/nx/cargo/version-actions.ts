@@ -104,7 +104,7 @@ class CargoVersionActions extends VersionActions {
                 const crate = yield* Effect.mapError(Effect.fromNullishOr(held.package?.name), refused(manifest, 'names no package'));
                 const search = ['search', crate, '--limit', '1', '--color', 'never', ...Array.fromNullishOr(registry).flatMap((named) => ['--registry', named])];
                 const listed = yield* Completed.output(ChildProcess.make('cargo', search, { cwd: tree.root, stdin: 'ignore' }));
-                const found = yield* Effect.flatMap(Effect.fromResult(Toml.parse(listed)), flow(Schema.decodeUnknownEffect(Found), Effect.map(Record.get(crate))));
+                const found = yield* Effect.flatMap(Effect.fromResult(Toml.parse(listed.slice(0, listed.indexOf('\n')))), flow(Schema.decodeUnknownEffect(Found), Effect.map(Record.get(crate))));
                 const currentVersion = yield* Effect.mapError(Effect.fromOption(found), refused(crate, `is absent from the output of cargo ${search.join(' ')}`));
                 return { currentVersion, logText: `cargo ${search.join(' ')}` };
             }),

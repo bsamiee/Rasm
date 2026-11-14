@@ -5,7 +5,7 @@ import { located } from '#/host-packages';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Install = Schema.Struct({}).annotate({
+const Install = Schema.Record(Schema.String, Schema.Never).annotate({
     title: 'Install',
     description: "Installs what the project's build wrote in the run's configuration where its host loads it: each package built for this platform through the host's own installer, or the unpacked build folder for a host loading one",
 });

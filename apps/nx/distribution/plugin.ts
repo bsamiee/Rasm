@@ -1,6 +1,6 @@
 import { constants } from 'node:http2';
 import { basename, join, matchesGlob, relative } from 'node:path';
-import { env, platform } from 'node:process';
+import process, { platform } from 'node:process';
 import { AggregateCreateNodesError, type CreateNodes, type CreateNodesContext, hashArray, type PreTasksExecution, type ProjectConfiguration, type TargetConfiguration } from '@nx/devkit';
 import { combineGlobPatterns } from '@nx/devkit/internal';
 import { Completed } from '@rasm/process';
@@ -153,7 +153,10 @@ const projects = (declared: readonly Declared[], placed: Option.Option<string>) 
             ...Option.getOrUndefined(Option.map(released, () => ({ release: { version: { versionActions: `${PLUGIN}/release/version-actions`, versionActionsOptions: { manifest: relative(item.root, item.file) } } } }))),
             targets: {
                 ...delivered,
-                ...Record.fromIterableWith(Array.dedupe(Record.keys(delivered).map((name) => name.slice(0, name.indexOf('--')))), (verb): [string, TargetConfiguration] => [verb, { dependsOn: [`${verb}--*`] }]),
+                ...Record.map(
+                    Array.groupBy(Object.entries(delivered), ([label]) => label.slice(0, label.indexOf('--'))),
+                    (members, verb): TargetConfiguration => ({ dependsOn: [`${verb}--*`], ...Array.match(Array.dedupe(members.flatMap(([, { inputs: hashed = [] }]) => hashed)), { onEmpty: () => ({}), onNonEmpty: (unique) => ({ inputs: ['...', ...unique] }) }) }),
+                ),
                 ...Record.fromIterableWith(Array.fromNullishOr(publish), ({ store, command }): [string, TargetConfiguration] => [
                     'nx-release-publish',
                     { executor: `${PLUGIN}:release-publish`, dependsOn: [packer, '^nx-release-publish'], metadata: { description: `Publishes the ${archive} packages of the project to ${store} through ${command}` } },
@@ -200,7 +203,10 @@ const preTasksExecution: PreTasksExecution = (_, { id }) =>
             yield* Effect.transposeOption(
                 Option.map(warning, (text) =>
                     Effect.andThen(
-                        Effect.sync(() => Reflect.set(env, CACHE.server, '')),
+                        Effect.sync(() => {
+                            const { env } = process;
+                            return Reflect.set(env, CACHE.server, '');
+                        }),
                         Console.warn(annotated ? `::warning title=Nx remote cache::${text.replaceAll('%', '%25').replaceAll('\r', '%0D').replaceAll('\n', '%0A')}` : text),
                     ),
                 ),

@@ -1,6 +1,7 @@
 import { basename, dirname, join, relative } from 'node:path';
 import type { TargetConfiguration } from '@nx/devkit';
 import { quoteShellArg } from '@nx/devkit/internal';
+import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Option, Record, Schema, Struct } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -144,19 +145,19 @@ const targets = (node: Node): Record<string, TargetConfiguration> => {
     const delivered: Record<string, TargetConfiguration> = {
         ...tools,
         'clean--dotnet': {
-            executor: '@rasm/nx-distribution:clean',
+            executor: `${distribution.name}:clean`,
             options: { ...cleaned.options, targets: Record.keys(Record.filter(tools, ({ outputs = [] }) => outputs.length > 0)) },
             configurations: cleaned.configurations,
             metadata: metadata('clean', `Removes the build outputs of ${node.name} with dotnet clean`),
         },
         ...('pack--dotnet' in tools && {
             'attach--gh': {
-                executor: '@rasm/nx-distribution:attach',
+                executor: `${distribution.name}:attach`,
                 dependsOn: ['pack--dotnet'],
                 metadata: { description: "Uploads the files pack--dotnet wrote to the GitHub release of the version the project's manifest states through gh release upload", help: { command: 'gh release upload --help', example: { options: { dryRun: true } } } },
             },
             'nx-release-publish': {
-                executor: '@rasm/nx-distribution:publish',
+                executor: `${distribution.name}:publish`,
                 options: { publish: ['dotnet', 'nuget', 'push', '--skip-duplicate'] },
                 dependsOn: ['pack--dotnet', '^nx-release-publish'],
                 metadata: { description: `Pushes the package pack--dotnet wrote for ${node.name} with dotnet nuget push, which reads NUGET_API_KEY and skips a version nuget.org holds`, help: { command: 'dotnet nuget push --help', example: { options: { dryRun: true } } } },

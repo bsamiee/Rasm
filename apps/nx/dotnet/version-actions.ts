@@ -1,13 +1,17 @@
 import { join } from 'node:path';
+import { layer } from '@effect/platform-node/NodeServices';
 import type { Tree } from '@nx/devkit';
+import { Completed } from '@rasm/process';
 import ast from '@xml-tools/ast';
 import xml, { type DocumentCstNode } from '@xml-tools/parser';
 import { Array, Cause, Effect, identity, Option, Result, Schema, SemVer, String, Struct } from 'effect';
+import { ChildProcess } from 'effect/process';
 import { VersionActions } from 'nx/release';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Options = Schema.Struct({ manifest: Schema.String, releases: Schema.Array(Schema.Struct({ shipped: Schema.String, unshipped: Schema.String })) });
+const Found = Schema.fromJsonString(Schema.Struct({ searchResult: Schema.Array(Schema.Struct({ packages: Schema.Array(Schema.Struct({ version: Schema.String })) })) }));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -58,8 +62,15 @@ class DotnetVersionActions extends VersionActions {
         return Effect.runPromise(Effect.map(versioned(tree, manifestPath), ({ version }) => ({ currentVersion: version, manifestPath })));
     }
 
-    override readCurrentVersionFromRegistry() {
-        return Effect.runPromise(Effect.succeed(null));
+    override readCurrentVersionFromRegistry(tree: Tree) {
+        const search = ['package', 'search', this.projectGraphNode.name, '--exact-match', '--format', 'json'];
+        const listed = Effect.flatMap(Completed.output(ChildProcess.make('dotnet', search, { cwd: tree.root, stdin: 'ignore' })), Schema.decodeEffect(Found));
+        return Effect.runPromise(
+            Effect.provide(
+                Effect.map(listed, ({ searchResult }) => Option.getOrNull(Option.map(Array.last(searchResult.flatMap(({ packages }) => packages)), ({ version }) => ({ currentVersion: version, logText: `dotnet ${search.join(' ')}` })))),
+                layer,
+            ),
+        );
     }
 
     override readCurrentVersionOfDependency() {

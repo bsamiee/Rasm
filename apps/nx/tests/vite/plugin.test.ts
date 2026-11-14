@@ -10,7 +10,7 @@ import vite from 'vite/package.json' with { type: 'json' };
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const SCHEMA = 'nx/schemas/project-schema.json';
-const UNREAD = /--version|mise\.lock|node_modules|@rasm\/nx-|TOKEN|SECRET|PASSWORD|CREDENTIAL/u;
+const UNREAD = /(?:^|[\s"'])-{0,2}version\b|mise\.lock|node_modules|@rasm\/nx-|TOKEN|SECRET|PASSWORD|CREDENTIAL/u;
 const bounds = { built: '5 minutes', test: Duration.toMillis('2 minutes') } as const;
 const html = '<!doctype html><script type="module" src="./main.ts"></script>\n';
 const entry = 'export const entry = 1;\n';
@@ -81,7 +81,7 @@ const workspace = (stated: Readonly<Record<string, string>>) => Layer.provideMer
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-it.layer(workspace(files), { timeout: bounds.built, excludeTestServices: true })('@rasm/nx-vite over applications and libraries', (methods) => {
+it.layer(workspace(files), { timeout: bounds.built, excludeTestServices: true })((methods) => {
     const spec = 'nrwl/nx packages/vite/src/plugins/plugin.spec.ts';
     const snapshot = 'nrwl/nx packages/vite/src/plugins/__snapshots__/plugin.spec.ts.snap';
     const tasks = 'README.md TASKS';
@@ -233,10 +233,12 @@ it.layer(workspace(files), { timeout: bounds.built, excludeTestServices: true })
     );
 
     methods.effect(
-        'a change to a file the config loads marks the project affected',
+        'a change to a file the config loads marks the project affected, and nx affected -t build plans its build',
         Effect.fnUntraced(function* () {
-            const { nx } = yield* Consumer;
+            const [{ nx, planned }, graph] = yield* Effect.all([Consumer, read]);
             const { checked } = yield* nx('show', 'projects', '--affected', '--files=tools/vite/base.ts', '--json');
+            const selected = yield* planned('affected', '--targets=build', '--files=tools/vite/base.ts');
+            assert.include(Record.keys(selected.tasks), task(graph, 'kit', 'build'), 'nrwl/nx packages/nx/src/native/affected/tasks/selection.rs: only the targets the command asked for are kept, and affectedness never travels along plain dependsOn, so verb build states the inputs of build--<tool>');
             assert.include(yield* Effect.flatMap(checked, Schema.decodeEffect(Names)), 'kit', `${tasks} "--files=<path> limits it to one change's reach": libs/kit/vite.config.ts imports tools/vite/base.ts`);
         }),
         bounds.test,
@@ -263,7 +265,7 @@ it.layer(workspace(files), { timeout: bounds.built, excludeTestServices: true })
     );
 
     methods.effect(
-        'no input of an inferred target is a --version command, plugin source, mise.lock, or a credential variable',
+        'no input of an inferred target is a version command (--version, -version, <tool> version), plugin source, mise.lock, or a credential variable',
         Effect.fnUntraced(function* () {
             const rows = Object.values((yield* read).nodes)
                 .flatMap(({ data }) => Object.values(data.targets ?? {}))
@@ -290,7 +292,7 @@ it.layer(workspace(files), { timeout: bounds.built, excludeTestServices: true })
     );
 });
 
-it.layer(workspace(files), { timeout: bounds.built, excludeTestServices: true })('@rasm/nx-vite over a workspace that builds and changes', (methods) => {
+it.layer(workspace(files), { timeout: bounds.built, excludeTestServices: true })((methods) => {
     methods.effect(
         'vite build writes every file under the declared outputs',
         Effect.fnUntraced(function* () {
@@ -325,9 +327,9 @@ it.layer(workspace(files), { timeout: bounds.built, excludeTestServices: true })
     );
 });
 
-it.layer(workspace({ ...files, 'apps/broken/package.json': '{ "name": "broken", "type": "module" }\n', 'apps/broken/vite.config.ts': "throw new Error('broken on load');\n" }), { timeout: bounds.built, excludeTestServices: true })('@rasm/nx-vite with a config that fails to load', (methods) => {
+it.layer(workspace({ ...files, 'apps/broken/package.json': '{ "name": "broken", "type": "module" }\n', 'apps/broken/vite.config.ts': "throw new Error('broken on load');\n" }), { timeout: bounds.built, excludeTestServices: true })((methods) => {
     methods.effect(
-        'the failure names the config file and every other project keeps its targets',
+        'a config that fails to load is named in the failure, and every other project keeps its targets',
         Effect.fnUntraced(function* () {
             const graph = yield* read;
             const errors = 'nrwl/nx packages/nx/src/project-graph/error-types.ts AggregateCreateNodesError';

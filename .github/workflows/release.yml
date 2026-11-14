@@ -108,12 +108,11 @@ jobs:
             credentials:
                 username: ${{ github.actor }}
                 password: ${{ secrets.EPIC_GHCR_TOKEN }}
-            env:
-                HOME: /home/ue4
-                UnrealBuildTool_UnrealBuildAccelerator__AllowDetour: "false"
         env:
             GH_TOKEN: ${{ github.token }}
             UV_LOCKED: "true"
+            HOME: /home/ue4
+            UnrealBuildTool_UnrealBuildAccelerator__AllowDetour: "false"
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:

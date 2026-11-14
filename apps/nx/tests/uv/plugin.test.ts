@@ -42,7 +42,7 @@ const described = (path: Path.Path, root: string, folders: Record.ReadonlyRecord
     const folder = path.relative(root, at);
     return {
         name,
-        version: Array.getSomes(resolved.map(({ version }) => Option.fromNullishOr(version))).join(','),
+        version: Array.dedupe(Array.getSomes(resolved.map(({ version }) => Option.fromNullishOr(version)))).join(','),
         root: folder,
         manifest: path.join(folder, 'pyproject.toml'),
         tested: needed.some((dependency) => dependency.startsWith('pytest==')),
@@ -102,16 +102,14 @@ const built = Effect.fnUntraced(function* ({ names }: Effect.Success<typeof memb
 const bound = Duration.toMillis('5 minutes');
 const options = { timeout: bound, excludeTestServices: true } as const;
 
-const locked = Layer.effectDiscard(
-    Effect.gen(function* () {
-        const { called, committed } = yield* Consumer;
-        yield* called('uv', ['lock']);
-        yield* committed('lock');
-    }),
-);
+const locked = Effect.fnUntraced(function* () {
+    const { called, committed } = yield* Consumer;
+    yield* called('uv', ['lock']);
+    yield* committed('lock');
+});
 
 const workspace = (stated: Readonly<Record<string, string>> = {}, release: object = {}) =>
-    locked.pipe(
+    Layer.effectDiscard(locked()).pipe(
         Layer.provideMerge(
             Consumer.layer({
                 resolved: import.meta.url,
@@ -144,7 +142,7 @@ conforms({
         yield* called('uv', ['lock']);
     }),
     published: true,
-    refused: { 'broken/pyproject.toml': '[project\nname = ' },
+    refused: { 'broken/uv.lock': 'version = 1\n', 'broken/pyproject.toml': '[project\nname = ' },
     manifests: (next) => ({
         'packages/core/pyproject.toml': files['packages/core/pyproject.toml'].replaceAll('0.1.0', next),
         'packages/middle/pyproject.toml': files['packages/middle/pyproject.toml'].replaceAll('0.1.0', next),
@@ -225,13 +223,15 @@ it.layer(
 });
 
 it.layer(
-    workspace({ 'packages/middle/pyproject.toml': '[project\nname = ' }),
+    workspace(),
     options,
 )((methods) => {
     methods.effect(
-        'names the member manifest uv refuses in the graph failure',
+        'names the member manifest uv refuses in the graph failure of a locked workspace',
         Effect.fnUntraced(function* () {
-            const { failures } = yield* Effect.flatMap(Consumer, ({ read }) => read);
+            const { read, wrote } = yield* Consumer;
+            yield* wrote({ 'packages/middle/pyproject.toml': '[project\nname = ' });
+            const { failures } = yield* read;
             assert.include([...failures, ...failures.flatMap(({ files: named }) => named)].map(({ message }) => message).join('\n'), 'packages/middle/pyproject.toml', 'uv stderr; nrwl/nx packages/nx/src/project-graph/plugins/utils.spec.ts "should handle partial errors"');
         }),
         bound,
@@ -245,7 +245,7 @@ it.layer(
                 resolved: import.meta.url,
                 settings: { plugins: [plugin.name], release: { projects: ['tag:release'], version: { currentVersionResolver: 'registry' } } },
                 ignored: ['.venv', 'dist', '.latest'],
-                files: { 'packages/six/pyproject.toml': files['packages/core/pyproject.toml'].replace('rasm-nx-fixture-core', 'six'), 'packages/six/src/six/__init__.py': '' },
+                files: { 'pyproject.toml': files['packages/core/pyproject.toml'].replace('rasm-nx-fixture-core', 'six'), 'src/six/__init__.py': '' },
             }),
         ),
         Layer.provideMerge(Packed.layer(plugin.name)),
@@ -257,7 +257,7 @@ it.layer(
         'reads the current version of a member from the index uv installs from',
         Effect.fnUntraced(function* () {
             const { root, nx, called } = yield* Consumer;
-            const found = yield* called('uv', ['pip', 'install', '--dry-run', '--no-deps', '--target', `${root}/.latest`, 'six']);
+            const found = yield* called('uv', ['pip', 'install', '--color', 'never', '--dry-run', '--no-deps', '--target', `${root}/.latest`, 'six']);
             const latest = yield* pipe(
                 Array.findFirst(`${found.stdout}${found.stderr}`.split('\n'), (line) => line.startsWith(' + six==')),
                 Option.map((line) => line.replace(' + six==', '').trim()),
@@ -265,7 +265,7 @@ it.layer(
                 Effect.orDie,
             );
             const shown = yield* nx('release', 'version', 'patch', '--dry-run');
-            assert.include(`${shown.stdout}${shown.stderr}`, `Resolved the current version as ${latest} from the remote registry`, 'uv pip install --dry-run --no-deps --target <folder> <name>; nrwl/nx packages/nx/src/command-line/release/version/resolve-current-version.ts "registry"');
+            assert.include(`${shown.stdout}${shown.stderr}`, `Resolved the current version as ${latest} from the remote registry`, 'uv pip install --color never --dry-run --no-deps --target <folder> <name>; nrwl/nx packages/nx/src/command-line/release/version/resolve-current-version.ts "registry"');
         }),
         bound,
     );

@@ -1,10 +1,10 @@
 import { basename, dirname, join, relative } from 'node:path';
 import { layer } from '@effect/platform-node/NodeServices';
-import { type CreateDependencies, type CreateNodes, type CreateNodesContext, createNodesFromFiles, DependencyType, type ProjectConfiguration, type TargetConfiguration } from '@nx/devkit';
+import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesContext, DependencyType, type ProjectConfiguration } from '@nx/devkit';
 import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, getNamedInputs, hashObject, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
-import { Array, Context, Effect, Layer, ManagedRuntime, Option, Predicate, Record, Schema } from 'effect';
+import { Array, Context, Effect, Layer, ManagedRuntime, Option, Predicate, Record, Result, Schema } from 'effect';
 import { CONFIG, memberInputs, memberTargets, PLUGIN, SHARED } from '#/targets';
-import { MANIFEST, PRESETS, planted, resolved, type Tree } from '#/workspace';
+import { MANIFEST, PRESETS, planted, refused, resolved, type Tree } from '#/workspace';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -33,15 +33,15 @@ const inferred = Effect.fnUntraced(function* (cache: PluginCache<{ readonly tree
     const built = Array.fromNullishOr(tree.workflows[0]).flatMap((head) => tree.members.filter(({ targets, installs, tested }) => targets.length > 0 || installs || tested).map((member) => ({ member, head })));
     const files = new Set(matched);
     const projects = Record.fromIterableWith(built, ({ member, head }): [string, ProjectConfiguration] => {
-        const { default: sources = ['{projectRoot}/**/*'] } = getNamedInputs(member.root, context);
-        const tools = memberTargets(tree, member, outputPath, files, head);
+        const { default: sources } = getNamedInputs(member.root, context);
+        const targets = memberTargets(tree, member, outputPath, files, head);
         const project = {
             root: member.root,
             name: member.name,
             metadata: { technologies: ['cmake'] },
             namedInputs: { default: memberInputs(tree, member, sources) },
-            ...('pack--cpack' in tools && { tags: ['release'], release: { version: { versionActions: `${PLUGIN}/release/version-actions` } } }),
-            targets: { ...tools, ...Record.fromIterableWith(Array.dedupe(Record.keys(tools).map((name) => name.slice(0, name.indexOf('--')))), (verb): [string, TargetConfiguration] => [verb, { dependsOn: [`${verb}--*`] }]) },
+            ...('pack--cpack' in targets && { tags: ['release'], release: { version: { versionActions: `${PLUGIN}/release/version-actions` } } }),
+            targets,
         };
         return [member.root, project];
     });
@@ -60,7 +60,12 @@ const createNodes: CreateNodes = [
         const presets = matched.filter((file) => basename(file) === PRESETS && matched.includes(join(dirname(file), MANIFEST)));
         return runtime.runPromise(
             Effect.ensuring(
-                Effect.promise(() => createNodesFromFiles((file) => runtime.runPromise(inferred(cache, context, outputPath, matched, file)), presets, options, context)),
+                Effect.gen(function* () {
+                    const read = Array.zip(presets, yield* Effect.forEach(presets, (file) => Effect.result(inferred(cache, context, outputPath, matched, file)), { concurrency: 'unbounded' }));
+                    const failures = Array.filterMap(read, ([file, result]) => Result.map(Result.flip(result), (error): [string, Error] => [file, refused(file, error.message)(error)]));
+                    const results = Array.filterMap(read, ([file, result]) => Result.map(result, (held) => [file, held] as const));
+                    return yield* failures.length === 0 ? Effect.succeed(results) : Effect.fail(new AggregateCreateNodesError(failures, results));
+                }),
                 Effect.sync(() => cache.writeToDisk()),
             ),
         );

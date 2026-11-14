@@ -1,5 +1,6 @@
 import { basename, dirname, join, parse, relative } from 'node:path';
 import type { TargetConfiguration } from '@nx/devkit';
+import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Equivalence, Option, Record, Result, String } from 'effect';
 import type { Cargo, Command } from '#/executors/cargo/executor';
 import { ancestors, LOCK, MANIFEST, type Member, type Workspace } from '#/workspace';
@@ -22,7 +23,7 @@ const HOST = { runtime: 'rustc --print host-tuple' } as const;
 const MESSAGES = ['--message-format', 'json-diagnostic-rendered-ansi'] as const;
 const SUITES = { args: ['--cargo-message-format', 'json-diagnostic-rendered-ansi', '--message-format', 'libtest-json-plus', '--message-format-version', '0.1'], env: { NEXTEST_EXPERIMENTAL_LIBTEST_JSON: '1' } } as const;
 const PLUGIN = '@rasm/nx-cargo';
-const SHARED = '@rasm/nx-distribution';
+const SHARED = distribution.name;
 const LOCKED = '--locked';
 const SOURCES: NonNullable<TargetConfiguration['inputs']> = ['default', '^default', { externalDependencies: [] }];
 
@@ -246,7 +247,13 @@ const projectTargets = (workspace: Workspace, files: ReadonlySet<string>, report
             metadata: { technologies: ['rust'], description: cleaned.description, help: { command: 'cargo clean --help', example: { args: ['--release'] } } },
         },
     };
-    return { ...delivered, ...Record.fromIterableWith(Array.dedupe(Record.keys(delivered).map((name) => name.slice(0, name.indexOf('--')))), (verb): [string, TargetConfiguration] => [verb, { dependsOn: [`${verb}--*`] }]) };
+    return {
+        ...delivered,
+        ...Record.map(
+            Array.groupBy(Object.entries(delivered), ([label]) => label.slice(0, label.indexOf('--'))),
+            (members, verb): TargetConfiguration => ({ dependsOn: [`${verb}--*`], ...Array.match(Array.dedupe(members.flatMap(([, { inputs: hashed = [] }]) => hashed)), { onEmpty: () => ({}), onNonEmpty: (unique) => ({ inputs: ['...', ...unique] }) }) }),
+        ),
+    };
 };
 
 const released = ({ crate }: Member, cwd: string) => {

@@ -27,8 +27,8 @@ jobs:
             engines: ${{ steps.listed.outputs.engines }}
         env: &cache
             UV_LOCKED: "true"
-            NX_SELF_HOSTED_REMOTE_CACHE_SERVER: ${{ secrets.NX_SELF_HOSTED_REMOTE_CACHE_SERVER }}
-            NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN: ${{ github.event_name == 'push' && secrets.NX_CACHE_WRITE_TOKEN || secrets.NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN }}
+            NX_SELF_HOSTED_REMOTE_CACHE_SERVER: &server ${{ secrets.NX_SELF_HOSTED_REMOTE_CACHE_SERVER }}
+            NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN: &token ${{ github.event_name == 'push' && secrets.NX_CACHE_WRITE_TOKEN || secrets.NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN }}
         steps:
             - &checkout
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -108,10 +108,12 @@ jobs:
             credentials:
                 username: ${{ github.actor }}
                 password: ${{ secrets.EPIC_GHCR_TOKEN }}
-            env:
-                HOME: /home/ue4
-                UnrealBuildTool_UnrealBuildAccelerator__AllowDetour: "false"
-        env: *cache
+        env:
+            UV_LOCKED: "true"
+            NX_SELF_HOSTED_REMOTE_CACHE_SERVER: *server
+            NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN: *token
+            HOME: /home/ue4
+            UnrealBuildTool_UnrealBuildAccelerator__AllowDetour: "false"
         steps:
             - *checkout
             - *shas

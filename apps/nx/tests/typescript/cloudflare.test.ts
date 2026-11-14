@@ -37,7 +37,7 @@ const generated = ({ nodes }: Pick<ProjectGraph, 'nodes'>, project: string) => R
 
 const workspace = (stated: Readonly<Record<string, string>>) => Layer.provideMerge(Consumer.layer({ resolved: import.meta.url, settings: { plugins: [plugin.name] }, packages: [tool.name], ignored: ['.cloudflare', '.wrangler'], files: stated }), Layer.provideMerge(Packed.layer(plugin.name), layer));
 
-it.layer(workspace(files), { timeout: bounds.built, excludeTestServices: true })('@rasm/nx-typescript over two Workers and one plain package', (methods) => {
+it.layer(workspace(files), { timeout: bounds.built, excludeTestServices: true })((methods) => {
     const api = 'nrwl/nx packages/nx/src/project-graph/plugins/public-api.ts CreateNodesV2';
     const codegen = 'README.md TASKS "codegen writes source code a project\'s tools derive from its schemas and configuration"';
 
@@ -110,9 +110,9 @@ it.layer(workspace(files), { timeout: bounds.built, excludeTestServices: true })
     );
 });
 
-it.layer(workspace({ ...files, 'apps/broken/package.json': '{ "name": "broken", "type": "module" }\n', 'apps/broken/cloudflare.config.ts': "throw new Error('broken on load');\n" }), { timeout: bounds.built, excludeTestServices: true })('@rasm/nx-typescript with a cloudflare.config.ts that fails to load', (methods) => {
+it.layer(workspace({ ...files, 'apps/broken/package.json': '{ "name": "broken", "type": "module" }\n', 'apps/broken/cloudflare.config.ts': "throw new Error('broken on load');\n" }), { timeout: bounds.built, excludeTestServices: true })((methods) => {
     methods.effect(
-        'no other project loses its codegen target, and a failure names the config file',
+        'a cloudflare.config.ts that fails to load loses no other project its codegen target, and a failure names that file alone',
         Effect.fnUntraced(function* () {
             const errors = 'nrwl/nx packages/nx/src/project-graph/error-types.ts AggregateCreateNodesError';
             const graph = yield* read;

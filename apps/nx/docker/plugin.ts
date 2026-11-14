@@ -3,7 +3,7 @@ import { layer } from '@effect/platform-node/NodeServices';
 import { type CreateDependencies, type CreateDependenciesContext, type CreateNodes, type CreateNodesContext, createNodesFromFiles, DependencyType, getOutputsForTargetAndConfiguration, type ProjectConfiguration, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
 import { getReadyCheckReadyWhen, hashObject, hashWithWorkspaceContext, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
 import { Completed } from '@rasm/process';
-import { Array, Context, Effect, FileSystem, Layer, ManagedRuntime, Option, Order, Predicate, Record, Schema } from 'effect';
+import { Array, Cause, Context, Effect, FileSystem, Layer, ManagedRuntime, Option, Order, Predicate, Record, Schema } from 'effect';
 import { Yaml } from 'effect/encoding';
 import { ChildProcess } from 'effect/process';
 
@@ -125,13 +125,21 @@ const targets = (root: string, project: Composed): Record<string, TargetConfigur
     };
 };
 
+const aggregated = (tools: Readonly<Record<string, TargetConfiguration>>): Record<string, TargetConfiguration> => ({
+    ...tools,
+    ...Record.map(
+        Array.groupBy(Object.entries(tools), ([label]) => label.slice(0, label.indexOf('--'))),
+        (members, verb): TargetConfiguration => ({ dependsOn: [`${verb}--*`], ...Array.match(Array.dedupe(members.flatMap(([, { inputs: hashed = [] }]) => hashed)), { onEmpty: () => ({}), onNonEmpty: (unique) => ({ inputs: ['...', ...unique] }) }) }),
+    ),
+});
+
 const inferred = Effect.fnUntraced(function* (cache: PluginCache<{ readonly project: Composed; readonly digest: string }>, context: CreateNodesContext, root: string, matched: Array.NonEmptyReadonlyArray<string>) {
     const stamped = (read: readonly string[]) => Effect.promise(() => hashWithWorkspaceContext(context.workspaceRoot, [...matched, ...read]));
     const stored = Option.fromUndefinedOr(cache.get(root));
     const current = yield* stamped(Option.match(stored, { onNone: () => [], onSome: (entry) => entry.project.read }));
     const project = yield* Option.match(
         Option.filter(stored, (entry) => entry.digest === current),
-        { onSome: (entry) => Effect.succeed(entry.project), onNone: () => analyzed(context.workspaceRoot, root, matched) },
+        { onSome: (entry) => Effect.succeed(entry.project), onNone: () => Effect.catchCause(analyzed(context.workspaceRoot, root, matched), (cause) => Effect.fail(new Cause.UnknownError(cause, `${Array.min(matched, Order.String)}: does not load as a Compose project: ${Cause.pretty(cause)}`))) },
     );
     cache.set(root, { project, digest: yield* stamped(project.read) });
     (yield* Analyses).set(join(context.workspaceRoot, root), project);
@@ -142,7 +150,7 @@ const inferred = Effect.fnUntraced(function* (cache: PluginCache<{ readonly proj
             root: at,
             ...(at === root && { name: project.name }),
             metadata: { technologies: ['compose'] },
-            targets: { ...tools, ...Record.fromIterableWith(Array.dedupe(Record.keys(tools).map((name) => name.slice(0, name.indexOf('--')))), (verb): [string, TargetConfiguration] => [verb, { dependsOn: [`${verb}--*`] }]) },
+            targets: aggregated(tools),
         }),
     );
     return { projects };

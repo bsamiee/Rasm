@@ -13,6 +13,7 @@ import { Ini, Toml, Yaml, Zip } from 'effect/encoding';
 import { HttpClient, HttpClientRequest, HttpClientResponse } from 'effect/http';
 import { ChildProcess, type ChildProcessSpawner } from 'effect/process';
 import { applyEdits, modify, parse } from 'jsonc-parser';
+import { parseDocument, Scalar } from 'yaml';
 import { refused, written } from '#/executor';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -221,7 +222,7 @@ const HOSTS: readonly Host[] = [
             executor: 'extension-build',
             command: 'blender_ext.py build',
             lock: 'uv.lock',
-            runtime: ['uv --version', ['uv', ...PYTHON, `import hashlib, os, shutil; print(hashlib.file_digest(open(${LOCATED}, 'rb'), 'sha256').hexdigest())`].map(quoteShellArg).join(' ')],
+            runtime: [['uv', ...PYTHON, `import hashlib, os, shutil; print(hashlib.file_digest(open(${LOCATED}, 'rb'), 'sha256').hexdigest())`].map(quoteShellArg).join(' ')],
         },
         install: {
             command: 'blender --command extension install-file',
@@ -251,6 +252,13 @@ const HOSTS: readonly Host[] = [
         technology: 'yak',
         archive: '.yak',
         read: (text) => Effect.succeed(Option.map(Option.flatMap(Option.liftThrowable(Yaml.parse)(text), Schema.decodeUnknownOption(Yak)), ({ name, version }) => ({ name, version }))),
+        write: (text, version) =>
+            pipe(
+                Option.liftPredicate(parseDocument(text).get('version'), (node) => node instanceof Scalar),
+                Option.flatMap(({ range }) => Option.fromNullishOr(range)),
+                Effect.fromOption,
+                Effect.mapBoth({ onFailure: refused('manifest.yml', 'states no version'), onSuccess: ([start, end]) => `${text.slice(0, start)}${version}${text.slice(end)}` }),
+            ),
         build: {
             executor: 'package',
             command: 'yak build',

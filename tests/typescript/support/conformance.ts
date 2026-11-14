@@ -43,6 +43,7 @@ interface Ecosystem<R, M extends Member> {
 
 const REPLAYED = /:(?:build|test|check)--/u;
 const EFFECTFUL = /:(?:fix|clean|install|upgrade)(?:--|$)|:nx-release-publish$/u;
+const PUBLISH = ':nx-release-publish';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -79,9 +80,13 @@ const tasked = (members: readonly Member[]) => members.flatMap(({ name, verbs })
 
 const pairs = (members: readonly Member[]) => members.flatMap(({ root, dependencies }) => dependencies.map((dependency) => `${root} -> ${dependency}`));
 
-const awaited = (dependencies: Record.ReadonlyRecord<string, readonly { readonly id: string }[]>) => Object.entries(dependencies).flatMap(([id, tasks]) => tasks.map((task) => `${id} -> ${task.id}`));
+const awaited = (dependencies: Record.ReadonlyRecord<string, readonly { readonly id: string }[]>) =>
+    Object.entries(dependencies)
+        .flatMap(([id, tasks]) => tasks.map((task) => [id, task.id] as const))
+        .filter((ends) => ends.every((end) => end.endsWith(PUBLISH)))
+        .map((ends) => ends.join(' -> '));
 
-const waits = (open: readonly Member[]) => open.flatMap(({ name, dependencies }) => open.filter(({ root }) => dependencies.includes(root)).map((needed) => `${name}:nx-release-publish -> ${needed.name}:nx-release-publish`));
+const waits = (open: readonly Member[]) => open.flatMap(({ name, dependencies }) => open.filter(({ root }) => dependencies.includes(root)).map((needed) => `${name}${PUBLISH} -> ${needed.name}${PUBLISH}`));
 
 const counted = Effect.fnUntraced(function* (tools: readonly string[], reset: string) {
     const { root, called, wrote, text } = yield* Consumer;
@@ -187,7 +192,7 @@ const conforms = <R, M extends Member>({ workspace, members, built, report, tool
         );
 
         methods.effect(
-            'draws one static edge per dependency the tool reports between members, and none for a transitive one',
+            'draws one edge per dependency the tool reports between members and none for a transitive one, static where the member holds its manifest and implicit elsewhere',
             Effect.fnUntraced(function* () {
                 const [stated, { roots, edges }] = yield* Effect.all([members, placed]);
                 assert.sameMembers(
@@ -195,10 +200,11 @@ const conforms = <R, M extends Member>({ workspace, members, built, report, tool
                     pairs(stated),
                     `${report}; nrwl/nx e2e/dotnet/src/dotnet.test.ts "should detect project dependencies"; e2e/dotnet/src/dotnet-dependency-graph.test.ts "should only show direct dependencies, not transitive ones"`,
                 );
+                const holders = stated.filter(({ root, manifest }) => manifest.startsWith(`${root}/`)).map(({ name }) => name);
                 assert.deepStrictEqual(
-                    edges.filter(({ type }) => type !== 'static').map(({ source, target, type }) => `${source} -> ${target} ${type}`),
+                    edges.filter(({ source, type }) => (type === 'static') !== holders.includes(source)).map(({ source, target, type }) => `${source} -> ${target} ${type}`),
                     [],
-                    'nrwl/nx packages/gradle/src/plugin/dependencies.spec.ts "records an edge as static when the source project owns the build file"',
+                    'nrwl/nx packages/gradle/src/plugin/dependencies.spec.ts "records an edge as static when the source project owns the build file", "records an ancestor-configured project as implicit, since Nx rejects a sourceFile outside the source project"',
                 );
             }),
             bound,
@@ -448,12 +454,12 @@ const conforms = <R, M extends Member>({ workspace, members, built, report, tool
             published ? 'gives every released member a publish target that waits on the publish of each released member it depends on, and no other member one' : 'gives no member a publish target',
             Effect.fnUntraced(function* () {
                 const [{ planned }, stated] = yield* Effect.all([Consumer, members]);
-                const { tasks, dependencies } = yield* planned('run-many', '--targets=nx-release-publish');
+                const { tasks, dependencies } = yield* planned('run-many', `--targets=${PUBLISH.slice(1)}`);
                 const open = stated.filter(({ released }) => released && published);
-                const source = `${report}; README.md DELIVERY "Publishing delivers those files by each destination's own command"; nrwl/nx e2e/release/src/private-js-packages.test.ts "should skip private packages"`;
+                const source = `${report}; README.md DELIVERY "Publishing delivers those files by each destination's own command"; TASKS "Attach and publish targets depend on the targets that package their files"; nrwl/nx e2e/release/src/private-js-packages.test.ts "should skip private packages"`;
                 assert.sameMembers(
-                    Record.keys(tasks),
-                    open.map(({ name }) => `${name}:nx-release-publish`),
+                    Record.keys(tasks).filter((id) => id.endsWith(PUBLISH)),
+                    open.map(({ name }) => `${name}${PUBLISH}`),
                     source,
                 );
                 assert.sameMembers(awaited(dependencies), waits(open), source);

@@ -1,5 +1,6 @@
 import { basename, dirname, join, relative } from 'node:path';
 import type { TargetConfiguration } from '@nx/devkit';
+import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Option, Record } from 'effect';
 import type { Cmake } from '#/executors/cmake/executor';
 import type { Package } from '#/executors/package/executor';
@@ -14,15 +15,15 @@ type Workflow = Tree['workflows'][number];
 
 const CONFIG = '.clang-tidy';
 const PLUGIN = '@rasm/nx-cmake';
-const SHARED = '@rasm/nx-distribution';
+const SHARED = distribution.name;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const tokened = (file: string) => join('{workspaceRoot}', file);
 
-const memberInputs = (tree: Tree, member: Member, stated: NonNullable<TargetConfiguration['inputs']>): NonNullable<TargetConfiguration['inputs']> => [
-    ...stated,
-    ...tree.inputs.filter((file) => !tree.members.some(({ root }) => root !== tree.root && !relative(root, file).startsWith('..'))).map((file) => tokened(file)),
+const memberInputs = (tree: Tree, member: Member, stated: TargetConfiguration['inputs']): NonNullable<TargetConfiguration['inputs']> => [
+    ...(stated ?? (member.folders.includes(member.root) ? ['{projectRoot}/**/*'] : member.folders.map((folder) => tokened(join(folder, '**/*'))))),
+    ...tree.inputs.filter((file) => !tree.members.some(({ root }) => root !== tree.root && root !== member.root && !relative(root, file).startsWith('..'))).map((file) => tokened(file)),
     ...(member.root === tree.root ? [] : [tokened(join(tree.root, PRESETS))]),
     { runtime: 'node -p process.platform+process.arch' },
 ];
@@ -46,7 +47,7 @@ const memberTargets = (tree: Tree, member: Member, outputPath: Option.Option<str
         ),
     );
     const sources = ['default', '^default', { externalDependencies: [] }];
-    const tidied = [...files].filter((file) => basename(file) === CONFIG && dirname(file) !== member.root && !relative(dirname(file), member.root).startsWith('..')).map((file) => tokened(file));
+    const tidied = [...files].filter((file) => basename(file) === CONFIG && !relative(dirname(file), member.root).startsWith('..')).map((file) => tokened(file));
     const waits = Option.match(targets, { onNone: () => ({}), onSome: () => ({ dependsOn: ['build--cmake'] }) });
     const planned = (workflow: Workflow, defines: Readonly<Record<string, string>> = {}) => ({
         at: workflow.tree,
@@ -107,7 +108,9 @@ const memberTargets = (tree: Tree, member: Member, outputPath: Option.Option<str
         } satisfies typeof Package.Type;
     };
     const built = Record.getSomes<string, TargetConfiguration>({
-        'build--cmake': Option.map(targets, (names) => target('cmake --build', `Builds the targets of ${member.name} in the tree its workflow preset configures`, builds(names)(head), { inputs: sources, outputs: builds(names)(head).outputs.map((_, at) => `{options.outputs.${at}}`), ...varied(builds(names)) })),
+        'build--cmake': Option.map(targets, (names) =>
+            target('cmake --build', `Builds the targets of ${member.name} in the tree its workflow preset configures`, builds(names)(head), { cache: true, inputs: sources, outputs: builds(names)(head).outputs.map((_, at) => `{options.outputs.${at}}`), ...varied(builds(names)) }),
+        ),
         'pack--cpack': Option.map(Option.all({ packed: packing, names: targets }), ({ packed: { workflow, stated }, names }) => ({
             executor: `${PLUGIN}:package`,
             options: packs(workflow, stated, names),
@@ -129,7 +132,7 @@ const memberTargets = (tree: Tree, member: Member, outputPath: Option.Option<str
     const written = Record.keys(Record.filter(tools, ({ outputs = [] }) => outputs.length > 0));
     const cleaning: TargetConfiguration = Option.match(targets, {
         onNone: () => ({ metadata: { description: `Removes the outputs ${written.join(', ')} declare` } }),
-        onSome: () => ({ options: cleans(head), ...varied(cleans), metadata: { description: `Removes the build products of ${member.name} with the clean target of its configured tree`, help: { command: 'cmake --build', example: { args: ['--verbose'] } } } }),
+        onSome: () => ({ options: cleans(head), parallelism: false, ...varied(cleans), metadata: { description: `Removes the build products of ${member.name} with the clean target of its configured tree`, help: { command: 'cmake --build', example: { args: ['--verbose'] } } } }),
     });
     const delivered: Record<string, TargetConfiguration> = {
         ...tools,
@@ -142,7 +145,13 @@ const memberTargets = (tree: Tree, member: Member, outputPath: Option.Option<str
             },
         }),
     };
-    return Record.map(delivered, (tool): TargetConfiguration => ({ ...tool, metadata: { technologies: ['cmake'], ...tool.metadata } }));
+    return {
+        ...Record.map(delivered, (tool): TargetConfiguration => ({ ...tool, metadata: { technologies: ['cmake'], ...tool.metadata } })),
+        ...Record.map(
+            Array.groupBy(Object.entries(delivered), ([label]) => label.slice(0, label.indexOf('--'))),
+            (members, verb): TargetConfiguration => ({ dependsOn: [`${verb}--*`], ...Array.match(Array.dedupe(members.flatMap(([, { inputs: hashed = [] }]) => hashed)), { onEmpty: () => ({}), onNonEmpty: (unique) => ({ inputs: ['...', ...unique] }) }) }),
+        ),
+    };
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------

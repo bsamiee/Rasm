@@ -11,7 +11,7 @@ import vitest from 'vitest/package.json' with { type: 'json' };
 
 const SPEC = 'nrwl/nx packages/vitest/src/plugins/plugin-vitest.spec.ts';
 const SCHEMA = 'nx/schemas/project-schema.json';
-const UNREAD = /--version|mise\.lock|node_modules|@rasm\/nx-|TOKEN|SECRET|PASSWORD|CREDENTIAL/u;
+const UNREAD = /(?:^|[\s"'])-{0,2}version\b|mise\.lock|node_modules|@rasm\/nx-|TOKEN|SECRET|PASSWORD|CREDENTIAL/u;
 const bounds = { built: '5 minutes', test: Duration.toMillis('3 minutes') } as const;
 const passing = "import { expect, test } from 'vitest';\n\ntest('adds', () => expect(1 + 1).toBe(2));\n";
 const listing = (...names: readonly string[]) => {
@@ -48,8 +48,8 @@ const rooted = {
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Projects = Schema.fromJsonString(Schema.Array(Schema.Struct({ name: Schema.String, root: Schema.String, setup: Schema.Array(Schema.String), coverage: Schema.String, cache: Schema.String }))).annotate({
-    description: 'Name, root, setup files, coverage folder, and Vite cache folder of each project createVitest of vitest/node resolves from the config of the working directory',
+const Projects = Schema.fromJsonString(Schema.Array(Schema.Struct({ name: Schema.String, root: Schema.String, setup: Schema.Array(Schema.String), coverage: Schema.String }))).annotate({
+    description: 'Name, root, setup files, and coverage folder of each project createVitest of vitest/node resolves from the config of the working directory',
 });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -61,7 +61,7 @@ const projects = Effect.fnUntraced(function* (folder: string) {
     const printed = yield* evaluated(
         `import { createVitest } from 'vitest/node';
 const vitest = await createVitest('test', { watch: false }, { logLevel: 'silent' });
-const projects = vitest.projects.map(({ name, config }) => ({ name, root: config.root, setup: config.setupFiles, coverage: vitest.config.coverage.reportsDirectory, cache: vitest.vite.config.cacheDir }));
+const projects = vitest.projects.map(({ name, config }) => ({ name, root: config.root, setup: config.setupFiles, coverage: vitest.config.coverage.reportsDirectory }));
 await vitest.close();
 console.log(JSON.stringify(projects));`,
         [],
@@ -85,7 +85,7 @@ const workspace = (stated: Readonly<Record<string, string>>) =>
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-it.layer(workspace(configured), { timeout: bounds.built, excludeTestServices: true })('@rasm/nx-vitest over one config per project', (methods) => {
+it.layer(workspace(configured), { timeout: bounds.built, excludeTestServices: true })((methods) => {
     const snapshot = 'nrwl/nx packages/vitest/src/plugins/__snapshots__/plugin-vitest.spec.ts.snap "root project > should create nodes 1"';
     const inputsSpec = 'nrwl/nx packages/vitest/src/plugins/setup-file-inputs.spec.ts';
     const api = 'nrwl/nx packages/nx/src/project-graph/plugins/public-api.ts CreateNodesV2';
@@ -165,7 +165,7 @@ it.layer(workspace(configured), { timeout: bounds.built, excludeTestServices: tr
     );
 
     methods.effect(
-        'no input of an inferred target is a --version command, plugin source, mise.lock, or a credential variable',
+        'no input of an inferred target is a version command (--version, -version, <tool> version), plugin source, mise.lock, or a credential variable',
         Effect.fnUntraced(function* () {
             const rows = Object.values((yield* read).nodes)
                 .flatMap(({ data }) => Object.values(data.targets ?? {}))
@@ -192,14 +192,21 @@ it.layer(workspace(configured), { timeout: bounds.built, excludeTestServices: tr
     );
 
     methods.effect(
-        'a run writes every file under the declared outputs, which hold the coverage folder Vitest resolves',
+        'a run writes every file under the declared outputs, which hold the coverage folder Vitest resolves, or under the cache Vitest tags, and clean removes each but the tag',
         Effect.fnUntraced(function* () {
-            const [{ nx, outputs, root, written }, path, graph] = yield* Effect.all([Consumer, Path.Path, read]);
+            const [{ absent, nx, outputs, root, written }, path, graph] = yield* Effect.all([Consumer, Path.Path, read]);
             const [{ code, stdout, stderr }, created] = yield* written(nx('run', task(graph, 'math'), '--output-style=static'));
             const [{ outputPaths: folders, expandedOutputs }, resolved] = [yield* outputs(task(graph, 'math')), yield* projects('libs/math')];
-            const stored = [...expandedOutputs, ...resolved.map(({ cache }) => path.relative(root, cache))];
+            const stored = [...expandedOutputs, ...created.filter((file) => path.basename(file) === 'CACHEDIR.TAG').map((file) => path.dirname(file))];
             const under = new RegExp(`^(?:${stored.map(RegExp.escape).join('|')})(?:${RegExp.escape(path.sep)}|$)`, 'u');
+            const cleaned = yield* nx('run', 'math:clean', '--output-style=static');
             assert.strictEqual(code, 0, `nx run ${task(graph, 'math')} exits 0: ${stdout}${stderr}`);
+            assert.strictEqual(cleaned.code, 0, `nx run math:clean exits 0: ${cleaned.stdout}${cleaned.stderr}`);
+            assert.deepStrictEqual(
+                Array.difference(created, yield* absent(created)).filter((file) => path.basename(file) !== 'CACHEDIR.TAG'),
+                [],
+                'README.md TASKS "clean removes the outputs a project\'s targets declare and runs its tool\'s clean": each declared output goes, and vitest --clearCache removes each cache entry, leaving the CACHEDIR.TAG of the folder it owns',
+            );
             assert.includeMembers(
                 [...folders],
                 resolved.map((project) => path.relative(root, path.resolve(project.root, project.coverage))),
@@ -208,16 +215,16 @@ it.layer(workspace(configured), { timeout: bounds.built, excludeTestServices: tr
             assert.deepStrictEqual(
                 created.filter((file) => !under.test(file)),
                 [],
-                `${SCHEMA} outputs: every file the run writes lies under a declared output, or in cacheDir of the Vite config, which is a cache and no output`,
+                `${SCHEMA} outputs: every file the run writes lies under a declared output, or in a cache directory; bford.info/cachedir: a directory holding CACHEDIR.TAG is a cache, which Vitest tags where it stores its own`,
             );
         }),
         bounds.test,
     );
 });
 
-it.layer(workspace(rooted), { timeout: bounds.built, excludeTestServices: true })('@rasm/nx-vitest over one root config listing projects', (methods) => {
+it.layer(workspace(rooted), { timeout: bounds.built, excludeTestServices: true })((methods) => {
     methods.effect(
-        'each project Vitest resolves gives the Nx project at its root a test target, and no other project gets one',
+        'each project a root config lists gives the Nx project at its root a test target, and no other project gets one',
         Effect.fnUntraced(function* () {
             const [{ root }, path, graph] = yield* Effect.all([Consumer, Path.Path, read]);
             const folders = (yield* projects('.')).map((project) => path.relative(root, project.root)).toSorted();
@@ -262,9 +269,9 @@ it.layer(workspace(rooted), { timeout: bounds.built, excludeTestServices: true }
     );
 });
 
-it.layer(workspace({ ...configured, 'libs/broken/package.json': '{ "name": "broken", "type": "module" }\n', 'libs/broken/vitest.config.ts': "throw new Error('broken on load');\n" }), { timeout: bounds.built, excludeTestServices: true })('@rasm/nx-vitest with a config that fails to load', (methods) => {
+it.layer(workspace({ ...configured, 'libs/broken/package.json': '{ "name": "broken", "type": "module" }\n', 'libs/broken/vitest.config.ts': "throw new Error('broken on load');\n" }), { timeout: bounds.built, excludeTestServices: true })((methods) => {
     methods.effect(
-        'the failure names the config file and every other project keeps its targets',
+        'a config that fails to load is named in the failure, and every other project keeps its targets',
         Effect.fnUntraced(function* () {
             const graph = yield* read;
             const errors = 'nrwl/nx packages/nx/src/project-graph/error-types.ts AggregateCreateNodesError';

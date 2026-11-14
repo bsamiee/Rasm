@@ -66,6 +66,8 @@ const Target = Schema.fromJsonString(
         id: Schema.String,
         name: Schema.String,
         artifacts: Schema.Array(Schema.Struct({ path: Schema.String })).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
+        sources: Schema.Array(Schema.Struct({ path: Schema.String, isGenerated: Schema.optionalKey(Schema.Boolean) })).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
+        compileGroups: Schema.Array(Schema.Struct({ includes: Schema.Array(Schema.Struct({ path: Schema.String })).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))) })).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
         backtraceGraph: Schema.Struct({ files: Schema.Array(Schema.String), nodes: Schema.Array(Schema.Struct({ file: Schema.Int, command: Schema.optionalKey(Schema.Int) })) }),
         linkLibraries: Links,
         interfaceLinkLibraries: Links,
@@ -86,6 +88,7 @@ const Tree = Schema.Struct({
             installs: Schema.Boolean,
             packaged: Schema.Boolean,
             tested: Schema.Boolean,
+            folders: Schema.Array(Schema.String),
             targets: Schema.Array(Schema.Struct({ name: Schema.String, artifacts: Schema.Array(Schema.Struct({ path: Schema.String })) })),
             links: Schema.Array(Schema.Struct({ root: Schema.String, file: Schema.String })),
         }),
@@ -192,6 +195,12 @@ const replied = Effect.fnUntraced(function* (workspaceRoot: string, root: string
     const members = placed.map(({ parentIndex: _, tests, ...member }, at) => ({
         ...member,
         tested: tests > placed.filter(({ parentIndex }) => parentIndex === at).reduce((count, nested) => count + nested.tests, 0),
+        folders: Array.dedupe(
+            loaded
+                .filter(({ projectIndex }) => projectIndex === at)
+                .flatMap(({ sources, compileGroups }) => [...sources.filter(({ isGenerated }) => isGenerated !== true).map((source) => dirname(inside(source.path))), ...compileGroups.flatMap(({ includes }) => includes.map((include) => inside(include.path)))])
+                .filter((folder) => !relative(member.root, folder).startsWith('..') && relative(workflow.tree, folder).startsWith('..')),
+        ),
         targets: loaded.filter(({ projectIndex, artifacts }) => projectIndex === at && artifacts.length > 0).map(({ name, artifacts }) => ({ name, artifacts })),
         links: linked.filter(({ from }) => from === at).map(({ link }) => link),
     }));
@@ -255,7 +264,7 @@ const resolved = Effect.fnUntraced(
             },
         );
     },
-    (effect, _, presets) => Effect.catchTag(effect, 'NoSuchElementError', (cause) => Effect.fail(refused(presets, 'writes no CMake file API reply naming its projects')(cause))),
+    Effect.catchTag('NoSuchElementError', (cause) => Effect.fail(new Cause.UnknownError(cause, 'writes no CMake file API reply naming its projects'))),
 );
 
 // --- [EXPORTS] -------------------------------------------------------------------------

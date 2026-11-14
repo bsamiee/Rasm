@@ -4,6 +4,7 @@ import { pathToFileURL } from 'node:url';
 import { layer } from '@effect/platform-node/NodeServices';
 import { AggregateCreateNodesError, type CreateNodes, type CreateNodesContext, createNodesFromFiles, detectPackageManager, getPackageManagerCommand, normalizePath, type ProjectConfiguration, type TargetConfiguration } from '@nx/devkit';
 import { calculateHashesForCreateNodes, getLockFileName, getNamedInputs, hashObject, hashWithWorkspaceContext, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
+import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import type { ParsedCommandLine } from '@typescript/native/sync';
 import { Array, Cause, Effect, Equal, FileSystem, Match, Option, type PlatformError, Predicate, Record, Result, Schema, UndefinedOr } from 'effect';
 
@@ -17,7 +18,7 @@ type Program = Effect.Success<ReturnType<typeof resolved>>;
 const CONFIG = 'tsconfig.json';
 const MANIFEST = 'package.json';
 const WORKER = 'cloudflare.config.ts';
-const SHARED = '@rasm/nx-distribution';
+const SHARED = distribution.name;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -103,7 +104,13 @@ const projected = (root: string, technology: string, targets: Readonly<Record<st
     root,
     metadata: { technologies: [technology] },
     ...stated,
-    targets: { ...targets, ...Record.fromIterableWith(Array.dedupe(Record.keys(targets).map((name) => name.slice(0, name.indexOf('--')))), (verb): [string, TargetConfiguration] => [verb, { dependsOn: [`${verb}--*`] }]) },
+    targets: {
+        ...targets,
+        ...Record.map(
+            Array.groupBy(Object.entries(targets), ([label]) => label.slice(0, label.indexOf('--'))),
+            (members, verb): TargetConfiguration => ({ dependsOn: [`${verb}--*`], ...Array.match(Array.dedupe(members.flatMap(([, { inputs: hashed = [] }]) => hashed)), { onEmpty: () => ({}), onNonEmpty: (unique) => ({ inputs: ['...', ...unique] }) }) }),
+        ),
+    },
 });
 
 const compiled = (root: string, { commands, configs, outputs, sources }: Program, packages: readonly string[], upstream: string, linted: boolean, exec: string): Record<string, TargetConfiguration> => {
@@ -161,9 +168,9 @@ const tarball = Effect.fnUntraced(function* ({ workspaceRoot }: CreateNodesConte
         'pack--pnpm': {
             command: ['pnpm', 'pack', '--out', join(relative(root, folder), '%s.tgz')].map(quoteShellArg).join(' '),
             options: { cwd: root },
-            dependsOn: ['build'],
+            dependsOn: ['build--*'],
             cache: true,
-            inputs: ['default', { dependentTasksOutputFiles: '**/*' }, { externalDependencies: [] }],
+            inputs: ['default', '{workspaceRoot}/pnpm-workspace.yaml', { dependentTasksOutputFiles: '**/*' }, { externalDependencies: [] }],
             outputs: [join('{workspaceRoot}', folder, '*.tgz')],
             metadata: { description: 'Packs the package into one tarball named for it with pnpm pack', help: { command: 'pnpm pack --help', example: { args: ['--json'] } } },
         },
@@ -177,16 +184,20 @@ const tarball = Effect.fnUntraced(function* ({ workspaceRoot }: CreateNodesConte
     });
 });
 
-const worker = (context: CreateNodesContext, file: string) => {
+const worker = Effect.fnUntraced(function* (context: CreateNodesContext, file: string) {
     const { exec } = getPackageManagerCommand(detectPackageManager(context.workspaceRoot));
-    const [root, typed] = [dirname(file), installed('@cloudflare/workers-types', join(context.workspaceRoot, file))];
+    const [root, own] = [dirname(file), join(context.workspaceRoot, file)];
+    const { loadConfig }: typeof import('@cloudflare/config') = yield* Effect.tryPromise({ try: () => import(import.meta.resolve('@cloudflare/config', pathToFileURL(createRequire(own).resolve('cf/package.json')))), catch: refused(file, 'resolves no @cloudflare/config through cf') });
+    const { dependencies } = yield* Effect.tryPromise({ try: () => loadConfig(own), catch: refused(file, 'does not load as a Cloudflare config') });
+    const sources = Array.map(Array.fromIterable(dependencies), (at) => normalizePath(relative(context.workspaceRoot, at))).filter((at) => !(at.startsWith('..') || at.startsWith(`${root}/`) || at.split('/').includes('node_modules')));
+    const typed = installed('@cloudflare/workers-types', own);
     const targets: Record<string, TargetConfiguration> = {
         'codegen--cf': {
             command: typed ? 'cf workers types --include-runtime=false' : 'cf workers types',
             options: { cwd: root },
             dependsOn: ['^codegen'],
             cache: true,
-            inputs: ['default', 'production' in getNamedInputs(root, context) ? '^production' : '^default', { externalDependencies: ['cf'] }],
+            inputs: ['default', 'production' in getNamedInputs(root, context) ? '^production' : '^default', ...sources.map((at) => join('{workspaceRoot}', at)), { externalDependencies: ['cf'] }],
             outputs: ['{projectRoot}/.cloudflare/types'],
             metadata: {
                 description: typed ? `Generates the Worker binding types from ${WORKER}, runtime types coming from @cloudflare/workers-types` : `Generates the Worker binding and runtime types from ${WORKER}`,
@@ -195,11 +206,8 @@ const worker = (context: CreateNodesContext, file: string) => {
         },
         'clean--cf': { executor: `${SHARED}:clean`, options: { targets: ['codegen--cf'] }, metadata: { description: 'Removes the outputs codegen--cf declares' } },
     };
-    return Option.map(
-        Option.liftPredicate(file, (at) => installed('cf', join(context.workspaceRoot, at))),
-        () => projected(root, 'cloudflare', targets),
-    );
-};
+    return projected(root, 'cloudflare', targets);
+});
 
 const nodes = Effect.fnUntraced(function* (files: readonly string[], options: unknown, context: CreateNodesContext) {
     const { compilerPackages, outputPath } = yield* Schema.decodeEffect(Options)({ ...context.nxJsonConfiguration.pluginsConfig?.[SHARED], ...(Predicate.isObject(options) ? options : {}) });
@@ -222,7 +230,12 @@ const nodes = Effect.fnUntraced(function* (files: readonly string[], options: un
     const read = (file: string): Effect.Effect<Option.Option<ProjectConfiguration>, Cause.UnknownError | PlatformError.PlatformError | Schema.SchemaError, FileSystem.FileSystem> =>
         Match.value(basename(file)).pipe(
             Match.when(CONFIG, () => Effect.asSome(program(cache, context, compilerPackages, keys.get(file) ?? file, Option.fromUndefinedOr(solutions.get(file)), file))),
-            Match.when(WORKER, () => Effect.succeed(worker(context, file))),
+            Match.when(WORKER, () =>
+                Effect.when(
+                    worker(context, file),
+                    Effect.sync(() => installed('cf', join(context.workspaceRoot, file))),
+                ),
+            ),
             Match.orElse(() => tarball(context, Option.fromUndefinedOr(outputPath), file)),
         );
     const each = (file: string) => run(Effect.map(read(file), (project) => ({ projects: Record.getSomes({ [dirname(file)]: project }) })));

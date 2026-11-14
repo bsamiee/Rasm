@@ -1,6 +1,7 @@
 import { isAbsolute, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { ProjectConfiguration, TargetConfiguration } from '@nx/devkit';
+import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Cause, Effect, Schema } from 'effect';
 import type { Run } from '#/executors/run/executor';
 
@@ -18,7 +19,7 @@ interface Part {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const PLUGIN = '@rasm/nx-apple';
-const SHARED = '@rasm/nx-distribution';
+const SHARED = distribution.name;
 const GIT_STATUS = { GIT_CONFIG_COUNT: '1', GIT_CONFIG_KEY_0: 'status.branch', GIT_CONFIG_VALUE_0: 'false' } as const;
 const INPUTS: NonNullable<TargetConfiguration['inputs']> = [{ runtime: 'node -p process.platform+process.arch' }, { env: 'DEVELOPER_DIR' }, { env: 'TOOLCHAINS' }, { externalDependencies: [] }];
 const ATTACH: TargetConfiguration = {

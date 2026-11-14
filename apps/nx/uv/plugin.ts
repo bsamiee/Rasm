@@ -1,9 +1,9 @@
 import { basename, dirname, join } from 'node:path';
 import { layer } from '@effect/platform-node/NodeServices';
-import { type CreateDependencies, type CreateNodes, type CreateNodesContext, createNodesFromFiles, type ProjectConfiguration, type RawProjectGraphDependency } from '@nx/devkit';
+import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesContext, type ProjectConfiguration, type RawProjectGraphDependency } from '@nx/devkit';
 import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
 import { Completed } from '@rasm/process';
-import { Array, Context, Effect, Layer, ManagedRuntime, Option, Predicate, Record, Schema } from 'effect';
+import { Array, Cause, Context, Effect, Layer, ManagedRuntime, Option, Predicate, Record, Result, Schema } from 'effect';
 import { ChildProcess } from 'effect/process';
 import { CONFIGS, documents, refused, SHARED, targets } from '#/targets';
 import { folders, LOCK, located, Metadata, report } from '#/workspace';
@@ -44,7 +44,7 @@ const inferred = Effect.fnUntraced(function* (cache: Read, { workspaceRoot }: Cr
     );
     const { documented, unparsed } = yield* documents(workspaceRoot, folders(workspaceRoot, metadata));
     const { members, edges, failures } = yield* located(workspaceRoot, report(workspaceRoot, lock, metadata, documented));
-    yield* Array.match([...unparsed, ...failures], { onEmpty: () => Effect.void, onNonEmpty: (errors) => Effect.fail(refused(lock, errors.map(({ message }) => message).join('; '))(errors)) });
+    yield* Array.match([...unparsed, ...failures], { onEmpty: () => Effect.void, onNonEmpty: (errors) => Effect.fail(new Cause.UnknownError(errors, errors.map(({ message }) => message).join('; '))) });
     const links = yield* Links;
     links.set(workspaceRoot, [...(links.get(workspaceRoot) ?? []), ...edges]);
     const projects = Record.fromIterableWith(members, (member): [string, ProjectConfiguration] => [
@@ -75,7 +75,10 @@ const createNodes: CreateNodes = [
             Effect.gen(function* () {
                 const digest = yield* Effect.promise(() => hashWithWorkspaceContext(context.workspaceRoot, [FILES]));
                 (yield* Links).delete(context.workspaceRoot);
-                return yield* Effect.promise(() => createNodesFromFiles((lock) => runtime.runPromise(inferred(cache, context, outputPath, digest, lock)), locks, options, context));
+                const read = Array.zip(locks, yield* Effect.forEach(locks, (lock) => Effect.result(inferred(cache, context, outputPath, digest, lock)), { concurrency: 'unbounded' }));
+                const failures = Array.filterMap(read, ([lock, result]) => Result.map(Result.flip(result), (error): [string, Error] => [lock, refused(lock, error.message)(error)]));
+                const results = Array.filterMap(read, ([lock, result]) => Result.map(result, (held) => [lock, held] as const));
+                return yield* failures.length === 0 ? Effect.succeed(results) : Effect.fail(new AggregateCreateNodesError(failures, results));
             }).pipe(Effect.ensuring(Effect.sync(() => cache.writeToDisk()))),
         );
     },

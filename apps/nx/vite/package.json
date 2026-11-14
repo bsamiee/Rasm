@@ -20,6 +20,7 @@
         "@nx/devkit": "catalog:",
         "@nx/js": "catalog:",
         "@nx/vite": "catalog:",
+        "@rasm/nx-distribution": "workspace:*",
         "effect": "catalog:"
     },
     "devDependencies": {

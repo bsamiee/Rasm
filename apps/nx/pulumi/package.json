@@ -2,7 +2,7 @@
     "name": "@rasm/nx-pulumi",
     "version": "0.1.0",
     "private": true,
-    "description": "Nx plugin running Pulumi Automation API inline programs as codegen, install, and deploy targets of the projects they host",
+    "description": "Nx plugin running Pulumi Automation API inline programs as install and deploy targets of the projects they host",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/bsamiee/Rasm.git",

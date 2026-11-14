@@ -1,21 +1,15 @@
 {
     "name": "@rasm/test-nx-apple",
     "private": true,
-    "description": "@rasm/nx-apple suites over temporary workspaces with the packed plugin installed: Nx's own .NET, Gradle, and release specs ported to SwiftPM and Xcode, each expectation read from swift package describe, swift build, and xcodebuild -list and -showBuildSettings",
+    "description": "@rasm/nx-apple suite over temporary workspaces with the packed plugin installed: the language plugin conformance tests and SwiftPM and Xcode cases, each expectation read from swift package describe, swift build, and xcodebuild -list and -showBuildSettings",
     "type": "module",
-    "imports": {
-        "#/*": "./*.ts"
-    },
     "devDependencies": {
         "@effect/platform-node": "catalog:",
         "@effect/vitest": "catalog:",
-        "@nx/devkit": "catalog:",
         "@rasm/nx-apple": "workspace:*",
         "@rasm/testing": "workspace:*",
-        "@types/node": "catalog:",
         "effect": "catalog:",
-        "nx": "catalog:",
-        "vite": "catalog:",
         "vitest": "catalog:"
-    }
+    },
+    "os": [ "darwin" ]
 }

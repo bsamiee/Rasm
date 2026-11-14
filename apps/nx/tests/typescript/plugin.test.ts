@@ -11,7 +11,7 @@ import nx from 'nx/package.json' with { type: 'json' };
 
 const SPEC = 'nrwl/nx packages/js/src/plugins/typescript/plugin.spec.ts';
 const TASKS = 'README.md TASKS';
-const UNREAD = /--version|mise\.lock|node_modules|@rasm\/nx-|TOKEN|SECRET|PASSWORD|CREDENTIAL/u;
+const UNREAD = /(?:^|[\s"'])-{0,2}version\b|mise\.lock|node_modules|@rasm\/nx-|TOKEN|SECRET|PASSWORD|CREDENTIAL/u;
 const bounds = { built: '5 minutes', test: Duration.toMillis('3 minutes') } as const;
 const manifest = JSON.stringify({ name: 'consumer', private: true, type: 'module', devDependencies: { nx: nx.version, [plugin.name]: '*', typescript: compiler.version } });
 const emitted = (outDir: string) => `{ "extends": "../../tsconfig.base.json", "compilerOptions": { "outDir": "${outDir}", "rootDir": ".", "declaration": true }, "include": ["*.ts"] }\n`;
@@ -67,7 +67,7 @@ const workspace = (stated: Readonly<Record<string, string>>) => Layer.provideMer
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-it.layer(workspace(files), { timeout: bounds.built, excludeTestServices: true })('@rasm/nx-typescript over checked and emitting packages', (methods) => {
+it.layer(workspace(files), { timeout: bounds.built, excludeTestServices: true })((methods) => {
     const api = 'nrwl/nx packages/nx/src/project-graph/plugins/public-api.ts CreateNodesV2';
 
     methods.effect(
@@ -176,7 +176,7 @@ it.layer(workspace(files), { timeout: bounds.built, excludeTestServices: true })
     );
 
     methods.effect(
-        'no input of an inferred target is a --version command, plugin source, mise.lock, or a credential variable',
+        'no input of an inferred target is a version command (--version, -version, <tool> version), plugin source, mise.lock, or a credential variable',
         Effect.fnUntraced(function* () {
             const rows = Object.values((yield* read).nodes)
                 .flatMap(({ data }) => Object.values(data.targets ?? {}))
@@ -203,7 +203,7 @@ it.layer(workspace(files), { timeout: bounds.built, excludeTestServices: true })
     );
 });
 
-it.layer(workspace(files), { timeout: bounds.built, excludeTestServices: true })('@rasm/nx-typescript over a workspace that runs and changes', (methods) => {
+it.layer(workspace(files), { timeout: bounds.built, excludeTestServices: true })((methods) => {
     methods.effect.each([
         ['kit', true],
         ['faulty', false],
@@ -251,23 +251,20 @@ it.layer(workspace(files), { timeout: bounds.built, excludeTestServices: true })
     );
 });
 
-it.layer(workspace({ ...files, 'libs/broken/package.json': '{ "name": "broken", "version": "0.1.0", "type": "module" }\n', 'libs/broken/tsconfig.json': '{ "compilerOptions": ', 'libs/broken/index.ts': 'export {};\n' }), { timeout: bounds.built, excludeTestServices: true })(
-    '@rasm/nx-typescript with a tsconfig that fails to load',
-    (methods) => {
-        methods.effect(
-            'the failure names the tsconfig and every other project keeps its targets',
-            Effect.fnUntraced(function* () {
-                const graph = yield* read;
-                const errors = 'nrwl/nx packages/nx/src/project-graph/error-types.ts AggregateCreateNodesError';
-                assert.include(
-                    graph.failures.flatMap((failure) => failure.files).map(({ file }) => file),
-                    'libs/broken/tsconfig.json',
-                    `${errors}: errors hold a [file, error] tuple for the file that failed`,
-                );
-                assert.isNotEmpty(Record.keys(tooled(graph, 'kit', 'check')), `${errors}: "It allows Nx to recieve partial results and continue processing"`);
-                assert.isNotEmpty(Record.keys(tooled(graph, 'emitting', 'build')), `${errors}: partial results hold every project whose file loaded`);
-            }),
-            bounds.test,
-        );
-    },
-);
+it.layer(workspace({ ...files, 'libs/broken/package.json': '{ "name": "broken", "version": "0.1.0", "type": "module" }\n', 'libs/broken/tsconfig.json': '{ "compilerOptions": ', 'libs/broken/index.ts': 'export {};\n' }), { timeout: bounds.built, excludeTestServices: true })((methods) => {
+    methods.effect(
+        'a tsconfig that fails to load is named in the failure, and every other project keeps its targets',
+        Effect.fnUntraced(function* () {
+            const graph = yield* read;
+            const errors = 'nrwl/nx packages/nx/src/project-graph/error-types.ts AggregateCreateNodesError';
+            assert.include(
+                graph.failures.flatMap((failure) => failure.files).map(({ file }) => file),
+                'libs/broken/tsconfig.json',
+                `${errors}: errors hold a [file, error] tuple for the file that failed`,
+            );
+            assert.isNotEmpty(Record.keys(tooled(graph, 'kit', 'check')), `${errors}: "It allows Nx to recieve partial results and continue processing"`);
+            assert.isNotEmpty(Record.keys(tooled(graph, 'emitting', 'build')), `${errors}: partial results hold every project whose file loaded`);
+        }),
+        bounds.test,
+    );
+});

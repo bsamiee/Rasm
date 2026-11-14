@@ -13,7 +13,7 @@ import vite from 'vite/package.json' with { type: 'json' };
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const UNREAD = /--version|mise\.lock|node_modules|@rasm\/nx-|TOKEN|SECRET|PASSWORD|CREDENTIAL/u;
+const UNREAD = /(?:^|[\s"'])-{0,2}version\b|mise\.lock|node_modules|@rasm\/nx-|TOKEN|SECRET|PASSWORD|CREDENTIAL/u;
 const bounds = { built: '5 minutes', test: 300_000 } as const;
 const main = "export default { stories: ['../*.stories.tsx'], framework: { name: '@storybook/react-vite', options: {} } };\n";
 const story = "export default { title: 'Label', component: () => 'label' };\n\nexport const Shown = {};\n";
@@ -41,7 +41,7 @@ const task = (graph: Pick<ProjectGraph, 'nodes'>, project: string, verb: string)
 const workspace = (stated: Readonly<Record<string, string>>) =>
     Layer.provideMerge(Consumer.layer({ resolved: import.meta.url, settings: { plugins: [plugin.name] }, packages: [storybook.name, framework.name, react.name, dom.name, vite.name, web.name], ignored: ['storybook-static'], files: stated }), Layer.provideMerge(Packed.layer(plugin.name), layer));
 
-it.layer(workspace(files), { timeout: bounds.built, excludeTestServices: true })('@rasm/nx-storybook over two Storybook projects', (methods) => {
+it.layer(workspace(files), { timeout: bounds.built, excludeTestServices: true })((methods) => {
     const spec = 'nrwl/nx packages/storybook/src/plugins/plugin.spec.ts';
     const principle = 'README.md PRINCIPLES "Verbs aggregate <verb>--<tool> targets"';
     const tasks = 'README.md TASKS';
@@ -142,7 +142,7 @@ it.layer(workspace(files), { timeout: bounds.built, excludeTestServices: true })
     );
 
     methods.effect(
-        'no input of an inferred target is a --version command, plugin source, mise.lock, or a credential variable',
+        'no input of an inferred target is a version command (--version, -version, <tool> version), plugin source, mise.lock, or a credential variable',
         Effect.fnUntraced(function* () {
             const rows = Object.values((yield* read).nodes)
                 .flatMap(({ data }) => Object.values(data.targets ?? {}))
@@ -188,9 +188,9 @@ it.layer(workspace(files), { timeout: bounds.built, excludeTestServices: true })
     );
 });
 
-it.layer(workspace({ ...files, 'apps/broken/package.json': '{ "name": "broken", "type": "module" }\n', 'apps/broken/.storybook/main.ts': "throw new Error('broken on load');\n" }), { timeout: bounds.built, excludeTestServices: true })('@rasm/nx-storybook with a main config that fails to load', (methods) => {
+it.layer(workspace({ ...files, 'apps/broken/package.json': '{ "name": "broken", "type": "module" }\n', 'apps/broken/.storybook/main.ts': "throw new Error('broken on load');\n" }), { timeout: bounds.built, excludeTestServices: true })((methods) => {
     methods.effect(
-        'the failure names the config file and every other project keeps its targets',
+        'a config that fails to load is named in the failure, and every other project keeps its targets',
         Effect.fnUntraced(function* () {
             const errors = 'nrwl/nx packages/nx/src/project-graph/error-types.ts AggregateCreateNodesError';
             const graph = yield* read;

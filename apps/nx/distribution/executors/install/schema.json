@@ -1,9 +1,8 @@
 {
     "$schema": "http://json-schema.org/draft-07/schema#",
     "version": 2,
-    "not": {
-        "type": "null"
-    },
+    "type": "object",
+    "additionalProperties": false,
     "title": "Install",
     "description": "Installs what the project's build wrote in the run's configuration where its host loads it: each package built for this platform through the host's own installer, or the unpacked build folder for a host loading one"
 }

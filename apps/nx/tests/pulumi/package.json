@@ -11,7 +11,6 @@
         "@rasm/nx-pulumi": "workspace:*",
         "@rasm/testing": "workspace:*",
         "@types/node": "catalog:",
-        "ajv": "catalog:",
         "effect": "catalog:",
         "nx": "catalog:",
         "vite": "catalog:",

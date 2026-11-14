@@ -95,10 +95,10 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: typ
     const xcode = Array.filterMap(Array.zip(analyzed.containers, evaluatedResults), ([container, result]) => Result.map(result, (success) => ({ container, ...success })));
     const unread = [...(Option.isNone(info) ? manifests.map((file) => ({ file, reason: 'swift is absent on this host' })) : []), ...(Option.isNone(reader) ? containers.map((file) => ({ file, reason: `${absent.join(', ')} absent on this host` })) : [])];
     const broken: readonly [string, Error][] = [
-        ...Array.filterMap(Array.zip(readable, describedResults), ([file, result]) => Result.map(Result.flip(result), (error): [string, Error] => [file, error])),
-        ...(Result.isFailure(analysis) ? containers.map((file): [string, Error] => [file, analysis.failure]) : []),
+        ...Array.filterMap(Array.zip(readable, describedResults), ([file, result]) => Result.map(Result.flip(result), (error): [string, Error] => [file, refused(file, error.message)(error)])),
+        ...(Result.isFailure(analysis) ? containers.map((file): [string, Error] => [file, refused(file, analysis.failure.message)(analysis.failure)]) : []),
         ...Record.collect(analyzed.failures, (at, reason): [string, Error] => [marker(at), refused(at, reason)()]),
-        ...Array.filterMap(Array.zip(analyzed.containers, evaluatedResults), ([container, result]) => Result.map(Result.flip(result), (error): [string, Error] => [marker(container.path), error])),
+        ...Array.filterMap(Array.zip(analyzed.containers, evaluatedResults), ([container, result]) => Result.map(Result.flip(result), (error): [string, Error] => [marker(container.path), refused(container.path, error.message)(error)])),
         ...unsupported.map((file): [string, Error] => [file, refused(file, 'has no reader, and no project.xcproj sits beside it')()]),
     ];
     yield* Effect.forEach(unread, ({ file, reason }) => Effect.sync(() => emitPluginWorkerLog('warn', `${file} presents no project: ${reason}`)));
@@ -119,6 +119,13 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: typ
         (root, group) => {
             const { name, file } = Array.headNonEmpty(group);
             const tools = Array.map(group, (part) => part.targets).reduce(joined);
+            const hashed = Record.map(
+                Array.groupBy(
+                    Object.entries(tools).filter(([label]) => label.includes('--')),
+                    ([label]) => label.slice(0, label.indexOf('--')),
+                ),
+                Array.flatMap(([, { inputs = [] }]) => inputs),
+            );
             const release = Array.findFirst(group, (part) => Option.fromUndefinedOr(part.release));
             const project: ProjectConfiguration = {
                 root,
@@ -126,7 +133,7 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: typ
                 metadata: { technologies: Array.dedupe(group.flatMap((part) => part.technologies)) },
                 tags: [...Option.toArray(Option.as(release, 'release')), `os:${HOST}`],
                 ...Option.getOrUndefined(Option.map(release, (held) => ({ release: held }))),
-                targets: { ...tools, ...Record.fromIterableWith(Array.dedupe(Record.keys(tools).flatMap((tool) => tool.split('--').slice(0, -1))), (verb): [string, TargetConfiguration] => [verb, { dependsOn: [`${verb}--*`] }]) },
+                targets: { ...tools, ...Record.map(hashed, (inputs, verb): TargetConfiguration => ({ dependsOn: [`${verb}--*`], ...(inputs.length > 0 && { inputs: ['...', ...Array.dedupe(inputs)] }) })) },
             };
             return { file, project };
         },

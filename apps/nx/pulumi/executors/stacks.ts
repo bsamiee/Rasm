@@ -4,7 +4,7 @@ import { pathToFileURL } from 'node:url';
 import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
 import type { ExecutorContext } from '@nx/devkit';
 import type { InlineProgramArgs, LocalWorkspaceOptions } from '@pulumi/pulumi/automation/index.js';
-import { Array, Cause, Data, Effect, Exit, FileSystem, flow, Path, Schema, type Scope, Struct } from 'effect';
+import { Array, Cause, Data, Effect, Exit, FileSystem, flow, Path, Schema, type Scope, Struct, UndefinedOr } from 'effect';
 import type { ChildProcessSpawner } from 'effect/process';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -44,17 +44,15 @@ const applied = Effect.fnUntraced(function* (programs: readonly string[], reques
             ]);
             const groups = yield* Effect.mapError(stacks(request), refused(program, 'stacks failed'));
             const selected = named === undefined ? groups : groups.map(Array.filter(({ stackName }) => stackName === named));
-            yield* selected.flat().length > 0
-                ? Effect.void
-                : Effect.fail(
-                      refused(
-                          program,
-                          `states no stack ${named} for ${project}, its stacks are ${groups
-                              .flat()
-                              .map(({ stackName }) => stackName)
-                              .join(', ')}`,
-                      )(),
-                  );
+            const absent = UndefinedOr.match(named, {
+                onUndefined: () => `states no stack for ${project}`,
+                onDefined: (name) =>
+                    `states no stack ${name} for ${project}, its stacks are ${groups
+                        .flat()
+                        .map(({ stackName }) => stackName)
+                        .join(', ')}`,
+            });
+            yield* selected.flat().length > 0 ? Effect.void : Effect.fail(refused(program, absent)());
             const one = Effect.fnUntraced(function* ({ envVars = {}, ...stated }: Stated) {
                 const workDir = yield* fs.makeTempDirectoryScoped();
                 const printed = (text: string) => process.stderr.write(text.replaceAll(/^(?=.)/gmu, `${stated.stackName} | `));

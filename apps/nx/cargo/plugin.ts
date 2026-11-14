@@ -1,10 +1,10 @@
 import { basename, dirname, join, relative } from 'node:path';
 import { layer } from '@effect/platform-node/NodeServices';
-import { type CreateDependencies, type CreateNodes, type CreateNodesContext, createNodesFromFiles, DependencyType, hashArray, type ProjectConfiguration } from '@nx/devkit';
+import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesContext, DependencyType, hashArray, type ProjectConfiguration } from '@nx/devkit';
 import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, getNamedInputs, globWithWorkspaceContext, hashObject, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
 import { Array, Context, Effect, FileSystem, Layer, ManagedRuntime, Option, Predicate, Record, Result, Schema, String } from 'effect';
 import { CLIPPY, CONFIG, crateInputs, NEXTEST, projectTargets, released, SHARED } from '#/targets';
-import { MANIFEST, type Member, type Reading, resolved, workspaces } from '#/workspace';
+import { MANIFEST, type Member, type Reading, refused, resolved, workspaces } from '#/workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -65,20 +65,22 @@ const createNodes: CreateNodes = [
                 const cache = new PluginCache<readonly Reading[]>(join(workspaceDataDirectory, `cargo-${hashObject(options ?? {})}.hash`));
                 const [content, laid] = yield* Effect.promise(() => Promise.all([hashWithWorkspaceContext(workspaceRoot, [FILES]), globWithWorkspaceContext(workspaceRoot, Array.cartesianWith(manifests.map(dirname), LAYOUT, join))]));
                 const key = hashArray([content, ...laid]);
-                const read = new Map(
-                    yield* Option.match(Option.fromNullishOr(cache.get(key)), {
-                        onNone: () => workspaces(workspaceRoot, manifests, files),
-                        onSome: (held) => Effect.succeed(held.map((reading) => [join(relative(workspaceRoot, reading.metadata.workspace_root), MANIFEST), Result.succeed(reading)] as const)),
-                    }),
-                );
-                yield* Effect.sync(() => Option.toArray(Result.getSuccess(Result.all([...read.values()]))).forEach((readings) => cache.set(key, readings)));
+                const read = yield* Option.match(Option.fromNullishOr(cache.get(key)), {
+                    onNone: () => workspaces(workspaceRoot, manifests, files),
+                    onSome: (held) => Effect.succeed(held.map((reading) => [join(relative(workspaceRoot, reading.metadata.workspace_root), MANIFEST), Result.succeed(reading)] as const)),
+                });
+                const failures = Array.filterMap(read, ([file, reading]) => Result.map(Result.flip(reading), (error): [string, Error] => [file, refused(file, error.message)(error)]));
+                yield* Effect.sync(() => (failures.length === 0 ? cache.set(key, Array.getSuccesses(read.map(([, reading]) => reading))) : undefined));
                 yield* Effect.sync(() => cache.writeToDisk());
                 const reported = Option.map(
                     Option.flatMap(Schema.decodeOption(Placed)({ ...context.nxJsonConfiguration.pluginsConfig?.[SHARED], ...(Predicate.isObject(options) ? options : {}) }), ({ outputPath }) => Option.fromUndefinedOr(outputPath)),
                     (at) => join(at, 'llvm-cov', '{projectName}', 'lcov.info'),
                 );
-                const projected = (file: string) => runtime.runPromise(Effect.flatMap(Effect.flatMap(Effect.fromNullishOr(read.get(file)), Effect.fromResult), (reading) => inferred(context, files, reported, reading)));
-                return yield* Effect.promise(() => createNodesFromFiles(projected, [...read.keys()], options, context));
+                const results = yield* Effect.forEach(
+                    Array.filterMap(read, ([file, reading]) => Result.map(reading, (held) => [file, held] as const)),
+                    ([file, held]) => Effect.map(inferred(context, files, reported, held), (result) => [file, result] as const),
+                );
+                return yield* failures.length === 0 ? Effect.succeed(results) : Effect.fail(new AggregateCreateNodesError(failures, results));
             }),
         ),
 ];
