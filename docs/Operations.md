@@ -62,6 +62,7 @@ Places holding state, each updated by one action:
 - Role `Runner` field `instances` names each runner service by its label, with the systemd resource limits of its unit
 - Runner `<machine>-<label>` holds folder `actions-runner-<label>`, its own work folder, and label `<label>` beside the default labels
 - Instance `host` runs jobs on the machine and `container` runs jobs in a container, so each kind keeps ignored files at one path
+- CI jobs set `TMPDIR` to `RUNNER_TEMP`, which the runner empties at the start and end of each job, so no job leaves files in `/tmp`
 - Host jobs take at most 20 GB (`MemoryMax`, slowed from 18 GB by `MemoryHigh`) and a job container 10 GB (`container.options` `--memory`)
 - Both instances share every core by equal CPU weight, and a job running alone uses all of them
 - `needrestart` leaves `actions.runner.*` services running after a library update, as GitHub documents

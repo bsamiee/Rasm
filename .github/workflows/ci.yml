@@ -37,11 +37,11 @@ jobs:
                   clean: false
             - &untracked
               run: git clean -ffd
-            - &cores
+            - &variables
               run: |
                   cores="$(getconf _NPROCESSORS_ONLN)"
                   since="$(date +%s)"
-                  printf "%s\n" "NX_PARALLEL=${cores}" "NX_SINCE=${since}000" >> "${GITHUB_ENV}"
+                  printf "%s\n" "NX_PARALLEL=${cores}" "NX_SINCE=${since}000" "TMPDIR=${RUNNER_TEMP}" >> "${GITHUB_ENV}"
             - &shas
               uses: nrwl/nx-set-shas@e602fada7ad5987b0f7b1905e7a99ea1c661514c # v5.1.0
             - &tools
@@ -65,7 +65,7 @@ jobs:
         steps:
             - *checkout
             - *untracked
-            - *cores
+            - *variables
             - *shas
             - *tools
             - *packages
@@ -92,7 +92,7 @@ jobs:
         env: *cache
         steps:
             - *checkout
-            - *cores
+            - *variables
             - *shas
             - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
               with:
@@ -131,7 +131,7 @@ jobs:
         steps:
             - *checkout
             - *untracked
-            - *cores
+            - *variables
             - *shas
             - run: |
                   kept="${GITHUB_WORKSPACE}/.cache"
