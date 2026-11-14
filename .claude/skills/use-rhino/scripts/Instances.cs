@@ -14,6 +14,7 @@ using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 using Grasshopper;
 using Grasshopper2.UI;
 using ModelContextProtocol.Client;
@@ -40,7 +41,7 @@ internal sealed class ShownAttribute(string present, string absent) : Attribute 
 }
 
 internal sealed record Row(string Command, string[] Args, Dictionary<string, string?>? Env = null);
-internal sealed record Rows(Dictionary<string, Row> McpServers);
+internal sealed record Rows(Dictionary<string, JsonElement?> McpServers);
 internal sealed record Slot(string SlotId, int Port, int Pid, Uri Endpoint);
 internal sealed record Routed(Slot[]? Payload = null);
 internal sealed record Fault(string Message);
@@ -88,6 +89,7 @@ internal sealed record Listing(
 
 [JsonSourceGenerationOptions(JsonSerializerDefaults.Web, RespectNullableAnnotations = true, RespectRequiredConstructorParameters = true)]
 [JsonSerializable(typeof(Rows))]
+[JsonSerializable(typeof(Row))]
 [JsonSerializable(typeof(Routed))]
 [JsonSerializable(typeof(Faulted))]
 [JsonSerializable(typeof(Output))]
@@ -95,7 +97,8 @@ internal sealed record Listing(
 [JsonSerializable(typeof(Document))]
 [JsonSerializable(typeof(Reply))]
 internal sealed partial class Wire : JsonSerializerContext {
-    public static T Read<T>(string json) => (T)JsonSerializer.Deserialize(json, typeof(T), Default)!;
+    public static IO<T> Read<T>(string json, JsonTypeInfo<T> type) =>
+        IO.lift(() => JsonSerializer.Deserialize(json, type)).Bind(value => IO.lift(Optional(value).ToFin(new Refused($"{type.Type.Name} reply is JSON null"))));
     public static string Write<T>(T value) => JsonSerializer.Serialize(value, typeof(T), Default);
 }
 
@@ -107,6 +110,7 @@ internal sealed record Refused(string Text) : Expected(Text, 0);
 
 internal static class Program {
     private const string Server = "rhino-mcp-platform";
+    private static readonly Refused Unrouted = new($"no {Server} row in a .mcp.json above the working directory");
 
     public static async Task<int> Main(string[] args) => args switch {
         [] or [nameof(Listing)] => await RunAsync().ConfigureAwait(false),
@@ -130,10 +134,13 @@ internal static class Program {
         Console.Write(Wire.Write(new Reply(RhinoApp.ExeVersion, RhinoApp.IsPreRelease, Environment.ProcessId, Listing.Query(slots))));
 
     private static IO<Func<IClientTransport>> Router() =>
-        IO.lift(static () => Project(new DirectoryInfo(Environment.CurrentDirectory)).Bind(static file => Optional(Wire.Read<Rows>(File.ReadAllText(file)).McpServers.GetValueOrDefault(Server))))
-            .Bind(static row => row.Match(
-                Some: static row => IO.pure<Func<IClientTransport>>(() => new StdioClientTransport(new() { Name = Server, Command = row.Command, Arguments = row.Args, EnvironmentVariables = row.Env })),
-                None: static () => IO.fail<Func<IClientTransport>>(new Refused($"no {Server} row in a .mcp.json above the working directory"))));
+        from found in IO.lift(static () => Project(new DirectoryInfo(Environment.CurrentDirectory)))
+        from file in IO.lift(found.ToFin(Unrouted))
+        from text in IO.liftAsync(env => File.ReadAllTextAsync(file, env.Token))
+        from rows in Wire.Read(text, Wire.Default.Rows)
+        from entry in IO.lift(Optional(rows.McpServers.GetValueOrDefault(Server)).ToFin(Unrouted))
+        from row in Wire.Read(entry.GetRawText(), Wire.Default.Row)
+        select (Func<IClientTransport>)(() => new StdioClientTransport(new() { Name = Server, Command = row.Command, Arguments = row.Args, EnvironmentVariables = row.Env }));
 
     private static Option<string> Project(DirectoryInfo? folder) => folder switch {
         null => None,
@@ -143,15 +150,18 @@ internal static class Program {
 
     private static IO<string> List(HttpClient http, Func<IClientTransport> router) =>
         from reply in Call(router, "list_slots", ReadOnlyDictionary<string, object?>.Empty).Map(static result => result.Content.OfType<TextContentBlock>().Single().Text)
-        from slots in Wire.Read<Routed>(reply).Payload is { } payload ? IO.pure(payload) : IO.fail<Slot[]>(new Refused(Wire.Read<Faulted>(reply).Error.Message))
+        from routed in Wire.Read(reply, Wire.Default.Routed)
+        from slots in routed.Payload is { } payload ? IO.pure(payload) : Wire.Read(reply, Wire.Default.Faulted).Bind(static faulted => IO.fail<Slot[]>(new Refused(faulted.Error.Message)))
         from applications in toSeq(slots.GroupBy(static slot => slot.Pid)).Traverse(application => Ask(http, application)).As()
         select applications.IsEmpty ? "Rhino not running" : string.Join('\n', applications.Bind(identity));
 
     private static IO<Seq<string>> Ask(HttpClient http, IGrouping<int, Slot> application) =>
         Call(() => new HttpClientTransport(new() { Endpoint = application.First().Endpoint }, http), "run_csharp", new Dictionary<string, object?>(StringComparer.Ordinal) { ["script"] = Loader(application) })
             .Bind(static result => result.IsError is true
-                ? IO.fail<Seq<string>>(new Refused(Wire.Read<Fault>(result.Content.OfType<TextContentBlock>().First().Text).Message))
-                : IO.pure(Lines(Wire.Read<Reply>(Wire.Read<Output>(result.Content.OfType<TextContentBlock>().Last().Text).Stdout))))
+                ? Wire.Read(result.Content.OfType<TextContentBlock>().First().Text, Wire.Default.Fault).Bind(static fault => IO.fail<Seq<string>>(new Refused(fault.Message)))
+                : from output in Wire.Read(result.Content.OfType<TextContentBlock>().Last().Text, Wire.Default.Output)
+                  from reply in Wire.Read(output.Stdout, Wire.Default.Reply)
+                  select Lines(reply))
             | @catch(Unanswered, error => IO.pure(Seq(string.Create(CultureInfo.InvariantCulture, $"Process ID {application.Key} listing failed. {error.Message}"))));
 
     private static IO<CallToolResult> Call(Func<IClientTransport> transport, string tool, IReadOnlyDictionary<string, object?> arguments) =>
@@ -173,9 +183,11 @@ internal static class Program {
     ]);
 
     private static Seq<(ShownAttribute Shown, object? Value)> Fields(object node) =>
-        toSeq(Wire.Default.Options.GetTypeInfo(node.GetType()).Properties).Bind(property => property.AttributeProvider?.GetCustomAttributes(typeof(ShownAttribute), inherit: false) is [ShownAttribute shown]
-            ? Seq((shown, property.Get!(node)))
-            : Fields(property.Get!(node)!));
+        toSeq(Wire.Default.Options.GetTypeInfo(node.GetType()).Properties).Bind(property => property switch {
+            { Get: { } get } when property.AttributeProvider?.GetCustomAttributes(typeof(ShownAttribute), inherit: false) is [ShownAttribute shown] => Seq((shown, get(node))),
+            { Get: { } get } when get(node) is { } nested => Fields(nested),
+            _ => [],
+        });
 
     private static Seq<string> Lines(object node) => Fields(node) switch {
         var fields => [
