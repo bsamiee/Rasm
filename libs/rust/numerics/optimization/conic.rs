@@ -107,8 +107,8 @@ where
         Ok(quadratic)
     }
     let variables = linear.len();
-    let stack = |blocks: &[Block]| -> Result<(CscMatrix<f64>, Vec<f64>), NEVec<OptimizeError>> {
-        blocks
+    let stack = |constraints: &[Block]| -> Result<(CscMatrix<f64>, Vec<f64>), NEVec<OptimizeError>> {
+        constraints
             .iter()
             .map(|block| block.matrix.n)
             .enumerate()
@@ -117,11 +117,11 @@ where
             .collect::<Validated<(), _>>()
             .ok()?;
         let head = CscMatrix::zeros((0, variables));
-        let stacked = iter::chain(iter::once(&head), blocks.iter().map(|block| &block.matrix)).collect::<Vec<_>>();
+        let stacked = iter::chain(iter::once(&head), constraints.iter().map(|block| &block.matrix)).collect::<Vec<_>>();
         let mut matrix = CscMatrix::hvcat(&stacked.iter().map(slice::from_ref).collect::<Vec<_>>())
             .map_err(|MatrixConcatenationError::IncompatibleDimension| NEVec::new(SparseFormatError::IncompatibleDimension.into()))?;
         let infinity = get_infinity();
-        let (scales, b): (Vec<_>, Vec<_>) = blocks
+        let (scales, b): (Vec<_>, Vec<_>) = constraints
             .iter()
             .flat_map(|block| block.b.iter().copied())
             .map(|constant| if constant.is_infinite() { (0.0, 1.0) } else { (1.0, constant) })

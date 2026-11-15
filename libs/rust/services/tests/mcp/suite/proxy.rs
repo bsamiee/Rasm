@@ -160,7 +160,7 @@ fn proxy(queue: usize, line: usize) -> (Proxy, mpsc::UnboundedReceiver<Served>, 
             Ok(()) => Ok(()),
             Err(mpsc::error::SendError(Served { wire: _, exit: _, stop: _ })) => Err(io::Error::from(io::ErrorKind::BrokenPipe)),
         };
-        ready(attached.map(|()| Link { reader, writer, closed: exited.map(|exit| exit.unwrap_or_else(|closed| closed.to_string())).boxed() })).boxed()
+        ready(attached.map(|()| Link { reader, writer, closed: exited.map(|status| status.unwrap_or_else(|closed| closed.to_string())).boxed() })).boxed()
     };
     let policy = Policy {
         client: InitializeRequestParams::new(ClientCapabilities::default(), Implementation::new("proxy", "0")),
@@ -369,21 +369,21 @@ async fn subscriptions_are_restored_after_a_restart_and_released_with_the_last_s
     assert!(first.next().await.error.message.as_deref().is_some_and(|message| message.contains("server is down")), "inside the backoff window a call names the cause");
     time::sleep(Duration::from_secs(1)).await;
     first.send(r#"{"jsonrpc":"2.0","id":3,"method":"tools/list"}"#).await;
-    let mut server = assert_some!(starts.recv().await);
-    let initialize = server.wire.next().await;
+    let mut restarted = assert_some!(starts.recv().await);
+    let initialize = restarted.wire.next().await;
     assert_eq!(initialize.method.as_deref(), Some("initialize"), "a server known to be legacy is asked initialize first");
-    server.wire.send(&initialize.answered(SERVED)).await;
-    assert_eq!(server.wire.next().await.method.as_deref(), Some("notifications/initialized"));
-    let restored = server.wire.next().await;
+    restarted.wire.send(&initialize.answered(SERVED)).await;
+    assert_eq!(restarted.wire.next().await.method.as_deref(), Some("notifications/initialized"));
+    let restored = restarted.wire.next().await;
     assert_eq!((restored.method.as_deref(), restored.params.uri.as_deref()), (Some("resources/subscribe"), Some("file:///a")), "the subscription is restored on the new server");
     assert_eq!(first.next().await.method.as_deref(), Some("notifications/tools/list_changed"), "sessions are told the lists changed after a restart");
-    let woken = server.wire.next().await;
+    let woken = restarted.wire.next().await;
     assert_eq!(woken.method.as_deref(), Some("tools/list"), "the call that woke the server is forwarded after the handshake");
     drop(first);
-    assert_eq!(server.wire.next().await.method.as_deref(), Some("notifications/cancelled"), "a leaving session's open call is cancelled at the server");
-    server.wire.silent(Duration::from_secs(1)).await;
+    assert_eq!(restarted.wire.next().await.method.as_deref(), Some("notifications/cancelled"), "a leaving session's open call is cancelled at the server");
+    restarted.wire.silent(Duration::from_secs(1)).await;
     drop(second);
-    let released = server.wire.next().await;
+    let released = restarted.wire.next().await;
     assert_eq!((released.method.as_deref(), released.params.uri.as_deref()), (Some("resources/unsubscribe"), Some("file:///a")), "the subscription is released with its last subscriber");
 }
 

@@ -4,7 +4,7 @@ import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, t
 import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, hashFile, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
 import { Array, Cause, Effect, Option, Record, Result, Schema } from 'effect';
 import { ancestors, CONFIGS, documents, Linked, manifested, Options, PLUGIN, run, spawned, targets } from '#/targets';
-import { folders, LOCK, located, MANIFEST, Metadata, report } from '#/workspace';
+import { folders, LOCK, located, MANIFEST, Metadata, report, SCHEMA } from '#/workspace';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -38,7 +38,7 @@ const inferred = Effect.fnUntraced(function* (cache: Read, { workspaceRoot }: Cr
         {
             onSome: (held) => Schema.decodeEffect(Metadata)(held.reply.replaceAll(token, placed)),
             onNone: Effect.fnUntraced(function* () {
-                const decoded = yield* Effect.flatMap(spawned(['uv', 'workspace', 'metadata', '--frozen', '--preview-features', 'workspace-metadata', '--quiet'], { cwd: join(workspaceRoot, dirname(lock)) }), Schema.decodeEffect(Metadata));
+                const decoded = yield* Effect.flatMap(spawned(['uv', 'workspace', 'metadata', '--frozen', '--preview-features', 'workspace-metadata', '--output-version', SCHEMA, '--quiet'], { cwd: join(workspaceRoot, dirname(lock)) }), Schema.decodeEffect(Metadata));
                 const reply = yield* Schema.encodeEffect(Metadata)(decoded);
                 cache.set(lock, { digest, reply: reply.replaceAll(placed, token) });
                 cache.writeToDisk();

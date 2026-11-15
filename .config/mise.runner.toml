@@ -1,0 +1,79 @@
+# --- [BOOTSTRAP] ------------------------------------------------------------------------
+
+[bootstrap.groups.docker]
+system = true
+
+[bootstrap.groups.runner]
+
+[bootstrap.users.runner]
+create_home = true
+group       = "runner"
+groups      = ["docker"]
+shell       = "/bin/bash"
+uid         = 1000
+
+[bootstrap.packages]
+"apt:build-essential" = "latest"
+"apt:libsqlite3-dev"  = "latest"
+"apt:pkg-config"      = "latest"
+"apt:sqlite3"         = "latest"
+"apt:unzip"           = "latest"
+"apt:zip"             = "latest"
+
+[bootstrap.directories."/usr/local/lib/systemd/system/actions.runner.bsamiee-Rasm.derby-host.service.d"]
+
+[bootstrap.directories."/etc/systemd/system.control/actions.runner.bsamiee-Rasm.derby-host.service.d"]
+notify    = ["runner-prune.timer"]
+recursive = true
+state     = "absent"
+
+[bootstrap.files."/etc/sudoers.d/90-runner"]
+content = """
+runner ALL=(ALL) NOPASSWD:ALL
+"""
+mode    = "0440"
+
+[bootstrap.files."/etc/needrestart/conf.d/actions_runner_services.conf"]
+content = '''
+$nrconf{override_rc}{qr(^actions\.runner\..+\.service$)} = 0;
+'''
+
+[bootstrap.files."/usr/local/lib/systemd/system/actions.runner.bsamiee-Rasm.derby-host.service.d/90-memory.conf"]
+content = """
+[Service]
+MemoryHigh=18G
+MemoryMax=20G
+"""
+notify  = ["runner-prune.timer"]
+
+[bootstrap.files."/etc/systemd/system/runner-prune.service"]
+content = """
+[Unit]
+Description=Prune the runner package store, uv cache, mise tool versions, and Docker leftovers
+
+[Service]
+Type=oneshot
+User=runner
+WorkingDirectory=/home/runner/actions-runner-host/_work/Rasm/Rasm
+Environment=MISE_TRUSTED_CONFIG_PATHS=/home/runner/actions-runner-host/_work/Rasm/Rasm
+ExecStart=/home/runner/.local/share/mise/bin/mise exec --no-deps -- pnpm store prune
+ExecStart=/home/runner/.local/share/mise/bin/mise exec --no-deps -- uv cache prune
+ExecStart=/home/runner/.local/share/mise/bin/mise prune --yes
+ExecStart=/usr/bin/docker container prune --force --filter until=1h
+ExecStart=/usr/bin/docker volume prune --force
+ExecStart=/usr/bin/docker image prune --force
+"""
+notify  = ["runner-prune.timer"]
+
+[bootstrap.files."/etc/systemd/system/runner-prune.timer"]
+content = """
+[Timer]
+OnCalendar=Sun *-*-* 09:00:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+"""
+notify  = ["runner-prune.timer"]
+
+[bootstrap.services."runner-prune.timer"]

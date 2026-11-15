@@ -164,19 +164,21 @@ pub fn compose(typesetter: &mut Typesetter, set: Set) -> Result<Vec<Page>, NEVec
         let marked = table
             .iter()
             .filter_map(|(name, states)| layers.remove(name).map(|layer| (name, states, layer)))
-            .map(|(name, states, Layer { elements, annotations, references })| {
-                let (symbols, destinations) = references
+            .map(|(name, states, Layer { elements: model, annotations, references })| {
+                let drawing = references
                     .into_iter()
                     .map(|Reference { view, mut marker, mentions }| {
-                        let (texts, destination) = &targets[&view];
+                        let (texts, destination) = targets.get(&view).ok_or_else(|| DraftingError::Unknown { lookup: Lookup::Viewport, name: Arc::clone(&view) })?;
                         marker.slots.extend(mentions.into_iter().filter_map(|(mention, slot)| slot.map(|slot| (slot, Arc::clone(&texts[mention])))));
-                        (Annotation::Symbol(marker), destination.clone())
+                        Ok((Annotation::Symbol(marker), destination.clone()))
                     })
-                    .unzip::<_, _, Vec<_>, Vec<_>>();
-                within(&Subject::Named { lookup: Lookup::Layer, name: Arc::clone(name) }, draw(typesetter, style, placement, iter::chain(&annotations, &symbols))).map(|Drawing { graphics, mask }| {
+                    .collect::<Result<(Vec<_>, Vec<_>), DraftingError>>()
+                    .map_err(NEVec::new)
+                    .and_then(|(symbols, destinations)| draw(typesetter, style, placement, iter::chain(&annotations, &symbols)).map(|drawn| (drawn, destinations)));
+                within(&Subject::Named { lookup: Lookup::Layer, name: Arc::clone(name) }, drawing).map(|(Drawing { graphics, mask }, destinations)| {
                     let links =
                         graphics.iter().skip(annotations.len()).zip(destinations).map(|(graphics, destination)| Link { area: bounds(graphics, Affine::IDENTITY), destination }).collect::<Vec<_>>();
-                    (name, states, elements, graphics.into_iter().flat_map(|Graphics { elements, masks: _ }| elements).collect::<Vec<_>>(), links, mask)
+                    (name, states, model, graphics.into_iter().flat_map(|Graphics { elements, masks: _ }| elements).collect::<Vec<_>>(), links, mask)
                 })
             })
             .collect::<Validated<Vec<_>, _>>()
@@ -235,11 +237,11 @@ pub fn compose(typesetter: &mut Typesetter, set: Set) -> Result<Vec<Page>, NEVec
             let paper = validated(drawn(&style, None, content));
             let viewed = placed
                 .into_iter()
-                .map(|(name, Viewport { placement, scale, boundary, layers: content })| {
+                .map(|(name, Viewport { placement, scale, boundary, layers: model })| {
                     let flat = pages::Viewport { boundary, placement, scale, layers: Vec::new() };
                     within(
                         &Subject::Named { lookup: Lookup::Viewport, name },
-                        drawn(&style, Some(&flat), content).map(|(linework, framed, linked)| (pages::Viewport { layers: linework, ..flat }, framed, linked)),
+                        drawn(&style, Some(&flat), model).map(|(linework, framed, linked)| (pages::Viewport { layers: linework, ..flat }, framed, linked)),
                     )
                 })
                 .collect::<Validated<Vec<_>, _>>();

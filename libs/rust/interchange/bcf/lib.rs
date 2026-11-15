@@ -359,10 +359,10 @@ pub enum BcfError {
 
 // --- [ARCHIVES]
 
-pub fn read<R>(source: R) -> Result<Issues, NEVec<BcfError>>
+pub fn read<R>(stream: R) -> Result<Issues, NEVec<BcfError>>
 where R: Read + Seek {
     const UPGRADED_RELEASE: &str = "2.1";
-    let zip = ZipArchive::new(source).map_err(|source| nev![archive_error(CENTRAL_DIRECTORY)(source)])?;
+    let zip = ZipArchive::new(stream).map_err(|source| nev![archive_error(CENTRAL_DIRECTORY)(source)])?;
     let entries = zip
         .file_names()
         .enumerate()
@@ -385,7 +385,7 @@ where R: Read + Seek {
         UPGRADED_RELEASE => Some(&upgraded),
         _ => return Err(nev![BcfError::Version { found: found.into_inner().into_boxed_str() }]),
     };
-    let topics = entries
+    let markups = entries
         .keys()
         .filter(|name| name.split_once('/').is_some_and(|(_, file)| file == MARKUP.0))
         .map(|entry| {
@@ -395,7 +395,7 @@ where R: Read + Seek {
             )
         })
         .collect::<Validated<Vec<_>, _>>();
-    let listed = |schema: &Text| -> Validated<EnumMap<Extension, IndexSet<Text>>, BcfError> {
+    let enumerations = |schema: &Text| -> Validated<EnumMap<Extension, IndexSet<Text>>, BcfError> {
         let mut xot = Xot::new();
         let (name, value, simple_type, enumeration) = (xot.add_name("name"), xot.add_name("value"), xot.add_name("simpleType"), xot.add_name("enumeration"));
         let parsed = match Url::parse(schema) {
@@ -423,19 +423,19 @@ where R: Read + Seek {
             .collect()
         })
     };
-    let project = document(&open, upgrade, PROJECT_INFO, |reader, root| {
+    let project_info = document(&open, upgrade, PROJECT_INFO, |reader, root| {
         reader.element::<Option<Project>>(root, &[], PROJECT).map2(reader.element::<Option<Text>>(root, &[], "ExtensionSchema"), |project, schema| (project, schema))
     })
     .ok()
     .map_or_else(Validated::Fail, |info| {
         let (project, schema) = info.unwrap_or_default();
-        schema.map_or(Validated::Good(EnumMap::default()), |schema| listed(&schema)).map(|listed| (project, listed))
+        schema.map_or(Validated::Good(EnumMap::default()), |schema| enumerations(&schema)).map(|listed| (project, listed))
     });
-    let read = project
+    let read = project_info
         .map4(
             document(&open, upgrade, EXTENSIONS, EnumMap::read),
             document(&open, upgrade, DOCUMENT_INFO, |reader, root| reader.keyed(root, &[DOCUMENTS], DOCUMENT, None)),
-            topics.ok().map_or_else(Validated::Fail, |held| unique(CENTRAL_DIRECTORY, held)),
+            markups.ok().map_or_else(Validated::Fail, |held| unique(CENTRAL_DIRECTORY, held)),
             |(project, mut listed), extensions, documents, topics| {
                 extensions.into_iter().flatten().for_each(|(kind, values)| listed[kind].extend(values));
                 (project, listed, documents.unwrap_or_default(), topics)

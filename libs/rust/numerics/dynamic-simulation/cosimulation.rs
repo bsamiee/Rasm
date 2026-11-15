@@ -76,12 +76,12 @@ impl Fmu {
         }
         let members = iter::zip(references.iter().copied(), values.iter().copied());
         match &mut self.instance {
-            Instance::Fmi2 { instance, import: _, variables } => grouped(variables, members).try_for_each(|(typed, held, written)| match typed {
+            Instance::Fmi2 { instance, import: _, variables } => grouped(variables, members)?.try_for_each(|(typed, held, written)| match typed {
                 Fmi2Type::Real => stored(&held, written, identity, |vrs, narrowed| instance.set_real(vrs, narrowed)),
                 Fmi2Type::Integer => stored(&held, written, |value| value.round().to_int_saturating::<i32>(), |vrs, narrowed| instance.set_integer(vrs, narrowed)),
                 Fmi2Type::Boolean => stored(&held, written, |value| i32::from(value != 0.0), |vrs, narrowed| instance.set_boolean(vrs, narrowed)),
             }),
-            Instance::Fmi3 { instance, import: _, variables } => grouped(variables, members).try_for_each(|(typed, held, written)| match typed {
+            Instance::Fmi3 { instance, import: _, variables } => grouped(variables, members)?.try_for_each(|(typed, held, written)| match typed {
                 Fmi3Type::Float32 => stored(&held, written, f64::cast::<f32>, |vrs, narrowed| instance.set_float32(vrs, narrowed)),
                 Fmi3Type::Float64 => stored(&held, written, identity, |vrs, narrowed| instance.set_float64(vrs, narrowed)),
                 Fmi3Type::Int8 => stored(&held, written, |value| value.round().to_int_saturating::<i8>(), |vrs, narrowed| instance.set_int8(vrs, narrowed)),
@@ -107,7 +107,7 @@ impl Fmu {
         }
         fn gathered<S>(variables: &[(S, u32)], references: &[usize], values: &mut [f64], mut fetch: impl FnMut(S, &[u32]) -> Result<Vec<f64>, DynamicsError>) -> Result<(), DynamicsError>
         where S: Copy + enum_map::Enum {
-            grouped(variables, iter::zip(references.iter().copied(), values))
+            grouped(variables, iter::zip(references.iter().copied(), values))?
                 .try_for_each(|(typed, held, slots)| fetch(typed, &held).map(|fetched| iter::zip(slots, fetched).for_each(|(slot, value)| *slot = value)))
         }
         match &mut self.instance {
@@ -329,16 +329,17 @@ pub fn fmu(path: impl AsRef<Path>, tolerance: Option<f64>) -> Result<Fmu, Dynami
     }
 }
 
-fn grouped<S, M>(variables: &[(S, u32)], members: impl IntoIterator<Item = (usize, M)>) -> impl Iterator<Item = (S, Vec<u32>, Vec<M>)>
+fn grouped<S, M>(variables: &[(S, u32)], members: impl IntoIterator<Item = (usize, M)>) -> Result<impl Iterator<Item = (S, Vec<u32>, Vec<M>)>, DynamicsError>
 where S: Copy + enum_map::Enum {
     let mut groups = enum_map::EnumMap::<S, (Vec<u32>, Vec<M>)>::default();
-    members.into_iter().for_each(|(reference, member)| {
-        let (typed, value_reference) = variables[reference];
+    members.into_iter().try_for_each(|(reference, member)| {
+        let &(typed, value_reference) = variables.get(reference).ok_or(DynamicsError::Reference { reference })?;
         let (held, carried) = &mut groups[typed];
         held.push(value_reference);
         carried.push(member);
-    });
-    groups.into_iter().filter(|(_, (held, _))| !held.is_empty()).map(|(typed, (held, carried))| (typed, held, carried))
+        Ok::<_, DynamicsError>(())
+    })?;
+    Ok(groups.into_iter().filter(|(_, (held, _))| !held.is_empty()).map(|(typed, (held, carried))| (typed, held, carried)))
 }
 
 const fn failure<E>(operation: Operation) -> impl FnOnce(E) -> DynamicsError

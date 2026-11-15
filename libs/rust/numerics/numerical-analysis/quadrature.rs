@@ -231,13 +231,12 @@ where
         let (mantissa, exponent, sign) = value.integer_decode();
         FBig::from_repr_const(Repr::new(IBig::from(mantissa) * sign, isize::from(exponent)))
     };
-    let chart = |chart: &Chart, nodes: &[(f64, (f64, isize))], point: &mut DVector<f64>| match chart {
-        Chart::Cartesian => {
+    let chart = |chart: &Chart, nodes: &[(f64, (f64, isize))], point: &mut DVector<f64>| match (chart, nodes) {
+        (Chart::Cartesian, _) => {
             iter::zip(point.iter_mut(), nodes).for_each(|(coordinate, &(node, _))| *coordinate = node);
-            (1.0, 0)
+            Ok((1.0, 0))
         }
-        Chart::Triangle { affine, area } => {
-            let (along, across) = (nodes[0].0, nodes[1].0);
+        (Chart::Triangle { affine, area }, &[(along, _), (across, _)]) => {
             match affine {
                 Either::Left(affine) => {
                     point.copy_from(&affine.column(0));
@@ -246,17 +245,18 @@ where
                 Either::Right(affine) => {
                     let along = exact(along);
                     let coordinates = affine * Vector3::new(FBig::ONE, along.clone(), (FBig::ONE - along) * exact(across));
-                    point.zip_apply(&coordinates, |coordinate, exact| *coordinate = exact.to_f64().value());
+                    point.zip_apply(&coordinates, |coordinate, precise| *coordinate = precise.to_f64().value());
                 }
             }
-            mass([*area, (1.0 - along, 0)])
+            Ok(mass([*area, (1.0 - along, 0)]))
         }
-        Chart::Spherical(rotation) => {
-            let ((radius, height), (sideways, forward)) = (nodes[0].0.sin_cos(), nodes[1].0.sin_cos());
+        (Chart::Spherical(rotation), &[(polar, _), (azimuth, _)]) => {
+            let ((radius, height), (sideways, forward)) = (polar.sin_cos(), azimuth.sin_cos());
             let direction = Vector3::new(radius * forward, radius * sideways, height);
             point.copy_from(&rotation.as_ref().map_or(direction, |rotation| rotation.transform_vector(&direction)));
-            (radius, 0)
+            Ok((radius, 0))
         }
+        (Chart::Triangle { .. } | Chart::Spherical(_), _) => Err(AnalysisError::Shape { input: Input::Axes, expected: 2, found: nodes.len() }),
     };
     let parts = parts.into_nonempty_iter().collect::<NEVec<_>>();
     parts
@@ -297,7 +297,7 @@ where
         let (mapping, bounds) = parts.first();
         let nodes = bounds.iter().map(|&(start, last)| (f64::midpoint(start, last), (1.0, 0))).collect::<Vec<_>>();
         let mut origin = mapping.buffer(nodes.len());
-        chart(mapping, &nodes, &mut origin);
+        chart(mapping, &nodes, &mut origin).map_err(NEVec::new)?;
         let probe = integrand(origin.column(0));
         magnitude(&probe, &norm).is_finite().ok_or_else(|| NEVec::new(AnalysisError::Function { interval: bounds.iter().map(|&(start, last)| RangeInclusive { start, last }).collect() }))?;
         probe.len()
@@ -310,12 +310,9 @@ where
                 iter::zip(rule.nodes(), rule.weights()).map(move |(&node, &weight)| (half.mul_add(node, middle), mass([(weight, 0), width])))
             })
             .multi_cartesian_product()
-            .map(|nodes| {
-                let jacobian = chart(mapping, &nodes, &mut point);
-                (integrand(point.column(0)), mass(nodes.iter().map(|&(_, weight)| weight).chain(iter::once(jacobian))))
-            });
+            .map(|nodes| chart(mapping, &nodes, &mut point).map(|jacobian| (integrand(point.column(0)), mass(nodes.iter().map(|&(_, weight)| weight).chain(iter::once(jacobian))))));
         let interval = || iter::zip(lower.iter(), upper.iter()).map(|(&start, &last)| RangeInclusive { start, last }).collect();
-        summed(outputs, nodes, interval, &norm).map(|sum| (sum, iter::repeat_n(rule.order(), lower.len().get()).fold(1, usize::saturating_mul)))
+        nodes.process_results(|evaluated| summed(outputs, evaluated, interval, &norm))?.map(|sum| (sum, iter::repeat_n(rule.order(), lower.len().get()).fold(1, usize::saturating_mul)))
     };
     let seeded = joined(parts.iter().map(|(mapping, bounds)| {
         let (lower, upper) = bounds.nonempty_iter().copied().unzip();

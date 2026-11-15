@@ -488,16 +488,22 @@ pub struct Instance {
 }
 
 impl Instance {
-    pub(crate) fn set(&mut self, references: &[usize], values: &[f64]) {
+    pub(crate) fn set(&mut self, references: &[usize], values: &[f64]) -> Result<(), DynamicsError> {
         let equations = &mut self.problem.eqn;
         let scratch = equations.scratch.get_mut();
-        iter::zip(references, values).for_each(|(&reference, &value)| match equations.network.graph[NodeIndex::new(reference)] {
-            Node::Boundary => scratch.prescribed[reference] = ThermodynamicTemperature::new::<kelvin>(value),
-            Node::Capacity(_) => scratch.heats[reference] = Power::new::<watt>(value),
-        });
+        iter::zip(references, values).try_for_each(|(&reference, &value)| {
+            match equations.network.graph.node_weight(NodeIndex::new(reference)) {
+                Some(Node::Boundary) => scratch.prescribed.get_mut(reference).map(|held| *held = ThermodynamicTemperature::new::<kelvin>(value)),
+                Some(Node::Capacity(_)) => scratch.heats.get_mut(reference).map(|held| *held = Power::new::<watt>(value)),
+                None => None,
+            }
+            .ok_or(DynamicsError::Reference { reference })
+        })
     }
 
-    pub(crate) fn get(&self, references: &[usize]) -> impl Iterator<Item = f64> { references.iter().map(|&reference| self.state[reference].get::<kelvin>()) }
+    pub(crate) fn get(&self, references: &[usize]) -> impl Iterator<Item = Result<f64, DynamicsError>> {
+        references.iter().map(|&reference| self.state.get(reference).map(ThermodynamicTemperature::get::<kelvin>).ok_or(DynamicsError::Reference { reference }))
+    }
 
     pub(crate) fn step(&mut self, time: Time, next: Time) -> Result<(), DynamicsError> {
         let grid = Grid::try_new(nev![next])?;

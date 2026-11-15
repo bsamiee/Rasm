@@ -64,14 +64,14 @@ async fn panicked_body_has_its_file_kept() {
 
 #[tokio::test]
 async fn refused_body_has_its_folder_kept() {
-    let (seen, folder) = oneshot::channel();
+    let (seen, kept) = oneshot::channel();
     let refused = Folder::scoped(Path::new(env!("CARGO_TARGET_TMPDIR")), async |folder| {
         assert_ok!(fs_err::tokio::write(folder.join("log"), "line").await);
         assert_ok!(seen.send(folder.to_path_buf()));
         Err::<(), _>(fmt::Error)
     });
     assert_matches!(refused.await, Err(Failure::Kept(_)), "a body returning `Err` keeps its folder");
-    let folder = assert_ok!(folder.await);
+    let folder = assert_ok!(kept.await);
     assert_eq!(assert_ok!(fs_err::tokio::read_to_string(folder.join("log")).await), "line", "the folder of a failed body keeps its files");
     assert_ok!(fs_err::tokio::remove_dir_all(folder).await);
 }

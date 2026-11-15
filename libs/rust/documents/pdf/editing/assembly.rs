@@ -312,7 +312,7 @@ fn composed(parts: &NEVec<(&Source, &[(usize, ObjectId)])>, application: &str) -
         }
         first
     });
-    let directory = iter::once((DESTS.to_vec(), dests))
+    let names = iter::once((DESTS.to_vec(), dests))
         .chain(others)
         .filter(|(_, entries)| !entries.is_empty())
         .map(|(kind, entries)| (kind, Object::Dictionary(dictionary! { NAMES => entries.into_iter().flat_map(|(name, value)| [Object::string_literal(name), value]).collect::<Vec<_>>() })))
@@ -325,9 +325,9 @@ fn composed(parts: &NEVec<(&Source, &[(usize, ObjectId)])>, application: &str) -
     catalog.set(PAGES, page_tree);
     let opening = match entry(&assembly.structure, &catalog, OPEN_ACTION)? {
         None => true,
-        Some(Object::Array(explicit)) => opens(&assembly, explicit),
+        Some(Object::Array(target)) => opens(&assembly, target),
         Some(Object::Dictionary(action)) => match entry(&assembly.structure, action, D)? {
-            Some(Object::Array(explicit)) => opens(&assembly, explicit),
+            Some(Object::Array(target)) => opens(&assembly, target),
             Some(_) | None => true,
         },
         Some(_) => false,
@@ -335,8 +335,8 @@ fn composed(parts: &NEVec<(&Source, &[(usize, ObjectId)])>, application: &str) -
     if !opening {
         catalog.remove(OPEN_ACTION);
     }
-    if !directory.is_empty() {
-        catalog.set(NAMES, directory);
+    if !names.is_empty() {
+        catalog.set(NAMES, names);
     }
     if let Some(interactive) = interactive {
         catalog.set(ACRO_FORM, interactive);

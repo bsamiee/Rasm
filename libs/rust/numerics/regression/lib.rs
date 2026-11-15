@@ -484,7 +484,7 @@ where
 fn finite_residuals<M>(model: &M, observations: &Observations, scales: &DVector<f64>, point: &DVector<f64>) -> Result<DVector<f64>, RegressionError>
 where M: Model {
     let values = DVector::from_iterator(scales.len(), residuals(model, observations, scales, point.as_view()));
-    values.iter().position(|residual| !residual.is_finite()).map_or(Ok(values), |point| Err(RegressionError::Model { point }))
+    values.iter().position(|residual| !residual.is_finite()).map_or(Ok(values), |index| Err(RegressionError::Model { point: index }))
 }
 
 fn slopes<M>(model: &M, observations: &Observations, scales: &DVector<f64>, point: &DVector<f64>) -> Result<DMatrix<f64>, RegressionError>
@@ -550,7 +550,7 @@ where
 fn linearized<M>(model: &M, observations: &Observations, scales: &DVector<f64>, options: Options, point: &DVector<f64>, hooks: SearchHooks<'_>) -> Result<Estimate, NEVec<RegressionError>>
 where M: Model {
     let (weighted, slopes) = jacobian(|parameters: DVector<DualDVec64>| DVector::from_iterator(scales.len(), residuals(model, observations, scales, parameters.as_view())), point);
-    weighted.iter().positions(|residual| !residual.is_finite()).map(|point| Err(RegressionError::Model { point })).chain(refused_slopes(&slopes)).collect::<Validated<(), _>>().ok()?;
+    weighted.iter().positions(|residual| !residual.is_finite()).map(|index| Err(RegressionError::Model { point: index })).chain(refused_slopes(&slopes)).collect::<Validated<(), _>>().ok()?;
     let reweights = weighted.map(|residual| reweight(options.loss, residual));
     let target = DMatrix::from_iterator(weighted.len(), 1, weighted.iter().map(|residual| -residual));
     estimate(&scaled(&slopes, &reweights), &scaled(&target, &reweights), options.regularization, Some(point), hooks).map_err(NEVec::new)
@@ -731,7 +731,7 @@ where M: Model {
     let noise = value / freedom;
     let spectrum = decompose(&curvature).map_err(NEVec::new)?;
     let gains = spectrum.singular.map_with_location(|index, _, singular| if index < spectrum.rank { 2.0 * noise / singular } else { 0.0 });
-    Ok(Uncertainty { parameters, covariance: spectrum.right.map_with_location(|_, column, value| value * gains[column]) * spectrum.left.transpose(), noise, freedom })
+    Ok(Uncertainty { parameters, covariance: spectrum.right.map_with_location(|_, column, entry| entry * gains[column]) * spectrum.left.transpose(), noise, freedom })
 }
 
 pub fn influence(estimate: &Estimate) -> Result<Vec<Influence>, NEVec<RegressionError>> {

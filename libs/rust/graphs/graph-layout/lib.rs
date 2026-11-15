@@ -247,13 +247,13 @@ fn route(
     label: Option<Extent>,
 ) -> (BezPath, Option<Rect>) {
     let border = |shape: Shape, frame: Rect, toward: Point| -> Point {
-        let (center, offset) = (frame.center(), toward - frame.center());
-        [(offset.x, frame.width()), (offset.y, frame.height())]
+        let (center, displacement) = (frame.center(), toward - frame.center());
+        [(displacement.x, frame.width()), (displacement.y, frame.height())]
             .into_iter()
             .filter(|&(along, _)| along != 0.0)
             .map(|(along, span)| span / along.abs())
             .reduce(f64::min)
-            .and_then(|scale| crossing(&outline(shape, frame), Line::new(center + offset * scale, center)))
+            .and_then(|scale| crossing(&outline(shape, frame), Line::new(center + displacement * scale, center)))
             .unwrap_or(center)
     };
     let normal = |side: Anchor| match side {

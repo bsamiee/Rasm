@@ -133,7 +133,7 @@ async fn crowded(isolated: &Isolated, level: &'static str) {
     const BURST: usize = 20;
     let isolated = &Isolated { level, ..isolated.clone() };
     let legacy = || ClientLifecycleMode::Initialize;
-    let usage = |pids: &[u32]| {
+    let measure = |pids: &[u32]| {
         let mut system = assert_ok!(System::new());
         let watched = Vec::from_iter(pids.iter().copied().map(Pid::from_u32));
         system.refresh_processes_specifics(ProcessesToUpdate::Some(&watched), true, ProcessRefreshKind::everything());
@@ -190,10 +190,10 @@ async fn crowded(isolated: &Isolated, level: &'static str) {
     let daemon = assert_some!(state().await).pid;
     let relays = Vec::from_iter(sessions.iter().filter_map(|session| session.process));
     let watched = Vec::from_iter(relays.iter().copied().chain([daemon]));
-    let loaded = usage(&watched);
+    let loaded = measure(&watched);
     printed(&BTreeMap::from([("daemon_after_load", daemon)])).await;
     time::sleep(Duration::from_mins(1)).await;
-    let rested = usage(&watched);
+    let rested = measure(&watched);
     printed(&BTreeMap::from([("daemon_after_idle_minute", daemon)])).await;
     time::sleep(Duration::from_secs(20)).await;
     let spent = |pid: &u32| rested.get(pid).zip(loaded.get(pid)).map_or_default(|(after, before)| after.cpu_millis.saturating_sub(before.cpu_millis));

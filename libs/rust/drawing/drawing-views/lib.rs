@@ -92,7 +92,7 @@ impl View {
         token: Option<&CancelToken>,
     ) -> Result<Self, NEVec<ViewsError>> {
         let frame = Frame::new(eye, projection).map_err(NEVec::new)?;
-        let prepared = |index: usize, body: Body| -> Result<Option<Prepared>, ViewsError> {
+        let prepare = |index: usize, body: Body| -> Result<Option<Prepared>, ViewsError> {
             (!cancel::is_cancelled(token)).ok_or(ViewsError::Cancelled)?;
             let refused = move |source| ViewsError::Mesh { body: index, source };
             match body {
@@ -116,8 +116,7 @@ impl View {
                 }
             }
         };
-        let bodies =
-            bodies.into_par_iter().enumerate().filter(|_| !cancel::is_cancelled(token)).filter_map(|(index, body)| prepared(index, body).transpose()).collect::<Validated<Vec<_>, _>>().ok()?;
+        let bodies = bodies.into_par_iter().enumerate().filter(|_| !cancel::is_cancelled(token)).filter_map(|(index, body)| prepare(index, body).transpose()).collect::<Validated<Vec<_>, _>>().ok()?;
         let renumbered = |error: ProximityError| {
             let ProximityError::NonFinite { indices } = error else {
                 return ViewsError::from(error);

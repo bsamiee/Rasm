@@ -11,16 +11,17 @@
 # --- [BUILD] ----------------------------------------------------------------------------
 
 [build]
-target-dir  = ".artifacts/cargo"
-build-dir   = "{workspace-root}/.cache/cargo"             # Cargo workspaces this file reaches outside the repository's (uv sdist builds under .cache) keep their own build folder
-rustflags   = ["-Zunstable-options", "--jobs-frontend=0"] # 0 is every core the host reports
-fingerprint = "content"
+target-dir = ".artifacts/cargo"
+build-dir  = "{workspace-root}/.cache/cargo"             # Cargo workspaces this file reaches outside the repository's (uv sdist builds under .cache) keep their own build folder
+rustflags  = ["-Zunstable-options", "--jobs-frontend=0"] # 0 is every core the host reports
 
 # --- [CACHE] ----------------------------------------------------------------------------
 
 [cache.global-clean]
-max-src-age   = "1 week"
-max-crate-age = "1 month"
+max-src-age    = "1 week"
+max-crate-age  = "1 month"
+max-git-co-age = "1 week"
+max-git-db-age = "1 month"
 
 # --- [ENV] ------------------------------------------------------------------------------
 
@@ -36,9 +37,6 @@ feature-unification = "workspace"
 # --- [UNSTABLE] -------------------------------------------------------------------------
 
 [unstable]
-checksum-freshness  = true
-embed-metadata      = false
 feature-unification = true
-fine-grain-locking  = true
 gc                  = true
 git                 = "shallow-deps"

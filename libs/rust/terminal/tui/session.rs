@@ -127,7 +127,7 @@ pub(crate) fn reloaded(filter: &Filter, level: LevelFilter) {
 }
 
 pub(crate) fn batched<P>(
-    session: Session<P>,
+    initial: Session<P>,
     inputs: impl IntoIterator<Item = Result<Input<P::Action, P::Item>, Either<io::Error, P::Error>>>,
     styles: &Styles,
 ) -> ControlFlow<Session<P>, Session<P>>
@@ -150,21 +150,21 @@ where
     };
     let keyed = |session: Session<P>, event: Event| {
         #[cfg(unix)]
-        let suspended = |mut session: Session<P>| {
-            let resumed = released(P::MODES, &session.held).and_then(|()| {
+        let suspended = |mut current: Session<P>| {
+            let resumed = released(P::MODES, &current.held).and_then(|()| {
                 (try bikeshed io::Result<()> {
                     kill_current_process_group(Signal::TSTP)?;
-                    entered(P::MODES, &session.held)?;
-                    session.terminal.clear()?
+                    entered(P::MODES, &current.held)?;
+                    current.terminal.clear()?
                 })
                 .map_err(NEVec::new)
             });
-            ended(session, Operation::Suspend, resumed)
+            ended(current, Operation::Suspend, resumed)
         };
-        let leveled = |session: Session<P>, step: fn(&LevelFilter) -> LevelFilter| {
-            let level = step(&session.level);
-            reloaded(&session.filter, level);
-            ControlFlow::Continue(Session { level, logs: session.logs.set_default_display_level(level), ..session })
+        let leveled = |current: Session<P>, step: fn(&LevelFilter) -> LevelFilter| {
+            let level = step(&current.level);
+            reloaded(&current.filter, level);
+            ControlFlow::Continue(Session { level, logs: current.logs.set_default_display_level(level), ..current })
         };
         let paged = |current: Session<P>, page: TuiWidgetEvent| {
             current.logs.transition(page);
@@ -188,7 +188,7 @@ where
             None => updated(session, Input::Event(event)),
         }
     };
-    let mut folded = inputs.into_iter().try_fold(session, |mut session, input| match input {
+    let mut folded = inputs.into_iter().try_fold(initial, |mut session, input| match input {
         Ok(Input::Event(event)) => keyed(session, event),
         Ok(input @ (Input::Action(_) | Input::Item(_) | Input::Tick(_) | Input::End)) => updated(session, input),
         Err(Either::Left(source)) => ended(session, Operation::Read, Err(NEVec::new(source))),

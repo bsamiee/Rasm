@@ -1,6 +1,6 @@
 use core::cell::RefCell;
 use core::hash::Hash;
-use core::{array, iter};
+use core::iter;
 
 use indexmap::{IndexMap, IndexSet};
 use itertools::{EitherOrBoth, Itertools as _};
@@ -9,6 +9,7 @@ use jiff::{Timestamp, civil};
 use newtype_uuid::{GenericUuid as _, TypedUuid, TypedUuidKind};
 use nonempty_collections::{IntoIteratorExt as _, NEVec, NonEmptyIterator};
 use sha2::digest::Output;
+use sha2::digest::consts::U16;
 use sha2::{Digest as _, Sha256};
 use typed_path::Utf8UnixPath;
 use uuid::{Builder, Uuid};
@@ -408,7 +409,7 @@ pub(super) fn document<T>(
     };
     let derived = |parts: &[&[u8]]| {
         let digest = parts.iter().fold(Sha256::new(), Sha256::chain_update).finalize();
-        Builder::from_custom_bytes(array::from_fn(|index| digest[index])).into_uuid()
+        Builder::from_custom_bytes(digest.split::<U16>().0.into()).into_uuid()
     };
     let documents = |xot: &mut Xot, document_element: Node, held: &Upgrade| -> Result<(), BcfError> {
         let (external, guid, reference, referenced) = (xot.add_name(EXTERNAL), xot.add_name(GUID), xot.add_name(REFERENCE), xot.add_name(REFERENCED));

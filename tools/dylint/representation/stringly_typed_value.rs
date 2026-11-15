@@ -149,7 +149,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             });
             (self.interned.contains(&callee) || wrapped).then_some(callee)
         };
-        let compared = |subject: &'tcx Expr<'tcx>, callee: DefId| {
+        let report = |subject: &'tcx Expr<'tcx>, callee: DefId| {
             span_lint_hir_and_then(cx, STRINGLY_TYPED_VALUE, subject.hir_id, subject.span, format!("text from `{}` is compared with string literals", cx.tcx.def_path_str(callee)), |diag| {
                 diag.help("look up each name once through `Xot::name` or `Xot::add_name` and compare its `NameId`");
             });
@@ -173,7 +173,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             && !tagged.iter().all(|(_, body)| decoded(cx, body))
         {
             match interned(scrutinee) {
-                Some(callee) => compared(scrutinee, callee),
+                Some(callee) => report(scrutinee, callee),
                 None => branch(scrutinee, site, &tagged.into_iter().flat_map(|(tags, _)| tags).collect::<Vec<_>>()),
             }
         }
@@ -187,7 +187,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 .is_some_and(|conditional| matches!(conditional.kind, ExprKind::If(_, then, _) if decoded(cx, then)))
         {
             match interned(subject) {
-                Some(callee) => compared(subject, callee),
+                Some(callee) => report(subject, callee),
                 None => branch(subject, site, &[literal]),
             }
         }

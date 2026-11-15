@@ -11,7 +11,7 @@ import vitest from 'vitest/package.json' with { type: 'json' };
 
 const SPEC = 'nrwl/nx packages/vitest/src/plugins/plugin-vitest.spec.ts';
 const SCHEMA = 'nx/schemas/project-schema.json';
-const UNREAD = /(?:^|[\s"'])-{0,2}version\b|mise\.lock|node_modules|@rasm\/nx-|TOKEN|SECRET|PASSWORD|CREDENTIAL/u;
+const UNREAD = /mise\.lock|node_modules|@rasm\/nx-|TOKEN|SECRET|PASSWORD|CREDENTIAL/u;
 const bounds = { built: '5 minutes', test: Duration.toMillis('3 minutes') } as const;
 const passing = "import { expect, test } from 'vitest';\n\ntest('adds', () => expect(1 + 1).toBe(2));\n";
 const listing = (...names: readonly string[]) => {
@@ -174,7 +174,7 @@ it.layer(workspace(configured), { timeout: bounds.built, excludeTestServices: tr
     );
 
     methods.effect(
-        'no input of an inferred target is a version command (--version, -version, <tool> version), plugin source, mise.lock, or a credential variable',
+        'no input of an inferred target is plugin source, mise.lock, or a credential variable',
         Effect.fnUntraced(function* () {
             const rows = Object.values((yield* read).nodes)
                 .flatMap(({ data }) => Object.values(data.targets ?? {}))
@@ -183,7 +183,7 @@ it.layer(workspace(configured), { timeout: bounds.built, excludeTestServices: tr
             assert.deepStrictEqual(
                 rows.filter((row) => UNREAD.test(row)),
                 [],
-                'README.md PRINCIPLES "Task inputs hold the files a task\'s tool reads: plugin and executor source, .config/mise.lock, tool --version output, and credentials are no input"',
+                'README.md PRINCIPLES "Task inputs hold the files a task\'s tool reads: plugin and executor source, .config/mise.lock, and credentials are no input"',
             );
         }),
         bounds.test,

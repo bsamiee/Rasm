@@ -152,7 +152,7 @@ pub struct Dimension {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub(crate) fn draw(typesetter: &mut Typesetter, style: &crate::Style, placement: Placement, dimension: &Dimension) -> Result<Graphics, NEVec<DraftingError>> {
+pub(crate) fn draw(shaper: &mut Typesetter, style: &crate::Style, placement: Placement, dimension: &Dimension) -> Result<Graphics, NEVec<DraftingError>> {
     fn written<D>(
         style: &crate::Style,
         dimension: &Dimension,
@@ -429,12 +429,12 @@ pub(crate) fn draw(typesetter: &mut Typesetter, style: &crate::Style, placement:
         symbols::draw(typesetter, style, placement, &symbols::Instance { slots: iter::chain(instance.slots.clone(), [(Arc::clone(slot), Arc::from(content))]).collect(), ..instance.clone() })
     };
     match &dimension.measure {
-        Measure::Linear(measure) => linear(typesetter, measure),
-        Measure::Angular(measure) => angular(typesetter, measure),
-        Measure::Radial(measure) => radial(typesetter, measure),
-        Measure::ArcLength(measure) => arc_length(typesetter, measure),
-        Measure::Ordinate(measure) => ordinate(typesetter, measure),
-        Measure::Level(measure) => level(typesetter, measure),
+        Measure::Linear(measure) => linear(shaper, measure),
+        Measure::Angular(measure) => angular(shaper, measure),
+        Measure::Radial(measure) => radial(shaper, measure),
+        Measure::ArcLength(measure) => arc_length(shaper, measure),
+        Measure::Ordinate(measure) => ordinate(shaper, measure),
+        Measure::Level(measure) => level(shaper, measure),
     }
 }
 

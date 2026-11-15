@@ -104,7 +104,7 @@ fn objective(network: &Network, goals: &[(usize, Goal)], grouping: &SparseColMat
     grouped(grouping, point, densities);
     let Solved { factor, spans, free } = solved(network, densities.as_view())?;
     let edge = |column: usize| Unit::try_new_and_get(vector(spans.row(column)), 0.0).map_or_else(|| (Vector3::zeros(), 0.0), |(direction, length)| (direction.into_inner(), length));
-    let terms = goals.iter().map(|&(column, Goal { weight, measure })| match measure {
+    let mut terms = goals.iter().map(|&(column, Goal { weight, measure })| match measure {
         Measure::Position { node: _, target } => {
             let residual = vector(free.row(column)) - target.coords;
             (weight * residual.norm_squared(), Either::Left((column, residual * (2.0 * weight))))
@@ -128,17 +128,17 @@ fn objective(network: &Network, goals: &[(usize, Goal)], grouping: &SparseColMat
         None => Ok(terms.map(|(value, _)| value).sum()),
         Some(slot) => {
             let (value, nodal, spanned, explicit) =
-                terms.fold((0.0, Mat::zeros(free.nrows(), 3), Mat::zeros(spans.nrows(), 3), vec![0.0; spans.nrows()]), |(total, mut nodal, mut spanned, mut explicit), (value, partial)| {
+                terms.try_fold((0.0, Mat::zeros(free.nrows(), 3), Mat::zeros(spans.nrows(), 3), vec![0.0; spans.nrows()]), |(total, mut nodal, mut spanned, mut explicit), (value, partial)| {
                     let (target, column, gradient): (&mut Mat<f64>, _, Vector3<f64>) = match partial {
                         Either::Left((column, gradient)) => (&mut nodal, column, gradient),
                         Either::Right((column, gradient, density)) => {
-                            explicit[column] += density;
+                            *explicit.get_mut(column).ok_or(FormError::Entry { input: Input::Edges, index: column })? += density;
                             (&mut spanned, column, gradient)
                         }
                     };
                     iter::zip(target.row_mut(column).iter_mut(), gradient.iter()).for_each(|(cell, part)| *cell += part);
-                    (total + value, nodal, spanned, explicit)
-                });
+                    Ok::<_, FormError>((total + value, nodal, spanned, explicit))
+                })?;
             let adjoint = network.free.as_ref() * factor.solve(nodal + network.free.as_ref().transpose() * &spanned);
             let gradient = iter::zip(explicit, iter::zip(adjoint.row_iter(), spans.row_iter())).map(|(explicit, (adjoint, span))| explicit - adjoint * span.transpose()).collect::<Vec<_>>();
             sparse_dense_matmul(

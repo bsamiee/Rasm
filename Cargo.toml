@@ -845,10 +845,11 @@ use_debug      = "deny" # `{:?}` in format strings, text people read renders thr
 
 # --- [ATTRIBUTES]
 
-allow_attributes                = "deny" # `#[allow]` on lints, `#[expect]` reports once the suppressed lint stops firing
-allow_attributes_without_reason = "deny" # `#[expect]` and `#[allow]` without `reason`, each suppression names the fact excusing it
-cfg_not_test                    = "deny" # `#[cfg(not(test))]` code, tests run what product runs
-redundant_test_prefix           = "deny" # `test_` prefixes on `#[test]` functions, each fact is stated once
+allow_attributes                   = "deny" # `#[allow]` on lints, `#[expect]` reports once the suppressed lint stops firing
+allow_attributes_without_reason    = "deny" # `#[expect]` and `#[allow]` without `reason`, each suppression names the fact excusing it
+cfg_not_test                       = "deny" # `#[cfg(not(test))]` code, tests run what product runs
+deprecated_attributes_without_note = "deny" # `#[deprecated]` without `note`, each deprecation names its replacement
+redundant_test_prefix              = "deny" # `test_` prefixes on `#[test]` functions, each fact is stated once
 
 # --- [RESULTS]
 
@@ -868,6 +869,7 @@ mixed_read_write_in_expression       = "deny" # Reads and writes of one variable
 pathbuf_init_then_push               = "deny" # `PathBuf` creation followed by `push`, paths build in one expression
 redundant_type_annotations           = "deny" # Annotations restating initializer's type, inferred types stand
 semicolon_outside_block              = "deny" # `{ f(); }` block statements, `{ f() };` is the direct form
+verbose_file_reads                   = "deny" # `File::open` then `read_to_end` or `read_to_string`, `fs::read` and `fs::read_to_string` state the read directly
 
 # --- [PATTERNS]
 
@@ -906,6 +908,12 @@ clone_on_ref_ptr = "deny" # `.clone()` on `Rc`, `Arc`, and `Weak`, `Arc::clone(&
 empty_drop       = "deny" # Empty `Drop` impls, removals delete every mention
 mem_forget       = "deny" # `mem::forget` on values with destructors, release runs on every path
 rc_buffer        = "deny" # `Rc` or `Arc` over growable buffers, shared values publish as immutable `str` or slices
+rc_mutex         = "deny" # `Rc<Mutex<_>>`, a value one thread owns takes `RefCell`
+
+# --- [CONCURRENCY]
+
+mutex_atomic  = "deny" # `Mutex<bool>` and `Mutex<pointer>`, an atomic holds a lone flag or pointer
+mutex_integer = "deny" # `Mutex<integer>`, an atomic holds a lone counter
 
 # --- [DECLARATIONS]
 
@@ -935,6 +943,7 @@ error_impl_error           = "deny" # Error types named `Error`, each names rais
 min_ident_chars            = "deny" # Single-character identifiers, single letters name coordinate axes, color channels, and IEC 61672-1 weightings alone
 module_name_repetitions    = "deny" # Item names repeating their module's name, paths state module once
 renamed_function_params    = "deny" # Trait impls renaming trait parameters, trait owns each parameter name
+shadow_unrelated           = "deny" # Bindings reusing a name for an unrelated value, each name states one value
 single_char_lifetime_names = "deny" # Single-character lifetime names, each lifetime names its purpose
 
 # --- [ALLOWED]
@@ -955,6 +964,7 @@ type_complexity             = "allow" # Scores nested generic types and asks for
 # --- [CARGO]
 
 [workspace.lints.cargo]
+default                       = { level = "deny", priority = -1 } # Correctness, suspicious, and style lints Cargo warns on by default, every finding fails check
 pedantic                      = { level = "deny", priority = -1 } # Binary names off kebab case and `readme` keys restating inferred file, each fact is stated once
 non_kebab_case_features       = "deny"                            # Feature names off kebab case, one spelling beside kebab-case package and binary names
 non_kebab_case_packages       = "deny"                            # Package names off kebab case, Nx project, package, and installed binary share one spelling

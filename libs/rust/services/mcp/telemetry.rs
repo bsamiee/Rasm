@@ -106,12 +106,12 @@ where S: Service<RoleServer>
             (Ok(_), false) => (None, None),
             (Err(error), false) => (Some(Cow::Owned(error.code.0.to_string())), Some(error)),
         };
-        let (span, elapsed) = (call.span.clone(), call.started.elapsed().as_secs_f64());
+        let (parent, elapsed) = (call.span.clone(), call.started.elapsed().as_secs_f64());
         call.finish(&OPERATION, failure.map(|error| error.code.0.to_string().into()), error_type.map(|kind| (kind.clone().into(), failure.map_or(kind, |error| error.message.clone()))));
         if let Some(error) = failure {
-            tracing::debug!(parent: &span, elapsed, { EXCEPTION_MESSAGE } = %error.message, "request failed");
+            tracing::debug!(parent: &parent, elapsed, { EXCEPTION_MESSAGE } = %error.message, "request failed");
         } else {
-            tracing::debug!(parent: &span, elapsed, "request completed");
+            tracing::debug!(parent: &parent, elapsed, "request completed");
         }
         result
     }

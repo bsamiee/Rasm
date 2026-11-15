@@ -167,9 +167,9 @@ where
             Sink::Grid { table, columns } => {
                 let Row { named: row_named, fields } = flattened(columns)?;
                 let (table, named) = table.get_or_insert_with(|| {
-                    let mut table = Box::new(Table::new());
-                    table.load_style(presets::UTF8_FULL_CONDENSED).set_content_arrangement(ContentArrangement::Dynamic);
-                    (table, false)
+                    let mut grid = Box::new(Table::new());
+                    grid.load_style(presets::UTF8_FULL_CONDENSED).set_content_arrangement(ContentArrangement::Dynamic);
+                    (grid, false)
                 });
                 *named |= row_named;
                 table.add_row(fields.into_iter().map(|field| match field {

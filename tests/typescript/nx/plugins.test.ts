@@ -1,7 +1,7 @@
 import { findPackageJSON } from 'node:module';
 import { layer } from '@effect/platform-node/NodeServices';
 import { assert, it } from '@effect/vitest';
-import { type ExpandedPluginConfiguration, workspaceRoot } from '@nx/devkit';
+import { type ExpandedPluginConfiguration, type TargetConfiguration, workspaceRoot } from '@nx/devkit';
 import type { Graph } from '@rasm/testing/nx';
 import { Array, Effect, FileSystem, Option, Predicate, Record, Schema } from 'effect';
 import { minimatch } from 'minimatch';
@@ -18,6 +18,7 @@ const SOURCES = {
 
 // --- [MODELS] --------------------------------------------------------------------------
 
+const Loaded = Schema.Struct({ externalDependencies: Schema.Array(Schema.String) }).annotate({ description: 'An input naming the installed packages a task loads' });
 const Manifest = Schema.fromJsonString(Schema.Struct({ dependencies: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)) }));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -48,6 +49,16 @@ const stray = (workspace: Graph, row: ExpandedPluginConfiguration, pattern: stri
             .map(({ root, file }) => `${root} from ${file}`),
     );
 
+const reached = ({ dependencies }: Pick<Graph, 'dependencies'>, nodes: ReadonlySet<string>): ReadonlySet<string> => {
+    const next = nodes.union(new Set([...nodes].flatMap((node) => (dependencies[node] ?? []).map(({ target }) => target))));
+    return next.size === nodes.size ? nodes : reached({ dependencies }, next);
+};
+
+const named = (workspace: Graph, { inputs = [] }: TargetConfiguration) => {
+    const packages = new Set(inputs.filter(Schema.is(Loaded)).flatMap(({ externalDependencies }) => externalDependencies));
+    return reached(workspace, new Set(Record.keys(Record.filter(workspace.externalNodes, ({ data }) => packages.has(data.packageName)))));
+};
+
 const lent = Effect.fnUntraced(function* (workspace: Graph, plugin: string) {
     const fs = yield* FileSystem.FileSystem;
     const manifest = yield* Effect.fromNullishOr(findPackageJSON(plugin, import.meta.url));
@@ -57,7 +68,9 @@ const lent = Effect.fnUntraced(function* (workspace: Graph, plugin: string) {
         (_, node) => dependents(workspace, new Set([node])),
     );
     return declared(workspace)
-        .filter(({ project, task, target }) => target.cache === true && Record.keys(workspace.hashes[task]?.inputs ?? {}).some((input) => allowed[input]?.has(project) === false))
+        .filter(({ target }) => target.cache === true)
+        .map(({ project, task, target }) => ({ task, target, foreign: new Set(Record.keys(workspace.hashes[task]?.inputs ?? {}).filter((input) => allowed[input]?.has(project) === false)) }))
+        .filter(({ target, foreign }) => foreign.size > 0 && !foreign.isSubsetOf(named(workspace, target)))
         .map(({ task }) => task);
 });
 

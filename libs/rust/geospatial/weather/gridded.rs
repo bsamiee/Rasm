@@ -109,7 +109,7 @@ where
     R: io::Read + io::Seek,
     I: IntoIterator<Item = R>,
 {
-    fn sampled<R>(grid: &OnceCell<Grid>, locations: &[(f64, f64)], message: SubMessage<'_, R>) -> Result<Vec<Reading>, Malformed>
+    fn sampled<R>(cache: &OnceCell<Grid>, locations: &[(f64, f64)], message: SubMessage<'_, R>) -> Result<Vec<Reading>, Malformed>
     where R: Grib2Read {
         let product = || -> Result<Option<Product>, Malformed> {
             const METEOROLOGY: u8 = 0;
@@ -213,7 +213,7 @@ where
         let Some(product) = product()? else {
             return Ok(Vec::new());
         };
-        let grid = grid.get_or_try_init(|| -> Result<_, Malformed> {
+        let grid = cache.get_or_try_init(|| -> Result<_, Malformed> {
             const GRID_RELATIVE: u8 = 0b0000_1000;
             let section = message.section3()?;
             let (flags, positive) = match &section.payload.template {
@@ -484,8 +484,8 @@ fn projected<R>(message: &SubMessage<'_, R>, template: &GridDefinitionTemplate, 
             let projection = Merc::new(&MercParams { ellipsoid: ellipsoid(earth_shape)?, lat_ts: f64::from(*lad) * ANGLE, lon_0: west.midpoint(east) }).map_err(Malformed::Projection)?;
             let [start, end] = [(west, *first_point_lat), (east, *last_point_lat)]
                 .try_map(|(longitude, latitude)| projection.project(&radians(longitude, f64::from(latitude) * ANGLE), false).map_err(Malformed::Projection))?;
-            let spacing = [(end.0 - start.0, ni), (end.1 - start.1, nj)].map(|(span, count)| span / nalgebra::convert::<usize, f64>(count.strict_sub(1)));
-            (Box::new(projection), radians(west, f64::from(*first_point_lat) * ANGLE), spacing)
+            let increments = [(end.0 - start.0, ni), (end.1 - start.1, nj)].map(|(span, count)| span / nalgebra::convert::<usize, f64>(count.strict_sub(1)));
+            (Box::new(projection), radians(west, f64::from(*first_point_lat) * ANGLE), increments)
         }
         _ => return Err(Malformed::Grid),
     };

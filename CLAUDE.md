@@ -5,21 +5,18 @@
 - Every language uses functional programming: domain logic stays pure and expression-oriented, imperative code stays at system boundaries
 - Data dependency decides composition: dependent operations bind and short-circuit, independent operations combine and accumulate every error
 - Language idioms differ but composition rules do not, when a language lacks a result type, adopt a dependency's, else define one
-- Defects and findings are fixed at their cause, never suppressed, lowered, or guarded, and documented runs lacking a credential or service are design
+- Defects and findings are fixed at their cause, never suppressed, lowered, or guarded
 - Removals delete every mention and adjust each consumer to the absence, nothing stands in for removed content
 - Docs, repo content, and settled owner decisions answer before the owner is asked, apps and hosts run live when a question needs one running
 - Apps and windows an agent opens take no focus and stay behind the user's work, inside or outside the project
 - Messages, docstrings, descriptions, and annotations are agent-facing: exact subject, values over prose, one action, no word that adds nothing
 - Hooks rewrite a wrong command form or refuse it with one short reason, cover forms the user named, and block nothing the user asks for
 - Settings differing by project, platform, or build mode use the tool's own switch (profile, condition, glob, per-OS file), never a script or flag
-- Tools agents call carry the capability inside: one parameterized entry, no flag or step an agent could get wrong, settled result returned
-- Adding a project, tool, or setting edits only its own file, no central list or second file changes with it
-- Changes extend the target, setting, or package already doing that job, never a parallel script or one-off flag
 
 ## [01]-[TOOLING]
 
 [TOOL_ROUTING]:
-- ALWAYS load the coding skill of each language a change writes or reviews, and the host's skill for code a host runs
+- ALWAYS load the coding skill of each language a change writes or reviews
 - ALWAYS use `ast-grep outline <path>` to choose what to read in an unread file or folder
 - ALWAYS use `watch-apps` skill whenever work touches a desktop app's process or windows
 - ALWAYS use `refactor-code` skill whenever code or configuration is written, reduced, rebuilt, or judged for quality
@@ -58,16 +55,11 @@
 
 ## [02]-[IMPLEMENTATION_STANDARDS]
 
-Code calls the API that provides a capability directly, and any layer in between adds something that API lacks
-
-- ALWAYS make invalid states unrepresentable at construction, every consumer receives a validated value without re-validating it
-- ALWAYS take a dependency as a parameter or from the runtime providing it, never through a service locator
-
 Values come from the code, host, or package that already states them:
-- ALWAYS declare a fact no host or package exposes once, in the code responsible for it, and compute every other use from it
+- Code calls the API that provides a capability directly, and any layer in between adds something that API lacks
+- ALWAYS make invalid states unrepresentable at construction, every consumer receives a validated value without re-validating it
 - ALWAYS reference members by compiler-checked symbol or generated accessor, never a name string, hand-written lookup per member, or custom generator
 - ALWAYS derive values from the operation and its target, a caller passing what the operation knows (value, flag, description) is a defect
-- ALWAYS let behavior and layout follow from how many parts callers supply, of which kind, and how nested, callers pass content and no mode
 - ALWAYS set a per-user host setting through that host's API at plug-in load
 - ALWAYS fetch a third-party file no package holds by pinned commit and checksum, each variant of a hand-made master (font, SVG mark) builds from it
 
@@ -93,7 +85,7 @@ Architecture: no folder holding one file, no flat folders, no tiny or oversized 
 - ALWAYS derive values and logic from the host, packages, and declarations, a hand-rolled, hardcoded, or wrapped form of them is a defect
 - NEVER let a string decide behavior: rebuild the logic over the value it stands for, never an enum renaming the strings
 - NEVER nest code more than 3 levels, flatten it by rebuilding the logic chain, never by extracting helpers or forwarding
-- Declared structs, enums, types, constants, and strings stay only when no host, package, or declaration states their fact and they remove logic
+- Declared structs, enums, types, constants, and strings almost never remain, stay only when no host, package, or declaration states their fact and they remove logic
 - Fewer, richer objects: one object replaces objects of different types, and consumers are rebuilt to its shape
 - Values and control flow are algebraic: one parameterized value, field, or member replaces a family of near-identical ones
 - Logic walks and parses its input once, bounds recursion, and looks keyed data up by key, never a repeated pass or linear search

@@ -134,7 +134,7 @@ pub(crate) fn authored(authoring: &Authoring) -> CadDocument {
     document
 }
 
-pub(crate) fn projected(document: &mut CadDocument, block: &str, context: &Context<'_>, projection: &Projection) -> Result<Vec<pages::Layer>, NEVec<CadError>> {
+pub(crate) fn projected(drawing: &mut CadDocument, space: &str, context: &Context<'_>, projection: &Projection) -> Result<Vec<pages::Layer>, NEVec<CadError>> {
     fn dashes(lengths: impl IntoIterator<Item = f64>, scale: f64) -> Result<Option<(Dashes, f64)>, DashesError> {
         let mut runs = lengths
             .into_iter()
@@ -214,13 +214,13 @@ pub(crate) fn projected(document: &mut CadDocument, block: &str, context: &Conte
         entities
     };
 
-    let overridden = |document: &CadDocument, layer: &Layer, context: &Context<'_>, kind: KnownXRecordKind| -> Option<XRecordValue> {
+    let overridden = |document: &CadDocument, layer: &Layer, kind: KnownXRecordKind| -> Option<XRecordValue> {
         context.viewport.and_then(|viewport| document.layer_viewport_overrides(layer.handle, kind).into_iter().find_map(|(handle, value)| (handle == viewport.common.handle).then_some(value)))
     };
 
-    let plotted = |document: &CadDocument, color: Color, layer: &Layer, context: &Context<'_>| -> (OpaqueColor<Srgb>, Option<f64>) {
+    let plotted = |document: &CadDocument, color: Color, layer: &Layer| -> (OpaqueColor<Srgb>, Option<f64>) {
         let resolved = match color {
-            Color::ByLayer => overridden(document, layer, context, KnownXRecordKind::LayerViewportColorOverride)
+            Color::ByLayer => overridden(document, layer, KnownXRecordKind::LayerViewportColorOverride)
                 .and_then(|value| if let XRecordValue::Int32(packed) = value { Some(Color::from_true_color_value(packed)) } else { None })
                 .unwrap_or(layer.color),
             Color::None | Color::ByBlock => Color::WHITE,
@@ -253,21 +253,19 @@ pub(crate) fn projected(document: &mut CadDocument, block: &str, context: &Conte
                 entity: &EntityType,
                 earlier: &mut Vec<pages::Layer>,
                 chain: &mut HashSet<String>,
-                subject: &Subject,
-                context: &Context<'_>,
-                projection: &Projection|
+                subject: &Subject|
      -> Result<ControlFlow<Expansion, Vec<pages::Layer>>, NEVec<CadError>> {
-        let pen = |document: &CadDocument, common: &EntityCommon, layer: &Layer, context: &Context<'_>, projection: &Projection| -> Result<Pen, Refusal> {
-            let (color, stated) = plotted(document, common.color, layer, context);
+        let plot_pen = |common: &EntityCommon, layer: &Layer| -> Result<Pen, Refusal> {
+            let (color, stated) = plotted(document, common.color, layer);
             let weight = match common.line_weight {
-                LineWeight::ByLayer => overridden(document, layer, context, KnownXRecordKind::LayerViewportLineweightOverride)
+                LineWeight::ByLayer => overridden(document, layer, KnownXRecordKind::LayerViewportLineweightOverride)
                     .and_then(|value| if let XRecordValue::Int32(weight) = value { Some(i16::try_from(weight).map(LineWeight::from_value)) } else { None })
                     .transpose()?
                     .unwrap_or(layer.line_weight),
                 LineWeight::ByBlock | LineWeight::Default | LineWeight::Value(_) => common.line_weight,
             };
             let transparency = match common.transparency {
-                Transparency::ByLayer => overridden(document, layer, context, KnownXRecordKind::LayerViewportAlphaOverride)
+                Transparency::ByLayer => overridden(document, layer, KnownXRecordKind::LayerViewportAlphaOverride)
                     .and_then(|value| if let XRecordValue::Int32(alpha) = value { Transparency::from_layer_alpha_value(alpha.cast_unsigned()) } else { None })
                     .unwrap_or(layer.transparency),
                 Transparency::ByBlock | Transparency::Explicit(_) => common.transparency,
@@ -279,9 +277,9 @@ pub(crate) fn projected(document: &mut CadDocument, block: &str, context: &Conte
                 .map_err(|(OpacityError::FiniteViolated | OpacityError::GreaterOrEqualViolated | OpacityError::LessOrEqualViolated)| Refusal::Unsupported)
         };
 
-        let linetype = |document: &CadDocument, common: &EntityCommon, layer: &Layer, context: &Context<'_>| -> Result<Option<Linetype>, Refusal> {
+        let linetype = |common: &EntityCommon, layer: &Layer| -> Result<Option<Linetype>, Refusal> {
             let stated = match &common.linetype {
-                name if name.is_empty() || name.eq_ignore_ascii_case("ByLayer") => overridden(document, layer, context, KnownXRecordKind::LayerViewportLinetypeOverride)
+                name if name.is_empty() || name.eq_ignore_ascii_case("ByLayer") => overridden(document, layer, KnownXRecordKind::LayerViewportLinetypeOverride)
                     .and_then(|value| if let XRecordValue::Handle(handle) = value { document.line_types.iter().find(|entry| entry.handle == handle) } else { None })
                     .or_else(|| document.line_types.get(&layer.line_type)),
                 name if name.eq_ignore_ascii_case("ByBlock") => None,
@@ -347,11 +345,11 @@ pub(crate) fn projected(document: &mut CadDocument, block: &str, context: &Conte
                 }
             }
         };
-        let penned = || Validated::from(pen(document, common, &layer, context, projection).map_err(refusing));
+        let penned = || Validated::from(plot_pen(common, &layer).map_err(refusing));
         let stroked = |outline: Option<BezPath>| -> Result<Vec<pages::Layer>, NEVec<CadError>> {
             outline.map_or(Ok(Vec::new()), |outline| {
                 Validated::from(Path::try_new(outline).map_err(|source| misshapen(LineworkError::from(source))))
-                    .map3(penned(), Validated::from(linetype(document, common, &layer, context).map_err(refusing)), |path, pen, linetype| piece(vec![Element::Stroke { path, pen, linetype }]))
+                    .map3(penned(), Validated::from(linetype(common, &layer).map_err(refusing)), |path, pen, linetype| piece(vec![Element::Stroke { path, pen, linetype }]))
                     .ok()
             })
         };
@@ -362,7 +360,7 @@ pub(crate) fn projected(document: &mut CadDocument, block: &str, context: &Conte
                 .map2(penned(), |text::Lettering { text, background }, pen| {
                     piece(
                         iter::chain(
-                            background.map(|(region, color)| Element::Fill { region, color: rasm_drawing::Color::Srgb(plotted(document, color, &layer, context).0), opacity: pen.opacity }),
+                            background.map(|(region, color)| Element::Fill { region, color: rasm_drawing::Color::Srgb(plotted(document, color, &layer).0), opacity: pen.opacity }),
                             iter::once(Element::Text { text, color: pen.color, opacity: pen.opacity }),
                         )
                         .collect(),
@@ -484,8 +482,8 @@ pub(crate) fn projected(document: &mut CadDocument, block: &str, context: &Conte
         .map(ControlFlow::Continue)
     };
 
-    let mut chain = HashSet::from([normalize_name(block)]);
-    let mut frame = Frame { source: Either::Left(ordered(document, block).into_iter()), .. };
+    let mut chain = HashSet::from([normalize_name(space)]);
+    let mut frame = Frame { source: Either::Left(ordered(drawing, space).into_iter()), .. };
     let mut parents = Vec::<Frame>::new();
     let merge = |earlier: Validated<Vec<pages::Layer>, CadError>, more: Validated<Vec<pages::Layer>, CadError>| {
         earlier.map2(more, |earlier, more| {
@@ -531,7 +529,7 @@ pub(crate) fn projected(document: &mut CadDocument, block: &str, context: &Conte
             Validated::Good(layers) => layers,
             Validated::Fail(_) => &mut discarded,
         };
-        match drew(document, entity, earlier, &mut chain, subject, context, projection) {
+        match drew(drawing, entity, earlier, &mut chain, subject) {
             Ok(ControlFlow::Continue(more)) => frame.layers = merge(frame.layers, Validated::Good(more)),
             Err(errors) => frame.layers = merge(frame.layers, Validated::Fail(errors)),
             Ok(ControlFlow::Break(expansion)) => {

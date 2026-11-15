@@ -77,8 +77,8 @@ pub(crate) fn normal(group: &[QueryResultItem<(), Item, f64>], toward: Option<Po
         .sum::<Matrix3<f64>>();
     let SymmetricEigen { eigenvectors, eigenvalues } = covariance.symmetric_eigen();
     let (lowest, highest) = (eigenvalues.imin(), eigenvalues.imax());
-    let middle = (0..covariance.nrows()).find(|&axis| axis != lowest && axis != highest)?;
-    (eigenvalues[middle] > eigenvalues[highest] * f64::EPSILON * nalgebra::convert::<usize, f64>(covariance.nrows())).then(|| {
+    let middle = eigenvalues.iter().enumerate().find_map(|(axis, &value)| (axis != lowest && axis != highest).then_some(value))?;
+    (middle > eigenvalues.max() * f64::EPSILON * nalgebra::convert::<usize, f64>(covariance.nrows())).then(|| {
         let normal = Unit::new_normalize(eigenvectors.column(lowest).into_owned());
         if toward.is_some_and(|toward| (toward.coords - centroid).dot(&normal) < 0.0) { -normal } else { normal }
     })

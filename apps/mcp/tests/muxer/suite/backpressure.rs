@@ -22,8 +22,8 @@ async fn daemon_stops_past_a_server_that_stopped_reading() {
         let held = assert_some!(daemon(isolated, &[]).await);
         let request = ClientRequest::CallToolRequest(CallToolRequest::new(assert_ok!(call("stall", &Slow { millis: 600_000, steps: 600 }))));
         let _stalled = assert_ok!(running.peer().send_cancellable_request(request, PeerRequestOptions::no_options()).await);
-        let update = ProgressNotificationParam::new(ProgressToken(NumberOrString::Number(0)), 0.0).with_message("x".repeat(4 << 10));
-        let sends = stream::repeat(update).then(async |update| time::timeout(Duration::from_secs(1), running.peer().notify_progress(update)).await.map(|sent| assert_ok!(sent)));
+        let progress = ProgressNotificationParam::new(ProgressToken(NumberOrString::Number(0)), 0.0).with_message("x".repeat(4 << 10));
+        let sends = stream::repeat(progress).then(async |update| time::timeout(Duration::from_secs(1), running.peer().notify_progress(update)).await.map(|sent| assert_ok!(sent)));
         let taken = sends.take_while(|sent| {
             ready(match sent {
                 Ok(()) => true,

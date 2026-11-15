@@ -11,6 +11,7 @@ type Member = Effect.Success<ReturnType<typeof located>>['members'][number];
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const LOCK = 'uv.lock';
+const SCHEMA = 'preview';
 const MANIFEST = 'pyproject.toml';
 const PRIVATE = 'Private ::';
 const SEPARATORS = /[-_.]+/gu;
@@ -61,7 +62,7 @@ const Node = Schema.Struct({
 });
 const Metadata = Schema.fromJsonString(
     Schema.Struct({
-        schema: Schema.Struct({ version: Schema.Literal('preview') }),
+        schema: Schema.Struct({ version: Schema.Literal(SCHEMA) }),
         workspace: Schema.Struct({ path: Schema.String, id: Schema.String }),
         members: Schema.Array(Schema.Struct({ name: Schema.String, path: Schema.String, id: Schema.String })),
         resolution: Schema.Record(Schema.String, Node),
@@ -176,4 +177,4 @@ const located = Effect.fnUntraced(function* (workspaceRoot: string, { members, .
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { folders, LOCK, located, MANIFEST, type Member, Metadata, normalized, report };
+export { folders, LOCK, located, MANIFEST, type Member, Metadata, normalized, report, SCHEMA };

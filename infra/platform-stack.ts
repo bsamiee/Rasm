@@ -17,17 +17,13 @@ import type { configs } from '#/repository-stack';
 
 type Role = Data.TaggedEnum<{
     Cache: { readonly name: string; readonly kept: Duration.Duration };
-    Runner: { readonly packages: readonly string[]; readonly instances: Readonly<Record<string, Readonly<Record<string, string>>>> };
+    Runner: { readonly instances: readonly string[] };
     Apps: { readonly owner: string };
 }>;
 interface Row {
     readonly address: string;
     readonly tags: readonly `tag:${string}`[];
     readonly roles: readonly Role[];
-}
-interface Setting {
-    readonly content: Input<string>;
-    readonly applied: readonly string[];
 }
 
 // --- [TABLES] --------------------------------------------------------------------------
@@ -41,20 +37,9 @@ const hosts = {
     'derby.parametric-arsenal.cloud': {
         address: '45.90.223.193',
         tags: ['tag:server'],
-        roles: [{ _tag: 'Runner', packages: ['build-essential', 'libsqlite3-dev', 'pkg-config', 'sqlite3', 'unzip', 'zip'], instances: { host: { MemoryHigh: '18G', MemoryMax: '20G' }, container: {} } }],
+        roles: [{ _tag: 'Runner', instances: ['host', 'container'] }],
     },
 } as const satisfies Record.ReadonlyRecord<string, Row>;
-const files = {
-    '/etc/docker/daemon.json': { content: `${JSON.stringify({ 'live-restore': true, 'log-driver': 'local' })}\n`, applied: ['systemctl restart docker'] },
-    '/etc/systemd/zram-generator.conf': {
-        content: '[zram0]\nzram-size = ram / 4\ncompression-algorithm = zstd\n',
-        applied: ['DEBIAN_FRONTEND=noninteractive apt-get install --quiet --yes systemd-zram-generator', 'systemctl daemon-reload', 'systemctl start dev-zram0.swap'],
-    },
-    '/etc/systemd/journald.conf.d/90-platform.conf': { content: '[Journal]\nSystemMaxUse=1G\n', applied: ['systemctl restart systemd-journald'] },
-    '/etc/sysctl.d/90-platform.conf': { content: 'net.ipv4.ip_nonlocal_bind = 1\n', applied: ['sysctl --system'] },
-    '/etc/apt/apt.conf.d/52unattended-upgrades-local': { content: 'Unattended-Upgrade::Origins-Pattern { "origin=Ubuntu,archive=*-updates"; "origin=Docker"; };\nUnattended-Upgrade::Automatic-Reboot "true";\n', applied: [] },
-    '/etc/systemd/system/apt-daily-upgrade.timer.d/90-platform.conf': { content: '[Timer]\nOnCalendar=\nOnCalendar=*-*-* 05:00 America/Chicago\n', applied: ['systemctl daemon-reload', 'systemctl restart apt-daily-upgrade.timer'] },
-} as const satisfies Record.ReadonlyRecord<string, Setting>;
 const entrypoints = { web: 80, websecure: 443 } as const;
 const local = { host: 'local.rasm.localhost', owner: 'owner@rasm.localhost' } as const;
 
@@ -75,14 +60,13 @@ class Machine extends Data.Class<{
 }> {
     // --- [CONSTRUCTION]
 
-    static readonly on = (host: string, network: Option.Option<Input<string>>, registries: Pick<ProviderArgs, 'registryAuth'> = {}, settings: Record.ReadonlyRecord<string, Setting> = {}) => {
+    static readonly on = (host: string, network: Option.Option<Input<string>>, registries: Pick<ProviderArgs, 'registryAuth'> = {}) => {
         const [name = host, ...labels] = host.split('.');
         const zone = labels.join('.');
         const reached = Option.map(Record.get<string, Row>(hosts, host), ({ address }) => ({ address, zoneId: getZoneOutput({ filter: { name: zone } }).zoneId }));
         const dialed = Option.getOrUndefined(Option.map(reached, () => ({ host: `ssh://root@${name}` })));
-        const settled = Record.collect(settings, (file, setting) => Machine.written(name, file, setting));
-        const provider = new Provider(host, { ...dialed, ...registries }, { dependsOn: settled });
-        const builder = new dockerBuild.Provider(host, { ...dialed }, { dependsOn: settled });
+        const provider = new Provider(host, { ...dialed, ...registries });
+        const builder = new dockerBuild.Provider(host, { ...dialed });
         return new Machine({ name, zone, provider, builder, shared: network, remote: reached });
     };
 
@@ -137,16 +121,6 @@ class Machine extends Data.Class<{
             { name: service, networksAdvanced: [{ name: this.network }], restart: 'unless-stopped', logDriver: 'local', wait: true, waitTimeout: 300, destroyGraceSeconds: 120, ...Array.match(tests, { onEmpty: () => ({}), onNonEmpty: (stated) => ({ healthcheck: { tests: [...stated], interval: '10s' } }) }), ...args },
             { provider: this.provider, ...options },
         );
-    }
-
-    // --- [SETTINGS]
-
-    static ran(name: string, step: string, args: Omit<remote.CommandArgs, 'connection' | 'addPreviousOutputInEnv' | 'logging'>, options: CustomResourceOptions = {}) {
-        return new remote.Command(`${name}-${step}`, { connection: { host: name }, addPreviousOutputInEnv: false, logging: 'stderr', ...args }, { retainOnDelete: true, ...options });
-    }
-
-    static written(name: string, file: string, { content, applied }: Setting, options: CustomResourceOptions = {}) {
-        return Machine.ran(name, file, { create: [`install -D -m 0644 /dev/stdin ${file}`, ...applied].join(' && '), delete: [`rm -f ${file}`, ...applied].join(' && '), stdin: content }, options);
     }
 }
 
@@ -282,26 +256,18 @@ const installed = Effect.sync(() => hosted(Machine.on(local.host, Option.none())
 
 const provisioned = (host: keyof typeof hosts, { owner, repository, project, engines, registry }: { readonly owner: string; readonly repository: string; readonly project: string; readonly engines: readonly string[]; readonly registry: Input<string> }) =>
     Effect.sync(() => {
-        const [{ address, roles }, machine]: readonly [Row, Machine] = [hosts[host], Machine.on(host, Option.none(), { registryAuth: [{ address: 'ghcr.io', username: owner, password: registry }] }, files)];
+        const [{ address, roles }, machine]: readonly [Row, Machine] = [hosts[host], Machine.on(host, Option.none(), { registryAuth: [{ address: 'ghcr.io', username: owner, password: registry }] })];
         const located = machine.named(host, 'A', address).map(({ content }) => content);
         const served = roles.map(
             Role.$match({
                 Cache: (settings): Readonly<Record<string, unknown>> => cached(machine, settings, project),
                 Apps: (settings) => hosted(machine, settings),
-                Runner: ({ packages, instances }) => {
-                    const runner = { version: '2.338.2', sha256: 'baebf204307bac6193480852732f0aba2ae97b6c5597c244f4d5558390147c40', user: 'runner', uid: 1000 } as const;
-                    const prepared = [
-                        Machine.ran(machine.name, 'packages', { create: `apt-get update --quiet && DEBIAN_FRONTEND=noninteractive apt-get install --quiet --yes ${packages.join(' ')}` }),
-                        Machine.ran(machine.name, 'user', { create: `id ${runner.user} >/dev/null 2>&1 || useradd --create-home --uid ${runner.uid} --shell /bin/bash --groups docker ${runner.user}`, delete: `userdel --remove ${runner.user}` }),
-                        Machine.written(machine.name, `/etc/sudoers.d/90-${runner.user}`, { content: `${runner.user} ALL=(ALL) NOPASSWD:ALL\n`, applied: [] }),
-                        Machine.written(machine.name, '/etc/needrestart/conf.d/actions_runner_services.conf', { content: '$nrconf{override_rc}{qr(^actions\\.runner\\..+\\.service$)} = 0;\n', applied: [] }),
-                    ];
-                    const [, registered] = Array.mapAccum(Record.toEntries(instances), prepared, (before, [label, limits]) => {
+                Runner: ({ instances }) => {
+                    const runner = { version: '2.338.2', sha256: 'baebf204307bac6193480852732f0aba2ae97b6c5597c244f4d5558390147c40', user: 'runner' } as const;
+                    const [, registered] = Array.mapAccum(instances, Option.none<remote.Command>(), (before, label) => {
                         const folder = `/home/${runner.user}/actions-runner-${label}`;
                         const archive = `/tmp/actions-runner-${label}.tar.gz`;
-                        const unit = `"$(cat ${folder}/.service)"`;
-                        const reverted = `systemctl revert ${unit}`;
-                        const removed = `if cd ${folder} 2>/dev/null; then ${reverted}; ./svc.sh stop; ./svc.sh uninstall; fi; rm -rf ${folder}`;
+                        const removed = `if cd ${folder} 2>/dev/null; then systemctl revert "$(cat ${folder}/.service)"; ./svc.sh stop; ./svc.sh uninstall; fi; rm -rf ${folder}`;
                         const installation = [
                             'token=$(cat)',
                             removed,
@@ -316,16 +282,8 @@ const provisioned = (host: keyof typeof hosts, { owner, repository, project, eng
                             './svc.sh start',
                         ].join('\n');
                         const token = new command.local.Command(`${machine.name}-runner-${label}-token`, { create: `gh api --method POST repos/${owner}/${repository}/actions/runners/registration-token --jq .token`, triggers: [installation], logging: 'none' }, { additionalSecretOutputs: ['stdout'] });
-                        const instance = Machine.ran(machine.name, `runner-${label}`, { create: installation, delete: removed, stdin: token.stdout }, { dependsOn: before });
-                        const limited = [
-                            reverted,
-                            ...Array.match(
-                                Record.collect(limits, (option, value) => [option, value].join('=')),
-                                { onEmpty: () => [], onNonEmpty: (options) => [`systemctl set-property ${unit} ${options.join(' ')}`] },
-                            ),
-                        ].join('\n');
-                        const applied = Machine.ran(machine.name, `runner-${label}-limits`, { create: limited, update: limited, delete: reverted, triggers: [installation] }, { dependsOn: instance });
-                        return [[instance, applied], [label, instance.id] as const];
+                        const instance = new remote.Command(`${machine.name}-runner-${label}`, { connection: { host: machine.name }, addPreviousOutputInEnv: false, logging: 'stderr', create: installation, delete: removed, stdin: token.stdout }, { dependsOn: Option.toArray(before) });
+                        return [Option.some(instance), [label, instance.id] as const];
                     });
                     return { runners: Record.fromEntries(registered), engines: engines.map((version) => machine.pulled(`ghcr.io/epicgames/unreal-engine:dev-slim-${version}`, { customTimeouts: { create: '2h', update: '2h' } })) };
                 },

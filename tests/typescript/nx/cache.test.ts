@@ -19,7 +19,7 @@ const SOURCES = {
     apart: 'nrwl/nx e2e/nx/src/cache.test.ts: should cache command execution; a restored output holds the files of one task alone',
     platform:
         'README.md PRINCIPLES: Cached targets with output that differs by platform hash one platform input, since one remote cache serves every runner; builds and tests of Cargo, Swift, CMake, and Unreal and test results of .NET and Python differ by platform, output of tsc, Vite, Vitest, and Storybook does not; Suites reading the project graph take tag `os:all` and hash one platform input',
-    read: "README.md PRINCIPLES: Task inputs hold the files a task's tool reads: plugin and executor source, `.config/mise.lock`, tool `--version` output, and credentials are no input",
+    read: "README.md PRINCIPLES: Task inputs hold the files a task's tool reads: plugin and executor source, `.config/mise.lock`, and credentials are no input",
     keyed: 'README.md OWNERS: Mac app release form — Doppler `rasm/release` `ASC_API_*` rows, set notarize a `.dmg` for Sparkle, absent release a `.zip`; a key identifier that selects the form of an output is no credential',
     versioned:
         'nrwl/nx packages/nx/src/native/tasks/hash_planner.rs external_deps: an empty externalDependencies list hashes no package, so a target stating one names the file its ecosystem states versions in (README.md OWNERS rows Package version, Swift package version, Rust package version, C++ toolchain and packages)',
@@ -29,7 +29,6 @@ const BUILT = Duration.toMillis(Duration.minutes(10));
 const TOKENED = /\{(?:options|workspaceRoot|projectRoot|projectName)/u;
 const ARTIFACT = /^\.artifacts\/[^/]+\/./u;
 const KEPT = /(?:^|\/)(?:dist|\.build|\.cloudflare\/(?:output|types))(?:\/|$)/u;
-const VERSION = /(?:^|\s)-{0,2}version(?:\s|$)/u;
 const CREDENTIAL = /TOKEN|SECRET|PASSWORD|CREDENTIAL|_KEY$/u;
 const GLOBBED = /\/[^/]*[*{].*$/u;
 
@@ -81,10 +80,10 @@ const sourced = (workspace: Graph) => {
         .map(({ task }) => task);
 };
 
-const hashed = (workspace: Graph, prefix: string, refused: RegExp, own: readonly string[] = []) =>
+const credentialed = (workspace: Graph) =>
     Array.difference(
-        Array.dedupe(stored(workspace).flatMap(({ task }) => hashing(workspace, task))).filter((input) => input.startsWith(prefix) && refused.test(input)),
-        own,
+        Array.dedupe(stored(workspace).flatMap(({ task }) => hashing(workspace, task))).filter((input) => input.startsWith('env:') && CREDENTIAL.test(input)),
+        ['env:NX_CLOUD_ENCRYPTION_KEY'],
     );
 
 const unversioned = (workspace: Graph) =>
@@ -231,16 +230,9 @@ it.layer(layer, { excludeTestServices: true })((suite) => {
     );
 
     suite.effect(
-        'hashes the output of no tool version command (--version, -version, <tool> version) into a cached task',
-        Effect.fnUntraced(function* () {
-            assert.deepStrictEqual(hashed(yield* read('fresh'), 'runtime:', VERSION), [], SOURCES.read);
-        }),
-    );
-
-    suite.effect(
         'hashes no credential variable into a cached task beyond the encryption key Nx itself adds',
         Effect.fnUntraced(function* () {
-            assert.deepStrictEqual(hashed(yield* read('fresh'), 'env:', CREDENTIAL, ['env:NX_CLOUD_ENCRYPTION_KEY']), [], `${SOURCES.read}; ${SOURCES.keyed}`);
+            assert.deepStrictEqual(credentialed(yield* read('fresh')), [], `${SOURCES.read}; ${SOURCES.keyed}`);
         }),
     );
 

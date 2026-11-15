@@ -241,8 +241,8 @@ impl Region {
         let mirrored = affine.determinant().is_sign_negative();
         self.0
             .iter()
-            .map(|Contour { path, parent, outer }| {
-                let moved = *affine * path;
+            .map(|Contour { path: original, parent, outer }| {
+                let moved = *affine * original;
                 let path = if mirrored { moved.reverse_subpaths() } else { moved };
                 finite(&path).map(|()| Contour { path, parent: *parent, outer: *outer })
             })

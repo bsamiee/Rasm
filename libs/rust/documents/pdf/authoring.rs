@@ -167,8 +167,8 @@ fn opened(settings: SerializeSettings, options: &Options) -> Result<krilla::Docu
     Ok(document)
 }
 
-fn closed(document: krilla::Document, sheets: &[&Page], groups: &[Vec<Group>], options: &Options) -> Result<Document, PdfError> {
-    let mut structure = lopdf::Document::load_mem(&document.finish()?)?;
+fn closed(authored: krilla::Document, sheets: &[&Page], groups: &[Vec<Group>], options: &Options) -> Result<Document, PdfError> {
+    let mut structure = lopdf::Document::load_mem(&authored.finish()?)?;
     standards::close(&mut structure, &options.standards)?;
     if groups.iter().any(|layer_groups| !layer_groups.is_empty()) {
         layers::bind(&mut structure, groups, &options.application)?;

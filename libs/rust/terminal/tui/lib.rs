@@ -110,7 +110,7 @@ impl From<ScreenError> for ExitCode {
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 pub fn run<A, L, P, S>(
-    program: rasm_telemetry::process::Program,
+    telemetry: rasm_telemetry::process::Program,
     layer: L,
     runtime: impl FnOnce(&A) -> Builder,
     start: impl AsyncFnOnce(Invocation<A>) -> Result<(P, S), NEVec<P::Error>> + Send + 'static,
@@ -123,7 +123,7 @@ where
 {
     const BATCH: usize = 256;
     let held = Arc::new(Held { lines: Mutex::default(), depth: P::HISTORY });
-    rasm_cli::run(program, Arc::clone(&held), TuiTracingSubscriberLayer.and_then(layer), runtime, async move |invocation: Invocation<A>| {
+    rasm_cli::run(telemetry, Arc::clone(&held), TuiTracingSubscriberLayer.and_then(layer), runtime, async move |invocation: Invocation<A>| {
         let styles = match AutoStream::choice(&io::stdout()) {
             ColorChoice::Never => Styles::plain(),
             ColorChoice::Auto | ColorChoice::AlwaysAnsi | ColorChoice::Always => invocation.styles.clone(),

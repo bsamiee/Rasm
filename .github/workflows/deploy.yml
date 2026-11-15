@@ -36,6 +36,8 @@ jobs:
                   tags: tag:deploy
                   ping: ${{ vars.TAILSCALE_MACHINES }}
             - run: mkdir -p ~/.ssh && printf "%s\n" "Host *" "    StrictHostKeyChecking accept-new" >> ~/.ssh/config
+            - run: mise bootstrap remote --all --only accounts,packages,files,services --dry-run
+            - run: mise bootstrap remote --all --only accounts,packages,files,services --yes
             - run: nx deploy @rasm/infra
               env:
                   DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}

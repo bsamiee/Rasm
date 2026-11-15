@@ -141,7 +141,7 @@ impl Daemon {
         let connect = move |stop: CancellationToken| {
             let (key, environment, processes) = (key.clone(), Arc::clone(&environment), processes.clone());
             async move {
-                let (attached, streams) = oneshot::channel();
+                let (attached, attachment) = oneshot::channel();
                 let process = server(&key.0, &environment, Stdio::piped());
                 let mut exited = async move {
                     let attach = async |streams| attached.send(streams).map_err(|rasm_process::Streams { id: _, stdin: _, stdout: _, stderr: _ }| io::Error::from(io::ErrorKind::BrokenPipe));
@@ -151,7 +151,7 @@ impl Daemon {
                     }
                 }
                 .boxed();
-                let streams = match future::select(streams, &mut exited).await {
+                let streams = match future::select(attachment, &mut exited).await {
                     Either::Left((Ok(streams), _)) => streams,
                     Either::Left((Err(oneshot::error::RecvError { .. }), _)) => return Err(io::Error::other(exited.await)),
                     Either::Right((exit, _)) => return Err(io::Error::other(exit)),
@@ -226,7 +226,7 @@ pub(crate) async fn serve(endpoint: Endpoint, cache: &Utf8Path, idle: Option<Dur
         let (command, IgnoredAny) = rasm_mcp::decode::<(Command, IgnoredAny)>(&fs_err::tokio::read(&path).await?).map_err(io::Error::other)?;
         Ok::<_, io::Error>(crate::build(&fs_err::tokio::metadata(&command.program).await?)? != command.file)
     };
-    let records = fs_err::tokio::read_dir(cache).map_ok(|records| stream::try_unfold(records, async |mut records| Ok(records.next_entry().await?.map(|entry| (entry, records))))).try_flatten_stream();
+    let records = fs_err::tokio::read_dir(cache).map_ok(|listing| stream::try_unfold(listing, async |mut records| Ok(records.next_entry().await?.map(|entry| (entry, records))))).try_flatten_stream();
     let pruned = records.try_for_each(async |entry| match stale(entry.path()).await {
         Ok(false) => Ok(()),
         Ok(true) => fs_err::tokio::remove_file(entry.path()).await,

@@ -117,8 +117,8 @@ pub async fn bind<X>(listen: impl IntoIterator<Item = Authority>, port: u16, bac
     .collect::<Validated<Vec<_>, _>>()
     .ok()?;
     let ipv4_ports = resolved.iter().flat_map(|(_, found)| found).filter(|address| address.is_ipv4()).map(SocketAddr::port).collect::<HashSet<_>>();
-    let bind = |requested: SocketAddr, port: u16| {
-        let address = SocketAddr::new(requested.ip(), port);
+    let bind = |requested: SocketAddr, assigned: u16| {
+        let address = SocketAddr::new(requested.ip(), assigned);
         let failed = |operation: HttpOperation| move |source: io::Error| HttpError::<X>::Io { operation, address, source };
         let listener = try bikeshed io::Result<TcpListener> {
             let socket = match address {

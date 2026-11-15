@@ -73,7 +73,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                     && !is_text(cx, target)
                     && target.ty_adt_def().is_none_or(|held| {
                         !(self.value.contains(&held.did())
-                            || source_adt.is_some_and(|source| self.str_deserializers.contains(&source.did()))
+                            || source_adt.is_some_and(|adt| self.str_deserializers.contains(&adt.did()))
                                 && held.is_enum()
                                 && !delegated(held.did(), &[sym::from, sym::try_from])
                                 && held

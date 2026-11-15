@@ -239,20 +239,20 @@ async fn run(invocation: Invocation<Cli>) -> Result<ExitCode, MuxerError> {
         })
     }
     let failed = |operation: Operation| move |source: io::Error| MuxerError::Io { operation, source };
-    let Invocation { args: Cli { per, env: declared, directory, idle, daemon, command }, executable, styles: _, folders, filter: _, parent, settings, export } = invocation;
+    let Invocation { args: Cli { per, env: assignments, directory, idle, daemon: serving, command: argv }, executable, styles: _, folders, filter: _, parent, settings, export } = invocation;
     let folder = |folder: Folder| folders[folder].as_ref().ok_or(CommandError::Folder { folder });
     let (runtime, cache) = (folder(Folder::Runtime)?, folder(Folder::Cache)?);
-    let instance = match &daemon {
+    let instance = match &serving {
         Some(instance) => instance.clone(),
         None => format!("{}-{}", env!("CARGO_PKG_NAME"), digest(&settings).map_err(MuxerError::Encode)?),
     };
     let endpoint = Endpoint::new(runtime.as_std_path(), &instance, Some(BUFFER));
     let built = fs_err::tokio::metadata(&executable).await.and_then(|file| build(&file)).map_err(failed(Operation::Executable))?;
     let hello = |body: Request| Hello { protocol: PROTOCOL, build: built, body };
-    if daemon.is_some() {
+    if serving.is_some() {
         return daemon::serve(endpoint?, cache, idle, built).await.map(|()| ExitCode::SUCCESS);
     }
-    let Some(command) = NEVec::try_from_vec(command) else {
+    let Some(argv) = NEVec::try_from_vec(argv) else {
         let daemon = match rasm_ipc::attach::<_, _, Welcome>(&endpoint?, &hello(Request::Report), OPENING).await? {
             Some(Opened { body: Welcome::State(state), reader: _, writer: _ }) => Some(*state),
             Some(Opened { body: Welcome::Serving, reader: _, writer: _ }) | None => None,
@@ -269,14 +269,14 @@ async fn run(invocation: Invocation<Cli>) -> Result<ExitCode, MuxerError> {
     });
     let environment = variables.collect::<Result<Vec<_>, _>>()?;
     let held = |name: &str| environment.iter().find(|(known, _)| known == name).map(|(_, value)| value.clone());
-    let stated = declared.into_iter().map(|text| match text.split_once('=') {
+    let parsed = assignments.into_iter().map(|text| match text.split_once('=') {
         Some(("", _)) => Err(MuxerError::Variable { text }),
         Some((name, value)) => Ok(Some((name.to_owned(), value.to_owned()))),
         None if text.is_empty() => Err(MuxerError::Variable { text }),
         None => Ok(held(&text).map(|value| (text, value))),
     });
-    let declared = stated.flatten_ok().collect::<Result<BTreeMap<_, _>, _>>()?;
-    let (program, arguments) = command.split_first();
+    let declared = parsed.flatten_ok().collect::<Result<BTreeMap<_, _>, _>>()?;
+    let (program, arguments) = argv.split_first();
     let program = which::which(program).map_err(|source| failed(Operation::Resolve)(io::Error::new(io::ErrorKind::NotFound, source)))?;
     let file = fs_err::tokio::metadata(&program).await.and_then(|file| build(&file)).map_err(failed(Operation::Inspect))?;
     let directory = match (per, directory) {
@@ -289,7 +289,7 @@ async fn run(invocation: Invocation<Cli>) -> Result<ExitCode, MuxerError> {
     let shared = environment.iter().filter(|(name, _)| per == Per::Session || !carried.iter().any(|field| field.eq_ignore_ascii_case(name)));
     let request = hello(Request::Serve(Box::new(Launch { command: command.clone(), per, environment: shared.cloned().collect() })));
     let start = || {
-        let located = folders.iter().filter_map(|(folder, path)| Some([format!("--{folder}-dir"), path.as_ref()?.to_string()])).flatten();
+        let located = folders.iter().filter_map(|(name, path)| Some([format!("--{name}-dir"), path.as_ref()?.to_string()])).flatten();
         let mut daemon = tokio::process::Command::new(&executable);
         daemon.args(["--daemon", &instance]).args(located).env_clear().envs(environment.iter().filter(|(name, _)| Options::exported(name)).map(|(name, value)| (name, value)));
         daemon.envs(iter::chain(&settings, &export).map(|(name, value)| (name, value)));

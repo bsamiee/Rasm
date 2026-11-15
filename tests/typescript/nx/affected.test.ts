@@ -10,8 +10,8 @@ import { declared, dependents, ECOSYSTEMS, nx, read, tracked } from '#/workspace
 
 const SOURCES = {
     shared: 'README.md PRINCIPLES: `@rasm/nx-cargo` infers the `default` named input of a crate (its files, the workspace lock, manifest, toolchain, and Cargo variables), so every target of the crate reads them; OWNERS: Package version — `Directory.Packages.props` row; LAYOUT: tsconfig.base.json — TypeScript options every package compiles and emits with; nrwl/nx packages/nx/src/native/affected/tasks/changed_contents.rs compare_ts_configs: a root tsconfig change outside `paths` touches every task',
-    locked: 'README.md PRINCIPLES: Cargo, uv, SwiftPM, and xcodebuild targets read the committed lock (`--locked`, `--force-resolved-versions`, `-onlyUsePackageVersionsFromResolvedFile`); astral-sh/uv docs/concepts/projects/workspaces.md: the workspace shares a single lockfile; docs/concepts/projects/layout.md: uv creates a `uv.lock` file next to the `pyproject.toml`; crates/uv-tool-commands/src/common.rs: `uv tool install` writes its own lock into the tool folder and reads no project `uv.lock`, so `install` targets are outside the rule',
-    read: "README.md PRINCIPLES: Task inputs hold the files a task's tool reads: plugin and executor source, `.config/mise.lock`, tool `--version` output, and credentials are no input",
+    locked: 'README.md PRINCIPLES: Cargo, uv, SwiftPM, and xcodebuild targets read the committed lock (`--locked`, `--force-resolved-versions`, `-onlyUsePackageVersionsFromResolvedFile`); astral-sh/uv docs/concepts/projects/workspaces.md: the workspace shares a single lockfile; docs/concepts/projects/layout.md: uv creates a `uv.lock` file next to the `pyproject.toml`; uv build builds the sdist and wheel from the member sources and its build-system requirements and reads no `uv.lock`, so `build` targets and the `attach` uploading their files are outside the rule',
+    read: "README.md PRINCIPLES: Task inputs hold the files a task's tool reads: plugin and executor source, `.config/mise.lock`, and credentials are no input",
     own: 'nrwl/nx packages/nx/src/project-graph/affected/affected-tasks.spec.ts computeAffectedTasks: selects a task whose own files changed, and its dependents; packages/nx/src/native/affected/tasks/selection.rs: a change reaches a requested task through its own inputs or the outputs it reads, never along plain dependsOn',
     none: 'nrwl/nx packages/nx/src/project-graph/affected/affected-tasks.spec.ts computeAffectedTasks: selects nothing when the change reaches no input',
     apart: 'nrwl/nx packages/nx/src/native/affected/tasks/touched.rs: a task is touched by a file its inputs match, an external node its plan names, or a file that configures its project, and selection.rs carries a touch to the tasks reading its outputs; a root manifest configures the root project, so every task of that project is touched by rule and none through an input; README.md PRINCIPLES: Suites reading the project graph take tag `os:all`',
@@ -80,7 +80,7 @@ const nearest = (path: Path.Path, held: ReadonlySet<string>, folder: string, nam
 const unlocked = Effect.fnUntraced(function* (workspace: Graph, plugin: string, name: string) {
     const [path, files] = yield* Effect.all([Path.Path, tracked(`*${name}`)]);
     const locked = Array.groupBy(
-        inferred(workspace, [plugin]).filter(({ name: target }) => target.split('--')[0] !== 'install'),
+        inferred(workspace, [plugin]).filter(({ name: target }) => !['attach', 'build'].includes(target.split('--')[0] ?? target)),
         ({ root }) => nearest(path, new Set(files), root, name),
     );
     const found = yield* Effect.forEach(Record.keys(locked), (lock) => reached(named(workspace), lock));
@@ -123,7 +123,7 @@ it.layer(layer, { excludeTestServices: true })((suite) => {
     );
 
     suite.effect(
-        'reaches every task of a uv project but its install into the tool folder with a change to the uv.lock nearest its folder',
+        'reaches every task of a uv project but its build and attach with a change to the uv.lock nearest its folder',
         Effect.fnUntraced(function* () {
             const { locks, missed } = yield* unlocked(yield* read('fresh'), '@rasm/nx-uv', 'uv.lock');
             assert.isNotEmpty(locks, SOURCES.locked);

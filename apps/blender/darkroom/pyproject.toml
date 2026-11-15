@@ -71,23 +71,27 @@ dev     = [
     "rasm-opencolorio-stubs",    # Stubs for PyOpenColorIO generated from the OpenColorIO Blender bundles
 ]
 
+# --- [BUILD_SYSTEM] ---------------------------------------------------------------------
+
+[build-system]
+requires      = ["hatchling"]
+build-backend = "hatchling.build" # uv re-resolving the lock reads the dynamic version through it, and without a backend falls back to setuptools, which refuses this flat layout
+
+[tool.hatch.version]
+path = "blender_manifest.toml" # The default pattern reads its `version = "<version>"` line
+
 # --- [UV] -------------------------------------------------------------------------------
 
 [tool.uv]
-package                       = false                            # Blender installs the extension archive, uv builds and installs no distribution
+package                      = false                            # Blender installs the extension archive, uv builds and installs no distribution
 environments                  = [
-    "sys_platform == 'darwin' and platform_machine == 'arm64'",
-    "sys_platform == 'linux' and platform_machine == 'x86_64'",
-    "sys_platform == 'linux' and platform_machine == 'aarch64'",
-    "sys_platform == 'win32' and platform_machine == 'AMD64'",
-]
-required-environments         = [
     "sys_platform == 'darwin' and platform_machine == 'arm64'",
     "sys_platform == 'linux' and platform_machine == 'x86_64'",
     "sys_platform == 'win32' and platform_machine == 'AMD64'",
 ]                                                                # Platforms `blender_manifest.toml` lists, a package with no source distribution and no wheel for one fails `uv lock`
 minimum-libc-version          = { glibc = "2.28" }               # The extension build selects `x86_64-manylinux_2_28` wheels, a package with no source distribution and no wheel glibc 2.28 loads fails `uv lock`
 prerelease                    = "allow"
+preview-features              = ["lockfile-format-check", "minimum-libc-version"]
 build-constraint-dependencies = ["opencolorio==2.5.0"]           # Builds generating the PyOpenColorIO stubs import the OpenColorIO release Blender bundles
 
 [tool.uv.sources]

@@ -192,14 +192,8 @@ where D: Dimension {
             })
             .collect::<Vec<_>>();
         let reshaped = coefficients.as_standard_layout().into_owned().into_shape_with_order(IxDyn(&shape))?.permuted_axes(IxDyn(&restored));
-        let start = axis.sites[0];
-        fitted.push(SplineAxis {
-            breaks: sites,
-            span: RangeInclusive { start, last: axis.period.map_or_else(|| axis.sites[axis.sites.len().strict_sub(1)], |period| start + period) },
-            period: axis.period,
-            smooth,
-            freedom,
-        });
+        let (&start, &end) = axis.sites.first().zip(axis.sites.last()).ok_or(AnalysisError::Underdetermined { found: axis.sites.len(), needed: 2 })?;
+        fitted.push(SplineAxis { breaks: sites, span: RangeInclusive { start, last: axis.period.map_or(end, |period| start + period) }, period: axis.period, smooth, freedom });
         Ok((reshaped, fitted))
     });
     fitted.map(|(coefficients, fitted)| Spline { axes: fitted.into_iter().rev().collect(), coefficients }).map_err(NEVec::new)
@@ -317,9 +311,10 @@ pub fn crossings(spline: &Spline, level: f64, derivative: u8) -> Result<Vec<f64>
     let found = axis.breaks.iter().tuple_windows().enumerate().map(|(piece, (&start, &last))| {
         let shifted = (times..order)
             .map(|exponent| {
-                spline.coefficients[[order.strict_sub(1).strict_sub(exponent).strict_mul(pieces).strict_add(piece)]].mul_add(falling(exponent, times), -level * f64::from(exponent == times))
+                Some(spline.coefficients.get([order.strict_sub(1).strict_sub(exponent).strict_mul(pieces).strict_add(piece)])?.mul_add(falling(exponent, times), -level * f64::from(exponent == times)))
             })
-            .collect::<Vec<_>>();
+            .collect::<Option<Vec<_>>>()
+            .ok_or_else(|| NEVec::new(AnalysisError::Shape { input: Input::Coefficients, expected: order.strict_mul(pieces), found: spline.coefficients.len() }))?;
         match real(&shifted, RangeInclusive { start: 0.0, last: last - start }) {
             Ok(roots) => Ok(roots.into_iter().map(|root| root + start).collect::<Vec<_>>()),
             Err(errors) if errors.iter().all(AnalysisError::is_zero) => Ok(Vec::new()),

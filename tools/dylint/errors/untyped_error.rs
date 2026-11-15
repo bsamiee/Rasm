@@ -140,17 +140,16 @@ fn retained_report<'tcx>(cx: &LateContext<'tcx>, body: &Body<'tcx>, report: Ty<'
             if same_type_modulo_regions(error, report) && !error.has_non_region_param() && !callee.is_local() {
                 let incoming = iter::chain(receiver, arguments).any(|input| {
                     let input = typeck.expr_ty(input);
-                    same_type_modulo_regions(input, report) || result_parts(cx, input).is_some_and(|(_, error)| same_type_modulo_regions(error, report))
+                    same_type_modulo_regions(input, report) || result_parts(cx, input).is_some_and(|(_, carried)| same_type_modulo_regions(carried, report))
                 });
                 return (incoming || report.ty_adt_def().is_some_and(|report| report.did().krate != callee.krate)).then_some(true);
             }
-            if let Some((_, error)) = result_parts(cx, declared)
-                && let declaration = signature(cx.tcx, callee)
-                && let Some(&input) = declaration.inputs().first()
-                && result_parts(cx, input.peel_refs())
+            if result_parts(cx, declared).is_some()
+                && let [first, rest @ ..] = signature(cx.tcx, callee).inputs()
+                && result_parts(cx, first.peel_refs())
                     .is_some_and(|(ok, incoming)| same_type_modulo_regions(incoming, error) && !result_parts(cx, ok).is_some_and(|(_, nested)| same_type_modulo_regions(nested, error)))
                 && impl_owner(cx.tcx, callee).is_diag_item(cx, sym::Result)
-                && !declaration.inputs().iter().skip(1).any(|&input| result_parts(cx, input.peel_refs()).is_some_and(|(_, incoming)| same_type_modulo_regions(incoming, error)))
+                && !rest.iter().any(|&input| result_parts(cx, input.peel_refs()).is_some_and(|(_, incoming)| same_type_modulo_regions(incoming, error)))
                 && !cx
                     .tcx
                     .param_env(callee)

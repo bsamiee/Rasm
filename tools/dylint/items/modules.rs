@@ -214,17 +214,17 @@ fn module_paths(psess: &ParseSess, name: FileName, file: &Path, relative: Option
     impl<'ast> visit::Visitor<'ast> for Modules<'_> {
         fn visit_item(&mut self, item: &'ast rustc_ast::Item) {
             let rustc_ast::ItemKind::Mod(_, name, module) = &item.kind else { return visit::walk_item(self, item) };
-            let direct = item.attrs.iter().position(|attribute| attribute.has_name(sym::path));
-            let attributes = direct.map_or(&*item.attrs, |index| &item.attrs[..=index]);
+            let direct = item.attrs.iter().any(|attribute| attribute.has_name(sym::path));
             let mut explicit = Vec::new();
-            attributes
+            item.attrs
                 .iter()
+                .take_while_inclusive(|attribute| !attribute.has_name(sym::path))
                 .filter(|attribute| attribute.has_name(sym::path) || attribute.has_name(sym::cfg_attr))
                 .filter_map(rustc_ast::Attribute::meta)
                 .for_each(|attribute| explicit_paths(self.directory, &mut explicit, &attribute));
             let rustc_ast::ModKind::Loaded(items, ..) = module else {
                 self.paths.extend(explicit.into_iter().map(|path| (path, true)));
-                if direct.is_some() {
+                if direct {
                     return;
                 }
                 return match default_submod_path(self.psess, *name, self.relative, self.directory) {
@@ -233,10 +233,10 @@ fn module_paths(psess: &ParseSess, name: FileName, file: &Path, relative: Option
                     Err(_) => (),
                 };
             };
-            let default = direct.is_none().then(|| self.relative.map_or_else(|| self.directory.to_path_buf(), |relative| self.directory.join(relative.as_str())).join(name.as_str()));
+            let default = (!direct).then(|| self.relative.map_or_else(|| self.directory.to_path_buf(), |relative| self.directory.join(relative.as_str())).join(name.as_str()));
             for directory in iter::chain(explicit, default) {
                 let mut inner = Modules { psess: self.psess, directory: &directory, relative: None, paths: self.paths };
-                items.iter().for_each(|item| inner.visit_item(item));
+                items.iter().for_each(|nested| inner.visit_item(nested));
             }
         }
     }
@@ -419,7 +419,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
         };
         let mut pending =
             match targets.iter().filter(|id| !known.contains(*id)).map(|(sibling, ..)| map.load_file(sibling).map(|file| (file, sibling.clone(), Some(true), false))).collect::<io::Result<Vec<_>>>() {
-                Ok(siblings) => iter::chain(siblings, own.into_iter().map(|(file, path, siblings)| (file, path, siblings, true))).collect::<Vec<_>>(),
+                Ok(siblings) => iter::chain(siblings, own.into_iter().map(|(file, path, sibling_modules)| (file, path, sibling_modules, true))).collect::<Vec<_>>(),
                 Err(error) => return failed(&error),
             };
         known.extend(targets);

@@ -7,7 +7,7 @@
 - Jobs run `nx affected` over `check`, `test`, and `build`, as many tasks at once as their machine has cores (mise `[env]` `NX_PARALLEL`)
 - Job `affected` runs `nx sync:check`, as CI task runs skip sync, and lists the affected projects of technology `unreal` and the engines `.uproject` files name
 - Job `affected` lists projects, as an Unreal project holds no target on a runner outside its engine image
-- Job `affected` runs `nrwl/nx-set-shas` once and passes base and head to jobs `linux` and `macos`, so each compares the same commits while a CI run finishing between jobs moves the base `nx-set-shas` finds
+- Job `affected` runs `nrwl/nx-set-shas` once and passes base and head to jobs `linux` and `macos`, as a CI run finishing between jobs moves the base `nx-set-shas` finds
 - Job `linux` runs the affected projects tagged `os:linux`, `os:all`, or no `os:` tag on runner instance `host`
 - Job `linux` removes earlier runs' reports first, as the kept checkout holds them
 - Job `macos` runs on GitHub-hosted runner `xcode-27` and selects `os:darwin` and `os:all` projects itself, as no Linux graph holds an Apple project
@@ -15,7 +15,7 @@
 - Job containers install only the mise rows graph creation and Unreal targets read, under `.cache` of the checkout
 - CI and Release checkouts fetch full history, as `nx affected` and `nx release` compare commits a partial clone fetches one at a time
 - CI and Release checkouts on self-hosted runners keep ignored files (`clean: false`)
-- Action `tools` removes untracked files, then `mise bootstrap` installs the mise tools, checks the remote cache, and installs pnpm packages
+- Action `tools` removes untracked files, then `mise bootstrap --only tools` installs mise tools and its `post-tools` hook installs pnpm packages
 
 ## [02]-[CACHE]
 
@@ -32,7 +32,7 @@
 - Nx builds no remote cache where `NX_SELF_HOSTED_REMOTE_CACHE_SERVER` is empty
 - Nx sets no timeout on a remote cache request
 - Nx stops a run on a read answered other than 200 or 404 or left unconnected, and no Nx setting continues past the error
-- Nx counts a write answered 403 as stored
+- Nx stores nothing and reports no error for a write answered 403 or 409
 - Nx fails a task after 6 attempts of any other failed write
 
 ## [03]-[DEPLOY]
@@ -43,6 +43,7 @@
 - Doppler config `deploy` changes start `Deploy` through a Doppler webhook sending GitHub a `repository_dispatch` event
 - Job `deploy` runs on GitHub-hosted `ubuntu-26.04` and reads Doppler `deploy`
 - Job `deploy` accepts each machine's host key on first contact
+- Job `deploy` runs `mise bootstrap remote --all` before `nx deploy`, first with `--dry-run` to print each machine's drift, then with `--yes`
 - `Deploy` runs with no remote cache and `cache-mode: none`, independent of the cache server it deploys and of caches other runs wrote
 - `nx deploy @rasm/infra` creates the whole Nx project graph, and a plugin failing graph creation stops the deploy before any stack applies
 - Unchanged stack inputs apply nothing
@@ -57,6 +58,6 @@
 
 ## [05]-[MAINTENANCE]
 
-- Workflow `Maintenance` runs each Sunday at 09:00 UTC, before the machine update hour, on both runner instances and by dispatch
+- Workflow `Maintenance` runs each Sunday at 09:00 UTC, before the machine update hour, on runner instance `container` and by dispatch
 - Job `container` checks out clean, removing every ignored file of its work folder, the container tools and package store included
-- Job `host` checks out clean, installs tools and packages, then prunes the pnpm store, uv cache, mise tool versions, and Docker leftovers
+- Job `container` takes the queue of instance `container`, so its reset never overlaps a container job as a machine timer would

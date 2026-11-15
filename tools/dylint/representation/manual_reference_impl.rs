@@ -61,8 +61,8 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 ExprKind::MethodCall(_, receiver, [], _) if held != target && reads_field(receiver) =>
                     typeck.type_dependent_def_id(value.hir_id).filter(|&called| associated_trait(tcx, called) == Some(implemented)).is_some_and(|called| {
                         let selected = tcx.fn_sig(called).instantiate(tcx, typeck.node_args(value.hir_id)).skip_normalization().skip_binder();
-                        if let ([receiver], ty::Ref(_, output, _)) = (selected.inputs(), selected.output().kind())
-                            && let ty::Ref(_, owner, _) = receiver.kind()
+                        if let ([input], ty::Ref(_, output, _)) = (selected.inputs(), selected.output().kind())
+                            && let ty::Ref(_, owner, _) = input.kind()
                         {
                             tcx.erase_and_anonymize_regions(*owner) == tcx.erase_and_anonymize_regions(held) && tcx.erase_and_anonymize_regions(*output) == tcx.erase_and_anonymize_regions(target)
                         } else {

@@ -71,10 +71,7 @@ impl Subsystem {
             #[cfg(feature = "fmu")]
             Self::Fmu(fmu) => fmu.set(references, values),
             #[cfg(feature = "ode")]
-            Self::Network(instance) => {
-                instance.set(references, values);
-                Ok(())
-            }
+            Self::Network(instance) => instance.set(references, values),
         }
     }
 }
@@ -111,8 +108,7 @@ pub fn trajectory(subsystems: Vec<Subsystem>, connections: &[Connection], grid: 
                     #[cfg(feature = "ode")]
                     Subsystem::Network(instance) => {
                         outputs.clear();
-                        outputs.extend(instance.get(output_references));
-                        Ok(())
+                        instance.get(output_references).try_for_each(|reading| reading.map(|value| outputs.push(value)))
                     }
                 }
                 .map_err(failure)?;

@@ -3,7 +3,7 @@ use core::ops::ControlFlow;
 use core::{cmp, iter};
 
 use faer::sparse::SparseColMatRef;
-use faer::{ColRef, Mat};
+use faer::{ColRef, Mat, MatRef};
 use nalgebra::DVector;
 use nonempty_collections::NEVec;
 use rasm_stats::Tolerance;
@@ -76,10 +76,10 @@ pub fn equilibrium(network: &Network, members: &[Member], tolerance: Tolerance, 
         .iter()
         .filter_map(|node| match *node {
             Node::Support(_) => None,
-            Node::Free { position, load: _ } => Some(position),
+            Node::Free { position, load: _ } => Some(<[f64; 3]>::from(position)),
         })
         .collect::<Vec<_>>();
-    let start = Mat::from_fn(start.len(), 3, |row, axis| start[row][axis]);
+    let start = MatRef::from_row_major_slice(start.as_flattened(), start.len(), 3).cloned();
     let outcome = try bikeshed ControlFlow<Result<Form, FormError>, Result<Form, FormError>> {
         let (positions, ..) = (0..steps.get()).try_fold((start, Mat::zeros(network.loads.nrows(), 3), 0.0_f64), |(positions, velocity, previous), step| {
             let (residual, densities, _) = settle(step, &positions)?;

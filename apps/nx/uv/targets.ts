@@ -20,7 +20,7 @@ const CHECKERS = {
     ty: {
         verb: 'check',
         variables: ['TY_UV'],
-        platform: true,
+        hashes: ['platform'],
         files: [['ty.toml'], ['pyproject.toml', 'tool', 'ty']],
         matches: ['*.py', '*.pyi'],
         sources: ['*.py', '*.pyi'],
@@ -36,7 +36,7 @@ const CHECKERS = {
     mypy: {
         verb: 'check',
         variables: [],
-        platform: true,
+        hashes: ['platform', 'python'],
         files: [['mypy.ini'], ['.mypy.ini'], ['pyproject.toml', 'tool', 'mypy'], ['setup.cfg', 'mypy']],
         matches: ['*.py', '*.pyi'],
         sources: ['*.py', '*.pyi'],
@@ -52,7 +52,7 @@ const CHECKERS = {
     refurb: {
         verb: 'check',
         variables: [],
-        platform: true,
+        hashes: ['platform', 'python'],
         files: [['pyproject.toml', 'tool', 'refurb']],
         matches: ['*.py', '*.pyi'],
         sources: ['*.py', '*.pyi'],
@@ -68,7 +68,7 @@ const CHECKERS = {
     vulture: {
         verb: 'check',
         variables: [],
-        platform: false,
+        hashes: [],
         files: [['pyproject.toml', 'tool', 'vulture']],
         matches: ['*.py'],
         sources: ['*.py'],
@@ -84,7 +84,7 @@ const CHECKERS = {
     pytest: {
         verb: 'test',
         variables: [],
-        platform: true,
+        hashes: ['platform', 'python'],
         files: [['pytest.toml', 'pytest'], ['.pytest.toml', 'pytest'], ['pytest.ini'], ['.pytest.ini'], ['pyproject.toml', 'tool', 'pytest'], ['tox.ini', 'pytest'], ['setup.cfg', 'tool:pytest']],
         matches: ['test_*.py', '*_test.py'],
         sources: ['*'],
@@ -211,6 +211,7 @@ const targets = (member: Member, { outputPath, coveragePath }: typeof Options.Ty
     const distributions = Option.map(Option.fromUndefinedOr(outputPath), named);
     const folder = Option.getOrElse(distributions, () => join(member.workspace, 'dist'));
     const built = [relative(member.root, folder)].filter((held) => !held.startsWith('..')).map((held) => `!${join('{projectRoot}', held, '**', '*')}`);
+    const hashed = { platform: PLATFORM, python: { runtime: line(['uv', 'python', 'find', '--show-version', '--directory', member.workspace]) } };
     const checked = Array.getSomes(
         Record.collect(CHECKERS, (key, row) =>
             Option.gen(function* () {
@@ -249,7 +250,7 @@ const targets = (member: Member, { outputPath, coveragePath }: typeof Options.Ty
                         ...built,
                         ...stated.inputs,
                         ...row.variables.map((env) => ({ env })),
-                        ...(row.platform ? [PLATFORM] : []),
+                        ...row.hashes.map((hash) => hashed[hash]),
                         '^default',
                         join('{workspaceRoot}', member.workspace, '.python-version'),
                         join('{workspaceRoot}', member.lock),
@@ -284,22 +285,17 @@ const targets = (member: Member, { outputPath, coveragePath }: typeof Options.Ty
                       metadata: { description: 'Checks that uv.lock holds every change the manifests state with uv lock --check, writing nothing', help: { command: 'uv lock --help', example: { args: ['--offline'] } } },
                   },
               },
-              upgrade: member.pixi
-                  ? {
-                        uv: {
-                            ...upgrading,
-                            command: `pixi run --locked ${upgrading.command}`,
-                            dependsOn: ['upgrade--pixi'],
-                            metadata: { ...upgrading.metadata, description: `${upgrading.metadata.description}, after upgrade--pixi and under pixi run, so source distribution builds link the libraries of the Pixi environment` },
-                        },
-                        pixi: {
-                            command: 'pixi update',
-                            options: { cwd: member.root },
-                            inputs: [...[PIXI, 'pyproject.toml', 'pixi.lock'].map((file) => join('{projectRoot}', file)), { externalDependencies: [] }],
-                            metadata: { description: 'Moves every package of the Pixi environments to the newest release its requirement allows and rewrites pixi.lock with pixi update', help: { command: 'pixi update --help', example: { args: ['--dry-run'] } } },
-                        },
-                    }
-                  : { uv: upgrading },
+              upgrade: {
+                  uv: upgrading,
+                  ...(member.pixi && {
+                      pixi: {
+                          command: 'pixi update',
+                          options: { cwd: member.root },
+                          inputs: [...[PIXI, 'pyproject.toml', 'pixi.lock'].map((file) => join('{projectRoot}', file)), { externalDependencies: [] }],
+                          metadata: { description: 'Moves every package of the Pixi environments to the newest release its requirement allows and rewrites pixi.lock with pixi update', help: { command: 'pixi update --help', example: { args: ['--dry-run'] } } },
+                      },
+                  }),
+              },
           }
         : {};
     const joined = (held: Readonly<Record<string, TargetConfiguration>>, added: Readonly<Record<string, TargetConfiguration>>) => ({ ...held, ...added });
@@ -327,10 +323,13 @@ const targets = (member: Member, { outputPath, coveragePath }: typeof Options.Ty
                 install: {
                     ...(member.scripted && {
                         uv: {
-                            command: line(['uv', 'tool', 'install', ...member.locals.flatMap((name) => ['--reinstall-package', name]), ...flagged('--python', member.python), '.']),
+                            command: `${line(['uv', 'export', '--locked', '--package', member.name, '--no-default-groups', '--no-emit-local', '--no-hashes', '--no-header', '--no-annotate', '--quiet'])} | ${line(['uv', 'tool', 'install', '--constraints', '-', ...member.locals.flatMap((name) => ['--reinstall-package', name]), ...flagged('--python', member.python), '.'])}`,
                             options: { cwd: member.root },
-                            inputs: [...member.sources, ...built, { externalDependencies: [] }],
-                            metadata: { description: "Installs the member scripts from the checkout into uv's tool folder, on an interpreter its requires-python accepts, with uv tool install", help: { command: 'uv tool install --help', example: { args: ['--editable'] } } },
+                            inputs: [...member.sources, ...built, join('{workspaceRoot}', member.lock), { externalDependencies: [] }],
+                            metadata: {
+                                description: "Installs the member scripts from the checkout into uv's tool folder at the versions uv.lock pins, on an interpreter its requires-python accepts, with uv export piped to uv tool install --constraints",
+                                help: { command: 'uv tool install --help', example: { args: ['--editable'] } },
+                            },
                         },
                     }),
                 },

@@ -164,7 +164,7 @@ pub fn outdoor(hours: &Hours<Sun>, mut exposure: impl FnMut(&Hour, SolarPosition
         let solar = if sun.is_sun_up() {
             let (direct, diffuse) = (hour.direct_irradiance?, hour.diffuse_irradiance?);
             let (sine, cosine) = (Angle::new::<degree>(sun.azimuth()) - facing).sin_cos();
-            let gain = |altitude: f64, sharp: Angle, radiation: f64, f_svv: f64, f_bes: f64, options: SolarGainOptions| {
+            let gain = |altitude: f64, sharp: Angle, radiation: f64, f_svv: f64, f_bes: f64, occupant: SolarGainOptions| {
                 solar_gain(
                     SolarGainInputs {
                         sol_altitude: thermalcomfort::Angle::from_degrees(altitude),
@@ -174,7 +174,7 @@ pub fn outdoor(hours: &Hours<Sun>, mut exposure: impl FnMut(&Hour, SolarPosition
                         f_svv,
                         f_bes,
                     },
-                    SolarGainOptions { round_output: false, ..options },
+                    SolarGainOptions { round_output: false, ..occupant },
                 )
                 .delta_mrt
                 .as_celsius()

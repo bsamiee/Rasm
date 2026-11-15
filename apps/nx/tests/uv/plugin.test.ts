@@ -52,7 +52,7 @@ const described = (path: Path.Path, root: string, folders: Record.ReadonlyRecord
 
 const reported = Effect.gen(function* () {
     const [{ root, called }, path] = yield* Effect.all([Consumer, Path.Path]);
-    const { checked } = yield* called('uv', ['workspace', 'metadata', '--preview-features', 'workspace-metadata']);
+    const { checked } = yield* called('uv', ['workspace', 'metadata', '--preview-features', 'workspace-metadata', '--output-version', 'preview']);
     const { members: stated, resolution } = yield* Effect.flatMap(checked, Schema.decodeEffect(Metadata));
     const folders = Record.fromIterableWith(stated, ({ id, path: folder }) => [id, path.relative(root, folder)]);
     return stated.map((entry) => described(path, root, folders, Object.values(resolution), entry));

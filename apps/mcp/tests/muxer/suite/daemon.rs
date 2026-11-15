@@ -93,9 +93,9 @@ async fn slow_start_waits_once_then_answers_from_the_stored_handshake() {
         let first = assert_some!(daemon(isolated, &IDLE).await);
         assert_ok!(cold.cancel().await);
         assert_ok!(assert_ok!(time::timeout(Duration::from_secs(30), exited(first)).await, "the daemon exits once it holds nothing"));
-        let started = Instant::now();
+        let reopened = Instant::now();
         let warm = assert_ok!(relay().await);
-        assert!(started.elapsed() < Duration::from_secs(5), "with a stored handshake the session is answered at once");
+        assert!(reopened.elapsed() < Duration::from_secs(5), "with a stored handshake the session is answered at once");
         assert_eq!(echoed(&warm, "warm").await, "warm", "the first call waits for the server");
         assert_eq!(Vec::from_iter(servers(isolated, &IDLE).await.iter().map(|served| served.starts)), [1], "the slow server started once more, with no restart");
     });

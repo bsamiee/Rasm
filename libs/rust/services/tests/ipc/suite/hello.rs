@@ -87,10 +87,10 @@ async fn read() {
     let (first, rest) = wire.split_at(wire.len() / 2);
     let peer = tokio::io::join(Builder::new().read(first).read(rest).build(), tokio::io::sink());
     assert_eq!(assert_ok!(greet::<_, _, _, String>(peer, &hello("hello"), LIMITS).await).body, "world!", "an answer split across reads is one answer");
-    let wire = opening("hello").await;
-    let (first, rest) = wire.split_at(wire.len() / 2);
-    let peer = tokio::io::join(Builder::new().read(first).read(rest).build(), tokio::io::sink());
-    assert_eq!(assert_ok!(accept::<_, u64, String>(peer, PROTOCOL, &BUILD, LIMITS).await).body, "hello", "an opening message split across reads is one message");
+    let opened = opening("hello").await;
+    let (head, tail) = opened.split_at(opened.len() / 2);
+    let client = tokio::io::join(Builder::new().read(head).read(tail).build(), tokio::io::sink());
+    assert_eq!(assert_ok!(accept::<_, u64, String>(client, PROTOCOL, &BUILD, LIMITS).await).body, "hello", "an opening message split across reads is one message");
 }
 
 #[tokio::test]
@@ -107,9 +107,9 @@ async fn read_partial_then_end() {
     let wire = answer("world!").await;
     let peer = tokio::io::join(Builder::new().read(&wire[..wire.len() / 2]).build(), tokio::io::sink());
     assert_err!(greet::<_, _, _, String>(peer, &hello("hello"), LIMITS).await, "an answer cut short is no answer");
-    let wire = opening("hello").await;
-    let peer = tokio::io::join(Builder::new().read(&wire[..wire.len() / 2]).build(), tokio::io::sink());
-    assert_err!(accept::<_, u64, String>(peer, PROTOCOL, &BUILD, LIMITS).await, "an opening message cut short is no message");
+    let opened = opening("hello").await;
+    let client = tokio::io::join(Builder::new().read(&opened[..opened.len() / 2]).build(), tokio::io::sink());
+    assert_err!(accept::<_, u64, String>(client, PROTOCOL, &BUILD, LIMITS).await, "an opening message cut short is no message");
 }
 
 #[tokio::test(start_paused = true)]

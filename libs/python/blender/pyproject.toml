@@ -52,16 +52,11 @@ dev     = [
 environments                  = [
     "sys_platform == 'darwin' and platform_machine == 'arm64'",
     "sys_platform == 'linux' and platform_machine == 'x86_64'",
-    "sys_platform == 'linux' and platform_machine == 'aarch64'",
-    "sys_platform == 'win32' and platform_machine == 'AMD64'",
-]
-required-environments         = [
-    "sys_platform == 'darwin' and platform_machine == 'arm64'",
-    "sys_platform == 'linux' and platform_machine == 'x86_64'",
     "sys_platform == 'win32' and platform_machine == 'AMD64'",
 ]                                                                # Platforms the manifests of the extensions bundling these members list, a package with no source distribution and no wheel for one fails `uv lock`
 minimum-libc-version          = { glibc = "2.28" }               # The extension build selects `x86_64-manylinux_2_28` wheels, a package with no source distribution and no wheel glibc 2.28 loads fails `uv lock`
 prerelease                    = "allow"
+preview-features              = ["lockfile-format-check", "minimum-libc-version"]
 build-constraint-dependencies = ["opencolorio==2.5.0"]           # Builds generating the PyOpenColorIO stubs import the OpenColorIO release Blender bundles
 
 [tool.uv.workspace]

@@ -87,7 +87,7 @@ where G: Network {
     Graph::from_elements(
         nodes
             .iter()
-            .map(|&weight| Element::Node { weight })
+            .map(|&node| Element::Node { weight: node })
             .chain(graph.edge_references().filter_map(|edge| Some(Element::Edge { source: position(edge.source())?, target: position(edge.target())?, weight: weight(edge) }))),
     )
 }

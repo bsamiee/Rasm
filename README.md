@@ -29,7 +29,7 @@ Rasm/
 │   ├── ast-grep/             # Grammars, rules, and outline support per language
 │   ├── dylint/               # Rust lints reading types and resolved paths Clippy lacks
 │   ├── refurb/               # Python checks reading mypy types Ruff lacks
-│   └── tests/                # dylint and refurb check suites
+│   └── tests/                # refurb check suites
 ├── assets/                   # Reusable assets no app or plugin owns
 ├── infra/                    # Pulumi programs for the repository, its machines, and app hosting
 ├── plugins/                  # Agent harness marketplace
@@ -63,7 +63,7 @@ Rasm/
 ├── .gitignore                # Generated, secret, and machine-local paths
 ├── .gitmodules               # Submodule assets/, cloned only on request
 ├── .github/                  # Workflows, composite actions, issue forms, and jactionlint settings
-├── .cargo/                   # Cargo build settings and compiler source link
+├── .cargo/                   # Cargo build settings, cargo-deny policy, and compiler source link
 ├── .config/                  # Tool configuration found there or named by path
 ├── .claude/                  # Claude Code knowledge and settings
 ├── .mcp.json                 # Claude Code MCP servers
@@ -153,6 +153,7 @@ flowchart LR
 - Tasks of an edited executor run once with `--skip-nx-cache`, as the cache replays results the old executor produced
 - Targets with output that differs by platform hash one platform input, as one remote cache serves CI and this Mac
 - `.config/mise.toml` `[env]` rows move caches to `.cache/<tool>`, logs to `.artifacts/logs`, and generated output to `.artifacts/<tool>`
+- Caches their tool shares safely across checkouts (the pnpm store) keep their per-user default
 - `dist`, `.cloudflare/output`, and editor folders stay where their tool writes them
 - Apps and tools made here keep cache, log, and runtime folders in per-user locations, each moved by one documented setting, and bound their logs
 - Published apps read their identity from the host API (`Bundle.main`, `process.execPath`) and keep settings in their own preferences
@@ -185,9 +186,9 @@ hk lints and formats files; Nx runs project tasks
 
 Other tasks run through their own commands:
 - `hk check <paths>` and `hk fix <paths>` run every file-level checker and writer over the named paths
-- `mise bootstrap` after a clone installs mise tools and pnpm packages and registers pitchfork as a Mac login agent
+- `mise bootstrap` after a clone installs mise tools, pnpm packages, and hk's git hooks, and registers pitchfork as a Mac login agent
 - `nx build @rasm/nx-apple-darwin-arm64` builds the core `@rasm/nx-apple` reads Xcode projects through, on a Mac after a clone
-- `mise deps` syncs pnpm packages and each uv root from its lock where its inputs changed, the workspace root through Pixi libraries, and `mise exec` and `mise run` sync first
+- `mise deps` syncs pnpm packages and each uv root from its lock where its inputs changed, the workspace root through Pixi libraries
 - `pixi run --locked python` supplies the library search path for `magic` and `weasyprint`
 - `nx sync` writes executor schemas and tsconfig `references`, task runs in a terminal apply it, and runs in other shells stop until it runs
 - `nx migrate latest`, then `nx migrate --run-migrations`, applies a new Nx release's migrations
@@ -233,7 +234,7 @@ Installs, releases, and channels each deliver a product, releases and channels f
 | :-----: | :----------------------------- | :----------------------------------------------------------------------------------------------------- |
 |  [01]   | Tool binary                    | `.config/mise.toml` `[tools]`, exact versions in `.config/mise.lock`                                   |
 |  [02]   | .NET tool package              | `.config/mise.toml` `[tools]` `dotnet:<id>` row at `latest`, its command called by name                |
-|  [03]   | Process variable               | `.config/mise.toml` `[env]`, a platform value through `os()` in its row                                  |
+|  [03]   | Process variable               | `.config/mise.toml` `[env]`, a platform value through `os()` in its row                                |
 |  [04]   | Toolchain version              | `global.json` .NET, `rust-toolchain.toml` Rust, uv root `requires-python` Python, `xcode-select` Swift |
 |  [05]   | Package version                | `pnpm-workspace.yaml` catalog, `pyproject.toml` `[project]` or group, `Directory.Packages.props` row   |
 |  [06]   | Swift package version          | Root `Package.swift` `dependencies` row, `.xcodeproj` `remote` row for a package only an app imports   |
@@ -249,10 +250,10 @@ Installs, releases, and channels each deliver a product, releases and channels f
 |  [16]   | Registry token                 | Doppler `rasm/release` row named as the variable its publish target reads (`NODE_AUTH_TOKEN`)          |
 |  [17]   | Mac app release format         | Doppler `rasm/release` `ASC_API_*` rows, set for a notarized `.dmg`, absent for a `.zip`               |
 |  [18]   | Resource or repository setting | Typed row of an `infra/` program, applied by workflow `Deploy`                                         |
-|  [19]   | Machine                        | Row of table `hosts` in `infra/platform-stack.ts`                                                      |
-|  [20]   | Service definition             | Role of a `hosts` row in `infra/platform-stack.ts`, rows of an app's `hosting.config.ts`               |
-|  [21]   | Container runtime              | Mise clients, Colima on macOS                                                                          |
-|  [22]   | Local daemon                   | `[daemons]` row in `.config/mise.toml`, started with the first shell or agent session                  |
+|  [19]   | Machine                        | `hosts` row in `infra/platform-stack.ts`, `[bootstrap.remote.hosts]` row in `.config/mise.toml`        |
+|  [20]   | Service definition             | Role of a `hosts` row, `.config/mise.<role>.toml` for its machine state, an app's `hosting.config.ts`  |
+|  [21]   | Container runtime              | Mise clients, Colima on macOS, `[bootstrap.packages]` Docker rows on machines                          |
+|  [22]   | Local daemon                   | `[daemons]` row in `.config/mise.toml` started by a shell or agent session, `[bootstrap.services]` row |
 |  [23]   | Agent browser options          | `.config/mise.toml` `[env]` `PLAYWRIGHT_MCP_*` rows, `PLAYWRIGHT_CLI_SESSION` per agent session        |
 |  [24]   | Agent harness plugin           | `plugins/<name>`                                                                                       |
 |  [25]   | Reusable asset                 | `assets/<kind>/<name>/` in `bsamiee/Rasm-Assets`, with native relative dependencies                    |

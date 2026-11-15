@@ -137,9 +137,9 @@ where
             }
             written = (catalog, failures);
         }
-        let left = |members: &mut BTreeMap<K, Proxy>, unused: bool| {
-            let own = members.get(&key).is_some_and(|held| held.events.same_channel(&member.events));
-            own && (!unused || member.status.borrow().sessions == 0) && members.remove(&key).is_some()
+        let left = |proxies: &mut BTreeMap<K, Proxy>, unused: bool| {
+            let own = proxies.get(&key).is_some_and(|held| held.events.same_channel(&member.events));
+            own && (!unused || member.status.borrow().sessions == 0) && proxies.remove(&key).is_some()
         };
         if sessions == 0 && phase >= Phase::Idle && members.send_if_modified(|members| left(members, true)) {
             break member.stop().await;

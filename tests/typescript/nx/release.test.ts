@@ -3,7 +3,7 @@ import { layer } from '@effect/platform-node/NodeServices';
 import { assert, it } from '@effect/vitest';
 import { createProjectFileMapUsingProjectGraph, workspaceRoot } from '@nx/devkit';
 import type { Graph } from '@rasm/testing/nx';
-import { Array, Effect, Option, Order, Schema } from 'effect';
+import { Array, Duration, Effect, Option, Order, Record, Schema } from 'effect';
 import { createNxReleaseConfig } from 'nx/src/command-line/release/config/config';
 import { createReleaseGraph } from 'nx/src/command-line/release/utils/release-graph';
 import { readNxJson } from 'nx/src/config/nx-json';
@@ -16,13 +16,13 @@ const SOURCES = {
     config: 'nrwl/nx packages/nx/src/command-line/release/config/config.spec.ts createNxReleaseConfig: a valid release configuration resolves with error null',
     selected: 'README.md PRINCIPLES: Plugins tag a project they give release configuration `release`, the one selector of `nx.json` `release.projects`',
     graph: 'nrwl/nx packages/nx/src/command-line/release/utils/release-graph.spec.ts createReleaseGraph: resolves version actions for every project of every release group',
-    version: 'nrwl/nx packages/nx/src/command-line/release/version/resolve-current-version.spec.ts: the disk resolver reads the current version from the source manifest; packages/nx/src/command-line/release/config/config.ts: projectsRelationship defaults to fixed, which gives every project of the group one version',
+    version: 'nrwl/nx packages/nx/src/command-line/release/version/resolve-current-version.spec.ts: the disk resolver reads the current version from the source manifest',
     delivered:
         'README.md DELIVERY: Every ecosystem and host is delivered end to end (install, package, release, publish), and none stays partly built; PRINCIPLES: Plugins present a target that runs a host or needs a platform only on a machine holding it, and tag a project a platform limits `os:<platform>`; Unreal targets exist where the engine a `.uproject` names resolves',
     defaulted:
         'README.md PRINCIPLES: `nx.json` `targetDefaults` holds one row, keyed `@nx/js:release-publish`; nrwl/nx packages/nx/src/project-graph/utils/project-configuration/target-defaults.ts: a default keyed by an executor reaches the targets running that executor, and Nx records `nx/core/package-json` as the plugin of the target it infers for a public package',
     planned:
-        'README.md TASKS: Workflow `release.yml` runs `nx release --skip-publish` (one version, tag, and GitHub release); nrwl/nx e2e/release/src/first-release.test.ts nx release first run with --first-release: should not error; packages/nx/src/command-line/release/config/config.ts defaultFixedReleaseTagPattern: `v{version}`',
+        'README.md DELIVERY: Releases version each release project on its own through `nx release`, from its conventional commits, and give its dependents a patch; Release tags take the Nx independent default `{projectName}@{version}`; nrwl/nx e2e/release/src/first-release.test.ts nx release first run with --first-release: should not error',
 } as const;
 const TAGGED = /^git tag --annotate (?<tag>\S+)/gmu;
 const WRITTEN = /^(?<project>\S+) .*New version (?<version>\S+) written to /gmu;
@@ -106,7 +106,7 @@ it.layer(layer, { excludeTestServices: true })((suite) => {
     );
 
     suite.effect(
-        'reads one version from the source manifest of every project of the fixed release group',
+        'reads a semantic version from the source manifest of every project of a release group',
         Effect.fnUntraced(function* () {
             const stated = yield* versions(yield* read('fresh'));
             assert.deepStrictEqual(
@@ -114,7 +114,6 @@ it.layer(layer, { excludeTestServices: true })((suite) => {
                 [],
                 SOURCES.version,
             );
-            assert.lengthOf(Array.dedupe(stated.map(([, version]) => version)), 1, SOURCES.version);
         }),
     );
 
@@ -148,15 +147,26 @@ it.layer(layer, { excludeTestServices: true })((suite) => {
     );
 
     suite.effect(
-        'plans a first release of a stated version as a dry run that tags v<version> once and writes that version to the manifest of every project of a release group',
+        'plans a first release of a stated version as a dry run that tags <project>@<version> once per project of a release group and leaves that version in the manifest of each',
         Effect.fnUntraced(function* () {
             const workspace = yield* read('fresh');
             const { code, stdout, stderr } = yield* nx(['release', '1.0.0', '--skip-publish', '--first-release', '--dry-run', '--verbose']);
             const output = `${stdout}${stderr}`;
             assert.strictEqual(Number(code), 0, `${SOURCES.planned}\n${output}`);
-            assert.deepStrictEqual(captured(output, TAGGED, 'tag'), ['v1.0.0'], SOURCES.planned);
-            assert.deepStrictEqual(Array.sort(captured(output, WRITTEN, 'project'), Order.String), tagged(workspace), SOURCES.planned);
-            assert.deepStrictEqual(Array.dedupe(captured(output, WRITTEN, 'version')), ['1.0.0'], SOURCES.planned);
+            assert.deepStrictEqual(
+                Array.sort(captured(output, TAGGED, 'tag'), Order.String),
+                Array.sort(
+                    tagged(workspace).map((project) => `${project}@1.0.0`),
+                    Order.String,
+                ),
+                SOURCES.planned,
+            );
+            assert.deepStrictEqual(
+                Record.fromEntries(Array.zip(captured(output, WRITTEN, 'project'), captured(output, WRITTEN, 'version'))),
+                Record.fromIterableWith(tagged(workspace), (project) => [project, '1.0.0']),
+                SOURCES.planned,
+            );
         }),
+        Duration.toMillis(Duration.minutes(10)),
     );
 });

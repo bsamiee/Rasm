@@ -88,11 +88,11 @@ pub fn fill(book: &mut Workbook, name: &str, block: &Range<Data>) -> Result<(), 
         };
     }
     if let Some(grown) = grown {
-        let names = match scope {
-            Some(local_sheet) => book.sheet_collection_mut()[local_sheet].defined_names_mut(),
-            None => book.defined_names_mut(),
+        let slot = match scope {
+            Some(local_sheet) => book.sheet_collection_mut().get_mut(local_sheet).and_then(|worksheet| worksheet.defined_names_mut().get_mut(index)),
+            None => book.defined_names_mut().get_mut(index),
         };
-        names[index] = grown;
+        *slot.ok_or_else(|| refused(Refusal::Missing))? = grown;
     }
     Ok(())
 }

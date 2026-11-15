@@ -65,9 +65,9 @@ impl Pass {
                 })
                 .min_by_key(|&(_, module)| tcx.def_path_str(module))
         {
-            let named = format!("{}::{name}", tcx.def_path_str(module));
-            span_lint_hir_and_then(cx, RESTATED_CONSTANT, node, span, format!("`\"{text}\"` spells `{named}`"), |diag| {
-                suggest(cx, node, diag, span, "replace the literal with the constant", &named, Applicability::MaybeIncorrect);
+            let path = format!("{}::{name}", tcx.def_path_str(module));
+            span_lint_hir_and_then(cx, RESTATED_CONSTANT, node, span, format!("`\"{text}\"` spells `{path}`"), |diag| {
+                suggest(cx, node, diag, span, "replace the literal with the constant", &path, Applicability::MaybeIncorrect);
             });
         }
     }

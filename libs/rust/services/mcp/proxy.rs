@@ -195,7 +195,7 @@ impl Proxy {
                     if count == 0 {
                         break Ok(());
                     }
-                    let written = async {
+                    let writing = async {
                         for chunk in &batch {
                             writer.write_all(chunk).await?;
                         }
@@ -204,13 +204,13 @@ impl Proxy {
                     tokio::select! {
                         biased;
                         () = cut.cancelled() => break Ok(()),
-                        written = written => if let Err(error) = written {
+                        written = writing => if let Err(error) = written {
                             break Err(error);
                         },
                     }
                     batch.clear();
                 }
-                line = lines.next() => match line {
+                read = lines.next() => match read {
                     Some(Ok(first)) if initializes(&first) => {
                         let (asked, mut answered) = oneshot::channel();
                         self.events.send(Event::Era(asked)).await.map_err(stopped)?;

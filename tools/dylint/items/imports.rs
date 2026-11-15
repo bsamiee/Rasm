@@ -193,8 +193,8 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             .filter_map(|item| if let ItemKind::Use(tree) = item.kind { Some((item, tree)) } else { None })
             .filter(|(item, _)| !(expanded_externally(cx, item.span) || exported(cx, item.owner_id.def_id) || find_attr!(tcx, item.hir_id(), CfgTrace(..))))
             .map(|(item, root)| {
-                let renamed = leaves(root, item.hir_id()).filter_map(|(tree, alias, node, named)| {
-                    let (alias, original) = alias.zip(named).filter(|(alias, original)| ![original.name, kw::SelfLower, kw::Underscore].contains(&alias.name))?;
+                let renamed = leaves(root, item.hir_id()).filter_map(|(tree, alias, node, original)| {
+                    let (alias, original) = alias.zip(original).filter(|(alias, original)| ![original.name, kw::SelfLower, kw::Underscore].contains(&alias.name))?;
                     Some(Rename { node, span: tree.prefix.span.to(alias.span), original, alias, imported: tree.prefix.res })
                 });
                 (item, renamed.collect::<Vec<_>>())

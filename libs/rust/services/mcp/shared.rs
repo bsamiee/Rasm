@@ -152,14 +152,14 @@ where S: Subscribe
     }
 
     fn accepted_subscription_filter(&self, requested: &SubscriptionFilter) -> Option<SubscriptionFilter> {
-        let mut accepted = requested.supported_by(&ServerHandler::get_info(self).capabilities);
-        accepted.resource_subscriptions = accepted.resource_subscriptions.take().map(|uris| {
+        let mut filter = requested.supported_by(&ServerHandler::get_info(self).capabilities);
+        filter.resource_subscriptions = filter.resource_subscriptions.take().map(|uris| {
             let held = self.shared.subscribed(&uris);
             let kept = Vec::from_iter(held.keys().cloned());
             self.accepted.with_mut(|accepted| accepted.extend(held));
             kept
         });
-        Some(accepted)
+        Some(filter)
     }
 
     async fn listen(&self, context: SubscriptionContext) -> Result<(), ErrorData> {

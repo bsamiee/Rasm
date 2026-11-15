@@ -196,24 +196,24 @@ where
     }
     let stop = CancellationToken::new();
     let _stopped = stop.clone().drop_guard();
-    let requests = sink::unfold((proxy.events.clone(), session), async |(events, session): (mpsc::Sender<Event>, u64), message: ClientJsonRpcMessage| {
+    let requests = sink::unfold((proxy.events.clone(), session), async |(events, origin): (mpsc::Sender<Event>, u64), message: ClientJsonRpcMessage| {
         if let ClientJsonRpcMessage::Request(JsonRpcRequest { request, .. }) = &message
             && let Some(subscribed) = request.extensions().get::<CancellationToken>()
         {
             subscribed.cancelled().await;
         }
-        let sent = events.send(Event::Line { session, line: Line::Whole(encoded(&message)?) }).await;
-        sent.map(|()| (events, session)).map_err(|mpsc::error::SendError(_)| io::Error::from(io::ErrorKind::ConnectionAborted))
+        let sent = events.send(Event::Line { session: origin, line: Line::Whole(encoded(&message)?) }).await;
+        sent.map(|()| (events, origin)).map_err(|mpsc::error::SendError(_)| io::Error::from(io::ErrorKind::ConnectionAborted))
     });
     let progress = ProgressDispatcher::new();
-    let answers = stream::unfold((outbound, BytesMut::new(), progress.clone()), async |(mut outbound, mut held, progress)| {
+    let answers = stream::unfold((outbound, BytesMut::new(), progress.clone()), async |(mut receiver, mut held, dispatcher)| {
         loop {
-            let chunk = outbound.recv().await?;
+            let chunk = receiver.recv().await?;
             held.extend_from_slice(&chunk);
             match chunk.ends_with(b"\n").then(|| typed::<ServerJsonRpcMessage>(&mem::take(&mut held))).flatten() {
                 Some(ServerJsonRpcMessage::Notification(JsonRpcNotification { notification: ServerNotification::ProgressNotification(reported), .. })) =>
-                    progress.handle_notification(reported.params).await,
-                Some(message) => break Some((message, (outbound, held, progress))),
+                    dispatcher.handle_notification(reported.params).await,
+                Some(message) => break Some((message, (receiver, held, dispatcher))),
                 None => {}
             }
         }
@@ -226,9 +226,9 @@ where
             None
         }
     });
-    let replies = sink::unfold(writer, async |mut writer: W, message: ServerJsonRpcMessage| {
-        writer.write_all(&encoded(&message)?).await?;
-        writer.flush().await.map(|()| writer)
+    let replies = sink::unfold(writer, async |mut output: W, message: ServerJsonRpcMessage| {
+        output.write_all(&encoded(&message)?).await?;
+        output.flush().await.map(|()| output)
     });
     let client = ClientConfig::new(ClientCapabilities::default(), proxy.client.clone());
     let lifecycle = ClientLifecycleMode::Discover { preferred_versions: vec![ProtocolVersion::LATEST] };

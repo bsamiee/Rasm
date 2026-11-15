@@ -71,8 +71,8 @@ impl Network {
         .ok()?;
         let side = |project: fn(&Node) -> Option<Vector3<f64>>| {
             let ranks = nodes.iter().scan(0_usize.., |rank, node| Some(project(node).and_then(|_| rank.next()))).collect::<Vec<_>>();
-            let rows = nodes.iter().filter_map(project).collect::<Vec<_>>();
-            (Mat::from_fn(rows.len(), 3, |row, axis| rows[row][axis]), ranks)
+            let rows = nodes.iter().filter_map(project).map(<[f64; 3]>::from).collect::<Vec<_>>();
+            (MatRef::from_row_major_slice(rows.as_flattened(), rows.len(), 3).cloned(), ranks)
         };
         let ((loads, index), (positions, supported)) = (
             side(|node| match *node {
@@ -181,8 +181,8 @@ fn balance<'network>(network: &'network Network, spans: MatRef<'_, f64>, densiti
 
 fn vector(row: RowRef<'_, f64>) -> Vector3<f64> { Vector3::from_iterator(row.iter().copied()) }
 
-fn form(network: &Network, free: MatRef<'_, f64>, spans: MatRef<'_, f64>, densities: DVectorView<'_, f64>, (residual, reactions): (Mat<f64>, impl FnOnce() -> Mat<f64>)) -> Form {
-    let supports = reactions();
+fn form(network: &Network, free: MatRef<'_, f64>, spans: MatRef<'_, f64>, densities: DVectorView<'_, f64>, (residual, supports): (Mat<f64>, impl FnOnce() -> Mat<f64>)) -> Form {
+    let supports = supports();
     let (mut moved, mut held) = (iter::zip(free.row_iter(), residual.row_iter()), supports.row_iter());
     let (positions, reactions) = network
         .nodes

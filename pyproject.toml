@@ -368,7 +368,8 @@ environments             = [
     "sys_platform == 'win32' and platform_machine == 'AMD64'",
 ]
 prerelease               = "allow"
-no-build-package         = ["epdx"]                              # `epdx` sdist lacks `project.version`
+preview-features         = ["lockfile-format-check"]
+no-build-package        = ["epdx"]                              # `epdx` sdist lacks `project.version`
 extra-build-dependencies = { pyroscope-io = ["cmake"] }          # `pyroscope-io` build.rs runs cmake its sdist leaves undeclared
 
 [tool.uv.workspace]

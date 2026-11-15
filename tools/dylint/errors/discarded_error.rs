@@ -198,7 +198,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             _ => false,
         };
         let fallback = |body: &'tcx Expr<'tcx>| is_const_evaluatable(cx.tcx, typeck, body) || fn_def_id(cx, peel_blocks(body)).is_diag_item(cx, sym::default_fn);
-        let gated = |gate, receiver: &'tcx Expr<'tcx>, arguments: &'tcx [Expr<'tcx>], expr: &'tcx Expr<'tcx>| match gate {
+        let gated = |gate, receiver: &'tcx Expr<'tcx>, arguments: &'tcx [Expr<'tcx>], call: &'tcx Expr<'tcx>| match gate {
             Gate::Always => true,
             Gate::Unread => arguments.first().is_some_and(|handler| unread(cx, handler).is_some()) || typeck.expr_ty_adjusted(receiver).peel_refs().is_diag_item(cx, sym::Option),
             Gate::Succeeds => arguments.first().is_some_and(|value| {
@@ -217,15 +217,15 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 }
             }),
             Gate::Relayed => {
-                let parent = get_parent_expr(cx, expr);
-                let returned = matches!(get_expr_use_site(cx.tcx, typeck, expr.span.ctxt(), expr).use_node(cx), ExprUseNode::Return(_));
+                let parent = get_parent_expr(cx, call);
+                let returned = matches!(get_expr_use_site(cx.tcx, typeck, call.span.ctxt(), call).use_node(cx), ExprUseNode::Return(_));
                 let branch = parent.filter(|parent| matches!(parent.kind, ExprKind::Call(..)) && fn_def_id(cx, parent).is_lang_item(cx, LangItem::TryTraitBranch));
                 returned
                     || parent.is_some_and(|parent| match parent.kind {
                         ExprKind::MethodCall(_, relayed, ..) =>
-                            relayed.hir_id == expr.hir_id
+                            relayed.hir_id == call.hir_id
                                 && !(matches!(fn_def_id(cx, parent).and_then(|def_id| cx.tcx.get_diagnostic_name(def_id)), Some(sym::option_unwrap | sym::option_expect))
-                                    && is_inside_always_const_context(cx.tcx, expr.hir_id)),
+                                    && is_inside_always_const_context(cx.tcx, call.hir_id)),
                         _ => branch.is_some(),
                     })
             }
@@ -305,11 +305,11 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 && receiver.hir_id == relayed.hir_id
                 && fn_def_id(cx, parent).is_some_and(|method| impl_owner(cx.tcx, method).is_diag_item(cx, sym::Option) || self.methods.contains_key(&method))
             {
-                if let Some(&Some((discard, gate))) = fn_def_id(cx, parent).and_then(|method| self.methods.get(&method))
+                if let Some(&Some((method_discard, gate))) = fn_def_id(cx, parent).and_then(|method| self.methods.get(&method))
                     && gated(gate, receiver, arguments, parent)
                 {
                     site = parent;
-                    return Some((segment.ident.span.to(parent.span.shrink_to_hi()), discard, Cow::Borrowed(segment.ident.as_str()), error));
+                    return Some((segment.ident.span.to(parent.span.shrink_to_hi()), method_discard, Cow::Borrowed(segment.ident.as_str()), error));
                 }
                 let output = typeck.expr_ty(parent);
                 if !output.is_diag_item(cx, sym::Option) {

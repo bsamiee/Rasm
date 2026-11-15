@@ -99,14 +99,14 @@ where I: IntoIterator<Item = u32> {
     const SECONDS: &str = "s";
     let pids = Arc::new((pids, Mutex::new((System::new()?, Vec::new(), None))));
     let meter = provider.meter_with_scope(crate::scope(env!("CARGO_PKG_NAME")));
-    let counts: &[(&str, &str, fn(&Process, Usage) -> Option<i64>)] = &[
+    let levels: &[(&str, &str, fn(&Process, Usage) -> Option<i64>)] = &[
         (PROCESS_MEMORY_USAGE, BYTES, |process, _| Some(process.memory().saturating_cast())),
         (PROCESS_MEMORY_VIRTUAL, BYTES, |process, _| Some(process.virtual_memory().saturating_cast())),
         (PROCESS_THREAD_COUNT, "{thread}", |process, usage| usage.threads.or_else(|| process.tasks().map(|tasks| tasks.len().saturating_cast()))),
         #[cfg(unix)]
         (PROCESS_UNIX_FILE_DESCRIPTOR_COUNT, "{file_descriptor}", |process, _| process.open_files().map(usize::saturating_cast)),
     ];
-    for &(name, unit, measure) in counts {
+    for &(name, unit, measure) in levels {
         let pids = Arc::clone(&pids);
         let observed = move || measured(&pids, measure).into_iter().filter_map(|(pid, count)| Some((pid, count?)));
         meter.i64_observable_up_down_counter(name).with_unit(unit).with_callback(move |observer| observed().for_each(|(pid, count)| observer.observe(count, &[pid]))).build();
@@ -119,7 +119,7 @@ where I: IntoIterator<Item = u32> {
             Some([moved.total_read_bytes, moved.total_written_bytes])
         }),
     ];
-    for (name, unit, key, kinds, measure) in kinds {
+    for (name, unit, key, labels, measure) in kinds {
         let pids = Arc::clone(&pids);
         let observed = move || measured(&pids, measure).into_iter().filter_map(|(pid, counts)| Some((pid, counts?)));
         meter
@@ -127,20 +127,20 @@ where I: IntoIterator<Item = u32> {
             .with_unit(unit)
             .with_callback(move |observer| {
                 for (pid, counts) in observed() {
-                    for (kind, count) in iter::zip(kinds, counts) {
+                    for (kind, count) in iter::zip(labels, counts) {
                         observer.observe(count, &[pid.clone(), KeyValue::new(key, kind)]);
                     }
                 }
             })
             .build();
     }
-    let (spent, lived) = (Arc::clone(&pids), pids);
+    let lived = Arc::clone(&pids);
     meter
         .f64_observable_counter(PROCESS_CPU_TIME)
         .with_unit(SECONDS)
         .with_callback(move |observer| {
-            for (pid, spent) in measured(&spent, |process, usage| usage.cpu(Duration::from_millis(process.accumulated_cpu_time()))) {
-                match spent {
+            for (pid, cpu) in measured(&pids, |process, usage| usage.cpu(Duration::from_millis(process.accumulated_cpu_time()))) {
+                match cpu {
                     Ok(modes) => iter::zip(["user", "system"], modes).for_each(|(mode, spent)| observer.observe(spent.as_secs_f64(), &[pid.clone(), KeyValue::new(CPU_MODE, mode)])),
                     Err(total) => observer.observe(total.as_secs_f64(), &[pid]),
                 }

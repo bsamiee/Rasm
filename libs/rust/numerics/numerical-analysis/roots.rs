@@ -101,7 +101,7 @@ where F: Fn(f64) -> f64 + Sync {
     let tangent = |start: f64, middle: f64, last: f64, reach: f64| match pole_free(
         Bounds::try_new(RangeInclusive { start, last })
             .map_err(|source| AnalysisError::Root { bracket: RangeInclusive { start, last }, source: RootSource::Bounds(source) })
-            .and_then(|interval| minimum(|at| Ok(function(at).abs()), interval, TOLERANCE, hooks)),
+            .and_then(|bracket| minimum(|at| Ok(function(at).abs()), bracket, TOLERANCE, hooks)),
     ) {
         Ok(Some((at, _))) if function(at).is_sign_negative() != function(middle).is_sign_negative() =>
             [(start, at), (at, last)].into_iter().filter_map(|(below, above)| solve(below, above, reach).transpose()).collect(),

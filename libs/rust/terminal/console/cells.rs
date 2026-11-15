@@ -94,9 +94,9 @@ fn walked(value: Value<'static>, columns: &mut Columns, row: &mut Row) -> Result
         Value::Option(Some(inner)) => walked(*inner, columns, row),
         Value::Struct(Struct { data: Data::NewType { value }, .. }) => walked(value, columns, row),
         Value::Seq(values) | Value::Tuple(values) | Value::Struct(Struct { data: Data::Tuple { values }, .. }) if columns.path.is_empty() =>
-            values.into_iter().enumerate().try_for_each(|(index, value)| entered(Segment::Index(index), value, columns, row)),
-        Value::Struct(Struct { data: Data::Struct { fields }, .. }) => fields.into_iter().try_for_each(|(name, value)| entered(Segment::Name(name), value, columns, row)),
-        Value::Map(entries) => entries.into_iter().try_for_each(|(key, value)| entered(keyed(key)?, value, columns, row)),
+            values.into_iter().enumerate().try_for_each(|(index, element)| entered(Segment::Index(index), element, columns, row)),
+        Value::Struct(Struct { data: Data::Struct { fields }, .. }) => fields.into_iter().try_for_each(|(name, field)| entered(Segment::Name(name), field, columns, row)),
+        Value::Map(entries) => entries.into_iter().try_for_each(|(key, entry)| entered(keyed(key)?, entry, columns, row)),
         Value::Enum(Enum { name, variant, data: data @ (Data::NewType { .. } | Data::Tuple { .. } | Data::Struct { .. }), .. }) =>
             entered(Segment::Name(variant), Value::Struct(Box::new(Struct { name, data })), columns, row),
         leaf @ (Value::Unit
