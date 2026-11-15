@@ -8,9 +8,13 @@
             "binaryDir": "${sourceDir}/.artifacts/cmake/${presetName}",
             "installDir": "${sourceDir}/.artifacts/cmake/${presetName}/prefix",
             "toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
-            "warnings": { "author": true, "deprecated": true, "experimental": true, "installAbsoluteDestination": true, "nonTargetDirective": true, "policy": true, "strict": true },
-            "errors": { "author": true, "deprecated": true, "experimental": true, "installAbsoluteDestination": true, "nonTargetDirective": true, "policy": true, "strict": true },
-            "cacheVariables": { "VCPKG_INSTALL_OPTIONS": "--x-buildtrees-root=${sourceDir}/.cache/vcpkg/buildtrees;--x-packages-root=${sourceDir}/.cache/vcpkg/packages" }
+            "errors": { "author": true, "deprecated": true, "experimental": true, "installAbsoluteDestination": true, "nonTargetDirective": true, "policy": true, "strict": true, "uninitialized": true },
+            "cacheVariables": {
+                "CMAKE_EXPORT_COMPILE_COMMANDS": true,
+                "CMAKE_VERIFY_INTERFACE_HEADER_SETS": true,
+                "CMAKE_VERIFY_PRIVATE_HEADER_SETS": true,
+                "VCPKG_INSTALL_OPTIONS": "--x-buildtrees-root=${sourceDir}/.cache/vcpkg/buildtrees;--x-packages-root=${sourceDir}/.cache/vcpkg/packages"
+            }
         },
         {
             "name": "llvm",
@@ -24,7 +28,15 @@
         { "name": "tsan", "inherits": "llvm", "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo", "RASM_SANITIZERS": "thread" } },
         { "name": "fuzz", "inherits": "llvm", "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo", "RASM_SANITIZERS": "fuzzer-no-link;address;undefined" } },
         { "name": "coverage", "inherits": "llvm", "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug", "RASM_COVERAGE": true } },
-        { "name": "lint", "inherits": "llvm", "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug", "CMAKE_CXX_CLANG_TIDY": "clang-tidy;--experimental-custom-checks", "CMAKE_OBJCXX_CLANG_TIDY": "clang-tidy;--experimental-custom-checks" } },
+        {
+            "name": "lint",
+            "inherits": "llvm",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_CXX_CLANG_TIDY": "clang-tidy;--experimental-custom-checks;--config-file=${sourceDir}/.config/.clang-tidy;--format-style=file:${sourceDir}/.config/.clang-format",
+                "CMAKE_OBJCXX_CLANG_TIDY": "clang-tidy;--experimental-custom-checks;--config-file=${sourceDir}/.config/.clang-tidy;--format-style=file:${sourceDir}/.config/.clang-format"
+            }
+        },
         {
             "name": "unreal",
             "inherits": "tree",

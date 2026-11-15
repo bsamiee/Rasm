@@ -8,7 +8,7 @@
         "package": {
             "implementation": "./dist/executors/package/executor#execute",
             "schema": "./executors/package/schema.json",
-            "description": "Archives each app with its xcodebuild invocation and builds each SwiftPM executable product in release, then zips each under its bundle or product name with ditto; where ASC_API_KEY_P8, ASC_API_KEY_ID, and ASC_API_ISSUER_ID are set, exports each archive under the Developer ID Application identity into a disk image in place of the zip, signs it, notarizes it with that App Store Connect key, and staples the ticket"
+            "description": "Archives each app with its xcodebuild invocation and builds each SwiftPM executable product in release, then zips each under its bundle or product name with ditto; where the variables notary names are set, exports each archive under the Developer ID Application identity into a disk image in place of the zip, signs it, notarizes it with that App Store Connect key, and staples the ticket"
         },
         "run": {
             "implementation": "./dist/executors/run/executor#execute",
@@ -18,7 +18,7 @@
         "release-publish": {
             "implementation": "./dist/executors/release-publish/executor#execute",
             "schema": "./executors/release-publish/schema.json",
-            "description": "Signs a Sparkle feed for each disk image an export folder holds with generate_appcast under SPARKLE_ED_PRIVATE_KEY, pointing at the image's asset on the GitHub release nx release tags the archived app's version with, and uploads it to the R2 bucket SPARKLE_FEED_BUCKET names at the path of the app's SUFeedURL through cf r2 objects put, and where a folder holds no disk image or either variable is unset names what is missing and publishes nothing; runs through nx release publish"
+            "description": "Signs a Sparkle feed for each disk image an export folder holds with generate_appcast under the key appcast.key names, pointing at the image's asset on the GitHub release nx release tags the archived app's version with, and uploads it to the R2 bucket appcast.bucket names at the path of the app's SUFeedURL with cf r2 objects put, and where a folder holds no disk image or either variable is unset names what is missing and publishes nothing; runs through nx release publish"
         }
     }
 }

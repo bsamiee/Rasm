@@ -9,7 +9,7 @@ import { declared, dependents, ECOSYSTEMS, nx, read, tracked } from '#/workspace
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const SOURCES = {
-    shared: "README.md PRINCIPLES: `@rasm/nx-cargo` infers the `default` named input of a crate (its files, the workspace lock, manifest, toolchain, and Cargo variables), so every target of the crate reads them; OWNERS: Package version — `Directory.Packages.props` row; LAYOUT: tsconfig.base.json — TypeScript options every package compiles and emits with; nrwl/nx packages/nx/src/native/affected/tasks/changed_contents.rs compare_ts_configs: a root tsconfig change outside `paths` touches every task",
+    shared: 'README.md PRINCIPLES: `@rasm/nx-cargo` infers the `default` named input of a crate (its files, the workspace lock, manifest, toolchain, and Cargo variables), so every target of the crate reads them; OWNERS: Package version — `Directory.Packages.props` row; LAYOUT: tsconfig.base.json — TypeScript options every package compiles and emits with; nrwl/nx packages/nx/src/native/affected/tasks/changed_contents.rs compare_ts_configs: a root tsconfig change outside `paths` touches every task',
     locked: 'README.md PRINCIPLES: Cargo, uv, SwiftPM, and xcodebuild targets read the committed lock (`--locked`, `--force-resolved-versions`, `-onlyUsePackageVersionsFromResolvedFile`); astral-sh/uv docs/concepts/projects/workspaces.md: the workspace shares a single lockfile; docs/concepts/projects/layout.md: uv creates a `uv.lock` file next to the `pyproject.toml`; crates/uv-tool-commands/src/common.rs: `uv tool install` writes its own lock into the tool folder and reads no project `uv.lock`, so `install` targets are outside the rule',
     read: "README.md PRINCIPLES: Task inputs hold the files a task's tool reads: plugin and executor source, `.config/mise.lock`, tool `--version` output, and credentials are no input",
     own: 'nrwl/nx packages/nx/src/project-graph/affected/affected-tasks.spec.ts computeAffectedTasks: selects a task whose own files changed, and its dependents; packages/nx/src/native/affected/tasks/selection.rs: a change reaches a requested task through its own inputs or the outputs it reads, never along plain dependsOn',
@@ -22,10 +22,7 @@ const SOURCES = {
 const CHECKED = ['check', 'test', 'build'] as const;
 const SHARED = Record.collect(ECOSYSTEMS, (plugin, { shared }) => shared.map((file) => ({ plugin, file }))).flat();
 const APART = Record.collect(
-    Array.groupBy(
-        Record.collect(ECOSYSTEMS, (plugin, { locks }) => locks.map((file) => ({ plugin, file }))).flat(),
-        ({ file }) => file,
-    ),
+    Array.groupBy(Record.collect(ECOSYSTEMS, (plugin, { locks }) => locks.map((file) => ({ plugin, file }))).flat(), ({ file }) => file),
     (file, held) => ({ file, plugins: held.map(({ plugin }) => plugin) }),
 );
 const SOURCED = Record.collect(
@@ -90,7 +87,7 @@ const unlocked = Effect.fnUntraced(function* (workspace: Graph, plugin: string, 
     return { locks: Record.keys(locked), missed: Array.zip(Record.toEntries(locked), found).flatMap(([[lock, tasks], held]) => unreached(tasks, held).map((task) => `${lock}: ${task}`)) };
 });
 
-const sampled = Effect.fnUntraced(function* (workspace: Graph, plugin: string, files: readonly string[]) {
+const selected = Effect.fnUntraced(function* (workspace: Graph, plugin: string, files: readonly string[]) {
     const building = new Set(
         inferred(workspace, [plugin])
             .filter(({ name }) => name.startsWith('build--'))
@@ -98,7 +95,18 @@ const sampled = Effect.fnUntraced(function* (workspace: Graph, plugin: string, f
     );
     const roots = createProjectRootMappings(workspace.nodes);
     const owned = (yield* tracked(...files)).flatMap((file) => Array.fromNullishOr(findProjectForPath(file, roots)).map((project) => ({ project, file })));
-    return Array.findFirst(owned, ({ project }) => building.has(project));
+    yield* Effect.transposeOption(
+        Option.map(
+            Array.findFirst(owned, ({ project }) => building.has(project)),
+            Effect.fnUntraced(function* ({ project, file }) {
+                const found = yield* reached(CHECKED, file);
+                const held = CHECKED.filter((verb) => verb in (workspace.nodes[project]?.data.targets ?? {})).map((verb) => ({ task: `${project}:${verb}` }));
+                assert.isNotEmpty(held, `${SOURCES.own}: ${project} for ${file}`);
+                assert.deepStrictEqual(unreached(held, found), [], `${SOURCES.own}: ${file}`);
+                assert.deepStrictEqual(outside(workspace, dependents(workspace, new Set([project])), found), [], `${SOURCES.own}: ${file}`);
+            }),
+        ),
+    );
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -163,18 +171,7 @@ it.layer(layer, { excludeTestServices: true })((suite) => {
     suite.effect.each(SOURCED)(
         'selects with a change to one source file of a $plugin project each of check, test, and build that project holds, and no task outside it and the projects depending on it',
         Effect.fnUntraced(function* ({ plugin, files }) {
-            const workspace = yield* read('fresh');
-            const sample = yield* sampled(workspace, plugin, files);
-            yield* Effect.forEach(
-                Option.toArray(sample),
-                Effect.fnUntraced(function* ({ project, file }) {
-                    const found = yield* reached(CHECKED, file);
-                    const held = CHECKED.filter((verb) => verb in (workspace.nodes[project]?.data.targets ?? {})).map((verb) => ({ task: `${project}:${verb}` }));
-                    assert.isNotEmpty(held, `${SOURCES.own}: ${project} for ${file}`);
-                    assert.deepStrictEqual(unreached(held, found), [], `${SOURCES.own}: ${file}`);
-                    assert.deepStrictEqual(outside(workspace, dependents(workspace, new Set([project])), found), [], `${SOURCES.own}: ${file}`);
-                }),
-            );
+            yield* selected(yield* read('fresh'), plugin, files);
         }),
     );
 

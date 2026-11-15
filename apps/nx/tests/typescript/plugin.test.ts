@@ -2,7 +2,7 @@ import { layer } from '@effect/platform-node/NodeServices';
 import { assert, it } from '@effect/vitest';
 import type { ProjectGraph } from '@nx/devkit';
 import plugin from '@rasm/nx-typescript/package.json' with { type: 'json' };
-import { Consumer, Packed } from '@rasm/testing/nx';
+import { Consumer, kept, Packed } from '@rasm/testing/nx';
 import compiler from '@typescript/native/package.json' with { type: 'json' };
 import { Duration, Effect, Formatter, Layer, Path, Record, Schema } from 'effect';
 import nx from 'nx/package.json' with { type: 'json' };
@@ -264,6 +264,97 @@ it.layer(workspace({ ...files, 'libs/broken/package.json': '{ "name": "broken", 
             );
             assert.isNotEmpty(Record.keys(tooled(graph, 'kit', 'check')), `${errors}: "It allows Nx to recieve partial results and continue processing"`);
             assert.isNotEmpty(Record.keys(tooled(graph, 'emitting', 'build')), `${errors}: partial results hold every project whose file loaded`);
+        }),
+        bounds.test,
+    );
+});
+
+it.layer(
+    workspace({
+        'package.json': manifest,
+        'tsconfig.strict.json': files['tsconfig.strict.json'],
+        'tsconfig.base.json': files['tsconfig.base.json'],
+        'tsconfig.json': files['tsconfig.json'],
+        'docs/notes.md': 'unread\n',
+        'libs/alpha/package.json': '{ "name": "alpha", "version": "0.0.0", "type": "module", "exports": { ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" } } }\n',
+        'libs/alpha/tsconfig.json': emitted('dist'),
+        'libs/alpha/index.ts': 'export const alpha: number = 1;\n',
+    }),
+    { timeout: bounds.built, excludeTestServices: true },
+)((methods) => {
+    const build = 'alpha:build--tsc';
+    const cache = 'nrwl/nx e2e/nx/src/cache-no-daemon.test.ts';
+    const compiled = Effect.flatMap(Consumer, ({ ran }) => ran(['run', build, '--output-style=static']));
+    const replayed = ({ tasks }: Effect.Success<typeof compiled>) => tasks[build] === 'local-cache-hit';
+    const named = JSON.stringify({ plugins: [plugin.name], namedInputs: { default: ['{projectRoot}/**/*'], production: ['default'] } });
+    const upstream = (graph: Pick<ProjectGraph, 'nodes'>) => Object.values(tooled(graph, 'alpha', 'build')).flatMap(({ inputs = [] }) => inputs.filter((input) => typeof input === 'string' && input.startsWith('^')));
+
+    methods.effect(
+        'replays a build from the local cache and restores each file the build wrote',
+        Effect.fnUntraced(function* () {
+            const { outputs, cleaned, absent } = yield* Consumer;
+            const first = yield* compiled;
+            const { expandedOutputs } = yield* outputs(build);
+            yield* cleaned;
+            const second = yield* compiled;
+            assert.strictEqual(first.code, 0, `${first.stdout}${first.stderr}`);
+            assert.isFalse(replayed(first), `${cache} "should cache command execution"`);
+            assert.isNotEmpty(expandedOutputs, `${cache} "should support using globs as outputs"`);
+            assert.isTrue(replayed(second), `${cache} "should cache command execution"`);
+            assert.deepStrictEqual(yield* absent(expandedOutputs), [], `${cache} "should support using globs as outputs"`);
+        }),
+        bounds.test,
+    );
+
+    methods.effect(
+        'writes no file outside the outputs a build declares',
+        Effect.fnUntraced(function* () {
+            const { outputs, cleaned, written, wrote } = yield* Consumer;
+            yield* cleaned;
+            yield* wrote({ 'libs/alpha/index.ts': 'export const alpha: number = 2;\n' });
+            const [run, created] = yield* written(compiled);
+            const { expandedOutputs } = yield* outputs(build);
+            assert.strictEqual(run.code, 0, `${run.stdout}${run.stderr}`);
+            assert.isFalse(replayed(run), `${cache} "should use consider filesets when hashing"`);
+            assert.deepStrictEqual([...new Set(created).difference(new Set(expandedOutputs))], [], `${cache} "should support using globs as outputs"`);
+        }),
+        bounds.test,
+    );
+
+    methods.effect(
+        'runs a build again after a change to a file it reads, and replays it after a change to a file it does not read',
+        Effect.fnUntraced(function* () {
+            const { wrote } = yield* Consumer;
+            yield* compiled;
+            yield* wrote({ 'docs/notes.md': 'still unread\n' });
+            const unread = yield* compiled;
+            yield* wrote({ 'libs/alpha/index.ts': 'export const alpha: number = 3;\n' });
+            const changed = yield* compiled;
+            const again = yield* compiled;
+            assert.deepStrictEqual([replayed(unread), replayed(changed), replayed(again)], [true, false, true], `${cache} "should use consider filesets when hashing": a change to a matched file misses the cache, a change to a file the inputs exclude still hits`);
+        }),
+        bounds.test,
+    );
+
+    methods.effect(
+        'reads the default input of dependencies in a workspace without a production input and the production input once nx.json defines one',
+        Effect.fnUntraced(function* () {
+            const { wrote } = yield* Consumer;
+            const before = upstream(yield* read);
+            yield* wrote({ 'nx.json': named });
+            assert.deepStrictEqual([before, upstream(yield* read)], [['^default'], ['^production']], 'nrwl/nx packages/vite/src/plugins/plugin.ts buildInputs: an inferred build reads `^production` where nx.json defines `production` and `^default` otherwise');
+        }),
+        bounds.test,
+    );
+
+    methods.effect(
+        'keeps every file the builds of every project wrote through a graph read holding no stored plugin result',
+        Effect.fnUntraced(function* () {
+            const { built: run, shown: listed, created, removed } = yield* kept;
+            assert.strictEqual(run.code, 0, `${run.stdout}${run.stderr}`);
+            assert.isNotEmpty(created, 'README.md TASKS: `build` compiles or packages a project into its declared outputs');
+            assert.strictEqual(listed.code, 0, listed.stderr);
+            assert.deepStrictEqual(removed, [], 'nrwl/nx packages/nx/src/project-graph/plugins/public-api.ts CreateNodesFunction: a plugin reads configuration files and returns project configuration, and graph creation removes no file a task wrote');
         }),
         bounds.test,
     );

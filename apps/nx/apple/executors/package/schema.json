@@ -51,6 +51,26 @@
                 "additionalProperties": true
             }
         },
+        "notary": {
+            "type": "object",
+            "properties": {
+                "key": {
+                    "type": "string",
+                    "description": "Variable holding the App Store Connect .p8 key"
+                },
+                "keyId": {
+                    "type": "string",
+                    "description": "Variable holding the App Store Connect key id"
+                },
+                "issuer": {
+                    "type": "string",
+                    "description": "Variable holding the App Store Connect issuer id"
+                }
+            },
+            "required": [ "key", "keyId", "issuer" ],
+            "additionalProperties": true,
+            "description": "Variables naming the App Store Connect key that notarizes a disk image, absent zipping each app alone"
+        },
         "__unparsed__": {
             "type": "array",
             "description": "Words after -- of the run, appended after the configured arguments",
@@ -66,5 +86,5 @@
     },
     "additionalProperties": true,
     "title": "Package",
-    "description": "Archives each app with its xcodebuild invocation and builds each SwiftPM executable product in release, then zips each under its bundle or product name with ditto; where ASC_API_KEY_P8, ASC_API_KEY_ID, and ASC_API_ISSUER_ID are set, exports each archive under the Developer ID Application identity into a disk image in place of the zip, signs it, notarizes it with that App Store Connect key, and staples the ticket"
+    "description": "Archives each app with its xcodebuild invocation and builds each SwiftPM executable product in release, then zips each under its bundle or product name with ditto; where the variables notary names are set, exports each archive under the Developer ID Application identity into a disk image in place of the zip, signs it, notarizes it with that App Store Connect key, and staples the ticket"
 }

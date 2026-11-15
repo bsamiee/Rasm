@@ -10,6 +10,7 @@
     "license": "MIT",
     "type": "module",
     "imports": {
+        "#package": "./package.json",
         "#/*": "./*.ts",
         "#analyzer": "@rasm/nx-apple-darwin-arm64/nx-apple-analyzer"
     },
@@ -46,6 +47,7 @@
             "./executors.json": "./executors.json"
         },
         "imports": {
+            "#package": "./package.json",
             "#/*": "./dist/*.js",
             "#analyzer": "@rasm/nx-apple-darwin-arm64/nx-apple-analyzer"
         }

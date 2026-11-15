@@ -71,6 +71,10 @@ steps {
   }
   ["clang-format"] = (Builtins.clang_format) {
     glob = "**/*.{cpp,cppm,ixx,cc,cxx,mm,hpp,hh,hxx,h,ipp,inl,tpp}"
+    local style = "--style=file:.config/.clang-format"
+    batch = true
+    check { command { argv = List("clang-format", style, "--dry-run", "-Werror", "{{files}}") } }
+    fix { command { argv = List("clang-format", style, "-i", "{{files}}") } }
   }
   ["dotnet-format"] {
     glob = "**/*.cs"

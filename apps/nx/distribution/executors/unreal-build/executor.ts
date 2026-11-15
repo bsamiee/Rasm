@@ -1,8 +1,8 @@
 import { type ExecutorContext, runExecutor } from '@nx/devkit';
 import { globWithWorkspaceContext } from '@nx/devkit/internal';
-import { Array, Effect, Equivalence, FileSystem, Function, Option, Path, pipe, Record, Result, Schema, Stream, Struct } from 'effect';
+import { Array, Cause, Effect, Equivalence, FileSystem, Function, Option, Path, pipe, Record, Result, Schema, Stream, Struct, UndefinedOr } from 'effect';
 import { applyEdits, modify } from 'jsonc-parser';
-import { DistributionError, run, spawned, Words } from '#/executor';
+import { run, spawned, Words } from '#/executor';
 import { engine, Linked, zipped } from '#/host-packages';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -19,7 +19,13 @@ const Unreal = Schema.Struct({
     descriptor: Schema.String.annotate({ description: 'Project .uproject or .uplugin, relative to the workspace root' }),
     hosts: Schema.Array(Schema.String).annotate({ description: '.uproject files loading a plug-in, whose engine associations name each engine it builds, tests, and packs on' }),
     dependencies: Schema.Array(Schema.String).annotate({ description: 'Workspace plug-ins a .uplugin names, passed to BuildPlugin as -Dependencies' }),
-    packages: Linked,
+    packages: Schema.optionalKey(
+        Schema.Struct({
+            folders: Linked,
+            variable: Schema.String.annotate({ description: 'Environment variable the install target of each package reads the engine root from' }),
+            argument: Schema.String.annotate({ description: 'Argument the install target of each package takes its install folder under' }),
+        }),
+    ).annotate({ description: 'Packages installed into folders of a .uplugin before each BuildPlugin run, absent installing none' }),
     users: Schema.Array(Schema.String).annotate({ description: '.uproject files enabling a plug-in that sits outside their plug-in folders, each receiving the package on install', default: [] }),
     operation: Schema.Literals(['build', 'check', 'test', 'pack', 'install']).annotate({ description: 'What runs: the build, the build under UnrealBuildTool static analysis, the automation tests named after the plug-in, the archives, or the copy into each user project', default: 'build' }),
     __unparsed__: Words,
@@ -48,19 +54,26 @@ const execute = Effect.fnUntraced(function* ({ outputPath, descriptor, hosts, de
         Array.dedupeWith(loading, Equivalence.mapInput(Equivalence.String, Struct.get('root'))),
         Option.liftPredicate(Array.isReadonlyArrayNonEmpty),
         Effect.fromOption,
-        Effect.mapError(DistributionError.refused(descriptor, 'is loaded by no .uproject whose EngineAssociation names an engine on this machine')),
+        Effect.mapError((cause) => new Cause.UnknownError(cause, `${descriptor} is loaded by no .uproject whose EngineAssociation names an engine on this machine`)),
     );
     type Loading = (typeof loading)[number];
     const edited = ({ scripts, platform, project: at }: Loading, analysis: readonly string[], named: readonly (typeof operation)[]) => tool(path.join(scripts, 'RunUBT.sh'), ['-TargetType=Editor', platform, 'Development', `-Project=${at}`, '-WaitMutex', ...analysis], named);
     const packaged = ({ scripts, version }: Loading) => tool(path.join(scripts, 'RunUAT.sh'), ['BuildPlugin', `-Plugin=${absolute(descriptor)}`, `-Package=${placed('package', version, name)}`, '-StrictIncludes', ...dependencies.map((at) => `-Dependencies=${absolute(at)}`)], ['build']);
     const linked = ({ platform, root }: Loading) =>
         Effect.forEach(
-            Record.toEntries(packages),
-            Effect.fnUntraced(function* ([folder, target]) {
+            UndefinedOr.match(packages, { onUndefined: () => [], onDefined: ({ folders, variable, argument }) => Record.collect(folders, (folder, target) => ({ folder, target, variable, argument })) }),
+            Effect.fnUntraced(function* ({ folder, target, variable, argument }) {
                 const prefix = path.join(absolute(path.dirname(descriptor)), folder, platform);
                 yield* fs.remove(prefix, { recursive: true, force: true });
-                const results = yield* Effect.tryPromise({ try: () => runExecutor<{ readonly success: boolean }>(target, { args: ['--prefix', prefix], env: { UNREAL_ENGINE_ROOT: root } }, context), catch: DistributionError.refused(target.project, `does not run ${target.target}`) });
-                yield* Effect.filterOrFail(Stream.runCollect(Stream.fromAsyncIterable(results, DistributionError.refused(target.project, `fails ${target.target}`))), Array.every(Struct.get('success')), DistributionError.refused(target.project, `${target.target} ended without success`));
+                const results = yield* Effect.tryPromise({
+                    try: () => runExecutor<{ readonly success: boolean }>(target, { args: [argument, prefix], env: { [variable]: root } }, context),
+                    catch: (cause) => new Cause.UnknownError(cause, `${target.project} does not run ${target.target}`),
+                });
+                yield* Effect.filterOrFail(
+                    Stream.runCollect(Stream.fromAsyncIterable(results, (cause) => new Cause.UnknownError(cause, `${target.project} fails ${target.target}`))),
+                    Array.every(Struct.get('success')),
+                    (cause) => new Cause.UnknownError(cause, `${target.project}: ${target.target} ended without success`),
+                );
                 yield* fs.writeFileString(path.join(prefix, '.gitignore'), '*\n');
             }),
             { discard: true },
@@ -72,16 +85,16 @@ const execute = Effect.fnUntraced(function* ({ outputPath, descriptor, hosts, de
         const exited = yield* Effect.result(tool(path.join(each.binaries, 'UnrealEditor-Cmd'), [each.project, `-ExecCmds=Automation RunTests ^${name}.;Quit`, '-nullrhi', '-unattended', '-nosplash', `-ReportExportPath=${report}`], ['test']));
         const { tests } = yield* Effect.mapError(
             Effect.flatMap(fs.readFileString(path.join(report, 'index.json')), (text) => Schema.decodeEffect(Report)(text.replace(MARK, ''))),
-            (unread) => Result.match(exited, { onFailure: Function.identity, onSuccess: () => DistributionError.refused(report, `holds no automation test named ${name}`)(unread) }),
+            (unread) => Result.match(exited, { onFailure: Function.identity, onSuccess: () => new Cause.UnknownError(unread, `${report} holds no automation test named ${name}`) }),
         );
         yield* Array.match(
             tests.filter(({ state }) => state !== 'Success'),
-            { onEmpty: () => Effect.fromResult(exited), onNonEmpty: (failed) => Effect.fail(DistributionError.refused(name, `automation tests ended without success: ${failed.map(({ fullTestPath, state }) => [fullTestPath, state].join(' ')).join(', ')}`)()) },
+            { onEmpty: () => Effect.fromResult(exited), onNonEmpty: (failed) => Effect.fail(new Cause.UnknownError(failed, `${name} automation tests ended without success: ${failed.map(({ fullTestPath, state }) => [fullTestPath, state].join(' ')).join(', ')}`)) },
         );
     });
     const unnoticed = (file: string) => Effect.map(fs.readFileString(absolute(file)), (code) => !STORE.notice.test(code));
     const stored = Effect.fnUntraced(function* (text: string, tracked: readonly string[], sources: readonly string[]) {
-        const { Modules } = yield* Effect.mapError(Schema.decodeEffect(Listed)(text), DistributionError.refused(descriptor, 'lists no Modules'));
+        const { Modules } = yield* Effect.mapError(Schema.decodeEffect(Listed)(text), (cause) => new Cause.UnknownError(cause, `${descriptor} lists no Modules`));
         const opened = yield* Effect.filter(
             tracked.filter((file) => STORE.sources.test(file)),
             unnoticed,
@@ -92,12 +105,12 @@ const execute = Effect.fnUntraced(function* ({ outputPath, descriptor, hosts, de
             ...opened.map((file) => `${file} opens with no copyright notice`),
             ...Modules.filter(({ PlatformAllowList, PlatformDenyList }) => PlatformAllowList === undefined && PlatformDenyList === undefined).map(({ Name }) => `module ${Name} lists no platforms`),
         ];
-        yield* Array.match(findings, { onEmpty: () => Effect.void, onNonEmpty: (failed) => Effect.fail(DistributionError.refused(descriptor, `fails the store checks: ${failed.join('; ')}`)()) });
+        yield* Array.match(findings, { onEmpty: () => Effect.void, onNonEmpty: (failed) => Effect.fail(new Cause.UnknownError(failed, `${descriptor} fails the store checks: ${failed.join('; ')}`)) });
     });
     const archived = Effect.fnUntraced(function* ({ version, platform }: Loading) {
         const [stage, text, tracked] = yield* Effect.all([fs.makeTempDirectoryScoped(), fs.readFileString(absolute(descriptor)), Effect.promise(() => globWithWorkspaceContext(workspaceRoot, [path.join(path.dirname(descriptor), '**')]))]);
         const owned = tracked.map((file) => path.join(stage, name, path.relative(path.dirname(descriptor), file)));
-        yield* Effect.forEach(Record.keys(packages), (folder) => fs.copy(placed('package', version, name, folder), path.join(stage, name, folder)), { discard: true });
+        yield* Effect.forEach(Record.keys(packages?.folders ?? {}), (folder) => fs.copy(placed('package', version, name, folder), path.join(stage, name, folder)), { discard: true });
         yield* Effect.forEach(Array.zip(tracked, owned), ([file, to]) => Effect.andThen(fs.makeDirectory(path.dirname(to), { recursive: true }), fs.copyFile(absolute(file), to)), { discard: true });
         yield* fs.writeFileString(path.join(stage, name, path.basename(descriptor)), applyEdits(text, modify(text, ['EngineVersion'], `${version}.0`, {})));
         const sources = yield* fs.readDirectory(stage, { recursive: true });

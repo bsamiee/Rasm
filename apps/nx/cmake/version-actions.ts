@@ -1,12 +1,12 @@
 import { join } from 'node:path';
 import type { Tree } from '@nx/devkit';
-import { Effect } from 'effect';
+import { Cause, Effect } from 'effect';
 import { VersionActions } from 'nx/release';
-import { CMakeError, MANIFEST, restated, run, versioned } from '#/workspace';
+import { MANIFEST, restated, run, versioned } from '#/workspace';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const read = (tree: Tree, file: string) => Effect.mapError(Effect.fromNullishOr(tree.read(file, 'utf-8')), CMakeError.of({ _tag: 'Missing', what: 'file' }, file));
+const read = (tree: Tree, file: string) => Effect.mapError(Effect.fromNullishOr(tree.read(file, 'utf-8')), (cause) => new Cause.UnknownError(cause, `${file} is absent from the tree nx release versions`));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

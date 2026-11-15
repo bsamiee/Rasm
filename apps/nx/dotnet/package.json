@@ -11,8 +11,8 @@
     "type": "module",
     "imports": {
         "#/*": "./*.ts",
-        "#analyzer": "./analyzer/MsbuildAnalyzer.csproj",
-        "#analyzer/project": "./analyzer/MsbuildAnalyzer.csproj"
+        "#analyzer": "./analyzer/dist/MsbuildAnalyzer.dll",
+        "#package": "./package.json"
     },
     "exports": {
         ".": "./plugin.ts",
@@ -46,7 +46,8 @@
         },
         "imports": {
             "#/*": "./dist/*.js",
-            "#analyzer": "./analyzer/dist/MsbuildAnalyzer.dll"
+            "#analyzer": "./analyzer/dist/MsbuildAnalyzer.dll",
+            "#package": "./package.json"
         }
     },
     "executors": "./executors.json",

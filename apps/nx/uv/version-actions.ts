@@ -2,9 +2,9 @@ import { basename, dirname, join } from 'node:path';
 import { parse, patch } from '@decimalturn/toml-patch';
 import { createProjectGraphAsync, joinPathFragments, type ProjectGraph, type Tree } from '@nx/devkit';
 import { clean, explain, RANGE_PATTERN, satisfies } from '@renovatebot/pep440';
-import { Array, Effect, FileSystem, Option, Predicate, Record, Schema, SemVer, String } from 'effect';
+import { Array, Cause, Effect, FileSystem, Option, Predicate, Record, Schema, SemVer, Stream, String } from 'effect';
 import { type AfterAllProjectsVersioned, VersionActions } from 'nx/release';
-import { printed, run, UvError } from '#/targets';
+import { run, spawned } from '#/targets';
 import { LOCK, MANIFEST, normalized } from '#/workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -13,7 +13,7 @@ const PRERELEASES = { a: 'alpha', b: 'beta', rc: 'rc' } as const;
 const REQUIREMENT = /^\s*(?<name>[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?)\s*(?:\[[^\]]*\])?(?<specifier>[^;]*)/iu;
 const RANGE = new RegExp(RANGE_PATTERN, 'giu');
 const RAISED = new Set(['==', '===', '~=', '>=']);
-const INSTALLED = /^ \+ (?<name>\S+)==(?<version>\S+)$/gmu;
+const PINNED = /^(?<name>\S+)==(?<version>\S+)$/gmu;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -44,13 +44,13 @@ const Semantic = Schema.Struct({
 const semver = (version: string) =>
     Schema.decodeUnknownEffect(Semantic)(explain(version)).pipe(
         Effect.flatMap(({ release: [major, minor = 0, micro = 0], pre }) => Effect.fromResult(SemVer.fromInput({ major, minor, patch: micro, prerelease: pre === null ? [] : [PRERELEASES[pre[0]], pre[1]] }))),
-        Effect.mapBoth({ onFailure: UvError.of({ _tag: 'Refused', rule: 'has an epoch, post, dev, or local part, or more than three release numbers, which SemVer cannot state' }, version), onSuccess: SemVer.format }),
+        Effect.mapBoth({ onFailure: (cause) => new Cause.UnknownError(cause, `${version}: has an epoch, post, dev, or local part, or more than three release numbers, which SemVer cannot state`), onSuccess: SemVer.format }),
     );
 
 const pep440 = (version: string) =>
     Effect.fromOption(
         Option.filter(Option.fromNullishOr(clean(version)), (cleaned) => explain(cleaned)?.post === null),
-        UvError.of({ _tag: 'Refused', rule: 'has no PEP 440 form; use a prerelease id of alpha, beta, or rc' }, version),
+        () => new Cause.UnknownError(version, `${version}: has no PEP 440 form; use a prerelease id of alpha, beta, or rc`),
     );
 
 const required = (requirement: string) => Option.flatMap(Option.fromNullishOr(REQUIREMENT.exec(requirement)?.groups), ({ name, specifier = '' }) => Option.map(Option.fromNullishOr(name), (stated) => ({ name: normalized(stated), specifier: specifier.trim() })));
@@ -68,26 +68,25 @@ const raised = (floors: ReadonlyMap<string, string>, row: string) =>
                     const moved = held.length < next.length ? next.slice(0, held.length).join('.') : version;
                     return stated !== undefined && operator !== undefined && RAISED.has(operator) && (marked < 0 || clause.index < marked) ? `${text.slice(0, clause.index)}${clause[0].replace(stated, moved)}${text.slice(clause.index + clause[0].length)}` : text;
                 }, row);
-                return Option.exists(required(written), ({ specifier }) => satisfies(version, specifier)) ? Effect.succeed(written) : Effect.fail(UvError.of({ _tag: 'Refused', rule: `excludes the released ${version} once each lower bound moves to it` }, row)());
+                return Option.exists(required(written), ({ specifier }) => satisfies(version, specifier)) ? Effect.succeed(written) : Effect.fail(new Cause.UnknownError(row, `${row}: excludes the released ${version} once each lower bound moves to it`));
             },
         },
     );
 
 const project = Effect.fnUntraced(function* (tree: Tree, at: string) {
-    const text = yield* Effect.mapError(Effect.fromNullishOr(tree.read(at, 'utf-8')), UvError.of({ _tag: 'Missing', what: 'file' }, at));
-    const parsed = yield* Effect.try({ try: (): unknown => parse(text), catch: UvError.of({ _tag: 'Undecoded', form: 'TOML' }, at) }).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Table)));
+    const text = yield* Effect.mapError(Effect.fromNullishOr(tree.read(at, 'utf-8')), () => new Cause.NoSuchElementError(`${at} does not exist`));
+    const parsed = yield* Effect.try({ try: (): unknown => parse(text), catch: (cause) => new Cause.UnknownError(cause, `${at} does not read as TOML`) }).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Table)));
     const [decoded, raw] = yield* Effect.all([Schema.decodeUnknownEffect(Project)(parsed), Schema.decodeUnknownEffect(Raw)(parsed)]);
     return { text, parsed, project: decoded.project, groups: decoded['dependency-groups'], table: raw.project };
 });
 
 const released = Effect.fnUntraced(function* (tree: Tree, manifest: string, options: unknown) {
-    const fs = yield* FileSystem.FileSystem;
-    const [{ lock }, { project: stated }, target] = yield* Effect.all([Schema.decodeUnknownEffect(Options)(options), project(tree, manifest), fs.makeTempDirectoryScoped()]);
-    const install = ['pip', 'install', '--color', 'never', '--dry-run', '--no-deps', '--target', target, stated.name];
-    const { stdout, said: stderr } = yield* printed('uv', install, { cwd: join(tree.root, dirname(lock)) });
-    const found = Array.findFirst([...`${stdout}${stderr}`.matchAll(INSTALLED)], ({ groups }) => Option.flatMap(Option.fromNullishOr(groups), ({ name, version }) => (name !== undefined && normalized(name) === normalized(stated.name) ? Option.fromUndefinedOr(version) : Option.none())));
-    const latest = yield* Effect.mapError(Effect.fromOption(found), UvError.of({ _tag: 'Missing', what: `row in the output of uv ${install.join(' ')}` }, stated.name));
-    return { currentVersion: yield* semver(latest), logText: `uv ${install.join(' ')}` };
+    const [{ lock }, { project: stated }] = yield* Effect.all([Schema.decodeUnknownEffect(Options)(options), project(tree, manifest)]);
+    const compile = ['uv', 'pip', 'compile', '-', '--no-deps', '--no-header', '--no-annotate', '--color', 'never', '--quiet'] as const;
+    const stdout = yield* spawned(compile, { cwd: join(tree.root, dirname(lock)), stdin: Stream.encodeText(Stream.make(stated.name)) });
+    const found = Array.findFirst([...stdout.matchAll(PINNED)], ({ groups }) => Option.flatMap(Option.fromNullishOr(groups), ({ name, version }) => (name !== undefined && normalized(name) === normalized(stated.name) ? Option.fromUndefinedOr(version) : Option.none())));
+    const latest = yield* Effect.fromOption(found, () => new Cause.NoSuchElementError(`${compile.join(' ')} prints no row for ${stated.name}`));
+    return { currentVersion: yield* semver(latest), logText: compile.join(' ') };
 }, run);
 
 const depended = Effect.fnUntraced(function* (tree: Tree, projectGraph: ProjectGraph, manifest: string, dependencyProjectName: string) {
@@ -178,7 +177,7 @@ const afterAllProjectsVersioned: AfterAllProjectsVersioned = (cwd, { dryRun, roo
             const [fs, { skipLockFileUpdate }] = yield* Effect.all([FileSystem.FileSystem, Schema.decodeEffect(Unlocked)(rootVersionActionsOptions ?? {})]);
             const nodes = dryRun === true || skipLockFileUpdate === true ? [] : Object.values((yield* Effect.promise(() => createProjectGraphAsync())).nodes);
             const locks = Array.dedupe(Array.getSomes(nodes.map((node) => Schema.decodeUnknownOption(Options)(node.data.release?.version?.versionActionsOptions))).map(({ lock }) => lock)).filter((lock) => basename(lock) === LOCK);
-            const refresh = (lock: string) => printed('uv', ['lock', '--no-locked'], { cwd: join(cwd, dirname(lock)) });
+            const refresh = (lock: string) => spawned(['uv', 'lock', '--no-locked'], { cwd: join(cwd, dirname(lock)) });
             const changedFiles = yield* Effect.filter(locks, (lock) => Effect.zipWith(fs.readFileString(join(cwd, lock)), Effect.andThen(refresh(lock), fs.readFileString(join(cwd, lock))), (before, after) => before !== after));
             return { changedFiles, deletedFiles: [] };
         }),

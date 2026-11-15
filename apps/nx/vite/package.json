@@ -9,6 +9,9 @@
     },
     "license": "MIT",
     "type": "module",
+    "imports": {
+        "#package": "./package.json"
+    },
     "exports": {
         ".": "./plugin.ts",
         "./package.json": "./package.json"

@@ -1,9 +1,8 @@
-import { constants } from 'node:http2';
 import { platform } from 'node:process';
 import { isDeepStrictEqual } from 'node:util';
 import { layer } from '@effect/platform-node/NodeServices';
 import { assert, it } from '@effect/vitest';
-import { type Graph, recorded, remote } from '@rasm/testing/nx';
+import { type Graph, recorded } from '@rasm/testing/nx';
 import { Array, Cause, Duration, Effect, FileSystem, Option, Order, Path, Predicate, Record } from 'effect';
 import { minimatch } from 'minimatch';
 import { getOutputsForTargetAndConfiguration, validateOutputs } from 'nx/src/tasks-runner/utils';
@@ -25,18 +24,8 @@ const SOURCES = {
     versioned:
         'nrwl/nx packages/nx/src/native/tasks/hash_planner.rs external_deps: an empty externalDependencies list hashes no package, so a target stating one names the file its ecosystem states versions in (README.md OWNERS rows Package version, Swift package version, Rust package version, C++ toolchain and packages)',
     replayed: 'nrwl/nx e2e/nx/src/cache-no-daemon.test.ts: should cache command execution',
-    absent: 'nrwl/nx e2e/nx/src/cache-no-daemon.test.ts http remote cache: should error if server is not running names the server; the `@rasm/nx-distribution` row of nx.json turns the remote cache off for a run when the cache server does not answer',
-    refused:
-        'nrwl/nx packages/nx/src/native/cache/http_remote_cache.rs retrieve: the client accepts 200 and 404 alone and sets no timeout, so Nx alone fails the run on any other answer and waits on a silent server; Nx self-hosted cache OpenAPI: a read answers 200, 403, or 404; the `@rasm/nx-distribution` row of nx.json turns the remote cache off for the run after one read',
-    annotated: 'GitHub Docs, Workflow commands for GitHub Actions, Setting a warning message: `::warning file={name},line={line},title={title}::{message}`',
 } as const;
-const OUTAGES = [
-    { outage: 'answers 500 to a read', status: Option.some(constants.HTTP_STATUS_INTERNAL_SERVER_ERROR) },
-    { outage: 'answers 403 to a read', status: Option.some(constants.HTTP_STATUS_FORBIDDEN) },
-    { outage: 'accepts the connection and never answers', status: Option.none<number>() },
-] as const;
 const BUILT = Duration.toMillis(Duration.minutes(10));
-const TOKEN = 'test-token';
 const TOKENED = /\{(?:options|workspaceRoot|projectRoot|projectName)/u;
 const ARTIFACT = /^\.artifacts\/[^/]+\/./u;
 const KEPT = /(?:^|\/)(?:dist|\.build|\.cloudflare\/(?:output|types))(?:\/|$)/u;
@@ -50,7 +39,16 @@ const hashing = ({ hashes }: Graph, task: string) => Record.keys(hashes[task]?.i
 
 const stored = (workspace: Graph) => declared(workspace).filter(({ target }) => target.cache === true);
 
-const owned = (workspace: Graph, fact: (ecosystem: (typeof ECOSYSTEMS)[string]) => Option.Option<RegExp>) => stored(workspace).flatMap((declaration) => Option.toArray(Option.map(Option.flatMap(Option.flatMap(declaration.plugin, (owner) => Record.get(ECOSYSTEMS, owner)), fact), (pattern) => ({ ...declaration, pattern }))));
+const owned = (workspace: Graph, fact: (ecosystem: (typeof ECOSYSTEMS)[string]) => Option.Option<RegExp>) =>
+    Array.getSomes(
+        stored(workspace).map((declaration) =>
+            declaration.plugin.pipe(
+                Option.flatMap((owner) => Record.get(ECOSYSTEMS, owner)),
+                Option.flatMap(fact),
+                Option.map((pattern) => ({ ...declaration, pattern })),
+            ),
+        ),
+    );
 
 const cached = (workspace: Graph) => stored(workspace).flatMap(({ project, name, task }) => Array.fromNullishOr(workspace.nodes[project]).map((node) => ({ task, outputs: getOutputsForTargetAndConfiguration({ project, target: name }, {}, node) })));
 
@@ -74,7 +72,10 @@ const nested = (workspace: Graph) => {
 };
 
 const sourced = (workspace: Graph) => {
-    const allowed = Record.fromIterableWith(Array.intersection(Array.dedupe([...plugins.map(({ plugin }) => plugin), ...declared(workspace).flatMap(({ target }) => Array.fromNullishOr(target.executor?.split(':')[0]))]), Record.keys(workspace.nodes)), (plugin) => [`${plugin}:`, dependents(workspace, new Set([plugin]))]);
+    const allowed = Record.fromIterableWith(Array.intersection(Array.dedupe([...plugins.map(({ plugin }) => plugin), ...declared(workspace).flatMap(({ target }) => Array.fromNullishOr(target.executor?.split(':')[0]))]), Record.keys(workspace.nodes)), (plugin) => [
+        `${plugin}:`,
+        dependents(workspace, new Set([plugin])),
+    ]);
     return stored(workspace)
         .filter(({ project, task }) => hashing(workspace, task).some((input) => Record.some(allowed, (held, prefix) => input.startsWith(prefix) && !held.has(project))))
         .map(({ task }) => task);
@@ -98,7 +99,12 @@ const every = (workspace: Graph) => stored(workspace).filter(({ project, name })
 
 const neutral = (workspace: Graph) =>
     Array.difference(
-        stored(workspace).filter(({ plugin }) => Option.exists(Option.flatMap(plugin, (owner) => Record.get(ECOSYSTEMS, owner)), ({ platform: differs }) => Option.isNone(differs))),
+        stored(workspace).filter(({ plugin }) =>
+            Option.exists(
+                Option.flatMap(plugin, (owner) => Record.get(ECOSYSTEMS, owner)),
+                ({ platform: differs }) => Option.isNone(differs),
+            ),
+        ),
         every(workspace),
     );
 
@@ -121,13 +127,6 @@ const ran = Effect.fnUntraced(function* (data: string, folder: string, task: str
     const { code, stdout, stderr } = yield* called(data, ['nx', 'run', task, '--output-style=static'], { NX_CACHE_DIRECTORY: folder, ...set });
     const tasks = (yield* fs.exists(path.join(folder, 'run.json'))) ? yield* recorded(folder) : [];
     return { code, output: `${stdout}${stderr}`, hashes: tasks.map(({ taskId, hash }) => [taskId, hash]), statuses: tasks.filter(({ taskId }) => taskId === task).map(({ cacheStatus }) => cacheStatus) };
-});
-
-const outage = Effect.fnUntraced(function* (address: string, set: Record.ReadonlyRecord<string, string> = {}) {
-    const [fs, workspace] = yield* Effect.all([FileSystem.FileSystem, read('fresh')]);
-    const [folder, task] = yield* Effect.all([fs.makeTempDirectoryScoped({ prefix: 'nx-cache-' }), sampled(workspace)]);
-    const { code, output, statuses } = yield* ran(inject('readings').data, folder, task, { NX_SELF_HOSTED_REMOTE_CACHE_SERVER: address, NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN: TOKEN, ...set });
-    return { code, output, statuses, warnings: output.split('\n').filter((line) => line.includes(address)) };
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -266,36 +265,5 @@ it.layer(layer, { excludeTestServices: true })((suite) => {
             assert.deepStrictEqual(second.statuses, ['local-cache-hit'], SOURCES.replayed);
         }, Effect.scoped),
         BUILT,
-    );
-
-    suite.effect.each([
-        { run: 'a run outside GitHub Actions', set: {}, annotated: false },
-        { run: 'a run under GITHUB_ACTIONS=true', set: { GITHUB_ACTIONS: 'true' }, annotated: true },
-    ])(
-        'runs a cached task to exit 0 and names the server in one warning, a workflow command only under GitHub Actions, when no remote cache server listens in $run',
-        Effect.fnUntraced(function* ({ set, annotated }) {
-            const closed = yield* Effect.scoped(Effect.map(remote(TOKEN, Option.none), ({ address }) => address));
-            const { code, output, statuses, warnings } = yield* outage(closed, set);
-            assert.strictEqual(code, 0, `${SOURCES.absent}\n${output}`);
-            assert.deepStrictEqual(statuses, ['cache-miss'], SOURCES.absent);
-            assert.deepStrictEqual(
-                warnings.map((line) => line.startsWith('::warning ')),
-                [annotated],
-                `${SOURCES.absent}; ${SOURCES.annotated}\n${output}`,
-            );
-        }, Effect.scoped),
-        BUILT,
-    );
-
-    suite.effect.each(OUTAGES)(
-        'runs a cached task to exit 0 with one warning and sends no request after the first read to a remote cache server that $outage',
-        Effect.fnUntraced(function* ({ status }) {
-            const { address, requests } = yield* remote(TOKEN, () => status);
-            const { code, output, statuses, warnings } = yield* outage(address);
-            assert.strictEqual(code, 0, `${SOURCES.refused}\n${output}`);
-            assert.deepStrictEqual(statuses, ['cache-miss'], SOURCES.refused);
-            assert.lengthOf(warnings, 1, `${SOURCES.refused}\n${output}`);
-            assert.lengthOf(requests, 1, `${SOURCES.refused}: ${requests.join(', ')}`);
-        }, Effect.scoped),
     );
 });

@@ -1,10 +1,10 @@
 import { basename, dirname, join } from 'node:path';
 import { parse, patch } from '@decimalturn/toml-patch';
 import { createProjectGraphAsync, type ProjectGraph, type Tree } from '@nx/devkit';
-import { Array, Effect, FileSystem, flow, Option, Record, Schema } from 'effect';
+import { Array, Cause, Effect, FileSystem, flow, Option, Record, Schema } from 'effect';
 import { Toml } from 'effect/encoding';
 import { type AfterAllProjectsVersioned, VersionActions } from 'nx/release';
-import { CargoError, LOCK, MANIFEST, printed, run } from '#/workspace';
+import { LOCK, MANIFEST, run, spawned } from '#/workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -28,8 +28,8 @@ const Found = Schema.Record(Schema.String, Schema.String);
 const table = (value: unknown): Readonly<Record<string, unknown>> => Option.getOrElse(Schema.decodeUnknownOption(Table)(value), () => ({}));
 
 const read = Effect.fnUntraced(function* (tree: Tree, file: string) {
-    const text = yield* Effect.mapError(Effect.fromNullishOr(tree.read(file, 'utf-8')), CargoError.of({ _tag: 'Missing', what: 'file' }, file));
-    const raw = table(yield* Effect.try({ try: (): unknown => parse(text), catch: CargoError.of({ _tag: 'Undecoded', form: 'TOML' }, file) }));
+    const text = yield* Effect.mapError(Effect.fromNullishOr(tree.read(file, 'utf-8')), () => new Cause.NoSuchElementError(`${file} does not exist`));
+    const raw = table(yield* Effect.try({ try: (): unknown => parse(text), catch: (cause) => new Cause.UnknownError(cause, `${file} does not read as TOML`) }));
     return { file, text, raw, manifest: yield* Schema.decodeEffect(Manifest)(raw) };
 });
 
@@ -74,7 +74,7 @@ class CargoVersionActions extends VersionActions {
                 manifests,
                 ({ manifestPath }) =>
                     Effect.flatMap(versioned(tree, manifestPath, shared), ({ file, inherited }) =>
-                        inherited && projectsRelationship === 'independent' ? Effect.fail(CargoError.of({ _tag: 'Refused', rule: `inherits the version in ${file}, which every inheriting member shares, so ${name} needs a fixed release group in place of the independent group ${group}` }, manifestPath)()) : Effect.void,
+                        inherited && projectsRelationship === 'independent' ? Effect.fail(new Cause.UnknownError(manifestPath, `${manifestPath}: inherits the version in ${file}, which every inheriting member shares, so ${name} needs a fixed release group in place of the independent group ${group}`)) : Effect.void,
                     ),
                 { discard: true },
             ),
@@ -99,11 +99,11 @@ class CargoVersionActions extends VersionActions {
             Effect.gen(function* () {
                 const { manifest, registry } = yield* stated;
                 const { manifest: held } = yield* read(tree, manifest);
-                const crate = yield* Effect.mapError(Effect.fromNullishOr(held.package?.name), CargoError.of({ _tag: 'Missing', what: 'package' }, manifest));
+                const crate = yield* Effect.mapError(Effect.fromNullishOr(held.package?.name), () => new Cause.NoSuchElementError(`${manifest} states no package`));
                 const search = ['search', crate, '--limit', '1', '--color', 'never', ...Array.fromNullishOr(registry).flatMap((named) => ['--registry', named])];
-                const stdout = yield* printed('cargo', search, { cwd: tree.root, stdin: 'ignore' });
+                const stdout = yield* spawned(['cargo', ...search], { cwd: tree.root });
                 const found = yield* Effect.flatMap(Effect.fromResult(Toml.parse(stdout.slice(0, stdout.indexOf('\n')))), flow(Schema.decodeUnknownEffect(Found), Effect.map(Record.get(crate))));
-                const currentVersion = yield* Effect.mapError(Effect.fromOption(found), CargoError.of({ _tag: 'Missing', what: `row in the output of cargo ${search.join(' ')}` }, crate));
+                const currentVersion = yield* Effect.fromOption(found, () => new Cause.NoSuchElementError(`cargo ${search.join(' ')} prints no row for ${crate}`));
                 return { currentVersion, logText: `cargo ${search.join(' ')}` };
             }),
         );
@@ -179,7 +179,7 @@ const afterAllProjectsVersioned = Effect.fnUntraced(function* (cwd: string, { dr
     const [fs, { skipLockFileUpdate }] = yield* Effect.all([FileSystem.FileSystem, Schema.decodeEffect(Unlocked)(rootVersionActionsOptions ?? {})]);
     const stated = dryRun === true || skipLockFileUpdate === true ? [] : Object.values((yield* Effect.promise(() => createProjectGraphAsync())).nodes).map((node) => Schema.decodeUnknownOption(Options)(node.data.release?.version?.versionActionsOptions));
     const locks = Array.dedupe(Array.getSomes(stated).map(({ lock }) => lock)).filter((lock) => basename(lock) === LOCK);
-    const refresh = (lock: string) => printed('cargo', ['update', '--workspace'], { cwd: join(cwd, dirname(lock)), stdin: 'ignore' });
+    const refresh = (lock: string) => spawned(['cargo', 'update', '--workspace'], { cwd: join(cwd, dirname(lock)) });
     const changedFiles = yield* Effect.filter(locks, (lock) => Effect.zipWith(fs.readFileString(join(cwd, lock)), Effect.andThen(refresh(lock), fs.readFileString(join(cwd, lock))), (before, after) => before !== after));
     return { changedFiles, deletedFiles: [] };
 }, run) satisfies AfterAllProjectsVersioned;

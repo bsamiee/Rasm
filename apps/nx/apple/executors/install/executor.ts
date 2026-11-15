@@ -2,7 +2,7 @@ import { pid } from 'node:process';
 import type { ExecutorContext } from '@nx/devkit';
 import { Array, Config, Effect, FileSystem, Path, Schema } from 'effect';
 import { commands } from '#/executors/run/executor';
-import { printed, run, SWIFTPM } from '#/targets';
+import { run, SWIFTPM, spawned } from '#/targets';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -26,7 +26,7 @@ const execute = Effect.fnUntraced(function* ({ package: root, product, env: stat
     const held = yield* fs.exists(at);
     const built = yield* commands({ runs: [build, ...(held ? [] : [Array.make('swift', 'package', '--package-path', root, ...SWIFTPM, ...words, 'experimental-install', '--product', product)])], env: stated }, context.root);
     return yield* held && built.success
-        ? Effect.flatMap(printed(Array.append(build, '--show-bin-path'), { cwd: context.root, env: stated }), (folder) =>
+        ? Effect.flatMap(spawned(Array.append(build, '--show-bin-path'), { cwd: context.root, env: stated }), (folder) =>
               fs.copyFile(path.join(folder.trim(), product), `${at}.${pid}`).pipe(
                   Effect.andThen(fs.rename(`${at}.${pid}`, at)),
                   Effect.onError(() => Effect.ignore(fs.remove(`${at}.${pid}`, { force: true }))),

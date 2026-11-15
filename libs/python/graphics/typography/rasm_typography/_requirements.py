@@ -330,7 +330,7 @@ class LineMetrics(_Requirement, frozen=True, kw_only=True, tag="metrics"):
         Returns:
             The line pitch outside its band and each win metric short of the outline extent.
         """
-        upm, line, os2 = binary.upem, _pitch(binary), binary.tables["OS/2"]
+        upm, line, os2 = binary.upem, _pitch(binary), binary.header.os2
         low, high = self.pitch or (_pitch(original),) * 2
         glyphs = tuple((glyph, box) for glyph in binary.order if (box := binary.extent(glyph)))
         extents = (
@@ -346,8 +346,8 @@ class LineMetrics(_Requirement, frozen=True, kw_only=True, tag="metrics"):
         top, bottom = max(extents, key=lambda extent: extent[1].ymax, default=None), min(extents, key=lambda extent: extent[1].ymin, default=None)
         return (
             *((("line pitch", line, low if line < low else high),) if not low <= line <= high else ()),
-            *(((f"win ascent at {top[0]}", top[1].ymax / upm, float(os2.usWinAscent) / upm),) if top and top[1].ymax > os2.usWinAscent else ()),  # ty: ignore[missing-attribute]
-            *(((f"win descent at {bottom[0]}", -bottom[1].ymin / upm, float(os2.usWinDescent) / upm),) if bottom and -bottom[1].ymin > os2.usWinDescent else ()),  # ty: ignore[missing-attribute]
+            *(((f"win ascent at {top[0]}", top[1].ymax / upm, os2.us_win_ascent / upm),) if top and top[1].ymax > os2.us_win_ascent else ()),
+            *(((f"win descent at {bottom[0]}", -bottom[1].ymin / upm, os2.us_win_descent / upm),) if bottom and -bottom[1].ymin > os2.us_win_descent else ()),
         )
 
 
@@ -428,7 +428,7 @@ def _nuqta(binary: Binary, /) -> float:
 
 
 def _split(binary: Binary, nuqta: float, glyph: str, /) -> tuple[tuple[tuple[Point, ...], ...], tuple[tuple[tuple[Point, ...], ...], ...]]:
-    """Body of a glyph and its dots and hamzas, the pieces apart from its largest of a quarter to 3.5 nuqtas off the baseline at its joining edges, a larger one a split part of the body, a smaller one a fragment of it, one crossing the baseline at a joining edge its joining stroke, and the whole drawing its body for a zero nuqta."""
+    """Body of a glyph and its dots and hamzas, the pieces apart from its largest of a quarter to 3.5 nuqtas off the baseline at its joining edges, a larger one a split body part, a smaller one a fragment, one crossing the baseline at a joining edge its stroke, all body at zero nuqta."""
     form, advance, held = GlyphName.parse(glyph).form, binary.tables["hmtx"][glyph][0], binary.pieces(glyph) if nuqta else ((0.0, binary.outline(glyph)),)
     loose = frozenset(index for index, (size, piece) in enumerate(held) if index and _DOTS[0] * nuqta <= size <= _DOTS[1] * nuqta and not measures.joining(form, advance, paths.bounds(piece)))
     return (tuple(contour for index, (_, piece) in enumerate(held) if index not in loose for contour in piece), tuple(piece for index, (_, piece) in enumerate(held) if index in loose))
@@ -448,8 +448,8 @@ def _letter(binary: Binary, form: str, language: str | None, /) -> str:
 
 def _pitch(binary: Binary, /) -> float:
     """Line pitch in em the `hhea` ascender, descender, and line gap state."""
-    hhea = binary.tables["hhea"]
-    return float(hhea.ascent - hhea.descent + hhea.lineGap) / binary.upem  # ty: ignore[missing-attribute]
+    hhea = binary.header.hhea
+    return (hhea.ascent - hhea.descent + hhea.line_gap) / binary.upem
 
 
 # --- [VERIFICATION]

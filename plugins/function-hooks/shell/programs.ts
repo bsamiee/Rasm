@@ -25,6 +25,7 @@ interface Program {
     readonly closesInput?: true | readonly string[];
     readonly pipefail?: true;
     readonly launcher?: true;
+    readonly toolchain?: true;
     readonly headless?: readonly string[];
     readonly switches?: readonly string[];
     readonly nx?: { readonly selects?: readonly string[]; readonly targets?: Readonly<Record<string, string>>; readonly ignores?: readonly string[] };

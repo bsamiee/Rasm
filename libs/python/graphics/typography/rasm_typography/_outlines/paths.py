@@ -159,9 +159,7 @@ def pieces(outline: tuple[tuple[Point, ...], ...], /) -> tuple[tuple[tuple[Point
     contours = tuple(path.contours)
     outers = sorted((contour for contour in contours if not contour.clockwise), key=lambda contour: contour.area)
     owners = tuple((hole, next((outer for outer in outers if outer.contains(hole.firstPoints[0])), None)) for hole in contours if hole.clockwise)
-    return tuple(
-        piece for outer in contours if not outer.clockwise for piece in (traced(partial(pathops.union, (outer, *(hole for hole, owner in owners if owner is outer)))),) if piece
-    )
+    return tuple(piece for outer in contours if not outer.clockwise for piece in (traced(partial(pathops.union, (outer, *(hole for hole, owner in owners if owner is outer)))),) if piece)
 
 
 def groups(outline: tuple[tuple[Point, ...], ...], /) -> tuple[tuple[tuple[Point, ...], ...], ...]:

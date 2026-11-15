@@ -38,23 +38,24 @@ const read = Effect.gen(function* () {
         loaded<typeof import('nx/src/tasks-runner/create-task-graph')>('nx/src/tasks-runner/create-task-graph'),
         loaded<typeof import('nx/src/tasks-runner/task-env')>('nx/src/tasks-runner/task-env'),
     ]);
-    const { projectGraph, sourceMaps, failures } = yield* Effect.tryPromise({
+    const { projectGraph, sourceMaps, refusals } = yield* Effect.tryPromise({
         try: () => internals.createProjectGraphAndSourceMapsAsync({ exitOnError: false }),
         catch: (cause) => (cause instanceof errors.ProjectGraphError ? cause : new Cause.UnknownError(cause, 'Nx refused the workspace before reading a plugin result')),
     }).pipe(
-        Effect.map(({ projectGraph: graph, sourceMaps: maps }): { readonly projectGraph: ProjectGraph; readonly sourceMaps: object; readonly failures: (typeof Reading.Type)['failures'] } => ({ projectGraph: graph, sourceMaps: maps, failures: [] })),
+        Effect.map(({ projectGraph: graph, sourceMaps: maps }): { readonly projectGraph: ProjectGraph; readonly sourceMaps: object; readonly refusals: ReturnType<InstanceType<typeof errors.ProjectGraphError>['getErrors']> } => ({ projectGraph: graph, sourceMaps: maps, refusals: [] })),
         Effect.catchIf(
             (cause): cause is InstanceType<typeof errors.ProjectGraphError> => cause instanceof errors.ProjectGraphError,
             (refused) =>
                 Effect.succeed({
                     projectGraph: refused.getPartialProjectGraph(),
                     sourceMaps: refused.getPartialSourcemaps(),
-                    failures: refused.getErrors().map((error) => ({ name: error.name, message: error.message, files: errors.isAggregateCreateNodesError(error) ? error.errors.map(([file, { message }]) => ({ file, message })) : [] })),
+                    refusals: refused.getErrors(),
                 }),
         ),
         Effect.orDie,
         Effect.ensuring(Effect.sync(plugins.cleanupPlugins)),
     );
+    const failures = refusals.map((error) => ({ name: error.name, message: error.message, files: errors.isAggregateCreateNodesError(error) ? error.errors.map(([file, { message }]) => ({ file, message })) : [] }));
     const nodes = Object.values(projectGraph.nodes);
     const planned = planner.createTaskGraph(
         projectGraph,
@@ -65,7 +66,15 @@ const read = Effect.gen(function* () {
         {},
     );
     const tasks = Object.values(planned.tasks);
-    const hashed = yield* Effect.result(Effect.tryPromise(() => hasher.createTaskHasher(projectGraph, settings.readNxJson()).hashTasks(tasks, planned, Record.fromIterableWith(tasks, (task) => [task.id, environment.getTaskSpecificEnv(task, projectGraph)]))));
+    const hashed = yield* Effect.result(
+        Effect.tryPromise(() =>
+            hasher.createTaskHasher(projectGraph, settings.readNxJson()).hashTasks(
+                tasks,
+                planned,
+                Record.fromIterableWith(tasks, (task) => [task.id, environment.getTaskSpecificEnv(task, projectGraph)]),
+            ),
+        ),
+    );
     const taken = Result.match(hashed, {
         onSuccess: (hashes) => ({ hashes: Record.fromIterableWith(Array.zip(tasks, hashes), ([task, hash]) => [task.id, { value: hash.value, inputs: hash.details.nodes }]), failures }),
         onFailure: ({ cause }) => ({ hashes: {}, failures: [...failures, { name: 'TaskHasher', message: Formatter.format(cause), files: [] }] }),

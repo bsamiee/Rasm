@@ -4,13 +4,13 @@ from typing import Literal
 lazy from collections import ChainMap, Counter, defaultdict, deque
 lazy from collections.abc import Iterator
 lazy from datetime import datetime, UTC
-lazy from functools import cache, partial
+lazy from functools import cache
 lazy from io import BytesIO
-lazy from itertools import chain, product
+lazy from itertools import chain, groupby
 lazy import unicodedata
 
+import msgspec
 lazy from expression import Option, Some
-lazy from expression.extra.result import catch
 lazy from fontTools.misc.timeTools import epoch_diff
 lazy from fontTools.otlLib.builder import LOOKUP_FLAG_USE_MARK_FILTERING_SET
 lazy from fontTools.pens.filterPen import DecomposingFilterPen
@@ -19,11 +19,12 @@ lazy from fontTools.ttLib.tables.otBase import BaseTable
 lazy from fontTools.ttLib.tables.otTables import Coverage, LigatureSubst, SingleSubst
 lazy from fontTools.unicodedata import script_extension
 
-lazy from rasm_records import Fault, Outcome, Reason
+lazy from rasm_records import Error, Fault, Ok, Outcome, Reason
 lazy from rasm_typography._faces.declaration import Face, Faces, OrnamentFace
 lazy from rasm_typography._faces.glyphs import Anchor, Glyph, Info, Joinings, Ornament, Point, role, Side, Source, traced, VerticalMetrics
 lazy from rasm_typography._faces.layout import Chain, Contextual, Ligatures, Lookups, Single
 lazy from rasm_typography._faces.names import Form, GlyphName
+lazy from rasm_typography._shaping.runs import Header
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -69,8 +70,13 @@ def subtables(lookup: BaseTable, /) -> Iterator[BaseTable]:
 # --- [SOURCES]
 
 
-def _source(original: bytes, face: Faces, joinings: Joinings, /) -> Source:
-    """Builds the source of a binary: ornament faces under their original names, text glyphs named by their first claim (primary script and digits, code order, presentation forms, layout) and anchored from GPOS mark attachment, each mark class on the side most of its marks take."""
+def _records(rule: BaseTable, /) -> tuple[tuple[int, int], ...]:
+    """Sequence index and lookup index of each nested substitution a contextual rule applies, in record order."""
+    return tuple((int(record.SequenceIndex), int(record.LookupListIndex)) for record in rule.SubstLookupRecord)
+
+
+def _source(original: bytes, face: Faces, joinings: Joinings, /) -> Outcome[Source]:
+    """Builds the source of a binary: ornament faces under their original names, text glyphs named by their first claim (primary script and digits, code order, presentation forms, layout, nested lookups) and anchored from GPOS marks, each mark class on the side most of its marks take."""
     font = TTFont(BytesIO(original), lazy=True, recalcBBoxes=False, recalcTimestamp=False)
     cmap, advances, order = font.getBestCmap() or {}, font["hmtx"].metrics, font.getGlyphOrder()
     glyphs = font.getGlyphSet()
@@ -83,51 +89,64 @@ def _source(original: bytes, face: Faces, joinings: Joinings, /) -> Source:
         held = definition.classDefs if definition is not None else {}
         return {klass: tuple(members) for klass, members in groupby(sorted(order, key=lambda glyph: held.get(glyph, 0)), key=lambda glyph: held.get(glyph, 0))}
 
-    def chains(sub: BaseTable, /) -> tuple[_Rule, ...]:
-        """Rules of a contextual or chaining substitution of any format as backtrack in reading order, input, and lookahead glyph classes with each nested lookup's sequence index, class formats mapped class to class through each class definition inverted once."""
+    def chains(sub: BaseTable, /) -> tuple[tuple[tuple[tuple[str, ...], ...], tuple[tuple[str, ...], ...], tuple[tuple[str, ...], ...], tuple[tuple[int, int], ...]], ...] | None:
+        """Rules of a contextual or chaining substitution of any format as backtrack in reading order, input, and lookahead classes with each nested lookup's sequence index, classes inverted once per definition, `None` for no contextual format."""
         match sub:
-            case ContextSubst(Format=1, Coverage=Coverage(glyphs=firsts), SubRuleSet=sets):
-                return tuple(((), ((first,), *((glyph,) for glyph in rule.Input)), (), _records(rule)) for first, held in zip(firsts, sets, strict=True) if held for rule in held.SubRule)
-            case ContextSubst(Format=2, Coverage=Coverage(glyphs=covered), ClassDef=definition, SubClassSet=sets):
-                inputs, cover = classes(definition), frozenset(covered)
+            case BaseTable(Format=1, Coverage=Coverage(glyphs=firsts), SubRuleSet=sets):
+                return tuple(((), ((str(first),), *((str(glyph),) for glyph in rule.Input)), (), _records(rule)) for first, held in zip(firsts, sets, strict=True) if held for rule in held.SubRule)
+            case BaseTable(Format=2, Coverage=Coverage(glyphs=covered), ClassDef=definition, SubClassSet=sets):
+                inputs, cover = classes(definition), frozenset(map(str, covered))
                 return tuple(
-                    ((), (tuple(glyph for glyph in inputs.get(first, ()) if glyph in cover), *(inputs.get(klass, ()) for klass in rule.Class)), (), _records(rule))
-                    for first, held in enumerate(sets or ())
+                    ((), (tuple(glyph for glyph in inputs.get(first, ()) if glyph in cover), *(inputs.get(int(klass), ()) for klass in rule.Class)), (), _records(rule))
+                    for first, held in enumerate(sets)
                     if held
                     for rule in held.SubClassRule
                 )
-            case ContextSubst(Format=3, Coverage=covers):
-                return (((), tuple(tuple(cover.glyphs) for cover in covers), (), _records(sub)),)
-            case ChainContextSubst(Format=1, Coverage=Coverage(glyphs=firsts), ChainSubRuleSet=sets):
+            case BaseTable(Format=3, Coverage=covers, SubstLookupRecord=_):
+                return (((), tuple(tuple(map(str, cover.glyphs)) for cover in covers), (), _records(sub)),)
+            case BaseTable(Format=1, Coverage=Coverage(glyphs=firsts), ChainSubRuleSet=sets):
                 return tuple(
-                    (tuple((glyph,) for glyph in reversed(rule.Backtrack)), ((first,), *((glyph,) for glyph in rule.Input)), tuple((glyph,) for glyph in rule.LookAhead), _records(rule))
+                    (
+                        tuple((str(glyph),) for glyph in reversed(rule.Backtrack)),
+                        ((str(first),), *((str(glyph),) for glyph in rule.Input)),
+                        tuple((str(glyph),) for glyph in rule.LookAhead),
+                        _records(rule),
+                    )
                     for first, held in zip(firsts, sets, strict=True)
                     if held
                     for rule in held.ChainSubRule
                 )
-            case ChainContextSubst(Format=2, Coverage=Coverage(glyphs=covered), BacktrackClassDef=back, InputClassDef=inputs, LookAheadClassDef=ahead, ChainSubClassSet=sets):
-                (before, within, after), cover = map(classes, (back, inputs, ahead)), frozenset(covered)
+            case BaseTable(Format=2, Coverage=Coverage(glyphs=covered), BacktrackClassDef=back, InputClassDef=inputs, LookAheadClassDef=ahead, ChainSubClassSet=sets):
+                (before, within, after), cover = map(classes, (back, inputs, ahead)), frozenset(map(str, covered))
                 return tuple(
                     (
-                        tuple(before.get(klass, ()) for klass in reversed(rule.Backtrack)),
-                        (tuple(glyph for glyph in within.get(first, ()) if glyph in cover), *(within.get(klass, ()) for klass in rule.Input)),
-                        tuple(after.get(klass, ()) for klass in rule.LookAhead),
+                        tuple(before.get(int(klass), ()) for klass in reversed(rule.Backtrack)),
+                        (tuple(glyph for glyph in within.get(first, ()) if glyph in cover), *(within.get(int(klass), ()) for klass in rule.Input)),
+                        tuple(after.get(int(klass), ()) for klass in rule.LookAhead),
                         _records(rule),
                     )
-                    for first, held in enumerate(sets or ())
+                    for first, held in enumerate(sets)
                     if held
                     for rule in held.ChainSubClassRule
                 )
-            case ChainContextSubst(Format=3, BacktrackCoverage=back, InputCoverage=inputs, LookAheadCoverage=ahead):
-                return ((tuple(tuple(cover.glyphs) for cover in reversed(back)), tuple(tuple(cover.glyphs) for cover in inputs), tuple(tuple(cover.glyphs) for cover in ahead), _records(sub)),)
+            case BaseTable(Format=3, BacktrackCoverage=back, InputCoverage=inputs, LookAheadCoverage=ahead):
+                return (
+                    (
+                        tuple(tuple(map(str, cover.glyphs)) for cover in reversed(back)),
+                        tuple(tuple(map(str, cover.glyphs)) for cover in inputs),
+                        tuple(tuple(map(str, cover.glyphs)) for cover in ahead),
+                        _records(sub),
+                    ),
+                )
             case _:
-                return ()
+                return None
 
     native = _lookups(font, "GSUB") if isinstance(face, Face) else ()
     table = font["GSUB"].table.LookupList.Lookup if native else []
     features = {index: features for index, features, _ in native}
     grouped = {index: tuple(subtables(lookup)) for index, _, lookup in native}
-    contexts = {key: tuple(*chains(sub) for sub in group) for key, group in grouped.items() if any(isinstance(sub, ContextSubst | ChainContextSubst) for sub in group)}
+    decoded = {key: tuple((sub, chains(sub)) for sub in group if not isinstance(sub, SingleSubst | LigatureSubst)) for key, group in grouped.items()}
+    contexts = {key: tuple(*rules for _, rules in found if rules is not None) for key, found in decoded.items() if found}
     inherited = {inner: features[key] for key, found in contexts.items() for *_, records in found for _, inner in records}
     every = grouped | {inner: tuple(subtables(table[inner])) for inner in inherited.keys() - grouped.keys()}
     singles = {key: dict(ChainMap(*(sub.mapping for sub in group if isinstance(sub, SingleSubst)))) for key, group in every.items() if any(isinstance(sub, SingleSubst) for sub in group)}
@@ -137,14 +156,15 @@ def _source(original: bytes, face: Faces, joinings: Joinings, /) -> Source:
         if any(isinstance(sub, LigatureSubst) for sub in group)
     }
     rules = tuple(*entries for entries in ligatures.values())
-    refused = tuple(
+    if refused := tuple(
         dict.fromkeys(
             f"lookup {key} {type(sub).__name__} format {sub.Format}"
-            for key, group in every.items()
-            for sub in group
-            if not (isinstance(sub, SingleSubst | LigatureSubst) or (key in contexts and isinstance(sub, ContextSubst | ChainContextSubst) and sub.Format in {1, 2, 3}))
+            for key, found in (*decoded.items(), *((inner, tuple((sub, None) for sub in every[inner] if not isinstance(sub, SingleSubst | LigatureSubst))) for inner in every.keys() - grouped.keys()))
+            for sub, rules in found
+            if rules is None
         )
-    )
+    ):
+        return Error(Fault.of(Reason.OUTSIDE, f"{face.postscript} GSUB", ", ".join(refused), member="single and ligature substitutions and contextual ones of formats 1 to 3 nesting them"))
     match face:
         case Face(genre=genre):
             kept = {code: glyph for code, glyph in cmap.items() if genre.coverage.exclusion(code).is_none()}
@@ -157,17 +177,7 @@ def _source(original: bytes, face: Faces, joinings: Joinings, /) -> Source:
             coded = tuple(sorted(((code, glyph, unicodedata.decomposition(chr(code)).split()) for code, glyph in kept.items()), key=lambda row: priority(row[0])))
             outgoing: defaultdict[str, list[tuple[str, int, str]]] = defaultdict(list)
             for source, row in (
-                *((source, (feature, index, target)) for index, mapping in singles.items() for feature in features[index] for source, target in mapping.items()),
-                *(
-                    (source, (feature, inner, nested[inner][source]))
-                    for key, chains in contexts.items()
-                    for feature in features[key]
-                    for _, inputs, _, records in chains
-                    for sequence, inner in records
-                    if inner in nested and sequence < len(inputs)
-                    for source in inputs[sequence]
-                    if source in nested[inner]
-                ),
+                (source, (feature, index, target)) for index, mapping in singles.items() for feature in features.get(index, inherited.get(index, frozendict())) for source, target in mapping.items()
             ):
                 outgoing[source].append(row)
             joined: defaultdict[str, list[tuple[tuple[str, ...], str]]] = defaultdict(list)
@@ -232,10 +242,7 @@ def _source(original: bytes, face: Faces, joinings: Joinings, /) -> Source:
         for owner, label, point in placed:
             anchors.setdefault(owner, {}).setdefault(label, (point.XCoordinate, point.YCoordinate))
     renamed = {source: tuple(named[part].text for part in parts) for parts, source in rules if source in named and all(part in named for part in parts)}
-    os2 = font["OS/2"]
-    hhea = font["hhea"]
-    head = font["head"]
-    post = font["post"]
+    header = Header.read(font)
     qualifiers = {
         index: (
             lookup.LookupFlag & 0xFF & ~LOOKUP_FLAG_USE_MARK_FILTERING_SET,
@@ -246,86 +253,93 @@ def _source(original: bytes, face: Faces, joinings: Joinings, /) -> Source:
             if lookup.LookupFlag & LOOKUP_FLAG_USE_MARK_FILTERING_SET
             else None,
         )
-        for index, _, lookup in native
+        for index in every
+        for lookup in (table[index],)
     }
-    lookups: tuple[Lookups, ...] = (
-        *(
-            Single(
-                features=features[index],
+    models: dict[int, Single | Ligatures] = {
+        **{
+            index: Single(
+                features=features.get(index, frozendict()),
                 order=index,
-                flags=qualifiers[index][0],
-                mark_attachment=qualifiers[index][1],
-                mark_filtering=qualifiers[index][2],
                 mapping=frozendict({named[a].text: named[b].text for a, b in mapping.items() if a in named and b in named}),
+                flags=flags,
+                mark_attachment=attachment,
+                mark_filtering=filtering,
             )
             for index, mapping in singles.items()
-        ),
-        *(
-            Ligatures(
-                features=features[index],
+            for flags, attachment, filtering in (qualifiers[index],)
+        },
+        **{
+            index: Ligatures(
+                features=features.get(index, frozendict()),
                 order=index,
-                flags=qualifiers[index][0],
-                mark_attachment=qualifiers[index][1],
-                mark_filtering=qualifiers[index][2],
                 rules=tuple((tuple(named[part].text for part in parts), named[target].text) for parts, target in entries if target in named and all(part in named for part in parts)),
+                flags=flags,
+                mark_attachment=attachment,
+                mark_filtering=filtering,
             )
             for index, entries in ligatures.items()
-        ),
+            for flags, attachment, filtering in (qualifiers[index],)
+        },
+    }
+    lookups: tuple[Lookups, ...] = (
+        *(model for index, model in models.items() if index in features),
         *(
-            Contextual(features=features[index], order=index, flags=qualifiers[index][0], mark_attachment=qualifiers[index][1], mark_filtering=qualifiers[index][2], rules=built)
-            for index, chains in contexts.items()
-            for built in (
-                tuple(
+            Contextual(
+                features=features[index],
+                order=index,
+                rules=tuple(
                     Chain(
                         backtrack=tuple(tuple(named[glyph].text for glyph in klass if glyph in named) for klass in back),
                         input=tuple(
-                            ((named[chosen[changed.index(position)]].text,), named[nested[dict(records)[position]][chosen[changed.index(position)]]].text)
-                            if position in changed
-                            else (tuple(named[glyph].text for glyph in klass if glyph in named), None)
-                            for position, klass in enumerate(inputs)
+                            (tuple(named[glyph].text for glyph in klass if glyph in named), tuple(models[inner] for at, inner in records if at == position)) for position, klass in enumerate(inputs)
                         ),
                         lookahead=tuple(tuple(named[glyph].text for glyph in klass if glyph in named) for klass in ahead),
                     )
-                    for back, inputs, ahead, records in chains
-                    for changed in (tuple(position for position, inner in records if inner in nested and position < len(inputs)),)
-                    for chosen in product(*(tuple(glyph for glyph in inputs[position] if glyph in named and nested[dict(records)[position]].get(glyph) in named) for position in changed))
-                    if changed and all(any(glyph in named for glyph in klass) for klass in (*back, *inputs, *ahead))
+                    for back, inputs, ahead, records in found
+                    if all(any(glyph in named for glyph in klass) for klass in (*back, *inputs, *ahead))
                 ),
+                flags=flags,
+                mark_attachment=attachment,
+                mark_filtering=filtering,
             )
-            if built
+            for index, found in contexts.items()
+            for flags, attachment, filtering in (qualifiers[index],)
         ),
     )
-    return Source(
-        face=face,
-        upm=head.unitsPerEm,  # ty: ignore[missing-attribute]
-        glyphs=tuple(
-            Glyph(
-                name=name,
-                role=Ornament() if art and isinstance(name.stem, str) and name.stem != ".notdef" else role(joinings, name, components=renamed.get(glyph, ())),
-                advance=advances[glyph][0],
-                codes=frozenset(encodings[glyph]),
-                contours=outline(glyph),
-                anchors=tuple(Anchor(name=anchor, x=x, y=y) for anchor, (x, y) in sorted(anchors.get(glyph, {}).items())),
-            )
-            for glyph, name in named.items()
-        ),
-        info=Info(
-            created=datetime.fromtimestamp(head.created + epoch_diff, UTC),  # ty: ignore[missing-attribute]
-            version=divmod(round(head.fontRevision * 1000), 1000),  # ty: ignore[missing-attribute]
-            copyright=Option.of_optional(font["name"].getDebugName(0)).map(str.strip).filter(bool).to_optional(),
-            designer=Option.of_optional(font["name"].getDebugName(9)).map(str.strip).filter(bool).to_optional(),
-            vendor=Some(os2.achVendID.strip()).filter(bool).to_optional(),  # ty: ignore[missing-attribute]
-        ),
-        metrics=VerticalMetrics(
-            ascender=hhea.ascent,
-            descender=hhea.descent,
-            win_ascent=os2.usWinAscent,  # ty: ignore[missing-attribute]
-            win_descent=os2.usWinDescent,  # ty: ignore[missing-attribute]
-            caret_offset=hhea.caretOffset,  # ty: ignore[missing-attribute]
-            italic_angle=post.italicAngle,  # ty: ignore[missing-attribute]
-            lowest_ppem=head.lowestRecPPEM,  # ty: ignore[missing-attribute]
-        ),
-        lookups=tuple(sorted(lookups, key=lambda lookup: lookup.order)),
+    return Ok(
+        Source(
+            face=face,
+            upm=header.head.units_per_em,
+            glyphs=tuple(
+                Glyph(
+                    name=name,
+                    role=Ornament() if art and isinstance(name.stem, str) and name.stem != ".notdef" else role(joinings, name, components=renamed.get(glyph, ())),
+                    advance=advances[glyph][0],
+                    codes=frozenset(encodings[glyph]),
+                    contours=outline(glyph),
+                    anchors=tuple(Anchor(name=anchor, x=x, y=y) for anchor, (x, y) in sorted(anchors.get(glyph, {}).items())),
+                )
+                for glyph, name in named.items()
+            ),
+            info=Info(
+                created=datetime.fromtimestamp(header.head.created + epoch_diff, UTC),
+                version=divmod(round(header.head.font_revision * 1000), 1000),
+                copyright=Option.of_optional(font["name"].getDebugName(0)).map(str.strip).filter(bool).to_optional(),
+                designer=Option.of_optional(font["name"].getDebugName(9)).map(str.strip).filter(bool).to_optional(),
+                vendor=Some(header.os2.ach_vend_id.strip()).filter(bool).to_optional(),
+            ),
+            metrics=VerticalMetrics(
+                ascender=header.hhea.ascent,
+                descender=header.hhea.descent,
+                win_ascent=header.os2.us_win_ascent,
+                win_descent=header.os2.us_win_descent,
+                caret_offset=header.hhea.caret_offset,
+                italic_angle=header.post.italic_angle,
+                lowest_ppem=header.head.lowest_rec_ppem,
+            ),
+            lookups=tuple(sorted(lookups, key=lambda lookup: lookup.order)),
+        )
     )
 
 
@@ -338,9 +352,12 @@ def imported(original: bytes, face: Faces, joinings: Joinings, /) -> Outcome[Sou
         joinings: Unicode joining type and group of each code point `fetched` read.
 
     Returns:
-        Ok(source), `UNREADABLE` for bytes fontTools refuses.
+        Ok(source), `UNREADABLE` for bytes fontTools refuses or header tables lacking a field, `OUTSIDE` naming each GSUB lookup kind or format the source holds no record for.
     """
-    return catch(_source, exception=TTLibError)(original, face, joinings).map_error(partial(Fault.of, Reason.UNREADABLE, face.postscript))
+    try:
+        return _source(original, face, joinings)
+    except (TTLibError, msgspec.ValidationError) as error:
+        return Error(Fault.of(Reason.UNREADABLE, face.postscript, error))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

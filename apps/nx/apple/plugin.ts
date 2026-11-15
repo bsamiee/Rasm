@@ -1,19 +1,18 @@
-import { findPackageJSON } from 'node:module';
 import { tmpdir } from 'node:os';
 import { basename, dirname, extname, join, matchesGlob, relative, resolve } from 'node:path';
 import process from 'node:process';
 import { layer } from '@effect/platform-node/NodeServices';
-import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, DependencyType, getOutputsForTargetAndConfiguration, hashArray, type PostTasksExecution, type PreTasksExecution, type ProjectConfiguration, type RawProjectGraphDependency, readJsonFile, type TargetConfiguration } from '@nx/devkit';
-import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, emitPluginWorkerLog, hashFile, hashObject, hashWithWorkspaceContext, mergeTargetConfigurations, type PackageJson, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
-import { Array, Config, Context, Effect, FileSystem, Formatter, flow, Layer, ManagedRuntime, Option, Predicate, Record, Redacted, Result, Schema, UndefinedOr } from 'effect';
+import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, DependencyType, getOutputsForTargetAndConfiguration, hashArray, type PostTasksExecution, type PreTasksExecution, type ProjectConfiguration, type RawProjectGraphDependency } from '@nx/devkit';
+import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, emitPluginWorkerLog, hashObject, hashWithWorkspaceContext, mergeTargetConfigurations, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
+import { Array, Cause, Config, Context, Effect, FileSystem, flow, Layer, ManagedRuntime, Option, Record, Redacted, Result, Schema, Stream } from 'effect';
 import { Described, INFO, MANIFEST, type Package, packageEdges, packageParts, RESOLVED, sources } from '#/swift-package';
-import { analyzer, Options, type Part, printed, refused, SHARED, type Tools, tokened } from '#/targets';
+import { aggregated, analyzer, manifested, Options, type Part, PLUGIN, rendered, spawned, tokened, type Verbs } from '#/targets';
 import { Analyzed, evaluated, xcodeParts } from '#/xcode-project';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 interface Graph {
-    readonly projects: readonly { readonly file: string; readonly project: ProjectConfiguration; readonly tools: Tools }[];
+    readonly projects: readonly { readonly file: string; readonly technology: string; readonly project: ProjectConfiguration; readonly tools: Verbs }[];
     readonly edges: readonly RawProjectGraphDependency[];
     readonly buildFiles: Readonly<Record<string, readonly string[]>>;
 }
@@ -23,7 +22,6 @@ interface Graph {
 const READ = [MANIFEST, INFO, 'Package@swift-*.swift', '*.xcodeproj/project.xcproj', '*.xcworkspace/contents.xcworkspacedata', '*.xcscheme', '*.xcconfig'].map((file) => `**/${file}`);
 const FILES = combineGlobPatterns([...READ, ...['*.xcodeproj/project.pbxproj', '*.xctestplan', '*.entitlements', '*.plist'].map((file) => `**/${file}`)]);
 const HOST: NodeJS.Platform = 'darwin';
-const IDENTITIES = ['APPLE_DEVELOPMENT_P12', 'DEVELOPER_ID_P12'] as const;
 const KEYCHAINS = join(tmpdir(), 'nx-apple');
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -33,27 +31,13 @@ const Listed = Schema.fromJsonString(Schema.Array(Schema.String));
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class Graphs extends Context.Service<Graphs, Map<string, Graph>>()('@rasm/nx-apple/plugin/Graphs') {
+class Graphs extends Context.Service<Graphs, Map<string, Graph>>()(`${PLUGIN}/plugin/Graphs`) {
     static readonly layer = Layer.sync(Graphs, () => new Map());
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const joined = (left: Tools, right: Tools): Tools => Record.union(left, right, (base, stated) => Record.union(base, stated, (held, over) => mergeTargetConfigurations(over, held)));
-
-const flattened = (tools: Tools, stated: Readonly<Record<string, TargetConfiguration>>): Record<string, TargetConfiguration> =>
-    Record.fromEntries(
-        Record.collect(Record.filter(tools, Predicate.not(Record.isEmptyRecord)), (verb, held): readonly (readonly [string, TargetConfiguration])[] => [
-            ...Record.collect(held, (tool, target): readonly [string, TargetConfiguration] => [`${verb}--${tool}`, target]),
-            [verb, { dependsOn: [`${verb}--*`], inputs: ['...', ...Array.dedupe(Record.collect(held, (tool, target) => UndefinedOr.match(stated[`${verb}--${tool}`], { onUndefined: () => target, onDefined: (row) => mergeTargetConfigurations(row, target) }).inputs ?? ['default', '^default']).flat())] }],
-        ]).flat(),
-    );
-
-const overrides = Effect.fnUntraced(function* (workspaceRoot: string, root: string) {
-    const fs = yield* FileSystem.FileSystem;
-    const manifest = join(workspaceRoot, root, 'package.json');
-    return (yield* fs.exists(manifest)) ? ((yield* Effect.try({ try: () => readJsonFile<PackageJson>(manifest), catch: refused(manifest, 'does not read as JSON') })).nx?.targets ?? {}) : {};
-});
+const joined = (left: Verbs, right: Verbs): Verbs => Record.union(left, right, (base, stated) => Record.union(base, stated, (held, over) => mergeTargetConfigurations(over, held)));
 
 const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: typeof Options.Type, files: readonly string[]) {
     const fs = yield* FileSystem.FileSystem;
@@ -63,31 +47,33 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: typ
     const unsupported = files.filter((file) => basename(file) === 'project.pbxproj' && !paths.has(join(dirname(file), 'project.xcproj')));
     const marker = (container: string) => containers.find((file) => dirname(file) === container) ?? container;
     const [info, xcodebuild, compiled] = yield* Effect.all([
-        Effect.option(printed(['swift', '-print-target-info'], { cwd: workspaceRoot })),
-        containers.length === 0 ? Effect.succeedNone : Effect.option(printed(['xcodebuild', '-version'], { cwd: workspaceRoot })),
+        Effect.option(spawned(['swift', '-print-target-info'], { cwd: workspaceRoot })),
+        containers.length === 0 ? Effect.succeedNone : Effect.option(spawned(['xcodebuild', '-version'], { cwd: workspaceRoot })),
         containers.length === 0 ? Effect.succeedNone : Effect.option(Effect.tap(analyzer, (at) => fs.stat(at))),
     ]);
     const host = yield* Effect.transposeOption(Option.map(info, (text) => Effect.map(Schema.decodeEffect(Host)(text), ({ target: { platform } }) => platform)));
     const reader = Option.map(Option.all({ xcodebuild, compiled }), ({ compiled: at }) => at);
     const readable = Option.isSome(info) ? manifests : [];
     const absent = [...(Option.isNone(info) ? ['swift'] : []), ...(containers.length > 0 && Option.isNone(xcodebuild) ? ['xcodebuild'] : []), ...(containers.length > 0 && Option.isNone(compiled) ? ['the #analyzer core'] : [])];
-    const describedResults = yield* Effect.forEach(readable, (file) => Effect.result(Effect.flatMap(printed(['swift', 'package', '--package-path', dirname(file), '--experimental-skip-acquiring-lock', 'describe', '--type', 'json'], { cwd: workspaceRoot }), Schema.decodeEffect(Described))), { concurrency: 'unbounded' });
+    const describedResults = yield* Effect.forEach(readable, (file) => Effect.result(Effect.catchCause(Effect.flatMap(spawned(['swift', 'package', '--package-path', dirname(file), '--experimental-skip-acquiring-lock', 'describe', '--type', 'json'], { cwd: workspaceRoot }), Schema.decodeEffect(Described)), rendered)), {
+        concurrency: 'unbounded',
+    });
     const packages = yield* Effect.forEach(
         Array.filterMap(Array.zip(readable, describedResults), ([file, result]) => Result.map(result, (manifest) => ({ file, root: dirname(file), manifest }))),
-        Effect.fnUntraced(function* (swiftPackage: Omit<Package, 'plists'>) {
+        Effect.fnUntraced(function* (swiftPackage: Omit<Package, 'plists' | 'bins' | 'whole'>) {
             const listed = yield* Effect.filter(swiftPackage.manifest.targets, (module) => fs.exists(join(workspaceRoot, swiftPackage.root, module.path, INFO)));
             const { products, targets } = swiftPackage.manifest;
-            const shown = (configuration: string) => Effect.map(printed(['swift', 'build', '--package-path', swiftPackage.root, '--configuration', configuration, '--show-bin-path'], { cwd: workspaceRoot }), (at) => relative(workspaceRoot, at.trim()));
+            const shown = (configuration: string) => Effect.map(spawned(['swift', 'build', '--package-path', swiftPackage.root, '--configuration', configuration, '--show-bin-path'], { cwd: workspaceRoot }), (at) => relative(workspaceRoot, at.trim()));
             const whole = Array.isReadonlyArrayNonEmpty(products) && products.every(({ type }) => 'executable' in type) && targets.every(({ resources }) => resources.length === 0);
-            const bins = whole ? { bins: yield* Effect.all({ debug: shown('debug'), release: shown('release') }, { concurrency: 'unbounded' }) } : {};
-            return { ...swiftPackage, ...bins, plists: new Set(listed.map(({ name }) => name)) } satisfies Package;
+            const bins = yield* Effect.all({ debug: shown('debug'), release: shown('release') }, { concurrency: 'unbounded' });
+            return { ...swiftPackage, bins, whole, plists: new Set(listed.map(({ name }) => name)) } satisfies Package;
         }),
     );
     const described = new Map(packages.map((swiftPackage) => [resolve(workspaceRoot, swiftPackage.root), swiftPackage] as const));
     const local = (at: string) => Option.fromUndefinedOr(described.get(resolve(workspaceRoot, at)));
     const analysis = yield* Option.match(reader, {
         onNone: () => Effect.succeed(Result.succeed<typeof Analyzed.Type>({ containers: [], failures: {} })),
-        onSome: (at) => Effect.flatMap(Schema.encodeEffect(Listed)(containers), (input) => printed([at], { cwd: workspaceRoot, input })).pipe(Effect.flatMap(Schema.decodeEffect(Analyzed)), Effect.result),
+        onSome: (at) => Effect.flatMap(Schema.encodeEffect(Listed)(containers), (input) => spawned([at], { cwd: workspaceRoot, stdin: Stream.encodeText(Stream.make(input)) })).pipe(Effect.flatMap(Schema.decodeEffect(Analyzed)), Effect.catchCause(rendered), Effect.result),
     });
     const analyzed = Result.getOrElse(analysis, (): typeof Analyzed.Type => ({ containers: [], failures: {} }));
     const workspaces = analyzed.containers.filter((container) => basename(marker(container.path)) === 'contents.xcworkspacedata');
@@ -95,15 +81,15 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: typ
         const owners = workspaces.filter((workspace) => workspace.projects.includes(at)).map((workspace) => workspace.path);
         return Option.getOrElse(Array.head(owners.length === 1 ? owners : []), () => at);
     };
-    const evaluatedResults = yield* Effect.forEach(analyzed.containers, (container) => Effect.result(evaluated(workspaceRoot, options, container, built(container.path))));
+    const evaluatedResults = yield* Effect.forEach(analyzed.containers, (container) => Effect.result(Effect.catchCause(evaluated(workspaceRoot, options, container, built(container.path)), rendered)));
     const xcode = Array.filterMap(Array.zip(analyzed.containers, evaluatedResults), ([container, result]) => Result.map(result, (success) => ({ container, ...success })));
     const unread = [...(Option.isNone(info) ? manifests.map((file) => ({ file, reason: 'swift is absent on this host' })) : []), ...(Option.isNone(reader) ? containers.map((file) => ({ file, reason: `${absent.join(', ')} absent on this host` })) : [])];
     const broken: readonly [string, Error][] = [
-        ...Array.filterMap(Array.zip(readable, describedResults), ([file, result]) => Result.map(Result.flip(result), (error): [string, Error] => [file, refused(file, Formatter.format(error))(error)])),
-        ...(Result.isFailure(analysis) ? containers.map((file): [string, Error] => [file, refused(file, Formatter.format(analysis.failure))(analysis.failure)]) : []),
-        ...Record.collect(analyzed.failures, (at, reason): [string, Error] => [marker(at), refused(at, reason)()]),
-        ...Array.filterMap(Array.zip(analyzed.containers, evaluatedResults), ([container, result]) => Result.map(Result.flip(result), (error): [string, Error] => [marker(container.path), refused(container.path, Formatter.format(error))(error)])),
-        ...unsupported.map((file): [string, Error] => [file, refused(file, 'has no reader, and no project.xcproj sits beside it')()]),
+        ...Array.filterMap(Array.zip(readable, describedResults), ([file, result]) => Result.map(Result.flip(result), (error): [string, Error] => [file, error])),
+        ...(Result.isFailure(analysis) ? containers.map((file): [string, Error] => [file, analysis.failure]) : []),
+        ...Record.collect(analyzed.failures, (at, reason): [string, Error] => [marker(at), new Cause.UnknownError(reason, `${at}: ${reason}`)]),
+        ...Array.filterMap(Array.zip(analyzed.containers, evaluatedResults), ([container, result]) => Result.map(Result.flip(result), (error): [string, Error] => [marker(container.path), error])),
+        ...unsupported.map((file): [string, Error] => [file, new Cause.UnknownError(file, `${file} has no reader, and no project.xcproj sits beside it`)]),
     ];
     yield* Effect.forEach(unread, ({ file, reason }) => Effect.sync(() => emitPluginWorkerLog('warn', `${file} presents no project: ${reason}`)));
     const packaged = flow(local, Option.isSome);
@@ -121,17 +107,17 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: typ
     const merged = Record.collect(
         Record.filter(grouped, (_, root) => !(root in conflicts)),
         (root, group) => {
-            const { name, file } = Array.headNonEmpty(group);
+            const { name, file, technologies } = Array.headNonEmpty(group);
             const release = Array.findFirst(group, (part) => Option.fromUndefinedOr(part.release));
             const project: ProjectConfiguration = {
                 root,
                 name,
                 metadata: { technologies: Array.dedupe(group.flatMap((part) => part.technologies)) },
-                tags: [...Option.toArray(Option.as(release, 'release')), `os:${HOST}`],
+                tags: [...Option.toArray(Option.flatMap(release, () => Option.fromUndefinedOr(options.releaseTag))), ...Array.fromNullishOr(options.platformTagPrefix).map((prefix) => `${prefix}${HOST}`)],
                 ...Option.getOrUndefined(Option.map(release, (held) => ({ release: held }))),
                 targets: Record.getSomes({ 'nx-release-publish': Array.findFirst(group, (part) => Option.fromUndefinedOr(part.published)) }),
             };
-            return { file, project, tools: Array.map(group, (part) => part.tools).reduce(joined) };
+            return { file, technology: Array.headNonEmpty(technologies), project, tools: Array.map(group, (part) => part.tools).reduce(joined) };
         },
     );
     const roots = new Map(merged.map(({ project }) => [project.name, project.root] as const));
@@ -141,22 +127,22 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: typ
             edges: Array.getSomes(packages.flatMap((swiftPackage) => packageEdges(swiftPackage, described)).map((edge) => Option.map(Option.all({ source: Option.fromUndefinedOr(roots.get(edge.source)), target: Option.fromUndefinedOr(roots.get(edge.target)) }), (at) => ({ ...edge, ...at })))),
             buildFiles: Record.fromIterableWith(xcode, ({ container }) => [dirname(container.path), container.buildFiles]),
         } satisfies Graph,
-        failures: [...broken, ...Record.collect(conflicts, (root, group): [string, Error] => [Array.headNonEmpty(group).file, refused(root, `holds projects named ${group.map((part) => part.name).join(' and ')}`)()])],
+        failures: [...broken, ...Record.collect(conflicts, (root, group): [string, Error] => [Array.headNonEmpty(group).file, new Cause.UnknownError(group, `${root} holds projects named ${group.map((part) => part.name).join(' and ')}`)])],
         partial: unread.length > 0,
     };
 });
 
-const security = (...args: readonly string[]) => printed(['security', ...args], {});
+const security = (...args: readonly string[]) => spawned(['security', ...args]);
 
 const keychain = (id: string) => join(KEYCHAINS, `${process.pid}-${id}.keychain-db`);
 
 const removed = (id: string) => Effect.flatMap(FileSystem.FileSystem, (fs) => Effect.asVoid(Effect.when(security('delete-keychain', keychain(id)), fs.exists(keychain(id)))));
 
-const identified = Effect.fnUntraced(function* (id: string) {
+const identified = Effect.fnUntraced(function* (id: string, stated: Readonly<Record<string, string>>) {
     const fs = yield* FileSystem.FileSystem;
     const abandoned = (yield* Effect.orElseSucceed(fs.readDirectory(KEYCHAINS), Array.empty<string>)).filter((name) => Option.isNone(Option.liftThrowable(process.kill)(Number.parseInt(name, 10), 0)));
     yield* Effect.forEach(abandoned, (name) => Effect.ignore(security('delete-keychain', join(KEYCHAINS, name))), { discard: true });
-    const identities = Array.getSomes(yield* Effect.forEach(IDENTITIES, (name) => Config.option(Config.all({ name: Config.succeed(name), p12: Config.schema(Schema.Redacted(Schema.Uint8ArrayFromBase64), name), passphrase: Config.Redacted(`${name}_PASSWORD`) }))));
+    const identities = Array.getSomes(yield* Effect.forEach(Record.toEntries(stated), ([name, password]) => Config.option(Config.all({ name: Config.succeed(name), password: Config.succeed(password), p12: Config.schema(Schema.Redacted(Schema.Uint8ArrayFromBase64), name), passphrase: Config.Redacted(password) }))));
     if (identities.length === 0) {
         return;
     }
@@ -169,8 +155,11 @@ const identified = Effect.fnUntraced(function* (id: string) {
     yield* security('create-keychain', '-p', id, at);
     yield* security('set-keychain-settings', at);
     yield* security('unlock-keychain', '-p', id, at);
-    yield* Effect.forEach(identities, ({ name, p12, passphrase }) =>
-        Effect.andThen(fs.writeFile(join(folder, name), Redacted.value(p12), { mode: 0o600 }), Effect.mapError(security('import', join(folder, name), '-k', at, '-P', Redacted.value(passphrase), '-A', '-t', 'cert', '-f', 'pkcs12'), refused(name, `does not import as a PKCS#12 identity under ${name}_PASSWORD`))),
+    yield* Effect.forEach(identities, ({ name, password, p12, passphrase }) =>
+        Effect.andThen(
+            fs.writeFile(join(folder, name), Redacted.value(p12), { mode: 0o600 }),
+            Effect.mapError(security('import', join(folder, name), '-k', at, '-P', Redacted.value(passphrase), '-A', '-t', 'cert', '-f', 'pkcs12'), (cause) => new Cause.UnknownError(cause, `${name} does not import as a PKCS#12 identity under ${password}`)),
+        ),
     );
     yield* security('set-key-partition-list', '-S', 'apple-tool:,apple:', '-k', id, at);
     yield* security('list-keychains', '-d', 'user', '-s', at, ...listed);
@@ -180,32 +169,39 @@ const identified = Effect.fnUntraced(function* (id: string) {
 
 const runtime = ManagedRuntime.make(Layer.merge(Graphs.layer, layer));
 
-const preTasksExecution: PreTasksExecution = (_, { id }) => runtime.runPromise(process.platform === HOST ? Effect.onError(identified(id), () => Effect.ignore(removed(id))) : Effect.void);
+const preTasksExecution: PreTasksExecution<typeof Options.Encoded> = (options, { id }) =>
+    runtime.runPromise(Effect.flatMap(Schema.decodeEffect(Options)(options ?? {}), ({ identities }) => (process.platform === HOST && identities !== undefined ? Effect.onError(identified(id, identities), () => Effect.ignore(removed(id))) : Effect.void)));
 
-const postTasksExecution: PostTasksExecution = (_, { id }) => runtime.runPromise(process.platform === HOST ? removed(id) : Effect.void);
+const postTasksExecution: PostTasksExecution<typeof Options.Encoded> = (options, { id }) => runtime.runPromise(Effect.flatMap(Schema.decodeEffect(Options)(options ?? {}), ({ identities }) => (process.platform === HOST && identities !== undefined ? removed(id) : Effect.void)));
 
-const createNodes: CreateNodes = [
+const createNodes: CreateNodes<typeof Options.Encoded> = [
     FILES,
-    (matched, options, { workspaceRoot, nxJsonConfiguration: { pluginsConfig } }) =>
+    (matched, options, { workspaceRoot }) =>
         runtime.runPromise(
             Effect.gen(function* () {
                 const fs = yield* FileSystem.FileSystem;
                 const files = process.platform === HOST ? matched.toSorted() : [];
-                const settings = yield* Schema.decodeEffect(Options)({ ...pluginsConfig?.[SHARED], ...(Predicate.isObject(options) ? options : {}) });
-                const cache = new PluginCache<Graph>(join(workspaceDataDirectory, `apple-${hashObject(settings)}.hash`));
+                const settings = yield* Schema.decodeEffect(Options)(options ?? {});
+                const cache = new PluginCache<Graph>(join(workspaceDataDirectory, `apple-${hashObject(options ?? {})}.hash`));
                 const built = yield* Effect.option(Effect.flatMap(analyzer, fs.stat));
                 const stamp = Option.flatMap(built, (stat) => stat.mtime).pipe(Option.match({ onNone: () => 0, onSome: (at) => at.valueOf() }));
-                const key = hashArray([...Array.fromNullishOr(UndefinedOr.map(findPackageJSON(import.meta.url), hashFile)), yield* Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, [...READ, join(relative(workspaceRoot, import.meta.dirname), '**')])), String(stamp), ...files]);
+                const key = hashArray([yield* Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, READ)), String(stamp), ...files]);
                 const read = yield* Option.match(Option.fromNullishOr(cache.get(key)), { onSome: (graph) => Effect.succeed({ graph, failures: [], partial: false }), onNone: () => analyze(workspaceRoot, settings, files) });
                 yield* Effect.sync(() => (read.failures.length === 0 && !read.partial ? cache.set(key, read.graph) : undefined));
                 yield* Effect.sync(() => cache.writeToDisk());
                 (yield* Graphs).set(workspaceRoot, read.graph);
-                const placed = yield* Effect.forEach(read.graph.projects, ({ file, project, tools }) => Effect.map(overrides(workspaceRoot, project.root), (stated) => ({ file, project: { ...project, targets: { ...flattened(tools, stated), ...project.targets } } })));
+                const [placed, unread] = yield* Effect.partition(read.graph.projects, ({ file, technology, project, tools }) =>
+                    Effect.mapBoth(Effect.catchCause(manifested(workspaceRoot, project.root), rendered), {
+                        onFailure: (error): [string, Error] => [file, error],
+                        onSuccess: (stated) => ({ file, project: { ...project, targets: { ...aggregated(tools, stated, technology), ...project.targets } } }),
+                    }),
+                );
                 const results = Record.collect(
                     Array.groupBy(placed, ({ file }) => file),
                     (file, group) => [file, { projects: Record.fromIterableWith(group, ({ project }) => [project.root, project] as const) }] as const,
                 );
-                return yield* read.failures.length === 0 ? Effect.succeed(results) : Effect.fail(new AggregateCreateNodesError([...read.failures], results));
+                const failures = [...read.failures, ...unread];
+                return yield* failures.length === 0 ? Effect.succeed(results) : Effect.fail(new AggregateCreateNodesError(failures, results));
             }),
         ),
 ];

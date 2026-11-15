@@ -1,8 +1,8 @@
 import { extname } from 'node:path';
 import type { Tree } from '@nx/devkit';
-import { Array, Effect, Option, Schema } from 'effect';
+import { Array, Cause, Effect, Option, Schema, Stream } from 'effect';
 import { VersionActions } from 'nx/release';
-import { analyzer, printed, refused, run } from '#/targets';
+import { analyzer, run, spawned } from '#/targets';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -15,18 +15,20 @@ const Versioned = Schema.fromJsonString(Schema.Struct({ version: Schema.NullOr(S
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const read = (tree: Tree, at: string) => Effect.mapError(Effect.fromNullishOr(tree.read(at, 'utf-8')), refused(at, 'is missing'));
+const read = (tree: Tree, at: string) => Effect.mapError(Effect.fromNullishOr(tree.read(at, 'utf-8')), (cause) => new Cause.UnknownError(cause, `${at} is missing`));
 
-const versioned = (text: string, marketing: readonly string[]) => Effect.flatMap(analyzer, (core) => printed([core, 'version', ...marketing], { input: text })).pipe(Effect.flatMap(Schema.decodeEffect(Versioned)));
+const piped = (argv: Array.NonEmptyReadonlyArray<string>, input: string) => spawned(argv, { stdin: Stream.encodeText(Stream.make(input)) });
+
+const versioned = (text: string, marketing: readonly string[]) => Effect.flatMap(analyzer, (core) => piped([core, 'version', ...marketing], text)).pipe(Effect.flatMap(Schema.decodeEffect(Versioned)));
 
 const stated = Effect.fnUntraced(function* (tree: Tree, at: string) {
     const text = yield* read(tree, at);
-    return extname(at) === '.plist' ? (yield* printed(['plutil', '-extract', SHORT_VERSION, 'raw', '-o', '-', '-'], { input: text })).trim() : yield* Effect.mapError(Effect.fromNullishOr((yield* versioned(text, [])).version), refused(at, 'states no MARKETING_VERSION'));
+    return extname(at) === '.plist' ? (yield* piped(['plutil', '-extract', SHORT_VERSION, 'raw', '-o', '-', '-'], text)).trim() : yield* Effect.mapError(Effect.fromNullishOr((yield* versioned(text, [])).version), (cause) => new Cause.UnknownError(cause, `${at} states no MARKETING_VERSION`));
 });
 
 const restated = Effect.fnUntraced(function* (tree: Tree, at: string, version: string) {
     const text = yield* read(tree, at);
-    tree.write(at, extname(at) === '.plist' ? yield* printed(['plutil', '-replace', SHORT_VERSION, '-string', version, '-o', '-', '-'], { input: text }) : (yield* versioned(text, ['--marketing-version', version])).project);
+    tree.write(at, extname(at) === '.plist' ? yield* piped(['plutil', '-replace', SHORT_VERSION, '-string', version, '-o', '-', '-'], text) : (yield* versioned(text, ['--marketing-version', version])).project);
     return `New version ${version} written to manifest: ${at}`;
 });
 
@@ -40,7 +42,7 @@ class AppleVersionActions extends VersionActions {
     }
 
     readCurrentVersionFromSourceManifest(tree: Tree) {
-        const located = Effect.mapError(Effect.fromOption(Array.head(this.manifestsToUpdate)), refused(this.projectGraphNode.name, 'names no manifest in its versionActionsOptions'));
+        const located = Effect.mapError(Effect.fromOption(Array.head(this.manifestsToUpdate)), (cause) => new Cause.UnknownError(cause, `${this.projectGraphNode.name} names no manifest in its versionActionsOptions`));
         return run(Effect.flatMap(located, ({ manifestPath }) => Effect.all({ currentVersion: stated(tree, manifestPath), manifestPath: Effect.succeed(manifestPath) })));
     }
 

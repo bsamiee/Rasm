@@ -1,7 +1,8 @@
 import { basename, dirname, extname, join, relative, resolve } from 'node:path';
 import type { TargetConfiguration } from '@nx/devkit';
-import { Array, Effect, FileSystem, identity, Option, Record, Result, Schema, Struct } from 'effect';
-import { ATTACH, INPUTS, type Options, type Part, PLUGIN, printed, refused, SHARED, type Tools, target, tokened } from '#/targets';
+import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
+import { Array, Cause, Effect, FileSystem, identity, Option, Record, Result, Schema, Struct } from 'effect';
+import { ATTACH, INPUTS, type Options, type Part, PLUGIN, sequenced, spawned, tokened, type Verbs } from '#/targets';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -53,7 +54,7 @@ const invocation = (options: typeof Options.Type, built: string) => {
 const evaluated = Effect.fnUntraced(function* (workspaceRoot: string, options: typeof Options.Type, container: typeof Container.Type, built: string) {
     const fs = yield* FileSystem.FileSystem;
     const { flags } = invocation(options, built);
-    const read = (scheme: string, selected: readonly string[]) => Effect.flatMap(printed(['xcodebuild', 'build', 'archive', '-showBuildSettings', '-json', '-IDEPackageEnablePrebuilts=NO', ...flags, '-scheme', scheme, ...selected], { cwd: workspaceRoot }), Schema.decodeEffect(Evaluated));
+    const read = (scheme: string, selected: readonly string[]) => Effect.flatMap(spawned(['xcodebuild', 'build', 'archive', '-showBuildSettings', '-json', '-IDEPackageEnablePrebuilts=NO', ...flags, '-scheme', scheme, ...selected], { cwd: workspaceRoot }), Schema.decodeEffect(Evaluated));
     const schemes = container.schemes.filter(({ containers }) => containers.length > 0).map(({ name }) => name);
     const archived = Array.zip(schemes, yield* Effect.forEach(schemes, (scheme) => read(scheme, [])));
     const others = yield* Effect.forEach(
@@ -73,7 +74,7 @@ const evaluated = Effect.fnUntraced(function* (workspaceRoot: string, options: t
                 .flatMap(({ target: owner, buildSettings }) => LOCATED.map((setting) => ({ owner, setting, root: buildSettings.SRCROOT, value: Option.fromUndefinedOr(buildSettings[setting]) })))
                 .map(({ value, ...located }) => Option.map(value, (held) => ({ ...located, value: held, at: resolve(located.root, held) }))),
         ),
-        (setting) => Effect.mapBoth(fs.realPath(setting.at), { onFailure: refused(`target ${setting.owner} ${setting.setting}`, `${setting.value} does not exist`), onSuccess: (at) => relative(real, at) }),
+        (setting) => Effect.mapBoth(fs.realPath(setting.at), { onFailure: (cause) => new Cause.UnknownError(cause, `target ${setting.owner} ${setting.setting}: ${setting.value} does not exist`), onSuccess: (at) => relative(real, at) }),
     );
     const archives = archived.flatMap(([scheme, listed]) =>
         Array.match(
@@ -92,7 +93,7 @@ const evaluated = Effect.fnUntraced(function* (workspaceRoot: string, options: t
         ),
     );
     const failures = [...missing.map(({ message }) => message), ...archives.filter(({ places }) => places.length > 1).map(({ scheme, places }) => `scheme ${scheme} installs into ${places.join(' and ')}, and one xcodebuild install takes one DSTROOT`)];
-    return failures.length === 0 ? { inputs: Array.dedupe([...container.inputs, ...resolved]), archives } : yield* refused(container.path, Array.dedupe(failures).join('\n  '))();
+    return failures.length === 0 ? { inputs: Array.dedupe([...container.inputs, ...resolved]), archives } : yield* new Cause.UnknownError(failures, [container.path, ...Array.dedupe(failures)].join('\n  '));
 });
 
 const xcodeParts = (options: typeof Options.Type, file: string, container: typeof Container.Type, inputs: readonly string[], archives: Effect.Success<ReturnType<typeof evaluated>>['archives'], built: string, destinations: (roots: readonly string[]) => readonly string[], packaged: (at: string) => boolean): Part => {
@@ -100,7 +101,8 @@ const xcodeParts = (options: typeof Options.Type, file: string, container: typeo
     const name = basename(container.path, extname(container.path));
     const invoke = (action: string, scheme: string, extra: readonly string[]) => ['xcodebuild', action, ...flags, '-onlyUsePackageVersionsFromResolvedFile', '-scheme', scheme, ...extra] as const;
     const schemes = container.schemes.filter(({ containers }) => containers.length > 0).map((scheme) => ({ ...scheme, packages: scheme.containers.every(packaged) }));
-    const output = (scheme: string) => Option.map(Option.fromUndefinedOr(options.outputPath), (at) => join(at, 'xcode', name, scheme));
+    const output = (scheme: string) => Option.map(Option.fromUndefinedOr(options.outputPath), (at) => join(at, scheme));
+    const notary = Option.fromUndefinedOr(options.notary);
     const archived = Array.getSomes(
         archives.map(({ scheme, configuration }) => Option.map(output(scheme), (folder) => ({ configuration, folder, archive: join(folder, `${scheme}.xcarchive`), run: [...invoke('archive', scheme, ['-archivePath', join(folder, `${scheme}.xcarchive`)]), '-configuration', configuration] }))),
     );
@@ -137,28 +139,31 @@ const xcodeParts = (options: typeof Options.Type, file: string, container: typeo
         configurations: Record.fromIterableWith(container.configurations, (configuration) => [configuration.toLowerCase(), { runs: planned(Option.some(configuration)).map((run) => [...run, '-configuration', configuration]) }]),
         ...(launches.length === 1 ? Record.fromIterableWith(launches, (launch) => ['defaultConfiguration', launch.toLowerCase()] as const) : {}),
     });
-    const tools: Tools = {
+    const tools: Verbs = {
         ...(schemes.length > 0 && {
             build: {
-                xcodebuild: target(
+                xcodebuild: sequenced(
                     builds(Option.none()),
                     { technologies: ['xcode'], description: 'Builds each shared scheme with xcodebuild, archiving each scheme with installed products in its archive configuration', help: { command: 'xcodebuild -help', example: { args: ['-quiet'] } } },
                     { cache: true, dependsOn: ['^build'], inputs: read, ...modes(builds) },
                 ),
             },
-            check: { xcodebuild: { dependsOn: ['build--xcodebuild'], inputs: read, metadata: { technologies: ['xcode'], description: 'Compiles each shared scheme as its type check' } } },
+            check: { xcodebuild: { dependsOn: ['build--xcodebuild'], inputs: read, metadata: { technologies: ['xcode'], description: 'Type-checks each shared scheme with xcodebuild build', help: { command: 'xcodebuild -help', example: { args: ['-quiet'] } } } } },
         }),
         ...(Array.isReadonlyArrayNonEmpty(archived) && {
             pack: {
                 ditto: {
                     executor: `${PLUGIN}:package`,
                     cache: true,
-                    inputs: [...read, { env: 'ASC_API_KEY_ID' }],
-                    options: { exports: archived.map(({ archive, folder, run }) => ({ archive, folder, run })) },
+                    inputs: [...read, ...Option.toArray(notary).map(({ keyId }) => ({ env: keyId }))],
+                    options: { exports: archived.map(({ archive, folder, run }) => ({ archive, folder, run })), ...Option.getOrUndefined(Option.map(notary, (held) => ({ notary: held }))) },
                     outputs: archived.flatMap(({ folder }) => ['.dmg', '.zip'].map((extension) => join('{workspaceRoot}', folder, `*${extension}`))),
                     metadata: {
                         technologies: ['xcode'],
-                        description: 'Archives each app with installed products, then zips it with ditto, or where ASC_API_KEY_P8, ASC_API_KEY_ID, and ASC_API_ISSUER_ID are set exports it under the Developer ID Application identity into a disk image that is signed, notarized, and stapled',
+                        description: Option.match(notary, {
+                            onNone: () => 'Archives each app with installed products with xcodebuild archive, then zips it with ditto',
+                            onSome: ({ key, keyId, issuer }) => `Archives each app with installed products with xcodebuild archive, then zips it with ditto, or where ${key}, ${keyId}, and ${issuer} are set exports it under the Developer ID Application identity into a disk image that is signed, notarized, and stapled`,
+                        }),
                         help: { command: 'man ditto', example: { args: ['--norsrc'] } },
                     },
                 },
@@ -166,7 +171,7 @@ const xcodeParts = (options: typeof Options.Type, file: string, container: typeo
         }),
         ...(runs.length > 0 && {
             test: {
-                xcodebuild: target(
+                xcodebuild: sequenced(
                     runs,
                     { technologies: ['xcode'], description: 'Tests each test plan of a shared scheme with xcodebuild', help: { command: 'xcodebuild -help', example: { args: ['-parallel-testing-enabled', 'YES'] } } },
                     { cache: true, dependsOn: ['build--xcodebuild'], inputs: read, ...modes(() => runs) },
@@ -175,7 +180,7 @@ const xcodeParts = (options: typeof Options.Type, file: string, container: typeo
         }),
         ...(installs.length > 0 && {
             install: {
-                xcodebuild: target(
+                xcodebuild: sequenced(
                     installs,
                     {
                         technologies: ['xcode'],
@@ -198,7 +203,7 @@ const xcodeParts = (options: typeof Options.Type, file: string, container: typeo
             ...(schemes.length > 0 && {
                 clean: {
                     xcodebuild: {
-                        executor: `${SHARED}:clean`,
+                        executor: `${distribution.name}:clean`,
                         inputs: read,
                         options: {
                             commands: [...schemes.map((scheme) => invoke('clean', scheme.name, [])), ...archived.map(({ archive }) => ['rm', '-rf', archive])],
@@ -211,13 +216,21 @@ const xcodeParts = (options: typeof Options.Type, file: string, container: typeo
             }),
         },
         ...(released && {
-            published: {
-                executor: `${PLUGIN}:release-publish`,
-                dependsOn: ['pack--ditto', '^nx-release-publish'],
-                inputs: [{ dependentTasksOutputFiles: '**/*.dmg' }],
-                options: { exports: archived.map(({ archive, folder }) => ({ archive, folder })) },
-                metadata: { technologies: ['xcode'], description: 'Signs the Sparkle feed of each disk image pack--ditto wrote with generate_appcast and uploads it to the R2 bucket SPARKLE_FEED_BUCKET names', help: { command: 'generate_appcast --help', example: { options: { dryRun: true } } } },
-            },
+            ...Option.getOrUndefined(
+                Option.map(Option.fromUndefinedOr(options.appcast), (appcast) => ({
+                    published: {
+                        executor: `${PLUGIN}:release-publish`,
+                        dependsOn: ['pack--ditto', '^nx-release-publish'],
+                        inputs: [{ dependentTasksOutputFiles: '**/*.dmg' }],
+                        options: { exports: archived.map(({ archive, folder }) => ({ archive, folder })), appcast },
+                        metadata: {
+                            technologies: ['xcode'],
+                            description: `Signs the Sparkle feed of each disk image pack--ditto wrote with generate_appcast and uploads it to the R2 bucket ${appcast.bucket} names with cf r2 objects put`,
+                            help: { command: 'generate_appcast --help', example: { options: { dryRun: true } } },
+                        },
+                    },
+                })),
+            ),
             release: { version: { versionActions: `${PLUGIN}/release/version-actions`, versionActionsOptions: { manifest: relative(dirname(dirname(file)), file) } } },
         }),
     };

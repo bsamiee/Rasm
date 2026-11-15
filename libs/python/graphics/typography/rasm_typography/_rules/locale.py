@@ -25,7 +25,7 @@ lazy from rasm_typography._outlines import measure, paths
 
 
 class Locale(measures.Rule, frozen=True, kw_only=True):
-    """Code points the coverage requires or keeps by block composed from the script's own glyphs, its derived signs, language forms, and required ligatures."""
+    """Code points the coverage requires or keeps by block composed from the script's own glyphs, its derived signs, language forms, and required ligatures, a form a letter lacks modeled on its joining group without the dots the `dot` letter carries apart."""
 
     script: Script
     coverage: Coverage

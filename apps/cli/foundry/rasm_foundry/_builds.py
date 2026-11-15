@@ -12,7 +12,6 @@ lazy import hashlib
 lazy from importlib import metadata
 lazy from io import BytesIO
 lazy from itertools import groupby
-lazy from operator import itemgetter
 lazy import time
 
 from cyclopts import Parameter
@@ -173,14 +172,14 @@ class _Builds(msgspec.Struct, frozen=True, kw_only=True):
             .bind(lambda done: committed(self.declaration.stamp(face), msgspec.json.encode((done.inputs, done.hash, done.own, done.metrics))).map(lambda _: done))
         )
 
-    def aligned(self, members: tuple[Built, ...], /) -> Outcome[tuple[Built, ...]]:
+    def aligned(self, members: tuple[Built, ...], /) -> tuple[Outcome[Built], ...]:
         """Sets the builds of one typographic family and its other faces' current builds to the line metrics of the face whose own drawing reaches tallest and the farthest own win metrics, rewriting each build they move.
 
         Args:
             members: Current builds of one typographic family, at least one.
 
         Returns:
-            Ok(the members' builds) in input order with their written hashes, the faults of a failed read or write.
+            Each member's build in input order with its written hash, every member answering with the faults of a failed read or write.
         """
         held = {done.face.postscript for done in members}
         builds = (
@@ -194,18 +193,24 @@ class _Builds(msgspec.Struct, frozen=True, kw_only=True):
         )
         tallest = max((done.own for done in builds), key=lambda own: own.ascender - own.descender)
         reach = (max(done.own.win_ascent for done in builds), max(done.own.win_descent for done in builds))
-        return accumulated(
-            Ok(done) if done.metrics == metrics else self.realigned(done, metrics)
-            for done in builds
-            for metrics in (msgspec.structs.replace(done.own, ascender=tallest.ascender, descender=tallest.descender, win_ascent=reach[0], win_descent=reach[1]),)
-        ).map(lambda done: done[: len(members)])
+        return (
+            accumulated(
+                Ok(done) if done.metrics == metrics else self.realigned(done, metrics)
+                for done in builds
+                for metrics in (msgspec.structs.replace(done.own, ascender=tallest.ascender, descender=tallest.descender, win_ascent=reach[0], win_descent=reach[1]),)
+            )
+            .map(lambda done: tuple(map(Ok, done[: len(members)])))
+            .default_with(lambda faults: tuple(Error(faults) for _ in members))
+        )
 
     def realigned(self, done: Built, metrics: rasm_typography.VerticalMetrics, /) -> Outcome[Built]:
         """Writes a build's UFO source and then its binary at a family's vertical metrics, and records the build, `UNREADABLE` for a stored binary or source fontTools refuses."""
         source, buffer = self.declaration.source(done.face), BytesIO()
         opened = paired(
             read(done.path).bind(
-                lambda data: catch(partial(TTFont, lazy=True, recalcBBoxes=False, recalcTimestamp=False), exception=TTLibError)(BytesIO(data)).map_error(partial(Fault.of, Reason.UNREADABLE, str(done.path)))
+                lambda data: catch(partial(TTFont, lazy=True, recalcBBoxes=False, recalcTimestamp=False), exception=TTLibError)(BytesIO(data)).map_error(
+                    partial(Fault.of, Reason.UNREADABLE, str(done.path))
+                )
             ),
             catch(partial(ufoLib2.Font.open, lazy=False), exception=UFOLibError)(source).map_error(partial(Fault.of, Reason.UNREADABLE, str(source))),
         )
@@ -334,7 +339,7 @@ class _Builds(msgspec.Struct, frozen=True, kw_only=True):
         kept = sorted((pair[0] for outcome in held for pair in outcome.to_option().to_list()), key=lambda done: done.face.typographic) if action.building else ()
         families = tuple(tuple(members) for _, members in groupby(kept, key=lambda done: done.face.typographic))
         aligned = await amap(lambda members: to_process.run_sync(self.aligned, members), families)
-        moved = {member.path: outcome.map(itemgetter(index)) for members, outcome in zip(families, aligned, strict=True) for index, member in enumerate(members)}
+        moved = {member.path: found for members, outcomes in zip(families, aligned, strict=True) for member, found in zip(members, outcomes, strict=True)}
         return [outcome.bind(lambda pair: moved.get(pair[0].path, Ok(pair[0])).map(lambda done: (done, msgspec.structs.replace(pair[1], hash=done.hash)))) for outcome in held]
 
     async def verified(self, action: Action, faces: tuple[Faces, ...], /) -> Outcome[tuple[Report, ...]]:
@@ -470,10 +475,11 @@ async def performed(
     Builds key on the installed version of every distribution the app requires, transitively, each requirement taken where its marker holds for the extras requesting it.
 
     Returns:
-        One report per face in declaration order, or every face's faults: `UNREADABLE` for a required distribution the environment lacks, `UNREADABLE` and `INVALID` for the declaration, corpus, or an approval, `UNMET` for a build missing a
+        One report per face in declaration order, or every face's faults: `UNREADABLE` for a required distribution the environment lacks, `UNREADABLE` and `INVALID` for the declaration, corpus, or an approval,
+        `OUTSIDE` for an original GSUB lookup kind or format the import holds no record for, `UNMET` for a build missing a
         requirement, which stops a publication whole, `ABSENT` for an unknown name, a missing current build, a publication without destination, a face a rule cannot measure, or
-        an approval no requirement of the face reads, `FAILED` for failed hinting, a failed fontspector run or Unicode download, or an outline operation the native boolean refuses,
-        `UNWRITABLE` for an output.
+        an approval no requirement of the face reads, `FAILED` for failed hinting, a failed fontspector run or Unicode download, an outline operation the native boolean refuses,
+        or feature code the compiler refuses, `UNWRITABLE` for an output.
     """
     package = canonicalize_name(__name__.partition(".")[0])
     reached = pending = frozenset({(package, frozenset[str]())})

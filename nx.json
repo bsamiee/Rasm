@@ -7,20 +7,20 @@
     "neverConnectToCloud": true,
     "sync": { "globalGenerators": [ "@rasm/nx-distribution:executor-schemas" ] },
     "plugins": [
-        "@rasm/nx-distribution",
-        { "plugin": "@rasm/nx-apple", "options": { "trustPackages": true } },
-        "@rasm/nx-cargo",
-        { "plugin": "@rasm/nx-cmake", "exclude": [ "tools/ast-grep/grammars/**" ] },
-        { "plugin": "@rasm/nx-uv", "exclude": [ ".config/mise/locks/**" ] },
-        "@rasm/nx-dotnet",
+        { "plugin": "@rasm/nx-distribution", "options": { "outputPath": ".artifacts/distribution/{projectName}", "releaseTag": "release", "platformTagPrefix": "os:", "storeCredentials": { "blender": "BLENDER_EXTENSIONS_TOKEN" }, "unrealPackages": { "variable": "UNREAL_ENGINE_ROOT", "argument": "--prefix" } } },
+        { "plugin": "@rasm/nx-apple", "options": { "trustPackages": true, "outputPath": ".artifacts/apple/{projectName}", "releaseTag": "release", "platformTagPrefix": "os:", "identities": { "APPLE_DEVELOPMENT_P12": "APPLE_DEVELOPMENT_P12_PASSWORD", "DEVELOPER_ID_P12": "DEVELOPER_ID_P12_PASSWORD" } } },
+        { "plugin": "@rasm/nx-cargo", "options": { "outputPath": ".artifacts/llvm-cov/{projectName}", "releaseTag": "release" } },
+        { "plugin": "@rasm/nx-cmake", "exclude": [ "tools/ast-grep/grammars/**" ], "options": { "outputPath": ".artifacts/cmake/projects/{projectName}", "releaseTag": "release" } },
+        { "plugin": "@rasm/nx-uv", "exclude": [ ".config/mise/locks/**" ], "options": { "outputPath": ".artifacts/uv/{projectName}", "coveragePath": ".artifacts/coverage/{projectName}", "releaseTag": "release" } },
+        { "plugin": "@rasm/nx-dotnet", "options": { "releaseTag": "release", "platformTagPrefix": "os:", "pushCredential": "NUGET_API_KEY", "analyzerProject": "apps/nx/dotnet/analyzer/MsbuildAnalyzer.csproj" } },
         "@rasm/nx-docker",
-        "@rasm/nx-pulumi",
-        { "plugin": "@rasm/nx-typescript", "options": { "compilerPackages": [ "@typescript/native", "@effect/tsgo" ] } },
-        "@rasm/nx-vite",
-        "@rasm/nx-vitest",
-        "@rasm/nx-storybook"
+        { "plugin": "@rasm/nx-pulumi", "options": { "configurations": { "deploy": { "release": [ "--production" ] } } } },
+        { "plugin": "@rasm/nx-typescript", "options": { "compilerPackages": [ "@typescript/native", "@effect/tsgo" ], "outputPath": ".artifacts/pnpm/{projectName}", "releaseTag": "release", "platformTagPrefix": "os:" } },
+        { "plugin": "@rasm/nx-vite", "options": { "outputPath": ".artifacts/vite/{projectName}" } },
+        { "plugin": "@rasm/nx-vitest", "options": { "outputPath": ".artifacts/vitest/{projectName}" } },
+        { "plugin": "@rasm/nx-storybook", "options": { "outputPath": ".artifacts/storybook/{projectName}" } }
     ],
     "targetDefaults": { "@nx/js:release-publish": { "executor": "@rasm/nx-distribution:publish", "dependsOn": [ "build--*" ], "options": { "publish": [ "pnpm", "publish", "--recursive", "--filter", "{projectName}", "--no-git-checks" ], "preview": [ "--dry-run" ], "credential": "NODE_AUTH_TOKEN" } } },
-    "pluginsConfig": { "@nx/js": { "analyzeSourceFiles": false, "projectsAffectedByDependencyUpdates": "auto" }, "@rasm/nx-distribution": { "outputPath": ".artifacts" } },
+    "pluginsConfig": { "@nx/js": { "analyzeSourceFiles": false, "projectsAffectedByDependencyUpdates": "auto" } },
     "release": { "projects": [ "tag:release" ], "version": { "conventionalCommits": true }, "changelog": { "workspaceChangelog": { "createRelease": "github", "file": false } }, "git": { "commitMessage": "chore: publish {version}" } }
 }

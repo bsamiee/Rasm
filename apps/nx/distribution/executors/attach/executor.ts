@@ -1,11 +1,11 @@
 import { createProjectFileMapUsingProjectGraph, type ExecutorContext } from '@nx/devkit';
 import { FsTree } from '@nx/devkit/internal';
-import { Array, Effect, Struct } from 'effect';
+import { Array, Cause, Effect, Struct } from 'effect';
 import { CommandLine } from 'effect/process';
 import { createNxReleaseConfig } from 'nx/src/command-line/release/config/config';
 import { createReleaseGraph } from 'nx/src/command-line/release/utils/release-graph';
 import { createGitTagValues } from 'nx/src/command-line/release/utils/shared';
-import { DistributionError, Dry, dried, packaged, run, spawned, Words } from '#/executor';
+import { Dry, dried, packaged, run, spawned, Words } from '#/executor';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -18,13 +18,13 @@ const Attach = Dry.mapFields(Struct.assign({ __unparsed__: Words })).annotate({
 
 const tagged = Effect.fnUntraced(function* (context: ExecutorContext, project: string) {
     const tree = new FsTree(context.root, context.isVerbose);
-    const failed = DistributionError.refused(project, 'has no git tag: nx.json release does not resolve');
+    const failed = (cause: unknown) => new Cause.UnknownError(cause, `${project} has no git tag: nx.json release does not resolve`);
     const owned = yield* Effect.tryPromise({ try: () => createProjectFileMapUsingProjectGraph(context.projectGraph), catch: failed });
     const { error, nxReleaseConfig } = yield* Effect.tryPromise({ try: () => createNxReleaseConfig(context.projectGraph, owned, context.nxJsonConfiguration?.release), catch: failed });
     const resolved = yield* Effect.mapError(Effect.fromNullishOr(nxReleaseConfig), () => failed(error?.code));
     const graph = yield* Effect.tryPromise({ try: () => createReleaseGraph({ tree, projectGraph: context.projectGraph, nxReleaseConfig: resolved, filters: {}, firstRelease: false, verbose: context.isVerbose, skipVersionResolution: true }), catch: failed });
-    const [group, actions] = yield* Effect.mapError(Effect.all([Effect.fromNullishOr(graph.projectToReleaseGroup.get(project)), Effect.fromNullishOr(graph.projectsToVersionActions.get(project))]), DistributionError.refused(project, 'has no git tag: no release group of nx.json release holds it'));
-    const { currentVersion } = yield* Effect.tryPromise({ try: () => actions.readCurrentVersionFromSourceManifest(tree), catch: DistributionError.refused(project, 'has no git tag: its manifest states no version') }).pipe(Effect.flatMap(Effect.fromNullishOr));
+    const [group, actions] = yield* Effect.mapError(Effect.all([Effect.fromNullishOr(graph.projectToReleaseGroup.get(project)), Effect.fromNullishOr(graph.projectsToVersionActions.get(project))]), (cause) => new Cause.UnknownError(cause, `${project} has no git tag: no release group of nx.json release holds it`));
+    const { currentVersion } = yield* Effect.tryPromise({ try: () => actions.readCurrentVersionFromSourceManifest(tree), catch: (cause) => new Cause.UnknownError(cause, `${project} has no git tag: its manifest states no version`) }).pipe(Effect.flatMap(Effect.fromNullishOr));
     return yield* Effect.mapError(Effect.fromOption(Array.head(createGitTagValues([group], new Map([[group, new Set([project])]]), { [project]: { currentVersion, newVersion: currentVersion, dependentProjects: [] } }))), failed);
 });
 

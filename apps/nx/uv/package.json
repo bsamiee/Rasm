@@ -10,7 +10,8 @@
     "license": "MIT",
     "type": "module",
     "imports": {
-        "#/*": "./*.ts"
+        "#/*": "./*.ts",
+        "#package": "./package.json"
     },
     "exports": {
         ".": "./plugin.ts",
@@ -41,7 +42,8 @@
             "./package.json": "./package.json"
         },
         "imports": {
-            "#/*": "./dist/*.js"
+            "#/*": "./dist/*.js",
+            "#package": "./package.json"
         }
     }
 }

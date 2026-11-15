@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 from functools import cache, cached_property, partial
-from typing import Literal, override
+from typing import Literal, override, Self
 lazy from collections.abc import Callable, Iterable, Mapping, Sequence
 lazy from graphlib import TopologicalSorter
 lazy from io import BytesIO
@@ -25,6 +25,57 @@ lazy from rasm_typography._outlines import paths
 type _Direction = Literal["ltr", "rtl", "ttb", "btt"]
 
 # --- [MODELS] ---------------------------------------------------------------------------
+
+# --- [TABLES]
+
+
+class _Head(msgspec.Struct, frozen=True, kw_only=True, rename="camel"):
+    """`head` fields a source and its checks read."""
+
+    units_per_em: int
+    created: int
+    font_revision: float
+    lowest_rec_ppem: int = msgspec.field(name="lowestRecPPEM")
+
+
+class _Hhea(msgspec.Struct, frozen=True, kw_only=True, rename="camel"):
+    """`hhea` fields a source and its checks read."""
+
+    ascent: int
+    descent: int
+    line_gap: int
+    caret_offset: int
+
+
+class _Os2(msgspec.Struct, frozen=True, kw_only=True, rename="camel"):
+    """`OS/2` fields a source and its checks read."""
+
+    ach_vend_id: str = msgspec.field(name="achVendID")
+    us_win_ascent: int
+    us_win_descent: int
+
+
+class _Post(msgspec.Struct, frozen=True, kw_only=True, rename="camel"):
+    """`post` fields a source and its checks read."""
+
+    italic_angle: float
+
+
+class Header(msgspec.Struct, frozen=True, kw_only=True):
+    """Header table fields of a font decoded from the attributes fontTools sets on its table objects, each field keyed by its table tag."""
+
+    head: _Head
+    hhea: _Hhea
+    os2: _Os2 = msgspec.field(name="OS/2")
+    post: _Post
+
+    @classmethod
+    def read(cls, font: TTFont, /) -> Self:
+        """Decodes the tables of a font, `msgspec.ValidationError` naming the path of a field its tables lack or type apart."""
+        return msgspec.convert({field.encode_name: font[field.encode_name] for field in msgspec.structs.fields(cls)}, type=cls, from_attributes=True)
+
+
+# --- [SHAPES]
 
 
 class _Placed(msgspec.Struct, frozen=True, kw_only=True):
@@ -138,6 +189,11 @@ class Binary[T: bytes | TTFont = bytes]:
     def tables(self) -> TTFont:
         """Native table reader sharing the binary's lifetime."""
         return data if isinstance(data := self.data, TTFont) else TTFont(BytesIO(data), lazy=True)
+
+    @cached_property
+    def header(self) -> Header:
+        """Header table fields of the binary."""
+        return Header.read(self.tables)
 
     @cached_property
     def encoded(self) -> frozendict[int, str]:
@@ -266,4 +322,4 @@ class Binary[T: bytes | TTFont = bytes]:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Binary", "Shaped"]
+__all__ = ["Binary", "Header", "Shaped"]

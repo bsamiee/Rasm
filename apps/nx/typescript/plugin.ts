@@ -1,13 +1,12 @@
 import { createRequire, findPackageJSON } from 'node:module';
 import { basename, dirname, extname, join, relative, resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { layer } from '@effect/platform-node/NodeServices';
-import { AggregateCreateNodesError, type CreateNodes, type CreateNodesContext, createNodesFromFiles, detectPackageManager, getPackageManagerCommand, hashArray, normalizePath, type ProjectConfiguration, parseJson, type TargetConfiguration } from '@nx/devkit';
-import { calculateHashesForCreateNodes, getLockFileName, getNamedInputs, hashFile, hashObject, hashWithWorkspaceContext, mergeTargetConfigurations, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
+import { AggregateCreateNodesError, type CreateNodes, type CreateNodesContext, createNodesFromFiles, detectPackageManager, getPackageManagerCommand, normalizePath, type PackageManager, type ProjectConfiguration, readJsonFile, type TargetConfiguration } from '@nx/devkit';
+import { calculateHashesForCreateNodes, getLockFileName, getNamedInputs, hashObject, hashWithWorkspaceContext, mergeTargetConfigurations, type PackageJson, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import type { ParsedCommandLine } from '@typescript/native/sync';
-import { Array, Effect, Equal, FileSystem, Formatter, Match, Option, type PlatformError, Predicate, Record, Result, Schema, UndefinedOr } from 'effect';
-import type { PackageJson } from 'nx/src/utils/package-json';
+import { Array, Cause, Effect, Equal, FileSystem, Match, Option, type PlatformError, Predicate, Record, Result, Schema, UndefinedOr } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -20,63 +19,65 @@ type Verbs = Readonly<Record<string, Readonly<Record<string, TargetConfiguration
 const CONFIG = 'tsconfig.json';
 const MANIFEST = 'package.json';
 const WORKER = 'cloudflare.config.ts';
-const SHARED = distribution.name;
+const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#package'))).name;
+const PACKS = {
+    npm: { argv: ['npm', 'pack'], to: (at: string) => ['--pack-destination', at], workspace: MANIFEST },
+    pnpm: { argv: ['pnpm', 'pack'], to: (at: string) => ['--out', join(at, '%s.tgz')], workspace: 'pnpm-workspace.yaml' },
+    yarn: { argv: ['yarn', 'pack'], to: (at: string) => ['--out', join(at, '%s.tgz')], workspace: '.yarnrc.yml' },
+    bun: { argv: ['bun', 'pm', 'pack'], to: (at: string) => ['--destination', at], workspace: MANIFEST },
+} as const satisfies Record<PackageManager, { readonly argv: readonly string[]; readonly to: (at: string) => readonly string[]; readonly workspace: string }>;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Manifest = Schema.fromJsonString(Schema.Struct({ name: Schema.String, version: Schema.optionalKey(Schema.String), os: Schema.Array(Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))) }));
-const Options = Schema.Struct({ outputPath: Schema.optionalKey(Schema.String), compilerPackages: Schema.NonEmptyArray(Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed(['typescript'] as const))) }).annotate({
-    description: 'compilerPackages: npm packages every tsc target hashes as external dependencies, the first the native TypeScript package whose tsc runs and whose ./sync API reads each tsconfig.json',
+const Manifest = Schema.fromJsonString(Schema.Struct({ version: Schema.optionalKey(Schema.String), os: Schema.Array(Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))) }));
+const Options = Schema.Struct({
+    outputPath: Schema.optionalKey(Schema.String),
+    releaseTag: Schema.optionalKey(Schema.String),
+    platformTagPrefix: Schema.optionalKey(Schema.String),
+    compilerPackages: Schema.NonEmptyArray(Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed(['typescript'] as const))),
+}).annotate({
+    description:
+        'outputPath: workspace folder the package manager packs each tarball to, {projectName} naming the project, absent packs into the package folder. releaseTag: tag of every package stating a version, absent tags none. platformTagPrefix: prefix of a tag per platform the package.json os field allows, absent tags none. compilerPackages: npm packages every tsc target hashes as external dependencies, the first the native TypeScript package whose tsc runs and whose ./sync API reads each tsconfig.json',
 });
-
-// --- [ERRORS] --------------------------------------------------------------------------
-
-class TypescriptError extends Schema.TaggedError<TypescriptError, { readonly brand: unique symbol }>()('TypescriptError', {
-    reason: Schema.TaggedUnion({ Unresolved: { specifier: Schema.String }, Unloaded: {}, Invalid: { reasons: Schema.NonEmptyArray(Schema.String) } }),
-    subject: Schema.String,
-    cause: Schema.optionalKey(Schema.Defect()),
-}) {
-    static readonly of = (reason: TypescriptError['reason'], subject: string) => (cause?: unknown) => TypescriptError.make({ reason, subject, ...(cause === undefined ? {} : { cause }) });
-
-    override get message() {
-        const said = Match.valueTags(this.reason, { Unresolved: ({ specifier }) => `resolves no ${specifier}`, Unloaded: () => 'does not load', Invalid: ({ reasons }) => reasons.join('; ') });
-        return [`${this.subject} ${said}`, ...(this.cause === undefined ? [] : [Formatter.format(this.cause)])].join(': ');
-    }
-}
+const Input = Schema.declare((input: unknown): input is NonNullable<TargetConfiguration['inputs']>[number] => Predicate.isString(input) || Predicate.isObject(input));
+const Overrides = Schema.fromJsonString(Schema.Struct({ nx: Schema.optionalKey(Schema.Struct({ targets: Schema.optionalKey(Schema.Record(Schema.String, Schema.Struct({ inputs: Schema.optionalKey(Schema.mutable(Schema.Array(Input))) }))) })) })).annotate({
+    description: "The nx.targets rows of a project's package.json, whose inputs Nx merges over the inferred targets after every plugin",
+});
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const run = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem>) => Effect.runPromise(Effect.provide(effect, layer));
 
+const rendered = (cause: Cause.Cause<unknown>) => Effect.fail(new Cause.UnknownError(cause, Cause.pretty(cause)));
+
+const manifested = Effect.fnUntraced(function* (workspaceRoot: string, root: string) {
+    const fs = yield* FileSystem.FileSystem;
+    const manifest = join(workspaceRoot, root, 'package.json');
+    return (yield* fs.exists(manifest)) ? ((yield* Effect.flatMap(fs.readFileString(manifest), Schema.decodeEffect(Overrides))).nx?.targets ?? {}) : {};
+});
+
+const aggregated = (verbs: Verbs, stated: Readonly<Record<string, Pick<TargetConfiguration, 'inputs'>>>, technology: string): Record<string, TargetConfiguration> =>
+    Record.fromEntries(
+        Record.collect(Record.filter(verbs, Predicate.not(Record.isEmptyRecord)), (verb, tools): readonly (readonly [string, TargetConfiguration])[] => [
+            [verb, { dependsOn: [`${verb}--*`], inputs: ['...', ...Array.dedupe(Record.collect(tools, (tool, target) => mergeTargetConfigurations(stated[`${verb}--${tool}`] ?? {}, { ...target, inputs: target.inputs ?? ['default', '^default'] }).inputs ?? []).flat())] }],
+            ...Record.collect(tools, (tool, target): readonly [string, TargetConfiguration] => [`${verb}--${tool}`, { ...target, metadata: { technologies: [technology], ...target.metadata } }]),
+        ]).flat(),
+    );
+
+const projected = Effect.fnUntraced(function* (workspaceRoot: string, root: string, technology: string, verbs: Verbs, extra: Partial<ProjectConfiguration> = {}) {
+    const stated = yield* manifested(workspaceRoot, root);
+    return { root, metadata: { technologies: [technology] }, ...extra, targets: aggregated(verbs, stated, technology) } satisfies ProjectConfiguration;
+});
+
 const installed = (name: string, from: string) => Option.isSome(Option.flatMap(Option.liftThrowable(findPackageJSON)(name, pathToFileURL(from)), Option.fromUndefinedOr));
 
 const stamped = (workspaceRoot: string, sources: readonly string[]) => Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, Array.dedupe(sources.flatMap((at) => [at, join(dirname(at), '*')]))));
 
-const stated = Effect.fnUntraced(function* (workspaceRoot: string, root: string) {
-    const fs = yield* FileSystem.FileSystem;
-    const file = join(root, MANIFEST);
-    const text = yield* fs.readFileString(join(workspaceRoot, file));
-    const manifest = yield* Effect.try({ try: () => parseJson<PackageJson>(text), catch: TypescriptError.of({ _tag: 'Unloaded' }, file) });
-    return { text, targets: manifest.nx?.targets ?? {} };
-});
-
-const projected = (root: string, technology: string, verbs: Verbs, targets: Readonly<Record<string, TargetConfiguration>>, extra: Partial<ProjectConfiguration> = {}): ProjectConfiguration => ({
-    root,
-    metadata: { technologies: [technology] },
-    ...extra,
-    targets: Record.fromEntries(
-        Record.collect(Record.filter(verbs, Predicate.not(Record.isEmptyRecord)), (verb, tools): readonly (readonly [string, TargetConfiguration])[] => [
-            [verb, { dependsOn: [`${verb}--*`], inputs: ['...', ...Array.dedupe(Record.collect(tools, (tool, target) => mergeTargetConfigurations(targets[`${verb}--${tool}`] ?? {}, target).inputs ?? ['default', '^default']).flat())] }],
-            ...Record.collect(tools, (tool, target): readonly [string, TargetConfiguration] => [`${verb}--${tool}`, target]),
-        ]).flat(),
-    ),
-});
-
 const solved = Effect.fnUntraced(function* (workspaceRoot: string, compiler: string, configs: Array.NonEmptyReadonlyArray<string>) {
-    const unopened = TypescriptError.of({ _tag: 'Unloaded' }, workspaceRoot);
+    const unopened = (cause: unknown) => new Cause.UnknownError(cause, `${compiler}/sync opens no snapshot of ${workspaceRoot}`);
     const { API }: typeof import('@typescript/native/sync') = yield* Effect.tryPromise({
         try: () => import(pathToFileURL(createRequire(resolve(workspaceRoot, Array.headNonEmpty(configs))).resolve(`${compiler}/sync`)).href),
-        catch: TypescriptError.of({ _tag: 'Unresolved', specifier: `${compiler}/sync` }, workspaceRoot),
+        catch: (cause) => new Cause.UnknownError(cause, `${workspaceRoot} resolves no ${compiler}/sync`),
     });
     const api = yield* Effect.acquireDisposable(Effect.sync(() => new API({ cwd: workspaceRoot })));
     const referenced = ({ projectReferences = [] }: ParsedCommandLine) => projectReferences.map(({ path: at }) => (extname(at) === '.json' ? at : join(at, CONFIG)));
@@ -85,7 +86,7 @@ const solved = Effect.fnUntraced(function* (workspaceRoot: string, compiler: str
         const read = api.parseConfigFile(file);
         return { errors: read.errors.map(({ text }) => text), owned: [file, ...referenced(read)] };
     };
-    const reads = configs.map((config) => [config, Result.try({ try: () => parsed(config), catch: TypescriptError.of({ _tag: 'Unloaded' }, config) })] as const);
+    const reads = configs.map((config) => [config, Result.try({ try: () => parsed(config), catch: (cause) => new Cause.UnknownError(cause, `${config} does not parse as a tsconfig`) })] as const);
     const files = Array.dedupe(Array.getSuccesses(reads.map(([, read]) => read)).flatMap(({ owned }) => owned));
     const snapshot = yield* Effect.acquireDisposable(Effect.try({ try: () => api.createSnapshot({ openProjects: files }), catch: unopened }));
     const opened = new Map(
@@ -125,7 +126,7 @@ const resolved = Effect.fnUntraced(function* (workspaceRoot: string, { config, e
             ].map(local);
         });
     const sources = Array.dedupe(holding.flatMap(({ chain, parsed }) => [...chain, ...parsed.fileNames]).map(local)).filter((at) => !(at.startsWith('..') || at.startsWith(`${dirname(config)}/`) || at.split('/').includes('node_modules')));
-    yield* Array.match(errors, { onEmpty: () => Effect.void, onNonEmpty: (reasons) => Effect.fail(TypescriptError.of({ _tag: 'Invalid', reasons }, config)()) });
+    yield* Array.match(errors, { onEmpty: () => Effect.void, onNonEmpty: (reasons) => Effect.fail(new Cause.UnknownError(reasons, `${config} does not compile its options: ${reasons.join('; ')}`)) });
     return {
         commands: checked.map(({ file, parsed }) => ['tsc', (parsed.projectReferences ?? []).length > 0 ? '--build' : '--project', relative(folder, file)].map(quoteShellArg).join(' ')),
         configs: checked.map(({ file }) => relative(folder, file)),
@@ -149,11 +150,11 @@ const compiled = (root: string, { commands, configs, outputs, sources }: Program
         onEmpty: () => ({ check: { tsc: { ...tsc, metadata: metadata('Type-checks every program of the project with tsc', ['--extendedDiagnostics']) } } }),
         onNonEmpty: (written) => {
             const build = { tsc: { ...tsc, outputs: written.map((at) => join('{workspaceRoot}', at)), metadata: metadata('Emits JavaScript and declarations with tsc, type-checking every program it builds', ['--listEmittedFiles']) } };
-            const cleared = Record.keys(build).map((tool) => `build--${tool}`);
+            const removed = Record.collect(build, (tool) => `build--${tool}`);
             return {
                 build,
                 check: {
-                    tsc: { executor: 'nx:noop', dependsOn: ['build--tsc'], metadata: metadata('Type-checks through the build--tsc compile', ['--extendedDiagnostics']) },
+                    tsc: { executor: 'nx:noop', dependsOn: ['build--tsc'], metadata: metadata('Type-checks through the build--tsc compile with tsc', ['--extendedDiagnostics']) },
                     ...(linted && {
                         publint: {
                             command: 'publint --strict',
@@ -168,9 +169,9 @@ const compiled = (root: string, { commands, configs, outputs, sources }: Program
                 },
                 clean: {
                     tsc: {
-                        executor: `${SHARED}:clean`,
-                        options: { targets: cleared, commands: configs.map((config) => ['tsc', '--build', '--clean', config]), cwd: root },
-                        metadata: { description: `Removes the outputs ${cleared.join(', ')} declare and each program output tsc --build --clean deletes`, help: { command: `${exec} tsc --build --help`, example: { args: ['--dry'] } } },
+                        executor: `${distribution.name}:clean`,
+                        options: { targets: removed, commands: configs.map((config) => ['tsc', '--build', '--clean', config]), cwd: root },
+                        metadata: { description: `Removes the outputs ${removed.join(', ')} declare and each program output with tsc --build --clean`, help: { command: `${exec} tsc --build --help`, example: { args: ['--dry'] } } },
                     },
                 },
             };
@@ -178,56 +179,72 @@ const compiled = (root: string, { commands, configs, outputs, sources }: Program
     });
 };
 
-const program = Effect.fnUntraced(function* (cache: PluginCache<Program>, context: CreateNodesContext, packages: readonly string[], key: string, fresh: Option.Option<Result.Result<Solution, TypescriptError>>, config: string) {
+const program = Effect.fnUntraced(function* (cache: PluginCache<Program>, context: CreateNodesContext, packages: readonly string[], key: string, fresh: Option.Option<Result.Result<Solution, Cause.UnknownError>>, config: string) {
     const root = dirname(config);
     const read = yield* Option.match(fresh, {
-        onNone: () => Effect.mapError(Effect.fromNullishOr(cache.get(key)), TypescriptError.of({ _tag: 'Unloaded' }, config)),
+        onNone: () => Effect.mapError(Effect.fromNullishOr(cache.get(key)), (cause) => new Cause.UnknownError(cause, `${config} holds no cached program and no fresh read`)),
         onSome: (solution) => Effect.flatMap(Effect.fromResult(solution), (held) => resolved(context.workspaceRoot, held)),
     });
     cache.set(key, read);
-    const { targets } = yield* stated(context.workspaceRoot, root);
     const { exec } = getPackageManagerCommand(detectPackageManager(context.workspaceRoot));
     const upstream = 'production' in getNamedInputs(root, context) ? '^production' : '^default';
-    return projected(root, 'typescript', compiled(root, read, packages, upstream, installed('publint', join(context.workspaceRoot, config)), exec), targets);
+    return yield* projected(context.workspaceRoot, root, 'typescript', compiled(root, read, packages, upstream, installed('publint', join(context.workspaceRoot, config)), exec));
 });
 
-const tarball = Effect.fnUntraced(function* ({ workspaceRoot }: CreateNodesContext, placed: Option.Option<string>, manifest: string) {
+const tarball = Effect.fnUntraced(function* ({ workspaceRoot }: CreateNodesContext, { outputPath, releaseTag, platformTagPrefix }: typeof Options.Type, manifest: string) {
+    const fs = yield* FileSystem.FileSystem;
     const root = dirname(manifest);
-    const { text, targets } = yield* stated(workspaceRoot, root);
-    const { name, version, os } = yield* Schema.decodeEffect(Manifest)(text);
-    const folder = Option.match(placed, { onNone: () => root, onSome: (at) => join(at, 'pnpm', name) });
+    const { version, os } = yield* Effect.flatMap(fs.readFileString(join(workspaceRoot, manifest)), Schema.decodeEffect(Manifest));
+    const manager = detectPackageManager(workspaceRoot);
+    const { argv, to, workspace } = PACKS[manager];
+    const folder = Option.fromUndefinedOr(outputPath);
     const pack = {
-        pnpm: {
-            command: ['pnpm', 'pack', '--out', join(relative(root, folder), '%s.tgz')].map(quoteShellArg).join(' '),
+        [manager]: {
+            command: [...argv, ...Option.match(folder, { onNone: () => [], onSome: (at) => to(relative(root, at)) })].map(quoteShellArg).join(' '),
             options: { cwd: root },
             dependsOn: ['build--*'],
             cache: true,
-            inputs: ['default', '{workspaceRoot}/pnpm-workspace.yaml', { dependentTasksOutputFiles: '**/*' }, { externalDependencies: [] }],
-            outputs: [join('{workspaceRoot}', folder, '*.tgz')],
-            metadata: { description: 'Packs the package into one tarball named for it with pnpm pack', help: { command: 'pnpm pack --help', example: { args: ['--json'] } } },
+            inputs: ['default', join('{workspaceRoot}', workspace), { dependentTasksOutputFiles: '**/*' }, { externalDependencies: [] }],
+            outputs: [
+                join(
+                    '{workspaceRoot}',
+                    Option.getOrElse(folder, () => root),
+                    '*.tgz',
+                ),
+            ],
+            metadata: { description: `Packs the package into one tarball named for it with ${argv.join(' ')}`, help: { command: `${argv.join(' ')} --help`, example: { args: ['--json'] } } },
         },
     } satisfies Record<string, TargetConfiguration>;
-    const cleared = Record.keys(pack).map((tool) => `pack--${tool}`);
+    const removed = Record.collect(pack, (tool) => `pack--${tool}`);
     const verbs: Verbs = {
         pack,
-        clean: { pnpm: { executor: `${SHARED}:clean`, options: { targets: cleared }, metadata: { description: `Removes the outputs ${cleared.join(', ')} declare` } } },
-        attach: { gh: { executor: `${SHARED}:attach`, dependsOn: cleared, inputs: [{ dependentTasksOutputFiles: '**/*' }], metadata: { description: `Uploads the files ${cleared.join(', ')} wrote to the GitHub release of the version the project's manifest states through gh release upload` } } },
+        clean: { [manager]: { executor: `${distribution.name}:clean`, options: { targets: removed }, metadata: { description: `Removes the outputs ${removed.join(', ')} declare`, help: { command: `${getPackageManagerCommand(manager).exec} nx run --help`, example: { options: { targets: removed } } } } } },
+        attach: {
+            gh: {
+                executor: `${distribution.name}:attach`,
+                dependsOn: removed,
+                inputs: [{ dependentTasksOutputFiles: '**/*' }],
+                metadata: { description: `Uploads the files ${removed.join(', ')} wrote to the GitHub release of the version the project's manifest states with gh release upload`, help: { command: 'gh release upload --help', example: { options: { dryRun: true } } } },
+            },
+        },
     };
-    const systems = os.filter((system) => !system.startsWith('!')).map((system) => `os:${system}`);
-    return UndefinedOr.match(version, {
-        onUndefined: () => Option.map(Option.liftPredicate(systems, Array.isReadonlyArrayNonEmpty), (tags): ProjectConfiguration => ({ root, tags: [...tags] })),
-        onDefined: () => Option.some(projected(root, 'npm', verbs, targets, { tags: ['release', ...systems], release: {} })),
+    const systems = UndefinedOr.match(platformTagPrefix, { onUndefined: () => [], onDefined: (prefix) => os.filter((system) => !system.startsWith('!')).map((system) => `${prefix}${system}`) });
+    return yield* UndefinedOr.match(version, {
+        onUndefined: () => Effect.succeed(Option.map(Option.liftPredicate(systems, Array.isReadonlyArrayNonEmpty), (tags): ProjectConfiguration => ({ root, tags: [...tags] }))),
+        onDefined: () => Effect.asSome(projected(workspaceRoot, root, 'npm', verbs, { tags: [...Array.fromNullishOr(releaseTag), ...systems], release: {} })),
     });
 });
 
 const worker = Effect.fnUntraced(function* (context: CreateNodesContext, file: string) {
     const { exec } = getPackageManagerCommand(detectPackageManager(context.workspaceRoot));
     const [root, at] = [dirname(file), join(context.workspaceRoot, file)];
-    const { loadConfig }: typeof import('@cloudflare/config') = yield* Effect.tryPromise({ try: () => import(import.meta.resolve('@cloudflare/config', pathToFileURL(createRequire(at).resolve('cf/package.json')))), catch: TypescriptError.of({ _tag: 'Unresolved', specifier: '@cloudflare/config' }, file) });
-    const { dependencies } = yield* Effect.tryPromise({ try: () => loadConfig(at), catch: TypescriptError.of({ _tag: 'Unloaded' }, file) });
+    const { loadConfig }: typeof import('@cloudflare/config') = yield* Effect.tryPromise({
+        try: () => import(import.meta.resolve('@cloudflare/config', pathToFileURL(createRequire(at).resolve('cf/package.json')))),
+        catch: (cause) => new Cause.UnknownError(cause, `${file} resolves no @cloudflare/config`),
+    });
+    const { dependencies } = yield* Effect.tryPromise({ try: () => loadConfig(at), catch: (cause) => new Cause.UnknownError(cause, `${file} does not load as a Cloudflare config`) });
     const sources = Array.map(Array.fromIterable(dependencies), (dependency) => normalizePath(relative(context.workspaceRoot, dependency))).filter((dependency) => !(dependency.startsWith('..') || dependency.startsWith(`${root}/`) || dependency.split('/').includes('node_modules')));
     const typed = installed('@cloudflare/workers-types', at);
-    const { targets } = yield* stated(context.workspaceRoot, root);
     const codegen = {
         cf: {
             command: typed ? 'cf workers types --include-runtime=false' : 'cf workers types',
@@ -237,55 +254,66 @@ const worker = Effect.fnUntraced(function* (context: CreateNodesContext, file: s
             inputs: ['default', 'production' in getNamedInputs(root, context) ? '^production' : '^default', ...sources.map((dependency) => join('{workspaceRoot}', dependency)), { externalDependencies: ['cf'] }],
             outputs: ['{projectRoot}/.cloudflare/types'],
             metadata: {
-                description: typed ? `Generates the Worker binding types from ${WORKER}, runtime types coming from @cloudflare/workers-types` : `Generates the Worker binding and runtime types from ${WORKER}`,
+                description: typed ? `Generates the Worker binding types from ${WORKER} with cf workers types, runtime types coming from @cloudflare/workers-types` : `Generates the Worker binding and runtime types from ${WORKER} with cf workers types`,
                 help: { command: `${exec} cf workers types --help`, example: { args: ['--mode', 'production'] } },
             },
         },
     } satisfies Record<string, TargetConfiguration>;
-    const cleared = Record.keys(codegen).map((tool) => `codegen--${tool}`);
-    return projected(root, 'cloudflare', { codegen, clean: { cf: { executor: `${SHARED}:clean`, options: { targets: cleared }, metadata: { description: `Removes the outputs ${cleared.join(', ')} declare` } } } }, targets);
+    const removed = Record.collect(codegen, (tool) => `codegen--${tool}`);
+    return yield* projected(context.workspaceRoot, root, 'cloudflare', {
+        codegen,
+        clean: { cf: { executor: `${distribution.name}:clean`, options: { targets: removed }, metadata: { description: `Removes the outputs ${removed.join(', ')} declare`, help: { command: `${exec} nx run --help`, example: { options: { targets: removed } } } } } },
+    });
 });
 
-const nodes = Effect.fnUntraced(function* (files: readonly string[], options: unknown, context: CreateNodesContext) {
-    const { compilerPackages, outputPath } = yield* Schema.decodeEffect(Options)({ ...context.nxJsonConfiguration.pluginsConfig?.[SHARED], ...(Predicate.isObject(options) ? options : {}) });
+const nodes = Effect.fnUntraced(function* (files: readonly string[], options: typeof Options.Encoded | undefined, context: CreateNodesContext) {
+    const settings = yield* Schema.decodeEffect(Options)(options ?? {});
     const held = new Set(files.filter((file) => basename(file) === MANIFEST && dirname(file) !== '.').map(dirname));
     const nested = files.filter((file) => held.has(dirname(file)));
     const configs = nested.filter((file) => basename(file) === CONFIG);
-    const cache = new PluginCache<Program>(join(workspaceDataDirectory, `typescript-${hashObject({ options })}.hash`));
+    const cache = new PluginCache<Program>(join(workspaceDataDirectory, `typescript-${hashObject(options ?? {})}.hash`));
     const lock = getLockFileName(detectPackageManager(context.workspaceRoot));
-    const code = hashArray([...Array.fromNullishOr(UndefinedOr.map(findPackageJSON(import.meta.url), hashFile)), yield* Effect.promise(() => hashWithWorkspaceContext(context.workspaceRoot, [normalizePath(join(relative(context.workspaceRoot, import.meta.dirname), '**'))]))]);
     const hashes = yield* Effect.promise(() =>
         calculateHashesForCreateNodes(
             configs.map(dirname),
-            { options, code },
+            settings,
             context,
             configs.map(() => [lock]),
         ),
     );
-    const keys = new Map(Array.zip(configs, hashes).map(([config, hash]) => [config, `${hash}_${config}`] as const));
+    const keys = new Map(Array.zip(configs, hashes).map(([config, hash]) => [config, `${hash}${config}`] as const));
     const kept = yield* Effect.filter(configs, (config) => UndefinedOr.match(cache.get(keys.get(config) ?? config), { onUndefined: () => Effect.succeed(false), onDefined: ({ sources, stamp }) => Effect.map(stamped(context.workspaceRoot, sources), Equal.equals(stamp)) }));
-    const solutions = new Map(yield* Array.match(Array.difference(configs, kept), { onEmpty: () => Effect.succeed([]), onNonEmpty: (unread) => solved(context.workspaceRoot, Array.headNonEmpty(compilerPackages), unread) }));
-    const read = (file: string): Effect.Effect<Option.Option<ProjectConfiguration>, TypescriptError | PlatformError.PlatformError | Schema.SchemaError, FileSystem.FileSystem> =>
+    const solutions = new Map(yield* Array.match(Array.difference(configs, kept), { onEmpty: () => Effect.succeed([]), onNonEmpty: (unread) => solved(context.workspaceRoot, Array.headNonEmpty(settings.compilerPackages), unread) }));
+    const read = (file: string): Effect.Effect<Option.Option<ProjectConfiguration>, Cause.UnknownError | PlatformError.PlatformError | Schema.SchemaError, FileSystem.FileSystem> =>
         Match.value(basename(file)).pipe(
-            Match.when(CONFIG, () => Effect.asSome(program(cache, context, compilerPackages, keys.get(file) ?? file, Option.fromUndefinedOr(solutions.get(file)), file))),
+            Match.when(CONFIG, () => Effect.asSome(program(cache, context, settings.compilerPackages, keys.get(file) ?? file, Option.fromUndefinedOr(solutions.get(file)), file))),
             Match.when(WORKER, () =>
                 Effect.when(
                     worker(context, file),
                     Effect.sync(() => installed('cf', join(context.workspaceRoot, file))),
                 ),
             ),
-            Match.orElse(() => tarball(context, Option.fromUndefinedOr(outputPath), file)),
+            Match.orElse(() => tarball(context, settings, file)),
         );
-    const each = (file: string) => run(Effect.map(read(file), (project) => ({ projects: Record.getSomes({ [dirname(file)]: project }) })));
+    const each = (file: string) =>
+        run(
+            Effect.catchCause(
+                Effect.map(read(file), (project) => ({ projects: Record.getSomes({ [dirname(file)]: project }) })),
+                rendered,
+            ),
+        );
     return yield* Effect.ensuring(
-        Effect.tryPromise({ try: () => createNodesFromFiles(each, nested, options, context), catch: (cause) => (cause instanceof AggregateCreateNodesError ? cause : new AggregateCreateNodesError([[null, TypescriptError.of({ _tag: 'Unloaded' }, 'createNodes')(cause)]], [])) }),
+        Effect.tryPromise({
+            try: () => createNodesFromFiles(each, nested, options, context),
+            catch: (cause) => (cause instanceof AggregateCreateNodesError ? cause : new AggregateCreateNodesError([[null, new Cause.UnknownError(cause, `${PLUGIN} infers no project`)]], [])),
+        }),
         Effect.sync(() => cache.writeToDisk()),
     );
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const createNodes: CreateNodes = [`**/{${CONFIG},${MANIFEST},${WORKER}}`, (files, options, context) => run(nodes(files, options, context))];
+const createNodes: CreateNodes<typeof Options.Encoded> = [`**/{${CONFIG},${MANIFEST},${WORKER}}`, (files, options, context) => run(nodes(files, options, context))];
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

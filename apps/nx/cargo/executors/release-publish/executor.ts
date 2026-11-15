@@ -1,7 +1,7 @@
 import { pathToFileURL } from 'node:url';
 import type { ExecutorContext } from '@nx/devkit';
-import { Array, Config, Effect, Option, Path, Schema, String } from 'effect';
-import { CargoError, Metadata, printed, run } from '#/workspace';
+import { Array, Cause, Config, Effect, Option, Path, Schema, String } from 'effect';
+import { Metadata, run, spawned } from '#/workspace';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -23,8 +23,11 @@ const execute = Effect.fnUntraced(function* ({ dryRun, cwd: root, package: named
     const [path, stated] = yield* Effect.all([Path.Path, Config.withDefault(Config.Boolean('NX_DRY_RUN'), false)]);
     const dry = dryRun === true || stated;
     const cwd = path.resolve(context.root, root);
-    const { packages } = yield* Effect.flatMap(printed('cargo', ['metadata', '--color', 'never', '--format-version', '1', '--no-deps'], { cwd, stdin: 'ignore' }), Schema.decodeEffect(Metadata));
-    const crate = yield* Effect.mapError(Effect.fromOption(Array.findFirst(packages, ({ name }) => name === named)), CargoError.of({ _tag: 'Missing', what: `crate ${named}` }, root));
+    const { packages } = yield* Effect.flatMap(spawned(['cargo', 'metadata', '--color', 'never', '--format-version', '1', '--no-deps'], { cwd }), Schema.decodeEffect(Metadata));
+    const crate = yield* Effect.fromOption(
+        Array.findFirst(packages, ({ name }) => name === named),
+        () => new Cause.NoSuchElementError(`${root} holds no crate ${named}`),
+    );
     const placed = new Map<string | undefined, string>(packages.map((member) => [path.dirname(member.manifest_path), member.name]));
     const reached = (names: ReadonlySet<string>): ReadonlySet<string> => {
         const needed = packages.filter(({ name }) => names.has(name)).flatMap(({ dependencies }) => dependencies.flatMap(({ path: at }) => Array.fromNullishOr(placed.get(at))));
@@ -35,7 +38,7 @@ const execute = Effect.fnUntraced(function* ({ dryRun, cwd: root, package: named
     const publish = ['publish', ...selected, ...Array.fromNullishOr(registry).flatMap((held) => ['--registry', held]), ...(dry ? ['--dry-run'] : []), '--locked', ...words];
     const credential = registry === undefined ? 'CARGO_REGISTRY_TOKEN' : `CARGO_REGISTRIES_${String.kebabToSnake(registry).toUpperCase()}_TOKEN`;
     const token = Option.filter(yield* Config.option(Config.String(credential)), String.isNonEmpty);
-    yield* dry || Option.isSome(token) ? printed('cargo', publish, { cwd, stdin: 'inherit', stdout: 'inherit', stderr: 'inherit' }) : Effect.logWarning(`Skipped cargo publish of ${crate.name}: ${credential} is not set`);
+    yield* dry || Option.isSome(token) ? spawned(['cargo', ...publish], { cwd, stdin: 'inherit', stdout: 'inherit', stderr: 'inherit' }) : Effect.logWarning(`Skipped cargo publish of ${crate.name}: ${credential} is not set`);
     return { success: true };
 }, run);
 

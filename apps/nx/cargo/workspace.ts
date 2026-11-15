@@ -1,8 +1,9 @@
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
 import { readJsonFile, type TargetConfiguration } from '@nx/devkit';
 import type { PackageJson } from '@nx/devkit/internal';
-import { Array, Context, Effect, FileSystem, Formatter, flow, Layer, ManagedRuntime, Option, Record, Result, Schema, type Scope, Stream, UndefinedOr } from 'effect';
+import { Array, Cause, Context, Effect, FileSystem, Layer, ManagedRuntime, Option, Predicate, Record, Result, Schema, type Scope, Stream, String, UndefinedOr } from 'effect';
 import { Toml } from 'effect/encoding';
 import { ChildProcess, CommandLine } from 'effect/process';
 
@@ -17,6 +18,7 @@ type Member = Workspace['members'][number];
 const MANIFEST = 'Cargo.toml';
 const LOCK = 'Cargo.lock';
 const CRATE = 'nx_cargo';
+const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#package'))).name;
 const DENY = Record.map({ config: 'deny', exceptions: 'deny.exceptions' }, (stem) => [`${stem}.toml`, `.${stem}.toml`, `.cargo/${stem}.toml`]);
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -43,42 +45,32 @@ const Metadata = Schema.fromJsonString(
 );
 const Table = Schema.Record(Schema.String, Schema.Unknown);
 const Profiles = Schema.Struct({ profile: Schema.Record(Schema.String, Schema.Struct({ inherits: Schema.optionalKey(Schema.String), panic: Schema.optionalKey(Schema.String) })).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))) });
-const Reason = Schema.TaggedUnion({ Exited: { code: Schema.Int, said: Schema.String }, Undecoded: { form: Schema.String }, Missing: { what: Schema.String }, Refused: { rule: Schema.String } });
-
-// --- [ERRORS] --------------------------------------------------------------------------
-
-class CargoError extends Schema.TaggedError<CargoError, { readonly brand: unique symbol }>()('CargoError', {
-    reason: Reason,
-    subject: Schema.String,
-    cause: Schema.optionalKey(Schema.Defect()),
-}) {
-    static readonly of = (reason: CargoError['reason'], subject: string) => (cause?: unknown) => CargoError.make({ reason, subject, ...(cause === undefined ? {} : { cause }) });
-
-    override get message() {
-        const reason = Reason.match(this.reason, { Exited: ({ code, said }) => [`exits ${code}`, ...(said === '' ? [] : [said])].join('\n'), Undecoded: ({ form }) => `does not read as ${form}`, Missing: ({ what }) => `states no ${what}`, Refused: ({ rule }) => rule });
-        return [`${this.subject}: ${reason}`, ...(this.cause === undefined ? [] : [Formatter.format(this.cause)])].join(': ');
-    }
-}
+const Input = Schema.declare((input: unknown): input is NonNullable<TargetConfiguration['inputs']>[number] => Predicate.isString(input) || Predicate.isObject(input));
+const Overrides = Schema.fromJsonString(Schema.Struct({ nx: Schema.optionalKey(Schema.Struct({ targets: Schema.optionalKey(Schema.Record(Schema.String, Schema.Struct({ inputs: Schema.optionalKey(Schema.mutable(Schema.Array(Input))) }))) })) })).annotate({
+    description: "The nx.targets rows of a project's package.json, whose inputs Nx merges over the inferred targets after every plugin",
+});
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class Links extends Context.Service<Links, Map<string, Member>>()('@rasm/nx-cargo/workspace/Links') {
+class Links extends Context.Service<Links, Map<string, Member>>()(`${PLUGIN}/workspace/Links`) {
     static readonly layer = Layer.sync(Links, () => new Map());
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const printed = Effect.fnUntraced(function* (command: string, args: readonly string[], options: ChildProcess.CommandOptions) {
-    const handle = yield* ChildProcess.make(command, args, { extendEnv: true, detached: false, ...options });
-    const [stdout, said, code] = yield* Effect.all([Stream.mkString(Stream.decodeText(handle.stdout)), Stream.mkString(Stream.decodeText(handle.stderr)), handle.exitCode], { concurrency: 'unbounded' });
-    return code === 0 ? stdout : yield* CargoError.of({ _tag: 'Exited', code, said }, CommandLine.display([command, ...args]))();
+const rendered = (cause: Cause.Cause<unknown>) => Effect.fail(new Cause.UnknownError(cause, Cause.pretty(cause)));
+
+const spawned = Effect.fnUntraced(function* (argv: Array.NonEmptyReadonlyArray<string>, options: ChildProcess.CommandOptions = {}) {
+    const handle = yield* ChildProcess.make(Array.headNonEmpty(argv), Array.tailNonEmpty(argv), { stdin: 'ignore', ...options, extendEnv: true, detached: false });
+    const [stdout, stderr, code] = yield* Effect.all([Stream.mkString(Stream.decodeText(handle.stdout)), Stream.mkString(Stream.decodeText(handle.stderr)), handle.exitCode], { concurrency: 'unbounded' });
+    return code === 0 ? stdout : yield* new Cause.UnknownError(code, [`${CommandLine.display(argv)} exits ${code}`, ...[stderr.trim()].filter(String.isNonEmpty)].join(': '));
 }, Effect.scoped);
 
-const manifested = (workspaceRoot: string, root: string) =>
-    Effect.map(
-        Effect.flatMap(FileSystem.FileSystem, (fs) => fs.exists(join(workspaceRoot, root, 'package.json'))),
-        (held): Readonly<Record<string, TargetConfiguration>> => (held ? (readJsonFile<PackageJson>(join(workspaceRoot, root, 'package.json')).nx?.targets ?? {}) : {}),
-    );
+const manifested = Effect.fnUntraced(function* (workspaceRoot: string, root: string) {
+    const fs = yield* FileSystem.FileSystem;
+    const manifest = join(workspaceRoot, root, 'package.json');
+    return (yield* fs.exists(manifest)) ? ((yield* Effect.flatMap(fs.readFileString(manifest), Schema.decodeEffect(Overrides))).nx?.targets ?? {}) : {};
+});
 
 const ancestors = (folder: string): readonly string[] =>
     Array.unfold(
@@ -91,19 +83,18 @@ const nearest = (files: ReadonlySet<string>, folder: string, names: readonly str
 const toml = <S extends Schema.Decoder<unknown>>(schema: S, file: string) =>
     FileSystem.FileSystem.pipe(
         Effect.flatMap((fs) => fs.readFileString(file)),
-        Effect.flatMap(flow(Toml.parse, Effect.fromResult)),
+        Effect.flatMap((text) => Effect.mapError(Effect.fromResult(Toml.parse(text)), (cause) => new Cause.UnknownError(cause, `${file} does not read as TOML`))),
         Effect.flatMap(Schema.decodeUnknownEffect(schema)),
-        Effect.mapError(CargoError.of({ _tag: 'Undecoded', form: 'the TOML table it declares' }, file)),
     );
 
 const read = Effect.fnUntraced(function* (workspaceRoot: string, manifest: string, files: ReadonlySet<string>) {
-    const metadata = yield* Effect.flatMap(printed('cargo', ['metadata', '--format-version', '1', '--no-deps', '--manifest-path', manifest], { cwd: workspaceRoot, stdin: 'ignore' }), Schema.decodeEffect(Metadata));
+    const metadata = yield* Effect.flatMap(spawned(['cargo', 'metadata', '--format-version', '1', '--no-deps', '--manifest-path', manifest], { cwd: workspaceRoot }), Schema.decodeEffect(Metadata));
     const root = relative(workspaceRoot, metadata.workspace_root) || '.';
     const types = Array.difference(Array.dedupe(metadata.packages.flatMap(({ targets }) => targets.flatMap((target) => target.crate_types))), ['lib', 'rlib']);
     const [{ profile }, names, denied] = yield* Effect.all(
         [
             toml(Profiles, join(metadata.workspace_root, MANIFEST)),
-            Effect.map(printed('rustc', ['--print', 'file-names', '--crate-name', CRATE, ...types.flatMap((type) => ['--crate-type', type]), '-'], { cwd: metadata.workspace_root, stdin: 'ignore' }), (stdout) => stdout.split('\n')),
+            Effect.map(spawned(['rustc', '--print', 'file-names', '--crate-name', CRATE, ...types.flatMap((type) => ['--crate-type', type]), '-'], { cwd: metadata.workspace_root }), (stdout) => stdout.split('\n')),
             Effect.transposeOption(Option.map(nearest(files, root, DENY.config), (file) => Effect.map(toml(Table, join(workspaceRoot, file)), (tables) => ({ files: [file, ...Option.toArray(nearest(files, root, DENY.exceptions))], tables: Record.keys(tables) })))),
         ],
         { concurrency: 'unbounded' },
@@ -149,11 +140,11 @@ const resolved = (workspaceRoot: string, { metadata, profile, uplifted, deny }: 
 const workspaces = (workspaceRoot: string, manifests: readonly string[], files: ReadonlySet<string>) =>
     Effect.reduce(
         manifests.toSorted((left, right) => left.split('/').length - right.split('/').length || left.localeCompare(right)),
-        (): readonly (readonly [string, Result.Result<Reading, Effect.Error<ReturnType<typeof read>>>])[] => [],
+        (): readonly (readonly [string, Result.Result<Reading, Cause.UnknownError>])[] => [],
         (done, manifest) =>
             done.some(([, reading]) => Result.isSuccess(reading) && reading.success.metadata.packages.some(({ manifest_path }) => relative(workspaceRoot, manifest_path) === manifest))
                 ? Effect.succeed(done)
-                : Effect.map(Effect.result(read(workspaceRoot, manifest, files)), (reading) => [...done, [manifest, reading] as const]),
+                : Effect.map(Effect.result(Effect.catchCause(read(workspaceRoot, manifest, files), rendered)), (reading) => [...done, [manifest, reading] as const]),
     );
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -164,4 +155,4 @@ const run = <A, E>(effect: Effect.Effect<A, E, Links | NodeServices | Scope.Scop
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { ancestors, CargoError, Links, LOCK, MANIFEST, type Member, Metadata, manifested, placed, printed, type Reading, resolved, run, type Workspace, workspaces };
+export { ancestors, Links, LOCK, MANIFEST, type Member, Metadata, manifested, PLUGIN, placed, type Reading, resolved, run, spawned, type Workspace, workspaces };

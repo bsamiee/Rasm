@@ -3,7 +3,6 @@
 BasedOnStyle: LLVM
 ColumnLimit: 200
 IndentWidth: 4
-ContinuationIndentWidth: 4
 InsertNewlineAtEOF: true
 LineEnding: LF
 AccessModifierOffset: -4
@@ -15,9 +14,11 @@ EnumTrailingComma: Insert
 FixNamespaceComments: false
 IncludeBlocks: Regroup
 IncludeCategories:
+    - {Regex: '\.generated\.h"$', Priority: 4}
     - {Regex: '^<.*\.h(pp)?>$', Priority: 1}
     - {Regex: '^<.*>$', Priority: 2}
     - {Regex: '.*', Priority: 3}
+IndentExportBlock: false
 InsertBraces: true
 PackArguments: {BinPack: OnePerLine}
 PackConstructorInitializers: NextLineOnly
@@ -25,22 +26,12 @@ PackParameters: {BinPack: OnePerLine}
 PointerAlignment: Left
 QualifierAlignment: Custom
 QualifierOrder: [friend, static, inline, constexpr, const, volatile, type]
-SeparateDefinitionBlocks: Always
-SortIncludes: {Enabled: true, IgnoreCase: false}
-SortUsingDeclarations: LexicographicNumeric
+StatementMacros: [GENERATED_BODY, UCLASS, UENUM, UFUNCTION, UINTERFACE, UPROPERTY, USTRUCT]
 WrapNamespaceBodyWithEmptyLines: Always
----
-# --- [CPP] ------------------------------------------------------------------------------
-
-Language: Cpp
-Standard: Latest
-IndentExportBlock: false
 ---
 # --- [OBJC] -----------------------------------------------------------------------------
 
 Language: ObjC
 ObjCBinPackProtocolList: Never
 ObjCBlockIndentWidth: 4
-ObjCBreakBeforeNestedBlockParam: true
 ObjCSpaceAfterProperty: true
-ObjCSpaceBeforeProtocolList: true

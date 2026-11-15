@@ -66,6 +66,7 @@ VCPKG_FORCE_SYSTEM_BINARIES                   = "1"
 VCPKG_ROOT                                    = { tools = true, value = '{{ tools["github:microsoft/vcpkg-tool"]?.path or "" }}' }
 WATCH_APPS_LOG_DIR                            = "{{config_root}}/.artifacts/logs"
 WATCH_APPS_SESSION                            = "{{ get_env(name='CLAUDE_CODE_SESSION_ID', default=get_env(name='CODEX_THREAD_ID', default=get_env(name='ANTIGRAVITY_CONVERSATION_ID', default=''))) }}"
+X_VCPKG_REGISTRIES_CACHE                      = '''{{ exec(command="mkdir -p '" ~ config_root ~ "/.cache/vcpkg/registries' && printf %s '" ~ config_root ~ "/.cache/vcpkg/registries'") }}'''
 
 # --- [DEPS] -----------------------------------------------------------------------------
 
@@ -77,6 +78,18 @@ sources = ["pixi.lock", "pyproject.toml", "uv.lock"]
 
 [hooks]
 postinstall = "hk install"
+
+# --- [TASKS] ----------------------------------------------------------------------------
+
+[tasks.bootstrap]
+depends     = ["remote-cache"]
+description = "Check the Nx remote cache, then install pnpm packages"
+run         = "pnpm install"
+
+[tasks.remote-cache]
+description = "Empty NX_SELF_HOSTED_REMOTE_CACHE_SERVER for the job when the cache server refuses the read Nx sends"
+run         = ['printf "NX_SELF_HOSTED_REMOTE_CACHE_SERVER=\n" >> "$GITHUB_ENV"', 'echo "::warning title=Nx remote cache::The cache server refused a read or gave no answer, this job uses the local cache alone"']
+skip_if     = '''pkl eval --timeout 5 --http-header "**=Authorization: Bearer ${NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN:-}" -x 'let (server = read?("env:NX_SELF_HOSTED_REMOTE_CACHE_SERVER") ?? "") read?("env:GITHUB_ENV") == null || server.isEmpty || read?("\(server)/v1/cache/0") is Resource?' pkl:base'''
 
 # --- [TOOLS] ----------------------------------------------------------------------------
 

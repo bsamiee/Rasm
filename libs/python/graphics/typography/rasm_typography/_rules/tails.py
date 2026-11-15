@@ -16,7 +16,7 @@ lazy from rasm_typography._outlines import paths
 
 
 class Tails(measures.Rule, frozen=True, kw_only=True):
-    """Final and isolated letters of the joining groups returning a tail, each wider than `length` stem heights of ink compressed by the excess along its longest run of single-stroke columns `step` apart whose center climbs at most `slope` per step, the run kept at `least` of its length or more."""
+    """Final and isolated letters of the joining groups returning a tail, each past `length` stem heights shortened by the excess along its longest run of single-stroke columns `step` apart rising at most `slope` a step, kept at `least` of its length, the `dot` letter's dots moved with it."""
 
     script: Script
     length: Ratio

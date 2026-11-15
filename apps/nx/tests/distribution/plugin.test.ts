@@ -3,7 +3,7 @@ import { layer } from '@effect/platform-node/NodeServices';
 import { assert, it } from '@effect/vitest';
 import type { ProjectGraph } from '@nx/devkit';
 import plugin from '@rasm/nx-distribution/package.json' with { type: 'json' };
-import { Consumer, Packed } from '@rasm/testing/nx';
+import { Consumer, kept, Packed } from '@rasm/testing/nx';
 import { Array, Duration, Effect, Formatter, Layer, Path, Predicate, Record } from 'effect';
 import nxPackage from 'nx/package.json' with { type: 'json' };
 
@@ -84,6 +84,18 @@ const workspace = (stated: Readonly<Record<string, string>>, version: object = {
     Layer.provideMerge(Consumer.layer({ resolved: import.meta.url, settings: { plugins: [plugin.name], release: { projects: ['tag:release'], version } }, ignored: ['dist', '*.ccx', '*.zxp', '*.yak', '*.zip'], files: stated }), Layer.provideMerge(Packed.layer(plugin.name), layer));
 
 it.layer(workspace(files), { timeout: bounds.built, excludeTestServices: true })((methods) => {
+    methods.effect(
+        'keeps every file the builds of every project wrote through a graph read holding no stored plugin result',
+        Effect.fnUntraced(function* () {
+            const { built: run, shown, created, removed } = yield* kept;
+            assert.strictEqual(run.code, 0, `${run.stdout}${run.stderr}`);
+            assert.isNotEmpty(created, 'README.md TASKS: `build` compiles or packages a project into its declared outputs');
+            assert.strictEqual(shown.code, 0, shown.stderr);
+            assert.deepStrictEqual(removed, [], 'nrwl/nx packages/nx/src/project-graph/plugins/public-api.ts CreateNodesFunction: a plugin reads configuration files and returns project configuration, and graph creation removes no file a task wrote');
+        }),
+        bounds.test,
+    );
+
     const tagged = 'README.md PRINCIPLES "Plugins tag a project they give release configuration release, the one selector of nx.json release.projects"';
     const api = 'nrwl/nx packages/nx/src/project-graph/plugins/public-api.ts CreateNodesV2';
 
@@ -271,7 +283,7 @@ it.layer(workspace(files, { currentVersionResolver: 'registry', fallbackCurrentV
             const texts = yield* Effect.forEach(Object.values(hosts), ({ folder, manifest }) => text(`${folder}/${manifest}`));
             assert.strictEqual(code, 0, `nx release version 2.0.0 exits 0: ${stdout}${stderr}`);
             assert.deepStrictEqual(
-                Array.zipWith(Object.values(hosts), texts, ({ kept, versioned }, written) => [written.includes(versioned('2.0.0')), written.includes(versioned('1.2.3')), written.includes(kept)]),
+                Array.zipWith(Object.values(hosts), texts, ({ kept: marker, versioned }, written) => [written.includes(versioned('2.0.0')), written.includes(versioned('1.2.3')), written.includes(marker)]),
                 Object.values(hosts).map(() => [true, false, true]),
                 `README.md DELIVERY "Releases give every project one version and tag through nx release"; nrwl/nx packages/js/src/release/version-actions.spec.ts "updateProjectVersion": ${Object.values(hosts)
                     .map(({ format }) => format)

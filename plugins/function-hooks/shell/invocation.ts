@@ -30,6 +30,7 @@ const ASSIGNMENT = /^[A-Za-z_]\w*=/u;
 const VERSIONED = /(?:@.*|\d[\d.]*)$/u;
 const SCRIPT_FILE = /\.(?:sh|bash|zsh)$/u;
 const LEADING_OPTION = /^-[A-Za-z]$/u;
+const TOOLCHAIN = /^\+./u;
 const HELP: readonly string[] = ['--help', '--version', '-h', '-V', '-help', '-version'];
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -63,7 +64,7 @@ const tree = Effect.fnUntraced(function* ([dialect, source]: readonly [dialect: 
 });
 
 const invocationOf = (command: Command, head: Word, args: readonly Word[], assigned: readonly Word[], outer: readonly Invocation[], program: string, row: Program, usage: Usage): Invocation => {
-    const parsed = parseArguments(args, usage, row);
+    const parsed = parseArguments(row.toolchain === true && Option.exists(Array.head(args), ({ text }) => TOOLCHAIN.test(text)) ? args.slice(1) : args, usage, row);
     const { names, leading, inputs, has, supplied } = parsed;
     const { informational = [], readsUnless = [], code = [], shell = [] } = row;
     const inner = row.wraps === undefined && row.module === undefined ? [] : parsed.rest;

@@ -38,7 +38,8 @@ const attributed = ({ nodes, sourceMaps }: Graph, plugin: string) =>
         ),
     );
 
-const matching = ({ include = ['**'], exclude = [] }: ExpandedPluginConfiguration, pattern: string, files: readonly string[]) => files.some((file) => minimatch(file, pattern, { dot: true }) && include.some((included) => minimatch(file, included, { dot: true })) && !exclude.some((excluded) => minimatch(file, excluded, { dot: true })));
+const matching = ({ include = ['**'], exclude = [] }: ExpandedPluginConfiguration, pattern: string, files: readonly string[]) =>
+    files.some((file) => minimatch(file, pattern, { dot: true }) && include.some((included) => minimatch(file, included, { dot: true })) && !exclude.some((excluded) => minimatch(file, excluded, { dot: true })));
 
 const stray = (workspace: Graph, row: ExpandedPluginConfiguration, pattern: string) =>
     Array.dedupe(

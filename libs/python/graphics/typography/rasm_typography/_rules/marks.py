@@ -17,7 +17,7 @@ from rasm_typography._faces.declaration import Em, Ratio, Recipe, Script
 from rasm_typography._rules import measures
 lazy from rasm_records import Error, Nothing, Ok, Outcome
 lazy from rasm_typography._faces.glyphs import Glyph, Joinings, Mark, Point, Side, Source, traced
-lazy from rasm_typography._faces.layout import Chain, Contextual
+lazy from rasm_typography._faces.layout import Chain, Contextual, Ligatures, Single
 lazy from rasm_typography._faces.names import Form, GlyphName
 lazy from rasm_typography._outlines import measure, paths
 lazy from rasm_typography._shaping.runs import Binary
@@ -169,7 +169,9 @@ class QuranicMarks(measures.Rule, frozen=True, kw_only=True):
             for vowel in catch(unicodedata.lookup, exception=KeyError)(name.removesuffix("TAN")).to_option().to_list()
         }
         rules = tuple(
-            Chain[str | None](input=(((source.key(code),), source.key(ord(vowel))),), lookahead=((source.key(meem),),))
+            Chain[tuple[Single | Ligatures, ...]](
+                input=(((source.key(code),), (Single(features=frozendict(), mapping=frozendict({source.key(code): source.key(ord(vowel))})),)),), lookahead=((source.key(meem),),)
+            )
             for code, vowel in sorted(tanwin.items())
             for meem in self.script.iqlab
             if Side.of(meem) is Side.of(code) and meem in source.encoded and ord(vowel) in source.encoded

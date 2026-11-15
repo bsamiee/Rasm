@@ -11,6 +11,7 @@ import msgspec
 import ufoLib2.objects
 lazy from expression.extra.result import catch
 lazy from fontTools import unicodedata
+lazy from fontTools.feaLib.error import FeatureLibError
 lazy from fontTools.otlLib.builder import buildStatTable
 lazy from fontTools.otlLib.optimize.gpos import COMPRESSION_LEVEL
 lazy from fontTools.ttLib.woff2 import compress
@@ -30,10 +31,6 @@ lazy from rasm_typography._rules.metrics import Metrics
 lazy from rasm_typography._rules.plans import planned
 lazy from rasm_typography._shaping.corpus import Corpus
 lazy from rasm_typography._shaping.runs import Binary
-
-# --- [CONSTANTS] ------------------------------------------------------------------------
-
-_LINKED = (400, 700)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -80,7 +77,8 @@ def _built(rule: Metrics, corpus: Corpus, source: Source, /) -> Construction:
     writer = FeatureWriter(source=source)
     info, metrics, languages = source.info, source.metrics, list(source.scripts)
     categories = {glyph.name.text: glyph.category for glyph in source.glyphs}
-    weight, italic = face.weight if isinstance(face, Face) else _LINKED[0], metrics.italic_angle != 0
+    regular, bold, italic = 400, 700, metrics.italic_angle != 0
+    weight = face.weight if isinstance(face, Face) else regular
     slope = "Italic" if italic else "Roman"
     upright = face.style.removesuffix(slope).strip() or "Regular"
     ufo = ufoLib2.Font(
@@ -88,8 +86,8 @@ def _built(rule: Metrics, corpus: Corpus, source: Source, /) -> Construction:
         info=ufoLib2.objects.Info(
             familyName=face.typographic,
             styleName=face.style,
-            styleMapFamilyName=face.typographic if weight in _LINKED else f"{face.typographic} {upright}",
-            styleMapStyleName=" ".join((*(("bold",) if weight == _LINKED[1] else ()), *(("italic",) if italic else ()))) or "regular",
+            styleMapFamilyName=face.typographic if weight in {regular, bold} else f"{face.typographic} {upright}",
+            styleMapStyleName=" ".join((*(("bold",) if weight == bold else ()), *(("italic",) if italic else ()))) or "regular",
             versionMajor=info.version[0],
             versionMinor=info.version[1],
             copyright=info.copyright,
@@ -132,7 +130,7 @@ def _built(rule: Metrics, corpus: Corpus, source: Source, /) -> Construction:
     buildStatTable(
         font,
         [
-            {"tag": "wght", "name": "Weight", "values": [{"value": weight, "name": upright, "flags": ELIDABLE_AXIS_VALUE_NAME * (weight == _LINKED[0])}]},
+            {"tag": "wght", "name": "Weight", "values": [{"value": weight, "name": upright, "flags": ELIDABLE_AXIS_VALUE_NAME * (weight == regular)}]},
             {"tag": "ital", "name": "Italic", "values": [{"value": int(italic), "name": slope, "flags": ELIDABLE_AXIS_VALUE_NAME * (not italic)}]},
         ],
         macNames=False,
@@ -159,7 +157,7 @@ def constructed(original: Binary, face: Faces, corpus: Corpus, /, *, cache: Path
         cache: Folder holding the pinned Unicode joining table, downloaded where it lacks a copy.
 
     Returns:
-        Ok(construction), the faults of the import and of the first refused rule, its name leading each fault's member, and `FAILED` for an outline operation the native boolean refuses.
+        Ok(construction), the faults of the import and of the first refused rule, its name leading each fault's member, and `FAILED` for an outline operation the native boolean refuses or feature code the compiler refuses.
     """
     plan = planned(face)
     try:
@@ -171,7 +169,7 @@ def constructed(original: Binary, face: Faces, corpus: Corpus, /, *, cache: Path
             )
         )
         return executed.map(partial(_built, next(rule for rule in plan if isinstance(rule, Metrics)), corpus))
-    except PathOpsError as error:
+    except (PathOpsError, FeatureLibError) as error:
         return Error(Fault.of(Reason.FAILED, face.postscript, error))
 
 

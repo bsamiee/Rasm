@@ -1,9 +1,10 @@
 import { basename, dirname, join, relative } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
 import { type RawProjectGraphDependency, readJsonFile, type TargetConfiguration } from '@nx/devkit';
 import { type PackageJson, quoteShellArg } from '@nx/devkit/internal';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
-import { Array, Context, Effect, FileSystem, Formatter, Layer, ManagedRuntime, Record, Ref, Schema, type Scope, Stream } from 'effect';
+import { Array, Cause, Context, Effect, Layer, ManagedRuntime, Option, Record, Ref, Schema, type Scope, Stream, String } from 'effect';
 import { ChildProcess, CommandLine } from 'effect/process';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -13,7 +14,8 @@ type Verbs = Readonly<Record<string, Readonly<Record<string, TargetConfiguration
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const PLUGIN = '@rasm/nx-dotnet';
+const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#package'))).name;
+const PLATFORM = { runtime: 'node -p process.platform+process.arch' } as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -40,26 +42,9 @@ const Node = Schema.Struct({
     releases: Schema.NullOr(Schema.Struct({ shipped: Schema.String, unshipped: Schema.String })),
 });
 
-const Reason = Schema.TaggedUnion({ Exited: { code: Schema.Int, said: Schema.String }, Undecoded: { form: Schema.String }, Missing: { what: Schema.String }, Refused: { rule: Schema.String } });
-
-// --- [ERRORS] --------------------------------------------------------------------------
-
-class DotnetError extends Schema.TaggedError<DotnetError, { readonly brand: unique symbol }>()('DotnetError', {
-    reason: Reason,
-    subject: Schema.String,
-    cause: Schema.optionalKey(Schema.Defect()),
-}) {
-    static readonly of = (reason: DotnetError['reason'], subject: string) => (cause?: unknown) => DotnetError.make({ reason, subject, ...(cause === undefined ? {} : { cause }) });
-
-    override get message() {
-        const reason = Reason.match(this.reason, { Exited: ({ code, said }) => [`exits ${code}`, ...(said === '' ? [] : [said])].join('\n'), Undecoded: ({ form }) => `does not read as ${form}`, Missing: ({ what }) => `states no ${what}`, Refused: ({ rule }) => rule });
-        return [`${this.subject}: ${reason}`, ...(this.cause === undefined ? [] : [Formatter.format(this.cause)])].join(': ');
-    }
-}
-
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class Edges extends Context.Service<Edges, Ref.Ref<readonly RawProjectGraphDependency[]>>()('@rasm/nx-dotnet/targets/Edges') {
+class Edges extends Context.Service<Edges, Ref.Ref<readonly RawProjectGraphDependency[]>>()(`${PLUGIN}/targets/Edges`) {
     static readonly layer = Layer.effect(Edges, Ref.make<readonly RawProjectGraphDependency[]>([]));
 }
 
@@ -71,13 +56,11 @@ const ran = Effect.fnUntraced(function* (command: string, args: readonly string[
     return { invoked: CommandLine.display([command, ...args]), stdout, said, code };
 }, Effect.scoped);
 
-const printed = (command: string, args: readonly string[], options: ChildProcess.CommandOptions) => Effect.flatMap(ran(command, args, options), ({ invoked, stdout, said, code }) => (code === 0 ? Effect.succeed(stdout) : Effect.fail(DotnetError.of({ _tag: 'Exited', code, said: [said, stdout].join('') }, invoked)())));
-
-const manifested = (workspaceRoot: string, root: string) =>
-    Effect.map(
-        Effect.flatMap(FileSystem.FileSystem, (fs) => fs.exists(join(workspaceRoot, root, 'package.json'))),
-        (held): Readonly<Record<string, TargetConfiguration>> => (held ? (readJsonFile<PackageJson>(join(workspaceRoot, root, 'package.json')).nx?.targets ?? {}) : {}),
-    );
+const spawned = Effect.fnUntraced(function* (argv: Array.NonEmptyReadonlyArray<string>, options: ChildProcess.CommandOptions = {}) {
+    const handle = yield* ChildProcess.make(Array.headNonEmpty(argv), Array.tailNonEmpty(argv), { stdin: 'ignore', ...options, extendEnv: true, detached: false });
+    const [stdout, stderr, code] = yield* Effect.all([Stream.mkString(Stream.decodeText(handle.stdout)), Stream.mkString(Stream.decodeText(handle.stderr)), handle.exitCode], { concurrency: 'unbounded' });
+    return code === 0 ? stdout : yield* new Cause.UnknownError(code, [`${CommandLine.display(argv)} exits ${code}`, ...[stderr.trim()].filter(String.isNonEmpty)].join(': '));
+}, Effect.scoped);
 
 const line = (argv: readonly string[]) => argv.map(quoteShellArg).join(' ');
 
@@ -117,7 +100,7 @@ const targets = (node: Node): Verbs => {
                 dependsOn: ['^build--dotnet'],
                 cache: true,
                 inputs,
-                metadata: metadata(verb, `${node.publishable ? 'Builds and publishes' : 'Builds'} ${node.name} with its references in one MSBuild run, in configuration ${node.evaluated.configuration} unless the run names another the project declares`),
+                metadata: metadata(verb, `${node.publishable ? 'Builds and publishes' : 'Builds'} ${node.name} and its references in one MSBuild run with dotnet ${verb}, in configuration ${node.evaluated.configuration} unless the run names another the project declares`),
             },
         },
         pack: {
@@ -140,7 +123,7 @@ const targets = (node: Node): Verbs => {
                 dependsOn: ['build--dotnet'],
                 cache: true,
                 inputs: [{ dependentTasksOutputFiles: '**/*.sarif', transitive: false }, { externalDependencies: [] }],
-                metadata: { description: `Fails on each warning or error in the SARIF report the compile of ${node.name} wrote, printed as file(line,col): level id: text` },
+                metadata: metadata('build', `Fails on each warning or error in the SARIF report dotnet build wrote for ${node.name}, printed as file(line,col): level id: text`),
             },
             'dotnet-format': { ...formatted([['format', 'style', '--verify-no-changes']], `Fails on any code style finding in ${node.name}, the IDE rules no build runs included, with dotnet format style --verify-no-changes`), cache: true },
         },
@@ -152,7 +135,7 @@ const targets = (node: Node): Verbs => {
                     configurations: tested.configurations,
                     dependsOn: ['build--dotnet'],
                     cache: true,
-                    inputs: [...inputs, { dependentTasksOutputFiles: '**/*.runtimeconfig.json' }, { runtime: 'node -p process.platform+process.arch' }],
+                    inputs: [...inputs, { dependentTasksOutputFiles: '**/*.runtimeconfig.json' }, PLATFORM],
                     outputs: node.results.map((results) => join('{workspaceRoot}', results)),
                     metadata: metadata('test', `Tests the build build--dotnet wrote for ${node.name} with dotnet test --no-build, after a restore that fetches only packages the machine lacks`),
                 },
@@ -185,29 +168,30 @@ const targets = (node: Node): Verbs => {
                     executor: `${distribution.name}:attach`,
                     dependsOn: ['pack--dotnet'],
                     inputs: [{ dependentTasksOutputFiles: '**/*' }],
-                    metadata: { description: "Uploads the files pack--dotnet wrote to the GitHub release of the version the project's manifest states through gh release upload", help: { command: 'gh release upload --help', example: { options: { dryRun: true } } } },
+                    metadata: { description: "Uploads the files pack--dotnet wrote to the GitHub release of the version the project's manifest states with gh release upload", help: { command: 'gh release upload --help', example: { options: { dryRun: true } } } },
                 },
             }),
         },
     };
 };
 
-const publishing = (node: Node): Readonly<Record<string, TargetConfiguration>> =>
-    node.packable && node.pushed
-        ? {
-              'nx-release-publish': {
-                  executor: `${distribution.name}:publish`,
-                  options: { publish: ['dotnet', 'nuget', 'push', '--skip-duplicate'], credential: 'NUGET_API_KEY', flag: '--api-key' },
-                  dependsOn: ['pack--dotnet', '^nx-release-publish'],
-                  inputs: [{ dependentTasksOutputFiles: '**/*' }],
-                  metadata: {
-                      technologies: ['dotnet', node.language],
-                      description: `Pushes the package pack--dotnet wrote for ${node.name} with dotnet nuget push, under the key NUGET_API_KEY holds, to the default push source NuGet resolves, which skips a version the source holds`,
-                      help: { command: 'dotnet nuget push --help', example: { options: { dryRun: true } } },
-                  },
-              },
-          }
-        : {};
+const publishing = (node: Node, credential: Option.Option<string>): Readonly<Record<string, TargetConfiguration>> =>
+    Record.getSomes({
+        'nx-release-publish': Option.map(
+            Option.filter(credential, () => node.packable && node.pushed),
+            (variable): TargetConfiguration => ({
+                executor: `${distribution.name}:publish`,
+                options: { publish: ['dotnet', 'nuget', 'push', '--skip-duplicate'], credential: variable, flag: '--api-key' },
+                dependsOn: ['pack--dotnet', '^nx-release-publish'],
+                inputs: [{ dependentTasksOutputFiles: '**/*' }],
+                metadata: {
+                    technologies: ['dotnet', node.language],
+                    description: `Pushes the package pack--dotnet wrote for ${node.name} to the default push source NuGet resolves under the key ${variable} holds with dotnet nuget push --skip-duplicate`,
+                    help: { command: 'dotnet nuget push --help', example: { options: { dryRun: true } } },
+                },
+            }),
+        ),
+    });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -219,4 +203,4 @@ const streamed = <A, E>(results: Stream.Stream<A, E, NodeServices>) => Stream.to
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { DotnetError, Edges, manifested, Node, PLUGIN, printed, publishing, ran, run, streamed, targets, type Verbs };
+export { Edges, Node, PLUGIN, publishing, ran, run, spawned, streamed, targets, type Verbs };

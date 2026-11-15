@@ -586,6 +586,9 @@ importers:
       bootstrap-icons:
         specifier: 'catalog:'
         version: 1.13.2
+      cf:
+        specifier: 'catalog:'
+        version: 1.0.0-beta.32(@types/node@26.6.6)
       effect:
         specifier: 'catalog:'
         version: 4.1.4
@@ -1007,9 +1010,6 @@ importers:
         specifier: 'catalog:'
         version: 4.1.4
     devDependencies:
-      '@pulumi/pulumi':
-        specifier: 3.277.0-alpha.xba20e30
-        version: 3.277.0-alpha.xba20e30(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6
@@ -1755,6 +1755,9 @@ importers:
 
   infra:
     dependencies:
+      '@effect/platform-node':
+        specifier: 'catalog:'
+        version: 4.1.4(effect@4.1.4)(redis@6.4.0-beta.0(@opentelemetry/api@1.10.0))
       '@nx/devkit':
         specifier: 'catalog:'
         version: 24.1.0-beta.0(nx@24.1.0-beta.0)
@@ -1801,9 +1804,6 @@ importers:
         specifier: 'catalog:'
         version: 8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2)
     devDependencies:
-      '@rasm/nx-pulumi':
-        specifier: workspace:*
-        version: link:../apps/nx/pulumi
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6

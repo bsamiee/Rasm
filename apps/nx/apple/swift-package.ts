@@ -1,7 +1,8 @@
 import { join } from 'node:path';
 import { DependencyType, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
+import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Effect, Option, Record, Schema } from 'effect';
-import { ATTACH, GIT_STATUS, INPUTS, type Options, type Part, PLUGIN, SHARED, SWIFTPM, type Tools, target } from '#/targets';
+import { ATTACH, GIT_STATUS, INPUTS, type Options, type Part, PLUGIN, SWIFTPM, sequenced, type Verbs } from '#/targets';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -9,7 +10,8 @@ interface Package {
     readonly file: string;
     readonly root: string;
     readonly plists: ReadonlySet<string>;
-    readonly bins?: Readonly<Record<'debug' | 'release', string>>;
+    readonly bins: Readonly<Record<'debug' | 'release', string>>;
+    readonly whole: boolean;
     readonly manifest: typeof Described.Type;
 }
 
@@ -47,33 +49,33 @@ const sources = ({ root, manifest }: Package, described: ReadonlyMap<string, Pac
 ];
 
 const packageParts = (options: typeof Options.Type, local: Package, described: ReadonlyMap<string, Package>): readonly Part[] => {
-    const { file, root, plists, manifest, bins } = local;
+    const { file, root, plists, manifest, bins, whole } = local;
     const modules = manifest.targets.filter((module) => module.product_memberships.length > 0 && module.name !== manifest.name);
     const suites = manifest.targets.filter(({ type }) => Schema.is(Tests)(type));
     const tested = new Set(suites.flatMap(({ target_dependencies }) => target_dependencies));
     const inputs = [...sources(local, described), join('{workspaceRoot}', '.swift-version'), ...INPUTS];
     const build = ['swift', 'build', '--package-path', root, ...SWIFTPM] as const;
-    const written = (folder?: string) => (folder === undefined ? [] : manifest.products.map(({ name }) => join(folder, name))).map((at) => join('{workspaceRoot}', at));
-    const work: Tools = {
+    const written = (folder: string) => (whole ? manifest.products.map(({ name }) => join('{workspaceRoot}', folder, name)) : []);
+    const work: Verbs = {
         build: {
-            'swift-build': target(
+            'swift-build': sequenced(
                 [build],
-                { technologies: ['swift'], description: `Builds ${manifest.name} with SwiftPM, in release under the release configuration, cached where its products are executables alone`, help: { command: 'swift build --help', example: { args: ['--product', manifest.products[0]?.name ?? manifest.name] } } },
+                { technologies: ['swift'], description: `Builds ${manifest.name} with swift build, in release under the release configuration, cached where its products are executables alone`, help: { command: 'swift build --help', example: { args: ['--product', manifest.products[0]?.name ?? manifest.name] } } },
                 {
-                    ...(bins !== undefined && { cache: true }),
+                    ...(whole && { cache: true }),
                     inputs,
-                    options: { outputs: written(bins?.debug) },
-                    outputs: written(bins?.debug).map((_, index) => `{options.outputs.${index}}`),
-                    configurations: { release: { runs: [[...build, '--configuration', 'release']], outputs: written(bins?.release) } },
+                    options: { outputs: written(bins.debug) },
+                    outputs: written(bins.debug).map((_, index) => `{options.outputs.${index}}`),
+                    configurations: { release: { runs: [[...build, '--configuration', 'release']], outputs: written(bins.release) } },
                 },
             ),
         },
-        check: { 'swift-build': { dependsOn: ['build--swift-build'], inputs, metadata: { technologies: ['swift'], description: `Compiles ${manifest.name} as its type check` } } },
+        check: { 'swift-build': { dependsOn: ['build--swift-build'], inputs, metadata: { technologies: ['swift'], description: `Type-checks ${manifest.name} with swift build`, help: { command: 'swift build --help', example: { args: ['--configuration', 'release'] } } } } },
         test: {
             ...(suites.length > 0 && {
-                swift: target(
+                swift: sequenced(
                     [['swift', 'test', '--package-path', root, ...SWIFTPM]],
-                    { technologies: ['swift'], description: `Tests ${manifest.name} with SwiftPM`, help: { command: 'swift test --help', example: { args: ['--filter', suites[0]?.name ?? manifest.name] } } },
+                    { technologies: ['swift'], description: `Tests ${manifest.name} with swift test`, help: { command: 'swift test --help', example: { args: ['--filter', suites[0]?.name ?? manifest.name] } } },
                     { cache: true, dependsOn: ['build--swift-build'], inputs },
                 ),
             }),
@@ -82,12 +84,12 @@ const packageParts = (options: typeof Options.Type, local: Package, described: R
     const executables = new Set(manifest.targets.filter(({ type }) => Schema.is(Executable)(type)).map(({ name }) => name));
     const products = new Map(manifest.products.flatMap(({ name, targets }) => targets.filter((owner) => executables.has(owner)).map((owner) => [owner, name] as const)));
     const forwardedInputs = ['default', '^default', ...[MANIFEST, RESOLVED].map((at) => join('{workspaceRoot}', root, at)), ...INPUTS];
-    const owned: Tools = {
+    const owned: Verbs = {
         ...work,
         upgrade: {
-            'swift-package': target(
+            'swift-package': sequenced(
                 [['swift', 'package', '--package-path', root, 'update']],
-                { technologies: ['swift'], description: `Moves ${manifest.name}'s remote dependencies to the newest versions its requirements allow and rewrites Package.resolved`, help: { command: 'swift package update --help', example: { args: ['--dry-run'] } } },
+                { technologies: ['swift'], description: `Moves ${manifest.name}'s remote dependencies to the newest versions its requirements allow and rewrites Package.resolved with swift package update`, help: { command: 'swift package update --help', example: { args: ['--dry-run'] } } },
                 { inputs },
             ),
         },
@@ -97,16 +99,31 @@ const packageParts = (options: typeof Options.Type, local: Package, described: R
         options: { commands: [['swift', 'package', '--package-path', root, 'clean']], cwd: '.' },
         metadata: { technologies: ['swift'], description: `Removes the build folder of ${manifest.name} with swift package clean`, help: { command: 'swift package clean --help', example: {} } },
     };
-    const forwarded = (module: string): Tools =>
+    const forwarded = (module: string): Verbs =>
         Record.map(
             Record.filter(work, (_, verb) => verb !== 'test' || tested.has(module)),
-            (tools, verb) => Record.map(tools, (_, tool): TargetConfiguration => ({ dependsOn: [{ projects: [manifest.name], target: `${verb}--${tool}` }], inputs: forwardedInputs, metadata: { technologies: ['swift'], description: `Runs ${manifest.name}:${verb}--${tool}` } })),
+            (tools, verb) =>
+                Record.map(
+                    tools,
+                    (_, tool): TargetConfiguration => ({
+                        dependsOn: [{ projects: [manifest.name], target: `${verb}--${tool}` }],
+                        inputs: forwardedInputs,
+                        metadata: { technologies: ['swift'], description: `Runs ${verb}--${tool} of ${manifest.name} with nx run`, help: { command: `nx run ${manifest.name}:${verb}--${tool} --help`, example: { args: ['--verbose'] } } },
+                    }),
+                ),
         );
-    const relayed: TargetConfiguration = { dependsOn: [{ projects: [manifest.name], target: 'clean--swift-package' }], inputs: forwardedInputs, metadata: { technologies: ['swift'], description: `Runs ${manifest.name}:clean--swift-package` } };
+    const relayed: TargetConfiguration = {
+        dependsOn: [{ projects: [manifest.name], target: 'clean--swift-package' }],
+        inputs: forwardedInputs,
+        metadata: { technologies: ['swift'], description: `Runs clean--swift-package of ${manifest.name} with nx run`, help: { command: `nx run ${manifest.name}:clean--swift-package --help`, example: { args: ['--verbose'] } } },
+    };
     return [{ name: manifest.name, at: root, own: owned, clean: cleaning }, ...modules.map((module) => ({ name: module.name, at: join(root, module.path), own: forwarded(module.name), clean: relayed }))].map(({ name, at, own, clean }): Part => {
         const product = Option.fromUndefinedOr(products.get(name));
-        const zipped = Option.map(Option.all({ held: Option.filter(product, () => plists.has(name)), output: Option.fromUndefinedOr(options.outputPath) }), ({ held, output }) => ({ held, folder: join(output, 'swiftpm', held) }));
-        const tools: Tools = {
+        const zipped = Option.map(
+            Option.filter(product, () => plists.has(name)),
+            (held) => ({ held, folder: options.outputPath === undefined ? bins.release : join(options.outputPath, held) }),
+        );
+        const tools: Verbs = {
             ...own,
             ...Option.getOrUndefined(
                 Option.map(product, (held) => ({
@@ -115,7 +132,7 @@ const packageParts = (options: typeof Options.Type, local: Package, described: R
                             executor: `${PLUGIN}:install`,
                             inputs,
                             options: { package: root, product: held, env: GIT_STATUS },
-                            metadata: { technologies: ['swift'], description: `Builds ${held} in release and replaces it in SwiftPM's install folder`, help: { command: 'swift package experimental-install --help', example: { args: ['--jobs', '4'] } } },
+                            metadata: { technologies: ['swift'], description: `Builds ${held} in release with swift build and replaces it in SwiftPM's install folder`, help: { command: 'swift package experimental-install --help', example: { args: ['--jobs', '4'] } } },
                         },
                     },
                 })),
@@ -142,7 +159,7 @@ const packageParts = (options: typeof Options.Type, local: Package, described: R
             name,
             file,
             technologies: ['swift'],
-            tools: { ...tools, clean: { 'swift-package': { ...clean, executor: `${SHARED}:clean`, options: { ...clean.options, targets: removed } } } },
+            tools: { ...tools, clean: { 'swift-package': { ...clean, executor: `${distribution.name}:clean`, options: { ...clean.options, targets: removed } } } },
             ...Option.getOrUndefined(Option.map(zipped, () => ({ release: { version: { versionActions: `${PLUGIN}/release/version-actions`, versionActionsOptions: { manifest: INFO } } } }))),
         };
     });

@@ -77,7 +77,12 @@ const dangling = (workspace: Graph) =>
 
 const executing = (workspace: Graph) => declared(workspace).flatMap(({ task, target }) => Array.fromNullishOr(target.executor).map((executor) => ({ task, target, executor })));
 
-const unanswered = (workspace: Graph) => Object.values(workspace.nodes).flatMap(({ name, data }) => verbs(workspace).filter((verb) => verb in (data.targets ?? {}) !== Record.keys(data.targets ?? {}).some((target) => target.startsWith(`${verb}--`))).map((verb) => `${name}:${verb}`));
+const unanswered = (workspace: Graph) =>
+    Object.values(workspace.nodes).flatMap(({ name, data }) =>
+        verbs(workspace)
+            .filter((verb) => verb in (data.targets ?? {}) !== Record.keys(data.targets ?? {}).some((target) => target.startsWith(`${verb}--`)))
+            .map((verb) => `${name}:${verb}`),
+    );
 
 const unread = (workspace: Graph) =>
     declared(workspace)

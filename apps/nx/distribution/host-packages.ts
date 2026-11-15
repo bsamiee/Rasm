@@ -1,19 +1,19 @@
 import { constants, openAsBlob } from 'node:fs';
 import { homedir } from 'node:os';
-import { basename, dirname, join, matchesGlob } from 'node:path';
+import { basename, join, matchesGlob } from 'node:path';
 import { arch, platform } from 'node:process';
 import { patch } from '@decimalturn/toml-patch';
 import type { ExecutorContext } from '@nx/devkit';
 import { globWithWorkspaceContext, quoteShellArg } from '@nx/devkit/internal';
 import ast from '@xml-tools/ast';
 import xml, { type DocumentCstNode } from '@xml-tools/parser';
-import { Array, Config, Effect, FileSystem, Option, Path, pipe, Record, Result, Schema, SemVer, Stream, String, Struct } from 'effect';
+import { Array, Cause, Config, Effect, FileSystem, Option, Path, pipe, Record, Result, Schema, SemVer, Stream, String, Struct } from 'effect';
 import { Ini, Toml, Yaml, Zip } from 'effect/encoding';
 import { HttpClient, HttpClientRequest, HttpClientResponse } from 'effect/http';
 import type { ChildProcessSpawner } from 'effect/process';
 import { applyEdits, modify, parse } from 'jsonc-parser';
 import { parseDocument, Scalar } from 'yaml';
-import { DistributionError, spawned, written } from '#/executor';
+import { spawned, written } from '#/executor';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -49,16 +49,26 @@ interface Host {
     readonly standalone?: true;
     readonly engine?: (descriptor: string) => Effect.Effect<Option.Option<string>, never, Services>;
     readonly operations?: Partial<Record<'check' | 'test' | 'pack' | 'install', { readonly command: string; readonly options: Readonly<Record<string, unknown>> }>>;
-    readonly read: (text: string, file: string) => Effect.Effect<Option.Option<Fields>, DistributionError>;
-    readonly write?: (text: string, version: string) => Effect.Effect<string, DistributionError>;
-    readonly build?: { readonly executor: string; readonly command: string; readonly lock?: string; readonly runtime?: readonly string[]; readonly outputs?: (fields: Fields) => readonly string[]; readonly pack?: (folder: Found, file: string, timestampAuthority: string, words: readonly string[]) => Step };
-    readonly install?: { readonly command: string; readonly probe?: Array.NonEmptyReadonlyArray<string>; readonly platforms?: readonly string[]; readonly unpacked?: true; readonly run: (found: Found, words: readonly string[]) => Step };
-    readonly publish?: { readonly store: string; readonly command: string; readonly credential: string; readonly held: (found: Found, store: string) => Stored<boolean>; readonly push: (found: Found, store: string, token: string, words: readonly string[]) => Stored };
+    readonly output: string;
+    readonly read: (text: string, file: string) => Effect.Effect<Option.Option<Fields>, Cause.UnknownError>;
+    readonly write?: (text: string, version: string) => Effect.Effect<string, Cause.UnknownError>;
+    readonly build?: {
+        readonly executor: string;
+        readonly command: string;
+        readonly help?: string;
+        readonly lock?: string;
+        readonly runtime?: readonly string[];
+        readonly outputs?: (fields: Fields) => readonly string[];
+        readonly pack?: (folder: Found, file: string, timestampAuthority: string, words: readonly string[]) => Step;
+    };
+    readonly install?: { readonly command: string; readonly help?: string; readonly probe?: Array.NonEmptyReadonlyArray<string>; readonly platforms?: readonly string[]; readonly unpacked?: true; readonly run: (found: Found, words: readonly string[]) => Step };
+    readonly publish?: { readonly store: string; readonly command: string; readonly credential?: string; readonly held: (found: Found, store: string) => Stored<boolean>; readonly push: (found: Found, store: string, token: string, words: readonly string[]) => Stored };
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const EXTENSION = 'blender_manifest.toml';
+const PLATFORM = { runtime: 'node -p process.platform+process.arch' } as const;
 const SIGNER = 'ZXPSignCmd';
 const PYTHON = ['run', '--no-project', 'python', '-c'] as const;
 const LOCATED = "shutil.which('blender_ext.py', os.F_OK)";
@@ -100,7 +110,7 @@ const Built = Schema.fromJsonString(Schema.Struct({ MajorVersion: Schema.Int, Mi
 const exact = (subject: string, version: string) =>
     Effect.fromResult(SemVer.parse(version)).pipe(
         Effect.filterOrFail((parsed) => !(SemVer.isPrerelease(parsed) || SemVer.hasBuild(parsed))),
-        Effect.mapError(DistributionError.refused(subject, `takes a major.minor.patch version alone, which ${version} is not`)),
+        Effect.mapError((cause) => new Cause.UnknownError(cause, `${subject} takes a major.minor.patch version alone, which ${version} is not`)),
     );
 
 const extension = (text: string) => {
@@ -111,7 +121,7 @@ const extension = (text: string) => {
     );
 };
 
-const adobe = Effect.mapError(Effect.flatten(Effect.fromNullishOr(ADOBE[platform])), DistributionError.refused(platform, 'holds no per-user Adobe folder'));
+const adobe = Effect.mapError(Effect.flatten(Effect.fromNullishOr(ADOBE[platform])), (cause) => new Cause.UnknownError(cause, `${platform} holds no per-user Adobe folder`));
 
 const copied = Effect.fnUntraced(function* ({ at, names }: Found, to: string) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
@@ -125,7 +135,7 @@ const zipped = Effect.fnUntraced(function* (folder: string, names: readonly stri
         Stream.map(({ name, info }) => Zip.fileStream(name.split(path.sep).join('/'), fs.stream(path.join(folder, name)), { mode: info.mode % (constants.S_IRWXU + constants.S_IRWXG + constants.S_IRWXO + 1) })),
         Stream.pipeThroughChannel(Zip.encode()),
         Stream.run(fs.sink(file)),
-        Effect.mapError(DistributionError.refused(file, 'does not write')),
+        Effect.mapError((cause) => new Cause.UnknownError(cause, `${file} does not write`)),
     );
 });
 
@@ -145,13 +155,13 @@ const entry = (file: string, name: string) =>
             ),
             Stream.filter(Option.isSome),
             Stream.runHead,
-            Effect.mapBoth({ onFailure: DistributionError.refused(file, 'does not read as a zip archive'), onSuccess: Option.flatten }),
+            Effect.mapBoth({ onFailure: (cause) => new Cause.UnknownError(cause, `${file} does not read as a zip archive`), onSuccess: Option.flatten }),
         ),
     );
 
 const engine = Effect.fnUntraced(function* (descriptor: string) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-    const host = yield* Effect.mapError(Effect.fromNullishOr(UNREAL[platform]), DistributionError.refused(platform, `is no supported Unreal Engine host; supported: ${Object.keys(UNREAL).join(', ')}`));
+    const host = yield* Effect.mapError(Effect.fromNullishOr(UNREAL[platform]), (cause) => new Cause.UnknownError(cause, `${platform} is no supported Unreal Engine host; supported: ${Object.keys(UNREAL).join(', ')}`));
     const settings = path.join(homedir(), ...host.settings);
     const declared = yield* Effect.flatMap(fs.readFileString(descriptor), Schema.decodeEffect(Engined));
     const named = Option.filter(Option.fromUndefinedOr(declared.EngineAssociation), String.isNonEmpty);
@@ -159,19 +169,21 @@ const engine = Effect.fnUntraced(function* (descriptor: string) {
     const [registered, launched] = yield* Effect.all([read(['UnrealEngine', 'Install.ini']), read(['UnrealEngineLauncher', 'LauncherInstalled.dat'])]);
     const above = Array.unfold(path.dirname(descriptor), (at) => (path.dirname(at) === at ? Option.none() : Option.some([at, path.dirname(at)] as const)));
     const native = yield* Effect.filter(above, (at) => fs.exists(path.join(at, 'Engine', 'Build', 'Build.version')));
-    const root = yield* Effect.fromOption(
-        Option.firstSomeOf([
-            Option.flatMap(named, (key) => Option.liftPredicate(path.resolve(path.dirname(descriptor), key), () => ENGINE_PATH.test(key))),
-            Option.match(named, { onNone: () => Array.head(native), onSome: () => Option.none() }),
-            Option.flatMap(Option.all([named, Option.flatMap(registered, (text) => Schema.decodeUnknownOption(Registered)(Ini.parse(text)))]), ([key, { Installations }]) => Option.orElse(Record.get(Installations, key), () => Record.get(Installations, `UE_${key}`))),
-            Option.flatMap(Option.all([named, Option.flatMap(launched, (text) => Schema.decodeOption(Launcher)(text))]), ([key, { InstallationList }]) =>
-                Option.map(
-                    Array.findFirst(InstallationList, ({ AppName }) => AppName === `UE_${key}`),
-                    ({ InstallLocation }) => InstallLocation,
+    const root = yield* Effect.mapError(
+        Effect.fromOption(
+            Option.firstSomeOf([
+                Option.flatMap(named, (key) => Option.liftPredicate(path.resolve(path.dirname(descriptor), key), () => ENGINE_PATH.test(key))),
+                Option.match(named, { onNone: () => Array.head(native), onSome: () => Option.none() }),
+                Option.flatMap(Option.all([named, Option.flatMap(registered, (text) => Schema.decodeUnknownOption(Registered)(Ini.parse(text)))]), ([key, { Installations }]) => Option.orElse(Record.get(Installations, key), () => Record.get(Installations, `UE_${key}`))),
+                Option.flatMap(Option.all([named, Option.flatMap(launched, (text) => Schema.decodeOption(Launcher)(text))]), ([key, { InstallationList }]) =>
+                    Option.map(
+                        Array.findFirst(InstallationList, ({ AppName }) => AppName === `UE_${key}`),
+                        ({ InstallLocation }) => InstallLocation,
+                    ),
                 ),
-            ),
-        ]),
-        DistributionError.refused(descriptor, Option.match(named, { onNone: () => 'names no engine, and no engine tree encloses it', onSome: (key) => `names engine "${key}", which the engine tree around it, Install.ini, and LauncherInstalled.dat under ${settings} do not list` })),
+            ]),
+        ),
+        (cause) => new Cause.UnknownError(cause, Option.match(named, { onNone: () => `${descriptor} names no engine, and no engine tree encloses it`, onSome: (key) => `${descriptor} names engine "${key}", which the engine tree around it, Install.ini, and LauncherInstalled.dat under ${settings} do not list` })),
     );
     const { MajorVersion, MinorVersion } = yield* Effect.flatMap(fs.readFileString(path.join(root, 'Engine', 'Build', 'Build.version')), Schema.decodeEffect(Built));
     return { root, stamp: path.join(root, 'Engine', 'Build', 'Build.version'), platform: host.name, version: `${MajorVersion}.${MinorVersion}`, binaries: path.join(root, 'Engine', 'Binaries', host.name), scripts: path.join(root, 'Engine', 'Build', 'BatchFiles') };
@@ -208,42 +220,44 @@ const HOSTS: readonly Host[] = [
         manifest: EXTENSION,
         technology: 'blender',
         archive: '.zip',
+        output: '.',
         read: (text, file) =>
             Effect.fromResult(Toml.parse(text)).pipe(
                 Effect.flatMap(Schema.decodeUnknownEffect(Extension)),
                 Effect.mapBoth({
-                    onFailure: DistributionError.refused(file, 'does not decode'),
+                    onFailure: (cause) => new Cause.UnknownError(cause, `${file} does not decode`),
                     onSuccess: ({ id, version, platforms, build }) => Option.some({ name: id, version, foreign: Option.exists(Option.fromUndefinedOr(build?.generated?.platforms ?? platforms), (built) => !built.includes(`${BLENDER[platform]}-${arch}`)) }),
                 }),
             ),
-        write: (text, version) => Effect.mapBoth(Effect.fromResult(Toml.parse(text)), { onFailure: DistributionError.refused(EXTENSION, 'does not parse as TOML'), onSuccess: (document) => patch(text, { ...document, version }) }),
+        write: (text, version) => Effect.mapBoth(Effect.fromResult(Toml.parse(text)), { onFailure: (cause) => new Cause.UnknownError(cause, `${EXTENSION} does not parse as TOML`), onSuccess: (document) => patch(text, { ...document, version }) }),
         build: {
             executor: 'extension-build',
             command: 'blender_ext.py build',
+            help: ['uv', ...BUILDER, 'build', '--help'].map(quoteShellArg).join(' '),
             lock: 'uv.lock',
             runtime: [['uv', ...PYTHON, `import hashlib, os, shutil; print(hashlib.file_digest(open(${LOCATED}, 'rb'), 'sha256').hexdigest())`].map(quoteShellArg).join(' ')],
         },
         install: {
             command: 'blender --command extension install-file',
+            help: 'blender --command extension install-file --help',
             probe: ['blender', '--version'],
             run: ({ at, name }, words) =>
                 Effect.flatMap(spawned(['blender', '--command', 'extension', 'install-file', '--repo', 'user_default', '--enable', at, ...words], { stdout: 'pipe' }), (stdout) =>
-                    new RegExp(`^STATUS (Installed|Reinstalled) "${RegExp.escape(name)}"$`, 'mu').test(stdout) ? Effect.void : Effect.fail(DistributionError.refused(at, `blender exited 0 without installing it: ${stdout.trim()}`)()),
+                    new RegExp(`^STATUS (Installed|Reinstalled) "${RegExp.escape(name)}"$`, 'mu').test(stdout) ? Effect.void : Effect.fail(new Cause.UnknownError(stdout, `${at}: blender exited 0 without installing it: ${stdout.trim()}`)),
                 ),
         },
         publish: {
             store: 'https://extensions.blender.org',
             command: 'POST /api/v1/extensions/<id>/versions/upload/',
-            credential: 'BLENDER_EXTENSIONS_TOKEN',
             held: Effect.fnUntraced(function* ({ name, version, text }, store) {
                 const { platforms, build } = yield* Effect.flatMap(Effect.fromResult(Toml.parse(text)), Schema.decodeUnknownEffect(Extension));
                 const { data } = yield* HttpClient.get(`${store}/api/v1/extensions/`).pipe(Effect.flatMap(HttpClientResponse.filterStatusOk), Effect.flatMap(HttpClientResponse.schemaBodyJson(Listed)));
                 return data.some((listed) => listed.id === name && listed.version === version && Array.difference(build?.generated?.platforms ?? platforms ?? [], listed.platforms ?? []).length === 0);
             }),
             push: Effect.fnUntraced(function* ({ at, name }, store, token) {
-                const archive = yield* Effect.tryPromise({ try: () => openAsBlob(at), catch: DistributionError.refused(at, 'does not open') });
+                const archive = yield* Effect.tryPromise({ try: () => openAsBlob(at), catch: (cause) => new Cause.UnknownError(cause, `${at} does not open`) });
                 const request = HttpClientRequest.post(`${store}/api/v1/extensions/${name}/versions/upload/`).pipe(HttpClientRequest.bearerToken(token), HttpClientRequest.bodyFormDataRecord({ version_file: new File([archive], basename(at)) }));
-                yield* Effect.flatMap(HttpClient.execute(request), HttpClientResponse.matchStatus({ 404: () => Effect.fail(DistributionError.refused(name, `is not listed on ${store}, upload its first version there once`)()), orElse: HttpClientResponse.filterStatusOk }));
+                yield* Effect.flatMap(HttpClient.execute(request), HttpClientResponse.matchStatus({ 404: (response) => Effect.fail(new Cause.UnknownError(response.status, `${name} is not listed on ${store}, upload its first version there once`)), orElse: HttpClientResponse.filterStatusOk }));
             }),
         },
     },
@@ -251,24 +265,32 @@ const HOSTS: readonly Host[] = [
         manifest: 'manifest.yml',
         technology: 'yak',
         archive: '.yak',
+        output: '.',
         read: (text) => Effect.succeed(Option.map(Option.flatMap(Option.liftThrowable(Yaml.parse)(text), Schema.decodeUnknownOption(Yak)), ({ name, version }) => ({ name, version }))),
         write: (text, version) =>
             pipe(
                 Option.liftPredicate(parseDocument(text).get('version'), (node) => node instanceof Scalar),
                 Option.flatMap(({ range }) => Option.fromNullishOr(range)),
                 Effect.fromOption,
-                Effect.mapBoth({ onFailure: DistributionError.refused('manifest.yml', 'states no version'), onSuccess: ([start, end]) => `${text.slice(0, start)}${version}${text.slice(end)}` }),
+                Effect.mapBoth({ onFailure: (cause) => new Cause.UnknownError(cause, 'manifest.yml states no version'), onSuccess: ([start, end]) => `${text.slice(0, start)}${version}${text.slice(end)}` }),
             ),
         build: {
             executor: 'package',
             command: 'yak build',
-            pack: ({ at }, file, _, words) =>
-                Effect.andThen(
-                    Effect.flatMap(FileSystem.FileSystem, (fs) => fs.copy(at, dirname(file))),
-                    Effect.asVoid(spawned(['yak', 'build', ...words], { cwd: dirname(file) })),
-                ),
+            help: 'yak build --help',
+            pack: Effect.fnUntraced(function* ({ at }, file, _, words) {
+                const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
+                const stage = yield* fs.makeTempDirectoryScoped();
+                yield* fs.copy(at, stage);
+                yield* spawned(['yak', 'build', ...words], { cwd: stage });
+                yield* Effect.forEach(
+                    (yield* fs.readDirectory(stage)).filter((name) => path.extname(name) === '.yak'),
+                    (name) => fs.copyFile(path.join(stage, name), path.join(path.dirname(file), name)),
+                    { discard: true },
+                );
+            }, Effect.scoped),
         },
-        install: { command: 'yak install', platforms: ['darwin', 'win32'], run: ({ at }, words) => Effect.asVoid(spawned(['yak', 'install', at, ...words])) },
+        install: { command: 'yak install', help: 'yak install --help', platforms: ['darwin', 'win32'], run: ({ at }, words) => Effect.asVoid(spawned(['yak', 'install', at, ...words])) },
         publish: {
             store: 'https://yak.rhino3d.com',
             command: 'yak push',
@@ -288,6 +310,7 @@ const HOSTS: readonly Host[] = [
         manifest: 'manifest.json',
         technology: 'uxp',
         archive: '.ccx',
+        output: '.',
         read: (text) => Effect.succeed(Option.map(Schema.decodeOption(Uxp)(text), ({ id, version }) => ({ name: id, version }))),
         write: (text, version) => Effect.as(exact('manifest.json', version), applyEdits(text, modify(text, ['version'], version, {}))),
         build: { executor: 'package', command: 'a zip archive named .ccx', pack: ({ at, names }, file) => zipped(at, names, file) },
@@ -297,10 +320,10 @@ const HOSTS: readonly Host[] = [
             unpacked: true,
             run: Effect.fnUntraced(function* (found) {
                 const [fs, path, root] = yield* Effect.all([FileSystem.FileSystem, Path.Path, adobe]);
-                const { id, name, version, host } = yield* Effect.mapError(Schema.decodeEffect(Uxp)(found.text), DistributionError.refused(found.at, 'holds no UXP manifest'));
+                const { id, name, version, host } = yield* Effect.mapError(Schema.decodeEffect(Uxp)(found.text), (cause) => new Cause.UnknownError(cause, `${found.at} holds no UXP manifest`));
                 const [registry, local, placed] = [path.join(root, 'UXP', 'PluginsInfo', 'v1', `${host.app}.json`), (at: string) => at.replace('$localPlugins', path.join(root, 'UXP', 'Plugins')), `$localPlugins/External/${id}_${version}`];
                 const before = yield* fs.readFileString(registry).pipe(Effect.catchReason('PlatformError', 'NotFound', () => Effect.succeed('{"plugins":[]}')));
-                const rows = (yield* Effect.mapError(Schema.decodeUnknownEffect(Registry)(parse(before)), DistributionError.refused(registry, 'holds no plugins array'))).plugins;
+                const rows = (yield* Effect.mapError(Schema.decodeUnknownEffect(Registry)(parse(before)), (cause) => new Cause.UnknownError(cause, `${registry} holds no plugins array`))).plugins;
                 const held = rows.findIndex(({ pluginId }) => pluginId === id);
                 const row = { ...rows[held], hostMinVersion: host.minVersion, name, path: placed, pluginId: id, status: 'enabled', type: 'uxp', versionString: version };
                 yield* Effect.forEach(Array.dedupe([...Array.fromNullishOr(rows[held]?.path), placed]), (at) => fs.remove(local(at), { recursive: true, force: true }), { discard: true });
@@ -314,6 +337,7 @@ const HOSTS: readonly Host[] = [
         manifest: 'CSXS/manifest.xml',
         technology: 'cep',
         archive: '.zxp',
+        output: '.',
         platforms: Object.keys(ADOBE),
         read: (text) =>
             Effect.succeed(
@@ -331,7 +355,7 @@ const HOSTS: readonly Host[] = [
                     Option.flatMap((root) => Array.findFirst(root.attributes, ({ key }) => key === 'ExtensionBundleVersion')),
                     Option.flatMap(({ syntax }) => Option.fromUndefinedOr(syntax.value)),
                     Effect.fromOption,
-                    Effect.mapBoth({ onFailure: DistributionError.refused('CSXS/manifest.xml', 'states no ExtensionBundleVersion'), onSuccess: (value) => `${text.slice(0, value.startOffset + 1)}${version}${text.slice(value.endOffset)}` }),
+                    Effect.mapBoth({ onFailure: (cause) => new Cause.UnknownError(cause, 'CSXS/manifest.xml states no ExtensionBundleVersion'), onSuccess: (value) => `${text.slice(0, value.startOffset + 1)}${version}${text.slice(value.endOffset)}` }),
                 ),
             ),
         build: {
@@ -363,7 +387,7 @@ const HOSTS: readonly Host[] = [
                     Stream.filter(({ header }) => header.type === 'File'),
                     Stream.mapEffect(({ header, body }) => Effect.andThen(fs.makeDirectory(path.dirname(path.join(target, header.path)), { recursive: true }), Stream.run(body, fs.sink(path.join(target, header.path))))),
                     Stream.runDrain,
-                    Effect.mapError(DistributionError.refused(at, 'does not unpack')),
+                    Effect.mapError((cause) => new Cause.UnknownError(cause, `${at} does not unpack`)),
                 );
             }),
         },
@@ -371,11 +395,12 @@ const HOSTS: readonly Host[] = [
     {
         manifest: '*.uproject',
         technology: 'unreal',
+        output: 'Saved',
         platforms: Object.keys(UNREAL),
         standalone: true,
         read: (text, file) =>
             Effect.mapBoth(Schema.decodeEffect(Project)(text), {
-                onFailure: DistributionError.refused(file, 'does not decode'),
+                onFailure: (cause) => new Cause.UnknownError(cause, `${file} does not decode`),
                 onSuccess: ({ Plugins, AdditionalPluginDirectories }) => Option.some({ name: basename(file, '.uproject'), folders: ['Plugins', ...(AdditionalPluginDirectories ?? [])], references: (Plugins ?? []).map(({ Name, Enabled }) => ({ name: Name, enabled: Enabled === true })) }),
             }),
         engine: (descriptor) => Effect.option(Effect.map(engine(descriptor), Struct.get('stamp'))),
@@ -386,11 +411,12 @@ const HOSTS: readonly Host[] = [
         manifest: '*.uplugin',
         technology: 'unreal',
         archive: '.zip',
+        output: 'Saved',
         platforms: Object.keys(UNREAL),
         standalone: true,
         read: (text, file) =>
             Effect.mapBoth(Schema.decodeEffect(Plugin)(text), {
-                onFailure: DistributionError.refused(file, 'does not decode'),
+                onFailure: (cause) => new Cause.UnknownError(cause, `${file} does not decode`),
                 onSuccess: ({ VersionName, Installed, Plugins, nx }) =>
                     Option.some({
                         name: basename(file, '.uplugin'),
@@ -402,10 +428,10 @@ const HOSTS: readonly Host[] = [
             }),
         write: (text, version) =>
             Effect.mapBoth(Schema.decodeEffect(Plugin)(text), {
-                onFailure: DistributionError.refused('uplugin', 'does not decode'),
+                onFailure: (cause) => new Cause.UnknownError(cause, '.uplugin does not decode'),
                 onSuccess: ({ Version }) => applyEdits(text, [...modify(text, ['VersionName'], version, {}), ...modify(text, ['Version'], (Version ?? 0) + 1, {})]),
             }),
-        build: { executor: 'unreal-build', command: 'AutomationTool BuildPlugin -StrictIncludes', runtime: ['node -p process.platform+process.arch'] },
+        build: { executor: 'unreal-build', command: 'AutomationTool BuildPlugin -StrictIncludes', runtime: [PLATFORM.runtime] },
         operations: {
             test: { command: 'UnrealEditor-Cmd -ExecCmds="Automation RunTests ^<plug-in name>.;Quit" -nullrhi -unattended in each project loading the plug-in, then a read of each test state from the exported report', options: { operation: 'test' } },
             pack: { command: 'the store checks, then a zip of each BuildPlugin package and a zip of the tracked sources with each installed package per engine, the form Fab takes', options: { operation: 'pack' } },

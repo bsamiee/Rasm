@@ -7,6 +7,10 @@
             "type": "boolean",
             "description": "Prints each change and makes none, as NX_DRY_RUN=true does"
         },
+        "credential": {
+            "type": "string",
+            "description": "Environment variable holding the store's credential, where it is unset or empty the run publishes nothing, names the variable, and succeeds"
+        },
         "__unparsed__": {
             "type": "array",
             "description": "Words after -- of the run, appended after the configured arguments",
@@ -20,7 +24,8 @@
             }
         }
     },
+    "required": [ "credential" ],
     "additionalProperties": true,
     "title": "Release publish",
-    "description": "Publishes each host package the target's dependency targets wrote to its host's store through the store's own upload, where the store's credential variable is set and the store lacks that version, and names the missing variable where it is not; runs through nx release publish"
+    "description": "Publishes each host package the target's dependency targets wrote to its host's store through the store's own upload, where the credential variable is set and the store lacks that version, and names the missing variable where it is not; runs through nx release publish"
 }

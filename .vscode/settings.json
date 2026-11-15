@@ -46,13 +46,14 @@
     "explorer.fileNesting.patterns": {
         "*.csproj": "AnalyzerReleases.*.md, packages.lock.json",
         "*.py": "${capture}.py.lock",
+        ".clang-tidy": ".clang-format, gersemi.yaml",
         ".gitignore": ".gitattributes, .gitmodules",
         "Cargo.toml": "build.rs, Cargo.lock, rust-toolchain.toml",
         "CLAUDE.md": ".mcp.json, AGENTS.md",
         "clippy.toml": "nextest.toml, rustfmt.toml",
-        "CMakeLists.txt": "*.cmake, .clang-format, .clang-tidy, CMakePresets.json, vcpkg.json",
+        "CMakeLists.txt": "*.cmake, CMakePresets.json, vcpkg.json",
         "Directory.Build.props": "Directory.Build.targets, Directory.Packages.props, global.json, NuGet.config, Workspace.slnx",
-        "hk.pkl": ".globalconfig, gersemi.yaml, jscpd.json, knip.json, pmd.xml, shellcheckrc, squawk.toml, yamllint.yaml",
+        "hk.pkl": ".globalconfig, jscpd.json, knip.json, pmd.xml, shellcheckrc, squawk.toml, yamllint.yaml",
         "Info.plist": "*.entitlements",
         "mise.toml": "mise.lock, mise.*.toml, miserc.toml",
         "nx.json": ".editorconfig, sgconfig.yml",
@@ -112,6 +113,10 @@
     },
     "search.exclude": { ".codex/skills": true },
 
+    // --- [CLANGD] ----------------------------------------------------------------------
+
+    "clangd.arguments": [ "--compile-commands-dir=${workspaceFolder}/.artifacts/cmake/default", "--clang-tidy=false", "--fallback-style=none" ],
+
     // --- [CMAKE] -----------------------------------------------------------------------
 
     "cmake.configureOnEdit": false,
@@ -159,6 +164,7 @@
 
     "rust-analyzer.checkOnSave": false,
     "rust-analyzer.rustc.source": "discover",
+    "rust-analyzer.rustfmt.extraArgs": [ "--config-path", "${workspaceFolder}/.config/rustfmt.toml" ],
 
     // --- [SHELL] -----------------------------------------------------------------------
 

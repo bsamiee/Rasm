@@ -2,7 +2,7 @@ import { basename, join, sep } from 'node:path';
 import { env } from 'node:process';
 import type { ExecutorContext } from '@nx/devkit';
 import { Array, Effect, Record, Schema } from 'effect';
-import { printed, ran, run } from '#/targets';
+import { ran, run, spawned } from '#/targets';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -26,7 +26,7 @@ const commands = Effect.fnUntraced(function* ({ runs, env: stated = {}, applicat
         (): boolean => true,
         (passed, invocation) => (passed ? Effect.map(ran(Array.appendAll(invocation, words), { cwd: root, env: { ...cleared, ...stated } }), (code) => code === 0) : Effect.succeed(false)),
     );
-    const running = !success || applications.length === 0 ? [] : (yield* printed(['ps', '-Ao', 'comm='], { cwd: root })).split('\n');
+    const running = !success || applications.length === 0 ? [] : (yield* spawned(['ps', '-Ao', 'comm='], { cwd: root })).split('\n');
     const stale = applications.filter((application) => running.some((executable) => executable.startsWith(join(application, 'Contents', 'MacOS', sep))));
     yield* stale.length === 0 ? Effect.void : Effect.logInfo(`${stale.map((application) => basename(application, '.app')).join(', ')} runs the build it launched from, relaunch it to run this one`);
     return { success };

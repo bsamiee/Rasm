@@ -1,6 +1,6 @@
 import type { ExecutorContext } from '@nx/devkit';
-import { Array, Effect, Schema } from 'effect';
-import { DistributionError, run, Words } from '#/executor';
+import { Array, Cause, Effect, Schema } from 'effect';
+import { run, Words } from '#/executor';
 import { located } from '#/host-packages';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -16,7 +16,7 @@ const execute = Effect.fnUntraced(function* ({ __unparsed__: words = [] }: typeo
     const { project, outputs, packages, folders } = yield* located(context);
     const loaded = [...packages.filter(({ host, foreign }) => host.install?.unpacked !== true && !foreign), ...folders.filter(({ host }) => host.install?.unpacked === true)].flatMap((found) => Array.fromNullishOr(found.host.install).map((install) => ({ found, install })));
     yield* Array.match(loaded, {
-        onEmpty: () => Effect.fail(DistributionError.refused(project, `build wrote nothing a host on this platform installs under ${outputs.join(', ')}`)()),
+        onEmpty: () => Effect.fail(new Cause.UnknownError(outputs, `${project}: build wrote nothing a host on this platform installs under ${outputs.join(', ')}`)),
         onNonEmpty: Effect.forEach(({ found, install }) => Effect.andThen(install.run(found, words), Effect.logInfo(`Installed ${found.at} through ${install.command}, a running host loads it at its next start`)), { discard: true }),
     });
     return { success: true };

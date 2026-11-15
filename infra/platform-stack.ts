@@ -191,7 +191,7 @@ const stored = (machine: Machine) => {
         ulimits: [{ name: 'nofile', soft: 1_048_576, hard: 1_048_576 }],
         mounts: [{ type: 'volume', source: machine.kept('storage'), target: '/data' }],
     });
-    return output({ server: serving.id.apply(() => `${published.address}:${ports.external}`), within: `http://storage:${ports.internal}`, region: 'us-east-1', user, key });
+    return output({ server: serving.urn.apply(() => `${published.address}:${ports.external}`), within: `http://storage:${ports.internal}`, region: 'us-east-1', user, key });
 };
 
 const bucketed = (name: string, storage: Output<typeof Stored.Type>, buckets: Readonly<Record<string, { readonly kept: boolean; readonly expire: Readonly<Record<string, Duration.Duration>> }>>) => {

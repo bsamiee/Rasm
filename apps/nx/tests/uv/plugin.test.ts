@@ -2,7 +2,7 @@ import { layer } from '@effect/platform-node/NodeServices';
 import { assert, it } from '@effect/vitest';
 import plugin from '@rasm/nx-uv/package.json' with { type: 'json' };
 import { conforms } from '@rasm/testing/conformance';
-import { Consumer, fromCache, Packed } from '@rasm/testing/nx';
+import { Consumer, Packed } from '@rasm/testing/nx';
 import { Array, Duration, Effect, FileSystem, Layer, Option, Path, pipe, Record, Schema } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -165,13 +165,16 @@ it.layer(
     methods.effect(
         'hits the build cache of a member after a file uv packs into no distribution appears inside it',
         Effect.fnUntraced(function* () {
-            const [{ nx, wrote }, { name }] = yield* Effect.all([Consumer, member(CORE)]);
-            const run = nx('build', name, '--output-style=static');
+            const [{ ran, wrote }, { name }] = yield* Effect.all([Consumer, member(CORE)]);
+            const run = ran(['build', name, '--output-style=static']);
             yield* run;
             yield* wrote({ 'packages/core/notes.md': 'not an input\n' });
             const { sources } = yield* member(CORE);
             assert.notInclude([...sources], 'packages/core/notes.md', REPORT);
-            assert.match((yield* run).stdout, fromCache(`${name}:build--`), `${REPORT}; nrwl/nx e2e/gradle/src/gradle-cache.test.ts "should rebuild on source and resource changes and hit cache otherwise"`);
+            assert.isTrue(
+                Record.some((yield* run).tasks, (status, id) => id.startsWith(`${name}:build--`) && status !== 'cache-miss'),
+                `${REPORT}; nrwl/nx e2e/gradle/src/gradle-cache.test.ts "should rebuild on source and resource changes and hit cache otherwise"`,
+            );
         }),
         bound,
     );

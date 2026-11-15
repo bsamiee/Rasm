@@ -165,7 +165,7 @@
                                 },
                                 "patterns": [
                                     { "group": [ "**/package.json", "#/package.json" ], "message": "Build helpers read the project manifest from the directory they take" },
-                                    { "group": [ "./**", "../**", ".", ".." ], "message": "Import the package's own modules through `#/` and other packages through their `@rasm/<lib>` entries" }
+                                    { "group": [ "./**", "../**", "!../**/nx.json", ".", ".." ], "message": "Import the package's own modules through `#/` and other packages through their `@rasm/<lib>` entries, and nx.json by its relative path" }
                                 ]
                             }
                         }

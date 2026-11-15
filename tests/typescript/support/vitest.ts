@@ -1,6 +1,11 @@
 import { Effect, Exit, flow, Scope } from 'effect';
 import type { ProvidedContext } from 'vitest';
+import { configDefaults, type ViteUserConfig } from 'vitest/config';
 import type { TestProject } from 'vitest/node';
+
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+const reporting: Pick<NonNullable<ViteUserConfig['test']>, 'chaiConfig' | 'reporters'> = { chaiConfig: { includeStack: true, truncateThreshold: 0 }, reporters: [...configDefaults.reporters, 'junit'] };
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -16,4 +21,4 @@ const provided = <K extends keyof ProvidedContext & string, E>(key: K, acquire: 
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { provided };
+export { provided, reporting };

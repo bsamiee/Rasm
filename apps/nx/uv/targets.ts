@@ -1,9 +1,10 @@
 import { dirname, extname, join, relative } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
 import { type RawProjectGraphDependency, readJsonFile, type TargetConfiguration } from '@nx/devkit';
 import { mergeTargetConfigurations, type PackageJson, quoteShellArg } from '@nx/devkit/internal';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
-import { Array, Context, Effect, FileSystem, Formatter, identity, Layer, ManagedRuntime, Option, pipe, Record, Result, Schema, SchemaTransformation, type Scope, Stream, String, Struct, UndefinedOr } from 'effect';
+import { Array, Cause, Context, Effect, FileSystem, identity, Layer, ManagedRuntime, Option, Predicate, pipe, Record, Result, Schema, SchemaTransformation, type Scope, Stream, String, Struct, UndefinedOr } from 'effect';
 import { Ini, Toml } from 'effect/encoding';
 import { ChildProcess, CommandLine } from 'effect/process';
 import type { Member } from '#/workspace';
@@ -11,6 +12,7 @@ import type { Member } from '#/workspace';
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Checker = keyof typeof CHECKERS;
+type Verbs = Readonly<Record<string, Readonly<Record<string, TargetConfiguration>>>>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -26,7 +28,7 @@ const CHECKERS = {
         command: (at: string) => ['ty', 'check', at],
         mypy: undefined,
         coverage: undefined,
-        description: 'Type-checks the member with ty',
+        description: 'Type-checks the member with ty check',
         help: 'ty check --help',
         example: ['--output-format', 'concise'],
     },
@@ -56,7 +58,7 @@ const CHECKERS = {
         command: (at: string, config?: string) => ['refurb', ...(config === undefined ? [] : ['--config-file', config]), at],
         mypy: ['--'],
         coverage: undefined,
-        description: 'Reports refurb findings over a mypy build of the member',
+        description: 'Reports the findings of the member with refurb over a mypy build',
         help: 'refurb --help',
         example: ['--format', 'github'],
     },
@@ -71,7 +73,7 @@ const CHECKERS = {
         command: (at: string, config?: string) => ['vulture', at, ...(config === undefined ? [] : ['--config', config])],
         mypy: undefined,
         coverage: undefined,
-        description: 'Reports the functions, classes, methods, and attributes of the member that nothing reads',
+        description: 'Reports the functions, classes, methods, and attributes of the member that nothing reads with vulture',
         help: 'vulture --help',
         example: ['--min-confidence', '80'],
     },
@@ -92,12 +94,21 @@ const CHECKERS = {
     },
 } as const;
 const PIXI = 'pixi.toml';
-const SHARED = distribution.name;
+const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#package'))).name;
+const PLATFORM = { runtime: 'node -p process.platform+process.arch' } as const;
 const CONFIGS = Array.dedupe([...Object.values(CHECKERS).flatMap(({ files }) => files.map(([file]) => file)), PIXI]);
 const SEPARATOR = /\s+/u;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
+const Options = Schema.Struct({ outputPath: Schema.optionalKey(Schema.String), coveragePath: Schema.optionalKey(Schema.String), releaseTag: Schema.optionalKey(Schema.String) }).annotate({
+    description:
+        "outputPath: workspace folder uv build writes a member's distributions to, {projectName} naming the member, absent leaves uv its own dist folder of the uv workspace. coveragePath: workspace folder the coverage configuration of pytest writes its data and lcov report to, {projectName} naming the member, absent leaves pytest-cov its own locations. releaseTag: tag given to every member nx release versions, absent gives none",
+});
+const Input = Schema.declare((input: unknown): input is NonNullable<TargetConfiguration['inputs']>[number] => Predicate.isString(input) || Predicate.isObject(input));
+const Overrides = Schema.fromJsonString(Schema.Struct({ nx: Schema.optionalKey(Schema.Struct({ targets: Schema.optionalKey(Schema.Record(Schema.String, Schema.Struct({ inputs: Schema.optionalKey(Schema.mutable(Schema.Array(Input))) }))) })) })).annotate({
+    description: "The nx.targets rows of a project's package.json, whose inputs Nx merges over the inferred targets after every plugin",
+});
 const Table = Schema.Record(Schema.String, Schema.Unknown);
 const Patterns = Schema.Struct({
     python_files: Schema.optionalKey(
@@ -105,41 +116,33 @@ const Patterns = Schema.Struct({
     ),
 });
 const Settings = Patterns.mapFields(Struct.assign({ ini_options: Schema.optionalKey(Patterns), pytest: Schema.optionalKey(Patterns), cache_dir: Schema.optionalKey(Schema.String) }));
-const Reason = Schema.TaggedUnion({ Exited: { code: Schema.Int, said: Schema.String }, Undecoded: { form: Schema.String }, Missing: { what: Schema.String }, Refused: { rule: Schema.String } });
-
-// --- [ERRORS] --------------------------------------------------------------------------
-
-class UvError extends Schema.TaggedError<UvError, { readonly brand: unique symbol }>()('UvError', {
-    reason: Reason,
-    subject: Schema.String,
-    cause: Schema.optionalKey(Schema.Defect()),
-}) {
-    static readonly of = (reason: UvError['reason'], subject: string) => (cause?: unknown) => UvError.make({ reason, subject, ...(cause === undefined ? {} : { cause }) });
-
-    override get message() {
-        const reason = Reason.match(this.reason, { Exited: ({ code, said }) => [`exits ${code}`, ...(said === '' ? [] : [said])].join('\n'), Undecoded: ({ form }) => `does not read as ${form}`, Missing: ({ what }) => `states no ${what}`, Refused: ({ rule }) => rule });
-        return [`${this.subject}: ${reason}`, ...(this.cause === undefined ? [] : [Formatter.format(this.cause)])].join(': ');
-    }
-}
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class Linked extends Context.Service<Linked, Map<string, readonly RawProjectGraphDependency[]>>()('@rasm/nx-uv/targets/Linked') {
+class Linked extends Context.Service<Linked, Map<string, readonly RawProjectGraphDependency[]>>()(`${PLUGIN}/targets/Linked`) {
     static readonly layer = Layer.sync(Linked, () => new Map());
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const printed = Effect.fnUntraced(function* (command: string, args: readonly string[], options: ChildProcess.CommandOptions) {
-    const handle = yield* ChildProcess.make(command, args, { extendEnv: true, detached: false, stdin: 'ignore', ...options });
-    const [stdout, said, code] = yield* Effect.all([Stream.mkString(Stream.decodeText(handle.stdout)), Stream.mkString(Stream.decodeText(handle.stderr)), handle.exitCode], { concurrency: 'unbounded' });
-    return code === 0 ? { stdout, said } : yield* UvError.of({ _tag: 'Exited', code, said }, CommandLine.display([command, ...args]))();
+const spawned = Effect.fnUntraced(function* (argv: Array.NonEmptyReadonlyArray<string>, options: ChildProcess.CommandOptions = {}) {
+    const handle = yield* ChildProcess.make(Array.headNonEmpty(argv), Array.tailNonEmpty(argv), { stdin: 'ignore', ...options, extendEnv: true, detached: false });
+    const [stdout, stderr, code] = yield* Effect.all([Stream.mkString(Stream.decodeText(handle.stdout)), Stream.mkString(Stream.decodeText(handle.stderr)), handle.exitCode], { concurrency: 'unbounded' });
+    return code === 0 ? stdout : yield* new Cause.UnknownError(code, [`${CommandLine.display(argv)} exits ${code}`, ...[stderr.trim()].filter(String.isNonEmpty)].join(': '));
 }, Effect.scoped);
 
-const manifested = (workspaceRoot: string, root: string) =>
-    Effect.map(
-        Effect.flatMap(FileSystem.FileSystem, (fs) => fs.exists(join(workspaceRoot, root, 'package.json'))),
-        (held): Readonly<Record<string, TargetConfiguration>> => (held ? (readJsonFile<PackageJson>(join(workspaceRoot, root, 'package.json')).nx?.targets ?? {}) : {}),
+const manifested = Effect.fnUntraced(function* (workspaceRoot: string, root: string) {
+    const fs = yield* FileSystem.FileSystem;
+    const manifest = join(workspaceRoot, root, 'package.json');
+    return (yield* fs.exists(manifest)) ? ((yield* Effect.flatMap(fs.readFileString(manifest), Schema.decodeEffect(Overrides))).nx?.targets ?? {}) : {};
+});
+
+const aggregated = (verbs: Verbs, stated: Readonly<Record<string, Pick<TargetConfiguration, 'inputs'>>>, technology: string): Record<string, TargetConfiguration> =>
+    Record.fromEntries(
+        Record.collect(Record.filter(verbs, Predicate.not(Record.isEmptyRecord)), (verb, tools): readonly (readonly [string, TargetConfiguration])[] => [
+            [verb, { dependsOn: [`${verb}--*`], inputs: ['...', ...Array.dedupe(Record.collect(tools, (tool, target) => mergeTargetConfigurations(stated[`${verb}--${tool}`] ?? {}, { ...target, inputs: target.inputs ?? ['default', '^default'] }).inputs ?? []).flat())] }],
+            ...Record.collect(tools, (tool, target): readonly [string, TargetConfiguration] => [`${verb}--${tool}`, { ...target, metadata: { technologies: [technology], ...target.metadata } }]),
+        ]).flat(),
     );
 
 const flagged = (flag: string, value: string | undefined): readonly string[] => (value === undefined ? [] : [flag, value]);
@@ -152,7 +155,7 @@ const documents = Effect.fnUntraced(function* (workspaceRoot: string, roots: rea
     const read = yield* Effect.forEach(present, (at) => Effect.map(fs.readFileString(join(workspaceRoot, at)), (text) => [at, extname(at) === '.toml' ? Toml.parse(text) : Result.succeed<unknown>(Ini.parse(text))] as const), { concurrency: 'unbounded' });
     return {
         documented: new Map(read.map(([at, parsed]) => [at, Result.getOrElse(parsed, Record.empty)] as const)),
-        unparsed: Array.filterMap(read, ([at, parsed]) => Result.map(Result.flip(parsed), UvError.of({ _tag: 'Undecoded', form: 'TOML or INI' }, at))),
+        unparsed: Array.filterMap(read, ([at, parsed]) => Result.map(Result.flip(parsed), (cause) => new Cause.UnknownError(cause, `${at} does not read as TOML or INI`))),
     };
 });
 
@@ -182,17 +185,19 @@ const declared = (documented: ReadonlyMap<string, unknown>, root: string, checke
     };
 };
 
-const targets = (member: Member, outputPath: Option.Option<string>, manifest: Readonly<Record<string, TargetConfiguration>>): Record<string, TargetConfiguration> => {
+const targets = (member: Member, { outputPath, coveragePath }: typeof Options.Type, manifest: Readonly<Record<string, Pick<TargetConfiguration, 'inputs'>>>): Record<string, TargetConfiguration> => {
     const line = (argv: readonly string[]) => argv.map(quoteShellArg).join(' ');
+    const named = (template: string) => template.replaceAll('{projectName}', member.name);
     const root = member.root === member.workspace;
-    const distributions = Option.match(outputPath, { onNone: () => join(member.workspace, 'dist', member.name), onSome: (at) => join(at, 'uv', member.name) });
-    const built = [relative(member.root, distributions)].filter((folder) => !folder.startsWith('..')).map((folder) => `!${join('{projectRoot}', folder, '**', '*')}`);
-    const coverage = Option.map(outputPath, (at) => join(at, 'coverage', member.name));
+    const distributions = Option.map(Option.fromUndefinedOr(outputPath), named);
+    const folder = Option.getOrElse(distributions, () => join(member.workspace, 'dist'));
+    const built = [relative(member.root, folder)].filter((held) => !held.startsWith('..')).map((held) => `!${join('{projectRoot}', held, '**', '*')}`);
+    const coverage = Option.map(Option.fromUndefinedOr(coveragePath), named);
     const checked = Array.getSomes(
         Record.collect(CHECKERS, (key, row) =>
             Option.gen(function* () {
                 const stated = yield* Option.filter(Option.fromUndefinedOr(member.checks[key]), ({ locked }) => locked && !member.nested);
-                const folder = row.folder(member.workspace, yield* Option.fromUndefinedOr(stated.base));
+                const base = row.folder(member.workspace, yield* Option.fromUndefinedOr(stated.base));
                 const { cache = '.mypy_cache', config } = Option.getOrElse(Record.get(member.checks, 'mypy'), () => stated);
                 const argv = [
                     'uv',
@@ -200,27 +205,34 @@ const targets = (member: Member, outputPath: Option.Option<string>, manifest: Re
                     '--no-active',
                     '--locked',
                     ...row.run,
-                    ...(relative(member.workspace, folder).startsWith('..') ? ['--project', relative(folder, member.workspace)] : []),
+                    ...(relative(member.workspace, base).startsWith('..') ? ['--project', relative(base, member.workspace)] : []),
                     '--package',
                     member.name,
                     '--all-extras',
                     ...flagged('--group', stated.group),
                     ...row.command(
-                        relative(folder, member.root) || '.',
-                        UndefinedOr.map(stated.config, (file) => relative(folder, file)),
+                        relative(base, member.root) || '.',
+                        UndefinedOr.map(stated.config, (file) => relative(base, file)),
                     ),
-                    ...(row.mypy === undefined ? [] : [...row.mypy, '--cache-dir', join(cache.replace('$MYPY_CONFIG_FILE_DIR', relative(folder, config === undefined ? folder : dirname(config)) || '.'), member.root, key)]),
+                    ...(row.mypy === undefined ? [] : [...row.mypy, '--cache-dir', join(cache.replace('$MYPY_CONFIG_FILE_DIR', relative(base, config === undefined ? base : dirname(config)) || '.'), member.root, key)]),
                 ];
+                const covered = Option.match(coverage, {
+                    onNone: () => ({ outputs: [join('{workspaceRoot}', base, 'coverage.lcov')], configurations: { coverage: { command: line([...argv, '--cov', '--cov-report=lcov']) } } }),
+                    onSome: (at) => ({
+                        outputs: [join('{workspaceRoot}', at)],
+                        configurations: { coverage: { command: line([...argv, '--cov', `--cov-report=lcov:${join(relative(base, at), 'coverage.lcov')}`]), env: { COVERAGE_FILE: join(relative(base, at), '.coverage') } } },
+                    }),
+                });
                 const target: TargetConfiguration = {
                     command: line(argv),
-                    options: { cwd: folder },
+                    options: { cwd: base },
                     cache: true,
                     inputs: [
                         ...row.sources.map((glob) => join('{projectRoot}', '**', glob)),
                         ...built,
                         ...stated.inputs,
                         ...row.variables.map((env) => ({ env })),
-                        ...(row.verb === 'test' ? [{ runtime: 'node -p process.platform+process.arch' }] : []),
+                        ...(row.verb === 'test' ? [PLATFORM] : []),
                         '^default',
                         join('{workspaceRoot}', member.workspace, '.python-version'),
                         join('{workspaceRoot}', member.lock),
@@ -230,25 +242,15 @@ const targets = (member: Member, outputPath: Option.Option<string>, manifest: Re
                         ),
                         { externalDependencies: [] },
                     ],
-                    ...Option.match(
-                        Option.filter(coverage, () => stated.covered),
-                        {
-                            onNone: () => ({}),
-                            onSome: (at) => ({
-                                outputs: [join('{workspaceRoot}', at)],
-                                configurations: { coverage: { command: line([...argv, '--cov', `--cov-report=lcov:${join(relative(folder, at), 'coverage.lcov')}`]), env: { COVERAGE_FILE: join(relative(folder, at), '.coverage') } } },
-                            }),
-                        },
-                    ),
+                    ...(stated.covered ? covered : {}),
                     metadata: { description: row.description, help: { command: `uv run ${row.help}`, example: { args: [...row.example] } } },
                 };
                 return { verb: row.verb, key, target };
             }),
         ),
     );
-    const published = ['uv', 'publish', ...flagged('--index', member.index)];
     const locking: NonNullable<TargetConfiguration['inputs']> = [...member.manifests.map((file) => join('{workspaceRoot}', file)), join('{workspaceRoot}', member.lock), ...['uv.toml', '.python-version'].map((file) => join('{projectRoot}', file)), { externalDependencies: [] }];
-    const rooted: Readonly<Record<string, Readonly<Record<string, TargetConfiguration>>>> = root
+    const rooted: Verbs = root
         ? {
               check: {
                   uv: {
@@ -256,7 +258,7 @@ const targets = (member: Member, outputPath: Option.Option<string>, manifest: Re
                       options: { cwd: member.root },
                       cache: true,
                       inputs: locking,
-                      metadata: { description: 'Resolves the workspace and fails where uv.lock lacks a change the manifests state, without writing it', help: { command: 'uv lock --help', example: { args: ['--offline'] } } },
+                      metadata: { description: 'Checks that uv.lock holds every change the manifests state with uv lock --check, writing nothing', help: { command: 'uv lock --help', example: { args: ['--offline'] } } },
                   },
               },
               upgrade: {
@@ -264,21 +266,21 @@ const targets = (member: Member, outputPath: Option.Option<string>, manifest: Re
                       command: 'uv lock --upgrade',
                       options: { cwd: member.root },
                       inputs: locking,
-                      metadata: { description: 'Moves every locked package to its newest allowed release', help: { command: 'uv lock --help', example: { args: ['--upgrade-package', '<package>'] } } },
+                      metadata: { description: 'Moves every locked package to its newest allowed release with uv lock --upgrade', help: { command: 'uv lock --help', example: { args: ['--upgrade-package', '<package>'] } } },
                   },
                   ...(member.pixi && {
                       pixi: {
                           command: 'pixi update',
                           options: { cwd: member.root },
                           inputs: [PIXI, 'pyproject.toml', 'pixi.lock'].map((file) => join('{projectRoot}', file)),
-                          metadata: { description: 'Moves every package of the Pixi environments to the newest release its requirement allows and rewrites pixi.lock', help: { command: 'pixi update --help', example: { args: ['--dry-run'] } } },
+                          metadata: { description: 'Moves every package of the Pixi environments to the newest release its requirement allows and rewrites pixi.lock with pixi update', help: { command: 'pixi update --help', example: { args: ['--dry-run'] } } },
                       },
                   }),
               },
           }
         : {};
     const joined = (held: Readonly<Record<string, TargetConfiguration>>, added: Readonly<Record<string, TargetConfiguration>>) => ({ ...held, ...added });
-    const tools: typeof rooted = pipe(
+    const tools: Verbs = pipe(
         Array.groupBy(checked, ({ verb }): string => verb),
         Record.map(Record.fromIterableWith(({ key, target }) => [key, target] as const)),
         Record.union(rooted, joined),
@@ -287,12 +289,12 @@ const targets = (member: Member, outputPath: Option.Option<string>, manifest: Re
                 build: {
                     ...(member.packaged && {
                         uv: {
-                            command: line(['uv', 'build', '--package', member.name, '--no-sources', '--out-dir', relative(member.workspace, distributions), '--clear', '--no-create-gitignore']),
+                            command: line(['uv', 'build', '--package', member.name, '--no-sources', ...Option.match(distributions, { onNone: () => [], onSome: (at) => ['--out-dir', relative(member.workspace, at), '--clear', '--no-create-gitignore'] })]),
                             options: { cwd: member.workspace },
                             cache: true,
                             inputs: [...member.sources, join('{workspaceRoot}', member.lock), ...built, { externalDependencies: [] }],
-                            outputs: [join('{workspaceRoot}', distributions)],
-                            metadata: { description: 'Builds the member sdist and wheel with uv', help: { command: 'uv build --help', example: { args: ['--wheel'] } } },
+                            outputs: Option.match(distributions, { onNone: () => [join('{workspaceRoot}', folder, `${String.kebabToSnake(member.name)}-*`)], onSome: (at) => [join('{workspaceRoot}', at)] }),
+                            metadata: { description: 'Builds the member sdist and wheel with uv build', help: { command: 'uv build --help', example: { args: ['--wheel'] } } },
                         },
                     }),
                 },
@@ -302,7 +304,7 @@ const targets = (member: Member, outputPath: Option.Option<string>, manifest: Re
                             command: line(['uv', 'tool', 'install', '--reinstall', ...flagged('--python', member.python), '.']),
                             options: { cwd: member.root },
                             inputs: [...member.sources, ...built, { externalDependencies: [] }],
-                            metadata: { description: "Builds the member from the checkout and installs its scripts into uv's tool folder, on an interpreter its requires-python accepts", help: { command: 'uv tool install --help', example: { args: ['--editable'] } } },
+                            metadata: { description: "Installs the member scripts from the checkout into uv's tool folder, on an interpreter its requires-python accepts, with uv tool install", help: { command: 'uv tool install --help', example: { args: ['--editable'] } } },
                         },
                     }),
                 },
@@ -310,43 +312,30 @@ const targets = (member: Member, outputPath: Option.Option<string>, manifest: Re
             joined,
         ),
     );
-    const writing = Record.collect(tools, (verb, held) =>
-        Record.collect(
-            Record.filter(held, ({ outputs = [] }) => outputs.length > 0),
-            (tool, row) => ({ label: `${verb}--${tool}`, row }),
-        ),
-    ).flat();
-    const verbs: typeof tools = {
+    const removed = Record.collect(tools, (verb, held) => Record.keys(Record.filter(held, ({ outputs = [] }) => outputs.length > 0)).map((tool) => `${verb}--${tool}`)).flat();
+    const verbs: Verbs = {
         ...tools,
-        clean: Array.match(writing, {
+        clean: Array.match(removed, {
             onEmpty: () => ({}),
-            onNonEmpty: (written) => ({ uv: { executor: `${SHARED}:clean`, inputs: Array.dedupe(written.flatMap(({ row }) => row.inputs ?? [])), options: { targets: written.map(({ label }) => label) }, metadata: { description: `Removes the outputs ${written.map(({ label }) => label).join(', ')} declare` } } }),
+            onNonEmpty: (labels) => ({ uv: { executor: `${distribution.name}:clean`, options: { targets: labels }, metadata: { description: `Removes the outputs ${labels.join(', ')} declare`, help: { command: 'nx run --help', example: { options: { targets: labels } } } } } }),
         }),
         attach: {
             ...(member.packaged && {
                 gh: {
-                    executor: `${SHARED}:attach`,
+                    executor: `${distribution.name}:attach`,
                     dependsOn: ['build--uv'],
                     inputs: [{ dependentTasksOutputFiles: '**/*' }],
-                    metadata: { description: "Uploads the files build--uv wrote to the GitHub release of the version the project's manifest states through gh release upload", help: { command: 'gh release upload --help', example: { options: { dryRun: true } } } },
+                    metadata: { description: "Uploads the files build--uv wrote to the GitHub release of the version the project's manifest states with gh release upload", help: { command: 'gh release upload --help', example: { options: { dryRun: true } } } },
                 },
             }),
         },
     };
     return {
-        ...Record.fromEntries(
-            Record.collect(
-                Record.filter(verbs, (held) => !Record.isEmptyRecord(held)),
-                (verb, held): readonly (readonly [string, TargetConfiguration])[] => [
-                    ...Record.collect(held, (tool, row): readonly [string, TargetConfiguration] => [`${verb}--${tool}`, { ...row, metadata: { technologies: ['python'], ...row.metadata } }]),
-                    [verb, { dependsOn: [`${verb}--*`], inputs: ['...', ...Array.dedupe(Record.collect(held, (tool, row) => mergeTargetConfigurations(manifest[`${verb}--${tool}`] ?? {}, row, undefined, undefined, undefined, false).inputs ?? ['default', '^default']).flat())] }],
-                ],
-            ).flat(),
-        ),
+        ...aggregated(verbs, manifest, 'python'),
         ...(member.published && {
             'nx-release-publish': {
-                executor: `${SHARED}:publish`,
-                options: { publish: published, preview: ['--dry-run'], credential: 'UV_PUBLISH_TOKEN' },
+                executor: `${distribution.name}:publish`,
+                options: { publish: ['uv', 'publish', ...flagged('--index', member.index)], preview: ['--dry-run'], credential: 'UV_PUBLISH_TOKEN' },
                 dependsOn: ['build--uv', '^nx-release-publish'],
                 inputs: [{ dependentTasksOutputFiles: '**/*' }],
                 metadata: { description: 'Publishes the distributions build--uv wrote with uv publish, which reads UV_PUBLISH_TOKEN', help: { command: 'uv publish --help', example: { options: { dryRun: true } } } },
@@ -363,4 +352,4 @@ const run = <A, E>(effect: Effect.Effect<A, E, Linked | NodeServices | Scope.Sco
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { CHECKERS, CONFIGS, declared, documents, Linked, manifested, PIXI, printed, run, SHARED, targets, UvError };
+export { CHECKERS, CONFIGS, declared, documents, Linked, manifested, Options, PIXI, PLUGIN, run, spawned, targets };

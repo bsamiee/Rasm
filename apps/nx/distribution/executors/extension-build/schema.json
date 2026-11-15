@@ -5,7 +5,7 @@
     "properties": {
         "outputPath": {
             "type": "string",
-            "description": "Workspace-relative folder the archives are written to"
+            "description": "Workspace-relative folder the archives are written to, each earlier archive of the extension in it removed first"
         },
         "__unparsed__": {
             "type": "array",

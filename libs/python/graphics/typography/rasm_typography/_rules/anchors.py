@@ -21,7 +21,7 @@ from rasm_typography._faces.declaration import Band, Code, Em, Ratio, Script
 from rasm_typography._rules import measures
 lazy from rasm_records import Error, Ok, Outcome
 lazy from rasm_typography._faces.glyphs import Anchor, Glyph, Letter, Ligature, Mark, Point, Side, Source
-lazy from rasm_typography._faces.layout import Adjustment, Chain, Contextual, Lifts
+lazy from rasm_typography._faces.layout import Adjustment, Chain, Contextual, Lifts, Ligatures, Single
 lazy from rasm_typography._outlines import measure, paths
 lazy from rasm_typography._shaping.corpus import Corpus
 lazy from rasm_typography._shaping.runs import Binary
@@ -30,7 +30,7 @@ lazy from rasm_typography._shaping.runs import Binary
 
 
 class Anchors(measures.Rule, frozen=True, kw_only=True):
-    """Anchors at the original's vowel clearance over a column `wide` vowels across, wider marks over the widest, spaces like the stem, dots and hamzas `dots` off a joined neighbor where the `dot` letter carries them apart, `depth` stacked marks a side lifted or dropped up to `lifts` (unjoined, joined) or slid clear."""
+    """Anchors at the original's vowel clearance over a column `wide` vowels across, wider marks over the widest, spaces as the stem, the `dot` letter's dots `dots` off a joined neighbor, stacks of up to `depth` marks moved by their first mark up to `lifts` (unjoined, joined) or slid clear."""
 
     script: Script
     stack: Em
@@ -38,7 +38,7 @@ class Anchors(measures.Rule, frozen=True, kw_only=True):
     lifts: Band = (0.1, 0.46)
     dots: Em = 0.015
     wide: Ratio = 1.15
-    depth: Annotated[int, msgspec.Meta(gt=0)] = 3
+    depth: Annotated[int, msgspec.Meta(gt=0)] = 2
     dot: Code | None = None
 
     def applied(self, source: Source, /, *, original: Binary, corpus: Corpus, **_: object) -> Outcome[Source]:
@@ -200,9 +200,9 @@ class Anchors(measures.Rule, frozen=True, kw_only=True):
                     for (name, motion), alias in shifts.items()
                 )
                 dotted = tuple(
-                    Chain[str | None](input=(((name,), shifts[name, move].text),), lookahead=(others,))
+                    Chain[tuple[Single | Ligatures, ...]](input=(((name,), (Single(features=frozendict(), mapping=frozendict({name: shifts[name, move].text})),)),), lookahead=(others,))
                     if after
-                    else Chain[str | None](backtrack=(others,), input=(((name,), shifts[name, move].text),))
+                    else Chain[tuple[Single | Ligatures, ...]](backtrack=(others,), input=(((name,), (Single(features=frozendict(), mapping=frozendict({name: shifts[name, move].text})),)),))
                     for (name, after, move), group in groupby(moves, key=lambda row: row[:3])
                     for others in (tuple(*variants.get(other, (other,)) for *_, other in group),)
                 )
@@ -223,7 +223,7 @@ class Anchors(measures.Rule, frozen=True, kw_only=True):
                                 dict.fromkeys((owners[name], after, carrying, lift, others[other]) for name, after, carrying, lift, other in shifted), key=lambda row: not row[2]
                             )
                             for count in range(self.depth, 0, -1)
-                            for moved in (((owned, None), *((marks, Adjustment(dx=lift[0], dy=lift[1])),) * count),)
+                            for moved in (((owned, None), (marks, Adjustment(dx=lift[0], dy=lift[1])), *((marks, None),) * (count - 1)),)
                             for rule in (
                                 (Chain(input=moved, lookahead=(other, *(marks,) * carrying)),)
                                 if after
@@ -381,7 +381,9 @@ def _cleared(body: tuple[tuple[Point, ...], ...], group: tuple[tuple[Point, ...]
             end = measure.gap(paths.transformed(group, Offset(dx, sign * dots.height)), placed)
             return next(
                 (
-                    otRound(sign * math.ceil(root_scalar(lambda dy, target: measure.gap(paths.transformed(group, Offset(dx, sign * dy)), placed) - target, args=(target,), bracket=(0.0, dots.height)).root))
+                    otRound(
+                        sign * math.ceil(root_scalar(lambda dy, target: measure.gap(paths.transformed(group, Offset(dx, sign * dy)), placed) - target, args=(target,), bracket=(0.0, dots.height)).root)
+                    )
                     for target in (reach, 0.0)
                     if start < target <= end
                 ),

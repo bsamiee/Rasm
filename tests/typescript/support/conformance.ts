@@ -266,7 +266,7 @@ const conforms = <R, M extends Member>({ workspace, members, built, report, tool
                 const { text, wrote, plugins } = yield* Consumer;
                 yield* counted(tools, '');
                 const entries = yield* Effect.forEach(plugins, (plugin) => Effect.flatMap(text(join('node_modules', plugin, 'package.json')), Schema.decodeEffect(Entry)));
-                const released = Array.zipWith(plugins, entries,(plugin, { exports }) => join('node_modules', plugin, dirname(exports['.']), 'released.js'));
+                const released = Array.zipWith(plugins, entries, (plugin, { exports }) => join('node_modules', plugin, dirname(exports['.']), 'released.js'));
                 yield* wrote(Record.fromIterableWith(released, (file) => [file, 'export {};\n']));
                 const { code, stderr, runs } = yield* counted(tools, '');
                 assert.strictEqual(code, 0, stderr);
@@ -420,11 +420,11 @@ const conforms = <R, M extends Member>({ workspace, members, built, report, tool
                 const [{ ran, wrote }, { name }] = yield* Effect.all([Consumer, member(edits.dependent)]);
                 const [run, missed] = [ran([verb, name, '--output-style=static']), yield* tooled(name, verb)];
                 yield* run;
-                assert.deepStrictEqual(missed((yield* run).tasks), [],'nrwl/nx e2e/dotnet/src/dotnet-cache.test.ts "should store and use local cache for builds"');
+                assert.deepStrictEqual(missed((yield* run).tasks), [], 'nrwl/nx e2e/dotnet/src/dotnet-cache.test.ts "should store and use local cache for builds"');
                 yield* wrote(edits.upstream(verb));
                 const edited = yield* run;
                 assert.strictEqual(edited.code, 0, `${edited.stdout}${edited.stderr}`);
-                assert.isNotEmpty(missed(edited.tasks),'nrwl/nx e2e/gradle/src/gradle-task-dependencies.test.ts "should not serve a cache hit after the dependency changes"');
+                assert.isNotEmpty(missed(edited.tasks), 'nrwl/nx e2e/gradle/src/gradle-task-dependencies.test.ts "should not serve a cache hit after the dependency changes"');
                 yield* wrote(edits.outside(verb));
                 assert.deepStrictEqual(missed((yield* run).tasks), [], `${report}; nrwl/nx e2e/gradle/src/gradle-task-dependencies.test.ts "should still hit cache when an unrelated file changes"; e2e/gradle/src/gradle-cache.test.ts "should rebuild on source and resource changes and hit cache otherwise"`);
             }),
@@ -438,7 +438,7 @@ const conforms = <R, M extends Member>({ workspace, members, built, report, tool
                 const [run, missed] = [ran(['test', name, '--output-style=static']), yield* tooled(name, 'test')];
                 const first = yield* run;
                 assert.strictEqual(first.code, 0, `${first.stdout}${first.stderr}`);
-                assert.deepStrictEqual(missed((yield* run).tasks), [],'nrwl/nx e2e/dotnet/src/dotnet-cache.test.ts "should handle test execution with fully cached dependency chain"');
+                assert.deepStrictEqual(missed((yield* run).tasks), [], 'nrwl/nx e2e/dotnet/src/dotnet-cache.test.ts "should handle test execution with fully cached dependency chain"');
                 yield* wrote(edits.failing);
                 const failing = yield* run;
                 yield* called('git', ['checkout', '--', ...Record.keys(edits.failing)]);
@@ -477,7 +477,7 @@ const conforms = <R, M extends Member>({ workspace, members, built, report, tool
                     [],
                     source,
                 );
-                assert.deepStrictEqual(missed(second.tasks), [],`${source}: ${second.stdout}${second.stderr}`);
+                assert.deepStrictEqual(missed(second.tasks), [], `${source}: ${second.stdout}${second.stderr}`);
             }, Effect.scoped),
             bound,
         );

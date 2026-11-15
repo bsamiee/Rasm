@@ -1,12 +1,14 @@
 import { dirname, join, relative, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
 import { readJsonFile, type TargetConfiguration } from '@nx/devkit';
 import { globWithWorkspaceContext, type PackageJson } from '@nx/devkit/internal';
-import { Array, Config, Context, Effect, FileSystem, Formatter, Function, Layer, ManagedRuntime, Number, Option, pipe, Record, Result, Schema, type Scope, SemVer, Stream } from 'effect';
+import { Array, Cause, Config, Context, Effect, FileSystem, Function, Layer, ManagedRuntime, Number, Option, Predicate, pipe, Record, Result, Schema, type Scope, SemVer, Stream, String } from 'effect';
 import { ChildProcess, CommandLine } from 'effect/process';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
+const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#package'))).name;
 const MANIFEST = 'CMakeLists.txt';
 const PRESETS = 'CMakePresets.json';
 const PACKAGING = 'CPackConfig.cmake';
@@ -26,7 +28,6 @@ const Workflow = Schema.Struct({
     name: Schema.String,
     configure: Schema.String,
     tree: Schema.String,
-    stated: Schema.Boolean,
     build: Schema.optionalKey(Schema.String),
     test: Schema.optionalKey(Schema.String),
     after: Schema.optionalKey(Schema.String),
@@ -97,45 +98,32 @@ const Tree = Schema.Struct({
     ),
     inputs: Schema.Array(Schema.String),
 });
-
-const Reason = Schema.TaggedUnion({ Exited: { code: Schema.Int, said: Schema.String }, Undecoded: { form: Schema.String }, Missing: { what: Schema.String }, Refused: { rule: Schema.String } });
+const Input = Schema.declare((input: unknown): input is NonNullable<TargetConfiguration['inputs']>[number] => Predicate.isString(input) || Predicate.isObject(input));
+const Overrides = Schema.fromJsonString(Schema.Struct({ nx: Schema.optionalKey(Schema.Struct({ targets: Schema.optionalKey(Schema.Record(Schema.String, Schema.Struct({ inputs: Schema.optionalKey(Schema.mutable(Schema.Array(Input))) }))) })) })).annotate({
+    description: "The nx.targets rows of a project's package.json, whose inputs Nx merges over the inferred targets after every plugin",
+});
 
 type Tree = typeof Tree.Type;
 
-// --- [ERRORS] --------------------------------------------------------------------------
-
-class CMakeError extends Schema.TaggedError<CMakeError, { readonly brand: unique symbol }>()('CMakeError', {
-    reason: Reason,
-    subject: Schema.String,
-    cause: Schema.optionalKey(Schema.Defect()),
-}) {
-    static readonly of = (reason: CMakeError['reason'], subject: string) => (cause?: unknown) => CMakeError.make({ reason, subject, ...(cause === undefined ? {} : { cause }) });
-
-    override get message() {
-        const reason = Reason.match(this.reason, { Exited: ({ code, said }) => [`exits ${code}`, ...(said === '' ? [] : [said])].join('\n'), Undecoded: ({ form }) => `does not read as ${form}`, Missing: ({ what }) => `states no ${what}`, Refused: ({ rule }) => rule });
-        return [`${this.subject}: ${reason}`, ...(this.cause === undefined ? [] : [Formatter.format(this.cause)])].join(': ');
-    }
-}
-
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class Linked extends Context.Service<Linked, Map<string, Tree['members']>>()('@rasm/nx-cmake/workspace/Linked') {
+class Linked extends Context.Service<Linked, Map<string, Tree['members']>>()(`${PLUGIN}/workspace/Linked`) {
     static readonly layer = Layer.sync(Linked, () => new Map());
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const printed = Effect.fnUntraced(function* (command: string, args: readonly string[], options: ChildProcess.CommandOptions) {
-    const handle = yield* ChildProcess.make(command, args, { extendEnv: true, detached: false, stdin: 'ignore', ...options });
-    const [stdout, said, code] = yield* Effect.all([Stream.mkString(Stream.decodeText(handle.stdout)), Stream.mkString(Stream.decodeText(handle.stderr)), handle.exitCode], { concurrency: 'unbounded' });
-    return code === 0 ? stdout : yield* CMakeError.of({ _tag: 'Exited', code, said }, CommandLine.display([command, ...args]))();
+const spawned = Effect.fnUntraced(function* (argv: Array.NonEmptyReadonlyArray<string>, options: ChildProcess.CommandOptions = {}) {
+    const handle = yield* ChildProcess.make(Array.headNonEmpty(argv), Array.tailNonEmpty(argv), { stdin: 'ignore', ...options, extendEnv: true, detached: false });
+    const [stdout, stderr, code] = yield* Effect.all([Stream.mkString(Stream.decodeText(handle.stdout)), Stream.mkString(Stream.decodeText(handle.stderr)), handle.exitCode], { concurrency: 'unbounded' });
+    return code === 0 ? stdout : yield* new Cause.UnknownError(code, [`${CommandLine.display(argv)} exits ${code}`, ...[stderr.trim()].filter(String.isNonEmpty)].join(': '));
 }, Effect.scoped);
 
-const manifested = (workspaceRoot: string, root: string) =>
-    Effect.map(
-        Effect.flatMap(FileSystem.FileSystem, (fs) => fs.exists(join(workspaceRoot, root, 'package.json'))),
-        (held): Readonly<Record<string, TargetConfiguration>> => (held ? (readJsonFile<PackageJson>(join(workspaceRoot, root, 'package.json')).nx?.targets ?? {}) : {}),
-    );
+const manifested = Effect.fnUntraced(function* (workspaceRoot: string, root: string) {
+    const fs = yield* FileSystem.FileSystem;
+    const manifest = join(workspaceRoot, root, 'package.json');
+    return (yield* fs.exists(manifest)) ? ((yield* Effect.flatMap(fs.readFileString(manifest), Schema.decodeEffect(Overrides))).nx?.targets ?? {}) : {};
+});
 
 const versioned = (text: string, at: string) => {
     const from = Option.map(Option.fromNullOr(CALL.exec(text)), (call) => call.index + call[0].length);
@@ -149,13 +137,13 @@ const versioned = (text: string, at: string) => {
             return { version: token.slice(quote, token.length - quote), start: start + index + quote, end: start + index + token.length - quote };
         });
     });
-    return Effect.mapError(Effect.fromOption(stated), CMakeError.of({ _tag: 'Missing', what: 'VERSION in a project() call, which nx release reads and writes' }, at));
+    return Effect.mapError(Effect.fromOption(stated), (cause) => new Cause.UnknownError(cause, `${at} states no VERSION in a project() call, which nx release reads and writes`));
 };
 
 const restated = Effect.fnUntraced(function* (text: string, version: string, at: string) {
     yield* Effect.fromResult(SemVer.parse(version)).pipe(
         Effect.filterOrFail((parsed) => !(SemVer.isPrerelease(parsed) || SemVer.hasBuild(parsed))),
-        Effect.mapError(CMakeError.of({ _tag: 'Refused', rule: `takes a major.minor.patch version alone in project(VERSION), which ${version} is not` }, at)),
+        Effect.mapError((cause) => new Cause.UnknownError(cause, `${at} takes a major.minor.patch version alone in project(VERSION), which ${version} is not`)),
     );
     const { start, end } = yield* versioned(text, at);
     return `${text.slice(0, start)}${version}${text.slice(end)}`;
@@ -163,24 +151,11 @@ const restated = Effect.fnUntraced(function* (text: string, version: string, at:
 
 const expanded = Effect.fnUntraced(function* (folder: string) {
     const names = Array.dedupe([...folder.matchAll(ENVIRONMENT)].map(([, name = '']) => name));
-    const read = yield* Effect.forEach(names, (name) => Config.option(Config.String(name)));
-    return Option.map(Option.all(read), (values) => {
-        const held = Record.fromEntries(Array.zip(names, values));
-        return folder.replaceAll(ENVIRONMENT, (whole, name: string) => Option.getOrElse(Record.get(held, name), Function.constant(whole)));
-    });
+    const values = yield* Effect.forEach(names, (name) => Config.withDefault(Config.String(name), ''));
+    return Array.zip(names, values).reduce((text, [name, value]) => text.replaceAll(`$env{${name}}`, value), folder);
 });
 
-const planted = (outputPath: Option.Option<string>, root: string, tool: string, name: string) => Option.match(outputPath, { onNone: () => join(root, 'build', tool, name), onSome: (at) => join(at, tool, root, name) });
-
-const configured = (root: string, { configure, stated }: Pick<typeof Workflow.Type, 'configure' | 'stated'>, tree: string, defines: Readonly<Record<string, string>> = {}): Array.NonEmptyReadonlyArray<string> => [
-    'cmake',
-    '--preset',
-    configure,
-    '-S',
-    root,
-    ...(stated ? [] : ['-B', tree]),
-    ...Record.collect(defines, (name, value) => `-D${name}=${value}`),
-];
+const configured = (configure: string, defines: Readonly<Record<string, string>> = {}): Array.NonEmptyReadonlyArray<string> => ['cmake', '--preset', configure, '-S', '.', ...Record.collect(defines, (name, value) => `-D${name}=${value}`)];
 
 const replied = Effect.fnUntraced(function* (workspaceRoot: string, root: string, workflow: typeof Workflow.Type, located: string) {
     const fs = yield* FileSystem.FileSystem;
@@ -190,8 +165,7 @@ const replied = Effect.fnUntraced(function* (workspaceRoot: string, root: string
     const read = <S extends Schema.Decoder<unknown>>(schema: S, file: string) => Effect.flatMap(fs.readFileString(join(reply, file)), Schema.decodeEffect(schema));
     yield* fs.makeDirectory(query, { recursive: true });
     yield* fs.writeFileString(join(query, QUERY), '{"requests":[{"kind":"codemodel","version":2},{"kind":"cmakeFiles","version":1}]}');
-    const [configure, ...configuring] = configured(root, workflow, tree);
-    yield* printed(configure, configuring, { cwd: workspaceRoot });
+    yield* spawned(configured(workflow.configure), { cwd: join(workspaceRoot, root) });
     const newest = yield* Effect.flatMap(fs.readDirectory(reply), (names) => Effect.fromOption(Array.last(names.filter((name) => name.startsWith('index-')).toSorted())));
     const index = yield* read(Index, newest);
     const [modelled, filed] = index.reply[CLIENT][QUERY].responses;
@@ -203,7 +177,7 @@ const replied = Effect.fnUntraced(function* (workspaceRoot: string, root: string
         projects,
         Effect.fnUntraced(function* ({ name, parentIndex, directoryIndexes }) {
             const { source, build, jsonFile } = yield* Effect.fromOption(Array.get(directories, Array.headNonEmpty(directoryIndexes)));
-            const [{ installers }, { tests }, packaging] = yield* Effect.all([read(Directory, jsonFile), Effect.flatMap(printed(index.cmake.paths.ctest, ['--test-dir', join(tree, build), '--show-only=json-v1'], { cwd: workspaceRoot }), Schema.decodeEffect(Listing)), fs.exists(join(tree, build, PACKAGING))], {
+            const [{ installers }, { tests }, packaging] = yield* Effect.all([read(Directory, jsonFile), Effect.flatMap(spawned([index.cmake.paths.ctest, '--test-dir', join(tree, build), '--show-only=json-v1'], { cwd: workspaceRoot }), Schema.decodeEffect(Listing)), fs.exists(join(tree, build, PACKAGING))], {
                 concurrency: 'unbounded',
             });
             return { name, parentIndex, root: inside(source), build, installs: installers.length > 0, packaged: installers.length > 0 && packaging, tests: tests.length };
@@ -252,63 +226,66 @@ const replied = Effect.fnUntraced(function* (workspaceRoot: string, root: string
     return { members, inputs: tracked };
 });
 
-const resolved = Effect.fnUntraced(
-    function* (workspaceRoot: string, presets: string, manifests: readonly string[], placed: (preset: string) => string) {
-        const fs = yield* FileSystem.FileSystem;
-        const root = dirname(presets);
-        const { configurePresets, packagePresets: packages, workflowPresets } = yield* Effect.flatMap(fs.readFileString(join(workspaceRoot, presets)), Schema.decodeEffect(Presets));
-        type Steps = (typeof workflowPresets)[number]['steps'];
-        const chain = (name: string): readonly (typeof configurePresets)[number][] => configurePresets.filter((preset) => preset.name === name).flatMap((preset) => [preset, ...Array.ensure(preset.inherits ?? []).flatMap(chain)]);
-        const stepped = (listed: Steps, type: string) =>
-            Option.map(
-                Array.findFirst(listed, (each) => each.type === type),
-                (each) => each.name,
-            );
-        const followed = (listed: Steps) => stepped(listed.slice(listed.findIndex(({ type }) => type === 'test') + 1 || listed.length), 'build');
-        const rooted = (configure: string) =>
-            Option.match(
-                Array.findFirst(chain(configure), ({ binaryDir }) => Option.fromUndefinedOr(binaryDir)),
-                {
-                    onNone: () => ({ tree: placed(configure), stated: false }),
-                    onSome: (folder) => ({
-                        tree: relative(
+const resolved = Effect.fnUntraced(function* (workspaceRoot: string, presets: string, manifests: readonly string[]) {
+    const fs = yield* FileSystem.FileSystem;
+    const root = dirname(presets);
+    const { configurePresets, packagePresets: packages, workflowPresets } = yield* Effect.flatMap(fs.readFileString(join(workspaceRoot, presets)), Schema.decodeEffect(Presets));
+    type Steps = (typeof workflowPresets)[number]['steps'];
+    const chain = (name: string): readonly (typeof configurePresets)[number][] => configurePresets.filter((preset) => preset.name === name).flatMap((preset) => [preset, ...Array.ensure(preset.inherits ?? []).flatMap(chain)]);
+    const stepped = (listed: Steps, type: string) =>
+        Option.map(
+            Array.findFirst(listed, (each) => each.type === type),
+            (each) => each.name,
+        );
+    const followed = (listed: Steps) => stepped(listed.slice(listed.findIndex(({ type }) => type === 'test') + 1 || listed.length), 'build');
+    const rooted = (configure: string) =>
+        Option.match(
+            Array.findFirst(chain(configure), ({ binaryDir }) => Option.fromUndefinedOr(binaryDir)),
+            {
+                onNone: () => root,
+                onSome: (folder) =>
+                    relative(
+                        workspaceRoot,
+                        resolve(
                             workspaceRoot,
+                            root,
                             folder.replaceAll(SOURCE_DIR, () => join(workspaceRoot, root)).replaceAll(PRESET_NAME, () => configure),
                         ),
-                        stated: true,
-                    }),
-                },
-            );
-        const launchers = (configure: string) =>
-            Record.collect(
-                Record.filterMap(
-                    Record.fromEntries(
-                        chain(configure)
-                            .toReversed()
-                            .flatMap(({ cacheVariables = {} }) => Record.toEntries(cacheVariables)),
-                    ),
-                    (stated, variable) => (TIDY.test(variable) ? Result.fromOption(Schema.decodeUnknownOption(Launcher)(stated), Function.constVoid) : Result.failVoid),
+                    ) || '.',
+            },
+        );
+    const launchers = (configure: string) =>
+        Record.collect(
+            Record.filterMap(
+                Record.fromEntries(
+                    chain(configure)
+                        .toReversed()
+                        .flatMap(({ cacheVariables = {} }) => Record.toEntries(cacheVariables)),
                 ),
-                (variable, named) => ({ variable, launcher: typeof named === 'string' ? named : named.value }),
-            );
-        const workflows = Array.getSomes(
-            workflowPresets.map(({ name, steps }) => Option.map(stepped(steps, 'configure'), (configure): typeof Workflow.Type => ({ ...Record.getSomes({ build: stepped(steps, 'build'), test: stepped(steps, 'test'), after: followed(steps) }), ...rooted(configure), name, configure, tidy: launchers(configure) }))),
+                (stated, variable) => (TIDY.test(variable) ? Result.fromOption(Schema.decodeUnknownOption(Launcher)(stated), Function.constVoid) : Result.failVoid),
+            ),
+            (variable, named) => ({ variable, launcher: typeof named === 'string' ? named : named.value }),
         );
-        const declaring = yield* Effect.filter(
-            manifests.filter((file) => file !== join(root, MANIFEST) && !relative(root, file).startsWith('..')),
-            (file) => Effect.map(fs.readFileString(join(workspaceRoot, file)), (text) => CALL.test(text)),
-            { concurrency: 'unbounded' },
-        );
-        const held = declaring.length > 0 && Option.isSome(yield* Effect.option(printed('cmake', ['--version'], {})));
-        const head = Option.filter(Array.head(workflows), () => held);
-        const located = Option.flatten(yield* Effect.transposeOption(Option.map(head, (workflow) => expanded(workflow.tree))));
-        return yield* Option.match(Option.all({ workflow: head, located }), {
-            onNone: () => Effect.succeed({ tree: { root, workflows, packages, members: [], inputs: [] } satisfies Tree, partial: declaring.length > 0 && workflows.length > 0 }),
-            onSome: (selected) => Effect.map(replied(workspaceRoot, root, selected.workflow, selected.located), (reply) => ({ tree: { root, workflows, packages, ...reply } satisfies Tree, partial: false })),
-        });
-    },
-    Effect.catchTag('NoSuchElementError', (cause) => Effect.fail(CMakeError.of({ _tag: 'Missing', what: 'CMake file API reply naming its projects' }, 'cmake')(cause))),
-);
+    const workflows = Array.getSomes(
+        workflowPresets.map(({ name, steps }) => Option.map(stepped(steps, 'configure'), (configure): typeof Workflow.Type => ({ ...Record.getSomes({ build: stepped(steps, 'build'), test: stepped(steps, 'test'), after: followed(steps) }), tree: rooted(configure), name, configure, tidy: launchers(configure) }))),
+    );
+    const declaring = yield* Effect.filter(
+        manifests.filter((file) => !relative(root, file).startsWith('..')),
+        (file) => Effect.map(fs.readFileString(join(workspaceRoot, file)), (text) => CALL.test(text)),
+        { concurrency: 'unbounded' },
+    );
+    return yield* Option.match(
+        Option.filter(Array.head(workflows), () => declaring.length > 0),
+        {
+            onNone: () => Effect.succeed<Tree>({ root, workflows, packages, members: [], inputs: [] }),
+            onSome: (workflow) =>
+                Effect.map(
+                    Effect.flatMap(expanded(workflow.tree), (located) => replied(workspaceRoot, root, workflow, located)),
+                    (reply): Tree => ({ root, workflows, packages, ...reply }),
+                ),
+        },
+    );
+});
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -318,4 +295,4 @@ const run = <A, E>(effect: Effect.Effect<A, E, Linked | NodeServices | Scope.Sco
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { CMakeError, configured, ENVIRONMENT, Linked, MANIFEST, manifested, PACKAGING, PRESETS, planted, printed, resolved, restated, run, type Tree, versioned };
+export { configured, ENVIRONMENT, Linked, MANIFEST, manifested, PACKAGING, PLUGIN, PRESETS, resolved, restated, run, SOURCE_DIR, type Tree, versioned };

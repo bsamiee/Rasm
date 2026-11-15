@@ -3,7 +3,7 @@ import { assert, it } from '@effect/vitest';
 import type { ProjectGraph } from '@nx/devkit';
 import nxVite from '@nx/vite/package.json' with { type: 'json' };
 import plugin from '@rasm/nx-vite/package.json' with { type: 'json' };
-import { Consumer, Packed } from '@rasm/testing/nx';
+import { Consumer, kept, Packed } from '@rasm/testing/nx';
 import { Duration, Effect, Formatter, Layer, Path, Predicate, Record, Schema, Struct } from 'effect';
 import vite from 'vite/package.json' with { type: 'json' };
 
@@ -82,6 +82,18 @@ const workspace = (stated: Readonly<Record<string, string>>) => Layer.provideMer
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 it.layer(workspace(files), { timeout: bounds.built, excludeTestServices: true })((methods) => {
+    methods.effect(
+        'keeps every file the builds of every project wrote through a graph read holding no stored plugin result',
+        Effect.fnUntraced(function* () {
+            const { built: run, shown, created, removed } = yield* kept;
+            assert.strictEqual(run.code, 0, `${run.stdout}${run.stderr}`);
+            assert.isNotEmpty(created, 'README.md TASKS: `build` compiles or packages a project into its declared outputs');
+            assert.strictEqual(shown.code, 0, shown.stderr);
+            assert.deepStrictEqual(removed, [], 'nrwl/nx packages/nx/src/project-graph/plugins/public-api.ts CreateNodesFunction: a plugin reads configuration files and returns project configuration, and graph creation removes no file a task wrote');
+        }),
+        bounds.test,
+    );
+
     const spec = 'nrwl/nx packages/vite/src/plugins/plugin.spec.ts';
     const snapshot = 'nrwl/nx packages/vite/src/plugins/__snapshots__/plugin.spec.ts.snap';
     const tasks = 'README.md TASKS';

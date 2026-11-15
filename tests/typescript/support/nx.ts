@@ -164,14 +164,19 @@ class Consumer extends Context.Service<
                     called,
                     nx: (...args: readonly string[]) => called('nx', args),
                     ran: Effect.fnUntraced(function* (args: readonly string[], set: Record.ReadonlyRecord<string, string> = {}) {
-                        const folder = set['NX_CACHE_DIRECTORY'] ?? cache;
+                        const folder = Option.getOrElse(Record.get(set, 'NX_CACHE_DIRECTORY'), () => cache);
                         yield* Effect.orDie(fs.remove(path.join(folder, 'run.json'), { force: true }));
                         const outcome = yield* spawned(['nx', ...args], '.', set);
                         const tasks = yield* Effect.orDie(Effect.provideService(recorded(folder), FileSystem.FileSystem, fs));
                         return { ...outcome, tasks: Record.fromIterableWith(tasks, ({ taskId, cacheStatus }) => [taskId, cacheStatus]) };
                     }),
                     evaluated,
-                    read: Effect.orDie(Effect.flatMap(Effect.flatMap(spawned(['node', fileURLToPath(import.meta.resolve('#/reading'))], '.', { NX_CACHE_PROJECT_GRAPH: 'false' }), ({ checked }) => checked), Schema.decodeEffect(Reading))),
+                    read: Effect.orDie(
+                        Effect.flatMap(
+                            Effect.flatMap(spawned(['node', fileURLToPath(import.meta.resolve('#/reading'))], '.', { NX_CACHE_PROJECT_GRAPH: 'false' }), ({ checked }) => checked),
+                            Schema.decodeEffect(Reading),
+                        ),
+                    ),
                     planned: Effect.fnUntraced(
                         function* (...args: readonly string[]) {
                             const file = path.join(yield* fs.makeTempDirectoryScoped({ prefix: 'nx-planned-' }), 'tasks.json');
@@ -228,7 +233,7 @@ const environment = (root: string, set: Record.ReadonlyRecord<string, string> = 
     ...set,
 });
 
-const rows = ({ plugins = [] }: NxJsonConfiguration): readonly ExpandedPluginConfiguration[] => plugins.map((row) => (Predicate.isString(row) ? { plugin: row } : row));
+const rows = ({ plugins = [] }: Pick<NxJsonConfiguration, 'plugins'>): readonly ExpandedPluginConfiguration[] => plugins.map((row) => (Predicate.isString(row) ? { plugin: row } : row));
 
 const recorded = Effect.fnUntraced(function* (folder: string) {
     const fs = yield* FileSystem.FileSystem;

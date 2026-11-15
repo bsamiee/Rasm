@@ -1,9 +1,7 @@
-import { createRequire } from 'node:module';
-import { execPath } from 'node:process';
 import { formatFiles, getProjects, readJson, type Tree, writeJson } from '@nx/devkit';
 import { loadTsFile, resolveImplementation, type SyncGeneratorResult } from '@nx/devkit/internal';
-import { Array, Effect, JsonSchema, Option, Path, Predicate, pipe, Record, Result, Schema, Stream } from 'effect';
-import { DistributionError, run, spawned } from '#/executor';
+import { Array, Cause, Effect, Equal, JsonSchema, Option, Path, Predicate, pipe, Record, Result, Schema } from 'effect';
+import { run } from '#/executor';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -28,11 +26,12 @@ const generate = Effect.fnUntraced(function* (tree: Tree) {
             return Record.collect(executors, (executor, { implementation, schema }) => ({ root, name, collection, executor, at: path.join(path.dirname(collection), schema), implementation }));
         }),
     );
+    const changed = ([at, stated]: readonly [string, object]) => !(tree.exists(at) && Equal.equals(readJson(tree, at), stated));
     const derived = yield* Effect.forEach(
         rows.flat(),
         Effect.fnUntraced(function* ({ root, name, collection, executor, at, implementation }) {
             const [file = implementation] = implementation.split('#');
-            const loaded = yield* Effect.try({ try: (): unknown => loadTsFile(resolveImplementation(file, path.join(tree.root, root), name, projects)), catch: DistributionError.refused(`${name}:${executor}`, `does not load ${implementation}`) });
+            const loaded = yield* Effect.try({ try: (): unknown => loadTsFile(resolveImplementation(file, path.join(tree.root, root), name, projects)), catch: (cause) => new Cause.UnknownError(cause, `${name}:${executor} does not load ${implementation}`) });
             const stated = pipe(
                 Option.liftPredicate(loaded, Predicate.isObject),
                 Option.flatMap((module) => Array.findFirst(Object.values(module), Schema.isSchema)),
@@ -41,26 +40,18 @@ const generate = Effect.fnUntraced(function* (tree: Tree) {
                 Option.map(({ schema, schema: { description }, definitions }) => ({ description, schema: { $schema: JsonSchema.META_SCHEMA_URI_DRAFT_07, version: 2, ...schema, ...(Record.isEmptyRecord(definitions) ? {} : { definitions }) } })),
             );
             const listed = readJson<{ readonly executors: Readonly<Record<string, object>> }>(tree, collection);
-            return Option.toArray(stated).flatMap(({ schema, description }) => {
-                writeJson(tree, at, schema);
-                writeJson(tree, collection, { ...listed, executors: { ...listed.executors, [executor]: { ...listed.executors[executor], description } } });
-                return [at, collection];
-            });
+            const written = Option.toArray(stated)
+                .flatMap(({ schema, description }): readonly (readonly [string, object])[] => [
+                    [at, schema],
+                    [collection, { ...listed, executors: { ...listed.executors, [executor]: { ...listed.executors[executor], description } } }],
+                ])
+                .filter(changed);
+            written.forEach(([to, value]) => writeJson(tree, to, value));
+            return written.map(([to]) => to);
         }),
     );
     yield* Effect.promise(() => formatFiles(tree));
-    const own = new Set(derived.flat());
-    const biome = Option.liftThrowable(createRequire(path.join(tree.root, 'package.json')).resolve)('@biomejs/biome/bin/biome');
-    yield* Effect.forEach(
-        Option.match(biome, { onNone: () => [], onSome: (bin) => [...own].map((to) => ({ bin, to })) }),
-        Effect.fnUntraced(function* ({ bin, to }) {
-            const input = yield* Effect.fromNullishOr(tree.read(to, 'utf-8'));
-            tree.write(to, yield* spawned([execPath, bin, 'format', `--stdin-file-path=${to}`], { cwd: tree.root, stdin: Stream.encodeText(Stream.make(input)), stdout: 'pipe' }));
-        }),
-        { concurrency: 'unbounded' },
-    );
-    const stale = tree.listChanges().filter((change) => own.has(change.path));
-    return { outOfSyncMessage: `Executor schema.json files and executors.json descriptions differ from the options schemas their executors declare, in the form the workspace formatter writes: ${stale.map((change) => change.path).join(', ')}` } satisfies SyncGeneratorResult;
+    return { outOfSyncMessage: `Executor schema.json files and executors.json descriptions differ from the options schemas their executors declare: ${Array.dedupe(derived.flat()).join(', ')}` } satisfies SyncGeneratorResult;
 }, run);
 
 // --- [EXPORTS] -------------------------------------------------------------------------

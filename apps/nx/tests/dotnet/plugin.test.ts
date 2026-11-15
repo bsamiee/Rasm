@@ -7,7 +7,6 @@ import plugin from '@rasm/nx-dotnet/package.json' with { type: 'json' };
 import { conforms } from '@rasm/testing/conformance';
 import { Consumer, exited, Packed } from '@rasm/testing/nx';
 import { Array, Duration, Effect, FileSystem, Layer, Path, Predicate, Record, Schema, String, Struct } from 'effect';
-import { ChildProcess } from 'effect/process';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -94,7 +93,7 @@ const sources = Effect.gen(function* () {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const { nodes } = yield* Effect.promise(() => createProjectGraphAsync());
     const analyzer = yield* Effect.fromOption(Array.findFirst(Object.values(nodes), ({ data }) => data.root === ANALYZER));
-    const { checked } = yield* exited(ChildProcess.make('nx', ['show', 'target', 'inputs', `${analyzer.name}:build`, '--json'], { cwd: workspaceRoot, stdin: 'ignore', extendEnv: true, env: { NX_TUI: 'false' } }));
+    const { checked } = yield* exited(['nx', 'show', 'target', 'inputs', `${analyzer.name}:build`, '--json'], { cwd: workspaceRoot, extendEnv: true, env: { NX_TUI: 'false' } });
     const { files: hashed } = yield* Effect.flatMap(checked, Schema.decodeEffect(Hashed));
     const texts = yield* Effect.forEach(hashed, (file) => fs.readFileString(path.join(workspaceRoot, file)), { concurrency: 'unbounded' });
     return Record.fromIterableWith(Array.zip(hashed, texts), ([file, text]) => [file, text]);
@@ -428,7 +427,9 @@ it.layer(
         Effect.fnUntraced(function* () {
             const { read, nx, absent } = yield* Consumer;
             const before = yield* read;
-            const named = Object.values(before.nodes).flatMap(({ name, data }) => (data.root === ANALYZER ? [name] : []));
+            const named = Object.values(before.nodes)
+                .filter(({ data }) => data.root === ANALYZER)
+                .map(({ name }) => name);
             const cleaned = yield* nx('run-many', '--targets=clean', `--projects=${named.join(',')}`, '--output-style=static');
             assert.strictEqual(cleaned.code, 0, `${cleaned.stdout}${cleaned.stderr}`);
             assert.deepStrictEqual(yield* absent([`${ANALYZER}/dist`]), [`${ANALYZER}/dist`], 'README.md TASKS "clean removes the outputs a project\'s targets declare and runs its tool\'s clean"');

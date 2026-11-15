@@ -22,7 +22,7 @@ class Adjustment(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Chain[T](msgspec.Struct, frozen=True, kw_only=True):
-    """Chaining context with each input glyph class paired with its replacement or adjustment."""
+    """Chaining context with each input glyph class paired with what it applies: the nested substitutions of a substitution context, or the adjustment of a positioning one."""
 
     backtrack: tuple[tuple[str, ...], ...] = ()
     input: tuple[tuple[tuple[str, ...], T], ...]
@@ -55,9 +55,9 @@ class Ligatures(_Lookup, frozen=True, kw_only=True):
 
 
 class Contextual(_Lookup, frozen=True, kw_only=True):
-    """GSUB chaining contextual substitution."""
+    """GSUB contextual and chaining contextual substitution, each input class with the single and ligature substitutions applied at it in order, a rule applying none an exception whose match no later rule takes."""
 
-    rules: tuple[Chain[str | None], ...]
+    rules: tuple[Chain[tuple[Single | Ligatures, ...]], ...]
 
 
 class Positions(_Lookup, frozen=True, kw_only=True):

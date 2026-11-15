@@ -2,6 +2,7 @@
 
 from itertools import starmap
 from typing import ClassVar
+lazy from collections import Counter
 lazy from collections.abc import Iterable, Mapping
 
 import msgspec
@@ -54,7 +55,7 @@ class FeatureWriter(msgspec.Struct, frozen=True, kw_only=True):
 # --- [STATEMENTS]
 
 
-def _class(glyphs: tuple[str, ...], /) -> ast.GlyphClass:
+def _class(glyphs: Iterable[str], /) -> ast.GlyphClass:
     return ast.GlyphClass(list(glyphs))
 
 
@@ -62,55 +63,106 @@ def _value(adjustment: Adjustment, /) -> ast.ValueRecord:
     return ast.ValueRecord(xPlacement=adjustment.dx, yPlacement=adjustment.dy, xAdvance=adjustment.advance, yAdvance=0)
 
 
-def _block(name: str, statements: list[ast.Statement], flags: ast.LookupFlagStatement, /) -> ast.LookupBlock:
+def _blocks(name: str, lookup: Lookups, /) -> tuple[ast.LookupBlock, ...]:
+    """Returns a lookup's block under its own flags, a chaining lookup's nested lookups first and its chaining block last."""
     block = ast.LookupBlock(name)
-    block.statements.extend((flags, *statements))
-    return block
+    block.statements.append(
+        ast.LookupFlagStatement(
+            value=lookup.flags,
+            markAttachment=_class(sorted(lookup.mark_attachment)) if lookup.mark_attachment is not None else None,
+            markFilteringSet=_class(sorted(lookup.mark_filtering)) if lookup.mark_filtering is not None else None,
+        )
+    )
+    match lookup:
+        case Single(mapping=mapping):
+            block.statements.extend([ast.SingleSubstStatement([_class(mapping)], [_class(mapping.values())], [], [], forceChain=False)] if mapping else [])
+            return (block,)
+        case Ligatures(rules=rules):
+            targets = dict(reversed(rules))
+            block.statements.extend(
+                *(*((ast.SubtableStatement(),) if position else ()), ast.LigatureSubstStatement([], [ast.GlyphName(part) for part in parts], [], ast.GlyphName(targets[parts]), forceChain=False))
+                for position, parts in enumerate(dict.fromkeys(parts for parts, _ in rules))
+            )
+            return (block,)
+        case Positions(values=values):
+            block.statements.extend(ast.SinglePosStatement([(ast.GlyphName(glyph), _value(adjustment))], [], [], forceChain=False) for glyph, adjustment in values.items())
+            return (block,)
+        case Pairs(values=values):
+            block.statements.extend(ast.PairPosStatement(ast.GlyphName(first), _value(adjustment), ast.GlyphName(second), None) for (first, second), adjustment in values.items())
+            return (block,)
+        case Contextual(rules=rules):
+            nested = tuple((rule, tuple(applied for _, applied in rule.input)) for rule in rules)
+            return _chained(name, block, nested, ast.ChainContextSubstStatement, ast.IgnoreSubstStatement)
+        case Lifts(rules=rules):
+            adjusted = tuple(
+                (
+                    rule,
+                    tuple(
+                        ()
+                        if change is None
+                        else (
+                            Positions(
+                                features=frozendict(), flags=lookup.flags, mark_attachment=lookup.mark_attachment, mark_filtering=lookup.mark_filtering, values=frozendict.fromkeys(glyphs, change)
+                            ),
+                        )
+                        for glyphs, change in rule.input
+                    ),
+                )
+                for rule in rules
+            )
+            return _chained(name, block, adjusted, ast.ChainContextPosStatement, ast.IgnorePosStatement)
 
 
 def _chained(
     name: str,
-    rules: tuple[Chain[str | None], ...] | tuple[Chain[Adjustment | None], ...],
+    block: ast.LookupBlock,
+    rules: tuple[tuple[Chain[tuple[Single | Ligatures, ...]] | Chain[Adjustment | None], tuple[tuple[Single | Ligatures | Positions, ...], ...]], ...],
     statement: type[ast.ChainContextSubstStatement | ast.ChainContextPosStatement],
-    flags: ast.LookupFlagStatement,
+    ignore: type[ast.IgnoreSubstStatement | ast.IgnorePosStatement],
     /,
 ) -> tuple[ast.LookupBlock, ...]:
-    """Returns the single lookups the rule positions apply, every change packed into the first lookup holding no other change for its glyphs, then the chaining lookup naming them."""
-    packs: list[dict[str, str | Adjustment]] = []
-    slots: dict[tuple[int, int], int] = {}
-    for index, rule in enumerate(rules):
-        for position, glyphs, change in ((position, glyphs, change) for position, (glyphs, change) in enumerate(rule.input) if isinstance(change, str | Adjustment) and glyphs != (change,)):
-            slot = next((slot for slot, held in enumerate(packs) if all(held.get(glyph, change) == change for glyph in glyphs)), len(packs))
-            packs.extend({} for _ in range(slot + 1 - len(packs)))
-            packs[slot].update(dict.fromkeys(glyphs, change))
-            slots[index, position] = slot
-    inner = tuple(
-        _block(
-            f"{name}_{slot}",
-            [
-                ast.SingleSubstStatement([_class(glyphs)], [ast.GlyphName(change)], [], [], forceChain=False)
-                if isinstance(change, str)
-                else ast.SinglePosStatement([(_class(glyphs), _value(change))], [], [], forceChain=False)
-                for change, glyphs in ((change, tuple(glyph for glyph, held in mapping.items() if held == change)) for change in dict.fromkeys(mapping.values()))
-            ],
-            flags,
-        )
-        for slot, mapping in enumerate(packs)
-    )
-    chain = _block(
-        name,
-        [
+    """Returns the nested lookups the rules apply, each single change packed into the first nested lookup of its kind and flags agreeing on its glyphs, then the chaining block, each repeated class named once, in subtables of 64 rules a 16-bit offset reaches, a rule applying none an exception."""
+    slots: list[Single | Ligatures | Positions] = []
+    placed: dict[Single | Ligatures | Positions, int] = {}
+    for applied in dict.fromkeys(applied for _, positions in rules for held in positions for applied in held):
+        slot, merged = next(((index, merged) for index, held in enumerate(slots) if (merged := _packed(held, applied)) is not None), (len(slots), applied))
+        slots[slot : slot + 1], placed[applied] = (merged,), slot
+    nested = tuple(_blocks(f"{name}_{index}", lookup) for index, lookup in enumerate(slots))
+    counted = Counter(*(*rule.backtrack, *(glyphs for glyphs, _ in rule.input), *rule.lookahead) for rule, _ in rules)
+    shared = {glyphs: ast.GlyphClassDefinition(f"{name}_{index}", _class(glyphs)) for index, glyphs in enumerate(glyphs for glyphs, count in counted.items() if count > 1 and len(glyphs) > 1)}
+
+    def classed(glyphs: tuple[str, ...], /) -> ast.GlyphClass | ast.GlyphClassName:
+        return ast.GlyphClassName(shared[glyphs]) if glyphs in shared else _class(glyphs)
+
+    block.statements.extend(shared.values())
+    block.statements.extend(
+        *(
+            *((ast.SubtableStatement(),) if index and not index % 64 else ()),
             statement(
-                list(map(_class, rule.backtrack)),
-                [_class(glyphs) for glyphs, _ in rule.input],
-                list(map(_class, rule.lookahead)),
-                [inner[slots[index, position]] if (index, position) in slots else None for position in range(len(rule.input))],
+                list(map(classed, rule.backtrack)),
+                [classed(glyphs) for glyphs, _ in rule.input],
+                list(map(classed, rule.lookahead)),
+                [[nested[placed[applied]][-1] for applied in held] or None for held in positions],
             )
-            for index, rule in enumerate(rules)
-        ],
-        flags,
+            if any(positions)
+            else ignore([(list(map(classed, rule.backtrack)), [classed(glyphs) for glyphs, _ in rule.input], list(map(classed, rule.lookahead)))]),
+        )
+        for index, (rule, positions) in enumerate(rules)
     )
-    return (*inner, chain)
+    return (*(*blocks for blocks in nested), block)
+
+
+def _packed(held: Single | Ligatures | Positions, applied: Single | Ligatures | Positions, /) -> Single | Positions | None:
+    """Returns one nested lookup holding the changes of two of the same kind and flags that disagree on no glyph, `None` for any other pair."""
+    match held, applied:
+        case (Single(mapping=one), Single(mapping=two)) | (Positions(values=one), Positions(values=two)) if (held.flags, held.mark_attachment, held.mark_filtering) == (
+            applied.flags,
+            applied.mark_attachment,
+            applied.mark_filtering,
+        ) and all(one.get(glyph, change) == change for glyph, change in two.items()):
+            return msgspec.structs.replace(held, mapping=one | two) if isinstance(held, Single) else msgspec.structs.replace(held, values=one | two)
+        case _:
+            return None
 
 
 # --- [EMISSION]
@@ -124,43 +176,7 @@ def _systems(source: Source, /) -> tuple[tuple[str, str], ...]:
 
 def _statements(entries: Iterable[tuple[int, Lookups]], systems: tuple[tuple[str, str], ...], inherited: Mapping[str, tuple[ast.LookupReferenceStatement, ...]], /) -> list[ast.Statement]:
     """Native lookup definitions and exact feature/system references, including generated positioning dependencies."""
-    blocks: list[tuple[Lookups, tuple[ast.LookupBlock, ...]]] = []
-    for index, lookup in sorted(entries, key=lambda entry: entry[1].order):
-        name = f"lookup{index}"
-        flags = ast.LookupFlagStatement(
-            value=lookup.flags,
-            markAttachment=_class(tuple(sorted(lookup.mark_attachment))) if lookup.mark_attachment is not None else None,
-            markFilteringSet=_class(tuple(sorted(lookup.mark_filtering))) if lookup.mark_filtering is not None else None,
-        )
-        match lookup:
-            case Single(mapping=mapping):
-                built: tuple[ast.LookupBlock, ...] = (
-                    _block(name, [ast.SingleSubstStatement([ast.GlyphName(glyph)], [ast.GlyphName(target)], [], [], forceChain=False) for glyph, target in mapping.items()], flags),
-                )
-            case Ligatures(rules=rules):
-                targets = dict(reversed(rules))
-                built = (
-                    _block(
-                        name,
-                        [
-                            *(
-                                *((ast.SubtableStatement(),) if position else ()),
-                                ast.LigatureSubstStatement([], [ast.GlyphName(part) for part in parts], [], ast.GlyphName(targets[parts]), forceChain=False),
-                            )
-                            for position, parts in enumerate(dict.fromkeys(parts for parts, _ in rules))
-                        ],
-                        flags,
-                    ),
-                )
-            case Contextual(rules=rules):
-                built = _chained(name, rules, ast.ChainContextSubstStatement, flags)
-            case Lifts(rules=rules):
-                built = _chained(name, rules, ast.ChainContextPosStatement, flags)
-            case Positions(values=values):
-                built = (_block(name, [ast.SinglePosStatement([(ast.GlyphName(glyph), _value(adjustment))], [], [], forceChain=False) for glyph, adjustment in values.items()], flags),)
-            case Pairs(values=values):
-                built = (_block(name, [ast.PairPosStatement(ast.GlyphName(first), _value(adjustment), ast.GlyphName(second), None) for (first, second), adjustment in values.items()], flags),)
-        blocks.append((lookup, built))
+    blocks = tuple((lookup, _blocks(f"lookup{index}", lookup)) for index, lookup in sorted(entries, key=lambda entry: entry[1].order))
     statements: list[ast.Statement] = [*held for _, held in blocks]
     for feature in dict.fromkeys(tuple(*lookup.features for lookup, _ in blocks)):
         block = ast.FeatureBlock(feature)

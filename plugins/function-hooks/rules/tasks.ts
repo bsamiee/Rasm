@@ -17,10 +17,12 @@ type Graph = Option.Option.Value<Effect.Success<Call['host']['graph']>>;
 const LONG = /^--/u;
 const PUBLISH = /(?:^|[:,])nx-release-publish(?:,|$)/u;
 const STUB_CACHE = 'MYPY_CACHE_DIR';
+const FORMAT_FLAGS = ['-p, --package=', '--manifest-path=', '--message-format='] as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Plan = Schema.fromJsonString(Schema.Struct({ steps: Schema.Array(Schema.Struct({ status: Schema.String })) }));
+const Metadata = Schema.fromJsonString(Schema.Struct({ workspace_root: Schema.String, packages: Schema.Array(Schema.Struct({ name: Schema.String, manifest_path: Schema.String })) }));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -47,6 +49,8 @@ const aggregateOf = (targets: Targets, target: string): string =>
 // --- [NX_TARGETS]
 
 const keysOf = ({ args }: Pick<Invocation, 'args'>): ReadonlySet<string> => new Set(args.flatMap(({ names, values }) => [...names, ...Array.cartesianWith(names.slice(-1), values, (name, value) => `${name}=${value}`)]));
+
+const flagsOf = ({ args, row }: Invocation): ReadonlySet<string> => keysOf({ args: args.filter(({ names }) => new Set(names).isDisjointFrom(new Set(row.nx?.ignores))) });
 
 const programOf = ({ program }: Invocation, { programs }: Call) => programs.get(program) ?? program;
 
@@ -140,13 +144,11 @@ const hkStep: Rule = Effect.fnUntraced(function* (invocation, call) {
     const heard = merged || !(command.pipes || command.redirects.some(({ op }) => op.startsWith('>')));
     const { paths, files, words } = heard && replaceable(invocation, call) ? yield* scopeOf(invocation, call) : { paths: [], files: [], words: '' };
     const spellings = [...spellingsOf(invocation, call)];
-    const ignores = new Set(invocation.row.nx?.ignores);
     const runs = (files.length === 0 ? [] : yield* host.steps).filter(({ text }) => spellings.some((name) => text.includes(name)));
     const bodies = yield* Effect.forEach(runs, ({ text }) => bodyOf(text, call));
     const ran = bodies.map(({ invocations }) => invocations.find((other) => programOf(other, call) === programOf(invocation, call)));
-    const flags = ({ args }: Invocation) => keysOf({ args: args.filter(({ names }) => new Set(names).isDisjointFrom(ignores)) });
-    const modes = Array.filterMap(Array.zip(runs, ran), ([run, found]) => (found === undefined ? Result.failVoid : Result.succeed({ ...run, keys: flags(found), words: argued(found) })));
-    const asked = flags(invocation);
+    const modes = Array.filterMap(Array.zip(runs, ran), ([run, found]) => (found === undefined ? Result.failVoid : Result.succeed({ ...run, keys: flagsOf(found), words: argued(found) })));
+    const asked = flagsOf(invocation);
     const common = (held: typeof modes) => held.slice(1).reduce((shared, { keys }) => shared.intersection(keys), held[0]?.keys ?? new Set<string>());
     const policy = ({ step, mode }: (typeof modes)[number]) => {
         const held = modes.filter((other) => other.step === step);
@@ -175,6 +177,45 @@ const loopRefusal =
     (what: string, action: string, ...reads: readonly string[]): Rule =>
     ({ repeated, operands }) =>
         repeated && !Option.exists(Array.head(operands), ({ text }) => reads.includes(text)) ? refusal(`Loop reruns ${what}, ${action}`) : [];
+
+const cargoFormat: Rule = Effect.fnUntraced(function* (invocation, call) {
+    const { host } = call;
+    const formatter = 'rustfmt';
+    const here = Option.filter(invocation.command.cwd, (folder) => host.inside(folder, host.root));
+    const [forwarded] = (yield* bodyOf([formatter, spelled(invocation.tail)].join(' '), call)).invocations;
+    if (Option.isNone(here) || forwarded === undefined) {
+        return [];
+    }
+    const mode = invocation.has('--check') || forwarded.has('--check') ? 'check' : 'fix';
+    const runs = (yield* host.steps).filter((run) => run.mode === mode && run.text.includes(formatter));
+    const bodies = yield* Effect.forEach(runs, ({ text }) => bodyOf(text, call));
+    const ran = bodies.map(({ invocations }) => invocations.find((other) => programOf(other, call) === programOf(forwarded, call)));
+    const [fit, ...more] = Array.filterMap(Array.zip(runs, ran), ([{ step }, found]) => (found === undefined ? Result.failVoid : Result.succeed({ step, keys: flagsOf(found) })));
+    if (fit === undefined || more.length > 0) {
+        return [];
+    }
+    const extra = Array.difference(invocation.operands, invocation.tail)
+        .filter((word, at) => at > 0 || word.text !== 'fmt')
+        .map(({ text }) => text);
+    const named = [...invocation.values('--package'), ...(invocation.has('--package') ? extra : [])];
+    const manifest = host.resolve(invocation.values('--manifest-path').at(-1) ?? 'Cargo.toml', here);
+    const folders = invocation.has('--all')
+        ? Option.some([host.root])
+        : Option.flatMap(Schema.decodeOption(Metadata)(yield* host.output(['cargo', 'metadata', '--no-deps', '--format-version', '1'])), ({ workspace_root, packages }) => {
+              const byName = new Map(packages.map(({ name, manifest_path }) => [name, host.path.dirname(manifest_path)]));
+              const byManifest = new Map([[host.path.join(workspace_root, 'Cargo.toml'), workspace_root], ...packages.map(({ manifest_path }) => [manifest_path, host.path.dirname(manifest_path)] as const)]);
+              return Option.all(named.length > 0 ? named.map((name) => Option.fromUndefinedOr(byName.get(name))) : [Option.flatMap(manifest, (file) => Option.fromUndefinedOr(byManifest.get(file)))]);
+          });
+    const targets = Option.map(
+        folders,
+        Array.map((folder) => (folder === host.root ? '--all' : quote(host.path.relative(here.value, folder) || '.'))),
+    );
+    const command = ['hk', mode, '--step', quote(fit.step), ...Array.dedupe(Option.getOrElse(targets, () => ['<paths>'])), ...forwarded.operands.map(({ raw }) => raw)].join(' ');
+    if (invocation.has('--message-format', '-C') || (extra.length > 0 && !invocation.has('--package')) || !flagsOf(forwarded).isSubsetOf(fit.keys)) {
+        return refusal(`cargo fmt option has no hk form, run ${command}`);
+    }
+    return Option.isNone(targets) ? refusal('cargo fmt resolves no crate, pass --package <crate> or run it in the crate folder') : whole(invocation, command, 'cargo fmt', launcherStart(invocation));
+});
 
 // --- [NX_ARGUMENTS]
 
@@ -325,7 +366,8 @@ const TASKS: Ruleset = {
             informational: ['-v', '-b', '--build', '-w', '--watch', '--init', '--showConfig'],
             nx: { selects: ['--project'], ignores: ['--noEmit', '--pretty', '--incremental'] },
         },
-        cargo: { flags: ['-p, --package=', '--profile='], nx: { selects: ['--package'], targets: { '--fix': 'fix' } } },
+        cargo: { toolchain: true, flags: [...FORMAT_FLAGS, '--profile='], nx: { selects: ['--package'], targets: { '--fix': 'fix' } }, rules: [perSubcommand({ fmt: [cargoFormat] })] },
+        'cargo-fmt': { toolchain: true, flags: FORMAT_FLAGS, rules: [cargoFormat] },
         cmake: { flags: ['--build=', '--install=', '--preset=', '-S=', '-B=', '--target='], informational: ['--version', '--help', '--list-presets', '-E', '-P'], nx: { targets: { '--build': 'build', '--install': 'install' }, ignores: ['--preset'] } },
         ctest: { flags: ['--preset=', '--test-dir=', '--output-junit='], informational: ['--version', '--help', '--list-presets', '--show-only'], nx: { ignores: ['--preset', '--test-dir', '--output-junit'] } },
         cpack: { flags: ['--preset=', '--config=', '-G=', '-B='], informational: ['--version', '--help', '--list-presets'], nx: { ignores: ['--preset', '--config'] } },
@@ -339,7 +381,7 @@ const TASKS: Ruleset = {
             rules: [perSubcommand({ sync: [ensure(['--all-packages'], '--package', '--script')] })],
         },
         dotnet: { aliases: ['xcodebuild'], pipefail: true, flags: ['-warnaserror', '--verify-no-changes'], nx: { targets: { '--verify-no-changes': 'check', '-warnaserror': 'check' } } },
-        rustfmt: { flags: ['--config-path=', '--config=', '--edition=', '--emit=', '--print-config='] },
+        rustfmt: { toolchain: true, flags: ['--config-path=', '--config=', '--edition=', '--emit=', '--print-config='], nx: { ignores: ['--edition'] } },
         swiftlint: { dumpsHelp: true },
         swift: { pipefail: true },
         npm: { pipefail: true },

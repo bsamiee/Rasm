@@ -3,7 +3,7 @@ import { assert, it } from '@effect/vitest';
 import type { ProjectGraph } from '@nx/devkit';
 import web from '@nx/web/package.json' with { type: 'json' };
 import plugin from '@rasm/nx-storybook/package.json' with { type: 'json' };
-import { Consumer, Packed } from '@rasm/testing/nx';
+import { Consumer, kept, Packed } from '@rasm/testing/nx';
 import framework from '@storybook/react-vite/package.json' with { type: 'json' };
 import { Effect, Formatter, Layer, Path, Predicate, Record } from 'effect';
 import react from 'react/package.json' with { type: 'json' };
@@ -42,6 +42,18 @@ const workspace = (stated: Readonly<Record<string, string>>) =>
     Layer.provideMerge(Consumer.layer({ resolved: import.meta.url, settings: { plugins: [plugin.name] }, packages: [storybook.name, framework.name, react.name, dom.name, vite.name, web.name], ignored: ['storybook-static'], files: stated }), Layer.provideMerge(Packed.layer(plugin.name), layer));
 
 it.layer(workspace(files), { timeout: bounds.built, excludeTestServices: true })((methods) => {
+    methods.effect(
+        'keeps every file the builds of every project wrote through a graph read holding no stored plugin result',
+        Effect.fnUntraced(function* () {
+            const { built: run, shown, created, removed } = yield* kept;
+            assert.strictEqual(run.code, 0, `${run.stdout}${run.stderr}`);
+            assert.isNotEmpty(created, 'README.md TASKS: `build` compiles or packages a project into its declared outputs');
+            assert.strictEqual(shown.code, 0, shown.stderr);
+            assert.deepStrictEqual(removed, [], 'nrwl/nx packages/nx/src/project-graph/plugins/public-api.ts CreateNodesFunction: a plugin reads configuration files and returns project configuration, and graph creation removes no file a task wrote');
+        }),
+        bounds.test,
+    );
+
     const spec = 'nrwl/nx packages/storybook/src/plugins/plugin.spec.ts';
     const principle = 'README.md PRINCIPLES "Verbs aggregate <verb>--<tool> targets"';
     const tasks = 'README.md TASKS';

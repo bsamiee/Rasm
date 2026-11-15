@@ -2,7 +2,7 @@ import { layer } from '@effect/platform-node/NodeServices';
 import { assert, it } from '@effect/vitest';
 import plugin from '@rasm/nx-cmake/package.json' with { type: 'json' };
 import { conforms } from '@rasm/testing/conformance';
-import { Consumer, fromCache, Packed } from '@rasm/testing/nx';
+import { Consumer, Packed } from '@rasm/testing/nx';
 import { Array, Duration, Effect, FileSystem, Layer, Option, Path, Record, Schema } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -179,10 +179,10 @@ it.layer(
     methods.effect(
         'misses the build cache of a project after an edit to a header no target lists and a source of it includes',
         Effect.fnUntraced(function* () {
-            const [{ nx, wrote }, { name }, stated] = yield* Effect.all([Consumer, member(TOOL), members]);
-            const [run, hit] = [nx('build', name, '--output-style=static'), fromCache(`${name}:build--`)];
+            const [{ ran, wrote }, { name }, stated] = yield* Effect.all([Consumer, member(TOOL), members]);
+            const [run, hit] = [ran(['build', name, '--output-style=static']), (status: string, id: string) => id.startsWith(`${name}:build--`) && status !== 'cache-miss'];
             yield* run;
-            assert.match((yield* run).stdout, hit, 'nrwl/nx e2e/dotnet/src/dotnet-cache.test.ts "should store and use local cache for builds"');
+            assert.isTrue(Record.some((yield* run).tasks, hit), 'nrwl/nx e2e/dotnet/src/dotnet-cache.test.ts "should store and use local cache for builds"');
             assert.notInclude(
                 stated.flatMap(({ sources }) => sources),
                 SOURCES.header,
@@ -192,7 +192,7 @@ it.layer(
             const edited = yield* run;
             yield* wrote({ [SOURCES.header]: files[SOURCES.header] });
             assert.strictEqual(edited.code, 0, `${edited.stdout}${edited.stderr}`);
-            assert.notMatch(edited.stdout, hit, 'nrwl/nx e2e/gradle/src/gradle-task-dependencies.test.ts "should not serve a cache hit after the dependency changes"; GCC cpp "Search Path": #include "file" reads from the folder of the including file, then each -I folder');
+            assert.isFalse(Record.some(edited.tasks, hit), 'nrwl/nx e2e/gradle/src/gradle-task-dependencies.test.ts "should not serve a cache hit after the dependency changes"; GCC cpp "Search Path": #include "file" reads from the folder of the including file, then each -I folder');
         }),
         bound,
     );

@@ -281,3 +281,30 @@ it.layer(workspace({ ...configured, 'libs/broken/package.json': '{ "name": "brok
         bounds.test,
     );
 });
+
+it.layer(
+    workspace({
+        'shared/schema.json': '{}\n',
+        'suites/alone/package.json': '{ "name": "alone", "type": "module" }\n',
+        'suites/alone/vitest.config.ts': "import { defineConfig } from 'vitest/config';\n\nexport default defineConfig({ test: { forceRerunTriggers: ['**/shared/schema.json'] } });\n",
+        'suites/alone/sum.test.ts': passing,
+        'suites/other/package.json': '{ "name": "other", "type": "module" }\n',
+        'suites/other/vitest.config.ts': "import { defineConfig } from 'vitest/config';\n\nexport default defineConfig({ test: {} });\n",
+        'suites/other/sum.test.ts': passing,
+    }),
+    { timeout: bounds.built, excludeTestServices: true },
+)((methods) => {
+    methods.effect(
+        'gives a file a root config names in forceRerunTriggers to the test target of that config and to no other suite',
+        Effect.fnUntraced(function* () {
+            const [{ inputs }, graph] = yield* Effect.all([Consumer, read]);
+            const held = yield* Effect.forEach(['alone', 'other'], (project) => inputs(task(graph, project)));
+            assert.deepStrictEqual(
+                held.map(({ files }) => files.includes('shared/schema.json')),
+                [true, false],
+                'vitest-dev/vitest docs/config/forcereruntriggers.md: Glob pattern of file paths that will trigger the whole suite rerun, stated once per root config; a file a root config names there is an input of the test target of that config',
+            );
+        }),
+        bounds.test,
+    );
+});

@@ -1,7 +1,7 @@
 {
     "name": "@rasm/nx-distribution",
     "version": "0.1.0",
-    "description": "Nx plugin inferring host packages from their manifests, one row per kind (Blender extension, Yak package, Adobe UXP .ccx and CEP .zxp, Unreal plug-in): each row builds the package with its host tool, installs it where the host loads it, attaches it to the project's GitHub release, and publishes it to the host store taking uploads; it holds the clean, attach, and publish executors every plugin names by package, the sync generator writing each plugin's executor schemas, and the remote cache check run before tasks",
+    "description": "Nx plugin inferring host packages from their manifests, one row per kind (Blender extension, Yak package, Adobe UXP .ccx and CEP .zxp, Unreal plug-in): each row builds the package with its host tool, installs it where the host loads it, attaches it to the project's GitHub release, and publishes it to the host store taking uploads; it holds the clean, attach, and publish executors every plugin names by package, and the sync generator writing each plugin's executor schemas",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/bsamiee/Rasm.git",
@@ -11,6 +11,7 @@
     "type": "module",
     "imports": {
         "#/*": "./*.ts",
+        "#package": "./package.json",
         "#vendored": "./executors/extension-build/vendored.py"
     },
     "exports": {
@@ -49,6 +50,7 @@
         },
         "imports": {
             "#/*": "./dist/*.js",
+            "#package": "./package.json",
             "#vendored": "./executors/extension-build/vendored.py"
         }
     },

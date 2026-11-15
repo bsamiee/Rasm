@@ -10,7 +10,8 @@
     "license": "MIT",
     "type": "module",
     "imports": {
-        "#/*": "./*.ts"
+        "#/*": "./*.ts",
+        "#package": "./package.json"
     },
     "exports": {
         ".": "./plugin.ts",
@@ -38,7 +39,8 @@
             "./ready-check": "./dist/ready-check.js"
         },
         "imports": {
-            "#/*": "./dist/*.js"
+            "#/*": "./dist/*.js",
+            "#package": "./package.json"
         }
     }
 }

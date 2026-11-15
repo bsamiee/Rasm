@@ -1,76 +1,92 @@
 import { isAbsolute, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
-import type { ProjectConfiguration, TargetConfiguration } from '@nx/devkit';
+import { type ProjectConfiguration, readJsonFile, type TargetConfiguration } from '@nx/devkit';
+import { mergeTargetConfigurations, type PackageJson } from '@nx/devkit/internal';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
-import { Array, Effect, Formatter, Schema, type Scope, Stream } from 'effect';
+import { Array, Cause, Effect, FileSystem, Predicate, Record, Schema, type Scope, Stream, String } from 'effect';
 import { ChildProcess, ChildProcessSpawner, CommandLine } from 'effect/process';
 import type { Run } from '#/executors/run/executor';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Tools = Readonly<Record<string, Readonly<Record<string, TargetConfiguration>>>>;
+type Verbs = Readonly<Record<string, Readonly<Record<string, TargetConfiguration>>>>;
 
 interface Part {
     readonly root: string;
     readonly name: string;
     readonly file: string;
-    readonly technologies: readonly string[];
-    readonly tools: Tools;
+    readonly technologies: Array.NonEmptyReadonlyArray<string>;
+    readonly tools: Verbs;
     readonly published?: TargetConfiguration;
     readonly release?: NonNullable<ProjectConfiguration['release']>;
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const PLUGIN = '@rasm/nx-apple';
-const SHARED = distribution.name;
+const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#package'))).name;
 const GIT_STATUS = { GIT_CONFIG_COUNT: '1', GIT_CONFIG_KEY_0: 'status.branch', GIT_CONFIG_VALUE_0: 'false' } as const;
 const SWIFTPM = ['--force-resolved-versions', '--no-color-diagnostics'] as const;
-const INPUTS: NonNullable<TargetConfiguration['inputs']> = [{ runtime: 'node -p process.platform+process.arch' }, { env: 'DEVELOPER_DIR' }, { env: 'TOOLCHAINS' }, { externalDependencies: [] }];
+const PLATFORM = { runtime: 'swift -print-target-info' } as const;
+const INPUTS: NonNullable<TargetConfiguration['inputs']> = [PLATFORM, { externalDependencies: [] }];
 const ATTACH: TargetConfiguration = {
-    executor: `${SHARED}:attach`,
+    executor: `${distribution.name}:attach`,
     dependsOn: ['pack--ditto'],
     inputs: [{ dependentTasksOutputFiles: '**/*' }],
-    metadata: { description: "Uploads the files pack--ditto wrote to the GitHub release of the version the project's manifest states through gh release upload", help: { command: 'gh release upload --help', example: { options: { dryRun: true } } } },
+    metadata: { description: "Uploads the files pack--ditto wrote to the GitHub release of the version the project's manifest states with gh release upload", help: { command: 'gh release upload --help', example: { options: { dryRun: true } } } },
 };
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Options = Schema.Struct({ trustPackages: Schema.optionalKey(Schema.Boolean), outputPath: Schema.optionalKey(Schema.String) }).annotate({
-    description: 'trustPackages: passes -skipMacroValidation and -skipPackagePluginValidation to xcodebuild. outputPath: workspace folder holding archives and their packages under <outputPath>/xcode/<project>/<scheme> and product zips under <outputPath>/swiftpm/<product>, absent gives no pack--ditto target',
+const Options = Schema.Struct({
+    trustPackages: Schema.optionalKey(Schema.Boolean),
+    outputPath: Schema.optionalKey(Schema.String),
+    releaseTag: Schema.optionalKey(Schema.String),
+    platformTagPrefix: Schema.optionalKey(Schema.String),
+    identities: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)),
+    notary: Schema.optionalKey(Schema.Struct({ key: Schema.String, keyId: Schema.String, issuer: Schema.String })),
+    appcast: Schema.optionalKey(Schema.Struct({ key: Schema.String, bucket: Schema.String })),
+}).annotate({
+    description:
+        'trustPackages: passes -skipMacroValidation and -skipPackagePluginValidation to xcodebuild. outputPath: workspace folder holding each scheme archive under <outputPath>/<scheme> and each product zip under <outputPath>/<product>, {projectName} naming the project, absent zips products in the SwiftPM release bin folder and gives no Xcode pack target, since xcodebuild archives outside the workspace. releaseTag: tag of every project given release configuration. platformTagPrefix: prefix of the darwin tag every project takes. identities: variable holding a base64 PKCS#12 identity, mapped to the variable holding its password, imported into a keychain for the run. notary: variables holding the App Store Connect key, key id, and issuer that notarize a disk image in place of the zip. appcast: variables holding the Sparkle EdDSA key and the R2 bucket a release publishes its feed to',
 });
-const Reason = Schema.TaggedUnion({ Exited: { code: Schema.Int, stderr: Schema.String }, Refused: { detail: Schema.String } });
-
-// --- [ERRORS] --------------------------------------------------------------------------
-
-class AppleError extends Schema.TaggedError<AppleError, { readonly brand: unique symbol }>()('AppleError', { reason: Reason, subject: Schema.String, cause: Schema.optionalKey(Schema.Defect()) }) {
-    static readonly of = (reason: AppleError['reason'], subject: string) => (cause?: unknown) => AppleError.make({ reason, subject, ...(cause === undefined ? {} : { cause }) });
-
-    override get message() {
-        const said = Reason.match(this.reason, { Exited: ({ code, stderr }) => [`exits ${code}`, ...(stderr.trim() === '' ? [] : [stderr.trim()])].join(': '), Refused: ({ detail }) => detail });
-        return [`${this.subject}: ${said}`, ...(this.cause === undefined ? [] : [Formatter.format(this.cause)])].join(': ');
-    }
-}
+const Input = Schema.declare((input: unknown): input is NonNullable<TargetConfiguration['inputs']>[number] => Predicate.isString(input) || Predicate.isObject(input));
+const Overrides = Schema.fromJsonString(Schema.Struct({ nx: Schema.optionalKey(Schema.Struct({ targets: Schema.optionalKey(Schema.Record(Schema.String, Schema.Struct({ inputs: Schema.optionalKey(Schema.mutable(Schema.Array(Input))) }))) })) })).annotate({
+    description: "The nx.targets rows of a project's package.json, whose inputs Nx merges over the inferred targets after every plugin",
+});
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const refused = (subject: string, detail: string) => AppleError.of({ _tag: 'Refused', detail }, subject);
-
-const analyzer = Effect.try({ try: () => fileURLToPath(import.meta.resolve('#analyzer')), catch: refused('#analyzer', 'does not resolve') });
+const analyzer = Effect.try({ try: () => fileURLToPath(import.meta.resolve('#analyzer')), catch: (cause) => new Cause.UnknownError(cause, `#analyzer of ${PLUGIN} resolves to no installed core`) });
 
 const tokened = (at: string) => (isAbsolute(at) || at.startsWith('..') ? [] : [join('{workspaceRoot}', at)]);
 
-const printed = Effect.fnUntraced(function* (argv: Array.NonEmptyReadonlyArray<string>, { input, ...options }: Pick<ChildProcess.CommandOptions, 'cwd' | 'env'> & { readonly input?: string }) {
-    const handle = yield* ChildProcess.make(Array.headNonEmpty(argv), Array.tailNonEmpty(argv), { ...options, extendEnv: true, detached: false, stdin: input === undefined ? 'ignore' : Stream.encodeText(Stream.make(input)) });
+const manifested = Effect.fnUntraced(function* (workspaceRoot: string, root: string) {
+    const fs = yield* FileSystem.FileSystem;
+    const manifest = join(workspaceRoot, root, 'package.json');
+    return (yield* fs.exists(manifest)) ? ((yield* Effect.flatMap(fs.readFileString(manifest), Schema.decodeEffect(Overrides))).nx?.targets ?? {}) : {};
+});
+
+const aggregated = (verbs: Verbs, stated: Readonly<Record<string, Pick<TargetConfiguration, 'inputs'>>>, technology: string): Record<string, TargetConfiguration> =>
+    Record.fromEntries(
+        Record.collect(Record.filter(verbs, Predicate.not(Record.isEmptyRecord)), (verb, tools): readonly (readonly [string, TargetConfiguration])[] => [
+            [verb, { dependsOn: [`${verb}--*`], inputs: ['...', ...Array.dedupe(Record.collect(tools, (tool, target) => mergeTargetConfigurations(stated[`${verb}--${tool}`] ?? {}, { ...target, inputs: target.inputs ?? ['default', '^default'] }).inputs ?? []).flat())] }],
+            ...Record.collect(tools, (tool, target): readonly [string, TargetConfiguration] => [`${verb}--${tool}`, { ...target, metadata: { technologies: [technology], ...target.metadata } }]),
+        ]).flat(),
+    );
+
+const spawned = Effect.fnUntraced(function* (argv: Array.NonEmptyReadonlyArray<string>, options: ChildProcess.CommandOptions = {}) {
+    const handle = yield* ChildProcess.make(Array.headNonEmpty(argv), Array.tailNonEmpty(argv), { stdin: 'ignore', ...options, extendEnv: true, detached: false });
     const [stdout, stderr, code] = yield* Effect.all([Stream.mkString(Stream.decodeText(handle.stdout)), Stream.mkString(Stream.decodeText(handle.stderr)), handle.exitCode], { concurrency: 'unbounded' });
-    return code === 0 ? stdout : yield* AppleError.of({ _tag: 'Exited', code, stderr }, CommandLine.display(argv))();
+    return code === 0 ? stdout : yield* new Cause.UnknownError(code, [`${CommandLine.display(argv)} exits ${code}`, ...[stderr.trim()].filter(String.isNonEmpty)].join(': '));
 }, Effect.scoped);
+
+const rendered = (cause: Cause.Cause<unknown>) => Effect.fail(new Cause.UnknownError(cause, Cause.pretty(cause)));
 
 const ran = (argv: Array.NonEmptyReadonlyArray<string>, options: Pick<ChildProcess.CommandOptions, 'cwd' | 'env'>) =>
     Effect.flatMap(ChildProcessSpawner.ChildProcessSpawner, (spawner) => spawner.exitCode(ChildProcess.make(Array.headNonEmpty(argv), Array.tailNonEmpty(argv), { ...options, extendEnv: true, detached: false, stdin: 'inherit', stdout: 'inherit', stderr: 'inherit' })));
 
-const target = (runs: (typeof Run.Type)['runs'], metadata: NonNullable<TargetConfiguration['metadata']>, { options, ...extra }: Partial<TargetConfiguration> = {}): TargetConfiguration => ({
+const sequenced = (runs: (typeof Run.Type)['runs'], metadata: NonNullable<TargetConfiguration['metadata']>, { options, ...extra }: Partial<TargetConfiguration> = {}): TargetConfiguration => ({
     executor: `${PLUGIN}:run`,
     options: { runs, env: GIT_STATUS, ...options },
     metadata,
@@ -79,8 +95,8 @@ const target = (runs: (typeof Run.Type)['runs'], metadata: NonNullable<TargetCon
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const run = <A, E>(effect: Effect.Effect<A, E, NodeServices | Scope.Scope>) => effect.pipe(Effect.tapCause(Effect.logError), Effect.scoped, Effect.provide(layer), Effect.runPromise);
+const run = <A, E>(effect: Effect.Effect<A, E, NodeServices | Scope.Scope>) => effect.pipe(Effect.scoped, Effect.provide(layer), Effect.runPromise);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { AppleError, ATTACH, analyzer, GIT_STATUS, INPUTS, Options, type Part, PLUGIN, printed, ran, refused, run, SHARED, SWIFTPM, type Tools, target, tokened };
+export { ATTACH, aggregated, analyzer, GIT_STATUS, INPUTS, manifested, Options, type Part, PLUGIN, ran, rendered, run, SWIFTPM, sequenced, spawned, tokened, type Verbs };

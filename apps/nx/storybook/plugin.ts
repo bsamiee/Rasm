@@ -2,43 +2,51 @@ import { existsSync } from 'node:fs';
 import { createRequire, findPackageJSON } from 'node:module';
 import { dirname, isAbsolute, join, relative } from 'node:path';
 import { env } from 'node:process';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { layer } from '@effect/platform-node/NodeServices';
-import { AggregateCreateNodesError, type CreateNodes, type CreateNodesContext, createNodesFromFiles, detectPackageManager, getPackageManagerCommand, hashArray, normalizePath, type ProjectConfiguration, parseJson, type TargetConfiguration } from '@nx/devkit';
-import { calculateHashesForCreateNodes, getLockFileName, getNamedInputs, hashFile, hashObject, hashWithWorkspaceContext, mergeTargetConfigurations, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
+import { AggregateCreateNodesError, type CreateNodes, type CreateNodesContext, createNodesFromFiles, detectPackageManager, getPackageManagerCommand, normalizePath, type ProjectConfiguration, readJsonFile, type TargetConfiguration } from '@nx/devkit';
+import { calculateHashesForCreateNodes, getLockFileName, getNamedInputs, hashObject, mergeTargetConfigurations, type PackageJson, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
 import { walkTsconfigExtendsChain } from '@nx/js/internal';
 import web from '@nx/web/package.json' with { type: 'json' };
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
-import { Array, Effect, FileSystem, Formatter, Match, Option, Predicate, pipe, Record, Schema, UndefinedOr } from 'effect';
-import type { PackageJson } from 'nx/src/utils/package-json';
+import { Array, Cause, Effect, FileSystem, Option, Predicate, pipe, Record, Schema } from 'effect';
+
+// --- [TYPES] ---------------------------------------------------------------------------
+
+type Verbs = Readonly<Record<string, Readonly<Record<string, TargetConfiguration>>>>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const MODE = { NODE_ENV: 'production' } as const;
-const SHARED = distribution.name;
+const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#package'))).name;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Placed = Schema.Struct({ outputPath: Schema.optionalKey(Schema.String) }).annotate({ description: 'outputPath: workspace folder storybook build writes under as <outputPath>/storybook/<project name>, absent writes storybook-static in the project' });
-
-// --- [ERRORS] --------------------------------------------------------------------------
-
-class StorybookError extends Schema.TaggedError<StorybookError, { readonly brand: unique symbol }>()('StorybookError', {
-    reason: Schema.TaggedUnion({ Unresolved: { specifier: Schema.String }, Unloaded: {} }),
-    subject: Schema.String,
-    cause: Schema.optionalKey(Schema.Defect()),
-}) {
-    static readonly of = (reason: StorybookError['reason'], subject: string) => (cause?: unknown) => StorybookError.make({ reason, subject, ...(cause === undefined ? {} : { cause }) });
-
-    override get message() {
-        const said = Match.valueTags(this.reason, { Unresolved: ({ specifier }) => `resolves no ${specifier}`, Unloaded: () => 'does not load' });
-        return [`${this.subject} ${said}`, ...(this.cause === undefined ? [] : [Formatter.format(this.cause)])].join(': ');
-    }
-}
+const Options = Schema.Struct({ outputPath: Schema.optionalKey(Schema.String) }).annotate({ description: 'outputPath: workspace folder storybook build writes to, {projectName} naming the project, absent writes storybook-static in the project' });
+const Input = Schema.declare((input: unknown): input is NonNullable<TargetConfiguration['inputs']>[number] => Predicate.isString(input) || Predicate.isObject(input));
+const Overrides = Schema.fromJsonString(Schema.Struct({ nx: Schema.optionalKey(Schema.Struct({ targets: Schema.optionalKey(Schema.Record(Schema.String, Schema.Struct({ inputs: Schema.optionalKey(Schema.mutable(Schema.Array(Input))) }))) })) })).annotate({
+    description: "The nx.targets rows of a project's package.json, whose inputs Nx merges over the inferred targets after every plugin",
+});
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const run = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem>) => Effect.runPromise(Effect.provide(effect, layer));
+
+const rendered = (cause: Cause.Cause<unknown>) => Effect.fail(new Cause.UnknownError(cause, Cause.pretty(cause)));
+
+const manifested = Effect.fnUntraced(function* (workspaceRoot: string, root: string) {
+    const fs = yield* FileSystem.FileSystem;
+    const manifest = join(workspaceRoot, root, 'package.json');
+    return (yield* fs.exists(manifest)) ? ((yield* Effect.flatMap(fs.readFileString(manifest), Schema.decodeEffect(Overrides))).nx?.targets ?? {}) : {};
+});
+
+const aggregated = (verbs: Verbs, stated: Readonly<Record<string, Pick<TargetConfiguration, 'inputs'>>>, technology: string): Record<string, TargetConfiguration> =>
+    Record.fromEntries(
+        Record.collect(Record.filter(verbs, Predicate.not(Record.isEmptyRecord)), (verb, tools): readonly (readonly [string, TargetConfiguration])[] => [
+            [verb, { dependsOn: [`${verb}--*`], inputs: ['...', ...Array.dedupe(Record.collect(tools, (tool, target) => mergeTargetConfigurations(stated[`${verb}--${tool}`] ?? {}, { ...target, inputs: target.inputs ?? ['default', '^default'] }).inputs ?? []).flat())] }],
+            ...Record.collect(tools, (tool, target): readonly [string, TargetConfiguration] => [`${verb}--${tool}`, { ...target, metadata: { technologies: [technology], ...target.metadata } }]),
+        ]).flat(),
+    );
 
 const extended = (workspaceRoot: string, root: string): readonly string[] => {
     const files: string[] = [];
@@ -75,9 +83,9 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string) {
     const main = join(workspaceRoot, file);
     const { isInNodeModules, loadMainConfig, normalizeAddonName }: typeof import('storybook/internal/common') = yield* Effect.tryPromise({
         try: () => import(pathToFileURL(createRequire(main).resolve('storybook/internal/common')).href),
-        catch: StorybookError.of({ _tag: 'Unresolved', specifier: 'storybook/internal/common' }, file),
+        catch: (cause) => new Cause.UnknownError(cause, `${file} resolves no storybook/internal/common`),
     });
-    const { framework, addons = [] } = yield* Effect.tryPromise({ try: () => loadMainConfig({ configDir: dirname(main), cwd: dirname(dirname(main)), skipCache: true }), catch: StorybookError.of({ _tag: 'Unloaded' }, file) });
+    const { framework, addons = [] } = yield* Effect.tryPromise({ try: () => loadMainConfig({ configDir: dirname(main), cwd: dirname(dirname(main)), skipCache: true }), catch: (cause) => new Cause.UnknownError(cause, `${file} does not load as a Storybook main config`) });
     const named = Array.getSomes([...Option.toArray(Option.fromUndefinedOr(framework)), ...addons].map((entry) => Option.filter(Option.fromUndefinedOr(normalizeAddonName(entry)), (name) => !isAbsolute(name))));
     const located = yield* Effect.forEach(Array.dedupe(named), (name) =>
         pipe(
@@ -91,7 +99,7 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string) {
     return located.filter(({ manifest }) => Option.match(manifest, { onNone: () => true, onSome: Option.exists(isInNodeModules) })).map(({ name }) => name);
 });
 
-const targets = (root: string, packages: readonly string[], chain: readonly string[], upstream: string, output: Option.Option<string>, exec: string, stated: Readonly<Record<string, TargetConfiguration>>): Record<string, TargetConfiguration> => {
+const targets = (root: string, packages: readonly string[], chain: readonly string[], upstream: string, output: Option.Option<string>, exec: string): Verbs => {
     const inputs = ['default', upstream, ...chain.map((at) => join('{workspaceRoot}', at)), { externalDependencies: Array.dedupe(['storybook', ...packages]) }];
     const written = Option.getOrElse(output, () => join(root, 'storybook-static'));
     const build = {
@@ -102,21 +110,21 @@ const targets = (root: string, packages: readonly string[], chain: readonly stri
             cache: true,
             inputs,
             outputs: [join('{workspaceRoot}', written)],
-            metadata: { description: 'Builds the static Storybook of the project stories', help: { command: `${exec} storybook build --help`, example: { args: ['--test'] } } },
+            metadata: { description: 'Builds the static Storybook of the project stories with storybook build', help: { command: `${exec} storybook build --help`, example: { args: ['--test'] } } },
         },
     } satisfies Record<string, TargetConfiguration>;
-    const builders = Record.keys(build).map((tool) => `build--${tool}`);
-    const verbs: Readonly<Record<string, Readonly<Record<string, TargetConfiguration>>>> = {
+    const removed = Record.collect(build, (tool) => `build--${tool}`);
+    return {
         build,
         preview: {
             storybook: {
                 executor: `${web.name}:file-server`,
-                dependsOn: builders,
+                dependsOn: removed,
                 continuous: true,
                 readyWhen: { signal: true },
                 inputs,
                 options: { buildTarget: 'build--storybook', staticFilePath: written },
-                metadata: { description: `Serves the static Storybook build--storybook writes through the ${web.name} file server` },
+                metadata: { description: `Serves the static Storybook build--storybook writes with ${web.name}:file-server`, help: { command: `${exec} nx run --help`, example: { options: { port: 4400 } } } },
             },
         },
         serve: {
@@ -126,54 +134,44 @@ const targets = (root: string, packages: readonly string[], chain: readonly stri
                 continuous: true,
                 readyWhen: { port: '{options.port ?? env.SBCONFIG_PORT ?? env.PORT ?? auto}', host: '{env.SBCONFIG_HOSTNAME ?? options.host ?? localhost}' },
                 inputs,
-                metadata: { description: 'Serves the project stories from the Storybook development server', help: { command: `${exec} storybook dev --help`, example: { args: ['--port=<port>'] } } },
+                metadata: { description: 'Serves the project stories with storybook dev', help: { command: `${exec} storybook dev --help`, example: { args: ['--port=<port>'] } } },
             },
         },
-        clean: { storybook: { executor: `${SHARED}:clean`, options: { targets: builders }, metadata: { description: `Removes the outputs ${builders.join(', ')} declare` } } },
+        clean: { storybook: { executor: `${distribution.name}:clean`, options: { targets: removed }, metadata: { description: `Removes the outputs ${removed.join(', ')} declare`, help: { command: `${exec} nx run --help`, example: { options: { targets: removed } } } } } },
     };
-    return Record.fromEntries(
-        Record.collect(Record.filter(verbs, Predicate.not(Record.isEmptyRecord)), (verb, tools): readonly (readonly [string, TargetConfiguration])[] => [
-            [verb, { dependsOn: [`${verb}--*`], inputs: ['...', ...Array.dedupe(Record.collect(tools, (tool, target) => mergeTargetConfigurations(stated[`${verb}--${tool}`] ?? {}, target).inputs ?? ['default', '^default']).flat())] }],
-            ...Record.collect(tools, (tool, target): readonly [string, TargetConfiguration] => [`${verb}--${tool}`, target]),
-        ]).flat(),
-    );
 };
 
 const inferred = Effect.fnUntraced(function* (cache: PluginCache<readonly string[]>, context: CreateNodesContext, output: Option.Option<string>, chain: readonly string[], hash: string, file: string) {
-    const fs = yield* FileSystem.FileSystem;
     const root = dirname(dirname(file));
-    const key = `${hash}_${file}`;
+    const key = `${hash}${file}`;
     const packages = cache.get(key) ?? (yield* secluded(read(context.workspaceRoot, file)));
     cache.set(key, packages);
-    const manifest = join(root, 'package.json');
-    const { nx } = yield* Effect.flatMap(fs.readFileString(join(context.workspaceRoot, manifest)), (text) => Effect.try({ try: () => parseJson<PackageJson>(text), catch: StorybookError.of({ _tag: 'Unloaded' }, manifest) }));
+    const stated = yield* manifested(context.workspaceRoot, root);
     const { exec } = getPackageManagerCommand(detectPackageManager(context.workspaceRoot));
     const outside = chain.filter((config) => !config.startsWith(`${root}/`));
-    const project: ProjectConfiguration = { root, metadata: { technologies: ['storybook'] }, targets: targets(root, packages, outside, 'production' in getNamedInputs(root, context) ? '^production' : '^default', output, exec, nx?.targets ?? {}) };
+    const project: ProjectConfiguration = { root, metadata: { technologies: ['storybook'] }, targets: aggregated(targets(root, packages, outside, 'production' in getNamedInputs(root, context) ? '^production' : '^default', output, exec), stated, 'storybook') };
     return { projects: { [root]: project } };
 });
 
-const nodes = Effect.fnUntraced(function* (files: readonly string[], options: unknown, context: CreateNodesContext) {
-    const { outputPath } = yield* Schema.decodeEffect(Placed)({ ...context.nxJsonConfiguration.pluginsConfig?.[SHARED], ...(Predicate.isObject(options) ? options : {}) });
+const nodes = Effect.fnUntraced(function* (files: readonly string[], options: typeof Options.Encoded | undefined, context: CreateNodesContext) {
+    const settings = yield* Schema.decodeEffect(Options)(options ?? {});
     const mains = files.filter((file) => existsSync(join(context.workspaceRoot, dirname(dirname(file)), 'package.json')));
     const roots = mains.map((file) => dirname(dirname(file)));
     const chains = roots.map((root) => extended(context.workspaceRoot, root));
     const lock = getLockFileName(detectPackageManager(context.workspaceRoot));
-    const output = Option.map(Option.fromUndefinedOr(outputPath), (at) => join(at, 'storybook', '{projectName}'));
-    const code = hashArray([...Array.fromNullishOr(UndefinedOr.map(findPackageJSON(import.meta.url), hashFile)), yield* Effect.promise(() => hashWithWorkspaceContext(context.workspaceRoot, [normalizePath(join(relative(context.workspaceRoot, import.meta.dirname), '**'))]))]);
-    const cache = new PluginCache<readonly string[]>(join(workspaceDataDirectory, `storybook-${hashObject({ options })}.hash`));
+    const cache = new PluginCache<readonly string[]>(join(workspaceDataDirectory, `storybook-${hashObject(options ?? {})}.hash`));
     const hashes = yield* Effect.promise(() =>
         calculateHashesForCreateNodes(
             roots,
-            { options, code },
+            settings,
             context,
             chains.map((chain) => [lock, ...chain]),
         ),
     );
     return yield* Effect.ensuring(
         Effect.tryPromise({
-            try: () => createNodesFromFiles((file, _options, _context, index) => run(inferred(cache, context, output, chains[index] ?? [], `${hashes[index]}`, file)), mains, options, context),
-            catch: (cause) => (cause instanceof AggregateCreateNodesError ? cause : new AggregateCreateNodesError([[null, StorybookError.of({ _tag: 'Unloaded' }, 'createNodes')(cause)]], [])),
+            try: () => createNodesFromFiles((file, _options, _context, index) => run(Effect.catchCause(inferred(cache, context, Option.fromUndefinedOr(settings.outputPath), chains[index] ?? [], `${hashes[index]}`, file), rendered)), mains, options, context),
+            catch: (cause) => (cause instanceof AggregateCreateNodesError ? cause : new AggregateCreateNodesError([[null, new Cause.UnknownError(cause, `${PLUGIN} infers no project`)]], [])),
         }),
         Effect.sync(() => cache.writeToDisk()),
     );
@@ -181,7 +179,7 @@ const nodes = Effect.fnUntraced(function* (files: readonly string[], options: un
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const createNodes: CreateNodes = ['**/.storybook/main.{js,ts,jsx,tsx,mjs,mts,cjs,cts}', (files, options, context) => run(nodes(files, options, context))];
+const createNodes: CreateNodes<typeof Options.Encoded> = ['**/.storybook/main.{js,ts,jsx,tsx,mjs,mts,cjs,cts}', (files, options, context) => run(nodes(files, options, context))];
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

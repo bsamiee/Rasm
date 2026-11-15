@@ -39,8 +39,6 @@ Rasm/
 ├── CMakeLists.txt            # C++ root project finding each package by its CMakeLists.txt
 ├── CMakePresets.json         # C++ configure, build, test, package, and workflow presets
 ├── vcpkg.json                # C++ library versions, registry baseline, and overlay triplets
-├── .clang-format             # C++ and Objective-C++ formatting
-├── .clang-tidy               # C++ checks and house rules, each finding an error
 ├── sgconfig.yml              # ast-grep rule directories and language parsing
 ├── .editorconfig             # Editor, formatting, and analyzer settings by file path
 ├── .gitattributes            # Line endings, diff drivers, and LFS filters per extension
@@ -97,7 +95,7 @@ flowchart LR
 
     mise -->|installs toolchains from| versions
     mise ==>|activation| shell
-    mise ==>|SessionStart hook| claude
+    mise ==>|user SessionStart hook| claude
     mise ==>|jdx/mise-action| ci
     shell -->|runs| hk & nx
     ci -->|runs| nx
@@ -123,12 +121,12 @@ flowchart LR
 - SwiftPM builds pass `--no-color-diagnostics`: its default follows `NO_COLOR`, which Codex sets, and a changed value recompiles every module
 - `@rasm/nx-apple` reads Xcode build settings with `-IDEPackageEnablePrebuilts=NO`, so graph creation fetches no prebuilt `swift-syntax`
 - Manifest `nx` tables state only a fact no manifest row or tool reports (a service a client calls, a file a build reads unimported, tag `os:all`)
-- Plugin rows of `nx.json` share the options under `pluginsConfig` `@rasm/nx-distribution`, and a row's own options win
+- Plugin rows of `nx.json` hold every option of their plugin (`outputPath` template, `releaseTag`, `platformTagPrefix`, credential variable names), and an absent option leaves the tool's own default
 - Plugin rows merge in order and a later row names a shared root, so `@rasm/nx-distribution` comes first and a host manifest names only a folder no ecosystem manifest names
 - Verbs name one operation in every ecosystem, and a project answers a verb only where one of its tools performs that operation
 - Verbs aggregate `<verb>--<tool>` targets and read their inputs, a manifest `nx.targets` row of a tool target included
 - One run's words after `--` go to the tool-named target, after its configured arguments (`nx run <project>:build--dotnet -- -bl`)
-- Run words reach no tool where none runs: Pulumi deploy and install run through the Automation API, which takes no command words, and UXP pack, UXP and CEP install, Blender publish, and Unreal pack and install write, copy, or upload in process
+- Run words reach no tool where none runs: .NET check, UXP pack, UXP and CEP install, Blender publish, Unreal pack and install
 - File-level formatting and linting belong to hk, project-level checks to the Nx plugins, and neither calls the other
 - Commits run no pre-commit hook: hk checks a commit's message alone, and file checks run when a shell or agent calls hk
 - Checkers report every finding as an error through their own configuration
@@ -144,7 +142,7 @@ flowchart LR
 - Cached targets with output that differs by platform hash one platform input, since one remote cache serves every runner
 - Host SDKs and tools come from packages and mise rows, and building, checking, and packaging a host project needs no host installed
 - Hosts run wherever their vendor releases and licenses them for a machine, CI runners included, as Blender does through its `bpy` wheel
-- Plugins present a target that runs a host or needs a platform only on a machine holding it, and tag a project a platform limits `os:<platform>`
+- Plugins present a target that runs a host or needs a platform only on a machine holding it, and tag a project a platform limits with their row's `platformTagPrefix` and the platform (`os:darwin`)
 - Tests of code calling a host run where the host runs, and logic needing no host sits in projects tested on every platform
 - `@rasm/nx-cmake` configures the build folder each configure preset states and infers projects, targets, and edges from its file API reply
 - CMake workflow presets name the configure, build, and test presets of one Nx configuration, `lint` and `unreal` naming no test preset
@@ -155,7 +153,7 @@ flowchart LR
 - C++ executables link the LLVM release libc++ statically, its symbols hidden on macOS, where a second libc++ beside the system one corrupts streams
 - C++ warnings, hardening, sanitizer, and coverage flags sit in the root `CMakeLists.txt`, presets state a build type, a build folder, and switches
 - C++ packages export a named module where `CMAKE_CXX_SCAN_FOR_MODULES` is on, and declare the part a host toolchain reads in `FILE_SET HEADERS`
-- Unreal targets exist where the engine a `.uproject` names resolves, a plug-in builds once per engine on the machine that the projects loading it name, each absent engine skipped
+- Unreal targets exist where the engine a `.uproject` names resolves, a plug-in builds once per present engine its loading projects name
 - Unreal plug-ins build through `RunUAT BuildPlugin -StrictIncludes`, and a project builds its editor target through UnrealBuildTool
 - Unreal plug-ins test by the automation tests under their own name, each test state read from the report the editor exports
 - Unreal plug-ins map a folder to the Nx target installing a C++ package there in `.uplugin` table `nx.packages`, and their build runs it first
@@ -183,7 +181,7 @@ flowchart LR
 - Workflow `Deploy` runs `nx deploy @rasm/infra` once the CI run of the newest push to `main` finishes, passed or failed, and when Doppler config `deploy` changes
 - Unchanged stack inputs apply nothing, and a machine runs the containers and services field `roles` of its `hosts` row states
 - Machine names state no role, provider, or location: roles sit in host row `roles` and DNS aliases
-- Plugins tag a project they give release configuration `release`, the one selector of `nx.json` `release.projects`
+- Plugins tag a project they give release configuration with their row's `releaseTag`, `release` in each row and the one selector of `nx.json` `release.projects`
 - `package.json` projects stating a `version` are release projects with `pack--pnpm` and `attach--gh`, and `private` stops the registry upload alone
 - Release projects are versioned, packed, and attached, and the switch their registry reads alone gives one a publish target
 - Registry switches are `private` in `package.json`, `publish` in `Cargo.toml`, classifier `Private :: Do Not Upload`, and `defaultPushSource` of `NuGet.config`
@@ -192,7 +190,7 @@ flowchart LR
 - Pack targets build their release form themselves, `pack--dotnet` excepted
 - .NET targets of a project run in the one `Configuration` MSBuild evaluates for it, and test and pack read what `build--dotnet` wrote (`--no-build`)
 - `Directory.Build.props` states `Configuration` and `Configurations` as `Release`, and a project declaring more gets an Nx configuration for each
-- `@rasm/nx-dotnet` runs its analyzer through `dotnet run`, which rebuilds it after a source edit, and from the build its package holds once installed
+- `@rasm/nx-dotnet` runs its analyzer through `dotnet run` where its row's `analyzerProject` names the project, which rebuilds it after a source edit, and from the build its package holds where none does
 - NuGet supplies no fixed entry time, so `Directory.Build.props` states `DeterministicTimestamp` and two packs of one commit are byte-equal
 
 ## [04]-[TASKS]
@@ -223,7 +221,7 @@ Other tasks run through their own commands:
 - Attach and publish targets depend on the targets that package their files (`pack--dotnet` for NuGet) and take them as the `dependentTasksOutputFiles` input they state
 - `pnpm publish --recursive` states no such input, takes no file, and depends on the build targets of its package
 - `doppler run --config release --command 'nx pack <app>'` packages a Mac app as workflow `release.yml` does
-- `mise bootstrap` registers the pitchfork supervisor as a login agent, on a Mac after a clone
+- `mise bootstrap` after a clone installs mise tools and pnpm packages, registers pitchfork as a Mac login agent, and checks the Nx remote cache in CI
 - `nx install @rasm/infra` runs the proxy, sign-in, and object storage containers of role `Apps` on the local Docker engine, under `rasm.localhost`
 - `mise daemons stop docker` stops the container engine until a session enters, `mise daemons start docker` starts it and waits until Docker answers
 - `nx deploy @rasm/infra` applies the repository and machine stacks, as workflow `Deploy` does
@@ -274,7 +272,7 @@ Packaging turns a build into the files its host, registry, or store takes, and i
 |  [19]   | Reusable asset                 | `assets/<kind>/<name>/` in `bsamiee/Rasm-Assets`, with native relative dependencies                    |
 |  [20]   | Local daemon                   | `[daemons]` row in `.config/mise.<os>.toml`, started with the first shell or agent session             |
 |  [21]   | Host application in CI         | Host vendor's setup action in the job needing it, its version read from the project manifest           |
-|  [22]   | Mac app release form           | Doppler `rasm/release` `ASC_API_*` rows, set notarize a `.dmg` for Sparkle, absent release a `.zip`    |
+|  [22]   | Mac app release form           | Doppler `rasm/release` `ASC_API_*` rows the apple `notary` option names notarize a `.dmg`, else `.zip` |
 |  [23]   | Registry token                 | Doppler `rasm/release` row named as the variable its tool reads (`NODE_AUTH_TOKEN`, `YAK_TOKEN`)       |
 |  [24]   | C++ toolchain and packages     | `github:llvm/llvm-project` row of `.config/mise.toml`, `vcpkg.json` rows and `builtin-baseline`        |
 |  [25]   | Unreal Engine                  | `EngineAssociation` of a `.uproject`, found in Epic install lists                                      |

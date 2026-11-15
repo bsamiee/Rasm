@@ -2,13 +2,13 @@ import { platform } from 'node:process';
 import { layer } from '@effect/platform-node/NodeServices';
 import { assert, it } from '@effect/vitest';
 import { createProjectFileMapUsingProjectGraph, workspaceRoot } from '@nx/devkit';
+import type { Graph } from '@rasm/testing/nx';
 import { Array, Effect, Option, Order, Schema } from 'effect';
 import { createNxReleaseConfig } from 'nx/src/command-line/release/config/config';
 import { createReleaseGraph } from 'nx/src/command-line/release/utils/release-graph';
 import { readNxJson } from 'nx/src/config/nx-json';
 import { FsTree } from 'nx/src/generators/tree';
 import { declared, nx, read } from '#/workspace';
-import type { Graph } from '@rasm/testing/nx';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

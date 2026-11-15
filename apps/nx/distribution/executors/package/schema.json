@@ -5,7 +5,7 @@
     "properties": {
         "outputPath": {
             "type": "string",
-            "description": "Folder, relative to the workspace root, receiving the package"
+            "description": "Folder, relative to the workspace root, receiving the package, each earlier package of the project in it removed first"
         },
         "timestampAuthority": {
             "type": "string",

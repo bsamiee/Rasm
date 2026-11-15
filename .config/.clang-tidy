@@ -2,7 +2,8 @@
 
 Checks:
     - bugprone-*
-    - cert-*
+    # Every other cert check aliases an enabled check with equal or narrower options
+    - cert-err33-c
     - clang-analyzer-*
     - concurrency-*
     - cppcoreguidelines-*
@@ -32,13 +33,11 @@ WarningsAsErrors: '*'
 
 HeaderFilterRegex: '/(apps|libs)/'
 ExcludeHeaderFilterRegex: '/\.artifacts/'
-SystemHeaders: false
-FormatStyle: file
 
 # --- [OPTIONS] --------------------------------------------------------------------------
 
 CheckOptions:
-    bugprone-unused-return-value.CheckedReturnTypes: '^::std::error_code$;^::std::error_condition$;^::std::errc$;^::std::expected$'
+    bugprone-unhandled-self-assignment.WarnOnlyIfThisHasSuspiciousField: false
     misc-non-private-member-variables-in-classes.IgnoreClassesWithAllMemberVariablesBeingPublic: true
     modernize-use-trailing-return-type.TransformLambdas: none
     readability-identifier-length.MinimumVariableNameLength: 2

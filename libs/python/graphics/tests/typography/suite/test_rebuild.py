@@ -41,6 +41,7 @@ from rasm_typography import (
     planned,
     Point,
     Seam,
+    Single,
     Source,
     Spacing,
     TextNaskh,
@@ -185,7 +186,7 @@ def test_locale_seats_a_strayed_madda_over_the_alef() -> None:
 def test_part_clearance_finds_a_tail_under_the_next_part() -> None:
     """A returning yeh drawn under the next part, the collision across ZWNJ no published checker reports."""
     glyphs = {"uni06CC": (400, ((-300, -100, 400, 100),)), "uni062E": (400, ((0, 0, 400, 300),))}
-    found = PartClearance(gap=0.03).measured(Binary(data=_font(glyphs, {0x06CC: "uni06CC", 0x062E: "uni062E"})), corpus=_corpus(zwnj=("یخ",)), joinings=frozendict())
+    found = PartClearance(gap=0.03, dotted=True).measured(Binary(data=_font(glyphs, {0x06CC: "uni06CC", 0x062E: "uni062E"})), corpus=_corpus(zwnj=("یخ",)), joinings=frozendict())
     assert [subject for subject, _, _ in found] == ["uni062E uni06CC in یخ"]
 
 
@@ -200,8 +201,8 @@ def test_mark_side_finds_a_kasra_over_the_baseline() -> None:
 
 @pytest.mark.parametrize("face,dotted", [(Face(family="Probe", style="Regular"), True), (Face(family="Probe", style="Regular", genre=DotMatrix()), False)])
 def test_dot_rules_read_whether_letters_carry_dots(face: Face, *, dotted: bool) -> None:
-    """A dot-matrix face draws every letter in dots, so no piece of it is a dot the dot rules move or check."""
-    assert face.dotted is dotted
+    """A dot-matrix face draws every letter in dots, so its plan names no dotted letter whose pieces the dot rules move or check."""
+    assert any(isinstance(rule, Outlines) and rule.dot is not None for rule in planned(face)) is dotted
 
 
 @pytest.mark.parametrize("stroke,found", [((-11, 0, 100, 150), ()), ((-11, 200, 100, 350), ("uni0627.fina uni0628.init in با",))])
@@ -215,7 +216,7 @@ def test_mark_clearance_reads_a_stencil_stroke_at_a_join_as_body(stroke: _Rect, 
     }
     features = "feature init { sub uni0628 by uni0628.init; } init;\nfeature fina { sub uni0627 by uni0627.fina; } fina;"
     binary = Binary(data=_font(glyphs, {0x0628: "uni0628", 0x0627: "uni0627"}, features))
-    assert tuple(subject for subject, _, _ in MarkClearance(gap=0.03).measured(binary, corpus=_corpus(words=("با",)), joinings=frozendict())) == found
+    assert tuple(subject for subject, _, _ in MarkClearance(gap=0.03, dotted=True).measured(binary, corpus=_corpus(words=("با",)), joinings=frozendict())) == found
 
 
 def test_spacing_kerns_a_ligature_ending_a_part_across_its_marks() -> None:
@@ -255,7 +256,14 @@ def test_anchors_move_a_hamza_off_its_neighbour_and_drop_a_kasra_under_a_tail() 
     rule = next(rule for rule in planned(face) if isinstance(rule, Anchors))
     source = settled(rule.applied(settled(imported(data, face, frozendict())), original=Binary(data=data), corpus=_corpus()))
     dots = next(lookup for lookup in source.lookups if isinstance(lookup, Contextual))
-    moved = next(target for chain in dots.rules for names, target in chain.input if names == ("uni0626.init",) and chain.lookahead == (("uni0627.fina",),) and target is not None)
+    moved = next(
+        single.mapping["uni0626.init"]
+        for chain in dots.rules
+        for names, applied in chain.input
+        if names == ("uni0626.init",) and chain.lookahead == (("uni0627.fina",),)
+        for single in applied
+        if isinstance(single, Single)
+    )
     assert dots.flags & LOOKUP_FLAG_IGNORE_MARKS
     assert source.drawn(moved).contours != source.drawn("uni0626.init").contours
     drops = next(lookup for lookup in source.lookups if isinstance(lookup, Lifts) and lookup.mark_filtering == frozenset({"uni0650"}))

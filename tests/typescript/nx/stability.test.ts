@@ -2,12 +2,12 @@ import { homedir, hostname, tmpdir, userInfo } from 'node:os';
 import { layer } from '@effect/platform-node/NodeServices';
 import { assert, it } from '@effect/vitest';
 import { workspaceRoot } from '@nx/devkit';
+import type { Graph } from '@rasm/testing/nx';
+import { Reading } from '@rasm/testing/reading';
 import { Array, Effect, Order, Path, Predicate, Record, Schema } from 'effect';
 import { getOutputsForTargetAndConfiguration } from 'nx/src/tasks-runner/utils';
 import { inject } from 'vitest';
 import { declared, read, taken } from '#/workspace';
-import type { Graph } from '@rasm/testing/nx';
-import { Reading } from '@rasm/testing/reading';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
