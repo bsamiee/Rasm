@@ -6,6 +6,9 @@
     "references": [
         {
             "path": "../../support"
+        },
+        {
+            "path": "../../../../apps/web/portfolio"
         }
     ]
 }

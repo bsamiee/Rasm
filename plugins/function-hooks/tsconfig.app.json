@@ -1,0 +1,15 @@
+{
+    "extends": "../../tsconfig.base.json",
+    "compilerOptions": {
+        "composite": false,
+        "declarationMap": false,
+        "noEmit": true
+    },
+    "include": [ "**/*", ".claude-plugin/plugin.json" ],
+    "exclude": [ "hooks", "node_modules" ],
+    "references": [
+        {
+            "path": "../../libs/typescript/macos/applications"
+        }
+    ]
+}

@@ -1,46 +1,5 @@
 {
     "extends": "../../../tsconfig.base.json",
-    "compilerOptions": {
-        "composite": false,
-        "declarationMap": false,
-        "noEmit": true,
-        "types": [ "node", "vite/client" ]
-    },
-    "include": [ "**/*", "package.json" ],
-    "exclude": [ "plugins", "protocol", "extendscript" ],
-    "references": [
-        {
-            "path": "../../../libs/typescript/creative-cloud/uxp"
-        },
-        {
-            "path": "../../../libs/typescript/graphics/typography"
-        },
-        {
-            "path": "../../../libs/typescript/runtime/telemetry"
-        },
-        {
-            "path": "../../../libs/typescript/data/search"
-        },
-        {
-            "path": "../../../libs/typescript/data/quran"
-        },
-        {
-            "path": "../../../libs/typescript/ai/mcp"
-        },
-        {
-            "path": "../../../libs/typescript/creative-cloud/cep"
-        },
-        {
-            "path": "../../../libs/typescript/creative-cloud/automation"
-        },
-        {
-            "path": "protocol"
-        },
-        {
-            "path": "../../../libs/typescript/macos/applications"
-        },
-        {
-            "path": "extendscript"
-        }
-    ]
+    "files": [],
+    "references": [ { "path": "./tsconfig.app.json" } ]
 }

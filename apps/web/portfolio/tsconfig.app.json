@@ -1,6 +1,9 @@
 {
     "extends": "./tsconfig.json",
     "compilerOptions": {
+        "composite": false,
+        "declarationMap": false,
+        "noEmit": true,
         "types": [ "vite/client" ]
     },
     "include": [ "site", "editor", "media", "model", ".storybook/preview.ts" ],
