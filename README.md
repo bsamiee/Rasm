@@ -191,7 +191,7 @@ Other tasks run through their own commands:
 - `pixi run --locked python` supplies the library search path for `magic` and `weasyprint`
 - `nx sync` writes executor schemas and tsconfig `references`, task runs in a terminal apply it, and runs in other shells stop until it runs
 - `nx migrate latest`, then `nx migrate --run-migrations`, applies a new Nx release's migrations
-- `@nx/playwright` infers `test` per Playwright config, which starts and awaits the `nx run` task of each `webServer` row with `reuseExistingServer`
+- `@rasm/nx-playwright` infers `test--playwright` per Playwright config, which starts the `nx run` task of each `webServer` row with `reuseExistingServer` and waits until it is ready
 - `mise daemons stop docker` stops the container engine until a session enters, `mise daemons start docker` starts it and waits until Docker answers
 - `nx install @rasm/infra` runs the proxy, sign-in, and object storage containers of role `Apps` on the local Docker engine, under `rasm.localhost`
 - `nx deploy @rasm/infra` applies the repository and machine stacks

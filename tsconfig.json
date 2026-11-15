@@ -211,6 +211,9 @@
         },
         {
             "path": "./infra"
+        },
+        {
+            "path": "./apps/nx/playwright"
         }
     ]
 }

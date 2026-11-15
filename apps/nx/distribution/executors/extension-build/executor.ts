@@ -2,7 +2,7 @@ import { hash } from 'node:crypto';
 import { patch } from '@decimalturn/toml-patch';
 import type { ExecutorContext } from '@nx/devkit';
 import { globWithWorkspaceContext } from '@nx/devkit/internal';
-import { Array, Cause, Effect, Equivalence, FileSystem, Option, Path, Record, Schema, Struct } from 'effect';
+import { Array, Cause, Effect, Equivalence, FileSystem, Function, Option, Path, Record, Result, Schema, Struct } from 'effect';
 import { Toml } from 'effect/encoding';
 import { FetchHttpClient, HttpClient, HttpClientResponse } from 'effect/http';
 import { run, spawned, Words } from '#/executor';
@@ -27,7 +27,7 @@ const Build = Schema.Struct({
 }).annotate({
     title: 'Extension build',
     description:
-        "Builds the Blender extension archives the project's blender_manifest.toml declares through Blender's blender_ext.py, with no Blender installed, one archive per platform the manifest lists and one for every platform where it lists none, or for a check validates the manifest and files of the source folder with blender_ext.py validate; a project holding pyproject.toml builds from a staged copy that bundles its local dependencies as subpackages and its locked registry dependencies as the wheels uv selects per platform at the one Python minor its requires-python pins as ==<major>.<minor>.*, leaving out each package its blender dependency group pins as one Blender bundles",
+        "Builds the Blender extension archives the project's blender_manifest.toml declares through Blender's blender_ext.py, with no Blender installed, one archive per platform the manifest lists and one for every platform where it lists none, or for a check validates the manifest and files of the source folder with blender_ext.py validate; a project holding pyproject.toml builds one staged copy per platform the manifest lists, or one for every platform where it lists none, that bundles its local dependencies as subpackages and as wheels the registry dependencies uv installs from the exported lock for its platforms at the one Python minor its requires-python pins as ==<major>.<minor>.*, leaving out each package its blender dependency group pins as one Blender bundles",
 });
 const Manifest = Schema.Struct({ id: Schema.String, platforms: Schema.optionalKey(Schema.Array(Schema.String)) });
 const Minor = Schema.TemplateLiteralParser(['==', Schema.Natural, '.', Schema.Natural, '.*']);
@@ -48,49 +48,77 @@ const locked = (args: readonly string[], cwd: string) =>
         Effect.flatMap(Schema.decodeUnknownEffect(Locked)),
     );
 
-const fetched = Effect.fnUntraced(function* (url: string, sha256: string, folder: string) {
-    const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
+const keyed = (stem: string, tags: readonly string[]) =>
+    [
+        stem.split('-', 2).join(' ').toLowerCase().replaceAll(/[_.]+/gu, '-'),
+        ...Array.dedupe(
+            tags.flatMap((tag) => {
+                const [platform, abi, python] = tag.split('-').toReversed();
+                return Array.cartesianWith(
+                    Array.cartesianWith(python?.split('.') ?? [], abi?.split('.') ?? [], (interpreter, binary) => `${interpreter}-${binary}`),
+                    platform?.split('.') ?? [],
+                    (prefix, system) => `${prefix}-${system}`,
+                );
+            }),
+        ).toSorted(),
+    ].join(' ');
+
+const fetched = Effect.fnUntraced(function* (url: string, sha256: string, file: string) {
+    const fs = yield* FileSystem.FileSystem;
     const response = yield* Effect.flatMap(HttpClient.get(url), HttpClientResponse.filterStatusOk);
     const bytes = new Uint8Array(yield* response.arrayBuffer);
-    yield* hash('sha256', bytes, 'hex') === sha256 ? fs.writeFile(path.join(folder, decodeURIComponent(path.basename(new URL(url).pathname))), bytes) : Effect.fail(new Cause.UnknownError(sha256, `${url} does not hash to ${sha256}, the sha256 its lock states`));
+    yield* hash('sha256', bytes, 'hex') === sha256 ? fs.writeFile(file, bytes) : Effect.fail(new Cause.UnknownError(sha256, `${url} does not hash to ${sha256}, the sha256 its lock states`));
 }, Effect.provide(FetchHttpClient.layer));
 
 const staged = Effect.fnUntraced(function* (context: ExecutorContext, root: string, text: string, document: Record.ReadonlyRecord<string, unknown>, declared: typeof Manifest.Type) {
     const [path, fs] = yield* Effect.all([Path.Path, FileSystem.FileSystem]);
-    const stage = yield* fs.makeTempDirectoryScoped();
-    const wheels = path.join(stage, 'wheels');
+    const [source, work, vendor] = yield* Effect.all([fs.makeTempDirectoryScoped(), fs.makeTempDirectoryScoped(), fs.makeTempDirectoryScoped()]);
     const member = path.join(context.root, root);
-    const exported = ['export', '--locked', '--no-default-groups', '--no-emit-project'];
-    const [bundled, whole] = yield* Effect.all([locked(['export', '--locked', '--only-group', 'blender', '--format', 'pylock.toml'], member), locked([...exported, '--format', 'pylock.toml'], member)], { concurrency: 'unbounded' });
+    const registry = path.join(work, 'pylock.toml');
+    const exported = ['export', '--locked', '--no-default-groups', '--no-emit-project', '--format', 'pylock.toml'];
+    const [bundled, whole] = yield* Effect.all([locked(['export', '--locked', '--only-group', 'blender', '--format', 'pylock.toml'], member), locked(exported, member)], { concurrency: 'unbounded' });
     const [, major, , minor] = yield* Effect.mapError(Schema.decodeUnknownEffect(Minor)(whole['requires-python']), (cause) => new Cause.UnknownError(cause, `requires-python ${whole['requires-python']} pins no single Python minor as ==<major>.<minor>.*, the one interpreter the bundled wheels load in`));
+    const registered = yield* locked([...exported, '--no-emit-local', '--output-file', registry, ...bundled.packages.flatMap(({ name }) => ['--no-emit-package', name])], member);
+    const wheels = new Map(registered.packages.flatMap(({ wheels: built = [] }) => built).map(({ url, hashes }) => Function.pipe(decodeURIComponent(path.basename(new URL(url).pathname, '.whl')), (stem) => [keyed(stem, [stem]), { url, sha256: hashes.sha256, file: `${stem}.whl` }] as const)));
     const files = yield* Effect.promise(() => globWithWorkspaceContext(context.root, [path.join(root, '**', '*')]));
     yield* Effect.forEach(
         files.filter((file) => path.basename(file) !== EXTENSION),
-        (file) => Effect.andThen(fs.makeDirectory(path.dirname(path.join(stage, path.relative(root, file))), { recursive: true }), fs.copyFile(path.join(context.root, file), path.join(stage, path.relative(root, file)))),
+        (file) => Effect.andThen(fs.makeDirectory(path.dirname(path.join(source, path.relative(root, file))), { recursive: true }), fs.copyFile(path.join(context.root, file), path.join(source, path.relative(root, file)))),
         { concurrency: 'unbounded' },
     );
-    yield* fs.makeDirectory(wheels, { recursive: true });
-    const requirements = path.join(stage, 'requirements.txt');
-    yield* uv([...exported, '--format', 'requirements.txt', '--no-emit-local', '--no-header', '--output-file', requirements, ...bundled.packages.flatMap(({ name }) => ['--no-emit-package', name])], member);
+    yield* Effect.forEach(Array.getSomes(whole.packages.map(({ directory }) => Option.fromUndefinedOr(directory?.path))), (local) => uv(['build', local, '--wheel', '--out-dir', vendor], member), { concurrency: 'unbounded' });
+    const vendored = (yield* fs.readDirectory(vendor)).filter((file) => path.extname(file) === '.whl').map((wheel) => path.join(vendor, wheel));
+    yield* uv(['run', '--script', yield* path.fromFileUrl(new URL(import.meta.resolve('#vendored'))), source, ...vendored], context.root);
     const selected = yield* Effect.forEach(
         declared.platforms ?? Record.keys(TARGETS),
         Effect.fnUntraced(function* (platform) {
             const target = yield* Effect.mapError(Effect.fromNullishOr(TARGETS[platform]), (cause) => new Cause.UnknownError(cause, `${EXTENSION} lists platform ${platform}, where uv selects wheels for ${Record.keys(TARGETS).join(', ')}`));
-            const resolved = yield* locked(['pip', 'compile', requirements, '--no-deps', '--python-platform', target, '--python-version', `${major}.${minor}`, '--format', 'pylock.toml'], member);
-            const missing = resolved.packages.filter(({ wheels: built = [] }) => built.length === 0).map(({ name }) => name);
-            return yield* Array.match(missing, { onEmpty: () => Effect.succeed(Array.getSomes(resolved.packages.map(({ wheels: built = [] }) => Array.head(built)))), onNonEmpty: (names) => Effect.fail(new Cause.UnknownError(names, `${names.join(', ')} lock no wheel for ${platform}`)) });
+            const folder = path.join(work, platform);
+            yield* uv(['pip', 'install', '--requirements', registry, '--only-binary', ':all:', '--python', `${major}.${minor}`, '--python-platform', target, '--target', folder], member);
+            const installed = (yield* fs.readDirectory(folder)).filter((name) => path.extname(name) === '.dist-info');
+            const records = yield* Effect.forEach(installed, (info) => fs.readFileString(path.join(folder, info, 'WHEEL')), { concurrency: 'unbounded' });
+            const [present, missing] = Array.separate(Array.zipWith(installed, records, (info, record) => Result.fromNullishOr(wheels.get(keyed(path.basename(info, '.dist-info'), record.match(/(?<=^Tag:\s*)\S+$/gmu) ?? [])), Function.constant(info))));
+            return yield* Array.match(missing, { onEmpty: () => Effect.succeed(present), onNonEmpty: (names) => Effect.fail(new Cause.UnknownError(names, `${names.join(', ')} uv installs for ${platform} carry the tags of no wheel the lock names`)) });
         }),
         { concurrency: 'unbounded' },
     );
-    yield* Effect.forEach(Array.dedupeWith(selected.flat(), Equivalence.mapInput(Equivalence.String, Struct.get('url'))), ({ url, hashes }) => fetched(url, hashes.sha256, wheels), { concurrency: 'unbounded', discard: true });
-    yield* fs.remove(requirements);
-    const vendor = yield* fs.makeTempDirectoryScoped();
-    yield* Effect.forEach(Array.getSomes(whole.packages.map(({ directory }) => Option.fromUndefinedOr(directory?.path))), (local) => uv(['build', local, '--wheel', '--out-dir', vendor], member), { concurrency: 'unbounded' });
-    const vendored = (yield* fs.readDirectory(vendor)).filter((file) => path.extname(file) === '.whl').map((wheel) => path.join(vendor, wheel));
-    yield* uv(['run', '--script', yield* path.fromFileUrl(new URL(import.meta.resolve('#vendored'))), stage, ...vendored], context.root);
-    const listed = (yield* fs.readDirectory(wheels)).toSorted();
-    yield* fs.writeFileString(path.join(stage, EXTENSION), patch(text, { ...document, wheels: listed.map((wheel) => `./wheels/${wheel}`) }));
-    return stage;
+    const pool = path.join(work, 'wheels');
+    yield* fs.makeDirectory(pool);
+    yield* Effect.forEach(Array.dedupeWith(selected.flat(), Equivalence.mapInput(Equivalence.String, Struct.get('file'))), ({ url, sha256, file }) => fetched(url, sha256, path.join(pool, file)), { concurrency: 'unbounded', discard: true });
+    const builds = declared.platforms === undefined ? [{ stated: document, chosen: selected.flat() }] : Array.zipWith(declared.platforms, selected, (platform, chosen) => ({ stated: { ...document, platforms: [platform] }, chosen }));
+    return yield* Effect.forEach(
+        builds,
+        Effect.fnUntraced(function* ({ stated, chosen }) {
+            const stage = yield* fs.makeTempDirectoryScoped();
+            const listed = Array.dedupe(chosen.map(Struct.get('file'))).toSorted();
+            yield* fs.copy(source, stage);
+            yield* fs.makeDirectory(path.join(stage, 'wheels'));
+            yield* Effect.forEach(listed, (file) => fs.copyFile(path.join(pool, file), path.join(stage, 'wheels', file)), { concurrency: 'unbounded', discard: true });
+            yield* fs.writeFileString(path.join(stage, EXTENSION), patch(text, { ...stated, wheels: listed.map((file) => `./wheels/${file}`) }));
+            return stage;
+        }),
+        { concurrency: 'unbounded' },
+    );
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -108,8 +136,8 @@ const execute = Effect.fnUntraced(function* ({ outputPath: folder, operation, __
             yield* fs.makeDirectory(path.join(context.root, folder), { recursive: true });
             const stale = (yield* fs.readDirectory(path.join(context.root, folder))).filter((name) => name.startsWith(`${declared.id}-`) && path.extname(name) === '.zip');
             yield* Effect.forEach(stale, (name) => fs.remove(path.join(context.root, folder, name)), { discard: true });
-            const source = bundle ? yield* staged(context, root, text, document, declared) : root;
-            yield* uv([...BUILDER, 'build', ...(declared.platforms === undefined ? [] : ['--split-platforms']), '--source-dir', source, '--output-dir', folder, ...words], context.root);
+            const sources = bundle ? yield* staged(context, root, text, document, declared) : [root];
+            yield* Effect.forEach(sources, (source) => uv([...BUILDER, 'build', ...(declared.platforms === undefined ? [] : ['--split-platforms']), '--source-dir', source, '--output-dir', folder, ...words], context.root), { concurrency: 'unbounded', discard: true });
         }),
     }[operation];
     return { success: true };

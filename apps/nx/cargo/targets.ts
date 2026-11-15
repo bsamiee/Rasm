@@ -168,7 +168,7 @@ const crateTargets = (workspace: Workspace, reports: Reports, { crate, root, pac
                             { ...selected, commands: [suites(['nextest', 'run'])], outputs: junit.map(tokened) },
                             {
                                 cache: true,
-                                inputs: [...SOURCES, ...Option.toArray(workspace.nextest).map(tokened), { env: 'NEXTEST_PROFILE' }, version('nextest'), version('llvm-cov')],
+                                inputs: [...SOURCES, ...Option.toArray(workspace.nextest).map(tokened), { env: 'NEXTEST_PROFILE' }, { runtime: 'cargo nextest -V' }, version('llvm-cov')],
                                 ...covered((exported) => suites(['llvm-cov', 'nextest', ...exported]), junit),
                             },
                         ),

@@ -84,10 +84,9 @@
             }
         },
         {
-            "plugin": "@nx/playwright/plugin",
+            "plugin": "@rasm/nx-playwright",
             "options": {
-                "targetName": "test",
-                "ciTargetName": ""
+                "outputPath": ".artifacts/playwright/{projectName}"
             }
         },
         {

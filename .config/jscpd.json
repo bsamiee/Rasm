@@ -9,5 +9,5 @@
     "reporters": [ "xcode" ],
     "noTips": true,
     "noColors": true,
-    "skipIsolated": [ [ "apps/nx/apple", "apps/nx/cargo", "apps/nx/cmake", "apps/nx/distribution", "apps/nx/docker", "apps/nx/dotnet", "apps/nx/pulumi", "apps/nx/storybook", "apps/nx/typescript", "apps/nx/uv", "apps/nx/vite", "apps/nx/vitest" ] ]
+    "skipIsolated": [ [ "apps/nx/apple", "apps/nx/cargo", "apps/nx/cmake", "apps/nx/distribution", "apps/nx/docker", "apps/nx/dotnet", "apps/nx/playwright", "apps/nx/pulumi", "apps/nx/storybook", "apps/nx/typescript", "apps/nx/uv", "apps/nx/vite", "apps/nx/vitest" ] ]
 }

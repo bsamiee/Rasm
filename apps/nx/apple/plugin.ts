@@ -71,7 +71,7 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: typ
         Effect.fnUntraced(function* (swiftPackage: Omit<Package, 'plists' | 'bins' | 'whole'>) {
             const listed = yield* Effect.filter(swiftPackage.manifest.targets, (module) => fs.exists(join(workspaceRoot, swiftPackage.root, module.path, INFO)));
             const { products, targets } = swiftPackage.manifest;
-            const shown = (...argv: readonly string[]) => Effect.map(spawned(['swift', ...argv, '--package-path', swiftPackage.root], { cwd: workspaceRoot }), (at) => relative(workspaceRoot, at.trim()));
+            const shown = (...argv: readonly string[]) => Effect.map(spawned(['swift', ...argv, '--package-path', swiftPackage.root, '--experimental-skip-acquiring-lock'], { cwd: workspaceRoot }), (at) => relative(workspaceRoot, at.trim()));
             const whole = Array.isReadonlyArrayNonEmpty(products) && products.every(({ type }) => 'executable' in type) && targets.every(({ resources }) => resources.length === 0);
             const bins = yield* Effect.all({ debug: shown('build', '--show-bin-path'), release: shown('build', '--configuration', 'release', '--show-bin-path'), codecov: shown('test', '--show-codecov-path') }, { concurrency: 'unbounded' });
             return { ...swiftPackage, bins, whole, plists: new Set(listed.map(({ name }) => name)) } satisfies Package;

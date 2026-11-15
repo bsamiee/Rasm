@@ -78,9 +78,6 @@ catalogs:
     '@nx/js':
       specifier: 24.1.0-beta.0
       version: 24.1.0-beta.0
-    '@nx/playwright':
-      specifier: 24.1.0-beta.0
-      version: 24.1.0-beta.0
     '@nx/plugin':
       specifier: 24.1.0-beta.0
       version: 24.1.0-beta.0
@@ -481,6 +478,9 @@ catalogs:
     '@nx/js':
       specifier: '>=24.1.0-0'
       version: 24.1.0-beta.0
+    '@playwright/test':
+      specifier: ^1.66.0-0
+      version: 1.66.0-alpha-2026-11-14
     storybook:
       specifier: ^11.0.0-0
       version: 11.0.0-beta.1
@@ -527,9 +527,6 @@ importers:
       '@nx/js':
         specifier: 'catalog:'
         version: 24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(nx@24.1.0-beta.0)(supports-color@10.2.2)
-      '@nx/playwright':
-        specifier: 'catalog:'
-        version: 24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@nx/jest@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@types/node@26.6.6)(@typescript/typescript6@6.0.2)(babel-plugin-macros@3.1.0)(nx@24.1.0-beta.0)(supports-color@10.2.2))(@playwright/test@1.66.0-alpha-2026-11-14)(@zkochan/js-yaml@0.0.7)(eslint@10.14.0(jiti@2.7.0)(supports-color@10.2.2))(nx@24.1.0-beta.0)(supports-color@10.2.2)
       '@nx/plugin':
         specifier: 'catalog:'
         version: 24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@nx/vitest@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@nx/eslint@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@nx/jest@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@types/node@26.6.6)(@typescript/typescript6@6.0.2)(babel-plugin-macros@3.1.0)(nx@24.1.0-beta.0)(supports-color@10.2.2))(@zkochan/js-yaml@0.0.7)(eslint@10.14.0(jiti@2.7.0)(supports-color@10.2.2))(nx@24.1.0-beta.0)(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0-beta.0)(supports-color@10.2.2)(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))(vitest@5.1.0))(@types/node@26.6.6)(@typescript/typescript6@6.0.2)(@zkochan/js-yaml@0.0.7)(babel-plugin-macros@3.1.0)(eslint@10.14.0(jiti@2.7.0)(supports-color@10.2.2))(nx@24.1.0-beta.0)(supports-color@10.2.2)
@@ -560,6 +557,9 @@ importers:
       '@rasm/nx-dotnet':
         specifier: workspace:*
         version: link:apps/nx/dotnet
+      '@rasm/nx-playwright':
+        specifier: workspace:*
+        version: link:apps/nx/playwright
       '@rasm/nx-pulumi':
         specifier: workspace:*
         version: link:apps/nx/pulumi
@@ -1018,6 +1018,34 @@ importers:
       '@xml-tools/parser':
         specifier: 'catalog:'
         version: 1.0.12
+      effect:
+        specifier: 'catalog:'
+        version: 4.1.4
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.6
+      nx:
+        specifier: 'catalog:'
+        version: 24.1.0-beta.0
+
+  apps/nx/playwright:
+    dependencies:
+      '@effect/platform-node':
+        specifier: 'catalog:'
+        version: 4.1.4(effect@4.1.4)(redis@6.4.0-beta.0(@opentelemetry/api@1.10.0))
+      '@nx/devkit':
+        specifier: 'catalog:'
+        version: 24.1.0-beta.0(nx@24.1.0-beta.0)
+      '@nx/js':
+        specifier: 'catalog:'
+        version: 24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(nx@24.1.0-beta.0)(supports-color@10.2.2)
+      '@playwright/test':
+        specifier: catalog:peers
+        version: 1.66.0-alpha-2026-11-14
+      '@rasm/nx-distribution':
+        specifier: workspace:*
+        version: link:../distribution
       effect:
         specifier: 'catalog:'
         version: 4.1.4
@@ -2708,9 +2736,6 @@ importers:
 
   tests/typescript/e2e/portfolio:
     devDependencies:
-      '@nx/devkit':
-        specifier: 'catalog:'
-        version: 24.1.0-beta.0(nx@24.1.0-beta.0)
       '@playwright/test':
         specifier: 'catalog:'
         version: 1.66.0-alpha-2026-11-14
@@ -11496,6 +11521,7 @@ snapshots:
       - nx
       - supports-color
       - verdaccio
+    optional: true
 
   '@nx/plugin@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@nx/vitest@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@nx/eslint@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@nx/jest@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@types/node@26.6.6)(@typescript/typescript6@6.0.2)(babel-plugin-macros@3.1.0)(nx@24.1.0-beta.0)(supports-color@10.2.2))(@zkochan/js-yaml@0.0.7)(eslint@10.14.0(jiti@2.7.0)(supports-color@10.2.2))(nx@24.1.0-beta.0)(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0-beta.0)(supports-color@10.2.2)(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))(vitest@5.1.0))(@types/node@26.6.6)(@typescript/typescript6@6.0.2)(@zkochan/js-yaml@0.0.7)(babel-plugin-macros@3.1.0)(eslint@10.14.0(jiti@2.7.0)(supports-color@10.2.2))(nx@24.1.0-beta.0)(supports-color@10.2.2)':
     dependencies:
@@ -13248,7 +13274,8 @@ snapshots:
 
   address@2.0.3: {}
 
-  agent-base@7.1.4: {}
+  agent-base@7.1.4:
+    optional: true
 
   ajv@6.15.0:
     dependencies:
@@ -14329,6 +14356,7 @@ snapshots:
       debug: 4.4.3(supports-color@10.2.2)
     transitivePeerDependencies:
       - supports-color
+    optional: true
 
   human-signals@2.1.0: {}
 

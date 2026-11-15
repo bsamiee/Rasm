@@ -245,10 +245,7 @@ const targets = (
                 upstream,
                 ...Array.match(linked, {
                     onEmpty: () => [],
-                    onNonEmpty: (owners) => [
-                        { input: 'default', projects: [...owners] },
-                        { input: 'default', projects: [...owners], dependencies: true as const },
-                    ],
+                    onNonEmpty: (owners) => [{ input: 'default', projects: [...owners] }],
                 }),
                 ...Object.values(outside),
                 ...triggers.map((at) => join('{workspaceRoot}', at)),

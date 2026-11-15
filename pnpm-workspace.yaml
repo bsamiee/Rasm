@@ -473,7 +473,6 @@ catalog:
     '@nx/js': 24.1.0-beta.0 # tsconfig `extends` chains the config-reading plugins hash
     '@nx/web': 24.1.0-beta.0 # `file-server` executor serving a built Storybook
     '@nx/vite': 24.1.0-beta.0 # `nxReadySignal` Vite plugin a served config holds
-    '@nx/playwright': 24.1.0-beta.0 # `test` target per Playwright config, depending on the task its `webServer` command runs
     '@nx/plugin': 24.1.0-beta.0 # Generators and checks for plugins, executors, generators, and migrations
     '@nx/workspace': 24.1.0-beta.0 # `move`, `remove`, and `infer-targets` generators
     nx-mcp: 0.25.3 # Nx MCP server answering workspace, project, and task questions for agents
