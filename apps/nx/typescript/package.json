@@ -1,7 +1,7 @@
 {
     "name": "@rasm/nx-typescript",
     "version": "0.1.0",
-    "description": "Nx plugin inferring a TypeScript check or build per tsconfig.json read through the native compiler API, a publint package check, and a pnpm pack tarball per package stating a version",
+    "description": "Nx plugin inferring a TypeScript check or build per tsconfig.json read through the native compiler API, a publint package check, a package manager tarball per package stating a version, and the package manager upgrade of the workspace root",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/bsamiee/Rasm.git",
@@ -30,7 +30,13 @@
         "nx": "catalog:"
     },
     "peerDependencies": {
+        "@nx/js": "catalog:peers",
         "nx": "catalog:peers"
+    },
+    "peerDependenciesMeta": {
+        "@nx/js": {
+            "optional": true
+        }
     },
     "publishConfig": {
         "access": "public",

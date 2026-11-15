@@ -1,8 +1,8 @@
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { DependencyType, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Effect, Option, Record, Schema } from 'effect';
-import { ATTACH, GIT_STATUS, INPUTS, type Options, type Part, PLUGIN, SWIFTPM, sequenced, type Verbs } from '#/targets';
+import { ATTACH, INPUTS, type Options, type Part, PLUGIN, SWIFTPM, sequenced, type Verbs } from '#/targets';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -10,7 +10,7 @@ interface Package {
     readonly file: string;
     readonly root: string;
     readonly plists: ReadonlySet<string>;
-    readonly bins: Readonly<Record<'debug' | 'release', string>>;
+    readonly bins: Readonly<Record<'debug' | 'release' | 'codecov', string>>;
     readonly whole: boolean;
     readonly manifest: typeof Described.Type;
 }
@@ -55,7 +55,13 @@ const packageParts = (options: typeof Options.Type, local: Package, described: R
     const tested = new Set(suites.flatMap(({ target_dependencies }) => target_dependencies));
     const inputs = [...sources(local, described), join('{workspaceRoot}', '.swift-version'), ...INPUTS];
     const build = ['swift', 'build', '--package-path', root, ...SWIFTPM] as const;
+    const test = ['swift', 'test', '--package-path', root, ...SWIFTPM] as const;
+    const lcov = Option.map(Option.fromUndefinedOr(options.coveragePath), (folder) => join(folder, 'lcov.info'));
+    const covered = [bins.codecov, ...Option.toArray(lcov)];
     const written = (folder: string) => (whole ? manifest.products.map(({ name }) => join('{workspaceRoot}', folder, name)) : []);
+    const report = Option.map(lcov, (at) => ({ report: { profiles: [join(dirname(bins.codecov), 'default.profdata')], objects: Array.map(suites, ({ name }) => join(bins.debug, `${name}.xctest`, 'Contents', 'MacOS', name)), file: at } }));
+    const coverage = { runs: [[...test, '--enable-code-coverage']], outputs: covered.map((at) => join('{workspaceRoot}', at)), ...Option.getOrUndefined(report) };
+    const testing = { cache: true, dependsOn: ['build--swift-build'], inputs, outputs: covered.map((_, index) => `{options.outputs.${index}}`), configurations: { coverage } };
     const work: Verbs = {
         build: {
             'swift-build': sequenced(
@@ -72,11 +78,15 @@ const packageParts = (options: typeof Options.Type, local: Package, described: R
         },
         check: { 'swift-build': { dependsOn: ['build--swift-build'], inputs, metadata: { technologies: ['swift'], description: `Type-checks ${manifest.name} with swift build`, help: { command: 'swift build --help', example: { args: ['--configuration', 'release'] } } } } },
         test: {
-            ...(suites.length > 0 && {
+            ...(Array.isReadonlyArrayNonEmpty(suites) && {
                 swift: sequenced(
-                    [['swift', 'test', '--package-path', root, ...SWIFTPM]],
-                    { technologies: ['swift'], description: `Tests ${manifest.name} with swift test`, help: { command: 'swift test --help', example: { args: ['--filter', suites[0]?.name ?? manifest.name] } } },
-                    { cache: true, dependsOn: ['build--swift-build'], inputs },
+                    [test],
+                    {
+                        technologies: ['swift'],
+                        description: `Tests ${manifest.name} with swift test, under the coverage configuration with --enable-code-coverage, exporting lcov with xcrun llvm-cov export where coveragePath is set`,
+                        help: { command: 'swift test --help', example: { args: ['--filter', Array.headNonEmpty(suites).name] } },
+                    },
+                    testing,
                 ),
             }),
         },
@@ -131,7 +141,7 @@ const packageParts = (options: typeof Options.Type, local: Package, described: R
                         'swift-package': {
                             executor: `${PLUGIN}:install`,
                             inputs,
-                            options: { package: root, product: held, env: GIT_STATUS },
+                            options: { package: root, product: held },
                             metadata: { technologies: ['swift'], description: `Builds ${held} in release with swift build and replaces it in SwiftPM's install folder`, help: { command: 'swift package experimental-install --help', example: { args: ['--jobs', '4'] } } },
                         },
                     },
@@ -144,7 +154,7 @@ const packageParts = (options: typeof Options.Type, local: Package, described: R
                             executor: `${PLUGIN}:package`,
                             dependsOn: ['build--swift-build'],
                             inputs: [join('{workspaceRoot}', at, INFO), ...inputs],
-                            options: { products: [{ package: root, product: held, folder }] },
+                            options: { products: [{ package: root, product: held, folder, bin: bins.release }] },
                             outputs: [join('{workspaceRoot}', folder, `${held}.zip`)],
                             metadata: { technologies: ['swift'], description: `Zips the release build of ${held} with ditto for a GitHub release`, help: { command: 'man ditto', example: { args: ['--norsrc'] } } },
                         },

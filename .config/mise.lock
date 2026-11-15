@@ -1850,35 +1850,6 @@ checksum = "sha256:5a0b55df66ff07b4342e04967cef69f8bf348f6a0fb1cc1eca741c7b015df
 url = "https://conda.anaconda.org/conda-forge/win-64/zstd-1.5.7-h534d264_7.conda"
 checksum = "sha256:ca7daae4f218a11fab82cc2857f0ea518ec3f46acec60490485347a4c22c6b3e"
 
-[[tools."aqua:EmbarkStudios/cargo-deny"]]
-version = "0.20.2"
-backend = "aqua:EmbarkStudios/cargo-deny"
-specifiers = ["latest"]
-
-[tools."aqua:EmbarkStudios/cargo-deny"."platforms.linux-arm64"]
-checksum = "sha256:995c82be0defc7a025cae49a2aa2644ce8245c9a3318fc4103907c6a285e8c7d"
-checksum_source = "mise-versions"
-url = "https://github.com/EmbarkStudios/cargo-deny/releases/download/0.20.2/cargo-deny-0.20.2-aarch64-unknown-linux-musl.tar.gz"
-url_api = "https://api.github.com/repos/EmbarkStudios/cargo-deny/releases/assets/471598345"
-
-[tools."aqua:EmbarkStudios/cargo-deny"."platforms.linux-x64"]
-checksum = "sha256:9f12ed4c49936e09b48bf862b595cde2fe64fcbd9d74dfacac6131ca824c8d5f"
-checksum_source = "mise-versions"
-url = "https://github.com/EmbarkStudios/cargo-deny/releases/download/0.20.2/cargo-deny-0.20.2-x86_64-unknown-linux-musl.tar.gz"
-url_api = "https://api.github.com/repos/EmbarkStudios/cargo-deny/releases/assets/471598214"
-
-[tools."aqua:EmbarkStudios/cargo-deny"."platforms.macos-arm64"]
-checksum = "sha256:fe67d82a10d8597a3549364cb733a3f9cc1bfff9031b7ae46384a9f2a72090c3"
-checksum_source = "mise-versions"
-url = "https://github.com/EmbarkStudios/cargo-deny/releases/download/0.20.2/cargo-deny-0.20.2-aarch64-apple-darwin.tar.gz"
-url_api = "https://api.github.com/repos/EmbarkStudios/cargo-deny/releases/assets/471597689"
-
-[tools."aqua:EmbarkStudios/cargo-deny"."platforms.windows-x64"]
-checksum = "sha256:975a22143262fd27476d19ee00c7af67978426e40e1dee94eed6bbade1cf87dc"
-checksum_source = "mise-versions"
-url = "https://github.com/EmbarkStudios/cargo-deny/releases/download/0.20.2/cargo-deny-0.20.2-x86_64-pc-windows-msvc.tar.gz"
-url_api = "https://api.github.com/repos/EmbarkStudios/cargo-deny/releases/assets/471599057"
-
 [[tools."aqua:nextest-rs/nextest/cargo-nextest"]]
 version = "0.9.151"
 backend = "aqua:nextest-rs/nextest/cargo-nextest"
@@ -1994,6 +1965,34 @@ checksum = "sha256:44ac5d1f16bf38df559259783680925fe9625e467e020b180ea1e8d7c721d
 checksum_source = "mise-versions"
 url = "https://github.com/carapace-sh/carapace-bin/releases/download/v1.8.2/carapace-bin_1.8.2_windows_amd64.zip"
 url_api = "https://api.github.com/repos/carapace-sh/carapace-bin/releases/assets/698585413"
+
+[[tools.cargo-deny]]
+version = "0.20.2"
+backend = "aqua:EmbarkStudios/cargo-deny"
+specifiers = ["latest"]
+
+[tools.cargo-deny."platforms.linux-arm64"]
+checksum = "sha256:995c82be0defc7a025cae49a2aa2644ce8245c9a3318fc4103907c6a285e8c7d"
+checksum_source = "mise-versions"
+url = "https://github.com/EmbarkStudios/cargo-deny/releases/download/0.20.2/cargo-deny-0.20.2-aarch64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/EmbarkStudios/cargo-deny/releases/assets/471598345"
+
+[tools.cargo-deny."platforms.linux-x64"]
+checksum = "sha256:9f12ed4c49936e09b48bf862b595cde2fe64fcbd9d74dfacac6131ca824c8d5f"
+checksum_source = "mise-versions"
+url = "https://github.com/EmbarkStudios/cargo-deny/releases/download/0.20.2/cargo-deny-0.20.2-x86_64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/EmbarkStudios/cargo-deny/releases/assets/471598214"
+
+[tools.cargo-deny."platforms.macos-arm64"]
+checksum = "sha256:fe67d82a10d8597a3549364cb733a3f9cc1bfff9031b7ae46384a9f2a72090c3"
+url = "https://github.com/EmbarkStudios/cargo-deny/releases/download/0.20.2/cargo-deny-0.20.2-aarch64-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/EmbarkStudios/cargo-deny/releases/assets/471597689"
+
+[tools.cargo-deny."platforms.windows-x64"]
+checksum = "sha256:975a22143262fd27476d19ee00c7af67978426e40e1dee94eed6bbade1cf87dc"
+checksum_source = "mise-versions"
+url = "https://github.com/EmbarkStudios/cargo-deny/releases/download/0.20.2/cargo-deny-0.20.2-x86_64-pc-windows-msvc.tar.gz"
+url_api = "https://api.github.com/repos/EmbarkStudios/cargo-deny/releases/assets/471599057"
 
 [[tools.cargo-insta]]
 version = "1.49.0"
@@ -2415,22 +2414,11 @@ version = "0.29.2"
 backend = "github:BlankSpruce/gersemi"
 specifiers = ["latest"]
 
-[tools."github:BlankSpruce/gersemi".options]
-asset_pattern = "gersemi-linux-arm"
-
 [tools."github:BlankSpruce/gersemi"."platforms.linux-arm64"]
 checksum = "sha256:6aafd13b0363359fb56f8c8a96b34c4f72aef21ff2a3859cb3156294e86decf1"
 checksum_source = "mise-versions"
 url = "https://github.com/BlankSpruce/gersemi/releases/download/0.29.2/gersemi-linux-arm"
 url_api = "https://api.github.com/repos/BlankSpruce/gersemi/releases/assets/603551968"
-
-[[tools."github:BlankSpruce/gersemi"]]
-version = "0.29.2"
-backend = "github:BlankSpruce/gersemi"
-specifiers = ["latest"]
-
-[tools."github:BlankSpruce/gersemi".options]
-asset_pattern = "gersemi-linux"
 
 [tools."github:BlankSpruce/gersemi"."platforms.linux-x64"]
 checksum = "sha256:34ae3c8e32f65ca64361149c5e97dbb523f446b837588784b5e98e29a1c93af9"
@@ -2438,27 +2426,11 @@ checksum_source = "mise-versions"
 url = "https://github.com/BlankSpruce/gersemi/releases/download/0.29.2/gersemi-linux"
 url_api = "https://api.github.com/repos/BlankSpruce/gersemi/releases/assets/603552886"
 
-[[tools."github:BlankSpruce/gersemi"]]
-version = "0.29.2"
-backend = "github:BlankSpruce/gersemi"
-specifiers = ["latest"]
-
-[tools."github:BlankSpruce/gersemi".options]
-asset_pattern = "gersemi-macos-arm"
-
 [tools."github:BlankSpruce/gersemi"."platforms.macos-arm64"]
 checksum = "sha256:1ac64b46c06c5d57ac3c8691d6640043c6f2b113e3d3d19a9f7ba080e1163486"
 checksum_source = "mise-versions"
 url = "https://github.com/BlankSpruce/gersemi/releases/download/0.29.2/gersemi-macos-arm"
 url_api = "https://api.github.com/repos/BlankSpruce/gersemi/releases/assets/603552024"
-
-[[tools."github:BlankSpruce/gersemi"]]
-version = "0.29.2"
-backend = "github:BlankSpruce/gersemi"
-specifiers = ["latest"]
-
-[tools."github:BlankSpruce/gersemi".options]
-asset_pattern = "gersemi-windows.exe"
 
 [tools."github:BlankSpruce/gersemi"."platforms.windows-x64"]
 checksum = "sha256:ff2e6d6335110c71e4a16d4138c5bafdbf22cc3af7f4b2ece4c5d03f66ad021a"
@@ -2472,7 +2444,6 @@ backend = "github:NationalSecurityAgency/ghidra"
 specifiers = ["latest"]
 
 [tools."github:NationalSecurityAgency/ghidra".options]
-asset_pattern = "ghidra_*_PUBLIC_*.zip"
 version_prefix = "Ghidra_"
 
 [tools."github:NationalSecurityAgency/ghidra"."platforms.linux-arm64"]
@@ -2690,7 +2661,6 @@ backend = "github:llvm/llvm-project"
 specifiers = ["latest"]
 
 [tools."github:llvm/llvm-project".options]
-asset_pattern = "LLVM-*-Linux-ARM64.tar.zst"
 version_prefix = "llvmorg-"
 
 [tools."github:llvm/llvm-project"."platforms.linux-arm64"]
@@ -2699,29 +2669,11 @@ url = "https://github.com/llvm/llvm-project/releases/download/llvmorg-23.1.5/LLV
 url_api = "https://api.github.com/repos/llvm/llvm-project/releases/assets/705827461"
 provenance = "github-attestations"
 
-[[tools."github:llvm/llvm-project"]]
-version = "23.1.5"
-backend = "github:llvm/llvm-project"
-specifiers = ["latest"]
-
-[tools."github:llvm/llvm-project".options]
-asset_pattern = "LLVM-*-Linux-X64.tar.zst"
-version_prefix = "llvmorg-"
-
 [tools."github:llvm/llvm-project"."platforms.linux-x64"]
 checksum = "sha256:c3107384835f788768f614db610e87fba7077f125ca950eb02a78bab0a308065"
 url = "https://github.com/llvm/llvm-project/releases/download/llvmorg-23.1.5/LLVM-23.1.5-Linux-X64.tar.zst"
 url_api = "https://api.github.com/repos/llvm/llvm-project/releases/assets/705660944"
 provenance = "github-attestations"
-
-[[tools."github:llvm/llvm-project"]]
-version = "23.1.5"
-backend = "github:llvm/llvm-project"
-specifiers = ["latest"]
-
-[tools."github:llvm/llvm-project".options]
-asset_pattern = "LLVM-*-macOS-ARM64.tar.zst"
-version_prefix = "llvmorg-"
 
 [tools."github:llvm/llvm-project"."platforms.macos-arm64"]
 checksum = "sha256:503de30ef90311e0b143623801b19af2250adac6d69faed65ad0051170202e3b"
@@ -2736,8 +2688,6 @@ specifiers = ["latest"]
 
 [tools."github:microsoft/vcpkg-tool".options]
 additional_asset_patterns = "vcpkg-standalone-bundle.tar.gz"
-asset_pattern = "vcpkg-glibc-arm64"
-version_prefix = ""
 
 [tools."github:microsoft/vcpkg-tool"."platforms.linux-arm64"]
 checksum = "sha256:e59a1f42de574dbceec05e4f90630898a33150f27c5a999e0f2d9b80a17001e3"
@@ -2751,16 +2701,6 @@ url = "https://github.com/microsoft/vcpkg-tool/releases/download/2026-10-29/vcpk
 url_api = "https://api.github.com/repos/microsoft/vcpkg-tool/releases/assets/690264684"
 provenance = "github-attestations"
 
-[[tools."github:microsoft/vcpkg-tool"]]
-version = "2026-10-29"
-backend = "github:microsoft/vcpkg-tool"
-specifiers = ["latest"]
-
-[tools."github:microsoft/vcpkg-tool".options]
-additional_asset_patterns = "vcpkg-standalone-bundle.tar.gz"
-asset_pattern = "vcpkg-glibc"
-version_prefix = ""
-
 [tools."github:microsoft/vcpkg-tool"."platforms.linux-x64"]
 checksum = "sha256:8b10d43c1392a2d51622b1e439cb952289dcf56cbb595eb935847e79fe00d303"
 url = "https://github.com/microsoft/vcpkg-tool/releases/download/2026-10-29/vcpkg-glibc"
@@ -2773,16 +2713,6 @@ url = "https://github.com/microsoft/vcpkg-tool/releases/download/2026-10-29/vcpk
 url_api = "https://api.github.com/repos/microsoft/vcpkg-tool/releases/assets/690264684"
 provenance = "github-attestations"
 
-[[tools."github:microsoft/vcpkg-tool"]]
-version = "2026-10-29"
-backend = "github:microsoft/vcpkg-tool"
-specifiers = ["latest"]
-
-[tools."github:microsoft/vcpkg-tool".options]
-additional_asset_patterns = "vcpkg-standalone-bundle.tar.gz"
-asset_pattern = "vcpkg-macos"
-version_prefix = ""
-
 [tools."github:microsoft/vcpkg-tool"."platforms.macos-arm64"]
 checksum = "sha256:754638ffd0d4c85ee194a2a215d4a6727b1d33829944667d74e7397459e54005"
 url = "https://github.com/microsoft/vcpkg-tool/releases/download/2026-10-29/vcpkg-macos"
@@ -2794,16 +2724,6 @@ checksum = "sha256:3e128d4e44dfb0400bfef92d00e259a7095db2a2ca218e0c483145aa16e41
 url = "https://github.com/microsoft/vcpkg-tool/releases/download/2026-10-29/vcpkg-standalone-bundle.tar.gz"
 url_api = "https://api.github.com/repos/microsoft/vcpkg-tool/releases/assets/690264684"
 provenance = "github-attestations"
-
-[[tools."github:microsoft/vcpkg-tool"]]
-version = "2026-10-29"
-backend = "github:microsoft/vcpkg-tool"
-specifiers = ["latest"]
-
-[tools."github:microsoft/vcpkg-tool".options]
-additional_asset_patterns = "vcpkg-standalone-bundle.tar.gz"
-asset_pattern = "vcpkg.exe"
-version_prefix = ""
 
 [tools."github:microsoft/vcpkg-tool"."platforms.windows-x64"]
 checksum = "sha256:191ee64b0887af80aad3eff6c5e888ab733d3ef2182885ed4747b4574c201834"
@@ -2823,7 +2743,6 @@ backend = "github:pmd/pmd"
 specifiers = ["latest"]
 
 [tools."github:pmd/pmd".options]
-asset_pattern = "pmd-dist-*-bin.zip"
 version_prefix = "pmd_releases/"
 version_regex = '^pmd_releases/\d+\.\d+\.\d+(-rc\d+)?$'
 
@@ -2885,11 +2804,9 @@ version = "2.10.1"
 backend = "github:sparkle-project/Sparkle"
 specifiers = ["latest"]
 
-[tools."github:sparkle-project/Sparkle".options]
-asset_pattern = "Sparkle-*.tar.xz"
-
 [tools."github:sparkle-project/Sparkle"."platforms.macos-arm64"]
 checksum = "sha256:1a856d2a9edb8e628de88121d7be04cf0e2167f8641650b78fca00b14244cf27"
+checksum_source = "mise-versions"
 url = "https://github.com/sparkle-project/Sparkle/releases/download/2.10.1/Sparkle-2.10.1.tar.xz"
 url_api = "https://api.github.com/repos/sparkle-project/Sparkle/releases/assets/673946481"
 
@@ -3188,6 +3105,10 @@ specifiers = ["4.1.3"]
 [tools."http:zxpsigncmd"."platforms.macos-arm64"]
 checksum = "sha256:bc773fae0b97416fc7a462e7dadcc00270428a9913480c9b78b5606ff1cfb095"
 url = "https://raw.githubusercontent.com/Adobe-CEP/CEP-Resources/fcee8de5537d2dd2ed3d91d5a495b7041155b280/ZXPSignCMD/4.1.3/macOS/ZXPSignCmd"
+
+[tools."http:zxpsigncmd"."platforms.windows-x64"]
+checksum = "sha256:ffc2223167225ce61d024eb463fc5ad1a1be16133f99ef334a646f7311916c98"
+url = "https://raw.githubusercontent.com/Adobe-CEP/CEP-Resources/fcee8de5537d2dd2ed3d91d5a495b7041155b280/ZXPSignCMD/4.1.3/x64/ZXPSignCmd.exe"
 
 [[tools.hyperfine]]
 version = "2.0.0"

@@ -2,7 +2,7 @@
 
 [package]
 name              = "rasm-stats"
-version.workspace = true
+version           = "0.1.0"
 edition.workspace = true
 publish           = false
 description       = "Statistics over named bounded spaces: summaries, designs, intervals, calibration, and sensitivity"

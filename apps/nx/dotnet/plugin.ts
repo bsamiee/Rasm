@@ -2,7 +2,7 @@ import { basename, dirname, extname, join, relative } from 'node:path';
 import { platform } from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesContext, type CreateNodesResult, DependencyType, hashArray, type ProjectGraphExternalNode, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
-import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, globWithWorkspaceContext, hashFile, hashObject, hashWithWorkspaceContext, mergeTargetConfigurations, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
+import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, globWithWorkspaceContext, hashFile, hashWithWorkspaceContext, mergeTargetConfigurations, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
 import { Array, Cause, Effect, Equivalence, FileSystem, Option, Predicate, Record, Ref, Result, Schema, Stream, Struct } from 'effect';
 import { Edges, Node, PLUGIN, publishing, run, spawned, targets, type Verbs } from '#/targets';
 
@@ -15,22 +15,20 @@ type Report = typeof Report.Type;
 const PROJECTS = ['.csproj', '.fsproj', '.vbproj'];
 const SOLUTIONS = ['.slnx', '.sln'];
 const FILES = combineGlobPatterns([`*{${[...PROJECTS, ...SOLUTIONS].join(',')},.props,.targets,.globalconfig}`, 'global.json', 'Directory.Build.rsp', 'nuget.config', 'NuGet.config', 'NuGet.Config', '.editorconfig'].map((file) => `**/${file}`));
-const PLATFORMS = { macOS: 'darwin', Windows: 'win32', Linux: 'linux' } as const satisfies Readonly<Record<string, NodeJS.Platform>>;
+const PLATFORMS: Readonly<Record<string, NodeJS.Platform>> = { windows: 'win32', macos: 'darwin', maccatalyst: 'darwin', ios: 'darwin', tvos: 'darwin' };
 const ANALYZER = fileURLToPath(import.meta.resolve('#analyzer'));
 const HOME = dirname(fileURLToPath(import.meta.resolve('#package')));
+const SOURCE = join(HOME, 'analyzer', 'MsbuildAnalyzer.csproj');
+const TAGS = { release: 'release', platform: 'os:' } as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Report = Schema.Struct({ nodes: Schema.Array(Node), failures: Schema.Array(Schema.Struct({ file: Schema.String, message: Schema.String })), evaluated: Schema.Array(Schema.String) });
 const Reported = Schema.fromJsonString(Report);
 const Options = Schema.Struct({
-    releaseTag: Schema.optionalKey(Schema.String),
-    platformTagPrefix: Schema.optionalKey(Schema.String),
-    pushCredential: Schema.optionalKey(Schema.String),
-    analyzerProject: Schema.optionalKey(Schema.String),
+    coveragePath: Schema.optionalKey(Schema.String),
 }).annotate({
-    description:
-        "releaseTag: tag of each packable or publishable project, absent tags none. platformTagPrefix: prefix of one tag per platform a test project runs on where its target frameworks limit it, absent tags none. pushCredential: variable whose value dotnet nuget push takes under --api-key, absent infers no nx-release-publish target. analyzerProject: workspace-relative project file of this plugin's MSBuild analyzer, run through dotnet run and linked from the plugin package, absent runs the built analyzer the package holds",
+    description: 'coveragePath: workspace folder the coverage configuration of test--dotnet passes to dotnet test as --results-directory, where coverlet.MTP writes its lcov report coverage.<timestamp>.info, {projectName} naming the project, absent leaves the report in the test results folder of the project',
 });
 const Input = Schema.declare((input: unknown): input is NonNullable<TargetConfiguration['inputs']>[number] => Predicate.isString(input) || Predicate.isObject(input));
 const Overrides = Schema.fromJsonString(Schema.Struct({ nx: Schema.optionalKey(Schema.Struct({ targets: Schema.optionalKey(Schema.Record(Schema.String, Schema.Struct({ inputs: Schema.optionalKey(Schema.mutable(Schema.Array(Input))) }))) })) })).annotate({
@@ -48,7 +46,20 @@ const manifested = Effect.fnUntraced(function* (workspaceRoot: string, root: str
 const aggregated = (verbs: Verbs, stated: Readonly<Record<string, Pick<TargetConfiguration, 'inputs'>>>, technology: string): Record<string, TargetConfiguration> =>
     Record.fromEntries(
         Record.collect(Record.filter(verbs, Predicate.not(Record.isEmptyRecord)), (verb, tools): readonly (readonly [string, TargetConfiguration])[] => [
-            [verb, { dependsOn: [`${verb}--*`], inputs: ['...', ...Array.dedupe(Record.collect(tools, (tool, target) => mergeTargetConfigurations(stated[`${verb}--${tool}`] ?? {}, { ...target, inputs: target.inputs ?? ['default', '^default'] }).inputs ?? []).flat())] }],
+            [
+                verb,
+                {
+                    dependsOn: [`${verb}--*`],
+                    inputs: [
+                        '...',
+                        ...Array.dedupe(
+                            Record.collect(tools, (tool, target) => mergeTargetConfigurations(stated[`${verb}--${tool}`] ?? {}, { ...target, inputs: target.inputs ?? ['default', '^default'] }).inputs ?? [])
+                                .flat()
+                                .map((input) => (Predicate.isObject(input) && 'dependentTasksOutputFiles' in input ? { ...input, transitive: true } : input)),
+                        ),
+                    ],
+                },
+            ],
             ...Record.collect(tools, (tool, target): readonly [string, TargetConfiguration] => [`${verb}--${tool}`, { ...target, metadata: { technologies: [technology], ...target.metadata } }]),
         ]).flat(),
     );
@@ -56,6 +67,15 @@ const aggregated = (verbs: Verbs, stated: Readonly<Record<string, Pick<TargetCon
 const rendered = (cause: Cause.Cause<unknown>) => Effect.fail(new Cause.UnknownError(cause, Cause.pretty(cause)));
 
 const external = ({ id, version }: Node['packages'][number]) => `nuget:${id}@${version}`;
+
+const own = Effect.runSync(
+    Effect.cached(
+        FileSystem.FileSystem.pipe(
+            Effect.flatMap((fs) => fs.readDirectory(import.meta.dirname)),
+            Effect.map((names) => hashArray(names.toSorted().flatMap((name) => [name, ...Array.fromNullishOr(hashFile(join(import.meta.dirname, name)))]))),
+        ),
+    ),
+);
 
 const stamped = Effect.fnUntraced(function* (workspaceRoot: string, analyzer: string, { evaluated, nodes }: Report) {
     const fs = yield* FileSystem.FileSystem;
@@ -67,7 +87,7 @@ const stamped = Effect.fnUntraced(function* (workspaceRoot: string, analyzer: st
 });
 
 const analyzed = Effect.fnUntraced(function* (workspaceRoot: string, project: Option.Option<string>, matched: readonly string[]) {
-    const argv = Option.match(project, { onNone: () => ['dotnet', ANALYZER, workspaceRoot] as const, onSome: (at) => ['dotnet', 'run', '--project', join(workspaceRoot, at), '--', workspaceRoot] as const });
+    const argv = Option.match(project, { onNone: () => ['dotnet', ANALYZER, workspaceRoot] as const, onSome: (at) => ['dotnet', 'run', '--project', at, '--', workspaceRoot] as const });
     const report = yield* Effect.flatMap(spawned(argv, { cwd: workspaceRoot, stdin: Stream.encodeText(Stream.make(matched.join('\n'))) }), Schema.decodeEffect(Reported));
     const known = new Set(yield* Effect.promise(() => globWithWorkspaceContext(workspaceRoot, Array.dedupe(report.nodes.flatMap(({ inputs }) => inputs)))));
     return { ...report, nodes: report.nodes.map((node) => ({ ...node, inputs: node.inputs.filter((input) => known.has(input)) })) };
@@ -82,7 +102,7 @@ const related = (workspaceRoot: string, project: Option.Option<string>, { nodes 
         ...nodes.flatMap((node) =>
             node.packages.flatMap((reference) => Array.getSomes(reference.dependencies.map((dependency) => Record.get(pinned.get(node.file) ?? {}, dependency))).map((target) => ({ source: external(reference), target: external(target), type: DependencyType.static }) satisfies RawProjectGraphDependency)),
         ),
-        ...nodes.filter((node) => Option.contains(project, node.file) && !home.startsWith('..')).map((node): RawProjectGraphDependency => ({ source: home, target: dirname(node.file), type: DependencyType.static, sourceFile: join(home, 'package.json') })),
+        ...nodes.filter((node) => Option.contains(project, join(workspaceRoot, node.file)) && !home.startsWith('..')).map((node): RawProjectGraphDependency => ({ source: home, target: dirname(node.file), type: DependencyType.static, sourceFile: join(home, 'package.json') })),
     ];
 };
 
@@ -97,16 +117,17 @@ const projected = (nodes: readonly Node[], settings: typeof Options.Type, manife
     ];
     const evaluated = (node: Node): readonly string[] => [...node.inputs, ...Array.getSomes(node.references.map(({ root }) => Record.get(folders, root))).flatMap(evaluated)];
     return Array.zip(nodes, manifests).map(([node, manifest]): [string, CreateNodesResult] => {
-        const supported = Array.intersection(Record.keys(PLATFORMS), node.platforms).map((name) => PLATFORMS[name]);
-        const limited = node.test && supported.length > 0 && supported.length < Record.keys(PLATFORMS).length;
-        const tags = [...(releasable(node) ? Array.fromNullishOr(settings.releaseTag) : []), ...(limited ? Array.fromNullishOr(settings.platformTagPrefix).flatMap((prefix) => supported.map((held) => `${prefix}${held}`)) : [])];
+        const mapped = Array.getSomes(node.platforms.map((identifier) => Record.get(PLATFORMS, identifier.toLowerCase())));
+        const supported = Array.dedupe(mapped);
+        const limited = node.test && mapped.length > 0 && mapped.length === node.platforms.length;
+        const tags = [...(releasable(node) ? [TAGS.release] : []), ...(limited ? supported.map((held) => `${TAGS.platform}${held}`) : [])];
         const project = {
             root: dirname(node.file),
             name: node.name,
             metadata: { technologies: ['dotnet', node.language] },
             targets: {
-                ...aggregated(targets({ ...node, inputs: Array.dedupe(evaluated(node)), test: limited ? supported.some((held) => held === platform) : node.test }), manifest, 'dotnet'),
-                ...publishing(node, Option.fromUndefinedOr(settings.pushCredential)),
+                ...aggregated(targets({ ...node, inputs: Array.dedupe(evaluated(node)), test: limited ? supported.some((held) => held === platform) : node.test }, Option.fromUndefinedOr(settings.coveragePath)), manifest, 'dotnet'),
+                ...publishing(node),
             },
             ...(releasable(node) && { release: { version: { versionActions: `${PLUGIN}/release/version-actions`, versionActionsOptions: { manifest: basename(node.file), releases: Array.dedupeWith(carried(node), Equivalence.mapInput(Equivalence.String, Struct.get('unshipped'))) } } } }),
             ...(tags.length > 0 && { tags }),
@@ -118,16 +139,16 @@ const projected = (nodes: readonly Node[], settings: typeof Options.Type, manife
 };
 
 const inferred = Effect.fnUntraced(function* (matched: readonly string[], options: typeof Options.Encoded | undefined, { workspaceRoot }: CreateNodesContext) {
-    const [fs, edges, settings] = yield* Effect.all([FileSystem.FileSystem, Edges, Schema.decodeEffect(Options)(options ?? {})]);
-    const project = Option.fromUndefinedOr(settings.analyzerProject);
-    const analyzer = Option.match(project, { onNone: () => ANALYZER, onSome: (at) => join(workspaceRoot, at) });
-    const cache = new PluginCache<{ readonly report: Report; readonly stamp: string }>(join(workspaceDataDirectory, `dotnet-${hashObject(options ?? {})}.hash`));
+    const [fs, edges, settings, hashed] = yield* Effect.all([FileSystem.FileSystem, Edges, Schema.decodeEffect(Options)(options ?? {}), own]);
+    const present = yield* fs.exists(SOURCE);
+    const project = Option.liftPredicate(SOURCE, () => present);
+    const analyzer = Option.getOrElse(project, () => ANALYZER);
+    const cache = new PluginCache<{ readonly report: Report; readonly stamp: string }>(join(workspaceDataDirectory, `dotnet-${hashed}.hash`));
     const key = yield* Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, [...matched]));
     const held = yield* Effect.findFirst(Array.fromNullishOr(cache.get(key)), (stored) => Effect.map(stamped(workspaceRoot, analyzer, stored.report), (now) => now === stored.stamp));
     const read = yield* Effect.result(Effect.catchCause(Option.match(held, { onSome: (stored) => Effect.succeed(stored.report), onNone: () => analyzed(workspaceRoot, project, matched) }), rendered));
     const report = Result.getOrElse(read, (): Report => ({ nodes: [], failures: [], evaluated: [] }));
-    yield* Option.isNone(held) && Result.isSuccess(read) && report.failures.length === 0 ? Effect.map(stamped(workspaceRoot, analyzer, report), (stamp) => cache.set(key, { report, stamp })) : Effect.void;
-    cache.writeToDisk();
+    yield* Option.isNone(held) && Result.isSuccess(read) && report.failures.length === 0 ? Effect.flatMap(stamped(workspaceRoot, analyzer, report), (stamp) => Effect.sync(() => cache.set(key, { report, stamp }))).pipe(Effect.andThen(Effect.sync(() => cache.writeToDisk()))) : Effect.void;
     yield* Ref.set(edges, related(workspaceRoot, project, report));
     const declared = Array.dedupe(report.nodes.flatMap((node) => [node.file, ...node.inputs, ...node.locks])).map((at) => join('{workspaceRoot}', at));
     const manifests = yield* Effect.forEach(report.nodes, (node) => manifested(workspaceRoot, dirname(node.file)));
@@ -139,7 +160,7 @@ const inferred = Effect.fnUntraced(function* (matched: readonly string[], option
                 const upgrade: TargetConfiguration = {
                     command,
                     options: { cwd: dirname(file) },
-                    inputs: [join('{workspaceRoot}', file), ...declared],
+                    inputs: [join('{workspaceRoot}', file), ...declared, { externalDependencies: [] }],
                     metadata: { description: `Moves every package reference of ${basename(file)} to its newest release with ${command}`, help: { command: 'dotnet package update --help', example: { args: ['--vulnerable'] } } },
                 };
                 return [file, { projects: { [dirname(file)]: { root: dirname(file), ...(named ? {} : { name: basename(file, extname(file)) }), metadata: { technologies: ['dotnet'] }, targets: aggregated({ upgrade: { dotnet: upgrade } }, manifest, 'dotnet') } } }];

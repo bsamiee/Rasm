@@ -1,4 +1,0 @@
-# --- [ENV] ------------------------------------------------------------------------------
-
-[env]
-GHIDRA_PROJECT_DIR = "{{ env.LOCALAPPDATA }}/rasm/ghidra/projects"

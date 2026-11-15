@@ -27,5 +27,5 @@
     "required": [ "credential" ],
     "additionalProperties": true,
     "title": "Release publish",
-    "description": "Publishes each host package the target's dependency targets wrote to its host's store through the store's own upload, where the credential variable is set and the store lacks that version, and names the missing variable where it is not; runs through nx release publish"
+    "description": "Publishes each host package the target's dependency targets wrote to its host's store through the store's own upload, where the credential variable is set, the store lacks that version, and the checked-out commit holds the project's tag nx release made from release.releaseTag.pattern, and names the missing variable, tag, or the first upload a store takes by hand alone, where it is not; runs through nx release publish, a dry run previewing every project"
 }

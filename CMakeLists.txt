@@ -28,13 +28,13 @@ set(flags
 # --- [INSTRUMENTATION] ------------------------------------------------------------------
 
 set(RASM_SANITIZERS "" CACHE STRING "Sanitizers every target compiles and links with")
-set(RASM_COVERAGE OFF CACHE BOOL "Whether every target records source-based coverage")
+option(RASM_COVERAGE "Whether every target records source-based coverage to the profile LLVM_PROFILE_FILE names" OFF)
 if(RASM_SANITIZERS)
     list(JOIN RASM_SANITIZERS "," sanitizers)
     list(APPEND flags -fsanitize=${sanitizers} -fno-sanitize-recover=all -fno-omit-frame-pointer)
 endif()
 if(RASM_COVERAGE)
-    list(APPEND flags -fprofile-instr-generate=${CMAKE_BINARY_DIR}/profiles/%m-%p.profraw -fcoverage-mapping)
+    list(APPEND flags -fprofile-instr-generate -fcoverage-mapping)
 endif()
 
 # --- [LANGUAGES] ------------------------------------------------------------------------
@@ -60,29 +60,4 @@ endif()
 foreach(manifest IN LISTS manifests suites)
     cmake_path(GET manifest PARENT_PATH member)
     add_subdirectory("${member}")
-    get_property(targets DIRECTORY "${member}" PROPERTY BUILDSYSTEM_TARGETS)
-    foreach(target IN LISTS targets)
-        get_target_property(type "${target}" TYPE)
-        if(type STREQUAL "EXECUTABLE")
-            list(APPEND instrumented "--object=$<TARGET_FILE:${target}>")
-        endif()
-    endforeach()
 endforeach()
-
-# --- [COVERAGE] -------------------------------------------------------------------------
-
-if(RASM_COVERAGE)
-    add_custom_target(coverage)
-endif()
-if(RASM_COVERAGE AND instrumented)
-    add_custom_command(
-        TARGET coverage
-        POST_BUILD
-        COMMAND llvm-profdata merge --sparse --output=coverage.profdata profiles
-        COMMAND "${CMAKE_COMMAND}" -E rm -rf profiles
-        COMMAND llvm-cov show --instr-profile=coverage.profdata --format=html --output-dir=coverage ${instrumented}
-        COMMAND llvm-cov report --instr-profile=coverage.profdata ${instrumented}
-        WORKING_DIRECTORY "${CMAKE_BINARY_DIR}"
-        VERBATIM
-    )
-endif()

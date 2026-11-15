@@ -124,6 +124,7 @@ const report = (workspaceRoot: string, lock: string, metadata: typeof Metadata.T
             const packaged = 'editable' in (resolution[member.id]?.source ?? {});
             return {
                 name: member.name,
+                distribution: `${member.name.toLowerCase().replaceAll(SEPARATORS, '_')}-${resolution[member.id]?.version ?? '*'}`,
                 root: member.root,
                 workspace,
                 packaged,

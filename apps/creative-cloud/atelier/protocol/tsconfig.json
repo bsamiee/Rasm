@@ -2,5 +2,28 @@
     "extends": "../../../../tsconfig.base.json",
     "compilerOptions": {
         "lib": [ "es2022", "dom" ]
-    }
+    },
+    "references": [
+        {
+            "path": "../../../../libs/typescript/creative-cloud/uxp"
+        },
+        {
+            "path": "../../../../libs/typescript/graphics/typography"
+        },
+        {
+            "path": "../../../../libs/typescript/data/search"
+        },
+        {
+            "path": "../../../../libs/typescript/creative-cloud/indesign"
+        },
+        {
+            "path": "../../../../libs/typescript/creative-cloud/cep"
+        },
+        {
+            "path": "../../../../libs/typescript/creative-cloud/automation"
+        },
+        {
+            "path": "../../../../libs/typescript/macos/applications"
+        }
+    ]
 }

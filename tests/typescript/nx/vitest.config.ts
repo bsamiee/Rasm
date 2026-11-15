@@ -18,6 +18,7 @@ export default defineConfig(() =>
                 test: {
                     ...reporting,
                     name: '@rasm/test-nx',
+                    experimental: { viteModuleRunner: false },
                     globalSetup: ['setup.ts'],
                     fileParallelism: false,
                     testTimeout: 120_000,

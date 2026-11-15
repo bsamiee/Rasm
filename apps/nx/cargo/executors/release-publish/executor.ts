@@ -1,7 +1,7 @@
 import { pathToFileURL } from 'node:url';
 import type { ExecutorContext } from '@nx/devkit';
-import { Array, Cause, Config, Effect, Option, Path, Schema, String } from 'effect';
-import { Metadata, run, spawned } from '#/workspace';
+import { Array, Cause, Config, Effect, Option, Path, Result, Schema, SemVer, String, Struct } from 'effect';
+import { Crate, run, spawned } from '#/workspace';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -9,36 +9,51 @@ const Publish = Schema.Struct({
     dryRun: Schema.optionalKey(Schema.Boolean).annotate({ description: 'Prints each change and makes none, as NX_DRY_RUN=true does' }),
     cwd: Schema.String.annotate({ description: 'Cargo workspace root, relative to the Nx workspace root' }),
     package: Schema.String.annotate({ description: 'Crate to publish' }),
+    packages: Schema.optionalKey(Schema.Array(Crate)).annotate({ description: 'Workspace crates the crate reaches through path dependencies, published beside it under a dry run' }),
     registry: Schema.optionalKey(Schema.String).annotate({ description: 'Registry the crate names in its publish list, passed as --registry' }),
     __unparsed__: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Words after -- of the run, appended after the configured arguments', $default: { $source: 'unparsed' }, hidden: true, 'x-priority': 'internal' }),
 }).annotate({
     title: 'Release publish',
     description:
-        'Publishes a crate with cargo publish where the registry token variable Cargo reads (CARGO_REGISTRY_TOKEN, or CARGO_REGISTRIES_<NAME>_TOKEN for a named registry) is set, and names the variable where it is not, under a dry run with cargo publish --dry-run over the crate and its workspace dependencies; runs through nx release publish',
+        "Publishes a crate with cargo publish at the version of the project's tag at the checked-out commit, the tag nx release made from release.releaseTag.pattern, where the registry token variable Cargo reads (CARGO_REGISTRY_TOKEN, or CARGO_REGISTRIES_<NAME>_TOKEN for a named registry) is set and cargo info finds no such version in the registry; names the variable where it is unset, publishes nothing where nx release released no version of the project at that commit or the registry holds it, and under a dry run runs cargo publish --dry-run over the crate and its workspace dependencies whatever the tags; runs through nx release publish",
+});
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+const released = Effect.fnUntraced(function* ({ root, projectName, nxJsonConfiguration: { release } }: ExecutorContext) {
+    const project = yield* Effect.fromNullishOr(projectName);
+    const pattern = release?.releaseTag?.pattern ?? (release?.projectsRelationship === 'independent' ? '{projectName}@{version}' : 'v{version}');
+    const matcher = new RegExp(`^${pattern.replaceAll('{projectName}', project).split('{version}').map(RegExp.escape).join('(.+)')}$`, 'u');
+    const tags = Array.filterMap((yield* spawned(['git', 'tag', '--points-at', 'HEAD'], { cwd: root })).split('\n'), (tag) =>
+        Result.flatMap(
+            Result.fromNullishOr(matcher.exec(tag)?.[1], () => tag),
+            (version) => (Result.isSuccess(SemVer.parse(version)) ? Result.succeed({ tag, version }) : Result.fail(tag)),
+        ),
+    );
+    return tags.length > 1 ? yield* new Cause.UnknownError(tags, `HEAD holds [${tags.map(Struct.get('tag')).join(', ')}], each matching ${pattern} for ${project}, in place of the one tag nx release makes per project`) : Array.head(tags);
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = Effect.fnUntraced(function* ({ dryRun, cwd: root, package: named, registry, __unparsed__: words = [] }: typeof Publish.Type, context: ExecutorContext) {
-    const [path, stated] = yield* Effect.all([Path.Path, Config.withDefault(Config.Boolean('NX_DRY_RUN'), false)]);
+const execute = Effect.fnUntraced(function* ({ dryRun, cwd: root, package: named, packages = [], registry, __unparsed__: words = [] }: typeof Publish.Type, context: ExecutorContext) {
+    const [path, stated, node] = yield* Effect.all([Path.Path, Config.withDefault(Config.Boolean('NX_DRY_RUN'), false), Effect.flatMap(Effect.fromNullishOr(context.projectName), (project) => Effect.fromNullishOr(context.projectGraph.nodes[project]))]);
     const dry = dryRun === true || stated;
     const cwd = path.resolve(context.root, root);
-    const { packages } = yield* Effect.flatMap(spawned(['cargo', 'metadata', '--color', 'never', '--format-version', '1', '--no-deps'], { cwd }), Schema.decodeEffect(Metadata));
-    const crate = yield* Effect.fromOption(
-        Array.findFirst(packages, ({ name }) => name === named),
-        () => new Cause.NoSuchElementError(`${root} holds no crate ${named}`),
-    );
-    const placed = new Map<string | undefined, string>(packages.map((member) => [path.dirname(member.manifest_path), member.name]));
-    const reached = (names: ReadonlySet<string>): ReadonlySet<string> => {
-        const needed = packages.filter(({ name }) => names.has(name)).flatMap(({ dependencies }) => dependencies.flatMap(({ path: at }) => Array.fromNullishOr(placed.get(at))));
-        return names.isSupersetOf(new Set(needed)) ? names : reached(names.union(new Set(needed)));
-    };
-    const members = dry ? packages.filter(({ name }) => reached(new Set([crate.name])).has(name)) : [crate];
-    const selected = members.flatMap((member) => ['--package', `path+${pathToFileURL(path.dirname(member.manifest_path)).href}#${member.name}`]);
-    const publish = ['publish', ...selected, ...Array.fromNullishOr(registry).flatMap((held) => ['--registry', held]), ...(dry ? ['--dry-run'] : []), '--locked', ...words];
+    const members = [{ root: node.data.root, name: named }, ...(dry ? packages : [])];
+    const selected = members.flatMap((member) => ['--package', `path+${pathToFileURL(path.resolve(context.root, member.root)).href}#${member.name}`]);
+    const registries = Array.fromNullishOr(registry).flatMap((name) => ['--registry', name]);
+    const publish = ['cargo', 'publish', ...selected, ...registries, ...(dry ? ['--dry-run'] : []), '--locked', ...words] as const;
     const credential = registry === undefined ? 'CARGO_REGISTRY_TOKEN' : `CARGO_REGISTRIES_${String.kebabToSnake(registry).toUpperCase()}_TOKEN`;
-    const token = Option.filter(yield* Config.option(Config.String(credential)), String.isNonEmpty);
-    yield* dry || Option.isSome(token) ? spawned(['cargo', ...publish], { cwd, stdin: 'inherit', stdout: 'inherit', stderr: 'inherit' }) : Effect.logWarning(`Skipped cargo publish of ${crate.name}: ${credential} is not set`);
+    const [tagged, token] = yield* Effect.all([released(context), Effect.map(Config.option(Config.String(credential)), Option.filter(String.isNonEmpty))]);
+    const missing = dry ? [] : [...(Option.isNone(tagged) ? [`HEAD holds no tag of ${node.name}, so nx release released no version of it at this commit`] : []), ...(Option.isNone(token) ? [`${credential} is not set`] : [])];
+    const stored = yield* Option.match(
+        Option.filter(tagged, () => !dry && missing.length === 0),
+        { onNone: () => Effect.succeed(false), onSome: ({ version }) => Effect.isSuccess(spawned(['cargo', 'info', `${named}@${version}`, ...registries], { cwd })) },
+    );
+    yield* Array.match([...missing, ...(stored ? ['its registry holds the version of the tag at HEAD, as cargo info finds'] : [])], {
+        onEmpty: () => spawned(publish, { cwd, stdin: 'inherit', stdout: 'inherit', stderr: 'inherit' }),
+        onNonEmpty: (reasons) => Effect.logWarning(`Skipped cargo publish of ${named}: ${reasons.join(', ')}`),
+    });
     return { success: true };
 }, run);
 

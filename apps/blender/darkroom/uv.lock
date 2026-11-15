@@ -152,11 +152,11 @@ wheels = [
 
 [[package]]
 name = "coloraide"
-version = "8.14"
+version = "8.14.1"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/55/af/344d11592df0ce19817eabb8f4c88e634b0f68254eee63b97ec97e2ed7a7/coloraide-8.14.tar.gz", hash = "sha256:9c53078f8edb56214bd71b80a3d293b1edb6eabf5b2a1c6599fabbbc77d7fda6", size = 22328726, upload-time = "2026-11-02T17:33:32.223Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/0b/26/83261fd943ced1fba3b9749fb93f06b357bfe261881c7512e237133bcdc3/coloraide-8.14.1.tar.gz", hash = "sha256:253e24f8aa824d5527dca99d1c175adfcc05ddd7457c902fbb4ab17bae600e37", size = 22335755, upload-time = "2026-11-08T14:17:42.222Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/1a/89/846b0f966423c81efdaa05853e2deceabf2a406701b57ee8064018168544/coloraide-8.14-py3-none-any.whl", hash = "sha256:d8ff41fa0d91ff0e8b84fd707cb4aeb7dcf1b21006422479309c0101139f5c11", size = 348081, upload-time = "2026-11-02T17:33:29.312Z" },
+    { url = "https://files.pythonhosted.org/packages/47/d1/60b45b4a3ad1fbd5d5ab68f0db6ec38775170478963faffee9363168589d/coloraide-8.14.1-py3-none-any.whl", hash = "sha256:41f4bfade0d896d1482f17f6f02438bfefc1e41fff02ea606d3edfc8d8a75ddd", size = 349283, upload-time = "2026-11-08T14:17:40.395Z" },
 ]
 
 [[package]]
@@ -1055,7 +1055,6 @@ requires-dist = [
 
 [[package]]
 name = "rasm-darkroom"
-version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "colour-science" },
@@ -1106,6 +1105,7 @@ dev = [
     { name = "ruff" },
     { name = "scipy-stubs" },
     { name = "ty" },
+    { name = "types-networkx" },
     { name = "vulture" },
 ]
 
@@ -1159,6 +1159,7 @@ dev = [
     { name = "ruff" },
     { name = "scipy-stubs" },
     { name = "ty" },
+    { name = "types-networkx" },
     { name = "vulture" },
 ]
 
@@ -1324,6 +1325,7 @@ process = [
     { name = "opentelemetry-distro" },
     { name = "opentelemetry-instrumentation-structlog" },
     { name = "opentelemetry-sdk" },
+    { name = "portalocker" },
 ]
 
 [package.metadata]
@@ -1340,6 +1342,7 @@ requires-dist = [
     { name = "opentelemetry-instrumentation-system-metrics", marker = "extra == 'metrics'" },
     { name = "opentelemetry-sdk", marker = "extra == 'export'" },
     { name = "opentelemetry-semantic-conventions" },
+    { name = "portalocker", marker = "extra == 'process'" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
     { name = "rasm-telemetry", extras = ["export"], marker = "extra == 'otlp-http'", editable = "../../../libs/python/runtime/telemetry" },
@@ -1472,14 +1475,14 @@ wheels = [
 
 [[package]]
 name = "tifffile"
-version = "2026.10.15"
+version = "2026.11.8"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "numpy" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/fd/87/a982ca5b892579397c2b155275cc0119b51feb1701eaefa18acb0245f0a4/tifffile-2026.10.15.tar.gz", hash = "sha256:a5ee666dbd6d62e059830a3450825a2521a981b3f45c07a80ab009484aef56f0", size = 454150, upload-time = "2026-10-16T00:32:10.511Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/c2/48/f44d2dffb83bd0f37bbe193d61e196c23343eca35f4f9b602b311f4a61ad/tifffile-2026.11.8.tar.gz", hash = "sha256:2dd916274365f50d1730cca9b37ab91c112bf53fa22305c68dc940bcf4caac4d", size = 462217, upload-time = "2026-11-08T18:25:09.728Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/5b/bc/9e7664e2d30d4e82ada1b29dbb249d2dcac1ed1114cbbf11764f670d8be7/tifffile-2026.10.15-py3-none-any.whl", hash = "sha256:3dcf6c56731a45c1f85c81e90dad922b0a380a2d639e77f71207e010f8ef0f7b", size = 276988, upload-time = "2026-10-16T00:32:09.158Z" },
+    { url = "https://files.pythonhosted.org/packages/13/2e/2e2488584cabde1b60ddf2731165b05c892ea07c29568bca50e638e7ce9b/tifffile-2026.11.8-py3-none-any.whl", hash = "sha256:bb41732b357a7fa3077db439961ea1ec3a88d2fda4b45fd3ea9f7786690f6049", size = 278909, upload-time = "2026-11-08T18:25:08.276Z" },
 ]
 
 [[package]]
@@ -1512,6 +1515,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/a6/55/d518f662e8556a438bc4653eefc07256f93c6d71b23012f7c44e30b7f48f/ty-0.0.100-py3-none-musllinux_1_2_aarch64.whl", hash = "sha256:fae832c5da4da1a1dc1952f0dc9b3655f2b2266c27b6d0c87b40d02cd1b02601", size = 14330127, upload-time = "2026-11-09T20:16:10.386Z" },
     { url = "https://files.pythonhosted.org/packages/71/0a/619e73420ad849974e9b0b52b12047455f13168682603919dbe2f1d7d9a9/ty-0.0.100-py3-none-musllinux_1_2_x86_64.whl", hash = "sha256:51926133e69153748ca27e9079802baf8cdda7170ec40eea037752117754cb32", size = 15377827, upload-time = "2026-11-09T20:16:17.806Z" },
     { url = "https://files.pythonhosted.org/packages/3b/35/2becc700b2384a2d0b373626ed59c6706d2089888a14721199dba1aa3094/ty-0.0.100-py3-none-win_amd64.whl", hash = "sha256:01c230d3046f0d5e8ab6e1def4131aab21659a1d290cc88b39b4fde04bfad0c0", size = 14440120, upload-time = "2026-11-09T20:16:22.858Z" },
+]
+
+[[package]]
+name = "types-networkx"
+version = "3.6.1.20261114"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/6d/fa/7a2374cccf255fd0666f5c97057c2915c6d61f91a02a46aa85752d379849/types_networkx-3.6.1.20261114.tar.gz", hash = "sha256:231c20b3f4461ace7c5693190f3b1e41bed6783e9edb6de0e1789dbe85c569c1", size = 77337, upload-time = "2026-11-14T08:13:29.573Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f3/21/9cca2185910326a55f47be956a953d2b5d94308f06280ebd9eea3266620e/types_networkx-3.6.1.20261114-py3-none-any.whl", hash = "sha256:3c1d41c5e24b5d761da00641ead11afe59f8f3caa6ce9e2c6f7ea51ffcf798a7", size = 167532, upload-time = "2026-11-14T08:13:28.394Z" },
 ]
 
 [[package]]

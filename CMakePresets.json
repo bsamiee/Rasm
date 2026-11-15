@@ -52,7 +52,6 @@
         { "name": "tsan", "configurePreset": "tsan" },
         { "name": "fuzz", "configurePreset": "fuzz" },
         { "name": "coverage", "configurePreset": "coverage" },
-        { "name": "coverage-report", "configurePreset": "coverage", "targets": [ "coverage" ] },
         { "name": "lint", "configurePreset": "lint" },
         { "name": "unreal", "configurePreset": "unreal" }
     ],
@@ -82,7 +81,7 @@
         { "name": "asan", "steps": [ { "type": "configure", "name": "asan" }, { "type": "build", "name": "asan" }, { "type": "test", "name": "asan" } ] },
         { "name": "tsan", "steps": [ { "type": "configure", "name": "tsan" }, { "type": "build", "name": "tsan" }, { "type": "test", "name": "tsan" } ] },
         { "name": "fuzz", "steps": [ { "type": "configure", "name": "fuzz" }, { "type": "build", "name": "fuzz" }, { "type": "test", "name": "fuzz" } ] },
-        { "name": "coverage", "steps": [ { "type": "configure", "name": "coverage" }, { "type": "build", "name": "coverage" }, { "type": "test", "name": "coverage" }, { "type": "build", "name": "coverage-report" } ] },
+        { "name": "coverage", "steps": [ { "type": "configure", "name": "coverage" }, { "type": "build", "name": "coverage" }, { "type": "test", "name": "coverage" } ] },
         { "name": "bench", "steps": [ { "type": "configure", "name": "release" }, { "type": "build", "name": "release" }, { "type": "test", "name": "bench" } ] },
         { "name": "lint", "steps": [ { "type": "configure", "name": "lint" }, { "type": "build", "name": "lint" } ] },
         { "name": "unreal", "steps": [ { "type": "configure", "name": "unreal" }, { "type": "build", "name": "unreal" } ] }

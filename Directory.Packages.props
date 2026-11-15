@@ -42,11 +42,11 @@
         <PackageVersion Include="Grasshopper2"                                            Version="9.0.26300.9401" />                    <!-- Grasshopper 2 reference assemblies Grasshopper2 and GrasshopperIO -->
         <PackageVersion Include="Krafs.Publicizer"                                        Version="2.3.2" />                             <!-- Compile access to internal and private members of a referenced assembly -->
         <PackageVersion Include="Microsoft.macOS.Ref.net10.0_26.0"                        Version="26.0.11017" />                        <!-- AppKit and Foundation reference assembly Microsoft.macOS, at the version Rhino for Mac ships -->
-        <PackageVersion Include="Microsoft.Win32.SystemEvents"                            Version="11.0.0-rc.3.26522.148" />             <!-- Display, power, and session change notifications System.Drawing.Common subscribes to -->
+        <PackageVersion Include="Microsoft.Win32.SystemEvents"                            Version="11.0.0" />                            <!-- Display, power, and session change notifications System.Drawing.Common subscribes to -->
         <PackageVersion Include="Microsoft.WindowsDesktop.App.Ref"                        Version="[10.0.14]" />                         <!-- WPF reference assemblies under ref/net10.0, which later release lines omit -->
         <PackageVersion Include="Rhino3dm"                                                Version="8.35.0" />                            <!-- openNURBS geometry access for reading and writing 3dm files -->
         <PackageVersion Include="RhinoCommon"                                             Version="9.0.26300.9401" />                    <!-- Rhino SDK assemblies RhinoCommon, Rhino.UI, and Eto with Windows Forms targeting on every platform -->
-        <PackageVersion Include="System.Drawing.Common"                                   Version="11.0.0-rc.3.26522.148" />             <!-- GDI+ based drawing, imaging, and text rendering API -->
+        <PackageVersion Include="System.Drawing.Common"                                   Version="11.0.0" />                            <!-- GDI+ based drawing, imaging, and text rendering API -->
     </ItemGroup>
 
     <ItemGroup Label="Core">
@@ -68,7 +68,7 @@
         <PackageVersion Include="NodaTime.Serialization.Protobuf"                         Version="2.0.2" />                             <!-- Protobuf well-known type conversions for instants and durations -->
         <PackageVersion Include="NodaTime.Serialization.SystemTextJson"                   Version="1.4.0" />                             <!-- JSON converters for instants, durations, zones, and calendar dates -->
         <PackageVersion Include="Riok.Mapperly"                                           Version="5.0.0-next.12" />                     <!-- Source-generated object mapper with compile-time diagnostics -->
-        <PackageVersion Include="System.IO.Hashing"                                       Version="11.0.0-rc.3.26522.148" />             <!-- Non-cryptographic hash algorithms including CRC and xxHash -->
+        <PackageVersion Include="System.IO.Hashing"                                       Version="11.0.0" />                            <!-- Non-cryptographic hash algorithms including CRC and xxHash -->
         <PackageVersion Include="Thinktecture.Runtime.Extensions"                         Version="10.6.0" />                            <!-- Source-generated smart enums, value objects, and discriminated unions -->
         <PackageVersion Include="Thinktecture.Runtime.Extensions.EntityFrameworkCore10"   Version="10.6.0" />                            <!-- Value converters for smart enums and value objects -->
         <PackageVersion Include="Thinktecture.Runtime.Extensions.Json"                    Version="10.6.0" />                            <!-- JSON serialization for smart enums and value objects -->
@@ -98,13 +98,13 @@
         <PackageVersion Include="Microsoft.ML.Probabilistic"                              Version="0.4.2504.701" />                      <!-- Bayesian inference framework for probabilistic graphical models -->
         <PackageVersion Include="Microsoft.ML.Probabilistic.Compiler"                     Version="0.4.2504.701" />                      <!-- Inference engine compiling probabilistic models into generated code -->
         <PackageVersion Include="Microsoft.ML.Probabilistic.Learners"                     Version="0.4.2504.701" />                      <!-- Bayesian classifier and recommender learners with training and evaluation -->
-        <PackageVersion Include="System.Numerics.Tensors"                                 Version="11.0.0-rc.3.26522.148" />             <!-- Tensor primitives with SIMD-accelerated span operations -->
+        <PackageVersion Include="System.Numerics.Tensors"                                 Version="11.0.0" />                            <!-- Tensor primitives with SIMD-accelerated span operations -->
         <PackageVersion Include="TYoshimura.DoubleDouble"                                 Version="5.0.8" />                             <!-- Double-double arithmetic with 106-bit mantissa and special functions -->
         <PackageVersion Include="TYoshimura.DoubleDouble.Complex"                         Version="2.0.1" />                             <!-- Complex number arithmetic over double-double precision values -->
     </ItemGroup>
 
     <ItemGroup Label="Collections">
-        <PackageVersion Include="System.Collections.Immutable"                            Version="11.0.0-rc.3.26522.148" />             <!-- Immutable lists, dictionaries, and sets -->
+        <PackageVersion Include="System.Collections.Immutable"                            Version="11.0.0" />                            <!-- Immutable lists, dictionaries, and sets -->
     </ItemGroup>
 
     <ItemGroup Label="Algorithms and Data Structures">
@@ -446,7 +446,7 @@
         <PackageVersion Include="MQTTnet"                                                 Version="5.2.0.1603" />                        <!-- MQTT client and broker implementation -->
         <PackageVersion Include="OPCFoundation.NetStandard.Opc.Ua"                        Version="2.0.1" />                             <!-- OPC UA client and server communication stack -->
         <PackageVersion Include="OPCFoundation.NetStandard.Opc.Ua.PubSub"                 Version="2.0.1" />                             <!-- OPC UA publish-subscribe messaging implementation -->
-        <PackageVersion Include="System.IO.Ports"                                         Version="11.0.0-rc.3.26522.148" />             <!-- Serial port device access and communication -->
+        <PackageVersion Include="System.IO.Ports"                                         Version="11.0.0" />                            <!-- Serial port device access and communication -->
     </ItemGroup>
 
     <ItemGroup Label="Messaging">
@@ -490,7 +490,7 @@
         <PackageVersion Include="JsonSchema.Net"                                          Version="9.6.0" />                             <!-- JSON Schema evaluation and validation -->
         <PackageVersion Include="MessagePack"                                             Version="4.0.0-preview.2" />                   <!-- Binary serialization with LZ4 compression and source generation -->
         <PackageVersion Include="MessagePackAnalyzer"                                     Version="3.1.12" />                            <!-- Roslyn analyzers for serializable type annotations -->
-        <PackageVersion Include="System.Formats.Cbor"                                     Version="11.0.0-rc.3.26522.148" />             <!-- CBOR data reading and writing primitives -->
+        <PackageVersion Include="System.Formats.Cbor"                                     Version="11.0.0" />                            <!-- CBOR data reading and writing primitives -->
         <PackageVersion Include="YamlDotNet"                                              Version="18.1.0" />                            <!-- YAML parsing, serialization, and object mapping -->
     </ItemGroup>
 
@@ -551,11 +551,11 @@
         <PackageVersion Include="Marten"                                                  Version="9.59.0" />                            <!-- PostgreSQL document database and event store library -->
         <PackageVersion Include="Marten.EntityFrameworkCore"                              Version="9.59.0" />                            <!-- Event projections written into EF Core entities through a DbContext -->
         <PackageVersion Include="Marten.NodaTime"                                         Version="9.59.0" />                            <!-- Date and time type handling for PostgreSQL document storage -->
-        <PackageVersion Include="Microsoft.Data.Sqlite"                                   Version="11.0.0-rc.3.26522.148" />             <!-- Managed database driver for SQLite -->
+        <PackageVersion Include="Microsoft.Data.Sqlite"                                   Version="11.0.0" />                            <!-- Managed database driver for SQLite -->
         <PackageVersion Include="Microsoft.EntityFrameworkCore.Design"                    Version="10.0.14" />                           <!-- Design-time migrations and scaffolding -->
         <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite"                    Version="10.0.14" />                           <!-- SQLite provider -->
         <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite.NetTopologySuite"   Version="10.0.14" />                           <!-- SpatiaLite geometry mapping -->
-        <PackageVersion Include="Microsoft.Extensions.Caching.StackExchangeRedis"         Version="11.0.0-rc.3.26522.148" />             <!-- Distributed cache implementation backed by Redis -->
+        <PackageVersion Include="Microsoft.Extensions.Caching.StackExchangeRedis"         Version="11.0.0" />                            <!-- Distributed cache implementation backed by Redis -->
         <PackageVersion Include="Minio"                                                   Version="7.0.0" />                             <!-- Client for S3-compatible object storage -->
         <PackageVersion Include="Npgsql"                                                  Version="10.0.3" />                            <!-- PostgreSQL database driver with binary protocol and connection pooling -->
         <PackageVersion Include="Npgsql.DependencyInjection"                              Version="10.0.3" />                            <!-- Dependency injection registration for PostgreSQL data sources -->
@@ -623,7 +623,7 @@
         <PackageVersion Include="Microsoft.Diagnostics.NETCore.Client"                    Version="0.2.750501" />                        <!-- Diagnostics IPC client requesting dumps, traces, and counters from processes -->
         <PackageVersion Include="Microsoft.Diagnostics.Runtime"                           Version="4.2.751201" />                        <!-- Inspection API over live process memory and crash dumps -->
         <PackageVersion Include="Microsoft.Diagnostics.Tracing.TraceEvent"                Version="4.0.0" />                             <!-- ETW and EventPipe trace collection and parsing -->
-        <PackageVersion Include="Microsoft.Extensions.DependencyModel"                    Version="11.0.0-rc.3.26522.148" />             <!-- Runtime dependency graph reading from deps.json files -->
+        <PackageVersion Include="Microsoft.Extensions.DependencyModel"                    Version="11.0.0" />                            <!-- Runtime dependency graph reading from deps.json files -->
     </ItemGroup>
 
     <ItemGroup Label="Observability">
@@ -667,34 +667,34 @@
     <ItemGroup Label="Application Hosting">
         <PackageVersion Include="Cronos"                                                  Version="0.13.0" />                            <!-- Cron expression parsing and occurrence calculation across time zones -->
         <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer"           Version="10.0.14" />                           <!-- JWT bearer token authentication middleware -->
-        <PackageVersion Include="Microsoft.AspNetCore.Authorization"                      Version="11.0.0-rc.3.26522.148" />             <!-- Policy-based authorization primitives and handlers -->
+        <PackageVersion Include="Microsoft.AspNetCore.Authorization"                      Version="11.0.0" />                            <!-- Policy-based authorization primitives and handlers -->
         <PackageVersion Include="Microsoft.Extensions.AmbientMetadata.Application"        Version="10.11.0" />                           <!-- Application name, version, and environment metadata configuration -->
         <PackageVersion Include="Microsoft.Extensions.Caching.Hybrid"                     Version="10.11.0" />                           <!-- Two-tier caching combining in-process and distributed stores -->
         <PackageVersion Include="Microsoft.Extensions.Compliance.Abstractions"            Version="10.11.0" />                           <!-- Data classification and redaction abstractions -->
         <PackageVersion Include="Microsoft.Extensions.Compliance.Redaction"               Version="10.11.0" />                           <!-- Redactor implementations for classified data -->
-        <PackageVersion Include="Microsoft.Extensions.Configuration"                      Version="11.0.0-rc.3.26522.148" />             <!-- Layered key-value configuration with provider composition -->
-        <PackageVersion Include="Microsoft.Extensions.Configuration.Binder"               Version="11.0.0-rc.3.26522.148" />             <!-- Configuration binding onto strongly typed objects -->
-        <PackageVersion Include="Microsoft.Extensions.Configuration.CommandLine"          Version="11.0.0-rc.3.26522.148" />             <!-- Command line argument configuration provider -->
-        <PackageVersion Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="11.0.0-rc.3.26522.148" />             <!-- Configuration provider reading environment variables -->
-        <PackageVersion Include="Microsoft.Extensions.Configuration.Json"                 Version="11.0.0-rc.3.26522.148" />             <!-- Configuration provider reading JSON files -->
-        <PackageVersion Include="Microsoft.Extensions.Configuration.UserSecrets"          Version="11.0.0-rc.3.26522.148" />             <!-- Development-time secret storage configuration provider -->
-        <PackageVersion Include="Microsoft.Extensions.DependencyInjection"                Version="11.0.0-rc.3.26522.148" />             <!-- Dependency injection container with scopes and open generics -->
-        <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions"   Version="11.0.0-rc.3.26522.148" />             <!-- Dependency injection abstractions for service registration and resolution -->
-        <PackageVersion Include="Microsoft.Extensions.Diagnostics"                        Version="11.0.0-rc.3.26522.148" />             <!-- Metrics infrastructure with listener registration and enrichment -->
-        <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks"           Version="11.0.0-rc.3.26522.148" />             <!-- Health check execution and publishing framework -->
+        <PackageVersion Include="Microsoft.Extensions.Configuration"                      Version="11.0.0" />                            <!-- Layered key-value configuration with provider composition -->
+        <PackageVersion Include="Microsoft.Extensions.Configuration.Binder"               Version="11.0.0" />                            <!-- Configuration binding onto strongly typed objects -->
+        <PackageVersion Include="Microsoft.Extensions.Configuration.CommandLine"          Version="11.0.0" />                            <!-- Command line argument configuration provider -->
+        <PackageVersion Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="11.0.0" />                            <!-- Configuration provider reading environment variables -->
+        <PackageVersion Include="Microsoft.Extensions.Configuration.Json"                 Version="11.0.0" />                            <!-- Configuration provider reading JSON files -->
+        <PackageVersion Include="Microsoft.Extensions.Configuration.UserSecrets"          Version="11.0.0" />                            <!-- Development-time secret storage configuration provider -->
+        <PackageVersion Include="Microsoft.Extensions.DependencyInjection"                Version="11.0.0" />                            <!-- Dependency injection container with scopes and open generics -->
+        <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions"   Version="11.0.0" />                            <!-- Dependency injection abstractions for service registration and resolution -->
+        <PackageVersion Include="Microsoft.Extensions.Diagnostics"                        Version="11.0.0" />                            <!-- Metrics infrastructure with listener registration and enrichment -->
+        <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks"           Version="11.0.0" />                            <!-- Health check execution and publishing framework -->
         <PackageVersion Include="Microsoft.Extensions.Diagnostics.ResourceMonitoring"     Version="10.11.0" />                           <!-- CPU and memory utilization monitoring for containers and hosts -->
-        <PackageVersion Include="Microsoft.Extensions.Hosting"                            Version="11.0.0-rc.3.26522.148" />             <!-- Generic host composing lifetime, configuration, logging, and dependency injection -->
-        <PackageVersion Include="Microsoft.Extensions.Hosting.Systemd"                    Version="11.0.0-rc.3.26522.148" />             <!-- systemd service lifetime and notification integration -->
-        <PackageVersion Include="Microsoft.Extensions.Hosting.WindowsServices"            Version="11.0.0-rc.3.26522.148" />             <!-- Windows service lifetime integration for hosted applications -->
+        <PackageVersion Include="Microsoft.Extensions.Hosting"                            Version="11.0.0" />                            <!-- Generic host composing lifetime, configuration, logging, and dependency injection -->
+        <PackageVersion Include="Microsoft.Extensions.Hosting.Systemd"                    Version="11.0.0" />                            <!-- systemd service lifetime and notification integration -->
+        <PackageVersion Include="Microsoft.Extensions.Hosting.WindowsServices"            Version="11.0.0" />                            <!-- Windows service lifetime integration for hosted applications -->
         <PackageVersion Include="Microsoft.Extensions.Http.Diagnostics"                   Version="10.11.0" />                           <!-- HTTP client request logging and latency telemetry -->
         <PackageVersion Include="Microsoft.Extensions.Http.Resilience"                    Version="10.11.0" />                           <!-- Resilience handlers for HTTP clients with retry and circuit breaking -->
-        <PackageVersion Include="Microsoft.Extensions.Logging"                            Version="11.0.0-rc.3.26522.148" />             <!-- Logging facade with provider registration and filtering -->
-        <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions"               Version="11.0.0-rc.3.26522.148" />             <!-- Logging abstractions with source-generated log methods -->
-        <PackageVersion Include="Microsoft.Extensions.Logging.Configuration"              Version="11.0.0-rc.3.26522.148" />             <!-- Log filter rules bound from configuration and reloaded on change -->
-        <PackageVersion Include="Microsoft.Extensions.Logging.Console"                    Version="11.0.0-rc.3.26522.148" />             <!-- Console logger provider with plain, JSON, and systemd formatters -->
-        <PackageVersion Include="Microsoft.Extensions.ObjectPool"                         Version="11.0.0-rc.3.26522.148" />             <!-- Object pooling primitives and policies -->
-        <PackageVersion Include="Microsoft.Extensions.Options"                            Version="11.0.0-rc.3.26522.148" />             <!-- Options pattern with validation and change monitoring -->
-        <PackageVersion Include="Microsoft.Extensions.Options.ConfigurationExtensions"    Version="11.0.0-rc.3.26522.148" />             <!-- Options binding from configuration sections -->
+        <PackageVersion Include="Microsoft.Extensions.Logging"                            Version="11.0.0" />                            <!-- Logging facade with provider registration and filtering -->
+        <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions"               Version="11.0.0" />                            <!-- Logging abstractions with source-generated log methods -->
+        <PackageVersion Include="Microsoft.Extensions.Logging.Configuration"              Version="11.0.0" />                            <!-- Log filter rules bound from configuration and reloaded on change -->
+        <PackageVersion Include="Microsoft.Extensions.Logging.Console"                    Version="11.0.0" />                            <!-- Console logger provider with plain, JSON, and systemd formatters -->
+        <PackageVersion Include="Microsoft.Extensions.ObjectPool"                         Version="11.0.0" />                            <!-- Object pooling primitives and policies -->
+        <PackageVersion Include="Microsoft.Extensions.Options"                            Version="11.0.0" />                            <!-- Options pattern with validation and change monitoring -->
+        <PackageVersion Include="Microsoft.Extensions.Options.ConfigurationExtensions"    Version="11.0.0" />                            <!-- Options binding from configuration sections -->
         <PackageVersion Include="Microsoft.Extensions.Resilience"                         Version="10.11.0" />                           <!-- Resilience pipeline telemetry enrichment and context integration -->
         <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery"                   Version="10.11.0" />                           <!-- Endpoint resolution by service name from configuration and DNS -->
         <PackageVersion Include="Microsoft.Extensions.Telemetry"                          Version="10.11.0" />                           <!-- Log enrichment, redaction, sampling, and latency measurement -->
@@ -861,18 +861,18 @@
         <PackageVersion Include="MathNet.Numerics.FSharp"                                 Version="6.0.0-beta2" />                       <!-- F# numerics bindings aligned with MathNet.Numerics for OPTANO.Modeling -->
         <PackageVersion Include="MathNet.Symbolics"                                       Version="0.25.0" />                            <!-- Symbolic algebra over F# expressions, required by OPTANO.Modeling -->
         <PackageVersion Include="MicroCom.Runtime"                                        Version="0.11.7" />                            <!-- Runtime for IDL-generated cross-platform COM interop -->
-        <PackageVersion Include="Microsoft.Bcl.Memory"                                    Version="11.0.0-rc.3.26522.148" />             <!-- Base64Url, Index, and Range types for .NET Framework and .NET Standard targets -->
+        <PackageVersion Include="Microsoft.Bcl.Memory"                                    Version="11.0.0" />                            <!-- Base64Url, Index, and Range types for .NET Framework and .NET Standard targets -->
         <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Scripting"                 Version="5.9.0" />                             <!-- C# script execution over Roslyn, UVtools.Core dependency -->
         <PackageVersion Include="Microsoft.CodeAnalysis.Workspaces.MSBuild"               Version="5.9.0" />                             <!-- MSBuild project and solution loading into Roslyn workspaces -->
         <PackageVersion Include="Microsoft.Data.Analysis"                                 Version="0.24.0-preview.26513.4" />            <!-- DataFrame structures for tabular data exploration -->
-        <PackageVersion Include="Microsoft.Extensions.Caching.Abstractions"               Version="11.0.0-rc.3.26522.148" />             <!-- Cache entry and distributed cache contracts -->
-        <PackageVersion Include="Microsoft.Extensions.Caching.Memory"                     Version="11.0.0-rc.3.26522.148" />             <!-- In-memory cache with expiration and eviction policies -->
-        <PackageVersion Include="Microsoft.Extensions.Configuration.Abstractions"         Version="11.0.0-rc.3.26522.148" />             <!-- Configuration abstractions for providers and binding -->
-        <PackageVersion Include="Microsoft.Extensions.Diagnostics.Abstractions"           Version="11.0.0-rc.3.26522.148" />             <!-- Meter factory and diagnostics dependency injection contracts -->
+        <PackageVersion Include="Microsoft.Extensions.Caching.Abstractions"               Version="11.0.0" />                            <!-- Cache entry and distributed cache contracts -->
+        <PackageVersion Include="Microsoft.Extensions.Caching.Memory"                     Version="11.0.0" />                            <!-- In-memory cache with expiration and eviction policies -->
+        <PackageVersion Include="Microsoft.Extensions.Configuration.Abstractions"         Version="11.0.0" />                            <!-- Configuration abstractions for providers and binding -->
+        <PackageVersion Include="Microsoft.Extensions.Diagnostics.Abstractions"           Version="11.0.0" />                            <!-- Meter factory and diagnostics dependency injection contracts -->
         <PackageVersion Include="Microsoft.Extensions.Diagnostics.ExceptionSummarization" Version="10.11.0" />                           <!-- Exception summary extraction for low-cardinality telemetry -->
-        <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions"               Version="11.0.0-rc.3.26522.148" />             <!-- Host builder, hosted service, and application lifetime abstractions -->
-        <PackageVersion Include="Microsoft.Extensions.Http"                               Version="11.0.0-rc.3.26522.148" />             <!-- HttpClient factory with named clients and handler pipelines -->
-        <PackageVersion Include="Microsoft.Extensions.Primitives"                         Version="11.0.0-rc.3.26522.148" />             <!-- Change tokens and string segment primitives -->
+        <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions"               Version="11.0.0" />                            <!-- Host builder, hosted service, and application lifetime abstractions -->
+        <PackageVersion Include="Microsoft.Extensions.Http"                               Version="11.0.0" />                            <!-- HttpClient factory with named clients and handler pipelines -->
+        <PackageVersion Include="Microsoft.Extensions.Primitives"                         Version="11.0.0" />                            <!-- Change tokens and string segment primitives -->
         <PackageVersion Include="Microsoft.IdentityModel.Protocols"                       Version="8.23.0" />                            <!-- Protocol base types for OpenID Connect and WS-Federation -->
         <PackageVersion Include="Microsoft.ML.CpuMath"                                    Version="6.0.0-preview.26513.4" />             <!-- Vectorized CPU math kernels for machine learning workloads -->
         <PackageVersion Include="Microsoft.ML.DataView"                                   Version="6.0.0-preview.26513.4" />             <!-- IDataView abstractions for tabular machine learning data pipelines -->
@@ -918,24 +918,24 @@
         <PackageVersion Include="SSH.NET"                                                 Version="2026.0.0" />                          <!-- SSH, SFTP, and SCP client -->
         <PackageVersion Include="StructuredFieldValues"                                   Version="0.8.1" />                             <!-- HTTP structured field values parsing per RFC 8941 -->
         <PackageVersion Include="System.ClientModel"                                      Version="1.16.0" />                            <!-- Primitives for cloud service client pipelines -->
-        <PackageVersion Include="System.CodeDom"                                          Version="11.0.0-rc.3.26522.148" />             <!-- CodeDOM object model for code generation and compilation -->
+        <PackageVersion Include="System.CodeDom"                                          Version="11.0.0" />                            <!-- CodeDOM object model for code generation and compilation -->
         <PackageVersion Include="System.ComponentModel.Annotations"                       Version="5.0.0" />                             <!-- Data annotation attributes for validation and metadata -->
-        <PackageVersion Include="System.Composition"                                      Version="11.0.0-rc.3.26522.148" />             <!-- MEF composition engine for attributed parts -->
-        <PackageVersion Include="System.Composition.AttributedModel"                      Version="11.0.0-rc.3.26522.148" />             <!-- MEF export and import attribute model -->
-        <PackageVersion Include="System.Composition.Convention"                           Version="11.0.0-rc.3.26522.148" />             <!-- Convention-based part configuration for MEF composition -->
-        <PackageVersion Include="System.Composition.Hosting"                              Version="11.0.0-rc.3.26522.148" />             <!-- MEF container configuration and composition hosting -->
-        <PackageVersion Include="System.Composition.Runtime"                              Version="11.0.0-rc.3.26522.148" />             <!-- MEF runtime composition context for retrieving exports -->
-        <PackageVersion Include="System.Composition.TypedParts"                           Version="11.0.0-rc.3.26522.148" />             <!-- Typed part discovery and activation for MEF containers -->
-        <PackageVersion Include="System.Configuration.ConfigurationManager"               Version="11.0.0-rc.3.26522.148" />             <!-- Configuration file access for app settings and connection strings -->
-        <PackageVersion Include="System.Diagnostics.EventLog"                             Version="11.0.0-rc.3.26522.148" />             <!-- Windows event log services -->
+        <PackageVersion Include="System.Composition"                                      Version="11.0.0" />                            <!-- MEF composition engine for attributed parts -->
+        <PackageVersion Include="System.Composition.AttributedModel"                      Version="11.0.0" />                            <!-- MEF export and import attribute model -->
+        <PackageVersion Include="System.Composition.Convention"                           Version="11.0.0" />                            <!-- Convention-based part configuration for MEF composition -->
+        <PackageVersion Include="System.Composition.Hosting"                              Version="11.0.0" />                            <!-- MEF container configuration and composition hosting -->
+        <PackageVersion Include="System.Composition.Runtime"                              Version="11.0.0" />                            <!-- MEF runtime composition context for retrieving exports -->
+        <PackageVersion Include="System.Composition.TypedParts"                           Version="11.0.0" />                            <!-- Typed part discovery and activation for MEF containers -->
+        <PackageVersion Include="System.Configuration.ConfigurationManager"               Version="11.0.0" />                            <!-- Configuration file access for app settings and connection strings -->
+        <PackageVersion Include="System.Diagnostics.EventLog"                             Version="11.0.0" />                            <!-- Windows event log services -->
         <PackageVersion Include="System.Drawing.Primitives"                               Version="4.3.0" />                             <!-- Drawing primitive structs Color, Point, Rectangle, and Size -->
-        <PackageVersion Include="System.IO.Packaging"                                     Version="11.0.0-rc.3.26522.148" />             <!-- Open Packaging Conventions ZIP-based package reading and writing -->
-        <PackageVersion Include="System.Management"                                       Version="11.0.0-rc.3.26522.148" />             <!-- WMI access to Windows management information and events -->
-        <PackageVersion Include="System.Security.Cryptography.Pkcs"                       Version="11.0.0-rc.3.26522.148" />             <!-- CMS signed and enveloped messages with PKCS #8 and #12 key containers -->
-        <PackageVersion Include="System.Security.Cryptography.ProtectedData"              Version="11.0.0-rc.3.26522.148" />             <!-- Windows DPAPI data protection encryption -->
-        <PackageVersion Include="System.Security.Cryptography.Xml"                        Version="11.0.0-rc.3.26522.148" />             <!-- XML digital signature and encryption standards implementation -->
+        <PackageVersion Include="System.IO.Packaging"                                     Version="11.0.0" />                            <!-- Open Packaging Conventions ZIP-based package reading and writing -->
+        <PackageVersion Include="System.Management"                                       Version="11.0.0" />                            <!-- WMI access to Windows management information and events -->
+        <PackageVersion Include="System.Security.Cryptography.Pkcs"                       Version="11.0.0" />                            <!-- CMS signed and enveloped messages with PKCS #8 and #12 key containers -->
+        <PackageVersion Include="System.Security.Cryptography.ProtectedData"              Version="11.0.0" />                            <!-- Windows DPAPI data protection encryption -->
+        <PackageVersion Include="System.Security.Cryptography.Xml"                        Version="11.0.0" />                            <!-- XML digital signature and encryption standards implementation -->
         <PackageVersion Include="System.ServiceModel.Primitives"                          Version="10.1.0" />                            <!-- WCF client channel, contract, and binding primitives -->
-        <PackageVersion Include="System.Threading.RateLimiting"                           Version="11.0.0-rc.3.26522.148" />             <!-- Rate limiting primitives including fixed window and token bucket -->
+        <PackageVersion Include="System.Threading.RateLimiting"                           Version="11.0.0" />                            <!-- Rate limiting primitives including fixed window and token bucket -->
         <PackageVersion Include="System.ValueTuple"                                       Version="4.6.2" />                             <!-- Value tuple types for frameworks without them -->
         <PackageVersion Include="Tmds.DBus.Protocol"                                      Version="0.95.2" />                            <!-- Low-level D-Bus protocol implementation with NativeAOT compatibility -->
         <PackageVersion Include="Uncodium.Eigensystems"                                   Version="1.1.2" />                             <!-- Eigenvalue and eigenvector computation for 3x3 matrices -->

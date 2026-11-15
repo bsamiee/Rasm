@@ -12,7 +12,6 @@ import { BUILDER, EXTENSION } from '#/host-packages';
 
 const TARGETS: Record.ReadonlyRecord<string, string> = {
     'linux-x64': 'x86_64-manylinux_2_28',
-    'linux-arm64': 'aarch64-manylinux_2_28',
     'macos-arm64': 'aarch64-apple-darwin',
     'macos-x64': 'x86_64-apple-darwin',
     'windows-x64': 'x86_64-pc-windows-msvc',
@@ -21,10 +20,14 @@ const TARGETS: Record.ReadonlyRecord<string, string> = {
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Build = Schema.Struct({ outputPath: Schema.String.annotate({ description: 'Workspace-relative folder the archives are written to, each earlier archive of the extension in it removed first' }), __unparsed__: Words }).annotate({
+const Build = Schema.Struct({
+    outputPath: Schema.String.annotate({ description: 'Workspace-relative folder the archives are written to, each earlier archive of the extension in it removed first' }),
+    operation: Schema.Literals(['build', 'check']).annotate({ description: "What runs: the archive build, or blender_ext.py validate over the project's source folder", default: 'build' }),
+    __unparsed__: Words,
+}).annotate({
     title: 'Extension build',
     description:
-        "Builds the Blender extension archives the project's blender_manifest.toml declares through Blender's blender_ext.py, with no Blender installed, one archive per platform the manifest lists and one for every platform where it lists none; a project holding pyproject.toml builds from a staged copy that bundles its local dependencies as subpackages and its locked registry dependencies as the wheels uv selects per platform at the one Python minor its requires-python pins as ==<major>.<minor>.*, leaving out each package its blender dependency group pins as one Blender bundles",
+        "Builds the Blender extension archives the project's blender_manifest.toml declares through Blender's blender_ext.py, with no Blender installed, one archive per platform the manifest lists and one for every platform where it lists none, or for a check validates the manifest and files of the source folder with blender_ext.py validate; a project holding pyproject.toml builds from a staged copy that bundles its local dependencies as subpackages and its locked registry dependencies as the wheels uv selects per platform at the one Python minor its requires-python pins as ==<major>.<minor>.*, leaving out each package its blender dependency group pins as one Blender bundles",
 });
 const Manifest = Schema.Struct({ id: Schema.String, platforms: Schema.optionalKey(Schema.Array(Schema.String)) });
 const Minor = Schema.TemplateLiteralParser(['==', Schema.Natural, '.', Schema.Natural, '.*']);
@@ -92,18 +95,23 @@ const staged = Effect.fnUntraced(function* (context: ExecutorContext, root: stri
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = Effect.fnUntraced(function* ({ outputPath: folder, __unparsed__: words = [] }: typeof Build.Type, context: ExecutorContext) {
+const execute = Effect.fnUntraced(function* ({ outputPath: folder, operation, __unparsed__: words = [] }: typeof Build.Type, context: ExecutorContext) {
     const [path, fs] = yield* Effect.all([Path.Path, FileSystem.FileSystem]);
     const { root } = (yield* Effect.flatMap(Effect.fromNullishOr(context.projectName), (project) => Effect.fromNullishOr(context.projectGraph.nodes[project]))).data;
-    const text = yield* fs.readFileString(path.join(context.root, root, EXTENSION));
-    const document = yield* toml(text, EXTENSION);
-    const declared = yield* Schema.decodeUnknownEffect(Manifest)(document);
-    const bundle = yield* fs.exists(path.join(context.root, root, 'pyproject.toml'));
-    yield* fs.makeDirectory(path.join(context.root, folder), { recursive: true });
-    const stale = (yield* fs.readDirectory(path.join(context.root, folder))).filter((name) => name.startsWith(`${declared.id}-`) && path.extname(name) === '.zip');
-    yield* Effect.forEach(stale, (name) => fs.remove(path.join(context.root, folder, name)), { discard: true });
-    const source = bundle ? yield* staged(context, root, text, document, declared) : root;
-    yield* uv([...BUILDER, 'build', ...(declared.platforms === undefined ? [] : ['--split-platforms']), '--source-dir', source, '--output-dir', folder, ...words], context.root);
+    yield* {
+        check: spawned(['uv', '--color', 'never', ...BUILDER, 'validate', root, ...words], { cwd: context.root, stdout: 'inherit' }),
+        build: Effect.gen(function* () {
+            const text = yield* fs.readFileString(path.join(context.root, root, EXTENSION));
+            const document = yield* toml(text, EXTENSION);
+            const declared = yield* Schema.decodeUnknownEffect(Manifest)(document);
+            const bundle = yield* fs.exists(path.join(context.root, root, 'pyproject.toml'));
+            yield* fs.makeDirectory(path.join(context.root, folder), { recursive: true });
+            const stale = (yield* fs.readDirectory(path.join(context.root, folder))).filter((name) => name.startsWith(`${declared.id}-`) && path.extname(name) === '.zip');
+            yield* Effect.forEach(stale, (name) => fs.remove(path.join(context.root, folder, name)), { discard: true });
+            const source = bundle ? yield* staged(context, root, text, document, declared) : root;
+            yield* uv([...BUILDER, 'build', ...(declared.platforms === undefined ? [] : ['--split-platforms']), '--source-dir', source, '--output-dir', folder, ...words], context.root);
+        }),
+    }[operation];
     return { success: true };
 }, run);
 

@@ -1,6 +1,7 @@
+import { readdirSync } from 'node:fs';
 import { basename, dirname, join, relative } from 'node:path';
-import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesContext, DependencyType, type ProjectConfiguration } from '@nx/devkit';
-import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, getNamedInputs, hashObject, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
+import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesContext, DependencyType, hashArray, type ProjectConfiguration } from '@nx/devkit';
+import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, getNamedInputs, hashFile, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
 import { Array, Cause, Effect, Equal, Option, Order, Record, Result, Schema } from 'effect';
 import { memberInputs, memberTargets } from '#/targets';
 import { Linked, MANIFEST, manifested, PLUGIN, PRESETS, resolved, run, type Tree } from '#/workspace';
@@ -8,12 +9,17 @@ import { Linked, MANIFEST, manifested, PLUGIN, PRESETS, resolved, run, type Tree
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const REGISTRY = { manifest: 'vcpkg.json', configuration: 'vcpkg-configuration.json' } as const;
+const OWN = hashArray(
+    readdirSync(import.meta.dirname)
+        .toSorted()
+        .flatMap((name) => [name, ...Array.fromNullishOr(hashFile(join(import.meta.dirname, name)))]),
+);
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Options = Schema.Struct({ outputPath: Schema.optionalKey(Schema.String), releaseTag: Schema.optionalKey(Schema.String) }).annotate({
+const Options = Schema.Struct({ outputPath: Schema.optionalKey(Schema.String), coveragePath: Schema.optionalKey(Schema.String) }).annotate({
     description:
-        'outputPath: workspace folder each member writes its CTest reports under as <outputPath>/ctest and its CPack archives under as <outputPath>/cpack, {projectName} naming the member, absent writes reports under Testing and archives under packages in the member build folder. releaseTag: tag given to every member CPack packs, absent gives none',
+        "outputPath: workspace folder each member writes its CTest reports under as <outputPath>/ctest and its CPack archives under as <outputPath>/cpack, {projectName} naming the member, absent writes reports under Testing and archives under packages in the member build folder. coveragePath: workspace folder the coverage configuration of a member's test target writes the lcov.info report of the member's linked binaries to, its raw and merged profiles staying in the member build folder, {projectName} naming the member, absent leaves each test its default.profraw and writes no report",
 });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -23,7 +29,7 @@ const rendered = (cause: Cause.Cause<unknown>) => Effect.fail(new Cause.UnknownE
 const inferred = Effect.fnUntraced(function* (cache: PluginCache<{ readonly tree: Tree; readonly stamp: string }>, context: CreateNodesContext, settings: typeof Options.Type, matched: readonly string[], file: string) {
     const near = matched.filter((other) => !relative(dirname(file), other).startsWith('..'));
     const stamped = ({ inputs }: Tree) => Effect.promise(() => hashWithWorkspaceContext(context.workspaceRoot, [...inputs]));
-    const key = `${yield* Effect.promise(() => hashWithWorkspaceContext(context.workspaceRoot, near))}${file}`;
+    const key = hashArray([yield* Effect.promise(() => hashWithWorkspaceContext(context.workspaceRoot, near)), OWN, file]);
     const held = yield* Effect.findFirst(Option.toArray(Option.fromUndefinedOr(cache.get(key))), (stored) => Effect.map(stamped(stored.tree), Equal.equals(stored.stamp)));
     const tree = yield* Option.match(held, {
         onSome: (stored) => Effect.succeed(stored.tree),
@@ -34,7 +40,12 @@ const inferred = Effect.fnUntraced(function* (cache: PluginCache<{ readonly tree
                 near.filter((other) => basename(other) === MANIFEST),
             ),
     });
-    cache.set(key, { tree, stamp: yield* stamped(tree) });
+    yield* Option.isNone(held)
+        ? Effect.map(stamped(tree), (stamp) => {
+              cache.set(key, { tree, stamp });
+              cache.writeToDisk();
+          })
+        : Effect.void;
     (yield* Linked).set(join(context.workspaceRoot, file), tree.members);
     const owner = (folder: string) =>
         Array.min(
@@ -50,13 +61,13 @@ const inferred = Effect.fnUntraced(function* (cache: PluginCache<{ readonly tree
     const manifests = yield* Effect.forEach(built, ({ member }) => manifested(context.workspaceRoot, member.root));
     const projects = Record.fromIterableWith(Array.zip(built, manifests), ([{ member, head, compiled, owned }, declared]): [string, ProjectConfiguration] => {
         const { default: sources } = getNamedInputs(member.root, context);
-        const targets = memberTargets(tree, member, Option.fromUndefinedOr(settings.outputPath), owned, head, declared);
+        const targets = memberTargets(tree, member, settings, owned, head, declared);
         const project = {
             root: member.root,
             name: member.name,
             metadata: { technologies: ['cmake'] },
             ...(compiled && { namedInputs: { default: memberInputs(tree, member, sources) } }),
-            ...('pack--cpack' in targets && { tags: Array.fromNullishOr(settings.releaseTag), release: { version: { versionActions: `${PLUGIN}/release/version-actions` } } }),
+            ...('pack--cpack' in targets && { tags: ['release'], release: { version: { versionActions: `${PLUGIN}/release/version-actions` } } }),
             targets,
         };
         return [member.root, project];
@@ -69,19 +80,16 @@ const inferred = Effect.fnUntraced(function* (cache: PluginCache<{ readonly tree
 const createNodes: CreateNodes<typeof Options.Encoded> = [
     combineGlobPatterns([PRESETS, MANIFEST, REGISTRY.manifest, REGISTRY.configuration].map((file) => `**/${file}`)),
     (matched, options, context) => {
-        const cache = new PluginCache<{ readonly tree: Tree; readonly stamp: string }>(join(workspaceDataDirectory, `cmake-${hashObject(options ?? {})}.hash`));
+        const cache = new PluginCache<{ readonly tree: Tree; readonly stamp: string }>(join(workspaceDataDirectory, 'cmake.hash'));
         const presets = matched.filter((file) => basename(file) === PRESETS && matched.includes(join(dirname(file), MANIFEST)));
         return run(
-            Effect.ensuring(
-                Effect.gen(function* () {
-                    const settings = yield* Schema.decodeEffect(Options)(options ?? {});
-                    const read = Array.zip(presets, yield* Effect.forEach(presets, (file) => Effect.result(Effect.catchCause(inferred(cache, context, settings, matched, file), rendered)), { concurrency: 'unbounded' }));
-                    const failures = Array.filterMap(read, ([file, result]) => Result.map(Result.flip(result), (error): [string, Error] => [file, error]));
-                    const results = Array.filterMap(read, ([file, result]) => Result.map(result, (held) => [file, held] as const));
-                    return yield* failures.length === 0 ? Effect.succeed(results) : Effect.fail(new AggregateCreateNodesError(failures, results));
-                }),
-                Effect.sync(() => cache.writeToDisk()),
-            ),
+            Effect.gen(function* () {
+                const settings = yield* Schema.decodeEffect(Options)(options ?? {});
+                const read = Array.zip(presets, yield* Effect.forEach(presets, (file) => Effect.result(Effect.catchCause(inferred(cache, context, settings, matched, file), rendered)), { concurrency: 'unbounded' }));
+                const failures = Array.filterMap(read, ([file, result]) => Result.map(Result.flip(result), (error): [string, Error] => [file, error]));
+                const results = Array.filterMap(read, ([file, result]) => Result.map(result, (held) => [file, held] as const));
+                return yield* failures.length === 0 ? Effect.succeed(results) : Effect.fail(new AggregateCreateNodesError(failures, results));
+            }),
         );
     },
 ];

@@ -216,16 +216,16 @@ it.layer(
             assert.strictEqual(packed.code, 0, `${packed.stdout}${packed.stderr}`);
             const [system, { outputPaths }] = yield* Effect.all([called('uname', ['-sm']), outputs(`${name}:pack--cpack`)]);
             const archives = created.filter((file) => outputPaths.includes(path.dirname(file)) && path.basename(file) === `${name}-${version}-${system.stdout.trim().replace(' ', '-')}.tar.xz`);
-            assert.lengthOf(archives, 1, `README.md DELIVERY "CPack naming it from project, version, and system"; CMake CMAKE_HOST_SYSTEM_NAME "uname -s", CMAKE_HOST_SYSTEM_PROCESSOR "uname -m": ${created.join(', ')}`);
+            assert.lengthOf(archives, 1, `CMake CPack CPACK_PACKAGE_FILE_NAME default "CPACK_PACKAGE_NAME-CPACK_PACKAGE_VERSION-CPACK_SYSTEM_NAME"; CMake CMAKE_HOST_SYSTEM_NAME "uname -s", CMAKE_HOST_SYSTEM_PROCESSOR "uname -m": ${created.join(', ')}`);
             const listed = yield* called('tar', ['-tJf', ...archives]);
             const held = listed.stdout.split('\n');
             assert.isNotEmpty(
                 held.filter((entry) => entry.endsWith(`/${name}.cps`)),
-                'README.md DELIVERY "C++ packages release as a CPack archive of their install tree with a CPS file and an SPDX SBOM"; CMake install(PACKAGE_INFO)',
+                'CMake install(PACKAGE_INFO) "generates and installs a CPS file which describes installed targets"',
             );
             assert.isNotEmpty(
                 held.filter((entry) => entry.endsWith('.spdx.json')),
-                'README.md DELIVERY "C++ packages release as a CPack archive of their install tree with a CPS file and an SPDX SBOM"; CMake install(SBOM)',
+                'CMake install(SBOM) "Installs a Software Bill of Materials or SBOM which describes the project", FORMAT "the JSON-LD serialization of SPDX v3.0.1"',
             );
         }),
         bound,

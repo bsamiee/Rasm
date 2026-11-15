@@ -1,8 +1,7 @@
 import { type ExecutorContext, getOutputsForTargetAndConfiguration } from '@nx/devkit';
 import { globWithWorkspaceContext } from '@nx/devkit/internal';
 import { Array, Effect, FileSystem, Function, Glob, Path, Record, Result, Schema } from 'effect';
-import { getFilesForOutputsBatch } from 'nx/src/native/index';
-import { run, spawned, Words } from '#/executor';
+import { listed, run, spawned, Words } from '#/executor';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -15,11 +14,10 @@ const Clean = Schema.Struct({
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const cleared = Effect.fnUntraced(function* (root: string, output: string, negated: readonly string[]) {
+const cleared = Effect.fnUntraced(function* (root: string, output: string, negated: readonly string[], tracked: ReadonlySet<string>) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const base = Array.takeWhile(output.split('/'), (segment) => Glob.escape(segment) === segment).join('/') || '.';
-    const [matched = [], held = []] = getFilesForOutputsBatch(root, [[output, ...negated], [base]]);
-    const tracked = new Set(yield* Effect.promise(() => globWithWorkspaceContext(root, [output, path.join(output, '**')])));
+    const [matched, held] = yield* Effect.all([listed(root, [output, ...negated]), listed(root, [base])]);
     const [removable, kept] = Array.partition(
         matched,
         Result.liftPredicate((at: string) => !tracked.has(at), Function.identity),
@@ -41,7 +39,15 @@ const execute = Effect.fnUntraced(function* ({ targets, commands, cwd, __unparse
         Result.liftPredicate((output: string) => !output.startsWith('!'), Function.identity),
     );
     yield* Effect.forEach(commands, (command) => spawned(Array.appendAll(command, words), { cwd: path.join(context.root, cwd) }), { discard: true });
-    yield* Effect.forEach(outputs, (output) => cleared(context.root, output, negated), { discard: true });
+    const tracked = new Set(
+        yield* Effect.promise(() =>
+            globWithWorkspaceContext(
+                context.root,
+                outputs.flatMap((output) => [output, path.join(output, '**')]),
+            ),
+        ),
+    );
+    yield* Effect.forEach(outputs, (output) => cleared(context.root, output, negated, tracked), { discard: true });
     return { success: true };
 }, run);
 

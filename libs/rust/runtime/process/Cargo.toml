@@ -2,7 +2,7 @@
 
 [package]
 name              = "rasm-process"
-version.workspace = true
+version           = "0.1.0"
 edition.workspace = true
 publish           = false
 description       = "Child process ownership: process groups and job objects that end with their owner, detached service processes, and a run to completion under a deadline, a stop token, and a release grace"

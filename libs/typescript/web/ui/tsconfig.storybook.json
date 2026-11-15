@@ -1,8 +1,10 @@
 {
     "extends": "./tsconfig.json",
     "compilerOptions": {
-        "declaration": false,
+        "composite": false,
+        "declarationMap": false,
         "noEmit": true
     },
-    "include": [ ".storybook/*", "*.stories.ts", "*.stories.tsx" ]
+    "include": [ ".storybook/*", "*.stories.ts", "*.stories.tsx" ],
+    "references": [ { "path": "./tsconfig.lib.json" } ]
 }

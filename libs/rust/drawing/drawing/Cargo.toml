@@ -2,7 +2,7 @@
 
 [package]
 name              = "rasm-drawing"
-version.workspace = true
+version           = "0.1.0"
 edition.workspace = true
 publish           = false
 description       = "Vector drawing model: colors, pens, linetypes, hatches, regions, text, glyph runs, elements, and pages in a stated unit"

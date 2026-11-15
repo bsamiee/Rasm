@@ -87,7 +87,7 @@ const unanswered = (workspace: Graph) =>
 const unread = (workspace: Graph) =>
     declared(workspace)
         .flatMap(({ project, name, task, target }) => Array.fromNullishOr(name.includes('--') ? name.split('--')[0] : undefined).map((verb) => ({ task, target, held: workspace.nodes[project]?.data.targets?.[verb]?.inputs ?? [] })))
-        .filter(({ target, held }) => (target.inputs ?? []).some((input) => !held.some((other) => isDeepStrictEqual(other, input))))
+        .filter(({ target, held }) => (target.inputs ?? []).some((input) => !held.some((other) => isDeepStrictEqual(other, input) || (Predicate.isObject(input) && 'dependentTasksOutputFiles' in input && isDeepStrictEqual(other, { ...input, transitive: true })))))
         .map(({ task }) => task);
 
 const unclean = ({ nodes }: Graph) =>

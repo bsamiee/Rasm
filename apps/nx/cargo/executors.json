@@ -1,24 +1,24 @@
 {
-    "executors": {
-        "cargo": {
-            "implementation": "./dist/executors/cargo/executor#execute",
-            "batchImplementation": "./dist/executors/cargo/executor#batch",
-            "schema": "./executors/cargo/schema.json",
-            "preferBatch": true,
-            "description": "Runs cargo commands from a workspace root, one process per command for every selected package, each task decided by the compiler messages of its own package, or by the exit status where the command prints none"
-        },
-        "nextest": {
-            "implementation": "./dist/executors/nextest/executor#execute",
-            "batchImplementation": "./dist/executors/nextest/executor#batch",
-            "schema": "./executors/nextest/schema.json",
-            "preferBatch": true,
-            "description": "Runs cargo nextest commands from a workspace root, one process per command for every selected package, each task decided by the suite events of its own package and failing where a package that built holds no test"
-        },
-        "release-publish": {
-            "implementation": "./dist/executors/release-publish/executor#execute",
-            "schema": "./executors/release-publish/schema.json",
-            "description": "Publishes a crate with cargo publish where the registry token variable Cargo reads (CARGO_REGISTRY_TOKEN, or CARGO_REGISTRIES_<NAME>_TOKEN for a named registry) is set, and names the variable where it is not, under a dry run with cargo publish --dry-run over the crate and its workspace dependencies; runs through nx release publish",
-            "hidden": true
-        }
+  "executors": {
+    "cargo": {
+      "implementation": "./dist/executors/cargo/executor#execute",
+      "batchImplementation": "./dist/executors/cargo/executor#batch",
+      "schema": "./executors/cargo/schema.json",
+      "preferBatch": true,
+      "description": "Runs cargo commands from a workspace root, one process per command for every selected package, each task decided by the compiler messages of its own package, or by the exit status where the command prints none"
+    },
+    "nextest": {
+      "implementation": "./dist/executors/nextest/executor#execute",
+      "batchImplementation": "./dist/executors/nextest/executor#batch",
+      "schema": "./executors/nextest/schema.json",
+      "preferBatch": true,
+      "description": "Runs cargo nextest commands from a workspace root, one process per command for every selected package, each task decided by the suite events of its own package and failing where a package that built holds no test"
+    },
+    "release-publish": {
+      "implementation": "./dist/executors/release-publish/executor#execute",
+      "schema": "./executors/release-publish/schema.json",
+      "description": "Publishes a crate with cargo publish at the version of the project's tag at the checked-out commit, the tag nx release made from release.releaseTag.pattern, where the registry token variable Cargo reads (CARGO_REGISTRY_TOKEN, or CARGO_REGISTRIES_<NAME>_TOKEN for a named registry) is set and cargo info finds no such version in the registry; names the variable where it is unset, publishes nothing where nx release released no version of the project at that commit or the registry holds it, and under a dry run runs cargo publish --dry-run over the crate and its workspace dependencies whatever the tags; runs through nx release publish",
+      "hidden": true
     }
+  }
 }

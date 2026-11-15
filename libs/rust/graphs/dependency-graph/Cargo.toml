@@ -2,7 +2,7 @@
 
 [package]
 name              = "rasm-dependency-graph"
-version.workspace = true
+version           = "0.1.0"
 edition.workspace = true
 publish           = false
 description       = "Acyclic evaluation graph: dependency order, propagation, cycles, tearing, and critical paths"

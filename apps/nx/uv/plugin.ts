@@ -1,9 +1,10 @@
+import { readdirSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
-import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesContext, type ProjectConfiguration } from '@nx/devkit';
-import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, hashObject, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
+import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesContext, hashArray, type ProjectConfiguration } from '@nx/devkit';
+import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, hashFile, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
 import { Array, Cause, Effect, Option, Record, Result, Schema } from 'effect';
-import { CONFIGS, documents, Linked, manifested, Options, PLUGIN, run, spawned, targets } from '#/targets';
-import { folders, LOCK, located, Metadata, report } from '#/workspace';
+import { ancestors, CONFIGS, documents, Linked, manifested, Options, PLUGIN, run, spawned, targets } from '#/targets';
+import { folders, LOCK, located, MANIFEST, Metadata, report } from '#/workspace';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -11,8 +12,13 @@ type Read = PluginCache<{ readonly digest: string; readonly reply: string }>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const FILES = combineGlobPatterns([LOCK, 'uv.toml', '.python-version', ...CONFIGS].map((file) => `**/${file}`));
-const ROOT = '{workspaceRoot}';
+const READ = [LOCK, MANIFEST, 'uv.toml', '.python-version'];
+const FILES = combineGlobPatterns(Array.dedupe([...READ, ...CONFIGS]).map((file) => `**/${file}`));
+const OWN = hashArray(
+    readdirSync(import.meta.dirname)
+        .toSorted()
+        .flatMap((name) => [name, ...Array.fromNullishOr(hashFile(join(import.meta.dirname, name)))]),
+);
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -22,13 +28,22 @@ const Quoted = Schema.fromJsonString(Schema.String);
 
 const rendered = (cause: Cause.Cause<unknown>) => Effect.fail(new Cause.UnknownError(cause, Cause.pretty(cause)));
 
-const inferred = Effect.fnUntraced(function* (cache: Read, { workspaceRoot }: CreateNodesContext, settings: typeof Options.Type, digest: string, lock: string) {
+const inferred = Effect.fnUntraced(function* (cache: Read, { workspaceRoot }: CreateNodesContext, settings: typeof Options.Type, lock: string) {
+    const token = '{workspaceRoot}';
     const placed = (yield* Schema.encodeEffect(Quoted)(workspaceRoot)).slice(1, -1);
+    const read = Array.cartesianWith([join(dirname(lock), '**'), ...ancestors(dirname(dirname(lock)))], READ, join);
+    const digest = hashArray([yield* Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, read)), OWN]);
     const reply = yield* Option.match(
         Option.filter(Option.fromNullishOr(cache.get(lock)), (held) => held.digest === digest),
         {
-            onSome: (held) => Effect.succeed(held.reply.replaceAll(ROOT, placed)),
-            onNone: () => Effect.tap(spawned(['uv', 'workspace', 'metadata', '--frozen', '--preview-features', 'workspace-metadata', '--quiet'], { cwd: join(workspaceRoot, dirname(lock)) }), (stdout) => Effect.sync(() => cache.set(lock, { digest, reply: stdout.replaceAll(placed, ROOT) }))),
+            onSome: (held) => Effect.succeed(held.reply.replaceAll(token, placed)),
+            onNone: () =>
+                Effect.tap(spawned(['uv', 'workspace', 'metadata', '--frozen', '--preview-features', 'workspace-metadata', '--quiet'], { cwd: join(workspaceRoot, dirname(lock)) }), (stdout) =>
+                    Effect.sync(() => {
+                        cache.set(lock, { digest, reply: stdout.replaceAll(placed, token) });
+                        cache.writeToDisk();
+                    }),
+                ),
         },
     );
     const metadata = yield* Schema.decodeEffect(Metadata)(reply);
@@ -44,7 +59,7 @@ const inferred = Effect.fnUntraced(function* (cache: Read, { workspaceRoot }: Cr
             root: member.root,
             name: member.name,
             metadata: { technologies: ['python'] },
-            ...(member.packaged && { ...(settings.releaseTag !== undefined && { tags: [settings.releaseTag] }), release: { version: { versionActions: `${PLUGIN}/release/version-actions`, versionActionsOptions: { lock } } } }),
+            ...(member.packaged && { tags: ['release'], release: { version: { versionActions: `${PLUGIN}/release/version-actions`, versionActionsOptions: { lock } } } }),
             ...(member.implicit !== undefined && { implicitDependencies: [...member.implicit] }),
             targets: targets(member, settings, stated),
         },
@@ -57,18 +72,17 @@ const inferred = Effect.fnUntraced(function* (cache: Read, { workspaceRoot }: Cr
 const createNodes: CreateNodes<typeof Options.Encoded> = [
     FILES,
     (matched, options, context) => {
-        const cache: Read = new PluginCache(join(workspaceDataDirectory, `uv-${hashObject(options ?? {})}.hash`));
+        const cache: Read = new PluginCache(join(workspaceDataDirectory, 'uv.hash'));
         const locks = matched.filter((file) => basename(file) === LOCK);
         return run(
             Effect.gen(function* () {
                 const settings = yield* Schema.decodeEffect(Options)(options ?? {});
-                const digest = yield* Effect.promise(() => hashWithWorkspaceContext(context.workspaceRoot, [FILES]));
                 (yield* Linked).delete(context.workspaceRoot);
-                const read = Array.zip(locks, yield* Effect.forEach(locks, (lock) => Effect.result(Effect.catchCause(inferred(cache, context, settings, digest, lock), rendered)), { concurrency: 'unbounded' }));
+                const read = Array.zip(locks, yield* Effect.forEach(locks, (lock) => Effect.result(Effect.catchCause(inferred(cache, context, settings, lock), rendered)), { concurrency: 'unbounded' }));
                 const failures = Array.filterMap(read, ([lock, result]) => Result.map(Result.flip(result), (error): [string, Error] => [lock, error]));
                 const results = Array.filterMap(read, ([lock, result]) => Result.map(result, (held) => [lock, held] as const));
                 return yield* failures.length === 0 ? Effect.succeed(results) : Effect.fail(new AggregateCreateNodesError(failures, results));
-            }).pipe(Effect.ensuring(Effect.sync(() => cache.writeToDisk()))),
+            }),
         );
     },
 ];

@@ -1,15 +1,19 @@
+import { findPackageJSON } from 'node:module';
+import { pathToFileURL } from 'node:url';
 import { layer } from '@effect/platform-node/NodeServices';
 import { assert, it } from '@effect/vitest';
 import type { ProjectGraph } from '@nx/devkit';
+import { getReadyCheckReadyWhen } from '@nx/devkit/internal';
 import nxVite from '@nx/vite/package.json' with { type: 'json' };
 import plugin from '@rasm/nx-vite/package.json' with { type: 'json' };
 import { Consumer, kept, Packed } from '@rasm/testing/nx';
-import { Duration, Effect, Formatter, Layer, Path, Predicate, Record, Schema, Struct } from 'effect';
+import { Duration, Effect, FileSystem, Formatter, Layer, Path, Predicate, Record, Schema, Struct } from 'effect';
 import vite from 'vite/package.json' with { type: 'json' };
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const SCHEMA = 'nx/schemas/project-schema.json';
+const REQUIRED = /require\('(?<module>[^']+)'\)/u;
 const UNREAD = /(?:^|[\s"'])-{0,2}version\b|mise\.lock|node_modules|@rasm\/nx-|TOKEN|SECRET|PASSWORD|CREDENTIAL/u;
 const bounds = { built: '5 minutes', test: Duration.toMillis('2 minutes') } as const;
 const html = '<!doctype html><script type="module" src="./main.ts"></script>\n';
@@ -45,22 +49,24 @@ const files = {
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Resolved = Schema.fromJsonString(Schema.Struct({ root: Schema.String, outDir: Schema.String, server: Schema.Finite, preview: Schema.Finite, loaded: Schema.Array(Schema.String) })).annotate({
-    description: 'Fields of the configuration vite resolveConfig returns for one command: root, build.outDir, server.port, preview.port, and the files the config file loaded',
+const Resolved = Schema.fromJsonString(Schema.Struct({ root: Schema.String, outDir: Schema.String, loaded: Schema.Array(Schema.String) })).annotate({
+    description: 'Fields of the configuration vite resolveConfig returns for vite build: root, build.outDir, and the files the config file loaded',
 });
+const Probed = Schema.Struct({ command: Schema.String }).annotate({ description: 'A readyWhen that runs a command until it exits 0' });
+const Named = Schema.fromJsonString(Schema.Struct({ name: Schema.String })).annotate({ description: 'The name field of a package.json' });
 const Names = Schema.fromJsonString(Schema.Array(Schema.String));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const read = Effect.flatMap(Consumer, (consumer) => consumer.read);
 
-const resolved = Effect.fnUntraced(function* (folder: string, command: 'build' | 'serve') {
+const resolved = Effect.fnUntraced(function* (folder: string) {
     const { evaluated } = yield* Consumer;
     const printed = yield* evaluated(
         `import { resolveConfig } from 'vite';
-const { root, build, server, preview, configFileDependencies } = await resolveConfig({ logLevel: 'silent' }, process.argv[1]);
-console.log(JSON.stringify({ root, outDir: build.outDir, server: server.port, preview: preview.port, loaded: configFileDependencies }));`,
-        [command],
+const { root, build, configFileDependencies } = await resolveConfig({ logLevel: 'silent' }, process.argv[1]);
+console.log(JSON.stringify({ root, outDir: build.outDir, loaded: configFileDependencies }));`,
+        ['build'],
         folder,
     );
     return yield* Schema.decodeEffect(Resolved)(printed);
@@ -69,6 +75,14 @@ console.log(JSON.stringify({ root, outDir: build.outDir, server: server.port, pr
 const declared = Effect.fnUntraced(function* (name: string) {
     const { outputs } = yield* Consumer;
     return (yield* outputs(name)).outputPaths;
+});
+
+const checker = Effect.fnUntraced(function* (readyWhen: unknown) {
+    const fs = yield* FileSystem.FileSystem;
+    const { command } = yield* Schema.decodeUnknownEffect(Probed)(readyWhen);
+    const module = yield* Effect.fromNullishOr(REQUIRED.exec(command)?.at(1));
+    const manifest = yield* Effect.fromNullishOr(findPackageJSON(pathToFileURL(module)));
+    return { module, owner: (yield* Effect.flatMap(fs.readFileString(manifest), Schema.decodeEffect(Named))).name };
 });
 
 const tooled = ({ nodes }: Pick<ProjectGraph, 'nodes'>, project: string, verb: string) => Record.filter(nodes[project]?.data.targets ?? {}, (_, name) => name.startsWith(`${verb}--`));
@@ -98,6 +112,7 @@ it.layer(workspace(files), { timeout: bounds.built, excludeTestServices: true })
     const snapshot = 'nrwl/nx packages/vite/src/plugins/__snapshots__/plugin.spec.ts.snap';
     const tasks = 'README.md TASKS';
     const api = 'nrwl/nx packages/nx/src/project-graph/plugins/public-api.ts CreateNodesV2';
+    const check = 'nrwl/nx packages/vite/src/plugins/plugin.ts getServerReadyWhen';
 
     methods.effect(
         'a Vite config beside a package manifest makes its folder a project with a build target the build verb aggregates',
@@ -180,7 +195,7 @@ it.layer(workspace(files), { timeout: bounds.built, excludeTestServices: true })
         'the build outputs of %s are the folder Vite resolves as build.outDir',
         Effect.fnUntraced(function* (project) {
             const [{ root }, path, graph] = yield* Effect.all([Consumer, Path.Path, read]);
-            const { root: folder, outDir } = yield* resolved(graph.nodes[project]?.data.root ?? project, 'build');
+            const { root: folder, outDir } = yield* resolved(graph.nodes[project]?.data.root ?? project);
             assert.deepStrictEqual(
                 yield* declared(task(graph, project, 'build')),
                 [path.relative(root, path.resolve(folder, outDir))],
@@ -191,27 +206,28 @@ it.layer(workspace(files), { timeout: bounds.built, excludeTestServices: true })
     );
 
     methods.effect(
-        'the development server runs continuously and waits on the port Vite resolves',
+        'the development server runs continuously and waits on the address the ready check of @nx/vite resolves when the task runs',
         Effect.fnUntraced(function* () {
-            const [graph, { server }] = yield* Effect.all([read, resolved('apps/web', 'serve')]);
-            const [serve] = Object.values(tooled(graph, 'web', 'serve'));
+            const [serve] = Object.values(tooled(yield* read, 'web', 'serve'));
             assert.isTrue(serve?.continuous, `${snapshot} "not root project > should create nodes 1": the dev server target states continuous true; ${tasks} "serve runs a project's development servers until the run ends"`);
-            assert.deepStrictEqual(serve?.readyWhen, { port: server }, `${SCHEMA} readyWhen.port "Ready when a TCP connection to this port succeeds": the port is server.port of vite resolveConfig`);
+            const { module, owner } = yield* checker(serve?.readyWhen);
+            assert.deepStrictEqual([serve?.readyWhen, owner], [getReadyCheckReadyWhen(module, 'vite.config.ts', 'serve'), nxVite.name], `${check}: the dev server waits on @nx/vite/ready-check, which resolves the config with the task's env and --port`);
         }),
         bounds.test,
     );
 
     methods.effect(
-        'the preview runs continuously after the build and waits on the preview port Vite resolves',
+        'the preview runs continuously after the build and waits on the address the ready check of @nx/vite resolves when the task runs',
         Effect.fnUntraced(function* () {
-            const [graph, { preview: port }] = yield* Effect.all([read, resolved('apps/web', 'serve')]);
+            const graph = yield* read;
             const [preview] = Object.values(tooled(graph, 'web', 'preview'));
             assert.isTrue(preview?.continuous, `${snapshot} "not root project > should create nodes 1": the preview target states continuous true`);
             assert.isTrue(
                 (preview?.dependsOn ?? []).some((row) => Predicate.isString(row) && (row === 'build' || Record.has(tooled(graph, 'web', 'build'), row))),
                 `${tasks} "preview builds a project, then serves its build output as serve does"; ${snapshot}: preview depends on the build target`,
             );
-            assert.deepStrictEqual(preview?.readyWhen, { port }, `${SCHEMA} readyWhen.port: the port is preview.port of vite resolveConfig`);
+            const { module, owner } = yield* checker(preview?.readyWhen);
+            assert.deepStrictEqual([preview?.readyWhen, owner], [getReadyCheckReadyWhen(module, 'vite.config.ts', 'preview'), nxVite.name], `${check}: the preview waits on @nx/vite/ready-check for vite preview`);
         }),
         bounds.test,
     );
@@ -234,7 +250,7 @@ it.layer(workspace(files), { timeout: bounds.built, excludeTestServices: true })
         'every file the config file loads is an input of the build',
         Effect.fnUntraced(function* () {
             const [{ inputs, root }, path, graph] = yield* Effect.all([Consumer, Path.Path, read]);
-            const { loaded } = yield* resolved('libs/kit', 'build');
+            const { loaded } = yield* resolved('libs/kit');
             assert.includeMembers(
                 [...(yield* inputs(task(graph, 'kit', 'build'))).files],
                 loaded.map((file) => path.relative(root, file)),
@@ -328,7 +344,7 @@ it.layer(workspace(files), { timeout: bounds.built, excludeTestServices: true })
         Effect.fnUntraced(function* () {
             const [{ root, wrote }, path, graph] = yield* Effect.all([Consumer, Path.Path, read]);
             yield* wrote({ 'tools/vite/base.ts': base('emitted') });
-            const { root: folder, outDir } = yield* resolved('libs/kit', 'build');
+            const { root: folder, outDir } = yield* resolved('libs/kit');
             assert.deepStrictEqual(yield* declared(task(graph, 'kit', 'build')), [path.relative(root, path.resolve(folder, outDir))], 'nrwl/nx packages/nx/src/project-graph/nx-deps-cache.spec.ts: a changed file invalidates what was computed from it');
         }),
         bounds.test,

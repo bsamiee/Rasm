@@ -1,10 +1,10 @@
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { parse } from '@decimalturn/toml-patch';
 import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
 import { readJsonFile, type TargetConfiguration } from '@nx/devkit';
 import type { PackageJson } from '@nx/devkit/internal';
-import { Array, Cause, Context, Effect, FileSystem, Layer, ManagedRuntime, Option, Predicate, Record, Result, Schema, type Scope, Stream, String, UndefinedOr } from 'effect';
-import { Toml } from 'effect/encoding';
+import { Array, Cause, Context, Effect, Equivalence, FileSystem, Layer, ManagedRuntime, Option, Predicate, Record, Result, Schema, type Scope, Stream, String, UndefinedOr } from 'effect';
 import { ChildProcess, CommandLine } from 'effect/process';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -12,6 +12,7 @@ import { ChildProcess, CommandLine } from 'effect/process';
 type Reading = Effect.Success<ReturnType<typeof read>>;
 type Workspace = ReturnType<typeof resolved>;
 type Member = Workspace['members'][number];
+type Target = typeof Target.Type;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -19,6 +20,9 @@ const MANIFEST = 'Cargo.toml';
 const LOCK = 'Cargo.lock';
 const CRATE = 'nx_cargo';
 const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#package'))).name;
+const CONFIG = ['.cargo/config.toml', '.cargo/config', 'rust-toolchain.toml', 'rust-toolchain'] as const;
+const CLIPPY = ['clippy.toml', '.clippy.toml'] as const;
+const NEXTEST = '.config/nextest.toml';
 const DENY = Record.map({ config: 'deny', exceptions: 'deny.exceptions' }, (stem) => [`${stem}.toml`, `.${stem}.toml`, `.cargo/${stem}.toml`]);
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -43,6 +47,7 @@ const Metadata = Schema.fromJsonString(
         metadata: Schema.NullOr(Schema.Struct({ dylint: Schema.optionalKey(Schema.Struct({ libraries: Schema.Array(Schema.Struct({ path: Schema.optionalKey(Schema.String) })) })) })),
     }),
 );
+const Crate = Schema.Struct({ root: Schema.String, name: Schema.String }).annotate({ description: 'Workspace crate by its folder, relative to the Nx workspace root, and package name' });
 const Table = Schema.Record(Schema.String, Schema.Unknown);
 const Profiles = Schema.Struct({ profile: Schema.Record(Schema.String, Schema.Struct({ inherits: Schema.optionalKey(Schema.String), panic: Schema.optionalKey(Schema.String) })).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))) });
 const Input = Schema.declare((input: unknown): input is NonNullable<TargetConfiguration['inputs']>[number] => Predicate.isString(input) || Predicate.isObject(input));
@@ -58,6 +63,14 @@ class Links extends Context.Service<Links, Map<string, Member>>()(`${PLUGIN}/wor
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+const own = ({ kind, crate_types }: Target) => Array.makeEquivalence(Equivalence.String)(kind, crate_types);
+
+const binary = ({ kind }: Target) => kind.includes('bin');
+
+const library = (candidate: Target) => own(candidate) && !binary(candidate);
+
+const tokened = (file: string) => join('{workspaceRoot}', file);
+
 const rendered = (cause: Cause.Cause<unknown>) => Effect.fail(new Cause.UnknownError(cause, Cause.pretty(cause)));
 
 const spawned = Effect.fnUntraced(function* (argv: Array.NonEmptyReadonlyArray<string>, options: ChildProcess.CommandOptions = {}) {
@@ -69,7 +82,7 @@ const spawned = Effect.fnUntraced(function* (argv: Array.NonEmptyReadonlyArray<s
 const manifested = Effect.fnUntraced(function* (workspaceRoot: string, root: string) {
     const fs = yield* FileSystem.FileSystem;
     const manifest = join(workspaceRoot, root, 'package.json');
-    return (yield* fs.exists(manifest)) ? ((yield* Effect.flatMap(fs.readFileString(manifest), Schema.decodeEffect(Overrides))).nx?.targets ?? {}) : {};
+    return (yield* fs.exists(manifest)) ? Option.some((yield* Effect.flatMap(fs.readFileString(manifest), Schema.decodeEffect(Overrides))).nx?.targets ?? {}) : Option.none();
 });
 
 const ancestors = (folder: string): readonly string[] =>
@@ -82,8 +95,8 @@ const nearest = (files: ReadonlySet<string>, folder: string, names: readonly str
 
 const toml = <S extends Schema.Decoder<unknown>>(schema: S, file: string) =>
     FileSystem.FileSystem.pipe(
-        Effect.flatMap((fs) => fs.readFileString(file)),
-        Effect.flatMap((text) => Effect.mapError(Effect.fromResult(Toml.parse(text)), (cause) => new Cause.UnknownError(cause, `${file} does not read as TOML`))),
+        Effect.flatMap((fs) => fs.readFile(file)),
+        Effect.flatMap((bytes) => Effect.try({ try: (): unknown => parse(bytes), catch: (cause) => new Cause.UnknownError(cause, `${file} does not read as TOML`) })),
         Effect.flatMap(Schema.decodeUnknownEffect(schema)),
     );
 
@@ -119,21 +132,47 @@ const moved = ({ metadata, ...reading }: Reading, to: (at: string) => string): R
 
 const placed = (workspaceRoot: string) => ({ stored: (reading: Reading) => moved(reading, (at) => relative(workspaceRoot, at)), loaded: (reading: Reading) => moved(reading, (at) => resolve(workspaceRoot, at)) });
 
-const resolved = (workspaceRoot: string, { metadata, profile, uplifted, deny }: Reading) => {
+const resolved = (workspaceRoot: string, { metadata, profile, uplifted, deny }: Reading, files: ReadonlySet<string>) => {
     const within = (at: string) => relative(workspaceRoot, at) || '.';
     const inside = (at: string) => Option.liftPredicate(within(at), (folder) => !(folder.startsWith('..') || isAbsolute(folder)));
     const root = within(metadata.workspace_root);
     const profiles = Record.keys(Record.filter(profile, ({ inherits }) => inherits !== undefined));
     const strategy = (name: string): string => profile[name]?.panic ?? UndefinedOr.match(profile[name]?.inherits, { onUndefined: () => 'unwind', onDefined: strategy });
+    const crates = metadata.packages.map((crate) => ({ crate, root: within(dirname(crate.manifest_path)), manifest: within(crate.manifest_path), versioned: crate.version !== '0.0.0' || crate.publish === null }));
+    const reached = (names: ReadonlySet<string>): ReadonlySet<string> => {
+        const next = names.union(new Set(crates.filter(({ crate }) => names.has(crate.name)).flatMap(({ crate }) => crate.dependencies.filter(({ path: to }) => to !== undefined).map(({ name }) => name))));
+        return next.size === names.size ? names : reached(next);
+    };
     return {
         root,
-        members: metadata.packages.map((crate) => ({ crate, root: within(dirname(crate.manifest_path)), manifest: within(crate.manifest_path), versioned: crate.version !== '0.0.0' || crate.publish === null })),
-        libraries: Array.getSomes((metadata.metadata?.dylint?.libraries ?? []).map(({ path: at }) => Option.map(Option.fromUndefinedOr(at), (folder) => join(root, folder)))),
+        members: crates.map((member) => {
+            const needed = reached(new Set([member.crate.name]));
+            return {
+                ...member,
+                packages: crates.filter((other) => other.crate.name !== member.crate.name && needed.has(other.crate.name)).map((other) => ({ root: other.root, name: other.crate.name })),
+                linted: Option.toArray(nearest(files, member.root, CLIPPY)).map(tokened),
+            };
+        }),
+        libraries: Array.getSomes((metadata.metadata?.dylint?.libraries ?? []).map(({ path: at }) => Option.map(Option.fromUndefinedOr(at), (folder) => join(root, folder)))).flatMap((folder) => {
+            const [sources, others] = Array.partition(
+                crates.filter((member) => member.root === folder).flatMap(({ crate }) => crate.targets.map((target) => [target, join(folder, relative(dirname(crate.manifest_path), dirname(target.src_path)))] as const)),
+                ([target, at]) => (library(target) ? Result.succeed(at) : Result.fail(at)),
+            );
+            const found = Array.dedupe(sources);
+            const included = Array.isReadonlyArrayNonEmpty(found) ? found : [folder];
+            const excluded = Array.difference(Array.dedupe([...others, ...crates.map((member) => member.root).filter((nested) => nested.startsWith(`${folder}/`))]), included);
+            return [...included.map((at) => tokened(join(at, '**/*'))), ...excluded.map((at) => `!${tokened(join(at, '**/*'))}`)];
+        }),
+        configs: ancestors(root)
+            .flatMap((at) => CONFIG.map((name) => join(at, name)))
+            .filter((file) => files.has(file))
+            .map(tokened),
+        nextest: Option.liftPredicate(join(root, NEXTEST), (file) => files.has(file)),
         profiles,
         strategies: Array.dedupeWith(['release', ...profiles], (left, right) => strategy(left) === strategy(right)).filter((name) => strategy(name) !== strategy('dev')),
         deny: Array.head(deny),
         placed: inside(metadata.target_directory),
-        uplifted: (target: typeof Target.Type) => Array.getSomes(target.crate_types.map((type) => Option.map(Record.get(uplifted, type), (file) => file.replace(CRATE, target.name)))),
+        uplifted: (target: Target) => Array.getSomes(target.crate_types.map((type) => Option.map(Record.get(uplifted, type), (file) => file.replace(CRATE, target.name)))),
     };
 };
 
@@ -155,4 +194,4 @@ const run = <A, E>(effect: Effect.Effect<A, E, Links | NodeServices | Scope.Scop
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { ancestors, Links, LOCK, MANIFEST, type Member, Metadata, manifested, PLUGIN, placed, type Reading, resolved, run, spawned, type Workspace, workspaces };
+export { binary, CLIPPY, CONFIG, Crate, DENY, Links, LOCK, library, MANIFEST, type Member, manifested, NEXTEST, own, PLUGIN, placed, type Reading, resolved, run, spawned, type Target, tokened, type Workspace, workspaces };

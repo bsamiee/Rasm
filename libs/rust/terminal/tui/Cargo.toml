@@ -2,7 +2,7 @@
 
 [package]
 name              = "rasm-tui"
-version.workspace = true
+version           = "0.1.0"
 edition.workspace = true
 publish           = false
 description       = "Terminal user interface session with suspend, keymap rows, and a log pane"

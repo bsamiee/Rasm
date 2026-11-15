@@ -1,7 +1,28 @@
 {
     "extends": "../../../../../libs/typescript/creative-cloud/indesign/tsconfig.json",
     "compilerOptions": {
-        "declaration": false,
+        "composite": false,
+        "declarationMap": false,
         "noEmit": true
-    }
+    },
+    "references": [
+        {
+            "path": "../../../../../libs/typescript/creative-cloud/uxp"
+        },
+        {
+            "path": "../../../../../libs/typescript/graphics/typography"
+        },
+        {
+            "path": "../../../../../libs/typescript/data/search"
+        },
+        {
+            "path": "../../../../../libs/typescript/creative-cloud/indesign"
+        },
+        {
+            "path": "../../../../../libs/typescript/creative-cloud/automation"
+        },
+        {
+            "path": "../../protocol"
+        }
+    ]
 }

@@ -2,7 +2,7 @@
 
 [package]
 name              = "rasm-ifc"
-version.workspace = true
+version           = "0.1.0"
 edition.workspace = true
 publish           = false
 description       = "IFC5 models: IFCX layers and imports, composition, schema validation, spatial and systems graphs, alignments, geometry, and BCF viewpoint presentation"

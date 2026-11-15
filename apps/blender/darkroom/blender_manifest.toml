@@ -22,4 +22,4 @@ clipboard = "Copies and pastes setting values between scenes and files"
 # --- [BUILD] ----------------------------------------------------------------------------
 
 [build]
-paths_exclude_pattern = ["__pycache__/", ".*", "/*.zip", "*.blend[1-9]", "/pyproject.toml", "/uv.lock"] # Blender defaults, then the uv project files beside the extension
+paths_exclude_pattern = ["__pycache__/", ".*", "/*.zip", "*.blend[1-9]", "/pyproject.toml", "/uv.lock", "/mise.toml"] # Blender defaults, then the uv project and mise files beside the extension

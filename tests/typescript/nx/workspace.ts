@@ -1,8 +1,10 @@
 import { fileURLToPath } from 'node:url';
 import { type TargetConfiguration, workspaceRoot } from '@nx/devkit';
+import type { ExitError } from '@rasm/process';
 import { environment, exited, type Graph, rows } from '@rasm/testing/nx';
 import { Reading } from '@rasm/testing/reading';
-import { Array, Effect, FileSystem, Formatter, Option, Record, Schema } from 'effect';
+import { Array, Effect, FileSystem, Formatter, Option, type PlatformError, Record, Schema } from 'effect';
+import type { ChildProcessSpawner } from 'effect/process';
 import { readNxJson } from 'nx/src/config/nx-json';
 import { createTaskId } from 'nx/src/tasks-runner/utils';
 import { inject } from 'vitest';
@@ -53,7 +55,12 @@ const plugins = rows(readNxJson(workspaceRoot));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const called = (data: string, argv: Array.NonEmptyReadonlyArray<string>, set: Record.ReadonlyRecord<string, string> = {}) => exited(argv, { cwd: workspaceRoot, extendEnv: false, env: environment(workspaceRoot, { NX_WORKSPACE_DATA_DIRECTORY: data, ...set }) });
+const called = (
+    data: string,
+    argv: Array.NonEmptyReadonlyArray<string>,
+    set: Record.ReadonlyRecord<string, string> = {},
+): Effect.Effect<{ readonly code: number; readonly stdout: string; readonly stderr: string; readonly checked: Effect.Effect<string, ExitError> }, PlatformError.PlatformError, ChildProcessSpawner.ChildProcessSpawner> =>
+    exited(argv, { cwd: workspaceRoot, extendEnv: false, env: environment(workspaceRoot, { NX_WORKSPACE_DATA_DIRECTORY: data, ...set }) });
 
 const nx = (args: readonly string[], set: Record.ReadonlyRecord<string, string> = {}) => called(inject('readings').data, ['nx', ...args], set);
 

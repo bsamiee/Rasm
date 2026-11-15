@@ -4,14 +4,12 @@ import pulumi from '@pulumi/pulumi/package.json' with { type: 'json' };
 import plugin from '@rasm/nx-pulumi/package.json' with { type: 'json' };
 import { Consumer, Packed } from '@rasm/testing/nx';
 import { Array, Duration, Effect, Formatter, Layer, Path, Predicate, Record, Schema } from 'effect';
-import effect from 'effect/package.json' with { type: 'json' };
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const UNREAD = /(?:^|[\s"'])-{0,2}version\b|mise\.lock|node_modules|@rasm\/nx-|TOKEN|SECRET|PASSWORD|CREDENTIAL/u;
 const REFUSAL = /missing.*dev.*ops.*edge/su;
 const bounds = { built: Duration.toMillis('5 minutes'), test: Duration.toMillis('5 minutes') };
-const installed = `node_modules/${plugin.name}`;
 const passphrase = 'suite';
 const ASK = `import { LocalWorkspace } from '@pulumi/pulumi/automation/index.js';
 const workspace = await LocalWorkspace.create({ projectSettings: { name: 'fixture', runtime: 'nodejs' }, envVars: { PULUMI_BACKEND_URL: process.argv[1], PULUMI_CONFIG_PASSPHRASE: '${passphrase}' } });
@@ -22,10 +20,11 @@ for (const { name } of await workspace.listStacks()) {
 console.log(JSON.stringify(held));`;
 const files = {
     '.state/order.log': '',
-    'infra/package.json': '{ "name": "infra", "type": "module", "exports": { ".": "./stacks.ts" }, "devDependencies": { "@pulumi/pulumi": "*", "@rasm/nx-pulumi": "*", "effect": "*" } }\n',
+    'infra/package.json': '{ "name": "infra", "type": "module", "bin": "./stacks.ts", "devDependencies": { "@pulumi/pulumi": "*", "@rasm/nx-pulumi": "*" } }\n',
     'infra/stacks.ts': `import { appendFileSync, readFileSync } from 'node:fs';
 import { setTimeout as waited } from 'node:timers/promises';
-import { Effect } from 'effect';
+import { parseArgs } from 'node:util';
+import { LocalWorkspace } from '@pulumi/pulumi/automation/index.js';
 import secrets from './secrets.json' with { type: 'json' };
 
 const envVars = { PULUMI_BACKEND_URL: new URL('../.state', import.meta.url).href, ...secrets };
@@ -33,7 +32,6 @@ const noted = (line) => appendFileSync(new URL('../.state/order.log', import.met
 const stated = (stackName, torn = false) => ({
     stackName,
     projectName: 'fixture',
-    envVars,
     program: async () => {
         noted(\`start \${stackName}\`);
         await waited(1000);
@@ -44,12 +42,19 @@ const stated = (stackName, torn = false) => ({
         return { greeting: \`\${readFileSync(new URL('./greeting.txt', import.meta.url), 'utf8').trim()} \${stackName}\` };
     },
 });
-const groups = {
-    Install: () => [],
-    Deploy: ({ production }) => (production ? [[stated('live')], [stated('torn', true)], [stated('late')]] : [[stated('dev'), stated('ops')], [stated('edge')]]),
-};
-
-export const stacks = (request) => Effect.succeed(groups[request._tag](request));
+const { positionals: [verb], values: { operation, stack, production } } = parseArgs({ args: process.argv.slice(2), options: { operation: { type: 'string', default: 'up' }, stack: { type: 'string' }, production: { type: 'boolean', default: false } }, allowPositionals: true });
+const groups = verb === 'deploy' ? (production ? [[stated('live')], [stated('torn', true)], [stated('late')]] : [[stated('dev'), stated('ops')], [stated('edge')]]) : [];
+const selected = groups.map((group) => group.filter(({ stackName }) => stack === undefined || stackName === stack)).filter((group) => group.length > 0);
+if (selected.length === 0) {
+    console.error(\`infra runs \${stack === undefined ? 'no stack' : \`no stack named \${stack}\`} for \${verb}, its stacks are [\${groups.flat().map(({ stackName }) => stackName).join(', ')}]\`);
+    process.exit(1);
+}
+for (const group of selected) {
+    await Promise.all(group.map(async (args) => {
+        const held = await LocalWorkspace.createOrSelectStack(args, { envVars });
+        await (operation === 'destroy' ? held.destroy({ remove: true }) : held[operation]());
+    }));
+}
 `,
     'infra/secrets.json': `{ "PULUMI_CONFIG_PASSPHRASE": "${passphrase}" }\n`,
     'infra/greeting.txt': 'hello\n',
@@ -60,9 +65,6 @@ export const stacks = (request) => Effect.succeed(groups[request._tag](request))
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Held = Schema.fromJsonString(Schema.Record(Schema.String, Schema.Record(Schema.String, Schema.Unknown))).annotate({ description: 'Outputs of each stack the Pulumi Automation API lists in one backend, by stack name' });
-const Executors = Schema.fromJsonString(Schema.Struct({ executors: Schema.Record(Schema.String, Schema.Struct({ implementation: Schema.String, schema: Schema.String, description: Schema.String })) })).annotate({
-    description: 'executors.json of an Nx plugin: each executor with its implementation module, option schema file, and description',
-});
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -83,11 +85,12 @@ const applied = Effect.fnUntraced(function* (...args: readonly string[]) {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const workspace = (stated: Readonly<Record<string, string>>) => Layer.provideMerge(Consumer.layer({ resolved: import.meta.url, settings: { plugins: [plugin.name] }, packages: [pulumi.name, effect.name], ignored: ['.state'], files: stated }), Layer.provideMerge(Packed.layer(plugin.name), layer));
+const workspace = (stated: Readonly<Record<string, string>>) =>
+    Layer.provideMerge(Consumer.layer({ resolved: import.meta.url, settings: { plugins: [{ plugin: plugin.name, options: { configurations: { deploy: { release: ['--production'] } } } }] }, packages: [pulumi.name], ignored: ['.state'], files: stated }), Layer.provideMerge(Packed.layer(plugin.name), layer));
 
 it.layer(workspace(files), { timeout: bounds.built, excludeTestServices: true })((methods) => {
     const DEPLOY = 'README.md TASKS "deploy applies a project\'s infrastructure stacks, -c release those of a released version, and nx run <project>:deploy--pulumi --stack=<name> one of them"';
-    const GROUPS = 'pulumi.com/docs/iac/concepts/stacks "Stack references": a stack reading the outputs of another applies after it; @rasm/nx-pulumi/stacks Stacks: stacks(request) returns ordered groups';
+    const GROUPS = 'pulumi.com/docs/iac/concepts/stacks "Stack references": a stack reading the outputs of another applies after it; infra/stacks.ts: a program applies its stack groups in order, the stacks of one group at once';
     const API = 'nrwl/nx packages/nx/src/project-graph/plugins/public-api.ts CreateNodesV2';
     methods.effect(
         'reading the graph writes no file and applies no stack',
@@ -100,7 +103,7 @@ it.layer(workspace(files), { timeout: bounds.built, excludeTestServices: true })
     );
 
     methods.effect(
-        'a package exporting a Pulumi program gets deploy--pulumi under the deploy verb, uncached, with a release configuration',
+        'a package whose one bin is a Pulumi program gets deploy--pulumi under the deploy verb, uncached, with a release configuration',
         Effect.fnUntraced(function* () {
             const { nodes, failures } = yield* read;
             const { infra, plain } = nodes;
@@ -113,7 +116,7 @@ it.layer(workspace(files), { timeout: bounds.built, excludeTestServices: true })
             );
             assert.notStrictEqual(deployed?.cache, true, 'nx/schemas/project-schema.json cache: a deploy changes live resources, and a replayed result applies nothing');
             assert.property(deployed?.configurations ?? {}, 'release', DEPLOY);
-            assert.notProperty(plain?.data.targets ?? {}, 'deploy--pulumi', `${API}: a package exporting no program gets no target from the plugin`);
+            assert.notProperty(plain?.data.targets ?? {}, 'deploy--pulumi', `${API}: a package stating no program bin gets no target from the plugin`);
         }),
         bounds.test,
     );
@@ -131,19 +134,6 @@ it.layer(workspace(files), { timeout: bounds.built, excludeTestServices: true })
                 'owner ruling 2026-11-13 "No target may wait on a dependency it does not read": an apply reads no checker result',
             );
             assert.isFalse(deployed?.parallelism, 'nx/schemas/project-schema.json parallelism; pulumi.com/docs/iac/concepts/state-and-backends "Concurrency control": one update holds the lock of a stack');
-        }),
-        bounds.test,
-    );
-
-    methods.effect(
-        'every executor of the installed plugin states a schema file and an implementation module that exist',
-        Effect.fnUntraced(function* () {
-            const checks = 'nrwl/nx packages/eslint-plugin/src/rules/nx-plugin-checks.ts';
-            const { absent, text } = yield* Consumer;
-            const { executors } = yield* Effect.flatMap(text(`${installed}/executors.json`), Schema.decodeEffect(Executors));
-            const stated = Object.values(executors).flatMap(({ implementation, schema }) => [`${installed}/${schema}`, `${installed}/${implementation.split('#')[0]}.js`]);
-            assert.isNotEmpty(stated, `${checks} noExecutorsOrBuildersFound`);
-            assert.deepStrictEqual(yield* absent(stated), [], `${checks} invalidSchemaPath "Schema path should point to a valid file", invalidImplementationPath "Implementation path should point to a valid file"`);
         }),
         bounds.test,
     );

@@ -21,29 +21,35 @@ use_versions_host_track             = false
 # --- [ENV] ------------------------------------------------------------------------------
 
 [env]
-_.path                                        = ["./node_modules/.bin", "{{ xdg_config_home }}/swiftpm/bin"]
+_.path                                        = ["./node_modules/.bin", "{{ xdg_config_home }}/swiftpm/bin", "{{ get_env(name='HOME', default='') }}/Library/Application Support/McNeel/Rhinoceros/ai/bin"]
 CARGO_LLVM_COV_DENY_WARNINGS                  = "1"
 CF_QUIET                                      = "1"
 CLOUDFLARE_DEV_REGISTRY_PATH                  = "{{config_root}}/.cache/cloudflare/registry"
+COLIMA_HOME                                   = "{{ get_env(name='HOME', default='') }}/.colima"
+DOCKER_HOST                                   = '{% if os() == "macos" %}unix://{{ env.COLIMA_HOME }}/default/docker.sock{% endif %}'
 DOPPLER_CONFIG                                = "dev"
 DOPPLER_PROJECT                               = "rasm"
 DOTNET_NOLOGO                                 = "1"
 DOTNET_ROLL_FORWARD                           = "Major"
 FOUNDRY_CACHE_DIR                             = "{{config_root}}/.cache/foundry"
 FOUNDRY_LOG_DIR                               = "{{config_root}}/.artifacts/logs"
-FUNCTION_HOOKS_QUESTION_GATE                  = "true"                                                                                                                                                                                                                                                                                                                  # Trial from 2026-11-14, judged 2026-11-21 on `Question waited` notes in session transcripts (count, seconds, holds the owner wanted sooner), "false" ends it
+FUNCTION_HOOKS_QUESTION_GATE                  = "true"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           # Trial from 2026-11-14, judged 2026-11-21 on `Question waited` notes in session transcripts (count, seconds, holds the owner wanted sooner), "false" ends it
 GHIDRA_CLASSPATH                              = { tools = true, value = '''{% set ghidra = tools["github:NationalSecurityAgency/ghidra"]?.path %}{% if ghidra %}{{ exec(command="fd --type f --full-path --glob '**/lib/*.jar' --absolute-path '" ~ ghidra ~ "/Ghidra' | paste -sd: -", cache_key="ghidra-classpath-" ~ ghidra, cache_duration="1d") }}{% endif %}''' }
 GHIDRA_INSTALL_DIR                            = { tools = true, value = '{{ tools["github:NationalSecurityAgency/ghidra"]?.path or "" }}' }
 GHIDRA_JAVA_OPTIONS                           = "-Dapplication.settingsdir={{config_root}}/.cache/ghidra/settings -Dapplication.cachedir={{config_root}}/.cache/ghidra/cache -Dapplication.tempdir={{config_root}}/.cache/ghidra/tmp"
+GHIDRA_PROJECT_DIR                            = '{% if os() == "macos" %}{{ env.HOME }}/Library/Caches{% elif os() == "windows" %}{{ env.LOCALAPPDATA }}{% else %}/var/tmp/{{ env.HOME | basename }}{% endif %}/rasm/ghidra/projects'
 HK_CACHE_DIR                                  = "{{config_root}}/.cache/hk"
 HK_MISE                                       = "1"
 HK_PKL_CACHE_DIR                              = "{{config_root}}/.cache/pklr"
 HYPOTHESIS_STORAGE_DIRECTORY                  = "{{config_root}}/.cache/hypothesis"
 JAVAC_PLUGINS                                 = { tools = true, value = '{% for jar in ["dataflow-errorprone", "dataflow-nullaway", "error-prone", "jspecify", "nullaway"] %}{% set tool = tools["http:" ~ jar]?.path %}{% if tool %}{{ tool }}/{{ jar }}.jar{% if not loop.last %}:{% endif %}{% endif %}{% endfor %}' }
 NODE_COMPILE_CACHE                            = "{{config_root}}/.cache/node"
-NX_ISOLATE_PLUGINS                            = "false"                                                                                                                                                                                                                                                                                                                 # In-process plugins load faster than plugin workers while the daemon is off
+NX_PARALLEL                                   = "100%"
+NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN      = { default = '''{% if env?.CI != "true" %}{{ exec(command="doppler secrets get NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN --plain 2>/dev/null || true", cache_duration="15m") }}{% endif %}''', redact = true, tools = true }
+NX_SELF_HOSTED_REMOTE_CACHE_SERVER            = { tools = true, value = '''{{ exec(command=`server="${NX_SELF_HOSTED_REMOTE_CACHE_SERVER:-$(doppler secrets get NX_SELF_HOSTED_REMOTE_CACHE_SERVER --plain 2>/dev/null)}" pkl eval --timeout 5 --http-header "**=Authorization: Bearer ${NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN:-}" -x 'let (server = read?("env:server") ?? "") if (server.isEmpty || read?(server + "/v1/cache/0") is Resource?) server else ""' pkl:base 2>/dev/null || echo "::warning title=Nx remote cache::The cache server refused a read or gave no answer, Nx uses the local cache alone" >&2`, cache_key="nx-remote-cache-" ~ (env?.NX_SELF_HOSTED_REMOTE_CACHE_SERVER or "doppler"), cache_duration="15m") }}''' }
 NX_WORKSPACE_DATA_DIRECTORY                   = "{{config_root}}/.cache/nx/workspace-data"
-PLAYWRIGHT_CLI_SESSION                        = "{{ get_env(name='CLAUDE_CODE_SESSION_ID', default=get_env(name='CODEX_THREAD_ID', default=get_env(name='ANTIGRAVITY_CONVERSATION_ID', default=''))) }}"
+PITCHFORK_SUPERVISOR_AUTO_START               = "false"
+PLAYWRIGHT_CLI_SESSION                        = "{{ env?.CLAUDE_CODE_SESSION_ID or env?.CODEX_THREAD_ID or env?.ANTIGRAVITY_CONVERSATION_ID or '' }}"
 PLAYWRIGHT_MCP_ALLOW_UNRESTRICTED_FILE_ACCESS = "true"
 PLAYWRIGHT_MCP_BACKGROUND                     = "1"
 PLAYWRIGHT_MCP_BROWSER                        = "chromium"
@@ -51,54 +57,85 @@ PLAYWRIGHT_MCP_FILE_PATHS                     = "absolute"
 PLAYWRIGHT_MCP_IDLE_TIMEOUT                   = "3600000"
 PLAYWRIGHT_MCP_OUTPUT_DIR                     = "{{config_root}}/.artifacts/playwright/cli"
 PLAYWRIGHT_MCP_OUTPUT_MAX_SIZE                = "268435456"
+PLAYWRIGHT_MCP_USER_AGENT                     = '''{% set browsers = config_root ~ "/node_modules/@playwright/test/../../playwright/../playwright-core/browsers.json" %}{% if browsers is file %}Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{{ [browser.browserVersion for browser in read_json(path=browsers)["browsers"] if browser.name == "chromium"] | first | split(pat=".") | first }}.0.0.0 Safari/537.36{% endif %}'''
 PLAYWRIGHT_TRANSFORM_CACHE_DIR                = "{{config_root}}/.cache/playwright/transform"
 PULUMI_HOME                                   = "{{config_root}}/.cache/pulumi"
 PYTEST_CACHE_DIR                              = "{{config_root}}/.cache/pytest"
 RUSTUP_AUTO_INSTALL                           = "0"
 RUSTUP_TOOLCHAIN                              = false
 SHELLCHECK_OPTS                               = "--rcfile={{config_root}}/.config/shellcheckrc"
+TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE         = '{% if os() == "windows" %}/{% endif %}/var/run/docker.sock'
 TOMBI_CACHE_HOME                              = "{{config_root}}/.cache/tombi"
 TY_UV                                         = "1"
+UV_CACHE_DIR                                  = "{{config_root}}/.cache/uv"
+UV_PREVIEW_FEATURES                           = "lockfile-format-check,minimum-libc-version"
+UV_PYTHON_PREFERENCE                          = "only-managed"
 VCPKG_BINARY_SOURCES                          = "clear;files,{{config_root}}/.cache/vcpkg/archives,readwrite"
 VCPKG_DISABLE_METRICS                         = "1"
 VCPKG_DOWNLOADS                               = "{{config_root}}/.cache/vcpkg/downloads"
 VCPKG_FORCE_SYSTEM_BINARIES                   = "1"
 VCPKG_ROOT                                    = { tools = true, value = '{{ tools["github:microsoft/vcpkg-tool"]?.path or "" }}' }
 WATCH_APPS_LOG_DIR                            = "{{config_root}}/.artifacts/logs"
-WATCH_APPS_SESSION                            = "{{ get_env(name='CLAUDE_CODE_SESSION_ID', default=get_env(name='CODEX_THREAD_ID', default=get_env(name='ANTIGRAVITY_CONVERSATION_ID', default=''))) }}"
-X_VCPKG_REGISTRIES_CACHE                      = '''{{ exec(command="mkdir -p '" ~ config_root ~ "/.cache/vcpkg/registries' && printf %s '" ~ config_root ~ "/.cache/vcpkg/registries'") }}'''
+WATCH_APPS_SESSION                            = "{{ env.PLAYWRIGHT_CLI_SESSION }}"
+X_VCPKG_REGISTRIES_CACHE                      = "{{config_root}}/.cache/vcpkg/registries"
 
 # --- [DEPS] -----------------------------------------------------------------------------
 
+[deps.pnpm]
+auto = true
+
 [deps.uv]
-run     = "pixi run --locked uv sync --all-packages"
+auto    = true
+run     = "pixi run --locked uv sync --locked --all-packages"
 sources = ["pixi.lock", "pyproject.toml", "uv.lock"]
 
-# --- [HOOKS] ----------------------------------------------------------------------------
+[deps.darkroom]
+auto    = true
+dir     = "apps/blender/darkroom"
+run     = "uv sync --locked"
+sources = ["pyproject.toml", "uv.lock"]
 
-[hooks]
-postinstall = "hk install"
+[deps.blender]
+auto    = true
+dir     = "libs/python/blender"
+run     = "uv sync --locked --all-packages"
+sources = ["pyproject.toml", "uv.lock"]
 
-# --- [TASKS] ----------------------------------------------------------------------------
+# --- [BOOTSTRAP] ------------------------------------------------------------------------
 
-[tasks.bootstrap]
-depends     = ["remote-cache"]
-description = "Check the Nx remote cache, then install pnpm packages"
-run         = "pnpm install"
+[bootstrap.hooks]
+final      = "mise exec -- hk install"
+post-tools = "mise deps pnpm"
 
-[tasks.remote-cache]
-description = "Empty NX_SELF_HOSTED_REMOTE_CACHE_SERVER for the job when the cache server refuses the read Nx sends"
-run         = ['printf "NX_SELF_HOSTED_REMOTE_CACHE_SERVER=\n" >> "$GITHUB_ENV"', 'echo "::warning title=Nx remote cache::The cache server refused a read or gave no answer, this job uses the local cache alone"']
-skip_if     = '''pkl eval --timeout 5 --http-header "**=Authorization: Bearer ${NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN:-}" -x 'let (server = read?("env:NX_SELF_HOSTED_REMOTE_CACHE_SERVER") ?? "") read?("env:GITHUB_ENV") == null || server.isEmpty || read?("\(server)/v1/cache/0") is Resource?' pkl:base'''
+[bootstrap.macos.launchd.agents.pitchfork]
+args                  = ["exec", "--", "pitchfork", "supervisor", "run"]
+keep_alive_on_failure = true
+program               = "{{ mise_bin }}"
+working_directory     = "{{config_root}}"
 
-# --- [TOOLS] ----------------------------------------------------------------------------
+# --- [DAEMONS] --------------------------------------------------------------------------
+
+[daemons_settings]
+namespace = "rasm"
+
+[daemons.docker]
+auto        = ["start", "stop"]
+health_cmd  = { run = ["docker", "version"], interval = "30s", retries = 10 }
+init        = 'mkdir -p "$COLIMA_HOME"'
+logs        = { time_retention = "7d" }
+ready_cmd   = { run = ["docker", "version"], timeout = "5m" }
+retry       = 3
+run         = "exec colima start --foreground --activate=false --ssh-config=false --mount none --port-forwarder grpc --cpus {{ (num_cpus() | int / 2) | int }} --memory 8"
+stop_signal = { signal = "SIGTERM", timeout = "5m" }
+
+# --- [TOOLS]----------------------------------------------------------------------------
 
 [tools]
-"aqua:EmbarkStudios/cargo-deny"                                              = "latest"
 "aqua:nextest-rs/nextest/cargo-nextest"                                      = "latest"
 "aqua:taiki-e/cargo-llvm-cov"                                                = "latest"
 ast-grep                                                                     = "latest"
 carapace                                                                     = "latest"
+cargo-deny                                                                   = "latest"
 cargo-insta                                                                  = "latest"
 "cargo:cargo-edit"                                                           = "latest"
 cmake                                                                        = "latest"
@@ -117,15 +154,17 @@ editorconfig-checker                                                         = "
 fd                                                                           = "latest"
 gh                                                                           = "latest"
 git-lfs                                                                      = "latest"
+"github:BlankSpruce/gersemi"                                                 = "latest"
 "github:docker/buildx"                                                       = { bin = "docker-buildx", os = ["macos", "linux"], postinstall = { run = 'plugins="${DOCKER_CONFIG:-$HOME/.docker}/cli-plugins" && mkdir -p "$plugins" && ln -sf "$MISE_TOOL_INSTALL_PATH/docker-buildx" "$plugins/docker-buildx"', when = "always" }, version = "latest" }
 "github:fonttools/fontspector"                                               = { version = "latest", version_prefix = "fontspector-v" }
 "github:harehare/mq"                                                         = "latest"
 "github:kucherenko/jscpd"                                                    = "latest"
 "github:linebender/resvg"                                                    = { matching = "usvg", version = "latest" }
 "github:sbdchd/squawk"                                                       = "latest"
+"github:sparkle-project/Sparkle"                                             = { os = ["macos"], version = "latest" }
 google-java-format                                                           = "latest"
 "github:trailofbits/dylint"                                                  = { matching = "cargo-dylint-", os = ["linux", "macos/arm64"], version = "latest" }
-hk                                                                           = { version = "latest", workflow = "release.yml" }
+hk                                                                           = "latest"
 hyperfine                                                                    = "latest"
 imagemagick                                                                  = "latest"
 jactionlint                                                                  = "latest"
@@ -162,20 +201,8 @@ bin           = "pkl-vscode.vsix"
 format        = "raw"
 version       = "latest"
 
-[tools."github:BlankSpruce/gersemi"]
-bin     = "gersemi"
-format  = "raw"
-version = "latest"
-
-[tools."github:BlankSpruce/gersemi".platforms]
-linux-arm64 = { asset_pattern = "gersemi-linux-arm" }
-linux-x64   = { asset_pattern = "gersemi-linux" }
-macos-arm64 = { asset_pattern = "gersemi-macos-arm" }
-windows-x64 = { asset_pattern = "gersemi-windows.exe" }
-
 [tools."github:docker/docker-credential-helpers"]
 bin      = "docker-credential-osxkeychain"
-format   = "raw"
 matching = "docker-credential-osxkeychain"
 os       = ["macos"]
 version  = "latest"
@@ -187,28 +214,15 @@ strip_components = 1
 version          = "latest"
 version_prefix   = "llvmorg-"
 
-[tools."github:llvm/llvm-project".platforms]
-linux-arm64 = { asset_pattern = "LLVM-*-Linux-ARM64.tar.zst" }
-linux-x64   = { asset_pattern = "LLVM-*-Linux-X64.tar.zst" }
-macos-arm64 = { asset_pattern = "LLVM-*-macOS-ARM64.tar.zst" }
-
 [tools."github:microsoft/vcpkg-tool"]
 additional_asset_patterns = ["vcpkg-standalone-bundle.tar.gz"]
 bin                       = "vcpkg"
-format                    = "raw"
+postinstall               = { run = 'mkdir -p "$X_VCPKG_REGISTRIES_CACHE"', when = "always" }
 version                   = "latest"
-version_prefix            = ""
-
-[tools."github:microsoft/vcpkg-tool".platforms]
-linux-arm64 = { asset_pattern = "vcpkg-glibc-arm64" }
-linux-x64   = { asset_pattern = "vcpkg-glibc" }
-macos-arm64 = { asset_pattern = "vcpkg-macos" }
-windows-x64 = { asset_pattern = "vcpkg.exe" }
 
 [tools."github:NationalSecurityAgency/ghidra"]
-asset_pattern    = "ghidra_*_PUBLIC_*.zip"
 bin_path         = "support"
-postinstall      = '''{% if env.CI | default(value="false") != "true" %}
+postinstall      = '''{% if env?.CI != "true" %}
 set -e
 decompiler="$MISE_TOOL_INSTALL_PATH/Ghidra/Features/Decompiler"
 platform="$decompiler/os/{{ os(macos="mac", windows="win") }}_{{ arch(x64="x86_64", arm64="arm_64") }}"
@@ -224,16 +238,9 @@ version          = "latest"
 version_prefix   = "Ghidra_"
 
 [tools."github:pmd/pmd"]
-asset_pattern  = "pmd-dist-*-bin.zip"
 version        = "latest"
 version_prefix = "pmd_releases/"
 version_regex  = '^pmd_releases/\d+\.\d+\.\d+(-rc\d+)?$'
-
-[tools."github:sparkle-project/Sparkle"]
-asset_pattern = "Sparkle-*.tar.xz"
-bin_path      = "bin"
-os            = ["macos"]
-version       = "latest"
 
 [tools."http:blender-ext"]
 url              = "https://raw.githubusercontent.com/blender/blender/v{{ version }}/scripts/addons_core/bl_pkg/cli/blender_ext.py"
@@ -297,8 +304,8 @@ url              = "https://static.rust-lang.org/dist/{{ version }}/rustc-nightl
 version          = "{{ read_toml(path=config_root ~ '/rust-toolchain.toml')['toolchain']['channel'] | trim_start(pat='nightly-') }}"
 
 [tools."http:zxpsigncmd"]
-os      = ["macos"]
-url     = "https://raw.githubusercontent.com/Adobe-CEP/CEP-Resources/fcee8de5537d2dd2ed3d91d5a495b7041155b280/ZXPSignCMD/{{ version }}/macOS/ZXPSignCmd"
+os      = ["macos", "windows"]
+url     = 'https://raw.githubusercontent.com/Adobe-CEP/CEP-Resources/fcee8de5537d2dd2ed3d91d5a495b7041155b280/ZXPSignCMD/{{ version }}/{{ os(macos="macOS/ZXPSignCmd", windows="x64/ZXPSignCmd.exe") }}'
 version = "4.1.3"
 
 [tools."http:yak"]

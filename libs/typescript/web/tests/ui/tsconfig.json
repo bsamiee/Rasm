@@ -1,8 +1,14 @@
 {
-    "extends": "../../../../../tsconfig.web.json",
+    "extends": "../../../../../tsconfig.base.json",
     "compilerOptions": {
-        "declaration": false,
+        "jsx": "react-jsx",
+        "lib": [ "esnext", "dom" ],
+        "types": [ "node", "vite/client" ],
         "noEmit": true
     },
-    "include": [ "**/*" ]
+    "references": [
+        {
+            "path": "../../ui"
+        }
+    ]
 }

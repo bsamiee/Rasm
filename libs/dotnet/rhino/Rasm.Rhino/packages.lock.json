@@ -245,9 +245,9 @@
       },
       "System.IO.Hashing": {
         "type": "Direct",
-        "requested": "[11.0.0-rc.3.26522.148, )",
-        "resolved": "11.0.0-rc.3.26522.148",
-        "contentHash": "JIKBvTqt5HSZWU86qQFYO/ia1JY76VgjiJufdATN+lK0v5fIY9GAEo0DzC5nm2Kynj+aSEoQwKojm6sYpmbdQw=="
+        "requested": "[11.0.0, )",
+        "resolved": "11.0.0",
+        "contentHash": "U+Bv2qCYt6eONi+arSP0QIp4uTO6os6uceBsqiAwruZ+Wo2HrRhO/0tj38M9URJtS+4DhAtT3ka2TGNFYsnhyQ=="
       },
       "Thinktecture.Runtime.Extensions": {
         "type": "Direct",

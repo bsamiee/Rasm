@@ -1,0 +1,203 @@
+# [WORKSPACE]
+
+pnpm workspace layout of an Effect-based TypeScript monorepo that Nx runs.
+
+## [01]-[PRINCIPLES]
+
+- Packages join the workspace by sitting in a folder a `packages` glob matches
+- Package source sits at the package root or under `src/`
+- Snippets show source at the package root, and a `src/` folder prefixes each source path with `src/` (`./src/*.ts`, `${configDir}/src`)
+- Consumers import a sibling package by its name through its `node_modules` link and `exports`, like a package from the registry
+- Every external version sits in the catalog of `pnpm-workspace.yaml`, and manifests name versions only through `catalog:` and `workspace:`
+- Manifests hold no task scripts and no `project.json` exists, as Nx infers projects and targets from manifests and tool configuration
+
+## [02]-[ROOT_MANIFEST]
+
+Root `package.json` holds workspace identity, a package manager pin, and tools that root configuration files import:
+
+```json
+{
+    "name": "@scope/monorepo",
+    "private": true,
+    "type": "module",
+    "packageManager": "pnpm@<version>",
+    "scripts": { "prepare": "effect-tsgo patch" },
+    "devDependencies": {
+      "@effect/tsgo": "catalog:",
+      "@nx/js": "catalog:",
+      "@types/node": "catalog:",
+      "@typescript/native": "catalog:",
+      "nx": "catalog:",
+      "typescript": "catalog:",
+      "vitest": "catalog:"
+    }
+}
+```
+
+| [INDEX] | [FIELD]           | [VALUE]          | [REASON]                                                                    |
+| :-----: | :---------------- | :--------------- | :-------------------------------------------------------------------------- |
+|  [01]   | `private`         | `true`           | Root is never published                                                     |
+|  [02]   | `type`            | `"module"`       | Node asks every package to state it                                         |
+|  [03]   | `packageManager`  | `"pnpm@<exact>"` | pnpm switches to the pinned version on a mismatch, CI setup actions read it |
+|  [04]   | `scripts`         | `prepare` alone  | Install lifecycle step                                                      |
+|  [05]   | `devDependencies` | `catalog:` rows  | Tools, Nx plugins, and base `types` packages the root loads                 |
+|  [06]   | `workspaces`      | Absent           | pnpm reads members from `pnpm-workspace.yaml` alone                         |
+|  [07]   | `pnpm`            | Absent           | pnpm reads no settings from a `pnpm` manifest key                           |
+
+- `devEngines.packageManager` accepts a range and records the resolved version in `pnpm-lock.yaml`, where an exact pin is unwanted
+- `devEngines.runtime` makes `pnpm install` resolve a Node range to a runtime, where no other tool pins Node
+- `engines.pnpm` refusing the running pnpm fails install, and beside an exact `packageManager` it adds nothing
+- Root `package.json` holding an `nx` key becomes an Nx project, and `"includedScripts": []` there keeps `prepare` from becoming a target
+- `nx.json` `plugins` names `@nx/js/typescript` for `typecheck` and `build` targets, and a Vitest plugin for `test` targets
+
+## [03]-[WORKSPACE_FILE]
+
+`pnpm-workspace.yaml` holds members, catalogs, and every pnpm setting:
+
+```yaml
+packages:
+  - packages/*
+catalog:
+  effect: <version>
+catalogs:
+  peers:
+    effect: <range>
+catalogMode: strict
+catalogPrune: true
+trustPolicy: no-downgrade
+minimumReleaseAgeExclude:
+  - '@scope/*'
+allowBuilds:
+  <package>: true
+overrides:
+  <package>: <version>
+patchedDependencies:
+  <package>@<version>: patches/<file>.patch
+```
+
+| [INDEX] | [SETTING]                  | [DEFAULT] | [RECOMMENDED]                                                                 |
+| :-----: | :------------------------- | :-------- | :---------------------------------------------------------------------------- |
+|  [01]   | `packages`                 | None      | One glob per folder depth, so a new package edits nothing                     |
+|  [02]   | `catalogMode`              | `manual`  | `strict`: `pnpm add` refuses a version outside the catalog                    |
+|  [03]   | `catalogPrune`             | `false`   | `true`: install removes catalog rows no manifest names                        |
+|  [04]   | `minimumReleaseAge`        | `1440`    | Omit for one day, state another minute count, `0` for none                    |
+|  [05]   | `minimumReleaseAgeExclude` | None      | Own scope and packages released in lockstep with it                           |
+|  [06]   | `trustPolicy`              | `off`     | `no-downgrade`: install fails when a release has less trust than earlier ones |
+|  [07]   | `blockExoticSubdeps`       | `true`    | Omit: transitive git and tarball sources stay refused                         |
+|  [08]   | `allowBuilds`              | None      | Name each package whose install script may run, `true` or `false`             |
+|  [09]   | `overrides`                | None      | Graph pins, `:peer` on the selector targets peer ranges alone                 |
+|  [10]   | `patchedDependencies`      | None      | `<package>@<version>` to a patch file                                         |
+
+- `.npmrc` holds only auth, registry, TLS, proxy, and `local-address` settings, which pnpm reads from it
+- `effect-tsgo patch` rewrites files under `node_modules`, which a global virtual store refuses, so `virtualStoreType` stays `project`
+
+## [04]-[CATALOGS]
+
+- `catalog` defines the default catalog, read as `catalog:`, and `catalogs.<name>` a named one, read as `catalog:<name>`
+- `catalog` beside `catalogs.default` fails install, as the default catalog is then defined twice
+- `catalog:` stands in `dependencies`, `devDependencies`, `peerDependencies`, and `optionalDependencies`
+- Named catalog `peers` holds ranges for peer dependencies, and the default catalog exact versions for installs
+- `pnpm pack` and `pnpm publish` replace each `catalog:` with its catalog range, so committed manifests hold no version
+- Hand-written manifest versions pass `catalogMode: strict`, which governs `pnpm add` alone
+
+## [05]-[PACKAGE_MANIFEST]
+
+Library manifest with `exports` to source, which pnpm swaps to built output at pack:
+
+```json
+{
+    "name": "@scope/<package>",
+    "version": "0.1.0",
+    "type": "module",
+    "sideEffects": false,
+    "exports": {
+        ".": "./index.ts",
+        "./node": "./node.ts",
+        "./package.json": "./package.json"
+    },
+    "imports": { "#/*": "./*.ts" },
+    "files": ["dist/**/*.js", "dist/**/*.d.ts"],
+    "peerDependencies": { "effect": "catalog:peers" },
+    "devDependencies": { "effect": "catalog:" },
+    "publishConfig": {
+      "access": "public",
+      "exports": {
+          ".": "./dist/index.js",
+          "./node": "./dist/node.js",
+          "./package.json": "./package.json"
+      },
+      "imports": { "#/*": "./dist/*.js" }
+    }
+}
+```
+
+| [INDEX] | [FIELD]         | [VALUE]                           | [REASON]                                                       |
+| :-----: | :-------------- | :-------------------------------- | :------------------------------------------------------------- |
+|  [01]   | `version`       | Package's release version         | Release tooling reads and writes it in each manifest           |
+|  [02]   | `private`       | `true` where no upload is wanted  | Stops `pnpm publish` alone, every other field stays            |
+|  [03]   | `type`          | `"module"`                        | Node treats `.js` files as CommonJS without it                 |
+|  [04]   | `sideEffects`   | `false`, or files that register   | Bundlers drop unused modules of a consumer                     |
+|  [05]   | `exports`       | `.` plus one entry per runtime    | Closed entry map, a path absent from it cannot be imported     |
+|  [06]   | `imports`       | One `#/*` row                     | Files inside a package reach each other without relative paths |
+|  [07]   | `files`         | `dist` `.js` and `.d.ts` globs    | Tarball allowlist                                              |
+|  [08]   | `publishConfig` | `exports` and `imports` to `dist` | pnpm hoists both over the source maps at pack                  |
+|  [09]   | `engines.node`  | Oldest Node with every API used   | `#/` imports need `^24.14.0 \|\| >=25.4.0`                     |
+|  [10]   | `nx`            | Facts no manifest row states      | Holds tags and target options in place of `project.json`       |
+
+- pnpm hoists entry fields from `publishConfig` at pack, `exports` and `imports` included
+- `main`, `module`, and top-level `types` serve resolvers older than `exports`, which Node, TypeScript, and bundlers read in their place
+- Test packages and applications state `private: true` and leave out `files` and `publishConfig` where nothing publishes them
+
+## [06]-[EXPORTS_AND_IMPORTS]
+
+- `.` resolves to `index.ts`, which forwards exports and holds no logic
+- Entries beyond `.` exist per runtime or optional dependency family (`./node`, `./browser`), each with an optional peer where it adds one
+- `"./package.json"` stays exported, since `exports` hides every path it omits from tools that read the manifest
+- Files inside a package import `#/<module>` with no extension, and the `./*.ts` target supplies one for Node, TypeScript, and Vite
+- TypeScript 6 resolves `#/` keys under `nodenext` and `bundler` resolution
+- `#/*` puts the matched text into its target, so `./*.ts` reaches `.ts` modules alone and `.tsx` modules take their own row
+- Conditional entries list `types` first and `default` last, as Node orders conditions by key position
+- `null` targets block a path a wildcard entry would open (`"./internal/*": null`), and wildcards match nested folders
+- Plain string targets need no `types` condition, as TypeScript finds each `.d.ts` beside its `.js` by extension
+
+## [07]-[LINKING]
+
+| [INDEX] | [SPECIFIER]     | [PUBLISHED_AS]        | [USE]                                                         |
+| :-----: | :-------------- | :-------------------- | :------------------------------------------------------------ |
+|  [01]   | `workspace:*`   | Exact sibling version | `dependencies` of packages released together, private members |
+|  [02]   | `workspace:^`   | Caret range           | `peerDependencies` on a sibling, keeping consumers unpinned   |
+|  [03]   | `catalog:`      | Catalog version       | Every external dependency                                     |
+|  [04]   | `catalog:peers` | Catalog range         | Peer dependency on a host package (`effect`, a framework)     |
+
+- Runtime imports of an unbundled package go in `dependencies`
+- Peers repeat in `devDependencies` at the tested version
+- `peerDependenciesMeta.<name>.optional` marks a peer only one subpath entry imports
+- `npm:` aliases install one package at more than one version (TypeScript 6 and 7)
+- `link:` and `file:` specifiers stay in fixtures
+
+Linking forms in reference monorepos, and the one recommended:
+
+| [INDEX] | [FORM]                               | [COST]                                                      | [STATUS]    |
+| :-----: | :----------------------------------- | :---------------------------------------------------------- | :---------- |
+|  [01]   | `exports` to source, `publishConfig` | Source and publish maps per manifest, publish through pnpm  | Recommended |
+|  [02]   | Custom condition to source           | Every tool takes the condition, tarball names absent source | Avoid       |
+|  [03]   | `exports` to `dist` alone            | Builds precede every check and test                         | Avoid       |
+
+- `exports` to source give TypeScript, Vite, and Node one resolver answer with no condition, alias, or build step
+- Node strips types only outside `node_modules`, and a workspace link resolves to its real folder, so sibling source runs as written
+
+## [08]-[REGRESSIONS]
+
+| [INDEX] | [WRONG]                                                 | [CORRECT]                                                |
+| :-----: | :------------------------------------------------------ | :------------------------------------------------------- |
+|  [01]   | Catalog versions copied into root `devDependencies`     | Root lists only tools it loads, each as `catalog:`       |
+|  [02]   | Task scripts in root or package `scripts`               | Nx targets inferred from tool configuration              |
+|  [03]   | Deep imports (`@scope/pkg/model`, `@scope/pkg/pkg/pkg`) | One `.` entry, runtime entries, `#/*` inside the package |
+|  [04]   | Generated index barrels and a generator for them        | One hand-written `index.ts` forwarding exports           |
+|  [05]   | `"./*": "./*.ts"` export opening every file             | Closed entries, private files reached through `#/*`      |
+|  [06]   | `#/*` flipped between `./*` and `./*.ts`                | `./*.ts`, specifiers written without extension           |
+|  [07]   | Claiming `publishConfig` cannot override `imports`      | pnpm hoists `imports` from `publishConfig`               |
+|  [08]   | pnpm settings in `.npmrc` or a `pnpm` manifest key      | `pnpm-workspace.yaml`                                    |
+|  [09]   | `onlyBuiltDependencies` and its siblings                | `allowBuilds`                                            |
+|  [10]   | Restated defaults (`minimumReleaseAge: 1440`)           | Omitted rows                                             |
+|  [11]   | `postinstall` that builds every package                 | `exports` to source, builds only at pack                 |

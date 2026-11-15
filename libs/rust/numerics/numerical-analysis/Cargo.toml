@@ -2,7 +2,7 @@
 
 [package]
 name              = "rasm-numerical-analysis"
-version.workspace = true
+version           = "0.1.0"
 edition.workspace = true
 publish           = false
 description       = "Numerical analysis: interpolation, splines, roots, quadrature, and scattered data"

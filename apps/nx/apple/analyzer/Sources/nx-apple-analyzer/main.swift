@@ -56,17 +56,17 @@ struct Analyze: ParsableCommand {
 
 struct Version: ParsableCommand {
     static let configuration: CommandConfiguration = .init(
-        abstract: "Reports the MARKETING_VERSION of the project.xcproj on stdin, after writing the given one and the next CURRENT_PROJECT_VERSION"
+        abstract: "Reports the MARKETING_VERSION of the project.xcproj on stdin, after writing the given one"
     )
 
-    @Option(help: "Version to write as MARKETING_VERSION, raising CURRENT_PROJECT_VERSION by one")
+    @Option(help: "Version to write as MARKETING_VERSION")
     var marketingVersion: String?
 
     func run() throws {
         let held = try XCSchema.Project(jsonRepresentation: input())
-        let next = try marketingVersion.map { version throws(AnalyzerError) in try versioned(held, to: version) } ?? held
+        let next = marketingVersion.map { version in versioned(held, to: version) } ?? held
         guard let project = String(validating: try next.jsonRepresentation(), as: UTF8.self) else { throw CocoaError(.fileWriteInapplicableStringEncoding) }
-        FileHandle.standardOutput.write(try encoded(Versioned(version: next.buildSettings[VersionSetting.marketing.rawValue]?.text, project: project)))
+        FileHandle.standardOutput.write(try encoded(Versioned(version: next.buildSettings[marketingSetting]?.text, project: project)))
     }
 }
 

@@ -2,7 +2,7 @@
 
 [package]
 name              = "rasm-bcf"
-version.workspace = true
+version           = "0.1.0"
 edition.workspace = true
 publish           = false
 description       = "BCF 2.1 and 3.0 issue archives: topics, comments, documents, and viewpoints"

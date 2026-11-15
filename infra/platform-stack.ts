@@ -228,7 +228,9 @@ ENTRYPOINT ["/nx-cache-aws"]
     const envs = Record.collect(variables, (variable, value) => interpolate`${variable}=${value}`);
     const serving = machine.contained(name, ['CMD', '/busybox/wget', '--quiet', '--spider', `http://127.0.0.1:${port}${health}`], { image, init: true, envs, labels }, { dependsOn: [proxy, ...named] });
     const held = { ...Record.map(tokens, Struct.get('value')), NX_SELF_HOSTED_REMOTE_CACHE_SERVER: serving.id.apply(() => `https://${address}`) };
-    return Record.map(held, (value, row) => new Secret(`${machine.name}-${row}`, { project, config: 'ci' satisfies (typeof configs)[number], name: row, value }).name);
+    const ci = Record.map(held, (value, row) => new Secret(`${machine.name}-${row}`, { project, config: 'ci' satisfies (typeof configs)[number], name: row, value }));
+    const dev = Record.map(Struct.omit(ci, ['NX_CACHE_WRITE_TOKEN']), ({ config, name: secret }, row) => new Secret(`${machine.name}-dev-${row}`, { project, config: 'dev' satisfies (typeof configs)[number], name: row, value: interpolate`\${${config}.${secret}}` }).name);
+    return { ...Record.map(ci, Struct.get('name')), dev };
 };
 
 const hosted = (machine: Machine, { owner }: Data.TaggedEnum.Args<Role, 'Apps'>) => {

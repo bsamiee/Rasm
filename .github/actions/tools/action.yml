@@ -1,5 +1,5 @@
 name: Tools
-description: Removes untracked files, then mise bootstrap installs the mise tools, inside a job container the Unreal rows alone under .cache of the checkout, and runs task bootstrap, which checks the Nx remote cache and installs pnpm packages
+description: Removes untracked files, then mise bootstrap installs the mise tools, inside a job container the Unreal rows alone under .cache of the checkout, whose post-tools hook installs pnpm packages, and exports mise env, the remote cache row included
 
 runs:
     using: composite
@@ -15,5 +15,5 @@ runs:
         - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
           with:
               bootstrap: true
-              bootstrap_args: --only tools,task
+              bootstrap_args: --only tools
               cache: ${{ runner.environment == 'github-hosted' }}

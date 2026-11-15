@@ -2,5 +2,10 @@
     "extends": "../../../../tsconfig.base.json",
     "compilerOptions": {
         "lib": [ "es2022" ]
-    }
+    },
+    "references": [
+        {
+            "path": "../../data/search"
+        }
+    ]
 }

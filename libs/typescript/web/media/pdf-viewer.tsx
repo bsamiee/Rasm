@@ -2,7 +2,7 @@ import 'pdfjs-dist';
 import { usePinch } from '@use-gesture/react';
 import { Cause, Data, Duration, Effect, Filter, flow, HashSet, identity, Option, Predicate, Queue, Result, Schema, Stream, Struct } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
-import type { DEFAULT_SCALE, DEFAULT_SCALE_VALUE, MAX_SCALE, MIN_SCALE, TextLayerMode } from 'pdfjs-dist/types/web/ui_utils';
+import type { DEFAULT_SCALE, DEFAULT_SCALE_VALUE, MAX_SCALE, MIN_SCALE, TextLayerMode } from 'pdfjs-dist/types/web/ui_utils.js';
 import { EventBus, FindState, PDFFindController, PDFLinkService, PDFViewer, ScrollMode, SpreadMode } from 'pdfjs-dist/web/pdf_viewer.mjs';
 import { type ComponentProps, useEffect, useEffectEvent, useState } from 'react';
 import 'pdfjs-dist/web/pdf_viewer.css';

@@ -55,7 +55,7 @@
         "Directory.Build.props": "Directory.Build.targets, Directory.Packages.props, global.json, NuGet.config, Workspace.slnx",
         "hk.pkl": ".globalconfig, jscpd.json, knip.json, pmd.xml, shellcheckrc, squawk.toml, yamllint.yaml",
         "Info.plist": "*.entitlements",
-        "mise.toml": "mise.lock, mise.*.toml, miserc.toml",
+        "mise.toml": "mise.lock",
         "nx.json": ".editorconfig, sgconfig.yml",
         "package.json": "*.config.ts, biome.json, executors.json, pnpm-lock.yaml, pnpm-workspace.yaml, tsconfig*.json",
         "Package.swift": "Package.resolved, Xcode.xcconfig",

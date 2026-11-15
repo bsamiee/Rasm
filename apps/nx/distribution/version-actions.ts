@@ -1,5 +1,5 @@
 import { matchesGlob } from 'node:path';
-import { joinPathFragments, type ProjectGraphProjectNode, type Tree } from '@nx/devkit';
+import { joinPathFragments, type Tree } from '@nx/devkit';
 import { Array, Cause, Effect, Option, Schema } from 'effect';
 import { VersionActions } from 'nx/release';
 import { run } from '#/executor';
@@ -11,19 +11,27 @@ const Options = Schema.Struct({ manifest: Schema.String });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const located = Effect.fnUntraced(function* (tree: Tree, { name, data: { root } }: ProjectGraphProjectNode, manifests: readonly string[]) {
-    const manifest = yield* Effect.mapError(Effect.fromOption(Array.head(manifests)), (cause) => new Cause.UnknownError(cause, `${name} names no manifest in its versionActionsOptions`));
+const hosted = (manifest: string) => Effect.mapError(Effect.fromOption(Array.findFirst(HOSTS, (host) => matchesGlob(manifest, host.manifest))), (cause) => new Cause.UnknownError(cause, `${manifest} is no host manifest`));
+
+const opened = (tree: Tree, at: string) => Effect.mapError(Effect.fromNullishOr(tree.read(at, 'utf-8')), (cause) => new Cause.UnknownError(cause, `${at} is missing`));
+
+const located = Effect.fnUntraced(function* (tree: Tree, root: string, manifest: string) {
     const at = joinPathFragments(root, manifest);
-    const { read, write } = yield* Effect.mapError(Effect.fromOption(Array.findFirst(HOSTS, (host) => matchesGlob(manifest, host.manifest))), (cause) => new Cause.UnknownError(cause, `${at} is no host manifest`));
-    const text = yield* Effect.mapError(Effect.fromNullishOr(tree.read(at, 'utf-8')), (cause) => new Cause.UnknownError(cause, `${at} is missing`));
+    const [{ read }, text] = yield* Effect.all([hosted(manifest), opened(tree, at)]);
     const stated = Option.flatMap(yield* read(text, at), ({ version }) => Option.fromUndefinedOr(version));
-    return { at, text, version: yield* Effect.mapError(Effect.fromOption(stated), (cause) => new Cause.UnknownError(cause, `${at} states no version`)), write: yield* Effect.mapError(Effect.fromNullishOr(write), (cause) => new Cause.UnknownError(cause, `${at} takes its version from its build, not from nx release`)) };
+    return { currentVersion: yield* Effect.mapError(Effect.fromOption(stated), (cause) => new Cause.UnknownError(cause, `${at} states no version`)), manifestPath: at };
 });
 
-const written = Effect.fnUntraced(function* (tree: Tree, node: ProjectGraphProjectNode, manifests: readonly string[], version: string) {
-    const { at, text, write } = yield* located(tree, node, manifests);
-    tree.write(at, yield* write(text, version));
-    return [`New version ${version} written to manifest: ${at}`];
+const written = Effect.fnUntraced(function* (tree: Tree, manifest: string, manifests: readonly { readonly manifestPath: string }[], version: string) {
+    const { write } = yield* hosted(manifest);
+    const writer = yield* Effect.mapError(Effect.fromNullishOr(write), (cause) => new Cause.UnknownError(cause, `${manifest} takes its version from its build, not from nx release`));
+    return yield* Effect.forEach(
+        manifests,
+        Effect.fnUntraced(function* ({ manifestPath }) {
+            tree.write(manifestPath, yield* writer(yield* opened(tree, manifestPath), version));
+            return `New version ${version} written to manifest: ${manifestPath}`;
+        }),
+    );
 });
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -35,8 +43,12 @@ class HostVersionActions extends VersionActions {
         return Option.toArray(Option.map(Schema.decodeUnknownOption(Options)(this.finalConfigForProject.versionActionsOptions), ({ manifest }) => manifest));
     }
 
+    get #manifest() {
+        return Effect.mapError(Effect.fromOption(Array.head(this.validManifestFilenames)), (cause) => new Cause.UnknownError(cause, `${this.projectGraphNode.name} names no manifest in its versionActionsOptions`));
+    }
+
     override readCurrentVersionFromSourceManifest(tree: Tree) {
-        return run(Effect.map(located(tree, this.projectGraphNode, this.validManifestFilenames), ({ at, version }) => ({ currentVersion: version, manifestPath: at })));
+        return run(Effect.flatMap(this.#manifest, (manifest) => located(tree, this.projectGraphNode.data.root, manifest)));
     }
 
     override readCurrentVersionFromRegistry() {
@@ -48,7 +60,7 @@ class HostVersionActions extends VersionActions {
     }
 
     override updateProjectVersion(tree: Tree, newVersion: string) {
-        return run(written(tree, this.projectGraphNode, this.validManifestFilenames, newVersion));
+        return run(Effect.flatMap(this.#manifest, (manifest) => written(tree, manifest, this.manifestsToUpdate, newVersion)));
     }
 
     override updateProjectDependencies() {

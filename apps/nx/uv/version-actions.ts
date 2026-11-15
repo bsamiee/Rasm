@@ -1,6 +1,6 @@
 import { basename, dirname, join } from 'node:path';
 import { parse, patch } from '@decimalturn/toml-patch';
-import { createProjectGraphAsync, joinPathFragments, type ProjectGraph, type Tree } from '@nx/devkit';
+import { joinPathFragments, type ProjectGraph, readCachedProjectGraph, type Tree } from '@nx/devkit';
 import { clean, explain, RANGE_PATTERN, satisfies } from '@renovatebot/pep440';
 import { Array, Cause, Effect, FileSystem, Option, Predicate, Record, Schema, SemVer, Stream, String } from 'effect';
 import { type AfterAllProjectsVersioned, VersionActions } from 'nx/release';
@@ -175,7 +175,7 @@ const afterAllProjectsVersioned: AfterAllProjectsVersioned = (cwd, { dryRun, roo
     run(
         Effect.gen(function* () {
             const [fs, { skipLockFileUpdate }] = yield* Effect.all([FileSystem.FileSystem, Schema.decodeEffect(Unlocked)(rootVersionActionsOptions ?? {})]);
-            const nodes = dryRun === true || skipLockFileUpdate === true ? [] : Object.values((yield* Effect.promise(() => createProjectGraphAsync())).nodes);
+            const nodes = dryRun === true || skipLockFileUpdate === true ? [] : Object.values((yield* Effect.sync(readCachedProjectGraph)).nodes);
             const locks = Array.dedupe(Array.getSomes(nodes.map((node) => Schema.decodeUnknownOption(Options)(node.data.release?.version?.versionActionsOptions))).map(({ lock }) => lock)).filter((lock) => basename(lock) === LOCK);
             const refresh = (lock: string) => spawned(['uv', 'lock', '--no-locked'], { cwd: join(cwd, dirname(lock)) });
             const changedFiles = yield* Effect.filter(locks, (lock) => Effect.zipWith(fs.readFileString(join(cwd, lock)), Effect.andThen(refresh(lock), fs.readFileString(join(cwd, lock))), (before, after) => before !== after));

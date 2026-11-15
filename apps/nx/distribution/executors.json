@@ -3,12 +3,12 @@
         "extension-build": {
             "implementation": "./dist/executors/extension-build/executor#execute",
             "schema": "./executors/extension-build/schema.json",
-            "description": "Builds the Blender extension archives the project's blender_manifest.toml declares through Blender's blender_ext.py, with no Blender installed, one archive per platform the manifest lists and one for every platform where it lists none; a project holding pyproject.toml builds from a staged copy that bundles its local dependencies as subpackages and its locked registry dependencies as the wheels uv selects per platform at the one Python minor its requires-python pins as ==<major>.<minor>.*, leaving out each package its blender dependency group pins as one Blender bundles"
+            "description": "Builds the Blender extension archives the project's blender_manifest.toml declares through Blender's blender_ext.py, with no Blender installed, one archive per platform the manifest lists and one for every platform where it lists none, or for a check validates the manifest and files of the source folder with blender_ext.py validate; a project holding pyproject.toml builds from a staged copy that bundles its local dependencies as subpackages and its locked registry dependencies as the wheels uv selects per platform at the one Python minor its requires-python pins as ==<major>.<minor>.*, leaving out each package its blender dependency group pins as one Blender bundles"
         },
         "package": {
             "implementation": "./dist/executors/package/executor#execute",
             "schema": "./executors/package/schema.json",
-            "description": "Packs the Adobe UXP plugin or CEP extension the project's other builds wrote, else its tracked source folder: a .ccx zip for a manifest.json, a .zxp ZXPSignCmd signs with a certificate it creates for the build for a CSXS/manifest.xml"
+            "description": "Packs the Adobe UXP plugin or CEP extension the project's other builds wrote, else its tracked source folder: a .ccx zip for a manifest.json, a .zxp ZXPSignCmd signs for a CSXS/manifest.xml with the certificate its identity variables hold, else with one it creates for the pack"
         },
         "install": {
             "implementation": "./dist/executors/install/executor#execute",
@@ -18,12 +18,12 @@
         "release-publish": {
             "implementation": "./dist/executors/release-publish/executor#execute",
             "schema": "./executors/release-publish/schema.json",
-            "description": "Publishes each host package the target's dependency targets wrote to its host's store through the store's own upload, where the credential variable is set and the store lacks that version, and names the missing variable where it is not; runs through nx release publish"
+            "description": "Publishes each host package the target's dependency targets wrote to its host's store through the store's own upload, where the credential variable is set, the store lacks that version, and the checked-out commit holds the project's tag nx release made from release.releaseTag.pattern, and names the missing variable, tag, or the first upload a store takes by hand alone, where it is not; runs through nx release publish, a dry run previewing every project"
         },
         "unreal-build": {
             "implementation": "./dist/executors/unreal-build/executor#execute",
             "schema": "./executors/unreal-build/schema.json",
-            "description": "Builds a .uproject's editor target through UnrealBuildTool, with its Clang static analyzer, unity builds off, and no precompiled headers for a check, or for a .uplugin packages it through AutomationTool's BuildPlugin with strict includes once per engine on this machine its hosts name, skipping a host whose engine is absent, after each package its descriptor maps to a folder installs there under a .gitignore holding *, runs the automation tests named after it through UnrealEditor-Cmd in each host and reads their result from the exported report, zips each package and the tracked sources with those installed packages and the engine's EngineVersion after the store checks pass, or copies the package into the Plugins folder of each user project"
+            "description": "Builds a .uproject's editor target through UnrealBuildTool, with its Clang static analyzer, unity builds off, and no precompiled headers for a check, or for a .uplugin packages it through AutomationTool's BuildPlugin with strict includes once per engine on this machine its hosts name, skipping a host whose engine is absent, after each package its descriptor maps to a folder installs there under a .gitignore holding *, runs the automation tests named after it through UnrealEditor-Cmd in each host and reads their result from the exported report, zips the tracked sources with those installed packages and the engine's EngineVersion once per engine after the Fab store checks pass, or copies the package into the Plugins folder of each user project"
         },
         "clean": {
             "implementation": "./dist/executors/clean/executor#execute",
@@ -33,13 +33,13 @@
         "publish": {
             "implementation": "./dist/executors/publish/executor#execute",
             "schema": "./executors/publish/schema.json",
-            "description": "Delivers the files a project's packaging targets wrote to its registry or store through its tool's own publish command where the destination's credential is set, and names the missing variable where it is not; runs through nx release publish",
+            "description": "Delivers the files a project's packaging targets wrote to its registry or store through its tool's own publish command where the destination's credential is set and the checked-out commit holds the project's tag nx release made from release.releaseTag.pattern, and names the missing variable or tag where it is not; runs through nx release publish, a dry run previewing every project",
             "hidden": true
         },
         "attach": {
             "implementation": "./dist/executors/attach/executor#execute",
             "schema": "./executors/attach/schema.json",
-            "description": "Uploads the files a project's packaging targets wrote to the GitHub release whose tag nx release gives the version its manifest states, through gh release upload --clobber"
+            "description": "Uploads the files a project's packaging targets wrote to the GitHub release of the project's tag at the checked-out commit through gh release upload --clobber, the tag nx release made from release.releaseTag.pattern, and uploads nothing where nx release released no version of the project at that commit, a dry run previewing every project"
         }
     }
 }

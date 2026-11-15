@@ -140,7 +140,6 @@
     },
   ],
   "build-settings": {
-    "CURRENT_PROJECT_VERSION": "0",
     "MARKETING_VERSION": "0.1.0",
   },
   "last-upgrade": "27.2",

@@ -2,7 +2,7 @@
 
 [package]
 name              = "rasm-drafting"
-version.workspace = true
+version           = "0.1.0"
 edition.workspace = true
 publish           = false
 description       = "Drafting annotation and sheet sets: text, notation, dimensions, tolerances, leaders, marks, symbols, legends, tables, viewports, and layer tables"

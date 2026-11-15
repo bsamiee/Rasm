@@ -2,7 +2,7 @@
 
 [package]
 name              = "rasm-signal-processing"
-version.workspace = true
+version           = "0.1.0"
 edition.workspace = true
 publish           = false
 description       = "Signal processing: transforms, convolution, spectral estimates, filters, octave bands, and room-acoustic decay"

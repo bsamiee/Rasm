@@ -5,7 +5,7 @@ import type { ExecutorContext, Task, TaskGraph } from '@nx/devkit';
 import type { TaskResult } from '@nx/devkit/internal';
 import { Array, Effect, Equal, FileSystem, HashSet, Option, Path, Record, Schema, Stream } from 'effect';
 import { ChildProcess } from 'effect/process';
-import { run } from '#/workspace';
+import { Crate, run } from '#/workspace';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -18,7 +18,7 @@ const Command = Schema.Struct({
     args: Schema.NonEmptyArray(Schema.String).annotate({ description: 'Subcommand and its arguments, a JSON message format among them where each task is decided from the messages of its own package' }),
     trailing: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Arguments after --' }),
     env: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)).annotate({ description: "Environment variables the command runs with, over the caller's" }),
-    packages: Schema.optionalKey(Schema.Array(Schema.Struct({ root: Schema.String, name: Schema.String }))).annotate({ description: 'Further packages the command selects' }),
+    packages: Schema.optionalKey(Schema.Array(Crate)).annotate({ description: 'Further packages the command selects' }),
 });
 const Cargo = Schema.Struct({
     cwd: Schema.String.annotate({ description: 'Cargo workspace root, relative to the Nx workspace root' }),
@@ -41,26 +41,28 @@ type Command = typeof Command.Type;
 const ran = Effect.fnUntraced(
     function* (cwd: string, args: readonly string[], env: Readonly<Record<string, string>> = {}) {
         const handle = yield* ChildProcess.make('cargo', args, { cwd, env, extendEnv: true, detached: false, stdin: 'inherit' });
-        const [lines, diagnosed, code] = yield* Effect.all(
+        const [lines, code] = yield* Effect.all(
             [
-                Stream.splitLines(Stream.decodeText(handle.stdout)).pipe(
-                    Stream.mapAccum(HashSet.empty<string>, (seen, line) => {
+                Stream.mergeAll(
+                    [[handle.stdout, stdout] as const, [handle.stderr, stderr] as const].map(([bytes, sink]) => Stream.map(Stream.splitLines(Stream.decodeText(bytes)), (line) => ({ line, sink }))),
+                    { concurrency: 'unbounded' },
+                ).pipe(
+                    Stream.mapAccum(HashSet.empty<string>, (seen, { line, sink }) => {
                         const message = Schema.decodeOption(Message)(line);
                         const fresh = Option.filter(
                             Option.flatMap(message, (parsed) => (Schema.is(Diagnostic)(parsed) ? parsed.message.rendered : Option.none())),
                             (rendered) => !HashSet.has(seen, rendered),
                         );
-                        return [Option.match(fresh, { onNone: () => seen, onSome: (rendered) => HashSet.add(seen, rendered) }), [{ text: Option.isSome(message) ? fresh : Option.some(`${line}\n`), message }]];
+                        return [Option.match(fresh, { onNone: () => seen, onSome: (rendered) => HashSet.add(seen, rendered) }), [{ text: Option.isSome(message) ? fresh : Option.some(`${line}\n`), message, sink }]];
                     }),
-                    Stream.tap(({ text }) => Option.match(text, { onNone: () => Effect.void, onSome: (rendered) => Effect.sync(() => stdout.write(rendered)) })),
+                    Stream.tap(({ text, sink }) => Option.match(text, { onNone: () => Effect.void, onSome: (rendered) => Effect.sync(() => sink.write(rendered)) })),
                     Stream.runCollect,
                 ),
-                Stream.mkString(Stream.tap(Stream.decodeText(handle.stderr), (chunk) => Effect.sync(() => stderr.write(chunk)))),
                 handle.exitCode,
             ],
             { concurrency: 'unbounded' },
         );
-        return { passed: code === 0, log: [...Array.getSomes(lines.map(({ text }) => text)), diagnosed].join(''), messages: Array.getSomes(lines.map(({ message }) => message)) };
+        return { passed: code === 0, log: Array.getSomes(lines.map(({ text }) => text)).join(''), messages: Array.getSomes(lines.map(({ message }) => message)) };
     },
     Effect.scoped,
     Effect.catchReason('PlatformError', 'NotFound', () => Effect.succeed({ passed: false, log: 'cargo is not on PATH, so no Cargo task can run\n', messages: Array.empty<typeof Message.Type>() })),

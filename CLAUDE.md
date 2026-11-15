@@ -2,13 +2,12 @@
 
 @README.md
 
-- Commits, pushes, and writing or running tests happen on user request only
 - Every language uses functional programming: domain logic stays pure and expression-oriented, imperative code stays at system boundaries
 - Data dependency decides composition: dependent operations bind and short-circuit, independent operations combine and accumulate every error
 - Language idioms differ but composition rules do not, when a language lacks a result type, adopt a dependency's, else define one
-- Defects and checker findings are fixed at their cause, never hidden by a suppression, lowered level, guard, fallback, or retry
+- Defects and findings are fixed at their cause, never suppressed, lowered, or guarded, and documented runs lacking a credential or service are design
 - Removals delete every mention and adjust each consumer to the absence, nothing stands in for removed content
-- Docs and repo content answer first, applications and hosts run live when a question needs the running program
+- Docs, repo content, and settled owner decisions answer before the owner is asked, apps and hosts run live when a question needs one running
 - Apps and windows an agent opens take no focus and stay behind the user's work, inside or outside the project
 - Messages, docstrings, descriptions, and annotations are agent-facing: exact subject, values over prose, one action, no word that adds nothing
 - Hooks rewrite a wrong command form or refuse it with one short reason, cover forms the user named, and block nothing the user asks for
@@ -78,7 +77,7 @@ Values come from the code, host, or package that already states them:
 - ALWAYS group project file items and dependency rows by responsibility and order each group consistently
 - ALWAYS close a dependency gap with a package, its configuration, a newer release, or a typed decode at the boundary, never a copy of its types
 - ALWAYS target the newest package, host, and language release, prereleases included, an older release from memory is a defect
-- ALWAYS add a missing dependency entry to the project file or catalog that declares it, existing entries stay
+- ALWAYS pin versions in lock files and root catalogs alone, a missing dependency joins the project file or catalog declaring it, and entries stay
 - ALWAYS reference a package directly in every project that names its types, a transitive reference supplies no global using, alias, or analyzer
 
 ## [04]-[CODE_QUALITY]

@@ -57,5 +57,5 @@
     "required": [ "publish", "credential" ],
     "additionalProperties": true,
     "title": "Publish",
-    "description": "Delivers the files a project's packaging targets wrote to its registry or store through its tool's own publish command where the destination's credential is set, and names the missing variable where it is not; runs through nx release publish"
+    "description": "Delivers the files a project's packaging targets wrote to its registry or store through its tool's own publish command where the destination's credential is set and the checked-out commit holds the project's tag nx release made from release.releaseTag.pattern, and names the missing variable or tag where it is not; runs through nx release publish, a dry run previewing every project"
 }

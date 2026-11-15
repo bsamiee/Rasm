@@ -1,10 +1,8 @@
 import { fileURLToPath } from 'node:url';
-import { createProjectFileMapUsingProjectGraph, type ExecutorContext } from '@nx/devkit';
+import type { ExecutorContext } from '@nx/devkit';
 import cf from 'cf/package.json' with { type: 'json' };
-import { Array, Cause, Config, Effect, FileSystem, Function, flow, Option, Path, Record, Result, Schema, Stream, String } from 'effect';
-import { createNxReleaseConfig } from 'nx/src/command-line/release/config/config';
-import { ReleaseVersion } from 'nx/src/command-line/release/utils/shared';
-import { run, spawned } from '#/targets';
+import { Array, Cause, Config, Effect, FileSystem, Function, Option, Path, Result, Schema, SemVer, Stream } from 'effect';
+import { APPCAST, NOTARY, run, spawned } from '#/targets';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -15,40 +13,45 @@ const Publish = Schema.Struct({
             folder: Schema.String.annotate({ description: 'Folder holding the disk image of that app' }),
         }),
     ).annotate({ description: 'Archived apps whose disk image gets a Sparkle feed' }),
-    appcast: Schema.Struct({
-        key: Schema.String.annotate({ description: 'Variable holding the Sparkle EdDSA private key generate_appcast signs with' }),
-        bucket: Schema.String.annotate({ description: 'Variable holding the R2 bucket the feed is uploaded to' }),
-    }).annotate({ description: 'Variables naming the Sparkle key and the R2 bucket of the feed' }),
     dryRun: Schema.optionalKey(Schema.Boolean).annotate({ description: 'Prints each change and makes none, as NX_DRY_RUN=true does' }),
     __unparsed__: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Words after -- of the run, appended after the configured arguments', $default: { $source: 'unparsed' }, hidden: true, 'x-priority': 'internal' }),
 }).annotate({
     title: 'Release publish',
-    description:
-        "Signs a Sparkle feed for each disk image an export folder holds with generate_appcast under the key appcast.key names, pointing at the image's asset on the GitHub release nx release tags the archived app's version with, and uploads it to the R2 bucket appcast.bucket names at the path of the app's SUFeedURL with cf r2 objects put, and where a folder holds no disk image or either variable is unset names what is missing and publishes nothing; runs through nx release publish",
+    description: `Signs a Sparkle feed for each disk image an export folder holds with generate_appcast under the key ${APPCAST.key} holds, pointing at the image's asset on the GitHub release of the project's tag at the checked-out commit, the tag nx release made from release.releaseTag.pattern, and uploads it to the R2 bucket ${APPCAST.bucket} names at the path of the app's SUFeedURL with cf r2 objects put, and where a folder holds no disk image, either variable is unset, or nx release released no version of the project at that commit names what is missing and publishes nothing; runs through nx release publish, a dry run previewing every project`,
 });
-const Application = Schema.fromJsonString(Schema.Struct({ ApplicationPath: Schema.String, CFBundleShortVersionString: Schema.String }));
+const Application = Schema.fromJsonString(Schema.Struct({ ApplicationPath: Schema.String }));
 const Assets = Schema.fromJsonString(Schema.Struct({ assets: Schema.Array(Schema.Struct({ name: Schema.String, url: Schema.URLFromString })) }));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const fed = Effect.fnUntraced(function* (context: ExecutorContext, { archive, folder }: (typeof Publish.Type)['exports'][number], appcast: (typeof Publish.Type)['appcast'], dry: boolean, words: readonly string[]) {
-    const [fs, path, project] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Effect.fromNullishOr(context.projectName)]);
+const released = Effect.fnUntraced(function* ({ root, projectName, nxJsonConfiguration: { release } }: ExecutorContext) {
+    const project = yield* Effect.fromNullishOr(projectName);
+    const independent = release?.projectsRelationship === 'independent';
+    const pattern = release?.releaseTag?.pattern ?? (independent ? '{projectName}@{version}' : 'v{version}');
+    const named = project
+        .replaceAll(':', '/')
+        .replaceAll(/[\p{Cc} ~^?*[\\]/gu, '-')
+        .replaceAll(/\/{2,}/gu, '/')
+        .replaceAll(/\.{2,}/gu, '.')
+        .replaceAll(/^\/+|\/+$/gu, '');
+    const matcher = new RegExp(`^${(independent ? pattern.replaceAll('{projectName}', named) : pattern).split('{version}').map(RegExp.escape).join('(.+)')}$`, 'u');
+    const tags = (yield* spawned(['git', 'tag', '--points-at', 'HEAD'], { cwd: root })).split('\n').filter((tag) => Option.exists(Option.fromNullishOr(matcher.exec(tag)?.[1]), Function.flow(SemVer.parse, Result.isSuccess)));
+    return tags.length > 1 ? yield* new Cause.UnknownError(tags, `HEAD holds [${tags.join(', ')}], each matching ${pattern} for ${project}, in place of the one tag nx release makes per project`) : Array.head(tags);
+});
+
+const fed = Effect.fnUntraced(function* (context: ExecutorContext, { archive, folder }: (typeof Publish.Type)['exports'][number], tag: string, dry: boolean, words: readonly string[]) {
+    const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const images = (yield* fs.readDirectory(path.join(context.root, folder))).filter((name) => path.extname(name) === '.dmg');
     if (!Array.isReadonlyArrayNonEmpty(images)) {
-        return yield* Effect.logWarning(`Skipped the Sparkle feed of ${folder}: it holds no disk image, which pack--ditto writes where the variables its notary option names are set`);
+        return yield* Effect.logWarning(`Skipped the Sparkle feed of ${folder}: it holds no disk image, which pack--ditto writes where ${NOTARY.key}, ${NOTARY.keyId}, and ${NOTARY.issuer} are set`);
     }
-    const { ApplicationPath, CFBundleShortVersionString: version } = yield* Effect.flatMap(spawned(['plutil', '-extract', 'ApplicationProperties', 'json', '-o', '-', path.join(archive, 'Info.plist')], { cwd: context.root }), Schema.decodeEffect(Application));
-    const owned = yield* Effect.promise(() => createProjectFileMapUsingProjectGraph(context.projectGraph));
-    const { error, nxReleaseConfig } = yield* Effect.promise(() => createNxReleaseConfig(context.projectGraph, owned, context.nxJsonConfiguration?.release));
-    const { groups = {} } = yield* Effect.mapError(Effect.fromNullishOr(nxReleaseConfig), () => new Cause.UnknownError(error, [`${project} has no git tag: nx.json release does not resolve`, ...Array.fromNullishOr(error?.code)].join(': ')));
-    const [releaseGroupName, group] = yield* Effect.mapError(Effect.fromOption(Record.findFirst(groups, ({ projects }) => projects.includes(project))), (cause) => new Cause.UnknownError(cause, `${project} has no git tag: no release group of nx.json release holds it`));
-    const tag = new ReleaseVersion({ version, releaseTagPattern: group.releaseTag.pattern, projectName: project, releaseGroupName }).gitTag;
-    if (dry) {
-        return yield* Effect.logInfo(`Would publish the Sparkle feed of ${images.join(', ')} for ${tag} through generate_appcast and cf r2 objects put`);
-    }
-    const configured = (variable: string) => Effect.map(Config.option(Config.String(variable)), flow(Option.filter(String.isNonEmpty), Result.fromOption(Function.constant(variable))));
-    const held = yield* Effect.all({ key: configured(appcast.key), bucket: configured(appcast.bucket) });
+    const configured = (variable: string) => Effect.map(Config.option(Config.String(variable)), Result.fromOption(Function.constant(variable)));
+    const held = yield* Effect.all({ key: configured(APPCAST.key), bucket: configured(APPCAST.bucket) });
     const signed = Effect.fnUntraced(function* ({ key, bucket }: { readonly key: string; readonly bucket: string }) {
+        if (dry) {
+            return yield* Effect.logInfo(`Would publish the Sparkle feed of ${images.join(', ')} for ${tag} through generate_appcast and cf r2 objects put`);
+        }
+        const { ApplicationPath } = yield* Effect.flatMap(spawned(['plutil', '-extract', 'ApplicationProperties', 'json', '-o', '-', path.join(archive, 'Info.plist')], { cwd: context.root }), Schema.decodeEffect(Application));
         const feed = yield* Effect.flatMap(spawned(['plutil', '-extract', 'SUFeedURL', 'raw', '-o', '-', path.join(archive, 'Products', ApplicationPath, 'Contents', 'Info.plist')], { cwd: context.root }), (stated) => Schema.decodeEffect(Schema.URLFromString)(stated.trim()));
         const { assets } = yield* Effect.flatMap(spawned(['gh', 'release', 'view', tag, '--json', 'assets'], { cwd: context.root }), Schema.decodeEffect(Assets));
         const asset = yield* Effect.mapError(Effect.fromOption(Array.findFirst(assets, ({ name }) => name === Array.headNonEmpty(images))), (cause) => new Cause.UnknownError(cause, `${tag} holds no ${Array.headNonEmpty(images)}`));
@@ -63,9 +66,13 @@ const fed = Effect.fnUntraced(function* (context: ExecutorContext, { archive, fo
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = Effect.fnUntraced(function* ({ exports, appcast, dryRun = false, __unparsed__: words = [] }: typeof Publish.Type, context: ExecutorContext) {
-    const dry = yield* Config.withDefault(Config.Boolean('NX_DRY_RUN'), false);
-    yield* Effect.forEach(exports, (exported) => fed(context, exported, appcast, dryRun || dry, words), { discard: true });
+const execute = Effect.fnUntraced(function* ({ exports, dryRun = false, __unparsed__: words = [] }: typeof Publish.Type, context: ExecutorContext) {
+    const [stated, tag] = yield* Effect.all([Config.withDefault(Config.Boolean('NX_DRY_RUN'), false), released(context)]);
+    const dry = dryRun || stated;
+    yield* Option.match(dry ? Option.some(Option.getOrElse(tag, () => `<tag nx release makes for ${context.projectName}>`)) : tag, {
+        onNone: () => Effect.logInfo(`Skipped the Sparkle feeds of ${context.projectName}: HEAD holds no tag of ${context.projectName}, so nx release released no version of it at this commit`),
+        onSome: (at) => Effect.forEach(exports, (exported) => fed(context, exported, at, dry, words), { discard: true }),
+    });
     return { success: true };
 }, run);
 

@@ -1,7 +1,8 @@
 {
     "extends": "../../../tsconfig.base.json",
     "compilerOptions": {
-        "declaration": false,
+        "composite": false,
+        "declarationMap": false,
         "noEmit": true,
         "rootDir": "..",
         "typeRoots": [ "../.claude-plugin/types", "../node_modules/@types" ],

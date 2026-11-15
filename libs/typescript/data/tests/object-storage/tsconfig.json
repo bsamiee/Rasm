@@ -1,8 +1,14 @@
 {
-    "extends": "../../../../../tsconfig.worker.json",
+    "extends": "../../../../../tsconfig.base.json",
     "compilerOptions": {
-        "declaration": false,
-        "noEmit": true
+        "module": "preserve",
+        "noEmit": true,
+        "types": [ "node", "@cloudflare/workers-types/experimental", "@cloudflare/vitest-plugin/types" ]
     },
-    "include": [ "**/*", ".cloudflare/types" ]
+    "include": [ "**/*", ".cloudflare/types" ],
+    "references": [
+        {
+            "path": "../../object-storage"
+        }
+    ]
 }

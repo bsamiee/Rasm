@@ -58,6 +58,7 @@ const files = {
     ...Record.mapEntries(hosts, ({ folder, manifest, text }) => [`${folder}/${manifest}`, text]),
     'package.json': JSON.stringify({ name: 'consumer', private: true, type: 'module', workspaces: ['hosts/uxp', 'web/site'], devDependencies: { nx: nxPackage.version, [plugin.name]: '*' } }),
     'hosts/blender/__init__.py': 'def register():\n    pass\n\n\ndef unregister():\n    pass\n',
+    'hosts/yak/README.md': 'Marks points\n',
     'hosts/uxp/package.json': '{ "name": "panel", "version": "1.2.3", "private": true, "type": "module" }\n',
     'hosts/uxp/index.html': '<!doctype html><title>Panel</title>\n',
     'hosts/cep/index.html': '<!doctype html><title>Bridge</title>\n',
@@ -150,13 +151,14 @@ it.layer(workspace(files), { timeout: bounds.built, excludeTestServices: true })
     );
 
     methods.effect(
-        'a Blender or Yak project publishes through nx release publish, and a UXP, CEP, or Unreal project holds no publish target',
+        'a Blender or Yak project publishes through nx release publish under the variable its store documents, and a UXP, CEP, or Unreal project holds no publish target',
         Effect.fnUntraced(function* () {
             const graph = yield* read;
+            const credential = (folder: string) => hosted(graph, folder).flatMap(({ data }) => Array.fromNullishOr(data.targets?.['nx-release-publish']?.options?.credential));
             assert.deepStrictEqual(
-                Record.map(hosts, ({ folder }) => named(graph, folder).includes('nx-release-publish')),
-                { blender: true, yak: true, uxp: false, cep: false, unreal: false },
-                'README.md DELIVERY "Publishing delivers through each destination\'s own command (pnpm publish, cargo publish, dotnet nuget push, uv publish, yak push)", "Plugin technology decides a host\'s package and install form (UXP .ccx, CEP .zxp), never where it publishes", "Fab takes no upload from a tool"; extensions.blender.org/api/v1/extensions/<id>/versions/upload/ takes a version upload',
+                Record.map(hosts, ({ folder }) => credential(folder)),
+                { blender: ['BLENDER_EXTENSIONS_TOKEN'], yak: ['YAK_TOKEN'], uxp: [], cep: [], unreal: [] },
+                'README.md DELIVERY "Publishing delivers through each destination\'s own command (pnpm publish, cargo publish, dotnet nuget push, uv publish, yak push)", "Plugin technology decides a host\'s package and install form (UXP .ccx, CEP .zxp), never where it publishes", "Fab takes no upload from a tool"; README.md PRINCIPLES "Publish targets upload where the credential variable their tool reads is set, and name the variable and succeed where it is not"; developer.blender.org/docs/features/extensions/ci_cd "Authorization:bearer $BLENDER_EXTENSIONS_TOKEN"; developer.rhino3d.com/guides/yak/yak-cli-reference YAK_TOKEN',
             );
         }),
         bounds.test,

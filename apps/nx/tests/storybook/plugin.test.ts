@@ -180,7 +180,9 @@ it.layer(workspace(files), { timeout: bounds.built, excludeTestServices: true })
         }),
         bounds.test,
     );
+});
 
+it.layer(workspace(files), { timeout: bounds.built, excludeTestServices: true })((methods) => {
     methods.effect(
         'storybook build writes every file under the declared outputs',
         Effect.fnUntraced(function* () {

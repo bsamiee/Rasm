@@ -2,7 +2,7 @@
 
 [package]
 name              = "rasm-drawing-views"
-version.workspace = true
+version           = "0.1.0"
 edition.workspace = true
 publish           = false
 description       = "Hidden-line drawing views of solids: parallel and perspective frames, classified edges, sections, and shadows"

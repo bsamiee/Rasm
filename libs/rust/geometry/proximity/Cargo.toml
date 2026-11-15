@@ -2,7 +2,7 @@
 
 [package]
 name              = "rasm-proximity"
-version.workspace = true
+version           = "0.1.0"
 edition.workspace = true
 publish           = false
 description       = "Proximity queries over placed shapes: clashes, separations, rays, neighbors, and registration"

@@ -2,7 +2,7 @@
 
 [package]
 name              = "rasm-console"
-version.workspace = true
+version           = "0.1.0"
 edition.workspace = true
 publish           = false
 description       = "Line-mode terminal output: grid, CSV, and JSON writers, pager, prompts, and progress bars"

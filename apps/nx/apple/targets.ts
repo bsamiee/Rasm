@@ -25,15 +25,16 @@ interface Part {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#package'))).name;
-const GIT_STATUS = { GIT_CONFIG_COUNT: '1', GIT_CONFIG_KEY_0: 'status.branch', GIT_CONFIG_VALUE_0: 'false' } as const;
+const NOTARY = { key: 'ASC_API_KEY_P8', keyId: 'ASC_API_KEY_ID', issuer: 'ASC_API_ISSUER_ID' } as const;
+const APPCAST = { key: 'SPARKLE_ED_PRIVATE_KEY', bucket: 'SPARKLE_FEED_BUCKET' } as const;
 const SWIFTPM = ['--force-resolved-versions', '--no-color-diagnostics'] as const;
-const PLATFORM = { runtime: 'swift -print-target-info' } as const;
+const PLATFORM = { runtime: 'swift --version' } as const;
 const INPUTS: NonNullable<TargetConfiguration['inputs']> = [PLATFORM, { externalDependencies: [] }];
 const ATTACH: TargetConfiguration = {
     executor: `${distribution.name}:attach`,
     dependsOn: ['pack--ditto'],
-    inputs: [{ dependentTasksOutputFiles: '**/*' }],
-    metadata: { description: "Uploads the files pack--ditto wrote to the GitHub release of the version the project's manifest states with gh release upload", help: { command: 'gh release upload --help', example: { options: { dryRun: true } } } },
+    inputs: [{ dependentTasksOutputFiles: '**/*' }, { externalDependencies: [] }],
+    metadata: { description: 'Uploads the files pack--ditto wrote to the GitHub release of the tag nx release made for the project at the checked-out commit with gh release upload', help: { command: 'gh release upload --help', example: { options: { dryRun: true } } } },
 };
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -41,14 +42,11 @@ const ATTACH: TargetConfiguration = {
 const Options = Schema.Struct({
     trustPackages: Schema.optionalKey(Schema.Boolean),
     outputPath: Schema.optionalKey(Schema.String),
-    releaseTag: Schema.optionalKey(Schema.String),
-    platformTagPrefix: Schema.optionalKey(Schema.String),
-    identities: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)),
-    notary: Schema.optionalKey(Schema.Struct({ key: Schema.String, keyId: Schema.String, issuer: Schema.String })),
-    appcast: Schema.optionalKey(Schema.Struct({ key: Schema.String, bucket: Schema.String })),
+    coveragePath: Schema.optionalKey(Schema.String),
+    derivedDataPath: Schema.optionalKey(Schema.String),
 }).annotate({
     description:
-        'trustPackages: passes -skipMacroValidation and -skipPackagePluginValidation to xcodebuild. outputPath: workspace folder holding each scheme archive under <outputPath>/<scheme> and each product zip under <outputPath>/<product>, {projectName} naming the project, absent zips products in the SwiftPM release bin folder and gives no Xcode pack target, since xcodebuild archives outside the workspace. releaseTag: tag of every project given release configuration. platformTagPrefix: prefix of the darwin tag every project takes. identities: variable holding a base64 PKCS#12 identity, mapped to the variable holding its password, imported into a keychain for the run. notary: variables holding the App Store Connect key, key id, and issuer that notarize a disk image in place of the zip. appcast: variables holding the Sparkle EdDSA key and the R2 bucket a release publishes its feed to',
+        'trustPackages: passes -skipMacroValidation and -skipPackagePluginValidation to xcodebuild. outputPath: workspace folder holding each scheme archive under <outputPath>/<scheme> and each product zip under <outputPath>/<product>, {projectName} naming the project, absent zips products in the SwiftPM release bin folder and gives no Xcode pack target, since xcodebuild archives outside the workspace. coveragePath: workspace folder the coverage configuration of a test target writes lcov.info to, exported with llvm-cov from the profile swift test or xcodebuild writes, {projectName} naming the project, absent leaves both tools their default profile and writes no lcov.info. derivedDataPath: workspace folder the coverage configuration of an xcodebuild test target passes as -derivedDataPath, so its profile and binaries sit at workspace paths, {projectName} naming the project, absent uses <outputPath>/DerivedData, and with neither leaves Xcode its per-user DerivedData and writes no lcov.info',
 });
 const Input = Schema.declare((input: unknown): input is NonNullable<TargetConfiguration['inputs']>[number] => Predicate.isString(input) || Predicate.isObject(input));
 const Overrides = Schema.fromJsonString(Schema.Struct({ nx: Schema.optionalKey(Schema.Struct({ targets: Schema.optionalKey(Schema.Record(Schema.String, Schema.Struct({ inputs: Schema.optionalKey(Schema.mutable(Schema.Array(Input))) }))) })) })).annotate({
@@ -70,7 +68,20 @@ const manifested = Effect.fnUntraced(function* (workspaceRoot: string, root: str
 const aggregated = (verbs: Verbs, stated: Readonly<Record<string, Pick<TargetConfiguration, 'inputs'>>>, technology: string): Record<string, TargetConfiguration> =>
     Record.fromEntries(
         Record.collect(Record.filter(verbs, Predicate.not(Record.isEmptyRecord)), (verb, tools): readonly (readonly [string, TargetConfiguration])[] => [
-            [verb, { dependsOn: [`${verb}--*`], inputs: ['...', ...Array.dedupe(Record.collect(tools, (tool, target) => mergeTargetConfigurations(stated[`${verb}--${tool}`] ?? {}, { ...target, inputs: target.inputs ?? ['default', '^default'] }).inputs ?? []).flat())] }],
+            [
+                verb,
+                {
+                    dependsOn: [`${verb}--*`],
+                    inputs: [
+                        '...',
+                        ...Array.dedupe(
+                            Record.collect(tools, (tool, target) => mergeTargetConfigurations(stated[`${verb}--${tool}`] ?? {}, { ...target, inputs: target.inputs ?? ['default', '^default'] }).inputs ?? [])
+                                .flat()
+                                .map((input) => (Predicate.isObject(input) && 'dependentTasksOutputFiles' in input ? { ...input, transitive: true } : input)),
+                        ),
+                    ],
+                },
+            ],
             ...Record.collect(tools, (tool, target): readonly [string, TargetConfiguration] => [`${verb}--${tool}`, { ...target, metadata: { technologies: [technology], ...target.metadata } }]),
         ]).flat(),
     );
@@ -88,7 +99,7 @@ const ran = (argv: Array.NonEmptyReadonlyArray<string>, options: Pick<ChildProce
 
 const sequenced = (runs: (typeof Run.Type)['runs'], metadata: NonNullable<TargetConfiguration['metadata']>, { options, ...extra }: Partial<TargetConfiguration> = {}): TargetConfiguration => ({
     executor: `${PLUGIN}:run`,
-    options: { runs, env: GIT_STATUS, ...options },
+    options: { runs, ...options },
     metadata,
     ...extra,
 });
@@ -99,4 +110,4 @@ const run = <A, E>(effect: Effect.Effect<A, E, NodeServices | Scope.Scope>) => e
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { ATTACH, aggregated, analyzer, GIT_STATUS, INPUTS, manifested, Options, type Part, PLUGIN, ran, rendered, run, SWIFTPM, sequenced, spawned, tokened, type Verbs };
+export { APPCAST, ATTACH, aggregated, analyzer, INPUTS, manifested, NOTARY, Options, type Part, PLUGIN, ran, rendered, run, SWIFTPM, sequenced, spawned, tokened, type Verbs };

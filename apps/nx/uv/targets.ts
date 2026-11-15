@@ -101,9 +101,9 @@ const SEPARATOR = /\s+/u;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Options = Schema.Struct({ outputPath: Schema.optionalKey(Schema.String), coveragePath: Schema.optionalKey(Schema.String), releaseTag: Schema.optionalKey(Schema.String) }).annotate({
+const Options = Schema.Struct({ outputPath: Schema.optionalKey(Schema.String), coveragePath: Schema.optionalKey(Schema.String) }).annotate({
     description:
-        "outputPath: workspace folder uv build writes a member's distributions to, {projectName} naming the member, absent leaves uv its own dist folder of the uv workspace. coveragePath: workspace folder the coverage configuration of pytest writes its data and lcov report to, {projectName} naming the member, absent leaves pytest-cov its own locations. releaseTag: tag given to every member nx release versions, absent gives none",
+        "outputPath: workspace folder uv build writes a member's distributions to, {projectName} naming the member, absent leaves uv its own dist folder of the uv workspace. coveragePath: workspace folder the coverage configuration of pytest writes its coverage.lcov report to through --cov-report=lcov:<path> and its .coverage data file to through COVERAGE_FILE, {projectName} naming the member, absent writes both to the folder pytest runs from",
 });
 const Input = Schema.declare((input: unknown): input is NonNullable<TargetConfiguration['inputs']>[number] => Predicate.isString(input) || Predicate.isObject(input));
 const Overrides = Schema.fromJsonString(Schema.Struct({ nx: Schema.optionalKey(Schema.Struct({ targets: Schema.optionalKey(Schema.Record(Schema.String, Schema.Struct({ inputs: Schema.optionalKey(Schema.mutable(Schema.Array(Input))) }))) })) })).annotate({
@@ -140,7 +140,20 @@ const manifested = Effect.fnUntraced(function* (workspaceRoot: string, root: str
 const aggregated = (verbs: Verbs, stated: Readonly<Record<string, Pick<TargetConfiguration, 'inputs'>>>, technology: string): Record<string, TargetConfiguration> =>
     Record.fromEntries(
         Record.collect(Record.filter(verbs, Predicate.not(Record.isEmptyRecord)), (verb, tools): readonly (readonly [string, TargetConfiguration])[] => [
-            [verb, { dependsOn: [`${verb}--*`], inputs: ['...', ...Array.dedupe(Record.collect(tools, (tool, target) => mergeTargetConfigurations(stated[`${verb}--${tool}`] ?? {}, { ...target, inputs: target.inputs ?? ['default', '^default'] }).inputs ?? []).flat())] }],
+            [
+                verb,
+                {
+                    dependsOn: [`${verb}--*`],
+                    inputs: [
+                        '...',
+                        ...Array.dedupe(
+                            Record.collect(tools, (tool, target) => mergeTargetConfigurations(stated[`${verb}--${tool}`] ?? {}, { ...target, inputs: target.inputs ?? ['default', '^default'] }).inputs ?? [])
+                                .flat()
+                                .map((input) => (Predicate.isObject(input) && 'dependentTasksOutputFiles' in input ? { ...input, transitive: true } : input)),
+                        ),
+                    ],
+                },
+            ],
             ...Record.collect(tools, (tool, target): readonly [string, TargetConfiguration] => [`${verb}--${tool}`, { ...target, metadata: { technologies: [technology], ...target.metadata } }]),
         ]).flat(),
     );
@@ -192,7 +205,6 @@ const targets = (member: Member, { outputPath, coveragePath }: typeof Options.Ty
     const distributions = Option.map(Option.fromUndefinedOr(outputPath), named);
     const folder = Option.getOrElse(distributions, () => join(member.workspace, 'dist'));
     const built = [relative(member.root, folder)].filter((held) => !held.startsWith('..')).map((held) => `!${join('{projectRoot}', held, '**', '*')}`);
-    const coverage = Option.map(Option.fromUndefinedOr(coveragePath), named);
     const checked = Array.getSomes(
         Record.collect(CHECKERS, (key, row) =>
             Option.gen(function* () {
@@ -216,13 +228,12 @@ const targets = (member: Member, { outputPath, coveragePath }: typeof Options.Ty
                     ),
                     ...(row.mypy === undefined ? [] : [...row.mypy, '--cache-dir', join(cache.replace('$MYPY_CONFIG_FILE_DIR', relative(base, config === undefined ? base : dirname(config)) || '.'), member.root, key)]),
                 ];
-                const covered = Option.match(coverage, {
-                    onNone: () => ({ outputs: [join('{workspaceRoot}', base, 'coverage.lcov')], configurations: { coverage: { command: line([...argv, '--cov', '--cov-report=lcov']) } } }),
-                    onSome: (at) => ({
-                        outputs: [join('{workspaceRoot}', at)],
-                        configurations: { coverage: { command: line([...argv, '--cov', `--cov-report=lcov:${join(relative(base, at), 'coverage.lcov')}`]), env: { COVERAGE_FILE: join(relative(base, at), '.coverage') } } },
-                    }),
-                });
+                const reported = coveragePath ?? base;
+                const covered = {
+                    command: line([...argv, '--cov', `--cov-report=lcov:${join(relative(base, reported), 'coverage.lcov')}`]),
+                    env: { COVERAGE_FILE: join(relative(base, reported), '.coverage') },
+                    outputs: [join('{workspaceRoot}', reported, '{coverage.lcov,.coverage}')],
+                };
                 const target: TargetConfiguration = {
                     command: line(argv),
                     options: { cwd: base },
@@ -242,7 +253,7 @@ const targets = (member: Member, { outputPath, coveragePath }: typeof Options.Ty
                         ),
                         { externalDependencies: [] },
                     ],
-                    ...(stated.covered ? covered : {}),
+                    ...(stated.covered && { outputs: ['{options.outputs.0}'], configurations: { coverage: covered } }),
                     metadata: { description: row.description, help: { command: `uv run ${row.help}`, example: { args: [...row.example] } } },
                 };
                 return { verb: row.verb, key, target };
@@ -272,7 +283,7 @@ const targets = (member: Member, { outputPath, coveragePath }: typeof Options.Ty
                       pixi: {
                           command: 'pixi update',
                           options: { cwd: member.root },
-                          inputs: [PIXI, 'pyproject.toml', 'pixi.lock'].map((file) => join('{projectRoot}', file)),
+                          inputs: [...[PIXI, 'pyproject.toml', 'pixi.lock'].map((file) => join('{projectRoot}', file)), { externalDependencies: [] }],
                           metadata: { description: 'Moves every package of the Pixi environments to the newest release its requirement allows and rewrites pixi.lock with pixi update', help: { command: 'pixi update --help', example: { args: ['--dry-run'] } } },
                       },
                   }),
@@ -293,7 +304,10 @@ const targets = (member: Member, { outputPath, coveragePath }: typeof Options.Ty
                             options: { cwd: member.workspace },
                             cache: true,
                             inputs: [...member.sources, join('{workspaceRoot}', member.lock), ...built, { externalDependencies: [] }],
-                            outputs: Option.match(distributions, { onNone: () => [join('{workspaceRoot}', folder, `${String.kebabToSnake(member.name)}-*`)], onSome: (at) => [join('{workspaceRoot}', at)] }),
+                            outputs: Option.match(distributions, {
+                                onNone: () => ['.tar.gz', '-*.whl'].map((suffix) => join('{workspaceRoot}', folder, `${member.distribution}${suffix}`)),
+                                onSome: (at) => [join('{workspaceRoot}', at)],
+                            }),
                             metadata: { description: 'Builds the member sdist and wheel with uv build', help: { command: 'uv build --help', example: { args: ['--wheel'] } } },
                         },
                     }),
@@ -317,14 +331,21 @@ const targets = (member: Member, { outputPath, coveragePath }: typeof Options.Ty
         ...tools,
         clean: Array.match(removed, {
             onEmpty: () => ({}),
-            onNonEmpty: (labels) => ({ uv: { executor: `${distribution.name}:clean`, options: { targets: labels }, metadata: { description: `Removes the outputs ${labels.join(', ')} declare`, help: { command: 'nx run --help', example: { options: { targets: labels } } } } } }),
+            onNonEmpty: (labels) => ({
+                uv: {
+                    executor: `${distribution.name}:clean`,
+                    options: { targets: labels },
+                    inputs: ['default', '^default', join('{workspaceRoot}', member.lock), { externalDependencies: [] }],
+                    metadata: { description: `Removes the outputs ${labels.join(', ')} declare`, help: { command: 'nx run --help', example: { options: { targets: labels } } } },
+                },
+            }),
         }),
         attach: {
             ...(member.packaged && {
                 gh: {
                     executor: `${distribution.name}:attach`,
                     dependsOn: ['build--uv'],
-                    inputs: [{ dependentTasksOutputFiles: '**/*' }],
+                    inputs: [{ dependentTasksOutputFiles: '**/*' }, { externalDependencies: [] }],
                     metadata: { description: "Uploads the files build--uv wrote to the GitHub release of the version the project's manifest states with gh release upload", help: { command: 'gh release upload --help', example: { options: { dryRun: true } } } },
                 },
             }),
@@ -337,7 +358,7 @@ const targets = (member: Member, { outputPath, coveragePath }: typeof Options.Ty
                 executor: `${distribution.name}:publish`,
                 options: { publish: ['uv', 'publish', ...flagged('--index', member.index)], preview: ['--dry-run'], credential: 'UV_PUBLISH_TOKEN' },
                 dependsOn: ['build--uv', '^nx-release-publish'],
-                inputs: [{ dependentTasksOutputFiles: '**/*' }],
+                inputs: [{ dependentTasksOutputFiles: '**/*' }, { externalDependencies: [] }],
                 metadata: { description: 'Publishes the distributions build--uv wrote with uv publish, which reads UV_PUBLISH_TOKEN', help: { command: 'uv publish --help', example: { options: { dryRun: true } } } },
             },
         }),
@@ -352,4 +373,4 @@ const run = <A, E>(effect: Effect.Effect<A, E, Linked | NodeServices | Scope.Sco
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { CHECKERS, CONFIGS, declared, documents, Linked, manifested, Options, PIXI, PLUGIN, run, spawned, targets };
+export { ancestors, CHECKERS, CONFIGS, declared, documents, Linked, manifested, Options, PIXI, PLUGIN, run, spawned, targets };

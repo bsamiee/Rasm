@@ -1,7 +1,12 @@
 {
     "extends": "../tsconfig.base.json",
-    "compilerOptions": {
-        "declaration": false,
-        "noEmit": true
-    }
+    "include": [ "**/*", "package.json" ],
+    "references": [
+        {
+            "path": "../libs/typescript/runtime/process"
+        },
+        {
+            "path": "../libs/typescript/web/hosting"
+        }
+    ]
 }

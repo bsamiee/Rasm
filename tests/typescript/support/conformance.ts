@@ -1,4 +1,4 @@
-import { dirname, join } from 'node:path';
+import { dirname, join, matchesGlob } from 'node:path';
 import { assert, it } from '@effect/vitest';
 import { workspaceRoot } from '@nx/devkit';
 import { Array, Duration, Effect, Function, type Layer, Option, Record, Result, Schema } from 'effect';
@@ -80,7 +80,7 @@ const misread = (members: readonly Member[], shared: readonly string[], { root, 
     return [...Array.difference([...shared, ...sources], files).map((file) => `${root} build omits ${file}`), ...Array.intersection(Array.difference(outside.flat(), inside.flat()), files).map((file) => `${root} build reads ${file}`)];
 };
 
-const under = (files: readonly string[], folders: readonly string[]) => files.filter((file) => folders.some((folder) => file === folder || file.startsWith(`${folder}/`)));
+const under = (files: readonly string[], patterns: readonly string[]) => files.filter((file) => patterns.some((pattern) => file.startsWith(`${pattern}/`) || matchesGlob(file, pattern) || matchesGlob(file, join(pattern, '**'))));
 
 const tasked = (members: readonly Member[]) => members.flatMap(({ name, verbs }) => verbs.map((verb) => `${name}:${verb}`));
 

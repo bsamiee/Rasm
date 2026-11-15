@@ -1,8 +1,13 @@
 {
-    "extends": "../../../tsconfig.web.json",
+    "extends": "../../../tsconfig.base.json",
     "compilerOptions": {
-        "declaration": false,
-        "noEmit": true
+        "composite": false,
+        "declarationMap": false,
+        "jsx": "react-jsx",
+        "lib": [ "esnext", "dom" ],
+        "module": "preserve",
+        "noEmit": true,
+        "types": [ "node", "vite/client" ]
     },
     "files": [],
     "references": [ { "path": "./tsconfig.app.json" }, { "path": "./tsconfig.node.json" }, { "path": "./tsconfig.worker.json" } ]

@@ -2,5 +2,16 @@
     "extends": "../../../../tsconfig.base.json",
     "compilerOptions": {
         "lib": [ "es2022", "dom" ]
-    }
+    },
+    "references": [
+        {
+            "path": "../../runtime/telemetry"
+        },
+        {
+            "path": "../../graphics/mark"
+        },
+        {
+            "path": "../automation"
+        }
+    ]
 }

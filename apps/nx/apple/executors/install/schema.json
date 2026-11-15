@@ -11,13 +11,6 @@
             "type": "string",
             "description": "Executable product the plugin infers from swift package describe"
         },
-        "env": {
-            "type": "object",
-            "additionalProperties": {
-                "type": "string"
-            },
-            "description": "Environment variables every swift invocation runs with, over the caller's"
-        },
         "__unparsed__": {
             "type": "array",
             "description": "Words after -- of the run, appended after the configured arguments",

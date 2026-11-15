@@ -11,8 +11,8 @@
 # --- [BUILD] ----------------------------------------------------------------------------
 
 [build]
-target-dir = ".artifacts/rust"
-build-dir  = ".cache/rust"
+target-dir = ".artifacts/cargo"
+build-dir  = ".cache/cargo"
 rustflags  = ["-Zunstable-options", "--jobs-frontend=8"]
 
 # --- [ENV] ------------------------------------------------------------------------------

@@ -143,7 +143,7 @@
           "Svg.Custom": "[5.2.3, )",
           "Svg.Model": "[5.2.3, )",
           "Svg.Skia": "[5.2.3, )",
-          "System.Numerics.Tensors": "[11.0.0-rc.3.26522.148, )",
+          "System.Numerics.Tensors": "[11.0.0, )",
           "Thinktecture.Runtime.Extensions": "[10.6.0, )",
           "Topten.RichTextKit": "[0.6.170, )",
           "UnicodeInformation": "[2.7.1, )",
@@ -216,7 +216,7 @@
       },
       "Microsoft.Extensions.Caching.Abstractions": {
         "type": "CentralTransitive",
-        "requested": "[11.0.0-rc.3.26522.148, )",
+        "requested": "[11.0.0, )",
         "resolved": "6.0.0",
         "contentHash": "bcz5sSFJbganH0+YrfvIjJDIcKNW7TL07C4d1eTmXy/wOt52iz4LVogJb6pazs7W0+74j0YpXFErvp++Aq5Bsw==",
         "dependencies": {
@@ -225,7 +225,7 @@
       },
       "Microsoft.Extensions.Caching.Memory": {
         "type": "CentralTransitive",
-        "requested": "[11.0.0-rc.3.26522.148, )",
+        "requested": "[11.0.0, )",
         "resolved": "6.0.2",
         "contentHash": "ANjkN9TiBZXm5cvj3bb3QbezBzqkupCzxwgNf46d4V4ToRBHcEp3IEgbc67M3ZqVHQxaJgEncZ/frdqznpVWIw==",
         "dependencies": {
@@ -392,9 +392,9 @@
       },
       "System.Numerics.Tensors": {
         "type": "CentralTransitive",
-        "requested": "[11.0.0-rc.3.26522.148, )",
-        "resolved": "11.0.0-rc.3.26522.148",
-        "contentHash": "9IVKWWs7IRbKJXWdBKbZBr32BOTvJ71qY6Um44w6iAI2kcQ4MS/ucaBGTHWY8HLfH2KEV+uQTwJaKGwWyaiYWA=="
+        "requested": "[11.0.0, )",
+        "resolved": "11.0.0",
+        "contentHash": "thx6y1hMzB6LumB/aLcZoLHWq8wr+dbldk/FiNghyT+4ynxo9u2oCTFfb5iDMDG6hykDXLorXuaf4EPEij2BBg=="
       },
       "Thinktecture.Runtime.Extensions": {
         "type": "CentralTransitive",

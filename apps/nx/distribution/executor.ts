@@ -1,10 +1,9 @@
-import { matchesGlob } from 'node:path';
+import { join, matchesGlob } from 'node:path';
 import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
 import type { ExecutorContext } from '@nx/devkit';
 import { createTaskId } from '@nx/devkit/internal';
-import { Array, Cause, Config, Effect, Option, Schema, type Scope, Stream, String } from 'effect';
+import { Array, Cause, Config, Effect, FileSystem, Function, Option, Result, Schema, type Scope, SemVer, Stream, String, Struct } from 'effect';
 import { ChildProcess, type ChildProcessSpawner, CommandLine } from 'effect/process';
-import { getFilesForOutputsBatch } from 'nx/src/native/index';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -24,17 +23,17 @@ const spawned = Effect.fnUntraced(function* (argv: Array.NonEmptyReadonlyArray<s
     return code === 0 ? stdout : yield* new Cause.UnknownError(code, [`${CommandLine.display(argv)} exits ${code}`, ...[stderr.trim()].filter(String.isNonEmpty)].join(': '));
 }, Effect.scoped);
 
-const written = Effect.fnUntraced(function* ({ root, projectName, targetName, configurationName, taskGraph }: ExecutorContext) {
-    const [{ tasks, dependencies }, project, target] = yield* Effect.all([Effect.fromNullishOr(taskGraph), Effect.fromNullishOr(projectName), Effect.fromNullishOr(targetName)]);
-    const own = createTaskId(project, target, configurationName);
-    const reached = (ids: ReadonlySet<string>): ReadonlySet<string> => {
-        const through = [...ids].filter((id) => id === own || tasks[id]?.outputs.length === 0);
-        const next = new Set([...ids, ...through.flatMap((id) => (dependencies[id] ?? []).map((edge) => edge.id)).filter((id) => tasks[id]?.target.project === project)]);
-        return next.size === ids.size ? ids : reached(next);
-    };
-    const selected = [...reached(new Set([own]))].filter((id) => id !== own);
-    const outputs = selected.map((id) => tasks[id]?.outputs ?? []);
-    return { project, target, selected, outputs: outputs.flat(), files: Array.dedupe(getFilesForOutputsBatch(root, outputs).flat()).toSorted() };
+const listed = Effect.fnUntraced(function* (root: string, outputs: readonly string[]) {
+    const fs = yield* FileSystem.FileSystem;
+    const [kept, negated] = Array.partition(
+        outputs,
+        Result.liftPredicate(
+            (output: string) => !output.startsWith('!'),
+            (output) => output.slice(1),
+        ),
+    );
+    const matched = yield* Effect.forEach(kept, (output) => fs.glob(`${output}{,/**}`, { root, exclude: negated, dot: true }), { concurrency: 'unbounded' });
+    return yield* Effect.filter(Array.dedupe(matched.flat()), (at) => Effect.map(fs.stat(join(root, at)), ({ type }) => type === 'File'), { concurrency: 'unbounded' });
 });
 
 const packaged = Effect.fnUntraced(function* ({ root, projectName, targetName, configurationName, projectGraph, taskGraph }: ExecutorContext) {
@@ -45,16 +44,33 @@ const packaged = Effect.fnUntraced(function* ({ root, projectName, targetName, c
         const next = new Set([...ids, ...[...ids].filter((id) => transitive || id === own).flatMap((id) => (dependencies[id] ?? []).map((edge) => edge.id))]);
         return next.size === ids.size ? ids : upstream(next, transitive);
     };
-    const files = declared.flatMap(({ dependentTasksOutputFiles, transitive = false }) => {
-        const ids = [...upstream(new Set([own]), transitive)].filter((id) => id !== own);
-        return getFilesForOutputsBatch(
-            root,
-            ids.map((id) => tasks[id]?.outputs ?? []),
-        )
-            .flat()
-            .filter((file) => matchesGlob(file, dependentTasksOutputFiles));
-    });
-    return yield* declared.length > 0 && files.length === 0 ? Effect.fail(new Cause.UnknownError(declared, `${project} holds no file its dependentTasksOutputFiles input of ${target} matches; run the targets ${target} depends on first`)) : Effect.succeed(Array.dedupe(files).toSorted());
+    const matched = yield* Effect.forEach(
+        declared,
+        Effect.fnUntraced(function* ({ dependentTasksOutputFiles, transitive = false }) {
+            const outputs = [...upstream(new Set([own]), transitive)].filter((id) => id !== own).map((id) => tasks[id]?.outputs ?? []);
+            const files = yield* Effect.forEach(outputs, (stated) => listed(root, stated));
+            return { outputs: outputs.flat(), files: files.flat().filter((file) => matchesGlob(file, dependentTasksOutputFiles)) };
+        }),
+    );
+    const [outputs, files] = [Array.dedupe(matched.flatMap(Struct.get('outputs'))), Array.dedupe(matched.flatMap(Struct.get('files'))).toSorted()];
+    return yield* outputs.length > 0 && files.length === 0
+        ? Effect.fail(new Cause.UnknownError(declared, `${project} holds no file its dependentTasksOutputFiles input of ${target} matches under [${outputs.join(', ')}], the outputs of the tasks ${target} depends on; run them first`))
+        : Effect.succeed({ project, target, outputs, files });
+});
+
+const released = Effect.fnUntraced(function* ({ root, projectName, nxJsonConfiguration: { release } }: ExecutorContext) {
+    const project = yield* Effect.fromNullishOr(projectName);
+    const independent = release?.projectsRelationship === 'independent';
+    const pattern = release?.releaseTag?.pattern ?? (independent ? '{projectName}@{version}' : 'v{version}');
+    const named = project
+        .replaceAll(':', '/')
+        .replaceAll(/[\p{Cc} ~^?*[\\]/gu, '-')
+        .replaceAll(/\/{2,}/gu, '/')
+        .replaceAll(/\.{2,}/gu, '.')
+        .replaceAll(/^\/+|\/+$/gu, '');
+    const matcher = new RegExp(`^${(independent ? pattern.replaceAll('{projectName}', named) : pattern).split('{version}').map(RegExp.escape).join('(.+)')}$`, 'u');
+    const tags = (yield* spawned(['git', 'tag', '--points-at', 'HEAD'], { cwd: root, stdout: 'pipe' })).split('\n').filter((tag) => Option.exists(Option.fromNullishOr(matcher.exec(tag)?.[1]), Function.flow(SemVer.parse, Result.isSuccess)));
+    return tags.length > 1 ? yield* new Cause.UnknownError(tags, `HEAD holds [${tags.join(', ')}], each matching ${pattern} for ${project}, in place of the one tag nx release makes per project`) : Array.head(tags);
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -63,4 +79,4 @@ const run = <A, E>(effect: Effect.Effect<A, E, NodeServices | ChildProcessSpawne
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { credentialed, Dry, dried, packaged, run, spawned, Words, written };
+export { credentialed, Dry, dried, listed, packaged, released, run, spawned, Words };

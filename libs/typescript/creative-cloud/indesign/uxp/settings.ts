@@ -1,7 +1,9 @@
 import type { Capitalization, CharacterDirectionOptions, DigitsTypeOptions, InDesignDOMObject, Justification, KashidasOptions, Leading, PageSideOptions, ParagraphDirectionOptions, ParagraphJustificationOptions, SingleWordJustification, Text, TextDefault } from 'adobe:indesign';
 
+import type { HostError } from '@rasm/automation';
+import type { Unmatched } from '@rasm/search';
 import { Digits, Settings } from '@rasm/typography';
-import { Array, Effect, Equal, identity, Match, Number, Option, Predicate, Record, Schema, SchemaGetter, SchemaIssue, SchemaTransformation, Struct } from 'effect';
+import { Array, type Cause, Effect, Equal, identity, Match, Number, Option, Predicate, Record, Schema, SchemaGetter, SchemaIssue, SchemaTransformation, Struct } from 'effect';
 import { STYLISTIC_SETS } from '#/uxp/dictionary';
 import { Model } from '#/uxp/model';
 
@@ -210,8 +212,8 @@ const spacing = Schema.Struct(Struct.Record(Array.flatMap(Object.values(SPACING)
     }),
 );
 class InDesignSettings extends Schema.Class<InDesignSettings, { readonly brand: unique symbol }>('InDesignSettings')({ direction, numberingSystem, kashida, marks, features, spacing }) {
-    static readonly read = (target: Placed) => Effect.flatMap(placement(target), (placed) => held(target, placed));
-    static readonly write = Effect.fnUntraced(function* (target: Text | TextDefault, change: typeof Settings.Partial.Type) {
+    static readonly read: (target: Placed) => Effect.Effect<Settings, HostError | Cause.IllegalArgumentError, Model> = (target) => Effect.flatMap(placement(target), (placed) => held(target, placed));
+    static readonly write: (target: Text | TextDefault, change: typeof Settings.Partial.Type) => Effect.Effect<readonly string[], Cause.IllegalArgumentError | HostError | Schema.SchemaError | Unmatched, Model> = Effect.fnUntraced(function* (target: Text | TextDefault, change: typeof Settings.Partial.Type) {
         const placed = yield* placement(target);
         const merged = yield* Effect.flatMap(held(target, placed), (settings) => Settings.merge(settings, change));
         const { trips, schema } = sections({ ...placed, paragraphDirection: Option.getOrElse(merged.direction, () => placed.paragraphDirection) });

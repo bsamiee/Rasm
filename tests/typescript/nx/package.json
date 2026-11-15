@@ -10,6 +10,7 @@
         "@effect/platform-node": "catalog:",
         "@effect/vitest": "catalog:",
         "@nx/devkit": "catalog:",
+        "@rasm/process": "workspace:*",
         "@rasm/testing": "workspace:*",
         "@types/node": "catalog:",
         "ajv": "catalog:",

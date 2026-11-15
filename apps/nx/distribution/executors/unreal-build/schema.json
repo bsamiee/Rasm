@@ -5,7 +5,7 @@
     "properties": {
         "outputPath": {
             "type": "string",
-            "description": "Workspace-relative folder holding the BuildPlugin packages under package, their archives under archive, and automation reports under report"
+            "description": "Workspace-relative folder holding the BuildPlugin packages under package, the source archive of each engine under archive, and automation reports under report"
         },
         "descriptor": {
             "type": "string",
@@ -27,39 +27,23 @@
         },
         "packages": {
             "type": "object",
-            "properties": {
-                "folders": {
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "object",
-                        "properties": {
-                            "project": {
-                                "type": "string"
-                            },
-                            "target": {
-                                "type": "string"
-                            },
-                            "configuration": {
-                                "type": "string"
-                            }
-                        },
-                        "required": [ "project", "target" ],
-                        "additionalProperties": true
+            "additionalProperties": {
+                "type": "object",
+                "properties": {
+                    "project": {
+                        "type": "string"
                     },
-                    "description": "Folders of a .uplugin, each mapped to the Nx target that installs a package under it in a folder named for the engine platform"
+                    "target": {
+                        "type": "string"
+                    },
+                    "configuration": {
+                        "type": "string"
+                    }
                 },
-                "variable": {
-                    "type": "string",
-                    "description": "Environment variable the install target of each package reads the engine root from"
-                },
-                "argument": {
-                    "type": "string",
-                    "description": "Argument the install target of each package takes its install folder under"
-                }
+                "required": [ "project", "target" ],
+                "additionalProperties": true
             },
-            "required": [ "folders", "variable", "argument" ],
-            "additionalProperties": true,
-            "description": "Packages installed into folders of a .uplugin before each BuildPlugin run, absent installing none"
+            "description": "Packages installed into folders of a .uplugin before each BuildPlugin run, each target reading the engine root from UNREAL_ENGINE_ROOT and taking its install folder under --prefix, absent installing none"
         },
         "users": {
             "type": "array",
@@ -91,5 +75,5 @@
     "required": [ "outputPath", "descriptor", "hosts", "dependencies", "users", "operation" ],
     "additionalProperties": true,
     "title": "Unreal",
-    "description": "Builds a .uproject's editor target through UnrealBuildTool, with its Clang static analyzer, unity builds off, and no precompiled headers for a check, or for a .uplugin packages it through AutomationTool's BuildPlugin with strict includes once per engine on this machine its hosts name, skipping a host whose engine is absent, after each package its descriptor maps to a folder installs there under a .gitignore holding *, runs the automation tests named after it through UnrealEditor-Cmd in each host and reads their result from the exported report, zips each package and the tracked sources with those installed packages and the engine's EngineVersion after the store checks pass, or copies the package into the Plugins folder of each user project"
+    "description": "Builds a .uproject's editor target through UnrealBuildTool, with its Clang static analyzer, unity builds off, and no precompiled headers for a check, or for a .uplugin packages it through AutomationTool's BuildPlugin with strict includes once per engine on this machine its hosts name, skipping a host whose engine is absent, after each package its descriptor maps to a folder installs there under a .gitignore holding *, runs the automation tests named after it through UnrealEditor-Cmd in each host and reads their result from the exported report, zips the tracked sources with those installed packages and the engine's EngineVersion once per engine after the Fab store checks pass, or copies the package into the Plugins folder of each user project"
 }

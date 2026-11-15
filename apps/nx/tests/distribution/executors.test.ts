@@ -3,12 +3,12 @@ import { assert, it } from '@effect/vitest';
 import js from '@nx/js/package.json' with { type: 'json' };
 import plugin from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Consumer, Packed } from '@rasm/testing/nx';
-import { Duration, Effect, Layer, Schema } from 'effect';
+import { Array, Duration, Effect, Layer, Schema } from 'effect';
 import nx from 'nx/package.json' with { type: 'json' };
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const ATTACH = 'README.md DELIVERY "Releases give every project one version and tag through nx release, and the GitHub release holds the packaged files each attach target uploads"';
+const ATTACH = 'README.md DELIVERY "Each release tag gets its own GitHub release, holding every file its project packages"';
 const TAGGED = /git tag --annotate (?<tag>\S+)/u;
 const bounds = { built: Duration.toMillis('5 minutes'), test: Duration.toMillis('3 minutes') };
 const installed = `node_modules/${plugin.name}`;
@@ -17,8 +17,7 @@ const files = {
     'package.json': JSON.stringify({ name: 'consumer', private: true, type: 'module', workspaces: ['lib'], devDependencies: { nx: nx.version, [js.name]: js.version, [plugin.name]: '*' } }),
     'tools/pack.js': "import { mkdirSync, writeFileSync } from 'node:fs';\n\nmkdirSync('packed', { recursive: true });\nwriteFileSync('packed/lib.tgz', 'archive');\n",
     'tools/stage.js': "import { writeFileSync } from 'node:fs';\n\nwriteFileSync('staged/built.txt', 'built');\n",
-    'tools/publish.js': recorded('published'),
-    'tools/preview.js': recorded('previewed'),
+    'tools/publish.js': "import { writeFileSync } from 'node:fs';\n\nconst argv = process.argv.slice(2);\nwriteFileSync(new URL(argv.includes('--dry-run') ? './previewed.json' : './published.json', import.meta.url), JSON.stringify(argv));\n",
     'tools/keyed.js': recorded('keyed'),
     'tools/unkeyed.js': recorded('unkeyed'),
     'tools/alone.js': recorded('alone'),
@@ -49,7 +48,7 @@ const prepared = Effect.gen(function* () {
         hollow: { command: 'true', outputs: ['{projectRoot}/absent/*.tgz'] },
         clean: { executor: `${plugin.name}:clean`, options: { targets: ['pack', 'stage'], commands: [['node', `${root}/tools/tool-clean.js`, 'swept']], cwd: 'lib' } },
         unstated: { executor: `${plugin.name}:clean` },
-        'nx-release-publish': { executor: `${plugin.name}:publish`, dependsOn: ['pack'], inputs: [{ dependentTasksOutputFiles: '**/*', transitive: true }], options: { publish: ['node', `${root}/tools/publish.js`, 'push'], preview: ['node', `${root}/tools/preview.js`, 'push'], credential: 'HOME' } },
+        'nx-release-publish': { executor: `${plugin.name}:publish`, dependsOn: ['pack'], inputs: [{ dependentTasksOutputFiles: '**/*', transitive: true }], options: { publish: ['node', `${root}/tools/publish.js`, 'push'], preview: ['--dry-run'], credential: 'HOME' } },
         keyed: { executor: `${plugin.name}:publish`, dependsOn: ['pack'], inputs: [{ dependentTasksOutputFiles: '**/*', transitive: true }], options: { publish: ['node', `${root}/tools/keyed.js`, 'push'], credential: 'HOME', flag: '--api-key' } },
         unkeyed: { executor: `${plugin.name}:publish`, dependsOn: ['pack'], inputs: [{ dependentTasksOutputFiles: '**/*', transitive: true }], options: { publish: ['node', `${root}/tools/unkeyed.js`, 'push'], credential: 'RASM_FIXTURE_ABSENT_TOKEN' } },
         alone: { executor: `${plugin.name}:publish`, options: { publish: ['node', `${root}/tools/alone.js`, 'push'], credential: 'HOME' } },
@@ -72,9 +71,10 @@ const collection = (file: string) =>
     );
 
 const uploaded = Effect.gen(function* () {
-    const { nx: run, text } = yield* Consumer;
+    const { absent, nx: run, text } = yield* Consumer;
     const { code, stdout, stderr } = yield* run('run', 'lib:attach', '--output-style=static');
-    return { code, printed: `${stdout}${stderr}`, passed: (yield* text('tools/uploaded.txt')).trim().split('\n') };
+    const passed = Array.isReadonlyArrayEmpty(yield* absent(['tools/uploaded.txt'])) ? (yield* text('tools/uploaded.txt')).trim().split('\n') : [];
+    return { code, printed: `${stdout}${stderr}`, passed };
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -85,8 +85,9 @@ const workspace = (release: object) =>
         Layer.provideMerge(Consumer.layer({ resolved: import.meta.url, settings: { sync: { globalGenerators: [`${plugin.name}:executor-schemas`] }, release }, ignored: ['tools/*.json', 'tools/uploaded.txt', 'packed', 'built.txt'], files }), Layer.provideMerge(Packed.layer(plugin.name), layer)),
     );
 
-it.layer(workspace({ projects: ['lib'] }), { timeout: bounds.built, excludeTestServices: true })((methods) => {
+it.layer(workspace({ projects: ['lib'], projectsRelationship: 'independent' }), { timeout: bounds.built, excludeTestServices: true })((methods) => {
     const PACKAGED = 'README.md TASKS "Attach and publish targets depend on the targets that package their files"';
+    const RELEASED = 'README.md DELIVERY "Attach, publish targets, and the Sparkle feed act on projects tagged at the released commit, and a project without a tag there uploads nothing"';
 
     methods.effect(
         'every executor and generator of the installed package states a schema file and a module that exist',
@@ -127,10 +128,15 @@ it.layer(workspace({ projects: ['lib'] }), { timeout: bounds.built, excludeTestS
     );
 
     methods.effect(
-        'publish uploads where its credential variable is set and names the variable and succeeds where it is not',
+        'publish skips a commit holding no tag of its project, and uploads where its credential variable is set and names the variable and succeeds where it is not',
         Effect.fnUntraced(function* () {
             const rule = 'README.md PRINCIPLES "Publish targets upload where the credential variable their tool reads is set, and name the variable and succeed where it is not"';
-            const { absent, nx: run, text } = yield* Consumer;
+            const { absent, called, nx: run, text } = yield* Consumer;
+            const untagged = yield* run('run', 'lib:keyed', '--output-style=static');
+            assert.strictEqual(untagged.code, 0, `${RELEASED}: a commit holding no tag of lib exits 0: ${untagged.stdout}${untagged.stderr}`);
+            assert.include(`${untagged.stdout}${untagged.stderr}`, 'HEAD holds no tag of lib', 'root CLAUDE.md "Messages ... exact subject, values over prose": the skip names the project HEAD holds no tag of');
+            assert.deepStrictEqual(yield* absent(['tools/keyed.json']), ['tools/keyed.json'], `${RELEASED}: the publish command does not run`);
+            yield* Effect.flatMap(called('git', ['tag', '--annotate', 'lib@1.2.3', '--message', 'lib@1.2.3']), ({ checked }) => checked);
             const skipped = yield* run('run', 'lib:unkeyed', '--output-style=static');
             assert.strictEqual(skipped.code, 0, `${rule}: a missing credential exits 0: ${skipped.stdout}${skipped.stderr}`);
             assert.include(`${skipped.stdout}${skipped.stderr}`, 'RASM_FIXTURE_ABSENT_TOKEN is not set', `${rule}: the run names the missing variable`);
@@ -159,7 +165,7 @@ it.layer(workspace({ projects: ['lib'] }), { timeout: bounds.built, excludeTestS
             const { code, stdout, stderr } = yield* run('release', 'publish', '--dry-run');
             assert.strictEqual(code, 0, `nx release publish --dry-run exits 0: ${stdout}${stderr}`);
             assert.deepStrictEqual(yield* absent(['tools/published.json']), ['tools/published.json'], 'nrwl/nx packages/nx/src/command-line/release/publish.ts: a dry run publishes nothing');
-            assert.strictEqual((yield* Effect.flatMap(text('tools/previewed.json'), Schema.decodeEffect(Arguments)))[0], 'push', "the tool's own dry-run form runs in place of publish");
+            assert.deepStrictEqual(yield* Effect.flatMap(text('tools/previewed.json'), Schema.decodeEffect(Arguments)), ['push', 'lib/packed/lib.tgz', '--dry-run'], "docs.astral.sh/uv/reference/cli/#uv-publish--dry-run: the tool's own dry run runs in place of publish, its arguments after the files");
         }),
         bounds.test,
     );
@@ -178,12 +184,25 @@ it.layer(workspace({ projects: ['lib'] }), { timeout: bounds.built, excludeTestS
     );
 
     methods.effect(
-        'attach uploads the packaged files to the release of the version tag through gh release upload --clobber',
+        'attach skips a commit holding no tag of its project, and uploads the packaged files to the release of its own tag among the tags at the commit',
         Effect.fnUntraced(function* () {
+            const independent = 'nrwl/nx packages/nx/src/command-line/release/config/config.ts defaultIndependentReleaseTagPattern: `{projectName}@{version}`';
+            const { absent, called, committed, nx: run } = yield* Consumer;
+            const tagged = (name: string) => Effect.flatMap(called('git', ['tag', '--annotate', name, '--message', name]), ({ checked }) => checked);
+            yield* committed('untagged');
+            yield* tagged('other@2.0.0');
+            const untagged = yield* uploaded;
+            assert.strictEqual(untagged.code, 0, `${RELEASED}: a commit holding no tag of lib exits 0: ${untagged.printed}`);
+            assert.include(untagged.printed, 'HEAD holds no tag of lib', 'root CLAUDE.md "Messages ... exact subject, values over prose": the skip names the project HEAD holds no tag of');
+            assert.deepStrictEqual(untagged.passed, [], `${RELEASED}: gh runs for no upload`);
+            const previewed = yield* run('run', 'lib:attach', '--dryRun', '--output-style=static');
+            assert.include(`${previewed.stdout}${previewed.stderr}`, 'Would run gh release upload', 'workflow release.yml dry-run input "Previews each project\'s version, tag, and GitHub release": a dry run previews the upload of a project nx release has not tagged yet');
+            assert.deepStrictEqual(yield* absent(['tools/uploaded.txt']), ['tools/uploaded.txt'], 'a dry run runs gh for no upload');
+            yield* tagged('lib@1.2.4');
             const { code, printed, passed } = yield* uploaded;
             const [command, subcommand, tag, ...sent] = passed;
             assert.strictEqual(code, 0, `nx run lib:attach exits 0: ${printed}`);
-            assert.deepStrictEqual([command, subcommand, tag], ['release', 'upload', 'v1.2.3'], `${ATTACH}; nrwl/nx packages/nx/src/command-line/release/config/config.ts defaultFixedReleaseTagPattern "v{version}"; cli.github.com/manual/gh_release_upload "gh release upload <tag> <files>..."`);
+            assert.deepStrictEqual([command, subcommand, tag], ['release', 'upload', 'lib@1.2.4'], `${ATTACH}; ${independent}; cli.github.com/manual/gh_release_upload "gh release upload <tag> <files>...": other@2.0.0 at the same commit belongs to another project`);
             assert.deepStrictEqual(sent, ['lib/packed/lib.tgz', '--clobber'], `${ATTACH}; ${PACKAGED}; cli.github.com/manual/gh_release_upload --clobber "Overwrite existing assets of the same name": the upload names lib/packed/lib.tgz, the declared output of pack, alone`);
         }),
         bounds.test,
@@ -223,15 +242,16 @@ it.layer(workspace({ projects: ['lib'] }), { timeout: bounds.built, excludeTestS
 
 it.layer(workspace({ projects: ['lib'], releaseTag: { pattern: '{projectName}@{version}' } }), { timeout: bounds.built, excludeTestServices: true })((methods) => {
     methods.effect(
-        'attach uploads to the tag nx release gives a fixed group whose tag pattern names the project',
+        'attach uploads to the tag nx release made at the commit it released, for a fixed group whose tag pattern names the project',
         Effect.fnUntraced(function* () {
             const { nx: run } = yield* Consumer;
-            const planned = yield* run('release', '1.2.4', '--dry-run', '--skip-publish', '--first-release', '--verbose');
-            const { tag } = TAGGED.exec(`${planned.stdout}${planned.stderr}`)?.groups ?? {};
+            const released = yield* run('release', '1.2.4', '--skip-publish', '--first-release', '--verbose');
+            const { tag } = TAGGED.exec(`${released.stdout}${released.stderr}`)?.groups ?? {};
             const { code, printed, passed } = yield* uploaded;
+            assert.strictEqual(released.code, 0, `nx release 1.2.4 --skip-publish --first-release exits 0: ${released.stdout}${released.stderr}`);
+            assert.include(tag, '1.2.4', `nx release 1.2.4 --verbose prints its git tag command: ${released.stdout}${released.stderr}`);
             assert.strictEqual(code, 0, `nx run lib:attach exits 0: ${printed}`);
-            assert.include(tag, '1.2.4', `nx release 1.2.4 --dry-run --verbose prints its git tag command: ${planned.stdout}${planned.stderr}`);
-            assert.strictEqual(passed[2], tag?.replace('1.2.4', '1.2.3'), `${ATTACH}; nrwl/nx packages/nx/src/command-line/release/utils/shared.ts createGitTagValues: a fixed group gets one tag, interpolated from version and group name alone`);
+            assert.strictEqual(passed[2], tag, `${ATTACH}; nrwl/nx packages/nx/src/command-line/release/utils/shared.ts createGitTagValues: a fixed group gets one tag, interpolated from version and group name alone, at the release commit`);
         }),
         bounds.test,
     );

@@ -28,7 +28,7 @@ const configured = {
     'libs/math/vitest.config.ts': "import { defineConfig } from 'vitest/config';\n\nexport default defineConfig({ test: { setupFiles: ['../../tools/vitest/setup.ts'] } });\n",
     'libs/viteful/package.json': '{ "name": "viteful", "type": "module" }\n',
     'libs/viteful/sum.test.ts': passing,
-    'libs/viteful/vite.config.ts': "import { defineConfig } from 'vitest/config';\n\nexport default defineConfig({ test: { include: ['*.test.ts'] } });\n",
+    'libs/viteful/vite.config.ts': "import { mergeConfig } from 'vite';\nimport { defineConfig } from 'vitest/config';\n\nexport default mergeConfig(defineConfig({ test: { include: ['*.test.ts'] } }), {});\n",
     'libs/plain/package.json': '{ "name": "plain", "type": "module" }\n',
     'libs/plain/index.ts': 'export const plain = 1;\n',
     'libs/plain/vite.config.ts': "import { defineConfig } from 'vite';\n\nexport default defineConfig({});\n",
@@ -145,6 +145,15 @@ it.layer(workspace(configured), { timeout: bounds.built, excludeTestServices: tr
     );
 
     methods.effect(
+        'the test target hashes each installed package its config files import',
+        Effect.fnUntraced(function* () {
+            const [run] = Object.values(tested(yield* read, 'viteful'));
+            assert.deepInclude(run?.inputs ?? [], { externalDependencies: [vitest.name, vite.name] }, 'nrwl/nx packages/nx/src/native/tasks/hash_planner.rs target_input: a target stating externalDependencies hashes the packages it names alone, so vite, which libs/viteful/vite.config.ts imports, is named');
+        }),
+        bounds.test,
+    );
+
+    methods.effect(
         'a setup file outside the project root is an input of the test target',
         Effect.fnUntraced(function* () {
             const [{ inputs, root }, path, graph] = yield* Effect.all([Consumer, Path.Path, read]);
@@ -192,11 +201,12 @@ it.layer(workspace(configured), { timeout: bounds.built, excludeTestServices: tr
     );
 
     methods.effect(
-        'a run writes every file under the declared outputs, which hold the coverage folder Vitest resolves, or under the cache Vitest tags, and clean removes each but the tag',
+        'a run writes every file under the declared outputs, or under the cache Vitest tags, clean removes each but the tag, and the coverage configuration alone declares the lcov.info report in the coverage folder Vitest resolves',
         Effect.fnUntraced(function* () {
             const [{ absent, nx, outputs, root, written }, path, graph] = yield* Effect.all([Consumer, Path.Path, read]);
             const [{ code, stdout, stderr }, created] = yield* written(nx('run', task(graph, 'math'), '--output-style=static'));
-            const [{ outputPaths: folders, expandedOutputs }, resolved] = [yield* outputs(task(graph, 'math')), yield* projects('libs/math')];
+            const [{ outputPaths: folders, expandedOutputs }, { outputPaths: covered }, resolved] = [yield* outputs(task(graph, 'math')), yield* outputs(`${task(graph, 'math')}:coverage`), yield* projects('libs/math')];
+            const reports = resolved.map((project) => path.relative(root, path.resolve(project.root, project.coverage, 'lcov.info')));
             const stored = [...expandedOutputs, ...created.filter((file) => path.basename(file) === 'CACHEDIR.TAG').map((file) => path.dirname(file))];
             const under = new RegExp(`^(?:${stored.map(RegExp.escape).join('|')})(?:${RegExp.escape(path.sep)}|$)`, 'u');
             const cleaned = yield* nx('run', 'math:clean', '--output-style=static');
@@ -207,16 +217,33 @@ it.layer(workspace(configured), { timeout: bounds.built, excludeTestServices: tr
                 [],
                 'README.md TASKS "clean removes the outputs a project\'s targets declare and runs its tool\'s clean": each declared output goes, and vitest --clearCache removes each cache entry, leaving the CACHEDIR.TAG of the folder it owns',
             );
-            assert.includeMembers(
-                [...folders],
-                resolved.map((project) => path.relative(root, path.resolve(project.root, project.coverage))),
-                `${snapshot}: outputs hold the coverage folder, here coverage.reportsDirectory of createVitest`,
-            );
+            assert.deepStrictEqual(Array.intersection(folders, reports), [], `${SCHEMA} outputs: a plain run records no coverage, so its outputs hold no lcov.info report`);
+            assert.includeMembers([...covered], reports, `${snapshot}: coverage configuration outputs hold the lcov.info report in coverage.reportsDirectory of createVitest`);
             assert.deepStrictEqual(
                 created.filter((file) => !under.test(file)),
                 [],
                 `${SCHEMA} outputs: every file the run writes lies under a declared output, or in a cache directory; bford.info/cachedir: a directory holding CACHEDIR.TAG is a cache, which Vitest tags where it stores its own`,
             );
+        }),
+        bounds.test,
+    );
+
+    methods.effect(
+        'a workspace package a config imports is a project input of the test target, not an external dependency',
+        Effect.fnUntraced(function* () {
+            const { called, wrote } = yield* Consumer;
+            yield* wrote({
+                'libs/helper/package.json': '{ "name": "helper", "type": "module", "exports": "./index.js" }\n',
+                'libs/helper/index.js': "export const include = ['*.test.ts'];\n",
+                'libs/linked/package.json': '{ "name": "linked", "type": "module" }\n',
+                'libs/linked/sum.test.ts': passing,
+                'libs/linked/vitest.config.ts': "import { include } from 'helper';\nimport { defineConfig } from 'vitest/config';\n\nexport default defineConfig({ test: { include } });\n",
+            });
+            yield* Effect.flatMap(called('ln', ['-s', '../libs/helper', 'node_modules/helper']), ({ checked }) => checked);
+            const [run] = Object.values(tested(yield* read, 'linked'));
+            const linking = 'pnpm.io/workspaces: a workspace package links into node_modules and resolves outside it, so vite bundles no file of it and its files change with no lockfile change';
+            assert.deepInclude(run?.inputs ?? [], { input: 'default', projects: ['helper'] }, `${linking}; ${SCHEMA} inputs "projects": the files of helper are inputs`);
+            assert.deepInclude(run?.inputs ?? [], { externalDependencies: [vitest.name] }, `${linking}: helper is no installed package, so externalDependencies leaves it out`);
         }),
         bounds.test,
     );

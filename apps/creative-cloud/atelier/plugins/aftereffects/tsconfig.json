@@ -1,8 +1,18 @@
 {
     "extends": "../../../../../tsconfig.base.json",
     "compilerOptions": {
-        "declaration": false,
         "noEmit": true,
         "types": [ "node", "types-for-adobe/AfterEffects/26.0" ]
-    }
+    },
+    "references": [
+        {
+            "path": "../../../../../libs/typescript/creative-cloud/cep"
+        },
+        {
+            "path": "../../protocol"
+        },
+        {
+            "path": "../../extendscript"
+        }
+    ]
 }

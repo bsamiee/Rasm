@@ -1,18 +1,23 @@
+import { join } from 'node:path';
 import AxeBuilder from '@axe-core/playwright';
-import { getPackageManagerCommand, getReadyUrl } from '@nx/devkit';
-import { isCI } from '@nx/devkit/internal';
+import { getPackageManagerCommand, getReadyUrl, readJsonFile } from '@nx/devkit';
+import { isCI, type PackageJson } from '@nx/devkit/internal';
 import { defineConfig, test } from '@playwright/test';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const config = defineConfig({
-    forbidOnly: Boolean(isCI()),
-    reporter: [
-        ['junit', { outputFile: 'test-results/junit.xml' }],
-        ['html', { open: 'never' }],
-    ],
-    use: { trace: 'retain-on-failure', screenshot: 'only-on-failure' },
-});
+const config = (directory: string, output: string) => {
+    const folder = join(output, readJsonFile<PackageJson>(join(directory, 'package.json')).name);
+    return defineConfig({
+        forbidOnly: Boolean(isCI()),
+        outputDir: join(folder, 'test-results'),
+        reporter: [
+            ['junit', { outputFile: join(folder, 'junit.xml') }],
+            ['html', { open: 'never', outputFolder: join(folder, 'playwright-report') }],
+        ],
+        use: { trace: 'retain-on-failure', screenshot: 'only-on-failure' },
+    });
+};
 
 const served = (task: string, address: string) => {
     const url = getReadyUrl(address);

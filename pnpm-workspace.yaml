@@ -79,6 +79,8 @@ catalog:
     minimatch: 11.0.5
     package-directory: 8.2.0 # Nearest package directory from existing or generated paths
     env-paths: 4.0.0 # Per-user data, config, cache, log, and temp folders of each platform
+    which: 7.0.0 # Executable lookup over PATH and PATHEXT
+    '@types/which': 3.0.4
 
     # --- [HASHING]
 
@@ -457,9 +459,9 @@ catalog:
 
     # --- [COMPILERS]
 
-    '@effect/tsgo': 0.67.7 # Effect diagnostics for native TypeScript compiler and language server
+    '@effect/tsgo': 0.69.0 # Effect diagnostics for native TypeScript compiler and language server
     typescript: npm:@typescript/typescript6@6.0.2 # Classic compiler API for every tool loading `typescript` by name, native TypeScript ships none
-    '@typescript/native': npm:typescript@7.1.0-dev.20261109.1 # Native TypeScript release `@effect/tsgo` supports
+    '@typescript/native': npm:typescript@7.1.0-dev.20261112.1 # Native TypeScript release `@effect/tsgo` supports
     '@swc/wasm': 1.16.22
     tslib: 2.9.1
     '@types/node': 26.6.6
@@ -471,6 +473,7 @@ catalog:
     '@nx/js': 24.1.0-beta.0 # tsconfig `extends` chains the config-reading plugins hash
     '@nx/web': 24.1.0-beta.0 # `file-server` executor serving a built Storybook
     '@nx/vite': 24.1.0-beta.0 # `nxReadySignal` Vite plugin a served config holds
+    '@nx/playwright': 24.1.0-beta.0 # `test` target per Playwright config, depending on the task its `webServer` command runs
     '@nx/plugin': 24.1.0-beta.0 # Generators and checks for plugins, executors, generators, and migrations
     '@nx/workspace': 24.1.0-beta.0 # `move`, `remove`, and `infer-targets` generators
     nx-mcp: 0.25.3 # Nx MCP server answering workspace, project, and task questions for agents

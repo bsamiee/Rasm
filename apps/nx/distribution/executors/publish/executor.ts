@@ -1,7 +1,7 @@
 import type { ExecutorContext } from '@nx/devkit';
 import { Array, Effect, Option, Schema, Struct } from 'effect';
 import { CommandLine } from 'effect/process';
-import { credentialed, Dry, dried, packaged, run, spawned, Words } from '#/executor';
+import { credentialed, Dry, dried, packaged, released, run, spawned, Words } from '#/executor';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -15,20 +15,22 @@ const Publish = Dry.mapFields(
     }),
 ).annotate({
     title: 'Publish',
-    description: "Delivers the files a project's packaging targets wrote to its registry or store through its tool's own publish command where the destination's credential is set, and names the missing variable where it is not; runs through nx release publish",
+    description:
+        "Delivers the files a project's packaging targets wrote to its registry or store through its tool's own publish command where the destination's credential is set and the checked-out commit holds the project's tag nx release made from release.releaseTag.pattern, and names the missing variable or tag where it is not; runs through nx release publish, a dry run previewing every project",
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const execute = Effect.fnUntraced(function* ({ publish, preview, credential, flag, __unparsed__: words = [], ...stated }: typeof Publish.Type, context: ExecutorContext) {
-    const [dry, files, held] = yield* Effect.all([dried(stated), packaged(context), credentialed(credential)]);
+    const [dry, { project, files }, held] = yield* Effect.all([dried(stated), packaged(context), credentialed(credential)]);
     const command = Array.appendAll(Array.appendAll(publish, files), words);
     const keyed = Option.getOrElse(Option.all([Option.fromUndefinedOr(flag), held]), Array.empty<string>);
     const skipped = dry ? Effect.logInfo(`Would run ${CommandLine.display(command)}`) : Effect.logWarning(`Skipped ${CommandLine.display(command)}: ${credential} is not set`);
-    yield* Option.match(dry ? Option.map(Option.fromUndefinedOr(preview), (added) => Array.appendAll(command, added)) : Option.as(held, Array.appendAll(command, keyed)), {
+    const delivered = Option.match(dry ? Option.map(Option.fromUndefinedOr(preview), (added) => Array.appendAll(command, added)) : Option.as(held, Array.appendAll(command, keyed)), {
         onNone: () => skipped,
-        onSome: (argv) => Effect.asVoid(spawned(argv, { cwd: context.root })),
+        onSome: (argv) => Effect.asVoid(spawned(argv, { cwd: context.root, stdout: 'inherit', stderr: 'inherit' })),
     });
+    yield* dry ? delivered : Effect.flatMap(released(context), Option.match({ onNone: () => Effect.logInfo(`Skipped ${CommandLine.display(command)}: HEAD holds no tag of ${project}, so nx release released no version of it at this commit`), onSome: () => delivered }));
     return { success: true };
 }, run);
 

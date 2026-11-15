@@ -3,11 +3,6 @@ import System
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-enum VersionSetting: String {
-    case marketing = "MARKETING_VERSION"
-    case project = "CURRENT_PROJECT_VERSION"
-}
-
 enum WorkspaceLocation: String {
     case group
     case container
@@ -23,6 +18,10 @@ enum WorkspaceElement: String {
     case group = "Group"
     case fileReference = "FileRef"
 }
+
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+let marketingSetting = "MARKETING_VERSION"
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -68,7 +67,6 @@ struct AnalyzerError: LocalizedError {
         case unreadable(any Error)
         case undecodable(any Error)
         case missing([String])
-        case nonInteger(String)
         case empty
     }
 
@@ -80,7 +78,6 @@ struct AnalyzerError: LocalizedError {
             case .unreadable(let cause): "\(subject) is unreadable: \(cause.localizedDescription)"
             case .undecodable(let cause): "\(subject) is undecodable: \(cause.localizedDescription)"
             case .missing(let references): (["\(subject) has missing references:"] + references).joined(separator: "\n  ")
-            case .nonInteger(let value): "\(subject) holds \(value), not an integer"
             case .empty: "\(subject) is empty"
         }
     }

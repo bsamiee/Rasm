@@ -4,14 +4,10 @@ on:
     workflow_dispatch:
         inputs:
             specifier:
-                description: Version or semver keyword every released project takes, empty reads conventional commits
+                description: Version or semver keyword every release project takes, empty reads each project's conventional commits
                 type: string
-            first-release:
-                description: No release tag exists yet
-                type: boolean
-                default: false
             dry-run:
-                description: Previews the version, tag, and GitHub release, changes nothing and skips attach and publish
+                description: Previews each project's version, tag, and GitHub release, changes nothing and skips attach and publish
                 type: boolean
                 default: true
             publish:
@@ -38,8 +34,6 @@ jobs:
         env:
             GH_TOKEN: &github ${{ github.token }}
             UV_LOCKED: "true"
-            NX_SELF_HOSTED_REMOTE_CACHE_SERVER: &server ${{ secrets.NX_SELF_HOSTED_REMOTE_CACHE_SERVER }}
-            NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN: &token ${{ secrets.NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN }}
             APPLE_DEVELOPMENT_P12: ${{ secrets.APPLE_DEVELOPMENT_P12 }}
             APPLE_DEVELOPMENT_P12_PASSWORD: ${{ secrets.APPLE_DEVELOPMENT_P12_PASSWORD }}
             DEVELOPER_ID_P12: ${{ secrets.DEVELOPER_ID_P12 }}
@@ -47,6 +41,8 @@ jobs:
             ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
             ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
             ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
+            ZXP_CERTIFICATE: ${{ secrets.ZXP_CERTIFICATE }}
+            ZXP_CERTIFICATE_PASSWORD: ${{ secrets.ZXP_CERTIFICATE_PASSWORD }}
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
@@ -56,8 +52,24 @@ jobs:
                   xcode-version: latest
             - &tools
               uses: ./.github/actions/tools
+            - id: signing
+              if: ${{ env.APPLE_DEVELOPMENT_P12 != '' || env.DEVELOPER_ID_P12 != '' }}
+              run: |
+                  keychain="${RUNNER_TEMP}/app-signing.keychain-db"
+                  password="$(uuidgen)"
+                  security create-keychain -p "${password}" "${keychain}"
+                  security set-keychain-settings -lut 21600 "${keychain}"
+                  security unlock-keychain -p "${password}" "${keychain}"
+                  for identity in APPLE_DEVELOPMENT_P12 DEVELOPER_ID_P12; do
+                      passphrase="${identity}_PASSWORD"
+                      [[ -n "${!identity}" ]] || continue
+                      printf "%s" "${!identity}" | base64 --decode -o "${RUNNER_TEMP}/${identity}.p12"
+                      security import "${RUNNER_TEMP}/${identity}.p12" -P "${!passphrase}" -A -t cert -f pkcs12 -k "${keychain}"
+                  done
+                  security set-key-partition-list -S apple-tool:,apple: -k "${password}" "${keychain}"
+                  security list-keychains -d user | xargs security list-keychains -d user -s "${keychain}"
             - run: nx build @rasm/nx-apple-darwin-arm64
-            - run: nx release ${SPECIFIER:+"${SPECIFIER}"} --skip-publish --first-release=${{ inputs.first-release }} --dry-run=${{ inputs.dry-run }}
+            - run: nx release ${SPECIFIER:+"${SPECIFIER}"} --skip-publish --dry-run=${{ inputs.dry-run }}
               env:
                   SPECIFIER: ${{ inputs.specifier }}
                   GIT_AUTHOR_NAME: github-actions[bot]
@@ -73,7 +85,7 @@ jobs:
             - if: ${{ !inputs.dry-run }}
               run: nx run-many --targets=attach --configuration=release
             - if: ${{ inputs.publish && !inputs.dry-run }}
-              run: nx release publish --first-release=${{ inputs.first-release }}
+              run: nx release publish
               env:
                   PNPM_CONFIG__AUTH: '{"https://registry.npmjs.org":{"@":{"authToken":"${NODE_AUTH_TOKEN}"}}}'
                   NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
@@ -86,6 +98,8 @@ jobs:
                   SPARKLE_FEED_BUCKET: ${{ vars.SPARKLE_FEED_BUCKET }}
                   CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
                   CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+            - if: ${{ always() && steps.signing.outcome != 'skipped' }}
+              run: security delete-keychain "${RUNNER_TEMP}/app-signing.keychain-db"
 
     unreal:
         needs: release
@@ -106,8 +120,6 @@ jobs:
         env:
             GH_TOKEN: *github
             UV_LOCKED: "true"
-            NX_SELF_HOSTED_REMOTE_CACHE_SERVER: *server
-            NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN: *token
             HOME: /home/ue4
             UnrealBuildTool_UnrealBuildAccelerator__AllowDetour: "false"
         steps:

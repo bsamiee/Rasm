@@ -2,7 +2,7 @@
 
 [package]
 name              = "rasm-optimization"
-version.workspace = true
+version           = "0.1.0"
 edition.workspace = true
 publish           = false
 description       = "Optimization: bounded nonlinear solves, conic programs, allocation models, and Pareto ranking"

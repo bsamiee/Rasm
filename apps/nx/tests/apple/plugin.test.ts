@@ -190,7 +190,7 @@ conforms({
     ),
     published: true,
     refused: { 'broken/Package.swift': '// swift-tools-version: 6.4\nimport PackageDescription\n\nlet package = Package(name: \n' },
-    manifests: (next) => ({ [PROJECT]: files[PROJECT].replace('"MARKETING_VERSION": "0.1.0"', `"MARKETING_VERSION": "${next}"`).replace('"CURRENT_PROJECT_VERSION": "1"', '"CURRENT_PROJECT_VERSION": "2"') }),
+    manifests: (next) => ({ [PROJECT]: files[PROJECT].replace('"MARKETING_VERSION": "0.1.0"', `"MARKETING_VERSION": "${next}"`) }),
     edits: {
         verbs: ['build'],
         dependent: TOOL,

@@ -2,7 +2,7 @@
 
 [package]
 name              = "rasm-cli"
-version.workspace = true
+version           = "0.1.0"
 edition.workspace = true
 publish           = false
 description       = "Process entry every Rasm executable runs: assembled clap command, settings layers, completions, man pages, per-user folders, runtime, and signals around the telemetry run"

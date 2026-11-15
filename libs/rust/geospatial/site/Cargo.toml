@@ -2,7 +2,7 @@
 
 [package]
 name              = "rasm-site"
-version.workspace = true
+version           = "0.1.0"
 edition.workspace = true
 publish           = false
 description       = "Located site: coordinates, time zones, parcels, CRS transformations, and grid frames"

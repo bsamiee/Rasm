@@ -13,6 +13,7 @@
         "@effect/tsgo": "catalog:",
         "@nx/devkit": "catalog:",
         "@nx/js": "catalog:",
+        "@nx/playwright": "catalog:",
         "@nx/plugin": "catalog:",
         "@nx/web": "catalog:",
         "@nx/workspace": "catalog:",

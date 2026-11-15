@@ -15,7 +15,8 @@ const files = {
     'infra/compose.yaml':
         'include:\n    - ../shared/compose.base.yaml\nservices:\n    api:\n        build:\n            context: ../apps/api\n        ports:\n            - "8080:8080"\n        environment:\n            API_TOKEN: $API_TOKEN\n        depends_on:\n            - store\n    traces:\n        image: jaegertracing/jaeger:2\n        profiles:\n            - observed\n',
     'ops/package.json': '{ "name": "ops", "type": "module" }\n',
-    'ops/compose.yaml': 'services:\n    proxy:\n        image: traefik:v3\n    site:\n        build:\n            context: ../libs/site/dist\n            dockerfile: ../../../ops/site.Dockerfile\n',
+    'shared/proxy.base.yaml': 'services:\n    proxy:\n        image: traefik:v3\n',
+    'ops/compose.yaml': 'services:\n    proxy:\n        extends:\n            file: ../shared/proxy.base.yaml\n            service: proxy\n    site:\n        build:\n            context: ../libs/site/dist\n            dockerfile: ../../../ops/site.Dockerfile\n',
     'apps/api/package.json': '{ "name": "api", "type": "module" }\n',
     'apps/api/Dockerfile': 'FROM scratch\nCOPY package.json /package.json\n',
     'libs/site/project.json': '{ "name": "site", "targets": { "build": { "command": "true", "outputs": ["{projectRoot}/dist"] } } }\n',
@@ -158,6 +159,24 @@ it.layer(workspace(files), { timeout: bounds.built, excludeTestServices: true })
             const { nx } = yield* Consumer;
             const { checked } = yield* nx('show', 'projects', '--affected', `--files=${file}`, '--json');
             assert.include(yield* Effect.flatMap(checked, Schema.decodeEffect(Names)), 'infra', `README.md TASKS "--files=<path> limits it to one change's reach": infra/compose.yaml includes shared/compose.base.yaml and builds apps/api`);
+        }),
+        bounds.test,
+    );
+
+    methods.effect(
+        'a change to a file a service extends marks the Compose project affected, and its check inputs name that file',
+        Effect.fnUntraced(function* () {
+            const extended = 'docs.docker.com/reference/compose-file/services/#extends: file names the Compose file holding the extended service, relative to the extending file';
+            const [{ nx }, graph] = yield* Effect.all([Consumer, read]);
+            const { checked } = yield* nx('show', 'projects', '--affected', '--files=shared/proxy.base.yaml', '--json');
+            const inputs = Object.values(tooled(graph, 'ops', 'check'))
+                .flatMap(({ inputs: rows = [] }) => rows)
+                .map((row) => Formatter.format(row));
+            assert.include(yield* Effect.flatMap(checked, Schema.decodeEffect(Names)), 'ops', `${extended}; README.md TASKS "--files=<path> limits it to one change's reach"`);
+            assert.isTrue(
+                inputs.some((row) => row.includes('shared/proxy.base.yaml')),
+                `${extended}; README.md PRINCIPLES "Task inputs hold the files a task's tool reads"`,
+            );
         }),
         bounds.test,
     );

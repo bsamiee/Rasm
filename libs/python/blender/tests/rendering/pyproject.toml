@@ -3,7 +3,7 @@
 [project]
 name            = "rasm-rendering-tests"
 version         = "0.1.0"
-requires-python = "==3.13.*"
+requires-python = ">=3.13"
 
 dependencies = [
     # --- [CORE]
@@ -24,68 +24,10 @@ dependencies = [
     "opentelemetry-sdk",     # Recording span whose trace a request header carries
 ]
 
-# --- [DEPENDENCY_GROUPS] ----------------------------------------------------------------
-
-[dependency-groups]
-blender = [
-    "attrs==25.3.0",
-    "autopep8==2.3.1",
-    "cattrs==25.1.1",
-    "certifi==2025.4.26",
-    "charset-normalizer==3.4.1",
-    "Cython==3.0.11",
-    "docutils==0.22.4",
-    "idna==3.10",
-    "numpy==2.3.4",
-    "opencolorio==2.5.0",
-    "openimageio==3.1.16.0",
-    "packaging==25.0",
-    "pip==26.0.1",
-    "pycodestyle==2.13.0",
-    "pyproject-metadata==0.9.1",
-    "requests==2.32.3",
-    "setuptools==80.9.0",
-    "tomli_w==1.2.0",
-    "typing_extensions==4.14.1",
-    "urllib3==2.4.0",
-    "zstandard==0.25.0",
-]                                # Versions Blender bundles, the lock holds each at it
-dev     = [
-    "mypy",                      # Type checker owning `exhaustive-match`, the `disallow_any_*` flags, `no-any-return`, unreachable code, and unused `type: ignore` comments
-    "rasm-refurb",               # Refurb checks over mypy types Ruff lacks, loaded by refurb as a plugin
-    "refurb",                    # FURB checks Ruff lacks, over a mypy build
-    "ruff",                      # Linter and formatter hk runs from this root's environment
-    "ty",                        # Type checker of the suite
-    "vulture",                   # Private functions, classes, methods, and attributes nothing reads
-]
-
-# --- [UV] -------------------------------------------------------------------------------
-
-[tool.uv]
-environments = [
-    "sys_platform == 'darwin' and platform_machine == 'arm64'",
-    "sys_platform == 'linux' and platform_machine == 'x86_64'",
-    "sys_platform == 'linux' and platform_machine == 'aarch64'",
-    "sys_platform == 'win32' and platform_machine == 'AMD64'",
-]
-prerelease   = "allow"
-
-[tool.uv.sources]
-rasm-refurb    = { workspace = "../../../../.." }
-rasm-records   = { workspace = "../../../../.." }
-rasm-rendering = { workspace = "../.." }
-rasm-testing   = { workspace = "../../../../.." }
-
 # --- [RUFF] -----------------------------------------------------------------------------
 
 [tool.ruff]
 extend = "../../../../../pyproject.toml" # Ruff reads this manifest's `requires-python` through its own table
-
-# --- [TY] -------------------------------------------------------------------------------
-
-[tool.ty]
-environment = { python-platform = "all" }                              # ty merges no parent table and takes `requires-python` from the table holder, so each 3.13 root states its own
-rules       = { all = "error", unused-type-ignore-comment = "ignore" } # mypy `unused-ignore` owns unused `type: ignore` comments
 
 # --- [PYTEST] ---------------------------------------------------------------------------
 

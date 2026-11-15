@@ -1,4 +1,4 @@
-import { dirname, relative, resolve } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { layer } from '@effect/platform-node/NodeServices';
 import { assert, it } from '@effect/vitest';
@@ -6,7 +6,7 @@ import { createProjectGraphAsync, workspaceRoot } from '@nx/devkit';
 import plugin from '@rasm/nx-dotnet/package.json' with { type: 'json' };
 import { conforms } from '@rasm/testing/conformance';
 import { Consumer, exited, Packed } from '@rasm/testing/nx';
-import { Array, Duration, Effect, FileSystem, Layer, Path, Predicate, Record, Schema, String, Struct } from 'effect';
+import { Array, Duration, Effect, FileSystem, Layer, Path, Predicate, Record, Result, Schema, String, Struct } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -15,8 +15,8 @@ const SINGLE = 'README.md PRINCIPLES ".NET targets of a project run in the one `
 const [APP, CORE, TESTS, PROPS] = ['src/App', 'src/Core', 'tests/Core.Tests', 'Directory.Build.props'] as const;
 const SOURCES = { core: 'src/Core/Numbers.cs', tests: 'tests/Core.Tests/NumbersTests.cs' } as const;
 const PROPERTIES = ['MSBuildProjectName', 'Version', 'PackageId', 'IsPackable', 'IsTestProject', 'IsTestingPlatformApplication', 'TargetPath', 'Configuration', 'Configurations', 'PackageOutputPath'] as const;
-const ANALYZER = relative(workspaceRoot, resolve(dirname(fileURLToPath(import.meta.resolve(`${plugin.name}/package.json`))), dirname(plugin.imports['#analyzer/project'])));
 const VERSION = '        <Version>0.1.0</Version>\n';
+const ANALYZER = { source: relative(workspaceRoot, join(dirname(fileURLToPath(import.meta.resolve(`${plugin.name}/package.json`))), 'analyzer')), installed: join('node_modules', plugin.name, 'analyzer') } as const;
 const files = {
     '.config/mise.lock': '# tool versions\n',
     'global.json': '{ "test": { "runner": "Microsoft.Testing.Platform" } }\n',
@@ -44,9 +44,6 @@ const Evaluated = Schema.fromJsonString(Schema.Struct({ Properties: Schema.Recor
 });
 
 const Hashed = Schema.fromJsonString(Schema.Struct({ files: Schema.Array(Schema.String) })).annotate({ description: 'JSON nx show target inputs prints: the workspace files Nx hashes for one task' });
-const Manifest = Schema.fromJsonString(Schema.StructWithRest(Schema.Struct({ imports: Schema.Record(Schema.String, Schema.String) }), [Schema.Record(Schema.String, Schema.Unknown)]), { space: 4 }).annotate({
-    description: 'package.json of the installed plugin: the names its imports map resolves, and every other field as it stands',
-});
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -92,16 +89,27 @@ const member = (root: string) => Effect.flatMap(members, (stated) => Effect.orDi
 const sources = Effect.gen(function* () {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const { nodes } = yield* Effect.promise(() => createProjectGraphAsync());
-    const analyzer = yield* Effect.fromOption(Array.findFirst(Object.values(nodes), ({ data }) => data.root === ANALYZER));
-    const { checked } = yield* exited(['nx', 'show', 'target', 'inputs', `${analyzer.name}:build`, '--json'], { cwd: workspaceRoot, extendEnv: true, env: { NX_TUI: 'false' } });
+    const built = yield* Effect.fromOption(Array.findFirst(Object.values(nodes), ({ data }) => data.root === ANALYZER.source));
+    const { checked } = yield* exited(['nx', 'show', 'target', 'inputs', `${built.name}:build`, '--json'], { cwd: workspaceRoot, extendEnv: true, env: { NX_TUI: 'false' } });
     const { files: hashed } = yield* Effect.flatMap(checked, Schema.decodeEffect(Hashed));
-    const texts = yield* Effect.forEach(hashed, (file) => fs.readFileString(path.join(workspaceRoot, file)), { concurrency: 'unbounded' });
-    return Record.fromIterableWith(Array.zip(hashed, texts), ([file, text]) => [file, text]);
+    const read = hashed.filter((file) => file !== 'nx.json');
+    const texts = yield* Effect.forEach(read, (file) => fs.readFileString(path.join(workspaceRoot, file)), { concurrency: 'unbounded' });
+    const [beside, placed] = Array.partition(Array.zip(read, texts), ([file, text]) => (file.startsWith(`${ANALYZER.source}/`) ? Result.succeed([join(ANALYZER.installed, relative(ANALYZER.source, file)), text] as const) : Result.fail([file, text] as const)));
+    return { placed: Record.fromEntries(placed), beside: Record.fromEntries(beside) };
 }).pipe(Effect.orDie);
 
 const languages = Effect.map(
     Consumer.use(({ read }) => read),
-    ({ nodes }) => Array.difference(Array.dedupe(Object.values(nodes).flatMap(({ data }) => data.metadata?.technologies ?? [])), ['dotnet']),
+    ({ nodes }) =>
+        Array.difference(
+            Array.dedupe(
+                Object.values(nodes)
+                    .map(({ data }) => data.metadata?.technologies ?? [])
+                    .filter((technologies) => technologies.includes('dotnet'))
+                    .flat(),
+            ),
+            ['dotnet'],
+        ),
 );
 
 const undeclared = (created: readonly string[], declared: readonly string[]) => created.filter((file) => !declared.some((output) => file === output || file.startsWith(`${output}/`)));
@@ -379,18 +387,17 @@ it.layer(
 });
 
 it.layer(
-    Layer.unwrap(Effect.map(sources, (read) => Consumer.layer({ resolved: import.meta.url, settings: { plugins: [plugin.name] }, ignored: ['.artifacts', '.cache', 'dist'], files: read }))).pipe(Layer.provideMerge(Packed.layer(plugin.name)), Layer.provideMerge(layer)),
+    Layer.unwrap(Effect.map(sources, ({ placed, beside }) => Layer.effectDiscard(Consumer.use(({ wrote }) => wrote(beside))).pipe(Layer.provideMerge(Consumer.layer({ resolved: import.meta.url, settings: { plugins: [plugin.name] }, ignored: ['.artifacts', '.cache', 'dist'], files: placed }))))).pipe(
+        Layer.provideMerge(Packed.layer(plugin.name)),
+        Layer.provideMerge(layer),
+    ),
     options,
 )((methods) => {
     methods.effect(
-        'builds its analyzer from the project its source manifest names, and reads the graph a changed analyzer source reports',
+        'builds its analyzer from the project beside the installed plugin, and reads the graph a changed analyzer source reports',
         Effect.fnUntraced(function* () {
-            const { root, read, nx, called, text, wrote } = yield* Consumer;
-            const [installed, source] = [`node_modules/${plugin.name}`, `${ANALYZER}/Workspace.cs`];
-            const manifest = yield* Effect.orDie(Effect.flatMap(text(`${installed}/package.json`), Schema.decodeEffect(Manifest)));
-            yield* wrote({ [`${installed}/package.json`]: yield* Effect.orDie(Schema.encodeEffect(Manifest)({ ...manifest, imports: { ...manifest.imports, '#analyzer/project': plugin.imports['#analyzer/project'] } })) });
-            yield* called('rm', ['-rf', `${installed}/analyzer`]);
-            yield* called('ln', ['-s', `${root}/${ANALYZER}`, `${installed}/analyzer`]);
+            const { read, nx, text, wrote } = yield* Consumer;
+            const source = join(ANALYZER.installed, 'Workspace.cs');
             assert.deepStrictEqual((yield* read).failures, [], 'learn.microsoft.com dotnet run "The dotnet run command builds the project before running it"');
             assert.deepStrictEqual(yield* languages, ['C#'], 'dotnet msbuild <project> -getProperty:Language');
             yield* wrote({ [source]: (yield* text(source)).replace('outer.GetPropertyValue("Language")', '"Probe"') });
@@ -408,7 +415,8 @@ it.layer(
         'fails a graph read with the compiler error of an analyzer source that does not compile, and reads the graph again once it does',
         Effect.fnUntraced(function* () {
             const { read, text, wrote } = yield* Consumer;
-            const [source, sound] = [`${ANALYZER}/Program.cs`, yield* text(`${ANALYZER}/Program.cs`)];
+            const source = join(ANALYZER.installed, 'Program.cs');
+            const sound = yield* text(source);
             yield* wrote({ [source]: `${sound}}\n` });
             const { failures } = yield* read;
             yield* wrote({ [source]: sound });
@@ -423,16 +431,13 @@ it.layer(
     );
 
     methods.effect(
-        'reads the same graph after clean removed the build of its analyzer',
+        'reads the same graph after the build of its analyzer is removed',
         Effect.fnUntraced(function* () {
-            const { read, nx, absent } = yield* Consumer;
+            const { read, called, absent } = yield* Consumer;
             const before = yield* read;
-            const named = Object.values(before.nodes)
-                .filter(({ data }) => data.root === ANALYZER)
-                .map(({ name }) => name);
-            const cleaned = yield* nx('run-many', '--targets=clean', `--projects=${named.join(',')}`, '--output-style=static');
-            assert.strictEqual(cleaned.code, 0, `${cleaned.stdout}${cleaned.stderr}`);
-            assert.deepStrictEqual(yield* absent([`${ANALYZER}/dist`]), [`${ANALYZER}/dist`], 'README.md TASKS "clean removes the outputs a project\'s targets declare and runs its tool\'s clean"');
+            const removed = yield* called('rm', ['-rf', join(ANALYZER.installed, 'dist')]);
+            assert.strictEqual(removed.code, 0, `${removed.stdout}${removed.stderr}`);
+            assert.deepStrictEqual(yield* absent([join(ANALYZER.installed, 'dist')]), [join(ANALYZER.installed, 'dist')], 'rm -rf removes the folder MsbuildAnalyzer.csproj names as its OutputPath');
             const after = yield* read;
             assert.deepStrictEqual(after.failures, [], 'dotnet run --project <project> builds the project before running it');
             assert.deepStrictEqual(

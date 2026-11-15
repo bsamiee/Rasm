@@ -1,15 +1,16 @@
 import { existsSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { dirname, join, relative, resolve } from 'node:path';
+import { basename, dirname, join, relative, resolve } from 'node:path';
 import { env } from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { layer } from '@effect/platform-node/NodeServices';
-import { AggregateCreateNodesError, type CreateNodes, type CreateNodesContext, createNodesFromFiles, detectPackageManager, getPackageManagerCommand, normalizePath, type ProjectConfiguration, readJsonFile, type TargetConfiguration } from '@nx/devkit';
-import { calculateHashesForCreateNodes, getLockFileName, getNamedInputs, hashObject, hashWithWorkspaceContext, mergeTargetConfigurations, type PackageJson, PluginCache, quoteShellArg, retryOnRequireEsmRace, workspaceDataDirectory } from '@nx/devkit/internal';
+import { AggregateCreateNodesError, type CreateNodes, type CreateNodesContext, type CreateNodesResult, detectPackageManager, getPackageManagerCommand, hashArray, normalizePath, type ProjectConfiguration, type TargetConfiguration } from '@nx/devkit';
+import { calculateHashesForCreateNodes, getLockFileName, getNamedInputs, getReadyCheckReadyWhen, hashFile, hashObject, hashWithWorkspaceContext, mergeTargetConfigurations, PluginCache, quoteShellArg, retryOnRequireEsmRace, workspaceDataDirectory } from '@nx/devkit/internal';
+import { getRootTsConfigFileName } from '@nx/js';
 import { walkTsconfigExtendsChain } from '@nx/js/internal';
 import { nxReadySignal } from '@nx/vite/plugins/nx-ready-signal.plugin';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
-import { Array, Cause, Effect, Equal, FileSystem, MutableRef, Option, Predicate, Record, Schema } from 'effect';
+import { Array, Cause, Effect, Equal, FileSystem, MutableRef, Option, Predicate, pipe, Record, Result, Schema } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -18,8 +19,13 @@ type Verbs = Readonly<Record<string, Readonly<Record<string, TargetConfiguration
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const MODE = { NODE_ENV: 'production' } as const;
-const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#package'))).name;
+const CHECK = normalizePath(fileURLToPath(import.meta.resolve('@nx/vite/ready-check')));
+const OWN = pipe(
+    Effect.flatMap(FileSystem.FileSystem, (fs) => fs.readDirectory(import.meta.dirname)),
+    Effect.map((names) => hashArray(names.toSorted().flatMap((name) => [name, ...Array.fromNullishOr(hashFile(join(import.meta.dirname, name)))]))),
+    Effect.cached,
+    Effect.runSync,
+);
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -66,6 +72,17 @@ const extended = (workspaceRoot: string, root: string): readonly string[] => {
 
 const stamped = (workspaceRoot: string, sources: readonly string[]) => Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, [...sources]));
 
+const secluded = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+    Effect.acquireUseRelease(
+        Effect.sync(() => ({ ...env })),
+        () => effect,
+        (before) =>
+            Effect.sync(() => {
+                Array.difference(Object.keys(env), Object.keys(before)).forEach((name) => Reflect.deleteProperty(env, name));
+                Object.assign(env, before);
+            }),
+    );
+
 const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, outDir: Option.Option<string>) {
     const fs = yield* FileSystem.FileSystem;
     const [root, folder, at] = [dirname(file), join(workspaceRoot, dirname(file)), join(workspaceRoot, file)];
@@ -73,19 +90,17 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, o
     const stated = MutableRef.make(false);
     const capture = { name: 'nx-vite-stated-server', enforce: 'post', config: { order: 'post', handler: (user: { readonly server?: unknown }) => MutableRef.update(stated, (held) => held || user.server !== undefined) } } as const;
     const resolved = (command: 'build' | 'serve', mode: string, build: { readonly outDir?: string }) =>
-        Effect.tryPromise({
-            try: () => retryOnRequireEsmRace(() => resolveConfig({ configFile: at, root: folder, logLevel: 'silent', build, plugins: [capture] }, command, mode, mode)),
-            catch: (cause) => new Cause.UnknownError(cause, `${file} does not load for vite ${command}`),
-        });
+        secluded(
+            Effect.tryPromise({
+                try: () => retryOnRequireEsmRace(() => resolveConfig({ configFile: at, root: folder, logLevel: 'silent', build, plugins: [capture] }, command, mode, mode)),
+                catch: (cause) => new Cause.UnknownError(cause, `${file} does not load for vite ${command}`),
+            }),
+        );
     const config = yield* resolved('build', 'production', Option.match(outDir, { onNone: () => ({}), onSome: (to) => ({ outDir: to }) }));
-    const serving = yield* Effect.option(resolved('serve', 'development', {}));
+    const signals = config.plugins.some(({ name }) => name === nxReadySignal().name);
+    const served = signals || MutableRef.get(stated) || (yield* Effect.map(Effect.option(resolved('serve', 'development', {})), () => MutableRef.get(stated)));
     const builds = [config.build, ...Object.values(config.environments).map((environment) => environment.build)];
     const buildable = config.build.lib !== false || config.builder?.buildApp !== undefined || builds.some((build) => build.rolldownOptions.input !== undefined) || (yield* fs.exists(join(config.root, 'index.html')));
-    const signals = config.plugins.some(({ name }) => name === nxReadySignal().name);
-    const ports = Option.map(
-        Option.filter(serving, () => signals || MutableRef.get(stated)),
-        ({ server, preview }) => ({ serve: server.port, preview: preview.port }),
-    );
     const written = Array.dedupe(builds.map((build) => normalizePath(relative(workspaceRoot, resolve(config.root, build.outDir)))));
     const folders = Option.liftPredicate(
         written.filter((to) => !written.some((other) => to.startsWith(`${other}/`))),
@@ -95,24 +110,30 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, o
     return {
         type: config.build.lib === false ? ('application' as const) : ('library' as const),
         signals,
+        served,
         sources,
         stamp: yield* stamped(workspaceRoot, sources),
-        ...Option.getOrUndefined(Option.map(ports, (held) => ({ ports: held }))),
         ...Option.getOrUndefined(Option.map(folders, (held) => ({ folders: held }))),
     };
 });
 
-const targets = (root: string, { folders, signals, ports, sources }: Resolved, chain: readonly string[], named: boolean, outDir: Option.Option<string>, exec: string): Verbs => {
+const targets = (file: string, { folders, signals, served, sources }: Resolved, chain: readonly string[], named: boolean, outDir: Option.Option<string>, exec: string): Verbs => {
+    const rooted = getRootTsConfigFileName();
     const needs = {
-        options: { cwd: root },
+        options: { cwd: dirname(file) },
         dependsOn: ['codegen--*', '^codegen'],
-        inputs: [named ? 'production' : 'default', named ? '^production' : '^default', ...[...chain, ...sources].map((at) => join('{workspaceRoot}', at)), { dependentTasksOutputFiles: '**/*', transitive: true }, { externalDependencies: ['vite'] }],
+        inputs: [
+            named ? 'production' : 'default',
+            named ? '^production' : '^default',
+            ...chain.map((at) => ({ json: join('{workspaceRoot}', at), fields: ['compilerOptions'], ...(at === rooted && { excludeFields: ['compilerOptions.paths'] }) })),
+            ...sources.map((at) => join('{workspaceRoot}', at)),
+            { dependentTasksOutputFiles: '**/*', transitive: true },
+            { externalDependencies: ['vite'] },
+        ],
     };
+    const ready = (command: 'serve' | 'preview') => (signals ? { signal: true as const } : getReadyCheckReadyWhen(CHECK, basename(file), command));
     const built = Option.fromUndefinedOr(folders);
-    const served = Option.map(
-        Option.fromUndefinedOr(ports),
-        Record.map((port) => ({ ...needs, continuous: true, readyWhen: signals ? { signal: true as const } : { port } })),
-    );
+    const server = Option.liftPredicate({ ...needs, continuous: true }, () => served);
     const build = Record.getSomes<string, TargetConfiguration>({
         vite: Option.map(built, (written) => ({
             command: ['vite', 'build', ...Option.match(outDir, { onNone: () => [], onSome: (at) => ['--outDir', at, '--emptyOutDir'] })].map(quoteShellArg).join(' '),
@@ -128,14 +149,22 @@ const targets = (root: string, { folders, signals, ports, sources }: Resolved, c
         build,
         clean: Array.match(removed, {
             onEmpty: () => ({}),
-            onNonEmpty: (labels) => ({ vite: { executor: `${distribution.name}:clean`, options: { targets: labels }, metadata: { description: `Removes the outputs ${labels.join(', ')} declare`, help: { command: `${exec} nx run --help`, example: { options: { targets: labels } } } } } }),
+            onNonEmpty: (labels) => ({
+                vite: {
+                    executor: `${distribution.name}:clean`,
+                    options: { targets: labels },
+                    inputs: ['default', '^default', { externalDependencies: [] }],
+                    metadata: { description: `Removes the outputs ${labels.join(', ')} declare`, help: { command: `${exec} nx run --help`, example: { options: { targets: labels } } } },
+                },
+            }),
         }),
         serve: Record.getSomes<string, TargetConfiguration>({
-            vite: Option.map(served, ({ serve }) => ({ ...serve, command: 'vite', metadata: { description: 'Serves every environment of the Vite config with vite', help: { command: `${exec} vite --help`, example: { args: ['--port', '<port>'] } } } })),
+            vite: Option.map(server, (held) => ({ ...held, readyWhen: ready('serve'), command: 'vite', metadata: { description: 'Serves every environment of the Vite config with vite', help: { command: `${exec} vite --help`, example: { args: ['--port', '<port>'] } } } })),
         }),
         preview: Record.getSomes<string, TargetConfiguration>({
-            vite: Option.map(Option.andThen(built, served), ({ preview }) => ({
-                ...preview,
+            vite: Option.map(Option.andThen(built, server), (held) => ({
+                ...held,
+                readyWhen: ready('preview'),
                 command: ['vite', 'preview', ...Option.match(outDir, { onNone: () => [], onSome: (at) => ['--outDir', at] })].map(quoteShellArg).join(' '),
                 dependsOn: removed,
                 metadata: { description: 'Serves the build output of the Vite config with vite preview', help: { command: `${exec} vite preview --help`, example: { args: ['--port', '<port>'] } } },
@@ -144,35 +173,28 @@ const targets = (root: string, { folders, signals, ports, sources }: Resolved, c
     };
 };
 
-const inferred = Effect.fnUntraced(function* (cache: PluginCache<Resolved>, context: CreateNodesContext, at: Option.Option<string>, chain: readonly string[], hash: string, file: string) {
+const inferred = Effect.fnUntraced(function* (cache: PluginCache<Resolved>, stored: MutableRef.MutableRef<boolean>, context: CreateNodesContext, at: Option.Option<string>, exec: string, { file, chain, key }: { readonly file: string; readonly chain: readonly string[]; readonly key: string }) {
     const root = dirname(file);
-    const key = `${hash}${file}`;
     const outDir = Option.map(at, (folder) => relative(root, folder));
-    const held = yield* Effect.findFirst(Option.toArray(Option.fromUndefinedOr(cache.get(key))), ({ sources, stamp }) => Effect.map(stamped(context.workspaceRoot, sources), Equal.equals(stamp)));
-    const loaded = Effect.acquireUseRelease(
-        Effect.sync(() => ({ ...env })),
-        () =>
-            Effect.andThen(
-                Effect.sync(() => Object.assign(env, MODE)),
-                read(context.workspaceRoot, file, outDir),
+    const held = yield* Effect.findFirst(Array.fromNullishOr(cache.get(key)), ({ sources, stamp }) => Effect.map(stamped(context.workspaceRoot, sources), Equal.equals(stamp)));
+    const resolved = yield* Option.match(held, {
+        onSome: Effect.succeed,
+        onNone: () =>
+            Effect.tap(read(context.workspaceRoot, file, outDir), (fresh) =>
+                Effect.sync(() => {
+                    cache.set(key, fresh);
+                    MutableRef.set(stored, true);
+                }),
             ),
-        (before) =>
-            Effect.sync(() => {
-                Reflect.deleteProperty(env, 'NODE_ENV');
-                Object.assign(env, before);
-            }),
-    );
-    const resolved = yield* Option.match(held, { onSome: Effect.succeed, onNone: () => loaded });
-    cache.set(key, resolved);
+    });
     const stated = yield* manifested(context.workspaceRoot, root);
-    const { exec } = getPackageManagerCommand(detectPackageManager(context.workspaceRoot));
     const project: ProjectConfiguration = {
         root,
         ...(resolved.folders !== undefined && { projectType: resolved.type }),
         metadata: { technologies: ['vite'] },
         targets: aggregated(
             targets(
-                root,
+                file,
                 resolved,
                 chain.filter((config) => !config.startsWith(`${root}/`)),
                 'production' in getNamedInputs(root, context),
@@ -183,32 +205,35 @@ const inferred = Effect.fnUntraced(function* (cache: PluginCache<Resolved>, cont
             'vite',
         ),
     };
-    return { projects: { [root]: project } };
+    return { projects: { [root]: project } } satisfies CreateNodesResult;
 });
 
 const nodes = Effect.fnUntraced(function* (files: readonly string[], options: typeof Options.Encoded | undefined, context: CreateNodesContext) {
     const settings = yield* Schema.decodeEffect(Options)(options ?? {});
     const configs = files.filter((file) => existsSync(join(context.workspaceRoot, dirname(file), 'package.json')));
-    const roots = configs.map(dirname);
-    const chains = roots.map((root) => extended(context.workspaceRoot, root));
-    const lock = getLockFileName(detectPackageManager(context.workspaceRoot));
-    const cache = new PluginCache<Resolved>(join(workspaceDataDirectory, `vite-${hashObject(options ?? {})}.hash`));
+    const chains = configs.map((file) => extended(context.workspaceRoot, dirname(file)));
+    const manager = detectPackageManager(context.workspaceRoot);
+    const { exec } = getPackageManagerCommand(manager);
+    const own = yield* OWN;
     const hashes = yield* Effect.promise(() =>
         calculateHashesForCreateNodes(
-            roots,
+            configs.map(dirname),
             settings,
             context,
-            chains.map((chain) => [lock, ...chain]),
+            chains.map((chain) => [getLockFileName(manager), ...chain]),
         ),
     );
-    const each = (file: string, index: number) => run(Effect.catchCause(inferred(cache, context, Option.fromUndefinedOr(settings.outputPath), chains[index] ?? [], `${hashes[index]}`, file), rendered));
-    return yield* Effect.ensuring(
-        Effect.tryPromise({
-            try: () => createNodesFromFiles((file, _options, _context, index) => each(file, index), configs, options, context),
-            catch: (cause) => (cause instanceof AggregateCreateNodesError ? cause : new AggregateCreateNodesError([[null, new Cause.UnknownError(cause, `${PLUGIN} infers no project`)]], [])),
-        }),
+    const cache = new PluginCache<Resolved>(join(workspaceDataDirectory, `vite-${hashObject(options ?? {})}.hash`));
+    const stored = MutableRef.make(false);
+    const rows = Array.zipWith(Array.zip(configs, chains), hashes, ([file, chain], hash) => ({ file, chain, key: hashArray([hash, own, file]) }));
+    const settled = Array.zip(configs, yield* Effect.forEach(rows, (row) => Effect.result(Effect.catchCause(inferred(cache, stored, context, Option.fromUndefinedOr(settings.outputPath), exec, row), rendered))));
+    yield* Effect.when(
         Effect.sync(() => cache.writeToDisk()),
+        Effect.sync(() => MutableRef.get(stored)),
     );
+    const failures = Array.filterMap(settled, ([file, result]) => Result.map(Result.flip(result), (error): [string, Error] => [file, error]));
+    const results = Array.filterMap(settled, ([file, result]) => Result.map(result, (held) => [file, held] as const));
+    return yield* Array.match(failures, { onEmpty: () => Effect.succeed(results), onNonEmpty: (failed) => Effect.fail(new AggregateCreateNodesError(failed, results)) });
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

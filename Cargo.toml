@@ -4,6 +4,7 @@
 
 [workspace]
 resolver = "3"
+exclude  = [".cache"]                              # Crates tools unpack under the repository cache folder (uv sdist builds) stay outside this workspace
 members  = [
     "apps/mcp/muxer",
     "apps/mcp/tests/muxer",
@@ -55,7 +56,6 @@ members  = [
 # --- [IDENTITY]
 
 [workspace.package]
-version = "0.1.0"
 edition = "2024"
 
 # --- [DYLINT]

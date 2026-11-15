@@ -7,38 +7,56 @@ Rasm is a polyglot monorepo with macOS-first development and portable code and t
 ```text
 Rasm/
 ├── apps/                     # Products by host or interface
-├── libs/                     # Packages by language
-├── tests/                    # Suites per language, at the path of the project they test
+│   ├── blender/
+│   ├── cli/
+│   ├── creative-cloud/       # Software for Adobe apps, by host app, and products spanning several hosts
+│   ├── macos/
+│   ├── mcp/
+│   ├── nx/                   # Nx plugins
+│   ├── rhino/                # Rhino and Grasshopper 2 plug-ins
+│   ├── roslyn/               # C# analyzers and code fixes
+│   ├── unreal/               # Unreal projects and plug-ins
+│   └── web/
+├── libs/                     # Packages by language, then category
+│   ├── cpp/
+│   ├── dotnet/
+│   ├── python/
+│   ├── rust/
+│   ├── swift/
+│   └── typescript/
+├── tests/                    # Test support, end-to-end, and workspace suites per language
 ├── tools/                    # Checks and grammars other checkers lack, by the tool that runs them
-├── assets/                   # Reusable assets no one app or plugin owns, each app or plugin keeps its own assets in its folder
+│   ├── ast-grep/             # Grammars, rules, and outline support per language
+│   ├── dylint/               # Rust lints reading types and resolved paths Clippy lacks
+│   ├── refurb/               # Python checks reading mypy types Ruff lacks
+│   └── tests/                # dylint and refurb check suites
+├── assets/                   # Reusable assets no app or plugin owns
 ├── infra/                    # Pulumi programs for the repository, its machines, and app hosting
 ├── plugins/                  # Agent harness marketplace
-├── docs/                     # Operations, plumbing, and research notes
-├── nx.json                   # One row per Nx plugin and the release policy
-├── package.json              # Workspace root package
-├── pnpm-workspace.yaml       # TypeScript workspace globs and dependency catalog
-├── vitest.config.ts          # Vitest projects every TypeScript suite runs in
-├── tsconfig.json             # TypeScript project checking vitest.config.ts
+├── docs/                     # Machine, service, workflow, and TypeScript architecture facts
+├── nx.json                   # Nx plugin rows and release policy
+├── package.json              # Workspace root manifest
+├── pnpm-workspace.yaml       # pnpm workspace globs, catalog, and settings
+├── vitest.config.ts          # Vitest projects of every TypeScript suite without its own config
+├── tsconfig.json             # Solution references to every composite project, written by nx sync
 ├── tsconfig.base.json        # TypeScript options every package compiles and emits with
-├── tsconfig.web.json         # TypeScript options for bundled browser code
-├── tsconfig.worker.json      # TypeScript options for test suites running in workerd
+├── tsconfig.tests.json       # TypeScript program checking root vitest.config.ts
 ├── biome.json                # TypeScript and JSON formatting and lint
-├── pyproject.toml            # Python workspace root, catalog groups, and checker settings
-├── pixi.lock                 # Exact builds of the Pixi native libraries for sdists
+├── pyproject.toml            # uv workspace root, dependency groups, Pixi environment, and checker settings
 ├── Workspace.slnx            # .NET solution listing every project
 ├── global.json               # .NET SDK and test runner
-├── Directory.Packages.props  # .NET central package versions
+├── Directory.Packages.props  # .NET Central Package Management versions
 ├── Directory.Build.props     # .NET build defaults and artifacts output
 ├── Directory.Build.targets   # .NET items and Rhino SDK references
 ├── NuGet.config              # NuGet sources
-├── Package.swift             # Swift modules, executables, and remote package catalog
-├── Package.resolved          # Swift package versions Package.swift resolves to
+├── Package.swift             # Swift modules, executables, and package dependencies
+├── Package.resolved
 ├── Xcode.xcconfig            # Build settings every Xcode project inherits
-├── Cargo.toml                # Rust workspace and dependency catalog
+├── Cargo.toml                # Cargo workspace members and workspace dependencies
 ├── rust-toolchain.toml       # Rust toolchain channel and components
 ├── CMakeLists.txt            # C++ root project finding each package by its CMakeLists.txt
 ├── CMakePresets.json         # C++ configure, build, test, package, and workflow presets
-├── vcpkg.json                # C++ library versions, registry baseline, and overlay triplets
+├── vcpkg.json                # C++ library features, registry baseline, and overlay triplets
 ├── sgconfig.yml              # ast-grep rule directories and language parsing
 ├── .editorconfig             # Editor, formatting, and analyzer settings by file path
 ├── .gitattributes            # Line endings, diff drivers, and LFS filters per extension
@@ -46,14 +64,13 @@ Rasm/
 ├── .gitmodules               # Submodule assets/, cloned only on request
 ├── .github/                  # Workflows, composite actions, issue forms, and jactionlint settings
 ├── .cargo/                   # Cargo build settings and compiler source link
-├── .config/                  # Files tools find in .config/ or read through a path setting
+├── .config/                  # Tool configuration found there or named by path
 ├── .claude/                  # Claude Code knowledge and settings
 ├── .mcp.json                 # Claude Code MCP servers
 ├── .codex/                   # Codex knowledge and settings
 ├── .agents/                  # Skills Codex and Antigravity read, Antigravity hooks
 ├── .vscode/                  # VS Code settings and recommended extensions
-├── CLAUDE.md                 # Agent standards, AGENTS.md is its symlink
-├── TODO.md                   # Open work
+├── CLAUDE.md                 # Agent standards, linked as AGENTS.md
 ├── LICENSE
 └── README.md
 ```
@@ -77,7 +94,7 @@ flowchart LR
     end
 
     subgraph project["Project level, takes projects"]
-        nx(["nx #lt;verb#gt; #lt;project#gt;"])
+        nx(["nx #lt;target#gt; #lt;project#gt;"])
         plugins["nx.json plugin rows<br/>apps/nx/#lt;plugin#gt;"]
         manifests["Ecosystem manifests and locks"]
         build["Ecosystem build settings"]
@@ -114,175 +131,136 @@ flowchart LR
 ## [03]-[PRINCIPLES]
 
 - Each fact sits once in the file its tool reads, and every other use derives it
-- Nx plugins infer every project, target, and dependency from manifests and tool output, with no `project.json` or hand-written `namedInputs`
-- `nx.json` `targetDefaults` holds one row, keyed `@nx/js:release-publish`: Nx core infers that publish target for a public package after every plugin, and the row runs it as `pnpm publish --recursive` after its build targets
-- `@rasm/nx-cargo` infers the `default` named input of a crate (its files, the workspace lock, manifest, toolchain, and Cargo variables), so every target of the crate reads them
-- Cargo, uv, SwiftPM, and xcodebuild targets read the committed lock (`--locked`, `--force-resolved-versions`, `-onlyUsePackageVersionsFromResolvedFile`), cargo `build` and `fix` alone bring `Cargo.lock` in line with its manifests
-- SwiftPM builds pass `--no-color-diagnostics`: its default follows `NO_COLOR`, which Codex sets, and a changed value recompiles every module
-- `@rasm/nx-apple` reads Xcode build settings with `-IDEPackageEnablePrebuilts=NO`, so graph creation fetches no prebuilt `swift-syntax`
-- Manifest `nx` tables state only a fact no manifest row or tool reports (a service a client calls, a file a build reads unimported, tag `os:all`)
-- Plugin rows of `nx.json` hold every option of their plugin (`outputPath` template, `releaseTag`, `platformTagPrefix`, credential variable names), and an absent option leaves the tool's own default
-- Plugin rows merge in order and a later row names a shared root, so `@rasm/nx-distribution` comes first and a host manifest names only a folder no ecosystem manifest names
-- Verbs name one operation in every ecosystem, and a project answers a verb only where one of its tools performs that operation
-- Verbs aggregate `<verb>--<tool>` targets and read their inputs, a manifest `nx.targets` row of a tool target included
-- One run's words after `--` go to the tool-named target, after its configured arguments (`nx run <project>:build--dotnet -- -bl`)
-- Run words reach no tool where none runs: .NET check, UXP pack, UXP and CEP install, Blender publish, Unreal pack and install
-- File-level formatting and linting belong to hk, project-level checks to the Nx plugins, and neither calls the other
-- Commits run no pre-commit hook: hk checks a commit's message alone, and file checks run when a shell or agent calls hk
+- Each ecosystem pins every version, root tooling included, in its root catalog and lock
+- Targets build from the committed lock of their ecosystem
+- Tool configuration sits in `.config/` where a flag, variable, or setting names its path, else at the path its tool fixes
 - Checkers report every finding as an error through their own configuration
-- Checker configuration named by path sits in `.config/`, since tools run through hk and Nx alone, never directly
-- Libraries take paths, names, and policies from their caller and hold no repository convention
-- Caches sit under `.cache/<tool>` and generated output under `.artifacts/<tool>`, `dist`, `.cloudflare/output`, and editor-shared folders stay where their tool puts them
-- Published apps read their identity from the host API (`Bundle.main`, `process.execPath`) and keep settings in their own preferences
-- Apps and tools made here default cache, log, and runtime folders to per-user locations, one documented setting moves each, each bounds its logs
-- `.config/mise.toml` `[env]` rows move the folders: caches to `.cache/<tool>`, logs under `.artifacts/logs` in a file or folder per tool
-- Tool behavior comes from its source and docs at the installed version, a plugin never restates what a tool, host, package, or Nx already does
+- File-level formatting and linting belong to hk for speed, project-level work to Nx plugins, and neither calls the other
+- Commits run hk on their message alone, and file checks run when a shell or agent calls hk
+- Nx plugins are publishable packages built on public Nx plugin APIs, serving any workspace of their ecosystem
+- Libraries and plugins take paths, names, and policies from their caller and hold no repository convention
+- Plugin options default to their tool's behavior, and `nx.json` plugin rows set only what departs from it
+- Tool behavior comes from its source and docs at the installed version
+- Plugins add only what no tool, host, package, or Nx does
+- Plugins infer every project, target, and dependency from manifests and tool output, with no `project.json` or hand-written `namedInputs`
+- Manifest `nx` tables state only a fact no manifest row or tool reports (a service a client calls, a file a build reads unimported, tag `os:all`)
+- Plugins reference their own targets alone
+- Each target name means one operation in every ecosystem, and a plugin offers it where its tool performs that operation
+- Each target runs its `<target>--<tool>` targets, and one run's arguments go to the tool target (`nx run <project>:build--dotnet -- -bl`)
+- Aggregate and no-op targets declare the inputs of the targets they run, as `nx affected` selects a target by its own inputs
 - Tools with their own incremental state keep it, Nx caches results around it and restores an intermediate folder only with the outputs built from it
-- Task inputs hold the files a task's tool reads: plugin and executor source, `.config/mise.lock`, tool `--version` output, and credentials are no input
-- Cached targets with output that differs by platform hash one platform input, since one remote cache serves every runner
-- Host SDKs and tools come from packages and mise rows, and building, checking, and packaging a host project needs no host installed
-- Hosts run wherever their vendor releases and licenses them for a machine, CI runners included, as Blender does through its `bpy` wheel
-- Plugins present a target that runs a host or needs a platform only on a machine holding it, and tag a project a platform limits with their row's `platformTagPrefix` and the platform (`os:darwin`)
-- Tests of code calling a host run where the host runs, and logic needing no host sits in projects tested on every platform
-- `@rasm/nx-cmake` configures the build folder each configure preset states and infers projects, targets, and edges from its file API reply
-- CMake workflow presets name the configure, build, and test presets of one Nx configuration, `lint` and `unreal` naming no test preset
-- Build steps after the test step of a workflow preset run last
-- `check` builds the workflow whose configure preset sets `CMAKE_<LANG>_CLANG_TIDY`, which runs clang-tidy beside each compile, `pack` the first package preset a workflow configures
-- C++ compilers, clang tools, and libc++ with its `std` module come from the mise LLVM row, CMake, Ninja, gersemi, vcpkg, and pkgconf from theirs
-- C++ libraries come from `vcpkg.json` through an overlay triplet, which builds each library with the toolchain file of the preset
-- C++ executables link the LLVM release libc++ statically, its symbols hidden on macOS, where a second libc++ beside the system one corrupts streams
-- C++ warnings, hardening, sanitizer, and coverage flags sit in the root `CMakeLists.txt`, presets state a build type, a build folder, and switches
-- C++ packages export a named module where `CMAKE_CXX_SCAN_FOR_MODULES` is on, and declare the part a host toolchain reads in `FILE_SET HEADERS`
-- Unreal targets exist where the engine a `.uproject` names resolves, a plug-in builds once per present engine its loading projects name
-- Unreal plug-ins build through `RunUAT BuildPlugin -StrictIncludes`, and a project builds its editor target through UnrealBuildTool
-- Unreal plug-ins test by the automation tests under their own name, each test state read from the report the editor exports
-- Unreal plug-ins map a folder to the Nx target installing a C++ package there in `.uplugin` table `nx.packages`, and their build runs it first
-- Preset `unreal` builds such a package with the compiler and flags of the plug-in's engine, into a folder named for the engine platform (`Mac`, `Linux`)
-- Rhino code runs no Rhino-hosted tests, as Rhino.Inside has no released Mac host and `RHINO_TOKEN` licenses Rhino only on Windows Server and Linux
-- Suites reading the project graph take tag `os:all` and hash one platform input
-- Suites reading the live tree compare what running tasks leave alone: a task reading its dependencies' outputs hashes files those tasks write
-- CI and Release checkouts fetch full history (`fetch-depth: 0`, no `filter`): `nx affected` and `nx release` compare commits, which a partial clone fetches one at a time
-- Deploy and Maintenance check out one commit, as neither compares commits
-- CI and Release checkouts keep ignored files (`clean: false`), so caches and packages stay in a work folder a runner keeps
-- Composite action `tools` removes untracked files, then installs the mise tools and pnpm packages of every job
-- Composite action `engines` lists the engines the `.uproject` files name, which each Unreal job matrix reads
-- Host and container jobs run on separate runner instances, so jobs `linux` and `unreal` run at once, each in its own work folder
-- Jobs in a container keep their tools and package store under `.cache` of their checkout, which the container mounts
-- Jobs in a container install the mise rows graph creation and Unreal targets read alone, which action `tools` names in `MISE_ENABLE_TOOLS`
-- CI jobs run as many tasks at once as their machine has cores (`NX_PARALLEL` `100%`), and never stop at a first failed task
-- Nx writes each run's task timings to the job summary page
-- CI job `affected` lists the affected `os:linux` projects and the engines, and job `unreal` runs where both lists hold one
-- Listings select by project, never by target: an Unreal project holds no target on a runner outside its engine image
-- CI job `macos` starts on every run and its own `nx affected` selects what runs: no Linux graph holds an Apple project to list
-- CI job `linux` runs the affected targets of every project without tag `os:darwin`, job `macos` the `os:darwin` and `os:all` projects
-- CI jobs `affected` and `linux` run on runner instance `host` of role `Runner` and job `unreal` on instance `container`, at once
-- Role `Runner` keeps tools, ignored files, and each Unreal image between runs, and workflow `Maintenance` clears ignored files weekly
-- CI job `unreal` runs the affected `os:linux` projects in Epic's `dev-slim` image of each `EngineAssociation` a `.uproject` names
-- Workflow `Deploy` runs `nx deploy @rasm/infra` once the CI run of the newest push to `main` finishes, passed or failed, and when Doppler config `deploy` changes
-- Unchanged stack inputs apply nothing, and a machine runs the containers and services field `roles` of its `hosts` row states
-- Machine names state no role, provider, or location: roles sit in host row `roles` and DNS aliases
-- Plugins tag a project they give release configuration with their row's `releaseTag`, `release` in each row and the one selector of `nx.json` `release.projects`
-- `package.json` projects stating a `version` are release projects with `pack--pnpm` and `attach--gh`, and `private` stops the registry upload alone
-- Release projects are versioned, packed, and attached, and the switch their registry reads alone gives one a publish target
-- Registry switches are `private` in `package.json`, `publish` in `Cargo.toml`, classifier `Private :: Do Not Upload`, and `defaultPushSource` of `NuGet.config`
-- Crates stating no `version` are no release project, as Cargo publishes none
-- Publish targets upload where the credential variable their tool reads is set, and name the variable and succeed where it is not
-- Pack targets build their release form themselves, `pack--dotnet` excepted
-- .NET targets of a project run in the one `Configuration` MSBuild evaluates for it, and test and pack read what `build--dotnet` wrote (`--no-build`)
-- `Directory.Build.props` states `Configuration` and `Configurations` as `Release`, and a project declaring more gets an Nx configuration for each
-- `@rasm/nx-dotnet` runs its analyzer through `dotnet run` where its row's `analyzerProject` names the project, which rebuilds it after a source edit, and from the build its package holds where none does
-- NuGet supplies no fixed entry time, so `Directory.Build.props` states `DeterministicTimestamp` and two packs of one commit are byte-equal
+- Task inputs hold only the files a task's tool reads, and `externalDependencies` names the packages it loads, `[]` where it loads none
+- Tasks of an edited executor run once with `--skip-nx-cache`, as the cache replays results the old executor produced
+- Targets with output that differs by platform hash one platform input, as one remote cache serves CI and this Mac
+- `.config/mise.toml` `[env]` rows move caches to `.cache/<tool>`, logs to `.artifacts/logs`, and generated output to `.artifacts/<tool>`
+- `dist`, `.cloudflare/output`, and editor folders stay where their tool writes them
+- Apps and tools made here keep cache, log, and runtime folders in per-user locations, each moved by one documented setting, and bound their logs
+- Published apps read their identity from the host API (`Bundle.main`, `process.execPath`) and keep settings in their own preferences
+- Hosts are the applications that load a project, and SDKs and packages build, check, and package host projects with no host installed
+- Targets running a host exist only on a machine holding it
+- Unreal Engine is both host and the only build SDK, so Unreal targets exist where the engine a `.uproject` names is installed
+- C++ toolchain, presets, CI, and release stay whole for packages other projects and Unreal plug-ins import, before any package exists
+- Workflows hold triggers, runner choice, and credentials, and run the `nx` commands a shell runs
+- Repository code declares machines, services, and how they connect, and provider accounts, tailnet addresses, and secret values stay in their service
+- CI, cache, and machine changes start from `docs/` and the documented behavior of Nx, GitHub Actions, and each service
 
 ## [04]-[TASKS]
 
-`nx <verb> <project>` runs one project, `nx affected -t <verb>` runs changed work, and `--files=<path>` limits it to one change's reach:
+hk lints and formats files; Nx runs project tasks
+
+`nx <target> <project>` runs one project, `nx affected -t <target>` runs changed work, and `--files=<path>` limits it to one change's reach:
 - `codegen` writes source code a project's tools derive from its schemas and configuration
 - `build` compiles or packages a project into its declared outputs
-- `pack` writes the files a release holds where they differ from the build (`.tgz`, `.nupkg`, CPack archive, app `.zip` or `.dmg`)
+- `pack` writes the files a release holds where they differ from the build
 - `attach` uploads the files a project's packaging targets wrote to the GitHub release of its version
-- `check` reports findings of checkers reading the project model and changes no source file
+- `check` reports findings of checkers reading the project model
 - `fix` applies fixes from checkers reading the project model
 - `test` runs a project's test runners
-- `serve` runs a project's development servers until the run ends, where a Vite config holds `nxReadySignal()` of `@nx/vite` or states `server`, and starts the Compose services whose Dockerfile it holds, which stay up
+- `serve` runs a project's development servers until the run ends, and starts the Compose services it holds, which stay up
 - `preview` builds a project, then serves its build output as `serve` does
 - `install` puts a local build into its host or starts local services
 - `deploy` applies a project's infrastructure stacks, and `-c release` those of a released version
-- `nx run <project>:deploy--pulumi --stack=<name>` applies one stack, and `--operation=preview` prints the changes an apply makes
 - `upgrade` moves an ecosystem root's dependency requirements and locks to newer releases through its own tool
 - `clean` removes the outputs a project's targets declare and runs its tool's clean
 
 Other tasks run through their own commands:
-- `nx build @rasm/nx-apple-darwin-arm64` builds the core `@rasm/nx-apple` reads Xcode projects through, on a Mac after a clone
 - `hk check <paths>` and `hk fix <paths>` run every file-level checker and writer over the named paths
-- Playwright `webServer` rows with `reuseExistingServer` and command `nx run <project>:<target>` start that target and wait for its address
-- Workflow `release.yml` runs `nx release --skip-publish` (one version, tag, and GitHub release), `nx run-many -t attach -c release`, then `nx release publish`
-- Job `unreal` of `release.yml` then attaches the `os:linux` projects from the same image at the released commit
-- Dispatch inputs of `release.yml` are `specifier` (empty reads conventional commits), `first-release`, `dry-run`, on by default, and `publish`
-- Attach and publish targets depend on the targets that package their files (`pack--dotnet` for NuGet) and take them as the `dependentTasksOutputFiles` input they state
-- `pnpm publish --recursive` states no such input, takes no file, and depends on the build targets of its package
-- `doppler run --config release --command 'nx pack <app>'` packages a Mac app as workflow `release.yml` does
-- `mise bootstrap` after a clone installs mise tools and pnpm packages, registers pitchfork as a Mac login agent, and checks the Nx remote cache in CI
-- `nx install @rasm/infra` runs the proxy, sign-in, and object storage containers of role `Apps` on the local Docker engine, under `rasm.localhost`
-- `mise daemons stop docker` stops the container engine until a session enters, `mise daemons start docker` starts it and waits until Docker answers
-- `nx deploy @rasm/infra` applies the repository and machine stacks, as workflow `Deploy` does
-- `nx migrate latest`, then `nx migrate --run-migrations`, applies a new Nx release's migrations
-- `nx sync` writes each executor's `schema.json` and `executors.json` description from its declared options schema, `nx sync:check` fails on a stale one
-- `mise deps` builds Python distributions against Pixi libraries when `pixi.lock`, `pyproject.toml`, or `uv.lock` changed, through `pixi run --locked uv sync --all-packages`
+- `mise bootstrap` after a clone installs mise tools and pnpm packages and registers pitchfork as a Mac login agent
+- `nx build @rasm/nx-apple-darwin-arm64` builds the core `@rasm/nx-apple` reads Xcode projects through, on a Mac after a clone
+- `mise deps` syncs pnpm packages and each uv root from its lock where its inputs changed, the workspace root through Pixi libraries, and `mise exec` and `mise run` sync first
 - `pixi run --locked python` supplies the library search path for `magic` and `weasyprint`
+- `nx sync` writes executor schemas and tsconfig `references`, task runs in a terminal apply it, and runs in other shells stop until it runs
+- `nx migrate latest`, then `nx migrate --run-migrations`, applies a new Nx release's migrations
+- `@nx/playwright` infers `test` per Playwright config, which starts and awaits the `nx run` task of each `webServer` row with `reuseExistingServer`
+- `mise daemons stop docker` stops the container engine until a session enters, `mise daemons start docker` starts it and waits until Docker answers
+- `nx install @rasm/infra` runs the proxy, sign-in, and object storage containers of role `Apps` on the local Docker engine, under `rasm.localhost`
+- `nx deploy @rasm/infra` applies the repository and machine stacks
+- `nx run <project>:deploy--pulumi --stack=<name>` applies one stack, and `--operation=preview` prints the changes an apply makes
+- `nx release --skip-publish`, `nx run-many -t attach -c release`, then `nx release publish` run a release
+- `doppler run --config release --command 'nx pack <app>'` packages a Mac app with the release credentials
 
-## [05]-[DELIVERY]
+## [05]-[TESTING]
 
-Packaging turns a build into the files its host, registry, or store takes, and install and publish each use those files:
-- Hosts and ecosystems decide package format (`.yak`, `.nupkg`, wheel, `.dmg`, CPack `.tar.xz`)
-- C++ packages release as a CPack archive of their install tree with a CPS file and an SPDX SBOM, CPack naming it from project, version, and system
-- Unreal plug-ins release per engine as the BuildPlugin package and a source archive with its installed packages and that `EngineVersion`
-- Fab takes no upload from a tool: its publishing portal takes the source archive of a GitHub release by link, after the store checks pass
-- Plugin technology decides a host's package and install form (UXP `.ccx`, CEP `.zxp`), never where it publishes
+Projects take tag `os:<platform>` only where their toolchain or target framework limits where they build or test:
+- Rhino test projects keep their test target on Linux
+- Suites sit in a `tests/` folder beside the projects they test, each named for its project
+- Logic needing no host sits in projects tested on every platform
+- C++ projects take one Nx configuration per CMake workflow preset (`nx test <project> -c asan`), the first preset being the default
+- `nx test <project> -c coverage` writes coverage to option `coveragePath`, else each tool's own report, and plain `nx test` stays uninstrumented
+
+## [06]-[DELIVERY]
+
+Installs, releases, and channels each deliver a product, releases and channels from the files packaging writes:
 - Installs serve development alone, replacing a previous build where its host loads it and skipping packaging where the host allows
-- Releases give every project one version and tag through `nx release`, and the GitHub release holds the packaged files each `attach` target uploads
-- Publishing delivers through each destination's own command (`pnpm publish`, `cargo publish`, `dotnet nuget push`, `uv publish`, `yak push`)
-- `dotnet nuget push`, `uv publish`, `yak push`, and the Blender extensions upload deliver the files `pack` or `build` wrote
-- `pnpm publish --recursive` and `cargo publish` take no packed file: each packs its package again, pnpm the folder its build targets wrote in the same run
-- `pnpm publish --recursive` skips a version its registry holds, as `dotnet nuget push --skip-duplicate` and the host store checks do, and `cargo publish` fails on one
-- Release assets hold native files unwrapped, a folder product (Unreal plugin, `.app`) goes in a `.zip` or `.dmg`, and a `.dmg` gets a Sparkle feed in R2
-- Every ecosystem and host is delivered end to end (install, package, release, publish), and none stays partly built
+- Releases version each release project on its own through `nx release`, from its conventional commits, and give its dependents a patch
+- Release tags take the Nx independent default `{projectName}@{version}` (`Arches@1.2.0`)
+- Each release tag gets its own GitHub release, holding every file its project packages
+- Attach, publish targets, and the Sparkle feed act on projects tagged at the released commit, and a project without a tag there uploads nothing
+- Untagged projects read their version from their manifest and their changelog from their first commit, with no `--first-release` flag
+- Release projects are those a plugin tags `release`, each versioned and attached, and its registry's publish setting alone gives it a publish target
+- Publish settings are `package.json` `private`, `Cargo.toml` `publish`, classifier `Private :: Do Not Upload`, `NuGet.config` `defaultPushSource`
+- Channels (registries, stores, the Sparkle feed) take published projects through their own command
+- Every release step stays built, and a channel lacking its credential skips with success until the credential is set
+- Store portals without an upload API (Fab, Creative Cloud Marketplace) take a store-ready file from the GitHub release by hand
+- Package form follows plugin technology and ecosystem (UXP `.ccx`, CEP `.zxp`), whatever channel the package reaches
+- Release assets hold native files unwrapped, and a product that is a folder (`.app`, Unreal plug-in) goes in a `.zip` or `.dmg`
+- C++ packages install a CPS file and an SPDX SBOM with their files, and pack that tree as a CPack archive named by project, version, and system
+- Unreal plug-ins release one source archive per engine, holding their installed packages and that `EngineVersion`, the form Fab takes
 
-## [06]-[OWNERS]
+## [07]-[OWNERS]
 
 | [INDEX] | [CONCERN]                      | [OWNER]                                                                                                |
 | :-----: | :----------------------------- | :----------------------------------------------------------------------------------------------------- |
 |  [01]   | Tool binary                    | `.config/mise.toml` `[tools]`, exact versions in `.config/mise.lock`                                   |
-|  [02]   | Process variable               | `.config/mise.toml` `[env]`, platform-only values in `.config/mise.<os>.toml`                          |
-|  [03]   | Toolchain version              | `global.json` .NET, `rust-toolchain.toml` Rust, uv root `requires-python` Python, `xcode-select` Swift |
-|  [04]   | Package version                | `pnpm-workspace.yaml` catalog, `pyproject.toml` `[project]` or group, `Directory.Packages.props` row   |
-|  [05]   | .NET tool package              | `.config/mise.toml` `[tools]` `dotnet:<id>` row at `latest`, its command called by name                |
-|  [06]   | Task graph                     | `nx.json` plugin rows, inference in `apps/nx/<plugin>`                                                 |
-|  [07]   | Checker configuration          | Tool's own file, in `.config/` where a path names it, `pyproject.toml` `[tool.*]` for Python tools     |
-|  [08]   | File-level check               | `.config/hk.pkl` step                                                                                  |
-|  [09]   | Secret                         | Doppler `rasm` project and 1Password, read through the `secrets` skill                                 |
-|  [10]   | Resource or repository setting | Typed row of an `infra/` program, applied by workflow `Deploy`                                         |
-|  [11]   | Service definition             | Role of a `hosts` row in `infra/platform-stack.ts`, rows of an app's `hosting.config.ts`               |
-|  [12]   | Xcode build setting            | `Xcode.xcconfig`, per-product rows in the `.xcodeproj` target                                          |
-|  [13]   | Swift package version          | Root `Package.swift` `dependencies` row, `.xcodeproj` `remote` row for a package only an app imports   |
-|  [14]   | Rust package version           | `Cargo.toml` `[workspace.dependencies]` row                                                            |
-|  [15]   | Agent harness plugin           | `plugins/<name>`                                                                                       |
-|  [16]   | Native libraries for sdists    | Pixi `default` environment in `pyproject.toml`, exact builds in `pixi.lock`                            |
-|  [17]   | Container runtime              | Mise clients, Colima on macOS                                                                          |
-|  [18]   | Agent browser options          | `.config/mise.toml` `[env]` `PLAYWRIGHT_MCP_*` rows, `PLAYWRIGHT_CLI_SESSION` per agent session        |
-|  [19]   | Reusable asset                 | `assets/<kind>/<name>/` in `bsamiee/Rasm-Assets`, with native relative dependencies                    |
-|  [20]   | Local daemon                   | `[daemons]` row in `.config/mise.<os>.toml`, started with the first shell or agent session             |
-|  [21]   | Host application in CI         | Host vendor's setup action in the job needing it, its version read from the project manifest           |
-|  [22]   | Mac app release form           | Doppler `rasm/release` `ASC_API_*` rows the apple `notary` option names notarize a `.dmg`, else `.zip` |
-|  [23]   | Registry token                 | Doppler `rasm/release` row named as the variable its tool reads (`NODE_AUTH_TOKEN`, `YAK_TOKEN`)       |
-|  [24]   | C++ toolchain and packages     | `github:llvm/llvm-project` row of `.config/mise.toml`, `vcpkg.json` rows and `builtin-baseline`        |
-|  [25]   | Unreal Engine                  | `EngineAssociation` of a `.uproject`, found in Epic install lists                                      |
-|  [26]   | Deploy credential              | Doppler `rasm/deploy` rows named as the variable each provider reads, `DOPPLER_IAC_TOKEN` as its token |
-|  [27]   | Machine                        | Row of table `hosts` in `infra/platform-stack.ts`, reached by its tailnet name over Tailscale SSH      |
-|  [28]   | Public service name            | `<service>.<zone>` of the machine running it, a CNAME to that machine                                  |
+|  [02]   | .NET tool package              | `.config/mise.toml` `[tools]` `dotnet:<id>` row at `latest`, its command called by name                |
+|  [03]   | Process variable               | `.config/mise.toml` `[env]`, a platform value through `os()` in its row                                  |
+|  [04]   | Toolchain version              | `global.json` .NET, `rust-toolchain.toml` Rust, uv root `requires-python` Python, `xcode-select` Swift |
+|  [05]   | Package version                | `pnpm-workspace.yaml` catalog, `pyproject.toml` `[project]` or group, `Directory.Packages.props` row   |
+|  [06]   | Swift package version          | Root `Package.swift` `dependencies` row, `.xcodeproj` `remote` row for a package only an app imports   |
+|  [07]   | Rust package version           | `Cargo.toml` `[workspace.dependencies]` row                                                            |
+|  [08]   | C++ toolchain and packages     | `github:llvm/llvm-project` row of `.config/mise.toml`, `vcpkg.json` rows and `builtin-baseline`        |
+|  [09]   | Native libraries for sdists    | Pixi `default` environment in `pyproject.toml`, exact builds in `pixi.lock`                            |
+|  [10]   | Unreal Engine                  | `EngineAssociation` of a `.uproject`, found in Epic install lists                                      |
+|  [11]   | Xcode build setting            | `Xcode.xcconfig`, per-product rows in the `.xcodeproj` target                                          |
+|  [12]   | Task graph                     | `nx.json` plugin rows, inference in `apps/nx/<plugin>`                                                 |
+|  [13]   | Checker configuration          | Tool's own file, `pyproject.toml` `[tool.*]` for Python tools                                          |
+|  [14]   | File-level check               | `.config/hk.pkl` step                                                                                  |
+|  [15]   | Secret                         | Doppler `rasm` project and 1Password, read through the `secrets` skill                                 |
+|  [16]   | Registry token                 | Doppler `rasm/release` row named as the variable its publish target reads (`NODE_AUTH_TOKEN`)          |
+|  [17]   | Mac app release format         | Doppler `rasm/release` `ASC_API_*` rows, set for a notarized `.dmg`, absent for a `.zip`               |
+|  [18]   | Resource or repository setting | Typed row of an `infra/` program, applied by workflow `Deploy`                                         |
+|  [19]   | Machine                        | Row of table `hosts` in `infra/platform-stack.ts`                                                      |
+|  [20]   | Service definition             | Role of a `hosts` row in `infra/platform-stack.ts`, rows of an app's `hosting.config.ts`               |
+|  [21]   | Container runtime              | Mise clients, Colima on macOS                                                                          |
+|  [22]   | Local daemon                   | `[daemons]` row in `.config/mise.toml`, started with the first shell or agent session                  |
+|  [23]   | Agent browser options          | `.config/mise.toml` `[env]` `PLAYWRIGHT_MCP_*` rows, `PLAYWRIGHT_CLI_SESSION` per agent session        |
+|  [24]   | Agent harness plugin           | `plugins/<name>`                                                                                       |
+|  [25]   | Reusable asset                 | `assets/<kind>/<name>/` in `bsamiee/Rasm-Assets`, with native relative dependencies                    |
 
-- Tool rows stay at `latest` where their backend lists releases, a `version_regex` over release tags excludes a development build `latest` resolves
+- Tool rows stay at `latest` where their backend lists releases
+- `version_regex` rows over release tags exclude a development build `latest` resolves
 
-## [07]-[STRUCTURE]
+## [08]-[STRUCTURE]
 
 - Projects hold no `src/` directory
 - Libraries sit at `libs/<language>/<category>/<package>/`, categories name the concern spanning their packages and siblings that field anticipates
@@ -290,8 +268,10 @@ Packaging turns a build into the files its host, registry, or store takes, and i
 - Packages are named by the term practitioners use for that concern
 - Projects a host loads target the runtime and libraries their host bundles, and build output holds none of them
 - Each uv root resolves one Python range: projects on a host's Python get their own root, and a package shared across roots declares the lower bound
-- C++ packages sit at `libs/cpp/<category>/<package>/` with their own `project()` call, tests at `libs/cpp/<category>/tests/<package>/`
-- Unreal projects and plug-ins sit under `apps/unreal/`, a plug-in beside the project enabling it, whose `Plugins` folder takes its installed package
+- Nested uv roots each take a `[deps.<root>]` row in `.config/mise.toml` whose `dir` names the root
 - Swift modules are root `Package.swift` targets, each in its own folder under `libs/swift/<category>/`, executables under `apps/macos/`
+- C++ packages each declare their own `project()`
+- Unreal plug-ins sit beside the project enabling them, whose `Plugins` folder takes their installed package
+- Unreal plug-ins name each C++ package they take in `.uplugin` table `nx.packages`, built with their engine's compiler before the plug-in builds
 - SQL schemas reconcile the live database to owning types, with no migration, history table, or versioned file or folder
 - Reconciles drop or retype only what owning types declare retired or retyped

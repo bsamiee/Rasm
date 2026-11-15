@@ -10,7 +10,7 @@
     "license": "MIT",
     "type": "module",
     "imports": {
-        "#package": "./package.json"
+        "#/*": "./*.ts"
     },
     "exports": {
         ".": "./plugin.ts",
@@ -27,8 +27,7 @@
     "devDependencies": {
         "@nx/web": "catalog:",
         "@types/node": "catalog:",
-        "nx": "catalog:",
-        "storybook": "catalog:"
+        "nx": "catalog:"
     },
     "peerDependencies": {
         "@nx/web": "catalog:peers",
@@ -40,6 +39,9 @@
         "exports": {
             ".": "./dist/plugin.js",
             "./package.json": "./package.json"
+        },
+        "imports": {
+            "#/*": "./dist/*.js"
         }
     }
 }

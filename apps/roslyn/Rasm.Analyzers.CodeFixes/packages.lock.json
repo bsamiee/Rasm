@@ -229,7 +229,7 @@
       },
       "System.Composition": {
         "type": "CentralTransitive",
-        "requested": "[11.0.0-rc.3.26522.148, )",
+        "requested": "[11.0.0, )",
         "resolved": "10.0.1",
         "contentHash": "DJkqaWQfho/ReTzKcZD3zJJ6K4GcS154k+T0UCPMBNIOZ2U/lNpyiiWZ6Etw0onWyTH1K+yhICsdmwA5xy2aPQ==",
         "dependencies": {
@@ -242,13 +242,13 @@
       },
       "System.Composition.AttributedModel": {
         "type": "CentralTransitive",
-        "requested": "[11.0.0-rc.3.26522.148, )",
+        "requested": "[11.0.0, )",
         "resolved": "10.0.1",
         "contentHash": "mRxYvpCVPAeuLEk0c0kxWJVjbW1/HUoxCgYotOj9eDeQiYcTDOMdCQApsTrHYMN3pHBA8WoF00KGolG632Etaw=="
       },
       "System.Composition.Convention": {
         "type": "CentralTransitive",
-        "requested": "[11.0.0-rc.3.26522.148, )",
+        "requested": "[11.0.0, )",
         "resolved": "10.0.1",
         "contentHash": "dYynUByfVBzYDheNPGxS8UN8AvG/4tXf/coSs1odHOyoh4etv1kad/FrLWLMq4f8NO49NV20Xu+0/y613woTUA==",
         "dependencies": {
@@ -257,7 +257,7 @@
       },
       "System.Composition.Hosting": {
         "type": "CentralTransitive",
-        "requested": "[11.0.0-rc.3.26522.148, )",
+        "requested": "[11.0.0, )",
         "resolved": "10.0.1",
         "contentHash": "4UGmyBdKWEN1nkqspJlji/nV7XIVm6KGlOC2So0mtM/gKvaNgLz+tUkcbY+6Zpr7dr6ohX1S5yl0RLID5otRHw==",
         "dependencies": {
@@ -266,13 +266,13 @@
       },
       "System.Composition.Runtime": {
         "type": "CentralTransitive",
-        "requested": "[11.0.0-rc.3.26522.148, )",
+        "requested": "[11.0.0, )",
         "resolved": "10.0.1",
         "contentHash": "TVfys1gnUIhmXuYfFzyez0fOkDyELe9UwlxYeVlq6FmqmWmt1ouF0OQJ+6ozkHbkaop7uBUaXw7Qb+/o0m+nMg=="
       },
       "System.Composition.TypedParts": {
         "type": "CentralTransitive",
-        "requested": "[11.0.0-rc.3.26522.148, )",
+        "requested": "[11.0.0, )",
         "resolved": "10.0.1",
         "contentHash": "koSfjkdQZfgQr3SyiSIBboDn+GiR0vZ3x9Uek9FJbXK0w5AiATV8KrnMEP8B8OAlO+Y3zQf0CPCNzwH+VIYDKg==",
         "dependencies": {

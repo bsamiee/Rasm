@@ -2,7 +2,7 @@
 
 [package]
 name              = "rasm-network-analysis"
-version.workspace = true
+version           = "0.1.0"
 edition.workspace = true
 publish           = false
 description       = "Network analysis: catchments, routes, centrality, connectivity, flows, spanning trees, and communities"

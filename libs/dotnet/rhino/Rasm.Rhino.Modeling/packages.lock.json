@@ -170,11 +170,11 @@
           "OpenTelemetry.Resources.Process": "[1.20.1-rc.1, )",
           "OpenTelemetry.Resources.ProcessRuntime": "[1.20.1-beta.1, )",
           "QuikGraph": "[2.5.0, )",
-          "Rasm.Drafting": "[0.0.0, )",
-          "Rasm.Telemetry": "[0.0.0, )",
-          "Rasm.Telemetry.Api": "[0.0.0, )",
+          "Rasm.Drafting": "[0.1.0, )",
+          "Rasm.Telemetry": "[0.1.0, )",
+          "Rasm.Telemetry.Api": "[0.1.0, )",
           "SuperLinq": "[6.4.1, )",
-          "System.IO.Hashing": "[11.0.0-rc.3.26522.148, )",
+          "System.IO.Hashing": "[11.0.0, )",
           "Thinktecture.Runtime.Extensions": "[10.6.0, )",
           "Thinktecture.Runtime.Extensions.Json": "[10.6.0, )",
           "UUIDNext": "[4.2.4, )",
@@ -498,9 +498,9 @@
       },
       "System.IO.Hashing": {
         "type": "CentralTransitive",
-        "requested": "[11.0.0-rc.3.26522.148, )",
-        "resolved": "11.0.0-rc.3.26522.148",
-        "contentHash": "JIKBvTqt5HSZWU86qQFYO/ia1JY76VgjiJufdATN+lK0v5fIY9GAEo0DzC5nm2Kynj+aSEoQwKojm6sYpmbdQw=="
+        "requested": "[11.0.0, )",
+        "resolved": "11.0.0",
+        "contentHash": "U+Bv2qCYt6eONi+arSP0QIp4uTO6os6uceBsqiAwruZ+Wo2HrRhO/0tj38M9URJtS+4DhAtT3ka2TGNFYsnhyQ=="
       },
       "Thinktecture.Runtime.Extensions.Json": {
         "type": "CentralTransitive",

@@ -658,7 +658,7 @@ require-lazy         = [
 
 [tool.ty]
 environment = { python-platform = "all" }
-src         = { exclude = ["libs/python/blender", "apps/blender"] }    # 3.13 uv roots, each checked through its own `[tool.ty]`, kept out of the project an editor's ty server opens at this root
+src         = { exclude = ["libs/python/blender", "apps/blender"] }    # 3.13 uv roots `libs/python/blender` and `apps/blender/darkroom`, each checked through its own `[tool.ty]`; ty opens one project per root and finds no nested one
 analysis    = { allowed-unresolved-imports = ["uharfbuzz.**"] }        # uharfbuzz re-exports its compiled `_harfbuzz` module, which ships no stub
 rules       = { all = "error", unused-type-ignore-comment = "ignore" } # mypy `unused-ignore` owns unused `type: ignore` comments
 

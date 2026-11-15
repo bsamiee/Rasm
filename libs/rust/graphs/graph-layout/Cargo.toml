@@ -2,7 +2,7 @@
 
 [package]
 name              = "rasm-graph-layout"
-version.workspace = true
+version           = "0.1.0"
 edition.workspace = true
 publish           = false
 description       = "Graph layout: layered and force-directed layouts with routed edges, GraphML, and DOT export"

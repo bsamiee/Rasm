@@ -91,7 +91,7 @@ class Packed extends Context.Service<Packed, Record.ReadonlyRecord<string, strin
                 };
                 const packages = [...reached(plugins, new Set())];
                 yield* run(['nx', 'run-many', '--targets=pack', `--projects=${packages.join(',')}`], { cwd: workspaceRoot, extendEnv: true, env: { NX_TUI: 'false' } });
-                return yield* Effect.all(Record.fromIterableWith(packages, (name) => [name, tarball(archives[name] ?? [])]));
+                return yield* Effect.all(Record.fromIterableWith(packages, (name) => [name, tarball(name, archives[name] ?? [])]));
             }).pipe(Effect.orDie),
         );
 }
@@ -211,7 +211,8 @@ class Consumer extends Context.Service<
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const kept = Effect.gen(function* () {
-    const { nx, written, absent } = yield* Consumer;
+    const { nx, written, absent, cleaned } = yield* Consumer;
+    yield* cleaned;
     const [built, created] = yield* written(nx('run-many', '--targets=build', '--output-style=static'));
     yield* nx('reset');
     const shown = yield* nx('show', 'projects');
@@ -246,10 +247,10 @@ const archived = (path: Path.Path, targets: NonNullable<ProjectGraph['nodes'][st
         .flatMap(({ outputs = [] }) => outputs)
         .filter((output) => path.extname(output) === '.tgz');
 
-const tarball = Effect.fnUntraced(function* (patterns: readonly string[]) {
+const tarball = Effect.fnUntraced(function* (name: string, patterns: readonly string[]) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const pattern = yield* Effect.fromOption(Array.head(patterns));
-    const folder = path.dirname(pattern).replace('{workspaceRoot}', workspaceRoot);
+    const folder = path.dirname(pattern).replace('{workspaceRoot}', workspaceRoot).replaceAll('{projectName}', name);
     const entries = yield* fs.readDirectory(folder);
     const archive = yield* Effect.fromOption(Array.findFirst(entries, (entry) => path.extname(entry) === '.tgz'));
     return path.join(folder, archive);

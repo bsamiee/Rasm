@@ -1,8 +1,216 @@
 {
     "extends": "./tsconfig.base.json",
-    "compilerOptions": {
-        "declaration": false,
-        "noEmit": true
-    },
-    "include": [ "vitest.config.ts" ]
+    "include": [],
+    "references": [
+        {
+            "path": "./tsconfig.tests.json"
+        },
+        {
+            "path": "./apps/creative-cloud/atelier/plugins/aftereffects"
+        },
+        {
+            "path": "./apps/creative-cloud/atelier/plugins/illustrator"
+        },
+        {
+            "path": "./apps/creative-cloud/atelier/plugins/photoshop"
+        },
+        {
+            "path": "./apps/creative-cloud/atelier/plugins/indesign"
+        },
+        {
+            "path": "./libs/typescript/creative-cloud/automation"
+        },
+        {
+            "path": "./libs/typescript/data/tests/object-storage"
+        },
+        {
+            "path": "./apps/creative-cloud/atelier/extendscript"
+        },
+        {
+            "path": "./libs/typescript/macos/tests/applications"
+        },
+        {
+            "path": "./libs/typescript/messaging/tests/webhooks"
+        },
+        {
+            "path": "./libs/typescript/creative-cloud/indesign"
+        },
+        {
+            "path": "./libs/typescript/runtime/tests/workers"
+        },
+        {
+            "path": "./apps/creative-cloud/atelier/protocol"
+        },
+        {
+            "path": "./libs/typescript/data/object-storage"
+        },
+        {
+            "path": "./libs/typescript/data/tests/database"
+        },
+        {
+            "path": "./libs/typescript/graphics/typography"
+        },
+        {
+            "path": "./libs/typescript/macos/applications"
+        },
+        {
+            "path": "./libs/typescript/creative-cloud/cep"
+        },
+        {
+            "path": "./libs/typescript/creative-cloud/uxp"
+        },
+        {
+            "path": "./libs/typescript/messaging/webhooks"
+        },
+        {
+            "path": "./libs/typescript/runtime/telemetry"
+        },
+        {
+            "path": "./libs/typescript/web/tests/hosting"
+        },
+        {
+            "path": "./libs/typescript/network/tests/ssh"
+        },
+        {
+            "path": "./libs/typescript/runtime/process"
+        },
+        {
+            "path": "./libs/typescript/runtime/workers"
+        },
+        {
+            "path": "./tests/typescript/e2e/portfolio"
+        },
+        {
+            "path": "./libs/typescript/data/database"
+        },
+        {
+            "path": "./libs/typescript/graphics/mark"
+        },
+        {
+            "path": "./libs/typescript/ai/tests/mcp"
+        },
+        {
+            "path": "./libs/typescript/web/tests/ui"
+        },
+        {
+            "path": "./apps/creative-cloud/atelier"
+        },
+        {
+            "path": "./libs/typescript/web/hosting"
+        },
+        {
+            "path": "./libs/typescript/data/search"
+        },
+        {
+            "path": "./libs/typescript/network/ssh"
+        },
+        {
+            "path": "./libs/typescript/data/quran"
+        },
+        {
+            "path": "./apps/nx/tests/distribution"
+        },
+        {
+            "path": "./libs/typescript/web/media"
+        },
+        {
+            "path": "./apps/nx/tests/typescript"
+        },
+        {
+            "path": "./tests/typescript/support"
+        },
+        {
+            "path": "./apps/nx/tests/storybook"
+        },
+        {
+            "path": "./plugins/function-hooks"
+        },
+        {
+            "path": "./libs/typescript/ai/mcp"
+        },
+        {
+            "path": "./libs/typescript/web/ui"
+        },
+        {
+            "path": "./apps/nx/distribution"
+        },
+        {
+            "path": "./apps/web/tests/hooks"
+        },
+        {
+            "path": "./apps/nx/tests/docker"
+        },
+        {
+            "path": "./apps/nx/tests/dotnet"
+        },
+        {
+            "path": "./apps/nx/tests/pulumi"
+        },
+        {
+            "path": "./apps/nx/tests/vitest"
+        },
+        {
+            "path": "./tests/typescript/nx"
+        },
+        {
+            "path": "./apps/nx/tests/apple"
+        },
+        {
+            "path": "./apps/nx/tests/cargo"
+        },
+        {
+            "path": "./apps/nx/tests/cmake"
+        },
+        {
+            "path": "./apps/nx/typescript"
+        },
+        {
+            "path": "./apps/web/portfolio"
+        },
+        {
+            "path": "./apps/nx/tests/vite"
+        },
+        {
+            "path": "./apps/nx/storybook"
+        },
+        {
+            "path": "./apps/nx/tests/uv"
+        },
+        {
+            "path": "./tools/ast-grep"
+        },
+        {
+            "path": "./apps/web/hooks"
+        },
+        {
+            "path": "./apps/nx/docker"
+        },
+        {
+            "path": "./apps/nx/dotnet"
+        },
+        {
+            "path": "./apps/nx/pulumi"
+        },
+        {
+            "path": "./apps/nx/vitest"
+        },
+        {
+            "path": "./apps/nx/apple"
+        },
+        {
+            "path": "./apps/nx/cargo"
+        },
+        {
+            "path": "./apps/nx/cmake"
+        },
+        {
+            "path": "./apps/nx/vite"
+        },
+        {
+            "path": "./apps/nx/uv"
+        },
+        {
+            "path": "./infra"
+        }
+    ]
 }

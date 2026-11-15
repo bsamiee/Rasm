@@ -2,7 +2,7 @@
 
 [package]
 name              = "rasm-form-finding"
-version.workspace = true
+version           = "0.1.0"
 edition.workspace = true
 publish           = false
 description       = "Form finding of tension and compression nets: force density, dynamic relaxation, and inverse form finding"

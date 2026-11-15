@@ -56,7 +56,8 @@
                                     }
                                 },
                                 "required": [ "root", "name" ],
-                                "additionalProperties": true
+                                "additionalProperties": true,
+                                "description": "Workspace crate by its folder, relative to the Nx workspace root, and package name"
                             }
                         }
                     },
@@ -108,7 +109,8 @@
                                 }
                             },
                             "required": [ "root", "name" ],
-                            "additionalProperties": true
+                            "additionalProperties": true,
+                            "description": "Workspace crate by its folder, relative to the Nx workspace root, and package name"
                         }
                     }
                 },

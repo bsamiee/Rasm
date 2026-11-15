@@ -1,7 +1,14 @@
 {
     "extends": "../../../../tsconfig.base.json",
     "compilerOptions": {
-        "declaration": false,
         "noEmit": true
-    }
+    },
+    "references": [
+        {
+            "path": "../../../../tests/typescript/support"
+        },
+        {
+            "path": "../../docker"
+        }
+    ]
 }

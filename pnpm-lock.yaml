@@ -61,8 +61,8 @@ catalogs:
       specifier: 4.1.4
       version: 4.1.4
     '@effect/tsgo':
-      specifier: 0.67.7
-      version: 0.67.7
+      specifier: 0.69.0
+      version: 0.69.0
     '@effect/vitest':
       specifier: 4.1.4
       version: 4.1.4
@@ -76,6 +76,9 @@ catalogs:
       specifier: 24.1.0-beta.0
       version: 24.1.0-beta.0
     '@nx/js':
+      specifier: 24.1.0-beta.0
+      version: 24.1.0-beta.0
+    '@nx/playwright':
       specifier: 24.1.0-beta.0
       version: 24.1.0-beta.0
     '@nx/plugin':
@@ -231,9 +234,12 @@ catalogs:
     '@types/web-app-manifest':
       specifier: 1.0.9
       version: 1.0.9
+    '@types/which':
+      specifier: 3.0.4
+      version: 3.0.4
     '@typescript/native':
-      specifier: npm:typescript@7.1.0-dev.20261109.1
-      version: 7.1.0-dev.20261109.1
+      specifier: npm:typescript@7.1.0-dev.20261112.1
+      version: 7.1.0-dev.20261112.1
     '@uppy/core':
       specifier: 6.3.1
       version: 6.3.1
@@ -465,9 +471,19 @@ catalogs:
     vitest-browser-react:
       specifier: 2.3.0
       version: 2.3.0
+    which:
+      specifier: 7.0.0
+      version: 7.0.0
     yaml:
       specifier: 3.0.0-2
       version: 3.0.0-2
+  peers:
+    '@nx/js':
+      specifier: '>=24.1.0-0'
+      version: 24.1.0-beta.0
+    storybook:
+      specifier: ^11.0.0-0
+      version: 11.0.0-beta.1
 
 overrides:
   '@pulumi/pulumi': 3.277.0-alpha.xba20e30
@@ -504,13 +520,16 @@ importers:
         version: 1.7.0(@cloudflare/workers-types@5.20261110.1)(@types/node@26.6.6)(vitest@5.1.0)
       '@effect/tsgo':
         specifier: 'catalog:'
-        version: 0.67.7
+        version: 0.69.0
       '@nx/devkit':
         specifier: 'catalog:'
         version: 24.1.0-beta.0(nx@24.1.0-beta.0)
       '@nx/js':
         specifier: 'catalog:'
         version: 24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(nx@24.1.0-beta.0)(supports-color@10.2.2)
+      '@nx/playwright':
+        specifier: 'catalog:'
+        version: 24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@nx/jest@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@types/node@26.6.6)(@typescript/typescript6@6.0.2)(babel-plugin-macros@3.1.0)(nx@24.1.0-beta.0)(supports-color@10.2.2))(@playwright/test@1.66.0-alpha-2026-11-14)(@zkochan/js-yaml@0.0.7)(eslint@10.14.0(jiti@2.7.0)(supports-color@10.2.2))(nx@24.1.0-beta.0)(supports-color@10.2.2)
       '@nx/plugin':
         specifier: 'catalog:'
         version: 24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@nx/vitest@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@nx/eslint@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@nx/jest@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@types/node@26.6.6)(@typescript/typescript6@6.0.2)(babel-plugin-macros@3.1.0)(nx@24.1.0-beta.0)(supports-color@10.2.2))(@zkochan/js-yaml@0.0.7)(eslint@10.14.0(jiti@2.7.0)(supports-color@10.2.2))(nx@24.1.0-beta.0)(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0-beta.0)(supports-color@10.2.2)(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))(vitest@5.1.0))(@types/node@26.6.6)(@typescript/typescript6@6.0.2)(@zkochan/js-yaml@0.0.7)(babel-plugin-macros@3.1.0)(eslint@10.14.0(jiti@2.7.0)(supports-color@10.2.2))(nx@24.1.0-beta.0)(supports-color@10.2.2)
@@ -570,7 +589,7 @@ importers:
         version: 26.6.6
       '@typescript/native':
         specifier: 'catalog:'
-        version: typescript@7.1.0-dev.20261109.1
+        version: typescript@7.1.0-dev.20261112.1
       '@vitejs/plugin-react':
         specifier: 'catalog:'
         version: 6.3.0(oxc-transform-react@0.158.0)(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))
@@ -940,6 +959,9 @@ importers:
       jsonc-parser:
         specifier: 'catalog:'
         version: 4.0.0-next.2
+      which:
+        specifier: 'catalog:'
+        version: 7.0.0
       yaml:
         specifier: 'catalog:'
         version: 3.0.0-2
@@ -947,6 +969,9 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6
+      '@types/which':
+        specifier: 'catalog:'
+        version: 3.0.4
       nx:
         specifier: 'catalog:'
         version: 24.1.0-beta.0
@@ -1034,6 +1059,9 @@ importers:
       effect:
         specifier: 'catalog:'
         version: 4.1.4
+      storybook:
+        specifier: catalog:peers
+        version: 11.0.0-beta.1(@types/react@19.3.0)(react@19.3.1)
     devDependencies:
       '@nx/web':
         specifier: 'catalog:'
@@ -1044,9 +1072,6 @@ importers:
       nx:
         specifier: 'catalog:'
         version: 24.1.0-beta.0
-      storybook:
-        specifier: 'catalog:'
-        version: 11.0.0-beta.1(@types/react@19.3.0)(react@19.3.1)
 
   apps/nx/tests/apple:
     devDependencies:
@@ -1313,7 +1338,7 @@ importers:
         version: 26.6.6
       '@typescript/native':
         specifier: 'catalog:'
-        version: typescript@7.1.0-dev.20261109.1
+        version: typescript@7.1.0-dev.20261112.1
       cf:
         specifier: 'catalog:'
         version: 1.0.0-beta.32(@types/node@26.6.6)
@@ -1428,6 +1453,9 @@ importers:
       '@nx/devkit':
         specifier: 'catalog:'
         version: 24.1.0-beta.0(nx@24.1.0-beta.0)
+      '@nx/js':
+        specifier: catalog:peers
+        version: 24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(nx@24.1.0-beta.0)(supports-color@10.2.2)
       '@rasm/nx-distribution':
         specifier: workspace:*
         version: link:../distribution
@@ -1443,7 +1471,7 @@ importers:
         version: 26.6.6
       '@typescript/native':
         specifier: 'catalog:'
-        version: typescript@7.1.0-dev.20261109.1
+        version: typescript@7.1.0-dev.20261112.1
       nx:
         specifier: 'catalog:'
         version: 24.1.0-beta.0
@@ -2674,6 +2702,9 @@ importers:
 
   tests/typescript/e2e/portfolio:
     devDependencies:
+      '@nx/devkit':
+        specifier: 'catalog:'
+        version: 24.1.0-beta.0(nx@24.1.0-beta.0)
       '@playwright/test':
         specifier: 'catalog:'
         version: 1.66.0-alpha-2026-11-14
@@ -2698,6 +2729,9 @@ importers:
       '@nx/devkit':
         specifier: 'catalog:'
         version: 24.1.0-beta.0(nx@24.1.0-beta.0)
+      '@rasm/process':
+        specifier: workspace:*
+        version: link:../../../libs/typescript/runtime/process
       '@rasm/testing':
         specifier: workspace:*
         version: link:../support
@@ -3814,43 +3848,43 @@ packages:
     peerDependencies:
       effect: ^4.1.4
 
-  '@effect/tsgo-darwin-arm64@0.67.7':
-    resolution: {integrity: sha512-5aqxhjyGPZvWxfWbxtS+F8YD3/edRcdAwVeksuZ56dWOIp3gnIMooTs2qr+aMbemvxpv6Da75yNTcyXXmbGcoA==}
+  '@effect/tsgo-darwin-arm64@0.69.0':
+    resolution: {integrity: sha512-XSkC5Ot7906NmN3tW0uQb+58DV7oVgyX7A20w3Zu7Y26kTve/YibhiDn8ZxhNRH/SiBouyA6IKR6THWjRs1cow==}
     cpu: [arm64]
     os: [darwin]
 
-  '@effect/tsgo-darwin-x64@0.67.7':
-    resolution: {integrity: sha512-r5bjAB5ECpM11CZRGhTnHULPz4f103Ph1gHnDdDfvsx2h+ikM+bG6qvm6384M1IWfBQ1IMC2VojWqPHLKKhTUg==}
+  '@effect/tsgo-darwin-x64@0.69.0':
+    resolution: {integrity: sha512-QXVmbe8l0gtkByP2yazqPR7Pw9ImJZ6mX+YqYRED6h39DRRgFF4LvzM6jJQ7PVQFQpk816YpOHztO7bJTjSW1A==}
     cpu: [x64]
     os: [darwin]
 
-  '@effect/tsgo-linux-arm64@0.67.7':
-    resolution: {integrity: sha512-4mX5u7JhLka7XdcKZ8HHEbIhyDRJifZSKeldJv7iwicD2kTfX2OlJs0VGeB2t+RcHZPF4RLp+lIAAVLyP4/7zQ==}
+  '@effect/tsgo-linux-arm64@0.69.0':
+    resolution: {integrity: sha512-BWb3NxRnpYJikfgr2xD2U9DBM5gHm7rScdHYs8tAGXJytqQ6ioAOOYqDa1XZx2MwO2lG3BEAw2liI77mHMVRfQ==}
     cpu: [arm64]
     os: [linux]
 
-  '@effect/tsgo-linux-arm@0.67.7':
-    resolution: {integrity: sha512-XzVPf9BBp9f9aBvwVmv/wTJPJHLlN101hCrPZcR6vLV1UGcQmF20bYRLyylTaCUw+JAu7XRzrnn1L7ofXGXSeQ==}
+  '@effect/tsgo-linux-arm@0.69.0':
+    resolution: {integrity: sha512-XewLmpBZC3CkaKCjhe2f2ZOGfdewZ0hgGIjiCUNiEmHl6Kwt8H8dzNAsYgWPPeahVTi09CSyo5f8iEwEIHt95g==}
     cpu: [arm]
     os: [linux]
 
-  '@effect/tsgo-linux-x64@0.67.7':
-    resolution: {integrity: sha512-uzr4y5y7Ys6gIZ1Ouin/Hofl82eG305JLJfbse9ApUJj4oDUFnbj8eUUU04n2rKxeXiV2P4wRvIGOjyCpkPbKQ==}
+  '@effect/tsgo-linux-x64@0.69.0':
+    resolution: {integrity: sha512-LZ3joeZ5D/Tv/tQN4r5uA7yoTQ5cHvCjICF3NcTX9ntlhQ51gJlhRcbOvP8v8AzTkOtrty7YXZW++iUOY0OKpw==}
     cpu: [x64]
     os: [linux]
 
-  '@effect/tsgo-win32-arm64@0.67.7':
-    resolution: {integrity: sha512-Wj0uurKDr3x2O/I8RGD69D7Ot7iowdGzzzRoH04qoKx1ZXpnEmZ8I+8CFmcMpKeYTP4T+OPjiAm8vbQgf2be+A==}
+  '@effect/tsgo-win32-arm64@0.69.0':
+    resolution: {integrity: sha512-ZlysvNK8BJa0WaQ8KVCUjpY0VgxiqzqchHCQj2+ECJcBwhn178OXcgl4+ZhmFbnr/T4b3ZtsOj0+UXtkr+fPbg==}
     cpu: [arm64]
     os: [win32]
 
-  '@effect/tsgo-win32-x64@0.67.7':
-    resolution: {integrity: sha512-42Z+8gL9JR6ntmeAoZXHaJ/5fb+F9i9HMJaa9yY8lBbtns1RHTT807qV//RISm7M5pUloM9qzAmNbGJB2FbIbA==}
+  '@effect/tsgo-win32-x64@0.69.0':
+    resolution: {integrity: sha512-EIxwudo6cSjandzmfputEmpTfdlAfTd2sWQ29vWh3F3qFb6MC9JDCAYHXQFWSGOPNhMBK6NXd/8humPW/WkpGA==}
     cpu: [x64]
     os: [win32]
 
-  '@effect/tsgo@0.67.7':
-    resolution: {integrity: sha512-1OPkF+7L11BGGonHsgVgfplCqEq0AkoXWcr55hfs4KomhTdRhfSAzuHbRXWoloobVRNF3i7ZgABHm6xeJ5H9Tg==}
+  '@effect/tsgo@0.69.0':
+    resolution: {integrity: sha512-ypgO19woAyrfAG0LzU2QwQnprMpV2G30nEo9ffd4Bc0ow0vXupcx0mcSLG1EfvmRGl0jhiQ3yAbsCuJhqwnRhg==}
     hasBin: true
 
   '@effect/vitest@4.1.4':
@@ -6297,6 +6331,9 @@ packages:
   '@types/web-app-manifest@1.0.9':
     resolution: {integrity: sha512-aVz1aXTubyL6nvVRyz9W7QR60zHLTiCGAafqYRc/RYUjA1GFc4npUUr7RlfO1+yP6gVvxzFmIVp8ULLYqhBRdA==}
 
+  '@types/which@3.0.4':
+    resolution: {integrity: sha512-liyfuo/106JdlgSchJzXEQCVArk0CvevqPote8F8HgWgJ3dRCcTHgJIsLDuee0kxk/mhbInzIZk3QWSZJ8R+2w==}
+
   '@types/ws@8.18.2':
     resolution: {integrity: sha512-67MQl+fpWKVTT1NYdnmo3U4sc/xPo/zQBncVnI74qmQa0z/b+1g6iYqNmGCPbxO+zz2aklb08a0oHfegiVd0/w==}
 
@@ -6306,44 +6343,44 @@ packages:
   '@types/yargs@17.0.35':
     resolution: {integrity: sha512-qUHkeCyQFxMXg79wQfTtfndEC+N9ZZg76HJftDJp+qH2tV7Gj4OJi7l+PiWwJ+pWtW8GwSmqsDj/oymhrTWXjg==}
 
-  '@typescript/typescript-darwin-arm64@7.1.0-dev.20261109.1':
-    resolution: {integrity: sha512-k5X3MB7j6U7c1Xs+rSscULDKX+KQzEzJny+mTN92vWgWE8ampF8RRS6uT2BbzlugySYif6FAQbpT7XoLUSKuLg==}
+  '@typescript/typescript-darwin-arm64@7.1.0-dev.20261112.1':
+    resolution: {integrity: sha512-FiNiuonQ6zQkQ98vgi0xCCZrdIcqzpxXoLbwnpslgLaCbZTWZYCTb3UBKB/xXRn6cuvb2UjO9AceEdWG4zccQQ==}
     engines: {node: '>=16.20.0'}
     cpu: [arm64]
     os: [darwin]
 
-  '@typescript/typescript-darwin-x64@7.1.0-dev.20261109.1':
-    resolution: {integrity: sha512-8NvwXDDZHunOkNNw96hoQ0ev2LIVSsZdGTUI9W5S5HD6Iwvm4aSqs9V4w1zCtNqCwtZaEiOjURip6PVMLRsF6A==}
+  '@typescript/typescript-darwin-x64@7.1.0-dev.20261112.1':
+    resolution: {integrity: sha512-YIWV9XYUjq5hXlCjQmz5uKGNcbPPiCCaTr9F07tBxpBbGqe/7zj8hJ8dDc5F/lpv3S4sBxblCK9DYZK8DHKqnw==}
     engines: {node: '>=16.20.0'}
     cpu: [x64]
     os: [darwin]
 
-  '@typescript/typescript-linux-arm64@7.1.0-dev.20261109.1':
-    resolution: {integrity: sha512-UVHu4IKa2xc8ggnJdzFwrJCAMj8bcNKG2Ygp69fAuqLWQaORu2PbGsyuBMn0OgNMr00P8FKRL2eRSceTb4HAKw==}
+  '@typescript/typescript-linux-arm64@7.1.0-dev.20261112.1':
+    resolution: {integrity: sha512-ICsK4t9okjJ8NxbhVi+buRYy4x9Tk8xgASy7YbrW/h45rHP9hBZZUM+On5D/TA8R3R83Fda0In763j4nOvu/2g==}
     engines: {node: '>=16.20.0'}
     cpu: [arm64]
     os: [linux]
 
-  '@typescript/typescript-linux-arm@7.1.0-dev.20261109.1':
-    resolution: {integrity: sha512-NLakeoS9l5pSHrfTIAipq3hrUGRCxfBaGC7kMvgwuwvgGT8jmlLmfCdR+koxlnVIQxlJZXQOIWXKJ/EP4PeaFw==}
+  '@typescript/typescript-linux-arm@7.1.0-dev.20261112.1':
+    resolution: {integrity: sha512-lK8RZoWGmvxEcTBcNp7m22pGyj24RpmUxgF7F2vKsDHqyfE6Uj7yDjtyryoAeJozhQG09xFbZ+i9QZ17PAcMkw==}
     engines: {node: '>=16.20.0'}
     cpu: [arm]
     os: [linux]
 
-  '@typescript/typescript-linux-x64@7.1.0-dev.20261109.1':
-    resolution: {integrity: sha512-ds2dWbkP603iCvpW3vLuurYJFCKRZBc/swX4w6GYV1irzZrgCZOSfnhifQIQNDZmWAJTmOyXdSP3zoIpHsSK0g==}
+  '@typescript/typescript-linux-x64@7.1.0-dev.20261112.1':
+    resolution: {integrity: sha512-YY89zQTDF0pY1nGxjecYn1E9U1lRk+16PXdCC+nn4HiDBAP3JhitFZOt33r62XMcDZi0aMvcuOmvj1qsPPQEcg==}
     engines: {node: '>=16.20.0'}
     cpu: [x64]
     os: [linux]
 
-  '@typescript/typescript-win32-arm64@7.1.0-dev.20261109.1':
-    resolution: {integrity: sha512-QlGuYPxAySkNsOWyriI0HficVfAvY53vaCKsvGOBmXnzqB6Cf+vfABRikRJdOHKQ3Fo92U0lg2TtUcB5INiG4g==}
+  '@typescript/typescript-win32-arm64@7.1.0-dev.20261112.1':
+    resolution: {integrity: sha512-N4Bj7g9mRSF4y45V6hAqPvvUjJq7X8+t2iJeC7Y6T72gsHbqWy2ZP622t9YscxE0Essyk+HMFAtWW/vYf38AqQ==}
     engines: {node: '>=16.20.0'}
     cpu: [arm64]
     os: [win32]
 
-  '@typescript/typescript-win32-x64@7.1.0-dev.20261109.1':
-    resolution: {integrity: sha512-DwVTepbRmBpsPPzEqGn3GBVwtL81M0fIL6RiUSjYRduHWSBNOyErjccMHvXrpeSotlQ3Ik5yYq2R9hVt6HmhGw==}
+  '@typescript/typescript-win32-x64@7.1.0-dev.20261112.1':
+    resolution: {integrity: sha512-q5Hk240iUwFWpp6OeHTFsxVjYfAOq1lEG61+PB4yRT5W0AHMsDK96bd2dicFJFYmN8IkTsslgqaNkyypkQpz0w==}
     engines: {node: '>=16.20.0'}
     cpu: [x64]
     os: [win32]
@@ -7769,6 +7806,10 @@ packages:
   isexe@2.0.0:
     resolution: {integrity: sha512-RHxMLp9lnKHGHRng9QFhRCMbYAcVpn69smSGcq3f36xjgVVWThj4qqLbTLlq7Ssj8B+fIQ1EuCEGI2lKsyQeIw==}
 
+  isexe@4.0.0:
+    resolution: {integrity: sha512-FFUtZMpoZ8RqHS3XeXEmHWLA4thH+ZxCv2lOiPIn1Xc7CxrqhWzNSDzD+/chS/zbYezmiwWLdQC09JdQKmthOw==}
+    engines: {node: '>=20'}
+
   istanbul-lib-coverage@3.2.2:
     resolution: {integrity: sha512-O8dpsF+r0WV/8MNRKfnmrtCWhuKjxrq2w+jpzBL5UZKTi2LeVWnWOmWRxFlesJONmc+wLAGvKQZEOanko0LFTg==}
     engines: {node: '>=8'}
@@ -9106,8 +9147,8 @@ packages:
     engines: {node: '>=14.17'}
     hasBin: true
 
-  typescript@7.1.0-dev.20261109.1:
-    resolution: {integrity: sha512-gWvPmRpUJ1SzahmGN6138gT0aLLK4bMUCC8MoTKJtVdRIJc65f/UuvpZpHGctvD0y/Nu3w3b5gLY9e/7+GSeJw==}
+  typescript@7.1.0-dev.20261112.1:
+    resolution: {integrity: sha512-gY2gGKaWuVsRB4GG9ws8+wlQe8WC/Xp1XUy6v0AjIDv/qNAigy5mziwCvgY0SjJrB5ISHnMkgkFJJRKZQXtrGQ==}
     engines: {node: '>=16.20.0'}
     hasBin: true
 
@@ -9339,6 +9380,11 @@ packages:
   which@3.0.1:
     resolution: {integrity: sha512-XA1b62dzQzLfaEOSQFTCOd5KFf/1VSzZo7/7TUjnya6u0vGGKzU96UQBZTAThCb2j4/xjBAyii1OhRLJEivHvg==}
     engines: {node: ^14.17.0 || ^16.13.0 || >=18.0.0}
+    hasBin: true
+
+  which@7.0.0:
+    resolution: {integrity: sha512-RancgH2dmbLdHl6LRhEqvklWMgl/Hdnun0Y90KhBOLkMefg8Qa7/Zel8Sm+8HEcP6DEjzsWzpkuBQEZok58isA==}
+    engines: {node: ^22.22.2 || ^24.15.0 || >=26.0.0}
     hasBin: true
 
   why-is-node-running@3.2.1:
@@ -10694,36 +10740,36 @@ snapshots:
     dependencies:
       effect: 4.1.4
 
-  '@effect/tsgo-darwin-arm64@0.67.7':
+  '@effect/tsgo-darwin-arm64@0.69.0':
     optional: true
 
-  '@effect/tsgo-darwin-x64@0.67.7':
+  '@effect/tsgo-darwin-x64@0.69.0':
     optional: true
 
-  '@effect/tsgo-linux-arm64@0.67.7':
+  '@effect/tsgo-linux-arm64@0.69.0':
     optional: true
 
-  '@effect/tsgo-linux-arm@0.67.7':
+  '@effect/tsgo-linux-arm@0.69.0':
     optional: true
 
-  '@effect/tsgo-linux-x64@0.67.7':
+  '@effect/tsgo-linux-x64@0.69.0':
     optional: true
 
-  '@effect/tsgo-win32-arm64@0.67.7':
+  '@effect/tsgo-win32-arm64@0.69.0':
     optional: true
 
-  '@effect/tsgo-win32-x64@0.67.7':
+  '@effect/tsgo-win32-x64@0.69.0':
     optional: true
 
-  '@effect/tsgo@0.67.7':
+  '@effect/tsgo@0.69.0':
     optionalDependencies:
-      '@effect/tsgo-darwin-arm64': 0.67.7
-      '@effect/tsgo-darwin-x64': 0.67.7
-      '@effect/tsgo-linux-arm': 0.67.7
-      '@effect/tsgo-linux-arm64': 0.67.7
-      '@effect/tsgo-linux-x64': 0.67.7
-      '@effect/tsgo-win32-arm64': 0.67.7
-      '@effect/tsgo-win32-x64': 0.67.7
+      '@effect/tsgo-darwin-arm64': 0.69.0
+      '@effect/tsgo-darwin-x64': 0.69.0
+      '@effect/tsgo-linux-arm': 0.69.0
+      '@effect/tsgo-linux-arm64': 0.69.0
+      '@effect/tsgo-linux-x64': 0.69.0
+      '@effect/tsgo-win32-arm64': 0.69.0
+      '@effect/tsgo-win32-x64': 0.69.0
 
   '@effect/vitest@4.1.4(effect@4.1.4)(vitest@5.1.0)':
     dependencies:
@@ -11444,7 +11490,6 @@ snapshots:
       - nx
       - supports-color
       - verdaccio
-    optional: true
 
   '@nx/plugin@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@nx/vitest@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@nx/eslint@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@nx/jest@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@types/node@26.6.6)(@typescript/typescript6@6.0.2)(babel-plugin-macros@3.1.0)(nx@24.1.0-beta.0)(supports-color@10.2.2))(@zkochan/js-yaml@0.0.7)(eslint@10.14.0(jiti@2.7.0)(supports-color@10.2.2))(nx@24.1.0-beta.0)(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0-beta.0)(supports-color@10.2.2)(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))(vitest@5.1.0))(@types/node@26.6.6)(@typescript/typescript6@6.0.2)(@zkochan/js-yaml@0.0.7)(babel-plugin-macros@3.1.0)(eslint@10.14.0(jiti@2.7.0)(supports-color@10.2.2))(nx@24.1.0-beta.0)(supports-color@10.2.2)':
     dependencies:
@@ -12870,6 +12915,8 @@ snapshots:
 
   '@types/web-app-manifest@1.0.9': {}
 
+  '@types/which@3.0.4': {}
+
   '@types/ws@8.18.2':
     dependencies:
       '@types/node': 26.6.6
@@ -12880,25 +12927,25 @@ snapshots:
     dependencies:
       '@types/yargs-parser': 21.0.3
 
-  '@typescript/typescript-darwin-arm64@7.1.0-dev.20261109.1':
+  '@typescript/typescript-darwin-arm64@7.1.0-dev.20261112.1':
     optional: true
 
-  '@typescript/typescript-darwin-x64@7.1.0-dev.20261109.1':
+  '@typescript/typescript-darwin-x64@7.1.0-dev.20261112.1':
     optional: true
 
-  '@typescript/typescript-linux-arm64@7.1.0-dev.20261109.1':
+  '@typescript/typescript-linux-arm64@7.1.0-dev.20261112.1':
     optional: true
 
-  '@typescript/typescript-linux-arm@7.1.0-dev.20261109.1':
+  '@typescript/typescript-linux-arm@7.1.0-dev.20261112.1':
     optional: true
 
-  '@typescript/typescript-linux-x64@7.1.0-dev.20261109.1':
+  '@typescript/typescript-linux-x64@7.1.0-dev.20261112.1':
     optional: true
 
-  '@typescript/typescript-win32-arm64@7.1.0-dev.20261109.1':
+  '@typescript/typescript-win32-arm64@7.1.0-dev.20261112.1':
     optional: true
 
-  '@typescript/typescript-win32-x64@7.1.0-dev.20261109.1':
+  '@typescript/typescript-win32-x64@7.1.0-dev.20261112.1':
     optional: true
 
   '@typescript/typescript6@6.0.2':
@@ -13195,8 +13242,7 @@ snapshots:
 
   address@2.0.3: {}
 
-  agent-base@7.1.4:
-    optional: true
+  agent-base@7.1.4: {}
 
   ajv@6.15.0:
     dependencies:
@@ -14277,7 +14323,6 @@ snapshots:
       debug: 4.4.3(supports-color@10.2.2)
     transitivePeerDependencies:
       - supports-color
-    optional: true
 
   human-signals@2.1.0: {}
 
@@ -14361,6 +14406,8 @@ snapshots:
   isarray@1.0.0: {}
 
   isexe@2.0.0: {}
+
+  isexe@4.0.0: {}
 
   istanbul-lib-coverage@3.2.2: {}
 
@@ -16068,15 +16115,15 @@ snapshots:
 
   typescript@6.0.3: {}
 
-  typescript@7.1.0-dev.20261109.1:
+  typescript@7.1.0-dev.20261112.1:
     optionalDependencies:
-      '@typescript/typescript-darwin-arm64': 7.1.0-dev.20261109.1
-      '@typescript/typescript-darwin-x64': 7.1.0-dev.20261109.1
-      '@typescript/typescript-linux-arm': 7.1.0-dev.20261109.1
-      '@typescript/typescript-linux-arm64': 7.1.0-dev.20261109.1
-      '@typescript/typescript-linux-x64': 7.1.0-dev.20261109.1
-      '@typescript/typescript-win32-arm64': 7.1.0-dev.20261109.1
-      '@typescript/typescript-win32-x64': 7.1.0-dev.20261109.1
+      '@typescript/typescript-darwin-arm64': 7.1.0-dev.20261112.1
+      '@typescript/typescript-darwin-x64': 7.1.0-dev.20261112.1
+      '@typescript/typescript-linux-arm': 7.1.0-dev.20261112.1
+      '@typescript/typescript-linux-arm64': 7.1.0-dev.20261112.1
+      '@typescript/typescript-linux-x64': 7.1.0-dev.20261112.1
+      '@typescript/typescript-win32-arm64': 7.1.0-dev.20261112.1
+      '@typescript/typescript-win32-x64': 7.1.0-dev.20261112.1
 
   unbash@6.0.4: {}
 
@@ -16271,6 +16318,10 @@ snapshots:
   which@3.0.1:
     dependencies:
       isexe: 2.0.0
+
+  which@7.0.0:
+    dependencies:
+      isexe: 4.0.0
 
   why-is-node-running@3.2.1: {}
 

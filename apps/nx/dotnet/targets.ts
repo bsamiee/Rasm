@@ -16,6 +16,7 @@ type Verbs = Readonly<Record<string, Readonly<Record<string, TargetConfiguration
 
 const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#package'))).name;
 const PLATFORM = { runtime: 'node -p process.platform+process.arch' } as const;
+const CREDENTIAL = 'NUGET_API_KEY';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -34,6 +35,7 @@ const Node = Schema.Struct({
     inputs: Schema.Array(Schema.String),
     bases: Schema.Array(Schema.String),
     packages: Schema.Array(Schema.Struct({ id: Schema.String, version: Schema.String, hash: Schema.String, direct: Schema.Boolean, dependencies: Schema.Array(Schema.String) })),
+    referenced: Schema.Array(Schema.String),
     locks: Schema.Array(Schema.String),
     restored: Schema.Array(Schema.String),
     results: Schema.Array(Schema.String),
@@ -56,17 +58,14 @@ const ran = Effect.fnUntraced(function* (command: string, args: readonly string[
     return { invoked: CommandLine.display([command, ...args]), stdout, said, code };
 }, Effect.scoped);
 
-const spawned = Effect.fnUntraced(function* (argv: Array.NonEmptyReadonlyArray<string>, options: ChildProcess.CommandOptions = {}) {
-    const handle = yield* ChildProcess.make(Array.headNonEmpty(argv), Array.tailNonEmpty(argv), { stdin: 'ignore', ...options, extendEnv: true, detached: false });
-    const [stdout, stderr, code] = yield* Effect.all([Stream.mkString(Stream.decodeText(handle.stdout)), Stream.mkString(Stream.decodeText(handle.stderr)), handle.exitCode], { concurrency: 'unbounded' });
-    return code === 0 ? stdout : yield* new Cause.UnknownError(code, [`${CommandLine.display(argv)} exits ${code}`, ...[stderr.trim()].filter(String.isNonEmpty)].join(': '));
-}, Effect.scoped);
+const spawned = (argv: Array.NonEmptyReadonlyArray<string>, options: ChildProcess.CommandOptions = {}) =>
+    Effect.flatMap(ran(Array.headNonEmpty(argv), Array.tailNonEmpty(argv), options), ({ invoked, stdout, said, code }) => (code === 0 ? Effect.succeed(stdout) : Effect.fail(new Cause.UnknownError(code, [`${invoked} exits ${code}`, ...[stdout.trim(), said.trim()].filter(String.isNonEmpty)].join(': ')))));
 
 const line = (argv: readonly string[]) => argv.map(quoteShellArg).join(' ');
 
 const metadata = (verb: string, description: string) => ({ description, help: { command: `dotnet ${verb} --help`, example: { args: ['--verbosity', 'detailed'] } } });
 
-const targets = (node: Node): Verbs => {
+const targets = (node: Node, coverage: Option.Option<string>): Verbs => {
     const root = dirname(node.file);
     const project = join('{projectRoot}', basename(node.file));
     const inputs: NonNullable<TargetConfiguration['inputs']> = [
@@ -82,7 +81,9 @@ const targets = (node: Node): Verbs => {
     const verb = node.publishable ? 'publish' : 'build';
     const built = moded(({ configuration, outputs, published, reports }) => ({ project, command: [verb, '--configuration', configuration], outputs: [...outputs, ...published, ...reports, ...node.restored] }));
     const packed = moded(({ configuration, packed: folder }) => ({ project, command: ['pack', '--no-build', '-restore', '--configuration', configuration], outputs: [join(folder, '*.nupkg')] }));
-    const tested = moded(({ configuration }) => ({ commands: [{ command: line(['dotnet', 'restore', `-p:Configuration=${configuration}`]), forwardAllArgs: false }, line(['dotnet', 'test', '--no-build', '--configuration', configuration])] }));
+    const tested = ({ configuration }: Node['evaluated'], ...flags: readonly string[]) => ({ commands: [{ command: line(['dotnet', 'restore', `-p:Configuration=${configuration}`]), forwardAllArgs: false }, line(['dotnet', 'test', '--no-build', '--configuration', configuration, ...flags])] });
+    const coverable = node.referenced.some((id) => id.toLowerCase() === 'coverlet.mtp');
+    const covered = { ...tested(node.evaluated, '--coverlet', '--coverlet-output-format', 'lcov', ...Option.toArray(coverage).flatMap((at) => ['--results-directory', relative(root, at)])), outputs: Option.toArray(coverage).map((at) => join('{workspaceRoot}', at)) };
     const cleaned = moded(({ configuration }) => ({ commands: [['dotnet', 'clean', node.file, '--configuration', configuration, '-p:BuildProjectReferences=false']] }));
     const formatted = (commands: Array.NonEmptyReadonlyArray<Array.NonEmptyReadonlyArray<string>>, description: string): TargetConfiguration => ({
         executor: `${PLUGIN}:format`,
@@ -131,13 +132,13 @@ const targets = (node: Node): Verbs => {
             ...(node.test && {
                 dotnet: {
                     executor: 'nx:run-commands',
-                    options: { parallel: false, cwd: '{projectRoot}', ...tested.options },
-                    configurations: tested.configurations,
+                    options: { parallel: false, cwd: '{projectRoot}', ...tested(node.evaluated) },
+                    configurations: { ...moded(tested).configurations, ...(coverable && { coverage: covered }) },
                     dependsOn: ['build--dotnet'],
                     cache: true,
                     inputs: [...inputs, { dependentTasksOutputFiles: '**/*.runtimeconfig.json' }, PLATFORM],
-                    outputs: node.results.map((results) => join('{workspaceRoot}', results)),
-                    metadata: metadata('test', `Tests the build build--dotnet wrote for ${node.name} with dotnet test --no-build, after a restore that fetches only packages the machine lacks`),
+                    outputs: [...node.results.map((results) => join('{workspaceRoot}', results)), ...(coverable ? written(covered) : [])],
+                    metadata: metadata('test', [`Tests the build build--dotnet wrote for ${node.name} with dotnet test --no-build, after a restore that fetches only packages the machine lacks`, ...(coverable ? ['configuration coverage adds --coverlet with an lcov report from coverlet.MTP'] : [])].join(', and ')),
                 },
             }),
         },
@@ -167,7 +168,7 @@ const targets = (node: Node): Verbs => {
                 gh: {
                     executor: `${distribution.name}:attach`,
                     dependsOn: ['pack--dotnet'],
-                    inputs: [{ dependentTasksOutputFiles: '**/*' }],
+                    inputs: [{ dependentTasksOutputFiles: '**/*' }, { externalDependencies: [] }],
                     metadata: { description: "Uploads the files pack--dotnet wrote to the GitHub release of the version the project's manifest states with gh release upload", help: { command: 'gh release upload --help', example: { options: { dryRun: true } } } },
                 },
             }),
@@ -175,23 +176,22 @@ const targets = (node: Node): Verbs => {
     };
 };
 
-const publishing = (node: Node, credential: Option.Option<string>): Readonly<Record<string, TargetConfiguration>> =>
-    Record.getSomes({
-        'nx-release-publish': Option.map(
-            Option.filter(credential, () => node.packable && node.pushed),
-            (variable): TargetConfiguration => ({
-                executor: `${distribution.name}:publish`,
-                options: { publish: ['dotnet', 'nuget', 'push', '--skip-duplicate'], credential: variable, flag: '--api-key' },
-                dependsOn: ['pack--dotnet', '^nx-release-publish'],
-                inputs: [{ dependentTasksOutputFiles: '**/*' }],
-                metadata: {
-                    technologies: ['dotnet', node.language],
-                    description: `Pushes the package pack--dotnet wrote for ${node.name} to the default push source NuGet resolves under the key ${variable} holds with dotnet nuget push --skip-duplicate`,
-                    help: { command: 'dotnet nuget push --help', example: { options: { dryRun: true } } },
-                },
-            }),
-        ),
-    });
+const publishing = (node: Node): Readonly<Record<string, TargetConfiguration>> =>
+    node.packable && node.pushed
+        ? {
+              'nx-release-publish': {
+                  executor: `${distribution.name}:publish`,
+                  options: { publish: ['dotnet', 'nuget', 'push', '--skip-duplicate'], credential: CREDENTIAL, flag: '--api-key' },
+                  dependsOn: ['pack--dotnet', '^nx-release-publish'],
+                  inputs: [{ dependentTasksOutputFiles: '**/*' }, { externalDependencies: [] }],
+                  metadata: {
+                      technologies: ['dotnet', node.language],
+                      description: `Pushes the package pack--dotnet wrote for ${node.name} to the default push source NuGet resolves under the key ${CREDENTIAL} holds with dotnet nuget push --skip-duplicate, and names ${CREDENTIAL} and pushes nothing where it is unset`,
+                      help: { command: 'dotnet nuget push --help', example: { options: { dryRun: true } } },
+                  },
+              },
+          }
+        : {};
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

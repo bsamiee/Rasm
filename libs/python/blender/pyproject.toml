@@ -3,7 +3,7 @@
 [project]
 name            = "rasm-blender"
 version         = "0.1.0"
-requires-python = "==3.13.*"
+requires-python = "==3.13.*"     # Python minor Blender bundles, the one interpreter every member runs on
 dependencies    = []
 
 # --- [DEPENDENCY_GROUPS] ----------------------------------------------------------------
@@ -55,19 +55,26 @@ environments                  = [
     "sys_platform == 'linux' and platform_machine == 'aarch64'",
     "sys_platform == 'win32' and platform_machine == 'AMD64'",
 ]
+required-environments         = [
+    "sys_platform == 'darwin' and platform_machine == 'arm64'",
+    "sys_platform == 'linux' and platform_machine == 'x86_64'",
+    "sys_platform == 'win32' and platform_machine == 'AMD64'",
+]                                                                # Platforms the manifests of the extensions bundling these members list, a package with no source distribution and no wheel for one fails `uv lock`
 prerelease                    = "allow"
 build-constraint-dependencies = ["opencolorio==2.5.0"]           # Builds generating the PyOpenColorIO stubs import the OpenColorIO release Blender bundles
 
 [tool.uv.workspace]
-members = ["bpy", "imaging", "opencolorio-stubs", "rendering"]
+members = ["bpy", "imaging", "opencolorio-stubs", "rendering", "tests/rendering"]
 
 [tool.uv.sources]
-rasm-refurb            = { workspace = "../../.." }
+rasm-bpy               = { workspace = true }
 rasm-imaging           = { workspace = true }
 rasm-opencolorio-stubs = { workspace = true }
-rasm-records           = { workspace = "../../.." }
 rasm-rendering         = { workspace = true }
+rasm-records           = { workspace = "../../.." }
+rasm-refurb            = { workspace = "../../.." }
 rasm-telemetry         = { workspace = "../../.." }
+rasm-testing           = { workspace = "../../.." }
 
 # --- [RUFF] -----------------------------------------------------------------------------
 

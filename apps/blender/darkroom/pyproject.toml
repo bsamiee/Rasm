@@ -2,8 +2,8 @@
 
 [project]
 name            = "rasm-darkroom"
-version         = "0.1.0"
-requires-python = "==3.13.*"
+dynamic         = ["version"]     # `blender_manifest.toml` holds the version nx release writes
+requires-python = "==3.13.*"      # Python minor Blender bundles, the one interpreter the extension and its bundled wheels load in
 
 dependencies = [
     # --- [CORE]
@@ -30,6 +30,8 @@ dependencies = [
     "opencolorio",    # Color processing, display transforms, and LUT baking
     "openimageio",    # Image IO and buffer operations for finish and particle stages
 ]
+
+# --- [DEPENDENCY_GROUPS] ----------------------------------------------------------------
 
 [dependency-groups]
 blender = [
@@ -63,14 +65,26 @@ dev     = [
     "refurb",                    # FURB checks Ruff lacks, over a mypy build
     "ruff",                      # Linter and formatter hk runs from this root's environment
     "scipy-stubs",
-    "ty",                        # Type checker of every member
+    "ty",                        # Type checker of the extension
+    "types-networkx",
     "vulture",                   # Private functions, classes, methods, and attributes nothing reads
     "rasm-opencolorio-stubs",    # Stubs for PyOpenColorIO generated from the OpenColorIO Blender bundles
 ]
 
+# --- [BUILD_SYSTEM] ---------------------------------------------------------------------
+
+[build-system]
+requires      = ["hatchling"]
+build-backend = "hatchling.build" # Reads the dynamic version uv resolves the project at, uv builds no distribution
+
+[tool.hatch.version]
+path = "blender_manifest.toml" # The default pattern reads its `version = "<version>"` line
+
 # --- [UV] -------------------------------------------------------------------------------
 
 [tool.uv]
+package                       = false                                                             # Blender installs the extension archive and `blender_manifest.toml` holds its version, uv builds and installs no distribution
+cache-keys                    = [{ file = "pyproject.toml" }, { file = "blender_manifest.toml" }] # uv reads the version again when `blender_manifest.toml` changes
 environments                  = [
     "sys_platform == 'darwin' and platform_machine == 'arm64'",
     "sys_platform == 'linux' and platform_machine == 'x86_64'",
@@ -81,17 +95,17 @@ required-environments         = [
     "sys_platform == 'darwin' and platform_machine == 'arm64'",
     "sys_platform == 'linux' and platform_machine == 'x86_64'",
     "sys_platform == 'win32' and platform_machine == 'AMD64'",
-]                                                                # Platforms `blender_manifest.toml` lists, a package with no source distribution and no wheel for one fails `uv lock`
+]                                                                                                 # Platforms `blender_manifest.toml` lists, a package with no source distribution and no wheel for one fails `uv lock`
 prerelease                    = "allow"
-build-constraint-dependencies = ["opencolorio==2.5.0"]           # Builds generating the PyOpenColorIO stubs import the OpenColorIO release Blender bundles
+build-constraint-dependencies = ["opencolorio==2.5.0"]                                            # Builds generating the PyOpenColorIO stubs import the OpenColorIO release Blender bundles
 
 [tool.uv.sources]
-rasm-refurb            = { workspace = "../../.." }
 rasm-bpy               = { workspace = "../../../libs/python/blender" }
 rasm-imaging           = { workspace = "../../../libs/python/blender" }
 rasm-opencolorio-stubs = { workspace = "../../../libs/python/blender" }
-rasm-records           = { workspace = "../../.." }
 rasm-rendering         = { workspace = "../../../libs/python/blender" }
+rasm-records           = { workspace = "../../.." }
+rasm-refurb            = { workspace = "../../.." }
 
 # --- [RUFF] -----------------------------------------------------------------------------
 
@@ -104,6 +118,6 @@ ignore = ["relative-imports"] # Blender loads an extension as `bl_ext.<repositor
 # --- [TY] -------------------------------------------------------------------------------
 
 [tool.ty]
-environment = { python-platform = "all", root = [".."] }               # ty merges no parent table and takes `requires-python` from the table holder, so each 3.13 root states its own; `..` holds the `darkroom` package its relative imports climb
+environment = { python-platform = "all", root = [".."] }               # ty merges no parent table and takes `requires-python` from the table holder; `..` holds the `darkroom` package its relative imports climb
 rules       = { all = "error", unused-type-ignore-comment = "ignore" } # mypy `unused-ignore` owns unused `type: ignore` comments
 analysis    = { allowed-unresolved-imports = ["cycles.**"] }           # Blender bundles the Cycles add-on with no stub

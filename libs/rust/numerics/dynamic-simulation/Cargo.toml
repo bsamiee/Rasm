@@ -2,7 +2,7 @@
 
 [package]
 name              = "rasm-dynamic-simulation"
-version.workspace = true
+version           = "0.1.0"
 edition.workspace = true
 publish           = false
 description       = "Dynamic simulation: ODE and DAE solves with sensitivities, lumped networks, and FMI co-simulation"
