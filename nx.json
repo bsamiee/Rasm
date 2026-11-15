@@ -1,7 +1,6 @@
 {
     "$schema": "./node_modules/nx/schemas/nx-schema.json",
-    "cacheDirectory": ".cache/nx/cache",
-    "maxCacheSize": "8GB",
+    "cacheDirectory": ".cache/nx/workspace-data/cache",
     "useDaemonProcess": false,
     "analytics": false,
     "neverConnectToCloud": true,

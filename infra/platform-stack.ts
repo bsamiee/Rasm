@@ -142,7 +142,7 @@ class Machine extends Data.Class<{
     // --- [SETTINGS]
 
     static ran(name: string, step: string, args: Omit<remote.CommandArgs, 'connection' | 'addPreviousOutputInEnv' | 'logging'>, options: CustomResourceOptions = {}) {
-        return new remote.Command(`${name}-${step}`, { connection: { host: name }, addPreviousOutputInEnv: false, logging: 'stderr', ...args }, options);
+        return new remote.Command(`${name}-${step}`, { connection: { host: name }, addPreviousOutputInEnv: false, logging: 'stderr', ...args }, { retainOnDelete: true, ...options });
     }
 
     static written(name: string, file: string, { content, applied }: Setting, options: CustomResourceOptions = {}) {

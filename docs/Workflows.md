@@ -20,7 +20,7 @@
 - `nx.json` sets `neverConnectToCloud`, and the remote cache is the server of role `Cache`
 - `NX_SKIP_REMOTE_CACHE` misses `nx release publish`, where an empty server variable and `--skip-remote-cache` reach every command
 - Workflow `Release` runs with an empty server variable on its local cache alone, as Nx advises for released artifacts
-- Self-hosted Linux jobs keep `.cache/nx/cache` between runs, and GitHub-hosted macOS jobs start with an empty one
+- Self-hosted Linux jobs keep `.cache/nx/workspace-data` between runs, and GitHub-hosted macOS jobs start with an empty one
 - Pushes to `main` read and write with the write token, and other runs read with the read-only token, as Nx documents for protected branches
 - This Mac reads the server and read-only token from Doppler `dev` through mise `[env]`, and uses its local cache while `dev` holds no row
 - `.config/mise.toml` row `NX_SELF_HOSTED_REMOTE_CACHE_SERVER` reads the server with its token, once per 15 minutes, and `jdx/mise-action` exports the result to every later step
