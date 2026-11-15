@@ -6,14 +6,21 @@
 # (#2068), which `profile.dev` line tables need. Target rustflags replace `build.rustflags`, so the
 # row repeats them.
 # [target.aarch64-apple-darwin]
-# rustflags = ["-Zunstable-options", "--jobs-frontend=8", "-Clink-arg=--ld-path=wild"]
+# rustflags = ["-Zunstable-options", "--jobs-frontend=0", "-Clink-arg=--ld-path=wild"]
 
 # --- [BUILD] ----------------------------------------------------------------------------
 
 [build]
-target-dir = ".artifacts/cargo"
-build-dir  = ".cache/cargo"
-rustflags  = ["-Zunstable-options", "--jobs-frontend=8"]
+target-dir  = ".artifacts/cargo"
+build-dir   = "{workspace-root}/.cache/cargo"             # Cargo workspaces this file reaches outside the repository's (uv sdist builds under .cache) keep their own build folder
+rustflags   = ["-Zunstable-options", "--jobs-frontend=0"] # 0 is every core the host reports
+fingerprint = "content"
+
+# --- [CACHE] ----------------------------------------------------------------------------
+
+[cache.global-clean]
+max-src-age   = "1 week"
+max-crate-age = "1 month"
 
 # --- [ENV] ------------------------------------------------------------------------------
 
@@ -29,5 +36,9 @@ feature-unification = "workspace"
 # --- [UNSTABLE] -------------------------------------------------------------------------
 
 [unstable]
+checksum-freshness  = true
+embed-metadata      = false
 feature-unification = true
+fine-grain-locking  = true
+gc                  = true
 git                 = "shallow-deps"

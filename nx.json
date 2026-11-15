@@ -26,6 +26,7 @@
         {
             "plugin": "@rasm/nx-cargo",
             "options": {
+                "outputPath": ".artifacts/nextest/{projectName}",
                 "coveragePath": ".artifacts/coverage/{projectName}"
             }
         },

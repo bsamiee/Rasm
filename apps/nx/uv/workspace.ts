@@ -15,6 +15,7 @@ const MANIFEST = 'pyproject.toml';
 const PRIVATE = 'Private ::';
 const SEPARATORS = /[-_.]+/gu;
 const UNDERSCORED = /-(?!stubs$)/gu;
+const DASHED = /-/gu;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -37,6 +38,7 @@ const Backend = Schema.Struct({
             'build-backend': Schema.Struct({
                 'module-root': Schema.String.pipe(Schema.withDecodingDefaultKey(Effect.succeed('src'))),
                 'module-name': Schema.optionalKey(Schema.Union([Schema.String, Schema.Array(Schema.String)])),
+                namespace: Schema.Boolean.pipe(Schema.withDecodingDefaultKey(Effect.succeed(false))),
                 'source-include': Globs,
                 'source-exclude': Globs,
                 'default-excludes': Schema.Boolean.pipe(Schema.withDecodingDefaultKey(Effect.succeed(true))),
@@ -81,7 +83,7 @@ const packed = (stated: unknown): readonly string[] =>
         onNone: () => [join('{projectRoot}', '**', '*')],
         onSome: ({ project, tool }) => {
             const backend = tool.uv['build-backend'];
-            const modules = Array.ensure(backend['module-name'] ?? normalized(project.name).replace(UNDERSCORED, '_')).map((name) => join(backend['module-root'], ...name.split('.'), '**'));
+            const modules = Array.ensure(backend['module-name'] ?? normalized(project.name).replace(backend.namespace ? DASHED : UNDERSCORED, '_')).map((name) => join(backend['module-root'], ...name.split('.'), '**'));
             const files = [...(Predicate.isString(project.readme) ? [project.readme] : []), ...Array.getSomes([project.readme, project.license].map((held) => Schema.decodeUnknownOption(Filed)(held))).map(({ file }) => file)];
             const data = Object.values(backend.data).map((folder) => join(folder, '**'));
             const excluded = [...(backend['default-excludes'] ? ['__pycache__', '*.pyc', '*.pyo'] : []), ...backend['source-exclude']].map((pattern) => (pattern.startsWith('/') ? pattern.slice(1) : join('**', pattern)));
@@ -133,6 +135,7 @@ const report = (workspaceRoot: string, lock: string, metadata: typeof Metadata.T
                 index: Option.getOrUndefined(Option.flatMap(index, ({ name }) => Option.fromUndefinedOr(name))),
                 pixi: documented.has(join(workspace, PIXI)) || Schema.is(Pixi)(stated(workspace)),
                 scripted: packaged && Option.exists(manifest(member.root), ({ scripts }) => !Record.isEmptyRecord(scripts)),
+                locals: Array.dedupe(Array.getSomes([...reach(new Set([member.id]))].map(located)).map(({ name }) => name)).toSorted(),
                 python: Option.getOrUndefined(Option.flatMap(manifest(member.root), (project) => Option.fromUndefinedOr(project['requires-python']))),
                 implicit: Result.getOrUndefined(table)?.implicitDependencies,
                 published: packaged && Option.exists(manifest(member.root), ({ classifiers, dynamic }) => !(dynamic.includes('classifiers') || classifiers.some((classifier) => classifier.startsWith(PRIVATE)))),

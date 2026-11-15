@@ -21,6 +21,7 @@ required-markers = [
 
 [options]
 prerelease-mode = "allow"
+minimum-libc-version = { glibc = "2.28" }
 
 [manifest]
 members = [

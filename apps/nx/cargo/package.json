@@ -25,7 +25,9 @@
         "@effect/platform-node": "catalog:",
         "@nx/devkit": "catalog:",
         "@rasm/nx-distribution": "workspace:*",
-        "effect": "catalog:"
+        "effect": "catalog:",
+        "fast-xml-builder": "catalog:",
+        "fast-xml-parser": "catalog:"
     },
     "devDependencies": {
         "@types/node": "catalog:",

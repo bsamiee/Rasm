@@ -1,16 +1,25 @@
 import { stderr, stdout } from 'node:process';
 import { pathToFileURL } from 'node:url';
+import { stringify } from '@decimalturn/toml-patch';
 import { layer } from '@effect/platform-node/NodeServices';
 import type { ExecutorContext, Task, TaskGraph } from '@nx/devkit';
 import type { TaskResult } from '@nx/devkit/internal';
-import { Array, Effect, Equal, FileSystem, HashSet, Option, Path, Record, Schema, Stream } from 'effect';
+import { Array, Effect, Equal, FileSystem, HashSet, Number, Option, Path, Record, Schema, Stream, Struct } from 'effect';
 import { ChildProcess } from 'effect/process';
-import { Crate, run } from '#/workspace';
+import Builder from 'fast-xml-builder';
+import { XMLParser } from 'fast-xml-parser';
+import { Crate, PLUGIN, run } from '#/workspace';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Planned = Pick<Task, 'id' | 'target'>;
 type Judged = (run: { readonly messages: readonly unknown[]; readonly compiled: boolean; readonly crate: Option.Option<string> }) => { readonly failed: boolean; readonly proven: boolean; readonly said: string };
+
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+const ATTRIBUTES = { ignoreAttributes: false, attributeNamePrefix: '@' } as const;
+const PARSER = new XMLParser({ ...ATTRIBUTES, parseTagValue: false, isArray: (name) => name === 'testsuite' });
+const BUILDER = new Builder({ ...ATTRIBUTES, format: true, indentBy: '    ' });
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -19,6 +28,9 @@ const Command = Schema.Struct({
     trailing: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Arguments after --' }),
     env: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)).annotate({ description: "Environment variables the command runs with, over the caller's" }),
     packages: Schema.optionalKey(Schema.Array(Crate)).annotate({ description: 'Further packages the command selects' }),
+    junit: Schema.optionalKey(Schema.String).annotate({
+        description: "JUnit report of the task's package, relative to the Nx workspace root, holding the test suites of that package from the one cargo nextest run every task of the command shares, whose JUnit path a --tool-config-file layer below the workspace nextest configuration sets",
+    }),
 });
 const Cargo = Schema.Struct({
     cwd: Schema.String.annotate({ description: 'Cargo workspace root, relative to the Nx workspace root' }),
@@ -33,10 +45,21 @@ const Cargo = Schema.Struct({
 const Diagnostic = Schema.Struct({ reason: Schema.Literal('compiler-message'), manifest_path: Schema.String, message: Schema.Struct({ level: Schema.String, rendered: Schema.OptionFromNullOr(Schema.String) }) });
 const Artifact = Schema.Struct({ reason: Schema.Literal('compiler-artifact'), manifest_path: Schema.String, target: Schema.Struct({ kind: Schema.Array(Schema.String) }) });
 const Message = Schema.fromJsonString(Schema.Union([Diagnostic, Artifact, Schema.Record(Schema.String, Schema.Unknown)]));
+const Counts = Schema.Struct({ '@tests': Schema.FiniteFromString, '@skipped': Schema.FiniteFromString, '@failures': Schema.FiniteFromString, '@errors': Schema.FiniteFromString });
+const Rest = [Schema.Record(Schema.String, Schema.Unknown)] as const;
+const Junit = Schema.Struct({
+    '?xml': Schema.Unknown,
+    testsuites: Schema.StructWithRest(Counts.mapFields(Struct.assign({ testsuite: Schema.Array(Schema.StructWithRest(Counts.mapFields(Struct.assign({ '@name': Schema.String })), Rest)).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))) })), Rest),
+}).annotate({ description: 'A nextest JUnit report: its XML declaration, then testsuites, each testsuite named by the binary ID <package> or <package>::<binary>, with the counts a split recomputes' });
 
 type Command = typeof Command.Type;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
+const split = (report: typeof Junit.Type, crate: string): typeof Junit.Type => {
+    const testsuite = report.testsuites.testsuite.filter(({ '@name': name }) => name === crate || name.startsWith(`${crate}::`));
+    return { ...report, testsuites: { ...report.testsuites, ...Record.fromIterableWith(Struct.keys(Counts.fields), (key) => [key, Number.sumAll(testsuite.map((suite) => suite[key]))]), testsuite } };
+};
 
 const ran = Effect.fnUntraced(
     function* (cwd: string, args: readonly string[], env: Readonly<Record<string, string>> = {}) {
@@ -68,7 +91,7 @@ const ran = Effect.fnUntraced(
     Effect.catchReason('PlatformError', 'NotFound', () => Effect.succeed({ passed: false, log: 'cargo is not on PATH, so no Cargo task can run\n', messages: Array.empty<typeof Message.Type>() })),
 );
 
-const decided = Effect.fnUntraced(function* (judged: Judged, context: ExecutorContext, inputs: Readonly<Record<string, typeof Cargo.Type>>, command: Command, tasks: Array.NonEmptyReadonlyArray<Planned>) {
+const decided = Effect.fnUntraced(function* (judged: Judged, context: ExecutorContext, inputs: Readonly<Record<string, typeof Cargo.Type>>, command: Command, index: number, tasks: Array.NonEmptyReadonlyArray<Planned>) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const { nodes, dependencies } = context.projectGraph;
     const root = (project: string) => path.resolve(context.root, nodes[project]?.data.root ?? '.');
@@ -81,16 +104,39 @@ const decided = Effect.fnUntraced(function* (judged: Judged, context: ExecutorCo
             { discard: true },
         ),
     );
+    const reports = Array.getSomes(tasks.map(({ id }) => Option.all({ file: Option.fromUndefinedOr(inputs[id]?.commands[index]?.junit), crate: Option.fromUndefinedOr(inputs[id]?.package) })));
+    const layered = yield* Effect.transposeOption(
+        Option.map(
+            Option.liftPredicate(reports, Array.isReadonlyArrayNonEmpty),
+            Effect.fnUntraced(function* () {
+                const folder = yield* fs.makeTempDirectoryScoped();
+                const [config, file] = [path.join(folder, 'nextest.toml'), path.join(folder, 'junit.xml')];
+                yield* fs.writeFileString(config, stringify({ profile: { default: { junit: { path: file } } } }));
+                return { file, args: ['--tool-config-file', `${path.basename(PLUGIN)}:${config}`] };
+            }, Effect.orDie),
+        ),
+    );
     const completed = yield* ran(
         path.resolve(context.root, options?.cwd ?? '.'),
         [
             ...command.args,
+            ...Option.match(layered, { onNone: () => [], onSome: ({ args }) => args }),
             ...tasks.flatMap(({ id, target: { project } }) => Option.toArray(Option.fromUndefinedOr(inputs[id]?.package)).flatMap((name) => selected(root(project), name))),
             ...(command.packages ?? []).flatMap(({ root: at, name }) => selected(at, name)),
             ...(command.trailing === undefined ? [] : ['--', ...command.trailing]),
             ...(options?.__unparsed__ ?? []),
         ],
         command.env,
+    );
+    const written = yield* Effect.filter(Option.toArray(Option.map(layered, ({ file }) => file)), (file) => fs.exists(file));
+    const texts = yield* Effect.orDie(Effect.forEach(written, (file) => fs.readFileString(file)));
+    const parsed = yield* Effect.orDie(Effect.forEach(texts, (text) => Schema.decodeUnknownEffect(Junit)(PARSER.parse(text))));
+    yield* Effect.orDie(
+        Effect.forEach(
+            parsed.flatMap((report) => reports.map(({ file, crate }) => ({ file, report: split(report, crate) }))),
+            ({ file, report }) => Effect.flatMap(Schema.encodeEffect(Junit)(report), (encoded) => fs.writeFileString(path.resolve(context.root, file), BUILDER.build(encoded))),
+            { discard: true },
+        ),
     );
     const diagnostics = completed.messages.filter(Schema.is(Diagnostic)).map((diagnostic) => ({ ...diagnostic, root: path.dirname(diagnostic.manifest_path) }));
     const errored = new Set(diagnostics.filter(({ message: { level } }) => level.startsWith('error')).map(({ root: at }) => at));
@@ -111,17 +157,17 @@ const decided = Effect.fnUntraced(function* (judged: Judged, context: ExecutorCo
     const attributed = results.some(({ own }) => own);
     const unproven: TaskResult = attributed ? { success: false, status: 'skipped', terminalOutput: '' } : { success: false, terminalOutput: completed.log };
     return Record.fromIterableWith(results, ({ id, own, passed, terminalOutput }): readonly [string, TaskResult] => [id, own || passed ? { success: !own, terminalOutput } : unproven]);
-});
+}, Effect.scoped);
 
 const scheduled = (judged: Judged, context: ExecutorContext, inputs: Readonly<Record<string, typeof Cargo.Type>>, tasks: readonly Planned[]) => {
-    const keyed = ({ id }: Pick<Task, 'id'>) => [inputs[id]?.cwd, inputs[id]?.commands ?? [], inputs[id]?.__unparsed__] as const;
-    const steps = Array.dedupe(tasks.map(keyed)).flatMap((key) => key[1].map((command, index) => ({ group: tasks.filter((task) => Equal.equals(keyed(task), key)), command, last: index === key[1].length - 1 })));
+    const keyed = ({ id }: Pick<Task, 'id'>) => [inputs[id]?.cwd, (inputs[id]?.commands ?? []).map(Struct.omit<Command, readonly ['junit']>(['junit'])), inputs[id]?.__unparsed__] as const;
+    const steps = Array.dedupe(tasks.map(keyed)).flatMap((key) => key[1].map((command, index) => ({ group: tasks.filter((task) => Equal.equals(keyed(task), key)), command, index, last: index === key[1].length - 1 })));
     return Stream.fromIterable(steps).pipe(
         Stream.mapAccumEffect(
             (): Readonly<Record<string, TaskResult>> => ({}),
-            Effect.fnUntraced(function* (finished, { group, command, last }) {
+            Effect.fnUntraced(function* (finished, { group, command, index, last }) {
                 const ready = group.filter(({ id }) => finished[id]?.success !== false);
-                const results = Array.isReadonlyArrayNonEmpty(ready) ? yield* decided(judged, context, inputs, command, ready) : {};
+                const results = Array.isReadonlyArrayNonEmpty(ready) ? yield* decided(judged, context, inputs, command, index, ready) : {};
                 const settled = Record.filter(results, ({ success }) => last || !success);
                 return [{ ...finished, ...results }, Record.collect(settled, (task, result) => ({ task, result }))] as const;
             }),

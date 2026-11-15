@@ -5,11 +5,13 @@
 - Workflow `CI` runs on pull requests, pushes to `main`, and dispatch
 - Newer pushes to a pull request cancel its running CI
 - Jobs run `nx affected` over `check`, `test`, and `build`, as many tasks at once as their machine has cores (mise `[env]` `NX_PARALLEL`)
-- Job `affected` runs `nx sync:check`, as CI task runs skip sync, and lists the affected `os:linux` projects and the engines `.uproject` files name
+- Job `affected` runs `nx sync:check`, as CI task runs skip sync, and lists the affected projects of technology `unreal` and the engines `.uproject` files name
 - Job `affected` lists projects, as an Unreal project holds no target on a runner outside its engine image
-- Job `linux` runs the affected projects without tag `os:darwin` on runner instance `host`
+- Job `affected` runs `nrwl/nx-set-shas` once and passes base and head to jobs `linux` and `macos`, so each compares the same commits while a CI run finishing between jobs moves the base `nx-set-shas` finds
+- Job `linux` runs the affected projects tagged `os:linux`, `os:all`, or no `os:` tag on runner instance `host`
+- Job `linux` removes earlier runs' reports first, as the kept checkout holds them
 - Job `macos` runs on GitHub-hosted runner `xcode-27` and selects `os:darwin` and `os:all` projects itself, as no Linux graph holds an Apple project
-- Job `unreal` runs the affected `os:linux` projects in Epic's `dev-slim` image of each engine on instance `container`, where both lists hold one
+- Job `unreal` runs the projects `affected` lists in Epic's `dev-slim` image of each engine on instance `container`, where both lists hold one
 - Job containers install only the mise rows graph creation and Unreal targets read, under `.cache` of the checkout
 - CI and Release checkouts fetch full history, as `nx affected` and `nx release` compare commits a partial clone fetches one at a time
 - CI and Release checkouts on self-hosted runners keep ignored files (`clean: false`)
@@ -20,7 +22,9 @@
 - `nx.json` sets `neverConnectToCloud`, and the remote cache is the server of role `Cache`
 - `NX_SKIP_REMOTE_CACHE` misses `nx release publish`, where an empty server variable and `--skip-remote-cache` reach every command
 - Workflow `Release` runs with an empty server variable on its local cache alone, as Nx advises for released artifacts
-- Self-hosted Linux jobs keep `.cache/nx/workspace-data` between runs, and GitHub-hosted macOS jobs start with an empty one
+- Self-hosted Linux jobs keep `.cache/nx/workspace-data` between runs
+- GitHub-hosted macOS jobs restore the pnpm store by `pnpm-lock.yaml`, and `.cache/nx/workspace-data` without folder `cache` and task database by lock, `nx.json`, and plugin sources
+- GitHub-hosted macOS jobs save a missed store after install and `pnpm store prune`, and a missed `workspace-data` after `nx affected` passes or fails
 - Pushes to `main` read and write with the write token, and other runs read with the read-only token, as Nx documents for protected branches
 - This Mac reads the server and read-only token from Doppler `dev` through mise `[env]`, and uses its local cache while `dev` holds no row
 - `.config/mise.toml` row `NX_SELF_HOSTED_REMOTE_CACHE_SERVER` reads the server with its token, once per 15 minutes, and `jdx/mise-action` exports the result to every later step
@@ -39,7 +43,7 @@
 - Doppler config `deploy` changes start `Deploy` through a Doppler webhook sending GitHub a `repository_dispatch` event
 - Job `deploy` runs on GitHub-hosted `ubuntu-26.04` and reads Doppler `deploy`
 - Job `deploy` accepts each machine's host key on first contact
-- `Deploy` runs with no remote cache, independent of the cache server it deploys
+- `Deploy` runs with no remote cache and `cache-mode: none`, independent of the cache server it deploys and of caches other runs wrote
 - `nx deploy @rasm/infra` creates the whole Nx project graph, and a plugin failing graph creation stops the deploy before any stack applies
 - Unchanged stack inputs apply nothing
 
@@ -49,7 +53,7 @@
 - First releases state `specifier`, as Nx refuses a commit in the history it reads whose scope matches more than one release project
 - Job `release` runs on `xcode-27`, attaches with `dry-run` off, and publishes with `dry-run` off and input `publish`
 - Job `release` imports codesign identities into a temporary keychain only where their secrets are set
-- Job `unreal` then attaches the `os:linux` projects from each engine image at the released commit
+- Job `unreal` then attaches the projects of technology `unreal` from each engine image at the released commit
 
 ## [05]-[MAINTENANCE]
 

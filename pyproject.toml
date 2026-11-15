@@ -371,12 +371,6 @@ prerelease               = "allow"
 no-build-package         = ["epdx"]                              # `epdx` sdist lacks `project.version`
 extra-build-dependencies = { pyroscope-io = ["cmake"] }          # `pyroscope-io` build.rs runs cmake its sdist leaves undeclared
 
-[[tool.uv.index]]
-name        = "pypi"
-url         = "https://pypi.org/simple/"
-publish-url = "https://upload.pypi.org/legacy/" # `uv publish --index pypi` uploads here and skips a file the index already holds
-explicit    = true
-
 [tool.uv.workspace]
 members = [
     "apps/cli/foundry",

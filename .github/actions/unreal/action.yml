@@ -1,0 +1,20 @@
+name: Unreal
+description: Lists the Unreal Engine releases the EngineAssociation of each tracked .uproject names, and the projects Nx infers with technology unreal
+
+outputs:
+    engines:
+        description: JSON array of engine releases, each one Epic's dev-slim image tags
+        value: ${{ steps.listed.outputs.engines }}
+    projects:
+        description: JSON array of the names of projects with technology unreal
+        value: ${{ steps.listed.outputs.projects }}
+
+runs:
+    using: composite
+    steps:
+        - id: listed
+          shell: bash
+          run: |
+              engines="$(git ls-files -z -- "*.uproject" | xargs -0 cat | jq --slurp --compact-output 'map(.EngineAssociation | strings | select(test("^[0-9.]+$"))) | unique')"
+              projects="$(nx graph --file=stdout | jq --compact-output '[.graph.nodes[] | select(any(.data.metadata.technologies[]?; . == "unreal")) | .name]')"
+              printf "%s\n" "engines=${engines}" "projects=${projects}" >> "${GITHUB_OUTPUT}"

@@ -71,20 +71,10 @@ dev     = [
     "rasm-opencolorio-stubs",    # Stubs for PyOpenColorIO generated from the OpenColorIO Blender bundles
 ]
 
-# --- [BUILD_SYSTEM] ---------------------------------------------------------------------
-
-[build-system]
-requires      = ["hatchling"]
-build-backend = "hatchling.build" # Reads the dynamic version uv resolves the project at, uv builds no distribution
-
-[tool.hatch.version]
-path = "blender_manifest.toml" # The default pattern reads its `version = "<version>"` line
-
 # --- [UV] -------------------------------------------------------------------------------
 
 [tool.uv]
-package                       = false                                                             # Blender installs the extension archive and `blender_manifest.toml` holds its version, uv builds and installs no distribution
-cache-keys                    = [{ file = "pyproject.toml" }, { file = "blender_manifest.toml" }] # uv reads the version again when `blender_manifest.toml` changes
+package                       = false                            # Blender installs the extension archive, uv builds and installs no distribution
 environments                  = [
     "sys_platform == 'darwin' and platform_machine == 'arm64'",
     "sys_platform == 'linux' and platform_machine == 'x86_64'",
@@ -95,9 +85,10 @@ required-environments         = [
     "sys_platform == 'darwin' and platform_machine == 'arm64'",
     "sys_platform == 'linux' and platform_machine == 'x86_64'",
     "sys_platform == 'win32' and platform_machine == 'AMD64'",
-]                                                                                                 # Platforms `blender_manifest.toml` lists, a package with no source distribution and no wheel for one fails `uv lock`
+]                                                                # Platforms `blender_manifest.toml` lists, a package with no source distribution and no wheel for one fails `uv lock`
+minimum-libc-version          = { glibc = "2.28" }               # The extension build selects `x86_64-manylinux_2_28` wheels, a package with no source distribution and no wheel glibc 2.28 loads fails `uv lock`
 prerelease                    = "allow"
-build-constraint-dependencies = ["opencolorio==2.5.0"]                                            # Builds generating the PyOpenColorIO stubs import the OpenColorIO release Blender bundles
+build-constraint-dependencies = ["opencolorio==2.5.0"]           # Builds generating the PyOpenColorIO stubs import the OpenColorIO release Blender bundles
 
 [tool.uv.sources]
 rasm-bpy               = { workspace = "../../../libs/python/blender" }

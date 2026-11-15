@@ -59,6 +59,10 @@
                                 "additionalProperties": true,
                                 "description": "Workspace crate by its folder, relative to the Nx workspace root, and package name"
                             }
+                        },
+                        "junit": {
+                            "type": "string",
+                            "description": "JUnit report of the task's package, relative to the Nx workspace root, holding the test suites of that package from the one cargo nextest run every task of the command shares, whose JUnit path a --tool-config-file layer below the workspace nextest configuration sets"
                         }
                     },
                     "required": [ "args" ],
@@ -112,6 +116,10 @@
                             "additionalProperties": true,
                             "description": "Workspace crate by its folder, relative to the Nx workspace root, and package name"
                         }
+                    },
+                    "junit": {
+                        "type": "string",
+                        "description": "JUnit report of the task's package, relative to the Nx workspace root, holding the test suites of that package from the one cargo nextest run every task of the command shares, whose JUnit path a --tool-config-file layer below the workspace nextest configuration sets"
                     }
                 },
                 "required": [ "args" ],

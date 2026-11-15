@@ -21,14 +21,14 @@ const OWN = hashArray(
 const inferred = Effect.fnUntraced(function* (context: CreateNodesContext, files: ReadonlySet<string>, settings: typeof Options.Type, reading: Reading) {
     const links = yield* Links;
     const workspace = resolved(context.workspaceRoot, reading, files);
-    const reported = Option.map(Option.fromUndefinedOr(settings.coveragePath), (at) => join(at, 'lcov.info'));
+    const reports = { coverage: Option.map(Option.fromUndefinedOr(settings.coveragePath), (at) => join(at, 'lcov.info')), junit: Option.map(Option.fromUndefinedOr(settings.outputPath), (at) => join(at, 'junit.xml')) };
     workspace.members.forEach((member) => links.set(dirname(member.crate.manifest_path), member));
     const roots = [...new Map<string, Option.Option<Member>>([[workspace.root, Option.none()], ...workspace.members.map((member) => [member.root, Option.some(member)] as const)])];
     const manifests = yield* Effect.forEach(roots, ([root]) => manifested(context.workspaceRoot, root));
     const present = Array.zip(roots, manifests).filter(([[, member], stated]) => Option.isSome(member) || Option.isSome(stated));
     const projects = Record.fromIterableWith(present, ([[root, member], manifest]): [string, ProjectConfiguration] => {
         const stated = Option.getOrElse(manifest, () => ({}));
-        const targets = projectTargets(workspace, reported, member, stated);
+        const targets = projectTargets(workspace, reports, member, stated);
         const crate = Option.map(member, (held) => {
             const { default: sources } = getNamedInputs(root, context);
             const implicit = held.crate.metadata?.nx?.implicitDependencies;

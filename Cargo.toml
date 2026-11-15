@@ -714,7 +714,7 @@ tonic-prost-build = "0.14.9"                                             # gRPC 
 # --- [LINTING]
 
 clippy_utils   = { git = "https://github.com/rust-lang/rust-clippy", rev = "9fd09bc3fb6edda57705cceaeef185be33ba41b9" } # Type, path, and diagnostic queries over compiler HIR for lint passes
-dylint_linting = "6.3.2"                                                                                                # Late lint declarations and registration entry dylint driver loads
+dylint_linting = "6.4.0"                                                                                                # Late lint declarations and registration entry dylint driver loads
 
 # --- [TESTING]
 

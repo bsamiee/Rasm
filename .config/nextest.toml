@@ -15,9 +15,6 @@ filter       = "package(rasm-mcp-tests) and test(/^conformance::/)"
 slow-timeout = { period = "120s", terminate-after = 2 }
 test-group   = "mcp-conformance"
 
-[profile.ci]
-junit = { path = "junit.xml" }
-
 # --- [GROUPS] ---------------------------------------------------------------------------
 
 [test-groups.mcp-conformance]

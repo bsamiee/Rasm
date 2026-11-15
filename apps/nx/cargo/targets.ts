@@ -9,6 +9,7 @@ import { binary, LOCK, library, MANIFEST, type Member, own, PLUGIN, type Target,
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Verbs = Readonly<Record<string, Readonly<Record<string, TargetConfiguration>>>>;
+type Reports = Readonly<Record<'coverage' | 'junit', Option.Option<string>>>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -16,7 +17,6 @@ const DENIED = [
     { tool: 'cargo-deny', checks: ['bans', 'licenses', 'sources'], extra: { cache: true } },
     { tool: 'cargo-deny-advisories', checks: ['advisories'], extra: {} },
 ] as const;
-const COMPILER = ['RUSTC', 'RUSTC_WRAPPER', 'RUSTC_WORKSPACE_WRAPPER', 'RUSTDOC', 'RUSTFLAGS', 'CARGO_ENCODED_RUSTFLAGS', 'RUSTDOCFLAGS', 'CARGO_ENCODED_RUSTDOCFLAGS', 'RUSTUP_TOOLCHAIN', 'CARGO_BUILD_TARGET'] as const;
 const HOST = { runtime: 'rustc --print host-tuple' } as const;
 const MESSAGES = ['--message-format', 'json-diagnostic-rendered-ansi'] as const;
 const SUITES = { args: ['--cargo-message-format', 'json-diagnostic-rendered-ansi', '--message-format', 'libtest-json-plus', '--message-format-version', '0.1'], env: { NEXTEST_EXPERIMENTAL_LIBTEST_JSON: '1' } } as const;
@@ -25,8 +25,9 @@ const SOURCES: NonNullable<TargetConfiguration['inputs']> = ['default', '^defaul
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Options = Schema.Struct({ coveragePath: Schema.optionalKey(Schema.String) }).annotate({
-    description: 'coveragePath: workspace folder the coverage configuration of a crate writes its lcov.info report to through cargo llvm-cov --output-path, {projectName} naming the project, absent leaves the report on stdout',
+const Options = Schema.Struct({ outputPath: Schema.optionalKey(Schema.String), coveragePath: Schema.optionalKey(Schema.String) }).annotate({
+    description:
+        'outputPath: workspace folder test--nextest writes its junit.xml report to, {projectName} naming the project, absent leaves JUnit to the nextest profile. coveragePath: workspace folder the coverage configuration of a crate writes its lcov.info report to through cargo llvm-cov --output-path, {projectName} naming the project, absent leaves the report on stdout',
 });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -37,6 +38,8 @@ const SELECTIONS: Readonly<Record<string, (target: Target) => boolean>> = {
     '--tests': ({ test }) => test,
     '--benches': ({ kind }) => kind.includes('bench'),
 };
+
+const version = (tool: string) => ({ runtime: `cargo ${tool} --version` });
 
 const enabled = (features: Member['crate']['features'], names: readonly string[]): readonly string[] => names.map((name) => Array.headNonEmpty(String.split(name, '/'))).flatMap((name) => Option.match(Record.get(features, name), { onNone: () => [], onSome: (implied) => [name, ...enabled(features, implied)] }));
 
@@ -80,11 +83,11 @@ const crateInputs = (workspace: Workspace, { crate, root }: Member, stated: Targ
         ...(workspace.root === root ? [] : [tokened(join(workspace.root, MANIFEST))]),
         ...workspace.configs,
         HOST,
-        ...COMPILER.map((env) => ({ env })),
+        ...workspace.compiler.map((env) => ({ env })),
     ];
 };
 
-const crateTargets = (workspace: Workspace, reported: Option.Option<string>, { crate, root, packages, linted }: Member): Verbs => {
+const crateTargets = (workspace: Workspace, reports: Reports, { crate, root, packages, linted }: Member): Verbs => {
     const selected = { cwd: workspace.root, package: crate.name };
     const plain = Option.isNone(workspace.nextest);
     const tested = crate.targets.some(({ test }) => test);
@@ -114,15 +117,17 @@ const crateTargets = (workspace: Workspace, reported: Option.Option<string>, { c
             ),
             (profile) => placed([...filters, ...profile, LOCKED, '--keep-going', ...MESSAGES]),
         );
-    const covered = (run: (exported: readonly string[]) => Command): Partial<TargetConfiguration> => {
-        const report = Option.toArray(reported);
+    const junit = Option.toArray(reports.junit);
+    const covered = (run: (exported: readonly string[]) => Command, written: readonly string[]): Partial<TargetConfiguration> => {
+        const report = Option.toArray(reports.coverage);
         const direct = packages.filter(({ name }) => crate.dependencies.some((dependency) => dependency.path !== undefined && dependency.name === name));
+        const files = [...written, ...report].map(tokened);
         return {
-            outputs: ['{options.outputs.0}'],
-            configurations: { coverage: { commands: [{ ...run(['--lcov', ...report.flatMap((file) => ['--output-path', relative(workspace.root, file)])]), packages: direct }], outputs: report.map(tokened) } },
+            outputs: files.map((_, index) => `{options.outputs.${index}}`),
+            configurations: { coverage: { commands: [{ ...run(['--lcov', ...report.flatMap((file) => ['--output-path', relative(workspace.root, file)])]), packages: direct }], outputs: files } },
         };
     };
-    const suites = (run: Array.NonEmptyReadonlyArray<string>): Command => ({ args: Array.appendAll(run, [LOCKED, ...SUITES.args]), env: SUITES.env });
+    const suites = (run: Array.NonEmptyReadonlyArray<string>): Command => ({ args: Array.appendAll(run, [LOCKED, ...SUITES.args]), env: SUITES.env, ...Option.getOrUndefined(Option.map(reports.junit, (file) => ({ junit: file }))) });
     const libtest = (run: Array.NonEmptyReadonlyArray<string>): Command => ({ args: Array.appendAll(run, [...(plain ? [] : ['--doc']), LOCKED]) });
     const linting: Verbs =
         workspace.libraries.length > 0
@@ -132,7 +137,7 @@ const crateTargets = (workspace: Workspace, reported: Option.Option<string>, { c
                           'dylint',
                           `Reports the Dylint findings of ${crate.name} with cargo dylint`,
                           { ...selected, commands: checked((selection) => ({ args: ['dylint', '--all', '--fail-on-no-libraries'], trailing: selection })) },
-                          { cache: true, inputs: [...SOURCES, ...workspace.libraries, { env: 'DYLINT_RUSTFLAGS' }] },
+                          { cache: true, inputs: [...SOURCES, ...workspace.libraries, { env: 'DYLINT_RUSTFLAGS' }, version('dylint')] },
                       ),
                   },
                   fix: { dylint: cargoTarget('dylint', `Applies the Dylint suggestions for ${crate.name} with cargo dylint --fix`, { ...selected, commands: [{ args: ['dylint', '--all', '--fail-on-no-libraries', '--fix'], trailing: ['--allow-dirty', ...filters, '--keep-going', ...MESSAGES] }] }, {}) },
@@ -160,14 +165,23 @@ const crateTargets = (workspace: Workspace, reported: Option.Option<string>, { c
                         ...cargoTarget(
                             'nextest run',
                             `Tests ${crate.name} with cargo nextest run`,
-                            { ...selected, commands: [suites(['nextest', 'run'])] },
-                            { cache: true, inputs: [...SOURCES, ...Option.toArray(workspace.nextest).map(tokened), { env: 'NEXTEST_PROFILE' }], ...covered((exported) => suites(['llvm-cov', 'nextest', ...exported])) },
+                            { ...selected, commands: [suites(['nextest', 'run'])], outputs: junit.map(tokened) },
+                            {
+                                cache: true,
+                                inputs: [...SOURCES, ...Option.toArray(workspace.nextest).map(tokened), { env: 'NEXTEST_PROFILE' }, version('nextest'), version('llvm-cov')],
+                                ...covered((exported) => suites(['llvm-cov', 'nextest', ...exported]), junit),
+                            },
                         ),
                         executor: `${PLUGIN}:nextest`,
                     },
                 }),
             ...((plain ? tested || documented : documented) && {
-                cargo: cargoTarget('test', plain ? `Tests ${crate.name} with cargo test` : `Runs the documentation tests of ${crate.name} with cargo test --doc`, { ...selected, commands: [libtest(['test'])] }, { cache: true, ...(plain ? covered((exported) => libtest(['llvm-cov', 'test', ...exported])) : {}) }),
+                cargo: cargoTarget(
+                    'test',
+                    plain ? `Tests ${crate.name} with cargo test` : `Runs the documentation tests of ${crate.name} with cargo test --doc`,
+                    { ...selected, commands: [libtest(['test'])] },
+                    plain ? { cache: true, inputs: [...SOURCES, version('llvm-cov')], ...covered((exported) => libtest(['llvm-cov', 'test', ...exported]), []) } : { cache: true },
+                ),
             }),
         },
         check: {
@@ -202,7 +216,7 @@ const workspaceTargets = (workspace: Workspace): Verbs => {
                     'deny',
                     `Reports the cargo-deny ${selected.join(', ')} findings of the workspace graph with cargo deny check, failing on any warning`,
                     { cwd: workspace.root, commands: [{ args: ['deny', LOCKED, '--workspace', 'check', '--deny', 'warnings', ...selected] }] },
-                    { ...extra, inputs: [...manifests, tokened(join(workspace.root, LOCK)), ...files.map(tokened), { externalDependencies: [] }] },
+                    { ...extra, inputs: [...manifests, tokened(join(workspace.root, LOCK)), ...files.map(tokened), version('deny'), { externalDependencies: [] }] },
                 ),
             ] as const,
     );
@@ -219,7 +233,7 @@ const workspaceTargets = (workspace: Workspace): Verbs => {
     };
 };
 
-const projectTargets = (workspace: Workspace, reported: Option.Option<string>, member: Option.Option<Member>, stated: Readonly<Record<string, Pick<TargetConfiguration, 'inputs'>>>): Record<string, TargetConfiguration> => {
+const projectTargets = (workspace: Workspace, reports: Reports, member: Option.Option<Member>, stated: Readonly<Record<string, Pick<TargetConfiguration, 'inputs'>>>): Record<string, TargetConfiguration> => {
     const nested = Option.filter(member, ({ root }) => root !== workspace.root);
     const packed = Option.map(Option.all({ held: Option.filter(member, ({ versioned }) => versioned), placed: workspace.placed }), ({ held: { crate, packages }, placed: artifacts }) =>
         cargoTarget(
@@ -229,13 +243,16 @@ const projectTargets = (workspace: Workspace, reported: Option.Option<string>, m
             { cache: true, outputs: [tokened(join(artifacts, 'package', `${crate.name}-${crate.version}.crate`))] },
         ),
     );
-    const tools = [...Option.toArray(Option.map(member, (held) => crateTargets(workspace, reported, held))), ...(Option.isNone(nested) ? [workspaceTargets(workspace)] : []), { pack: Option.match(packed, { onNone: (): Readonly<Record<string, TargetConfiguration>> => ({}), onSome: (cargo) => ({ cargo }) }) }].reduce(
+    const tools = [...Option.toArray(Option.map(member, (held) => crateTargets(workspace, reports, held))), ...(Option.isNone(nested) ? [workspaceTargets(workspace)] : []), { pack: Option.match(packed, { onNone: (): Readonly<Record<string, TargetConfiguration>> => ({}), onSome: (cargo) => ({ cargo }) }) }].reduce(
         joined,
     );
     const removed = Record.collect(tools, (verb, held) => Record.keys(Record.filter(held, ({ outputs = [] }) => outputs.length > 0)).map((tool) => `${verb}--${tool}`)).flat();
     const cleaned = Option.match(nested, {
-        onNone: () => ({ selected: [], description: 'Removes the build folder of the workspace with cargo clean' }),
-        onSome: ({ crate }) => ({ selected: ['--package', crate.name, LOCKED], description: `Removes the build artifacts of ${crate.name} in every profile with cargo clean` }),
+        onNone: () => ({ commands: [['cargo', 'clean']] as const, description: 'Removes the build folder of the workspace with cargo clean' }),
+        onSome: ({ crate }) => {
+            const profiles = ['dev', 'release', ...workspace.profiles];
+            return { commands: profiles.map((profile) => ['cargo', 'clean', '--package', crate.name, '--profile', profile, LOCKED] as const), description: `Removes the build artifacts of ${crate.name} in profiles ${profiles.join(', ')} with cargo clean --profile` };
+        },
     });
     return aggregated(
         {
@@ -255,8 +272,8 @@ const projectTargets = (workspace: Workspace, reported: Option.Option<string>, m
                 cargo: {
                     executor: `${distribution.name}:clean`,
                     inputs: SOURCES,
-                    options: { commands: [['cargo', 'clean', ...cleaned.selected]], cwd: workspace.root, targets: removed },
-                    metadata: { description: cleaned.description, help: { command: 'cargo clean --help', example: { args: ['--release'] } } },
+                    options: { commands: cleaned.commands, cwd: workspace.root, targets: removed },
+                    metadata: { description: cleaned.description, help: { command: 'cargo clean --help', example: { args: ['--dry-run'] } } },
                 },
             },
         },

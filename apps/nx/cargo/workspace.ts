@@ -20,8 +20,16 @@ const MANIFEST = 'Cargo.toml';
 const LOCK = 'Cargo.lock';
 const CRATE = 'nx_cargo';
 const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#package'))).name;
-const CONFIG = ['.cargo/config.toml', '.cargo/config', 'rust-toolchain.toml', 'rust-toolchain'] as const;
-const CLIPPY = ['clippy.toml', '.clippy.toml'] as const;
+const SETTINGS = ['.cargo/config.toml', '.cargo/config'] as const;
+const CONFIG = [...SETTINGS, 'rust-toolchain.toml', 'rust-toolchain'] as const;
+const CLIPPY = ['.clippy.toml', 'clippy.toml'] as const;
+const PROFILES = ['dev', 'release', 'test', 'bench'] as const;
+const COMPILER = ['RUSTC', 'RUSTC_WRAPPER', 'RUSTC_WORKSPACE_WRAPPER', 'RUSTDOC', 'RUSTFLAGS', 'CARGO_ENCODED_RUSTFLAGS', 'RUSTDOCFLAGS', 'CARGO_ENCODED_RUSTDOCFLAGS', 'RUSTUP_TOOLCHAIN'] as const;
+const KEYS = {
+    BUILD: ['TARGET', 'RUSTC', 'RUSTC_WRAPPER', 'RUSTC_WORKSPACE_WRAPPER', 'RUSTDOC', 'RUSTFLAGS', 'RUSTDOCFLAGS'],
+    TARGET: ['LINKER', 'RUSTFLAGS'],
+    PROFILE: ['INHERITS', 'OPT_LEVEL', 'DEBUG', 'SPLIT_DEBUGINFO', 'STRIP', 'DEBUG_ASSERTIONS', 'OVERFLOW_CHECKS', 'LTO', 'PANIC', 'CODEGEN_UNITS', 'RPATH', 'TRIM_PATHS', 'CODEGEN_BACKEND'],
+} as const;
 const NEXTEST = '.config/nextest.toml';
 const DENY = Record.map({ config: 'deny', exceptions: 'deny.exceptions' }, (stem) => [`${stem}.toml`, `.${stem}.toml`, `.cargo/${stem}.toml`]);
 
@@ -50,6 +58,10 @@ const Metadata = Schema.fromJsonString(
 const Crate = Schema.Struct({ root: Schema.String, name: Schema.String }).annotate({ description: 'Workspace crate by its folder, relative to the Nx workspace root, and package name' });
 const Table = Schema.Record(Schema.String, Schema.Unknown);
 const Profiles = Schema.Struct({ profile: Schema.Record(Schema.String, Schema.Struct({ inherits: Schema.optionalKey(Schema.String), panic: Schema.optionalKey(Schema.String) })).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))) });
+const Settings = Schema.Struct({
+    env: Schema.Record(Schema.String, Schema.Union([Schema.String, Schema.Struct({ value: Schema.String, relative: Schema.optionalKey(Schema.Boolean) })])).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
+    unstable: Schema.Record(Schema.String, Schema.Unknown).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
+}).annotate({ description: 'The [env] and [unstable] tables of a Cargo configuration file, an [env] value with relative = true resolving against the folder holding its .cargo folder' });
 const Input = Schema.declare((input: unknown): input is NonNullable<TargetConfiguration['inputs']>[number] => Predicate.isString(input) || Predicate.isObject(input));
 const Overrides = Schema.fromJsonString(Schema.Struct({ nx: Schema.optionalKey(Schema.Struct({ targets: Schema.optionalKey(Schema.Record(Schema.String, Schema.Struct({ inputs: Schema.optionalKey(Schema.mutable(Schema.Array(Input))) }))) })) })).annotate({
     description: "The nx.targets rows of a project's package.json, whose inputs Nx merges over the inferred targets after every plugin",
@@ -104,15 +116,30 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, manifest: strin
     const metadata = yield* Effect.flatMap(spawned(['cargo', 'metadata', '--format-version', '1', '--no-deps', '--manifest-path', manifest], { cwd: workspaceRoot }), Schema.decodeEffect(Metadata));
     const root = relative(workspaceRoot, metadata.workspace_root) || '.';
     const types = Array.difference(Array.dedupe(metadata.packages.flatMap(({ targets }) => targets.flatMap((target) => target.crate_types))), ['lib', 'rlib']);
-    const [{ profile }, names, denied] = yield* Effect.all(
+    const found = (stems: readonly string[]) => ancestors(root).flatMap((at) => stems.map((stem) => join(at, stem)).filter((file) => files.has(file)));
+    const settings = found(SETTINGS);
+    const [{ profile }, [host, names], denied, layers] = yield* Effect.all(
         [
             toml(Profiles, join(metadata.workspace_root, MANIFEST)),
-            Effect.map(spawned(['rustc', '--print', 'file-names', '--crate-name', CRATE, ...types.flatMap((type) => ['--crate-type', type]), '-'], { cwd: metadata.workspace_root }), (stdout) => stdout.split('\n')),
+            Effect.map(spawned(['rustc', '--print', 'host-tuple', '--print', 'file-names', '--crate-name', CRATE, ...types.flatMap((type) => ['--crate-type', type]), '-'], { cwd: metadata.workspace_root }), (stdout) => Array.unprepend(String.split(stdout, '\n'))),
             Effect.transposeOption(Option.map(nearest(files, root, DENY.config), (file) => Effect.map(toml(Table, join(workspaceRoot, file)), (tables) => ({ files: [file, ...Option.toArray(nearest(files, root, DENY.exceptions))], tables: Record.keys(tables) })))),
+            Effect.forEach(settings, (file) => toml(Settings, join(workspaceRoot, file)), { concurrency: 'unbounded' }),
         ],
         { concurrency: 'unbounded' },
     );
-    return { metadata, profile, uplifted: Record.fromEntries(Array.zip(types, names)), deny: Option.toArray(denied) };
+    const clippy = Array.findFirst(Array.zip(settings, layers), ([file, { env }]) =>
+        Option.map(Record.get(env, 'CLIPPY_CONF_DIR'), (stated) => (Predicate.isString(stated) ? resolve(metadata.workspace_root, stated) : resolve(stated.relative === true ? join(workspaceRoot, dirname(dirname(file))) : metadata.workspace_root, stated.value))),
+    );
+    return {
+        metadata,
+        profile,
+        host,
+        configs: found(CONFIG),
+        clippy: Option.toArray(Option.map(clippy, (at) => relative(workspaceRoot, at) || '.')),
+        unstable: Array.dedupe(layers.flatMap(({ unstable }) => Record.keys(unstable))),
+        uplifted: Record.fromEntries(Array.zip(types, names)),
+        deny: Option.toArray(denied),
+    };
 });
 
 const moved = ({ metadata, ...reading }: Reading, to: (at: string) => string): Reading => ({
@@ -132,7 +159,8 @@ const moved = ({ metadata, ...reading }: Reading, to: (at: string) => string): R
 
 const placed = (workspaceRoot: string) => ({ stored: (reading: Reading) => moved(reading, (at) => relative(workspaceRoot, at)), loaded: (reading: Reading) => moved(reading, (at) => resolve(workspaceRoot, at)) });
 
-const resolved = (workspaceRoot: string, { metadata, profile, uplifted, deny }: Reading, files: ReadonlySet<string>) => {
+const resolved = (workspaceRoot: string, { metadata, profile, host, configs, clippy, unstable, uplifted, deny }: Reading, files: ReadonlySet<string>) => {
+    const variable = (key: string) => key.toUpperCase().replaceAll(/[-.]/gu, '_');
     const within = (at: string) => relative(workspaceRoot, at) || '.';
     const inside = (at: string) => Option.liftPredicate(within(at), (folder) => !(folder.startsWith('..') || isAbsolute(folder)));
     const root = within(metadata.workspace_root);
@@ -150,7 +178,7 @@ const resolved = (workspaceRoot: string, { metadata, profile, uplifted, deny }: 
             return {
                 ...member,
                 packages: crates.filter((other) => other.crate.name !== member.crate.name && needed.has(other.crate.name)).map((other) => ({ root: other.root, name: other.crate.name })),
-                linted: Option.toArray(nearest(files, member.root, CLIPPY)).map(tokened),
+                linted: Option.toArray(nearest(files, clippy[0] ?? member.root, CLIPPY)).map(tokened),
             };
         }),
         libraries: Array.getSomes((metadata.metadata?.dylint?.libraries ?? []).map(({ path: at }) => Option.map(Option.fromUndefinedOr(at), (folder) => join(root, folder)))).flatMap((folder) => {
@@ -163,10 +191,18 @@ const resolved = (workspaceRoot: string, { metadata, profile, uplifted, deny }: 
             const excluded = Array.difference(Array.dedupe([...others, ...crates.map((member) => member.root).filter((nested) => nested.startsWith(`${folder}/`))]), included);
             return [...included.map((at) => tokened(join(at, '**/*'))), ...excluded.map((at) => `!${tokened(join(at, '**/*'))}`)];
         }),
-        configs: ancestors(root)
-            .flatMap((at) => CONFIG.map((name) => join(at, name)))
-            .filter((file) => files.has(file))
-            .map(tokened),
+        configs: configs.map(tokened),
+        compiler: [
+            ...COMPILER,
+            ...(
+                [
+                    [['BUILD'], KEYS.BUILD],
+                    [[`TARGET_${variable(host)}`], KEYS.TARGET],
+                    [[...PROFILES, ...profiles].map((name) => `PROFILE_${variable(name)}`), KEYS.PROFILE],
+                    [['UNSTABLE'], unstable.map(variable)],
+                ] as const
+            ).flatMap(([scopes, keys]) => Array.cartesianWith(scopes, keys, (scope, key) => `CARGO_${scope}_${key}`)),
+        ],
         nextest: Option.liftPredicate(join(root, NEXTEST), (file) => files.has(file)),
         profiles,
         strategies: Array.dedupeWith(['release', ...profiles], (left, right) => strategy(left) === strategy(right)).filter((name) => strategy(name) !== strategy('dev')),

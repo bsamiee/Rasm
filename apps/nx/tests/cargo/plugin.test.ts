@@ -11,6 +11,8 @@ import { Array, Duration, Effect, Layer, Option, Path, pipe, Schema, String } fr
 const REPORT = 'cargo metadata --format-version 1 --no-deps';
 const [APP, CORE, GENERATOR] = ['crates/app', 'crates/core', 'tools/generator'] as const;
 const SOURCES = { core: 'crates/core/src/lib.rs', generator: 'tools/generator/src/main.rs' } as const;
+const SUITE = /<testsuite\b[^>]*\bname="(?<name>[^"]+)"/gu;
+const RUN = /\buuid="(?<run>[^"]+)"/u;
 const PACKAGE = 'edition.workspace = true\nlicense.workspace = true\ndescription = "Fixture crate"\n';
 const files = {
     '.config/mise.lock': '# tool versions\n',
@@ -365,6 +367,38 @@ it.layer(
             );
             const shown = yield* nx('release', 'version', 'patch', '--dry-run');
             assert.include(`${shown.stdout}${shown.stderr}`, `Resolved the current version as ${latest} from the remote registry`, 'cargo search <name> --limit 1; nrwl/nx packages/nx/src/command-line/release/version/resolve-current-version.ts "registry"');
+        }),
+        bound,
+    );
+});
+
+it.layer(
+    Layer.effectDiscard(locked([['cargo', 'generate-lockfile']])).pipe(
+        Layer.provideMerge(
+            Consumer.layer({
+                resolved: import.meta.url,
+                settings: { plugins: [{ plugin: plugin.name, options: { outputPath: 'reports/{projectName}' } }] },
+                ignored: ['target', 'reports'],
+                files: { ...files, '.config/nextest.toml': '[profile.default]\nfail-fast = false\n' },
+            }),
+        ),
+        Layer.provideMerge(Packed.layer(plugin.name)),
+        Layer.provideMerge(layer),
+    ),
+    options,
+)((methods) => {
+    methods.effect(
+        'writes each crate of one batched cargo nextest run a JUnit report holding its own test suites alone',
+        Effect.fnUntraced(function* () {
+            const [{ nx, text }, core, generator] = yield* Effect.all([Consumer, member(CORE), member(GENERATOR)]);
+            const run = yield* nx('run-many', '--targets=test--nextest', `--projects=${core.name},${generator.name}`, '--skip-nx-cache', '--batch', '--output-style=static');
+            assert.strictEqual(run.code, 0, `${run.stdout}${run.stderr}`);
+            const [kept, other] = yield* Effect.all([text(`reports/${core.name}/junit.xml`), text(`reports/${generator.name}/junit.xml`)]);
+            const source = 'nexte.st docs/machine-readable/junit "testsuite ... name: the binary ID"; cargo nextest run --tool-config-file';
+            assert.deepStrictEqual([[...kept.matchAll(SUITE)].map(({ groups }) => groups), [...other.matchAll(SUITE)].map(({ groups }) => groups)], [[{ name: core.crate }], [{ name: `${generator.crate}::bin/${generator.crate}` }]], source);
+            const runs = [RUN.exec(kept)?.groups, RUN.exec(other)?.groups];
+            assert.isDefined(runs[0], source);
+            assert.deepStrictEqual(runs[0], runs[1], `${source}: one nextest run serves every task of a batch`);
         }),
         bound,
     );

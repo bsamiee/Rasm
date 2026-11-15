@@ -33,20 +33,19 @@ const inferred = Effect.fnUntraced(function* (cache: Read, { workspaceRoot }: Cr
     const placed = (yield* Schema.encodeEffect(Quoted)(workspaceRoot)).slice(1, -1);
     const read = Array.cartesianWith([join(dirname(lock), '**'), ...ancestors(dirname(dirname(lock)))], READ, join);
     const digest = hashArray([yield* Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, read)), OWN]);
-    const reply = yield* Option.match(
+    const metadata = yield* Option.match(
         Option.filter(Option.fromNullishOr(cache.get(lock)), (held) => held.digest === digest),
         {
-            onSome: (held) => Effect.succeed(held.reply.replaceAll(token, placed)),
-            onNone: () =>
-                Effect.tap(spawned(['uv', 'workspace', 'metadata', '--frozen', '--preview-features', 'workspace-metadata', '--quiet'], { cwd: join(workspaceRoot, dirname(lock)) }), (stdout) =>
-                    Effect.sync(() => {
-                        cache.set(lock, { digest, reply: stdout.replaceAll(placed, token) });
-                        cache.writeToDisk();
-                    }),
-                ),
+            onSome: (held) => Schema.decodeEffect(Metadata)(held.reply.replaceAll(token, placed)),
+            onNone: Effect.fnUntraced(function* () {
+                const decoded = yield* Effect.flatMap(spawned(['uv', 'workspace', 'metadata', '--frozen', '--preview-features', 'workspace-metadata', '--quiet'], { cwd: join(workspaceRoot, dirname(lock)) }), Schema.decodeEffect(Metadata));
+                const reply = yield* Schema.encodeEffect(Metadata)(decoded);
+                cache.set(lock, { digest, reply: reply.replaceAll(placed, token) });
+                cache.writeToDisk();
+                return decoded;
+            }),
         },
     );
-    const metadata = yield* Schema.decodeEffect(Metadata)(reply);
     const { documented, unparsed } = yield* documents(workspaceRoot, folders(workspaceRoot, metadata));
     const { members, edges, failures } = yield* located(workspaceRoot, report(workspaceRoot, lock, metadata, documented));
     yield* Array.match([...unparsed, ...failures], { onEmpty: () => Effect.void, onNonEmpty: (errors) => Effect.fail(new Cause.UnknownError(errors, `${lock}: ${errors.map(({ message }) => message).join('; ')}`)) });

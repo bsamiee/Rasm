@@ -129,7 +129,7 @@ conforms({
     report: REPORT,
     tools: ['uv'],
     verbs: ['build', 'test'],
-    shared: ['pyproject.toml', 'uv.lock'],
+    shared: ['pyproject.toml'],
     unlocked: ['uv.lock', '.venv'],
     scratch: [],
     added: Effect.gen(function* () {
