@@ -40,6 +40,7 @@ CheckOptions:
     bugprone-unhandled-self-assignment.WarnOnlyIfThisHasSuspiciousField: false
     misc-non-private-member-variables-in-classes.IgnoreClassesWithAllMemberVariablesBeingPublic: true
     modernize-use-trailing-return-type.TransformLambdas: none
+    readability-function-size.NestingThreshold: 4
     readability-identifier-length.MinimumVariableNameLength: 2
     readability-identifier-length.MinimumParameterNameLength: 2
     readability-identifier-naming.ClassCase: CamelCase

@@ -1,7 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: tsxlang
 severity: error
-ignores: ['.claude/workflows/*.js', 'plugins/function-hooks/hooks/**']
 utils:
     collection:
         matches: { effect-module: { name: { regex: '(?-u:\b)(Array|Chunk|HashSet)$' } } }
@@ -30,6 +29,7 @@ utils:
         kind: arrow_function
         has: { field: body, any: [{ matches: set-test }, { has: { matches: set-test } }] }
 rule:
+    not: { inside: { kind: program, stopBy: end, matches: claude-code-module } }
     kind: call_expression
     all:
         - has: { field: function, kind: member_expression, has: { field: property, regex: '^filter$' } }

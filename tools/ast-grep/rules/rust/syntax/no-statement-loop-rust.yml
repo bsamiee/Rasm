@@ -68,4 +68,4 @@ rule:
 transform:
     HEAD: { replace: { source: $LOOP, replace: '(?s)\p{Pattern_White_Space}*\{?\p{Pattern_White_Space}*\n.*$', by: '' } }
 message: '`$HEAD` computes its result statement by statement'
-note: 'Use iterator adapters and collect independent failures into `validated::Validated`; reserve `fold` for steps that read accumulated state'
+note: 'Use iterator adapters and collect independent failures into one accumulating result; reserve `fold` for steps that read accumulated state'

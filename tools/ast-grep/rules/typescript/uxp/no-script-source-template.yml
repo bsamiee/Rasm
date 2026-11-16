@@ -7,53 +7,11 @@ utils:
         any:
             - matches: typescript-built-text
             - matches: { typescript-constant-value: { value: { matches: typescript-built-text } } }
-    encoded-source:
-        kind: template_string, binary_expression, call_expression, parenthesized_expression
-        all:
-            - matches: typescript-built-text
-            - has: { stopBy: end, kind: call_expression, has: { field: function, regex: '^(jsesc|JSON\.stringify)$' } }
-    encoded-entry:
-        any:
-            - kind: pair
-              all:
-                  - has: { field: key, regex: '^direct$' }
-                  - has:
-                        field: value
-                        any:
-                            - matches: encoded-source
-                            - kind: identifier
-                              pattern: $SOURCE
-                              inside: &declaration
-                                  kind: statement_block, program
-                                  stopBy: end
-                                  has:
-                                      kind: lexical_declaration
-                                      has:
-                                          kind: variable_declarator
-                                          all:
-                                              - has: { field: name, pattern: $SOURCE }
-                                              - has: { field: value, matches: encoded-source }
-            - kind: shorthand_property_identifier
-              regex: '^direct$'
-              pattern: $SOURCE
-              inside: *declaration
 rule:
     kind: call_expression
-    any:
-        - all:
-              - has: { field: function, kind: member_expression, pattern: $CALLEE, has: { field: property, regex: '^doScript$' } }
-              - has: { field: arguments, has: { nthChild: { position: 1, ofRule: &code { not: { kind: 'comment, html_comment' } } }, matches: built-source } }
-              - inside: { kind: program, stopBy: end, matches: { typescript-module-importer: { module: { regex: '^(adobe:)?indesign$' } } } }
-        - all:
-              - has: { field: function, kind: member_expression, pattern: $CALLEE, has: { field: property, regex: '^(script|execute)$' } }
-              - has:
-                    field: arguments
-                    has:
-                        nthChild: { position: 1, ofRule: *code }
-                        kind: object
-                        any:
-                            - has: { matches: encoded-entry }
-                            - has: { kind: pair, all: [{ has: { field: key, regex: '^arguments$' } }, { has: { field: value, kind: object, has: { matches: encoded-entry } } }] }
-              - inside: { kind: program, stopBy: end, matches: { typescript-module-importer: { module: { regex: '^@rasm/applications(/[[^\x00-#%-/:-@\[-\^`{-~\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]-]+)?$' } } } }
+    all:
+        - has: { field: function, kind: member_expression, pattern: $CALLEE, has: { field: property, regex: '^doScript$' } }
+        - has: { field: arguments, has: { nthChild: { position: 1, ofRule: { not: { kind: 'comment, html_comment' } } }, matches: built-source } }
+        - inside: { kind: program, stopBy: end, matches: { typescript-module-importer: { module: { regex: '^(adobe:)?indesign$' } } } }
 message: '`$CALLEE` runs a script source built from values'
-note: 'Pass constant source with values in `doScript` `withArguments` or `values` beside `direct`, read through script arguments'
+note: 'Pass constant source to `doScript` with values in `withArguments`, read through script arguments'

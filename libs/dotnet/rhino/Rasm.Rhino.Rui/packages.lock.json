@@ -147,6 +147,7 @@
           "OpenTelemetry.Resources.ProcessRuntime": "[1.20.1-beta.1, )",
           "Rasm.Telemetry": "[0.1.0, )",
           "Rasm.Telemetry.Api": "[0.1.0, )",
+          "System.Reactive": "[7.0.0, )",
           "Thinktecture.Runtime.Extensions": "[10.6.0, )"
         }
       },
@@ -619,6 +620,12 @@
         "requested": "[11.0.0, )",
         "resolved": "11.0.0",
         "contentHash": "U+Bv2qCYt6eONi+arSP0QIp4uTO6os6uceBsqiAwruZ+Wo2HrRhO/0tj38M9URJtS+4DhAtT3ka2TGNFYsnhyQ=="
+      },
+      "System.Reactive": {
+        "type": "CentralTransitive",
+        "requested": "[7.0.0, )",
+        "resolved": "7.0.0",
+        "contentHash": "VYaSP2Kt+45GFnr3q7c/b4awT48VvueOJV4jPjdUXi5MxC9mSUy+HkJYtm8rGZ6fC3tNHG9gBu/YwNAR/FYqhg=="
       },
       "Thinktecture.Runtime.Extensions": {
         "type": "CentralTransitive",

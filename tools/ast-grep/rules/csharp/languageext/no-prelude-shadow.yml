@@ -1,7 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: csharplang
 severity: error
-ignores: ['products/developer/roslyn/**']
 rule:
     regex: '^(unit|unitIO|unitEff|None|identity)$'
     any:
@@ -15,5 +14,6 @@ rule:
               - { inside: { kind: let_clause }, precedes: { regex: '^=$' } }
               - { inside: { kind: join_clause }, precedes: { regex: '^in$' } }
               - inside: { kind: foreach_statement, field: left }
+    inside: { stopBy: end, matches: languageext-compilation-unit }
 message: '`$NAME` hides `Prelude.$NAME`'
 note: 'Rename the declaration after what its value holds'

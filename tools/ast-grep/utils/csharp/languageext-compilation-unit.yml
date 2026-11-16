@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: languageext-compilation-unit
+language: csharplang
+rule:
+    kind: compilation_unit
+    has:
+        stopBy: end
+        any:
+            - kind: using_directive
+              regex: '(?-u:\b)LanguageExt(?-u:\b)'
+            - kind: generic_name
+              has: { kind: identifier, regex: '^(Arr|Atom|Eff|Either|Fin|IO|Lst|Option|Seq|Validation)$' }
+            - matches: languageext-unit-type

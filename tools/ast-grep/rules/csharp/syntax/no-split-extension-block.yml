@@ -13,4 +13,4 @@ rule:
         - matches: header
         - follows: { stopBy: end, matches: header }
 message: '`extension` block repeats receiver `$TYPE` an earlier block of the class declares'
-note: 'Move its members into the earlier `extension` block of `<receiver>`, one subsection divider per family'
+note: 'Move its members into the earlier `extension` block of `<receiver>`'

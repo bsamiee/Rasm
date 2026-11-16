@@ -25,7 +25,9 @@ internal sealed class ControlFlow {
         : [At(operation)];
 
     internal IEnumerable<(Value Reference, Optional<Value> Definition)> Readings(IOperation read, CancellationToken token) =>
-        Evaluations(read, token).SelectMany(reference => Values(reference, token).Select(definition => (reference, definition)));
+        from reference in Evaluations(read, token)
+        from definition in Values(reference, token)
+        select (reference, definition);
 
     internal ImmutableArray<Optional<Value>> Values(Value read, CancellationToken token) {
         Scope? scope = read.Context is { } context ? context.Scope : Find(read.Operation, token);
@@ -54,7 +56,7 @@ internal sealed class ControlFlow {
                 .Select(static point => (point.Block, point.Before));
         }
         ImmutableArray<(int Block, int Before)> origins = [.. Positions(first)];
-        return scope.Reaches(Positions(last).SelectMany(position => scope.StatesByBlock[position.Block].Select(state => (state, position.Before))),
+        return scope.Reaches(from position in Positions(last) from state in scope.StatesByBlock[position.Block] select (state, position.Before),
             (state, before) => origins.Any(origin => origin.Block == scope.States[state].Block && origin.Before < before), token);
     }
 

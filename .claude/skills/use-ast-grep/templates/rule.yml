@@ -1,7 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: <language>
 severity: error
-files: ['<folder the cause covers, key omitted for syntax rules>/**']
 utils:
     <util-id>:
         kind: <local shape the rule and its relations call, key omitted otherwise>
@@ -9,6 +8,7 @@ rule:
     kind: <rarest kind correction names>
     all:
         - has: { field: <role>, regex: '^<leaf text>$' }
+        - has: { field: <role>, matches: <util-id> }
         - pattern: <code with $VAR and $$$ARGS>
         - inside: { kind: <owner kind>, stopBy: &owner { kind: '<owner kinds correction covers>' } }
         - not: { inside: { kind: <exempting-kind>, stopBy: *owner } }

@@ -1,8 +1,0 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-language: tsxlang
-severity: error
-rule:
-    kind: preprocessor_directive
-    has: { field: name, pattern: $DIRECTIVE }
-message: '`$DIRECTIVE` is an ExtendScript directive TypeScript refuses'
-note: The host binding states the engine (the CEP manifest's `ScriptPath`), and shared code is an imported module the Vite build bundles

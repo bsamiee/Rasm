@@ -3,7 +3,7 @@ language: rustlang
 severity: error
 rule:
     kind: 'string_literal, raw_string_literal'
-    regex: '^r?#*"(NO_COLOR|CLICOLOR|CLICOLOR_FORCE|COLORTERM|TERM)"#*$'
+    regex: '^r?#*"(NO_COLOR|CLICOLOR|CLICOLOR_FORCE|COLORTERM)"#*$'
     follows: { regex: '^=$', follows: { regex: '^env$' } }
     inside: { kind: token_tree, stopBy: { kind: attribute }, inside: { kind: attribute } }
     pattern: $NAME

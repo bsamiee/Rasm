@@ -1,9 +1,0 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-language: plpgsql
-severity: error
-rule:
-    kind: sql_expression
-    inside: { field: execute, kind: 'stmt_dynexecute, for_dynamic, stmt_open, stmt_return', has: { kind: kw_execute, pattern: $KEYWORD } }
-    regex: '(?si)^(?:\$[^$\t\n\v\f\r ]*\$.*?\$[^$\t\n\v\f\r ]*\$|\$[0-9]+|[A-Z_a-z\x{80}-\x{10FFFF}]\$+|"(?:[^"]|"")*"|[^''$"eE]|[eE]''(?:[^''\\]|\\.|'''')*''|[eE][^''"$]|''(?:[^'']|'''')*'')*?[eE]?(?:\|\||(?-u:\b)concat(?:_ws)?[\t\n\x0B\f\r ]*\(|(?-u:\b)format[\t\n\x0B\f\r ]*\([\t\n\x0B\f\r ]*(?:[eE]?''(?:[^''%]|''''|%[^s''])*?|\$[^$\t\n\v\f\r ]*\$(?:[^%]|%[^s])*?)%(?:[0-9]+\$)?-?(?:[0-9]+|\*(?:[0-9]+\$)?)?s)'
-message: '`$KEYWORD` runs dynamic SQL that splices in text'
-note: "Bind each value with `USING`, quote each name through `format('%I', <name>)`"

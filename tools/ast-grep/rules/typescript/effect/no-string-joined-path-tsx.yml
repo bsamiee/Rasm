@@ -1,7 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: tsxlang
 severity: error
-ignores: ['plugins/function-hooks/hooks/**']
 utils:
     directory-read:
         any:
@@ -35,6 +34,7 @@ utils:
                   - has: { stopBy: end, kind: string, regex: '^[''"]/' }
                   - not: { inside: { kind: binary_expression, field: left } }
 rule:
+    not: { inside: { kind: program, stopBy: end, matches: claude-code-module } }
     any:
         - matches: directory-read
           pattern: $DIR

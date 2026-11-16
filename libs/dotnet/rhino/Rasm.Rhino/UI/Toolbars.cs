@@ -128,8 +128,15 @@ public sealed record ToolbarGroupRow(CommandFace Face, IterableNE<ToolbarTab> Ta
     public Option<ToolbarRow> Selected { get; init; }
 }
 
-public sealed record MenuExtension(Seq<string> Path, Seq<Seq<Command<Macro>>> Groups) {
+public sealed record MenuExtension {
+    private MenuExtension(Seq<string> path, Seq<Seq<Command<Macro>>> groups) => (Path, Groups) = (path, groups);
+
+    public Seq<string> Path { get; }
+    public Seq<Seq<Command<Macro>>> Groups { get; }
     public RuiPlatforms Platforms { get; init; } = RuiPlatforms.Both;
+
+    public static Fin<MenuExtension> Of(Seq<string> path, Seq<Seq<Command<Macro>>> groups) =>
+        RhinoFault.Unless(path.Count > 1, RhinoReason.Invalid, path).Map(_ => new MenuExtension(path, groups));
 
     public string Text => string.Join("::", Path);
 }

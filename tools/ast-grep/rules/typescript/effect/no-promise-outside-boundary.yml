@@ -1,7 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: tsxlang
 severity: error
-ignores: ['plugins/function-hooks/hooks/**', '.claude/workflows/**']
 utils:
     nx-type-declaration:
         any:
@@ -179,6 +178,7 @@ utils:
             - matches: typescript-expression-wrapper
               has: { matches: fetch-callee }
 rule:
+    not: { inside: { kind: program, stopBy: end, matches: claude-code-module } }
     all:
         - any:
               - kind: await_expression

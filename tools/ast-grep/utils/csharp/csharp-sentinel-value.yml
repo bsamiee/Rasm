@@ -6,8 +6,6 @@ rule:
     any:
         - matches: sentinel
         - kind: invocation_expression
-          has: { field: function, kind: member_access_expression, all: [{ has: { field: expression, regex: '^Conversions$' } }, { has: { field: name, regex: '^Unset$' } }] }
-        - kind: invocation_expression
           all:
               - has: { field: function, kind: member_access_expression, has: { field: name, regex: '^IfNone(Unsafe)?$' } }
               - has: { field: arguments, has: { kind: argument, has: { any: [{ matches: sentinel }, { kind: lambda_expression, has: { field: body, matches: sentinel } }] } } }

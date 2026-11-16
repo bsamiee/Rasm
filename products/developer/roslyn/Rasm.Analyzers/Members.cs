@@ -54,7 +54,7 @@ public sealed class AmbientClockAnalyzer : DiagnosticAnalyzer {
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
         context.RegisterCompilationStartAction(static start => {
-            ImmutableArray<(ISymbol Symbol, string Remedy)> readings = [.. Readings.SelectMany(row => Declared(start.Compilation, row.Id).Select(symbol => (symbol, row.Remedy)))];
+            ImmutableArray<(ISymbol Symbol, string Remedy)> readings = [.. from row in Readings from symbol in Declared(start.Compilation, row.Id) select (symbol, row.Remedy)];
             ISymbol? system = start.Compilation.Options.OutputKind is OutputKind.ConsoleApplication or OutputKind.WindowsApplication or OutputKind.WindowsRuntimeApplication
                 ? null : Declared(start.Compilation, "P:System.TimeProvider.System").FirstOrDefault();
             Report<IOperation>(start, [OperationKind.Invocation, OperationKind.PropertyReference, OperationKind.FieldReference, OperationKind.MethodReference, OperationKind.ObjectCreation], (operation, _) =>
@@ -110,8 +110,11 @@ public sealed class RuntimeBindingAnalyzer : DiagnosticAnalyzer {
         context.RegisterCompilationStartAction(static start => {
             WellKnownTypeProvider types = WellKnownTypeProvider.GetOrCreate(start.Compilation);
             ImmutableArray<(ISymbol Member, string Fact, string Remedy)> bindings = [
-                .. Bindings.SelectMany(row => row.Members.SelectMany(name => types.GetOrCreateTypeByMetadataName(row.Owner)?.GetMembers(name) ?? [])
-                    .Where(row.Bound).Select(member => (member, row.Fact, row.Remedy))),
+                .. from row in Bindings
+                from name in row.Members
+                from member in types.GetOrCreateTypeByMetadataName(row.Owner)?.GetMembers(name) ?? []
+                where row.Bound(member)
+                select (member, row.Fact, row.Remedy),
             ];
             if (bindings.IsEmpty) return;
             Report<IOperation>(start, [OperationKind.Invocation, OperationKind.PropertyReference, OperationKind.MethodReference], (operation, _) =>
@@ -259,11 +262,15 @@ public sealed class PlatformMemberAnalyzer : DiagnosticAnalyzer {
         context.RegisterCompilationStartAction(static start => {
             WellKnownTypeProvider types = WellKnownTypeProvider.GetOrCreate(start.Compilation);
             ImmutableArray<IMethodSymbol> names = Members(types.GetOrCreateTypeByMetadataName("System.IO.Path"), "GetInvalidFileNameChars", "GetInvalidPathChars");
-            ImmutableArray<IMethodSymbol> lanes = [.. new[] { types.GetOrCreateTypeByMetadataName("System.Numerics.Vector2"), types.GetOrCreateTypeByMetadataName("System.Numerics.Vector3") }.OfType<INamedTypeSymbol>()
-                .SelectMany(static vector => vector.GetMembers().OfType<IMethodSymbol>().Where(method => method is { IsStatic: true, Parameters.Length: 2 }
+            ImmutableArray<IMethodSymbol> lanes = [
+                .. from vector in new[] { types.GetOrCreateTypeByMetadataName("System.Numerics.Vector2"), types.GetOrCreateTypeByMetadataName("System.Numerics.Vector3") }.OfType<INamedTypeSymbol>()
+                from method in vector.GetMembers().OfType<IMethodSymbol>()
+                where method is { IsStatic: true, Parameters.Length: 2 }
                     && (method.Name.EndsWith("All", StringComparison.Ordinal) || method.Name.EndsWith("Any", StringComparison.Ordinal))
-                    && method.Parameters.All(parameter => Same(parameter.Type, vector))))];
-            ImmutableArray<(ISymbol Member, string Fact, string Remedy)> defects = [.. Defects.SelectMany(row => Declared(start.Compilation, row.Id).Select(member => (member, row.Fact, row.Remedy)))];
+                    && method.Parameters.All(parameter => Same(parameter.Type, vector))
+                select method,
+            ];
+            ImmutableArray<(ISymbol Member, string Fact, string Remedy)> defects = [.. from row in Defects from member in Declared(start.Compilation, row.Id) select (member, row.Fact, row.Remedy)];
             Report<IOperation>(start, [OperationKind.Invocation, OperationKind.MethodReference, OperationKind.PropertyReference], (operation, _) =>
                 Target(operation) is not { } member || Inside<INameOfOperation>(operation) ? []
                 : Among(member, names) ? [Diagnostic.Create(Names, operation.Syntax.GetLocation(), operation.Syntax)]

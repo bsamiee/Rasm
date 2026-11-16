@@ -37,7 +37,7 @@ public sealed class SingleReaderCodeFix() : RasmCodeFix(("RASM3001", static (sit
                 if (move.Declaration is not MethodDeclarationSyntax || model.GetOperation(move.Site, cancellation) is not IInvocationOperation call) return [];
                 ILookup<IParameterSymbol, SyntaxNode> uses = model.GetOperation(move.Declaration, cancellation)!.DescendantsAndSelf().OfType<IParameterReferenceOperation>()
                     .ToLookup<IParameterReferenceOperation, IParameterSymbol, SyntaxNode>(static reference => reference.Parameter, static reference => reference.Syntax, SymbolEqualityComparer.Default);
-                return call.Arguments.SelectMany(argument => uses[argument.Parameter!].Select(use => (Use: use, Value: (ExpressionSyntax)argument.Value.Syntax)))
+                return (from argument in call.Arguments from use in uses[argument.Parameter!] select (Use: use, Value: (ExpressionSyntax)argument.Value.Syntax))
                     .ToImmutableDictionary(static binding => binding.Use, static binding => binding.Value);
             });
         ImmutableDictionary<SyntaxNode, SyntaxNode> declarations = moves.ToImmutableDictionary(static move => move.Declaration, static move => move.Site);
@@ -98,8 +98,7 @@ public sealed class SingleReaderCodeFix() : RasmCodeFix(("RASM3001", static (sit
                     : (call, Tested(operand, pattern, call));
         }
         ExpressionSyntax Substituted(ExpressionSyntax body) {
-            ImmutableDictionary<SyntaxNode, ExpressionSyntax> bound = bindings.SelectMany(binding =>
-                root.GetCurrentNodes(binding.Key).Select(use => (Use: use, Value: root.GetCurrentNode(binding.Value)!)))
+            ImmutableDictionary<SyntaxNode, ExpressionSyntax> bound = (from binding in bindings from use in root.GetCurrentNodes(binding.Key) select (Use: use, Value: root.GetCurrentNode(binding.Value)!))
                 .ToImmutableDictionary(static binding => binding.Use, static binding => binding.Value);
             return body.ReplaceNodes(bound.Keys,
                 (original, _) => original.CopyAnnotationsTo(Placed(Parenthesized(bound[original]), original)));

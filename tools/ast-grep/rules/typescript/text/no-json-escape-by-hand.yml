@@ -1,8 +1,8 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: tsxlang
 severity: error
-ignores: ['.claude/workflows/*.js']
 rule:
+    not: { inside: { kind: program, stopBy: end, matches: claude-code-module } }
     kind: call_expression
     pattern: $CALL
     all:

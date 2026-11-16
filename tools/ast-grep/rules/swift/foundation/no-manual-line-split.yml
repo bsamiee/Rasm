@@ -98,4 +98,4 @@ rule:
                                                                           all:
                                                                               - has: { kind: pattern, has: { field: bound_identifier, pattern: $PIECE }, precedes: { stopBy: { kind: pattern }, follows: { regex: '^=$' }, any: [{ pattern: $B }, { has: { stopBy: end, pattern: $B } }] } }
 message: '`$BYTES` splits lines by hand'
-note: 'Read JSON with Encoding `jsonLines` or Subprocess `strings(separatedBy: .unicodeScalarSequence(["\n"]))`, text with `lines` or `\.isNewline`'
+note: 'Read JSON lines with Subprocess `strings(separatedBy: .unicodeScalarSequence(["\n"]))`, text with `lines` or `\.isNewline`'

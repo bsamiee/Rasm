@@ -393,7 +393,7 @@ public sealed class PageControlAnalyzer : DiagnosticAnalyzer {
                     if (symbol.Symbol is not INamedTypeSymbol type || !Derives(type.BaseType, page)) return;
                     ConcurrentDictionary<ISymbol, (IMethodSymbol? Realized, ImmutableArray<IOperation> Operations)> bodies = pages.GetOrAdd(type, static _ => new(SymbolEqualityComparer.Default));
                     symbol.RegisterOperationBlockAction(block => {
-                        foreach (IOperation root in block.OperationBlocks.SelectMany(static body => body.DescendantsAndSelf().Where(operation => operation == body || operation is IAnonymousFunctionOperation or ILocalFunctionOperation))) {
+                        foreach (IOperation root in from body in block.OperationBlocks from operation in body.DescendantsAndSelf() where operation == body || operation is IAnonymousFunctionOperation or ILocalFunctionOperation select operation) {
                             ISymbol owner = (root switch {
                                 IAnonymousFunctionOperation function => function.Symbol,
                                 ILocalFunctionOperation function => function.Symbol,
@@ -552,11 +552,13 @@ public sealed class DefaultedSettingAnalyzer : DiagnosticAnalyzer {
                 .. settings.GetMembers().OfType<IMethodSymbol>().Where(static method => method is { IsStatic: false, Parameters: { IsEmpty: false } parameters } && parameters[0].Type.SpecialType is SpecialType.System_String),
             ];
             ImmutableArray<(IMethodSymbol Get, IMethodSymbol Try)> defaulted = [
-                .. methods.Where(static method => method.Parameters.Length > 1 && method.Name.StartsWith("Get", StringComparison.Ordinal) && Same(method.Parameters[1].Type, method.ReturnType))
-                    .SelectMany(get => settings.GetMembers($"Try{get.Name}").OfType<IMethodSymbol>().Where(tried => tried.Arity == get.Arity)
-                        .Select(tried => tried.IsGenericMethod ? tried.Construct([.. get.TypeArguments]) : tried)
-                        .Where(tried => tried is { ReturnType.SpecialType: SpecialType.System_Boolean, Parameters.Length: 2 } && tried.Parameters[1] is { RefKind: RefKind.Out } result && Same(result.Type, get.ReturnType))
-                        .Select(tried => (get, tried))),
+                .. from get in methods
+                where get.Parameters.Length > 1 && get.Name.StartsWith("Get", StringComparison.Ordinal) && Same(get.Parameters[1].Type, get.ReturnType)
+                from candidate in settings.GetMembers($"Try{get.Name}").OfType<IMethodSymbol>()
+                where candidate.Arity == get.Arity
+                let tried = candidate.IsGenericMethod ? candidate.Construct([.. get.TypeArguments]) : candidate
+                where tried is { ReturnType.SpecialType: SpecialType.System_Boolean, Parameters.Length: 2 } && tried.Parameters[1] is { RefKind: RefKind.Out } result && Same(result.Type, get.ReturnType)
+                select (get, tried),
             ];
             Report<IInvocationOperation>(start, [OperationKind.Invocation], (invocation, _) =>
                 invocation is { Instance: { } source, TargetMethod: var method } && defaulted.FirstOrDefault(pair => Same(method, pair.Get)).Try is { } tried

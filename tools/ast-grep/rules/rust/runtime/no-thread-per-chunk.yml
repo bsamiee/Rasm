@@ -6,7 +6,7 @@ utils:
         regex: '\.(r?chunks(_exact)?(_mut)?|step_by)\p{Pattern_White_Space}*\('
     scope-call:
         kind: call_expression
-        has: { field: function, regex: '^((::)?(std|crossbeam(_utils)?|rayon)::)?(thread::)?(scope|in_place_scope)$' }
+        has: { field: function, regex: '^((::)?(std|crossbeam(_utils)?)::)?(thread::)?scope$' }
     scope-handle:
         inside:
             kind: closure_expression

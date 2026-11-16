@@ -3,10 +3,10 @@ language: rustlang
 severity: error
 utils:
     generic-name:
-        regex: '^(r#)?(utils?|helpers?|common|misc|stuff|types|models|traits|structs|enums|consts?|constants|prelude)$'
+        regex: '^(r#)?(utils?|helpers?|common|misc|stuff|types|models|traits|structs|enums|consts?|constants)$'
     generic-file:
         kind: string_literal
-        regex: '^"([^"]*/)?(utils?|helpers?|common|misc|stuff|types|models|traits|structs|enums|consts?|constants|prelude)\.rs"$'
+        regex: '^"([^"]*/)?(utils?|helpers?|common|misc|stuff|types|models|traits|structs|enums|consts?|constants)\.rs"$'
 rule:
     any:
         - kind: mod_item

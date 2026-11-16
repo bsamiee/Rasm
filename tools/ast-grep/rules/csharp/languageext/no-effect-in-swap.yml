@@ -1,7 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: csharplang
 severity: error
-ignores: ['products/developer/roslyn/**']
 utils:
     transition-scope:
         kind: 'lambda_expression, anonymous_method_expression, local_function_statement, method_declaration'

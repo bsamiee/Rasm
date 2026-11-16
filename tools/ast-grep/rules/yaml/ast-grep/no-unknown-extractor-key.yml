@@ -1,9 +1,17 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: yamllang
 severity: error
-files: ['tools/ast-grep/outline/*.yml']
 rule:
     kind: document
+    inside:
+        kind: stream
+        has:
+            kind: document
+            has:
+                kind: block_node, flow_node
+                has:
+                    kind: block_mapping, flow_mapping
+                    has: { matches: { yaml-resolved-pair: { key: { regex: '^["'']?role["'']?$' }, value: { has: { regex: '^["'']?(?:item|member)["'']?$' } } } } }
     has:
         kind: block_node, flow_node
         has:

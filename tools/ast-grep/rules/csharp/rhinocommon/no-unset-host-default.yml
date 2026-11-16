@@ -1,7 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: csharplang
 severity: error
-files: ['**/rhino/**']
 utils:
     unset:
         matches: { csharp-sentinel-value: { sentinel: { matches: { csharp-owner-member: { type: { regex: '^(Point2d|Vector3d|Interval|Transform|ModelComponentType)$' }, member: { regex: '^Unset$' } } } } } }

@@ -70,13 +70,17 @@ public sealed class TypeNameTextAnalyzer : DiagnosticAnalyzer {
                     ImmutableArray<IOperation> uses = [.. (symbol is IParameterSymbol parameter ? Initializers(parameter.ContainingSymbol, end.Compilation, models, declarations, token) : [Root(at.Operation)])
                         .SelectMany(root => references.GetOrAdd(root, static held => held.DescendantsAndSelf().Where(static value => value is IParameterReferenceOperation or ILocalReferenceOperation).ToLookup(Variable, SymbolEqualityComparer.Default))[symbol.OriginalDefinition])];
                     bool unchanged = !uses.Any(static used => Written(used) || used.Parent is IVariableInitializerOperation { Parent: IVariableDeclaratorOperation { Symbol.RefKind: not RefKind.None } });
-                    return uses.Where(static used => !Written(used)).SelectMany(used => flow.Readings(used, token).Where(reading => !reading.Definition.HasValue
-                        ? unchanged || (symbol is IParameterSymbol captured && (Ancestor<IOperation>(used, static owner => owner is IAnonymousFunctionOperation or ILocalFunctionOperation) switch {
-                            IAnonymousFunctionOperation function => Same(function.Symbol, captured.ContainingSymbol),
-                            ILocalFunctionOperation function => Same(function.Symbol, captured.ContainingSymbol),
-                            _ => true,
-                        }))
-                        : symbol is ILocalSymbol && reading.Definition.Value.Originates(at, token)).Select(static reading => reading.Reference));
+                    return from used in uses
+                           where !Written(used)
+                           from reading in flow.Readings(used, token)
+                           where !reading.Definition.HasValue
+                           ? unchanged || (symbol is IParameterSymbol captured && (Ancestor<IOperation>(used, static owner => owner is IAnonymousFunctionOperation or ILocalFunctionOperation) switch {
+                               IAnonymousFunctionOperation function => Same(function.Symbol, captured.ContainingSymbol),
+                               ILocalFunctionOperation function => Same(function.Symbol, captured.ContainingSymbol),
+                               _ => true,
+                           }))
+                           : symbol is ILocalSymbol && reading.Definition.Value.Originates(at, token)
+                           select reading.Reference;
                 }
                 INamedTypeSymbol? Stored(IOperation source, CancellationToken token) {
                     Stack<ControlFlow.Value> pending = new(flow.Evaluations(source, token));
@@ -176,7 +180,7 @@ public sealed class SentinelAnalyzer : DiagnosticAnalyzer {
                 "T:System.Runtime.CompilerServices.CallerArgumentExpressionAttribute", "T:System.Runtime.CompilerServices.CallerMemberNameAttribute", "T:System.Runtime.CompilerServices.CallerFilePathAttribute");
             ImmutableArray<IParameterSymbol> fallbacks = [
                 .. Members(option, "IfNone").SelectMany(static method => method.Parameters),
-                .. Members(option, "Match").SelectMany(static method => method.Parameters.Where(static parameter => parameter.Type is not INamedTypeSymbol { DelegateInvokeMethod.Parameters.Length: > 0 })),
+                .. Members(option, "Match").SelectMany(static method => method.Parameters).Where(static parameter => parameter.Type is not INamedTypeSymbol { DelegateInvokeMethod.Parameters.Length: > 0 }),
             ];
             bool Data(INamedTypeSymbol made) => data.GetOrAdd(made, held => held.IsRecord || Containers(held.ContainingType).OfType<INamedTypeSymbol>().Any(owner =>
                 owner.GetAttributes().Any(attribute => Same(attribute.AttributeClass, union) || (unionBase is not null && Derives(attribute.AttributeClass, unionBase)))));

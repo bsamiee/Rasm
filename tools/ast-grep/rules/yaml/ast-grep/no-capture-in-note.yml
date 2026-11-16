@@ -1,10 +1,10 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: yamllang
 severity: error
-files: ['tools/ast-grep/rules/**']
 rule:
     kind: block_mapping_pair, flow_pair
     all:
+        - inside: { stopBy: end, kind: document, has: { kind: 'block_node, flow_node', has: { kind: 'block_mapping, flow_mapping', has: { kind: 'block_mapping_pair, flow_pair', has: { field: key, regex: '^["'']?language["'']?$' } } } } }
         - has: { field: key, pattern: $KEY, regex: '^["'']?(?:note|message)["'']?$' }
         - has: { field: value, pattern: $VALUE, regex: '\$[A-Z_]' }
         - any:

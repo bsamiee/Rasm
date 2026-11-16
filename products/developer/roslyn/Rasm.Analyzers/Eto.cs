@@ -412,9 +412,10 @@ public sealed class NativeCallbackAnalyzer : DiagnosticAnalyzer {
             };
         models.Report<IOperation>([OperationKind.DelegateCreation, OperationKind.Invocation], (operation, owner, reading) =>
             !Within(owner, callbacks)
-                ? Handed(operation).SelectMany(handed => flow.Targets(ControlFlow.At(handed.Value), reading.Token).OfType<IMethodSymbol>()
-                    .SelectMany(method => Checked(Bodied(method, reading), reading))
-                    .Select(escape => Diagnostic.Create(Escaped, escape.Site.Syntax.GetLocation(), handed.Callback, escape.Run)))
+                ? from handed in Handed(operation)
+                  from method in flow.Targets(ControlFlow.At(handed.Value), reading.Token).OfType<IMethodSymbol>()
+                  from escape in Checked(Bodied(method, reading), reading)
+                  select Diagnostic.Create(Escaped, escape.Site.Syntax.GetLocation(), handed.Callback, escape.Run)
                 : []);
         ConcurrentQueue<(IMethodSymbol Method, IOperation Root, Func<IOperation?, Reading, IEnumerable<(IOperation Site, string Run)>> Check)> blocks = new();
         context.RegisterOperationBlockAction(block => {

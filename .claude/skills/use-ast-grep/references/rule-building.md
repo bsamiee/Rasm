@@ -18,7 +18,7 @@ Syntax and its contract establish a diagnostic, ast-grep reads no type, flow, or
 - Policy rules name the restriction without claiming the supported API or syntax is defective
 - Coverage follows the grammar's accepted forms and the API contract, a form absent from current code keeps its arm, counts decide nothing
 - Lists a declaration states stay in that declaration, a rule requires consumers to read the owner
-- `files:` names the folders a rule's cause covers, a package rule's the folders of projects referencing the package
+- Code the cause holds (an import, a callee, a declaration) scopes a rule, `files:` names a file kind (`**/*.sql`, `**/lib.rs`) or a path its tool fixes, never a project folder
 
 ## [03]-[CONSTRUCTION]
 

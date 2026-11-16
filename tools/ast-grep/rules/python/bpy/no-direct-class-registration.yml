@@ -1,31 +1,38 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: pythonlang
 severity: error
-ignores: [libs/python/blender/bpy/rasm_bpy/data/_extension/registration.py]
 utils:
     registering:
         any:
             - kind: attribute
               all:
-                  - has: { field: attribute, regex: '^(un)?register_class$' }
+                  - has: { field: attribute, regex: '^register_class$' }
                   - has: { field: object, matches: { python-submodule: { parent: { regex: '^bpy$' }, child: { regex: '^utils$' } } } }
             - kind: identifier
-              regex: '^(un)?register_class$'
-              matches: { python-imported-name: { module: { regex: '^bpy\.utils$' }, name: { regex: '^(un)?register_class$' } } }
+              regex: '^register_class$'
+              matches: { python-imported-name: { module: { regex: '^bpy\.utils$' }, name: { regex: '^register_class$' } } }
+    annotated-class:
+        kind: class_definition
+        all:
+            - has: { field: name, pattern: $CLASS }
+            - has:
+                  field: body
+                  has:
+                      kind: expression_statement
+                      has:
+                          kind: assignment
+                          has: { field: type, has: { stopBy: end, any: [{ kind: generic_type, has: { nthChild: 1, regex: '^(typing(_extensions)?\.)?Annotated$' } }, { kind: subscript, has: { field: value, regex: '^(typing(_extensions)?\.)?Annotated$' } }] } }
 rule:
-    any:
-        - kind: call
-          has:
+    kind: call
+    all:
+        - has:
               field: function
-              all:
-                  - any:
-                        - matches: registering
-                        - kind: parenthesized_expression
-                          matches: { python-unparenthesized: { value: { matches: registering } } }
-                  - pattern: $CALLEE
-        - kind: aliased_import
-          all:
-              - has: { field: name, regex: '^(un)?register_class$', pattern: $CALLEE }
-              - inside: { kind: import_from_statement, has: { field: module_name, regex: '^bpy\.utils$' } }
-message: '`$CALLEE` bypasses `rasm_bpy` registration, and Blender drops `Annotated` property definitions without an error'
-note: 'List the class in a `rasm_bpy.data.Registration` row, which places `Annotated` property definitions where Blender reads them'
+              pattern: $CALLEE
+              any:
+                  - matches: registering
+                  - kind: parenthesized_expression
+                    matches: { python-unparenthesized: { value: { matches: registering } } }
+        - has: { field: arguments, has: { kind: identifier, nthChild: { position: 1, ofRule: { not: { kind: comment } } }, pattern: $CLASS } }
+        - inside: { kind: module, stopBy: end, has: { stopBy: end, matches: annotated-class } }
+message: '`$CALLEE($CLASS)` registers `Annotated` property declarations, which Blender skips without an error'
+note: 'Annotate each property with its `bpy.props` call, Blender reads `__annotations__` values as property definitions'

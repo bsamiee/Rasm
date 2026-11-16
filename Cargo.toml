@@ -902,7 +902,7 @@ single_char_lifetime_names = "deny" # Single-character lifetime names, each life
 
 # --- [ALLOWED]
 
-empty_enums                 = "allow" # Flags kind markers `impl_typed_uuid_kinds!` declares per entity, ast-grep `no-empty-enum` owns written enums
+empty_enums                 = "allow" # Flags kind markers `impl_typed_uuid_kinds!` declares per entity
 future_not_send             = "allow" # Demands `Sync` on generic parameters an async fn borrows, return-type notation binds `Send` at spawning use site
 manual_assert               = "allow" # Rewrites flagged `panic!` calls into run-time assertions, expected failures use the result type
 missing_errors_doc          = "allow" # Names and types state each contract in place of doc comments

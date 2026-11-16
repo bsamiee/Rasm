@@ -135,6 +135,7 @@ utils:
 rule:
     not:
         any:
+            - all: [{ matches: swift-conformance-member }, { not: { has: { kind: modifiers, regex: '(?-u:\b)(private|fileprivate)(?-u:\b)' } } }]
             - has: { kind: modifiers, has: { kind: attribute, regex: '^@(objc|IBAction)(?-u:\b)' } }
             - inside: { kind: 'class_body, enum_class_body', inside: { kind: class_declaration, has: { kind: modifiers, has: { kind: attribute, regex: '^@resultBuilder$' } } } }
     any:
@@ -162,4 +163,4 @@ rule:
                     - has: { field: body, has: { matches: &read { swift-forwarded-member: { read: { pattern: $F } } } } }
                     - has: { kind: computed_property, not: { has: { kind: 'computed_setter, computed_modify' } }, any: [{ has: { matches: *read } }, { has: { kind: computed_getter, has: { matches: *read } } }] }
 message: 'Declaration passes or assigns its parameters and fixed values unchanged where `$F` already takes them'
-note: 'Call `<callee>` or read `<value>.<member>` at each use, keep one memberwise init, move a conformance its declaration satisfies to the forwarded type'
+note: 'Call `<callee>` or read `<value>.<member>` at each use, keep one memberwise init'

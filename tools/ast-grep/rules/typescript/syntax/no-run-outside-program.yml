@@ -1,17 +1,21 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: tsxlang
 severity: error
-ignores: ['**/main.ts', '**/main.tsx', 'plugins/function-hooks/claude/server.ts', 'plugins/function-hooks/codex.ts']
 rule:
     any:
         - { pattern: runMain, not: { inside: { kind: import_specifier } } }
         - { kind: property_identifier, regex: '^runMain$', inside: { kind: member_expression, field: property } }
     not:
-        inside:
-            stopBy: end
-            field: consequence
-            kind: if_statement
-            has: { field: condition, kind: parenthesized_expression, has: { pattern: import.meta.main } }
-            inside: { kind: program }
+        any:
+            - inside:
+                  stopBy: end
+                  field: consequence
+                  kind: if_statement
+                  has: { field: condition, kind: parenthesized_expression, has: { pattern: import.meta.main } }
+                  inside: { kind: program }
+            - inside:
+                  stopBy: end
+                  kind: expression_statement
+                  inside: { kind: program, not: { has: { kind: export_statement } } }
 message: '`runMain` runs outside a program entry point'
-note: 'Call `runMain` in `main.ts` or inside a top-level `if (import.meta.main)` block'
+note: 'Call `runMain` in a top-level statement of a module exporting nothing, or inside a top-level `if (import.meta.main)` block'

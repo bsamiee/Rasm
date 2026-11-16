@@ -5,4 +5,4 @@ files: ['libs/swift/**']
 rule:
     all: [{ pattern: $OUT }, { matches: swift-console-write }, { not: { matches: swift-log-handler-body } }]
 message: '`$OUT` writes to a standard stream from a library'
-note: 'Take a writer from the caller, as `ApplicationServer.serve(writing:)` does, and log diagnostics through `Logger`'
+note: 'Take a writer from the caller, and log diagnostics through `Logger`'

@@ -1,8 +1,0 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: python-identifier-string
-language: pythonlang
-rule:
-    kind: string
-    all:
-        - matches: python-text-string
-        - has: { kind: string_content, regex: '^[\p{XID_Start}_]\p{XID_Continue}*$' }

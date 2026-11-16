@@ -5,7 +5,7 @@ utils:
     collected:
         kind: field_expression
         all:
-            - has: { field: field, regex: '^(windows|chunks|chunks_exact|as_chunks|into_chunks)$' }
+            - has: { field: field, regex: '^(windows|chunks_exact|as_chunks|into_chunks)$' }
             - has: { field: value, pattern: '$R.collect::<Vec<$_>>()' }
 rule:
     kind: call_expression

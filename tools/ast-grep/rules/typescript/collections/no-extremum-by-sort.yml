@@ -1,7 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: tsxlang
 severity: error
-ignores: ['.claude/workflows/*.js', 'plugins/function-hooks/hooks/**']
 utils:
     sorting:
         kind: member_expression
@@ -22,6 +21,7 @@ utils:
             - has: { field: property, regex: '^(head|headNonEmpty|last|lastNonEmpty|take|takeRight)$' }
             - matches: { effect-module-member: { module: { regex: '(?-u:\b)Array$' }, member: { regex: '^(head|headNonEmpty|last|lastNonEmpty|take|takeRight)$' } } }
 rule:
+    not: { inside: { kind: program, stopBy: end, matches: claude-code-module } }
     any:
         - kind: call_expression
           all:

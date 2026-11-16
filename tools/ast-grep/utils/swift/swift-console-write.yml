@@ -17,6 +17,7 @@ rule:
           regex: '^(fileDescriptor|rawValue):[\t-\r ]*(((Darwin|Glibc)(\.|::))?STD(OUT|ERR)_FILENO|1|2)$'
           inside: { kind: value_arguments, inside: { kind: call_suffix, inside: { kind: call_expression, has: { nthChild: 1, regex: '^((Foundation|System|SystemPackage)(\.|::))?(FileHandle|FileDescriptor)$' } } } }
         - kind: call_expression
+          not: { has: { kind: call_suffix, has: { kind: value_arguments, has: { kind: value_argument, has: { field: name, regex: '^to$' } } } } }
           has: { nthChild: 1, regex: '^((Swift|Foundation|CoreFoundation|Darwin|Glibc|os)(\.|::))?(print|puts|putchar|printf|vprintf|debugPrint|dump|NSLog|NSLogv|os_log|perror|CFShow)$' }
         - kind: call_expression
           has: { nthChild: 1, kind: navigation_expression, has: { field: suffix, regex: '^\._printChanges$' } }
