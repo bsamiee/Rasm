@@ -10,7 +10,8 @@
         "directory": "libs/typescript/web/hosting"
     },
     "files": [
-        "dist"
+        "dist/**/*.js",
+        "dist/**/*.d.ts"
     ],
     "type": "module",
     "sideEffects": false,
@@ -18,7 +19,7 @@
         "#/*": "./*.ts"
     },
     "exports": {
-        ".": "./app/app.ts",
+        ".": "./index.ts",
         "./bundle": "./vite/node-bundle.ts",
         "./cloudflare": "./cloudflare/worker-config.ts",
         "./container": "./node/node-container.ts",
@@ -28,14 +29,15 @@
         "./identity": "./app/identity.ts",
         "./node": "./node/node-server.ts",
         "./shell": "./rendering/shell.ts",
-        "./template": "./rendering/template.ts"
+        "./template": "./rendering/template.ts",
+        "./package.json": "./package.json"
     },
     "publishConfig": {
         "imports": {
             "#/*": "./dist/*.js"
         },
         "exports": {
-            ".": "./dist/app/app.js",
+            ".": "./dist/index.js",
             "./bundle": "./dist/vite/node-bundle.js",
             "./cloudflare": "./dist/cloudflare/worker-config.js",
             "./container": "./dist/node/node-container.js",
@@ -45,7 +47,8 @@
             "./identity": "./dist/app/identity.js",
             "./node": "./dist/node/node-server.js",
             "./shell": "./dist/rendering/shell.js",
-            "./template": "./dist/rendering/template.js"
+            "./template": "./dist/rendering/template.js",
+            "./package.json": "./package.json"
         },
         "access": "public"
     },
@@ -80,8 +83,8 @@
         "@pulumi/cloudflare": "catalog:peers",
         "@pulumi/command": "catalog:peers",
         "@pulumi/pulumi": "catalog:peers",
-        "@rasm/mark": "workspace:*",
-        "@rasm/telemetry": "workspace:*",
+        "@rasm/mark": "workspace:^",
+        "@rasm/telemetry": "workspace:^",
         "@vite-pwa/assets-generator": "catalog:peers",
         "cf": "catalog:peers",
         "cheerio": "catalog:peers",
@@ -138,5 +141,8 @@
         "vite": {
             "optional": true
         }
+    },
+    "engines": {
+        "node": "^24.14.0 || >=25.4.0"
     }
 }

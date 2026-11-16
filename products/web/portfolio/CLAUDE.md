@@ -118,9 +118,10 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 
 [DECLARATION]: `hosting.config.ts` declares the app once as an `App`, and every runtime, projection, and deployment reads it:
 - `DB` is a `sqlite` store and `BUCKET` a `bucket` with its upload prefix and lifecycle rules
-- `allowed` holds the addresses a sign-in accepts, `identity` the `Identity.sites` header layout, `limits` the CPU count and memory of a container
+- `allowed` holds the addresses a sign-in accepts, `limits` the CPU count and memory of a container
 - `targets` holds `Cloudflare` and `Sites`, the OpenAI Sites project whose `.openai/hosting.json` `nodeBundle` writes at build
-- `cloudflare.config.ts` projects the `App` through `worker(hosting, config)`, which adds the assets binding and `OTEL_SERVICE_NAME`
+- `cloudflare.config.ts` projects the `App` through `worker(hosting, config)`, which adds the assets binding, `OTEL_SERVICE_NAME`, and JSON binding `HOSTING`
+- Worker and browser modules import no module `cloudflare.config.ts` loads, as the Cloudflare Vite plugin refuses to serve each in `vite dev`
 - Worker binding types are the global `Env` that `cf workers types` generates from `cloudflare.config.ts`
 - `tsconfig.json` references one program per runtime: `tsconfig.app.json` browser code, `tsconfig.node.json` Node entry and tool configs
 - `tsconfig.worker.json` holds the Worker entry with `cloudflare.config.ts` and `.cloudflare/types`
@@ -131,7 +132,7 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 - `--destroy` on a disposable row empties its bucket and removes every resource, reading the Build Output `build--vite` wrote
 
 [SERVERS]: `server/app.ts` composes routes over passed services, D1 and `r2Storage` from the Worker, SQLite and path-style `s3Storage` from Node:
-- `server/worker.ts` passes the `App` and its routes to `serveWorker`, which decodes each binding and serves `Template` from the assets binding
+- `server/worker.ts` passes `env.HOSTING` and its routes to `serveWorker`, which decodes each binding `HOSTING` names and serves `Template` from the assets binding
 - `server/main.ts` passes the `App` and its routes to `serveNode`, which decodes each binding and serves the HTTP server on `PORT`
 - `serveWorker` writes one JSON log record per console line, records each span in the Workers trace, and exports at invocation end
 - `serveNode` passes the app name to `layerNodeFromConfig`, which reads `<NAME>_LOG_{LEVEL,FILTER,TARGET,DIR,SIZE,AGE,FILES}`
@@ -140,12 +141,12 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 - `siteHead` takes `favicon.svg` and `site/theme.css` tokens, emitting the ICO, Apple touch icon, painted SVG, `theme-color`, and `color-scheme`
 - `site/shell.tsx` states the whole content security policy of a production build, and `Template.render` sets no header without one
 
-[IDENTITY]: Views and handlers read `hosting.identity` headers, which each server sets from one trusted source after removing any a client sent:
+[IDENTITY]: Views and handlers read `Identity.sites` headers, which each server sets from one trusted source after removing any a client sent:
 - OpenAI Sites signs users in at its own boundary, a Worker with no `ACCESS` variable serving its headers unchanged
 - `ACCESS` holds one `Access` as JSON, source `Forwarded` reading headers a proxy sets
 - `Access` source `Cloudflare` verifies a Cloudflare Access token from its header or `CF_Authorization` cookie
 - `serveNode` fails at start without `ACCESS`
-- Pages are public, the trusted source guards the sign-in path of `hosting.identity.paths`, and owner endpoints refuse every other session
+- Pages are public, the trusted source guards the sign-in path of `Identity.sites.paths`, and owner endpoints refuse every other session
 - `Enrollment.session` answers `signedOut`, `signedIn`, or `allowed`, enrolling the first user id an `allowed` address signs in with
 - `ALLOWED` replaces `allowed` with a JSON list, and `vite dev` sets it to the `sites()` local sign-in address
 - `hosting.config.ts` states the owner address, the commit author address and no secret

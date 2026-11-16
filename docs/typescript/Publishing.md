@@ -13,13 +13,13 @@ Library build and publish in an Effect-based pnpm and Nx monorepo.
 
 ## [02]-[BUILD_AND_EMIT]
 
-| [INDEX] | [PRODUCT]                 | [BUILD]                                    | [CHECK]                     |
-| :-----: | :------------------------ | :----------------------------------------- | :-------------------------- |
-|  [01]   | Library with many entries | `tsc -b`, one `.js` and `.d.ts` per source | `tsc`, pack checks          |
-|  [02]   | Library with few entries  | tsdown with `dts`                          | `tsc --noEmit`, pack checks |
-|  [03]   | Private tool or script    | None, Node strips types                    | `tsc --noEmit`              |
-|  [04]   | CLI or server, one file   | Rolldown or esbuild bundle                 | `tsc --noEmit`              |
-|  [05]   | Browser application       | `vite build`                               | `tsc --noEmit`              |
+| [INDEX] | [PRODUCT]                 | [BUILD]                                 | [CHECK]                     |
+| :-----: | :------------------------ | :-------------------------------------- | :-------------------------- |
+|  [01]   | Library with many entries | `tsc`, one `.js` and `.d.ts` per source | `tsc`, pack checks          |
+|  [02]   | Library with few entries  | tsdown with `dts`                       | `tsc --noEmit`, pack checks |
+|  [03]   | Private tool or script    | None, Node strips types                 | `tsc --noEmit`              |
+|  [04]   | CLI or server, one file   | Rolldown or esbuild bundle              | `tsc --noEmit`              |
+|  [05]   | Browser application       | `vite build`                            | `tsc --noEmit`              |
 
 - `tsc` writes one `.js` and one `.d.ts` into `dist` per source file, at its source path
 - Specifiers `#/<module>` stay as written in emitted files, and the published `imports` map sends them to `./dist/*.js`
@@ -82,7 +82,7 @@ Manifest a consumer installs, after `pnpm pack` applies `publishConfig` and repl
 - `attw --pack` runs `npm pack`, which applies no `publishConfig` swap and keeps `catalog:` and `workspace:`, so attw reads a pnpm tarball
 - `--profile esm-only` ignores CommonJS resolution failures
 - `publint` lints a directory or a tarball, and `--pack pnpm` makes it pack with pnpm
-- Each check runs against the packed file of one package, as an Nx target depending on its pack target
+- Target `check--publint` runs `publint --strict` in the package folder after its build, and publint packs that folder with pnpm
 - Workspace links miss the `files`, `exports`, `bin`, and dependency range defects a tarball shows
 
 ## [05]-[VERSIONING]

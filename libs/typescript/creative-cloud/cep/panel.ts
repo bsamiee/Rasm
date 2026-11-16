@@ -1,3 +1,4 @@
+import 'core-js/modules/web.url.can-parse.js';
 import { Completion, Envelope } from '@rasm/extendscript';
 import { HostError } from '@rasm/object-model';
 import type { Unmatched } from '@rasm/search';
@@ -6,7 +7,7 @@ import { wcagContrast } from 'culori';
 import { type Cause, Effect, FiberSet, Function, flow, Layer, Logger, Predicate, Record, Schema, type Scope, Stream, Struct } from 'effect';
 import { FetchHttpClient } from 'effect/http';
 import type { Rpc } from 'effect/rpc';
-import { ExtensionManifest } from '#/index';
+import { ExtensionManifest } from '#/manifest';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

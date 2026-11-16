@@ -3,7 +3,6 @@ import { SecureRandom, Signature } from 'effect/crypto';
 import { FetchHttpClient, Headers, HttpMethod, HttpRouter, HttpServerRequest, HttpServerResponse, UrlParams } from 'effect/http';
 import { HttpApiError } from 'effect/http-api';
 import { Jwks, Jwt } from 'effect/jose';
-import type { App } from '#/app/app';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -108,10 +107,10 @@ class Access extends Schema.Class<Access, { readonly brand: unique symbol }>('Ac
 class Enrollment extends Context.Service<Enrollment, { readonly identity: Identity; readonly allowed: readonly string[] }>()('@rasm/hosting/app/identity/Enrollment') {
     static readonly variable = 'ALLOWED';
     static readonly Session = Schema.Literals(['signedOut', 'signedIn', 'allowed']);
-    static readonly layer = (app: Pick<App, 'identity' | 'allowed'>) =>
+    static readonly layer = ({ identity, allowed }: Enrollment['Service']) =>
         Layer.effect(
             Enrollment,
-            Effect.map(Config.schema(Addresses, Enrollment.variable).pipe(Config.withDefault(app.allowed)), (allowed) => ({ identity: app.identity, allowed })),
+            Effect.map(Config.schema(Addresses, Enrollment.variable).pipe(Config.withDefault(allowed)), (enrolled) => ({ identity, allowed: enrolled })),
         );
     static readonly session = Effect.fn('Enrollment.session')(function* <E, R>(store: {
         readonly enrolled: (addresses: Array.NonEmptyReadonlyArray<string>) => Effect.Effect<readonly { readonly email: string; readonly userId: string }[], E, R>;

@@ -2,7 +2,7 @@
     "name": "@rasm/atelier-protocol",
     "version": "0.1.0",
     "private": true,
-    "description": "Atelier's cross-app request contract and host session tag, the link its plugins dial, the CEP panel serving that link, and the ExtendScript dispatch of its requests",
+    "description": "Atelier's cross-app request contract and host session tag, the link identity its plugins dial with, the CEP panel serving that link, and the ExtendScript dispatch of its requests",
     "license": "MIT",
     "repository": {
         "type": "git",
@@ -42,6 +42,7 @@
         "@rasm/cep": "workspace:*",
         "@rasm/extendscript": "workspace:*",
         "@rasm/object-model": "workspace:*",
+        "@rasm/rpc": "workspace:*",
         "@rasm/search": "workspace:*",
         "effect": "catalog:"
     }

@@ -33,8 +33,8 @@ class WorkersSpan extends Tracer.NativeSpan {
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class Execution extends Context.Service<Execution, ExecutionContext>()('@rasm/workers/runtime/execution') {
-    static readonly Invocation = Context.Reference<Layer.Layer<never>>('@rasm/workers/runtime/execution/Invocation', { defaultValue: () => Layer.empty });
+class Execution extends Context.Service<Execution, ExecutionContext>()('@rasm/workers/execution') {
+    static readonly Invocation = Context.Reference<Layer.Layer<never>>('@rasm/workers/execution/Invocation', { defaultValue: () => Layer.empty });
     static readonly isolate = Layer.merge(Layer.succeed(Scheduler.Scheduler, new Scheduler.MixedScheduler('sync')), ConfigProvider.layer(ConfigProvider.fromUnknown(Record.filter({ ...env }, (variable) => !Predicate.isObject(variable) || Object.getPrototypeOf(variable) === Object.prototype))));
     static readonly run =
         <R>(isolate: Context.Context<R>, execution: ExecutionContext) =>

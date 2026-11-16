@@ -17,7 +17,7 @@ type Values = Record.ReadonlyRecord<string, typeof Value.Type>;
 
 const Contents = Schema.Struct({ contents: Schema.Json });
 const Flat = Schema.Tuple([Schema.Int, Schema.String, Schema.String, Schema.String, Schema.Array(Schema.Tuple([Schema.String, Schema.String]))]);
-const MissingFile = Schema.Struct({ code: Schema.Literal(-2) });
+const MissingFile = Schema.Literal(-2).annotate({ description: 'Value UXP fs throws for a path it finds no entry at' });
 const Executed = Schema.Struct({ result: Schema.OptionFromOptionalKey(Schema.Json) });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -412,12 +412,12 @@ const findChange = (payload: Parameters<typeof search>[0] & { readonly label: st
         Effect.map(({ count, matches }) => ({ count, matches: payload.slice.of(matches) })),
     );
 const font = Effect.fn('font')(function* ({ name, text, file }: { readonly name: string; readonly text: string; readonly file: string }) {
-    const [face, model, { fs }, path] = yield* Effect.all([Effect.flatMap(Model.fonts, (lookup) => lookup(name)), Model, Uxp, Path.Path]);
+    const [face, model, { fs }] = yield* Effect.all([Effect.flatMap(Model.fonts, (lookup) => lookup(name)), Model, Uxp]);
     const subset = Effect.as(Effect.try({ try: () => face.createSubsetFont(text, file), catch: HostError.refused(`subset of ${face.name}`) }), Option.some({ file, postscriptName: Option.none<string>() }));
     const source = face.status.equals(model.FontStatus.INSTALLED)
-        ? yield* Effect.flatMap(path.toFileUrl(face.location), (url) => Effect.try({ try: () => fs.lstatSync(url.href), catch: HostError.refused(face.location) })).pipe(
+        ? yield* Effect.try({ try: () => fs.lstatSync(face.location), catch: HostError.refused(face.location) }).pipe(
               Effect.as(Option.some({ file: face.location, postscriptName: Option.some(face.postscriptName) })),
-              Effect.catchTags({ BadArgument: () => subset, HostError: (error) => (Schema.is(MissingFile)(error.cause) ? subset : error) }),
+              Effect.catchIf((error) => Schema.is(MissingFile)(error.cause), () => subset),
           )
         : Option.none();
     return { font: yield* fontView(face), source };

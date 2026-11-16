@@ -42,7 +42,7 @@ const serve = Effect.fnUntraced(function* <E, R, E2, R2>(
         { listen, hosts },
         Effect.fnUntraced(
             function* ({ listen: address, hosts: allowed }) {
-                return yield* Option.match(address, { onNone: () => Layer.launch(Server.layerStdio(named, settings, app)), onSome: (bound) => listened(bound, allowed) });
+                return yield* Option.match(address, { onNone: () => Layer.launch(Layer.effectDiscard(HttpRouter.toHttpEffect(Server.layerStdio(named, settings, app)))), onSome: (bound) => listened(bound, allowed) });
             },
             Effect.raceFirst(ending),
             Effect.provide(Layer.unwrap(telemetry)),

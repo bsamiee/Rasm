@@ -6,7 +6,7 @@ import { HostError } from '@rasm/object-model';
 import { load } from 'cheerio';
 import { Effect, FileSystem, flow, Option, Record, Schema } from 'effect';
 import { type ConfigEnv, mergeConfig, type Rolldown, type UserConfig, type UserConfigFnPromise } from 'vite';
-import { ExtensionManifest } from '#/index';
+import { ExtensionManifest } from '#/manifest';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

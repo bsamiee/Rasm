@@ -9,7 +9,8 @@
         "directory": "products/developer/nx/distribution"
     },
     "files": [
-        "dist",
+        "dist/**/*.js",
+        "dist/**/*.d.ts",
         "executors.json",
         "executors/*/schema.json",
         "executors/*/vendored.py*",
@@ -67,6 +68,9 @@
     },
     "peerDependencies": {
         "nx": "catalog:peers"
+    },
+    "engines": {
+        "node": "^24.14.0 || >=25.4.0"
     },
     "executors": "./executors.json",
     "generators": "./generators.json"

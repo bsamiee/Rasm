@@ -10,10 +10,13 @@
         "directory": "libs/typescript/creative-cloud/extendscript"
     },
     "files": [
-        "dist"
+        "dist/**/*.js",
+        "dist/**/*.d.ts"
     ],
     "type": "module",
-    "sideEffects": false,
+    "sideEffects": [
+        "./host.ts"
+    ],
     "imports": {
         "#/*": "./*.ts"
     },
@@ -21,7 +24,8 @@
         ".": "./index.ts",
         "./host": "./host.ts",
         "./node": "./node.ts",
-        "./vite": "./vite.ts"
+        "./vite": "./vite.ts",
+        "./package.json": "./package.json"
     },
     "publishConfig": {
         "imports": {
@@ -31,7 +35,8 @@
             ".": "./dist/index.js",
             "./host": "./dist/host.js",
             "./node": "./dist/node.js",
-            "./vite": "./dist/vite.js"
+            "./vite": "./dist/vite.js",
+            "./package.json": "./package.json"
         },
         "access": "public"
     },
@@ -40,7 +45,8 @@
         "@rasm/search": "workspace:*",
         "@swc/wasm": "catalog:",
         "acorn": "catalog:",
-        "acorn-walk": "catalog:"
+        "acorn-walk": "catalog:",
+        "es5-shim": "catalog:"
     },
     "devDependencies": {
         "@types/node": "catalog:",
@@ -55,5 +61,8 @@
         "vite": {
             "optional": true
         }
+    },
+    "engines": {
+        "node": "^24.14.0 || >=25.4.0"
     }
 }

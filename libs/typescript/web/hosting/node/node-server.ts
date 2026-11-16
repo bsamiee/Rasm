@@ -6,7 +6,7 @@ import { layerNodeFromConfig } from '@rasm/telemetry/node';
 import { Config, ConfigProvider, Effect, Layer, Match, Record, Schema, SchemaTransformation, Struct } from 'effect';
 import { HttpEffect, HttpMiddleware, HttpRouter, HttpServerResponse, HttpStaticServer } from 'effect/http';
 import { App, type Binding } from '#/app/app';
-import { Access, Enrollment } from '#/app/identity';
+import { Access, Enrollment, Identity } from '#/app/identity';
 import { Template } from '#/rendering/template';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -45,9 +45,9 @@ const serveNode = Effect.fnUntraced(
             ),
         );
         const [env, access, files] = yield* Effect.all([Config.schema(Schema.Struct(Struct.map(app.env, Struct.lambda<Read>(App.Binding.$match(read))))).pipe(Effect.provide(ConfigProvider.layerAdd(declared, { asPrimary: true }))), Access.config, HttpStaticServer.make({ root })]);
-        const services = Layer.merge(Template.layer({ fetch: HttpEffect.toWebHandler(files) }), Enrollment.layer(app));
+        const services = Layer.merge(Template.layer({ fetch: HttpEffect.toWebHandler(files) }), Enrollment.layer({ identity: Identity.sites, allowed: app.allowed }));
         return HttpRouter.serve(
-            Layer.mergeAll(access.layer(app.identity), HttpRouter.add('GET', App.bundle.readiness, HttpMiddleware.withLoggerDisabled(Effect.succeed(HttpServerResponse.empty()))), HttpRouter.add('GET', '/*', files).pipe(Layer.provideMerge(routes(env).pipe(HttpRouter.provideRequest(services))))),
+            Layer.mergeAll(access.layer(Identity.sites), HttpRouter.add('GET', App.bundle.readiness, HttpMiddleware.withLoggerDisabled(Effect.succeed(HttpServerResponse.empty()))), HttpRouter.add('GET', '/*', files).pipe(Layer.provideMerge(routes(env).pipe(HttpRouter.provideRequest(services))))),
         ).pipe(Layer.provide([services, HttpMiddleware.layerTracerDisabledForUrls([App.bundle.readiness])]));
     },
     (effect, app) => effect.pipe(Layer.unwrap, Layer.provide(layerConfig(createServer, { port: Config.Port(App.bundle.portVariable) })), Layer.provide(layerNodeFromConfig({ resource: { serviceName: app.name }, target: 'stderr' })), Layer.launch),

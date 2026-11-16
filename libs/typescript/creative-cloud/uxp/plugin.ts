@@ -1,3 +1,4 @@
+import 'core-js/modules/web.url.can-parse.js';
 import { HostError } from '@rasm/object-model';
 import { layer } from '@rasm/telemetry';
 import { parse } from 'acorn';
@@ -7,7 +8,7 @@ import { formatHex8 } from 'culori/fn';
 import { Array, Cause, Clock, Console, Context, Deferred, Duration, Effect, Exit, Fiber, FiberHandle, FiberSet, Function, flow, Layer, Logger, ManagedRuntime, Option, Path, PlatformError, Predicate, pipe, Queue, Record, Result, Schema, SchemaGetter, Scope, ScopedRef, Sink, Stdio, Stream, Struct } from 'effect';
 import { FetchHttpClient } from 'effect/http';
 import { RpcMessage, RpcSerialization, RpcServer } from 'effect/rpc';
-import { UxpManifest } from '#/index';
+import { UxpManifest } from '#/manifest';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

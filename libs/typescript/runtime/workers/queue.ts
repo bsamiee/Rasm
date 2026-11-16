@@ -1,5 +1,5 @@
 import { Effect, Layer, Schema, type Scope } from 'effect';
-import { Execution, type Kind } from '#/runtime/execution';
+import { Execution, type Kind } from '#/execution';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

@@ -1,5 +1,5 @@
 import { assert, it } from '@effect/vitest';
-import { Execute, Installation, Launch, Launching, Perform, RunningInstance, Screenshot, State } from '@rasm/applications';
+import { Capture, Execute, Installation, Launch, Launching, Perform, RunningInstance, State } from '@rasm/applications';
 import { Array, Effect, Option, Record, Result, Schema, Struct } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -15,7 +15,7 @@ const FAILURE = `{"reason":"refused","subject":"AXPress on AQID","message":"AXPr
 const EXITED = `{"exited":{"signal":6,"detail":["memory"],"report":{"url":"file:///report.ips","pid":${PID},"instance":"${PROCESS}","service":"app.rasm.atelier.server","exception":"EXC_CRASH","signal":"SIGKILL (Code Signature Invalid)","termination":{"code":4,"indicator":"Launch Constraint Violation","namespace":"CODESIGNING"}}}}`;
 const LAUNCHING = [`{"launched":{"pid":${PID},"instance":"${PROCESS}","identifier":"com.adobe.InDesign","created":false,"replaced":true}}`, `{"state":${INSTANCE}}`, `{"prompts":[${INSTANCE}]}`, `{"failed":${FAILURE}}`];
 const LISTING = `{"_tag":"Success","success":[{"url":"${MAIL}","identifier":"com.apple.mail","name":"Mail","version":"16.0","build":"3826","scriptable":true,"activationPolicy":"regular"}]}`;
-const SHOTS = `{"${BLOCKING}":{"_tag":"Success","success":"file:///tmp/${BLOCKING}.png"},"20900":{"_tag":"Failure","failure":{"name":"ApplicationFailure","message":"Window closed"}}}`;
+const SHOTS = `{"${BLOCKING}":{"_tag":"Success","success":{"uri":"file:///tmp/${BLOCKING}.png","mimeType":"image/png","data":"AQID","width":494,"height":131}},"20900":{"_tag":"Failure","failure":{"name":"ApplicationFailure","message":"Window closed"}}}`;
 const ACTIONS = `{"actions":[{"perform":{"element":"AQID","action":"AXPress"}},{"set":{"element":"AQID","value":"A"}},{"key":{"process":${PID},"code":36}}]}`;
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -42,7 +42,7 @@ it.effect(
         const [running, failed, exited] = yield* Effect.all([decoded(State)(LINE), decoded(State)(`{"failed":${FAILURE}}`), decoded(State)(EXITED)]);
         const [launching, shots, listing, executed] = yield* Effect.all([
             Effect.forEach(LAUNCHING, decoded(Launching)),
-            decoded(Screenshot.Result)(SHOTS),
+            decoded(Capture.Result)(SHOTS),
             decoded(Listing)(LISTING),
             decoded(Execute.Result)('{"reply":null,"artifacts":[{"_tag":"Success","success":{"uri":"file:///tmp/a.pdf","mimeType":"application/pdf","data":"AQID"}}]}'),
         ]);
@@ -60,6 +60,7 @@ it.effect(
         const encodeLaunch = Schema.encodeEffect(Schema.toCodecJson(Launch));
         assert.deepStrictEqual(yield* encodeLaunch(Launch.make({ url: new URL(MAIL) })), { url: MAIL, documents: [], arguments: [], environment: {}, new: false });
         assert.strictEqual(yield* Schema.encodeEffect(wire(Perform))(yield* decoded(Perform)(ACTIONS)), ACTIONS);
+        assert.strictEqual(yield* Schema.encodeEffect(wire(Capture))(Capture.make({ source: Option.some({ element: { id: 'AQID' } }), longestSide: Option.none() })), '{"source":{"element":{"id":"AQID"}}}');
         assert.include(yield* Schema.encodeEffect(wire(RunningInstance))(yield* decoded(RunningInstance)(INSTANCE)), '"actions":[]');
     }),
 );

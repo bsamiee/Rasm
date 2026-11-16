@@ -82,5 +82,6 @@ Each place holding state changes through one action:
 
 - Machines install Ubuntu `*-updates` and Docker packages daily at 05:00 `America/Chicago`, after a random delay of up to an hour
 - Machines reboot as soon as an update requires it, which stops a job running there and any CI run reading the cache it serves
-- `runner-prune.timer` prunes the pnpm store, uv cache, mise tool versions, and unused Docker containers, volumes, and images each Sunday at 09:00 UTC
+- `runner-prune.timer` runs `runner-prune.service` each Sunday at 09:00 UTC to prune the pnpm store, uv cache, and unused mise tool versions
+- `runner-prune.service` removes stopped Docker containers created over an hour before, unused anonymous volumes, and dangling images
 - Docker's default build cache garbage collection bounds build cache, and no job prunes it

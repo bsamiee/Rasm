@@ -11,7 +11,6 @@ Vitest in an Effect-based pnpm and Nx monorepo.
 - Effect code swaps a service through a test layer
 - Scripts, agents, and CI run `vitest run`, as `vitest` alone watches files in an interactive terminal
 - Tests stay out of published output through their own package or a folder no emitting program includes
-- Expensive suites (containers, remote services) take a file suffix (`*.integration.test.ts`) and run where a variable enables them
 
 ## [02]-[CONFIG_LAYOUT]
 
@@ -27,32 +26,17 @@ Vitest facts that decide the layout:
 - `--project <name>` runs one project, repeats, and takes `*` and `!` patterns
 
 Nx facts that decide the layout:
-- `@rasm/nx-vitest` reads the resolved root config and infers one `test--vitest` target per inline project
-- Each inferred target runs `vitest run --project <name>` from the workspace root, on the Nx project at that inline project's `root`
+- `@rasm/nx-vitest` reads the resolved root config and infers one `test--vitest` target per Nx project holding an inline project's `root`
+- Each inferred target runs `vitest run` from the workspace root with one `--project <name>` per inline project rooted in its Nx project
 - Inferred targets take root `vitest.config.ts` as an input, so editing shared options invalidates every cached result
 
-Root `vitest.config.ts` holds one shared options object and one inline project per package:
-
-```ts
-import { defineConfig, mergeConfig, type ViteUserConfig } from 'vitest/config';
-
-const shared: ViteUserConfig = { test: { include: ['test/**/*.test.ts'], sequence: { concurrent: true } } };
-
-export default defineConfig({
-    test: {
-        projects: [
-            mergeConfig(shared, { root: 'packages/core', test: { name: '@scope/core' } }),
-            mergeConfig(shared, { root: 'packages/browser', test: { name: '@scope/browser', environment: 'happy-dom' } }),
-        ],
-    },
-});
-```
-
-- `root` names the package folder, and `test.name` the package name `--project` selects
-- Shared options stay out of root `test`, as inherited arrays and merged arrays then hold each entry twice
-- Per-package differences (`environment`, `isolate`, `include`) sit in that package's project object alone
-- `coverage` and `reporters` sit beside `projects` in root `test`, one report for the whole run
-- Lists a project replaces in place of extending take an assignment after `mergeConfig` (`merged.test.exclude = [...]`)
+Root `vitest.config.ts` derives its inline projects from the tree:
+- Folders holding the nearest `package.json` of a `tests/**/*.test.{ts,tsx}` file are one project each, rooted there and named by manifest `name`
+- Suites holding `cloudflare.config.ts` run test files importing no `@effect/platform-node` through `cloudflareTest`
+- Suites holding test files of both kinds are projects `<name> node` and `<name> workers`
+- Suites listing `vitest-browser-react` in `devDependencies` run in browser mode on Playwright Chromium
+- Each `{products,libs}/**/.storybook/main.ts` adds a browser project through `storybookTest`, named by its package
+- Root `test` holds `coverage`, `reporters`, `silent`, and `projects`, one report for the whole run, and inline projects inherit its `chaiConfig`
 
 ## [03]-[ENVIRONMENTS]
 

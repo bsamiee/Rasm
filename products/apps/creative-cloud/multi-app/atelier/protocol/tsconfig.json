@@ -18,6 +18,9 @@
         },
         {
             "path": "../../../../../../libs/typescript/macos/applications"
+        },
+        {
+            "path": "../../../../../../libs/typescript/network/rpc"
         }
     ]
 }

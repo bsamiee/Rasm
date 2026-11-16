@@ -10,10 +10,13 @@
         "directory": "libs/typescript/creative-cloud/uxp"
     },
     "files": [
-        "dist"
+        "dist/**/*.js",
+        "dist/**/*.d.ts"
     ],
     "type": "module",
-    "sideEffects": false,
+    "sideEffects": [
+        "./plugin.ts"
+    ],
     "imports": {
         "#/*": "./*.ts"
     },
@@ -21,7 +24,8 @@
         ".": "./index.ts",
         "./plugin": "./plugin.ts",
         "./spectrum": "./spectrum.ts",
-        "./vite": "./vite.ts"
+        "./vite": "./vite.ts",
+        "./package.json": "./package.json"
     },
     "publishConfig": {
         "imports": {
@@ -31,7 +35,8 @@
             ".": "./dist/index.js",
             "./plugin": "./dist/plugin.js",
             "./spectrum": "./dist/spectrum.js",
-            "./vite": "./dist/vite.js"
+            "./vite": "./dist/vite.js",
+            "./package.json": "./package.json"
         },
         "access": "public"
     },
@@ -42,6 +47,7 @@
         "@rasm/object-model": "workspace:*",
         "@rasm/telemetry": "workspace:*",
         "acorn": "catalog:",
+        "core-js": "catalog:",
         "culori": "catalog:",
         "jsonc-parser": "catalog:"
     },
@@ -60,5 +66,8 @@
         "vite": {
             "optional": true
         }
+    },
+    "engines": {
+        "node": "^24.14.0 || >=25.4.0"
     }
 }

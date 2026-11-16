@@ -8,9 +8,9 @@ import { lazy, type ReactNode, Suspense, useEffect, useId, useRef, useState } fr
 import { Button, Heading, type Key, Tab, TabList, TabPanel, Tabs, Text, Toolbar } from 'react-aria-components';
 import { Compositions } from '#/editor/compositions.tsx';
 import { EntryFields, EntryList } from '#/editor/entries.tsx';
-import { Identity } from '#/editor/identity.tsx';
 import { Library } from '#/editor/library.tsx';
 import { PlaceFile } from '#/editor/place-file.tsx';
+import { Profile } from '#/editor/profile.tsx';
 import { RequestAlert } from '#/editor/request-alert.tsx';
 import { deleteRequest, draft, portfolio, reloadRequest, saveRequest } from '#/editor/state';
 import { UploadRecovery } from '#/editor/upload-recovery.tsx';
@@ -63,7 +63,7 @@ const DraftEditor = ({ published, onPreview, ...state }: Atom.Success<typeof dra
     }, [reloading]);
     const busy = operation.waiting || deletion.waiting || reloading.waiting;
     const current = state.portfolio.entries.find((item) => item.id === selected);
-    const show = (name: 'entries' | 'files' | 'identity') => setTab(`${idPrefix}${name}`);
+    const show = (name: 'entries' | 'files' | 'profile') => setTab(`${idPrefix}${name}`);
     const open = (id: typeof EntryId.Type, view: 'entry' | 'place' = 'entry', target?: string) => {
         setSelected(id);
         setTarget(Destination.Entry({ id }));
@@ -84,7 +84,7 @@ const DraftEditor = ({ published, onPreview, ...state }: Atom.Success<typeof dra
         const entry = head === 'entries' && Predicate.isNumber(entryIndex) ? Array.get(snapshot.entries, entryIndex) : Option.none();
         const failing = part === 'compositions' && Predicate.isNumber(compositionIndex) ? Option.flatMap(entry, ({ compositions }) => Array.get(compositions, compositionIndex)) : Option.none();
         const target = Option.match(failing, { onNone: () => `${idPrefix}${part === 'title' ? 'title' : 'entry'}`, onSome: Struct.get('id') });
-        show(head === 'entries' ? 'entries' : 'identity');
+        show(head === 'entries' ? 'entries' : 'profile');
         Match.value({ head, entry }).pipe(
             Match.when({ entry: Option.isSome }, ({ entry: found }) => open(found.value.id, 'entry', target)),
             Match.when({ head: 'entries' }, () => setWorkspace('entries')),
@@ -152,8 +152,8 @@ const DraftEditor = ({ published, onPreview, ...state }: Atom.Success<typeof dra
                         <Tab className="editor-tab" id={`${idPrefix}files`}>
                             Files{pending.length > 0 && ` (${pending.length})`}
                         </Tab>
-                        <Tab className="editor-tab" id={`${idPrefix}identity`}>
-                            Identity and hero
+                        <Tab className="editor-tab" id={`${idPrefix}profile`}>
+                            Profile and hero
                         </Tab>
                     </TabList>
                     <TabPanel className="editor-panel" id={`${idPrefix}entries`}>
@@ -236,13 +236,13 @@ const DraftEditor = ({ published, onPreview, ...state }: Atom.Success<typeof dra
                         <UploadRecovery />
                         <Library assetId={assetId} assets={state.assets} onPlace={place} onSelect={setAssetId} portfolio={state.portfolio} published={published} />
                     </TabPanel>
-                    <TabPanel className="editor-panel" id={`${idPrefix}identity`} shouldForceMount>
+                    <TabPanel className="editor-panel" id={`${idPrefix}profile`} shouldForceMount>
                         <form
                             className="flex flex-col gap-5"
                             id={`${idPrefix}form`}
                             onInvalidCapture={(event) => {
                                 event.preventDefault();
-                                show('identity');
+                                show('profile');
                                 Option.match(Option.fromNullishOr(event.currentTarget.querySelector(':invalid')), { onNone: Function.constVoid, onSome: ({ id }) => focusElement(id) });
                             }}
                             onSubmit={(event) => {
@@ -260,7 +260,7 @@ const DraftEditor = ({ published, onPreview, ...state }: Atom.Success<typeof dra
                                     ),
                                 )}
                             >
-                                <Identity
+                                <Profile
                                     assets={state.assets}
                                     idPrefix={idPrefix}
                                     onChooseHero={() => {

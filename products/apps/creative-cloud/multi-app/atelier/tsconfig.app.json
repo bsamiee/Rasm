@@ -25,22 +25,28 @@
             "path": "../../../../../libs/typescript/data/quran"
         },
         {
-            "path": "../../../../../libs/typescript/ai/mcp"
-        },
-        {
-            "path": "../../../../../libs/typescript/creative-cloud/cep"
+            "path": "../../../../../libs/typescript/runtime/process"
         },
         {
             "path": "../../../../../libs/typescript/creative-cloud/object-model"
+        },
+        {
+            "path": "../../../../../libs/typescript/ai/mcp"
+        },
+        {
+            "path": "../../../../../libs/typescript/creative-cloud/indesign"
+        },
+        {
+            "path": "../../../../../libs/typescript/creative-cloud/extendscript"
+        },
+        {
+            "path": "../../../../../libs/typescript/creative-cloud/cep"
         },
         {
             "path": "protocol"
         },
         {
             "path": "../../../../../libs/typescript/macos/applications"
-        },
-        {
-            "path": "../../../../../libs/typescript/creative-cloud/extendscript"
         }
     ]
 }

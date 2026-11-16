@@ -6,7 +6,7 @@ import { local } from '@pulumi/command';
 import { type CustomResourceOptions, jsonStringify, type Output, output, type Resource, secret } from '@pulumi/pulumi';
 import { Array, Cause, Config, Duration, Effect, flow, Match, Option, Predicate, Record, Redacted, Result, Schema, String, Struct, UndefinedOr } from 'effect';
 import { App } from '#/app/app';
-import { Access } from '#/app/identity';
+import { Access, Identity } from '#/app/identity';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -55,7 +55,6 @@ const deployed = Effect.fnUntraced(function* (
         ...Array.dedupe(Array.filterMap(triggers, ({ type }) => (type === 'queue' || type === 'scheduled' ? Result.failVoid : Result.succeed(`triggers.${type}`)))),
         ...(Predicate.hasProperty(config.placement, 'hint') ? ['placement.hint'] : []),
         ...(config.observability?.redactQueryString === undefined ? [] : ['observability.redactQueryString']),
-        ...((config.tailConsumers ?? []).some(({ streaming }) => streaming !== undefined) ? ['tailConsumers.streaming'] : []),
     ];
     yield* Array.isArrayNonEmpty(unapplied) ? Effect.fail(new Cause.IllegalArgumentError(`Worker ${name} states ${unapplied.join(', ')}, fields with no @pulumi/cloudflare resource argument`)) : Effect.void;
     const worker = new Worker(
@@ -146,7 +145,7 @@ const deployApp = Effect.fn('deployApp')(function* ({ app, mode, root }: { reado
             onNone: () => ({}),
             onSome: (addresses) => {
                 const policy = new ZeroTrustAccessPolicy(name, { accountId, name, decision: 'allow', includes: addresses.map((email) => ({ email: { email } })) }, options);
-                const destinations = hosts.apply(Array.map((host) => ({ type: 'public', uri: `${host}${app.identity.paths.signin}` })));
+                const destinations = hosts.apply(Array.map((host) => ({ type: 'public', uri: `${host}${Identity.sites.paths.signin}` })));
                 const guarded = new ZeroTrustAccessApplication(name, { accountId, name, type: 'self_hosted', destinations, policies: [{ id: policy.id, precedence: 1 }], httpOnlyCookieAttribute: true, sameSiteCookieAttribute: 'lax' }, options);
                 const source = { _tag: 'Cloudflare', teamDomain: getZeroTrustOrganizationOutput({ accountId }, options).authDomain, audience: guarded.aud } as const;
                 return { [Access.variable]: { type: 'plain_text', text: output({ source, logout: Access.cloudflare.logout }).apply((access) => Effect.runPromiseWith(context)(Effect.flatMap(Schema.decodeEffect(Access)(access), Schema.encodeEffect(Access.json)))) } };

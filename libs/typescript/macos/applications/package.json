@@ -2,7 +2,7 @@
     "name": "@rasm/applications",
     "version": "0.1.0",
     "private": true,
-    "description": "Mac application server wire contract and watch-apps process table, the Node client of that server, and the build of a Node helper a Mac application embeds",
+    "description": "Mac application server wire contract and state predicates, the Node client watching its installations and instances over a child process, and the build of a Node helper a Mac application embeds",
     "license": "MIT",
     "repository": {
         "type": "git",
@@ -10,7 +10,8 @@
         "directory": "libs/typescript/macos/applications"
     },
     "files": [
-        "dist"
+        "dist/**/*.js",
+        "dist/**/*.d.ts"
     ],
     "type": "module",
     "sideEffects": false,
@@ -20,7 +21,8 @@
     "exports": {
         ".": "./index.ts",
         "./node": "./node.ts",
-        "./vite": "./vite.ts"
+        "./vite": "./vite.ts",
+        "./package.json": "./package.json"
     },
     "publishConfig": {
         "imports": {
@@ -29,12 +31,14 @@
         "exports": {
             ".": "./dist/index.js",
             "./node": "./dist/node.js",
-            "./vite": "./dist/vite.js"
+            "./vite": "./dist/vite.js",
+            "./package.json": "./package.json"
         },
         "access": "public"
     },
     "dependencies": {
         "@rasm/process": "workspace:*",
+        "@rasm/rpc": "workspace:*",
         "@rasm/search": "workspace:*",
         "plist": "catalog:"
     },
@@ -51,5 +55,8 @@
         "vite": {
             "optional": true
         }
+    },
+    "engines": {
+        "node": "^24.14.0 || >=25.4.0"
     }
 }

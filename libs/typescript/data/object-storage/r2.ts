@@ -1,6 +1,6 @@
 import { Effect, Layer } from 'effect';
 import { type R2Bucket, type R2UploadStoreOptions, r2Store, r2UploadStore } from 'partial-content/r2';
-import { ObjectStorage, ObjectStorageError } from '#/index';
+import { ObjectStorage, ObjectStorageError } from '#/storage';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

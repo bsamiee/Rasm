@@ -10,16 +10,19 @@
         "directory": "libs/typescript/creative-cloud/illustrator"
     },
     "files": [
-        "dist"
+        "dist/**/*.js",
+        "dist/**/*.d.ts"
     ],
     "type": "module",
     "sideEffects": false,
     "exports": {
-        "./extendscript": "./extendscript.ts"
+        "./extendscript": "./extendscript.ts",
+        "./package.json": "./package.json"
     },
     "publishConfig": {
         "exports": {
-            "./extendscript": "./dist/extendscript.js"
+            "./extendscript": "./dist/extendscript.js",
+            "./package.json": "./package.json"
         },
         "access": "public"
     },
@@ -29,5 +32,8 @@
     },
     "devDependencies": {
         "types-for-adobe": "catalog:"
+    },
+    "engines": {
+        "node": "^24.14.0 || >=25.4.0"
     }
 }

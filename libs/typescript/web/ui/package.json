@@ -10,7 +10,8 @@
         "directory": "libs/typescript/web/ui"
     },
     "files": [
-        "dist"
+        "dist/**/*.js",
+        "dist/**/*.d.ts"
     ],
     "type": "module",
     "sideEffects": false,
@@ -19,7 +20,8 @@
         "#/*.tsx": "./*.tsx"
     },
     "exports": {
-        ".": "./index.ts"
+        ".": "./index.ts",
+        "./package.json": "./package.json"
     },
     "publishConfig": {
         "imports": {
@@ -27,7 +29,8 @@
             "#/*.tsx": "./dist/*.js"
         },
         "exports": {
-            ".": "./dist/index.js"
+            ".": "./dist/index.js",
+            "./package.json": "./package.json"
         },
         "access": "public"
     },
@@ -58,5 +61,8 @@
         "effect": "catalog:peers",
         "react": "catalog:peers",
         "react-aria-components": "catalog:peers"
+    },
+    "engines": {
+        "node": "^24.14.0 || >=25.4.0"
     }
 }

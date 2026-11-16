@@ -59,7 +59,7 @@ const serve = ({ global, containment, base = 0, session, undo, open, rasterize }
                 }
                 case 'rasterize': {
                     rasterize(resolve(request.payload.target), request.payload, located(request.payload.file));
-                    return undefined;
+                    return null;
                 }
                 case 'object_model': {
                     return declaration(global, containment.root, base, request.payload.name);

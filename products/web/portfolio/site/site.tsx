@@ -1,4 +1,5 @@
 import { useAtomValue } from '@effect/atom-react';
+import { Identity } from '@rasm/hosting/identity';
 import { ModalDialog } from '@rasm/ui';
 import { flow, Option, Schema } from 'effect';
 import { UrlParams } from 'effect/http';
@@ -8,7 +9,6 @@ import { MotionConfig } from 'motion/react';
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Button, DialogTrigger, Heading } from 'react-aria-components';
 import { ErrorBoundary } from 'react-error-boundary';
-import hosting from '#/hosting.config';
 import { MediaFigure } from '#/media/media-figure.tsx';
 import type { Bootstrap } from '#/model/api';
 import type { PortfolioData } from '#/model/portfolio';
@@ -85,7 +85,7 @@ const Site = ({ published: served, session }: typeof Bootstrap.Type) => {
                         )}
                     </DialogTrigger>
                 ) : (
-                    <a className="quiet-link" href={session === 'signedIn' ? hosting.identity.href('signout', '/') : hosting.identity.href('signin', `/?${UrlParams.toString({ [edit.name]: edit.value })}`)} target="_top">
+                    <a className="quiet-link" href={session === 'signedIn' ? Identity.sites.href('signout', '/') : Identity.sites.href('signin', `/?${UrlParams.toString({ [edit.name]: edit.value })}`)} target="_top">
                         {session === 'signedIn' ? 'Sign out' : 'Owner sign-in'}
                     </a>
                 )}

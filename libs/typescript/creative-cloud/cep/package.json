@@ -10,17 +10,21 @@
         "directory": "libs/typescript/creative-cloud/cep"
     },
     "files": [
-        "dist"
+        "dist/**/*.js",
+        "dist/**/*.d.ts"
     ],
     "type": "module",
-    "sideEffects": false,
+    "sideEffects": [
+        "./panel.ts"
+    ],
     "imports": {
         "#/*": "./*.ts"
     },
     "exports": {
         ".": "./index.ts",
         "./panel": "./panel.ts",
-        "./vite": "./vite.ts"
+        "./vite": "./vite.ts",
+        "./package.json": "./package.json"
     },
     "publishConfig": {
         "imports": {
@@ -29,7 +33,8 @@
         "exports": {
             ".": "./dist/index.js",
             "./panel": "./dist/panel.js",
-            "./vite": "./dist/vite.js"
+            "./vite": "./dist/vite.js",
+            "./package.json": "./package.json"
         },
         "access": "public"
     },
@@ -40,6 +45,7 @@
         "@rasm/search": "workspace:*",
         "@rasm/telemetry": "workspace:*",
         "cheerio": "catalog:",
+        "core-js": "catalog:",
         "culori": "catalog:",
         "fast-xml-builder": "catalog:",
         "fast-xml-parser": "catalog:"
@@ -58,5 +64,8 @@
         "vite": {
             "optional": true
         }
+    },
+    "engines": {
+        "node": "^24.14.0 || >=25.4.0"
     }
 }

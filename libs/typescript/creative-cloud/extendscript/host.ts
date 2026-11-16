@@ -1,3 +1,5 @@
+import 'es5-shim';
+import 'es5-shim/es5-sham.js';
 import { type Encoder, encode, isList, isPlain, isRecord, read } from '@rasm/object-model/host';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -146,10 +148,14 @@ const declaration = (global: unknown, root: object, base: number, name: string |
         }
     };
     const visit = (value: unknown): void => {
-        const item = reflection(value) === undefined ? read(value, String(base)) : value;
+        const member = read(value, String(base));
+        const item = reflection(value) === undefined ? member : value;
         const owner = reflection(read(item, 'constructor'));
         followed(item, reflection(item));
         followed(item, owner !== undefined && enumerated(owner) ? owner : undefined);
+        if (item === value && isRecord(member) && found[String(read(reflection(member), 'name'))] === undefined) {
+            visit(member);
+        }
     };
     visit(root);
     for (const each in isRecord(global) ? global : {}) {

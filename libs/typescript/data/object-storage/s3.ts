@@ -1,7 +1,7 @@
 import { DeleteObjectCommand, S3Client, type S3ClientConfig } from '@aws-sdk/client-s3';
 import { Effect, Layer } from 'effect';
 import { type S3UploadStoreOptions, s3Store, s3UploadStore } from 'partial-content/s3';
-import { ObjectStorage, ObjectStorageError } from '#/index';
+import { ObjectStorage, ObjectStorageError } from '#/storage';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

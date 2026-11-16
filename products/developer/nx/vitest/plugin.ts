@@ -160,7 +160,6 @@ const surveyed = Effect.fnUntraced(function* (workspaceRoot: string, file: strin
                 project: parents.get(viteConfig) ?? name,
                 manifests,
                 setup: [...setupFiles, ...Array.ensure(globalSetup)].map(local).filter(kept),
-                browser: browser.enabled,
                 written: browser.enabled ? Array.getSomes([Option.fromUndefinedOr(browser.trace.tracesDir), Option.fromNullishOr(browser.screenshotDirectory)]) : [],
             }));
         }),
@@ -174,7 +173,6 @@ const surveyed = Effect.fnUntraced(function* (workspaceRoot: string, file: strin
                 root: owner,
                 projects: selected.length === selectable.length ? [] : selected,
                 setup: Array.dedupe(group.flatMap(({ setup }) => setup)).filter((at) => !at.startsWith(`${owner}/`)),
-                parallelism: group.every(({ browser }) => !browser),
                 coverage: local(resolve(root, coverage.reportsDirectory)),
             };
         },
@@ -232,16 +230,7 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, f
     return { ...report, sources, stamp: yield* stamped(workspaceRoot, sources) };
 });
 
-const targets = (
-    home: string,
-    { loaded: configs, packages, linked, triggers, folders }: Resolved,
-    { root, projects, setup, parallelism, coverage }: Resolved['suites'][number],
-    chain: readonly string[],
-    upstream: string,
-    { outputPath, coveragePath }: typeof Options.Type,
-    flags: readonly string[],
-    exec: string,
-): Verbs => {
+const targets = (home: string, { loaded: configs, packages, linked, triggers, folders }: Resolved, { root, projects, setup, coverage }: Resolved['suites'][number], chain: readonly string[], upstream: string, { outputPath, coveragePath }: typeof Options.Type, flags: readonly string[], exec: string): Verbs => {
     const held = Array.fromNullishOr(outputPath);
     const rooted = getRootTsConfigFileName();
     const outside = Record.filter(
@@ -254,7 +243,6 @@ const targets = (
             options: { cwd: home },
             dependsOn: ['codegen--*', '^codegen'],
             cache: true,
-            ...(!parallelism && { parallelism }),
             inputs: [
                 'default',
                 upstream,
@@ -272,7 +260,7 @@ const targets = (
             configurations: {
                 coverage: { 'coverage.enabled': true, 'coverage.reporter': 'lcovonly', ...(coveragePath === undefined ? {} : { 'coverage.reportsDirectory': relative(home, coveragePath) }), outputs: [join('{workspaceRoot}', coveragePath ?? coverage, 'lcov.info')] },
             },
-            metadata: { description: 'Runs every Vitest project of the suite with vitest run, beside no other task where a project runs in a browser, since Chromium fails queued requests when a host address changes', help: { command: `${exec} vitest run --help`, example: { args: ['--project', '<name>'] } } },
+            metadata: { description: 'Runs every Vitest project of the suite with vitest run', help: { command: `${exec} vitest run --help`, example: { args: ['--project', '<name>'] } } },
         },
     } satisfies Record<string, TargetConfiguration>;
     const removed = Record.collect(test, (tool) => `test--${tool}`);

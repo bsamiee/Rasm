@@ -1,8 +1,8 @@
 import { type Context, Effect, Exit, Layer, MutableRef, Option, Scope } from 'effect';
-import { Execution, type Kind } from '#/runtime/execution';
-import { fetch } from '#/runtime/fetch';
-import { queue } from '#/runtime/queue';
-import { scheduled } from '#/runtime/scheduled';
+import { Execution, type Kind } from '#/execution';
+import { fetch } from '#/fetch';
+import { queue } from '#/queue';
+import { scheduled } from '#/scheduled';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

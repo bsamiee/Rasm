@@ -1,15 +1,27 @@
-import { Inspect } from '@rasm/atelier-protocol/indesign';
+import { Inspection } from '@rasm/indesign';
 import { Resource, Route } from '@rasm/mcp';
+import { Unmatched } from '@rasm/search';
 import { Settings, type Source } from '@rasm/typography';
 import { Face, Justification, ShapedText } from '@rasm/typography/shaping';
-import { Effect, FileSystem, Option, Schema, SchemaAST, Stream, Struct } from 'effect';
+import { Context, Effect, FileSystem, Layer, Option, Path, Schema, SchemaAST, Stream, Struct } from 'effect';
 import { Tool } from 'effect/ai';
-import { Adobe, AvailableFace } from '#/adobe';
+import { Rpc, RpcClient, RpcGroup } from 'effect/rpc';
 import type { listening } from '#/libraries';
 import type { routes } from '#/routes';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
+class AvailableFace extends Schema.Class<AvailableFace, { readonly brand: unique symbol }>('AvailableFace')({ postscriptName: Schema.String, family: Schema.String, style: Schema.String, displayName: Schema.String, file: Schema.URL }) {
+    static readonly Name = Schema.String.annotate({ description: 'PostScript name, full name, or family for default face, any case' });
+
+    get source() {
+        const { file, postscriptName } = this;
+        return Effect.gen(function* () {
+            const [files, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
+            return { data: yield* files.readFile(yield* path.fromFileUrl(file)), postscriptName: Option.some(postscriptName) } satisfies typeof Source.Type;
+        });
+    }
+}
 const Specimen = Schema.Struct({
     face: Face,
     shaped: Schema.OptionFromOptionalKey(Schema.Union([ShapedText, Justification]).annotate({ description: 'Em positions, not application composition or document coordinates, justified with width, absent with no text' })),
@@ -24,17 +36,25 @@ const FontRequest = Face.Instance.pipe(
         settings: Settings.Partial.pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
     }),
 );
-const FontResult = Schema.Union([AvailableFace.mapFields(Struct.assign({ specimen: Specimen })), Inspect.View.cases.Font.mapFields(Struct.assign({ specimen: Schema.OptionFromOptionalKey(Specimen) }))]);
 const Faces = Schema.Array(AvailableFace);
+const FontResult = Schema.Union([AvailableFace.mapFields(Struct.assign({ specimen: Specimen })), Inspection.View.cases.Font.mapFields(Struct.assign({ specimen: Schema.OptionFromOptionalKey(Specimen) }))]);
+
+// --- [SERVICES] ------------------------------------------------------------------------
+
+class Fonts extends Context.Service<Fonts>()('@rasm/atelier/features/fonts', {
+    make: RpcClient.make(RpcGroup.make(Rpc.make('faces', { success: Schema.Array(AvailableFace) }), Rpc.make('face', { payload: { name: AvailableFace.Name }, success: AvailableFace, error: Unmatched }))),
+}) {
+    static readonly layer = Layer.effect(Fonts, Fonts.make);
+}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const applicationFont = Effect.fnUntraced(function* (client: Effect.Success<ReturnType<Effect.Success<typeof listening>['call']>>, name: string, characters: readonly string[]) {
-    const files = yield* FileSystem.FileSystem;
-    const { font, source } = yield* client('font', { name, text: characters.join(''), file: yield* files.makeTempFileScoped({ suffix: '.otf' }) });
-    const read = Option.map(source, ({ file, postscriptName }) => Effect.all({ data: files.readFile(file), postscriptName: Effect.succeed(postscriptName) }));
-    return { font, source: yield* Effect.transposeOption(read) };
-}, Effect.scoped);
+const applicationFont = (client: Effect.Success<ReturnType<Effect.Success<typeof listening>['call']>>) =>
+    Effect.fnUntraced(function* (name: string, characters: readonly string[]) {
+        const files = yield* FileSystem.FileSystem;
+        const { font, source } = yield* client('font', { name, text: characters.join(''), file: yield* files.makeTempFileScoped({ suffix: '.otf' }) });
+        return { font, source: yield* Effect.transposeOption(Option.map(source, ({ file, postscriptName }) => Effect.map(files.readFile(file), (data) => ({ data, postscriptName })))) };
+    }, Effect.scoped);
 const composed = Effect.fnUntraced(function* (source: typeof Source.Type, instance: typeof Face.Instance.Type, run: Option.Option<typeof ShapedText.Run.Type>, width: Option.Option<number>, given: typeof Settings.Partial.Type) {
     const face = yield* Face.open(source, instance);
     const settings = yield* Settings.merge(Settings.make({}), Struct.evolve(given, { features: (features = {}) => face.layout.exclusive(features) }));
@@ -47,36 +67,31 @@ const composed = Effect.fnUntraced(function* (source: typeof Source.Type, instan
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const faces = Effect.flatMap(Adobe, (adobe) => Resource.register({ name: 'faces', description: 'CoreText faces with file holding each', schema: Faces, changes: Stream.empty, content: adobe.faces() }));
-const font = Effect.fnUntraced(function* ({ serving }: Effect.Success<ReturnType<typeof routes>>) {
-    const [adobe, route] = [yield* Adobe, serving('font')];
-    const tool = Tool.make(route.tag, {
-        description: 'Shapes text in CoreText face or instance by name, or returns application font with its specimen when application is given',
-        parameters: FontRequest,
-        success: FontResult,
-    }).annotate(Tool.Readonly, true);
-    const typeset = ({ name, variations, size, width, settings, text, ...run }: Tool.Parameters<typeof tool>, chosen: Option.Option<Effect.Success<ReturnType<typeof route.resolve>>>) => {
+const fonts = Effect.fnUntraced(function* ({ serving }: Effect.Success<ReturnType<typeof routes>>) {
+    const [helper, route] = [yield* Fonts, serving('font')];
+    yield* Resource.register({ name: 'faces', description: 'CoreText faces with file holding each', schema: Faces, changes: Stream.empty, content: helper.faces() });
+    const tool = Tool.make(route.tag, { description: 'Shapes text in CoreText face or instance by name, or returns application font with its specimen when application is given', parameters: FontRequest, success: FontResult }).annotate(Tool.Readonly, true);
+    yield* Route(route.optional('CoreText'))(tool, ({ name, coordinates, variations, size, width, settings, text, ...run }, chosen) => {
         const shaped = (source: typeof Source.Type) =>
             composed(
                 source,
-                { variations, size },
+                { coordinates, variations, size },
                 Option.map(text, (given) => ({ ...run, text: given })),
                 width,
                 settings,
             );
-        const native = Effect.fnUntraced(function* ({ client }: Effect.Success<ReturnType<typeof route.resolve>>) {
-            const applied = yield* applicationFont(client, name, Option.toArray(text));
+        const native = Effect.fnUntraced(function* ({ client }: Option.Option.Value<typeof chosen>) {
+            const applied = yield* applicationFont(client)(name, Option.toArray(text));
             return { ...applied.font, specimen: yield* Effect.transposeOption(Option.map(applied.source, shaped)) };
         });
-        const shaping = Effect.gen(function* () {
-            const available = yield* adobe.face({ name });
+        const coreText = Effect.gen(function* () {
+            const available = yield* helper.face({ name });
             return { ...available, specimen: yield* Effect.flatMap(available.source, shaped) };
         });
-        return Option.match(chosen, { onNone: () => shaping, onSome: native });
-    };
-    yield* Route(route.optional('CoreText'))(tool, typeset);
+        return Option.match(chosen, { onNone: () => coreText, onSome: native });
+    });
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { applicationFont, faces, font };
+export { applicationFont, AvailableFace, Fonts, fonts };

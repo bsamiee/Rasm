@@ -10,7 +10,8 @@
         "directory": "libs/typescript/data/object-storage"
     },
     "files": [
-        "dist"
+        "dist/**/*.js",
+        "dist/**/*.d.ts"
     ],
     "type": "module",
     "sideEffects": false,
@@ -20,7 +21,8 @@
     "exports": {
         ".": "./index.ts",
         "./r2": "./r2.ts",
-        "./s3": "./s3.ts"
+        "./s3": "./s3.ts",
+        "./package.json": "./package.json"
     },
     "publishConfig": {
         "imports": {
@@ -29,7 +31,8 @@
         "exports": {
             ".": "./dist/index.js",
             "./r2": "./dist/r2.js",
-            "./s3": "./dist/s3.js"
+            "./s3": "./dist/s3.js",
+            "./package.json": "./package.json"
         },
         "access": "public"
     },
@@ -49,5 +52,8 @@
         "@aws-sdk/client-s3": {
             "optional": true
         }
+    },
+    "engines": {
+        "node": "^24.14.0 || >=25.4.0"
     }
 }

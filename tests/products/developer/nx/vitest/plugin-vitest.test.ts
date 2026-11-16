@@ -25,7 +25,7 @@ const it = test
         });
         temp.createDirSync('node_modules');
         ['vitest', 'vite'].forEach((name) => symlinkSync(dirname(fileURLToPath(import.meta.resolve(`${name}/package.json`))), join(temp.tempDir, 'node_modules', name), 'dir'));
-        await temp.createFiles({ 'nx.json': '{}', 'package.json': '{"name":"repo","nx":{},"workspaces":["libs/*","packages/*"]}' });
+        await temp.createFiles({ 'nx.json': '{}', 'package.json': '{"name":"repo","nx":{},"workspaces":["libs/*","packages/*"]}', 'package-lock.json': '{}' });
         return temp;
     })
     .extend('context', ({ temp }): CreateNodesContext => ({
@@ -65,7 +65,7 @@ describe('@rasm/nx-vitest', () => {
                                         command: 'vitest run',
                                         inputs: ['default', '^production', { externalDependencies: ['vitest'] }, { env: 'CI' }, { dependentTasksOutputFiles: '**/*.{js,mjs,cjs,ts,mts,cts,jsx,tsx}', transitive: true }],
                                         metadata: {
-                                            description: 'Runs every Vitest project of the suite with vitest run, beside no other task where a project runs in a browser, since Chromium fails queued requests when a host address changes',
+                                            description: 'Runs every Vitest project of the suite with vitest run',
                                             help: { command: 'npx vitest run --help', example: { args: ['--project', '<name>'] } },
                                             technologies: ['vitest'],
                                         },
@@ -187,6 +187,22 @@ describe('@rasm/nx-vitest', () => {
 
             expect(nodes[0]?.[1].projects?.['libs/viteful']?.targets).toHaveProperty(['test--vitest']);
             expect(nodes[1]).toStrictEqual(['libs/plain/vite.config.ts', { projects: {} }]);
+        });
+    });
+
+    describe('browser mode', () => {
+        it('should leave parallelism unset for a browser suite, since Nx starts a non-parallel task only when no task runs and reschedules nothing when a continuous task exits', async ({ temp, context }) => {
+            await temp.createFiles({
+                'libs/ui/package.json': '{"name":"ui"}',
+                'libs/ui/vitest.config.ts': "import { playwright } from '@vitest/browser-playwright';\n\nexport default { test: { browser: { enabled: true, provider: playwright(), instances: [{ browser: 'chromium' }], screenshotDirectory: 'shots' } } };\n",
+            });
+            temp.createDirSync('node_modules/@vitest');
+            symlinkSync(dirname(`${findPackageJSON(import.meta.resolve('@vitest/browser-playwright'))}`), join(temp.tempDir, 'node_modules/@vitest/browser-playwright'), 'dir');
+
+            const nodes = await createNodesFunction(['libs/ui/vitest.config.ts'], {}, context);
+
+            expect(nodes[0]?.[1].projects?.['libs/ui']?.targets?.['test--vitest']).not.toHaveProperty('parallelism');
+            expect(nodes[0]?.[1].projects?.['libs/ui']?.targets?.['test--vitest']?.outputs).toContain('{projectRoot}/shots');
         });
     });
 

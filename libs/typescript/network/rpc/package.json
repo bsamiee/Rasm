@@ -1,0 +1,47 @@
+{
+    "name": "@rasm/rpc",
+    "version": "0.1.0",
+    "private": true,
+    "description": "Effect RPC transports a caller addresses: an RPC client protocol over a child process's standard input and output, and a link where a peer dials a listening server over a WebSocket that redials, serves the group on it, and the server calls each peer by key",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/bsamiee/Rasm.git",
+        "directory": "libs/typescript/network/rpc"
+    },
+    "files": [
+        "dist/**/*.js",
+        "dist/**/*.d.ts"
+    ],
+    "type": "module",
+    "sideEffects": false,
+    "imports": {
+        "#/*": "./*.ts"
+    },
+    "exports": {
+        ".": "./index.ts",
+        "./package.json": "./package.json"
+    },
+    "publishConfig": {
+        "imports": {
+            "#/*": "./dist/*.js"
+        },
+        "exports": {
+            ".": "./dist/index.js",
+            "./package.json": "./package.json"
+        },
+        "access": "public"
+    },
+    "dependencies": {
+        "@rasm/search": "workspace:*"
+    },
+    "devDependencies": {
+        "effect": "catalog:"
+    },
+    "peerDependencies": {
+        "effect": "catalog:peers"
+    },
+    "engines": {
+        "node": "^24.14.0 || >=25.4.0"
+    }
+}

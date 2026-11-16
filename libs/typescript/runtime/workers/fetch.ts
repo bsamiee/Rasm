@@ -1,10 +1,10 @@
 import { Context, Effect, Layer, type Scope } from 'effect';
 import { HttpEffect, HttpRouter, type HttpServerRequest } from 'effect/http';
-import { Execution, type Kind } from '#/runtime/execution';
+import { Execution, type Kind } from '#/execution';
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class Served extends Context.Service<Served, (request: Request, invocation: Context.Context<Execution>) => Promise<Response>>()('@rasm/workers/runtime/fetch/Served') {}
+class Served extends Context.Service<Served, (request: Request, invocation: Context.Context<Execution>) => Promise<Response>>()('@rasm/workers/fetch/Served') {}
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

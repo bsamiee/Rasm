@@ -1,6 +1,7 @@
 import { type Declaration, HostError, Reference, Specifier } from '@rasm/object-model';
 import { encode, isPlain } from '@rasm/object-model/host';
 import { Unmatched } from '@rasm/search';
+import { Settings } from '@rasm/typography';
 import { Uxp } from '@rasm/uxp/plugin';
 import indesign, {
     type AnySwatch,
@@ -324,6 +325,7 @@ class Model extends Context.Service<Model>()('@rasm/indesign/uxp/model', {
                     throw new Cause.IllegalArgumentError('Result holds a promise, scripts answer before it settles');
                 }),
                 Match.when(Schema.is(Uxp.Entry), ({ url }) => String(url)),
+                Match.when(Schema.is(Settings), flow(Schema.encodeOption(Schema.toCodecJson(Settings)), Option.getOrUndefined)),
                 Match.when(Predicate.isError, flow(Schema.encodeOption(Schema.Defect()), Option.getOrUndefined)),
                 Match.when(
                     Predicate.isMap,

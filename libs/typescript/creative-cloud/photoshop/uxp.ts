@@ -4,7 +4,7 @@ import { Unmatched } from '@rasm/search';
 import { Uxp } from '@rasm/uxp/plugin';
 import * as photoshop from 'adobe:photoshop';
 import { type File, host } from 'adobe:uxp';
-import { Array, Cause, Effect, Exit, flow, Match, Option, Path, Predicate, Record, Schema, String, Struct } from 'effect';
+import { Array, Cause, Effect, Exit, flow, Match, Option, Predicate, Record, Schema, String, Struct } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -55,7 +55,7 @@ const Png = Schema.Struct({
 const Entry = Uxp.Entry.mapFields(Struct.assign({ isFile: Schema.Literal(true) }));
 const Members = Schema.Record(Schema.String, Schema.Union([Schema.String, Schema.Finite]));
 const Rejected = Schema.Struct({ number: Schema.Union(Record.collect(REJECTIONS, (tag, code) => Schema.Literal(code).transform(tag))) });
-const Executable = Schema.Tuple([Schema.Union([Schema.Struct({ executablePath: Schema.Struct({ _path: Schema.NonEmptyString }) }), Schema.Struct({ _obj: Schema.Literal('error'), message: Schema.String, result: Schema.Int })])]);
+const Hosted = Schema.Tuple([Schema.Struct({ hostName: Schema.NonEmptyString.annotate({ description: 'Application name, the bundle name of the installation' }) })]);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -153,12 +153,13 @@ const objectModel = (name: Option.Option<string>) =>
             },
         }),
     );
-const application = Effect.gen(function* () {
-    const refused = HostError.refused(`Photoshop ${host.version} executable path`);
-    const descriptors = yield* Effect.tryPromise({ try: () => photoshop.action.batchPlay([{ _obj: 'get', _target: [{ _property: 'executablePath' }, { _ref: 'application', _enum: 'ordinal', _value: 'targetEnum' }] }], {}), catch: refused });
-    const [reply] = yield* Schema.decodeUnknownEffect(Executable)(descriptors).pipe(Effect.mapError((cause) => refused({ cause, fields: descriptors.map(Struct.keys) })));
-    return yield* 'message' in reply ? refused(reply) : Effect.flatMap(Path.Path, (path) => path.toFileUrl(reply.executablePath._path));
-});
+const application = Effect.tryPromise({
+    try: () => photoshop.action.batchPlay([{ _obj: 'get', _target: [{ _property: 'hostName' }, { _ref: 'application', _enum: 'ordinal', _value: 'targetEnum' }] }], {}),
+    catch: HostError.refused(`Photoshop ${host.version} host name`),
+}).pipe(
+    Effect.flatMap(Schema.decodeUnknownEffect(Hosted)),
+    Effect.map(([{ hostName }]) => hostName),
+);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

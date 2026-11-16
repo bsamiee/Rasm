@@ -1,5 +1,5 @@
 import { bindings, type WorkerConfig } from 'cf/config';
-import { Array, Record, type Schema, Struct } from 'effect';
+import { Array, Match, Record, type Schema, Struct } from 'effect';
 import { App, type Binding } from '#/app/app';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -8,6 +8,11 @@ interface Projection extends Struct.Lambda {
     (binding: Binding): ReturnType<(typeof projection)[Binding['_tag']]>;
     readonly '~lambda.in': Binding;
     readonly '~lambda.out': ReturnType<(typeof projection)[this['~lambda.in']['_tag']]>;
+}
+interface Served extends Struct.Lambda {
+    (binding: Binding): Pick<Binding, '_tag'>;
+    readonly '~lambda.in': Binding;
+    readonly '~lambda.out': this['~lambda.in'] extends { readonly _tag: 'bucket' } ? Pick<this['~lambda.in'], '_tag' | 'uploads'> : Pick<this['~lambda.in'], '_tag'>;
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -32,6 +37,19 @@ const worker = <const E extends Record.ReadonlyRecord<string, Binding>, const C 
             ...Struct.get(config, 'env'),
             [App.bundle.fetcher]: bindings.assets(),
             OTEL_SERVICE_NAME: bindings.text(app.name),
+            HOSTING: bindings.json({
+                assets: App.bundle.fetcher,
+                allowed: [...app.allowed],
+                env: Struct.map(
+                    app.env,
+                    Struct.lambda<Served>(
+                        Match.type<Binding>().pipe(
+                            Match.tag('bucket', ({ _tag, uploads }) => ({ _tag, uploads })),
+                            Match.orElse(({ _tag }) => ({ _tag })),
+                        ),
+                    ),
+                ),
+            }),
             ...Struct.evolve(
                 Record.map<keyof E & string, Binding, string>(app.env, (_, variable) => App.resource(app, 'production', variable)),
                 Struct.map(app.env, Struct.lambda<Projection>(App.Binding.$match(projection))),

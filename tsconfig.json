@@ -220,6 +220,18 @@
         },
         {
             "path": "./libs/typescript/creative-cloud/illustrator"
+        },
+        {
+            "path": "./libs/typescript/network/rpc"
+        },
+        {
+            "path": "./products/apps/creative-cloud/aftereffects/atelier"
+        },
+        {
+            "path": "./products/apps/creative-cloud/illustrator/atelier"
+        },
+        {
+            "path": "./products/apps/creative-cloud/photoshop/atelier"
         }
     ]
 }

@@ -8,7 +8,7 @@ import { formatHex } from 'culori/fn';
 import { Array, Effect, FileSystem, Option, Record, Schema, String } from 'effect';
 import { applyEdits, modify } from 'jsonc-parser';
 import { defaultClientConditions, defaultServerConditions, mergeConfig, type Rolldown, type UserConfig, type UserConfigFnPromise } from 'vite';
-import { UxpManifest } from '#/index';
+import { UxpManifest } from '#/manifest';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

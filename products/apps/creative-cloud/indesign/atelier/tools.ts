@@ -87,7 +87,7 @@ const typeset = <E, R>(client: Client, font: Font<E, R>) =>
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const tools = {
+const indesign = {
     instructions: [
         'execute_script runs body in linked InDesign synchronously in one undo step that a throw rolls back',
         'execute_script runs awaited work of a linked InDesign body after the answer',
@@ -118,4 +118,4 @@ const tools = {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { tools };
+export { indesign };

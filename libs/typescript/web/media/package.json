@@ -10,7 +10,8 @@
         "directory": "libs/typescript/web/media"
     },
     "files": [
-        "dist"
+        "dist/**/*.js",
+        "dist/**/*.d.ts"
     ],
     "type": "module",
     "sideEffects": false,
@@ -23,7 +24,8 @@
         "./pdf-document": "./pdf-document.ts",
         "./pdf-viewer": "./pdf-viewer.tsx",
         "./vite": "./vite.ts",
-        "./zoom-viewer": "./zoom-viewer.tsx"
+        "./zoom-viewer": "./zoom-viewer.tsx",
+        "./package.json": "./package.json"
     },
     "publishConfig": {
         "imports": {
@@ -35,7 +37,8 @@
             "./pdf-document": "./dist/pdf-document.js",
             "./pdf-viewer": "./dist/pdf-viewer.js",
             "./vite": "./dist/vite.js",
-            "./zoom-viewer": "./dist/zoom-viewer.js"
+            "./zoom-viewer": "./dist/zoom-viewer.js",
+            "./package.json": "./package.json"
         },
         "access": "public"
     },
@@ -71,5 +74,8 @@
         "vite": {
             "optional": true
         }
+    },
+    "engines": {
+        "node": "^24.14.0 || >=25.4.0"
     }
 }

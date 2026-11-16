@@ -4,7 +4,8 @@
     "description": "Nx conformance rules over the project graph and workspace files that Nx, its plugins, and other checkers leave unchecked, run by nx conformance",
     "type": "module",
     "exports": {
-        "./*": "./*/index.ts"
+        "./*": "./*/rule.ts",
+        "./package.json": "./package.json"
     },
     "dependencies": {
         "@nx/conformance": "catalog:",

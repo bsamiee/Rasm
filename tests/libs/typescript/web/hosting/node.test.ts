@@ -1,13 +1,13 @@
 import { assert, it } from '@effect/vitest';
 import { App } from '@rasm/hosting';
-import { Access, Identity } from '@rasm/hosting/identity';
+import { Access } from '@rasm/hosting/identity';
 import { serveNode } from '@rasm/hosting/node';
 import { ByteSize, ConfigProvider, Effect, type Record, Redacted, Schema } from 'effect';
 import { HttpRouter, HttpServerResponse } from 'effect/http';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const app = new App({ name: 'stated', env: { GREETING: App.Binding.text({ value: 'hello' }), TOKEN: App.Binding.secret() }, allowed: [], identity: Identity.sites, targets: [], limits: { cpus: 1, memory: ByteSize.megabytes(256) } });
+const app = new App({ name: 'stated', env: { GREETING: App.Binding.text({ value: 'hello' }), TOKEN: App.Binding.secret() }, allowed: [], targets: [], limits: { cpus: 1, memory: ByteSize.megabytes(256) } });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

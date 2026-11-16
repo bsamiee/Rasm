@@ -10,16 +10,19 @@
         "directory": "libs/typescript/creative-cloud/photoshop"
     },
     "files": [
-        "dist"
+        "dist/**/*.js",
+        "dist/**/*.d.ts"
     ],
     "type": "module",
     "sideEffects": false,
     "exports": {
-        "./uxp": "./uxp.ts"
+        "./uxp": "./uxp.ts",
+        "./package.json": "./package.json"
     },
     "publishConfig": {
         "exports": {
-            "./uxp": "./dist/uxp.js"
+            "./uxp": "./dist/uxp.js",
+            "./package.json": "./package.json"
         },
         "access": "public"
     },
@@ -36,5 +39,8 @@
     },
     "peerDependencies": {
         "effect": "catalog:peers"
+    },
+    "engines": {
+        "node": "^24.14.0 || >=25.4.0"
     }
 }

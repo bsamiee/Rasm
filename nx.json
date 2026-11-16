@@ -118,23 +118,23 @@
         "outputPath": ".artifacts/conformance/result.json",
         "rules": [
             {
-                "rule": "./tools/conformance/one-version/index.ts",
+                "rule": "./tools/conformance/one-version/rule.ts",
                 "options": { "packages": ["nx", "@nx/*"] }
             },
-            { "rule": "./tools/conformance/nx-schemas/index.ts" },
+            { "rule": "./tools/conformance/nx-schemas/rule.ts" },
             {
-                "rule": "./tools/conformance/task-graph/index.ts",
+                "rule": "./tools/conformance/task-graph/rule.ts",
                 "options": {
                     "folders": [".artifacts/*/**", "**/{dist,.build,.cloudflare/output,.cloudflare/types}{,/**}"],
                     "clean": "clean"
                 }
             },
             {
-                "rule": "./tools/conformance/aggregate-targets/index.ts",
+                "rule": "./tools/conformance/aggregate-targets/rule.ts",
                 "options": { "separator": "--" }
             },
             {
-                "rule": "./tools/conformance/task-inputs/index.ts",
+                "rule": "./tools/conformance/task-inputs/rule.ts",
                 "options": {
                     "files": ["products/developer/nx/**", ".config/mise.lock"],
                     "env": [
@@ -164,8 +164,8 @@
                     ]
                 }
             },
-            { "rule": "./tools/conformance/release-projects/index.ts" },
-            { "rule": "./tools/conformance/portable-graph/index.ts" }
+            { "rule": "./tools/conformance/release-projects/rule.ts" },
+            { "rule": "./tools/conformance/portable-graph/rule.ts" }
         ]
     },
     "release": {

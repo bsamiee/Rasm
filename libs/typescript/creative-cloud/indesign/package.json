@@ -10,7 +10,8 @@
         "directory": "libs/typescript/creative-cloud/indesign"
     },
     "files": [
-        "dist"
+        "dist/**/*.js",
+        "dist/**/*.d.ts"
     ],
     "type": "module",
     "sideEffects": false,
@@ -19,7 +20,8 @@
     },
     "exports": {
         ".": "./index.ts",
-        "./uxp": "./uxp/index.ts"
+        "./uxp": "./uxp/index.ts",
+        "./package.json": "./package.json"
     },
     "publishConfig": {
         "imports": {
@@ -27,7 +29,8 @@
         },
         "exports": {
             ".": "./dist/index.js",
-            "./uxp": "./dist/uxp/index.js"
+            "./uxp": "./dist/uxp/index.js",
+            "./package.json": "./package.json"
         },
         "access": "public"
     },
@@ -45,5 +48,8 @@
     },
     "peerDependencies": {
         "effect": "catalog:peers"
+    },
+    "engines": {
+        "node": "^24.14.0 || >=25.4.0"
     }
 }

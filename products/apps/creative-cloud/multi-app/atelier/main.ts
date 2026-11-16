@@ -2,18 +2,19 @@ import process from 'node:process';
 import { layerDigest } from '@effect/platform-node/NodeCrypto';
 import { runMain } from '@effect/platform-node/NodeRuntime';
 import { layer } from '@effect/platform-node/NodeServices';
-import { Automation } from '@rasm/applications/node';
+import { ApplicationServer } from '@rasm/applications/node';
 import { Peer } from '@rasm/atelier-protocol/peer';
-import { HostError } from '@rasm/automation';
 import { serve } from '@rasm/mcp/node';
+import { spawn } from '@rasm/process';
 import { teardown } from '@rasm/telemetry/node';
-import { Array, Deferred, Duration, Effect, FileSystem, identity, Layer, Path, Result, Schema, ScopedRef, Sink, Stream, SubscriptionRef } from 'effect';
-import { ChildProcess } from 'effect/process';
+import { Array, Cause, Config, Duration, Effect, FileSystem, identity, Layer, Option, Path, Result, Schema, ScopedRef, Sink, Stream, SubscriptionRef } from 'effect';
+import { McpProtocol } from 'effect/ai';
+import { Flag } from 'effect/cli';
+import { Host } from 'effect/net';
 import { parse } from 'plist';
-import { Adobe } from '#/adobe';
 import { appleEvents } from '#/features/apple-events';
-import { applications, control } from '#/features/applications';
-import { faces, font } from '#/features/fonts';
+import { applications } from '#/features/applications';
+import { Fonts, fonts } from '#/features/fonts';
 import { plugins } from '#/features/plugins';
 import { typesetting } from '#/features/typesetting';
 import { listening } from '#/libraries';
@@ -27,16 +28,10 @@ const Bundle = Schema.Struct({ CFBundleExecutable: Schema.String, CFBundleShortV
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const tools = Effect.fnUntraced(function* (ended: Deferred.Deferred<never, HostError>) {
-    const [adobe, links, dependencies] = yield* Effect.all([Adobe, listening, status]);
-    yield* Effect.match(adobe.exited, { onSuccess: (code) => `exit code ${code}`, onFailure: identity }).pipe(
-        Effect.flatMap((cause) => HostError.make({ reason: { _tag: 'Unavailable' }, subject: 'Atelier host', cause })),
-        Deferred.into(ended),
-        Effect.forkScoped,
-    );
-    yield* Effect.all([applications, faces], { discard: true });
-    const round = Effect.flatMap(routes(dependencies, links), (routed) => Effect.all([control(routed, dependencies), appleEvents(routed), font(routed), typesetting(routed), plugins(routed, links)], { discard: true }));
-    const discovered = SubscriptionRef.changes(adobe.installations).pipe(
+const tools = Effect.gen(function* () {
+    const [server, links, dependencies] = yield* Effect.all([ApplicationServer, listening, status]);
+    const round = Effect.flatMap(routes(dependencies, links), (routed) => Effect.all([applications(routed, dependencies), appleEvents(routed), fonts(routed), typesetting(routed), plugins(routed, links)], { discard: true }));
+    const discovered = SubscriptionRef.changes(server.installations).pipe(
         Stream.tap(Result.match({ onSuccess: () => Effect.void, onFailure: (error) => Effect.logError('Adobe application discovery failed, tools keep the last installations', error) })),
         Stream.filterMap(identity),
         Stream.map(Array.map((row) => [row.name, row.url.href] as const)),
@@ -47,7 +42,7 @@ const tools = Effect.fnUntraced(function* (ended: Deferred.Deferred<never, HostE
     yield* Effect.forkScoped(Stream.runForEach(Stream.merge(rest, Stream.drop(links.changes, 1)), () => ScopedRef.set(generation, round)));
 });
 Effect.gen(function* () {
-    const [path, files, ended] = yield* Effect.all([Path.Path, FileSystem.FileSystem, Deferred.make<never, HostError>()]);
+    const [path, files] = yield* Effect.all([Path.Path, FileSystem.FileSystem]);
     const contents = path.join(path.dirname(process.execPath), '..');
     const { CFBundleExecutable, CFBundleShortVersionString } = yield* files.readFileString(path.join(contents, 'Info.plist')).pipe(
         Effect.flatMap((text) => Effect.try(() => parse(text))),
@@ -56,17 +51,23 @@ Effect.gen(function* () {
     return yield* serve(
         { name: manifest.name, description: manifest.description, version: CFBundleShortVersionString },
         {
-            retention: Duration.hours(1),
-            listen: Peer.link.endpoint,
+            listen: Flag.String('listen').pipe(Flag.withSchema(Schema.HostPortFromString), Flag.withDefault(Host.hostPortFromStringUnsafe(Peer.link.url.host)), Flag.map(Option.some), Flag.withDescription('Endpoint as host:port or [IPv6]:port, a host name binds every address it resolves to')),
+            hosts: Flag.String('allowed-host').pipe(Flag.atLeast(1), Flag.withFallbackConfig(Config.Array(Schema.String, 'MCP_ALLOWED_HOSTS')), Flag.withDefault([]), Flag.withDescription('Accepted Host header beyond loopback and bound address')),
+            target: 'file',
+            executions: { name: 'executions', description: 'Refused state-changing calls that keep running', retention: Duration.hours(1) },
+            protocols: [McpProtocol.v2026_07_28, McpProtocol.v2025_11_25, McpProtocol.v2025_06_18, McpProtocol.v2025_03_26, McpProtocol.v2024_11_05],
             instructions: [
                 'Specifiers come from results',
                 'State-changing calls return early when a dialog requires an answer',
-                'screenshot reads every window of a background application with no activation',
+                'capture reads every window of a background application with no activation',
                 'execute_script runs a body as written, activate in a body takes focus from the user and reports active on the call',
                 'A blocking window is a new window on a blocked main thread, perform answers it with a key action, its leaving alone proves the answer, else a person answers it',
             ],
         },
-        Layer.effectDiscard(tools(ended)).pipe(Layer.provide(Layer.provideMerge(Adobe.layer, Automation.layer(ChildProcess.make(path.join(contents, 'MacOS', CFBundleExecutable), { stderr: 'inherit' })))), Layer.provide(layerDigest)),
-        Deferred.await(ended),
-    );
+        Layer.effectDiscard(tools).pipe(Layer.provideMerge(Fonts.layer), Layer.provide(layerDigest)),
+        ApplicationServer.pipe(
+            Effect.flatMap(({ exited }) => exited),
+            Effect.flatMap((code) => Effect.fail(new Cause.UnknownError(code, `Atelier helper exited ${code}`))),
+        ),
+    ).pipe(Effect.provide(ApplicationServer.layer(spawn([path.join(contents, 'MacOS', CFBundleExecutable)], { stderr: 'inherit' }))));
 }).pipe(Effect.provide(layer), runMain({ teardown }));

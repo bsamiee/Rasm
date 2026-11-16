@@ -1,15 +1,15 @@
 import { useAtomSet } from '@effect/atom-react';
+import { Identity } from '@rasm/hosting/identity';
 import { Field } from '@rasm/ui';
 import { Optic } from 'effect';
 import type { Atom } from 'effect/reactivity';
 import { PlacementFields } from '#/editor/placement-fields.tsx';
 import { draft, hero, portfolio } from '#/editor/state';
-import hosting from '#/hosting.config';
 import { MediaFigure } from '#/media/media-figure.tsx';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const Identity = ({ idPrefix, onChooseHero, ...state }: Pick<Atom.Success<typeof draft>, 'assets' | 'portfolio'> & { readonly idPrefix: string; readonly onChooseHero: () => void }) => {
+const Profile = ({ idPrefix, onChooseHero, ...state }: Pick<Atom.Success<typeof draft>, 'assets' | 'portfolio'> & { readonly idPrefix: string; readonly onChooseHero: () => void }) => {
     const setDraft = useAtomSet(draft);
     const field = (name: 'name' | 'introduction' | 'email') => ({ id: `${idPrefix}${name}`, name, value: state.portfolio[name], onChange: (value: string) => setDraft(Optic.replace(portfolio.key(name), value)) });
     return (
@@ -39,7 +39,7 @@ const Identity = ({ idPrefix, onChooseHero, ...state }: Pick<Atom.Success<typeof
                     </PlacementFields>
                 </>
             )}
-            <a className="mt-8.75 text-sm underline" href={hosting.identity.href('signout', '/')} target="_top">
+            <a className="mt-8.75 text-sm underline" href={Identity.sites.href('signout', '/')} target="_top">
                 Sign out
             </a>
         </>
@@ -48,4 +48,4 @@ const Identity = ({ idPrefix, onChooseHero, ...state }: Pick<Atom.Success<typeof
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Identity };
+export { Profile };

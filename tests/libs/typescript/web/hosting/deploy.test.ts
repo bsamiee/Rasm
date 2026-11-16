@@ -3,7 +3,6 @@ import { assert, it } from '@effect/vitest';
 import { all, runtime } from '@pulumi/pulumi';
 import { App } from '@rasm/hosting';
 import { deployApp } from '@rasm/hosting/deploy';
-import { Identity } from '@rasm/hosting/identity';
 import { Array, ByteSize, ConfigProvider, Effect, FileSystem, flow, MutableRef, Path, Record, Schema } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -25,7 +24,7 @@ const FILES = {
     },
     'workers/default/assets/sheets.json': { sheets: [] },
 };
-const APP = new App({ name: 'sheets', env: {}, allowed: [], identity: Identity.sites, targets: [App.Target.Cloudflare()], limits: { cpus: 1, memory: ByteSize.gibibytes(1) } });
+const APP = new App({ name: 'sheets', env: {}, allowed: [], targets: [App.Target.Cloudflare()], limits: { cpus: 1, memory: ByteSize.gibibytes(1) } });
 const TYPES = { database: 'cloudflare:index/d1Database:D1Database', bucket: 'cloudflare:index/r2Bucket:R2Bucket', queue: 'cloudflare:index/queue:Queue', version: 'cloudflare:index/workerVersion:WorkerVersion' } as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
