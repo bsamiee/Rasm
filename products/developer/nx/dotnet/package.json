@@ -11,14 +11,14 @@
     "files": [
         "dist/**/*.js",
         "dist/**/*.d.ts",
-        "dist/lib",
+        "analyzer/dist",
         "executors.json",
         "executors/*/schema.json"
     ],
     "type": "module",
     "imports": {
         "#/*": "./*.ts",
-        "#analyzer": "./dist/lib/MsbuildAnalyzer.dll",
+        "#analyzer": "./analyzer/dist/MsbuildAnalyzer.dll",
         "#package": "./package.json"
     },
     "exports": {
@@ -30,7 +30,7 @@
     "publishConfig": {
         "imports": {
             "#/*": "./dist/*.js",
-            "#analyzer": "./dist/lib/MsbuildAnalyzer.dll",
+            "#analyzer": "./analyzer/dist/MsbuildAnalyzer.dll",
             "#package": "./package.json"
         },
         "exports": {

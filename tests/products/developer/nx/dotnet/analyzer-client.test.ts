@@ -61,11 +61,11 @@ describe('MsbuildAnalyzer', { timeout: 30_000 }, () => {
 
         await analyzeProjects(['a/a.csproj']);
 
-        await expect(spawns()).resolves.toStrictEqual([expect.stringMatching(new RegExp(`^\\S+/dist/lib/MsbuildAnalyzer\\.dll ${RegExp.escape(tempFs.tempDir)}$`, 'u'))]);
+        await expect(spawns()).resolves.toStrictEqual([expect.stringMatching(new RegExp(`^\\S+/analyzer/dist/MsbuildAnalyzer\\.dll ${RegExp.escape(tempFs.tempDir)}$`, 'u'))]);
     });
 
     it('should build a configured analyzer into the workspace data folder, run the assembly it reports, and build again only after its sources change', async ({ tempFs, dotnet, spawns }) => {
-        const shipped = join(dirname(fileURLToPath(import.meta.resolve('@rasm/nx-dotnet/package.json'))), 'dist/lib/MsbuildAnalyzer.dll');
+        const shipped = join(dirname(fileURLToPath(import.meta.resolve('@rasm/nx-dotnet/package.json'))), 'analyzer/dist/MsbuildAnalyzer.dll');
         await tempFs.createFiles({ 'tool/Tool.csproj': project(), 'tool/Program.cs': 'return 0;' });
         await dotnet(`[ "$1" = build ] && exec printf '{"TargetResults":{"Build":{"Items":[{"Identity":"${shipped}"}]}}}'\nPATH="$(printf %s "$PATH" | cut -d: -f2-)" exec dotnet "$@"`);
         const read = () => createNodes[1](['a/a.csproj'], { analyzer: 'tool/Tool.csproj' }, { nxJsonConfiguration: {}, workspaceRoot: tempFs.tempDir });
