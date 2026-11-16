@@ -18,8 +18,6 @@ const SOLUTIONS = ['.slnx', '.sln'];
 const FILES = combineGlobPatterns([`*{${[...PROJECTS, ...SOLUTIONS].join(',')},.props,.targets,.globalconfig}`, 'global.json', 'Directory.Build.rsp', 'nuget.config', 'NuGet.config', 'NuGet.Config', '.editorconfig'].map((file) => `**/${file}`));
 const PLATFORMS: Readonly<Record<string, NodeJS.Platform>> = { windows: 'win32', macos: 'darwin', maccatalyst: 'darwin', ios: 'darwin', tvos: 'darwin' };
 const ANALYZER = fileURLToPath(import.meta.resolve('#analyzer'));
-const HOME = dirname(fileURLToPath(import.meta.resolve('#package')));
-const SOURCE = join(HOME, 'analyzer', 'MsbuildAnalyzer.csproj');
 const TAGS = { release: 'release', platform: 'os:' } as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -76,32 +74,30 @@ const own = Effect.runSync(
     ),
 );
 
-const stamped = Effect.fnUntraced(function* (workspaceRoot: string, analyzer: string, { evaluated, nodes }: Report) {
+const stamped = Effect.fnUntraced(function* (workspaceRoot: string, { evaluated, nodes }: Report) {
     const fs = yield* FileSystem.FileSystem;
     const tracked = yield* Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, [...evaluated, ...nodes.flatMap(({ locks }) => locks)]));
-    const folders = Array.dedupe([dirname(analyzer), ...nodes.flatMap(({ restored }) => restored.map((folder) => join(workspaceRoot, folder)))]);
+    const folders = Array.dedupe([dirname(ANALYZER), ...nodes.flatMap(({ restored }) => restored.map((folder) => join(workspaceRoot, folder)))]);
     const held = yield* Effect.forEach(folders, (folder) => Effect.map(Effect.orElseSucceed(fs.readDirectory(folder), Array.empty<string>), (names) => ({ folder, names })), { concurrency: 'unbounded' });
     const files = held.flatMap(({ folder, names }) => names.toSorted().map((name) => join(folder, name)));
     return hashArray([tracked, ...files.flatMap((file) => [relative(workspaceRoot, file), ...Array.fromNullishOr(hashFile(file))])]);
 });
 
-const analyzed = Effect.fnUntraced(function* (workspaceRoot: string, project: Option.Option<string>, matched: readonly string[]) {
-    const argv = Option.match(project, { onNone: () => ['dotnet', ANALYZER, workspaceRoot] as const, onSome: (at) => ['dotnet', 'run', '--project', at, '--', workspaceRoot] as const });
+const analyzed = Effect.fnUntraced(function* (workspaceRoot: string, matched: readonly string[]) {
+    const argv = ['dotnet', ANALYZER, workspaceRoot] as const;
     const report = yield* Effect.flatMap(spawned(argv, { cwd: workspaceRoot, stdin: Stream.encodeText(Stream.make(matched.join('\n'))) }), (stdout) => Effect.mapError(Schema.decodeEffect(Reported)(stdout), (error) => new Cause.UnknownError(error, `${CommandLine.display(argv)} printed no report: ${stdout}`)));
     const known = new Set(yield* Effect.promise(() => globWithWorkspaceContext(workspaceRoot, Array.dedupe(report.nodes.flatMap(({ inputs }) => inputs)))));
     return { ...report, nodes: report.nodes.map((node) => ({ ...node, inputs: node.inputs.filter((input) => known.has(input)) })) };
 });
 
-const related = (workspaceRoot: string, project: Option.Option<string>, { nodes }: Report): readonly RawProjectGraphDependency[] => {
+const related = ({ nodes }: Report): readonly RawProjectGraphDependency[] => {
     const pinned = new Map(nodes.map((node) => [node.file, Record.fromIterableWith(node.packages, (reference) => [reference.id, reference] as const)] as const));
-    const home = relative(workspaceRoot, HOME);
     return [
         ...nodes.flatMap((node) => node.references.map((reference): RawProjectGraphDependency => ({ source: dirname(node.file), target: reference.root, ...(reference.declared === node.file ? { type: DependencyType.static, sourceFile: node.file } : { type: DependencyType.implicit }) }))),
         ...nodes.flatMap((node) => node.packages.filter(({ direct }) => direct).map((reference): RawProjectGraphDependency => ({ source: dirname(node.file), target: external(reference), type: DependencyType.implicit }))),
         ...nodes.flatMap((node) =>
             node.packages.flatMap((reference) => Array.getSomes(reference.dependencies.map((dependency) => Record.get(pinned.get(node.file) ?? {}, dependency))).map((target) => ({ source: external(reference), target: external(target), type: DependencyType.static }) satisfies RawProjectGraphDependency)),
         ),
-        ...nodes.filter((node) => Option.contains(project, join(workspaceRoot, node.file)) && !home.startsWith('..')).map((node): RawProjectGraphDependency => ({ source: home, target: dirname(node.file), type: DependencyType.static, sourceFile: join(home, 'package.json') })),
     ];
 };
 
@@ -140,16 +136,13 @@ const projected = (nodes: readonly Node[], settings: typeof Options.Type, manife
 
 const inferred = Effect.fnUntraced(function* (matched: readonly string[], options: typeof Options.Encoded | undefined, { workspaceRoot }: CreateNodesContext) {
     const [fs, edges, settings, hashed] = yield* Effect.all([FileSystem.FileSystem, Edges, Schema.decodeEffect(Options)(options ?? {}), own]);
-    const present = yield* fs.exists(SOURCE);
-    const project = Option.liftPredicate(SOURCE, () => present);
-    const analyzer = Option.getOrElse(project, () => ANALYZER);
     const cache = new PluginCache<{ readonly report: Report; readonly stamp: string }>(join(workspaceDataDirectory, `dotnet-${hashed}.hash`));
     const key = yield* Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, [...matched]));
-    const held = yield* Effect.findFirst(Array.fromNullishOr(cache.get(key)), (stored) => Effect.map(stamped(workspaceRoot, analyzer, stored.report), (now) => now === stored.stamp));
-    const read = yield* Effect.result(Option.match(held, { onSome: (stored) => Effect.succeed(stored.report), onNone: () => analyzed(workspaceRoot, project, matched) }));
+    const held = yield* Effect.findFirst(Array.fromNullishOr(cache.get(key)), (stored) => Effect.map(stamped(workspaceRoot, stored.report), (now) => now === stored.stamp));
+    const read = yield* Effect.result(Option.match(held, { onSome: (stored) => Effect.succeed(stored.report), onNone: () => analyzed(workspaceRoot, matched) }));
     const report = Result.getOrElse(read, (): Report => ({ nodes: [], failures: [], evaluated: [] }));
-    yield* Option.isNone(held) && Result.isSuccess(read) && report.failures.length === 0 ? Effect.flatMap(stamped(workspaceRoot, analyzer, report), (stamp) => Effect.sync(() => cache.set(key, { report, stamp }))).pipe(Effect.andThen(Effect.sync(() => cache.writeToDisk()))) : Effect.void;
-    yield* Ref.set(edges, related(workspaceRoot, project, report));
+    yield* Option.isNone(held) && Result.isSuccess(read) && report.failures.length === 0 ? Effect.flatMap(stamped(workspaceRoot, report), (stamp) => Effect.sync(() => cache.set(key, { report, stamp }))).pipe(Effect.andThen(Effect.sync(() => cache.writeToDisk()))) : Effect.void;
+    yield* Ref.set(edges, related(report));
     const declared = Array.dedupe(report.nodes.flatMap((node) => [node.file, ...node.inputs, ...node.locks])).map((at) => join('{workspaceRoot}', at));
     const manifests = yield* Effect.forEach(report.nodes, (node) => manifested(workspaceRoot, dirname(node.file)));
     const solutions = yield* Effect.forEach(

@@ -18,7 +18,7 @@
 - Job containers install only the mise rows graph creation and Unreal targets read, under `.cache` of the checkout
 - CI and Release checkouts fetch full history, as `nx affected` and `nx release` compare commits a partial clone fetches one at a time
 - CI and Release checkouts on self-hosted runners keep ignored files (`clean: false`)
-- Action `tools` removes untracked files, then `jdx/mise-action` runs `mise --locked bootstrap --only tools` on finding `.config/mise.lock`, and its `post-tools` hook installs pnpm packages
+- Action `tools` removes untracked files, then `jdx/mise-action` runs `mise --locked bootstrap --only tools` on finding `.config/mise.lock`, and its `post-tools` hook installs pnpm packages and builds the analyzer `@rasm/nx-dotnet` runs
 
 ## [02]-[CACHE]
 

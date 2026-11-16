@@ -193,7 +193,7 @@ Other tasks run through their own commands:
 - `nx conformance:check` runs the `nx.json` `conformance` rules over the project graph and workspace files
 - `mise bootstrap` after a clone installs mise tools, pnpm packages, and hk's git hooks, and registers pitchfork as a Mac login agent
 - `nx build @rasm/nx-apple-darwin-arm64` builds the core `@rasm/nx-apple` reads Xcode projects through, on a Mac after a clone
-- `mise deps` syncs pnpm packages and each uv root from its lock where its inputs changed, the workspace root through Pixi libraries
+- `mise deps` syncs pnpm packages and each uv root from its lock where its inputs changed, the workspace root through Pixi libraries, and builds the analyzer `@rasm/nx-dotnet` runs where its source changed
 - `pixi run --locked python` supplies the library search path for `magic` and `weasyprint`
 - `nx sync` writes executor schemas and tsconfig `references`
 - `nx migrate <version>`, then `nx migrate --run-migrations`, applies a new Nx release's migrations, and `pnpm dedupe` moves peer ranges the lock held at the old release

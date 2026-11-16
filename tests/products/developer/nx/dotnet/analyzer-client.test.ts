@@ -54,6 +54,14 @@ describe('MsbuildAnalyzer', { timeout: 30_000 }, () => {
         await expect(spawns()).resolves.toStrictEqual([expect.not.stringContaining('"')]);
     });
 
+    it('should run the built analyzer assembly and compile nothing, as a compile at graph time races the build writing the same files', async ({ tempFs, analyzeProjects, dotnet, spawns }) => {
+        await dotnet('PATH="$(printf %s "$PATH" | cut -d: -f2-)" exec dotnet "$@"');
+
+        await analyzeProjects(['a/a.csproj']);
+
+        await expect(spawns()).resolves.toStrictEqual([expect.stringMatching(new RegExp(`^\\S+/dist/lib/MsbuildAnalyzer\\.dll ${RegExp.escape(tempFs.tempDir)}$`, 'u'))]);
+    });
+
     it('should return an error result when the analyzer exits non-zero', async ({ analyzeProjects, dotnet }) => {
         await dotnet('echo boom >&2\nexit 1');
 

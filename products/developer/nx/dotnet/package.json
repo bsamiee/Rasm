@@ -11,14 +11,14 @@
     "files": [
         "dist/**/*.js",
         "dist/**/*.d.ts",
-        "analyzer/dist",
+        "dist/lib",
         "executors.json",
         "executors/*/schema.json"
     ],
     "type": "module",
     "imports": {
         "#/*": "./*.ts",
-        "#analyzer": "./analyzer/dist/MsbuildAnalyzer.dll",
+        "#analyzer": "./dist/lib/MsbuildAnalyzer.dll",
         "#package": "./package.json"
     },
     "exports": {
@@ -30,7 +30,7 @@
     "publishConfig": {
         "imports": {
             "#/*": "./dist/*.js",
-            "#analyzer": "./analyzer/dist/MsbuildAnalyzer.dll",
+            "#analyzer": "./dist/lib/MsbuildAnalyzer.dll",
             "#package": "./package.json"
         },
         "exports": {
@@ -61,6 +61,9 @@
     },
     "executors": "./executors.json",
     "nx": {
+        "implicitDependencies": [
+            "MsbuildAnalyzer"
+        ],
         "targets": {
             "pack--pnpm": {
                 "dependsOn": [

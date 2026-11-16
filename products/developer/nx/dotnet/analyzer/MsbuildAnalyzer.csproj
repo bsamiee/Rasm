@@ -6,7 +6,7 @@
         <ServerGarbageCollection>true</ServerGarbageCollection>
         <UseAppHost>false</UseAppHost>
         <DebugType>embedded</DebugType>
-        <OutputPath>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', 'dist'))</OutputPath>
+        <OutputPath>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', '..', 'dist', 'lib'))</OutputPath>
     </PropertyGroup>
 
     <ItemGroup Label="Build Engine">
