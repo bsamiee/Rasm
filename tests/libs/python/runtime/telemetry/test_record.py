@@ -50,7 +50,6 @@ def test_log_record_no_span_context(logger: logging.Logger, stream: io.StringIO)
     """A warning outside any span holds the invalid span context (`test_handler.py:105-122`)."""
     logger.warning("Warning message")
     record = get_log_record(stream, 0)
-    assert record is not None
     trace_id, span_id, trace_flags = record.get("trace_id", "0"), record.get("span_id", "0"), record.get("trace_flags", "0")
     assert isinstance(trace_id, str)
     assert isinstance(span_id, str)
@@ -64,7 +63,6 @@ def test_log_record_with_code_attributes(logger: logging.Logger, stream: io.Stri
     """A warning holds its call site beside its `extra` (`test_handler.py:152-174`)."""
     logger.warning("Warning message", extra={"http.status_code": 200})
     record = get_log_record(stream, 0)
-    assert record is not None
     attributes = record["attributes"]
     assert isinstance(attributes, dict)
     assert len(attributes) == 4
@@ -82,7 +80,6 @@ def test_log_record_exception(logger: logging.Logger, stream: io.StringIO) -> No
     except ZeroDivisionError:
         logger.exception("Zero Division Error")
     record = get_log_record(stream, 0)
-    assert record is not None
     assert isinstance(record["body"], str)
     assert record["body"] == "Zero Division Error"
     attributes = record["attributes"]
@@ -105,7 +102,6 @@ def test_log_exc_info_false(logger: logging.Logger, stream: io.StringIO) -> None
     except ZeroDivisionError:
         logger.error("Zero Division Error", exc_info=False)
     record = get_log_record(stream, 0)
-    assert record is not None
     assert record["body"] == "Zero Division Error"
     attributes = record["attributes"]
     assert isinstance(attributes, dict)

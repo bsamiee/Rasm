@@ -114,8 +114,6 @@ def test_trace_context_with_active_span(exporter: InMemoryLogRecordExporter) -> 
         logs = exporter.get_finished_logs()
         assert len(logs) == 1
         log = logs[0]
-        assert log.log_record.trace_id is not None
-        assert log.log_record.span_id is not None
         span_context = span.get_span_context()
         assert log.log_record.trace_id == span_context.trace_id
         assert log.log_record.span_id == span_context.span_id
