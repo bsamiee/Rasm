@@ -1,6 +1,7 @@
 import AVFoundation
 public import Applications
 import Processes
+import Results
 public import ScreenCaptureKit
 import UniformTypeIdentifiers
 
@@ -77,10 +78,11 @@ public final class Recording {
     }
 
     public func finish() async throws(ApplicationFailure) {
+        let path = file.path(percentEncoded: false)
         do { if stream.isCapturing { try await stream.stopCapture() } } catch SCStreamError.attemptToStopStreamState {} catch {
-            throw ApplicationFailure(subject: file.path(percentEncoded: false), reason: .host(error as NSError))
+            throw ApplicationFailure(subject: path, reason: .host(error as NSError))
         }
-        try await written.value.get()
+        try await withTimeout(Self.buffered, expired: ApplicationFailure(subject: path, reason: .unanswered(nil))) { [written] () async throws(ApplicationFailure) in try await written.value.get() }
     }
 }
 

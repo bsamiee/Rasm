@@ -101,7 +101,7 @@ let modules: [Target] = [
         ],
         path: "libs/swift/macos/Applications",
     ),
-    .target(name: "ScreenCapture", dependencies: ["Applications", "Processes"], path: "libs/swift/macos/ScreenCapture"),
+    .target(name: "ScreenCapture", dependencies: ["Applications", "Processes", "Results"], path: "libs/swift/macos/ScreenCapture"),
     .target(
         name: "ApplicationServer",
         dependencies: [
@@ -114,7 +114,7 @@ let executables: [Target] = [
     .executableTarget(
         name: "watch-apps",
         dependencies: [
-            "Applications", "CurrentProcess", "Encoding", "Files", "Processes", "Results", "ScreenCapture", "Telemetry",
+            "Applications", "CurrentProcess", "Encoding", "Files", "Processes", "ScreenCapture", "Telemetry",
             .product(name: "ArgumentParser", package: "swift-argument-parser"), .product(name: "Configuration", package: "swift-configuration"),
             .product(name: "Logging", package: "swift-log"), .product(name: "ServiceLifecycle", package: "swift-service-lifecycle"),
             .product(name: "Tracing", package: "swift-distributed-tracing"), .product(name: "UnixSignals", package: "swift-service-lifecycle"),
@@ -122,7 +122,7 @@ let executables: [Target] = [
             .product(name: "OrderedCollections", package: "swift-collections"), .product(name: "Subprocess", package: "swift-subprocess"),
         ],
         path: "products/macos/watch-apps",
-        exclude: ["Info.plist"],
+        exclude: ["Info.plist", "watch-apps.entitlements"],
     )
 ]
 let tests: [Target] = [

@@ -147,15 +147,6 @@ struct Watch: AsyncParsableCommand {
                 }
                 group.addTask { await run.follow(NSWorkspace.shared.instanceStates(of: matching)) }
                 group.addTask { await run.follow(NSWorkspace.shared.systemPrompts(naming: applications.flatMap { installation in [installation.name, installation.bundleName].compactMap(\.self) })) }
-                if let executable = Bundle.main.executableURL {
-                    group.addTask {
-                        switch await FileEvent.events(of: executable).first(where: { batch in batch[case: \.success]?.isEmpty != true }) {
-                            case .success: await run.restart(into: executable)
-                            case .failure(let failure): run.fail(Program.current.name, ApplicationFailure(subject: executable.path(percentEncoded: false), reason: .unwatched(failure)))
-                            case nil: break
-                        }
-                    }
-                }
             }
         }
     }
@@ -279,12 +270,13 @@ struct Capture: AsyncParsableCommand {
     func run() async {
         let source: Source? = window.map { number in Source.windows(numbers: [number]) } ?? element.map(Source.element(id:))
         await Run.execute(Self.self) { run throws(ApplicationFailure) in
+            try checkCaptureAccess(prompting: true)
             let directory = Program.current.directory(.runtime)
             do { try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true) } catch {
                 throw ApplicationFailure(subject: directory.path(percentEncoded: false), reason: .host(error as NSError))
             }
             await running.each(run) { instance throws(ApplicationFailure) in
-                let stills = try await instance.capture(source, to: { number in directory.appending(component: String(number)).appendingPathExtension(for: .png) }, longestSide: longestSide)
+                let stills = try await instance.capture(source, to: { number in footageFile(in: directory, window: number, .png) }, longestSide: longestSide)
                 guard !stills.isEmpty else { throw ApplicationFailure(subject: instance.key, reason: .noWindow) }
                 for (number, still) in stills.sorted(by: { first, second in first.key < second.key }) {
                     do throws(ApplicationFailure) {

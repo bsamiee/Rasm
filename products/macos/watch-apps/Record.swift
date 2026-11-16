@@ -10,6 +10,7 @@ import Processes
 import ScreenCapture
 import ScreenCaptureKit
 import Subprocess
+import Synchronization
 import System
 import UniformTypeIdentifiers
 
@@ -19,6 +20,13 @@ private let framesPerSecond: CMTimeScale = 10
 private let logTime = Date.ISO8601FormatStyle(includingFractionalSeconds: true).year().month().day().dateTimeSeparator(.space).time(includingFractionalSeconds: true)
     .timeZone(separator: .omitted)
 private let fileTime = Date.ISO8601FormatStyle(includingFractionalSeconds: true).dateSeparator(.omitted).timeSeparator(.omitted)
+private let unifiedLog: FilePath = "/usr/bin/log"
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+func footageFile(in folder: URL, window: CGWindowID, _ type: UTType) -> URL {
+    folder.appending(component: "\(window)-\(fileTime.format(.now))").appendingPathExtension(for: type)
+}
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -86,22 +94,25 @@ actor Recorder {
     private let folder: URL
     private let hostLogs: URL
     private let longestSide: Int?
-    private let timeline: FileDescriptor
+    private let timeline: Mutex<FileDescriptor>
+    private let failed: @Sendable (ApplicationFailure) -> Void
     private var held: [Instance: (recordings: [CGWindowID: Result<Recording, ApplicationFailure>], logging: Task<Void, Never>)] = [:]
     private var tailing: Task<Void, Never>?
     private var observing: Task<Void, Never>?
     private var open: Bool = true
 
-    init(folder: URL, longestSide: Int?) throws(ApplicationFailure) {
-        try checkCaptureAccess()
-        (self.folder, hostLogs, self.longestSide) = (folder, folder.appending(component: "host", directoryHint: .isDirectory), longestSide)
+    init(folder: URL, longestSide: Int?, failed: @escaping @Sendable (ApplicationFailure) -> Void) throws(ApplicationFailure) {
+        try checkCaptureAccess(prompting: true)
+        (self.folder, hostLogs, self.longestSide, self.failed) = (folder, folder.appending(component: "host", directoryHint: .isDirectory), longestSide, failed)
         do {
             try FileManager.default.createDirectory(at: hostLogs, withIntermediateDirectories: true)
-            timeline = try FileDescriptor.open(
-                FilePath(folder.appending(component: "timeline.jsonl").path(percentEncoded: false)),
-                .writeOnly,
-                options: [.append, .create, .closeOnExec],
-                permissions: [.ownerReadWrite, .groupRead, .otherRead],
+            timeline = Mutex(
+                try FileDescriptor.open(
+                    FilePath(folder.appending(component: "timeline.jsonl").path(percentEncoded: false)),
+                    .writeOnly,
+                    options: [.append, .create, .closeOnExec],
+                    permissions: [.ownerReadWrite, .groupRead, .otherRead],
+                )
             )
         } catch {
             throw ApplicationFailure(subject: folder.path(percentEncoded: false), reason: .host(error as NSError))
@@ -109,11 +120,12 @@ actor Recorder {
     }
 
     nonisolated func append(_ event: Moment.Event, at: Date = .now) {
-        do { try timeline.writeAll(JSONEncoder.lines.encodeLine(Moment(at: at, event: event))) } catch { WatchApps.exit(withError: error) }
-    }
-
-    private nonisolated func file(_ window: CGWindowID, _ type: UTType) -> URL {
-        folder.appending(component: "\(window)-\(fileTime.format(.now))").appendingPathExtension(for: type)
+        do {
+            let line = try JSONEncoder.lines.encodeLine(Moment(at: at, event: event))
+            try timeline.withLock { descriptor in _ = try descriptor.writeAll(line) }
+        } catch {
+            failed(ApplicationFailure(subject: folder.appending(component: "timeline.jsonl").path(percentEncoded: false), reason: .host(error as NSError)))
+        }
     }
 
     func observe(_ states: OrderedDictionary<Instance, InstanceState>, after last: OrderedDictionary<Instance, InstanceState>) {
@@ -136,7 +148,7 @@ actor Recorder {
             let clipped = !asked.isEmpty || hung || crashed ? recordings.compactMapValues { recording in recording[case: \.success] } : [:]
             for (window, recording) in clipped {
                 do throws(ApplicationFailure) {
-                    let clip = file(window, .quickTimeMovie)
+                    let clip = footageFile(in: folder, window: window, .quickTimeMovie)
                     try await recording.clip(to: clip)
                     append(.clip(Footage(file: clip.lastPathComponent, pid: pid, window: window)))
                 } catch {
@@ -148,7 +160,7 @@ actor Recorder {
             let framed = hung ? windows : asked.intersection(windows)
             let frames = await Result { () async throws(ApplicationFailure) in
                 try await framed.isEmpty
-                    ? [:] : instance.capture(.windows(numbers: Array(framed)), to: { window in self.file(window, .png) }, longestSide: longestSide)
+                    ? [:] : instance.capture(.windows(numbers: Array(framed)), to: { window in footageFile(in: self.folder, window: window, .png) }, longestSide: longestSide)
             }
             if case .failure(let failure) = frames { append(.fail(failure)) }
             for (window, still) in frames[case: \.success] ?? [:] {
@@ -161,7 +173,7 @@ actor Recorder {
                 do throws(ApplicationFailure) { try await recordings.removeValue(forKey: window)?[case: \.success]?.finish() } catch { append(.fail(error)) }
             }
             for window in windows.subtracting(recordings.keys) {
-                let movie = file(window, .quickTimeMovie)
+                let movie = footageFile(in: folder, window: window, .quickTimeMovie)
                 let configuration = SCStreamConfiguration.background
                 configuration.minimumFrameInterval = CMTime(value: 1, timescale: framesPerSecond)
                 let started = await Result { () async throws(ApplicationFailure) in
@@ -198,7 +210,7 @@ actor Recorder {
     private nonisolated func logging(_ pid: pid_t) async {
         let decoder = JSONDecoder()
         do {
-            let stream = Configuration(executable: .name("log"), arguments: ["stream", "--process", String(pid), "--style", "ndjson"], platformOptions: .session())
+            let stream = Configuration(executable: .path(unifiedLog), arguments: ["stream", "--process", String(pid), "--style", "ndjson"], platformOptions: .session())
             _ = try await Subprocess.run(stream, input: .none, output: .sequence, error: .discarded) { execution in
                 for try await line in execution.standardOutput.strings(separatedBy: .unicodeScalarSequence(["\n"])) where line.hasPrefix("{") {
                     do {

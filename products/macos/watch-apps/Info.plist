@@ -8,5 +8,7 @@
 	<string>watch-apps</string>
 	<key>CFBundleShortVersionString</key>
 	<string>0.1.0</string>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>watch-apps sends the quit event to applications an agent asks it to quit.</string>
 </dict>
 </plist>

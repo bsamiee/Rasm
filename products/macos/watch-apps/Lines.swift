@@ -6,20 +6,20 @@ import Processes
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-let callerSession: String? = Program.current.settings.string(forKey: "session").flatMap { session in session.isEmpty ? nil : session }
+let journal: URL = Program.current.directory(.log).appending(path: Program.current.name, directoryHint: .isDirectory)
+    .appending(component: Program.current.settings.string(forKey: "session").flatMap { session in session.isEmpty ? nil : session } ?? Program.current.name).appendingPathExtension("jsonl")
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 struct Record<Line> {
     let at: Date
     let pid: pid_t
-    var session: String?
     var argv: [String]?
     var line: Line?
     var exit: Exit?
 
     init(argv: [String]? = nil, line: Line? = nil, exit: Exit? = nil) {
-        (at, pid, session, self.argv, self.line, self.exit) = (.now, getpid(), argv.flatMap { _ in callerSession }, argv, line, exit)
+        (at, pid, self.argv, self.line, self.exit) = (.now, getpid(), argv, line, exit)
     }
 }
 

@@ -7,11 +7,11 @@ description: "Use when opening, driving, observing, or quitting a desktop app, c
 
 ## [01]-[SEQUENCE]
 
-Run commands from a terminal or harness with Accessibility access, each prints the states its action reaches:
+Each command prints the states its action reaches:
 1. Open the app with `launch` and read its `pid` from the `launched` line
 2. Act on each last line by the state table, on the `pid` of the instance work drives
 3. Run `read` for element ids a line leaves out, then `perform` or `set` on one id
-4. After a call outside `watch-apps` (Atelier script), run `read` on the app
+4. After a call outside `watch-apps` changes the app (a script, a plug-in, an MCP tool), run `read` on the app
 
 ```bash
 watch-apps find <app-or-pid>...
@@ -25,7 +25,7 @@ watch-apps watch <app> [<helper>]... --record <folder>
 - `find`, `watch`, and `launch` resolve a name as a `file:` URL, a path (a name with `/`), a process ID, a bundle id, a file name, then a display name
 - Names resolve whole, ignoring case, diacritics, and a file name's `.app`
 - Process IDs read as `<pid>`, or as a line's `instance` (`<pid>@<start>`), which names one process and never a later process reusing its pid, `key` taking `<pid>` alone
-- `find`, `watch`, `launch`, and `processes` resolve the process ID of a helper executing inside an app bundle to that app
+- `find`, `watch`, and `launch` resolve the process ID of a helper executing inside an app bundle to that app, `processes` reads that process alone
 - `find` prints `{"<name>": [<installation>...]}` per name, launching nothing and needing no Accessibility grant
 - Installations hold `url`, `executable`, `identifier`, `name`, `bundleName` (`CFBundleName`), `version`, `build`, `scriptable`, `scriptingDefinitionFile`, and `activationPolicy` (`prohibited` for `LSBackgroundOnly`, `accessory` for `LSUIElement`, else `regular`)
 - `processes` prints `{"<name>": {"agents": [...], "processes": [...], "reports": [...]}}` per name, launching nothing and needing no Accessibility grant
@@ -60,15 +60,10 @@ watch-apps watch <app> [<helper>]... --record <folder>
 - `--arguments` takes every input after it, and its values and `--environment` values reach only an instance `launch` creates, launchd's environment fills the rest
 - App switches pass after `--arguments`, `launch` adding none of its own
 - `launch` captures neither the app's output nor error stream
-- Hooks rewrite `open`, `xed`, a launching `osascript`, and a bundle's executable into `launch`, a headless switch and a background-only or `LSUIElement` bundle running as written
-- Hooks rewrite `killall` and `pkill` into `kill` of their pids when each descends from the session, and refuse any other kill of every match
-- Hooks add Blender `--no-window-focus` (absent a headless switch) and Rhino `-nosplash` to `launch` and to each rewrite into it
-- Hooks refuse `watch` other than a background `watch --record`, and a loop polling `read`
-- Hooks refuse `osascript` posting through System Events, taking focus
-- Claude Code sends dialogs, hangs, and crashes of apps a session launches, reuses, or drives by Atelier, Rhino, or Blender MCP to its agent as hook context
-- Claude Code quits each instance an agent created (`created: true`) when that agent's turn ends and the session's when it ends, `--force` staying an agent's command
+- `launch` takes the place of `open`, `xed`, and a launching `osascript`, which activate the app they open
+- Running `watch` processes keep the code they started with, restart each after installing a new `watch-apps`
 
-Every command exits 1 after printing a `fail` line and 0 otherwise, and ends when the process that started it exits, its reader closes, or SIGTERM, SIGINT, or SIGHUP arrives. Malformed arguments and a missing Accessibility grant print a `fail` line keyed by `watch-apps`.
+Every command exits 1 after printing a `fail` line and 0 otherwise, and ends when the process that started it exits, its reader closes, or SIGTERM, SIGINT, or SIGHUP arrives. A second signal ends a run still quitting the instance it created. Malformed arguments print a `fail` line keyed by `watch-apps`.
 
 ## [02]-[ACTIONS]
 
@@ -84,7 +79,7 @@ watch-apps log [<run pid>]
 ```
 
 - `read` prints the whole state with element ids, `--window` walks one row, so answering a dialog costs a fraction of a whole `read`
-- `capture` writes one PNG per presented window with no activation to `$TMPDIR/app.rasm.watch-apps/<number>.png`, printing one `captured` line per file
+- `capture` writes one PNG per presented window with no activation to `<window>-<time>.png` in the runtime folder, printing one `captured` line per file
 - `capture --element` writes the frame of one element id (a pane, panel, or canvas) cropped from its window
 - `capture` reads every window with a window-server number (inactive, covered, minimized, on another unmanaged Space) and needs the Screen Recording grant
 - `perform` runs one of the element's `actions` through `AXUIElementPerformAction`, `AXPress` presses a button or a menu item
@@ -101,12 +96,17 @@ watch-apps log [<run pid>]
 - Failed actions print a `fail` line keyed by `id` with `reason` `unresolved`, `disabled`, `refused`, or `unanswered`
 - Refused and unanswered actions can have run, `read` the instance before retrying one
 - Controls whose action opens a modal dialog or blocks answer once the action returns, menu items answer before their action runs
-- `log` prints one line per run sharing the caller's `WATCH_APPS_SESSION` with its `pid`, `at`, `argv`, `exit`, and last line per key, a run pid every record of that run
-- Each run writes `{at, pid, argv}`, `{at, pid, line}`, and `{at, pid, exit}` to its own file `watch-apps/<session>.<pid>.jsonl` in `$WATCH_APPS_LOG_DIR` (`.artifacts/logs` here), else `~/Library/Logs/app.rasm.watch-apps`, a run with no session as `<pid>.jsonl`
+- `log` prints one line per run sharing the caller's session with its `pid`, `at`, `argv`, `exit`, and last line per key, a run pid every record of that run
+- Each run appends to the session journal `watch-apps/<session>.jsonl` in the log folder, `watch-apps.jsonl` with no session
 - Run `exit` holds its exit `status`, and `signal` for a run a signal ended
-- Run files past 1 MB keep the run start and its last line per key, and the newest 64 run files stay
-- Failures append one OpenTelemetry log record each to `watch-apps.log` in the same folder, with run `trace_id` and `span_id` while traces export
-- `watch-apps.log` rotates at 8 MB or 1 day to `.1` through `.7` beside it, the oldest replaced and each one older than 1 day deleted
+- Failures append one OpenTelemetry log record each to `watch-apps.log` in the log folder, with run `trace_id` and `span_id` while traces export
+- Journals and `watch-apps.log` rotate at 8 MB or 1 day to `.1` through `.7` beside them, the oldest replaced and each one older than 1 day deleted
+
+Settings read `WATCH_APPS_<KEY>` from the environment, then `<key>` of defaults domain `app.rasm.watch-apps` (`defaults write app.rasm.watch-apps <key> <value>`), and `watch-apps --help` prints each folder:
+- `session` names the journal runs share, set per agent session so `log` reads that session's runs
+- `log.dir` holds journals and `watch-apps.log`, `~/Library/Logs/app.rasm.watch-apps` unset
+- `runtime.dir` holds captures, `$TMPDIR/app.rasm.watch-apps` unset
+- `log.level`, `log.filter`, `log.size`, `log.age`, and `log.files` set the failure log, and `OTEL_*` variables start OpenTelemetry export
 
 ## [03]-[STATES]
 
@@ -131,7 +131,7 @@ Lines read `{"<bundle id>": {"<pid>": {"instance": "<pid>@<start>", <state>}}}`,
 - `presented` reads false for a window made before the app first responded that no element describes
 - `kind` reads `filePanel`, `sheet`, `alert`, `modal`, `system`, `menu`, `window`, `undescribed` (no element, Rhino's drawn dialogs among them), or `blocking`
 - `system` rows come from dialog helpers naming the app's display or bundle name as a whole word
-- Dialog helpers show crash alerts, privacy prompts, downloaded-app and Accessibility warnings, and keychain and authorization prompts, and include each `accessory` app nested in an app bundle (a vendor crash reporter)
+- Dialog helpers show crash, privacy, download, Accessibility, keychain, and authorization prompts, and nested `accessory` apps
 - Apps sharing a display name share `system` rows
 - `blocking` states a new window on a blocked main thread with Accessibility silent (InDesign's `CAlert::ModalAlert`), a blocked progress window reading the same
 - `blocking` reads from an on-screen window at the modal-panel level, or a new window while the main thread sleeps through a second silent heartbeat
@@ -150,20 +150,20 @@ Lines read `{"<bundle id>": {"<pid>": {"instance": "<pid>@<start>", <state>}}}`,
 
 Instances are read at insertion and after each window, sheet, title, focus, menu, minimize, or destruction notification they post. A heartbeat reads each instance's open and focused windows and window-server rows once per 1-second messaging timeout, and reads the instance again when either changes. A stopped process reads `unresponsive` with no message sent. One silent heartbeat keeps the last status, and the second in a row reads `unresponsive`, `process` holding what the main thread did during it. With no earlier answer (`read`, a new `watch`), the first silent heartbeat reads `unresponsive`. A main thread awaiting a processor (an idle app under App Nap on a loaded machine) keeps its last status, and with no earlier answer reads `runnable` after a second message. `launching` holds until the app finishes launching unless a row asks first or its main thread sleeps with no processor time through a second silent heartbeat in a row, which reads `unresponsive`. `exited` reads `status` for an exit or `signal` for a kill with `detail` naming a `memory`, `codeSigning`, or `decryption` kill and `reporting` while a crash report is due, then a second line adds `report` (`url`, `pid`, `instance`, `executable`, `service` launchd label, `bundleIdentifier`, Mach `exception`, `signal`, and `termination` with `namespace`, `code`, and `indicator`, `CODESIGNING` with `Launch Constraint Violation` for a refused launch) once ReportCrash writes it, or `reportFailure` after 60 seconds without one. `statusFailure` holds the cause of a failed exit status read.
 
-| [INDEX] | [STATE]                                | [ACTION]                                              |
-| :-----: | :------------------------------------- | :---------------------------------------------------- |
-|  [01]   | `launching`, `unresponsive`            | Wait for the next line                                |
-|  [02]   | `responding`, `asking` empty           | `read`, then `perform`, `set`, or `capture --window`  |
-|  [03]   | Row in `asking` with `options` or text | `read --window <number>`, then `perform <id> AXPress` |
-|  [04]   | Row with `kind` `undescribed`          | `capture --window <number>`, read the image           |
-|  [05]   | Row with `kind` `blocking`             | `capture --window <number>`, then `key <pid> <code>`  |
-|  [06]   | `unresponsive`, `process` `stopped`    | `kill -CONT <pid>`                                    |
-|  [07]   | `unresponsive`, `sleeping`, none asks  | `capture <pid>`, read each image for a dialog         |
-|  [08]   | `unresponsive` after quit, no answer   | `quit <pid> --force`                                  |
-|  [09]   | `fail` `untrusted`                     | Grant Accessibility access                            |
-|  [10]   | `exited` with `report`                 | Read the report at `url` before a launch              |
-|  [11]   | `fail` `host` or `noProcess` at launch | `processes <app>`, read `reports` for the cause       |
-|  [12]   | `launched` with `replaced`             | `quit <pid>`, then `launch`, or `launch --new`        |
+| [INDEX] | [STATE]                                 | [ACTION]                                              |
+| :-----: | :-------------------------------------- | :---------------------------------------------------- |
+|  [01]   | `launching`, `unresponsive`             | Wait for the next line                                |
+|  [02]   | `responding`, `asking` empty            | `read`, then `perform`, `set`, or `capture --window`  |
+|  [03]   | Row in `asking` with `options` or text  | `read --window <number>`, then `perform <id> AXPress` |
+|  [04]   | Row with `kind` `undescribed`           | `capture --window <number>`, read the image           |
+|  [05]   | Row with `kind` `blocking`              | `capture --window <number>`, then `key <pid> <code>`  |
+|  [06]   | `unresponsive`, `process` `stopped`     | `kill -CONT <pid>`                                    |
+|  [07]   | `unresponsive`, `sleeping`, none asks   | `capture <pid>`, read each image for a dialog         |
+|  [08]   | `unresponsive` after quit, no answer    | `quit <pid> --force`                                  |
+|  [09]   | `fail` `untrusted` or `noCaptureAccess` | Ask the person to allow `watch-apps` in the prompt    |
+|  [10]   | `exited` with `report`                  | Read the report at `url` before a launch              |
+|  [11]   | `fail` `host` or `noProcess` at launch  | `processes <app>`, read `reports` for the cause       |
+|  [12]   | `launched` with `replaced`              | `quit <pid>`, then `launch`, or `launch --new`        |
 
 Hold script calls while a `blocking` row stands, calls sent before get no answer or an error (-29). `sample <pid> 1 -file <path>` reads an instance's stacks without touching it, `sudo spindump <pid> 2 10 -onlyTarget -onlyBlocked -noBinary -o <out>` the blocked threads of a hung one, and `spindump -i /Library/Logs/DiagnosticReports/<app>_<date>.hang -timeline -noBinary -o <out>` a past hang without `sudo`, `-timeline` refusing `-onlyBlocked`.
 
@@ -177,16 +177,15 @@ Actions go to the app's process through AX actions on its elements and leave the
 
 ## [05]-[RECORDING]
 
-`watch --record <folder>`, run in the background, records while it watches, with no activation, hooks starting `watch` without it:
+`watch --record <folder>`, run in the background, records while it watches, with no activation:
 - Standard windows and asking rows each record to `<window>-<time>.mov` at up to 10 frames a second, a frame written when the window changes
 - Dialogs, hangs, and exits by signal save the 15 seconds before as one `<window>-<time>.mov` per recorded window, with a `.png` of each asking or hung window
 - `timeline.jsonl` takes one `{"at": <time>, "<source>": <value>}` entry per event as it arrives, and `jq -s 'sort_by(.at)'` orders them
 - Sources read `line` (a `watch` line), `log` (a unified log event of the instance), `host`, `movie`, `clip`, `frame`, and `fail`
 - `movie`, `clip`, and `frame` hold `file`, `pid`, and `window`, a `movie` entry's `at` its start, so an entry's offset in a movie is its `at` minus that start
 - `host` holds `file` and `text` of each line a host appends to `<folder>/host/<name>.log` while the watch runs
-- Use `use-blender` for Blender's operator calls in `host`
-- Use `use-rhino` for Rhino's command lines in `host`
-- `ffmpeg -ss <offset> -i <movie> -frames:v 1 <png>` writes one frame to read as an image, and `use-antigravity` watches a clip or movie
+- `ffmpeg -ss <offset> -i <movie> -frames:v 1 <png>` writes one frame to read as an image
 - `--longest-side <pixels>` scales recorded frames, a full-motion window at native size writing megabytes a second
 - Recorded windows show the system's capture indicator in place of their traffic lights, a `Window` row holding it joining `windows`
 - Movies read once their window closes or the watch ends, `SIGKILL` included, since replayd stops and finalizes a dead client's streams
+- Movies whose finalization goes unanswered for 15 seconds take a `fail` `unanswered` entry in `timeline.jsonl`

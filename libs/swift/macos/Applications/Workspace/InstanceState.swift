@@ -112,30 +112,6 @@ extension InstanceState.Window {
     }
 }
 
-extension InstanceState.Running {
-    fileprivate var printed: (status: Status, active: Bool, asking: [CGWindowID], menus: [Element.ID]) {
-        (status, active, asking.map(\.number), menus.filter { menu in menu.role == kAXMenuRole }.map(\.id))
-    }
-
-    fileprivate func printsSame(as other: Self) -> Bool {
-        let rows = other.windows.filter(\.presented)
-        let sameRows = windows.filter(\.presented).elementsEqual(rows) { (left: InstanceState.Window, right: InstanceState.Window) -> Bool in
-            let sameTitle = left.description[case: \.element]?.title == right.description[case: \.element]?.title
-            return left.number == right.number && left.title == right.title && sameTitle
-        }
-        return sameRows && printed == other.printed
-    }
-}
-
-extension InstanceState {
-    func printsSame(as other: Self) -> Bool {
-        switch (self, other) {
-            case (.running(let previous), .running(let next)): previous.printsSame(as: next)
-            case (_, _): self == other
-        }
-    }
-}
-
 extension InstanceState: Encodable {
     private enum Key: CodingKey {
         case running, failed, exited, status, signal, detail, statusFailure, report, reportFailure, reporting
@@ -258,7 +234,7 @@ extension Instance {
     ) -> some AsyncSequence<InstanceState, Never> & Sendable {
         chain([Result<ProcessExit, Errno>?.none].async, process.termination().map(Optional.some))
             .flatMapLatest { exit in chain(running.prefix(exit == nil ? .max : 0), self.ended(exit, clock: clock)) }
-            .removeDuplicates { previous, next in previous.printsSame(as: next) }
+            .removeDuplicates()
     }
 
     private func ended(_ exit: Result<ProcessExit, Errno>?, clock: some Clock<Duration> & Sendable) -> some AsyncSequence<InstanceState, Never> & Sendable {
@@ -295,7 +271,7 @@ extension Instance {
                         output.yield(event)
                         switch event {
                             case .success(.exited): if !sending { reply.finish() }
-                            case .success(.running(let running)) where running.asking.isEmpty && [nil, .runnable].contains(running.status[case: \.unresponsive]):
+                            case .success(.running(let running)) where running.asking.isEmpty && (running.status == .responding || running.status == .unresponsive(.runnable)):
                                 guard !sending else { continue }
                                 sending = true
                                 group.addTask { await requestQuit(saving: saving, answering: reply, clock: clock) }
@@ -338,9 +314,11 @@ extension Instance {
                     case .failed: nil
                     case .running, .exited: .failure(ApplicationFailure(subject: subject, reason: .refused(nil)))
                 }
+        } catch  where process.hasExited {
+            outcome = nil
         } catch  where error.status == OSStatus(procNotFound) {
             let signaled = Result { () throws(Errno) in try process.signal(SIGTERM) }
-            outcome = if case .failure = signaled { .failure(ApplicationFailure(subject: subject, reason: .event(error))) } else { nil }
+            outcome = if case .failure = signaled, !process.hasExited { .failure(ApplicationFailure(subject: subject, reason: .event(error))) } else { nil }
         } catch {
             outcome = .failure(ApplicationFailure(subject: subject, reason: .event(error)))
         }

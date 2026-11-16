@@ -10,10 +10,11 @@ import System
 
 struct Log: ParsableCommand {
     static let configuration = CommandConfiguration(
-        abstract: "Prints the last line per key of each run sharing this WATCH_APPS_SESSION. A process ID prints every record of that run",
+        abstract: "Prints the last line per key of each run sharing this session. A process ID prints every record of that run",
         discussion: """
-            Each run writes its records to one file named by its session and process ID in \(Journal.folder.path(percentEncoded: false)), under a folder WATCH_APPS_LOG_DIR replaces. \
-            A run file past \(Int64(runLimit.bytes).formatted(.byteCount(style: .memory))) keeps the run's start and its last line per key, and the newest \(runLimit.files) run files stay
+            Runs append their records to \(journal.path(percentEncoded: false)), one file per WATCH_APPS_SESSION setting, rotated at \
+            \(Int64(RotatingFile(journal).size).formatted(.byteCount(style: .memory))) or \(RotatingFile(journal).age.formatted(.units(width: .wide))) to \
+            \(RotatingFile(journal).files) numbered files beside it
             """,
     )
 
@@ -25,22 +26,31 @@ struct Log: ParsableCommand {
         decoder.dateDecodingStrategy = .custom { decoder in try Date.ISO8601FormatStyle(includingFractionalSeconds: true).parse(decoder.singleValueContainer().decode(String.self)) }
         let text: Data
         do {
-            let runs = try Journal.files().compactMap { file in try ifPresent { try Data(contentsOf: file) } }.map { text in
-                (text: text, records: try text.split(separator: UInt8(ascii: "\n")).map { line in try decoder.decode(Record<[String: JSONValue]>.self, from: line) })
+            let files: [Data] = try RotatingFile(journal).urls.compactMap { file in try ifPresent { try Data(contentsOf: file) } }
+            let lines: [Data] = files.flatMap { text in text.split(separator: UInt8(ascii: "\n")).map { line in Data(line) } }
+            let entries: [(text: Data, record: Record<[String: JSONValue]>)] = try lines.map { line in (line + [UInt8(ascii: "\n")], try decoder.decode(Record<[String: JSONValue]>.self, from: line)) }
+            let runs = entries.reduce(into: (runs: [[(text: Data, record: Record<[String: JSONValue]>)]](), open: [pid_t: Int]())) { held, entry in
+                switch (entry.record.argv, held.open[entry.record.pid]) {
+                    case (nil, let index?): held.runs[index].append(entry)
+                    case (_, _):
+                        held.open[entry.record.pid] = held.runs.count
+                        held.runs.append([entry])
+                }
             }
+            .runs
             text =
                 switch pid {
-                    case let pid?: runs.last { run in run.records.first?.pid == pid }?.text ?? Data()
+                    case let pid?: runs.last { run in run.first?.record.pid == pid }?.reduce(into: Data()) { text, entry in text += entry.text } ?? Data()
                     case nil:
-                        try runs.filter { run in run.records.first?.session == callerSession }.reduce(into: Data()) { text, run in
-                            guard var summary = run.records.first else { return }
-                            let lines = run.records.dropFirst().reduce(into: [String: JSONValue]()) { merged, record in merged.merge(record.line ?? [:]) { _, next in next } }
-                            (summary.line, summary.exit) = (run.records.count > 1 ? lines : nil, run.records.last?.exit)
+                        try runs.reduce(into: Data()) { text, run in
+                            guard var summary = run.first?.record else { return }
+                            let lines = run.dropFirst().reduce(into: [String: JSONValue]()) { merged, entry in merged.merge(entry.record.line ?? [:]) { _, next in next } }
+                            (summary.line, summary.exit) = (run.count > 1 ? lines : nil, run.last?.record.exit)
                             text += try JSONEncoder.lines.encodeLine(summary)
                         }
                 }
         } catch {
-            let failure = ApplicationFailure(subject: Journal.folder.path(percentEncoded: false), reason: .host(error as NSError))
+            let failure = ApplicationFailure(subject: journal.path(percentEncoded: false), reason: .host(error as NSError))
             try FileDescriptor.standardOutput.writeAll(JSONEncoder.lines.encodeLine([Program.current.name: Event.fail(failure)]))
             WatchApps.exit(withError: ExitCode.failure)
         }
