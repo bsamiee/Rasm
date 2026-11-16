@@ -22,15 +22,6 @@ private let unsupported: [String: Set<Substring>] = [
     "OTEL_PROPAGATORS": ["baggage", "b3", "b3multi", "jaeger", "xray", "otTrace"],
     "OTEL_TRACES_SAMPLER": ["parentbased_jaeger_remote", "jaeger_remote", "xray"],
 ]
-private let levelNames: [String] =
-    Logging.Logger.Level.allCases.map(\.rawValue) + Logging.Logger.Level.allCases.map { level in level.severity.text.lowercased() }.filter { text in Logging.Logger.Level(rawValue: text) == nil }
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
-private func pair(_ entry: String) -> (String, String)? {
-    let parts = entry.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
-    return parts.count == 2 ? (parts[0].trimmingCharacters(in: .whitespaces), parts[1].trimmingCharacters(in: .whitespaces)) : nil
-}
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -39,7 +30,8 @@ extension Program {
 
     private func level(_ text: String, in entry: String, of key: ConfigKey) -> Logging.Logger.Level? {
         let level = Logging.Logger.Level(rawValue: text) ?? Logging.Logger.Level.allCases.first { level in level.severity.text.lowercased() == text }
-        if level == nil { unrecognized.add(variable: key.description, value: entry, accepted: levelNames) }
+        let severities = Logging.Logger.Level.allCases.map { level in level.severity.text.lowercased() }.filter { text in Logging.Logger.Level(rawValue: text) == nil }
+        if level == nil { unrecognized.add(variable: key.description, value: entry, accepted: Logging.Logger.Level.allCases.map(\.rawValue) + severities) }
         return level
     }
 
@@ -47,7 +39,8 @@ extension Program {
         let (levelKey, filterKey): (ConfigKey, ConfigKey) = ("log.level", "log.filter")
         let defaults = LogFilter.Rules()
         let scopes = settings.stringArray(forKey: filterKey, default: []).compactMap { entry in
-            let (scope, text) = pair(entry) ?? (entry, "")
+            let parts = entry.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false).map { part in part.trimmingCharacters(in: .whitespaces) }
+            let (scope, text) = parts.count == 2 ? (parts[0], parts[1]) : (entry, "")
             return level(text, in: entry, of: filterKey).map { level in (scope, level) }
         }
         return LogFilter.Rules(
@@ -161,25 +154,16 @@ extension Program {
                 }
             }
         }
-        let logs =
-            configuration.logs.enabled
-            ? Result { () throws -> (factory: @Sendable (String) -> any LogHandler, service: any Service) in
-                let backend = try OTel.makeLoggingBackend(configuration: configuration)
-                return (backend.factory, backend.service)
-            } : nil
+        let logs = configuration.logs.enabled ? Result { try OTel.makeLoggingBackend(configuration: configuration) } : nil
         let exported: (factory: @Sendable (String) -> any LogHandler, service: any Service)? = if case .success(let backend)? = logs { backend } else { nil }
-        LoggingSystem.bootstrap(
-            { [export = exported?.factory] label, _ in records(label, export?(label)) },
-            metadataProvider: provider,
-        )
+        LoggingSystem.bootstrap({ [export = exported?.factory] label, _ in records(label, export?(label)) }, metadataProvider: provider)
         configuration.logs.enabled = false
         let variables = stated.filter { variable, _ in refused[variable] == nil }
-        let bootstrapped =
-            configuration.metrics.enabled || configuration.traces.enabled ? Result { () throws -> any Service in try OTel.bootstrap(configuration: configuration, environment: variables) } : nil
-        let logger = Logging.Logger(label: String(reflecting: Program.self))
-        for case .failure(let error)? in [logs.map { backend in backend.map(\.service) }, bootstrapped] { logger.warning("OpenTelemetry signal start failed", error: error) }
-        unrecognized.log(to: logger)
+        let bootstrapped = configuration.metrics.enabled || configuration.traces.enabled ? Result { try OTel.bootstrap(configuration: configuration, environment: variables) } : nil
         let started: any Service? = if case .success(let service)? = bootstrapped { service } else { nil }
+        let logger = Logging.Logger(label: String(reflecting: Program.self))
+        for case .failure(let error)? in [logs?.map { _ in }, bootstrapped?.map { _ in }] { logger.warning("OpenTelemetry signal start failed", error: error) }
+        unrecognized.log(to: logger)
         let metrics: [any Service] = configuration.metrics.enabled && started != nil ? [SystemMetricsMonitor(logger: Logging.Logger(label: String(reflecting: SystemMetricsMonitor.self)))] : []
         let exports: [any Service] = [exported?.service, started].compactMap(\.self) + metrics + [reloading(filter, reporting: logger)]
         var group = ServiceGroupConfiguration(

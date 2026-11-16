@@ -62,6 +62,7 @@ public struct JSONLogHandler: LogHandler {
     private let filter: LogFilter
     private let resource: Logger.Metadata
     private let trace: (id: String, span: String, flags: String)
+    private let encoder: JSONEncoder = .lines
 
     public init(
         label: String,
@@ -118,7 +119,7 @@ public struct JSONLogHandler: LogHandler {
         }
         let reported = file?.failure != nil
         do {
-            let line = try JSONEncoder.lines.encodeLine(record)
+            let line = try encoder.encodeLine(record)
             if let file { try file.append(line) } else { try FileDescriptor.standardError.writeAll(line) }
         } catch {
             guard !reported else { return }

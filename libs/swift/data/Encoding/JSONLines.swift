@@ -22,7 +22,7 @@ struct JSONLines<Bytes: AsyncIteratorProtocol<UInt8, Failure>, Failure: Error>: 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension JSONEncoder {
-    public static let lines: JSONEncoder = {
+    public static var lines: JSONEncoder {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
         encoder.dateEncodingStrategy = .custom { date, target in
@@ -30,7 +30,7 @@ extension JSONEncoder {
             try value.encode(date.formatted(Date.ISO8601FormatStyle(includingFractionalSeconds: true)))
         }
         return encoder
-    }()
+    }
 
     public func encodeLine(_ value: some Encodable) throws -> Data {
         try encode(value) + [UInt8(ascii: "\n")]
