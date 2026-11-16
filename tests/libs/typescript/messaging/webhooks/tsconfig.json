@@ -9,7 +9,6 @@
         }
     ],
     "compilerOptions": {
-        "module": "preserve",
         "types": ["node", "@cloudflare/workers-types/experimental", "@cloudflare/vitest-plugin/types"]
     },
     "include": ["**/*", ".cloudflare/types"]

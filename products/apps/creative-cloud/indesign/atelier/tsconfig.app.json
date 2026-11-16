@@ -1,9 +1,12 @@
 {
-    "extends": "../../../../../libs/typescript/creative-cloud/indesign/tsconfig.json",
+    "extends": "../../../../../tsconfig.base.json",
     "compilerOptions": {
         "composite": false,
         "declarationMap": false,
-        "noEmit": true
+        "noEmit": true,
+        "lib": ["es2022", "dom"],
+        "types": ["node", "@adobe-uxp-types/uxp/with-protocol"],
+        "paths": { "adobe:indesign": ["${configDir}/node_modules/indesign-uxp-types/flat/module.d.ts"] }
     },
     "references": [
         {

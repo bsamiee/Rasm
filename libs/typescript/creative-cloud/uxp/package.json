@@ -15,7 +15,7 @@
     ],
     "type": "module",
     "sideEffects": [
-        "./plugin.ts"
+        "plugin.*"
     ],
     "imports": {
         "#/*": "./*.ts"

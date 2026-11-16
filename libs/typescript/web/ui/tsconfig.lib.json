@@ -2,9 +2,5 @@
     "extends": "./tsconfig.json",
     "include": ["**/*"],
     "exclude": ["dist", ".storybook", "*.stories.ts", "*.stories.tsx"],
-    "references": [
-        {
-            "path": "../../../../tests/support/typescript"
-        }
-    ]
+    "nx": { "sync": { "ignoredDependencies": ["@rasm/testing"] } }
 }

@@ -15,7 +15,7 @@
     ],
     "type": "module",
     "sideEffects": [
-        "./shim.ts"
+        "shim.*"
     ],
     "imports": {
         "#/*": "./*.ts"

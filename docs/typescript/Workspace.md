@@ -61,6 +61,7 @@ catalogs:
     effect: <range>
 catalogMode: strict
 minimumReleaseAge: 0
+saveExact: true
 allowBuilds:
   <package>: true
 overrides:
@@ -74,10 +75,11 @@ patchedDependencies:
 |  [01]   | `packages`            | None      | Recursive globs (`products/**`), so a new package edits nothing   |
 |  [02]   | `catalogMode`         | `manual`  | `strict`: `pnpm add` refuses a version outside the catalog        |
 |  [03]   | `minimumReleaseAge`   | `1440`    | `0`: install takes a release the day it publishes                 |
-|  [04]   | `blockExoticSubdeps`  | `true`    | Omit: transitive git and tarball sources stay refused             |
-|  [05]   | `allowBuilds`         | None      | Name each package whose install script may run, `true` or `false` |
-|  [06]   | `overrides`           | None      | Graph pins, `:peer` on the selector targets peer ranges alone     |
-|  [07]   | `patchedDependencies` | None      | `<package>@<version>` to a patch file                             |
+|  [04]   | `saveExact`           | `false`   | `true`: `pnpm add` writes an exact version in place of a range    |
+|  [05]   | `blockExoticSubdeps`  | `true`    | Omit: transitive git and tarball sources stay refused             |
+|  [06]   | `allowBuilds`         | None      | Name each package whose install script may run, `true` or `false` |
+|  [07]   | `overrides`           | None      | Graph pins, `:peer` on the selector targets peer ranges alone     |
+|  [08]   | `patchedDependencies` | None      | `<package>@<version>` to a patch file                             |
 
 - `.npmrc` holds only auth, registry, TLS, proxy, and `local-address` settings, which pnpm reads from it
 - `effect-tsgo patch` rewrites files under `node_modules`, which a global virtual store refuses, so `virtualStoreType` stays `project`
@@ -136,7 +138,9 @@ Library manifest:
 |  [10]   | `nx`            | Facts no manifest row states      | Holds tags and target options in place of `project.json`       |
 
 - `main`, `module`, and top-level `types` serve resolvers older than `exports`, which Node, TypeScript, and bundlers read in their place
-- Test packages and applications state `private: true` and leave out `files` and `publishConfig` where nothing publishes them
+- `sideEffects` rows name a file without its folder (`panel.*`), which bundlers match at any depth, so one row covers source and `dist`
+- Test suites and applications state `private: true` and leave out `files` and `publishConfig`
+- Packages a release package names through `workspace:` in any dependency field state `version`, which `pnpm pack` requires
 
 ## [06]-[EXPORTS_AND_IMPORTS]
 
@@ -160,7 +164,7 @@ Library manifest:
 |  [04]   | `catalog:peers` | Catalog range         | Peer dependency on a host package (`effect`, a framework)     |
 
 - Runtime imports of an unbundled package go in `dependencies`
-- Peers repeat in `devDependencies` at the tested version
+- Peers the package imports repeat in `devDependencies` at the tested version
 - `peerDependenciesMeta.<name>.optional` marks a peer only one subpath entry imports
 - `npm:` aliases install one package at more than one version (TypeScript 6 and 7)
 - `link:` and `file:` specifiers stay in fixtures

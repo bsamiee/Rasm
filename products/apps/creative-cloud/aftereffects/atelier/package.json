@@ -10,10 +10,10 @@
     "dependencies": {
         "@rasm/aftereffects": "workspace:*",
         "@rasm/atelier-protocol": "workspace:*",
-        "@rasm/cep": "workspace:*",
         "@rasm/extendscript": "workspace:*"
     },
     "devDependencies": {
+        "@rasm/cep": "workspace:*",
         "@types/node": "catalog:",
         "types-for-adobe": "catalog:",
         "vite": "catalog:"

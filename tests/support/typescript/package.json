@@ -10,9 +10,11 @@
         "directory": "tests/support/typescript"
     },
     "files": [
-        "dist"
+        "dist/**/*.js",
+        "dist/**/*.d.ts"
     ],
     "type": "module",
+    "sideEffects": false,
     "imports": {
         "#/*": "./*.ts"
     },
@@ -24,7 +26,8 @@
         "./reading": "./reading.ts",
         "./storybook": "./storybook.ts",
         "./temp-fs": "./temp-fs.ts",
-        "./vitest": "./vitest.ts"
+        "./vitest": "./vitest.ts",
+        "./package.json": "./package.json"
     },
     "publishConfig": {
         "imports": {
@@ -38,7 +41,8 @@
             "./reading": "./dist/reading.js",
             "./storybook": "./dist/storybook.js",
             "./temp-fs": "./dist/temp-fs.js",
-            "./vitest": "./dist/vitest.js"
+            "./vitest": "./dist/vitest.js",
+            "./package.json": "./package.json"
         },
         "access": "public"
     },
@@ -86,5 +90,8 @@
         "vitest": {
             "optional": true
         }
+    },
+    "engines": {
+        "node": ">=26"
     }
 }

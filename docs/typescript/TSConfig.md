@@ -23,7 +23,7 @@ TypeScript compiler configuration of an Effect-based pnpm and Nx monorepo.
 |  [04]   | Root `tsconfig.tests.json` | `noEmit: true` over root `vitest.config.ts`, `references` to test support |
 
 - Test suite programs `references` reach each package they import, else TS6307 refuses the files outside their `include`
-- Applications another project imports pair a composite `tsconfig.json` holding `"files": []` with a `noEmit` `tsconfig.app.json`, as `typescript-sync` reports a non-composite `tsconfig.json` missing from root `references`, and TS6310 refuses an importer's reference to a `noEmit` program
+- Applications another project imports pair a composite `tsconfig.json` holding `"files": []` with a `noEmit` `tsconfig.app.json`, as TS6310 refuses a `noEmit` reference
 - `@rasm/nx-typescript` infers `check--tsc` for a `noEmit` program and `build--tsc` for an emitting one, its `check--tsc` running the build
 - Runtime differences (DOM `lib`, Workers `types`, `jsx`) sit in the package config that needs them
 
@@ -68,25 +68,26 @@ Package config, source at the package root:
 
 ## [04]-[COMPILER_OPTIONS]
 
-| [INDEX] | [OPTION]                     | [VALUE]                  | [REASON]                                                               |
-| :-----: | :--------------------------- | :----------------------- | :--------------------------------------------------------------------- |
-|  [01]   | `target`                     | `esnext`                 | Node at the `engines.node` floor runs emitted syntax unlowered         |
-|  [02]   | `lib`                        | `["esnext"]`             | TypeScript 6 has no `es2026` lib, so ES2026 members sit in `esnext`    |
-|  [03]   | `module`                     | `nodenext`               | Code Node runs and published libraries; resolution follows it          |
-|  [04]   | `module`                     | `preserve`               | Bundled applications alone; resolution becomes `bundler`               |
-|  [05]   | `outDir`                     | `${configDir}/dist`      | Each package emits into its own `dist`                                 |
-|  [06]   | `composite`                  | `true`                   | Implies `declaration` and `incremental`, required for references       |
-|  [07]   | `declarationMap`             | `true`                   | Editors jump from a referenced project's `.d.ts` to its source         |
-|  [08]   | `sourceMap`                  | `true` where `tsc` emits | Stack traces reach source lines                                        |
-|  [09]   | `verbatimModuleSyntax`       | `true`                   | Type-only imports stay marked, implies `isolatedModules`               |
-|  [10]   | `erasableSyntaxOnly`         | `true`                   | Refuses syntax Node type stripping cannot run (`enum`, namespaces)     |
-|  [11]   | `exactOptionalPropertyTypes` | `true`                   | Optional keys and keys holding `undefined` stay distinct               |
-|  [12]   | `noUncheckedIndexedAccess`   | `true`                   | Index reads include `undefined`                                        |
-|  [13]   | `skipLibCheck`               | `true`                   | Development programs skip `.d.ts` checks, a consumer check covers dist |
-|  [14]   | `types`                      | Explicit list            | Default `[]` loads no global types                                     |
-|  [15]   | `plugins`                    | Effect language service  | Patched `tsc` reports Effect diagnostics as compiler errors            |
-|  [16]   | `jsx`                        | `react-jsx`              | Packages holding `.tsx` alone                                          |
-|  [17]   | `noEmit`                     | `true`                   | `tsconfig.tests.json`, bundled applications                            |
+| [INDEX] | [OPTION]                             | [VALUE]                  | [REASON]                                                               |
+| :-----: | :----------------------------------- | :----------------------- | :--------------------------------------------------------------------- |
+|  [01]   | `target`                             | `esnext`                 | Node at the `engines.node` floor runs emitted syntax unlowered         |
+|  [02]   | `lib`                                | `["esnext"]`             | TypeScript 6 has no `es2026` lib, so ES2026 members sit in `esnext`    |
+|  [03]   | `module`                             | `nodenext`               | Code Node runs and published libraries; resolution follows it          |
+|  [04]   | `module`                             | `preserve`               | Bundled applications, and programs over types `nodenext` misreads      |
+|  [05]   | `outDir`                             | `${configDir}/dist`      | Each package emits into its own `dist`                                 |
+|  [06]   | `composite`                          | `true`                   | Implies `declaration` and `incremental`, required for references       |
+|  [07]   | `declarationMap`                     | `true`                   | Editors jump from a referenced project's `.d.ts` to its source         |
+|  [08]   | `sourceMap`                          | `true` where `tsc` emits | Stack traces reach source lines                                        |
+|  [09]   | `verbatimModuleSyntax`               | `true`                   | Type-only imports stay marked, implies `isolatedModules`               |
+|  [10]   | `erasableSyntaxOnly`                 | `true`                   | Refuses syntax Node type stripping cannot run (`enum`, namespaces)     |
+|  [11]   | `exactOptionalPropertyTypes`         | `true`                   | Optional keys and keys holding `undefined` stay distinct               |
+|  [12]   | `noUncheckedIndexedAccess`           | `true`                   | Index reads include `undefined`                                        |
+|  [13]   | `noPropertyAccessFromIndexSignature` | `true`                   | Index signature keys read through brackets alone                       |
+|  [14]   | `skipLibCheck`                       | `true`                   | Development programs skip `.d.ts` checks, a consumer check covers dist |
+|  [15]   | `types`                              | Explicit list            | Default `[]` loads no global types                                     |
+|  [16]   | `plugins`                            | Effect language service  | Patched `tsc` reports Effect diagnostics as compiler errors            |
+|  [17]   | `jsx`                                | `react-jsx`              | Packages holding `.tsx` alone                                          |
+|  [18]   | `noEmit`                             | `true`                   | Programs Vite, Storybook, or Node runs from source                     |
 
 Options that stay unwritten:
 
@@ -106,6 +107,8 @@ Options for one case alone:
 - `isolatedDeclarations` lets a per-file emitter (Oxc, tsdown) write `.d.ts` with no checker, and requires explicit types on every export
 - `customConditions` names a source condition only where `exports` hide source behind one
 - `stripInternal` drops `@internal` members from declarations
+- `noEmit` programs set `composite: false` to drop declaration errors (TS4094), and `declarationMap: false`, which TS5069 refuses without `composite`
+- `module: preserve` serves `export =` modules read by named import (`@adobe-uxp-types`) and extensionless `.d.ts` re-exports (`icu`, Workers types)
 
 ## [05]-[PROJECT_REFERENCES]
 
@@ -114,6 +117,8 @@ Options for one case alone:
 - Referenced projects set `composite`, and a config with `"include": []` can reference a `noEmit` program (TS6310 needs input files)
 - `@rasm/nx-typescript` runs `tsc --build` on a package `tsconfig.json` with `references`, `tsc` on one without
 - `@nx/js` sync generator `typescript-sync` writes `references` from graph dependencies, run by `nx sync` and targets listing it in `syncGenerators`
+- `typescript-sync` reports a project missing from root `references` on every run while its `tsconfig.json` is not composite
+- `nx.sync.ignoredDependencies` in a runtime config keeps `typescript-sync` from writing a dependency its program never imports there
 - `sync.applyChanges: true` syncs before a terminal task run, other shells exit naming `nx sync`, and CI skips sync, which `nx sync:check` guards
 - Without references, each package program type-checks its siblings' `.ts` source through `exports`, which costs time and needs no emit
 - Bundled packages that emit declarations through their bundler take one `noEmit` check program in place of references

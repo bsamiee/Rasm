@@ -653,20 +653,12 @@ overrides:
     '@use-gesture/react>react': 'catalog:'
     '@effect/atom-react>scheduler': 'catalog:'
     vite>yaml: 'catalog:'
-    vite>@vitejs/devtools: 'catalog:'
     '@vitejs/plugin-react>oxc-transform-react': 'catalog:'
-    '@vitejs/plugin-react>@rolldown/plugin-babel': 'catalog:'
-    vite-plugin-inspect>@vitejs/devtools-kit: 'catalog:'
-    '@qualithm/arrow-flight-client>apache-arrow': 'catalog:'
-    '@google/model-viewer>three': 'catalog:'
-    '@effect/docgen>typescript': 'catalog:'
     '@types/ssh2>@types/node': 'catalog:'
-    '@modelcontextprotocol/inspector>yaml': 'catalog:'
     '@effect/opentelemetry>@opentelemetry/resources': 'catalog:'
     '@effect/opentelemetry>@opentelemetry/sdk-logs': 'catalog:'
     '@effect/opentelemetry>@opentelemetry/sdk-metrics': 'catalog:'
     '@opentelemetry/api': 'catalog:' # OpenTelemetry 2 under `@pulumi/pulumi` peers below 1.10, a second copy splits every `vitest` snapshot
-    cloudevents>uuid: 14.0.3 # `cloudevents` 10.0.0 names `uuid` 8, a release line npm marks unsupported
     '@axe-core/playwright>playwright-core': '>=1.0.0' # Declared `>= 1.0.0`, pnpm's prerelease peer check reads a spaced operator as an exact version
     tree-sitter: '-' # Node bindings the grammar packages name as peers, the build compiles their C sources alone
     tree-sitter-cli: '-' # The CLI comes from mise, pinned in `.config/mise.lock`
@@ -674,14 +666,10 @@ overrides:
 # --- [BUILDS] ---------------------------------------------------------------------------
 
 allowBuilds:
-    '@datadog/pprof': true
-    '@launchql/protobufjs': false
-    '@modelcontextprotocol/inspector': false
     '@parcel/watcher': true
     '@pulumi/command': false
     '@pulumi/docker': false
     '@pulumi/docker-build': false
-    '@pulumi/kubernetes': false
     '@tree-sitter-grammars/tree-sitter-toml': false
     '@tree-sitter-grammars/tree-sitter-xml': false
     '@tree-sitter-grammars/tree-sitter-yaml': false
@@ -691,7 +679,6 @@ allowBuilds:
     nx: true
     protobufjs: true
     ssh2: false
-    tldjs: false
     tree-sitter-bash: false
     tree-sitter-c: false
     tree-sitter-cpp: false
@@ -705,7 +692,6 @@ allowBuilds:
     tree-sitter-swift: false
     tree-sitter-typescript: false
     workerd: true
-    zeromq: true
 
 # --- [SKILLS] ---------------------------------------------------------------------------
 
