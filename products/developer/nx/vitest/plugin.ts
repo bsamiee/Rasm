@@ -36,7 +36,7 @@ const Reported = Schema.Struct({ outputFile: Schema.optionalKey(Schema.String), 
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const directed = (to: string) => ['--attachmentsDir', join(to, 'attachments'), '--outputFile.junit', join(to, 'junit.xml')];
+const directed = (to: string) => ['--attachmentsDir', join(to, 'attachments')];
 
 const loaded = <A>(file: string, entry: string, specifier: string) => Effect.tryPromise({ try: (): Promise<A> => import(pathToFileURL(createRequire(entry).resolve(specifier)).href), catch: (cause) => new Cause.UnknownError(cause, `${file} resolves no ${specifier}`) });
 

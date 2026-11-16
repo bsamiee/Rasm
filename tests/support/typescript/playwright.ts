@@ -7,7 +7,7 @@ import { defineConfig, test } from '@playwright/test';
 
 const config = defineConfig({
     forbidOnly: Boolean(isCI()),
-    reporter: [['junit'], ['html', { open: 'never' }]],
+    reporter: [['html', { open: 'never' }]],
     use: { trace: 'retain-on-failure', screenshot: 'only-on-failure' },
 });
 

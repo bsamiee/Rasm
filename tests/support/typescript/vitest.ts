@@ -1,11 +1,11 @@
 import { Effect, Exit, flow, Scope } from 'effect';
 import type { ProvidedContext } from 'vitest';
-import { configDefaults, type ViteUserConfig } from 'vitest/config';
+import type { ViteUserConfig } from 'vitest/config';
 import type { TestProject } from 'vitest/node';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const reporting: Pick<NonNullable<ViteUserConfig['test']>, 'chaiConfig' | 'reporters'> = { chaiConfig: { includeStack: true, truncateThreshold: 0 }, reporters: [...configDefaults.reporters, 'junit'] };
+const reporting: Pick<NonNullable<ViteUserConfig['test']>, 'chaiConfig'> = { chaiConfig: { includeStack: true, truncateThreshold: 0 } };
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

@@ -95,7 +95,7 @@ describe('@rasm/nx-vitest', () => {
             const nodes = await createNodesFunction(['vitest.config.ts'], { outputPath: '.artifacts/vitest/{projectName}', coveragePath: '.artifacts/coverage/{projectName}' }, context);
 
             expect(nodes[0]?.[1].projects?.['.']?.targets?.['test--vitest']).toMatchObject({
-                command: "vitest run {args} --attachmentsDir '.artifacts/vitest/{projectName}/attachments' --outputFile.junit '.artifacts/vitest/{projectName}/junit.xml'",
+                command: "vitest run {args} --attachmentsDir '.artifacts/vitest/{projectName}/attachments'",
                 outputs: ['{projectRoot}/.artifacts/vitest/{projectName}', '{projectRoot}/.vitest', '{projectRoot}/.artifacts/coverage/{projectName}/lcov.info'],
                 configurations: {
                     coverage: {

@@ -52,7 +52,7 @@ const Task = Schema.Struct({ project: Schema.String, target: Schema.String }).an
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const directed = (to: string, reporters: readonly string[]) => ({ flags: [`--output=${join(to, 'test-results')}`], env: Record.fromEntries(reporters.flatMap((name) => [`PLAYWRIGHT_${name.toUpperCase()}_OUTPUT_DIR`, `PLAYWRIGHT_${name.toUpperCase()}_OUTPUT_FILE`].map((key) => [key, join(to, name)] as const))) });
+const directed = (to: string, reporters: readonly string[]) => ({ flags: [`--output=${join(to, 'test-results')}`], env: Record.fromIterableWith(reporters, (name) => [`PLAYWRIGHT_${name.toUpperCase()}_OUTPUT_DIR`, join(to, name)]) });
 
 const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, output: Option.Option<string>, lock: string) {
     const entry = join(workspaceRoot, file);
