@@ -1,5 +1,7 @@
-import { Array, Effect, Function, Option, type Predicate, Record, Result, String, Struct } from 'effect';
+import { Array, Effect, Option, type Predicate, Record, Result, String, Struct } from 'effect';
+import type { RateLimiter } from 'effect/persistence';
 import { CommandLine } from 'effect/process';
+import type { RedirOperator } from 'sh-syntax/sync';
 import type { Host, HostError } from '#/host';
 import { type Request, Verdict } from '#/rules/decision';
 import type { Argument } from '#/shell/arguments';
@@ -15,12 +17,21 @@ interface Call {
     readonly host: Host['Service'];
     readonly programs: ReadonlyMap<string, Ruleset['programs'][string]>;
 }
-type Rule = (invocation: Invocation, call: Call) => readonly Verdict[] | Effect.Effect<readonly Verdict[], HostError, Host | Parser>;
+type Rule = (invocation: Invocation, call: Call) => readonly Verdict[] | Effect.Effect<readonly Verdict[], HostError, Host | Parser | RateLimiter.RateLimiter>;
 interface Ruleset {
     readonly programs: Readonly<Record<string, Program & { readonly rules?: readonly Rule[] }>>;
     readonly every?: readonly Rule[];
     readonly calls?: readonly ((call: Call) => ReturnType<Rule>)[];
 }
+
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+const NUL = '\0';
+const LIST_BEFORE = /[ \t]*(?<!;)(?<separator>;|&&)[ \t]*$/u;
+const LIST_AFTER = /^[ \t]*(?<separator>;(?!;)|&&|\n)[ \t]*/u;
+const DECODER = new TextDecoder();
+const ENCODER = new TextEncoder();
+const SYSTEM_TEMP = /^(?<quote>['"]?)\/tmp(?=\/(?!claude-))/u;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -33,11 +44,29 @@ const holds =
 
 // --- [WORDS]
 
-const quote = Function.flow(CommandLine.quote, Result.getOrThrow);
+const quote = (text: string): string => Result.getOrThrow(CommandLine.quote(text.split(NUL, 1).join('')));
 
 const commandOf = ({ program, path }: Invocation): string => [program, ...path].join(' ');
 
 const spelled = (words: readonly Word[]): string => words.map(({ raw }) => raw).join(' ');
+
+const relocated = (raw: string, folder = `"\${TMPDIR:-/tmp}"`) => raw.replace(SYSTEM_TEMP, (_held, quoted: string) => `${folder}${quoted}`);
+
+const listed = (source: Uint8Array, { start, end }: Pick<Span, 'start' | 'end'>): Option.Option<Span> => {
+    const leading = DECODER.decode(source.subarray(0, start));
+    const after = DECODER.decode(source.subarray(end));
+    const lead = LIST_BEFORE.exec(leading);
+    const trail = LIST_AFTER.exec(after);
+    const forward = Option.map(Option.fromNullishOr(trail), ([held]) => ({ start, end: end + ENCODER.encode(held).length }));
+    const backward = Option.map(Option.fromNullishOr(lead), ([held]) => ({ start: start - ENCODER.encode(held).length, end }));
+    if (leading.trim() === '') {
+        return forward;
+    }
+    if (lead === null || (after.trim() !== '' && trail === null)) {
+        return Option.none();
+    }
+    return lead.groups?.['separator'] === ';' && trail?.groups?.['separator'] === '&&' ? forward : backward;
+};
 
 const folderOf = (host: Host['Service'], { values, command }: Invocation, ...flags: readonly string[]): Option.Option<string> => values(...flags).reduce((folder, value) => host.resolve(value, folder), command.cwd);
 
@@ -60,7 +89,7 @@ const within = ({ command }: Invocation, { analysis: { invocations } }: Call): r
 
 const feedsJq = (invocation: Invocation, call: Call) => stages(invocation, call).later.at(0)?.program === 'jq';
 
-const redirected = ({ command }: Invocation, op: string, descriptor?: string, target?: string) =>
+const redirected = ({ command }: Invocation, op: RedirOperator, descriptor?: string, target?: string) =>
     command.redirects.filter((redirect) => redirect.op === op && (descriptor === undefined || Option.contains(redirect.descriptor, descriptor)) && (target === undefined || Option.exists(redirect.target, ({ text }) => text === target)));
 
 // --- [VERDICTS]
@@ -166,7 +195,8 @@ const respell =
     (invocation: Invocation) => {
         const respelled = ({ names, words, values: held }: Argument, raws: readonly string[]) => {
             const before = notify ? `${commandOf(invocation)} ${words[0].raw}` : undefined;
-            const kept = Array.difference(names, drops).map((name) => renames[name] ?? name);
+            const letters = words[0].text.startsWith('--') ? [] : Array.fromIterable(words[0].text.slice(1));
+            const kept = names.flatMap((name, at) => (drops.includes(name) ? [] : [renames[name] ?? (letters.length === names.length ? `-${letters[at] ?? ''}` : name)]));
             const valueGoes = Option.exists(Array.last(names), (name) => drops.includes(name));
             const attached = words.length === 1;
             if (words.some(({ spread }) => spread)) {
@@ -189,4 +219,4 @@ const respell =
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { absent, all, type Call, commandOf, cut, deleted, edited, ensure, erased, feedsJq, folderOf, holds, inserted, perSubcommand, quote, type Rule, type Ruleset, redirected, refusal, refuse, respell, settled, silent, spelled, stages, unassign, unresolved, when, whole, within };
+export { absent, all, type Call, commandOf, cut, deleted, edited, ensure, erased, feedsJq, folderOf, holds, inserted, listed, NUL, perSubcommand, quote, type Rule, type Ruleset, redirected, refusal, refuse, relocated, respell, settled, silent, spelled, stages, unassign, unresolved, when, whole, within };

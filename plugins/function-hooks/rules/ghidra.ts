@@ -1,7 +1,7 @@
 import { Array, Effect, Option, Predicate, Record } from 'effect';
 import type { Host } from '#/host';
 import { Verdict } from '#/rules/decision';
-import { deleted, edited, inserted, perSubcommand, quote, type Rule, type Ruleset, refusal, silent, unassign, when } from '#/rules/rule';
+import { deleted, edited, inserted, listed, perSubcommand, quote, type Rule, type Ruleset, refusal, silent, unassign, when } from '#/rules/rule';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -59,7 +59,18 @@ const projectCopy: Rule = Effect.fnUntraced(function* (invocation, { host }) {
     return bases.flat().flatMap((base) => refusal(`${invocation.program} copies Ghidra project ${host.path.basename(base)}, use its ${SERVE}`));
 });
 
-const heapAssigned: Rule = (_invocation, { analysis: { commands } }) => commands.flatMap(({ variables }) => [...variables.keys()]).flatMap((name) => (HEAP.test(name) ? refusal(`${name} overrides the ${HEADLESS} heap, remove it`) : []));
+const heapAssigned: Rule = (_invocation, { analysis: { commands, declarations } }) => {
+    const removals = declarations.flatMap((declaration) => {
+        const heap = declaration.assigns.filter(({ name }) => HEAP.test(name));
+        const spans = heap.length === declaration.assigns.length ? Option.toArray(listed(declaration.source, declaration)) : heap;
+        return declaration.origin === 'call' && heap.length > 0 && spans.length > 0 ? [{ heap, spans }] : [];
+    });
+    const removed = new Set(removals.flatMap(({ heap }) => heap.map(({ name }) => name)));
+    return [
+        ...removals.flatMap(({ heap, spans }) => spans.map(({ start, end }) => Verdict.Edit({ start, end, text: Option.none(), subject: Option.some(heap.map(({ name }) => name).join(' ')) }))),
+        ...Array.dedupe(commands.flatMap(({ variables }) => [...variables.keys()])).flatMap((name) => (HEAP.test(name) && !removed.has(name) ? refusal(`${name} overrides the ${HEADLESS} heap, remove it`) : [])),
+    ];
+};
 
 const projectLocation: Rule = Effect.fnUntraced(function* (invocation, { host }) {
     const shared = Option.flatMap(yield* host.environment(PROJECT_VARIABLE), (folder) => host.resolve(folder, Option.none()));
@@ -67,7 +78,9 @@ const projectLocation: Rule = Effect.fnUntraced(function* (invocation, { host })
     if (location === undefined || PROJECT_REFERENCE.test(location.raw)) {
         return [];
     }
-    return Option.exists(host.resolve(location.text, invocation.command.cwd), (folder) => Option.contains(shared, folder)) ? silent(edited(invocation, location, PROJECT_WORD, `${HEADLESS} ${location.raw}`)) : refusal(`${HEADLESS} project ${location.raw} is not $${PROJECT_VARIABLE}, pass ${PROJECT_WORD}`);
+    const stated = Option.exists(host.resolve(location.text, invocation.command.cwd), (folder) => Option.contains(shared, folder));
+    const moved = edited(invocation, location, PROJECT_WORD, `${HEADLESS} ${location.raw}`);
+    return stated ? silent(moved) : moved;
 });
 
 const logFiles: Rule = (invocation, { host }) =>
@@ -84,7 +97,16 @@ const logFiles: Rule = (invocation, { host }) =>
 const concurrentRuns: Rule = (invocation, { analysis: { invocations, jobs } }) => {
     const [, name] = invocation.operands;
     const socket = name?.known === true ? name.text : '<name>';
-    return invocation.repeated || (jobs.length > 0 && invocations.filter(({ program }) => program === HEADLESS).length > 1) ? refusal(invocation.has('-import') ? `${HEADLESS} runs concurrently, chain each -import with &&` : `${HEADLESS} runs concurrently, send runs to nc -U "$${PROJECT_VARIABLE}/${socket}.sock"`) : [];
+    const headless = invocations.filter(({ program }) => program === HEADLESS);
+    const backgrounded = jobs.flatMap((job) => Option.toArray(Option.fromNullishOr(headless.find(({ command }) => command.end === job.start && command.origin === 'call')).pipe(Option.map(() => job))));
+    const chained = invocation.has('-import') && invocations.some(({ program }) => program === 'wait') && backgrounded.length === jobs.length && headless.every(({ has }) => has('-import'));
+    if (!(invocation.repeated || (jobs.length > 0 && headless.length > 1))) {
+        return [];
+    }
+    if (chained && !invocation.repeated) {
+        return backgrounded.map(({ start, end }) => Verdict.Edit({ start, end, text: Option.some('&&'), subject: Option.some(`${HEADLESS} -import &`) }));
+    }
+    return refusal(invocation.has('-import') ? `${HEADLESS} runs concurrently, chain each -import with &&` : `${HEADLESS} runs concurrently, send runs to nc -U "$${PROJECT_VARIABLE}/${socket}.sock"`);
 };
 
 const longRun: Rule = (invocation, { request, host }) => (request.kind === 'foreground' && (invocation.has('-import') || invocation.values('-postScript').some((script) => host.path.basename(script) === SERVE)) ? [Verdict.Background()] : []);

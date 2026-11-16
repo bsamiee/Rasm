@@ -120,7 +120,7 @@ const usageOf = Effect.fnUntraced(function* (program: string, row: Program, prim
         const { stdout } = yield* host.run([program, '--experimental-dump-help']);
         return infoUsage((yield* Effect.mapError(Schema.decodeEffect(ToolInfo)(stdout), HostError.of(program))).command);
     }
-    const exported = (name: string) => host.run(['carapace', name, 'export'], { env: { CARAPACE_BUILTINS: 'bash', CARAPACE_SHELL: 'bash', CARAPACE_BRIDGES: '', XDG_CONFIG_HOME: host.path.join(host.root, '.config') } });
+    const exported = (name: string) => host.run(['carapace', name, 'export'], { env: { CARAPACE_BUILTINS: 'bash', CARAPACE_SHELL: 'bash', CARAPACE_BRIDGES: '' } });
     const own = yield* exported(row.completer ?? program);
     const { stdout } = row.completer === undefined && program !== primary && String.isEmpty(String.trim(own.stdout)) ? yield* exported(primary) : own;
     const declared = new Map(

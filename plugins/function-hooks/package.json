@@ -10,15 +10,16 @@
     },
     "exports": {
         "./register": "./hooks/register.ts",
-        "./codex": "./codex.ts",
-        "./agy": "./agy.ts",
+        "./hook": "./hook.ts",
         "./server": "./claude/server.ts"
     },
     "dependencies": {
         "@effect/platform-node": "catalog:",
         "@nx/devkit": "catalog:",
         "@rasm/applications": "workspace:*",
-        "effect": "catalog:"
+        "@rasm/telemetry": "workspace:*",
+        "effect": "catalog:",
+        "sh-syntax": "catalog:"
     },
     "devDependencies": {
         "@types/node": "catalog:"

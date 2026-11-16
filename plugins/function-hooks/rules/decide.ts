@@ -1,11 +1,8 @@
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { Clock, Combiner, Duration, Effect, Layer, Option, Record, Schema } from 'effect';
-import { KeyValueStore } from 'effect/persistence';
-import { Host } from '#/host';
-import manifest from '#/manifest' with { type: 'json' };
+import { Combiner, Effect, Layer, Option, Predicate, Record } from 'effect';
+import { RateLimiter } from 'effect/persistence';
+import { Host, type HostError } from '#/host';
 import { APPS } from '#/rules/apps';
-import { decisionOf, type Request } from '#/rules/decision';
+import { Decision, decisionOf, type Request } from '#/rules/decision';
 import { FILES } from '#/rules/files';
 import { GHIDRA } from '#/rules/ghidra';
 import { GIT } from '#/rules/git';
@@ -26,36 +23,50 @@ const BY_NAME = new Map(
     ),
 );
 
-// --- [MODELS] --------------------------------------------------------------------------
-
-const Noted = Schema.Record(Schema.String, Schema.Finite);
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const due = Effect.fnUntraced(
-    function* ({ agent }: Pick<typeof Request.Type, 'agent'>, notes: ReadonlyMap<string, string>) {
-        const [host, store, now] = yield* Effect.all([Host, KeyValueStore.KeyValueStore, Clock.currentTimeMillis]);
-        const noted = KeyValueStore.toSchemaStore(store, Noted);
-        const reader = agent ?? host.parent;
-        const before = Option.getOrElse(yield* noted.get(reader), Record.empty<string, number>);
-        const fresh = [...notes].filter(([subject]) => now - (before[subject] ?? Number.NEGATIVE_INFINITY) >= Duration.toMillis('10 minutes'));
-        yield* noted.set(reader, { ...before, ...Record.fromIterableWith(fresh, ([subject]) => [subject, now]) });
-        return fresh.map(([, note]) => note);
-    },
-    (effect, _request, notes) => Effect.orElseSucceed(effect, () => [...notes.values()]),
-);
+const due = Effect.fnUntraced(function* ({ session, agent }: Pick<typeof Request.Type, 'session' | 'agent'>, notes: ReadonlyMap<string, string>) {
+    const [host, limiter] = yield* Effect.all([Host, RateLimiter.RateLimiter]);
+    const reader = `${session ?? host.parent} ${agent ?? 'main'}`;
+    const fresh = yield* Effect.filter([...notes], ([subject]) => Effect.isSuccess(limiter.consume({ key: `${reader} ${subject}`, limit: 1, window: '10 minutes', algorithm: 'fixed-window', onExceeded: 'fail' })));
+    return fresh.map(([, note]) => note);
+});
 
-const decide = Effect.fnUntraced(function* (request: typeof Request.Type) {
+const judged = Effect.fnUntraced(function* (request: typeof Request.Type, noted: (notes: ReadonlyMap<string, string>) => Effect.Effect<readonly string[], never, Host | RateLimiter.RateLimiter>) {
     const host = yield* Host;
     const analysis = yield* analyzed(request.command, { cwd: host.resolve(request.cwd, Option.none()), origin: 'call' }, request.shell);
     const call: Call = { request, analysis, host, programs: BY_NAME };
     const verdicts = yield* Effect.all([...analysis.invocations.map((invocation) => all(...(invocation.informational ? [] : [...(BY_NAME.get(invocation.program)?.rules ?? []), ...EVERY]))(invocation, call)), ...CALLS.map((rule) => settled(rule(call)))], { concurrency: 'unbounded' });
-    return yield* decisionOf(request.command, verdicts.flat(), (notes) => due(request, notes));
+    return yield* decisionOf(request.command, verdicts.flat(), noted);
 });
+
+const converged = Effect.fnUntraced(function* (request: typeof Request.Type, rewrite: typeof Decision.cases.Rewrite.Type, seen: ReadonlySet<string>): Effect.fn.Return<typeof Decision.Type, HostError, Host | Parser | RateLimiter.RateLimiter> {
+    const again = yield* judged({ ...request, command: rewrite.command, kind: rewrite.background ? 'background' : request.kind }, (notes) => due(request, notes));
+    if (again._tag !== 'Rewrite' || again.command === rewrite.command) {
+        return Decision.match(again, { Allow: ({ observes }) => Decision.cases.Rewrite.make({ ...rewrite, observes: rewrite.observes || observes }), Deny: (denied) => denied, Rewrite: () => rewrite });
+    }
+    if (seen.has(again.command) || seen.size > RULESETS.length) {
+        return Decision.cases.Deny.make({ reason: `Rules undo each other's rewrite, ${rewrite.command} then ${again.command}, fix the rule at its cause` });
+    }
+    const note = [rewrite.note, again.note].filter(Predicate.isNotUndefined).join('. ');
+    return yield* converged(request, Decision.cases.Rewrite.make({ command: again.command, observes: rewrite.observes || again.observes, background: rewrite.background || again.background, ...(note === '' ? {} : { note }) }), seen.union(new Set([again.command])));
+});
+
+const decide = Effect.fn('decide')(
+    function* (request: typeof Request.Type) {
+        const first = yield* judged(request, (notes) => due(request, notes));
+        const decision = first._tag === 'Rewrite' ? yield* converged(request, first, new Set([request.command, first.command])) : first;
+        const outcome = Decision.match(decision, { Allow: () => ({}), Deny: ({ reason }) => ({ reason }), Rewrite: ({ command }) => ({ rewritten: command }) });
+        yield* Effect.annotateCurrentSpan({ decision: decision._tag, kind: request.kind, command: request.command, ...outcome, ...Record.getSomes({ tool_use_id: Option.fromNullishOr(request.call), session: Option.fromNullishOr(request.session), agent: Option.fromNullishOr(request.agent) }) });
+        yield* Effect.logInfo(decision._tag).pipe(Effect.annotateLogs({ kind: request.kind, command: request.command, ...outcome, session: request.session ?? 'unknown', agent: request.agent ?? 'main', call: request.call ?? 'unknown' }));
+        return decision;
+    },
+    (effect, request) => Effect.provideServiceEffect(effect, Host, Host.make(request.cwd)),
+);
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const Engine = Parser.layer(BY_NAME).pipe(Layer.provideMerge(Host.layer), Layer.provideMerge(KeyValueStore.layerFileSystem(join(tmpdir(), manifest.name))));
+const Engine = Parser.layer(BY_NAME).pipe(Layer.provideMerge(Host.layer), Layer.provideMerge(RateLimiter.layer.pipe(Layer.provide(RateLimiter.layerStoreMemory))));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

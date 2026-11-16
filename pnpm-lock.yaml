@@ -417,6 +417,9 @@ catalogs:
     rotating-file-stream:
       specifier: 3.2.10
       version: 3.2.10
+    sh-syntax:
+      specifier: 0.8.7
+      version: 0.8.7
     ssh-config:
       specifier: 5.3.0
       version: 5.3.0
@@ -1424,9 +1427,15 @@ importers:
       '@rasm/applications':
         specifier: workspace:*
         version: link:../../libs/typescript/macos/applications
+      '@rasm/telemetry':
+        specifier: workspace:*
+        version: link:../../libs/typescript/runtime/telemetry
       effect:
         specifier: 'catalog:'
         version: 4.1.4
+      sh-syntax:
+        specifier: 'catalog:'
+        version: 0.8.7
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -9247,6 +9256,10 @@ packages:
     engines: {node: '>=10'}
     hasBin: true
 
+  sh-syntax@0.8.7:
+    resolution: {integrity: sha512-zaJUdXFCbDFgtREm3KiqvX3dBlngGY0tumPzHvC5RqX67UuaBLIIZqb16MCbYLGyk5rPYrM+5FlghF+w6WdVUw==}
+    engines: {node: '>=18.0.0'}
+
   shallow-equal@3.1.0:
     resolution: {integrity: sha512-pfVOw8QZIXpMbhBWvzBISicvToTiM5WBF1EeAUZDDSb5Dt29yl4AYbyywbJFSEsRUMr7gJaxqCdr4L3tQf9wVg==}
 
@@ -16407,6 +16420,8 @@ snapshots:
   semver@7.8.5: {}
 
   semver@7.8.6: {}
+
+  sh-syntax@0.8.7: {}
 
   shallow-equal@3.1.0: {}
 

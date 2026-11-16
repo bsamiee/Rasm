@@ -12,7 +12,7 @@ interface State {
     readonly servers: Map<Promise<string>, HookStream<ProcessSpawnChunk, ProcessSpawnResult>>;
     readonly watches: Map<string, Map<string, Watched>>;
     readonly tracked: Map<string, Tracked>;
-    readonly driven: Set<number>;
+    readonly read: Set<string>;
     readonly unjudged: Map<string | undefined, string>;
 }
 
@@ -20,48 +20,64 @@ interface State {
 
 const WATCH_APPS_CLI = 'watch-apps' satisfies typeof WATCH_APPS;
 const ROWS = atom({ plugin: 'function-hooks', key: 'rows' } as const, [], { shape: 'rows-1' });
-const LAST_SEGMENT = /\/[^/]*$/u;
+const TRAILING_SLASHES = /\/+$/u;
 const ERROR_LINE = /Error\b/u;
-const RHINO_TOOLS = /^mcp__rhino-mcp-platform__/u;
-const BLENDER_TOOLS = /^mcp__(?:mcp-for-)?blender__/u;
-const CUA_TOOLS = /^mcp__cua-driver__/u;
-const COMPUTER_USE = /^mcp__computer-use__/u;
+const STDERR_HELD = 65_536;
+const WATCHED_TOOLS: readonly (readonly [tool: RegExp, bundle: string])[] = [
+    [/^mcp__rhino-mcp-platform__/u, 'com.mcneel.rhinoceros'],
+    [/^mcp__(?:mcp-for-)?blender__/u, 'org.blenderfoundation.blender'],
+];
+const TASK_OUTPUT = /\/tasks\/(?<id>[^/]+)\.output$/u;
 const ENDED: ReadonlySet<AgentStatus> = new Set(['completed', 'failed', 'killed']);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // --- [SERVER]
 
-const started = ($: EngineInterface, servers: State['servers']): Promise<string> => {
-    const ready = Promise.withResolvers<string>();
-    const child = $.process.spawn({ argv: ['mise', 'exec', '--', 'node', `${$.plugin.root}/claude/server.ts`], cwd: $.plugin.root });
+const started = ($: EngineInterface, servers: State['servers'], folder: string): Promise<string> => {
+    const socket = `${folder.replace(TRAILING_SLASHES, '')}/${$.plugin.name}-${crypto.randomUUID().slice(0, 8)}.sock`;
+    const child = $.process.spawn({ argv: ['mise', 'exec', '--', 'node', '--watch', `${$.plugin.root}/claude/server.ts`, socket], cwd: $.plugin.root });
+    const run = { ready: Promise.withResolvers<string>(), settled: false, stderr: '' };
+    const failed = (fallback: string) => {
+        const lines = run.stderr.split('\n').filter((line) => line.trim() !== '');
+        return new Error(lines.find((line) => ERROR_LINE.test(line)) ?? lines.at(-1) ?? fallback);
+    };
+    const settle = (outcome: string | Error | undefined) => {
+        const ready = run.settled ? Promise.withResolvers<string>() : run.ready;
+        ready.promise.catch(() => undefined);
+        servers.delete(run.ready.promise);
+        servers.set(ready.promise, child);
+        if (typeof outcome === 'string') {
+            ready.resolve(outcome);
+        } else if (outcome !== undefined) {
+            ready.reject(outcome);
+        }
+        Object.assign(run, { ready, settled: outcome !== undefined, stderr: '' });
+    };
     const supervised = async (): Promise<void> => {
-        const printed = { stdout: '', stderr: '', socket: '' };
         for await (const { stream, text } of child) {
-            printed[stream] += text;
-            printed.socket = printed.stdout.slice(0, Math.max(0, printed.stdout.indexOf('\n')));
-            if (printed.socket !== '') {
-                ready.resolve(printed.socket);
-            }
+            run.stderr = stream === 'stderr' ? `${run.stderr}${text}`.slice(-STDERR_HELD) : run.stderr;
+            (stream === 'stdout' ? text.split('\n').filter((line) => line !== '') : []).forEach((line) => {
+                const cause = run.stderr === '' ? undefined : failed(line);
+                settle(line === socket ? socket : cause);
+            });
         }
         const ended = await child.result.catch(() => undefined);
-        const lines = printed.stderr.split('\n').filter((line) => line.trim() !== '');
-        if (ended?.signal !== null && printed.socket !== '') {
-            await $.process.run(['rm', '-r', printed.socket.replace(LAST_SEGMENT, '')]);
-        }
-        ready.reject(new Error(lines.find((line) => ERROR_LINE.test(line)) ?? lines.at(-1) ?? `server ended ${ended?.signal ?? ended?.code ?? 'replaced'}`));
+        run.ready.reject(failed(`server ended ${ended?.signal ?? ended?.code ?? 'replaced'}`));
+        servers.delete(run.ready.promise);
     };
+    const first = run.ready.promise;
+    first.catch(() => undefined);
     servers.forEach((replaced) => {
         replaced.return({ code: null, signal: null }).catch(() => undefined);
     });
     servers.clear();
-    servers.set(ready.promise, child);
-    supervised()
-        .finally(() => {
-            servers.delete(ready.promise);
-        })
-        .catch(ready.reject);
-    return ready.promise;
+    servers.set(first, child);
+    supervised().catch((error: unknown) => {
+        run.ready.reject(error);
+        servers.delete(run.ready.promise);
+    });
+    return first;
 };
 
 const posted = <R extends keyof Routes>($: EngineInterface, { session, servers }: State, route: R, body: Routes[R][0], signal?: AbortSignal): Promise<Routes[R][1]> => {
@@ -141,7 +157,7 @@ const recorded = async ($: EngineInterface, agent: string | undefined, { created
 const watchFailed =
     ($: EngineInterface) =>
     (cause: unknown): void =>
-        $.ui.log(`${$.plugin.name} watch failed, ${cause instanceof Error ? cause.message : JSON.stringify(cause)}`, { to: 'debug' });
+        $.ui.log(`${$.plugin.name} watch failed, ${Error.isError(cause) ? cause.message : JSON.stringify(cause)}`, { to: 'debug' });
 
 const watching = async ($: EngineInterface, state: State, bundle: string, agent: string | undefined): Promise<void> => {
     const session = await $.session.id();
@@ -200,15 +216,16 @@ const observed = async ($: EngineInterface, state: State, agent: string | undefi
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const register: Register = (on) => {
-    const state: State = { session: Promise.withResolvers(), servers: new Map(), watches: new Map(), tracked: new Map(), driven: new Set(), unjudged: new Map() };
+    const state: State = { session: Promise.withResolvers(), servers: new Map(), watches: new Map(), tracked: new Map(), read: new Set(), unjudged: new Map() };
     on('session.start', async ($, e, next) => {
         const answer = await next(e);
         const stored = await $.store.get(await $.session.id());
         // oxlint-disable-next-line typescript/no-unsafe-return -- $.store answers unknown JSON, here the rows recorded() wrote, and hooks modules import no package to decode with
         const rows = await update($, ROWS, (current): Row[] => (current.length === 0 && Array.isArray(stored) ? stored : current));
-        state.session.resolve({ served: () => started($, state.servers), watched: (bundle, agent) => watching($, state, bundle, agent) });
+        const folder = (await $.env.get('TMPDIR')) ?? '/tmp';
+        state.session.resolve({ served: () => started($, state.servers, folder), watched: (bundle, agent) => watching($, state, bundle, agent) });
         if (state.servers.size === 0) {
-            started($, state.servers).catch(() => undefined);
+            started($, state.servers, folder).catch(() => undefined);
         }
         rows.forEach(({ bundle, agent }) => {
             watching($, state, bundle, agent).catch(watchFailed($));
@@ -233,28 +250,25 @@ const register: Register = (on) => {
         const notes = owned.flatMap(({ pending }) => pending);
         return notes.length === 0 ? answer : { ...answer, context: [...(answer.context ?? []), ...notes] };
     });
-    on('tool.call', { tool: RHINO_TOOLS }, ($, e, next) => {
-        state.session.promise.then(({ watched }) => watched('com.mcneel.rhinoceros', e.agentId)).catch(watchFailed($));
+    on('tool.call', { tool: WATCHED_TOOLS.map(([tool]) => tool) }, ($, e, next) => {
+        WATCHED_TOOLS.filter(([tool]) => tool.test(e.tool)).forEach(([, bundle]) => {
+            state.session.promise.then(({ watched }) => watched(bundle, e.agentId)).catch(watchFailed($));
+        });
         return next(e);
     });
-    on('tool.call', { tool: BLENDER_TOOLS }, ($, e, next) => {
-        state.session.promise.then(({ watched }) => watched('org.blenderfoundation.blender', e.agentId)).catch(watchFailed($));
-        return next(e);
-    });
-    on('tool.call', { tool: CUA_TOOLS }, ($, e, next) => {
-        const pid: unknown = Reflect.get(e, 'pid');
-        if (typeof pid === 'number' && !state.driven.has(pid)) {
-            state.driven.add(pid);
-            Promise.all([posted($, state, 'owners', [`${pid}`], next.signal), state.session.promise])
-                .then(([bundles, { watched }]) => Promise.all(bundles.map((bundle) => watched(bundle, e.agentId))))
-                .catch((error: unknown) => {
-                    state.driven.delete(pid);
-                    watchFailed($)(error);
-                });
+    on('tool.call', { tool: 'Read' }, async ($, e, next) => {
+        const id = TASK_OUTPUT.exec(e.file_path)?.groups?.['id'];
+        if (id === undefined) {
+            return next(e);
         }
-        return next(e);
+        const [agents, { stdout }] = await Promise.all([$.agent.list(), $.process.run(['lsof', '-t', e.file_path])]);
+        const agent = agents.find((listed) => listed.id === id);
+        const reader = `${e.agentId ?? 'main'} ${id}`;
+        const again = state.read.has(reader);
+        state.read.add(reader);
+        const polled = agent === undefined ? again && stdout.trim() !== '' : !ENDED.has(agent.status);
+        return polled ? { deny: `Task ${id} notifies on completion, never poll its output` } : next(e);
     });
-    on('tool.call', { tool: COMPUTER_USE }, () => ({ deny: `computer-use takes focus and the pointer, read with ${WATCH_APPS_CLI} and act with mcp__cua-driver__ tools` }));
     on('tool.call', { tool: 'AskUserQuestion' }, async ($, e, next) => {
         const since = await $.clock.now();
         const waited = async (first: readonly string[]): Promise<readonly string[]> => {
@@ -285,9 +299,14 @@ const register: Register = (on) => {
                 cwd: await $.session.cwd(),
                 kind: bash?.run_in_background === true ? 'background' : ({ Bash: 'foreground', Monitor: 'monitor' } as const)[e.tool],
                 ...(e.agentId !== undefined && { agent: e.agentId }),
+                session: await $.session.id(),
+                call: e.tool_use_id,
             },
             next.signal,
         );
+        if (decision._tag !== 'Allow') {
+            $.ui.log(`${$.plugin.name} ${decision._tag} ${e.tool_use_id}: ${decision._tag === 'Deny' ? decision.reason : decision.command}`, { to: 'debug' });
+        }
         const settled = async <A extends { readonly text?: string | undefined; readonly deny?: unknown; readonly context?: readonly string[] | undefined }>(answer: A, observes: boolean, note?: string) => {
             if (observes && bash !== undefined) {
                 await observed($, state, e.agentId, answer.text, next.signal);
@@ -334,7 +353,7 @@ const register: Register = (on) => {
     on('session.end', async ($, e, next) => {
         const rows = await read($, ROWS);
         state.tracked.clear();
-        state.driven.clear();
+        state.read.clear();
         state.watches.forEach((seen) => seen.clear());
         state.unjudged.clear();
         shown($, state.tracked);

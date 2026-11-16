@@ -11,7 +11,6 @@ const Watched = Instance.mapFields(Struct.assign({ ended: Schema.Boolean, status
 const Routes = {
     decide: [Request, Decision],
     observe: [Schema.String, Schema.Struct({ created: Schema.Array(Instance), reused: Schema.Array(Instance), exited: Exited })],
-    owners: [Schema.Array(Schema.String), Schema.Array(Instance.fields.bundle)],
     paused: [Schema.Struct({ since: Schema.Finite, first: Schema.Array(Schema.String) }), Schema.Struct({ holds: Schema.Array(Schema.String), notes: Schema.Array(Schema.String) })],
     quit: [Schema.Array(Instance), Exited],
     watched: [Schema.String, Schema.Struct({ absent: Schema.Array(Instance.fields.bundle), states: Schema.Array(Watched) })],

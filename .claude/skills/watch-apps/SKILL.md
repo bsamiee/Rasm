@@ -1,6 +1,6 @@
 ---
 name: watch-apps
-description: "Use when opening, driving, observing, or quitting a desktop app, covering background control through Accessibility and cua-driver"
+description: "Use when opening, driving, observing, or quitting a desktop app, covering background control through Accessibility"
 ---
 
 # [WATCH_APPS]
@@ -70,9 +70,8 @@ Monitor {"command": "watch-apps watch <app> [<helper>]... [--record <folder>] --
 - Hooks rewrite `killall` and `pkill` into `kill` of their pids when each descends from the session, and refuse any other kill of every match
 - Hooks add Blender `--no-window-focus` (absent a headless switch) and Rhino `-nosplash` to `launch` and to each rewrite into it
 - Hooks run `watch` in a Monitor alone with `--line-length 500`, drop a filter piped after it, and refuse a loop polling `read` or `watch`
-- Hooks refuse `osascript` posting through System Events and every `computer-use` tool, taking focus
-- Hooks refuse `cua-driver call` and `serve`, which bypass the session MCP server and its app watch
-- Claude Code sends dialogs, hangs, and crashes of apps a session launches, reuses, or drives by Rhino, Blender, or `cua-driver` MCP to its agent as hook context
+- Hooks refuse `osascript` posting through System Events, taking focus
+- Claude Code sends dialogs, hangs, and crashes of apps a session launches, reuses, or drives by Rhino or Blender MCP to its agent as hook context
 - Claude Code quits each instance an agent created (`created: true`) when that agent's turn ends and the session's when it ends, `--force` staying an agent's command
 
 Every command exits 1 after printing a `fail` line and 0 otherwise, and ends when the process that started it exits, its reader closes, or SIGTERM, SIGINT, or SIGHUP arrives. Malformed arguments and a missing Accessibility grant print a `fail` line keyed by `watch-apps`.
@@ -182,28 +181,7 @@ Actions go to the app's process through AX actions on its elements and leave the
 - `activate`, `AXRaise`, and an `AXFrontmost` write take focus from the frontmost app
 - `ioreg -c IOHIDSystem -d 4 -r -k HIDIdleTime | rg -m1 HIDIdleTime` prints nanoseconds since the owner's last key or pointer input
 
-## [05]-[POINTER_AND_KEYS]
-
-`mcp__cua-driver__` tools click, drag, scroll, type, and press keys in a background window with frontmost app and pointer unchanged, while `watch-apps` launches, reads state, captures, and quits:
-1. `get_window_state` takes `pid` and `window_id` (a window's `number`) from a `watch-apps` line and returns tree rows `[N]` with a screenshot
-2. `click`, `scroll`, `type_text`, and `press_key` take `element_token` `<snapshot_id>:N`, or `x` and `y` in that screenshot's pixels for a surface the tree lacks
-3. Each result states `effect` `confirmed`, `unverifiable`, or `refused`, and `read` or `get_window_state` with `since: "latest"` settles an unverifiable one
-
-- `.mcp.json` runs `cua-driver mcp`, a proxy to `CuaDriver.app` it starts when absent, under that app's Accessibility and Screen Recording grants
-- `x` and `y` input reads the driver's own screenshot: a click presses the control at that pixel, and a text view of a background window keeps its caret
-- `cua-driver mcp --direct` runs under the terminal's grants and answers `screenshot_error` `direct_capture_consent_required`
-- `type_text` inserts at the selection through `AXSelectedText` and marks the document edited, `set` replacing a whole value outside change tracking
-- `hotkey` runs a menu key equivalent (`cmd+s`) through its menu item, since key events never reach a background app's menus
-- `drag` posts to one window by `window_id`, and a drag-and-drop session macOS tracks with the real pointer answers `background_unavailable`
-- OpenGL, Metal, Qt, and wx viewports (Blender's among them) drop background pointer and key events, host MCP tools and scripts drive them
-- `delivery_mode` `foreground` and `bring_to_front` take focus and the pointer, used only on a machine the owner's message hands over
-- `launch_app` and `kill_app` skip the instance rows hooks keep, `watch-apps launch` and `quit` own lifecycle
-- Hooks watch an app from the first `cua-driver` call naming its `pid`
-- Targets can read `active` true after `cua-driver` input while the frontmost app stays unchanged
-- `get_guide` returns the driver's own guidance by topic (`overview`, `drag`, `menus`, `batching`)
-- Products never depend on `cua-driver`
-
-## [06]-[RECORDING]
+## [05]-[RECORDING]
 
 `watch --record <folder>` records while it watches, with no activation, hooks starting `watch` without it:
 - Standard windows and asking rows each record to `<window>-<time>.mov` at up to 10 frames a second, a frame written when the window changes

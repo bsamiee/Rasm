@@ -1,6 +1,7 @@
 import { Array, Effect, Option, Predicate, Struct } from 'effect';
+import { RedirOperator } from 'sh-syntax/sync';
 import type { Host } from '#/host';
-import { all, commandOf, folderOf, holds, inserted, perSubcommand, type Rule, type Ruleset, redirected, refusal, refuse, respell, unresolved, when } from '#/rules/rule';
+import { all, commandOf, edited, folderOf, holds, inserted, perSubcommand, quote, type Rule, type Ruleset, redirected, refusal, refuse, relocated, respell, unresolved, when, whole } from '#/rules/rule';
 import type { Invocation } from '#/shell/invocation';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -9,7 +10,6 @@ const BRANCHES = ['changes branches', 'stay on this branch'] as const;
 const OVERWRITES = ['overwrites edits', 'use Edit'] as const;
 const REMOTE = ['rewrites remote history', 'push plain refs'] as const;
 const ALIASES = ['aliases hide subcommands', 'run them directly'] as const;
-const HISTORY = /^[+:]/u;
 const TAG = /^[+:]?refs\/tags\//u;
 const ALIAS = /^alias\./u;
 const REVISION_PATH = /^[^:]+:.+/u;
@@ -44,7 +44,7 @@ const checkoutPaths: Rule = Effect.fnUntraced(function* (invocation, { host }) {
         return [];
     }
     const paths = invocation.tail.length > 0 || more.length > 0 || first.text === '.' || first.text.startsWith(':') || (first.text !== '-' && (yield* present(host, invocation, first.text)));
-    const uncommitted = paths && (!operands.every(({ known }) => known) || (yield* host.output(['git', '-C', Option.getOrElse(folderOf(host, invocation, '-C'), () => host.root), 'status', '--porcelain', '--', ...operands.map(({ text }) => text)])).trim() !== '');
+    const uncommitted = paths && (!operands.every(({ known }) => known) || (yield* Effect.orElseSucceed(host.output(['git', '-C', Option.getOrElse(folderOf(host, invocation, '-C'), () => host.root), 'status', '--porcelain', '--', ...operands.map(({ text }) => text)]), () => 'unknown')).trim() !== '');
     return uncommitted ? refusal(`${commandOf(invocation)} ${first.text} ${OVERWRITES.join(', ')}`) : [];
 });
 
@@ -59,12 +59,48 @@ const resetTarget: Rule = Effect.fnUntraced(function* (invocation, { host }) {
 
 const showOverwrite: Rule = (invocation, { host }) =>
     Effect.map(
-        Effect.filter(Array.getSomes(redirected(invocation, '>').map(({ target }) => target)), ({ text, known }) => {
+        Effect.filter(Array.getSomes(redirected(invocation, RedirOperator.RdrOut).map(({ target }) => target)), ({ text, known }) => {
             const file = Option.getOrUndefined(Option.filter(host.resolve(text, invocation.command.cwd), (candidate) => host.inside(candidate, host.root)));
-            return file === undefined || !known ? Effect.succeed(file !== undefined) : Effect.map(host.output(['git', 'status', '--porcelain', '--', file]), (listed) => listed.trim() !== '');
+            return file === undefined || !known
+                ? Effect.succeed(file !== undefined)
+                : Effect.orElseSucceed(
+                      Effect.map(host.output(['git', 'status', '--porcelain', '--', file]), (listed) => listed.trim() !== ''),
+                      () => true,
+                  );
         }),
         ([file]) => (file === undefined ? [] : refusal(`${commandOf(invocation)} > ${file.text} ${OVERWRITES.join(', ')}`)),
     );
+
+const exportedTree: Rule = Effect.fnUntraced(function* (invocation, { host }) {
+    const { path, operands } = invocation;
+    const [folder, revision] = path[1] === undefined ? operands.slice(1) : operands;
+    if (!nested('add')(invocation) || folder === undefined) {
+        return [];
+    }
+    if (invocation.has('-b', '-B', '--orphan')) {
+        return refusal(`${commandOf(invocation)} ${BRANCHES.join(', ')}`);
+    }
+    const temporary = Option.getOrElse(yield* host.environment('TMPDIR'), () => '/tmp');
+    const target = Option.getOrUndefined(Option.filter(host.resolve(relocated(folder.text, temporary), folderOf(host, invocation, '-C')), () => folder.known));
+    const found = target !== undefined && (yield* host.exists(target));
+    const occupied = target === undefined || (found && (yield* Effect.match(host.fs.readDirectory(target), { onFailure: () => true, onSuccess: Array.isReadonlyArrayNonEmpty })));
+    if (occupied) {
+        return refusal(`${commandOf(invocation)} ${folder.raw} ${folder.known ? 'holds files the export overwrites, pass a new folder' : 'expands later, pass a literal path'}`);
+    }
+    const git = ['git', ...invocation.supplied('-C').flatMap(({ raw }) => ['-C', raw])].join(' ');
+    const exported = relocated(folder.raw);
+    return whole(invocation, `mkdir -p ${exported} && ${git} archive ${revision?.raw ?? 'HEAD'} | tar -x -C ${exported}`, 'git worktree add');
+});
+
+const forcedRefs: Rule = (invocation) =>
+    invocation.operands.flatMap((word) => {
+        if (word.text.startsWith(':')) {
+            return refusal(`${commandOf(invocation)} ${word.text} ${REMOTE.join(', ')}`);
+        }
+        return word.text.startsWith('+') && word.known ? edited(invocation, word, quote(word.text.slice(1)), `git push ${word.text}`) : [];
+    });
+
+const remote = refuse('works on GitHub, not this checkout', 'use the mcp__github__ tools');
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -80,20 +116,33 @@ const GIT: Ruleset = {
                     perSubcommand({
                         branch: [refuse(...BRANCHES, ...BRANCH_WRITES), when(({ operands, has }) => operands.length > 0 && !has('--list', '--all', '--remotes', '--verbose', '--show-current', '--contains', '--no-contains', '--merged', '--no-merged', '--points-at', '-u', ...BRANCH_WRITES), refuse(...BRANCHES))],
                         checkout: [UNFORCED, refuse(...OVERWRITES, '-B', '--patch', '--ours', '--theirs'), refuse(...BRANCHES, '-b', '--orphan', '--track'), checkoutPaths],
-                        clean: [when(({ has }) => !has('--dry-run'), refuse('deletes untracked files', 'rm each by name'))],
+                        clean: [when(({ has }) => !has('--dry-run'), refuse("deletes other sessions' untracked files", 'rm the paths you created by name'))],
                         config: [when(({ operands }) => operands.slice(0, -1).some(({ text }) => text.startsWith('alias.')), refuse(...ALIASES))],
-                        push: [when(Predicate.not(holds(TAG)), UNFORCED, refuse(...REMOTE, '--delete', '--mirror', '--prune'), when(holds(HISTORY), refuse(...REMOTE)))],
+                        push: [when(Predicate.not(holds(TAG)), UNFORCED, refuse(...REMOTE, '--delete', '--mirror', '--prune'), forcedRefs)],
                         rebase: [when(({ has }) => !has(...UNWINDS), refuse('rewrites shared commits', 'merge or commit forward'))],
                         reflog: [when(nested('delete', 'drop', 'expire'), refuse('deletes entries', 'leave the reflog intact'))],
                         reset: [refuse(...OVERWRITES, ...RESET_DISCARDS), when(({ has }) => !has(...RESET_DISCARDS), resetTarget)],
                         restore: [when(({ has }) => !has('--staged') || has('--worktree'), refuse(...OVERWRITES))],
                         revert: [when(({ has }) => !has(...UNWINDS), refuse('reverses committed history', 'commit a forward fix'))],
                         show: [when(holds(REVISION_PATH), showOverwrite)],
-                        stash: [when(Predicate.not(nested('list', 'show')), refuse('hides work', 'commit or leave it'))],
+                        stash: [when(Predicate.not(nested('list', 'show')), refuse('hides work', 'leave the work in the tree'))],
                         switch: [UNFORCED, refuse(...OVERWRITES, '-C'), refuse(...BRANCHES, '--create', '--orphan')],
-                        worktree: [when(Predicate.not(nested('list')), refuse('creates a checkout', 'use this one'))],
                     }),
                 ),
+                perSubcommand({ worktree: [exportedTree] }),
+            ],
+        },
+        gh: {
+            rules: [
+                perSubcommand({
+                    api: [remote],
+                    search: [remote],
+                    issue: [remote],
+                    label: [remote],
+                    pr: [when(Predicate.not(nested('checkout')), remote)],
+                    release: [when(nested('view', 'list'), remote)],
+                    repo: [when(nested('view', 'list'), remote)],
+                }),
             ],
         },
     },

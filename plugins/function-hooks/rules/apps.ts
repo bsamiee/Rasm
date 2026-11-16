@@ -4,7 +4,8 @@ import { fileURLToPath } from 'node:url';
 import type { Installation } from '@rasm/applications';
 import { Array, Effect, Option, Predicate, Record, String } from 'effect';
 import { Verdict } from '#/rules/decision';
-import { type Call, ensure, inserted, perSubcommand, quote, type Rule, type Ruleset, refusal, refuse, stages, when, whole, within } from '#/rules/rule';
+import { type Call, edited, ensure, inserted, quote, respell, type Rule, type Ruleset, refusal, refuse, settled, spelled, stages, when, whole, within } from '#/rules/rule';
+import type { Invocation } from '#/shell/invocation';
 import { WATCH_APPS } from '#/shell/programs';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -12,10 +13,13 @@ import { WATCH_APPS } from '#/shell/programs';
 const BUNDLE = /^(?<bundle>\/.+?\.app)\/Contents\/MacOS\/[^/]+$/u;
 const ADDRESSED = /^(?:tell|(?<command>\w+)) (?:application|app) (?:id )?"(?<app>[^"]+)"(?: to (?<body>.+))?$/u;
 const LAUNCHING = /^(?:activate|launch|run|reopen|open (?:POSIX file )?"(?<path>[^"]+)")$/u;
-const SHELL_SCRIPT = /\bdo shell script\b/u;
+const SHELL_RUN = /\bdo shell script\b/u;
+const SHELL_SCRIPT = /^do shell script "(?<body>(?:[^"\\]|\\.)*)"$/u;
+const APPLESCRIPT_ESCAPE = /\\(?<escaped>["\\])/gu;
 const FOCUS = /\bactivate\b|\bset\s+frontmost\b|AXRaise/u;
 const SYSTEM_EVENTS = /System Events|com\.apple\.systemevents/u;
 const WEB_URL = /^https?:/iu;
+const BROWSER_NAME = /^[a-z][\w-]*$/u;
 const SIGNAL_PREFIX = /^-?(?:SIG)?/u;
 const SIGNAL = /^-(?:\d+|(?:SIG)?[A-Z]{2,}\d*)$/u;
 const PIDS = /^\d+/gmu;
@@ -25,6 +29,8 @@ const OBSERVED: readonly Verdict[] = [Verdict.Observe()];
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // --- [LAUNCHES]
+
+const installed = (call: Call, names: readonly string[]) => Effect.orElseSucceed(call.host.installations(names), (): readonly Installation[] => []);
 
 const switchesOf = (installations: readonly Installation[], given: readonly string[], { programs }: Call): readonly string[] => {
     const passed = new Set(given);
@@ -52,7 +58,9 @@ const opens = (named: readonly string[], waits: readonly string[], allowed: read
         const foreign = invocation.names.difference(new Set([...allowed, ...waits]));
         if (url !== undefined) {
             const playwright = Option.exists(invocation.command.cwd, (folder) => call.host.inside(folder, call.host.root)) ? 'playwright' : `mise -C ${quote(call.host.root)} exec -- playwright`;
-            return refusal(`${program} ${url.raw} opens a browser, use ${playwright} cli open ${url.raw}`);
+            const session = call.request.agent === undefined ? [] : [`-s=${quote(call.request.agent)}`];
+            const opened = [playwright, 'cli', ...session, 'open', url.raw].join(' ');
+            return documents.length === 1 && waited === undefined ? whole(invocation, opened, `${program} ${url.raw}`) : refusal(`${program} ${url.raw} opens a browser, use ${opened}`);
         }
         if (subjects.length + documents.length === 0) {
             return [];
@@ -63,7 +71,7 @@ const opens = (named: readonly string[], waits: readonly string[], allowed: read
         if (foreign.size > 0) {
             return refusal(`${program} ${[...foreign].join(' ')} opens ${target}, use ${WATCH_APPS} launch ${target}`);
         }
-        const found = app === undefined ? [] : yield* call.host.installations([Option.getOrElse(bundle, () => app.text)]);
+        const found = app === undefined ? [] : yield* installed(call, [Option.getOrElse(bundle, () => app.text)]);
         const environment = invocation.supplied('--env').map(({ raw }) => raw);
         const passed = rest.map(({ text }) => text);
         const [first, ...more] = found;
@@ -94,7 +102,18 @@ const opens = (named: readonly string[], waits: readonly string[], allowed: read
     });
 
 const appleScript: Rule = (invocation, call) => {
-    const lines = [...invocation.values('-e'), ...Option.toArray(invocation.command.input)];
+    const script = invocation.has('-e') ? undefined : invocation.operands.find(({ text }) => text !== '-');
+    const file = Option.flatMap(Option.fromNullishOr(script), ({ text, known }) => Option.filter(call.host.resolve(text, invocation.command.cwd), () => known));
+    if (script === undefined) {
+        return statementsOf(invocation, call, [...invocation.values('-e'), ...Option.toArray(invocation.command.input)]);
+    }
+    return Option.match(file, {
+        onNone: () => refusal(`osascript ${script.raw} expands later, pass a literal script path`),
+        onSome: (path) => Effect.flatMap(Effect.option(call.host.output(['osadecompile', path])), Option.match({ onNone: () => Effect.succeed(refusal(`osascript ${script.raw} does not decompile, pass -e lines`)), onSome: (text) => settled(statementsOf(invocation, call, [text])) })),
+    });
+};
+
+const statementsOf = (invocation: Invocation, call: Call, lines: readonly string[]): ReturnType<Rule> => {
     const [, parsed] = Array.mapAccum(
         (invocation.values('-l').includes('JavaScript') ? [] : lines)
             .flatMap((value) => value.split('\n'))
@@ -134,18 +153,21 @@ const appleScript: Rule = (invocation, call) => {
         .map(({ path }) => path)
         .filter(Predicate.isNotUndefined)
         .map((path) => quote(path));
-    const script = invocation.has('-e') ? undefined : invocation.operands.find(({ text }) => text !== '-');
-    if (script !== undefined || lines.length === 0) {
-        return refusal(`osascript ${script?.text ?? 'stdin'} hides its statements, pass -e lines`);
+    const shell = statements.length === 1 ? Option.fromNullishOr(SHELL_SCRIPT.exec(lines.join('\n').trim())?.groups?.['body']) : Option.none();
+    if (lines.length === 0) {
+        return refusal('osascript stdin hides its statements, pass -e lines');
     }
     if (lines.some((line) => SYSTEM_EVENTS.test(line))) {
-        return refusal(`System Events posts to the frontmost app, use ${WATCH_APPS} perform or mcp__cua-driver__press_key`);
+        return refusal(`System Events posts to the frontmost app, use ${WATCH_APPS} perform`);
     }
-    if (lines.some((line) => SHELL_SCRIPT.test(line))) {
+    if (Option.isSome(shell) && invocation.command.origin === 'call' && invocation.outer.length === 0) {
+        return whole(invocation, shell.value.replaceAll(APPLESCRIPT_ESCAPE, '$<escaped>'), 'osascript do shell script');
+    }
+    if (lines.some((line) => SHELL_RUN.test(line))) {
         return refusal('osascript runs a shell command, run it directly');
     }
     if (statements.length > 0 && statements.every(({ app, launches }) => app !== undefined && launches) && (documents.length === 0 || named.length === 1)) {
-        return Effect.map(call.host.installations(named), (found) => [...whole(invocation, launchLine(quoted, documents, [], switchesOf(found, [], call)), 'osascript'), ...OBSERVED]);
+        return Effect.map(installed(call, named), (found) => [...whole(invocation, launchLine(quoted, documents, [], switchesOf(found, [], call)), 'osascript'), ...OBSERVED]);
     }
     return lines.some((line) => FOCUS.test(line)) ? refusal(`osascript takes focus, use ${WATCH_APPS} capture or perform`) : [];
 };
@@ -165,7 +187,7 @@ const bundleExecutable: Rule = (invocation, call) => {
         {
             onNone: () => [],
             onSome: Effect.fnUntraced(function* ({ head, bundle }) {
-                const found = yield* host.installations([bundle]);
+                const found = yield* installed(call, [bundle]);
                 const args = yield* Effect.forEach(invocation.words.slice(1), ({ raw, text, known }) => {
                     const file = Option.getOrUndefined(Option.filter(host.resolve(text, cwd), () => known && !text.startsWith('-') && !host.path.isAbsolute(text)));
                     return file === undefined ? Effect.succeed({ raw, text }) : Effect.map(host.exists(file), (exists) => ({ raw: exists ? quote(file) : raw, text }));
@@ -199,7 +221,17 @@ const bundleExecutable: Rule = (invocation, call) => {
 
 const launchSwitches: Rule = Effect.fnUntraced(function* (invocation, call) {
     const given = [...invocation.values('--arguments'), ...invocation.rest.map(({ text }) => text)];
-    const switches = invocation.path[0] === 'launch' ? switchesOf(yield* call.host.installations(invocation.operands.map(({ text }) => text)), given, call) : [];
+    const switches =
+        invocation.path[0] === 'launch'
+            ? switchesOf(
+                  yield* installed(
+                      call,
+                      invocation.operands.map(({ text }) => text),
+                  ),
+                  given,
+                  call,
+              )
+            : [];
     return switches.length === 0 ? [] : inserted(invocation, Array.lastNonEmpty(invocation.words).end, ` ${[...(invocation.has('--arguments') ? [] : ['--arguments']), ...switches].join(' ')}`);
 });
 
@@ -211,33 +243,53 @@ const browserSession: Rule = (invocation, { request: { agent } }) => {
     return agent === undefined || cli?.text !== 'cli' || stated ? [] : inserted(invocation, cli.end, ` -s=${quote(agent)}`);
 };
 
-const cdpAttach: Rule = (invocation) => {
-    const [cli, verb] = invocation.operands;
-    const browser = invocation.values('--cdp').find((value) => !URL.canParse(value));
-    return cli?.text === 'cli' && verb?.text === 'attach' && browser !== undefined ? refusal(`playwright cli attach --cdp=${browser} opens the browser's remote debugging dialog in front, use --extension=${browser}`) : [];
-};
-
 // --- [KILLS]
+
+const ownPids = Effect.fnUntraced(
+    function* (host: Call['host'], queries: readonly (readonly string[])[]) {
+        const answers = yield* Effect.forEach(queries, (query) => host.output(['pgrep', ...query]), { concurrency: 'unbounded' });
+        const pids: readonly string[] = answers.join('\n').match(PIDS) ?? [];
+        const parents = yield* host.parents;
+        const descends = (pid: string | undefined): boolean => pid === host.parent || (pid !== undefined && Number(pid) > 1 && descends(parents.get(pid)));
+        return Option.liftPredicate(pids, () => pids.length > 0 && pids.every((pid) => descends(parents.get(pid))));
+    },
+    (effect) => Effect.orElseSucceed(effect, () => Option.none<readonly string[]>()),
+);
 
 const killsFound: Rule = (invocation, call) => {
     const { command, values, words, names } = invocation;
     const signal = (values('-s', '-n')[0] ?? (names.size > 0 ? words[1]?.text : undefined) ?? 'TERM').toUpperCase().replace(SIGNAL_PREFIX, '');
-    const finder = [...(command.fed ? stages(invocation, call).earlier : []), ...within(invocation, call)].find(({ program }) => ['ps', 'pgrep', 'pidof'].includes(program));
-    return ENDING.has(signal) && finder !== undefined ? refusal(`${finder.program} feeds kill every match, kill one pid`) : [];
+    const piped = command.fed ? stages(invocation, call).earlier : [];
+    const finder = [...piped, ...within(invocation, call)].find(({ program }) => ['ps', 'pgrep', 'pidof'].includes(program));
+    if (!ENDING.has(signal) || finder === undefined) {
+        return [];
+    }
+    const refused = refusal(`${finder.program} feeds kill every match, kill one pid`);
+    const query = finder.words.slice(1);
+    if (finder.program !== 'pgrep' || !query.every(({ known }) => known) || command.origin !== 'call') {
+        return refused;
+    }
+    const kill = ['kill', ...invocation.args.filter(({ names: flags }) => flags.length > 0).map(({ words: held }) => spelled(held))].join(' ');
+    return Effect.map(
+        ownPids(call.host, [query.map(({ text }) => text)]),
+        Option.match({
+            onNone: () => refused,
+            onSome: (pids) => edited(invocation, { start: piped.includes(finder) ? finder.command.start : invocation.head.start, end: Array.lastNonEmpty(invocation.words).end }, [kill, ...pids].join(' '), `${finder.program} | kill`),
+        }),
+    );
 };
 
-const killsByName: Rule = Effect.fnUntraced(function* (invocation, { host }) {
+const killsByName: Rule = (invocation, { host }) => {
     const { program, words } = invocation;
     const signal = words.slice(1, 2).find(({ text }) => SIGNAL.test(text));
     const rest = words.slice(signal === undefined ? 1 : 2);
     const flags = rest.map(({ text }) => text).filter((text) => text.startsWith('-'));
     const queries = program === 'pkill' ? [rest.map(({ text }) => text)] : invocation.operands.map(({ text }) => [...(flags.includes('-m') ? [] : ['-x']), text]);
-    const answers = rest.every(({ known }) => known) && (program === 'pkill' || flags.every((flag) => flag === '-m' || flag === '-v')) ? yield* Effect.forEach(queries, (query) => host.output(['pgrep', ...query]), { concurrency: 'unbounded' }) : [];
-    const pids = answers.join('\n').match(PIDS) ?? [];
-    const parents = yield* host.parents;
-    const descends = (pid: string | undefined): boolean => pid === host.parent || (pid !== undefined && Number(pid) > 1 && descends(parents.get(pid)));
-    return pids.length > 0 && pids.every((pid) => descends(parents.get(pid))) ? whole(invocation, ['kill', ...Option.toArray(Option.map(Option.fromNullishOr(signal), ({ raw }) => raw)), ...pids].join(' '), program) : refusal(`${program} ends every match, kill one pid`);
-});
+    const refused = refusal(`${program} ends every match, kill one pid`);
+    return rest.every(({ known }) => known) && (program === 'pkill' || flags.every((flag) => flag === '-m' || flag === '-v'))
+        ? Effect.map(ownPids(host, queries), Option.match({ onNone: () => refused, onSome: (pids) => whole(invocation, ['kill', ...Option.toArray(Option.map(Option.fromNullishOr(signal), ({ raw }) => raw)), ...pids].join(' '), program) }))
+        : refused;
+};
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -247,7 +299,7 @@ const APPS: Ruleset = {
         xed: { flags: ['-l, --line='], informational: ['-v'], rules: [opens(['com.apple.dt.Xcode'], ['-w', '--wait'], ['-x', '--launch', '-b', '--background'])] },
         osascript: { rules: [appleScript] },
         qlmanage: { rules: [refuse('opens a preview window', 'use qlmanage -t', '-p')] },
-        screencapture: { rules: [refuse("opens UI on the owner's screen", 'drop it and capture to a file', '-i', '-s', '-w', '-W', '-J', '-U', '-u', '-P', '-M', '-B', '-p', '-d'), refuse("replaces the owner's clipboard", 'pass a file', '-c')] },
+        screencapture: { rules: [respell({ drops: ['--interactive', '--screen', '--window', '-W', '--style', '-U', '--ui', '-P', '-M', '--bundleid', '--defaults', '--display-errors'], notify: true }), refuse("replaces the owner's clipboard", 'pass a file', '-c')] },
         killall: { flags: ['-s', '-c=', '-t='], informational: ['-s', '-l'], rules: [when(({ has }) => !has('-0'), killsByName)] },
         pkill: { rules: [when(({ has }) => !has('-0'), killsByName)] },
         kill: { flags: ['-n='], rules: [killsFound] },
@@ -260,8 +312,7 @@ const APPS: Ruleset = {
             rules: [when(({ has }) => has('--python', '--python-expr'), ensure(['--python-use-system-env']))],
         },
         Rhinoceros: { switches: ['-nosplash'] },
-        'cua-driver': { rules: [perSubcommand(Record.fromIterableWith(['call', 'serve'], (subcommand) => [subcommand, [refuse('bypasses the session MCP server', 'call an mcp__cua-driver__ tool')]]))] },
-        playwright: { flags: ['-s, --session=', '--cdp='], rules: [browserSession, cdpAttach] },
+        playwright: { flags: ['-s, --session=', '--cdp=', '--extension='], rules: [browserSession, when(({ operands: [cli, verb] }) => cli?.text === 'cli' && verb?.text === 'attach', respell({ renames: { '--cdp': '--extension' }, only: BROWSER_NAME, notify: true }))] },
         [WATCH_APPS]: { restAfter: ['--arguments'], rules: [() => OBSERVED, launchSwitches] },
     },
     every: [bundleExecutable],

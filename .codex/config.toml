@@ -112,14 +112,6 @@ args                        = ["lldb-mcp"]
 startup_timeout_sec         = 20
 tool_timeout_sec            = 120
 
-[mcp_servers.cua-driver]
-default_tools_approval_mode = "approve"
-command                     = "cua-driver"
-args                        = ["mcp"]
-
-[mcp_servers.cua-driver.env]
-DO_NOT_TRACK = "1"
-
 [mcp_servers.atuin]
 default_tools_approval_mode = "approve"
 command                     = "atuin"
@@ -182,5 +174,5 @@ matcher = "^Bash$"
 
 [[hooks.PreToolUse.hooks]]
 type    = "command"
-command = 'mise exec -- node "$(git rev-parse --show-toplevel)/plugins/function-hooks/codex.ts" || exit 2'
+command = 'mise exec -- node "$(git rev-parse --show-toplevel)/plugins/function-hooks/hook.ts" codex'
 timeout = 30

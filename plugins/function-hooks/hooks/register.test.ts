@@ -11,6 +11,7 @@ interface Given {
     readonly quit?: Routes['quit'][1];
     readonly agents?: readonly AgentInfo[];
     readonly printed?: Readonly<Record<string, readonly ProcessSpawnChunk[]>>;
+    readonly held?: readonly string[];
 }
 interface Seen {
     readonly sent: (readonly [route: string, body: unknown])[];
@@ -44,7 +45,8 @@ const ASKING = {
         { ...APP, pid: 77, instance: '77@3', ended: false, status: 'responding', asks: true, conditions: ['com.example.app 77 shows alert window'], notes: ['com.example.app 77 shows alert window'] },
     ],
 } as const satisfies Given['watched'];
-const PRINTED: NonNullable<Given['printed']> = { mise: [{ stream: 'stdout', text: '/run/function-hooks/decide.sock\n' }], 'watch-apps': [{ stream: 'stdout', text: '{}\n' }] };
+const PRINTED: NonNullable<Given['printed']> = { 'watch-apps': [{ stream: 'stdout', text: '{}\n' }] };
+const DECIDED = { session: ENDING.sessionId, call: expect.any(String) } as const;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -65,6 +67,7 @@ const worldOf = (on: On, decide: () => HttpResponse | Error, given: Given = {}) 
     on('prompt.submit', (_, e) => ({ text: e.text, ...(e.context !== undefined && { context: e.context }) }));
     on('turn.complete', () => ({ text: '' }));
     on('agent.list', () => ({ value: [...(given.agents ?? [])] }));
+    on('env.get', () => ({ value: '/tmp/' }));
     on('ui.log', () => ({ value: undefined }));
     on('ui.status', (_, e) => {
         seen.status.push(e.text);
@@ -72,7 +75,8 @@ const worldOf = (on: On, decide: () => HttpResponse | Error, given: Given = {}) 
     });
     on('process.run', (_, e) => {
         seen.runs.push(e.argv);
-        return { value: { exitCode: 0, stdout: '', stderr: '', isStdoutTruncated: false, isStderrTruncated: false } };
+        const holding = e.argv[0] === 'lsof' && given.held?.includes(e.argv.at(-1) ?? '') === true;
+        return { value: { exitCode: 0, stdout: holding ? '4242\n' : '', stderr: '', isStdoutTruncated: false, isStderrTruncated: false } };
     });
     on('process.spawn', async function* (_, e, next) {
         next.signal.addEventListener(
@@ -82,7 +86,7 @@ const worldOf = (on: On, decide: () => HttpResponse | Error, given: Given = {}) 
             },
             { once: true },
         );
-        const chunks = e.argv.slice(0, 1).flatMap((program) => printed.get(program) ?? []);
+        const chunks = e.argv.slice(0, 1).flatMap((program) => printed.get(program) ?? (program === 'mise' ? [{ stream: 'stdout', text: `${e.argv.at(-1)}\n` } as const] : []));
         const listening = chunks.some(({ stream }) => stream === 'stdout');
         seen.spawned.push(e.argv);
         yield* chunks;
@@ -93,7 +97,7 @@ const worldOf = (on: On, decide: () => HttpResponse | Error, given: Given = {}) 
         const route = new URL(e.url).pathname.slice(1);
         seen.sent.push([route, typeof e.init?.body === 'string' ? JSON.parse(e.init.body) : e.init?.body]);
         const reply = route === 'decide' ? decide() : answered(replies.get(route));
-        return reply instanceof Error ? { deny: reply.message } : { value: reply };
+        return Error.isError(reply) ? { deny: reply.message } : { value: reply };
     });
     on('tool.call', (_, e) => {
         const { tool_use_id: _id, ...input } = e;
@@ -121,7 +125,7 @@ const worldOf = (on: On, decide: () => HttpResponse | Error, given: Given = {}) 
         await $.session.start(SESSION);
         expect(await $.tool.call(LIST)).toEqual(resolved);
         expect(world.ran).toEqual(ran);
-        expect(world.sent).toEqual([['decide', { command: 'ls', cwd: SESSION.cwd, kind: 'foreground' }]]);
+        expect(world.sent).toEqual([['decide', { command: 'ls', cwd: SESSION.cwd, kind: 'foreground', ...DECIDED }]]);
     });
 });
 
@@ -130,7 +134,7 @@ test('Rewrite sets only Monitor input fields on a Monitor call', async ($, on) =
     await $.session.start(SESSION);
     await $.tool.call({ tool: 'Monitor', description: 'log', timeout_ms: 1000, command: 'tail -f a.log' });
     expect(world.ran).toEqual([{ tool: 'Monitor', description: 'log', timeout_ms: 1000, command: 'tail -F b.log' }]);
-    expect(world.sent).toEqual([['decide', { command: 'tail -f a.log', cwd: SESSION.cwd, kind: 'monitor' }]]);
+    expect(world.sent).toEqual([['decide', { command: 'tail -f a.log', cwd: SESSION.cwd, kind: 'monitor', ...DECIDED }]]);
 });
 
 test('Decide request states run kind and calling agent, and both calls use one server process', async ($, on) => {
@@ -139,8 +143,8 @@ test('Decide request states run kind and calling agent, and both calls use one s
     await $.tool.call({ tool: 'Bash', command: 'make', run_in_background: true, timeout: 5000, agentId: 'a1' });
     await $.tool.call({ tool: 'Bash', command: 'make' });
     expect(world.sent).toEqual([
-        ['decide', { command: 'make', cwd: SESSION.cwd, kind: 'background', agent: 'a1' }],
-        ['decide', { command: 'make', cwd: SESSION.cwd, kind: 'foreground' }],
+        ['decide', { command: 'make', cwd: SESSION.cwd, kind: 'background', agent: 'a1', ...DECIDED }],
+        ['decide', { command: 'make', cwd: SESSION.cwd, kind: 'foreground', ...DECIDED }],
     ]);
     expect([world.spawned, world.stopped].map((streams) => streams.map(([program]) => program))).toEqual([['mise'], []]);
 });
@@ -170,22 +174,44 @@ test('Call after a lost socket stops its server, starts one new server, and gets
     expect([world.spawned, world.stopped].map((streams) => streams.map(([program]) => program))).toEqual([['mise', 'mise'], ['mise']]);
 });
 
-test('Computer-use call is denied in every loop', async ($, on) => {
-    const world = worldOf(on, () => answered(ALLOWED));
-    const access = { tool: 'mcp__computer-use__request_access', apps: ['Notes'] } as const;
-    const denied = { deny: expect.stringContaining('mcp__cua-driver__') };
+test('Command runs as written with the run error noted when the watched server fails to start', async ($, on) => {
+    const world = worldOf(on, () => answered(ALLOWED), {
+        printed: {
+            mise: [
+                { stream: 'stderr', text: 'file:///work/host.ts:3\nTypeError: host broke\n    at compile\n' },
+                { stream: 'stdout', text: "Failed running 'claude/server.ts'. Waiting for file changes before restarting...\n" },
+            ],
+        },
+    });
     await $.session.start(SESSION);
-    expect([await $.tool.call(access), await $.tool.call({ ...access, agentId: 'a1' })]).toEqual([denied, denied]);
-    expect(world.ran).toEqual([]);
+    expect(await $.tool.call(LIST)).toEqual({ ...RAN, context: [`${UNJUDGED}TypeError: host broke`] });
+    expect(world.sent).toEqual([]);
 });
 
-test('Rhino tool call starts one watch of Rhino', async ($, on) => {
-    const world = worldOf(on, () => answered(ALLOWED));
+(
+    [
+        ['mcp__rhino-mcp-platform__get_context', 'com.mcneel.rhinoceros'],
+        ['mcp__blender__get_objects_summary', 'org.blenderfoundation.blender'],
+    ] as const
+).forEach(([tool, bundle]) => {
+    test(`${tool} call starts one watch of ${bundle}`, async ($, on) => {
+        const world = worldOf(on, () => answered(ALLOWED));
+        await $.session.start(SESSION);
+        await $.tool.call({ tool });
+        await $.tool.call({ tool });
+        await world.clock.settle();
+        expect(world.spawned.slice(1)).toEqual([['watch-apps', 'watch', bundle]]);
+    });
+});
+
+test('Read of a running task output runs once per agent, a running agent output never, and an ended task output always', async ($, on) => {
+    const world = worldOf(on, () => answered(ALLOWED), { agents: [agentOf('running')], held: ['/tmp/claude-501/x/tasks/b7k2.output'] });
+    const shell = { tool: 'Read', file_path: '/tmp/claude-501/x/tasks/b7k2.output' } as const;
+    const ended = { tool: 'Read', file_path: '/tmp/claude-501/x/tasks/b9z1.output' } as const;
     await $.session.start(SESSION);
-    await $.tool.call({ tool: 'mcp__rhino-mcp-platform__get_context' });
-    await $.tool.call({ tool: 'mcp__rhino-mcp-platform__get_context' });
-    await world.clock.settle();
-    expect(world.spawned.slice(1)).toEqual([['watch-apps', 'watch', 'com.mcneel.rhinoceros']]);
+    const reads = [await $.tool.call(shell), await $.tool.call(shell), await $.tool.call({ ...shell, agentId: 'a2' }), await $.tool.call({ tool: 'Read', file_path: '/tmp/claude-501/x/tasks/a1.output' }), await $.tool.call(ended), await $.tool.call(ended)];
+    expect(reads).toEqual([RAN, { deny: 'Task b7k2 notifies on completion, never poll its output' }, RAN, { deny: 'Task a1 notifies on completion, never poll its output' }, RAN, RAN]);
+    expect(world.ran).toEqual([shell, { ...shell, agentId: 'a2' }, ended, ended]);
 });
 
 test('Note of a launched app reaches its launching agent once and status line shows its condition', async ($, on) => {

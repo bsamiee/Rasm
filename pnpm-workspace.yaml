@@ -44,6 +44,7 @@ catalog:
     jsonc-parser: 4.0.0-next.2 # JSON edits keeping layout
     json5: 2.2.3 # Xcode project file parser
     chevrotain: 13.2.0
+    sh-syntax: 0.8.7 # mvdan/sh shell parser compiled to WebAssembly, typed syntax trees of POSIX, Bash, mksh, Bats, and Zsh
     acorn: 8.19.0 # JavaScript parser to ESTree syntax trees
     acorn-walk: 8.3.5 # ESTree syntax tree walker
     astring: 1.9.0 # JavaScript source text from ESTree syntax trees

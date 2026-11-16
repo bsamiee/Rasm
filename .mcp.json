@@ -70,13 +70,6 @@
             "command": "xcrun",
             "args": ["lldb-mcp"]
         },
-        "cua-driver": {
-            "command": "cua-driver",
-            "args": ["mcp"],
-            "env": {
-                "DO_NOT_TRACK": "1"
-            }
-        },
         "atuin": {
             "type": "stdio",
             "command": "atuin",

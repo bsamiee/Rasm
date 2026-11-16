@@ -28,7 +28,7 @@ interface Program {
     readonly toolchain?: true;
     readonly headless?: readonly string[];
     readonly switches?: readonly string[];
-    readonly nx?: { readonly selects?: readonly string[]; readonly targets?: Readonly<Record<string, string>>; readonly ignores?: readonly string[] };
+    readonly nx?: { readonly selects?: readonly string[]; readonly targets?: Readonly<Record<string, string>>; readonly ignores?: readonly string[]; readonly narrows?: true };
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -60,7 +60,7 @@ const PROGRAMS: Readonly<Record<string, Program>> = {
     md5: { reads: true, readsUnless: ['-s'] },
     tr: { leading: 2, reads: true },
     tee: { aliases: ['pbcopy'], leading: Number.POSITIVE_INFINITY, reads: true },
-    sed: { leading: 1, leadingUnless: ['-e', '-f'], reads: true },
+    sed: { leading: 1, leadingUnless: ['-e', '-f'], reads: true, readsUnless: ['-i'] },
     awk: { leading: 1, leadingUnless: ['-f'], reads: true, readsNothing: /^\s*BEGIN\s*\{(?:[^{}]|\{[^{}]*\})*\}\s*$/u },
     yq: { flags: ['-o, --output-format=', '-p, --input-format=', '-I, --indent=', '--from-file=', '-n, --null-input'], leading: 1, leadingUnless: ['--from-file'], reads: true, readsUnless: ['--null-input'] },
     node: { flags: ['--inspect', '--inspect-brk', '--inspect-wait'], stopsAtOperand: true, reads: true, readsUnless: ['--test', '--run'], code: ['--eval', '--print'], informational: ['-v', '--v8-options', '--check'] },
