@@ -2046,9 +2046,6 @@ importers:
       '@rasm/hosting':
         specifier: workspace:*
         version: link:../../../libs/typescript/web/hosting
-      '@rasm/infra':
-        specifier: workspace:*
-        version: link:../../../infra
       '@rasm/webhooks':
         specifier: workspace:*
         version: link:../../../libs/typescript/messaging/webhooks
@@ -2086,9 +2083,6 @@ importers:
       '@rasm/hosting':
         specifier: workspace:*
         version: link:../../../libs/typescript/web/hosting
-      '@rasm/infra':
-        specifier: workspace:*
-        version: link:../../../infra
       '@rasm/media':
         specifier: workspace:*
         version: link:../../../libs/typescript/web/media

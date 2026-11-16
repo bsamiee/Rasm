@@ -14,12 +14,16 @@
         "@effect/platform-node": "catalog:",
         "@effect/sql-pg": "catalog:",
         "@rasm/hosting": "workspace:*",
-        "@rasm/infra": "workspace:*",
         "@rasm/webhooks": "workspace:*",
         "effect": "catalog:"
     },
     "devDependencies": {
         "@types/node": "catalog:",
         "vite": "catalog:"
+    },
+    "nx": {
+        "implicitDependencies": [
+            "@rasm/infra"
+        ]
     }
 }

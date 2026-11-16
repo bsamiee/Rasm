@@ -496,7 +496,8 @@ const nodes = Effect.fnUntraced(function* (files: readonly string[], options: ty
     const manager = detectPackageManager(workspaceRoot);
     const { exec } = getPackageManagerCommand(manager);
     const synced = installed('@nx/js', join(workspaceRoot, MANIFEST));
-    const cache = new PluginCache<Program>(join(workspaceDataDirectory, `typescript-${hashArray([hashed, hashObject(options ?? {})])}.hash`));
+    const row = hashArray([hashed, hashObject(options ?? {})]);
+    const cache = new PluginCache<Program>(join(workspaceDataDirectory, `typescript-${row}.hash`));
     const manifests = new Map(yield* Effect.forEach(Array.dedupe(nested.map(dirname)), (root) => manifested(workspaceRoot, root), { concurrency: 'unbounded' }));
     const rows = yield* Effect.forEach(configs, (config) => kept(cache, workspaceRoot, getLockFileName(manager), config), { concurrency: 'unbounded' });
     const unread = rows.filter(({ program }) => Option.isNone(program));
@@ -515,7 +516,7 @@ const nodes = Effect.fnUntraced(function* (files: readonly string[], options: ty
     yield* Array.isReadonlyArrayNonEmpty(stored) ? Effect.sync(() => cache.writeToDisk()) : Effect.void;
     const standalone = Option.filter(yield* Effect.findFirst(['src', 'lib'], (at) => FileSystem.FileSystem.use((fs) => fs.exists(join(workspaceRoot, at)))), () => listed.has(MANIFEST));
     const lints = installed('eslint', join(workspaceRoot, MANIFEST))
-        ? yield* linted(workspaceRoot, Array.headNonEmpty(settings.compilerPackages), exec, [...[...held].map((root) => ({ root, scope: root })), ...Option.toArray(Option.map(standalone, (scope) => ({ root: '.', scope })))], hashed)
+        ? yield* linted(workspaceRoot, Array.headNonEmpty(settings.compilerPackages), exec, [...[...held].map((root) => ({ root, scope: root })), ...Option.toArray(Option.map(standalone, (scope) => ({ root: '.', scope })))], row)
         : new Map<string, TargetConfiguration>();
     const rooted = getRootTsConfigFileName();
     const checked = (program: Program): Program => (settings.noEmit === true ? { ...program, commands: program.configs.map((config) => ['tsc', '--noEmit', ...(config === CONFIG ? [] : ['-p', config])].map(quoteShellArg).join(' ')), outputs: [] } : program);

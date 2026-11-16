@@ -21,7 +21,6 @@
         "@effect/sql-sqlite-node": "catalog:",
         "@rasm/database": "workspace:*",
         "@rasm/hosting": "workspace:*",
-        "@rasm/infra": "workspace:*",
         "@rasm/media": "workspace:*",
         "@rasm/object-storage": "workspace:*",
         "@rasm/telemetry": "workspace:*",
@@ -71,6 +70,9 @@
         "vitest": "catalog:"
     },
     "nx": {
+        "implicitDependencies": [
+            "@rasm/infra"
+        ],
         "targets": {
             "build--vite": {
                 "outputs": [

@@ -5,9 +5,6 @@
             "path": "../../../libs/typescript/messaging/webhooks"
         },
         {
-            "path": "../../../infra"
-        },
-        {
             "path": "../../../libs/typescript/web/hosting"
         }
     ]

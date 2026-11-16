@@ -24,9 +24,6 @@
             "path": "../../../libs/typescript/web/media"
         },
         {
-            "path": "../../../infra"
-        },
-        {
             "path": "../../../libs/typescript/web/hosting"
         },
         {

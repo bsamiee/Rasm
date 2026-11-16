@@ -24,7 +24,7 @@ TypeScript compiler configuration of an Effect-based pnpm and Nx monorepo.
 
 - Test suite programs `references` reach each package they import, else TS6307 refuses the files outside their `include`
 - `@rasm/nx-typescript` infers `check--tsc` for a `noEmit` program and `build--tsc` for an emitting one, its `check--tsc` running the build
-- Plugin option `noEmit` checks every program of its row under `tsc --noEmit`, and `nx.json` sets it on the row including `tests/**`
+- Plugin option `noEmit` checks every program of its row under `tsc --noEmit` against built references, and `nx.json` sets it on the suites row, `tests/support/**` building as libraries
 - Runtime differences (DOM `lib`, Workers `types`, `jsx`) sit in the package config that needs them
 
 ## [03]-[BASE]

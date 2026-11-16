@@ -27,10 +27,11 @@ const Manifest = Schema.fromJsonString(
         bin: Schema.optionalKey(Schema.Union([Schema.String, Schema.Record(Schema.String, Schema.String)])),
         dependencies: Dependencies,
         devDependencies: Dependencies,
-        nx: Schema.optionalKey(Schema.Struct({ targets: Schema.optionalKey(Schema.Record(Schema.String, Schema.Struct({ inputs: Schema.optionalKey(Schema.mutable(Schema.Array(Input))) }))) })),
+        nx: Schema.optionalKey(Schema.Struct({ implicitDependencies: Schema.optionalKey(Schema.Array(Schema.String)), targets: Schema.optionalKey(Schema.Record(Schema.String, Schema.Struct({ inputs: Schema.optionalKey(Schema.mutable(Schema.Array(Input))) }))) })),
     }),
 ).annotate({
-    description: 'The name, bin, dependencies, and nx.targets rows of a package.json: a package depending on @pulumi/pulumi with one bin is a Pulumi Automation API program, a package depending on that program runs it for itself, and Nx merges nx.targets inputs over the inferred targets after every plugin',
+    description:
+        'The name, bin, dependencies, and nx rows of a package.json: a package depending on @pulumi/pulumi with one bin is a Pulumi Automation API program, a package depending on that program or naming it in nx.implicitDependencies runs it for itself, and Nx merges nx.targets inputs over the inferred targets after every plugin',
 });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -98,11 +99,7 @@ const targets = (root: string, entry: string, hosted: boolean, built: boolean, c
 const inferred = (programs: ReadonlyMap<string, string>, tracked: ReadonlySet<string>, configurations: (typeof Options.Type)['configurations'], { name, dependencies, nx }: typeof Manifest.Type, file: string, context: CreateNodesContext): Option.Option<readonly [string, CreateNodesResult]> => {
     const root = posix.dirname(file);
     const own = Option.flatMap(Option.fromUndefinedOr(name), (held) => Option.fromUndefinedOr(programs.get(held)));
-    const hosting = Array.getSomes(
-        Record.keys(dependencies)
-            .toSorted()
-            .map((dependency) => Option.fromUndefinedOr(programs.get(dependency))),
-    );
+    const hosting = Array.getSomes([...Record.keys(dependencies), ...(nx?.implicitDependencies ?? [])].toSorted().map((dependency) => Option.fromUndefinedOr(programs.get(dependency))));
     return Option.map(
         Option.orElse(own, () => Array.head(hosting)),
         (entry) => [file, { projects: { [root]: { root, metadata: { technologies: ['pulumi'] }, targets: aggregated(targets(root, entry, Option.isNone(own), !tracked.has(entry), context, configurations), nx?.targets ?? {}, 'pulumi') } } }] as const,
