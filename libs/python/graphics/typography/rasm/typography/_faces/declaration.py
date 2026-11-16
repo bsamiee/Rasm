@@ -137,62 +137,60 @@ class Script(msgspec.Struct, frozen=True, kw_only=True):
         })
 
 
-_PERSO_ARABIC = Script(
-    scripts=frozenset({"Arab"}),
-    stem=0x0627,
-    dotted=0x0628,
-    head=0x0648,
-    teeth=0x0633,
-    kashida=0x0640,
-    carrier=0x25CC,
-    spaces=(0x0020, 0x00A0),
-    vowels=(0x064E, 0x0650),
-    recipes=frozendict({
-        **dict.fromkeys((0x064E, 0x0650, 0x0618, 0x061A), Recipe.BAR),
-        **dict.fromkeys((0x064B, 0x064D, 0x08F0, 0x08F2), Recipe.DOUBLED),
-        **dict.fromkeys((0x064F, 0x0619), Recipe.HEAD),
-        **dict.fromkeys((0x064C, 0x08F1), Recipe.HEADS),
-        0x0651: Recipe.TEETH,
-        **dict.fromkeys((0x0652, 0x06DF, 0x06E0, 0x06EA, 0x06EB, 0x06EC), Recipe.RING),
-        0x0670: Recipe.STEM,
-        0x06DB: Recipe.DOTS,
-    }),
-    iqlab=(0x06E2, 0x06ED),
-    hairlines=frozenset({0x06DD, 0x06DE, 0x06E9, 0xFD3E, 0xFD3F, 0x060D, 0x060E, 0x060F}),
-    counters=(0x0645, 0x0641, 0x0642, 0x0648, 0x0624, 0x0647, 0x0635, 0x0637, 0x0639, 0x0629),
-    standing=frozenset({0x0627, 0x062F, 0x0630}),
-    locl=frozendict({0x0643: 0x06A9, 0x064A: 0x06CC, 0x0664: 0x06F4, 0x0665: 0x06F5, 0x0666: 0x06F6}),
-    language=("arab", "FAR "),
-    rlig=frozendict({0x0644: frozenset({0x0627, 0x0622, 0x0623, 0x0625, 0x0671})}),
-    derived=(
-        Derived(code=0x06F7, model=0x06F8, turned=True, kept=False),
-        Derived(code=0x066B, model=0x0631, reference=0x06F1, height=0.6),
-        Derived(code=0x066B, variant="far", model=0x002F),
-        Derived(code=0x066C, model=0x060C, turned=True, foot=Foot.MIDDLE, reference=0x06F1),
-        Derived(code=0x066C, variant="far", model=0x060C, turned=True, foot=Foot.BASE),
-        Derived(code=0x0609, model=0x066A, repeats=1),
-        Derived(code=0x060A, model=0x066A, repeats=2),
-        Derived(code=0x2010, model=0x002D),
-        Derived(code=0x25CC, model=0x062B, reference=0x0627, height=0.75, around=12),
-        Derived(code=0x00B1, model=0x002B, parts=(0x2212,), reference=0x002B, foot=Foot.CENTER),
-        Derived(code=0x2248, model=0x007E, parts=(0x007E,), reference=0x003D, foot=Foot.CENTER),
-        Derived(code=0x2260, model=0x003D, parts=(0x002F,), arrangement=Arrangement.OVERLAID, reference=0x003D, foot=Foot.CENTER),
-        Derived(code=0x00A7, model=0x0053, parts=(0x0053,), gap=-2.5, reference=0x0053, height=0.62, foot=Foot.CENTER),
-        Derived(code=0x2032, model=0x0027, slant=15.0),
-        Derived(code=0x2033, model=0x0027, parts=(0x0027,), arrangement=Arrangement.ROW, gap=0.6, slant=15.0),
-    ),
-    digits=(0x06F0, 0x0660),
-    shared=frozenset({0, 1, 2, 3, 7, 8, 9}),
-    signs=Script.spelled(0xFDF2, 0xFDF4, 0xFDFA, 0xFDFB, 0xFDFC) | {0xFDFD: ("بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ",), 0x060B: ("فرٰ",)},
-)
-
 # --- [GENRES]
 
 
 class Genre(msgspec.Struct, frozen=True, kw_only=True, tag_field="kind", tag=str.lower):
     """Face class with the script, coverage, bands, and values its rules measure against, `spurs` set where rules cut needle spurs under the join band, each case stating its class defaults."""
 
-    script: Script = _PERSO_ARABIC
+    script: Script = Script(
+        scripts=frozenset({"Arab"}),
+        stem=0x0627,
+        dotted=0x0628,
+        head=0x0648,
+        teeth=0x0633,
+        kashida=0x0640,
+        carrier=0x25CC,
+        spaces=(0x0020, 0x00A0),
+        vowels=(0x064E, 0x0650),
+        recipes=frozendict({
+            **dict.fromkeys((0x064E, 0x0650, 0x0618, 0x061A), Recipe.BAR),
+            **dict.fromkeys((0x064B, 0x064D, 0x08F0, 0x08F2), Recipe.DOUBLED),
+            **dict.fromkeys((0x064F, 0x0619), Recipe.HEAD),
+            **dict.fromkeys((0x064C, 0x08F1), Recipe.HEADS),
+            0x0651: Recipe.TEETH,
+            **dict.fromkeys((0x0652, 0x06DF, 0x06E0, 0x06EA, 0x06EB, 0x06EC), Recipe.RING),
+            0x0670: Recipe.STEM,
+            0x06DB: Recipe.DOTS,
+        }),
+        iqlab=(0x06E2, 0x06ED),
+        hairlines=frozenset({0x06DD, 0x06DE, 0x06E9, 0xFD3E, 0xFD3F, 0x060D, 0x060E, 0x060F}),
+        counters=(0x0645, 0x0641, 0x0642, 0x0648, 0x0624, 0x0647, 0x0635, 0x0637, 0x0639, 0x0629),
+        standing=frozenset({0x0627, 0x062F, 0x0630}),
+        locl=frozendict({0x0643: 0x06A9, 0x064A: 0x06CC, 0x0664: 0x06F4, 0x0665: 0x06F5, 0x0666: 0x06F6}),
+        language=("arab", "FAR "),
+        rlig=frozendict({0x0644: frozenset({0x0627, 0x0622, 0x0623, 0x0625, 0x0671})}),
+        derived=(
+            Derived(code=0x06F7, model=0x06F8, turned=True, kept=False),
+            Derived(code=0x066B, model=0x0631, reference=0x06F1, height=0.6),
+            Derived(code=0x066B, variant="far", model=0x002F),
+            Derived(code=0x066C, model=0x060C, turned=True, foot=Foot.MIDDLE, reference=0x06F1),
+            Derived(code=0x066C, variant="far", model=0x060C, turned=True, foot=Foot.BASE),
+            Derived(code=0x0609, model=0x066A, repeats=1),
+            Derived(code=0x060A, model=0x066A, repeats=2),
+            Derived(code=0x2010, model=0x002D),
+            Derived(code=0x25CC, model=0x062B, reference=0x0627, height=0.75, around=12),
+            Derived(code=0x00B1, model=0x002B, parts=(0x2212,), reference=0x002B, foot=Foot.CENTER),
+            Derived(code=0x2248, model=0x007E, parts=(0x007E,), reference=0x003D, foot=Foot.CENTER),
+            Derived(code=0x2260, model=0x003D, parts=(0x002F,), arrangement=Arrangement.OVERLAID, reference=0x003D, foot=Foot.CENTER),
+            Derived(code=0x00A7, model=0x0053, parts=(0x0053,), gap=-2.5, reference=0x0053, height=0.62, foot=Foot.CENTER),
+            Derived(code=0x2032, model=0x0027, slant=15.0),
+            Derived(code=0x2033, model=0x0027, parts=(0x0027,), arrangement=Arrangement.ROW, gap=0.6, slant=15.0),
+        ),
+        digits=(0x06F0, 0x0660),
+        shared=frozenset({0, 1, 2, 3, 7, 8, 9}),
+        signs=Script.spelled(0xFDF2, 0xFDF4, 0xFDFA, 0xFDFB, 0xFDFC) | {0xFDFD: ("بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ",), 0x060B: ("فرٰ",)},
+    )
     coverage: Coverage = Coverage()
     mark: tuple[Ratio, Ratio] = (0.48, 0.82)
     pitch: Band = (1.70, 2.04)

@@ -54,8 +54,7 @@ class MakeSpan(Protocol):
 
 _TEST_ENDPOINT = "http://localhost:4318/v1/traces"
 _LOGGER_NAME = "opentelemetry.exporter.otlp.proto.http.trace_exporter"
-_USER_AGENT = "OTel-OTLP-Exporter-Python/" + __version__
-_BASE_HEADERS = {"content-type": "application/x-protobuf", "user-agent": _USER_AGENT}
+_BASE_HEADERS = {"content-type": "application/x-protobuf", "user-agent": "OTel-OTLP-Exporter-Python/" + __version__}
 _COMMON_ENV = {
     OTEL_EXPORTER_OTLP_ENDPOINT: "http://common.example:4318",
     OTEL_EXPORTER_OTLP_HEADERS: "common-key=common-value",

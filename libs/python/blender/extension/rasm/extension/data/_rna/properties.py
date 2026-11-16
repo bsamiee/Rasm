@@ -45,7 +45,6 @@ class Callbacks[T: Struct = Struct](TypedDict, total=False):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_NONE: Final[tuple[EnumItem]] = (("NONE", "None", "", "NONE", 0),)
 _ARRAYED: Final = frozenset({
     "COLOR",
     "TRANSLATION",
@@ -139,7 +138,7 @@ def offered[R: EnumItem | IconedItem](rows: tuple[R, ...], /) -> tuple[R | EnumI
         case (first, *rest):
             return (first, *rest)
         case _:
-            return _NONE
+            return (("NONE", "None", "", "NONE", 0),)
 
 
 def flagged[F: enum.Flag](kind: type[F], names: Iterable[str]) -> F:

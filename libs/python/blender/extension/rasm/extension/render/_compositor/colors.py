@@ -22,11 +22,6 @@ from rasm.records import Fault, Outcome, paired, Reason
 COLOR_INPUT: Final = Socket(key="image", kind=bpy.types.NodeSocketColor)
 COLOR_RESULT: Final = Socket(key="result", name="Image", kind=bpy.types.NodeSocketColor)
 AXES: Final[tuple[Component, Component, Component]] = ("X", "Y", "Z")
-_HSY_RAMP: Final = (0.001, 0.01)
-_HSY_LOW_GAIN: Final = 5.0
-_HSY_FLOOR: Final = 0.07
-_HSY_OFFSET: Final = 0.15
-_HSY_GAIN: Final = 1.4
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -131,7 +126,7 @@ def _logarithmic(direction: PyOpenColorIO.TransformDirection) -> Outcome[NodeGro
 @cache
 def _hsy(direction: PyOpenColorIO.TransformDirection, weights: tuple[float, ...]) -> Outcome[NodeGroup]:
     """HSY group of one direction and luma weight triple."""
-    low_luma, high_luma = _HSY_RAMP
+    low_luma, high_luma, low_gain, bias, chroma_gain = 0.001, 0.01, 5.0, 0.15, 1.4
     forward = direction == PyOpenColorIO.TRANSFORM_DIR_FORWARD
 
     def luminance(values: tuple[Expr, Expr, Expr]) -> Expr:
@@ -150,8 +145,8 @@ def _hsy(direction: PyOpenColorIO.TransformDirection, weights: tuple[float, ...]
         delta = high - low
         sectors = tuple((channels[(index + 1) % 3] - channels[(index + 2) % 3]) / delta + float(2 * index + 1) for index in range(3))
         hue = where(low < high, where(first < high, where(second < high, sectors[2], sectors[1]), sectors[0]), 0.0) / 6.0
-        high_saturation = distance / math("MAXIMUM", math("MULTIPLY_ADD", distance, _HSY_FLOOR, 1e-6), first + second + third + _HSY_OFFSET)
-        return hue, mixed(lit(level), distance * _HSY_LOW_GAIN, high_saturation) * _HSY_GAIN, level
+        high_saturation = distance / math("MAXIMUM", math("MULTIPLY_ADD", distance, 0.07, 1e-6), first + second + third + bias)
+        return hue, mixed(lit(level), distance * low_gain, high_saturation) * chroma_gain, level
 
     def inverted(hue: Expr, saturation: Expr, level: Expr) -> tuple[Expr, Expr, Expr]:
         sector = math("FRACT", math("MULTIPLY_ADD", level < 0.0, 0.5, hue) - 1.0 / 6.0) * 6.0
@@ -160,11 +155,11 @@ def _hsy(direction: PyOpenColorIO.TransformDirection, weights: tuple[float, ...]
         bases = tuple(value * scale for value in unit)
         offsets = tuple(value - level for value in bases)
         distance = abs(offsets[0]) + abs(offsets[1]) + abs(offsets[2])
-        chroma, triple = saturation / _HSY_GAIN, level * 3.0
-        excess, reach = bases[0] + bases[1] + bases[2] - triple, triple + _HSY_OFFSET
+        chroma, triple = saturation / chroma_gain, level * 3.0
+        excess, reach = bases[0] + bases[1] + bases[2] - triple, triple + bias
         chroma_excess, chroma_reach = chroma * excess, chroma * reach
         high_gain = math("MINIMUM", chroma_reach / math("MAXIMUM", distance - chroma_excess, 1e-6), 50.0)
-        low_distance = distance * _HSY_LOW_GAIN
+        low_distance = distance * low_gain
         blend = lit(level)
         low_weight = low_distance * (1.0 - blend)
         minus_b = chroma_excess - math("MULTIPLY_ADD", distance, blend, low_weight * reach)

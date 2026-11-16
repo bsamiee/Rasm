@@ -31,7 +31,6 @@ from rasm.records import accumulated, Fault, Outcome, paired, Reason, typed
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _SCENE_CAMERA: Final = Setting(descriptor=Descriptor(root=bpy.types.Scene, owner=("camera",), prop=bpy.types.Object.bl_rna.properties["type"]), accepted=("CAMERA",))
-_CAMERA_VIEW: Final = Setting(descriptor=Descriptor(root=bpy.types.RegionView3D, prop=bpy.types.RegionView3D.bl_rna.properties["view_perspective"]), accepted=("CAMERA",))
 _MULTIVIEW: Final = Setting(descriptor=Descriptor(root=bpy.types.Scene, owner=("render",), prop=bpy.types.RenderSettings.bl_rna.properties["use_multiview"]))
 _PRIORS: Final = "camera_prior"
 
@@ -218,7 +217,11 @@ def _guides(layout: bpy.types.UILayout, _holder: Struct, context: bpy.types.Cont
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 _PASSEPARTOUT: Final = (_camera_row("show_passepartout"), _camera_row("passepartout_alpha", Some("show_passepartout")))
-camera_menu: Final = Append(target=VIEW3D_MT_object_context_menu, rows=_PASSEPARTOUT, condition=Some(_CAMERA_VIEW & _SCENE_CAMERA))
+camera_menu: Final = Append(
+    target=VIEW3D_MT_object_context_menu,
+    rows=_PASSEPARTOUT,
+    condition=Some(Setting(descriptor=Descriptor(root=bpy.types.RegionView3D, prop=bpy.types.RegionView3D.bl_rna.properties["view_perspective"]), accepted=("CAMERA",)) & _SCENE_CAMERA),
+)
 camera_display: Final = Section(
     key="camera_display",
     rows=(

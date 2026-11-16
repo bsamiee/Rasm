@@ -26,8 +26,10 @@ from rasm.records import accumulated, Outcome
 
 LINK_STATE: Final = Descriptor.of(bpy.types.CollectionLightLinking, ("link_state",), bpy.types.EnumProperty)
 RECEIVERS: Final = Descriptor(root=bpy.types.ObjectLightLinking, prop=bpy.types.ObjectLightLinking.bl_rna.properties["receiver_collection"])
-_BLOCKERS: Final = Descriptor(root=bpy.types.ObjectLightLinking, prop=bpy.types.ObjectLightLinking.bl_rna.properties["blocker_collection"])
-_LINKERS: Final = MappingProxyType({RECEIVERS: bpy.ops.object.light_linking_receivers_link, _BLOCKERS: bpy.ops.object.light_linking_blockers_link})
+_LINKERS: Final = MappingProxyType({
+    RECEIVERS: bpy.ops.object.light_linking_receivers_link,
+    Descriptor(root=bpy.types.ObjectLightLinking, prop=bpy.types.ObjectLightLinking.bl_rna.properties["blocker_collection"]): bpy.ops.object.light_linking_blockers_link,
+})
 _NAMED: Final = MappingProxyType({link.prop.identifier: link for link in _LINKERS})
 
 # --- [MODELS] ---------------------------------------------------------------------------

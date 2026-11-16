@@ -56,8 +56,6 @@ _SCENE_WHITE: Final[InterfacePanel] = InterfacePanel.of(
 )
 _WHITE_STOPS: Final = _SCENE_WHITE.inputs[0]
 _DRAGO_WHITE: Final = float(np.log2(100.0))
-_TONY: Final = "TonyMcMapface Base"
-_TONY_SOURCE: Final = "https://raw.githubusercontent.com/h3r2tic/tony-mc-mapface/0f249d366c9e960aa9828818786a6d5900fd85d9"
 _TONY_FOLDER: Final = Path("tony-mc-mapface")
 _TONY_CONFIG: Final = Path("OCIO/config.ocio")
 _TONY_FILES: Final = MappingProxyType({
@@ -284,7 +282,7 @@ class Tony(CompositorRecord, frozen=True, kw_only=True):
             .bind(lambda path: ConfigBuild(sources=(path,)).absorbed(shell.config))
         ):
             case Ok(config):
-                stated = config.getColorSpace(_TONY).getTransform(PyOpenColorIO.COLORSPACE_DIR_FROM_REFERENCE)
+                stated = config.getColorSpace("TonyMcMapface Base").getTransform(PyOpenColorIO.COLORSPACE_DIR_FROM_REFERENCE)
             case Error(faults):
                 return Error(faults)
         stages = tuple(
@@ -292,7 +290,7 @@ class Tony(CompositorRecord, frozen=True, kw_only=True):
         )
         low, high = next(stage.getVars() for stage in stages if isinstance(stage, PyOpenColorIO.AllocationTransform))
         encoding = next(stage.getDst() for stage in stages if isinstance(stage, PyOpenColorIO.ColorSpaceTransform))
-        transform = PyOpenColorIO.GroupTransform([PyOpenColorIO.ColorSpaceTransform(src=REC709_SCENE, dst=_TONY), PyOpenColorIO.ColorSpaceTransform(src=encoding, dst=REC709_SCENE)])
+        transform = PyOpenColorIO.GroupTransform([PyOpenColorIO.ColorSpaceTransform(src=REC709_SCENE, dst="TonyMcMapface Base"), PyOpenColorIO.ColorSpaceTransform(src=encoding, dst=REC709_SCENE)])
         return processor(config, transform).bind(
             lambda built: latticed(
                 item_key(Tony),
@@ -406,7 +404,7 @@ def download_tony_tables(call: Call[Empty]) -> Outcome[Answer]:
     folder = call.identity.folder / _TONY_FOLDER
 
     def downloaded(stage: Path, name: Path, digest: str) -> Outcome[Path]:
-        url = f"{_TONY_SOURCE}/{name.as_posix()}"
+        url = f"https://raw.githubusercontent.com/h3r2tic/tony-mc-mapface/0f249d366c9e960aa9828818786a6d5900fd85d9/{name.as_posix()}"
         return (
             catch(httpx2.get, exception=httpx2.HTTPError)(url, timeout=60.0)
             .bind(lambda response: catch(response.raise_for_status, exception=httpx2.HTTPError)())

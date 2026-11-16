@@ -44,9 +44,11 @@ from mypy.nodes import (
     ReturnStmt,
     Statement,
     StrExpr,
+    TempNode,
     TupleExpr,
     TypeInfo,
     UnaryExpr,
+    Var,
     WhileStmt,
 )
 from mypy.types import get_proper_type, Instance, Type, TypeType, TypeVarType
@@ -104,9 +106,9 @@ class _Project(msgspec.Struct, frozen=True, kw_only=True, rename="kebab"):
 
 
 class _Index(msgspec.Struct, frozen=True, kw_only=True):
-    """Reads of every member file: the names each module loads, reader units per name with the nesting of each read, names read outside a call or as a comparison operand, the modules reading each name, and names a host, an entry, or an importable module publishes."""
+    """Reads of every member file: the count of loads per name in each module, reader units per name with the nesting of each read, names read outside a call or as a comparison operand, the modules reading each name, and names a host, an entry, or an importable module publishes."""
 
-    loads: MappingProxyType[str, frozenset[str]]
+    loads: MappingProxyType[str, Counter[str]]
     readers: MappingProxyType[tuple[str, str], tuple[tuple[str, str, int], ...]]
     values: frozenset[tuple[str, str]]
     compared: frozenset[tuple[str, str]]
@@ -134,7 +136,7 @@ def _index(roots: tuple[Path, ...], /) -> _Index:
     paths = {
         ".".join(part for part in relative.with_suffix("").parts if part != "__init__"): relative
         for root in roots
-        for path in root.rglob("*.py")
+        for path in ((root,) if root.is_file() else root.rglob("*.py"))
         for relative in (path.relative_to(Path.cwd()),)
         if not any(part.startswith((".", "__pycache__")) for part in relative.parts)
     }
@@ -143,7 +145,7 @@ def _index(roots: tuple[Path, ...], /) -> _Index:
     readers: defaultdict[tuple[str, str], list[tuple[str, str, int]]] = defaultdict(list)
     importers: defaultdict[tuple[str, str], set[str]] = defaultdict(set)
     members: defaultdict[str, set[str]] = defaultdict(set)
-    loads: defaultdict[str, set[str]] = defaultdict(set, {module: set() for module in modules})
+    loads: dict[str, Counter[str]] = {module: Counter() for module in modules}
     values: set[tuple[str, str]] = set()
     compared: set[tuple[str, str]] = set()
     units: list[tuple[str, str, ast.AST, bool]] = []
@@ -239,7 +241,7 @@ def _index(roots: tuple[Path, ...], /) -> _Index:
             compared.update((key,) if id(found) in operands else ())
             public.update(() if label else (key,))
     return _Index(
-        loads=MappingProxyType({module: frozenset(found) for module, found in loads.items()}),
+        loads=MappingProxyType(loads),
         readers=MappingProxyType({key: tuple(found) for key, found in readers.items()}),
         values=frozenset(values),
         compared=frozenset(compared),
@@ -249,15 +251,13 @@ def _index(roots: tuple[Path, ...], /) -> _Index:
     )
 
 
-def _rebuilt(expression: Expression, /) -> bool | None:
-    """Whether each read of a value builds it again: `False` for a value the compiler folds or a member another name states, `True` for a lambda and for an operation or tuple over a member, `None` for a call or display built once."""
+def _rebuilt(expression: Expression, /) -> bool:
+    """Whether each read of a value builds it again: `False` for a value the compiler folds or a member another name states, `True` for a call, display, lambda, and an operation or tuple over a member."""
     match expression:
         case IntExpr() | FloatExpr() | ComplexExpr() | StrExpr() | BytesExpr() | EllipsisExpr() | NameExpr(fullname="builtins.True" | "builtins.False" | "builtins.None") | MemberExpr(expr=NameExpr()):
             return False
         case MemberExpr(expr=MemberExpr() as owner):
             return _rebuilt(owner)
-        case LambdaExpr():
-            return True
         case UnaryExpr(expr=operand):
             parts: tuple[Expression, ...] = (operand,)
         case OpExpr(left=left, right=right):
@@ -265,9 +265,8 @@ def _rebuilt(expression: Expression, /) -> bool | None:
         case TupleExpr(items=items):
             parts = tuple(items)
         case _:
-            return None
-    costs = tuple(map(_rebuilt, parts))
-    return None if None in costs else any(costs) or any(isinstance(part, MemberExpr) for part in parts)
+            return True
+    return any(_rebuilt(part) or isinstance(part, MemberExpr) for part in parts)
 
 
 def _inexact(expression: Expression, /) -> bool:
@@ -282,7 +281,9 @@ def _inexact(expression: Expression, /) -> bool:
 
 def _assigned(statement: Statement, /) -> tuple[NameExpr, Expression] | None:
     match statement:
-        case AssignmentStmt(lvalues=[NameExpr() as target], rvalue=value, unanalyzed_type=None, is_alias_def=False):
+        case AssignmentStmt(lvalues=[NameExpr(node=Var(is_initialized_in_class=True, is_classvar=False))], unanalyzed_type=Type(), is_final_def=False) | AssignmentStmt(rvalue=TempNode()):
+            return None
+        case AssignmentStmt(lvalues=[NameExpr(node=Var()) as target], rvalue=value):
             return target, value
         case _:
             return None
@@ -370,9 +371,9 @@ class _Walk(Traverser):
 def check(node: MypyFile, errors: list[Error], settings: Settings) -> None:
     """Reports a function one call reads, another candidate one unit reads, a private candidate nothing reads, another module's private name the file imports or reads through that module, and a private module's `__all__` name no other file reads.
 
-    Candidates are module functions, constants no call builds, and private class members no base declares, each read under the scope mypy resolves for it: its module, or the class whose body declares a member read through an instance, a class, or `self`.
-    A one-reader candidate is reported while the nesting of its read and the depth of its body sum to 3 or less, a body of more than one returned expression one level deeper as the local function it folds into.
-    A name an entry exports, an `__all__` name of a module an entry exports or of a module with no private path part, and a constant each read builds again with a reader outside import time are no candidates.
+    Candidates are module functions, constants, and private class members no base declares, each read under the scope mypy resolves for it: its module, or the class whose body declares a member read through an instance, a class, or `self`.
+    A one-reader candidate is reported while the nesting of its read and the depth of its body sum to 3 or less, a body of more than one returned expression one level deeper as the local function it folds into, and a function or a value each read builds again takes a single read.
+    A name an entry exports, an `__all__` name of a module an entry exports or of a module with no private path part, a class field an annotation declares, and a constant each read builds again with a reader outside import time are no candidates.
     """
     index = _index(tuple(Path(found).resolve() for found in settings.files))
     module = node.fullname
@@ -381,9 +382,7 @@ def check(node: MypyFile, errors: list[Error], settings: Settings) -> None:
     units: list[tuple[str, Node, bool]] = []
     once = Counter(target.name for target, _ in named)
     declared: list[tuple[tuple[str, str], Node, bool, bool, bool]] = [
-        ((module, target.name), target, False, _inexact(value), rebuilt)
-        for target, value in named
-        if once[target.name] == 1 and not target.name.startswith("__") and (rebuilt := _rebuilt(value)) is not None
+        ((module, target.name), target, False, _inexact(value), _rebuilt(value)) for target, value in named if once[target.name] == 1 and not target.name.startswith("__")
     ]
     for statement in node.defs:
         match statement:
@@ -412,7 +411,7 @@ def check(node: MypyFile, errors: list[Error], settings: Settings) -> None:
                             if isinstance(member, Decorator)
                             and all(isinstance(decorator, RefExpr) and decorator.fullname in {"builtins.staticmethod", "builtins.classmethod"} for decorator in member.decorators)
                         ),
-                        *((target, target.name, _inexact(value), rebuilt) for target, value in held for rebuilt in (_rebuilt(value),) if single[target.name] == 1 and rebuilt is not None),
+                        *((target, target.name, _inexact(value), _rebuilt(value)) for target, value in held if single[target.name] == 1),
                     )
                     if not info.is_enum and name.startswith("_") and not name.endswith("_") and not info.names[name].plugin_generated and not any(name in base.names for base in info.mro[1:])
                 )
@@ -454,9 +453,9 @@ def check(node: MypyFile, errors: list[Error], settings: Settings) -> None:
             ErrorNameReadersError.from_node(declaration, f"`{key[1]}` has one reader, move it into `{reader}`")
             for key, declaration, function, inexact, rebuilt in (() if entry else declared)
             if key not in index.public and not (function and (key in values or key in index.values)) and not (inexact and (key in compared or key in index.compared))
-            if key[0] == module or not index.members.get(key[1], frozenset()) - {module}
+            if (index.loads[module][key[1]] <= len(reads[key]) if key[0] == module else not index.members.get(key[1], frozenset()) - {module})
             for sites in ((*reads[key], *((label, level) for owner, label, level in index.readers.get(key, ()) if owner != module)),)
-            if len(found := frozenset(label for label, _ in sites)) == 1 and (len(sites) == 1 or not function) and "" not in found and f"{key[0]}.{key[1]}" not in found
+            if len(found := frozenset(label for label, _ in sites)) == 1 and (len(sites) == 1 or not (function or rebuilt)) and "" not in found and f"{key[0]}.{key[1]}" not in found
             for reader in found
             if not rebuilt or ":" in reader
             if max(level for _, level in sites) + depths[f"{key[0]}.{key[1]}" if function else f"{module}:{declaration.line}"] <= 3

@@ -59,13 +59,12 @@ _QUALITY: Final = Socket(key="quality", kind=StockInput(node=bpy.types.Composito
 _FILTER: Final = Interface(inputs=(_GUIDES, _PREFILTER, _QUALITY))
 _THRESHOLD: Final = Socket(key="threshold", kind=bpy.types.NodeSocketFloat, description="Luminance over fourth brightest ring neighbor", min_value=1.0, max_value=10.0, default_value=2.0)
 _FIREFLIES: Final = InterfacePanel.of("fireflies", Interface(inputs=(_THRESHOLD,)), description="Firefly suppression before filtering", toggle=Some(True))
-_FAMILIES: Final = frozenset(key for key, held, _ in TERMS if isinstance(held, Family))
 _FRAME: Final = InterfacePanel.of("frame", _FILTER, description="Incoming frame denoised as one image")
 _LIGHT_PASSES: Final = InterfacePanel.of(
     "light_passes",
     Interface(
         panels=tuple(
-            InterfacePanel.of(term.key, _FILTER, description=f"Filter over {term.title.lower()} light", toggle=Some(term.key in _FAMILIES))
+            InterfacePanel.of(term.key, _FILTER, description=f"Filter over {term.title.lower()} light", toggle=Some(any(key == term.key and isinstance(held, Family) for key, held, _ in TERMS)))
             for term in Recombined(layer="", recombination=Lobes()).interface.panels
         )
     ),

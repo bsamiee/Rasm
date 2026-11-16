@@ -46,7 +46,6 @@ class StripHolder(Enum):
 
 _ACTIVE: Final[RnaPath] = ("workspace", "sequencer_scene", "sequence_editor", "active_strip")
 _STRIP: Final[Key] = "strip"
-_COMPOSITOR: Final = "COMPOSITOR"
 
 # --- [CHOICES] --------------------------------------------------------------------------
 
@@ -144,10 +143,10 @@ class Strips(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                     holder: bpy.types.Strip | bpy.types.StripModifier
                     match StripHolder[call.properties.placement]:
                         case StripHolder.MODIFIER:
-                            holder = strip.modifiers.new(name=effect.title, type=_COMPOSITOR)
+                            holder = strip.modifiers.new(name=effect.title, type="COMPOSITOR")
                             rollback.callback(strip.modifiers.remove, holder)
                         case StripHolder.STRIP:
-                            holder = editor.strips.new_effect(name=effect.title, type=_COMPOSITOR, channel=strip.channel + 1, frame_start=strip.left_handle, length=strip.duration, input1=strip)
+                            holder = editor.strips.new_effect(name=effect.title, type="COMPOSITOR", channel=strip.channel + 1, frame_start=strip.left_handle, length=strip.duration, input1=strip)
                             rollback.callback(editor.strips.remove, holder)
                     return holder
 

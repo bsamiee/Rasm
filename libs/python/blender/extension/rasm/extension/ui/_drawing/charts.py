@@ -23,15 +23,9 @@ type _Mark = Literal["LINES", "LINE_STRIP", "POINTS", "TRIS"]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_FINE: Final[Color] = (1.0, 1.0, 1.0, 0.08)
 GRID: Final[Color] = (1.0, 1.0, 1.0, 0.2)
 _MAJOR: Final[Color] = (1.0, 1.0, 1.0, 0.5)
 TRACE: Final[Color] = (1.0, 1.0, 1.0, 0.75)
-_GROUND: Final[Color] = (0.0, 0.0, 0.0, 1.0)
-_RIM: Final[Color] = (0.0, 0.0, 0.0, 0.5)
-_TEXT: Final[Color] = (1.0, 1.0, 1.0, 0.2)
-_TEXT_POINTS: Final = 8.0
-_RADIUS: Final = 3.0
 _UNITS: Final = 10
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -103,20 +97,27 @@ class Chart(msgspec.Struct, frozen=True, kw_only=True, eq=False):
     def drawn(self, canvas: Canvas) -> None:
         """Draws the chart at its lower corner of the canvas extent, inset by Blender's panel margin, text at the scopes' label size."""
         metrics, extent = canvas.metrics, canvas.extent
-        size, inset = float(metrics.scaled(_TEXT_POINTS)), metrics.margin
+        size, inset = float(metrics.scaled(8.0)), metrics.margin
         x = extent.x + inset + (extent.width - 2.0 * inset - self.width - 2.0) * self.corner.value
         y = extent.y + inset
         pitch = size + metrics.spaced(Spacing.BUTTON_Y)
         with Canvas.mapped(Rect(x=x, y=y, width=1.0, height=1.0)):
-            canvas.frame(Rect(x=0.0, y=0.0, width=self.width + 2.0, height=self.height + 2.0), _GROUND, CLEAR, _RADIUS)
+            canvas.frame(Rect(x=0.0, y=0.0, width=self.width + 2.0, height=self.height + 2.0), (0.0, 0.0, 0.0, 1.0), CLEAR, 3.0)
             with canvas.clipped(Rect(x=x + 1.0, y=y + 1.0, width=self.width, height=self.height)), Canvas.mapped(Rect(x=1.0, y=1.0, width=self.width, height=self.height)):
                 for layer in self.layers:
                     layer.drawn(canvas)
             for label in self.labels:
-                canvas.label(label.text, (1.0 + label.x * self.width + size / 2 * (1 - 2 * label.align.value), 1.0 + label.y * self.height + size / 2), _TEXT, FontStyle(size=size, align=label.align))
+                canvas.label(
+                    label.text,
+                    (1.0 + label.x * self.width + size / 2 * (1 - 2 * label.align.value), 1.0 + label.y * self.height + size / 2),
+                    (1.0, 1.0, 1.0, 0.2),
+                    FontStyle(size=size, align=label.align),
+                )
             for index, line in enumerate(self.caption, 1):
-                canvas.label(line, (1.0 + size / 2 + (self.width - size) * self.corner.value, 1.0 + self.height - size / 2 - index * pitch), _TEXT, FontStyle(size=size, align=self.corner))
-            canvas.frame(Rect(x=0.0, y=1.0, width=self.width + 2.0, height=self.height + 1.0), CLEAR, _RIM, _RADIUS)
+                canvas.label(
+                    line, (1.0 + size / 2 + (self.width - size) * self.corner.value, 1.0 + self.height - size / 2 - index * pitch), (1.0, 1.0, 1.0, 0.2), FontStyle(size=size, align=self.corner)
+                )
+            canvas.frame(Rect(x=0.0, y=1.0, width=self.width + 2.0, height=self.height + 1.0), CLEAR, (0.0, 0.0, 0.0, 0.5), 3.0)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -147,7 +148,7 @@ def histogram(metrics: Metrics, config: PyOpenColorIO.Config, plane: npt.NDArray
             width=width,
             height=width * 0.5,
             layers=(
-                Layer.of("LINES", ruled(bounds[1:], (0.25, 0.5, 0.75)), _FINE),
+                Layer.of("LINES", ruled(bounds[1:], (0.25, 0.5, 0.75)), (1.0, 1.0, 1.0, 0.08)),
                 Layer.of("LINES", ruled((bounds[0], 1.0), (1.0,)), _MAJOR),
                 *(Layer.of("LINES", ruled(np.searchsorted(Histogram.edges(), held.edges, side="right") / bins, reach=0.5 * metrics.unit / width), _MAJOR) for held in bands.to_list()),
                 Layer.of("LINE_STRIP", np.column_stack((np.arange(bins) / bins, np.divide(counts, peak, out=np.zeros(bins), where=peak > 0))).astype(np.float32), TRACE, blend="ADDITIVE", width=1.5),

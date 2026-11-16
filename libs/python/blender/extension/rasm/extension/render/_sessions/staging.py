@@ -7,7 +7,7 @@ from functools import partial, reduce
 from itertools import starmap
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Final, Self, TYPE_CHECKING
+from typing import Self, TYPE_CHECKING
 
 import bpy
 from expression import Error, NOTHING, Ok, Option, option, Some
@@ -56,10 +56,6 @@ if TYPE_CHECKING:
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type _Owner = bpy.types.SceneCompositorEffect | bpy.types.CompositorNodeGroup
-
-# --- [CONSTANTS] ------------------------------------------------------------------------
-
-_CAPTURE: Final[Key] = "capture_file"
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -230,13 +226,13 @@ class _Job:
                 inputs=(("image", neutral),),
                 members={Pathed.directory.path: str(directory), Pathed.file_name.path: "", **msgspec.structs.replace(self.format, use_exr_interleave=False).members(("format",))},
                 content=Some(FileItems(items={"image": FileItem(name=name, socket_type="RGBA")})),
-            ).keyed(_CAPTURE),
+            ).keyed("capture_file"),
             Expr(
                 kind=bpy.types.CompositorNodeOutputFile,
                 inputs=tuple(terms.items()),
                 members={Pathed.directory.path: str(directory), Pathed.file_name.path: f"{name}_geometry", **output.members(("format",))},
                 content=Some(FileItems(items={key: FileItem(name=key, socket_type="RGBA") for key in terms})),
-            ).keyed(f"{_CAPTURE}_geometry"),
+            ).keyed("capture_file_geometry"),
             *layers,
         )
 

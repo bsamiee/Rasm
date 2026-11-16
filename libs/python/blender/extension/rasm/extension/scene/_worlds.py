@@ -72,7 +72,6 @@ _SKY: Final = tuple(
     if prop.identifier not in bpy.types.ShaderNode.bl_rna.properties and isinstance(prop, bpy.types.FloatProperty | bpy.types.BoolProperty) and not prop.is_array
 )
 _FOLLOWED: Final = frozenset(("sun_elevation", "sun_rotation"))
-_DISC: Final = "sun_disc"
 _MODES: Final = choices((*Descriptor.of(bpy.types.ShaderNodeTexSky, ("sky_type",), bpy.types.EnumProperty).prop.enum_items, *((source.name, *source.value) for source in BackdropSource)))
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -197,7 +196,7 @@ def _world_graph(environment: Environment) -> Outcome[Graph]:
                 toward = SunPosition.toward(np.asarray(values["sun_rotation"], dtype=np.float64), np.asarray(values["sun_elevation"], dtype=np.float64))
                 scattering = dict[str | RnaPath, Value]((name, value) for name, value in values.items() if still or name not in _FOLLOWED)
                 direction: dict[str | RnaPath, Value] = {"sun_direction": tuple(float(value) for value in toward)} if still else dict[str | RnaPath, Value]()
-                members: Members = {"sky_type": backdrop.source, ("texture_mapping", "rotation"): (0.0, 0.0, 0.0), **scattering, _DISC: scattering[_DISC] and still, **direction}
+                members: Members = {"sky_type": backdrop.source, ("texture_mapping", "rotation"): (0.0, 0.0, 0.0), **scattering, "sun_disc": scattering["sun_disc"] and still, **direction}
                 return Expr(kind=bpy.types.ShaderNodeTexSky, members=members, socket="Color", socket_type=bpy.types.NodeSocketColor, key=Some(key))
 
     def background(source: Key, backdrop: Backdrop) -> Expr:

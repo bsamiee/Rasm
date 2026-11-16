@@ -43,7 +43,6 @@ type _Edited = tuple[Key, tuple[str, ...], Operator[FieldEdit], Keywords, Mappin
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_EDITOR: Final[Key] = "active_effect"
 _PICKER: Final[Keywords] = {"value_slider": True, "lock_luminosity": True, "cubic": True}
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -351,7 +350,7 @@ class EntryEditor(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         header = Layout(builder=Some(lambda identity: Ok((partial(self.commanded, identity),))), container=Some(lambda layout: layout.row(align=True)))
         body = Layout(builder=Some(lambda identity: self.parts(identity).map(lambda draw: (draw,))))
         return Section(
-            key=_EDITOR,
+            key="active_effect",
             holder=Some(Member(root=bpy.types.Scene, path=("compositor_effects", "active"))),
             condition=Some(composites),
             rows=(*self.leading, body, self.viewers, *self.trailing),

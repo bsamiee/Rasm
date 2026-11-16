@@ -287,69 +287,72 @@ _DRAWS: Final = MappingProxyType({
         vignette=(0.0, 0.2),
     ),
 })
-_FAMILIES: Final = MappingProxyType({
-    _ReferenceFamily.SKY: MappingProxyType({
-        "Golden Hour": ReferenceImage(level=0.2, gradient=(0.9, 0.1), tint=Gel.WARM.value, highlights=(Highlight(position=(0.85, 0.65), intensity=0.7, color=Gel.WARM.value),)),
-        "Sunrise": ReferenceImage(level=0.16, gradient=(0.5, 0.2), tint=(1.0, 0.7, 0.45), highlights=(Highlight(position=(0.2, 0.4), sharpness=1.4, color=(1.0, 0.65, 0.4)),)),
-        "Blue Hour": ReferenceImage(level=0.12, gradient=(0.0, 0.6), tint=Gel.COOL.value),
-        "Midday": ReferenceImage(level=0.4, gradient=(0.0, 0.5), highlights=(Highlight(position=(0.55, 0.9), sharpness=1.4, intensity=0.6, color=Gel.NEUTRAL.value),)),
-        "Harsh Noon": ReferenceImage(level=0.25, highlights=(Highlight(position=(0.5, 0.925), sharpness=3.0, intensity=1.1, color=Gel.NEUTRAL.value),), vignette=0.45),
-        "Overcast": ReferenceImage(level=0.55, gradient=(0.0, 0.25), tint=(0.95, 0.97, 1.0)),
-        "Foggy Morning": ReferenceImage(level=0.5, gradient=(0.0, 0.3), tint=(0.9, 0.95, 1.0), vignette=0.2),
-        "Night Sky": ReferenceImage(level=0.04, gradient=(0.0, 0.25), tint=Gel.COOL.value, highlights=(Highlight(position=(0.7, 0.9), sharpness=6.0, intensity=0.5, color=(0.8, 0.9, 1.0)),)),
-        "Top Sky": ReferenceImage(gradient=(0.0, 0.95), tint=(0.85, 0.92, 1.0)),
-    }),
-    _ReferenceFamily.STUDIO: MappingProxyType({
-        "Softbox": ReferenceImage(level=0.5, highlights=(Highlight(position=(0.5, 0.7), sharpness=0.6, intensity=0.5, color=Gel.NEUTRAL.value),)),
-        "Softbox Left": ReferenceImage(level=0.18, highlights=(Highlight(position=(0.2, 0.675), sharpness=0.9, color=Gel.NEUTRAL.value),)),
-        "Softbox Right": ReferenceImage(level=0.18, highlights=(Highlight(position=(0.8, 0.675), sharpness=0.9, color=Gel.NEUTRAL.value),)),
-        "Beauty Dish": ReferenceImage(level=0.2, highlights=(Highlight(position=(0.5, 0.725), sharpness=1.6, intensity=0.9, color=Gel.NEUTRAL.value),), rim=Rim(amount=0.25)),
-        "Ring Light": ReferenceImage(level=0.18, highlights=(Highlight(sharpness=0.8, intensity=0.7, color=Gel.NEUTRAL.value),), rim=Rim(amount=0.7)),
-        "Broad Light": ReferenceImage(level=0.16, highlights=(Highlight(position=(0.275, 0.625), sharpness=1.0, intensity=0.85, color=(1.0, 0.96, 0.9)),)),
-        "Short Light": ReferenceImage(level=0.12, highlights=(Highlight(position=(0.775, 0.65), sharpness=1.3, intensity=0.85, color=(1.0, 0.96, 0.9)),), vignette=0.2),
-    }),
-    _ReferenceFamily.PORTRAIT: MappingProxyType({
-        "Rembrandt Right": ReferenceImage(level=0.06, highlights=(Highlight(position=(0.75, 0.725), sharpness=1.6, intensity=1.1, color=Gel.WARM.value),)),
-        "Under Light": ReferenceImage(level=0.06, highlights=(Highlight(position=(0.5, 0.15), sharpness=1.6, intensity=1.0, color=(1.0, 0.95, 0.9)),)),
-        "Hair Light": ReferenceImage(level=0.1, highlights=(Highlight(position=(0.5, 0.75), sharpness=1.0, intensity=0.5, color=Gel.NEUTRAL.value),), rim=Rim(amount=0.9)),
-    }),
-    _ReferenceFamily.CINEMATIC: MappingProxyType({
-        "Teal & Orange": ReferenceImage(
-            highlights=(Highlight(position=(0.8, 0.625), intensity=0.9, color=Gel.DEEP_WARM.value), Highlight(position=(0.2, 0.45), sharpness=1.0, intensity=0.6, color=Gel.TEAL.value))
-        ),
-        "Neon M/C": ReferenceImage(
-            level=0.04, highlights=(Highlight(position=(0.225, 0.65), intensity=0.9, color=Gel.MAGENTA.value), Highlight(position=(0.775, 0.45), intensity=0.9, color=Gel.CYAN.value))
-        ),
-        "Neon B/P": ReferenceImage(
-            level=0.04, highlights=(Highlight(position=(0.25, 0.5), intensity=0.9, color=Gel.BLUE.value), Highlight(position=(0.775, 0.65), intensity=0.9, color=Gel.PINK.value))
-        ),
-        "Firelight": ReferenceImage(
-            level=0.06, gradient=(0.0, -0.1), tint=Gel.FIRE.value, highlights=(Highlight(position=(0.5, 0.25), sharpness=1.0, intensity=0.9, color=Gel.FIRE.value),), vignette=0.35
-        ),
-        "Moonlit Window": ReferenceImage(level=0.04, highlights=(Highlight(position=(0.75, 0.6), sharpness=1.0, color=Gel.SKY.value),), blinds=Blinds(cycles=5.0), vignette=0.35),
-        "Horror Uplight": ReferenceImage(level=0.04, highlights=(Highlight(position=(0.5, 0.15), sharpness=1.6, intensity=1.0, color=Gel.GREEN.value),), vignette=0.45),
-    }),
-    _ReferenceFamily.ENVIRONMENT: MappingProxyType({
-        "Window Light": ReferenceImage(level=0.12, highlights=(Highlight(position=(0.775, 0.675), sharpness=0.8, intensity=0.85, color=(1.0, 0.98, 0.92)),)),
-        "Window Blinds": ReferenceImage(level=0.1, highlights=(Highlight(position=(0.75, 0.65), sharpness=0.8, intensity=0.9, color=Gel.WARM.value),), blinds=Blinds(cycles=7.0)),
-        "Forest Dapple": ReferenceImage(level=0.1, gradient=(0.0, 0.3), tint=Gel.GREEN.value, dapple=Dapple(count=14, seed=7)),
-        "Underwater": ReferenceImage(level=0.12, gradient=(0.0, 0.4), tint=Gel.TEAL.value, dapple=Dapple(seed=3)),
-        "Snow Bounce": ReferenceImage(level=0.6, gradient=(0.0, 0.2), tint=(0.95, 0.98, 1.0), highlights=(Highlight(position=(0.5, 0.25), sharpness=0.8, intensity=0.3, color=Gel.NEUTRAL.value),)),
-        "Desert": ReferenceImage(level=0.35, gradient=(0.2, 0.4), tint=(1.0, 0.85, 0.6), highlights=(Highlight(position=(0.65, 0.85), sharpness=1.4, intensity=0.6, color=Gel.WARM.value),)),
-        "Street Lamp": ReferenceImage(level=0.03, highlights=(Highlight(position=(0.5, 0.7), sharpness=2.0, intensity=1.0, color=(1.0, 0.8, 0.5)),), vignette=0.6),
-        "Stage Spot": ReferenceImage(level=0.02, highlights=(Highlight(position=(0.5, 0.8), sharpness=2.6, intensity=1.2, color=Gel.NEUTRAL.value),), vignette=0.6),
-        "Concert RGB": ReferenceImage(
-            level=0.04,
-            highlights=(
-                Highlight(position=(0.2, 0.7), sharpness=1.4, color=Gel.BLUE.value),
-                Highlight(position=(0.5, 0.75), sharpness=1.4, color=Gel.MAGENTA.value),
-                Highlight(position=(0.8, 0.7), sharpness=1.4, color=Gel.CYAN.value),
+REFERENCES: Final = MappingProxyType({
+    name: (family, recipe)
+    for family, recipes in {
+        _ReferenceFamily.SKY: MappingProxyType({
+            "Golden Hour": ReferenceImage(level=0.2, gradient=(0.9, 0.1), tint=Gel.WARM.value, highlights=(Highlight(position=(0.85, 0.65), intensity=0.7, color=Gel.WARM.value),)),
+            "Sunrise": ReferenceImage(level=0.16, gradient=(0.5, 0.2), tint=(1.0, 0.7, 0.45), highlights=(Highlight(position=(0.2, 0.4), sharpness=1.4, color=(1.0, 0.65, 0.4)),)),
+            "Blue Hour": ReferenceImage(level=0.12, gradient=(0.0, 0.6), tint=Gel.COOL.value),
+            "Midday": ReferenceImage(level=0.4, gradient=(0.0, 0.5), highlights=(Highlight(position=(0.55, 0.9), sharpness=1.4, intensity=0.6, color=Gel.NEUTRAL.value),)),
+            "Harsh Noon": ReferenceImage(level=0.25, highlights=(Highlight(position=(0.5, 0.925), sharpness=3.0, intensity=1.1, color=Gel.NEUTRAL.value),), vignette=0.45),
+            "Overcast": ReferenceImage(level=0.55, gradient=(0.0, 0.25), tint=(0.95, 0.97, 1.0)),
+            "Foggy Morning": ReferenceImage(level=0.5, gradient=(0.0, 0.3), tint=(0.9, 0.95, 1.0), vignette=0.2),
+            "Night Sky": ReferenceImage(level=0.04, gradient=(0.0, 0.25), tint=Gel.COOL.value, highlights=(Highlight(position=(0.7, 0.9), sharpness=6.0, intensity=0.5, color=(0.8, 0.9, 1.0)),)),
+            "Top Sky": ReferenceImage(gradient=(0.0, 0.95), tint=(0.85, 0.92, 1.0)),
+        }),
+        _ReferenceFamily.STUDIO: MappingProxyType({
+            "Softbox": ReferenceImage(level=0.5, highlights=(Highlight(position=(0.5, 0.7), sharpness=0.6, intensity=0.5, color=Gel.NEUTRAL.value),)),
+            "Softbox Left": ReferenceImage(level=0.18, highlights=(Highlight(position=(0.2, 0.675), sharpness=0.9, color=Gel.NEUTRAL.value),)),
+            "Softbox Right": ReferenceImage(level=0.18, highlights=(Highlight(position=(0.8, 0.675), sharpness=0.9, color=Gel.NEUTRAL.value),)),
+            "Beauty Dish": ReferenceImage(level=0.2, highlights=(Highlight(position=(0.5, 0.725), sharpness=1.6, intensity=0.9, color=Gel.NEUTRAL.value),), rim=Rim(amount=0.25)),
+            "Ring Light": ReferenceImage(level=0.18, highlights=(Highlight(sharpness=0.8, intensity=0.7, color=Gel.NEUTRAL.value),), rim=Rim(amount=0.7)),
+            "Broad Light": ReferenceImage(level=0.16, highlights=(Highlight(position=(0.275, 0.625), sharpness=1.0, intensity=0.85, color=(1.0, 0.96, 0.9)),)),
+            "Short Light": ReferenceImage(level=0.12, highlights=(Highlight(position=(0.775, 0.65), sharpness=1.3, intensity=0.85, color=(1.0, 0.96, 0.9)),), vignette=0.2),
+        }),
+        _ReferenceFamily.PORTRAIT: MappingProxyType({
+            "Rembrandt Right": ReferenceImage(level=0.06, highlights=(Highlight(position=(0.75, 0.725), sharpness=1.6, intensity=1.1, color=Gel.WARM.value),)),
+            "Under Light": ReferenceImage(level=0.06, highlights=(Highlight(position=(0.5, 0.15), sharpness=1.6, intensity=1.0, color=(1.0, 0.95, 0.9)),)),
+            "Hair Light": ReferenceImage(level=0.1, highlights=(Highlight(position=(0.5, 0.75), sharpness=1.0, intensity=0.5, color=Gel.NEUTRAL.value),), rim=Rim(amount=0.9)),
+        }),
+        _ReferenceFamily.CINEMATIC: MappingProxyType({
+            "Teal & Orange": ReferenceImage(
+                highlights=(Highlight(position=(0.8, 0.625), intensity=0.9, color=Gel.DEEP_WARM.value), Highlight(position=(0.2, 0.45), sharpness=1.0, intensity=0.6, color=Gel.TEAL.value))
             ),
-        ),
-        "Sci-Fi Panel": ReferenceImage(level=0.06, highlights=(Highlight(position=(0.75, 0.5), sharpness=1.0, intensity=0.7, color=Gel.CYAN.value),), blinds=Blinds(cycles=4.0), vignette=0.3),
-    }),
+            "Neon M/C": ReferenceImage(
+                level=0.04, highlights=(Highlight(position=(0.225, 0.65), intensity=0.9, color=Gel.MAGENTA.value), Highlight(position=(0.775, 0.45), intensity=0.9, color=Gel.CYAN.value))
+            ),
+            "Neon B/P": ReferenceImage(
+                level=0.04, highlights=(Highlight(position=(0.25, 0.5), intensity=0.9, color=Gel.BLUE.value), Highlight(position=(0.775, 0.65), intensity=0.9, color=Gel.PINK.value))
+            ),
+            "Firelight": ReferenceImage(
+                level=0.06, gradient=(0.0, -0.1), tint=Gel.FIRE.value, highlights=(Highlight(position=(0.5, 0.25), sharpness=1.0, intensity=0.9, color=Gel.FIRE.value),), vignette=0.35
+            ),
+            "Moonlit Window": ReferenceImage(level=0.04, highlights=(Highlight(position=(0.75, 0.6), sharpness=1.0, color=Gel.SKY.value),), blinds=Blinds(cycles=5.0), vignette=0.35),
+            "Horror Uplight": ReferenceImage(level=0.04, highlights=(Highlight(position=(0.5, 0.15), sharpness=1.6, intensity=1.0, color=Gel.GREEN.value),), vignette=0.45),
+        }),
+        _ReferenceFamily.ENVIRONMENT: MappingProxyType({
+            "Window Light": ReferenceImage(level=0.12, highlights=(Highlight(position=(0.775, 0.675), sharpness=0.8, intensity=0.85, color=(1.0, 0.98, 0.92)),)),
+            "Window Blinds": ReferenceImage(level=0.1, highlights=(Highlight(position=(0.75, 0.65), sharpness=0.8, intensity=0.9, color=Gel.WARM.value),), blinds=Blinds(cycles=7.0)),
+            "Forest Dapple": ReferenceImage(level=0.1, gradient=(0.0, 0.3), tint=Gel.GREEN.value, dapple=Dapple(count=14, seed=7)),
+            "Underwater": ReferenceImage(level=0.12, gradient=(0.0, 0.4), tint=Gel.TEAL.value, dapple=Dapple(seed=3)),
+            "Snow Bounce": ReferenceImage(level=0.6, gradient=(0.0, 0.2), tint=(0.95, 0.98, 1.0), highlights=(Highlight(position=(0.5, 0.25), sharpness=0.8, intensity=0.3, color=Gel.NEUTRAL.value),)),
+            "Desert": ReferenceImage(level=0.35, gradient=(0.2, 0.4), tint=(1.0, 0.85, 0.6), highlights=(Highlight(position=(0.65, 0.85), sharpness=1.4, intensity=0.6, color=Gel.WARM.value),)),
+            "Street Lamp": ReferenceImage(level=0.03, highlights=(Highlight(position=(0.5, 0.7), sharpness=2.0, intensity=1.0, color=(1.0, 0.8, 0.5)),), vignette=0.6),
+            "Stage Spot": ReferenceImage(level=0.02, highlights=(Highlight(position=(0.5, 0.8), sharpness=2.6, intensity=1.2, color=Gel.NEUTRAL.value),), vignette=0.6),
+            "Concert RGB": ReferenceImage(
+                level=0.04,
+                highlights=(
+                    Highlight(position=(0.2, 0.7), sharpness=1.4, color=Gel.BLUE.value),
+                    Highlight(position=(0.5, 0.75), sharpness=1.4, color=Gel.MAGENTA.value),
+                    Highlight(position=(0.8, 0.7), sharpness=1.4, color=Gel.CYAN.value),
+                ),
+            ),
+            "Sci-Fi Panel": ReferenceImage(level=0.06, highlights=(Highlight(position=(0.75, 0.5), sharpness=1.0, intensity=0.7, color=Gel.CYAN.value),), blinds=Blinds(cycles=4.0), vignette=0.3),
+        }),
+    }.items()
+    for name, recipe in recipes.items()
 })
-REFERENCES: Final = MappingProxyType({name: (family, recipe) for family, recipes in _FAMILIES.items() for name, recipe in recipes.items()})
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

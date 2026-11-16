@@ -74,14 +74,22 @@ SHAPE: Final = Interface(inputs=(_OUTLINE, _POSITION, _SIZE, _ROTATION, _FEATHER
 
 # --- [QUALIFIER]
 
-_CENTER: Final = Socket(key="center", kind=bpy.types.NodeSocketFloatAngle, description="HSY hue, magenta at zero and red at one sixth turn", default_value=tau / 6.0)
-_WIDTH: Final = Socket(key="width", kind=bpy.types.NodeSocketFloatAngle, description="Hue span of full selection", min_value=0.0, max_value=tau, default_value=radians(30.0))
-_EDGE: Final = Socket(key="softness", kind=bpy.types.NodeSocketFloatAngle, description="Ramp width beyond each edge", min_value=0.0, max_value=pi, default_value=radians(10.0))
 _LOW: Final = Socket(key="low", kind=bpy.types.NodeSocketFloat, description="Lower bound of full selection")
 _HIGH: Final = Socket(key="high", kind=bpy.types.NodeSocketFloat, description="Upper bound of full selection")
 _RAMP: Final = Socket(key="softness", kind=bpy.types.NodeSocketFloat, description="Ramp width beyond each bound", min_value=0.0)
 _BAND: Final = Interface(inputs=(_LOW, _HIGH, _RAMP))
-_HUE: Final = InterfacePanel.of("hue", Interface(inputs=(_CENTER, _WIDTH, _EDGE)), description="HSY hue range", toggle=Some(True))
+_HUE: Final = InterfacePanel.of(
+    "hue",
+    Interface(
+        inputs=(
+            Socket(key="center", kind=bpy.types.NodeSocketFloatAngle, description="HSY hue, magenta at zero and red at one sixth turn", default_value=tau / 6.0),
+            Socket(key="width", kind=bpy.types.NodeSocketFloatAngle, description="Hue span of full selection", min_value=0.0, max_value=tau, default_value=radians(30.0)),
+            Socket(key="softness", kind=bpy.types.NodeSocketFloatAngle, description="Ramp width beyond each edge", min_value=0.0, max_value=pi, default_value=radians(10.0)),
+        )
+    ),
+    description="HSY hue range",
+    toggle=Some(True),
+)
 _SATURATION: Final = InterfacePanel.of("saturation", _BAND.defaulted({_LOW.key: 0.2, _HIGH.key: 1.0, _RAMP.key: 0.1}), description="HSY saturation range", toggle=Some(False))
 _LUMINANCE_BAND: Final = InterfacePanel.of(
     "luminance", _BAND.defaulted({_LOW.key: -2.0, _HIGH.key: 2.0, _RAMP.key: 1.0}), description="HSY luminance in LIN-wrapped stops from gray", toggle=Some(False)

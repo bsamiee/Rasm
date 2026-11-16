@@ -8,7 +8,7 @@ from pathlib import Path
 import re
 import string
 from types import MappingProxyType
-from typing import Annotated, Final, Self
+from typing import Annotated, Self
 
 from expression import Error, NOTHING, Ok, Option, option
 from expression.collections import Block
@@ -57,7 +57,6 @@ class Output(StrEnum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_RESERVED: Final = r'\x00-\x1f"*:<>?|'
 _BRACES = re.compile(r"[{}\x00]")
 _SEPARATOR = re.compile(r"[\W_]")
 _VERSION = re.compile(r"(?i)(?<![^\W\d_])(?:version|v)[._]?(\d+)")
@@ -155,7 +154,7 @@ class OutputName(msgspec.Struct, frozen=True, kw_only=True):
                 case TextField(key=TextKey.DATE):
                     return re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
                 case TextField():
-                    return re.compile(rf"[^{_RESERVED}{excluded}]+")
+                    return re.compile(rf'[^\x00-\x1f"*:<>?|{excluded}]+')
                 case NumberField(key=key, width=width):
                     digits = rf"[0-9]{{{width}}}|[1-9][0-9]{{{width},}}"
                     return re.compile(rf"-?(?:{digits})" if key is NumberKey.FRAME else digits)

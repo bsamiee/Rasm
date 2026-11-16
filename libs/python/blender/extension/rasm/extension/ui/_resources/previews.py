@@ -27,7 +27,6 @@ type Texture[M] = tuple[gpu.types.GPUTexture, M]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_FORMAT: Final = "RGBA16F"
 _COMPONENT: Final = np.dtype(np.float16)
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -195,7 +194,7 @@ def uploaded(plane: npt.NDArray[np.float32]) -> Outcome[gpu.types.GPUTexture]:
         .map_error(partial(Fault.of, Refusal.REFUSED, "gpu.init"))
         .bind(
             lambda _: catch(gpu.types.GPUTexture, exception=RuntimeError)(
-                (pixels.shape[1], pixels.shape[0]), format=_FORMAT, data=gpu.types.Buffer("FLOAT", pixels.shape, memoryview(pixels))
+                (pixels.shape[1], pixels.shape[0]), format="RGBA16F", data=gpu.types.Buffer("FLOAT", pixels.shape, memoryview(pixels))
             ).map_error(partial(Fault.of, Refusal.REFUSED, "gpu.types.GPUTexture"))
         )
     )

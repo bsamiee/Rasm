@@ -3,7 +3,6 @@
 from collections.abc import Mapping
 from enum import auto, Enum
 from functools import partial
-from itertools import starmap
 from math import pi
 import sys
 from typing import Annotated, Final, override
@@ -92,7 +91,6 @@ _DIRECTION: Final = Socket(
 _EXTENSION: Final = Socket(key="extension", kind=bpy.types.NodeSocketMenu, description="Source sampling past frame edges", default_value=MenuItem.of(Border.BLACK).name, items=BORDERS.items)
 _DISPERSION: Final = Socket(key="dispersion", kind=bpy.types.NodeSocketFloat, description="Image height spread from red to blue", min_value=0.0, default_value=0.05)
 _AXIAL: Final = Socket(key="axial", kind=bpy.types.NodeSocketFloat, description="Blue defocus radius, red at half and green in focus", min_value=0.0)
-_AXIAL_SHARES: Final[tuple[tuple[Component, float], ...]] = (("Red", 0.5), ("Green", 0.0), ("Blue", 1.0))
 _SPECTRAL_EXTENSION: Final = msgspec.structs.replace(_EXTENSION, default_value=MenuItem.of(Border.CLAMP).name)
 
 # --- [VIGNETTE]
@@ -180,8 +178,7 @@ class Aberration(CompositorRecord, frozen=True, kw_only=True):
             size = frame.pixels(shell.input(_AXIAL) * share)
             return Expr(kind=bpy.types.CompositorNodeBokehBlur, inputs=(("Image", lateral[channel]), ("Bokeh", bokeh), ("Size", size)), socket="Image") if share > 0.0 else lateral[channel]
 
-        red, green, blue = starmap(gathered, _AXIAL_SHARES)
-        return Ok(rgba(red, green, blue, lateral["Alpha"]))
+        return Ok(rgba(gathered("Red", 0.5), gathered("Green", 0.0), gathered("Blue", 1.0), lateral["Alpha"]))
 
 
 class Vignette(CompositorRecord, frozen=True, kw_only=True):

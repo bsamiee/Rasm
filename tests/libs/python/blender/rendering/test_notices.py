@@ -12,9 +12,9 @@ import httpx2
 import msgspec
 import pytest
 
+from rasm.rendering import Cancelled, Completed, Endpoint, Estimated, Failed, Forecast, Listener, Notice, published, Started, Test
 from rasm.testing import raised
 from rasm.testing.hosting import Answer, Hosted, Received
-from rasm.rendering import Cancelled, Completed, Endpoint, Estimated, Failed, Forecast, Listener, Notice, published, Started, Test
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -31,15 +31,18 @@ LIMITED = Answer(
     body=msgspec.json.encode({"code": LIMIT, "http": HTTPStatus.TOO_MANY_REQUESTS, "error": "limit reached: too many requests"}),
 )
 PRIORITIES = {"min": 1, "low": 2, "default": 3, "high": 4, "max": 5, "urgent": 5} | {str(level): level for level in range(1, 6)}
-NOTICES: tuple[Notice, ...] = (
-    Started(jobs=2, frames=48),
-    Estimated(forecast=Forecast(left=timedelta(minutes=5), finish=NOTHING)),
-    Completed(frames=48, elapsed=timedelta(seconds=90)),
-    Cancelled(frames=12),
-    Failed(job="Scene 1-24", reason="exit 1"),
-    Test(),
+EACH = pytest.mark.parametrize(
+    "notice",
+    [
+        Started(jobs=2, frames=48),
+        Estimated(forecast=Forecast(left=timedelta(minutes=5), finish=NOTHING)),
+        Completed(frames=48, elapsed=timedelta(seconds=90)),
+        Cancelled(frames=12),
+        Failed(job="Scene 1-24", reason="exit 1"),
+        Test(),
+    ],
+    ids=lambda notice: type(notice).__name__,
 )
-EACH = pytest.mark.parametrize("notice", NOTICES, ids=lambda notice: type(notice).__name__)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 

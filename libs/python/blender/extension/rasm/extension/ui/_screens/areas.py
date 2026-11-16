@@ -3,7 +3,7 @@
 from collections.abc import Callable, Iterable, Mapping
 from functools import partial
 from itertools import chain
-from typing import Final, Literal, Self, TYPE_CHECKING
+from typing import Literal, Self, TYPE_CHECKING
 
 import bpy
 from expression import Error, NOTHING, Ok, Option, option, Some, try_downcast
@@ -24,10 +24,6 @@ if TYPE_CHECKING:
 
 type _Edge = Literal["LEFT", "RIGHT", "TOP", "BOTTOM"]
 type _Step = _Split | _Retype | EditorState | Arrangement
-
-# --- [CONSTANTS] ------------------------------------------------------------------------
-
-_AXES: Final[tuple[tuple[_Edge, _Edge], ...]] = (("LEFT", "RIGHT"), ("TOP", "BOTTOM"))
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -273,7 +269,7 @@ def _reached(window: bpy.types.Window, pointer: int, revert: Callable[[Located],
 
 def flipped(located: Located, side: _Edge) -> Outcome[None]:
     """Moves the located region to `side` across its axis."""
-    axis = next(axis for axis in _AXES if side in axis)
+    axis = next(axis for axis in (("LEFT", "RIGHT"), ("TOP", "BOTTOM")) if side in axis)
 
     def moved(region: bpy.types.Region) -> Outcome[None]:
         match region.alignment:

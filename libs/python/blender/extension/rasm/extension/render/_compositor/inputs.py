@@ -42,7 +42,6 @@ FRAME_ASPECT: Final = Socket(key="frame_aspect", kind=bpy.types.NodeSocketFloat,
 FRAME_SCALE: Final = Socket(key="frame_scale", kind=bpy.types.NodeSocketFloat, description="Camera share of overscan", hide_in_modifier=True, default_value=1.0)
 FRAME_METERS: Final = Socket(key="frame_meters", kind=bpy.types.NodeSocketFloat, description="Meters per Blender unit", hide_in_modifier=True, default_value=1.0)
 FRAME: Final = (FRAME_ASPECT, FRAME_SCALE, FRAME_METERS)
-_INPUTS: Final = "SceneCompositorEffectInterfaceInputs"
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -355,7 +354,9 @@ def regrouped(snapshot: Snapshot, owners: Mapping[RnaPath, Owner[Value, RnaPath,
 
 def snapshot(values: Mapping[Key, Value], /) -> Snapshot:
     """Returns the capture holding input values by item key, the inverse of `valued`, a preset or look stating its values without an entry."""
-    return regrouped(Snapshot(struct=_INPUTS, tree=Tree(roots=(), rows=())), {(key,): Owner[Value, RnaPath, RnaPath](rows=((("value",), held),)) for key, held in values.items()})
+    return regrouped(
+        Snapshot(struct="SceneCompositorEffectInterfaceInputs", tree=Tree(roots=(), rows=())), {(key,): Owner[Value, RnaPath, RnaPath](rows=((("value",), held),)) for key, held in values.items()}
+    )
 
 
 def captured(identity: Identity, entry: bpy.types.SceneCompositorEffect, prefix: Key = "") -> Outcome[Snapshot]:

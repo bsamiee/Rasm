@@ -1,7 +1,6 @@
 """Scene camera node forms: camera reads and projections, lens tilts and re-aims, imaging point maps and radial lens distortion over a frame, the chief ray, the circle of confusion, and the iris on the native Bokeh Image node."""
 
 from collections.abc import Callable, Mapping
-from types import MappingProxyType
 from typing import Annotated, Final, Self
 
 import bpy
@@ -22,14 +21,21 @@ type PointMap = Callable[[ImagePoint[Expr], Namespace[Expr, Expr]], ImagePoint[E
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_BOKEH: Final = MappingProxyType({
-    Aperture.blades: StockInput(node=bpy.types.CompositorNodeBokehImage, input="Flaps"),
-    Aperture.rotation: StockInput(node=bpy.types.CompositorNodeBokehImage, input="Angle"),
-    Aperture.roundness: StockInput(node=bpy.types.CompositorNodeBokehImage, input="Roundness"),
-    Aperture.obstruction: StockInput(node=bpy.types.CompositorNodeBokehImage, input="Catadioptric Size"),
-})
 IRIS: Final = InterfacePanel.of(
-    "iris", Interface(inputs=tuple(msgspec.structs.replace(socket, kind=_BOKEH[getattr(Aperture, socket.key)]) for socket in fielded(Aperture()).inputs)), description="Bokeh iris outline"
+    "iris",
+    Interface(
+        inputs=tuple(
+            msgspec.structs.replace(
+                socket,
+                kind=StockInput(
+                    node=bpy.types.CompositorNodeBokehImage,
+                    input={Aperture.blades: "Flaps", Aperture.rotation: "Angle", Aperture.roundness: "Roundness", Aperture.obstruction: "Catadioptric Size"}[getattr(Aperture, socket.key)],
+                ),
+            )
+            for socket in fielded(Aperture()).inputs
+        )
+    ),
+    description="Bokeh iris outline",
 )
 
 # --- [MODELS] ---------------------------------------------------------------------------

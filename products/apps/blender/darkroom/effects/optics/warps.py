@@ -76,9 +76,10 @@ _SHAKE_POSITION: Final = Socket(key="position", kind=bpy.types.NodeSocketVector2
 _SHAKE_ROTATION: Final = Socket(key="rotation", kind=bpy.types.NodeSocketFloatAngle, description="Peak turn about frame center", min_value=0.0, default_value=radians(5.0))
 _SHAKE_SCALE: Final = Socket(key="scale", kind=bpy.types.NodeSocketFloat, description="Peak zoom in stops", min_value=0.0, default_value=log2(1.1))
 _SHAKE_NOISE: Final = textures.Noise(noise_dimensions="1D", scale=1.0, detail=4.0)
-_UNREAD: Final = frozenset(map(item_key, (textures.Noise.offset, textures.Noise.gain)))
 _NOISE: Final = InterfacePanel.of(
-    "noise", Interface(inputs=tuple(socket for socket in _SHAKE_NOISE.sockets if socket.key not in _UNREAD)), description="Fractal noise each shake axis reads over the clock"
+    "noise",
+    Interface(inputs=tuple(socket for socket in _SHAKE_NOISE.sockets if socket.key not in {item_key(textures.Noise.offset), item_key(textures.Noise.gain)})),
+    description="Fractal noise each shake axis reads over the clock",
 )
 _SHAKE: Final = InterfacePanel.of(
     "shake",
@@ -86,7 +87,6 @@ _SHAKE: Final = InterfacePanel.of(
     description="Seeded camera motion over time, continuous within exposure",
     toggle=Some(False),
 )
-_INTERFACE: Final = Interface(inputs=(_TRAVEL, _TURN, _ZOOM, _EXTENSION, _MOTION_BLUR), panels=(_CORNER_PIN, _PERSPECTIVE, _PLACEMENT, _SHAKE))
 _POSES: Final = ShutterPoses(sockets=(_TRAVEL, _TURN, _ZOOM, *(item[0] for panel in (_PERSPECTIVE, _PLACEMENT, _SHAKE) for _, item, _, _ in panel.walked() if isinstance(item, tuple))))
 _POSED: Final = MappingProxyType({socket.key: socket for socket in _POSES.poses})
 
@@ -273,7 +273,7 @@ def _checked(identity: Identity, scene: bpy.types.Scene, entry: Option[bpy.types
 
 transform: Final = CompositorEffect(
     record=Transform,
-    interface=_INTERFACE,
+    interface=Interface(inputs=(_TRAVEL, _TURN, _ZOOM, _EXTENSION, _MOTION_BLUR), panels=(_CORNER_PIN, _PERSPECTIVE, _PLACEMENT, _SHAKE)),
     mix=Mix.RESULT,
     check=Some(_checked),
     derives=(timing, DerivedInputs(of=_pinned_rows, sockets=PIN_ROWS), DerivedInputs(of=_POSES.posed, sockets=_POSES.poses, reads=shutter.reads)),

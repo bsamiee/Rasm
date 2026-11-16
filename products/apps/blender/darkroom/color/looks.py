@@ -103,41 +103,45 @@ def _looking(identity: Identity) -> Generator[Mapping[str, Callbacks[FormationLo
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 _film: Final = Film()
-_stocks: Final = (
-    ("Film", "Negative and print film at flim's default stocks", _film),
-    (
-        "Film Nostalgia",
-        "Warm faded film at flim's nostalgia stocks",
-        msgspec.structs.replace(
-            _film,
-            pre_exposure=5.563035,
-            gains=(1.1, _film.gains[1], 1.2),
-            span=23.0 - _film.low,
-            negative=msgspec.structs.replace(_film.negative, exposure=5.8),
-            backlight=(0.99, 1.1, 1.035989),
-            positive=msgspec.structs.replace(_film.positive, density=40.0),
-            black_point=-0.005,
-            saturation=1.1,
-        ),
-    ),
-    (
-        "Film Silver",
-        "Cool dense film at flim's silver stocks",
-        msgspec.structs.replace(
-            _film,
-            pre_exposure=3.9,
-            pre_filter=(0.95, 0.975, 1.0),
-            gains=(_film.gains[0], _film.gains[1], 1.06),
-            negative=msgspec.structs.replace(_film.negative, exposure=4.7, density=7.0),
-            backlight=(0.9992, 0.99, 1.0),
-            positive=msgspec.structs.replace(_film.positive, exposure=4.7, density=30.0),
-            black_point=0.0005,
-            post_filter=(1.0, 1.0, 0.96),
-            saturation=1.0,
-        ),
-    ),
+_install: Final = ConfigInstall(
+    views=tuple(
+        ConfigView(name=name, description=description, transform=stock.transform, space=Film.space)
+        for name, description, stock in (
+            ("Film", "Negative and print film at flim's default stocks", _film),
+            (
+                "Film Nostalgia",
+                "Warm faded film at flim's nostalgia stocks",
+                msgspec.structs.replace(
+                    _film,
+                    pre_exposure=5.563035,
+                    gains=(1.1, _film.gains[1], 1.2),
+                    span=23.0 - _film.low,
+                    negative=msgspec.structs.replace(_film.negative, exposure=5.8),
+                    backlight=(0.99, 1.1, 1.035989),
+                    positive=msgspec.structs.replace(_film.positive, density=40.0),
+                    black_point=-0.005,
+                    saturation=1.1,
+                ),
+            ),
+            (
+                "Film Silver",
+                "Cool dense film at flim's silver stocks",
+                msgspec.structs.replace(
+                    _film,
+                    pre_exposure=3.9,
+                    pre_filter=(0.95, 0.975, 1.0),
+                    gains=(_film.gains[0], _film.gains[1], 1.06),
+                    negative=msgspec.structs.replace(_film.negative, exposure=4.7, density=7.0),
+                    backlight=(0.9992, 0.99, 1.0),
+                    positive=msgspec.structs.replace(_film.positive, exposure=4.7, density=30.0),
+                    black_point=0.0005,
+                    post_filter=(1.0, 1.0, 0.96),
+                    saturation=1.0,
+                ),
+            ),
+        )
+    )
 )
-_install: Final = ConfigInstall(views=tuple(ConfigView(name=name, description=description, transform=stock.transform, space=Film.space) for name, description, stock in _stocks))
 _LOOKS: Final = Attachment(key="looks", form=FormationLook, owner=bpy.types.Scene, callbacks=Some(_looking))
 rows: Final = (
     Panel(

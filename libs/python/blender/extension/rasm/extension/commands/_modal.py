@@ -47,8 +47,6 @@ class Gesture(Enum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_STANDARD: Final = "Standard Modal Map"
-_TRANSFORM: Final = "Transform Modal Map"
 _MODIFIERS: Final = (("LEFT_SHIFT", "RIGHT_SHIFT"), ("LEFT_CTRL", "RIGHT_CTRL"), ("LEFT_ALT", "RIGHT_ALT"), ("OSKEY",), ("HYPER",))
 _BUTTONS: Final = frozenset({"LEFTMOUSE", "MIDDLEMOUSE", "RIGHTMOUSE", "BUTTON4MOUSE", "BUTTON5MOUSE", "BUTTON6MOUSE", "BUTTON7MOUSE"})
 _WHEELS: Final = MappingProxyType({
@@ -156,7 +154,7 @@ class Modal[S](msgspec.Struct, frozen=True, kw_only=True):
         def precision(context: bpy.types.Context, event: bpy.types.Event, pressed: frozenset["rna_enums.EventTypeItems"], /) -> bool:
             """Checks whether a key of the user's transform precision items is held, a modifier key held as its event flag reports."""
             flagged = frozenset(key for down, keys in zip((event.shift, event.ctrl, event.alt, event.oskey, event.hyper), _MODIFIERS) if down for key in keys)
-            return any(proposed(item) == "PRECISION" and item.type in pressed | flagged for item in active(context, _TRANSFORM))
+            return any(proposed(item) == "PRECISION" and item.type in pressed | flagged for item in active(context, "Transform Modal Map"))
 
         def hinted(operator: bpy.types.Operator, header: bpy.types.Header, context: bpy.types.Context) -> None:
             """Draws the status bar of a live run: user chords in action order, the user precision chord on a grabbed drag, and run state."""
@@ -164,12 +162,12 @@ class Modal[S](msgspec.Struct, frozen=True, kw_only=True):
             items = (
                 *(
                     item
-                    for keymap in modal_map(context, _STANDARD).to_list()
+                    for keymap in modal_map(context, "Standard Modal Map").to_list()
                     for action in keymap.modal_event_values
                     if (action.identifier == "CANCEL" if self.gesture is Gesture.TIMED else action.identifier != "SNAP_OFF")
-                    for item in active(context, _STANDARD).filter(lambda item: proposed(item) == action.identifier).try_head().to_list()
+                    for item in active(context, "Standard Modal Map").filter(lambda item: proposed(item) == action.identifier).try_head().to_list()
                 ),
-                *(active(context, _TRANSFORM).filter(lambda item: proposed(item) == "PRECISION").try_head().to_list() if self.gesture.grab.is_some() else ()),
+                *(active(context, "Transform Modal Map").filter(lambda item: proposed(item) == "PRECISION").try_head().to_list() if self.gesture.grab.is_some() else ()),
             )
             for layout in option.of_optional(header.layout).to_list():
                 for item in items:
@@ -274,7 +272,11 @@ class Modal[S](msgspec.Struct, frozen=True, kw_only=True):
             run.workspace.status_text_set(partial(hinted, operator))
             for handle in self.event.to_list():
                 return handle(context, run.state, event).map(following)
-            action = root_in(bpy.types.Preferences, context).bind(lambda preferences: active(context, _STANDARD).filter(partial(_matched, preferences.inputs, event, held)).try_head()).map(proposed)
+            action = (
+                root_in(bpy.types.Preferences, context)
+                .bind(lambda preferences: active(context, "Standard Modal Map").filter(partial(_matched, preferences.inputs, event, held)).try_head())
+                .map(proposed)
+            )
             match action.to_optional(), event.type:
                 case "CANCEL", _:
                     return Ok("CANCELLED")

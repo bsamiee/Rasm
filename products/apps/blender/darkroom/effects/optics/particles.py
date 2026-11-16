@@ -325,23 +325,26 @@ _DEFAULTS: Final = Particles()
 _COVERAGE: Final = spectra(item_key(Particles.coverage), Tint(), "Scene-linear cover color by particle tone", Some(True))
 _EMISSION: Final = emission.emission(item_key(Particles.emission), Emission(), "Light a particle adds", Some(False))
 _WIND: Final = bases.bases(item_key(Particles.wind), _DEFAULTS.wind, "Texture displacing each axis independently")
-_INTERFACE: Final = Interface(
-    inputs=fielded(_DEFAULTS).inputs,
-    panels=(
-        InterfacePanel.of(item_key(Particles.population), _DEFAULTS.population, description="Particle layout, size, and edge"),
-        _COVERAGE,
-        _EMISSION,
-        InterfacePanel.of(item_key(Particles.temperature), _DEFAULTS.temperature, description="Blackbody band multiplying emitted spectrum"),
-        InterfacePanel.of(item_key(Particles.clock), _DEFAULTS.clock),
-        _WIND,
-        lenses.IRIS,
-        InterfacePanel.of(item_key(Particles.scintillation), _DEFAULTS.scintillation),
-    ),
-)
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-particles: Final = CompositorEffect(record=Particles, interface=_INTERFACE, mix=Mix.RESULT)
+particles: Final = CompositorEffect(
+    record=Particles,
+    interface=Interface(
+        inputs=fielded(_DEFAULTS).inputs,
+        panels=(
+            InterfacePanel.of(item_key(Particles.population), _DEFAULTS.population, description="Particle layout, size, and edge"),
+            _COVERAGE,
+            _EMISSION,
+            InterfacePanel.of(item_key(Particles.temperature), _DEFAULTS.temperature, description="Blackbody band multiplying emitted spectrum"),
+            InterfacePanel.of(item_key(Particles.clock), _DEFAULTS.clock),
+            _WIND,
+            lenses.IRIS,
+            InterfacePanel.of(item_key(Particles.scintillation), _DEFAULTS.scintillation),
+        ),
+    ),
+    mix=Mix.RESULT,
+)
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

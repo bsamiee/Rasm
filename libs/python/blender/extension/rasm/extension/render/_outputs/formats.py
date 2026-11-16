@@ -14,7 +14,7 @@ import msgspec
 from rasm.extension.commands.operators import answered
 from rasm.extension.data._lifecycle.identity import Identity, Key
 from rasm.extension.data._lifecycle.reports import Refusal
-from rasm.extension.data._rna.descriptors import converted_value, Descriptor, differing, Value
+from rasm.extension.data._rna.descriptors import converted_value, differing, Value
 from rasm.extension.data._rna.paths import rna_definition, RnaPath, rooted, Struct
 from rasm.extension.data._rna.snapshots import assigned, Snapshot, SNAPSHOT_DECODER
 from rasm.extension.nodes._desired import ItemContent, member_paths
@@ -31,7 +31,6 @@ if TYPE_CHECKING:
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-FILE_FORMATS: Final = frozenset(item.identifier for item in Descriptor.of(bpy.types.ImageFormatSettings, ("file_format",), bpy.types.EnumProperty).prop.enum_items)
 EXR: Final = frozenset({"OPEN_EXR", "OPEN_EXR_MULTILAYER"})
 _JPEG2000: Final = MappingProxyType({"JP2": ".jp2", "J2K": ".j2c"})
 _EXTENSIONS: Final = MappingProxyType({
@@ -340,7 +339,6 @@ format_listing: Final = Listing(
 
 __all__ = [
     "EXR",
-    "FILE_FORMATS",
     "Colorspace",
     "FileItem",
     "FileItems",

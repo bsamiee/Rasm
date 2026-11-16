@@ -59,7 +59,6 @@ _METHOD: Final = Socket(
 )
 _STEP: Final = Socket(key="step", kind=bpy.types.NodeSocketFloat, description="Output code step")
 _STRAIGHT: Final = Socket(key="straight", kind=bpy.types.NodeSocketBool, description="Whether the writer rounds straight color")
-_COPY_FORMAT: Final = "png"
 _COPY_DEPTHS: Final[Mapping[str, IntegerDepth]] = MappingProxyType({f"BIT_{depth.bits}": depth for depth in get_args(IntegerDepth.__value__)})
 _TILE: Final = Ownership(kind=bpy.types.Image, key="dither_tile", saved=Saved.USED)
 
@@ -141,7 +140,7 @@ def _copied(scene: bpy.types.Scene, file: Written, identity: Identity) -> Outcom
         None, or entry, attachment, format, read, formation, and write faults.
     """
     config = PyOpenColorIO.GetCurrentConfig()
-    suffix = Format.writer(_COPY_FORMAT).map(lambda row: row.suffixes[0]).to_result_with(partial(Fault.of, Reason.ABSENT, "OpenImageIO writers", member=_COPY_FORMAT))
+    suffix = Format.writer("png").map(lambda row: row.suffixes[0]).to_result_with(partial(Fault.of, Reason.ABSENT, "OpenImageIO writers", member="png"))
 
     def write(settings: DiffusedCopy, extension: str) -> Outcome[None]:
         target = Path(file.path).with_suffix(extension) if scene.render.use_file_extension else Path(f"{file.path}{extension}")

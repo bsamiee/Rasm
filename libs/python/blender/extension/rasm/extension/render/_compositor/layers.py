@@ -77,7 +77,6 @@ COMPOSITE_PART: Final = "Composite"
 OWNERSHIP: Final = Ownership(kind=bpy.types.CompositorNodeTree, key="layer_stack", saved=Saved.ALWAYS, single=False)
 TITLE: Final = bpy.path.display_name(OWNERSHIP.key)
 PINNED: Final = Pinned(ownership=OWNERSHIP, edge=StackEnd.HEAD)
-_PADDING: Final = 4
 
 # --- [CHOICES] --------------------------------------------------------------------------
 
@@ -386,7 +385,7 @@ def _blend_lens(target: StackTarget) -> Lens:
 
 def stack_file(uid: int, frame: Option[int] = NOTHING) -> str:
     """Returns the File Output name of a stack group's multilayer frame, `#` padding the host fills with the frame number unless a frame is given."""
-    return f"{OWNERSHIP.key}_{uid}_{frame.map(lambda number: str(number).zfill(_PADDING)).default_value('#' * _PADDING)}"
+    return f"{OWNERSHIP.key}_{uid}_{frame.map(lambda number: str(number).zfill(4)).default_value('####')}"
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------

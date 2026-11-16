@@ -31,7 +31,7 @@ from rasm.extension.data._rna.descriptors import assign, Descriptor
 from rasm.extension.data._rna.paths import root_in
 from rasm.extension.data._rna.snapshots import Snapshot
 from rasm.extension.render._color.spaces import flow, viewed
-from rasm.extension.render._outputs.formats import EXR, FILE_FORMATS, OutputFormat, storage_depth
+from rasm.extension.render._outputs.formats import EXR, OutputFormat, storage_depth
 from rasm.extension.render._outputs.framing import FrameSize
 from rasm.extension.render._outputs.paths import image_path, view_path
 from rasm.extension.scene.cameras import render_views
@@ -288,7 +288,7 @@ class Finish(msgspec.Struct, frozen=True, kw_only=True):
 
     run: Callable[[bpy.types.Scene, Written, Identity], Outcome[None]]
     outputs: frozenset[Output] = frozenset(Output)
-    formats: frozenset[str] = FILE_FORMATS
+    formats: frozenset[str] = frozenset(item.identifier for item in Descriptor.of(bpy.types.ImageFormatSettings, ("file_format",), bpy.types.EnumProperty).prop.enum_items)
     depths: frozenset[Depth] = frozenset(Depth)
 
     def accepts(self, file: Written) -> bool:

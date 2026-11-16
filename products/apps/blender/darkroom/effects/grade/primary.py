@@ -34,8 +34,11 @@ _OFFSET: Final = InterfacePanel.of(
     description="Channel color less white and master value added to each channel",
 )
 _SLOPE: Final = Socket(key="slope", kind=bpy.types.NodeSocketFloat, description="Power about pivot, slope in stops", min_value=0.01, max_value=2.0, default_value=1.0)
-_PIVOT: Final = Socket(key="pivot", kind=bpy.types.NodeSocketFloat, description="Pivot in stops from scene-linear gray", min_value=-32.0, max_value=32.0)
-_CONTRAST: Final = InterfacePanel.of("contrast", Interface(inputs=(_SLOPE, _PIVOT)), description="Signed power about a gray pivot")
+_CONTRAST: Final = InterfacePanel.of(
+    "contrast",
+    Interface(inputs=(_SLOPE, Socket(key="pivot", kind=bpy.types.NodeSocketFloat, description="Pivot in stops from scene-linear gray", min_value=-32.0, max_value=32.0))),
+    description="Signed power about a gray pivot",
+)
 SLOPE: Final = _CONTRAST.socket(_SLOPE.key)
 _SCALE: Final = Socket(key="scale", kind=bpy.types.NodeSocketFloat, description="Chroma scale about luminance", min_value=0.0, default_value=1.0)
 _VIBRANCE: Final = Socket(key="vibrance", kind=bpy.types.NodeSocketFloat, description="Saturation gain weighted by pixel saturation", min_value=-1.0, max_value=1.0)

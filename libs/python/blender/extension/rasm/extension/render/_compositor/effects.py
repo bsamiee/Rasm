@@ -62,7 +62,6 @@ class Mix(Enum):
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 VIEWER: Final[Key] = "viewer"
-_ENTRY: Final[Key] = "entry"
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -221,7 +220,7 @@ class CompositorEffect(msgspec.Struct, frozen=True, kw_only=True):
     @staticmethod
     def stored[R: CompositorRecord](identity: Identity, form: type[R]) -> Stored[Entry[R]]:
         """Entry record codec on the entry's group."""
-        return Stored.keyed(identity, _ENTRY, msgspec.msgpack.Decoder(GenericAlias(Entry, (form,))))
+        return Stored.keyed(identity, "entry", msgspec.msgpack.Decoder(GenericAlias(Entry, (form,))))
 
     def acquisitions(self, _identity: Identity) -> Acquisitions:
         """Returns ownerships, registered rows, and what the editor rows hold."""

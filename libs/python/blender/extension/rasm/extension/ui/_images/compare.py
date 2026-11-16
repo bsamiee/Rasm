@@ -50,7 +50,6 @@ type _Wipe = tuple[Compare, Rect, tuple[float, float]]
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _MODES: Final = enum_choices(Mode)
-_CHANNELS: Final = ("RED", "GREEN", "BLUE", "ALPHA")
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -127,10 +126,10 @@ class _CompareOverlay(msgspec.Struct, frozen=True, kw_only=True):
                 case "COLOR_ALPHA":
                     canvas.checkered(plate, metrics.checker())
                     Canvas.picture(texture, plate, blend="ALPHA_PREMULT")
-                case channel if channel in _CHANNELS:
+                case channel if (shown := {"RED": 0, "GREEN": 1, "BLUE": 2, "ALPHA": 3}.get(channel)) is not None:
                     shader, quad = _channeled()
                     with Canvas.mapped(plate):
-                        draw_batch(quad, configured((shader, UNCLIPPED), partial(shader.uniform_sampler, "image", texture), partial(shader.uniform_int, "shown", _CHANNELS.index(channel))))
+                        draw_batch(quad, configured((shader, UNCLIPPED), partial(shader.uniform_sampler, "image", texture), partial(shader.uniform_int, "shown", shown)))
                 case _:
                     pass
 

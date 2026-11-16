@@ -24,7 +24,6 @@ type Key = Annotated[str, msgspec.Meta(pattern=r"\A[a-z][a-z0-9]*(?:_[a-z0-9]+)*
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_ENGINE_ID_BYTES: Final = 31
 _FORMS: Final[Mapping[type[Struct], str]] = MappingProxyType({
     **{
         base: f"{{ID}}_{infix}_{{key}}"
@@ -85,7 +84,7 @@ class Identity(msgspec.Struct, frozen=True, kw_only=True, eq=False):
                 scope, stem = self.manifest.id.upper(), key.upper()
                 return (
                     f"{scope}_{stem}"
-                    if scope and not scope.startswith("_") and len(scope.encode()) + len(stem.encode()) < _ENGINE_ID_BYTES
+                    if scope and not scope.startswith("_") and len(scope.encode()) + len(stem.encode()) < 31
                     else f"_{b32encode(uuid5(NAMESPACE_URL, f'{self.manifest.id}/{key}').bytes).decode().rstrip('=')}"
                 )
             case _:

@@ -58,7 +58,6 @@ _STORED: Final[Mapping[type[bpy.types.NodeSocket], tuple["rna_enums.AttributeTyp
 })
 _COLUMNS: Final[Mapping[int, type[bpy.types.NodeSocket]]] = MappingProxyType({1: bpy.types.NodeSocketFloat, 3: bpy.types.NodeSocketVector, 4: bpy.types.NodeSocketColor})
 _GEOMETRY: Final = Socket(key="geometry", kind=bpy.types.NodeSocketGeometry)
-_SCRATCH: Final = ".sampled"
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -308,9 +307,10 @@ def sampled(identity: Identity, columns: Mapping[str, npt.ArrayLike], *roots: Ex
     Returns:
         Values per root, `(n,)` for single values and `(n, 3)` or `(n, 4)` for vectors and colors. `Error` of refused nodes, links, or writes.
     """
+    label = ".sampled"
     held = {name: np.ascontiguousarray(values, dtype=np.float32) for name, values in columns.items()}
     count = len(next(iter(held.values()), np.zeros(0)))
-    names = tuple(f"{_SCRATCH}_{index}" for index in range(len(roots)))
+    names = tuple(f"{label}_{index}" for index in range(len(roots)))
     stored = reduce(
         lambda geometry, pair: Expr(
             kind=bpy.types.GeometryNodeStoreNamedAttribute,
@@ -324,9 +324,9 @@ def sampled(identity: Identity, columns: Mapping[str, npt.ArrayLike], *roots: Ex
     )
 
     def scratched(scratch: ExitStack) -> Outcome[tuple[npt.NDArray[np.float32], ...]]:
-        scene = bpy.data.scenes.new(_SCRATCH)
-        cloud = bpy.data.pointclouds.new(_SCRATCH)
-        holder = bpy.data.objects.new(_SCRATCH, cloud)
+        scene = bpy.data.scenes.new(label)
+        cloud = bpy.data.pointclouds.new(label)
+        holder = bpy.data.objects.new(label, cloud)
         scratch.callback(bpy.data.batch_remove, ids=(holder, cloud, scene))
         scene.collection.objects.link(holder)
         cloud.resize(count)
@@ -379,8 +379,7 @@ def sampled(identity: Identity, columns: Mapping[str, npt.ArrayLike], *roots: Ex
             accumulated(starmap(attributed, held.items()))
             .bind(
                 lambda _: paired(
-                    built(_SCRATCH, interface, {RESULT: stored}, bpy.types.GeometryNodeTree, name=Some(_SCRATCH)),
-                    tracked(scratch, bpy.data.node_groups.remove, new_group(bpy.types.GeometryNodeTree, _SCRATCH)),
+                    built(label, interface, {RESULT: stored}, bpy.types.GeometryNodeTree, name=Some(label)), tracked(scratch, bpy.data.node_groups.remove, new_group(bpy.types.GeometryNodeTree, label))
                 )
             )
             .bind(lambda pair: reconciled(*pair, identity).map(lambda _: pair[1]))
