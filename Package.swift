@@ -158,7 +158,7 @@ let package = Package(
 
         .package(url: "https://github.com/apple/swift-async-algorithms", from: "1.1.7"),
         .package(url: "https://github.com/pointfreeco/swift-case-paths", from: "1.10.0"),
-        .package(url: "https://github.com/apple/swift-collections", from: "1.7.5"),
+        .package(url: "https://github.com/apple/swift-collections", from: "1.7.6"),
 
         // --- [SYSTEM]
 
