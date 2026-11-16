@@ -171,7 +171,7 @@ let package = Package(
 
         .package(url: "https://github.com/apple/swift-distributed-tracing", from: "1.7.4"),
         .package(url: "https://github.com/apple/swift-log", from: "1.17.0"),
-        .package(url: "https://github.com/swift-otel/swift-otel", from: "1.6.0"),
+        .package(url: "https://github.com/swift-otel/swift-otel", from: "1.6.0", traits: ["OTLPHTTP"]),
         .package(url: "https://github.com/apple/swift-system-metrics", from: "1.3.0"),
 
         // --- [DISTRIBUTION]
