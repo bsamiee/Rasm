@@ -32,8 +32,6 @@ _.path                                        = ["./node_modules/.bin", "{{ xdg_
 CARGO_LLVM_COV_DENY_WARNINGS                  = "1"
 CF_QUIET                                      = "1"
 CLOUDFLARE_DEV_REGISTRY_PATH                  = "{{config_root}}/.cache/cloudflare/registry"
-COLIMA_HOME                                   = "{{ get_env(name='HOME', default='') }}/.colima"
-DOCKER_HOST                                   = '{% if os() == "macos" %}unix://{{ env.COLIMA_HOME }}/default/docker.sock{% endif %}'
 DOPPLER_CONFIG                                = "dev"
 DOPPLER_PROJECT                               = "rasm"
 DOTNET_NOLOGO                                 = "1"
@@ -44,7 +42,6 @@ FUNCTION_HOOKS_QUESTION_GATE                  = "true"                          
 GHIDRA_CLASSPATH                              = { tools = true, value = '''{% set ghidra = tools["github:NationalSecurityAgency/ghidra"]?.path %}{% if ghidra %}{{ exec(command="fd --type f --full-path --glob '**/lib/*.jar' --absolute-path '" ~ ghidra ~ "/Ghidra' | paste -sd: -", cache_key="ghidra-classpath-" ~ ghidra, cache_duration="1d") }}{% endif %}''' }
 GHIDRA_INSTALL_DIR                            = { tools = true, value = '{{ tools["github:NationalSecurityAgency/ghidra"]?.path or "" }}' }
 GHIDRA_JAVA_OPTIONS                           = "-Dapplication.settingsdir={{config_root}}/.cache/ghidra/settings -Dapplication.cachedir={{config_root}}/.cache/ghidra/cache -Dapplication.tempdir={{config_root}}/.cache/ghidra/tmp"
-GHIDRA_PROJECT_DIR                            = '{% if os() == "macos" %}{{ env.HOME }}/Library/Caches{% elif os() == "windows" %}{{ env.LOCALAPPDATA }}{% else %}/var/tmp/{{ env.HOME | basename }}{% endif %}/rasm/ghidra/projects'
 HK_CACHE_DIR                                  = "{{config_root}}/.cache/hk"
 HK_MISE                                       = "1"
 HK_PKL_CACHE_DIR                              = "{{config_root}}/.cache/pklr"
@@ -55,7 +52,6 @@ NX_PARALLEL                                   = "100%"
 NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN      = { default = '''{% if env?.CI != "true" %}{% set login = get_env(name="DOPPLER_CONFIG_DIR", default=get_env(name="HOME", default="") ~ "/.doppler") ~ "/.doppler.yaml" %}{% set key = env.DOPPLER_PROJECT ~ env.DOPPLER_CONFIG %}{% if login is file %}{% set key = key ~ (login | hash_file) %}{% endif %}{% set read = "doppler secrets get NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN --plain --attempts 1 --timeout 3s --dns-resolver-timeout 1s 2>/dev/null || true" %}{{ exec(command=read, cache_key=key, cache_duration="15m") or exec(command=read, cache_key=key ~ "-empty", cache_duration="1m") }}{% endif %}''', redact = true, tools = true }
 NX_SELF_HOSTED_REMOTE_CACHE_SERVER            = { tools = true, value = '''{% set probe = `server="${NX_SELF_HOSTED_REMOTE_CACHE_SERVER:-$(doppler secrets get NX_SELF_HOSTED_REMOTE_CACHE_SERVER --plain --attempts 1 --timeout 3s --dns-resolver-timeout 1s 2>/dev/null)}" pkl eval --timeout 5 --http-header "**=Authorization: Bearer ${NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN:-}" -x 'let (server = read?("env:server") ?? "") if (server.isEmpty || read?(server + "/v1/cache/0") is Resource?) server else ""' pkl:base 2>/dev/null || echo "::warning title=Nx remote cache::The cache server refused a read or gave no answer, Nx uses the local cache alone" >&2` %}{% set key = "nx-remote-cache-" ~ (env?.NX_SELF_HOSTED_REMOTE_CACHE_SERVER or "doppler") ~ (env?.NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN or "") %}{{ exec(command=probe, cache_key=key, cache_duration="15m") or exec(command=probe, cache_key=key ~ "-empty", cache_duration="1m") }}''' }
 NX_WORKSPACE_DATA_DIRECTORY                   = "{{config_root}}/.cache/nx/workspace-data"
-PITCHFORK_SUPERVISOR_AUTO_START               = '{{ os() != "macos" }}'
 PLAYWRIGHT_CLI_SESSION                        = "{{ env?.CLAUDE_CODE_SESSION_ID or env?.CODEX_THREAD_ID or env?.ANTIGRAVITY_CONVERSATION_ID or '' }}"
 PLAYWRIGHT_MCP_ALLOW_UNRESTRICTED_FILE_ACCESS = "true"
 PLAYWRIGHT_MCP_BACKGROUND                     = "1"
@@ -67,14 +63,12 @@ PLAYWRIGHT_MCP_OUTPUT_MAX_SIZE                = "268435456"
 PLAYWRIGHT_MCP_USER_AGENT                     = '''{% set browsers = config_root ~ "/node_modules/@playwright/test/../../playwright/../playwright-core/browsers.json" %}{% if browsers is file %}Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{{ [browser.browserVersion for browser in read_json(path=browsers)["browsers"] if browser.name == "chromium"] | first | split(pat=".") | first }}.0.0.0 Safari/537.36{% endif %}'''
 PLAYWRIGHT_TRANSFORM_CACHE_DIR                = "{{config_root}}/.cache/playwright/transform"
 PULUMI_HOME                                   = "{{config_root}}/.cache/pulumi"
-PW_TEST_CONNECT_EXPOSE_NETWORK                = '{% if os() == "linux" %}<loopback>{% endif %}'
-PW_TEST_CONNECT_WS_ENDPOINT                   = '{% if os() == "linux" %}ws://127.0.0.1:{{ env.PLAYWRIGHT_PORT }}/{% endif %}'
 PYTEST_CACHE_DIR                              = "{{config_root}}/.cache/pytest"
+RUFF_CACHE_DIR                                = "{{config_root}}/.cache/ruff"
 RUSTUP_AUTO_INSTALL                           = "0"
 RUSTUP_TOOLCHAIN                              = false
-SDKROOT                                       = '{% if os() == "macos" %}{{ exec(command="xcrun --show-sdk-path 2>/dev/null || true", cache_duration="1h") }}{% endif %}'
 SHELLCHECK_OPTS                               = "--rcfile={{config_root}}/.config/shellcheckrc"
-TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE         = '{% if os() == "windows" %}/{% endif %}/var/run/docker.sock'
+TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE         = "/var/run/docker.sock"
 TOMBI_CACHE_HOME                              = "{{config_root}}/.cache/tombi"
 TY_UV                                         = "1"
 UV_CACHE_DIR                                  = "{{config_root}}/.cache/uv"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  # Wheels uv builds from sdists record this checkout's Pixi library path, so the cache stays per checkout
@@ -98,11 +92,13 @@ sources = ["pixi.lock", "pyproject.toml", "uv.lock"]
 
 [deps.darkroom]
 dir     = "products/apps/blender/darkroom"
+outputs = [".venv/"]
 run     = "uv sync --locked"
 sources = ["pyproject.toml", "uv.lock"]
 
 [deps.blender]
 dir     = "libs/python/blender"
+outputs = [".venv/"]
 run     = "uv sync --locked --all-packages"
 sources = ["pyproject.toml", "uv.lock"]
 
@@ -240,27 +236,6 @@ working_directory     = "{{config_root}}"
 [daemons_settings]
 namespace = "rasm"
 
-[daemon_groups]
-default = ["docker"]
-
-[daemons.docker]
-auto        = ["start", "stop"]
-health_cmd  = { run = ["docker", "version"], interval = "30s", retries = 10 }
-init        = 'mkdir -p "$COLIMA_HOME"'
-logs        = { time_retention = "7d" }
-ready_cmd   = { run = ["docker", "version"], timeout = "5m" }
-retry       = 3
-run         = "exec colima start --foreground --activate=false --ssh-config=false --mount none --port-forwarder grpc --cpus {{ (num_cpus() | int / 2) | int }} --memory 8"
-stop_signal = { signal = "SIGTERM", timeout = "5m" }
-
-[daemons.playwright]
-command      = ["sh", "-c", "node /workspace/node_modules/@playwright/test/cli.js install --only-shell chromium && exec node /workspace/node_modules/@playwright/test/cli.js run-server --host 0.0.0.0 --port {{ env.PLAYWRIGHT_PORT }}"]
-image        = "mcr.microsoft.com/playwright:v1.65.1-resolute"
-port         = 6677
-ready_output = "^Listening on "
-runtime_args = ["--init", "--ipc=host", "--user=pwuser"]
-volumes      = ["./node_modules:/workspace/node_modules:ro", "playwright:/ms-playwright"]
-
 # --- [VARS] -----------------------------------------------------------------------------
 
 [vars]
@@ -321,8 +296,10 @@ pulumi                                                                       = "
 "pypi:ast-grep/ast-grep-mcp"                                                 = "latest"
 "pypi:git+https://projects.blender.org/lab/blender_mcp.git#subdirectory=mcp" = "v1"
 "pypi:mcp-for-blender"                                                       = { os = ["macos"], version = "latest" }
+"pypi:yamllint"                                                              = "latest"
 resvg                                                                        = "latest"
 ripgrep                                                                      = "latest"
+ruff                                                                         = "latest"
 sd                                                                           = "latest"
 shellcheck                                                                   = "latest"
 shfmt                                                                        = "latest"

@@ -1,0 +1,17 @@
+# --- [ENV] ------------------------------------------------------------------------------
+
+[env]
+GHIDRA_PROJECT_DIR             = "/var/tmp/{{ env.HOME | basename }}/rasm/ghidra/projects"
+PW_TEST_CONNECT_EXPOSE_NETWORK = "<loopback>"
+PW_TEST_CONNECT_WS_ENDPOINT    = "ws://127.0.0.1:{{ env.PLAYWRIGHT_PORT }}/"
+
+# --- [DAEMONS] --------------------------------------------------------------------------
+
+[daemons.playwright]
+command      = ["sh", "-c", "node /workspace/node_modules/@playwright/test/cli.js install --only-shell chromium && exec node /workspace/node_modules/@playwright/test/cli.js run-server --host 0.0.0.0 --port {{ env.PLAYWRIGHT_PORT }}"]
+image        = "mcr.microsoft.com/playwright:v1.65.1-resolute"
+port         = 6677
+proxy        = false
+ready_output = "^Listening on "
+runtime_args = ["--init", "--ipc=host", "--user=pwuser"]
+volumes      = ["./node_modules:/workspace/node_modules:ro", "playwright:/ms-playwright"]

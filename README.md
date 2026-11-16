@@ -240,7 +240,7 @@ Installs, releases, and channels each deliver a product, releases and channels f
 | :-----: | :----------------------------- | :----------------------------------------------------------------------------------------------------- |
 |  [01]   | Tool binary                    | `.config/mise.toml` `[tools]`, exact versions in `.config/mise.lock`                                   |
 |  [02]   | .NET tool package              | `.config/mise.toml` `[tools]` `dotnet:<id>` row at `latest`, its command called by name                |
-|  [03]   | Process variable               | `.config/mise.toml` `[env]`, a platform value through `os()` in its row                                |
+|  [03]   | Process variable               | `.config/mise.toml` `[env]`, a platform value or daemon in `.config/mise.<os>.toml`                    |
 |  [04]   | Toolchain version              | `global.json` .NET, `rust-toolchain.toml` Rust, uv root `requires-python` Python, `xcode-select` Swift |
 |  [05]   | Package version                | `pnpm-workspace.yaml` catalog, `pyproject.toml` `[project]` or group, `Directory.Packages.props` row   |
 |  [06]   | Swift package version          | Root `Package.swift` `dependencies` row, `.xcodeproj` `remote` row for a package only an app imports   |

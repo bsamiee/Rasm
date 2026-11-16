@@ -1,0 +1,23 @@
+# --- [ENV] ------------------------------------------------------------------------------
+
+[env]
+COLIMA_HOME                     = "{{ get_env(name='HOME', default='') }}/.colima"
+DOCKER_HOST                     = "unix://{{ env.COLIMA_HOME }}/default/docker.sock"
+GHIDRA_PROJECT_DIR              = "{{ env.HOME }}/Library/Caches/rasm/ghidra/projects"
+PITCHFORK_SUPERVISOR_AUTO_START = "false"
+SDKROOT                         = '{{ exec(command="xcrun --show-sdk-path 2>/dev/null || true", cache_duration="1h") }}'
+
+# --- [DAEMONS] --------------------------------------------------------------------------
+
+[daemon_groups]
+default = ["docker"]
+
+[daemons.docker]
+auto        = ["start", "stop"]
+health_cmd  = { run = ["docker", "version"], interval = "30s", retries = 10 }
+init        = 'mkdir -p "$COLIMA_HOME"'
+logs        = { time_retention = "7d" }
+ready_cmd   = { run = ["docker", "version"], timeout = "5m" }
+retry       = 3
+run         = "exec colima start --foreground --activate=false --ssh-config=false --mount none --port-forwarder grpc --cpus {{ (num_cpus() | int / 2) | int }} --memory 8"
+stop_signal = { signal = "SIGTERM", timeout = "5m" }

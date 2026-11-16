@@ -175,7 +175,7 @@ tool_timeout_sec            = 600
 [[hooks.SessionStart]]
 [[hooks.SessionStart.hooks]]
 type    = "command"
-command = 'mise exec -- pitchfork project enter --pid "$PPID" && mise daemons start'
+command = 'mise daemons register && mise exec -- pitchfork project enter --pid "$PPID"'
 
 [[hooks.PreToolUse]]
 matcher = "^Bash$"
