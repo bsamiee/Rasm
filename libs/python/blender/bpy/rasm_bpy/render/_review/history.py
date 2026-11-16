@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import ClassVar, Final
 
 import bpy
-from expression import Option, Some
+from expression import NOTHING, Ok, Option, option, Some
 import msgspec
 import PyOpenColorIO
 
@@ -25,7 +25,7 @@ from rasm_bpy.render._sessions.renders import RENDER_HISTORY
 from rasm_bpy.ui._drawing.handlers import Signal
 from rasm_bpy.ui._resources.previews import PreviewKey, PREVIEWS
 from rasm_imaging import DisplayView, fitted, ImageFile, Multilayer
-from rasm_records import accumulated, content_hash, ContentHash, Dated, Fault, files_copied, History, Nothing, Ok, Outcome, paired, Reason, RecordFile, removed, Retention
+from rasm_records import accumulated, content_hash, ContentHash, Dated, Fault, files_copied, History, Outcome, paired, Reason, RecordFile, removed, Retention
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -102,7 +102,7 @@ class RenderHistory(msgspec.Struct, frozen=True, kw_only=True):
 
                     def kept(file: Multilayer) -> CompletedRender:
                         frame = CompletedRender.stored(
-                            file, config, space=Option.of_optional(origin).map(lambda found: found[0]), raw=Option.of_optional(origin).bind(lambda found: Option.of_optional(found[1]))
+                            file, config, space=option.of_optional(origin).map(lambda found: found[0]), raw=option.of_optional(origin).bind(lambda found: option.of_optional(found[1]))
                         )
                         cache[path] = current, frame
                         return frame
@@ -114,25 +114,25 @@ class RenderHistory(msgspec.Struct, frozen=True, kw_only=True):
     @staticmethod
     def opened(identity: Identity, image: bpy.types.Image, config: PyOpenColorIO.Config) -> Outcome[Option[CompletedRender]]:
         """Returns an owned history image's immutable frame, absent for ordinary images."""
-        return RenderHistory.stored.marked(identity, image).bind(lambda mark: mark.content).map(lambda key: RenderHistory.completed(identity, key, config).map(Some)).default_value(Ok(Nothing))
+        return RenderHistory.stored.marked(identity, image).bind(lambda mark: mark.content).map(lambda key: RenderHistory.completed(identity, key, config).map(Some)).default_value(Ok(NOTHING))
 
     @staticmethod
     def selected(identity: Identity, context: bpy.types.Context) -> Outcome[CompletedRender]:
         """Returns the current explicitly owned history image's file, without associating native render slots with history."""
         return (
             rooted(bpy.types.SpaceImageEditor, context)
-            .bind(lambda space: Option.of_optional(space.image).to_result_with(partial(Fault.of, Reason.ABSENT, repr(space.image), member="explicitly opened history render")))
+            .bind(lambda space: option.of_optional(space.image).to_result_with(partial(Fault.of, Reason.ABSENT, repr(space.image), member="explicitly opened history render")))
             .bind(lambda image: RenderHistory.opened(identity, image, PyOpenColorIO.GetCurrentConfig()))
             .bind(lambda found: found.to_result_with(partial(Fault.of, Reason.ABSENT, repr(context.space_data), member="explicitly opened history render")))
         )
 
     @staticmethod
-    def output(identity: Identity, key: ContentHash, config: PyOpenColorIO.Config, layer: Option[str] = Nothing, *, view: Option[str] = Nothing) -> Outcome[ImageFile]:
+    def output(identity: Identity, key: ContentHash, config: PyOpenColorIO.Config, layer: Option[str] = NOTHING, *, view: Option[str] = NOTHING) -> Outcome[ImageFile]:
         """Returns a stored output with its native encoding, selecting a view layer or camera view when supplied."""
 
         def loaded(renders: Renders) -> Outcome[ImageFile]:
             match layer, renders.origins.get(key.hex()):
-                case Option(tag="some"), (_, RenderSource() as raw):
+                case Some(), (_, RenderSource() as raw):
                     return Multilayer.read(RenderHistory.frame(identity, key)).bind(lambda file: source_image(file, config, raw, layer=layer, view=view))
                 case _, origin:
                     return combined(str(RenderHistory.frame(identity, key)), config, layer, view=view).map(
@@ -142,13 +142,13 @@ class RenderHistory(msgspec.Struct, frozen=True, kw_only=True):
         return RenderHistory.held(identity).bind(loaded)
 
     @staticmethod
-    def source(identity: Identity, key: ContentHash, config: PyOpenColorIO.Config, *, view: Option[str] = Nothing) -> Outcome[ImageFile]:
+    def source(identity: Identity, key: ContentHash, config: PyOpenColorIO.Config, *, view: Option[str] = NOTHING) -> Outcome[ImageFile]:
         """Returns the captured raw source, absent for an entry without its metadata."""
         return paired(RenderHistory.held(identity), Multilayer.read(RenderHistory.frame(identity, key))).bind(
             lambda found: (
-                Option
+                option
                 .of_optional(found[0].origins.get(key.hex()))
-                .bind(lambda origin: Option.of_optional(origin[1]))
+                .bind(lambda origin: option.of_optional(origin[1]))
                 .to_result_with(lambda: Fault.of(Reason.ABSENT, str(RenderHistory.frame(identity, key)), member="recorded raw source"))
                 .bind(lambda raw: source_image(found[1], config, raw, view=view))
             )
@@ -164,7 +164,7 @@ class RenderHistory(msgspec.Struct, frozen=True, kw_only=True):
     def held(identity: Identity) -> Outcome[Renders]:
         """Returns the served renders, read from the history file on first use and empty without one."""
         record = RenderHistory.record(identity)
-        return Option.of_optional(_SERVED[identity].get(record.path)).map(Ok).default_with(lambda: record.found().map(lambda found: RenderHistory.served(identity, found.default_with(Renders))))
+        return option.of_optional(_SERVED[identity].get(record.path)).map(Ok).default_with(lambda: record.found().map(lambda found: RenderHistory.served(identity, found.default_with(Renders))))
 
     def kept(self, identity: Identity, before: Renders, after: Renders) -> Outcome[None]:
         """Commits and publishes retained renders, then releases dropped files, tiles, and images while accumulating independent failures."""
@@ -244,7 +244,7 @@ class RenderHistory(msgspec.Struct, frozen=True, kw_only=True):
             )
         )
         space = completed.space.to_result_with(partial(Fault.of, Reason.ABSENT, str(path), member="captured output encoding"))
-        return paired(content, space, self.held(identity), retention).bind(lambda found: stored(*found)).map(lambda _: Nothing)
+        return paired(content, space, self.held(identity), retention).bind(lambda found: stored(*found)).map(lambda _: NOTHING)
 
     # --- [REGISTRATION]
 

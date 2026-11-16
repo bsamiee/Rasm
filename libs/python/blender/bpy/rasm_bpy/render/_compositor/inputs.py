@@ -7,7 +7,7 @@ from functools import partial
 from typing import Final, Self
 
 import bpy
-from expression import Option, Some
+from expression import NOTHING, Ok, Option, option, Some
 from expression.collections import Block
 import msgspec
 import numpy as np
@@ -30,7 +30,7 @@ from rasm_bpy.render._outputs.framing import FrameSize, Framing
 from rasm_bpy.scene import cameras
 from rasm_bpy.settings._attachments import Stored
 from rasm_imaging import called, processor, Raster, Region
-from rasm_records import accumulated, Fault, Nothing, Ok, Outcome, Owner, paired, Reason, Tree, typed
+from rasm_records import accumulated, Fault, Outcome, Owner, paired, Reason, Tree, typed
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -133,8 +133,8 @@ class GraphInputs(msgspec.Struct, frozen=True, kw_only=True):
     render: Expr
     sockets: Mapping[Key, Socket]
     camera: Callable[[], Outcome[Raster]]
-    rasters: Option[tuple[Raster, Raster]] = Nothing
-    preview: Option[PreviewFrame] = Nothing
+    rasters: Option[tuple[Raster, Raster]] = NOTHING
+    preview: Option[PreviewFrame] = NOTHING
 
     def input(self, *path: Step) -> Expr:
         """Reads the declared group input at a key path in its native socket shape."""
@@ -144,9 +144,9 @@ class GraphInputs(msgspec.Struct, frozen=True, kw_only=True):
     @property
     def space(self) -> FrameSpace:
         """Camera frame of the entry input."""
-        if self.rasters.is_none():
+        if not isinstance(rasters := self.rasters, Some):
             return FrameSpace.of(self.color, self.input(FRAME_ASPECT), self.input(FRAME_SCALE))
-        data, camera = self.rasters.some
+        data, camera = rasters.some
         grid = PixelGrid.of(self.color)
         width, height = data.bounds.right - data.bounds.left, data.bounds.top - data.bounds.bottom
         extent = xyz(camera.bounds.right - camera.bounds.left, camera.bounds.top - camera.bounds.bottom)
@@ -166,7 +166,7 @@ class GraphInputs(msgspec.Struct, frozen=True, kw_only=True):
         """Reads one Render Layers output of the effect's pass request layer, in the shape of a color unless stated."""
         return self.render.at(socket, socket_type)
 
-    def menu(self, *path: Step, cases: Mapping[MenuItem, Term], socket_type: Option[type[bpy.types.NodeSocket]] = Nothing) -> Expr:
+    def menu(self, *path: Step, cases: Mapping[MenuItem, Term], socket_type: Option[type[bpy.types.NodeSocket]] = NOTHING) -> Expr:
         """Switches between terms in the declared menu order."""
         selector, key = self.input(*path), path_key(*path)
         return menu(selector, {item: cases[item] for item in self.sockets[key].items}, socket_type=socket_type)
@@ -202,7 +202,7 @@ class _WorkingSpace(msgspec.Struct, frozen=True, kw_only=True, eq=False):
                 held = tuple(
                     (owner, np.asarray(descriptor.read(owner), dtype=np.float32))
                     for entry in scene.compositor_effects
-                    for group in Option.of_optional(entry.node_group).to_list()
+                    for group in option.of_optional(entry.node_group).to_list()
                     for socket in interface_sockets(group)
                     for owner in interface_input(entry, socket.identifier).to_option().to_list()
                     for descriptor in Descriptor.resolve(owner, ("value",), bpy.types.FloatProperty).to_option().to_list()
@@ -210,11 +210,11 @@ class _WorkingSpace(msgspec.Struct, frozen=True, kw_only=True, eq=False):
                 )
                 for _, values in held:
                     cpu.applyRGB(values[:3])
-                return accumulated(written(owner, ("value",), tuple(values.tolist())).map(Option.is_some) for owner, values in held).map(any)
+                return accumulated(written(owner, ("value",), tuple(values.tolist())).map(lambda wrote: wrote.is_some()) for owner, values in held).map(any)
 
             def each(scene: bpy.types.Scene, source: str) -> Outcome[bool]:
                 return (
-                    Ok(value=False)
+                    Ok(False)
                     if source == target
                     else called(PyOpenColorIO.GetCurrentConfig, scene.name)
                     .bind(lambda config: processor(config, PyOpenColorIO.ColorSpaceTransform(src=source, dst=target)))
@@ -225,7 +225,7 @@ class _WorkingSpace(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
             counted = accumulated(start(stamp, scene, target).bind(partial(each, scene)) for scene in bpy.data.scenes)
             self.previous[identity].append(target)
-            return counted.map(lambda wrote: Some("Convert Effect Colors") if any(wrote) else Nothing)
+            return counted.map(lambda wrote: Some("Convert Effect Colors") if any(wrote) else NOTHING)
 
         with ExitStack() as scope:
 
@@ -252,7 +252,7 @@ class _WorkingSpace(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
 def grouped(entry: bpy.types.SceneCompositorEffect) -> Outcome[bpy.types.NodeTree]:
     """Returns the entry's group, absent before one is set."""
-    return Option.of_optional(entry.node_group).to_result_with(partial(Fault.of, Reason.ABSENT, repr(entry), member="node_group"))
+    return option.of_optional(entry.node_group).to_result_with(partial(Fault.of, Reason.ABSENT, repr(entry), member="node_group"))
 
 
 def keyed(identity: Identity, entry: bpy.types.SceneCompositorEffect) -> Outcome[tuple[bpy.types.NodeTree, Mapping[Key, str]]]:
@@ -298,7 +298,7 @@ def entry_values[T](identity: Identity, entry: bpy.types.SceneCompositorEffect, 
                     lambda owner: Descriptor.resolve(owner, ("value",), bpy.types.Property).bind(lambda descriptor: read(key, descriptor.read(owner)).map(lambda value: (key, value)))
                 )
                 for key in requested
-            ).map(dict)
+            ).map(dict[Key, T])
         )
     )
 
@@ -310,12 +310,12 @@ def value[T](values: Mapping[Key, Value], form: TypeForm[T], /, *path: Step) -> 
         `Ok` of the converted value. `Error` of `absent` for a path no value sits at, and of `outside` for a value outside form.
     """
     key = path_key(*path)
-    return Option.of_optional(values.get(key)).to_result_with(partial(Fault.of, Reason.ABSENT, "input values", member=key)).bind(lambda held: converted_value(held, form, key))
+    return option.of_optional(values.get(key)).to_result_with(partial(Fault.of, Reason.ABSENT, "input values", member=key)).bind(lambda held: converted_value(held, form, key))
 
 
 def toggled[T](values: Mapping[Key, Value], read: Callable[[], Outcome[T]], /, *path: Step) -> Outcome[Option[T]]:
     """Reads what the panel toggle a declaration path ends at gates: the read's value under an enabled toggle, `Nothing` under a disabled one with the read never run."""
-    return value(values, bool, *path).bind(lambda enabled: read().map(Some) if enabled else Ok(Nothing))
+    return value(values, bool, *path).bind(lambda enabled: read().map(Some) if enabled else Ok(NOTHING))
 
 
 def chosen[C: Choice](values: Mapping[Key, Value], choices: Iterable[C], /, *path: Step) -> Outcome[C]:
@@ -337,7 +337,7 @@ def valued(snapshot: Snapshot) -> Mapping[Key, Value]:
 
 def addressed(entry: bpy.types.SceneCompositorEffect, sockets: Mapping[Key, str], key: Key) -> Outcome[Struct]:
     """Resolves the live entry input at an interface item key among the group's addressed socket identifiers."""
-    return Option.of_optional(sockets.get(key)).to_result_with(partial(Fault.of, Reason.ABSENT, repr(entry), member=key)).bind(partial(interface_input, entry))
+    return option.of_optional(sockets.get(key)).to_result_with(partial(Fault.of, Reason.ABSENT, repr(entry), member=key)).bind(partial(interface_input, entry))
 
 
 def _under(prefix: Key, key: Key) -> bool:
@@ -401,7 +401,7 @@ def defaulted(identity: Identity, entry: bpy.types.SceneCompositorEffect, prefix
             if _under(prefix, key) and identifier in sockets
             for descriptor in Descriptor.resolve(sockets[identifier], ("default_value",), bpy.types.Property).to_option().to_list()
         }
-        return accumulated(interface_input(entry, identifier).bind(lambda held: written(held, ("value",), value)).map(Option.is_some) for identifier, value in defaults.items()).map(any)
+        return accumulated(interface_input(entry, identifier).bind(lambda held: written(held, ("value",), value)).map(lambda wrote: wrote.is_some()) for identifier, value in defaults.items()).map(any)
 
     return keyed(identity, entry).bind(lambda held: reset(*held))
 
@@ -409,7 +409,7 @@ def defaulted(identity: Identity, entry: bpy.types.SceneCompositorEffect, prefix
 def entered(identity: Identity, entry: bpy.types.SceneCompositorEffect, values: Mapping[Key, Value]) -> Outcome[bool]:
     """Writes entry input values by interface key over one addressing pass, answering whether any changed."""
     return keyed(identity, entry).bind(
-        lambda held: accumulated(addressed(entry, held[1], key).bind(lambda owner: written(owner, ("value",), value)).map(Option.is_some) for key, value in values.items()).map(any)
+        lambda held: accumulated(addressed(entry, held[1], key).bind(lambda owner: written(owner, ("value",), value)).map(lambda wrote: wrote.is_some()) for key, value in values.items()).map(any)
     )
 
 

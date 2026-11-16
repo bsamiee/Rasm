@@ -8,7 +8,7 @@ from types import MappingProxyType
 from typing import Annotated, ClassVar, TYPE_CHECKING
 
 import bpy
-from expression import Option, Some
+from expression import NOTHING, Ok, Option, Some
 from expression.extra.result import catch
 import msgspec
 
@@ -56,7 +56,7 @@ from rasm_bpy.ui._layout.rows import Layout, Opens, OperatorButton, Property, Ro
 from rasm_bpy.ui._layout.sections import Section
 from rasm_bpy.ui._layout.tables import SettingsTable
 from rasm_bpy.ui._layout.values import Captured, menu_key
-from rasm_records import accumulated, Fault, Nothing, Ok, Outcome, paired
+from rasm_records import accumulated, Fault, Outcome, paired
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -136,7 +136,11 @@ class RenderSet[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, di
                 MemberScope(members=members, owner_type=category.root, unlocked=True)
                 .owners(context)
                 .bind(lambda targets: transfers(members, category, context, targets))
-                .map(lambda rows: (f"Writes {sum(len(edit.after) for _, _, edits in rows for edit in edits)} {category.title} settings across {sum(bool(edits) for _, _, edits in rows)} render sets",))
+                .map(
+                    lambda rows: (
+                        f"Writes {sum(map(len, (edit.after for _, _, edits in rows for edit in edits)))} {category.title} settings across {sum(bool(edits) for _, _, edits in rows)} render sets",
+                    )
+                )
             )
 
         return tuple(
@@ -169,7 +173,7 @@ class RenderSet[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, di
                 collection=Member(root=bpy.types.BlendData, path=("scenes",)),
                 active=Some(Member(root=bpy.types.Window, path=("scene",))),
                 attachment=Some(self.scenes),
-                where=Some(lambda context, _ui, item: members.form(context).bind(lambda form: members.copies(context).map(lambda scenes: item in scenes) if form is Form.COPIES else Ok(value=False))),
+                where=Some(lambda context, _ui, item: members.form(context).bind(lambda form: members.copies(context).map(lambda scenes: item in scenes) if form is Form.COPIES else Ok(False))),
                 side=tuple(OperatorButton(target=self.commands[step], keywords={"text": ""}) for step in (render_set_add, render_set_remove, render_set_lock)),
             ),
             ItemList[Membership, bpy.types.ViewLayer](
@@ -329,7 +333,7 @@ def _converted(members: Members, form: Form, context: bpy.types.Context) -> Outc
             case Form.LAYERS, Form.COPIES:
                 return members.source(context).bind(copied).map(Some)
             case _:
-                return Ok(Nothing)
+                return Ok(NOTHING)
 
     def held(manager: bpy.types.WindowManager) -> Outcome[Option[tuple[str, ...]]]:
         with ExitStack() as rollback:

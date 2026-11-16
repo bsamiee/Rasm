@@ -6,7 +6,7 @@ import functools
 from http import HTTPStatus
 import uuid
 
-from expression import Result
+from expression import Error, Ok
 from expression.extra.result import catch
 import msgspec
 import pytest
@@ -45,7 +45,7 @@ def managing(received: Received, /) -> Answer:
         The operation's answer, a submission or check answered 412 for an etag other than the job type's, the default `Error` for a body outside `SubmittedJob`, else the stored `Job` or the empty 204 of a check.
     """
     current = "9f2b1c"
-    job = catch(msgspec.json.decode, exception=msgspec.DecodeError)(received.body, type=SubmittedJob)
+    job = catch(msgspec.json.Decoder(SubmittedJob).decode, exception=msgspec.DecodeError)(received.body)
     match (received.method, received.path.removeprefix("/api/v3/").split("/"), job):
         case ("GET", ["version"], _):
             return Answer(headers=JSON, body=msgspec.json.encode({"version": "3.9.3", "shortversion": "3.9.3", "name": "Flamenco", "git": "v3.9.3"}))
@@ -61,9 +61,9 @@ def managing(received: Received, /) -> Answer:
             return Answer(headers=JSON, body=msgspec.json.encode({"name": name, "label": name, "settings": [], "etag": current}))
         case ("GET", ["worker-mgt", "tags"], _):
             return Answer(headers=JSON, body=msgspec.json.encode({"tags": [{"id": str(uuid.uuid4()), "name": "GPU-EEVEE"}]}))
-        case ("POST", ["jobs"] | ["jobs", "check"], Result(tag="error", error=refusal)):
+        case ("POST", ["jobs"] | ["jobs", "check"], Error(refusal)):
             return refusing(HTTPStatus.BAD_REQUEST, str(refusal), {})
-        case ("POST", ["jobs"] | ["jobs", "check"], Result(ok=SubmittedJob(type_etag=str(etag)))) if etag != current:
+        case ("POST", ["jobs"] | ["jobs", "check"], Ok(SubmittedJob(type_etag=str(etag)))) if etag != current:
             return refusing(HTTPStatus.PRECONDITION_FAILED, f"job type etag {etag} does not match {current}", {})
         case ("POST", ["jobs", "check"], _):
             return Answer(status=HTTPStatus.NO_CONTENT)

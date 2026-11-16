@@ -10,7 +10,7 @@ from tempfile import TemporaryDirectory
 from typing import Final, Self, TYPE_CHECKING
 
 import bpy
-from expression import Option, Some
+from expression import Error, NOTHING, Ok, Option, option, Some
 import msgspec
 import numpy as np
 import numpy.typing as npt
@@ -48,7 +48,7 @@ from rasm_bpy.render._sessions.engines import Engine, Tile
 from rasm_bpy.render._sessions.renders import engined, native, reads_render, RenderCall
 from rasm_bpy.render._view_layers.passes import used
 from rasm_imaging import checked, emitted, Estimate, ImageFile, Layer, Multilayer, pixels, Precision, Raster, Region, Subimage
-from rasm_records import accumulated, content_hash, Error, Fault, Nothing, Ok, Outcome, paired, Reason, removed
+from rasm_records import accumulated, content_hash, Fault, Outcome, paired, Reason, removed
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -91,7 +91,7 @@ class _Job:
 
     __slots__ = ("config", "files", "identity", "precision", "prepared", "rasters", "replay", "scene", "scope", "sources")
 
-    def __init__(self, identity: Identity, scene: bpy.types.Scene, precision: Precision, rasters: Option[tuple[Raster, Raster]] = Nothing) -> None:
+    def __init__(self, identity: Identity, scene: bpy.types.Scene, precision: Precision, rasters: Option[tuple[Raster, Raster]] = NOTHING) -> None:
         """Holds the current OCIO config, the scene, and every scene its render-enabled groups read through unmuted Render Layers or render Cryptomatte nodes, each once."""
         self.identity, self.scene, self.precision, self.rasters = identity, scene, precision, rasters
         self.config = PyOpenColorIO.GetCurrentConfig()
@@ -119,11 +119,11 @@ class _Job:
         entries = tuple(
             (entry, tree) for source in self.sources for entry in source.compositor_effects if entry.enable_for_render and isinstance(tree := entry.node_group, bpy.types.CompositorNodeTree)
         )
-        copies: dict[bpy.types.NodeTree, bpy.types.CompositorNodeTree] = {tree: copy for tree in nested(tree for _, tree in entries) for copy in Option.of_optional(tree.copy()).to_list()}
+        copies: dict[bpy.types.NodeTree, bpy.types.CompositorNodeTree] = {tree: copy for tree in nested(tree for _, tree in entries) for copy in option.of_optional(tree.copy()).to_list()}
         for copy in copies.values():
             scope.callback(bpy.data.node_groups.remove, copy)
         for live in (live for tree in copies.values() for live in tree.nodes if isinstance(live, bpy.types.CompositorNodeGroup)):
-            for child in Option.of_optional(live.node_tree).to_list():
+            for child in option.of_optional(live.node_tree).to_list():
                 live.node_tree = copies[child]
 
         def swapped(authored: _Authored, group: bpy.types.CompositorNodeTree) -> Outcome[None]:
@@ -276,18 +276,16 @@ class _Job:
         entry, (path, _, record, _, gates) = target
         gate = record.record.prepared_when
         if not gates and gate is None:
-            return Ok(value=True)
+            return Ok(True)
         with bpy.context.temp_override(scene=self.scene):
             evaluated = self.scene.evaluated_get(bpy.context.evaluated_depsgraph_get())
         reading = evaluated.compositor_effects[entry.name]
         for owner, keys in gates.items():
             if (
                 enabled := self.resolved(entry, owner).bind(lambda found: self.values(found[0], reading, found[1])).bind(lambda values: accumulated(value(values, bool, key) for key in keys).map(all))
-            ).is_error():
-                return Error(enabled.error)
-            if not enabled.ok:
-                return Ok(value=False)
-        return Ok(value=True) if gate is None else self.resolved(entry, path).bind(lambda found: self.values(found[0], reading, found[1])).bind(lambda values: value(values, bool, gate))
+            ) != Ok(True):
+                return enabled
+        return Ok(True) if gate is None else self.resolved(entry, path).bind(lambda found: self.values(found[0], reading, found[1])).bind(lambda values: value(values, bool, gate))
 
     def values(self, owners: tuple[_Owner, ...], reading: bpy.types.SceneCompositorEffect, tree: bpy.types.NodeTree) -> Outcome[Mapping[Key, Value]]:
         """Reads target sockets through their native group-input ancestry to evaluated entry values."""
@@ -310,7 +308,7 @@ class _Job:
 
         return accumulated(
             read(socket).map(lambda value: (key, value)) for key, identifier in keys.items() if key != COLOR_INPUT.key for socket in target.inputs if socket.identifier == identifier
-        ).map(dict)
+        ).map(dict[Key, Value])
 
     def image(self, target: tuple[bpy.types.SceneCompositorEffect, StageTarget], buffers: tuple[tuple[str, OpenImageIO.ImageBuf], ...]) -> Outcome[bpy.types.Image]:
         """Writes prepared pixels as one EXR part per view and loads them as one premultiplied data image, multiview across views."""
@@ -401,13 +399,13 @@ class _Job:
         def grouped(image: Option[bpy.types.Image]) -> Outcome[bpy.types.NodeTree]:
             def view(name: str, prepared: Option[Prepared], rasters: tuple[Raster, Raster]) -> Outcome[NodeGroup]:
                 measured = prepared.to_optional()
-                staged = image.map(IdName.of) if isinstance(measured, OpenImageIO.ImageBuf | Estimate) else Nothing
+                staged = image.map(IdName.of) if isinstance(measured, OpenImageIO.ImageBuf | Estimate) else NOTHING
                 return row.grouped(
                     self.identity,
                     self.scene,
                     record,
                     self.config,
-                    entry=Some(entry) if isinstance(owner, bpy.types.SceneCompositorEffect) else Nothing,
+                    entry=Some(entry) if isinstance(owner, bpy.types.SceneCompositorEffect) else NOTHING,
                     staged=staged,
                     rasters=Some(measured if isinstance(measured, tuple) else rasters),
                 ).map(lambda group: msgspec.structs.replace(group, key=f"{group.key}_{name}", name=f"{group.name} {name}", single=False, saved=Saved.NEVER))
@@ -442,7 +440,7 @@ class _Job:
             )
             return wrote.bind(lambda _: _Authored.of(entry))
 
-        return (self.image(target, images).map(Some) if images else Ok(Nothing)).bind(grouped).bind(placed)
+        return (self.image(target, images).map(Some) if images else Ok(NOTHING)).bind(grouped).bind(placed)
 
     # --- [LIFECYCLE]
 
@@ -521,7 +519,7 @@ class _Job:
                             return _Authored.of(owner).bind(lambda before: msgspec.structs.replace(before, group=copy).assigned()).bind(lambda _: attached(copy))
                         return group_set(owner, copy).bind(lambda _: attached(copy))
 
-                    return Option.of_optional(tree.copy()).to_result_with(partial(Fault.of, Reason.FAILED, f"{tree!r}.copy")).bind(copied)
+                    return option.of_optional(tree.copy()).to_result_with(partial(Fault.of, Reason.FAILED, f"{tree!r}.copy")).bind(copied)
 
                 return self.isolated(capture).bind(lambda _: self.resolved(target[0], target[1][0])).bind(selected).bind(lambda _: called(bpy.ops.render.render, {"write_still": False}))
 
@@ -554,15 +552,16 @@ class _Job:
                         for source in self.sources:
                             capture.callback(setattr, source.render, "filepath", source.render.filepath)
                             source.render.filepath = str(self.pass_path(source))
-                            if (
+                            if isinstance(
                                 result := capture
                                 .enter_context(
                                     msgspec.structs.replace(self.format, media_type="MULTI_LAYER_IMAGE", file_format="OPEN_EXR_MULTILAYER", use_exr_interleave=False).held(source.render.image_settings)
                                 )
                                 .bind(lambda _: native(self.identity, source, RenderCall(write_still=True)))
-                                .bind(lambda _: self.captured(source, frame))
-                            ).is_error():
-                                return Error(result.error)
+                                .bind(lambda _: self.captured(source, frame)),
+                                Error,
+                            ):
+                                return result
                     self.prepared[frame] = original
                     return Ok(None)
                 reference = self.rasters.map(Ok).default_with(lambda: FrameSize().bound(self.identity).bind(lambda framed: framed.rasters(self.scene)))
@@ -576,7 +575,7 @@ class _Job:
                 )
 
             return (
-                accumulated(self.active(target).map(lambda enabled: Some(target) if enabled else Nothing) for target in staged)
+                accumulated(self.active(target).map(lambda enabled: Some(target) if enabled else NOTHING) for target in staged)
                 .map(lambda found: tuple(target for active in found for target in active.to_list()))
                 .bind(selected)
                 if call.animation
@@ -626,7 +625,7 @@ class StagedRender(msgspec.Struct, frozen=True, kw_only=True):
     """
 
     rows: OfferedEffects
-    stacks: Option[Callable[[Identity], Outcome[LayerStackService]]] = Nothing
+    stacks: Option[Callable[[Identity], Outcome[LayerStackService]]] = NOTHING
     precision: Precision = Precision()
 
     @property
@@ -639,7 +638,7 @@ class StagedRender(msgspec.Struct, frozen=True, kw_only=True):
         """Acquires nothing of its own, its prerequisites holding what it reads."""
         return ()
 
-    def rendered(self, identity: Identity, scene: bpy.types.Scene, call: RenderCall, *, rasters: Option[tuple[Raster, Raster]] = Nothing) -> Outcome[frozenset["rna_enums.OperatorReturnItems"]]:
+    def rendered(self, identity: Identity, scene: bpy.types.Scene, call: RenderCall, *, rasters: Option[tuple[Raster, Raster]] = NOTHING) -> Outcome[frozenset["rna_enums.OperatorReturnItems"]]:
         """Renders a scene through its staged entries, else natively."""
 
         def targets(stacks: Option[LayerStackService]) -> Outcome[tuple[tuple[bpy.types.SceneCompositorEffect, StageTarget], ...]]:
@@ -647,13 +646,13 @@ class StagedRender(msgspec.Struct, frozen=True, kw_only=True):
 
             def entry(held: bpy.types.SceneCompositorEffect) -> Outcome[tuple[tuple[bpy.types.SceneCompositorEffect, StageTarget], ...]]:
                 return (
-                    Option
+                    option
                     .of_optional(direct.get(held))
                     .map(
                         lambda row: row.read(identity, held).map(
                             lambda record: tuple[tuple[bpy.types.SceneCompositorEffect, StageTarget], ...](
                                 (held, ((), row, record, prepare, dict[tuple[bpy.types.CompositorNodeGroup, ...], tuple[Key, ...]]()))
-                                for prepare in Option.of_optional(record.record.prepared).to_list()
+                                for prepare in option.of_optional(record.record.prepared).to_list()
                             )
                         )
                     )
@@ -671,12 +670,12 @@ class StagedRender(msgspec.Struct, frozen=True, kw_only=True):
             return (
                 job.rendered(call, staged)
                 if call.animation and staged
-                else accumulated(job.active(target).map(lambda enabled: Some(target) if enabled else Nothing) for target in staged)
+                else accumulated(job.active(target).map(lambda enabled: Some(target) if enabled else NOTHING) for target in staged)
                 .map(lambda found: tuple(target for active in found for target in active.to_list()))
                 .bind(lambda selected: job.rendered(call, selected) if selected else native(identity, scene, call))
             )
 
-        return self.stacks.map(lambda bind: bind(identity).map(Some)).default_value(Ok(Nothing)).bind(targets).bind(rendered) if scene.render.use_compositing else native(identity, scene, call)
+        return self.stacks.map(lambda bind: bind(identity).map(Some)).default_value(Ok(NOTHING)).bind(targets).bind(rendered) if scene.render.use_compositing else native(identity, scene, call)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

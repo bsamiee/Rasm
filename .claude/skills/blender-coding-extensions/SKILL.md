@@ -202,10 +202,10 @@ Code changes reach a session through an upgrade install or a `disable` and `enab
 def preferred[P: bpy.types.AddonPreferences](kind: type[P], preferences: bpy.types.Preferences, /) -> Option[P]:
     addon: bpy.types.Addon | None = preferences.addons.get(kind.bl_idname)
     stored = addon and addon.preferences
-    return Some(stored) if isinstance(stored, kind) else Nothing
+    return Some(stored) if isinstance(stored, kind) else NOTHING
 ```
 
-`preferred` returns `Nothing` while the class is unregistered and where `--addons` or a first `default_set=False` enable created no row. Stored values follow host rules:
+`preferred` returns `NOTHING` while the class is unregistered and where `--addons` or a first `default_set=False` enable created no row. Stored values follow host rules:
 - Rows store written properties alone, unwritten ones reading the running version's default
 - Values outlive their declaration by identifier and read back once a version declares the identifier again
 - Stored values a property's type refuses delete at read and return the default, `bool`, `int`, and enum values reading as each other

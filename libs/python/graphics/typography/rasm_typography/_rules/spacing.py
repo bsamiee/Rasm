@@ -6,13 +6,13 @@ lazy from itertools import groupby, pairwise
 lazy import math
 
 import msgspec
-lazy from expression import Result
+lazy from expression import Error, Ok
 lazy from fontTools.misc.roundTools import otRound
 lazy from fontTools.otlLib.builder import LOOKUP_FLAG_IGNORE_MARKS
 
 from rasm_typography._faces.declaration import Band, Em, Ratio, Script
 from rasm_typography._rules import measures
-lazy from rasm_records import Error, Ok, Outcome
+lazy from rasm_records import Outcome
 lazy from rasm_typography._faces.glyphs import Joining, Letter, Ligature, Mark, Side, Source
 lazy from rasm_typography._faces.layout import Adjustment, Chain, Lifts, Pairs
 lazy from rasm_typography._faces.names import Form
@@ -41,7 +41,7 @@ class Spacing(measures.Rule, frozen=True, kw_only=True):
         """
         script = self.script
         match measures.placement(source, original, script.stem):
-            case Result(tag="ok", ok=(_, _, move)):
+            case Ok((_, _, move)):
                 blank, marked = original.encoded.get(script.spaces[0]), original.marks
                 body = 0.25 * paths.area(original.outline(original.encoded[script.stem]))
                 runs = tuple(original.shaped(line, language=language) for language, lines in corpus.prose.items() for line in lines)
@@ -179,7 +179,7 @@ class Spacing(measures.Rule, frozen=True, kw_only=True):
                         lookups=lookups,
                     )
                 )
-            case Result(error=faults):
+            case Error(faults):
                 return Error(faults)
 
 

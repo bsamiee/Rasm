@@ -6,7 +6,7 @@ from functools import partial
 from typing import Self
 
 import bpy
-from expression import Option, Result, Some
+from expression import NOTHING, Option, option, Result, Some
 from expression.extra.result import catch
 from mathutils import Vector
 import msgspec
@@ -15,7 +15,7 @@ import numpy as np
 from rasm_bpy.data._extension.events import Change
 from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._ids.store import Handle
-from rasm_records import Fault, Nothing, Outcome, Reason
+from rasm_records import Fault, Outcome, Reason
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -29,7 +29,7 @@ class Update(msgspec.Struct, frozen=True, kw_only=True):
     @classmethod
     def of(cls, item: bpy.types.DepsgraphUpdate) -> Option[Self]:
         """Copies native update during handler call, Nothing for an update naming no ID."""
-        return Option.of_optional(item.id).map(lambda block: cls(handle=Handle.of(block), changes=Change.of(item)))
+        return option.of_optional(item.id).map(lambda block: cls(handle=Handle.of(block), changes=Change.of(item)))
 
 
 class _Instancing(msgspec.Struct, frozen=True, kw_only=True):
@@ -75,20 +75,20 @@ def instances(depsgraph: bpy.types.Depsgraph) -> tuple[_Instance, ...]:
                 random_id=item.random_id,
                 orco=item.orco[:],
                 uv=tuple(np.asarray(item.uv).tolist()),
-                particle_system=Option.of_optional(item.particle_system).map(lambda system: system.name),
+                particle_system=option.of_optional(item.particle_system).map(lambda system: system.name),
             )
 
         return (
-            Option
+            option
             .of_optional(item.object)
-            .bind(lambda evaluated: Option.of_optional(evaluated.original))
+            .bind(lambda evaluated: option.of_optional(evaluated.original))
             .map(
                 lambda source: _Instance(
                     source=source,
                     matrix=tuple(row[:] for row in item.matrix_world[:]),
                     show_self=item.show_self,
                     show_particles=item.show_particles,
-                    instancing=Option.of_optional(item.parent).bind(lambda parent: Option.of_optional(parent.original)).map(instancing),
+                    instancing=option.of_optional(item.parent).bind(lambda parent: option.of_optional(parent.original)).map(instancing),
                 )
             )
         )
@@ -111,11 +111,11 @@ def meshed(source: bpy.types.Object, depsgraph: bpy.types.Depsgraph, *, preserve
         yield (
             catch(copy.to_mesh, exception=RuntimeError)(preserve_all_data_layers=preserve_all_data_layers, depsgraph=depsgraph)
             .map_error(partial(Fault.of, Refusal.REFUSED, repr(source)))
-            .bind(lambda mesh: Option.of_optional(mesh).to_result_with(partial(Fault.of, Reason.ABSENT, repr(source), member="to_mesh")))
+            .bind(lambda mesh: option.of_optional(mesh).to_result_with(partial(Fault.of, Reason.ABSENT, repr(source), member="to_mesh")))
         )
 
 
-def hit(source: bpy.types.Object, depsgraph: bpy.types.Depsgraph, origin: Vector, distance: float, direction: Option[Vector] = Nothing) -> Outcome[Option[_Hit]]:
+def hit(source: bpy.types.Object, depsgraph: bpy.types.Depsgraph, origin: Vector, distance: float, direction: Option[Vector] = NOTHING) -> Outcome[Option[_Hit]]:
     """Returns object-space surface hit, Nothing on miss.
 
     Args:

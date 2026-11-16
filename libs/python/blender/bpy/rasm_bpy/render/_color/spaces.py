@@ -8,7 +8,7 @@ import shutil
 from typing import Annotated, Final, override
 
 import bpy
-from expression import Option, Some
+from expression import NOTHING, Ok, Option, option, Some
 from expression.extra.result import catch
 import msgspec
 import PyOpenColorIO
@@ -24,7 +24,7 @@ from rasm_bpy.nodes._addressing import interface_sockets
 from rasm_bpy.nodes._desired import member_paths, Members
 from rasm_bpy.nodes._trees import active_output, feeds, socket_at
 from rasm_imaging import called, ConfigBuild, DisplayView, hdr, pq, WhitePoint
-from rasm_records import accumulated, committed, Fault, files_copied, folder_made, Name, Nothing, Ok, Outcome, paired, Reason
+from rasm_records import accumulated, committed, Fault, files_copied, folder_made, Name, Outcome, paired, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -137,7 +137,7 @@ class ConfigInstall(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         return called(PyOpenColorIO.Config.CreateFromFile, base, base).bind(
             lambda config: paired(
                 accumulated(view.view_transform() for view in self.views),
-                Some(earlier).filter(lambda path: Path(path).is_file()).map(lambda path: called(PyOpenColorIO.Config.CreateFromFile, path, path).map(Some)).default_value(Ok(Nothing)),
+                Some(earlier).filter(lambda path: Path(path).is_file()).map(lambda path: called(PyOpenColorIO.Config.CreateFromFile, path, path).map(Some)).default_value(Ok(NOTHING)),
             ).bind(lambda parts: kept(config, *parts))
         )
 
@@ -206,11 +206,11 @@ class HdrWindow(Condition, frozen=True, kw_only=True):
     def formed(self, context: bpy.types.Context) -> bool:
         """Whether the context scene's preview forms the frame into an HDR display space, absolute PQ under `absolute`."""
         config = PyOpenColorIO.GetCurrentConfig()
-        return Option.of_optional(context.scene).bind(_shown).bind(lambda view: view.colorspace(config)).filter(pq if self.absolute else hdr).is_some()
+        return option.of_optional(context.scene).bind(_shown).bind(lambda view: view.colorspace(config)).filter(pq if self.absolute else hdr).is_some()
 
     @override
-    def holds(self, context: bpy.types.Context, item: Option[Struct] = Nothing) -> bool:
-        return self.formed(context) and any(window.support_hdr_color for window in Option.of_optional(context.window).to_list())
+    def holds(self, context: bpy.types.Context, item: Option[Struct] = NOTHING) -> bool:
+        return self.formed(context) and any(window.support_hdr_color for window in option.of_optional(context.window).to_list())
 
     @property
     @override
@@ -273,11 +273,11 @@ def _shown(scene: bpy.types.Scene) -> Option[DisplayView]:
 def entering_space(config: PyOpenColorIO.Config, entry: bpy.types.SceneCompositorEffect, identifier: str) -> Option[str]:
     """Returns a native entry input's encoding, Nothing for an unknown source."""
     source: Option[_Origin] = _linear(config)
-    first = Option.of_optional(entry.node_group).map(lambda tree: next((socket.identifier for socket in interface_sockets(tree)), None)).default_value(None)
+    first = option.of_optional(entry.node_group).map(lambda tree: next((socket.identifier for socket in interface_sockets(tree)), None)).to_optional()
     return (
         id_data(bpy.types.Scene, entry)
         .bind(lambda scene: flow(config, (prior for prior in takewhile(lambda prior: prior != entry, scene.compositor_effects) if prior.enable_for_preview), source))
-        .default_value(Nothing)
+        .default_value(NOTHING)
         if identifier == first
         else source
     ).bind(lambda origin: _space(config, origin))
@@ -293,7 +293,7 @@ def _space(config: PyOpenColorIO.Config, origin: _Origin) -> Option[str]:
 
 def _linear(config: PyOpenColorIO.Config) -> Option[str]:
     """Resolves the native scene-linear role, absent for a configuration without it."""
-    return Option.of_optional(config.getColorSpace(PyOpenColorIO.ROLE_SCENE_LINEAR)).map(lambda space: space.getName())
+    return option.of_optional(config.getColorSpace(PyOpenColorIO.ROLE_SCENE_LINEAR)).map(lambda space: space.getName())
 
 
 def _traced(config: PyOpenColorIO.Config, tree: bpy.types.NodeTree, socket: bpy.types.NodeSocket, entering: Callable[[str], Option[_Origin]]) -> Option[_Origin]:
@@ -307,11 +307,11 @@ def _traced(config: PyOpenColorIO.Config, tree: bpy.types.NodeTree, socket: bpy.
         return feeds((owner,))
 
     def agreed(children: Iterable[tuple[bpy.types.NodeSocket, int | None]]) -> Generator[tuple[bpy.types.NodeSocket, int | None], Option[_Origin], Option[_Origin]]:
-        held: Option[Option[_Origin]] = Nothing
+        held: Option[Option[_Origin]] = NOTHING
         for child in children:
             origin = yield child
             if held.filter(lambda prior: prior != origin).is_some():
-                return Nothing
+                return NOTHING
             held = Some(origin)
         return held.default_value(linear)  # ruff: ignore[return-in-generator]
 
@@ -329,11 +329,11 @@ def _traced(config: PyOpenColorIO.Config, tree: bpy.types.NodeTree, socket: bpy.
                     return entering(inlet.identifier)
                 parent, _, enclosing = parents[context]
                 source = socket_at(parent.inputs, inlet.identifier).to_option().to_optional()
-                return Nothing if source is None else (yield (source, enclosing))
+                return NOTHING if source is None else (yield (source, enclosing))
             case bpy.types.CompositorNodeConvertToDisplay(inputs=bpy.types.bpy_prop_collection() as inputs) as display:
-                return Nothing if (invert := inputs["Invert"]) in fed else linear if invert.default_value else Some(viewed(display))
+                return NOTHING if (invert := inputs["Invert"]) in fed else linear if invert.default_value else Some(viewed(display))
             case bpy.types.CompositorNodeConvertColorSpace(to_color_space=name):
-                return Option.of_optional(config.getColorSpace(name)).map(lambda found: found.getName())
+                return option.of_optional(config.getColorSpace(name)).map(lambda found: found.getName())
             case bpy.types.CompositorNodeImage(image=bpy.types.Image(colorspace_settings=bpy.types.ColorManagedInputColorspaceSettings(is_data=True, name=name))):
                 return Some(name)
             case bpy.types.CompositorNodeGroup(node_tree=bpy.types.NodeTree(is_missing=False) as inner) as node:
@@ -343,12 +343,12 @@ def _traced(config: PyOpenColorIO.Config, tree: bpy.types.NodeTree, socket: bpy.
                 source = active_output(inner).bind(lambda output: socket_at(output.inputs, inlet.identifier)).to_option().to_optional()
                 return linear if source is None else (yield (source, instances[key]))
             case _:
-                return (yield from agreed((held, context) for node in Option.of_optional(inlet.node).to_list() for held in node.inputs if isinstance(held, bpy.types.NodeSocketColor)))  # ruff: ignore[return-in-generator]
+                return (yield from agreed((held, context) for node in option.of_optional(inlet.node).to_list() for held in node.inputs if isinstance(held, bpy.types.NodeSocketColor)))  # ruff: ignore[return-in-generator]
 
     root: tuple[bpy.types.NodeSocket, int | None] = socket, None
     pending: list[tuple[tuple[bpy.types.NodeSocket, int | None], Generator[tuple[bpy.types.NodeSocket, int | None], Option[_Origin], Option[_Origin]]]] = [(root, walked(root))]
     active, completed = {root}, dict[tuple[bpy.types.NodeSocket, int | None], Option[_Origin]]()
-    answer: Option[Option[_Origin]] = Nothing
+    answer: Option[Option[_Origin]] = NOTHING
     while pending:
         try:
             child = answer.map(pending[-1][1].send).default_with(lambda: next(pending[-1][1]))
@@ -361,11 +361,11 @@ def _traced(config: PyOpenColorIO.Config, tree: bpy.types.NodeTree, socket: bpy.
             if child in completed:
                 answer = Some(completed[child])
             elif child in active:
-                answer = Some(Nothing)
+                answer = Some(NOTHING)
             else:
                 active.add(child)
                 pending.append((child, walked(child)))
-                answer = Nothing
+                answer = NOTHING
     return completed[root]
 
 
@@ -392,7 +392,7 @@ def _exited(config: PyOpenColorIO.Config, entry: bpy.types.SceneCompositorEffect
             return Some(entering)
         case tree:
             if not isinstance(socket := next(interface_sockets(tree, "OUTPUT"), None), bpy.types.NodeTreeInterfaceSocketColor):
-                return Nothing
+                return NOTHING
             first = next((item.identifier for item in interface_sockets(tree)), None)
             linear: Option[_Origin] = _linear(config)
             return Some(

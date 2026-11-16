@@ -10,7 +10,7 @@ from types import MappingProxyType
 from typing import Annotated, Final, get_type_hints, Protocol, TYPE_CHECKING
 
 import bpy
-from expression import Option, Result, Some, try_downcast
+from expression import Error, NOTHING, Ok, Option, option, Some, try_downcast
 from expression.extra.result import catch
 import msgspec
 import numpy as np
@@ -27,7 +27,7 @@ from rasm_bpy.nodes._graphs import Expr, group_input, math, menu, Scalar, Term, 
 from rasm_bpy.nodes._interfaces import Interface, Socket, StockInput
 from rasm_bpy.nodes._trees import GraphTree, native, new_group
 from rasm_bpy.nodes.changes import NodeGroup, reconciled
-from rasm_records import accumulated, content_hash, Error, Fault, Nothing, Outcome, paired, Reason, typed
+from rasm_records import accumulated, content_hash, Fault, Outcome, paired, Reason, typed
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -192,7 +192,7 @@ def lowered(tree: type[GraphTree], *roots: Expr) -> Outcome[Graph]:
 # --- [GROUPS]
 
 
-def built(key: Key, interface: Interface, outputs: Mapping[Key, Term], kind: type[GraphTree], /, *, name: Option[str] = Nothing) -> Outcome[NodeGroup]:
+def built(key: Key, interface: Interface, outputs: Mapping[Key, Term], kind: type[GraphTree], /, *, name: Option[str] = NOTHING) -> Outcome[NodeGroup]:
     """Builds group around output terms, adding Group Input node for interface inputs or panels.
 
     Args:
@@ -237,7 +237,7 @@ def placed(group: NodeGroup, inputs: Mapping[Key, Term], output: Key) -> Expr:
     return Expr(kind=bpy.types.ShaderNodeGroup, inputs=tuple(inputs.items()), content=Some(group), socket=output, socket_type=socket.refined)
 
 
-def grouped[**P](*, kind: type[GraphTree], key: Option[Key] = Nothing) -> Callable[[Body[P]], Group[P]]:
+def grouped[**P](*, kind: type[GraphTree], key: Option[Key] = NOTHING) -> Callable[[Body[P]], Group[P]]:
     """Declares a body as an owned group of `kind`, built once at declaration and called like the body to place its group node.
 
     Group key is the declaring module's name joined to the body's name, each past any leading underscore, unless a factory building
@@ -261,7 +261,7 @@ def grouped[**P](*, kind: type[GraphTree], key: Option[Key] = Nothing) -> Callab
         signature = inspect.signature(body)
 
         def annotated(name: str) -> Option[type[bpy.types.NodeSocket]]:
-            return Option.of_optional(next((held for held in metadata.get(name, ()) if isinstance(held, type) and issubclass(held, bpy.types.NodeSocket)), None))
+            return option.of_optional(next((held for held in metadata.get(name, ()) if isinstance(held, type) and issubclass(held, bpy.types.NodeSocket)), None))
 
         def parameter(held: inspect.Parameter) -> Socket:
             bounds = tuple(meta for meta in metadata.get(held.name, ()) if isinstance(meta, msgspec.Meta))
@@ -277,9 +277,9 @@ def grouped[**P](*, kind: type[GraphTree], key: Option[Key] = Nothing) -> Callab
             return built(owned, interface, outputs, kind, name=Some(bpy.path.display_name(key.default_value(name))))
 
         match assembled(tuple(map(parameter, signature.parameters.values()))):
-            case Result(tag="ok", ok=group):
+            case Ok(group):
                 return Group(body=body, group=group)
-            case Result(error=faults):
+            case Error(faults):
                 raise LookupError(owned, faults)
 
     return declared
@@ -334,7 +334,7 @@ def sampled(identity: Identity, columns: Mapping[str, npt.ArrayLike], *roots: Ex
 
         def attributed(name: str, values: npt.NDArray[np.float32]) -> Outcome[None]:
             kind, member, _ = _STORED[_COLUMNS[1 if values.ndim == 1 else values.shape[1]]]
-            found = Option.of_optional(attributes.get(name)).default_with(lambda: attributes.new(name, kind, "POINT"))
+            found = option.of_optional(attributes.get(name)).default_with(lambda: attributes.new(name, kind, "POINT"))
             return (
                 catch(found.data.foreach_set, exception=TypeError)(member, values.ravel()).map_error(partial(Fault.of, Refusal.REFUSED, repr(found)))
                 if isinstance(found, _Attribute)
@@ -366,7 +366,7 @@ def sampled(identity: Identity, columns: Mapping[str, npt.ArrayLike], *roots: Ex
                 .bind(lambda depsgraph: catch(holder.evaluated_get(depsgraph).evaluated_geometry, exception=TypeError)().map_error(partial(Fault.of, Refusal.REFUSED, repr(holder))))
                 .bind(
                     lambda geometry: (
-                        Option
+                        option
                         .of_optional(try_downcast(bpy.types.PointCloud, geometry.pointcloud))
                         .to_result_with(lambda: Fault.of(Reason.ABSENT, repr(geometry), member="pointcloud"))
                         .bind(lambda points: accumulated(column_read(points, name, root.socket_type) for name, root in zip(names, roots)))

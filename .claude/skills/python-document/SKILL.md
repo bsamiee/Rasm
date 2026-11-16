@@ -86,7 +86,7 @@ def connect(host: str, port: int, timeout: float = 30.0) -> Connection:
 
 ### [04.1]-[RETURNS]
 
-Tuple and dict returns describe their shape, functions that can return `None` state when:
+Tuple and dict returns describe their shape, `Option` returns state when they hold `NOTHING`:
 
 ```text
 Returns:
@@ -96,7 +96,7 @@ Returns:
     The dict mapping user IDs to profile data, where each value is a dict with keys "name", "email", and "role".
 
 Returns:
-    The parsed configuration, or None when the file does not exist.
+    The parsed configuration, or NOTHING when the file does not exist.
 ```
 
 Functions returning `expression.Result` state the `Ok` value and each fault reason, in the one-line summary or under `Returns:`.

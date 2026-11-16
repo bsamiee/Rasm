@@ -4,7 +4,7 @@ from functools import partial
 from typing import Final, override
 
 import bpy
-from expression import Some
+from expression import Ok, Some
 import numpy as np
 import PyOpenColorIO
 
@@ -12,7 +12,7 @@ from rasm_bpy.data import Identity
 from rasm_bpy.nodes import Expr, Interface, InterfacePanel, MenuItem, Socket, StockInput, xyz
 from rasm_bpy.render import ColorSpace, CompositorEffect, CompositorRecord, entered, grades, GraphInputs, matrixed, Mix, READ, space_item, tint_of
 from rasm_imaging import basis, ImageFile, Samples, WhitePoint
-from rasm_records import Fault, Faults, Ok, Outcome, paired, Reason
+from rasm_records import Fault, Faults, Outcome, paired, Reason
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 

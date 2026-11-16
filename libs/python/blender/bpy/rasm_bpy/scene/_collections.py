@@ -6,7 +6,7 @@ from functools import partial, reduce
 from itertools import chain, takewhile
 
 import bpy
-from expression import Option, Result, Some
+from expression import NOTHING, Ok, Option, option, Some
 from expression.collections import Block
 from expression.extra.result import catch
 from idprop.types import IDPropertyGroup
@@ -16,7 +16,7 @@ from rasm_bpy.data._ids.ownership import kept_block, released, retained
 from rasm_bpy.data._rna.descriptors import Descriptor, written
 from rasm_bpy.data._rna.paths import Struct
 from rasm_bpy.data._rna.snapshots import Snapshot
-from rasm_records import accumulated, Fault, Faults, Nothing, Ok, Outcome, reached, Reason
+from rasm_records import accumulated, Fault, Outcome, reached, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -44,7 +44,7 @@ def _entry(collection: bpy.types.Collection, member: _Member) -> Outcome[bpy.typ
     """Returns member entry, failing when member is outside collection."""
 
     def found[E](pairs: Iterable[tuple[E, _Member]]) -> Outcome[E]:
-        return Option.of_optional(next((entry for entry, item in pairs if item == member), None)).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(collection), member=member.name))
+        return option.of_optional(next((entry for entry, item in pairs if item == member), None)).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(collection), member=member.name))
 
     match member:
         case bpy.types.Object():
@@ -58,7 +58,7 @@ def relinked(collection: bpy.types.Collection, members: tuple[_Member, ...], *, 
     held = frozenset((*collection.objects, *collection.children))
     changed = tuple(item for item in dict.fromkeys(members) if (item in held) is not linked)
     return accumulated(
-        catch(entries.link if linked else entries.unlink, exception=RuntimeError)(item).map_error(partial(Fault.of, Refusal.REFUSED, repr(collection)))
+        catch(entries.link if linked else entries.unlink, exception=RuntimeError)(item).map_error(partial(Fault.of, Refusal.REFUSED, repr(collection)))  # ty: ignore[invalid-argument-type]
         for item in changed
         for entries in (collection.objects if isinstance(item, bpy.types.Object) else collection.children,)
     ).map(lambda _: changed)
@@ -71,7 +71,7 @@ def active_editable(view_layer: bpy.types.ViewLayer) -> Outcome[bpy.types.Collec
     """Returns active collection or nearest editable included ancestor."""
     active = view_layer.active_layer_collection
     path = next((*ancestors, node) for node, ancestors in walked(view_layer.layer_collection) if node == active)
-    return Option.of_optional(next((layer.collection for layer in reversed(tuple(takewhile(lambda layer: not layer.exclude, path))) if _editable(layer.collection)), None)).to_result_with(
+    return option.of_optional(next((layer.collection for layer in reversed(tuple(takewhile(lambda layer: not layer.exclude, path))) if _editable(layer.collection)), None)).to_result_with(
         lambda: Fault.of(Reason.ABSENT, repr(view_layer), member="active_layer_collection")
     )
 
@@ -111,7 +111,7 @@ def duplicated(collection: bpy.types.Collection, parent: bpy.types.Collection, c
     with ExitStack() as rollback:
 
         def copied[T: bpy.types.ID](blocks: Iterable[T]) -> Outcome[dict[T, T]]:
-            return accumulated(kept_block(_copied(block), Ok, Some(rollback)).map(lambda held: (block, held)) for block in blocks).map(dict)
+            return accumulated(kept_block(_copied(block), Ok, Some(rollback)).map(lambda held: (block, held)) for block in blocks).map(dict[T, T])
 
         def finished(
             collections: dict[bpy.types.Collection, bpy.types.Collection], objects: dict[bpy.types.Object, bpy.types.Object], data: dict[bpy.types.ID, bpy.types.ID]
@@ -142,11 +142,11 @@ def duplicated(collection: bpy.types.Collection, parent: bpy.types.Collection, c
                                 answers.append((yield item))  # ruff: ignore[manual-list-comprehension]
                             completed.append(
                                 accumulated(answers).map(
-                                    lambda changes: Some([change.default_value(item) for item, change in zip(value, changes)]) if any(change.is_some() for change in changes) else Nothing
+                                    lambda changes: Some([change.default_value(item) for item, change in zip(value, changes)]) if any(change.is_some() for change in changes) else NOTHING
                                 )
                             )
                         case _:
-                            completed.append(Ok(Nothing))
+                            completed.append(Ok(NOTHING))
 
                 def members(held: Struct | IDPropertyGroup) -> Generator[object, Outcome[Option[object]]]:
                     answers: list[Outcome[None]] = []
@@ -162,10 +162,10 @@ def duplicated(collection: bpy.types.Collection, parent: bpy.types.Collection, c
                                 ).map(lambda _: None)
                             )
                         )
-                    completed.append(accumulated(answers).map(lambda _: Nothing))
+                    completed.append(accumulated(answers).map(lambda _: NOTHING))
 
                 pending = [members(group)]
-                answer: Option[Outcome[Option[object]]] = Nothing
+                answer: Option[Outcome[Option[object]]] = NOTHING
                 while True:
                     try:
                         child = answer.map(pending[-1].send).default_with(lambda: next(pending[-1]))
@@ -177,7 +177,7 @@ def duplicated(collection: bpy.types.Collection, parent: bpy.types.Collection, c
                         answer = Some(result)
                     else:
                         pending.append(members(child) if isinstance(child, IDPropertyGroup) else remapped(child))
-                        answer = Nothing
+                        answer = NOTHING
 
             writes: list[Outcome[None]] = []
 
@@ -234,12 +234,12 @@ def duplicated(collection: bpy.types.Collection, parent: bpy.types.Collection, c
                     )
                     .bind(
                         lambda entries: reduce(
-                            Result[None, Faults].bind,
+                            lambda held, step: held.bind(step),
                             (
                                 lambda _: written(entries[item], ("sort_index",), index).map(lambda _: None)
                                 for index, item in tuple((index, item) for index, item in enumerate(members) if entries[item].sort_index != index)
                             ),
-                            Result[None, Faults](ok=None),
+                            Ok(None),
                         )
                     )
                     .map(lambda _: made)
@@ -253,7 +253,7 @@ def duplicated(collection: bpy.types.Collection, parent: bpy.types.Collection, c
         return retained(
             copied(tree).bind(
                 lambda collections: copied(dict.fromkeys(item for held in tree for item in held.objects)).bind(
-                    lambda objects: copied(dict.fromkeys(block for item in objects for block in Option.of_optional(item.data).to_list() if type(block) in copies)).bind(
+                    lambda objects: copied(dict.fromkeys(block for item in objects for block in option.of_optional(item.data).to_list() if type(block) in copies)).bind(
                         lambda data: finished(collections, objects, data)
                     )
                 )
@@ -267,7 +267,7 @@ def grouped(item: bpy.types.Object, scene: bpy.types.Scene, name: str) -> Outcom
     linking = frozenset(item.users_collection)
     holders = tuple(held for held in (scene.collection, *scene.collection.children_recursive) if held in linking and _editable(held)) or (scene.collection,)
     return kept_block(
-        created(Nothing, name), lambda made: relinked(made, (item,), linked=True).bind(lambda _: accumulated(relinked(held, (made,), linked=True) for held in holders)).map(lambda _: made)
+        created(NOTHING, name), lambda made: relinked(made, (item,), linked=True).bind(lambda _: accumulated(relinked(held, (made,), linked=True) for held in holders)).map(lambda _: made)
     )
 
 
@@ -292,7 +292,8 @@ def _parented(collection: bpy.types.Collection, parent: Option[bpy.types.Collect
 
 
 def _copied[T: bpy.types.ID](block: T) -> Outcome[T]:
-    return Option.of_optional(block.copy()).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(block), member="copy"))
+    copied = block.copy()
+    return option.of_optional(copied).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(block), member="copy"))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

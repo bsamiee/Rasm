@@ -11,7 +11,7 @@ from typing import ClassVar, Final, Self
 
 import bmesh
 import bpy
-from expression import Option, Result, Some
+from expression import Error, NOTHING, Ok, Option, option, Some, try_downcast
 from expression.extra.result import catch
 from mathutils import Vector
 import msgspec
@@ -49,7 +49,7 @@ from rasm_bpy.scene._objects import bound_corners, owned_object
 from rasm_bpy.scene._worlds import shaders
 from rasm_bpy.scene.cameras import framed
 from rasm_imaging import DisplayView, Multilayer, Raster, Region
-from rasm_records import accumulated, Case, Error, Fault, NonNegative, Nothing, Ok, Outcome, paired, Reason
+from rasm_records import accumulated, Case, Fault, NonNegative, Outcome, paired, Reason
 from rasm_rendering import Output
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -207,7 +207,7 @@ class RoutedEntry(msgspec.Struct, frozen=True, kw_only=True, eq=False):
         return tuple(
             cls(entry=entry, group=group)
             for entry in source.compositor_effects
-            for group in Option.of_optional(entry.node_group).to_list()
+            for group in option.of_optional(entry.node_group).to_list()
             if enabled.descriptor.read(entry) is True and not any(reads_render(node) for tree in nested((group,)) for node in tree.nodes)
         )
 
@@ -228,11 +228,11 @@ class Staging(msgspec.Struct, frozen=True, kw_only=True, eq=False):
     sun: Mapping[RnaPath, Value] | bpy.types.Light
     stack: PreviewStack = PreviewStack()
     transparent: bool = True
-    surface: Option[PreviewMesh] = Nothing
-    material: Option[bpy.types.Material] = Nothing
+    surface: Option[PreviewMesh] = NOTHING
+    material: Option[bpy.types.Material] = NOTHING
     viewpoint: CameraPose | bpy.types.Object = CameraPose.TOP
     value: bool = False
-    rasters: Option[tuple[Raster, Raster]] = Nothing
+    rasters: Option[tuple[Raster, Raster]] = NOTHING
 
     @property
     def size(self) -> tuple[int, int]:
@@ -245,7 +245,7 @@ class Readback(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
     plane: npt.NDArray[np.float32]
     colorspace: str
-    values: Option[npt.NDArray[np.float32]] = Nothing
+    values: Option[npt.NDArray[np.float32]] = NOTHING
     covered: ClassVar[float] = 0.5
 
     @property
@@ -279,7 +279,7 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
     @staticmethod
     def engine(scene: bpy.types.Scene) -> Outcome[Snapshot]:
         """Captures the copied engine settings with preview samples replacing final samples."""
-        samples = Option.of_optional(ENGINE_SAMPLES.get(scene.render.engine))
+        samples = option.of_optional(ENGINE_SAMPLES.get(scene.render.engine))
         captured = accumulated(Descriptor.resolve(bpy.types.Scene, final[:1], bpy.types.Property) for final, _preview in samples.to_list()).bind(
             lambda owners: Snapshot.capture(scene, Some((Descriptor(root=bpy.types.Scene, owner=("render",), prop=bpy.types.RenderSettings.bl_rna.properties["engine"]), *owners)))
         )
@@ -336,7 +336,8 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
 
         with bpy.context.temp_override(scene=scene):
             return (
-                (Some(staging.input) if isinstance(staging.input, np.ndarray) else Nothing)
+                option
+                .of_optional(try_downcast(np.ndarray, staging.input))
                 .map(lambda pixels: self.input_built(identity, pixels).bind(lambda group: added_entry(release, scene, group)).map(lambda _: None))
                 .default_value(Ok(None))
                 .bind(lambda _: accumulated(added_entry(release, scene, held.group).bind(lambda entry: copied(held.entry, entry)) for held in stack.routed))
@@ -506,12 +507,12 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
             def read(key: _Capture, channels: tuple[str, ...]) -> Outcome[npt.NDArray[np.float32]]:
                 return Multilayer.read(paths[key]).bind(lambda file: file.picked(("",), channels))
 
-            sampled = paired(read(_Capture.VALUE, ("R",)), read(_Capture.COVERAGE, ("R",))).map(lambda pair: Some(covered(*pair))) if staging.value else Ok(Nothing)
+            sampled = paired(read(_Capture.VALUE, ("R",)), read(_Capture.COVERAGE, ("R",))).map(lambda pair: Some(covered(*pair))) if staging.value else Ok(NOTHING)
             return paired(read(_Capture.IMAGE, ("R", "G", "B", "A")), sampled).map(lambda pair: Readback(plane=pair[0], colorspace=bpy.data.colorspace.working_space, values=pair[1]))
 
         def captured(scene: bpy.types.Scene) -> Outcome[Readback]:
             paths = {key: Path(bpy.app.tempdir, f"{scene.session_uid}_{self.capture.key}_{key}.exr") for key in _Capture}
-            value = Some(identity.identifier(self.value)) if staging.value else Nothing
+            value = Some(identity.identifier(self.value)) if staging.value else NOTHING
             release.callback(_released, identity, partial(_unlinked, paths))
             for name in value.to_list():
                 aovs = scene.view_layers[0].aovs
@@ -533,7 +534,7 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
         """Renders float pixels through entries without adding formation."""
         channels = pixels.shape[2]
         lighting = PreviewLighting()
-        stack = PreviewStack(routed=tuple(RoutedEntry(entry=entry, group=group) for entry in entries for group in Option.of_optional(entry.node_group).to_list()))
+        stack = PreviewStack(routed=tuple(RoutedEntry(entry=entry, group=group) for entry in entries for group in option.of_optional(entry.node_group).to_list()))
         return (
             lighting
             .prepared()
@@ -544,12 +545,12 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
     def sampled_from(self, identity: Identity, source: Handle[bpy.types.Scene], entries: tuple[str, ...], pixels: npt.NDArray[np.float32]) -> Outcome[npt.NDArray[np.float32]]:
         """Resolves a deferred scene and ordered entry names before sampling, retaining missing-source faults."""
         match source.resolve():
-            case Result(tag="ok", ok=scene):
+            case Ok(scene):
                 held = {entry.name: entry for entry in scene.compositor_effects}
-                return accumulated(Option.of_optional(held.get(name)).to_result_with(partial(Fault.of, Reason.ABSENT, repr(scene.compositor_effects), member=name)) for name in entries).bind(
+                return accumulated(option.of_optional(held.get(name)).to_result_with(partial(Fault.of, Reason.ABSENT, repr(scene.compositor_effects), member=name)) for name in entries).bind(
                     lambda chosen: self.sampled(identity, scene, chosen, pixels)
                 )
-            case Result(error=faults):
+            case Error(faults):
                 return Error(faults)
 
     # --- [REGISTRATION]

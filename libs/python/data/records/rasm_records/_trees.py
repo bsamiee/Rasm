@@ -7,11 +7,9 @@ from operator import eq
 from types import MappingProxyType
 from typing import Self
 
-from expression import Option, Some
+from expression import NOTHING, Option, Some
 from expression.collections import Block
 import msgspec
-
-from rasm_records._faults import Nothing
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -74,7 +72,7 @@ class Tree[V, K: Hashable, N: Hashable](msgspec.Struct, frozen=True, kw_only=Tru
         """Returns place per owner."""
         return {
             key: Place(parent=parent, index=index)
-            for parent, children in chain(((Nothing, self.roots),), ((Some(key), owner.children) for key, owner in self.owners.items()))
+            for parent, children in chain(((NOTHING, self.roots),), ((Some(key), owner.children) for key, owner in self.owners.items()))
             for index, key in enumerate(children)
         }
 
@@ -125,7 +123,7 @@ class Reparametrized[V, K: Hashable, N: Hashable](msgspec.Struct, frozen=True, k
         """Returns changed, removed, and added values."""
         old = tuple((name, value) for name, value in before.items() if name not in after or not equal(after[name], value))
         new = tuple((name, value) for name, value in after.items() if name not in before or not equal(before[name], value))
-        return Some(cls(key=key, prior=old, later=new)) if old or new else Nothing
+        return Some(cls(key=key, prior=old, later=new)) if old or new else NOTHING
 
     @classmethod
     def shared(cls, key: K, before: Mapping[N, V], after: Mapping[N, V], *, equal: Callable[[V, V], bool] = eq) -> Option[Self]:
@@ -171,10 +169,10 @@ def merge[V, K: Hashable, N: Hashable](state: Tree[V, K, N], edits: Iterable[Edi
                 base[edit.key].pop(name, None)
             base[edit.key].update(edit.later)
     entering = sorted(((edit.place, edit.key) for edit in held if isinstance(edit, Inserted | Moved)), key=lambda row: row[0].index)
-    order = {parent: [key for key in children if key not in lifted] for parent, children in chain(((Nothing, state.roots),), ((Some(key), owner.children) for key, owner in owners.items()))}
+    order = {parent: [key for key in children if key not in lifted] for parent, children in chain(((NOTHING, state.roots),), ((Some(key), owner.children) for key, owner in owners.items()))}
     for place, key in entering:
         order.setdefault(place.parent, []).insert(place.index, key)
-    return Tree(roots=tuple(order.get(Nothing, ())), rows=tuple((key, Owner(rows=tuple(owned.items()), children=tuple(order.get(Some(key), ())))) for key, owned in base.items()))
+    return Tree(roots=tuple(order.get(NOTHING, ())), rows=tuple((key, Owner(rows=tuple(owned.items()), children=tuple(order.get(Some(key), ())))) for key, owned in base.items()))
 
 
 def transfer[V, K: Hashable, N: Hashable](target: Tree[V, K, N], source: Tree[V, K, N], *, equal: Callable[[V, V], bool] = eq) -> tuple[Reparametrized[V, K, N], ...]:

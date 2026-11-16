@@ -7,7 +7,7 @@ import operator
 from typing import ClassVar, Final
 
 import bpy
-from expression import Result, Some
+from expression import Error, Ok, Some
 from expression.extra.result import catch
 import msgspec
 
@@ -24,7 +24,7 @@ from rasm_bpy.settings._presets import Preset
 from rasm_bpy.ui._layout.rows import ConditionalRow, OperatorButton, realized, RowDraw
 from rasm_bpy.ui._layout.sections import Section
 from rasm_bpy.ui._layout.values import Listing
-from rasm_records import accumulated, Error, Fault, Faults, Name, Ok, Outcome, paired, Reason
+from rasm_records import accumulated, Fault, Name, Outcome, paired, Reason
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -130,7 +130,7 @@ def _applied(identity: Identity, freestyle: _Freestyle, layer: bpy.types.ViewLay
 
     def built(row: _LineSet) -> Outcome[Applied]:
         match catch(lambda: linesets[row.name], exception=KeyError)():
-            case Result(tag="ok", ok=held):
+            case Ok(held):
                 current = held.linestyle
                 style = (
                     Ok(current)
@@ -168,13 +168,12 @@ def _applied(identity: Identity, freestyle: _Freestyle, layer: bpy.types.ViewLay
 @Operator.of(Empty)
 def freestyle_copy(call: Call[Empty]) -> Outcome[Answer]:
     """Copy active layer Freestyle settings and line sets to other used layers."""
-    return Result[tuple[bpy.types.Scene, bpy.types.ViewLayer], Faults].bind(
-        paired(rooted(bpy.types.Scene, call.context), rooted(bpy.types.ViewLayer, call.context)),
+    return paired(rooted(bpy.types.Scene, call.context), rooted(bpy.types.ViewLayer, call.context)).bind(
         lambda pair: _captured(pair[1]).bind(
             lambda value: spread(
                 value, tuple(layer for layer in used(pair[0]) if layer != pair[1]), _captured, operator.eq, partial(_applied, call.identity), "Used view layers match Freestyle settings"
             )
-        ),
+        )
     )
 
 

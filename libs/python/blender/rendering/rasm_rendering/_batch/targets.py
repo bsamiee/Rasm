@@ -12,7 +12,7 @@ import platform
 import sys
 from typing import Annotated, ClassVar, Final, Literal, Self
 
-from expression import Option, Result, Some
+from expression import Error, NOTHING, Ok, Option, option, Some
 from expression.collections import Block
 from expression.extra.result import catch
 import httpx2
@@ -22,7 +22,7 @@ from scipy.cluster.hierarchy import DisjointSet
 from tenacity import retry_if_result, RetryCallState, Retrying, stop_after_attempt, stop_before_delay, wait_exponential_jitter
 from typing_extensions import TypeForm
 
-from rasm_records import accumulated, Case, committed, Error, Fault, files_copied, Nothing, Ok, Outcome, paired, Reason, RecordFile
+from rasm_records import accumulated, Case, committed, Fault, files_copied, Outcome, paired, Reason, RecordFile
 from rasm_rendering._batch.queue import PackedFile, RENDER_QUEUE_DECODER, RenderFrames, RenderQueue
 from rasm_rendering._batch.supervision import argument, HostCommands, LocalMachine, Program, RunCommand, RunFile, spawned
 
@@ -48,7 +48,7 @@ class Session:
     client: httpx2.Client
     deadline: datetime.timedelta
 
-    def sent(self, method: HTTPMethod, path: str, body: Option[_Body] = Nothing) -> Outcome[httpx2.Response]:
+    def sent(self, method: HTTPMethod, path: str, body: Option[_Body] = NOTHING) -> Outcome[httpx2.Response]:
         """Sends a request, a non-success status as fault, a request held in memory sent again while the server answers 429 or 503, each wait from `_awaited`, until its sixth attempt or the deadline, and a streamed one once."""
         content = body.to_optional()
         data, headers = (
@@ -70,7 +70,7 @@ class Session:
             .bind(lambda response: catch(response.raise_for_status, exception=httpx2.HTTPStatusError)().map_error(lambda error: Fault.of(Reason.FAILED, str(error.request.url), error)))
         )
 
-    def exchanged[T](self, method: HTTPMethod, path: str, reply: TypeForm[T], body: Option[_Body] = Nothing) -> Outcome[T]:
+    def exchanged[T](self, method: HTTPMethod, path: str, reply: TypeForm[T], body: Option[_Body] = NOTHING) -> Outcome[T]:
         """Sends a request and decodes its JSON reply."""
         return self.sent(method, path, body).bind(
             lambda response: catch(lambda: msgspec.json.decode(response.content, type=reply), exception=msgspec.DecodeError)().map_error(partial(Fault.of, Reason.FAILED, str(response.request.url)))
@@ -251,14 +251,14 @@ class Manager(msgspec.Struct, frozen=True, kw_only=True):
                 .map(lambda wanted: frozenset(spec.path for spec in wanted.files))
                 .bind(lambda lacking: accumulated(uploaded(spec, placed) for spec, placed in zip(specs, entries.values(), strict=True) if spec.path in lacking))
                 .bind(lambda _: session.exchanged(HTTPMethod.POST, "/api/v3/shaman/checkout/create", _Checkout, Some(_Checkout(files=specs, checkout_path=folder))))
-                .bind(lambda created: Option.of_optional(created.checkout_path).to_result_with(lambda: Fault.of(Reason.ABSENT, "Shaman checkout", member="checkoutPath")))
+                .bind(lambda created: option.of_optional(created.checkout_path).to_result_with(lambda: Fault.of(Reason.ABSENT, "Shaman checkout", member="checkoutPath")))
                 .map(lambda path: (stored(path), Some(_JobStorageInfo(shaman_checkout_id=path))))
             )
 
         return (
             accumulated(starmap(specified, entries.items())).bind(checked)
             if self.storage.shaman_enabled
-            else files_copied((Path(placed.source), Path(self.storage.location, folder, name)) for name, placed in entries.items()).map(lambda _: (stored(folder), Nothing))
+            else files_copied((Path(placed.source), Path(self.storage.location, folder, name)) for name, placed in entries.items()).map(lambda _: (stored(folder), NOTHING))
         )
 
 
@@ -323,10 +323,10 @@ class Flamenco(Case, frozen=True, kw_only=True):
 
         return Manager.queried(session).bind(
             lambda manager: (
-                Option
+                option
                 .of_optional(self.tag)
                 .map(lambda tag: manager.worker_tag(tag).map(Some))
-                .default_value(Ok(Nothing))
+                .default_value(Ok(NOTHING))
                 .bind(lambda tag: manager.placed(session, queue).map(lambda found: posted(manager, tag, *found)))
             )
         )
@@ -363,18 +363,6 @@ class Renderon(Case, frozen=True, kw_only=True):
 
     def sent(self, queue: RenderQueue, host: HostCommands) -> Outcome[tuple[Outcome[str], ...]]:
         """Writes one queue line per frame range, then starts a detached supervisor running B-Renderon on the lines when executable is set, returning the queue path."""
-        match accumulated(
-            Error(Fault.of(Reason.OUTSIDE, type(self).__name__, cause, member=member))
-            for cause, member in (
-                (tuple(part for part, job in enumerate(queue.jobs) if job.prerequisites), "jobs without prerequisites"),
-                (tuple((part, job.frames) for part, job in enumerate(queue.jobs) if job.frames.start < 0), "nonnegative absolute frames"),
-            )
-            if cause
-        ):
-            case Result(tag="ok"):
-                pass
-            case Result(error=faults):
-                return Error(faults)
         path = host.path(queue.stem, RunFile.RENDERON)
         lines = _LINES.encode_lines(
             _QueueItem(folder=str(file.parent), file=file.name, blender=self.blender, scene=job.scene, start=str(start), end=str(end))
@@ -383,10 +371,18 @@ class Renderon(Case, frozen=True, kw_only=True):
             for start, end in (((job.frames.start, job.frames.end),) if job.frames.step == 1 else tuple((frame, frame) for frame in job.frames.numbers))
         )
         return (
-            committed(path, lines)
+            accumulated(
+                Error(Fault.of(Reason.OUTSIDE, type(self).__name__, cause, member=member))
+                for cause, member in (
+                    (tuple(part for part, job in enumerate(queue.jobs) if job.prerequisites), "jobs without prerequisites"),
+                    (tuple((part, job.frames) for part, job in enumerate(queue.jobs) if job.frames.start < 0), "nonnegative absolute frames"),
+                )
+                if cause
+            )
+            .bind(lambda _: committed(path, lines))
             .bind(
                 lambda written: (
-                    Option
+                    option
                     .of_optional(self.executable)
                     .map(lambda program: spawned(host.argv(RunCommand.SUPERVISE, Program(key=queue.stem, argv=(program, "-sq", str(written)))), detached=True).map(lambda _: written))
                     .default_value(Ok(written))
@@ -404,11 +400,11 @@ class JobFile(Case, frozen=True, kw_only=True):
 
     def sent(self, queue: RenderQueue, host: HostCommands) -> Outcome[tuple[Outcome[str], ...]]:
         """Writes queue file into folder when set, then runs command over the file when set, its output relayed into the run log, returning the queue file path."""
-        path = Option.of_optional(self.folder).map(lambda held: msgspec.structs.replace(host, folder=held)).default_value(host).path(queue.stem, RunFile.QUEUE)
+        path = option.of_optional(self.folder).map(lambda held: msgspec.structs.replace(host, folder=held)).default_value(host).path(queue.stem, RunFile.QUEUE)
         return (
             RecordFile(path=path, decoder=RENDER_QUEUE_DECODER)
             .written(queue)
-            .bind(lambda written: Option.of_optional(self.command).map(lambda program: host.run(queue.stem, (program, str(written))).map(lambda _: written)).default_value(Ok(written)))
+            .bind(lambda written: option.of_optional(self.command).map(lambda program: host.run(queue.stem, (program, str(written))).map(lambda _: written)).default_value(Ok(written)))
             .map(lambda written: (Ok(str(written)),))
         )
 
@@ -418,7 +414,7 @@ class JobFile(Case, frozen=True, kw_only=True):
 
 def _awaited(state: RetryCallState, /) -> float:
     """Returns the seconds before a refused request's next attempt: the `Retry-After` of its answer as delay seconds or as an HTTP-date, else the jittered exponential wait of the attempt."""
-    stated = Option.of_optional(state.outcome).map(lambda outcome: outcome.result().headers.get("retry-after", "")).default_value("")
+    stated = option.of_optional(state.outcome).map(lambda outcome: outcome.result().headers.get("retry-after", "")).default_value("")
     return (
         float(stated)
         if stated.isdecimal()

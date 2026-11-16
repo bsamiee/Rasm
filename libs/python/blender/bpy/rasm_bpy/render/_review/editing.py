@@ -7,7 +7,7 @@ import math
 from typing import Annotated, ClassVar, TYPE_CHECKING
 
 import bpy
-from expression import Option, Some
+from expression import NOTHING, Ok, Option, option, Some
 from mathutils import Matrix
 import msgspec
 import numpy as np
@@ -32,7 +32,7 @@ from rasm_bpy.ui._layout.members import Member
 from rasm_bpy.ui._layout.rows import grouped, Layout, OperatorButton, Property, RowContent
 from rasm_bpy.ui._resources.icons import Icon
 from rasm_imaging import ChartPlacement, Clipped, Finding, ImageFile, PanoramaView, PublishedChart, Quad, Reversed, Skewed, StMap, Wide
-from rasm_records import accumulated, content_hash, Fault, Nothing, Ok, Outcome, paired, Reason
+from rasm_records import accumulated, content_hash, Fault, Outcome, paired, Reason
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -198,7 +198,7 @@ class ChartEditing(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
         def baked(image: bpy.types.Image, record: PlacedChart, chart: Attached[ChartImage], placement: ChartPlacement, file: ImageFile) -> Outcome[Answer]:
             plane = file.pixels
-            view = Option.of_optional(placement.panorama).default_with(PanoramaView)
+            view = option.of_optional(placement.panorama).default_with(PanoramaView)
             width = max(1, math.ceil(plane.shape[1] * view.view.field_of_view / math.tau))
             height = max(1, math.ceil(width / view.view.aspect))
 
@@ -234,7 +234,7 @@ class ChartEditing(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         )
 
     def _bound[T: bpy.types.PropertyGroup, **P, R](
-        self, form: type[T], apply: Callable[[Callable[P, R], Call[T]], Outcome[Answer]], step: Callable[P, R], /, *, icon: Option["rna_enums.IconItems"] = Nothing, invoke: Option[Invoke[T]] = Nothing
+        self, form: type[T], apply: Callable[[Callable[P, R], Call[T]], Outcome[Answer]], step: Callable[P, R], /, *, icon: Option["rna_enums.IconItems"] = NOTHING, invoke: Option[Invoke[T]] = NOTHING
     ) -> Operator[T]:
         """Returns the operator running a step through `edited` or `moved` over the shown image's chart, described by the step."""
         return Operator[T](condition=Some(self.charting.imaged), form=form, run=update_wrapper(partial(apply, step), step), icon=icon, invoke=invoke)
@@ -304,7 +304,7 @@ class ChartEditing(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         """Places a flip button at the middle of the shown chart's edge between two corners."""
         return self.quad(identity, context).map(
             lambda found: found.bind(
-                lambda quad: Option.of_optional(context.region).map(framed).map(lambda frame: quad.samples[list(corners), :2].mean(axis=0) * (frame.width, frame.height) + (frame.x, frame.y))
+                lambda quad: option.of_optional(context.region).map(framed).map(lambda frame: quad.samples[list(corners), :2].mean(axis=0) * (frame.width, frame.height) + (frame.x, frame.y))
             ).map(lambda at: Matrix.Translation((*at, 0.0)))
         )
 

@@ -4,11 +4,12 @@ lazy from graphlib import TopologicalSorter
 lazy import math
 
 import msgspec
+lazy from expression import Error, Ok
 lazy from fontTools.misc.transform import Identity, Offset, Transform
 
 from rasm_typography._faces.declaration import Em
 from rasm_typography._rules import measures
-lazy from rasm_records import Error, Fault, Ok, Outcome, Reason
+lazy from rasm_records import Fault, Outcome, Reason
 lazy from rasm_typography._faces.glyphs import Glyph, Letter, Ligature, Source
 lazy from rasm_typography._outlines import paths
 

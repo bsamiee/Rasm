@@ -5,7 +5,7 @@ import math
 from types import MemberDescriptorType
 from typing import Annotated, Final
 
-from expression import Option, Some
+from expression import NOTHING, Ok, Option, Some
 import msgspec
 import numpy as np
 import numpy.typing as npt
@@ -21,7 +21,7 @@ from rasm_imaging._color.colorimetry import matching, observer
 from rasm_imaging._files.buffers import Depth, pixels
 from rasm_imaging._geometry.frames import Raster
 from rasm_imaging._geometry.lenses import Aperture
-from rasm_records import content_hash, ContentHash, NonNegative, Nothing, Ok, Outcome
+from rasm_records import content_hash, ContentHash, NonNegative, Outcome
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -48,7 +48,7 @@ class Pupil(msgspec.Struct, frozen=True, kw_only=True):
             RGB weights of shape (2 * height - 1, 2 * width - 1, 3) with unit channel sums, absent at zero core or a closed iris, or `FAILED` and `INVALID` faults.
         """
         if self.core == 0.0 or self.iris.obstruction == 1.0:
-            return Ok(Nothing)
+            return Ok(NOTHING)
         height, width = data.shape
         shape = (2 * height - 1, 2 * width - 1, 3)
         rows = observer()

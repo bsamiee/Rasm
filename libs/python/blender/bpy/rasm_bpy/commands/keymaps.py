@@ -12,14 +12,14 @@ from typing import Literal, Protocol, Required, runtime_checkable, TYPE_CHECKING
 
 from bl_keymap_utils import keymap_hierarchy, platform_helpers
 import bpy
-from expression import Option, Some
+from expression import Error, NOTHING, Ok, Option, option, Some
 import rna_keymap_ui
 
 from rasm_bpy.commands.operators import filled, Pairs, Placement, PopupKind, PopupTarget, Setting
 from rasm_bpy.data._extension.identity import Identity
 from rasm_bpy.data._extension.registration import acquired_rows, Acquisitions, Declaration, Tier
 from rasm_bpy.data._rna.paths import rna_definition, root_in, Struct
-from rasm_records import accumulated, Error, Fault, Nothing, Ok, Outcome, paired, Reason
+from rasm_records import accumulated, Fault, Outcome, paired, Reason
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -82,7 +82,7 @@ class Button(Enum):
             case Button.SELECT:
                 return parameters.select_mouse, Some(parameters.select_mouse_value)
             case Button.ACTION:
-                return parameters.action_mouse, Nothing
+                return parameters.action_mouse, NOTHING
             case Button.TOOL:
                 return parameters.tool_mouse, Some(parameters.tool_maybe_tweak_value)
             case Button.CONTEXT:
@@ -133,7 +133,7 @@ class Keymap:
 
             with ExitStack() as stack:
                 stack.callback(forgotten)
-                addons = root_in(bpy.types.WindowManager, bpy.context).bind(lambda manager: Option.of_optional(manager.keyconfigs.addon)).to_list()
+                addons = root_in(bpy.types.WindowManager, bpy.context).bind(lambda manager: option.of_optional(manager.keyconfigs.addon)).to_list()
                 keymaps = tuple(addon.keymaps.new(name, space_type=space, region_type=region) for addon in addons for name, space, region in locations)
                 made = tuple(added(stack, keymap, *row) for keymap in keymaps for row in rows)
                 self._items = tuple(pair for pair, _ in made)
@@ -149,10 +149,10 @@ class Keymap:
             manager.keyconfigs.update(keep_properties=True)
             return tuple(
                 (keymap, item)
-                for user in Option.of_optional(manager.keyconfigs.user).to_list()
+                for user in option.of_optional(manager.keyconfigs.user).to_list()
                 for added, mine in self._items
-                for keymap in Option.of_optional(user.keymaps.find_match(added)).to_list()
-                for item in Option.of_optional(keymap.keymap_items.find_match(added, mine)).to_list()
+                for keymap in option.of_optional(user.keymaps.find_match(added)).to_list()
+                for item in option.of_optional(keymap.keymap_items.find_match(added, mine)).to_list()
             )
         return ()
 
@@ -160,7 +160,7 @@ class Keymap:
 
     def drawn(self, layout: bpy.types.UILayout, _holder: Struct, context: bpy.types.Context) -> None:
         """Draws user shortcut editors, each under its user keymap as the `keymap` its restore and remove buttons read."""
-        for user in root_in(bpy.types.WindowManager, context).bind(lambda manager: Option.of_optional(manager.keyconfigs.user)).to_list():
+        for user in root_in(bpy.types.WindowManager, context).bind(lambda manager: option.of_optional(manager.keyconfigs.user)).to_list():
             for keymap, item in self.counterparts(context):
                 column = layout.column()
                 column.context_pointer_set("keymap", keymap)
@@ -188,13 +188,11 @@ def resolved(identity: Identity, bindings: Bindings, /) -> Outcome[tuple[Row, ..
 
     def built(manager: bpy.types.WindowManager, inputs: bpy.types.PreferencesInput, preset: str) -> Parameters:
         defined = runpy.run_path(str(Path(preset).parent / "keymap_data" / "blender_default.py"))["Params"]
-        stated: dict[str, object] = (
-            Option
-            .of_optional(manager.keyconfigs.active)
-            .bind(lambda config: Option.of_optional(config.preferences))
-            .map(lambda held: dict[str, object]((prop.identifier, getattr(held, prop.identifier)) for prop in rna_definition(held).properties))
-            .default_value({})
-        )
+        stated: dict[str, object] = {
+            prop.identifier: getattr(held, prop.identifier)
+            for held in option.of_optional(manager.keyconfigs.active).bind(lambda config: option.of_optional(config.preferences)).to_list()
+            for prop in rna_definition(held).properties
+        }
         emulated = inputs.use_mouse_emulate_3_button and inputs.mouse_emulate_3_button_modifier == "ALT"
         alternate = bool(stated.get("use_alt_tool" if stated.get("select_mouse") == "LEFT" else "use_alt_cursor"))
         match defined(**{name: stated[name] for name in inspect.signature(defined).parameters if name in stated}, use_alt_tool_or_cursor=not emulated and alternate):
@@ -208,7 +206,7 @@ def resolved(identity: Identity, bindings: Bindings, /) -> Outcome[tuple[Row, ..
             case Button() as role:
                 kind, valued = role.event(held)
             case str(named):
-                kind, valued = named, Nothing
+                kind, valued = named, NOTHING
         pie = isinstance(placement.operator, PopupTarget) and placement.operator.kind is PopupKind.PIE
         event: _Event = {**chord, "type": kind, "value": chord.get("value", valued.default_value(held.pie_value if pie else "PRESS"))}
         operator, pairs = placed
@@ -222,10 +220,10 @@ def resolved(identity: Identity, bindings: Bindings, /) -> Outcome[tuple[Row, ..
     match bpy.context.window_manager, bpy.context.preferences:
         case bpy.types.WindowManager() as manager, bpy.types.Preferences(inputs=inputs):
             return (
-                Option
+                option
                 .of_optional(manager.keyconfigs.default)
                 .to_result_with(partial(Fault.of, Reason.ABSENT, repr(manager.keyconfigs), member="default"))
-                .bind(lambda default: Option.of_optional(bpy.utils.preset_find(default.name, "keyconfig")).to_result_with(partial(Fault.of, Reason.ABSENT, default.name, member="keyconfig preset")))
+                .bind(lambda default: option.of_optional(bpy.utils.preset_find(default.name, "keyconfig")).to_result_with(partial(Fault.of, Reason.ABSENT, default.name, member="keyconfig preset")))
                 .map(partial(built, manager, inputs))
                 .map(lambda held: doubled(tuple(row(held, chord, placement, placement.resolved(identity)) for chord, placement in bindings)))
             )

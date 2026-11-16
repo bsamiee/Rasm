@@ -15,7 +15,7 @@ from types import MappingProxyType
 from typing import Annotated, ClassVar, Final, Self
 
 import bpy
-from expression import Option, Result, Some
+from expression import Error, NOTHING, Ok, Option, option, Some
 from expression.extra.result import catch
 import msgspec
 
@@ -39,7 +39,7 @@ from rasm_bpy.settings._presets import Preset
 from rasm_bpy.ui._layout.rows import OperatorButton
 from rasm_bpy.ui._layout.sections import Section
 from rasm_bpy.ui._layout.values import Store
-from rasm_records import accumulated, Error, existing, Fault, Faults, Nothing, Ok, Outcome, paired, Reason, removed
+from rasm_records import accumulated, existing, Fault, Outcome, paired, Reason, removed
 from rasm_rendering import Field, Fields, NumberField, NumberKey, Output, OutputName, stepped, TextField, TextKey
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -121,11 +121,11 @@ class OutputPath(msgspec.Struct, frozen=True, kw_only=True):
         """Returns native variables for selected words and frame padding."""
         match part:
             case TextField(key=key):
-                return Option.of_optional(_NATIVE.get(key)).filter(lambda _: key in self.spelled).map(lambda name: f"{{{name}}}")
+                return option.of_optional(_NATIVE.get(key)).filter(lambda _: key in self.spelled).map(lambda name: f"{{{name}}}")
             case NumberField(key=NumberKey.FRAME, width=width):
                 return Some("#" * width)
             case NumberField():
-                return Nothing
+                return NOTHING
 
     @classmethod
     def of(cls, outputs: Outputs, scene: bpy.types.Scene, root: tuple[str, Path], blend: Option[Path], day: datetime.date) -> Outcome[Self]:
@@ -135,12 +135,10 @@ class OutputPath(msgspec.Struct, frozen=True, kw_only=True):
         def built(name: OutputName, stem: OutputName) -> Outcome[Self]:
             shared = name.keys & stem.keys
             words, counted = shared - frozenset(NumberKey), NumberKey.VERSION in shared
-            parsed = (
-                Result[Path, Faults].bind(blend.to_result_with(lambda: Fault.of(Refusal.REQUIRED, Pathed.unsaved.message)), lambda path: stem.parse(path.stem)) if words or counted else Ok(Fields())
-            )
+            parsed = blend.to_result_with(lambda: Fault.of(Refusal.REQUIRED, Pathed.unsaved.message)).bind(lambda path: stem.parse(path.stem)) if words or counted else Ok(Fields())
             host = (
                 {TextKey.SCENE: scene.name, TextKey.DATE: day.isoformat()}
-                | dict(Option.of_optional(scene.camera).map(lambda camera: (TextKey.CAMERA, camera.name)).to_list())
+                | dict(option.of_optional(scene.camera).map(lambda camera: (TextKey.CAMERA, camera.name)).to_list())
                 | {TextKey.FILE: blend.map(lambda path: path.stem).default_with(lambda: bpy.app.translations.pgettext_data("Unsaved"))}
             )
             return parsed.map(
@@ -155,27 +153,27 @@ class OutputPath(msgspec.Struct, frozen=True, kw_only=True):
                 )
             )
 
-        return Result[tuple[OutputName, OutputName], Faults].bind(paired(OutputName.of(outputs.template), OutputName.of(outputs.stem)), lambda pair: built(*pair))
+        return paired(OutputName.of(outputs.template), OutputName.of(outputs.stem)).bind(lambda pair: built(*pair))
 
     def _filled(self, layer: str, output: Output, item: Option[str]) -> Fields:
         return Fields(
             texts={**self.fields.texts, TextKey.LAYER: layer, TextKey.OUTPUT: output, TextKey.PASS: item.default_value(output)},
-            numbers={**self.fields.numbers, **dict(Option.of_optional(self.orders.get(layer)).map(lambda order: (NumberKey.ORDER, order)).to_list())},
+            numbers={**self.fields.numbers, **dict(option.of_optional(self.orders.get(layer)).map(lambda order: (NumberKey.ORDER, order)).to_list())},
         )
 
-    def text(self, layer: str, output: Output, item: Option[str] = Nothing) -> Outcome[str]:
+    def text(self, layer: str, output: Output, item: Option[str] = NOTHING) -> Outcome[str]:
         """Composes a relative native template with literal field values."""
         filled = self._filled(layer, output, item)
         return self.name.compose(msgspec.structs.replace(filled, texts={key: _escaped(value) for key, value in filled.texts.items()}), self.spelling)
 
-    def scene_output(self, scene: bpy.types.Scene, *, layer: Option[bpy.types.ViewLayer] = Nothing) -> Outcome[str]:
+    def scene_output(self, scene: bpy.types.Scene, *, layer: Option[bpy.types.ViewLayer] = NOTHING) -> Outcome[str]:
         """Composes the requested layer's preview path, resolving native target-scene context when none was requested."""
         with bpy.context.temp_override(scene=scene):
             return (
                 layer.map(Ok).default_with(lambda: rooted(bpy.types.ViewLayer, bpy.context)).bind(lambda held: self.text(held.name, Output.PREVIEW)).map(lambda text: posixpath.join(self.root, text))
             )
 
-    def literal(self, layer: str, output: Output, item: Option[str], frame: int, *, suffix: Option[str] = Nothing) -> Outcome[Path]:
+    def literal(self, layer: str, output: Output, item: Option[str], frame: int, *, suffix: Option[str] = NOTHING) -> Outcome[Path]:
         """Composes a frame's literal filename and suffix under its output root."""
         fields = self._filled(layer, output, item)
         return self.name.path(self.base, msgspec.structs.replace(fields, numbers={**fields.numbers, NumberKey.FRAME: frame}), suffix=suffix.default_value(""))
@@ -191,7 +189,7 @@ class OutputPath(msgspec.Struct, frozen=True, kw_only=True):
         def dropped(frame: int, view: Option[bpy.types.SceneRenderView]) -> Outcome[None]:
             return _frame_file(scene.render, frame, view).bind(lambda file: removed(file).map(lambda _: None) if bpy.path.is_subdir(str(file), str(self.base)) else Ok(None))
 
-        views = tuple(map(Some, render_views(scene.render))) if scene.render.use_multiview and scene.render.image_settings.views_format == "INDIVIDUAL" else (Nothing,)
+        views = tuple(map(Some, render_views(scene.render))) if scene.render.use_multiview and scene.render.image_settings.views_format == "INDIVIDUAL" else (NOTHING,)
         return accumulated(dropped(frame, view) for frame in frames for view in views).map(lambda _: None)
 
 
@@ -205,7 +203,7 @@ class Pathed(msgspec.Struct, frozen=True, kw_only=True):
     attached: Attached[Outputs]
     stored: Stored[OutputPath]
 
-    def path(self, scene: bpy.types.Scene, day: datetime.date, saving: Option[Path] = Nothing) -> Outcome[OutputPath]:
+    def path(self, scene: bpy.types.Scene, day: datetime.date, saving: Option[Path] = NOTHING) -> Outcome[OutputPath]:
         """Returns stored render path, else composes scene settings at day for the file being saved or the session file."""
         blend = saving.or_else_with(lambda: BlendFile.read().path)
 
@@ -215,9 +213,9 @@ class Pathed(msgspec.Struct, frozen=True, kw_only=True):
 
         def root(outputs: Outputs) -> Outcome[tuple[str, Path]]:
             return (
-                Option
+                option
                 .of_optional(bpy.data.project)
-                .bind(lambda project: Option.of_optional(project.variables.get(outputs.variable)))
+                .bind(lambda project: option.of_optional(project.variables.get(outputs.variable)))
                 .map(lambda variable: resolved(f"{{{variable.name}}}", variable.value))
                 .default_with(lambda: Error(Fault.of(Reason.ABSENT, "bpy.data.project.variables", member=outputs.variable)))
                 if outputs.use_variable
@@ -237,7 +235,7 @@ class Pathed(msgspec.Struct, frozen=True, kw_only=True):
             else accumulated(path.text(layer, output, Some(name)) for name in passes).map(lambda texts: NodePaths(members={self.directory: path.root, self.file_name: ""}, items=texts))
         )
 
-    def recomposed(self, scene: bpy.types.Scene, day: datetime.date, saving: Option[Path] = Nothing) -> Outcome[None]:
+    def recomposed(self, scene: bpy.types.Scene, day: datetime.date, saving: Option[Path] = NOTHING) -> Outcome[None]:
         """Writes scene output at `day` when native value differs."""
         return self.path(scene, day, saving).bind(lambda path: path.scene_output(scene)).bind(lambda text: self.filepath.write(scene.render, text)).map(lambda _: None)
 
@@ -245,7 +243,7 @@ class Pathed(msgspec.Struct, frozen=True, kw_only=True):
         """Stores path as the scene's render path and writes its scene output, a job copy or a rerooted farm path rendering through it."""
         return self.stored.write(scene, path).bind(lambda _: path.scene_output(scene)).bind(lambda text: self.filepath.write(scene.render, text)).map(lambda _: path)
 
-    def refreshed(self, identity: Identity, day: datetime.date, saving: Option[Path] = Nothing) -> Outcome[None]:
+    def refreshed(self, identity: Identity, day: datetime.date, saving: Option[Path] = NOTHING) -> Outcome[None]:
         """Recomposes stored scenes at `day` except owned runtime scenes."""
         return accumulated(self.recomposed(scene, day, saving) for scene in bpy.data.scenes if self.attached.stored(scene) and not runtime(identity, scene)).map(lambda _: None)
 
@@ -274,7 +272,7 @@ def _escaped(text: str) -> str:
     return text.replace("{", "{{").replace("}", "}}")
 
 
-def _frame_file(render: bpy.types.RenderSettings, frame: int, view: Option[bpy.types.SceneRenderView] = Nothing) -> Outcome[Path]:
+def _frame_file(render: bpy.types.RenderSettings, frame: int, view: Option[bpy.types.SceneRenderView] = NOTHING) -> Outcome[Path]:
     """Returns the native animation file path, with templates, frame, and camera-view suffix resolved."""
     return catch(render.frame_path, exception=RuntimeError)(frame=frame, view=view.map(lambda held: held.name).default_value("")).map(Path).map_error(partial(Fault.of, Refusal.REFUSED, repr(render)))
 
@@ -326,11 +324,11 @@ def image_path(scene: bpy.types.Scene, base: str, extension: str, view: Option[b
 
     variables = {
         _NATIVE[TextKey.SCENE]: filename(scene.name),
-        **dict(Option.of_optional(scene.camera).map(lambda camera: (_NATIVE[TextKey.CAMERA], filename(camera.name))).to_list()),
+        **dict(option.of_optional(scene.camera).map(lambda camera: (_NATIVE[TextKey.CAMERA], filename(camera.name))).to_list()),
         _NATIVE[TextKey.FILE]: _path_bytes(ntpath.splitext(ntpath.basename(bpy.data.filepath))[0] if bpy.data.filepath else bpy.app.translations.pgettext_data("Unsaved")),
         **{
             variable.name: _path_bytes(variable.value) if variable.subtype == "FILEPATH" else filename(variable.value)
-            for project in Option.of_optional(bpy.data.project).to_list()
+            for project in option.of_optional(bpy.data.project).to_list()
             for variable in project.variables
             if isinstance(variable, bpy.types.ProjectVariableString)
         },
@@ -378,8 +376,8 @@ def file_output_path(
     frame: int,
     *,
     animation: Option[bool],
-    item: Option[bpy.types.NodeCompositorFileOutputItem] = Nothing,
-    view: Option[bpy.types.SceneRenderView] = Nothing,
+    item: Option[bpy.types.NodeCompositorFileOutputItem] = NOTHING,
+    view: Option[bpy.types.SceneRenderView] = NOTHING,
 ) -> Outcome[Path]:
     """Resolves an owned File Output's live strings, actual item name, format and render mode."""
     separators = "/\\" if os.name == "nt" else "/"
@@ -419,7 +417,7 @@ def _edits(node: bpy.types.CompositorNodeOutputFile | bpy.types.NodeFrame, trans
     """Plans original requests for native node strings and File Output item names."""
     texts = tuple(prop for prop in rna_definition(node).properties if isinstance(prop, bpy.types.StringProperty) and (prop.is_path_supports_templates or prop.identifier == "label"))
     items = tuple(
-        (item, prop) for item in (node.file_output_items if isinstance(node, bpy.types.CompositorNodeOutputFile) else ()) for prop in Option.of_optional(rna_definition(item).name_property).to_list()
+        (item, prop) for item in (node.file_output_items if isinstance(node, bpy.types.CompositorNodeOutputFile) else ()) for prop in option.of_optional(rna_definition(item).name_property).to_list()
     )
     return accumulated(
         transform(before).map(lambda changed: tuple(_Rename(node=node, owner=owner, prop=prop, before=before, requested=request) for request in changed.to_list()))
@@ -441,13 +439,9 @@ def _planned(nodes: Iterable[bpy.types.Node], properties: Replace) -> Outcome[tu
         return Ok(Some(changed).filter(lambda value: value != text))
 
     return (
-        Result[re.Pattern[str], Faults]
-        .bind(
-            catch(re.compile, exception=re.PatternError)(properties.find if properties.regex else re.escape(properties.find), 0 if properties.case else re.IGNORECASE).map_error(
-                partial(Fault.of, Reason.INVALID, properties.find)
-            ),
-            lambda pattern: accumulated(_edits(node, partial(substituted, pattern)) for node in nodes if isinstance(node, bpy.types.CompositorNodeOutputFile | bpy.types.NodeFrame)),
-        )
+        catch(re.compile, exception=re.PatternError)(properties.find if properties.regex else re.escape(properties.find), 0 if properties.case else re.IGNORECASE)
+        .map_error(partial(Fault.of, Reason.INVALID, properties.find))
+        .bind(lambda pattern: accumulated(_edits(node, partial(substituted, pattern)) for node in nodes if isinstance(node, bpy.types.CompositorNodeOutputFile | bpy.types.NodeFrame)))
         .map(lambda groups: tuple(chain.from_iterable(groups)))
     )
 
@@ -532,7 +526,7 @@ class ScenePaths(msgspec.Struct, frozen=True, kw_only=True):
     def changed(identity: Identity) -> Generator[Changed]:
         """Defers update writes to main thread for attachment lifetime."""
         with identity.reports.deferred(
-            lambda handle: handle.resolve().bind(lambda scene: ScenePaths().bound(identity).bind(lambda pathed: pathed.recomposed(scene, today()))).map(lambda _: Nothing)
+            lambda handle: handle.resolve().bind(lambda scene: ScenePaths().bound(identity).bind(lambda pathed: pathed.recomposed(scene, today()))).map(lambda _: NOTHING)
         ) as write:
             yield lambda group, _context: write(Handle.of(group.id_data))
 
@@ -559,7 +553,7 @@ class ScenePaths(msgspec.Struct, frozen=True, kw_only=True):
         def refreshed(saving: Option[Path]) -> Outcome[None]:
             return self.bound(identity).bind(lambda pathed: pathed.refreshed(identity, today(), saving))
 
-        current = partial(refreshed, Nothing)
+        current = partial(refreshed, NOTHING)
         return (
             output_replace,
             output_version,

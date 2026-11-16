@@ -11,7 +11,7 @@ from types import MappingProxyType
 from typing import Annotated, ClassVar, Final, get_args, Literal
 
 import bpy
-from expression import Option, Some
+from expression import NOTHING, Ok, Option, option, Some
 from expression.extra.result import catch
 import msgspec
 import PyOpenColorIO
@@ -34,7 +34,7 @@ from rasm_bpy.nodes.changes import reconciled
 from rasm_bpy.nodes.functions import grouped, lowered
 from rasm_bpy.scene._objects import ObjectState, reconciler, targets
 from rasm_bpy.settings._attachments import Stored
-from rasm_records import accumulated, Case, Fault, Finite, NonNegative, Nothing, Ok, Outcome, paired, Reason, Unit, words
+from rasm_records import accumulated, Case, Fault, Finite, NonNegative, Outcome, paired, Reason, Unit, words
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -95,7 +95,7 @@ class _MapRole(msgspec.Struct, frozen=True, kw_only=True):
 
     words: tuple[str, ...]
     space: Option[str] = Some(PyOpenColorIO.ROLE_DATA)
-    socket: Option[str] = Nothing
+    socket: Option[str] = NOTHING
 
 
 class _DisplacementMap(msgspec.Struct, frozen=True, kw_only=True):
@@ -152,7 +152,7 @@ class Materials(msgspec.Struct, frozen=True, kw_only=True):
 # --- [TABLES] ---------------------------------------------------------------------------
 
 _MAPS: Final[Mapping[_MapKind, _MapRole]] = MappingProxyType({
-    _MapKind.BASE_COLOR: _MapRole(words=("basecolor", "base_color", "albedo", "diffuse", "diff", "colour", "color", "col"), space=Nothing, socket=Some("Base Color")),
+    _MapKind.BASE_COLOR: _MapRole(words=("basecolor", "base_color", "albedo", "diffuse", "diff", "colour", "color", "col"), space=NOTHING, socket=Some("Base Color")),
     _MapKind.METALLIC: _MapRole(words=("metallic", "metalness", "metal"), socket=Some("Metallic")),
     _MapKind.SPECULAR: _MapRole(words=("specular", "spec"), socket=Some("Specular IOR Level")),
     _MapKind.GLOSS: _MapRole(words=("glossiness", "gloss", "smoothness")),
@@ -162,7 +162,7 @@ _MAPS: Final[Mapping[_MapKind, _MapRole]] = MappingProxyType({
     _MapKind.BUMP: _MapRole(words=("bump",)),
     _MapKind.DISPLACEMENT: _MapRole(words=("displacement", "disp", "height")),
     _MapKind.TRANSMISSION: _MapRole(words=("transmission", "transmissive"), socket=Some("Transmission Weight")),
-    _MapKind.EMISSION: _MapRole(words=("emission", "emissive", "emit"), space=Nothing, socket=Some("Emission Color")),
+    _MapKind.EMISSION: _MapRole(words=("emission", "emissive", "emit"), space=NOTHING, socket=Some("Emission Color")),
     _MapKind.ALPHA: _MapRole(words=("alpha", "opacity"), socket=Some("Alpha")),
 })
 _AOVS: Final[Mapping[DataPass, Expr]] = MappingProxyType({
@@ -182,7 +182,7 @@ def shaded(held: bpy.types.Material, setup: _ShadingSetup, identity: Identity) -
     def image(path: str, tag: Tag, inputs: tuple[tuple[str, Term], ...] = (), members: Members = MappingProxyType({})) -> Expr:
         return Expr(kind=bpy.types.ShaderNodeTexImage, inputs=inputs, members=members, content=Some(Loaded(path=Path(path), tag=tag)), socket="Color", socket_type=bpy.types.NodeSocketColor)
 
-    def output(surface: Expr, displacement: Option[Expr] = Nothing) -> Expr:
+    def output(surface: Expr, displacement: Option[Expr] = NOTHING) -> Expr:
         return Expr(kind=bpy.types.ShaderNodeOutputMaterial, inputs=(("Surface", surface), *(("Displacement", held) for held in displacement.to_list())), members={"is_active_output": True})
 
     def emission(color: Term, strength: float) -> Expr:
@@ -200,16 +200,16 @@ def shaded(held: bpy.types.Material, setup: _ShadingSetup, identity: Identity) -
                 member: image(path, Tag(space=_MAPS[member].space), (("Vector", mapping),), {"projection": setup.projection.name, "projection_blend": setup.projection_blend})
                 for member, path in maps.items()
             }
-            normal = Option.of_optional(textures.get(_MapKind.NORMAL)).or_else_with(
-                lambda: Option.of_optional(textures.get(_MapKind.NORMAL_DX)).map(lambda texture: vector("MULTIPLY_ADD", texture, (1.0, -1.0, 1.0), (0.0, 1.0, 0.0)))
+            normal = option.of_optional(textures.get(_MapKind.NORMAL)).or_else_with(
+                lambda: option.of_optional(textures.get(_MapKind.NORMAL_DX)).map(lambda texture: vector("MULTIPLY_ADD", texture, (1.0, -1.0, 1.0), (0.0, 1.0, 0.0)))
             )
             mapped = normal.map(lambda color: Expr(kind=bpy.types.ShaderNodeNormalMap, inputs=(("Color", color),), socket="Normal", socket_type=bpy.types.NodeSocketVector))
-            relief = Option.of_optional(textures.get(_MapKind.BUMP)).map(
+            relief = option.of_optional(textures.get(_MapKind.BUMP)).map(
                 lambda height: Expr(
                     kind=bpy.types.ShaderNodeBump, inputs=(("Height", height), *(("Normal", held) for held in mapped.to_list())), socket="Normal", socket_type=bpy.types.NodeSocketVector
                 )
             )
-            glossed = Option.of_optional(textures.get(_MapKind.GLOSS)).filter(lambda _: _MapKind.ROUGHNESS not in maps)
+            glossed = option.of_optional(textures.get(_MapKind.GLOSS)).filter(lambda _: _MapKind.ROUGHNESS not in maps)
             surface = Expr(
                 kind=bpy.types.ShaderNodeBsdfPrincipled,
                 inputs=(
@@ -220,7 +220,7 @@ def shaded(held: bpy.types.Material, setup: _ShadingSetup, identity: Identity) -
                 ),
                 socket="BSDF",
             )
-            displaced = Option.of_optional(textures.get(_MapKind.DISPLACEMENT)).bind(lambda height: Option.of_optional(displacement).map(lambda held: (height, held)))
+            displaced = option.of_optional(textures.get(_MapKind.DISPLACEMENT)).bind(lambda height: option.of_optional(displacement).map(lambda held: (height, held)))
             roots = (
                 output(
                     surface,
@@ -237,7 +237,7 @@ def shaded(held: bpy.types.Material, setup: _ShadingSetup, identity: Identity) -
         case Clay(color=color, roughness=roughness):
             roots = (output(Expr(kind=bpy.types.ShaderNodeBsdfPrincipled, inputs=(("Base Color", (*color, 1.0)), ("Roughness", roughness)), socket="BSDF")),)
         case Emissive(color=color, strength=strength, image=path):
-            roots = (output(emission(Option.of_optional(path).map(lambda chosen: image(chosen, Tag())).default_value((*color, 1.0)), strength)),)
+            roots = (output(emission(option.of_optional(path).map(lambda chosen: image(chosen, Tag())).default_value((*color, 1.0)), strength)),)
         case Utility(passes=passes):
             roots = (
                 output(emission((0.0, 0.0, 0.0, 1.0), 0.0)),
@@ -249,7 +249,7 @@ def shaded(held: bpy.types.Material, setup: _ShadingSetup, identity: Identity) -
     )
 
 
-def material(setup: _ShadingSetup, identity: Identity, scope: Option[ExitStack] = Nothing) -> Outcome[bpy.types.Material]:
+def material(setup: _ShadingSetup, identity: Identity, scope: Option[ExitStack] = NOTHING) -> Outcome[bpy.types.Material]:
     """Reuses or creates owned setup material, storing the setup on its tree, removing a created one on fault or scope unwind."""
 
     def built() -> Outcome[bpy.types.Material]:
@@ -296,11 +296,11 @@ def texture_setup(call: Call[Empty]) -> Outcome[Answer]:
                 if len(kinds) == 1
                 for kind in kinds
             )
-            .map(dict)
+            .map(dict[_MapKind, str])
             .bind(
                 lambda maps: (
                     paired(
-                        Option.of_optional(call.context.active_object).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(call.context), member="active_object")),
+                        option.of_optional(call.context.active_object).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(call.context), member="active_object")),
                         material(Textured(maps=maps), call.identity, Some(rollback)),
                     )
                     .bind(lambda pair: _ACTIVE_MATERIAL.write(*pair))

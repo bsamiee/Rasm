@@ -11,7 +11,7 @@ from typing import Annotated, ClassVar, Final
 import zoneinfo
 
 import bpy
-from expression import Option, Some
+from expression import NOTHING, Ok, Option, option, Some
 from expression.extra.result import catch
 import msgspec
 import numpy as np
@@ -34,7 +34,7 @@ from rasm_bpy.settings._attachments import Attached, Attachment
 from rasm_bpy.ui._layout.rows import ConditionalRow, OperatorButton, RowDraw
 from rasm_bpy.ui._layout.sections import Section
 from rasm_bpy.ui._layout.values import Store
-from rasm_records import accumulated, Fault, Nothing, Ok, Outcome, paired, Reason, Retention
+from rasm_records import accumulated, Fault, Outcome, paired, Reason, Retention
 from rasm_rendering import Daylight, Polar, Site, SolarDay, Study, SunPaths, SunPosition
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -126,7 +126,7 @@ class _SolarCaption(ConditionalRow, frozen=True, kw_only=True):
 class _SceneSun(msgspec.Struct, frozen=True, kw_only=True):
     """Sun setup attachment with owned sun light, world node keys, and paths."""
 
-    retention: Option[Callable[[Identity], Outcome[Retention]]] = Nothing
+    retention: Option[Callable[[Identity], Outcome[Retention]]] = NOTHING
 
     @staticmethod
     def resited(scene: Handle[bpy.types.Scene], identity: Identity) -> Outcome[Option[str]]:
@@ -139,7 +139,7 @@ class _SceneSun(msgspec.Struct, frozen=True, kw_only=True):
         Returns:
             `Nothing` naming no undo step, or `absent` and `sun_placed` faults.
         """
-        return scene.resolve().bind(lambda held: _sun_placed(held, identity)).map(lambda _: Nothing)
+        return scene.resolve().bind(lambda held: _sun_placed(held, identity)).map(lambda _: NOTHING)
 
     attachment: ClassVar[Attachment[SunSetup]] = Attachment(key="sun", form=SunSetup, owner=bpy.types.Scene, changed=Some(partial(reconciling, bpy.types.Scene, resited)))
     sun: ClassVar[Ownership[bpy.types.Object]] = Ownership(kind=bpy.types.Object, key="sun", saved=Saved.USED)
@@ -310,15 +310,15 @@ def _paths_placed(site: Site, year: int, paths: Option[SunSetup], scene: bpy.typ
     camera = Snapshot.of(bpy.types.Object, _CAMERA_ALONE)
     bevel = Snapshot.of(bpy.types.Curve, {("dimensions",): "3D", ("bevel_depth",): paths.map(lambda shown: shown.bevel).default_value(0.0)})
     geometry = paired(
-        paths.filter(lambda shown: shown.sky_band).map(lambda shown: Descriptor.quantized(VERTEX, traced().sky_band.reshape(-1, 3) * shown.distance).map(Some)).default_value(Ok(Nothing)),
+        paths.filter(lambda shown: shown.sky_band).map(lambda shown: Descriptor.quantized(VERTEX, traced().sky_band.reshape(-1, 3) * shown.distance).map(Some)).default_value(Ok(NOTHING)),
         paths
         .filter(lambda shown: shown.analemmas)
         .map(
             lambda shown: accumulated(
                 Descriptor.quantized(_SPLINE_POINT, np.hstack((run * shown.distance, np.ones((len(run), 1))))).map(lambda points: (points, cyclic)) for run, cyclic in traced().arcs
-            ).map(Some)
+            ).map(Some[tuple[tuple[npt.NDArray[np.float32], bool], ...]])
         )
-        .default_value(Ok(Nothing)),
+        .default_value(Ok(NOTHING)),
     )
 
     def curved(curve: bpy.types.Curve, loops: tuple[tuple[npt.NDArray[np.float32], bool], ...]) -> Outcome[None]:
@@ -358,7 +358,7 @@ def _paths_placed(site: Site, year: int, paths: Option[SunSetup], scene: bpy.typ
 
 def _tree(scene: bpy.types.Scene) -> Option[bpy.types.NodeTree]:
     """Returns scene world node tree."""
-    return Option.of_optional(scene.world).bind(lambda world: Option.of_optional(world.node_tree))
+    return option.of_optional(scene.world).bind(lambda world: option.of_optional(world.node_tree))
 
 
 def _unkeyed(

@@ -5,6 +5,7 @@ from types import MappingProxyType
 from typing import Annotated, Final, Self
 
 import bpy
+from expression import Ok
 import msgspec
 import numpy as np
 
@@ -20,7 +21,7 @@ from rasm_bpy.render._compositor.colors import with_alpha
 from rasm_bpy.render._compositor.coordinates import dimensions
 from rasm_bpy.render._compositor.inputs import addressed, DerivedInputs, entry_values, keyed
 from rasm_imaging import SEED_BOUND
-from rasm_records import accumulated, Count, Fault, NonNegative, Ok, Outcome, paired, Reason
+from rasm_records import accumulated, Count, Fault, NonNegative, Outcome, paired, Reason
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 

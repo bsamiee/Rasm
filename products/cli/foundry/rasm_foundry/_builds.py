@@ -18,7 +18,9 @@ from cyclopts import Parameter
 from expression.extra.result import catch
 import msgspec
 lazy from anyio import amap, to_process, to_thread
-lazy from expression import Option, Result
+lazy from expression import Error, Nothing, Ok, Option, Some
+lazy from expression.collections import Block
+lazy from expression.extra import async_result
 lazy from fontTools.ttLib import TTFont, TTLibError
 lazy from fontTools.ufoLib import UFOReader
 lazy from fontTools.ufoLib.errors import UFOLibError
@@ -30,7 +32,7 @@ lazy import ufoLib2
 from rasm_foundry._checks import Check, inspected, ran, Severity
 from rasm_foundry._declaration import Declared, Faces, FontSet
 import rasm_typography
-lazy from rasm_records import accumulated, committed, Error, Fault, Ok, Outcome, paired, read, Reason, RecordFile
+lazy from rasm_records import accumulated, committed, Fault, Outcome, paired, read, Reason, RecordFile
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -208,20 +210,18 @@ class _Builds(msgspec.Struct, frozen=True, kw_only=True):
         source, buffer = self.declaration.source(done.face), BytesIO()
         opened = paired(
             read(done.path).bind(
-                lambda data: catch(partial(TTFont, lazy=True, recalcBBoxes=False, recalcTimestamp=False), exception=TTLibError)(BytesIO(data)).map_error(
-                    partial(Fault.of, Reason.UNREADABLE, str(done.path))
-                )
+                lambda data: catch(TTFont, exception=TTLibError)(BytesIO(data), lazy=True, recalcBBoxes=False, recalcTimestamp=False).map_error(partial(Fault.of, Reason.UNREADABLE, str(done.path)))
             ),
-            catch(partial(ufoLib2.Font.open, lazy=False), exception=UFOLibError)(source).map_error(partial(Fault.of, Reason.UNREADABLE, str(source))),
+            catch(ufoLib2.Font.open, exception=UFOLibError)(source, lazy=False).map_error(partial(Fault.of, Reason.UNREADABLE, str(source))),
         )
         match opened:
-            case Result(tag="ok", ok=(font, ufo)):
+            case Ok((font, ufo)):
                 rasm_typography.metered(font, ufo.info, metrics)
                 font.save(buffer)
                 return committed(source, lambda stage: catch(ufo.save, exception=OSError)(stage).map_error(partial(Fault.of, Reason.UNWRITABLE, str(source)))).bind(
                     lambda _: self.stored(done.face, done.inputs, done.own, metrics, buffer.getvalue())
                 )
-            case Result(error=faults):
+            case Error(faults):
                 return Error(faults)
 
     def staged(self, action: Action, face: Faces, /) -> Outcome[tuple[Built, Report]]:
@@ -261,7 +261,7 @@ class _Builds(msgspec.Struct, frozen=True, kw_only=True):
         return (
             read(self.declaration.check(done.face))
             .to_option()
-            .bind(lambda raw: catch(lambda: msgspec.json.decode(raw, type=_Verdict), exception=msgspec.DecodeError)().to_option())
+            .bind(lambda raw: catch(msgspec.json.Decoder(_Verdict).decode, exception=msgspec.DecodeError)(raw).to_option())
             .filter(lambda verdict: verdict.identity == identity)
         )
 
@@ -311,24 +311,18 @@ class _Builds(msgspec.Struct, frozen=True, kw_only=True):
             )
         ).default_with(lambda faults: tuple((fault.subject, fault.message, "measured") for fault in faults))
         profile = tuple(rasm_typography.Finding(requirement="profile", subject=subject, measured=measured, bound=bound) for subject, measured, bound in failed)
+        sanitized = ots.sanitize(str(done.path), capture_output=True)
+        refused = (
+            ()
+            if sanitized.returncode == 0
+            else (rasm_typography.Finding(requirement="sanitized", subject=done.path.name, measured=sanitized.stderr.decode().strip() or f"exit {sanitized.returncode}", bound="accepted"),)
+        )
         binaries = paired(read(done.path).bind(rasm_typography.Binary.of), read(found.original(face)).bind(rasm_typography.Binary.of))
         references = paired(self.covering(face), RecordFile(path=found.approved(face), decoder=_EXPECTED_DECODER).found())
         return (
             paired(binaries, references)
             .bind(lambda held: rasm_typography.verified(held[0][0], face, coverage=held[1][0], original=held[0][1], corpus=self.texts, approved=held[1][1], cache=self.cache))
-            .map(lambda findings: (ots.sanitize(str(done.path), capture_output=True), findings))
-            .map(
-                lambda held: (
-                    *(
-                        ()
-                        if held[0].returncode == 0
-                        else (rasm_typography.Finding(requirement="sanitized", subject=done.path.name, measured=held[0].stderr.decode().strip() or f"exit {held[0].returncode}", bound="accepted"),)
-                    ),
-                    *profile,
-                    *held[1],
-                )
-            )
-            .map(lambda findings: _Verdict(identity=identity, findings=findings))
+            .map(lambda findings: _Verdict(identity=identity, findings=(*refused, *profile, *findings)))
             .bind(lambda verdict: committed(found.check(face), msgspec.json.format(msgspec.json.encode(verdict))).map(lambda _: verdict))
             .bind(lambda verdict: self.met(face, verdict, report.extended(started)))
         )
@@ -336,7 +330,7 @@ class _Builds(msgspec.Struct, frozen=True, kw_only=True):
     async def settled(self, action: Action, faces: tuple[Faces, ...], /) -> list[Outcome[tuple[Built, Report]]]:
         """Stages every face across worker processes, then, where the action builds, aligns each typographic family's vertical metrics in a worker process per family, a family's alignment fault answering for each of its staged faces."""
         held = await _across(partial(self.staged, action), faces)
-        kept = sorted((pair[0] for outcome in held for pair in outcome.to_option().to_list()), key=lambda done: done.face.typographic) if action.building else ()
+        kept = sorted(Block(held).choose(lambda outcome: outcome.to_option()).map(lambda pair: pair[0]), key=lambda done: done.face.typographic) if action.building else ()
         families = tuple(tuple(members) for _, members in groupby(kept, key=lambda done: done.face.typographic))
         aligned = await amap(lambda members: to_process.run_sync(self.aligned, members), families)
         moved = {member.path: found for members, outcomes in zip(families, aligned, strict=True) for member, found in zip(members, outcomes, strict=True)}
@@ -353,7 +347,7 @@ class _Builds(msgspec.Struct, frozen=True, kw_only=True):
             One report per face, or every face's faults: `UNMET` for a face with findings, a recorded verdict answering where its identity holds.
         """
         held = await self.settled(action, faces)
-        kept = tuple(*outcome.to_option().map(lambda pair: pair[0]).to_list() for outcome in held)
+        kept = Block(held).choose(lambda outcome: outcome.to_option()).map(lambda pair: pair[0])
         files = {folder: tuple(sorted(folder.glob("*.ttf"))) for folder in {done.path.parent for done in kept}}
         digests = {folder: _digest(tuple((path.name, read(path).map(_hashed).to_option().to_optional()) for path in paths)) for folder, paths in files.items()}
         version = (await to_thread.run_sync(ran, "fontspector", "--version")).default_value(b"")
@@ -364,18 +358,15 @@ class _Builds(msgspec.Struct, frozen=True, kw_only=True):
         stale = tuple(dict.fromkeys(path for done in kept if records[done.path].is_none() for path in files[done.path.parent]))
         checks = await to_thread.run_sync(inspected, stale) if stale else Ok(frozendict())
 
-        async def verdict(outcome: Outcome[tuple[Built, Report]], /) -> Outcome[Report]:
-            match outcome:
-                case Result(tag="ok", ok=(done, report)):
-                    match records[done.path]:
-                        case Option(tag="some", some=found):
-                            return self.met(done.face, found, report)
-                        case _:
-                            return await to_process.run_sync(self.measured, done, report, identities[done.path], checks.map(lambda results: results[done.path]))
-                case Result(error=faults):
-                    return Error(faults)
+        async def verdict(staged: tuple[Built, Report], /) -> Outcome[Report]:
+            done, report = staged
+            match records[done.path]:
+                case Some(found):
+                    return self.met(done.face, found, report)
+                case Nothing():
+                    return await to_process.run_sync(self.measured, done, report, identities[done.path], checks.map(lambda results: results[done.path]))
 
-        return accumulated(await amap(verdict, held))
+        return accumulated(await amap(async_result.bind(verdict), held))
 
     # --- [ACTIONS]
 
@@ -504,9 +495,9 @@ async def performed(
         )
     )
     match found.bind(lambda _: paired(opened, selected)):
-        case Result(tag="ok", ok=(inputs, faces)):
-            return await _Builds.opened(*inputs, cache).acted(action, faces, destination)
-        case Result(error=faults):
+        case Ok(held):
+            return await _Builds.opened(*held[0], cache).acted(action, held[1], destination)
+        case Error(faults):
             return Error(faults)
 
 

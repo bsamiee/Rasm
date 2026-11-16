@@ -6,10 +6,13 @@ Fallible transitions reach `__post_init__` through `replaced`, and its `ValueErr
 
 ```python
 def replaced[R: msgspec.Struct](record: R, /, **changes: object) -> Outcome[R]:
-    return catch(partial(msgspec.structs.replace, record), exception=ValueError)(**changes).map_error(partial(Fault.of, Reason.INVALID, type(record).__name__))
+    try:
+        return Ok(msgspec.structs.replace(record, **changes))
+    except ValueError as error:
+        return Error(Fault.of(Reason.INVALID, type(record).__name__, error))
 ```
 
-`replaced(ramp, stops=tuple((1.0 - at, value) for at, value in reversed(ramp.stops)))` returns a reflected ramp or an `INVALID` fault when rounding merges distinct stop positions. `partial(msgspec.structs.replace, record)` fixes the record type before `catch` erases parameters.
+`replaced(ramp, stops=tuple((1.0 - at, value) for at, value in reversed(ramp.stops)))` returns a reflected ramp or an `INVALID` fault when rounding merges distinct stop positions.
 
 ## [02]-[KEYED_DIFFS]
 
@@ -17,10 +20,12 @@ Keyed diffs retain presence separately from each stored value:
 
 ```python
 def edits[K, V](before: Mapping[K, V], after: Mapping[K, V], /) -> frozendict[K, tuple[Option[V], Option[V]]]:
-    return frozendict({key: (old, new) for key in dict.fromkeys((*before, *after)) if (old := Some(before[key]) if key in before else Nothing) != (new := Some(after[key]) if key in after else Nothing)})
+    return frozendict({
+        key: (old, new) for key in dict.fromkeys((*before, *after)) if (old := Some(before[key]) if key in before else NOTHING) != (new := Some(after[key]) if key in after else NOTHING)
+    })
 ```
 
-`Some(None)` retains a present null value, `Nothing` marks absence, and equal present values produce no edit. Keys retain first-seen order across both mappings.
+`Some(None)` retains a present null value, `NOTHING` marks absence, and equal present values produce no edit. Keys retain first-seen order across both mappings.
 
 ## [03]-[DEPENDENCY_GRAPHS]
 

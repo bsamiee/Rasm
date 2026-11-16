@@ -5,7 +5,7 @@ from types import MappingProxyType
 from typing import Annotated, ClassVar, Final
 
 import bpy
-from expression import Option, Some
+from expression import NOTHING, Ok, Option, option, Some
 import msgspec
 
 from rasm_bpy.commands.operators import Answer, Call, called, Done, Operator, Placement, Unchanged
@@ -20,7 +20,7 @@ from rasm_bpy.scene._objects import active_object
 from rasm_bpy.ui._layout import members, rows
 from rasm_bpy.ui._layout.members import bound
 from rasm_bpy.ui._layout.rows import realized
-from rasm_records import accumulated, Nothing, Ok, Outcome
+from rasm_records import accumulated, Outcome
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -56,7 +56,7 @@ class _LightLinks(msgspec.Struct, frozen=True, kw_only=True):
         """Returns each set's linking template with its stock buttons, then the selection unlink button of each set apart from them."""
 
         def reach(context: bpy.types.Context) -> Option[bpy.types.ObjectLightLinking]:
-            return root_in(bpy.types.ViewLayer, context).bind(lambda layer: Option.of_optional(layer.objects.active)).map(lambda item: item.light_linking)
+            return root_in(bpy.types.ViewLayer, context).bind(lambda layer: option.of_optional(layer.objects.active)).map(lambda item: item.light_linking)
 
         def linking(link: Descriptor) -> Outcome[rows.RowDraw]:
             stock = (rows.OperatorButton(target=Placement(_LINKERS[link])), rows.OperatorButton(target=Placement(bpy.ops.object.light_linking_unlink_from_collection)))
@@ -96,7 +96,7 @@ def linked(
         .map(Ok)
         .default_with(
             lambda: _LightLinks.sets[link].made(
-                identity, lambda: created(Nothing, f"{owner.name} {link.prop.name}"), of=Some(owner), filled=lambda held: link.write(emitter.light_linking, held).map(lambda _: held)
+                identity, lambda: created(NOTHING, f"{owner.name} {link.prop.name}"), of=Some(owner), filled=lambda held: link.write(emitter.light_linking, held).map(lambda _: held)
             )
         )
         .bind(lambda held: called(_LINKERS[link], {LINK_STATE.prop.identifier: state}, override=Some(context.temp_override(active_object=emitter, selected_objects=list(members)))).map(lambda _: held))

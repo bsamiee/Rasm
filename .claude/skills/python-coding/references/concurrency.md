@@ -2,18 +2,7 @@
 
 ## [01]-[TASKS]
 
-Synchronous steps chain on an awaited result through `bind` and `map`. `chained` is the one bind across an `await`: it awaits its step on success and rewraps a failure under the step's success type:
-
-```python
-async def chained[T, R](step: Callable[[T], Awaitable[Outcome[R]]], result: Outcome[T], /) -> Outcome[R]:
-    match result:
-        case Result(tag="ok", ok=value):
-            return await step(value)
-        case Result(error=faults):
-            return Error(faults)
-```
-
-`await chained(loaded, (await loaded(index)).bind(named))` reads an index file, decodes an `anyio.Path` through synchronous `named`, and reads it. A failed read or decode returns its faults with no later read. `await anyio.functools.reduce(lambda held, item: chained(partial(<step>, item), held), items, initial=Result[<state>, Faults].Ok(<seed>))` folds state through dependent awaited steps until the first fault. Independent awaits start together, and the anyio member follows the shape of the work:
+Synchronous steps chain on an awaited result through `bind` and `map`. `await async_result.bind(loaded)((await loaded(index)).bind(named))` reads an index file, decodes an `anyio.Path` through synchronous `named`, and reads it. A failed read or decode returns its faults with no later read. `await anyio.functools.reduce(lambda held, item: async_result.bind(partial(<step>, item))(held), items, initial=Ok(<seed>))` folds state through dependent awaited steps until the first fault. Independent awaits start together, and the anyio member follows the shape of the work:
 - `anyio.gather` returns a typed tuple, and `paired(*await anyio.gather(loaded(left), loaded(right)))` keeps the faults of every failed read
 - `accumulated(await anyio.amap(loaded, paths))` combines a batch into one outcome holding every fault in input order
 - `async with anyio.as_completed(*coroutines) as done` yields handles as tasks finish, `await <handle>` reads each, and block exit cancels the rest

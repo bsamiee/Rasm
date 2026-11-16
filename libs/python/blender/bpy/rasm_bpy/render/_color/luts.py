@@ -10,7 +10,7 @@ from types import MappingProxyType
 from typing import Annotated, ClassVar, Final
 
 import bpy
-from expression import Some
+from expression import Error, NOTHING, Some
 from expression.extra.result import catch
 import msgspec
 import numpy as np
@@ -30,7 +30,7 @@ from rasm_bpy.nodes._desired import member_paths
 from rasm_bpy.render._outputs.formats import OutputFormat
 from rasm_bpy.render._outputs.results import intermediate, INTERMEDIATES
 from rasm_imaging import converted, ImageFile, Lattice, LATTICE_SIZES, LutFormat, LutOutput, read_file, Spacing, Storage
-from rasm_records import accumulated, Error, Fault, Nothing, Outcome, paired, Reason
+from rasm_records import accumulated, Fault, Outcome, paired, Reason
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -167,7 +167,7 @@ def lattice_of(fields: LatticeFields) -> Lattice:
 def output(properties: Baking | Writing) -> LutOutput:
     """Returns exact writer for a writable format, else a lattice bake."""
     row = FORMATS[properties.format]
-    return LutOutput(format=row, lattice=Some(lattice_of(properties)) if isinstance(properties, Baking) and row not in LutFormat.writable() else Nothing)
+    return LutOutput(format=row, lattice=Some(lattice_of(properties)) if isinstance(properties, Baking) and row not in LutFormat.writable() else NOTHING)
 
 
 def extension(properties: Baking | Writing) -> tuple[str]:

@@ -6,7 +6,7 @@ from types import MappingProxyType
 from typing import Final, Generic, Never, Protocol, runtime_checkable, TypeVar
 
 import bpy
-from expression import Option, Some, try_downcast
+from expression import NOTHING, Ok, Option, option, Some
 import msgspec
 import rna_prop_ui
 
@@ -21,7 +21,7 @@ from rasm_bpy.ui._layout.lists import ItemList
 from rasm_bpy.ui._layout.members import Member, owner_key, ResolvedMember
 from rasm_bpy.ui._layout.rows import Opens, OperatorButton, Property, realized, RowContent, RowDraw
 from rasm_bpy.ui._layout.values import Replacement, Store, StoreCommand
-from rasm_records import Nothing, Ok, Outcome, paired
+from rasm_records import Outcome, paired
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -49,7 +49,7 @@ class _Items(msgspec.Struct, frozen=True, kw_only=True):
     """Collection whose items each draw the section under their name, open state in the item boolean `expanded` names, else per item in the region."""
 
     collection: Member
-    expanded: Option[str] = Nothing
+    expanded: Option[str] = NOTHING
 
 
 class Section(msgspec.Struct, Generic[_T_co], frozen=True, kw_only=True):  # ruff: ignore[non-pep695-generic-class]
@@ -62,14 +62,14 @@ class Section(msgspec.Struct, Generic[_T_co], frozen=True, kw_only=True):  # ruf
     """
 
     key: Key
-    title: Option[str] = Nothing
+    title: Option[str] = NOTHING
     description: str | None = None
     rows: tuple[RowContent, ...] = ()
     header: tuple[RowContent, ...] = ()
-    enable: Option[Member] = Nothing
-    store: Option[Store[_T_co]] = Nothing
-    condition: Option[Condition] = Nothing
-    holder: Option[Member | ItemList[bpy.types.PropertyGroup, Never] | _Items] = Nothing
+    enable: Option[Member] = NOTHING
+    store: Option[Store[_T_co]] = NOTHING
+    condition: Option[Condition] = NOTHING
+    holder: Option[Member | ItemList[bpy.types.PropertyGroup, Never] | _Items] = NOTHING
     absent: tuple[RowContent, ...] = ()
     opened: bool = False
     split: bool = True
@@ -131,19 +131,19 @@ class Section(msgspec.Struct, Generic[_T_co], frozen=True, kw_only=True):  # ruf
 
         def stored(store: Store[_T_co]) -> Outcome[tuple[Attached[bpy.types.PropertyGroup], Callable[[Struct, bpy.types.Context], Option[Host]], RowDraw, RowDraw]]:
             owner = store.attachment.owner
-            host = store.host.map(lambda member: member.realized(identity).map(Some)).default_value(Ok(Nothing))
+            host = store.host.map(lambda member: member.realized(identity).map(Some)).default_value(Ok(NOTHING))
             buttons = (
                 Opens(target=PopupTarget(store.panel, PopupKind.PANEL), keywords={"text": ""}, icon=Some("PRESET")),
                 OperatorButton(target=store.commands[StoreCommand.RESET], keywords={"text": ""}),
             )
             return paired(store.attachment.bound(identity), host, realized(buttons, identity), realized(field_rows(store.attachment.form, store.attachment.key, store.fields), identity)).map(
-                lambda parts: (parts[0], partial(_host, parts[1], owner), parts[2], parts[3])
+                lambda parts: (parts[0], lambda holder, context: _host(parts[1], owner, holder, context), parts[2], parts[3])
             )
 
         enable = self.enable.map(
             lambda member: paired(member.realized(identity, bpy.types.BoolProperty), realized((Property(target=member, keywords={"text": ""}),), identity)).map(Some)
-        ).default_value(Ok(Nothing))
-        store = self.store.map(lambda held: stored(held).map(Some)).default_value(Ok(Nothing))
+        ).default_value(Ok(NOTHING))
+        store = self.store.map(lambda held: stored(held).map(Some)).default_value(Ok(NOTHING))
         drawn = paired(realized(self.header, identity), realized(self.rows, identity), realized(self.absent, identity))
         return paired(enable, store, drawn, holding()).map(
             lambda found: SectionDraws(section=self, name=identity.identifier(self.key), enable=found[0], store=found[1], header=found[2][0], rows=found[2][1], absent=found[2][2], reach=found[3])
@@ -212,7 +212,7 @@ class SectionDraws(msgspec.Struct, frozen=True, kw_only=True):
         """Draws one layout panel per reached holder, absent rows while none is reached, the header holding the boolean, title, and right-aligned header rows."""
         for holder in self.holders(layout, outer, context):
             (drawn, body), title, translate = self.opened(layout, holder)
-            for header in Option.of_optional(drawn).to_list():
+            for header in option.of_optional(drawn).to_list():
                 self.dimmed(header, holder, context)
                 for _, enable in self.enable.to_list():
                     enable(header, holder, context)
@@ -220,7 +220,7 @@ class SectionDraws(msgspec.Struct, frozen=True, kw_only=True):
                 right = header.row(align=True)
                 right.alignment = "RIGHT"
                 self.header_preset(right, holder, context)
-            for opened in Option.of_optional(body).to_list():
+            for opened in option.of_optional(body).to_list():
                 self.dimmed(opened, holder, context)
                 self.body(opened, holder, context)
 
@@ -230,7 +230,7 @@ class SectionDraws(msgspec.Struct, frozen=True, kw_only=True):
         match section.holder.to_optional():
             case _Items(expanded=expanded):
                 panel = expanded.map(lambda flag: layout.panel_prop(holder, flag)).default_with(lambda: layout.panel(f"{self.name}_{owner_key(holder)}", default_closed=not section.opened))
-                named = Option.of_optional(rna_definition(holder).name_property).map(lambda prop: (str(getattr(holder, prop.identifier)), False))
+                named = option.of_optional(rna_definition(holder).name_property).map(lambda prop: (str(getattr(holder, prop.identifier)), False))
                 return (panel, *named.default_value((section.label, True)))
             case _:
                 return layout.panel(self.name, default_closed=not section.opened), section.label, True
@@ -341,8 +341,8 @@ def _held[P: bpy.types.Property](bound: ResolvedMember[P], holder: Struct, conte
 
 def _host[H: Host](bound: Option[ResolvedMember], owner: type[H], holder: Struct, context: bpy.types.Context) -> Option[H]:
     """Host the store's host member names at the holder, else the holder itself when it is an owner of the store, else the context root of the owner type."""
-    return bound.map(lambda held: held.at(holder, context).bind(lambda at: Option.of_optional(try_downcast(owner, getattr(*at))))).default_with(
-        lambda: Option.of_optional(try_downcast(owner, holder)).or_else_with(lambda: root_in(owner, context))
+    return bound.map(lambda held: held.at(holder, context).bind(lambda at: Some(found) if isinstance(found := getattr(*at), owner) else NOTHING)).default_with(
+        lambda: (Some(holder) if isinstance(holder, owner) else NOTHING).or_else_with(lambda: root_in(owner, context))
     )
 
 

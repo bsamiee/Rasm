@@ -9,7 +9,7 @@ import math
 from typing import Final, overload
 
 import bpy
-from expression import Option, Result, Some
+from expression import Error, NOTHING, Ok, Option, option, Some
 from expression.extra.result import catch
 import msgspec
 import numpy as np
@@ -22,7 +22,7 @@ from rasm_bpy.data._rna.descriptors import Descriptor, DTYPES, Value
 from rasm_bpy.data._rna.paths import Native, rna_definition, RnaPath, Struct, struct_at
 from rasm_bpy.data._rna.snapshots import Capture, Snapshot
 from rasm_bpy.nodes._trees import endpoints
-from rasm_records import accumulated, content_hash, ContentHash, Fault, Nothing, Ok, Outcome, paired, reached, Tree
+from rasm_records import accumulated, content_hash, ContentHash, Fault, Outcome, paired, reached, Tree
 
 # --- [TYPES] ----------------------------------------------------------------------------
 type _Elements[T] = bpy.types.bpy_prop_collection[T]
@@ -37,10 +37,10 @@ _COMPOSITE: Final = frozenset({"MULTILAYER", "RENDER_RESULT"})
 
 
 @overload
-def fingerprinted(owner: _Subject, *, weighted: bool = False, before_modifier: Option[str] = Nothing) -> Outcome[Option[ContentHash]]: ...
+def fingerprinted(owner: _Subject, *, weighted: bool = False, before_modifier: Option[str] = NOTHING) -> Outcome[Option[ContentHash]]: ...
 @overload
-def fingerprinted(owner: tuple[_Subject, ...], *, weighted: bool = False, before_modifier: Option[str] = Nothing) -> Outcome[tuple[Option[ContentHash], ...]]: ...
-def fingerprinted(owner: _Subject | tuple[_Subject, ...], *, weighted: bool = False, before_modifier: Option[str] = Nothing) -> Outcome[Option[ContentHash]] | Outcome[tuple[Option[ContentHash], ...]]:
+def fingerprinted(owner: tuple[_Subject, ...], *, weighted: bool = False, before_modifier: Option[str] = NOTHING) -> Outcome[tuple[Option[ContentHash], ...]]: ...
+def fingerprinted(owner: _Subject | tuple[_Subject, ...], *, weighted: bool = False, before_modifier: Option[str] = NOTHING) -> Outcome[Option[ContentHash]] | Outcome[tuple[Option[ContentHash], ...]]:
     """Hashes captured data-block content, upstream node graphs, or compositor entries, sharing dependencies across tuple roots.
 
     Args:
@@ -79,7 +79,7 @@ def fingerprinted(owner: _Subject | tuple[_Subject, ...], *, weighted: bool = Fa
                         pass
         return tuple(blocks), paths
 
-    def capture(struct: Native, selection: Option[tuple[Descriptor, ...]] = Nothing) -> Captured[Snapshot]:
+    def capture(struct: Native, selection: Option[tuple[Descriptor, ...]] = NOTHING) -> Captured[Snapshot]:
         return Snapshot.capture(struct, selection).map(lambda snapshot: (snapshot, *references(struct, snapshot.tree)))
 
     def cacheable[T](captures: Iterable[Captured[T]]) -> bool:
@@ -89,7 +89,7 @@ def fingerprinted(owner: _Subject | tuple[_Subject, ...], *, weighted: bool = Fa
         return tuple[Step, ...](
             step
             for result in captures
-            for step in (result.map(lambda _: Nothing), *(block for _, blocks, _ in result.to_option().to_list() for block in blocks if isinstance(block, bpy.types.NodeTree | bpy.types.Image)))
+            for step in (result.map(lambda _: NOTHING), *(block for _, blocks, _ in result.to_option().to_list() for block in blocks if isinstance(block, bpy.types.NodeTree | bpy.types.Image)))
         )
 
     def buffers[T](values: _Elements[T], members: Iterable[bpy.types.Property]) -> tuple[npt.NDArray[np.bool | np.int32 | np.float32], ...]:
@@ -106,10 +106,10 @@ def fingerprinted(owner: _Subject | tuple[_Subject, ...], *, weighted: bool = Fa
         transient = image.source in _UNHASHED or image.type in _COMPOSITE or image.is_multiview
         empty = (image.source == "VIEWER" and not image.has_data) or not np.asarray(image.size).prod()
         if transient or empty:
-            return Ok(Nothing)
+            return Ok(NOTHING)
         members = Descriptor.saved(image, lambda prop: prop != bpy.types.Image.bl_rna.properties["pixels"])
         settings = msgspec.msgpack.encode((image.type, image.is_float))
-        packed = tuple(np.frombuffer(file.data, np.uint8) for part in image.packed_files for file in Option.of_optional(part.packed_file).to_list())
+        packed = tuple(np.frombuffer(file.data, np.uint8) for part in image.packed_files for file in option.of_optional(part.packed_file).to_list())
         return paired(pixels(image), Snapshot.capture(image, Some(members))).map(lambda pair: Some(content_hash(bpy.types.Image, pair[1], settings, arrays=(pair[0], *packed))))
 
     def graph(owner: bpy.types.NodeTree | bpy.types.Node, tree: bpy.types.NodeTree, nodes: tuple[bpy.types.Node, ...]) -> tuple[Outcome[Option[ContentHash]], tuple[Step, ...]]:
@@ -121,22 +121,22 @@ def fingerprinted(owner: _Subject | tuple[_Subject, ...], *, weighted: bool = Fa
             connection = msgspec.msgpack.encode((source.name, outlet.identifier, target.name, inlet.identifier, link.multi_input_sort_id))
             return Snapshot.capture(link, Some(Descriptor.saved(link, lambda prop: not prop.is_readonly))).map(lambda snapshot: content_hash(bpy.types.NodeLink, connection, snapshot))
 
-        captured = tuple(starmap(capture, ((tree, Some(settings)), *((item, Nothing) for item in nodes))))
+        captured = tuple(starmap(capture, ((tree, Some(settings)), *((item, NOTHING) for item in nodes))))
         links = accumulated(linked(link) for link in tree.links if link.to_node in reached)
         seed = paired(accumulated(result.map(lambda parts: parts[0]) for result in captured), links).map(
-            lambda parts: Some(content_hash(type(owner), *parts[0], *parts[1])) if cacheable(captured) else Nothing
+            lambda parts: Some(content_hash(type(owner), *parts[0], *parts[1])) if cacheable(captured) else NOTHING
         )
-        return seed, (*ordered(captured), links.map(lambda _: Nothing))
+        return seed, (*ordered(captured), links.map(lambda _: NOTHING))
 
     def elements(block: bpy.types.ID, *, weighted: bool) -> tuple[Outcome[Option[ContentHash]], tuple[Step, ...]]:
-        shapes = tuple(Option.of_optional(block.shape_keys).to_list()) if isinstance(block, bpy.types.Mesh | bpy.types.Curve | bpy.types.Lattice) else ()
+        shapes = tuple(option.of_optional(block.shape_keys).to_list()) if isinstance(block, bpy.types.Mesh | bpy.types.Curve | bpy.types.Lattice) else ()
         keys = tuple(key for shape in shapes for key in shape.key_blocks)
         materials = (
             tuple(block.materials)
             if isinstance(block, bpy.types.Mesh | bpy.types.Curve | bpy.types.Curves | bpy.types.PointCloud | bpy.types.GreasePencil | bpy.types.MetaBall | bpy.types.Volume)
             else ()
         )
-        drawings = tuple(drawing for layer in block.layers for frame in layer.frames for drawing in Option.of_optional(frame.drawing).to_list()) if isinstance(block, bpy.types.GreasePencil) else ()
+        drawings = tuple(drawing for layer in block.layers for frame in layer.frames for drawing in option.of_optional(frame.drawing).to_list()) if isinstance(block, bpy.types.GreasePencil) else ()
         attributes = (
             *(block.attributes if isinstance(block, bpy.types.Mesh | bpy.types.Curves | bpy.types.PointCloud | bpy.types.GreasePencil) else ()),
             *(attribute for drawing in drawings for attribute in drawing.attributes),
@@ -158,7 +158,7 @@ def fingerprinted(owner: _Subject | tuple[_Subject, ...], *, weighted: bool = Fa
                     )
                     return structs, arrays, ()
                 case bpy.types.Curve():
-                    profiles = tuple(Option.of_optional(block.bevel_profile).to_list())
+                    profiles = tuple(option.of_optional(block.bevel_profile).to_list())
                     arrays = (
                         *buffers(block.splines, bpy.types.Spline.bl_rna.properties),
                         *(array for spline in block.splines for array in buffers(spline.points, bpy.types.SplinePoint.bl_rna.properties)),
@@ -188,7 +188,7 @@ def fingerprinted(owner: _Subject | tuple[_Subject, ...], *, weighted: bool = Fa
                         *(array for layer in block.layers for array in buffers(layer.frames, bpy.types.GreasePencilFrame.bl_rna.properties)),
                         *(array for drawing in drawings for array in buffers(drawing.curve_offsets, bpy.types.IntAttributeValue.bl_rna.properties)),
                     )
-                    labels = tuple((node.name, Option.of_optional(node.parent_group).map(lambda group: group.name).to_optional()) for node in nodes)
+                    labels = tuple((node.name, option.of_optional(node.parent_group).map(lambda group: group.name).to_optional()) for node in nodes)
                     return (block, *nodes), arrays, labels
                 case _:
                     return structs, (), ()
@@ -199,13 +199,13 @@ def fingerprinted(owner: _Subject | tuple[_Subject, ...], *, weighted: bool = Fa
             for attribute in attributes
             for data in (rna_definition(attribute).properties["data"],)
             if isinstance(data, bpy.types.CollectionProperty)
-            for item in Option.of_optional(data.fixed_type).to_list()
+            for item in option.of_optional(data.fixed_type).to_list()
         )
         columns = tuple(array for values, members in data for array in buffers(values, members))
         text = tuple(tuple(getattr(item, member.identifier) for item in values) for values, members in data for member in members if isinstance(member, bpy.types.StringProperty))
         named = msgspec.msgpack.encode((
             tuple((attribute.name, attribute.domain, attribute.data_type) for attribute in attributes),
-            tuple(Option.of_optional(material).map(IdName.of).to_optional() for material in materials),
+            tuple(option.of_optional(material).map(IdName.of).to_optional() for material in materials),
             tuple(key.relative_key.name for key in keys),
             labels,
             *text,
@@ -216,7 +216,7 @@ def fingerprinted(owner: _Subject | tuple[_Subject, ...], *, weighted: bool = Fa
 
         captured = tuple(capture(struct, Some(Descriptor.saved(struct, valued))) for struct in structs)
         seed = accumulated(result.map(lambda parts: parts[0]) for result in captured).map(
-            lambda snapshots: Some(content_hash(type(block), *snapshots, named, arrays=(*columns, *arrays))) if cacheable(captured) else Nothing
+            lambda snapshots: Some(content_hash(type(block), *snapshots, named, arrays=(*columns, *arrays))) if cacheable(captured) else NOTHING
         )
         return seed, ordered(captured)
 
@@ -224,7 +224,7 @@ def fingerprinted(owner: _Subject | tuple[_Subject, ...], *, weighted: bool = Fa
         native = Capture[Content](
             block,
             lambda descriptor, struct, _inside, _compound: (
-                Some(tuple(Option.of_optional(block).map(IdName.of).to_optional() for block in getattr(struct, descriptor.prop.identifier)))
+                Some(tuple(option.of_optional(block).map(IdName.of).to_optional() for block in getattr(struct, descriptor.prop.identifier)))
                 if isinstance(descriptor.prop, bpy.types.CollectionProperty)
                 else Some(descriptor.read(struct))
             ),
@@ -239,14 +239,14 @@ def fingerprinted(owner: _Subject | tuple[_Subject, ...], *, weighted: bool = Fa
                         type(block),
                         parts[0],
                         *(
-                            (msgspec.msgpack.encode(tuple((bone.path_from_id(), Option.of_optional(bone.parent).map(lambda parent: parent.path_from_id()).to_optional()) for bone in block.bones)),)
+                            (msgspec.msgpack.encode(tuple((bone.path_from_id(), option.of_optional(bone.parent).map(lambda parent: parent.path_from_id()).to_optional()) for bone in block.bones)),)
                             if isinstance(block, bpy.types.Armature)
                             else ()
                         ),
                     )
                 )
                 if cacheable(captured)
-                else Nothing
+                else NOTHING
             )
         )
         return seed, ordered(captured)
@@ -255,19 +255,19 @@ def fingerprinted(owner: _Subject | tuple[_Subject, ...], *, weighted: bool = Fa
         earlier = tuple(takewhile(lambda modifier: before_modifier != Some(modifier.name), block.modifiers))
         named = tuple(modifier for modifier in block.modifiers if before_modifier == Some(modifier.name))[:1]
         groups = msgspec.msgpack.encode(tuple(group.name for group in block.vertex_groups))
-        data = tuple(Option.of_optional(block.data).to_list())
+        data = tuple(option.of_optional(block.data).to_list())
         selection = Descriptor.saved(block, lambda prop: prop != bpy.types.Object.bl_rna.properties["modifiers"])
         captured = accumulated((capture(block, Some(selection)), *(capture(modifier) for modifier in (*earlier, *named))))
         seed = captured.map(
             lambda parts: (
                 Some(content_hash(bpy.types.Object, *(snapshot for snapshot, _, _ in parts), groups))
-                if all(not paths and all(isinstance(held, bpy.types.NodeTree) or held in data for held in blocks) for _, blocks, paths in parts)
-                else Nothing
+                if not any(paths for _, _, paths in parts) and all(held in data for _, blocks, _ in parts for held in blocks if not isinstance(held, bpy.types.NodeTree))
+                else NOTHING
             )
         )
         steps: tuple[Step, ...] = (
-            captured.map(lambda _: Nothing),
-            *(group for modifier in earlier if isinstance(modifier, bpy.types.NodesModifier) for group in Option.of_optional(modifier.node_group).to_list()),
+            captured.map(lambda _: NOTHING),
+            *(group for modifier in earlier if isinstance(modifier, bpy.types.NodesModifier) for group in option.of_optional(modifier.node_group).to_list()),
             *((held, bool(block.vertex_groups)) if isinstance(held, bpy.types.Mesh) else held for held in data),
         )
         return seed, steps
@@ -276,9 +276,9 @@ def fingerprinted(owner: _Subject | tuple[_Subject, ...], *, weighted: bool = Fa
         enables = msgspec.msgpack.encode((entry.enable_for_render, entry.enable_for_preview))
         captured = tuple(capture(struct) for struct in struct_at(entry, ("properties", "inputs")).to_list())
         seed = accumulated(result.map(lambda parts: parts[0]) for result in captured).map(
-            lambda snapshots: Some(content_hash(bpy.types.SceneCompositorEffect, *snapshots, enables)) if cacheable(captured) else Nothing
+            lambda snapshots: Some(content_hash(bpy.types.SceneCompositorEffect, *snapshots, enables)) if cacheable(captured) else NOTHING
         )
-        return seed, (*ordered(captured), *Option.of_optional(entry.node_group).to_list())
+        return seed, (*ordered(captured), *option.of_optional(entry.node_group).to_list())
 
     def prepare(key: Key) -> tuple[Outcome[Option[ContentHash]], tuple[Step, ...]]:
         match key:
@@ -313,16 +313,16 @@ def fingerprinted(owner: _Subject | tuple[_Subject, ...], *, weighted: bool = Fa
     while pending:
         if (key := pending.popleft()) not in captured:
             _, steps = captured[key] = prepare(key)
-            pending.extend(step for step in steps if not isinstance(step, Result))
+            pending.extend(step for step in steps if not isinstance(step, Ok | Error))
     hashes: dict[Key, Outcome[Option[ContentHash]]] = {}
-    dependencies = {key: tuple(step for step in steps if not isinstance(step, Result)) for key, (_, steps) in captured.items()}
+    dependencies = {key: tuple(step for step in steps if not isinstance(step, Ok | Error)) for key, (_, steps) in captured.items()}
     for key in TopologicalSorter(dependencies).static_order():
         seed, steps = captured[key]
-        hashes[key] = accumulated(step if isinstance(step, Result) else hashes[step] for step in steps).bind(
+        hashes[key] = accumulated(step if isinstance(step, Ok | Error) else hashes[step] for step in steps).bind(
             lambda readings: seed.map(
                 lambda own: reduce(
                     lambda held, needed: held.map2(partial(content_hash, type(key[0] if isinstance(key, tuple) else key)), needed),
-                    (reading for step, reading in zip(steps, readings) if not isinstance(step, Result)),
+                    (reading for step, reading in zip(steps, readings) if not isinstance(step, Ok | Error)),
                     own,
                 )
             )

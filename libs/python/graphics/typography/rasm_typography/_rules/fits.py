@@ -8,13 +8,14 @@ lazy from statistics import fmean
 lazy import unicodedata
 
 import msgspec
+lazy from expression import Ok
 lazy from fontTools.misc.transform import Offset
 lazy from pathops import PathOp
 lazy from scipy.optimize import root_scalar
 
 from rasm_typography._faces.declaration import Code, Em, Ratio
 from rasm_typography._rules import measures
-lazy from rasm_records import Ok, Outcome
+lazy from rasm_records import Outcome
 lazy from rasm_typography._faces.glyphs import Glyph, Letter, Point, Source
 lazy from rasm_typography._faces.names import Form
 lazy from rasm_typography._outlines import measure, paths

@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Annotated
 
 import bpy
-from expression import Option, Result, Some, try_downcast
+from expression import NOTHING, Ok, Option, option, Result, Some, try_downcast
 from expression.extra.result import catch
 import msgspec
 
@@ -26,7 +26,7 @@ from rasm_bpy.settings._attachments import Attachment
 from rasm_bpy.settings._presets import Preset
 from rasm_bpy.ui._layout.sections import Section
 from rasm_bpy.ui._layout.values import Store
-from rasm_records import accumulated, Fault, Nothing, Ok, Outcome, paired, Reason
+from rasm_records import accumulated, Fault, Outcome, paired, Reason
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -54,7 +54,7 @@ class FollowedRender(bpy.types.PropertyGroup):
         """Returns the written pass of a pass name, absent fault for a pass the record follows none of or the render wrote none of."""
         found: Result[object, ValueError] = catch(self.path_resolve, exception=ValueError)(_member_key(name))
         return found.map_error(lambda error: Fault.of(Reason.ABSENT, repr(self), error, member=name)).bind(
-            lambda value: Option.of_optional(try_downcast(WrittenPass, value)).filter(lambda held: bool(held.path)).to_result_with(partial(Fault.of, Reason.ABSENT, repr(self), member=name))
+            lambda value: option.of_optional(try_downcast(WrittenPass, value)).filter(lambda held: bool(held.path)).to_result_with(partial(Fault.of, Reason.ABSENT, repr(self), member=name))
         )
 
 
@@ -71,7 +71,7 @@ class FollowUp[G: FollowUpSettings](msgspec.Struct, frozen=True, kw_only=True, d
     form: type[G]
     built: Callable[[Identity, bpy.types.Scene, FollowedRender, G, Path], Outcome[None]]
     passes: tuple[Descriptor, ...] = ()
-    held: Option[Snapshot] = Nothing
+    held: Option[Snapshot] = NOTHING
 
     @cached_property
     def settings(self) -> Attachment[G]:
@@ -110,7 +110,7 @@ class FollowUp[G: FollowUpSettings](msgspec.Struct, frozen=True, kw_only=True, d
         day = plan.moment.astimezone().date()
 
         def followed(index: int, scope: JobScope) -> Outcome[tuple[JobScope, Option[JobScope]]]:
-            return scene_of(scope.scene).bind(lambda scene: self.settings.read(identity, scene).bind(lambda held: scoped(scene, index, scope, day) if held.enabled else Ok((scope, Nothing))))
+            return scene_of(scope.scene).bind(lambda scene: self.settings.read(identity, scene).bind(lambda held: scoped(scene, index, scope, day) if held.enabled else Ok((scope, NOTHING))))
 
         return accumulated(starmap(followed, enumerate(plan.scopes))).map(
             lambda pairs: msgspec.structs.replace(plan, scopes=(*(base for base, _ in pairs), *(follow for _, held in pairs for follow in held.to_list())))
@@ -118,7 +118,7 @@ class FollowUp[G: FollowUpSettings](msgspec.Struct, frozen=True, kw_only=True, d
 
     def _scopes(self, index: int, scope: JobScope, values: Snapshot | None = None) -> tuple[JobScope, Option[JobScope]]:
         """Combines held base values with the follow-up's metadata and source dependency."""
-        kept = self.held.map(lambda held: Option.of_optional(scope.values).map(lambda prior: msgspec.structs.replace(prior, tree=prior.tree.merged(held.tree))).default_value(held))
+        kept = self.held.map(lambda held: option.of_optional(scope.values).map(lambda prior: msgspec.structs.replace(prior, tree=prior.tree.merged(held.tree))).default_value(held))
         return (
             kept.map(lambda merged: msgspec.structs.replace(scope, values=merged)).default_value(scope),
             Some(JobScope(scene=scope.scene, camera=scope.camera, layer=scope.layer, values=values, prerequisites=(index,))),
@@ -137,7 +137,7 @@ class FollowUp[G: FollowUpSettings](msgspec.Struct, frozen=True, kw_only=True, d
                 for output, name in written.passes.items()
             ]
             sources = dict(reversed(routed))
-            return accumulated(Option.of_optional(sources.get(name)).map(lambda held: (name, *held)).to_result_with(partial(Fault.of, Reason.ABSENT, repr(scene), member=name)) for name in names)
+            return accumulated(option.of_optional(sources.get(name)).map(lambda held: (name, *held)).to_result_with(partial(Fault.of, Reason.ABSENT, repr(scene), member=name)) for name in names)
 
         def planned(record: str, outputs: str, version: int, copied: OutputPath, found: tuple[tuple[str, str, str], ...]) -> tuple[JobScope, Option[JobScope]]:
             values: dict[RnaPath, Value] = {

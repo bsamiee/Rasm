@@ -8,7 +8,7 @@ from typing import Annotated, ClassVar, Final, Self
 from bl_ui.properties_output import RENDER_PT_format, RENDER_PT_frame_range
 import bpy
 from bpy_extras.object_utils import world_to_camera_view
-from expression import Option, Result, Some
+from expression import Error, NOTHING, Ok, Option, option, Some
 from mathutils import Vector
 import msgspec
 import numpy as np
@@ -28,7 +28,7 @@ from rasm_bpy.settings._attachments import Attached, Attachment, Recovery, Store
 from rasm_bpy.ui._elements.menus import Append
 from rasm_bpy.ui._layout.rows import Label
 from rasm_imaging import Raster, Region
-from rasm_records import accumulated, Case, Error, Fault, Faults, NonNegative, Nothing, Ok, Outcome, paired, Reason
+from rasm_records import accumulated, Case, Fault, NonNegative, Outcome, paired, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -88,7 +88,7 @@ class Framing(msgspec.Struct, frozen=True, kw_only=True):
     def aspect(self) -> Option[float]:
         """Displayed width over height after native percentage rounding, Nothing for a zero-pixel axis."""
         width, height = self.size
-        return Some(width * self.pixel_aspect / height) if width > 0 and height > 0 else Nothing
+        return Some(width * self.pixel_aspect / height) if width > 0 and height > 0 else NOTHING
 
     @property
     def padding(self) -> tuple[int, int]:
@@ -172,7 +172,7 @@ class Framing(msgspec.Struct, frozen=True, kw_only=True):
             return horizontal if camera.sensor_fit == "HORIZONTAL" else vertical if camera.sensor_fit == "VERTICAL" else max(horizontal, vertical)
 
         base = fitted(width, height)
-        return Some(fitted(width + 2 * pad_x, height + 2 * pad_y) / base) if base else Nothing
+        return Some(fitted(width + 2 * pad_x, height + 2 * pad_y) / base) if base else NOTHING
 
     def snapshot(self, ppm_base: float) -> Snapshot:
         """Returns native framing settings keeping user's density unit."""
@@ -209,7 +209,7 @@ class Framed(msgspec.Struct, frozen=True, kw_only=True):
 
     # --- [VALUES]
 
-    def read(self, scene: bpy.types.Scene, extent: Option[Extents] = Nothing) -> Framing:
+    def read(self, scene: bpy.types.Scene, extent: Option[Extents] = NOTHING) -> Framing:
         """Reads native framing and attached overscan, `extent` in place of the native one when given."""
         return extent.map(lambda held: msgspec.structs.replace(Framing.of(scene.render), extent=held)).default_with(lambda: Framing.of(scene.render, self.attached.struct(scene).overscan))
 
@@ -235,7 +235,7 @@ class Framed(msgspec.Struct, frozen=True, kw_only=True):
         """Grows overscan, recording render and camera writes."""
 
         def grow(held: Option[Grown]) -> Outcome[tuple[Framing, tuple[int, int]]]:
-            base = self.read(scene, Some(Whole()) if held.is_some() else Nothing)
+            base = self.read(scene, Some(Whole()) if held.is_some() else NOTHING)
 
             def wrote(formed: tuple[Framing, tuple[int, int]]) -> Outcome[tuple[Framing, tuple[int, int]]]:
                 bigger, covered = formed
@@ -279,18 +279,21 @@ class Framed(msgspec.Struct, frozen=True, kw_only=True):
                 for point in (world_to_camera_view(scene, camera, item.matrix_world @ Vector(corner)),)
                 if point.z > 0
             )
-            return Some(Region.bounding(np.clip(np.asarray(points), 0.0, 1.0))) if points else Nothing
+            return Some(Region.bounding(np.clip(np.asarray(points), 0.0, 1.0))) if points else NOTHING
 
         return rooted(bpy.types.Scene, call.context).bind(
-            lambda scene: Result[Region, Faults].bind(
-                Option.of_optional(scene.camera).bind(lambda camera: projected(camera, scene)).to_result_with(partial(Fault.of, Refusal.REQUIRED, "selection in front of scene camera")),
-                lambda region: self.bordered(scene, region),
+            lambda scene: (
+                option
+                .of_optional(scene.camera)
+                .bind(lambda camera: projected(camera, scene))
+                .to_result_with(partial(Fault.of, Refusal.REQUIRED, "selection in front of scene camera"))
+                .bind(lambda region: self.bordered(scene, region))
             )
         )
 
     def caption(self, context: bpy.types.Context) -> Option[str]:
         """Returns the pixels a render covers, overscan and border included, which the native size rows leave out."""
-        return Option.of_optional(context.scene).map(lambda scene: "{} x {} px rendered".format(*self.read(scene).pixels()))
+        return option.of_optional(context.scene).map(lambda scene: "{} x {} px rendered".format(*self.read(scene).pixels()))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -348,7 +351,7 @@ class FrameSize(msgspec.Struct, frozen=True, kw_only=True):
                                 f"{label} {bpy.utils.smpte_from_frame(end - start + 1)}, {end - start + 1} frames"
                                 for label, start, end in (("Total", scene.frame_start, scene.frame_end), ("Preview", scene.frame_preview_start, scene.frame_preview_end))[: 1 + scene.use_preview_range]
                             )
-                            for scene in Option.of_optional(context.scene).to_list()
+                            for scene in option.of_optional(context.scene).to_list()
                         ]
                     ),
                 ),

@@ -10,12 +10,12 @@ import string
 from types import MappingProxyType
 from typing import Annotated, Final, Self
 
-from expression import Option
+from expression import Error, NOTHING, Ok, Option, option
 from expression.collections import Block
 from expression.extra.result import catch
 import msgspec
 
-from rasm_records import accumulated, Case, Error, Fault, Nothing, Ok, Outcome, paired, Reason
+from rasm_records import accumulated, Case, Fault, Outcome, paired, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -162,7 +162,7 @@ class OutputName(msgspec.Struct, frozen=True, kw_only=True):
 
         return {part: pattern(part) for part in self.fields}
 
-    def compose(self, fields: Fields, written: Callable[[Field], Option[str]] = lambda _: Nothing) -> Outcome[str]:
+    def compose(self, fields: Fields, written: Callable[[Field], Option[str]] = lambda _: NOTHING) -> Outcome[str]:
         """Composes name, accumulating field refusals."""
         patterns = self.patterns()
 
@@ -174,10 +174,10 @@ class OutputName(msgspec.Struct, frozen=True, kw_only=True):
             match part:
                 case TextField(key=key):
                     raw = fields.texts.get(key)
-                    value = Option.of_optional(raw).filter(lambda held: pattern.fullmatch(held) is not None)
+                    value = option.of_optional(raw).filter(lambda held: pattern.fullmatch(held) is not None)
                 case NumberField(key=key, width=width):
                     raw = fields.numbers.get(key)
-                    value = Option.of_optional(raw).filter(lambda count: key is NumberKey.FRAME or count >= 0).map(lambda count: f"{count:0{width + (count < 0)}d}")
+                    value = option.of_optional(raw).filter(lambda count: key is NumberKey.FRAME or count >= 0).map(lambda count: f"{count:0{width + (count < 0)}d}")
             return written(part).or_else(value).to_result_with(lambda: Fault.of(Reason.OUTSIDE, f"{{{key}}}", raw, member=pattern.pattern))
 
         return accumulated(map(spelled, self.parts)).map("".join)
@@ -196,7 +196,7 @@ class OutputName(msgspec.Struct, frozen=True, kw_only=True):
                     seen.add(part)
         grammar = re.compile("".join(pieces))
         return (
-            Option
+            option
             .of_optional(grammar.fullmatch(text))
             .map(
                 lambda found: Fields(
@@ -207,7 +207,7 @@ class OutputName(msgspec.Struct, frozen=True, kw_only=True):
             .to_result_with(functools.partial(Fault.of, Reason.OUTSIDE, type(self).__name__, text, member=grammar.pattern))
         )
 
-    def path(self, root: Path, fields: Fields, *, suffix: str | None = None, written: Callable[[Field], Option[str]] = lambda _: Nothing) -> Outcome[Path]:
+    def path(self, root: Path, fields: Fields, *, suffix: str | None = None, written: Callable[[Field], Option[str]] = lambda _: NOTHING) -> Outcome[Path]:
         """Composes path with its file suffix when one is given, refusing one resolving outside root."""
         return (
             self

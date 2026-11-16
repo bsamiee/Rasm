@@ -7,7 +7,7 @@ Package decorators apply each change around a call they cover, and a factory app
 ```python
 def caught[**P, T](exception: type[Exception], /, *, reason: StrEnum = Reason.FAILED) -> Callable[[Callable[P, T]], Callable[P, Outcome[T]]]:
     def decorator(body: Callable[P, T], /) -> Callable[P, Outcome[T]]:
-        run = catch(body, exception=exception)
+        run: Callable[P, Result[T, Exception]] = catch(body, exception=exception)
 
         @wraps(body)
         def call(*args: P.args, **kwargs: P.kwargs) -> Outcome[T]:

@@ -10,14 +10,14 @@ from typing import Annotated, Final, overload
 
 from bl_operators.presets import AddPresetBase
 import bpy
-from expression import Option
+from expression import NOTHING, Ok, Option, option
 from expression.extra.result import catch
 import msgspec
 
 from rasm_bpy.data._extension.identity import Identity, Key
 from rasm_bpy.data._extension.registration import Resource, scoped
 from rasm_bpy.data._rna.properties import choices, EnumItem, IconedItem
-from rasm_records import Fault, no_clobber_move, Nothing, Ok, Outcome, Reason, RecordFile
+from rasm_records import Fault, no_clobber_move, Outcome, Reason, RecordFile
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -34,7 +34,7 @@ class Preset[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
     key: Key
     decoder: msgspec.json.Decoder[T]
     stock: Mapping[str, T] = MappingProxyType({})
-    validated: Option[Callable[[T], Outcome[T]]] = Nothing
+    validated: Option[Callable[[T], Outcome[T]]] = NOTHING
 
     # --- [LISTINGS]
 
@@ -80,7 +80,7 @@ class Preset[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
 
     def found(self, identity: Identity, stem: str) -> Outcome[T | Path]:
         """Returns stock preset or file of stem."""
-        found: Option[T | Path] = Option.of_optional(self.listed(identity).get(stem))
+        found: Option[T | Path] = option.of_optional(self.listed(identity).get(stem))
         return found.to_result_with(lambda: Fault.of(Reason.ABSENT, str(self.folder(identity)), member=stem))
 
     def loaded(self, identity: Identity, stem: str) -> Outcome[T]:

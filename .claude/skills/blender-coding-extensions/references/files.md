@@ -72,7 +72,7 @@ class Handler(bpy.types.FileHandler):
     @override
     @classmethod
     def poll_drop(cls, context: bpy.types.Context | None) -> bool:
-        return Option.of_optional(context).map(poll_file_object_drop).default_value(False)
+        return context is not None and poll_file_object_drop(context)
 ```
 
 `filepath: str` types the member `ImportHelper` declares, and `ImportHelper.invoke_popup` confirms a set `filepath`, else opens the file browser. `bpy_extras.io_utils.poll_file_object_drop` accepts drops on the 3D Viewport and on the Outliner in View Layer mode.

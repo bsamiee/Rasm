@@ -5,7 +5,7 @@ import functools
 import pathlib
 import struct
 
-from expression import Option
+from expression import NOTHING, Option
 from expression.extra.result import catch
 import msgspec
 import numpy as np
@@ -17,7 +17,7 @@ import tifffile
 from rasm_imaging._files.buffers import Coded
 from rasm_imaging._files.images import profile, written
 from rasm_imaging._geometry.lenses import Optics
-from rasm_records import Fault, Finite, Nothing, Outcome, paired, Reason
+from rasm_records import Fault, Finite, Outcome, paired, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -32,7 +32,7 @@ class PixelLayer(msgspec.Struct, frozen=True, kw_only=True, eq=False):
     name: str
     color: npt.NDArray[Coded]
     alpha: npt.NDArray[Coded]
-    mask: Option[npt.NDArray[Coded]] = Nothing
+    mask: Option[npt.NDArray[Coded]] = NOTHING
     mode: psdtags.PsdBlendMode = psdtags.PsdBlendMode.NORMAL
     opacity: float = 1.0
     visible: bool = True
@@ -146,7 +146,7 @@ class LinearRaw(msgspec.Struct, frozen=True, kw_only=True):
     make: str
     model: str
     exposure: Finite = 0.0
-    optics: Option[Optics] = Nothing
+    optics: Option[Optics] = NOTHING
 
     def written(self, path: pathlib.Path, frame: npt.NDArray[np.float32], basis: npt.NDArray[np.float64]) -> Outcome[pathlib.Path]:
         """Writes C-contiguous `(height, width, 3)` scene-linear frame as Linear Raw DNG, `basis` the frame's linear RGB-to-XYZ D65 matrix.

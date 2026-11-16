@@ -11,7 +11,7 @@ from types import MappingProxyType
 from typing import Annotated, ClassVar, Generic, Never, TYPE_CHECKING, TypeVar
 
 import bpy
-from expression import Option, Result, Some, try_downcast
+from expression import Error, NOTHING, Ok, Option, option, Result, Some, try_downcast
 from expression.collections import Block
 from expression.extra.result import catch
 from idprop.types import IDPropertyGroup
@@ -28,7 +28,7 @@ from rasm_bpy.data._rna.paths import Native, RnaPath, rooted, Struct
 from rasm_bpy.data._rna.properties import annotated, Callbacks, Changed, choices, declaring, pointed
 from rasm_bpy.data._rna.restoration import BeforeAfter, equal, native, NativeTree, NativeValue, persisted
 from rasm_bpy.data._rna.snapshots import Applied, Snapshot
-from rasm_records import accumulated, Dated, Error, Fault, History, merge, Nothing, Ok, Outcome, paired, Reason, Retention, transfer, Tree, typed
+from rasm_records import accumulated, Dated, Fault, History, merge, Outcome, paired, Reason, Retention, transfer, Tree, typed
 from rasm_telemetry import LogSettings
 from rasm_telemetry.otlp import Collector
 
@@ -55,10 +55,10 @@ class Stored[T](msgspec.Struct, frozen=True, kw_only=True):
     references_key: ClassVar[str] = ".references"
     name: str
     decoder: msgspec.msgpack.Decoder[T]
-    enc_hook: Option[Callable[[object], object]] = Nothing
+    enc_hook: Option[Callable[[object], object]] = NOTHING
 
     @staticmethod
-    def keyed[V](identity: Identity, key: Key, decoder: msgspec.msgpack.Decoder[V], /, *, enc_hook: Option[Callable[[object], object]] = Nothing) -> "Stored[V]":
+    def keyed[V](identity: Identity, key: Key, decoder: msgspec.msgpack.Decoder[V], /, *, enc_hook: Option[Callable[[object], object]] = NOTHING) -> "Stored[V]":
         """Returns the store under the extension's identifier of key, the decoder stating the record type, runtime-built types included, and its hook."""
         return Stored(name=identity.identifier(key), decoder=decoder, enc_hook=enc_hook)
 
@@ -70,7 +70,7 @@ class Stored[T](msgspec.Struct, frozen=True, kw_only=True):
             """Keeps values of declared kind and passes other custom types to the decode hook."""
             if isinstance(value, kind):
                 return value
-            return Option.of_optional(self.decoder.dec_hook).map(lambda hook: hook(kind, value)).default_with(lambda: _refused(kind))
+            return option.of_optional(self.decoder.dec_hook).map(lambda hook: hook(kind, value)).default_with(lambda: _refused(kind))
 
         def extended(references: IDPropertyGroup, code: int, data: memoryview) -> object:
             """Resolves ID references and delegates other codes to the decoder's hook."""
@@ -87,7 +87,7 @@ class Stored[T](msgspec.Struct, frozen=True, kw_only=True):
         return (
             custom_read(host, self.name)
             .map_error(partial(Fault.of, Refusal.REFUSED, request))
-            .bind(lambda held: Option.of_optional(held).map(lambda value: typed(IDPropertyGroup, request, value).bind(found).map(Some)).default_value(Ok(Nothing)))
+            .bind(lambda held: option.of_optional(held).map(lambda value: typed(IDPropertyGroup, request, value).bind(found).map(Some)).default_value(Ok(NOTHING)))
         )
 
     def write(self, host: Holder, record: T) -> Outcome[None]:
@@ -111,7 +111,7 @@ class Stored[T](msgspec.Struct, frozen=True, kw_only=True):
 
     def removed(self, host: Holder) -> Outcome[bool]:
         """Removes stored record, returning whether host held one."""
-        return _property(host, self.name, Nothing).map_error(partial(Fault.of, Refusal.REFUSED, f"{host!r}[{self.name!r}]")).map(lambda found: found is not None)
+        return _property(host, self.name, NOTHING).map_error(partial(Fault.of, Refusal.REFUSED, f"{host!r}[{self.name!r}]")).map(lambda found: found is not None)
 
 
 class Recovery[T](msgspec.Struct, frozen=True, kw_only=True):
@@ -144,7 +144,7 @@ class Recovery[T](msgspec.Struct, frozen=True, kw_only=True):
 
         def prior() -> Outcome[Option[tuple[NativeTree, NativeTree]]]:
             """Returns decoded before and after trees of the held record, absent fault for one never completed."""
-            return self.stored.read(holder).bind(lambda found: found.map(lambda kept: self.before_after_of(kept).decoded(holder, self.stored.name).map(Some)).default_value(Ok(Nothing)))
+            return self.stored.read(holder).bind(lambda found: found.map(lambda kept: self.before_after_of(kept).decoded(holder, self.stored.name).map(Some)).default_value(Ok(NOTHING)))
 
         def captured() -> Outcome[NativeTree]:
             return accumulated(native(owner, Some(tuple(selection))) for owner, selection in selections.items()).map(Tree[NativeValue, RnaPath, RnaPath].joined)
@@ -177,7 +177,7 @@ class Recovery[T](msgspec.Struct, frozen=True, kw_only=True):
         def restored(kept: T) -> Outcome[bool]:
             return self.before_after_of(kept).restored().bind(lambda _: self.stored.removed(holder))
 
-        return self.stored.read(holder).bind(lambda found: found.map(restored).default_value(Ok(value=False)))
+        return self.stored.read(holder).bind(lambda found: found.map(restored).default_value(Ok(False)))
 
 
 class LogPreferences(bpy.types.PropertyGroup):
@@ -271,7 +271,7 @@ class Attached(msgspec.Struct, Generic[_G_co], frozen=True, kw_only=True):  # ru
 
     def applied(self, host: Host, preset: Snapshot) -> Outcome[bool]:
         """Writes the preset's unlocked members when they differ from the held group, returning whether it wrote."""
-        return self.projected(host, preset).bind(lambda ends: Ok(value=False) if ends[2] == ends[0] else ends[1].apply(self.struct(host)).outcome.map(lambda _: True))
+        return self.projected(host, preset).bind(lambda ends: Ok(False) if ends[2] == ends[0] else ends[1].apply(self.struct(host)).outcome.map(lambda _: True))
 
     # --- [HISTORY]
 
@@ -299,14 +299,14 @@ class Attached(msgspec.Struct, Generic[_G_co], frozen=True, kw_only=True):  # ru
                 answer = target.apply(self.struct(host)).outcome
                 return paired(answer, self.history_store.write(self.struct(host), answer.map(lambda _: arrived).default_value(kept))).map(lambda pair: Some(pair[0]))
 
-            return history.step(offset, Dated(moment=moment, value=record), retention).map(lambda found: moved(*found)).default_value(Ok(Nothing))
+            return history.step(offset, Dated(moment=moment, value=record), retention).map(lambda found: moved(*found)).default_value(Ok(NOTHING))
 
         return paired(Snapshot.capture(self.struct(host)), self.history(host)).bind(lambda pair: navigated(*pair))
 
     def forgotten(self, host: Host, offset: int) -> Outcome[Option[Snapshot]]:
         """Removes the snapshot at signed one-based offset, `Nothing` past either end, leaving the live group unchanged."""
         return self.history(host).bind(
-            lambda history: history.at(offset).map(lambda entry: self.history_store.write(self.struct(host), history.remove(entry.value)).map(lambda _: Some(entry.value))).default_value(Ok(Nothing))
+            lambda history: history.at(offset).map(lambda entry: self.history_store.write(self.struct(host), history.remove(entry.value)).map(lambda _: Some(entry.value))).default_value(Ok(NOTHING))
         )
 
     # --- [HOSTS]
@@ -315,7 +315,7 @@ class Attached(msgspec.Struct, Generic[_G_co], frozen=True, kw_only=True):  # ru
         """Returns host of attached root group, `Nothing` for a group no owner holds."""
 
         def hosting(parent: Struct) -> Option[Host]:
-            return Option.of_optional(try_downcast(self.owner, parent))
+            return option.of_optional(try_downcast(self.owner, parent))
 
         return Block.of_seq(reversed(group.rna_ancestors())).choose(hosting).try_head()
 
@@ -360,9 +360,9 @@ class Attachment(Generic[_G_co]):  # ruff: ignore[non-pep695-generic-class]
     key: Key
     form: type[_G_co]
     owner: type[Host]
-    seed: Option[Callable[[Identity], Outcome[Snapshot]]] = Nothing
-    changed: Option[Callable[[Identity], AbstractContextManager[Changed]]] = Nothing
-    _callbacks: Option[Callable[[Identity], AbstractContextManager[Mapping[str, Callbacks[Never]]]]] = Nothing
+    seed: Option[Callable[[Identity], Outcome[Snapshot]]] = NOTHING
+    changed: Option[Callable[[Identity], AbstractContextManager[Changed]]] = NOTHING
+    _callbacks: Option[Callable[[Identity], AbstractContextManager[Mapping[str, Callbacks[Never]]]]] = NOTHING
 
     def __init__(
         self,
@@ -370,9 +370,9 @@ class Attachment(Generic[_G_co]):  # ruff: ignore[non-pep695-generic-class]
         key: Key,
         form: type[_G_co],
         owner: type[Host],
-        seed: Option[Callable[[Identity], Outcome[Snapshot]]] = Nothing,
-        changed: Option[Callable[[Identity], AbstractContextManager[Changed]]] = Nothing,
-        callbacks: Option[Callable[[Identity], AbstractContextManager[Mapping[str, Callbacks[_G_co]]]]] = Nothing,
+        seed: Option[Callable[[Identity], Outcome[Snapshot]]] = NOTHING,
+        changed: Option[Callable[[Identity], AbstractContextManager[Changed]]] = NOTHING,
+        callbacks: Option[Callable[[Identity], AbstractContextManager[Mapping[str, Callbacks[_G_co]]]]] = NOTHING,
     ) -> None:
         """Binds callback owners to form and retains each supplied acquisition scope.
 
@@ -418,7 +418,7 @@ class Attachment(Generic[_G_co]):  # ruff: ignore[non-pep695-generic-class]
             groups = stack.enter_context(declaring(self.form, callbacks, self.changed.map(lambda build: stack.enter_context(build(identity)))))
             overridable: set[rna_enums.PropertyOverrideFlagItems] = {"LIBRARY_OVERRIDABLE"}
             pointing = partial(bpy.props.PointerProperty, type=self.form, override=overridable)
-            pointer = Option.of_optional(inspect.getdoc(self.form)).map(lambda doc: pointing(description=doc)).default_with(pointing)
+            pointer = option.of_optional(inspect.getdoc(self.form)).map(lambda doc: pointing(description=doc)).default_with(pointing)
             name = identity.identifier(self.key)
             yield (
                 *groups,
@@ -476,7 +476,7 @@ class TextRecord[G: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_onl
             return paired(self.attachment.bound(identity), rooted(bpy.types.WindowManager, bpy.context))
 
         def started() -> Outcome[Option[float]]:
-            return session().bind(lambda pair: Ok(None) if pair[0].stored(pair[1]) else self.loaded(identity, *pair)).map(lambda _: Nothing)
+            return session().bind(lambda pair: Ok(None) if pair[0].stored(pair[1]) else self.loaded(identity, *pair)).map(lambda _: NOTHING)
 
         return (
             self.attachment,
@@ -499,13 +499,13 @@ def _property(host: Holder, name: str, value: Option[Mapping[str, object]]) -> R
     """Sets or pops one ID property, returning its value or the native exception for an unstorable value or a removed host."""
     try:
         match value:
-            case Option(tag="some", some=held):
+            case Some(held):
                 host[name] = held
-                return Result[object, TypeError | ReferenceError].Ok(held)
+                return Ok(held)
             case _:
-                return Result[object, TypeError | ReferenceError].Ok(host.pop(name, None))
+                return Ok(host.pop(name, None))
     except (TypeError, ReferenceError) as error:
-        return Result[object, TypeError | ReferenceError].Error(error)
+        return Error(error)
 
 
 def _skipped(struct: Struct) -> frozenset[RnaPath]:

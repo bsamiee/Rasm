@@ -21,7 +21,7 @@ import sys
 import threading
 from typing import Annotated, Final
 
-from expression import Option, Result, Some
+from expression import Error, NOTHING, Ok, Option, Some
 from expression.extra.result import catch
 import msgspec
 from opentelemetry import propagate, trace
@@ -31,7 +31,7 @@ from opentelemetry.trace import Status, StatusCode
 from tenacity import retry_if_result, Retrying, stop_after_attempt
 from wakepy import keep
 
-from rasm_records import accumulated, Case, Error, Fault, Faults, Nothing, Ok, Outcome, paired, Reason, RecordFile, removed
+from rasm_records import accumulated, Case, Fault, Faults, Outcome, paired, Reason, RecordFile, removed
 from rasm_rendering._batch.queue import Ending, observed, Progress, PROGRESS_DECODER, RENDER_QUEUE_DECODER, RenderQueue
 from rasm_telemetry import relayed
 
@@ -73,7 +73,7 @@ class HostCommands(msgspec.Struct, frozen=True, kw_only=True):
     commands: Mapping[RunCommand, str]
     logs: Callable[[Path], logging.Handler]
 
-    def argv(self, command: RunCommand, record: msgspec.Struct, file: Option[str] = Nothing) -> tuple[str, ...]:
+    def argv(self, command: RunCommand, record: msgspec.Struct, file: Option[str] = NOTHING) -> tuple[str, ...]:
         """Returns background command line opening `file` and passing `record` as its command argument."""
         return (self.binary, "--background", *file.to_list(), "--command", self.commands[command], argument(record))
 
@@ -122,9 +122,9 @@ class HostCommands(msgspec.Struct, frozen=True, kw_only=True):
 
         with _TRACER.start_as_current_span(type(self).run.__qualname__) as span:
             answer = catch(self.logs, exception=OSError)(self.path(key, RunFile.LOG)).map_error(partial(Fault.of, Reason.UNWRITABLE, key)).bind(logged)
-            for fault in answer.swap().default_value(())[:1]:
-                span.set_status(Status(StatusCode.ERROR, fault.message))
-                span.set_attribute(ERROR_TYPE, fault.reason.name)
+            if isinstance(answer, Error):
+                span.set_status(Status(StatusCode.ERROR, answer.error[0].message))
+                span.set_attribute(ERROR_TYPE, answer.error[0].reason.name)
             return answer
 
 
@@ -268,9 +268,9 @@ def supervise(target: LocalMachine, queue: RenderQueue, host: HostCommands, inte
                 .bind(lambda _: restarted(lambda: host.run(queue.stem, argv, waited)))
                 .bind(lambda _: records.revised(lambda held: msgspec.structs.replace(held, pending=())))
             ):
-                case Result(tag="ok", ok=held):
+                case Ok(held):
                     progress = held
-                case Result(error=faults):
+                case Error(faults):
                     return Error(faults)
 
     def ended(ending: Ending) -> Outcome[Progress]:

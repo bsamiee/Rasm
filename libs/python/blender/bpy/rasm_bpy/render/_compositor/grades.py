@@ -8,7 +8,7 @@ from typing import Annotated, Final
 
 import bpy
 from colour.models.rgb.transfer_functions.st_2084 import CONSTANTS_ST2084, eotf_inverse_ST2084
-from expression import Option, Some
+from expression import Error, NOTHING, Ok, Option, Some
 import msgspec
 import numpy as np
 import numpy.typing as npt
@@ -25,7 +25,7 @@ from rasm_bpy.nodes.functions import grouped
 from rasm_bpy.render._compositor.colors import AXES, logarithmic, space_item
 from rasm_bpy.render._compositor.coordinates import uv_mapped
 from rasm_imaging import applied, converted, cube_split, GRAY, Lattice, Logarithmic, processor, Rational, Uniform
-from rasm_records import content_hash, Error, Fault, Nothing, Ok, Outcome, Reason
+from rasm_records import content_hash, Fault, Outcome, Reason
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -99,7 +99,7 @@ def primary(
     offset: Expr | tuple[float, float, float] = (0.0, 0.0, 0.0),
     exposure: Expr | tuple[float, float, float] = (0.0, 0.0, 0.0),
     contrast: Expr | tuple[float, float, float] = (1.0, 1.0, 1.0),
-    pivot: Option[Scalar] = Nothing,
+    pivot: Option[Scalar] = NOTHING,
     saturation: Scalar = 1.0,
 ) -> Expr:
     """`GradingPrimaryTransform` in `GRADING_LIN` style: offset, exposure in stops, signed power contrast about `GREY * 2^pivot` its pivot OCIO's default when absent, and saturation about OCIO's luma."""

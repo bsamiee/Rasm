@@ -7,9 +7,10 @@ lazy from functools import partial
 lazy import subprocess
 
 import msgspec
+lazy from expression import Error, Ok
 lazy from expression.extra.result import catch
 
-lazy from rasm_records import Error, Fault, Ok, Outcome, Reason
+lazy from rasm_records import Fault, Outcome, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -75,7 +76,7 @@ def inspected(paths: tuple[Path, ...], /) -> Outcome[frozendict[Path, tuple[Chec
     """
     return (
         ran("fontspector", "--quiet", "--skip-network", "--json", "-", *(str(path.absolute()) for path in paths), check=False)
-        .bind(lambda raw: catch(lambda: msgspec.json.decode(raw, type=_Report), exception=msgspec.DecodeError)().map_error(partial(Fault.of, Reason.INVALID, "fontspector")))
+        .bind(lambda raw: catch(msgspec.json.Decoder(_Report).decode, exception=msgspec.DecodeError)(raw).map_error(partial(Fault.of, Reason.INVALID, "fontspector")))
         .map(
             lambda report: frozendict({
                 path: tuple(check for tested in (path.absolute(), path.absolute().parent) for checks in report.results.get(str(tested), frozendict()).values() for check in checks) for path in paths

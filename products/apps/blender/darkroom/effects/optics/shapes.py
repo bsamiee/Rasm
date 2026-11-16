@@ -7,7 +7,7 @@ from math import sqrt, tau
 from typing import Annotated, Final, override
 
 import bpy
-from expression import Some
+from expression import NOTHING, Some
 import msgspec
 
 from rasm_bpy.nodes import Expr, Group, grouped, Interface, InterfacePanel, item_key, math, MenuItem, MenuItems, mixed, Ramp, Scalar, Socket, switched, Term, textures, vector, xyz
@@ -53,7 +53,7 @@ from rasm_bpy.render import (
     with_alpha,
 )
 from rasm_imaging import stream
-from rasm_records import Nothing, Outcome
+from rasm_records import Outcome
 
 from .bases import bases, Basis, Perlin, textured
 from .emission import Emission, emission, emitted, Tint
@@ -300,7 +300,7 @@ class Shapes(CompositorRecord, frozen=True, kw_only=True):
         signed = switched(invert, displaced, -displaced)
         whole = selection.at(_FRAME.name)
         grown, inner, outer = (
-            switched(whole, switched(invert, coverage(signed, Some(region.width), softness, pixel, growth), coverage(signed, Nothing, softness, pixel, growth)), 1.0 - invert)
+            switched(whole, switched(invert, coverage(signed, Some(region.width), softness, pixel, growth), coverage(signed, NOTHING, softness, pixel, growth)), 1.0 - invert)
             for growth in (0.0, ring(_GAP), ring(_GAP) + ring(_RING_WIDTH))
         )
 

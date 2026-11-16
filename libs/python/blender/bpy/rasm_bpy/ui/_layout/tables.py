@@ -5,7 +5,7 @@ from functools import partial
 from pathlib import PurePath
 
 import bpy
-from expression import Option, Some
+from expression import NOTHING, Ok, Option, option, Some
 from expression.collections import Block
 
 from rasm_bpy.data._extension.identity import Identity
@@ -15,7 +15,7 @@ from rasm_bpy.data._rna.descriptors import Descriptor
 from rasm_bpy.data._rna.paths import Native, rna_definition, RnaPath, Struct
 from rasm_bpy.ui._layout.members import marked
 from rasm_bpy.ui._layout.rows import ConditionalRow, realized, RowContent, RowDraw, split
-from rasm_records import accumulated, Fault, Nothing, Ok, Outcome, paired, Reason
+from rasm_records import accumulated, Fault, Outcome, paired, Reason
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -29,7 +29,7 @@ class SettingsTable(ConditionalRow, frozen=True, kw_only=True):
     scope: Scoped
     settings: tuple[RnaPath, ...]
     compound: tuple[tuple[type[Struct], Callable[[bpy.types.UILayout, Native, str], None]], ...] = ()
-    action: Option[Callable[[Identity, Descriptor], Outcome[RowDraw]]] = Nothing
+    action: Option[Callable[[Identity, Descriptor], Outcome[RowDraw]]] = NOTHING
 
     def drawn(self, identity: Identity, /) -> Outcome[RowDraw]:
         """Resolves the leaf settings, their cells, and the owner name property once into the table draw."""
@@ -41,7 +41,7 @@ class SettingsTable(ConditionalRow, frozen=True, kw_only=True):
             editor = Block.of_seq(self.compound).filter(lambda pair: isinstance(setting.prop, bpy.types.PointerProperty) and isinstance(setting.prop.fixed_type, pair[0])).try_head()
             return action.map(lambda extra: (setting, editor.map(lambda pair: partial(_edited, setting, pair[1], extra)).default_with(lambda: partial(_beside, setting, extra))))
 
-        named = Option.of_optional(rna_definition(owner_type).name_property).to_result_with(lambda: Fault.of(Reason.ABSENT, owner_type.__name__, member="name_property"))
+        named = option.of_optional(rna_definition(owner_type).name_property).to_result_with(lambda: Fault.of(Reason.ABSENT, owner_type.__name__, member="name_property"))
         settings = accumulated(Descriptor.resolve(owner_type, path, bpy.types.Property) for path in self.settings).map(lambda found: tuple(leaf for each in found for leaf in each.leaves(kinds)))
         return paired(named, settings.bind(lambda found: accumulated(map(celled, found)))).map(lambda parts: partial(self.shown, identity, *parts))
 
@@ -54,7 +54,7 @@ class SettingsTable(ConditionalRow, frozen=True, kw_only=True):
             for setting, drawing in held:
                 names, cells = _grid(layout, len(owners))
                 names.alignment = "RIGHT"
-                mixed = identity.reports.settled(marked(setting, owners)).default_value(Nothing)
+                mixed = identity.reports.settled(marked(setting, owners)).default_value(NOTHING)
                 names.label(text=mixed.default_value(setting.prop.name), text_ctxt=setting.prop.translation_context, translate=mixed.is_none())
                 for owner in owners:
                     drawing(cells.column(), owner, context)
@@ -110,7 +110,7 @@ class TreeTable[L: Struct, C: Struct](ConditionalRow, frozen=True, kw_only=True)
             names, row = _grid(layout, len(owners))
             for _ in range(depth):
                 names.label(text="", icon="BLANK1")
-            for named in Option.of_optional(rna_definition(label).name_property).to_list():
+            for named in option.of_optional(rna_definition(label).name_property).to_list():
                 names.label(text=getattr(label, named.identifier), translate=False)
             marks(names, label, context)
             for owner, found in zip(owners, cells):

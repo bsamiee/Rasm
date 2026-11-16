@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Annotated, ClassVar, Final
 
 import bpy
-from expression import Option, Some
+from expression import NOTHING, Ok, Option, option, Some
 import msgspec
 import PyOpenColorIO
 
@@ -34,7 +34,7 @@ from rasm_bpy.ui._layout.sections import Section
 from rasm_bpy.ui._layout.values import Store
 from rasm_bpy.ui._screens.areas import NodeEditing
 from rasm_imaging import Calibration, Colors, LutOutput
-from rasm_records import Fault, Nothing, Ok, Outcome, paired
+from rasm_records import Fault, Outcome, paired
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -104,7 +104,7 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     charts: ChartEditing
     actions: tuple[RowContent, ...] = ()
     ceiling: float = 1e4
-    seed: Option[Callable[[Identity], Outcome[Snapshot]]] = Nothing
+    seed: Option[Callable[[Identity], Outcome[Snapshot]]] = NOTHING
     shader: ClassVar[AllOf] = Setting(
         descriptor=Descriptor(root=bpy.types.SpaceNodeEditor, prop=bpy.types.SpaceNodeEditor.bl_rna.properties["tree_type"]), accepted=(bpy.types.ShaderNodeTree.__name__,)
     ) & Setting(descriptor=Descriptor(root=bpy.types.SpaceNodeEditor, owner=("edit_tree",), prop=bpy.types.ID.bl_rna.properties["is_editable"]))
@@ -132,7 +132,7 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         forward = PyOpenColorIO.TransformDirectionFromString(chosen.direction) == PyOpenColorIO.TRANSFORM_DIR_FORWARD
 
         def held(image: bpy.types.Image | None, role: str) -> Outcome[tuple[bpy.types.Image, PlacedChart]]:
-            return Option.of_optional(image).to_result_with(lambda: Fault.of(Need.CHOSEN, role)).bind(lambda found: self.charts.charting.record(identity, found).map(lambda record: (found, record)))
+            return option.of_optional(image).to_result_with(lambda: Fault.of(Need.CHOSEN, role)).bind(lambda found: self.charts.charting.record(identity, found).map(lambda record: (found, record)))
 
         def samples(pair: tuple[bpy.types.Image, PlacedChart]) -> Outcome[Colors]:
             return pair[1].sampled(config).bind(lambda found: found.to_result_with(lambda: Fault.of(Need.SAMPLED, pair[0].name)))

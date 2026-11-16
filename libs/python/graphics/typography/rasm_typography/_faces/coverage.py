@@ -3,7 +3,7 @@
 lazy import unicodedata
 
 import msgspec
-lazy from expression import Option
+lazy from expression import Option, option
 lazy from fontTools.unicodedata import block
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -64,7 +64,7 @@ class Coverage(msgspec.Struct, frozen=True, kw_only=True):
     def exclusion(self, code: int, /) -> Option[Excluded]:
         """Returns the exclusion a code point falls under, by itself or by a code point its decomposition names."""
         named = {code, *(int(part, 16) for part in unicodedata.decomposition(chr(code)).split() if not part.startswith("<"))}
-        return Option.of_optional(next((excluded for excluded in self.excluded if named & excluded.codes), None))
+        return option.of_optional(next((excluded for excluded in self.excluded if named & excluded.codes), None))
 
     def uncovered(self, encoded: frozendict[int, str], /) -> tuple[int, ...]:
         """Returns the required code points a font leaves unmapped, ascending."""

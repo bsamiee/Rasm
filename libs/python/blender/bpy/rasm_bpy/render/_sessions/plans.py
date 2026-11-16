@@ -10,7 +10,7 @@ import threading
 from typing import Annotated, Final, Self
 
 import bpy
-from expression import Option, Some
+from expression import Error, NOTHING, Ok, Option, option, Some
 from expression.extra.result import catch
 import msgspec
 import numpy as np
@@ -31,7 +31,7 @@ from rasm_bpy.render._view_layers.passes import used
 from rasm_bpy.render._view_layers.routing import PassRouting
 from rasm_bpy.settings._attachments import Attached
 from rasm_bpy.ui._elements.panels import Preference
-from rasm_records import accumulated, Error, Fault, Faults, Nothing, Ok, Outcome, paired, Reason, RecordFile
+from rasm_records import accumulated, Fault, Faults, Outcome, paired, Reason, RecordFile
 from rasm_rendering import (
     cleared,
     Ending,
@@ -238,9 +238,9 @@ class QueueState:
 
     def __init__(self) -> None:
         """Holds no observation, timer, or process."""
-        self.observed: Option[Observed] = Nothing
-        self.watching: Option[Callable[[], float | None]] = Nothing
-        self.preparing: Option[tuple[str, subprocess.Popen[bytes]]] = Nothing
+        self.observed: Option[Observed] = NOTHING
+        self.watching: Option[Callable[[], float | None]] = NOTHING
+        self.preparing: Option[tuple[str, subprocess.Popen[bytes]]] = NOTHING
 
     def started(self, plan: str, process: subprocess.Popen[bytes]) -> subprocess.Popen[bytes]:
         """Holds the dispatched plan key with its native preparation process."""
@@ -249,7 +249,7 @@ class QueueState:
 
     def exited(self) -> Option[tuple[str, int]]:
         """Plan key and native preparation exit status once its process ends."""
-        return self.preparing.bind(lambda held: Option.of_optional(held[1].poll()).map(lambda code: (held[0], code)))
+        return self.preparing.bind(lambda held: option.of_optional(held[1].poll()).map(lambda code: (held[0], code)))
 
     @classmethod
     @contextmanager
@@ -318,11 +318,11 @@ class Dispatcher(msgspec.Struct, frozen=True):
 
         def marked(scene: bpy.types.Scene) -> MarkedCamera:
             return MarkedCamera(
-                camera=Option.of_optional(scene.camera).map(lambda camera: camera.name).to_optional(),
+                camera=option.of_optional(scene.camera).map(lambda camera: camera.name).to_optional(),
                 markers=tuple(
                     Marker(frame=marker.frame, camera=camera.name)
                     for marker in sorted(scene.timeline_markers, key=lambda marker: marker.frame)
-                    for camera in Option.of_optional(marker.camera).to_list()
+                    for camera in option.of_optional(marker.camera).to_list()
                 ),
             )
 
@@ -359,12 +359,12 @@ class Dispatcher(msgspec.Struct, frozen=True):
                     pair[0]
                     .filter(lambda record: isinstance(record.target, LocalMachine))
                     .map(lambda record: observed(self.host.path(record.queue.stem, RunFile.PROGRESS)))
-                    .default_value(Ok(Nothing))
+                    .default_value(Ok(NOTHING))
                     .map(lambda progress: Observed(plan=plan, sent=pair[0], progress=progress, refused=pair[1].map(lambda held: held.messages).default_value(())))
                 )
             )
 
-        return rooted(bpy.types.WindowManager, context).bind(lambda manager: self.queued.struct(manager).dispatched.map(lambda plan: read(plan).map(Some)).default_value(Ok(Nothing)))
+        return rooted(bpy.types.WindowManager, context).bind(lambda manager: self.queued.struct(manager).dispatched.map(lambda plan: read(plan).map(Some)).default_value(Ok(NOTHING)))
 
     def local_run(self) -> Outcome[LocalRun]:
         """Returns observed local run, absent fault without local progress."""
@@ -392,9 +392,12 @@ class Dispatcher(msgspec.Struct, frozen=True):
             state.observed = current
             for messages in fresh.map(lambda now: now.refused).filter(bool).to_list():
                 self.identity.reports.logged(Fault.of(Refusal.REFUSED, RunCommand.PREPARE, " ".join(messages)))
-            ended = current.bind(lambda held: held.progress).bind(lambda pair: Option.of_optional(pair[0].ending))
-            pending = current.map(lambda held: not held.refused and held.sent.map(lambda sent: isinstance(sent.target, LocalMachine) and ended.is_none()).default_value(value=True)).default_value(
-                value=False
+            ended = current.bind(lambda held: held.progress).bind(lambda pair: option.of_optional(pair[0].ending))
+            pending = (
+                current
+                .filter(lambda held: not held.refused)
+                .map(lambda held: held.sent.map(lambda sent: isinstance(sent.target, LocalMachine) and ended.is_none()).default_value(value=True))
+                .default_value(value=False)
             )
             return paired(
                 fresh
@@ -413,7 +416,7 @@ class Dispatcher(msgspec.Struct, frozen=True):
     def watched(self) -> Outcome[Option[float]]:
         """Observes a dispatched run until nothing it dispatched is pending, the session state holding the one timer, answering as a one-shot timer body."""
         self.state.watched(self.tick)
-        return Ok(Nothing)
+        return Ok(NOTHING)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -436,7 +439,7 @@ def ranged(scene: bpy.types.Scene) -> Frames:
 
 def templated(path: OutputPath, scope: JobScope, scene: bpy.types.Scene, frames: Frames) -> Outcome[None]:
     """Accumulates output path faults and missing layer, pass, or frame template fields."""
-    layers = Option.of_optional(scope.layer).map(lambda layer: (layer,)).default_with(lambda: tuple(layer.name for layer in used(scene)))
+    layers = option.of_optional(scope.layer).map(lambda layer: (layer,)).default_with(lambda: tuple(layer.name for layer in used(scene)))
     keys = path.name.keys
     varied = (
         *((TextKey.LAYER,) if len(layers) > 1 and TextKey.LAYER not in keys else ()),
@@ -444,7 +447,7 @@ def templated(path: OutputPath, scope: JobScope, scene: bpy.types.Scene, frames:
         *((NumberKey.FRAME,) if len(frames.numbers) > 1 and NumberKey.FRAME not in keys else ()),
     )
     return paired(
-        accumulated(path.literal(layer, output, Nothing, frames.start) for layer in layers for output in Output),
+        accumulated(path.literal(layer, output, NOTHING, frames.start) for layer in layers for output in Output),
         accumulated(Error(Fault.of(Refusal.REQUIRED, f"{{{field}}} in output template to name one file per {field}")) for field in varied),
     ).map(lambda _: None)
 

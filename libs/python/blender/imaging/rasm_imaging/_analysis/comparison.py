@@ -6,7 +6,7 @@ import math
 from types import MappingProxyType
 from typing import ClassVar
 
-from expression import Option, Some
+from expression import Error, NOTHING, Ok, Option, option, Some
 import msgspec
 import numpy as np
 import numpy.typing as npt
@@ -15,7 +15,7 @@ import PyOpenColorIO
 from skimage.metrics import normalized_root_mse, structural_similarity
 
 from rasm_imaging._files.buffers import checked, pixels
-from rasm_records import Error, Fault, Frozen, NonNegative, Nothing, Ok, Outcome, paired, Reason
+from rasm_records import Fault, Frozen, NonNegative, Outcome, paired, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -59,7 +59,7 @@ class Threshold(msgspec.Struct, frozen=True, kw_only=True):
         """Grades axis measure, unmeasured when absent."""
         holds = self.metric.holds
         return (
-            Option
+            option
             .of_optional(measures.get(self.metric))
             .map(lambda value: Severity.REFUSE if not holds(value, self.refuse) else Severity.ADVISORY if not holds(value, self.advisory) else Severity.PASS)
             .default_value(Severity.UNMEASURED)
@@ -89,7 +89,7 @@ class Comparison(Frozen, frozen=True, kw_only=True, eq=False):
             normalized = float(normalized_root_mse(reference_color, test_color, normalization="euclidean"))
             side = min(cls.structural_window, *reference.shape[:2])
             window = side - 1 + side % 2
-            structural = Some(structural_similarity(reference_color, test_color, data_range=data_range, channel_axis=-1, win_size=window, full=True)) if window >= 3 else Nothing
+            structural = Some(structural_similarity(reference_color, test_color, data_range=data_range, channel_axis=-1, win_size=window, full=True)) if window >= 3 else NOTHING
             measures = {
                 Metric.MEAN_ERROR: signal.meanerror,
                 Metric.RMS_ERROR: signal.rms_error,

@@ -10,7 +10,7 @@ import shutil
 from typing import ClassVar, TYPE_CHECKING
 
 import bpy
-from expression import Option, Some
+from expression import Error, NOTHING, Ok, Option, option, Some
 from expression.extra.result import catch
 import msgspec
 
@@ -51,7 +51,7 @@ from rasm_bpy.ui._elements.panels import Preference
 from rasm_bpy.ui._layout import rows
 from rasm_bpy.ui._layout.rows import FUNCTIONS, Label
 from rasm_bpy.ui._layout.sections import Section
-from rasm_records import accumulated, content_hash, Error, Fault, Nothing, Ok, Outcome, paired, Reason, RecordFile, typed
+from rasm_records import accumulated, content_hash, Fault, Outcome, paired, Reason, RecordFile, typed
 from rasm_rendering import (
     Cancelled,
     Ending,
@@ -88,8 +88,8 @@ class QueueRun[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, dic
 
     sets: RenderSet[C]
     render: Render = native
-    planning: Option[Callable[[Identity, Plan], Outcome[Plan]]] = Nothing
-    preparing: Option[Callable[[Identity, Plan], Outcome[Plan]]] = Nothing
+    planning: Option[Callable[[Identity, Plan], Outcome[Plan]]] = NOTHING
+    preparing: Option[Callable[[Identity, Plan], Outcome[Plan]]] = NOTHING
     record: ClassVar[TextRecord[Queued]] = TextRecord(key="queue", form=Queued)
     key: ClassVar[Key] = "render_queue"
 
@@ -233,14 +233,14 @@ def dispatch(dispatcher: Dispatcher, call: Call[Dispatch]) -> Outcome[Done]:
         match scope.camera:
             case MarkedCamera(camera=camera, markers=markers) as bound:
                 gaps = tuple(next(run) for missing, run in groupby(frames.numbers, key=lambda frame: bound.at(frame).is_none()) if missing)
-                bindings = (*(("scene camera", name) for name in Option.of_optional(camera).to_list()), *((f"marker at frame {marker.frame}", marker.camera) for marker in markers))
+                bindings = (*(("scene camera", name) for name in option.of_optional(camera).to_list()), *((f"marker at frame {marker.frame}", marker.camera) for marker in markers))
             case FixedCamera(camera=camera):
                 gaps, bindings = (), (("fixed camera", camera),)
         return paired(
             accumulated((
                 *(Error(Fault.of(Reason.ABSENT, repr(scene), member=str(frame))) for frame in gaps),
                 *(
-                    Option
+                    option
                     .of_optional(bpy.data.objects.get(name))
                     .to_result_with(partial(Fault.of, Reason.ABSENT, repr(bpy.data.objects), member=name))
                     .bind(lambda found: typed(bpy.types.Camera, binding, found.data))
@@ -248,7 +248,7 @@ def dispatch(dispatcher: Dispatcher, call: Call[Dispatch]) -> Outcome[Done]:
                 ),
             )),
             pathed.path(scene, day).bind(partial(templated, scope=scope, scene=scene, frames=frames)),
-            Option.of_optional(scope.layer).map(lambda name: layer_of(scene, name).map(lambda _: None)).default_value(Ok(None)),
+            option.of_optional(scope.layer).map(lambda name: layer_of(scene, name).map(lambda _: None)).default_value(Ok(None)),
         ).map(lambda _: None)
 
     def gated(plan: Plan, preferences: QueuePreferences) -> Outcome[Target]:

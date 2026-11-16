@@ -7,7 +7,7 @@ from tempfile import TemporaryDirectory
 from typing import Literal
 
 import bpy
-from expression import Option, Some
+from expression import Error, NOTHING, Ok, Option, option, Some
 from expression.extra.result import catch
 import msgspec
 import numpy as np
@@ -19,7 +19,7 @@ from rasm_bpy.data._rna.descriptors import Value
 from rasm_bpy.data._rna.paths import RnaPath
 from rasm_bpy.data._rna.snapshots import assigned
 from rasm_imaging import called, ImageFile, Lighting, LightingReading, premultiplied, read_file, unassociated
-from rasm_records import Error, Fault, Nothing, Ok, Outcome, Reason
+from rasm_records import Fault, Outcome, Reason
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -27,12 +27,12 @@ from rasm_records import Error, Fault, Nothing, Ok, Outcome, Reason
 class Tag(msgspec.Struct, frozen=True, kw_only=True):
     """Requested image reading, absent values keeping image settings, a space naming a color space or an OCIO role of the current config."""
 
-    space: Option[str] = Nothing
-    alpha: Option[Literal["STRAIGHT", "PREMUL", "CHANNEL_PACKED", "NONE"]] = Nothing
-    view_as_render: Option[bool] = Nothing
+    space: Option[str] = NOTHING
+    alpha: Option[Literal["STRAIGHT", "PREMUL", "CHANNEL_PACKED", "NONE"]] = NOTHING
+    view_as_render: Option[bool] = NOTHING
     sequence: bool = False
 
-    def members(self, config: Option[PyOpenColorIO.Config] = Nothing) -> Outcome[dict[RnaPath, Value]]:
+    def members(self, config: Option[PyOpenColorIO.Config] = NOTHING) -> Outcome[dict[RnaPath, Value]]:
         """Returns requested native members, resolving explicit color spaces and leaving omitted fields untouched."""
         return (
             self.space
@@ -43,12 +43,12 @@ class Tag(msgspec.Struct, frozen=True, kw_only=True):
                     .default_with(lambda: called(PyOpenColorIO.GetCurrentConfig, name))
                     .bind(
                         lambda current: (
-                            Option.of_optional(current.getColorSpace(name)).map(lambda space: Some(space.getName())).to_result_with(lambda: Fault.of(Reason.ABSENT, current.getName(), member=name))
+                            option.of_optional(current.getColorSpace(name)).map(lambda space: Some(space.getName())).to_result_with(lambda: Fault.of(Reason.ABSENT, current.getName(), member=name))
                         )
                     )
                 )
             )
-            .default_value(Ok(Nothing))
+            .default_value(Ok(NOTHING))
             .map(
                 lambda space: dict[RnaPath, Value]((
                     *(((("source",), "SEQUENCE"),) if self.sequence else ()),
@@ -136,7 +136,7 @@ def normalized(image: bpy.types.Image, config: PyOpenColorIO.Config) -> Outcome[
             return read(image, name)
         case _:
             return (
-                Option
+                option
                 .of_optional(config.getColorSpace(PyOpenColorIO.ROLE_SCENE_LINEAR))
                 .map(PyOpenColorIO.ColorSpace.getName)
                 .to_result_with(lambda: Fault.of(Reason.ABSENT, config.getName(), member=PyOpenColorIO.ROLE_SCENE_LINEAR))
@@ -146,7 +146,7 @@ def normalized(image: bpy.types.Image, config: PyOpenColorIO.Config) -> Outcome[
 
 def lighting(image: bpy.types.Image | None, config: PyOpenColorIO.Config) -> Outcome[Option[LightingReading]]:
     """Returns the lighting reading of an image, `Nothing` without image or measurable reading."""
-    return Option.of_optional(image).map(lambda held: normalized(held, config).bind(lambda file: Lighting().read(config, file.pixels))).default_value(Ok(Nothing))
+    return option.of_optional(image).map(lambda held: normalized(held, config).bind(lambda file: Lighting().read(config, file.pixels))).default_value(Ok(NOTHING))
 
 
 def filled(image: bpy.types.Image, plane: npt.NDArray[np.float32]) -> Outcome[None]:

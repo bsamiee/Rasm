@@ -5,7 +5,7 @@ import functools
 from typing import Final, override
 
 import bpy
-from expression import Option, Some
+from expression import NOTHING, Option, Some
 from expression.collections import Block
 
 from rasm_bpy.data import Key, Snapshot
@@ -38,7 +38,7 @@ from rasm_bpy.render import (
     TermFiltering,
     TERMS,
 )
-from rasm_records import Nothing, Outcome
+from rasm_records import Outcome
 
 from ..grade.exposure import LATER, later
 
@@ -92,7 +92,7 @@ class SpatialDenoise(CompositorRecord, frozen=True, kw_only=True):
         """Filters the frame under its target over the noisy frame as base, the light-term targets passing the stage input to the layer that filters its terms."""
 
         def built(group: NodeGroup) -> ResultOverBase:
-            frame = _placed(group, group_input, _FRAME.key, shell.color, _guides(shell.render, Nothing)).keyed("target_frame")
+            frame = _placed(group, group_input, _FRAME.key, shell.color, _guides(shell.render, NOTHING)).keyed("target_frame")
             chosen = shell.menu(_TARGET, cases={_FRAME.item: frame, _LIGHT_PASSES.item: shell.color, _LIGHT_GROUPS.item: shell.color}).keyed("target")
             return ResultOverBase(result=chosen, base=switched(chosen.at(_FRAME.title), shell.color, frame.at(_NOISY.key, bpy.types.NodeSocketColor)).keyed("frame_base"))
 

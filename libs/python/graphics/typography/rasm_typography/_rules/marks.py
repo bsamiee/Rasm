@@ -6,7 +6,7 @@ lazy import math
 lazy import unicodedata
 
 import msgspec
-lazy from expression import Option, Result, Some
+lazy from expression import Error, NOTHING, Ok, Option, Some
 lazy from expression.extra.result import catch
 lazy from fontTools.misc.transform import Offset, Transform
 lazy import numpy as np
@@ -15,7 +15,7 @@ lazy from scipy.special import cosdg, sindg
 
 from rasm_typography._faces.declaration import Em, Ratio, Recipe, Script
 from rasm_typography._rules import measures
-lazy from rasm_records import Error, Nothing, Ok, Outcome
+lazy from rasm_records import Outcome
 lazy from rasm_typography._faces.glyphs import Glyph, Joinings, Mark, Point, Side, Source, traced
 lazy from rasm_typography._faces.layout import Chain, Contextual, Ligatures, Single
 lazy from rasm_typography._faces.names import Form, GlyphName
@@ -106,7 +106,7 @@ class Marks(measures.Rule, frozen=True, kw_only=True):
                     )
 
         match measures.bounded_glyph(source, self.script.stem):
-            case Result(tag="ok", ok=(drawn, height)):
+            case Ok((drawn, height)):
                 script, (low, high), width = self.script, self.band, measure.stroke(drawn.contours)
                 model = source.drawn(name) if (name := source.key(script.vowels[0])) in source.named else None
                 held = measure.stroke(model.contours) / width if model and model.contours else low
@@ -123,7 +123,7 @@ class Marks(measures.Rule, frozen=True, kw_only=True):
                         *(_with_contours(joinings, None, code, 0.0, rebuilt(code, script.recipes[code])) for glyph, code in targets if glyph is None),
                     )
                 )
-            case Result(error=faults):
+            case Error(faults):
                 return Error(faults)
 
 
@@ -154,7 +154,7 @@ class QuranicMarks(measures.Rule, frozen=True, kw_only=True):
                 case ["HIGH" | "LOW", *words, "ISOLATED", "FORM"] | ["HIGH" | "LOW", *words]:
                     spelling = _letter(script, " ".join(words))
                 case _:
-                    spelling = Nothing
+                    spelling = NOTHING
             spelled.append((glyph, code, spelling))
         thin = tuple(
             _with_contours(joinings, glyph, code, glyph.advance, measure.restroked(contours, pen))
@@ -277,7 +277,7 @@ def _fit(contours: tuple[tuple[Point, ...], ...], box: paths.Box, /, *, width: f
 
 
 def _letter(script: str, name: str, /) -> Option[str]:
-    """Letter of a script a Unicode name gives after `<script> LETTER`, Nothing for a name Unicode lacks."""
+    """Letter of a script a Unicode name gives after `<script> LETTER`, `NOTHING` for a name Unicode lacks."""
     return catch(unicodedata.lookup, exception=KeyError)(f"{script} LETTER {name}").to_option()
 
 

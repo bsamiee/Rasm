@@ -7,7 +7,7 @@ from types import MappingProxyType, MemberDescriptorType
 from typing import Annotated, Final, override
 
 import bpy
-from expression import Option, Some
+from expression import Error, NOTHING, Ok, Option, option, Some
 import msgspec
 
 from rasm_bpy.data import Identity, Key, Value
@@ -52,7 +52,7 @@ from rasm_bpy.render import (
 )
 from rasm_bpy.scene import camera_type
 from rasm_imaging import Equirectangular, folded, from_polar, Homography, Panoramas, Quad, stream, to_polar
-from rasm_records import accumulated, Error, Fault, Nothing, Ok, Outcome, paired, Reason
+from rasm_records import accumulated, Fault, Outcome, paired, Reason
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -140,7 +140,7 @@ class Transform(CompositorRecord, frozen=True, kw_only=True):
             time = math("MULTIPLY_ADD", offset * length / rate, speed, motion.clock(speed, hold, rate))
 
             def linked(member: MemberDescriptorType) -> Option[Expr]:
-                return Option.of_optional(noises.get(item_key(_NOISE.key, member))).map(shaken)
+                return option.of_optional(noises.get(item_key(_NOISE.key, member))).map(shaken)
 
             x, y, angle, stops = (
                 math("MULTIPLY_ADD", textures.evolving(_SHAKE_NOISE, xyz(time + origin(shaken(SEED), float(stream(Transform, _SHAKE.key, axis)))["X"]), 0.0, linked=Some(linked)), 2.0, -1.0)
@@ -241,12 +241,12 @@ def _pin_quad(values: Mapping[Key, Value]) -> Outcome[Option[Quad]]:
     """Corner pin quad of entry input values while the pin is on."""
     top_left, top_right, bottom_right, bottom_left = (value(values, tuple[float, float], _CORNER_PIN, corner) for corner in _CORNERS)
     corners = paired(top_left, top_right, bottom_right, bottom_left)
-    return paired(value(values, bool, _CORNER_PIN), corners).map(lambda read: Some(Quad(corners=read[1])) if read[0] else Nothing)
+    return paired(value(values, bool, _CORNER_PIN), corners).map(lambda read: Some(Quad(corners=read[1])) if read[0] else NOTHING)
 
 
 def _pinned_rows(identity: Identity, _scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect) -> Outcome[Mapping[Key, Value]]:
     """Derives the corner pin homography rows, the identity while the pin is off or its corners form no strictly convex map."""
-    return captured(identity, entry).map(valued).bind(_pin_quad).bind(lambda quad: quad.map(Homography.of).default_value(Ok(Nothing))).map(pin_rows)
+    return captured(identity, entry).map(valued).bind(_pin_quad).bind(lambda quad: quad.map(Homography.of).default_value(Ok(NOTHING))).map(pin_rows)
 
 
 def _checked(identity: Identity, scene: bpy.types.Scene, entry: Option[bpy.types.SceneCompositorEffect]) -> Outcome[None]:

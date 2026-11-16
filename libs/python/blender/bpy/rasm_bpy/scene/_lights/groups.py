@@ -6,7 +6,7 @@ from itertools import chain
 from typing import Annotated, ClassVar, Final
 
 import bpy
-from expression import Option, Result, Some
+from expression import NOTHING, Ok, Option, option, Some
 from expression.collections import Block
 from mathutils import Matrix
 import msgspec
@@ -27,7 +27,7 @@ from rasm_bpy.scene._objects import active_object, ObjectState, reconciled, spaw
 from rasm_bpy.ui._layout.members import Member
 from rasm_bpy.ui._layout.rows import OperatorButton, Property
 from rasm_bpy.ui._layout.sections import Section
-from rasm_records import accumulated, Case, Fault, Faults, Name, Nothing, Ok, Outcome, Reason
+from rasm_records import accumulated, Case, Fault, Name, Outcome, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -104,7 +104,7 @@ class LightGroupEdits(msgspec.Struct, frozen=True, kw_only=True):
     @staticmethod
     def section() -> Section:
         """Returns active object light group field and operators."""
-        active = Some(lambda context: root_in(bpy.types.ViewLayer, context).bind(lambda layer: Option.of_optional(layer.objects.active)))
+        active = Some(lambda context: root_in(bpy.types.ViewLayer, context).bind(lambda layer: option.of_optional(layer.objects.active)))
         return Section(
             key="light_groups",
             rows=(
@@ -177,11 +177,11 @@ def _split(master: bpy.types.Object, light: bpy.types.Light, lobes: frozenset[Lo
 
     with ExitStack() as rollback:
         return retained(
-            Result[bpy.types.Collection, Faults]
-            .bind(
-                Block.of_seq(holders).try_head().to_result_with(lambda: Fault.of(Reason.ABSENT, repr(master), member="users_collection")),
-                lambda home: Snapshot.capture(master.light_linking).bind(lambda links: released(stale).bind(lambda _: accumulated(child(lobe, links, home) for lobe in Lobe if lobe in lobes))),
-            )
+            Block
+            .of_seq(holders)
+            .try_head()
+            .to_result_with(lambda: Fault.of(Reason.ABSENT, repr(master), member="users_collection"))
+            .bind(lambda home: Snapshot.capture(master.light_linking).bind(lambda links: released(stale).bind(lambda _: accumulated(child(lobe, links, home) for lobe in Lobe if lobe in lobes))))
             .bind(lambda children: hidden.apply(master).outcome.map(lambda _: children)),
             rollback,
         )
@@ -226,7 +226,7 @@ def light_groups_assign(call: Call[Assignment]) -> Outcome[Answer]:
     def wrote(grouping: Grouping, holder: bpy.types.Object | bpy.types.World) -> Outcome[Option[str]]:
         match grouping:
             case Kept():
-                return Ok(Nothing)
+                return Ok(NOTHING)
             case PerEmitter():
                 name = light_group(holder.name)
             case Shared(name=shared):
@@ -247,7 +247,7 @@ def light_groups_assign(call: Call[Assignment]) -> Outcome[Answer]:
                         *(
                             wrote(found[2], world)
                             for world in dict.fromkeys(
-                                world for owner in reached for scene in (owner.id_data,) if isinstance(scene, bpy.types.Scene) for world in Option.of_optional(scene.world).to_list()
+                                world for owner in reached for scene in (owner.id_data,) if isinstance(scene, bpy.types.Scene) for world in option.of_optional(scene.world).to_list()
                             )
                         ),
                     ))
@@ -270,7 +270,7 @@ def light_group_select(call: Call[Empty]) -> Outcome[Answer]:
     """Selects the objects in the active emitter's light group."""
     return (
         rooted(bpy.types.ViewLayer, call.context)
-        .bind(lambda layer: active_object(layer).bind(lambda item: picked(frozenset(other for other in layer.objects if item.lightgroup and other.lightgroup == item.lightgroup), layer)))
+        .bind(lambda layer: active_object(layer).bind(lambda item: picked(frozenset(other for other in layer.objects if item.lightgroup if other.lightgroup == item.lightgroup), layer)))
         .map(lambda _: Done())
     )
 

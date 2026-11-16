@@ -6,7 +6,7 @@ from types import MemberDescriptorType
 from typing import Annotated, ClassVar
 
 import bpy
-from expression import Option
+from expression import Error, NOTHING, Ok, Option
 import msgspec
 import numpy as np
 import numpy.typing as npt
@@ -16,7 +16,7 @@ from rasm_bpy.data._rna.paths import RnaPath
 from rasm_bpy.nodes._desired import Members
 from rasm_bpy.nodes._graphs import Expr, Scalar, Term, xyz
 from rasm_bpy.nodes._interfaces import Socket, StockInput
-from rasm_records import Error, Fault, Nothing, Ok, Outcome, Reason
+from rasm_records import Fault, Outcome, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -49,7 +49,7 @@ class NodeSettings(msgspec.Struct, frozen=True, kw_only=True):
         """Group sockets of every input field at its value by field name, each declared as the stock node declares its input."""
         return tuple(Socket(key=field, kind=StockInput(node=self.kind, input=identifier), default_value=getattr(self, field)) for field, identifier in self.inputs.items())
 
-    def node(self, *operands: Term, socket: str | int = 0, socket_type: type[bpy.types.NodeSocket] = bpy.types.NodeSocketFloat, linked: Option[Linked] = Nothing) -> Expr:
+    def node(self, *operands: Term, socket: str | int = 0, socket_type: type[bpy.types.NodeSocket] = bpy.types.NodeSocketFloat, linked: Option[Linked] = NOTHING) -> Expr:
         """Builds the node over its coordinate sockets and every field, the reconciler leaving sockets the members disable unlinked.
 
         Args:
@@ -213,7 +213,7 @@ def dimensions(texture: Texture, /) -> int:
             return 3
 
 
-def evolving(texture: Texture, point: Expr, time: Scalar, /, *, socket: str | int = 0, socket_type: type[bpy.types.NodeSocket] = bpy.types.NodeSocketFloat, linked: Option[Linked] = Nothing) -> Expr:
+def evolving(texture: Texture, point: Expr, time: Scalar, /, *, socket: str | int = 0, socket_type: type[bpy.types.NodeSocket] = bpy.types.NodeSocketFloat, linked: Option[Linked] = NOTHING) -> Expr:
     """Builds a texture node at a point evolving over time by its dimensions: one reading the point's X as W, three taking time as Z, four as W, and two staying still.
 
     Args:

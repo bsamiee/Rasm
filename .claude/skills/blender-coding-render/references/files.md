@@ -33,7 +33,7 @@ def parts(path: Path, /) -> Outcome[dict[str, OpenImageIO.ImageBuf]]:
             return Ok({part.spec().get_string_attribute("name"): part for part in held})
 ```
 
-`parts(path).bind(lambda held: Option.of_optional(held.get(name)).to_result_with(partial(Fault.of, Reason.ABSENT, str(path), member=name)))` reads a pass render settings can skip, each buffer reading pixels at `get_pixels`:
+`parts(path).bind(lambda held: option.of_optional(held.get(name)).to_result_with(partial(Fault.of, Reason.ABSENT, str(path), member=name)))` reads a pass render settings can skip, each buffer reading pixels at `get_pixels`:
 - `get_pixels(OpenImageIO.FLOAT)` returns `(height, width, channels)` top row first, and `np.flipud` gives `Image.pixels` row order
 - Missing files open with `has_error` set and `nsubimages` 0, `geterror()` reading the cause OpenImageIO otherwise prints at teardown
 
@@ -57,9 +57,9 @@ def matte(path: Path, layer: str, names: frozenset[str], /) -> Outcome[NDArray[n
     def manifested(held: dict[str, OpenImageIO.ImageBuf], /) -> Outcome[NDArray[np.float32]]:
         header = next(iter(held.values())).spec()
         return (
-            Option.of_optional(next((attribute.name for attribute in header.extra_attribs if attribute.name.startswith("cryptomatte/") and attribute.value == layer), None))
+            option.of_optional(next((attribute.name for attribute in header.extra_attribs if attribute.name.startswith("cryptomatte/") and attribute.value == layer), None))
             .to_result_with(partial(Fault.of, Reason.ABSENT, str(path), member=layer))
-            .map(lambda key: msgspec.json.decode(header.get_string_attribute(key.replace("/name", "/manifest")), type=dict[str, str]))
+            .bind(lambda key: catch(msgspec.json.Decoder(dict[str, str]).decode, exception=msgspec.DecodeError)(header.get_string_attribute(key.replace("/name", "/manifest"))).map_error(partial(Fault.of, Reason.INVALID, key)))
             .filter_with(lambda manifest: names <= manifest.keys(), lambda manifest: Fault.of(Reason.ABSENT, layer, member=", ".join(sorted(names - manifest.keys()))))
             .map(partial(summed, held))
         )

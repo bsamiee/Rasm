@@ -9,8 +9,7 @@ from types import MappingProxyType
 from typing import Annotated, Final, Literal
 
 import bpy
-from expression import Option, Result, Some
-from expression.extra.result import catch
+from expression import Error, NOTHING, Ok, Option, option, Some
 import mathutils
 import msgspec
 import numpy as np
@@ -37,7 +36,7 @@ from rasm_bpy.render._view_layers.passes import CryptomatteKind, Derived, Family
 from rasm_bpy.scene._materials import DataPass
 from rasm_bpy.settings._attachments import Attachment
 from rasm_imaging import Deflate, Depth, Document, LayerGroup, Matte, Multilayer, Pass, PassLayout, PassRole, PixelLayer, rng, Storage, unassociated
-from rasm_records import accumulated, content_hash, Error, Fault, Faults, Nothing, Ok, Outcome, paired, Reason
+from rasm_records import accumulated, content_hash, Fault, Faults, Outcome, paired, Reason
 from rasm_rendering import Output
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -162,7 +161,7 @@ def _named(layer: bpy.types.ViewLayer, entity: CryptomatteKind) -> tuple[tuple[s
     )
 
 
-def _located(scene: bpy.types.Scene, matte: Matte, layer: Option[str] = Nothing) -> Outcome[tuple[bpy.types.ViewLayer, CryptomatteKind]]:
+def _located(scene: bpy.types.Scene, matte: Matte, layer: Option[str] = NOTHING) -> Outcome[tuple[bpy.types.ViewLayer, CryptomatteKind]]:
     """Resolves the matte's native namespace, or a routed file's known layer and bare pass name."""
     return (
         layer
@@ -171,7 +170,7 @@ def _located(scene: bpy.types.Scene, matte: Matte, layer: Option[str] = Nothing)
         .bind(
             lambda layers: next(
                 (Some((held, entity)) for held in layers for entity in CryptomatteKind if matte.name == f"{held.name}.{entity.pass_name}" or (layer.is_some() and matte.name == entity.pass_name)),
-                Nothing,
+                NOTHING,
             ).to_result_with(lambda: Fault.of(Reason.ABSENT, str(matte.file.path), member=matte.name))
         )
     )
@@ -201,7 +200,7 @@ def ids_recolor(call: Call[Recoloring]) -> Outcome[Answer]:
             for (_, block, _), color in zip(rows, chosen(tuple(color for _, _, color in rows)))
         ).map(lambda priors: Done() if any(prior.is_some() for prior in priors) else Unchanged(reason=f"{layer.name} ID colors hold chosen colors"))
 
-    return Result[bpy.types.ViewLayer, Faults].bind(rooted(bpy.types.ViewLayer, call.context), lambda layer: ROUTING.read(call.identity, layer).bind(lambda routing: painted(layer, routing)))
+    return rooted(bpy.types.ViewLayer, call.context).bind(lambda layer: ROUTING.read(call.identity, layer).bind(lambda routing: painted(layer, routing)))
 
 
 def exported(scene: bpy.types.Scene, file: Written, identity: Identity) -> Outcome[None]:
@@ -214,8 +213,8 @@ def exported(scene: bpy.types.Scene, file: Written, identity: Identity) -> Outco
         return (
             matte.view
             .or_else(file.view)
-            .map(lambda name: catch(lambda: scene.render.views[name], exception=KeyError)().map(Some).map_error(lambda cause: Fault.of(Reason.ABSENT, repr(scene.render.views), cause, member=name)))
-            .default_value(Ok(Nothing))
+            .map(lambda name: option.of_optional(scene.render.views.get(name)).to_result_with(functools.partial(Fault.of, Reason.ABSENT, repr(scene.render.views), member=name)).map(Some))
+            .default_value(Ok(NOTHING))
             .bind(lambda view: path.literal(layer.name, Output.MATTE, Some(entity.pass_name), scene.frame_current, suffix=Some(f"{view.map(lambda held: held.file_suffix).default_value('')}.exr")))
             .map(str)
             .filter_with(lambda target: target != file.path, lambda target: Fault.of(Refusal.TAKEN, target, member=file.path))
@@ -270,19 +269,18 @@ def document(_identity: Identity, scene: bpy.types.Scene, frame: Multilayer, dep
                 lambda rows: accumulated(itertools.starmap(layered, rows)).map(
                     lambda layers: (
                         LayerGroup(name=matte.view.map(lambda view: f"{matte.name} ({view})").default_value(matte.name), visible=index == 0, layers=layers),
-                        Some(sum((plane[..., None] * np.asarray((*color, 1.0), dtype=np.float32) for _, color, plane in rows), start=np.zeros((*size, 4), np.float32))) if index == 0 else Nothing,
+                        Some(sum((plane[..., None] * np.asarray((*color, 1.0), dtype=np.float32) for _, color, plane in rows), start=np.zeros((*size, 4), np.float32))) if index == 0 else NOTHING,
                     )
                 )
             )
         )
 
-    return Result[tuple[Matte, ...], Faults].bind(
-        Matte.found(frame, header=first),
+    return Matte.found(frame, header=first).bind(
         lambda mattes: accumulated(itertools.starmap(grouped, enumerate(mattes))).bind(
-            lambda groups: depth.coded(unassociated(next((composite for _, composite in groups), Nothing).default_with(lambda: np.zeros((*size, 4), np.float32)))).map(
+            lambda groups: depth.coded(unassociated(next((composite for _, composite in groups), NOTHING).default_with(lambda: np.zeros((*size, 4), np.float32)))).map(
                 lambda composite: Document(layers=tuple(group for group, _ in groups), composite=composite, colorspace="sRGB", density=scene.render.ppm_factor / scene.render.ppm_base)
             )
-        ),
+        )
     )
 
 
@@ -302,7 +300,7 @@ def lobe_group() -> Outcome[NodeGroup]:
 def lobed(slots: tuple[frozenset[Descriptor], frozenset[Descriptor], frozenset[Descriptor]], offered: Mapping[str, Term], group: NodeGroup) -> Option[Expr]:
     """Places lobe group over the live Render Layers outputs a family's direct, indirect, and color flags name, `Nothing` without a direct or indirect output."""
     linked: dict[str, Term] = {slot: offered[name] for slot, flags in zip(LightSlot, slots, strict=True) for name in sorted(flag.prop.name for flag in flags) if name in offered}
-    return Some(placed(group, linked, "total")) if linked.keys() & {LightSlot.DIRECT, LightSlot.INDIRECT} else Nothing
+    return Some(placed(group, linked, "total")) if linked.keys() & {LightSlot.DIRECT, LightSlot.INDIRECT} else NOTHING
 
 
 # --- [AXES]
@@ -346,8 +344,8 @@ def sources(scene: bpy.types.Scene, layer: bpy.types.ViewLayer, rendered: Expr, 
     def missing(name: str) -> Faults:
         return Fault.of(Reason.ABSENT, repr(live.outputs), member=name)
 
-    def sourced(expr: Expr, key: Key, name: str, socket_type: type[bpy.types.NodeSocket], output: Output, dimensions: Option[int] = Nothing) -> tuple[FileSocket, ...]:
-        listed = Option.of_optional(rows.get(name))
+    def sourced(expr: Expr, key: Key, name: str, socket_type: type[bpy.types.NodeSocket], output: Output, dimensions: Option[int] = NOTHING) -> tuple[FileSocket, ...]:
+        listed = option.of_optional(rows.get(name))
         return (
             ()
             if listed.filter(lambda row: not row.use_output).is_some()
@@ -359,20 +357,20 @@ def sources(scene: bpy.types.Scene, layer: bpy.types.ViewLayer, rendered: Expr, 
         match spaces.get(name), routing.nuke:
             case VectorSpace.CAMERA, nuke:
                 return (
-                    Option
+                    option
                     .of_optional(scene.camera)
                     .to_result_with(lambda: Fault.of(Reason.ABSENT, repr(scene), member="camera"))
                     .map(lambda held: _turned(read, _NUKE_AXES[VectorSpace.CAMERA] if nuke else (1, 2, 3), Some(held)))
                 )
             case VectorSpace() as space, True:
-                return Ok(_turned(read, _NUKE_AXES[space], Nothing))
+                return Ok(_turned(read, _NUKE_AXES[space], NOTHING))
             case None, True if name == "Vector":
                 return Ok(rgba(read["Blue"], read["Alpha"], read["Red"], read["Green"]))
             case _:
                 return Ok(read)
 
     def passed(name: str, socket: bpy.types.NodeSocket) -> Outcome[tuple[FileSocket, ...]]:
-        dimensions = Descriptor.resolve(socket, ("default_value",), bpy.types.FloatProperty).map(lambda member: Some(member.prop.array_length)) if socket.type == "VECTOR" else Ok(Nothing)
+        dimensions = Descriptor.resolve(socket, ("default_value",), bpy.types.FloatProperty).map(lambda member: Some(member.prop.array_length)) if socket.type == "VECTOR" else Ok(NOTHING)
         classed = (
             Output.MATTE
             if any(name.startswith(entity.pass_name) and name.removeprefix(entity.pass_name).isdigit() for entity in CryptomatteKind)
@@ -418,7 +416,7 @@ def sources(scene: bpy.types.Scene, layer: bpy.types.ViewLayer, rendered: Expr, 
         )
 
     derived = flagged(Derived, routing.derived)
-    depth = Option.of_optional(outputs.get("Depth")).to_result_with(lambda: missing("Depth"))
+    depth = option.of_optional(outputs.get("Depth")).to_result_with(lambda: missing("Depth"))
     empty = frozenset[Descriptor]()
     return accumulated((
         *itertools.starmap(passed, offered.items()),

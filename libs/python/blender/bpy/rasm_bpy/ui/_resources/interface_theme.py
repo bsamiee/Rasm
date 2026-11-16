@@ -16,7 +16,7 @@ import _rna_xml  # ruff: ignore[import-private-name]
 from bl_ui.space_userpref import USERPREF_MT_interface_theme_presets
 import bpy
 from coloraide.everything import ColorAll
-from expression import Option, Result
+from expression import Error, Ok, option
 from expression.extra.result import catch
 import msgspec
 import numpy as np
@@ -26,7 +26,7 @@ from rasm_bpy.data._rna.descriptors import Value
 from rasm_bpy.data._rna.paths import rna, rooted, Struct
 from rasm_bpy.data._rna.snapshots import assigned, Snapshot
 from rasm_bpy.ui._resources.theme import display_color
-from rasm_records import accumulated, Case, Error, Fault, Ok, Outcome, paired, Reason, typed
+from rasm_records import accumulated, Case, Fault, Outcome, paired, Reason, typed
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -248,9 +248,9 @@ def _roots(context: bpy.types.Context, /) -> Outcome[tuple[Struct, ...]]:
 def _restored(context: bpy.types.Context, preferences: bpy.types.Preferences, snapshots: tuple[Snapshot, ...], filepath: str, /, *, dirty: bool) -> None:
     """Writes the captured session values, file, and unsaved mark back, a refusal of what the host held a raised defect."""
     match _roots(context).bind(lambda roots: accumulated(snapshot.apply(root).outcome for snapshot, root in zip(snapshots, roots, strict=True))):
-        case Result(tag="ok"):
+        case Ok():
             preferences.themes[0].filepath, preferences.is_dirty = filepath, dirty
-        case Result(error=faults):
+        case Error(faults):
             raise RuntimeError("\n".join(fault.message for fault in faults))
 
 
@@ -327,10 +327,10 @@ def installed(context: bpy.types.Context, theme: _InterfaceTheme, name: str, /) 
         with ExitStack() as stack:
             written = (
                 paired(rooted(bpy.types.Preferences, context), _roots(context).bind(lambda roots: accumulated(map(Snapshot.capture, roots))))
-                .map(lambda held: stack.callback(_restored, context, *held, held[0].themes[0].filepath, dirty=held[0].is_dirty))
+                .map(lambda held: stack.callback(_restored, context, held[0], held[1], held[0].themes[0].filepath, dirty=held[0].is_dirty))
                 .bind(
                     lambda _: (
-                        Option
+                        option
                         .of_optional(theme.base)
                         .map(
                             lambda base: called(

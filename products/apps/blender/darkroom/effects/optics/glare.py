@@ -5,7 +5,7 @@ from functools import partial
 from typing import Annotated, ClassVar, Final, override
 
 import bpy
-from expression import Option, Some
+from expression import Ok, Option, Some
 import msgspec
 import numpy as np
 import numpy.typing as npt
@@ -16,7 +16,7 @@ from rasm_bpy.data import Ownership, Saved, Tag, Value
 from rasm_bpy.nodes import Expr, Generated, Interface, InterfacePanel, mixed, Scalar, Socket, StockInput, switched, vector, xyz
 from rasm_bpy.render import blurred, CompositorEffect, CompositorRecord, dimensions, filters, GraphInputs, masks, Prepared, shorter, Stage, uv_mapped
 from rasm_imaging import Pupil, Raster, Specks
-from rasm_records import content_hash, Ok, Outcome
+from rasm_records import content_hash, Outcome
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 

@@ -31,7 +31,7 @@ Each coordinate space converts through the host member that owns it:
 - Image Editor View2D coordinates are image fractions, `view_to_region` of `(0, 0)` and `(1, 1)` giving the displayed image's corners
 - Node positions draw at `location * preferences.system.ui_scale` in View2D, `view_to_region` of that product giving a node's region pixel
 - `view3d_utils.region_2d_to_origin_3d(region, rv3d, xy)` and `region_2d_to_vector_3d` give `xy`'s view ray for `scene.ray_cast` in any projection
-- `view3d_utils.location_3d_to_region_2d(region, rv3d, coord, default=None)` returns `default` behind a perspective view, read as an `Option`
+- `option.of_optional(view3d_utils.location_3d_to_region_2d(region, rv3d, coord))` holds `NOTHING` behind a perspective view
 - `region_3d.perspective_matrix` keeps its value after a view write until the region draws or `region_3d.update()` runs
 
 ## [03]-[THEME]

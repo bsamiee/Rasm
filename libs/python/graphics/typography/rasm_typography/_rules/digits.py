@@ -3,11 +3,12 @@
 lazy import unicodedata
 
 import msgspec
+lazy from expression import Ok
 lazy from fontTools.misc.transform import Transform
 
 from rasm_typography._faces.declaration import Advance, Em, Ratio, Script
 from rasm_typography._rules import measures
-lazy from rasm_records import Ok, Outcome
+lazy from rasm_records import Outcome
 lazy from rasm_typography._faces.glyphs import Digit, Source
 lazy from rasm_typography._faces.layout import Lookups, Single
 lazy from rasm_typography._outlines import measure, paths

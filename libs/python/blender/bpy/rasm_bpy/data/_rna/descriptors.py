@@ -13,7 +13,7 @@ from types import MappingProxyType
 from typing import Annotated, Final, Generic, TypeVar
 
 import bpy
-from expression import Option, Result, Some
+from expression import Error, NOTHING, Ok, Option, Result, Some
 from expression.extra.result import catch
 from idprop.types import IDPropertyGroup
 import msgspec
@@ -24,7 +24,7 @@ from typing_extensions import TypeForm
 from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._ids.store import IdName
 from rasm_bpy.data._rna.paths import defined, definition_at, Native, rna, rna_definition, RnaPath, root_in, Struct, struct_at, subclass
-from rasm_records import Error, Fault, Nothing, Ok, Outcome, Reason, typed
+from rasm_records import Fault, Outcome, Reason, typed
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -107,8 +107,8 @@ class Descriptor(msgspec.Struct, Generic[_P_co], frozen=True, kw_only=True):  # 
                 case str(identifier):
                     return Some((path[:index], identifier, tuple(coordinates)))
                 case _:
-                    return Nothing
-        return Nothing
+                    return NOTHING
+        return NOTHING
 
     @staticmethod
     def resolve[K: bpy.types.Property](root: type[Struct] | Native, path: RnaPath, kind: type[K]) -> Outcome["Descriptor[K]"]:
@@ -144,9 +144,9 @@ class Descriptor(msgspec.Struct, Generic[_P_co], frozen=True, kw_only=True):  # 
     def of[K: bpy.types.Property](root: type[Struct], path: RnaPath, kind: type[K]) -> "Descriptor[K]":
         """Resolves a definition every host build declares, `LookupError` holding the fault text for a path naming no member of kind."""
         match Descriptor.resolve(root, path, kind):
-            case Result(tag="ok", ok=found):
+            case Ok(found):
                 return found
-            case Result(error=faults):
+            case Error(faults):
                 raise LookupError("\n".join(fault.message for fault in faults))
 
     @staticmethod
@@ -205,7 +205,7 @@ class Descriptor(msgspec.Struct, Generic[_P_co], frozen=True, kw_only=True):  # 
             and where(prop)
         )
 
-    def owner_of(self, context: Native, item: Option[Native] = Nothing, *, inactive: bool = False) -> Option[Native]:
+    def owner_of(self, context: Native, item: Option[Native] = NOTHING, *, inactive: bool = False) -> Option[Native]:
         """Returns live property owner from item, root, or context."""
         match item.filter(lambda value: isinstance(value, self.root)).default_value(context):
             case start if isinstance(start, self.root):
@@ -213,7 +213,7 @@ class Descriptor(msgspec.Struct, Generic[_P_co], frozen=True, kw_only=True):  # 
             case bpy.types.Context() as start:
                 found = root_in(self.root, start)
             case _:
-                found = Nothing
+                found = NOTHING
         return found.bind(lambda value: struct_at(value, self.owner)).filter(
             lambda owner: defined(owner).filter(lambda held: self.prop in held.properties.values()).is_some() and (inactive or effective(owner))
         )
@@ -387,7 +387,7 @@ class Descriptor(msgspec.Struct, Generic[_P_co], frozen=True, kw_only=True):  # 
             except (AttributeError, TypeError, ValueError, ReferenceError) as error:
                 return Error(Fault.of(Refusal.REFUSED, rna(self.path), error))
 
-        return Ok(Nothing) if self.equal(held, value) else stored().bind(hosted).bind(placed).map(published)
+        return Ok(NOTHING) if self.equal(held, value) else stored().bind(hosted).bind(placed).map(published)
 
     @staticmethod
     @np.errstate(over="ignore")
@@ -437,7 +437,7 @@ class Descriptor(msgspec.Struct, Generic[_P_co], frozen=True, kw_only=True):  # 
 def custom_read(struct: Struct, name: str) -> Result[object, TypeError | ReferenceError]:
     """Returns an existing custom value or None, preserving native lookup failures."""
     try:
-        return Result[object, TypeError | ReferenceError].Ok(struct.get(name))
+        return Ok(struct.get(name))
     except (TypeError, ReferenceError) as error:
         return Error(error)
 
@@ -519,7 +519,7 @@ def assign(owner: object, name: str, value: object) -> Result[None, AttributeErr
     """Assigns a native member, preserving its lookup, value, and lifetime failures."""
     try:
         setattr(owner, name, value)
-        return Result[None, AttributeError | TypeError | ValueError | ReferenceError].Ok(None)
+        return Ok(None)
     except (AttributeError, TypeError, ValueError, ReferenceError) as error:
         return Error(error)
 
@@ -561,7 +561,7 @@ def sequenced[W](writes: Iterable[tuple[RnaPath, Native, Descriptor, W]]) -> tup
 def converted_value[T](value: object, kind: TypeForm[T], subject: str) -> Outcome[T]:
     """Returns value converted to kind, outside fault naming the refused constraint."""
     try:
-        held: T = msgspec.convert(value, kind)  # ty: ignore[unsound-assignment]
+        held: T = msgspec.convert(value, kind)
     except msgspec.ValidationError as error:
         return Error(Fault.of(Reason.OUTSIDE, subject, error, member=repr(kind)))
     return Ok(held)

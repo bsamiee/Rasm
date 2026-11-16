@@ -10,7 +10,7 @@ from types import MappingProxyType, MemberDescriptorType
 from typing import ClassVar, Final, get_args, override, Self, TypeAliasType
 
 import bpy
-from expression import Option, Result, Some, try_downcast
+from expression import Error, NOTHING, Ok, Option, option, Some, try_downcast
 import msgspec
 import msgspec.structs
 
@@ -20,7 +20,7 @@ from rasm_bpy.data._rna.descriptors import differing, Value, written
 from rasm_bpy.data._rna.paths import RnaPath
 from rasm_bpy.data._rna.properties import titled
 from rasm_bpy.nodes._trees import GraphTree, matched_items, ordered_items
-from rasm_records import accumulated, Error, Fault, Nothing, Ok, Outcome, Reason, words
+from rasm_records import accumulated, Fault, Outcome, Reason, words
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -84,12 +84,12 @@ class MenuItem(msgspec.Struct, frozen=True, kw_only=True):
             case Enum(name=name):
                 return cls(name=bpy.path.display_name(name.lower()))
             case _:
-                return cls(name=titled(choice), description=Option.of_optional(choice.__doc__).map(inspect.cleandoc).default_value(""))
+                return cls(name=titled(choice), description=option.of_optional(choice.__doc__).map(inspect.cleandoc).default_value(""))
 
     @staticmethod
     def member[C: Choice](choices: Iterable[C], name: str, /) -> Option[C]:
         """Returns the enum member or case class whose item `of` names `name`, the inverse of `of` over an enum class or a union alias's `get_args(alias.__value__)`."""
-        return Option.of_optional(next((choice for choice in choices if MenuItem.of(choice).name == name), None))
+        return option.of_optional(next((choice for choice in choices if MenuItem.of(choice).name == name), None))
 
 
 class MenuItems(ItemContent, frozen=True, kw_only=True):
@@ -136,9 +136,9 @@ class MenuItems(ItemContent, frozen=True, kw_only=True):
     @override
     def write(self, live: bpy.types.Node, identity: Identity, /) -> Outcome[None]:
         match _switch(live):
-            case Result(tag="ok", ok=switch):
+            case Ok(switch):
                 pass
-            case Result(error=errors):
+            case Error(errors):
                 return Error(errors)
         bindings, inventory, inputs, outputs = self._bound(switch, identity)
         removed, matched = matched_items(inventory, {identifier: row["request"] for identifier, row in bindings.items()}, (item.name for item in self.items))
@@ -251,7 +251,7 @@ class Node(Membered, frozen=True, kw_only=True):
     kind: type[bpy.types.Node]
     inputs: Mapping[str | int, Value] = MappingProxyType({})
     outputs: Mapping[str | int, Value] = MappingProxyType({})
-    content: Option[Content] = Nothing
+    content: Option[Content] = NOTHING
 
 
 class FrameNode(Membered, frozen=True, kw_only=True):
@@ -271,7 +271,7 @@ class Graph(Membered, frozen=True, kw_only=True):
     def placed(self) -> dict[Key, tuple[Node, Option[Key]]]:
         """Node and parent frame key per key in preorder, frames as `NodeFrame` nodes."""
         placed: dict[Key, tuple[Node, Option[Key]]] = {}
-        pending: list[tuple[Iterator[tuple[Key, Node | FrameNode]], Option[Key]]] = [(iter(self.nodes.items()), Nothing)]
+        pending: list[tuple[Iterator[tuple[Key, Node | FrameNode]], Option[Key]]] = [(iter(self.nodes.items()), NOTHING)]
         while pending:
             items, parent = pending[-1]
             match next(items, None):
@@ -341,7 +341,7 @@ def item_key(*parts: object) -> Key:
 
 def _switch(live: bpy.types.Node) -> Outcome[bpy.types.GeometryNodeMenuSwitch]:
     """Node as Menu Switch, else `absent` fault naming its items."""
-    return Option.of_optional(try_downcast(bpy.types.GeometryNodeMenuSwitch, live)).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(live), member="enum_items"))
+    return option.of_optional(try_downcast(bpy.types.GeometryNodeMenuSwitch, live)).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(live), member="enum_items"))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

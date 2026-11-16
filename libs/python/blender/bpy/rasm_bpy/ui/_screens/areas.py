@@ -6,7 +6,7 @@ from itertools import chain
 from typing import Final, Literal, Self, TYPE_CHECKING
 
 import bpy
-from expression import Option, Result, Some, try_downcast
+from expression import Error, NOTHING, Ok, Option, option, Some, try_downcast
 import msgspec
 import numpy as np
 
@@ -15,7 +15,7 @@ from rasm_bpy.data._rna.conditions import Condition, satisfied
 from rasm_bpy.data._rna.descriptors import Descriptor, Value, written
 from rasm_bpy.data._rna.paths import Native, RnaPath, rooted, Struct, struct_at
 from rasm_bpy.ui._resources.theme import Metrics
-from rasm_records import accumulated, Error, Fault, Nothing, Ok, Outcome, paired, Reason
+from rasm_records import accumulated, Fault, Outcome, paired, Reason
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -37,18 +37,18 @@ class Located(msgspec.Struct, frozen=True, kw_only=True):
 
     window: bpy.types.Window
     area: bpy.types.Area
-    region: Option[bpy.types.Region] = Nothing
+    region: Option[bpy.types.Region] = NOTHING
 
     @classmethod
     def current(cls, context: bpy.types.Context) -> Outcome[Self]:
         """Returns context window, area, and region, accumulating absences of the first two."""
-        return paired(rooted(bpy.types.Window, context), rooted(bpy.types.Area, context)).map(lambda pair: cls(window=pair[0], area=pair[1], region=Option.of_optional(context.region)))
+        return paired(rooted(bpy.types.Window, context), rooted(bpy.types.Area, context)).map(lambda pair: cls(window=pair[0], area=pair[1], region=option.of_optional(context.region)))
 
     @classmethod
     def found(cls, window: bpy.types.Window, pointer: int) -> Option[Self]:
         """Finds the area pointer in the current live window inventory, Nothing while absent."""
         requested = window.as_pointer()
-        return Option.of_optional(
+        return option.of_optional(
             next(
                 (
                     (live, area)
@@ -80,8 +80,8 @@ class AreaQuery(msgspec.Struct, frozen=True, kw_only=True):
     """Active space class, `ui_type`, and active space condition."""
 
     space: type[bpy.types.Space]
-    ui_type: Option[str] = Nothing
-    shows: Option[Condition] = Nothing
+    ui_type: Option[str] = NOTHING
+    shows: Option[Condition] = NOTHING
 
     def matches(self, area: bpy.types.Area) -> bool:
         """Returns whether the area's active space is of the class, its `ui_type` matches, and the condition holds over that space."""
@@ -99,7 +99,7 @@ class AreaQuery(msgspec.Struct, frozen=True, kw_only=True):
 
     def first(self, windows: Iterable[bpy.types.Window]) -> Outcome[Located]:
         """Returns largest matching area, or fault naming editor."""
-        return Option.of_optional(next(iter(self.located(windows)), None)).to_result_with(
+        return option.of_optional(next(iter(self.located(windows)), None)).to_result_with(
             partial(Fault.of, Reason.ABSENT, "WindowManager.windows", member=self.ui_type.default_value(self.space.__name__))
         )
 
@@ -107,11 +107,11 @@ class AreaQuery(msgspec.Struct, frozen=True, kw_only=True):
 class EditorState(msgspec.Struct, frozen=True, kw_only=True):
     """RNA values in dependency order under the active space, or under a region of a type."""
 
-    region: "Option[rna_enums.RegionTypeItems]" = Nothing
+    region: "Option[rna_enums.RegionTypeItems]" = NOTHING
     values: tuple[tuple[Descriptor[bpy.types.Property], Value | bytes | Struct], ...] = ()
 
     @classmethod
-    def of(cls, root: type[Struct], values: Mapping[RnaPath, Value | bytes | Struct], region: "Option[rna_enums.RegionTypeItems]" = Nothing) -> Outcome[Self]:
+    def of(cls, root: type[Struct], values: Mapping[RnaPath, Value | bytes | Struct], region: "Option[rna_enums.RegionTypeItems]" = NOTHING) -> Outcome[Self]:
         """Resolves values in declaration order."""
         return accumulated(Descriptor.resolve(root, path, bpy.types.Property).map(lambda setting: (setting, value)) for path, value in values.items()).map(
             lambda pairs: cls(region=region, values=pairs)
@@ -123,17 +123,17 @@ class EditorState(msgspec.Struct, frozen=True, kw_only=True):
         Returns:
             Replaced values, Nothing while the base or an owner is absent.
         """
-        base = self.region.map(lambda kind: region_in(at.area, kind).to_option()).default_with(lambda: Option.of_optional(at.area.spaces.active))
+        base = self.region.map(lambda kind: region_in(at.area, kind).to_option()).default_with(lambda: option.of_optional(at.area.spaces.active))
 
         with at.override:
             done = list[tuple[Native, Descriptor[bpy.types.Property], Value | Struct]]()
             for setting, value in self.values:
                 match base.filter(lambda held: isinstance(held, setting.root)).bind(lambda held: struct_at(held, setting.owner)).map(lambda held: (held, setting.write(held, value))):
-                    case Option(some=(held, Result(tag="ok", ok=prior))):
+                    case Some((held, Ok(prior))):
                         done.extend((held, setting, replaced) for replaced in prior.to_list())
                     case missed:
                         stopped = missed.map(lambda pair: pair[1].map(lambda _: None)).default_value(Ok(None))
-                        return accumulated((stopped, *(descriptor.write(held, prior) for held, descriptor, prior in reversed(done)))).map(lambda _: Nothing)
+                        return accumulated((stopped, *(descriptor.write(held, prior) for held, descriptor, prior in reversed(done)))).map(lambda _: NOTHING)
             return Ok(Some(msgspec.structs.replace(self, values=tuple((setting, prior) for _, setting, prior in reversed(done)))))
 
 
@@ -150,9 +150,9 @@ class NodeEditing(msgspec.Struct, frozen=True, kw_only=True):
         match context.space_data:
             case bpy.types.SpaceNodeEditor(cursor_location=cursor) as space:
                 return (
-                    Option
+                    option
                     .of_optional(space.edit_tree)
-                    .map(lambda tree: cls(cursor=(cursor.x, cursor.y), tree=tree, active=Option.of_optional(tree.nodes.active).filter(lambda node: node.select)))
+                    .map(lambda tree: cls(cursor=(cursor.x, cursor.y), tree=tree, active=option.of_optional(tree.nodes.active).filter(lambda node: node.select)))
                     .to_result_with(lambda: Fault.of(Reason.ABSENT, repr(space), member="edit_tree"))
                 )
             case _:
@@ -180,7 +180,7 @@ class Arrangement(msgspec.Struct, frozen=True, kw_only=True):
 
     at: Located
     steps: tuple[_Step, ...] = ()
-    use_hide_panels: Option[bool] = Nothing
+    use_hide_panels: Option[bool] = NOTHING
     undo: tuple[Callable[[], Outcome[None]], ...] = ()
 
     def advanced(self) -> Outcome[Option[Self]]:
@@ -211,7 +211,7 @@ class Arrangement(msgspec.Struct, frozen=True, kw_only=True):
                     at
                     .run(bpy.ops.screen.area_split, {"direction": "HORIZONTAL" if side in {"TOP", "BOTTOM"} else "VERTICAL", "factor": 1.0 - share if side in {"TOP", "RIGHT"} else share})
                     .bind(
-                        lambda _: Option.of_optional(next((area for area in window.screen.areas if area.as_pointer() not in before), None)).to_result_with(
+                        lambda _: option.of_optional(next((area for area in window.screen.areas if area.as_pointer() not in before), None)).to_result_with(
                             partial(Fault.of, Reason.ABSENT, repr(window.screen), member="screen.area_split")
                         )
                     )
@@ -236,12 +236,12 @@ class Arrangement(msgspec.Struct, frozen=True, kw_only=True):
                         lambda _: Some(
                             msgspec.structs.replace(
                                 self,
-                                use_hide_panels=Nothing,
+                                use_hide_panels=NOTHING,
                                 undo=(*self.undo, lambda: called(bpy.ops.screen.back_to_previous, {}, override=Some(bpy.context.temp_override(window=window))).map(lambda _: None)),
                             )
                         )
                     )
-                ).default_value(Ok(Nothing))
+                ).default_value(Ok(NOTHING))
 
     def reverted(self) -> Outcome[None]:
         """Reverts applied steps in reverse order, accumulating refusals."""
@@ -260,7 +260,7 @@ def areas(windows: Iterable[bpy.types.Window]) -> tuple[Located, ...]:
 
 def region_in(area: bpy.types.Area, kind: "rna_enums.RegionTypeItems" = "WINDOW") -> Outcome[bpy.types.Region]:
     """Returns the area's first region of a type."""
-    return Option.of_optional(next((region for region in area.regions if region.type == kind), None)).to_result_with(partial(Fault.of, Reason.ABSENT, repr(area), member=kind))
+    return option.of_optional(next((region for region in area.regions if region.type == kind), None)).to_result_with(partial(Fault.of, Reason.ABSENT, repr(area), member=kind))
 
 
 def _reached(window: bpy.types.Window, pointer: int, revert: Callable[[Located], Outcome[None]]) -> Outcome[None]:
@@ -290,7 +290,7 @@ def flipped(located: Located, side: _Edge) -> Outcome[None]:
 def quadded(located: Located, *, shown: bool) -> Outcome[None]:
     """Toggles quad view of the located 3D View region when its state differs."""
     return (
-        Option
+        option
         .of_optional(try_downcast(bpy.types.SpaceView3D, located.area.spaces.active))
         .to_result_with(partial(Fault.of, Reason.ABSENT, repr(located.area), member=bpy.types.SpaceView3D.__name__))
         .bind(lambda space: Ok(None) if (len(space.region_quadviews) > 0) == shown else located.run(bpy.ops.screen.region_quadview, {}))

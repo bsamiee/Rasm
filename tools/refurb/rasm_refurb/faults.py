@@ -1,10 +1,10 @@
-"""`Result` errors typed as `str`, `Exception`, or `BaseException`, and `Option` or `Result` values iterated directly."""
+"""`Result` errors typed as `str`, `Exception`, or `BaseException`, and values iterated while they can hold `Nothing` or `Error`."""
 
 from collections import defaultdict, deque
 from functools import cache
 from itertools import chain
 
-from expression import Option, Result
+import expression
 from mypy.argmap import map_actuals_to_formals
 from mypy.erasetype import erase_typevars
 from mypy.maptype import map_instance_to_supertype
@@ -29,6 +29,7 @@ from mypy.nodes import (
     TypeInfo,
 )
 from mypy.subtypes import is_subtype
+from mypy.typeops import type_object_type
 from mypy.types import AnyType, CallableType, flatten_nested_unions, get_proper_type, Instance, Overloaded, TupleType, Type, TypeAliasType, TypeOfAny, UnionType, UnpackType
 from refurb.checks.common import get_mypy_type, stringify
 from refurb.error import Error
@@ -42,7 +43,7 @@ from rasm_refurb._loops import Traverser
 
 
 class ErrorMisusedExpressionError(RasmError):
-    """`Result` error typed as `str`, `Exception`, or `BaseException` in place of the package fault, or an `Option` or `Result` iterated in place of a read through its members.
+    """`Result` error typed as `str`, `Exception`, or `BaseException` in place of the package fault, or a value iterated while it can hold `Nothing` or `Error` in place of a read through its members.
 
     Bad:
 
@@ -56,7 +57,7 @@ class ErrorMisusedExpressionError(RasmError):
     Good:
 
     ```
-    def parsed(text: str) -> Result[int, Fault]: ...
+    def parsed(text: str) -> Result[int, Faults]: ...
 
 
     keywords = dict(zip(("icon_value",), value.to_list()))
@@ -69,8 +70,8 @@ class ErrorMisusedExpressionError(RasmError):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_RESULT = fullname(Result)
-_WRAPPED = frozenset(map(fullname, (Option, Result)))
+_ERROR = fullname(expression.Error)
+_EMPTY = frozenset(map(fullname, (expression.Nothing, expression.Error)))
 _REJECTED = frozenset(map(fullname, (str, Exception, BaseException)))
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -89,7 +90,7 @@ def _faults(returned: Type) -> tuple[TypeInfo, ...]:
             return tuple(info for info in _faults(resolved) if info not in owned)
         case _, UnionType(items=items):
             return tuple(dict.fromkeys(chain.from_iterable(_faults(item) for item in items)))
-        case _, Instance(type=owner, args=[_, error]) if owner.fullname == _RESULT:
+        case _, Instance(type=owner, args=[error]) if owner.fullname == _ERROR:
             pending = deque((error,))
         case _:
             return ()
@@ -114,7 +115,7 @@ def _faults(returned: Type) -> tuple[TypeInfo, ...]:
 
 
 def _held(found: Type | None, /) -> tuple[TypeInfo, ...]:
-    return tuple(item.type for item in map(get_proper_type, flatten_nested_unions([found]) if found is not None else ()) if isinstance(item, Instance) and any(map(item.type.has_base, _WRAPPED)))
+    return tuple(item.type for item in map(get_proper_type, flatten_nested_unions([found]) if found is not None else ()) if isinstance(item, Instance) and item.type.fullname in _EMPTY)
 
 
 def _iterating(info: TypeInfo, /) -> bool:
@@ -180,7 +181,8 @@ class _Walk(RefurbVisitor, Traverser):
                 self.operands.update((right, _typed(right)) for operator, right in zip(operators, rights) if operator in {"in", "not in"})
             case CallExpr(args=arguments, arg_kinds=kinds, arg_names=names, callee=callee):
                 actuals = tuple(AnyType(TypeOfAny.special_form) if (found := _typed(argument)) is None else found for argument in arguments)
-                called = get_proper_type(_typed(callee)) if any(map(_held, actuals)) else None
+                resolved = get_mypy_type(callee) if any(map(_held, actuals)) else None
+                called = type_object_type(resolved) if isinstance(resolved, TypeInfo) else get_proper_type(resolved) if isinstance(resolved, Type) else None
                 selected = next(
                     (
                         formals
@@ -209,7 +211,7 @@ class _Walk(RefurbVisitor, Traverser):
 
 
 def check(node: MypyFile, errors: list[Error]) -> None:
-    """Reports each `Result` declaring a text or exception error type, and each `Option` or `Result` operand iterated directly.
+    """Reports each `Result` declaring a text or exception error type, and each operand iterated while it can hold `Nothing` or `Error`.
 
     A coroutine declares the result its awaitable returns, a type alias the type it names.
     """
@@ -232,9 +234,7 @@ def check(node: MypyFile, errors: list[Error]) -> None:
             for untyped in _faults(returned)
         ),
         *(
-            ErrorMisusedExpressionError.from_node(
-                operand, f"`{stringify(operand)}` iterates `{info.name}`, which raises `EffectError` while it holds no value, read the value through its members or a pattern"
-            )
+            ErrorMisusedExpressionError.from_node(operand, f"`{stringify(operand)}` can hold `{info.name}`, whose iteration raises `EffectError`, read the value through its members or a pattern")
             for operand, found in walk.operands.items()
             for info in _held(found)[:1]
         ),

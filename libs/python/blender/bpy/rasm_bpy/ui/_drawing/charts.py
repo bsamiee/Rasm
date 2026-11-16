@@ -4,7 +4,7 @@ from collections.abc import Callable, Iterable
 from functools import partial
 from typing import Final, Literal, Self
 
-from expression import Option
+from expression import NOTHING, Option
 import gpu
 from gpu_extras.batch import batch_for_shader
 import msgspec
@@ -15,7 +15,7 @@ import PyOpenColorIO
 from rasm_bpy.ui._drawing.canvas import Align, Blend, Canvas, draw_batch, FontStyle, Program, Rect
 from rasm_bpy.ui._resources.theme import CLEAR, Color, Metrics, Spacing
 from rasm_imaging import Bands, Chromaticity, colorimetry, DisplayView, Histogram
-from rasm_records import Nothing, Outcome, paired
+from rasm_records import Outcome, paired
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -51,7 +51,7 @@ class Layer(msgspec.Struct, frozen=True, kw_only=True, eq=False):
         positions: npt.NDArray[np.float32],
         color: Color | npt.NDArray[np.float32],
         *,
-        indices: Option[npt.NDArray[np.uint32]] = Nothing,
+        indices: Option[npt.NDArray[np.uint32]] = NOTHING,
         blend: Blend = "ALPHA",
         width: float = 1.0,
     ) -> Self:
@@ -159,7 +159,7 @@ def histogram(metrics: Metrics, config: PyOpenColorIO.Config, plane: npt.NDArray
     return paired(Histogram.of(config, plane), Bands.of(config, view, stops)).map(lambda found: plotted(*found))
 
 
-def chromaticity(metrics: Metrics, config: PyOpenColorIO.Config, plane: npt.NDArray[np.float32], view: DisplayView, *, extent: Option[npt.NDArray[np.float64]] = Nothing) -> Outcome[Chart]:
+def chromaticity(metrics: Metrics, config: PyOpenColorIO.Config, plane: npt.NDArray[np.float32], view: DisplayView, *, extent: Option[npt.NDArray[np.float64]] = NOTHING) -> Outcome[Chart]:
     """Charts a frame's scene-linear xy density inside the spectral locus, ticked every ten nanometres, with the working and display gamuts and their white points boxed.
 
     Args:

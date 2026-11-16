@@ -6,7 +6,7 @@ from itertools import starmap
 from typing import Final, override
 
 import bpy
-from expression import Option, Some, try_downcast
+from expression import Ok, Option, option, Some, try_downcast
 import msgspec
 import numpy as np
 import numpy.typing as npt
@@ -17,7 +17,7 @@ from rasm_bpy.data import Acquisitions, assigned, Identity, Key, rooted, Snapsho
 from rasm_bpy.nodes import Expr, Interface, owned, Socket
 from rasm_bpy.render import ColorManagement, CompositorEffect, CompositorRecord, entered, followed, grades, GraphInputs, HdrWindow, Holds, Mix, Named, NO_LOOK, READ, Seeded, viewed
 from rasm_imaging import converted, DisplayView, ImageFile, Samples
-from rasm_records import accumulated, Fault, Ok, Outcome, paired, Reason
+from rasm_records import accumulated, Fault, Outcome, paired, Reason
 
 from ..grade.exposure import exposed
 
@@ -116,8 +116,8 @@ def displays(identity: Identity, scene: bpy.types.Scene) -> tuple[tuple[bpy.type
     return tuple(
         (entry, node)
         for entry in formation.entries(identity, scene)
-        for group in Option.of_optional(entry.node_group).to_list()
-        for node in Option.of_optional(owned(group, identity).get(_DISPLAY)).bind(lambda found: Option.of_optional(try_downcast(bpy.types.CompositorNodeConvertToDisplay, found))).to_list()
+        for group in option.of_optional(entry.node_group).to_list()
+        for node in option.of_optional(owned(group, identity).get(_DISPLAY)).bind(lambda found: option.of_optional(try_downcast(bpy.types.CompositorNodeConvertToDisplay, found))).to_list()
     )
 
 
@@ -171,7 +171,7 @@ def measure_peak(identity: Identity, _scene: bpy.types.Scene, entry: bpy.types.S
         Samples
         .of(PyOpenColorIO.GetCurrentConfig(), file.pixels)
         .map(Samples.peak)
-        .bind(lambda peak: peak.map(lambda value: entered(identity, entry, {_SOURCE_PEAK.key: value})).default_value(Ok(value=False)))
+        .bind(lambda peak: peak.map(lambda value: entered(identity, entry, {_SOURCE_PEAK.key: value})).default_value(Ok(False)))
     )
 
 

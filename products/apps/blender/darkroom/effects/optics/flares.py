@@ -5,7 +5,7 @@ from math import tau
 from typing import Annotated, Final, override
 
 import bpy
-from expression import Option, Some
+from expression import Ok, Option, Some
 import msgspec
 
 from rasm_bpy.data import Descriptor, Identity, Key, Present
@@ -34,7 +34,7 @@ from rasm_bpy.render import (
 )
 from rasm_bpy.scene import camera_type
 from rasm_imaging import Aperture, fringed, stream
-from rasm_records import accumulated, Ok, Outcome, paired
+from rasm_records import accumulated, Outcome, paired
 
 from .bases import bases, Basis, Perlin, textured
 from .emission import Emission, emission, emitted, Gradient, Tint

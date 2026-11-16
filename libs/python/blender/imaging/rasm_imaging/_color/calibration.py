@@ -10,7 +10,7 @@ from typing import Annotated, Final, Self
 import colour
 from colour.characterisation import ColourChecker
 from colour.characterisation.datasets.colour_checkers.chromaticity_coordinates import CCS_COLORCHECKER24_AFTER_NOV2014
-from expression import Option, Some
+from expression import NOTHING, Ok, Option, option, Some
 from expression.extra.result import catch
 import msgspec
 import numpy as np
@@ -22,7 +22,7 @@ from rasm_imaging._color.colorimetry import adaptation
 from rasm_imaging._color.processors import basis, called, converted, matrix, Stops, xyz
 from rasm_imaging._geometry.frames import Homography, Quad, StMap
 from rasm_imaging._geometry.panoramas import PanoramaView
-from rasm_records import Case, Fault, Nothing, Ok, Outcome, paired, Reason, Rgb
+from rasm_records import Case, Fault, Outcome, paired, Reason, Rgb
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -161,13 +161,13 @@ class ChartPlacement(msgspec.Struct, frozen=True, kw_only=True):
     @property
     def extension(self) -> tuple[OpenImageIO.Wrap, OpenImageIO.Wrap]:
         """Source edge wraps for direct or panorama sampling."""
-        return Option.of_optional(self.panorama).map(lambda panorama: panorama.source.extension).default_value((OpenImageIO.Wrap.Black, OpenImageIO.Wrap.Black))
+        return option.of_optional(self.panorama).map(lambda panorama: panorama.source.extension).default_value((OpenImageIO.Wrap.Black, OpenImageIO.Wrap.Black))
 
     @property
     def viewed(self) -> Option[Quad]:
         """Corners in alignment frame, absent while a corner falls behind the panorama view."""
         return (
-            Option
+            option
             .of_optional(self.panorama)
             .map(lambda panorama: Some(panorama.to_view(self.quad.samples)).filter(lambda corners: bool(np.all(corners[:, 2] > 0.0))).map(Quad.of))
             .default_value(Some(self.quad))
@@ -176,17 +176,17 @@ class ChartPlacement(msgspec.Struct, frozen=True, kw_only=True):
     @property
     def aligned(self) -> Outcome[Option[Homography]]:
         """Convex chart map in alignment frame, absent for undefined or nonconvex corners."""
-        return self.viewed.map(Homography.of).default_value(Ok(Nothing))
+        return self.viewed.map(Homography.of).default_value(Ok(NOTHING))
 
     def mapping(self, homography: Homography) -> Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]:
         """Returns chart-to-source map for aligned homography."""
-        return Option.of_optional(self.panorama).map(lambda panorama: lambda samples: panorama.to_panorama(homography.to_image(samples))).default_value(homography.to_image)
+        return option.of_optional(self.panorama).map(lambda panorama: lambda samples: panorama.to_panorama(homography.to_image(samples))).default_value(homography.to_image)
 
     def findings(
         self, aspect: float, /, *, narrowest: float = math.radians(60.0), widest: float = math.radians(120.0), field_of_view: float = math.radians(120.0)
     ) -> Outcome[Option[tuple[Finding, ...]]]:
         """Returns findings against corner angle and panorama field-of-view limits, or absence when chart cannot align."""
-        view = Option.of_optional(self.panorama).map(lambda panorama: panorama.view)
+        view = option.of_optional(self.panorama).map(lambda panorama: panorama.view)
         clip = np.array([axis == OpenImageIO.Wrap.Black for axis in self.extension])
 
         def listed(homography: Homography) -> tuple[Finding, ...]:
@@ -234,15 +234,15 @@ class ChartPlacement(msgspec.Struct, frozen=True, kw_only=True):
                 .map(lambda colors: (homography, colors))
             )
 
-        return self.aligned.bind(lambda aligned: aligned.map(lambda homography: sampled(homography).map(Some)).default_value(Ok(Nothing)))
+        return self.aligned.bind(lambda aligned: aligned.map(lambda homography: sampled(homography).map(Some)).default_value(Ok(NOTHING)))
 
     def framed(self, share: float) -> Option[Self]:
         """Returns placement with view framing its corners, or absence for undefined view."""
-        return Option.of_optional(self.panorama).default_with(PanoramaView).framing(self.quad, share).map(lambda view: msgspec.structs.replace(self, panorama=view))
+        return (self.panorama or PanoramaView()).framing(self.quad, share).map(lambda view: msgspec.structs.replace(self, panorama=view))
 
     def realigned(self, quad: Quad) -> Self:
         """Stores edited alignment-frame corners back in source coordinates."""
-        return msgspec.structs.replace(self, quad=Option.of_optional(self.panorama).map(lambda panorama: Quad.of(panorama.to_panorama(quad.samples))).default_value(quad))
+        return msgspec.structs.replace(self, quad=option.of_optional(self.panorama).map(lambda panorama: Quad.of(panorama.to_panorama(quad.samples))).default_value(quad))
 
 
 # --- [FITS]
@@ -293,7 +293,7 @@ class Calibration(msgspec.Struct, frozen=True, kw_only=True):
             return (
                 catch(lambda: msgspec.convert(math.log2(target_luma) - math.log2(source_luma), Stops), exception=msgspec.ValidationError)().to_option()
                 if source_luma > 0.0 and target_luma > 0.0
-                else Nothing
+                else NOTHING
             ).map(lambda exposure: msgspec.structs.replace(self, exposure=exposure))
 
         return paired(basis(config, source_space), basis(config, target_space)).map(factored)

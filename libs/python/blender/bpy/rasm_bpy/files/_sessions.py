@@ -7,7 +7,7 @@ from itertools import starmap
 import os
 from pathlib import Path, PurePath, PurePosixPath
 from types import MappingProxyType
-from typing import Final, Literal, Never, override, Self
+from typing import Final, Literal, override, Self
 
 from blender_asset_tracer.blendfile.exceptions import BlendFileError
 from blender_asset_tracer.file_usage import FileInfo, Options
@@ -15,8 +15,7 @@ from blender_asset_tracer.hashing import get_hasher
 from blender_asset_tracer.pack import BATPacker, BATPackReporter, FileTransferProtocol
 from blender_asset_tracer.path_rewriting_process import BackgroundProcessNotRunningError
 import bpy
-from expression import Option, Result, Some
-from expression.extra.result import catch
+from expression import Error, NOTHING, Ok, Option, option, Result, Some
 import msgspec
 import numpy as np
 
@@ -27,7 +26,7 @@ from rasm_bpy.data._ids.store import Handle
 from rasm_bpy.data._rna.descriptors import Value
 from rasm_bpy.data._rna.paths import RnaPath
 from rasm_bpy.data._rna.snapshots import assigned
-from rasm_records import accumulated, Error, Fault, Faults, folder_made, Nothing, Ok, Outcome, Reason
+from rasm_records import accumulated, Fault, Faults, folder_made, Outcome, Reason
 from rasm_rendering import PackedFile
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -51,11 +50,11 @@ class BlendFile(msgspec.Struct, frozen=True, kw_only=True):
         """Returns current file state."""
         major, minor, patch = np.asarray(bpy.data.version).tolist()
         return cls(
-            path=Option.of_optional(bpy.data.filepath or None).map(Path),
+            path=option.of_optional(bpy.data.filepath or None).map(Path),
             dirty=bpy.data.is_dirty,
             version=(major, minor, patch),
             autopack=bpy.data.use_autopack,
-            blocked=Option.of_optional(bpy.app.autoexec_fail_message or None),
+            blocked=option.of_optional(bpy.app.autoexec_fail_message or None),
         )
 
 
@@ -168,14 +167,14 @@ class Packing(msgspec.Struct, frozen=True, kw_only=True, eq=False):
     def advanced(self) -> Outcome[Option[Self]]:
         """Runs one pack step, keeping the pack queued while steps remain, else finishing with the pack, or aborting and finishing with the refusal."""
         match _bat_called(self.packer.step).map_error(partial(Fault.of, Reason.UNREADABLE, str(self.packer.project_root))):
-            case Result(tag="ok", ok=True):
+            case Ok(True):
                 return Ok(Some(self))
-            case Result(tag="ok"):
+            case Ok():
                 self.release.pop_all()
-                return self.finished(Ok(self.pack)).map(lambda _: Nothing)
-            case Result(error=faults):
+                return self.finished(Ok(self.pack)).map(lambda _: NOTHING)
+            case Error(faults):
                 self.release.close()
-                return self.finished(Error(faults)).map(lambda _: Nothing)
+                return self.finished(Error(faults)).map(lambda _: NOTHING)
 
     def drained(self) -> Outcome[Pack]:
         """Runs every remaining step in one call, the form a background run takes, aborting at a refusal."""
@@ -277,10 +276,10 @@ def relinked(relink: Rebased | Mapping[tuple[Handle[bpy.types.ID], str], str]) -
                     .map(lambda moved: bpy.path.relpath(str(moved)) if path.startswith("//") and moved.anchor == Path(bpy.data.filepath).anchor else str(moved))
                 )
             case Mapping() as held:
-                return Option.of_optional(held.get((Handle.of(owner), path)))
+                return option.of_optional(held.get((Handle.of(owner), path)))
 
     def visited(owner: bpy.types.ID, path: str, meta: bpy.types.BlendDataPathMeta) -> str | None:
-        after = Nothing if meta.is_readonly else rewritten(owner, path)
+        after = NOTHING if meta.is_readonly else rewritten(owner, path)
         for text in after.filter(lambda text: text != path).to_list():
             changes[Handle.of(owner), text] = path
         return after.to_optional()
@@ -301,7 +300,7 @@ def _released[T](release: ExitStack, faults: Faults) -> Outcome[T]:
 def _bat_called[T](step: Callable[[], T]) -> Result[T, OSError | BlendFileError | BackgroundProcessNotRunningError]:
     """Runs one blender-asset-tracer call, which raises for an unreadable file, an unparsable blend file, and a stopped rewrite process."""
     try:
-        return Result[Never, Never].Ok(step())
+        return Ok(step())
     except (OSError, BlendFileError, BackgroundProcessNotRunningError) as error:
         return Error(error)
 
@@ -327,7 +326,7 @@ def pack_started(target: Path | FileTransferProtocol, project: Path, options: Op
     release = ExitStack()
     release.callback(packer.abort)
     return (
-        Option
+        option
         .of_optional(bpy.data.filepath or None)
         .filter(lambda _: not bpy.data.is_dirty)
         .to_result_with(lambda: Fault.of(Refusal.REQUIRED, "saved session file"))
@@ -344,7 +343,7 @@ def project_reconciled(project: Project) -> Outcome[None]:
 
     def initialized() -> Outcome[bpy.types.BlenderProject]:
         return called(bpy.ops.project.new, {"name": project.name, "directory": str(project.root)}).bind(
-            lambda _: Option.of_optional(bpy.data.project).to_result_with(lambda: Fault.of(Reason.ABSENT, "bpy.data", member="project"))
+            lambda _: option.of_optional(bpy.data.project).to_result_with(lambda: Fault.of(Reason.ABSENT, "bpy.data", member="project"))
         )
 
     def reconciled(current: bpy.types.BlenderProject) -> Outcome[None]:
@@ -352,13 +351,11 @@ def project_reconciled(project: Project) -> Outcome[None]:
         with ExitStack() as cleanup:
 
             def created[T](request: str, name: str, made: Callable[[], T | None], removed: Callable[[T], object]) -> Outcome[T]:
-                return tracked(
-                    cleanup,
-                    removed,
-                    catch(made, exception=RuntimeError)()
-                    .map_error(partial(Fault.of, Refusal.REFUSED, request))
-                    .bind(lambda item: Option.of_optional(item).to_result_with(lambda: Fault.of(Reason.ABSENT, request, member=name))),
-                )
+                try:
+                    item = made()
+                except RuntimeError as error:
+                    return Error(Fault.of(Refusal.REFUSED, request, error))
+                return tracked(cleanup, removed, option.of_optional(item).to_result_with(lambda: Fault.of(Reason.ABSENT, request, member=name)))
 
             def placed(name: str, variable: TemplateVariable) -> Outcome[None]:
                 kind: Literal["STRING", "INTEGER", "FLOAT"]
@@ -372,12 +369,12 @@ def project_reconciled(project: Project) -> Outcome[None]:
                         values = {("value",): number}
 
                 def replaced() -> Outcome[bpy.types.ProjectVariable]:
-                    for item in Option.of_optional(variables.get(name)).to_list():
+                    for item in option.of_optional(variables.get(name)).to_list():
                         current.variables.remove(item)
                     return created(repr(current.variables), name, lambda: current.variables.new(name, type=kind), current.variables.remove)
 
                 return (
-                    Option
+                    option
                     .of_optional(variables.get(name))
                     .filter(lambda item: item.type == kind)
                     .map(Ok)

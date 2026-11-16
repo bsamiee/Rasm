@@ -8,7 +8,7 @@ from typing import Literal, TYPE_CHECKING
 from bl_ui.space_toolsystem_common import ToolDef
 from bl_ui.space_topbar import TOPBAR_PT_tool_settings_extra
 import bpy
-from expression import Option, Some
+from expression import NOTHING, Ok, Option, Some
 from expression.extra.result import catch
 import msgspec
 
@@ -22,7 +22,7 @@ from rasm_bpy.data._rna.paths import rna_definition, Struct
 from rasm_bpy.ui._drawing.handlers import DrawCallback, Drawing
 from rasm_bpy.ui._elements.gizmos import GizmoGroup
 from rasm_bpy.ui._layout.rows import realized, RowContent, RowDraw
-from rasm_records import accumulated, Fault, Nothing, Ok, Outcome, paired
+from rasm_records import accumulated, Fault, Outcome, paired
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -42,14 +42,14 @@ class Tool[S = None](msgspec.Struct, frozen=True, kw_only=True):
     operator: Command | Operation
     icon: str
     bindings: Bindings = ()
-    description: Option[str | Callable[[bpy.types.Context, ToolDef, bpy.types.KeyMap | None], str]] = Nothing
-    cursor: "Option[rna_enums.WindowCursorItems]" = Nothing
-    widget: Option[GizmoGroup | type[bpy.types.GizmoGroup]] = Nothing
+    description: Option[str | Callable[[bpy.types.Context, ToolDef, bpy.types.KeyMap | None], str]] = NOTHING
+    cursor: "Option[rna_enums.WindowCursorItems]" = NOTHING
+    widget: Option[GizmoGroup | type[bpy.types.GizmoGroup]] = NOTHING
     widget_properties: tuple[tuple[str, object], ...] = ()
-    pointer: Option[Drawing[S]] = Nothing
+    pointer: Option[Drawing[S]] = NOTHING
     options: frozenset[Literal["KEYMAP_FALLBACK", "USE_BRUSHES"]] = frozenset()
-    brush_type: Option[str] = Nothing
-    data_block: Option[str] = Nothing
+    brush_type: Option[str] = NOTHING
+    data_block: Option[str] = NOTHING
     settings: tuple[RowContent, ...] = ()
     widget_settings: tuple[RowContent, ...] = ()
     extra_settings: tuple[RowContent, ...] = ()
@@ -65,7 +65,7 @@ class Tools[S = None](msgspec.Struct, frozen=True, kw_only=True):
 
     space: "rna_enums.SpaceTypeItems"
     tools: tuple[Tool[S], *tuple[Tool[S], ...]]
-    mode: Option[str] = Nothing
+    mode: Option[str] = NOTHING
     after: frozenset[str] = frozenset()
     separator: bool = False
     group: bool = False
@@ -95,15 +95,15 @@ class Tools[S = None](msgspec.Struct, frozen=True, kw_only=True):
     def tool_class(self, identity: Identity, tool: Tool[S], pointer: Option[DrawCallback]) -> Outcome[type[bpy.types.WorkSpaceTool]]:
         """Builds the tool class once its names, keymap rows, widget, and settings resolve."""
         match tool.operator:
-            case Operator(invoke=Option(tag="some", some=Pick(cursor=picked))):
+            case Operator(invoke=Some(Pick(cursor=picked))):
                 pending: Option[rna_enums.WindowCursorItems] = Some(picked)
             case _:
-                pending = Nothing
+                pending = NOTHING
         widget = tool.widget.map(lambda held: identity.name(bpy.types.GizmoGroup, held.key) if isinstance(held, GizmoGroup) else rna_definition(held).identifier)
 
         def realizing(rows: tuple[RowContent, ...]) -> Outcome[Option[RowDraw]]:
             """Realizes declared rows into one draw, Nothing while none is declared."""
-            return realized(rows, identity).map(Some) if rows else Ok(Nothing)
+            return realized(rows, identity).map(Some) if rows else Ok(NOTHING)
 
         def built(rows: tuple[Row, ...], draws: tuple[Option[RowDraw], Option[RowDraw], Option[RowDraw]]) -> type[bpy.types.WorkSpaceTool]:
             name, operator = identity.name(bpy.types.Operator, tool.key), idname(identity, tool.operator)

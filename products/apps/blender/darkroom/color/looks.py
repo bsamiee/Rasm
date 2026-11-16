@@ -7,7 +7,7 @@ from typing import Annotated, Final
 
 from bl_ui.properties_render import RENDER_PT_color_management
 import bpy
-from expression import Option, Some
+from expression import NOTHING, Option, option, Some
 import msgspec
 import PyOpenColorIO
 
@@ -17,7 +17,7 @@ from rasm_bpy.render import ConfigInstall, ConfigView, Entry, NO_LOOK, Valued, v
 from rasm_bpy.settings import Attachment
 from rasm_bpy.ui import aligned, Child, Gallery, Layout, Member, OperatorButton, Panel, Section
 from rasm_imaging import DisplayView, Film
-from rasm_records import Nothing, Outcome
+from rasm_records import Outcome
 
 from ..catalog import stacks, tiles
 from ..effects.formation.display import displays, Formation, reformed
@@ -55,7 +55,7 @@ def _offered(identity: Identity, owner: Struct, _context: bpy.types.Context | No
         return tiles.icon(identity, scene, item_key(_LOOKS.key, name), Valued(structure=Entry(record=record))).default_value(0)
 
     return choices(
-        (name, label, Option.of_optional(config.getLook(name)).map(PyOpenColorIO.Look.getDescription).default_value(""), tile(scene, view, name), index)
+        (name, label, option.of_optional(config.getLook(name)).map(PyOpenColorIO.Look.getDescription).default_value(""), tile(scene, view, name), index)
         for scene in id_data(bpy.types.Scene, owner).to_list()
         for holder in (_viewing(identity, scene),)
         for view in (viewed(holder),)
@@ -85,10 +85,10 @@ def _looking(identity: Identity) -> Generator[Mapping[str, Callbacks[FormationLo
                     identity,
                     scene,
                     lambda view: msgspec.structs.replace(view, looks_override=look, looks_override_enabled=look != NO_LOOK),
-                    lambda: written(scene, ("view_settings", "look"), look).map(Option.is_some),
+                    lambda: written(scene, ("view_settings", "look"), look).map(lambda prior: prior.is_some()),
                 )
             )
-            .map(lambda wrote: Some(f"Look {look}") if wrote else Nothing)
+            .map(lambda wrote: Some(f"Look {look}") if wrote else NOTHING)
         )
 
     with identity.reports.deferred(write) as deferred:

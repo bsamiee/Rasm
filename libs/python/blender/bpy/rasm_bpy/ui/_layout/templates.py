@@ -7,7 +7,7 @@ from types import MappingProxyType
 from typing import Annotated, override
 
 import bpy
-from expression import Option, Some
+from expression import NOTHING, Ok, Option, option, Some
 import msgspec
 import numpy as np
 import numpy.typing as npt
@@ -27,7 +27,7 @@ from rasm_bpy.ui._layout.rows import ConditionalRow, FUNCTIONS, gridded, Keyword
 from rasm_bpy.ui._layout.values import Listing, StoreCommand
 from rasm_bpy.ui._resources.previews import PREVIEWS
 from rasm_bpy.ui._resources.theme import Metrics
-from rasm_records import Nothing, Ok, Outcome
+from rasm_records import Outcome
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -48,7 +48,7 @@ class Preview(Property, frozen=True, kw_only=True):
             case bpy.types.Material() | bpy.types.Texture() | bpy.types.World() | bpy.types.Light() | bpy.types.FreestyleLineStyle():
                 super().shown(identity, keywords, held, layout, _holder, context)
             case bpy.types.ID() as data:
-                for preview in Option.of_optional(data.preview_ensure()).to_list():
+                for preview in option.of_optional(data.preview_ensure()).to_list():
                     getattr(layout, FUNCTIONS["template_icon"].identifier)(preview.icon_id, **self.plain)
             case _:
                 pass
@@ -128,7 +128,7 @@ class PresetGallery[T: msgspec.Struct](ConditionalRow, frozen=True, kw_only=True
         title = self.listing.commands[StoreCommand.APPLY].title
 
         def applied(stem: str) -> Outcome[Option[str]]:
-            return self.listing.preset.loaded(identity, stem).bind(partial(self.listing.applied, bpy.context)).map(lambda answer: Some(title) if isinstance(answer, operators.Done) else Nothing)
+            return self.listing.preset.loaded(identity, stem).bind(partial(self.listing.applied, bpy.context)).map(lambda answer: Some(title) if isinstance(answer, operators.Done) else NOTHING)
 
         def picked(owner: _Pick, value: int) -> None:
             for stem in (stem for stem, *_, number in self.presets(identity, None) if number == value):
@@ -172,12 +172,12 @@ class Picture[S](ConditionalRow, frozen=True, kw_only=True):
         """Renders the part's current state at its size in the canvas's metrics and theme, Nothing while the part holds no state."""
         width, height = self.size(canvas.metrics)
         return self.part.read(canvas.metrics).bind(
-            lambda found: found.map(lambda state: Offscreen(width=width, height=height).drawn(canvas, lambda pixels: self.part.drawn(state, pixels)).map(Some)).default_value(Ok(Nothing))
+            lambda found: found.map(lambda state: Offscreen(width=width, height=height).drawn(canvas, lambda pixels: self.part.drawn(state, pixels)).map(Some)).default_value(Ok(NOTHING))
         )
 
     def shown(self, identity: Identity, layout: bpy.types.UILayout, _holder: Struct, context: bpy.types.Context) -> None:
         """Draws the finished picture, rendering it first while the slot misses this interface scale."""
-        for area, region in ((area, region) for area in Option.of_optional(context.area).to_list() for region in Option.of_optional(context.region).to_list()):
+        for area, region in ((area, region) for area in option.of_optional(context.area).to_list() for region in option.of_optional(context.region).to_list()):
             canvas, previews = Canvas.of(area, region), PREVIEWS[identity]
             key = (canvas.metrics.scale, canvas.metrics.pixel_size)
             pictured = (

@@ -3,12 +3,13 @@
 lazy from itertools import accumulate, groupby, pairwise
 
 import msgspec
+lazy from expression import Ok
 lazy from fontTools.misc.bezierTools import segmentSegmentIntersections
 lazy from fontTools.misc.transform import Offset, Transform
 
 from rasm_typography._faces.declaration import Code, Em, Ratio, Script
 from rasm_typography._rules import measures
-lazy from rasm_records import Ok, Outcome
+lazy from rasm_records import Outcome
 lazy from rasm_typography._faces.glyphs import Glyph, Joinings, Letter, Source
 lazy from rasm_typography._outlines import paths
 

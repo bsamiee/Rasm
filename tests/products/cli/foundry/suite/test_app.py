@@ -6,14 +6,14 @@ from pathlib import Path
 
 import anyio
 from cyclopts.exceptions import CycloptsError
-from expression import Result
+from expression import Error, Ok
 import msgspec
 import pytest
 import sysexits
 
 from rasm_cli import exited
 from rasm_foundry import Action, app, Report
-from rasm_records import Error, Fault, Ok, Reason
+from rasm_records import Fault, Reason
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -64,7 +64,7 @@ def test_independent_corpus_and_selection_failures_accumulate(tmp_path: Path, ca
     command, bound, _ = app.parse_args(["build", str(declaration), "Missing", "--output", str(tmp_path / "build")], exit_on_error=False)
     outcome = anyio.run(partial(command, *bound.args, **bound.kwargs, cache=tmp_path / "cache"))
     match outcome:
-        case Result(error=faults):
+        case Error(faults):
             assert tuple(fault.reason for fault in faults) == (Reason.UNREADABLE, Reason.ABSENT)
         case other:
             pytest.fail(str(other))

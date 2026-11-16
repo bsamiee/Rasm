@@ -10,13 +10,13 @@ import functools
 import math
 from typing import Final, Literal, overload
 
-from expression import Option, Result
+from expression import Ok, option
 import numpy as np
 import numpy.typing as npt
 import OpenImageIO
 import PyOpenColorIO
 
-from rasm_records import Error, Fault, Ok, Outcome, Reason
+from rasm_records import Fault, Outcome, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -33,12 +33,8 @@ class Coding(Enum):
     def coded(self, plane: npt.NDArray[np.float32], depth: IntegerDepth, /) -> Outcome[npt.NDArray[np.uint8 | np.uint16]]:
         """Returns clamped integer codes of the same shape, NaN and negative infinity at zero, ties to even, each diffused color error spread over unvisited neighbors along anti-diagonal wavefronts, or `FAILED` fault."""
         rounded = pixels(OpenImageIO.ImageBuf(np.ascontiguousarray(plane).reshape(1, -1, 1)), depth).map(lambda codes: codes.reshape(plane.shape))
-        if self is Coding.ROUNDED:
-            return rounded
         match rounded:
-            case Result(tag="error", error=errors):
-                return Error(errors)
-            case Result(ok=coded):
+            case Ok(coded) if self is Coding.DIFFUSED:
                 height, width, _ = plane.shape
                 levels = float(np.iinfo(coded.dtype).max)
                 color = levels * np.nan_to_num(plane[..., :3], nan=0.0, posinf=np.inf, neginf=-np.inf)
@@ -56,6 +52,8 @@ class Coding(Enum):
                     ring[low + 1 : high + 2, (step + 3) % 4] += error * (1 / 16)
                     ring[low : high + 1, (step + 1) % 4] += error * (7 / 16)
                 return Ok(coded)
+            case _:
+                return rounded
 
 
 class Depth(IntEnum):
@@ -112,7 +110,7 @@ def pixels(image: OpenImageIO.ImageBuf, depth: Literal[Depth.UINT8]) -> Outcome[
 def pixels(image: OpenImageIO.ImageBuf, depth: IntegerDepth) -> Outcome[npt.NDArray[np.uint8 | np.uint16]]: ...
 def pixels(image: OpenImageIO.ImageBuf, depth: Depth = Depth.FLOAT) -> Outcome[npt.NDArray[Coded | np.float16]]:
     """Returns pixels of buffer stored at `depth`, float32 by default, or `FAILED` fault."""
-    return Option.of_optional(image.get_pixels(depth.basetype)).to_result_with(lambda: Fault.of(Reason.FAILED, image.name, image.geterror()))
+    return option.of_optional(image.get_pixels(depth.basetype)).to_result_with(lambda: Fault.of(Reason.FAILED, image.name, image.geterror()))
 
 
 # --- [FITS]

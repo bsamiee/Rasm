@@ -6,13 +6,13 @@ from functools import partial, reduce
 import pathlib
 from typing import Self
 
-from expression import Option
+from expression import Ok, option
 import msgspec
 import PyOpenColorIO
 
 from rasm_imaging._color.luts import LutFormat
 from rasm_imaging._color.processors import called, processor
-from rasm_records import accumulated, committed, files_copied, Ok, Outcome, paired
+from rasm_records import accumulated, committed, files_copied, Outcome, paired
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -67,7 +67,7 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
 
             def ran(direction: PyOpenColorIO.ViewTransformDirection) -> Outcome[None]:
                 return (
-                    Option
+                    option
                     .of_optional(view.getTransform(direction))
                     .map(lambda transform: processor(prior, transform).map(lambda built: copied.setTransform(built.createGroupTransform(), direction)))
                     .default_value(Ok(None))
@@ -106,7 +106,7 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
                     return transform, ()
 
         def retabled(transform: PyOpenColorIO.Transform | None, write: Callable[[PyOpenColorIO.Transform], None]) -> tuple[tuple[str, str], ...]:
-            found = Option.of_optional(transform).map(tabled)
+            found = option.of_optional(transform).map(tabled)
             for held, _ in found.to_list():
                 write(held)
             return found.map(lambda pair: pair[1]).default_value(())
@@ -153,7 +153,7 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
             names = tuple(view.getName() for view in self.view_transforms)
             for name in names:
                 request.addSharedView(name, name, PyOpenColorIO.OCIO_VIEW_USE_DISPLAY_NAME)
-            for display_name in (name for name in dict.fromkeys((*request.getDisplaysAll(), *built)) if Option.of_optional(request.getColorSpace(name)).is_some()):
+            for display_name in (name for name in dict.fromkeys((*request.getDisplaysAll(), *built)) if option.of_optional(request.getColorSpace(name)).is_some()):
                 for name in names:
                     request.addDisplaySharedView(display_name, name)
             for name in built if request.getActiveDisplays() else ():

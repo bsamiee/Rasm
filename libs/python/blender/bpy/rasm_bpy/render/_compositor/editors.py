@@ -7,7 +7,7 @@ from typing import Annotated, Final
 
 from bl_ui.properties_compositor import SCENE_PT_compositor_effects
 import bpy
-from expression import Option, Result, Some, try_downcast
+from expression import Error, NOTHING, Ok, Option, option, Some, try_downcast
 from expression.collections import Block
 import msgspec
 import msgspec.inspect
@@ -34,7 +34,7 @@ from rasm_bpy.ui._elements.panels import Beside, Panel
 from rasm_bpy.ui._layout.members import Member
 from rasm_bpy.ui._layout.rows import even, FUNCTIONS, gridded, Keywords, Label, Layout, operator_button, Property, realized, RowContent, RowDraw
 from rasm_bpy.ui._layout.sections import field_rows, Section
-from rasm_records import accumulated, amended, Error, Fault, Nothing, Ok, Outcome, Reason
+from rasm_records import accumulated, amended, Fault, Outcome, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -143,7 +143,7 @@ class EntryEditor(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         return self.revised(
             call,
             lambda field: (
-                _choices(field.annotation).bind(lambda found: Option.of_optional(found.get(chosen.choice))).to_result_with(partial(Fault.of, Reason.ABSENT, chosen.field, member=chosen.choice))
+                _choices(field.annotation).bind(lambda found: option.of_optional(found.get(chosen.choice))).to_result_with(partial(Fault.of, Reason.ABSENT, chosen.field, member=chosen.choice))
             ).map(lambda held: held[1]),
         )
 
@@ -172,7 +172,7 @@ class EntryEditor(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     def located(edit: FieldEdit, record: msgspec.Struct, /) -> Outcome[_Field]:
         """Resolves an edited field on the current record, absent after its case changes."""
         return (
-            Option
+            option
             .of_optional(_declared(record).get(edit.field) if item_key(type(record)) == edit.kind else None)
             .map(lambda held: held[0])
             .to_result_with(partial(Fault.of, Reason.ABSENT, edit.kind, member=edit.field))
@@ -184,7 +184,8 @@ class EntryEditor(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
         def changed(record: CompositorRecord) -> Outcome[CompositorRecord]:
             match self.located(chosen, record).bind(lambda field: read(field).map(lambda value: (field, value))):
-                case Result(tag="ok", ok=(field, value)):
+                case Ok(pair):
+                    field, value = pair
                     subject = ".".join((type(record).__name__, *field.names))
                     try:
                         decoded = msgspec.convert(value, field.annotation)
@@ -192,7 +193,7 @@ class EntryEditor(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                     except (TypeError, ValueError) as error:
                         return Error(Fault.of(Reason.INVALID, subject, error))
                     return rebuilt.to_result_with(partial(Fault.of, Reason.ABSENT, subject))
-                case Result(error=faults):
+                case Error(faults):
                     return Error(faults)
 
         return rooted(bpy.types.Scene, call.context).bind(
@@ -247,8 +248,8 @@ class EntryEditor(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             .filter(lambda _: isinstance(_form(annotation), msgspec.inspect.BoolType))
             .or_else_with(lambda: choices.map(lambda _: self.choosing))
             .or_else_with(lambda: _numeric(annotation).map(lambda _: self.numbering))
-            .or_else_with(lambda: Some(self.opening) if annotation in {FilePath, FilePath | None} else Nothing)
-            .or_else_with(lambda: Some(self.writing) if isinstance(_form(annotation), msgspec.inspect.StrType) else Nothing)
+            .or_else_with(lambda: Some(self.opening) if annotation in {FilePath, FilePath | None} else NOTHING)
+            .or_else_with(lambda: Some(self.writing) if isinstance(_form(annotation), msgspec.inspect.StrType) else NOTHING)
         )
 
     def edited(self, interface: Interface, record: msgspec.Struct, /) -> tuple[_Edited, ...]:
@@ -302,7 +303,7 @@ class EntryEditor(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
         Flag draws as a checkbox under its name in the value cell, any other field under its name in the label cell, labelled by its current value: a choice's or case's label, a number, a file's name, or the text.
         """
-        held = Option.of_optional(try_downcast(bpy.types.SceneCompositorEffect, holder)).filter(lambda _: bool(msgspec.structs.fields(row.record)))
+        held = option.of_optional(try_downcast(bpy.types.SceneCompositorEffect, holder)).filter(lambda _: bool(msgspec.structs.fields(row.record)))
         records = tuple((entry, identity.reports.settled(row.read(identity, entry))) for entry in held.to_list())
         edits = tuple((entry, edit) for entry, record in records for found in record.to_list() for edit in self.edited(row.interface, found.record))
         for (entry, (key, names, command, keywords, seeded)), prior in zip(edits, ((), *(edit[1] for _, edit in edits)), strict=False):
@@ -326,7 +327,7 @@ class EntryEditor(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
     def commanded(self, identity: Identity, layout: bpy.types.UILayout, holder: Struct, _context: bpy.types.Context) -> None:
         """Draws the owned entry's header commands."""
-        held = tuple((entry, row) for entry in Option.of_optional(try_downcast(bpy.types.SceneCompositorEffect, holder)).to_list() for row in self.rows.row(identity, entry).to_list())
+        held = tuple((entry, row) for entry in option.of_optional(try_downcast(bpy.types.SceneCompositorEffect, holder)).to_list() for row in self.rows.row(identity, entry).to_list())
         for entry, row in held:
             identity.reports.faulted(accumulated(operator_button(layout, identity, Placement(command, {"name": entry.name}), keywords) for command, keywords in self.headed[row.kind]))
 
@@ -433,18 +434,18 @@ def _choices(annotation: object, /) -> Option[Mapping[str, tuple[str, object]]]:
         case _, msgspec.inspect.UnionType(types=(msgspec.inspect.LiteralType(values=values), msgspec.inspect.NoneType())):
             return Some({"None": ("None", None), **{str(held): (str(held), held) for held in values}})
         case _:
-            return Nothing
+            return NOTHING
 
 
 def _numeric(annotation: object, /) -> Option[Callable[[float], Value]]:
     """Conversion of an entered number into a field of an integer or float type."""
     match _form(annotation):
         case msgspec.inspect.IntType():
-            return Option[Callable[[float], int]](some=round)
+            return Some(round)
         case msgspec.inspect.FloatType():
             return Some(float)
         case _:
-            return Nothing
+            return NOTHING
 
 
 # --- [DRAWING]
@@ -462,12 +463,12 @@ def node_editors(layout: bpy.types.UILayout, nodes: Iterable[bpy.types.Node], /)
 
 def _reached(identity: Identity, key: Key, context: bpy.types.Context) -> Option[Struct]:
     """Input of the scene's active entry at an item key."""
-    return root_in(bpy.types.Scene, context).bind(lambda scene: Option.of_optional(scene.compositor_effects.active)).bind(lambda entry: entry_input(identity, entry, key).to_option())
+    return root_in(bpy.types.Scene, context).bind(lambda scene: option.of_optional(scene.compositor_effects.active)).bind(lambda entry: entry_input(identity, entry, key).to_option())
 
 
 def _scened(struct: Callable[[bpy.types.Scene], Struct], draw: RowDraw, layout: bpy.types.UILayout, holder: Struct, context: bpy.types.Context) -> None:
     """Draws over the attachment group the entry's scene holds."""
-    for scene in Option.of_optional(try_downcast(bpy.types.Scene, holder.id_data)).to_list():
+    for scene in option.of_optional(try_downcast(bpy.types.Scene, holder.id_data)).to_list():
         draw(layout, struct(scene), context)
 
 

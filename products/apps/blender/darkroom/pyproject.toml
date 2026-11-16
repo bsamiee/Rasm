@@ -113,6 +113,6 @@ ignore = ["relative-imports"] # Blender loads an extension as `bl_ext.<repositor
 # --- [TY] -------------------------------------------------------------------------------
 
 [tool.ty]
-environment = { python-platform = "all", root = [".."] }               # ty merges no parent table and takes `requires-python` from the table holder; `..` holds the `darkroom` package its relative imports climb
-rules       = { all = "error", unused-type-ignore-comment = "ignore" } # mypy `unused-ignore` owns unused `type: ignore` comments
-analysis    = { allowed-unresolved-imports = ["cycles.**"] }           # Blender bundles the Cycles add-on with no stub
+environment = { python-platform = "all", root = [".."] }                                                                         # ty merges no parent table and takes `requires-python` from the table holder; `..` holds the `darkroom` package its relative imports climb
+rules       = { all = "error", unsound-assignment = "ignore", unsound-return = "ignore", unused-type-ignore-comment = "ignore" } # mypy owns `Any` assigned and returned through a typed boundary, `unused-ignore` unused `type: ignore` comments
+analysis    = { allowed-unresolved-imports = ["cycles.**"] }                                                                     # Blender bundles the Cycles add-on with no stub

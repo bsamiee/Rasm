@@ -7,7 +7,7 @@ import math
 from typing import ClassVar, Final
 
 import bpy
-from expression import Option, Some
+from expression import NOTHING, Ok, Option, option, Some
 import msgspec
 
 from rasm_bpy.data._extension.identity import Identity
@@ -20,7 +20,7 @@ from rasm_bpy.ui._drawing.canvas import Align, Canvas, DrawType, FontStyle, Rect
 from rasm_bpy.ui._resources.previews import Textures
 from rasm_bpy.ui._resources.theme import display_color, Metrics, Spacing
 from rasm_imaging import DisplayView
-from rasm_records import Nothing, Ok, Outcome
+from rasm_records import Outcome
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -31,7 +31,7 @@ class Cell(msgspec.Struct, frozen=True, kw_only=True):
     node: str
     key: Hashable
     label: str
-    value: Option[float] = Nothing
+    value: Option[float] = NOTHING
 
 
 class ThumbnailSettings(msgspec.Struct, frozen=True, kw_only=True):
@@ -78,11 +78,11 @@ class NodeThumbnails(msgspec.Struct, frozen=True, kw_only=True):
             case bpy.types.SpaceNodeEditor() as space, bpy.types.Scene() as scene:
                 return NODE_PREVIEWS.read(self.identity).bind(
                     lambda settings: (
-                        Editor.of(space, scene).map(lambda editor: editor.map(lambda found: (settings, NODE_STATES[self.identity].cells.get(found, ())))) if settings.enabled else Ok(Nothing)
+                        Editor.of(space, scene).map(lambda editor: editor.map(lambda found: (settings, NODE_STATES[self.identity].cells.get(found, ())))) if settings.enabled else Ok(NOTHING)
                     )
                 )
             case _:
-                return Ok(Nothing)
+                return Ok(NOTHING)
 
     def drawn(self, state: tuple[NodePreviews, tuple[Cell, ...]], canvas: Canvas) -> None:
         """Draws cells beside nodes, active node grid last."""
@@ -131,7 +131,7 @@ class NodeThumbnails(msgspec.Struct, frozen=True, kw_only=True):
         cells: defaultdict[str, list[Cell]] = defaultdict(list)
         for item in shown:
             cells[item.node].append(item)
-        active = tuple(Option.of_optional(tree.nodes.active).filter(lambda _: settings.use_enlarge).to_list())
+        active = tuple(option.of_optional(tree.nodes.active).filter(lambda _: settings.use_enlarge).to_list())
         for node in (node for node in (*tuple(node for node in tree.nodes if node not in active), *active) if node.name in cells and node.width * metrics.scale >= metrics.unit / 2):
             grid(node, tuple(cells[node.name]), settings.enlarge if node in active else 1.0, region.view2d)
 

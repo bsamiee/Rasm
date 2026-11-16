@@ -5,7 +5,7 @@ from typing import Annotated, ClassVar
 
 from bl_ui.space_view3d import VIEW3D_MT_select_object
 import bpy
-from expression import Option, Result, Some, try_downcast
+from expression import Error, Ok, Option, option, Some, try_downcast
 import msgspec
 
 from rasm_bpy.commands.operators import Answer, answered, Call, Done, Empty, Operator, Unchanged
@@ -23,7 +23,7 @@ from rasm_bpy.ui._layout.lists import ItemList
 from rasm_bpy.ui._layout.members import Member
 from rasm_bpy.ui._layout.rows import OperatorButton, Property
 from rasm_bpy.ui._layout.sections import Section
-from rasm_records import accumulated, Error, Ok, Outcome, paired
+from rasm_records import accumulated, Outcome, paired
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -70,8 +70,8 @@ class _LightList(msgspec.Struct, frozen=True, kw_only=True):
     def section() -> Section:
         """Returns emitter list, active light rows, and operator buttons."""
 
-        def light[K: bpy.types.Light](kind: type[K], context: bpy.types.Context) -> Option[K]:
-            return root_in(bpy.types.ViewLayer, context).bind(lambda layer: Option.of_optional(layer.objects.active)).bind(lambda item: Option.of_optional(try_downcast(kind, item.data)))
+        def light(kind: type[bpy.types.Light], context: bpy.types.Context) -> Option[bpy.types.Light]:
+            return root_in(bpy.types.ViewLayer, context).bind(lambda layer: option.of_optional(layer.objects.active)).bind(lambda item: option.of_optional(try_downcast(kind, item.data)))
 
         return Section(
             key="light_list",
@@ -123,7 +123,7 @@ def _restored(item: bpy.types.Object, solo: Attached[Solo]) -> Outcome[None]:
 def light_solo(call: Call[Empty]) -> Outcome[Answer]:
     """Hides every other scene emitter, storing visibility for unsolo."""
     match paired(paired(rooted(bpy.types.ViewLayer, call.context).bind(active_object), rooted(bpy.types.Scene, call.context)), _LightList.solo.bound(call.identity)):
-        case Result(tag="ok", ok=((chosen, scene), solo)):
+        case Ok(((chosen, scene), solo)):
             reached = frozenset(emitters(scene))
             rows = tuple((item, solo.struct(item)) for item in scene.objects if item in reached or solo.stored(item))
             restoring = tuple(item for item, held in rows if held.hidden and (item == chosen or item not in reached))
@@ -140,7 +140,7 @@ def light_solo(call: Call[Empty]) -> Outcome[Answer]:
                 if restoring or hiding
                 else Ok(Unchanged(reason="Solo hides every other emitter"))
             )
-        case Result(error=faults):
+        case Error(faults):
             return Error(faults)
 
 
@@ -150,7 +150,7 @@ def light_unsolo(call: Call[Empty]) -> Outcome[Answer]:
     return paired(rooted(bpy.types.Scene, call.context), _LightList.solo.bound(call.identity)).bind(
         lambda pair: (
             accumulated(_restored(item, pair[1]) for item in hidden).map(lambda _: Done())
-            if (hidden := tuple(item for item in pair[0].objects if pair[1].stored(item) and pair[1].struct(item).hidden))
+            if (hidden := tuple(item for item in pair[0].objects if pair[1].stored(item) if pair[1].struct(item).hidden))
             else Ok(Unchanged(reason="Solo hides no emitter"))
         )
     )

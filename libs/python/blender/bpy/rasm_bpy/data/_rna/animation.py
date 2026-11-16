@@ -7,7 +7,7 @@ from typing import Final, TYPE_CHECKING
 
 import bpy
 from bpy_extras import anim_utils
-from expression import Option, Result, Some
+from expression import Error, NOTHING, Ok, Option, option, Some
 from expression.extra.result import catch
 import msgspec
 import numpy as np
@@ -17,7 +17,7 @@ from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._rna.descriptors import Descriptor, differing, DTYPES, Value, written
 from rasm_bpy.data._rna.paths import id_data, id_path, rna, RnaPath, Struct, struct_at
 from rasm_bpy.data._rna.snapshots import assigned
-from rasm_records import accumulated, Case, Error, Fault, Nothing, Ok, Outcome, paired, Reason, typed
+from rasm_records import accumulated, Case, Fault, Outcome, paired, Reason, typed
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -41,7 +41,7 @@ class Keys(Case, frozen=True, kw_only=True):
     @staticmethod
     def curves(data: bpy.types.AnimData) -> Option[_Curves]:
         """Returns F-curves of the slot data animates, Nothing before an action and slot hold one."""
-        return Option.of_optional(anim_utils.animdata_get_channelbag_for_assigned_slot(data)).map(lambda bag: bag.fcurves)
+        return option.of_optional(anim_utils.animdata_get_channelbag_for_assigned_slot(data)).map(lambda bag: bag.fcurves)
 
 
 class Driven(Case, frozen=True, kw_only=True):
@@ -80,9 +80,9 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
     def channel(self, block: bpy.types.ID) -> Outcome[tuple[Struct, Descriptor]]:
         """Returns the struct holding the animatable member and its descriptor, an array member taking one element alone."""
         match Descriptor.located(block, self.path):
-            case Result(tag="error", error=faults):
+            case Error(faults):
                 return Error(faults)
-            case Result(ok=(struct, descriptor)) if (
+            case Ok((struct, descriptor)) if (
                 not isinstance(struct, bpy.types.bpy_prop_collection) and descriptor.prop.is_animatable and bool(descriptor.coordinates) == bool(Descriptor.dimensions(descriptor.prop))
             ):
                 return Ok((struct, descriptor))
@@ -105,38 +105,38 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
             held = np.empty(len(curve.keyframe_points) * 2, np.float32)
             curve.keyframe_points.foreach_get(_CO.identifier, held)
             if np.array_equal(held.reshape(-1, 2), points):
-                return Ok(value=False)
+                return Ok(False)
             curve.keyframe_points.clear()
             curve.keyframe_points.add(len(points))
             curve.keyframe_points.foreach_set(_CO.identifier, points.ravel())
             curve.update_autoflags(block)
             curve.update()
-            return Ok(value=True)
+            return Ok(True)
 
         def driven(source: Driven, curve: bpy.types.FCurve) -> Outcome[bool]:
             def variables(driver: bpy.types.Driver) -> Outcome[bool]:
                 if len(driver.variables) == len(source.variables) and not any(map(differing, driver.variables, source.variables)):
-                    return Ok(value=False)
+                    return Ok(False)
                 for held in tuple(driver.variables):
                     driver.variables.remove(held)
                 return accumulated(assigned(driver.variables.new(), row) for row in source.variables).map(lambda _: True)
 
             def drove(driver: bpy.types.Driver) -> Outcome[bool]:
                 changed = bool(differing(driver, source.values))
-                return assigned(driver, source.values).bind(lambda _: variables(driver)).map(lambda wrote: wrote or changed)
+                return assigned(driver, source.values).bind(lambda _: variables(driver)).map(lambda wrote: wrote | changed)
 
-            return Option.of_optional(curve.driver).to_result_with(partial(Fault.of, Reason.ABSENT, repr(curve), member="driver")).bind(drove)
+            return option.of_optional(curve.driver).to_result_with(partial(Fault.of, Reason.ABSENT, repr(curve), member="driver")).bind(drove)
 
         def modified(curve: bpy.types.FCurve) -> Outcome[bool]:
             held = tuple(curve.modifiers)
             if len(held) == len(self.modifiers) and all(modifier.type == row.kind and not differing(modifier, row.values) for modifier, row in zip(held, self.modifiers)):
-                return Ok(value=False)
+                return Ok(False)
 
             def added(row: Modifier) -> Outcome[None]:
                 return (
                     catch(curve.modifiers.new, exception=TypeError)(row.kind)
                     .map_error(partial(Fault.of, Refusal.REFUSED, repr(curve.modifiers)))
-                    .bind(lambda made: Option.of_optional(made).to_result_with(partial(Fault.of, Reason.ABSENT, repr(curve.modifiers), member=row.kind)))
+                    .bind(lambda made: option.of_optional(made).to_result_with(partial(Fault.of, Reason.ABSENT, repr(curve.modifiers), member=row.kind)))
                     .bind(lambda made: assigned(made, row.values))
                 )
 
@@ -148,7 +148,7 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
 
         def keyframed(data: bpy.types.AnimData, _struct: Struct, descriptor: Descriptor) -> Outcome[bpy.types.FCurve]:
             return (
-                Option
+                option
                 .of_optional(data.action)
                 .map(Ok)
                 .default_with(
@@ -174,11 +174,11 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
 
         return paired(self.channel(block), content).bind(
             lambda found: (
-                Option
+                option
                 .of_optional(block.animation_data_create())
                 .to_result_with(partial(Fault.of, Reason.ABSENT, repr(block), member="animation_data"))
                 .bind(lambda data: curve_of(data, *found[0]))
-                .bind(lambda curve: accumulated((found[1](curve), written(curve, ("mute",), value=False).map(Option.is_some), modified(curve))).map(any))
+                .bind(lambda curve: accumulated((found[1](curve), written(curve, ("mute",), value=False).map(lambda wrote: wrote.is_some()), modified(curve))).map(any))
             )
         )
 
@@ -186,9 +186,9 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
         """Removes the channel's F-curve or driver."""
         return self.channel(block).bind(
             lambda found: accumulated(
-                catch(curves.remove, exception=RuntimeError)(curve).map_error(partial(Fault.of, Refusal.REFUSED, repr(curves)))
+                catch(lambda: curves.remove(curve), exception=RuntimeError)().map_error(partial(Fault.of, Refusal.REFUSED, repr(curves)))
                 for curves in struct_at(block, ("animation_data",), bpy.types.AnimData).bind(self.source.curves).to_list()
-                for curve in Option.of_optional(curves.find(rna(found[1].member), index=found[1].index.default_value(0))).to_list()
+                for curve in option.of_optional(curves.find(rna(found[1].member), index=found[1].index.default_value(0))).to_list()
             ).map(lambda _: None)
         )
 
@@ -196,7 +196,7 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def sampled(owner: Struct, path: RnaPath, frames: Iterable[float], proposed: Option[float] = Nothing) -> Outcome[tuple[float, ...]]:
+def sampled(owner: Struct, path: RnaPath, frames: Iterable[float], proposed: Option[float] = NOTHING) -> Outcome[tuple[float, ...]]:
     """Samples the keyed channel of a member or element at frames, repeating the proposed or stored value when unkeyed.
 
     Args:
@@ -229,13 +229,13 @@ def sampled(owner: Struct, path: RnaPath, frames: Iterable[float], proposed: Opt
             id_data(bpy.types.ID, owner)
             .bind(lambda block: struct_at(block, ("animation_data",), bpy.types.AnimData))
             .bind(Keys.curves)
-            .bind(lambda curves: id_path(owner).bind(lambda base: Option.of_optional(curves.find(rna((*base, *descriptor.member)), index=descriptor.index.default_value(0)))))
+            .bind(lambda curves: id_path(owner).bind(lambda base: option.of_optional(curves.find(rna((*base, *descriptor.member)), index=descriptor.index.default_value(0)))))
         )
 
     def stored(descriptor: Descriptor) -> Outcome[float]:
         match descriptor.prop:
             case bpy.types.EnumProperty(is_enum_flag=False, enum_items=items):
-                return Option.of_optional(items.get(str(descriptor.read(owner)))).map(lambda item: float(item.value)).to_result_with(absent)
+                return option.of_optional(items.get(str(descriptor.read(owner)))).map(lambda item: float(item.value)).to_result_with(absent)
             case bpy.types.BoolProperty() | bpy.types.IntProperty() | bpy.types.FloatProperty():
                 return Ok(float(np.asarray(descriptor.read(owner), np.float64).item()))
             case _:

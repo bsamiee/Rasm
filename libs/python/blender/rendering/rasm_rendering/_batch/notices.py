@@ -4,10 +4,10 @@ import datetime
 from http import HTTPMethod
 from typing import ClassVar, override
 
-from expression import Option, Some
+from expression import Ok, option, Some
 import msgspec
 
-from rasm_records import Ok, Outcome
+from rasm_records import Outcome
 from rasm_rendering._batch.queue import Forecast
 from rasm_rendering._batch.targets import Endpoint
 
@@ -114,7 +114,7 @@ def _whole(span: datetime.timedelta) -> datetime.timedelta:
 def published(listener: Listener, notice: Notice) -> Outcome[None]:
     """Posts notice titled by its case when the listener holds a topic."""
     return (
-        Option
+        option
         .of_optional(listener.topic)
         .map(lambda topic: _Publication(topic=topic, title=f"Render {type(notice).__name__}", message=notice.message, priority=notice.priority, tags=notice.tags))
         .map(lambda publication: listener.server.opened(lambda session: session.sent(HTTPMethod.POST, "/", Some(publication)).map(lambda _: None)))

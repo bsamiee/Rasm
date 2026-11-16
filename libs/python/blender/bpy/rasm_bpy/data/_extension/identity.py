@@ -10,7 +10,7 @@ from typing import Annotated, Final, Self
 from uuid import NAMESPACE_URL, uuid5
 
 import bpy
-from expression import Option, Result, try_downcast
+from expression import NOTHING, Option, Some
 from expression.extra.result import catch
 import msgspec
 
@@ -103,15 +103,15 @@ class Identity(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
     def preferences[T: bpy.types.AddonPreferences](self, kind: type[T], /) -> Option[T]:
         """Reads the extension's add-on preferences as kind (`bpy.types.AddonPreferences` for any), Nothing while disabled or holding another class."""
-        return root_in(bpy.types.Preferences, bpy.context).bind(lambda preferences: addon_preferences(preferences, self.package)).bind(lambda held: Option.of_optional(try_downcast(kind, held)))
+        return root_in(bpy.types.Preferences, bpy.context).bind(lambda preferences: addon_preferences(preferences, self.package)).bind(lambda held: Some(held) if isinstance(held, kind) else NOTHING)
 
     @classmethod
     def read(cls, package: str, /) -> Outcome[Self]:
         """Reads an extension package's manifest and created user folder, unreadable fault for its manifest, unregistered fault for a package outside extensions, unwritable fault for the empty answer of a folder the host failed to create."""
         path = importlib.resources.files(package) / "blender_manifest.toml"
         manifest = (
-            Result[bytes, OSError | msgspec.DecodeError]
-            .bind(catch(path.read_bytes, exception=OSError)(), lambda data: catch(lambda: msgspec.toml.decode(data, type=Manifest), exception=msgspec.DecodeError)())
+            catch(path.read_bytes, exception=OSError)()
+            .bind(lambda data: catch(lambda: msgspec.toml.decode(data, type=Manifest), exception=msgspec.DecodeError)())
             .map_error(partial(Fault.of, Reason.UNREADABLE, str(path)))
         )
         folder = (

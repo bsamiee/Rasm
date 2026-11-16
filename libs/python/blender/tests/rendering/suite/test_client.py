@@ -5,12 +5,12 @@ from datetime import timedelta
 import re
 from typing import Protocol
 
+from expression import Ok
 import httpx2
 import msgspec
 from opentelemetry.sdk.trace import TracerProvider
 import pytest
 
-from rasm_records import Ok
 from rasm_rendering import Endpoint
 from rasm_testing import raised
 from rasm_testing.hosting import Answer, Hosted, Received

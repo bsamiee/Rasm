@@ -4,13 +4,13 @@ from typing import Final, override
 
 import bpy
 import colour
-from expression import Some
+from expression import Ok, Some
 
 from rasm_bpy.nodes import Expr, Interface, InterfacePanel, math, mixed, Socket, switched, textures, vector, where, xyz
 from rasm_bpy.render import blurred, CLOCK, Clock, clocked, CompositorEffect, CompositorRecord, depth_precise, FRAME_METERS, GraphInputs, lenses, Mix, precise, SEED, timing, turned, with_alpha
 from rasm_bpy.scene import cameras
 from rasm_imaging import GRAY, stream
-from rasm_records import Ok, Outcome
+from rasm_records import Outcome
 
 from .bases import bases, Basis, Perlin, textured
 from .emission import Emission, emission, emitted, Incandescence

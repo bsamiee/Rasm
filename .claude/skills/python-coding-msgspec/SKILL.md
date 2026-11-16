@@ -56,14 +56,11 @@ type Key = Annotated[str, msgspec.Meta(pattern=r"^[a-z][a-z0-9_]*$")]
 `convert` over `to_builtins` reruns every constraint and `__post_init__` once, and one merge with a decoded object patches any record:
 
 ```python
-@catch(exception=msgspec.DecodeError)
-def _patched[S: msgspec.Struct](record: S, raw: bytes, /) -> S:
-    patched: S = msgspec.convert(msgspec.to_builtins(record) | msgspec.json.decode(raw, type=dict[str, object]), type(record))
-    return patched
-
-
 def patched[S: msgspec.Struct](record: S, raw: bytes, /) -> Outcome[S]:
-    return _patched(record, raw).map_error(partial(Fault.of, Reason.INVALID, type(record).__name__))
+    try:
+        return Ok(msgspec.convert(msgspec.to_builtins(record) | msgspec.json.decode(raw, type=dict[str, object]), type(record)))
+    except msgspec.DecodeError as error:
+        return Error(Fault.of(Reason.INVALID, type(record).__name__, error))
 ```
 
 Over a `rename="camel"` record, `{"closingNote": null}` clears `closing_note`, absent keys keep their field, and `{"title": ""}` fails at `$.title`. Python name `closing_note` fails under `forbid_unknown_fields=True` and drops unread without it:

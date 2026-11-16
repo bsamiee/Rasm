@@ -10,7 +10,7 @@ from types import MappingProxyType
 from typing import Final
 
 import bpy
-from expression import Option
+from expression import NOTHING, Ok, Option, option
 from expression.collections import Block
 import msgspec
 
@@ -24,7 +24,7 @@ from rasm_bpy.nodes._addressing import InterfaceKeys, owned
 from rasm_bpy.nodes._trees import created, endpoints, group_set, linked_sockets, links_of, native, ordered, tree_of
 from rasm_bpy.nodes.changes import made, NodeGroup, valued
 from rasm_bpy.ui._drawing.handlers import draw_handler
-from rasm_records import accumulated, Fault, Nothing, Ok, Outcome, paired, Reason
+from rasm_records import accumulated, Fault, Outcome, paired, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -93,7 +93,7 @@ class Arranger(msgspec.Struct, frozen=True, kw_only=True):
             for source, outlet, target, _ in (endpoints(link),)
             if source != target and source.name in marked and target.name in marked
         )
-        bands = {name: Option.of_optional(node.parent).map(lambda parent: parent.name) for name, node in marked.items()}
+        bands = {name: option.of_optional(node.parent).map(lambda parent: parent.name) for name, node in marked.items()}
 
         def origin(root: str) -> tuple[float, float]:
             position = marked[root].location_absolute
@@ -119,7 +119,7 @@ class Arranger(msgspec.Struct, frozen=True, kw_only=True):
                 .resolve()
                 .bind(tree_of)
                 .bind(lambda tree: accumulated(LOCATION.write(node, desired[name]) for name, node in _placeable(tree, identity).items() if name in desired))
-                .map(lambda _: Nothing)
+                .map(lambda _: NOTHING)
             )
 
         @contextmanager
@@ -183,7 +183,7 @@ def inserted(
                 for removed in links_of(target):
                     tree.links.remove(removed)
                 for link, valid, muted in (
-                    (link, valid, muted) for source, valid, muted in reversed(original) for link in Option.of_optional(tree.links.new(source, target, verify_limits=False)).to_list()
+                    (link, valid, muted) for source, valid, muted in reversed(original) for link in option.of_optional(tree.links.new(source, target, verify_limits=False)).to_list()
                 ):
                     link.is_valid, link.is_muted = valid, muted
 

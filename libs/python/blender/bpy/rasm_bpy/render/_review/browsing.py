@@ -7,7 +7,7 @@ from functools import cached_property, partial
 from typing import Annotated, ClassVar
 
 import bpy
-from expression import Option, Some
+from expression import Error, NOTHING, Ok, Option, option, Some
 import msgspec
 import numpy as np
 import numpy.typing as npt
@@ -40,7 +40,7 @@ from rasm_bpy.ui._resources.previews import PREVIEWS, Texture, uploaded
 from rasm_bpy.ui._resources.theme import Color, display_color, Metrics
 from rasm_bpy.ui._screens.areas import EditorState
 from rasm_imaging import Comparison, converted_image, DisplayView, ImageFile, Metric, rgba, Severity, Threshold
-from rasm_records import ContentHash, Deleted, diff, Edit, Error, Fault, Inserted, Moved, Nothing, Ok, Outcome, paired, Reason, Reparametrized
+from rasm_records import ContentHash, Deleted, diff, Edit, Fault, Inserted, Moved, Outcome, paired, Reason, Reparametrized
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -140,14 +140,14 @@ class HistoryBrowser(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
     def caption(self, identity: Identity, context: bpy.types.Context) -> Outcome[str]:
         """Returns the shown frame's history name, the image's own name for a frame the history holds no entry of."""
-        image = rooted(bpy.types.SpaceImageEditor, context).bind(lambda space: Option.of_optional(space.image).to_result_with(partial(Fault.of, Reason.ABSENT, repr(space), member="image")))
+        image = rooted(bpy.types.SpaceImageEditor, context).bind(lambda space: option.of_optional(space.image).to_result_with(partial(Fault.of, Reason.ABSENT, repr(space), member="image")))
         return paired(image, self.history.held(identity)).map(
-            lambda pair: self.history.stored.marked(identity, pair[0]).bind(lambda mark: mark.content).bind(lambda key: Option.of_optional(pair[1].names.get(key))).default_value(pair[0].name)
+            lambda pair: self.history.stored.marked(identity, pair[0]).bind(lambda mark: mark.content).bind(lambda key: option.of_optional(pair[1].names.get(key))).default_value(pair[0].name)
         )
 
     def note(self, identity: Identity, context: bpy.types.Context) -> tuple[str, ...]:
         """Returns the picked stored render's note, none while it holds none."""
-        return tuple(self.chosen(identity, context).to_option().bind(lambda pair: Option.of_optional(pair[0].notes.get(pair[1].hex()))).filter(bool).to_list())
+        return tuple(self.chosen(identity, context).to_option().bind(lambda pair: option.of_optional(pair[0].notes.get(pair[1].hex()))).filter(bool).to_list())
 
     # --- [FRAMES]
 
@@ -158,7 +158,7 @@ class HistoryBrowser(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             lambda found: (
                 paired(found[1].read(), found[1].encoding)
                 .bind(lambda source: converted_image(config, PyOpenColorIO.ROLE_SCENE_LINEAR, source[0], source=source[1]))
-                .bind(lambda file: Option.of_optional(found[0].image).map(lambda image: (image, file, found[1])).to_result_with(partial(Fault.of, Reason.ABSENT, repr(found[0]), member="image")))
+                .bind(lambda file: option.of_optional(found[0].image).map(lambda image: (image, file, found[1])).to_result_with(partial(Fault.of, Reason.ABSENT, repr(found[0]), member="image")))
             )
         )
 
@@ -198,10 +198,10 @@ class HistoryBrowser(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                     .browsed(identity, bpy.context)
                     .bind(lambda browser: self.side(identity, bpy.context, Baseline[browser.baseline], shown))
                     .bind(lambda side: uploaded(side[0]).map(lambda texture: (texture, (side[1], side[2]))))
-                    .map(Some)
                 )
             )
-            .or_else_with(lambda faults: Ok(Nothing) if all(fault.reason is Reason.ABSENT for fault in faults) else Error(faults))
+            .map(Some[Texture[tuple[str, str]]])
+            .or_else_with(lambda faults: Ok(NOTHING) if all(fault.reason is Reason.ABSENT for fault in faults) else Error(faults))
         )
 
     def compared(self, identity: Identity, context: bpy.types.Context) -> Outcome[Comparison]:
@@ -229,7 +229,7 @@ class HistoryBrowser(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                     )
                 )
                 if browser.difference
-                else Ok(Nothing)
+                else Ok(NOTHING)
             )
         )
 
@@ -241,7 +241,7 @@ class HistoryBrowser(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     @staticmethod
     def refreshes(identity: Identity) -> tuple[Refresh, ...]:
         """Returns a refresh per browser field and the stored render signal."""
-        return (  # ty: ignore[unsound-return-statement]
+        return (
             *((Browsing, name) for name in annotated(Browsing)),
             RenderHistory.signal[identity],
             HandlerRefresh(handlers=bpy.app.handlers.depsgraph_update_post, ids=(bpy.types.Scene, bpy.types.Image)),
@@ -297,13 +297,14 @@ class HistoryBrowser(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
         def opened(found: tuple[Renders, ContentHash]) -> Outcome[bpy.types.Image]:
             renders, key = found
-            space = Option.of_optional(renders.origins.get(key.hex())).map(lambda origin: origin[0])
+            space = option.of_optional(renders.origins.get(key.hex())).map(lambda origin: origin[0])
             tag = Tag(
                 space=space,
                 view_as_render=Some(
                     space
-                    .bind(lambda name: Option.of_optional(config.getColorSpace(name)))
-                    .filter(lambda color: not color.isData() and color.getReferenceSpaceType() == PyOpenColorIO.REFERENCE_SPACE_SCENE)
+                    .bind(lambda name: option.of_optional(config.getColorSpace(name)))
+                    .filter(lambda color: not color.isData())
+                    .filter(lambda color: color.getReferenceSpaceType() == PyOpenColorIO.REFERENCE_SPACE_SCENE)
                     .is_some()
                 ),
             )

@@ -5,7 +5,7 @@ import sys
 from typing import Final
 
 import sysexits
-lazy from expression import Result
+lazy from expression import Error, Ok
 lazy import msgspec
 
 from rasm_records import Reason
@@ -32,12 +32,12 @@ def exited(result: Outcome[object] | None, /) -> int:
     match result:
         case None:
             return 0
-        case Result(tag="ok", ok=int(status)):
+        case Ok(int(status)):
             return status
-        case Result(tag="ok", ok=value):
+        case Ok(value):
             sys.stdout.buffer.write(msgspec.json.Encoder().encode_lines(value if isinstance(value, tuple) else (value,)))
             return 0
-        case Result(error=faults):
+        case Error(faults):
             sys.stderr.writelines(dict.fromkeys(f"{fault.message}\n" for fault in faults))
             return EXITS[faults[0].reason]
 

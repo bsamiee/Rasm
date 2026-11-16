@@ -23,7 +23,7 @@ def sampled(context: bpy.types.Context, points: NDArray[np.float32], field: Call
             case bpy.types.CollectionProperty(fixed_type=bpy.types.bpy_struct() as item), bpy.types.bpy_prop_collection() as values:
                 return Some(column(values, type(item), next(prop.identifier for prop in item.properties if not prop.is_readonly)))
             case _:
-                return Nothing
+                return NOTHING
 
     name = f".{sampled.__name__}"
     cloud = bpy.data.pointclouds.new(name)
@@ -34,28 +34,28 @@ def sampled(context: bpy.types.Context, points: NDArray[np.float32], field: Call
             case bpy.types.NodeTree(interface=bpy.types.NodeTreeInterface() as interface) as tree, bpy.types.NodesModifier() as modifier, bpy.types.Scene() as scene:
                 scratch.callback(bpy.data.node_groups.remove, tree)
             case _:
-                return Nothing
+                return NOTHING
         cloud.resize(len(points))
         cloud.points.foreach_set("co", points.reshape(-1))
         kinds = accumulated(written(interface.new_socket(name, in_out=side), ("socket_type",), "NodeSocketGeometry") for side in ("INPUT", "OUTPUT"))
         source, sink = (tree.nodes.new(kind.__name__) for kind in (bpy.types.NodeGroupInput, bpy.types.NodeGroupOutput))
         tree.links.new(source.outputs[0], sink.inputs[0])
         match kinds, tree.links.new(field(tree), sink.inputs[-1], handle_dynamic_sockets=True):
-            case Result(tag="ok"), bpy.types.NodeLink(to_socket=bpy.types.NodeSocket(identifier=identifier)):
+            case Ok(), bpy.types.NodeLink(to_socket=bpy.types.NodeSocket(identifier=identifier)):
                 named = written(interface.items_tree[identifier], ("default_attribute_name",), name)
             case _:
-                return Nothing
+                return NOTHING
         modifier.node_group = tree
         scene.collection.objects.link(holder)
         geometry = holder.evaluated_get(context.evaluated_depsgraph_get()).evaluated_geometry()
-        evaluated = named.to_option().bind(lambda _: Option.of_optional(geometry.pointcloud))
-        return evaluated.bind(lambda held: Option.of_optional(held.attributes.get(name))).bind(copied)
+        evaluated = named.to_option().bind(lambda _: option.of_optional(geometry.pointcloud))
+        return evaluated.bind(lambda held: option.of_optional(held.attributes.get(name))).bind(copied)
 ```
 
 `sampled(context, points, lambda tree: tree.nodes.new(bpy.types.ShaderNodeTexNoise.__name__).outputs["Fac"])` returns each point's noise factor, and a Noise to Map Range to Color Ramp `field` returns ramp colors in one pass:
 - Values keep source type layout: `(n,)` `float32`, `int32`, or `bool`, `(n, 3)` vectors, `(n, 4)` linear colors and quaternions, `(n, 4, 4)` matrices
 - Single values (a Value node) return repeated once per point
-- Sources whose type no attribute stores (String, Bundle) return `Nothing`
+- Sources whose type no attribute stores (String, Bundle) return `NOTHING`
 - Objects outside the scene evaluate to their original with no modifier result, and the holder evaluates once linked into `scene.collection`
 - Empty `points` arrays return an empty array
 

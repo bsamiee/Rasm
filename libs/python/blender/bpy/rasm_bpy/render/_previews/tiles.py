@@ -8,7 +8,7 @@ import itertools
 from typing import Self
 
 import bpy
-from expression import Option, Some
+from expression import Error, NOTHING, Ok, Option, option, Some
 import msgspec
 import numpy as np
 import numpy.typing as npt
@@ -39,7 +39,7 @@ from rasm_bpy.ui._layout.rows import ConditionalRow, RowDraw
 from rasm_bpy.ui._resources.previews import PreviewKey, PREVIEWS
 from rasm_bpy.ui._resources.theme import Metrics
 from rasm_imaging import converted_image, DisplayView, ImageFile, Raster
-from rasm_records import accumulated, content_hash, ContentHash, Error, Fault, Faults, Nothing, Ok, Outcome, paired, Reason
+from rasm_records import accumulated, content_hash, ContentHash, Fault, Faults, Outcome, paired, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -83,7 +83,7 @@ class _TileState:
 
     def __init__(self) -> None:
         """Holds no proxy, request, or demand."""
-        self.proxy: Option[_Proxy] = Nothing
+        self.proxy: Option[_Proxy] = NOTHING
         self.requests: dict[str, tuple[Tiled, int]] = {}
         self.demands: Demands[str] = Demands()
 
@@ -104,7 +104,7 @@ class EffectTiles(msgspec.Struct, frozen=True, kw_only=True, dict=True, eq=False
     # --- [STATE]
 
     rows: OfferedEffects
-    closing: Option[CompositorEffect] = Nothing
+    closing: Option[CompositorEffect] = NOTHING
     isolated: bool = False
     preview: PreviewScene = PreviewScene()
 
@@ -191,7 +191,7 @@ class EffectTiles(msgspec.Struct, frozen=True, kw_only=True, dict=True, eq=False
                 world=world,
                 sun=lighting.sun,
                 stack=PreviewStack(routed=plan[0], placing=partial(_placed, self.rows, plan[1])),
-                surface=Nothing if plane.is_some() else Some(lighting.surface),
+                surface=NOTHING if plane.is_some() else Some(lighting.surface),
                 rasters=plane.map(lambda held: (held[0].data, held[0].camera)),
             )
             return self.preview.rendered(identity, staging).map(lambda readback: readback.plane)
@@ -202,13 +202,13 @@ class EffectTiles(msgspec.Struct, frozen=True, kw_only=True, dict=True, eq=False
             .map(
                 lambda held: held.fitted(side).bind(lambda fitted: converted_image(config, PyOpenColorIO.ROLE_SCENE_LINEAR, fitted.file, source=fitted.encoding).map(lambda file: Some((fitted, file))))
             )
-            .default_value(Ok(Nothing))
+            .default_value(Ok(NOTHING))
             .bind(staged)
         )
 
     # --- [DEMAND]
 
-    def icon(self, identity: Identity, scene: bpy.types.Scene, slot: str, record: Tiled, /, side: Option[int] = Nothing) -> Option[int]:
+    def icon(self, identity: Identity, scene: bpy.types.Scene, slot: str, record: Tiled, /, side: Option[int] = NOTHING) -> Option[int]:
         """Records the slot's tile at its side in pixels, Blender's preview render size by default, and returns the slot's published icon."""
         source = Handle.of(scene)
         self.states[identity][source].requests[slot] = (record, side.default_with(lambda: bpy.app.render_preview_size))
@@ -253,7 +253,7 @@ class EffectTiles(msgspec.Struct, frozen=True, kw_only=True, dict=True, eq=False
 
             def published(plane: npt.NDArray[np.float32]) -> Outcome[Option[int]]:
                 return (
-                    previews.written((self.states, slot), shown, Some(shown.checkered(plane))) if (state := sources.get(slot[0])) is not None and state.demands.holds(slot[1], demand) else Ok(Nothing)
+                    previews.written((self.states, slot), shown, Some(shown.checkered(plane))) if (state := sources.get(slot[0])) is not None and state.demands.holds(slot[1], demand) else Ok(NOTHING)
                 )
 
             def run() -> Outcome[None]:
@@ -311,17 +311,17 @@ class EffectTiles(msgspec.Struct, frozen=True, kw_only=True, dict=True, eq=False
 
         def consumed(source: Handle[bpy.types.Scene], rasters: tuple[Raster, Raster], completed: CompletedRender) -> Outcome[Option[str]]:
             widest = root_in(bpy.types.WindowManager, bpy.context).bind(
-                lambda manager: Option.of_optional(max((area.width for window in manager.windows for area in window.screen.areas), default=None))
+                lambda manager: option.of_optional(max((area.width for window in manager.windows for area in window.screen.areas), default=None))
             )
 
             def stored(proxy: _Proxy) -> Option[str]:
                 state = self.states[identity][source]
                 state.proxy = Some(proxy)
                 state.forgotten()
-                return Nothing
+                return NOTHING
 
             def unrendered(faults: Faults) -> Outcome[Option[ImageFile]]:
-                return Ok(Nothing) if all(fault.reason is Reason.ABSENT for fault in faults) else Error(faults)
+                return Ok(NOTHING) if all(fault.reason is Reason.ABSENT for fault in faults) else Error(faults)
 
             def downscaled(file: ImageFile) -> Outcome[Option[str]]:
                 return (
@@ -331,11 +331,11 @@ class EffectTiles(msgspec.Struct, frozen=True, kw_only=True, dict=True, eq=False
                     .map(stored)
                 )
 
-            return completed.source().map(Some).or_else_with(unrendered).bind(lambda found: found.map(downscaled).default_value(Ok(Nothing)))
+            return completed.source().map(Some).or_else_with(unrendered).bind(lambda found: found.map(downscaled).default_value(Ok(NOTHING)))
 
         def invalidated(scene: bpy.types.Scene, *_: object) -> Outcome[None]:
             if scene.session_uid not in INTERMEDIATES[identity]:
-                for state in Option.of_optional(self.states[identity].get(Handle.of(scene))).to_list():
+                for state in option.of_optional(self.states[identity].get(Handle.of(scene))).to_list():
                     state.forgotten()
             return Ok(None)
 

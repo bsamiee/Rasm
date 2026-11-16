@@ -11,7 +11,7 @@ from typing import Generic, TypeVar
 import _bpy_types
 from bl_ui.generic_ui_list import draw_ui_list
 import bpy
-from expression import Option, Some, try_downcast
+from expression import Error, NOTHING, Ok, Option, option, Some, try_downcast
 import msgspec
 
 from rasm_bpy.commands._modal import Gesture, Modal, Travel
@@ -27,7 +27,7 @@ from rasm_bpy.settings._attachments import Attached, Attachment
 from rasm_bpy.ui._layout.members import At, Member, owner_key, ResolvedMember
 from rasm_bpy.ui._layout.rows import ConditionalRow, FUNCTIONS, Keywords, Property, realized, RowContent, RowDraw
 from rasm_bpy.ui._resources.theme import Metrics
-from rasm_records import accumulated, Error, Fault, Nothing, Ok, Outcome, paired, Reason
+from rasm_records import accumulated, Fault, Outcome, paired, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -50,19 +50,19 @@ class ItemList(ConditionalRow, Generic[_T_co, _O_contra], frozen=True, kw_only=T
 
     key: Key
     collection: Member
-    active: Option[Member] = Nothing
-    attachment: Option[Attachment[_T_co]] = Nothing
+    active: Option[Member] = NOTHING
+    attachment: Option[Attachment[_T_co]] = NOTHING
     cells: tuple[RowContent, ...] = ()
     side: tuple[RowContent, ...] = ()
     absent: tuple[RowContent, ...] = ()
     menu: tuple[RowContent, ...] = ()
-    tip: Option[str] = Nothing
-    order: Option[str] = Nothing
-    icon: Option[str] = Nothing
-    where: Option[_Predicate[_O_contra]] = Nothing
-    enabled: Option[_Predicate[_O_contra]] = Nothing
-    move: Option[Callable[[bpy.types.Context, int, int], Outcome[None]]] = Nothing
-    filters: Option[builtins.type[bpy.types.PropertyGroup]] = Nothing
+    tip: Option[str] = NOTHING
+    order: Option[str] = NOTHING
+    icon: Option[str] = NOTHING
+    where: Option[_Predicate[_O_contra]] = NOTHING
+    enabled: Option[_Predicate[_O_contra]] = NOTHING
+    move: Option[Callable[[bpy.types.Context, int, int], Outcome[None]]] = NOTHING
+    filters: Option[builtins.type[bpy.types.PropertyGroup]] = NOTHING
     keywords: Keywords = MappingProxyType({})
 
     @property
@@ -143,9 +143,9 @@ class ItemList(ConditionalRow, Generic[_T_co, _O_contra], frozen=True, kw_only=T
         def resolved(
             listing: Member[type[Struct]], pointing: Option[Member[type[Struct]]]
         ) -> Outcome[tuple[ResolvedMember[bpy.types.CollectionProperty], Option[ResolvedMember], Member[type[Struct]]]]:
-            shared = isinstance(listing.root, type(bpy.types.ID)) and pointing.map(lambda member: member.root is listing.root and member.reach == listing.reach).default_value(value=True)
+            shared = isinstance(listing.root, type(bpy.types.ID)) and pointing.map(lambda member: (member.root, member.reach) == (listing.root, listing.reach)).default_value(value=True)
 
-            active: Outcome[Option[ResolvedMember]] = pointing.map(lambda member: member.resolved().map(Some)).default_value(Ok(Nothing))
+            active: Outcome[Option[ResolvedMember]] = pointing.map(lambda member: member.resolved().map(Some)).default_value(Ok(NOTHING))
             return paired(listing.resolved(bpy.types.CollectionProperty), active).map(
                 lambda found: (
                     found[0],
@@ -154,12 +154,12 @@ class ItemList(ConditionalRow, Generic[_T_co, _O_contra], frozen=True, kw_only=T
                     .filter(lambda held: isinstance(held.descriptor.prop, bpy.types.IntProperty))
                     .bind(lambda _: pointing)
                     .default_with(
-                        lambda: Member[type[Struct]](root=listing.root if shared else bpy.types.WindowManager, path=(identity.identifier(self.key),), reach=listing.reach if shared else Nothing)
+                        lambda: Member[type[Struct]](root=listing.root if shared else bpy.types.WindowManager, path=(identity.identifier(self.key),), reach=listing.reach if shared else NOTHING)
                     ),
                 )
             )
 
-        pointing: Outcome[Option[Member[type[Struct]]]] = self.active.map(lambda member: member.located(identity).map(Some)).default_value(Ok(Nothing))
+        pointing: Outcome[Option[Member[type[Struct]]]] = self.active.map(lambda member: member.located(identity).map(Some)).default_value(Ok(NOTHING))
         return paired(self.collection.located(identity), pointing).bind(lambda pair: resolved(*pair))
 
     # --- [REGISTRATION]
@@ -195,7 +195,7 @@ class ItemList(ConditionalRow, Generic[_T_co, _O_contra], frozen=True, kw_only=T
     ) -> Outcome[tuple[builtins.type[bpy.types.UIList], ...]]:
         """Builds the list class once its tier opens and its fields, cells, item members, and drag operator resolve."""
         fixed = collection.descriptor.prop.fixed_type
-        label = Option.of_optional(fixed).bind(lambda held: Option.of_optional(rna_definition(held).name_property)).map(lambda named: named.identifier)
+        label = option.of_optional(fixed).bind(lambda held: option.of_optional(rna_definition(held).name_property)).map(lambda named: named.identifier)
 
         def fielded(attachment: Attachment[_T_co]) -> Outcome[tuple[RowDraw, ...]]:
             return attachment.bound(identity).bind(
@@ -207,7 +207,7 @@ class ItemList(ConditionalRow, Generic[_T_co, _O_contra], frozen=True, kw_only=T
 
         cells = paired(self.attachment.map(fielded).default_value(Ok(())), realized(self.cells, identity))
         icon = _member(self.icon, fixed)
-        drag = Some(identity.name(bpy.types.Operator, self._drag_key)) if dragging else Nothing
+        drag = Some(identity.name(bpy.types.Operator, self._drag_key)) if dragging else NOTHING
 
         def classed(parts: tuple[tuple[tuple[RowDraw, ...], RowDraw], Option[ResolvedMember], Option[ResolvedMember]]) -> builtins.type[bpy.types.UIList]:
             (fields, drawn), icons, order = parts
@@ -225,7 +225,7 @@ class ItemList(ConditionalRow, Generic[_T_co, _O_contra], frozen=True, kw_only=T
                 index: int = 0,
                 _flt_flag: int = 0,
             ) -> None:
-                editable = self.enabled.map(lambda predicate: _held(predicate, context, ui, item)).default_value(Ok(value=True))
+                editable = self.enabled.map(lambda predicate: _held(predicate, context, ui, item)).default_value(Ok(True))
                 for enabled in identity.reports.settled(editable).to_list():
                     row = layout.row(align=True)
                     row.enabled = enabled
@@ -256,11 +256,11 @@ class ItemList(ConditionalRow, Generic[_T_co, _O_contra], frozen=True, kw_only=T
                 match order, label:
                     case _ if ui.use_filter_sort_lock:
                         return flags, []
-                    case _, Option(tag="some", some=member) if ui.use_filter_sort_alpha:
-                        return flags, bpy.types.UI_UL_list.sort_items_by_name(items, member)  # ty: ignore[invalid-return-type]
-                    case Option(tag="some", some=bound), _:
+                    case _, Some(member) if ui.use_filter_sort_alpha:
+                        return flags, bpy.types.UI_UL_list.sort_items_by_name(items, member)  # ty: ignore[invalid-explicit-return]
+                    case Some(bound), _:
                         ranked = partial(_ranked, bound)
-                        return flags, bpy.types.UI_UL_list.sort_items_helper([(position, *ranked(item)) for position, item in enumerate(items)], lambda row: row[1:])  # ty: ignore[invalid-return-type]
+                        return flags, bpy.types.UI_UL_list.sort_items_helper([(position, *ranked(item)) for position, item in enumerate(items)], lambda row: row[1:])  # ty: ignore[invalid-explicit-return]
                     case _:
                         return flags, []
 
@@ -314,8 +314,8 @@ class _Drag(msgspec.Struct, frozen=True, kw_only=True):
 def _member(found: Option[str], fixed: bpy.types.Struct | None) -> Outcome[Option[ResolvedMember]]:
     """Resolves an optional member of a collection's item type, absent fault for a collection naming no item type."""
     return found.map(
-        lambda path: Option.of_optional(fixed).to_result_with(partial(Fault.of, Reason.ABSENT, path, member="fixed_type")).bind(lambda held: Member(root=type(held), path=(path,)).resolved()).map(Some)
-    ).default_value(Ok(Nothing))
+        lambda path: option.of_optional(fixed).to_result_with(partial(Fault.of, Reason.ABSENT, path, member="fixed_type")).bind(lambda held: Member(root=type(held), path=(path,)).resolved()).map(Some)
+    ).default_value(Ok(NOTHING))
 
 
 def _dragging(move: Option[Callable[[bpy.types.Context, int, int], Outcome[None]]], collection: ResolvedMember[bpy.types.CollectionProperty]) -> bool:
@@ -363,7 +363,7 @@ def _ranked(bound: ResolvedMember, item: Struct) -> tuple[bool, object]:
 
 def _menued(name: str, draw: RowDraw, menu: bpy.types.Menu, context: bpy.types.Context) -> None:
     """Draws the menu rows while the clicked list is the named list."""
-    if (layout := menu.layout) is not None and Option.of_optional(context.ui_list).filter(lambda ui: ui.bl_idname == name).is_some():
+    if (layout := menu.layout) is not None and option.of_optional(context.ui_list).filter(lambda ui: ui.bl_idname == name).is_some():
         draw(layout, context, context)
 
 
@@ -384,7 +384,7 @@ def _began[O: Struct](where: Option[_Predicate[O]], name: str, items: str, index
     """Reads the drag state from the owners the grip row publishes, refusing a name-filtered list, a hidden item, or a selection outside the collection."""
 
     def pointer(member: str) -> Outcome[Struct]:
-        found: Option[Struct] = Option.of_optional(try_downcast(bpy.types.bpy_struct, getattr(context, member, None)))
+        found: Option[Struct] = option.of_optional(try_downcast(bpy.types.bpy_struct, getattr(context, member, None)))
         return found.to_result_with(partial(Fault.of, Reason.ABSENT, "bpy.context", member=member))
 
     def state(ui: bpy.types.UIList, data: Struct, chosen: Struct) -> Outcome[_Drag]:
@@ -397,7 +397,7 @@ def _began[O: Struct](where: Option[_Predicate[O]], name: str, items: str, index
         return paired(visible, selected).map(lambda _: _Drag(origin=origin, pitch=pitch, items=(data, items), selection=(chosen, index)))
 
     return paired(
-        Option
+        option
         .of_optional(context.ui_list)
         .to_result_with(partial(Fault.of, Reason.ABSENT, "bpy.context", member="ui_list"))
         .filter_with(lambda held: not held.filter_name, lambda held: Fault.of(Refusal.REQUIRED, f"{held.list_id} without name filter")),
@@ -408,7 +408,7 @@ def _began[O: Struct](where: Option[_Predicate[O]], name: str, items: str, index
 
 def _previewed(move: Option[Callable[[bpy.types.Context, int, int], Outcome[None]]], context: bpy.types.Context, state: _Drag, travel: Travel) -> Outcome[Option[str]]:
     """Places the dragged item at the row the travel reaches."""
-    return _placed(move, context, state, state.origin + round(travel.dy / state.pitch)).map(lambda _: Nothing)
+    return _placed(move, context, state, state.origin + round(travel.dy / state.pitch)).map(lambda _: NOTHING)
 
 
 def _restored(move: Option[Callable[[bpy.types.Context, int, int], Outcome[None]]], context: bpy.types.Context, state: _Drag) -> Outcome[None]:

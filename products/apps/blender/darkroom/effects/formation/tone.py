@@ -10,7 +10,7 @@ from types import MappingProxyType
 from typing import Annotated, Final, override
 
 import bpy
-from expression import Option, Result, Some
+from expression import Error, NOTHING, Ok, Option, option, Some
 from expression.extra.result import catch
 import httpx2
 import msgspec
@@ -45,7 +45,7 @@ from rasm_bpy.render import (
     valued,
 )
 from rasm_imaging import ConfigBuild, GRAY, ImageFile, Lattice, Logarithmic, pixels, processor, REC709_SCENE, rendering_basis, Samples
-from rasm_records import accumulated, committed, Error, Fault, Nothing, Ok, Outcome, Reason
+from rasm_records import accumulated, committed, Fault, Outcome, Reason
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -173,7 +173,7 @@ class ToneCurve(CompositorRecord, frozen=True, kw_only=True):
 
         def prepared(stage: Stage) -> Outcome[Option[Prepared]]:
             """Reads the selected curve's scene white from the entering image while its manual white is off."""
-            return _white_panel(stage.values).bind(lambda found: found.map(lambda panel: _read(stage, (panel,), Ok)).default_value(Ok(Nothing)))
+            return _white_panel(stage.values).bind(lambda found: found.map(lambda panel: _read(stage, (panel,), Ok)).default_value(Ok(NOTHING)))
 
         return prepared
 
@@ -283,9 +283,9 @@ class Tony(CompositorRecord, frozen=True, kw_only=True):
             .filter_with(Path.is_file, lambda _: Fault.of(Reason.ABSENT, str(folder), member="Tony McMapface tables"))
             .bind(lambda path: ConfigBuild(sources=(path,)).absorbed(shell.config))
         ):
-            case Result(tag="ok", ok=config):
+            case Ok(config):
                 stated = config.getColorSpace(_TONY).getTransform(PyOpenColorIO.COLORSPACE_DIR_FROM_REFERENCE)
-            case Result(error=faults):
+            case Error(faults):
                 return Error(faults)
         stages = tuple(
             inner for outer in (stated if isinstance(stated, PyOpenColorIO.GroupTransform) else (stated,)) for inner in (outer if isinstance(outer, PyOpenColorIO.GroupTransform) else (outer,))
@@ -447,7 +447,8 @@ def _measured(config: PyOpenColorIO.Config, plane: npt.NDArray[np.float32]) -> O
         Samples
         .of(config, plane)
         .bind(lambda samples: samples.extent().to_result_with(partial(refused, str(plane.shape))))
-        .bind(lambda extent: catch(log2, exception=ValueError)(extent.white).map_error(refused))
+        .filter_with(lambda extent: extent.white > 0.0, lambda extent: refused(extent.white))
+        .map(lambda extent: log2(extent.white))
     )
 
 
@@ -466,13 +467,13 @@ def _contrasted(values: Mapping[Key, Value], stops: float) -> Outcome[float]:
 
 def _white_panel(values: Mapping[Key, Value]) -> Outcome[Option[InterfacePanel]]:
     """Case panel of the selected curve when it reads a scene white."""
-    return value(values, str, _CURVE).map(lambda name: Option.of_optional(_WHITENED.get(name)))
+    return value(values, str, _CURVE).map(lambda name: option.of_optional(_WHITENED.get(name)))
 
 
 def _read(stage: Stage, prefix: tuple[InterfacePanel, ...], kept: Callable[[float], Outcome[float]]) -> Outcome[Option[Prepared]]:
     """Reads the scene white under a panel prefix from the entering image while its manual white is off, keeping the stops `kept` accepts."""
     return value(stage.values, bool, *prefix, _SCENE_WHITE).bind(
-        lambda manual: Ok(Nothing) if manual else pixels(stage.image).bind(partial(_measured, stage.config)).bind(kept).map(lambda stops: Some({path_key(*prefix, _WHITE_STOPS): stops}))
+        lambda manual: Ok(NOTHING) if manual else pixels(stage.image).bind(partial(_measured, stage.config)).bind(kept).map(lambda stops: Some({path_key(*prefix, _WHITE_STOPS): stops}))
     )
 
 

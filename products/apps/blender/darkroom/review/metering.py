@@ -8,7 +8,7 @@ from typing import Annotated, ClassVar, Final
 
 from bl_ui.properties_render import RENDER_PT_color_management
 import bpy
-from expression import Option, Some
+from expression import NOTHING, Nothing, Ok, Option, option, Some
 import msgspec
 import numpy as np
 import numpy.typing as npt
@@ -43,7 +43,7 @@ from rasm_bpy.ui import (
     Tools,
 )
 from rasm_imaging import applied, DisplayView, ImageFile, Lattice, Logarithmic, Meter, processor, Quad, Region
-from rasm_records import accumulated, ContentHash, Fault, Nothing, Ok, Outcome, paired, Reason
+from rasm_records import accumulated, ContentHash, Fault, Outcome, paired, Reason
 
 from ..catalog import chain
 from ..effects.grade.exposure import exposure, gain, STOPS
@@ -138,7 +138,7 @@ class _Follower:
         def followed(scene: bpy.types.Scene, metering: Metering) -> Outcome[Option[_Following]]:
             if not metering.use_follow:
                 _READINGS[identity].pop(Handle.of(scene), None)
-                return Ok(Nothing)
+                return Ok(NOTHING)
             view, composited = viewed(scene), _COMPOSITED.holds(bpy.context)
             entries = AutoExposure.viewport_entries(identity, scene) if composited else ()
             inverse = (
@@ -162,7 +162,7 @@ class _Follower:
                 )
             )
 
-        return root_in(bpy.types.Scene, bpy.context).map(lambda scene: AutoExposure.attachment.read(identity, scene).bind(partial(followed, scene))).default_value(Ok(Nothing))
+        return root_in(bpy.types.Scene, bpy.context).map(lambda scene: AutoExposure.attachment.read(identity, scene).bind(partial(followed, scene))).default_value(Ok(NOTHING))
 
     def drawn(self, state: _Following, canvas: Canvas) -> None:
         """Meters the scene ahead of the chain in the visible camera frame, through the composited formation's inverse with the Exposure gain divided out while the viewport composites and the view's inverse otherwise, and defers targets two readings agree on."""
@@ -179,16 +179,16 @@ class _Follower:
                     lambda held: rect.bind(reports.reported(captured)).map(lambda plane: applied(held[0], plane) * np.array((held[1], held[1], held[1], 1.0), np.float32))
                 ).bind(metered)
             case _:
-                reading = Nothing
+                reading = NOTHING
 
         match reading:
-            case Option(tag="some", some=value):
-                agreed = Option.of_optional(previous.get(state.scene)).filter(lambda prior: abs(value - prior[1]) <= state.tolerance).is_some()
+            case Some(value):
+                agreed = option.of_optional(previous.get(state.scene)).filter(lambda prior: abs(value - prior[1]) <= state.tolerance).is_some()
                 token = object()
                 previous[state.scene] = token, value
                 if agreed:
                     self.step(state.scene, token)
-            case _:
+            case Nothing():
                 previous.pop(state.scene, None)
 
 
@@ -218,8 +218,8 @@ class AutoExposure(msgspec.Struct, frozen=True, kw_only=True):
 
         def kept(metering: Metering, measured: Option[float]) -> Outcome[Option[str]]:
             return measured.map(
-                lambda value: AutoExposure.written(identity, scene, value + metering.bias).map(lambda changed: Some(bpy.path.display_name(meter_exposure.key)) if changed else Nothing)
-            ).default_value(Ok(Nothing))
+                lambda value: AutoExposure.written(identity, scene, value + metering.bias).map(lambda changed: Some(bpy.path.display_name(meter_exposure.key)) if changed else NOTHING)
+            ).default_value(Ok(NOTHING))
 
         return AutoExposure.attachment.read(identity, scene).bind(lambda metering: metering.meter.stops(PyOpenColorIO.GetCurrentConfig(), file.pixels).bind(lambda measured: kept(metering, measured)))
 
@@ -230,7 +230,7 @@ class AutoExposure(msgspec.Struct, frozen=True, kw_only=True):
         def moved(scene: bpy.types.Scene, follow: Follow, current: float, target: float) -> Outcome[Option[str]]:
             step = follow.speed * (target - current)
             return (
-                Option
+                option
                 .of_optional(next((entry for entry in exposure.entries(identity, scene) if entry.enable_for_preview), None))
                 .map(
                     lambda held: (
@@ -239,12 +239,12 @@ class AutoExposure(msgspec.Struct, frozen=True, kw_only=True):
                         .map(valued)
                         .bind(lambda values: value(values, float, STOPS))
                         .bind(lambda stops: entered(identity, held, {path_key(STOPS): stops + step}))
-                        .map(lambda _: Nothing)
+                        .map(lambda _: NOTHING)
                     )
                 )
-                .default_value(Ok(Nothing))
+                .default_value(Ok(NOTHING))
                 if abs(target - current) > follow.band
-                else Ok(Nothing)
+                else Ok(NOTHING)
             )
 
         match _READINGS[identity].get(handle):
@@ -253,17 +253,19 @@ class AutoExposure(msgspec.Struct, frozen=True, kw_only=True):
                     handle
                     .resolve()
                     .bind(lambda scene: AutoExposure.attachment.read(identity, scene).map(lambda metering: (scene, metering)))
-                    .bind(lambda pair: gain(identity, pair[0], enabled=Enabled.PREVIEW).bind(lambda current: moved(pair[0], pair[1].follow, current, target)) if pair[1].use_follow else Ok(Nothing))
+                    .bind(lambda pair: gain(identity, pair[0], enabled=Enabled.PREVIEW).bind(lambda current: moved(pair[0], pair[1].follow, current, target)) if pair[1].use_follow else Ok(NOTHING))
                 )
             case _:
-                return Ok(Nothing)
+                return Ok(NOTHING)
 
     # --- [FORMATION]
 
     @staticmethod
     def viewport_entries(identity: Identity, scene: bpy.types.Scene) -> tuple[bpy.types.SceneCompositorEffect, ...]:
         """Returns preview-enabled pointwise entries other than Exposure, which a lattice samples as the composited viewport's formation."""
-        return tuple(entry for entry in scene.compositor_effects if entry.enable_for_preview and chain.row(identity, entry).filter(lambda row: row.pointwise and row is not exposure).is_some())
+        return tuple(
+            entry for entry in scene.compositor_effects if entry.enable_for_preview and chain.row(identity, entry).filter(lambda row: row.pointwise).filter(lambda row: row is not exposure).is_some()
+        )
 
     @staticmethod
     def requested(config: PyOpenColorIO.Config, scene: bpy.types.Scene, entries: tuple[bpy.types.SceneCompositorEffect, ...], view: DisplayView) -> Outcome[_Formation]:
@@ -349,7 +351,7 @@ class AutoExposure(msgspec.Struct, frozen=True, kw_only=True):
             return (
                 root_in(bpy.types.Scene, context)
                 .map(lambda scene: self.attachment.read(identity, scene).map(lambda metering: Some(metering.meter.region).filter(lambda _: metering.use_region).map(Quad.of_region)))
-                .default_value(Ok(Nothing))
+                .default_value(Ok(NOTHING))
             )
 
         def write(context: bpy.types.Context, quad: Quad) -> Outcome[None]:

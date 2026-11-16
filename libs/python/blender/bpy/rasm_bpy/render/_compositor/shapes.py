@@ -8,7 +8,7 @@ from math import pi, tau
 from typing import Final, get_args, Literal, Self, TYPE_CHECKING
 
 import bpy
-from expression import Option
+from expression import Option, option
 import msgspec
 
 from rasm_bpy.data._rna.descriptors import Descriptor
@@ -35,7 +35,7 @@ class Join(Enum):
     def __init__(self, outer: float, inner: float, widest: "rna_enums.NodeMathItems | None") -> None:
         """Holds the signs of this and the other field, and the Math operation joining both widths, Nothing where this field's width stays."""
         self.outer, self.inner = outer, inner
-        self.widest: Option[rna_enums.NodeMathItems] = Option.of_optional(widest)
+        self.widest: Option[rna_enums.NodeMathItems] = option.of_optional(widest)
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------

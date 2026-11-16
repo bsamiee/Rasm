@@ -8,7 +8,7 @@ from typing import Annotated, ClassVar, Final
 
 from bl_ui.space_image import IMAGE_HT_header
 import bpy
-from expression import Option, Some, try_downcast
+from expression import NOTHING, Ok, Option, option, Some, try_downcast
 from expression.collections import Block
 import msgspec
 import numpy as np
@@ -20,7 +20,7 @@ from rasm_bpy.render import fingerprinted, Job, Latest, PreviewFeed, PreviewScen
 from rasm_bpy.settings import Attachment
 from rasm_bpy.ui import Append, AreaQuery, Chart, DrawingPart, GRID, image_type, Label, Layer, Layout, Member, Metrics, overlaid, Property, ruled, Signal, TRACE
 from rasm_imaging import applied, DisplayView, GRAY
-from rasm_records import accumulated, ContentHash, Fault, Nothing, Ok, Outcome, paired, Reason
+from rasm_records import accumulated, ContentHash, Fault, Outcome, paired, Reason
 
 from ..catalog import tones
 from ..effects.formation.display import encoding, formation
@@ -84,9 +84,9 @@ class ToneResponse(msgspec.Struct, frozen=True, kw_only=True):
             if held.shown:
                 _COLUMNS[identity][Handle.of(screen)] = columns
                 return root_in(bpy.types.Scene, bpy.context).bind(lambda scene: latest.shown((scene.session_uid, columns))).map(lambda pair: pair[1])
-            return Nothing
+            return NOTHING
 
-        return root_in(bpy.types.Screen, bpy.context).map(lambda screen: _CHARTED.read(identity, screen).map(partial(shown, screen))).default_value(Ok(Nothing))
+        return root_in(bpy.types.Screen, bpy.context).map(lambda screen: _CHARTED.read(identity, screen).map(partial(shown, screen))).default_value(Ok(NOTHING))
 
     # --- [DEMAND]
 
@@ -125,21 +125,21 @@ class ToneResponse(msgspec.Struct, frozen=True, kw_only=True):
                 del columns[screen]
             sources: dict[bpy.types.Scene, dict[int, None]] = {}
             for window in windows:
-                for size in Option.of_optional(columns.get(Handle.of(window.screen))).to_list():
+                for size in option.of_optional(columns.get(Handle.of(window.screen))).to_list():
                     sources.setdefault(window.scene, {})[size] = None
             active = tuple((scene, entries, tuple(sizes)) for scene, sizes in sources.items() for entries, left in (selected(identity, scene, Some(self.kinds)),) if entries and not left)
             wanted = frozenset((Handle.of(scene), size) for scene, _, sizes in active for size in sizes)
             return (signal.fired() if latest.cleared(lambda request: (request.scene, request.columns) not in wanted) else Ok(None)).bind(
                 lambda _: (
                     paired(
-                        Option
+                        option
                         .of_optional(config.getColorSpace(PyOpenColorIO.ROLE_COMPOSITING_LOG))
                         .map(lambda space: space.getTransform(PyOpenColorIO.COLORSPACE_DIR_FROM_REFERENCE))
                         .bind(
                             lambda transform: (
                                 Block
                                 .of_seq(tuple(transform) if isinstance(transform, PyOpenColorIO.GroupTransform) else (transform,))
-                                .choose(lambda member: Option.of_optional(try_downcast(PyOpenColorIO.AllocationTransform, member)))
+                                .choose(lambda member: option.of_optional(try_downcast(PyOpenColorIO.AllocationTransform, member)))
                                 .try_head()
                             )
                         )

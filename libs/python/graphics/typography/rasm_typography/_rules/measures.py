@@ -5,8 +5,9 @@ lazy from collections.abc import Collection, Mapping
 lazy from functools import cache
 
 import msgspec
-lazy from expression import Option, Result
-lazy from expression.extra.result import catch
+lazy from expression import option
+lazy from expression.collections import Block
+lazy from expression.extra.result import catch, traverse
 lazy from fontTools.misc.transform import Offset, Transform
 
 from rasm_typography._faces.names import Form, GlyphName
@@ -50,7 +51,7 @@ def bounded_glyph(source: Source, code: int, /) -> Outcome[tuple[Glyph, paths.Bo
         source
         .glyph(source.key(code))
         .map(lambda glyph: source.drawn(glyph.name.text))
-        .bind(lambda glyph: Option.of_optional(paths.bounds(glyph.contours)).map(lambda box: (glyph, box)))
+        .bind(lambda glyph: option.of_optional(paths.bounds(glyph.contours)).map(lambda box: (glyph, box)))
         .to_result_with(lambda: Fault.of(Reason.ABSENT, source.face.postscript, member=f"outline of {_key(code)}"))
     )
 
@@ -61,23 +62,17 @@ def mapped(source: Source, matrices: Mapping[str, Transform], /) -> Source:
 
     def changed(glyph: Glyph, /) -> Glyph:
         matrix = matrices[glyph.name.text]
-        kept: list[Component] = []
-        for part in glyph.components:
-            match inverse(matrices[part.name]):
-                case Result(tag="ok", ok=backward):
-                    kept.append(Component(name=part.name, transform=matrix.transform(part.transform).transform(backward)))
-                case Result(error=_):
-                    contours = source.drawn(glyph.name.text).contours
-                    kept.clear()
-                    break
-        else:
-            contours = glyph.contours
+        contours, kept = (
+            traverse(lambda part: inverse(matrices[part.name]).map(lambda backward: Component(name=part.name, transform=matrix.transform(part.transform).transform(backward))), Block(glyph.components))
+            .map(lambda parts: (glyph.contours, tuple(parts)))
+            .default_with(lambda _: (source.drawn(glyph.name.text).contours, ()))
+        )
         return msgspec.structs.replace(
             glyph,
             advance=glyph.advance * matrix.xx,
             contours=paths.transformed(contours, matrix),
             anchors=tuple(Anchor(name=anchor.name, x=x, y=y) for anchor in glyph.anchors for x, y in (matrix.transformPoint((anchor.x, anchor.y)),)),
-            components=tuple(kept),
+            components=kept,
         )
 
     return msgspec.structs.replace(source, glyphs=tuple(map(changed, source.glyphs)))
@@ -90,9 +85,9 @@ def placement(source: Source, original: Binary, stem: int, /) -> Outcome[tuple[G
     """Acquires the source stem, its outline box and the map from its original height and foot together."""
     return paired(
         bounded_glyph(source, stem),
-        Option
+        option
         .of_optional(original.encoded.get(stem))
-        .bind(lambda name: Option.of_optional(original.extent(name)))
+        .bind(lambda name: option.of_optional(original.extent(name)))
         .to_result_with(lambda: Fault.of(Reason.ABSENT, "original", member=f"outline of {_key(stem)}")),
     ).map(lambda pair: (*pair[0], Transform(scale := pair[0][1].height / pair[1].height, 0, 0, scale, 0, pair[0][1].ymin - scale * pair[1].ymin)))
 

@@ -4,7 +4,7 @@ from enum import StrEnum
 from typing import Annotated, ClassVar, Self
 
 import bpy
-from expression import Option, Some
+from expression import Error, NOTHING, Ok, Option, option, Some, try_downcast
 import msgspec
 import numpy as np
 import numpy.typing as npt
@@ -27,7 +27,7 @@ from rasm_bpy.ui._drawing.handlers import HandlerRefresh
 from rasm_bpy.ui._images.views import framed, image_type, overlaid
 from rasm_bpy.ui._resources.theme import Metrics
 from rasm_imaging import ChartPlacement, Colors, converted_colors, converted_image, Homography, ImageFile, PanoramaView, PublishedChart, Quad, rgba
-from rasm_records import Error, Fault, Nothing, Ok, Outcome, paired
+from rasm_records import Fault, Outcome, paired
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -54,7 +54,7 @@ class PlacedChart(msgspec.Struct, frozen=True, kw_only=True):
 
     def sampled(self, config: PyOpenColorIO.Config) -> Outcome[Option[Colors]]:
         """Returns sampled patch means in the current scene-linear space, absent before sampling."""
-        return converted_colors(config, self.colorspace, PyOpenColorIO.ROLE_SCENE_LINEAR, self.samples).map(Some) if self.samples else Ok(Nothing)
+        return converted_colors(config, self.colorspace, PyOpenColorIO.ROLE_SCENE_LINEAR, self.samples).map(Some) if self.samples else Ok(NOTHING)
 
     def positioned(self, placement: ChartPlacement) -> Self:
         """Returns a changed placement without measurements from its prior patch footprints."""
@@ -91,13 +91,8 @@ class Charting(msgspec.Struct, frozen=True, kw_only=True):
         """Returns the chart's image owner and actual shown image, identical outside a panorama view."""
         return (
             root_in(bpy.types.SpaceImageEditor, context)
-            .bind(lambda space: Option.of_optional(space.image))
-            .map(
-                lambda image: (
-                    self.views.marked(identity, image).bind(lambda mark: mark.of).bind(lambda block: Some(block) if isinstance(block, bpy.types.Image) else Nothing).default_value(image),
-                    image,
-                )
-            )
+            .bind(lambda space: option.of_optional(space.image))
+            .map(lambda image: (self.views.marked(identity, image).bind(lambda mark: mark.of).bind(lambda block: option.of_optional(try_downcast(bpy.types.Image, block))).default_value(image), image))
         )
 
     def charted(self, identity: Identity, context: bpy.types.Context) -> Outcome[Option[tuple[bpy.types.Image, PlacedChart, Attached[ChartImage], bpy.types.Image]]]:
@@ -108,11 +103,11 @@ class Charting(msgspec.Struct, frozen=True, kw_only=True):
                 lambda found: found.filter(lambda kept: chart.struct(image).shown and (kept.placement.panorama is not None) == (image != shown)).map(lambda kept: (image, kept, chart, shown))
             )
 
-        return self.charts.bound(identity).bind(lambda chart: self.shown(identity, context).starmap(lambda image, shown: held(chart, image, shown)).default_value(Ok(Nothing)))
+        return self.charts.bound(identity).bind(lambda chart: self.shown(identity, context).starmap(lambda image, shown: held(chart, image, shown)).default_value(Ok(NOTHING)))
 
     def kept(self, chart: Attached[ChartImage], image: bpy.types.Image) -> Outcome[Option[PlacedChart]]:
         """Returns an image's stored chart, `Nothing` for an image no write left a chart on, its attachment group left uncreated."""
-        return self.placed.read(chart.struct(image)) if chart.stored(image) else Ok(Nothing)
+        return self.placed.read(chart.struct(image)) if chart.stored(image) else Ok(NOTHING)
 
     def record(self, identity: Identity, image: bpy.types.Image) -> Outcome[PlacedChart]:
         """Returns an image's chart, sampled fault naming an image holding none."""
@@ -207,9 +202,9 @@ class _Patches(msgspec.Struct, frozen=True, kw_only=True):
                     ),
                     record.placement.chart.values(config),
                 ).bind(lambda found: colored((shown, found[0]), found[1], msgspec.structs.replace(record.placement, quad=quad, panorama=None)))
-            ).default_value(Ok(Nothing))
+            ).default_value(Ok(NOTHING))
 
-        return charting.charted(identity, context).bind(lambda found: found.map(lambda held: layered(*held)).default_value(Ok(Nothing)))
+        return charting.charted(identity, context).bind(lambda found: found.map(lambda held: layered(*held)).default_value(Ok(NOTHING)))
 
     @staticmethod
     def drawn(state: tuple[Layer, Layer], canvas: Canvas, /) -> None:

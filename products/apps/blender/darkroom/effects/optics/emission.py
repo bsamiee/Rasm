@@ -5,7 +5,7 @@ from itertools import starmap
 from typing import Annotated, Final, get_args
 
 import bpy
-from expression import Option, Some
+from expression import NOTHING, Ok, Option, Some
 import msgspec
 import numpy as np
 import numpy.typing as npt
@@ -15,7 +15,7 @@ from rasm_bpy.data import Identity, Key, Value
 from rasm_bpy.nodes import decoded, Expr, Interface, InterfacePanel, item_key, math, MenuItem, MenuItems, menus, mixed, Ramp, sampled, Scalar, Socket, StockInput, vector, W
 from rasm_bpy.render import chosen, GraphInputs, luminance, path_key, Step
 from rasm_imaging import colorimetry, Stops
-from rasm_records import accumulated, Case, Nothing, Ok, Outcome
+from rasm_records import accumulated, Case, Outcome
 
 from .bases import cased
 
@@ -69,14 +69,14 @@ _COLOR: Final = Socket(key="color", kind=bpy.types.NodeSocketMenu, description="
 # --- [PANELS]
 
 
-def spectra(key: Key, chosen: Spectrum, description: str, toggle: Option[bool] = Nothing) -> InterfacePanel:
+def spectra(key: Key, chosen: Spectrum, description: str, toggle: Option[bool] = NOTHING) -> InterfacePanel:
     """Spectrum panel at `key`: its color menu defaulting to the chosen case, then the tint and blackbody panels, the ramp held by the record."""
     cases = tuple(InterfacePanel.of(item_key(type(case)), case, name=MenuItem.of(type(case)).name) for case in cased(_KINDS, chosen) if not isinstance(case, Gradient))
     menu = msgspec.structs.replace(_COLOR, default_value=MenuItem.of(type(chosen)).name)
     return InterfacePanel.of(key, Interface(inputs=(menu,), panels=cases), description=description, toggle=toggle)
 
 
-def emission(key: Key, light: Emission, description: str, toggle: Option[bool] = Nothing) -> InterfacePanel:
+def emission(key: Key, light: Emission, description: str, toggle: Option[bool] = NOTHING) -> InterfacePanel:
     """Emission panel at `key`: luminance in stops, then the spectrum panel defaulting to the light's case."""
     own = InterfacePanel.of(key, light, description=description, toggle=toggle)
     return msgspec.structs.replace(own, panels=InterfacePanel.of(key, Interface(panels=(spectra(SPECTRUM, light.spectrum, "Color emitted at each tone"),))).panels)

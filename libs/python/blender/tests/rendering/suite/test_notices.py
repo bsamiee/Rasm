@@ -7,7 +7,7 @@ from http import HTTPStatus
 import socket
 import uuid
 
-from expression import Nothing
+from expression import NOTHING
 import httpx2
 import msgspec
 import pytest
@@ -33,7 +33,7 @@ LIMITED = Answer(
 PRIORITIES = {"min": 1, "low": 2, "default": 3, "high": 4, "max": 5, "urgent": 5} | {str(level): level for level in range(1, 6)}
 NOTICES: tuple[Notice, ...] = (
     Started(jobs=2, frames=48),
-    Estimated(forecast=Forecast(left=timedelta(minutes=5), finish=Nothing)),
+    Estimated(forecast=Forecast(left=timedelta(minutes=5), finish=NOTHING)),
     Completed(frames=48, elapsed=timedelta(seconds=90)),
     Cancelled(frames=12),
     Failed(job="Scene 1-24", reason="exit 1"),

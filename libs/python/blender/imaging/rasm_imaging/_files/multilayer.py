@@ -11,7 +11,7 @@ import re
 from types import MappingProxyType
 from typing import Annotated, Self
 
-from expression import Option, Some
+from expression import Error, NOTHING, Ok, Option, option, Some
 from expression.extra.result import catch
 import msgspec
 import numpy as np
@@ -21,7 +21,7 @@ import PyOpenColorIO
 
 from rasm_imaging._files.buffers import Depth
 from rasm_imaging._files.images import Compression, Deflate, emitted, ImageFile, opened, read_file, read_pixels, Storage, Subimage
-from rasm_records import accumulated, content_hash, ContentHash, Error, Fault, Nothing, Ok, Outcome, paired, Reason
+from rasm_records import accumulated, content_hash, ContentHash, Fault, Outcome, paired, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -110,7 +110,7 @@ class Multilayer(msgspec.Struct, frozen=True, kw_only=True):
             for kind, channels in itertools.groupby(spec.get_channelformats()):
                 end = first + sum(1 for _ in channels)
                 yield (
-                    Option
+                    option
                     .of_optional(image.read_image(index, 0, first, end, kind))
                     .to_result_with(lambda: Fault.of(Reason.UNREADABLE, str(self.path), image.geterror(), member=str(kind)))
                     .map(lambda plane: content_hash(type(self), arrays=(plane,)))
@@ -122,7 +122,7 @@ class Multilayer(msgspec.Struct, frozen=True, kw_only=True):
                 header = OpenImageIO.ImageSpec(spec)
                 header.extra_attribs.sort()
                 attributes = accumulated(
-                    Option
+                    option
                     .of_optional(field.value)
                     .to_result_with(partial(Fault.of, Reason.OUTSIDE, f"{self.path}:{field.name}", field.type, member="metadata type exposed by OpenImageIO"))
                     .map(lambda value: (field.name, str(field.type), memoryview(value) if isinstance(value, np.ndarray) else value))
@@ -142,7 +142,7 @@ class Multilayer(msgspec.Struct, frozen=True, kw_only=True):
         held = self.parts[layer.part].channelnames
         positions = {held[index]: index for index in reversed(range(len(held)))}
         return accumulated(
-            Option.of_optional(positions.get(f"{layer.name}.{name}" if layer.name else name)).to_result_with(partial(Fault.of, Reason.ABSENT, f"{self.path}:{layer.name}", member=f"{name} channel"))
+            option.of_optional(positions.get(f"{layer.name}.{name}" if layer.name else name)).to_result_with(partial(Fault.of, Reason.ABSENT, f"{self.path}:{layer.name}", member=f"{name} channel"))
             for name in channels
         )
 
@@ -150,7 +150,7 @@ class Multilayer(msgspec.Struct, frozen=True, kw_only=True):
         """Reads named channels of the first layer of `names` the file holds, `ABSENT` fault naming the last name."""
         layers = self.layers
         return (
-            Option
+            option
             .of_optional(next((layer for name in names for layer in layers if layer.name == name), None))
             .to_result_with(lambda: Fault.of(Reason.ABSENT, str(self.path), member=f"{names[-1]} layer"))
             .bind(lambda layer: self.plane(layer, channels))
@@ -195,10 +195,10 @@ class Multilayer(msgspec.Struct, frozen=True, kw_only=True):
             specs = tuple(OpenImageIO.ImageSpec(image.spec()) for _ in itertools.takewhile(lambda index: image.seek_subimage(index, 0), itertools.count()))
             renamed = tuple(channels(spec.channelnames) for spec in specs)
             return (
-                Ok(Nothing)
+                Ok(NOTHING)
                 if display.is_none() and all(names == spec.channelnames for spec, names in zip(specs, renamed))
                 else accumulated(
-                    Option.of_optional(image.read_image(index, 0, 0, spec.nchannels, OpenImageIO.FLOAT)).to_result_with(lambda: Fault.of(Reason.UNREADABLE, str(path), image.geterror()))
+                    option.of_optional(image.read_image(index, 0, 0, spec.nchannels, OpenImageIO.FLOAT)).to_result_with(lambda: Fault.of(Reason.UNREADABLE, str(path), image.geterror()))
                     for index, spec in enumerate(specs)
                 ).map(lambda arrays: Some(tuple(map(subimage, specs, renamed, arrays))))
             )
@@ -239,8 +239,7 @@ class Matte(msgspec.Struct, frozen=True, kw_only=True):
             jobs := tuple(
                 (name, manifest)
                 for key, name in declarations.items()
-                if key.startswith("cryptomatte/") and key.endswith("/name")
-                for manifest in Option.of_optional(declarations.get(f"{key.removesuffix('/name')}/manifest")).to_list()
+                if key.startswith("cryptomatte/") and key.endswith("/name") and (manifest := declarations.get(f"{key.removesuffix('/name')}/manifest")) is not None
             )
         ):
             return Ok(())
@@ -262,7 +261,7 @@ class Matte(msgspec.Struct, frozen=True, kw_only=True):
                 if re.fullmatch(f"{re.escape(name)}[0-9]{{2}}", layer.name) and (folded := {channel.casefold(): channel for channel in layer.channels}).keys() >= set("rgba"):
                     ranks[part_views[layer.part]].append(replace(layer, channels=tuple(folded[key] for key in "rgba")))
             return (
-                catch(lambda: msgspec.json.decode(manifest, type=_Manifest), exception=msgspec.DecodeError)()
+                catch(msgspec.json.Decoder(_Manifest).decode, exception=msgspec.DecodeError)(manifest)
                 .map_error(partial(Fault.of, Reason.UNREADABLE, str(file.path)))
                 .map(lambda entries: MappingProxyType({entity: code & 0x807FFFFF | min(max(code >> 23 & 0xFF, 1), 254) << 23 for entity, digits in entries.items() for code in (int(digits, 16),)}))
                 .map(lambda ids: tuple(cls(name=name, ids=ids, ranks=tuple(ranked), file=views[view]) for view, ranked in ranks.items()))
@@ -307,7 +306,7 @@ class Matte(msgspec.Struct, frozen=True, kw_only=True):
         part = next(iter(self.file.parts.values()))
         return (
             accumulated(self.file.plane(rank, rank.channels) for rank in self.ranks)
-            .map(lambda ranked: np.concatenate(ranked, axis=-1) if len(ranked) > 1 else ranked[0] if ranked else np.empty((part.height, part.width, 0), dtype=np.float32))
+            .map(lambda ranked: np.concatenate(ranked, axis=-1) if ranked else np.empty((part.height, part.width, 0), dtype=np.float32))
             .map(lambda stacked: (stacked.view(np.uint32)[..., 0::2], stacked[..., 1::2]))
         )
 

@@ -8,11 +8,11 @@ from itertools import islice
 from typing import overload
 
 import bpy
-from expression import Option, Some, try_downcast
+from expression import Error, NOTHING, Ok, Option, option, Some, try_downcast
 from expression.collections import Block
 from expression.extra.result import catch
 
-from rasm_records import Error, Fault, Nothing, Ok, Outcome, Reason
+from rasm_records import Fault, Outcome, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -104,15 +104,16 @@ def id_path(struct: Struct) -> Option[RnaPath]:
 
 def id_data[K: bpy.types.ID](kind: type[K], struct: Struct, /) -> Option[K]:
     """Returns the ID holding a struct as kind, the struct itself for an ID of kind, Nothing for a struct an ID of another kind holds."""
-    return Option.of_optional(try_downcast(kind, struct.id_data))
+    return Some(owner) if isinstance(owner := struct.id_data, kind) else NOTHING
 
 
-def context_path(owner: Struct, name: str | None = None, /) -> Option[str]:
+def context_path(owner: Struct, name: str = "", /) -> Option[str]:
     """Returns the context data path of an owner, or of its member under name, through `blend_data` or preferences, Nothing for other data or a partial host path."""
     return (
-        catch(owner.path_from_module, exception=ValueError)(*Option.of_optional(name).to_list())
+        catch(owner.path_from_module, exception=ValueError)(name)
         .to_option()
-        .filter(lambda path: " ... " not in path and path.startswith(("bpy.data.", "bpy.context.")))
+        .filter(lambda path: " ... " not in path)
+        .filter(lambda path: path.startswith(("bpy.data.", "bpy.context.")))
         .map(lambda path: f"blend_data.{path.removeprefix('bpy.data.')}" if path.startswith("bpy.data.") else path.removeprefix("bpy.context."))
     )
 
@@ -127,12 +128,12 @@ def struct_at(root: Native, path: RnaPath, kind: type[object] = object) -> Optio
     Collection root resolves through its holder and the collection member holding it.
     """
     if not path:
-        return Option.of_optional(try_downcast(kind, root))
+        return option.of_optional(try_downcast(kind, root))
     starts = (
         islice(
             (
                 (holder, (prop.identifier,))
-                for holder in Option.of_optional(root.data).to_list()
+                for holder in option.of_optional(root.data).to_list()
                 for prop in rna_definition(holder).properties
                 if isinstance(prop, bpy.types.CollectionProperty) and getattr(holder, prop.identifier) == root
             ),
@@ -145,9 +146,9 @@ def struct_at(root: Native, path: RnaPath, kind: type[object] = object) -> Optio
         try:
             found = holder.path_resolve(rna((*prefix, *path)), False)  # ruff: ignore[boolean-positional-value-in-call]
         except (ValueError, ReferenceError):
-            return Nothing
-        return Option.of_optional(try_downcast(kind, found)).filter(lambda value: isinstance(value, bpy.types.bpy_struct | bpy.types.bpy_prop_collection))
-    return Nothing
+            return NOTHING
+        return option.of_optional(try_downcast(kind, found)).filter(lambda value: isinstance(value, bpy.types.bpy_struct | bpy.types.bpy_prop_collection))
+    return NOTHING
 
 
 def definition_at(definition: bpy.types.Struct, steps: RnaPath) -> Option[bpy.types.Struct]:
@@ -161,9 +162,9 @@ def definition_at(definition: bpy.types.Struct, steps: RnaPath) -> Option[bpy.ty
             case ((bpy.types.CollectionProperty(srna=target) | bpy.types.PointerProperty(fixed_type=target)), _):
                 pass
             case _:
-                return Nothing
+                return NOTHING
         if target is None:
-            return Nothing
+            return NOTHING
         held = target
     return Some(held)
 
@@ -182,10 +183,7 @@ def subclass[T: Struct](base: type[T], identifier: str) -> Outcome[type[T]]:
 
 def addon_preferences(preferences: bpy.types.Preferences, package: str) -> Option[bpy.types.AddonPreferences]:
     """Returns the preferences of the enabled add-on or extension package, Nothing when disabled or holding none."""
-    try:
-        return Option.of_optional(preferences.addons[package].preferences)
-    except KeyError:
-        return Nothing
+    return option.of_optional(preferences.addons.get(package)).bind(lambda addon: option.of_optional(addon.preferences))
 
 
 def preferred[T](preferences: bpy.types.Preferences, package: str, write: Callable[[bpy.types.AddonPreferences], Outcome[T]]) -> Outcome[T]:
@@ -204,7 +202,7 @@ def root_in[K: Native](root: type[K], context: bpy.types.Context) -> Option[K]:
         candidates = root_in(bpy.types.Preferences, context).bind(lambda preferences: addon_preferences(preferences, root.bl_idname)).to_list()
     else:
         candidates = (getattr(context, member) for member in _members(root))
-    return Block.of_seq(candidates).choose(lambda value: Option.of_optional(try_downcast(root, value))).try_head()
+    return next((Some(value) for value in candidates if isinstance(value, root)), NOTHING)
 
 
 def rooted[K: Native](root: type[K], context: bpy.types.Context) -> Outcome[K]:
@@ -224,7 +222,7 @@ def _held(struct: Struct, parent: Struct) -> Option[RnaPath]:
         for index, item in (((0, getattr(parent, prop.identifier)),) if isinstance(prop, bpy.types.PointerProperty) else enumerate(getattr(parent, prop.identifier)))
         if item == struct
     )
-    return Option.of_optional(next(steps, None)).bind(lambda found: id_path(parent).map(lambda base: (*base, *found)))
+    return option.of_optional(next(steps, None)).bind(lambda found: id_path(parent).map(lambda base: (*base, *found)))
 
 
 def _members[K: Native](root: type[K]) -> tuple[str, ...]:

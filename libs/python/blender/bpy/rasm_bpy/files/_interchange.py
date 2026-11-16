@@ -10,7 +10,7 @@ from typing import Literal, TYPE_CHECKING
 
 import bpy
 from bpy_extras.io_utils import path_reference, poll_file_object_drop
-from expression import Option, Some
+from expression import Error, NOTHING, Ok, Option, option, Some
 from expression.extra.result import catch
 import msgspec
 
@@ -22,7 +22,7 @@ from rasm_bpy.data._ids.ownership import retained, tracked
 from rasm_bpy.data._rna.descriptors import Descriptor, Value
 from rasm_bpy.data._rna.paths import rna_definition, subclass
 from rasm_bpy.data._rna.snapshots import assigned
-from rasm_records import accumulated, Error, Fault, files_copied, Nothing, Ok, Outcome, paired, Reason
+from rasm_records import accumulated, Fault, files_copied, Outcome, paired, Reason
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -35,10 +35,10 @@ class Interchange[I: bpy.types.PropertyGroup, E: bpy.types.PropertyGroup](msgspe
 
     key: Key
     extensions: tuple[str, ...]
-    importing: Option[Operator[I]] = Nothing
-    exporting: Option[Operator[E]] = Nothing
+    importing: Option[Operator[I]] = NOTHING
+    exporting: Option[Operator[E]] = NOTHING
     drop: Callable[[bpy.types.Context], bool] = poll_file_object_drop
-    title: Option[str] = Nothing
+    title: Option[str] = NOTHING
 
     def acquisitions(self, identity: Identity) -> Acquisitions:
         """Returns operators and file handler class."""
@@ -65,7 +65,7 @@ class References(msgspec.Struct, frozen=True, kw_only=True):
     mode: Literal["AUTO", "ABSOLUTE", "RELATIVE", "MATCH", "STRIP", "COPY"] | None = None
     subfolder: str | None = None
 
-    def path(self, filepath: str, destination: Path, library: Option[bpy.types.Library] = Nothing) -> Outcome[str]:
+    def path(self, filepath: str, destination: Path, library: Option[bpy.types.Library] = NOTHING) -> Outcome[str]:
         """Copies referenced files, returning export path."""
         copies: set[tuple[str, str]] = set()
         reference = path_reference(
@@ -74,8 +74,8 @@ class References(msgspec.Struct, frozen=True, kw_only=True):
             str(destination),
             copy_set=copies,
             library=library.to_optional(),
-            **Option.of_optional(self.mode).map(lambda mode: {"mode": mode}).default_value({}),
-            **Option.of_optional(self.subfolder).map(lambda folder: {"copy_subdir": folder}).default_value({}),
+            **option.of_optional(self.mode).map(lambda mode: {"mode": mode}).default_value({}),
+            **option.of_optional(self.subfolder).map(lambda folder: {"copy_subdir": folder}).default_value({}),
         )
         return files_copied((Path(source), Path(target)) for source, target in copies).map(lambda _: reference)
 
@@ -93,7 +93,7 @@ class Exporter(msgspec.Struct, frozen=True, kw_only=True):
 
 def dropped_in(spaces: frozenset["rna_enums.SpaceTypeItems"], context: bpy.types.Context) -> bool:
     """Returns whether a drop targets an editor of the spaces, bound through `partial` as an `Interchange` drop poll."""
-    return Option.of_optional(context.area).filter(lambda area: area.type in spaces).is_some()
+    return option.of_optional(context.area).filter(lambda area: area.type in spaces).is_some()
 
 
 def length(scene: bpy.types.Scene, source: str) -> Outcome[float]:
@@ -133,26 +133,26 @@ def reconciled(collection: bpy.types.Collection, exporters: Mapping[str, Exporte
             def filled(item: bpy.types.CollectionExport) -> Outcome[None]:
                 return paired(
                     assigned(item, {("filepath",): exporter.path}),
-                    Option
+                    option
                     .of_optional(item.export_properties)
                     .map(lambda properties: assigned(properties, {(key,): value for key, value in exporter.values.items()}))
                     .default_with(lambda: Error(Fault.of(Reason.ABSENT, repr(item), member="export_properties"))),
                 ).map(lambda _: None)
 
             def replaced() -> Outcome[bpy.types.CollectionExport]:
-                for item in Option.of_optional(existing.get(name)).to_list():
+                for item in option.of_optional(existing.get(name)).to_list():
                     held.remove(item)
                 return made(name, exporter.handler)
 
             def current(item: bpy.types.CollectionExport) -> bool:
                 wanted = subclass(bpy.types.FileHandler, exporter.handler).to_option().map(lambda handler: handler.bl_export_operator)
-                return Option.of_optional(item.export_properties).map(lambda properties: rna_definition(properties).identifier.replace("_OT_", ".").lower()) == wanted
+                return option.of_optional(item.export_properties).map(lambda properties: rna_definition(properties).identifier.replace("_OT_", ".").lower()) == wanted
 
             return (
                 Descriptor
                 .resolve(bpy.types.CollectionExport, ("name",), bpy.types.StringProperty)
                 .bind(lambda field: Descriptor.validated(field.prop, name))
-                .bind(lambda _: Option.of_optional(existing.get(name)).filter(current).map(Ok).default_with(replaced).bind(filled))
+                .bind(lambda _: option.of_optional(existing.get(name)).filter(current).map(Ok).default_with(replaced).bind(filled))
             )
 
         def completed(_: tuple[None, ...]) -> Outcome[None]:
@@ -181,7 +181,7 @@ def exported(operator: Operation, collection: bpy.types.Collection, path: Path, 
     return called(operator, {"filepath": str(path), "collection": collection.name, **params}, override=Some(bpy.context.temp_override(scene=scene, view_layer=view_layer))).map(lambda _: path)
 
 
-def configured(collection: bpy.types.Collection, *, scene: bpy.types.Scene, view_layer: bpy.types.ViewLayer, exporter: Option[str] = Nothing) -> Outcome[None]:
+def configured(collection: bpy.types.Collection, *, scene: bpy.types.Scene, view_layer: bpy.types.ViewLayer, exporter: Option[str] = NOTHING) -> Outcome[None]:
     """Runs the collection's configured exporters through `collection.export_all`, or the one named through `collection.exporter_export`.
 
     Args:

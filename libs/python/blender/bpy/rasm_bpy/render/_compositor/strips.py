@@ -8,7 +8,7 @@ from typing import Annotated, ClassVar, Final
 
 from bl_ui.space_sequencer import SEQUENCER_MT_modifier_add
 import bpy
-from expression import Option, Result, Some
+from expression import Error, Ok, option, Some
 from expression.extra.result import catch
 import msgspec
 import PyOpenColorIO
@@ -30,7 +30,7 @@ from rasm_bpy.render._compositor.offered import Choice, OfferedEffects
 from rasm_bpy.ui._elements.menus import Append, Dropdown, Menu
 from rasm_bpy.ui._layout.rows import Layout, Opens, operator_button
 from rasm_imaging import called
-from rasm_records import accumulated, Error, Fault, Faults, Ok, Outcome, paired, Reason
+from rasm_records import accumulated, Fault, Outcome, paired, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -56,7 +56,7 @@ def _libraries(_owner: Struct, context: bpy.types.Context | None) -> tuple[EnumI
     return choices(
         tuple(
             (row.name, row.name, row.path)
-            for preferences in Option.of_optional(context).bind(lambda held: Option.of_optional(held.preferences)).to_list()
+            for preferences in option.of_optional(context).bind(lambda held: option.of_optional(held.preferences)).to_list()
             for row in preferences.filepaths.asset_libraries
             if isinstance(row, bpy.types.PreferencesAssetLibrary)
         )
@@ -99,10 +99,10 @@ class Strips(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     def choices(self, identity: Identity, _owner: StripChoice, context: bpy.types.Context | None) -> tuple[EnumItem, ...]:
         """Native choices from the actual sequencer scene, logging seed failures."""
         return (
-            Option
+            option
             .of_optional(context)
             .bind(lambda context: struct_at(context, Strips.active.owner, bpy.types.SequenceEditor))
-            .bind(partial(id_data, bpy.types.Scene))
+            .bind(lambda struct: id_data(bpy.types.Scene, struct))
             .bind(identity.reports.reported(self.rows.standalone))
             .map(lambda rows: choices((row.kind, row.title, row.description) for row in rows))
             .default_value(())
@@ -122,7 +122,7 @@ class Strips(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         """Draws the scene's standalone effects after their seed and pass requirements resolve."""
         rows = (
             struct_at(context, Strips.active.owner, bpy.types.SequenceEditor)
-            .bind(partial(id_data, bpy.types.Scene))
+            .bind(lambda struct: id_data(bpy.types.Scene, struct))
             .to_result_with(partial(Fault.of, Reason.ABSENT, repr(context.workspace), member=rna(_ACTIVE[1:])))
             .bind(self.rows.standalone)
         )
@@ -155,11 +155,7 @@ class Strips(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                     called(PyOpenColorIO.GetCurrentConfig, effect.kind)
                     .bind(lambda config: effect.grouped(call.identity, scene, Entry(record=record), config))
                     .bind(lambda group: made(msgspec.structs.replace(group, key=f"{group.key}_{_STRIP}"), call.identity, of=Some(scene)))
-                    .bind(
-                        lambda group: Result[bpy.types.Strip | bpy.types.StripModifier, Faults].bind(
-                            catch(held, exception=RuntimeError)().map_error(partial(Fault.of, Refusal.REFUSED, repr(strip))), lambda holder: written(holder, ("node_group",), group)
-                        )
-                    )
+                    .bind(lambda group: catch(held, exception=RuntimeError)().map_error(partial(Fault.of, Refusal.REFUSED, repr(strip))).bind(lambda holder: written(holder, ("node_group",), group)))
                 )
                 return retained(placed, rollback).map(lambda _: Done(notes=(("INFO", f"Added {effect.title} to {strip.name}"),)))
 
@@ -185,15 +181,15 @@ def save_effect(call: Call[Saving]) -> Outcome[Answer]:
     chosen = call.properties
     group = rooted(bpy.types.Scene, call.context).bind(
         lambda scene: (
-            Option
+            option
             .of_optional(scene.compositor_effects.active)
-            .bind(lambda entry: Option.of_optional(entry.node_group))
+            .bind(lambda entry: option.of_optional(entry.node_group))
             .to_result_with(partial(Fault.of, Reason.ABSENT, repr(scene.compositor_effects), member="active"))
         )
     )
     folder = rooted(bpy.types.Preferences, call.context).bind(
         lambda preferences: (
-            Option
+            option
             .of_optional(preferences.filepaths.asset_libraries.get(chosen.library))
             .map(lambda row: Path(row.path))
             .to_result_with(partial(Fault.of, Reason.ABSENT, repr(preferences.filepaths.asset_libraries), member=chosen.library))

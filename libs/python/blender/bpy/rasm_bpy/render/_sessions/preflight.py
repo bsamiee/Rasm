@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Annotated, ClassVar, override
 
 import bpy
-from expression import Option, Some
+from expression import Error, NOTHING, Ok, Option, option, Some
 from expression.collections import Block
 from expression.extra.result import catch
 import msgspec
@@ -25,7 +25,7 @@ from rasm_bpy.nodes._trees import nested
 from rasm_bpy.render._outputs.paths import Pathed
 from rasm_bpy.ui._layout.rows import OperatorButton
 from rasm_bpy.ui._layout.sections import Section
-from rasm_records import accumulated, Error, existing, Fault, Nothing, Ok, Outcome, Reason
+from rasm_records import accumulated, existing, Fault, Outcome, Reason
 from rasm_rendering import spawned
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -35,8 +35,8 @@ class _Folder(conditions.Condition, frozen=True, kw_only=True):
     """Writable output folder of the scene frame path."""
 
     @override
-    def holds(self, context: bpy.types.Context, item: Option[Struct] = Nothing) -> bool:
-        return Option.of_optional(context.scene).map(lambda scene: existing(Path(scene.render.frame_path()))).filter(lambda folder: os.access(folder, os.W_OK)).is_some()
+    def holds(self, context: bpy.types.Context, item: Option[Struct] = NOTHING) -> bool:
+        return option.of_optional(context.scene).map(lambda scene: existing(Path(scene.render.frame_path()))).filter(lambda folder: os.access(folder, os.W_OK)).is_some()
 
     @property
     @override
@@ -119,7 +119,7 @@ class Preflight(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                     notes=tuple(
                         ("INFO", repr(material))
                         for material in bpy.data.materials
-                        for tree in Option.of_optional(material.node_tree).to_list()
+                        for tree in option.of_optional(material.node_tree).to_list()
                         if any(isinstance(node, shader) for held in nested((tree,)) for node in held.nodes)
                     )
                 )
@@ -166,7 +166,7 @@ class Preflight(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 def _active(context: bpy.types.Context) -> Outcome[bpy.types.ID]:
     """Reads editor `context.id`, absent when unset."""
     absent = partial(Fault.of, Reason.ABSENT, "bpy.context", member="id")
-    return catch(lambda: context.id, exception=AttributeError)().map_error(absent).bind(lambda value: Option.of_optional(value).to_result_with(absent))
+    return catch(lambda: context.id, exception=AttributeError)().map_error(absent).bind(lambda value: option.of_optional(value).to_result_with(absent))
 
 
 def file_audit() -> Outcome[None]:
@@ -216,7 +216,7 @@ def _measured(view_layer: bpy.types.ViewLayer) -> Outcome[_Measure]:
 
     def counted(depsgraph: bpy.types.Depsgraph) -> _Measure:
         """Counts instance meshes and images of depsgraph."""
-        data = tuple(item.data for instance in depsgraph.object_instances for item in Option.of_optional(instance.object).to_list())
+        data = tuple(item.data for instance in depsgraph.object_instances for item in option.of_optional(instance.object).to_list())
         meshes = tuple(mesh for mesh in data if isinstance(mesh, bpy.types.Mesh))
         images = tuple(image for block in depsgraph.ids for image in (block.original,) if isinstance(image, bpy.types.Image))
         return _Measure(

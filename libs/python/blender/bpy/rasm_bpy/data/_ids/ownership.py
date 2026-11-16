@@ -7,7 +7,7 @@ from functools import partial
 from typing import Final, Self, TypedDict, Unpack
 
 import bpy
-from expression import Option, Result, Some, try_downcast
+from expression import Error, NOTHING, Nothing, Ok, Option, option, Some, try_downcast
 from expression.extra.result import catch
 import idprop
 import msgspec
@@ -18,7 +18,7 @@ from rasm_bpy.data._extension.registration import Acquisitions, Handler, Resourc
 from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._ids.store import collection_name
 from rasm_bpy.data._rna.descriptors import converted_value, custom_read
-from rasm_records import ContentHash, Error, Fault, Faults, Nothing, Ok, Outcome, Reason
+from rasm_records import ContentHash, Fault, Outcome, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -46,25 +46,25 @@ class Mark(msgspec.Struct, frozen=True, kw_only=True):
     """Ownership mark stored on holder."""
 
     key: Key
-    of: Option[bpy.types.ID] = Nothing
-    content: Option[ContentHash] = Nothing
-    slot: Option[int] = Nothing
+    of: Option[bpy.types.ID] = NOTHING
+    content: Option[ContentHash] = NOTHING
+    slot: Option[int] = NOTHING
 
     @classmethod
     def read(cls, identity: Identity, holder: bpy.types.ID | bpy.types.Node) -> Option[Self]:
         """Returns validated mark, Nothing for a missing mark or invalid key, other invalid fields read as Nothing."""
-        group = custom_read(holder, identity.manifest.id).to_option().bind(lambda found: Option.of_optional(try_downcast(idprop.types.IDPropertyGroup, found)))
+        group = custom_read(holder, identity.manifest.id).to_option().bind(lambda found: option.of_optional(try_downcast(idprop.types.IDPropertyGroup, found)))
 
         def field[V](name: str, kind: TypeForm[V]) -> Option[V]:
             return group.bind(lambda held: converted_value(held.get(name), kind, name).to_option())
 
         return field("key", Key).map(
-            lambda key: cls(key=key, of=group.bind(lambda held: Option.of_optional(try_downcast(bpy.types.ID, held.get("of")))), content=field("content", ContentHash), slot=field("slot", int))
+            lambda key: cls(key=key, of=group.bind(lambda held: option.of_optional(try_downcast(bpy.types.ID, held.get("of")))), content=field("content", ContentHash), slot=field("slot", int))
         )
 
     def write(self, identity: Identity, holder: bpy.types.ID | bpy.types.Node) -> Outcome[None]:
         """Writes present fields under manifest ID."""
-        fields = {name: held for name, value in msgspec.structs.asdict(self).items() for held in (value.to_list() if isinstance(value, Option) else (value,))}
+        fields = {name: held for name, value in msgspec.structs.asdict(self).items() for held in (value.to_list() if isinstance(value, Some | Nothing) else (value,))}
         return catch(holder.__setitem__, exception=TypeError)(identity.manifest.id, fields).map_error(partial(Fault.of, Refusal.REFUSED, identity.manifest.id))
 
 
@@ -91,17 +91,17 @@ class Ownership[T: bpy.types.ID](msgspec.Struct, frozen=True, kw_only=True):
     def found(self, identity: Identity, **origin: Unpack[_Origin]) -> Option[T]:
         """Returns earliest holder of origin."""
         wanted = Mark(key=self.key, **origin)
-        return Option.of_optional(min((block for block, mark in self.held(identity) if mark == wanted), key=lambda block: block.session_uid, default=None))
+        return option.of_optional(min((block for block, mark in self.held(identity) if mark == wanted), key=lambda block: block.session_uid, default=None))
 
     def reused(self, identity: Identity, **origin: Unpack[_Origin]) -> Option[T]:
         """Returns the holder a single row reuses for origin, Nothing for a row holding many."""
-        return self.found(identity, **origin) if self.single else Nothing
+        return self.found(identity, **origin) if self.single else NOTHING
 
     def serving(self, identity: Identity, source: bpy.types.ID) -> tuple[T, ...]:
         """Returns holders marked for source."""
         return tuple(block for block, mark in self.held(identity) if mark.of == Some(source))
 
-    def owned(self, identity: Identity, block: T, *, filled: Callable[[T], Outcome[T]] = Ok, scope: Option[ExitStack] = Nothing, **origin: Unpack[_Origin]) -> Outcome[T]:
+    def owned(self, identity: Identity, block: T, *, filled: Callable[[T], Outcome[T]] = Ok, scope: Option[ExitStack] = NOTHING, **origin: Unpack[_Origin]) -> Outcome[T]:
         """Marks and fills new block under `kept` rollback."""
 
         def configured() -> T:
@@ -111,7 +111,7 @@ class Ownership[T: bpy.types.ID](msgspec.Struct, frozen=True, kw_only=True):
 
         return kept_block(Ok(block), lambda block: Mark(key=self.key, **origin).write(identity, block).map(lambda _: configured()).bind(filled), scope)
 
-    def made(self, identity: Identity, build: Callable[[], Outcome[T]], *, filled: Callable[[T], Outcome[T]] = Ok, scope: Option[ExitStack] = Nothing, **origin: Unpack[_Origin]) -> Outcome[T]:
+    def made(self, identity: Identity, build: Callable[[], Outcome[T]], *, filled: Callable[[T], Outcome[T]] = Ok, scope: Option[ExitStack] = NOTHING, **origin: Unpack[_Origin]) -> Outcome[T]:
         """Reuses equal-mark holder of single row or owns built block, then fills it."""
         return self.reused(identity, **origin).map(filled).default_with(lambda: build().bind(lambda block: self.owned(identity, block, filled=filled, scope=scope, **origin)))
 
@@ -127,9 +127,9 @@ class Ownership[T: bpy.types.ID](msgspec.Struct, frozen=True, kw_only=True):
             taken: Outcome[T] = Error(Fault.of(Refusal.TAKEN, name, member=collection_name(type(block))))
             held.user_remap(block)
             match released((held,)).bind(lambda _: catch(block.rename, exception=RuntimeError)(name, mode="NEVER").map_error(refused)):
-                case Result(tag="ok", ok="RENAMED_COLLISION_ADJUSTED"):
+                case Ok("RENAMED_COLLISION_ADJUSTED"):
                     return catch(block.rename, exception=RuntimeError)(prior, mode="NEVER").map_error(refused).bind(lambda _: taken)
-                case Result(tag="ok", ok="UNCHANGED_COLLISION"):
+                case Ok("UNCHANGED_COLLISION"):
                     return taken
                 case renamed:
                     return renamed.map(lambda _: block)
@@ -181,7 +181,7 @@ class _Merges:
         with ExitStack() as stack:
             merges.rows.append(row)
             stack.callback(merges.rows.remove, row)
-            yield Result[None, Faults](ok=None)
+            yield Ok(None)
 
     def merged(self, identity: Identity, context: bpy.types.BlendImportContext) -> Outcome[None]:
         """Scans each held kind once, remapping imported duplicates and removing them in one batch."""
@@ -213,7 +213,7 @@ _MERGES: Final = Resource[_Merges](made=_Merges.opened)
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def retained[T](result: Outcome[T], rollback: ExitStack, scope: Option[ExitStack] = Nothing) -> Outcome[T]:
+def retained[T](result: Outcome[T], rollback: ExitStack, scope: Option[ExitStack] = NOTHING) -> Outcome[T]:
     """Moves rollback callbacks into scope on success, dropping them without scope."""
     for _ in result.to_option().to_list():
         held = rollback.pop_all()
@@ -222,7 +222,7 @@ def retained[T](result: Outcome[T], rollback: ExitStack, scope: Option[ExitStack
     return result
 
 
-def kept_block[B: bpy.types.ID, T](made: Outcome[B], fill: Callable[[B], Outcome[T]], scope: Option[ExitStack] = Nothing) -> Outcome[T]:
+def kept_block[B: bpy.types.ID, T](made: Outcome[B], fill: Callable[[B], Outcome[T]], scope: Option[ExitStack] = NOTHING) -> Outcome[T]:
     """Fills new data-block, removing it when fill fails or when given scope unwinds."""
 
     def filled(block: B) -> Outcome[T]:

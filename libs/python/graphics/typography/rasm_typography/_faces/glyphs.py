@@ -13,7 +13,7 @@ lazy from pathlib import Path
 lazy import unicodedata
 
 import msgspec
-lazy from expression import Option
+lazy from expression import Ok, Option, option
 lazy from expression.extra.result import catch
 lazy from fontTools.pens.basePen import AbstractPen
 lazy from fontTools.pens.boundsPen import BoundsPen
@@ -27,7 +27,7 @@ lazy import httpx2
 from rasm_typography._faces.declaration import Faces
 from rasm_typography._faces.layout import Lookups
 from rasm_typography._faces.names import Form, GlyphName
-lazy from rasm_records import committed, Fault, Ok, Outcome, read, Reason
+lazy from rasm_records import committed, Fault, Outcome, read, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -194,7 +194,7 @@ class Glyph(msgspec.Struct, frozen=True, kw_only=True):
 
     def anchor(self, name: str, /) -> Option[Anchor]:
         """Returns the anchor with a name."""
-        return Option.of_optional(next((anchor for anchor in self.anchors if anchor.name == name), None))
+        return option.of_optional(next((anchor for anchor in self.anchors if anchor.name == name), None))
 
 
 # --- [FACES]
@@ -292,7 +292,7 @@ class Source(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
     def glyph(self, key: str, /) -> Option[Glyph]:
         """Returns the glyph of a key."""
-        return Option.of_optional(self.named.get(key))
+        return option.of_optional(self.named.get(key))
 
     def by_role(self, kind: type[_Roles], /) -> tuple[Glyph, ...]:
         """Returns the glyphs of one role case in glyph order."""
@@ -395,7 +395,7 @@ def fetched(cache: Path, /) -> Outcome[Joinings]:
         .map(
             lambda data: frozendict({
                 int(code, 16): (Joining(joining), group)
-                for code, _, joining, group in csv.reader((line for line in data.decode().splitlines() if line.strip() and not line.startswith("#")), delimiter=";", skipinitialspace=True)
+                for code, _, joining, group in csv.reader((line for line in data.decode().splitlines() if line.strip() if not line.startswith("#")), delimiter=";", skipinitialspace=True)
             })
         )
     )

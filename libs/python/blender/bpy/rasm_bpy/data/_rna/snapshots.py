@@ -8,7 +8,7 @@ from types import MappingProxyType
 from typing import Final, Protocol, Self, TypeIs
 
 import bpy
-from expression import Option, Some
+from expression import Error, NOTHING, Ok, Option, option, Some
 from expression.collections import Block
 from expression.extra.result import catch
 import msgspec
@@ -17,7 +17,7 @@ import numpy as np
 from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._rna.descriptors import Descriptor, effective, LEADING, sequenced, Value
 from rasm_bpy.data._rna.paths import defined, id_path, Native, NativeOwner, rna, rna_definition, RnaPath, Struct, struct_at
-from rasm_records import accumulated, Error, Fault, Faults, merge, Nothing, Ok, Outcome, Owner, Reason, transfer, Tree
+from rasm_records import accumulated, Fault, Faults, merge, Outcome, Owner, Reason, transfer, Tree
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -78,7 +78,10 @@ class Applied(msgspec.Struct, frozen=True, kw_only=True):
     @classmethod
     def reported(cls, path: RnaPath, answer: Outcome[Option[Value | Struct]]) -> Self:
         """Classifies one member write as written, unchanged, or refused, each fault naming the member by its full path."""
-        renamed = partial(msgspec.structs.replace, subject=rna(path))
+
+        def renamed(fault: Fault) -> Fault:
+            return msgspec.structs.replace(fault, subject=rna(path))
+
         return answer.map(lambda prior: cls(written=(path,)) if prior.is_some() else cls(unchanged=(path,))).default_with(lambda faults: cls.refused((renamed(faults[0]), *map(renamed, faults[1:]))))
 
     def then(self, step: Callable[[], Self]) -> Self:
@@ -116,7 +119,7 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
         return cls(struct=rna_definition(struct).identifier, tree=Tree(roots=owners, rows=tuple((owner, Owner[Value, RnaPath, RnaPath](rows=tuple(rows[owner]))) for owner in owners)))
 
     @classmethod
-    def capture(cls, owner: Native, selection: Option[tuple[Descriptor, ...]] = Nothing, *, owned: Callable[[str], bool] = lambda _: False, inactive: bool = False) -> Outcome[Self]:
+    def capture(cls, owner: Native, selection: Option[tuple[Descriptor, ...]] = NOTHING, *, owned: Callable[[str], bool] = lambda _: False, inactive: bool = False) -> Outcome[Self]:
         """Captures assignable values keyed by owner path, the selected members alone when given.
 
         Args:
@@ -259,13 +262,13 @@ class Capture[W]:
         self,
         owner: Native,
         read: Callable[[Descriptor, Native, frozenset[tuple[int, str]], Option[Tree[W, RnaPath, RnaPath]]], Option[W]],
-        selection: Option[tuple[Descriptor, ...]] = Nothing,
+        selection: Option[tuple[Descriptor, ...]] = NOTHING,
         *,
-        prior: Option[Tree[W, RnaPath, RnaPath]] = Nothing,
+        prior: Option[Tree[W, RnaPath, RnaPath]] = NOTHING,
         native: bool = False,
-        nested: Option[tuple[Native, Descriptor, frozenset[tuple[int, str]]]] = Nothing,
+        nested: Option[tuple[Native, Descriptor, frozenset[tuple[int, str]]]] = NOTHING,
         owned: Callable[[str], bool] = lambda _: False,
-        valued: Option[Callable[[Descriptor], bool]] = Nothing,
+        valued: Option[Callable[[Descriptor], bool]] = NOTHING,
         inactive: bool = False,
     ) -> None:
         """Holds the walk's reader, the prior tree it extends, and the members it selects.
@@ -284,10 +287,10 @@ class Capture[W]:
         self.owner, self.read, self.native, self.owned = owner, read, native or nested.is_some(), owned
         self.inactive = inactive
         self.valued = valued.default_with(lambda: partial(Descriptor.valued, native=self.native))
-        walk: tuple[Native, Option[Descriptor], frozenset[tuple[int, str]]] = nested.map(lambda held: (held[0], Some(held[1]), held[2])).default_value((owner, Nothing, frozenset[tuple[int, str]]()))
+        walk: tuple[Native, Option[Descriptor], frozenset[tuple[int, str]]] = nested.map(lambda held: (held[0], Some(held[1]), held[2])).default_value((owner, NOTHING, frozenset[tuple[int, str]]()))
         self.source, self.expanded, self.enclosing = walk
         self.selection = nested.map(lambda held: Some((held[1],))).default_value(selection)
-        self.roots = prior.map(lambda tree: tree.roots).default_value(())
+        self.roots = tuple(root for tree in prior.to_list() for root in tree.roots)
         self.owners: dict[RnaPath, Owner[W, RnaPath, RnaPath]] = prior.map(lambda tree: dict(tree.rows)).default_with(dict)
         self.seen: set[tuple[int, str]] = set(self.enclosing)
 
@@ -320,7 +323,7 @@ class Capture[W]:
     def _read(self, descriptor: Descriptor, struct: Native, inside: frozenset[tuple[int, str]], values: list[W]) -> _Walk:
         """Expands native compounds before reading one member into values."""
         enclosing = self.enclosing | inside
-        compound: Option[Tree[W, RnaPath, RnaPath]] = Nothing
+        compound: Option[Tree[W, RnaPath, RnaPath]] = NOTHING
         if self.native and descriptor.compound:
             trees: list[Tree[W, RnaPath, RnaPath]] = []
             yield Capture(
@@ -338,13 +341,13 @@ class Capture[W]:
             case bpy.types.CollectionProperty() if path in self.owners:
                 keys.extend(self.owners[path].children)
             case bpy.types.PointerProperty(is_readonly=True):
-                yield from (self._walked(child, path, inside, keys) for child in Option.of_optional(getattr(struct, prop.identifier)).filter(lambda held: self.inactive or effective(held)).to_list())
+                yield from (self._walked(child, path, inside, keys) for child in option.of_optional(getattr(struct, prop.identifier)).filter(lambda held: self.inactive or effective(held)).to_list())
             case bpy.types.CollectionProperty():
                 items = tuple((index, item) for index, item in enumerate(getattr(struct, prop.identifier)) if item is not None)
                 named = (
-                    Option
+                    option
                     .of_optional(prop.fixed_type)
-                    .bind(lambda fixed: Option.of_optional(fixed.name_property))
+                    .bind(lambda fixed: option.of_optional(fixed.name_property))
                     .map(lambda held: tuple[RnaPath, ...](((getattr(item, held.identifier),),) for _, item in items))
                     .filter(lambda found: self.expanded.is_none() and len(set(found)) == len(found))
                 )
@@ -363,7 +366,7 @@ class Capture[W]:
             *Descriptor.saved(struct, owned=self.owned, inactive=self.inactive),
             *(
                 Descriptor(root=type(struct), prop=prop)
-                for prop in Option.of_optional(rna_definition(struct).name_property).filter(lambda prop: self.expanded.is_some() and not prop.is_readonly).to_list()
+                for prop in option.of_optional(rna_definition(struct).name_property).filter(lambda prop: self.expanded.is_some() and not prop.is_readonly).to_list()
             ),
         )
         held = self.owners.setdefault(key, Owner())
@@ -399,7 +402,7 @@ class Capture[W]:
     def _picked(self, descriptor: Descriptor, above: frozenset[tuple[int, str]], keys: list[RnaPath]) -> _Walk:
         """Reads selected members, expanding array elements and enclosing native compounds through child walks."""
         match descriptor.owner_of(self.source, inactive=self.inactive):
-            case Option(tag="some", some=struct):
+            case Some(struct):
                 pass
             case _:
                 return
@@ -416,7 +419,7 @@ class Capture[W]:
                 if self.beneath(prefix, base) and self.beneath(path, prefix)
             )
             match Block.of_seq(enclosing).try_head():
-                case Option(tag="some", some=found):
+                case Some(found):
                     yield self._picked(found, above, keys)
                     return
                 case _:
@@ -457,7 +460,7 @@ class Capture[W]:
         """Appends a completed tree after selected or whole-source walks finish."""
         roots = list(self.roots)
         match self.selection:
-            case Option(tag="some", some=descriptors):
+            case Some(descriptors):
                 yield from (self._picked(descriptor, frozenset(), roots) for descriptor in descriptors)
             case _:
                 yield self._walked(self.source, (), frozenset(), roots)
@@ -479,13 +482,13 @@ class Capture[W]:
 def _walk(steps: _Walk) -> None:
     """Runs child walks depth first, propagating native invalidation through suspended owners."""
     pending = [steps]
-    failed: Option[ReferenceError] = Nothing
+    failed: Option[ReferenceError] = NOTHING
     while pending:
         try:
             child = failed.map(pending[-1].throw).default_with(lambda: next(pending[-1]))
         except StopIteration:
             pending.pop()
-            failed = Nothing
+            failed = NOTHING
         except ReferenceError as error:
             pending.pop()
             if not pending:
@@ -493,7 +496,7 @@ def _walk(steps: _Walk) -> None:
             failed = Some(error)
         else:
             pending.append(child)
-            failed = Nothing
+            failed = NOTHING
 
 
 # --- [CAPTURE]
@@ -503,11 +506,11 @@ def referenced(owner: Native, struct: Native, path: RnaPath) -> NativeOwner:
     """Returns struct as its ID and path, a collection through owner's ID path, else struct itself under an empty path."""
     match struct, owner:
         case bpy.types.bpy_struct(id_data=bpy.types.ID() as block), _:
-            found = id_path(struct).bind(lambda at: Option[NativeOwner](some=(block, at)))
+            found = id_path(struct).bind(lambda at: Some((block, at)))
         case bpy.types.bpy_prop_collection(), bpy.types.bpy_struct(id_data=bpy.types.ID() as block):
-            found = id_path(owner).bind(lambda at: Option[NativeOwner](some=(block, (*at, *path))))
+            found = id_path(owner).bind(lambda at: Some((block, (*at, *path))))
         case _:
-            found = Nothing
+            found = NOTHING
     return found.default_value((struct, ()))
 
 
@@ -620,7 +623,7 @@ def applied_tree[W](owner: Native, tree: Tree[W, RnaPath, RnaPath], projected: C
                     for held in defined(refined).to_list()
                     for prop in held.properties
                     if isinstance(prop, bpy.types.CollectionProperty) and not issubclass(type(prop.fixed_type), bpy.types.ID)
-                    for fixed in Option.of_optional(prop.fixed_type).to_list()
+                    for fixed in option.of_optional(prop.fixed_type).to_list()
                 )
             )
             answers.append(result)
@@ -631,7 +634,7 @@ def applied_tree[W](owner: Native, tree: Tree[W, RnaPath, RnaPath], projected: C
 
         def located(key: RnaPath, answers: list[Applied]) -> _Walk:
             match struct_at(owner, key):
-                case Option(tag="some", some=struct):
+                case Some(struct):
                     yield wrote(struct, key, answers)
                 case _:
                     answers.append(Applied(skipped=(key,)))

@@ -5,7 +5,7 @@ from types import MappingProxyType
 from typing import Annotated, Final, override
 
 import bpy
-from expression import Some
+from expression import Ok, Some
 import msgspec
 import numpy as np
 import PyOpenColorIO
@@ -34,7 +34,7 @@ from rasm_bpy.render import (
     with_alpha,
 )
 from rasm_imaging import stream
-from rasm_records import Ok, Outcome, paired
+from rasm_records import Outcome, paired
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 

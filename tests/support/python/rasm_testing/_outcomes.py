@@ -6,7 +6,7 @@ from enum import StrEnum
 from types import MappingProxyType
 from typing import Protocol
 
-from expression import Result
+from expression import Error, Ok
 import pytest
 
 from rasm_records import Fault, Outcome
@@ -38,9 +38,9 @@ def settled[T](outcome: Outcome[T], /, *, templates: Mapping[StrEnum, str] = Map
         The value of an `Ok` outcome.
     """
     match outcome:
-        case Result(tag="ok", ok=value):
+        case Ok(value):
             return value
-        case Result(error=faults):
+        case Error(faults):
             pytest.fail("\n".join(fault.filled(templates.get(fault.reason, fault.reason)) for fault in faults), pytrace=False)
 
 
@@ -51,7 +51,7 @@ def raised[T](outcome: Outcome[T], /) -> T:
         The value of an `Ok` outcome.
     """
     match outcome:
-        case Result(tag="error", error=(Fault(cause=BaseException() as cause), *_)):
+        case Error((Fault(cause=BaseException() as cause), *_)):
             raise cause
         case _:
             return settled(outcome)

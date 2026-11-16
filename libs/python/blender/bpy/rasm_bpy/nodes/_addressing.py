@@ -6,7 +6,7 @@ from types import MappingProxyType
 from typing import Literal, Self
 
 import bpy
-from expression import Option, Some, try_downcast
+from expression import NOTHING, Option, option, Some
 import msgspec
 
 from rasm_bpy.data._extension.identity import Identity, Key
@@ -15,7 +15,7 @@ from rasm_bpy.data._rna.descriptors import Descriptor, Value
 from rasm_bpy.nodes._desired import Content, ItemContent
 from rasm_bpy.nodes._interfaces import DesiredItem, Interface, InterfacePanel, Socket
 from rasm_bpy.nodes._trees import interface_of, socket_at
-from rasm_records import Fault, Nothing, Outcome, Reason
+from rasm_records import Fault, Outcome, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -63,9 +63,9 @@ class InterfaceKeys(msgspec.Struct, frozen=True, kw_only=True):
         """Panel toggle socket, `Nothing` for items without one."""
         match item:
             case bpy.types.NodeTreeInterfacePanel():
-                return Option.of_optional(next((child for child in item.interface_items if isinstance(child, bpy.types.NodeTreeInterfaceSocket) and child.is_panel_toggle), None))
+                return option.of_optional(next((child for child in item.interface_items if isinstance(child, bpy.types.NodeTreeInterfaceSocket) and child.is_panel_toggle), None))
             case _:
-                return Nothing
+                return NOTHING
 
     def kept(self, interface: Interface) -> dict[Key, InterfaceItem]:
         """Live items matching item key, side, and toggle presence of `interface`."""
@@ -89,10 +89,11 @@ class InterfaceKeys(msgspec.Struct, frozen=True, kw_only=True):
 
     def item[T: bpy.types.NodeTreeInterfaceItem](self, key: Key, kind: type[T], /) -> Outcome[T]:
         """Live item at stored key as `kind`, `absent` fault naming the key otherwise."""
-        identifier = self.stored.get(key)
         return (
-            (Option.of_optional(self.live.get(identifier)) if identifier is not None else Nothing)
-            .bind(lambda each: Option.of_optional(try_downcast(kind, each)))
+            option
+            .of_optional(self.stored.get(key))
+            .bind(lambda identifier: option.of_optional(self.live.get(identifier)))
+            .bind(lambda each: Some(each) if isinstance(each, kind) else NOTHING)
             .to_result_with(lambda: Fault.of(Reason.ABSENT, repr(interface_of(self.tree)), member=key))
         )
 
@@ -128,7 +129,7 @@ class OwnedNodes(msgspec.Struct, frozen=True, kw_only=True):
 
     def node(self, key: Key) -> Outcome[bpy.types.Node]:
         """Owned node at key, `absent` fault naming key when no node holds it."""
-        return Option.of_optional(self.nodes.get(key)).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(self.interface.tree.nodes), member=key))
+        return option.of_optional(self.nodes.get(key)).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(self.interface.tree.nodes), member=key))
 
     def socket(self, key: Key, address: str | int, *, output: bool) -> Outcome[bpy.types.NodeSocket]:
         """Live socket of the node at key, addressed by item key, item name, identifier, or enabled position."""
@@ -150,7 +151,7 @@ def owned(tree: bpy.types.NodeTree, identity: Identity) -> dict[Key, bpy.types.N
 def grouped_value(identity: Identity, tree: bpy.types.NodeTree, node: bpy.types.Node, key: Key) -> Outcome[Value]:
     """Reads a group node input value by its group's interface item key."""
     return (
-        Option
+        option
         .of_optional(InterfaceKeys.of(tree, identity).sockets.get(key))
         .to_result_with(partial(Fault.of, Reason.ABSENT, repr(tree), member=key))
         .bind(lambda found: socket_at(node.inputs, found))

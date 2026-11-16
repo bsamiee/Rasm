@@ -7,7 +7,7 @@ import functools
 from typing import Final, Self
 
 import bpy
-from expression import Option, Some, try_downcast
+from expression import NOTHING, Ok, Option, option, Some, try_downcast
 from expression.collections import Block
 from expression.extra.result import catch
 import msgspec
@@ -22,7 +22,7 @@ from rasm_bpy.nodes._trees import nested, socket_at
 from rasm_bpy.scene._materials import stored, Utility
 from rasm_bpy.settings._presets import Preset
 from rasm_bpy.ui._layout.values import Listing
-from rasm_records import accumulated, Fault, Nothing, Ok, Outcome, paired, Reason
+from rasm_records import accumulated, Fault, Outcome, paired, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -134,7 +134,7 @@ class PassFlags(msgspec.Struct, frozen=True, kw_only=True):
                 ((prop.identifier,), type(fixed), fixed.properties)
                 for prop in root.properties
                 if isinstance(prop, bpy.types.PointerProperty)
-                for fixed in Option.of_optional(prop.fixed_type).to_list()
+                for fixed in option.of_optional(prop.fixed_type).to_list()
             ),
         )
         return cls(
@@ -180,7 +180,7 @@ class PassRequest(msgspec.Struct, frozen=True, kw_only=True):
 
     layer: str
     flags: frozenset[Descriptor] = frozenset()
-    condition: Option[Condition] = Nothing
+    condition: Option[Condition] = NOTHING
     precise: bool = False
 
     @classmethod
@@ -291,18 +291,18 @@ def synced(scene: bpy.types.Scene, identity: Identity) -> Outcome[None]:
 
     @functools.cache
     def wanted(material: bpy.types.Material | None, world: bpy.types.World | None) -> Outcome[Mapping[str, str]]:
-        override = Option.of_optional(material)
+        override = option.of_optional(material)
         materials = override.map(lambda found: (found,)).default_with(lambda: tuple(slot.material for item in scene.objects for slot in item.material_slots if slot.material))
-        trees = tuple(tree for held in (*materials, *Option.of_optional(world).to_list()) for tree in Option.of_optional(held.node_tree).to_list())
+        trees = tuple(tree for held in (*materials, *option.of_optional(world).to_list()) for tree in option.of_optional(held.node_tree).to_list())
         return (
             override
             .filter(lambda found: Utility.ownership.marked(identity, found).is_some())
             .map(
                 lambda found: (
-                    Option
+                    option
                     .of_optional(found.node_tree)
                     .map(stored(identity).read)
-                    .default_value(Ok(Nothing))
+                    .default_value(Ok(NOTHING))
                     .map(lambda setup: {str(member.name).lower(): member.kind for held in setup.to_list() if isinstance(held, Utility) for member in held.passes})
                 )
             )
@@ -311,8 +311,8 @@ def synced(scene: bpy.types.Scene, identity: Identity) -> Outcome[None]:
                     socket_at(node.inputs, "Color").map(lambda socket: (held.aov_name, "COLOR" if socket.is_linked else "VALUE"))
                     for tree in nested(trees)
                     for node in tree.nodes
-                    for held in Option.of_optional(try_downcast(bpy.types.ShaderNodeOutputAOV, node)).to_list()
-                ).map(dict)
+                    for held in option.of_optional(try_downcast(bpy.types.ShaderNodeOutputAOV, node)).to_list()
+                ).map(dict[str, str])
             )
         )
 

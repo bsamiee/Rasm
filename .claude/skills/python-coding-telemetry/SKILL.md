@@ -92,7 +92,7 @@ def traced[**P, T](step: Callable[P, Outcome[T]], /) -> Callable[P, Outcome[T]]:
             outcome = step(*args, **kwargs)
             elapsed = perf_counter() - started
             match outcome:
-                case Result(tag="error", error=(head, *_) as faults):
+                case Error((head, *_) as faults):
                     span.set_status(Status(StatusCode.ERROR, "; ".join(fault.message for fault in faults)))
                     span.set_attributes(attributes := {ERROR_TYPE: head.reason.name})
                 case _:

@@ -7,7 +7,7 @@ from typing import Annotated, ClassVar, Final
 
 from bl_ui.space_view3d import VIEW3D_MT_light_add
 import bpy
-from expression import Option, Some
+from expression import NOTHING, Option, option, Some
 from expression.extra.result import catch
 from mathutils import Color
 import msgspec
@@ -33,7 +33,7 @@ from rasm_bpy.ui._layout.members import Member
 from rasm_bpy.ui._layout.rows import OperatorButton
 from rasm_bpy.ui._layout.sections import Section
 from rasm_bpy.ui._layout.values import Store
-from rasm_records import accumulated, Fault, Nothing, Outcome, paired, reached, Retention, typed
+from rasm_records import accumulated, Fault, Outcome, paired, reached, Retention, typed
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -58,7 +58,7 @@ class MeshLight(bpy.types.PropertyGroup):
 class _MeshLights(msgspec.Struct, frozen=True, kw_only=True):
     """Mesh light attachment, add operator, and section."""
 
-    retention: Option[Callable[[Identity], Outcome[Retention]]] = Nothing
+    retention: Option[Callable[[Identity], Outcome[Retention]]] = NOTHING
 
     @staticmethod
     def reshaped(light: Handle[bpy.types.Object], identity: Identity) -> Outcome[Option[str]]:
@@ -71,7 +71,7 @@ class _MeshLights(msgspec.Struct, frozen=True, kw_only=True):
         Returns:
             `Nothing` naming no undo step, or `absent`, `unregistered`, `unreadable`, and `lit` faults.
         """
-        return light.resolve().bind(lambda item: _MeshLights.attachment.read(identity, item).bind(lambda group: _lit(group, item, identity))).map(lambda _: Nothing)
+        return light.resolve().bind(lambda item: _MeshLights.attachment.read(identity, item).bind(lambda group: _lit(group, item, identity))).map(lambda _: NOTHING)
 
     attachment: ClassVar[Attachment[MeshLight]] = Attachment(key="mesh_light", form=MeshLight, owner=bpy.types.Object, changed=Some(partial(reconciling, bpy.types.Object, reshaped)))
     light: ClassVar[Ownership[bpy.types.Object]] = Ownership(kind=bpy.types.Object, key="mesh_light", saved=Saved.USED, single=False)
@@ -92,7 +92,7 @@ class _MeshLights(msgspec.Struct, frozen=True, kw_only=True):
 def strengths(material: bpy.types.Material) -> tuple[tuple[bpy.types.NodeSocketFloat, bool], ...]:
     """Returns linked or positive Emission and Principled BSDF strength sockets reaching active Cycles output, each with whether a valid unmuted link feeds it."""
     emitted: Mapping[type[bpy.types.Node], str] = MappingProxyType({bpy.types.ShaderNodeEmission: "Strength", bpy.types.ShaderNodeBsdfPrincipled: "Emission Strength"})
-    roots = Option.of_optional(material.node_tree).to_list()
+    roots = option.of_optional(material.node_tree).to_list()
     fed = feeds(nested(roots))
 
     def expanded(
@@ -103,7 +103,7 @@ def strengths(material: bpy.types.Material) -> tuple[tuple[bpy.types.NodeSocketF
             case _ if not socket.is_output:
                 return ((source, output, path) for source, output in fed.get(socket, ()))
             case _ if node.mute:
-                return ((node, output, path) for link in node.internal_links if link.to_socket == socket for output in Option.of_optional(link.from_socket).to_list())
+                return ((node, output, path) for link in node.internal_links if link.to_socket == socket for output in option.of_optional(link.from_socket).to_list())
             case bpy.types.ShaderNodeGroup(node_tree=tree) if tree is not None:
                 return ((output, inner, (*path, node)) for output in active_output(tree).to_option().to_list() for inner in output.inputs if inner.identifier == socket.identifier)
             case bpy.types.NodeGroupInput() if path:
@@ -111,12 +111,12 @@ def strengths(material: bpy.types.Material) -> tuple[tuple[bpy.types.NodeSocketF
             case _:
                 return ((node, inner, path) for inner in node.inputs)
 
-    states = reached(((output, socket, ()) for tree in roots for output in Option.of_optional(tree.get_output_node("CYCLES")).to_list() for socket in output.inputs), expanded)
+    states = reached(((output, socket, ()) for tree in roots for output in option.of_optional(tree.get_output_node("CYCLES")).to_list() for socket in output.inputs), expanded)
     found = dict.fromkeys(
         strength
         for node, socket, _ in states
         if socket.is_output and not node.mute
-        for identifier in Option.of_optional(emitted.get(type(node))).to_list()
+        for identifier in option.of_optional(emitted.get(type(node))).to_list()
         for strength in socket_at(node.inputs, identifier).to_option().to_list()
         if isinstance(strength, bpy.types.NodeSocketFloat) and (strength in fed or strength.default_value > 0.0)
     )

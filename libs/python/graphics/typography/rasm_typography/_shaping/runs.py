@@ -11,12 +11,13 @@ lazy from math import fsum
 lazy from time import perf_counter
 
 import msgspec
+lazy from expression import Ok
 lazy from fontTools.misc.transform import Offset
 lazy from fontTools.ttLib import getTableClass, TTFont
 lazy from fontTools.ttLib.ttFont import GlyphOrder
 lazy from uharfbuzz import Buffer, Face, Font, OTLayoutGlyphClass, shape
 
-lazy from rasm_records import Fault, Ok, Outcome, Reason
+lazy from rasm_records import Fault, Outcome, Reason
 lazy from rasm_typography._faces.glyphs import Point, traced
 lazy from rasm_typography._outlines import paths
 

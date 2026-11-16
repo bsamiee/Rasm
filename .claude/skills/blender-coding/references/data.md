@@ -22,10 +22,11 @@ def kept(owner: bpy.types.ID, record: msgspec.Struct, /) -> None:
 
 
 def held[S: msgspec.Struct](form: type[S], owner: bpy.types.ID, /) -> Outcome[S]:
+    decode: Callable[[bytes], Result[S, msgspec.DecodeError]] = catch(msgspec.json.Decoder(form).decode, exception=msgspec.DecodeError)
     return (
-        Option.of_optional(owner.get(form.__name__))
+        option.of_optional(try_downcast(bytes, owner.get(form.__name__)))
         .to_result_with(partial(Fault.of, Reason.ABSENT, owner.name_full, member=form.__name__))
-        .bind(lambda raw: catch(msgspec.json.decode, exception=msgspec.DecodeError)(raw, type=form).map_error(partial(Fault.of, Reason.INVALID, owner.name_full)))
+        .bind(lambda raw: decode(raw).map_error(partial(Fault.of, Reason.INVALID, owner.name_full)))
     )
 ```
 

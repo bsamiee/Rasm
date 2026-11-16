@@ -114,11 +114,11 @@ def surface(source: bpy.types.Object, depsgraph: bpy.types.Depsgraph, /) -> Opti
                     column(mesh.polygons, bpy.types.MeshPolygon, "loop_start"),
                 ))
             case _:
-                return Nothing
+                return NOTHING
 
     with ExitStack() as scope:
         scope.callback(evaluated.to_mesh_clear)
-        return Option.of_optional(evaluated.to_mesh()).bind(read)
+        return option.of_optional(evaluated.to_mesh()).bind(read)
 ```
 
 `to_mesh()` returns `None` for geometry evaluating to no mesh (an empty curve) and raises `RuntimeError` on a camera, empty, or point cloud.
@@ -185,7 +185,7 @@ Bones build in one Edit Mode scope that returns their names:
 
 ```python
 def chained(layer: bpy.types.ViewLayer, rig: bpy.types.Object, joints: Sequence[Vector], /) -> tuple[str, ...]:
-    armatures = Option.of_optional(try_downcast(bpy.types.Armature, rig.data)).to_list()
+    armatures = option.of_optional(try_downcast(bpy.types.Armature, rig.data)).to_list()
     layer.objects.active = rig
     with ExitStack() as scope:
         bpy.ops.object.mode_set(mode="EDIT")

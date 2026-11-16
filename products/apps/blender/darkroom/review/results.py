@@ -7,7 +7,7 @@ from typing import Annotated, ClassVar, Final
 
 from bl_ui.space_image import IMAGE_HT_header, IMAGE_PT_render_slots, IMAGE_PT_view_histogram
 import bpy
-from expression import Option, Result, Some
+from expression import Error, NOTHING, Ok, Option, option, Some
 import gpu
 import msgspec
 import numpy as np
@@ -45,7 +45,7 @@ from rasm_bpy.ui import (
     Texture,
 )
 from rasm_imaging import Clipping, converted_image, DisplayView, ImageFile
-from rasm_records import accumulated, Error, Nothing, Ok, Outcome, paired
+from rasm_records import accumulated, Outcome, paired
 
 from ..effects.formation.display import current_view
 from ..effects.grade.exposure import gain
@@ -119,7 +119,7 @@ class FrameCharts(msgspec.Struct, frozen=True, kw_only=True):
                 .read()
                 .map(lambda file: _FRAMES[identity].update({handle: _Frames(source=file, encoding=completed.encoding, view=view, codes=completed.codes)}))
                 .bind(lambda _: _SIGNAL[identity].fired())
-                .map(lambda _: Nothing)
+                .map(lambda _: NOTHING)
             )
 
         return current_view(identity, scene).map(lambda view: partial(kept, view))
@@ -131,9 +131,9 @@ class FrameCharts(msgspec.Struct, frozen=True, kw_only=True):
         retained(frames, bpy.data.scenes)
         match bpy.context.screen, bpy.context.scene:
             case bpy.types.Screen() as screen, bpy.types.Scene() as scene:
-                return FrameCharts.switches.read(identity, screen).map(lambda switches: Option.of_optional(frames.get(Handle.of(scene))).map(lambda frames: (switches, frames)))
+                return FrameCharts.switches.read(identity, screen).map(lambda switches: option.of_optional(frames.get(Handle.of(scene))).map(lambda frames: (switches, frames)))
             case _:
-                return Ok(Nothing)
+                return Ok(NOTHING)
 
     # --- [CHARTS]
 
@@ -142,20 +142,20 @@ class FrameCharts(msgspec.Struct, frozen=True, kw_only=True):
         return DrawingPart(
             drawn=Chart.drawn,
             read=lambda metrics: self.shown(identity).bind(
-                lambda found: found.filter(lambda pair: on(pair[0])).map(lambda pair: pair[1].chart(metrics, PyOpenColorIO.GetCurrentConfig().getCacheID(), chart).map(Some)).default_value(Ok(Nothing))
+                lambda found: found.filter(lambda pair: on(pair[0])).map(lambda pair: pair[1].chart(metrics, PyOpenColorIO.GetCurrentConfig().getCacheID(), chart).map(Some)).default_value(Ok(NOTHING))
             ),
         )
 
     def tints(self, identity: Identity) -> Outcome[Option[tuple[Texture[Color], ...]]]:
         """Returns the clipping tints the context screen switches on over the shown last render."""
         match self.shown(identity):
-            case Result(tag="ok", ok=Option(tag="some", some=(switches, frame))) if switches.low or switches.high:
+            case Ok(Some((switches, frame))) if switches.low or switches.high:
                 return frame.textures.bind(
                     lambda builders: accumulated(paired(builder(), Ok(color)) for builder, color, on in zip(builders, (self.under, self.over), (switches.low, switches.high)) if on)
                 ).map(lambda tints: Some(tints).filter(bool))
-            case Result(tag="ok"):
-                return Ok(Nothing)
-            case Result(error=faults):
+            case Ok(_):
+                return Ok(NOTHING)
+            case Error(faults):
                 return Error(faults)
 
     # --- [SECTIONS]

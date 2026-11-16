@@ -10,7 +10,7 @@ lazy from itertools import chain, groupby
 lazy import unicodedata
 
 import msgspec
-lazy from expression import Option, Some
+lazy from expression import Error, Ok, option, Some
 lazy from fontTools.misc.timeTools import epoch_diff
 lazy from fontTools.otlLib.builder import LOOKUP_FLAG_USE_MARK_FILTERING_SET
 lazy from fontTools.pens.filterPen import DecomposingFilterPen
@@ -19,7 +19,7 @@ lazy from fontTools.ttLib.tables.otBase import BaseTable
 lazy from fontTools.ttLib.tables.otTables import Coverage, LigatureSubst, SingleSubst
 lazy from fontTools.unicodedata import script_extension
 
-lazy from rasm_records import Error, Fault, Ok, Outcome, Reason
+lazy from rasm_records import Fault, Outcome, Reason
 lazy from rasm_typography._faces.declaration import Face, Faces, OrnamentFace
 lazy from rasm_typography._faces.glyphs import Anchor, Glyph, Info, Joinings, Ornament, Point, role, Side, Source, traced, VerticalMetrics
 lazy from rasm_typography._faces.layout import Chain, Contextual, Ligatures, Lookups, Single
@@ -325,8 +325,8 @@ def _source(original: bytes, face: Faces, joinings: Joinings, /) -> Outcome[Sour
             info=Info(
                 created=datetime.fromtimestamp(header.head.created + epoch_diff, UTC),
                 version=divmod(round(header.head.font_revision * 1000), 1000),
-                copyright=Option.of_optional(font["name"].getDebugName(0)).map(str.strip).filter(bool).to_optional(),
-                designer=Option.of_optional(font["name"].getDebugName(9)).map(str.strip).filter(bool).to_optional(),
+                copyright=option.of_optional(font["name"].getDebugName(0)).map(str.strip).filter(bool).to_optional(),
+                designer=option.of_optional(font["name"].getDebugName(9)).map(str.strip).filter(bool).to_optional(),
                 vendor=Some(header.os2.ach_vend_id.strip()).filter(bool).to_optional(),
             ),
             metrics=VerticalMetrics(

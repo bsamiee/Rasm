@@ -10,7 +10,7 @@ import time
 
 from blender_asset_tracer.hashing import get_hasher
 import bpy
-from expression import Option, Result, Some
+from expression import Error, NOTHING, Ok, Option, option, Some
 from expression.extra.result import catch
 import msgspec
 
@@ -24,7 +24,7 @@ from rasm_bpy.render._sessions.engines import samples
 from rasm_bpy.render._sessions.plans import Dispatcher, JobScope, Plan, PLAN_DECODER, PrepareArguments, QueuePreferences, ranged, Refused, REFUSED_DECODER, scene_of, Sent, SENT_DECODER
 from rasm_bpy.render._sessions.renders import RenderCall
 from rasm_bpy.render._view_layers.passes import layer_of, PassFlags, soloed, used
-from rasm_records import accumulated, Error, Fault, Faults, Nothing, Ok, Outcome, paired, Reason, RecordFile
+from rasm_records import accumulated, Fault, Faults, Outcome, paired, Reason, RecordFile
 from rasm_rendering import (
     awake,
     Completed,
@@ -78,10 +78,10 @@ def _job(dispatcher: Dispatcher, scope: JobScope, plan: Plan, source: Path, stem
     def written(scene: bpy.types.Scene, path: OutputPath, pixels: tuple[int, int]) -> Outcome[Job]:
         layers = used(scene)
         camera = (scope.camera.camera,) if isinstance(scope.camera, FixedCamera) else ()
-        name = " ".join(bpy.path.clean_name(held) for held in (scope.scene, *Option.of_optional(scope.layer).to_list(), *camera))
+        name = " ".join(bpy.path.clean_name(held) for held in (scope.scene, *option.of_optional(scope.layer).to_list(), *camera))
         file = path.base / "snapshots" / stem / f"{part}_{name}.blend"
         outputs = (
-            Option
+            option
             .of_optional(scope.layer)
             .map(Ok)
             .default_with(lambda: rooted(bpy.types.ViewLayer, bpy.context).map(lambda active: active.name))
@@ -138,8 +138,8 @@ def _job(dispatcher: Dispatcher, scope: JobScope, plan: Plan, source: Path, stem
                 if isinstance(scope.camera, FixedCamera)
                 else Ok(None)
             )
-            values = Option.of_optional(scope.values).map(lambda snapshot: snapshot.apply(scene).outcome).default_value(Ok(None))
-            layer = Option.of_optional(scope.layer).map(lambda name: layer_of(scene, name).map(soloed)).default_value(Ok(None))
+            values = option.of_optional(scope.values).map(lambda snapshot: snapshot.apply(scene).outcome).default_value(Ok(None))
+            layer = option.of_optional(scope.layer).map(lambda name: layer_of(scene, name).map(soloed)).default_value(Ok(None))
             return (
                 paired(camera, values, layer)
                 .bind(lambda _: dispatcher.framed.grown(scene))
@@ -158,15 +158,15 @@ def prepared(dispatcher: Dispatcher, arguments: PrepareArguments, trailing: tupl
     def sent(jobs: tuple[Job, ...]) -> Outcome[Sent]:
         queue = RenderQueue(jobs=jobs, blender=bpy.app.version_string, extension=dispatcher.identity.manifest.version)
         match arguments.target.sent(queue, dispatcher.host):
-            case Result(tag="error", error=faults):
+            case Error(faults):
                 return Error(faults)
-            case Result(ok=results):
+            case Ok(results):
                 record = Sent(queue=queue, target=arguments.target, issued=tuple(value for result in results for value in result.to_option().to_list()))
                 for result in results:
                     match result:
-                        case Result(tag="ok", ok=issued):
+                        case Ok(issued):
                             dispatcher.identity.reports.logger.info("Queue sent", issued=issued)
-                        case Result(error=refused):
+                        case Error(refused):
                             dispatcher.identity.reports.logged(refused)
                 return RecordFile(path=dispatcher.host.path(arguments.plan, RunFile.SENT), decoder=SENT_DECODER).written(record).map(lambda _: record)
 
@@ -191,7 +191,7 @@ def prepared(dispatcher: Dispatcher, arguments: PrepareArguments, trailing: tupl
 
 
 def _frames[T](
-    dispatcher: Dispatcher, scene: bpy.types.Scene, numbers: tuple[int, ...], consumed: Callable[[int, datetime.timedelta], Outcome[T]], base: Option[Path] = Nothing
+    dispatcher: Dispatcher, scene: bpy.types.Scene, numbers: tuple[int, ...], consumed: Callable[[int, datetime.timedelta], Outcome[T]], base: Option[Path] = NOTHING
 ) -> Outcome[tuple[T, ...]]:
     """Renders and consumes each frame through the call's own frame range, output rerooted under `base` when set."""
     values: list[T] = []

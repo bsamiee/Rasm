@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Annotated, Final, override
 
 import bpy
-from expression import Some
+from expression import Ok, Some
 import msgspec
 import PyOpenColorIO
 
@@ -41,7 +41,7 @@ from rasm_bpy.render import (
     with_alpha,
 )
 from rasm_imaging import GRAY, placement, Population, smoothstep, stream
-from rasm_records import Ok, Outcome, paired
+from rasm_records import Outcome, paired
 
 from ..grade.exposure import LATER, later
 from .bases import bases, Basis, Perlin, textured

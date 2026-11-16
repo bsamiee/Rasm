@@ -6,7 +6,7 @@ from functools import partial
 import itertools
 
 import bpy
-from expression import Option, Some
+from expression import Ok, Option, option, Some
 from expression.collections import Block
 from expression.extra.result import catch
 import msgspec
@@ -54,7 +54,7 @@ from rasm_bpy.render._compositor.masks import Blend
 from rasm_bpy.render._compositor.offered import Choice
 from rasm_bpy.render._compositor.recombination import Recombination, Recombined
 from rasm_bpy.render._compositor.stack_service import LayerStackService, nested_tree, Selection
-from rasm_records import accumulated, Fault, Ok, Outcome, paired, Reason, typed
+from rasm_records import accumulated, Fault, Outcome, paired, Reason, typed
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -190,7 +190,7 @@ def select_output(stacking: LayerStackService, call: Call[OutputChoice]) -> Outc
             case RenderPass() | NodeSource() as source:
                 return stacking.rewritten(call.context, held, object, (LAYERS, index, StackLayer.source), lambda _: msgspec.structs.replace(source, output=output), index)
             case _:
-                return Ok(value=False)
+                return Ok(False)
 
     wrote = stacking.selected(call.context).bind(lambda held: held.record.layer(index).bind(lambda layer: chosen(held, layer)))
     return wrote.map(lambda changed: Done() if changed else Unchanged(reason=f"Layer reads {output}"))
@@ -230,7 +230,7 @@ def _copied(stacking: LayerStackService, source: bpy.types.NodeTree, layer: Stac
                 lambda made: snapshot.apply(made).outcome.bind(lambda _: Mark(key=copy.node).write(stacking.identity, made))
             )
         )
-        for node in Option.of_optional(owned(source, stacking.identity).get(layer.node)).to_list()
+        for node in option.of_optional(owned(source, stacking.identity).get(layer.node)).to_list()
     ).map(lambda _: copy)
 
 
@@ -293,7 +293,7 @@ def edit_layer(stacking: LayerStackService, call: Call[LayerEdit]) -> Outcome[An
             case LayerAt(layer=index) if edit is Edit.DUPLICATE:
                 return within(index).bind(lambda layer: duplicated(held, layer))
             case LayerAt(layer=index) if edit is Edit.RESET:
-                return within(index).bind(lambda layer: structural(scene, held, target).bind(lambda done: defaulted(identity, held.entry, layer.key).map(lambda wrote: done[0] or wrote)))
+                return within(index).bind(lambda layer: structural(scene, held, target).bind(lambda done: defaulted(identity, held.entry, layer.key).map(lambda wrote: done[0] | wrote)))
             case LayerAt():
                 return structural(scene, held, target).map(lambda done: done[0])
             case EffectAt(layer=index):

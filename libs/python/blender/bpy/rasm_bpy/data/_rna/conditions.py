@@ -6,7 +6,7 @@ from functools import partial
 from typing import ClassVar, Final, override, Protocol, TYPE_CHECKING
 
 import bpy
-from expression import Option, Some
+from expression import NOTHING, Ok, Option, option, Some
 from expression.extra.result import catch
 import msgspec
 
@@ -14,7 +14,7 @@ from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._rna.descriptors import converted_value, Descriptor, Value
 from rasm_bpy.data._rna.paths import root_in, rooted, Struct
 from rasm_bpy.data._rna.properties import case_choices
-from rasm_records import accumulated, Case, Fault, Nothing, Ok, Outcome, Reason
+from rasm_records import accumulated, Case, Fault, Outcome, Reason
 
 if TYPE_CHECKING:
     from bpy.stub_internal.rna_enums import WmJobTypeItems
@@ -58,7 +58,7 @@ class Condition(msgspec.Struct, frozen=True, kw_only=True):
     """Requirement holding over context and an optional item, composed by `&`, `|` and `~`, its message the phrase a requirement fault states."""
 
     @abstractmethod
-    def holds(self, context: bpy.types.Context, item: Option[Struct] = Nothing) -> bool:
+    def holds(self, context: bpy.types.Context, item: Option[Struct] = NOTHING) -> bool:
         """Whether requirement holds over context, item supplying the owner first."""
 
     @property
@@ -71,7 +71,7 @@ class Condition(msgspec.Struct, frozen=True, kw_only=True):
         """Phrase of the negated requirement."""
         return f"opposite of {self.message}"
 
-    def check(self, context: bpy.types.Context, item: Option[Struct] = Nothing) -> Outcome[None]:
+    def check(self, context: bpy.types.Context, item: Option[Struct] = NOTHING) -> Outcome[None]:
         """Returns required fault holding the requirement sentence."""
         return Ok(None).filter_with(lambda _: self.holds(context, item), lambda _: Fault.of(Refusal.REQUIRED, self.message))
 
@@ -95,7 +95,7 @@ class Setting(Condition, frozen=True, kw_only=True):
     accepted: tuple[Value, ...] = (True,)
 
     @override
-    def holds(self, context: bpy.types.Context, item: Option[Struct] = Nothing) -> bool:
+    def holds(self, context: bpy.types.Context, item: Option[Struct] = NOTHING) -> bool:
         return self.descriptor.owner_of(context, item).map(self.descriptor.read).filter(lambda held: any(self.descriptor.equal(held, value) for value in self.accepted)).is_some()
 
     @property
@@ -120,8 +120,8 @@ class Present(Condition, frozen=True, kw_only=True):
     descriptor: Descriptor[bpy.types.PointerProperty]
 
     @override
-    def holds(self, context: bpy.types.Context, item: Option[Struct] = Nothing) -> bool:
-        return self.descriptor.owner_of(context, item).bind(lambda owner: Option.of_optional(getattr(owner, self.descriptor.prop.identifier))).is_some()
+    def holds(self, context: bpy.types.Context, item: Option[Struct] = NOTHING) -> bool:
+        return self.descriptor.owner_of(context, item).bind(lambda owner: option.of_optional(getattr(owner, self.descriptor.prop.identifier))).is_some()
 
     @property
     @override
@@ -140,7 +140,7 @@ class Not(Condition, frozen=True, kw_only=True):
     condition: Condition
 
     @override
-    def holds(self, context: bpy.types.Context, item: Option[Struct] = Nothing) -> bool:
+    def holds(self, context: bpy.types.Context, item: Option[Struct] = NOTHING) -> bool:
         return not self.condition.holds(context, item)
 
     @property
@@ -154,11 +154,11 @@ class Count(Condition, frozen=True, kw_only=True):
 
     collection: Descriptor
     least: int = 1
-    most: Option[int] = Nothing
-    where: Option[Condition] = Nothing
+    most: Option[int] = NOTHING
+    where: Option[Condition] = NOTHING
 
     @override
-    def holds(self, context: bpy.types.Context, item: Option[Struct] = Nothing) -> bool:
+    def holds(self, context: bpy.types.Context, item: Option[Struct] = NOTHING) -> bool:
         return (
             self.collection
             .owner_of(context, item)
@@ -181,7 +181,7 @@ class Job(Condition, frozen=True, kw_only=True):
     running: bool = False
 
     @override
-    def holds(self, context: bpy.types.Context, item: Option[Struct] = Nothing) -> bool:
+    def holds(self, context: bpy.types.Context, item: Option[Struct] = NOTHING) -> bool:
         return bpy.app.is_job_running(self.kind) == self.running
 
     @property
@@ -200,7 +200,7 @@ class Extension(Condition, frozen=True, kw_only=True):
     module: str
 
     @override
-    def holds(self, context: bpy.types.Context, item: Option[Struct] = Nothing) -> bool:
+    def holds(self, context: bpy.types.Context, item: Option[Struct] = NOTHING) -> bool:
         return root_in(bpy.types.Preferences, context).map(lambda preferences: self.module in preferences.addons).default_value(value=False)
 
     @property
@@ -215,7 +215,7 @@ class AnyOf(Condition, frozen=True, kw_only=True):
     conditions: tuple[Condition, ...]
 
     @override
-    def holds(self, context: bpy.types.Context, item: Option[Struct] = Nothing) -> bool:
+    def holds(self, context: bpy.types.Context, item: Option[Struct] = NOTHING) -> bool:
         return any(member.holds(context, item) for member in self.conditions)
 
     @property
@@ -234,7 +234,7 @@ class AllOf(Condition, frozen=True, kw_only=True):
     conditions: tuple[Condition, ...]
 
     @override
-    def holds(self, context: bpy.types.Context, item: Option[Struct] = Nothing) -> bool:
+    def holds(self, context: bpy.types.Context, item: Option[Struct] = NOTHING) -> bool:
         return all(member.holds(context, item) for member in self.conditions)
 
     @property
@@ -243,7 +243,7 @@ class AllOf(Condition, frozen=True, kw_only=True):
         return " and ".join(member.message for member in self.conditions)
 
     @override
-    def check(self, context: bpy.types.Context, item: Option[Struct] = Nothing) -> Outcome[None]:
+    def check(self, context: bpy.types.Context, item: Option[Struct] = NOTHING) -> Outcome[None]:
         return accumulated(member.check(context, item) for member in self.conditions).map(lambda _: None)
 
     @override
@@ -263,7 +263,7 @@ class Scenes(Case, frozen=True, kw_only=True):
     def owners(self, _context: bpy.types.Context) -> Outcome[tuple[bpy.types.Scene, ...]]:
         """Returns scenes, absent fault per missing name."""
         return (
-            Option
+            option
             .of_optional(self.names)
             .map(
                 lambda names: accumulated(catch(lambda: bpy.data.scenes[name], exception=KeyError)().map_error(partial(Fault.of, Reason.ABSENT, repr(bpy.data.scenes), member=name)) for name in names)
@@ -318,7 +318,7 @@ SCOPES: Final = case_choices(Scope)
 # --- [CONDITIONS]
 
 
-def satisfied(condition: Option[Condition], context: bpy.types.Context, item: Option[Struct] = Nothing, /) -> bool:
+def satisfied(condition: Option[Condition], context: bpy.types.Context, item: Option[Struct] = NOTHING, /) -> bool:
     """Whether a stated condition holds over the context and item, every context passing while none is stated."""
     return condition.map(lambda required: required.holds(context, item)).default_value(value=True)
 

@@ -6,7 +6,7 @@ from functools import cached_property, partial, update_wrapper
 from typing import Annotated, ClassVar, Final, Protocol, TYPE_CHECKING
 
 import bpy
-from expression import Option, Some, try_downcast
+from expression import NOTHING, Ok, Option, option, Some, try_downcast
 from expression.collections import Block
 from expression.extra.result import catch
 import msgspec
@@ -35,7 +35,7 @@ from rasm_bpy.render._sessions.staging import captured_input
 from rasm_bpy.ui._layout.rows import operator_button, RowDraw
 from rasm_bpy.ui._screens.areas import AreaQuery, EditorState
 from rasm_imaging import called, captured_scene_source, converted_image, ImageFile, Region
-from rasm_records import accumulated, Fault, Nothing, Ok, Outcome, paired, Reason
+from rasm_records import accumulated, Fault, Outcome, paired, Reason
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -97,7 +97,7 @@ class _ViewerRead(msgspec.Struct, frozen=True, kw_only=True, eq=False, dict=True
         scene: bpy.types.Scene,
         entry: bpy.types.SceneCompositorEffect,
         consume: Callable[[Identity, bpy.types.Scene, bpy.types.SceneCompositorEffect, ImageFile], Outcome[Option[str]]],
-        region: Option[Region] = Nothing,
+        region: Option[Region] = NOTHING,
     ) -> Outcome[None]:
         """Captures the entry input and its encoding through an isolated native prefix render, then queues delivery."""
 
@@ -124,12 +124,12 @@ class _ViewerRead(msgspec.Struct, frozen=True, kw_only=True, eq=False, dict=True
         """Consumes captured pixels while the capture is the scene's pending read."""
         held, _ = self.pending[identity]
         if held.get(handle) is not pending:
-            return Ok(Nothing)
+            return Ok(NOTHING)
         del held[handle]
         cropped = pending.region.map(lambda region: msgspec.structs.replace(file, pixels=file.pixels[region.window(*file.pixels.shape[:2])])).default_value(file)
         return handle.resolve().bind(
             lambda scene: (
-                Option
+                option
                 .of_optional(scene.compositor_effects.get(pending.name))
                 .map(
                     lambda entry: (
@@ -139,11 +139,11 @@ class _ViewerRead(msgspec.Struct, frozen=True, kw_only=True, eq=False, dict=True
                         .bind(lambda normalized: pending.consume(identity, scene, entry, normalized))
                     )
                 )
-                .default_value(Ok(Nothing))
+                .default_value(Ok(NOTHING))
             )
         )
 
-    def measuring(self, measure: _Measure, /, *, icon: Option["rna_enums.IconItems"] = Nothing, condition: Option[Condition] = Nothing) -> operators.Operator[Named]:
+    def measuring(self, measure: _Measure, /, *, icon: Option["rna_enums.IconItems"] = NOTHING, condition: Option[Condition] = NOTHING) -> operators.Operator[Named]:
         """Builds the command measuring the named entry's entering frame, keyed, described, and undo-titled by the measure, available while no render runs and the condition holds."""
         running = Job(kind="RENDER")
         return operators.Operator(
@@ -155,13 +155,13 @@ class _ViewerRead(msgspec.Struct, frozen=True, kw_only=True, eq=False, dict=True
         title = bpy.path.display_name(measure.__name__)
 
         def consumed(identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, file: ImageFile) -> Outcome[Option[str]]:
-            return measure(identity, scene, entry, file).map(lambda wrote: Some(title) if wrote else Nothing)
+            return measure(identity, scene, entry, file).map(lambda wrote: Some(title) if wrote else NOTHING)
 
         return (
             rooted(bpy.types.Scene, call.context)
             .bind(
                 lambda scene: (
-                    Option
+                    option
                     .of_optional(scene.compositor_effects.get(call.properties.name))
                     .to_result_with(partial(Fault.of, Reason.ABSENT, repr(scene.compositor_effects), member=call.properties.name))
                     .bind(lambda entry: self.entering(call.identity, scene, entry, consumed))
@@ -189,8 +189,8 @@ class Viewers(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         return (
             catch(lambda: scene.compositor_effects[name], exception=KeyError)()
             .to_option()
-            .bind(lambda entry: Option.of_optional(entry.node_group).bind(lambda group: Mark.read(identity, group)).filter(lambda mark: mark.key in keys).map(lambda mark: (entry, mark)))
-            .map(lambda pair: (pair[0], Option.of_optional(self.rows.keyed.get(pair[1].key))))
+            .bind(lambda entry: option.of_optional(entry.node_group).bind(lambda group: Mark.read(identity, group)).filter(lambda mark: mark.key in keys).map(lambda mark: (entry, mark)))
+            .map(lambda pair: (pair[0], option.of_optional(self.rows.keyed.get(pair[1].key))))
             .to_result_with(partial(Fault.of, Reason.ABSENT, repr(scene.compositor_effects), member=name))
         )
 
@@ -201,9 +201,9 @@ class Viewers(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
         def viewed(entry: bpy.types.SceneCompositorEffect, keyed: OwnedNodes) -> Outcome[None]:
             entering = (
-                Option
+                option
                 .of_optional(keyed.nodes.get(OUTPUTS))
-                .bind(lambda output: Option.of_optional(keyed.sockets[OUTPUTS].get(chosen.socket)).bind(lambda identifier: socket_at(output.inputs, identifier).to_option()))
+                .bind(lambda output: option.of_optional(keyed.sockets[OUTPUTS].get(chosen.socket)).bind(lambda identifier: socket_at(output.inputs, identifier).to_option()))
                 .bind(lambda socket: Block.of_seq(links_of(socket)).try_head().map(lambda link: endpoints(link)[1]))
                 .to_result_with(partial(Fault.of, Reason.ABSENT, repr(keyed.interface.tree.links), member=chosen.socket))
                 if chosen.node == OUTPUTS
@@ -261,7 +261,7 @@ class Viewers(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
     def shown(self, identity: Identity, layout: bpy.types.UILayout, holder: Struct, _context: bpy.types.Context) -> None:
         """Draws the buttons viewing the entry's input and result and clearing its Viewer."""
-        for entry in Option.of_optional(try_downcast(bpy.types.SceneCompositorEffect, holder)).to_list():
+        for entry in option.of_optional(try_downcast(bpy.types.SceneCompositorEffect, holder)).to_list():
             line = layout.row(align=True)
             viewed = (operator_button(line, identity, operators.Placement(self.viewing, {"name": entry.name, "node": end.node, "socket": end.socket}), {"text": text}) for text, end in self.ends)
             identity.reports.faulted(accumulated((*viewed, operator_button(line, identity, operators.Placement(self.clearing, {"name": entry.name}), {"text": "Clear"}))))
@@ -275,7 +275,7 @@ def _cleared(identity: Identity, entry: bpy.types.SceneCompositorEffect) -> Outc
 
     def removed(tree: bpy.types.NodeTree) -> Outcome[bool]:
         keyed = OwnedNodes.of(tree, identity)
-        return Option.of_optional(keyed.nodes.get(VIEWER)).map(lambda viewer: Removed(item=viewer).applied(keyed, identity).map(lambda _: True)).default_value(Ok(value=False))
+        return option.of_optional(keyed.nodes.get(VIEWER)).map(lambda viewer: Removed(item=viewer).applied(keyed, identity).map(lambda _: True)).default_value(Ok(False))
 
     return grouped(entry).bind(removed)
 

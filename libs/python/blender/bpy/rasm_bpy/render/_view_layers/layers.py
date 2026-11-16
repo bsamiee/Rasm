@@ -9,7 +9,7 @@ from types import MappingProxyType
 from typing import Annotated, Final
 
 import bpy
-from expression import Option, Some
+from expression import Ok, Option, option, Some
 from expression.collections import Block
 from expression.extra.result import catch
 import mathutils
@@ -33,7 +33,7 @@ from rasm_bpy.ui._layout.members import Member
 from rasm_bpy.ui._layout.rows import FUNCTIONS, Layout, operator_button, OperatorButton, Property, RowContent
 from rasm_bpy.ui._layout.sections import Section
 from rasm_bpy.ui._layout.tables import SettingsTable, TreeTable
-from rasm_records import accumulated, Fault, Ok, Outcome, paired, Reason
+from rasm_records import accumulated, Fault, Outcome, paired, Reason
 from rasm_rendering import Fields, NumberKey, OutputName, TextKey
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -194,10 +194,10 @@ def _applied(scene: bpy.types.Scene, *, layer: str, collection: int, flag: Descr
 
 def _grid(context: bpy.types.Context) -> tuple[tuple[str, ...], tuple[tuple[int, bpy.types.Collection, tuple[Option[bpy.types.LayerCollection], ...]], ...]]:
     """Returns the context scene's layer names and collection branches, one cell per view layer in scene order."""
-    layers: tuple[bpy.types.ViewLayer, ...] = Option.of_optional(context.scene).map(lambda scene: tuple(scene.view_layers)).default_value(())
+    layers = tuple(layer for scene in option.of_optional(context.scene).to_list() for layer in scene.view_layers)
     cells = tuple({node.collection.session_uid: node for node, _ in reversed(tuple(walked(layer.layer_collection)))} for layer in layers)
     return tuple(layer.name for layer in layers), tuple(
-        (len(ancestors) - 1, node.collection, tuple(Option.of_optional(held.get(node.collection.session_uid)) for held in cells))
+        (len(ancestors) - 1, node.collection, tuple(option.of_optional(held.get(node.collection.session_uid)) for held in cells))
         for root in layers[:1]
         for node, ancestors in walked(root.layer_collection)
         if ancestors
@@ -305,7 +305,7 @@ def _renamed(grammar: OutputName, scene: bpy.types.Scene) -> Outcome[int]:
     return accumulated(
         grammar.compose(
             Fields(
-                texts={TextKey.LAYER: grammar.parse(layer.name).to_option().bind(lambda fields: Option.of_optional(fields.texts.get(TextKey.LAYER))).default_value(layer.name)},
+                texts={TextKey.LAYER: grammar.parse(layer.name).to_option().bind(lambda fields: option.of_optional(fields.texts.get(TextKey.LAYER))).default_value(layer.name)},
                 numbers={NumberKey.ORDER: index + 1},
             )
         )

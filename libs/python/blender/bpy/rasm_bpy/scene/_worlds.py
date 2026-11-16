@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Annotated, ClassVar, Final
 
 import bpy
-from expression import Option, Some
+from expression import NOTHING, Ok, Option, option, Some
 from expression.extra.result import catch
 from mathutils import Color
 import msgspec
@@ -36,7 +36,7 @@ from rasm_bpy.ui._layout.members import Member
 from rasm_bpy.ui._layout.rows import OperatorButton, Property
 from rasm_bpy.ui._layout.sections import Section
 from rasm_bpy.ui._layout.values import Store
-from rasm_records import Fault, Nothing, Ok, Outcome, Retention
+from rasm_records import Fault, Outcome, Retention
 from rasm_rendering import SunPosition
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -114,7 +114,7 @@ class Environment(bpy.types.PropertyGroup):
 class WorldEnvironment(msgspec.Struct, frozen=True, kw_only=True):
     """Environment attachment, owned worlds, operators, and section."""
 
-    retention: Option[Callable[[Identity], Outcome[Retention]]] = Nothing
+    retention: Option[Callable[[Identity], Outcome[Retention]]] = NOTHING
 
     @staticmethod
     def refreshed(world: Handle[bpy.types.World], identity: Identity) -> Outcome[Option[str]]:
@@ -124,7 +124,7 @@ class WorldEnvironment(msgspec.Struct, frozen=True, kw_only=True):
             .resolve()
             .bind(tree_of)
             .bind(lambda tree: WorldEnvironment.attachment.read(identity, tree).bind(_world_graph).bind(lambda graph: reconciled(graph, tree, identity)))
-            .map(lambda _: Nothing)
+            .map(lambda _: NOTHING)
         )
 
     attachment: ClassVar[Attachment[Environment]] = Attachment(key="environment", form=Environment, owner=bpy.types.NodeTree, changed=Some(partial(reconciling, bpy.types.World, refreshed)))
@@ -174,7 +174,7 @@ def _world_graph(environment: Environment) -> Outcome[Graph]:
             kind=kind,
             inputs=inputs,
             members={**members, **({} if path else {"image": None})},
-            content=Option.of_optional(path or None).map(lambda chosen: Loaded(path=Path(chosen))),
+            content=option.of_optional(path or None).map(lambda chosen: Loaded(path=Path(chosen))),
             socket="Color",
             socket_type=bpy.types.NodeSocketColor,
             key=Some(key),
@@ -211,7 +211,7 @@ def _world_graph(environment: Environment) -> Outcome[Graph]:
 # --- [HOLDERS]
 
 
-def swapped(row: Ownership[bpy.types.World], values: Mapping[RnaPath, Value], scene: bpy.types.Scene, identity: Identity, scope: Option[ExitStack] = Nothing) -> Outcome[bpy.types.World]:
+def swapped(row: Ownership[bpy.types.World], values: Mapping[RnaPath, Value], scene: bpy.types.Scene, identity: Identity, scope: Option[ExitStack] = NOTHING) -> Outcome[bpy.types.World]:
     """Writes environment members by path to an owned world and shows it on scene.
 
     Shown owned world serves first, then the earliest owned world, then a new one, each marking the world it replaces, which scope unwind shows again.
@@ -219,7 +219,7 @@ def swapped(row: Ownership[bpy.types.World], values: Mapping[RnaPath, Value], sc
     Returns:
         Shown world, or the faults of binding, writing, and reconciling it.
     """
-    predecessor = Option.of_optional(scene.world)
+    predecessor = option.of_optional(scene.world)
     for outer in scope.to_list():
         outer.callback(written, scene, ("world",), predecessor.to_optional())
 
@@ -235,7 +235,7 @@ def swapped(row: Ownership[bpy.types.World], values: Mapping[RnaPath, Value], sc
         lambda attached: (
             predecessor
             .filter(lambda world: row.marked(identity, world).is_some())
-            .or_else_with(lambda: row.found(identity, of=predecessor) if row.single else Nothing)
+            .or_else_with(lambda: row.found(identity, of=predecessor) if row.single else NOTHING)
             .map(lambda world: displayed(attached, world))
             .default_with(
                 lambda: kept_block(
@@ -249,11 +249,11 @@ def swapped(row: Ownership[bpy.types.World], values: Mapping[RnaPath, Value], sc
 def reverted(row: Ownership[bpy.types.World], scene: bpy.types.Scene, identity: Identity) -> Outcome[Option[int]]:
     """Restores replaced world, returning count of removed unused owned worlds, `Nothing` without shown owned world."""
     return (
-        Option
+        option
         .of_optional(scene.world)
         .bind(lambda world: row.marked(identity, world))
         .map(lambda mark: written(scene, ("world",), mark.of.to_optional()).bind(lambda _: row.removed(identity)).map(Some))
-        .default_value(Ok(Nothing))
+        .default_value(Ok(NOTHING))
     )
 
 
@@ -274,7 +274,7 @@ def followers(tree: bpy.types.NodeTree, identity: Identity) -> Outcome[tuple[tup
 
     def found(environment: Environment) -> tuple[tuple[bpy.types.ShaderNodeTexSky | bpy.types.ShaderNodeTexEnvironment, float], ...]:
         marked = owned(tree, identity)
-        return tuple(follower for slot, backdrop in _slots(environment) for source in Option.of_optional(marked.get(slot.source)).to_list() for follower in followed(backdrop, source))
+        return tuple(follower for slot, backdrop in _slots(environment) for source in option.of_optional(marked.get(slot.source)).to_list() for follower in followed(backdrop, source))
 
     return WorldEnvironment.attachment.bound(identity).map(lambda attached: found(attached.struct(tree)) if attached.stored(tree) else ())
 

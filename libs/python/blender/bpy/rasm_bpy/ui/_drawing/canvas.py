@@ -9,7 +9,7 @@ from typing import Final, Literal, Self
 
 import blf
 import bpy
-from expression import Option, Some
+from expression import Error, NOTHING, Ok, Option, Some
 from expression.extra.result import catch
 import gpu
 from gpu_extras.batch import batch_for_shader
@@ -23,7 +23,7 @@ from rasm_bpy.data._extension.registration import Resource
 from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.ui._resources.theme import Checker, CLEAR, Color, Metrics, overlaps, Theme
 from rasm_bpy.ui._screens.areas import Located, region_in
-from rasm_records import Error, Fault, Nothing, Ok, Outcome, Reason
+from rasm_records import Fault, Outcome, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -84,7 +84,7 @@ class Shadow(msgspec.Struct, frozen=True, kw_only=True):
         return (
             Some(cls(level=style.shadow if style.shadow in _BLURS else 0, color=(gray, gray, gray, style.shadow_alpha), offset=(style.shadow_offset_x, style.shadow_offset_y)))
             if style.shadow
-            else Nothing
+            else NOTHING
         )
 
 
@@ -93,10 +93,10 @@ class FontStyle(msgspec.Struct, frozen=True, kw_only=True):
 
     size: float | bpy.types.ThemeFontStyle
     align: Align = Align.START
-    shadow: Option[Option[Shadow]] = Nothing
+    shadow: Option[Option[Shadow]] = NOTHING
     font: int = 0
-    wrap: Option[float] = Nothing
-    clip: Option[Rect] = Nothing
+    wrap: Option[float] = NOTHING
+    clip: Option[Rect] = NOTHING
     rotation: float = 0.0
 
 
@@ -109,13 +109,13 @@ class Canvas(msgspec.Struct, frozen=True, kw_only=True):
     extent: Rect
     space: bpy.types.Space
     region: bpy.types.Region
-    clipping: Option[gpu.types.GPUUniformBuf] = Nothing
-    pointer: Option[tuple[int, int]] = Nothing
+    clipping: Option[gpu.types.GPUUniformBuf] = NOTHING
+    pointer: Option[tuple[int, int]] = NOTHING
 
     # --- [CONTEXT]
 
     @classmethod
-    def of(cls, area: bpy.types.Area, region: bpy.types.Region, phase: DrawType = "POST_PIXEL", pointer: Option[tuple[int, int]] = Nothing) -> Self:
+    def of(cls, area: bpy.types.Area, region: bpy.types.Region, phase: DrawType = "POST_PIXEL", pointer: Option[tuple[int, int]] = NOTHING) -> Self:
         """Reads the region's visible extent, in window pixels while a pointer is given, and the clip planes a view phase of a clipping 3D View draws under."""
         metrics = Metrics.read()
 
@@ -141,7 +141,7 @@ class Canvas(msgspec.Struct, frozen=True, kw_only=True):
                 values = np.concatenate((np.identity(4, np.float32).ravel(), np.asarray(view.clip_planes, np.float32).ravel()))
                 clipping = Some(gpu.types.GPUUniformBuf(gpu.types.Buffer("FLOAT", values.shape, memoryview(values))))
             case _, bpy.types.Space() as space, _:
-                clipping = Nothing
+                clipping = NOTHING
             case _:
                 raise TypeError(area)
         extent = Rect(x=float(left - origin_x), y=float(bottom - origin_y), width=float(right - left + 1), height=float(top - bottom + 1))
@@ -192,14 +192,14 @@ class Canvas(msgspec.Struct, frozen=True, kw_only=True):
 
     @staticmethod
     @contextmanager
-    def clipped(rect: Rect, *, view: Option[bpy.types.View2D] = Nothing) -> Generator[None]:
+    def clipped(rect: Rect, *, view: Option[bpy.types.View2D] = NOTHING) -> Generator[None]:
         """Narrows an enabled scissor to a pixel or View2D rectangle, restoring its box.
 
         The caller owns the enabled test boundary, established by Canvas.drawn.
         """
         corners = ((rect.x, rect.y), (rect.x + rect.width, rect.y + rect.height))
         match view:
-            case Option(tag="some", some=held):
+            case Some(held):
                 (left, bottom), (right, top) = (np.asarray(held.view_to_region(*corner, clip=False)) for corner in corners)
             case _:
                 (left, bottom), (right, top) = ((round(x), round(y)) for x, y in corners)
@@ -216,7 +216,7 @@ class Canvas(msgspec.Struct, frozen=True, kw_only=True):
     def shader(self, name: str) -> Program:
         """Returns a built-in program with its declared clipping configuration."""
         match self.clipping, self.region.data:
-            case Option(tag="some", some=planes), bpy.types.RegionView3D() as view if name in _CLIPPED:
+            case Some(planes), bpy.types.RegionView3D() as view if name in _CLIPPED:
                 shader = gpu.shader.from_builtin(name, config="CLIPPED")
 
                 def setup() -> None:
@@ -347,7 +347,7 @@ class Offscreen(msgspec.Struct, frozen=True, kw_only=True):
 
         def painted(buffer: gpu.types.GPUFrameBuffer) -> Outcome[None]:
             _, _, width, height = buffer.viewport_get()
-            pixels = msgspec.structs.replace(canvas, extent=Rect(x=0.0, y=0.0, width=float(width), height=float(height)), clipping=Nothing, pointer=Nothing)
+            pixels = msgspec.structs.replace(canvas, extent=Rect(x=0.0, y=0.0, width=float(width), height=float(height)), clipping=NOTHING, pointer=NOTHING)
             with pixels.drawn(), Canvas.depth_tested("NONE"):
                 buffer.clear(color=CLEAR, depth=1.0)
                 gpu.matrix.load_identity()
@@ -408,7 +408,7 @@ def _restored[T](read: Callable[[], str], write: Callable[[T], None], kind: Type
 def _typeset(metrics: Metrics, style: FontStyle) -> Generator[None]:
     """Sets font size, a theme font style's at interface scale, and enables the shadow, wrap, clip, and rotation given, disabling each at scope exit."""
     font, size, wrap, clip, rotation = style.font, style.size, style.wrap, style.clip, style.rotation
-    shadow = style.shadow.default_with(lambda: Shadow.of(size) if isinstance(size, bpy.types.ThemeFontStyle) else Nothing)
+    shadow = style.shadow.default_with(lambda: Shadow.of(size) if isinstance(size, bpy.types.ThemeFontStyle) else NOTHING)
     blf.size(font, metrics.font(size) if isinstance(size, bpy.types.ThemeFontStyle) else size)
     with ExitStack() as stack:
         for shade in shadow.to_list():
@@ -419,9 +419,9 @@ def _typeset(metrics: Metrics, style: FontStyle) -> Generator[None]:
         for bounds in clip.to_list():
             blf.clipping(font, bounds.x, bounds.y, bounds.x + bounds.width, bounds.y + bounds.height)
         blf.rotation(font, rotation)
-        for option in (flag for flag, held in ((blf.SHADOW, shadow.is_some()), (blf.WORD_WRAP, wrap.is_some()), (blf.CLIPPING, clip.is_some()), (blf.ROTATION, rotation != 0.0)) if held):
-            blf.enable(font, option)
-            stack.callback(blf.disable, font, option)
+        for enabled in (flag for flag, held in ((blf.SHADOW, shadow.is_some()), (blf.WORD_WRAP, wrap.is_some()), (blf.CLIPPING, clip.is_some()), (blf.ROTATION, rotation != 0.0)) if held):
+            blf.enable(font, enabled)
+            stack.callback(blf.disable, font, enabled)
         yield
 
 

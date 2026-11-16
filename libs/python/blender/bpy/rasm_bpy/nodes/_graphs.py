@@ -5,14 +5,13 @@ from functools import reduce
 from typing import Final, Literal, override, TYPE_CHECKING
 
 import bpy
-from expression import Option, Some
+from expression import NOTHING, Option, Some
 import msgspec
 
 from rasm_bpy.data._extension.identity import Key
 from rasm_bpy.data._rna.descriptors import Value
 from rasm_bpy.nodes._desired import Content, End, INPUTS, Membered, MenuItem, MenuItems
 from rasm_bpy.nodes._trees import base_socket, DATA_TYPES
-from rasm_records import Nothing
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -41,10 +40,10 @@ class Expr(Membered, frozen=True, kw_only=True, eq=False):
 
     kind: type[bpy.types.Node]
     inputs: tuple[tuple[str | int, Term], ...] = ()
-    content: Option[Content] = Nothing
+    content: Option[Content] = NOTHING
     socket: str | int = "Value"
     socket_type: type[bpy.types.NodeSocket] = bpy.types.NodeSocketFloat
-    key: Option[Key] = Nothing
+    key: Option[Key] = NOTHING
     kept: tuple["Expr", ...] = ()
 
     @override
@@ -189,7 +188,7 @@ def switched(gate: Scalar, off: Term, on: Term, /) -> Expr:
     return Expr(kind=bpy.types.GeometryNodeSwitch, inputs=(("Switch", gate), ("False", off), ("True", on)), members={"input_type": DATA_TYPES[shape]}, socket="Output", socket_type=shape)
 
 
-def menu(selector: Term | MenuItem, cases: Mapping[MenuItem, Term], /, *, socket_type: Option[type[bpy.types.NodeSocket]] = Nothing) -> Expr:
+def menu(selector: Term | MenuItem, cases: Mapping[MenuItem, Term], /, *, socket_type: Option[type[bpy.types.NodeSocket]] = NOTHING) -> Expr:
     """Builds Menu Switch over items in case order, each case operand at the socket of its declaring item, with Boolean outputs following `Output` in case order.
 
     Args:

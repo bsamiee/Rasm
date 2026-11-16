@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 import _bpy_types  # ruff: ignore[import-private-name]
 from bl_ui import UI_MT_button_context_menu, UI_MT_list_item_context_menu
 import bpy
-from expression import Option, Some
+from expression import NOTHING, Ok, Option, option, Some
 from expression.extra.result import catch
 import msgspec
 
@@ -23,7 +23,7 @@ from rasm_bpy.data._rna.snapshots import Snapshot
 from rasm_bpy.ui._layout.members import Member
 from rasm_bpy.ui._layout.rows import ConditionalRow, Layout, layout_method, LayoutOwner, Opens, OperatorButton, Property, realized, RowContent, RowDraw
 from rasm_bpy.ui._layout.values import Captured, Listing, Store
-from rasm_records import accumulated, Fault, Nothing, Ok, Outcome, paired, Reason
+from rasm_records import accumulated, Fault, Outcome, paired, Reason
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -41,7 +41,7 @@ class Dropdown(msgspec.Struct, frozen=True, kw_only=True):
     """Entries in declaration order, or in the order `order` reads from the context as entry indices, an index past the entries skipped."""
 
     entries: tuple[RowContent, ...]
-    order: Option[Callable[[bpy.types.Context], Iterable[int]]] = Nothing
+    order: Option[Callable[[bpy.types.Context], Iterable[int]]] = NOTHING
     search: bool = False
 
 
@@ -55,14 +55,14 @@ class Submenus(msgspec.Struct, frozen=True, kw_only=True):
 class Pie(msgspec.Struct, frozen=True, kw_only=True):
     """Pie slots in radial fill order, an empty slot kept free before a filled one, an expanded enum or `operator_enum` button taking a slot per item."""
 
-    west: Option[_Slot] = Nothing
-    east: Option[_Slot] = Nothing
-    south: Option[_Slot] = Nothing
-    north: Option[_Slot] = Nothing
-    north_west: Option[_Slot] = Nothing
-    north_east: Option[_Slot] = Nothing
-    south_west: Option[_Slot] = Nothing
-    south_east: Option[_Slot] = Nothing
+    west: Option[_Slot] = NOTHING
+    east: Option[_Slot] = NOTHING
+    south: Option[_Slot] = NOTHING
+    north: Option[_Slot] = NOTHING
+    north_west: Option[_Slot] = NOTHING
+    north_east: Option[_Slot] = NOTHING
+    south_west: Option[_Slot] = NOTHING
+    south_east: Option[_Slot] = NOTHING
 
 
 class Menu(msgspec.Struct, frozen=True, kw_only=True):
@@ -73,8 +73,8 @@ class Menu(msgspec.Struct, frozen=True, kw_only=True):
     key: Key
     description: str
     body: Dropdown | Submenus | Pie
-    title: Option[str] = Nothing
-    condition: Option[Condition] = Nothing
+    title: Option[str] = NOTHING
+    condition: Option[Condition] = NOTHING
 
     # --- [PLACEMENT]
 
@@ -144,9 +144,9 @@ class Header(msgspec.Struct, frozen=True, kw_only=True):
     key: Key
     space: "rna_enums.SpaceTypeItems"
     rows: tuple[RowContent, ...]
-    menus: Option[Menu] = Nothing
+    menus: Option[Menu] = NOTHING
     region: "rna_enums.RegionTypeItems" = "HEADER"
-    condition: Option[Condition] = Nothing
+    condition: Option[Condition] = NOTHING
 
     def acquisitions(self, identity: Identity) -> Acquisitions:
         """Returns the editor menus, row acquisitions, then the header class built when the interface tier opens."""
@@ -202,7 +202,7 @@ class Append(msgspec.Struct, frozen=True, kw_only=True):
     target: type[_bpy_types.Panel | _bpy_types.Menu | _bpy_types.Header] | ContextMenu
     rows: tuple[RowContent, ...]
     prepend: bool = False
-    condition: Option[Condition] = Nothing
+    condition: Option[Condition] = NOTHING
 
     def acquisitions(self, identity: Identity) -> Acquisitions:
         """Returns what the content holds, then the draw function held on the target for the scope."""
@@ -214,11 +214,11 @@ class Append(msgspec.Struct, frozen=True, kw_only=True):
 # --- [CLASSES]
 
 
-def _menu(identity: Identity, key: Key, title: str, description: str, drawing: Callable[[], Outcome[RowDraw]], *, search: bool, condition: Option[Condition] = Nothing) -> Outcome[tuple[type, ...]]:
+def _menu(identity: Identity, key: Key, title: str, description: str, drawing: Callable[[], Outcome[RowDraw]], *, search: bool, condition: Option[Condition] = NOTHING) -> Outcome[tuple[type, ...]]:
     """Builds the menu class, a searchable menu opened from code or a key leading with its search entry."""
     name = identity.name(bpy.types.Menu, key)
     entry = OperatorButton(target=Placement(bpy.ops.wm.search_single_menu, {"menu_idname": name}), keywords={"text": "Search..."}, icon=Some("VIEWZOOM"))
-    heading = realized((entry,), identity).map(Some) if search else Ok(Nothing)
+    heading = realized((entry,), identity).map(Some) if search else Ok(NOTHING)
     members = {"bl_idname": name, "bl_label": title, "bl_description": description, "bl_options": {"SEARCH_ON_KEY_PRESS"} if search else set(), **polled(condition)}
     return paired(heading, drawing()).map(lambda pair: (type(name, (bpy.types.Menu,), {**members, "draw": layout_method(partial(_headed, *pair))}),))
 
@@ -239,7 +239,7 @@ def _listed[S: msgspec.Struct](identity: Identity, entries: tuple[RowContent, ..
 def _extended(append: Append, identity: Identity) -> Generator[Outcome[None]]:
     """Adds the draw function to the target for the scope once the content and hovered test realize."""
     target = append.target.menu if isinstance(append.target, ContextMenu) else append.target
-    pointed: Outcome[Option[Callable[[bpy.types.Context], bool]]] = append.target.pointing(identity).map(Some) if isinstance(append.target, ContextMenu) else Ok(Nothing)
+    pointed: Outcome[Option[Callable[[bpy.types.Context], bool]]] = append.target.pointing(identity).map(Some) if isinstance(append.target, ContextMenu) else Ok(NOTHING)
     drawn = pointed.bind(lambda test: realized(append.rows, identity).map(lambda draw: partial(_shown, append, draw, test)))
     with ExitStack() as stack:
         for draw in drawn.to_option().to_list():
@@ -283,8 +283,8 @@ def _radial_drawing(identity: Identity, slots: tuple[Option[_Slot], ...]) -> Out
     def slot(row: _Slot) -> Outcome[RowDraw]:
         return realized((row if isinstance(row, ConditionalRow) else Layout(rows=(row,), container=Some(bpy.types.UILayout.column)),), identity)
 
-    filled = reversed(tuple(dropwhile(Option.is_none, reversed(slots))))
-    return accumulated(each.map(lambda row: slot(row).map(Some)).default_with(lambda: Ok(Nothing)) for each in filled).map(lambda draws: partial(_radial, draws))
+    filled = reversed(tuple(dropwhile(option.is_none, reversed(slots))))
+    return accumulated(each.map(lambda row: slot(row).map(Some)).default_with(lambda: Ok(NOTHING)) for each in filled).map(lambda draws: partial(_radial, draws))
 
 
 def _radial(draws: tuple[Option[RowDraw], ...], layout: bpy.types.UILayout, holder: Struct, context: bpy.types.Context) -> None:
@@ -311,7 +311,7 @@ def _shown(append: Append, draw: RowDraw, pointed: Option[Callable[[bpy.types.Co
 
 def _hovered(member: str, test: Callable[[Struct], bool], context: bpy.types.Context) -> bool:
     """Whether the context member a button context menu publishes (`button_pointer`, `button_prop`, `button_operator`) passes the test, false outside such a menu."""
-    return Option.of_optional(getattr(context, member, None)).filter(test).is_some()
+    return option.of_optional(getattr(context, member, None)).filter(test).is_some()
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

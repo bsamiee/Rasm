@@ -6,7 +6,7 @@ from typing import Annotated, ClassVar, Self
 import colour
 from colour.hints import NDArrayFloat
 from colour.temperature.robertson1968 import DATA_ISOTEMPERATURE_LINES_ROBERTSON1968
-from expression import Option, Some
+from expression import Error, Ok, Option, Some
 from expression.extra.result import catch
 import msgspec
 import numpy as np
@@ -14,7 +14,7 @@ import numpy.typing as npt
 import PyOpenColorIO
 
 from rasm_imaging._color.processors import basis, converted, xyz
-from rasm_records import Error, Fault, Ok, Outcome, Reason
+from rasm_records import Fault, Outcome, Reason
 
 # --- [MODELS] ---------------------------------------------------------------------------
 

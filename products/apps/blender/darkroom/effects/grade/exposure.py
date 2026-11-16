@@ -3,7 +3,7 @@
 from typing import Final, override
 
 import bpy
-from expression import Some
+from expression import Ok, Some
 import numpy as np
 import numpy.typing as npt
 import PyOpenColorIO
@@ -33,7 +33,7 @@ from rasm_bpy.render import (
     timing,
 )
 from rasm_imaging import GRAY, ImageFile, Samples, stream
-from rasm_records import accumulated, Fault, Ok, Outcome, paired, Reason
+from rasm_records import accumulated, Fault, Outcome, paired, Reason
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -158,7 +158,7 @@ def auto_levels(identity: Identity, _scene: bpy.types.Scene, entry: bpy.types.Sc
             .extent()
             .filter(lambda extent: extent.white > extent.low)
             .map(lambda extent: entered(identity, entry, {_BLACK.key: extent.low, _WHITE.key: float(np.log2(extent.white - extent.low))}))
-            .default_value(Ok(value=False))
+            .default_value(Ok(False))
         )
     )
 

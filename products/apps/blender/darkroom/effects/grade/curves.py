@@ -7,8 +7,7 @@ from itertools import chain
 from typing import ClassVar, Final, override
 
 import bpy
-from expression import Option, Some
-from expression.extra.result import catch
+from expression import Error, NOTHING, Ok, Option, option, Some
 import msgspec
 import numpy as np
 import numpy.typing as npt
@@ -19,7 +18,7 @@ from rasm_bpy.data import Identity, Key, rooted
 from rasm_bpy.nodes import CurveAxes, CurvePoints, Expr, item_key, math, owned, Points, rgba, Scalar
 from rasm_bpy.render import CompositorEffect, CompositorRecord, curved, GraphInputs, grouped, hsy, logarithmic, Mix, Named, READ
 from rasm_imaging import converted, ImageFile, lin_to_log, luma, Samples
-from rasm_records import accumulated, Error, Fault, Nothing, Outcome, paired, Reason
+from rasm_records import accumulated, Fault, Outcome, paired, Reason
 
 from .colorimetry import unread
 
@@ -53,7 +52,7 @@ class Curve(msgspec.Struct, frozen=True, kw_only=True):
     knots: int
     node: type[bpy.types.Node] = bpy.types.ShaderNodeFloatCurve
     axes: CurveAxes = CurveAxes()
-    view: Option[tuple[float, float, float, float]] = Nothing
+    view: Option[tuple[float, float, float, float]] = NOTHING
 
     def holds(self, knots: Knots) -> bool:
         """Whether knots count from two to the most, each inside the bounds at a distinct input."""
@@ -247,12 +246,15 @@ def _read(table: Points, level: float) -> float:
 
 def _tables(record: Curves | HueCurves, config: PyOpenColorIO.Config) -> Outcome[dict[Key, Points]]:
     """Samples each curve's spline over its input bounds through its transform's processor."""
-    return accumulated(curved(config, record.alone(held), row.inputs).map(lambda channels: (row.key, channels[0])) for row, held in zip(record.rows, record.splines)).map(dict)
+    return accumulated(curved(config, record.alone(held), row.inputs).map(lambda channels: (row.key, channels[0])) for row, held in zip(record.rows, record.splines)).map(dict[Key, Points])
 
 
 def _rebuilt[R: Curves | HueCurves](record: R, curves: tuple[Knots, ...]) -> Outcome[R]:
     """Record holding the curves, refused outside their bounds or by OCIO."""
-    return catch(partial(msgspec.structs.replace, record), exception=ValueError)(curves=curves).map_error(partial(Fault.of, Reason.OUTSIDE, type(record).__name__, member="curves"))
+    try:
+        return Ok(msgspec.structs.replace(record, curves=curves))
+    except ValueError as error:
+        return Error(Fault.of(Reason.OUTSIDE, type(record).__name__, error, member="curves"))
 
 
 # --- [EDITORS]
@@ -318,7 +320,7 @@ def take_curve_edits(call: Call[Named]) -> Outcome[Answer]:
         def knots(nodes: Mapping[Key, bpy.types.Node], positions: tuple[int, ...]) -> Outcome[tuple[tuple[int, Knots], ...]]:
             first = record.rows[positions[0]]
             return (
-                Option
+                option
                 .of_optional(nodes.get(first.key))
                 .to_result_with(partial(Fault.of, Reason.ABSENT, entry.name, member=first.key))
                 .bind(CurvePoints.read)

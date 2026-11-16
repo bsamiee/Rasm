@@ -15,7 +15,7 @@ from types import MappingProxyType
 from typing import override, Protocol, Self, TYPE_CHECKING
 
 import bpy
-from expression import Option, Some
+from expression import Error, NOTHING, Ok, Option, Some
 from expression.extra.result import catch
 from opentelemetry import trace
 from opentelemetry.sdk.environment_variables import OTEL_SDK_DISABLED
@@ -26,7 +26,7 @@ from opentelemetry.semconv.attributes.error_attributes import ERROR_TYPE
 from opentelemetry.trace import Status, StatusCode
 
 from rasm_bpy.data._rna.paths import root_in
-from rasm_records import Fault, Nothing, Ok, Outcome, Reason
+from rasm_records import Fault, Outcome, Reason
 from rasm_telemetry import logger, LogSettings, unhandled
 from rasm_telemetry.export import ManualSpanProcessor, provider
 from rasm_telemetry.otlp import Collector
@@ -67,12 +67,12 @@ class _Write:
 
     def advanced(self) -> Outcome[Option[Self]]:
         """Runs the scoped write, pushing its undo step through the first window of GUI sessions, a timer pass holding no screen."""
-        applied = self.applied() if self.scope.is_set() else Ok(Nothing)
+        applied = self.applied() if self.scope.is_set() else Ok(NOTHING)
         windows = () if bpy.app.background else tuple(window for manager in root_in(bpy.types.WindowManager, bpy.context).to_list() for window in manager.windows)[:1]
-        for message, window in product(applied.default_value(Nothing).to_list(), windows):
+        for message, window in product(applied.default_value(NOTHING).to_list(), windows):
             with bpy.context.temp_override(window=window):
                 bpy.ops.ed.undo_push(message=message)
-        return applied.map(lambda _: Nothing)
+        return applied.map(lambda _: NOTHING)
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
@@ -119,8 +119,8 @@ class Reports(AbstractContextManager["Reports"]):
         self._scope, self._telemetry = ExitStack(), ExitStack()
         self.logger, self.settings = logger(package), LogSettings()
         self.tracer = trace.get_tracer(package)
-        self._export: Option[TracerProvider] = Nothing
-        self._collector: Option[Collector] = Nothing
+        self._export: Option[TracerProvider] = NOTHING
+        self._collector: Option[Collector] = NOTHING
         self._logged: set[str] = set()
         self._pending: list[Pending] = []
         self._lock = RLock()
@@ -131,7 +131,7 @@ class Reports(AbstractContextManager["Reports"]):
                 return 0.0
             with self._lock:
                 requests, self._pending[:] = tuple(self._pending), []
-                self._pending[:0] = [later for request in requests for later in request.advanced().map_error(self.logged).default_value(Nothing).to_list()]
+                self._pending[:0] = [later for request in requests for later in request.advanced().map_error(self.logged).default_value(NOTHING).to_list()]
                 return 0.0 if self._pending else None
 
         def loaded(*_: object) -> None:
@@ -154,7 +154,7 @@ class Reports(AbstractContextManager["Reports"]):
     @override
     def __enter__(self) -> Self:
         """Opens the log file, clears queued requests and logged faults after every file load, and flushes export after every save and render, until scope exit, a log folder refusing creation raising `OSError`."""
-        self._opened(self.settings, Nothing)
+        self._opened(self.settings, NOTHING)
         for handlers, body in (
             (bpy.app.handlers.load_post, self._loaded),
             (bpy.app.handlers.save_post, self._flushed),
@@ -226,7 +226,7 @@ class Reports(AbstractContextManager["Reports"]):
             scopes=(self._package,),
             span_processors=tuple(BatchSpanProcessor(target.exporter()) for target in self._collector.to_list()),
         ):
-            self.tracer, self._export = trace.get_tracer(self._package), Nothing
+            self.tracer, self._export = trace.get_tracer(self._package), NOTHING
             yield
 
     @property
@@ -248,9 +248,9 @@ class Reports(AbstractContextManager["Reports"]):
         """Runs an operation inside one span of a constant name, failed by the operation's first fault with the fault's reason as `error.type`."""
         with self.tracer.start_as_current_span(name) as span:
             answer = operation()
-            for fault in answer.swap().default_value(())[:1]:
-                span.set_status(Status(StatusCode.ERROR, fault.message))
-                span.set_attribute(ERROR_TYPE, fault.reason.name)
+            if isinstance(answer, Error):
+                span.set_status(Status(StatusCode.ERROR, answer.error[0].message))
+                span.set_attribute(ERROR_TYPE, answer.error[0].reason.name)
             return answer
 
     # --- [LOGGING]
@@ -290,14 +290,14 @@ class Reports(AbstractContextManager["Reports"]):
 
     def queued(self, request: Pending, /) -> Outcome[None]:
         """Applies the request's first step, returning its faults, and leaves the rest to later passes."""
-        return request.advanced().map(lambda later: later.map(self.waiting).default_value(None))
+        return request.advanced().map(lambda later: later.map(self.waiting).to_optional())
 
     def waiting(self, request: Pending, /) -> None:
         """Queues request for the next unlocked pass unless an equal one waits, applying it whole in background mode, where no timer runs."""
         if bpy.app.background:
             pending: Option[Pending] = Some(request)
             while (current := pending.to_optional()) is not None:
-                pending = current.advanced().map_error(self.logged).default_value(Nothing)
+                pending = current.advanced().map_error(self.logged).default_value(NOTHING)
         else:
             with self._lock:
                 if request not in self._pending:
@@ -349,7 +349,7 @@ def redrawn() -> Outcome[Option[str]]:
     """Tags every area of every window for redraw, pushing no undo step."""
     for area in (area for manager in root_in(bpy.types.WindowManager, bpy.context).to_list() for window in manager.windows for area in window.screen.areas):
         area.tag_redraw()
-    return Ok(Nothing)
+    return Ok(NOTHING)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

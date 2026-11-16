@@ -7,7 +7,7 @@ from typing import Final, override, Protocol, runtime_checkable
 
 from _bl_ui_utils.layout import operator_context  # ruff: ignore[import-private-name]
 import bpy
-from expression import Option, Some
+from expression import NOTHING, Ok, Option, option, Some
 import msgspec
 
 from rasm_bpy.commands.operators import Command, filled, idname, Operator, Pairs, Placement, PopupTarget
@@ -18,7 +18,7 @@ from rasm_bpy.data._rna.descriptors import Scalar
 from rasm_bpy.data._rna.paths import rna_definition, Struct
 from rasm_bpy.ui._layout.members import bound, LocatedMembers, Member
 from rasm_bpy.ui._resources.icons import Icon, Icons
-from rasm_records import accumulated, Fault, Nothing, Ok, Outcome, paired, Reason
+from rasm_records import accumulated, Fault, Outcome, paired, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -48,7 +48,7 @@ FUNCTIONS: Final = rna_definition(bpy.types.UILayout).functions
 class ConditionalRow(msgspec.Struct, frozen=True, kw_only=True):
     """Row with an optional availability condition, drawn inactive while it fails."""
 
-    condition: Option[Condition] = Nothing
+    condition: Option[Condition] = NOTHING
 
     def conditioned(self, draw: RowDraw) -> RowDraw:
         """Wraps draw in a column inactive while the condition fails."""
@@ -68,10 +68,10 @@ class Layout(ConditionalRow, frozen=True, kw_only=True):
     """
 
     rows: tuple[RowContent, ...] = ()
-    builder: Option[Callable[[Identity], Outcome[tuple[RowContent, ...]]]] = Nothing
-    container: Option[Callable[[bpy.types.UILayout], bpy.types.UILayout]] = Nothing
+    builder: Option[Callable[[Identity], Outcome[tuple[RowContent, ...]]]] = NOTHING
+    container: Option[Callable[[bpy.types.UILayout], bpy.types.UILayout]] = NOTHING
     published: Mapping[str, ContextMember] = MappingProxyType({})
-    visible: Option[Condition] = Nothing
+    visible: Option[Condition] = NOTHING
     prerequisites: tuple[Declaration, ...] = ()
 
     @property
@@ -98,7 +98,7 @@ class Layout(ConditionalRow, frozen=True, kw_only=True):
 class Iconed(ConditionalRow, frozen=True, kw_only=True):
     """Row drawn under an optional icon with its layout function's `keywords`, declaring the icon set a packaged icon reads."""
 
-    icon: Option[Icon] = Nothing
+    icon: Option[Icon] = NOTHING
     keywords: Keywords = MappingProxyType({})
 
     @property
@@ -117,7 +117,7 @@ class Property(Iconed, frozen=True, kw_only=True):
 
     target: Member
     function: bpy.types.Function = FUNCTIONS["prop"]
-    search: Option[Member] = Nothing
+    search: Option[Member] = NOTHING
 
     @property
     @override
@@ -165,7 +165,7 @@ class OperatorButton(Iconed, frozen=True, kw_only=True):
     def drawn(self, identity: Identity, /) -> Outcome[RowDraw]:
         """Resolves the placement, icon, and keywords once into the button draw."""
         placement = self.placement
-        icon = self.icon.or_else(placement.operator.icon if isinstance(placement.operator, Command) else Nothing)
+        icon = self.icon.or_else(placement.operator.icon if isinstance(placement.operator, Command) else NOTHING)
         return _keyworded(identity, self.keywords, icon).map(lambda keywords: partial(self.shown, identity, placement.resolved(identity), keywords))
 
     def shown(self, identity: Identity, operator: tuple[str, Pairs], keywords: Keywords, layout: bpy.types.UILayout, holder: Struct, context: bpy.types.Context) -> None:
@@ -329,7 +329,7 @@ def layout_method(draw: RowDraw) -> Callable[[LayoutOwner, bpy.types.Context], N
     """Returns a host draw method drawing over the context as holder in the owner's layout, a function as the host's class check requires."""
 
     def method(owner: LayoutOwner, context: bpy.types.Context) -> None:
-        for layout in Option.of_optional(owner.layout).to_list():
+        for layout in option.of_optional(owner.layout).to_list():
             draw(layout, context, context)
 
     return method

@@ -105,7 +105,7 @@ Settings draw a struct's own properties in declaration order with the label, too
 ```python
 def drawn(layout: bpy.types.UILayout, struct: Struct, /, *, switch: str = "use_{}", index: str = "{}_index", listtype_name: str = UI_UL_list.__name__) -> None:
     rna = struct.bl_rna
-    bases = Option.of_optional(try_downcast(bpy.types.Struct, rna)).bind(lambda held: Option.of_optional(held.base)).to_list()
+    bases = option.of_optional(try_downcast(bpy.types.Struct, rna)).bind(lambda held: option.of_optional(held.base)).to_list()
     inherited = frozenset(prop.identifier for base in bases for prop in base.properties)
     declared = tuple(prop.identifier for prop in rna.properties if prop.identifier not in inherited and not prop.is_hidden)
     companions = frozenset((*map(switch.format, declared), *map(index.format, declared)))
@@ -355,12 +355,12 @@ class LightEnergy(bpy.types.GizmoGroup):
 
     @override
     def refresh(self, context: bpy.types.Context) -> None:
-        for light in Option.of_optional(context.object).to_list():
+        for light in option.of_optional(context.object).to_list():
             self.gizmos[0].target_set_prop("offset", light.data, "energy")
 
     @override
     def draw_prepare(self, context: bpy.types.Context) -> None:
-        for light in Option.of_optional(context.object).to_list():
+        for light in option.of_optional(context.object).to_list():
             self.gizmos[0].matrix_basis = light.matrix_world.normalized()
 
 

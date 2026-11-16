@@ -4,7 +4,7 @@ from collections.abc import Callable
 import math
 from typing import Literal, Self
 
-from expression import Option, Some
+from expression import Error, NOTHING, Ok, Option, Some
 import msgspec
 import numpy as np
 import numpy.typing as npt
@@ -13,7 +13,7 @@ from scipy.ndimage import gaussian_filter, map_coordinates, sobel
 from skimage.transform import ProjectiveTransform
 
 from rasm_imaging._files.buffers import checked, pixels
-from rasm_records import Count, Error, Fault, Finite, Frozen, Nothing, Ok, Outcome, paired, Reason
+from rasm_records import Count, Fault, Finite, Frozen, Outcome, paired, Reason
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -123,7 +123,7 @@ class Homography(Frozen, frozen=True, kw_only=True, eq=False):
     def of(cls, quad: Quad) -> Outcome[Option[Self]]:
         """Returns map of `quad`, absent for a quad that is not strictly convex, `OUTSIDE` fault when its corners allow no projective map."""
         if not quad.convex:
-            return Ok(Nothing)
+            return Ok(NOTHING)
         match ProjectiveTransform.from_estimate(Quad().samples[:, :2], quad.samples[:, :2]):
             case ProjectiveTransform() as found:
                 return Ok(Some(cls(quad=quad, matrix=np.asarray(found.params, dtype=np.float64))))

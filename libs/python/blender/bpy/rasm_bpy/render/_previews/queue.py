@@ -10,7 +10,7 @@ from typing import Annotated, ClassVar, Final
 import uuid
 
 import bpy
-from expression import Option, Result, Some
+from expression import Error, NOTHING, Ok, Option, option, Some
 import msgspec
 
 from rasm_bpy.data._extension.events import updated
@@ -18,7 +18,7 @@ from rasm_bpy.data._extension.identity import Identity
 from rasm_bpy.data._extension.registration import Acquisitions, Declaration, Handler, Resource, Timer
 from rasm_bpy.render._outputs.results import built, INTERMEDIATES
 from rasm_bpy.ui._elements.panels import Preference
-from rasm_records import accumulated, ContentHash, Nothing, Ok, Outcome
+from rasm_records import accumulated, ContentHash, Outcome
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -91,7 +91,7 @@ class Backlog:
         """Holds feeds with no request and no render slot."""
         self.feeds: list[Feed] = list(feeds)
         self.requests: dict[tuple[Option[Feed], Hashable], Request] = {}
-        self.slot: Option[int] = Nothing
+        self.slot: Option[int] = NOTHING
 
     @property
     def jobs(self) -> tuple[tuple[Feed, Job], ...]:
@@ -101,11 +101,11 @@ class Backlog:
     @property
     def failed(self) -> dict[tuple[Option[Feed], Hashable], Hashable]:
         """Failed request keys by feed and place."""
-        return {place: request.job.key for place, request in self.requests.items() if isinstance(request.state, Result) and request.state.is_error()}
+        return {place: request.job.key for place, request in self.requests.items() if isinstance(request.state, Error)}
 
     def pending(self, *, playing: bool) -> Option[Request]:
         """Earliest pending request of the lowest rank, playback requests alone while playing."""
-        return Option.of_optional(
+        return option.of_optional(
             min((request for request in self.requests.values() if request.state is Phase.PENDING and (request.job.playback or not playing)), key=lambda queued: queued.job.rank, default=None)
         )
 
@@ -118,7 +118,7 @@ class Backlog:
             match self.requests.get(place):
                 case Request(state=Phase.PENDING) as request:
                     request.job = job
-                case Request(job=Job(key=key), state=Result(tag="error")) as request if key == job.key:
+                case Request(job=Job(key=key), state=Error()) as request if key == job.key:
                     request.job = job
                 case _:
                     self.requests.pop(place, None)
@@ -167,8 +167,8 @@ class Latest[K: Hashable, R, V]:
             case (prior, token, value) if same(prior, request):
                 return False, token, value
             case _:
-                self.held[slot] = request, (token := object()), Nothing
-                return True, token, Nothing
+                self.held[slot] = request, (token := object()), NOTHING
+                return True, token, NOTHING
 
     def value(self, slot: K, request: R) -> Option[V]:
         """Returns a published value for the current matching request."""
@@ -176,15 +176,15 @@ class Latest[K: Hashable, R, V]:
             case (prior, _token, value) if prior == request:
                 return value
             case _:
-                return Nothing
+                return NOTHING
 
     def shown(self, slot: K) -> Option[tuple[R, V]]:
         """Returns a source request with its published value."""
         match self.held.get(slot):
-            case (request, _token, Option(tag="some", some=value)):
+            case (request, _token, Some(value)):
                 return Some((request, value))
             case _:
-                return Nothing
+                return NOTHING
 
     def published(self, slot: K, token: object, value: V) -> bool:
         """Publishes a value only while its request generation remains current."""
@@ -213,7 +213,7 @@ class Latest[K: Hashable, R, V]:
         ids: tuple[type[bpy.types.ID], ...] = (bpy.types.ID,),
     ) -> Generator[Acquisitions]:
         """Scopes dependency invalidation and file, undo, and redo resets, queueing notices outside preview renders."""
-        with identity.reports.deferred(lambda: notify().map(lambda _: Nothing)) as later:
+        with identity.reports.deferred(lambda: notify().map(lambda _: NOTHING)) as later:
 
             def cleared(predicate: Callable[[R], bool]) -> Outcome[None]:
                 if resource[identity].cleared(predicate):
@@ -242,7 +242,7 @@ class PreviewQueue(msgspec.Struct, frozen=True, kw_only=True):
     # --- [EXECUTION]
 
     @staticmethod
-    def executed(identity: Identity, job: Job, *, feed: Option[Feed] = Nothing) -> Outcome[None]:
+    def executed(identity: Identity, job: Job, *, feed: Option[Feed] = NOTHING) -> Outcome[None]:
         """Runs a request and stores its result, skipping a key failed at its place.
 
         Args:
@@ -255,7 +255,7 @@ class PreviewQueue(msgspec.Struct, frozen=True, kw_only=True):
         """
         backlog, place = BACKLOG[identity], (feed, job.place)
         match backlog.requests.get(place):
-            case Request(job=Job(key=key), state=Result(tag="error")) if key == job.key:
+            case Request(job=Job(key=key), state=Error()) if key == job.key:
                 return Ok(None)
             case _:
                 backlog.requests[place] = request = Request(job=job)
@@ -303,7 +303,7 @@ class PreviewQueue(msgspec.Struct, frozen=True, kw_only=True):
 
         match context.window_manager:
             case bpy.types.WindowManager(is_interface_locked=False) as manager:
-                shifted = backlog.slot.map(lambda slot: built("RENDER_RESULT").map(lambda image: image.render_slots.active_index != slot)).default_value(Ok(value=False))
+                shifted = backlog.slot.map(lambda slot: built("RENDER_RESULT").map(lambda image: image.render_slots.active_index != slot)).default_value(Ok(False))
                 identity.reports.faulted(shifted.bind(lambda held: Ok(None) if held else stepped(manager)))
                 return Ok(Some(self.interval))
             case _:
@@ -323,8 +323,8 @@ class PreviewQueue(msgspec.Struct, frozen=True, kw_only=True):
         """
 
         def remembered(image: bpy.types.Image) -> Option[str]:
-            BACKLOG[identity].slot = Option.of_optional(image.render_slots.active_index)
-            return Nothing
+            BACKLOG[identity].slot = option.of_optional(image.render_slots.active_index)
+            return NOTHING
 
         with identity.reports.deferred(lambda: built("RENDER_RESULT").map(remembered)) as remember:
             yield (BACKLOG, self.preference, Timer(body=partial(self.ticked, identity)), Handler(handlers=bpy.app.handlers.render_complete, body=lambda: Ok(remember())))

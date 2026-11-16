@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Literal, Self, TYPE_CHECKING
 
 import bpy
-from expression import Option, try_downcast
+from expression import Error, NOTHING, Ok, Option, option
 from expression.extra.result import catch
 import msgspec
 
@@ -15,7 +15,7 @@ from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._ids.store import collection_name, Handle, STORES
 from rasm_bpy.data._rna.descriptors import converted_value, Descriptor, written
 from rasm_bpy.data._rna.paths import parsed_path
-from rasm_records import accumulated, Error, Fault, Nothing, Ok, Outcome, Reason
+from rasm_records import accumulated, Fault, Outcome, Reason
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -56,11 +56,11 @@ class Imported(msgspec.Struct, frozen=True, kw_only=True):
                     kind=item.id_type,
                     action=item.append_action,
                     info=frozenset(item.import_info),
-                    block=Option.of_optional(item.id).map(Handle.of),
-                    source=Option.of_optional(item.source_library).map(Handle.of),
+                    block=option.of_optional(item.id).map(Handle.of),
+                    source=option.of_optional(item.source_library).map(Handle.of),
                     sources=tuple(Path(library.filepath) for library in item.source_libraries),
-                    override=Option.of_optional(item.library_override_id).map(Handle.of),
-                    reusable=Option.of_optional(item.reusable_local_id).map(Handle.of),
+                    override=option.of_optional(item.library_override_id).map(Handle.of),
+                    reusable=option.of_optional(item.reusable_local_id).map(Handle.of),
                 )
                 for item in context.import_items
             ),
@@ -131,7 +131,7 @@ def sourced[T](
 def inspected(path: Path) -> Generator[Outcome[bpy.types.BlendData]]:
     """Yields temporary BlendData of another file until scope exit, libraries and workspaces left unlinked."""
     stores = frozenset(identifier for kind, identifier in STORES.items() if not issubclass(kind, bpy.types.Library | bpy.types.WorkSpace))
-    with bpy.data.temp_data(filepath="") as data:  # type: ignore[var-annotated]
+    with bpy.data.temp_data(filepath="") as data:
         yield sourced(data, path, lambda source: (None, {name: getattr(source, name) for name in dir(source) if name in stores}), link=True).map(lambda _: data)
 
 
@@ -166,7 +166,7 @@ def blocks_loaded[T: bpy.types.ID](path: Path, kind: type[T], names: tuple[str, 
 
     return sourced(bpy.data, path, chosen, **load).bind(
         lambda answer: answer[0].bind(
-            lambda picked: accumulated(Option.of_optional(try_downcast(kind, block)).to_result(Fault.of(Reason.ABSENT, str(path), member=name)) for name, block in zip(picked[1], answer[1][picked[0]]))
+            lambda picked: accumulated(Ok(block) if isinstance(block, kind) else Error(Fault.of(Reason.ABSENT, str(path), member=name)) for name, block in zip(picked[1], answer[1][picked[0]]))
         )
     )
 
@@ -174,7 +174,7 @@ def blocks_loaded[T: bpy.types.ID](path: Path, kind: type[T], names: tuple[str, 
 # --- [LIBRARIES]
 
 
-def reloaded(library: bpy.types.Library, path: Option[Path] = Nothing) -> Outcome[bpy.types.Library]:
+def reloaded(library: bpy.types.Library, path: Option[Path] = NOTHING) -> Outcome[bpy.types.Library]:
     """Reloads library, relocating it to path when given."""
     return (
         accumulated(written(library, ("filepath",), str(target)) for target in path.to_list())
@@ -191,14 +191,14 @@ def override_made(block: bpy.types.ID, make: Callable[[bpy.types.ID], bpy.types.
     return (
         catch(make, exception=RuntimeError)(block)
         .map_error(partial(Fault.of, Refusal.REFUSED, repr(block)))
-        .bind(lambda held: Option.of_optional(held).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(block), member="override_library")))
+        .bind(lambda held: option.of_optional(held).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(block), member="override_library")))
     )
 
 
 def _overridden[R](block: bpy.types.ID, call: Callable[[bpy.types.IDOverrideLibrary], R], /) -> Outcome[R]:
     """Runs an `IDOverrideLibrary` call (`reset`, `destroy`, `resync`, a member read) on the ID's override, absent fault for an ID holding none."""
     return (
-        Option
+        option
         .of_optional(block.override_library)
         .to_result_with(lambda: Fault.of(Reason.ABSENT, repr(block), member="override_library"))
         .bind(lambda held: catch(call, exception=RuntimeError)(held).map_error(partial(Fault.of, Refusal.REFUSED, repr(held))))
@@ -206,7 +206,7 @@ def _overridden[R](block: bpy.types.ID, call: Callable[[bpy.types.IDOverrideLibr
 
 
 def override_resynced(
-    block: bpy.types.ID, scene: bpy.types.Scene, *, view_layer: Option[bpy.types.ViewLayer] = Nothing, residual_storage: Option[bpy.types.Collection] = Nothing, **flags: bool
+    block: bpy.types.ID, scene: bpy.types.Scene, *, view_layer: Option[bpy.types.ViewLayer] = NOTHING, residual_storage: Option[bpy.types.Collection] = NOTHING, **flags: bool
 ) -> Outcome[None]:
     """Rebuilds the ID's override hierarchy through `IDOverrideLibrary.resync` and its keywords (`do_hierarchy_enforce`, `do_whole_hierarchy`).
 

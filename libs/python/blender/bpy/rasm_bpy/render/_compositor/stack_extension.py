@@ -8,7 +8,7 @@ from types import GenericAlias, MappingProxyType
 from typing import Final
 
 import bpy
-from expression import Option, Some, try_downcast
+from expression import NOTHING, Ok, Option, option, Some, try_downcast
 from expression.collections import Block
 from expression.extra.result import catch
 import msgspec
@@ -83,7 +83,7 @@ from rasm_bpy.ui._layout.templates import Gallery
 from rasm_bpy.ui._layout.values import Listing
 from rasm_bpy.ui._resources.icons import Icons
 from rasm_imaging import called, Coded, Depth, DisplayView, Document, DocumentLayers, Layer, LayerGroup, Multilayer, PixelLayer, unassociated
-from rasm_records import accumulated, Fault, Nothing, Ok, Outcome, paired, Reason, typed
+from rasm_records import accumulated, Fault, Outcome, paired, Reason, typed
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -141,7 +141,7 @@ def _layered(stacking: LayerStackService, config: PyOpenColorIO.Config, view: Di
         Block
         .of_seq(frame.parts.values())
         .try_head()
-        .bind(lambda part: Option.of_optional(try_downcast(str, part.getattribute("Frame", OpenImageIO.TypeString))))
+        .bind(lambda part: option.of_optional(try_downcast(str, part.getattribute("Frame", OpenImageIO.TypeString))))
         .to_result_with(partial(Fault.of, Reason.ABSENT, str(frame.path), member="Frame"))
         .bind(lambda text: catch(int, exception=ValueError)(text).map_error(partial(Fault.of, Refusal.REFUSED, str(frame.path))))
     )
@@ -152,9 +152,9 @@ def _layered(stacking: LayerStackService, config: PyOpenColorIO.Config, view: Di
         path = (
             Block
             .of_seq(nodes.values())
-            .choose(lambda node: Option.of_optional(try_downcast(bpy.types.CompositorNodeOutputFile, node)))
+            .choose(lambda node: option.of_optional(try_downcast(bpy.types.CompositorNodeOutputFile, node)))
             .try_head()
-            .bind(lambda node: Option.of_optional(node.format).bind(extension).map(lambda suffix: Path(bpy.path.abspath(node.directory)) / f"{stack_file(tree.session_uid, Some(at))}{suffix}"))
+            .bind(lambda node: option.of_optional(node.format).bind(extension).map(lambda suffix: Path(bpy.path.abspath(node.directory)) / f"{stack_file(tree.session_uid, Some(at))}{suffix}"))
             .to_result_with(partial(Fault.of, Reason.ABSENT, repr(tree.nodes), member=bpy.types.CompositorNodeOutputFile.__name__))
         )
 
@@ -164,7 +164,7 @@ def _layered(stacking: LayerStackService, config: PyOpenColorIO.Config, view: Di
                 layers.setdefault(layer.name, layer)
 
             def raw(name: str) -> Outcome[npt.NDArray[np.float32]]:
-                found = Option.of_optional(layers.get(name)).to_result_with(partial(Fault.of, Reason.ABSENT, str(file.path), member=name))
+                found = option.of_optional(layers.get(name)).to_result_with(partial(Fault.of, Reason.ABSENT, str(file.path), member=name))
                 return found.bind(lambda layer: file.plane(layer, layer.channels))
 
             def color(name: str) -> Outcome[tuple[npt.NDArray[Coded], npt.NDArray[Coded]]]:
@@ -178,7 +178,7 @@ def _layered(stacking: LayerStackService, config: PyOpenColorIO.Config, view: Di
                 visible = layer.key in shown
                 if isinstance(layer.source, Adjustment):
                     return color(layer.composite_part).map(lambda codes: PixelLayer(name=layer.name, color=codes[0], alpha=codes[1], visible=visible))
-                mask = raw(layer.mask_part).bind(lambda pixels: depth.coded(pixels[..., 0])).map(Some) if layer.blend.masks or layer.matte else Ok(Nothing)
+                mask = raw(layer.mask_part).bind(lambda pixels: depth.coded(pixels[..., 0])).map(Some) if layer.blend.masks or layer.matte else Ok(NOTHING)
                 nested = (
                     nested_tree(identity, tree, layer)
                     .filter(lambda _: layer.plain)
@@ -222,11 +222,11 @@ class LayerStackExtension(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     # --- [STATE]
 
     rows: OfferedEffects
-    before: Option[CompositorEffect] = Nothing
+    before: Option[CompositorEffect] = NOTHING
     looks: Mapping[str, Valued[LayerStack]] = MappingProxyType({})
-    filtering: Option[TermFiltering] = Nothing
-    view: Callable[[Identity, bpy.types.Scene], Outcome[Option[DisplayView]]] = lambda _identity, _scene: Ok(Nothing)
-    tile: Option[Callable[[Identity, bpy.types.Scene, str, Valued[LayerStack]], Option[int]]] = Nothing
+    filtering: Option[TermFiltering] = NOTHING
+    view: Callable[[Identity, bpy.types.Scene], Outcome[Option[DisplayView]]] = lambda _identity, _scene: Ok(NOTHING)
+    tile: Option[Callable[[Identity, bpy.types.Scene, str, Valued[LayerStack]], Option[int]]] = NOTHING
 
     # --- [DECLARATIONS]
 
@@ -299,12 +299,12 @@ class LayerStackExtension(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         scene = id_data(bpy.types.Scene, owner)
 
         def icon(stem: str) -> int:
-            return self.tile.bind(lambda tile: scene.bind(lambda held: preset.read(sources[stem]).to_option().bind(partial(tile, identity, held, stem)))).default_value(0)
+            return self.tile.bind(lambda tile: scene.bind(lambda held: preset.read(sources[stem]).to_option().bind(lambda read: tile(identity, held, stem, read)))).default_value(0)
 
         return tuple(
             (stem, name, description, held if isinstance(held, int) else icon(stem), number)
             for stem, name, description, held, number in preset.entries(
-                sources, prefix=((_UNPICKED, "None", "Head stack as it stands, no preset written over it", Icons.value(identity, Some("X")).default_value(Nothing).default_value(0), 0),)
+                sources, prefix=((_UNPICKED, "None", "Head stack as it stands, no preset written over it", Icons.value(identity, Some("X")).default_value(NOTHING).default_value(0), 0),)
             )
         )
 
@@ -314,23 +314,23 @@ class LayerStackExtension(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
         def applied(scene: bpy.types.Scene, pick: StackLook, stacking: LayerStackService) -> Outcome[Option[str]]:
             return (
-                Ok(Nothing)
+                Ok(NOTHING)
                 if pick.look == _UNPICKED
                 else self.preset
                 .loaded(identity, pick.look)
                 .bind(lambda preset: stacking.looked(scene, preset, pick.strength, bpy.context))
-                .map(lambda wrote: Some(f"Look {bpy.path.display_name(pick.look)}") if wrote else Nothing)
+                .map(lambda wrote: Some(f"Look {bpy.path.display_name(pick.look)}") if wrote else NOTHING)
             )
 
         def write(handle: Handle[bpy.types.Scene]) -> Outcome[Option[str]]:
             return handle.resolve().bind(lambda scene: paired(self.looking.read(identity, scene), self.bound(identity)).bind(lambda parts: applied(scene, *parts)))
 
         with identity.reports.deferred(write) as deferred:
-            yield lambda owner, _context: id_data(bpy.types.Scene, owner).map(lambda scene: deferred(Handle.of(scene))).default_value(None)
+            yield lambda owner, _context: id_data(bpy.types.Scene, owner).map(lambda scene: deferred(Handle.of(scene))).to_optional()
 
     # --- [COMMANDS]
 
-    def command[T: bpy.types.PropertyGroup](self, body: Callable[[LayerStackService, Call[T]], Outcome[Answer]], form: type[T], invoke: Option[Invoke[T]] = Nothing) -> tuple[object, Command]:
+    def command[T: bpy.types.PropertyGroup](self, body: Callable[[LayerStackService, Call[T]], Outcome[Answer]], form: type[T], invoke: Option[Invoke[T]] = NOTHING) -> tuple[object, Command]:
         """Returns a stack command body with the operator running it over the calling extension's stacking, keyed and described by the body."""
         return body, Operator[T](form=form, run=BoundBody(self.bound, body), invoke=invoke)
 
@@ -514,7 +514,7 @@ class LayerStackExtension(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                 path=(stacking.layer_rows.name, "layers"),
                 reach=Some(lambda context: root_in(bpy.types.Scene, context).bind(lambda scene: stacking.head(scene).to_option()).map(lambda held: held[1])),
             ),
-            active=Some(Member(root=bpy.types.Screen, path=(stacking.view.name, "active"), reach=Some(lambda context: Option.of_optional(context.screen)))),
+            active=Some(Member(root=bpy.types.Screen, path=(stacking.view.name, "active"), reach=Some(lambda context: option.of_optional(context.screen)))),
             cells=tuple(Property(target=Member(root=LayerRow, path=(member,)), keywords={"text": ""}) for member in ("visible", "solo", "matte")),
             enabled=Some(lambda context, _ui, row: stacking.selected(context).map(lambda found: any(shown.key == row.key for shown, _ in found.record.composited()))),
             keywords={"sort_reverse": True},
@@ -561,14 +561,14 @@ class LayerStackExtension(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                 header, body = layout.panel(f"{place}_{held.tree.session_uid}", default_closed=False)
                 header.label(text=titled(type(entry.record)))
                 edits_row(header, at)
-                for inner in Option.of_optional(body).to_list():
+                for inner in option.of_optional(body).to_list():
                     widgets(inner, place, ())
                     mask(inner, at)
                     for index in range(entry.blend.masks):
                         edits_row(inner, EffectMaskAt(layer=at.layer, entry=at.entry, mask=index))
 
             at = LayerAt(layer=held.active)
-            for source in Option.of_optional(nodes.get(layer.node)).to_list():
+            for source in option.of_optional(nodes.get(layer.node)).to_list():
                 source.draw_buttons_ext(context, layout)
                 layout.template_node_inputs(source)
                 outputs = layout.row(align=True)

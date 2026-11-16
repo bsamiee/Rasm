@@ -7,7 +7,7 @@ from functools import partial
 from typing import Final
 
 import bpy
-from expression import Option, Some
+from expression import NOTHING, Ok, Option, option, Some
 from expression.extra.result import catch
 import msgspec
 
@@ -23,7 +23,7 @@ from rasm_bpy.nodes._graphs import Expr, group_input
 from rasm_bpy.nodes._interfaces import Interface
 from rasm_bpy.nodes.changes import made
 from rasm_bpy.render._compositor.colors import COLOR_INPUT, COLOR_RESULT
-from rasm_records import accumulated, Fault, Nothing, Ok, Outcome
+from rasm_records import accumulated, Fault, Outcome
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -71,7 +71,7 @@ class Pinned(msgspec.Struct, frozen=True, kw_only=True):
 
     ownership: Ownership[bpy.types.CompositorNodeTree]
     edge: StackEnd
-    title: Option[str] = Nothing
+    title: Option[str] = NOTHING
     enables: frozenset[Enabled] = frozenset(Enabled)
     conditions: tuple[Condition, ...] = ()
 
@@ -89,7 +89,7 @@ class Pinned(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def added_entry(
-    scope: ExitStack, scene: bpy.types.Scene, group: bpy.types.NodeTree, /, *, name: Option[str] = Nothing, at: Option[int] = Nothing, enables: frozenset[Enabled] = frozenset(Enabled)
+    scope: ExitStack, scene: bpy.types.Scene, group: bpy.types.NodeTree, /, *, name: Option[str] = NOTHING, at: Option[int] = NOTHING, enables: frozenset[Enabled] = frozenset(Enabled)
 ) -> Outcome[bpy.types.SceneCompositorEffect]:
     """Creates a scene compositor entry running a group under `name`, the group's name unless stated, removed when `scope` closes, its enable flags written and moved to `at` when given.
 
@@ -102,7 +102,7 @@ def added_entry(
     return tracked(scope, scene.compositor_effects.remove, created).bind(
         lambda entry: (
             accumulated((written(entry, ("node_group",), group), *(enabled.descriptor.write(entry, enabled in enables) for enabled in Enabled)))
-            .bind(lambda _: at.map(lambda index: relocated(scene, entry, index)).default_value(Ok(value=False)))
+            .bind(lambda _: at.map(lambda index: relocated(scene, entry, index)).default_value(Ok(False)))
             .map(lambda _: entry)
         )
     )
@@ -111,7 +111,7 @@ def added_entry(
 def relocated(scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, index: int) -> Outcome[bool]:
     """Moves entry to stack index unless it sits there, answering whether it moved."""
     return (
-        Ok(value=False)
+        Ok(False)
         if scene.compositor_effects.find(entry.name) == index
         else called(bpy.ops.scene.move_compositor_effect_to_index, {"name": entry.name, "index": index}, override=Some(bpy.context.temp_override(scene=scene))).map(lambda _: True)
     )
@@ -119,7 +119,7 @@ def relocated(scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, in
 
 def marked(identity: Identity, scene: bpy.types.Scene) -> Iterator[tuple[bpy.types.SceneCompositorEffect, Mark]]:
     """Returns the scene entries whose groups hold an extension ownership mark, with that mark, in stack order."""
-    return ((entry, mark) for entry in scene.compositor_effects for group in Option.of_optional(entry.node_group).to_list() for mark in Mark.read(identity, group).to_list())
+    return ((entry, mark) for entry in scene.compositor_effects for group in option.of_optional(entry.node_group).to_list() for mark in Mark.read(identity, group).to_list())
 
 
 @contextmanager
@@ -130,7 +130,7 @@ def capturing(
     at = tuple(scene.compositor_effects).index(before)
     interface = Interface(inputs=(COLOR_INPUT,), outputs=(COLOR_RESULT,))
     with ExitStack() as scope:
-        for active in Option.of_optional(scene.compositor_effects.active).to_list():
+        for active in option.of_optional(scene.compositor_effects.active).to_list():
             scope.callback(setattr, active, "is_active", True)  # ruff: ignore[boolean-positional-value-in-call]
         suffix = tuple(scene.compositor_effects)[at:] if stop else ()
         for entry in suffix:

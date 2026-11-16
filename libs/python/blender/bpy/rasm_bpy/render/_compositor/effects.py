@@ -9,7 +9,7 @@ from types import GenericAlias
 from typing import Annotated, ClassVar, Final, Generic, overload, TypeVar
 
 import bpy
-from expression import Option, Some
+from expression import Error, NOTHING, Ok, Option, option, Some
 from expression.collections import Block
 from expression.extra.result import catch
 import msgspec
@@ -43,7 +43,7 @@ from rasm_bpy.render._view_layers.passes import PassRequest, required, used
 from rasm_bpy.settings._attachments import Stored
 from rasm_bpy.ui._layout.rows import RowContent
 from rasm_imaging import Estimate, Precision, Raster
-from rasm_records import accumulated, Case, Error, Fault, Name, Nothing, Ok, Outcome, paired, Reason, typed
+from rasm_records import accumulated, Case, Fault, Name, Outcome, paired, Reason, typed
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -165,8 +165,8 @@ class CompositorEffect(msgspec.Struct, frozen=True, kw_only=True):
     mix: Mix = Mix.INPUT
     pointwise: bool = False
     derives: tuple[DerivedInputs, ...] = ()
-    animates: Option[Callable[[Identity, bpy.types.Scene, bpy.types.SceneCompositorEffect], Outcome[tuple[Animation, ...]]]] = Nothing
-    check: Option[Callable[[Identity, bpy.types.Scene, Option[bpy.types.SceneCompositorEffect]], Outcome[None]]] = Nothing
+    animates: Option[Callable[[Identity, bpy.types.Scene, bpy.types.SceneCompositorEffect], Outcome[tuple[Animation, ...]]]] = NOTHING
+    check: Option[Callable[[Identity, bpy.types.Scene, Option[bpy.types.SceneCompositorEffect]], Outcome[None]]] = NOTHING
     source: Defaults | Seeded | FromFile = Defaults()
     holds: Holds = Holds()
     rows: tuple[RowContent, ...] = ()
@@ -237,7 +237,7 @@ class CompositorEffect(msgspec.Struct, frozen=True, kw_only=True):
     def earliest(self, identity: Identity, scene: bpy.types.Scene) -> Option[bpy.types.SceneCompositorEffect]:
         """Returns the first entry of the effect in stack order."""
         keys = frozenset(owner.key for owner in self.ownerships)
-        return Option.of_optional(next((entry for entry, mark in marked(identity, scene) if mark.key in keys), None))
+        return option.of_optional(next((entry for entry, mark in marked(identity, scene) if mark.key in keys), None))
 
     @overload
     def read(self, identity: Identity, entry: bpy.types.SceneCompositorEffect) -> Outcome[Entry[CompositorRecord]]: ...
@@ -255,7 +255,7 @@ class CompositorEffect(msgspec.Struct, frozen=True, kw_only=True):
     def current(self, identity: Identity, scene: bpy.types.Scene, *, form: type[CompositorRecord] | None = None) -> Outcome[Option[CompositorRecord]]:
         """Reads earliest owned record, Nothing when absent."""
         return (
-            self.earliest(identity, scene).map(lambda entry: self.read(identity, entry, form=self.record if form is None else form).map(lambda record: Some(record.record))).default_value(Ok(Nothing))
+            self.earliest(identity, scene).map(lambda entry: self.read(identity, entry, form=self.record if form is None else form).map(lambda record: Some(record.record))).default_value(Ok(NOTHING))
         )
 
     def named(self, identity: Identity, scene: bpy.types.Scene, name: str) -> Outcome[bpy.types.SceneCompositorEffect]:
@@ -273,13 +273,13 @@ class CompositorEffect(msgspec.Struct, frozen=True, kw_only=True):
         scene: bpy.types.Scene,
         record: Entry[CompositorRecord],
         *,
-        preview: Option[PreviewFrame] = Nothing,
-        name: Option[Name] = Nothing,
-        rasters: Option[tuple[Raster, Raster]] = Nothing,
+        preview: Option[PreviewFrame] = NOTHING,
+        name: Option[Name] = NOTHING,
+        rasters: Option[tuple[Raster, Raster]] = NOTHING,
     ) -> Outcome[bpy.types.SceneCompositorEffect]:
         """Creates an entry of the effect at the stack end once its requirements and group succeed, named after the effect unless stated."""
         with ExitStack() as rollback:
-            built = self.met(identity, scene, record.record, Nothing).bind(lambda request: self.made(identity, scene, record, PyOpenColorIO.GetCurrentConfig(), preview, request, rasters=rasters))
+            built = self.met(identity, scene, record.record, NOTHING).bind(lambda request: self.made(identity, scene, record, PyOpenColorIO.GetCurrentConfig(), preview, request, rasters=rasters))
             return retained(
                 built.bind(
                     lambda held: added_entry(rollback, scene, held[0], name=Some(name.default_value(self.title))).bind(
@@ -296,15 +296,15 @@ class CompositorEffect(msgspec.Struct, frozen=True, kw_only=True):
         entry: bpy.types.SceneCompositorEffect,
         record: Entry[CompositorRecord],
         *,
-        preview: Option[PreviewFrame] = Nothing,
-        source: Option[bpy.types.Scene] = Nothing,
-        rasters: Option[tuple[Raster, Raster]] = Nothing,
+        preview: Option[PreviewFrame] = NOTHING,
+        source: Option[bpy.types.Scene] = NOTHING,
+        rasters: Option[tuple[Raster, Raster]] = NOTHING,
     ) -> Outcome[bool]:
         """Reconciles group, then stores the entry record and writes derived inputs, answering whether any changed."""
         return self.met(identity, scene, record.record, Some(entry), source).bind(
-            lambda request: self.made(identity, scene, record, PyOpenColorIO.GetCurrentConfig(), preview, request, Option.of_optional(entry.node_group), rasters=rasters).bind(
+            lambda request: self.made(identity, scene, record, PyOpenColorIO.GetCurrentConfig(), preview, request, option.of_optional(entry.node_group), rasters=rasters).bind(
                 lambda built: written(entry, ("node_group",), built[0]).bind(
-                    lambda pointed: self.filled(identity, scene, entry, built[0], record, source).map(lambda filled: built[1] or pointed.is_some() or filled)
+                    lambda pointed: self.filled(identity, scene, entry, built[0], record, source).map(lambda filled: built[1] | pointed.is_some() | filled)
                 )
             )
         )
@@ -326,10 +326,10 @@ class CompositorEffect(msgspec.Struct, frozen=True, kw_only=True):
         record: Entry[CompositorRecord],
         config: PyOpenColorIO.Config,
         *,
-        entry: Option[bpy.types.SceneCompositorEffect] = Nothing,
-        preview: Option[PreviewFrame] = Nothing,
-        staged: Option[IdName] = Nothing,
-        rasters: Option[tuple[Raster, Raster]] = Nothing,
+        entry: Option[bpy.types.SceneCompositorEffect] = NOTHING,
+        preview: Option[PreviewFrame] = NOTHING,
+        staged: Option[IdName] = NOTHING,
+        rasters: Option[tuple[Raster, Raster]] = NOTHING,
     ) -> Outcome[NodeGroup]:
         """Builds entry group from graph builder and blend, the image a CPU stage prepared entering the graph in place of the entry input when staged."""
         return self.met(identity, scene, record.record, entry).bind(lambda request: self.built(identity, scene, record, config, preview, request, staged, rasters=rasters))
@@ -339,16 +339,16 @@ class CompositorEffect(msgspec.Struct, frozen=True, kw_only=True):
         return self.check.map(lambda check: check(identity, scene, entry)).default_value(Ok(None))
 
     def met(
-        self, identity: Identity, scene: bpy.types.Scene, record: CompositorRecord, entry: Option[bpy.types.SceneCompositorEffect], source: Option[bpy.types.Scene] = Nothing
+        self, identity: Identity, scene: bpy.types.Scene, record: CompositorRecord, entry: Option[bpy.types.SceneCompositorEffect], source: Option[bpy.types.Scene] = NOTHING
     ) -> Outcome[tuple[str, Option[PassRequest]]]:
         """Runs the scene check, then names the scene's first rendered view layer the group reads and makes its pass request."""
         layer = Block.of_seq(used(scene)).try_head().map(lambda held: held.name).to_result_with(partial(Fault.of, Reason.ABSENT, repr(scene.view_layers), member="used view layer"))
-        request = Option.of_optional(record.requested)
+        request = option.of_optional(record.requested)
         return paired(self.checked(identity, source.default_value(scene), entry), layer).bind(
             lambda pair: (
                 request
                 .map(lambda requested: requested(pair[1]).bind(lambda found: required(scene, bpy.context, (found,)).map(lambda _: Some(found))))
-                .default_value(Ok(Nothing))
+                .default_value(Ok(NOTHING))
                 .map(lambda found: (pair[1], found))
             )
         )
@@ -361,10 +361,10 @@ class CompositorEffect(msgspec.Struct, frozen=True, kw_only=True):
         config: PyOpenColorIO.Config,
         preview: Option[PreviewFrame],
         met: tuple[str, Option[PassRequest]],
-        staged: Option[IdName] = Nothing,
+        staged: Option[IdName] = NOTHING,
         *,
-        rasters: Option[tuple[Raster, Raster]] = Nothing,
-        camera: Option[Raster] = Nothing,
+        rasters: Option[tuple[Raster, Raster]] = NOTHING,
+        camera: Option[Raster] = NOTHING,
     ) -> Outcome[NodeGroup]:
         """Builds the owned group of a record and blend over the met view layer and pass request, its interface the image, the effect's sockets, the hidden frame and derived sockets, and the blend panel of a blended effect.
 
@@ -380,7 +380,7 @@ class CompositorEffect(msgspec.Struct, frozen=True, kw_only=True):
                 Expr(kind=bpy.types.CompositorNodeImage, members={"image": image}, socket="Image", socket_type=bpy.types.NodeSocketColor), PixelGrid.of(original).base, interpolation="Nearest"
             )
         ).default_value(original)
-        space = Option.of_optional(record.record.operation_space).filter(lambda name: name != PyOpenColorIO.ROLE_SCENE_LINEAR)
+        space = option.of_optional(record.record.operation_space).filter(lambda name: name != PyOpenColorIO.ROLE_SCENE_LINEAR)
         straight = self.mix is Mix.STRAIGHT
         derived = tuple(msgspec.structs.replace(socket, hide_in_modifier=True) for part in self.framed for socket in part.sockets)
         interface = Interface(
@@ -405,7 +405,7 @@ class CompositorEffect(msgspec.Struct, frozen=True, kw_only=True):
                 case ResultOverBase(result=result, base=base):
                     return paired(leaving("space_out", result), leaving("space_base", base)).map(lambda parts: (parts[0], Some(parts[1])))
                 case _:
-                    return leaving("space_out", graphed).map(lambda result: (result, Nothing))
+                    return leaving("space_out", graphed).map(lambda result: (result, NOTHING))
 
         def operation(source: Expr) -> Outcome[tuple[Expr, Option[Expr]]]:
             shell = GraphInputs(
@@ -431,17 +431,15 @@ class CompositorEffect(msgspec.Struct, frozen=True, kw_only=True):
         def associated(parts: tuple[Expr, Option[Expr]]) -> Outcome[tuple[Expr, Option[Expr]]]:
             result, base = parts
             color = pointwise_color("color", entering, lambda _: Ok(result))
-            return (
-                color.map(lambda held: (held, Nothing))
-                if base.is_none()
-                else paired(color, pointwise_color("color_base", original, lambda _: Ok(base.some))).map(lambda held: (held[0], Option[Expr](some=held[1])))
+            return base.map(lambda held: paired(color, pointwise_color("color_base", original, lambda _: Ok(held))).map(lambda pair: (pair[0], Some(pair[1])))).default_with(
+                lambda: color.map(lambda held: (held, NOTHING))
             )
 
         def assembled(result: Expr) -> Outcome[NodeGroup]:
             ownership = self.ownership(record)
             return functions.built(ownership.key, interface, {COLOR_RESULT.key: result.keeping(*kept)}, bpy.types.CompositorNodeTree, name=Some(self.title)).map(
                 lambda group: msgspec.structs.replace(
-                    group, single=ownership.single, graph=msgspec.structs.replace(group.graph, members=Option.of_optional(self.description).map(lambda text: {"description": text}).default_value({}))
+                    group, single=ownership.single, graph=msgspec.structs.replace(group.graph, members=option.of_optional(self.description).map(lambda text: {"description": text}).default_value({}))
                 )
             )
 
@@ -465,9 +463,9 @@ class CompositorEffect(msgspec.Struct, frozen=True, kw_only=True):
         config: PyOpenColorIO.Config,
         preview: Option[PreviewFrame],
         met: tuple[str, Option[PassRequest]],
-        tree: Option[bpy.types.NodeTree] = Nothing,
+        tree: Option[bpy.types.NodeTree] = NOTHING,
         *,
-        rasters: Option[tuple[Raster, Raster]] = Nothing,
+        rasters: Option[tuple[Raster, Raster]] = NOTHING,
     ) -> Outcome[tuple[bpy.types.NodeTree, bool]]:
         """Reconciles the held group of the record's ownership, keeping an owned Viewer and its feed, else makes one, answering whether it changed."""
 
@@ -497,10 +495,10 @@ class CompositorEffect(msgspec.Struct, frozen=True, kw_only=True):
 
         own = self.ownership(record)
         owner = Some(scene)
-        held = tree.or_else_with(lambda: Block.of_seq(own.held(identity)).filter(lambda pair: pair[1].of == owner).try_head().map(lambda pair: pair[0]) if own.single else Nothing)
+        held = tree.or_else_with(lambda: Block.of_seq(own.held(identity)).filter(lambda pair: pair[1].of == owner).try_head().map(lambda pair: pair[0]) if own.single else NOTHING)
 
         def adopted(group: NodeGroup, live: bpy.types.NodeTree) -> Outcome[tuple[bpy.types.NodeTree, bool]]:
-            if Mark.read(identity, live).filter(lambda mark: mark.key == own.key and mark.of == owner).is_some():
+            if Mark.read(identity, live).filter(lambda mark: mark.key == own.key).filter(lambda mark: mark.of == owner).is_some():
                 return refreshed(group, live, InterfaceKeys.of(live, identity).sockets)
             with ExitStack() as rollback:
                 return retained(
@@ -515,14 +513,14 @@ class CompositorEffect(msgspec.Struct, frozen=True, kw_only=True):
         )
 
     def filled(
-        self, identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, group: bpy.types.NodeTree, record: Entry[CompositorRecord], source: Option[bpy.types.Scene] = Nothing
+        self, identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, group: bpy.types.NodeTree, record: Entry[CompositorRecord], source: Option[bpy.types.Scene] = NOTHING
     ) -> Outcome[bool]:
         """Stores the entry record on its group when it differs, then writes derived inputs, answering whether any changed."""
         codec = self.stored(identity, self.record)
-        stored = codec.read(group).bind(lambda held: Ok(value=False) if held == Some(record) else codec.write(group, record).map(lambda _: True))
-        return stored.bind(lambda wrote: self.derive(identity, scene, entry, source).map(lambda refreshed: wrote or refreshed))
+        stored = codec.read(group).bind(lambda held: Ok(False) if held == Some(record) else codec.write(group, record).map(lambda _: True))
+        return stored.bind(lambda wrote: self.derive(identity, scene, entry, source).map(lambda refreshed: wrote | refreshed))
 
-    def derive(self, identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, source: Option[bpy.types.Scene] = Nothing) -> Outcome[bool]:
+    def derive(self, identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, source: Option[bpy.types.Scene] = NOTHING) -> Outcome[bool]:
         """Writes the camera frame and derived values, then changed keyframes of keyed channels, refusing cycle-forming drivers, answering whether any changed."""
 
         def keyed(channel: Animation) -> Outcome[bool]:
@@ -534,7 +532,7 @@ class CompositorEffect(msgspec.Struct, frozen=True, kw_only=True):
 
         values = accumulated(part.of(identity, source.default_value(scene), entry).bind(lambda found: entered(identity, entry, found)) for part in self.framed).map(any)
         channels = self.animates.map(lambda keys: keys(identity, scene, entry).bind(lambda found: accumulated(map(keyed, found)).map(any)))
-        return accumulated((values, channels.default_value(Ok(value=False)))).map(any)
+        return accumulated((values, channels.default_value(Ok(False)))).map(any)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

@@ -6,6 +6,7 @@ lazy import math
 lazy import unicodedata
 
 import msgspec
+lazy from expression import Ok
 lazy from fontTools.misc.transform import Offset, Scale, Transform
 lazy from fontTools.unicodedata import Blocks
 lazy import numpy as np
@@ -15,7 +16,7 @@ lazy from scipy.special import cosdg, sindg
 from rasm_typography._faces.coverage import Coverage
 from rasm_typography._faces.declaration import Arrangement, Code, Foot, Script
 from rasm_typography._rules import measures
-lazy from rasm_records import Ok, Outcome
+lazy from rasm_records import Outcome
 lazy from rasm_typography._faces.glyphs import Component, Glyph, Joining, Joinings, Mark, Point, Side, Source
 lazy from rasm_typography._faces.layout import Ligatures, Lookups, Single
 lazy from rasm_typography._faces.names import Form, GlyphName
@@ -36,7 +37,7 @@ class Locale(measures.Rule, frozen=True, kw_only=True):
         script, coverage = self.script, self.coverage
         derived: list[Glyph] = []
         for sign in script.derived:
-            model = source.glyph(source.key(sign.model) if isinstance(sign.model, int) else sign.model).map(lambda glyph: source.drawn(glyph.name.text)).default_value(None)
+            model = source.glyph(source.key(sign.model) if isinstance(sign.model, int) else sign.model).map(lambda glyph: source.drawn(glyph.name.text)).to_optional()
             reference = paths.Box.of(rect) if sign.reference is not None and (rect := source.bounds(source.key(sign.reference))) is not None else None
             name = GlyphName(stem=(sign.code,), suffixes=() if sign.variant is None else (sign.variant,))
             parts = tuple(source.drawn(key).contours for code in sign.parts if (key := source.key(code)) in source.named)

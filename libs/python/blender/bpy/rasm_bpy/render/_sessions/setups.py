@@ -6,7 +6,7 @@ from types import GenericAlias, MappingProxyType
 from typing import Annotated, Final, Generic, Protocol, Self, TypeVar
 
 import bpy
-from expression import Option, Some
+from expression import NOTHING, Ok, Option, option, Some
 import msgspec
 from typing_extensions import TypeForm
 
@@ -29,7 +29,7 @@ from rasm_bpy.settings._presets import Preset
 from rasm_bpy.ui._layout.rows import ConditionalRow, Layout, operator_button, RowContent, RowDraw
 from rasm_bpy.ui._layout.templates import PresetGallery
 from rasm_bpy.ui._layout.values import Listing
-from rasm_records import accumulated, content_hash, Fault, Name, Nothing, Ok, Outcome, paired, Reason
+from rasm_records import accumulated, content_hash, Fault, Name, Outcome, paired, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -197,11 +197,11 @@ class EntryLocks(ConditionalRow, frozen=True, kw_only=True):
             live = {item.identifier: item for item in interface_sockets(group)}
             lockable = (
                 *((enabled.descriptor.prop.name, enabled.value) for enabled in Enabled),
-                *((named(item), key) for key, identifier in sockets.items() if key != COLOR_INPUT.key for item in Option.of_optional(live.get(identifier)).to_list() if not item.hide_in_modifier),
+                *((named(item), key) for key, identifier in sockets.items() if key != COLOR_INPUT.key for item in option.of_optional(live.get(identifier)).to_list() if not item.hide_in_modifier),
             )
             header, body = layout.panel(f"{entry.name}_{ENTRY_LOCKS.key}", default_closed=True)
             header.label(text=bpy.path.display_name(ENTRY_LOCKS.key))
-            for inner, (name, key) in ((inner, pair) for inner in Option.of_optional(body).to_list() for pair in lockable):
+            for inner, (name, key) in ((inner, pair) for inner in option.of_optional(body).to_list() for pair in lockable):
                 line = inner.row(align=True)
                 line.label(text=name)
                 toggle(key, line, entry, context)
@@ -268,7 +268,7 @@ class EffectSetups(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     """
 
     effects: OfferedEffects
-    tile: Option[Callable[[Identity, bpy.types.Scene, Key, tuple[Valued[Entry], ...]], Option[int]]] = Nothing
+    tile: Option[Callable[[Identity, bpy.types.Scene, Key, tuple[Valued[Entry], ...]], Option[int]]] = NOTHING
 
     @cached_property
     def preset(self) -> Preset[EffectSetup]:
@@ -308,7 +308,7 @@ class EffectSetups(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             return tile(identity, scene, f"{KEY}_{content_hash(EffectSetups, setup).hex()}", entries)
 
         return (
-            Option
+            option
             .of_optional(context)
             .bind(lambda held: rooted(bpy.types.Scene, held).to_option())
             .bind(lambda scene: paired(recorded(self.effects, identity, scene), ENTRY_LOCKS.read(identity, scene)).to_option().bind(lambda parts: shown(scene, *parts)))
@@ -343,7 +343,7 @@ class SetupScope[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
 
         def planned(scene: bpy.types.Scene) -> Outcome[Option[tuple[bpy.types.Scene, C]]]:
             return self.capture.captured(self.members, scene).bind(
-                lambda held: self.capture.projected(self.members, scene, recipe, held).map(lambda pair: Some((scene, pair[0])) if pair[1] != held else Nothing)
+                lambda held: self.capture.projected(self.members, scene, recipe, held).map(lambda pair: Some((scene, pair[0])) if pair[1] != held else NOTHING)
             )
 
         def wrote(plans: tuple[Option[tuple[bpy.types.Scene, C]], ...]) -> Outcome[Answer]:
@@ -355,7 +355,7 @@ class SetupScope[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
                 case changing, _:
                     return tallied(tuple(self.capture.applied(self.members, scene, sparse) for scene, sparse in changing))
 
-        return self.members.member_scenes(context).map(self.members.unlocked).bind(lambda scenes: accumulated(map(planned, scenes))).bind(wrote)
+        return self.members.member_scenes(context).bind(lambda scenes: accumulated(map(planned, self.members.unlocked(scenes)))).bind(wrote)
 
 
 # --- [CODECS] ---------------------------------------------------------------------------
@@ -378,7 +378,7 @@ def _held(holder: object) -> Option[tuple[bpy.types.Scene, str]]:
         case bpy.types.ViewLayer(id_data=bpy.types.Scene() as scene, name=name) | bpy.types.SceneCompositorEffect(id_data=bpy.types.Scene() as scene, name=name):
             return Some((scene, name))
         case _:
-            return Nothing
+            return NOTHING
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------

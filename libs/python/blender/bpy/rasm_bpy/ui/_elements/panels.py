@@ -9,7 +9,7 @@ from typing import Final, Generic, Literal, Self, TYPE_CHECKING, TypeVar
 import _bpy_types  # ruff: ignore[import-private-name]
 from bl_ui.space_properties import PropertiesAnimationMixin
 import bpy
-from expression import Option, Some
+from expression import Error, NOTHING, Ok, Option, Some
 from expression.extra.result import catch
 import msgspec
 
@@ -26,7 +26,7 @@ from rasm_bpy.ui._layout.rows import layout_method, OperatorButton, Property, re
 from rasm_bpy.ui._layout.sections import field_rows, Section, SectionDraws, sections_in
 from rasm_bpy.ui._resources.icons import ICONS
 from rasm_bpy.ui._screens.areas import Located
-from rasm_records import accumulated, Error, Fault, Nothing, Ok, Outcome, paired, Reason, typed
+from rasm_records import accumulated, Fault, Outcome, paired, Reason, typed
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -99,7 +99,7 @@ class PanelCopy(msgspec.Struct, frozen=True, kw_only=True):
     """Further placement registering its own copy of the panel, with its own poll condition."""
 
     at: FixedPlacement
-    condition: Option[Condition] = Nothing
+    condition: Option[Condition] = NOTHING
 
 
 # --- [PANELS]
@@ -113,11 +113,11 @@ class Panel(msgspec.Struct, frozen=True, kw_only=True):
 
     section: Section[bpy.types.PropertyGroup]
     at: _PanelPlacement
-    condition: Option[Condition] = Nothing
+    condition: Option[Condition] = NOTHING
     copies: tuple[PanelCopy, ...] = ()
     children: tuple[Section[bpy.types.PropertyGroup], ...] = ()
     options: frozenset[Literal["HIDE_HEADER", "HEADER_LAYOUT_EXPAND"]] = frozenset()
-    units: Option[int] = Nothing
+    units: Option[int] = NOTHING
 
     @classmethod
     def popovers(cls, rows: Iterable[object]) -> tuple[Self, ...]:
@@ -307,7 +307,7 @@ def _displayed(panel: Panel, identity: Identity) -> Generator[Outcome[None]]:
         name = identity.name(bpy.types.Panel, stem)
         return (
             classed(panel.section, top, name, ordered, panel.options, condition),
-            *(classed(child, each, identity.name(bpy.types.Panel, f"{stem}_{child.key}"), {**shared, "bl_parent_id": name}, frozenset(), Nothing) for child, each in zip(panel.children, children)),
+            *(classed(child, each, identity.name(bpy.types.Panel, f"{stem}_{child.key}"), {**shared, "bl_parent_id": name}, frozenset(), NOTHING) for child, each in zip(panel.children, children)),
         )
 
     def resolved() -> Outcome[tuple[FixedPlacement, ...]]:
@@ -329,7 +329,7 @@ def _displayed(panel: Panel, identity: Identity) -> Generator[Outcome[None]]:
             held.clear()
             return registered(now).or_else_with(lambda faults: paired(Error(faults), accumulated(map(registered, previous))).map(lambda _: None))
 
-        return resolved().bind(replaced).map(lambda _: Nothing)
+        return resolved().bind(replaced).map(lambda _: NOTHING)
 
     with ExitStack() as scope:
         scope.enter_context(classes)

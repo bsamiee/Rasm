@@ -2,7 +2,7 @@
 
 import ast
 from collections import Counter, defaultdict
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Mapping
 from functools import cache
 from importlib.util import resolve_name
 from itertools import chain
@@ -11,7 +11,6 @@ import tomllib
 from types import MappingProxyType
 from typing import override
 
-from expression import Option
 from expression.extra.result import catch
 import msgspec
 from mypy.nodes import (
@@ -97,6 +96,13 @@ class ErrorNameReadersError(RasmError):
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
+class _Project(msgspec.Struct, frozen=True, kw_only=True, rename="kebab"):
+    """Console scripts and entry point groups of a member manifest, each value a `<module>:<name>` target."""
+
+    scripts: Mapping[str, str] = MappingProxyType({})
+    entry_points: Mapping[str, Mapping[str, str]] = MappingProxyType({})
+
+
 class _Index(msgspec.Struct, frozen=True, kw_only=True):
     """Reads of every member file: the names each module loads, reader units per name with the nesting of each read, names read outside a call or as a comparison operand, the modules reading each name, and names a host, an entry, or an importable module publishes."""
 
@@ -146,8 +152,8 @@ def _index(roots: tuple[Path, ...], /) -> _Index:
         (source, name)
         for root in roots
         for target in catch(Path.read_text, exception=OSError)(root / "pyproject.toml")
-        .map(lambda text: tomllib.loads(text).get("project", {}))
-        .map(lambda project: (*project.get("scripts", {}).values(), *chain.from_iterable(group.values() for group in project.get("entry-points", {}).values())))
+        .map(lambda text: msgspec.convert(tomllib.loads(text).get("project", {}), type=_Project))
+        .map(lambda project: (*project.scripts.values(), *chain.from_iterable(map(Mapping.values, project.entry_points.values()))))
         .default_value(())
         for source, _, name in (target.partition(":"),)
     }
@@ -192,7 +198,7 @@ def _index(roots: tuple[Path, ...], /) -> _Index:
             for alias in statement.names
             for name, target in (
                 (
-                    (Option.of_optional(alias.asname).default_value(alias.name), f"{sources[id(statement)]}.{alias.name}")
+                    (alias.asname or alias.name, f"{sources[id(statement)]}.{alias.name}")
                     if isinstance(statement, ast.ImportFrom)
                     else (alias.asname, alias.name)
                     if alias.asname is not None

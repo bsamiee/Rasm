@@ -5,7 +5,7 @@ import math
 import sys
 from typing import Annotated, ClassVar
 
-from expression import Option
+from expression import Error, option, Some
 from expression.extra.result import catch
 import msgspec
 import numpy as np
@@ -15,7 +15,7 @@ from scipy.special import exprel
 
 from rasm_imaging._color.luts import Lattice, Logarithmic
 from rasm_imaging._color.processors import REC709_SCENE
-from rasm_records import AtLeastOne, Error, Fault, Finite, NonNegative, Outcome, Positive, Reason, Unit
+from rasm_records import AtLeastOne, Fault, Finite, NonNegative, Outcome, Positive, Reason, Unit
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -106,7 +106,7 @@ class Film(msgspec.Struct, frozen=True, kw_only=True):
         black = density(log_backlight, self.positive)
         white = density(log_backlight - self.negative.density, self.positive)
         interval = black - white
-        if (floor := Option.of_optional(self.black_point)).is_none() and not np.any(interval):
+        if (floor := option.of_optional(self.black_point)).is_none() and not np.any(interval):
             return Error(Fault.of(Reason.OUTSIDE, type(self).__name__, (black, white), member="black and white print densities that differ"))
         light = np.maximum(values.astype(np.float64), 0.0)
         log_light = logged(light)
@@ -117,7 +117,7 @@ class Film(msgspec.Struct, frozen=True, kw_only=True):
         log_printed = -self.positive.density * (printed - white)
         log_mono = np.logaddexp2.reduce(log_printed + log_weights, axis=-1, keepdims=True)
         match floor:
-            case Option(tag="some", some=level):
+            case Some(level):
                 log_luminance = logged(np.clip((np.exp2(log_mono) - level) / (1.0 - level), 0.0, 1.0))
             case _:
                 scale = -math.log(2.0) * self.positive.density

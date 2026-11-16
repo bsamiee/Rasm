@@ -141,3 +141,24 @@ def test_generic_aliases_report_at_the_specialization_owner(findings: Findings) 
             return Error(text) if text else None
     """)
     assert [error.line for error in findings(source, ErrorMisusedExpressionError)] == [6, 7, 8, 11, 14, 23]
+
+
+def test_iterated_values_holding_no_value_report(findings: Findings) -> None:
+    """Operands that can hold `Nothing` or `Error` report where a loop, unpacking, or iterable parameter reads them, while narrowed cases and their members pass."""
+    source = dedent("""
+        from expression import Ok, Option, Result, Some
+
+        def read(found: Option[int], outcome: Result[int, str]) -> None:
+            for value in found:
+                print(value)
+            print(*outcome, tuple(found), dict(zip(("value",), found)))
+            match found:
+                case Some() as held:
+                    print(*held, *Ok(1), *found.to_list())
+    """)
+    assert [(error.line, error.msg) for error in findings(source, ErrorMisusedExpressionError)] == [
+        (5, "`found` can hold `Nothing`, whose iteration raises `EffectError`, read the value through its members or a pattern"),
+        (7, "`outcome` can hold `Error`, whose iteration raises `EffectError`, read the value through its members or a pattern"),
+        (7, "`found` can hold `Nothing`, whose iteration raises `EffectError`, read the value through its members or a pattern"),
+        (7, "`found` can hold `Nothing`, whose iteration raises `EffectError`, read the value through its members or a pattern"),
+    ]

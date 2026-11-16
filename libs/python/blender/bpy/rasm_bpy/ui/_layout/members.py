@@ -6,7 +6,7 @@ from itertools import pairwise
 from typing import Generic, overload, TypeVar
 
 import bpy
-from expression import Option, Some
+from expression import NOTHING, Ok, Option, Some
 import msgspec
 
 from rasm_bpy.data._extension.identity import Identity
@@ -16,7 +16,7 @@ from rasm_bpy.data._rna.descriptors import Descriptor
 from rasm_bpy.data._rna.paths import Native, RnaPath, Struct
 from rasm_bpy.data._rna.snapshots import Snapshot
 from rasm_bpy.settings._attachments import Attachment
-from rasm_records import accumulated, Nothing, Ok, Outcome
+from rasm_records import accumulated, Outcome
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -33,7 +33,7 @@ class ResolvedMember[P: bpy.types.Property = bpy.types.Property](msgspec.Struct,
     """RNA definition with the reach of its owner's root, the drawing holder or the context root while no reach is stated."""
 
     descriptor: Descriptor[P]
-    reach: Option[Reach] = Nothing
+    reach: Option[Reach] = NOTHING
 
     def at(self, holder: Struct, context: bpy.types.Context) -> Option[At]:
         """Locates the property owner through the reach, the drawing holder, or the context root."""
@@ -50,8 +50,8 @@ class Member(msgspec.Struct, Generic[_R_co], frozen=True, kw_only=True):  # ruff
 
     root: _R_co
     path: RnaPath
-    reach: Option[Reach] = Nothing
-    scope: Option[Scoped] = Nothing
+    reach: Option[Reach] = NOTHING
+    scope: Option[Scoped] = NOTHING
 
     @property
     def prerequisites(self) -> tuple[Declaration, ...]:
@@ -73,12 +73,12 @@ class Member(msgspec.Struct, Generic[_R_co], frozen=True, kw_only=True):  # ruff
                 return Ok(self)
 
     @overload
-    def resolved(self: "Member[type[Struct]]", *, root: Option[Struct] = Nothing) -> Outcome[ResolvedMember]: ...
+    def resolved(self: "Member[type[Struct]]", *, root: Option[Struct] = NOTHING) -> Outcome[ResolvedMember]: ...
 
     @overload
-    def resolved[P: bpy.types.Property](self: "Member[type[Struct]]", kind: type[P], *, root: Option[Struct] = Nothing) -> Outcome[ResolvedMember[P]]: ...
+    def resolved[P: bpy.types.Property](self: "Member[type[Struct]]", kind: type[P], *, root: Option[Struct] = NOTHING) -> Outcome[ResolvedMember[P]]: ...
 
-    def resolved(self: "Member[type[Struct]]", kind: type[bpy.types.Property] = bpy.types.Property, *, root: Option[Struct] = Nothing) -> Outcome[ResolvedMember]:
+    def resolved(self: "Member[type[Struct]]", kind: type[bpy.types.Property] = bpy.types.Property, *, root: Option[Struct] = NOTHING) -> Outcome[ResolvedMember]:
         """Resolves metadata on the native root type or live `root`."""
         return Descriptor.resolve(root.default_value(self.root), self.path, kind).map(lambda descriptor: ResolvedMember(descriptor=descriptor, reach=self.reach))
 
@@ -95,7 +95,7 @@ class Member(msgspec.Struct, Generic[_R_co], frozen=True, kw_only=True):  # ruff
     def bound[M: Member[type[Struct]]](self: M) -> Outcome[ResolvedMember | M]:  # ruff: ignore[custom-type-var-for-self]
         """Resolves a member with no reach once, a reached member staying to resolve on its live root each draw."""
         match self.reach:
-            case Option(tag="some"):
+            case Some():
                 return Ok(self)
             case _:
                 return self.resolved()
@@ -105,7 +105,7 @@ class Member(msgspec.Struct, Generic[_R_co], frozen=True, kw_only=True):  # ruff
         return (
             self.scope
             .map(lambda scope: scope.owners(context).bind(partial(marked, setting)))
-            .default_value(Ok(Nothing))
+            .default_value(Ok(NOTHING))
             .map(lambda mixed: mixed.map(lambda text: dict[str, str | bool](text=text, translate=False)).default_value(dict[str, str | bool]()))
         )
 
@@ -145,11 +145,11 @@ def marked(setting: Descriptor, owners: tuple[Struct, ...], /) -> Outcome[Option
 def resolved_at(member: Member[type[Struct]] | ResolvedMember, holder: Struct, context: bpy.types.Context, /) -> Outcome[Option[tuple[Descriptor, At]]]:
     """Returns metadata and owner from one reach, nothing for an absent root or owner, or faults from resolving metadata."""
     match member:
-        case Member(reach=Option(tag="some", some=reach)):
+        case Member(reach=Some(reach)):
             return (
                 reach(context)
                 .map(lambda root: member.resolved(root=Some(root)).map(lambda found: found.descriptor.owner_of(root).map(lambda owner: (found.descriptor, (owner, found.descriptor.prop.identifier)))))
-                .default_value(Ok(Nothing))
+                .default_value(Ok(NOTHING))
             )
         case Member():
             return member.resolved().bind(lambda found: resolved_at(found, holder, context))

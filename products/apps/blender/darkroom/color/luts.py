@@ -6,7 +6,8 @@ from typing import Annotated, Final
 
 from bl_ui.space_topbar import TOPBAR_MT_file_export
 import bpy
-from expression import Option, Some
+from expression import NOTHING, Ok, Option, option, Some
+from expression.collections import Block
 import PyOpenColorIO
 
 from rasm_bpy.commands import Answer, Call, Done, Empty, Operator, Popup, Save
@@ -15,7 +16,7 @@ from rasm_bpy.render import Baking, ConfigInstall, ConfigView, extension, lattic
 from rasm_bpy.settings import Attachment
 from rasm_bpy.ui import Append, OperatorButton
 from rasm_imaging import DisplayView
-from rasm_records import Fault, Nothing, Ok, Outcome, paired
+from rasm_records import Fault, Outcome, paired
 
 from ..catalog import chain, tones
 from ..effects.formation.display import formation
@@ -41,16 +42,16 @@ def selected(identity: Identity, scene: bpy.types.Scene, kinds: Option[frozenset
     pinned = frozenset(held.ownership.key for held in chain.pinned)
 
     def wanted(entry: bpy.types.SceneCompositorEffect) -> bool:
-        unpinned = Option.of_optional(entry.node_group).bind(lambda group: Mark.read(identity, group)).filter(lambda mark: mark.key in pinned).is_none()
+        unpinned = option.of_optional(entry.node_group).bind(lambda group: Mark.read(identity, group)).filter(lambda mark: mark.key in pinned).is_none()
         return unpinned and kinds.map(lambda held: chain.row(identity, entry).filter(lambda row: row.kind in held).is_some()).default_value(value=True)
 
-    checked = tuple((entry, chain.pointwise(identity, entry)) for entry in scene.compositor_effects if entry.enable_for_render and wanted(entry))
-    return tuple(entry for entry, read in checked if read.is_ok()), tuple(fault for _, read in checked for faults in read.swap().to_option().to_list() for fault in faults)
+    checked = Block((entry, chain.pointwise(identity, entry)) for entry in scene.compositor_effects if entry.enable_for_render and wanted(entry))
+    return tuple(entry for entry, read in checked if read.is_ok()), tuple(fault for faults in checked.choose(lambda pair: pair[1].swap().to_option()) for fault in faults)
 
 
 def closing(identity: Identity, scene: bpy.types.Scene, entries: tuple[bpy.types.SceneCompositorEffect, ...]) -> Option[DisplayView]:
     """Returns the scene view closing entries that contain no formation."""
-    return Nothing if any(chain.row(identity, entry).filter(lambda row: row.kind == formation.kind).is_some() for entry in entries) else Some(viewed(scene))
+    return NOTHING if any(chain.row(identity, entry).filter(lambda row: row.kind == formation.kind).is_some() for entry in entries) else Some(viewed(scene))
 
 
 # --- [COMMANDS]
@@ -62,7 +63,7 @@ def bake_chain(call: Call[Baking]) -> Outcome[Answer]:
     lattice = lattice_of(call.properties)
 
     def baked(scene: bpy.types.Scene) -> Outcome[Done]:
-        entries, left = selected(call.identity, scene, Nothing)
+        entries, left = selected(call.identity, scene, NOTHING)
         view = closing(call.identity, scene, entries)
         return (
             lattice
@@ -78,7 +79,7 @@ def bake_chain(call: Call[Baking]) -> Outcome[Answer]:
 
 def _offered(identity: Identity, _owner: Struct, context: bpy.types.Context | None) -> tuple[IconedItem, ...]:
     """Item rows of the context scene's tone entries in stack order, each titled by its effect, the first the default."""
-    scenes = Option.of_optional(context).bind(lambda held: rooted(bpy.types.Scene, held).to_option()).to_list()
+    scenes = option.of_optional(context).bind(lambda held: rooted(bpy.types.Scene, held).to_option()).to_list()
     members = frozenset(row.kind for row in tones)
     entries = (held for scene in scenes for held in chain.owned(identity, scene) if held.row.kind in members)
     return choices(tuple((held.entry.name, held.entry.name, held.row.title, 0, index) for index, held in enumerate(entries)))

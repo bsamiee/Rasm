@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Annotated, Final, Literal, override
 
 import bpy
-from expression import Option, Some
+from expression import NOTHING, Ok, Option, option, Some
 import numpy as np
 import numpy.typing as npt
 import PyOpenColorIO
@@ -38,7 +38,7 @@ from rasm_bpy.render import (
     valued,
 )
 from rasm_imaging import bracketed, converted, corrections, cube_split, Lattice, located, LutFormat, LutOutput, pixels, processor, Rational
-from rasm_records import Fault, Nothing, Ok, Outcome, paired, Reason, typed
+from rasm_records import Fault, Outcome, paired, Reason, typed
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -103,7 +103,7 @@ class Lookup(CompositorRecord, frozen=True, kw_only=True):
         def built(parts: tuple[PyOpenColorIO.GroupTransform, Option[tuple[Lattice, npt.NDArray[np.float32]]]]) -> Outcome[Expr]:
             head, suffix = parts
             entering = (
-                Option
+                option
                 .of_optional(self.lattice)
                 .filter(lambda _: len(head) > 0)
                 .map(lambda size: latticed("prefix", f"{name} Prefix", shell.config, head, Lattice(size=size, spacing=Rational()), shell.color))
@@ -128,7 +128,7 @@ class Lookup(CompositorRecord, frozen=True, kw_only=True):
             """Applies the file's operations before its first 3D table to the entering pixels in the LUT's colorspace, Nothing while a lattice samples them or the file holds none."""
             return _parts(stage.identity, self, stage.config).bind(
                 lambda parts: (
-                    Ok(Nothing)
+                    Ok(NOTHING)
                     if self.lattice is not None or not len(parts[0])
                     else pixels(stage.image).bind(lambda values: converted(stage.config, bracketed(self.space, parts[0]), values)).bind(lambda values: located(values, stage.image)).map(Some)
                 )
@@ -162,7 +162,7 @@ def import_cdl(call: Call[Imported]) -> Outcome[Answer]:
     path, properties = str(call.paths[0]), call.properties
 
     def chosen(found: tuple[tuple[Option[str], PyOpenColorIO.CDLTransform], ...]) -> Outcome[PyOpenColorIO.CDLTransform]:
-        return Option.of_optional(next((correction for position, (_, correction) in enumerate(found) if str(position) == properties.correction), None)).to_result_with(
+        return option.of_optional(next((correction for position, (_, correction) in enumerate(found) if str(position) == properties.correction), None)).to_result_with(
             partial(Fault.of, Reason.ABSENT, path, member=properties.correction)
         )
 

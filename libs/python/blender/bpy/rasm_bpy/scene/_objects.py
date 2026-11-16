@@ -3,11 +3,11 @@
 from collections.abc import Callable, Iterable, Mapping
 from contextlib import ExitStack
 from functools import partial, reduce
-from itertools import chain, repeat
+from itertools import chain, repeat, starmap
 from typing import Annotated, Final
 
 import bpy
-from expression import Option, Result, Some, try_downcast
+from expression import Error, NOTHING, Ok, Option, option, Some, try_downcast
 from expression.extra.result import catch
 from mathutils import Matrix
 import msgspec
@@ -25,7 +25,7 @@ from rasm_bpy.data._rna.paths import rna_definition, rooted
 from rasm_bpy.data._rna.properties import redeclared
 from rasm_bpy.data._rna.snapshots import Applied, Snapshot
 from rasm_bpy.scene._collections import relinked
-from rasm_records import accumulated, Error, Fault, Faults, Nothing, Ok, Outcome, paired, Reason, typed
+from rasm_records import accumulated, Fault, Outcome, paired, Reason, typed
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -45,23 +45,23 @@ class StackEntry(msgspec.Struct, frozen=True, kw_only=True):
     """Desired modifier, constraint, or shader effect."""
 
     kind: str
-    values: Option[Snapshot] = Nothing
+    values: Option[Snapshot] = NOTHING
 
 
 class ObjectState(msgspec.Struct, frozen=True, kw_only=True):
     """Desired object state, each field unchanged when `Nothing`."""
 
-    data: Option[Handle[bpy.types.ID]] = Nothing
-    parent: Option[Handle[bpy.types.Object]] = Nothing
-    material_slots: Option[tuple[Snapshot, ...]] = Nothing
-    values: Option[Snapshot] = Nothing
-    placement: Option[Matrix] = Nothing
-    hidden: Option[bool] = Nothing
-    selected: Option[bool] = Nothing
-    vertex_groups: Option[Mapping[str, Option[Snapshot]]] = Nothing
-    modifiers: Option[Mapping[str, StackEntry]] = Nothing
-    constraints: Option[Mapping[str, StackEntry]] = Nothing
-    shader_effects: Option[Mapping[str, StackEntry]] = Nothing
+    data: Option[Handle[bpy.types.ID]] = NOTHING
+    parent: Option[Handle[bpy.types.Object]] = NOTHING
+    material_slots: Option[tuple[Snapshot, ...]] = NOTHING
+    values: Option[Snapshot] = NOTHING
+    placement: Option[Matrix] = NOTHING
+    hidden: Option[bool] = NOTHING
+    selected: Option[bool] = NOTHING
+    vertex_groups: Option[Mapping[str, Option[Snapshot]]] = NOTHING
+    modifiers: Option[Mapping[str, StackEntry]] = NOTHING
+    constraints: Option[Mapping[str, StackEntry]] = NOTHING
+    shader_effects: Option[Mapping[str, StackEntry]] = NOTHING
 
     def stacks(self, item: bpy.types.Object) -> tuple[tuple[_Stack, Outcome[_Mover], Option[_Entries]], ...]:
         """Returns object stacks with their reorder call and desired entries."""
@@ -101,7 +101,7 @@ class LevelEdit(bpy.types.PropertyGroup):
 def active_object(view_layer: bpy.types.ViewLayer) -> Outcome[bpy.types.Object]:
     """Returns active object of view layer, `absent` when none is active."""
     objects = view_layer.objects
-    return Option.of_optional(objects.active).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(objects), member="active"))
+    return option.of_optional(objects.active).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(objects), member="active"))
 
 
 def descendants(item: bpy.types.Object, view_layer: bpy.types.ViewLayer) -> tuple[bpy.types.Object, ...]:
@@ -137,9 +137,9 @@ def owned_object[D: bpy.types.ID](
     identity: Identity,
     /,
     *,
-    of: Option[bpy.types.ID] = Nothing,
-    slot: Option[int] = Nothing,
-    scope: Option[ExitStack] = Nothing,
+    of: Option[bpy.types.ID] = NOTHING,
+    slot: Option[int] = NOTHING,
+    scope: Option[ExitStack] = NOTHING,
     seeded: Callable[[D], Outcome[D]] = Ok,
 ) -> Outcome[tuple[bpy.types.Object, D]]:
     """Reuses or builds the owned object of a row, a built object holding new data owned under the data row.
@@ -164,10 +164,9 @@ def owned_object[D: bpy.types.ID](
 
         def built() -> Outcome[bpy.types.Object]:
             return (
-                Result[D, Faults]
-                .bind(
-                    catch(created, exception=RuntimeError)().map_error(partial(Fault.of, Refusal.REFUSED, name)), lambda block: owner.owned(identity, block, of=of, filled=seeded, scope=Some(rollback))
-                )
+                catch(created, exception=RuntimeError)()
+                .map_error(partial(Fault.of, Refusal.REFUSED, name))
+                .bind(lambda block: owner.owned(identity, block, of=of, filled=seeded, scope=Some(rollback)))
                 .bind(lambda block: spawned(name, Some(block), collection))
             )
 
@@ -195,7 +194,7 @@ def _vertex_group_moved(item: bpy.types.Object, name: str, index: int) -> Outcom
         return (
             written(groups, ("active_index",), before)
             .map(lambda _: scope.callback(setattr, groups, "active", active))
-            .bind(lambda _: reduce(Result[None, Faults].bind, repeat(shifted, abs(index - before)), Ok(None)))
+            .bind(lambda _: reduce(lambda held, step: held.bind(step), repeat(shifted, abs(index - before)), Ok(None)))
         )
 
 
@@ -234,13 +233,13 @@ def _restacked(item: bpy.types.Object, stack: _Stack, move: Outcome[_Mover], ent
     refused = partial(Fault.of, Refusal.REFUSED, repr(stack))
 
     def removed(key: str) -> Outcome[None]:
-        return catch(stack.remove, exception=RuntimeError)(stack[key]).map_error(refused)
+        return catch(stack.remove, exception=RuntimeError)(stack[key]).map_error(refused)  # ty: ignore[invalid-argument-type]
 
     def added(key: str) -> Outcome[None]:
         return (
-            catch(stack.new, exception=RuntimeError)(**({"name": key} if named else {}), **parameters[key])
+            catch(stack.new, exception=RuntimeError)(**({"name": key} if named else {}), **parameters[key])  # ty: ignore[invalid-argument-type]
             .map_error(refused)
-            .bind(lambda made: Option.of_optional(try_downcast(bpy.types.bpy_struct, made)).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(stack), member=key)))
+            .bind(lambda made: option.of_optional(try_downcast(bpy.types.bpy_struct, made)).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(stack), member=key)))
             .bind(lambda made: Ok(None) if named else written(made, ("name",), key).map(lambda _: None))
         )
 
@@ -249,7 +248,7 @@ def _restacked(item: bpy.types.Object, stack: _Stack, move: Outcome[_Mover], ent
         accumulated(
             Ok(value).filter_with(choices[key].__contains__, partial(Fault.of, Reason.OUTSIDE, repr(stack), member=", ".join(choices[key]))) for _, held in rows for key, value in held.items()
         ),
-        move.map(lambda mover: (*planned, *(partial(mover, *indices) for indices in moves))) if moves else Ok(planned),
+        move.map(lambda mover: (*planned, *starmap(partial, ((mover, *indices) for indices in moves)))) if moves else Ok(planned),
     ).map(lambda pair: pair[1])
 
 
@@ -266,11 +265,10 @@ def _diverged(state: ObjectState, item: bpy.types.Object, layers: tuple[bpy.type
                 materials.pop()
 
         return (
-            Result[bpy.types.ID, Faults]
-            .bind(
-                data.or_else(Option.of_optional(item.data)).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(item), member="data.materials")),
-                lambda block: Descriptor.resolve(block, ("materials",), bpy.types.CollectionProperty).map(lambda member: getattr(block, member.prop.identifier)),
-            )
+            data
+            .or_else(option.of_optional(item.data))
+            .to_result_with(lambda: Fault.of(Reason.ABSENT, repr(item), member="data.materials"))
+            .bind(lambda block: Descriptor.resolve(block, ("materials",), bpy.types.CollectionProperty).map(lambda member: getattr(block, member.prop.identifier)))
             .map(lambda materials: (lambda: catch(sized, exception=RuntimeError)(materials).map_error(refused),) if len(materials) != len(slots) else ())
         )
 
@@ -309,7 +307,7 @@ def reconciler(state: ObjectState) -> Outcome[Callable[[bpy.types.Object, tuple[
     )
 
     def live[T: bpy.types.ID](handle: Option[Handle[T]]) -> Outcome[Option[T]]:
-        return handle.map(lambda held: held.resolve().map(Some)).default_value(Ok(Nothing))
+        return handle.map(lambda held: held.resolve().map(Some)).default_value(Ok(NOTHING))
 
     def each(found: tuple[Option[bpy.types.ID], Option[bpy.types.Object]], item: bpy.types.Object, layers: tuple[bpy.types.ViewLayer, ...]) -> Outcome[Applied]:
         def applied(_: None) -> Outcome[Applied]:

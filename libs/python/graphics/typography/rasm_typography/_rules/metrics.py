@@ -4,12 +4,13 @@ lazy from functools import reduce
 lazy import math
 
 import msgspec
+lazy from expression import Ok
 lazy from fontTools.misc.roundTools import otRound
 lazy from fontTools.ttLib import TTFont
 
 from rasm_typography._faces.declaration import Band
 from rasm_typography._rules import measures
-lazy from rasm_records import Ok, Outcome
+lazy from rasm_records import Outcome
 lazy from rasm_typography._faces.glyphs import Source, VerticalMetrics
 lazy from rasm_typography._faces.names import Form
 lazy from rasm_typography._outlines import measure, paths

@@ -5,13 +5,13 @@ from contextlib import contextmanager, ExitStack
 from functools import partial
 from pathlib import Path, PurePosixPath
 from types import MappingProxyType
-from typing import Annotated, Final, Never, Protocol, Self, TYPE_CHECKING
+from typing import Annotated, Final, Protocol, Self, TYPE_CHECKING
 from uuid import NAMESPACE_URL, uuid5
 
 from _bpy_internal.assets.remote_library.blender_asset_library_openapi import AssetLibraryMeta, CatalogV1  # ruff: ignore[import-private-name]
 from _bpy_internal.assets.remote_library.listing_asset_catalogs import _parse_catalog, write  # ty: ignore[import-not-found]  # ruff: ignore[import-private-name]
 import bpy
-from expression import Option, Result, Some, try_downcast
+from expression import Error, NOTHING, Nothing, Ok, Option, option, Result, Some, try_downcast
 from expression.collections import Block
 from expression.extra.result import catch
 import msgspec
@@ -24,7 +24,7 @@ from rasm_bpy.data._rna.descriptors import Descriptor
 from rasm_bpy.data._rna.paths import rooted
 from rasm_bpy.data._rna.snapshots import assigned
 from rasm_bpy.files._libraries import blocks_loaded, library_listing, sourced
-from rasm_records import accumulated, committed, Error, Fault, folder_made, Nothing, Ok, Outcome, paired, Reason
+from rasm_records import accumulated, committed, Fault, folder_made, Outcome, paired, Reason
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -65,7 +65,7 @@ class AssetMark(msgspec.Struct, frozen=True, kw_only=True):
     copyright: str | None = None
     license: str | None = None
     tags: frozenset[str] = frozenset()
-    method: Option["rna_enums.AssetImportMethodItems"] = Nothing
+    method: Option["rna_enums.AssetImportMethodItems"] = NOTHING
 
     def __post_init__(self) -> None:
         """Refuses a catalog path `_CatalogPath` excludes, which direct construction leaves unchecked."""
@@ -74,7 +74,7 @@ class AssetMark(msgspec.Struct, frozen=True, kw_only=True):
     @staticmethod
     def key_of(identity: Identity, asset: bpy.types.AssetRepresentation) -> Option[Key]:
         """Returns the mark key the extension stored on an asset, `Nothing` for an asset it never marked."""
-        return Option.of_optional(asset.metadata).bind(lambda data: Option.of_optional(try_downcast(str, data.get(identity.manifest.id))))
+        return option.of_optional(asset.metadata).bind(lambda data: option.of_optional(try_downcast(str, data.get(identity.manifest.id))))
 
     def marked[T: bpy.types.ID](self, identity: Identity, block: T, uid: str) -> Outcome[T]:
         """Marks block as asset, generating a preview where it holds none, and replaces its metadata.
@@ -111,7 +111,7 @@ class AssetMark(msgspec.Struct, frozen=True, kw_only=True):
         block.asset_mark()
         if block.preview is None:
             block.asset_generate_preview()
-        return Option.of_optional(block.asset_data).map(applied).default_with(lambda: Error(Fault.of(Reason.ABSENT, repr(block), member="asset_data")))
+        return option.of_optional(block.asset_data).map(applied).default_with(lambda: Error(Fault.of(Reason.ABSENT, repr(block), member="asset_data")))
 
 
 class UserLibrary(msgspec.Struct, frozen=True, kw_only=True):
@@ -119,7 +119,7 @@ class UserLibrary(msgspec.Struct, frozen=True, kw_only=True):
 
     title: str
     folder: Key
-    method: Option["rna_enums.AssetImportMethodItems"] = Nothing
+    method: Option["rna_enums.AssetImportMethodItems"] = NOTHING
 
     def located(self, identity: Identity) -> Path:
         """Returns library folder under extension user folder."""
@@ -146,12 +146,12 @@ class UserLibrary(msgspec.Struct, frozen=True, kw_only=True):
                 found: Outcome[bpy.types.PreferencesAssetLibrary] = (
                     Block
                     .of_seq(rows)
-                    .choose(lambda row: Option.of_optional(try_downcast(bpy.types.PreferencesAssetLibrary, row)))
+                    .choose(lambda row: option.of_optional(try_downcast(bpy.types.PreferencesAssetLibrary, row)))
                     .filter(lambda row: row.extension_id == stamp)
                     .try_head()
                     .map(Ok)
                     .default_with(lambda: catch(rows.new, exception=RuntimeError)(name=self.title, directory=str(folder), extension_id=stamp).map_error(partial(Fault.of, Refusal.REFUSED, repr(rows))))
-                    .bind(lambda row: Option.of_optional(try_downcast(bpy.types.PreferencesAssetLibrary, row)).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(rows), member=self.title)))
+                    .bind(lambda row: option.of_optional(try_downcast(bpy.types.PreferencesAssetLibrary, row)).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(rows), member=self.title)))
                 )
                 return tracked(lifetime, rows.remove, found)
 
@@ -183,7 +183,7 @@ class _Publishing(msgspec.Struct, frozen=True, kw_only=True):
                             partial(Fault.of, Reason.UNWRITABLE, str(self.target))
                         )
                     )
-                    .map(lambda _: Nothing)
+                    .map(lambda _: NOTHING)
                 )
 
         return Ok(Some(self)) if bpy.app.is_job_running("RENDER_PREVIEW") else written()
@@ -197,7 +197,7 @@ class _Publishing(msgspec.Struct, frozen=True, kw_only=True):
 def _text_called[T](step: Callable[[], T], /) -> Result[T, OSError | UnicodeError]:
     """Runs one catalog file call, which raises for an unreadable or unwritable file and for text outside UTF-8."""
     try:
-        return Result[Never, Never].Ok(step())
+        return Ok(step())
     except (OSError, UnicodeError) as error:
         return Error(error)
 
@@ -208,7 +208,7 @@ def _catalog_rows(catalogs: Path) -> tuple[tuple[_Catalog, ...], frozenset[tuple
         text = catalogs.read_text(encoding="utf-8")
     except FileNotFoundError:
         return (), frozenset[tuple[str, ...]]()
-    rows: tuple[_Catalog, ...] = tuple(_parse_catalog(catalogs).values())  # ty: ignore[unsound-assignment]
+    rows: tuple[_Catalog, ...] = tuple(_parse_catalog(catalogs).values())
     lines = map(str.strip, text.splitlines())
     return rows, frozenset(tuple(line.split(":", 2)[:2]) for line in lines if line and not line.startswith("#"))
 
@@ -284,24 +284,24 @@ def imported[T: bpy.types.ID](asset: bpy.types.AssetRepresentation, kind: type[T
     Returns:
         Local or imported block, absent fault for another kind or a library holding no preferences row.
     """
-    preferred = Option.of_optional(asset.metadata).filter(lambda data: data.use_preferred_import_method).map(lambda data: data.preferred_import_method)
+    preferred = option.of_optional(asset.metadata).filter(lambda data: data.use_preferred_import_method).map(lambda data: data.preferred_import_method)
 
     def keywords(library: bpy.types.AssetLibrary) -> Outcome[Mapping[str, bool]]:
         if library.type in _ESSENTIALS:
             return preferred.map(Ok).default_with(_essential).map(lambda method: _loading(method, relative=True))
         return (
-            Option
+            option
             .of_optional(library.user_library)
             .map(lambda row: _loading(preferred.default_value(row.import_method), relative=row.use_relative_path))
             .to_result_with(lambda: Fault.of(Reason.ABSENT, asset.full_path, member="user_library"))
         )
 
-    match Option.of_optional(asset.local_id):
-        case Option(tag="some", some=block):
-            return Option.of_optional(try_downcast(kind, block)).to_result_with(lambda: Fault.of(Reason.ABSENT, asset.full_path, member=asset.name))
-        case Option():
+    match option.of_optional(asset.local_id):
+        case Some(block):
+            return Ok(block) if isinstance(block, kind) else Error(Fault.of(Reason.ABSENT, asset.full_path, member=asset.name))
+        case Nothing():
             return (
-                Option
+                option
                 .of_optional(asset.owner_asset_library)
                 .to_result_with(lambda: Fault.of(Reason.ABSENT, asset.full_path, member="owner_asset_library"))
                 .bind(keywords)
@@ -326,7 +326,7 @@ def bundled[T: bpy.types.ID](kind: type[T], name: str) -> Outcome[T]:
     Returns:
         Imported block, absent fault for missing name.
     """
-    folder: str = bpy.utils.system_resource("DATAFILES", path="assets")  # ty: ignore[missing-attribute, unsound-assignment]
+    folder: str = bpy.utils.system_resource("DATAFILES", path="assets")  # ty: ignore[missing-attribute]
     root = Path(folder)
     found = (
         _blends(root)

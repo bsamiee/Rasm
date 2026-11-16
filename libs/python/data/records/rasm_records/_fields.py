@@ -9,11 +9,9 @@ import sys
 from types import MemberDescriptorType
 from typing import Annotated, Self
 
-from expression import Option, Some
+from expression import identity, NOTHING, Option, Some
 import msgspec
 import numpy as np
-
-from rasm_records._faults import Nothing
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -42,7 +40,7 @@ class Frozen(msgspec.Struct, frozen=True, kw_only=True, eq=False):
         """Marks every array field read-only."""
         for name in self.__struct_fields__:
             value = getattr(self, name)
-            if isinstance(array := value.to_optional() if isinstance(value, Option) else value, np.ndarray):
+            if isinstance(array := value.some if isinstance(value, Some) else value, np.ndarray):
                 array.setflags(write=False)
 
 
@@ -83,9 +81,9 @@ class History[T](msgspec.Struct, frozen=True, kw_only=True):
         return type(self)(past=past[: retention.capacity])
 
     def at(self, offset: int) -> Option[Dated[T]]:
-        """Returns the entry at a signed one-based offset, past for positive and future for negative, `Nothing` at zero or past either end."""
+        """Returns the entry at a signed one-based offset, past for positive and future for negative, `NOTHING` at zero or past either end."""
         source, distance = self.past if offset > 0 else self.future, abs(offset)
-        return Some(source[distance - 1]) if 0 < distance <= len(source) else Nothing
+        return Some(source[distance - 1]) if 0 < distance <= len(source) else NOTHING
 
     def step(self, offset: int, current: Dated[T], retention: Retention) -> Option[tuple[T, Self, Self]]:
         """Returns the value at a signed one-based offset, the history arriving there, and the history a refused write keeps, both holding current."""
@@ -116,40 +114,32 @@ def words(name: str, /) -> tuple[str, ...]:
 # --- [LENSES]
 
 
-def _stepped(value: object, step: object) -> Option[tuple[object, Callable[[object], object]]]:
-    match step, value:
-        case MemberDescriptorType() as field, msgspec.Struct() as owner if isinstance(owner, field.__objclass__):
-            return Some((field.__get__(owner), lambda new: msgspec.structs.replace(owner, **{field.__name__: new})))
-        case int(index), tuple(items) if 0 <= index < len(items):
-            return Some((items[index], lambda new: (*items[:index], new, *items[index + 1 :])))
+def _stepped(held: Option[tuple[object, Callable[[object], object]]], step: object) -> Option[tuple[object, Callable[[object], object]]]:
+    match held, step:
+        case Some((msgspec.Struct() as owner, rebuild)), MemberDescriptorType() as field if isinstance(owner, field.__objclass__):
+            return Some((field.__get__(owner), lambda new: rebuild(msgspec.structs.replace(owner, **{field.__name__: new}))))
+        case Some((tuple(items), rebuild)), int(index) if 0 <= index < len(items):
+            return Some((items[index], lambda new: rebuild((*items[:index], new, *items[index + 1 :]))))
         case _:
-            return Nothing
+            return NOTHING
 
 
 def focused[V](kind: type[V], value: object, lens: Lens) -> Option[V]:
-    """Returns the `kind` value a lens of struct fields and 0-based tuple indexes reaches, `Nothing` where a step or the value's class misses."""
-    for step in lens:
-        match _stepped(value, step):
-            case Option(tag="none"):
-                return Nothing
-            case Option(some=(reached, _)):
-                value = reached
-    return Some(value) if isinstance(value, kind) else Nothing
+    """Returns the `kind` value a lens of struct fields and 0-based tuple indexes reaches, `NOTHING` where a step or the value's class misses."""
+    match reduce(_stepped, lens, Some((value, identity))):
+        case Some((found, _)) if isinstance(found, kind):
+            return Some(found)
+        case _:
+            return NOTHING
 
 
 def amended[T: msgspec.Struct, V](kind: type[V], record: T, lens: Lens, change: Callable[[V], object]) -> Option[T]:
-    """Returns record with the `kind` value a lens reaches replaced by its change, every enclosing struct and tuple rebuilt, `Nothing` where a step or the value's class misses."""
-    value: object = record
-    rebuilds: list[Callable[[object], object]] = []
-    for step in lens:
-        match _stepped(value, step):
-            case Option(tag="none"):
-                return Nothing
-            case Option(some=(reached, rebuild)):
-                value = reached
-                rebuilds.append(rebuild)
-    record_type = type(record)
-    return Some(rebuilt) if isinstance(value, kind) and isinstance(rebuilt := reduce(lambda inner, rebuild: rebuild(inner), reversed(rebuilds), change(value)), record_type) else Nothing
+    """Returns record with the `kind` value a lens reaches replaced by its change, every enclosing struct and tuple rebuilt, `NOTHING` where a step or the value's class misses."""
+    match reduce(_stepped, lens, Some((record, identity))):
+        case Some((found, rebuild)) if isinstance(found, kind) and isinstance(rebuilt := rebuild(change(found)), type(record)):
+            return Some(rebuilt)
+        case _:
+            return NOTHING
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

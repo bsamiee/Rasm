@@ -10,7 +10,8 @@ Code targets Python 3.15 (`lazy` imports, `frozendict`, `TypeForm`, t-strings, c
 [PRINCIPLES]:
 - Facts are stated once where they belong, and everything else derives from that source
 - Packages and hosts are used directly through what they provide, with no layer that restates or wraps them
-- Types, exports, and helpers state their own fact, a private one-reader helper or alias, forwarder, or rename merges into its owner, entry imports excepted
+- Types, exports, and helpers state their own fact
+- Private one-reader helpers, aliases, forwarders, and renames merge into their owner, entry imports excepted
 - Libraries give callers composable parts over a dependency's own types, callers choosing entry point, runtime, transport, and configuration
 - Parts adding dependencies some consumers never call sit behind an extra
 - Layers adding a fact to a dependency (tracing, proxying) attach where its own adapters do, and a forwarder per member marks a misplaced layer
@@ -55,7 +56,7 @@ def smoothstep[V: Field](values: V, /) -> V:
 Functions are total when each declared input produces a declared output, with no exception or `None` their signature omits. Functions failing on part of their input narrow it to a validated type or widen output to `Option[T]` or `Outcome[T]`:
 - `int -> Tier` is incomplete when some integers fail validation, `Quantity -> Tier` over a record validating at construction covers every value
 - `min`, `max`, and `next` raise on empty input, `max(items, default=...)` and `next(iter(items), default)` make empty reads total
-- `T | None` appears where an external API speaks it, `Option.of_optional` converts it at the read
+- `T | None` appears where an external API speaks it, `option.of_optional` converts it at the read
 - Types narrow through `match`, `isinstance`, or a `TypeIs` predicate
 - Behavior a caller selects enters as the function it applies, a `bool` parameter holds data
 
@@ -63,7 +64,7 @@ Functions are total when each declared input produces a declared output, with no
 
 Pure functions compute their result from arguments alone with no side effect, and the result can replace the call. Mutating a local that stays in its function is no side effect:
 - Clock, randomness, and configuration enter as arguments (`def expired(now: datetime, issued: datetime, lifetime: timedelta) -> bool`)
-- Module state and parameter defaults are immutable values built without I/O (`()`, `frozenset()`, `frozendict()`, `Nothing`, a frozen record)
+- Module state and parameter defaults are immutable values built without I/O (`()`, `frozenset()`, `frozendict()`, `NOTHING`, a frozen record)
 - State a step changes returns as its next value (`(State, Event) -> State`)
 - `functools.cache` memoizes a pure top-level function or a zero-argument builder, a cached method keeps every `self` it receives alive
 
@@ -78,7 +79,8 @@ Higher-order functions take or return a function and own fixed control flow, the
 
 ```python
 def read[T](reader: Callable[[Path], T], path: Path, /) -> Outcome[T]:
-    return catch(reader, exception=OSError)(path).map_error(partial(Fault.of, Reason.UNREADABLE, str(path)))
+    caught: Callable[[Path], Result[T, OSError]] = catch(reader, exception=OSError)
+    return caught(path).map_error(partial(Fault.of, Reason.UNREADABLE, str(path)))
 
 
 content: Callable[[Path], Outcome[bytes]] = partial(read, Path.read_bytes)
@@ -227,24 +229,19 @@ Fallible functions return a result type, one type per concern:
 |  [01]   | `Option[T]`  | Absence without a reason                           |
 |  [02]   | `Outcome[T]` | Expected failure with reasons, first failure stops |
 
-Input boundaries select the result type and functions keep it. One boundary converts it through the member named for its target (`to_result_with`, `to_option`, `Option.of_optional`, `to_optional`):
+Input boundaries select the result type and functions keep it. One boundary converts it through the member named for its target (`to_result_with`, `to_option`, `option.of_optional`, `to_optional`):
 - `default_value` and `default_with` supply a default the domain defines for absence or failure
 - Empty `tuple` is a result, `Option[tuple[T, ...]]` exists only where a consumer treats no collection and an empty one apart
-- Operational failures stay `Error` through every producer, `Nothing` holds absence alone
+- Operational failures stay `Error` through every producer, `NOTHING` holds absence alone
 - Use `python-coding-expression` for expression members
 
 ### [04.1]-[ERRORS]
 
-Exceptions mark a violated precondition or a third-party raise a boundary converts. Native factories bind `Ok` to `Faults`, `Error` to absent success, and `Nothing` to absence, an `Option[Never]` equal to Expression's `Option[Any]` singleton. One `Fault` record serves every package, its `reason` an enum member holding the message template. `Fault.of` returns the non-empty tuple every fault builder needs:
+Exceptions mark a violated precondition or a third-party raise a boundary converts. One `Fault` record serves every package, its `reason` an enum member holding the message template. `Fault.of` returns the non-empty tuple every fault builder needs:
 
 ```python
 type Faults = tuple[Fault, *tuple[Fault, ...]]
 type Outcome[T] = Result[T, Faults]
-
-Ok = Result[Never, Faults].Ok
-Error = Result[Never, Never].Error
-Nothing = Option[Never].Nothing()
-
 
 class Reason(StrEnum):
     ABSENT = "{subject} holds no {member}"
@@ -287,7 +284,7 @@ def ran(program: str, /, *args: str, stdout: int | None = None) -> Outcome[subpr
         return Error(Fault.of(Reason.FAILED, program, error))
 ```
 
-`catch` types one exception class and erases parameters to `...`. Overloaded calls take a typed `def` under `@catch`, and calls raising unrelated classes take a `try`.
+Overloaded calls take a typed `def` under `@catch`, and calls raising unrelated classes take a `try`.
 
 ### [04.2]-[COMPOSITION]
 
@@ -321,7 +318,7 @@ def accepted(limit: int, taken: frozenset[str], entry: Entry, /) -> Outcome[Entr
 
 ### [04.3]-[MATCHING]
 
-Values stay inside a result through a pipeline, and the entry point reads it once through `match`. `Result(tag="ok", ok=<name>)` binds the value and `Result(error=<name>)` the faults. Unix commands map reasons to native `sysexits` statuses:
+Values stay inside a result through a pipeline, and the entry point reads it once through `match`. Unix commands map reasons to native `sysexits` statuses:
 
 ```python
 EXITS: frozendict[StrEnum, int] = frozendict({
@@ -337,12 +334,12 @@ EXITS: frozendict[StrEnum, int] = frozendict({
 
 def exited(outcome: Outcome[int], /) -> int:
     match outcome:
-        case Result(tag="ok", ok=code):
+        case Ok(code):
             return code
-        case Result(error=(Fault(cause=subprocess.CalledProcessError(returncode=code)) as fault,)):
+        case Error((Fault(cause=subprocess.CalledProcessError(returncode=code)) as fault,)):
             sys.stderr.write(f"{fault.message}\n")
             return code
-        case Result(error=faults):
+        case Error(faults):
             sys.stderr.writelines(f"{fault.message}\n" for fault in faults)
             return EXITS[faults[0].reason]
 ```
@@ -357,7 +354,8 @@ Decode external bytes or builtins in one typed call through `msgspec.<format>.de
 
 ```python
 def stored[T](form: TypeForm[T], path: Path, /) -> Outcome[T]:
-    return content(path).bind(lambda raw: catch(msgspec.json.decode, exception=msgspec.DecodeError)(raw, type=form).map_error(partial(Fault.of, Reason.INVALID, str(path))))
+    decode: Callable[[bytes], Result[T, msgspec.DecodeError]] = catch(msgspec.json.Decoder(form).decode, exception=msgspec.DecodeError)
+    return content(path).bind(lambda raw: decode(raw).map_error(partial(Fault.of, Reason.INVALID, str(path))))
 ```
 
 `stored(Ports, path)` over `type Ports = tuple[Annotated[int, msgspec.Meta(ge=1, le=65535)], ...]` reads as `Outcome[tuple[int, ...]]`:
@@ -434,9 +432,10 @@ Each module holds one owner, and imports point down its layers, absolute from it
 
 ```python
 import msgspec
+lazy from expression import Ok
 lazy import numpy as np
 
-lazy from signals.faults import Ok, Outcome
+lazy from signals.faults import Outcome
 
 
 class Window(msgspec.Struct, frozen=True, kw_only=True):

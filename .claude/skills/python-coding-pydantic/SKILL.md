@@ -39,7 +39,6 @@ def faulted(error: ValueError, /) -> Faults:
 - `ctx` holds each refused constraint (`{"gt": 0}`) and `input` the refused value
 - `TypeAdapter(Annotated[Record, ValidateAs(Wire, build)])` validates a wire model differing from an existing record and builds the record in one call
 - Record constraints the wire model lacks fail as one `value_error` at `loc` `()`, and records encode through their own codec
-- Wire fields hold `T | None` for a nullable value, pydantic validates an `Option[T]` field as a dataclass and refuses every mapping input
 - Constraints stay with their library: msgspec ignores `annotated_types` and `Field` constraints, pydantic ignores `msgspec.Meta`
 
 ## [02]-[MODELS]

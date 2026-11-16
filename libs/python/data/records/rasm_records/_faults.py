@@ -2,21 +2,18 @@
 
 from collections.abc import Iterable
 from enum import StrEnum
+from functools import partial
 from string import Formatter
 import traceback
-from typing import Never, overload
+from typing import overload
 
-from expression import Option, Result
+from expression import Error, Ok, option, Result, try_downcast
 import msgspec
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type Faults = tuple[Fault, *tuple[Fault, ...]]
 type Outcome[T] = Result[T, Faults]
-
-Ok = Result[Never, Faults].Ok
-Error = Result[Never, Never].Error
-Nothing = Option[Never].Nothing()
 
 
 class Reason(StrEnum):
@@ -67,15 +64,15 @@ def accumulated[T](results: Iterable[Outcome[T]]) -> Outcome[tuple[T, ...]]:
     values, faults = list[T](), list[Fault]()
     for result in results:
         match result:
-            case Result(tag="ok", ok=value):
-                if not faults:
-                    values.append(value)
-            case Result(error=errors):
-                values.clear()
+            case Ok(value):
+                values.append(value)
+            case Error(errors):
                 faults.extend(errors)
-    remaining = iter(faults)
-    head = next(remaining, None)
-    return Error((head, *remaining)) if head is not None else Ok(tuple(values))
+    match faults:
+        case [head, *rest]:
+            return Error((head, *rest))
+        case _:
+            return Ok(tuple(values))
 
 
 @overload
@@ -95,9 +92,9 @@ def paired(*results: Outcome[object]) -> Outcome[tuple[object, ...]]:
 
 def typed[T](kind: type[T], subject: str, value: object, /) -> Outcome[T]:
     """Returns value narrowed to kind, `OUTSIDE` fault naming the kind and the class found."""
-    return Ok(value) if isinstance(value, kind) else Error(Fault.of(Reason.OUTSIDE, subject, type(value), member=kind.__name__))
+    return option.of_optional(try_downcast(kind, value)).to_result_with(partial(Fault.of, Reason.OUTSIDE, subject, type(value), member=kind.__name__))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Error", "Fault", "Faults", "Nothing", "Ok", "Outcome", "Reason", "accumulated", "paired", "typed"]
+__all__ = ["Fault", "Faults", "Outcome", "Reason", "accumulated", "paired", "typed"]

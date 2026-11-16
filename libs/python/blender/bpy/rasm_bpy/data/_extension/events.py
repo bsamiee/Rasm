@@ -7,10 +7,10 @@ from pathlib import Path
 from typing import Self
 
 import bpy
-from expression import Option
+from expression import NOTHING, Ok, Option, option
 
 from rasm_bpy.data._extension.identity import Identity
-from rasm_records import Nothing, Ok, Outcome
+from rasm_records import Outcome
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -39,7 +39,7 @@ def runtime(identity: Identity, scene: bpy.types.Scene, /) -> bool:
 
 def located(body: Callable[[Option[Path]], Outcome[None]], path: str, /) -> Outcome[None]:
     """Passes the path a load or save handler receives to body, Nothing for the startup file's empty path."""
-    return body(Option.of_optional(path or None).map(Path))
+    return body(option.of_optional(path or None).map(Path))
 
 
 def updated(
@@ -49,7 +49,7 @@ def updated(
     depsgraph: bpy.types.Depsgraph,
     /,
     *,
-    changes: Option[Change] = Nothing,
+    changes: Option[Change] = NOTHING,
 ) -> Outcome[None]:
     """Passes the scene and depsgraph updates of ID types reporting a change kind (any for Nothing) to body, Ok(None) when none matches."""
     updates = tuple(item for item in depsgraph.updates if isinstance(item.id, ids) and changes.map(lambda kinds: bool(Change.of(item) & kinds)).default_value(value=True))

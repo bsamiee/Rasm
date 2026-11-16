@@ -6,7 +6,7 @@ from functools import cache, cached_property, partial
 from typing import Annotated, ClassVar, Final, Self
 
 import bpy
-from expression import Option, Result, Some
+from expression import Error, NOTHING, Ok, Option, Some
 import gpu
 from gpu_extras.batch import batch_for_shader
 from mathutils import Matrix
@@ -31,7 +31,7 @@ from rasm_bpy.ui._layout.rows import Layout, Property, Separator
 from rasm_bpy.ui._resources.icons import Icon
 from rasm_bpy.ui._resources.previews import Texture
 from rasm_bpy.ui._resources.theme import display_color, Metrics
-from rasm_records import Nothing, Ok, Outcome, paired
+from rasm_records import Outcome, paired
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -91,7 +91,7 @@ class _CompareLayout(msgspec.Struct, frozen=True, kw_only=True):
                 outer = (beside.x + inset, Align.START) if compare.swapped else (beside.x + width - inset, Align.END)
                 inner = (frame.x + frame.width - inset, Align.END) if compare.swapped else (frame.x + inset, Align.START)
                 captions = ((names[0], outer[0], high - inset - text, outer[1]), (names[1], inner[0], high - inset - text, inner[1]))
-                return cls(plate=beside, clip=beside, rule=Nothing, captions=captions)
+                return cls(plate=beside, clip=beside, rule=NOTHING, captions=captions)
             case Mode.VERTICAL_WIPE:
                 at = frame.x + compare.split * frame.width
                 clip = msgspec.structs.replace(bounds, x=at, width=max(right - at, 0.0)) if compare.swapped else msgspec.structs.replace(bounds, width=max(at - bounds.x, 0.0))
@@ -103,7 +103,7 @@ class _CompareLayout(msgspec.Struct, frozen=True, kw_only=True):
                 captions = ((first, left + inset, at + inset, Align.START), (last, left + inset, at - inset - text, Align.START))
                 return cls(plate=plate, clip=clip, rule=Some(Rect(x=left, y=at, width=min(frame.x + frame.width, right) - left, height=0.0)), captions=captions)
             case Mode.OFF:
-                return cls(plate=plate, clip=bounds, rule=Nothing, captions=())
+                return cls(plate=plate, clip=bounds, rule=NOTHING, captions=())
 
 
 class _CompareOverlay(msgspec.Struct, frozen=True, kw_only=True):
@@ -294,7 +294,7 @@ class CompareView(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             )
 
         refreshes = self.refreshes(identity)
-        return paired(self.state.bound(identity), refreshes if isinstance(refreshes, Result) else Ok(refreshes)).map(lambda found: rows(*found))
+        return paired(self.state.bound(identity), refreshes if isinstance(refreshes, Ok | Error) else Ok(refreshes)).map(lambda found: rows(*found))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

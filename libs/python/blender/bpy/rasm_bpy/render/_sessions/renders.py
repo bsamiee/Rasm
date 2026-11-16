@@ -8,7 +8,7 @@ from functools import cached_property, partial
 from typing import Annotated, ClassVar, Final, TYPE_CHECKING, TypeGuard
 
 import bpy
-from expression import Option, Some
+from expression import Error, NOTHING, Ok, Option, option, Some
 from expression.extra.result import catch
 import msgspec
 
@@ -35,7 +35,7 @@ from rasm_bpy.ui._elements.panels import Preference
 from rasm_bpy.ui._layout.rows import Layout, Opens, OperatorButton
 from rasm_bpy.ui._layout.sections import Section
 from rasm_bpy.ui._layout.values import Captured, menu_key, Store
-from rasm_records import accumulated, content_hash, Error, Fault, Nothing, Ok, Outcome, paired, Reason, Retention
+from rasm_records import accumulated, content_hash, Fault, Outcome, paired, Reason, Retention
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -71,9 +71,9 @@ class RenderCall(msgspec.Struct, frozen=True, kw_only=True):
 
     animation: bool = False
     write_still: bool = False
-    layer: Option[str] = Nothing
-    frame_start: Option[int] = Nothing
-    frame_end: Option[int] = Nothing
+    layer: Option[str] = NOTHING
+    frame_start: Option[int] = NOTHING
+    frame_end: Option[int] = NOTHING
 
 
 class Launch(bpy.types.PropertyGroup):
@@ -84,7 +84,7 @@ class Launch(bpy.types.PropertyGroup):
     slot: Annotated[str, bpy.props.EnumProperty(name="Slot", items=enum_choices(TargetSlot))]
     use_layer: Annotated[bool, bpy.props.BoolProperty(name="View Layer", description="Render one view layer alone")]
     layer: Annotated[
-        str, bpy.props.StringProperty(name="Layer", search=lambda _owner, context, _edit: tuple(layer.name for scene in Option.of_optional(context.scene).to_list() for layer in scene.view_layers))
+        str, bpy.props.StringProperty(name="Layer", search=lambda _owner, context, _edit: tuple(layer.name for scene in option.of_optional(context.scene).to_list() for layer in scene.view_layers))
     ]
 
 
@@ -140,15 +140,15 @@ def _rendering(scene: bpy.types.Scene, layer: Option[bpy.types.ViewLayer]) -> Ge
         settings.use_lock_interface = locked
 
 
-def native(identity: Identity, scene: bpy.types.Scene, call: RenderCall, *, files: Option[Receipt] = Nothing) -> Outcome[frozenset["rna_enums.OperatorReturnItems"]]:
+def native(identity: Identity, scene: bpy.types.Scene, call: RenderCall, *, files: Option[Receipt] = NOTHING) -> Outcome[frozenset["rna_enums.OperatorReturnItems"]]:
     """Renders under the native lock with explicit receipts or paths of the native write mode."""
-    receipts = files.or_else(Some(animation_files) if call.animation else Some(still_files) if call.write_still else Nothing)
+    receipts = files.or_else(Some(animation_files) if call.animation else Some(still_files) if call.write_still else NOTHING)
 
     def rendered(layer: Option[bpy.types.ViewLayer]) -> Outcome[frozenset["rna_enums.OperatorReturnItems"]]:
         with _rendering(scene, layer), RENDER_ORIGINS[identity].requested(scene, call.layer, receipts, animation=call.animation):
             return called(bpy.ops.render.render, msgspec.structs.asdict(call))
 
-    return call.layer.map(lambda name: layer_of(scene, name).map(Some)).default_value(Ok(Nothing)).bind(rendered)
+    return call.layer.map(lambda name: layer_of(scene, name).map(Some)).default_value(Ok(NOTHING)).bind(rendered)
 
 
 # --- [SLOTS]
@@ -195,16 +195,16 @@ class RenderSlots(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
     def render_slot(self, bound: RenderBinding, call: Call[Launch]) -> Outcome[Done]:
         """Renders into the chosen slot under temporary scene overrides."""
-        return self.launched(bound, call, self.render, Some(call.properties.layer) if call.properties.use_layer else Nothing)
+        return self.launched(bound, call, self.render, Some(call.properties.layer) if call.properties.use_layer else NOTHING)
 
     def render_viewport(self, bound: RenderBinding, call: Call[Launch]) -> Outcome[Done]:
         """Renders the 3D view under temporary scene overrides."""
 
         def viewport(_identity: Identity, scene: bpy.types.Scene, options: RenderCall) -> Outcome[frozenset["rna_enums.OperatorReturnItems"]]:
-            with _rendering(scene, Nothing):
+            with _rendering(scene, NOTHING):
                 return called(bpy.ops.render.opengl, msgspec.structs.asdict(options) | {"view_context": True})
 
-        return self.launched(bound, call, viewport, Nothing)
+        return self.launched(bound, call, viewport, NOTHING)
 
     def launched(self, bound: RenderBinding, call: Call[Launch], render: Render, chosen: Option[str]) -> Outcome[Done]:
         """Renders into chosen slot under temporary overrides, their prior values recorded first, restoring them once the render ends, refusing a scene holding the overrides of an unfinished render."""
@@ -252,7 +252,7 @@ class RenderSlots(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                     rollback.callback(written, slots, ("active_index",), slots.active_index)
                     match TargetSlot[record.slot]:
                         case TargetSlot.DISPLAYED:
-                            return Option.of_optional(slots.active).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(image), member="render_slots.active")).bind(renamed)
+                            return option.of_optional(slots.active).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(image), member="render_slots.active")).bind(renamed)
                         case TargetSlot.NEW:
                             return catch(slots.new, exception=RuntimeError)(name=title).map_error(partial(Fault.of, Refusal.REFUSED, f"{image!r}.render_slots.new")).bind(partial(added, image))
 

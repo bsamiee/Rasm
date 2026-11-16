@@ -8,7 +8,7 @@ from types import MappingProxyType
 from typing import ClassVar, Final, Literal, Self, TYPE_CHECKING
 
 import bpy
-from expression import Option, Result, Some
+from expression import Error, NOTHING, Ok, Option, option, Some
 from expression.extra.result import catch
 import msgspec
 import numpy as np
@@ -22,7 +22,7 @@ from rasm_bpy.data._rna.paths import Native, struct_at
 from rasm_bpy.render._outputs.framing import Framing, RenderRegion
 from rasm_bpy.render._outputs.results import COMBINED
 from rasm_imaging import Layer, Multilayer
-from rasm_records import accumulated, Error, Fault, Nothing, Ok, Outcome, Reason
+from rasm_records import accumulated, Fault, Outcome, Reason
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -84,7 +84,7 @@ class Tile(msgspec.Struct, frozen=True, kw_only=True, eq=False):
                 held.setdefault(owner, {}).setdefault(view, []).append((declared, values))
             return {owner: tuple(cls(x=0, y=0, planes=(found[0], *found[1:]), view=view, stamps=stamps) for view, found in views.items()) for owner, views in held.items()}
 
-        return accumulated(plane(owner, layer) for layer in file.layers for owner in Option.of_optional(next((name for name in names if layer.name.startswith(f"{name}.")), None)).to_list()).map(
+        return accumulated(plane(owner, layer) for layer in file.layers for owner in option.of_optional(next((name for name in names if layer.name.startswith(f"{name}.")), None)).to_list()).map(
             grouped
         )
 
@@ -99,10 +99,10 @@ class Engine(msgspec.Struct, frozen=True, kw_only=True):
     render: Callable[[bpy.types.Scene, bpy.types.ViewLayer], Iterable[Outcome[Tile]]]
     flags: Mapping[bpy.types.BoolProperty, bool] = MappingProxyType({})
     passes: tuple[_EnginePass, ...] = ()
-    pass_builder: Option[Callable[[bpy.types.Scene, bpy.types.ViewLayer], tuple[_EnginePass, ...]]] = Nothing
-    view_update: Option[Callable[[bpy.types.RenderEngine, bpy.types.Context, bpy.types.Depsgraph], Outcome[None]]] = Nothing
-    view_draw: Option[Callable[[bpy.types.RenderEngine, bpy.types.Context, bpy.types.Depsgraph], Outcome[None]]] = Nothing
-    bake: Option[Callable[[bpy.types.RenderEngine, bpy.types.Depsgraph, bpy.types.Object, "rna_enums.BakePassTypeItems", int, int, int], Outcome[None]]] = Nothing
+    pass_builder: Option[Callable[[bpy.types.Scene, bpy.types.ViewLayer], tuple[_EnginePass, ...]]] = NOTHING
+    view_update: Option[Callable[[bpy.types.RenderEngine, bpy.types.Context, bpy.types.Depsgraph], Outcome[None]]] = NOTHING
+    view_draw: Option[Callable[[bpy.types.RenderEngine, bpy.types.Context, bpy.types.Depsgraph], Outcome[None]]] = NOTHING
+    bake: Option[Callable[[bpy.types.RenderEngine, bpy.types.Depsgraph, bpy.types.Object, "rna_enums.BakePassTypeItems", int, int, int], Outcome[None]]] = NOTHING
     compat_engines: frozenset[str] = frozenset()
 
     # --- [CALLBACKS]
@@ -200,9 +200,9 @@ def _written(engine: bpy.types.RenderEngine, layer: str, tiles: Iterable[Outcome
         return absent
     for answer in takewhile(lambda _: not engine.test_break(), tiles):
         match answer:
-            case Result(tag="error", error=faults):
+            case Error(faults):
                 return faults
-            case Result(ok=tile):
+            case Ok(tile):
                 height, width = tile.planes[0][1].shape[:2]
                 if (result := engine.begin_result(tile.x, tile.y, width, height, layer=layer, view=tile.view)) is None:
                     return absent
@@ -221,8 +221,8 @@ def _written(engine: bpy.types.RenderEngine, layer: str, tiles: Iterable[Outcome
                     area += result.resolution_x * result.resolution_y
                 finally:
                     engine.end_result(result, cancel=engine.test_break())
-                if failed := filled.swap().default_value(()):
-                    return failed
+                if isinstance(filled, Error):
+                    return filled.error
                 engine.update_progress(area / (engine.resolution_x * engine.resolution_y))
     return ()
 
@@ -245,14 +245,14 @@ def samples(scene: bpy.types.Scene, layer: bpy.types.ViewLayer) -> Option[int]:
             case _, int(count):
                 return Some(count)
             case _:
-                return Nothing
+                return NOTHING
 
     return (
         Some(layer.samples)
         .filter(lambda count: count > 0)
         .or_else_with(
             lambda: (
-                Option
+                option
                 .of_optional(ENGINE_SAMPLES.get(scene.render.engine))
                 .bind(lambda paths: Descriptor.resolve(bpy.types.Scene, paths[0], bpy.types.Property).to_option())
                 .bind(lambda descriptor: struct_at(scene, descriptor.owner).bind(lambda owner: counted(descriptor, owner)))

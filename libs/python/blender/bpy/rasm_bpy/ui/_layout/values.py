@@ -10,7 +10,7 @@ from typing import Annotated, Final, Generic, TYPE_CHECKING, TypeVar
 
 from bl_operators.presets import AddPresetBase
 import bpy
-from expression import Option, Some, try_downcast
+from expression import Error, NOTHING, Ok, Option, option, Some, try_downcast
 import msgspec
 
 from rasm_bpy.commands import invocations, operators
@@ -27,7 +27,7 @@ from rasm_bpy.settings._attachments import Attached, Attachment, Host
 from rasm_bpy.settings._presets import Preset, PRESET_PATH
 from rasm_bpy.ui._layout.members import Member
 from rasm_bpy.ui._layout.rows import ConditionalRow, Keywords, operator_button, OperatorButton, realized, RowContent, RowDraw
-from rasm_records import accumulated, Error, Fault, Nothing, Ok, Outcome, paired, Reason, removed, Retention
+from rasm_records import accumulated, Fault, Outcome, paired, Reason, removed, Retention
 
 if TYPE_CHECKING:
     from bpy.stub_internal.rna_enums import IconItems, OperatorTypeFlagItems
@@ -65,8 +65,8 @@ class StoreCommand(Enum):
         stem: Key,
         form: type[T],
         run: Callable[[operators.Call[T]], Outcome[operators.Answer]],
-        invoke: Option[operators.Invoke[T]] = Nothing,
-        seed: Option[Callable[[T, bpy.types.Event, Identity], Mapping[str, Value]]] = Nothing,
+        invoke: Option[operators.Invoke[T]] = NOTHING,
+        seed: Option[Callable[[T, bpy.types.Event, Identity], Mapping[str, Value]]] = NOTHING,
     ) -> operators.Operator[T]:
         """Builds the internal operator over a store or preset stem under the command's undo step."""
         return operators.Operator(icon=Some(self.icon), options=frozenset((*self.options, "INTERNAL")), form=form, run=run, invoke=invoke, seed=seed, named=Some(f"{self.name.lower()}_{stem}"))
@@ -303,10 +303,10 @@ class Store(ConditionalRow, Generic[_T_co], frozen=True, kw_only=True, dict=True
     # --- [STATE]
 
     attachment: Attachment[_T_co]
-    host: Option[Member] = Nothing
-    retention: Option[Callable[[Identity], Outcome[Retention]]] = Nothing
-    presets: Option[Preset[Snapshot]] = Nothing
-    scope: Option[Scoped[Host]] = Nothing
+    host: Option[Member] = NOTHING
+    retention: Option[Callable[[Identity], Outcome[Retention]]] = NOTHING
+    presets: Option[Preset[Snapshot]] = NOTHING
+    scope: Option[Scoped[Host]] = NOTHING
     fields: Mapping[str, Replacement] = MappingProxyType({})
 
     @property
@@ -368,7 +368,7 @@ class Store(ConditionalRow, Generic[_T_co], frozen=True, kw_only=True, dict=True
             for identifier in held:
                 group.property_unset(identifier)
                 group.path_resolve(identifier, False).update()  # ruff: ignore[boolean-positional-value-in-call]
-            return Ok(Some(operators.Done()) if held else Nothing)
+            return Ok(Some(operators.Done()) if held else NOTHING)
 
         return self._recorded(call.identity, call.context, reset)
 
@@ -436,7 +436,7 @@ class Store(ConditionalRow, Generic[_T_co], frozen=True, kw_only=True, dict=True
             realized(buttons, identity)
             for buttons in (tuple(OperatorButton(target=commands[command]) for command in (StoreCommand.COPY, StoreCommand.PASTE)), _steps(commands[StoreCommand.RESTORE], 1))
         )
-        listing = self.listing(identity).bind(lambda found: found.map(lambda held: realized((held,), identity).map(Some)).default_value(Ok(Nothing)))
+        listing = self.listing(identity).bind(lambda found: found.map(lambda held: realized((held,), identity).map(Some)).default_value(Ok(NOTHING)))
         return paired(self.attachment.bound(identity), listing, lines).map(lambda parts: partial(self.shown, identity, *parts))
 
     def shown(
@@ -453,7 +453,7 @@ class Store(ConditionalRow, Generic[_T_co], frozen=True, kw_only=True, dict=True
         commands, found = self.commands, _hosted(attached, context)
         for draw in listing.to_list():
             draw(layout, holder, context)
-        for host, lock in ((host, lock) for host in found.to_option().to_list() for lock in Option.of_optional(commands.get(StoreCommand.LOCK)).to_list()):
+        for host, lock in ((host, lock) for host in found.to_option().to_list() for lock in option.of_optional(commands.get(StoreCommand.LOCK)).to_list()):
             kept, group, declared = attached.locks(host), attached.struct(host), annotated(attached.form)
             locks = identity.reports.settled(kept).default_value(frozenset())
             for prop in (prop for prop in rna_definition(group).properties if prop.identifier in declared):
@@ -517,14 +517,14 @@ def _asked(template: str, _context: bpy.types.Context, properties: _Named, /) ->
 def _claimed[T: msgspec.Struct](preset: Preset[T], identity: Identity, name: str) -> Option[tuple[str, T | Path]]:
     """Returns the listed preset whose file name the name takes, compared case-folded."""
     normalized = Preset.stem_of(name).casefold()
-    return Option.of_optional(next((pair for pair in preset.listed(identity).items() if pair[0].casefold() == normalized), None))
+    return option.of_optional(next((pair for pair in preset.listed(identity).items() if pair[0].casefold() == normalized), None))
 
 
 def _user[T: msgspec.Struct](preset: Preset[T], identity: Identity, stem: str) -> Outcome[Path]:
     """Returns the user file of a stem, absent fault for a stock preset."""
     return preset.found(identity, stem).bind(
         lambda stored: (
-            Option.of_optional(try_downcast(Path, stored)).filter(partial(preset.owned, identity)).to_result_with(partial(Fault.of, Reason.ABSENT, str(preset.folder(identity)), member=stem))
+            option.of_optional(try_downcast(Path, stored)).filter(partial(preset.owned, identity)).to_result_with(partial(Fault.of, Reason.ABSENT, str(preset.folder(identity)), member=stem))
         )
     )
 
@@ -534,7 +534,7 @@ def _user[T: msgspec.Struct](preset: Preset[T], identity: Identity, stem: str) -
 
 def _hosted(attached: Attached[bpy.types.PropertyGroup], context: bpy.types.Context) -> Outcome[Host]:
     """Returns the host of the attachment's owner type a layout's context pointer names, absent fault when unset."""
-    return Option.of_optional(try_downcast(attached.owner, getattr(context, attached.name, None))).to_result_with(partial(Fault.of, Reason.ABSENT, "bpy.context", member=attached.name))
+    return option.of_optional(try_downcast(attached.owner, getattr(context, attached.name, None))).to_result_with(partial(Fault.of, Reason.ABSENT, "bpy.context", member=attached.name))
 
 
 def _concluded[V](change: Option[V]) -> operators.Answer:

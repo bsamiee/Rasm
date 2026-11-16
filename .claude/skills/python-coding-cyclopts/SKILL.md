@@ -252,7 +252,7 @@ from pathlib import Path
 import sys
 
 from cyclopts import App, Parameter, config
-lazy from expression import Result
+lazy from expression import Error, Ok
 lazy import msgspec
 
 lazy from hosts.faults import EXITS, Outcome
@@ -262,12 +262,12 @@ def exited(result: Outcome[object] | None, /) -> int:
     match result:
         case None:
             return 0
-        case Result(tag="ok", ok=int(status)):
+        case Ok(int(status)):
             return status
-        case Result(tag="ok", ok=value):
+        case Ok(value):
             sys.stdout.buffer.write(msgspec.json.encode(value, enc_hook=str) + b"\n")
             return 0
-        case Result(error=faults):
+        case Error(faults):
             sys.stderr.writelines(f"{fault.message}\n" for fault in faults)
             return EXITS[faults[0].reason]
 

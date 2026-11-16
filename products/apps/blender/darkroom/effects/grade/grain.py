@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Final, override
 
 import bpy
-from expression import Option, Some
+from expression import NOTHING, Ok, Option, option, Some
 import numpy as np
 import numpy.typing as npt
 import PyOpenColorIO
@@ -14,7 +14,7 @@ from rasm_bpy.data import normalized, Ownership, Saved, Tag
 from rasm_bpy.nodes import equal, Expr, EXPRESSIONS, Generated, Interface, InterfacePanel, MapRange, math, MenuItem, mixed, Socket, vector, where, WhiteNoise, xyz
 from rasm_bpy.render import CLOCK, Clock, clocked, CompositorEffect, CompositorRecord, FilePath, GraphInputs, luminance, Mix, origin, PixelGrid, precise, SEED, space_item, tiled, timing
 from rasm_imaging import gaussian, GRAY, read_file, rng, stream, tiles
-from rasm_records import content_hash, ContentHash, Nothing, Ok, Outcome, paired
+from rasm_records import content_hash, ContentHash, Outcome, paired
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -106,7 +106,7 @@ class Grain(CompositorRecord, frozen=True, kw_only=True):
                     )
                 )
 
-            scan: Outcome[Option[Expr]] = Option.of_optional(self.scan).map(lambda path: scanned(path).map(Some)).default_value(Ok(Nothing))
+            scan: Outcome[Option[Expr]] = option.of_optional(self.scan).map(lambda path: scanned(path).map(Some)).default_value(Ok(NOTHING))
             return scan.map(
                 lambda held: shell.menu(field, cases={_PROCEDURAL: developed(procedural, _SIDE, shell.input(size) * (_SIDE / 2.0), correlation), _SCAN: held.default_value((1.0, 1.0, 1.0))}).keyed(
                     "field"

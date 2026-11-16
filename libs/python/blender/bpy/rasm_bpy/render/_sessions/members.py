@@ -7,7 +7,7 @@ from itertools import chain
 from typing import Annotated, Final
 
 import bpy
-from expression import Option, Some
+from expression import Error, NOTHING, Ok, Option, option, Some
 from expression.extra.result import catch
 import msgspec
 
@@ -23,7 +23,7 @@ from rasm_bpy.data._rna.snapshots import Applied, assigned, Snapshot, SNAPSHOT_D
 from rasm_bpy.render._view_layers.passes import layer_of, used
 from rasm_bpy.settings._attachments import Attached, Recovery
 from rasm_bpy.settings._presets import Preset
-from rasm_records import accumulated, Error, Fault, Nothing, Ok, Outcome, Reason, Reparametrized, transfer
+from rasm_records import accumulated, Fault, Outcome, Reason, Reparametrized, transfer
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -149,7 +149,7 @@ class Members(msgspec.Struct, frozen=True, kw_only=True):
         def dispatched(form: Form) -> Outcome[tuple[tuple[bpy.types.Scene, Option[bpy.types.ViewLayer]], ...]]:
             match form:
                 case Form.COPIES:
-                    return self.copies(context).map(lambda scenes: tuple((scene, Nothing) for scene in scenes if self.scenes.struct(scene).rendered))
+                    return self.copies(context).map(lambda scenes: tuple((scene, NOTHING) for scene in scenes if self.scenes.struct(scene).rendered))
                 case Form.LAYERS:
                     return self.source(context).map(lambda scene: tuple((scene, Some(layer)) for layer in used(scene)))
 
@@ -190,7 +190,7 @@ class MemberScope(msgspec.Struct, frozen=True, kw_only=True):
             .form(context)
             .bind(
                 lambda form: (self.members.copies(context) if form is Form.COPIES else self.members.source(context).map(lambda scene: (scene,))).map(
-                    lambda scenes: self.members.unlocked(scenes) if self.unlocked and (form is Form.COPIES or self.owner_type is bpy.types.Scene) else scenes
+                    lambda scenes: self.members.unlocked(scenes) if self.unlocked and (self.owner_type is bpy.types.Scene or form is Form.COPIES) else scenes
                 )
             )
             .map(
@@ -227,7 +227,7 @@ def removed(owner: bpy.types.Scene | tuple[bpy.types.Scene, bpy.types.ViewLayer]
 
 def added(members: Members, source: bpy.types.Scene, name: str) -> Outcome[bpy.types.Scene]:
     """Copies source as retained member under name, the host suffixing a taken name."""
-    return OWNERSHIP.made(members.identity, lambda: Option.of_optional(source.copy()).to_result_with(partial(Fault.of, Reason.FAILED, f"{source!r}.copy")), of=Some(source)).bind(
+    return OWNERSHIP.made(members.identity, lambda: option.of_optional(source.copy()).to_result_with(partial(Fault.of, Reason.FAILED, f"{source!r}.copy")), of=Some(source)).bind(
         lambda scene: assigned(scene, {("name",): name}).map(lambda _: scene)
     )
 
@@ -266,7 +266,7 @@ def propagated(members: Members, edited: Owner) -> Outcome[Option[str]]:
             Snapshot.capture(edited, Some(selected)).bind(lambda source: accumulated((applied := source.apply(other)).outcome.map(lambda _: applied) for other in others if other != edited))
             for category, selected in members.categories.items()
             if isinstance(edited, category.root)
-        ).map(lambda outcomes: Some("Edit Across Render Sets") if any(applied.written for group in outcomes for applied in group) else Nothing)
+        ).map(lambda outcomes: Some("Edit Across Render Sets") if any(applied.written for group in outcomes for applied in group) else NOTHING)
 
     return MemberScope(members=members, owner_type=bpy.types.Scene if isinstance(edited, bpy.types.Scene) else bpy.types.ViewLayer, unlocked=True).owners(bpy.context).bind(wrote)
 
@@ -311,9 +311,7 @@ def render_set_sync(category: Category, members: Members, call: Call[Empty]) -> 
     def wrote(targets: tuple[Owner, ...]) -> Outcome[Answer]:
         return transfers(members, category, context, targets).bind(
             lambda rows: (
-                _written(members, category, context, targets).bind(
-                    lambda applied: answered(Applied.join(applied), reason, (("INFO", f"Synced {sum(len(each.written) for each in applied)} {category.title} settings"),))
-                )
+                _written(members, category, context, targets).map(Applied.join).bind(lambda joined: answered(joined, reason, (("INFO", f"Synced {len(joined.written)} {category.title} settings"),)))
                 if any(edits for _, _, edits in rows)
                 else Ok(Unchanged(reason=reason))
             )

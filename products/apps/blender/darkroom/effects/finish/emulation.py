@@ -8,7 +8,7 @@ from typing import Annotated, Final, override
 
 import bpy
 from colour.models import WEIGHTS_YCBCR
-from expression import Option, Result, Some
+from expression import Ok, Option, Some
 import msgspec
 import numpy as np
 import numpy.typing as npt
@@ -42,7 +42,7 @@ from rasm_bpy.render import (
     ycc,
 )
 from rasm_imaging import buffers, Depth, Elementwise, gaussian, images, located, Namespace, pixels, stream, unassociated
-from rasm_records import accumulated, Count, Faults, Ok, Outcome, paired
+from rasm_records import accumulated, Count, Outcome, paired
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -129,10 +129,9 @@ class Compression(msgspec.Struct, frozen=True, kw_only=True):
         coded = Some(self.coded_width).filter(bool).map(partial(buffers.rescaled, spec))
 
         def cycled(image: OpenImageIO.ImageBuf) -> Outcome[OpenImageIO.ImageBuf]:
-            rgb: Outcome[npt.NDArray[np.uint8]] = pixels(image, Depth.UINT8)
             return (
-                Result[npt.NDArray[np.uint8], Faults]
-                .bind(rgb, lambda codes: images.generations(np.ascontiguousarray(codes), quality=self.quality, subsampling=self.subsampling, count=self.generations))
+                pixels(image, Depth.UINT8)
+                .bind(lambda codes: images.generations(np.ascontiguousarray(codes), quality=self.quality, subsampling=self.subsampling, count=self.generations))
                 .bind(lambda values: located(values, image))
             )
 

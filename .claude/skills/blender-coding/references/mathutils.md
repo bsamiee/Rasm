@@ -43,7 +43,7 @@ Spatial questions take the member that answers them:
 - `KDTree(<size>)` fixes its capacity, an insert past it and a `find` before `balance()` raising `RuntimeError`, and `insert` takes a 3D numpy row
 - `KDTree.find(co, filter=<index predicate>)` returns the nearest point whose index passes, one balanced tree serving every subset
 - Misses return `None` (`geometry.intersect_*`) or a `None` tuple (`ray_cast`, `find_nearest` in range, `find` on an empty tree)
-- Misses read through `Option.of_optional` or a `case (Vector() as location, Vector() as normal, int() as face, float() as distance):` arm
+- Misses read through `option.of_optional` or a `case (Vector() as location, Vector() as normal, int() as face, float() as distance):` arm
 - `BVHTree.FromObject(obj, depsgraph)` builds from the evaluated mesh in object space and raises `ValueError` on an object without a mesh
 - `mathutils.noise` shares no basis with the Noise Texture node
 - Values matching Noise Texture come from the node itself, evaluated in a geometry node tree and read back as an attribute

@@ -29,7 +29,7 @@ def paired(*results: Outcome[object]) -> Outcome[tuple[object, ...]]:
 ```python
 def priced(prices: Mapping[str, Decimal], lines: Iterable[Line], /) -> Outcome[Decimal]:
     return accumulated(
-        Option.of_optional(prices.get(line.sku)).map(lambda price: price * line.count).to_result_with(partial(Fault.of, Reason.ABSENT, "catalog", member=line.sku)) for line in lines
+        option.of_optional(prices.get(line.sku)).map(lambda price: price * line.count).to_result_with(partial(Fault.of, Reason.ABSENT, "catalog", member=line.sku)) for line in lines
     ).map(lambda costs: sum(costs, start=Decimal()))
 ```
 
@@ -51,7 +51,7 @@ def recovered[T](kind: type[Exception], fallback: T, faults: Faults, /) -> Outco
 
 
 def ended[T](work: Outcome[T], mark: Callable[[], Outcome[None]], /) -> Outcome[T]:
-    return work.or_else_with(lambda faults: Error((*faults, *mark().swap().default_value(()))))
+    return work.or_else_with(lambda faults: Error(mark().map_error(lambda marked: (*faults, *marked)).swap().default_value(faults)))
 ```
 
 `content(path).or_else_with(partial(recovered, FileNotFoundError, b""))` reads a missing file as empty. A directory, a denied read, or a missing file beside a second fault keeps its faults. `ended` skips the marking step on success and returns the work faults followed by the marking fault.
@@ -63,8 +63,8 @@ Options combine where every part must be present. `collected` reads each part's 
 ```python
 def collected[T](options: Iterable[Option[T]], /) -> Option[tuple[T, ...]]:
     held = tuple(options)
-    values = tuple(*option.to_list() for option in held)
-    return Some(values) if len(values) == len(held) else Nothing
+    values = tuple(*part.to_list() for part in held)
+    return Some(values) if len(values) == len(held) else NOTHING
 ```
 
 `collected` returns `Some(())` for no parts, and `found.map(Ok).default_with(partial(fetched, key))` runs a costly fallible load only on a miss.
@@ -79,9 +79,9 @@ STATUS: frozendict[StrEnum, HTTPStatus] = frozendict({Reason.ABSENT: HTTPStatus.
 
 def responded(outcome: Outcome[object], /) -> tuple[HTTPStatus, bytes]:
     match outcome:
-        case Result(tag="ok", ok=value):
+        case Ok(value):
             return HTTPStatus.OK, msgspec.json.encode(value)
-        case Result(error=faults):
+        case Error(faults):
             return max(STATUS.get(fault.reason, HTTPStatus.INTERNAL_SERVER_ERROR) for fault in faults), msgspec.json.encode([fault.message for fault in faults])
 ```
 

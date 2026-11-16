@@ -7,7 +7,7 @@ from types import MappingProxyType
 from typing import Final, overload, TYPE_CHECKING
 
 import bpy
-from expression import Option, Result, Some, try_downcast
+from expression import Error, NOTHING, Ok, Option, option, Some
 from expression.collections import Block
 from expression.extra.result import catch
 
@@ -15,7 +15,7 @@ from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._ids.store import embedded_tree
 from rasm_bpy.data._rna.descriptors import written
 from rasm_bpy.data._rna.paths import id_data, rna_definition, struct_at
-from rasm_records import Error, Fault, Faults, Nothing, Ok, Outcome, reached, Reason, typed
+from rasm_records import Fault, Outcome, reached, Reason, typed
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -101,7 +101,7 @@ def base_socket(kind: type[bpy.types.NodeSocket]) -> type[bpy.types.NodeSocket]:
 def native(tree: type[bpy.types.NodeTree], kind: type[bpy.types.Node]) -> Outcome[type[bpy.types.Node]]:
     """Returns the class a `tree` tree builds for a shader-tree node class (its own group node, color nodes), refusal fault for an unsupported tree."""
     return (
-        Option
+        option
         .of_optional(_NATIVE.get(tree))
         .map(lambda table: table.get(kind, kind))
         .to_result_with(lambda: Fault.of(Reason.OUTSIDE, "tree", tree.__name__, member=", ".join(each.__name__ for each in _NATIVE)))
@@ -140,7 +140,7 @@ def ordered_items(live: Iterable[str], desired: Iterable[str], moved: Callable[[
 
 def links_of(socket: bpy.types.NodeSocket) -> tuple[bpy.types.NodeLink, ...]:
     """Returns the links of one socket, an input's links top first, each read one scan of the tree's links."""
-    return tuple(Option.of_optional(socket.links).default_value(()))
+    return tuple(option.of_optional(socket.links).default_value(()))
 
 
 def interface_of(tree: bpy.types.NodeTree, /) -> bpy.types.NodeTreeInterface:
@@ -195,7 +195,7 @@ def socket_at(sockets: bpy.types.NodeInputs | bpy.types.NodeOutputs, identifier:
             found = Block.of_seq(sockets).filter(lambda socket: socket.enabled).skip(position).try_head()
         case str():
             address = aliases.get(identifier, identifier)
-            found = Option.of_optional(next((socket for socket in sockets if socket.identifier == address), None))
+            found = option.of_optional(next((socket for socket in sockets if socket.identifier == address), None))
     return found.to_result_with(lambda: Fault.of(Reason.ABSENT, repr(sockets), member=str(identifier)))
 
 
@@ -222,7 +222,7 @@ def created[N: bpy.types.Node](tree: bpy.types.NodeTree, kind: type[N]) -> Outco
 def group_set(node: bpy.types.Node, group: bpy.types.NodeTree) -> Outcome[None]:
     """Points group node at group, `refused` fault for group containing node's tree."""
     match id_data(bpy.types.NodeTree, node).filter(group.contains_tree):
-        case Option(tag="some", some=host):
+        case Some(host):
             return Error(Fault.of(Refusal.REFUSED, f"{node!r}.node_tree", ValueError(f"{group.name} contains {host.name}")))
         case _:
             return written(node, ("node_tree",), group).map(lambda _: None)
@@ -273,9 +273,7 @@ def ordered(socket: bpy.types.NodeSocket, desired: tuple[bpy.types.NodeLink, ...
             positions[held], positions[wanted] = position, index
             swaps.append((held, wanted))
     return reduce(
-        lambda done, pair: done.bind(lambda _: catch(pair[0].swap_multi_input_sort_id, exception=RuntimeError)(pair[1]).map_error(partial(Fault.of, Refusal.REFUSED, repr(pair[0])))),
-        swaps,
-        Result[None, Faults](ok=None),
+        lambda done, pair: done.bind(lambda _: catch(pair[0].swap_multi_input_sort_id, exception=RuntimeError)(pair[1]).map_error(partial(Fault.of, Refusal.REFUSED, repr(pair[0])))), swaps, Ok(None)
     )
 
 
@@ -293,12 +291,12 @@ def endpoints(link: bpy.types.NodeLink, /) -> tuple[bpy.types.Node, bpy.types.No
 
 def group_tree(node: bpy.types.Node, /) -> Option[bpy.types.NodeTree]:
     """Returns the tree a group node points at, Nothing for any other node or an empty group node."""
-    return struct_at(node, ("node_tree",), bpy.types.NodeTree) if isinstance(node, _GROUP_NODES) else Nothing
+    return struct_at(node, ("node_tree",), bpy.types.NodeTree) if isinstance(node, _GROUP_NODES) else NOTHING
 
 
 def active_output(tree: bpy.types.NodeTree) -> Outcome[bpy.types.NodeGroupOutput]:
     """Returns active Group Output node."""
-    return Option.of_optional(next((node for node in tree.nodes if isinstance(node, bpy.types.NodeGroupOutput) and node.is_active_output), None)).to_result_with(
+    return option.of_optional(next((node for node in tree.nodes if isinstance(node, bpy.types.NodeGroupOutput) and node.is_active_output), None)).to_result_with(
         partial(Fault.of, Reason.ABSENT, repr(tree.nodes), member=bpy.types.NodeGroupOutput.__name__)
     )
 
@@ -310,12 +308,7 @@ def nested[T: bpy.types.NodeTree](roots: Iterable[T], *, muted: bool = True) -> 
         roots: Trees to walk from.
         muted: Whether muted group nodes lead into their groups.
     """
-    return tuple(
-        reached(
-            tuple(roots),
-            lambda tree: tuple(child for node in tree.nodes if muted or not node.mute for child in group_tree(node).bind(lambda held: Option.of_optional(try_downcast(type(tree), held))).to_list()),
-        )
-    )
+    return tuple(reached(tuple(roots), lambda tree: tuple(child for node in tree.nodes if muted or not node.mute for child in group_tree(node).to_list() if isinstance(child, type(tree)))))
 
 
 def feeds(trees: Iterable[bpy.types.NodeTree], /) -> Mapping[bpy.types.NodeSocket, tuple[tuple[bpy.types.Node, bpy.types.NodeSocket], ...]]:

@@ -8,7 +8,7 @@ from typing import Annotated, ClassVar, TYPE_CHECKING
 
 import bpy
 from bpy_extras.io_utils import ExportHelper, ImportHelper
-from expression import Option
+from expression import NOTHING, Ok, Option, option
 from expression.collections import Block
 from expression.extra.result import catch
 import msgspec
@@ -20,7 +20,7 @@ from rasm_bpy.data._extension.reports import Refusal, rendered
 from rasm_bpy.data._rna.descriptors import written
 from rasm_bpy.data._rna.paths import preferred, rna_definition, rooted
 from rasm_bpy.data._rna.properties import annotated
-from rasm_records import Fault, Nothing, Ok, Outcome, Reason
+from rasm_records import Fault, Outcome, Reason
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -64,15 +64,15 @@ class Popup[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True):
 
     asks: ClassVar[bool] = True
     call: partial[set["rna_enums.OperatorReturnItems"]] | partial[None]
-    message: Option[Callable[[bpy.types.Context, T], Outcome[str]]] = Nothing
-    draw: Option[Callable[[bpy.types.UILayout, bpy.types.Context, Identity], None]] = Nothing
+    message: Option[Callable[[bpy.types.Context, T], Outcome[str]]] = NOTHING
+    draw: Option[Callable[[bpy.types.UILayout, bpy.types.Context, Identity], None]] = NOTHING
 
     def classed(self, body: Body[T], base: type[bpy.types.Operator], /) -> Acquisitions:
         """Derives the class invoking the bound host function."""
         names = _parameters(self.call.func)
 
         def painted(popup: bpy.types.UIPopupMenu | bpy.types.UIPieMenu | bpy.types.UIPopover, context: bpy.types.Context) -> None:
-            for layout in Option.of_optional(popup.layout).to_list():
+            for layout in option.of_optional(popup.layout).to_list():
                 for draw in self.draw.to_list():
                     draw(layout, context, body.identity)
 
@@ -121,7 +121,7 @@ class Suppressible[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_o
                     layout.prop(properties, prop.identifier)
 
         def draw(operator: _Suppressing, context: bpy.types.Context) -> None:
-            for layout in Option.of_optional(operator.layout).to_list():
+            for layout in option.of_optional(operator.layout).to_list():
                 layout.use_property_split = True
                 for text in body.identity.reports.settled(self.message(context, body.properties(operator))).to_list():
                     layout.label_multiline(text=text, icon=self.icon)
@@ -193,7 +193,7 @@ class Save[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True
 
     asks: ClassVar[bool] = True
     extensions: Callable[[T], tuple[str, *tuple[str, ...]]]
-    destinations: Option[Callable[[Path, T], tuple[Path, ...]]] = Nothing
+    destinations: Option[Callable[[Path, T], tuple[Path, ...]]] = NOTHING
 
     def classed(self, body: Body[T], base: type[bpy.types.Operator], /) -> Acquisitions:
         """Derives the `ExportHelper` class, confirming replacement of existing destinations before the body runs."""
@@ -259,7 +259,7 @@ def _parameters[**P, R](function: Callable[P, R], /) -> tuple[str, ...]:
         .of_seq(rna_definition(bpy.types.WindowManager).functions)
         .filter(lambda candidate: not candidate.use_self and getattr(bpy.types.WindowManager, candidate.identifier) == function)
         .try_head()
-        .map(lambda found: tuple(parameter.identifier for parameter in found.parameters if parameter.is_required and not parameter.is_output))
+        .map(lambda found: tuple(parameter.identifier for parameter in found.parameters if parameter.is_required if not parameter.is_output))
         .default_with(lambda: tuple(name for name, parameter in inspect.signature(function).parameters.items() if parameter.kind in {parameter.POSITIONAL_ONLY, parameter.POSITIONAL_OR_KEYWORD}))
     )
 

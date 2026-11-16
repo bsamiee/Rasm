@@ -53,11 +53,11 @@ environments                  = [
     "sys_platform == 'darwin' and platform_machine == 'arm64'",
     "sys_platform == 'linux' and platform_machine == 'x86_64'",
     "sys_platform == 'win32' and platform_machine == 'AMD64'",
-]                                                                # Platforms the manifests of the extensions bundling these members list, a package with no source distribution and no wheel for one fails `uv lock`
-minimum-libc-version          = { glibc = "2.28" }               # The extension build selects `x86_64-manylinux_2_28` wheels, a package with no source distribution and no wheel glibc 2.28 loads fails `uv lock`
+]                                                                                 # Platforms the manifests of the extensions bundling these members list, a package with no source distribution and no wheel for one fails `uv lock`
+minimum-libc-version          = { glibc = "2.28" }                                # The extension build selects `x86_64-manylinux_2_28` wheels, a package with no source distribution and no wheel glibc 2.28 loads fails `uv lock`
 prerelease                    = "allow"
 preview-features              = ["lockfile-format-check", "minimum-libc-version"]
-build-constraint-dependencies = ["opencolorio==2.5.0"]           # Builds generating the PyOpenColorIO stubs import the OpenColorIO release Blender bundles
+build-constraint-dependencies = ["opencolorio==2.5.0"]                            # Builds generating the PyOpenColorIO stubs import the OpenColorIO release Blender bundles
 
 [tool.uv.workspace]
 members = ["bpy", "imaging", "opencolorio-stubs", "rendering", "tests/rendering"]
@@ -80,5 +80,5 @@ extend = "../../../pyproject.toml"
 # --- [TY] -------------------------------------------------------------------------------
 
 [tool.ty]
-environment = { python-platform = "all" }                              # ty merges no parent table and takes `requires-python` from the table holder, so each 3.13 root states its own
-rules       = { all = "error", unused-type-ignore-comment = "ignore" } # mypy `unused-ignore` owns unused `type: ignore` comments
+environment = { python-platform = "all" }                                                                                        # ty merges no parent table and takes `requires-python` from the table holder, so each 3.13 root states its own
+rules       = { all = "error", unsound-assignment = "ignore", unsound-return = "ignore", unused-type-ignore-comment = "ignore" } # mypy infers the lambdas ty reads as `Unknown` in an annotated assignment or return, `no-any-return` owns `Any` returned, `unused-ignore` unused `type: ignore` comments

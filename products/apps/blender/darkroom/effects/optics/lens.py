@@ -9,7 +9,7 @@ import sys
 from typing import Annotated, Final, override
 
 import bpy
-from expression import Option, Some, try_downcast
+from expression import Error, Ok, option, Some, try_downcast
 import msgspec
 import numpy as np
 import numpy.typing as npt
@@ -47,7 +47,7 @@ from rasm_bpy.render import (
     with_alpha,
 )
 from rasm_imaging import Aperture, ImageFile, Radial, Raster, StMap, Storage
-from rasm_records import Error, Fault, Ok, Outcome, paired, Reason
+from rasm_records import Fault, Outcome, paired, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -218,8 +218,8 @@ def match_camera_iris(call: Call[Named]) -> Outcome[Answer]:
         return written.map(lambda changed: Done(notes=(("INFO", f"Copied f-stop and iris from {name}"),)) if changed else Unchanged(reason=f"{entry.name} matches {name} f-stop and iris"))
 
     def matched(scene: bpy.types.Scene) -> Outcome[Answer]:
-        camera = Option.of_optional(scene.camera).bind(
-            lambda held: Option.of_optional(try_downcast(bpy.types.Camera, held.data)).bind(lambda data: Option.of_optional(data.dof)).map(lambda dof: (held.name, dof))
+        camera = option.of_optional(scene.camera).bind(
+            lambda held: option.of_optional(try_downcast(bpy.types.Camera, held.data)).bind(lambda data: option.of_optional(data.dof)).map(lambda dof: (held.name, dof))
         )
         return paired(camera.to_result_with(partial(Fault.of, Reason.ABSENT, repr(scene), member="camera")), defocus.named(call.identity, scene, call.properties.name)).bind(
             lambda found: copied(*found)

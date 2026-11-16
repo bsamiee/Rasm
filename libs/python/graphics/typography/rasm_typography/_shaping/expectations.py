@@ -56,7 +56,7 @@ class Expected(msgspec.Struct, frozen=True, kw_only=True, omit_defaults=True):
         Returns:
             Ok(expectations), `INVALID` fault for malformed JSON or a field outside its record.
         """
-        return catch(lambda: msgspec.json.decode(raw, type=cls), exception=msgspec.DecodeError)().map_error(partial(Fault.of, Reason.INVALID, "shaping expectations"))
+        return catch(msgspec.json.Decoder(cls).decode, exception=msgspec.DecodeError)(raw).map_error(partial(Fault.of, Reason.INVALID, "shaping expectations"))
 
     @property
     def encoded(self) -> bytes:

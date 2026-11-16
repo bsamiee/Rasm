@@ -6,7 +6,7 @@ from types import MappingProxyType
 from typing import Generic, TypeVar
 
 import bpy
-from expression import Option, Some
+from expression import Error, Ok, Option, option, Some
 import msgspec
 
 from rasm_bpy.data._extension.identity import Identity, Key
@@ -18,7 +18,7 @@ from rasm_bpy.render._compositor.effects import CompositorEffect, Entry
 from rasm_bpy.render._compositor.entries import Enabled, relocated
 from rasm_bpy.render._compositor.inputs import captured, hold, rebased, regrouped, restored
 from rasm_bpy.render._compositor.offered import OfferedEffects
-from rasm_records import accumulated, Error, Fault, Name, Ok, Outcome, paired
+from rasm_records import accumulated, Fault, Name, Outcome, paired
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -36,7 +36,7 @@ class Valued(msgspec.Struct, Generic[_T_co], frozen=True, kw_only=True):  # ruff
     @property
     def captured(self) -> Option[Snapshot]:
         """Captured input values, absent on a stock preset."""
-        return Option.of_optional(self.values)
+        return option.of_optional(self.values)
 
     def rebased(self, prefix: Key) -> Option[Snapshot]:
         """Returns the captured values at the item keys under `prefix` in place of their own."""
@@ -53,7 +53,7 @@ def recorded(rows: OfferedEffects, identity: Identity, scene: bpy.types.Scene) -
             lambda pair: (held.entry.name, Valued(structure=pair[0], values=pair[1], enables=frozenset(enabled for enabled in Enabled if enabled.descriptor.read(held.entry) is True)))
         )
         for held in rows.owned(identity, scene)
-    ).map(dict)
+    ).map(dict[Name, Valued[Entry]])
 
 
 def applied(
@@ -79,13 +79,13 @@ def applied(
 
             def written_entry(name: Name, value: Valued[Entry], row: CompositorEffect) -> Outcome[tuple[bpy.types.SceneCompositorEffect, CompositorEffect]]:
                 return (
-                    Option
+                    option
                     .of_optional(native.get(name))
                     .map(lambda entry: row.write(identity, scene, entry, value.structure).map(lambda _: entry))
                     .default_with(lambda: row.appended(identity, scene, value.structure, name=Some(name)))
                 ).bind(
                     lambda entry: paired(
-                        value.captured.map(lambda values: restored(identity, entry, values)).default_value(Ok(value=False)),
+                        value.captured.map(lambda values: restored(identity, entry, values)).default_value(Ok(False)),
                         accumulated(enabled.descriptor.write(entry, enabled in value.enables) for enabled in Enabled),
                     ).map(lambda _: (entry, row))
                 )
@@ -103,7 +103,7 @@ def applied(
                 )
 
             with ExitStack() as scope, bpy.context.temp_override(scene=scene):
-                for prior in Option.of_optional(scene.compositor_effects.active).to_list():
+                for prior in option.of_optional(scene.compositor_effects.active).to_list():
                     scope.callback(setattr, prior, "is_active", True)  # ruff: ignore[boolean-positional-value-in-call]
                 return accumulated(written_entry(name, value, row) for (name, value), row in zip(requested.items(), offered)).bind(arranged)
 

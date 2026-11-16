@@ -5,7 +5,7 @@ from functools import partial, wraps
 from typing import TYPE_CHECKING
 
 import bpy
-from expression import Option, Some
+from expression import Error, NOTHING, Option, option, Some
 import msgspec
 
 from rasm_bpy.commands.operators import Answer, Call, Empty, Operator, Placement, PopupKind, PopupTarget
@@ -14,7 +14,7 @@ from rasm_bpy.data._extension.registration import acquired_rows, Acquisitions, C
 from rasm_bpy.data._rna.conditions import Condition, polled
 from rasm_bpy.files._assets import AssetMark
 from rasm_bpy.ui._layout.rows import realized, RowContent, RowDraw
-from rasm_records import Error, Fault, Nothing, Outcome, Reason
+from rasm_records import Fault, Outcome, Reason
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -32,14 +32,14 @@ class Shelf(msgspec.Struct, frozen=True, kw_only=True):
     space: "rna_enums.SpaceTypeItems"
     filters: frozenset[str]
     assets: frozenset[Key] | Callable[[bpy.types.AssetRepresentation], bool]
-    activate: Option[Callable[[Call[Empty], bpy.types.AssetRepresentation], Outcome[Answer]]] = Nothing
+    activate: Option[Callable[[Call[Empty], bpy.types.AssetRepresentation], Outcome[Answer]]] = NOTHING
     drag: bool | Callable[[Call[Empty], bpy.types.AssetRepresentation], Outcome[Answer]] = True
-    active: Option[Callable[[bpy.types.Context], Option[bpy.types.AssetWeakReference]]] = Nothing
+    active: Option[Callable[[bpy.types.Context], Option[bpy.types.AssetWeakReference]]] = NOTHING
     menu: tuple[RowContent, ...] = ()
-    preview: Option[int] = Nothing
+    preview: Option[int] = NOTHING
     visible: bool = False
     catalogs_in_preferences: bool = True
-    condition: Option[Condition] = Nothing
+    condition: Option[Condition] = NOTHING
 
     @property
     def popup(self) -> Placement:
@@ -55,7 +55,7 @@ class Shelf(msgspec.Struct, frozen=True, kw_only=True):
         Returns:
             Acquisitions, the class build keeping menu row faults.
         """
-        dragging = Nothing if isinstance(self.drag, bool) else Some(self.drag)
+        dragging = NOTHING if isinstance(self.drag, bool) else Some(self.drag)
         actions = tuple(
             (member, Operator(form=Empty, options=frozenset({"INTERNAL", "UNDO"}), run=wraps(use)(partial(_acted, use)), named=Some(f"{role}_{self.key}")))
             for role, member, offered in (("activate", "bl_activate_operator", self.activate), ("drag", "bl_drag_operator", dragging))
@@ -105,7 +105,7 @@ class Shelf(msgspec.Struct, frozen=True, kw_only=True):
 
 def _acted(use: Callable[[Call[Empty], bpy.types.AssetRepresentation], Outcome[Answer]], call: Call[Empty]) -> Outcome[Answer]:
     """Runs a shelf action over the context asset, absent fault without one."""
-    return Option.of_optional(call.context.asset).map(lambda asset: use(call, asset)).default_with(lambda: Error(Fault.of(Reason.ABSENT, "bpy.context", member="asset")))
+    return option.of_optional(call.context.asset).map(lambda asset: use(call, asset)).default_with(lambda: Error(Fault.of(Reason.ABSENT, "bpy.context", member="asset")))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

@@ -6,7 +6,7 @@ from math import cos, exp2, floor, pi, sin, tau
 from typing import Annotated, Final, get_args, override
 
 import bpy
-from expression import Option, Result, Some
+from expression import Error, NOTHING, Ok, Option, Some
 import msgspec
 import numpy as np
 import numpy.typing as npt
@@ -17,7 +17,7 @@ from rasm_bpy.data import Identity
 from rasm_bpy.nodes import decoded, fielded, Interface, InterfacePanel, item_key, POSITION, sampled, textures, W
 from rasm_bpy.render import chosen, Clock, CompositorEffect, CompositorRecord, lenses, Mix, origin, precise, Prepared, rate, Shutter, Stage, toggled
 from rasm_imaging import Aperture, Estimate, fringed, located, pixels, Population, Precision, Region, Seed, stream, transmitted, uniforms
-from rasm_records import accumulated, AtLeastOne, Error, Fault, Finite, NonNegative, Nothing, Ok, Outcome, paired, Positive, Reason, Unit
+from rasm_records import accumulated, AtLeastOne, Fault, Finite, NonNegative, Outcome, paired, Positive, Reason, Unit
 
 from . import bases, emission
 from .bases import Basis, drawn, Perlin, TEXTURE, Voronoi
@@ -152,9 +152,9 @@ class Particles(CompositorRecord, frozen=True, kw_only=True):
                 else self.wind.cut.bounds()
             ).map(lambda span: max(abs(2.0 * value - 1.0) for value in span))
         ):
-            case Result(tag="ok", ok=reach):
+            case Ok(reach):
                 channel = np.array(fringed(np.asarray(self.fringe), np))
-            case Result(error=faults):
+            case Error(faults):
                 return Error(faults)
         keys, scales, rest_centers, radii, gains, tones = self.layered(bounds, held, (opening, closing), reach, rate)
         count = len(keys)
@@ -179,7 +179,7 @@ class Particles(CompositorRecord, frozen=True, kw_only=True):
             wind = sampled(
                 identity,
                 {"position": np.column_stack((points, np.zeros(len(points)))), "w": evolved},
-                *(drawn(self.wind, POSITION, W, origin(float(self.seed), float(stream(Particles.wind, axis))), Nothing)[0] for axis in range(2)),
+                *(drawn(self.wind, POSITION, W, origin(float(self.seed), float(stream(Particles.wind, axis))), NOTHING)[0] for axis in range(2)),
             )
             return (
                 wind
@@ -228,9 +228,9 @@ class Particles(CompositorRecord, frozen=True, kw_only=True):
                     occluding = moved(np.concatenate(list(map(np.repeat, nearer, sizes))), np.concatenate([np.tile(held_times, len(near)) for near, held_times in zip(nearer, kept)]))
                     flickering = modulated(np.repeat(active, sizes), np.concatenate(kept))
                     match paired(occluding, flickering):
-                        case Result(tag="ok", ok=(blocked, flicker)):
-                            occluders, twinkles = np.split(blocked, np.cumsum(pairs)[:-1]), np.split(flicker, np.cumsum(sizes)[:-1])
-                        case Result(error=faults):
+                        case Ok(found):
+                            occluders, twinkles = np.split(found[0], np.cumsum(pairs)[:-1]), np.split(found[1], np.cumsum(sizes)[:-1])
+                        case Error(faults):
                             return Error(faults)
                     for slot, index in enumerate(active):
                         selected, arrived, near = inside[index], positions[index][inside[index]], nearer[slot]

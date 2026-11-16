@@ -14,11 +14,11 @@ from pathlib import Path, PurePath
 from statistics import fmean
 from typing import Annotated, Final, Self
 
-from expression import Option, Some
+from expression import NOTHING, Ok, Option, option, Some
 from expression.extra.result import catch
 import msgspec
 
-from rasm_records import Case, content_hash, ContentHash, Count, Fault, Nothing, Ok, Outcome, Reason, RecordFile
+from rasm_records import Case, content_hash, ContentHash, Count, Fault, Outcome, Reason, RecordFile
 from rasm_rendering._outputs import Output
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -83,7 +83,7 @@ class MarkedCamera(Case, frozen=True, kw_only=True):
         """Returns camera of last marker reached, else first marker, else scene camera."""
         by_frame = lambda marker: marker.frame
         marker = max((marker for marker in self.markers if marker.frame <= frame), key=by_frame, default=None) or min(self.markers, key=by_frame, default=None)
-        return Option.of_optional(marker).map(lambda marker: marker.camera).or_else_with(lambda: Option.of_optional(self.camera))
+        return option.of_optional(marker).map(lambda marker: marker.camera).or_else_with(lambda: option.of_optional(self.camera))
 
 
 class FixedCamera(Case, frozen=True, kw_only=True):
@@ -143,13 +143,13 @@ class Job(msgspec.Struct, frozen=True, kw_only=True):
     @property
     def title(self) -> str:
         """Scene, layer when set, and frame range."""
-        return " ".join((self.scene, *Option.of_optional(self.layer).to_list(), f"{self.frames.start}-{self.frames.end}"))
+        return " ".join((self.scene, *option.of_optional(self.layer).to_list(), f"{self.frames.start}-{self.frames.end}"))
 
     @property
     def weight(self) -> int:
         """Rendered pixels times samples, pixels alone for an engine whose sample count no host member states."""
         width, height = self.pixels
-        return width * height * Option.of_optional(self.samples).default_value(1)
+        return width * height * (self.samples if self.samples is not None else 1)
 
 
 class RenderQueue(msgspec.Struct, frozen=True, kw_only=True):
@@ -215,7 +215,8 @@ class Progress(msgspec.Struct, frozen=True, kw_only=True):
         return (
             found
             .map(lambda observed: observed[0])
-            .filter(lambda held: held.queue == key and held.ending is not Ending.SUCCEEDED)
+            .filter(lambda held: held.queue == key)
+            .filter(lambda held: held.ending is not Ending.SUCCEEDED)
             .map(lambda held: msgspec.structs.replace(held, process=process, ending=None))
             .default_with(lambda: cls(queue=key, process=process))
         )
@@ -237,17 +238,17 @@ class Progress(msgspec.Struct, frozen=True, kw_only=True):
 
     def phase(self, beat: datetime.datetime, now: datetime.datetime, stale: datetime.timedelta, /) -> _Phase:
         """Returns ending when set, else stopped once the heartbeat is `stale` old, else active."""
-        ending: Option[_Phase] = Option.of_optional(self.ending)
+        ending: Option[_Phase] = option.of_optional(self.ending)
         return ending.default_with(lambda: Liveness.ACTIVE if now - beat < stale else Liveness.STOPPED)
 
     def forecast(self, queue: RenderQueue, now: datetime.datetime) -> Option[Forecast]:
-        """Forecasts renders left at each job's measured seconds per weight, the mean rate for unmeasured jobs, Nothing before any mark or past the longest duration."""
+        """Forecasts renders left at each job's measured seconds per weight, the mean rate for unmeasured jobs, `NOTHING` before any mark or past the longest duration."""
         jobs = dict(enumerate(queue.jobs))
         timed: dict[int, list[float]] = {}
         for mark in self.marks:
             timed.setdefault(mark.job, []).append(mark.elapsed.total_seconds())
         if not (rates := {part: fmean(times[1:] or times) / jobs[part].weight for part, times in sorted(timed.items())}):
-            return Nothing
+            return NOTHING
         average = fmean(rates.values())
         counts = self._remaining_counts(queue)
         seconds = math.fsum(counts[part] * job.weight * rates.get(part, average) for part, job in jobs.items())
@@ -268,14 +269,14 @@ PROGRESS_DECODER: Final = msgspec.json.Decoder(Progress)
 
 
 def observed(path: Path) -> Outcome[Option[tuple[Progress, datetime.datetime]]]:
-    """Reads progress record with heartbeat moment, Nothing when absent."""
+    """Reads progress record with heartbeat moment, `NOTHING` when absent."""
 
     def beaten(progress: Progress) -> Outcome[tuple[Progress, datetime.datetime]]:
         return (
             catch(path.stat, exception=OSError)().map(lambda stat: (progress, datetime.datetime.fromtimestamp(stat.st_mtime, datetime.UTC))).map_error(partial(Fault.of, Reason.UNREADABLE, str(path)))
         )
 
-    return RecordFile(path=path, decoder=PROGRESS_DECODER).found().bind(lambda found: found.map(lambda progress: beaten(progress).map(Some)).default_value(Ok(Nothing)))
+    return RecordFile(path=path, decoder=PROGRESS_DECODER).found().bind(lambda found: found.map(lambda progress: beaten(progress).map(Some)).default_value(Ok(NOTHING)))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

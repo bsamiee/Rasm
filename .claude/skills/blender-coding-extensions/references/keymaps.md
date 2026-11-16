@@ -51,7 +51,7 @@ class ItemPreferences(bpy.types.AddonPreferences):
 
     def draw(self, context: bpy.types.Context) -> None:
         match root_in(bpy.types.WindowManager, context).map(lambda manager: manager.keyconfigs):
-            case Option(tag="some", some=bpy.types.KeyConfigurations(addon=bpy.types.KeyConfig() as addon, user=bpy.types.KeyConfig() as user)):
+            case Some(bpy.types.KeyConfigurations(addon=bpy.types.KeyConfig() as addon, user=bpy.types.KeyConfig() as user)):
                 owned = frozenset(getattr(cls, "bl_idname", cls.__name__) for cls in CLASSES)
             case _:
                 return

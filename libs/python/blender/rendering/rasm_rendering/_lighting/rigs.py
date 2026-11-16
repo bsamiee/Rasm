@@ -7,7 +7,7 @@ import sys
 from types import MappingProxyType
 from typing import Annotated, ClassVar, Final, override, Self
 
-from expression import Option, Some
+from expression import NOTHING, Ok, Option, option, Some
 from expression.extra.result import catch
 import msgspec
 import numpy as np
@@ -15,7 +15,7 @@ import numpy.typing as npt
 import PyOpenColorIO
 
 from rasm_imaging import applied, LightingReading, luma, processor, Samples
-from rasm_records import accumulated, Bearing, Case, Fault, Finite, Inclination, NonNegative, Nothing, Ok, Outcome, paired, Positive, Reason, Rgb, Unit
+from rasm_records import accumulated, Bearing, Case, Fault, Finite, Inclination, NonNegative, Outcome, paired, Positive, Reason, Rgb, Unit
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -144,8 +144,8 @@ class Matched(Case, frozen=True, kw_only=True):
             scale = max(hardness, abs(reading.contrast))
             size = math.pi - 2.0 * math.atan2(hardness / scale, self.softness * (reading.contrast / scale))
             key = Light(emitter=self.key, azimuth=azimuth, elevation=elevation, size=size, color=filtered(reading.key))
-            fill = Light(role=LightRole.FILL, azimuth=-azimuth, stops=Option.of_optional(self.fill).default_value(-reading.contrast), size=self.fill_size, color=filtered(reading.fill))
-            rim = Option.of_optional(self.rim).bind(
+            fill = Light(role=LightRole.FILL, azimuth=-azimuth, stops=self.fill if self.fill is not None else -reading.contrast, size=self.fill_size, color=filtered(reading.fill))
+            rim = option.of_optional(self.rim).bind(
                 lambda offset: reading.rim.map2(
                     lambda color, backlight: Light(
                         role=LightRole.RIM, azimuth=math.remainder(azimuth + math.pi, math.tau), elevation=elevation, stops=backlight + offset, size=size, color=filtered(color)
@@ -248,10 +248,10 @@ class Rig(msgspec.Struct, frozen=True, kw_only=True):
             case Arranged() as arranged:
                 return Ok(Some(arranged))
             case Matched() as matched:
-                return reading.map(lambda found: matched.arranged(found).map(Some)).default_value(Ok(Nothing))
+                return reading.map(lambda found: matched.arranged(found).map(Some)).default_value(Ok(NOTHING))
 
     def placements(self, config: PyOpenColorIO.Config, radius: float, reading: Option[LightingReading]) -> Outcome[Option[PlacedRig]]:
-        """Places rig with graded colors, Nothing for matched layout without reading."""
+        """Places rig with graded colors, `NOTHING` for matched layout without reading."""
         blend = min(self.color_strength, 1.0)
 
         def transform(weights: list[float]) -> PyOpenColorIO.GroupTransform:
@@ -278,14 +278,14 @@ class Rig(msgspec.Struct, frozen=True, kw_only=True):
             def world(ambient: AmbientLight) -> Outcome[Option[Background]]:
                 return paired(graded(ambient.color), _scaled((self.irradiance, 1.0 / math.pi), ambient.stops)).map(lambda found: Some(Background(color=found[0], strength=found[1])))
 
-            return paired(accumulated(light_at(light) for light in arranged.lights), Option.of_optional(arranged.ambient).map(world).default_value(Ok(Nothing))).map(
+            return paired(accumulated(light_at(light) for light in arranged.lights), option.of_optional(arranged.ambient).map(world).default_value(Ok(NOTHING))).map(
                 lambda found: Some(PlacedRig(lights=found[0], background=found[1]))
             )
 
         return self.arranged(reading).bind(
             lambda arranged: arranged.map(
                 lambda layout: paired(luma(config).bind(lambda weights: processor(config, transform(weights.tolist()))), _scaled((self.distance, radius))).bind(lambda found: placed(layout, *found))
-            ).default_value(Ok(Nothing))
+            ).default_value(Ok(NOTHING))
         )
 
     @classmethod

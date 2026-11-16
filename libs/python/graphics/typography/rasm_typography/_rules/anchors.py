@@ -9,7 +9,7 @@ lazy from itertools import groupby, pairwise
 lazy import math
 
 import msgspec
-lazy from expression import Result
+lazy from expression import Error, Ok
 lazy from fontTools.misc.roundTools import otRound
 lazy from fontTools.misc.transform import Offset, Transform
 lazy from fontTools.otlLib.builder import LOOKUP_FLAG_IGNORE_MARKS
@@ -19,7 +19,7 @@ lazy from ufoLib2.objects import Component
 
 from rasm_typography._faces.declaration import Band, Code, Em, Ratio, Script
 from rasm_typography._rules import measures
-lazy from rasm_records import Error, Ok, Outcome
+lazy from rasm_records import Outcome
 lazy from rasm_typography._faces.glyphs import Anchor, Glyph, Letter, Ligature, Mark, Point, Side, Source
 lazy from rasm_typography._faces.layout import Adjustment, Chain, Contextual, Lifts, Ligatures, Single
 lazy from rasm_typography._outlines import measure, paths
@@ -49,7 +49,7 @@ class Anchors(measures.Rule, frozen=True, kw_only=True):
         """
         script, stack, marked = self.script, self.stack * source.upm, original.marks
         match measures.placement(source, original, script.stem):
-            case Result(tag="ok", ok=(_, stem, matrix)):
+            case Ok((_, stem, matrix)):
                 above, below = (
                     matrix.xx
                     * measures.middle(
@@ -282,7 +282,7 @@ class Anchors(measures.Rule, frozen=True, kw_only=True):
                         ),
                     )
                 )
-            case Result(error=faults):
+            case Error(faults):
                 return Error(faults)
 
 

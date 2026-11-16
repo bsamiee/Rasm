@@ -7,7 +7,7 @@ from functools import partial
 from typing import Annotated, ClassVar, Final, TYPE_CHECKING
 
 import bpy
-from expression import Option, Result, Some
+from expression import Error, NOTHING, Ok, Option, option, Some
 from expression.extra.result import catch
 from mathutils import Matrix, Vector
 import msgspec
@@ -40,7 +40,7 @@ from rasm_bpy.ui._layout.sections import Section
 from rasm_bpy.ui._layout.values import Store
 from rasm_bpy.ui._screens.areas import AreaQuery, Located
 from rasm_imaging import LightingReading, SEED_BOUND
-from rasm_records import accumulated, content_hash, Error, Fault, Faults, Nothing, Ok, Outcome, paired, Positive, Reason, Retention, typed
+from rasm_records import accumulated, content_hash, Fault, Outcome, paired, Positive, Reason, Retention, typed
 from rasm_rendering import Arranged, Disk, Gel, PlacedLight, PlacedRig, Point, ReferenceDistribution, ReferenceImage, REFERENCES, Rig, RIGS, Spot, Sun
 
 if TYPE_CHECKING:
@@ -120,7 +120,7 @@ class GelPick(bpy.types.PropertyGroup):
 class _LightRig(msgspec.Struct, frozen=True, kw_only=True):
     """Rig setup attachment with owned empty, lights, collection, world, and reference image, and the rig and reference sections."""
 
-    retention: Option[Callable[[Identity], Outcome[Retention]]] = Nothing
+    retention: Option[Callable[[Identity], Outcome[Retention]]] = NOTHING
 
     @staticmethod
     def replaced(rig: Handle[bpy.types.Object], identity: Identity) -> Outcome[Option[str]]:
@@ -138,8 +138,8 @@ class _LightRig(msgspec.Struct, frozen=True, kw_only=True):
             lambda empty: (
                 _LightRig.empty
                 .marked(identity, empty)
-                .map(lambda _: _served(identity, empty).bind(lambda target: _rigged(target, Some(empty), context, identity)).map(lambda _: Nothing))
-                .default_value(Ok(Nothing))
+                .map(lambda _: _served(identity, empty).bind(lambda target: _rigged(target, Some(empty), context, identity)).map(lambda _: NOTHING))
+                .default_value(Ok(NOTHING))
             )
         )
 
@@ -291,7 +291,7 @@ def _rig_frame(target: bpy.types.Object, setup: RigSetup, context: bpy.types.Con
             case _RigFocus.ORIGIN:
                 return Ok(target.matrix_world.translation.copy())
             case _RigFocus.BONE:
-                pose = Option.of_optional(target.pose).bind(lambda pose: catch(lambda: pose.bones[setup.bone], exception=KeyError)().to_option())
+                pose = option.of_optional(target.pose).bind(lambda pose: catch(lambda: pose.bones[setup.bone], exception=KeyError)().to_option())
                 return pose.map(lambda pose: target.matrix_world @ pose.head).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(target), member=setup.bone))
             case _RigFocus.CURSOR:
                 return Ok(scene.cursor.location.copy())
@@ -310,7 +310,7 @@ def _rig_frame(target: bpy.types.Object, setup: RigSetup, context: bpy.types.Con
 
         match _RigAxes[setup.axes]:
             case _RigAxes.CAMERA:
-                return Option.of_optional(scene.camera).map(lambda camera: camera.matrix_world.to_3x3().normalized()).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(scene), member="camera"))
+                return option.of_optional(scene.camera).map(lambda camera: camera.matrix_world.to_3x3().normalized()).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(scene), member="camera"))
             case _RigAxes.VIEW:
                 return rooted(bpy.types.WindowManager, context).bind(lambda manager: AreaQuery(space=bpy.types.SpaceView3D).first(manager.windows)).bind(oriented)
             case _RigAxes.TARGET:
@@ -355,8 +355,9 @@ def _rigged(target: bpy.types.Object, existing: Option[bpy.types.Object], contex
             def prepared(found: tuple[tuple[Matrix, float], Option[LightingReading]]) -> Outcome[tuple[tuple[Matrix, float], PlacedRig]]:
                 frame, measurement = found
                 return (
-                    Result[Option[PlacedRig], Faults]
-                    .bind(state.rig.placements(config, frame[1], measurement), lambda placed: placed.to_result_with(lambda: Fault.of(Reason.ABSENT, repr(setup), member="reference")))
+                    state.rig
+                    .placements(config, frame[1], measurement)
+                    .bind(lambda placed: placed.to_result_with(lambda: Fault.of(Reason.ABSENT, repr(setup), member="reference")))
                     .map(lambda placed: (frame, placed))
                 )
 
@@ -435,7 +436,7 @@ def _rigged(target: bpy.types.Object, existing: Option[bpy.types.Object], contex
 
             def empty(home: bpy.types.Collection) -> Outcome[bpy.types.Object]:
                 return existing.map(Ok).default_with(
-                    lambda: spawned(f"{target.name} Rig", Nothing, home).bind(lambda rig: _LightRig.empty.owned(identity, rig, of=Some(target), filled=copied, scope=Some(rollback)))
+                    lambda: spawned(f"{target.name} Rig", NOTHING, home).bind(lambda rig: _LightRig.empty.owned(identity, rig, of=Some(target), filled=copied, scope=Some(rollback)))
                 )
 
             return _LightRig.collection.made(identity, lambda: created(Some(scene.collection), f"{target.name} Rig"), of=Some(target), scope=Some(rollback)).bind(

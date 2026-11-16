@@ -495,7 +495,7 @@ def verified(binary: Binary, face: Faces, /, *, coverage: coverage.Coverage, ori
         coverage: Code points the build answers for, a text face's genre coverage or the mappings an ornament face's source states.
         original: Font the source was imported from.
         corpus: Runs every shaping measure reads.
-        approved: Approved shaping of the face, `Nothing` before its first approval.
+        approved: Approved shaping of the face, `NOTHING` before its first approval.
         cache: Folder holding the pinned Unicode joining table, downloaded where it lacks a copy.
 
     Returns:

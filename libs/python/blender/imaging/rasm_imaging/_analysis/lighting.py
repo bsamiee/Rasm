@@ -6,7 +6,7 @@ import math
 from typing import ClassVar
 
 import colour
-from expression import Option, Some
+from expression import NOTHING, Option, Some
 import msgspec
 import numpy as np
 import numpy.typing as npt
@@ -19,7 +19,7 @@ from rasm_imaging._color.colorimetry import WhitePoint
 from rasm_imaging._color.processors import basis
 from rasm_imaging._files.buffers import fitted
 from rasm_imaging._geometry.frames import Region
-from rasm_records import AtLeastOne, Count, Frozen, NonNegative, Nothing, Outcome, paired, Percent, Positive, Unit
+from rasm_records import AtLeastOne, Count, Frozen, NonNegative, Outcome, paired, Percent, Positive, Unit
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -107,7 +107,7 @@ class Lighting(msgspec.Struct, frozen=True, kw_only=True):
             case (first, second):
                 return Some((first, second) if np.dot(np.subtract(first.position, second.position), reading.direction) >= 0.0 else (second, first))
             case _:
-                return Nothing
+                return NOTHING
 
     def mood(self, reading: LightingReading) -> LightingMood:
         """Mood of `reading` from frame luminance, key-to-fill contrast in stops, and split."""
@@ -128,7 +128,7 @@ class Lighting(msgspec.Struct, frozen=True, kw_only=True):
             height, width = covered.shape
             subject, central, core = (covered & region.mask(height, width) for region in (self.subject, self.center, self.core))
             if not subject.any():
-                return Nothing
+                return NOTHING
             levels = np.where(covered, np.maximum(samples.luminance, Samples.floor), np.nan)
             found = levels[subject]
             colors, raw = samples.color[subject].astype(np.float64), samples.luminance[subject]

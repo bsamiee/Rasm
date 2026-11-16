@@ -5,7 +5,7 @@ from functools import partial
 from typing import Final, Self
 
 import bpy
-from expression import Option, Some
+from expression import Error, NOTHING, Ok, Option, option, Some
 import msgspec
 
 from rasm_bpy.data._extension.identity import Key
@@ -18,7 +18,7 @@ from rasm_bpy.render._compositor.colors import with_alpha
 from rasm_bpy.render._view_layers.passes import EMISSION, ENVIRONMENT, Family, OCCLUSION, PassFlags, PassRequest
 from rasm_bpy.render._view_layers.sources import lobed
 from rasm_bpy.scene._lights.groups import LightGroupEdits
-from rasm_records import accumulated, Case, Error, Fault, Nothing, Ok, Outcome, paired, Reason
+from rasm_records import accumulated, Case, Fault, Outcome, paired, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -107,7 +107,7 @@ class Recombined(Case, frozen=True, kw_only=True):
                 return self
 
     def recombined(
-        self, outer: Callable[[Key], Expr], render: Expr, scene: bpy.types.Scene, offered: Mapping[str, str], flags: PassFlags, lobe: NodeGroup, filtered: Option[TermFilter] = Nothing
+        self, outer: Callable[[Key], Expr], render: Expr, scene: bpy.types.Scene, offered: Mapping[str, str], flags: PassFlags, lobe: NodeGroup, filtered: Option[TermFilter] = NOTHING
     ) -> Outcome[Expr]:
         """Builds beauty with render alpha from the layer's Render Layers node, each term gained and, under a term filter, filtered before it sums.
 
@@ -126,7 +126,7 @@ class Recombined(Case, frozen=True, kw_only=True):
         sockets = {name: render.at(identifier, bpy.types.NodeSocketColor) for name, identifier in offered.items()}
 
         def socket(name: str) -> Outcome[Expr]:
-            return Option.of_optional(sockets.get(name)).to_result_with(partial(Fault.of, Reason.ABSENT, repr(tuple(offered)), member=name))
+            return option.of_optional(sockets.get(name)).to_result_with(partial(Fault.of, Reason.ABSENT, repr(tuple(offered)), member=name))
 
         def gained(source: Expr, key: Key) -> Expr:
             return source * (math("POWER", 2.0, outer(item_key(key, _GAIN.key))) * outer(key))
@@ -146,7 +146,7 @@ class Recombined(Case, frozen=True, kw_only=True):
                 def term(key: Key, held: LightPass) -> Option[Outcome[tuple[Key, Expr, Option[Family]]]]:
                     match held:
                         case Descriptor():
-                            return Some(socket(held.prop.name).map(lambda placed: (key, placed, Nothing)))
+                            return Some(socket(held.prop.name).map(lambda placed: (key, placed, NOTHING)))
                         case family:
                             return lobed(flags.families[family], sockets, lobe).map(lambda placed: Ok((key, placed, Some(family))))
 
@@ -155,7 +155,7 @@ class Recombined(Case, frozen=True, kw_only=True):
                     light = total(tuple(gained(terms[key], key) for key, _ in families if key in terms), ", ".join(key for key, _ in families))
                     return light.map(lambda lit: sum((gained(terms[key], key) for key, held in kept if not isinstance(held, Family)), mixed(strength, lit, terms[_OCCLUSION_PANEL], blend="MULTIPLY")))
 
-                occluded = socket(OCCLUSION.prop.name).map(lambda source: (_OCCLUSION_PANEL, source, Nothing))
+                occluded = socket(OCCLUSION.prop.name).map(lambda source: (_OCCLUSION_PANEL, source, NOTHING))
                 return accumulated((*(answer for key, held in kept for answer in term(key, held).to_list()), occluded)).bind(lambda terms: finished(terms, lobes))
             case LightGroups(groups=groups):
 
@@ -163,7 +163,7 @@ class Recombined(Case, frozen=True, kw_only=True):
                     tinted = tuple(gained(mixed(1.0, terms[name], outer(item_key(_GROUP, index, _TINT.key)), blend="MULTIPLY"), item_key(_GROUP, index)) for index, name in enumerate(groups, 1))
                     return total(tinted, "groups")
 
-                return accumulated(socket(f"Combined_{name}") for name in groups).bind(lambda sources: finished(tuple((name, source, Nothing) for name, source in zip(groups, sources)), grouped))
+                return accumulated(socket(f"Combined_{name}") for name in groups).bind(lambda sources: finished(tuple((name, source, NOTHING) for name, source in zip(groups, sources)), grouped))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

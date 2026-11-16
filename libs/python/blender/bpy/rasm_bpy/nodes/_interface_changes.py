@@ -5,7 +5,7 @@ from functools import partial
 from types import MappingProxyType
 
 import bpy
-from expression import Option, Some
+from expression import NOTHING, Ok, Option
 from expression.extra.result import catch
 import msgspec
 
@@ -17,7 +17,7 @@ from rasm_bpy.data._rna.snapshots import assigned
 from rasm_bpy.nodes._addressing import InterfaceItem, InterfaceKeys, OwnedNodes
 from rasm_bpy.nodes._interfaces import DesiredItem, InterfacePanel, Socket
 from rasm_bpy.nodes._trees import base_socket, interface_of
-from rasm_records import accumulated, Fault, Nothing, Ok, Outcome, paired
+from rasm_records import accumulated, Fault, Outcome, paired
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -57,7 +57,7 @@ class Declared(msgspec.Struct, frozen=True, kw_only=True):
 
             def toggled(panel: bpy.types.NodeTreeInterfacePanel, *, value: bool) -> Outcome[None]:
                 return (
-                    catch(interface.new_socket, exception=TypeError)(panel.name, in_out="INPUT", socket_type=rna_definition(bpy.types.NodeSocketBool).identifier, parent=panel)
+                    catch(interface.new_socket, exception=TypeError)(panel.name, in_out="INPUT", socket_type=rna_definition(bpy.types.NodeSocketBool).identifier, parent=panel)  # ty: ignore[invalid-argument-type]
                     .map_error(refused)
                     .bind(lambda socket: accumulated((written(socket, ("is_panel_toggle",), value=True), written(socket, ("default_value",), value))).map(lambda _: None))
                 )
@@ -65,7 +65,10 @@ class Declared(msgspec.Struct, frozen=True, kw_only=True):
             match self.entry:
                 case (Socket() as socket, side):
                     return catch(interface.new_socket, exception=TypeError)(
-                        socket.title, description=socket.declared.description, in_out=side, socket_type=rna_definition(socket.base).identifier
+                        socket.title,
+                        description=socket.declared.description,
+                        in_out=side,  # ty: ignore[invalid-argument-type]
+                        socket_type=rna_definition(socket.base).identifier,  # ty: ignore[invalid-argument-type]
                     ).map_error(refused)
                 case InterfacePanel(description=description, closed=closed, toggle=toggle) as panel:
                     return (
@@ -81,17 +84,15 @@ class Placed(msgspec.Struct, frozen=True, kw_only=True):
     """Socket type to write and place to move an item to, ahead of node writes reading the sockets they give."""
 
     key: Key
-    kind: Option[type[bpy.types.NodeSocket]] = Nothing
-    place: Option[tuple[Option[Key], int]] = Nothing
+    kind: Option[type[bpy.types.NodeSocket]] = NOTHING
+    place: Option[tuple[Option[Key], int]] = NOTHING
 
     def applied(self, keyed: OwnedNodes, identity: Identity) -> Outcome[None]:
         """Retypes the item, reading it again under its refined class, then moves it under its panel."""
 
         def moved(live: InterfaceKeys, parent: Option[Key], position: int) -> Outcome[None]:
-            return paired(live.item(self.key, bpy.types.NodeTreeInterfaceItem), parent.map(lambda key: live.item(key, bpy.types.NodeTreeInterfacePanel).map(Some)).default_value(Ok(Nothing))).bind(
-                lambda pair: catch(interface_of(live.tree).move_to_parent, exception=TypeError)(pair[0], pair[1].to_optional(), position).map_error(
-                    partial(Fault.of, Refusal.REFUSED, repr(interface_of(live.tree)))
-                )
+            return paired(live.item(self.key, bpy.types.NodeTreeInterfaceItem), parent.map(lambda key: live.item(key, bpy.types.NodeTreeInterfacePanel)).default_value(Ok(None))).bind(
+                lambda pair: catch(interface_of(live.tree).move_to_parent, exception=TypeError)(pair[0], pair[1], position).map_error(partial(Fault.of, Refusal.REFUSED, repr(interface_of(live.tree))))
             )
 
         retyped = self.kind.map(
@@ -109,10 +110,10 @@ class Restated(msgspec.Struct, frozen=True, kw_only=True):
     """Item parts to write once sockets hold their values."""
 
     key: Key
-    name: Option[str] = Nothing
-    description: Option[str] = Nothing
-    closed: Option[bool] = Nothing
-    toggle: Option[bool] = Nothing
+    name: Option[str] = NOTHING
+    description: Option[str] = NOTHING
+    closed: Option[bool] = NOTHING
+    toggle: Option[bool] = NOTHING
     members: Mapping[RnaPath, Value] = MappingProxyType({})
 
     def applied(self, keyed: OwnedNodes, identity: Identity) -> Outcome[None]:

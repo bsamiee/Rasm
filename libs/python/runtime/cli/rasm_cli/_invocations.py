@@ -10,7 +10,7 @@ import sys
 from typing import Annotated, Final, NoReturn
 
 from cyclopts import App, Group, Parameter
-lazy from expression import Result
+lazy from expression import Error
 lazy from opentelemetry import trace
 lazy from opentelemetry.configuration import ConfigurationError
 lazy from opentelemetry.semconv.attributes.error_attributes import ERROR_TYPE
@@ -21,7 +21,7 @@ lazy from structlog.stdlib import BoundLogger
 
 from rasm_cli._results import exited
 from rasm_telemetry import LogSettings
-lazy from rasm_records import Error, Fault, Reason
+lazy from rasm_records import Fault, Outcome, Reason
 lazy from rasm_telemetry.process import instrumented
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -91,10 +91,10 @@ class Invocation:
         """Returns the tool's folder of a kind, not created."""
         return self.settings.folder(kind, self.app.name[0])
 
-    def ended(self, result: object, /) -> NoReturn:
+    def ended(self, result: Outcome[object] | None, /) -> NoReturn:
         """Writes a command's result through `exited`, logs each fault with its fields, marks the span failed by the first, logs the one `INFO` entry of the run with its status, and exits with that status."""
-        status = exited(result if isinstance(result, Result) else None)
-        faults = result.swap().default_value(()) if isinstance(result, Result) else ()
+        status = exited(result)
+        faults = result.error if isinstance(result, Error) else ()
         for fault in faults:
             self.log.error("Command refused", reason=fault.reason.name, subject=fault.subject, member=fault.member, cause=fault.cause)
         for fault in faults[:1]:

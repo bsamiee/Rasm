@@ -7,7 +7,7 @@ from types import MappingProxyType
 from typing import Final, Literal, override, TYPE_CHECKING
 
 import bpy
-from expression import Option, Some
+from expression import NOTHING, Ok, Option, option, Some
 from expression.extra.result import catch
 import mathutils
 import msgspec
@@ -24,7 +24,7 @@ from rasm_bpy.data._rna.paths import rna, Struct
 from rasm_bpy.ui._layout.members import Member, resolved_at, ResolvedMember
 from rasm_bpy.ui._resources.icons import Icon, Icons
 from rasm_bpy.ui._resources.theme import display_color, Metrics, Shade
-from rasm_records import accumulated, Fault, Nothing, Ok, Outcome, paired, Reason
+from rasm_records import accumulated, Fault, Outcome, paired, Reason
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -54,7 +54,7 @@ class TargetHandler[V, S = bpy.types.Context](msgspec.Struct, frozen=True, kw_on
 
     get: Callable[[S], V]
     set: Callable[[bpy.types.Context, V], Outcome[None]]
-    range: Option[Callable[[S], tuple[float, float]]] = Nothing
+    range: Option[Callable[[S], tuple[float, float]]] = NOTHING
 
     def bound(self, identity: Identity) -> _Handle[S]:
         """Prepares native target binding from one draw state, reporting writes through the current context."""
@@ -65,7 +65,7 @@ class TargetHandler[V, S = bpy.types.Context](msgspec.Struct, frozen=True, kw_on
                 key,
                 get=partial(self.get, state),
                 set=lambda value: write(bpy.context, value).to_optional(),  # ty: ignore[invalid-argument-type]
-                range=self.range.map(lambda extent: partial(extent, state)).to_optional(),
+                range=next((partial(extent, state) for extent in self.range.to_list()), None),
             )
 
         return handled
@@ -78,7 +78,7 @@ class Shape(msgspec.Struct, frozen=True, kw_only=True):
     primitive: Literal["POINTS", "LINES", "TRIS", "LINE_STRIP"]
     vertices: tuple[tuple[float, ...], ...]
     targets: Mapping[str, int] = MappingProxyType({})
-    drag: Option[Callable[[bpy.types.Gizmo, bpy.types.Context, tuple[tuple[str, _Value], ...], Travel], Outcome[None]]] = Nothing
+    drag: Option[Callable[[bpy.types.Gizmo, bpy.types.Context, tuple[tuple[str, _Value], ...], Travel], Outcome[None]]] = NOTHING
 
     def acquisitions(self, identity: Identity) -> Acquisitions:
         """Returns the gizmo type class drawing the shape, dragging through `drag` while one is stated."""
@@ -134,13 +134,13 @@ class Gizmo[S = bpy.types.Context](msgspec.Struct, frozen=True, kw_only=True):
     place: Callable[[S], Outcome[Option[mathutils.Matrix]]]
     bind: Member | TargetHandler[float, S] | TargetHandler[tuple[float, ...], S] | tuple[Placement, ...] = ()
     properties: Mapping[str, object] = MappingProxyType({})
-    icon: Option[Icon] = Nothing
+    icon: Option[Icon] = NOTHING
     role: Callable[[bpy.types.ThemeUserInterface], tuple[Shade, Shade]] = lambda ui: ((*display_color(ui.gizmo_primary)[:3], 0.5), ui.gizmo_hi)
-    prepare: Option[Callable[[bpy.types.Context, bpy.types.Gizmo], Outcome[None]]] = Nothing
+    prepare: Option[Callable[[bpy.types.Context, bpy.types.Gizmo], Outcome[None]]] = NOTHING
 
     def bound(self, identity: Identity) -> Outcome[_Bound[S]]:
         """Resolves the binding into a member with its target name or the attach of a handler or operators, absent fault for a member or handler on a kind without target."""
-        named = Option.of_optional(next(iter(self.kind.targets), None) if isinstance(self.kind, Shape) else _TARGETS.get(self.kind)).to_result_with(
+        named = option.of_optional(next(iter(self.kind.targets), None) if isinstance(self.kind, Shape) else _TARGETS.get(self.kind)).to_result_with(
             lambda: Fault.of(Reason.ABSENT, repr(self.kind), member="target")
         )
         match self.bind:
@@ -167,8 +167,8 @@ class GizmoGroup[S = bpy.types.Context](msgspec.Struct, frozen=True, kw_only=Tru
     gizmos: tuple[Gizmo[S], ...]
     read: Callable[[bpy.types.Context], Outcome[Option[S]]]
     region: "rna_enums.RegionTypeItems" = "WINDOW"
-    condition: Option[Condition] = Nothing
-    keymap: Option[str] = Nothing
+    condition: Option[Condition] = NOTHING
+    keymap: Option[str] = NOTHING
     options: frozenset[Literal["3D", "SCALE", "DEPTH_3D", "SELECT", "PERSISTENT", "SHOW_MODAL_ALL", "EXCLUDE_MODAL", "TOOL_INIT", "TOOL_FALLBACK_KEYMAP", "VR_REDRAWS"]] = frozenset({"PERSISTENT"})
 
     # --- [REGISTRATION]
@@ -181,7 +181,7 @@ class GizmoGroup[S = bpy.types.Context](msgspec.Struct, frozen=True, kw_only=Tru
     def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
         """Returns each custom shape, then the group class built when the interface tier opens and its icons resolve."""
         bound = accumulated(part.bound(identity) for part in self.gizmos)
-        located = self.keymap.map(lambda name: nesting(name).map(lambda found: Some(found[0]))).default_value(Ok(Nothing))
+        located = self.keymap.map(lambda name: nesting(name).map(lambda found: Some(found[0]))).default_value(Ok(NOTHING))
         shapes = tuple(part.kind for part in self.gizmos if isinstance(part.kind, Shape))
         return paired(bound, located).map(lambda held: (*shapes, (Tier.INTERFACE, Classes(build=partial(_grouped, self, identity, *held)))))
 
@@ -236,7 +236,7 @@ def _grouped[S](group: GizmoGroup[S], identity: Identity, bound: tuple[_Bound[S]
 
     def draw_prepare(owner: bpy.types.GizmoGroup, context: bpy.types.Context) -> None:
         ui = Metrics.read().preferences.themes[0].user_interface
-        if (state := reports.settled(group.read(context)).default_value(Nothing)).is_none():
+        if (state := reports.settled(group.read(context)).default_value(NOTHING)).is_none():
             for gizmo in owner.gizmos:
                 gizmo.hide = True
         for snapshot in state.to_list():
@@ -244,7 +244,7 @@ def _grouped[S](group: GizmoGroup[S], identity: Identity, bound: tuple[_Bound[S]
                 (red, green, blue, alpha), (lit_red, lit_green, lit_blue, lit_alpha) = map(display_color, part.role(ui))
                 gizmo.color, gizmo.alpha = (red, green, blue), alpha
                 gizmo.color_highlight, gizmo.alpha_highlight = (lit_red, lit_green, lit_blue), lit_alpha
-                placed = reports.settled(part.place(snapshot)).default_value(Nothing)
+                placed = reports.settled(part.place(snapshot)).default_value(NOTHING)
                 gizmo.hide = placed.is_none()
                 if placed.is_some() and isinstance(binding, tuple) and not isinstance(handle := binding[1], Member | ResolvedMember):
                     handle(binding[0], snapshot, gizmo)

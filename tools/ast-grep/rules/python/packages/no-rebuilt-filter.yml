@@ -9,8 +9,9 @@ utils:
     some-constructor:
         matches: { expression-member: { name: { regex: '^Some$' } } }
     nothing-value:
-        kind: identifier
-        matches: { expression-member: { name: { regex: '^Nothing$' } } }
+        any:
+            - { kind: identifier, matches: { expression-member: { name: { regex: '^NOTHING$' } } } }
+            - { kind: call, has: { field: function, matches: { expression-member: { name: { regex: '^Nothing$' } } } } }
     ok-value:
         kind: call
         all:
@@ -24,6 +25,14 @@ utils:
     error-value:
         kind: call
         has: { field: function, matches: error-constructor }
+    bounded-kind:
+        kind: type
+        all:
+            - has: { kind: generic_type, all: [{ has: { kind: identifier, regex: '^type$' } }, { has: { kind: type_parameter, has: { kind: type, has: { kind: identifier, pattern: $KIND } } } }] }
+            - inside:
+                  kind: function_definition
+                  stopBy: end
+                  has: { field: type_parameters, has: { kind: type, has: { kind: constrained_type, has: { nthChild: 1, kind: type, has: { kind: identifier, pattern: $KIND } } } } }
     type-test:
         kind: call
         all:
@@ -44,6 +53,7 @@ utils:
                             not:
                                 any:
                                     - matches: { python-typed-parameter: { type: { kind: type, not: { regex: '^type\[' } } } }
+                                    - matches: { python-typed-parameter: { type: { matches: bounded-kind } } }
                                     - matches: { python-assigned-name: { value: { kind: 'tuple, binary_operator, parenthesized_expression, subscript' } } }
                       - not: { has: { nthChild: { position: 3, ofRule: { not: { kind: comment } } } } }
     negated-type-test:
@@ -103,4 +113,4 @@ rule:
                     - all: [{ has: { nthChild: { position: 1, ofRule: { not: { kind: comment } } }, matches: nothing-value } }, { has: { nthChild: { position: 3, ofRule: { not: { kind: comment } } }, matches: some-value } }]
               - has: { nthChild: { position: 2, ofRule: { not: { kind: comment } } }, matches: value-test }
 message: 'Conditional on `$TEST` rebuilds `Ok`, `Error`, `Some`, or `Nothing` around one value'
-note: 'Call `.filter_with` or `.filter`, or `Option.of_optional(try_downcast(<type>, <value>))` with `.to_result_with`'
+note: 'Call `.filter_with` or `.filter`, or `option.of_optional(try_downcast(<type>, <value>))` with `.to_result_with`'

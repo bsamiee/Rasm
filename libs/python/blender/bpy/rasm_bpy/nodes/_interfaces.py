@@ -10,7 +10,7 @@ from types import MappingProxyType
 from typing import Final, Literal, Protocol, runtime_checkable, Self, TypeGuard
 
 import bpy
-from expression import Option, Result, Some, try_downcast
+from expression import Error, NOTHING, Ok, Option, option, Some, try_downcast
 from expression.extra.result import catch
 import msgspec
 import msgspec.inspect
@@ -23,7 +23,7 @@ from rasm_bpy.data._rna.descriptors import Descriptor, Value
 from rasm_bpy.data._rna.paths import rna_definition, RnaPath, subclass
 from rasm_bpy.nodes._desired import Content, item_key, MenuItem, MenuItems
 from rasm_bpy.nodes._trees import base_socket, interface_of, new_group, socket_at
-from rasm_records import accumulated, Error, Fault, Nothing, Ok, Outcome, Reason
+from rasm_records import accumulated, Fault, Outcome, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -86,7 +86,7 @@ class Socket(msgspec.Struct, frozen=True, kw_only=True):
     @property
     def stock(self) -> Option[StockInput]:
         """Stock node input the socket takes its declaration from, a graph feeding that input with the socket's value, Nothing for a stated class."""
-        return Option.of_optional(try_downcast(StockInput, self.kind))
+        return option.of_optional(try_downcast(StockInput, self.kind))
 
     @property
     def declared(self) -> "Socket":
@@ -191,7 +191,7 @@ class Socket(msgspec.Struct, frozen=True, kw_only=True):
             case None, msgspec.inspect.LiteralType(values=values) if all(isinstance(held, str) for held in values):
                 kind, items = bpy.types.NodeSocketMenu, tuple(MenuItem(name=str(held)) for held in values)
             case _:
-                return Nothing
+                return NOTHING
         return Some(cls(key=key, kind=kind, description=described, default_value=value, min_value=low, max_value=high, items=items))
 
 
@@ -207,7 +207,7 @@ class Interface(msgspec.Struct, frozen=True, kw_only=True):
         """Menu items selecting one of the interface's panels, each under the panel's title and description."""
         return MenuItems(items=tuple(panel.item for panel in self.panels))
 
-    def walked(self, parent: Option[Key] = Nothing) -> Iterator[tuple[Key, DesiredItem, Option[Key], int]]:
+    def walked(self, parent: Option[Key] = NOTHING) -> Iterator[tuple[Key, DesiredItem, Option[Key], int]]:
         """Walks interface items in preorder.
 
         Args:
@@ -245,7 +245,7 @@ class InterfacePanel(Interface, frozen=True, kw_only=True):
     name: str | None = None
     description: str = ""
     closed: bool = False
-    toggle: Option[bool] = Nothing
+    toggle: Option[bool] = NOTHING
 
     @property
     def title(self) -> str:
@@ -264,7 +264,7 @@ class InterfacePanel(Interface, frozen=True, kw_only=True):
             LookupError: For a path the panel declares no socket at, at graph build.
         """
         match _found(self, item_key(self.key, *path)):
-            case Option(tag="some", some=(Socket() as found, _)):
+            case Some((Socket() as found, _)):
                 return found
             case _:
                 raise LookupError(f"{item_key(self.key, *path)} names no socket under {self.key}")
@@ -276,13 +276,13 @@ class InterfacePanel(Interface, frozen=True, kw_only=True):
             LookupError: For a path the panel declares no panel at, at graph build.
         """
         match _found(self, item_key(self.key, *path)):
-            case Option(tag="some", some=InterfacePanel() as found):
+            case Some(InterfacePanel() as found):
                 return found
             case _:
                 raise LookupError(f"{item_key(self.key, *path)} names no panel under {self.key}")
 
     @classmethod
-    def of(cls, key: Key, source: Interface | msgspec.Struct, /, *, name: str | None = None, description: str | None = None, closed: bool = False, toggle: Option[bool] = Nothing) -> Self:
+    def of(cls, key: Key, source: Interface | msgspec.Struct, /, *, name: str | None = None, description: str | None = None, closed: bool = False, toggle: Option[bool] = NOTHING) -> Self:
         """Builds the panel at `key` holding an interface's items, or the interface `fielded` derives from a record, every item key at any depth prefixed by `key` through `item_key` and every title kept.
 
         Args:
@@ -296,7 +296,7 @@ class InterfacePanel(Interface, frozen=True, kw_only=True):
         Returns:
             Panel of the prefixed items.
         """
-        held, stated = (source, "") if isinstance(source, Interface) else (fielded(source), Option.of_optional(type(source).__doc__).map(inspect.cleandoc).default_value(""))
+        held, stated = (source, "") if isinstance(source, Interface) else (fielded(source), option.of_optional(type(source).__doc__).map(inspect.cleandoc).default_value(""))
         prefixed = _mapped(
             held,
             lambda socket: msgspec.structs.replace(socket, key=item_key(key, socket.key), name=socket.title),
@@ -408,7 +408,7 @@ def _mapped[I: Interface](interface: I, socket: Callable[[Socket], Socket], pane
         return msgspec.structs.replace(owner, outputs=tuple(map(socket, owner.outputs)), inputs=tuple(map(socket, owner.inputs)), panels=tuple(children))
 
     panels: list[InterfacePanel] = []
-    pending: list[tuple[Option[InterfacePanel], Iterator[InterfacePanel], list[InterfacePanel]]] = [(Nothing, iter(interface.panels), panels)]
+    pending: list[tuple[Option[InterfacePanel], Iterator[InterfacePanel], list[InterfacePanel]]] = [(NOTHING, iter(interface.panels), panels)]
     while pending:
         parent, children, ready = pending[-1]
         match next(children, None):
@@ -441,12 +441,12 @@ def _declared(socket: Socket, stock: StockInput, /) -> Socket:
             return socket_at(node.inputs, stock.input).map(lambda target: tree.links.new(entered.outputs[-1], target, handle_dynamic_sockets=True)).map(lambda _: tree)
 
         match new_group(kinds[0], ".stock").bind(linked):
-            case Result(tag="ok", ok=held):
+            case Ok(held):
                 items = tuple(item for item in interface_of(held).items_tree if isinstance(item, bpy.types.NodeTreeInterfaceSocket))
-            case Result(error=faults):
+            case Error(faults):
                 raise LookupError(stock, faults)
         match items, tuple(subclass(bpy.types.NodeSocket, item.bl_socket_idname) for item in items):
-            case (item,), (Result(tag="ok", ok=refined),):
+            case (item,), (Ok(refined),):
 
                 def read(name: str) -> Value:
                     return Descriptor.resolve(item, (name,), bpy.types.Property).map(lambda descriptor: descriptor.read(item)).default_value(None)
@@ -466,7 +466,7 @@ def _declared(socket: Socket, stock: StockInput, /) -> Socket:
 
 def _found(panel: InterfacePanel, key: Key, /) -> Option[DesiredItem]:
     """Item the panel holds at `key` at any depth."""
-    return Option.of_optional(next((item for held, item, _, _ in panel.walked() if held == key), None))
+    return option.of_optional(next((item for held, item, _, _ in panel.walked() if held == key), None))
 
 
 def _nested(value: object, /) -> TypeGuard[msgspec.Struct]:

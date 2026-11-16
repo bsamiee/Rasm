@@ -9,6 +9,7 @@ lazy from pathlib import Path
 from fontTools.ttLib import TTFont
 import msgspec
 import ufoLib2.objects
+lazy from expression import Error, Ok
 lazy from expression.extra.result import catch
 lazy from fontTools import unicodedata
 lazy from fontTools.feaLib.error import FeatureLibError
@@ -23,7 +24,7 @@ lazy from ufo2ft.constants import OPENTYPE_CATEGORIES_KEY, OPENTYPE_META_KEY, TR
 lazy from ufoLib2.objects.info import GaspBehavior, GaspRangeRecord
 
 from rasm_typography._faces.glyphs import Category, fetched, Source, VerticalMetrics
-lazy from rasm_records import Error, Fault, Faults, Ok, Outcome, Reason
+lazy from rasm_records import Fault, Faults, Outcome, Reason
 lazy from rasm_typography._faces.declaration import Face, Faces
 lazy from rasm_typography._faces.importing import imported
 lazy from rasm_typography._rules.emission import FeatureWriter

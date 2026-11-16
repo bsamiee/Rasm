@@ -8,7 +8,7 @@ import pathlib
 import sys
 from typing import Annotated, Final, Self
 
-from expression import Option, Some
+from expression import Error, NOTHING, Ok, Option, Some
 import msgspec
 import numpy as np
 import numpy.typing as npt
@@ -17,7 +17,7 @@ import PyOpenColorIO
 
 from rasm_imaging._color.processors import called, converted, processor
 from rasm_imaging._files.images import emitted, ImageFile, read_file, Subimage
-from rasm_records import accumulated, Case, committed, Error, Fault, Nothing, Ok, Outcome, Reason
+from rasm_records import accumulated, Case, committed, Fault, Outcome, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -100,7 +100,7 @@ class Uniform(Case, frozen=True, kw_only=True):
     @property
     def shaper(self) -> Option[PyOpenColorIO.Transform]:
         """Node encoding, absent for zero-to-one nodes."""
-        return Nothing if self == Uniform() else Some(PyOpenColorIO.AllocationTransform(allocation=PyOpenColorIO.ALLOCATION_UNIFORM, vars=[self.low, self.high]))
+        return NOTHING if self == Uniform() else Some(PyOpenColorIO.AllocationTransform(allocation=PyOpenColorIO.ALLOCATION_UNIFORM, vars=[self.low, self.high]))
 
 
 class Logarithmic(Case, frozen=True, kw_only=True):
@@ -201,7 +201,7 @@ class LutOutput(msgspec.Struct, frozen=True, kw_only=True):
     """LUT file format, its sources resampled at lattice nodes when one is held, else written operator for operator."""
 
     format: LutFormat
-    lattice: Option[Lattice] = Nothing
+    lattice: Option[Lattice] = NOTHING
 
     def written(self, sources: Mapping[pathlib.Path, PyOpenColorIO.GroupTransform]) -> Outcome[tuple[pathlib.Path, ...]]:
         """Encodes every source before publishing each path atomically in mapping order."""
@@ -262,7 +262,7 @@ def cube_split(config: PyOpenColorIO.Config, transform: PyOpenColorIO.Transform)
                     .map(lambda outputs: (PyOpenColorIO.GroupTransform(transforms=operations[:index]), Some((lattice, outputs))))
                 )
             case _:
-                return Ok((PyOpenColorIO.GroupTransform(transforms=operations), Nothing))
+                return Ok((PyOpenColorIO.GroupTransform(transforms=operations), NOTHING))
 
     return processor(config, transform).bind(sampled)
 

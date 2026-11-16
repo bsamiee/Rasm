@@ -317,7 +317,7 @@ Node clipboard operators copy whole nodes between trees through a node editor, a
 ```python
 def pasted(context: bpy.types.Context, area: bpy.types.Area, nodes: tuple[bpy.types.Node, *tuple[bpy.types.Node, ...]], target: bpy.types.NodeTree, /) -> Outcome[frozenset[bpy.types.Node]]:
     match id_data(bpy.types.NodeTree, nodes[0]):
-        case Option(tag="some", some=source):
+        case Some(source):
             before = frozenset(target.nodes)
         case _:
             return Error(Fault.of(Reason.ABSENT, repr(nodes[0]), member=bpy.types.NodeTree.__name__))

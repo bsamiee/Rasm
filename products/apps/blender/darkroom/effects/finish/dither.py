@@ -8,7 +8,7 @@ from types import MappingProxyType
 from typing import Annotated, Final, get_args, override
 
 import bpy
-from expression import Result, Some
+from expression import Ok, Some
 import numpy as np
 import OpenImageIO
 import PyOpenColorIO
@@ -37,7 +37,7 @@ from rasm_bpy.render import (
 )
 from rasm_bpy.settings import Attachment
 from rasm_imaging import Coding, Depth, Format, ImageFile, IntegerDepth, ranks, read_file, Storage
-from rasm_records import accumulated, content_hash, Fault, Faults, Ok, Outcome, Reason
+from rasm_records import accumulated, content_hash, Fault, Outcome, Reason
 from rasm_rendering import Output
 
 from ..formation.display import displayed_frame
@@ -155,7 +155,7 @@ def _copied(scene: bpy.types.Scene, file: Written, identity: Identity) -> Outcom
                 .map(lambda _: None)
             )
 
-        return Result[ImageFile, Faults].bind(read_file(Path(file.path), config), displayed)
+        return read_file(Path(file.path), config).bind(displayed)
 
     diffusing = accumulated(
         captured(identity, entry).map(valued).bind(lambda values: chosen(values, _Method, _METHOD)).map(lambda method: method is _Method.DIFFUSED)

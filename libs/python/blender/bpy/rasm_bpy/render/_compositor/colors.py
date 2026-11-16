@@ -6,9 +6,7 @@ from math import log
 from typing import Final, Literal
 
 import bpy
-from expression import Option, Result, Some
-import numpy as np
-import numpy.typing as npt
+from expression import Ok, option, Some
 import PyOpenColorIO
 
 from rasm_bpy.data._extension.identity import Key
@@ -17,7 +15,7 @@ from rasm_bpy.nodes._graphs import Component, composed, directed, equal, Expr, g
 from rasm_bpy.nodes._interfaces import Interface, Socket
 from rasm_bpy.nodes.changes import NodeGroup
 from rasm_imaging import lin_to_log, luma
-from rasm_records import Fault, Faults, Ok, Outcome, paired, Reason
+from rasm_records import Fault, Outcome, paired, Reason
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -40,7 +38,7 @@ def space_item(config: PyOpenColorIO.Config, name: str) -> Outcome[str]:
     return (
         Ok(name)
         if name == PyOpenColorIO.ROLE_SCENE_LINEAR
-        else Option.of_optional(config.getColorSpace(name)).map(PyOpenColorIO.ColorSpace.getName).to_result_with(partial(Fault.of, Reason.ABSENT, config.getName(), member=name))
+        else option.of_optional(config.getColorSpace(name)).map(PyOpenColorIO.ColorSpace.getName).to_result_with(partial(Fault.of, Reason.ABSENT, config.getName(), member=name))
     )
 
 
@@ -97,7 +95,7 @@ def logarithmic(direction: PyOpenColorIO.TransformDirection, image: Term) -> Out
 
 def hsy(config: PyOpenColorIO.Config, direction: PyOpenColorIO.TransformDirection, image: Term) -> Outcome[Expr]:
     """Places OCIO linear HSY coordinates of an image over the configuration's scene-linear luma weights, the inverse direction returning RGB."""
-    grouped = Result[npt.NDArray[np.float64], Faults].bind(luma(config), lambda weights: _hsy(direction, tuple(map(float, weights))))
+    grouped = luma(config).bind(lambda weights: _hsy(direction, tuple(map(float, weights))))
     return grouped.map(lambda group: functions.placed(group, {COLOR_INPUT.key: image}, COLOR_RESULT.key))
 
 

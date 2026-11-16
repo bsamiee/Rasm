@@ -7,7 +7,7 @@ import itertools
 from typing import Annotated, Final, Generic, Self, TypeVar
 
 import bpy
-from expression import Option, Some
+from expression import NOTHING, Ok, Option, option, Some
 from expression.collections import Block
 import msgspec
 
@@ -25,7 +25,7 @@ from rasm_bpy.render._compositor.masks import Blend
 from rasm_bpy.render._compositor.recombination import Recombination, Recombined, TermFilter
 from rasm_bpy.render._view_layers.passes import used
 from rasm_bpy.settings._attachments import Attachment
-from rasm_records import accumulated, amended, Case, Fault, focused, Lens, Nothing, Ok, Outcome, Reason
+from rasm_records import accumulated, amended, Case, Fault, focused, Lens, Outcome, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -54,7 +54,7 @@ class Edit(Enum):
             case Edit.DUPLICATE:
                 return tuple(Some(position) for position in (*range(index + 1), index, *range(index + 1, count)))
             case Edit.RESET:
-                return tuple(Nothing if position == index else Some(position) for position in range(count))
+                return tuple(NOTHING if position == index else Some(position) for position in range(count))
             case Edit.UP | Edit.DOWN:
                 step = Toward.UP if self is Edit.UP else Toward.DOWN
                 other = count - 1 - step.stepped(count - 1 - index, count) if drawn_reversed else step.stepped(index, count)
@@ -84,7 +84,7 @@ _PADDING: Final = 4
 
 def _views(_owner: Struct, context: bpy.types.Context | None) -> tuple[EnumItem, ...]:
     """Used view layer items of the context scene."""
-    return choices((layer.name, layer.name, "") for scene in Option.of_optional(context).bind(lambda held: Option.of_optional(held.scene)).to_list() for layer in used(scene))
+    return choices((layer.name, layer.name, "") for scene in option.of_optional(context).bind(lambda held: option.of_optional(held.scene)).to_list() for layer in used(scene))
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -186,7 +186,7 @@ class LayerStack(msgspec.Struct, Generic[_M_co], frozen=True, kw_only=True):  # 
             Layers in stack order, each with the layer beneath, absent at the bottom.
         """
         soloed = any(layer.solo for layer in self.layers)
-        beneath: tuple[Option[StackLayer[_M_co]], ...] = (Nothing, *map(Some, self.layers))
+        beneath: tuple[Option[StackLayer[_M_co]], ...] = (NOTHING, *map(Some, self.layers))
         consumed = (*(layer.matte for layer in self.layers[1:]), False)
         return tuple((layer, below) for layer, below, matte in zip(self.layers, beneath, consumed) if layer.visible and not matte and (layer.solo or not soloed))
 
@@ -197,7 +197,7 @@ class LayerStack(msgspec.Struct, Generic[_M_co], frozen=True, kw_only=True):  # 
 
     def layer(self, index: int) -> Outcome[StackLayer[_M_co]]:
         """Returns the layer at a bottom-first index, absent past the stack."""
-        return Option.of_optional(self.layers[index] if 0 <= index < len(self.layers) else None).to_result_with(partial(Fault.of, Reason.ABSENT, type(self).__name__, member=str(index)))
+        return option.of_optional(self.layers[index] if 0 <= index < len(self.layers) else None).to_result_with(partial(Fault.of, Reason.ABSENT, type(self).__name__, member=str(index)))
 
     def edited(self, edit: Edit, target: StackTarget, seeded: Callable[[CompositorRecord], Outcome[CompositorRecord]]) -> Outcome[tuple["LayerStack", int, Order]]:
         """Applies an edit to a target's item, answering the edited stack, the layer it leaves active, and the prior position of each item's values.
@@ -274,7 +274,7 @@ class TermFiltering(msgspec.Struct, frozen=True, kw_only=True):
 
     def built(self, layer: StackLayer, source: Recombined, luminance: NodeGroup) -> Outcome[Option[TermFilter]]:
         """Builds the filter over the layer's matched entry, reading its inputs under the entry's place, `Nothing` while the layer holds none."""
-        return self.matched(layer).map(lambda index: self.filter(source, lambda key: group_input(item_key(layer.key, EFFECTS, index, key)), luminance).map(Some)).default_value(Ok(Nothing))
+        return self.matched(layer).map(lambda index: self.filter(source, lambda key: group_input(item_key(layer.key, EFFECTS, index, key)), luminance).map(Some)).default_value(Ok(NOTHING))
 
 
 class Switched(bpy.types.PropertyGroup):
@@ -384,7 +384,7 @@ def _blend_lens(target: StackTarget) -> Lens:
             return (LAYERS, layer, EFFECTS, entry, Entry.blend)
 
 
-def stack_file(uid: int, frame: Option[int] = Nothing) -> str:
+def stack_file(uid: int, frame: Option[int] = NOTHING) -> str:
     """Returns the File Output name of a stack group's multilayer frame, `#` padding the host fills with the frame number unless a frame is given."""
     return f"{OWNERSHIP.key}_{uid}_{frame.map(lambda number: str(number).zfill(_PADDING)).default_value('#' * _PADDING)}"
 

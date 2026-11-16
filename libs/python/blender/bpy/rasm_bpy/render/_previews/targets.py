@@ -8,7 +8,7 @@ import itertools
 from typing import Annotated, Final, Self
 
 import bpy
-from expression import Option, Result, Some, try_downcast
+from expression import Error, NOTHING, Ok, Option, option, Some, try_downcast
 from mathutils import Vector
 import msgspec
 import PyOpenColorIO
@@ -31,7 +31,7 @@ from rasm_bpy.render._previews.scenes import Ambient, PreviewLighting, PreviewMe
 from rasm_bpy.scene._materials import Clay, shaded
 from rasm_bpy.settings._attachments import Attachment
 from rasm_bpy.ui._elements.panels import Preference
-from rasm_records import accumulated, Error, Fault, Nothing, Ok, Outcome, paired, Reason
+from rasm_records import accumulated, Fault, Outcome, paired, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -129,26 +129,26 @@ class Editor(msgspec.Struct, frozen=True, kw_only=True):
                     case _, (modifier,):
                         chosen = Some(modifier)
                     case _, ():
-                        return Ok(Nothing)
+                        return Ok(NOTHING)
                     case _:
                         return Error(Fault.of(Refusal.REQUIRED, repr(space), tuple(modifier.name for modifier in using), member="explicit preview modifier"))
                 return enclosing(space).map(
                     lambda groups: chosen.map(lambda modifier: cls(item=Handle.of(item), scene=Handle.of(scene), modifier=modifier.name, groups=tuple(node.name for node in groups)))
                 )
             case _:
-                return Ok(Nothing)
+                return Ok(NOTHING)
 
     def tree(self, root: bpy.types.NodeTree) -> Option[bpy.types.NodeTree]:
         """Returns tree group path reaches from root."""
-        return reduce(lambda held, name: held.bind(lambda tree: Option.of_optional(tree.nodes.get(name))).bind(group_tree), self.groups, Some(root))
+        return reduce(lambda held, name: held.bind(lambda tree: option.of_optional(tree.nodes.get(name))).bind(group_tree), self.groups, Some(root))
 
     def held(self) -> Outcome[bpy.types.NodeTree]:
         """Resolves the group of the editor's modifier."""
         return self.item.resolve().bind(
             lambda item: (
-                Option
+                option
                 .of_optional(try_downcast(bpy.types.NodesModifier, item.modifiers.get(self.modifier)))
-                .bind(lambda found: Option.of_optional(found.node_group))
+                .bind(lambda found: option.of_optional(found.node_group))
                 .to_result_with(partial(Fault.of, Reason.ABSENT, repr(item.modifiers), member=self.modifier))
             )
         )
@@ -207,7 +207,7 @@ def targets(identity: Identity, editor: Editor, tree: bpy.types.NodeTree, settin
                 return node.show_preview
 
     def isolated(node: bpy.types.Node, socket: bpy.types.NodeSocket) -> Option[PreviewTarget]:
-        kind = Some(RenderKind.GEOMETRY_CLAY) if socket.type == "GEOMETRY" else Some(RenderKind.FIELD_SWATCH) if settings.fields and isinstance(node, bpy.types.ShaderNode) else Nothing
+        kind = Some(RenderKind.GEOMETRY_CLAY) if socket.type == "GEOMETRY" else Some(RenderKind.FIELD_SWATCH) if settings.fields and isinstance(node, bpy.types.ShaderNode) else NOTHING
         return kind.map(lambda found: PreviewTarget(editor=editor, node=node.name, socket=socket.identifier, kind=found, valued=socket.type in _VALUED))
 
     candidates = tuple(
@@ -241,10 +241,7 @@ def enclosing(space: bpy.types.SpaceNodeEditor) -> Outcome[tuple[bpy.types.Node,
 
 def _node(tree: bpy.types.NodeTree, name: str) -> Outcome[bpy.types.Node]:
     """Reads one native node, retaining its missing-key cause."""
-    try:
-        return Ok(tree.nodes[name])
-    except KeyError as error:
-        return Error(Fault.of(Reason.ABSENT, repr(tree.nodes), error, member=name))
+    return option.of_optional(tree.nodes.get(name)).to_result_with(partial(Fault.of, Reason.ABSENT, repr(tree.nodes), member=name))
 
 
 def _copied[T: bpy.types.ID](identity: Identity, block: T, copies: ExitStack) -> Outcome[T]:
@@ -256,7 +253,7 @@ def _copied[T: bpy.types.ID](identity: Identity, block: T, copies: ExitStack) ->
             copied = block.copy()
         except RuntimeError as error:
             return Error(refused(error))
-        return Option.of_optional(copied).to_result_with(refused)
+        return option.of_optional(copied).to_result_with(refused)
 
     return Ownership(kind=type(block), key="preview_route", saved=Saved.NEVER, single=False).made(identity, built, scope=Some(copies))
 
@@ -287,18 +284,17 @@ def _routed[H: Holder](identity: Identity, holder: H, target: PreviewTarget, cop
         return group.bind(lambda inner: _copied(identity, inner, copies)).bind(lambda inner: written(node, ("node_tree",), inner).map(lambda _: inner))
 
     def outward(tree: bpy.types.NodeTree) -> Outcome[bpy.types.NodeSocket]:
-        parents: list[tuple[bpy.types.Node, bpy.types.NodeTree]] = []
-        for name in target.editor.groups:
-            match _node(tree, name).bind(lambda node: entered(node).map(lambda inner: (node, inner))):
-                case Result(tag="ok", ok=(node, inner)):
-                    parents.append((node, inner))
-                    tree = inner
-                case Result(error=faults):
-                    return Error(faults)
-        source = _node(tree, target.node).bind(lambda node: socket_at(node.outputs, target.socket))
-        for node, inner in reversed(parents):
-            source = source.bind(lambda socket: exposed(inner, socket).bind(lambda identifier: socket_at(node.outputs, identifier)))
-        return source
+        return reduce(
+            lambda held, name: held.bind(lambda state: _node(state[0], name).bind(lambda node: entered(node).map(lambda inner: (inner, ((node, inner), *state[1]))))),
+            target.editor.groups,
+            Ok((tree, ())),
+        ).bind(
+            lambda state: reduce(
+                lambda source, parent: source.bind(lambda socket: exposed(parent[1], socket).bind(lambda identifier: socket_at(parent[0].outputs, identifier))),
+                state[1],
+                _node(state[0], target.node).bind(lambda node: socket_at(node.outputs, target.socket)),
+            )
+        )
 
     return _copied(identity, holder, copies).bind(lambda copy: tree_of(copy).bind(outward).map(lambda socket: (copy, socket)))
 
@@ -309,7 +305,7 @@ def _routed[H: Holder](identity: Identity, holder: H, target: PreviewTarget, cop
 def rendered(identity: Identity, preview: PreviewScene, target: PreviewTarget, size: int, lighting: PreviewLighting, world: Graph) -> Outcome[Readback]:
     """Renders a target through routed copies in the preview scene, staged per render kind and formed through the scene view, the source's updates during the render marked as its own."""
     editor = target.editor
-    aov = Some(identity.identifier(PreviewScene.value)) if target.valued else Nothing
+    aov = Some(identity.identifier(PreviewScene.value)) if target.valued else NOTHING
 
     def staged(scene: bpy.types.Scene, **changes: object) -> Staging:
         return msgspec.structs.replace(Staging(source=scene, input=(size, size), world=world, sun=lighting.sun), **changes)

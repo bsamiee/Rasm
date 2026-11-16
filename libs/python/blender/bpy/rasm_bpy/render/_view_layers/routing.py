@@ -8,7 +8,7 @@ from types import MappingProxyType
 from typing import ClassVar, Final
 
 import bpy
-from expression import Option, Some
+from expression import NOTHING, Ok, Option, option, Some
 from expression.collections import Block, Map
 import msgspec
 
@@ -42,7 +42,7 @@ from rasm_bpy.settings._presets import Preset
 from rasm_bpy.ui._layout.rows import ConditionalRow, FUNCTIONS, Layout, OperatorButton, realized, RowDraw
 from rasm_bpy.ui._layout.sections import Section
 from rasm_bpy.ui._layout.values import Listing, Store
-from rasm_records import accumulated, Fault, Nothing, Ok, Outcome, paired, Reason, Retention, transfer
+from rasm_records import accumulated, Fault, Outcome, paired, Reason, Retention, transfer
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -117,7 +117,7 @@ class PassRouting(msgspec.Struct, frozen=True, kw_only=True):
             )
 
         return (
-            Option
+            option
             .of_optional(held.get(render_key))
             .map(lambda live: sources(scene, layer, rendered, live, routing, Role[record.role], self.lobe))
             .default_value(Ok(()))
@@ -184,7 +184,7 @@ class PassRouting(msgspec.Struct, frozen=True, kw_only=True):
 
         return rooted(bpy.types.BlendData, context).bind(
             lambda data: accumulated(
-                refresh(scene) for scene in data.scenes if scene.is_editable and not runtime(self.identity, scene) and any(self.routing.stored(layer) for layer in scene.view_layers)
+                refresh(scene) for scene in data.scenes if scene.is_editable if not runtime(self.identity, scene) if any(self.routing.stored(layer) for layer in scene.view_layers)
             ).map(lambda _: None)
         )
 
@@ -258,22 +258,22 @@ class RoutingRow(ConditionalRow, frozen=True):
 
             def targeted() -> tuple[tuple[bpy.types.ImageFormatSettings, Option[bpy.types.NodeCompositorFileOutputItem], Map[str, str]], ...]:
                 stored = FileItems.held(live, identity)
-                items = tuple((source, item) for source in file_output.sources for item in Option.of_optional(stored.get(source.key)).to_list())
+                items = tuple((source, item) for source in file_output.sources for item in option.of_optional(stored.get(source.key)).to_list())
                 match live.format:
                     case bpy.types.ImageFormatSettings(file_format="OPEN_EXR_MULTILAYER") as settings:
-                        return ((settings, Nothing, Map.of_seq((item.name, source.name) for source, item in items)),)
+                        return ((settings, NOTHING, Map.of_seq((item.name, source.name) for source, item in items)),)
                     case bpy.types.ImageFormatSettings() as settings:
                         return tuple(
                             (held, Some(item), Map.of_seq((("", source.name),)))
                             for source, item in items
-                            for held in Option.of_optional(item.format if item.override_node_format else settings).to_list()
+                            for held in option.of_optional(item.format if item.override_node_format else settings).to_list()
                         )
                     case _:
                         return ()
 
             def written_at(settings: bpy.types.ImageFormatSettings, item: Option[bpy.types.NodeCompositorFileOutputItem], passes: Map[str, str]) -> Outcome[tuple[Written, ...]]:
                 individual = settings.views_format == "INDIVIDUAL" or (settings.file_format == "OPEN_EXR_MULTILAYER" and settings.views_format != "MULTIVIEW")
-                views = tuple(map(Some, render_views(scene.render))) if scene.render.use_multiview and individual else (Nothing,)
+                views = tuple(map(Some, render_views(scene.render))) if scene.render.use_multiview and individual else (NOTHING,)
                 return accumulated(
                     file_output_path(scene, live, settings, frame, animation=animation, item=item, view=view).map(
                         lambda file: Written.of(
@@ -294,8 +294,8 @@ class RoutingRow(ConditionalRow, frozen=True):
                     layer_of(scene, source.layer).bind(lambda layer: routing.framed(scene, held, current, prefix, layer).map(lambda frame: (layer, frame[2])))
                     for source in held.values()
                     if isinstance(source, bpy.types.CompositorNodeRLayers)
-                    for parent in Option.of_optional(source.parent).to_list()
-                    for prefix in Option.of_optional(keys.get(parent)).to_list()
+                    for parent in option.of_optional(source.parent).to_list()
+                    for prefix in option.of_optional(keys.get(parent)).to_list()
                 )
                 .bind(
                     lambda plans: accumulated(
@@ -340,7 +340,7 @@ class RoutingRow(ConditionalRow, frozen=True):
             )
         )
 
-    def section(self, retention: Option[Callable[[Identity], Outcome[Retention]]] = Nothing) -> Section[Routing]:
+    def section(self, retention: Option[Callable[[Identity], Outcome[Retention]]] = NOTHING) -> Section[Routing]:
         """Returns File Output section over context layer routing store."""
         return Section(key=self.key, title=Some("File Output"), rows=(self,), store=Some(Store(attachment=ROUTING, retention=retention)))
 
@@ -355,7 +355,7 @@ def _unlisted(identity: Identity, context: bpy.types.Context) -> Outcome[tuple[F
         taken = {row.name for row in routing.routing.struct(layer).files}
         return routing.planned(scene, routing.held(scene), routing.pathed.path(scene, today())).map(
             lambda planned: tuple(
-                source for plan in Option.of_optional(planned[1].get(layer)).to_list() for file_output in plan.file_outputs.values() for source in file_output.sources if source.name not in taken
+                source for plan in option.of_optional(planned[1].get(layer)).to_list() for file_output in plan.file_outputs.values() for source in file_output.sources if source.name not in taken
             )
         )
 
@@ -398,7 +398,7 @@ def _adding(package: str) -> Operator[bpy.types.PropertyGroup]:
     """Builds the file row command of an extension once, its search listing the context layer's unlisted sources."""
 
     def items(_owner: Struct, context: bpy.types.Context | None) -> tuple[EnumItem, ...]:
-        found = Option.of_optional(context).map(lambda held: Identity.read(package).bind(lambda identity: _unlisted(identity, held)).default_value(())).default_value(())
+        found = option.of_optional(context).map(lambda held: Identity.read(package).bind(lambda identity: _unlisted(identity, held)).default_value(())).default_value(())
         return choices((source.name, source.name, f"{source.output.name.title()} pass") for source in found)
 
     form: type[bpy.types.PropertyGroup] = type(

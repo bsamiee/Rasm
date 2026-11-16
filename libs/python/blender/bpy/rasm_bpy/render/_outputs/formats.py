@@ -8,7 +8,7 @@ from types import MappingProxyType
 from typing import ClassVar, Final, override, Self, TYPE_CHECKING
 
 import bpy
-from expression import Option, Result, Some, try_downcast
+from expression import Error, NOTHING, Ok, Option, option, Some, try_downcast
 import msgspec
 
 from rasm_bpy.commands.operators import answered
@@ -23,7 +23,7 @@ from rasm_bpy.render._color.spaces import DisplaySettings, Settings, ViewSetting
 from rasm_bpy.settings._presets import Preset
 from rasm_bpy.ui._layout.values import Listing
 from rasm_imaging import Codec, Compression, Depth, Plain
-from rasm_records import accumulated, Error, Fault, Faults, Nothing, Ok, Outcome, Reason, transfer
+from rasm_records import accumulated, Fault, Outcome, Reason, transfer
 from rasm_rendering import Output
 
 if TYPE_CHECKING:
@@ -124,7 +124,7 @@ class OutputFormat(Settings, frozen=True, kw_only=True):
     @property
     def codec(self) -> Option[Compression]:
         """HTJ2K codec a reader's header metadata lacks, Nothing for every other storage."""
-        return Some(Plain(codec=Codec.HTJ2K32)) if self.file_format in EXR and self.exr_codec == "HTJ2K" else Nothing
+        return Some(Plain(codec=Codec.HTJ2K32)) if self.file_format in EXR and self.exr_codec == "HTJ2K" else NOTHING
 
     def applied(self, settings: bpy.types.ImageFormatSettings) -> Outcome[None]:
         """Writes the set members onto image format settings."""
@@ -137,7 +137,7 @@ class OutputFormat(Settings, frozen=True, kw_only=True):
         with ExitStack() as restore:
             for snapshot in prior.to_option().to_list():
                 restore.callback(snapshot.apply, settings)
-            yield Result[Snapshot, Faults].bind(prior, lambda _: self.applied(settings))
+            yield prior.bind(lambda _: self.applied(settings))
 
 
 class FileItem(Settings, frozen=True, kw_only=True):
@@ -165,7 +165,7 @@ class FileItems(ItemContent, frozen=True, kw_only=True):
     def _bound(live: bpy.types.CompositorNodeOutputFile, identity: Identity) -> tuple[Mapping[str, Mapping[str, str]], dict[str, bpy.types.NodeCompositorFileOutputItem], bpy.types.NodeInputs]:
         """Returns stored bindings, native items by socket identifier, and node inputs, raising `TypeError` for a record `write` never stored."""
         match live, converted_value(live.get(identity.identifier(FileItems._key), {}), Mapping[str, Mapping[str, str]], repr(live)):
-            case bpy.types.CompositorNodeOutputFile(inputs=bpy.types.bpy_prop_collection() as inputs), Result(tag="ok", ok=bindings):
+            case bpy.types.CompositorNodeOutputFile(inputs=bpy.types.bpy_prop_collection() as inputs), Ok(bindings):
                 return bindings, {socket.identifier: item for item, socket in zip(live.file_output_items, inputs)}, inputs
             case other:
                 raise TypeError(other)
@@ -269,7 +269,7 @@ class FileItems(ItemContent, frozen=True, kw_only=True):
 
 def format_member(struct: type[Struct]) -> Option[str]:
     """Returns the member holding the struct's image format, Nothing for a struct holding none."""
-    return Option.of_optional(
+    return option.of_optional(
         next((prop.identifier for prop in struct.bl_rna.properties if isinstance(prop, bpy.types.PointerProperty) and prop.fixed_type == rna_definition(bpy.types.ImageFormatSettings)), None)
     )
 
@@ -284,7 +284,7 @@ def storage_depth(settings: bpy.types.ImageFormatSettings) -> Option[Depth]:
         case "32":
             return Some(Depth.FLOAT)
         case _:
-            return Nothing
+            return NOTHING
 
 
 def code_step(settings: bpy.types.ImageFormatSettings) -> float:
@@ -299,7 +299,7 @@ def rounds_straight(settings: bpy.types.ImageFormatSettings) -> bool:
 
 def extension(settings: bpy.types.ImageFormatSettings) -> Option[str]:
     """Returns the still suffix a format writes, `.jp2` or `.j2c` by JPEG2000 codec, which only the scene's `RenderSettings.file_extension` states."""
-    return Option.of_optional(_JPEG2000.get(settings.jpeg2k_codec) if settings.file_format == "JPEG2000" else _EXTENSIONS.get(settings.file_format))
+    return option.of_optional(_JPEG2000.get(settings.jpeg2k_codec) if settings.file_format == "JPEG2000" else _EXTENSIONS.get(settings.file_format))
 
 
 def image_formats(scene: bpy.types.Scene) -> tuple[bpy.types.ImageFormatSettings, ...]:
@@ -312,8 +312,8 @@ def image_formats(scene: bpy.types.Scene) -> tuple[bpy.types.ImageFormatSettings
     )
     return (
         scene.render.image_settings,
-        *(held for node in nodes for held in Option.of_optional(node.format).to_list()),
-        *(held for node in nodes for item in node.file_output_items if item.override_node_format for held in Option.of_optional(item.format).to_list()),
+        *(held for node in nodes for held in option.of_optional(node.format).to_list()),
+        *(held for node in nodes for item in node.file_output_items if item.override_node_format for held in option.of_optional(item.format).to_list()),
     )
 
 
@@ -324,7 +324,7 @@ def _captured(context: bpy.types.Context) -> Outcome[Snapshot]:
 
 def _output(live: bpy.types.Node) -> Outcome[bpy.types.CompositorNodeOutputFile]:
     """Node as File Output, else `absent` fault naming its items."""
-    return Option.of_optional(try_downcast(bpy.types.CompositorNodeOutputFile, live)).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(live), member="file_output_items"))
+    return option.of_optional(try_downcast(bpy.types.CompositorNodeOutputFile, live)).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(live), member="file_output_items"))
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------

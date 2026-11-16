@@ -4,7 +4,7 @@ import math
 from typing import ClassVar, Self
 
 import colour
-from expression import Option, Some
+from expression import NOTHING, Ok, Option, Some
 import msgspec
 import numpy as np
 import numpy.typing as npt
@@ -14,7 +14,7 @@ from rasm_imaging._color.colorimetry import chromaticities, coordinates
 from rasm_imaging._color.processors import converted, DisplayView, GRAY, luma, xyz
 from rasm_imaging._files.buffers import unassociated
 from rasm_imaging._geometry.frames import Region
-from rasm_records import Frozen, Nothing, Ok, Outcome, paired, Percent, Unit
+from rasm_records import Frozen, Outcome, paired, Percent, Unit
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -125,7 +125,7 @@ class Histogram(Frozen, frozen=True, kw_only=True, eq=False):
     clipped: Option[npt.NDArray[np.intp]]
 
     @classmethod
-    def of(cls, config: PyOpenColorIO.Config, plane: npt.NDArray[np.float32], clip: Option[tuple[float, float]] = Nothing) -> Outcome["Histogram"]:
+    def of(cls, config: PyOpenColorIO.Config, plane: npt.NDArray[np.float32], clip: Option[tuple[float, float]] = NOTHING) -> Outcome["Histogram"]:
         """Counts covered RGB and luminance, `clip` counting channels outside [low, high)."""
 
         def counted(samples: Samples) -> Histogram:
@@ -215,7 +215,7 @@ class Bands(Frozen, frozen=True, kw_only=True, eq=False):
             steps = np.diff(np.pad((colors[1:] == colors[:-1]).all(axis=-1), 1).astype(np.int8))
             starts, ends = np.flatnonzero(steps == 1), np.flatnonzero(steps == -1)
             stepped = starts.size > 2 and (ends - starts)[1:-1].min() > (starts[1:] - ends[:-1]).max()
-            return Some(cls(colors=colors[starts], edges=np.exp2((exposures[ends[:-1]] + exposures[starts[1:]]) / 2.0))) if stepped else Nothing
+            return Some(cls(colors=colors[starts], edges=np.exp2((exposures[ends[:-1]] + exposures[starts[1:]]) / 2.0))) if stepped else NOTHING
 
         return view.form(config, np.repeat(np.exp2(exposures).astype(np.float32)[None, :, None], 3, axis=-1)).map(banded)
 
@@ -236,7 +236,7 @@ class Chromaticity(Frozen, frozen=True, kw_only=True, eq=False):
             points = coordinates(tristimulus[..., :3][(plane[..., 3:] > 0.0).all(axis=-1)])
             return cls(trace=np.histogram2d(points[:, 0], points[:, 1], bins=cells, range=np.stack((np.zeros(2), extent), axis=-1))[0], working=working, display=display)
 
-        shown = view.colorspace(config).filter(lambda space: not space.isData()).map(lambda space: chromaticities(config, space.getName()).map(Some)).default_value(Ok(Nothing))
+        shown = view.colorspace(config).filter(lambda space: not space.isData()).map(lambda space: chromaticities(config, space.getName()).map(Some)).default_value(Ok(NOTHING))
         return paired(converted(config, xyz(config, PyOpenColorIO.ROLE_SCENE_LINEAR), plane), chromaticities(config, PyOpenColorIO.ROLE_SCENE_LINEAR), shown).map(built)
 
 

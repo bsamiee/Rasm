@@ -9,7 +9,7 @@ from typing import Final, Self
 
 import bpy
 import bpy.utils.previews
-from expression import Option, Some
+from expression import NOTHING, Ok, Option, option, Some
 from expression.extra.result import catch
 import gpu
 import msgspec
@@ -19,7 +19,7 @@ import numpy.typing as npt
 from rasm_bpy.data._extension.registration import Resource
 from rasm_bpy.data._extension.reports import redrawn, Refusal
 from rasm_bpy.ui._resources.theme import Checker, Metrics
-from rasm_records import Fault, Nothing, Ok, Outcome
+from rasm_records import Fault, Outcome
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -90,21 +90,21 @@ class _Previews:
 
     def get(self, slot: Hashable) -> Option[bpy.types.ImagePreview]:
         """Returns the slot's native preview, Nothing while it holds no pixels."""
-        return Option.of_optional(self.held.get(slot)).bind(lambda held: held.serial).map(lambda serial: self.collection[str(serial)])
+        return option.of_optional(self.held.get(slot)).bind(lambda held: held.serial).map(lambda serial: self.collection[str(serial)])
 
     def read(self, slot: Hashable, key: Hashable) -> Option[Option[bpy.types.ImagePreview]]:
         """Returns the finished request's preview or pixelless result, Nothing for an absent or stale request."""
-        return Some(held.serial.map(lambda serial: self.collection[str(serial)])) if (held := self.held.get(slot)) is not None and held.finished == key else Nothing
+        return Some(held.serial.map(lambda serial: self.collection[str(serial)])) if (held := self.held.get(slot)) is not None and held.finished == key else NOTHING
 
     # --- [WRITES]
 
     def written(self, slot: Hashable, key: Hashable, plane: Option[npt.NDArray[np.float32]]) -> Outcome[Option[int]]:
         """Writes top-first RGBA into the slot's image and icon buffers at full size, or drops the slot for no pixels, then records the finished request."""
         match plane:
-            case Option(tag="some", some=pixels):
+            case Some(pixels):
                 height, width, _ = pixels.shape
                 serial, preview = (
-                    Option
+                    option
                     .of_optional(self.held.get(slot))
                     .bind(lambda held: held.serial)
                     .map(lambda serial: (serial, self.collection[str(serial)]))
@@ -115,12 +115,12 @@ class _Previews:
                 return redrawn().map(lambda _: Some(preview.icon_id))
             case _:
                 dropped = self.dropped(slot)
-                self.held[slot] = _Slot(serial=Nothing, finished=key)
-                return dropped.map(lambda _: Nothing)
+                self.held[slot] = _Slot(serial=NOTHING, finished=key)
+                return dropped.map(lambda _: NOTHING)
 
     def dropped(self, slot: Hashable) -> Outcome[None]:
         """Clears slot and its finished request, redrawing when a preview was removed."""
-        for serial in Option.of_optional(self.held.pop(slot, None)).bind(lambda held: held.serial).to_list():
+        for serial in option.of_optional(self.held.pop(slot, None)).bind(lambda held: held.serial).to_list():
             del self.collection[str(serial)]
             return redrawn().map(lambda _: None)
         return Ok(None)
@@ -150,7 +150,7 @@ class Textures[M]:
         """Reads texture and metadata by key, marking them most recent."""
         if (entry := self.held.get(key)) is not None:
             self.held.move_to_end(key)
-        return Option.of_optional(entry)
+        return option.of_optional(entry)
 
     def stored(self, key: Hashable, plane: npt.NDArray[np.float32], limit: int, kept: frozenset[Hashable], *, metadata: M) -> Outcome[Texture[M]]:
         """Uploads associated display colors drawn under `ALPHA_PREMULT` blending, evicting oldest unpinned textures past limit.

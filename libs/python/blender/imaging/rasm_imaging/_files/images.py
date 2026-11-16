@@ -8,7 +8,7 @@ import pathlib
 from types import MappingProxyType
 from typing import Annotated, Final, get_args, Literal, Self
 
-from expression import Option, Some
+from expression import Error, NOTHING, Ok, Option, option, Some
 from expression.extra.result import catch
 import imagecodecs
 import msgspec
@@ -18,7 +18,7 @@ import OpenImageIO
 import PyOpenColorIO
 
 from rasm_imaging._files.buffers import checked, Coded, Coding, Depth, pixels, unassociated
-from rasm_records import Case, committed, Error, Fault, Nothing, Ok, Outcome, paired, Reason
+from rasm_records import Case, committed, Fault, Outcome, paired, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -147,7 +147,7 @@ class Storage(msgspec.Struct, frozen=True, kw_only=True):
     """Stored depth, compression, and the coding of integer depths."""
 
     depth: Depth = Depth.FLOAT
-    compression: Option[Compression] = Nothing
+    compression: Option[Compression] = NOTHING
     coding: Coding = Coding.ROUNDED
 
     @property
@@ -187,14 +187,14 @@ class Format(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def writer(cls, name: str) -> Option[Self]:
-        """Returns the writable format named `name`, Nothing for a format OpenImageIO does not write."""
-        return Option.of_optional(next((row for row in cls.writable() if row.name == name), None))
+        """Returns the writable format named `name`, `NOTHING` for a format OpenImageIO does not write."""
+        return option.of_optional(next((row for row in cls.writable() if row.name == name), None))
 
     @classmethod
     def of(cls, path: pathlib.Path) -> Outcome[Self]:
         """Returns the writable format OpenImageIO picks for `path`, `OUTSIDE` fault naming every writable suffix and the OpenImageIO refusal."""
         return (
-            Option
+            option
             .of_optional(OpenImageIO.ImageOutput.create(str(path)))
             .bind(lambda output: cls.writer(output.format_name()))
             .to_result_with(lambda: Fault.of(Reason.OUTSIDE, str(path), OpenImageIO.geterror() or path.suffix, member=", ".join(suffix for row in cls.writable() for suffix in row.suffixes)))
@@ -259,7 +259,7 @@ class ImageFile(msgspec.Struct, frozen=True, kw_only=True, eq=False):
             Path, `OUTSIDE` fault for a path no writer takes or a depth its writer changes, `UNREADABLE` fault for profile IO, `FAILED` fault for coding, or `UNWRITABLE` fault.
         """
         (height, width, channels), coded = self.pixels.shape, storage.depth in {Depth.UINT8, Depth.UINT16}
-        identifier = Option.of_optional(config.getColorSpace(self.colorspace)).map(PyOpenColorIO.ColorSpace.getInteropID).filter(bool)
+        identifier = option.of_optional(config.getColorSpace(self.colorspace)).map(PyOpenColorIO.ColorSpace.getInteropID).filter(bool)
         bt709_transfer = 1
 
         def subimages(icc: Option[bytes], output: OpenImageIO.ImageOutput) -> tuple[Subimage, ...]:
@@ -275,7 +275,7 @@ class ImageFile(msgspec.Struct, frozen=True, kw_only=True, eq=False):
                 *(
                     ("CICP", OpenImageIO.TypeDesc("int[4]"), (code[0], code[1], 0, 1))
                     for code in identifier
-                    .bind(lambda name: Option.of_optional(OpenImageIO.ColorConfig("ocio://default").get_cicp(name)))
+                    .bind(lambda name: option.of_optional(OpenImageIO.ColorConfig("ocio://default").get_cicp(name)))
                     .filter(lambda code: tagged and code[1] != bt709_transfer)
                     .to_list()
                 ),
@@ -301,10 +301,10 @@ def read_file(
     path: pathlib.Path,
     config: PyOpenColorIO.Config,
     *,
-    colorspace: Option[str] = Nothing,
-    options: Option[OpenImageIO.ImageSpec] = Nothing,
+    colorspace: Option[str] = NOTHING,
+    options: Option[OpenImageIO.ImageSpec] = NOTHING,
     subimage: int = 0,
-    channels: Option[tuple[int, ...]] = Nothing,
+    channels: Option[tuple[int, ...]] = NOTHING,
 ) -> Outcome[ImageFile]:
     """Reads selected channels of a subimage as float32 with its colorspace.
 
@@ -329,10 +329,10 @@ def read_file(
         role = real if spec.format.basetype in {OpenImageIO.HALF, OpenImageIO.FLOAT, OpenImageIO.DOUBLE} else byte
         fallback = Some(role).filter(lambda held: config.hasRole(held) and config.filepathOnlyMatchesDefaultRule(name))
         requested = colorspace.or_else(fallback).default_with(lambda: config.getColorSpaceFromFilepath(name)[0])
-        tagged = Nothing if colorspace.is_some() else Option.of_optional(config.getColorSpace(spec.get_string_attribute("oiio:ColorSpace")))
+        tagged = NOTHING if colorspace.is_some() else option.of_optional(config.getColorSpace(spec.get_string_attribute("oiio:ColorSpace")))
         resolved = (
             tagged
-            .or_else_with(lambda: Option.of_optional(config.getColorSpace(requested)))
+            .or_else_with(lambda: option.of_optional(config.getColorSpace(requested)))
             .map(PyOpenColorIO.ColorSpace.getName)
             .to_result_with(lambda: Fault.of(Reason.ABSENT, config.getName(), member=requested))
         )
@@ -341,15 +341,15 @@ def read_file(
     return opened(path, decoded, options=options)
 
 
-def read_pixels(path: pathlib.Path, image: OpenImageIO.ImageInput, spec: OpenImageIO.ImageSpec, *, subimage: int = 0, channels: Option[tuple[int, ...]] = Nothing) -> Outcome[npt.NDArray[np.float32]]:
+def read_pixels(path: pathlib.Path, image: OpenImageIO.ImageInput, spec: OpenImageIO.ImageSpec, *, subimage: int = 0, channels: Option[tuple[int, ...]] = NOTHING) -> Outcome[npt.NDArray[np.float32]]:
     """Returns selected float32 channels through one span read, every channel when absent, or an `UNREADABLE` fault."""
-    if channels.to_optional() == ():
+    if channels == Some(()):
         return Ok(np.empty((*((spec.depth,) if spec.depth > 1 else ()), spec.height, spec.width, 0), dtype=np.float32))
     first, last = channels.map(lambda selected: (min(selected), max(selected) + 1)).default_value((0, spec.nchannels))
     return (
-        Option
+        option
         .of_optional(image.read_image(subimage, 0, first, last, OpenImageIO.FLOAT))
-        .map(lambda span: channels.map(lambda selected: np.take(span, tuple(index - first for index in selected), axis=-1)).default_value(span))
+        .map(lambda span: channels.map(lambda selected: np.take(span, np.subtract(selected, first), axis=-1)).default_value(span))
         .to_result_with(lambda: Fault.of(Reason.UNREADABLE, str(path), image.geterror()))
     )
 
@@ -365,14 +365,14 @@ def read_codes(path: pathlib.Path) -> Outcome[Option[npt.NDArray[np.uint8 | np.u
         match formats:
             case (kind, *_) if kind.basetype in {OpenImageIO.UINT8, OpenImageIO.UINT16} and OpenImageIO.TypeDesc.all_types_equal(list(formats)):
                 codes: npt.NDArray[np.uint8 | np.uint16] | None = image.read_image(0, 0, 0, spec.nchannels, kind)
-                return Option.of_optional(codes).to_result_with(lambda: Fault.of(Reason.UNREADABLE, str(path), image.geterror())).map(Some)
+                return option.of_optional(codes).to_result_with(lambda: Fault.of(Reason.UNREADABLE, str(path), image.geterror())).map(Some)
             case _:
-                return Ok(Nothing)
+                return Ok(NOTHING)
 
     return opened(path, decoded, options=Some(options))
 
 
-def opened[T](path: pathlib.Path, use: Callable[[OpenImageIO.ImageInput], Outcome[T]], *, options: Option[OpenImageIO.ImageSpec] = Nothing) -> Outcome[T]:
+def opened[T](path: pathlib.Path, use: Callable[[OpenImageIO.ImageInput], Outcome[T]], *, options: Option[OpenImageIO.ImageSpec] = NOTHING) -> Outcome[T]:
     """Opens a file for reading under reader configuration `options`, uses it, and closes it on every path.
 
     Returns:
@@ -384,7 +384,7 @@ def opened[T](path: pathlib.Path, use: Callable[[OpenImageIO.ImageInput], Outcom
             return use(image)
 
     return (
-        Option
+        option
         .of_optional(OpenImageIO.ImageInput.open(str(path), options.default_with(OpenImageIO.ImageSpec)))
         .map(held)
         .default_with(lambda: Error(Fault.of(Reason.UNREADABLE, str(path), OpenImageIO.geterror())))
@@ -433,7 +433,7 @@ def emitted(path: pathlib.Path, subimages: Callable[[OpenImageIO.ImageOutput], t
             return functools.reduce(step, enumerate(zip(specs, parts)), answered(done=output.open(stage, list(specs)))).bind(lambda _: answered(done=output.close()))
 
     return committed(
-        path, lambda stage: Option.of_optional(OpenImageIO.ImageOutput.create(str(path))).map(functools.partial(into, str(stage))).default_with(lambda: Error(refused(OpenImageIO.geterror())))
+        path, lambda stage: option.of_optional(OpenImageIO.ImageOutput.create(str(path))).map(functools.partial(into, str(stage))).default_with(lambda: Error(refused(OpenImageIO.geterror())))
     )
 
 
@@ -456,7 +456,7 @@ def profile(config: PyOpenColorIO.Config, colorspace: str) -> Outcome[Option[byt
     """Reads the ICC profile a colorspace names from config search path.
 
     Returns:
-        Profile, `Nothing` when the colorspace names none, or `UNREADABLE` fault for a named profile the search path misses or fails to read.
+        Profile, `NOTHING` when the colorspace names none, or `UNREADABLE` fault for a named profile the search path misses or fails to read.
     """
     context = config.getCurrentContext()
 
@@ -469,7 +469,7 @@ def profile(config: PyOpenColorIO.Config, colorspace: str) -> Outcome[Option[byt
             .map(Some)
         )
 
-    return Option.of_optional(config.getColorSpace(colorspace)).map(lambda space: space.getInterchangeAttribute("icc_profile_name")).filter(bool).map(loaded).default_value(Ok(Nothing))
+    return option.of_optional(config.getColorSpace(colorspace)).map(lambda space: space.getInterchangeAttribute("icc_profile_name")).filter(bool).map(loaded).default_value(Ok(NOTHING))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

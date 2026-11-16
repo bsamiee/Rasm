@@ -8,7 +8,7 @@ from functools import partial
 from itertools import islice
 
 import bpy
-from expression import Option, Result, Some
+from expression import Error, NOTHING, Ok, Option, option, Some
 from expression.extra.result import catch
 import msgspec
 
@@ -17,7 +17,7 @@ from rasm_bpy.data._ids.store import IdName
 from rasm_bpy.data._rna.descriptors import converted_value, Descriptor, sequenced, Value, written
 from rasm_bpy.data._rna.paths import Native, NativeOwner, rna, RnaPath, Struct, struct_at
 from rasm_bpy.data._rna.snapshots import Applied, applied_tree, Capture, referenced
-from rasm_records import accumulated, Error, Fault, Faults, Nothing, Ok, Outcome, Owner, paired, Reason, revert, transfer, Tree
+from rasm_records import accumulated, Fault, Outcome, Owner, paired, Reason, revert, transfer, Tree
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -36,7 +36,7 @@ class BeforeAfter(msgspec.Struct, frozen=True, kw_only=True, array_like=True):
 
     def decoded(self, owner: object, key: str) -> Outcome[tuple[NativeTree, NativeTree]]:
         """Decodes before and after trees, accumulating faults of both, absent fault before write finishes."""
-        return paired(_decoded(self.before), Option.of_optional(self.after).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(owner), member=f"{key}.after")).bind(_decoded))
+        return paired(_decoded(self.before), option.of_optional(self.after).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(owner), member=f"{key}.after")).bind(_decoded))
 
     def restored(self) -> Outcome[None]:
         """Restores members still at their after values, every before value of an operation that never finished."""
@@ -55,8 +55,9 @@ class BeforeAfter(msgspec.Struct, frozen=True, kw_only=True, array_like=True):
         def assigned(path: RnaPath, struct: Native, descriptor: Descriptor, value: Value | Struct | NativeTree) -> Applied:
             return applied_tree(struct, value, lambda _, row: row[1]) if isinstance(value, Tree) else Applied.reported(path, written(struct, descriptor.path, value))
 
-        match _decoded(self.before).bind(lambda before: Option.of_optional(self.after).map(_decoded).default_with(lambda: live(before)).map(lambda after: (before, after))):
-            case Result(tag="ok", ok=(before, after)):
+        match _decoded(self.before).bind(lambda before: option.of_optional(self.after).map(_decoded).default_with(lambda: live(before)).map(lambda after: (before, after))):
+            case Ok(pair):
+                before, after = pair
                 before_values = {key: held.values for key, held in before.owners.items()}
                 after_values = {key: held.values for key, held in after.owners.items()}
                 missing = tuple(
@@ -67,7 +68,7 @@ class BeforeAfter(msgspec.Struct, frozen=True, kw_only=True, array_like=True):
                     for struct, descriptor in resolved(target, name)
                 )
                 captures = {
-                    (key, name): native(root, Some((descriptor,))).map(lambda tree: Option.of_optional(next((row for held in tree.owners.values() for row in held.values.values()), None)))
+                    (key, name): native(root, Some((descriptor,))).map(lambda tree: option.of_optional(next((row for held in tree.owners.values() for row in held.values.values()), None)))
                     for key, values in after_values.items()
                     for name, ((root, path), _) in values.items()
                     for descriptor in Descriptor.resolve(root, (*path, *name), bpy.types.Property).to_option().to_list()
@@ -75,7 +76,7 @@ class BeforeAfter(msgspec.Struct, frozen=True, kw_only=True, array_like=True):
                 current = msgspec.structs.replace(
                     after,
                     rows=tuple(
-                        (key, msgspec.structs.replace(held, rows=tuple((name, value) for name in values if (key, name) in captures for value in captures[key, name].default_value(Nothing).to_list())))
+                        (key, msgspec.structs.replace(held, rows=tuple((name, value) for name in values if (key, name) in captures for value in captures[key, name].default_value(NOTHING).to_list())))
                         for key, held in after.rows
                         for values in (held.values,)
                     ),
@@ -92,12 +93,12 @@ class BeforeAfter(msgspec.Struct, frozen=True, kw_only=True, array_like=True):
                 return Applied.join((
                     *missing,
                     *(
-                        Applied(outcome=result.map(lambda _: None), skipped=((*key, *name),) if result.map(Option.is_none).default_value(value=False) else ())
+                        Applied(outcome=result.map(lambda _: None), skipped=((*key, *name),) if result.map(lambda found: found.is_none()).default_value(value=False) else ())
                         for (key, name), result in captures.items()
                     ),
                     *(report for _, report in writes),
                 )).outcome
-            case Result(error=faults):
+            case Error(faults):
                 return Error(faults)
 
 
@@ -106,7 +107,7 @@ class BeforeAfter(msgspec.Struct, frozen=True, kw_only=True, array_like=True):
 # --- [CAPTURE]
 
 
-def native(owner: Native, selection: Option[tuple[Descriptor, ...]] = Nothing, prior: Option[NativeTree] = Nothing) -> Outcome[NativeTree]:
+def native(owner: Native, selection: Option[tuple[Descriptor, ...]] = NOTHING, prior: Option[NativeTree] = NOTHING) -> Outcome[NativeTree]:
     """Captures live values for restoration, owners keyed by ID session and path, collections and curves held whole.
 
     Args:
@@ -126,7 +127,7 @@ def _native_read(owner: Native, descriptor: Descriptor, struct: Native, _enclosi
     """Reads one member for restoration under owner: compounds walked whole, pointers held, values as read, an enum matching no item left out."""
     target = referenced(owner, struct, descriptor.owner)
     match compound:
-        case Option(tag="some", some=tree):
+        case Some(tree):
             return Some((target, tree))
         case _:
             return Some((target, descriptor.live(struct))).filter(
@@ -145,7 +146,7 @@ def _fold[K, V](steps: Generator[K, Outcome[V], Outcome[V]], descend: Callable[[
         finished.append((yield from generator))
 
     pending = [kept(steps)]
-    answer: Option[Outcome[V]] = Nothing
+    answer: Option[Outcome[V]] = NOTHING
     while True:
         try:
             child = answer.map(pending[-1].send).default_with(lambda: next(pending[-1]))
@@ -156,7 +157,7 @@ def _fold[K, V](steps: Generator[K, Outcome[V], Outcome[V]], descend: Callable[[
             answer = Some(finished.pop())
         else:
             pending.append(kept(descend(child)))
-            answer = Nothing
+            answer = NOTHING
 
 
 def persisted(tree: NativeTree) -> Outcome[_StoredTree]:
@@ -203,11 +204,11 @@ def _decoded(tree: _StoredTree, *, compound: bool = False) -> Outcome[NativeTree
         match descriptor.prop, value:
             case _ if descriptor.compound:
                 converted = converted_value(value, _StoredTree, subject)
-                for source in converted.to_option().to_list():
-                    return (yield source)
-                return Error(converted.error)
+                if isinstance(converted, Error):
+                    return converted
+                return (yield converted.ok)
             case bpy.types.PointerProperty(), bpy.types.ID() | None:
-                return Result[Value | Struct | NativeTree, Faults](ok=value)
+                return Ok(value)
             case bpy.types.PointerProperty(), _:
                 return Error(Fault.of(Reason.OUTSIDE, subject, type(value).__name__, member=bpy.types.ID.__name__))
             case _:
@@ -219,7 +220,7 @@ def _decoded(tree: _StoredTree, *, compound: bool = False) -> Outcome[NativeTree
         (block, path), value = row
         match block:
             case None:
-                return Ok(Nothing)
+                return Ok(NOTHING)
             case bpy.types.ID():
                 found = (
                     Descriptor.resolve(type(block), (*path, *name), bpy.types.Property).to_option()
@@ -230,8 +231,8 @@ def _decoded(tree: _StoredTree, *, compound: bool = False) -> Outcome[NativeTree
                 return Error(Fault.of(Reason.OUTSIDE, rna(path), type(block).__name__, member=bpy.types.ID.__name__))
         for descriptor in found.to_list():
             result = yield from value_of(descriptor, value)
-            return result.map(lambda held: Option[tuple[RnaPath, RnaPath, NativeValue]](some=(key if compound else (block.session_uid, *path), name, ((block, path), held))))
-        return Ok(Nothing)
+            return result.map(lambda held: Some((key if compound else (block.session_uid, *path), name, ((block, path), held))))
+        return Ok(NOTHING)
 
     def rebuilt(source: _StoredTree, rows: tuple[tuple[RnaPath, RnaPath, NativeValue], ...], *, compound: bool) -> NativeTree:
         grouped: defaultdict[RnaPath, list[tuple[RnaPath, NativeValue]]] = defaultdict(list)

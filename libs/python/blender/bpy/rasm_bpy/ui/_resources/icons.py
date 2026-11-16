@@ -10,7 +10,7 @@ from typing import Final, Self, TYPE_CHECKING
 
 import bpy
 import bpy.utils.previews
-from expression import Option, Some
+from expression import Error, NOTHING, Ok, Option, option, Some
 import msgspec
 import numpy as np
 import numpy.typing as npt
@@ -22,7 +22,7 @@ from rasm_bpy.data._rna.paths import rna_definition
 from rasm_bpy.ui._drawing.handlers import Refresh, refreshing
 from rasm_bpy.ui._resources.previews import filled, PREVIEWS
 from rasm_bpy.ui._resources.theme import Color, display_color, Metrics
-from rasm_records import accumulated, Error, Fault, Nothing, Ok, Outcome, paired, Reason, typed
+from rasm_records import accumulated, Fault, Outcome, paired, Reason, typed
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -46,7 +46,7 @@ class _IconSet:
     def __init__(self, collection: bpy.utils.previews.ImagePreviewCollection, sources: dict[Path, tuple[npt.NDArray[np.float32], Option[Color]]]) -> None:
         """Holds the collection and icon sources with no brand icon."""
         self.collection, self.sources = collection, sources
-        self.brand: Option[int] = Nothing
+        self.brand: Option[int] = NOTHING
 
     @classmethod
     def loaded(cls, identity: Identity) -> Self:
@@ -59,7 +59,7 @@ class _IconSet:
             pixels = np.empty(np.asarray(preview.image_size).prod() * 4, dtype=np.float32)
             preview.image_pixels_float.foreach_get(pixels)
             filled(preview, pixels, preview.image_size)
-            return icon, (pixels.reshape(-1, 4), Nothing)
+            return icon, (pixels.reshape(-1, 4), NOTHING)
 
         return cls(collection=collection, sources=dict(source(entry) for entry in Icons.folder(identity).iterdir() if Path(entry.name).suffix == ".svg"))
 
@@ -70,7 +70,7 @@ class _IconSet:
             size = self.collection[master.as_posix()].image_size
             pixels = np.ascontiguousarray(np.rot90(self.sources[master][0].reshape(size[1], size[0], 4))).reshape(-1, 4)
             filled(self.collection.new(variant.as_posix()), pixels.reshape(-1), (size[1], size[0]))
-            self.sources[variant] = (pixels, Nothing)
+            self.sources[variant] = (pixels, NOTHING)
         return accumulated(Error(Fault.of(Reason.ABSENT, str(Icons.folder(identity)), member=master.as_posix())) for master in missing).map(lambda _: None)
 
     def retinted(self, tint: Callable[[Path], Option[Color]]) -> bool:
@@ -86,7 +86,7 @@ class _IconSet:
     def icon(self, identity: Identity, source: Path) -> Outcome[int]:
         """Returns a packaged icon ID, absent fault for a file the folder lacks."""
         return (
-            Option
+            option
             .of_optional(self.collection.get(source.as_posix()))
             .map(lambda preview: preview.icon_id)
             .to_result_with(lambda: Fault.of(Reason.ABSENT, str(Icons.folder(identity)), member=source.as_posix()))
@@ -100,7 +100,7 @@ class Icons(msgspec.Struct, frozen=True, kw_only=True):
 
     tint: Callable[[Path], Option[Color]] = lambda _: Some(display_color(Metrics.read().preferences.themes[0].user_interface.wcol_regular.text))
     watched: tuple[Refresh, ...] = ((bpy.types.ThemeWidgetColors, "text"), (bpy.types.Theme, "filepath"))
-    brand: Option[Path] = Nothing
+    brand: Option[Path] = NOTHING
     turned: Mapping[Path, Path] = MappingProxyType({})
 
     # --- [REGISTRATION]
@@ -111,7 +111,7 @@ class Icons(msgspec.Struct, frozen=True, kw_only=True):
 
         def retinted() -> Outcome[Option[str]]:
             """Writes changed tints, redrawing when one changed."""
-            return redrawn() if ICONS[identity].retinted(self.tint) else Ok(Nothing)
+            return redrawn() if ICONS[identity].retinted(self.tint) else Ok(NOTHING)
 
         @contextmanager
         def tinted() -> Generator[Outcome[None]]:
@@ -119,7 +119,7 @@ class Icons(msgspec.Struct, frozen=True, kw_only=True):
             icons = ICONS[identity]
             turned = icons.turned(identity, self.turned)
             icons.retinted(self.tint)
-            branded: Outcome[Option[int]] = self.brand.map(lambda source: icons.icon(identity, source).map(Some)).default_value(Ok(Nothing))
+            branded: Outcome[Option[int]] = self.brand.map(lambda source: icons.icon(identity, source).map(Some)).default_value(Ok(NOTHING))
             for brand in branded.to_option().to_list():
                 icons.brand = brand
             yield paired(turned, branded).map(lambda _: None)
@@ -144,7 +144,7 @@ class Icons(msgspec.Struct, frozen=True, kw_only=True):
         """Returns built-in icon value, packaged icon ID, or data-block preview icon of a stated icon, absent fault for an icon the host or the packaged set lacks."""
         stated: Option[Path | bpy.types.ID | str] = icon
         match stated:
-            case Option(some=Path() as source):
+            case Some(Path() as source):
                 return (
                     ICONS
                     .get(identity)
@@ -152,14 +152,14 @@ class Icons(msgspec.Struct, frozen=True, kw_only=True):
                     .bind(lambda icons: icons.icon(identity, source))
                     .map(Some)
                 )
-            case Option(some=bpy.types.ID() as block):
+            case Some(bpy.types.ID() as block):
                 return Ok(Some(bpy.types.UILayout.icon(block)))
-            case Option(some=str(name)):
-                return _ICON.bind(lambda prop: Option.of_optional(prop.enum_items.get(name)).to_result_with(lambda: Fault.of(Reason.ABSENT, bpy.types.UILayout.__name__, member=name))).map(
+            case Some(str(name)):
+                return _ICON.bind(lambda prop: option.of_optional(prop.enum_items.get(name)).to_result_with(lambda: Fault.of(Reason.ABSENT, bpy.types.UILayout.__name__, member=name))).map(
                     lambda item: Some(item.value)
                 )
             case _:
-                return Ok(Nothing)
+                return Ok(NOTHING)
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------

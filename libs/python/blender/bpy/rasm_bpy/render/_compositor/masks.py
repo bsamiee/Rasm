@@ -8,7 +8,7 @@ from types import MappingProxyType
 from typing import Annotated, Final, TYPE_CHECKING
 
 import bpy
-from expression import Option, Some
+from expression import NOTHING, Ok, Option, Some
 import msgspec
 import psdtags
 import PyOpenColorIO
@@ -25,7 +25,7 @@ from rasm_bpy.render._compositor.colors import COLOR_INPUT, converted_color, hsy
 from rasm_bpy.render._compositor.coordinates import FrameSpace, shorter
 from rasm_bpy.render._compositor.inputs import socket_input
 from rasm_bpy.render._compositor.shapes import turned
-from rasm_records import accumulated, Nothing, Ok, Outcome
+from rasm_records import accumulated, Outcome
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -333,7 +333,7 @@ def coverage(count: int, image: Term, aspect: Term, scale: Term, outer: Callable
 
         return functools.reduce(placed, range(2, count + 1), placed(first, 1))
 
-    return mask(config).map(lambda group: Some(chained(group))) if count else Ok(Nothing)
+    return mask(config).map(lambda group: Some(chained(group))) if count else Ok(NOTHING)
 
 
 def _framed(key: Key, interface: Interface, body: Callable[[FrameSpace], Expr]) -> Outcome[NodeGroup]:

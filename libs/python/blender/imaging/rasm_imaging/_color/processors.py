@@ -3,7 +3,7 @@
 from collections.abc import Callable
 from typing import Annotated, Final, Self
 
-from expression import identity, Option, Some
+from expression import Error, identity, NOTHING, Ok, Option, option, Some
 from expression.collections import Block
 import msgspec
 import numpy as np
@@ -13,7 +13,7 @@ from scipy.linalg import block_diag
 
 from rasm_imaging._files.buffers import applied
 from rasm_imaging._files.images import ImageFile
-from rasm_records import accumulated, Error, Fault, Name, NonNegative, Nothing, Ok, Outcome, paired, Reason
+from rasm_records import accumulated, Fault, Name, NonNegative, Outcome, paired, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -39,7 +39,7 @@ class DisplayView(msgspec.Struct, frozen=True, kw_only=True):
     gamma: NonNegative = 1.0
 
     @classmethod
-    def for_encoding(cls, config: PyOpenColorIO.Config, display: str, view: Option[str] = Nothing) -> Outcome[Option[tuple[Self, PyOpenColorIO.Processor]]]:
+    def for_encoding(cls, config: PyOpenColorIO.Config, display: str, view: Option[str] = NOTHING) -> Outcome[Option[tuple[Self, PyOpenColorIO.Processor]]]:
         """Returns first lookless matrix-only scene view with its processor, absent when none qualifies."""
 
         def discovered(name: str) -> Outcome[Option[tuple[Self, PyOpenColorIO.Processor]]]:
@@ -48,7 +48,7 @@ class DisplayView(msgspec.Struct, frozen=True, kw_only=True):
                 Block
                 .of_seq(
                     PyOpenColorIO.GroupTransform([source], direction=direction)
-                    for native in Option.of_optional(config.getViewTransform(config.getDisplayViewTransformName(display, name))).to_list()
+                    for native in option.of_optional(config.getViewTransform(config.getDisplayViewTransformName(display, name))).to_list()
                     if native.getReferenceSpaceType() == PyOpenColorIO.REFERENCE_SPACE_SCENE and not config.getDisplayViewLooks(display, name)
                     for space in candidate.colorspace(config).to_list()
                     if space.getReferenceSpaceType() == PyOpenColorIO.REFERENCE_SPACE_DISPLAY and not space.isData()
@@ -56,15 +56,15 @@ class DisplayView(msgspec.Struct, frozen=True, kw_only=True):
                         (PyOpenColorIO.VIEWTRANSFORM_DIR_FROM_REFERENCE, PyOpenColorIO.TRANSFORM_DIR_FORWARD),
                         (PyOpenColorIO.VIEWTRANSFORM_DIR_TO_REFERENCE, PyOpenColorIO.TRANSFORM_DIR_INVERSE),
                     )
-                    for source in Option.of_optional(native.getTransform(side)).to_list()
+                    for source in option.of_optional(native.getTransform(side)).to_list()
                 )
                 .try_head()
                 .map(
                     lambda request: paired(
                         processor(config, request).map(lambda built: built.getOptimizedProcessor(PyOpenColorIO.OPTIMIZATION_DEFAULT).createGroupTransform()), candidate.processor(config)
-                    ).map(lambda built: Some((candidate, built[1])) if all(isinstance(op, PyOpenColorIO.MatrixTransform) for op in built[0]) else Nothing)
+                    ).map(lambda built: Some((candidate, built[1])) if all(isinstance(op, PyOpenColorIO.MatrixTransform) for op in built[0]) else NOTHING)
                 )
-                .default_value(Ok(Nothing))
+                .default_value(Ok(NOTHING))
             )
 
         return accumulated(map(discovered, view.map(lambda name: (name,)).default_with(lambda: tuple(config.getViews(display))))).map(
@@ -98,7 +98,7 @@ class DisplayView(msgspec.Struct, frozen=True, kw_only=True):
     def colorspace(self, config: PyOpenColorIO.Config) -> Option[PyOpenColorIO.ColorSpace]:
         """Returns view colorspace, resolving shared view display-name token."""
         name = config.getDisplayViewColorSpaceName(self.display, self.view)
-        return Option.of_optional(config.getColorSpace(self.display if name == PyOpenColorIO.OCIO_VIEW_USE_DISPLAY_NAME else name))
+        return option.of_optional(config.getColorSpace(self.display if name == PyOpenColorIO.OCIO_VIEW_USE_DISPLAY_NAME else name))
 
     def processor(self, config: PyOpenColorIO.Config, source: str = PyOpenColorIO.ROLE_SCENE_LINEAR) -> Outcome[PyOpenColorIO.Processor]:
         """Returns the viewing pipeline processor from `source`, or `FAILED` fault."""
@@ -139,7 +139,7 @@ def bracketed(space: str, operation: PyOpenColorIO.Transform) -> PyOpenColorIO.G
 
 def xyz(config: PyOpenColorIO.Config, space: str) -> PyOpenColorIO.Transform:
     """Returns `space` conversion to CIE XYZ D65 through interchange roles."""
-    display = Option.of_optional(config.getColorSpace(space)).filter(lambda found: found.getReferenceSpaceType() == PyOpenColorIO.REFERENCE_SPACE_DISPLAY).is_some()
+    display = option.of_optional(config.getColorSpace(space)).filter(lambda found: found.getReferenceSpaceType() == PyOpenColorIO.REFERENCE_SPACE_DISPLAY).is_some()
     return (
         PyOpenColorIO.ColorSpaceTransform(src=space, dst=PyOpenColorIO.ROLE_INTERCHANGE_DISPLAY)
         if display
@@ -197,7 +197,7 @@ def captured_scene_source(config: PyOpenColorIO.Config, space: str) -> Outcome[O
     def captured() -> Option[PyOpenColorIO.Processor]:
         built = config.getProcessor(space, PyOpenColorIO.ROLE_INTERCHANGE_SCENE)
         return (
-            Nothing
+            NOTHING
             if config.getColorSpace(space).isData()
             else Some(PyOpenColorIO.Config.CreateRaw().getProcessor(built.createGroupTransform()).getOptimizedProcessor(PyOpenColorIO.OPTIMIZATION_NO_DYNAMIC_PROPERTIES))
         )

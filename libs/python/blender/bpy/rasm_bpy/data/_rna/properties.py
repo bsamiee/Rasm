@@ -10,7 +10,7 @@ from typing import Final, get_args, get_type_hints, Never, overload, ReadOnly, T
 import zlib
 
 import bpy
-from expression import Option, Result
+from expression import Ok, Option, option
 from expression.extra.result import catch
 from makefun import create_function
 import numpy as np
@@ -20,7 +20,7 @@ from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._ids.store import Handle, holder
 from rasm_bpy.data._rna.descriptors import Descriptor
 from rasm_bpy.data._rna.paths import rna_definition, Struct
-from rasm_records import Fault, Faults, Outcome, reached, words
+from rasm_records import Fault, Outcome, reached, words
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -342,7 +342,7 @@ def pointed(owner: type[Struct], name: str, definition: bpy.props._PropertyDefer
     rna = rna_definition(owner)
     with ExitStack() as stack:
         yield (
-            Result[None, Faults](ok=None)
+            Ok(None)
             .filter_with(lambda _: not (name in rna.properties or name in rna.functions or hasattr(owner, name)), lambda _: Fault.of(Refusal.TAKEN, request, member=owner.__name__))
             .bind(lambda _: catch(setattr, exception=ValueError)(owner, name, _hosted(definition)).map_error(partial(Fault.of, Refusal.REFUSED, request)))
             .map(lambda _: stack.callback(delattr, owner, name))
@@ -365,7 +365,7 @@ def reconciling[T: bpy.types.ID](kind: type[T], write: Callable[[Handle[T], Iden
     with identity.reports.deferred(write) as deferred:
 
         def changed(owner: Struct, _context: bpy.types.Context) -> None:
-            for found in Option.of_optional(owner.id_data).bind(holder).to_list():
+            for found in option.of_optional(owner.id_data).bind(holder).to_list():
                 if isinstance(found, kind):
                     deferred(Handle.of(found), identity)
 

@@ -15,7 +15,7 @@ from types import MappingProxyType
 from typing import ClassVar, Final, NoReturn, Protocol, runtime_checkable
 
 import bpy
-from expression import Option, Result, Some
+from expression import Error, NOTHING, Ok, Option, option, Some
 from expression.collections import Block
 from expression.extra.result import catch
 import msgspec
@@ -25,7 +25,7 @@ from rasm_bpy.data._extension.identity import Identity, Key
 from rasm_bpy.data._extension.reports import Refusal, rendered
 from rasm_bpy.data._rna.paths import rna_definition, root_in, Struct
 from rasm_bpy.data._rna.properties import annotated, hosting
-from rasm_records import Error, Fault, Faults, Nothing, Ok, Outcome, Reason
+from rasm_records import Fault, Faults, Outcome, Reason
 from rasm_rendering import argued
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -244,7 +244,7 @@ class Startup(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
         def once() -> Outcome[Option[float]]:
             """Runs the work unless a file load ran it first, stopping the timer."""
-            return (Ok(None) if loaded.is_set() else self.body()).map(lambda _: Nothing)
+            return (Ok(None) if loaded.is_set() else self.body()).map(lambda _: NOTHING)
 
         return Handler(handlers=bpy.app.handlers.load_post, body=reloaded), Timer(body=once)
 
@@ -300,7 +300,7 @@ class Resource[T]:
     # --- [STATE]
 
     made: Callable[[Identity], AbstractContextManager[T]]
-    renewed: Option[Callable[[T], T]] = Nothing
+    renewed: Option[Callable[[T], T]] = NOTHING
     prerequisites: tuple[Declaration, ...] = ()
     _values: dict[Identity, T] = field(default_factory=dict, init=False)
 
@@ -312,10 +312,7 @@ class Resource[T]:
 
     def get(self, identity: Identity, /) -> Option[T]:
         """Returns the registration's value, Nothing outside its resource scope."""
-        try:
-            return Some(self._values[identity])
-        except KeyError:
-            return Nothing
+        return Some(self._values[identity]) if identity in self._values else NOTHING
 
     # --- [LIFECYCLE]
 
@@ -379,7 +376,7 @@ class Registration:
             def declared(declaration: Declaration | Gathering, answer: _Answer) -> Outcome[Acquisitions]:
                 declarations.append(declaration)
                 held = stack.enter_context(answer) if isinstance(answer, AbstractContextManager) else answer
-                return held if isinstance(held, Result) else Ok(held)
+                return held if isinstance(held, Ok | Error) else Ok(held)
 
             def built(row: Declaration | Gathering | type | tuple[Tier, _Acquisition]) -> Outcome[None]:
                 answer: Callable[[], _Answer]
@@ -388,7 +385,7 @@ class Registration:
                         return (
                             Block
                             .of_seq(cls.__mro__)
-                            .choose(lambda base: Option.of_optional(_BANDS.get(base)))
+                            .choose(lambda base: option.of_optional(_BANDS.get(base)))
                             .try_head()
                             .to_result_with(partial(Fault.of, Reason.ABSENT, cls.__name__, member="registrable host base"))
                             .map(lambda band: pairs.setdefault((band, cls), False))
@@ -410,7 +407,7 @@ class Registration:
             stack.callback(merged)
             stacks = {band: stack.enter_context(ExitStack()) for band in Tier}
             declarations: list[Declaration | Gathering] = []
-            pairs: dict[tuple[Tier, _Acquisition], bool] = dict.fromkeys(((Tier.REGISTRIES, manual(website)) for website in Option.of_optional(identity.manifest.website).to_list()), False)
+            pairs: dict[tuple[Tier, _Acquisition], bool] = dict.fromkeys(((Tier.REGISTRIES, manual(website)) for website in option.of_optional(identity.manifest.website).to_list()), False)
             prerequisites = chain.from_iterable(map(_prerequisites, self.rows))
             return _each(built, (DISPATCHERS, *prerequisites, *sorted(self.rows, key=lambda row: isinstance(row, Gathering)))).bind(lambda _: _each(opened, Tier))
 
@@ -519,7 +516,7 @@ def _registered(identity: Identity, stack: ExitStack, acquisition: _Acquisition,
 
 def _each[T](step: Callable[[T], Outcome[None]], items: Iterable[T], /) -> Outcome[None]:
     """Runs step over items in order until the first refusal."""
-    return reduce(lambda result, item: result.bind(lambda _: step(item)), items, Result[None, Faults](ok=None))
+    return reduce(lambda result, item: result.bind(lambda _: step(item)), items, Ok(None))
 
 
 # --- [REGISTRIES]
@@ -556,7 +553,7 @@ def _walked(starts: tuple[bpy.types.Struct, ...], followed: Callable[[bpy.types.
     while frontier:
         properties = frontier.popleft().properties
         for identifier, target in (
-            (prop.identifier, target) for prop in properties if isinstance(prop, bpy.types.PointerProperty | bpy.types.CollectionProperty) for target in Option.of_optional(prop.fixed_type).to_list()
+            (prop.identifier, target) for prop in properties if isinstance(prop, bpy.types.PointerProperty | bpy.types.CollectionProperty) for target in option.of_optional(prop.fixed_type).to_list()
         ):
             edges.append((identifier, target))
             if target.identifier not in seen and followed(target):

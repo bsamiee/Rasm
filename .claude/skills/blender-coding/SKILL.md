@@ -294,11 +294,11 @@ Helpers below an operator body return faults as the error and skipped-item fault
 ```python
 def answered(operator: bpy.types.Operator, outcome: Outcome[tuple[Fault, ...]], /) -> Returns:
     match outcome:
-        case Result(tag="ok", ok=skipped):
+        case Ok(skipped):
             for fault in skipped:
                 operator.report({"WARNING"}, fault.message)
             return {"FINISHED"}
-        case Result(error=faults):
+        case Error(faults):
             for fault in faults:
                 operator.report({"ERROR"}, fault.message)
             return {"CANCELLED"}

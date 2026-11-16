@@ -9,7 +9,7 @@ from types import MappingProxyType
 from typing import Annotated, Final, get_args
 
 import bpy
-from expression import Option, Some, try_downcast
+from expression import Error, NOTHING, Ok, Option, option, Some, try_downcast
 from expression.extra.result import catch
 import msgspec
 import numpy as np
@@ -29,7 +29,7 @@ from rasm_bpy.data._rna.properties import case_choices, choices
 from rasm_bpy.render._color.spaces import viewed
 from rasm_bpy.render._outputs.results import built, CompletedRender, RENDER_ORIGINS, ResultKind
 from rasm_imaging import basis, captured_scene_source, Compression, converted, converted_image, Depth, DisplayView, Document, fitted, Format, ImageFile, LinearRaw, Multilayer, read_file, Storage
-from rasm_records import Case, Error, Fault, Nothing, Ok, Outcome, paired, Reason
+from rasm_records import Case, Fault, Outcome, paired, Reason
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -50,7 +50,7 @@ class CameraView(bpy.types.PropertyGroup):
     @property
     def selected_view(self) -> Option[str]:
         """Explicit camera-view request, absent while automatic selection stands."""
-        return Some(self.camera_view) if self.use_camera_view else Nothing
+        return Some(self.camera_view) if self.use_camera_view else NOTHING
 
 
 class Still(CameraView):
@@ -176,11 +176,11 @@ class Export(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                 .bind(
                     lambda raw: paired(
                         source.source(view=call.properties.selected_view).bind(
-                            lambda file: source.source_encoding.filter_with(Option.is_some, lambda _: Fault.of(Refusal.REQUIRED, "color encoding for Linear Raw DNG")).bind(
+                            lambda file: source.source_encoding.filter_with(option.is_some, lambda _: Fault.of(Refusal.REQUIRED, "color encoding for Linear Raw DNG")).bind(
                                 lambda program: converted_image(source.config, PyOpenColorIO.ROLE_INTERCHANGE_SCENE, file, source=program)
                             )
                         ),
-                        Option.of_optional(raw.view).to_result_with(partial(Fault.of, Reason.ABSENT, str(source.file.path), member="captured source exposure")),
+                        option.of_optional(raw.view).to_result_with(partial(Fault.of, Reason.ABSENT, str(source.file.path), member="captured source exposure")),
                         raw.optics,
                         basis(source.config, PyOpenColorIO.ROLE_INTERCHANGE_SCENE),
                     ).bind(lambda facts: LinearRaw(make="Blender", model=bpy.app.version_string, exposure=facts[1].exposure, optics=facts[2]).written(target, facts[0].pixels[..., :3], facts[3]))
@@ -231,7 +231,7 @@ class Export(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                     else rooted(bpy.types.Scene, call.context).map(lambda scene: Some(viewed(scene)))
                     if program.is_some()
                     and source.config.getCanonicalName(file.colorspace) in source.config.getColorSpaceNames(PyOpenColorIO.SEARCH_REFERENCE_SPACE_SCENE, PyOpenColorIO.COLORSPACE_ALL)
-                    else Ok(Nothing)
+                    else Ok(NOTHING)
                 )
                 return formation.bind(lambda view: image(file, program, view))
 
@@ -239,7 +239,7 @@ class Export(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
         def native(native: bpy.types.Image) -> Outcome[ImageFile]:
             space = config.getColorSpace(PyOpenColorIO.ROLE_SCENE_LINEAR if native.use_view_as_render else PyOpenColorIO.ROLE_DATA).getName()
-            formation = rooted(bpy.types.Scene, call.context).map(lambda scene: Some(viewed(scene))) if native.use_view_as_render else Ok(Nothing)
+            formation = rooted(bpy.types.Scene, call.context).map(lambda scene: Some(viewed(scene))) if native.use_view_as_render else Ok(NOTHING)
             return paired(read(native, space), captured_scene_source(config, space), formation).bind(lambda found: image(*found))
 
         return (
@@ -272,7 +272,7 @@ class Export(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
 def _compression(properties: Still) -> Outcome[Option[Compression]]:
     """Returns the chosen compression case at its defaults, Nothing while the writer default stands."""
-    return converted_value({"kind": properties.compression}, Compression, properties.compression).map(Some) if properties.use_compression else Ok(Nothing)
+    return converted_value({"kind": properties.compression}, Compression, properties.compression).map(Some) if properties.use_compression else Ok(NOTHING)
 
 
 # --- [PROXIES]
@@ -303,10 +303,10 @@ def proxied(image: bpy.types.Image, identity: Identity, downscale: Scaled | Long
         )
 
     def sourced(key: str) -> Outcome[Option[str]]:
-        source = Path(Option.of_optional(try_downcast(str, image.get(key))).default_with(lambda: bpy.path.abspath(image.filepath, library=image.library)))
+        source = Path(option.of_optional(try_downcast(str, image.get(key))).default_with(lambda: bpy.path.abspath(image.filepath, library=image.library)))
         return Format.of(source).bind(
             lambda row: read_file(source, config).bind(
-                lambda file: downscale.fitted(file.pixels.shape[1], file.pixels.shape[0]).map(lambda size: proxy(key, source, row, file, *size).map(Some)).default_value(Ok(Nothing))
+                lambda file: downscale.fitted(file.pixels.shape[1], file.pixels.shape[0]).map(lambda size: proxy(key, source, row, file, *size).map(Some)).default_value(Ok(NOTHING))
             )
         )
 
@@ -318,7 +318,7 @@ def restored(image: bpy.types.Image, identity: Identity) -> Outcome[None]:
 
     def back(key: str) -> Outcome[None]:
         return (
-            Option
+            option
             .of_optional(try_downcast(str, image.get(key)))
             .map(
                 lambda source: (

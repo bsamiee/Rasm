@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Self, TYPE_CHECKING
 
 import bpy
-from expression import Option, Some
+from expression import NOTHING, Ok, Option, option, Some
 from expression.collections import Block
 from expression.extra.result import catch
 import msgspec
@@ -19,7 +19,7 @@ from rasm_bpy.data._ids.ownership import kept_block, Ownership, Saved
 from rasm_bpy.data._ids.store import Handle
 from rasm_bpy.data._rna.descriptors import written
 from rasm_bpy.files._libraries import blocks_loaded
-from rasm_records import accumulated, Fault, Nothing, Ok, Outcome, Reason
+from rasm_records import accumulated, Fault, Outcome, Reason
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -38,9 +38,9 @@ class _Activation(msgspec.Struct, frozen=True, kw_only=True):
     def advanced(self) -> Outcome[Option[Self]]:
         """Returns switch while pending, Nothing after a user switch or once the switch applied and its reorder and tool ran."""
         if (shown := self.window.workspace.session_uid) != self.target.uid:
-            return Ok(Some(self) if shown == self.prior.uid else Nothing)
+            return Ok(Some(self) if shown == self.prior.uid else NOTHING)
         calls = (*((order, {}) for order in self.setup.order.to_list()), *((bpy.ops.wm.tool_set_by_id, {"name": name, "space_type": space}) for name, space in self.setup.tool.to_list()))
-        return accumulated(called(operator, values, override=Some(bpy.context.temp_override(window=self.window))) for operator, values in calls).map(lambda _: Nothing)
+        return accumulated(called(operator, values, override=Some(bpy.context.temp_override(window=self.window))) for operator, values in calls).map(lambda _: NOTHING)
 
     def reverted(self) -> Outcome[None]:
         """Requests prior workspace, applied next pass, fault once it no longer resolves."""
@@ -55,12 +55,12 @@ class WorkspaceSetup(msgspec.Struct, frozen=True, kw_only=True):
     key: Key
     name: str
     source: str
-    library: Option[Path] = Nothing
-    mode: "Option[rna_enums.WorkspaceObjectModeItems]" = Nothing
-    use_pin_scene: Option[bool] = Nothing
-    owners: Option[tuple[str, ...]] = Nothing
-    order: Option[Operation] = Nothing
-    tool: "Option[tuple[str, rna_enums.SpaceTypeItems]]" = Nothing
+    library: Option[Path] = NOTHING
+    mode: "Option[rna_enums.WorkspaceObjectModeItems]" = NOTHING
+    use_pin_scene: Option[bool] = NOTHING
+    owners: Option[tuple[str, ...]] = NOTHING
+    order: Option[Operation] = NOTHING
+    tool: "Option[tuple[str, rna_enums.SpaceTypeItems]]" = NOTHING
 
     # --- [REGISTRATION]
 
@@ -121,7 +121,7 @@ class WorkspaceSetup(msgspec.Struct, frozen=True, kw_only=True):
                 return (
                     self.library
                     .map(lambda path: blocks_loaded(path, bpy.types.WorkSpace, (self.source,)).map(lambda blocks: Block.of_seq(blocks).try_head()))
-                    .default_with(lambda: Ok(Option.of_optional(bpy.data.workspaces.get(self.source)).bind(lambda source: Option.of_optional(source.copy()))))
+                    .default_with(lambda: Ok(option.of_optional(bpy.data.workspaces.get(self.source)).bind(lambda source: option.of_optional(source.copy()))))
                     .bind(lambda found: found.to_result_with(partial(Fault.of, Reason.ABSENT, repr(bpy.data.workspaces), member=self.source)))
                     .bind(copied)
                 )

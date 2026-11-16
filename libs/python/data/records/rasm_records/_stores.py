@@ -14,13 +14,13 @@ import tempfile
 from typing import Annotated, Final, overload, Protocol
 
 import cbor2
-from expression import Option, Some
+from expression import Error, NOTHING, Ok, Option, Some
 from expression.extra.result import catch
 import msgspec
 import numpy as np
 import numpy.typing as npt
 
-from rasm_records._faults import accumulated, Error, Fault, Faults, Nothing, Ok, Outcome, Reason
+from rasm_records._faults import accumulated, Fault, Faults, Outcome, Reason
 
 if sys.platform == "darwin":
     import fcntl
@@ -71,13 +71,13 @@ class RecordFile[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
         """Decodes and validates the record a present file holds.
 
         Returns:
-            Ok(Some(record)), Ok(Nothing) while no file sits at the path, `UNREADABLE` fault for an unreadable file, `INVALID` for a refused decode.
+            Ok(Some(record)), Ok(NOTHING) while no file sits at the path, `UNREADABLE` fault for an unreadable file, `INVALID` for a refused decode.
         """
 
         def absent(faults: Faults) -> Outcome[Option[T]]:
             match faults:
                 case (Fault(reason=Reason.UNREADABLE, cause=FileNotFoundError()),):
-                    return Ok(Nothing)
+                    return Ok(NOTHING)
                 case _:
                     return Error(faults)
 
@@ -186,13 +186,17 @@ def committed(path: Path, write: bytes | Callable[[Path], Outcome[object]], /, *
     """
     unwritable = partial(Fault.of, Reason.UNWRITABLE, str(path))
 
-    def replaced(folder: tempfile.TemporaryDirectory[str]) -> Outcome[Path]:
+    def replaced(parent: Path) -> Outcome[Path]:
+        try:
+            folder = tempfile.TemporaryDirectory(dir=parent)
+        except OSError as error:
+            return Error(unwritable(error))
         with folder as name:
             stage = Path(name) / path.name
             staged: Outcome[object] = catch(stage.write_bytes, exception=OSError)(write).map_error(unwritable) if isinstance(write, bytes) else write(stage)
             return staged.bind(lambda _: _placed(place, stage, path, Path(name) / f"{path.name}.prior").map_error(unwritable))
 
-    return folder_made(path.parent).bind(lambda parent: catch(tempfile.TemporaryDirectory[str], exception=OSError)(dir=parent).map_error(unwritable)).bind(replaced)
+    return folder_made(path.parent).bind(replaced)
 
 
 def files_copied(pairs: Iterable[tuple[Path, Path]]) -> Outcome[tuple[Path, ...]]:

@@ -6,7 +6,7 @@ from functools import partial
 from typing import Protocol, TYPE_CHECKING
 
 import bpy
-from expression import Option, Some
+from expression import NOTHING, Ok, Option, Some
 import msgspec
 
 from rasm_bpy.data._extension.events import Change, updated
@@ -18,7 +18,7 @@ from rasm_bpy.data._rna.paths import rna_definition, root_in, Struct
 from rasm_bpy.ui._drawing.canvas import Canvas, DrawType, PROGRAMS
 from rasm_bpy.ui._resources.theme import Metrics
 from rasm_bpy.ui._screens.areas import AreaQuery
-from rasm_records import accumulated, Nothing, Ok, Outcome
+from rasm_records import accumulated, Outcome
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -54,7 +54,7 @@ class HandlerRefresh(msgspec.Struct, frozen=True, kw_only=True):
 
     handlers: Handlers
     ids: tuple[type[bpy.types.ID], ...] = ()
-    changes: Option[Change] = Nothing
+    changes: Option[Change] = NOTHING
 
 
 class DrawingPart[S](msgspec.Struct, frozen=True, kw_only=True):
@@ -113,11 +113,11 @@ class Overlay[S](msgspec.Struct, frozen=True, kw_only=True):
             .to_option()
             .or_else_with(lambda: Descriptor.resolve(space, ("show_overlays",), bpy.types.BoolProperty).to_option())
             if self.respect_overlays
-            else Nothing
+            else NOTHING
         )
         shown = AllOf(conditions=(*self.drawing.area.shows.to_list(), *switch.map(lambda descriptor: Setting(descriptor=descriptor)).to_list()))
         held, callback = msgspec.structs.replace(self.drawing, area=msgspec.structs.replace(self.drawing.area, shows=Some(shown))).acquired(identity)
-        return (*held, (Tier.DRAW_HANDLERS, draw_handler(space, partial(callback, draw_type, Nothing), self.region, draw_type)))
+        return (*held, (Tier.DRAW_HANDLERS, draw_handler(space, partial(callback, draw_type, NOTHING), self.region, draw_type)))
 
 
 class Cursor[S](msgspec.Struct, frozen=True, kw_only=True):
@@ -196,7 +196,7 @@ def refreshing(identity: Identity, refreshes: tuple[Refresh, ...], refreshed: Ca
     Yields:
         Ok(None) while every source holds, or acquisition faults.
     """
-    with identity.reports.deferred(lambda: refreshed().map(lambda _: Nothing)) as later, ExitStack() as stack:
+    with identity.reports.deferred(lambda: refreshed().map(lambda _: NOTHING)) as later, ExitStack() as stack:
 
         def deferring(*_: object) -> Outcome[None]:
             """Schedules main-thread refresh from a handler."""

@@ -4,7 +4,7 @@ import math
 import sys
 from typing import Annotated, ClassVar, Self
 
-from expression import Option, Some
+from expression import NOTHING, Option, Some
 import msgspec
 import numpy as np
 import numpy.typing as npt
@@ -13,7 +13,7 @@ from scipy.spatial.transform import RigidTransform, Rotation
 
 from rasm_imaging._geometry.arithmetic import Elementwise, Namespace
 from rasm_imaging._geometry.frames import Quad
-from rasm_records import Bearing, Case, Finite, Inclination, NonNegative, Nothing, Positive, Unit
+from rasm_records import Bearing, Case, Finite, Inclination, NonNegative, Positive, Unit
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -295,7 +295,7 @@ class PanoramaView(msgspec.Struct, frozen=True, kw_only=True):
     @property
     def rotation(self) -> Rotation[tuple[()]]:
         """Rotation taking view rays to panorama rays."""
-        return Rotation.from_euler("YXZ", (-self.heading, self.elevation, self.roll))  # ty: ignore[unsound-return-statement]
+        return Rotation.from_euler("YXZ", (-self.heading, self.elevation, self.roll))
 
     @property
     def frame(self) -> tuple[float, npt.NDArray[np.float64]]:
@@ -317,7 +317,7 @@ class PanoramaView(msgspec.Struct, frozen=True, kw_only=True):
         return np.stack(self.view.to_image((local[..., 0], local[..., 1], local[..., 2], coverage), np), axis=-1)
 
     def framing(self, quad: Quad, share: float) -> Option[Self]:
-        """Aims view at quad filling `share` of frame, `Nothing` for undefined, rearward, or zero-span corner rays."""
+        """Aims view at quad filling `share` of frame, `NOTHING` for undefined, rearward, or zero-span corner rays."""
         *ray, coverage = self.source.to_ray(self._source(quad.samples), np)
         rays = np.stack(ray, axis=-1)
         sides = rays[[0, 1]] + rays[[3, 2]]
@@ -332,7 +332,7 @@ class PanoramaView(msgspec.Struct, frozen=True, kw_only=True):
         return (
             Some(msgspec.structs.replace(aimed, view=msgspec.structs.replace(self.view, field_of_view=2.0 * math.atan(spread / (2.0 * share)))))
             if bool(spread > 0.0 and np.all(coverage > 0.0) and np.all(local[:, 2] < 0.0) and np.all(leveled_sides[:, 2] < 0.0))
-            else Nothing
+            else NOTHING
         )
 
     def _source(self, samples: npt.NDArray[np.float64]) -> ImagePoint[npt.NDArray[np.float64]]:

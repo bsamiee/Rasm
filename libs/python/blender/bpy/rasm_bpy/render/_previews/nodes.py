@@ -10,7 +10,7 @@ from typing import Annotated, ClassVar, Final
 
 from bl_ui.space_node import NODE_MT_context_menu
 import bpy
-from expression import Option, Some, try_downcast
+from expression import Error, NOTHING, Ok, Option, option, Some, try_downcast
 from expression.extra.result import catch
 import msgspec
 import OpenImageIO
@@ -46,7 +46,7 @@ from rasm_bpy.ui._layout.values import Store
 from rasm_bpy.ui._resources.theme import Metrics
 from rasm_bpy.ui._screens.areas import AreaQuery, areas, Located, view_scale
 from rasm_imaging import Depth, DisplayView, Format, ImageFile, read_file, Storage
-from rasm_records import accumulated, content_hash, ContentHash, Error, Fault, Nothing, Ok, Outcome, paired, Reason, removed, Retention
+from rasm_records import accumulated, content_hash, ContentHash, Fault, Outcome, paired, Reason, removed, Retention
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -73,7 +73,7 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
     # --- [STATE]
 
-    retention: Option[Callable[[Identity], Outcome[Retention]]] = Nothing
+    retention: Option[Callable[[Identity], Outcome[Retention]]] = NOTHING
     preview: PreviewScene = PreviewScene()
     signal: Signal = msgspec.field(default_factory=Signal)
     key: ClassVar[Key] = NODE_PREVIEWS.key
@@ -130,14 +130,14 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         shown = paired(rooted(bpy.types.SpaceNodeEditor, call.context), rooted(bpy.types.Scene, call.context)).bind(
             lambda found: Editor.of(*found).bind(
                 lambda editor: editor.bind(
-                    lambda held: Option.of_optional(found[0].edit_tree).bind(lambda tree: Option.of_optional(tree.nodes.active).map(lambda node: (held, tree, node)))
+                    lambda held: option.of_optional(found[0].edit_tree).bind(lambda tree: option.of_optional(tree.nodes.active).map(lambda node: (held, tree, node)))
                 ).to_result_with(partial(Fault.of, Reason.ABSENT, "SpaceNodeEditor.edit_tree.nodes", member="active"))
             )
         )
 
         def chosen(editor: Editor, tree: bpy.types.NodeTree, node: bpy.types.Node, settings: NodePreviews) -> Outcome[PreviewTarget]:
             return targets(call.identity, editor, tree, settings).bind(
-                lambda found: Option.of_optional(next((target for source, _socket, target in found if source == node), None)).to_result_with(
+                lambda found: option.of_optional(next((target for source, _socket, target in found if source == node), None)).to_result_with(
                     partial(Fault.of, Reason.ABSENT, repr(tree.nodes), member=node.name)
                 )
             )
@@ -165,13 +165,12 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         state, config = NODE_STATES[identity], PyOpenColorIO.GetCurrentConfig()
 
         def pruned() -> Outcome[None]:
-            def oldest(paths: tuple[Path, ...]) -> Outcome[list[Path]]:
-                try:
-                    return Ok(sorted(paths, key=lambda path: path.stat().st_mtime))
-                except OSError as error:
-                    return Error(Fault.of(Reason.UNREADABLE, str(_folder(identity)), error))
-
-            return _thumbnails(identity).bind(oldest).bind(lambda found: accumulated(removed(path) for path in found[:-limit])).map(lambda _: None)
+            return (
+                _thumbnails(identity)
+                .bind(lambda paths: catch(lambda: sorted(paths, key=lambda path: path.stat().st_mtime), exception=OSError)().map_error(partial(Fault.of, Reason.UNREADABLE, str(_folder(identity)))))
+                .bind(lambda found: accumulated(removed(path) for path in found[:-limit]))
+                .map(lambda _: None)
+            )
 
         def stored(readback: Readback, name: str) -> Outcome[None]:
             number = readback.uniform
@@ -202,7 +201,7 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     def jobs(self, identity: Identity, context: bpy.types.Context) -> Outcome[tuple[Job, ...]]:
         """Writes editor cells and returns a job per target key neither cache nor folder holds."""
         state, metrics = NODE_STATES[identity], Metrics.read()
-        inventory = cache(lambda: _thumbnails(identity).map(frozenset))
+        inventory = cache(lambda: _thumbnails(identity).map(frozenset[Path]))
         views: dict[Editor, tuple[bpy.types.Scene, bpy.types.SpaceNodeEditor, bpy.types.NodeTree, list[Located]]] = {}
 
         def located(found: Located) -> Outcome[None]:
@@ -240,7 +239,7 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
         def restored(key: ContentHash, path: Path, config: PyOpenColorIO.Config, name: str, limit: int, kept: frozenset[Hashable]) -> Outcome[None]:
             def cached(image: ImageFile) -> Outcome[None]:
-                number = Option.of_optional(try_downcast(float, image.header.getattribute(name)))
+                number = option.of_optional(try_downcast(float, image.header.getattribute(name)))
                 return (
                     NODE_TEXTURES[identity]
                     .stored(key, image.pixels, limit, kept, metadata=number)
@@ -350,7 +349,7 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                     grouped: defaultdict[Editor, list[Cell]] = defaultdict(list)
                     for socket, target, _size, demand, _rank in plans:
                         grouped[target.editor].append(
-                            Cell(node=target.node, key=demand, label=socket.name, value=Option.of_optional(NODE_TEXTURES[identity].held.get(demand)).bind(lambda held: held[1]))
+                            Cell(node=target.node, key=demand, label=socket.name, value=option.of_optional(NODE_TEXTURES[identity].held.get(demand)).bind(lambda held: held[1]))
                         )
                     cells = {editor: tuple(items) for editor, items in grouped.items()}
                     changed, state.cells = cells != state.cells, cells
@@ -369,10 +368,10 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                         if key in NODE_TEXTURES[identity].held
                         else (
                             inventory().bind(
-                                lambda files: restored(key, path, config, name, settings.limit, kept).map(lambda _: Some(key)) if (path := _thumbnail(identity, key)) in files else Ok(Nothing)
+                                lambda files: restored(key, path, config, name, settings.limit, kept).map(lambda _: Some(key)) if (path := _thumbnail(identity, key)) in files else Ok(NOTHING)
                             )
                             if isinstance(key, bytes)
-                            else Ok(Nothing)
+                            else Ok(NOTHING)
                         )
                         for key in dict.fromkeys(demand for *_, demand, _rank in plans)
                     )
@@ -457,7 +456,7 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             Handler(handlers=bpy.app.handlers.frame_change_post, body=lambda: forgotten(lambda settings: settings.frames)),
         )
 
-    def rerendered(self, identity: Identity, paths: Option[tuple[Path, ...]] = Nothing) -> Outcome[None]:
+    def rerendered(self, identity: Identity, paths: Option[tuple[Path, ...]] = NOTHING) -> Outcome[None]:
         """Removes held textures, failures, and demand files, or supplied files, for a fresh render."""
         dropped = NODE_STATES[identity].demands.forgotten()
         PreviewQueue.forced(identity, dropped)

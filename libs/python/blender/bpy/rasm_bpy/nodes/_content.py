@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import override, Self
 
 import bpy
-from expression import Option, Some
+from expression import Error, NOTHING, Ok, Option, Some
 from expression.extra.result import catch
 import msgspec
 import numpy as np
@@ -23,7 +23,7 @@ from rasm_bpy.data._rna.paths import rna_definition, RnaPath, struct_at
 from rasm_bpy.data._rna.snapshots import assigned, Snapshot
 from rasm_bpy.nodes._desired import Content
 from rasm_imaging import called
-from rasm_records import content_hash, ContentHash, Error, Fault, Nothing, Ok, Outcome, Owner, paired, Reason, Tree, Unit
+from rasm_records import content_hash, ContentHash, Fault, Outcome, Owner, paired, Reason, Tree, Unit
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -133,7 +133,7 @@ class CurvePoints(Edited, frozen=True, kw_only=True):
     """Curve map points with view bounds and evaluation clipping, `handle` a `CurveMapPoint.handle_type` identifier."""
 
     maps: tuple[Points, *tuple[Points, ...]]
-    clip: Option[tuple[float, float, float, float]] = Nothing
+    clip: Option[tuple[float, float, float, float]] = NOTHING
     handle: str = "VECTOR"
     clipped: bool = False
 
@@ -207,7 +207,7 @@ class Loaded(Content, frozen=True, kw_only=True):
 
     path: Path
     tag: Tag = Tag()
-    frames: Option[ImageFrames] = Nothing
+    frames: Option[ImageFrames] = NOTHING
 
     @override
     def holds(self, live: bpy.types.Node, identity: Identity, /) -> Outcome[bool]:
@@ -219,8 +219,8 @@ class Loaded(Content, frozen=True, kw_only=True):
             )
 
         return paired(
-            self.frames.map(lambda want: _framed(live).map(lambda user: not differing(user, want.members))).default_value(Ok(value=True)),
-            struct_at(live, ("image",), bpy.types.Image).map(shown).default_value(Ok(value=False)),
+            self.frames.map(lambda want: _framed(live).map(lambda user: not differing(user, want.members))).default_value(Ok(True)),
+            struct_at(live, ("image",), bpy.types.Image).map(shown).default_value(Ok(False)),
         ).map(all)
 
     @override
@@ -241,7 +241,7 @@ class Generated(Content, frozen=True, kw_only=True, eq=False):
     plane: Callable[[], Outcome[Option[npt.NDArray[np.float32]]]]
     tag: Tag = Tag()
 
-    def made(self, identity: Identity, *, of: Option[bpy.types.ID] = Nothing) -> Outcome[Option[bpy.types.Image]]:
+    def made(self, identity: Identity, *, of: Option[bpy.types.ID] = NOTHING) -> Outcome[Option[bpy.types.Image]]:
         """Reuses the equal-content image before reading the plane, else packs the plane into a new image, Nothing for a plane holding no pixels.
 
         Args:
@@ -272,8 +272,8 @@ class Generated(Content, frozen=True, kw_only=True, eq=False):
     @override
     def write(self, live: bpy.types.Node, identity: Identity, /) -> Outcome[None]:
         return self._context().bind(
-            lambda context: self._made(identity, *context, Nothing).bind(
-                lambda image: written(live, ("image",), image.to_optional()).bind(lambda _: _stamped(identity, live, Some(context[1]) if image.is_none() else Nothing))
+            lambda context: self._made(identity, *context, NOTHING).bind(
+                lambda image: written(live, ("image",), image.to_optional()).bind(lambda _: _stamped(identity, live, Some(context[1]) if image.is_none() else NOTHING))
             )
         )
 
@@ -307,7 +307,7 @@ class Generated(Content, frozen=True, kw_only=True, eq=False):
             self.ownership
             .reused(identity, of=of, content=Some(content))
             .map(lambda image: Ok(Some(image)))
-            .default_with(lambda: self.plane().bind(lambda values: values.map(owned).default_value(Ok(Nothing))))
+            .default_with(lambda: self.plane().bind(lambda values: values.map(owned).default_value(Ok(NOTHING))))
         )
 
 

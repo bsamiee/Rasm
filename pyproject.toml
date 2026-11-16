@@ -153,7 +153,7 @@ mathematics           = [
     "scikit-fem",                                                                 # FEM assembly
     "scs",                                                                        # SCS operator-splitting conic solver, a cvxpy backend
     "sectionproperties",                                                          # Cross-section property solver
-    "sympy>=1.14.0",                                                              # Symbolic expressions beside python-flint and mpmath ground domains, uv takes 1.14.0rc1 or 1.12 for a newer mpmath, both lacking the `mpmath<1.4` bound their `mpmath.libmp.bitcount` import needs
+    "sympy>=1.15.0rc2",                                                           # Symbolic expressions beside python-flint and mpmath ground domains
     "uncertainties",                                                              # First-order error propagation with correlated values
 ]
 statistics            = [
@@ -163,7 +163,7 @@ statistics            = [
     "nutpie",                                                                     # Rust NUTS sampler for PyMC
     "onnx",                                                                       # Model graph IR
     "pyDOE3",                                                                     # Classical design-of-experiments matrices
-    "pymc>=5.28.1",                                                               # Probabilistic programming, older releases need undeclared arviz<1
+    "pymc>=6.4.0",                                                                # Probabilistic programming
     "salib",                                                                      # Global sensitivity analysis
     "scikit-learn",                                                               # Classical ML and ONNX export
     "skl2onnx",                                                                   # sklearn-to-ONNX converter
@@ -518,7 +518,7 @@ ignore                    = [
     "any-type",                                                                                                                                                                                  # mypy `disallow_any_explicit` owns explicit `Any` in every position
 ]
 flake8-bandit             = { check-typed-exception = true }
-flake8-boolean-trap       = { extend-allowed-calls = ["expression.Result.Ok", "expression.Some", "iter"] }
+flake8-boolean-trap       = { extend-allowed-calls = ["expression.Ok", "expression.Some", "iter"] }
 flake8-import-conventions = { extend-aliases = { "dask.array" = "da", "dask.dataframe" = "dd", datetime = "datetime", scipy = "sp", sympy = "sym", xarray = "xr" }, banned-from = ["builtins"] }
 flake8-pytest-style       = { parametrize-names-type = "csv", raises-extend-require-match-for = ["AttributeError", "KeyError", "RuntimeError", "TypeError", "msgspec.ValidationError"] }
 flake8-type-checking      = { runtime-evaluated-base-classes = ["msgspec.Struct"] }
@@ -581,7 +581,6 @@ require-lazy         = [
 "concurrent.interpreters".msg            = "Use anyio.to_interpreter.run_sync"
 "contextlib.suppress".msg                = "Return expression.Result"
 "dataclasses.make_dataclass".msg         = "Use frozen msgspec.Struct"
-"expression.effect".msg                  = "Chain Result.bind and Result.map, builders return zero value on RuntimeError"
 "http.client".msg                        = "Use httpx2.Client or httpx2.AsyncClient"
 "httpx".msg                              = "Use httpx2.Client or httpx2.AsyncClient"
 "json.JSONDecoder".msg                   = "Use msgspec.json.decode with type="
@@ -653,9 +652,9 @@ require-lazy         = [
 
 [tool.ty]
 environment = { python-platform = "all" }
-src         = { exclude = ["libs/python/blender", "products/apps/blender"] } # 3.13 uv roots `libs/python/blender` and `products/apps/blender/darkroom`, each checked through its own `[tool.ty]`; ty opens one project per root and finds no nested one
-analysis    = { allowed-unresolved-imports = ["uharfbuzz.**"] }              # uharfbuzz re-exports its compiled `_harfbuzz` module, which ships no stub
-rules       = { all = "error", unused-type-ignore-comment = "ignore" }       # mypy `unused-ignore` owns unused `type: ignore` comments
+src         = { exclude = ["libs/python/blender", "products/apps/blender"] }                                                     # 3.13 uv roots `libs/python/blender` and `products/apps/blender/darkroom`, each checked through its own `[tool.ty]`; ty opens one project per root and finds no nested one
+analysis    = { allowed-unresolved-imports = ["uharfbuzz.**"] }                                                                  # uharfbuzz re-exports its compiled `_harfbuzz` module, which ships no stub
+rules       = { all = "error", unsound-assignment = "ignore", unsound-return = "ignore", unused-type-ignore-comment = "ignore" } # mypy owns `Any` assigned and returned through a typed boundary, `unused-ignore` unused `type: ignore` comments
 
 # --- [MYPY] -----------------------------------------------------------------------------
 
@@ -668,8 +667,8 @@ disallow_any_explicit   = true
 disallow_any_unimported = true
 plugins                 = ["pydantic.mypy"]                                                                                                                                                                                                                                                                                                                                                                          # Typed `__init__` and `model_construct` of each pydantic model, frozen models under a settings base, and no explicit `Any` in a synthesized signature
 untyped_calls_exclude   = ["_skimage2.transform._geometric.ProjectiveTransform", "fontTools", "OpenImageIO.ColorConfig", "opentelemetry.distro", "opentelemetry.exporter.otlp.proto.http.trace_exporter", "opentelemetry.instrumentation.structlog", "opentelemetry.sdk._configuration", "opentelemetry.sdk._logs._internal.export.in_memory_log_exporter", "opentelemetry.test.mock_test_classes", "ots", "ufo2ft"] # Definitions these packages ship unannotated, OpenImageIO types `ColorConfig` methods from 3.2.2, after the release Blender bundles
-enable_error_code       = ["deprecated", "exhaustive-match", "explicit-override", "narrowed-type-not-subtype", "redundant-expr", "redundant-self", "truthy-bool", "truthy-iterable", "unused-awaitable"]
-disable_error_code      = ["abstract", "arg-type", "assert-type", "assignment", "attr-defined", "call-arg", "call-overload", "import", "import-not-found", "index", "name-defined", "no-redef", "operator", "override", "redundant-cast", "return", "return-value", "type-arg", "union-attr", "unused-coroutine", "valid-type"]                                                                                      # ty owns each defect these codes report, ruff PGH003 owns suppressions without a code
+enable_error_code       = ["deprecated", "exhaustive-match", "explicit-override", "narrowed-type-not-subtype", "redundant-self", "truthy-bool", "truthy-iterable", "unused-awaitable"]
+disable_error_code      = ["abstract", "arg-type", "assert-type", "assignment", "attr-defined", "call-arg", "call-overload", "import", "import-not-found", "index", "name-defined", "no-redef", "operator", "override", "redundant-cast", "return", "return-value", "type-arg", "union-attr", "unused-coroutine", "valid-type", "var-annotated"]                                                                     # ty owns each defect these codes report, ruff PGH003 owns suppressions without a code
 overrides               = [{ module = ["fontTools.*", "ots.*", "pathops.*", "sysexits", "ttfautohint.*", "ufo2ft.*"], follow_untyped_imports = true }, { module = ["pathops"], implicit_reexport = true }, { module = ["PyOpenColorIO.PyOpenColorIO.ColorSpaceHelpers", "PyOpenColorIO.PyOpenColorIO.DisplayViewHelpers"], follow_imports = "skip", follow_imports_for_stubs = true }]                               # OpenColorIO binds `AddColorSpace` and `AddDisplayView` with a required parameter after a defaulted one, which no stub states
 
 # --- [REFURB] ---------------------------------------------------------------------------

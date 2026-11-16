@@ -6,7 +6,7 @@ import math
 from typing import Annotated, ClassVar, Final, Literal, TYPE_CHECKING
 
 import bpy
-from expression import Option, Some, try_downcast
+from expression import NOTHING, Ok, Option, option, Some, try_downcast
 from expression.extra.result import catch
 import gpu
 from gpu_extras.batch import batch_for_shader
@@ -31,7 +31,7 @@ from rasm_bpy.ui._resources.previews import Texture, uploaded
 from rasm_bpy.ui._resources.theme import Color, display_color, Metrics, Shade
 from rasm_bpy.ui._screens.areas import AreaQuery, Arrangement, EditorState, Located, region_in
 from rasm_imaging import Quad, Region
-from rasm_records import Fault, Nothing, Ok, Outcome, paired, Reason
+from rasm_records import Fault, Outcome, paired, Reason
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -58,7 +58,7 @@ class RenderView(msgspec.Struct, frozen=True, kw_only=True):
 
     def show_render_view(self, call: Call[Empty]) -> Outcome[Answer]:
         """Shows the render view with its Sidebar open at the placement's tab."""
-        category = Option.of_optional(self.at.members(call.identity).get("bl_category")).bind(lambda tab: Option.of_optional(try_downcast(str, tab)))
+        category = option.of_optional(self.at.members(call.identity).get("bl_category")).bind(lambda tab: option.of_optional(try_downcast(str, tab)))
         tabbed = category.map(lambda tab: EditorState.of(bpy.types.Region, {("active_panel_category",): tab}, Some("UI")).map(lambda state: (state,))).default_value(Ok(()))
 
         def queued(at: Located, sidebar: EditorState, tab: tuple[EditorState, ...]) -> Outcome[None]:
@@ -134,7 +134,7 @@ class FrameRegion(msgspec.Struct, frozen=True, kw_only=True):
     write: Callable[[bpy.types.Context, Quad], Outcome[None]]
     transform: frozenset[Literal["TRANSLATE", "ROTATE", "SCALE", "SCALE_UNIFORM"]] = frozenset({"TRANSLATE", "SCALE"})
     corners: bool = False
-    bounds: Option[Region] = Nothing
+    bounds: Option[Region] = NOTHING
     shown: Setting = msgspec.field(default_factory=lambda: RESULT)
     refreshes: tuple[Refresh, ...] = ()
 
@@ -281,7 +281,7 @@ def displayed_aspect(context: bpy.types.Context) -> Outcome[float]:
     """
     return (
         rooted(bpy.types.SpaceImageEditor, context)
-        .bind(lambda space: Option.of_optional(space.image).to_result_with(partial(Fault.of, Reason.ABSENT, repr(space), member="image")))
+        .bind(lambda space: option.of_optional(space.image).to_result_with(partial(Fault.of, Reason.ABSENT, repr(space), member="image")))
         .bind(lambda _: rooted(bpy.types.Area, context).bind(region_in))
         .map(framed)
         .map(lambda frame: frame.width / frame.height)
@@ -338,7 +338,7 @@ def overlaid[S](part: Part[S], shown: Setting, refreshes: tuple[Refresh, ...]) -
 # --- [PICKS]
 
 
-def picking[P: Picked](cursor: "rna_enums.WindowCursorItems", form: type[P], taken: Callable[[Call[P], Region], Outcome[Answer]], shown: Option[Setting] = Nothing) -> Operator[P]:
+def picking[P: Picked](cursor: "rna_enums.WindowCursorItems", form: type[P], taken: Callable[[Call[P], Region], Outcome[Answer]], shown: Option[Setting] = NOTHING) -> Operator[P]:
     """Returns an operator reading a pick in the main region while `shown` holds as the frame region `taken` edits, keyed and described by `taken`.
 
     Button opening the pick draws anywhere, the host deferring the operator until the pointer picks a location, and `shown` tests the editor picked in.

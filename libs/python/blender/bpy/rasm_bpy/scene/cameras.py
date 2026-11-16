@@ -7,7 +7,7 @@ from bl_ui.properties_data_camera import CAMERA_PT_presets, DATA_PT_camera_displ
 from bl_ui.space_view3d import VIEW3D_MT_object_context_menu
 import bpy
 from bpy_extras.view3d_utils import location_3d_to_region_2d
-from expression import Option, Result, Some, try_downcast
+from expression import Error, NOTHING, Ok, Option, option, Some, try_downcast
 from expression.extra.result import catch
 from mathutils import Matrix, Vector
 import numpy as np
@@ -26,7 +26,7 @@ from rasm_bpy.ui._elements.menus import Append
 from rasm_bpy.ui._layout.members import Member
 from rasm_bpy.ui._layout.rows import Layout, Opens, Property
 from rasm_bpy.ui._layout.sections import Section
-from rasm_records import accumulated, Error, Fault, Nothing, Ok, Outcome, paired, Reason, typed
+from rasm_records import accumulated, Fault, Outcome, paired, Reason, typed
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -58,7 +58,7 @@ def view_cameras(scene: bpy.types.Scene, cameras: tuple[bpy.types.Object, ...]) 
         (camera, view, prefix.map(lambda prefix: (prefix + view.camera_suffix).encode()[: capacity - 1]))
         for camera in cameras
         for name in (camera.name,)
-        for prefix in (Option.of_optional(max((suffix for suffix in suffixes if name.endswith(suffix)), key=len, default=None)).map(name.removesuffix),)
+        for prefix in (option.of_optional(max((suffix for suffix in suffixes if name.endswith(suffix)), key=len, default=None)).map(name.removesuffix),)
         for view in views
     )
     wanted = frozenset(key for _, _, request in requests for key in request.to_list() if key)
@@ -67,12 +67,12 @@ def view_cameras(scene: bpy.types.Scene, cameras: tuple[bpy.types.Object, ...]) 
         if wanted.issubset(found):
             break
         match catch(layer.update, exception=RuntimeError)().map_error(partial(Fault.of, Refusal.REFUSED, repr(layer))):
-            case Result(tag="ok", ok=None):
+            case Ok(None):
                 for key, item in ((key, item) for item in layer.objects if (key := item.name.encode()) in wanted):
                     found.setdefault(key, item)
-            case Result(error=faults):
+            case Error(faults):
                 return Error(faults)
-    return Ok({(camera, view): request.bind(lambda key: Option.of_optional(found.get(key))).default_value(camera) for camera, view, request in requests})
+    return Ok({(camera, view): request.bind(lambda key: option.of_optional(found.get(key))).default_value(camera) for camera, view, request in requests})
 
 
 def render_cameras(scene: bpy.types.Scene) -> Outcome[tuple[bpy.types.Camera, ...]]:
@@ -90,7 +90,7 @@ def widened(camera: bpy.types.Camera, factor: float) -> Option[Snapshot]:
         case "PERSP":
             values = {("sensor_width",): camera.sensor_width * factor, **({("sensor_height",): camera.sensor_height * factor} if camera.sensor_fit == "VERTICAL" else {})}
         case "PANO" | "CUSTOM":
-            return Nothing
+            return NOTHING
     return Some(Snapshot.of(bpy.types.Camera, {**values, ("shift_x",): camera.shift_x / factor, ("shift_y",): camera.shift_y / factor}))
 
 
@@ -159,9 +159,9 @@ def framed(item: bpy.types.Object, coordinates: npt.NDArray[np.float32], depsgra
 def camera_frame(scene: bpy.types.Scene, region: bpy.types.Region, view: bpy.types.RegionView3D, bounds: Rect, /) -> Option[Rect]:
     """Returns the region pixels the scene camera's frame covers inside `bounds`, `Nothing` without a scene camera, for a corner behind the view, or for a frame outside the bounds."""
     corners = tuple(
-        Option.of_optional(location_3d_to_region_2d(region, view, camera.matrix_world @ corner))
-        for camera in Option.of_optional(scene.camera).to_list()
-        for lens in Option.of_optional(try_downcast(bpy.types.Camera, camera.data)).to_list()
+        option.of_optional(location_3d_to_region_2d(region, view, camera.matrix_world @ corner))
+        for camera in option.of_optional(scene.camera).to_list()
+        for lens in option.of_optional(try_downcast(bpy.types.Camera, camera.data)).to_list()
         for corner in lens.view_frame(scene=scene)
     )
     return (
@@ -200,10 +200,10 @@ def released(identity: Identity) -> Outcome[None]:
 
 
 def _camera(context: bpy.types.Context) -> Option[bpy.types.Camera]:
-    return Option.of_optional(context.scene).bind(lambda scene: Option.of_optional(scene.camera)).bind(lambda item: Option.of_optional(try_downcast(bpy.types.Camera, item.data)))
+    return option.of_optional(context.scene).bind(lambda scene: option.of_optional(scene.camera)).bind(lambda item: option.of_optional(try_downcast(bpy.types.Camera, item.data)))
 
 
-def _camera_row(member: str, switch: Option[str] = Nothing, *, under: RnaPath = ()) -> Property:
+def _camera_row(member: str, switch: Option[str] = NOTHING, *, under: RnaPath = ()) -> Property:
     return Property(
         target=Member(root=bpy.types.Camera, path=(*under, member), reach=Some(_camera)), condition=switch.map(lambda name: _on_camera(bpy.types.Camera.bl_rna.properties[name], accepted=(True,)))
     )

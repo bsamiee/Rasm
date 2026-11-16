@@ -14,7 +14,7 @@ from types import MappingProxyType
 from typing import Final, Literal, Self
 
 import bpy
-from expression import Option, Result, Some
+from expression import Error, NOTHING, Ok, Option, option, Some
 from expression.collections import Map
 from expression.extra.result import catch
 import msgspec
@@ -36,7 +36,7 @@ from rasm_bpy.render._outputs.framing import FrameSize
 from rasm_bpy.render._outputs.paths import image_path, view_path
 from rasm_bpy.scene.cameras import render_views
 from rasm_imaging import captured_scene_source, Depth, DisplayView, ImageFile, Layer, Multilayer, Optics, read_codes
-from rasm_records import accumulated, committed, Error, Fault, Nothing, Ok, Outcome, paired, Reason
+from rasm_records import accumulated, committed, Fault, Outcome, paired, Reason
 from rasm_rendering import Output
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -68,7 +68,7 @@ class RenderSource(msgspec.Struct, frozen=True, kw_only=True):
     def optics(self) -> Outcome[Option[Optics]]:
         """Physical optics from captured native lens millimeters and f-number."""
         if (camera := self.camera) is None:
-            return Ok(Nothing)
+            return Ok(NOTHING)
         try:
             return Ok(Some(msgspec.convert({"focal_length": camera[0] / 1000.0, "f_number": camera[1]}, Optics)))
         except msgspec.ValidationError as error:
@@ -83,14 +83,14 @@ class CompletedRender(msgspec.Struct, frozen=True, kw_only=True, eq=False):
     number: int | None
     encoding: Outcome[Option[PyOpenColorIO.Processor]]
     source_encoding: Outcome[Option[PyOpenColorIO.Processor]]
-    scene: Option[Handle[bpy.types.Scene]] = Nothing
-    space: Option[str] = Nothing
-    raw: Option[RenderSource] = Nothing
-    view: Option[DisplayView] = Nothing
-    codes: Outcome[Option[npt.NDArray[np.uint8 | np.uint16]]] = Ok(Nothing)
+    scene: Option[Handle[bpy.types.Scene]] = NOTHING
+    space: Option[str] = NOTHING
+    raw: Option[RenderSource] = NOTHING
+    view: Option[DisplayView] = NOTHING
+    codes: Outcome[Option[npt.NDArray[np.uint8 | np.uint16]]] = Ok(NOTHING)
 
     @classmethod
-    def stored(cls, file: Multilayer, config: PyOpenColorIO.Config, *, space: Option[str], raw: Option[RenderSource] = Nothing, number: int | None = None) -> Self:
+    def stored(cls, file: Multilayer, config: PyOpenColorIO.Config, *, space: Option[str], raw: Option[RenderSource] = NOTHING, number: int | None = None) -> Self:
         """Reads an explicitly selected ordinary file under current color definitions, retaining only supplied historical facts."""
         held = deepcopy(config)
         encodings = {name: captured_scene_source(held, name) for name in dict.fromkeys((*space.to_list(), *(source.space for source in raw.to_list())))}
@@ -104,15 +104,15 @@ class CompletedRender(msgspec.Struct, frozen=True, kw_only=True, eq=False):
             source_encoding=raw.to_result_with(partial(Fault.of, Reason.ABSENT, str(file.path), member="raw render source")).bind(lambda source: encodings[source.space]),
         )
 
-    def read(self, *, view: Option[str] = Nothing) -> Outcome[ImageFile]:
+    def read(self, *, view: Option[str] = NOTHING) -> Outcome[ImageFile]:
         """Reads final pixels in their captured encoding."""
         return self.space.to_result_with(partial(Fault.of, Reason.ABSENT, str(self.file.path), member="encoding colorspace")).bind(
-            lambda space: _combined_part(self.file, self.config, partial(_selected_output, preferred=self.raw.bind(lambda raw: Option.of_optional(raw.layer))), view).map(
+            lambda space: _combined_part(self.file, self.config, partial(_selected_output, preferred=self.raw.bind(lambda raw: option.of_optional(raw.layer))), view).map(
                 lambda file: msgspec.structs.replace(file, colorspace=space)
             )
         )
 
-    def source(self, *, layer: Option[str] = Nothing, view: Option[str] = Nothing) -> Outcome[ImageFile]:
+    def source(self, *, layer: Option[str] = NOTHING, view: Option[str] = NOTHING) -> Outcome[ImageFile]:
         """Reads pre-effects pixels using captured native source selection."""
         return self.raw.to_result_with(partial(Fault.of, Reason.ABSENT, str(self.file.path), member="raw render source")).bind(
             lambda raw: source_image(self.file, self.config, raw, layer=layer, view=view)
@@ -139,7 +139,7 @@ class _Frame(msgspec.Struct, frozen=True, kw_only=True):
         """Resolves actual final and raw source ownership from native saved parts."""
         owners = _owners(file)
         raw = tuple(name for name in owners if name and name != _COMPOSITE)
-        layer = Some(self.compositor_layer) if _COMPOSITE in owners else self.requested_layer.or_else(Some(raw[0]) if len(raw) == 1 else Nothing)
+        layer = Some(self.compositor_layer) if _COMPOSITE in owners else self.requested_layer.or_else(Some(raw[0]) if len(raw) == 1 else NOTHING)
         output = self.output if _COMPOSITE in owners else Some((self.source_space, Some(self.view)))
         space, formation = output.map(lambda held: held[0]), output.bind(lambda held: held[1])
         return CompletedRender(
@@ -147,7 +147,7 @@ class _Frame(msgspec.Struct, frozen=True, kw_only=True):
             config=self.config,
             scene=Some(self.scene),
             space=space,
-            raw=Some(RenderSource(space=self.source_space, layer=layer.to_optional(), view=self.view, camera=self.camera)) if raw else Nothing,
+            raw=Some(RenderSource(space=self.source_space, layer=layer.to_optional(), view=self.view, camera=self.camera)) if raw else NOTHING,
             view=formation,
             number=self.number,
             encoding=space.to_result_with(partial(Fault.of, Reason.ABSENT, str(file.path), member="encoding colorspace")).bind(lambda name: self.encodings[name]),
@@ -166,12 +166,12 @@ class Written(msgspec.Struct, frozen=True, kw_only=True):
     layer: Option[str]
     channels: Mapping[str, str] = MappingProxyType({})
     passes: Map[str, str] = Map.empty()
-    display: Option[OpenImageIO.ROI] = Nothing
-    view: Option[str] = Nothing
+    display: Option[OpenImageIO.ROI] = NOTHING
+    view: Option[str] = NOTHING
 
     @classmethod
     def of(
-        cls, path: str, settings: bpy.types.ImageFormatSettings, output: Output, channels: Mapping[str, str], layer: Option[str], passes: Map[str, str], *, view: Option[str] = Nothing
+        cls, path: str, settings: bpy.types.ImageFormatSettings, output: Output, channels: Mapping[str, str], layer: Option[str], passes: Map[str, str], *, view: Option[str] = NOTHING
     ) -> Option[Self]:
         """Returns written file when native depth maps to a storage depth, `channels` renaming one-channel source passes for a downstream reader."""
         return storage_depth(settings).map(lambda held: cls(path=path, output=output, format=OutputFormat.stored(settings), depth=held, layer=layer, channels=channels, passes=passes, view=view))
@@ -179,7 +179,7 @@ class Written(msgspec.Struct, frozen=True, kw_only=True):
     @classmethod
     def scene(cls, scene: bpy.types.Scene, paths: tuple[tuple[Path, Option[str]], ...]) -> tuple[Self, ...]:
         """Records caller-owned scene output paths with the native format and camera-view ownership."""
-        return tuple(file for path, view in paths for file in cls.of(str(path), scene.render.image_settings, Output.PREVIEW, MappingProxyType({}), Nothing, Map.empty(), view=view).to_list())
+        return tuple(file for path, view in paths for file in cls.of(str(path), scene.render.image_settings, Output.PREVIEW, MappingProxyType({}), NOTHING, Map.empty(), view=view).to_list())
 
 
 class _Job(msgspec.Struct, frozen=True, kw_only=True):
@@ -189,8 +189,8 @@ class _Job(msgspec.Struct, frozen=True, kw_only=True):
     files: Option[Receipt]
     layer: Option[str]
     animation: bool
-    frame: Outcome[Option[_Frame]] = Ok(Nothing)
-    written: Option[tuple[Outcome[tuple[Written, ...]], Outcome[None]]] = Nothing
+    frame: Outcome[Option[_Frame]] = Ok(NOTHING)
+    written: Option[tuple[Outcome[tuple[Written, ...]], Outcome[None]]] = NOTHING
 
     def exported(self, scene: bpy.types.Scene, path: Path) -> Outcome[Path]:
         """Writes the borrowed native target under current settings, restoring the displayed selection."""
@@ -227,12 +227,12 @@ class _Job(msgspec.Struct, frozen=True, kw_only=True):
     def codes(self, scene: bpy.types.Scene, frame: _Frame, folder: Path, identity: Identity) -> Outcome[Option[npt.NDArray[np.uint8 | np.uint16]]]:
         """Reads finished native file codes, exporting a no-write preview under captured native formation."""
         if (coding := frame.coding) is None:
-            return Ok(Nothing)
+            return Ok(NOTHING)
 
         def written(files: tuple[Written, ...]) -> Outcome[Option[npt.NDArray[np.uint8 | np.uint16]]]:
             match tuple(file for file in files if file.output is Output.PREVIEW):
                 case ():
-                    return Ok(Nothing)
+                    return Ok(NOTHING)
                 case (file,):
                     return read_codes(Path(file.path))
                 case found:
@@ -248,7 +248,7 @@ class _Job(msgspec.Struct, frozen=True, kw_only=True):
                         settings
                         .apply(scene)
                         .outcome.bind(lambda _: self.exported(scene, path))
-                        .bind(lambda _: RENDER_ORIGINS[identity].finished(scene, Written.scene(scene, ((path, Nothing),)), identity))
+                        .bind(lambda _: RENDER_ORIGINS[identity].finished(scene, Written.scene(scene, ((path, NOTHING),)), identity))
                         .bind(lambda _: read_codes(path))
                     )
                 finally:
@@ -258,7 +258,7 @@ class _Job(msgspec.Struct, frozen=True, kw_only=True):
             return Snapshot.capture(scene, Some(settings.selection(scene)), inactive=True).bind(exported)
 
         return self.written.map(lambda produced: produced[1].bind(lambda _: produced[0].bind(written))).default_with(
-            lambda: coding.bind(lambda capture: capture.map(preview).default_value(Ok(Nothing)))
+            lambda: coding.bind(lambda capture: capture.map(preview).default_value(Ok(NOTHING)))
         )
 
 
@@ -367,7 +367,7 @@ class _RenderOrigins:
     def requested(self, scene: bpy.types.Scene, layer: Option[str], files: Option[Receipt], *, animation: bool) -> Generator[None]:
         """Borrows the pre-operator image and slot, which the caller keeps alive until completion."""
         key, prior = scene.session_uid, self.requests.get(scene.session_uid)
-        target = built("RENDER_RESULT").to_option().bind(lambda image: Option.of_optional(image.render_slots.active).map(lambda slot: (image, slot)))
+        target = built("RENDER_RESULT").to_option().bind(lambda image: option.of_optional(image.render_slots.active).map(lambda slot: (image, slot)))
         self.requests[key] = _Job(target=target, layer=layer, files=files, animation=animation)
         try:
             yield
@@ -413,10 +413,10 @@ def _origins(identity: Identity) -> Generator[_RenderOrigins]:
         def resolved(origin: str | DisplayView) -> Option[tuple[str, Option[DisplayView]]]:
             match origin:
                 case DisplayView():
-                    return origin.colorspace(config).map(lambda color: (color.getName(), Nothing))
+                    return origin.colorspace(config).map(lambda color: (color.getName(), NOTHING))
                 case space:
                     color = config.getColorSpace(space)
-                    return Some((space, Some(view) if not color.isData() and color.getReferenceSpaceType() == PyOpenColorIO.REFERENCE_SPACE_SCENE else Nothing))
+                    return Some((space, Some(view) if not color.isData() and color.getReferenceSpaceType() == PyOpenColorIO.REFERENCE_SPACE_SCENE else NOTHING))
 
         output = flow(config, enabled, Some(linear)).default_value(Some(linear)).bind(resolved)
         render = scene.render
@@ -453,12 +453,12 @@ def _origins(identity: Identity) -> Generator[_RenderOrigins]:
                         ).map(lambda held: Some((held, render.file_extension)))
                     )
                 )
-                .default_value(Ok(Nothing))
+                .default_value(Ok(NOTHING))
                 if any(row.codes and answer.is_ok() for row, answer in prepared)
                 else None
             ),
         )
-        service.pending[scene.session_uid] = msgspec.structs.replace(job, frame=Ok(Some(frame)), written=Nothing)
+        service.pending[scene.session_uid] = msgspec.structs.replace(job, frame=Ok(Some(frame)), written=NOTHING)
         return Ok(None)
 
     def written(scene: bpy.types.Scene) -> Outcome[None]:
@@ -483,9 +483,9 @@ def _origins(identity: Identity) -> Generator[_RenderOrigins]:
                 root = Path(scope.enter_context(folder))
                 return job.saved(scene, root / "render.exr").bind(Multilayer.read).map(lambda file: frame.completed(file, job.codes(scene, frame, root, identity)))
 
-            saved_frame = catch(TemporaryDirectory[str], exception=OSError)(dir=bpy.app.tempdir).map_error(partial(Fault.of, Reason.UNWRITABLE, bpy.app.tempdir)).bind(saved)
+            saved_frame = catch(lambda: TemporaryDirectory[str](dir=bpy.app.tempdir), exception=OSError)().map_error(partial(Fault.of, Reason.UNWRITABLE, bpy.app.tempdir)).bind(saved)
             match saved_frame:
-                case Result(tag="ok", ok=held):
+                case Ok(held):
                     deferred(held, frame.consumers, scope)
                 case _:
                     scope.close()
@@ -530,14 +530,14 @@ def intermediate(identity: Identity, scene: bpy.types.Scene) -> Generator[None]:
 
 def built(kind: ResultKind) -> Outcome[bpy.types.Image]:
     """Returns Render Result or shared compositor Viewer image, or absent fault before Blender creates it."""
-    return next((Some(image) for image in bpy.data.images if image.type == kind), Nothing).to_result_with(partial(Fault.of, Reason.ABSENT, type(bpy.data.images).__name__, member=kind))
+    return next((Some(image) for image in bpy.data.images if image.type == kind), NOTHING).to_result_with(partial(Fault.of, Reason.ABSENT, type(bpy.data.images).__name__, member=kind))
 
 
 def animation_files(scene: bpy.types.Scene) -> Outcome[tuple[Written, ...]]:
     """Reads native animation paths, preserving each configured individual camera view."""
     if (render := scene.render).is_movie_format:
         return Ok(())
-    views = tuple(Some(view.name) for view in render_views(render)) if render.use_multiview and render.image_settings.views_format == "INDIVIDUAL" else (Nothing,)
+    views = tuple(Some(view.name) for view in render_views(render)) if render.use_multiview and render.image_settings.views_format == "INDIVIDUAL" else (NOTHING,)
     return accumulated(
         catch(render.frame_path, exception=RuntimeError)(frame=scene.frame_current, view=view.default_value(""))
         .map(lambda path: (Path(path), view))
@@ -549,17 +549,17 @@ def animation_files(scene: bpy.types.Scene) -> Outcome[tuple[Written, ...]]:
 def still_files(scene: bpy.types.Scene) -> Outcome[tuple[Written, ...]]:
     """Reads native still-write paths under the actual format and configured camera views."""
     render = scene.render
-    views = tuple(map(Some, render_views(render))) if render.use_multiview and render.image_settings.views_format == "INDIVIDUAL" else (Nothing,)
-    return image_path(scene, render.filepath, render.file_extension, Nothing, use_extension=render.use_file_extension).map(
+    views = tuple(map(Some, render_views(render))) if render.use_multiview and render.image_settings.views_format == "INDIVIDUAL" else (NOTHING,)
+    return image_path(scene, render.filepath, render.file_extension, NOTHING, use_extension=render.use_file_extension).map(
         lambda text: Written.scene(scene, tuple((Path(view_path(scene, text, view)), view.map(lambda held: held.name)) for view in views))
     )
 
 
-def source_image(file: Multilayer, config: PyOpenColorIO.Config, raw: RenderSource, *, layer: Option[str] = Nothing, view: Option[str] = Nothing) -> Outcome[ImageFile]:
+def source_image(file: Multilayer, config: PyOpenColorIO.Config, raw: RenderSource, *, layer: Option[str] = NOTHING, view: Option[str] = NOTHING) -> Outcome[ImageFile]:
     """Reads a captured raw encoding and selected native view layer, requiring a choice when no default is proven."""
     return (
         layer
-        .or_else_with(lambda: Option.of_optional(raw.layer))
+        .or_else_with(lambda: option.of_optional(raw.layer))
         .to_result_with(partial(Fault.of, Refusal.REQUIRED, str(file.path), member="raw render view layer"))
         .bind(lambda name: _combined_part(file, config, lambda _: Some(name), view))
         .map(lambda image: msgspec.structs.replace(image, colorspace=raw.space))
@@ -576,7 +576,7 @@ def _owners(file: Multilayer) -> dict[str, list[Layer]]:
     return owners
 
 
-def combined(path: str, config: PyOpenColorIO.Config, layer: Option[str] = Nothing, *, view: Option[str] = Nothing) -> Outcome[ImageFile]:
+def combined(path: str, config: PyOpenColorIO.Config, layer: Option[str] = NOTHING, *, view: Option[str] = NOTHING) -> Outcome[ImageFile]:
     """Reads a saved render's Combined RGBA.
 
     Args:
@@ -591,9 +591,9 @@ def combined(path: str, config: PyOpenColorIO.Config, layer: Option[str] = Nothi
     return Multilayer.read(Path(path)).bind(lambda file: _combined_part(file, config, lambda owners: layer.or_else_with(lambda: _selected_output(owners)), view))
 
 
-def _selected_output(owners: Mapping[str, list[Layer]], *, preferred: Option[str] = Nothing) -> Option[str]:
+def _selected_output(owners: Mapping[str, list[Layer]], *, preferred: Option[str] = NOTHING) -> Option[str]:
     """Selects Composite, unnamed output, captured raw selection, then first raw output."""
-    return next((Some(name) for name in (_COMPOSITE, "") if name in owners), preferred).or_else_with(lambda: next((Some(name) for name in owners), Nothing))
+    return next((Some(name) for name in (_COMPOSITE, "") if name in owners), preferred).or_else_with(lambda: next((Some(name) for name in owners), NOTHING))
 
 
 def _combined_part(file: Multilayer, config: PyOpenColorIO.Config, selection: Callable[[Mapping[str, list[Layer]]], Option[str]], view: Option[str]) -> Outcome[ImageFile]:
@@ -624,7 +624,7 @@ def _rewritten(_scene: bpy.types.Scene, file: Written, _identity: Identity) -> O
         return tuple(
             file.passes
             .try_find(layer)
-            .bind(lambda source: Option.of_optional(file.channels.get(source)))
+            .bind(lambda source: option.of_optional(file.channels.get(source)))
             .filter(lambda _: counts[layer] == 1)
             .map(lambda channel: f"{layer}.{channel}" if layer else channel)
             .default_value(name)
