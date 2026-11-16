@@ -51,6 +51,7 @@ final class AccountStore {
     @ObservationIgnored private var root: Task<Void, Never>?
     @ObservationIgnored private var authenticationTask: Task<Void, Never>?
     @ObservationIgnored private var refreshWake: AsyncStream<Void>.Continuation?
+    @ObservationIgnored private var written: Task<Void, Never>?
 
     private let locations: FileLocations
     private let claude: ClaudeClient
@@ -655,13 +656,19 @@ final class AccountStore {
     private func save() async {
         guard storageState == .available else { return }
         let file = locations.accountsFile
-        let fields: Logging.Logger.Metadata = ["file": "\(file.lastPathComponent, privacy: .public)", "count": .stringConvertible(accounts.count)]
-        do throws(AccountFailure) {
-            try await coding.encoder.encode(Records(records: accounts), subject: file.lastPathComponent).write(to: file)
-            logger.debug("Saved accounts", metadata: fields)
-        } catch {
-            logger.error("Accounts save failed", error: error, metadata: fields)
+        let previous = written
+        let write = Task { [self] in
+            await previous?.value
+            let fields: Logging.Logger.Metadata = ["file": "\(file.lastPathComponent, privacy: .public)", "count": .stringConvertible(accounts.count)]
+            do throws(AccountFailure) {
+                try await coding.encoder.encode(Records(records: accounts), subject: file.lastPathComponent).write(to: file)
+                logger.debug("Saved accounts", metadata: fields)
+            } catch {
+                logger.error("Accounts save failed", error: error, metadata: fields)
+            }
         }
+        written = write
+        await write.value
     }
 
     private func removeAccountDirectory(_ id: UUID) {

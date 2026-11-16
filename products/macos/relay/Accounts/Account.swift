@@ -251,6 +251,7 @@ nonisolated struct AccountFailure: LocalizedError, CustomNSError, LockFailure {
             case .notInstalled: "\(subject) not installed"
             case .process(let failure): failure.localizedDescription
             case .rpc(let failure): "\(subject) failed: \(failure.localizedDescription)"
+            case .lock(let failure) where failure.reason.is(\.held): "Credential update in progress, retry after it finishes"
             case .lock(let failure): failure.localizedDescription
             case .timedOut(let timeout): "\(subject) timed out after \(timeout.formatted(.units(width: .wide)))"
             case .cancelled: "\(subject) canceled"
