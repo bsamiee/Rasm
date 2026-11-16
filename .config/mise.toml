@@ -103,17 +103,11 @@ outputs = [".venv/"]
 run     = "uv sync --locked --all-packages"
 sources = ["pyproject.toml", "uv.lock"]
 
-[deps.nx-dotnet]
-dir     = "products/developer/nx/dotnet"
-outputs = ["dist/lib/"]
-run     = "dotnet build analyzer"
-sources = ["analyzer/*.cs", "analyzer/MsbuildAnalyzer.csproj", "analyzer/packages.lock.json"]
-
 # --- [BOOTSTRAP] ------------------------------------------------------------------------
 
 [bootstrap.hooks]
 final      = "mise exec -- hk install"
-post-tools = "mise deps pnpm && mise deps nx-dotnet"
+post-tools = "mise deps pnpm"
 
 [bootstrap.remote]
 source = "."

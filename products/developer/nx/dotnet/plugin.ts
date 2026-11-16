@@ -26,8 +26,15 @@ const Report = Schema.Struct({ nodes: Schema.Array(Node), failures: Schema.Array
 const Reported = Schema.fromJsonString(Report);
 const Options = Schema.Struct({
     coveragePath: Schema.optionalKey(Schema.String),
+    analyzer: Schema.optionalKey(Schema.String),
 }).annotate({
-    description: 'coveragePath: workspace folder the coverage configuration of test--dotnet passes to dotnet test as --results-directory, where coverlet.MTP writes its lcov report coverage.<timestamp>.info, {projectName} naming the project, absent leaves the report in the test results folder of the project',
+    description: [
+        'coveragePath: workspace folder the coverage configuration of test--dotnet passes to dotnet test as --results-directory, where coverlet.MTP writes its lcov report coverage.<timestamp>.info, {projectName} naming the project, absent leaves the report in the test results folder of the project',
+        'analyzer: workspace project file of the analyzer to run, for a workspace holding its source, built into the workspace data folder no task writes once its sources change, absent runs the analyzer the package ships',
+    ].join('; '),
+});
+const Built = Schema.fromJsonString(Schema.Struct({ TargetResults: Schema.Struct({ Build: Schema.Struct({ Items: Schema.NonEmptyArray(Schema.Struct({ Identity: Schema.String })) }) }) })).annotate({
+    description: 'Target result dotnet build -getTargetResult:Build prints, its first item the built assembly',
 });
 const Input = Schema.declare((input: unknown): input is NonNullable<TargetConfiguration['inputs']>[number] => Predicate.isString(input) || Predicate.isObject(input));
 const Overrides = Schema.fromJsonString(Schema.Struct({ nx: Schema.optionalKey(Schema.Struct({ targets: Schema.optionalKey(Schema.Record(Schema.String, Schema.Struct({ inputs: Schema.optionalKey(Schema.mutable(Schema.Array(Input))) }))) })) })).annotate({
@@ -74,17 +81,29 @@ const own = Effect.runSync(
     ),
 );
 
-const stamped = Effect.fnUntraced(function* (workspaceRoot: string, { evaluated, nodes }: Report) {
+const stamped = Effect.fnUntraced(function* (workspaceRoot: string, source: Option.Option<string>, { evaluated, nodes }: Report) {
     const fs = yield* FileSystem.FileSystem;
-    const tracked = yield* Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, [...evaluated, ...nodes.flatMap(({ locks }) => locks)]));
-    const folders = Array.dedupe([dirname(ANALYZER), ...nodes.flatMap(({ restored }) => restored.map((folder) => join(workspaceRoot, folder)))]);
+    const tracked = yield* Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, [...evaluated, ...nodes.flatMap(({ locks }) => locks), ...Option.toArray(Option.map(source, (project) => join(dirname(project), '**')))]));
+    const folders = Array.dedupe([...(Option.isNone(source) ? [dirname(ANALYZER)] : []), ...nodes.flatMap(({ restored }) => restored.map((folder) => join(workspaceRoot, folder)))]);
     const held = yield* Effect.forEach(folders, (folder) => Effect.map(Effect.orElseSucceed(fs.readDirectory(folder), Array.empty<string>), (names) => ({ folder, names })), { concurrency: 'unbounded' });
     const files = held.flatMap(({ folder, names }) => names.toSorted().map((name) => join(folder, name)));
     return hashArray([tracked, ...files.flatMap((file) => [relative(workspaceRoot, file), ...Array.fromNullishOr(hashFile(file))])]);
 });
 
-const analyzed = Effect.fnUntraced(function* (workspaceRoot: string, matched: readonly string[]) {
-    const argv = ['dotnet', ANALYZER, workspaceRoot] as const;
+const assembly = (workspaceRoot: string, source: Option.Option<string>) =>
+    Option.match(source, {
+        onNone: () => Effect.succeed(ANALYZER),
+        onSome: (project) => {
+            const folder = join(workspaceDataDirectory, 'dotnet-analyzer');
+            const argv = ['dotnet', 'build', project, '--artifacts-path', folder, '--output', join(folder, 'lib'), '-p:RunAnalyzers=false', '-t:Build', '-getTargetResult:Build'] as const;
+            return Effect.flatMap(spawned(argv, { cwd: workspaceRoot }), (stdout) =>
+                Effect.mapBoth(Schema.decodeEffect(Built)(stdout), { onFailure: (error) => new Cause.UnknownError(error, `${CommandLine.display(argv)} printed no target result: ${stdout}`), onSuccess: (built) => Array.headNonEmpty(built.TargetResults.Build.Items).Identity }),
+            );
+        },
+    });
+
+const analyzed = Effect.fnUntraced(function* (workspaceRoot: string, source: Option.Option<string>, matched: readonly string[]) {
+    const argv = ['dotnet', yield* assembly(workspaceRoot, source), workspaceRoot] as const;
     const report = yield* Effect.flatMap(spawned(argv, { cwd: workspaceRoot, stdin: Stream.encodeText(Stream.make(matched.join('\n'))) }), (stdout) => Effect.mapError(Schema.decodeEffect(Reported)(stdout), (error) => new Cause.UnknownError(error, `${CommandLine.display(argv)} printed no report: ${stdout}`)));
     const known = new Set(yield* Effect.promise(() => globWithWorkspaceContext(workspaceRoot, Array.dedupe(report.nodes.flatMap(({ inputs }) => inputs)))));
     return { ...report, nodes: report.nodes.map((node) => ({ ...node, inputs: node.inputs.filter((input) => known.has(input)) })) };
@@ -136,12 +155,13 @@ const projected = (nodes: readonly Node[], settings: typeof Options.Type, manife
 
 const inferred = Effect.fnUntraced(function* (matched: readonly string[], options: typeof Options.Encoded | undefined, { workspaceRoot }: CreateNodesContext) {
     const [fs, edges, settings, hashed] = yield* Effect.all([FileSystem.FileSystem, Edges, Schema.decodeEffect(Options)(options ?? {}), own]);
+    const source = Option.fromUndefinedOr(settings.analyzer);
     const cache = new PluginCache<{ readonly report: Report; readonly stamp: string }>(join(workspaceDataDirectory, `dotnet-${hashed}.hash`));
     const key = yield* Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, [...matched]));
-    const held = yield* Effect.findFirst(Array.fromNullishOr(cache.get(key)), (stored) => Effect.map(stamped(workspaceRoot, stored.report), (now) => now === stored.stamp));
-    const read = yield* Effect.result(Option.match(held, { onSome: (stored) => Effect.succeed(stored.report), onNone: () => analyzed(workspaceRoot, matched) }));
+    const held = yield* Effect.findFirst(Array.fromNullishOr(cache.get(key)), (stored) => Effect.map(stamped(workspaceRoot, source, stored.report), (now) => now === stored.stamp));
+    const read = yield* Effect.result(Option.match(held, { onSome: (stored) => Effect.succeed(stored.report), onNone: () => analyzed(workspaceRoot, source, matched) }));
     const report = Result.getOrElse(read, (): Report => ({ nodes: [], failures: [], evaluated: [] }));
-    yield* Option.isNone(held) && Result.isSuccess(read) && report.failures.length === 0 ? Effect.flatMap(stamped(workspaceRoot, report), (stamp) => Effect.sync(() => cache.set(key, { report, stamp }))).pipe(Effect.andThen(Effect.sync(() => cache.writeToDisk()))) : Effect.void;
+    yield* Option.isNone(held) && Result.isSuccess(read) && report.failures.length === 0 ? Effect.flatMap(stamped(workspaceRoot, source, report), (stamp) => Effect.sync(() => cache.set(key, { report, stamp }))).pipe(Effect.andThen(Effect.sync(() => cache.writeToDisk()))) : Effect.void;
     yield* Ref.set(edges, related(report));
     const declared = Array.dedupe(report.nodes.flatMap((node) => [node.file, ...node.inputs, ...node.locks])).map((at) => join('{workspaceRoot}', at));
     const manifests = yield* Effect.forEach(report.nodes, (node) => manifested(workspaceRoot, dirname(node.file)));

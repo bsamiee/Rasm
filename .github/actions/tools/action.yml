@@ -1,5 +1,5 @@
 name: Tools
-description: Removes untracked files, then mise bootstrap installs the mise tools, inside a job container the Unreal rows alone under .cache of the checkout, whose post-tools hook installs pnpm packages and builds the analyzer @rasm/nx-dotnet runs, and exports mise env, the remote cache row included
+description: Removes untracked files, then mise bootstrap installs the mise tools, inside a job container the Unreal rows alone under .cache of the checkout, whose post-tools hook installs pnpm packages, and exports mise env, the remote cache row included
 
 runs:
     using: composite

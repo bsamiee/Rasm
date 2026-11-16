@@ -49,6 +49,7 @@
         {
             "plugin": "@rasm/nx-dotnet",
             "options": {
+                "analyzer": "products/developer/nx/dotnet/analyzer/MsbuildAnalyzer.csproj",
                 "coveragePath": ".artifacts/coverage/{projectName}"
             }
         },

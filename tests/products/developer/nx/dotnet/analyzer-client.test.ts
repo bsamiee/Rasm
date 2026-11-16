@@ -1,8 +1,10 @@
 import { chmodSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { env } from 'node:process';
+import { fileURLToPath } from 'node:url';
 import { createNodes } from '@rasm/nx-dotnet';
 import { TempFs } from '@rasm/testing/temp-fs';
+import { Array, Function, Result } from 'effect';
 import { resetWorkspaceContext } from 'nx/src/utils/workspace-context';
 import { describe, expect, test, vi } from 'vitest';
 
@@ -60,6 +62,27 @@ describe('MsbuildAnalyzer', { timeout: 30_000 }, () => {
         await analyzeProjects(['a/a.csproj']);
 
         await expect(spawns()).resolves.toStrictEqual([expect.stringMatching(new RegExp(`^\\S+/dist/lib/MsbuildAnalyzer\\.dll ${RegExp.escape(tempFs.tempDir)}$`, 'u'))]);
+    });
+
+    it('should build a configured analyzer into the workspace data folder, run the assembly it reports, and build again only after its sources change', async ({ tempFs, dotnet, spawns }) => {
+        const shipped = join(dirname(fileURLToPath(import.meta.resolve('@rasm/nx-dotnet/package.json'))), 'dist/lib/MsbuildAnalyzer.dll');
+        await tempFs.createFiles({ 'tool/Tool.csproj': project(), 'tool/Program.cs': 'return 0;' });
+        await dotnet(`[ "$1" = build ] && exec printf '{"TargetResults":{"Build":{"Items":[{"Identity":"${shipped}"}]}}}'\nPATH="$(printf %s "$PATH" | cut -d: -f2-)" exec dotnet "$@"`);
+        const read = () => createNodes[1](['a/a.csproj'], { analyzer: 'tool/Tool.csproj' }, { nxJsonConfiguration: {}, workspaceRoot: tempFs.tempDir });
+
+        await read();
+        resetWorkspaceContext();
+        await read();
+        await tempFs.createFile('tool/Program.cs', 'return 1;');
+        resetWorkspaceContext();
+        await read();
+
+        const [builds, runs] = Array.partition(
+            await spawns(),
+            Result.liftPredicate((call: string) => call.startsWith('build '), Function.identity),
+        );
+        expect(builds).toStrictEqual(Array.makeBy(2, () => 'build tool/Tool.csproj --artifacts-path tmp/project-graph-cache/dotnet-analyzer --output tmp/project-graph-cache/dotnet-analyzer/lib -p:RunAnalyzers=false -t:Build -getTargetResult:Build'));
+        expect(runs).toStrictEqual(Array.makeBy(2, () => `${shipped} ${tempFs.tempDir}`));
     });
 
     it('should return an error result when the analyzer exits non-zero', async ({ analyzeProjects, dotnet }) => {
