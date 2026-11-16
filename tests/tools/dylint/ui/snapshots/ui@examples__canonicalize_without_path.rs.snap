@@ -1,0 +1,144 @@
+---
+source: tests/tools/dylint/ui/main.rs
+input_file: tests/tools/dylint/examples/canonicalize_without_path.rs
+---
+error: `method` passes its parameters unchanged to `std::path::Path::canonicalize`
+ --> tests/tools/dylint/examples/canonicalize_without_path.rs:7:1
+  |
+7 | fn method(path: &Path) -> io::Result<PathBuf> { path.canonicalize() }
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+note: forwarded here
+ --> tests/tools/dylint/examples/canonicalize_without_path.rs:7:49
+  |
+7 | fn method(path: &Path) -> io::Result<PathBuf> { path.canonicalize() }
+  |                                                 ^^^^^^^^^^^^^^^^^^^
+  = help: call `std::path::Path::canonicalize` at each call site of `method` and delete `method`
+  = note: `#[deny(forwarding_function)]` on by default
+
+error: `Path::canonicalize` returns an `io::Error` that names no path and a Windows path that holds the verbatim prefix
+ --> tests/tools/dylint/examples/canonicalize_without_path.rs:7:54
+  |
+7 | fn method(path: &Path) -> io::Result<PathBuf> { path.canonicalize() }
+  |                                                      ^^^^^^^^^^^^
+  |
+  = help: use `dunce::simplified(&fs_err::canonicalize(..)?)`
+  = note: `#[deny(canonicalize_without_path)]` on by default
+
+error: `owned` passes its parameters unchanged to `std::path::Path::canonicalize`
+ --> tests/tools/dylint/examples/canonicalize_without_path.rs:9:1
+  |
+9 | fn owned(path: &PathBuf) -> io::Result<PathBuf> { path.canonicalize() }
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+note: forwarded here
+ --> tests/tools/dylint/examples/canonicalize_without_path.rs:9:51
+  |
+9 | fn owned(path: &PathBuf) -> io::Result<PathBuf> { path.canonicalize() }
+  |                                                   ^^^^^^^^^^^^^^^^^^^
+  = help: call `std::path::Path::canonicalize` at each call site of `owned` and delete `owned`
+
+error: `Path::canonicalize` returns an `io::Error` that names no path and a Windows path that holds the verbatim prefix
+ --> tests/tools/dylint/examples/canonicalize_without_path.rs:9:56
+  |
+9 | fn owned(path: &PathBuf) -> io::Result<PathBuf> { path.canonicalize() }
+  |                                                        ^^^^^^^^^^^^
+  |
+  = help: use `dunce::simplified(&fs_err::canonicalize(..)?)`
+
+error: `qualified` passes its parameters unchanged to `std::path::Path::canonicalize`
+  --> tests/tools/dylint/examples/canonicalize_without_path.rs:11:1
+   |
+11 | fn qualified(path: &Path) -> io::Result<PathBuf> { Path::canonicalize(path) }
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: forwarded here
+  --> tests/tools/dylint/examples/canonicalize_without_path.rs:11:52
+   |
+11 | fn qualified(path: &Path) -> io::Result<PathBuf> { Path::canonicalize(path) }
+   |                                                    ^^^^^^^^^^^^^^^^^^^^^^^^
+   = help: call `std::path::Path::canonicalize` at each call site of `qualified` and delete `qualified`
+
+error: `Path::canonicalize` returns an `io::Error` that names no path and a Windows path that holds the verbatim prefix
+  --> tests/tools/dylint/examples/canonicalize_without_path.rs:11:52
+   |
+11 | fn qualified(path: &Path) -> io::Result<PathBuf> { Path::canonicalize(path) }
+   |                                                    ^^^^^^^^^^^^^^^^^^
+   |
+   = help: use `dunce::simplified(&fs_err::canonicalize(..)?)`
+
+error: `type_relative` passes its parameters unchanged to `std::path::Path::canonicalize`
+  --> tests/tools/dylint/examples/canonicalize_without_path.rs:13:1
+   |
+13 | fn type_relative(path: &PathBuf) -> io::Result<PathBuf> { <Path>::canonicalize(path) }
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: forwarded here
+  --> tests/tools/dylint/examples/canonicalize_without_path.rs:13:59
+   |
+13 | fn type_relative(path: &PathBuf) -> io::Result<PathBuf> { <Path>::canonicalize(path) }
+   |                                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+   = help: call `std::path::Path::canonicalize` at each call site of `type_relative` and delete `type_relative`
+
+error: `Path::canonicalize` returns an `io::Error` that names no path and a Windows path that holds the verbatim prefix
+  --> tests/tools/dylint/examples/canonicalize_without_path.rs:13:59
+   |
+13 | fn type_relative(path: &PathBuf) -> io::Result<PathBuf> { <Path>::canonicalize(path) }
+   |                                                           ^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: use `dunce::simplified(&fs_err::canonicalize(..)?)`
+
+error: `Path::canonicalize` returns an `io::Error` that names no path and a Windows path that holds the verbatim prefix
+  --> tests/tools/dylint/examples/canonicalize_without_path.rs:15:84
+   |
+15 | fn mapped(paths: &[&Path]) -> Vec<io::Result<PathBuf>> { paths.iter().copied().map(Path::canonicalize).collect() }
+   |                                                                                    ^^^^^^^^^^^^^^^^^^
+   |
+   = help: use `dunce::simplified(&fs_err::canonicalize(..)?)`
+
+error: `Path::canonicalize` returns an `io::Error` that names no path and a Windows path that holds the verbatim prefix
+  --> tests/tools/dylint/examples/canonicalize_without_path.rs:17:50
+   |
+17 | fn asserted(path: &Path) -> bool { matches!(path.canonicalize(), Ok(_)) }
+   |                                                  ^^^^^^^^^^^^
+   |
+   = help: use `dunce::simplified(&fs_err::canonicalize(..)?)`
+
+error: `tracked` passes its parameters unchanged to `fs_err::canonicalize`
+  --> tests/tools/dylint/examples/canonicalize_without_path.rs:19:1
+   |
+19 | fn tracked(path: &Path) -> io::Result<PathBuf> { fs_err::canonicalize(path) }
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: forwarded here
+  --> tests/tools/dylint/examples/canonicalize_without_path.rs:19:50
+   |
+19 | fn tracked(path: &Path) -> io::Result<PathBuf> { fs_err::canonicalize(path) }
+   |                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^
+   = help: call `fs_err::canonicalize` at each call site of `tracked` and delete `tracked`
+
+error: `function` passes its parameters unchanged to `std::fs::canonicalize`
+  --> tests/tools/dylint/examples/canonicalize_without_path.rs:21:1
+   |
+21 | fn function(path: &Path) -> io::Result<PathBuf> { std::fs::canonicalize(path) }
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: forwarded here
+  --> tests/tools/dylint/examples/canonicalize_without_path.rs:21:51
+   |
+21 | fn function(path: &Path) -> io::Result<PathBuf> { std::fs::canonicalize(path) }
+   |                                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   = help: call `std::fs::canonicalize` at each call site of `function` and delete `function`
+
+error: `Path::canonicalize` returns an `io::Error` that names no path and a Windows path that holds the verbatim prefix
+  --> tests/tools/dylint/examples/canonicalize_without_path.rs:27:15
+   |
+25 | ...! canonical {
+26 | ...expr) => {
+27 | ...th.canonicalize()
+   |       ^^^^^^^^^^^^
+...
+34 | ...ox(&(method(path), owned(&owned_path), qualified(path), type_relative(&owned_path), mapped(&[path]), asserted(path), tracked(path), function(path), canonical!(path)));
+   |                                                                                                                                                        ---------------- in this macro invocation
+   |
+   = help: use `dunce::simplified(&fs_err::canonicalize(..)?)`

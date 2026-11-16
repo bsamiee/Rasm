@@ -1,0 +1,71 @@
+use std::collections::BTreeMap;
+use std::io;
+use std::path::PathBuf;
+use std::process::{Command, ExitStatus, Stdio};
+
+use cargo_metadata::Message;
+use cargo_metadata::diagnostic::DiagnosticLevel;
+use thiserror::Error;
+
+// --- [TYPES] ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Copy, derive_more::Display)]
+#[display(rename_all = "lowercase")]
+enum Stage {
+    Start,
+    #[display("read the output of")]
+    Output,
+}
+
+// --- [ERRORS] --------------------------------------------------------------------------
+
+#[derive(Debug, Error)]
+enum Failure {
+    #[error("cannot {stage} cargo dylint")]
+    Io { stage: Stage, source: io::Error },
+    #[error("cargo dylint exited with {status}\n{errors}")]
+    Compile { errors: String, status: ExitStatus },
+    #[error("diagnostics in targets no fixture pattern names\n{found}")]
+    Unmatched { found: String },
+}
+
+// --- [COMPOSITION] ---------------------------------------------------------------------
+
+#[test]
+fn ui() -> Result<(), Failure> {
+    let output = Command::new(env!("CARGO"))
+        .args(["dylint", "--all", "-p", env!("CARGO_PKG_NAME"), "--fail-on-no-libraries", "--", "--locked", "--keep-going", "--examples", "--test", "*", "--message-format=json"])
+        .stderr(Stdio::inherit())
+        .output()
+        .map_err(|source| Failure::Io { stage: Stage::Start, source })?;
+    let (mut found, errors, checked) =
+        Message::parse_stream(output.stdout.as_slice()).try_fold((BTreeMap::<PathBuf, String>::new(), String::new(), false), |(mut found, mut errors, checked), message| {
+            let message = message.map_err(|source| Failure::Io { stage: Stage::Output, source })?;
+            if let Message::CompilerMessage(message) = &message
+                && let Some(rendered) = &message.message.rendered
+            {
+                if matches!(message.message.level, DiagnosticLevel::Error | DiagnosticLevel::Ice) && message.message.code.as_ref().is_none_or(|code| code.explanation.is_some()) {
+                    errors.extend([rendered.trim_end(), "\n\n"]);
+                }
+                if (message.target.is_example() || message.target.is_test()) && !message.message.spans.is_empty() && message.message.code.is_some() {
+                    let applicabilities = message
+                        .message
+                        .children
+                        .iter()
+                        .filter_map(|child| Some(format!("applicability {:?}: {}\n", child.spans.iter().find_map(|span| span.suggestion_applicability.as_ref())?, child.message)))
+                        .collect::<String>();
+                    found.entry(message.target.src_path.clone().into_std_path_buf()).or_default().extend([rendered.trim_end(), "\n", &applicabilities, "\n"]);
+                }
+            }
+            Ok::<_, Failure>((found, errors, checked || matches!(message, Message::BuildFinished(_))))
+        })?;
+    (checked && errors.is_empty()).ok_or(Failure::Compile { errors, status: output.status })?;
+    insta::with_settings!({ prepend_module_to_snapshot => false, omit_expression => true }, {
+        insta::glob!("..", "{examples/*.rs,expansions/*.rs}", |path| {
+            #[cfg_attr(dylint_lib = "rasm_lints", expect(empty_string_default, reason = "a fixture the lints pass over snapshots as empty output"))]
+            let diagnostics = found.remove(path).unwrap_or_default();
+            insta::assert_snapshot!(diagnostics);
+        });
+    });
+    found.is_empty().ok_or_else(|| Failure::Unmatched { found: found.into_values().collect() })
+}

@@ -1,0 +1,42 @@
+---
+source: tests/tools/dylint/ui/main.rs
+input_file: tests/tools/dylint/examples/redundant_clone_in_closure.rs
+---
+error: closure clones `path` with no later read
+  --> tests/tools/dylint/examples/redundant_clone_in_closure.rs:39:113
+   |
+39 | ...se().map_err(|source| ReadError { path: path.clone(), source }) }
+   |                                      ------^^^^^^^^^^^^
+   |                                      |
+   |                                      help: move `path` into the closure: `path`
+   |
+   = note: `#[deny(redundant_clone_in_closure)]` on by default
+applicability MachineApplicable: move `path` into the closure
+
+error: closure clones `name` with no later read
+  --> tests/tools/dylint/examples/redundant_clone_in_closure.rs:41:92
+   |
+41 | fn fallback(name: String, given: Option<String>) -> Option<String> { given.or_else(|| Some(name.clone())) }
+   |                                                                                            ^^^^^^^^^^^^ help: move `name` into the closure: `name`
+applicability MachineApplicable: move `name` into the closure
+
+error: async block clones `name` with no later read
+  --> tests/tools/dylint/examples/redundant_clone_in_closure.rs:43:56
+   |
+43 | fn deferred(name: String) -> String { block_on(async { name.clone() }) }
+   |                                                        ^^^^^^^^^^^^ help: move `name` into the async block: `name`
+applicability MachineApplicable: move `name` into the async block
+
+error: closure clones `name` with no later read
+  --> tests/tools/dylint/examples/redundant_clone_in_closure.rs:45:89
+   |
+45 | fn owned(name: String, given: Option<String>) -> Option<String> { given.or_else(|| Some(name.to_owned())) }
+   |                                                                                         ^^^^^^^^^^^^^^^ help: move `name` into the closure: `name`
+applicability MachineApplicable: move `name` into the closure
+
+error: closure clones `name` with no later read
+  --> tests/tools/dylint/examples/redundant_clone_in_closure.rs:47:90
+   |
+47 | fn called(name: String, given: Option<String>) -> Option<String> { given.or_else(|| Some(Clone::clone(&name))) }
+   |                                                                                          ^^^^^^^^^^^^^^^^^^^ help: move `name` into the closure: `name`
+applicability MachineApplicable: move `name` into the closure

@@ -1,0 +1,77 @@
+---
+source: tests/tools/dylint/ui/main.rs
+input_file: tests/tools/dylint/expansions/interior_mutable_static.rs
+---
+error: `static HITS` holds interior mutable `Atomic<u32>`
+  --> tests/tools/dylint/expansions/interior_mutable_static.rs:25:8
+   |
+25 | static HITS: AtomicU32 = AtomicU32::new(0);
+   |        ^^^^
+   |
+   = help: build the value in `main` and pass it to each operation that reads or writes it
+   = note: `#[deny(interior_mutable_static)]` on by default
+
+error: `static ROOT` holds interior mutable `OnceLock<String>`
+  --> tests/tools/dylint/expansions/interior_mutable_static.rs:27:8
+   |
+27 | static ROOT: OnceLock<String> = OnceLock::new();
+   |        ^^^^
+   |
+   = help: build the value in `main` and pass it to each operation that reads or writes it
+
+error: `static ORIGIN` holds interior mutable `OnceLock<String>`
+  --> tests/tools/dylint/expansions/interior_mutable_static.rs:29:12
+   |
+29 | pub static ORIGIN: OnceLock<String> = OnceLock::new();
+   |            ^^^^^^
+   |
+   = help: build the value in `main` and pass it to each operation that reads or writes it
+
+error: `static COUNTER` holds interior mutable `Atomic<u32>`
+  --> tests/tools/dylint/expansions/interior_mutable_static.rs:33:8
+   |
+33 | static COUNTER: LazyLock<AtomicU32> = LazyLock::new(|| AtomicU32::new(1));
+   |        ^^^^^^^
+   |
+   = help: build the value in `main` and pass it to each operation that reads or writes it
+
+error: `static SHARED` holds interior mutable `Mutex<Vec<u8>>` in `Arc<Mutex<Vec<u8>>>`
+  --> tests/tools/dylint/expansions/interior_mutable_static.rs:35:8
+   |
+35 | static SHARED: LazyLock<Arc<Mutex<Vec<u8>>>> = LazyLock::new(|| Arc::new(Mutex::new(Vec::new())));
+   |        ^^^^^^
+   |
+   = help: build the value in `main` and pass it to each operation that reads or writes it
+
+error: `static VISITS` holds interior mutable `Cell<u32>`
+  --> tests/tools/dylint/expansions/interior_mutable_static.rs:42:12
+   |
+42 |     static VISITS: Cell<u32> = const { Cell::new(0) };
+   |            ^^^^^^
+   |
+   = help: build the value in `main` and pass it to each operation that reads or writes it
+
+error: `static CALLS` holds interior mutable `Atomic<u32>`
+  --> tests/tools/dylint/expansions/interior_mutable_static.rs:46:10
+   |
+46 | counter!(CALLS);
+   |          ^^^^^
+   |
+   = help: build the value in `main` and pass it to each operation that reads or writes it
+
+error: `static SEEN` holds interior mutable `Atomic<u32>`
+  --> tests/tools/dylint/expansions/interior_mutable_static.rs:52:12
+   |
+52 |     static SEEN: AtomicU32 = AtomicU32::new(0);
+   |            ^^^^
+   |
+   = help: build the value in `main` and pass it to each operation that reads or writes it
+
+error: `unwrap_or_default` replaces `PoisonError<MutexGuard<'_, Vec<u8>>>` with a fallback value
+  --> tests/tools/dylint/expansions/interior_mutable_static.rs:60:50
+   |
+60 |     SHARED.lock().map(|mut bytes| bytes.push(1)).unwrap_or_default();
+   |                                                  ^^^^^^^^^^^^^^^^^^^
+   |
+   = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
+   = note: `#[deny(discarded_error)]` on by default

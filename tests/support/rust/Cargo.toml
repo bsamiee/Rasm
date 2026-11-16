@@ -14,8 +14,8 @@ doctest = false
 bench   = false
 
 [[test]]
-name              = "suite"
-path              = "suite.rs"
+name              = "testing"
+path              = "main.rs"
 required-features = ["sqlite"]
 
 # --- [FEATURES] -------------------------------------------------------------------------

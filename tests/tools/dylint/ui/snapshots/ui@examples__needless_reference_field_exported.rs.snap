@@ -1,0 +1,5 @@
+---
+source: tests/tools/dylint/ui/main.rs
+input_file: tests/tools/dylint/examples/needless_reference_field_exported.rs
+---
+

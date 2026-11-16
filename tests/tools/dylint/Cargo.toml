@@ -17,7 +17,7 @@ implicitDependencies = ["rasm_lints"]
 
 [[example]]
 name = "assertions_outside_tests"
-path = "tests/expansions/assertions_outside_tests.rs"
+path = "expansions/assertions_outside_tests.rs"
 
 [[example]]
 name       = "duplicate_trait_constant_exported"
@@ -25,7 +25,7 @@ crate-type = ["lib"]
 
 [[example]]
 name = "interior_mutable_static"
-path = "tests/expansions/interior_mutable_static.rs"
+path = "expansions/interior_mutable_static.rs"
 
 [[example]]
 name       = "macro_alias_exported"
@@ -33,7 +33,7 @@ crate-type = ["lib"]
 
 [[example]]
 name = "macro_matching"
-path = "tests/expansions/macro_matching.rs"
+path = "expansions/macro_matching.rs"
 
 [[example]]
 name = "orphan_module_target"
@@ -71,7 +71,12 @@ crate-type = ["lib"]
 
 [[test]]
 name = "expansions"
+path = "expansions/main.rs"
 test = false
+
+[[test]]
+name = "ui"
+path = "ui/main.rs"
 
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 

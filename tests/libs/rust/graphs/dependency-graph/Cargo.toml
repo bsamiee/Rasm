@@ -8,7 +8,7 @@ edition.workspace = true
 
 [[test]]
 name = "dependency-graph"
-path = "dependency-graph.rs"
+path = "main.rs"
 
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 

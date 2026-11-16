@@ -1,5 +1,0 @@
----
-source: tests/tools/dylint/tests/ui/main.rs
-input_file: tests/tools/dylint/examples/manual_reference_impl_exported.rs
----
-

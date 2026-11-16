@@ -8,7 +8,7 @@ edition.workspace = true
 
 [[test]]
 name = "solar-geometry"
-path = "solar-geometry.rs"
+path = "main.rs"
 
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 

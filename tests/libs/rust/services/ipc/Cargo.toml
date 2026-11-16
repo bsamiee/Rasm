@@ -8,8 +8,8 @@ description       = "Local socket service suite: one listener per name, stale na
 # --- [TARGETS] --------------------------------------------------------------------------
 
 [[test]]
-name = "suite"
-path = "suite/main.rs"
+name = "ipc"
+path = "main.rs"
 
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 

@@ -1,0 +1,172 @@
+---
+source: tests/tools/dylint/ui/main.rs
+input_file: tests/tools/dylint/examples/partition_by_result.rs
+---
+error: `passed` passes its parameters unchanged to `std::result::Result::is_ok`
+  --> tests/tools/dylint/examples/partition_by_result.rs:21:1
+   |
+21 | const fn passed(result: &Parsed) -> bool { result.is_ok() }
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: forwarded here
+  --> tests/tools/dylint/examples/partition_by_result.rs:21:44
+   |
+21 | const fn passed(result: &Parsed) -> bool { result.is_ok() }
+   |                                            ^^^^^^^^^^^^^^
+   = help: call `std::result::Result::is_ok` at each call site of `passed` and delete `passed`
+   = note: `#[deny(forwarding_function)]` on by default
+
+error: `small` passes its parameters unchanged to `Small::is_small`
+  --> tests/tools/dylint/examples/partition_by_result.rs:25:1
+   |
+25 | fn small(result: &Parsed) -> bool { result.is_small() }
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: forwarded here
+  --> tests/tools/dylint/examples/partition_by_result.rs:25:37
+   |
+25 | fn small(result: &Parsed) -> bool { result.is_small() }
+   |                                     ^^^^^^^^^^^^^^^^^
+   = help: call `Small::is_small` at each call site of `small` and delete `small`
+
+error: `partition` leaves each half of the results wrapped in `Ok` or `Err`
+  --> tests/tools/dylint/examples/partition_by_result.rs:27:84
+   |
+27 | fn named(results: Vec<Parsed>) -> (Vec<Parsed>, Vec<Parsed>) { results.into_iter().partition(passed) }
+   |                                                                                    ^^^^^^^^^^^^^^^^^
+   |
+   = help: call `Itertools::partition_result` and delete the unwraps after it
+   = note: `#[deny(partition_by_result)]` on by default
+
+error: `partition` leaves each half of the results wrapped in `Ok` or `Err`
+  --> tests/tools/dylint/examples/partition_by_result.rs:29:85
+   |
+29 | fn pathed(results: Vec<Parsed>) -> (Vec<Parsed>, Vec<Parsed>) { results.into_iter().partition(Result::is_err) }
+   |                                                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: call `Itertools::partition_result`, swap the halves, and delete the unwraps after it
+
+error: `partition` leaves each half of the results wrapped in `Ok` or `Err`
+  --> tests/tools/dylint/examples/partition_by_result.rs:31:85
+   |
+31 | fn closed(results: Vec<Parsed>) -> (Vec<Parsed>, Vec<Parsed>) { results.into_iter().partition(|result| result.is_ok()) }
+   |                                                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: call `Itertools::partition_result` and delete the unwraps after it
+
+error: `partition` leaves each half of the results wrapped in `Ok` or `Err`
+  --> tests/tools/dylint/examples/partition_by_result.rs:33:86
+   |
+33 | fn negated(results: Vec<Parsed>) -> (Vec<Parsed>, Vec<Parsed>) { results.into_iter().partition(|result| !result.as_ref().is_err()) }
+   |                                                                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: call `Itertools::partition_result` and delete the unwraps after it
+
+error: `partition` leaves each half of the results wrapped in `Ok` or `Err`
+  --> tests/tools/dylint/examples/partition_by_result.rs:35:85
+   |
+35 | fn called(results: Vec<Parsed>) -> (Vec<Parsed>, Vec<Parsed>) { results.into_iter().partition(|result| Result::is_ok(result)) }
+   |                                                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: call `Itertools::partition_result` and delete the unwraps after it
+
+error: `partition` leaves each half of the results wrapped in `Ok` or `Err`
+  --> tests/tools/dylint/examples/partition_by_result.rs:37:68
+   |
+37 | fn qualified(results: Vec<Parsed>) -> (Vec<Parsed>, Vec<Parsed>) { Iterator::partition(results.into_iter(), Result::is_ok) }
+   |                                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: call `Itertools::partition_result` and delete the unwraps after it
+
+error: `partition` leaves each half of the results wrapped in `Ok` or `Err`
+  --> tests/tools/dylint/examples/partition_by_result.rs:39:82
+   |
+39 | fn borrowed(results: &[Parsed]) -> (Vec<&Parsed>, Vec<&Parsed>) { results.iter().partition(|result| result.is_ok()) }
+   |                                                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: call `Itertools::partition_result` after mapping each borrowed result with `Result::as_ref` and delete the unwraps after it
+
+error: `partition` leaves each half of the results wrapped in `Ok` or `Err`
+  --> tests/tools/dylint/examples/partition_by_result.rs:43:86
+   |
+43 | fn matched(results: Vec<Parsed>) -> (Vec<Parsed>, Vec<Parsed>) { results.into_iter().partition(|result| matches!(result, Ok(_))) }
+   |                                                                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: call `Itertools::partition_result` and delete the unwraps after it
+
+error: `partition` leaves each half of the results wrapped in `Ok` or `Err`
+  --> tests/tools/dylint/examples/partition_by_result.rs:45:91
+   |
+45 | fn dereferenced(results: Vec<Parsed>) -> (Vec<Parsed>, Vec<Parsed>) { results.into_iter().partition(|result| (*result).is_err()) }
+   |                                                                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: call `Itertools::partition_result`, swap the halves, and delete the unwraps after it
+
+error: `partition` leaves each half of the results wrapped in `Ok` or `Err`
+  --> tests/tools/dylint/examples/partition_by_result.rs:47:148
+   |
+47 | ...t<u8, TryFromIntError>>) { results.into_iter().partition(|&result| result.is_ok()) }
+   |                                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: call `Itertools::partition_result` and delete the unwraps after it
+
+error: `partition` leaves each half of the results wrapped in `Ok` or `Err`
+  --> tests/tools/dylint/examples/partition_by_result.rs:50:25
+   |
+50 |       results.into_iter().partition(|result| match result {
+   |  _________________________^
+51 | |         Ok(_) => true,
+52 | |         Err(_) => false,
+53 | |     })
+   | |______^
+   |
+   = help: call `Itertools::partition_result` and delete the unwraps after it
+
+error: `passed` has one reader, `named`
+  --> tests/tools/dylint/examples/partition_by_result.rs:21:1
+   |
+21 | const fn passed(result: &Parsed) -> bool { result.is_ok() }
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: read here
+  --> tests/tools/dylint/examples/partition_by_result.rs:27:94
+   |
+27 | fn named(results: Vec<Parsed>) -> (Vec<Parsed>, Vec<Parsed>) { results.into_iter().partition(passed) }
+   |                                                                                              ^^^^^^
+   = help: move `passed` into `named` as a nested `fn`
+   = note: `#[deny(single_reader)]` on by default
+
+error: `small` has one reader, `ranked`
+  --> tests/tools/dylint/examples/partition_by_result.rs:25:1
+   |
+25 | fn small(result: &Parsed) -> bool { result.is_small() }
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: read here
+  --> tests/tools/dylint/examples/partition_by_result.rs:56:95
+   |
+56 | fn ranked(results: Vec<Parsed>) -> (Vec<Parsed>, Vec<Parsed>) { results.into_iter().partition(small) }
+   |                                                                                               ^^^^^
+   = help: move `small` into `ranked` as a closure
+
+error: `large` has one reader, `sized`
+  --> tests/tools/dylint/examples/partition_by_result.rs:23:1
+   |
+23 | const fn large(value: &u8) -> bool { *value > 9 }
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: read here
+  --> tests/tools/dylint/examples/partition_by_result.rs:67:80
+   |
+67 | fn sized(values: Vec<u8>) -> (Vec<u8>, Vec<u8>) { values.into_iter().partition(large) }
+   |                                                                                ^^^^^
+   = help: move `large` into `sized` as a nested `fn`
+
+error: trait `Small` is implemented only for `Result<u8, ParseIntError>`
+  --> tests/tools/dylint/examples/partition_by_result.rs:11:1
+   |
+11 | trait Small {
+   | ^^^^^^^^^^^
+   |
+   = help: replace `Small` with functions and constants for `Result<u8, ParseIntError>`
+   = note: `#[deny(single_impl_trait)]` on by default

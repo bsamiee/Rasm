@@ -13,8 +13,8 @@ doctest = false
 bench   = false
 
 [[test]]
-name = "suite"
-path = "suite/main.rs"
+name = "muxer"
+path = "main.rs"
 
 [[bin]]
 name = "mcp-fixture"

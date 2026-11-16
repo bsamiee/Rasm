@@ -1,0 +1,176 @@
+---
+source: tests/tools/dylint/ui/main.rs
+input_file: tests/tools/dylint/examples/manual_retain_back.rs
+---
+error: `self.entries` drops front elements by hand to keep its last `self.limit`
+  --> tests/tools/dylint/examples/manual_retain_back.rs:54:9
+   |
+54 | /         while self.entries.len() > self.limit {
+55 | |             self.entries.pop_front();
+56 | |         }
+   | |_________^ help: call `VecDeque::retain_back`: `::std::collections::VecDeque::retain_back(&mut self.entries, self.limit);`
+   |
+   = note: `#[deny(manual_retain_back)]` on by default
+applicability MachineApplicable: call `VecDeque::retain_back`
+
+error: `recent` drops front elements by hand to keep its last `kept`
+  --> tests/tools/dylint/examples/manual_retain_back.rs:63:5
+   |
+63 | /     while recent.len() > kept {
+64 | |         let _ = recent.pop_front();
+65 | |     }
+   | |_____^ help: call `VecDeque::retain_back`: `::std::collections::VecDeque::retain_back(&mut recent, kept);`
+applicability MachineApplicable: call `VecDeque::retain_back`
+
+error: `recent` drops front elements by hand to keep its last `3`
+  --> tests/tools/dylint/examples/manual_retain_back.rs:70:5
+   |
+70 | /     while 3 < recent.len() {
+71 | |         recent.pop_front();
+72 | |     }
+   | |_____^ help: call `VecDeque::retain_back`: `::std::collections::VecDeque::retain_back(&mut recent, 3);`
+applicability MachineApplicable: call `VecDeque::retain_back`
+
+error: `recent` drops front elements by hand to keep its last `kept`
+  --> tests/tools/dylint/examples/manual_retain_back.rs:77:5
+   |
+77 |     recent.drain(..recent.len().saturating_sub(kept));
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: call `VecDeque::retain_back`: `::std::collections::VecDeque::retain_back(&mut recent, kept)`
+applicability MachineApplicable: call `VecDeque::retain_back`
+
+error: `recent` drops front elements by hand to keep its last `kept`
+  --> tests/tools/dylint/examples/manual_retain_back.rs:84:5
+   |
+84 | /     while recent.len() > kept {
+85 | |         drop(recent.pop_front());
+86 | |     }
+   | |_____^ help: call `VecDeque::retain_back`: `::std::collections::VecDeque::retain_back(&mut recent, kept);`
+applicability MachineApplicable: call `VecDeque::retain_back`
+
+error: `recent` drops front elements by hand to keep its last `kept`
+  --> tests/tools/dylint/examples/manual_retain_back.rs:91:5
+   |
+91 | /     while recent.len() > kept {
+92 | |         _ = recent.pop_front();
+93 | |     }
+   | |_____^ help: call `VecDeque::retain_back`: `::std::collections::VecDeque::retain_back(&mut recent, kept);`
+applicability MachineApplicable: call `VecDeque::retain_back`
+
+error: `recent` drops front elements by hand to keep its last `kept`
+   --> tests/tools/dylint/examples/manual_retain_back.rs:108:5
+    |
+108 | /     for _ in 0..recent.len().saturating_sub(kept) {
+109 | |         recent.pop_front();
+110 | |     }
+    | |_____^
+    |
+help: call `VecDeque::retain_back`
+   --> tests/tools/dylint/examples/manual_retain_back.rs:108:5
+    |
+108 | /     for _ in 0..recent.len().saturating_sub(kept) {
+109 | |         recent.pop_front();
+110 | |     }
+    | |_____^
+
+error: `recent` drops front elements by hand to keep its last `kept`
+   --> tests/tools/dylint/examples/manual_retain_back.rs:115:5
+    |
+115 | /     for _ in kept..recent.len() {
+116 | |         recent.pop_front();
+117 | |     }
+    | |_____^
+    |
+help: call `VecDeque::retain_back`
+   --> tests/tools/dylint/examples/manual_retain_back.rs:115:5
+    |
+115 | /     for _ in kept..recent.len() {
+116 | |         recent.pop_front();
+117 | |     }
+    | |_____^
+
+error: `recent` drops front elements by hand to keep its last `kept`
+   --> tests/tools/dylint/examples/manual_retain_back.rs:122:5
+    |
+122 |     while recent.len() > kept && recent.pop_front().is_some() {}
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: call `VecDeque::retain_back`: `::std::collections::VecDeque::retain_back(&mut recent, kept);`
+applicability MachineApplicable: call `VecDeque::retain_back`
+
+error: `recent` drops front elements by hand to keep its last `kept`
+   --> tests/tools/dylint/examples/manual_retain_back.rs:133:9
+    |
+131 |   macro_rules! trimmed {
+132 |       ($recent:expr, $kept:expr) => {
+133 | /         while $recent.len() > $kept {
+134 | |             $recent.pop_front();
+135 | |         }
+    | |_________^
+...
+140 |       trimmed!(recent, kept);
+    |       ---------------------- in this macro invocation
+    |
+help: call `VecDeque::retain_back`
+   --> tests/tools/dylint/examples/manual_retain_back.rs:133:9
+    |
+133 | /         while $recent.len() > $kept {
+134 | |             $recent.pop_front();
+135 | |         }
+    | |_________^
+...
+140 |       trimmed!(recent, kept);
+    |       ---------------------- in this macro invocation
+
+error: `recent` drops front elements by hand to keep its last `kept`
+   --> tests/tools/dylint/examples/manual_retain_back.rs:178:5
+    |
+178 | /     while recent.len() > kept {
+179 | |         {
+180 | |             {
+181 | |                 let _ = recent.pop_front();
+182 | |             };
+183 | |         };
+184 | |     }
+    | |_____^ help: call `VecDeque::retain_back`: `::std::collections::VecDeque::retain_back(&mut recent, kept);`
+applicability MachineApplicable: call `VecDeque::retain_back`
+
+error: `recent` drops front elements by hand to keep its last `kept`
+   --> tests/tools/dylint/examples/manual_retain_back.rs:196:5
+    |
+196 | /     while VecDeque::len(&recent) > kept {
+197 | |         VecDeque::pop_front(&mut recent);
+198 | |     }
+    | |_____^ help: call `VecDeque::retain_back`: `::std::collections::VecDeque::retain_back(&mut recent, kept);`
+applicability MachineApplicable: call `VecDeque::retain_back`
+
+error: `recent` drops front elements by hand to keep its last `kept`
+   --> tests/tools/dylint/examples/manual_retain_back.rs:231:5
+    |
+231 | /     while recent.len() > kept {
+232 | |         recent.pop_front();
+233 | |     }
+    | |_____^ help: call `VecDeque::retain_back`: `::std::collections::VecDeque::retain_back(recent, kept);`
+applicability MachineApplicable: call `VecDeque::retain_back`
+
+error: trait `Measured` is implemented only for `VecDeque<u32>`
+ --> tests/tools/dylint/examples/manual_retain_back.rs:7:1
+  |
+7 | trait Measured {
+  | ^^^^^^^^^^^^^^
+  |
+  = help: replace `Measured` with functions and constants for `VecDeque<u32>`
+  = note: `#[deny(single_impl_trait)]` on by default
+
+error: trait `Retained` is implemented only for `&mut VecDeque<u32>`
+  --> tests/tools/dylint/examples/manual_retain_back.rs:15:1
+   |
+15 | trait Retained {
+   | ^^^^^^^^^^^^^^
+   |
+   = help: replace `Retained` with functions and constants for `&mut VecDeque<u32>`
+
+error: trait `shadowed_option::Presence` is implemented only for `Option<T>`
+   --> tests/tools/dylint/examples/manual_retain_back.rs:285:5
+    |
+285 |     trait Presence {
+    |     ^^^^^^^^^^^^^^
+    |
+    = help: replace `shadowed_option::Presence` with functions and constants for `Option<T>`

@@ -14,8 +14,8 @@ doctest = false
 bench   = false
 
 [[test]]
-name = "suite"
-path = "suite/main.rs"
+name = "mcp"
+path = "main.rs"
 
 [[bin]]
 name = "mcp-everything"
