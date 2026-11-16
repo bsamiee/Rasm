@@ -40,7 +40,14 @@ const own = Effect.runSync(
     Effect.cached(
         FileSystem.FileSystem.pipe(
             Effect.flatMap((fs) => fs.readDirectory(import.meta.dirname)),
-            Effect.map((names) => hashArray(names.filter((name) => ['.ts', '.js'].includes(extname(name))).toSorted().flatMap((name) => [name, ...Array.fromNullishOr(hashFile(join(import.meta.dirname, name)))]))),
+            Effect.map((names) =>
+                hashArray(
+                    names
+                        .filter((name) => ['.ts', '.js'].includes(extname(name)))
+                        .toSorted()
+                        .flatMap((name) => [name, ...Array.fromNullishOr(hashFile(join(import.meta.dirname, name)))]),
+                ),
+            ),
         ),
     ),
 );
@@ -149,13 +156,7 @@ const createNodes: CreateNodes<typeof Options.Encoded> = [
             Effect.gen(function* () {
                 const [files, fs] = [process.platform === HOST ? matched.toSorted() : [], yield* FileSystem.FileSystem];
                 const [settings, hashed, developer, swift, compiled] = yield* Effect.all(
-                    [
-                        Schema.decodeEffect(Options)(options ?? {}),
-                        own,
-                        Effect.option(spawned(['xcode-select', '--print-path'], { cwd: workspaceRoot })),
-                        Effect.option(spawned(['which', 'swift'], { cwd: workspaceRoot })),
-                        Effect.option(Effect.tap(analyzer, (at) => fs.stat(at))),
-                    ],
+                    [Schema.decodeEffect(Options)(options ?? {}), own, Effect.option(spawned(['xcode-select', '--print-path'], { cwd: workspaceRoot })), Effect.option(spawned(['which', 'swift'], { cwd: workspaceRoot })), Effect.option(Effect.tap(analyzer, (at) => fs.stat(at)))],
                     { concurrency: 'unbounded' },
                 );
                 const name = `apple-${hashArray([hashObject(options ?? {}), hashed])}.hash`;
@@ -171,9 +172,8 @@ const createNodes: CreateNodes<typeof Options.Encoded> = [
                 const read = yield* Option.match(stored, {
                     onSome: (graph) => Effect.succeed({ graph, failures: [], partial: false }),
                     onNone: () =>
-                        Effect.flatMap(
-                            Effect.all({ info: Effect.option(spawned(['swift', '-print-target-info'], { cwd: workspaceRoot })), xcodebuild: Effect.option(spawned(['xcodebuild', '-version'], { cwd: workspaceRoot })) }, { concurrency: 'unbounded' }),
-                            (probed) => analyze(workspaceRoot, settings, files, { ...probed, compiled }),
+                        Effect.flatMap(Effect.all({ info: Effect.option(spawned(['swift', '-print-target-info'], { cwd: workspaceRoot })), xcodebuild: Effect.option(spawned(['xcodebuild', '-version'], { cwd: workspaceRoot })) }, { concurrency: 'unbounded' }), (probed) =>
+                            analyze(workspaceRoot, settings, files, { ...probed, compiled }),
                         ),
                 });
                 yield* Option.isNone(stored) && read.failures.length === 0 && !read.partial
@@ -182,7 +182,13 @@ const createNodes: CreateNodes<typeof Options.Encoded> = [
                           cache.writeToDisk();
                       }).pipe(
                           Effect.andThen(fs.readDirectory(workspaceDataDirectory)),
-                          Effect.flatMap((entries) => Effect.forEach(entries.filter((entry) => entry !== name && matchesGlob(entry, 'apple-*.hash')), (entry) => fs.remove(join(workspaceDataDirectory, entry)), { discard: true })),
+                          Effect.flatMap((entries) =>
+                              Effect.forEach(
+                                  entries.filter((entry) => entry !== name && matchesGlob(entry, 'apple-*.hash')),
+                                  (entry) => fs.remove(join(workspaceDataDirectory, entry)),
+                                  { discard: true },
+                              ),
+                          ),
                       )
                     : Effect.void;
                 (yield* Graphs).set(workspaceRoot, read.graph);

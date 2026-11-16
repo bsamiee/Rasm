@@ -49,10 +49,10 @@ public struct Installation: Encodable, Hashable, Sendable {
     public let build: String?
     public let scriptable: Bool
     public let scriptingDefinitionFile: String?
-    public let activationPolicy: NSApplication.ActivationPolicy
+    public let activationPolicy: String
 }
 
-extension NSApplication.ActivationPolicy: @retroactive Encodable {
+extension NSApplication.ActivationPolicy {
     public var name: String {
         switch self {
             case .regular: "regular"
@@ -60,11 +60,6 @@ extension NSApplication.ActivationPolicy: @retroactive Encodable {
             case .prohibited: "prohibited"
             @unknown default: String(rawValue)
         }
-    }
-
-    public func encode(to encoder: any Encoder) throws {
-        var label = encoder.singleValueContainer()
-        try label.encode(name)
     }
 }
 
@@ -91,7 +86,7 @@ extension Installation {
             build: info?.build,
             scriptable: values.applicationIsScriptable == true,
             scriptingDefinitionFile: info?.scriptingDefinitionFile,
-            activationPolicy: info?.activationPolicy ?? .regular,
+            activationPolicy: (info?.activationPolicy ?? .regular).name,
         )
     }
 
