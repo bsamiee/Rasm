@@ -126,7 +126,7 @@ const basis = (paths, target = paths.join(', ')) => {
     `Target: ${target} in ${REPO}, base commit ${args.base}.`,
     `Load ${row.families.length > 0 ? `${skills}, each of ${row.families.map((skill) => `Skill(${skill})`).join(', ')} whose description covers your files` : skills}, Skill(clean-prose) and Skill(search-code).`,
     `Inputs: ${evidence.join('; ')}.`,
-    ...(hosted.length > 0 ? ['Nothing takes focus from the owner, who is using this machine: no app.activate in a script body, no computer-use, whose access prompt also holds an agent until the owner answers. An app runs through Skill(watch-apps), under `watch-apps watch` in a Monitor with its output unfiltered, so every dialog and alert line reaches you and you answer it, and a proof that needs focus is reported, not taken.'] : []),
+    ...(hosted.length > 0 ? ['Nothing takes focus from the owner, who is using this machine: no app.activate in a script body, no computer-use, whose access prompt also holds an agent until the owner answers. An app runs through Skill(watch-apps), its dialogs, hangs, and crashes reaching you as hook context, each answered by you, and a proof that needs focus is reported, not taken.'] : []),
   ].join('\n')
 }
 const brief = (paths, target) => `${basis(paths, target)}\n${mode.lines.join(' ')}`

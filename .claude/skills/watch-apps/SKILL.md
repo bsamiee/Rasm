@@ -11,22 +11,16 @@ Run commands from a terminal or harness with Accessibility access, each prints t
 1. Open the app with `launch` and read its `pid` from the `launched` line
 2. Act on each last line by the state table, on the `pid` of the instance work drives
 3. Run `read` for element ids a line leaves out, then `perform` or `set` on one id
-4. While a call outside `watch-apps` runs (Atelier script), run `watch` on the app and its dialog helpers in a Monitor
+4. After a call outside `watch-apps` (Atelier script), run `read` on the app
 
 ```bash
 watch-apps find <app-or-pid>...
 watch-apps processes <app-or-pid-or-executable>... [--reports <count>]
 watch-apps launch [<app>...] [--new] [--wait] [--document <path-or-url>...] [--environment NAME=VALUE...] [--line-length <characters>] [--arguments <argument>...]
 watch-apps quit <app-or-pid>... [--force]
+watch-apps watch <app> [<helper>]... --record <folder>
 ```
 
-```text
-Monitor {"command": "watch-apps watch <app> [<helper>]... [--record <folder>] --line-length 500",
-         "description": "<app> dialogs and lifecycle", "timeout_ms": 1800000}
-```
-
-- Monitors watch Adobe apps with `com.adobe.crashreporter`, restart with their command on an expiry notice, and stop with TaskStop when work ends
-- Codex sessions run `read` on the app after such a call in place of a Monitor
 - Pass a bundle id, a path, or a `url` from a `find` line or a `fail` line's `candidates`
 - `find`, `watch`, and `launch` resolve a name as a `file:` URL, a path (a name with `/`), a process ID, a bundle id, a file name, then a display name
 - Names resolve whole, ignoring case, diacritics, and a file name's `.app`
@@ -69,9 +63,9 @@ Monitor {"command": "watch-apps watch <app> [<helper>]... [--record <folder>] --
 - Hooks rewrite `open`, `xed`, a launching `osascript`, and a bundle's executable into `launch`, a headless switch and a background-only or `LSUIElement` bundle running as written
 - Hooks rewrite `killall` and `pkill` into `kill` of their pids when each descends from the session, and refuse any other kill of every match
 - Hooks add Blender `--no-window-focus` (absent a headless switch) and Rhino `-nosplash` to `launch` and to each rewrite into it
-- Hooks run `watch` in a Monitor alone with `--line-length 500`, drop a filter piped after it, and refuse a loop polling `read` or `watch`
+- Hooks refuse `watch` other than a background `watch --record`, and a loop polling `read`
 - Hooks refuse `osascript` posting through System Events, taking focus
-- Claude Code sends dialogs, hangs, and crashes of apps a session launches, reuses, or drives by Rhino or Blender MCP to its agent as hook context
+- Claude Code sends dialogs, hangs, and crashes of apps a session launches, reuses, or drives by Atelier, Rhino, or Blender MCP to its agent as hook context
 - Claude Code quits each instance an agent created (`created: true`) when that agent's turn ends and the session's when it ends, `--force` staying an agent's command
 
 Every command exits 1 after printing a `fail` line and 0 otherwise, and ends when the process that started it exits, its reader closes, or SIGTERM, SIGINT, or SIGHUP arrives. Malformed arguments and a missing Accessibility grant print a `fail` line keyed by `watch-apps`.
@@ -183,7 +177,7 @@ Actions go to the app's process through AX actions on its elements and leave the
 
 ## [05]-[RECORDING]
 
-`watch --record <folder>` records while it watches, with no activation, hooks starting `watch` without it:
+`watch --record <folder>`, run in the background, records while it watches, with no activation, hooks starting `watch` without it:
 - Standard windows and asking rows each record to `<window>-<time>.mov` at up to 10 frames a second, a frame written when the window changes
 - Dialogs, hangs, and exits by signal save the 15 seconds before as one `<window>-<time>.mov` per recorded window, with a `.png` of each asking or hung window
 - `timeline.jsonl` takes one `{"at": <time>, "<source>": <value>}` entry per event as it arrives, and `jq -s 'sort_by(.at)'` orders them

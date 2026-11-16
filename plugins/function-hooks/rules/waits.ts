@@ -25,17 +25,19 @@ const WAITERS: ReadonlySet<string> = new Set(['sleep', 'timeout', 'caffeinate', 
 
 // --- [WATCH_APPS]
 
-const reading = (names: readonly string[]): string => `run ${WATCH_APPS} read ${(names.length === 0 ? ['<app>'] : names.map((name) => quote(name))).join(' ')}`;
+const reading = (names: readonly string[]) => `run ${WATCH_APPS} read ${(names.length === 0 ? ['<app>'] : names.map((name) => quote(name))).join(' ')}`;
 
 const polling = (names: readonly string[]) => refusal(`Loop polls ${names.join(' ') || WATCH_APPS}, ${reading(names)}`);
 
-const watch: Rule = (invocation) => {
+const watch: Rule = (invocation, call) => {
     const { operands, path } = invocation;
     const names = path[0] === 'perform' || path[0] === 'set' ? [] : operands.map(({ text }) => text);
     if (invocation.repeated && path[0] === 'read' && operands.every(({ known }) => known)) {
         return polling(names);
     }
-    return path[0] === 'watch' ? refusal(`${WATCH_APPS} watch streams every state into the session, which hook context already gives for dialogs, hangs, and crashes of each launched app, ${reading(names)}`) : [];
+    return path[0] === 'watch' && !(invocation.has('--record') && call.request.kind === 'background')
+        ? refusal(`${WATCH_APPS} watch streams every state into the session, which hook context already gives for dialogs, hangs, and crashes of each launched app, ${reading(names)}, and a recording runs watch --record in the background`)
+        : [];
 };
 
 const polledApp: Rule = (invocation, call) => {
