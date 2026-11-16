@@ -23,8 +23,8 @@ TypeScript compiler configuration of an Effect-based pnpm and Nx monorepo.
 |  [04]   | Root `tsconfig.tests.json` | `noEmit: true` over root `vitest.config.ts`, `references` to test support |
 
 - Test suite programs `references` reach each package they import, else TS6307 refuses the files outside their `include`
+- Applications another project imports pair a composite `tsconfig.json` holding `"files": []` with a `noEmit` `tsconfig.app.json`, as `typescript-sync` reports a non-composite `tsconfig.json` missing from root `references`, and TS6310 refuses an importer's reference to a `noEmit` program
 - `@rasm/nx-typescript` infers `check--tsc` for a `noEmit` program and `build--tsc` for an emitting one, its `check--tsc` running the build
-- Plugin option `noEmit` checks every program of its row under `tsc --noEmit` against built references, and `nx.json` sets it on the suites row, `tests/support/**` building as libraries
 - Runtime differences (DOM `lib`, Workers `types`, `jsx`) sit in the package config that needs them
 
 ## [03]-[BASE]
@@ -43,6 +43,7 @@ TypeScript compiler configuration of an Effect-based pnpm and Nx monorepo.
         "erasableSyntaxOnly": true,
         "exactOptionalPropertyTypes": true,
         "noUncheckedIndexedAccess": true,
+        "noPropertyAccessFromIndexSignature": true,
         "noImplicitOverride": true,
         "noImplicitReturns": true,
         "noFallthroughCasesInSwitch": true,
