@@ -30,7 +30,15 @@ const applications = Effect.fnUntraced(function* ({ application }: Effect.Succes
             description: 'Opens the application without activating it, below the frontmost window, and reuses a running instance unless new is set. Arguments and environment reach only an instance this call starts. Returns when launching ends or a dialog needs an answer',
             parameters: Parameterless,
             success: Launched,
-        }).annotateMerge(Context.make(Tool.Idempotent, true).pipe(Context.add(Tool.Destructive, false))),
+        })
+            .annotateMerge(Context.make(Tool.Idempotent, true).pipe(Context.add(Tool.Destructive, false)))
+            .annotate(Server.Instructions, [
+                'Adobe applications open with no document, and a body creates or opens one before working on it',
+                'Illustrator and After Effects take focus while launching, and Photoshop while quitting',
+                'After Effects opens an untitled project with no composition, its Home window above it',
+                'Premiere opens Home under a What is New overlay that read reports as no asking row, capture shows it',
+                'Acrobat draws no window content while inactive, so capture reads it blank',
+            ]),
         (_, opened) => Effect.succeed(opened),
     );
     yield* Route(application)(Tool.make('read', { description: 'Reads application state with element ids and controls for perform', parameters: Reading, success: State }).annotate(Tool.Readonly, true), (given, { instance }) => server.read({ ...given, instance }));

@@ -34,7 +34,7 @@ const routes = Effect.fnUntraced(function* ({ answering }: Effect.Success<typeof
     const registered = yield* current;
     const connected = (installation: Installation) => Effect.map(links.call(Peer.serves(installation), `linked plugin of ${installation.name}`), (client) => ({ client }));
     const route = <Chosen extends Running>(holds: (peers: readonly Peer[]) => (installation: Installation) => boolean, kind: string, chosen: (running: Running, peers: readonly Peer[]) => Effect.Effect<Chosen, Error>) => {
-        const listed = Schema.Literals(Array.dedupe(registered.installed.filter(holds(registered.peers)).map(Struct.get('name')))).annotate({ description: `Installed ${kind}` });
+        const listed = Schema.Literals(Array.dedupe(registered.installed.filter(holds(registered.peers)).map(Struct.get('name')))).annotate({ description: `Installed ${kind}, newest and beta first` });
         const located = (absent: string) => ({
             application: Schema.OptionFromOptionalKey(listed.annotate({ description: `Application running instance, ${absent}` })),
             instance: Schema.OptionFromOptionalKey(ProcessInstance.annotate({ description: 'Instance value of a launch result or status completion, selects application when application is absent, required when bundle runs more than one instance' })),
