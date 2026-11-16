@@ -31,15 +31,15 @@ extension ElementAction {
         if case .perform(_, kAXRaiseAction) = self {
             throw ApplicationFailure(subject: "\(self), raising a window takes focus from the frontmost application", reason: .refused(nil))
         }
-        let (instance, target) = try await withTaskExecutorPreference(accessibility) { () throws(ApplicationFailure) in
+        let (instance, states, acted) = try await withTaskExecutorPreference(accessibility) { () throws(ApplicationFailure) in
             let target = try resolved(in: process)
             let subject = process ?? target.owner
             guard let application = NSRunningApplication(processIdentifier: subject) else { throw ApplicationFailure(subject: String(subject), reason: .noProcess) }
-            return (try Instance(application), target)
-        }
-        let states = instance.states(clock: clock)
-        let acted = try await withTaskExecutorPreference(accessibility) { () throws(ApplicationFailure) in
-            do throws(ApplicationFailure) { return try run(on: target) } catch  where error.reason.is(\.noProcess) || error.reason == .unanswered(self) { return nil }
+            let instance = try Instance(application)
+            let states = instance.states(clock: clock)
+            do throws(ApplicationFailure) { return (instance, states, try run(on: target)) } catch  where error.reason.is(\.noProcess) || error.reason == .unanswered(self) {
+                return (instance, states, nil)
+            }
         }
         var last: InstanceState?
         for await next in merge(states.map(Optional.some), AsyncTimerSequence(interval: messagingTimeout * 2, clock: clock).map { _ in InstanceState?.none }) {

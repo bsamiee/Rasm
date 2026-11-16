@@ -53,7 +53,6 @@ final class Observer: Sendable {
 
     private func stop() {
         observed.withLock { observed in
-            for token in observed.instance { token.invalidate() }
             observed.instance = []
             CFRunLoopRemoveSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observed.observer), .defaultMode)
         }
