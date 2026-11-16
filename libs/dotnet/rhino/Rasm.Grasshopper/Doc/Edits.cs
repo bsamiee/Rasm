@@ -14,7 +14,7 @@ namespace Rasm.Grasshopper.Doc;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-public static class Edits {
+public static class DocumentEdits {
 
     // --- [HISTORY]
 

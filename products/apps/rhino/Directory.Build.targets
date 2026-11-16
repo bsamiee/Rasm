@@ -1,5 +1,6 @@
 <Project>
     <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.targets', '$(MSBuildThisFileDirectory)../'))" />
+    <Import Project="$(MSBuildThisFileDirectory)../../../libs/dotnet/rhino/Rasm.Grasshopper/buildTransitive/Rasm.Grasshopper.targets" />
 
     <PropertyGroup Label="Rhino Plug-In" Condition="'$(TargetExt)' == '.rhp'">
         <_PlugInPackageIcon>icon.png</_PlugInPackageIcon>
@@ -8,13 +9,12 @@
         <_PlugInIconPngFrame>256</_PlugInIconPngFrame>
         <_PlugInRui>$(IntermediateOutputPath)$(TargetName).rui</_PlugInRui>
         <_PlugInRuiReferences>$(IntermediateOutputPath)$(TargetName).rui.rsp</_PlugInRuiReferences>
+        <_PlugInRuiStamp>$(IntermediateOutputPath)$(TargetName).rui.stamp</_PlugInRuiStamp>
     </PropertyGroup>
 
     <ItemGroup Label="Rhino Plug-In" Condition="'$(TargetExt)' == '.rhp'">
         <AssemblyAttribute Include="System.Runtime.InteropServices.GuidAttribute"><_Parameter1>$(PlugInId)</_Parameter1></AssemblyAttribute>
-        <ProjectReference Update="@(ProjectReference->WithMetadataValue('OutputItemType', 'RuiWriter'))" ReferenceOutputAssembly="false" Private="false" />
-        <_RuiSource Include="@(ProjectReference->WithMetadataValue('OutputItemType', 'RuiWriter'))" />
-        <None Include="$(_PlugInRui)" TargetPath="$(TargetName).rui" CopyToOutputDirectory="PreserveNewest" Condition="'@(_RuiSource)' != '' and '$(DesignTimeBuild)' != 'true'" />
+        <ProjectReference Include="$(MSBuildThisFileDirectory)../../../libs/dotnet/rhino/Rasm.Rhino.Rui/Rasm.Rhino.Rui.csproj" OutputItemType="RuiWriter" ReferenceOutputAssembly="false" Private="false" />
         <PlugInDescription Include="Organization" Exclude="@(PlugInDescription)" Value="$(Authors)" />
         <PlugInDescription Include="WebSite" Exclude="@(PlugInDescription)" Value="$(PackageProjectUrl)" />
         <None Update="manifest.yml" CopyToPublishDirectory="PreserveNewest" />
@@ -46,11 +46,13 @@
         </ItemGroup>
     </Target>
 
-    <Target Name="BuildPlugInRui" AfterTargets="CoreCompile" Condition="'$(DesignTimeBuild)' != 'true' and '@(_RuiSource)' != ''" Inputs="@(IntermediateAssembly);@(ReferenceCopyLocalPaths);@(ReferencePath);@(RuiWriter);$(MSBuildAllProjects)" Outputs="$(_PlugInRui)">
+    <Target Name="BuildPlugInRui" AfterTargets="CoreCompile" Condition="'$(DesignTimeBuild)' != 'true' and '$(TargetExt)' == '.rhp'" Inputs="@(IntermediateAssembly);@(ReferenceCopyLocalPaths);@(ReferencePath);@(RuiWriter);$(MSBuildAllProjects)" Outputs="$(_PlugInRuiStamp)">
         <WriteLinesToFile File="$(_PlugInRuiReferences)" Lines="@(ReferenceCopyLocalPaths->WithMetadataValue('Extension', '.dll')->'%(FullPath)');@(ReferencePath->'%(FullPath)')" Overwrite="true" WriteOnlyWhenDifferent="true" />
         <Exec Command="&quot;$(DOTNET_HOST_PATH)&quot; &quot;@(RuiWriter->'%(FullPath)')&quot; &quot;@(IntermediateAssembly->'%(FullPath)')&quot; &quot;$(_PlugInRui)&quot; &quot;@$(_PlugInRuiReferences)&quot;" StandardOutputImportance="low" LogStandardErrorAsError="true" />
+        <Touch Files="$(_PlugInRuiStamp)" AlwaysCreate="true" />
         <ItemGroup>
-            <FileWrites Include="$(_PlugInRui);$(_PlugInRuiReferences)" />
+            <FileWrites Include="$(_PlugInRui);$(_PlugInRuiReferences);$(_PlugInRuiStamp)" />
+            <ContentWithTargetPath Include="$(_PlugInRui)" TargetPath="$(TargetName).rui" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Condition="Exists('$(_PlugInRui)')" />
         </ItemGroup>
     </Target>
 

@@ -18,7 +18,9 @@ using Grasshopper2.UI.Icon.Vector;
 using Grasshopper2.UI.Slider;
 using Grasshopper2.Undo;
 using Grasshopper2.Undo.Actions;
+using Rasm.Rhino;
 using UUIDNext;
+using static Rhino.Geometry.BoundingBox;
 
 namespace Rasm.Grasshopper.Data;
 
@@ -138,7 +140,7 @@ internal sealed class GeometricAssistant<TValue, TKey, TError>(ITypeAssistant<TK
     // --- [SPACES]
 
     public override BoundingBox BoundingBox(TValue instance) =>
-        TValue.Geometry(instance).Fold(Rhino.Geometry.BoundingBox.Unset, static (box, shape) => Rhino.Geometry.BoundingBox.Union(box, shape.GetBoundingBox(accurate: true)));
+        TValue.Geometry(instance).Fold(Unset, static (box, shape) => Union(box, shape.GetBoundingBox(accurate: true)));
 
     public override object Transform(TValue instance, Transform matrix) => TValue.Transform(instance, matrix);
 
@@ -298,7 +300,7 @@ public static class DataTypes {
                 Seq<decimal> current = toSeq(parameter.PersistentData.NonNullItems).Map(static value => decimal.CreateSaturating(value.ToValue()));
                 SliderControl slider = new(limits) { Width = 200, Height = 24 };
                 slider.Values.Assign(current.IsEmpty ? Seq(limits.Value) : current);
-                slider.SliderValueChanged += (_, _) => Hooks.Run(
+                slider.SliderValueChanged += (_, _) => Session.Run(
                     IO.lift(() => toSeq(slider.Values.AllValues).Traverse(static number => Conversions<TValue, TKey, TError>.Validated(TKey.CreateChecked(number))
                             .MapLeft(static error => error is Error fault ? fault : Error.New(Conversions<TValue, TKey, TError>.Rejected(error))).ToFin()).As())
                         .Bind(picked => unless(picked.IsEmpty, IO.lift(() => {
@@ -340,6 +342,6 @@ public static class DataTypes {
 
     internal static Guid IoId(Type type) =>
         Uuid.NewNameBased(
-            Optional(type.Assembly.GetCustomAttribute<GuidAttribute>()).Bind(static declared => parseGuid(declared.Value)).IfNone(static () => Hooks.Session.Plugin.Id),
+            Optional(type.Assembly.GetCustomAttribute<GuidAttribute>()).Bind(static declared => parseGuid(declared.Value)).IfNone(static () => Session.PlugIn.Id),
             type.ToString());
 }

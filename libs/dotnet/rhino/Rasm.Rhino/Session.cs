@@ -118,10 +118,10 @@ public static class Session {
         }).RunSafeAsync().AsTask();
 
     public static T Run<T>(IO<T> effect, T failed, [CallerMemberName] string member = "") =>
-        Read(bound => RunSafe(effect, CancellationToken.None).IfFail(error => {
-            _ = bound.Logger.Value.IfSucc(logger => logger.Failed(error, member));
+        RunSafe(effect, CancellationToken.None).IfFail(error => {
+            _ = State.Value.Iter(bound => bound.Logger.Value.IfSucc(logger => logger.Failed(error, member)));
             return failed;
-        }));
+        });
 
     public static Unit Run<T>(IO<T> effect, [CallerMemberName] string member = "") => Run(effect.Map(unit), unit, member);
 

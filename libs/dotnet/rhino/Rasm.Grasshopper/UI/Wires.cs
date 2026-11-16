@@ -6,6 +6,7 @@ using Grasshopper2.Parameters;
 using Grasshopper2.UI;
 using Grasshopper2.UI.Canvas;
 using Grasshopper2.UI.Skinning;
+using Rasm.Rhino;
 using SuperLinq;
 
 namespace Rasm.Grasshopper.UI;
@@ -124,7 +125,7 @@ public static class Wires {
     // --- [HIGHLIGHTS]
 
     public static IO<Unit> Highlight(Canvas canvas, Func<Seq<WireEnds>> wires) =>
-        Hooks.On<CanvasPaintEventArgs>(h => canvas.BeforePaintWires += h, h => canvas.BeforePaintWires -= h, args =>
+        Subscriptions.Inline<CanvasPaintEventArgs>(h => canvas.BeforePaintWires += h, h => canvas.BeforePaintWires -= h).Attach(args =>
             (from state in use(args.Graphics.ProjectionState)
              from drawn in IO.lift(() => Optional(args.Canvas.Document).Iter(document => wires()
                  .Choose(ends =>

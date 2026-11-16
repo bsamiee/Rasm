@@ -7,7 +7,6 @@ using Grasshopper2.Data;
 using Grasshopper2.Doc;
 using Grasshopper2.Eto.Drawing;
 using Grasshopper2.Parameters;
-using Grasshopper2.Parameters.Standard;
 using Grasshopper2.Parsing;
 using Grasshopper2.Types.Assistant;
 using Grasshopper2.Types.Linguistic;
@@ -18,6 +17,9 @@ using Grasshopper2.UI.InputPanel;
 using Grasshopper2.UI.Skinning;
 using Grasshopper2.UI.Toolbar;
 using Rasm.Grasshopper.Data;
+using Rasm.Rhino;
+using Rasm.Rhino.Persistence;
+using Rhino;
 
 namespace Rasm.Grasshopper.Components;
 
@@ -75,7 +77,7 @@ public abstract class Component<TSelf> : ModularComponent, GrasshopperIO.ICustom
     private static Unit Reported(IDataAccess access, Error error) {
         Seq<Error> leaves = toSeq(error.AsIterable()).Filter(static leaf => !leaf.Is(Errors.Cancelled)).Strict();
         _ = leaves.Iter(leaf => access.AddError(leaf.Message, leaf.Inner.Map(static cause => cause.Message).ValueUnsafe()));
-        return leaves.Filter(static leaf => leaf.IsExceptional).Iter(static leaf => Hooks.Run(IO.fail<Unit>(leaf), unit));
+        return leaves.Filter(static leaf => leaf.IsExceptional).Iter(static leaf => Session.Run(IO.fail<Unit>(leaf), unit));
     }
 
     // --- [PANELS]
@@ -179,7 +181,7 @@ public sealed class Ports<TSelf> where TSelf : Component<TSelf>, IComponentDefin
 
     public Func<IDataAccess, Fin<Length>> Length(Parameter<double> parameter, Option<double> initial = default, Option<(string Category, Color Tint, bool Hidden)> modular = default) {
         Func<IDataAccess, Fin<double>> read = Item(parameter, initial, modular);
-        Func<IDataAccess, double> scale = Units(Rhino.UnitSystem.Meters);
+        Func<IDataAccess, double> scale = Units(UnitSystem.Meters);
         return access => read(access).Map(value => UnitsNet.Length.FromMeters(UnitsNet.QuantityValue.FromDoubleRounded(value / scale(access), RoundTripDigits)));
     }
 
@@ -212,14 +214,14 @@ public sealed class Ports<TSelf> where TSelf : Component<TSelf>, IComponentDefin
 
     public Func<IDataAccess, Length, Unit> OutputLength(Parameter<double> parameter, Option<(string Category, Color Tint, bool Hidden)> modular = default) {
         Func<IDataAccess, double, Unit> write = Output(parameter, modular);
-        Func<IDataAccess, double> scale = Units(Rhino.UnitSystem.Meters);
+        Func<IDataAccess, double> scale = Units(UnitSystem.Meters);
         return (access, length) => write(access, length.Meters.ToDouble() * scale(access));
     }
 
     // --- [CONTEXT]
 
-    public Func<IDataAccess, double> Units(Rhino.UnitSystem basis) {
-        SupportedPins = SupportedPins.AddOrUpdate(UnitSystemPin.Id);
+    public Func<IDataAccess, double> Units(UnitSystem basis) {
+        SupportedPins = SupportedPins.AddOrUpdate(Grasshopper2.Parameters.Standard.UnitSystemPin.Id);
         return access => {
             _ = access.GetUnitScaling(basis, out double scale);
             return scale;
@@ -227,7 +229,7 @@ public sealed class Ports<TSelf> where TSelf : Component<TSelf>, IComponentDefin
     }
 
     public Func<IDataAccess, (double Absolute, double Relative, Angle Angular)> Tolerance() {
-        SupportedPins = SupportedPins.AddOrUpdate(AbsoluteTolerancePin.Id).AddOrUpdate(RelativeTolerancePin.Id).AddOrUpdate(AngularTolerancePin.Id);
+        SupportedPins = SupportedPins.AddOrUpdate(Grasshopper2.Parameters.Standard.AbsoluteTolerancePin.Id).AddOrUpdate(Grasshopper2.Parameters.Standard.RelativeTolerancePin.Id).AddOrUpdate(Grasshopper2.Parameters.Standard.AngularTolerancePin.Id);
         return static access => {
             _ = access.GetTolerance(out double absolute, out double relative);
             _ = access.GetTolerance(out Angle angular);
@@ -236,7 +238,7 @@ public sealed class Ports<TSelf> where TSelf : Component<TSelf>, IComponentDefin
     }
 
     public Func<IDataAccess, Language> Language() {
-        SupportedPins = SupportedPins.AddOrUpdate(LinguisticCulturePin.Id);
+        SupportedPins = SupportedPins.AddOrUpdate(Grasshopper2.Parameters.Standard.LinguisticCulturePin.Id);
         return static access => {
             _ = access.GetLanguage(out Language language);
             return language;
@@ -252,18 +254,18 @@ public sealed class Ports<TSelf> where TSelf : Component<TSelf>, IComponentDefin
     // --- [SETTINGS]
 
     public Func<T> Setting<T>(GrasshopperIO.Name key, T fallback, Nomen face, Seq<T> choices = default) where T : notnull {
-        Preference<T> preference = Preferences.Object(Owner, key, fallback, face);
+        Preference<T> preference = GrasshopperPreferences.Object(Owner, key, fallback, face);
         Rows = Rows.Add(() => Row(preference, fallback, face, choices));
-        return () => Hooks.Run(preference.Read, fallback);
+        return () => Session.Run(preference.Read, fallback);
     }
 
     private static Option<BarItem> Row<T>(Preference<T> preference, T fallback, Nomen face, Seq<T> choices) where T : notnull =>
-        (Hooks.Run(preference.Read, fallback), choices) switch {
+        (Session.Run(preference.Read, fallback), choices) switch {
             (bool state, _) => Some<BarItem>(new RadioToggle(icon: null, face, state, value => Written(preference, (T)(object)value))),
             (var current, { IsEmpty: false }) => Some<BarItem>(Choice(preference, current, face, choices)),
             (var current, _) when typeof(T).IsEnum => Some<BarItem>(Choice(preference, current, face, toSeq(Enum.GetValues(typeof(T)).Cast<T>()))),
             (var current, _) => Typed(preference, current, face)
-                || Hooks.Run(IO.fail<Option<BarItem>>(new GrasshopperFault(typeof(T).ToString(), GrasshopperReason.Declined)), None),
+                || Session.Run(IO.fail<Option<BarItem>>(new GrasshopperFault(typeof(T).ToString(), GrasshopperReason.Declined)), None),
         };
 
     private static DropDown<T> Choice<T>(Preference<T> preference, T current, Nomen face, Seq<T> choices) where T : notnull {
@@ -286,7 +288,7 @@ public sealed class Ports<TSelf> where TSelf : Component<TSelf>, IComponentDefin
             return (BarItem)field;
         });
 
-    private static Unit Written<T>(Preference<T> preference, T value) where T : notnull => Hooks.Run(preference.Write(value), unit);
+    private static Unit Written<T>(Preference<T> preference, T value) where T : notnull => Session.Run(preference.Write(value), unit);
 
     // --- [ATTRIBUTES]
 
@@ -305,7 +307,7 @@ public sealed class Ports<TSelf> where TSelf : Component<TSelf>, IComponentDefin
     private Unit Reattached(Option<Document> document) {
         _ = attachment.Iter(static scope => scope.Dispose());
         attachment = attachments.IsEmpty ? None : document.Map(static _ => EnvIO.New(token: CancellationToken.None));
-        return attachment.Iter(scope => Hooks.Run(IO.liftVAsync(_ => attachments.TraverseM(acquire => acquire(Owner)).As().Map(static _ => unit).RunAsync(scope)), unit));
+        return attachment.Iter(scope => Session.Run(IO.liftVAsync(_ => attachments.TraverseM(acquire => acquire(Owner)).As().Map(static _ => unit).RunAsync(scope)), unit));
     }
 
     // --- [BINDING]

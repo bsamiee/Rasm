@@ -1,3 +1,4 @@
+using System.Reflection;
 using Rasm.Rhino.Document.Files;
 using Rhino.PlugIns;
 
@@ -12,13 +13,19 @@ public static class PlugInRegistry {
     public static IO<Seq<PlugInInfo>> InstalledPlugIns =>
         IO.lift(static () => toSeq(PlugIn.GetInstalledPlugIns().Keys).Strict()).Bind(static ids => ids.TraverseM(static id => Products.Of(() => PlugIn.GetPlugInInfo(id))).As());
 
+    public static Seq<Type> Types(Assembly plugIn) =>
+        toSeq(Try.lift<Type?[]>(plugIn.GetTypes).Run().IfFail(static error => error.Exception.Map(static held => held is ReflectionTypeLoadException { Types: var loaded } ? loaded : throw held).IfNone([])))
+            .Choose(Optional);
+
     // --- [LOADS]
 
     public static IO<Guid> LoadPlugIn(InputPath path) =>
-        IO.lift(Fin<Guid> () => PlugIn.LoadPlugIn(path, out Guid loaded) switch {
-            LoadPlugInResult.Success or LoadPlugInResult.SuccessAlreadyLoaded => loaded,
-            var result => new RhinoFault((path, result), RhinoReason.Unreadable),
-        });
+        IO.lift(Fin<Guid> () => Optional(PlugIn.GetPlugInInfo(PlugIn.IdFromPath(path))).Filter(static info => info.IsLoaded).Match(
+            Some: static Fin<Guid> (info) => info.Id,
+            None: () => PlugIn.LoadPlugIn(path, out Guid loaded) switch {
+                LoadPlugInResult.Success or LoadPlugInResult.SuccessAlreadyLoaded => loaded,
+                var result => new RhinoFault((path, result), RhinoReason.Unreadable),
+            }));
 
     public static IO<Unit> LoadPlugIns(Seq<Guid> ids) => Products.Each(ids.Map(LoadInstalled)).Map(unit);
 

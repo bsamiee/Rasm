@@ -7,6 +7,7 @@ using Grasshopper2.Extensions;
 using Grasshopper2.Parameters;
 using Grasshopper2.Parameters.Special;
 using Grasshopper2.UI.Canvas;
+using Rasm.Rhino;
 
 namespace Rasm.Grasshopper.Doc;
 
@@ -20,8 +21,7 @@ public static class Solutions {
         (from source in use(static env => CancellationTokenSource.CreateLinkedTokenSource(env.Token))
          from token in cancelToken
          from faults in atomIO(HashMap<SolutionId, Error>())
-         from watched in Hooks.On<SolutionExceptionEventArgs>(
-             h => document.Solution.SolutionFaulted += h, h => document.Solution.SolutionFaulted -= h,
+         from watched in Subscriptions.Inline<SolutionExceptionEventArgs>(h => document.Solution.SolutionFaulted += h, h => document.Solution.SolutionFaulted -= h).Attach(
              args => faults.SwapIO(held => held.AddOrUpdate(args.Solution.Id, Error.New(args.Exception))).Map(static _ => unit))
          from solution in document.State is DocumentState.Inert
              ? IO.lift(() => document.Solution.StartWait(source, mode))
@@ -59,7 +59,7 @@ public static class Solutions {
         token.IsCancellationRequested ? Errors.Cancelled : new GrasshopperFault(subject, SolutionServer.EnableSolutions ? GrasshopperReason.Taken : GrasshopperReason.Declined);
 }
 
-public static class Documents {
+public static class DocumentFiles {
 
     // --- [FILES]
 

@@ -14,6 +14,7 @@ using Nanoray.Kiwi;
 using QuikGraph;
 using QuikGraph.Algorithms;
 using Rasm.Grasshopper.Doc;
+using Rasm.Rhino;
 using SuperLinq;
 
 namespace Rasm.Grasshopper.UI;
@@ -21,7 +22,7 @@ namespace Rasm.Grasshopper.UI;
 // --- [MODELS] --------------------------------------------------------------------------
 
 [Union]
-public abstract partial record Placement {
+public abstract partial record ObjectPlacement {
     public string Verb => Switch(
         align: static _ => "Align", space: static p => p.Gap.IsSome ? "Stack" : "Distribute", level: static _ => "Level",
         tidy: static _ => "Tidy", layered: static _ => "Layer", frame: static _ => "Frame", grid: static _ => "Snap");
@@ -38,13 +39,13 @@ public abstract partial record Placement {
         frame: static (verb, _) => new Nomen(verb, "Keep the selected objects inside a frame."),
         grid: static (verb, _) => new Nomen(verb, "Snap the selected objects to a snap space."));
 
-    public sealed record Align(Orientation Axis, float Edge) : Placement;
-    public sealed record Space(Orientation Axis, Option<int> Gap) : Placement;
-    public sealed record Level : Placement;
-    public sealed record Tidy : Placement;
-    public sealed record Layered : Placement;
-    public sealed record Frame(RectangleF Bounds) : Placement;
-    public sealed record Grid(SnapSpace Snaps) : Placement;
+    public sealed record Align(Orientation Axis, float Edge) : ObjectPlacement;
+    public sealed record Space(Orientation Axis, Option<int> Gap) : ObjectPlacement;
+    public sealed record Level : ObjectPlacement;
+    public sealed record Tidy : ObjectPlacement;
+    public sealed record Layered : ObjectPlacement;
+    public sealed record Frame(RectangleF Bounds) : ObjectPlacement;
+    public sealed record Grid(SnapSpace Snaps) : ObjectPlacement;
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -53,25 +54,25 @@ public static class Placements {
 
     // --- [COMMANDS]
 
-    private static readonly Seq<(SnappingRule Rule, Placement.Align Align)> Edges = Seq(
-        (SnappingRule.AlignLeftEdges, new Placement.Align(Orientation.Horizontal, 0f)),
-        (SnappingRule.AlignMiddles, new Placement.Align(Orientation.Horizontal, 0.5f)),
-        (SnappingRule.AlignRightEdges, new Placement.Align(Orientation.Horizontal, 1f)),
-        (SnappingRule.AlignTopEdges, new Placement.Align(Orientation.Vertical, 0f)),
-        (SnappingRule.AlignBottomEdges, new Placement.Align(Orientation.Vertical, 1f)));
+    private static readonly Seq<(SnappingRule Rule, ObjectPlacement.Align Align)> Edges = Seq(
+        (SnappingRule.AlignLeftEdges, new ObjectPlacement.Align(Orientation.Horizontal, 0f)),
+        (SnappingRule.AlignMiddles, new ObjectPlacement.Align(Orientation.Horizontal, 0.5f)),
+        (SnappingRule.AlignRightEdges, new ObjectPlacement.Align(Orientation.Horizontal, 1f)),
+        (SnappingRule.AlignTopEdges, new ObjectPlacement.Align(Orientation.Vertical, 0f)),
+        (SnappingRule.AlignBottomEdges, new ObjectPlacement.Align(Orientation.Vertical, 1f)));
 
     public static Seq<Command> Commands =>
-        (Edges.Map(static edge => (Func<SnappingSettings, Placement>)(_ => edge.Align))
-         + toSeq(Enum.GetValues<Orientation>()).Bind(static axis => Seq<Func<SnappingSettings, Placement>>(
-             _ => new Placement.Space(axis, None),
-             settings => new Placement.Space(axis, Some(Gap(axis, settings)))))
-         + Seq<Func<SnappingSettings, Placement>>(static _ => new Placement.Level(), static _ => new Placement.Tidy(), static _ => new Placement.Layered()))
+        (Edges.Map(static edge => (Func<SnappingSettings, ObjectPlacement>)(_ => edge.Align))
+         + toSeq(Enum.GetValues<Orientation>()).Bind(static axis => Seq<Func<SnappingSettings, ObjectPlacement>>(
+             _ => new ObjectPlacement.Space(axis, None),
+             settings => new ObjectPlacement.Space(axis, Some(Gap(axis, settings)))))
+         + Seq<Func<SnappingSettings, ObjectPlacement>>(static _ => new ObjectPlacement.Level(), static _ => new ObjectPlacement.Tidy(), static _ => new ObjectPlacement.Layered()))
         .Map(static place => Chrome.Run(
             place(SnappingSettings.Default).Face,
             canvas => IO.lift(static () => SnappingSettings.Current).Bind(settings => Selected(place(settings))(canvas)),
             enabled: static canvas => canvas.Document is { Objects.SelectedCount: > 0 }));
 
-    public static Func<Canvas, IO<Unit>> Selected(Placement placement) =>
+    public static Func<Canvas, IO<Unit>> Selected(ObjectPlacement placement) =>
         canvas =>
             from document in IO.lift(() => Optional(canvas.Document).ToFin(new GrasshopperFault(placement.Verb, GrasshopperReason.Missing)))
             from arranged in Arrange(document, toSeq(document.Objects.SelectedObjects).Map(static item => item.InstanceId), Seq(placement))
@@ -81,15 +82,15 @@ public static class Placements {
 
     public static IO<Unit> Nudging(Canvas canvas, IO<bool> enabled) =>
         from gesture in use(IO.lift(static () => Ref(Option<(Document Document, HashMap<Guid, PivotAction> Started)>.None)), Ended)
-        from pressed in Hooks.On<KeyEventArgs>(h => canvas.KeyDown += h, h => canvas.KeyDown -= h, args => Offset(args).Filter(_ => !args.Handled).Match(
+        from pressed in Subscriptions.Inline<KeyEventArgs>(h => canvas.KeyDown += h, h => canvas.KeyDown -= h).Attach(args => Offset(args).Filter(_ => !args.Handled).Match(
             Some: offset =>
                 from moved in when(gesture.Value.Exists(held => !ReferenceEquals(held.Document, canvas.Document)), Ended(gesture)).As()
                 from allowed in enabled
                 from nudged in IO.lift(() => Optional(canvas.Document).Filter(_ => allowed && canvas.AllowedActions.AllowDrag).Iter(document => Nudged(canvas, document, offset, gesture, args)))
                 select unit,
             None: static () => unitIO))
-        from released in Hooks.On<KeyEventArgs>(h => canvas.KeyUp += h, h => canvas.KeyUp -= h, args => when(Direction(args.Key).IsSome, Ended(gesture)).As())
-        from blurred in Hooks.On<EventArgs>(h => canvas.LostFocus += h, h => canvas.LostFocus -= h, _ => Ended(gesture))
+        from released in Subscriptions.Inline<KeyEventArgs>(h => canvas.KeyUp += h, h => canvas.KeyUp -= h).Attach(args => when(Direction(args.Key).IsSome, Ended(gesture)).As())
+        from blurred in Subscriptions.Inline<EventArgs>(h => canvas.LostFocus += h, h => canvas.LostFocus -= h).Attach(_ => Ended(gesture))
         select unit;
 
     private static Option<SizeF> Direction(Keys key) =>
@@ -125,14 +126,14 @@ public static class Placements {
     private static IO<Unit> Ended(Ref<Option<(Document Document, HashMap<Guid, PivotAction> Started)>> gesture) =>
         from held in IO.lift(() => atomic(() => (Prior: gesture.Value, Next: gesture.Swap(static _ => None)).Prior))
         from committed in held.Match(
-            Some: static started => Edits.Commit(started.Document, new VerbNoun("Nudge", started.Started.Count is 1 ? "Object" : "Objects"), actions =>
+            Some: static started => DocumentEdits.Commit(started.Document, new VerbNoun("Nudge", started.Started.Count is 1 ? "Object" : "Objects"), actions =>
                 IO.lift(() => started.Started.Values.Iter(action => actions.Add(action)))),
             None: static () => unitIO)
         select unit;
 
     // --- [ARRANGEMENT]
 
-    public static IO<bool> Arrange(Document document, Seq<Guid> objects, Seq<Placement> placements) =>
+    public static IO<bool> Arrange(Document document, Seq<Guid> objects, Seq<ObjectPlacement> placements) =>
         IO.lift(() => Solved(
                 document,
                 Rows(document, toHashSet(objects.Choose(id => Optional(document.Objects.Find(id))).Bind(item => Movable(document, item)))).Filter(static row => row.Attributes.Snappable).Strict(),
@@ -166,7 +167,7 @@ public static class Placements {
             where source.InstanceId != target.InstanceId
             select (source.InstanceId, target.InstanceId, outlet.Outlet.Y - source.Attributes.Pivot.Y - (inlet.Inlet.Y - target.Attributes.Pivot.Y))).Strict();
 
-    private static Seq<(IDocumentObject Object, PointF Pivot)> Solved(Document document, Seq<IDocumentObject> rows, Seq<Placement> placements) {
+    private static Seq<(IDocumentObject Object, PointF Pivot)> Solved(Document document, Seq<IDocumentObject> rows, Seq<ObjectPlacement> placements) {
         HashMap<Guid, IDocumentObject> lookup = toHashMap(rows.Map(static row => (row.InstanceId, row)));
         Memo<Seq<Seq<IDocumentObject>>> layers = memo(() =>
             WireGraph.Of(document.Objects.Connectivity).Layers().Map(layer => layer.Choose(id => lookup.Find(id))).Filter(static layer => !layer.IsEmpty).Strict());
@@ -177,7 +178,7 @@ public static class Placements {
         return rows.Map(row => (row, new PointF(x[row.InstanceId], y[row.InstanceId]))).Strict();
     }
 
-    private static HashMap<Guid, float> Along(Orientation axis, Seq<IDocumentObject> rows, Seq<Placement> placements, SnappingSettings settings, Memo<Seq<Seq<IDocumentObject>>> layers, Memo<Seq<(Guid Source, Guid Target, float Offset)>> levels) {
+    private static HashMap<Guid, float> Along(Orientation axis, Seq<IDocumentObject> rows, Seq<ObjectPlacement> placements, SnappingSettings settings, Memo<Seq<Seq<IDocumentObject>>> layers, Memo<Seq<(Guid Source, Guid Target, float Offset)>> levels) {
         HashMap<Guid, Variable> pivots = toHashMap(rows.Map(static row => (row.InstanceId, new Variable())));
         Seq<(Constraint Rule, Seq<Guid> Linked)> rules = placements.Bind(placement => placement.Switch(
             (Axis: axis, Rows: rows, Pivots: pivots, Settings: settings, Layers: layers, Levels: levels),
@@ -292,7 +293,7 @@ public static class Placements {
     private static IO<bool> Placed(Document document, string verb, Seq<(IDocumentObject Object, PointF Pivot)> moves) =>
         moves.Filter(static move => move.Pivot != move.Object.Attributes.Pivot).Strict() switch {
             { IsEmpty: true } => IO.pure(value: false),
-            var changed => Edits.Commit(document, new VerbNoun(verb, changed.Count is 1 ? "Object" : "Objects"), actions => IO.lift(() => {
+            var changed => DocumentEdits.Commit(document, new VerbNoun(verb, changed.Count is 1 ? "Object" : "Objects"), actions => IO.lift(() => {
                 _ = changed.Iter(move => actions.Add(new PivotAction(move.Object)));
                 _ = changed.Iter(static move => move.Object.Attributes.Pivot = move.Pivot);
                 return true;

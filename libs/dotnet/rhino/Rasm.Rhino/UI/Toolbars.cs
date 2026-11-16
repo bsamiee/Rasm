@@ -11,12 +11,6 @@ using UUIDNext;
 
 namespace Rasm.Rhino.UI;
 
-// --- [TYPES] ---------------------------------------------------------------------------
-
-public interface IRuiSource {
-    public static abstract RuiFile Rui { get; }
-}
-
 // --- [MODELS] --------------------------------------------------------------------------
 
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
@@ -171,10 +165,6 @@ public static class Toolbars {
 
     // --- [DECLARATIONS]
 
-    public static Option<RuiFile> Declared(Assembly plugIn) =>
-        toSeq(plugIn.GetTypes()).Find(static type => type.IsAssignableTo(typeof(IRuiSource)))
-            .Bind(static type => Optional(type.GetProperty(nameof(IRuiSource.Rui), BindingFlags.Public | BindingFlags.Static)?.GetValue(obj: null) as RuiFile));
-
     public static Fin<Guid> Identity(Assembly plugIn) =>
         Conversions.Required(Optional(plugIn.GetCustomAttribute<GuidAttribute>()).Bind(static held => parseGuid(held.Value)));
 
@@ -204,8 +194,8 @@ public static class Toolbars {
 
     // --- [RUNTIME]
 
-    internal static IO<Unit> Registered() =>
-        Declared(Session.Assembly).Match(
+    internal static IO<Unit> Registered(Option<RuiFile> toolbars) =>
+        toolbars.Match(
             Some: static declared =>
                 from file in IO.lift(static () => Identity(Session.Assembly))
                 let items = toHashMap((declared.Extensions.Bind(extension => Entries(file, extension)) + declared.Menus.Bind(menu => Entries(file, menu))).Bind(static entry => entry.Flattened)

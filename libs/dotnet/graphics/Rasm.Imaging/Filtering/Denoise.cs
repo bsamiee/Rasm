@@ -37,7 +37,14 @@ public sealed partial class Denoiser : IDisposable {
 
     // --- [NATIVES]
 
-    public const string Library = "OpenImageDenoise.2";
+    private const string Library = "OpenImageDenoise.2";
+
+    static Denoiser() =>
+        NativeLibrary.SetDllImportResolver(typeof(Denoiser).Assembly, static (name, _, _) =>
+            string.Equals(name, Library, StringComparison.Ordinal)
+            && NativeLibrary.TryLoad(Path.Join(Path.GetDirectoryName(Environment.ProcessPath), "..", "Frameworks", $"lib{name}.dylib"), out nint handle)
+                ? handle
+                : 0);
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     [return: MarshalAs(UnmanagedType.U1)]

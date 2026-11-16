@@ -14,6 +14,7 @@ using Grasshopper2.UI.Primitives;
 using Grasshopper2.UI.Skinning;
 using Grasshopper2.Undo;
 using Grasshopper2.Undo.Actions;
+using Rasm.Rhino;
 
 namespace Rasm.Grasshopper.Components;
 
@@ -76,7 +77,7 @@ internal sealed class BodyAttributes : ComponentAttributes, IResizableAttributes
 
     // --- [DRAWING]
 
-    protected override void DrawContent(Context context, Skin skin, Capsule capsule, Shade shade) => Hooks.Run(IO.lift(() => paint(context, skin, shade, ContentBox)), unit);
+    protected override void DrawContent(Context context, Skin skin, Capsule capsule, Shade shade) => Session.Run(IO.lift(() => paint(context, skin, shade, ContentBox)), unit);
 
     protected override void DrawForeground(Context context, Skin skin, Capsule capsule, Shade shade) {
         ColourInputCategories(modular, context, capsule, component.ModularInputs);

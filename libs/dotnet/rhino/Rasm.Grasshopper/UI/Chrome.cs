@@ -5,6 +5,9 @@ using Grasshopper2.Extensions;
 using Grasshopper2.UI;
 using Grasshopper2.UI.Canvas;
 using Grasshopper2.UI.Flex;
+using Rasm.Rhino;
+using Rasm.Rhino.Commands;
+using Rasm.Rhino.Persistence;
 
 namespace Rasm.Grasshopper.UI;
 
@@ -40,7 +43,7 @@ public static class Chrome {
         };
 
     private static Unit Shown(Nomen face, IO<Unit> effect) =>
-        Hooks.Run(
+        Session.Run(
             effect | @catch(
                 static error => !(error.Count is 1 && error.Is(Errors.Cancelled)),
                 error => IO.lift(() => (error.IsExceptional
@@ -59,7 +62,7 @@ public static class Chrome {
     }
 
     private static bool Refreshed(CheckCommand toggle) =>
-        toggle.Tag is Preference<bool> state ? (toggle.Checked = Hooks.Run(state.Read, toggle.Checked)) : toggle.Checked;
+        toggle.Tag is Preference<bool> state ? (toggle.Checked = Session.Run(state.Read, toggle.Checked)) : toggle.Checked;
 
     private static Unit Opened(Seq<Command> commands, bool open) =>
         commands.Iter(command => {
@@ -70,11 +73,25 @@ public static class Chrome {
 
     // --- [MENUS]
 
+    public static IO<Unit> Editor(Func<Editor, IO<Unit>> attach) =>
+        from scope in envIO
+        from present in IO.lift(static () => Optional(Grasshopper2.UI.Editor.Instance))
+        from attached in present.Match(Some: attach, None: () => Built(scope, attach))
+        select attached;
+
+    private static IO<Unit> Built(EnvIO scope, Func<Editor, IO<Unit>> attach) =>
+        from waiting in use(() => EnvIO.New(token: scope.Token))
+        from subscribed in IO.liftVAsync(() => ActiveCommands.Changed
+            .Attach(_ => IO.lift(static () => Optional(Grasshopper2.UI.Editor.Instance))
+                .Bind(built => built.Traverse(editor => IO.lift(waiting.Dispose) >> IO.liftVAsync(() => attach(editor).RunAsync(scope))).As())
+                .Map(unit)).RunAsync(waiting))
+        select subscribed;
+
     public static IO<Unit> Menu(Seq<Command> commands) =>
-        unless(commands.IsEmpty, Hooks.Editor(editor =>
+        unless(commands.IsEmpty, Editor(editor =>
             from host in IO.lift(() => (EditorMainMenu)editor.Menu)
             from menu in use(IO.lift(() => {
-                SubMenuItem submenu = new() { Text = Hooks.Session.Plugin.Name };
+                SubMenuItem submenu = new() { Text = Session.PlugIn.Name };
                 _ = commands.Iter(command => {
                     command.CommandParameter = editor.Canvas;
                     submenu.Items.Add(command.CreateMenuItem());
@@ -82,13 +99,13 @@ public static class Chrome {
                 host.Items.Insert(host.Items.IndexOf(host.Help), submenu);
                 return submenu;
             }), attached => IO.lift(() => ignore(host.Items.Remove(attached))))
-            from opening in Hooks.On<EventArgs>(h => menu.Opening += h, h => menu.Opening -= h, _ => IO.lift(() => Opened(commands, open: true)))
-            from closing in Hooks.On<EventArgs>(h => menu.Closing += h, h => menu.Closing -= h, _ => IO.lift(() => Opened(commands, open: false)))
+            from opening in Subscriptions.Inline<EventArgs>(h => menu.Opening += h, h => menu.Opening -= h).Attach(_ => IO.lift(() => Opened(commands, open: true)))
+            from closing in Subscriptions.Inline<EventArgs>(h => menu.Closing += h, h => menu.Closing -= h).Attach(_ => IO.lift(() => Opened(commands, open: false)))
             from closed in IO.lift(() => Opened(commands, open: false))
             select unit)).As();
 
     public static IO<Unit> Context(Canvas canvas, Pick kind, Func<SelectionResult, Seq<Command>> rows) =>
-        Hooks.On<PopulateContextMenuEventArgs>(h => canvas.PopulateContextMenu += h, h => canvas.PopulateContextMenu -= h, args => IO.lift(() => {
+        Subscriptions.Inline<PopulateContextMenuEventArgs>(h => canvas.PopulateContextMenu += h, h => canvas.PopulateContextMenu -= h).Attach(args => IO.lift(() => {
             SelectionResult pick = canvas.ResolvePick(canvas.Map(args.MouseEvent.Location, CoordinateSystem.Control, CoordinateSystem.Content), includeGrips: false, includeForeground: true, includeBackground: true, includeWires: true, recursive: true);
             Seq<Command> commands = pick.Kind == kind && !(canvas.AllowedActions.AllowObjectMenu && Optional(canvas.Document).Exists(document => document.Objects.Find(pick.ObjectUnderPick) is not null))
                 ? rows(pick)
@@ -119,7 +136,7 @@ public static class Chrome {
         }), name => IO.lift(() => control.FloatingButtons.Close(name)))).As().Map(unit);
 
     public static IO<Unit> Shortcuts(Canvas canvas, Seq<Command> commands) =>
-        Hooks.On<KeyEventArgs>(h => canvas.KeyDown += h, h => canvas.KeyDown -= h, args => IO.lift(() =>
+        Subscriptions.Inline<KeyEventArgs>(h => canvas.KeyDown += h, h => canvas.KeyDown -= h).Attach(args => IO.lift(() =>
             commands.Find(command => !args.Handled && command.Shortcut is not Keys.None && command.Shortcut == args.KeyData && Allowed(command, canvas)).Iter(command => {
                 _ = Execute(command, canvas);
                 args.Handled = true;

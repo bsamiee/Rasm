@@ -23,9 +23,11 @@ public sealed record PlugInDefinition {
     public Seq<Guid> Dependencies { get; init; }
     public Seq<PlugInCommand> Commands { get; init; }
     public Seq<View> Views { get; init; }
+    public Option<RuiFile> Toolbars { get; init; }
     public Option<DisplayModeSpec> Modes { get; init; }
     public Seq<RhinoTheme> Themes { get; init; }
     public Seq<IO<Unit>> Load { get; init; }
+    public Seq<IO<Unit>> Grasshopper { get; init; }
     public Seq<ComputeEndpoint> Endpoints { get; init; }
     public Seq<DocumentFrame> Frames { get; init; }
     public Option<HelpTopic> Help { get; init; }

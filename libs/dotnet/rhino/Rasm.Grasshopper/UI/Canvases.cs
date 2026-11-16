@@ -16,6 +16,7 @@ using Grasshopper2.UI.Canvas;
 using Grasshopper2.UI.Flex;
 using Grasshopper2.UI.Skinning;
 using Grasshopper2.Undo;
+using Rasm.Rhino;
 
 namespace Rasm.Grasshopper.UI;
 
@@ -28,7 +29,7 @@ public static class Canvases {
     public static IO<Unit> Restrict(Canvas canvas, Action<CanvasActions> restrict) =>
         from restriction in use(IO.lift(() => Restricted(canvas, restrict)), restriction => IO.lift(() => Released(canvas, restriction)))
         from over in use(IO.lift(static () => Ref(Option<IResponsive>.None)), static over => IO.lift(() => ignore(Hovered(over, None))))
-        from hovering in Hooks.On<MouseEventArgs>(h => canvas.MouseMove += h, h => canvas.MouseMove -= h, args => IO.lift(() =>
+        from hovering in Subscriptions.Inline<MouseEventArgs>(h => canvas.MouseMove += h, h => canvas.MouseMove -= h).Attach(args => IO.lift(() =>
             Hovered(over, args.Buttons is MouseButtons.None && ReferenceEquals(canvas.FocusObject, restriction.Guard)
                     ? toSeq(canvas.ResponsivesForwards).Rev().Find(responsive => responsive.Responder.IsCoincident(args.Location, canvas.Map(args.Location, CoordinateSystem.Control, CoordinateSystem.Content)))
                     : None)
@@ -42,8 +43,8 @@ public static class Canvases {
         Restrict(canvas, actions => {
             Option<Func<(IParameter source, IParameter target), bool>> allowed = Optional(actions.MakeWireFilter);
             Option<Func<(IParameter source, IParameter target), bool>> guarded = Optional(actions.DeleteWireFilter);
-            actions.MakeWireFilter = wire => allowed.ForAll(prior => prior(wire)) && Hooks.Run(IO.lift(() => make(wire.source, wire.target)), failed: false);
-            actions.DeleteWireFilter = wire => guarded.Exists(prior => prior(wire)) || Hooks.Run(IO.lift(() => protect(wire.source, wire.target)), failed: true);
+            actions.MakeWireFilter = wire => allowed.ForAll(prior => prior(wire)) && Session.Run(IO.lift(() => make(wire.source, wire.target)), failed: false);
+            actions.DeleteWireFilter = wire => guarded.Exists(prior => prior(wire)) || Session.Run(IO.lift(() => protect(wire.source, wire.target)), failed: true);
             actions.AllowModifyWire = false;
             actions.AllowWireMenu = false;
         });
@@ -109,13 +110,13 @@ public static class Canvases {
                         IO.lift(() => barred.Map(static item => (Item: item, item.Shortcut)).Strict()),
                         static held => IO.lift(() => held.Iter(static entry => entry.Item.Shortcut = Kept(entry.Item.Shortcut, Keys.None, entry.Shortcut))))
                     from cleared in IO.lift(() => barred.Iter(static item => item.Shortcut = Keys.None))
-                    from opening in Hooks.On<EventArgs>(h => menu.Edit.Opening += h, h => menu.Edit.Opening -= h, _ => IO.lift(() => barred.Iter(static item => item.Enabled = false)))
+                    from opening in Subscriptions.Inline<EventArgs>(h => menu.Edit.Opening += h, h => menu.Edit.Opening -= h).Attach(_ => IO.lift(() => barred.Iter(static item => item.Enabled = false)))
                     select unit,
             };
 
     private static Interaction Guarded(Canvas canvas) {
         Interaction guard = new();
-        guard.KeyDownHook += e => Hooks.Run(IO.lift(() => e is { IsChar: true, Key: Keys.Delete or Keys.Backspace } ? Gated(canvas) : Response.Ignored), Response.Ignored);
+        guard.KeyDownHook += e => Session.Run(IO.lift(() => e is { IsChar: true, Key: Keys.Delete or Keys.Backspace } ? Gated(canvas) : Response.Ignored), Response.Ignored);
         guard.MouseDownHook += e => e.Buttons is MouseButtons.Primary
             && ((canvas.CursorMode is CursorMode.EditActive && !canvas.AllowedActions.AllowObjectResponse)
                 || (!canvas.AllowedActions.AlloWireSelect && canvas.ResolvePick(e.ContentLocation, includeGrips: false, includeForeground: true, includeBackground: true, includeWires: true, recursive: true).Kind is Pick.Wire))
@@ -159,13 +160,13 @@ public static class Canvases {
         }))
         from last in IO.lift(() => Atom((Value: current, Changed: false, Recorded: false)))
         from shown in IO.lift(() => canvas.ShowInlineEditor(frame, assistant.Format(current),
-            text => Hooks.Run(
+            text => Session.Run(
                 (from parsed in IO.lift(() => assistant.Parse(null, text, Garden.Pear(current)))
                  from changed in IO.lift(() => parsed.Success && last.Swap(prior => (parsed.Value, !assistant.Same(parsed.Value, prior.Value), prior.Recorded || !assistant.Same(parsed.Value, prior.Value))).Changed)
                  from applied in when(changed, assign(parsed.Value) >> IO.lift(() => ignore(recorded.Value))).As()
                  select (IResult)parsed).Catch(error => IO.pure<IResult>(Result<T>.Fail(error.Message, text))).As(),
                 Result<T>.Fail("", text)),
-            () => Hooks.Run(
+            () => Session.Run(
                 when(!assistant.Same(last.Value.Value, current), assign(current)).As()
                 >> when(last.Value.Recorded, IO.lift(() => recorded.Value.Iter(static held => held.Document.Undo.Remove(held.Node)))).As(),
                 unit)))
@@ -174,7 +175,7 @@ public static class Canvases {
     // --- [DRAWING]
 
     public static IO<Unit> Overlay(Canvas canvas, Func<IDocumentObject, Option<Action<Context, Skin>>> mark) =>
-        Hooks.On<CanvasPaintEventArgs>(h => canvas.AfterPaintObjects += h, h => canvas.AfterPaintObjects -= h, args =>
+        Subscriptions.Inline<CanvasPaintEventArgs>(h => canvas.AfterPaintObjects += h, h => canvas.AfterPaintObjects -= h).Attach(args =>
             (from state in use(args.Graphics.ProjectionState)
              from drawn in IO.lift(() => Optional(args.Canvas.Document).Iter(document => {
                  Context context = args.Graphics.ContentContext;
@@ -254,7 +255,7 @@ public static class Canvases {
 
         Response Shown(RectangleF next, Response response) {
             region.RegionBoundary = next;
-            _ = Hooks.Run(placed(next), unit);
+            _ = Session.Run(placed(next), unit);
             region.OnRedrawRequired();
             return response;
         }

@@ -161,7 +161,7 @@ internal sealed class PlugInBody {
 internal sealed class ScannedAssembly(Assembly assembly) : Assembly {
     public override string? FullName => assembly.FullName;
 
-    public override Type[] GetExportedTypes() => assembly.GetTypes();
+    public override Type[] GetExportedTypes() => [.. PlugInRegistry.Types(assembly)];
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

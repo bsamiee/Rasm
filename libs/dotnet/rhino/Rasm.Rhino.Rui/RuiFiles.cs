@@ -9,6 +9,7 @@ using System.Xml;
 using System.Xml.Linq;
 using LanguageExt.ClassInstances;
 using Rasm.Hosting;
+using Rasm.Rhino.PlugIns;
 using Rasm.Rhino.UI;
 using Rasm.Rhino.UI.Rows;
 using Rasm.Rhino.UI.Styling;
@@ -66,24 +67,38 @@ internal static class RuiFiles {
             }).Bracket(
                 Use: _ =>
                     from loaded in IO.lift(() => AssemblyLoadContext.Default.LoadFromAssemblyPath(Path.GetFullPath(plugIn)))
-                    from document in IO.lift(Document(loaded))
-                    from written in IO.lift(() => {
-                        string staged = Path.Join(Path.GetDirectoryName(rui), Path.GetRandomFileName());
-                        try {
-                            using (XmlWriter writer = XmlWriter.Create(staged, new XmlWriterSettings { Encoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false), OmitXmlDeclaration = true, Indent = true })) document.Save(writer);
-                            File.Move(staged, rui, overwrite: true);
-                        } finally {
-                            File.Delete(staged);
-                        }
-                    })
+                    from document in IO.lift(Declared(loaded).Traverse(declared => Document(loaded, declared)).As())
+                    from written in IO.lift(() => document.Match(
+                        Some: held => {
+                            string staged = Path.Join(Path.GetDirectoryName(rui), Path.GetRandomFileName());
+                            try {
+                                using (XmlWriter writer = XmlWriter.Create(staged, new XmlWriterSettings { Encoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false), OmitXmlDeclaration = true, Indent = true })) held.Save(writer);
+                                File.Move(staged, rui, overwrite: true);
+                            } finally {
+                                File.Delete(staged);
+                            }
+                        },
+                        None: () => File.Delete(rui)))
                     select written,
                 Fin: static handler => IO.lift(() => AssemblyLoadContext.Default.Resolving -= handler)),
         };
 
     // --- [DOCUMENTS]
 
-    private static Fin<XDocument> Document(Assembly plugIn) =>
-        from declared in Toolbars.Declared(plugIn).ToFin(new RhinoFault($"{plugIn.GetName().Name} {nameof(IRuiSource)} declaration", RhinoReason.Missing))
+    private static Option<RuiFile> Declared(Assembly plugIn) =>
+        (from type in PlugInRegistry.Types(plugIn)
+         from contract in toSeq(type.GetInterfaces())
+         where contract.IsConstructedGenericType && contract.GetGenericTypeDefinition() == typeof(IDefined<>)
+         from reach in contract.GenericTypeArguments[0] switch {
+             var kind when kind == typeof(PlugInDefinition) => Seq<Func<object, object?>>(static held => held),
+             var kind => toSeq(kind.GetProperties()).Filter(static property => property.PropertyType == typeof(PlugInDefinition)).Map(static property => (Func<object, object?>)property.GetValue),
+         }
+         from definition in Optional(type.GetProperty(nameof(IDefined<>.Definition), BindingFlags.Public | BindingFlags.Static)?.GetValue(obj: null)).ToSeq()
+         select reach(definition) as PlugInDefinition)
+        .Choose(Optional).Head
+        .Bind(static definition => definition.Toolbars);
+
+    private static Fin<XDocument> Document(Assembly plugIn, RuiFile declared) =>
         from file in Toolbars.Identity(plugIn)
         let text = Translations.Read(plugIn)
         let groups = declared.Groups + declared.Groups.Bind(static toolbarGroup => toSeq(toolbarGroup.Tabs)).Choose(static tab => tab.Sidebar)

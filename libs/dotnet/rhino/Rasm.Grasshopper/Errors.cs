@@ -13,7 +13,6 @@ public sealed partial class GrasshopperReason {
     public static readonly GrasshopperReason Missing = new("not found");
     public static readonly GrasshopperReason Taken = new("already in use");
     public static readonly GrasshopperReason Unfinished = new("did not complete");
-    public static readonly GrasshopperReason Unloaded = new("not loaded");
     public static readonly GrasshopperReason Unreadable = new("cannot be read");
 
     public string Message { get; }

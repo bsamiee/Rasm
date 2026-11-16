@@ -4,3 +4,4 @@ RASM1203.reporters = M:Rhino.Runtime.HostUtils.ExceptionReport(System.Exception)
 RASM3003.exempt = M:Grasshopper2.Doc.SolutionServer.Start(Grasshopper2.Doc.SolutionMode)|M:Grasshopper2.Doc.SolutionServer.Start(System.Threading.CancellationTokenSource,Grasshopper2.Doc.SolutionMode)
 RASM3101.exempt = T:Grasshopper2.UI.Nomen
 RASM3102.sentinels = RhinoCommon:Unset
+RASM3114.instantiated = T:Grasshopper2.Doc.IDocumentObject

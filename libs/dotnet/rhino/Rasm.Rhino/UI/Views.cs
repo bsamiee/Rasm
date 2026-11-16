@@ -172,7 +172,7 @@ public sealed record ViewCatalog(PlugInDefinition Definition, Seq<View> Rows) {
             Subscriptions.On<NotificationEventArgs>(static h => Application.Instance.NotificationActivated += h, static h => Application.Instance.NotificationActivated -= h)
                 .Attach(static args => IO.lift(() => Conversions.Present(Guid.TryParse(args.UserData, CultureInfo.InvariantCulture, out Guid id), id).Bind(Current.Find<View.Panel>))
                     .Bind(static found => found.TraverseM(HostPanels.Open).As()).Map(static _ => unit)),
-            Toolbars.Registered()).TraverseM(static step => step).As()
+            Toolbars.Registered(catalog.Definition.Toolbars)).TraverseM(static step => step).As()
         select unit;
 
     public Option<TCase> Find<TCase>(Guid id) where TCase : View =>

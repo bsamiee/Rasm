@@ -1,37 +1,48 @@
-using Eto.Forms;
+using System.Reflection;
+using Grasshopper2.Doc;
 using Grasshopper2.Framework;
 using Grasshopper2.UI.Icon;
 using Rasm.Grasshopper.Data;
-using Rasm.Grasshopper.UI;
-using Rhino;
+using Rasm.Rhino;
+using Rasm.Rhino.Document.Files;
+using Rasm.Rhino.PlugIns;
+using Rhino.FileIO;
 
 namespace Rasm.Grasshopper;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-public sealed record GrasshopperPlugin {
+public static class PluginShell {
 
-    // --- [DECLARATIONS]
+    // --- [PLUG_INS]
 
-    public required ILoggerFactory Loggers { get; init; }
-    public Seq<IO<Unit>> Types { get; init; }
-    public Seq<GrasshopperTheme> Themes { get; init; }
-    public Seq<Command> Commands { get; init; }
-    public Seq<Func<Plugin, IO<Unit>>> Lifetimes { get; init; }
+    public static (Action OnLoaded, IIcon Icon) Plugin<TDefinition>(Plugin host) where TDefinition : IDefined<PlugInDefinition> =>
+        Hosted(host, typeof(TDefinition).Assembly, TDefinition.Definition);
 
-    // --- [HOSTS]
+    public static (Action OnLoaded, IIcon Icon) Import<TDefinition>(Plugin host) where TDefinition : IDefined<FileDefinition<FileReadOptions>> =>
+        Hosted(host, typeof(TDefinition).Assembly, TDefinition.Definition.PlugIn);
 
-    public static IIcon Icon(Plugin plugin) => DataTypes.Icon((plugin.Assembly, "icon")).IfNone(() => StandardIcons.LetterDisc(plugin.Name));
+    public static (Action OnLoaded, IIcon Icon) Export<TDefinition>(Plugin host) where TDefinition : IDefined<FileDefinition<FileWriteOptions>> =>
+        Hosted(host, typeof(TDefinition).Assembly, TDefinition.Definition.PlugIn);
 
-    public void Load(Plugin plugin) =>
-        (from bound in Hooks.Bind(Loggers, plugin)
-         from scope in envIO
-         from errors in Types
-             .Concat(Themes.Map(static theme => theme.Install))
-             .Add(Chrome.Menu(Commands))
-             .Concat(Lifetimes.Map(lifetime => lifetime(plugin)))
-             .Map<K<IO, Unit>>(static step => step).Fails().As()
-         from closing in Hooks.On(static h => RhinoApp.Closing += h, static h => RhinoApp.Closing -= h, IO.lift(scope.DisposeResources))
-         from loaded in guard(errors.IsEmpty, Error.Many(errors))
-         select unit).BracketFail().Run(Hooks.Scope);
+    public static (Action OnLoaded, IIcon Icon) Render<TDefinition>(Plugin host) where TDefinition : IDefined<RendererDefinition> =>
+        Hosted(host, typeof(TDefinition).Assembly, TDefinition.Definition.PlugIn);
+
+    private static (Action OnLoaded, IIcon Icon) Hosted(Plugin host, Assembly assembly, PlugInDefinition definition) =>
+        (() => _ = InputPath.Of(assembly.Location)
+                .Bind(static path => PlugInRegistry.LoadPlugIn(path).RunSafe())
+                .Bind(_ => Session.RunSafe(
+                    (from errors in IO.lift(() => toSeq(assembly.GetTypes())
+                             .Filter(static type => type is { IsAbstract: false, IsVisible: false, ContainsGenericParameters: false }
+                                 && type.IsAssignableTo(typeof(IDocumentObject)) && type.GetConstructor(Type.EmptyTypes) is not null)
+                             .Filter(type => !ObjectProxies.RegisterObject(type, host))
+                             .Strict())
+                         .Bind(static declined => IO.lift(GrasshopperFault.Unless(declined.IsEmpty, GrasshopperReason.Declined, declined)))
+                         .Cons(definition.Grasshopper)
+                         .Map<K<IO, Unit>>(static step => step).Fails().As()
+                     from loaded in guard(errors.IsEmpty, Error.Many(errors))
+                     select unit).BracketFail().Scoped(),
+                    CancellationToken.None))
+                .ThrowIfFail(),
+            DataTypes.Icon((assembly, "icon")).IfNone(() => StandardIcons.LetterDisc(host.Name)));
 }

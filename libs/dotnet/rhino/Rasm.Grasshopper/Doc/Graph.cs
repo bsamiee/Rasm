@@ -17,6 +17,7 @@ using QuikGraph.Algorithms.Condensation;
 using QuikGraph.Graphviz;
 using QuikGraph.Graphviz.Dot;
 using Rasm.Grasshopper.UI;
+using Rasm.Rhino;
 
 namespace Rasm.Grasshopper.Doc;
 
@@ -157,7 +158,7 @@ public sealed partial class Relationship {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-public static class Selections {
+public static class ObjectSelections {
 
     // --- [SELECTION]
 
@@ -190,8 +191,8 @@ public static class Selections {
         from shown in IO.lift(() => canvas.ShowInlineEditor(
             anchor,
             "",
-            text => Hooks.Run(IO.lift(() => Matched(document, text, prior)), Result<int>.Fail("", text)),
-            () => Hooks.Run(IO.lift(() => Selected(document, prior)), 0)))
+            text => Session.Run(IO.lift(() => Matched(document, text, prior)), Result<int>.Fail("", text)),
+            () => Session.Run(IO.lift(() => Selected(document, prior)), 0)))
         select unit;
 
     private static Result<int> Matched(Document document, string text, LanguageExt.HashSet<Guid> prior) =>

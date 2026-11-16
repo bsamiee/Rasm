@@ -9,6 +9,9 @@ using Grasshopper2.Types.Colour;
 using Grasshopper2.UI.Canvas;
 using Grasshopper2.UI.Skinning;
 using Grasshopper2.UI.TabbedPanel;
+using Rasm.Rhino;
+using Rasm.Rhino.Persistence;
+using Rasm.Rhino.UI;
 using Rhino;
 
 namespace Rasm.Grasshopper;
@@ -42,11 +45,11 @@ public sealed record GrasshopperTheme(string Name) {
 
     public IO<Unit> Install =>
         from installed in unless(Settings.SandBox,
-            from plugin in IO.lift(static () => Hooks.Session.Plugin)
+            from plugIn in IO.lift(static () => Session.PlugIn)
             from definition in IO.lift(Definition)
             from described in IO.lift(() => {
-                definition.Author = plugin.Name;
-                definition.Description = plugin.Info;
+                definition.Author = plugIn.Name;
+                definition.Description = Optional(plugIn.Description).IfNone(plugIn.Name);
             })
             from skin in Refreshed(SkinServer.PathOf(Name), Encoding.UTF8.GetBytes(definition.ToText()), File.ReadAllBytes, IO.lift(() => SkinServer.Save(Name, definition)))
             from styled in Preview.Map(static preview => preview(Defaults.GrasshopperDefault)).Traverse(guises => Path.Combine(Folders.DisplayStylesFolder, Name + ".ghstyle") switch {
@@ -60,42 +63,40 @@ public sealed record GrasshopperTheme(string Name) {
             from coloured in Refreshed(swatches, listed(NamedPalette.WriteToStrings(palette)), path => listed(File.ReadAllLines(path)), IO.lift(() => NamedPalette.WriteToFile(swatches, palette)))
             from tabs in IO.lift(static () => new SettingsFolder("ComponentTabs"))
             let tint = definition.Resolve(SkinProperties.WithMode(PropertyId.Shade | PropertyId.Apex | PropertyId.Selected, PropertyId.Lit)).ToEto().ToHex(includeAlpha: false)
-            let chapters = toSeq(ObjectProxies.Proxies.Where(proxy => proxy.Plugin == plugin).Select(static proxy => proxy.Nomen.Chapter).Distinct(StringComparer.Ordinal))
+            let chapters = toSeq(ObjectProxies.Proxies.Where(static proxy => proxy.Type.Assembly == Session.Assembly).Select(static proxy => proxy.Nomen.Chapter).Distinct(StringComparer.Ordinal))
             let rules = new NamedRules(Name + NamedRules.Extension, Rules.Empty.Add([Rule.CreateCiteRule(NamedRules.DefaultRules), .. chapters.Map(chapter => Rule.CreateTintRule(Selector.FromChapter(chapter), tint)), .. Tabs]))
             from tinted in when(!(chapters.IsEmpty && Tabs.IsEmpty), Refreshed(tabs.Folder + rules.Name, Encoding.UTF8.GetBytes(rules.Rules.ToString()), File.ReadAllBytes,
                 IO.lift(() => GrasshopperFault.Unless(rules.Store(tabs), GrasshopperReason.Declined, rules.Name)))).As()
             select unit).As()
-        from followed in Active.Changed(Active.Write)
+        from current in IO.lift(() => SkinServer.IsCurrent(Name)).Bind(Active.Write)
+        from followed in GrasshopperPreferences.Setting(Settings.CanvasSkin).Changed(_ => IO.lift(() => SkinServer.IsCurrent(Name)).Bind(Active.Write))
         select unit;
 
     private static IO<Unit> Refreshed(string path, byte[] content, Func<string, byte[]> read, IO<Unit> write) =>
-        from values in IO.lift(static () => Hooks.Session.Values)
+        from recorded in IO.lift(() => Preferences.Setting(ViewCatalog.Settings.Child(nameof(GrasshopperTheme)), Path.GetFileName(path), hidden: true))
+        from prior in recorded.Read
         from present in IO.lift(() => Some(read(path))).Catch(
             static error => error.HasException<FileNotFoundException>() || error.HasException<DirectoryNotFoundException>(),
             static _ => IO.pure(Option<byte[]>.None))
-        from recorded in IO.lift(() => values.Get(path, ""))
-        let stamp = Convert.ToHexString(SHA256.HashData(content))
         let same = present.Exists(bytes => bytes.AsSpan().SequenceEqual(content))
-        let owned = same || present.ForAll(bytes => string.Equals(Convert.ToHexString(SHA256.HashData(bytes)), recorded, StringComparison.Ordinal))
+        let owned = same || present.ForAll(bytes => prior.Exists(stamp => string.Equals(Convert.ToHexString(SHA256.HashData(bytes)), stamp, StringComparison.Ordinal)))
         from written in when(owned && !same, write).As()
-        from stamped in when(owned && !string.Equals(recorded, stamp, StringComparison.Ordinal), IO.lift(() => values.Set(path, stamp)) >> Hooks.Saved).As()
+        from stamped in when(owned, recorded.Write(Convert.ToHexString(SHA256.HashData(content)))).As()
         select unit;
 
     // --- [APPLICATION]
 
+    private static readonly AtomHashMap<string, IO<Unit>> Applied = AtomHashMap<string, IO<Unit>>();
+
     public Preference<bool> Active =>
-        new(
-            IO.lift(() => SkinServer.IsCurrent(Name)),
-            active =>
-                from held in IO.lift(() => Hooks.Themes.Find(Name))
-                from changed in active
-                    ? when(held.IsNone, IO.lift(() => Hooks.Themes.Add(Name, unitIO))
-                        >> Apply.Bind(inverse => IO.lift(() => Hooks.Themes.SetItem(Name, inverse))).Catch(error => IO.lift(() => Hooks.Themes.Remove(Name)) >> IO.fail<Unit>(error)).As()).As()
-                    : IO.lift(() => Hooks.Themes.Remove(Name))
-                        >> held.IfNone(unitIO)
-                        >> IO.lift(() => SkinServer.IsCurrent(Name)).Bind(static current => when(current, Preferences.Of(Settings.CanvasSkin).Write(Settings.CanvasSkin.Default)).As())
-                select unit,
-            Some<Func<IO<Unit>, IO<Unit>>>(static notify => Hooks.On<EventArgs>(static h => Settings.CanvasSkin.Changed += h, static h => Settings.CanvasSkin.Changed -= h, _ => notify)));
+        Preferences.Of(
+            IO.lift(() => Applied.Find(Name).IsSome),
+            active => active
+                ? IO.lift(() => Applied.Add(Name, unitIO))
+                    >> Apply.Bind(inverse => IO.lift(() => Applied.SetItem(Name, inverse))).Catch(error => IO.lift(() => Applied.Remove(Name)) >> IO.fail<Unit>(error)).As()
+                : IO.lift(() => Applied.Find(Name)).Bind(held => IO.lift(() => Applied.Remove(Name)) >> held.IfNone(unitIO))
+                    >> IO.lift(() => SkinServer.IsCurrent(Name)).Bind(static current => when(current, GrasshopperPreferences.Setting(Settings.CanvasSkin).Write(Settings.CanvasSkin.Default)).As()),
+            Some(Subscriptions.Inline<EventArgs>(static h => Settings.CanvasSkin.Changed += h, static h => Settings.CanvasSkin.Changed -= h).Choose(static _ => Some(unit))));
 
     public IO<Unit> Scoped(Canvas canvas) =>
         from definition in IO.lift(() => Definition)
@@ -113,7 +114,7 @@ public sealed record GrasshopperTheme(string Name) {
     private IO<IO<Unit>> Apply =>
         from installed in IO.lift(() => GrasshopperFault.Unless(SkinServer.Exists(Name), GrasshopperReason.Missing, Name))
         from document in IO.lift(static () => Optional(RhinoDoc.ActiveDoc))
-        from restores in Preferences.Of(Settings.CanvasSkin).Swap(Name).Map(restore => IO.lift(() => SkinServer.IsCurrent(Name)).Bind(current => when(current, restore).As()))
+        from restores in GrasshopperPreferences.Setting(Settings.CanvasSkin).Swap(Name).Map(restore => IO.lift(() => SkinServer.IsCurrent(Name)).Bind(current => when(current, restore).As()))
             .Cons(document.Bind(_ => Preview).Map(static preview => Preferences.Property(
                     static () => ReferenceEquals(Defaults.UserDefault, Defaults.GrasshopperDefault) ? null : Defaults.UserDefault,
                     static guises => Defaults.UserDefault = guises)
@@ -130,25 +131,25 @@ public sealed record GrasshopperTheme(string Name) {
         from armed in IO.lift(static () => SkinServer.Lit)
         let current = IO.lift(static () => SkinServer.CurrentSkin).Bind(react)
         from followed in Seq(
-                Hooks.On(static h => SkinServer.CurrentChanged += h, static h => SkinServer.CurrentChanged -= h, current),
-                Preferences.Of(Settings.DarkMode).Changed(_ => current),
-                Preferences.Of(Settings.TypefaceSans).Changed(_ => current),
-                Preferences.Of(Settings.TypefaceSerif).Changed(_ => current),
-                Preferences.Of(Settings.TypefaceMono).Changed(_ => current),
-                Preferences.Of(Settings.TypefaceScript).Changed(_ => current),
-                Preferences.Of(Settings.Animations).Changed(_ => current),
-                Hooks.On(static h => Layout.LayoutConstantsChanged += h, static h => Layout.LayoutConstantsChanged -= h, current))
+                Subscriptions.Inline<EventHandler, EventArgs>(static h => SkinServer.CurrentChanged += h, static h => SkinServer.CurrentChanged -= h, static handler => handler.Invoke).Attach(_ => current),
+                GrasshopperPreferences.Setting(Settings.DarkMode).Changed(_ => current),
+                GrasshopperPreferences.Setting(Settings.TypefaceSans).Changed(_ => current),
+                GrasshopperPreferences.Setting(Settings.TypefaceSerif).Changed(_ => current),
+                GrasshopperPreferences.Setting(Settings.TypefaceMono).Changed(_ => current),
+                GrasshopperPreferences.Setting(Settings.TypefaceScript).Changed(_ => current),
+                GrasshopperPreferences.Setting(Settings.Animations).Changed(_ => current),
+                Subscriptions.Inline<EventHandler, EventArgs>(static h => Layout.LayoutConstantsChanged += h, static h => Layout.LayoutConstantsChanged -= h, static handler => handler.Invoke).Attach(_ => current))
             .TraverseM(static subscription => subscription).As()
         select unit;
 
     // --- [DERIVATION]
 
     public static Func<PropertyId, Option<Binding>> Tinted(OpenColor.Family neutral, OpenColor.Family accent) =>
-        SkinDefinition.Default switch {
+        memo(static () => SkinDefinition.Default) switch {
             var host => id => id is var (_, family, _, variant) && family is not (PropertyId.Messaging or PropertyId.Icons) && !variant.HasFlag(PropertyId.Tentative)
-                ? Optional(host[id])
+                ? Optional(host.Value[id])
                     .Filter(static binding => !binding.IsInherited && binding.Kind is PropertyType.Colour)
-                    .Map(_ => host.Resolve(id).ToEto() switch {
+                    .Map(_ => host.Value.Resolve(id).ToEto() switch {
                         var source => Binding.Literal(SkinValue.From(new Color(OpenColor.Approximate(variant.HasFlag(PropertyId.Selected) ? accent : neutral, source), source.A))),
                     })
                 : None,
