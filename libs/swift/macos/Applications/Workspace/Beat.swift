@@ -26,7 +26,10 @@ struct Beat: Sendable {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension NSRunningApplication {
-    var isDialogHelper: Bool { bundleIdentifier.map(dialogHelpers.contains) == true }
+    var isDialogHelper: Bool {
+        bundleIdentifier.map(dialogHelpers.contains) == true
+            || activationPolicy == .accessory && bundleURL?.deletingLastPathComponent().pathComponents.contains { component in component.hasSuffix(".app") } == true
+    }
 }
 
 extension Instance {

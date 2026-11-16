@@ -17,6 +17,7 @@ private struct InfoFlag: Decodable {
 private struct BundleInfo: Decodable {
     private enum CodingKeys: String, CodingKey {
         case identifier = "CFBundleIdentifier"
+        case bundleName = "CFBundleName"
         case version = "CFBundleShortVersionString"
         case build = "CFBundleVersion"
         case scriptingDefinitionFile = "OSAScriptingDefinition"
@@ -25,6 +26,7 @@ private struct BundleInfo: Decodable {
     }
 
     let identifier: String?
+    let bundleName: String?
     let version: String?
     let build: String?
     let scriptingDefinitionFile: String?
@@ -45,6 +47,7 @@ public struct Installation: Encodable, Hashable, Sendable {
     public let executable: URL?
     public let identifier: String
     public let name: String
+    public let bundleName: String?
     public let version: String?
     public let build: String?
     public let scriptable: Bool
@@ -82,6 +85,7 @@ extension Installation {
             executable: Bundle(url: bundle)?.executableURL,
             identifier: identifier,
             name: FileManager.default.displayName(atPath: path),
+            bundleName: info?.bundleName,
             version: info?.version,
             build: info?.build,
             scriptable: values.applicationIsScriptable == true,

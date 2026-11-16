@@ -27,7 +27,7 @@ watch-apps watch <app> [<helper>]... --record <folder>
 - Process IDs read as `<pid>`, or as a line's `instance` (`<pid>@<start>`), which names one process and never a later process reusing its pid, `key` taking `<pid>` alone
 - `find`, `watch`, `launch`, and `processes` resolve the process ID of a helper executing inside an app bundle to that app
 - `find` prints `{"<name>": [<installation>...]}` per name, launching nothing and needing no Accessibility grant
-- Installations hold `url`, `executable`, `identifier`, `name`, `version`, `build`, `scriptable`, `scriptingDefinitionFile`, and `activationPolicy` (`prohibited` for `LSBackgroundOnly`, `accessory` for `LSUIElement`, else `regular`)
+- Installations hold `url`, `executable`, `identifier`, `name`, `bundleName` (`CFBundleName`), `version`, `build`, `scriptable`, `scriptingDefinitionFile`, and `activationPolicy` (`prohibited` for `LSBackgroundOnly`, `accessory` for `LSUIElement`, else `regular`)
 - `processes` prints `{"<name>": {"agents": [...], "processes": [...], "reports": [...]}}` per name, launching nothing and needing no Accessibility grant
 - `processes` takes names as `find` does, an executable path, a process ID, or an `instance`, an exited one included
 - `agents` hold each `Contents/Library/LaunchAgents` plist of the named apps with `label`, `program`, `plist`, and `keepAlive`
@@ -130,8 +130,8 @@ Lines read `{"<bundle id>": {"<pid>": {"instance": "<pid>@<start>", <state>}}}`,
 - `windows` hold `number`, `frame` (`[[x, y], [width, height]]` in screen points), `layer`, `onScreen`, `title` (absent unset or without Screen Recording), `kind`, `asking`, `presented`, and `element`
 - `presented` reads false for a window made before the app first responded that no element describes
 - `kind` reads `filePanel`, `sheet`, `alert`, `modal`, `system`, `menu`, `window`, `undescribed` (no element, Rhino's drawn dialogs among them), or `blocking`
-- `system` rows come from dialog helpers naming the app's display name as a whole word
-- Dialog helpers show crash alerts, privacy prompts, downloaded-app and Accessibility warnings, and keychain and authorization prompts
+- `system` rows come from dialog helpers naming the app's display or bundle name as a whole word
+- Dialog helpers show crash alerts, privacy prompts, downloaded-app and Accessibility warnings, and keychain and authorization prompts, and include each `accessory` app nested in an app bundle (a vendor crash reporter)
 - Apps sharing a display name share `system` rows
 - `blocking` states a new window on a blocked main thread with Accessibility silent (InDesign's `CAlert::ModalAlert`), a blocked progress window reading the same
 - `blocking` reads from an on-screen window at the modal-panel level, or a new window while the main thread sleeps through a second silent heartbeat

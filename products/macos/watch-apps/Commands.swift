@@ -146,7 +146,7 @@ struct Watch: AsyncParsableCommand {
                     }
                 }
                 group.addTask { await run.follow(NSWorkspace.shared.instanceStates(of: matching)) }
-                group.addTask { await run.follow(NSWorkspace.shared.systemPrompts(naming: applications.map(\.name))) }
+                group.addTask { await run.follow(NSWorkspace.shared.systemPrompts(naming: applications.flatMap { installation in [installation.name, installation.bundleName].compactMap(\.self) })) }
                 if let executable = Bundle.main.executableURL {
                     group.addTask {
                         switch await FileEvent.events(of: executable).first(where: { batch in batch[case: \.success]?.isEmpty != true }) {

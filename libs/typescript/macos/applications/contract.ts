@@ -220,6 +220,7 @@ class Installation extends Schema.Class<Installation, { readonly brand: unique s
     executable: Schema.OptionFromOptionalKey(Schema.URL.annotate({ description: 'Main executable of the bundle' })),
     identifier: Launched.fields.identifier,
     name: Schema.String,
+    bundleName: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'CFBundleName, the name system and crash dialogs show' })),
     version: Schema.OptionFromOptionalKey(Schema.String),
     build: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'CFBundleVersion' })),
     scriptable: Schema.Boolean,
