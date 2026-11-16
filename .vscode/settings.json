@@ -132,6 +132,10 @@
     "dotnet.projects.enableAutomaticRestore": false,
     "dotnet.server.useServerGC": false,
 
+    // --- [ESLINT] ----------------------------------------------------------------------
+
+    "eslint.validate": ["json"],
+
     // --- [JAVA] ------------------------------------------------------------------------
 
     "java.configuration.runtimes": [{ "default": true, "name": "JavaSE-27", "path": "${JAVA_HOME}" }],

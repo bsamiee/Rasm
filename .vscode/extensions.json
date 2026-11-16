@@ -5,6 +5,7 @@
         "astral-sh.ty",
         "charliermarsh.ruff",
         "ctcuff.font-preview",
+        "dbaeumer.vscode-eslint",
         "github.vscode-github-actions",
         "hverlin.mise-vscode",
         "llvm-vs-code-extensions.vscode-clangd",
@@ -28,7 +29,6 @@
     "unwantedRecommendations": [
         "christian-kohler.npm-intellisense",
         "davidanson.vscode-markdownlint",
-        "dbaeumer.vscode-eslint",
         "firefox-devtools.vscode-firefox-debug",
         "mechatroner.rainbow-csv",
         "ms-edgedevtools.vscode-edge-devtools",

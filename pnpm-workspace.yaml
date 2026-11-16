@@ -474,6 +474,8 @@ catalog:
     '@nx/vite': 24.1.0-beta.1 # `nxReadySignal` Vite plugin a served config holds
     '@nx/plugin': 24.1.0-beta.1 # Generators and checks for plugins, executors, generators, and migrations
     '@nx/workspace': 24.1.0-beta.1 # `move`, `remove`, and `infer-targets` generators
+    '@nx/eslint': 24.1.0-beta.1 # Infers the `check--eslint` target of each project an ESLint config governs
+    '@nx/eslint-plugin': 24.1.0-beta.1 # `nx-plugin-checks` rule over plugin package, executor, generator, and migration manifests
     nx-mcp: 0.25.3 # Nx MCP server answering workspace, project, and task questions for agents
 
     # --- [BUILD]
@@ -519,6 +521,8 @@ catalog:
     oxlint: 1.93.0
     oxlint-tsgolint: 7.0.2007 # Type-aware oxlint rules over the native TypeScript program
     oxfmt: 0.78.0
+    eslint: 10.15.0 # Runs the JSON rules oxlint lacks
+    jsonc-eslint-parser: 3.3.0
     publint: 0.3.25 # Published package layout checked over the tarball its package manager packs
     knip: 6.45.0 # Unused files, internal exports, and dependencies per package, catalog rows never reported
     refa: 0.12.1 # Regular expression character classes the ast-grep catalogs compare

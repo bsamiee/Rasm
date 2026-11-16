@@ -94,6 +94,13 @@
             "options": {
                 "outputPath": ".artifacts/storybook/{projectName}"
             }
+        },
+        {
+            "plugin": "@nx/eslint/plugin",
+            "options": {
+                "targetName": "check--eslint",
+                "extensions": ["json"]
+            }
         }
     ],
     "targetDefaults": {
