@@ -77,6 +77,7 @@ Values come from the code, host, or package that already states them:
 Architecture: no folder holding one file, no flat folders, no tiny or oversized files, no `.d.ts`, no `src/`, no coined names (clean-prose):
 - Libraries hold logic any product can use: each serves its whole field, couples to no product, and takes paths, names, and policy from its caller
 - Products hold only logic no other product can use, in the same uncoupled shape, and a product needing more of a field extends the field's library
+- Products never import, call, route through, or stand in for another product, a capability two share lives in a library
 - Rebuild code with its consumers, never move, alias, re-export, forward, wrap, or extract helpers, and leave no adapter or old path
 - Reduce surface (internal and external), lines, and logic by removing content and folding its capability into a smaller surface, never into nesting
 - Public API never goes for lacking readers: reader count folds private and package-internal declarations alone, weak public API is rebuilt in place
