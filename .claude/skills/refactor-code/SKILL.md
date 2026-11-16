@@ -120,7 +120,7 @@ Removal is total across the tree: every mention, consumer path, manifest row, sk
 
 ## [05]-[STRUCTURE]
 
-Inside each member, flat spam (near-identical statements, arms, or rows) and stacked decisions collapse into one structure stating each decision once, `CLAUDE.md` `[04]-[CODE_QUALITY]` and the language skill's `[PRINCIPLES]` name the forms. Extraction is the forbidden form everywhere: a helper, a closure bound to a name, or a type born of the pass keeps the shape and adds a name.
+Inside each member, flat spam (near-identical statements, arms, or rows) and stacked decisions collapse into one structure stating each decision once, `CLAUDE.md` `[04]-[CODE_QUALITY]` names the forms. Extraction is the forbidden form everywhere: a helper, a closure bound to a name, or a type born of the pass keeps the shape and adds a name.
 
 Each shape replaces one spam or nesting form:
 
@@ -143,7 +143,7 @@ Algebraic forms hold where a relation is real and are never forced:
 - Deliberate: an enum, struct, or nesting stays when a caller branches per variant or it names a real relation, a type naming neither goes
 - Catalog: a standard set callers extend is the generated enumeration beside one validated custom case, never a hand list beside a constructor
 
-Every member gets faster through logic, the language skill's hot-path line holds for each, and speed from a lock, a wait, a narrowed class, a serialized stage, or a dropped case is a regression:
+Every member gets faster through fewer passes, allocations, and parses over one input, and speed from a lock, a wait, a narrowed class, a serialized stage, or a dropped case is a regression:
 - Pass: name the pass, allocation, parse, or materialization removed (a collect before a filter, a second walk zipping by index)
 - Level: name the level touched (grammar, regex class, rule shape, util, file walk, cache key, checker option), another level hides the cause
 - Capability: every input handled before is handled after, a narrowed grammar, class, or skipped case is a regression with a timing

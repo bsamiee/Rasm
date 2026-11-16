@@ -7,11 +7,6 @@ description: "Use when writing or reviewing Python, covering functional design w
 
 Code targets Python 3.15 (`lazy` imports, `frozendict`, `TypeForm`, t-strings, comprehension unpacking), or the release of the embedded interpreter running it. Examples use Expression, msgspec, anyio, and numpy types as standard library.
 
-[PRINCIPLES]:
-- Parts adding dependencies some consumers never call sit behind an extra
-- Values that vary are parameters, a value every caller passes alike folds into its owner
-- Hot paths get faster by fewer passes, allocations, and parses over one input, never by a dropped case, a lock, or a wait
-
 [REFERENCES]:
 - [01]-[FUNCTIONS](references/functions.md): Functions as values, from partial application and dispatch to iteration, topological order, and pipelines
 - [02]-[DECORATORS](references/decorators.md): Decorator factories, stacks, and dispatch registries

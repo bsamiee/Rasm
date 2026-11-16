@@ -7,11 +7,6 @@ description: "Use when writing or reviewing C#, covering functional design with 
 
 Covers C# design from signature shape to host boundary, with LanguageExt and Thinktecture types as vocabulary.
 
-[PRINCIPLES]:
-- Parts adding dependencies some consumers never call are their own package referencing the core one
-- Values that vary are parameters, a value every caller passes alike folds into its owner
-- Hot paths get faster by fewer passes, allocations, and parses over one input, never by a dropped case, a lock, or a wait
-
 [REFERENCES]:
 - [01]-[FUNCTIONS](references/functions.md): Behavior held as function values and programs composed from them
 - [02]-[SEQUENCES](references/sequences.md): Collection work as deferred stages and folds in place of loops and accumulators

@@ -7,17 +7,6 @@ description: "Use when writing or reviewing C++ tests, covering sources of truth
 
 Tests state what code must do, from a source that code did not write. Snippets use Catch2 members.
 
-[PRINCIPLES]:
-- Expected values come from a contract, an analytic result, a second implementation, or an exemplar suite, never from code under test or its output
-- Tests count once seen failing against code lacking their behavior, for the reason they state
-- Failing tests are findings: no assertion, tolerance, case, or input class changes to pass, and no case is skipped
-- Facts a compiler decides are asserted at compile time, behavior at run time
-- Inputs get an accept direction and a reject direction
-- Tests give one result on every run and every standard library
-- Failure output names its input, expected value, and actual value
-- Tests reach code through its public declarations, a test needing a private member shows a missing parameter or type
-- Cases stand directly over a package's own types: no shared helper module, fixture base, or mock layer sits between a case and its subject
-
 [REFERENCES]:
 - [01]-[COMPILE_TIME](references/compile-time.md): Assertions in both phases, compiler facts, and paired probes
 - [02]-[CASES](references/cases.md): Test units, reject tables, bounds, type classes, and whole-value matchers

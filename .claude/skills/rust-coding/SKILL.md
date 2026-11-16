@@ -13,14 +13,6 @@ Code treats each crate as part of the language:
 - Wire and time: `serde`, `jiff`
 - Tracing: `tracing`
 
-[PRINCIPLES]:
-- Packages and hosts are used directly, with no layer that restates or wraps them, and a conversion between packages' types is no such layer
-- Features gate parts adding dependencies some consumers never call
-- Crates export their own capability and the foreign types their signatures take or return, a whole re-exported dependency adding no capability
-- Deep nesting reshapes into a match over the discriminant, a table, or a relation
-- Hot paths get faster by fewer passes, allocations, and parses over one input, never by a dropped case, a lock, or a wait
-- Varying values and methods are parameters, a caller choosing among a result's methods (percentile or BCa) in place of a callee fixing the costlier
-
 [REFERENCES]:
 - [01]-[FUNCTIONS](references/functions.md): Functions as values and composition-root factories
 - [02]-[TYPES](references/types.md): Algebraic type design and constrained values

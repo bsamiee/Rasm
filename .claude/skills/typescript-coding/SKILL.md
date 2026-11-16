@@ -7,11 +7,6 @@ description: "Use when writing or reviewing TypeScript, covering functional desi
 
 Covers functional TypeScript on Effect modules.
 
-[PRINCIPLES]:
-- Parts adding dependencies some consumers never call sit behind a subpath export with an optional peer dependency
-- Values that vary are parameters, and kinds, keys, and states are typed values rather than strings
-- Hot paths get faster by fewer passes, allocations, and parses over one input, never by a dropped case, a lock, or a wait
-
 [REFERENCES]:
 - [01]-[FUNCTIONS](references/functions.md): Functions as values and their composition
 - [02]-[TYPES](references/types.md): Types derived from the values that own them

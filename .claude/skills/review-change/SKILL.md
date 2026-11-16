@@ -134,7 +134,7 @@ Lead conduct:
 Facts a change settled leave it as principles and checks, mined after the verdict and landed in the same review:
 1. Principles hold for any file of the language, naming the form replaced, the stronger form, its category, and its criterion on placeholder names
 2. Principles name no path, session, run, count, or term the field lacks, a one-file move is none, an exception one instance needs takes no line
-3. Each lands at the skill section whose heading covers it, the `[PRINCIPLES]` list when it spans constructs, a reference when its topic sits there
+3. Each lands at the skill section whose heading covers it, or a reference when its topic sits there
 4. Weak lines are replaced or split, a snippet rewritten whole, a wrong line deleted with every mention and nothing standing in its place
 5. `rg -F` over the language's skill folders shows where another file states the fact, the owner line stays and nothing is added beside it
 6. Each routes through `[03]` to its check, its message short and agent-facing

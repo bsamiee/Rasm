@@ -9,11 +9,6 @@ Code uses each module's types wherever they state a value:
 - Toolchain: standard library, Swift Concurrency, `Observation`, `Synchronization`, `System`
 - Packages: `Collections`, `AsyncAlgorithms`, `CasePaths` (`CasePathsCore` for code that reads case paths alone), `Subprocess`, `ArgumentParser`
 
-[PRINCIPLES]:
-- Parts adding dependencies some consumers never call sit behind a package trait
-- Values that vary are parameters, a value every caller passes alike folds into its owner, and a field no reader acts on goes
-- Hot paths get faster by fewer passes, allocations, and parses over one input, never by a dropped case, a lock, or a wait
-
 [REFERENCES]:
 - [01]-[FUNCTIONS](references/functions.md): Closure effects, function references, predicates and comparators as values, and dependencies
 - [02]-[RESULTS](references/results.md): Accumulation, validation, workflows, task results, and entry points

@@ -7,18 +7,6 @@ description: "Use when writing or reviewing C++ or Objective-C++, covering type 
 
 Translation units take the standard library as their first package, and a member it lacks comes from a package implementing its proposal.
 
-[PRINCIPLES]:
-- Properties a compiler can decide are types, constraints, and constant evaluation, run time decides what input alone decides
-- Every pointer, reference, view, and handle states by type whether it owns, borrows, or shares, and no borrow outlives its owner
-- Types are regular values built complete in one expression, indirection and identity enter where a resource or sharing needs them
-- Failures a caller handles are outcome values, and an exception stops at the dependency call that throws it
-- Closed sets are enumerations and variants, open sets constrained templates, and virtual dispatch serves implementations arriving at run time
-- Clocks, random engines, environment values, and files enter as parameters, a function reading one from a static hides an input
-- Guards answer a state their types admit: a null test on a reference, a `default` arm over a listed enumeration, and a `catch` supplying a fallback go
-- Templates, concepts, policies, and options exist for a second present use, one written for a single caller folds back into it
-- Standard and package members state each algorithm, container, parse, format, and wait before a hand-written loop or type does
-- Hot paths get faster by less work, denser layout, and fewer allocations and copies, each measured, never by a dropped case, a lock, or a wait
-
 [REFERENCES]:
 - [01]-[TYPES](references/types.md): Constrained and tagged values, sum types, enumerations, and resource owners
 - [02]-[OWNERSHIP](references/ownership.md): Bound views through an explicit object parameter, optional borrows, captures, and caller arenas
