@@ -72,6 +72,7 @@ rule:
         any:
             - has: { kind: parameter_list, has: { matches: status } }
             - has: { field: body, has: { matches: status } }
+    not: { inside: { stopBy: end, matches: owner, has: { stopBy: end, kind: attribute, regex: '^(System\.Text\.Json\.Serialization\.)?JsonPropertyName(Attribute)?\(' } } }
     any:
         - kind: parameter
           all:

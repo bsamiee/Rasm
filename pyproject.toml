@@ -519,6 +519,7 @@ ignore                    = [
     "hashlib-digest-hex",                                                                                                                                                                        # refurb FURB181 covers attribute receivers
     "undefined-name",                                                                                                                                                                            # ty `unresolved-reference` owns undefined names
     "any-type",                                                                                                                                                                                  # mypy `disallow_any_explicit` owns explicit `Any` in every position
+    "magic-value-comparison",                                                                                                                                                                    # Moves a compared literal into a constant only that comparison reads
 ]
 flake8-bandit             = { check-typed-exception = true }
 flake8-boolean-trap       = { extend-allowed-calls = ["expression.Ok", "expression.Some", "iter"] }
@@ -530,7 +531,7 @@ pycodestyle               = { max-line-length = 300 }
 pydocstyle                = { convention = "google" }
 pydoclint                 = { ignore-one-line-docstrings = true }
 task-tags                 = ["---", "TODO", "FIXME", "XXX"]                                                                                                                                      # `# --- [<LABEL>]` dividers open with `---`, commented-out-code skips comments opening with a task tag
-pylint                    = { allow-dunder-method-names = ["__name__", "__version__"], allow-magic-value-types = ["str", "bytes", "int"] }                                                       # Protocol properties type module attributes, which ty matches to a property alone
+pylint                    = { allow-dunder-method-names = ["__name__", "__version__"] }                                                                                                          # Protocol properties type module attributes, which ty matches to a property alone
 
 [tool.ruff.lint.per-file-ignores]
 "**/tests/**"                                                             = ["assert", "implicit-namespace-package"]                                                # pytest imports each test file by rootdir path, a test root holds no package

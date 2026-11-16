@@ -163,4 +163,4 @@ rule:
                     - has: { field: body, has: { matches: &read { swift-forwarded-member: { read: { pattern: $F } } } } }
                     - has: { kind: computed_property, not: { has: { kind: 'computed_setter, computed_modify' } }, any: [{ has: { matches: *read } }, { has: { kind: computed_getter, has: { matches: *read } } }] }
 message: 'Declaration passes or assigns its parameters and fixed values unchanged where `$F` already takes them'
-note: 'Call `<callee>` or read `<value>.<member>` at each use, keep one memberwise init'
+note: 'Call `<callee>` or read `<value>.<member>` at each use with the held storage `public private(set)`, keep one memberwise init'

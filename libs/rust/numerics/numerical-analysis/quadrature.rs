@@ -138,7 +138,6 @@ fn summed<T>(
 where
     T: DualNum<Primitive = f64>,
 {
-    #[expect(clippy::arithmetic_side_effects, reason = "Clippy cannot match arithmetic allowances through DualNum bounds")]
     fn scaled<T>(values: DVector<T>, (mantissa, exponent): (f64, isize)) -> DVector<T>
     where T: DualNum<Primitive = f64> {
         let extent = if exponent > 0 { f64::MAX_EXP.strict_sub(1) } else { f64::MIN_EXP }.strict_cast::<isize>();

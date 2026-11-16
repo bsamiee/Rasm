@@ -309,6 +309,10 @@ def _block_spacing(doc: _Doc[SyntaxTreeNode]) -> Iterator[_Edit]:
 # --- [SOURCE]
 
 
+def _masked_script_metadata(text: str) -> str:
+    return regex.sub(r"(?m)^# /// [a-zA-Z0-9-]+$\s(?:^#(?:| .*)$\s)+^# ///$", lambda block: regex.sub(r"[^\n]", " ", block[0]), text)
+
+
 def _masked_raw_strings(text: str) -> str:
     return regex.sub(r'(?s)(\$*("{4,}))(?!")(.*?)\2(?!")', lambda raw: f"{raw[1]}{regex.sub(r'[^\n]', ' ', raw[3])}{raw[2]}", text)
 
@@ -551,6 +555,7 @@ _LANGUAGES: frozendict[str, _Language[SyntaxTreeNode] | _Language[_Line]] = froz
     ".py": replace(
         _CODE,
         lexer="python",
+        mask=_masked_script_metadata,
         formatter_gaps=(_first_in_block, partial(_in_brackets, "([{", ""), _top_level_blank_lines, partial(_neighbor_matches, r"^[\s\x1c-\x1f]", divider_below=True, token_type=String.Doc)),
     ),
     ".sh": replace(_CODE, lexer="bash"),

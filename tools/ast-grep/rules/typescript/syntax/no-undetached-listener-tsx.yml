@@ -13,6 +13,7 @@ rule:
     any:
         - all:
               - matches: removal
+              - not: { has: { field: function, has: { field: property, regex: '^removeEventListener$' } } }
               - has: { field: arguments, has: { nthChild: { position: 2, ofRule: *code }, kind: 'arrow_function, function_expression' } }
         - all:
               - has: { field: function, kind: member_expression, has: { field: property, regex: '^(addEventListener|addListener|prependListener|on|once)$' } }

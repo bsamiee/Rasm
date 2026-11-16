@@ -5,7 +5,7 @@ pytest suites of the Python packages Nx runs.
 ## [01]-[PRINCIPLES]
 
 - Test projects are virtual uv members under `tests/`, at the path of the source they test, never built or published
-- Tests import packages by `rasm.<name>` through the editable install, as a consumer reads them
+- Tests import packages by import name through the editable install, as a consumer reads them
 - One `tests/pytest.toml` configures every suite, as pytest never merges configuration files
 - Suites run under `--import-mode=importlib`, the mode pytest recommends for new projects
 - Fixtures shared across suites sit in the `tests/support/python` package and load as pytest plugins by module name
@@ -42,7 +42,7 @@ pytest suites of the Python packages Nx runs.
 
 | [INDEX] | [WRONG]                                                    | [CORRECT]                                           |
 | :-----: | :--------------------------------------------------------- | :-------------------------------------------------- |
-|  [01]   | Tests importing a sibling by file path or `sys.path` edits | `rasm.<name>` through the editable install          |
+|  [01]   | Tests importing a sibling by file path or `sys.path` edits | Import name through the editable install            |
 |  [02]   | `prepend` import mode                                      | `--import-mode=importlib`                           |
 |  [03]   | Plugins found by entry-point autoload                      | `--disable-plugin-autoload` and one `-p` per plugin |
 |  [04]   | Test helpers imported from another test module             | Helpers in an importable package                    |

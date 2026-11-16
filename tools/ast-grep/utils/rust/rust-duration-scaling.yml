@@ -15,7 +15,7 @@ utils:
         has: { field: operator, regex: '^\*$' }
     mul-call:
         kind: call_expression
-        has: { field: function, kind: field_expression, has: { field: field, regex: '^(saturating|strict|wrapping|unchecked)_mul$' } }
+        has: { field: function, kind: field_expression, has: { field: field, regex: '^(strict|unchecked)_mul$' } }
     scaled:
         any: [{ matches: product }, { matches: mul-call }]
     thousand-literal:

@@ -4,8 +4,6 @@ uv workspace layout of the Python packages Nx runs.
 
 ## [01]-[PRINCIPLES]
 
-- Packages import under the PEP 420 namespace `rasm` as `rasm.<name>`, and their distributions are named `rasm-<name>`
-- Each project folder holds `pyproject.toml`, `README.md`, `LICENSE`, and `rasm/<name>/`, with no `rasm/__init__.py`
 - `uv_build` builds every package, and hatchling builds a package alone where a build hook or a dynamic field needs it
 - One uv workspace resolves one `requires-python`, so each Python minor takes its own uv root
 - Siblings resolve through editable installs, which expose the import names their wheels expose
@@ -42,8 +40,7 @@ license-files     = ["LICENSE"]
 authors           = [{ name = "<author>", email = "<email>" }]
 classifiers       = ["Private :: Do Not Upload"]
 requires-python   = ">=3.13"
-import-names      = ["rasm.<name>"]
-import-namespaces = ["rasm"]
+import-names      = ["<import name>"]
 dependencies      = ["<dependency>"]
 
 [project.urls]
@@ -54,26 +51,24 @@ requires      = ["uv_build>=0.13.8,<0.14.0"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]
-module-name = "rasm.<name>"
+module-name = "<import name>"
 module-root = ""
 ```
 
-| [INDEX] | [FIELD]                      | [VALUE]                         | [REASON]                                                     |
-| :-----: | :--------------------------- | :------------------------------ | :----------------------------------------------------------- |
-|  [01]   | `module-name`                | `"rasm.<name>"`                 | Dotted name builds a namespace module with one root          |
-|  [02]   | `module-root`                | `""`                            | `rasm/` sits in the project folder, no `src/`                |
-|  [03]   | `import-names`               | `["rasm.<name>"]`               | PEP 794 guess `rasm_<name>` names nothing                    |
-|  [04]   | `import-namespaces`          | `["rasm"]`                      | Every package shares `rasm`, which no package provides alone |
-|  [05]   | `requires`                   | `uv_build` bounded to its minor | Unbounded row warns on sdist builds                          |
-|  [06]   | `classifiers`                | `Private :: Do Not Upload`      | Publish switch nx-uv reads                                   |
-|  [07]   | `[tool.ruff] extend`         | Root `pyproject.toml`           | `>=3.13` members, ruff targets their range                   |
-|  [08]   | `dependencies = []`          | Absent                          | Empty list is the absent value                               |
-|  [09]   | `Typing :: Typed` classifier | Absent                          | No tool reads it                                             |
+| [INDEX] | [FIELD]                      | [VALUE]                         | [REASON]                                                  |
+| :-----: | :--------------------------- | :------------------------------ | :-------------------------------------------------------- |
+|  [01]   | `module-name`                | Import name                     | Module `uv_build` builds when it differs from the name    |
+|  [02]   | `module-root`                | `""`                            | Module folder sits in the project folder, no `src/`       |
+|  [03]   | `import-names`               | Import name                     | PEP 794 row tools read in place of guessing from the name |
+|  [04]   | `requires`                   | `uv_build` bounded to its minor | Unbounded row warns on sdist builds                       |
+|  [05]   | `classifiers`                | `Private :: Do Not Upload`      | Publish switch nx-uv reads                                |
+|  [06]   | `[tool.ruff] extend`         | Root `pyproject.toml`           | `>=3.13` members, ruff targets their range                |
+|  [07]   | `dependencies = []`          | Absent                          | Empty list is the absent value                            |
+|  [08]   | `Typing :: Typed` classifier | Absent                          | No tool reads it                                          |
 
 ## [04]-[IMPORT_NAMES]
 
 - `uv_build`'s default module is the normalized distribution name (`rasm_<name>`), and `module-name` sets another
-- `uv_build` refuses `__init__.py` in a dotted name's parents, so `rasm/` stays a namespace folder in every project
 - `uv_build` refuses a module root outside the project ("Module root must be inside the project"), so a project folder cannot itself be the package
 - Entry `__init__.py` files forward public names and close on `__all__`, private modules and internal subpackages take `_`
 - `[project.entry-points."refurb.plugins"]` names `rasm.refurb`, and refurb loads that module and walks every module under it
@@ -83,12 +78,11 @@ module-root = ""
 
 | [INDEX] | [BACKEND]                             | [EDITABLE_FORM]                     | [ON_SYS_PATH]                         |
 | :-----: | :------------------------------------ | :---------------------------------- | :------------------------------------ |
-|  [01]   | `uv_build`, `module-root = ""`        | One `.pth` holding the project path | Project folder: `rasm/` and its peers |
+|  [01]   | `uv_build`, `module-root = ""`        | One `.pth` holding the project path | Project folder and every folder in it |
 |  [02]   | `hatchling`, `dev-mode-dirs = [".."]` | One `.pth` holding the parent       | Every sibling project folder          |
 |  [03]   | `hatchling`, `dev-mode-exact = true`  | `editables` proxy modules           | Nothing mypy or ty resolve            |
 |  [04]   | `setuptools`, any layout              | Import hook finder                  | Nothing mypy, ty, or pyright resolve  |
 
-- `.pth` entries of every member merge into one `rasm` namespace at runtime
 - `hatchling` detection mode refuses a `sources` rewrite that adds a prefix, so a package folder equal to its project folder needs `dev-mode-dirs`
 - `dev-mode-exact` adds `Requires-Dist: editables`, which `uv sync` never installs, as it installs from the lock
 - `ty` reads every path line of each `site-packages/*.pth`, and mypy reads the interpreter's `sys.path` after `site` processes them
@@ -99,7 +93,7 @@ module-root = ""
 - Blender installs the wheels of every enabled extension into one `extensions/.local/lib/python3.13/site-packages`, ahead of its bundled one
 - Top-level names of bundled wheels therefore share one namespace across every installed extension
 - Darkroom's extension build (`vendored.py` of `@rasm/nx-distribution`) unpacks local wheels into the staged extension
-- Script `vendored.py` rewrites each absolute import of their top-level names to a relative one, so `rasm/` sits inside the extension package
+- Script `vendored.py` rewrites each absolute import of their top-level names to a relative one, so the libraries sit inside the extension package
 - Blender loads an extension as `bl_ext.<repository>.<id>`, so the extension root is its package and its modules import each other relatively
 - Darkroom keeps hatchling for `dynamic = ["version"]`, read from `blender_manifest.toml`
 - Dynamic fields make uv run a metadata build even under `package = false`, falling back to setuptools without a backend
@@ -121,13 +115,8 @@ module-root = ""
 
 | [INDEX] | [WRONG]                                                         | [CORRECT]                                                   |
 | :-----: | :-------------------------------------------------------------- | :---------------------------------------------------------- |
-|  [01]   | `rasm_<name>` import folders called tool-forced                 | `module-name = "rasm.<name>"`, which uv_build reads         |
-|  [02]   | Bare top-level import names (`records`, `extension`)            | `rasm.<name>` under the shared `rasm` namespace             |
-|  [03]   | Project folder as the package, hatchling `sources = {"" = ...}` | `rasm/<name>/` inside the project folder, uv_build          |
-|  [04]   | `dev-mode-dirs = [".."]`                                        | `uv_build` editables holding the project folder alone       |
-|  [05]   | `rasm/__init__.py`                                              | Namespace folder with no `__init__.py`                      |
-|  [06]   | Internal subpackages renamed public to drop `_`                 | `_` on every module and subpackage only its package imports |
-|  [07]   | No `import-names` row                                           | `import-names` and `import-namespaces` in every manifest    |
-|  [08]   | `environments` comment claiming a missing wheel fails `uv lock` | `required-environments` beside `environments`               |
-|  [09]   | `ruff` and yamllint in uv dependency groups                     | `mise` `[tools]` rows                                       |
-|  [10]   | Darkroom with no `[build-system]` beside a dynamic version      | `hatchling` reading `blender_manifest.toml`                 |
+|  [01]   | `dev-mode-dirs = [".."]`                                        | `uv_build` editables holding the project folder alone       |
+|  [02]   | Internal subpackages renamed public to drop `_`                 | `_` on every module and subpackage only its package imports |
+|  [03]   | `environments` comment claiming a missing wheel fails `uv lock` | `required-environments` beside `environments`               |
+|  [04]   | `ruff` and yamllint in uv dependency groups                     | `mise` `[tools]` rows                                       |
+|  [05]   | Darkroom with no `[build-system]` beside a dynamic version      | `hatchling` reading `blender_manifest.toml`                 |

@@ -3,7 +3,7 @@ language: pythonlang
 severity: error
 utils:
     invisible:
-        regex: '(?:^|[^\p{Extended_Pictographic}\p{Emoji_Modifier}\x{200D}\x{FE0E}\x{FE0F}#*0-9])[\x{200C}\x{200D}\x{FE0E}\x{FE0F}]|(?:^|[^\x{1F3F4}\x{E0020}-\x{E007F}])[\x{E0020}-\x{E007F}]|[\p{Default_Ignorable_Code_Point}--[\x{61C}\x{200B}\x{200C}\x{200D}\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}\x{FE0E}\x{FE0F}\x{E0020}-\x{E007F}]]'
+        regex: '(?:^|[^\p{Extended_Pictographic}\p{Emoji_Modifier}\p{L}\p{M}\x{200D}\x{FE0E}\x{FE0F}#*0-9])[\x{200C}\x{200D}]|(?:^|[^\p{Extended_Pictographic}\p{Emoji_Modifier}\x{200D}#*0-9])[\x{FE0E}\x{FE0F}]|(?:^|[^\x{1F3F4}\x{E0020}-\x{E007F}])[\x{E0020}-\x{E007F}]|[\p{Default_Ignorable_Code_Point}--[\x{61C}\x{200B}\x{200C}\x{200D}\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}\x{FE0E}\x{FE0F}\x{E0020}-\x{E007F}]]'
     outermost:
         kind: string
         matches: invisible

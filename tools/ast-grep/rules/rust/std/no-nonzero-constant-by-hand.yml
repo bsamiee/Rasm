@@ -8,7 +8,6 @@ rule:
     kind: call_expression
     all:
         - has: { field: arguments, has: { kind: integer_literal } }
-        - not: { inside: { kind: field_declaration, stopBy: { kind: 'block, field_declaration' } } }
         - any:
               - all:
                     - has: { field: function, kind: scoped_identifier, regex: '^((::)?(std|core)::num::)?NonZero(::<\p{XID_Continue}+>)?::saturating_add$' }

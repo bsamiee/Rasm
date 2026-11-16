@@ -21,7 +21,7 @@ utils:
         kind: call_expression
         any:
             - all:
-                  - has: { field: function, kind: field_expression, all: [{ has: { field: value, pattern: $PATH } }, { has: { field: field, regex: '^(fs_err_try_exists|try_exists|exists|is_file|is_dir)$' } }] }
+                  - has: { field: function, kind: field_expression, all: [{ has: { field: value, pattern: $PATH } }, { has: { field: field, regex: '^(fs_err_try_exists|try_exists|exists)$' } }] }
                   - matches: rust-argumentless-call
             - all:
                   - has: { field: function, regex: '^((::)?tokio::fs::|fs::|(::)?fs_err::(tokio::)?)(exists|try_exists)$' }

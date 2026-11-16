@@ -14,17 +14,11 @@ Code treats each crate as part of the language:
 - Tracing: `tracing`
 
 [PRINCIPLES]:
-- Facts are stated once where they belong, and everything else derives from that source
 - Packages and hosts are used directly, with no layer that restates or wraps them, and a conversion between packages' types is no such layer
-- Every type, export, and helper states something nothing else does
-- Libraries give callers composable parts over a dependency's own types, callers choosing entry point, runtime, transport, and configuration
 - Features gate parts adding dependencies some consumers never call
 - Crates export their own capability and the foreign types their signatures take or return, a whole re-exported dependency adding no capability
 - Deep nesting reshapes into a match over the discriminant, a table, or a relation
-- Error cases exist where a caller branches on them, every other failure joins its owner's error
-- Checker findings and disagreements resolve by a stronger shape or at the cause's owner, never by a suppression, a lowered level, or a narrower rule
 - Hot paths get faster by fewer passes, allocations, and parses over one input, never by a dropped case, a lock, or a wait
-- Changes leave code smaller or more capable, a move, split, rename, or extracted helper changes nothing
 - Varying values and methods are parameters, a caller choosing among a result's methods (percentile or BCa) in place of a callee fixing the costlier
 
 [REFERENCES]:
@@ -511,7 +505,7 @@ Libraries return their own error, and the application composes each failure poli
 ## [07]-[NUMERICS]
 
 Numeric facts come from the type or package that states them:
-- Integer and `Decimal` arithmetic is `checked_*` returning `Option`, `strict_*` where overflow is a defect no caller input reaches, `saturating_*` where clamping rules
+- Integer and `Decimal` arithmetic a caller input can overflow is `checked_*` returning `Option`, `saturating_*` where clamping rules, operators elsewhere
 - Dependency bounds stated as `< 2^n` are the full `u<n>` range of indices, never a `u<n>` count falling one short
 - Unsigned division and remainder take `NonZero` divisors; signed checked operations also refuse `MIN / -1` overflow
 - `rem_euclid` states remainder sign, and `is_multiple_of` tests divisibility
@@ -523,7 +517,7 @@ Numeric facts come from the type or package that states them:
 - Checked integer generics use `CheckedAdd` or `CheckedSub`; other promised families can take `Fn(T, T) -> Option<T>` policies
 - Generic `uom` arithmetic bounds `Quantity<D, SI<f64>, f64>` with `D::Kind: marker::Add` or `marker::Sub`
 - Native operators retain their meaning; equivalent method calls leave arithmetic diagnostic causes unresolved
-- Operators state float, dual, complex, and matrix arithmetic, clippy `arithmetic-side-effects-allowed` listing each operand type in place of `.sum()` over a pair
+- Operators state float, dual, complex, and matrix arithmetic in place of `.sum()` over a pair
 - Durations convert units through their constructors (`SignedDuration::from_mins`)
 - Counts enter float arithmetic through `nalgebra::convert::<usize, f64>`, and `cmp::minmax_by(a, b, f64::total_cmp)` orders a float pair, `cmp::minmax(a, b)` keying an unordered pair
 - Sparse systems solved per value set factor their pattern once (`SymbolicLlt::try_new` over a stored `Argsort`) and refill through `Llt::try_new_with_symbolic`

@@ -23,6 +23,7 @@ rule:
         - not: { has: { pattern: $_, not: { matches: named-pair } } }
         - not: { has: { kind: tuple_expression, has: { kind: scoped_identifier, pattern: $V }, precedes: { stopBy: end, kind: tuple_expression, has: { kind: scoped_identifier, pattern: $V } } } }
         - inside: { kind: source_file, stopBy: end, has: { stopBy: end, kind: enum_item, has: { field: name, pattern: $E } } }
+        - not: { matches: rust-test-scope }
         - pattern: $TABLE
 transform:
     HEAD: { replace: { source: $TABLE, replace: '(?s)^\[\p{Pattern_White_Space}*([^\n]*?)\p{Pattern_White_Space}*\n.*$', by: '[$1 ..]' } }

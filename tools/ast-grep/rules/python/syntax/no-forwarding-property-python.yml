@@ -119,4 +119,4 @@ rule:
                           - has: { kind: decorator, has: { kind: attribute, all: [{ has: { field: object, pattern: $NAME } }, { has: { field: attribute, regex: '^(setter|deleter)$' } }] } }
                           - not: { has: { field: definition, matches: forwarding-accessor } }
 message: 'Property `$NAME` forwards `$READ` unchanged'
-note: 'Read `<owner>.<member>` or call `<owner>.<method>()` at each use, or delete an override returning `super().<name>`'
+note: 'Read `<owner>.<member>` or call `<owner>.<method>()` at each use with the held record a public field, or delete an override returning `super().<name>`'

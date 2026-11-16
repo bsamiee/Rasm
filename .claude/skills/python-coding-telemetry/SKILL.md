@@ -146,9 +146,6 @@ Roots call `limited` once per resource, and each collection reads borrowed token
 
 Events are constant names, and each varying value goes in a keyword field. Module loggers annotate `log: FilteringBoundLogger = structlog.get_logger(__name__)`, a lazy proxy typed `Any` built at first log call:
 - Components holding fixed context (a connection) receive a bound logger as an argument
-- Host plug-ins bind `rasm.telemetry.logger(<package>)` and add `LogSettings.handler(<path>, service=<id>, version=<version>)` in a host folder
-- Process entry modules run each command line inside `rasm.cli.invoked`, and `rasm.telemetry.process.instrumented` configures structlog for its scope
-- Background processes a host plug-in starts for one of its commands enter `rasm.telemetry.process.instrumented` under the command's name
 - `configure` in a shared host process reaches every sibling, and `merge_contextvars` takes their bound fields
 - Call keywords win over bound keys, and bound keys win over context-local keys
 - `bind` at module scope before `configure` builds a logger from builtin defaults that keeps printing console lines to stdout

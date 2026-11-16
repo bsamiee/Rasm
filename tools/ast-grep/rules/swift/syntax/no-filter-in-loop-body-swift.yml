@@ -141,16 +141,5 @@ rule:
                                         - not: { has: { regex: '^(,|else)$' } }
                                         - has: { field: condition, matches: reads-item }
                                         - has: { matches: continue-body }
-              - all:
-                    - matches: kept-item
-                    - has:
-                          matches: swift-sole-statement
-                          has:
-                              kind: if_statement
-                              all:
-                                  - matches: boolean-test
-                                  - not: { has: { regex: '^else$' } }
-                                  - has: { not: { kind: statements }, matches: reads-item }
-                                  - has: { kind: statements }
 message: '`for` over `$COLL` selects elements by a test at the top of its body'
 note: 'Select in `for` by `case`, `where`, or lazy `compactMap`, keeping throwing or asynchronous binding steps in the body'

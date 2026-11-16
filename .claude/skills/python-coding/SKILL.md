@@ -8,18 +8,9 @@ description: "Use when writing or reviewing Python, covering functional design w
 Code targets Python 3.15 (`lazy` imports, `frozendict`, `TypeForm`, t-strings, comprehension unpacking), or the release of the embedded interpreter running it. Examples use Expression, msgspec, anyio, and numpy types as standard library.
 
 [PRINCIPLES]:
-- Facts are stated once where they belong, and everything else derives from that source
-- Packages and hosts are used directly through what they provide, with no layer that restates or wraps them
-- Types, exports, and helpers state their own fact
-- Private one-reader helpers, aliases, forwarders, and renames merge into their owner, entry imports excepted
-- Libraries give callers composable parts over a dependency's own types, callers choosing entry point, runtime, transport, and configuration
 - Parts adding dependencies some consumers never call sit behind an extra
-- Layers adding a fact to a dependency (tracing, proxying) attach where its own adapters do, and a forwarder per member marks a misplaced layer
 - Values that vary are parameters, a value every caller passes alike folds into its owner
-- Error cases exist where a caller branches on them, every other failure joins its owner's error
-- Checker findings and disagreements resolve by a stronger shape or at the cause's owner, never by a suppression, a lowered level, or a narrower rule
 - Hot paths get faster by fewer passes, allocations, and parses over one input, never by a dropped case, a lock, or a wait
-- Changes leave code smaller and more capable, a move, split, rename, or extracted helper changes nothing
 
 [REFERENCES]:
 - [01]-[FUNCTIONS](references/functions.md): Functions as values, from partial application and dispatch to iteration, topological order, and pipelines
@@ -428,14 +419,14 @@ class Lease(msgspec.Struct, frozen=True, kw_only=True):
 
 ## [06]-[MODULES]
 
-Each module holds one owner, and imports point down its layers, absolute from the `rasm` namespace:
+Each module holds one owner, and imports point down its layers, absolute from its package root:
 
 ```python
 import msgspec
 lazy from expression import Ok
 lazy import numpy as np
 
-lazy from rasm.signals._faults import Outcome
+lazy from signals import Outcome
 
 
 class Window(msgspec.Struct, frozen=True, kw_only=True):
@@ -451,11 +442,9 @@ def smoothed(window: Window, values: np.ndarray, /) -> Outcome[np.ndarray]:
 - Imports bind each name as its source declares it or as its import convention aliases it (`np`)
 - Names another import or definition holds read through their module (`msgspec.Struct`)
 - Names a module defines take no import of the same name
-- Packages sit in `rasm/<name>/` under the PEP 420 namespace `rasm`, which holds no `__init__.py`, and import as `rasm.<name>`
 - Each package's `__init__.py` is its entry: a docstring, one import per private module of its public names, and `__all__`
 - Private modules and internal subpackages take `_`, siblings import them by that path and re-export nothing
 - Consumers import entries alone, so a module or subpackage no consumer imports stays private
-- Entries export every capability a consumer outside the package composes, whether a consumer exists or not
 - Names a sibling module imports are public in their private module's `__all__`, names one file alone reads take `_` and leave every `__all__`
 - Names a host or codec derives from (command key, wire tag) stay public or state the derived value
 - Annotations stay unquoted, runtime readers call `annotationlib.get_annotations`

@@ -4,5 +4,5 @@
     "singleQuote": true,
     "sortImports": { "newlinesBetween": false },
     "ignorePatterns": ["assets/**", ".claude/workflows/**", ".config/mise/locks/**", "**/packages*.lock.json", "**/*.md", "**/*.toml", "**/*.xcassets", "**/*.icon"],
-    "overrides": [{ "files": ["products/web/**", "libs/typescript/web/**"], "options": { "sortTailwindcss": { "stylesheet": "./products/web/portfolio/site/theme.css" } } }]
+    "overrides": [{ "files": ["products/web/portfolio/**"], "options": { "sortTailwindcss": { "stylesheet": "./products/web/portfolio/site/theme.css" } } }]
 }

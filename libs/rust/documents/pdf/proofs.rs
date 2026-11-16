@@ -31,7 +31,7 @@ pub enum Appearance {
 pub struct Raster {
     pub resolution: Resolution,
     pub appearance: Option<Appearance> = None,
-    pub tile: NonZero<u16> = NonZero::<u16>::saturating_add(NonZero::<u16>::MIN, 4095),
+    pub tile: NonZero<u16> = NonZero::new(4096).unwrap(),
     #[derive_where(skip(Debug))]
     pub interpreter_settings: Option<InterpreterSettings> = None,
     #[derive_where(skip(Debug))]

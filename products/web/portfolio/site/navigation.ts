@@ -14,7 +14,6 @@ const UrlFragment = Object.assign((project: typeof EntryId.Type, composition?: t
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-// oxlint-disable-next-line unicorn/prefer-number-coercion -- `scrollPaddingTop` is a CSS length (`72px`), `Number` reads it as NaN
 const line = () => Number.parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop);
 const first = (entry: typeof Entry.Type, composition: typeof CompositionId.Type | undefined) => (entry.compositions.find(({ id }) => id === composition) ?? entry.compositions[0])?.id;
 const write = (method: 'pushState' | 'replaceState', target: string) => {

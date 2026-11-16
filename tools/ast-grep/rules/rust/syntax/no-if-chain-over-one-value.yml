@@ -19,8 +19,7 @@ utils:
     pattern-operand:
         any:
             - kind: 'integer_literal, char_literal, boolean_literal, float_literal'
-            - { kind: scoped_identifier, has: { field: name, regex: '^\p{Lu}' } }
-            - { kind: identifier, regex: '^\p{Lu}[\p{Lu}\p{Nd}_]+$' }
+            - { kind: scoped_identifier, has: { field: name, regex: '^\p{Lu}\p{Ll}' } }
             - matches: rust-negative-number
             - kind: call_expression
               all:

@@ -67,4 +67,4 @@ class ItemPreferences(bpy.types.AddonPreferences):
             rna_keymap_ui.draw_kmi([], user, owner, entry, self.layout, 0)
 ```
 
-`owned` names the classes `CLASSES` lists, matching items that call the extension's operators or open its menus and panels through `wm.call_menu`, `wm.call_menu_pie`, and `wm.call_panel`. `rasm.extension.commands.Keymap.drawn` draws the same editors over the items of one `Keymap` row.
+`owned` names the classes `CLASSES` lists, matching items that call the extension's operators or open its menus and panels through `wm.call_menu`, `wm.call_menu_pie`, and `wm.call_panel`. `Keymap.drawn` draws the same editors over the items of one `Keymap` row.

@@ -16,6 +16,7 @@
         "max-statements": "off",
         "new-cap": ["error", { "capIsNew": false }],
         "no-bitwise": ["error", { "allow": ["&"] }],
+        "no-fallthrough": "off",
         "no-magic-numbers": "off",
         "no-param-reassign": ["error", { "props": true }],
         "no-redeclare": "off",
@@ -23,7 +24,6 @@
             "error",
             { "name": "Buffer", "message": "Import `Buffer` from `node:buffer`, so the load graph sees the host module" },
             { "name": "clearImmediate", "message": "Import `clearImmediate` from `node:timers`, so the load graph sees the host module" },
-            { "name": "global", "message": "Use `globalThis`" },
             { "name": "setImmediate", "message": "Import `setImmediate` from `node:timers`, so the load graph sees the host module" }
         ],
         "no-restricted-imports": [
@@ -34,7 +34,7 @@
                     { "name": "smol-toml", "message": "Parse TOML through `Toml.parse` from `effect/encoding`" },
                     { "name": "yaml", "importNames": ["parse"], "message": "Parse YAML through `Yaml.parse` from `effect/encoding`" }
                 ],
-                "patterns": [{ "group": ["./**", "../**", ".", ".."], "message": "Import the package's own modules through `#/` and other packages through their `@rasm/<lib>` entries" }]
+                "patterns": [{ "group": ["./**", "../**", ".", ".."], "message": "Import the package's own modules through `#/` and other packages by name" }]
             }
         ],
         "no-ternary": "off",
@@ -59,9 +59,11 @@
         "node/no-sync": "off",
         "node/no-top-level-await": "off",
         "oxc/no-async-await": "off",
+        "oxc/no-const-enum": "off",
         "oxc/no-map-spread": "off",
         "oxc/no-optional-chaining": "off",
         "oxc/no-rest-spread-properties": "off",
+        "promise/avoid-new": "off",
         "promise/prefer-await-to-callbacks": "off",
         "promise/prefer-await-to-then": "off",
         "promise/valid-params": "off",
@@ -86,9 +88,15 @@
         "typescript/no-generated-empty-object-type": "off",
         "typescript/no-invalid-void-type": "off",
         "typescript/no-misused-spread": "off",
+        "typescript/no-mixed-enums": "off",
+        "typescript/no-namespace": "off",
         "typescript/no-unnecessary-type-arguments": "off",
+        "typescript/parameter-properties": "off",
+        "typescript/prefer-enum-initializers": "off",
+        "typescript/prefer-literal-enum-member": "off",
         "typescript/prefer-readonly-parameter-types": "off",
         "typescript/promise-function-async": "off",
+        "typescript/strict-boolean-expressions": "off",
         "typescript/unbound-method": "off",
         "unicorn/import-style": ["error", { "styles": { "node:path": { "named": true, "default": false } } }],
         "unicorn/max-nested-calls": "off",
@@ -100,7 +108,9 @@
         "unicorn/no-null": "off",
         "unicorn/no-useless-undefined": ["error", { "checkArguments": false, "checkArrowFunctionBody": false }],
         "unicorn/number-literal-case": "off",
+        "unicorn/prefer-number-coercion": "off",
         "unicorn/prefer-query-selector": "off",
+        "unicorn/prefer-spread": "off",
         "unicorn/text-encoding-identifier-case": ["error", { "withDash": true }],
         "unicorn/throw-new-error": "off"
     },
@@ -147,7 +157,6 @@
                 "unicorn/prefer-at": "off",
                 "unicorn/prefer-code-point": "off",
                 "unicorn/prefer-number-properties": "off",
-                "unicorn/prefer-spread": "off",
                 "unicorn/prefer-string-replace-all": "off"
             }
         },

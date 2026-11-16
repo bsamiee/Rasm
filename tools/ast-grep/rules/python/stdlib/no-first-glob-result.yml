@@ -9,6 +9,10 @@ utils:
                   field: function
                   regex: '(^|\.)(glob|rglob|iterdir|scandir)$'
                   not: { matches: { python-member-use: { module: { regex: '^glob$' }, name: { regex: '^glob$' } } } }
+            - not:
+                  all:
+                      - has: { field: function, regex: '(^|\.)r?glob$' }
+                      - has: { field: arguments, has: { nthChild: { position: 1, ofRule: { not: { kind: comment } } }, kind: string, not: { regex: '[*?\[]' } } }
             - pattern: $SEARCH
     searched:
         any:

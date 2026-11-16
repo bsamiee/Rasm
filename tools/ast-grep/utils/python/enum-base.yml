@@ -1,7 +1,0 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: enum-base
-language: pythonlang
-rule:
-    any:
-        - matches: { python-member-use: { module: { regex: '^enum$' }, name: { regex: '^(Enum|IntEnum|StrEnum|Flag|IntFlag|ReprEnum)$' } } }
-        - matches: { python-base-class: { superclasses: { has: { matches: enum-base } } } }

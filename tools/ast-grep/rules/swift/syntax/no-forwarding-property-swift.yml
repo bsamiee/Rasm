@@ -77,4 +77,4 @@ rule:
                   - has: { kind: computed_getter, has: { matches: getter } }
         - not: { has: { field: computed_value, has: { kind: 'computed_setter, computed_modify', not: { matches: forwarding-setter } } } }
 message: 'Property `$NAME` forwards `$READ` unchanged'
-note: 'Read `<owner>.<member>` or call `<owner>.<function>()` at each use'
+note: 'Read `<owner>.<member>` or call `<owner>.<function>()` at each use with the held storage `public private(set)`'

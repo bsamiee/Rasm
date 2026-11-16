@@ -30,7 +30,7 @@ Host modules differ in DOM call form:
 
 - CEP turns off by default in December 2028 and leaves After Effects and Illustrator in December 2029
 - `require` resolves the running host's DOM module alone, `uxp.host.name` names that host, and cross-host code takes host calls as arguments
-- Illustrator, After Effects, and Acrobat with no linked plugin run source through the host's dictionary script command, the route Atelier `execute_script` takes
+- Illustrator, After Effects, and Acrobat with no linked plugin run source through the host's dictionary script command
 - Acrobat source runs privileged with `this` naming the front document, and `global` members persist between calls
 - Acrobat JavaScript holds `JSON`, `util`, `eval`, `new Function`, and arrow functions, and no `let`, `$`, `File`, or `reflect`
 - Acrobat answers uncaught throws and syntax errors with -1708 and no text, and source catches its own throws with `lineNumber` as `line`

@@ -52,7 +52,7 @@
 ## [02]-[IMPLEMENTATION_STANDARDS]
 
 Values come from the code, host, or package that already states them:
-- Code calls the API that provides a capability directly, and any layer in between adds something that API lacks
+- Code calls the API that provides a capability directly, and a layer adding what it lacks attaches where that API's own adapters do
 - ALWAYS make invalid states unrepresentable at construction, every consumer receives a validated value without re-validating it
 - ALWAYS reference members by compiler-checked symbol or generated accessor, never a name string, hand-written lookup per member, or custom generator
 - ALWAYS derive values from the operation and its target, a caller passing what the operation knows (value, flag, description) is a defect
@@ -70,20 +70,22 @@ Values come from the code, host, or package that already states them:
 
 ## [04]-[CODE_QUALITY]
 
-Architecture: no folder holding one file, no flat folders, no tiny or oversized files, no `.d.ts`, no `src/`, no coined names (clean-prose):
-- Libraries hold logic any product can use: each serves its whole field, couples to no product, and takes paths, names, and policy from its caller
-- Products hold only logic no other product can use, in the same uncoupled shape, and a product needing more of a field extends the field's library
-- Products never import, call, route through, or stand in for another product, a capability two share lives in a library
+Architecture: no flat folders, no tiny or oversized files, no `.d.ts`, no `src/`, no coined names (clean-prose):
+- Category folders name a field outliving their members, never a mechanism, a project is one capability, and its folders group files of one concept
+- Growth lives in names, categories, and general shapes, never in speculative code, exports, constants, types, or folders today's work lacks
+- Libraries solve their field's problem once in general form, callers pick paths, policy, runtime, and transport, and products adapt to them
+- Products keep only logic no other product needs, extend a field's library in its general form, and never import, call, or stand in for another
+- Checkers report defects: a rule flagging correct code, forcing a declaration, or naming a repo path or product is rebuilt or deleted, never obeyed
 - Rebuild code with its consumers, never move, alias, re-export, forward, wrap, or extract helpers, and leave no adapter or old path
 - Reduce surface (internal and external), lines, and logic by removing content and folding its capability into a smaller surface, never into nesting
-- Public API never goes for lacking readers: reader count folds private and package-internal declarations alone, weak public API is rebuilt in place
-- New code adds a capability the existing code lacked, at the depth and quality of the code it joins, nothing speculative
+- Public API and capability a plan names never go for lacking readers, reader count folds private declarations alone, weak API is rebuilt in place
+- New code adds a capability the existing code lacked, at the depth and quality of the code it joins
 
 - ALWAYS treat external packages as first class: newest release, every capability integrated, deep usage over surface usage
 - ALWAYS derive values and logic from the host, packages, and declarations, a hand-rolled, hardcoded, or wrapped form of them is a defect
 - NEVER let a string decide behavior: rebuild the logic over the value it stands for, never an enum renaming the strings
 - NEVER nest code more than 3 levels, flatten it by rebuilding the logic chain, never by extracting helpers or forwarding
-- Declared structs, enums, types, constants, and strings almost never remain, stay only when no host, package, or declaration states their fact and they remove logic
+- Declared structs, enums, types, constants, and strings stay only where no host, package, or declaration states their fact and they remove logic
 - Fewer, richer objects: one object replaces objects of different types, and consumers are rebuilt to its shape
 - Values and control flow are algebraic: one parameterized value, field, or member replaces a family of near-identical ones
 - Logic walks and parses its input once, bounds recursion, and looks keyed data up by key, never a repeated pass or linear search

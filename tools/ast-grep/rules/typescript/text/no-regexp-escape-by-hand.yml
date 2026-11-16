@@ -2,8 +2,6 @@
 language: tsxlang
 severity: error
 ignores:
-    - libs/typescript/creative-cloud/indesign/**
-    - libs/typescript/creative-cloud/uxp/**
     - '**/creative-cloud/*/host.ts'
     - '**/extendscript.ts'
 utils:

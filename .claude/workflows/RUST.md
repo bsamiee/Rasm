@@ -12,7 +12,7 @@ Crates build on whole layers beneath them, and products compose them from outsid
 - `f32` kernels widen on emit, take accuracy from the caller, and read positions recentred on an origin their input holds, else a computed bound
 - Paper space is `f64` millimeters on kurbo
 - Hosts reach a crate through a served process (an MCP endpoint, a daemon) or a stdio binary inside the host package
-- Crates name, bind, and couple to no host application, and the catalog holds no in-process binding row
+- Catalog rows bind no host application in process
 - Product content (presets, looks, captions, host paths, vendor `_meta` keys, a render queue and its output naming) sits in the composing product
 - Crates restate no `libs/dotnet` or `libs/python` capability: `Rasm.Drafting` standards, grading, filters, or codec pipelines
 - Runs view written PDF, SVG, and raster output as PNG from `pdftoppm`, `resvg`, `vips`, or `qlmanage -t`, leaving the frontmost app unchanged

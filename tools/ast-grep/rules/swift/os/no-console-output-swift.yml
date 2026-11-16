@@ -1,8 +1,0 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-language: swiftlang
-severity: error
-files: ['libs/swift/**']
-rule:
-    all: [{ pattern: $OUT }, { matches: swift-console-write }, { not: { matches: swift-log-handler-body } }]
-message: '`$OUT` writes to a standard stream from a library'
-note: 'Take a writer from the caller, and log diagnostics through `Logger`'

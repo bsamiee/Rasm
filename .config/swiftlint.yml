@@ -36,6 +36,7 @@ only_rules:
     - file_name_no_space
     - first_where
     - flatmap_over_map_reduce
+    - for_where
     - force_cast
     - force_try
     - force_unwrapping

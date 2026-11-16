@@ -40,10 +40,6 @@ utils:
                                         - inside: { kind: for_statement, stopBy: end, has: { field: item, follows: { regex: '^await$' } } }
 rule:
     any:
-        - kind: call_expression
-          all:
-              - has: { kind: navigation_expression, all: [{ has: { field: target, pattern: $BYTES } }, { has: { field: suffix, regex: '^\.(split|components)$' } }] }
-              - has: { kind: call_suffix, has: { kind: value_arguments, has: { kind: value_argument, has: { field: value, kind: line_string_literal, regex: '^"((\\r)?\\n|\\u\{0*[aA]\})"$' } } } }
         - kind: for_statement
           all:
               - has: { field: collection, pattern: $BYTES }

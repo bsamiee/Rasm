@@ -96,7 +96,7 @@ def stroked(batch: gpu.types.GPUBatch, /, *, width: float, alpha: float = 1.0, c
             batch.draw(shader)
 ```
 
-`SpaceView3D.draw_handler_add(partial(stroked, width=<pixels>, color=lambda ui: ui.<member>), (batch_for_shader(gpu.shader.from_builtin("POLYLINE_UNIFORM_COLOR"), "LINE_STRIP", {"pos": points}),), "WINDOW", "POST_VIEW")` draws a world-space line at a caller's interface-pixel width in a theme color. `Canvas.blended` from `rasm.extension.ui` restores the entry blend mode after a raise.
+`SpaceView3D.draw_handler_add(partial(stroked, width=<pixels>, color=lambda ui: ui.<member>), (batch_for_shader(gpu.shader.from_builtin("POLYLINE_UNIFORM_COLOR"), "LINE_STRIP", {"pos": points}),), "WINDOW", "POST_VIEW")` draws a world-space line at a caller's interface-pixel width in a theme color. `Canvas.blended` restores the entry blend mode after a raise.
 
 ## [05]-[CUSTOM_SHADERS]
 

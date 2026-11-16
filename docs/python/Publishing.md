@@ -30,7 +30,7 @@ Wheel and source distribution builds of the Python packages Nx releases.
 
 | [INDEX] | [CONTENT]                     | [WHEEL] | [SDIST] | [REASON]                                               |
 | :-----: | :---------------------------- | :------ | :------ | :----------------------------------------------------- |
-|  [01]   | `rasm/<name>/` modules        | Yes     | Yes     | `uv_build` packs every file of the module folder       |
+|  [01]   | Import package modules        | Yes     | Yes     | `uv_build` packs every file of the module folder       |
 |  [02]   | `py.typed`                    | Yes     | Yes     | Sits in the module folder                              |
 |  [03]   | `LICENSE`                     | Yes     | Yes     | `license-files`                                        |
 |  [04]   | `README.md`                   | No      | Yes     | Metadata long description in the wheel                 |
@@ -42,12 +42,12 @@ Wheel and source distribution builds of the Python packages Nx releases.
 
 ## [04]-[PACK_CHECKS]
 
-| [INDEX] | [CHECK]        | [COMMAND]                                                   | [FINDS]                                    |
-| :-----: | :------------- | :---------------------------------------------------------- | :----------------------------------------- |
-|  [01]   | Build          | `uv build --package <member> --no-sources`                  | Wheel and sdist from the committed lock    |
-|  [02]   | Metadata       | `twine check --strict <dist>/*`                             | Missing or unrenderable long description   |
-|  [03]   | Wheel contents | `check-wheel-contents <dist>/*.whl`                         | Stray top-level files, duplicates, `.pyc`  |
-|  [04]   | Install test   | Wheel installed in an empty venv, then `import rasm.<name>` | Missing modules and broken dependency rows |
+| [INDEX] | [CHECK]        | [COMMAND]                                                            | [FINDS]                                    |
+| :-----: | :------------- | :------------------------------------------------------------------- | :----------------------------------------- |
+|  [01]   | Build          | `uv build --package <member> --no-sources`                           | Wheel and sdist from the committed lock    |
+|  [02]   | Metadata       | `twine check --strict <dist>/*`                                      | Missing or unrenderable long description   |
+|  [03]   | Wheel contents | `check-wheel-contents <dist>/*.whl`                                  | Stray top-level files, duplicates, `.pyc`  |
+|  [04]   | Install test   | Wheel installed in an empty venv, then an import of each import name | Missing modules and broken dependency rows |
 
 ## [05]-[VERSIONING]
 

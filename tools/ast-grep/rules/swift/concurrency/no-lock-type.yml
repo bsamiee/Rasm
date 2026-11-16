@@ -3,7 +3,7 @@ language: swiftlang
 severity: error
 rule:
     kind: 'type_identifier, simple_identifier'
-    regex: '^(NSLock|NSRecursiveLock|OSAllocatedUnfairLock|os_unfair_lock(_s|_t)?|pthread_mutex_t)$'
+    regex: '^(NSLock|NSRecursiveLock|os_unfair_lock(_s|_t)?|pthread_mutex_t)$'
     pattern: $LOCK
     not:
         kind: simple_identifier

@@ -13,11 +13,11 @@ utils:
                       field: function
                       any:
                           - kind: field_expression
-                            has: { field: field, regex: '^partition(_result|_map)?$' }
+                            has: { field: field, regex: '^partition_(result|map)$' }
                           - kind: generic_function
-                            has: { field: function, kind: field_expression, has: { field: field, regex: '^partition(_result|_map)?$' } }
+                            has: { field: function, kind: field_expression, has: { field: field, regex: '^partition_(result|map)$' } }
                           - kind: scoped_identifier
-                            has: { field: name, regex: '^partition(_result|_map)?$' }
+                            has: { field: name, regex: '^partition_(result|map)$' }
     emptiness:
         any:
             - kind: call_expression

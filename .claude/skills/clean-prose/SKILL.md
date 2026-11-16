@@ -61,8 +61,7 @@ Words that fail take the current term for what they name, real field terms (SIMD
 Names in code, build, and rule files come from their subject:
 1. Names state what the code is, in place of what it does to data
 2. Subjects belong to a field (a language, a domain), and names and divider labels take that field's own terms
-3. Categories name the field spanning their present and anticipated packages, packages sharing only a mechanism belong to separate fields
-4. Packages hold one concern of their field whole, named by the term its practitioners use, and modules name the concepts inside it
+3. Packages hold one concern of their field whole, named by the term its practitioners use, and modules name the concepts inside it
 
 Names outside their declaration take these forms:
 - Renames use language tooling and update every reference, test, file, and folder
@@ -194,14 +193,14 @@ Code files hold section dividers and tool directives alone, laid out by `CLAUDE.
 - Consecutive full-line comments merge into one, a comment that repeats its content goes
 - Inline comments stay and get the same removals
 - Comments naming a value's ported source go once the source leaves the repository or names a file the repository does not hold
-- Structured doc comments with one element per line, commented-out configuration templates, tool directives, and a copyright or SPDX notice a store reads keep their form
+- Structured doc comments, commented-out configuration templates, tool directives, and a copyright or SPDX notice a store reads keep their form
 - Doc summaries state returns or behavior without repeating member names; remarks keep one fact per sentence
 - Messages and output fields derive event details and known causes from values, then give agents one available action after a comma
 - Commit subjects open `<type>(<project>): ` with an imperative subject, `!` before the colon marks a breaking change
 - Commit and pull request bodies state past facts
 - Commit types mark behavior: `feat` adds, `fix` corrects, `refactor` reworks, and `perf` improves performance
 - Changes with no product behavior use `build`, `ci`, `docs`, `test`, `style`, or `chore`
-- Commit scopes use the changed project's exact name as `nx show projects` prints it (`@rasm/ui`, never `ui`), changes across projects omit scope, and the commit-msg hook refuses any other scope
+- Commit scopes are the exact name `nx show projects` prints (`@rasm/ui`, never `ui`), changes across projects omit scope, and the commit-msg hook refuses others
 - Comments warning of a wrong call result go; calls use parameters or forms that return the required result
 
 ## [06]-[PROCESS]

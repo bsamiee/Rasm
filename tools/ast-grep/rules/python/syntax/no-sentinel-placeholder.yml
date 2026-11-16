@@ -19,9 +19,6 @@ utils:
             - has: { field: name, pattern: $CLASS }
             - not: { has: { field: superclasses, has: { pattern: $_, not: { pattern: object } } } }
             - has: { field: body, not: { has: { pattern: $_, not: { matches: marker-statement } } } }
-    enum-member:
-        kind: expression_statement
-        has: { kind: assignment, all: [{ has: { field: left, kind: identifier, not: { regex: '^__' } } }, { has: { field: right, pattern: $_ } }] }
     sentinel-value:
         any:
             - kind: call
@@ -45,29 +42,15 @@ utils:
             - { kind: assignment, has: { field: right, matches: bound-value } }
 rule:
     kind: assignment
+    inside:
+        kind: expression_statement
+        inside: { kind: 'module, class_definition', stopBy: { kind: 'function_definition, lambda' } }
     any:
         - all:
-              - inside:
-                    kind: expression_statement
-                    inside: { kind: 'module, class_definition', stopBy: { kind: 'function_definition, lambda' } }
-              - any:
-                    - all:
-                          - has: { field: left, kind: identifier, pattern: $NAME }
-                          - has: { field: right, matches: bound-value }
-                    - all:
-                          - has: { field: left, kind: 'pattern_list, tuple_pattern, list_pattern', pattern: $NAME }
-                          - has: { field: right, kind: 'expression_list, tuple, list', has: { matches: bound-value } }
-        - all:
               - has: { field: left, kind: identifier, pattern: $NAME }
-              - inside:
-                    kind: expression_statement
-                    matches: enum-member
-                    inside:
-                        kind: block
-                        all:
-                            - inside: { kind: class_definition, has: { field: superclasses, kind: argument_list } }
-                            - not: { has: { nthChild: { position: 2, ofRule: { matches: enum-member } } } }
-                            - not: { has: { pattern: $_, not: { any: [{ matches: enum-member }, { matches: marker-statement }] } } }
-                            - inside: { kind: class_definition, has: { field: superclasses, has: { matches: enum-base } } }
+              - has: { field: right, matches: bound-value }
+        - all:
+              - has: { field: left, kind: 'pattern_list, tuple_pattern, list_pattern', pattern: $NAME }
+              - has: { field: right, kind: 'expression_list, tuple, list', has: { matches: bound-value } }
 message: '`$NAME` is a sentinel that marks absence by identity'
 note: 'Use `Option[<T>]` with `Nothing`, on fields msgspec decodes `<T> | None` or `UnsetType = UNSET`'

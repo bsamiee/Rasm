@@ -8,18 +8,11 @@ avoid-breaking-exported-api = false
 
 warn-on-all-wildcard-imports                 = true
 matches-for-let-else                         = "AllTypes"
-max-struct-bools                             = 1
-max-fn-params-bools                          = 1
 excessive-nesting-threshold                  = 5
 check-inconsistent-struct-field-initializers = true
 enforce-iter-loop-reborrow                   = true
 allow-mixed-uninlined-format-args            = false
 lint-commented-code                          = true
-
-# --- [NUMERICS]
-
-arithmetic-side-effects-allowed       = ["acadrust::Vector3", "centrality::Centrality", "dashu::float::FBig", "dashu::integer::IBig", "dashu::rational::RBig", "f128", "faer::col::generic::Col", "faer::mat::generic::Mat", "fidget::context::Tree", "geo_types::Coord", "good_lp::Expression", "good_lp::Variable", "kurbo::Affine", "kurbo::Point", "kurbo::Vec2", "nalgebra::Isometry", "nalgebra::Matrix", "nalgebra::OPoint", "nalgebra::Transform", "nalgebra::Unit", "num_complex::Complex", "num_dual::Dual", "num_dual::DualVec", "twofloat::TwoFloat", "typst::layout::Axes", "uom::si::Quantity"]
-arithmetic-side-effects-allowed-unary = ["acadrust::Vector3", "kurbo::Vec2", "nalgebra::Matrix", "num_dual::DualVec", "rust_decimal::Decimal"]
 
 # --- [NAMING]
 
@@ -29,7 +22,6 @@ enum-variant-name-threshold    = 2
 struct-field-name-threshold    = 2
 allow-renamed-params-for       = []
 pub-underscore-fields-behavior = "AllPubFields"
-doc-valid-idents               = ["..", "GraphML", "McKay", "PAdES"]
 
 # --- [BANS]
 

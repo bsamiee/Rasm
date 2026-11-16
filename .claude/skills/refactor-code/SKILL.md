@@ -53,7 +53,6 @@ Finding the member and the case the host lacks it:
 - Absent value: a value no host declaration states enters as caller data at the boundary, stated once, the library derives, defaults, and composes
 - Absent value outcome: library code holds no product name, style name, palette, sheet size, margin, path, or tuned value
 - Absent behavior: a behavior no host member performs composes host kinds and package members over caller data, never a copy of a host member
-- Level: a capability sits once at the most general level holding it whole (universal, cross-host, host, product), never split or copied down
 
 ## [03]-[PACKAGES]
 
@@ -96,7 +95,7 @@ Each kind goes on its criterion and takes its replacement:
 |  [16]   | CLI flag, subcommand   | Tool derives the value from its target or state                       | Derivation, one name per operation    |
 
 Criteria deciding a row:
-- Reader: one reader folds a declaration into that reader, consumer count decides no public shape, unused public API stays, weak API is rebuilt
+- Reader: one reader folds a declaration into that reader
 - Symbol: `LSP` names references, implementations, call hierarchy, and type before a symbol changes or goes, a server still indexing answers empty
 - Re-export: each consumer use of a re-export becomes library capability, a type a signature exposes, or a direct import of the dependency
 - Library: a library choosing a caller's entry point, runtime, transport, or configuration becomes parts callers compose over dependency types

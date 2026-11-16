@@ -29,7 +29,7 @@ Acquisitions follow Blender dependency order and releases reverse it, an attachm
 |  [02]   | Parent panel    | Panel naming it in `bl_parent_id`                        | `RuntimeError` at registration                |
 |  [03]   | Operator        | Keymap item calling it                                   | Item property writes raising `AttributeError` |
 
-`rasm.extension.data.Registration` acquires an extension's rows in that order whatever order they hold: groups before the attachments and operators naming them, operators before the keymap items calling them, each panel after its `bl_parent_id` panel. Each release joins one stack, `unregister` closing it in reverse. Rows sit in an extension module, the package `__init__.py` re-exporting `register` and `unregister`, and a class registered outside `Registration` takes the bare `bpy.props` annotation `register_class` reads:
+`Registration` acquires an extension's rows in that order whatever order they hold: groups before the attachments and operators naming them, operators before the keymap items calling them, each panel after its `bl_parent_id` panel. Each release joins one stack, `unregister` closing it in reverse. Rows sit in an extension module, the package `__init__.py` re-exporting `register` and `unregister`, and a class registered outside `Registration` takes the bare `bpy.props` annotation `register_class` reads:
 
 ```python
 class Settings(bpy.types.PropertyGroup):
