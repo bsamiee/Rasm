@@ -58,12 +58,20 @@ public final class Recording {
         written = Task { await events.outcomes.stream.first { _ in true } ?? .failure(ApplicationFailure(subject: path, reason: .cancelled)) }
         do {
             try stream.addRecordingOutput(output)
-            try stream.addClipBufferingOutput(buffer)
             try await stream.startCapture()
         } catch {
             events.outcomes.continuation.finish()
             throw ApplicationFailure(subject: path, reason: .host(error as NSError))
         }
+        do { try stream.addClipBufferingOutput(buffer) } catch {
+            try? await stream.stopCapture()
+            events.outcomes.continuation.finish()
+            throw ApplicationFailure(subject: path, reason: .host(error as NSError))
+        }
+    }
+
+    deinit {
+        if !events.stopped.load(ordering: .relaxed) { stream.stopCapture(completionHandler: nil) }
     }
 
     public func clip(to file: URL) async throws(ApplicationFailure) {
@@ -90,14 +98,18 @@ public final class Recording {
     }
 
     public func finish() async throws(ApplicationFailure) {
-        if live {
+        if !events.stopped.load(ordering: .relaxed) {
+            var failure: (any Error)?
             do {
+                try stream.removeClipBufferingOutput(buffer)
                 try stream.removeRecordingOutput(output)
                 _ = await written.value
-                try await stream.stopCapture()
             } catch {
-                throw ApplicationFailure(subject: file.path(percentEncoded: false), reason: .host(error as NSError))
+                failure = error
             }
+            do { try await stream.stopCapture() } catch { failure = failure ?? error }
+            events.stopped.store(true, ordering: .relaxed)
+            if let failure { throw ApplicationFailure(subject: file.path(percentEncoded: false), reason: .host(failure as NSError)) }
         }
         try await written.value.get()
     }

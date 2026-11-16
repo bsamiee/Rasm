@@ -10,6 +10,7 @@ import Processes
 import ScreenCapture
 import ScreenCaptureKit
 import Subprocess
+import Synchronization
 import System
 import UniformTypeIdentifiers
 
@@ -87,6 +88,7 @@ actor Recorder {
     private let hostLogs: URL
     private let longestSide: Int?
     private let timeline: FileDescriptor
+    private let broken: Atomic<Bool> = .init(false)
     private var held: [Instance: (recordings: [CGWindowID: Result<Recording, ApplicationFailure>], logging: Task<Void, Never>)] = [:]
     private var tailing: Task<Void, Never>?
     private var observing: Task<Void, Never>?
@@ -109,7 +111,14 @@ actor Recorder {
     }
 
     nonisolated func append(_ event: Moment.Event, at: Date = .now) {
-        do { try timeline.writeAll(JSONEncoder.lines.encodeLine(Moment(at: at, event: event))) } catch { WatchApps.exit(withError: error) }
+        guard !broken.load(ordering: .relaxed) else { return }
+        do { try timeline.writeAll(JSONEncoder.lines.encodeLine(Moment(at: at, event: event))) } catch {
+            guard !broken.exchange(true, ordering: .relaxed) else { return }
+            Task {
+                await finish()
+                WatchApps.exit(withError: error)
+            }
+        }
     }
 
     private nonisolated func file(_ window: CGWindowID, _ type: UTType) -> URL {
