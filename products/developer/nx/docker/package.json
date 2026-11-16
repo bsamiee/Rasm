@@ -14,7 +14,6 @@
     ],
     "type": "module",
     "imports": {
-        "#/*": "./*.ts",
         "#package": "./package.json"
     },
     "exports": {
@@ -24,7 +23,6 @@
     },
     "publishConfig": {
         "imports": {
-            "#/*": "./dist/*.js",
             "#package": "./package.json"
         },
         "exports": {
@@ -37,6 +35,7 @@
     "dependencies": {
         "@effect/platform-node": "catalog:",
         "@nx/devkit": "catalog:",
+        "@rasm/nx-distribution": "workspace:*",
         "effect": "catalog:"
     },
     "devDependencies": {

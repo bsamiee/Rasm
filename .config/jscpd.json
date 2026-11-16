@@ -10,22 +10,5 @@
     "exitCode": 1,
     "reporters": ["xcode"],
     "noTips": true,
-    "noColors": true,
-    "skipIsolated": [
-        [
-            "products/developer/nx/apple",
-            "products/developer/nx/cargo",
-            "products/developer/nx/cmake",
-            "products/developer/nx/distribution",
-            "products/developer/nx/docker",
-            "products/developer/nx/dotnet",
-            "products/developer/nx/playwright",
-            "products/developer/nx/pulumi",
-            "products/developer/nx/storybook",
-            "products/developer/nx/typescript",
-            "products/developer/nx/uv",
-            "products/developer/nx/vite",
-            "products/developer/nx/vitest"
-        ]
-    ]
+    "noColors": true
 }

@@ -2,10 +2,11 @@ import { basename, dirname, extname, join, relative } from 'node:path';
 import { platform } from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesContext, type CreateNodesResult, DependencyType, hashArray, type ProjectGraphExternalNode, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
-import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, globWithWorkspaceContext, hashFile, hashWithWorkspaceContext, mergeTargetConfigurations, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
-import { Array, Cause, Effect, Equivalence, FileSystem, Option, Predicate, Record, Ref, Result, Schema, Stream, Struct } from 'effect';
+import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, globWithWorkspaceContext, hashFile, hashWithWorkspaceContext, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
+import { aggregated, fingerprinted, manifested } from '@rasm/nx-distribution/inference';
+import { Array, Cause, Effect, Equivalence, FileSystem, Option, Record, Ref, Result, Schema, Stream, Struct } from 'effect';
 import { CommandLine } from 'effect/process';
-import { Edges, Node, PLUGIN, publishing, run, spawned, targets, type Verbs } from '#/targets';
+import { Edges, Node, PLUGIN, publishing, run, spawned, targets } from '#/targets';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -36,50 +37,12 @@ const Options = Schema.Struct({
 const Built = Schema.fromJsonString(Schema.Struct({ TargetResults: Schema.Struct({ Build: Schema.Struct({ Items: Schema.NonEmptyArray(Schema.Struct({ Identity: Schema.String })) }) }) })).annotate({
     description: 'Target result dotnet build -getTargetResult:Build prints, its first item the built assembly',
 });
-const Input = Schema.declare((input: unknown): input is NonNullable<TargetConfiguration['inputs']>[number] => Predicate.isString(input) || Predicate.isObject(input));
-const Overrides = Schema.fromJsonString(Schema.Struct({ nx: Schema.optionalKey(Schema.Struct({ targets: Schema.optionalKey(Schema.Record(Schema.String, Schema.Struct({ inputs: Schema.optionalKey(Schema.mutable(Schema.Array(Input))) }))) })) })).annotate({
-    description: "The nx.targets rows of a project's package.json, whose inputs Nx merges over the inferred targets after every plugin",
-});
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const manifested = Effect.fnUntraced(function* (workspaceRoot: string, root: string) {
-    const fs = yield* FileSystem.FileSystem;
-    const manifest = join(workspaceRoot, root, 'package.json');
-    return (yield* fs.exists(manifest)) ? ((yield* Effect.flatMap(fs.readFileString(manifest), Schema.decodeEffect(Overrides))).nx?.targets ?? {}) : {};
-});
-
-const aggregated = (verbs: Verbs, stated: Readonly<Record<string, Pick<TargetConfiguration, 'inputs'>>>, technology: string): Record<string, TargetConfiguration> =>
-    Record.fromEntries(
-        Record.collect(Record.filter(verbs, Predicate.not(Record.isEmptyRecord)), (verb, tools): readonly (readonly [string, TargetConfiguration])[] => [
-            [
-                verb,
-                {
-                    dependsOn: [`${verb}--*`],
-                    inputs: [
-                        '...',
-                        ...Array.dedupe(
-                            Record.collect(tools, (tool, target) => mergeTargetConfigurations(stated[`${verb}--${tool}`] ?? {}, { ...target, inputs: target.inputs ?? ['default', '^default'] }).inputs ?? [])
-                                .flat()
-                                .map((input) => (Predicate.isObject(input) && 'dependentTasksOutputFiles' in input ? { ...input, transitive: true } : input)),
-                        ),
-                    ],
-                },
-            ],
-            ...Record.collect(tools, (tool, target): readonly [string, TargetConfiguration] => [`${verb}--${tool}`, { ...target, metadata: { technologies: [technology], ...target.metadata } }]),
-        ]).flat(),
-    );
-
 const external = ({ id, version }: Node['packages'][number]) => `nuget:${id}@${version}`;
 
-const own = Effect.runSync(
-    Effect.cached(
-        FileSystem.FileSystem.pipe(
-            Effect.flatMap((fs) => fs.readDirectory(import.meta.dirname)),
-            Effect.map((names) => hashArray(names.toSorted().flatMap((name) => [name, ...Array.fromNullishOr(hashFile(join(import.meta.dirname, name)))]))),
-        ),
-    ),
-);
+const own = fingerprinted(import.meta.dirname);
 
 const stamped = Effect.fnUntraced(function* (workspaceRoot: string, source: Option.Option<string>, { evaluated, nodes }: Report) {
     const fs = yield* FileSystem.FileSystem;

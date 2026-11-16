@@ -5,13 +5,18 @@ import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
 import { type CreateNodesContext, hashArray, normalizePath, type NxJsonConfiguration, readJsonFile, type TargetConfiguration } from '@nx/devkit';
 import { buildPackageJsonPatterns, buildPackageJsonWorkspacesMatcher, getNamedInputs, hashFile, hashWithWorkspaceContext, mergeTargetConfigurations, type PackageJson, type PluginCache } from '@nx/devkit/internal';
 import { walkTsconfigExtendsChain } from '@nx/js/internal';
-import { Array, Effect, Equal, FileSystem, identity, Option, Predicate, Record, Result, Schema } from 'effect';
+import { Array, Cause, Effect, Equal, FileSystem, identity, Option, Predicate, Record, Result, Schema, Stream, String } from 'effect';
+import { ChildProcess, CommandLine } from 'effect/process';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Verbs = Readonly<Record<string, Readonly<Record<string, TargetConfiguration>>>>;
 type Stated = Readonly<Record<string, Pick<TargetConfiguration, 'inputs'>>>;
 type Parse = (file: string, text: string) => { readonly module: { readonly staticImports: readonly { readonly moduleRequest: { readonly value: string }; readonly entries: readonly { readonly isType: boolean }[] }[] } };
+
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+const PLATFORM = { runtime: 'node -p process.platform+process.arch' } as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -36,6 +41,12 @@ const fingerprinted = (folder: string) =>
             ),
         ),
     );
+
+const spawned = Effect.fnUntraced(function* (argv: Array.NonEmptyReadonlyArray<string>, options: ChildProcess.CommandOptions = {}) {
+    const handle = yield* ChildProcess.make(Array.headNonEmpty(argv), Array.tailNonEmpty(argv), { stdin: 'ignore', ...options, extendEnv: true, detached: false });
+    const [stdout, stderr, code] = yield* Effect.all([Stream.mkString(Stream.decodeText(handle.stdout)), Stream.mkString(Stream.decodeText(handle.stderr)), handle.exitCode], { concurrency: 'unbounded' });
+    return code === 0 ? stdout : yield* new Cause.UnknownError(code, [`${CommandLine.display(argv)} exits ${code}`, ...[stderr.trim()].filter(String.isNonEmpty)].join(': '));
+}, Effect.scoped);
 
 const within = (at: string) => !(at.startsWith('..') || at.split('/').includes('node_modules'));
 
@@ -121,4 +132,4 @@ const aggregated = (verbs: Verbs, stated: Stated, technology: string): Record<st
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { above, aggregated, anchored, extended, fingerprinted, Folder, Input, manifested, namedInput, packaged, parsed, recalled, run, type Stated, stamped, tagged, Targets, tokened, type Verbs, within };
+export { above, aggregated, anchored, extended, fingerprinted, Folder, Input, manifested, namedInput, packaged, parsed, PLATFORM, recalled, run, spawned, type Stated, stamped, tagged, Targets, tokened, type Verbs, within };

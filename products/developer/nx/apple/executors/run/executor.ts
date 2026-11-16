@@ -2,8 +2,9 @@ import { glob } from 'node:fs/promises';
 import { basename, dirname, join, resolve, sep } from 'node:path';
 import { env } from 'node:process';
 import type { ExecutorContext } from '@nx/devkit';
+import { spawned } from '@rasm/nx-distribution/inference';
 import { Array, Cause, Config, Effect, FileSystem, Function, Option, Record, Schema } from 'effect';
-import { ran, run, spawned } from '#/targets';
+import { ran, run } from '#/targets';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

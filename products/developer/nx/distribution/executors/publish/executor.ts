@@ -1,7 +1,8 @@
 import type { ExecutorContext } from '@nx/devkit';
 import { Array, Effect, Option, Schema, Struct } from 'effect';
 import { CommandLine } from 'effect/process';
-import { credentialed, Dry, dried, packaged, released, run, spawned, Words } from '#/executor';
+import { credentialed, Dry, dried, packaged, released, run, Words } from '#/executor';
+import { spawned } from '#/inference';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

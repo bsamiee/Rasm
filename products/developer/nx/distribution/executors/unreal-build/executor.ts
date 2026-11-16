@@ -2,8 +2,9 @@ import { type ExecutorContext, runExecutor } from '@nx/devkit';
 import { globWithWorkspaceContext } from '@nx/devkit/internal';
 import { Array, Cause, Effect, Equivalence, FileSystem, Function, Option, Path, pipe, Record, Result, Schema, Stream, String, Struct } from 'effect';
 import { applyEdits, modify } from 'jsonc-parser';
-import { run, spawned, Words } from '#/executor';
+import { run, Words } from '#/executor';
 import { ANALYSIS, engine, FOLDERS, Linked, zipped } from '#/host-packages';
+import { spawned } from '#/inference';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

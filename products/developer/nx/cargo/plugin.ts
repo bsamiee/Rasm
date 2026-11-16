@@ -1,36 +1,32 @@
-import { readdirSync } from 'node:fs';
 import { basename, dirname, join, relative } from 'node:path';
-import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesContext, DependencyType, hashArray, type ProjectConfiguration, readJsonFile } from '@nx/devkit';
-import { buildPackageJsonPatterns, buildPackageJsonWorkspacesMatcher, combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, getNamedInputs, globWithWorkspaceContext, hashFile, hashWithWorkspaceContext, type PackageJson, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
+import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesContext, DependencyType, hashArray, type ProjectConfiguration } from '@nx/devkit';
+import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, getNamedInputs, globWithWorkspaceContext, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
+import { anchored, fingerprinted, manifested } from '@rasm/nx-distribution/inference';
 import { Array, Effect, Option, Record, Result, Schema, String } from 'effect';
 import { crateInputs, Options, projectTargets, released } from '#/targets';
-import { CLIPPY, CONFIG, DENY, Links, MANIFEST, type Member, manifested, NEXTEST, placed, type Reading, resolved, run, workspaces } from '#/workspace';
+import { CLIPPY, CONFIG, DENY, Links, MANIFEST, type Member, NEXTEST, placed, type Reading, resolved, run, workspaces } from '#/workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const FILES = combineGlobPatterns([MANIFEST, ...CONFIG, ...CLIPPY, NEXTEST, ...Object.values(DENY).flat()].map((file) => `**/${file}`));
 const LAYOUT = ['src/{main,lib}.rs', '{src/bin,examples,tests,benches}/{*.rs,*/main.rs}', 'build.rs'] as const;
-const OWN = hashArray(
-    readdirSync(import.meta.dirname)
-        .toSorted()
-        .flatMap((name) => [name, ...Array.fromNullishOr(hashFile(join(import.meta.dirname, name)))]),
-);
+const OWN = fingerprinted(import.meta.dirname);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const inferred = Effect.fnUntraced(function* (context: CreateNodesContext, files: ReadonlySet<string>, settings: typeof Options.Type, listed: (file: string) => boolean, reading: Reading) {
+const inferred = Effect.fnUntraced(function* (context: CreateNodesContext, files: ReadonlySet<string>, settings: typeof Options.Type, listed: (root: string) => boolean, reading: Reading) {
     const links = yield* Links;
     const workspace = resolved(context.workspaceRoot, reading, files);
-    const reports = { coverage: Option.map(Option.fromUndefinedOr(settings.coveragePath), (at) => join(at, 'lcov.info')), junit: Option.map(Option.fromUndefinedOr(settings.outputPath), (at) => join(at, 'junit.xml')) };
+    const coverage = Option.map(Option.fromUndefinedOr(settings.coveragePath), (at) => join(at, 'lcov.info'));
     workspace.members.forEach((member) => {
         links.set(dirname(member.crate.manifest_path), member);
     });
     const roots = [...new Map<string, Option.Option<Member>>([[workspace.root, Option.none()], ...workspace.members.map((member) => [member.root, Option.some(member)] as const)])];
-    const manifests = yield* Effect.forEach(roots, ([root]) => manifested(context.workspaceRoot, root, listed));
+    const manifests = yield* Effect.forEach(roots, ([root]) => Effect.transposeOption(Option.liftPredicate(manifested(context.workspaceRoot, root), () => listed(root))));
     const present = Array.zip(roots, manifests).filter(([[, member], stated]) => Option.isSome(member) || Option.isSome(stated));
     const projects = Record.fromIterableWith(present, ([[root, member], manifest]): [string, ProjectConfiguration] => {
         const stated = Option.getOrElse(manifest, () => ({}));
-        const targets = projectTargets(workspace, reports, member, stated);
+        const targets = projectTargets(workspace, coverage, member, stated);
         const crate = Option.map(member, (held) => {
             const { default: sources } = getNamedInputs(root, context);
             const implicit = held.crate.metadata?.nx?.implicitDependencies;
@@ -58,12 +54,12 @@ const createNodes: CreateNodes<typeof Options.Encoded> = [
                 const { workspaceRoot } = context;
                 const settings = yield* Schema.decodeEffect(Options)(options ?? {});
                 const files = new Set(matched);
-                const listed = buildPackageJsonWorkspacesMatcher(buildPackageJsonPatterns(workspaceRoot, (file) => readJsonFile<PackageJson>(join(workspaceRoot, file))));
+                const listed = anchored(workspaceRoot);
                 const manifests = matched.filter((file) => basename(file) === MANIFEST);
                 const cache = new PluginCache<readonly Reading[]>(join(workspaceDataDirectory, 'cargo.hash'));
                 const { stored, loaded } = placed(workspaceRoot);
                 const [content, laid] = yield* Effect.promise(() => Promise.all([hashWithWorkspaceContext(workspaceRoot, [FILES]), globWithWorkspaceContext(workspaceRoot, Array.cartesianWith(manifests.map(dirname), LAYOUT, join))]));
-                const key = hashArray([content, ...laid, OWN]);
+                const key = hashArray([content, ...laid, yield* OWN]);
                 const hit = Option.fromNullishOr(cache.get(key));
                 const read = yield* Option.match(hit, {
                     onNone: () => workspaces(workspaceRoot, manifests, files),

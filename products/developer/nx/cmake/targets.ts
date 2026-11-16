@@ -1,6 +1,7 @@
 import { dirname, join, normalize, relative } from 'node:path';
 import type { TargetConfiguration } from '@nx/devkit';
-import { mergeTargetConfigurations, quoteShellArg } from '@nx/devkit/internal';
+import { quoteShellArg } from '@nx/devkit/internal';
+import { aggregated, PLATFORM, type Verbs } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Option, Predicate, Record, UndefinedOr } from 'effect';
 import { configured, ENVIRONMENT, PACKAGING, PRESETS, type Tree, WORKING } from '#/workspace';
@@ -9,12 +10,10 @@ import { configured, ENVIRONMENT, PACKAGING, PRESETS, type Tree, WORKING } from 
 
 type Member = Tree['members'][number];
 type Workflow = Tree['workflows'][number];
-type Verbs = Readonly<Record<string, Readonly<Record<string, TargetConfiguration>>>>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const SHELL = /[\\"`$]/gu;
-const PLATFORM = { runtime: 'node -p process.platform+process.arch' } as const;
 const COVERAGE = { configuration: 'coverage', folder: 'profiles', profile: '%m-%p.profraw', merged: 'coverage.profdata', report: 'lcov.info' } as const;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -30,27 +29,6 @@ const shelled = (word: string) =>
         : quoteShellArg(word);
 
 const line = (argv: readonly string[]) => argv.map(shelled).join(' ');
-
-const aggregated = (verbs: Verbs, stated: Readonly<Record<string, Pick<TargetConfiguration, 'inputs'>>>, technology: string): Record<string, TargetConfiguration> =>
-    Record.fromEntries(
-        Record.collect(Record.filter(verbs, Predicate.not(Record.isEmptyRecord)), (verb, tools): readonly (readonly [string, TargetConfiguration])[] => [
-            [
-                verb,
-                {
-                    dependsOn: [`${verb}--*`],
-                    inputs: [
-                        '...',
-                        ...Array.dedupe(
-                            Record.collect(tools, (tool, target) => mergeTargetConfigurations(stated[`${verb}--${tool}`] ?? {}, { ...target, inputs: target.inputs ?? ['default', '^default'] }).inputs ?? [])
-                                .flat()
-                                .map((input) => (Predicate.isObject(input) && 'dependentTasksOutputFiles' in input ? { ...input, transitive: true } : input)),
-                        ),
-                    ],
-                },
-            ],
-            ...Record.collect(tools, (tool, target): readonly [string, TargetConfiguration] => [`${verb}--${tool}`, { ...target, metadata: { technologies: [technology], ...target.metadata } }]),
-        ]).flat(),
-    );
 
 const memberInputs = (tree: Tree, member: Member, stated: TargetConfiguration['inputs']): NonNullable<TargetConfiguration['inputs']> => [
     ...(stated ?? (member.folders.includes(member.root) ? ['{projectRoot}/**/*'] : member.folders.map((folder) => tokened(join(folder, '**/*'))))),
@@ -146,8 +124,7 @@ const memberTargets = (
     });
     const tests = (workflow: Workflow) => {
         const { at, folder, ran } = planned(workflow);
-        const report = join(placed(workflow, 'ctest', 'Testing'), `${workflow.name}.xml`);
-        const ctest = ['ctest', ...preset(workflow.test), '--test-dir', within(folder), ...(workflow === head ? ['--no-tests=error'] : []), '--output-junit', relative(folder, report)];
+        const ctest = ['ctest', ...preset(workflow.test), '--test-dir', within(folder), ...(workflow === head ? ['--no-tests=error'] : [])];
         const after = Array.fromNullishOr(workflow.after).map((stated) => ['cmake', '--build', within(at), '--preset', stated]);
         const [profiles, merged] = [within(join(folder, COVERAGE.folder)), within(join(folder, COVERAGE.merged))];
         const coverage = Option.toArray(
@@ -165,7 +142,11 @@ const memberTargets = (
             ['llvm-profdata', 'merge', '--sparse', `--output=${merged}`, profiles],
             [line(['llvm-cov', 'export', '--format=lcov', `--instr-profile=${merged}`, ...objects.map((object) => `--object=${within(join(at, object))}`)]), '>', shelled(within(lcov))].join(' '),
         ]);
-        return ran([...cleared, [...profiling, ...ctest], ...after, ...exported], [report, ...coverage.map(({ lcov }) => lcov)].map(tokened), cleared.length);
+        return ran(
+            [...cleared, [...profiling, ...ctest], ...after, ...exported],
+            coverage.map(({ lcov }) => tokened(lcov)),
+            cleared.length,
+        );
     };
     const installs = (workflow: Workflow) => {
         const { at, folder, ran } = planned(workflow);
@@ -208,7 +189,7 @@ const memberTargets = (
             'clang-tidy': Option.map(checked, ({ names, workflow }) => target('clang-tidy', `Reports the findings and failed header-set verification of ${member.name} in workflow ${workflow.name} as errors with clang-tidy`, checks(workflow, names), { cache: true, inputs: [...sources, ...tidied(workflow)] })),
         }),
         fix: Record.getSomes({ 'clang-tidy': Option.map(checked, ({ names, workflow }) => target('clang-apply-replacements', `Applies the replacements clang-tidy exports for ${member.name} in workflow ${workflow.name}, then formats the changed lines with clang-apply-replacements`, fixes(workflow, names), {})) }),
-        test: { ...(member.tested && { ctest: target('ctest', `Runs the tests of ${member.name} with ctest`, tests(head), { cache: true, ...waits, outputs: ['{options.outputs.0}', ...Option.toArray(covered).map(() => '{options.outputs.1}')], ...varied(tests) }) }) },
+        test: { ...(member.tested && { ctest: target('ctest', `Runs the tests of ${member.name} with ctest`, tests(head), { cache: true, ...waits, outputs: Option.toArray(covered).map(() => '{options.outputs.0}'), ...varied(tests) }) }) },
         install: { ...(member.installs && { cmake: target('cmake --install', `Builds ${member.name}, then installs it under the install prefix its configure preset states with cmake --install`, installs(head), varied(installs)) }) },
         upgrade: Array.match(registries, {
             onEmpty: () => ({}),

@@ -13,7 +13,8 @@ import { HttpClient, HttpClientRequest, HttpClientResponse } from 'effect/http';
 import type { ChildProcessSpawner } from 'effect/process';
 import { applyEdits, modify, parse } from 'jsonc-parser';
 import { parseDocument, Scalar } from 'yaml';
-import { credentialed, packaged, spawned } from '#/executor';
+import { credentialed, packaged } from '#/executor';
+import { PLATFORM, spawned } from '#/inference';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -71,7 +72,6 @@ interface Host {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const EXTENSION = 'blender_manifest.toml';
-const PLATFORM = { runtime: 'node -p process.platform+process.arch' } as const;
 const SIGNER = { command: 'ZXPSignCmd', platforms: ['darwin', 'win32'] } as const;
 const PYTHON = ['run', '--no-project', 'python', '-c'] as const;
 const LOCATED = "shutil.which('blender_ext.py', os.F_OK)";

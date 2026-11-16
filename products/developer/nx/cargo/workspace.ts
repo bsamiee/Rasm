@@ -2,10 +2,10 @@ import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse } from '@decimalturn/toml-patch';
 import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
-import { readJsonFile, type TargetConfiguration } from '@nx/devkit';
+import { readJsonFile } from '@nx/devkit';
 import type { PackageJson } from '@nx/devkit/internal';
-import { Array, Cause, Context, Effect, Equivalence, FileSystem, Layer, ManagedRuntime, Option, Predicate, Record, Result, Schema, type Scope, Stream, String, UndefinedOr } from 'effect';
-import { ChildProcess, CommandLine } from 'effect/process';
+import { spawned } from '@rasm/nx-distribution/inference';
+import { Array, Cause, Context, Effect, Equivalence, FileSystem, Layer, ManagedRuntime, Option, Predicate, Record, Result, Schema, type Scope, String, UndefinedOr } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -62,10 +62,6 @@ const Settings = Schema.Struct({
     env: Schema.Record(Schema.String, Schema.Union([Schema.String, Schema.Struct({ value: Schema.String, relative: Schema.optionalKey(Schema.Boolean) })])).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
     unstable: Schema.Record(Schema.String, Schema.Unknown).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
 }).annotate({ description: 'The [env] and [unstable] tables of a Cargo configuration file, an [env] value with relative = true resolving against the folder holding its .cargo folder' });
-const Input = Schema.declare((input: unknown): input is NonNullable<TargetConfiguration['inputs']>[number] => Predicate.isString(input) || Predicate.isObject(input));
-const Overrides = Schema.fromJsonString(Schema.Struct({ nx: Schema.optionalKey(Schema.Struct({ targets: Schema.optionalKey(Schema.Record(Schema.String, Schema.Struct({ inputs: Schema.optionalKey(Schema.mutable(Schema.Array(Input))) }))) })) })).annotate({
-    description: "The nx.targets rows of a project's package.json, whose inputs Nx merges over the inferred targets after every plugin",
-});
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -82,19 +78,6 @@ const binary = ({ kind }: Target) => kind.includes('bin');
 const library = (candidate: Target) => own(candidate) && !binary(candidate);
 
 const tokened = (file: string) => join('{workspaceRoot}', file);
-
-const spawned = Effect.fnUntraced(function* (argv: Array.NonEmptyReadonlyArray<string>, options: ChildProcess.CommandOptions = {}) {
-    const handle = yield* ChildProcess.make(Array.headNonEmpty(argv), Array.tailNonEmpty(argv), { stdin: 'ignore', ...options, extendEnv: true, detached: false });
-    const [stdout, stderr, code] = yield* Effect.all([Stream.mkString(Stream.decodeText(handle.stdout)), Stream.mkString(Stream.decodeText(handle.stderr)), handle.exitCode], { concurrency: 'unbounded' });
-    return code === 0 ? stdout : yield* new Cause.UnknownError(code, [`${CommandLine.display(argv)} exits ${code}`, ...[stderr.trim()].filter(String.isNonEmpty)].join(': '));
-}, Effect.scoped);
-
-const manifested = Effect.fnUntraced(function* (workspaceRoot: string, root: string, listed: (file: string) => boolean) {
-    const fs = yield* FileSystem.FileSystem;
-    const manifest = join(workspaceRoot, root, 'package.json');
-    const [held, marked] = yield* Effect.all([fs.exists(manifest), fs.exists(join(workspaceRoot, root, 'project.json'))]);
-    return held && (listed(join(root, 'package.json')) || marked) ? Option.some((yield* Effect.flatMap(fs.readFileString(manifest), Schema.decodeEffect(Overrides))).nx?.targets ?? {}) : Option.none();
-});
 
 const ancestors = (folder: string): readonly string[] =>
     Array.unfold(
@@ -230,4 +213,4 @@ const run = <A, E>(effect: Effect.Effect<A, E, Links | NodeServices | Scope.Scop
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { binary, CLIPPY, CONFIG, Crate, DENY, Links, LOCK, library, MANIFEST, type Member, manifested, NEXTEST, own, PLUGIN, placed, type Reading, resolved, run, spawned, type Target, tokened, type Workspace, workspaces };
+export { binary, CLIPPY, CONFIG, Crate, DENY, Links, LOCK, library, MANIFEST, type Member, NEXTEST, own, PLUGIN, placed, type Reading, resolved, run, type Target, tokened, type Workspace, workspaces };

@@ -67,9 +67,9 @@ describe('@rasm/nx-uv/plugin/nodes', { timeout: 120_000 }, () => {
                                     outputs: ['{options.outputs.0}'],
                                     configurations: {
                                         coverage: {
-                                            command: `${command} --cov '--cov-report=lcov:.artifacts/coverage/{projectName}/coverage.lcov'`,
+                                            command: `${command} --cov '--cov-report=lcov:.artifacts/coverage/{projectName}/lcov.info'`,
                                             env: { COVERAGE_FILE: '.artifacts/coverage/{projectName}/.coverage' },
-                                            outputs: ['{workspaceRoot}/.artifacts/coverage/{projectName}/{coverage.lcov,.coverage}'],
+                                            outputs: ['{workspaceRoot}/.artifacts/coverage/{projectName}/{lcov.info,.coverage}'],
                                         },
                                     },
                                 },
@@ -139,7 +139,7 @@ describe('@rasm/nx-uv/plugin/nodes', { timeout: 120_000 }, () => {
                             targets: {
                                 check: { dependsOn: ['check--*'] },
                                 'check--ty': {
-                                    command: 'uv run --no-active --locked --package library --all-extras --group dev ty check proj/library --python-version 3.13',
+                                    command: 'uv run --no-active --locked --package library --all-extras --group dev ty check proj/library',
                                     options: { cwd: '.' },
                                     cache: true,
                                     inputs: ['{projectRoot}/**/*.py', '{projectRoot}/**/*.pyi', '{workspaceRoot}/ty.toml', { env: 'TY_UV' }, { runtime: 'node -p process.platform+process.arch' }, '^default', '{workspaceRoot}/.python-version', '{workspaceRoot}/uv.lock', { externalDependencies: [] }],

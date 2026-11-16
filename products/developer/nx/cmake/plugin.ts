@@ -1,25 +1,21 @@
-import { readdirSync } from 'node:fs';
 import { basename, dirname, join, relative } from 'node:path';
 import { type CreateDependencies, type CreateNodes, type CreateNodesContext, createNodesFromFiles, DependencyType, hashArray, type ProjectConfiguration, type RawProjectGraphDependency } from '@nx/devkit';
-import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, findProjectForPath, getNamedInputs, hashFile, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
+import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, findProjectForPath, getNamedInputs, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
+import { fingerprinted, manifested } from '@rasm/nx-distribution/inference';
 import { Array, Effect, Equal, Option, Order, Record, Schema } from 'effect';
 import { memberInputs, memberTargets } from '#/targets';
-import { Linked, MANIFEST, manifested, PLUGIN, PRESETS, resolved, run, type Tree } from '#/workspace';
+import { Linked, MANIFEST, PLUGIN, PRESETS, resolved, run, type Tree } from '#/workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const REGISTRY = { manifest: 'vcpkg.json', configuration: 'vcpkg-configuration.json' } as const;
-const OWN = hashArray(
-    readdirSync(import.meta.dirname)
-        .toSorted()
-        .flatMap((name) => [name, ...Array.fromNullishOr(hashFile(join(import.meta.dirname, name)))]),
-);
+const OWN = fingerprinted(import.meta.dirname);
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Options = Schema.Struct({ outputPath: Schema.optionalKey(Schema.String), coveragePath: Schema.optionalKey(Schema.String) }).annotate({
     description:
-        "outputPath: workspace folder each member writes its CTest reports under as <outputPath>/ctest and its CPack archives under as <outputPath>/cpack, {projectName} naming the member, absent writes reports under Testing and archives under packages in the member build folder. coveragePath: workspace folder the coverage configuration of a member's test target writes the lcov.info report of the member's linked binaries to, its raw and merged profiles staying in the member build folder, {projectName} naming the member, absent leaves each test its default.profraw and writes no report",
+        "outputPath: workspace folder each member writes its CPack archives under as <outputPath>/cpack, {projectName} naming the member, absent writes archives under packages in the member build folder. coveragePath: workspace folder the coverage configuration of a member's test target writes the lcov.info report of the member's linked binaries to, its raw and merged profiles staying in the member build folder, {projectName} naming the member, absent leaves each test its default.profraw and writes no report",
 });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -27,7 +23,7 @@ const Options = Schema.Struct({ outputPath: Schema.optionalKey(Schema.String), c
 const inferred = Effect.fnUntraced(function* (cache: PluginCache<{ readonly tree: Tree; readonly stamp: string }>, context: CreateNodesContext, settings: typeof Options.Type, matched: readonly string[], file: string) {
     const near = matched.filter((other) => !relative(dirname(file), other).startsWith('..'));
     const stamped = ({ inputs }: Tree) => Effect.promise(() => hashWithWorkspaceContext(context.workspaceRoot, [...inputs]));
-    const key = hashArray([yield* Effect.promise(() => hashWithWorkspaceContext(context.workspaceRoot, near)), OWN, file]);
+    const key = hashArray([yield* Effect.promise(() => hashWithWorkspaceContext(context.workspaceRoot, near)), yield* OWN, file]);
     const held = yield* Effect.findFirst(Option.toArray(Option.fromUndefinedOr(cache.get(key))), (stored) => Effect.map(stamped(stored.tree), Equal.equals(stored.stamp)));
     const tree = yield* Option.match(held, {
         onSome: (stored) => Effect.succeed(stored.tree),

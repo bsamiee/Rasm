@@ -1,14 +1,15 @@
 import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
 import type { ExecutorContext } from '@nx/devkit';
 import { createTaskId } from '@nx/devkit/internal';
-import { Array, Cause, Config, Effect, Option, Record, Schema, type Scope, Stream, String, Struct } from 'effect';
-import { ChildProcess, type ChildProcessSpawner, CommandLine } from 'effect/process';
+import { Array, Cause, Config, Effect, Option, Record, Schema, type Scope, String, Struct } from 'effect';
+import type { ChildProcessSpawner } from 'effect/process';
 import { minimatch } from 'minimatch';
 import { createNxReleaseConfig } from 'nx/src/command-line/release/config/config';
 import { getLatestGitTagForPattern, sanitizeProjectNameForGitTag } from 'nx/src/command-line/release/utils/git';
 import { getFilesForOutputsBatch } from 'nx/src/native';
 import { createProjectFileMapUsingProjectGraph } from 'nx/src/project-graph/file-map-utils';
 import { createTaskGraph } from 'nx/src/tasks-runner/create-task-graph';
+import { spawned } from '#/inference';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -21,12 +22,6 @@ const Words = Schema.optionalKey(Schema.Array(Schema.String)).annotate({ descrip
 const dried = ({ dryRun }: typeof Dry.Type) => Effect.map(Config.Boolean('NX_DRY_RUN').pipe(Config.withDefault(false)), (stated) => dryRun === true || stated);
 
 const credentialed = (variable: string) => Effect.map(Config.option(Config.String(variable)), Option.filter(String.isNonEmpty));
-
-const spawned = Effect.fnUntraced(function* (argv: Array.NonEmptyReadonlyArray<string>, options: ChildProcess.CommandOptions = {}) {
-    const handle = yield* ChildProcess.make(Array.headNonEmpty(argv), Array.tailNonEmpty(argv), { stdin: 'ignore', ...options, extendEnv: true, detached: false });
-    const [stdout, stderr, code] = yield* Effect.all([Stream.mkString(Stream.decodeText(handle.stdout)), Stream.mkString(Stream.decodeText(handle.stderr)), handle.exitCode], { concurrency: 'unbounded' });
-    return code === 0 ? stdout : yield* new Cause.UnknownError(code, [`${CommandLine.display(argv)} exits ${code}`, ...[stderr.trim()].filter(String.isNonEmpty)].join(': '));
-}, Effect.scoped);
 
 const packaged = Effect.fnUntraced(function* ({ root, projectName, targetName, configurationName, projectGraph }: ExecutorContext) {
     const [project, target] = yield* Effect.all([Effect.fromNullishOr(projectName), Effect.fromNullishOr(targetName)]);
@@ -71,4 +66,4 @@ const run = <A, E>(effect: Effect.Effect<A, E, NodeServices | ChildProcessSpawne
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { credentialed, Dry, dried, packaged, released, run, spawned, Words };
+export { credentialed, Dry, dried, packaged, released, run, Words };

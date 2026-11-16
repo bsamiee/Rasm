@@ -490,19 +490,14 @@ describe('@rasm/nx-cmake/plugin', { timeout: 60_000 }, () => {
                   "forwardAllArgs": false,
                 },
                 {
-                  "command": "ctest --preset default --test-dir build/default/libs/core --no-tests=error --output-junit Testing/default.xml",
+                  "command": "ctest --preset default --test-dir build/default/libs/core --no-tests=error",
                   "forwardAllArgs": true,
                 },
               ],
               "cwd": ".",
-              "outputs": [
-                "{workspaceRoot}/build/default/libs/core/Testing/default.xml",
-              ],
               "parallel": false,
             },
-            "outputs": [
-              "{options.outputs.0}",
-            ],
+            "outputs": [],
             "parallelism": false,
           }
         `);
@@ -529,7 +524,6 @@ describe('@rasm/nx-cmake/plugin', { timeout: 60_000 }, () => {
             "cwd": ".",
             "targets": [
               "build--cmake",
-              "test--ctest",
             ],
           }
         `);
@@ -588,14 +582,11 @@ describe('@rasm/nx-cmake/plugin/nodes', { timeout: 60_000 }, () => {
                 "forwardAllArgs": false,
               },
               {
-                "command": "ctest --preset default --test-dir build/default/libs/core --no-tests=error --output-junit '../../../../.artifacts/cmake/{projectName}/ctest/default.xml'",
+                "command": "ctest --preset default --test-dir build/default/libs/core --no-tests=error",
                 "forwardAllArgs": true,
               },
             ],
             "cwd": ".",
-            "outputs": [
-              "{workspaceRoot}/.artifacts/cmake/{projectName}/ctest/default.xml",
-            ],
             "parallel": false,
           }
         `);
@@ -641,14 +632,11 @@ describe('@rasm/nx-cmake/plugin/nodes', { timeout: 60_000 }, () => {
                 "forwardAllArgs": false,
               },
               {
-                "command": "ctest --preset default --test-dir build/default/libs/core --no-tests=error --output-junit Testing/default.xml",
+                "command": "ctest --preset default --test-dir build/default/libs/core --no-tests=error",
                 "forwardAllArgs": true,
               },
             ],
             "cwd": ".",
-            "outputs": [
-              "{workspaceRoot}/build/default/libs/core/Testing/default.xml",
-            ],
             "parallel": false,
           }
         `);
@@ -667,7 +655,6 @@ describe('@rasm/nx-cmake/plugin/nodes', { timeout: 60_000 }, () => {
         expect(nodes[0]?.[1].projects?.['libs/core']?.targets?.['test--ctest']?.outputs).toMatchInlineSnapshot(`
           [
             "{options.outputs.0}",
-            "{options.outputs.1}",
           ]
         `);
         expect(nodes[0]?.[1].projects?.['libs/core']?.targets?.['test--ctest']?.configurations).toMatchInlineSnapshot(`
@@ -687,7 +674,7 @@ describe('@rasm/nx-cmake/plugin/nodes', { timeout: 60_000 }, () => {
                   "forwardAllArgs": false,
                 },
                 {
-                  "command": "cmake -E env "LLVM_PROFILE_FILE=\${PWD}/build/coverage/libs/core/profiles/%m-%p.profraw" ctest --preset coverage --test-dir build/coverage/libs/core --output-junit Testing/coverage.xml",
+                  "command": "cmake -E env "LLVM_PROFILE_FILE=\${PWD}/build/coverage/libs/core/profiles/%m-%p.profraw" ctest --preset coverage --test-dir build/coverage/libs/core",
                   "forwardAllArgs": true,
                 },
                 {
@@ -701,7 +688,6 @@ describe('@rasm/nx-cmake/plugin/nodes', { timeout: 60_000 }, () => {
               ],
               "cwd": ".",
               "outputs": [
-                "{workspaceRoot}/build/coverage/libs/core/Testing/coverage.xml",
                 "{workspaceRoot}/.artifacts/coverage/{projectName}/lcov.info",
               ],
               "parallel": false,

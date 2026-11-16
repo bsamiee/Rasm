@@ -59,7 +59,7 @@ jobs:
             NX_SELF_HOSTED_REMOTE_CACHE_SERVER: *server
             NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN: *token
         steps:
-            - run: rm -rf .artifacts/nextest .artifacts/playwright .artifacts/vitest
+            - run: rm -rf .artifacts/playwright .artifacts/vitest
             - *checkout
             - *tools
             - id: playwright
@@ -74,7 +74,6 @@ jobs:
                   name: ${{ github.job }}-reports
                   if-no-files-found: ignore
                   path: |
-                      .artifacts/nextest/*/junit.xml
                       .artifacts/playwright
                       .artifacts/vitest
 

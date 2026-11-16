@@ -13,7 +13,6 @@ vi.mock(import('effect/process'), { spy: true });
 
 const BUILD = ['build', '--keep-going', '--message-format', 'json-diagnostic-rendered-ansi'] as const;
 const NEXTEST = ['nextest', 'run', '--locked', '--cargo-message-format', 'json-diagnostic-rendered-ansi', '--message-format', 'libtest-json-plus', '--message-format-version', '0.1'] as const;
-const SUITE = /<testsuite\b[^>]*\bname="(?<name>[^"]+)"/gu;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -30,7 +29,7 @@ const batchTaskGraph: TaskGraph = {
     continuousDependencies: {},
     roots: ['app2:build'],
 };
-const suites = (project: string): typeof Cargo.Type => ({ cwd: '.', package: project, commands: [{ args: NEXTEST, env: { NEXTEST_EXPERIMENTAL_LIBTEST_JSON: '1' }, junit: `reports/${project}/junit.xml` }], outputs: [`reports/${project}/junit.xml`] });
+const suites = (project: string): typeof Cargo.Type => ({ cwd: '.', package: project, commands: [{ args: NEXTEST, env: { NEXTEST_EXPERIMENTAL_LIBTEST_JSON: '1' } }] });
 const inputsFor = (command: (typeof Cargo.Type)['commands'][0]): Readonly<Record<string, typeof Cargo.Type>> => ({
     'app2:build': { cwd: '.', package: 'app2', commands: [command] },
     'app1:build': { cwd: '.', package: 'app1', commands: [command] },
@@ -126,7 +125,7 @@ describe('cargoBatch (async generator)', { timeout: 120_000 }, () => {
         expect(spawn).toHaveBeenNthCalledWith(2, 'cargo', ['test', '--locked', '--package', `${pathToFileURL(join(tempFs.tempDir, 'app2')).href}#app2`], expect.objectContaining({ cwd: tempFs.tempDir }));
     });
 
-    it('passes through successful nextest results, each task holding a JUnit report of its own suites', async ({ tempFs, context }) => {
+    it('passes through successful nextest results', async ({ tempFs, context }) => {
         execFileSync('cargo', ['generate-lockfile'], { cwd: tempFs.tempDir });
         const nextest = await import('@rasm/nx-cargo/executors/nextest');
 
@@ -136,9 +135,5 @@ describe('cargoBatch (async generator)', { timeout: 120_000 }, () => {
             ['app2:build', true],
             ['app1:build', true],
         ]);
-        const library = await tempFs.readFile('reports/app2/junit.xml');
-        const binary = await tempFs.readFile('reports/app1/junit.xml');
-        expect(Array.from(library.matchAll(SUITE), ({ groups }) => groups?.['name'])).toStrictEqual(['app2']);
-        expect(Array.from(binary.matchAll(SUITE), ({ groups }) => groups?.['name'])).toStrictEqual(['app1::bin/app1']);
     });
 });

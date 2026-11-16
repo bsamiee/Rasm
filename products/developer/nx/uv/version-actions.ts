@@ -1,10 +1,11 @@
 import { dirname, join } from 'node:path';
 import { parse, patch } from '@decimalturn/toml-patch';
 import { joinPathFragments, type ProjectGraph, readCachedProjectGraph, type Tree } from '@nx/devkit';
+import { spawned } from '@rasm/nx-distribution/inference';
 import { clean, explain, RANGE_PATTERN, satisfies } from '@renovatebot/pep440';
 import { Array, Cause, Effect, FileSystem, Function, Option, Predicate, Record, Schema, SemVer, Stream, String, Struct } from 'effect';
 import { type AfterAllProjectsVersioned, VersionActions } from 'nx/release';
-import { ancestors, run, spawned } from '#/targets';
+import { ancestors, run } from '#/targets';
 import { LOCK, MANIFEST, normalized } from '#/workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------

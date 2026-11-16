@@ -2,17 +2,16 @@ import { dirname, extname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
 import { type RawProjectGraphDependency, readJsonFile, type TargetConfiguration } from '@nx/devkit';
-import { mergeTargetConfigurations, type PackageJson, quoteShellArg } from '@nx/devkit/internal';
+import { type PackageJson, quoteShellArg } from '@nx/devkit/internal';
+import { aggregated, PLATFORM, type Verbs } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
-import { Array, Cause, Context, Effect, FileSystem, identity, Layer, ManagedRuntime, Option, Predicate, pipe, Record, Result, Schema, SchemaTransformation, type Scope, Stream, String, Struct, UndefinedOr } from 'effect';
+import { Array, Cause, Context, Effect, FileSystem, identity, Layer, ManagedRuntime, Option, pipe, Record, Result, Schema, SchemaTransformation, type Scope, String, Struct, UndefinedOr } from 'effect';
 import { Ini, Toml } from 'effect/encoding';
-import { ChildProcess, CommandLine } from 'effect/process';
 import type { Member } from '#/workspace';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Checker = keyof typeof CHECKERS;
-type Verbs = Readonly<Record<string, Readonly<Record<string, TargetConfiguration>>>>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -27,7 +26,7 @@ const CHECKERS = {
         folder: identity<string>,
         origin: identity<string>,
         run: [],
-        command: (at: string, _config?: string, version?: string) => ['ty', 'check', at, ...flagged('--python-version', version)],
+        command: (at: string) => ['ty', 'check', at],
         mypy: undefined,
         coverage: undefined,
         description: 'Type-checks the member with ty check',
@@ -106,7 +105,6 @@ const CHECKERS = {
 const PIXI = 'pixi.toml';
 const FLOOR = /(?:>=|==|~=)\s*(?<floor>\d+\.\d+)/u;
 const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#package'))).name;
-const PLATFORM = { runtime: 'node -p process.platform+process.arch' } as const;
 const UV = { runtime: 'uv self version --short' } as const;
 const CONFIGS = Array.dedupe([...Object.values(CHECKERS).flatMap(({ files }) => files.map(([file]) => file)), PIXI]);
 const SEPARATOR = /\s+/u;
@@ -115,11 +113,7 @@ const SEPARATOR = /\s+/u;
 
 const Options = Schema.Struct({ outputPath: Schema.optionalKey(Schema.String), coveragePath: Schema.optionalKey(Schema.String) }).annotate({
     description:
-        "outputPath: workspace folder uv build writes a member's distributions to, {projectName} naming the member, absent leaves uv its own dist folder of the uv workspace. coveragePath: workspace folder the coverage configuration of pytest writes its coverage.lcov report to through --cov-report=lcov:<path> and its .coverage data file to through COVERAGE_FILE, {projectName} naming the member, absent writes both to the folder pytest runs from",
-});
-const Input = Schema.declare((input: unknown): input is NonNullable<TargetConfiguration['inputs']>[number] => Predicate.isString(input) || Predicate.isObject(input));
-const Overrides = Schema.fromJsonString(Schema.Struct({ nx: Schema.optionalKey(Schema.Struct({ targets: Schema.optionalKey(Schema.Record(Schema.String, Schema.Struct({ inputs: Schema.optionalKey(Schema.mutable(Schema.Array(Input))) }))) })) })).annotate({
-    description: "The nx.targets rows of a project's package.json, whose inputs Nx merges over the inferred targets after every plugin",
+        "outputPath: workspace folder uv build writes a member's distributions to, {projectName} naming the member, absent leaves uv its own dist folder of the uv workspace. coveragePath: workspace folder the coverage configuration of pytest writes its lcov.info report to through --cov-report=lcov:<path> and its .coverage data file to through COVERAGE_FILE, {projectName} naming the member, absent writes both to the folder pytest runs from",
 });
 const Table = Schema.Record(Schema.String, Schema.Unknown);
 const Patterns = Schema.Struct({
@@ -136,39 +130,6 @@ class Linked extends Context.Service<Linked, Map<string, readonly RawProjectGrap
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-
-const spawned = Effect.fnUntraced(function* (argv: Array.NonEmptyReadonlyArray<string>, options: ChildProcess.CommandOptions = {}) {
-    const handle = yield* ChildProcess.make(Array.headNonEmpty(argv), Array.tailNonEmpty(argv), { stdin: 'ignore', ...options, extendEnv: true, detached: false });
-    const [stdout, stderr, code] = yield* Effect.all([Stream.mkString(Stream.decodeText(handle.stdout)), Stream.mkString(Stream.decodeText(handle.stderr)), handle.exitCode], { concurrency: 'unbounded' });
-    return code === 0 ? stdout : yield* new Cause.UnknownError(code, [`${CommandLine.display(argv)} exits ${code}`, ...[stderr.trim()].filter(String.isNonEmpty)].join(': '));
-}, Effect.scoped);
-
-const manifested = Effect.fnUntraced(function* (workspaceRoot: string, root: string) {
-    const fs = yield* FileSystem.FileSystem;
-    const manifest = join(workspaceRoot, root, 'package.json');
-    return (yield* fs.exists(manifest)) ? ((yield* Effect.flatMap(fs.readFileString(manifest), Schema.decodeEffect(Overrides))).nx?.targets ?? {}) : {};
-});
-
-const aggregated = (verbs: Verbs, stated: Readonly<Record<string, Pick<TargetConfiguration, 'inputs'>>>, technology: string): Record<string, TargetConfiguration> =>
-    Record.fromEntries(
-        Record.collect(Record.filter(verbs, Predicate.not(Record.isEmptyRecord)), (verb, tools): readonly (readonly [string, TargetConfiguration])[] => [
-            [
-                verb,
-                {
-                    dependsOn: [`${verb}--*`],
-                    inputs: [
-                        '...',
-                        ...Array.dedupe(
-                            Record.collect(tools, (tool, target) => mergeTargetConfigurations(stated[`${verb}--${tool}`] ?? {}, { ...target, inputs: target.inputs ?? ['default', '^default'] }).inputs ?? [])
-                                .flat()
-                                .map((input) => (Predicate.isObject(input) && 'dependentTasksOutputFiles' in input ? { ...input, transitive: true } : input)),
-                        ),
-                    ],
-                },
-            ],
-            ...Record.collect(tools, (tool, target): readonly [string, TargetConfiguration] => [`${verb}--${tool}`, { ...target, metadata: { technologies: [technology], ...target.metadata } }]),
-        ]).flat(),
-    );
 
 const flagged = (flag: string, value: string | undefined): readonly string[] => (value === undefined ? [] : [flag, value]);
 
@@ -247,9 +208,9 @@ const targets = (member: Member, { outputPath, coveragePath }: typeof Options.Ty
                 ];
                 const reported = coveragePath ?? base;
                 const covered = {
-                    command: line([...argv, '--cov', `--cov-report=lcov:${join(relative(base, reported), 'coverage.lcov')}`]),
+                    command: line([...argv, '--cov', `--cov-report=lcov:${join(relative(base, reported), 'lcov.info')}`]),
                     env: { COVERAGE_FILE: join(relative(base, reported), '.coverage') },
-                    outputs: [join('{workspaceRoot}', reported, '{coverage.lcov,.coverage}')],
+                    outputs: [join('{workspaceRoot}', reported, '{lcov.info,.coverage}')],
                 };
                 const target: TargetConfiguration = {
                     command: line(argv),
@@ -393,4 +354,4 @@ const run = <A, E>(effect: Effect.Effect<A, E, Linked | NodeServices | Scope.Sco
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { ancestors, CHECKERS, CONFIGS, declared, documents, Linked, manifested, Options, PIXI, PLUGIN, run, spawned, targets };
+export { ancestors, CHECKERS, CONFIGS, declared, documents, Linked, Options, PIXI, PLUGIN, run, targets };

@@ -3,9 +3,10 @@ import process from 'node:process';
 import { layer } from '@effect/platform-node/NodeServices';
 import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, DependencyType, getOutputsForTargetAndConfiguration, hashArray, type ProjectConfiguration, type RawProjectGraphDependency } from '@nx/devkit';
 import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, emitPluginWorkerLog, hashFile, hashObject, hashWithWorkspaceContext, mergeTargetConfigurations, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
+import { aggregated, fingerprinted, manifested, spawned, type Verbs } from '@rasm/nx-distribution/inference';
 import { Array, Cause, Context, Effect, FileSystem, flow, Layer, ManagedRuntime, Option, Record, Result, Schema, Stream } from 'effect';
 import { Described, INFO, MANIFEST, type Package, packageEdges, packageParts, RESOLVED, sources } from '#/swift-package';
-import { aggregated, analyzer, manifested, Options, type Part, PLUGIN, spawned, tokened, type Verbs } from '#/targets';
+import { analyzer, Options, type Part, PLUGIN, tokened } from '#/targets';
 import { Analyzed, evaluated, xcodeParts } from '#/xcode-project';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -36,21 +37,7 @@ class Graphs extends Context.Service<Graphs, Map<string, Graph>>()(`${PLUGIN}/pl
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const own = Effect.runSync(
-    Effect.cached(
-        FileSystem.FileSystem.pipe(
-            Effect.flatMap((fs) => fs.readDirectory(import.meta.dirname)),
-            Effect.map((names) =>
-                hashArray(
-                    names
-                        .filter((name) => ['.ts', '.js'].includes(extname(name)))
-                        .toSorted()
-                        .flatMap((name) => [name, ...Array.fromNullishOr(hashFile(join(import.meta.dirname, name)))]),
-                ),
-            ),
-        ),
-    ),
-);
+const own = fingerprinted(import.meta.dirname);
 
 const joined = (left: Verbs, right: Verbs): Verbs => Record.union(left, right, (base, stated) => Record.union(base, stated, (held, over) => mergeTargetConfigurations(over, held)));
 

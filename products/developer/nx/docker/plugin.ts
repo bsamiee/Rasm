@@ -1,38 +1,25 @@
-import { existsSync } from 'node:fs';
 import { dirname, isAbsolute, join, matchesGlob, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { layer } from '@effect/platform-node/NodeServices';
 import { type CreateDependencies, type CreateDependenciesContext, type CreateNodes, type CreateNodesContext, createNodesFromFiles, DependencyType, getOutputsForTargetAndConfiguration, hashArray, type ProjectConfiguration, type RawProjectGraphDependency, readJsonFile, type TargetConfiguration } from '@nx/devkit';
-import { buildPackageJsonPatterns, buildPackageJsonWorkspacesMatcher, getReadyCheckReadyWhen, hashFile, hashWithWorkspaceContext, mergeTargetConfigurations, type PackageJson, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
+import { getReadyCheckReadyWhen, hashWithWorkspaceContext, type PackageJson, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
+import { aggregated, anchored, fingerprinted, manifested, spawned, type Verbs } from '@rasm/nx-distribution/inference';
 import { Array, Context, Effect, Equal, FileSystem, Function, Layer, ManagedRuntime, MutableRef, Option, Order, Predicate, Record, Result, Schema } from 'effect';
 import { Yaml } from 'effect/encoding';
-import { spawned } from '#/ready-check';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Composed = Effect.Success<ReturnType<typeof analyzed>>;
-type Verbs = Readonly<Record<string, Readonly<Record<string, TargetConfiguration>>>>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#package'))).name;
-const OWN = Effect.runSync(
-    Effect.cached(
-        Effect.gen(function* () {
-            const names = yield* FileSystem.FileSystem.use((fs) => fs.readDirectory(import.meta.dirname));
-            return hashArray(names.toSorted().flatMap((name) => [name, ...Array.fromNullishOr(hashFile(join(import.meta.dirname, name)))]));
-        }),
-    ),
-);
+const OWN = fingerprinted(import.meta.dirname);
 const EVERY_PROFILE = { COMPOSE_PROFILES: '*' };
 const PRODUCERS = ['build--!(compose|buildx)', '^build'];
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Input = Schema.declare((input: unknown): input is NonNullable<TargetConfiguration['inputs']>[number] => Predicate.isString(input) || Predicate.isObject(input));
-const Overrides = Schema.fromJsonString(Schema.Struct({ nx: Schema.optionalKey(Schema.Struct({ targets: Schema.optionalKey(Schema.Record(Schema.String, Schema.Struct({ inputs: Schema.optionalKey(Schema.mutable(Schema.Array(Input))) }))) })) })).annotate({
-    description: "The nx.targets rows of a project's package.json, whose inputs Nx merges over the inferred targets after every plugin",
-});
 const Report = Schema.fromJsonString(
     Schema.Struct({
         name: Schema.String,
@@ -60,33 +47,6 @@ class Analyses extends Context.Service<Analyses, Map<string, Composed>>()(`${PLU
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-
-const manifested = Effect.fnUntraced(function* (workspaceRoot: string, root: string) {
-    const fs = yield* FileSystem.FileSystem;
-    const manifest = join(workspaceRoot, root, 'package.json');
-    return (yield* fs.exists(manifest)) ? ((yield* Effect.flatMap(fs.readFileString(manifest), Schema.decodeEffect(Overrides))).nx?.targets ?? {}) : {};
-});
-
-const aggregated = (verbs: Verbs, stated: Readonly<Record<string, Pick<TargetConfiguration, 'inputs'>>>, technology: string): Record<string, TargetConfiguration> =>
-    Record.fromEntries(
-        Record.collect(Record.filter(verbs, Predicate.not(Record.isEmptyRecord)), (verb, tools): readonly (readonly [string, TargetConfiguration])[] => [
-            [
-                verb,
-                {
-                    dependsOn: [`${verb}--*`],
-                    inputs: [
-                        '...',
-                        ...Array.dedupe(
-                            Record.collect(tools, (tool, target) => mergeTargetConfigurations(stated[`${verb}--${tool}`] ?? {}, { ...target, inputs: target.inputs ?? ['default', '^default'] }).inputs ?? [])
-                                .flat()
-                                .map((input) => (Predicate.isObject(input) && 'dependentTasksOutputFiles' in input ? { ...input, transitive: true } : input)),
-                        ),
-                    ],
-                },
-            ],
-            ...Record.collect(tools, (tool, target): readonly [string, TargetConfiguration] => [`${verb}--${tool}`, { ...target, metadata: { technologies: [technology], ...target.metadata } }]),
-        ]).flat(),
-    );
 
 const merged = Effect.fnUntraced(function* (workspaceRoot: string, file: string, seen: ReadonlySet<string>): Effect.fn.Return<ReadonlySet<string>, never, FileSystem.FileSystem> {
     const fs = yield* FileSystem.FileSystem;
@@ -214,8 +174,7 @@ const runtime = ManagedRuntime.make(Layer.merge(Analyses.layer, layer));
 const createNodes: CreateNodes = [
     '**/{compose,docker-compose}{,.override}.{yaml,yml}',
     (files, options, context) => {
-        const member = buildPackageJsonWorkspacesMatcher(buildPackageJsonPatterns(context.workspaceRoot, (file) => readJsonFile<PackageJson>(join(context.workspaceRoot, file))));
-        const rooted = (folder: string) => existsSync(join(context.workspaceRoot, folder, 'project.json')) || (member(join(folder, 'package.json')) && existsSync(join(context.workspaceRoot, folder, 'package.json')));
+        const rooted = anchored(context.workspaceRoot);
         const folders = new Map(
             Record.collect(
                 Record.filter(Array.groupBy(files, dirname), (_, root) => rooted(root)),

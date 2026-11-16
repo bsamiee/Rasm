@@ -3,10 +3,10 @@ import { basename, delimiter, dirname, join, relative, resolve } from 'node:path
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
-import { readJsonFile, type TargetConfiguration } from '@nx/devkit';
+import { readJsonFile } from '@nx/devkit';
 import { globWithWorkspaceContext, type PackageJson } from '@nx/devkit/internal';
-import { Array, Cause, Config, Context, Effect, FileSystem, Function, Layer, ManagedRuntime, Match, Option, Predicate, pipe, Record, Result, Schema, type Scope, SemVer, Stream, String } from 'effect';
-import { ChildProcess, CommandLine } from 'effect/process';
+import { spawned } from '@rasm/nx-distribution/inference';
+import { Array, Cause, Config, Context, Effect, FileSystem, Function, Layer, ManagedRuntime, Match, Option, pipe, Record, Result, Schema, type Scope, SemVer } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -114,10 +114,6 @@ const Tree = Schema.Struct({
     ),
     inputs: Schema.Array(Schema.String),
 });
-const Input = Schema.declare((input: unknown): input is NonNullable<TargetConfiguration['inputs']>[number] => Predicate.isString(input) || Predicate.isObject(input));
-const Overrides = Schema.fromJsonString(Schema.Struct({ nx: Schema.optionalKey(Schema.Struct({ targets: Schema.optionalKey(Schema.Record(Schema.String, Schema.Struct({ inputs: Schema.optionalKey(Schema.mutable(Schema.Array(Input))) }))) })) })).annotate({
-    description: "The nx.targets rows of a project's package.json, whose inputs Nx merges over the inferred targets after every plugin",
-});
 
 type Tree = typeof Tree.Type;
 
@@ -128,18 +124,6 @@ class Linked extends Context.Service<Linked, Map<string, Tree['members']>>()(`${
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-
-const spawned = Effect.fnUntraced(function* (argv: Array.NonEmptyReadonlyArray<string>, options: ChildProcess.CommandOptions = {}) {
-    const handle = yield* ChildProcess.make(Array.headNonEmpty(argv), Array.tailNonEmpty(argv), { stdin: 'ignore', ...options, extendEnv: true, detached: false });
-    const [stdout, stderr, code] = yield* Effect.all([Stream.mkString(Stream.decodeText(handle.stdout)), Stream.mkString(Stream.decodeText(handle.stderr)), handle.exitCode], { concurrency: 'unbounded' });
-    return code === 0 ? stdout : yield* new Cause.UnknownError(code, [`${CommandLine.display(argv)} exits ${code}`, ...[stderr.trim()].filter(String.isNonEmpty)].join(': '));
-}, Effect.scoped);
-
-const manifested = Effect.fnUntraced(function* (workspaceRoot: string, root: string) {
-    const fs = yield* FileSystem.FileSystem;
-    const manifest = join(workspaceRoot, root, 'package.json');
-    return (yield* fs.exists(manifest)) ? ((yield* Effect.flatMap(fs.readFileString(manifest), Schema.decodeEffect(Overrides))).nx?.targets ?? {}) : {};
-});
 
 const versioned = (text: string, at: string) => {
     const stated = Option.flatMap(Option.fromNullOr(CALL.exec(text)), (call) => {
@@ -364,4 +348,4 @@ const run = <A, E>(effect: Effect.Effect<A, E, Linked | NodeServices | Scope.Sco
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { configured, ENVIRONMENT, Linked, MANIFEST, manifested, PACKAGING, PLUGIN, PRESETS, resolved, restated, run, type Tree, versioned, WORKING };
+export { configured, ENVIRONMENT, Linked, MANIFEST, PACKAGING, PLUGIN, PRESETS, resolved, restated, run, type Tree, versioned, WORKING };

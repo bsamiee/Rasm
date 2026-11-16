@@ -35,4 +35,4 @@ pytest suites of the Python packages Nx runs.
 - `nx-uv` infers `test--pytest` for each member holding test files, run as `uv run --no-active --locked --isolated --package <member>`
 - `--isolated` runs each member in a fresh environment, so a suite imports only what its member declares
 - `--group <group>` gives a member the root group holding `pytest`
-- `nx test <member> -c coverage` adds `--cov` and writes `coverage.lcov` and `.coverage` to the member's coverage folder
+- `nx test <member> -c coverage` adds `--cov` and writes `lcov.info` and `.coverage` to the member's coverage folder

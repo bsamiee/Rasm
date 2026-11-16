@@ -42,7 +42,6 @@ describe('@rasm/nx-cargo/plugin/nodes', { timeout: 60_000 }, () => {
         const results = await createNodesFunction(
             ['proj/Cargo.toml', 'proj/.config/nextest.toml'],
             {
-                outputPath: 'reports/{projectName}',
                 coveragePath: 'coverage/{projectName}',
             },
             context,
@@ -51,21 +50,20 @@ describe('@rasm/nx-cargo/plugin/nodes', { timeout: 60_000 }, () => {
         const project = results[0]?.[1].projects?.['proj'];
         const suites = ['--locked', '--cargo-message-format', 'json-diagnostic-rendered-ansi', '--message-format', 'libtest-json-plus', '--message-format-version', '0.1'];
         const env = { NEXTEST_EXPERIMENTAL_LIBTEST_JSON: '1' };
-        const junit = 'reports/{projectName}/junit.xml';
         expect(project?.namedInputs?.['default']?.filter(Predicate.isString)).toStrictEqual(['{projectRoot}/Cargo.toml', '{projectRoot}/src/**/*', '{projectRoot}/src/bin/**/*', '{projectRoot}/tests/**/*', '{projectRoot}/README.md', '{workspaceRoot}/proj/Cargo.lock', '{workspaceRoot}/proj/Cargo.toml']);
         expect(project?.targets?.['test--nextest']).toStrictEqual({
             cache: true,
             configurations: {
                 coverage: {
-                    commands: [{ args: ['llvm-cov', 'nextest', '--lcov', '--output-path', '../coverage/{projectName}/lcov.info', ...suites], env, junit, packages: [] }],
-                    outputs: [`{workspaceRoot}/${junit}`, '{workspaceRoot}/coverage/{projectName}/lcov.info'],
+                    commands: [{ args: ['llvm-cov', 'nextest', '--lcov', '--output-path', '../coverage/{projectName}/lcov.info', ...suites], env, packages: [] }],
+                    outputs: ['{workspaceRoot}/coverage/{projectName}/lcov.info'],
                 },
             },
             executor: '@rasm/nx-cargo:nextest',
             inputs: ['default', '^default', { externalDependencies: [] }, '{workspaceRoot}/proj/.config/nextest.toml', { env: 'NEXTEST_PROFILE' }, { runtime: 'cargo nextest -V' }, { runtime: 'cargo llvm-cov --version' }],
             metadata: { description: 'Tests proj with cargo nextest run', help: { command: 'cargo nextest run --help', example: { args: ['--verbose'] } }, technologies: ['rust'] },
-            options: { commands: [{ args: ['nextest', 'run', ...suites], env, junit }], cwd: 'proj', outputs: [`{workspaceRoot}/${junit}`], package: 'proj' },
-            outputs: ['{options.outputs.0}', '{options.outputs.1}'],
+            options: { commands: [{ args: ['nextest', 'run', ...suites], env }], cwd: 'proj', package: 'proj' },
+            outputs: ['{options.outputs.0}'],
         });
     });
 

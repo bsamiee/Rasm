@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
 import { type RawProjectGraphDependency, readJsonFile, type TargetConfiguration } from '@nx/devkit';
 import { type PackageJson, quoteShellArg } from '@nx/devkit/internal';
+import { PLATFORM, type Verbs } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Cause, Context, Effect, Layer, ManagedRuntime, Option, Record, Ref, Schema, type Scope, Stream, String } from 'effect';
 import { ChildProcess, CommandLine } from 'effect/process';
@@ -10,12 +11,10 @@ import { ChildProcess, CommandLine } from 'effect/process';
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Node = typeof Node.Type;
-type Verbs = Readonly<Record<string, Readonly<Record<string, TargetConfiguration>>>>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#package'))).name;
-const PLATFORM = { runtime: 'node -p process.platform+process.arch' } as const;
 const CREDENTIAL = 'NUGET_API_KEY';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -204,4 +203,4 @@ const streamed = <A, E>(results: Stream.Stream<A, E, NodeServices>) => Stream.to
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Edges, Node, PLUGIN, publishing, ran, run, spawned, streamed, targets, type Verbs };
+export { Edges, Node, PLUGIN, publishing, ran, run, spawned, streamed, targets };

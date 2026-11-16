@@ -1,7 +1,7 @@
 import { layer } from '@effect/platform-node/NodeServices';
 import { runReadyCheck } from '@nx/devkit/internal';
-import { Array, Cause, Effect, Schedule, Schema, Stream, String } from 'effect';
-import { ChildProcess, CommandLine } from 'effect/process';
+import { spawned } from '@rasm/nx-distribution/inference';
+import { Array, Cause, Effect, Schedule, Schema, String } from 'effect';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -10,12 +10,6 @@ const Running = Schema.Array(Schema.fromJsonString(Schema.Struct({ Service: Sche
 });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-
-const spawned = Effect.fnUntraced(function* (argv: Array.NonEmptyReadonlyArray<string>, options: ChildProcess.CommandOptions = {}) {
-    const handle = yield* ChildProcess.make(Array.headNonEmpty(argv), Array.tailNonEmpty(argv), { stdin: 'ignore', ...options, extendEnv: true, detached: false });
-    const [stdout, stderr, code] = yield* Effect.all([Stream.mkString(Stream.decodeText(handle.stdout)), Stream.mkString(Stream.decodeText(handle.stderr)), handle.exitCode], { concurrency: 'unbounded' });
-    return code === 0 ? stdout : yield* new Cause.UnknownError(code, [`${CommandLine.display(argv)} exits ${code}`, ...[stderr.trim()].filter(String.isNonEmpty)].join(': '));
-}, Effect.scoped);
 
 const waitForDevServer = (...services: readonly string[]) =>
     runReadyCheck(({ root }) =>
@@ -37,4 +31,4 @@ const waitForDevServer = (...services: readonly string[]) =>
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { spawned, waitForDevServer };
+export { waitForDevServer };

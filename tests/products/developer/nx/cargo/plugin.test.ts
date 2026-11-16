@@ -170,7 +170,7 @@ describe('@rasm/nx-cargo', { timeout: 120_000 }, () => {
                                     options: { commands: [{ args: ['build', ...messages] }], cwd: '.', outputs: ['{workspaceRoot}/target/debug/application', '{workspaceRoot}/target/debug/application.d'], package: 'application' },
                                     outputs: ['{options.outputs.0}', '{options.outputs.1}'],
                                 },
-                                'check--clippy': { ...application['check--clippy'], options: { commands: [{ args: ['clippy', '--bins', '--tests', '--locked', ...messages] }], cwd: '.', package: 'application' } },
+                                'check--clippy': { ...application['check--clippy'], options: { commands: [{ args: ['clippy', '--all-targets', '--all-features', '--locked', ...messages] }], cwd: '.', package: 'application' } },
                                 'clean--cargo': {
                                     executor: '@rasm/nx-distribution:clean',
                                     inputs: sources,
@@ -184,7 +184,7 @@ describe('@rasm/nx-cargo', { timeout: 120_000 }, () => {
                                         targets: ['build--cargo', 'pack--cargo'],
                                     },
                                 },
-                                'fix--clippy': { ...application['fix--clippy'], options: { commands: [{ args: ['clippy', '--fix', '--allow-dirty', '--bins', '--tests', ...messages] }], cwd: '.', package: 'application' } },
+                                'fix--clippy': { ...application['fix--clippy'], options: { commands: [{ args: ['clippy', '--fix', '--allow-dirty', '--all-targets', '--all-features', ...messages] }], cwd: '.', package: 'application' } },
                                 install: { dependsOn: ['install--*'], inputs: ['...', ...sources] },
                                 'install--cargo': {
                                     executor: '@rasm/nx-cargo:cargo',
@@ -212,7 +212,7 @@ describe('@rasm/nx-cargo', { timeout: 120_000 }, () => {
                                     options: { commands: [{ args: ['build', ...messages] }], cwd: '.', outputs: [], package: 'cargo-tutorial' },
                                     outputs: [],
                                 },
-                                'check--clippy': { ...tutorial['check--clippy'], options: { commands: [{ args: ['clippy', '--lib', '--tests', '--locked', ...messages] }], cwd: '.', package: 'cargo-tutorial' } },
+                                'check--clippy': { ...tutorial['check--clippy'], options: { commands: [{ args: ['clippy', '--all-targets', '--all-features', '--locked', ...messages] }], cwd: '.', package: 'cargo-tutorial' } },
                                 'clean--cargo': {
                                     executor: '@rasm/nx-distribution:clean',
                                     inputs: sources,
@@ -226,7 +226,7 @@ describe('@rasm/nx-cargo', { timeout: 120_000 }, () => {
                                         targets: ['pack--cargo'],
                                     },
                                 },
-                                'fix--clippy': { ...tutorial['fix--clippy'], options: { commands: [{ args: ['clippy', '--fix', '--allow-dirty', '--lib', '--tests', ...messages] }], cwd: '.', package: 'cargo-tutorial' } },
+                                'fix--clippy': { ...tutorial['fix--clippy'], options: { commands: [{ args: ['clippy', '--fix', '--allow-dirty', '--all-targets', '--all-features', ...messages] }], cwd: '.', package: 'cargo-tutorial' } },
                             },
                         },
                     },

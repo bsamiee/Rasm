@@ -1,8 +1,9 @@
 import { basename, dirname, extname, join, relative, resolve } from 'node:path';
 import type { TargetConfiguration } from '@nx/devkit';
+import { spawned, type Verbs } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Cause, Effect, FileSystem, identity, Option, Record, Result, Schema, Struct } from 'effect';
-import { APPCAST, ATTACH, INPUTS, NOTARY, type Options, type Part, PLUGIN, sequenced, spawned, tokened, type Verbs } from '#/targets';
+import { APPCAST, ATTACH, INPUTS, NOTARY, type Options, type Part, PLUGIN, sequenced, tokened } from '#/targets';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

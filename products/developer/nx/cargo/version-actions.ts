@@ -1,9 +1,10 @@
 import { basename, dirname, join } from 'node:path';
 import { parse, patch } from '@decimalturn/toml-patch';
 import { type ProjectGraph, readCachedProjectGraph, type Tree } from '@nx/devkit';
+import { spawned } from '@rasm/nx-distribution/inference';
 import { Array, Cause, Effect, FileSystem, flow, Option, Record, Schema } from 'effect';
 import { type AfterAllProjectsVersioned, VersionActions } from 'nx/release';
-import { LOCK, MANIFEST, run, spawned } from '#/workspace';
+import { LOCK, MANIFEST, run } from '#/workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

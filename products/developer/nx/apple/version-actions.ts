@@ -1,8 +1,9 @@
 import { extname } from 'node:path';
 import type { Tree } from '@nx/devkit';
+import { spawned } from '@rasm/nx-distribution/inference';
 import { Array, Cause, Effect, Option, Schema, Stream } from 'effect';
 import { VersionActions } from 'nx/release';
-import { analyzer, run, spawned } from '#/targets';
+import { analyzer, run } from '#/targets';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

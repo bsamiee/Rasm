@@ -2,7 +2,8 @@ import { type ExecutorContext, getOutputsForTargetAndConfiguration } from '@nx/d
 import { globWithWorkspaceContext } from '@nx/devkit/internal';
 import { Array, Effect, FileSystem, Function, Glob, Path, Record, Result, Schema } from 'effect';
 import { getFilesForOutputsBatch } from 'nx/src/native';
-import { run, spawned, Words } from '#/executor';
+import { run, Words } from '#/executor';
+import { spawned } from '#/inference';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

@@ -1,8 +1,9 @@
 import { dirname, join, relative } from 'node:path';
 import { DependencyType, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
+import type { Verbs } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Effect, Option, Record, Schema } from 'effect';
-import { ATTACH, INPUTS, type Options, type Part, PLUGIN, SWIFTPM, sequenced, type Verbs } from '#/targets';
+import { ATTACH, INPUTS, type Options, type Part, PLUGIN, SWIFTPM, sequenced } from '#/targets';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

@@ -1,7 +1,8 @@
 import type { ExecutorContext } from '@nx/devkit';
+import { spawned } from '@rasm/nx-distribution/inference';
 import { Array, Cause, Config, Effect, FileSystem, Option, Path, Redacted, Schema, Stream, Struct } from 'effect';
 import { commands } from '#/executors/run/executor';
-import { NOTARY, run, SWIFTPM, spawned } from '#/targets';
+import { NOTARY, run, SWIFTPM } from '#/targets';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

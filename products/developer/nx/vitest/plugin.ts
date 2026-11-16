@@ -30,8 +30,8 @@ const Options = Schema.Struct({ outputPath: Folder, coveragePath: Folder }).anno
     description:
         'outputPath: workspace folder a suite writes its reports to, {projectName} naming the project, absent leaves each reporter its own folder. coveragePath: workspace folder the coverage configuration writes lcov.info to, {projectName} naming the project, absent leaves Vitest its coverage.reportsDirectory',
 });
-const Reported = Schema.Struct({ outputFile: Schema.optionalKey(Schema.String), outputDir: Schema.optionalKey(Schema.String), stdout: Schema.optionalKey(Schema.Boolean) }).annotate({
-    description: 'The file, folder, and stdout options of a resolved [reporter, options] Vitest entry, stdout true writing no file',
+const Reported = Schema.Struct({ outputFile: Schema.optionalKey(Schema.String), outputDir: Schema.optionalKey(Schema.String) }).annotate({
+    description: 'The file and folder options of a resolved [reporter, options] Vitest entry',
 });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -100,8 +100,7 @@ const surveyed = Effect.fnUntraced(function* (workspaceRoot: string, file: strin
         const decoded = Schema.decodeUnknownOption(Reported)(options);
         const built = Option.liftPredicate(name, Predicate.isString);
         const pointed = Option.flatMap(built, (key) => Option.fromUndefinedOr(keyed[key]));
-        const stated = Array.getSomes([Option.firstSomeOf([Option.flatMap(decoded, ({ outputFile: direct }) => Option.fromUndefinedOr(direct)), Option.liftPredicate(outputFile, Predicate.isString), pointed]), Option.flatMap(decoded, ({ outputDir }) => Option.fromUndefinedOr(outputDir))]);
-        return Array.isReadonlyArrayNonEmpty(stated) || Option.exists(decoded, ({ stdout }) => stdout === true) ? stated : Option.toArray(Option.as(built, '.vitest'));
+        return Array.getSomes([Option.firstSomeOf([Option.flatMap(decoded, ({ outputFile: direct }) => Option.fromUndefinedOr(direct)), Option.liftPredicate(outputFile, Predicate.isString), pointed]), Option.flatMap(decoded, ({ outputDir }) => Option.fromUndefinedOr(outputDir))]);
     });
     const depended = Array.dedupe([entry, ...config.configFileDependencies, ...declared.flatMap(({ viteConfig }) => viteConfig.configFileDependencies)].map(local)).filter(within);
     const provider = coverage.provider === 'custom' ? Array.fromNullishOr(coverage.customProviderModule) : [`@vitest/coverage-${coverage.provider}`];
