@@ -19,7 +19,6 @@
 - ALWAYS use `refactor-code` skill whenever code or configuration is written, reduced, rebuilt, or judged for quality
 - ALWAYS use `search-web` skill for any fact outside the repository and its installed packages, never answered from memory
 - ALWAYS use `search-code` skill before writing or judging code over a dependency, and before hand-writing what a package could supply
-- ALWAYS use `github` MCP for any GitHub fact or action, `gh` for work on the local checkout
 - ALWAYS use `clean-prose` skill for any English a change writes, names and agent-facing text included
 - ALWAYS use `dotnet-roslyn-codelens` skill to read, trace, or change any file in a .NET solution
 - ALWAYS use `LSP` tool for references, implementations, call hierarchy, and type of a Python, Rust, or Swift symbol before changing or removing it

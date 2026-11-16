@@ -100,8 +100,6 @@ const forcedRefs: Rule = (invocation) =>
         return word.text.startsWith('+') && word.known ? edited(invocation, word, quote(word.text.slice(1)), `git push ${word.text}`) : [];
     });
 
-const remote = refuse('works on GitHub, not this checkout', 'use the mcp__github__ tools');
-
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const UNFORCED = respell({ drops: ['--force', '--force-with-lease', '--force-if-includes', '--discard-changes'], notify: true });
@@ -130,19 +128,6 @@ const GIT: Ruleset = {
                     }),
                 ),
                 perSubcommand({ worktree: [exportedTree] }),
-            ],
-        },
-        gh: {
-            rules: [
-                perSubcommand({
-                    api: [remote],
-                    search: [remote],
-                    issue: [remote],
-                    label: [remote],
-                    pr: [when(Predicate.not(nested('checkout')), remote)],
-                    release: [when(nested('view', 'list'), remote)],
-                    repo: [when(nested('view', 'list'), remote)],
-                }),
             ],
         },
     },
