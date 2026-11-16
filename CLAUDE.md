@@ -4,13 +4,9 @@
 
 - Every language uses functional programming: domain logic stays pure and expression-oriented, imperative code stays at system boundaries
 - Data dependency decides composition: dependent operations bind and short-circuit, independent operations combine and accumulate every error
-- Language idioms differ but composition rules do not, when a language lacks a result type, adopt a dependency's, else define one
 - Defects and findings are fixed at their cause, never suppressed, lowered, or guarded
 - Removals delete every mention and adjust each consumer to the absence, nothing stands in for removed content
-- Docs, repo content, and settled owner decisions answer before the owner is asked, apps and hosts run live when a question needs one running
-- Apps and windows an agent opens take no focus and stay behind the user's work, inside or outside the project
-- Messages, docstrings, descriptions, and annotations are agent-facing: exact subject, values over prose, one action, no word that adds nothing
-- Hooks rewrite a wrong command form or refuse it with one short reason, cover forms the user named, and block nothing the user asks for
+- Apps and windows an agent opens take no focus and stay behind the user's work, inside or outside the project unless requested
 - Settings differing by project, platform, or build mode use the tool's own switch (profile, condition, glob, per-OS file), never a script or flag
 
 ## [01]-[TOOLING]
