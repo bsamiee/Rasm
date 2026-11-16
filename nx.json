@@ -66,10 +66,19 @@
         },
         {
             "plugin": "@rasm/nx-typescript",
+            "exclude": ["tests/**"],
             "options": {
                 "compilerPackages": ["@typescript/native", "@effect/tsgo"],
                 "knipConfig": ".config/knip.json",
                 "outputPath": ".artifacts/pnpm/{projectName}"
+            }
+        },
+        {
+            "plugin": "@rasm/nx-typescript",
+            "include": ["tests/**"],
+            "options": {
+                "compilerPackages": ["@typescript/native", "@effect/tsgo"],
+                "noEmit": true
             }
         },
         {

@@ -41,9 +41,10 @@ const Options = Schema.Struct({
     outputPath: Schema.optionalKey(Schema.String),
     compilerPackages: Schema.NonEmptyArray(Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed(['typescript'] as const))),
     knipConfig: Schema.optionalKey(Schema.String),
+    noEmit: Schema.optionalKey(Schema.Boolean),
 }).annotate({
     description:
-        'outputPath: workspace folder the package manager packs each tarball to, {projectName} naming the project, absent packs into the package folder. compilerPackages: npm packages every tsc target hashes as external dependencies, the first the native TypeScript package whose tsc runs and whose ./sync API reads each tsconfig.json. knipConfig: workspace file knip reads its configuration from through --config, absent leaving knip to find its own',
+        'outputPath: workspace folder the package manager packs each tarball to, {projectName} naming the project, absent packs into the package folder. compilerPackages: npm packages every tsc target hashes as external dependencies, the first the native TypeScript package whose tsc runs and whose ./sync API reads each tsconfig.json. knipConfig: workspace file knip reads its configuration from through --config, absent leaving knip to find its own. noEmit: true runs every program the row includes as a check--tsc target under tsc --noEmit, whatever its tsconfig.json emits',
 });
 const Input = Schema.declare((input: unknown): input is NonNullable<TargetConfiguration['inputs']>[number] => Predicate.isString(input) || Predicate.isObject(input));
 const Manifest = Schema.fromJsonString(
@@ -517,13 +518,15 @@ const nodes = Effect.fnUntraced(function* (files: readonly string[], options: ty
         ? yield* linted(workspaceRoot, Array.headNonEmpty(settings.compilerPackages), exec, [...[...held].map((root) => ({ root, scope: root })), ...Option.toArray(Option.map(standalone, (scope) => ({ root: '.', scope })))], hashed)
         : new Map<string, TargetConfiguration>();
     const rooted = getRootTsConfigFileName();
+    const checked = (program: Program): Program => (settings.noEmit === true ? { ...program, commands: program.configs.map((config) => ['tsc', '--noEmit', ...(config === CONFIG ? [] : ['-p', config])].map(quoteShellArg).join(' ')), outputs: [] } : program);
     const programs = new Map<string, Result.Result<Program, Cause.UnknownError>>([...Array.getSomes(rows.map(({ config, program }) => Option.map(program, (cached) => [config, Result.succeed(cached)] as const))), ...Array.zipWith(unread, fresh, ({ config }, program) => [config, program] as const)]);
     const chained = (root: string) => Option.match(Option.flatMap(Option.fromUndefinedOr(programs.get(join(root, CONFIG))), Option.getSuccess), { onNone: () => [], onSome: ({ chain }) => chain.filter((at) => relative(root, at).startsWith('..') && at !== rooted).map(tokened(root)) });
     const read = Effect.fnUntraced(function* (file: string) {
         const root = dirname(file);
         const manifest = yield* looked(manifests, root);
         const stated = manifest.nx?.targets ?? {};
-        const typed = (program: Program) => Option.some(projected(root, 'typescript', compiled(root, program, settings.compilerPackages, 'production' in getNamedInputs(root, context) ? '^production' : '^default', manifest.version !== undefined && installed('publint', join(workspaceRoot, file)), synced, exec), stated));
+        const typed = (program: Program) =>
+            Option.some(projected(root, 'typescript', compiled(root, checked(program), settings.compilerPackages, 'production' in getNamedInputs(root, context) ? '^production' : '^default', manifest.version !== undefined && installed('publint', join(workspaceRoot, file)), synced, exec), stated));
         const loadable = Effect.sync(() => installed('cf', join(workspaceRoot, file)));
         const linting = Option.map(
             Option.filter(Option.fromUndefinedOr(lints.get(root)), () => anchors.has(file) || root === '.'),

@@ -1,5 +1,5 @@
 {
-    "extends": "../../../../tsconfig.workers.json",
+    "extends": "../../../../../tsconfig.base.json",
     "references": [
         {
             "path": "../../../../../libs/typescript/messaging/webhooks"
@@ -7,5 +7,10 @@
         {
             "path": "../../../../support/typescript"
         }
-    ]
+    ],
+    "compilerOptions": {
+        "module": "preserve",
+        "types": ["node", "@cloudflare/workers-types/experimental", "@cloudflare/vitest-plugin/types"]
+    },
+    "include": ["**/*", ".cloudflare/types"]
 }

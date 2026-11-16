@@ -15,17 +15,17 @@ TypeScript compiler configuration of an Effect-based pnpm and Nx monorepo.
 
 ## [02]-[LAYOUT]
 
-| [INDEX] | [FILE]                     | [HOLDS]                                                                    |
-| :-----: | :------------------------- | :------------------------------------------------------------------------- |
-|  [01]   | Root `tsconfig.base.json`  | Every shared compiler option, no `include`, no `files`                     |
-|  [02]   | Root `tsconfig.json`       | `extends` the base, `"include": []`, `references` to each project          |
-|  [03]   | Package `tsconfig.json`    | `extends` the base, `references`, runtime `types` and `lib`                |
-|  [04]   | `tests/tsconfig.base.json` | `extends` the base, `noEmit: true`, no files, extended by every test suite |
-|  [05]   | Root `tsconfig.tests.json` | `noEmit: true` over root `vitest.config.ts`, `references` to test support  |
+| [INDEX] | [FILE]                     | [HOLDS]                                                                   |
+| :-----: | :------------------------- | :------------------------------------------------------------------------ |
+|  [01]   | Root `tsconfig.base.json`  | Every shared compiler option, no `include`, no `files`                    |
+|  [02]   | Root `tsconfig.json`       | `extends` the base, `"include": []`, `references` to each project         |
+|  [03]   | Package `tsconfig.json`    | `extends` the base, `references`, runtime `types` and `lib`               |
+|  [04]   | Root `tsconfig.tests.json` | `noEmit: true` over root `vitest.config.ts`, `references` to test support |
 
 - Test suite programs `references` reach each package they import, else TS6307 refuses the files outside their `include`
-- `@rasm/nx-typescript` infers `check--tsc` for a `noEmit` program, `build--tsc` for an emitting one with a `check--tsc` that runs it
-- Runtime differences (DOM `lib`, Workers `types`, `jsx`) sit in the package config that needs them, Workers suites extending `tests/tsconfig.workers.json`
+- `@rasm/nx-typescript` infers `check--tsc` for a `noEmit` program and `build--tsc` for an emitting one, its `check--tsc` running the build
+- Plugin option `noEmit` checks every program of its row under `tsc --noEmit`, and `nx.json` sets it on the row including `tests/**`
+- Runtime differences (DOM `lib`, Workers `types`, `jsx`) sit in the package config that needs them
 
 ## [03]-[BASE]
 
@@ -85,7 +85,7 @@ Package config, source at the package root:
 |  [14]   | `types`                      | Explicit list            | Default `[]` loads no global types                                     |
 |  [15]   | `plugins`                    | Effect language service  | Patched `tsc` reports Effect diagnostics as compiler errors            |
 |  [16]   | `jsx`                        | `react-jsx`              | Packages holding `.tsx` alone                                          |
-|  [17]   | `noEmit`                     | `true`                   | Test bases, `tsconfig.tests.json`, bundled applications                |
+|  [17]   | `noEmit`                     | `true`                   | `tsconfig.tests.json`, bundled applications                            |
 
 Options that stay unwritten:
 
