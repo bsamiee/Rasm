@@ -75,8 +75,8 @@ const normalized = (name: string) => name.toLowerCase().replaceAll(SEPARATORS, '
 
 const sited = (workspaceRoot: string) => (node: typeof Node.Type) =>
     Option.map(
-        Record.findFirst(node.source, (at, key) => Schema.is(Local)(key) && Predicate.isString(at)),
-        ([, at]) => relative(workspaceRoot, normalize(String(at))) || '.',
+        Record.findFirst(node.source, (at, key): at is string => Schema.is(Local)(key) && Predicate.isString(at)),
+        ([, at]) => relative(workspaceRoot, normalize(at)) || '.',
     );
 
 const packed = (stated: unknown): readonly string[] =>

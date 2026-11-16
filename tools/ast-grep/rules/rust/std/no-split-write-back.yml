@@ -8,7 +8,7 @@ utils:
 rule:
     kind: let_declaration
     all:
-        - pattern: 'let ($_, $REST) = $S.$SPLIT()?;'
+        - any: [{ pattern: 'let ($_, $REST) = $S.$SPLIT()?;' }, { pattern: 'let (_, $REST) = $S.$SPLIT()?;' }]
         - precedes: { matches: write-back }
 constraints:
     SPLIT: { regex: '^split_(first|last)$' }

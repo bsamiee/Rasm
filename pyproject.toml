@@ -533,7 +533,7 @@ task-tags                 = ["---", "TODO", "FIXME", "XXX"]                     
 pylint                    = { allow-dunder-method-names = ["__name__", "__version__"], allow-magic-value-types = ["str", "bytes", "int"] }                                                       # Protocol properties type module attributes, which ty matches to a property alone
 
 [tool.ruff.lint.per-file-ignores]
-"**/tests/**"                                                             = ["assert"]
+"**/tests/**"                                                             = ["assert", "implicit-namespace-package"]                                                # pytest imports each test file by rootdir path, a test root holds no package
 "tests/libs/python/runtime/telemetry/conftest.py"                         = ["banned-api", "pytest-fixture-autouse"]                                                # Copies structlog `tests/conftest.py:23,26,74` and CPython `Lib/test/test_logging.py:117`: autouse fixtures over `logging.getLogger()` and the root logger
 "tests/libs/python/runtime/telemetry/test_environment_carrier.py"         = ["import-private-name"]                                                                 # Copies opentelemetry-api `tests/propagators/test__envcarrier.py:14-16`: the environment setter lives in private `_envcarrier` alone
 "tests/libs/python/runtime/telemetry/test_instrumented.py"                = ["banned-api", "hardcoded-temp-file", "import-private-name", "pytest-raises-too-broad"] # Copies `test_configurator_file_routing.py:47,57` path `/tmp/otel.yaml`, `test_proto_span_exporter.py:46,230,242`, and CPython `Lib/test/test_logging.py:3580`: a private variable name, `assertRaises(RuntimeError)` with no message, and `logging.getLogger`
@@ -631,6 +631,10 @@ require-lazy         = [
 "posix.environ".msg                      = "Validate os.environ once at boundary into frozen settings"
 "posixpath.expandvars".msg               = "Read validated settings field"
 "requests".msg                           = "Use httpx2.Client or httpx2.AsyncClient"
+"structlog.configure".msg                = "Configure structlog once in the program entry module"
+"structlog.configure_once".msg           = "Configure structlog once in the program entry module"
+"structlog.reset_defaults".msg           = "Configure structlog once in the program entry module"
+"structlog.stdlib.recreate_defaults".msg = "Configure structlog once in the program entry module"
 "sys.__excepthook__".msg                 = "Log exception with exc_info="
 "threading.__excepthook__".msg           = "Log exception with exc_info="
 "time.sleep".msg                         = "Use await anyio.sleep"
@@ -655,7 +659,7 @@ require-lazy         = [
 
 [tool.ty]
 environment = { python-platform = "all" }
-src         = { exclude = ["libs/python/blender", "products/apps/blender", "tests/libs/python/blender"] }                                                     # 3.13 uv roots `libs/python/blender` and `products/apps/blender/darkroom`, each checked through its own `[tool.ty]`; ty opens one project per root and finds no nested one
+src         = { exclude = ["libs/python/blender", "products/apps/blender", "tests/libs/python/blender"] }                        # 3.13 uv roots `libs/python/blender` and `products/apps/blender/darkroom`, each checked through its own `[tool.ty]`; ty opens one project per root and finds no nested one
 analysis    = { allowed-unresolved-imports = ["uharfbuzz.**"] }                                                                  # uharfbuzz re-exports its compiled `_harfbuzz` module, which ships no stub
 rules       = { all = "error", unsound-assignment = "ignore", unsound-return = "ignore", unused-type-ignore-comment = "ignore" } # mypy owns `Any` assigned and returned through a typed boundary, `unused-ignore` unused `type: ignore` comments
 
@@ -746,7 +750,7 @@ disable    = [
     "FURB173",    # Merged literal `{...} | d` infers its own value type, mypy rejects it at target parameter type
     "FURB176",    # Ruff DTZ003 and DTZ004 report the form
     "FURB177",    # Ruff runs FURB177
-    "FURB179",    # `chain.from_iterable` rewrite joins heterogeneous tuple elements to `object`
+    "FURB179",    # Reports `reduce(add, ...)` over arithmetic values as list concatenation, RASM107 owns `chain` flattening per Python version
     "FURB180",    # Ruff runs FURB180
     "FURB183",    # `str(value)` calls `__str__`, formatting calls `__format__`
     "FURB184",    # Matches names with no type or binding check, chaining drops annotations and reused bindings

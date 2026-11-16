@@ -5,7 +5,42 @@ import { parse } from 'acorn';
 import fs from 'adobe:fs';
 import uxp, { entrypoints } from 'adobe:uxp';
 import { formatHex8 } from 'culori/fn';
-import { Array, Cause, Clock, Console, Context, Deferred, Duration, Effect, Exit, Fiber, FiberHandle, FiberSet, Function, flow, Layer, Logger, ManagedRuntime, Option, Path, PlatformError, Predicate, pipe, Queue, Record, Result, Schema, SchemaGetter, Scope, ScopedRef, Sink, Stdio, Stream, Struct } from 'effect';
+import {
+    Array,
+    Cause,
+    Clock,
+    Console,
+    Context,
+    Deferred,
+    Duration,
+    Effect,
+    Exit,
+    Fiber,
+    FiberHandle,
+    FiberSet,
+    Function,
+    flow,
+    Inspectable,
+    Layer,
+    Logger,
+    ManagedRuntime,
+    Option,
+    Path,
+    PlatformError,
+    Predicate,
+    pipe,
+    Queue,
+    Record,
+    Result,
+    Schema,
+    SchemaGetter,
+    Scope,
+    ScopedRef,
+    Sink,
+    Stdio,
+    Stream,
+    Struct,
+} from 'effect';
 import { FetchHttpClient } from 'effect/http';
 import { RpcMessage, RpcSerialization, RpcServer } from 'effect/rpc';
 import { UxpManifest } from '#/manifest';
@@ -73,7 +108,7 @@ class Uxp extends Context.Service<Uxp, { readonly uxp: typeof uxp; readonly fs: 
         };
         try {
             const line = Predicate.hasProperty(cause, 'stack') && Predicate.isString(cause.stack) ? Array.head(lines) : Option.none();
-            return HostError.thrown(String(Option.match(Schema.decodeUnknownOption(Thrown)(cause), { onNone: () => cause, onSome: Struct.get('message') })), line)(cause);
+            return HostError.thrown(Inspectable.toStringUnknown(Option.match(Schema.decodeUnknownOption(Thrown)(cause), { onNone: () => cause, onSome: Struct.get('message') }), 0), line)(cause);
         } finally {
             Reflect.set(Error, 'prepareStackTrace', prepare);
         }

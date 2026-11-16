@@ -14,9 +14,6 @@ utils:
     caret-text:
         kind: string_literal
         regex: '^"([^"{}\\]|\\.|\{\{|\}\}|\{[^{}]*\})*?\^'
-    padded-placeholder:
-        kind: string_literal
-        regex: '\{[^{}]*:[^{}]?>[^{}]*\}'
     caret-repeat:
         kind: call_expression
         has: { field: function, kind: field_expression, all: [{ has: { field: value, matches: caret-only } }, { has: { field: field, regex: '^repeat$' } }] }
@@ -52,10 +49,6 @@ rule:
         - any:
               - matches: caret-repeat
               - matches: caret-iterator
-              - kind: tuple_expression
-                any:
-                    - all: [{ has: { matches: caret-text } }, { has: { matches: space-repeat } }]
-                    - all: [{ has: { matches: padded-placeholder } }, { has: { matches: caret-literal } }]
               - kind: call_expression
                 all:
                     - has: { field: function, kind: field_expression, all: [{ has: { field: value, pattern: $BUFFER } }, { has: { field: field, regex: '^push_str$' } }] }

@@ -61,7 +61,7 @@ const CHECKERS = {
         folder: (_: string, base: string) => base,
         origin: (_: string, root: string) => root,
         run: [],
-        command: (at: string, config?: string) => ['refurb', ...(config === undefined ? [] : ['--config-file', config]), at],
+        command: (at: string, config?: string, version?: string) => ['refurb', ...(config === undefined ? [] : ['--config-file', config]), ...flagged('--python-version', version), at],
         mypy: ['--'],
         coverage: undefined,
         description: 'Reports the findings of the member with refurb over a mypy build',

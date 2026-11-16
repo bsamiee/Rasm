@@ -10,6 +10,7 @@ utils:
             all:
                 - has: { field: property, regex: '^run$' }
                 - has: { field: object, kind: member_expression, has: { field: property, regex: '^process$' } }
+        inside: { kind: program, stopBy: end, matches: claude-code-module }
     run-result:
         any:
             - matches: process-run

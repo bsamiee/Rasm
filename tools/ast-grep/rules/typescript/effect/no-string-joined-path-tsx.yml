@@ -3,12 +3,8 @@ language: tsxlang
 severity: error
 utils:
     directory-read:
-        any:
-            - kind: member_expression
-              regex: '^import\.meta\.(dirname|filename)$'
-            - kind: identifier
-              regex: '^__(dirname|filename)$'
-              matches: typescript-global-reference
+        kind: member_expression
+        regex: '^import\.meta\.(dirname|filename)$'
     slash-join:
         kind: call_expression
         all:

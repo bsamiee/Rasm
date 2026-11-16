@@ -34,10 +34,6 @@ rule:
           pattern: $SITE
           all:
               - has: { field: type, has: { matches: mutable-type } }
-              - not:
-                    all:
-                        - has: { field: type, regex: '^["'']?list\[(collections\.abc\.|typing\.)?Callable\[' }
-                        - not: { has: { field: right, pattern: $_RIGHT } }
               - inside:
                     kind: expression_statement
                     inside:

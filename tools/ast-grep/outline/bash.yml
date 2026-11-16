@@ -158,8 +158,9 @@ rule:
 transform:
     SWITCH: { replace: { source: $FLAG, replace: '^([-+])[a-zA-Z]*o$|^-[a-z]*?([su])[a-z]*$', by: '${1}o${2} ' } }
     SIGN: { replace: { source: $SWITCH, replace: '^o', by: '-' } }
-name: $NAME
-signature: $LEAD $SIGN$NAME
+    SHOWN: { replace: { source: $NAME, replace: '^([-+][a-zA-Z]*)o$', by: '${1}' } }
+name: $SHOWN
+signature: $LEAD $SIGN$SHOWN
 isExported: false
 ---
 id: bash-event

@@ -36,4 +36,4 @@ rule:
                           - has: { field: superclasses, has: { matches: enum-base } }
                           - not: { has: { field: body, has: { kind: function_definition, has: { field: name, pattern: __init__ } } } }
 message: '`$MEMBER` packs mixed-kind values into one enum tuple read by position'
-note: 'Hold each value as a frozen record and read its parts by field name'
+note: 'Unpack the tuple in an `__init__` that names each part, or hold each value as a frozen record'

@@ -3,7 +3,7 @@ language: tsxlang
 severity: error
 rule:
     any:
-        - { pattern: runMain, not: { inside: { kind: import_specifier } } }
+        - { pattern: runMain, not: { inside: { kind: import_specifier } }, inside: { kind: program, stopBy: end, matches: { typescript-module-importer: { module: { regex: '^@effect/platform-[a-z]+(/|$)' } } } } }
         - { kind: property_identifier, regex: '^runMain$', inside: { kind: member_expression, field: property } }
     not:
         any:

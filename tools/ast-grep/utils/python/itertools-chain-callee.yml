@@ -1,5 +1,0 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: itertools-chain-callee
-language: pythonlang
-rule:
-    matches: { python-unparenthesized: { value: { matches: { python-member-use: { module: { regex: '^itertools$' }, name: { regex: '^chain$' } } } } } }

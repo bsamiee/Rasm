@@ -30,6 +30,8 @@ rule:
     any:
         - kind: computed_modify
           has: { kind: modify_specifier, pattern: $NAME }
+        - kind: computed_getter
+          has: { kind: getter_specifier, regex: '^_read$', pattern: $NAME }
         - kind: call_expression
           matches: called-accessor
           has: { nthChild: 1, pattern: $NAME }

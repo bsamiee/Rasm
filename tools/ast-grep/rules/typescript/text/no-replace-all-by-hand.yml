@@ -3,11 +3,6 @@ language: tsxlang
 severity: error
 ignores: ['**/creative-cloud/*/host.ts', '**/extendscript.ts']
 utils:
-    fixed-regex:
-        kind: regex
-        all:
-            - has: { field: flags, all: [{ regex: 'g' }, { regex: '^[dgmsuv]+$' }] }
-            - has: { field: pattern, regex: '^(?:[^\\^$.*+?()\[\]{}|/]|\\[\\^$.*+?()\[\]{}|/nrtfv])+$' }
     separator:
         kind: string
         has: { kind: 'string_fragment, escape_sequence' }
@@ -45,10 +40,6 @@ rule:
     kind: call_expression
     pattern: $CALL
     any:
-        - all:
-              - has: { field: function, kind: member_expression, all: [{ has: { field: property, regex: '^(replace|replaceAll)$' } }, { not: { has: { field: object, matches: effect-string-module } } }] }
-              - has: { field: arguments, all: [{ has: { nthChild: { position: 1, ofRule: *code }, matches: fixed-regex } }, { has: { nthChild: { position: 2, ofRule: *code } } }, { not: { has: { nthChild: { position: 3, ofRule: *code } } } }] }
-              - not: { has: { field: arguments, matches: typescript-separator-swap } }
         - all:
               - matches: joined-split
               - not: { matches: typescript-separator-swap }

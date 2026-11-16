@@ -38,6 +38,6 @@ constraints:
             - pattern: Boolean
               matches: { effect-module: { name: { regex: '(?-u:\b)Boolean$' } } }
             - not: { pattern: Boolean }
-              matches: { effect-module: { name: { regex: '(?-u:\b)(Option|Result|Exit|Effect)$' } } }
+              matches: { effect-module: { name: { regex: '(?-u:\b)(Option|Result|Exit)$' } } }
 message: '`$M.match` maps one case to `true` and the other to `false`'
 note: 'Call `<module>.is<Case>(<value>)`, or write `<value>` or `!<value>` in place of `Boolean.match`'

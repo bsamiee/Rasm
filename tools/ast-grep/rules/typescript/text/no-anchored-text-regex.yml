@@ -33,7 +33,7 @@ utils:
     regex-call:
         kind: call_expression
         all:
-            - has: { field: function, kind: member_expression, has: { field: property, regex: '^(test|exec)$' } }
+            - has: { field: function, kind: member_expression, has: { field: property, regex: '^exec$' } }
             - has:
                   field: arguments
                   not: { has: { nthChild: { position: 2, ofRule: &code { not: { kind: 'comment, html_comment' } } } } }
@@ -45,7 +45,7 @@ utils:
     text-call:
         kind: call_expression
         all:
-            - has: { field: function, kind: member_expression, has: { field: property, regex: '^(match|search)$' } }
+            - has: { field: function, kind: member_expression, has: { field: property, regex: '^search$' } }
             - has: { field: arguments, not: { has: { nthChild: { position: 2, ofRule: *code } } } }
             - has: { field: function, all: [{ has: { field: object, pattern: $RECEIVER } }, { has: { matches: access } }] }
             - has: { field: arguments, has: { nthChild: { position: 1, ofRule: *code }, matches: source } }
@@ -55,11 +55,6 @@ rule:
               - kind: call_expression
                 all:
                     - matches: regex-call
-                    - any: [{ has: { field: function, has: { field: property, regex: '^test$' } } }, { matches: condition }]
-              - kind: call_expression
-                all:
-                    - has: { field: function, has: { field: property, regex: '^match$' } }
-                    - matches: text-call
                     - matches: condition
               - kind: binary_expression
                 all:
@@ -67,9 +62,7 @@ rule:
                     - has: { field: right, kind: 'null' }
                     - has:
                           field: left
-                          any:
-                              - all: [{ has: { field: function, has: { field: property, regex: '^exec$' } } }, { matches: regex-call }]
-                              - all: [{ has: { field: function, has: { field: property, regex: '^match$' } } }, { matches: text-call }]
+                          matches: regex-call
               - kind: binary_expression
                 all:
                     - has: { field: left, kind: call_expression, has: { field: function, has: { field: property, regex: '^search$' } } }
