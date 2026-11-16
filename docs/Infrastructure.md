@@ -60,12 +60,11 @@ Each place holding state changes through one action:
 
 ## [06]-[RUNNERS]
 
-- Role `Runner` field `instances` names each runner service by its label
-- `.config/mise.runner.toml` holds user `runner` (uid 1000, also in group `docker`), the build packages, its passwordless sudo, and the memory limits of unit `host` in a drop-in under `/usr/local/lib/systemd/system`, which `systemctl revert` keeps
-- Memory drop-in changes notify `runner-prune.timer`, as mise reloads systemd only before a service change and a runner unit exists only after its stack installs it
+- Role `Runner` field `instances` names each runner service by its label with its systemd resource limits, which the stack sets through `systemctl set-property` once the service starts
+- `.config/mise.runner.toml` holds user `runner` (uid 1000, also in group `docker`), the build packages, and its passwordless sudo
 - Runner `<machine>-<label>` holds folder `actions-runner-<label>`, its own work folder, and label `<label>` beside the default labels
 - Instance `host` runs jobs on the machine and `container` runs jobs in a container, and a host job and a container job run at once
-- Runner version, label, or repository changes install a runner again with a registration token `gh api` creates
+- Runner version, label, limit, or repository changes install a runner again with a registration token `gh api` creates, after `systemctl revert` clears its limits
 - Runners keep tools, ignored files, and each Unreal image between runs
 - `needrestart` leaves `actions.runner.*` services running after a library update, as GitHub documents
 
@@ -84,4 +83,4 @@ Each place holding state changes through one action:
 - Machines reboot as soon as an update requires it, which stops a job running there and any CI run reading the cache it serves
 - `runner-prune.timer` runs `runner-prune.service` each Sunday at 09:00 UTC to prune the pnpm store, uv cache, and unused mise tool versions
 - `runner-prune.service` removes stopped Docker containers created over an hour before, unused anonymous volumes, and dangling images
-- Docker's default build cache garbage collection bounds build cache, and no job prunes it
+- Docker Engine's default build cache garbage collection removes cache unused for 60 days, and cache past 80% of the disk or under 20% free down to 10% of the disk, and no job prunes build cache

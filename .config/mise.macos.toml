@@ -7,6 +7,14 @@ GHIDRA_PROJECT_DIR              = "{{ env.HOME }}/Library/Caches/rasm/ghidra/pro
 PITCHFORK_SUPERVISOR_AUTO_START = "false"
 SDKROOT                         = '{{ exec(command="xcrun --show-sdk-path 2>/dev/null || true", cache_duration="1h") }}'
 
+# --- [BOOTSTRAP] ------------------------------------------------------------------------
+
+[bootstrap.macos.launchd.agents.pitchfork]
+args                  = ["exec", "--", "pitchfork", "supervisor", "run"]
+keep_alive_on_failure = true
+program               = "{{ mise_bin }}"
+working_directory     = "{{ config_root }}"
+
 # --- [DAEMONS] --------------------------------------------------------------------------
 
 [daemon_groups]

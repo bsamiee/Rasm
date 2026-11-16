@@ -20,13 +20,6 @@ uid         = 1000
 "apt:unzip"           = "latest"
 "apt:zip"             = "latest"
 
-[bootstrap.directories."/usr/local/lib/systemd/system/actions.runner.bsamiee-Rasm.derby-host.service.d"]
-
-[bootstrap.directories."/etc/systemd/system.control/actions.runner.bsamiee-Rasm.derby-host.service.d"]
-notify    = ["runner-prune.timer"]
-recursive = true
-state     = "absent"
-
 [bootstrap.files."/etc/sudoers.d/90-runner"]
 content = """
 runner ALL=(ALL) NOPASSWD:ALL
@@ -37,14 +30,6 @@ mode    = "0440"
 content = '''
 $nrconf{override_rc}{qr(^actions\.runner\..+\.service$)} = 0;
 '''
-
-[bootstrap.files."/usr/local/lib/systemd/system/actions.runner.bsamiee-Rasm.derby-host.service.d/90-memory.conf"]
-content = """
-[Service]
-MemoryHigh=18G
-MemoryMax=20G
-"""
-notify  = ["runner-prune.timer"]
 
 [bootstrap.files."/etc/systemd/system/runner-prune.service"]
 content = """

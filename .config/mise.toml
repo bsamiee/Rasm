@@ -291,7 +291,7 @@ pulumi                                                                       = "
 "pypi:ast-grep/ast-grep-mcp"                                                 = "latest"
 "pypi:git+https://projects.blender.org/lab/blender_mcp.git#subdirectory=mcp" = "v1"
 "pypi:mcp-for-blender"                                                       = { os = ["macos"], version = "latest" }
-"pypi:yamllint"                                                              = "latest"
+"pypi:yamllint"                                                              = { python = "3.14", version = "latest" }                                                                                                                                                                                                                                    # PyYAML publishes no CPython 3.15 wheel, and mise lock builds no sdist into a dependency graph
 resvg                                                                        = "latest"
 ripgrep                                                                      = "latest"
 ruff                                                                         = "latest"

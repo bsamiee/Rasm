@@ -16,7 +16,7 @@ import type { configs } from '#/repository-stack';
 
 type Role = Data.TaggedEnum<{
     Cache: { readonly name: string; readonly kept: Duration.Duration };
-    Runner: { readonly instances: readonly string[] };
+    Runner: { readonly instances: Readonly<Record<string, Readonly<Record<string, string>>>> };
     Apps: { readonly owner: string };
 }>;
 interface Row {
@@ -36,7 +36,7 @@ const hosts = {
     'derby.parametric-arsenal.cloud': {
         address: '45.90.223.193',
         tags: ['tag:server'],
-        roles: [{ _tag: 'Runner', instances: ['host', 'container'] }],
+        roles: [{ _tag: 'Runner', instances: { host: { MemoryHigh: '18G', MemoryMax: '20G' }, container: {} } }],
     },
 } as const satisfies Record.ReadonlyRecord<string, Row>;
 const entrypoints = { web: 80, websecure: 443 } as const;
@@ -263,7 +263,7 @@ const provisioned = (host: keyof typeof hosts, { owner, repository, project, eng
                 Apps: (settings) => hosted(machine, settings),
                 Runner: ({ instances }) => {
                     const runner = { version: '2.338.2', sha256: 'baebf204307bac6193480852732f0aba2ae97b6c5597c244f4d5558390147c40', user: 'runner' } as const;
-                    const [, registered] = Array.mapAccum(instances, Option.none<remote.Command>(), (before, label) => {
+                    const [, registered] = Array.mapAccum(Record.toEntries(instances), Option.none<remote.Command>(), (before, [label, limits]) => {
                         const folder = `/home/${runner.user}/actions-runner-${label}`;
                         const archive = `/tmp/actions-runner-${label}.tar.gz`;
                         const removed = `if cd ${folder} 2>/dev/null; then systemctl revert "$(cat ${folder}/.service)"; ./svc.sh stop; ./svc.sh uninstall; fi; rm -rf ${folder}`;
@@ -279,6 +279,10 @@ const provisioned = (host: keyof typeof hosts, { owner, repository, project, eng
                             `sudo -u ${runner.user} ./config.sh --unattended --replace --url https://github.com/${owner}/${repository} --name ${machine.name}-${label} --labels ${label} --token "$token"`,
                             `./svc.sh install ${runner.user}`,
                             './svc.sh start',
+                            ...Array.match(
+                                Record.collect(limits, (option, value) => `${option}=${value}`),
+                                { onEmpty: Array.empty, onNonEmpty: (options) => [`systemctl set-property "$(cat .service)" ${options.join(' ')}`] },
+                            ),
                         ].join('\n');
                         const token = new command.local.Command(`${machine.name}-runner-${label}-token`, { create: `gh api --method POST repos/${owner}/${repository}/actions/runners/registration-token --jq .token`, triggers: [installation], logging: 'none' }, { additionalSecretOutputs: ['stdout'] });
                         const instance = new remote.Command(`${machine.name}-runner-${label}`, { connection: { host: machine.name }, addPreviousOutputInEnv: false, logging: 'stderr', create: installation, delete: removed, stdin: token.stdout }, { dependsOn: Option.toArray(before) });

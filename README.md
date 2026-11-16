@@ -259,7 +259,7 @@ Installs, releases, and channels each deliver a product, releases and channels f
 |  [19]   | Machine                        | `hosts` row in `infra/platform-stack.ts`, `[bootstrap.remote.hosts]` row in `.config/mise.toml`        |
 |  [20]   | Service definition             | Role of a `hosts` row, `.config/mise.<role>.toml` for its machine state, an app's `hosting.config.ts`  |
 |  [21]   | Container runtime              | Mise clients, Colima on macOS, `[bootstrap.packages]` Docker rows on machines                          |
-|  [22]   | Local daemon                   | `[daemons]` row in `.config/mise.toml` started by a shell or agent session, `[bootstrap.services]` row |
+|  [22]   | Local daemon                   | `[daemons]` row in `.config/mise.<os>.toml` started by a shell or agent session, `[bootstrap.services]` row |
 |  [23]   | Agent browser options          | `.config/mise.toml` `[env]` `PLAYWRIGHT_MCP_*` rows, `PLAYWRIGHT_CLI_SESSION` per agent session        |
 |  [24]   | Agent harness plugin           | `plugins/<name>`                                                                                       |
 |  [25]   | Reusable asset                 | `assets/<kind>/<name>/` in `bsamiee/Rasm-Assets`, with native relative dependencies                    |
