@@ -2,12 +2,13 @@ import { createRequire, findPackageJSON } from 'node:module';
 import { basename, dirname, extname, join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import type { loadConfig } from '@cloudflare/config';
-import { layer } from '@effect/platform-node/NodeServices';
+import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
 import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, detectPackageManager, getPackageManagerCommand, hashArray, normalizePath, type PackageManager, type ProjectConfiguration, readJsonFile, type TargetConfiguration } from '@nx/devkit';
 import { buildPackageJsonPatterns, buildPackageJsonWorkspacesMatcher, getFilesInDirectoryUsingContext, getLockFileName, getNamedInputs, hashFile, hashObject, hashWithWorkspaceContext, mergeTargetConfigurations, type PackageJson, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import type { API, ParsedCommandLine } from '@typescript/native/sync';
-import { Array, Cause, Effect, Equal, FileSystem, Filter, Match, Option, Order, Predicate, Record, Result, Schema, type Scope, UndefinedOr } from 'effect';
+import { Array, Cause, Effect, Equal, FileSystem, Filter, Match, Option, Order, Predicate, Record, Result, Schema, type Scope, Stream, UndefinedOr } from 'effect';
+import { ChildProcess } from 'effect/process';
 import type { ESLint } from 'eslint';
 import { getRootTsConfigFileName } from 'nx/src/plugins/js/utils/typescript';
 
@@ -24,6 +25,7 @@ const MANIFEST = 'package.json';
 const WORKER = 'cloudflare.config.ts';
 const PROJECT = 'project.json';
 const LINTERS = ['eslint.config.js', 'eslint.config.mjs', 'eslint.config.cjs', 'eslint.config.ts', 'eslint.config.mts', 'eslint.config.cts'];
+const DUPLICATES = ['.jscpd.json', '.config/jscpd.json', '.config/.jscpd.json'];
 const PACKAGE = /^(?![./]|node:)(?<name>(?:@[^/]+\/)?[^/]+)/u;
 const UNPACKAGED: NonNullable<TargetConfiguration['inputs']> = ['default', '^default', { externalDependencies: [] }];
 const MANAGERS = {
@@ -38,9 +40,10 @@ const MANAGERS = {
 const Options = Schema.Struct({
     outputPath: Schema.optionalKey(Schema.String),
     compilerPackages: Schema.NonEmptyArray(Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed(['typescript'] as const))),
+    knipConfig: Schema.optionalKey(Schema.String),
 }).annotate({
     description:
-        'outputPath: workspace folder the package manager packs each tarball to, {projectName} naming the project, absent packs into the package folder. compilerPackages: npm packages every tsc target hashes as external dependencies, the first the native TypeScript package whose tsc runs and whose ./sync API reads each tsconfig.json',
+        'outputPath: workspace folder the package manager packs each tarball to, {projectName} naming the project, absent packs into the package folder. compilerPackages: npm packages every tsc target hashes as external dependencies, the first the native TypeScript package whose tsc runs and whose ./sync API reads each tsconfig.json. knipConfig: workspace file knip reads its configuration from through --config, absent leaving knip to find its own',
 });
 const Input = Schema.declare((input: unknown): input is NonNullable<TargetConfiguration['inputs']>[number] => Predicate.isString(input) || Predicate.isObject(input));
 const Manifest = Schema.fromJsonString(
@@ -48,14 +51,16 @@ const Manifest = Schema.fromJsonString(
         version: Schema.optionalKey(Schema.String),
         os: Schema.Array(Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
         nx: Schema.optionalKey(Schema.Struct({ targets: Schema.optionalKey(Schema.Record(Schema.String, Schema.Struct({ inputs: Schema.optionalKey(Schema.mutable(Schema.Array(Input))) }))) })),
+        jscpd: Schema.optionalKey(Schema.Unknown),
     }),
-).annotate({ description: "The version, os, and nx.targets rows of a project's package.json, whose inputs Nx merges over the inferred targets after every plugin" });
+).annotate({ description: "The version, os, nx.targets, and jscpd rows of a project's package.json, Nx merging the inputs over the inferred targets after every plugin and jscpd reading its configuration from the jscpd row" });
 const Literal = Schema.Struct({ text: Schema.String }).annotate({ description: 'A module specifier literal of a source file the native TypeScript API parses' });
 const Exported = Schema.fromJsonString(Schema.Struct({ exports: Schema.Struct({ '.': Schema.Struct({ import: Schema.String }) }) })).annotate({ description: 'The import entry of the root export of @cloudflare/config, the package cf loads cloudflare.config.ts through' });
+const Scanned = Schema.fromJsonString(Schema.Struct({ pattern: Schema.NullOr(Schema.String) })).annotate({ description: 'The pattern row of the merged configuration jscpd --debug prints, the glob of the files jscpd scans, null scanning every file' });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const run = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem>) => Effect.runPromise(Effect.provide(effect, layer));
+const run = <A, E>(effect: Effect.Effect<A, E, NodeServices>) => Effect.runPromise(Effect.provide(effect, layer));
 
 const own = Effect.runSync(
     Effect.cached(
@@ -281,9 +286,30 @@ const tarball = (manager: PackageManager, exec: string, { outputPath }: typeof O
     });
 };
 
-const upgraded = (manager: PackageManager, { nx }: typeof Manifest.Type) => {
+const workspace = Effect.fnUntraced(function* (workspaceRoot: string, manager: PackageManager, exec: string, { knipConfig }: typeof Options.Type, { nx, jscpd }: typeof Manifest.Type) {
     const { upgrade, example } = MANAGERS[manager];
     const command = upgrade.map(quoteShellArg).join(' ');
+    const knip = ['knip', ...UndefinedOr.match(knipConfig, { onUndefined: () => [], onDefined: (at) => ['--config', at] })].map(quoteShellArg).join(' ');
+    const configured = Option.orElse(yield* Effect.findFirst(DUPLICATES, (at) => FileSystem.FileSystem.use((fs) => fs.exists(join(workspaceRoot, at)))), () => Option.liftPredicate(MANIFEST, () => jscpd !== undefined));
+    const debugged = Effect.flatMap(ChildProcess.make('jscpd', ['--debug', '.'], { cwd: workspaceRoot, stdin: 'ignore' }), (handle) =>
+        Effect.all({ stdout: Stream.mkString(Stream.decodeText(handle.stdout)), stderr: Stream.mkString(Stream.decodeText(handle.stderr)), code: handle.exitCode }, { concurrency: 'unbounded' }),
+    );
+    const decoded = debugged.pipe(
+        Effect.filterOrFail(
+            ({ code }) => code === 0,
+            ({ stderr, code }) => new Cause.UnknownError(code, `jscpd --debug . exits ${code} in ${workspaceRoot}: ${stderr.trim()}`),
+        ),
+        Effect.flatMap(({ stdout }) => Schema.decodeEffect(Scanned)(stdout)),
+    );
+    const scanned = yield* Effect.transposeOption(Option.as(configured, decoded));
+    const duplicated = Option.zipWith(configured, scanned, (config, { pattern }) => ({
+        command: 'jscpd .',
+        options: { cwd: '.' },
+        cache: true,
+        inputs: [join('{workspaceRoot}', pattern ?? '**/*'), join('{workspaceRoot}', config), { runtime: 'jscpd --version' }, { externalDependencies: [] }],
+        outputs: [],
+        metadata: { technologies: ['jscpd'], description: `Reports code duplicated across the workspace files ${config} selects with jscpd`, help: { command: 'jscpd --help', example: { args: ['--changed'] } } },
+    }));
     return Option.some(
         projected(
             '.',
@@ -292,11 +318,24 @@ const upgraded = (manager: PackageManager, { nx }: typeof Manifest.Type) => {
                 upgrade: {
                     [manager]: { command, inputs: [{ externalDependencies: [] }], metadata: { description: `Moves the dependency requirements of every workspace package and the lockfile to newer releases with ${command}`, help: { command: `${upgrade.slice(0, 2).join(' ')} --help`, example: { args: [...example] } } } },
                 },
+                check: {
+                    ...Record.getSomes({ jscpd: duplicated }),
+                    ...(installed('knip', join(workspaceRoot, MANIFEST)) && {
+                        knip: {
+                            command: knip,
+                            options: { cwd: '.' },
+                            cache: true,
+                            inputs: [join('{workspaceRoot}', '**/*'), { externalDependencies: ['knip'] }],
+                            outputs: [],
+                            metadata: { technologies: ['knip'], description: `Reports unused files, exports, and dependencies of every workspace package with ${knip}`, help: { command: `${exec} knip --help`, example: { args: ['--production'] } } },
+                        },
+                    }),
+                },
             },
             nx?.targets ?? {},
         ),
     );
-};
+}, Effect.scoped);
 
 const worker = Effect.fnUntraced(function* (context: CreateNodesContext, exec: string, stated: Stated, file: string) {
     const fs = yield* FileSystem.FileSystem;
@@ -491,7 +530,7 @@ const nodes = Effect.fnUntraced(function* (files: readonly string[], options: ty
             (eslint) => projected(root, 'eslint', { check: { eslint: { ...eslint, inputs: [...(eslint.inputs ?? []), ...chained(root)] } } }, stated),
         );
         const branch = yield* Match.value(file).pipe(
-            Match.when(MANIFEST, () => Effect.succeed(upgraded(manager, manifest))),
+            Match.when(MANIFEST, () => workspace(workspaceRoot, manager, exec, settings, manifest)),
             Match.when(
                 (at) => basename(at) === PROJECT,
                 () => Effect.succeedNone,

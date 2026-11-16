@@ -67,6 +67,7 @@
             "plugin": "@rasm/nx-typescript",
             "options": {
                 "compilerPackages": ["@typescript/native", "@effect/tsgo"],
+                "knipConfig": ".config/knip.json",
                 "outputPath": ".artifacts/pnpm/{projectName}"
             }
         },

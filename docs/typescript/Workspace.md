@@ -44,6 +44,8 @@ Root `package.json` holds workspace identity and tools that root configuration f
 
 - Root `package.json` holding an `nx` key becomes an Nx project, and `"includedScripts": []` there keeps `prepare` from becoming a target
 - `nx.json` `plugins` names `@rasm/nx-typescript` for `build--tsc` and `check--tsc` targets, and `@rasm/nx-vitest` for `test--vitest` targets
+- Root project targets `check--jscpd` and `check--knip` read every workspace file, and option `knipConfig` names `.config/knip.json`, which knip never finds
+- `useDaemonProcess: false` holds while the Nx daemon forces debug logs into an unrotated `daemon.log` and restarts each graph an edit interrupts
 
 ## [03]-[WORKSPACE_FILE]
 
