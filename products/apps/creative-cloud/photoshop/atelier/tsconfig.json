@@ -1,0 +1,21 @@
+{
+    "extends": "../../../../../libs/typescript/creative-cloud/uxp/tsconfig.json",
+    "compilerOptions": {
+        "noEmit": true,
+        "types": ["node", "@adobe-uxp-types/uxp/with-protocol", "@adobe-uxp-types/photoshop/with-protocol"]
+    },
+    "references": [
+        {
+            "path": "../../../../../libs/typescript/creative-cloud/uxp"
+        },
+        {
+            "path": "../../../../../libs/typescript/data/search"
+        },
+        {
+            "path": "../../../../../libs/typescript/creative-cloud/automation"
+        },
+        {
+            "path": "../../multi-app/atelier/protocol"
+        }
+    ]
+}

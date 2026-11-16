@@ -62,7 +62,7 @@ Numbers run in order; a number with a letter runs beside the number it shares.
   - Then read `tune.js`, `extension-research.js` and `guidance.js` for the same fan-out and closure faults
 - 1: InPage, one `deepen` run per package with `plan` `~/.claude/rasm/workflows/typescript-extension/inpage/PLAN.md`, its inputs and its oracle:
   - Finish typography: its plan rows, then its lead review and check with the oracle
-  - Then search, then indesign, then `apps/creative-cloud/atelier`
+  - Then search, then indesign, then Atelier (`products/apps/creative-cloud/multi-app/atelier`, `products/apps/creative-cloud/*/atelier`)
   - Plan rows for `@rasm/grid` wait for the grid extension row
   - Then `tune` over TypeScript from `0305d5c82`, then push
 - 1a: Rust `deepen` runs beside 1, launched by a later session:
@@ -174,7 +174,7 @@ Darkroom gets its own window in Rhino, built from the ground up, that replaces t
 ### [03.2]-[BOUNDARY_RULES_OWNER_BINDING]
 
 - Libraries: every host capability the work derives is built in `libs/` as a general capability any future app can use. Examples: hosting a window, reading and writing render settings, driving the render pipeline, reaching native render commands
-- Darkroom: only Darkroom-specific content lives in `apps/rhino/Darkroom`, meaning its layout, its effect chain, and its choice of what to show
+- Darkroom: only Darkroom-specific content belongs in `products/apps/rhino/Darkroom`, meaning its layout, its effect chain, and its choice of what to show
 - UI libraries: building a full panel, window or GUI is a capability of both Rasm.UI (host-neutral, Skia) and Rasm.Rhino.UI (Rhino-native, Eto and Rhino.UI). Either one can build it on its own
 - No coupling: Rasm.UI and Rasm.Rhino.UI never reference each other. Rasm.Rhino, Rasm.Grasshopper and Rasm.UI never reference each other
 - No moves: no code moves between libraries and apps to suit one app

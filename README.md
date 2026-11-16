@@ -6,17 +6,19 @@ Rasm is a polyglot monorepo with macOS-first development and portable code and t
 
 ```text
 Rasm/
-├── apps/                     # Products by host or interface
-│   ├── blender/
-│   ├── cli/
-│   ├── creative-cloud/       # Software for Adobe apps, by host app, and products spanning several hosts
-│   ├── macos/
-│   ├── mcp/
-│   ├── nx/                   # Nx plugins
-│   ├── rhino/                # Rhino and Grasshopper 2 plug-ins
-│   ├── roslyn/               # C# analyzers and code fixes
-│   ├── unreal/               # Unreal projects and plug-ins
-│   └── web/
+├── products/                 # Products by category, then the application or platform they target
+│   ├── apps/                 # Products for applications other vendors make, by application
+│   │   ├── blender/
+│   │   ├── creative-cloud/   # <app>/<product> per Adobe app, multi-app/<product> across apps
+│   │   ├── rhino/            # Rhino and Grasshopper 2 products
+│   │   └── unreal/           # Unreal projects and plug-ins
+│   ├── developer/            # Packages for developer tools, by tool
+│   │   ├── nx/               # Nx plugins
+│   │   └── roslyn/           # C# analyzer and its code fixes
+│   ├── ai/                   # Products for AI agents and the people running them
+│   ├── macos/                # Products built on macOS frameworks
+│   ├── cli/                  # Command-line tools
+│   └── web/                  # Sites and web services
 ├── libs/                     # Packages by language, then category
 │   ├── cpp/
 │   ├── dotnet/
@@ -25,7 +27,7 @@ Rasm/
 │   ├── swift/
 │   └── typescript/
 ├── tests/                    # Suites at the path of the source they test
-│   ├── apps/
+│   ├── products/
 │   ├── libs/
 │   ├── tools/
 │   ├── e2e/                  # Suites running against a served or installed product
@@ -35,7 +37,7 @@ Rasm/
 │   ├── conformance/          # Nx conformance rules over the project graph and workspace files
 │   ├── dylint/               # Rust lints reading types and resolved paths Clippy lacks
 │   └── refurb/               # Python checks reading mypy types Ruff lacks
-├── assets/                   # Reusable assets no app or plugin owns
+├── assets/                   # Reusable assets no product owns
 ├── infra/                    # Pulumi programs for the repository, its machines, and app hosting
 ├── plugins/                  # Agent harness marketplace
 ├── docs/                     # Machine, service, workflow, and TypeScript architecture facts
@@ -100,7 +102,7 @@ flowchart LR
 
     subgraph project["Project level, takes projects"]
         nx(["nx #lt;target#gt; #lt;project#gt;"])
-        plugins["nx.json plugin rows<br/>apps/nx/#lt;plugin#gt;"]
+        plugins["nx.json plugin rows"]
         manifests["Ecosystem manifests and locks"]
         build["Ecosystem build settings"]
     end
@@ -204,7 +206,7 @@ Other tasks run through their own commands:
 
 ## [05]-[TESTING]
 
-Suites sit in `tests/` at the path of the source they test (`tests/apps/nx/docker` tests `apps/nx/docker`):
+Suites sit in `tests/` at the path of the source they test (`tests/products/developer/nx/docker` tests `products/developer/nx/docker`):
 - End-to-end suites sit in `tests/e2e/<product>/`, shared harnesses in `tests/support/<language>/`
 - Suites inside a nested tool root that stops discovery at its root stay inside it (the SwiftPM analyzer package, the Blender uv root)
 - Plugin folders published whole keep their suites (`plugins/function-hooks`)
@@ -247,7 +249,7 @@ Installs, releases, and channels each deliver a product, releases and channels f
 |  [09]   | Native libraries for sdists    | Pixi `default` environment in `pyproject.toml`, exact builds in `pixi.lock`                            |
 |  [10]   | Unreal Engine                  | `EngineAssociation` of a `.uproject`, found in Epic install lists                                      |
 |  [11]   | Xcode build setting            | `Xcode.xcconfig`, per-product rows in the `.xcodeproj` target                                          |
-|  [12]   | Task graph                     | `nx.json` plugin rows, inference in `apps/nx/<plugin>`                                                 |
+|  [12]   | Task graph                     | `nx.json` plugin rows                                                                                  |
 |  [13]   | Checker configuration          | Tool's own file, `pyproject.toml` `[tool.*]` for Python tools                                          |
 |  [14]   | File-level check               | `.config/hk.pkl` step                                                                                  |
 |  [15]   | Secret                         | Doppler `rasm` project and 1Password, read through the `secrets` skill                                 |
@@ -269,10 +271,11 @@ Installs, releases, and channels each deliver a product, releases and channels f
 
 - Projects hold no `src/` directory
 - Libraries sit at `libs/<language>/<category>/<package>/`
+- Products sit at `products/<category>/<product>/`, with a host or platform folder between where products target one
 - Projects a host loads target the runtime and libraries their host bundles, and build output holds none of them
 - Each uv root resolves one Python range: projects on a host's Python get their own root, and a package shared across roots declares the lower bound
 - Nested uv roots each take a `[deps.<root>]` row in `.config/mise.toml` whose `dir` names the root
-- Swift modules are root `Package.swift` targets, each in its own folder under `libs/swift/<category>/`, executables under `apps/macos/`
+- Swift modules are root `Package.swift` targets, each in its own folder under `libs/swift/<category>/`, executables under `products/macos/`
 - C++ packages each declare their own `project()`
 - Unreal plug-ins sit beside the project enabling them, whose `Plugins` folder takes their installed package
 - Unreal plug-ins name each C++ package they take in `.uplugin` table `nx.packages`, built with their engine's compiler before the plug-in builds

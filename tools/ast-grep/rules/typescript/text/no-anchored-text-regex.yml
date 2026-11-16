@@ -1,6 +1,7 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: tsxlang
 severity: error
+ignores: ['**/extendscript/**', '**/extendscript.ts']
 utils:
     affix:
         kind: regex
@@ -80,7 +81,6 @@ rule:
                                 - has: { field: operator, regex: '^(!==?|===?)$' }
                                 - has: { field: right, regex: '^0$' }
                                 - has: { field: left, has: { field: arguments, has: { nthChild: { position: 1, ofRule: *code }, any: [{ matches: prefix }, { matches: { typescript-constant-value: { value: { matches: prefix } } } }] } } }
-        - not: { inside: { kind: program, stopBy: end, matches: extendscript-file } }
         - pattern: $NODE
 message: '`$NODE` tests a fixed prefix or suffix through a regular expression'
 note: 'Call `<text>.startsWith(<string>)` or `<text>.endsWith(<string>)`'

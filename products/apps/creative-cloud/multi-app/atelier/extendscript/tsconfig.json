@@ -1,0 +1,14 @@
+{
+    "extends": "../../../../../../tsconfig.base.json",
+    "compilerOptions": {
+        "types": ["types-for-adobe/shared/global"]
+    },
+    "references": [
+        {
+            "path": "../../../../../../libs/typescript/creative-cloud/automation"
+        },
+        {
+            "path": "../protocol"
+        }
+    ]
+}

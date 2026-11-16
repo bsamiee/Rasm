@@ -1,0 +1,48 @@
+{
+    "name": "@rasm/nx-typescript",
+    "version": "0.1.0",
+    "description": "Nx plugin inferring a TypeScript check or build per tsconfig.json read through the native compiler API, a publint package check, an eslint check per project a flat config governs, Worker binding types per cloudflare.config.ts, a package manager tarball per package stating a version, and the package manager upgrade of the workspace root",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/bsamiee/Rasm.git",
+        "directory": "products/developer/nx/typescript"
+    },
+    "files": [
+        "dist"
+    ],
+    "type": "module",
+    "exports": {
+        ".": "./plugin.ts",
+        "./package.json": "./package.json"
+    },
+    "publishConfig": {
+        "exports": {
+            ".": "./dist/plugin.js",
+            "./package.json": "./package.json"
+        },
+        "access": "public"
+    },
+    "dependencies": {
+        "@effect/platform-node": "catalog:",
+        "@nx/devkit": "catalog:",
+        "@rasm/nx-distribution": "workspace:*",
+        "effect": "catalog:"
+    },
+    "devDependencies": {
+        "@cloudflare/config": "catalog:",
+        "@types/node": "catalog:",
+        "@typescript/native": "catalog:",
+        "eslint": "catalog:",
+        "nx": "catalog:"
+    },
+    "peerDependencies": {
+        "@nx/js": "catalog:peers",
+        "nx": "catalog:peers"
+    },
+    "peerDependenciesMeta": {
+        "@nx/js": {
+            "optional": true
+        }
+    }
+}

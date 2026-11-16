@@ -116,7 +116,7 @@ let executables: [Target] = [
             .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"), .product(name: "CasePaths", package: "swift-case-paths"),
             .product(name: "OrderedCollections", package: "swift-collections"), .product(name: "Subprocess", package: "swift-subprocess"),
         ],
-        path: "apps/macos/watch-apps",
+        path: "products/macos/watch-apps",
         exclude: ["Info.plist"],
     )
 ]

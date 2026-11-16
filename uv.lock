@@ -8199,7 +8199,7 @@ requires-dist = [
 [[package]]
 name = "rasm-foundry"
 version = "0.1.0"
-source = { editable = "apps/cli/foundry" }
+source = { editable = "products/cli/foundry" }
 dependencies = [
     { name = "anyio" },
     { name = "cyclopts" },
@@ -8232,7 +8232,7 @@ requires-dist = [
 [[package]]
 name = "rasm-foundry-tests"
 version = "0.1.0"
-source = { virtual = "tests/apps/cli/foundry" }
+source = { virtual = "tests/products/cli/foundry" }
 dependencies = [
     { name = "anyio" },
     { name = "cyclopts" },
@@ -8253,7 +8253,7 @@ requires-dist = [
     { name = "msgspec" },
     { name = "pytest" },
     { name = "rasm-cli", editable = "libs/python/runtime/cli" },
-    { name = "rasm-foundry", editable = "apps/cli/foundry" },
+    { name = "rasm-foundry", editable = "products/cli/foundry" },
     { name = "rasm-records", editable = "libs/python/data/records" },
     { name = "sysexits" },
 ]

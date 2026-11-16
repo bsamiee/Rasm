@@ -19,11 +19,10 @@
     </ItemGroup>
 
     <ItemGroup Label="Analyzers" Condition="'$(IsRoslynComponent)' != 'true' and '$(RunAnalyzers)' != 'false'">
-        <ProjectReference Include="$(MSBuildThisFileDirectory)apps/roslyn/Rasm.Analyzers/Rasm.Analyzers.csproj;$(MSBuildThisFileDirectory)apps/roslyn/Rasm.Analyzers.CodeFixes/Rasm.Analyzers.CodeFixes.csproj" ReferenceOutputAssembly="false" OutputItemType="Analyzer" PrivateAssets="all" />
-        <ProjectReference Include="$(MSBuildThisFileDirectory)apps/roslyn/Rasm.Rhino.Analyzers/Rasm.Rhino.Analyzers.csproj" ReferenceOutputAssembly="false" OutputItemType="Analyzer" PrivateAssets="all" PackagePath="analyzers/dotnet/cs" Condition="'$(RhinoHost)' != ''" />
+        <ProjectReference Include="$(MSBuildThisFileDirectory)products/developer/roslyn/Rasm.Analyzers/Rasm.Analyzers.csproj;$(MSBuildThisFileDirectory)products/developer/roslyn/Rasm.Analyzers.CodeFixes/Rasm.Analyzers.CodeFixes.csproj" ReferenceOutputAssembly="false" OutputItemType="Analyzer" PrivateAssets="all" />
     </ItemGroup>
 
-    <Import Project="apps/roslyn/Rasm.Analyzers/build/Rasm.Analyzers.props" Condition="'$(IsRoslynComponent)' != 'true' and '$(RunAnalyzers)' != 'false'" />
+    <Import Project="products/developer/roslyn/Rasm.Analyzers/build/Rasm.Analyzers.props" Condition="'$(IsRoslynComponent)' != 'true' and '$(RunAnalyzers)' != 'false'" />
 
     <PropertyGroup Label="Central Package Management">
         <CentralPackageTransitivePinningEnabled Condition="'$(IsRoslynComponent)' != 'true' and '$(IsPackable)' != 'true'">true</CentralPackageTransitivePinningEnabled>

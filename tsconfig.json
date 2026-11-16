@@ -6,28 +6,10 @@
             "path": "./tsconfig.tests.json"
         },
         {
-            "path": "./apps/creative-cloud/atelier/plugins/aftereffects"
-        },
-        {
-            "path": "./apps/creative-cloud/atelier/plugins/illustrator"
-        },
-        {
-            "path": "./apps/creative-cloud/atelier/plugins/photoshop"
-        },
-        {
-            "path": "./apps/creative-cloud/atelier/plugins/indesign"
-        },
-        {
             "path": "./libs/typescript/creative-cloud/automation"
         },
         {
-            "path": "./apps/creative-cloud/atelier/extendscript"
-        },
-        {
             "path": "./libs/typescript/creative-cloud/indesign"
-        },
-        {
-            "path": "./apps/creative-cloud/atelier/protocol"
         },
         {
             "path": "./libs/typescript/data/object-storage"
@@ -63,9 +45,6 @@
             "path": "./libs/typescript/graphics/mark"
         },
         {
-            "path": "./apps/creative-cloud/atelier"
-        },
-        {
             "path": "./libs/typescript/web/hosting"
         },
         {
@@ -90,55 +69,10 @@
             "path": "./libs/typescript/web/ui"
         },
         {
-            "path": "./apps/nx/distribution"
-        },
-        {
-            "path": "./apps/nx/typescript"
-        },
-        {
-            "path": "./apps/web/portfolio"
-        },
-        {
-            "path": "./apps/nx/storybook"
-        },
-        {
             "path": "./tools/ast-grep"
         },
         {
-            "path": "./apps/web/hooks"
-        },
-        {
-            "path": "./apps/nx/docker"
-        },
-        {
-            "path": "./apps/nx/dotnet"
-        },
-        {
-            "path": "./apps/nx/pulumi"
-        },
-        {
-            "path": "./apps/nx/vitest"
-        },
-        {
-            "path": "./apps/nx/apple"
-        },
-        {
-            "path": "./apps/nx/cargo"
-        },
-        {
-            "path": "./apps/nx/cmake"
-        },
-        {
-            "path": "./apps/nx/vite"
-        },
-        {
-            "path": "./apps/nx/uv"
-        },
-        {
             "path": "./infra"
-        },
-        {
-            "path": "./apps/nx/playwright"
         },
         {
             "path": "./tools/conformance"
@@ -171,55 +105,121 @@
             "path": "./tests/libs/typescript/web/ui"
         },
         {
-            "path": "./tests/apps/nx/distribution"
-        },
-        {
-            "path": "./tests/apps/nx/playwright"
-        },
-        {
-            "path": "./tests/apps/nx/typescript"
-        },
-        {
             "path": "./tests/support/typescript"
         },
         {
             "path": "./tests/tools/conformance"
         },
         {
-            "path": "./tests/apps/nx/storybook"
-        },
-        {
-            "path": "./tests/apps/web/hooks"
-        },
-        {
-            "path": "./tests/apps/nx/docker"
-        },
-        {
-            "path": "./tests/apps/nx/dotnet"
-        },
-        {
-            "path": "./tests/apps/nx/pulumi"
-        },
-        {
-            "path": "./tests/apps/nx/vitest"
-        },
-        {
-            "path": "./tests/apps/nx/apple"
-        },
-        {
-            "path": "./tests/apps/nx/cargo"
-        },
-        {
-            "path": "./tests/apps/nx/cmake"
-        },
-        {
             "path": "./tests/e2e/portfolio"
         },
         {
-            "path": "./tests/apps/nx/vite"
+            "path": "./products/apps/creative-cloud/multi-app/atelier/extendscript"
         },
         {
-            "path": "./tests/apps/nx/uv"
+            "path": "./products/apps/creative-cloud/multi-app/atelier/protocol"
+        },
+        {
+            "path": "./products/apps/creative-cloud/aftereffects/atelier"
+        },
+        {
+            "path": "./products/apps/creative-cloud/illustrator/atelier"
+        },
+        {
+            "path": "./products/apps/creative-cloud/multi-app/atelier"
+        },
+        {
+            "path": "./products/apps/creative-cloud/photoshop/atelier"
+        },
+        {
+            "path": "./products/apps/creative-cloud/indesign/atelier"
+        },
+        {
+            "path": "./tests/products/developer/nx/distribution"
+        },
+        {
+            "path": "./tests/products/developer/nx/playwright"
+        },
+        {
+            "path": "./tests/products/developer/nx/typescript"
+        },
+        {
+            "path": "./tests/products/developer/nx/storybook"
+        },
+        {
+            "path": "./products/developer/nx/distribution"
+        },
+        {
+            "path": "./tests/products/developer/nx/docker"
+        },
+        {
+            "path": "./tests/products/developer/nx/dotnet"
+        },
+        {
+            "path": "./tests/products/developer/nx/pulumi"
+        },
+        {
+            "path": "./tests/products/developer/nx/vitest"
+        },
+        {
+            "path": "./tests/products/developer/nx/apple"
+        },
+        {
+            "path": "./tests/products/developer/nx/cargo"
+        },
+        {
+            "path": "./tests/products/developer/nx/cmake"
+        },
+        {
+            "path": "./products/developer/nx/playwright"
+        },
+        {
+            "path": "./products/developer/nx/typescript"
+        },
+        {
+            "path": "./tests/products/developer/nx/vite"
+        },
+        {
+            "path": "./products/developer/nx/storybook"
+        },
+        {
+            "path": "./tests/products/developer/nx/uv"
+        },
+        {
+            "path": "./products/developer/nx/docker"
+        },
+        {
+            "path": "./products/developer/nx/dotnet"
+        },
+        {
+            "path": "./products/developer/nx/pulumi"
+        },
+        {
+            "path": "./products/developer/nx/vitest"
+        },
+        {
+            "path": "./products/developer/nx/apple"
+        },
+        {
+            "path": "./products/developer/nx/cargo"
+        },
+        {
+            "path": "./products/developer/nx/cmake"
+        },
+        {
+            "path": "./products/developer/nx/vite"
+        },
+        {
+            "path": "./products/developer/nx/uv"
+        },
+        {
+            "path": "./tests/products/web/hooks"
+        },
+        {
+            "path": "./products/web/portfolio"
+        },
+        {
+            "path": "./products/web/hooks"
         }
     ]
 }

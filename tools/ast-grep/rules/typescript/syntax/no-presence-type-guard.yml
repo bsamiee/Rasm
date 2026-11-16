@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: tsxlang
 severity: error
-ignores: ['.claude/workflows/*.js']
+ignores: ['.claude/workflows/*.js', '**/extendscript/**', '**/extendscript.ts']
 utils:
     member:
         kind: member_expression, subscript_expression
@@ -108,6 +108,5 @@ rule:
                                       - has: { field: name, regex: '^(Predicate\.)?Refinement$' }
                                       - has: { field: type_arguments, has: { nthChild: { position: 2, ofRule: *code }, pattern: $TYPE } }
               - matches: tested-body
-    not: { inside: { kind: program, stopBy: end, matches: extendscript-file } }
 message: '`$TYPE` narrows on a test in place of its schema'
 note: 'Decode with `Schema` at boundaries, or match literal discriminants (`constructorName` in InDesign) through `Match.discriminators`'

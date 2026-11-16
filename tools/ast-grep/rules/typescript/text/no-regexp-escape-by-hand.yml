@@ -4,6 +4,8 @@ severity: error
 ignores:
     - libs/typescript/creative-cloud/indesign/**
     - libs/typescript/creative-cloud/uxp/**
+    - '**/extendscript/**'
+    - '**/extendscript.ts'
 utils:
     syntax-class:
         kind: regex
@@ -72,7 +74,6 @@ rule:
         - any:
               - has: { field: function, has: { field: object, matches: { effect-module: { name: { regex: '(?-u:\b)String$' } } } } }
               - has: { field: function, not: { has: { kind: optional_chain } }, has: { field: object, pattern: $_ } }
-    not: { inside: { kind: program, stopBy: end, matches: extendscript-file } }
 transform:
     HEAD: { replace: { source: $CALL, replace: '(?s)^([^(]+)\(.*$', by: '$1' } }
 message: '`$HEAD` escapes regular expression syntax characters by hand'

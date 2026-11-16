@@ -143,7 +143,7 @@
                 "unicorn/prefer-string-replace-all": "off"
             }
         },
-        { "files": ["apps/nx/**"], "rules": { "unicorn/require-post-message-target-origin": "off" } },
+        { "files": ["products/developer/nx/**"], "rules": { "unicorn/require-post-message-target-origin": "off" } },
         { "files": ["**/*.tsx"], "rules": { "react/rules-of-hooks": "error" } },
         { "files": ["plugins/*/hooks/**"], "rules": { "node/callback-return": "off", "promise/no-callback-in-promise": "off", "unicorn/catch-error-name": "off" } },
         {
@@ -166,7 +166,7 @@
             }
         },
         {
-            "files": ["libs/python/blender/rendering/rasm_rendering/_batch/rasm_render.js", "apps/rhino/Darkroom/EmbeddedResources/darkroom_render.js"],
+            "files": ["libs/python/blender/rendering/rasm_rendering/_batch/rasm_render.js", "products/apps/rhino/Darkroom/EmbeddedResources/darkroom_render.js"],
             "rules": {
                 "import/unambiguous": "off",
                 "typescript/no-unsafe-argument": "off",

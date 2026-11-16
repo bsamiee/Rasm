@@ -1,0 +1,18 @@
+{
+    "extends": "../../../../../tsconfig.base.json",
+    "compilerOptions": {
+        "noEmit": true,
+        "types": ["node", "types-for-adobe/Illustrator/2022"]
+    },
+    "references": [
+        {
+            "path": "../../../../../libs/typescript/creative-cloud/cep"
+        },
+        {
+            "path": "../../multi-app/atelier/protocol"
+        },
+        {
+            "path": "../../multi-app/atelier/extendscript"
+        }
+    ]
+}

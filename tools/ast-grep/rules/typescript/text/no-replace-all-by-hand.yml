@@ -1,6 +1,7 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: tsxlang
 severity: error
+ignores: ['**/extendscript/**', '**/extendscript.ts']
 utils:
     fixed-regex:
         kind: regex
@@ -55,7 +56,6 @@ rule:
               - matches: piped-split
               - inside: { kind: arguments, inside: { kind: call_expression, has: { field: function, regex: '(^|\.)(pipe|flow|compose)$' } } }
               - precedes: { stopBy: { not: { regex: '^,$' } }, matches: piped-join }
-    not: { inside: { kind: program, stopBy: end, matches: extendscript-file } }
 transform:
     HEAD: { replace: { source: $CALL, replace: '(?s)^([^(]+)\(.*$', by: '$1' } }
 message: '`$HEAD` replaces a fixed string through a regular expression or `split` and `join`'

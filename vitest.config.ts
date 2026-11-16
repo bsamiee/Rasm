@@ -69,7 +69,7 @@ const reports = (): Plugin => ({
 
 const projects = Effect.gen(function* () {
     const roots = Array.dedupe(globSync('tests/**/*.test.{ts,tsx}', { cwd: import.meta.dirname, exclude: ['**/node_modules/**', '**/.*/**'] }).flatMap((file) => Array.fromNullishOr(findPackageJSON(pathToFileURL(join(import.meta.dirname, file)))).map((manifest) => relative(import.meta.dirname, dirname(manifest)))));
-    const storied = globSync('{apps,libs}/**/.storybook/main.ts', { cwd: import.meta.dirname, exclude: ['**/node_modules/**'] }).map((file) => dirname(dirname(file)));
+    const storied = globSync('{products,libs}/**/.storybook/main.ts', { cwd: import.meta.dirname, exclude: ['**/node_modules/**'] }).map((file) => dirname(dirname(file)));
     const [manifests, titles] = yield* Effect.all([Effect.forEach(roots, manifested), Effect.forEach(storied, manifested)]);
     const suites = Array.zipWith(roots, manifests, (root, manifest) =>
         hosted(root, manifest).map(({ suffix, plugins, test }): TestProjectInlineConfiguration => ({

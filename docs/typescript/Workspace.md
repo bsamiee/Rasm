@@ -32,15 +32,15 @@ Root `package.json` holds workspace identity and tools that root configuration f
 }
 ```
 
-| [INDEX] | [FIELD]           | [VALUE]         | [REASON]                                                    |
-| :-----: | :---------------- | :-------------- | :---------------------------------------------------------- |
-|  [01]   | `private`         | `true`          | Root is never published                                     |
-|  [02]   | `type`            | `"module"`      | Node asks every package to state it                         |
-|  [03]   | `packageManager`  | Absent          | `.config/mise.toml` pins pnpm and Node                      |
-|  [04]   | `scripts`         | `prepare` alone | Install lifecycle step                                      |
-|  [05]   | `devDependencies` | `catalog:` rows | Tools, Nx plugins, and base `types` packages the root loads |
-|  [06]   | `workspaces`      | Absent          | pnpm reads members from `pnpm-workspace.yaml` alone         |
-|  [07]   | `pnpm`            | Absent          | pnpm reads no settings from a `pnpm` manifest key           |
+| [INDEX] | [FIELD]           | [VALUE]                           | [REASON]                                                              |
+| :-----: | :---------------- | :-------------------------------- | :-------------------------------------------------------------------- |
+|  [01]   | `private`         | `true`                            | Root is never published                                               |
+|  [02]   | `type`            | `"module"`                        | Node asks every package to state it                                   |
+|  [03]   | `packageManager`  | Absent                            | `.config/mise.toml` pins pnpm and Node                                |
+|  [04]   | `scripts`         | `prepare` alone                   | Install lifecycle step                                                |
+|  [05]   | `devDependencies` | `catalog:` and `workspace:*` rows | Tools, workspace Nx plugins, and base `types` packages the root loads |
+|  [06]   | `workspaces`      | Absent                            | pnpm reads members from `pnpm-workspace.yaml` alone                   |
+|  [07]   | `pnpm`            | Absent                            | pnpm reads no settings from a `pnpm` manifest key                     |
 
 - Root `package.json` holding an `nx` key becomes an Nx project, and `"includedScripts": []` there keeps `prepare` from becoming a target
 - `nx.json` `plugins` names `@rasm/nx-typescript` for `build--tsc` and `check--tsc` targets, and `@rasm/nx-vitest` for `test--vitest` targets
@@ -69,7 +69,7 @@ patchedDependencies:
 
 | [INDEX] | [SETTING]             | [DEFAULT] | [RECOMMENDED]                                                     |
 | :-----: | :-------------------- | :-------- | :---------------------------------------------------------------- |
-|  [01]   | `packages`            | None      | Recursive globs (`apps/**`), so a new package edits nothing       |
+|  [01]   | `packages`            | None      | Recursive globs (`products/**`), so a new package edits nothing   |
 |  [02]   | `catalogMode`         | `manual`  | `strict`: `pnpm add` refuses a version outside the catalog        |
 |  [03]   | `minimumReleaseAge`   | `1440`    | `0`: install takes a release the day it publishes                 |
 |  [04]   | `blockExoticSubdeps`  | `true`    | Omit: transitive git and tarball sources stay refused             |

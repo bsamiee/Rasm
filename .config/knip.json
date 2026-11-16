@@ -8,6 +8,6 @@
     "wrangler": { "entry": ["cloudflare.config.ts"] },
     "workspaces": {
         ".": { "entry": [], "project": [] },
-        "apps/nx/*": { "entry": ["executors/*/executor.ts", "generators/*/generator.ts"] }
+        "products/developer/nx/*": { "entry": ["executors/*/executor.ts", "generators/*/generator.ts"] }
     }
 }

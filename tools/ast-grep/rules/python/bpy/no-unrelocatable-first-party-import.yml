@@ -3,7 +3,7 @@ language: pythonlang
 severity: error
 files:
     - libs/python/**
-    - apps/blender/**
+    - products/apps/blender/**
 rule:
     pattern: $MODULE
     matches: python-imported-module

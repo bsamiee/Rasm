@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <Version>0.1.0</Version>
+        <Description>Roslyn analyzers, code fixes, and source generators holding C# to functional form over LanguageExt, Thinktecture, Microsoft.Extensions.Logging, RhinoCommon, and Eto, every rule an error</Description>
+        <PackageTags>roslyn;analyzers;languageext;thinktecture;logging;rhinocommon;eto</PackageTags>
+        <IsPackable>true</IsPackable>
+        <IncludeBuildOutput>false</IncludeBuildOutput>
+        <DevelopmentDependency>true</DevelopmentDependency>
+        <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+        <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);PackAnalyzers</TargetsForTfmSpecificContentInPackage>
+    </PropertyGroup>
+
+    <ItemGroup Label="Global Usings">
+        <Using Include="Rasm.Analyzers.Semantics" Static="true" />
+    </ItemGroup>
+
+    <ItemGroup Label="Analyzer Authoring">
+        <PackageReference Include="Microsoft.CodeAnalysis.AnalyzerUtilities" />
+        <TargetPathWithTargetPlatformMoniker Include="$(PkgMicrosoft_CodeAnalysis_AnalyzerUtilities)/lib/netstandard2.0/Microsoft.CodeAnalysis.AnalyzerUtilities.dll" IncludeRuntimeDependency="false" />
+    </ItemGroup>
+
+    <ItemGroup Label="Code Fixes">
+        <ProjectReference Include="../Rasm.Analyzers.CodeFixes/Rasm.Analyzers.CodeFixes.csproj" ReferenceOutputAssembly="false" OutputItemType="CodeFix" />
+    </ItemGroup>
+
+    <ItemGroup Label="Release Tracking">
+        <AdditionalFiles Include="AnalyzerReleases.Shipped.md;AnalyzerReleases.Unshipped.md" />
+    </ItemGroup>
+
+    <ItemGroup Label="Help Links">
+        <AssemblyMetadata Include="Help" Value="$(PackageProjectUrl)/blob/main/$([MSBuild]::MakeRelative('$([MSBuild]::GetDirectoryNameOfFileAbove('$(MSBuildProjectDirectory)', 'global.json'))/', '$(MSBuildProjectDirectory)/AnalyzerReleases.Unshipped.md').Replace('\', '/'))" />
+    </ItemGroup>
+
+    <ItemGroup Label="Package Files">
+        <None Include="build/Rasm.Analyzers.props" Pack="true" PackagePath="build/" />
+    </ItemGroup>
+
+    <Target Name="PackAnalyzers" DependsOnTargets="GetTargetPath;ResolveProjectReferences">
+        <ItemGroup>
+            <_PackedAnalyzer Include="@(TargetPathWithTargetPlatformMoniker);@(CodeFix)" />
+            <TfmSpecificPackageFile Include="@(_PackedAnalyzer->Distinct())" PackagePath="analyzers/dotnet/cs" />
+        </ItemGroup>
+    </Target>
+</Project>

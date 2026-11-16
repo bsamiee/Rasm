@@ -1,6 +1,7 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: tsxlang
 severity: error
+ignores: ['**/extendscript/**', '**/extendscript.ts']
 utils:
     tag-read:
         any:
@@ -8,7 +9,6 @@ utils:
             - { kind: identifier, regex: '^_tag$' }
 rule:
     kind: binary_expression
-    not: { inside: { kind: program, stopBy: end, matches: extendscript-file } }
     any:
         - all:
               - has: { field: operator, regex: '^[!=]==?$' }

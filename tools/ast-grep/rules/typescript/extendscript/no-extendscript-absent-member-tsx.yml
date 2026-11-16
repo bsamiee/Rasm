@@ -1,6 +1,7 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: tsxlang
 severity: error
+files: ['**/extendscript/**', '**/extendscript.ts']
 rule:
     any:
         - kind: member_expression
@@ -35,7 +36,7 @@ rule:
         - kind: identifier
           pattern: $MEMBER
           regex: '^(Map|Set|WeakMap|WeakSet|WeakRef|Promise|Proxy|Reflect|Symbol|BigInt|Intl|globalThis|structuredClone)$'
-          all: [{ inside: { kind: program, stopBy: end, matches: extendscript-file } }, { matches: typescript-global-reference }]
+          matches: typescript-global-reference
         - { kind: spread_element, pattern: $MEMBER }
         - { kind: rest_pattern, pattern: $MEMBER, inside: { kind: object_pattern } }
         - kind: array_pattern
@@ -50,6 +51,5 @@ rule:
               - any:
                     - has: { kind: class_heritage, has: { kind: extends_clause } }
                     - has: { field: body, has: { kind: method_definition, not: { has: { field: name, regex: '^constructor$' } } } }
-    inside: { kind: program, stopBy: end, matches: extendscript-file }
 message: '`$MEMBER` compiles to a member ExtendScript lacks'
 note: 'Use ES3 loops, own-key `for...in`, `charAt`, `slice`, and functions, or `ownKeys` and `assignProperties` from `@rasm/atelier-extendscript/host`'

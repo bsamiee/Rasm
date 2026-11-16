@@ -1,0 +1,46 @@
+{
+    "name": "@rasm/atelier",
+    "private": true,
+    "description": "MCP server driving open Adobe apps through Accessibility, Apple events, and each app's Atelier plugin, with font, Quran, and symbol tools of its own",
+    "os": [
+        "darwin"
+    ],
+    "type": "module",
+    "imports": {
+        "#/*": "./*.ts",
+        "#/*.json": "./*.json"
+    },
+    "dependencies": {
+        "@effect/platform-node": "catalog:",
+        "@rasm/applications": "workspace:*",
+        "@rasm/atelier-protocol": "workspace:*",
+        "@rasm/automation": "workspace:*",
+        "@rasm/cep": "workspace:*",
+        "@rasm/mcp": "workspace:*",
+        "@rasm/quran": "workspace:*",
+        "@rasm/search": "workspace:*",
+        "@rasm/telemetry": "workspace:*",
+        "@rasm/typography": "workspace:*",
+        "@rasm/uxp": "workspace:*",
+        "effect": "catalog:",
+        "image-size": "catalog:",
+        "plist": "catalog:"
+    },
+    "devDependencies": {
+        "@rasm/atelier-extendscript": "workspace:*",
+        "@types/node": "catalog:",
+        "vite": "catalog:"
+    },
+    "nx": {
+        "targets": {
+            "build--vite": {
+                "inputs": [
+                    "...",
+                    "{projectRoot}/macos/Atelier.xcodeproj/project.xcproj",
+                    "{projectRoot}/macos/Atelier.entitlements",
+                    "{workspaceRoot}/Xcode.xcconfig"
+                ]
+            }
+        }
+    }
+}

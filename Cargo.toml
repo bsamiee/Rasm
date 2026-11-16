@@ -4,8 +4,8 @@
 
 [workspace]
 resolver = "3"
-exclude  = [".cache"]                                                                                                               # Crates tools unpack under the repository cache folder (uv sdist builds) stay outside this workspace
-members  = ["apps/mcp/muxer", "libs/rust/*/*", "tests/apps/mcp/muxer", "tests/libs/rust/*/*", "tests/tools/dylint", "tools/dylint"]
+exclude  = [".cache"]                                                                                                                     # Crates tools unpack under the repository cache folder (uv sdist builds) stay outside this workspace
+members  = ["libs/rust/*/*", "products/ai/muxer", "tests/libs/rust/*/*", "tests/products/ai/muxer", "tests/tools/dylint", "tools/dylint"]
 
 # --- [IDENTITY]
 
@@ -738,7 +738,7 @@ rasm-form-finding       = { path = "libs/rust/geometry/form-finding", version = 
 rasm-lints-auxiliary    = { path = "tests/tools/dylint/auxiliary" }
 rasm-testing            = { path = "tests/support/rust" }
 rasm-mcp-tests          = { path = "tests/libs/rust/services/mcp", artifact = "bin", lib = true }
-mcp-muxer               = { path = "apps/mcp/muxer", artifact = "bin" }
+mcp-muxer               = { path = "products/ai/muxer", artifact = "bin" }
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

@@ -4,7 +4,6 @@
         <Description>RhinoCommon as typed effects, with plug-ins declared as data</Description>
         <IsPackable>true</IsPackable>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-        <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);PackAnalyzers</TargetsForTfmSpecificContentInPackage>
     </PropertyGroup>
 
     <ItemGroup Label="Rhino">
@@ -76,10 +75,4 @@
     <ItemGroup Label="Package Files">
         <None Include="buildTransitive/*" Pack="true" PackagePath="buildTransitive/" />
     </ItemGroup>
-
-    <Target Name="PackAnalyzers" DependsOnTargets="ResolveProjectReferences">
-        <ItemGroup>
-            <TfmSpecificPackageFile Include="@(Analyzer->HasMetadata('PackagePath'))" />
-        </ItemGroup>
-    </Target>
 </Project>

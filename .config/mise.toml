@@ -95,7 +95,7 @@ run     = "pixi run --locked uv sync --locked --all-packages"
 sources = ["pixi.lock", "pyproject.toml", "uv.lock"]
 
 [deps.darkroom]
-dir     = "apps/blender/darkroom"
+dir     = "products/apps/blender/darkroom"
 run     = "uv sync --locked"
 sources = ["pyproject.toml", "uv.lock"]
 

@@ -1,19 +1,4 @@
 <Solution>
-    <Folder Name="/apps/" />
-    <Folder Name="/apps/nx/" />
-    <Folder Name="/apps/nx/dotnet/" />
-    <Folder Name="/apps/nx/dotnet/analyzer/">
-        <Project Path="apps/nx/dotnet/analyzer/MsbuildAnalyzer.csproj" />
-    </Folder>
-    <Folder Name="/apps/rhino/">
-        <Project Path="apps/rhino/Arches/Arches.csproj" />
-        <Project Path="apps/rhino/Darkroom/Darkroom.csproj" />
-    </Folder>
-    <Folder Name="/apps/roslyn/">
-        <Project Path="apps/roslyn/Rasm.Analyzers.CodeFixes/Rasm.Analyzers.CodeFixes.csproj" />
-        <Project Path="apps/roslyn/Rasm.Analyzers/Rasm.Analyzers.csproj" />
-        <Project Path="apps/roslyn/Rasm.Rhino.Analyzers/Rasm.Rhino.Analyzers.csproj" />
-    </Folder>
     <Folder Name="/libs/" />
     <Folder Name="/libs/dotnet/" />
     <Folder Name="/libs/dotnet/drawing/">
@@ -40,14 +25,31 @@
         <Project Path="libs/dotnet/ui/Rasm.UI.Eto/Rasm.UI.Eto.csproj" />
         <Project Path="libs/dotnet/ui/Rasm.UI/Rasm.UI.csproj" />
     </Folder>
-    <Folder Name="/tests/" />
-    <Folder Name="/tests/apps/" />
-    <Folder Name="/tests/apps/nx/" />
-    <Folder Name="/tests/apps/nx/dotnet/">
-        <Project Path="tests/apps/nx/dotnet/MsbuildAnalyzer.Tests/MsbuildAnalyzer.Tests.csproj" />
+    <Folder Name="/products/" />
+    <Folder Name="/products/apps/" />
+    <Folder Name="/products/apps/rhino/">
+        <Project Path="products/apps/rhino/Arches/Arches.csproj" />
+        <Project Path="products/apps/rhino/Darkroom/Darkroom.csproj" />
     </Folder>
-    <Folder Name="/tests/apps/roslyn/">
-        <Project Path="tests/apps/roslyn/Rasm.Analyzers/Rasm.Analyzers.Tests.csproj" />
+    <Folder Name="/products/developer/" />
+    <Folder Name="/products/developer/nx/" />
+    <Folder Name="/products/developer/nx/dotnet/" />
+    <Folder Name="/products/developer/nx/dotnet/analyzer/">
+        <Project Path="products/developer/nx/dotnet/analyzer/MsbuildAnalyzer.csproj" />
+    </Folder>
+    <Folder Name="/products/developer/roslyn/">
+        <Project Path="products/developer/roslyn/Rasm.Analyzers.CodeFixes/Rasm.Analyzers.CodeFixes.csproj" />
+        <Project Path="products/developer/roslyn/Rasm.Analyzers/Rasm.Analyzers.csproj" />
+    </Folder>
+    <Folder Name="/tests/" />
+    <Folder Name="/tests/products/" />
+    <Folder Name="/tests/products/developer/" />
+    <Folder Name="/tests/products/developer/nx/" />
+    <Folder Name="/tests/products/developer/nx/dotnet/">
+        <Project Path="tests/products/developer/nx/dotnet/MsbuildAnalyzer.Tests/MsbuildAnalyzer.Tests.csproj" />
+    </Folder>
+    <Folder Name="/tests/products/developer/roslyn/">
+        <Project Path="tests/products/developer/roslyn/Rasm.Analyzers/Rasm.Analyzers.Tests.csproj" />
     </Folder>
     <Folder Name="/tests/support/" />
     <Folder Name="/tests/support/dotnet/">

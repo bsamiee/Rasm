@@ -2,7 +2,7 @@
 
 packages:
     - 'libs/typescript/*/*'
-    - 'apps/**'
+    - 'products/**'
     - 'tests/**'
     - 'plugins/*'
     - 'infra'

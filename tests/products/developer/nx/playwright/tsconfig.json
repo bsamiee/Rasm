@@ -1,0 +1,11 @@
+{
+    "extends": "../../../../tsconfig.base.json",
+    "references": [
+        {
+            "path": "../../../../support/typescript"
+        },
+        {
+            "path": "../../../../../products/developer/nx/playwright"
+        }
+    ]
+}

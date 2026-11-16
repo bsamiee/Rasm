@@ -1,0 +1,51 @@
+{
+    "name": "@rasm/nx-storybook",
+    "version": "0.1.0",
+    "description": "Nx plugin inferring a Storybook build, the file-server preview of that build, the development server, and a test-storybook run against that server where @storybook/test-runner resolves, from each Storybook main configuration",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/bsamiee/Rasm.git",
+        "directory": "products/developer/nx/storybook"
+    },
+    "files": [
+        "dist"
+    ],
+    "type": "module",
+    "imports": {
+        "#/*": "./*.ts"
+    },
+    "exports": {
+        ".": "./plugin.ts",
+        "./package.json": "./package.json"
+    },
+    "publishConfig": {
+        "imports": {
+            "#/*": "./dist/*.js"
+        },
+        "exports": {
+            ".": "./dist/plugin.js",
+            "./package.json": "./package.json"
+        },
+        "access": "public"
+    },
+    "dependencies": {
+        "@effect/platform-node": "catalog:",
+        "@nx/devkit": "catalog:",
+        "@nx/js": "catalog:",
+        "@nx/storybook": "catalog:",
+        "@rasm/nx-distribution": "workspace:*",
+        "effect": "catalog:"
+    },
+    "devDependencies": {
+        "@nx/web": "catalog:",
+        "@types/node": "catalog:",
+        "nx": "catalog:",
+        "storybook": "catalog:"
+    },
+    "peerDependencies": {
+        "@nx/web": "catalog:peers",
+        "nx": "catalog:peers",
+        "storybook": "catalog:peers"
+    }
+}

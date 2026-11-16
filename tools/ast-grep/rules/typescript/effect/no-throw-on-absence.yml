@@ -1,6 +1,7 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: tsxlang
 severity: error
+ignores: ['**/extendscript/**', '**/extendscript.ts']
 utils:
     absence-test:
         any:
@@ -37,7 +38,6 @@ rule:
     all:
         - has: { field: condition, pattern: $TEST, matches: absence-test }
         - has: { field: consequence, matches: throwing }
-        - not: { inside: { kind: program, stopBy: end, matches: extendscript-file } }
 message: '`if $TEST` throws on an absent value in place of a typed failure'
 note: 'Fail through `Effect.fromOption` or `Effect.fail` with a tagged variant, or call `Option.getOrThrow` where construction rules out absence'
 labels:

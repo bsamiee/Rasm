@@ -231,7 +231,7 @@ const conforms = <R, M extends Member>({ workspace, members, built, report, tool
             Effect.fnUntraced(function* () {
                 const [here, there] = yield* Effect.all([seen, Effect.provide(seen, workspace())]);
                 assert.notInclude(here.read.graph, here.root, 'README.md PRINCIPLES "one remote cache serves every runner"');
-                assert.notInclude(here.read.graph, workspaceRoot, 'README.md PRINCIPLES "Libraries take paths, names, and policies from their caller and hold no repository convention": a packed plugin names no path of the repository that packed it');
+                assert.notInclude(here.read.graph, workspaceRoot, 'README.md PRINCIPLES "Nx plugins are publishable packages built on public Nx plugin APIs, serving any workspace of their ecosystem": a packed plugin names no path of the repository that packed it');
                 assert.deepStrictEqual(there.read, here.read, 'README.md PRINCIPLES "one remote cache serves every runner"; nrwl/nx astro-docs/src/content/docs/kb/performant-project-graph-plugins.mdoc');
             }),
             bound,

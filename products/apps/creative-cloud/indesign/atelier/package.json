@@ -1,0 +1,34 @@
+{
+    "name": "@rasm/atelier-indesign-plugin",
+    "private": true,
+    "description": "Atelier InDesign",
+    "type": "module",
+    "imports": {
+        "#/*": "./*.ts"
+    },
+    "dependencies": {
+        "@rasm/atelier-protocol": "workspace:*",
+        "@rasm/automation": "workspace:*",
+        "@rasm/indesign": "workspace:*",
+        "@rasm/search": "workspace:*",
+        "@rasm/typography": "workspace:*",
+        "@rasm/uxp": "workspace:*",
+        "effect": "catalog:"
+    },
+    "devDependencies": {
+        "@adobe-uxp-types/uxp": "catalog:",
+        "@types/node": "catalog:",
+        "indesign-uxp-types": "catalog:",
+        "vite": "catalog:"
+    },
+    "nx": {
+        "targets": {
+            "build--vite": {
+                "inputs": [
+                    "...",
+                    "{workspaceRoot}/products/apps/creative-cloud/multi-app/atelier/macos/Resources/AppIcon.icon/Assets/Atelier.svg"
+                ]
+            }
+        }
+    }
+}

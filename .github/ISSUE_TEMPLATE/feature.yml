@@ -6,7 +6,7 @@ body:
       id: product
       attributes:
           label: Product
-          description: App or library folder under apps/ or libs/
+          description: Product or library folder under products/ or libs/
           placeholder: libs/typescript/web/ui
       validations:
           required: true

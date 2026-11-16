@@ -34,7 +34,7 @@ const identified = Effect.fnUntraced(function* (root: string) {
         Effect.flatMap(fs.readFileString(path.join(root, 'package.json')), Schema.decodeEffect(Manifest)),
         fs.readFileString(path.join(root, 'Xcode.xcconfig')),
         Effect.flatMap(
-            fs.glob('apps/unreal/**/*.uproject', { root }),
+            fs.glob('products/apps/unreal/**/*.uproject', { root }),
             Effect.forEach((project) => Effect.flatMap(fs.readFileString(path.join(root, project)), Schema.decodeEffect(Uproject))),
         ),
     ]);

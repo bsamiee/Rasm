@@ -6,8 +6,8 @@ body:
       id: product
       attributes:
           label: Product
-          description: App or library folder under apps/ or libs/
-          placeholder: apps/rhino/Darkroom
+          description: Product or library folder under products/ or libs/
+          placeholder: products/apps/rhino/Darkroom
       validations:
           required: true
     - type: input

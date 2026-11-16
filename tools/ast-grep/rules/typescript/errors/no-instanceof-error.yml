@@ -2,7 +2,7 @@
 language: tsxlang
 severity: error
 ignores:
-    - apps/web/portfolio/**
+    - products/web/portfolio/**
     - libs/typescript/creative-cloud/indesign/**
     - libs/typescript/creative-cloud/uxp/**
     - libs/typescript/web/hosting/**

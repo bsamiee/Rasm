@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: tsxlang
 severity: error
-ignores: ['.claude/workflows/*.js']
+ignores: ['.claude/workflows/*.js', '**/extendscript/**', '**/extendscript.ts']
 rule:
     kind: call_expression
     pattern: $CALL
@@ -13,7 +13,6 @@ rule:
         - all:
               - matches: typescript-separator-swap
               - has: { field: function, has: { field: object, has: { field: arguments, has: { nthChild: { position: 1, ofRule: *code }, pattern: $SEARCH } } } }
-    not: { inside: { kind: program, stopBy: end, matches: extendscript-file } }
 transform:
     KEBAB: { replace: { source: $SEARCH, replace: '^.*-.*$', by: kebabToSnake } }
     TARGET: { replace: { source: $KEBAB, replace: '^[^k].*$', by: snakeToKebab } }

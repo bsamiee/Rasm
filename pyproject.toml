@@ -374,12 +374,12 @@ extra-build-dependencies = { pyroscope-io = ["cmake"] }          # `pyroscope-io
 
 [tool.uv.workspace]
 members = [
-    "apps/cli/foundry",
+    "products/cli/foundry",
     "libs/python/data/records",
     "libs/python/graphics/typography",
     "libs/python/runtime/cli",
     "libs/python/runtime/telemetry",
-    "tests/apps/cli/foundry",
+    "tests/products/cli/foundry",
     "tests/libs/python/graphics/typography",
     "tests/libs/python/runtime/telemetry",
     "tests/support/python",
@@ -459,7 +459,7 @@ WEASYPRINT_DLL_DIRECTORIES = "%CONDA_PREFIX%\\Library\\bin"
 cache-dir   = ".cache/ruff"
 preview     = true
 line-length = 200
-src         = ["apps/cli/*", "libs/python/*/*", "tests/support/python", "tools/refurb"]
+src         = ["products/cli/*", "libs/python/*/*", "tests/support/python", "tools/refurb"]
 format      = { exclude = ["*.md"], docstring-code-format = true, skip-magic-trailing-comma = true }
 
 [tool.ruff.lint]
@@ -653,9 +653,9 @@ require-lazy         = [
 
 [tool.ty]
 environment = { python-platform = "all" }
-src         = { exclude = ["libs/python/blender", "apps/blender"] }    # 3.13 uv roots `libs/python/blender` and `apps/blender/darkroom`, each checked through its own `[tool.ty]`; ty opens one project per root and finds no nested one
-analysis    = { allowed-unresolved-imports = ["uharfbuzz.**"] }        # uharfbuzz re-exports its compiled `_harfbuzz` module, which ships no stub
-rules       = { all = "error", unused-type-ignore-comment = "ignore" } # mypy `unused-ignore` owns unused `type: ignore` comments
+src         = { exclude = ["libs/python/blender", "products/apps/blender"] } # 3.13 uv roots `libs/python/blender` and `products/apps/blender/darkroom`, each checked through its own `[tool.ty]`; ty opens one project per root and finds no nested one
+analysis    = { allowed-unresolved-imports = ["uharfbuzz.**"] }              # uharfbuzz re-exports its compiled `_harfbuzz` module, which ships no stub
+rules       = { all = "error", unused-type-ignore-comment = "ignore" }       # mypy `unused-ignore` owns unused `type: ignore` comments
 
 # --- [MYPY] -----------------------------------------------------------------------------
 

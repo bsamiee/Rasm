@@ -1,0 +1,118 @@
+# --- [PROJECT] --------------------------------------------------------------------------
+
+[project]
+name            = "rasm-darkroom"
+dynamic         = ["version"]     # `blender_manifest.toml` holds the version nx release writes
+requires-python = "==3.13.*"      # Python minor Blender bundles, the one interpreter the extension and its bundled wheels load in
+
+dependencies = [
+    # --- [CORE]
+
+    "expression",     # Results, options, and collections of every stage and panel
+    "msgspec",        # Records and tagged unions for stage settings, looks, and review results
+    "rasm-bpy",       # Registration, commands, nodes, render sessions, and interface over Blender's bpy API
+    "rasm-imaging",   # Image science every stage drives
+    "rasm-records",   # Fault model, field domains, and record files
+    "rasm-rendering", # Output naming of render passes
+
+    # --- [HTTP]
+
+    "httpx2",         # Tony McMapface table downloads at their pinned commit
+
+    # --- [MATHEMATICS]
+
+    "numpy",          # Arrays for image planes, curves, and metering
+    "scipy",          # Glare kernels and particle neighbour queries
+
+    # --- [IMAGING]
+
+    "colour-science", # Transfer functions and YCbCr weights for media and emulation stages
+    "opencolorio",    # Color processing, display transforms, and LUT baking
+    "openimageio",    # Image IO and buffer operations for finish and particle stages
+]
+
+# --- [DEPENDENCY_GROUPS] ----------------------------------------------------------------
+
+[dependency-groups]
+blender = [
+    "attrs==25.3.0",
+    "autopep8==2.3.1",
+    "cattrs==25.1.1",
+    "certifi==2025.4.26",
+    "charset-normalizer==3.4.1",
+    "Cython==3.0.11",
+    "docutils==0.22.4",
+    "idna==3.10",
+    "numpy==2.3.4",
+    "opencolorio==2.5.0",
+    "openimageio==3.1.16.0",
+    "packaging==25.0",
+    "pip==26.0.1",
+    "pycodestyle==2.13.0",
+    "pyproject-metadata==0.9.1",
+    "requests==2.32.3",
+    "setuptools==80.9.0",
+    "tomli_w==1.2.0",
+    "typing_extensions==4.14.1",
+    "urllib3==2.4.0",
+    "zstandard==0.25.0",
+]                                # Versions Blender bundles, the lock holds each at it and the extension build leaves each out of its archives
+dev     = [
+    "fake-bpy-module-latest",    # Stubs for bpy, bmesh, mathutils, and gpu
+    "mypy",                      # Type checker owning `exhaustive-match`, the `disallow_any_*` flags, `no-any-return`, unreachable code, and unused `type: ignore` comments
+    "pydantic",                  # mypy plugin typing each pydantic model, whose replace signature holds explicit `Any` without it
+    "rasm-refurb",               # Refurb checks over mypy types Ruff lacks, loaded by refurb as a plugin
+    "refurb",                    # FURB checks Ruff lacks, over a mypy build
+    "ruff",                      # Linter and formatter hk runs from this root's environment
+    "scipy-stubs",
+    "ty",                        # Type checker of the extension
+    "types-networkx",
+    "vulture",                   # Private functions, classes, methods, and attributes nothing reads
+    "rasm-opencolorio-stubs",    # Stubs for PyOpenColorIO generated from the OpenColorIO Blender bundles
+]
+
+# --- [BUILD_SYSTEM] ---------------------------------------------------------------------
+
+[build-system]
+requires      = ["hatchling"]
+build-backend = "hatchling.build" # uv re-resolving the lock reads the dynamic version through it, and without a backend falls back to setuptools, which refuses this flat layout
+
+[tool.hatch.version]
+path = "blender_manifest.toml" # The default pattern reads its `version = "<version>"` line
+
+# --- [UV] -------------------------------------------------------------------------------
+
+[tool.uv]
+package                       = false                                             # Blender installs the extension archive, uv builds and installs no distribution
+environments                  = [
+    "sys_platform == 'darwin' and platform_machine == 'arm64'",
+    "sys_platform == 'linux' and platform_machine == 'x86_64'",
+    "sys_platform == 'win32' and platform_machine == 'AMD64'",
+]                                                                                 # Platforms `blender_manifest.toml` lists, a package with no source distribution and no wheel for one fails `uv lock`
+minimum-libc-version          = { glibc = "2.28" }                                # The extension build selects `x86_64-manylinux_2_28` wheels, a package with no source distribution and no wheel glibc 2.28 loads fails `uv lock`
+prerelease                    = "allow"
+preview-features              = ["lockfile-format-check", "minimum-libc-version"]
+build-constraint-dependencies = ["opencolorio==2.5.0"]                            # Builds generating the PyOpenColorIO stubs import the OpenColorIO release Blender bundles
+
+[tool.uv.sources]
+rasm-bpy               = { workspace = "../../../../libs/python/blender" }
+rasm-imaging           = { workspace = "../../../../libs/python/blender" }
+rasm-opencolorio-stubs = { workspace = "../../../../libs/python/blender" }
+rasm-rendering         = { workspace = "../../../../libs/python/blender" }
+rasm-records           = { workspace = "../../../.." }
+rasm-refurb            = { workspace = "../../../.." }
+
+# --- [RUFF] -----------------------------------------------------------------------------
+
+[tool.ruff]
+extend = "../../../../pyproject.toml"
+
+[tool.ruff.lint]
+ignore = ["relative-imports"] # Blender loads an extension as `bl_ext.<repository>.<id>`, its own modules import each other relatively
+
+# --- [TY] -------------------------------------------------------------------------------
+
+[tool.ty]
+environment = { python-platform = "all", root = [".."] }               # ty merges no parent table and takes `requires-python` from the table holder; `..` holds the `darkroom` package its relative imports climb
+rules       = { all = "error", unused-type-ignore-comment = "ignore" } # mypy `unused-ignore` owns unused `type: ignore` comments
+analysis    = { allowed-unresolved-imports = ["cycles.**"] }           # Blender bundles the Cycles add-on with no stub

@@ -15,17 +15,17 @@ TypeScript compiler configuration of an Effect-based pnpm and Nx monorepo.
 
 ## [02]-[LAYOUT]
 
-| [INDEX] | [FILE]                          | [HOLDS]                                                             |
-| :-----: | :------------------------------ | :------------------------------------------------------------------ |
-|  [01]   | Root `tsconfig.base.json`       | Every shared compiler option, no `include`, no `files`              |
-|  [02]   | Root `tsconfig.json`            | `extends` the base, `"include": []`, `references` to each project   |
-|  [03]   | Package `tsconfig.json`         | `extends` the base, `references`, runtime `types` and `lib`         |
-|  [04]   | Tests program, where one exists | `noEmit: true` over test and config files, `references` to packages |
+| [INDEX] | [FILE]                     | [HOLDS]                                                                    |
+| :-----: | :------------------------- | :------------------------------------------------------------------------- |
+|  [01]   | Root `tsconfig.base.json`  | Every shared compiler option, no `include`, no `files`                     |
+|  [02]   | Root `tsconfig.json`       | `extends` the base, `"include": []`, `references` to each project          |
+|  [03]   | Package `tsconfig.json`    | `extends` the base, `references`, runtime `types` and `lib`                |
+|  [04]   | `tests/tsconfig.base.json` | `extends` the base, `noEmit: true`, no files, extended by every test suite |
+|  [05]   | Root `tsconfig.tests.json` | `noEmit: true` over root `vitest.config.ts`, `references` to test support  |
 
-- Tests inside a library package take one root program (`tsconfig.tests.json`) the root `tsconfig.json` references
-- Tests program `references` reach each package it imports by `#/` or self-reference, else TS6307 refuses the files outside its `include`
-- Test packages set `noEmit`, and `@rasm/nx-typescript` infers `check--tsc` for a `noEmit` program, `build--tsc` for an emitting one
-- Runtime differences (DOM `lib`, Workers `types`, `jsx`) sit in the package config that needs them
+- Test suite programs `references` reach each package they import, else TS6307 refuses the files outside their `include`
+- `@rasm/nx-typescript` infers `check--tsc` for a `noEmit` program, `build--tsc` for an emitting one
+- Runtime differences (DOM `lib`, Workers `types`, `jsx`) sit in the package config that needs them, Workers suites extending `tests/tsconfig.workers.json`
 
 ## [03]-[BASE]
 
@@ -86,7 +86,7 @@ Package config, source at the package root:
 |  [14]   | `types`                      | Explicit list            | Default `[]` loads no global types                                     |
 |  [15]   | `plugins`                    | Effect language service  | Patched `tsc` reports Effect diagnostics as compiler errors            |
 |  [16]   | `jsx`                        | `react-jsx`              | Packages holding `.tsx` alone                                          |
-|  [17]   | `noEmit`                     | `true`                   | Root tests program, application programs a bundler builds              |
+|  [17]   | `noEmit`                     | `true`                   | Test bases, `tsconfig.tests.json`, bundled applications                |
 
 Options that stay unwritten:
 
@@ -149,7 +149,7 @@ catalog:
 |  [05]   | `tsconfig.build.json` differing only in emit options        | Emit options in the base                                           |
 |  [06]   | TypeScript 7 alone as `typescript`                          | TypeScript 6 as `typescript`, TypeScript 7 as `@typescript/native` |
 |  [07]   | `module: preserve` in a library `tsc` publishes             | `nodenext`, as `bundler` resolution accepts code only bundlers run |
-|  [08]   | `declaration: false, noEmit: true` restated per test config | One root tests program over every package's tests                  |
+|  [08]   | `declaration: false, noEmit: true` restated per test config | `tests/tsconfig.base.json` setting `noEmit` for every suite        |
 |  [09]   | `paths` mapping one package to another's source             | Workspace links and `exports`                                      |
 |  [10]   | `ignoreDeprecations: "6.0"`                                 | Deprecated options removed                                         |
 |  [11]   | `strict: false`, `experimentalDecorators`                   | Default `strict`, standard decorators                              |

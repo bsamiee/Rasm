@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: csharplang
 severity: error
-files: ['libs/dotnet/rhino/**', 'apps/rhino/**']
+files: ['libs/dotnet/rhino/**', 'products/apps/rhino/**']
 rule:
     all:
         - any:

@@ -5,7 +5,7 @@
             "path": "../../support/typescript"
         },
         {
-            "path": "../../../apps/web/portfolio"
+            "path": "../../../products/web/portfolio"
         }
     ]
 }

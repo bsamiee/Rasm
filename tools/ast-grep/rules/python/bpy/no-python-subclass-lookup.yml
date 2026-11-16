@@ -3,7 +3,7 @@ language: pythonlang
 severity: error
 files:
     - libs/python/blender/**
-    - apps/blender/**
+    - products/apps/blender/**
 rule:
     kind: call
     pattern: $CALL

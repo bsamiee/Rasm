@@ -4,7 +4,7 @@ severity: error
 files:
     - libs/python/blender/**
     - libs/python/data/records/**
-    - apps/blender/**
+    - products/apps/blender/**
 rule:
     kind: string
     pattern: $S
