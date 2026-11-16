@@ -210,6 +210,12 @@ extension AppleEventValue {
         func unencodable(_ type: DescType) -> AggregateError<AppleEventFailure> {
             AggregateError(first: AppleEventFailure(subject: type.sdef, reason: .unencodable))
         }
+        func located(_ url: URL) throws(AggregateError<AppleEventFailure>) -> NSAppleEventDescriptor {
+            let file = NSAppleEventDescriptor(fileURL: url)
+            guard types.contains("alias") else { return file }
+            guard let alias = file.coerce(toDescriptorType: DescType(typeAlias)) else { throw unencodable(DescType(typeAlias)) }
+            return alias
+        }
         switch self {
             case .null:
                 return .null()
@@ -229,7 +235,7 @@ extension AppleEventValue {
                         )
                     default:
                         switch URL(string: text) {
-                            case .some(let url) where url.isFileURL && !types.isDisjoint(with: ["file", "alias", "file specification"]): NSAppleEventDescriptor(fileURL: url)
+                            case .some(let url) where url.isFileURL && !types.isDisjoint(with: ["file", "alias", "file specification"]): try located(url)
                             case .some, .none: NSAppleEventDescriptor(string: text)
                         }
                 }
@@ -249,7 +255,7 @@ extension AppleEventValue {
             case .date(let date):
                 return NSAppleEventDescriptor(date: date)
             case .file(let url):
-                return NSAppleEventDescriptor(fileURL: url)
+                return try located(url)
             case .specifier(let want, let form, let seld, let from):
                 let key: Result<NSAppleEventDescriptor, AggregateError<AppleEventFailure>> =
                     switch (form, seld) {
