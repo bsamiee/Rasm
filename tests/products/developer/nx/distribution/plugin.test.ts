@@ -50,6 +50,7 @@ const it = test
                 default: ['{projectRoot}/**/*'],
                 production: ['!{projectRoot}/**/*.spec.ts'],
             },
+            release: { projects: ['tag:release'] },
         },
         workspaceRoot: tempFs.tempDir,
     }))

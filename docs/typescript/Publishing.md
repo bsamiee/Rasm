@@ -93,8 +93,7 @@ Manifest a consumer installs, after `pnpm pack` applies `publishConfig` and repl
 
 ## [06]-[PUBLISH]
 
-- `nx release publish` runs the workspace package manager's `publish`
-- `pnpm -r publish` skips packages with a version their registry holds, so a rerun after a partial failure publishes what remains
+- `nx release publish` runs `pnpm publish` on the tarball each project's `pack--pnpm` wrote, the file `attach--gh` uploads
 - `pnpm publish --dry-run` does everything but the upload
 - Trusted publishing from CI needs no stored registry token, and attaches provenance to a public package from a public repository
 - Trusted publishing runs on cloud-hosted runners alone, so a self-hosted runner publishes with a registry token and no provenance

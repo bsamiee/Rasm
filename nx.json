@@ -54,31 +54,13 @@
             }
         },
         "@rasm/nx-docker",
-        {
-            "plugin": "@rasm/nx-pulumi",
-            "options": {
-                "configurations": {
-                    "deploy": {
-                        "release": ["--production"]
-                    }
-                }
-            }
-        },
+        "@rasm/nx-pulumi",
         {
             "plugin": "@rasm/nx-typescript",
-            "exclude": ["tests/!(support)/**"],
             "options": {
                 "compilerPackages": ["@typescript/native", "@effect/tsgo"],
                 "knipConfig": ".config/knip.json",
-                "outputPath": ".artifacts/pnpm/{projectName}"
-            }
-        },
-        {
-            "plugin": "@rasm/nx-typescript",
-            "include": ["tests/!(support)/**"],
-            "options": {
-                "compilerPackages": ["@typescript/native", "@effect/tsgo"],
-                "noEmit": true,
+                "noEmit": ["tests/!(support)/**"],
                 "outputPath": ".artifacts/pnpm/{projectName}"
             }
         },
@@ -109,12 +91,17 @@
         }
     ],
     "targetDefaults": {
+        "deploy--pulumi": {
+            "configurations": {
+                "release": { "args": "--production" }
+            }
+        },
         "@nx/js:release-publish": {
             "executor": "@rasm/nx-distribution:publish",
-            "dependsOn": ["build--*"],
-            "inputs": ["default", "^default", { "externalDependencies": [] }],
+            "dependsOn": ["pack--*"],
+            "inputs": [{ "dependentTasksOutputFiles": "**/*.tgz" }, { "externalDependencies": [] }],
             "options": {
-                "publish": ["pnpm", "publish", "--recursive", "--filter", "{projectName}", "--no-git-checks"],
+                "publish": ["pnpm", "publish", "--no-git-checks"],
                 "preview": ["--dry-run"],
                 "credential": "NODE_AUTH_TOKEN"
             }

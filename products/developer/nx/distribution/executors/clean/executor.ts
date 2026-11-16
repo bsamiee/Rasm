@@ -1,7 +1,8 @@
 import { type ExecutorContext, getOutputsForTargetAndConfiguration } from '@nx/devkit';
 import { globWithWorkspaceContext } from '@nx/devkit/internal';
 import { Array, Effect, FileSystem, Function, Glob, Path, Record, Result, Schema } from 'effect';
-import { listed, run, spawned, Words } from '#/executor';
+import { getFilesForOutputsBatch } from 'nx/src/native';
+import { run, spawned, Words } from '#/executor';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -17,7 +18,7 @@ const Clean = Schema.Struct({
 const cleared = Effect.fnUntraced(function* (root: string, output: string, negated: readonly string[], tracked: ReadonlySet<string>) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const base = Array.takeWhile(output.split('/'), (segment) => Glob.escape(segment) === segment).join('/') || '.';
-    const [matched, held] = yield* Effect.all([listed(root, [output, ...negated]), listed(root, [base])]);
+    const [matched = [], held = []] = getFilesForOutputsBatch(root, [[output, ...negated], [base]]);
     const [removable, kept] = Array.partition(
         matched,
         Result.liftPredicate((at: string) => !tracked.has(at), Function.identity),

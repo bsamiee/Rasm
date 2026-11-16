@@ -2,15 +2,14 @@ import { basename, join, matchesGlob, relative } from 'node:path';
 import { platform } from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { AggregateCreateNodesError, type CreateNodes, type CreateNodesContext, detectPackageManager, getPackageManagerCommand, type ProjectConfiguration, readJsonFile, type TargetConfiguration } from '@nx/devkit';
-import { combineGlobPatterns, getNamedInputs, mergeTargetConfigurations, type PackageJson, quoteShellArg } from '@nx/devkit/internal';
+import { combineGlobPatterns, type PackageJson, quoteShellArg } from '@nx/devkit/internal';
 import { Array, Effect, FileSystem, Function, Option, Predicate, Record, Result, Schema, String, Struct, UndefinedOr } from 'effect';
 import which from 'which';
 import { run } from '#/executor';
 import { type Fields, FOLDERS, HOSTS, type Host, Identity } from '#/host-packages';
+import { aggregated, Folder, manifested, namedInput, type Stated, tagged, type Verbs } from '#/inference';
 
 // --- [TYPES] ---------------------------------------------------------------------------
-
-type Verbs = Readonly<Record<string, Readonly<Record<string, TargetConfiguration>>>>;
 
 interface Declared {
     readonly file: string;
@@ -19,7 +18,7 @@ interface Declared {
     readonly fields: Fields;
     readonly lock?: string;
     readonly engines: readonly string[];
-    readonly stated: Readonly<Record<string, Pick<TargetConfiguration, 'inputs'>>>;
+    readonly stated: Stated;
     readonly host: Host;
 }
 
@@ -28,7 +27,6 @@ interface Declared {
 const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#package'))).name;
 const FILES = combineGlobPatterns(Array.dedupe(HOSTS.map(({ manifest }) => `**/${basename(manifest)}`)));
 const WITHHELD = ['archive', 'build', 'operations', 'publish'] as const;
-const TAGS = { release: 'release', platform: 'os:' } as const;
 const UPSTREAM = { dependentTasksOutputFiles: '**/*' } as const;
 const RECEIVED: NonNullable<TargetConfiguration['inputs']> = [UPSTREAM, { externalDependencies: [] }];
 const UNSTATED: NonNullable<TargetConfiguration['inputs']> = ['default', '^default', { externalDependencies: [] }];
@@ -36,46 +34,15 @@ const UNSTATED: NonNullable<TargetConfiguration['inputs']> = ['default', '^defau
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Options = Schema.Struct({
-    outputPath: Schema.optionalKey(Schema.String),
+    outputPath: Folder,
     storeCredentials: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)),
     signingIdentities: Schema.optionalKey(Schema.Record(Schema.String, Identity)),
 }).annotate({
     description:
         'outputPath: workspace folder each host package is written to, {projectName} naming the project, absent writes where the host tool writes in the project. storeCredentials: environment variable holding the store credential per technology, absent naming the variable of the host row (Blender: BLENDER_EXTENSIONS_TOKEN, Yak: YAK_TOKEN), a publish whose variable is unset naming it and succeeding. signingIdentities: per technology, certificate is the environment variable holding the base64 PKCS#12 certificate its packages sign with and password the variable holding its password, absent naming the variables of the host row (CEP: ZXP_CERTIFICATE, ZXP_CERTIFICATE_PASSWORD), a package whose certificate variable is unset signing with a certificate made for the pack',
 });
-const Input = Schema.declare((input: unknown): input is NonNullable<TargetConfiguration['inputs']>[number] => Predicate.isString(input) || Predicate.isObject(input));
-const Overrides = Schema.fromJsonString(Schema.Struct({ nx: Schema.optionalKey(Schema.Struct({ targets: Schema.optionalKey(Schema.Record(Schema.String, Schema.Struct({ inputs: Schema.optionalKey(Schema.mutable(Schema.Array(Input))) }))) })) })).annotate({
-    description: "The nx.targets rows of a project's package.json, whose inputs Nx merges over the inferred targets after every plugin",
-});
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-
-const manifested = Effect.fnUntraced(function* (workspaceRoot: string, root: string) {
-    const fs = yield* FileSystem.FileSystem;
-    const manifest = join(workspaceRoot, root, 'package.json');
-    return (yield* fs.exists(manifest)) ? ((yield* Effect.flatMap(fs.readFileString(manifest), Schema.decodeEffect(Overrides))).nx?.targets ?? {}) : {};
-});
-
-const aggregated = (verbs: Verbs, stated: Readonly<Record<string, Pick<TargetConfiguration, 'inputs'>>>, technology: string): Record<string, TargetConfiguration> =>
-    Record.fromEntries(
-        Record.collect(Record.filter(verbs, Predicate.not(Record.isEmptyRecord)), (verb, tools): readonly (readonly [string, TargetConfiguration])[] => [
-            [
-                verb,
-                {
-                    dependsOn: [`${verb}--*`],
-                    inputs: [
-                        '...',
-                        ...Array.dedupe(
-                            Record.collect(tools, (tool, target) => mergeTargetConfigurations(stated[`${verb}--${tool}`] ?? {}, { ...target, inputs: target.inputs ?? ['default', '^default'] }).inputs ?? [])
-                                .flat()
-                                .map((input) => (Predicate.isObject(input) && 'dependentTasksOutputFiles' in input ? { ...input, transitive: true } : input)),
-                        ),
-                    ],
-                },
-            ],
-            ...Record.collect(tools, (tool, target): readonly [string, TargetConfiguration] => [`${verb}--${tool}`, { ...target, metadata: { technologies: [technology], ...target.metadata } }]),
-        ]).flat(),
-    );
 
 const read = Effect.fnUntraced(function* (files: readonly string[], context: CreateNodesContext) {
     const fs = yield* FileSystem.FileSystem;
@@ -106,15 +73,14 @@ const read = Effect.fnUntraced(function* (files: readonly string[], context: Cre
         const fields = yield* Effect.flatMap(fs.readFileString(join(workspaceRoot, file)), (text) => host.read(text, file));
         const stated = yield* manifested(workspaceRoot, root);
         const withheld: readonly ((typeof WITHHELD)[number] | 'install')[] = [...(engined ? [] : WITHHELD), ...(installing.includes(host) ? [] : (['install'] as const))];
-        const named = 'production' in getNamedInputs(root, context) ? 'production' : 'default';
-        return Option.map(fields, (held): Declared => ({ file, root, named, fields: held, host: Struct.omit(host, withheld), engines: Option.toArray(stamp), stated, ...Option.getOrUndefined(lock) }));
+        return Option.map(fields, (held): Declared => ({ file, root, named: namedInput(root, context), fields: held, host: Struct.omit(host, withheld), engines: Option.toArray(stamp), stated, ...Option.getOrUndefined(lock) }));
     });
     return yield* Effect.partition(matched, (row) => Effect.mapError(one(row), (error): [string, Error] => [row.file, error]), { concurrency: 'unbounded' });
 });
 
 const placed = (operation: keyof typeof FOLDERS) => `{options.outputPath}/${FOLDERS[operation]}`;
 
-const projects = (declared: readonly Declared[], settings: typeof Options.Type, exec: string) => {
+const projects = (declared: readonly Declared[], settings: typeof Options.Type, exec: string, release: readonly string[]) => {
     const holds = (other: Declared, item: Declared) => (other.fields.folders ?? []).some((folder) => !relative(join(other.root, folder), item.root).startsWith('..')) && !(other.fields.references ?? []).some((reference) => reference.name === item.fields.name && !reference.enabled);
     const hosts = Function.memoize((item: Declared) => (item.fields.folders === undefined ? declared.filter((other) => holds(other, item)) : [item]));
     const uses = (item: Declared) => declared.filter((other) => other !== item && (item.fields.references ?? []).some((reference) => reference.enabled && reference.name === other.fields.name));
@@ -230,7 +196,7 @@ const projects = (declared: readonly Declared[], settings: typeof Options.Type, 
             root: item.root,
             name: item.fields.name,
             metadata: { technologies: [technology] },
-            tags: [...Option.toArray(Option.as(released, TAGS.release)), ...platforms.map((os) => `${TAGS.platform}${os}`)],
+            tags: [...(Option.isSome(released) ? release : []), ...platforms.map((os) => `os:${os}`)],
             ...Array.match(standalone ? linked : [], { onEmpty: () => ({}), onNonEmpty: (implicitDependencies) => ({ implicitDependencies }) }),
             ...Option.getOrUndefined(Option.map(released, () => ({ release: { version: { versionActions: `${PLUGIN}/release/version-actions`, versionActionsOptions: { manifest } } } }))),
             targets: {
@@ -264,6 +230,7 @@ const createNodes: CreateNodes<typeof Options.Encoded> = [
                     Array.getSomes(held).filter(({ fields }) => fields.installed !== true),
                     settings,
                     getPackageManagerCommand(detectPackageManager(context.workspaceRoot)).exec,
+                    tagged(context.nxJsonConfiguration),
                 );
                 return yield* Array.match(failures, { onEmpty: () => Effect.succeed(results), onNonEmpty: (refused) => Effect.fail(new AggregateCreateNodesError(refused, results)) });
             }),

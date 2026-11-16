@@ -45,7 +45,7 @@ describe('@rasm/nx-vitest', () => {
     const [, createNodesFunction] = createNodes;
 
     describe('root project', () => {
-        it('should create nodes, running vitest run since watch mode never exits under an Nx TTY, and declaring coverage under -c coverage alone', async ({ temp, context }) => {
+        it('should create nodes, running vitest run since watch mode never exits under an Nx TTY, and declaring the lcov.info the coverage configuration writes', async ({ temp, context }) => {
             await temp.createFiles({ 'vitest.config.ts': 'export default {};\n' });
 
             const nodes = await createNodesFunction(['vitest.config.ts'], {}, context);
@@ -70,8 +70,8 @@ describe('@rasm/nx-vitest', () => {
                                             technologies: ['vitest'],
                                         },
                                         options: { cwd: '.' },
-                                        outputs: ['{projectRoot}/.vitest/attachments', '{options.outputs.0}'],
-                                        configurations: { coverage: { 'coverage.enabled': true, 'coverage.reporter': 'lcovonly', outputs: ['{workspaceRoot}/coverage/lcov.info'] } },
+                                        outputs: ['{projectRoot}/.vitest/attachments', '{projectRoot}/coverage/lcov.info'],
+                                        configurations: { coverage: { 'coverage.enabled': true, 'coverage.reporter': 'lcovonly' } },
                                     },
                                 },
                             },
@@ -96,13 +96,12 @@ describe('@rasm/nx-vitest', () => {
 
             expect(nodes[0]?.[1].projects?.['.']?.targets?.['test--vitest']).toMatchObject({
                 command: "vitest run {args} --attachmentsDir '.artifacts/vitest/{projectName}/attachments' --outputFile.junit '.artifacts/vitest/{projectName}/junit.xml'",
-                outputs: ['{projectRoot}/.artifacts/vitest/{projectName}', '{options.outputs.0}'],
+                outputs: ['{projectRoot}/.artifacts/vitest/{projectName}', '{projectRoot}/.artifacts/coverage/{projectName}/lcov.info'],
                 configurations: {
                     coverage: {
                         'coverage.enabled': true,
                         'coverage.reporter': 'lcovonly',
                         'coverage.reportsDirectory': '.artifacts/coverage/{projectName}',
-                        outputs: ['{workspaceRoot}/.artifacts/coverage/{projectName}/lcov.info'],
                     },
                 },
             });
@@ -152,7 +151,7 @@ describe('@rasm/nx-vitest', () => {
             expect(nodes[0]?.[1].projects).not.toHaveProperty(['.']);
             expect(nodes[0]?.[1].projects?.['packages/a']?.targets?.['test--vitest']?.command).toBe('vitest run --project a');
             expect(nodes[0]?.[1].projects?.['packages/a']?.targets?.['test--vitest']?.inputs).toContainEqual('{workspaceRoot}/vitest.config.ts');
-            expect(nodes[0]?.[1].projects?.['packages/a']?.targets?.['test--vitest']).toMatchObject({ configurations: { coverage: { outputs: ['{workspaceRoot}/coverage/lcov.info'] } } });
+            expect(nodes[0]?.[1].projects?.['packages/a']?.targets?.['test--vitest']?.outputs).toContain('{workspaceRoot}/coverage/lcov.info');
         });
     });
 

@@ -9,7 +9,8 @@
         "directory": "products/developer/nx/vitest"
     },
     "files": [
-        "dist"
+        "dist/**/*.js",
+        "dist/**/*.d.ts"
     ],
     "type": "module",
     "imports": {
@@ -27,7 +28,6 @@
         "access": "public"
     },
     "dependencies": {
-        "@effect/platform-node": "catalog:",
         "@nx/devkit": "catalog:",
         "@nx/js": "catalog:",
         "@rasm/nx-distribution": "workspace:*",
@@ -43,5 +43,8 @@
         "nx": "catalog:peers",
         "vite": "catalog:peers",
         "vitest": "catalog:peers"
+    },
+    "engines": {
+        "node": ">=26"
     }
 }

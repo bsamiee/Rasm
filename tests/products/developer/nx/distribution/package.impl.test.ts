@@ -29,14 +29,8 @@ const it = test
         nxJsonConfiguration: {},
         projectsConfigurations: { version: 2, projects: { panel: { root: 'panel' } } },
         projectGraph: {
-            nodes: { panel: { name: 'panel', type: 'lib', data: { root: 'panel', metadata: { technologies: ['uxp'] }, targets: { 'build--uxp': { inputs: ['default', { dependentTasksOutputFiles: '**/*' }] } } } } },
+            nodes: { panel: { name: 'panel', type: 'lib', data: { root: 'panel', metadata: { technologies: ['uxp'] }, targets: { 'build--uxp': { executor: 'nx:noop', inputs: ['default', { dependentTasksOutputFiles: '**/*' }] } } } } },
             dependencies: {},
-        },
-        taskGraph: {
-            roots: ['panel:build--uxp'],
-            tasks: { 'panel:build--uxp': { id: 'panel:build--uxp', target: { project: 'panel', target: 'build--uxp' }, overrides: {}, outputs: ['.artifacts/distribution/panel'], cache: true } },
-            dependencies: { 'panel:build--uxp': [] },
-            continuousDependencies: {},
         },
     }));
 

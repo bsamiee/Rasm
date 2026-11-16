@@ -3,6 +3,8 @@ import { findPackageJSON } from 'node:module';
 import { dirname, join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { cloudflareTest } from '@cloudflare/vitest-plugin';
+import { readJsonFile } from '@nx/devkit';
+import { buildPackageJsonPatterns, buildPackageJsonWorkspacesMatcher, type PackageJson } from '@nx/devkit/internal';
 import { reporting } from '@rasm/testing/vitest';
 import { storybookTest } from '@storybook/addon-vitest/vitest-plugin';
 import react from '@vitejs/plugin-react';
@@ -35,10 +37,11 @@ const browser = (connect: Option.Option<NonNullable<PlaywrightProviderOptions['c
     trace: { mode: 'retain-on-failure' },
 });
 
-const captured = (): Plugin => ({
-    name: 'captured',
-    configureVitest({ project, vitest }) {
-        Object.assign(project.config.browser, { screenshotDirectory: resolve(vitest.config.attachmentsDir, '..', 'screenshots') });
+const placed = (): Plugin => ({
+    name: 'placed',
+    configureVitest({ project, vitest: { config } }) {
+        Object.assign(project.config.browser, { screenshotDirectory: resolve(config.attachmentsDir, '..', 'screenshots') });
+        Object.assign(config, { reporters: [...config.reporters.filter((reporter) => !(Array.isArray(reporter) && reporter[0] === 'html')), ['html', { outputDir: resolve(config.attachmentsDir, '..', 'html') }]] });
     },
 });
 
@@ -59,7 +62,7 @@ const hosted = (root: string, { devDependencies = {} }: (typeof Manifest.Type)['
     return Match.value(runtimes).pipe(
         Match.when(
             () => 'vitest-browser-react' in devDependencies,
-            (): readonly Hosted[] => [{ suffix: Option.none(), plugins: [react({ compiler: { panicThreshold: 'all_errors' } }), captured()], test: { browser: browser(connect) } }],
+            (): readonly Hosted[] => [{ suffix: Option.none(), plugins: [react({ compiler: { panicThreshold: 'all_errors' } })], test: { browser: browser(connect) } }],
         ),
         Match.when(
             (all) => all.length > 1,
@@ -69,25 +72,39 @@ const hosted = (root: string, { devDependencies = {} }: (typeof Manifest.Type)['
     );
 };
 
-const reports = (): Plugin => ({
-    name: 'reports',
-    config: ({ test }): ViteUserConfig => (test?.attachmentsDir === undefined ? {} : { test: { reporters: [['html', { outputDir: resolve(import.meta.dirname, test.attachmentsDir, '..', 'html') }]] } }),
-});
-
 const projects = Effect.gen(function* () {
-    const roots = Array.dedupe(globSync('tests/**/*.test.{ts,tsx}', { cwd: import.meta.dirname, exclude: ['**/node_modules/**', '**/.*/**'] }).flatMap((file) => Array.fromNullishOr(findPackageJSON(pathToFileURL(join(import.meta.dirname, file)))).map((manifest) => relative(import.meta.dirname, dirname(manifest)))));
-    const storied = globSync('{products,libs}/**/.storybook/main.ts', { cwd: import.meta.dirname, exclude: ['**/node_modules/**'] }).map((file) => dirname(dirname(file)));
-    const [manifests, titles] = yield* Effect.all([Effect.forEach(roots, manifested), Effect.forEach(storied, manifested)]);
+    const patterns = buildPackageJsonPatterns(import.meta.dirname, (file: string) => readJsonFile<PackageJson>(join(import.meta.dirname, file)));
+    const members = new Set(
+        globSync(patterns.positive, { cwd: import.meta.dirname, exclude: ['**/node_modules/**', '**/.*/**'] })
+            .filter(buildPackageJsonWorkspacesMatcher(patterns))
+            .map(dirname),
+    );
+    const found = Array.dedupe(
+        globSync(
+            [...members].map((root) => join(root, '**/*.test.{ts,tsx}')),
+            { cwd: import.meta.dirname, exclude: ['**/node_modules/**', '**/.*/**'] },
+        ).flatMap((file) => Array.fromNullishOr(findPackageJSON(pathToFileURL(join(import.meta.dirname, file)))).map((manifest) => relative(import.meta.dirname, dirname(manifest)))),
+    ).filter((root) => members.has(root));
+    const storied = globSync(
+        [...members].map((root) => join(root, '.storybook/main.{js,ts,jsx,tsx,mjs,mts,cjs,cts}')),
+        { cwd: import.meta.dirname },
+    ).map((file) => dirname(dirname(file)));
+    const [declared, titles] = yield* Effect.all([Effect.forEach(found, manifested), Effect.forEach(storied, manifested)]);
+    const [roots, manifests] = Array.unzip(Array.zip(found, declared).filter(([, { devDependencies = {} }]) => 'vitest' in devDependencies));
     const [endpoint, exposed] = yield* Config.all([Config.option(Config.String('PW_TEST_CONNECT_WS_ENDPOINT')), Config.option(Config.String('PW_TEST_CONNECT_EXPOSE_NETWORK'))]);
     const connect = Option.map(endpoint, (wsEndpoint) => ({ wsEndpoint, ...Option.getOrUndefined(Option.map(exposed, (exposeNetwork) => ({ exposeNetwork }))) }));
     const suites = Array.zipWith(roots, manifests, (root, manifest) =>
         hosted(root, manifest, connect).map(({ suffix, plugins, test }): TestProjectInlineConfiguration => ({
             root,
-            plugins,
-            test: { ...test, name: Option.match(suffix, { onNone: () => manifest.name, onSome: (part) => `${manifest.name} ${part}` }), env: { NX_DAEMON: 'false', NX_WORKSPACE_DATA_DIRECTORY: '.nx/workspace-data', NO_COLOR: '1', FORCE_COLOR: '0' } },
+            plugins: [...plugins, placed()],
+            test: {
+                ...test,
+                name: Option.match(suffix, { onNone: () => manifest.name, onSome: (part) => `${manifest.name} ${part}` }),
+                ...(Array.isReadonlyArrayNonEmpty(Array.intersection(Object.keys(manifest.devDependencies ?? {}), ['nx', '@nx/devkit'])) && { env: { NX_DAEMON: 'false', NX_WORKSPACE_DATA_DIRECTORY: '.nx/workspace-data', NO_COLOR: '1', FORCE_COLOR: '0' } }),
+            },
         })),
     );
-    const stories = Array.zipWith(storied, titles, (root, { name }): TestProjectInlineConfiguration => ({ plugins: [storybookTest({ configDir: join(import.meta.dirname, root, '.storybook') }), captured()], test: { name, api: { allowWrite: true }, browser: browser(connect) } }));
+    const stories = Array.zipWith(storied, titles, (root, { name }): TestProjectInlineConfiguration => ({ plugins: [storybookTest({ configDir: join(import.meta.dirname, root, '.storybook') }), placed()], test: { name, api: { allowWrite: true }, browser: browser(connect) } }));
     return [...suites.flat(), ...stories];
 });
 
@@ -96,7 +113,6 @@ const projects = Effect.gen(function* () {
 export default defineConfig(() =>
     Effect.runPromise(
         Effect.map(projects, (declared): ViteUserConfig => ({
-            plugins: [reports()],
             test: {
                 ...reporting,
                 coverage: { allowExternal: true, reportOnFailure: true },

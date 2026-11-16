@@ -101,8 +101,8 @@ describe('createTypecheckTarget', () => {
             const named = await typecheckTarget(tempFs, { ...context, nxJsonConfiguration: { namedInputs: { production: [] } } }, files, { compilerPackages: ['typescript', '@effect/tsgo'] });
             const unnamed = await typecheckTarget(tempFs, context, files);
 
-            expect(named?.['check--tsc']?.inputs).toStrictEqual(['{projectRoot}/package.json', '{projectRoot}/tsconfig.json', '{projectRoot}/src/index.ts', '^production', { dependentTasksOutputFiles: '**/*', transitive: true }, { externalDependencies: ['typescript', '@effect/tsgo'] }]);
-            expect(unnamed?.['check--tsc']?.inputs).toStrictEqual(['{projectRoot}/package.json', '{projectRoot}/tsconfig.json', '{projectRoot}/src/index.ts', '^default', { dependentTasksOutputFiles: '**/*', transitive: true }, { externalDependencies: ['typescript'] }]);
+            expect(named?.['check--tsc']?.inputs).toStrictEqual(['{projectRoot}/package.json', '{projectRoot}/tsconfig.json', '{projectRoot}/src/index.ts', '^production', { dependentTasksOutputFiles: '**/*.{d.ts,d.cts,d.mts,tsbuildinfo}', transitive: true }, { externalDependencies: ['typescript', '@effect/tsgo'] }]);
+            expect(unnamed?.['check--tsc']?.inputs).toStrictEqual(['{projectRoot}/package.json', '{projectRoot}/tsconfig.json', '{projectRoot}/src/index.ts', '^default', { dependentTasksOutputFiles: '**/*.{d.ts,d.cts,d.mts,tsbuildinfo}', transitive: true }, { externalDependencies: ['typescript'] }]);
         });
     });
 });

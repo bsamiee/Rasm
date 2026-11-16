@@ -1,37 +1,20 @@
 import { existsSync } from 'node:fs';
-import { createRequire, findPackageJSON } from 'node:module';
-import { basename, dirname, isAbsolute, join, matchesGlob, relative, resolve, sep } from 'node:path';
+import { createRequire } from 'node:module';
+import { basename, dirname, isAbsolute, join, matchesGlob, relative, resolve } from 'node:path';
 import { env } from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { layer } from '@effect/platform-node/NodeServices';
 import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, detectPackageManager, getPackageManagerCommand, hashArray, normalizePath, type ProjectConfiguration, readJsonFile, type TargetConfiguration } from '@nx/devkit';
-import {
-    buildPackageJsonPatterns,
-    buildPackageJsonWorkspacesMatcher,
-    calculateHashesForCreateNodes,
-    getLockFileName,
-    getNamedInputs,
-    hashFile,
-    hashObject,
-    hashWithWorkspaceContext,
-    mergeTargetConfigurations,
-    type PackageJson,
-    PluginCache,
-    quoteShellArg,
-    retryOnRequireEsmRace,
-    workspaceDataDirectory,
-} from '@nx/devkit/internal';
+import { buildPackageJsonPatterns, buildPackageJsonWorkspacesMatcher, calculateHashesForCreateNodes, getLockFileName, hashObject, type PackageJson, PluginCache, quoteShellArg, retryOnRequireEsmRace, workspaceDataDirectory } from '@nx/devkit/internal';
 import { getRootTsConfigFileName } from '@nx/js';
-import { walkTsconfigExtendsChain } from '@nx/js/internal';
+import { above, aggregated, extended, fingerprinted, Folder, type Input, manifested, namedInput, packaged, parsed, recalled, run, stamped, tokened, type Verbs, within } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
-import { Array, Cause, Effect, Equal, FileSystem, identity, Option, Predicate, pipe, Record, Result, Schema } from 'effect';
+import { Array, Cause, Effect, FileSystem, Option, Predicate, Record, Schema } from 'effect';
 import type { configDefaults } from 'vitest/config';
 import type { parseCLI, resolveConfig, Vite } from 'vitest/node';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Resolved = Effect.Success<ReturnType<typeof read>>;
-type Verbs = Readonly<Record<string, Readonly<Record<string, TargetConfiguration>>>>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -40,86 +23,21 @@ const SUITE = `vitest.config.${EXTENSIONS}`;
 const MODE = { TEST: 'true', VITEST: 'true', NODE_ENV: 'test' } as const;
 const REPORTS: Record.ReadonlyRecord<string, string> = { html: '.vitest', blob: '.vitest/blob', json: '.vitest/json', junit: '.vitest/junit' };
 const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#package'))).name;
-const OWN = pipe(
-    Effect.flatMap(FileSystem.FileSystem, (fs) => fs.readDirectory(import.meta.dirname)),
-    Effect.map((names) => hashArray(names.toSorted().flatMap((name) => [name, ...Array.fromNullishOr(hashFile(join(import.meta.dirname, name)))]))),
-    Effect.cached,
-    Effect.runSync,
-);
+const OWN = fingerprinted(import.meta.dirname);
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Options = Schema.Struct({ outputPath: Schema.optionalKey(Schema.String), coveragePath: Schema.optionalKey(Schema.String) }).annotate({
+const Options = Schema.Struct({ outputPath: Folder, coveragePath: Folder }).annotate({
     description:
         'outputPath: workspace folder a suite writes its reports to, {projectName} naming the project, absent leaves each reporter its own folder. coveragePath: workspace folder the coverage configuration writes lcov.info to, {projectName} naming the project, absent leaves Vitest its coverage.reportsDirectory',
 });
 const Reported = Schema.Struct({ outputFile: Schema.optionalKey(Schema.String), outputDir: Schema.optionalKey(Schema.String), stdout: Schema.optionalKey(Schema.Boolean) }).annotate({
     description: 'The file, folder, and stdout options of a resolved [reporter, options] Vitest entry, stdout true writing no file',
 });
-const Named = Schema.fromJsonString(Schema.Struct({ name: Schema.String })).annotate({ description: 'The name field of a package.json' });
-const Input = Schema.declare((input: unknown): input is NonNullable<TargetConfiguration['inputs']>[number] => Predicate.isString(input) || Predicate.isObject(input));
-const Overrides = Schema.fromJsonString(Schema.Struct({ nx: Schema.optionalKey(Schema.Struct({ targets: Schema.optionalKey(Schema.Record(Schema.String, Schema.Struct({ inputs: Schema.optionalKey(Schema.mutable(Schema.Array(Input))) }))) })) })).annotate({
-    description: "The nx.targets rows of a project's package.json, whose inputs Nx merges over the inferred targets after every plugin",
-});
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const run = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem>) => Effect.runPromise(Effect.provide(effect, layer));
-
-const manifested = Effect.fnUntraced(function* (workspaceRoot: string, root: string) {
-    const fs = yield* FileSystem.FileSystem;
-    const manifest = join(workspaceRoot, root, 'package.json');
-    return (yield* fs.exists(manifest)) ? ((yield* Effect.flatMap(fs.readFileString(manifest), Schema.decodeEffect(Overrides))).nx?.targets ?? {}) : {};
-});
-
-const aggregated = (verbs: Verbs, stated: Readonly<Record<string, Pick<TargetConfiguration, 'inputs'>>>, technology: string): Record<string, TargetConfiguration> =>
-    Record.fromEntries(
-        Record.collect(Record.filter(verbs, Predicate.not(Record.isEmptyRecord)), (verb, tools): readonly (readonly [string, TargetConfiguration])[] => [
-            [
-                verb,
-                {
-                    dependsOn: [`${verb}--*`],
-                    inputs: [
-                        '...',
-                        ...Array.dedupe(
-                            Record.collect(tools, (tool, target) => mergeTargetConfigurations(stated[`${verb}--${tool}`] ?? {}, { ...target, inputs: target.inputs ?? ['default', '^default'] }).inputs ?? [])
-                                .flat()
-                                .map((input) => (Predicate.isObject(input) && 'dependentTasksOutputFiles' in input ? { ...input, transitive: true } : input)),
-                        ),
-                    ],
-                },
-            ],
-            ...Record.collect(tools, (tool, target): readonly [string, TargetConfiguration] => [`${verb}--${tool}`, { ...target, metadata: { technologies: [technology], ...target.metadata } }]),
-        ]).flat(),
-    );
-
-const above = (folder: string): readonly string[] =>
-    Array.unfold(
-        Option.some(folder),
-        Option.map((at: string) => [at, Option.liftPredicate(dirname(at), () => at !== '.')] as const),
-    );
-
-const extended = (workspaceRoot: string, root: string): readonly string[] => {
-    const files: string[] = [];
-    Option.toArray(
-        Array.findFirst(
-            above(root).map((at) => join(workspaceRoot, at, 'tsconfig.json')),
-            existsSync,
-        ),
-    ).forEach((config) =>
-        walkTsconfigExtendsChain(config, (at) => {
-            files.push(at);
-            return 'continue';
-        }),
-    );
-    return files.map((at) => normalizePath(relative(workspaceRoot, at))).filter(kept);
-};
-
 const directed = (to: string) => ['--attachmentsDir', join(to, 'attachments'), '--outputFile.junit', join(to, 'junit.xml')];
-
-const stamped = (workspaceRoot: string, sources: readonly string[]) => Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, [...sources]));
-
-const kept = (at: string) => !(at.startsWith('..') || at.split('/').includes('node_modules'));
 
 const loaded = <A>(file: string, entry: string, specifier: string) => Effect.tryPromise({ try: (): Promise<A> => import(pathToFileURL(createRequire(entry).resolve(specifier)).href), catch: (cause) => new Cause.UnknownError(cause, `${file} resolves no ${specifier}`) });
 
@@ -159,7 +77,7 @@ const surveyed = Effect.fnUntraced(function* (workspaceRoot: string, file: strin
                 owner: dirname(at),
                 project: parents.get(viteConfig) ?? name,
                 manifests,
-                setup: [...setupFiles, ...Array.ensure(globalSetup)].map(local).filter(kept),
+                setup: [...setupFiles, ...Array.ensure(globalSetup)].map(local).filter(within),
                 written: browser.enabled ? Array.getSomes([Option.fromUndefinedOr(browser.trace.tracesDir), Option.fromNullishOr(browser.screenshotDirectory)]) : [],
             }));
         }),
@@ -182,27 +100,17 @@ const surveyed = Effect.fnUntraced(function* (workspaceRoot: string, file: strin
         const [name, options] = Array.isArray(reporter) ? reporter : [reporter, {}];
         const decoded = Schema.decodeUnknownOption(Reported)(options);
         const built = Option.liftPredicate(name, Predicate.isString);
-        const named = Option.flatMap(built, (key) => Option.fromUndefinedOr(keyed[key]));
-        const stated = Array.getSomes([Option.firstSomeOf([Option.flatMap(decoded, ({ outputFile: direct }) => Option.fromUndefinedOr(direct)), Option.liftPredicate(outputFile, Predicate.isString), named]), Option.flatMap(decoded, ({ outputDir }) => Option.fromUndefinedOr(outputDir))]);
+        const pointed = Option.flatMap(built, (key) => Option.fromUndefinedOr(keyed[key]));
+        const stated = Array.getSomes([Option.firstSomeOf([Option.flatMap(decoded, ({ outputFile: direct }) => Option.fromUndefinedOr(direct)), Option.liftPredicate(outputFile, Predicate.isString), pointed]), Option.flatMap(decoded, ({ outputDir }) => Option.fromUndefinedOr(outputDir))]);
         return Array.isReadonlyArrayNonEmpty(stated) || Option.exists(decoded, ({ stdout }) => stdout === true) ? stated : Option.toArray(Option.flatMap(built, (key) => Record.get(REPORTS, key)));
     });
-    const depended = Array.dedupe([entry, ...config.configFileDependencies, ...declared.flatMap(({ viteConfig }) => viteConfig.configFileDependencies)].map(local)).filter(kept);
-    const texts = yield* Effect.forEach(depended, (at) => fs.readFileString(join(workspaceRoot, at)), { concurrency: 'unbounded' });
-    const statements = Array.zipWith(depended, texts, (at, text) => vite.parseSync(at, text).module.staticImports.map(({ moduleRequest, entries }) => ({ specifier: moduleRequest.value, from: join(workspaceRoot, at), entries }))).flat();
-    const imported = statements.filter(({ entries }) => entries.length === 0 || entries.some(({ isType }) => !isType)).map(({ specifier, from }) => [specifier, from] as const);
+    const depended = Array.dedupe([entry, ...config.configFileDependencies, ...declared.flatMap(({ viteConfig }) => viteConfig.configFileDependencies)].map(local)).filter(within);
     const provider = coverage.provider === 'custom' ? Array.fromNullishOr(coverage.customProviderModule) : [`@vitest/coverage-${coverage.provider}`];
-    const found = Array.getSomes([...provider.map((specifier) => [specifier, entry] as const), ...imported].map(([specifier, from]) => Option.flatMap(Option.liftThrowable(findPackageJSON)(specifier, pathToFileURL(from)), Option.fromUndefinedOr)));
-    const manifests = yield* Effect.forEach(
-        Array.dedupe(found).filter((at) => at.split(sep).includes('node_modules')),
-        (at) => fs.realPath(at),
-        { concurrency: 'unbounded' },
-    );
-    const named = yield* Effect.forEach(Array.dedupe(manifests), (at) => Effect.map(Effect.flatMap(fs.readFileString(at), Schema.decodeEffect(Named)), ({ name }) => (at.split(sep).includes('node_modules') ? Result.succeed(name) : Result.fail(name))), { concurrency: 'unbounded' });
-    const [packages, linked] = Array.partition(named, identity);
+    const { packages, linked } = yield* packaged([...provider.map((specifier) => [specifier, entry] as const), ...(yield* parsed(vite.parseSync, workspaceRoot, depended))]);
     return {
         suites,
-        packages: Array.dedupe(packages),
-        linked: Array.dedupe(linked),
+        packages,
+        linked,
         loaded: depended,
         triggers: Array.difference(forceRerunTriggers, defaults.configDefaults.forceRerunTriggers).map((glob) => (isAbsolute(glob) ? local(glob) : glob)),
         folders: Array.dedupe([attachmentsDir, ...reports, ...probes.flatMap((probe) => probe.written)].map((written) => local(resolve(root, written)))),
@@ -223,11 +131,11 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, f
         {
             onNone: () => surveyed(workspaceRoot, file, flags),
             onSome: ({ configFileDependencies }): Effect.Effect<Effect.Success<ReturnType<typeof surveyed>>> =>
-                Effect.succeed({ suites: [], packages: [], linked: [], loaded: [], triggers: [], folders: [], sources: [file, ...configFileDependencies.map((at) => normalizePath(relative(workspaceRoot, at))).filter(kept)] }),
+                Effect.succeed({ suites: [], packages: [], linked: [], loaded: [], triggers: [], folders: [], sources: [file, ...configFileDependencies.map((at) => normalizePath(relative(workspaceRoot, at))).filter(within)] }),
         },
     );
     const sources = [lock, ...report.sources];
-    return { ...report, sources, stamp: yield* stamped(workspaceRoot, sources) };
+    return { ...report, sources, stamp: yield* stamped(workspaceRoot)(sources) };
 });
 
 const targets = (home: string, { loaded: configs, packages, linked, triggers, folders }: Resolved, { root, projects, setup, coverage }: Resolved['suites'][number], chain: readonly string[], upstream: string, { outputPath, coveragePath }: typeof Options.Type, flags: readonly string[], exec: string): Verbs => {
@@ -256,9 +164,9 @@ const targets = (home: string, { loaded: configs, packages, linked, triggers, fo
                 { env: 'CI' },
                 { dependentTasksOutputFiles: '**/*.{js,mjs,cjs,ts,mts,cts,jsx,tsx}', transitive: true },
             ],
-            outputs: [...[...held, ...folders.filter((at) => !held.some((folder) => at === folder || at.startsWith(`${folder}/`)))].map((at) => (relative(root, at).startsWith('..') ? join('{workspaceRoot}', at) : join('{projectRoot}', relative(root, at)))), '{options.outputs.0}'],
+            outputs: [...held, ...folders.filter((at) => !held.some((folder) => at === folder || at.startsWith(`${folder}/`))), join(coveragePath ?? coverage, 'lcov.info')].map(tokened(root)),
             configurations: {
-                coverage: { 'coverage.enabled': true, 'coverage.reporter': 'lcovonly', ...(coveragePath === undefined ? {} : { 'coverage.reportsDirectory': relative(home, coveragePath) }), outputs: [join('{workspaceRoot}', coveragePath ?? coverage, 'lcov.info')] },
+                coverage: { 'coverage.enabled': true, 'coverage.reporter': 'lcovonly', ...(coveragePath === undefined ? {} : { 'coverage.reportsDirectory': relative(home, coveragePath) }) },
             },
             metadata: { description: 'Runs every Vitest project of the suite with vitest run', help: { command: `${exec} vitest run --help`, example: { args: ['--project', '<name>'] } } },
         },
@@ -282,7 +190,7 @@ const inferred = Effect.fnUntraced(function* (cache: PluginCache<Resolved>, cont
     const key = hashArray([hash, yield* OWN, file]);
     const manager = detectPackageManager(context.workspaceRoot);
     const flags = Array.fromNullishOr(settings.outputPath).flatMap((at) => directed(relative(home, at)));
-    const held = yield* Effect.findFirst(Option.toArray(Option.fromUndefinedOr(cache.get(key))), ({ sources, stamp }) => Effect.map(stamped(context.workspaceRoot, sources), Equal.equals(stamp)));
+    const held = yield* recalled(cache, key, stamped(context.workspaceRoot));
     const resolved = yield* Option.match(held, { onSome: Effect.succeed, onNone: () => read(context.workspaceRoot, file, flags, getLockFileName(manager)) });
     cache.set(key, resolved);
     const projects = yield* Effect.forEach(
@@ -294,7 +202,7 @@ const inferred = Effect.fnUntraced(function* (cache: PluginCache<Resolved>, cont
             const project: ProjectConfiguration = {
                 root: suite.root,
                 metadata: { technologies: ['vitest'] },
-                targets: aggregated(targets(home, resolved, { ...suite, setup }, chain, 'production' in getNamedInputs(suite.root, context) ? '^production' : '^default', settings, flags, getPackageManagerCommand(manager).exec), stated, 'vitest'),
+                targets: aggregated(targets(home, resolved, { ...suite, setup }, chain, `^${namedInput(suite.root, context)}`, settings, flags, getPackageManagerCommand(manager).exec), stated, 'vitest'),
             };
             return [suite.root, project] as const;
         }),

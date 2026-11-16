@@ -9,7 +9,8 @@
         "directory": "products/developer/nx/playwright"
     },
     "files": [
-        "dist"
+        "dist/**/*.js",
+        "dist/**/*.d.ts"
     ],
     "type": "module",
     "imports": {
@@ -27,7 +28,6 @@
         "access": "public"
     },
     "dependencies": {
-        "@effect/platform-node": "catalog:",
         "@nx/devkit": "catalog:",
         "@nx/js": "catalog:",
         "@rasm/nx-distribution": "workspace:*",
@@ -40,5 +40,8 @@
     "peerDependencies": {
         "@playwright/test": "catalog:peers",
         "nx": "catalog:peers"
+    },
+    "engines": {
+        "node": ">=26"
     }
 }

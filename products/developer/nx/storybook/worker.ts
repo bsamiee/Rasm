@@ -14,13 +14,13 @@ const Task = Schema.Tuple([Schema.String, Schema.String]).annotate({ description
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const read = Effect.fnUntraced(function* ([main, workingDir]: typeof Task.Type) {
-    const loaded = new Set<string>();
+    const loaded: (readonly [url: string, specifier: string, parent: string])[] = [];
     yield* Effect.acquireRelease(
         Effect.sync(() =>
             registerHooks({
                 resolve: (specifier, context, nextResolve) => {
                     const resolved = nextResolve(specifier, context);
-                    loaded.add(resolved.url);
+                    loaded.push(...(context.parentURL === undefined ? [] : [[resolved.url, specifier, context.parentURL] as const]));
                     return resolved;
                 },
             }),
@@ -29,7 +29,7 @@ const read = Effect.fnUntraced(function* ([main, workingDir]: typeof Task.Type) 
     );
     const { framework, addons, stories } = yield* Effect.tryPromise({ try: () => loadConfigFile<StorybookConfig>(main), catch: (cause) => new Cause.UnknownError(cause, `${main} does not load as a Storybook main config`) });
     const folders = Array.isArray(stories) && stories.length > 0 ? normalizeStories(stories, { configDir: dirname(main), workingDir }) : [];
-    return { main: yield* Schema.encodeEffect(Main)({ framework, addons, stories: folders }), loaded: [...loaded] };
+    return { main: yield* Schema.encodeEffect(Main)({ framework, addons, stories: folders }), loaded };
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

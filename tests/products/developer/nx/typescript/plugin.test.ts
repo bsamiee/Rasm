@@ -13,7 +13,7 @@ vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()),
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const COMPILER = dirname(fileURLToPath(import.meta.resolve('@typescript/native/package.json')));
-const UPSTREAM = ['^production', { dependentTasksOutputFiles: '**/*', transitive: true }, { externalDependencies: ['typescript'] }];
+const UPSTREAM = ['^production', { dependentTasksOutputFiles: '**/*.{d.ts,d.cts,d.mts,tsbuildinfo}', transitive: true }, { externalDependencies: ['typescript'] }];
 const EMITTED = '**/*.{js,cjs,mjs,jsx,d.ts,d.cts,d.mts}{,.map}';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

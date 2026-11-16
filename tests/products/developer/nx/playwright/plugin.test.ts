@@ -22,7 +22,7 @@ const served = { projects: ['app1'], target: 'serve', waitFor: 'ready' };
 const inputs = ['default', '^production', '^{projectRoot}/tsconfig*.json', { dependentTasksOutputFiles: '**/*', transitive: true }, { env: 'CI' }, { externalDependencies: ['@playwright/test'] }];
 const metadata = {
     technologies: ['playwright'],
-    description: 'Runs every Playwright project of the config with playwright test after the Nx task each reused webServer row runs is ready, beside other tasks only where an Nx task starts every reused web server',
+    description: 'Runs every Playwright project of the config with playwright test after the Nx task each reused webServer row runs is ready',
     help: { command: 'npx playwright test --help', example: { args: ['--project', '<name>'] } },
 };
 
@@ -102,7 +102,6 @@ describe('@rasm/nx-playwright', () => {
                                     options: { cwd: '.' },
                                     dependsOn: codegen,
                                     cache: true,
-                                    parallelism: false,
                                     inputs,
                                     outputs: ['{projectRoot}/test-results'],
                                     metadata,
@@ -228,7 +227,7 @@ describe('@rasm/nx-playwright', () => {
         await expect(read).rejects.toHaveProperty(['errors', 0, 1, 'message'], expect.stringContaining('playwright.config.js does not load as a Playwright config'));
     });
 
-    it('should infer dependsOn using the task run in the webServer.command and not set parallelism to false', async ({ tempFs, context }) => {
+    it('should infer dependsOn using the task run in the webServer.command', async ({ tempFs, context }) => {
         mockPlaywrightConfig(tempFs, "module.exports = { testDir: 'tests', webServer: { command: 'npx nx run app1:serve', reuseExistingServer: true } }");
         await tempFs.createFiles({ 'tests/run-me.spec.ts': '', 'tests/run-me-2.spec.ts': '' });
 
@@ -263,7 +262,6 @@ describe('@rasm/nx-playwright', () => {
 
         expect(warn).not.toHaveBeenCalled();
         expect(target?.dependsOn).toStrictEqual([...codegen, served]);
-        expect(target?.parallelism).toBeUndefined();
     });
 
     it('warns when a reuseExistingServer webServer command cannot be inferred', async ({ tempFs, context, warn }) => {
@@ -274,7 +272,6 @@ describe('@rasm/nx-playwright', () => {
         const target = results[0]?.[1].projects?.['.']?.targets?.['test--playwright'];
 
         expect(target?.dependsOn).toStrictEqual(codegen);
-        expect(target?.parallelism).toBe(false);
         expect(warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining('npx nx run app1:serve --port=4200'));
     });
 
@@ -296,7 +293,6 @@ describe('@rasm/nx-playwright', () => {
 
         expect(warn).not.toHaveBeenCalled();
         expect(target?.dependsOn).toStrictEqual(codegen);
-        expect(target?.parallelism).toBe(false);
     });
 
     it('should not crash on a webServer without a command', async ({ tempFs, context }) => {
@@ -307,7 +303,6 @@ describe('@rasm/nx-playwright', () => {
         const target = results[0]?.[1].projects?.['.']?.targets?.['test--playwright'];
 
         expect(target?.dependsOn).toStrictEqual(codegen);
-        expect(target?.parallelism).toBe(false);
     });
 
     it('should not depend on a webServer that waits for command output', async ({ tempFs, context }) => {
@@ -318,7 +313,6 @@ describe('@rasm/nx-playwright', () => {
         const target = results[0]?.[1].projects?.['.']?.targets?.['test--playwright'];
 
         expect(target?.dependsOn).toStrictEqual([...codegen, served]);
-        expect(target?.parallelism).toBe(false);
     });
 
     it('should leave a config whose only webServer waits for command output entirely to Playwright', async ({ tempFs, context }) => {
@@ -329,7 +323,6 @@ describe('@rasm/nx-playwright', () => {
         const target = results[0]?.[1].projects?.['.']?.targets?.['test--playwright'];
 
         expect(target?.dependsOn).toStrictEqual(codegen);
-        expect(target?.parallelism).toBe(false);
     });
 
     it('should not depend on a webServer that sets env, leaving its launch to Playwright', async ({ tempFs, context }) => {
@@ -340,7 +333,6 @@ describe('@rasm/nx-playwright', () => {
         const target = results[0]?.[1].projects?.['.']?.targets?.['test--playwright'];
 
         expect(target?.dependsOn).toStrictEqual([...codegen, served]);
-        expect(target?.parallelism).toBe(false);
     });
 
     it('should still depend on a webServer whose env is empty', async ({ tempFs, context }) => {
@@ -351,10 +343,9 @@ describe('@rasm/nx-playwright', () => {
         const target = results[0]?.[1].projects?.['.']?.targets?.['test--playwright'];
 
         expect(target?.dependsOn).toStrictEqual([...codegen, served]);
-        expect(target?.parallelism).toBeUndefined();
     });
 
-    it('should not set parallelism to false and should infer dependsOn using the tasks run in the different webServer.command that have reuseExistingServer set to true', async ({ tempFs, context }) => {
+    it('should infer dependsOn using the tasks run in the different webServer.command that have reuseExistingServer set to true', async ({ tempFs, context }) => {
         mockPlaywrightConfig(
             tempFs,
             "module.exports = { testDir: 'tests', webServer: [{ command: 'npx nx run app1:serve', reuseExistingServer: true }, { command: 'npx nx run api1:serve', reuseExistingServer: true }, { command: 'npx nx run api2:dev', reuseExistingServer: true }, { command: 'npx nx run api3:serve', reuseExistingServer: false }] }",

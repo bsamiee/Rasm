@@ -25,6 +25,7 @@
     },
     "exports": {
         ".": "./plugin.ts",
+        "./inference": "./inference.ts",
         "./release/version-actions": "./version-actions.ts",
         "./package.json": "./package.json",
         "./executors.json": "./executors.json",
@@ -40,6 +41,7 @@
         },
         "exports": {
             ".": "./dist/plugin.js",
+            "./inference": "./dist/inference.js",
             "./release/version-actions": "./dist/version-actions.js",
             "./package.json": "./package.json",
             "./executors.json": "./executors.json",
@@ -53,6 +55,7 @@
         "@decimalturn/toml-patch": "catalog:",
         "@effect/platform-node": "catalog:",
         "@nx/devkit": "catalog:",
+        "@nx/js": "catalog:",
         "@xml-tools/ast": "catalog:",
         "@xml-tools/parser": "catalog:",
         "effect": "catalog:",

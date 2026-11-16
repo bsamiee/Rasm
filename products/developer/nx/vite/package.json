@@ -25,7 +25,6 @@
         "access": "public"
     },
     "dependencies": {
-        "@effect/platform-node": "catalog:",
         "@nx/devkit": "catalog:",
         "@nx/js": "catalog:",
         "@nx/vite": "catalog:",

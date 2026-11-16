@@ -12,8 +12,6 @@ const attach = await import('@rasm/nx-distribution/executors/attach');
 const publish = await import('@rasm/nx-distribution/executors/publish');
 const releasePublish = await import('@rasm/nx-distribution/executors/release-publish');
 const upstream = [{ dependentTasksOutputFiles: '**/*', transitive: true }];
-const targets = ['publish', 'attach', 'nx-release-publish', 'alone', 'bare'] as const;
-const task = (target: string, outputs: string[] = []) => ({ id: `lib:${target}`, target: { project: 'lib', target }, overrides: {}, outputs, cache: false });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -75,17 +73,29 @@ const it = test
         isVerbose: false,
         projectName: 'lib',
         targetName: 'publish',
-        nxJsonConfiguration: { release: { projectsRelationship: 'independent' } },
+        nxJsonConfiguration: { release: { projects: ['lib'], projectsRelationship: 'independent' } },
         projectsConfigurations: { version: 2, projects: { lib: { root: 'lib' } } },
         projectGraph: {
-            nodes: { lib: { name: 'lib', type: 'lib', data: { root: 'lib', metadata: { technologies: ['blender'] }, targets: { publish: { inputs: upstream }, attach: { inputs: upstream }, 'nx-release-publish': { inputs: upstream }, alone: {}, bare: { inputs: upstream } } } } },
+            nodes: {
+                lib: {
+                    name: 'lib',
+                    type: 'lib',
+                    data: {
+                        root: 'lib',
+                        metadata: { technologies: ['blender'] },
+                        targets: {
+                            publish: { executor: 'nx:noop', inputs: upstream, dependsOn: ['pack'] },
+                            attach: { executor: 'nx:noop', inputs: upstream, dependsOn: ['pack'] },
+                            'nx-release-publish': { executor: 'nx:noop', inputs: upstream, dependsOn: ['pack'] },
+                            alone: { executor: 'nx:noop', dependsOn: ['pack'] },
+                            bare: { executor: 'nx:noop', inputs: upstream, dependsOn: ['hollow'] },
+                            pack: { executor: 'nx:noop', outputs: ['{workspaceRoot}/.artifacts/distribution/lib'] },
+                            hollow: { executor: 'nx:noop', outputs: ['{projectRoot}/absent'] },
+                        },
+                    },
+                },
+            },
             dependencies: {},
-        },
-        taskGraph: {
-            roots: ['lib:pack', 'lib:hollow'],
-            tasks: { ...Object.fromEntries(targets.map((target) => [`lib:${target}`, task(target)])), 'lib:pack': task('pack', ['.artifacts/distribution/lib']), 'lib:hollow': task('hollow', ['lib/absent']) },
-            dependencies: { ...Object.fromEntries(targets.map((target) => [`lib:${target}`, [{ id: target === 'bare' ? 'lib:hollow' : 'lib:pack' }]])), 'lib:pack': [], 'lib:hollow': [] },
-            continuousDependencies: {},
         },
     }));
 
@@ -168,7 +178,7 @@ describe('attach executor', () => {
     it('uploads to the tag a fixed release group pattern makes', async ({ context, git, recorded }) => {
         git('tag', '--annotate', 'v1.2.4', '--message', 'v1.2.4');
 
-        await expect(attach.execute({}, { ...context, targetName: 'attach', nxJsonConfiguration: { release: { releaseTag: { pattern: 'v{version}' } } } })).resolves.toStrictEqual({ success: true });
+        await expect(attach.execute({}, { ...context, targetName: 'attach', nxJsonConfiguration: { release: { projects: ['lib'], releaseTag: { pattern: 'v{version}' } } } })).resolves.toStrictEqual({ success: true });
         await expect(recorded('gh.txt')).resolves.toStrictEqual(['release', 'upload', 'v1.2.4', '.artifacts/distribution/lib/lib.tgz', '--clobber']);
     });
 
