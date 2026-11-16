@@ -15,11 +15,12 @@
     "devDependencies": {
         "@cloudflare/vitest-plugin": "catalog:",
         "@effect/tsgo": "catalog:",
+        "@nx/conformance": "catalog:",
         "@nx/devkit": "catalog:",
-        "@nx/eslint": "catalog:",
         "@nx/eslint-plugin": "catalog:",
         "@nx/js": "catalog:",
         "@nx/plugin": "catalog:",
+        "@nx/storybook": "catalog:",
         "@nx/vite": "catalog:",
         "@nx/web": "catalog:",
         "@nx/workspace": "catalog:",

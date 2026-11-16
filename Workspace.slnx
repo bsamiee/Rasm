@@ -5,6 +5,10 @@
     <Folder Name="/apps/nx/dotnet/analyzer/">
         <Project Path="apps/nx/dotnet/analyzer/MsbuildAnalyzer.csproj" />
     </Folder>
+    <Folder Name="/apps/nx/tests/" />
+    <Folder Name="/apps/nx/tests/dotnet/">
+        <Project Path="apps/nx/tests/dotnet/MsbuildAnalyzer.Tests/MsbuildAnalyzer.Tests.csproj" />
+    </Folder>
     <Folder Name="/apps/rhino/">
         <Project Path="apps/rhino/Arches/Arches.csproj" />
         <Project Path="apps/rhino/Darkroom/Darkroom.csproj" />

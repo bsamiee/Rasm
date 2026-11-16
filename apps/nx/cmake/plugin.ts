@@ -1,8 +1,8 @@
 import { readdirSync } from 'node:fs';
 import { basename, dirname, join, relative } from 'node:path';
-import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesContext, DependencyType, hashArray, type ProjectConfiguration } from '@nx/devkit';
-import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, getNamedInputs, hashFile, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
-import { Array, Cause, Effect, Equal, Option, Order, Record, Result, Schema } from 'effect';
+import { type CreateDependencies, type CreateNodes, type CreateNodesContext, createNodesFromFiles, DependencyType, hashArray, type ProjectConfiguration, type RawProjectGraphDependency } from '@nx/devkit';
+import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, findProjectForPath, getNamedInputs, hashFile, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
+import { Array, Effect, Equal, Option, Order, Record, Schema } from 'effect';
 import { memberInputs, memberTargets } from '#/targets';
 import { Linked, MANIFEST, manifested, PLUGIN, PRESETS, resolved, run, type Tree } from '#/workspace';
 
@@ -23,8 +23,6 @@ const Options = Schema.Struct({ outputPath: Schema.optionalKey(Schema.String), c
 });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-
-const rendered = (cause: Cause.Cause<unknown>) => Effect.fail(new Cause.UnknownError(cause, Cause.pretty(cause)));
 
 const inferred = Effect.fnUntraced(function* (cache: PluginCache<{ readonly tree: Tree; readonly stamp: string }>, context: CreateNodesContext, settings: typeof Options.Type, matched: readonly string[], file: string) {
     const near = matched.filter((other) => !relative(dirname(file), other).startsWith('..'));
@@ -85,10 +83,7 @@ const createNodes: CreateNodes<typeof Options.Encoded> = [
         return run(
             Effect.gen(function* () {
                 const settings = yield* Schema.decodeEffect(Options)(options ?? {});
-                const read = Array.zip(presets, yield* Effect.forEach(presets, (file) => Effect.result(Effect.catchCause(inferred(cache, context, settings, matched, file), rendered)), { concurrency: 'unbounded' }));
-                const failures = Array.filterMap(read, ([file, result]) => Result.map(Result.flip(result), (error): [string, Error] => [file, error]));
-                const results = Array.filterMap(read, ([file, result]) => Result.map(result, (held) => [file, held] as const));
-                return yield* failures.length === 0 ? Effect.succeed(results) : Effect.fail(new AggregateCreateNodesError(failures, results));
+                return yield* Effect.promise(() => createNodesFromFiles((file) => run(inferred(cache, context, settings, matched, file)), presets, options, context));
             }),
         );
     },
@@ -100,7 +95,13 @@ const createDependencies: CreateDependencies = (_, { projects, workspaceRoot }) 
             const names = createProjectRootMappingsFromProjectConfigurations(projects);
             const members = [...links].flatMap(([presets, held]) => (relative(workspaceRoot, presets).startsWith('..') ? [] : held));
             const linked = members.flatMap(({ root, links: held }) => held.map((link) => ({ root, link })));
-            return Array.getSomes(linked.map(({ root, link }) => Option.map(Option.all({ source: Option.fromUndefinedOr(names.get(root)), target: Option.fromUndefinedOr(names.get(link.root)) }), (named) => ({ ...named, type: DependencyType.static, sourceFile: link.file }))));
+            return Array.getSomes(
+                linked.map(({ root, link }) =>
+                    Option.map(Option.all({ source: Option.fromUndefinedOr(names.get(root)), target: Option.fromUndefinedOr(names.get(link.root)) }), (named): RawProjectGraphDependency =>
+                        findProjectForPath(link.file, names) === named.source ? { ...named, type: DependencyType.static, sourceFile: link.file } : { ...named, type: DependencyType.implicit },
+                    ),
+                ),
+            );
         }),
     );
 

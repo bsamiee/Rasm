@@ -69,13 +69,19 @@ const reports = (): Plugin => ({
 
 const projects = Effect.gen(function* () {
     const roots = Array.dedupe(
-        globSync(['{apps,libs}/**/tests/**/*.test.{ts,tsx}', 'tests/**/*.test.{ts,tsx}'], { cwd: import.meta.dirname, exclude: ['**/node_modules/**', '**/.*/**'] }).flatMap((file) =>
+        globSync(['{apps,libs}/**/tests/**/*.test.{ts,tsx}', '{tests,tools/tests}/**/*.test.{ts,tsx}'], { cwd: import.meta.dirname, exclude: ['**/node_modules/**', '**/.*/**'] }).flatMap((file) =>
             Array.fromNullishOr(findPackageJSON(pathToFileURL(join(import.meta.dirname, file)))).map((manifest) => relative(import.meta.dirname, dirname(manifest))),
         ),
     ).filter((root) => Array.isReadonlyArrayEmpty(globSync('vitest.config.*', { cwd: join(import.meta.dirname, root) })));
     const storied = globSync('{apps,libs}/**/.storybook/main.ts', { cwd: import.meta.dirname, exclude: ['**/node_modules/**'] }).map((file) => dirname(dirname(file)));
     const [manifests, titles] = yield* Effect.all([Effect.forEach(roots, manifested), Effect.forEach(storied, manifested)]);
-    const suites = Array.zipWith(roots, manifests, (root, manifest) => hosted(root, manifest).map(({ suffix, plugins, test }): TestProjectInlineConfiguration => ({ root, plugins, test: { ...test, name: Option.match(suffix, { onNone: () => manifest.name, onSome: (part) => `${manifest.name} ${part}` }) } })));
+    const suites = Array.zipWith(roots, manifests, (root, manifest) =>
+        hosted(root, manifest).map(({ suffix, plugins, test }): TestProjectInlineConfiguration => ({
+            root,
+            plugins,
+            test: { ...test, name: Option.match(suffix, { onNone: () => manifest.name, onSome: (part) => `${manifest.name} ${part}` }), env: { NX_DAEMON: 'false', NX_WORKSPACE_DATA_DIRECTORY: '.nx/workspace-data', NO_COLOR: '1', FORCE_COLOR: '0' } },
+        })),
+    );
     const stories = Array.zipWith(storied, titles, (root, { name }): TestProjectInlineConfiguration => ({ plugins: [storybookTest({ configDir: join(import.meta.dirname, root, '.storybook') }), captured()], test: { name, api: { allowWrite: true }, browser: browser() } }));
     return [...suites.flat(), ...stories];
 });

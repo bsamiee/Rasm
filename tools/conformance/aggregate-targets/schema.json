@@ -1,0 +1,15 @@
+{
+    "$schema": "http://json-schema.org/schema",
+    "$id": "aggregate-targets",
+    "title": "aggregate-targets rule configuration",
+    "type": "object",
+    "properties": {
+        "separator": {
+            "type": "string",
+            "description": "Text between an aggregate target's name and a tool name in the targets it runs",
+            "minLength": 1
+        }
+    },
+    "required": ["separator"],
+    "additionalProperties": false
+}

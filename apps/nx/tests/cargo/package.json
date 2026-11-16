@@ -1,15 +1,14 @@
 {
     "name": "@rasm/test-nx-cargo",
     "private": true,
-    "description": "@rasm/nx-cargo suite over temporary workspaces with the packed plugin installed: the language plugin conformance tests and Cargo cases, each expectation read from cargo metadata, build messages, and dep-info",
+    "description": "@rasm/nx-cargo suite: Nx's own Gradle, Maven, and @nx/js release specs ported to Cargo workspaces in temporary folders, each graph read by cargo metadata and each task run by cargo",
     "type": "module",
     "devDependencies": {
-        "@effect/platform-node": "catalog:",
-        "@effect/vitest": "catalog:",
+        "@nx/devkit": "catalog:",
         "@rasm/nx-cargo": "workspace:*",
-        "@rasm/nx-uv": "workspace:*",
         "@rasm/testing": "workspace:*",
         "effect": "catalog:",
+        "nx": "catalog:",
         "vitest": "catalog:"
     }
 }

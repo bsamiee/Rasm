@@ -1,0 +1,13 @@
+{
+    "name": "@rasm/test-conformance",
+    "private": true,
+    "description": "@rasm/conformance rule suites over stubbed project graphs and temporary workspaces",
+    "type": "module",
+    "devDependencies": {
+        "@nx/conformance": "catalog:",
+        "@nx/devkit": "catalog:",
+        "@rasm/conformance": "workspace:*",
+        "@types/node": "catalog:",
+        "vitest": "catalog:"
+    }
+}

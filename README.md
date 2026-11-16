@@ -24,12 +24,13 @@ Rasm/
 │   ├── rust/
 │   ├── swift/
 │   └── typescript/
-├── tests/                    # Test support, end-to-end, and workspace suites per language
+├── tests/                    # Test support and end-to-end suites per language
 ├── tools/                    # Checks and grammars other checkers lack, by the tool that runs them
 │   ├── ast-grep/             # Grammars, rules, and outline support per language
+│   ├── conformance/          # Nx conformance rules over the project graph and workspace files
 │   ├── dylint/               # Rust lints reading types and resolved paths Clippy lacks
 │   ├── refurb/               # Python checks reading mypy types Ruff lacks
-│   └── tests/                # refurb check suites
+│   └── tests/                # conformance and refurb check suites
 ├── assets/                   # Reusable assets no app or plugin owns
 ├── infra/                    # Pulumi programs for the repository, its machines, and app hosting
 ├── plugins/                  # Agent harness marketplace
@@ -187,13 +188,14 @@ hk lints and formats files; Nx runs project tasks
 
 Other tasks run through their own commands:
 - `hk check <paths>` and `hk fix <paths>` run every file-level checker and writer over the named paths
+- `nx conformance:check` runs the `nx.json` `conformance` rules over the project graph and workspace files
 - `mise bootstrap` after a clone installs mise tools, pnpm packages, and hk's git hooks, and registers pitchfork as a Mac login agent
 - `nx build @rasm/nx-apple-darwin-arm64` builds the core `@rasm/nx-apple` reads Xcode projects through, on a Mac after a clone
 - `mise deps` syncs pnpm packages and each uv root from its lock where its inputs changed, the workspace root through Pixi libraries
 - `pixi run --locked python` supplies the library search path for `magic` and `weasyprint`
 - `nx sync` writes executor schemas and tsconfig `references`, task runs in a terminal apply it, and runs in other shells stop until it runs
 - `nx migrate <version>`, then `nx migrate --run-migrations`, applies a new Nx release's migrations, and `pnpm dedupe` moves peer ranges the lock held at the old release
-- `@rasm/nx-playwright` infers `test--playwright` per Playwright config, which starts the `nx run` task of each `webServer` row with `reuseExistingServer` and waits until it is ready
+- `@rasm/nx-playwright` infers `test--playwright` per Playwright config, which starts the Nx task each `webServer` row with `reuseExistingServer` runs and waits until it is ready
 - `mise daemons stop docker` stops the container engine until a session enters, `mise daemons start docker` starts it and waits until Docker answers
 - `nx install @rasm/infra` runs the proxy, sign-in, and object storage containers of role `Apps` on the local Docker engine, under `rasm.localhost`
 - `nx deploy @rasm/infra` applies the repository and machine stacks

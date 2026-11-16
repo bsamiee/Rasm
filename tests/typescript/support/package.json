@@ -22,6 +22,7 @@
         "./playwright": "./playwright.ts",
         "./reading": "./reading.ts",
         "./storybook": "./storybook.ts",
+        "./temp-fs": "./temp-fs.ts",
         "./vitest": "./vitest.ts"
     },
     "publishConfig": {
@@ -34,6 +35,7 @@
             "./playwright": "./dist/playwright.js",
             "./reading": "./dist/reading.js",
             "./storybook": "./dist/storybook.js",
+            "./temp-fs": "./dist/temp-fs.js",
             "./vitest": "./dist/vitest.js"
         },
         "access": "public"

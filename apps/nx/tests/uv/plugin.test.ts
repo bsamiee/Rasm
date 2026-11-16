@@ -1,275 +1,199 @@
-import { layer } from '@effect/platform-node/NodeServices';
-import { assert, it } from '@effect/vitest';
-import plugin from '@rasm/nx-uv/package.json' with { type: 'json' };
-import { conforms } from '@rasm/testing/conformance';
-import { Consumer, Packed } from '@rasm/testing/nx';
-import { Array, Duration, Effect, FileSystem, Layer, Option, Path, pipe, Record, Schema } from 'effect';
+import { execFileSync } from 'node:child_process';
+import { readdirSync } from 'node:fs';
+import { join, relative } from 'node:path';
+import type { CreateNodesContext } from '@nx/devkit';
+import { createNodes } from '@rasm/nx-uv';
+import { TempFs } from '@rasm/testing/temp-fs';
+import { minimatch } from 'minimatch';
+import { describe, expect, test, vi } from 'vitest';
+
+vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const REPORT = 'uv workspace metadata; uv build --package <name> --out-dir <folder>; tar -tzf of the sdist';
-const [CORE, MIDDLE, APP] = ['packages/core', 'packages/middle', 'packages/app'] as const;
-const SOURCES = { core: 'packages/core/src/rasm_nx_fixture_core/__init__.py', report: 'tools/report/report.py', tests: 'packages/middle/tests/test_middle.py' } as const;
-const BACKEND = '\n[build-system]\nrequires = ["uv_build>=0.13,<0.14"]\nbuild-backend = "uv_build"\n';
-const PROJECT = 'version = "0.1.0"\ndescription = "Fixture member"\nrequires-python = ">=3.13"\n';
-const files = {
-    '.config/mise.lock': '# tool versions\n',
-    'pyproject.toml': '[tool.uv.workspace]\nmembers = ["packages/*", "tools/report"]\n',
-    'packages/core/pyproject.toml': `[project]\nname = "rasm-nx-fixture-core"\n${PROJECT}dependencies = []\n${BACKEND}`,
-    'packages/core/src/rasm_nx_fixture_core/__init__.py': 'def one() -> int:\n    return 1\n',
-    'packages/middle/pyproject.toml': `# Middle of the chain\n[project]\nname = "rasm-nx-fixture-middle"\n${PROJECT}dependencies = ["rasm-nx-fixture-core==0.1.0"]\n\n[dependency-groups]\ndev = ["pytest>=8"] # test runner\n\n[tool.uv.sources]\nrasm-nx-fixture-core = { workspace = true }\n${BACKEND}`,
-    'packages/middle/src/rasm_nx_fixture_middle/__init__.py': 'from rasm_nx_fixture_core import one\n\n\ndef two() -> int:\n    return one() + 1\n',
-    'packages/middle/tests/test_middle.py': 'from rasm_nx_fixture_middle import two\n\n\ndef test_two() -> None:\n    assert two() == 2\n',
-    'packages/app/pyproject.toml': `[project]\nname = "rasm-nx-fixture-app"\n${PROJECT}dependencies = ["rasm-nx-fixture-middle"]\n\n[project.scripts]\nrasm-nx-fixture-app = "rasm_nx_fixture_app:main"\n\n[tool.uv.sources]\nrasm-nx-fixture-middle = { workspace = true }\n${BACKEND}`,
-    'packages/app/src/rasm_nx_fixture_app/__init__.py': 'from rasm_nx_fixture_middle import two\n\n\ndef main() -> None:\n    print(two())\n',
-    'tools/report/pyproject.toml': `[project]\nname = "rasm-nx-fixture-report"\n${PROJECT}dependencies = []\n\n[dependency-groups]\ndev = ["rasm-nx-fixture-core"]\n\n[tool.uv]\npackage = false\n\n[tool.uv.sources]\nrasm-nx-fixture-core = { workspace = true }\n`,
-    'tools/report/report.py': 'from rasm_nx_fixture_core import one\n\nprint(one())\n',
-};
-
-// --- [MODELS] --------------------------------------------------------------------------
-
-const Resolved = Schema.Struct({ name: Schema.optionalKey(Schema.String), version: Schema.optionalKey(Schema.String), dependencies: Schema.Array(Schema.Struct({ id: Schema.String })) });
-const Stated = Schema.Struct({ name: Schema.String, path: Schema.String, id: Schema.String });
-const Metadata = Schema.fromJsonString(Schema.Struct({ members: Schema.Array(Stated), resolution: Schema.Record(Schema.String, Resolved) })).annotate({
-    description: 'JSON uv workspace metadata prints: each workspace member with its folder and id, and per resolved package and dependency group its name, version, and the ids it depends on',
-});
+const lock = '{workspaceRoot}/uv.lock';
+const uv = { runtime: 'uv self version --short' };
+const technologies = ['python'];
+const release = { version: { versionActions: '@rasm/nx-uv/release/version-actions', versionActionsOptions: { lock: 'uv.lock' } } };
+const locking = ['{workspaceRoot}/pyproject.toml', '{workspaceRoot}/proj/application/pyproject.toml', '{workspaceRoot}/proj/library/pyproject.toml', lock, '{projectRoot}/uv.toml', '{projectRoot}/.python-version', { externalDependencies: [] }];
+const pytest = ['{projectRoot}/**/*', { runtime: 'node -p process.platform+process.arch' }, { runtime: 'uv python find --show-version --directory .' }, '^default', '{workspaceRoot}/.python-version', lock, { externalDependencies: [] }];
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const described = (path: Path.Path, root: string, folders: Record.ReadonlyRecord<string, string>, resolution: readonly (typeof Resolved.Type)[], { name, path: at }: typeof Stated.Type) => {
-    const resolved = resolution.filter((entry) => entry.name === name);
-    const needed = Array.dedupe(resolved.flatMap(({ dependencies }) => dependencies.map((dependency) => dependency.id)));
-    const folder = path.relative(root, at);
-    return {
-        name,
-        version: Array.dedupe(Array.getSomes(resolved.map(({ version }) => Option.fromNullishOr(version)))).join(','),
-        root: folder,
-        manifest: path.join(folder, 'pyproject.toml'),
-        tested: needed.some((dependency) => dependency.startsWith('pytest==')),
-        dependencies: Array.difference(Array.getSomes(needed.map((dependency) => Record.get(folders, dependency))), [folder]),
-    };
-};
-
-const reported = Effect.gen(function* () {
-    const [{ root, called }, path] = yield* Effect.all([Consumer, Path.Path]);
-    const { checked } = yield* called('uv', ['workspace', 'metadata', '--preview-features', 'workspace-metadata', '--output-version', 'preview']);
-    const { members: stated, resolution } = yield* Effect.flatMap(checked, Schema.decodeEffect(Metadata));
-    const folders = Record.fromIterableWith(stated, ({ id, path: folder }) => [id, path.relative(root, folder)]);
-    return stated.map((entry) => described(path, root, folders, Object.values(resolution), entry));
-}).pipe(Effect.orDie);
-
-const distributions = Effect.fnUntraced(
-    function* (name: string, root: string) {
-        const [{ called }, fs, path] = yield* Effect.all([Consumer, FileSystem.FileSystem, Path.Path]);
-        const folder = yield* fs.makeTempDirectoryScoped({ prefix: 'uv-build-' });
-        const built = yield* called('uv', ['build', '--package', name, '--out-dir', folder]);
-        const entries = Number(built.code) === 0 ? yield* fs.readDirectory(folder) : [];
-        const names = entries.filter((entry) => ['.whl', '.gz'].includes(path.extname(entry)));
-        const listed = yield* Effect.forEach(
-            names.filter((entry) => path.extname(entry) === '.gz'),
-            (archive) => called('tar', ['-tzf', path.join(folder, archive)]),
-        );
-        const packed = listed.flatMap(({ stdout }) => stdout.split('\n')).map((entry) => entry.split('/').slice(1).join('/'));
-        return { names, sources: packed.filter((entry) => ['.py', '.toml'].includes(path.extname(entry))).map((entry) => path.join(root, entry)) };
+const packed = (name: string) => ['{projectRoot}/pyproject.toml', `{projectRoot}/src/${name}/**`, '!{projectRoot}/**/__pycache__', '!{projectRoot}/**/__pycache__/**', '!{projectRoot}/**/*.pyc', '!{projectRoot}/**/*.pyc/**', '!{projectRoot}/**/*.pyo', '!{projectRoot}/**/*.pyo/**', '{workspaceRoot}/pyproject.toml'];
+const released = (name: string, sources: readonly string[]) => ({
+    build: { dependsOn: ['build--*'], inputs: ['...', ...sources, uv, { externalDependencies: [] }] },
+    'build--uv': {
+        command: `uv build --package ${name} --no-sources`,
+        options: { cwd: '.' },
+        cache: true,
+        inputs: [...sources, uv, { externalDependencies: [] }],
+        outputs: [`{workspaceRoot}/dist/${name}-0.1.0.tar.gz`, `{workspaceRoot}/dist/${name}-0.1.0-*.whl`, '{workspaceRoot}/dist/.gitignore'],
+        metadata: { technologies, description: 'Builds the member sdist and wheel with uv build', help: { command: 'uv build --help', example: { args: ['--wheel'] } } },
     },
-    Effect.scoped,
-    Effect.orDie,
-);
-
-const members = Effect.gen(function* () {
-    const stated = yield* reported;
-    return yield* Effect.forEach(stated, ({ tested, ...entry }) =>
-        Effect.map(distributions(entry.name, entry.root), ({ names, sources }) => ({
-            ...entry,
-            names,
-            sources,
-            released: Array.isReadonlyArrayNonEmpty(names),
-            verbs: [...(Array.isReadonlyArrayNonEmpty(names) ? ['build'] : []), ...(tested ? ['test'] : [])],
-        })),
-    );
-});
-
-const member = (root: string) => Effect.flatMap(members, (stated) => Effect.orDie(Effect.fromOption(Array.findFirst(stated, (candidate) => candidate.root === root))));
-
-const built = Effect.fnUntraced(function* ({ names }: Effect.Success<typeof members>[number]) {
-    const [{ called }, path] = yield* Effect.all([Consumer, Path.Path]);
-    const { stdout } = yield* called('git', ['ls-files', '--others', '--', ':/', ':!node_modules', ':!.nx', ':!.venv']);
-    return stdout.split('\n').filter((file) => names.includes(path.basename(file)));
+    clean: { dependsOn: ['clean--*'], inputs: ['...', 'default', '^default', lock, { externalDependencies: [] }] },
+    'clean--uv': {
+        executor: '@rasm/nx-distribution:clean',
+        options: { targets: ['build--uv'] },
+        inputs: ['default', '^default', lock, { externalDependencies: [] }],
+        metadata: { technologies, description: 'Removes the outputs build--uv declare', help: { command: 'nx run --help', example: { options: { targets: ['build--uv'] } } } },
+    },
+    attach: { dependsOn: ['attach--*'], inputs: ['...', { dependentTasksOutputFiles: '**/*', transitive: true }, { externalDependencies: [] }] },
+    'attach--gh': {
+        executor: '@rasm/nx-distribution:attach',
+        dependsOn: ['build--uv'],
+        inputs: [{ dependentTasksOutputFiles: '**/*' }, { externalDependencies: [] }],
+        metadata: {
+            technologies,
+            description: "Uploads the files build--uv wrote to the GitHub release of the version the project's manifest states with gh release upload",
+            help: { command: 'gh release upload --help', example: { options: { dryRun: true } } },
+        },
+    },
+    'nx-release-publish': {
+        executor: '@rasm/nx-distribution:publish',
+        options: { publish: ['uv', 'publish'], preview: ['--dry-run'], credential: 'UV_PUBLISH_TOKEN' },
+        dependsOn: ['build--uv', '^nx-release-publish'],
+        inputs: [{ dependentTasksOutputFiles: '**/*' }, { externalDependencies: [] }],
+        metadata: { description: 'Publishes the distributions build--uv wrote with uv publish, which reads UV_PUBLISH_TOKEN', help: { command: 'uv publish --help', example: { options: { dryRun: true } } } },
+    },
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const bound = Duration.toMillis('5 minutes');
-const options = { timeout: bound, excludeTestServices: true } as const;
-
-const locked = Effect.fnUntraced(function* () {
-    const { called, committed } = yield* Consumer;
-    yield* called('uv', ['lock']);
-    yield* committed('lock');
-});
-
-const workspace = (stated: Readonly<Record<string, string>> = {}, release: object = {}) =>
-    Layer.effectDiscard(locked()).pipe(
-        Layer.provideMerge(
-            Consumer.layer({
-                resolved: import.meta.url,
-                settings: { plugins: [plugin.name], release: { projects: ['tag:release'], ...release } },
-                ignored: ['.venv', 'dist', '__pycache__', '.pytest_cache', '*.egg-info', '.tools', '.latest'],
-                files: { ...files, ...stated },
-            }),
-        ),
-        Layer.provideMerge(Packed.layer(plugin.name)),
-        Layer.provideMerge(layer),
-    );
-
-conforms({
-    workspace,
-    members,
-    built,
-    report: REPORT,
-    tools: ['uv'],
-    verbs: ['build', 'test'],
-    shared: ['pyproject.toml'],
-    unlocked: ['uv.lock', '.venv'],
-    scratch: [],
-    added: Effect.gen(function* () {
-        const { called, wrote } = yield* Consumer;
-        yield* wrote({
-            'packages/extra/pyproject.toml': files['packages/core/pyproject.toml'].replace('rasm-nx-fixture-core', 'rasm-nx-fixture-extra'),
-            'packages/extra/src/rasm_nx_fixture_extra/__init__.py': 'ZERO = 0\n',
-            'tools/report/pyproject.toml': files['tools/report/pyproject.toml'].replace('dev = ["rasm-nx-fixture-core"]', 'dev = ["rasm-nx-fixture-core", "rasm-nx-fixture-extra"]').concat('rasm-nx-fixture-extra = { workspace = true }\n'),
+const it = test
+    .extend('tempFs', ({}, { onCleanup }) => {
+        const previous = process.cwd();
+        const tempFs = new TempFs('uv-plugin');
+        process.chdir(tempFs.tempDir);
+        onCleanup(() => {
+            process.chdir(previous);
+            tempFs.cleanup();
         });
-        yield* called('uv', ['lock']);
-    }),
-    published: true,
-    refused: { 'broken/uv.lock': 'version = 1\n', 'broken/pyproject.toml': '[project\nname = ' },
-    manifests: (next) => ({
-        'packages/core/pyproject.toml': files['packages/core/pyproject.toml'].replaceAll('0.1.0', next),
-        'packages/middle/pyproject.toml': files['packages/middle/pyproject.toml'].replaceAll('0.1.0', next),
-        'packages/app/pyproject.toml': files['packages/app/pyproject.toml'].replaceAll('0.1.0', next),
-    }),
-    edits: {
-        verbs: ['test'],
-        dependent: MIDDLE,
-        upstream: (mark) => ({ [SOURCES.core]: `${files[SOURCES.core]}\n\ndef probe_${mark}() -> int:\n    return 7\n` }),
-        outside: (mark) => ({ [SOURCES.report]: `${files[SOURCES.report]}print("${mark}")\n` }),
-        tested: MIDDLE,
-        failing: { [SOURCES.tests]: files[SOURCES.tests].replace('two() == 2', 'two() == 3') },
-    },
-});
+        return tempFs;
+    })
+    .extend('context', ({ tempFs }): CreateNodesContext => ({
+        nxJsonConfiguration: {
+            namedInputs: {
+                default: ['{projectRoot}/**/*'],
+                production: ['!{projectRoot}/**/*.spec.ts'],
+            },
+        },
+        workspaceRoot: tempFs.tempDir,
+    }));
 
-it.layer(
-    workspace(),
-    options,
-)((methods) => {
-    methods.effect(
-        'hits the build cache of a member after a file uv packs into no distribution appears inside it',
-        Effect.fnUntraced(function* () {
-            const [{ ran, wrote }, { name }] = yield* Effect.all([Consumer, member(CORE)]);
-            const run = ran(['build', name, '--output-style=static']);
-            yield* run;
-            yield* wrote({ 'packages/core/notes.md': 'not an input\n' });
-            const { sources } = yield* member(CORE);
-            assert.notInclude([...sources], 'packages/core/notes.md', REPORT);
-            assert.isTrue(
-                Record.some((yield* run).tasks, (status, id) => id.startsWith(`${name}:build--`) && status !== 'cache-miss'),
-                `${REPORT}; nrwl/nx e2e/gradle/src/gradle-cache.test.ts "should rebuild on source and resource changes and hit cache otherwise"`,
+describe('@rasm/nx-uv', { timeout: 120_000 }, () => {
+    const [, createNodesFunction] = createNodes;
+
+    it('should create nodes', async ({ tempFs, context }) => {
+        await tempFs.createFiles({
+            'package.json': JSON.stringify({ name: 'repo' }),
+            'pyproject.toml': '[project]\nname = "uv-tutorial"\nversion = "0.1.0"\nrequires-python = ">=3.13"\ndependencies = []\n\n[dependency-groups]\ndev = ["pytest>=8"]\n\n[tool.uv.workspace]\nmembers = ["proj/*"]\n',
+            'proj/library/pyproject.toml': '[project]\nname = "library"\nversion = "0.1.0"\nrequires-python = ">=3.13"\ndependencies = []\n\n[build-system]\nrequires = ["uv_build>=0.13,<0.14"]\nbuild-backend = "uv_build"\n',
+            'proj/library/src/library/__init__.py': 'def one() -> int:\n    return 1\n',
+            'proj/library/tests/test_library.py': 'from library import one\n\n\ndef test_one() -> None:\n    assert one() == 1\n',
+            'proj/application/pyproject.toml':
+                '[project]\nname = "application"\nversion = "0.1.0"\nrequires-python = ">=3.13"\ndependencies = ["library==0.1.0"]\n\n[project.scripts]\napplication = "application:main"\n\n[tool.uv.sources]\nlibrary = { workspace = true }\n\n[build-system]\nrequires = ["uv_build>=0.13,<0.14"]\nbuild-backend = "uv_build"\n',
+            'proj/application/src/application/__init__.py': 'from library import one\n\n\ndef main() -> None:\n    print(one())\n',
+        });
+        execFileSync('uv', ['lock', '--quiet'], { cwd: tempFs.tempDir });
+
+        const nodes = await createNodesFunction(['uv.lock', 'pyproject.toml', 'proj/library/pyproject.toml', 'proj/application/pyproject.toml'], undefined, context);
+
+        expect(nodes).toStrictEqual([
+            [
+                'uv.lock',
+                {
+                    projects: {
+                        '.': {
+                            root: '.',
+                            name: 'uv-tutorial',
+                            metadata: { technologies },
+                            targets: {
+                                check: { dependsOn: ['check--*'], inputs: ['...', ...locking, uv, { env: 'UV_PREVIEW_FEATURES' }] },
+                                'check--uv': {
+                                    command: 'uv lock --check',
+                                    options: { cwd: '.' },
+                                    cache: true,
+                                    inputs: [...locking, uv, { env: 'UV_PREVIEW_FEATURES' }],
+                                    metadata: { technologies, description: 'Checks that uv.lock holds every change the manifests state with uv lock --check, writing nothing', help: { command: 'uv lock --help', example: { args: ['--offline'] } } },
+                                },
+                                upgrade: { dependsOn: ['upgrade--*'], inputs: ['...', ...locking] },
+                                'upgrade--uv': {
+                                    command: 'uv lock --upgrade',
+                                    options: { cwd: '.' },
+                                    inputs: locking,
+                                    metadata: { technologies, description: 'Moves every locked package to its newest allowed release with uv lock --upgrade', help: { command: 'uv lock --help', example: { args: ['--upgrade-package', '<package>'] } } },
+                                },
+                            },
+                        },
+                        'proj/library': {
+                            root: 'proj/library',
+                            name: 'library',
+                            metadata: { technologies },
+                            tags: ['release'],
+                            release,
+                            targets: {
+                                ...released('library', packed('library')),
+                                test: { dependsOn: ['test--*'], inputs: ['...', ...pytest] },
+                                'test--pytest': {
+                                    command: 'uv run --no-active --locked --isolated --package library --all-extras --group dev pytest proj/library',
+                                    options: { cwd: '.' },
+                                    cache: true,
+                                    inputs: pytest,
+                                    metadata: { technologies, description: 'Runs the member tests with pytest', help: { command: 'uv run pytest --help', example: { args: ['-k', '<expression>'] } } },
+                                },
+                            },
+                        },
+                        'proj/application': {
+                            root: 'proj/application',
+                            name: 'application',
+                            metadata: { technologies },
+                            tags: ['release'],
+                            release,
+                            targets: {
+                                ...released('application', packed('application')),
+                                install: { dependsOn: ['install--*'], inputs: ['...', ...packed('application'), lock, { externalDependencies: [] }] },
+                                'install--uv': {
+                                    command: "uv export --locked --package application --no-default-groups --no-emit-local --no-hashes --no-header --no-annotate --quiet | uv tool install --constraints - --reinstall-package application --reinstall-package library --python '>=3.13' .",
+                                    options: { cwd: 'proj/application' },
+                                    inputs: [...packed('application'), lock, { externalDependencies: [] }],
+                                    metadata: {
+                                        technologies,
+                                        description: "Installs the member scripts from the checkout into uv's tool folder at the versions uv.lock pins, on an interpreter its requires-python accepts, with uv export piped to uv tool install --constraints",
+                                        help: { command: 'uv tool install --help', example: { args: ['--editable'] } },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            ],
+        ]);
+    });
+    it('should declare as outputs every file build--uv writes, each of them written', async ({ tempFs, context }) => {
+        await tempFs.createFiles({
+            'pyproject.toml': '[tool.uv.workspace]\nmembers = ["proj/*"]\n',
+            'proj/library/pyproject.toml': '[project]\nname = "library"\nversion = "0.1.0"\nrequires-python = ">=3.13"\ndependencies = []\n\n[build-system]\nrequires = ["uv_build>=0.13,<0.14"]\nbuild-backend = "uv_build"\n',
+            'proj/library/src/library/__init__.py': 'def one() -> int:\n    return 1\n',
+        });
+        execFileSync('uv', ['lock', '--offline', '--quiet'], { cwd: tempFs.tempDir });
+        const nodes = await createNodesFunction(['uv.lock'], undefined, context);
+        const target = nodes[0]?.[1].projects?.['proj/library']?.targets?.['build--uv'];
+        const files = () =>
+            new Set(
+                readdirSync(tempFs.tempDir, { recursive: true, withFileTypes: true })
+                    .filter((entry) => entry.isFile())
+                    .map((entry) => relative(tempFs.tempDir, join(entry.parentPath, entry.name))),
             );
-        }),
-        bound,
-    );
+        const before = files();
 
-    methods.effect(
-        'installs a member with a script where uv lists it as an installed tool',
-        Effect.fnUntraced(function* () {
-            const [{ root, called }, path, { name, version }] = yield* Effect.all([Consumer, Path.Path, member(APP)]);
-            const folders = [`UV_TOOL_DIR=${path.join(root, '.tools')}`, `UV_TOOL_BIN_DIR=${path.join(root, '.tools/bin')}`];
-            const installed = yield* called('env', [...folders, 'nx', 'install', name, '--output-style=static']);
-            const listed = yield* called('env', [...folders, 'uv', 'tool', 'list']);
-            assert.strictEqual(installed.code, 0, `${installed.stdout}${installed.stderr}`);
-            assert.include(listed.stdout, `${name} v${version}`, 'README.md TASKS "install puts a local build into its host"; uv tool list');
-        }),
-        bound,
-    );
-});
+        expect(target).toMatchObject({ command: 'uv build --package library --no-sources', options: { cwd: '.' } });
+        execFileSync('uv', ['build', '--package', 'library', '--no-sources', '--quiet'], { cwd: tempFs.tempDir });
 
-it.layer(
-    workspace(),
-    options,
-)((methods) => {
-    methods.effect(
-        'moves the pinned requirement of a dependent to the new version, and leaves the lock in line with the manifests',
-        Effect.fnUntraced(function* () {
-            const { nx, called, text } = yield* Consumer;
-            const versioned = yield* nx('release', 'version', '0.2.0');
-            assert.strictEqual(versioned.code, 0, `${versioned.stdout}${versioned.stderr}`);
-            const checked = yield* called('uv', ['lock', '--check']);
-            assert.include(yield* text('packages/middle/pyproject.toml'), '"rasm-nx-fixture-core==0.2.0"', 'nrwl/nx packages/nx/src/command-line/release/version/release-group-processor.spec.ts: dependents move with a fixed group');
-            assert.strictEqual(checked.code, 0, `nrwl/nx e2e/release/src/lock-file-updates.test.ts; uv lock --check: ${checked.stderr}`);
-        }),
-        bound,
-    );
-
-    methods.effect(
-        'runs the dry run of uv publish for every publishable member under nx release publish --dry-run, uploading nothing',
-        Effect.fnUntraced(function* () {
-            const { nx, committed } = yield* Consumer;
-            yield* committed('release');
-            const published = yield* nx('release', 'publish', '--dry-run');
-            const [printed, source] = [`${published.stdout}${published.stderr}`, 'uv publish --dry-run; nrwl/nx e2e/release/src/release-publishable-libraries.test.ts'];
-            assert.strictEqual(published.code, 0, `${source}: ${printed}`);
-            assert.include(printed, 'Checking', source);
-            assert.notInclude(printed, 'Uploading', source);
-        }),
-        bound,
-    );
-});
-
-it.layer(
-    workspace(),
-    options,
-)((methods) => {
-    methods.effect(
-        'names the member manifest uv refuses in the graph failure of a locked workspace',
-        Effect.fnUntraced(function* () {
-            const { read, wrote } = yield* Consumer;
-            yield* wrote({ 'packages/middle/pyproject.toml': '[project\nname = ' });
-            const { failures } = yield* read;
-            assert.include([...failures, ...failures.flatMap(({ files: named }) => named)].map(({ message }) => message).join('\n'), 'packages/middle/pyproject.toml', 'uv stderr; nrwl/nx packages/nx/src/project-graph/plugins/utils.spec.ts "should handle partial errors"');
-        }),
-        bound,
-    );
-});
-
-it.layer(
-    Layer.effectDiscard(Effect.flatMap(Consumer, ({ called }) => called('uv', ['lock']))).pipe(
-        Layer.provideMerge(
-            Consumer.layer({
-                resolved: import.meta.url,
-                settings: { plugins: [plugin.name], release: { projects: ['tag:release'], version: { currentVersionResolver: 'registry' } } },
-                ignored: ['.venv', 'dist', '.latest'],
-                files: { 'pyproject.toml': files['packages/core/pyproject.toml'].replace('rasm-nx-fixture-core', 'six'), 'src/six/__init__.py': '' },
-            }),
-        ),
-        Layer.provideMerge(Packed.layer(plugin.name)),
-        Layer.provideMerge(layer),
-    ),
-    options,
-)((methods) => {
-    methods.effect(
-        'reads the current version of a member from the index uv installs from',
-        Effect.fnUntraced(function* () {
-            const { root, nx, called } = yield* Consumer;
-            const found = yield* called('uv', ['pip', 'install', '--color', 'never', '--dry-run', '--no-deps', '--target', `${root}/.latest`, 'six']);
-            const latest = yield* pipe(
-                Array.findFirst(`${found.stdout}${found.stderr}`.split('\n'), (line) => line.startsWith(' + six==')),
-                Option.map((line) => line.replace(' + six==', '').trim()),
-                Effect.fromOption,
-                Effect.orDie,
-            );
-            const shown = yield* nx('release', 'version', 'patch', '--dry-run');
-            assert.include(`${shown.stdout}${shown.stderr}`, `Resolved the current version as ${latest} from the remote registry`, 'uv pip install --color never --dry-run --no-deps --target <folder> <name>; nrwl/nx packages/nx/src/command-line/release/version/resolve-current-version.ts "registry"');
-        }),
-        bound,
-    );
+        const written = [...files().difference(before)].filter((file) => !file.startsWith('tmp/'));
+        const outputs = target?.outputs?.map((output) => output.replace('{workspaceRoot}/', ''));
+        const declared = new Set(outputs?.flatMap((output) => minimatch.match(written, output)));
+        expect(written.filter((file) => !declared.has(file))).toStrictEqual([]);
+        expect(outputs?.map((output) => minimatch.match(written, output).length)).toStrictEqual([1, 1, 1]);
+    });
 });

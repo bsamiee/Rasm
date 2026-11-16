@@ -92,8 +92,6 @@ const spawned = Effect.fnUntraced(function* (argv: Array.NonEmptyReadonlyArray<s
     return code === 0 ? stdout : yield* new Cause.UnknownError(code, [`${CommandLine.display(argv)} exits ${code}`, ...[stderr.trim()].filter(String.isNonEmpty)].join(': '));
 }, Effect.scoped);
 
-const rendered = (cause: Cause.Cause<unknown>) => Effect.fail(new Cause.UnknownError(cause, Cause.pretty(cause)));
-
 const ran = (argv: Array.NonEmptyReadonlyArray<string>, options: Pick<ChildProcess.CommandOptions, 'cwd' | 'env'>) =>
     Effect.flatMap(ChildProcessSpawner.ChildProcessSpawner, (spawner) => spawner.exitCode(ChildProcess.make(Array.headNonEmpty(argv), Array.tailNonEmpty(argv), { ...options, extendEnv: true, detached: false, stdin: 'inherit', stdout: 'inherit', stderr: 'inherit' })));
 
@@ -110,4 +108,4 @@ const run = <A, E>(effect: Effect.Effect<A, E, NodeServices | Scope.Scope>) => e
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { APPCAST, ATTACH, aggregated, analyzer, INPUTS, manifested, NOTARY, Options, type Part, PLUGIN, ran, rendered, run, SWIFTPM, sequenced, spawned, tokened, type Verbs };
+export { APPCAST, ATTACH, aggregated, analyzer, INPUTS, manifested, NOTARY, Options, type Part, PLUGIN, ran, run, SWIFTPM, sequenced, spawned, tokened, type Verbs };

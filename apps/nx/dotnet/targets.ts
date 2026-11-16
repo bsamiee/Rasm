@@ -20,7 +20,7 @@ const CREDENTIAL = 'NUGET_API_KEY';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Mode = Schema.Struct({ configuration: Schema.String, outputs: Schema.Array(Schema.String), published: Schema.Array(Schema.String), reports: Schema.Array(Schema.String), packed: Schema.String });
+const Mode = Schema.Struct({ configuration: Schema.String, outputs: Schema.Array(Schema.String), published: Schema.Array(Schema.String), reports: Schema.Array(Schema.String), documents: Schema.Array(Schema.String), packed: Schema.String });
 const Node = Schema.Struct({
     file: Schema.String,
     name: Schema.String,
@@ -73,14 +73,14 @@ const targets = (node: Node, coverage: Option.Option<string>): Verbs => {
     const inputs: NonNullable<TargetConfiguration['inputs']> = [
         'default',
         '^default',
-        ...node.inputs.map((input) => join('{workspaceRoot}', input)),
         ...node.bases.filter((base) => base.startsWith(`${root}/`)).map((base) => `!${join('{projectRoot}', relative(root, base), '**')}`),
         { env: 'NUGET_PACKAGES' },
         { externalDependencies: [] },
+        ...node.inputs.map((input) => join('{workspaceRoot}', input)),
     ];
     const moded = <A extends object>(each: (mode: Node['evaluated']) => A) => ({ options: each(node.evaluated), configurations: Record.fromIterableWith(node.declared, (mode) => [mode.configuration.toLowerCase(), each(mode)] as const) });
     const verb = node.publishable ? 'publish' : 'build';
-    const built = moded(({ configuration, outputs, published, reports }) => ({ project, command: [verb, '--configuration', configuration], outputs: [...outputs, ...published, ...reports, ...node.restored] }));
+    const built = moded(({ configuration, outputs, published, reports, documents }) => ({ project, command: [verb, '--configuration', configuration], outputs: [...outputs, ...published, ...reports, ...documents, ...node.restored] }));
     const packed = moded(({ configuration, packed: folder }) => ({ project, command: ['pack', '--no-build', '-restore', '--configuration', configuration], outputs: [join(folder, '*.nupkg')] }));
     const tested = ({ configuration }: Node['evaluated'], ...flags: readonly string[]) => ({ commands: [{ command: line(['dotnet', 'restore', `-p:Configuration=${configuration}`]), forwardAllArgs: false }, line(['dotnet', 'test', '--no-build', '--configuration', configuration, ...flags])] });
     const coverable = node.referenced.some((id) => id.toLowerCase() === 'coverlet.mtp');
@@ -138,7 +138,7 @@ const targets = (node: Node, coverage: Option.Option<string>): Verbs => {
                     dependsOn: ['build--dotnet'],
                     cache: true,
                     inputs: [...inputs, { dependentTasksOutputFiles: '**/*.runtimeconfig.json' }, PLATFORM],
-                    outputs: [...node.results.map((results) => join('{workspaceRoot}', results)), ...(coverable ? written(covered) : [])],
+                    outputs: [...node.results.map((results) => (relative(root, results).startsWith('..') ? join('{workspaceRoot}', results) : join('{projectRoot}', relative(root, results)))), join('{projectRoot}', '{options.results-directory}'), ...(coverable ? written(covered) : [])],
                     metadata: metadata('test', [`Tests the build build--dotnet wrote for ${node.name} with dotnet test --no-build, after a restore that fetches only packages the machine lacks`, ...(coverable ? ['configuration coverage adds --coverlet with an lcov report from coverlet.MTP'] : [])].join(', and ')),
                 },
             }),

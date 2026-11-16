@@ -1,361 +1,804 @@
-import { layer } from '@effect/platform-node/NodeServices';
-import { assert, it } from '@effect/vitest';
-import type { ProjectGraph } from '@nx/devkit';
-import plugin from '@rasm/nx-typescript/package.json' with { type: 'json' };
-import { Consumer, kept, Packed } from '@rasm/testing/nx';
-import compiler from '@typescript/native/package.json' with { type: 'json' };
-import { Duration, Effect, Formatter, Layer, Path, Record, Schema } from 'effect';
-import nx from 'nx/package.json' with { type: 'json' };
+import { execFileSync } from 'node:child_process';
+import { readdirSync, symlinkSync } from 'node:fs';
+import { dirname, join, matchesGlob } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { type CreateNodesContext, detectPackageManager } from '@nx/devkit';
+import { getLockFileName, setupWorkspaceContext, workspaceDataDirectory } from '@nx/devkit/internal';
+import { createNodes } from '@rasm/nx-typescript';
+import { TempFs } from '@rasm/testing/temp-fs';
+import { describe, expect, test, vi } from 'vitest';
+
+vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const SPEC = 'nrwl/nx packages/js/src/plugins/typescript/plugin.spec.ts';
-const TASKS = 'README.md TASKS';
-const UNREAD = /mise\.lock|node_modules|@rasm\/nx-|TOKEN|SECRET|PASSWORD|CREDENTIAL/u;
-const bounds = { built: '5 minutes', test: Duration.toMillis('3 minutes') } as const;
-const manifest = JSON.stringify({ name: 'consumer', private: true, type: 'module', devDependencies: { nx: nx.version, [plugin.name]: '*', typescript: compiler.version } });
-const emitted = (outDir: string) => `{ "extends": "../../tsconfig.base.json", "compilerOptions": { "outDir": "${outDir}", "rootDir": ".", "declaration": true }, "include": ["*.ts"] }\n`;
-const files = {
-    'package.json': manifest,
-    'tsconfig.strict.json': '{ "compilerOptions": { "strict": true } }\n',
-    'tsconfig.base.json': '{ "extends": "./tsconfig.strict.json", "compilerOptions": { "module": "nodenext", "skipLibCheck": true, "types": [] } }\n',
-    'tsconfig.json': '{ "extends": "./tsconfig.base.json", "files": [] }\n',
-    'libs/shared/units.ts': 'export const unit = 1;\n',
-    'libs/kit/package.json': '{ "name": "kit", "version": "0.1.0", "type": "module", "exports": { ".": "./index.ts" } }\n',
-    'libs/kit/tsconfig.json': '{ "extends": "../../tsconfig.base.json", "compilerOptions": { "noEmit": true }, "include": ["*.ts", "../shared/*.ts"] }\n',
-    'libs/kit/index.ts': 'export const kit: number = 1;\n',
-    'libs/emitting/package.json': '{ "name": "emitting", "version": "0.1.0", "type": "module", "exports": { ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" } }, "files": ["dist"] }\n',
-    'libs/emitting/tsconfig.json': emitted('dist'),
-    'libs/emitting/index.ts': 'export const emitting: number = 1;\n',
-    'libs/faulty/package.json': '{ "name": "faulty", "version": "0.1.0", "type": "module", "exports": { ".": "./index.ts" } }\n',
-    'libs/faulty/tsconfig.json': '{ "extends": "../../tsconfig.base.json", "compilerOptions": { "noEmit": true }, "include": ["*.ts"] }\n',
-    'libs/faulty/index.ts': "export const faulty: number = 'text';\n",
-};
-
-// --- [MODELS] --------------------------------------------------------------------------
-
-const Shown = Schema.fromJsonString(Schema.Struct({ compilerOptions: Schema.Struct({ outDir: Schema.optionalKey(Schema.String), noEmit: Schema.optionalKey(Schema.Boolean) }) })).annotate({
-    description: 'Fields of the configuration tsc --showConfig prints for one project: outDir relative to the config file, and noEmit',
-});
-const Names = Schema.fromJsonString(Schema.Array(Schema.String));
+const COMPILER = dirname(fileURLToPath(import.meta.resolve('@typescript/native/package.json')));
+const UPSTREAM = ['^production', { dependentTasksOutputFiles: '**/*', transitive: true }, { externalDependencies: ['typescript'] }];
+const EMITTED = '**/*.{js,cjs,mjs,jsx,d.ts,d.cts,d.mts}{,.map}';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const read = Effect.flatMap(Consumer, (consumer) => consumer.read);
+const applyFilesToTempFsAndContext = async (tempFs: TempFs, fileSys: Record<string, string>) => {
+    await tempFs.createFiles(fileSys);
+    setupWorkspaceContext(tempFs.tempDir);
+    return Object.keys(fileSys).filter((file) => matchesGlob(file, createNodes[0]));
+};
 
-const shown = Effect.fnUntraced(function* (folder: string) {
-    const { called } = yield* Consumer;
-    const { stdout } = yield* called('tsc', ['--showConfig', '--project', '.'], folder);
-    return yield* Schema.decodeEffect(Shown)(stdout);
-});
-
-const tooled = ({ nodes }: Pick<ProjectGraph, 'nodes'>, project: string, verb: string) => Record.filter(nodes[project]?.data.targets ?? {}, (_, name) => name.startsWith(`${verb}--`));
-
-const hashed = Effect.fnUntraced(function* (project: string, verb: string) {
-    const [{ inputs }, graph] = yield* Effect.all([Consumer, read]);
-    const listed = yield* Effect.forEach(Record.keys(tooled(graph, project, verb)), (name) => inputs(`${project}:${name}`));
-    return listed.flatMap(({ files: held }) => held);
-});
-
-const declared = Effect.fnUntraced(function* (project: string, verb: string) {
-    const [{ outputs }, graph] = yield* Effect.all([Consumer, read]);
-    const listed = yield* Effect.forEach(Record.keys(tooled(graph, project, verb)), (name) => outputs(`${project}:${name}`));
-    return { paths: listed.flatMap(({ outputPaths }) => outputPaths), stored: listed.flatMap(({ expandedOutputs }) => expandedOutputs) };
-});
-
-const workspace = (stated: Readonly<Record<string, string>>) => Layer.provideMerge(Consumer.layer({ resolved: import.meta.url, settings: { plugins: [plugin.name] }, ignored: ['dist', 'emitted', '*.tsbuildinfo'], files: stated }), Layer.provideMerge(Packed.layer(plugin.name), layer));
+const invokeCreateNodesOnMatchingFiles = async (configFiles: readonly string[], context: CreateNodesContext, pluginOptions: Parameters<(typeof createNodes)[1]>[1]) => {
+    const results = await createNodes[1](configFiles, pluginOptions, context);
+    return { projects: Object.fromEntries(results.flatMap(([, nodes]) => Object.entries({ ...nodes.projects }))) };
+};
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-it.layer(workspace(files), { timeout: bounds.built, excludeTestServices: true })((methods) => {
-    const api = 'nrwl/nx packages/nx/src/project-graph/plugins/public-api.ts CreateNodesV2';
+const it = test
+    .extend('tempFs', async ({}, { onCleanup }) => {
+        const tempFs = new TempFs('typescript-plugin');
+        const previous = process.cwd();
+        process.chdir(tempFs.tempDir);
+        onCleanup(() => {
+            process.chdir(previous);
+            tempFs.cleanup();
+        });
+        tempFs.createDirSync('node_modules');
+        symlinkSync(COMPILER, join(tempFs.tempDir, 'node_modules/typescript'), 'dir');
+        await applyFilesToTempFsAndContext(tempFs, { [getLockFileName(detectPackageManager(tempFs.tempDir))]: '', 'package.json': JSON.stringify({ workspaces: ['**'] }) });
+        return tempFs;
+    })
+    .extend('context', ({ tempFs }): CreateNodesContext => ({
+        nxJsonConfiguration: { namedInputs: { default: ['{projectRoot}/**/*'], production: ['!{projectRoot}/**/*.spec.ts'] } },
+        workspaceRoot: tempFs.tempDir,
+    }));
 
-    methods.effect(
-        'reading the graph writes no file',
-        Effect.fnUntraced(function* () {
-            const [, written] = yield* Effect.flatMap(Consumer, ({ written: tracked }) => tracked(read));
-            assert.deepStrictEqual(written, [], `${api}: createNodes reads configuration and writes nothing, a tsbuildinfo or emitted file included`);
-        }),
-        bounds.test,
-    );
+it('should handle missing lock file', async ({ tempFs, context }) => {
+    const configFiles = await applyFilesToTempFsAndContext(tempFs, {
+        'libs/my-lib/tsconfig.json': JSON.stringify({ files: [] }),
+        'libs/my-lib/package.json': '{}',
+    });
+    tempFs.removeFileSync(getLockFileName(detectPackageManager(tempFs.tempDir)));
 
-    methods.effect(
-        'a project tsconfig.json beside a package manifest gives its project a check target the check verb aggregates',
-        Effect.fnUntraced(function* () {
-            const graph = yield* read;
-            const title = 'typecheck target > should create a node with a typecheck target for a project level tsconfig.json file by default (when there is a sibling package.json or project.json)';
-            const principle = 'README.md PRINCIPLES "Verbs aggregate <verb>--<tool> targets"';
-            const { kit } = graph.nodes;
-            const names = Record.keys(tooled(graph, 'kit', 'check'));
-            const { check } = kit?.data.targets ?? {};
-            const rows = new Set(check?.dependsOn);
-            assert.deepStrictEqual(graph.failures, [], `${SPEC} "${title}": a valid workspace reads without failure`);
-            assert.isNotEmpty(names, `${SPEC} "${title}"; ${principle}: a check--<tool> target type-checks the project`);
-            assert.isTrue(rows.has('check--*') || rows.isSupersetOf(new Set(names)), `${principle}: check depends on each check--<tool> target`);
-        }),
-        bounds.test,
-    );
-
-    methods.effect(
-        'the root tsconfig.json gives the workspace root no check or build target',
-        Effect.fnUntraced(function* () {
-            const graph = yield* read;
-            const [root] = Object.values(graph.nodes).filter(({ data }) => data.root === '.');
-            assert.deepStrictEqual(
-                ['check', 'build'].flatMap((verb) => Record.keys(tooled(graph, root?.name ?? '.', verb))),
-                [],
-                `${SPEC} "should not create nodes for root tsconfig.json files"`,
-            );
-        }),
-        bounds.test,
-    );
-
-    methods.effect(
-        'every config a tsconfig extends is an input of the check',
-        Effect.fnUntraced(function* () {
-            assert.includeMembers(yield* hashed('kit', 'check'), ['libs/kit/tsconfig.json', 'tsconfig.base.json', 'tsconfig.strict.json'], `${SPEC} "typecheck target > inputs > should add extended config files when there are multiple extended config files"`);
-        }),
-        bounds.test,
-    );
-
-    methods.effect(
-        'a file an include pattern reaches outside the project is an input of the check',
-        Effect.fnUntraced(function* () {
-            assert.include(yield* hashed('kit', 'check'), 'libs/shared/units.ts', `${SPEC} "typecheck target > inputs > should normalize and expand ".." in \`include\` with the ts extensions"`);
-        }),
-        bounds.test,
-    );
-
-    methods.effect(
-        'a change to an extended config marks the project affected',
-        Effect.fnUntraced(function* () {
-            const { nx: run } = yield* Consumer;
-            const { checked } = yield* run('show', 'projects', '--affected', '--files=tsconfig.strict.json', '--json');
-            assert.includeMembers([...(yield* Effect.flatMap(checked, Schema.decodeEffect(Names)))], ['kit', 'emitting', 'faulty'], `${TASKS} "--files=<path> limits it to one change's reach": each project extends tsconfig.strict.json through tsconfig.base.json`);
-        }),
-        bounds.test,
-    );
-
-    methods.effect(
-        'a package with entry points in its outDir gets a build target, and one stating noEmit gets none',
-        Effect.fnUntraced(function* () {
-            const [graph, kit, emitting] = yield* Effect.all([read, shown('libs/kit'), shown('libs/emitting')]);
-            assert.deepStrictEqual([kit.compilerOptions.noEmit, emitting.compilerOptions.outDir], [true, './dist'], 'tsc --showConfig: libs/kit states noEmit, libs/emitting states outDir ./dist');
-            assert.isNotEmpty(Record.keys(tooled(graph, 'emitting', 'build')), `${SPEC} "build target > should create build target when the entry points point to dist files"`);
-            assert.isEmpty(Record.keys(tooled(graph, 'kit', 'build')), `${SPEC} "build target > should not create build target when the entry points point to source files", "typecheck target > should not invoke \`tsc --build\` when \`noEmit\` is set in the tsconfig.json file"`);
-        }),
-        bounds.test,
-    );
-
-    methods.effect(
-        'the build is cached and its outputs lie in the outDir tsc shows',
-        Effect.fnUntraced(function* () {
-            const [graph, path, { compilerOptions }] = yield* Effect.all([read, Path.Path, shown('libs/emitting')]);
-            const folder = path.join('libs/emitting', compilerOptions.outDir ?? '.');
-            assert.isTrue(
-                Object.values(tooled(graph, 'emitting', 'build')).every(({ cache }) => cache === true),
-                `${SPEC} "build target > should create a node with a build target when enabled, for a project level tsconfig.lib.json build file by default": build states cache true`,
-            );
-            assert.isTrue(
-                (yield* declared('emitting', 'build')).paths.some((output) => output === folder || output.startsWith(`${folder}${path.sep}`)),
-                `${SPEC} "build target > outputs > should add the \`outDir\`": outputs name outDir of tsc --showConfig`,
-            );
-        }),
-        bounds.test,
-    );
-
-    methods.effect(
-        'plugin isolation on and off give equal projects',
-        Effect.fnUntraced(function* () {
-            const { called } = yield* Consumer;
-            const printed = (isolate: boolean) => called('env', ['NX_CACHE_PROJECT_GRAPH=false', `NX_ISOLATE_PLUGINS=${isolate}`, 'nx', 'show', 'project', 'emitting', '--json']);
-            const [isolated, shared] = [yield* printed(true), yield* printed(false)];
-            assert.deepStrictEqual([shared.code, shared.stdout], [isolated.code, isolated.stdout], 'nrwl/nx packages/nx/src/project-graph/plugins/isolation/isolated-plugin.spec.ts: a plugin returns the same project from a worker and in process');
-        }),
-        bounds.test,
-    );
-
-    methods.effect(
-        'no input of an inferred target is plugin source, mise.lock, or a credential variable',
-        Effect.fnUntraced(function* () {
-            const rows = Object.values((yield* read).nodes)
-                .flatMap(({ data }) => Object.values(data.targets ?? {}))
-                .flatMap(({ inputs = [] }) => inputs)
-                .map((row) => Formatter.format(row));
-            assert.deepStrictEqual(
-                rows.filter((row) => UNREAD.test(row)),
-                [],
-                'README.md PRINCIPLES "Task inputs hold the files a task\'s tool reads: plugin and executor source, .config/mise.lock, and credentials are no input"',
-            );
-        }),
-        bounds.test,
-    );
-    methods.effect(
-        'two reads of one workspace give equal projects, and a file no config reads changes none',
-        Effect.fnUntraced(function* () {
-            const { wrote } = yield* Consumer;
-            const [first, second] = [yield* read, yield* read];
-            yield* wrote({ 'docs/notes.md': '# Notes\n' });
-            assert.deepStrictEqual(second.nodes, first.nodes, `${api}: one set of files gives one set of nodes`);
-            assert.deepStrictEqual((yield* read).nodes, first.nodes, `${api}: a file no config reads changes no node`);
-        }),
-        bounds.test,
-    );
+    await expect(invokeCreateNodesOnMatchingFiles(configFiles, context, {})).resolves.not.toThrow();
 });
 
-it.layer(workspace(files), { timeout: bounds.built, excludeTestServices: true })((methods) => {
-    methods.effect.each([
-        ['kit', true],
-        ['faulty', false],
-    ] as const)(
-        'the check verb passes where tsc passes and fails where tsc fails: %s',
-        Effect.fnUntraced(function* ([project, passes]) {
-            const { called, nx: run } = yield* Consumer;
-            const [compiled, checked] = [yield* called('tsc', ['--noEmit', '--project', '.'], `libs/${project}`), yield* run('run', `${project}:check`, '--output-style=static')];
-            assert.strictEqual(compiled.code === 0, passes, `tsc --noEmit --project libs/${project} ${passes ? 'passes' : 'fails'}: ${compiled.stdout}`);
-            assert.strictEqual(checked.code === 0, passes, `${TASKS} "check reports findings of checkers reading the project model": nx run ${project}:check follows tsc: ${checked.stdout}${checked.stderr}`);
-        }),
-        bounds.test,
-    );
+it('should not create check or build targets for root tsconfig.json files', async ({ tempFs, context }) => {
+    const configFiles = await applyFilesToTempFsAndContext(tempFs, {
+        'package.json': '{}',
+        'tsconfig.json': '{}',
+        'src/index.ts': "console.log('Hello World!');",
+    });
+    const { projects } = await invokeCreateNodesOnMatchingFiles(configFiles, context, {});
 
-    methods.effect(
-        'a build writes every file under the declared outputs',
-        Effect.fnUntraced(function* () {
-            const [{ nx: run, written }, path] = yield* Effect.all([Consumer, Path.Path]);
-            const [{ code, stdout, stderr }, created] = yield* written(run('run', 'emitting:build', '--output-style=static'));
-            const { stored } = yield* declared('emitting', 'build');
-            const under = new RegExp(`^(?:${stored.map(RegExp.escape).join('|')})(?:${RegExp.escape(path.sep)}|$)`, 'u');
-            assert.strictEqual(code, 0, `nx run emitting:build exits 0: ${stdout}${stderr}`);
-            assert.include(created, 'libs/emitting/dist/index.js', 'tsc emits index.js into outDir');
-            assert.deepStrictEqual(
-                created.filter((file) => !under.test(file)),
-                [],
-                `nx/schemas/project-schema.json outputs; ${SPEC} "build target > outputs > should include tsbuildinfo file when outDir and rootDir at both set": every file the build writes lies under a declared output`,
-            );
-        }),
-        bounds.test,
-    );
-
-    methods.effect(
-        'an edited outDir moves the declared outputs to the folder tsc shows',
-        Effect.fnUntraced(function* () {
-            const [{ wrote }, path] = yield* Effect.all([Consumer, Path.Path]);
-            yield* wrote({ 'libs/emitting/tsconfig.json': emitted('emitted'), 'libs/emitting/package.json': files['libs/emitting/package.json'].replaceAll('./dist', './emitted') });
-            const folder = path.join('libs/emitting', (yield* shown('libs/emitting')).compilerOptions.outDir ?? '.');
-            assert.isTrue(
-                (yield* declared('emitting', 'build')).paths.some((output) => output === folder || output.startsWith(`${folder}${path.sep}`)),
-                'nrwl/nx packages/nx/src/project-graph/nx-deps-cache.spec.ts: a changed file invalidates what was computed from it',
-            );
-        }),
-        bounds.test,
-    );
+    expect(Object.keys(projects)).toStrictEqual(['.']);
+    expect(Object.keys({ ...projects['.']?.targets })).toStrictEqual(['upgrade', 'upgrade--npm']);
 });
 
-it.layer(workspace({ ...files, 'libs/broken/package.json': '{ "name": "broken", "version": "0.1.0", "type": "module" }\n', 'libs/broken/tsconfig.json': '{ "compilerOptions": ', 'libs/broken/index.ts': 'export {};\n' }), { timeout: bounds.built, excludeTestServices: true })((methods) => {
-    methods.effect(
-        'a tsconfig that fails to load is named in the failure, and every other project keeps its targets',
-        Effect.fnUntraced(function* () {
-            const graph = yield* read;
-            const errors = 'nrwl/nx packages/nx/src/project-graph/error-types.ts AggregateCreateNodesError';
-            assert.include(
-                graph.failures.flatMap((failure) => failure.files).map(({ file }) => file),
-                'libs/broken/tsconfig.json',
-                `${errors}: errors hold a [file, error] tuple for the file that failed`,
-            );
-            assert.isNotEmpty(Record.keys(tooled(graph, 'kit', 'check')), `${errors}: "It allows Nx to recieve partial results and continue processing"`);
-            assert.isNotEmpty(Record.keys(tooled(graph, 'emitting', 'build')), `${errors}: partial results hold every project whose file loaded`);
-        }),
-        bounds.test,
-    );
+describe('typecheck target', () => {
+    it('should create a check target for a tsconfig.json beside a project.json, and none for a package.json outside the package manager workspaces', async ({ tempFs, context }) => {
+        const configFiles = await applyFilesToTempFsAndContext(tempFs, {
+            'package.json': JSON.stringify({ workspaces: ['libs/*'] }),
+            'libs/my-lib/tsconfig.json': JSON.stringify({ files: ['index.ts'], compilerOptions: { noEmit: true } }),
+            'libs/my-lib/index.ts': 'export {};',
+            'libs/my-lib/project.json': '{}',
+            'tools/script/tsconfig.json': JSON.stringify({ files: ['index.ts'], compilerOptions: { noEmit: true } }),
+            'tools/script/index.ts': 'export {};',
+            'tools/script/package.json': '{}',
+        });
+        const { projects } = await invokeCreateNodesOnMatchingFiles(configFiles, context, {});
+
+        expect(projects['libs/my-lib']?.targets?.['check--tsc']?.options).toStrictEqual({ commands: ['tsc'], cwd: 'libs/my-lib' });
+        expect(projects['tools/script']).toBeUndefined();
+    });
+
+    it('should create a node with check and build targets for a project level tsconfig.json file beside a package.json', async ({ tempFs, context }) => {
+        const configFiles = await applyFilesToTempFsAndContext(tempFs, {
+            'libs/my-lib/tsconfig.json': JSON.stringify({ files: ['index.ts'] }),
+            'libs/my-lib/index.ts': 'export const value = 1;',
+            'libs/my-lib/package.json': '{}',
+        });
+        const inputs = ['{projectRoot}/package.json', '{projectRoot}/tsconfig.json', '{projectRoot}/index.ts', ...UPSTREAM];
+
+        await expect(invokeCreateNodesOnMatchingFiles(configFiles, context, {})).resolves.toStrictEqual({
+            projects: {
+                'libs/my-lib': {
+                    root: 'libs/my-lib',
+                    metadata: { technologies: ['typescript'] },
+                    targets: {
+                        build: { dependsOn: ['build--*'], inputs: ['...', ...inputs] },
+                        'build--tsc': {
+                            executor: 'nx:run-commands',
+                            options: { commands: ['tsc'], cwd: 'libs/my-lib' },
+                            dependsOn: ['codegen--*', '^codegen', '^build--tsc'],
+                            cache: true,
+                            inputs,
+                            outputs: [`{projectRoot}/${EMITTED}`],
+                            metadata: { technologies: ['typescript'], description: 'Emits JavaScript and declarations with tsc, type-checking every program it builds', help: { command: 'npx tsc --help', example: { args: ['--listEmittedFiles'] } } },
+                        },
+                        check: { dependsOn: ['check--*'], inputs: ['...', ...inputs] },
+                        'check--tsc': {
+                            executor: 'nx:noop',
+                            dependsOn: ['build--tsc'],
+                            inputs,
+                            metadata: { technologies: ['typescript'], description: 'Type-checks through the build--tsc compile with tsc', help: { command: 'npx tsc --help', example: { args: ['--extendedDiagnostics'] } } },
+                        },
+                        clean: { dependsOn: ['clean--*'], inputs: ['...', 'default', '^default', { externalDependencies: ['typescript'] }] },
+                        'clean--tsc': {
+                            executor: '@rasm/nx-distribution:clean',
+                            options: { targets: ['build--tsc'], commands: [['tsc', '--build', '--clean', 'tsconfig.json']], cwd: 'libs/my-lib' },
+                            inputs: ['default', '^default', { externalDependencies: ['typescript'] }],
+                            metadata: { technologies: ['typescript'], description: 'Removes the outputs build--tsc declare and each program output with tsc --build --clean', help: { command: 'npx tsc --build --help', example: { args: ['--dry'] } } },
+                        },
+                    },
+                },
+            },
+        });
+    });
+
+    it('should create check and build targets with custom compiler packages', async ({ tempFs, context }) => {
+        tempFs.createDirSync('node_modules/@typescript');
+        symlinkSync(COMPILER, join(tempFs.tempDir, 'node_modules/@typescript/native'), 'dir');
+        const configFiles = await applyFilesToTempFsAndContext(tempFs, {
+            'libs/my-lib/tsconfig.json': JSON.stringify({ files: ['index.ts'] }),
+            'libs/my-lib/index.ts': 'export const value = 1;',
+            'libs/my-lib/package.json': '{}',
+        });
+        const { projects } = await invokeCreateNodesOnMatchingFiles(configFiles, context, { compilerPackages: ['@typescript/native', '@effect/tsgo'] });
+
+        expect(projects['libs/my-lib']?.targets?.['build--tsc']?.inputs?.at(-1)).toStrictEqual({ externalDependencies: ['@typescript/native', '@effect/tsgo'] });
+        expect(projects['libs/my-lib']?.targets?.['build--tsc']?.options).toStrictEqual({ commands: ['tsc'], cwd: 'libs/my-lib' });
+    });
+
+    it('should not invoke `tsc --build` when `noEmit` is set in the tsconfig.json file', async ({ tempFs, context }) => {
+        const configFiles = await applyFilesToTempFsAndContext(tempFs, {
+            'libs/my-lib/tsconfig.json': JSON.stringify({ compilerOptions: { noEmit: true }, files: ['index.ts'] }),
+            'libs/my-lib/index.ts': 'export const value = 1;',
+            'libs/my-lib/package.json': '{}',
+        });
+        const direct = await invokeCreateNodesOnMatchingFiles(configFiles, context, {});
+
+        expect(Object.keys({ ...direct.projects['libs/my-lib']?.targets })).toStrictEqual(['check', 'check--tsc']);
+        expect(direct.projects['libs/my-lib']?.targets?.['check--tsc']).toMatchObject({ executor: 'nx:run-commands', options: { commands: ['tsc'], cwd: 'libs/my-lib' }, cache: true, outputs: [] });
+
+        const extendedFiles = await applyFilesToTempFsAndContext(tempFs, {
+            'tsconfig.base.json': JSON.stringify({ compilerOptions: { noEmit: true } }),
+            'libs/my-lib/tsconfig.json': JSON.stringify({ extends: '../../tsconfig.base.json', files: ['index.ts'] }),
+            'libs/my-lib/index.ts': 'export const value = 1;',
+            'libs/my-lib/package.json': '{}',
+        });
+        const extended = await invokeCreateNodesOnMatchingFiles(extendedFiles, context, {});
+
+        expect(Object.keys({ ...extended.projects['libs/my-lib']?.targets })).toStrictEqual(['check', 'check--tsc']);
+        expect(extended.projects['libs/my-lib']?.targets?.['check--tsc']?.inputs).toStrictEqual(['{projectRoot}/package.json', '{projectRoot}/tsconfig.json', '{workspaceRoot}/tsconfig.base.json', '{projectRoot}/index.ts', ...UPSTREAM]);
+    });
+
+    it('should not invoke `tsc --build` when `noEmit` is set in any of the referenced tsconfig.json files', async ({ tempFs, context }) => {
+        const configFiles = await applyFilesToTempFsAndContext(tempFs, {
+            'libs/my-lib/tsconfig.json': JSON.stringify({ files: [], references: [{ path: './tsconfig.lib.json' }] }),
+            'libs/my-lib/tsconfig.lib.json': JSON.stringify({ compilerOptions: { noEmit: true }, files: ['index.ts'] }),
+            'libs/my-lib/index.ts': 'export const value = 1;',
+            'libs/my-lib/package.json': '{}',
+        });
+        const { projects } = await invokeCreateNodesOnMatchingFiles(configFiles, context, {});
+
+        expect(Object.keys({ ...projects['libs/my-lib']?.targets })).toStrictEqual(['check', 'check--tsc']);
+        expect(projects['libs/my-lib']?.targets?.['check--tsc']).toMatchObject({
+            options: { commands: ['tsc -p tsconfig.lib.json'], cwd: 'libs/my-lib' },
+            inputs: ['{projectRoot}/package.json', '{projectRoot}/tsconfig.json', '{projectRoot}/tsconfig.lib.json', '{projectRoot}/index.ts', ...UPSTREAM],
+            outputs: [],
+        });
+    });
+
+    it('should handle ts project references pointing to non-existing files and not throw', async ({ tempFs, context }) => {
+        const configFiles = await applyFilesToTempFsAndContext(tempFs, {
+            'libs/my-lib/tsconfig.json': JSON.stringify({ references: [{ path: '../my-lib-2' }] }),
+            'libs/my-lib/package.json': '{}',
+        });
+
+        await expect(invokeCreateNodesOnMatchingFiles(configFiles, context, {})).resolves.not.toThrow();
+    });
 });
 
-it.layer(
-    workspace({
-        'package.json': manifest,
-        'tsconfig.strict.json': files['tsconfig.strict.json'],
-        'tsconfig.base.json': files['tsconfig.base.json'],
-        'tsconfig.json': files['tsconfig.json'],
-        'docs/notes.md': 'unread\n',
-        'libs/alpha/package.json': '{ "name": "alpha", "version": "0.0.0", "type": "module", "exports": { ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" } } }\n',
-        'libs/alpha/tsconfig.json': emitted('dist'),
-        'libs/alpha/index.ts': 'export const alpha: number = 1;\n',
-    }),
-    { timeout: bounds.built, excludeTestServices: true },
-)((methods) => {
-    const build = 'alpha:build--tsc';
-    const cache = 'nrwl/nx e2e/nx/src/cache-no-daemon.test.ts';
-    const compiled = Effect.flatMap(Consumer, ({ ran }) => ran(['run', build, '--output-style=static']));
-    const replayed = ({ tasks }: Effect.Success<typeof compiled>) => tasks[build] === 'local-cache-hit';
-    const named = JSON.stringify({ plugins: [plugin.name], namedInputs: { default: ['{projectRoot}/**/*'], production: ['default'] } });
-    const upstream = (graph: Pick<ProjectGraph, 'nodes'>) => Object.values(tooled(graph, 'alpha', 'build')).flatMap(({ inputs = [] }) => inputs.filter((input) => typeof input === 'string' && input.startsWith('^')));
+describe('typecheck target inputs', () => {
+    it('should add the config file and the files `include` and `exclude` select', async ({ tempFs, context }) => {
+        const configFiles = await applyFilesToTempFsAndContext(tempFs, {
+            'libs/my-lib/tsconfig.json': JSON.stringify({ include: ['src/**/*.ts'], exclude: ['src/**/foo.ts'], compilerOptions: { outDir: 'dist' } }),
+            'libs/my-lib/src/index.ts': 'export {};',
+            'libs/my-lib/src/foo.ts': 'export {};',
+            'libs/my-lib/package.json': '{}',
+        });
+        const { projects } = await invokeCreateNodesOnMatchingFiles(configFiles, context, {});
 
-    methods.effect(
-        'replays a build from the local cache and restores each file the build wrote',
-        Effect.fnUntraced(function* () {
-            const { outputs, cleaned, absent } = yield* Consumer;
-            const first = yield* compiled;
-            const { expandedOutputs } = yield* outputs(build);
-            yield* cleaned;
-            const second = yield* compiled;
-            assert.strictEqual(first.code, 0, `${first.stdout}${first.stderr}`);
-            assert.isFalse(replayed(first), `${cache} "should cache command execution"`);
-            assert.isNotEmpty(expandedOutputs, `${cache} "should support using globs as outputs"`);
-            assert.isTrue(replayed(second), `${cache} "should cache command execution"`);
-            assert.deepStrictEqual(yield* absent(expandedOutputs), [], `${cache} "should support using globs as outputs"`);
-        }),
-        bounds.test,
-    );
+        expect(projects['libs/my-lib']?.targets?.['build--tsc']?.inputs).toStrictEqual(['{projectRoot}/package.json', '{projectRoot}/tsconfig.json', '{projectRoot}/src/index.ts', ...UPSTREAM]);
+        expect(projects['libs/my-lib']?.targets?.['check--tsc']?.inputs).toStrictEqual(projects['libs/my-lib']?.targets?.['build--tsc']?.inputs);
+    });
 
-    methods.effect(
-        'writes no file outside the outputs a build declares',
-        Effect.fnUntraced(function* () {
-            const { outputs, cleaned, written, wrote } = yield* Consumer;
-            yield* cleaned;
-            yield* wrote({ 'libs/alpha/index.ts': 'export const alpha: number = 2;\n' });
-            const [run, created] = yield* written(compiled);
-            const { expandedOutputs } = yield* outputs(build);
-            assert.strictEqual(run.code, 0, `${run.stdout}${run.stderr}`);
-            assert.isFalse(replayed(run), `${cache} "should use consider filesets when hashing"`);
-            assert.deepStrictEqual([...new Set(created).difference(new Set(expandedOutputs))], [], `${cache} "should support using globs as outputs"`);
-        }),
-        bounds.test,
-    );
+    it('should add the config file and the files `include` and `exclude` select using the configDir template', async ({ tempFs, context }) => {
+        const configFiles = await applyFilesToTempFsAndContext(tempFs, {
+            'libs/my-lib/tsconfig.json': JSON.stringify({ include: [`\${configDir}/src/**/*.ts`], exclude: [`\${configDir}/src/**/foo.ts`], compilerOptions: { outDir: 'dist' } }),
+            'libs/my-lib/src/index.ts': 'export {};',
+            'libs/my-lib/src/foo.ts': 'export {};',
+            'libs/my-lib/package.json': '{}',
+        });
+        const { projects } = await invokeCreateNodesOnMatchingFiles(configFiles, context, {});
 
-    methods.effect(
-        'runs a build again after a change to a file it reads, and replays it after a change to a file it does not read',
-        Effect.fnUntraced(function* () {
-            const { wrote } = yield* Consumer;
-            yield* compiled;
-            yield* wrote({ 'docs/notes.md': 'still unread\n' });
-            const unread = yield* compiled;
-            yield* wrote({ 'libs/alpha/index.ts': 'export const alpha: number = 3;\n' });
-            const changed = yield* compiled;
-            const again = yield* compiled;
-            assert.deepStrictEqual([replayed(unread), replayed(changed), replayed(again)], [true, false, true], `${cache} "should use consider filesets when hashing": a change to a matched file misses the cache, a change to a file the inputs exclude still hits`);
-        }),
-        bounds.test,
-    );
+        expect(projects['libs/my-lib']?.targets?.['build--tsc']?.inputs).toStrictEqual(['{projectRoot}/package.json', '{projectRoot}/tsconfig.json', '{projectRoot}/src/index.ts', ...UPSTREAM]);
+    });
 
-    methods.effect(
-        'reads the default input of dependencies in a workspace without a production input and the production input once nx.json defines one',
-        Effect.fnUntraced(function* () {
-            const { wrote } = yield* Consumer;
-            const before = upstream(yield* read);
-            yield* wrote({ 'nx.json': named });
-            assert.deepStrictEqual([before, upstream(yield* read)], [['^default'], ['^production']], 'nrwl/nx packages/vite/src/plugins/plugin.ts buildInputs: an inferred build reads `^production` where nx.json defines `production` and `^default` otherwise');
-        }),
-        bounds.test,
-    );
+    it.for([
+        [{}, ['src/a.ts', 'src/b.tsx', 'src/c.d.ts', 'src/d.cts', 'src/e.d.cts', 'src/f.mts', 'src/g.d.mts']],
+        [{ allowJs: true }, ['src/a.ts', 'src/b.tsx', 'src/c.d.ts', 'src/d.cts', 'src/e.d.cts', 'src/f.mts', 'src/g.d.mts', 'src/h.js', 'src/i.jsx', 'src/j.cjs', 'src/k.mjs']],
+        [{ resolveJsonModule: true }, ['src/a.ts', 'src/b.tsx', 'src/c.d.ts', 'src/d.cts', 'src/e.d.cts', 'src/f.mts', 'src/g.d.mts']],
+        [{ allowJs: true, resolveJsonModule: true }, ['src/a.ts', 'src/b.tsx', 'src/c.d.ts', 'src/d.cts', 'src/e.d.cts', 'src/f.mts', 'src/g.d.mts', 'src/h.js', 'src/i.jsx', 'src/j.cjs', 'src/k.mjs']],
+    ] as const)('should add the files a directory in `include` selects under compiler options %j', async ([compilerOptions, selected], { tempFs, context }) => {
+        const configFiles = await applyFilesToTempFsAndContext(tempFs, {
+            'libs/my-lib/tsconfig.json': JSON.stringify({ include: ['src'], compilerOptions: { outDir: 'dist', ...compilerOptions } }),
+            ...Object.fromEntries(['a.ts', 'b.tsx', 'c.d.ts', 'd.cts', 'e.d.cts', 'f.mts', 'g.d.mts', 'h.js', 'i.jsx', 'j.cjs', 'k.mjs'].map((file) => [`libs/my-lib/src/${file}`, 'export {};'])),
+            'libs/my-lib/src/l.json': '{}',
+            'libs/my-lib/package.json': '{}',
+        });
+        const { projects } = await invokeCreateNodesOnMatchingFiles(configFiles, context, {});
 
-    methods.effect(
-        'keeps every file the builds of every project wrote through a graph read holding no stored plugin result',
-        Effect.fnUntraced(function* () {
-            const { built: run, shown: listed, created, removed } = yield* kept;
-            assert.strictEqual(run.code, 0, `${run.stdout}${run.stderr}`);
-            assert.isNotEmpty(created, 'README.md TASKS: `build` compiles or packages a project into its declared outputs');
-            assert.strictEqual(listed.code, 0, listed.stderr);
-            assert.deepStrictEqual(removed, [], 'nrwl/nx packages/nx/src/project-graph/plugins/public-api.ts CreateNodesFunction: a plugin reads configuration files and returns project configuration, and graph creation removes no file a task wrote');
-        }),
-        bounds.test,
-    );
+        expect(
+            projects['libs/my-lib']?.targets?.['build--tsc']?.inputs
+                ?.filter((input): input is string => typeof input === 'string')
+                .filter((input) => input.startsWith('{projectRoot}/src/'))
+                .toSorted(),
+        ).toStrictEqual(selected.map((file) => `{projectRoot}/${file}`).toSorted());
+    });
+
+    it('should expand "." in `include` to every file of the project', async ({ tempFs, context }) => {
+        const configFiles = await applyFilesToTempFsAndContext(tempFs, {
+            'libs/my-lib/tsconfig.json': JSON.stringify({ include: ['.'], compilerOptions: { outDir: 'dist' } }),
+            'libs/my-lib/index.ts': 'export {};',
+            'libs/my-lib/nested/deep.ts': 'export {};',
+            'libs/my-lib/package.json': '{}',
+        });
+        const { projects } = await invokeCreateNodesOnMatchingFiles(configFiles, context, {});
+
+        expect(projects['libs/my-lib']?.targets?.['build--tsc']?.inputs).toStrictEqual(['{projectRoot}/package.json', '{projectRoot}/tsconfig.json', '{projectRoot}/index.ts', '{projectRoot}/nested/deep.ts', ...UPSTREAM]);
+    });
+
+    it('should expand ".." in `include` to the files of the parent folder', async ({ tempFs, context }) => {
+        const configFiles = await applyFilesToTempFsAndContext(tempFs, {
+            'libs/my-lib/tsconfig.json': JSON.stringify({ include: ['..'], compilerOptions: { outDir: 'dist' } }),
+            'libs/my-lib/index.ts': 'export {};',
+            'libs/shared/units.ts': 'export {};',
+            'libs/my-lib/package.json': '{}',
+        });
+        const { projects } = await invokeCreateNodesOnMatchingFiles(configFiles, context, {});
+
+        expect(projects['libs/my-lib']?.targets?.['build--tsc']?.inputs).toStrictEqual(['{projectRoot}/package.json', '{projectRoot}/tsconfig.json', '{projectRoot}/index.ts', '{workspaceRoot}/libs/shared/units.ts', ...UPSTREAM]);
+    });
+
+    it('should not expand "." in `include` when the project directory name contains a dot, matching TypeScript', async ({ tempFs, context }) => {
+        const configFiles = await applyFilesToTempFsAndContext(tempFs, {
+            'libs/my.lib/tsconfig.json': JSON.stringify({ include: ['.'], compilerOptions: { outDir: 'dist' } }),
+            'libs/my.lib/index.ts': 'export {};',
+            'libs/my.lib/package.json': '{}',
+        });
+        const { projects } = await invokeCreateNodesOnMatchingFiles(configFiles, context, {});
+
+        expect(projects['libs/my.lib']?.targets?.['check--tsc']).toMatchObject({ options: { commands: ['tsc'] }, inputs: ['{projectRoot}/package.json', '{projectRoot}/tsconfig.json', ...UPSTREAM] });
+    });
+
+    it('should keep files an exclude drops when another tsconfig file of the project includes them', async ({ tempFs, context }) => {
+        const configFiles = await applyFilesToTempFsAndContext(tempFs, {
+            'libs/my-lib/tsconfig.json': JSON.stringify({ include: ['.'], references: [{ path: './tsconfig.lib.json' }] }),
+            'libs/my-lib/tsconfig.lib.json': JSON.stringify({ include: ['src'], exclude: ['src/**/*.spec.ts'], compilerOptions: { noEmit: true } }),
+            'libs/my-lib/src/index.ts': 'export {};',
+            'libs/my-lib/src/index.spec.ts': 'export {};',
+            'libs/my-lib/package.json': '{}',
+        });
+        const { projects } = await invokeCreateNodesOnMatchingFiles(configFiles, context, {});
+
+        expect(projects['libs/my-lib']?.targets?.['check--tsc']?.inputs).toStrictEqual(expect.arrayContaining(['{projectRoot}/tsconfig.json', '{projectRoot}/src/index.ts', '{projectRoot}/src/index.spec.ts']));
+    });
+
+    it('should drop the whole subtree of a directory in `exclude`', async ({ tempFs, context }) => {
+        const configFiles = await applyFilesToTempFsAndContext(tempFs, {
+            'libs/my-lib/tsconfig.json': JSON.stringify({ include: ['.'], exclude: ['tools'], compilerOptions: { outDir: 'dist' } }),
+            'libs/my-lib/src/index.ts': 'export {};',
+            'libs/my-lib/tools/nested/script.ts': 'export {};',
+            'libs/my-lib/package.json': '{}',
+        });
+        const { projects } = await invokeCreateNodesOnMatchingFiles(configFiles, context, {});
+
+        expect(projects['libs/my-lib']?.targets?.['build--tsc']?.inputs).toStrictEqual(['{projectRoot}/package.json', '{projectRoot}/tsconfig.json', '{projectRoot}/src/index.ts', ...UPSTREAM]);
+    });
+
+    it('should add extended config files', async ({ tempFs, context }) => {
+        const configFiles = await applyFilesToTempFsAndContext(tempFs, {
+            'tsconfig.base.json': JSON.stringify({ exclude: ['node_modules', 'tmp'] }),
+            'tsconfig.foo.json': JSON.stringify({ extends: './tsconfig.base.json' }),
+            'libs/my-lib/tsconfig.json': JSON.stringify({ extends: '../../tsconfig.foo.json', include: ['src/**/*.ts'], compilerOptions: { outDir: 'dist' } }),
+            'libs/my-lib/src/index.ts': 'export {};',
+            'libs/my-lib/package.json': '{}',
+        });
+        const { projects } = await invokeCreateNodesOnMatchingFiles(configFiles, context, {});
+
+        expect(projects['libs/my-lib']?.targets?.['build--tsc']?.inputs).toStrictEqual(['{projectRoot}/package.json', '{projectRoot}/tsconfig.json', '{workspaceRoot}/tsconfig.base.json', '{workspaceRoot}/tsconfig.foo.json', '{projectRoot}/src/index.ts', ...UPSTREAM]);
+    });
+
+    it('should add extended config files when there are multiple extended config files', async ({ tempFs, context }) => {
+        const configFiles = await applyFilesToTempFsAndContext(tempFs, {
+            'tsconfig.base.json': JSON.stringify({ exclude: ['node_modules', 'tmp'] }),
+            'tsconfig.foo.json': '{}',
+            'tsconfig.bar.json': JSON.stringify({ extends: './tsconfig.foo.json', exclude: ['node_modules', 'dist'] }),
+            'libs/my-lib/tsconfig.json': JSON.stringify({ extends: ['../../tsconfig.base.json', '../../tsconfig.bar.json'], include: ['src/**/*.ts'], compilerOptions: { outDir: 'dist' } }),
+            'libs/my-lib/src/index.ts': 'export {};',
+            'libs/my-lib/package.json': '{}',
+        });
+        const { projects } = await invokeCreateNodesOnMatchingFiles(configFiles, context, {});
+
+        expect(projects['libs/my-lib']?.targets?.['build--tsc']?.inputs).toStrictEqual(expect.arrayContaining(['{projectRoot}/tsconfig.json', '{workspaceRoot}/tsconfig.base.json', '{workspaceRoot}/tsconfig.bar.json', '{workspaceRoot}/tsconfig.foo.json']));
+    });
+
+    it('should add extended config files supporting node.js style resolution and local workspace packages', async ({ tempFs, context }) => {
+        const configFiles = await applyFilesToTempFsAndContext(tempFs, {
+            'tsconfig.base.json': JSON.stringify({ extends: '@tsconfig/strictest/tsconfig.json', exclude: ['node_modules', 'tmp'] }),
+            'tsconfig.foo.json': JSON.stringify({ extends: './tsconfig.base' }),
+            'libs/my-lib/tsconfig.json': JSON.stringify({ extends: ['../../tsconfig.foo.json', '@my-org/my-package/tsconfig.base.json'], include: ['src/**/*.ts'], compilerOptions: { outDir: 'dist' } }),
+            'libs/my-lib/src/index.ts': 'export {};',
+            'libs/my-lib/package.json': '{}',
+            'libs/my-package/package.json': '{}',
+            'libs/my-package/tsconfig.base.json': '{}',
+            'node_modules/@tsconfig/strictest/tsconfig.json': '{}',
+        });
+        tempFs.createSymlinkSync('libs/my-package', 'node_modules/@my-org/my-package', 'dir');
+        const { projects } = await invokeCreateNodesOnMatchingFiles(configFiles, context, {});
+
+        expect(projects['libs/my-lib']?.targets?.['build--tsc']?.inputs).toStrictEqual(expect.arrayContaining(['{workspaceRoot}/tsconfig.foo.json', '{workspaceRoot}/tsconfig.base.json', '{workspaceRoot}/libs/my-package/tsconfig.base.json', '{projectRoot}/tsconfig.json']));
+        expect(projects['libs/my-lib']?.targets?.['build--tsc']?.inputs?.filter((input): input is string => typeof input === 'string').filter((input) => input.includes('node_modules'))).toStrictEqual([]);
+    });
+
+    it('should add files from internal project references and only the tsconfig files of external ones', async ({ tempFs, context }) => {
+        const configFiles = await applyFilesToTempFsAndContext(tempFs, {
+            'libs/my-lib/tsconfig.json': JSON.stringify({
+                include: ['src/**/*.ts'],
+                exclude: ['src/**/*.spec.ts'],
+                references: [{ path: './tsconfig.lib.json' }, { path: './tsconfig.spec.json' }, { path: './cypress/tsconfig.json' }, { path: './nested-project/tsconfig.json' }, { path: '../other-lib' }],
+                compilerOptions: { outDir: 'dist' },
+            }),
+            'libs/my-lib/tsconfig.lib.json': JSON.stringify({ include: ['src/**/*.ts'], exclude: ['src/**/*.spec.ts'], compilerOptions: { outDir: 'dist' } }),
+            'libs/my-lib/tsconfig.spec.json': JSON.stringify({ include: ['src/**/*.spec.ts'], references: [{ path: './tsconfig.lib.json' }], compilerOptions: { outDir: 'dist' } }),
+            'libs/my-lib/cypress/tsconfig.json': JSON.stringify({ include: ['**/*.ts', '../cypress.config.ts', '../**/*.cy.ts'], references: [{ path: '../tsconfig.lib.json' }], compilerOptions: { outDir: 'dist' } }),
+            'libs/my-lib/src/index.ts': 'export {};',
+            'libs/my-lib/src/index.spec.ts': 'export {};',
+            'libs/my-lib/package.json': '{}',
+            'libs/my-lib/nested-project/package.json': '{}',
+            'libs/my-lib/nested-project/tsconfig.json': JSON.stringify({ include: ['lib/**/*.ts'], compilerOptions: { outDir: 'dist' } }),
+            'libs/my-lib/nested-project/lib/index.ts': 'export {};',
+            'libs/other-lib/tsconfig.json': JSON.stringify({ include: ['**/*.ts'] }),
+            'libs/other-lib/index.ts': 'export {};',
+        });
+        const { projects } = await invokeCreateNodesOnMatchingFiles(configFiles, context, {});
+        const inputs = projects['libs/my-lib']?.targets?.['build--tsc']?.inputs;
+
+        expect(inputs).toStrictEqual(expect.arrayContaining(['{projectRoot}/package.json', '{projectRoot}/tsconfig.json', '{projectRoot}/tsconfig.lib.json', '{projectRoot}/tsconfig.spec.json', '{projectRoot}/src/index.ts', '{projectRoot}/src/index.spec.ts']));
+        expect(inputs?.filter((input): input is string => typeof input === 'string').filter((input) => /nested-project|other-lib/u.test(input))).toStrictEqual(['{projectRoot}/nested-project/tsconfig.json', '{workspaceRoot}/libs/other-lib/tsconfig.json']);
+    });
+
+    it('should add the distinct tsconfig files of file-specific external project references', async ({ tempFs, context }) => {
+        const configFiles = await applyFilesToTempFsAndContext(tempFs, {
+            'libs/my-lib/tsconfig.json': JSON.stringify({ include: ['src/**/*.ts'], references: [{ path: './tsconfig.lib.json' }, { path: './tsconfig.spec.json' }], compilerOptions: { outDir: 'dist' } }),
+            'libs/my-lib/tsconfig.lib.json': JSON.stringify({ include: ['src/**/*.ts'], exclude: ['src/**/*.spec.ts'], references: [{ path: '../other-lib/tsconfig.lib.json' }], compilerOptions: { outDir: 'dist' } }),
+            'libs/my-lib/tsconfig.spec.json': JSON.stringify({ include: ['src/**/*.spec.ts'], references: [{ path: './tsconfig.lib.json' }, { path: '../other-lib/tsconfig.spec.json' }], compilerOptions: { outDir: 'dist' } }),
+            'libs/my-lib/src/index.ts': 'export {};',
+            'libs/my-lib/package.json': '{}',
+            'libs/other-lib/tsconfig.json': JSON.stringify({ references: [{ path: './tsconfig.lib.json' }, { path: './tsconfig.spec.json' }] }),
+            'libs/other-lib/tsconfig.lib.json': JSON.stringify({ include: ['src/**/*.ts'], compilerOptions: { outDir: 'dist' } }),
+            'libs/other-lib/tsconfig.spec.json': JSON.stringify({ include: ['src/**/*.spec.ts'], compilerOptions: { outDir: 'dist' } }),
+            'libs/other-lib/src/index.ts': 'export {};',
+        });
+        const { projects } = await invokeCreateNodesOnMatchingFiles(configFiles, context, {});
+
+        expect(projects['libs/my-lib']?.targets?.['build--tsc']?.inputs).toStrictEqual(expect.arrayContaining(['{workspaceRoot}/libs/other-lib/tsconfig.lib.json', '{workspaceRoot}/libs/other-lib/tsconfig.spec.json']));
+    });
+
+    it('should use the nested paths of the tsconfig files an external project reference reaches', async ({ tempFs, context }) => {
+        const configFiles = await applyFilesToTempFsAndContext(tempFs, {
+            'libs/my-lib/tsconfig.json': JSON.stringify({ include: ['src/**/*.ts'], references: [{ path: './tsconfig.lib.json' }, { path: '../other-lib' }], compilerOptions: { outDir: 'dist' } }),
+            'libs/my-lib/tsconfig.lib.json': JSON.stringify({ include: ['src/**/*.ts'], compilerOptions: { outDir: 'dist' } }),
+            'libs/my-lib/src/index.ts': 'export {};',
+            'libs/my-lib/package.json': '{}',
+            'libs/other-lib/tsconfig.json': JSON.stringify({ references: [{ path: './tsconfig.lib.json' }, { path: './cypress/tsconfig.json' }] }),
+            'libs/other-lib/tsconfig.lib.json': JSON.stringify({ include: ['src/**/*.ts'], compilerOptions: { outDir: 'dist' } }),
+            'libs/other-lib/cypress/tsconfig.json': JSON.stringify({ include: ['**/*.cy.ts'], compilerOptions: { outDir: 'dist' } }),
+            'libs/other-lib/src/index.ts': 'export {};',
+            'libs/other-lib/package.json': '{}',
+        });
+        const { projects } = await invokeCreateNodesOnMatchingFiles(configFiles, context, {});
+
+        expect(projects['libs/my-lib']?.targets?.['build--tsc']?.inputs).toStrictEqual(expect.arrayContaining(['{workspaceRoot}/libs/other-lib/cypress/tsconfig.json', '{workspaceRoot}/libs/other-lib/tsconfig.lib.json', '{workspaceRoot}/libs/other-lib/tsconfig.json']));
+    });
+
+    it('should add the tsconfig files of `extends` chains in external project references', async ({ tempFs, context }) => {
+        const configFiles = await applyFilesToTempFsAndContext(tempFs, {
+            'libs/my-lib/tsconfig.json': JSON.stringify({ include: ['src/**/*.ts'], references: [{ path: './tsconfig.lib.json' }, { path: '../other-lib/tsconfig.lib.json' }], compilerOptions: { outDir: 'dist' } }),
+            'libs/my-lib/tsconfig.lib.json': JSON.stringify({ include: ['src/**/*.ts'], compilerOptions: { outDir: 'dist' } }),
+            'libs/my-lib/src/index.ts': 'export {};',
+            'libs/my-lib/package.json': '{}',
+            'libs/other-lib/tsconfig.json': JSON.stringify({ references: [{ path: './tsconfig.lib.json' }] }),
+            'libs/other-lib/tsconfig.lib.json': JSON.stringify({ extends: './tsconfig.shared.json', include: ['src/**/*.ts'], compilerOptions: { outDir: 'dist' } }),
+            'libs/other-lib/tsconfig.shared.json': JSON.stringify({ compilerOptions: { strict: true } }),
+            'libs/other-lib/src/index.ts': 'export {};',
+            'libs/other-lib/package.json': '{}',
+        });
+        const { projects } = await invokeCreateNodesOnMatchingFiles(configFiles, context, {});
+
+        expect(projects['libs/my-lib']?.targets?.['build--tsc']?.inputs).toStrictEqual(expect.arrayContaining(['{workspaceRoot}/libs/other-lib/tsconfig.lib.json', '{workspaceRoot}/libs/other-lib/tsconfig.shared.json']));
+    });
+
+    it('should preserve shared external reference subtrees with cycles and missing configs', async ({ tempFs, context }) => {
+        const configFiles = await applyFilesToTempFsAndContext(tempFs, {
+            'tsconfig.base.json': JSON.stringify({ compilerOptions: { strict: true } }),
+            'apps/app-one/tsconfig.json': JSON.stringify({ files: ['main.ts'], references: [{ path: '../../libs/shared' }], compilerOptions: { outDir: 'dist' } }),
+            'apps/app-one/main.ts': 'export {};',
+            'apps/app-one/package.json': '{}',
+            'apps/app-two/tsconfig.json': JSON.stringify({ files: ['main.ts'], references: [{ path: '../../libs/shared' }], compilerOptions: { outDir: 'dist' } }),
+            'apps/app-two/main.ts': 'export {};',
+            'apps/app-two/package.json': '{}',
+            'libs/shared/tsconfig.json': JSON.stringify({ extends: '../../tsconfig.base.json', files: [], references: [{ path: './tsconfig.lib.json' }, { path: './nested/tsconfig.json' }, { path: './missing/tsconfig.json' }] }),
+            'libs/shared/tsconfig.lib.json': JSON.stringify({ files: ['index.ts'], compilerOptions: { outDir: 'dist' } }),
+            'libs/shared/index.ts': 'export {};',
+            'libs/shared/nested/tsconfig.json': JSON.stringify({ files: ['index.ts'], references: [{ path: '../tsconfig.json' }], compilerOptions: { outDir: 'dist' } }),
+            'libs/shared/nested/index.ts': 'export {};',
+            'libs/shared/package.json': '{}',
+        });
+        const { projects } = await invokeCreateNodesOnMatchingFiles(configFiles, context, {});
+        const expectedPatterns = ['{workspaceRoot}/libs/shared/tsconfig.json', '{workspaceRoot}/libs/shared/tsconfig.lib.json', '{workspaceRoot}/libs/shared/nested/tsconfig.json'];
+
+        expect(projects['apps/app-one']?.targets?.['build--tsc']?.inputs).toStrictEqual(expect.arrayContaining(expectedPatterns));
+        expect(projects['apps/app-two']?.targets?.['build--tsc']?.inputs).toStrictEqual(expect.arrayContaining(expectedPatterns));
+    });
+
+    it('should not reuse reference expansions across invocations', async ({ tempFs, context }) => {
+        const configFiles = await applyFilesToTempFsAndContext(tempFs, {
+            'apps/my-app/tsconfig.json': JSON.stringify({ files: ['main.ts'], references: [{ path: '../../libs/shared' }], compilerOptions: { outDir: 'dist' } }),
+            'apps/my-app/main.ts': 'export {};',
+            'apps/my-app/package.json': '{}',
+            'libs/shared/tsconfig.json': JSON.stringify({ files: [], references: [{ path: './tsconfig.one.json' }] }),
+            'libs/shared/tsconfig.one.json': JSON.stringify({ files: ['index.ts'], compilerOptions: { outDir: 'dist' } }),
+            'libs/shared/tsconfig.two.json': JSON.stringify({ files: ['index.ts'], compilerOptions: { outDir: 'dist' } }),
+            'libs/shared/index.ts': 'export {};',
+            'libs/shared/package.json': '{}',
+        });
+        const firstResult = await invokeCreateNodesOnMatchingFiles(configFiles, context, {});
+
+        expect(firstResult.projects['apps/my-app']?.targets?.['build--tsc']?.inputs).toContain('{workspaceRoot}/libs/shared/tsconfig.one.json');
+
+        await tempFs.createFiles({ 'libs/shared/tsconfig.json': JSON.stringify({ files: [], references: [{ path: './tsconfig.two.json' }] }) });
+        setupWorkspaceContext(tempFs.tempDir);
+        const secondResult = await invokeCreateNodesOnMatchingFiles(configFiles, context, {});
+
+        expect(secondResult.projects['apps/my-app']?.targets?.['build--tsc']?.inputs).toContain('{workspaceRoot}/libs/shared/tsconfig.two.json');
+        expect(secondResult.projects['apps/my-app']?.targets?.['build--tsc']?.inputs).not.toContain('{workspaceRoot}/libs/shared/tsconfig.one.json');
+    });
+
+    it('should only add the tsconfig files of the build reference chain', async ({ tempFs, context }) => {
+        const configFiles = await applyFilesToTempFsAndContext(tempFs, {
+            'libs/my-lib/tsconfig.json': JSON.stringify({ include: ['src/**/*.ts'], references: [{ path: '../other-lib/tsconfig.lib.json' }], compilerOptions: { outDir: 'dist' } }),
+            'libs/my-lib/src/index.ts': 'export {};',
+            'libs/my-lib/package.json': '{}',
+            'libs/other-lib/tsconfig.json': JSON.stringify({ references: [{ path: './tsconfig.lib.json' }, { path: './tsconfig.spec.json' }] }),
+            'libs/other-lib/tsconfig.lib.json': JSON.stringify({ include: ['src/**/*.ts'], compilerOptions: { outDir: 'dist' } }),
+            'libs/other-lib/tsconfig.spec.json': JSON.stringify({ include: ['src/**/*.spec.ts'], compilerOptions: { outDir: 'dist' } }),
+            'libs/other-lib/src/index.ts': 'export {};',
+        });
+        const { projects } = await invokeCreateNodesOnMatchingFiles(configFiles, context, {});
+
+        expect(projects['libs/my-lib']?.targets?.['build--tsc']?.inputs).toContain('{workspaceRoot}/libs/other-lib/tsconfig.lib.json');
+        expect(projects['libs/my-lib']?.targets?.['build--tsc']?.inputs).not.toContain('{workspaceRoot}/libs/other-lib/tsconfig.spec.json');
+    });
+
+    it('should add the files of the internal project references a solution tsconfig.json holds', async ({ tempFs, context }) => {
+        const configFiles = await applyFilesToTempFsAndContext(tempFs, {
+            'libs/my-lib/tsconfig.json': JSON.stringify({ files: [], include: [], references: [{ path: './tsconfig.lib.json' }, { path: './tsconfig.spec.json' }], compilerOptions: { outDir: 'dist' } }),
+            'libs/my-lib/tsconfig.lib.json': JSON.stringify({ include: ['src/**/*.ts'], exclude: ['tests'], compilerOptions: { outDir: 'dist' } }),
+            'libs/my-lib/tsconfig.spec.json': JSON.stringify({ include: ['tests'], references: [{ path: './tsconfig.lib.json' }], compilerOptions: { outDir: 'dist', allowJs: true } }),
+            'libs/my-lib/src/index.ts': 'export {};',
+            'libs/my-lib/tests/index.test.js': 'export {};',
+            'libs/my-lib/package.json': '{}',
+        });
+        const { projects } = await invokeCreateNodesOnMatchingFiles(configFiles, context, {});
+
+        expect(projects['libs/my-lib']?.targets?.['build--tsc']?.options).toStrictEqual({ commands: ['tsc -p tsconfig.lib.json', 'tsc --build tsconfig.spec.json'], cwd: 'libs/my-lib' });
+        expect(projects['libs/my-lib']?.targets?.['build--tsc']?.inputs).toStrictEqual(expect.arrayContaining(['{projectRoot}/tsconfig.json', '{projectRoot}/tsconfig.lib.json', '{projectRoot}/tsconfig.spec.json', '{projectRoot}/src/index.ts', '{projectRoot}/tests/index.test.js']));
+    });
+
+    it.for([
+        [{ include: ['src/**/*.ts'], exclude: ['src/**/*.spec.ts'] }, { include: ['src/**/*.spec.ts'] }, ['src/index.ts', 'src/index.spec.ts', 'src/foo.ts']],
+        [{ include: ['**/*.ts'], exclude: ['**/*.spec.ts'] }, { include: ['src/**/*.spec.ts'] }, ['src/index.ts', 'src/index.spec.ts', 'src/foo.ts']],
+        [{ include: ['src/**/*.ts'], exclude: ['src/**/*.spec.ts'] }, { include: ['**/*.spec.ts'] }, ['src/index.ts', 'src/index.spec.ts', 'src/foo.ts']],
+        [{ include: ['src/**/*.ts'], exclude: ['src/**/*.spec.ts'] }, { include: ['./**/*.spec.ts'] }, ['src/index.ts', 'src/index.spec.ts', 'src/foo.ts']],
+        [{ include: ['src/**/*.ts'], exclude: ['src/**/*.spec.ts', 'src/**/foo.ts'] }, { include: ['**/*.spec.ts'] }, ['src/index.ts', 'src/index.spec.ts']],
+    ] as const)('should only drop the files an exclude removes that no other tsconfig file includes: lib %j, spec %j', async ([lib, spec, selected], { tempFs, context }) => {
+        const configFiles = await applyFilesToTempFsAndContext(tempFs, {
+            'libs/my-lib/tsconfig.json': JSON.stringify({ files: [], references: [{ path: './tsconfig.lib.json' }, { path: './tsconfig.spec.json' }] }),
+            'libs/my-lib/tsconfig.lib.json': JSON.stringify({ ...lib, compilerOptions: { noEmit: true } }),
+            'libs/my-lib/tsconfig.spec.json': JSON.stringify({ ...spec, references: [{ path: './tsconfig.lib.json' }], compilerOptions: { noEmit: true } }),
+            'libs/my-lib/src/index.ts': 'export {};',
+            'libs/my-lib/src/index.spec.ts': 'export {};',
+            'libs/my-lib/src/foo.ts': 'export {};',
+            'libs/my-lib/package.json': '{}',
+        });
+        const { projects } = await invokeCreateNodesOnMatchingFiles(configFiles, context, {});
+
+        expect(
+            projects['libs/my-lib']?.targets?.['check--tsc']?.inputs
+                ?.filter((input): input is string => typeof input === 'string')
+                .filter((input) => input.startsWith('{projectRoot}/src/'))
+                .toSorted(),
+        ).toStrictEqual(selected.map((file) => `{projectRoot}/${file}`).toSorted());
+    });
+
+    it('should add the files of a `files` list when not using include', async ({ tempFs, context }) => {
+        const configFiles = await applyFilesToTempFsAndContext(tempFs, {
+            'libs/my-lib/tsconfig.json': JSON.stringify({ files: ['main.ts'] }),
+            'libs/my-lib/main.ts': 'export {};',
+            'libs/my-lib/other.ts': 'export {};',
+            'libs/my-lib/package.json': '{}',
+        });
+        const { projects } = await invokeCreateNodesOnMatchingFiles(configFiles, context, {});
+
+        expect(projects['libs/my-lib']?.targets?.['build--tsc']?.inputs).toStrictEqual(['{projectRoot}/package.json', '{projectRoot}/tsconfig.json', '{projectRoot}/main.ts', ...UPSTREAM]);
+    });
+});
+
+describe('typecheck target outputs', () => {
+    it('should add the `outDir`', async ({ tempFs, context }) => {
+        const configFiles = await applyFilesToTempFsAndContext(tempFs, {
+            'libs/my-lib/tsconfig.json': JSON.stringify({ compilerOptions: { outDir: '../../dist/libs/my-lib' }, files: ['main.ts'] }),
+            'libs/my-lib/main.ts': 'export {};',
+            'libs/my-lib/package.json': '{}',
+        });
+        const { projects } = await invokeCreateNodesOnMatchingFiles(configFiles, context, {});
+
+        expect(projects['libs/my-lib']?.targets?.['build--tsc']?.outputs).toStrictEqual([`{workspaceRoot}/dist/libs/my-lib/${EMITTED}`]);
+    });
+
+    it('should include tsbuildinfo file when outDir and rootDir at both set', async ({ tempFs, context }) => {
+        const configFiles = await applyFilesToTempFsAndContext(tempFs, {
+            'libs/my-lib/tsconfig.json': JSON.stringify({ files: [], references: [{ path: './tsconfig.lib.json' }] }),
+            'libs/my-lib/tsconfig.lib.json': JSON.stringify({ compilerOptions: { outDir: 'out-tsc/my-lib', rootDir: 'src', composite: true }, files: ['src/main.ts'] }),
+            'libs/my-lib/src/main.ts': 'export {};',
+            'libs/my-lib/package.json': '{}',
+        });
+        const { projects } = await invokeCreateNodesOnMatchingFiles(configFiles, context, {});
+
+        expect(projects['libs/my-lib']?.targets?.['build--tsc']).toMatchObject({
+            options: { commands: ['tsc -p tsconfig.lib.json'] },
+            outputs: [`{projectRoot}/out-tsc/my-lib/${EMITTED}`, '{projectRoot}/out-tsc/tsconfig.lib.tsbuildinfo'],
+        });
+    });
+
+    it('should resolve the tsbuildinfo file relative to rootDir, even outside outDir', async ({ tempFs, context }) => {
+        const configFiles = await applyFilesToTempFsAndContext(tempFs, {
+            'libs/my-lib/tsconfig.json': JSON.stringify({ files: [], references: [{ path: './tsconfig.lib.json' }] }),
+            'libs/my-lib/tsconfig.lib.json': JSON.stringify({ compilerOptions: { outDir: 'dist', rootDir: 'src', composite: true }, files: ['src/main.ts'] }),
+            'libs/my-lib/src/main.ts': 'export {};',
+            'libs/my-lib/package.json': '{}',
+        });
+        const { projects } = await invokeCreateNodesOnMatchingFiles(configFiles, context, {});
+
+        expect(projects['libs/my-lib']?.targets?.['build--tsc']?.outputs).toStrictEqual([`{projectRoot}/dist/${EMITTED}`, '{projectRoot}/tsconfig.lib.tsbuildinfo']);
+    });
+
+    it('should infer the same tsbuildinfo file from the persisted plugin cache when rootDir is the workspace root', async ({ tempFs, context }) => {
+        const configFiles = await applyFilesToTempFsAndContext(tempFs, {
+            'tsconfig.base.json': JSON.stringify({ compilerOptions: { rootDir: '.' } }),
+            'libs/my-lib/tsconfig.json': JSON.stringify({ extends: '../../tsconfig.base.json', files: [], references: [{ path: './tsconfig.lib.json' }] }),
+            'libs/my-lib/tsconfig.lib.json': JSON.stringify({ extends: './tsconfig.json', compilerOptions: { outDir: 'out-tsc/lib', composite: true }, include: ['src/**/*.ts'] }),
+            'libs/my-lib/src/index.ts': 'export {};',
+            'libs/my-lib/package.json': '{}',
+        });
+        const fromParsedTsconfigs = await invokeCreateNodesOnMatchingFiles(configFiles, context, {});
+
+        expect(readdirSync(workspaceDataDirectory)).toContainEqual(expect.stringMatching(/^typescript-/u));
+
+        const fromPluginCache = await invokeCreateNodesOnMatchingFiles(configFiles, context, {});
+        const outputs = fromParsedTsconfigs.projects['libs/my-lib']?.targets?.['build--tsc']?.outputs;
+
+        expect(outputs).toContain('{projectRoot}/out-tsc/lib/libs/my-lib/tsconfig.lib.tsbuildinfo');
+        expect(fromPluginCache.projects['libs/my-lib']?.targets?.['build--tsc']?.outputs).toStrictEqual(outputs);
+    });
+
+    it('should add the inline output files when `outDir` is not defined', async ({ tempFs, context }) => {
+        const configFiles = await applyFilesToTempFsAndContext(tempFs, {
+            'libs/my-lib/tsconfig.json': JSON.stringify({ files: ['main.ts'] }),
+            'libs/my-lib/main.ts': 'export {};',
+            'libs/my-lib/package.json': '{}',
+        });
+        const { projects } = await invokeCreateNodesOnMatchingFiles(configFiles, context, {});
+
+        expect(projects['libs/my-lib']?.targets?.['build--tsc']?.outputs).toStrictEqual([`{projectRoot}/${EMITTED}`]);
+    });
+
+    it('should collect outputs from all internal project references', async ({ tempFs, context }) => {
+        const configFiles = await applyFilesToTempFsAndContext(tempFs, {
+            'libs/my-lib/tsconfig.json': JSON.stringify({
+                files: [],
+                references: [{ path: './tsconfig.lib.json' }, { path: './tsconfig.spec.json' }, { path: './cypress/tsconfig.json' }, { path: './nested-project/tsconfig.json' }, { path: '../other-lib' }],
+            }),
+            'libs/my-lib/tsconfig.lib.json': JSON.stringify({ compilerOptions: { outDir: '../../dist/libs/my-lib/lib' }, files: ['main.ts'] }),
+            'libs/my-lib/tsconfig.spec.json': JSON.stringify({ compilerOptions: { outDir: '../../dist/out-tsc/libs/my-lib/specs' }, include: ['src/**/*.spec.ts'], references: [{ path: './tsconfig.lib.json' }] }),
+            'libs/my-lib/cypress/tsconfig.json': JSON.stringify({ compilerOptions: { outDir: '../../../dist/out-tsc/libs/my-lib/cypress' }, references: [{ path: '../tsconfig.lib.json' }] }),
+            'libs/my-lib/main.ts': 'export {};',
+            'libs/my-lib/src/index.spec.ts': 'export {};',
+            'libs/my-lib/cypress/e2e.ts': 'export {};',
+            'libs/my-lib/package.json': '{}',
+            'libs/my-lib/nested-project/package.json': '{}',
+            'libs/my-lib/nested-project/tsconfig.json': JSON.stringify({ compilerOptions: { outDir: '../../../dist/out-tsc/libs/my-lib/nested-project' } }),
+            'libs/my-lib/nested-project/index.ts': 'export {};',
+            'libs/other-lib/tsconfig.json': JSON.stringify({ compilerOptions: { outDir: '../../dist/out-tsc/libs/other-lib' } }),
+            'libs/other-lib/index.ts': 'export {};',
+        });
+        const { projects } = await invokeCreateNodesOnMatchingFiles(configFiles, context, {});
+
+        expect(projects['libs/my-lib']?.targets?.['build--tsc']?.outputs).toStrictEqual([
+            `{workspaceRoot}/dist/libs/my-lib/lib/${EMITTED}`,
+            '{workspaceRoot}/dist/libs/my-lib/lib/tsconfig.lib.tsbuildinfo',
+            `{workspaceRoot}/dist/out-tsc/libs/my-lib/specs/${EMITTED}`,
+            '{workspaceRoot}/dist/out-tsc/libs/my-lib/specs/tsconfig.spec.tsbuildinfo',
+        ]);
+    });
+
+    it('should respect the "tsBuildInfoFile" option', async ({ tempFs, context }) => {
+        const configFiles = await applyFilesToTempFsAndContext(tempFs, {
+            'libs/my-lib/tsconfig.json': JSON.stringify({ compilerOptions: { incremental: true, tsBuildInfoFile: '../../dist/libs/my-lib/my-lib.tsbuildinfo' }, files: ['main.ts'] }),
+            'libs/my-lib/main.ts': 'export {};',
+            'libs/my-lib/package.json': '{}',
+        });
+        const { projects } = await invokeCreateNodesOnMatchingFiles(configFiles, context, {});
+
+        expect(projects['libs/my-lib']?.targets?.['build--tsc']?.outputs).toStrictEqual([`{projectRoot}/${EMITTED}`, '{workspaceRoot}/dist/libs/my-lib/my-lib.tsbuildinfo']);
+    });
+
+    it('should set the "tsBuildInfoFile" option when outside of the "outDir"', async ({ tempFs, context }) => {
+        const configFiles = await applyFilesToTempFsAndContext(tempFs, {
+            'libs/my-lib/tsconfig.json': JSON.stringify({ compilerOptions: { outDir: 'dist', incremental: true, tsBuildInfoFile: 'my-lib.tsbuildinfo' }, files: ['main.ts'] }),
+            'libs/my-lib/main.ts': 'export {};',
+            'libs/my-lib/package.json': '{}',
+        });
+        const { projects } = await invokeCreateNodesOnMatchingFiles(configFiles, context, {});
+
+        expect(projects['libs/my-lib']?.targets?.['build--tsc']?.outputs).toStrictEqual([`{projectRoot}/dist/${EMITTED}`, '{projectRoot}/my-lib.tsbuildinfo']);
+    });
+
+    it('should not set the "tsBuildInfoFile" option when contained in the "outDir"', async ({ tempFs, context }) => {
+        const configFiles = await applyFilesToTempFsAndContext(tempFs, {
+            'libs/my-lib/tsconfig.json': JSON.stringify({ compilerOptions: { outDir: 'dist', incremental: true, tsBuildInfoFile: 'dist/my-lib.tsbuildinfo' }, files: ['main.ts'] }),
+            'libs/my-lib/main.ts': 'export {};',
+            'libs/my-lib/package.json': '{}',
+        });
+        const { projects } = await invokeCreateNodesOnMatchingFiles(configFiles, context, {});
+
+        expect(projects['libs/my-lib']?.targets?.['build--tsc']?.outputs).toStrictEqual([`{projectRoot}/dist/${EMITTED}`, '{projectRoot}/dist/my-lib.tsbuildinfo']);
+    });
+
+    it('should support the configDir template', async ({ tempFs, context }) => {
+        const configFiles = await applyFilesToTempFsAndContext(tempFs, {
+            'libs/my-lib/tsconfig.json': JSON.stringify({ compilerOptions: { outDir: `\${configDir}/dist` }, files: ['main.ts'] }),
+            'libs/my-lib/main.ts': 'export {};',
+            'libs/my-lib/package.json': '{}',
+        });
+        const { projects } = await invokeCreateNodesOnMatchingFiles(configFiles, context, {});
+
+        expect(projects['libs/my-lib']?.targets?.['build--tsc']?.outputs).toStrictEqual([`{projectRoot}/dist/${EMITTED}`]);
+    });
+});
+
+describe('typecheck target outside TS solution setups', () => {
+    it('should check the app and spec tsconfig files a solution tsconfig.json references without emitting', async ({ tempFs, context }) => {
+        const configFiles = await applyFilesToTempFsAndContext(tempFs, {
+            'apps/my-app/tsconfig.json': JSON.stringify({ files: [], references: [{ path: './tsconfig.app.json' }, { path: './tsconfig.spec.json' }] }),
+            'apps/my-app/tsconfig.app.json': JSON.stringify({ include: ['src/**/*.ts'], exclude: ['src/**/*.spec.ts'], compilerOptions: { noEmit: true } }),
+            'apps/my-app/tsconfig.spec.json': JSON.stringify({ include: ['src/**/*.spec.ts'], compilerOptions: { noEmit: true } }),
+            'apps/my-app/src/main.ts': 'export {};',
+            'apps/my-app/src/main.spec.ts': 'export {};',
+            'apps/my-app/package.json': '{}',
+        });
+        const { projects } = await invokeCreateNodesOnMatchingFiles(configFiles, context, {});
+
+        expect(projects['apps/my-app']?.targets?.['check--tsc']).toMatchObject({ options: { commands: ['tsc -p tsconfig.app.json', 'tsc -p tsconfig.spec.json'], cwd: 'apps/my-app' }, outputs: [] });
+        expect(projects['apps/my-app']?.targets?.['check--tsc']?.syncGenerators).toBeUndefined();
+    });
+
+    it('should not fail when an extended tsconfig is missing', async ({ tempFs, context }) => {
+        const configFiles = await applyFilesToTempFsAndContext(tempFs, {
+            'tsconfig.base.json': JSON.stringify({ compilerOptions: {} }),
+            'libs/my-lib/tsconfig.json': JSON.stringify({ extends: '../../tsconfig.base.json', include: ['src/**/*.ts'], compilerOptions: { noEmit: true } }),
+            'libs/my-lib/src/index.ts': 'export {};',
+            'libs/my-lib/package.json': '{}',
+        });
+        await invokeCreateNodesOnMatchingFiles(configFiles, context, {});
+        tempFs.removeFileSync('tsconfig.base.json');
+        setupWorkspaceContext(tempFs.tempDir);
+        const { projects } = await invokeCreateNodesOnMatchingFiles(configFiles, context, {});
+
+        expect(projects['libs/my-lib']?.targets?.['check--tsc']?.options).toStrictEqual({ commands: ['tsc'], cwd: 'libs/my-lib' });
+    });
+});
+
+describe('build target', () => {
+    it('should create build target when the entry points point to source files, as tsc emits and publishConfig exports carry the built entry points', async ({ tempFs, context }) => {
+        const configFiles = await applyFilesToTempFsAndContext(tempFs, {
+            'libs/my-lib/tsconfig.json': JSON.stringify({ files: [], references: [{ path: './tsconfig.lib.json' }] }),
+            'libs/my-lib/tsconfig.lib.json': JSON.stringify({ compilerOptions: { outDir: 'dist' }, include: ['src/**/*.ts'] }),
+            'libs/my-lib/src/index.ts': 'export {};',
+            'libs/my-lib/package.json': JSON.stringify({ exports: { '.': { default: './src/index.ts' } }, publishConfig: { exports: { '.': { default: './dist/index.js' } } } }),
+        });
+        const { projects } = await invokeCreateNodesOnMatchingFiles(configFiles, context, {});
+
+        expect(projects['libs/my-lib']?.targets?.['build--tsc']).toMatchObject({ options: { commands: ['tsc -p tsconfig.lib.json'] }, outputs: [`{projectRoot}/dist/${EMITTED}`] });
+    });
+
+    it('should create build target when the entry points point to dist files', async ({ tempFs, context }) => {
+        const configFiles = await applyFilesToTempFsAndContext(tempFs, {
+            'libs/my-lib/tsconfig.json': JSON.stringify({ files: [], references: [{ path: './tsconfig.lib.json' }] }),
+            'libs/my-lib/tsconfig.lib.json': JSON.stringify({ compilerOptions: { outDir: 'dist' }, include: ['src/**/*.ts'] }),
+            'libs/my-lib/src/index.ts': 'export {};',
+            'libs/my-lib/package.json': JSON.stringify({ exports: { '.': { development: './src/index.ts', types: './dist/index.d.ts', default: './dist/index.js' } } }),
+        });
+        const { projects } = await invokeCreateNodesOnMatchingFiles(configFiles, context, {});
+
+        expect(projects['libs/my-lib']?.targets?.['build--tsc']).toMatchObject({ options: { commands: ['tsc -p tsconfig.lib.json'] }, outputs: [`{projectRoot}/dist/${EMITTED}`] });
+    });
+
+    it('should create a node with a build target for a tsconfig.lib.json a solution tsconfig.json references', async ({ tempFs, context }) => {
+        const configFiles = await applyFilesToTempFsAndContext(tempFs, {
+            'libs/my-lib/tsconfig.json': JSON.stringify({ files: [], references: [{ path: './tsconfig.lib.json' }] }),
+            'libs/my-lib/tsconfig.lib.json': JSON.stringify({ compilerOptions: { outDir: 'dist', rootDir: 'src' }, include: ['src/**/*.ts'] }),
+            'libs/my-lib/src/index.ts': 'export {};',
+            'libs/my-lib/package.json': JSON.stringify({ name: 'my-lib', exports: { '.': './dist/index.js' } }),
+        });
+        const { projects } = await invokeCreateNodesOnMatchingFiles(configFiles, context, {});
+
+        expect(projects['libs/my-lib']?.targets?.['build--tsc']).toMatchObject({
+            options: { commands: ['tsc -p tsconfig.lib.json'], cwd: 'libs/my-lib' },
+            cache: true,
+            inputs: ['{projectRoot}/package.json', '{projectRoot}/tsconfig.json', '{projectRoot}/tsconfig.lib.json', '{projectRoot}/src/index.ts', ...UPSTREAM],
+            outputs: [`{projectRoot}/dist/${EMITTED}`],
+        });
+        expect(projects['libs/my-lib']?.targets?.['check--tsc']).toMatchObject({ executor: 'nx:noop', dependsOn: ['build--tsc'] });
+    });
+});
+
+it('should write every file tsc emits under the declared build outputs and every declared output', { timeout: 30_000 }, async ({ tempFs, context }) => {
+    const configFiles = await applyFilesToTempFsAndContext(tempFs, {
+        'libs/my-lib/tsconfig.json': JSON.stringify({ compilerOptions: { outDir: 'dist', declaration: true, sourceMap: true, module: 'nodenext', types: [] }, files: ['index.ts'] }),
+        'libs/my-lib/index.ts': 'export const value = 1;',
+        'libs/my-lib/package.json': '{}',
+    });
+    const { projects } = await invokeCreateNodesOnMatchingFiles(configFiles, context, {});
+    const build = projects['libs/my-lib']?.targets?.['build--tsc'];
+    const before = new Set(readdirSync(tempFs.tempDir, { recursive: true, encoding: 'utf-8' }));
+    execFileSync(process.execPath, [join(COMPILER, 'bin/tsc')], { cwd: join(tempFs.tempDir, 'libs/my-lib') });
+    const written = readdirSync(join(tempFs.tempDir, 'libs/my-lib/dist'), { recursive: true, encoding: 'utf-8' }).map((file) => `libs/my-lib/dist/${file}`);
+
+    expect(build?.options).toStrictEqual({ commands: ['tsc'], cwd: 'libs/my-lib' });
+    expect(build?.outputs).toStrictEqual([`{projectRoot}/dist/${EMITTED}`]);
+    expect(
+        readdirSync(tempFs.tempDir, { recursive: true, encoding: 'utf-8' })
+            .filter((file) => !before.has(file))
+            .toSorted(),
+    ).toStrictEqual(['libs/my-lib/dist', ...written].toSorted());
+    expect(written.filter((file) => !matchesGlob(file, `libs/my-lib/dist/${EMITTED}`))).toStrictEqual([]);
+    expect(written.toSorted()).toStrictEqual(['libs/my-lib/dist/index.d.ts', 'libs/my-lib/dist/index.js', 'libs/my-lib/dist/index.js.map']);
+});
+
+it('should handle concurrent invocations without crashing', async ({ tempFs, context }) => {
+    const configFiles = await applyFilesToTempFsAndContext(tempFs, {
+        'libs/my-lib/tsconfig.json': JSON.stringify({ compilerOptions: { outDir: '../../dist/libs/my-lib' }, files: ['index.ts'] }),
+        'libs/my-lib/index.ts': 'export {};',
+        'libs/my-lib/package.json': '{}',
+        'libs/other-lib/tsconfig.json': JSON.stringify({ compilerOptions: { outDir: '../../dist/libs/other-lib' }, files: ['index.ts'] }),
+        'libs/other-lib/index.ts': 'export {};',
+        'libs/other-lib/package.json': '{}',
+    });
+    const [first, second] = [invokeCreateNodesOnMatchingFiles(configFiles, context, {}), invokeCreateNodesOnMatchingFiles(configFiles, context, {})];
+    const [result1, result2] = [await first, await second];
+
+    expect(Object.keys(result1.projects)).toStrictEqual(['libs/my-lib', 'libs/other-lib']);
+    expect(result1.projects['libs/my-lib']?.targets?.['check--tsc']).toBeDefined();
+    expect(result2).toStrictEqual(result1);
 });

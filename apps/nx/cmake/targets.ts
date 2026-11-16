@@ -119,7 +119,7 @@ const memberTargets = (
     };
     const placed = (workflow: Workflow, tool: string, inside: string) => UndefinedOr.match(outputPath, { onUndefined: () => join(workflow.tree, member.build, inside), onDefined: (at) => join(at, tool) });
     const compiled = (workflow: Workflow, at: string, names: Array.NonEmptyReadonlyArray<string>) => Array.make('cmake', '--build', within(at), ...preset(workflow.build), '--target', ...names);
-    const varied = (each: (workflow: Workflow) => object) => ({ configurations: Record.fromIterableWith(others, (workflow) => [workflow.name, each(workflow)] as const) });
+    const varied = (each: (workflow: Workflow) => object) => (others.length > 0 ? { configurations: Record.fromIterableWith(others, (workflow) => [workflow.name, each(workflow)] as const) } : {});
     const target = (help: string, description: string, options: Readonly<Record<string, unknown>>, extra: Partial<TargetConfiguration>): TargetConfiguration => ({
         executor: 'nx:run-commands',
         options,
@@ -194,7 +194,10 @@ const memberTargets = (
     };
     const cpack = Option.map(Option.all({ packed: packing, names: targets }), ({ packed: { workflow, stated }, names }) => {
         const { archives, options } = packs(workflow, stated, names);
-        return target('cpack', `Builds ${member.name} in workflow ${workflow.name}, empties its package folder, and packs its install tree with cpack, which names the archive`, options, { cache: true, outputs: [tokened(archives)] });
+        return target('cpack', `Builds ${member.name} in workflow ${workflow.name}, empties its package folder, and packs its install tree with cpack, which names the archive`, options, {
+            cache: true,
+            outputs: [relative(member.root, archives).startsWith('..') ? tokened(archives) : join('{projectRoot}', relative(member.root, archives))],
+        });
     });
     const tools: Verbs = {
         build: Record.getSomes({

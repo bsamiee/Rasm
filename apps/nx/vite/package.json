@@ -1,7 +1,7 @@
 {
     "name": "@rasm/nx-vite",
     "version": "0.1.0",
-    "description": "Nx plugin inferring Vite builds over every environment a config resolves, and the development and preview servers of configs holding nxReadySignal() of @nx/vite or stating a server",
+    "description": "Nx plugin inferring Vite builds over every environment a config resolves, and the development and preview servers of configs whose root holds index.html, holding nxReadySignal() of @nx/vite, or stating a server or preview block, library configs only when stating one",
     "license": "MIT",
     "repository": {
         "type": "git",

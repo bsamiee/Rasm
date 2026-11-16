@@ -82,6 +82,17 @@ utils:
                   - inside:
                         matches: nx-tuple-callback
                         stopBy: { not: { matches: typescript-expression-wrapper } }
+                  - inside:
+                        kind: pair
+                        field: value
+                        has: { field: key, regex: '^implementation$' }
+                        inside:
+                            kind: object
+                            inside:
+                                kind: arguments
+                                inside:
+                                    kind: call_expression
+                                    has: { field: function, matches: { typescript-import-reference: { source: { regex: '^@nx/conformance$' }, exported: { regex: '^createConformanceRule$' } } } }
             - kind: method_definition
               has: { kind: override_modifier }
               inside:

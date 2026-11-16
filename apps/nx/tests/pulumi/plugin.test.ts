@@ -1,264 +1,307 @@
-import { layer } from '@effect/platform-node/NodeServices';
-import { assert, it } from '@effect/vitest';
-import pulumi from '@pulumi/pulumi/package.json' with { type: 'json' };
-import plugin from '@rasm/nx-pulumi/package.json' with { type: 'json' };
-import { Consumer, Packed } from '@rasm/testing/nx';
-import { Array, Duration, Effect, Formatter, Layer, Path, Predicate, Record, Schema } from 'effect';
-
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const UNREAD = /mise\.lock|node_modules|@rasm\/nx-|TOKEN|SECRET|PASSWORD|CREDENTIAL/u;
-const REFUSAL = /missing.*dev.*ops.*edge/su;
-const bounds = { built: Duration.toMillis('5 minutes'), test: Duration.toMillis('5 minutes') };
-const passphrase = 'suite';
-const ASK = `import { LocalWorkspace } from '@pulumi/pulumi/automation/index.js';
-const workspace = await LocalWorkspace.create({ projectSettings: { name: 'fixture', runtime: 'nodejs' }, envVars: { PULUMI_BACKEND_URL: process.argv[1], PULUMI_CONFIG_PASSPHRASE: '${passphrase}' } });
-const held = {};
-for (const { name } of await workspace.listStacks()) {
-    held[name] = Object.fromEntries(Object.entries(await workspace.stackOutputs(name)).map(([key, { value }]) => [key, value]));
-}
-console.log(JSON.stringify(held));`;
-const files = {
-    '.state/order.log': '',
-    'infra/package.json': '{ "name": "infra", "type": "module", "bin": "./stacks.ts", "devDependencies": { "@pulumi/pulumi": "*", "@rasm/nx-pulumi": "*" } }\n',
-    'infra/stacks.ts': `import { appendFileSync, readFileSync } from 'node:fs';
-import { setTimeout as waited } from 'node:timers/promises';
-import { parseArgs } from 'node:util';
+import { execFileSync } from 'node:child_process';
+import { globSync, symlinkSync } from 'node:fs';
+import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { AggregateCreateNodesError, type CreateNodesContext } from '@nx/devkit';
 import { LocalWorkspace } from '@pulumi/pulumi/automation/index.js';
-import secrets from './secrets.json' with { type: 'json' };
+import { createNodes } from '@rasm/nx-pulumi';
+import { environment } from '@rasm/testing/nx';
+import { TempFs } from '@rasm/testing/temp-fs';
+import { describe, expect, test } from 'vitest';
 
-const envVars = { PULUMI_BACKEND_URL: new URL('../.state', import.meta.url).href, ...secrets };
-const noted = (line) => appendFileSync(new URL('../.state/order.log', import.meta.url), \`\${line}\\n\`);
-const stated = (stackName, torn = false) => ({
-    stackName,
-    projectName: 'fixture',
-    program: async () => {
-        noted(\`start \${stackName}\`);
-        await waited(1000);
-        if (torn) {
-            throw new Error('torn');
-        }
-        noted(\`end \${stackName}\`);
-        return { greeting: \`\${readFileSync(new URL('./greeting.txt', import.meta.url), 'utf8').trim()} \${stackName}\` };
-    },
-});
-const { positionals: [verb], values: { operation, stack, production } } = parseArgs({ args: process.argv.slice(2), options: { operation: { type: 'string', default: 'up' }, stack: { type: 'string' }, production: { type: 'boolean', default: false } }, allowPositionals: true });
-const groups = verb === 'deploy' ? (production ? [[stated('live')], [stated('torn', true)], [stated('late')]] : [[stated('dev'), stated('ops')], [stated('edge')]]) : [];
-const selected = groups.map((group) => group.filter(({ stackName }) => stack === undefined || stackName === stack)).filter((group) => group.length > 0);
-if (selected.length === 0) {
-    console.error(\`infra runs \${stack === undefined ? 'no stack' : \`no stack named \${stack}\`} for \${verb}, its stacks are [\${groups.flat().map(({ stackName }) => stackName).join(', ')}]\`);
-    process.exit(1);
-}
-for (const group of selected) {
-    await Promise.all(group.map(async (args) => {
-        const held = await LocalWorkspace.createOrSelectStack(args, { envVars });
-        await (operation === 'destroy' ? held.destroy({ remove: true }) : held[operation]());
-    }));
-}
-`,
-    'infra/secrets.json': `{ "PULUMI_CONFIG_PASSPHRASE": "${passphrase}" }\n`,
-    'infra/greeting.txt': 'hello\n',
-    'libs/plain/package.json': '{ "name": "plain", "type": "module" }\n',
-    'libs/plain/index.ts': 'export const plain = 1;\n',
-};
+const [, createNodesFunction] = createNodes;
+const program = JSON.stringify({ name: '@proj/infra', bin: './stacks.ts', dependencies: { '@pulumi/pulumi': '*' } });
+const it = test
+    .extend('tempFs', ({}, { onCleanup }) => {
+        const tempFs = new TempFs('test');
+        const cwd = process.cwd();
+        process.chdir(tempFs.tempDir);
+        onCleanup(() => {
+            process.chdir(cwd);
+            tempFs.cleanup();
+        });
+        return tempFs;
+    })
+    .extend('context', ({ tempFs }): CreateNodesContext => ({
+        nxJsonConfiguration: {
+            namedInputs: {
+                default: ['{projectRoot}/**/*'],
+                production: ['!{projectRoot}/**/*.spec.ts'],
+            },
+        },
+        workspaceRoot: tempFs.tempDir,
+    }))
+    .extend('backend', ({}, { onCleanup }) => {
+        const backend = new TempFs('pulumi-backend', false);
+        onCleanup(() => backend.cleanup());
+        return backend;
+    });
 
-// --- [MODELS] --------------------------------------------------------------------------
+describe('@rasm/nx-pulumi', () => {
+    it('should create nodes based on package.json, leaving cache unset as Nx caches no target without cache: true', async ({ tempFs, context }) => {
+        await tempFs.createFiles({
+            'package.json': '{ "name": "root", "workspaces": ["proj"] }',
+            'proj/package.json': program,
+            'proj/stacks.ts': 'export {};\n',
+        });
 
-const Held = Schema.fromJsonString(Schema.Record(Schema.String, Schema.Record(Schema.String, Schema.Unknown))).annotate({ description: 'Outputs of each stack the Pulumi Automation API lists in one backend, by stack name' });
+        const results = await createNodesFunction(['proj/package.json'], {}, context);
 
-// --- [OPERATIONS] ----------------------------------------------------------------------
+        const inputs = ['production', '^production', { externalDependencies: [] }];
+        const technologies = ['pulumi'];
+        expect(results).toStrictEqual([
+            [
+                'proj/package.json',
+                {
+                    projects: {
+                        proj: {
+                            root: 'proj',
+                            metadata: { technologies },
+                            targets: {
+                                install: { dependsOn: ['install--*'], inputs: ['...', ...inputs] },
+                                'install--pulumi': {
+                                    command: 'node stacks.ts install',
+                                    options: { cwd: 'proj' },
+                                    dependsOn: ['^build', '^install'],
+                                    parallelism: false,
+                                    inputs,
+                                    metadata: { technologies, description: 'Runs the Pulumi Automation API program of the project with node stacks.ts install' },
+                                },
+                                deploy: { dependsOn: ['deploy--*'], inputs: ['...', ...inputs] },
+                                'deploy--pulumi': {
+                                    command: 'node stacks.ts deploy',
+                                    options: { cwd: 'proj' },
+                                    dependsOn: ['^build', '^deploy'],
+                                    parallelism: false,
+                                    inputs,
+                                    metadata: { technologies, description: 'Runs the Pulumi Automation API program of the project with node stacks.ts deploy' },
+                                },
+                            },
+                        },
+                    },
+                },
+            ],
+        ]);
+    });
 
-const read = Effect.flatMap(Consumer, (consumer) => consumer.read);
+    it('should use default namedInputs when production is not available', async ({ tempFs, context }) => {
+        await tempFs.createFiles({
+            'package.json': '{ "name": "root", "workspaces": ["proj"] }',
+            'proj/package.json': program,
+            'proj/stacks.ts': 'export {};\n',
+        });
 
-const held = Effect.gen(function* () {
-    const [{ evaluated, root }, path] = yield* Effect.all([Consumer, Path.Path]);
-    const backend = yield* path.toFileUrl(path.join(root, '.state'));
-    return yield* Effect.flatMap(evaluated(ASK, [backend.href], 'infra'), Schema.decodeEffect(Held));
-});
+        const results = await createNodesFunction(['proj/package.json'], {}, { ...context, nxJsonConfiguration: { namedInputs: { default: ['{projectRoot}/**/*'] } } });
 
-const applied = Effect.fnUntraced(function* (...args: readonly string[]) {
-    const { nx, text, wrote } = yield* Consumer;
-    yield* wrote({ '.state/order.log': '' });
-    const { code, stdout, stderr } = yield* nx('run', ...args, '--output-style=static');
-    return { code, printed: `${stdout}${stderr}`, order: (yield* text('.state/order.log')).trim().split('\n'), held: yield* held };
-});
+        expect(results[0]?.[1].projects?.['proj']?.targets?.['deploy--pulumi']?.inputs).toStrictEqual(['default', '^default', { externalDependencies: [] }]);
+        expect(results[0]?.[1].projects?.['proj']?.targets?.['install--pulumi']?.inputs).toStrictEqual(['default', '^default', { externalDependencies: [] }]);
+    });
 
-// --- [COMPOSITION] ---------------------------------------------------------------------
+    it('should handle multiple programs', async ({ tempFs, context }) => {
+        await tempFs.createFiles({
+            'package.json': '{ "name": "root", "workspaces": ["app1", "app2"] }',
+            'app1/package.json': JSON.stringify({ name: 'app1', bin: './stacks.ts', dependencies: { '@pulumi/pulumi': '*' } }),
+            'app1/stacks.ts': 'export {};\n',
+            'app2/package.json': JSON.stringify({ name: 'app2', bin: './stacks.ts', dependencies: { '@pulumi/pulumi': '*' } }),
+            'app2/stacks.ts': 'export {};\n',
+        });
 
-const workspace = (stated: Readonly<Record<string, string>>) =>
-    Layer.provideMerge(Consumer.layer({ resolved: import.meta.url, settings: { plugins: [{ plugin: plugin.name, options: { configurations: { deploy: { release: ['--production'] } } } }] }, packages: [pulumi.name], ignored: ['.state'], files: stated }), Layer.provideMerge(Packed.layer(plugin.name), layer));
+        const results = await createNodesFunction(['app1/package.json', 'app2/package.json'], {}, context);
 
-it.layer(workspace(files), { timeout: bounds.built, excludeTestServices: true })((methods) => {
-    const DEPLOY = 'README.md TASKS "deploy applies a project\'s infrastructure stacks, -c release those of a released version, and nx run <project>:deploy--pulumi --stack=<name> one of them"';
-    const GROUPS = 'pulumi.com/docs/iac/concepts/stacks "Stack references": a stack reading the outputs of another applies after it; infra/stacks.ts: a program applies its stack groups in order, the stacks of one group at once';
-    const API = 'nrwl/nx packages/nx/src/project-graph/plugins/public-api.ts CreateNodesV2';
-    methods.effect(
-        'reading the graph writes no file and applies no stack',
-        Effect.fnUntraced(function* () {
-            const [, written] = yield* Effect.flatMap(Consumer, ({ written: tracked }) => tracked(read));
-            assert.deepStrictEqual(written, [], `${API}: createNodes reads configuration and runs no Pulumi program`);
-            assert.deepStrictEqual(yield* held, {}, 'the backend holds no stack before a deploy');
-        }),
-        bounds.test,
-    );
+        expect(results).toHaveLength(2);
+        expect(results[0]?.[0]).toBe('app1/package.json');
+        expect(results[1]?.[0]).toBe('app2/package.json');
+        expect(Object.keys({ ...results[0]?.[1].projects })).toStrictEqual(['app1']);
+        expect(Object.keys({ ...results[1]?.[1].projects })).toStrictEqual(['app2']);
+    });
 
-    methods.effect(
-        'a package whose one bin is a Pulumi program gets deploy--pulumi under the deploy verb, uncached, with a release configuration',
-        Effect.fnUntraced(function* () {
-            const { nodes, failures } = yield* read;
-            const { infra, plain } = nodes;
-            const { deploy: verb, 'deploy--pulumi': deployed } = infra?.data.targets ?? {};
-            assert.deepStrictEqual(failures, [], 'a valid workspace reads without failure');
-            assert.isDefined(deployed, DEPLOY);
-            assert.isTrue(
-                (verb?.dependsOn ?? []).some((row) => row === 'deploy--pulumi' || row === 'deploy--*'),
-                'README.md PRINCIPLES "Verbs aggregate <verb>--<tool> targets"',
+    it('should give equal results for equal reads', async ({ tempFs, context }) => {
+        await tempFs.createFiles({
+            'package.json': '{ "name": "root", "workspaces": ["proj"] }',
+            'proj/package.json': program,
+            'proj/stacks.ts': 'export {};\n',
+        });
+
+        const results1 = await createNodesFunction(['proj/package.json'], {}, context);
+        const results2 = await createNodesFunction(['proj/package.json'], {}, context);
+
+        expect(results1).toStrictEqual(results2);
+    });
+
+    it('should handle a root level program', async ({ tempFs, context }) => {
+        await tempFs.createFiles({
+            'package.json': JSON.stringify({ name: '@proj/infra', nx: {}, bin: './stacks.ts', dependencies: { '@pulumi/pulumi': '*' } }),
+            'stacks.ts': 'export {};\n',
+        });
+
+        const results = await createNodesFunction(['package.json'], {}, context);
+
+        expect(Object.keys({ ...results[0]?.[1].projects })).toStrictEqual(['.']);
+        expect(results[0]?.[1].projects?.['.']?.targets?.['deploy--pulumi']).toMatchObject({ command: 'node stacks.ts deploy', options: { cwd: '.' } });
+    });
+
+    it('should name the manifest that fails to parse, and keep the targets of every other program', async ({ tempFs, context }) => {
+        await tempFs.createFiles({
+            'package.json': '{ "name": "root", "workspaces": ["proj", "torn"] }',
+            'proj/package.json': program,
+            'proj/stacks.ts': 'export {};\n',
+            'torn/package.json': '{ "name": ',
+        });
+
+        const read = createNodesFunction(['proj/package.json', 'torn/package.json'], {}, context);
+
+        await expect(read).rejects.toBeInstanceOf(AggregateCreateNodesError);
+        await expect(read).rejects.toHaveProperty(['errors', 0, 0], 'torn/package.json');
+        await expect(read).rejects.toHaveProperty(['errors', 0, 1, 'message'], expect.stringMatching(/^Expected a valid JSON string/u));
+        await expect(read).rejects.toHaveProperty(['partialResults', 0, 1, 'projects', 'proj', 'targets', 'deploy--pulumi', 'command'], 'node stacks.ts deploy');
+    });
+
+    describe('dependency handling', () => {
+        it('should set each verb target to depend on its tool targets', async ({ tempFs, context }) => {
+            await tempFs.createFiles({
+                'package.json': '{ "name": "root", "workspaces": ["proj"] }',
+                'proj/package.json': program,
+                'proj/stacks.ts': 'export {};\n',
+            });
+
+            const results = await createNodesFunction(['proj/package.json'], {}, context);
+
+            expect(results[0]?.[1].projects?.['proj']?.targets?.['deploy']?.dependsOn).toStrictEqual(['deploy--*']);
+            expect(results[0]?.[1].projects?.['proj']?.targets?.['install']?.dependsOn).toStrictEqual(['install--*']);
+        });
+
+        it('should set each tool target to wait for the same verb of the projects it depends on', async ({ tempFs, context }) => {
+            await tempFs.createFiles({
+                'package.json': '{ "name": "root", "workspaces": ["proj"] }',
+                'proj/package.json': program,
+                'proj/stacks.ts': 'export {};\n',
+            });
+
+            const results = await createNodesFunction(['proj/package.json'], {}, context);
+
+            expect(results[0]?.[1].projects?.['proj']?.targets?.['deploy--pulumi']?.dependsOn).toContain('^deploy');
+            expect(results[0]?.[1].projects?.['proj']?.targets?.['install--pulumi']?.dependsOn).toContain('^install');
+        });
+    });
+
+    describe('target configurations', () => {
+        it('should create configurations with the words they pass the program', async ({ tempFs, context }) => {
+            await tempFs.createFiles({
+                'package.json': '{ "name": "root", "workspaces": ["proj"] }',
+                'proj/package.json': program,
+                'proj/stacks.ts': 'export {};\n',
+            });
+
+            const results = await createNodesFunction(['proj/package.json'], { configurations: { deploy: { release: ['--production'] } } }, context);
+
+            expect(results[0]?.[1].projects?.['proj']?.targets?.['deploy--pulumi']?.configurations).toMatchInlineSnapshot(`
+              {
+                "release": {
+                  "args": "--production",
+                },
+              }
+            `);
+        });
+
+        it('should create multiple configurations', async ({ tempFs, context }) => {
+            await tempFs.createFiles({
+                'package.json': '{ "name": "root", "workspaces": ["proj"] }',
+                'proj/package.json': program,
+                'proj/stacks.ts': 'export {};\n',
+            });
+
+            const results = await createNodesFunction(
+                ['proj/package.json'],
+                {
+                    configurations: {
+                        deploy: {
+                            release: ['--production'],
+                            preview: ['--operation=preview', '--message=two words'],
+                        },
+                    },
+                },
+                context,
             );
-            assert.notStrictEqual(deployed?.cache, true, 'nx/schemas/project-schema.json cache: a deploy changes live resources, and a replayed result applies nothing');
-            assert.property(deployed?.configurations ?? {}, 'release', DEPLOY);
-            assert.notProperty(plain?.data.targets ?? {}, 'deploy--pulumi', `${API}: a package stating no program bin gets no target from the plugin`);
-        }),
-        bounds.test,
-    );
 
-    methods.effect(
-        'deploy--pulumi waits for the deploys of its dependencies and for no check, and runs beside no other task',
-        Effect.fnUntraced(function* () {
-            const { infra } = (yield* read).nodes;
-            const { 'deploy--pulumi': deployed } = infra?.data.targets ?? {};
-            const rows = (deployed?.dependsOn ?? []).map((row) => (Predicate.isString(row) ? row : row.target));
-            assert.include(rows, '^deploy', `${GROUPS}: a project deploys after the projects it depends on`);
-            assert.deepStrictEqual(
-                rows.filter((row) => row.includes('check')),
-                [],
-                'owner ruling 2026-11-13 "No target may wait on a dependency it does not read": an apply reads no checker result',
-            );
-            assert.isFalse(deployed?.parallelism, 'nx/schemas/project-schema.json parallelism; pulumi.com/docs/iac/concepts/state-and-backends "Concurrency control": one update holds the lock of a stack');
-        }),
-        bounds.test,
-    );
+            expect(results[0]?.[1].projects?.['proj']?.targets?.['deploy--pulumi']?.configurations).toMatchInlineSnapshot(`
+              {
+                "preview": {
+                  "args": "--operation=preview '--message=two words'",
+                },
+                "release": {
+                  "args": "--production",
+                },
+              }
+            `);
+        });
 
-    methods.effect(
-        'no input of an inferred target is plugin source, mise.lock, or a credential variable',
-        Effect.fnUntraced(function* () {
-            const rows = Object.values((yield* read).nodes)
-                .flatMap(({ data }) => Object.values(data.targets ?? {}))
-                .flatMap(({ inputs = [] }) => inputs)
-                .map((row) => Formatter.format(row));
-            assert.deepStrictEqual(
-                rows.filter((row) => UNREAD.test(row)),
-                [],
-                'README.md PRINCIPLES "Task inputs hold the files a task\'s tool reads: plugin and executor source, .config/mise.lock, and credentials are no input"',
-            );
-        }),
-        bounds.test,
-    );
+        it('should support configurations for the install target', async ({ tempFs, context }) => {
+            await tempFs.createFiles({
+                'package.json': '{ "name": "root", "workspaces": ["proj"] }',
+                'proj/package.json': program,
+                'proj/stacks.ts': 'export {};\n',
+            });
 
-    methods.effect(
-        'two reads of one workspace give equal projects, with plugin isolation on and off',
-        Effect.fnUntraced(function* () {
-            const { called } = yield* Consumer;
-            const printed = (isolate: boolean) => called('env', ['NX_CACHE_PROJECT_GRAPH=false', `NX_ISOLATE_PLUGINS=${isolate}`, 'nx', 'show', 'project', 'infra', '--json']);
-            const [first, second, shared] = [yield* printed(true), yield* printed(true), yield* printed(false)];
-            assert.deepStrictEqual([second.code, second.stdout], [first.code, first.stdout], `${API}: one set of files gives one set of nodes`);
-            assert.deepStrictEqual([shared.code, shared.stdout], [first.code, first.stdout], 'nrwl/nx packages/nx/src/project-graph/plugins/isolation/isolated-plugin.spec.ts: a plugin returns the same project from a worker and in process');
-        }),
-        bounds.test,
-    );
+            const results = await createNodesFunction(['proj/package.json'], { configurations: { install: { local: ['--stack=dev'] } } }, context);
 
-    methods.effect(
-        'deploy --stack=<name> applies that stack alone with the outputs its program returns',
-        Effect.fnUntraced(function* () {
-            const one = yield* applied('infra:deploy--pulumi', '--stack=ops');
-            assert.strictEqual(one.code, 0, `nx run infra:deploy--pulumi --stack=ops exits 0: ${one.printed}`);
-            assert.deepStrictEqual(one.held, { ops: { greeting: 'hello ops' } }, DEPLOY);
-        }),
-        bounds.test,
-    );
+            expect(results[0]?.[1].projects?.['proj']?.targets?.['install--pulumi']?.configurations).toStrictEqual({ local: { args: '--stack=dev' } });
+            expect(results[0]?.[1].projects?.['proj']?.targets?.['deploy--pulumi']?.configurations).toBeUndefined();
+        });
 
-    methods.effect(
-        'deploy applies every stack, a later group starting after each stack of the earlier group ends',
-        Effect.fnUntraced(function* () {
-            const every = yield* applied('infra:deploy');
-            assert.strictEqual(every.code, 0, `nx run infra:deploy exits 0: ${every.printed}`);
-            assert.deepStrictEqual(
-                Record.map(every.held, ({ greeting }) => greeting),
-                { dev: 'hello dev', ops: 'hello ops', edge: 'hello edge' },
-                DEPLOY,
-            );
-            assert.deepStrictEqual(Array.take(every.order, 2).toSorted(), ['start dev', 'start ops'], `${GROUPS}: the stacks of one group apply at once`);
-            assert.deepStrictEqual(Array.takeRight(every.order, 2), ['start edge', 'end edge'], `${GROUPS}: the second group starts after both stacks of the first end`);
-        }),
-        bounds.test,
-    );
+        it('should not include configurations if not defined', async ({ tempFs, context }) => {
+            await tempFs.createFiles({
+                'package.json': '{ "name": "root", "workspaces": ["proj"] }',
+                'proj/package.json': program,
+                'proj/stacks.ts': 'export {};\n',
+            });
 
-    methods.effect(
-        'an unknown --stack fails naming every stack the program states, and applies none',
-        Effect.fnUntraced(function* () {
-            const missing = yield* applied('infra:deploy--pulumi', '--stack=missing');
-            assert.notStrictEqual(missing.code, 0, `${DEPLOY}: a stack the program does not state is no stack to apply`);
-            assert.match(missing.printed, REFUSAL, `root CLAUDE.md "Messages ... exact subject, values over prose": the refusal names the stack asked for and each stack stated: ${missing.printed}`);
-            assert.deepStrictEqual(missing.order, [''], 'no program runs');
-        }),
-        bounds.test,
-    );
+            const results = await createNodesFunction(['proj/package.json'], undefined, context);
 
-    methods.effect(
-        'a run whose program states no stack fails, naming the project and no absent value',
-        Effect.fnUntraced(function* () {
-            const empty = yield* applied('infra:install');
-            assert.notStrictEqual(empty.code, 0, 'README.md TASKS "install puts a local build into its host or starts local services": a run that applies nothing reports no success');
-            assert.include(empty.printed, 'infra', empty.printed);
-            assert.notInclude(empty.printed, 'undefined', 'root CLAUDE.md "Messages ... exact subject, values over prose"');
-        }),
-        bounds.test,
-    );
+            expect(results[0]?.[1].projects?.['proj']?.targets?.['deploy--pulumi']?.configurations).toBeUndefined();
+            expect(results[0]?.[1].projects?.['proj']?.targets?.['install--pulumi']?.configurations).toBeUndefined();
+        });
 
-    methods.effect(
-        'operation preview changes no stack, and operation destroy removes the stack',
-        Effect.fnUntraced(function* () {
-            const { wrote } = yield* Consumer;
-            yield* wrote({ 'infra/greeting.txt': 'goodbye\n' });
-            const previewed = yield* applied('infra:deploy--pulumi', '--stack=edge', '--operation=preview');
-            const destroyed = yield* applied('infra:deploy--pulumi', '--stack=edge', '--operation=destroy');
-            const { edge } = previewed.held;
-            assert.strictEqual(previewed.code, 0, `nx run infra:deploy--pulumi --stack=edge --operation=preview exits 0: ${previewed.printed}`);
-            assert.deepStrictEqual(edge, { greeting: 'hello edge' }, 'pulumi.com/docs/iac/cli/commands/pulumi_preview "Show a preview of updates to a stack\'s resources": a preview applies nothing');
-            assert.strictEqual(destroyed.code, 0, `nx run infra:deploy--pulumi --stack=edge --operation=destroy exits 0: ${destroyed.printed}`);
-            assert.notProperty(destroyed.held, 'edge', 'pulumi.com/docs/reference/pkg/nodejs/pulumi/pulumi/classes/automation.Stack.html destroy "remove": the stack and its configuration go after its resources');
-            assert.property(destroyed.held, 'dev', DEPLOY);
-        }),
-        bounds.test,
-    );
+        it('should support both install and deploy configurations', async ({ tempFs, context }) => {
+            await tempFs.createFiles({
+                'package.json': '{ "name": "root", "workspaces": ["proj"] }',
+                'proj/package.json': program,
+                'proj/stacks.ts': 'export {};\n',
+            });
 
-    methods.effect(
-        'deploy -c release applies the stacks of a released version, and a group that fails leaves each later group unapplied',
-        Effect.fnUntraced(function* () {
-            const released = yield* applied('infra:deploy', '--configuration=release');
-            const { live } = released.held;
-            assert.notStrictEqual(released.code, 0, `${GROUPS}: the run of a program whose second group fails reports failure`);
-            assert.deepStrictEqual(live, { greeting: 'goodbye live' }, DEPLOY);
-            assert.deepStrictEqual(released.order, ['start live', 'end live', 'start torn'], `${GROUPS}: group late starts no program after group torn fails`);
-            assert.notProperty(released.held, 'late', GROUPS);
-        }),
-        bounds.test,
-    );
-});
+            const results = await createNodesFunction(['proj/package.json'], { configurations: { install: { local: ['--stack=dev'] }, deploy: { release: ['--production'] } } }, context);
 
-it.layer(workspace({ ...files, 'libs/torn/package.json': '{ "name": ' }), { timeout: bounds.built, excludeTestServices: true })((methods) => {
-    methods.effect(
-        'a package manifest that fails to parse is named in the failure, and the program package keeps its targets',
-        Effect.fnUntraced(function* () {
-            const errors = 'nrwl/nx packages/nx/src/project-graph/error-types.ts AggregateCreateNodesError';
-            const { nodes, failures } = yield* read;
-            const { infra } = nodes;
-            assert.include(
-                failures.flatMap((failure) => failure.files).map(({ file }) => file),
-                'libs/torn/package.json',
-                `${errors}: errors hold a [file, error] tuple for the file that failed`,
-            );
-            assert.property(infra?.data.targets ?? {}, 'deploy--pulumi', `${errors}: "It allows Nx to recieve partial results and continue processing"`);
-        }),
-        bounds.test,
-    );
+            expect(results[0]?.[1].projects?.['proj']?.targets?.['install--pulumi']?.configurations).toStrictEqual({ local: { args: '--stack=dev' } });
+            expect(results[0]?.[1].projects?.['proj']?.targets?.['deploy--pulumi']?.configurations).toStrictEqual({ release: { args: '--production' } });
+        });
+    });
+
+    it('should preview a program for real through nx run deploy--pulumi, writing no file and applying no stack', { timeout: 120_000 }, async ({ tempFs, backend }) => {
+        symlinkSync(join(import.meta.dirname, 'node_modules'), join(tempFs.tempDir, 'node_modules'), 'dir');
+        await tempFs.createFiles({
+            'nx.json': JSON.stringify({ plugins: ['@rasm/nx-pulumi'] }),
+            'package.json': '{ "name": "root", "workspaces": ["proj"] }',
+            'proj/package.json': JSON.stringify({ name: '@proj/infra', type: 'module', bin: './stacks.ts', dependencies: { '@pulumi/pulumi': '*' } }),
+            'proj/stacks.ts': [
+                "import { parseArgs } from 'node:util';",
+                "import { LocalWorkspace } from '@pulumi/pulumi/automation/index.js';",
+                "const { values } = parseArgs({ args: process.argv.slice(3), options: { operation: { type: 'string', default: 'up' } } });",
+                "const stack = await LocalWorkspace.createOrSelectStack({ stackName: 'dev', projectName: 'fixture', program: async () => ({ greeting: 'hello' }) });",
+                'await stack[values.operation]();',
+                '',
+            ].join('\n'),
+        });
+        const envVars = { PULUMI_BACKEND_URL: pathToFileURL(backend.tempDir).href, PULUMI_CONFIG_PASSPHRASE: 'suite' };
+        const listed = () => globSync('**', { cwd: tempFs.tempDir, exclude: ['node_modules', '.nx'] }).toSorted();
+        const before = listed();
+
+        execFileSync('nx', ['run', '@proj/infra:deploy--pulumi', '--operation=preview', '--outputStyle=static'], {
+            cwd: tempFs.tempDir,
+            env: environment(tempFs.tempDir, { NX_WORKSPACE_DATA_DIRECTORY: '.nx/workspace-data', ...envVars }),
+            stdio: 'pipe',
+        });
+        const workspace = await LocalWorkspace.create({ projectSettings: { name: 'fixture', runtime: 'nodejs' }, envVars });
+
+        expect(listed()).toStrictEqual(before);
+        await expect(workspace.stackOutputs('dev')).resolves.toStrictEqual({});
+    });
 });

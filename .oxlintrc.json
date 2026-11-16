@@ -6,7 +6,7 @@
     "ignorePatterns": [".claude/workflows/**"],
     "rules": {
         "class-methods-use-this": ["error", { "ignoreOverrideMethods": true }],
-        "func-names": "off",
+        "func-names": ["error", "as-needed", { "generators": "never" }],
         "id-length": "off",
         "max-classes-per-file": "off",
         "max-lines": "off",
@@ -43,7 +43,7 @@
         "no-underscore-dangle": ["error", { "allow": ["__unparsed__", "_path", "_tag"] }],
         "no-unused-vars": ["error", { "args": "all", "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }],
         "no-use-before-define": ["error", { "functions": false, "classes": false, "variables": false }],
-        "one-var": "off",
+        "one-var": ["error", "never"],
         "sort-imports": "off",
         "sort-keys": "off",
         "import/consistent-type-specifier-style": "off",
@@ -71,7 +71,7 @@
         "react/jsx-max-depth": "off",
         "react/jsx-no-literals": "off",
         "react/jsx-props-no-spreading": "off",
-        "react/no-multi-comp": "off",
+        "react/no-multi-comp": ["error", { "ignoreStateless": true }],
         "react/no-unstable-nested-components": ["error", { "allowAsProps": true }],
         "react/react-in-jsx-scope": "off",
         "react/rules-of-hooks": "off",
@@ -122,7 +122,7 @@
             }
         },
         {
-            "files": ["**/*.config.ts", "**/server/worker.ts", "**/version-actions.ts", "**/.storybook/*.{ts,tsx}", "**/extendscript.ts", "tools/ast-grep/grammars/*/grammar.js"],
+            "files": ["**/*.config.ts", "**/server/worker.ts", "**/version-actions.ts", "**/.storybook/*.{ts,tsx}", "**/extendscript.ts", "tools/ast-grep/grammars/*/grammar.js", "tools/conformance/*/index.ts"],
             "rules": {
                 "import/no-default-export": "off"
             }
@@ -143,6 +143,7 @@
                 "unicorn/prefer-string-replace-all": "off"
             }
         },
+        { "files": ["apps/nx/**"], "rules": { "unicorn/require-post-message-target-origin": "off" } },
         { "files": ["**/*.tsx"], "rules": { "react/rules-of-hooks": "error" } },
         { "files": ["plugins/*/hooks/**"], "rules": { "node/callback-return": "off", "promise/no-callback-in-promise": "off", "unicorn/catch-error-name": "off" } },
         {
@@ -150,7 +151,14 @@
             "excludeFiles": ["plugins/*/hooks/*.test.ts"],
             "plugins": ["vitest"],
             "rules": {
+                "no-empty-pattern": ["error", { "allowObjectPatternsAsParameters": true }],
                 "vitest/consistent-test-it": ["error", { "fn": "it" }],
+                "vitest/no-standalone-expect": ["error", { "additionalTestBlockFunctions": ["it", "it.each", "it.for"] }],
+                "vitest/prefer-called-times": "off",
+                "vitest/prefer-describe-function-title": "off",
+                "vitest/prefer-lowercase-title": ["error", { "ignore": ["describe"] }],
+                "vitest/prefer-to-be-falsy": "off",
+                "vitest/prefer-to-be-truthy": "off",
                 "vitest/no-importing-vitest-globals": "off",
                 "vitest/prefer-expect-assertions": "off",
                 "vitest/require-hook": "off",

@@ -1,7 +1,7 @@
 import { readdirSync } from 'node:fs';
 import { basename, dirname, join, relative } from 'node:path';
-import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesContext, DependencyType, hashArray, type ProjectConfiguration } from '@nx/devkit';
-import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, getNamedInputs, globWithWorkspaceContext, hashFile, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
+import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesContext, DependencyType, hashArray, type ProjectConfiguration, readJsonFile } from '@nx/devkit';
+import { buildPackageJsonPatterns, buildPackageJsonWorkspacesMatcher, combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, getNamedInputs, globWithWorkspaceContext, hashFile, hashWithWorkspaceContext, type PackageJson, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
 import { Array, Effect, Option, Record, Result, Schema, String } from 'effect';
 import { crateInputs, Options, projectTargets, released } from '#/targets';
 import { CLIPPY, CONFIG, DENY, Links, MANIFEST, type Member, manifested, NEXTEST, placed, type Reading, resolved, run, workspaces } from '#/workspace';
@@ -18,7 +18,7 @@ const OWN = hashArray(
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const inferred = Effect.fnUntraced(function* (context: CreateNodesContext, files: ReadonlySet<string>, settings: typeof Options.Type, reading: Reading) {
+const inferred = Effect.fnUntraced(function* (context: CreateNodesContext, files: ReadonlySet<string>, settings: typeof Options.Type, listed: (file: string) => boolean, reading: Reading) {
     const links = yield* Links;
     const workspace = resolved(context.workspaceRoot, reading, files);
     const reports = { coverage: Option.map(Option.fromUndefinedOr(settings.coveragePath), (at) => join(at, 'lcov.info')), junit: Option.map(Option.fromUndefinedOr(settings.outputPath), (at) => join(at, 'junit.xml')) };
@@ -26,7 +26,7 @@ const inferred = Effect.fnUntraced(function* (context: CreateNodesContext, files
         links.set(dirname(member.crate.manifest_path), member);
     });
     const roots = [...new Map<string, Option.Option<Member>>([[workspace.root, Option.none()], ...workspace.members.map((member) => [member.root, Option.some(member)] as const)])];
-    const manifests = yield* Effect.forEach(roots, ([root]) => manifested(context.workspaceRoot, root));
+    const manifests = yield* Effect.forEach(roots, ([root]) => manifested(context.workspaceRoot, root, listed));
     const present = Array.zip(roots, manifests).filter(([[, member], stated]) => Option.isSome(member) || Option.isSome(stated));
     const projects = Record.fromIterableWith(present, ([[root, member], manifest]): [string, ProjectConfiguration] => {
         const stated = Option.getOrElse(manifest, () => ({}));
@@ -58,6 +58,7 @@ const createNodes: CreateNodes<typeof Options.Encoded> = [
                 const { workspaceRoot } = context;
                 const settings = yield* Schema.decodeEffect(Options)(options ?? {});
                 const files = new Set(matched);
+                const listed = buildPackageJsonWorkspacesMatcher(buildPackageJsonPatterns(workspaceRoot, (file) => readJsonFile<PackageJson>(join(workspaceRoot, file))));
                 const manifests = matched.filter((file) => basename(file) === MANIFEST);
                 const cache = new PluginCache<readonly Reading[]>(join(workspaceDataDirectory, 'cargo.hash'));
                 const { stored, loaded } = placed(workspaceRoot);
@@ -77,7 +78,7 @@ const createNodes: CreateNodes<typeof Options.Encoded> = [
                       });
                 const results = yield* Effect.forEach(
                     Array.filterMap(read, ([file, reading]) => Result.map(reading, (held) => [file, held] as const)),
-                    ([file, held]) => Effect.map(inferred(context, files, settings, held), (result) => [file, result] as const),
+                    ([file, held]) => Effect.map(inferred(context, files, settings, listed, held), (result) => [file, result] as const),
                 );
                 return yield* failures.length === 0 ? Effect.succeed(results) : Effect.fail(new AggregateCreateNodesError(failures, results));
             }),

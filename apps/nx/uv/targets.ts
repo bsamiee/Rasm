@@ -315,7 +315,7 @@ const targets = (member: Member, { outputPath, coveragePath }: typeof Options.Ty
                             cache: true,
                             inputs: [...member.sources, ...built, UV, { externalDependencies: [] }],
                             outputs: Option.match(distributions, {
-                                onNone: () => ['.tar.gz', '-*.whl'].map((suffix) => join('{workspaceRoot}', folder, `${member.distribution}${suffix}`)),
+                                onNone: () => [...['.tar.gz', '-*.whl'].map((suffix) => join('{workspaceRoot}', folder, `${member.distribution}${suffix}`)), join('{workspaceRoot}', folder, '.gitignore')],
                                 onSome: (at) => [join('{workspaceRoot}', at)],
                             }),
                             metadata: { description: 'Builds the member sdist and wheel with uv build', help: { command: 'uv build --help', example: { args: ['--wheel'] } } },

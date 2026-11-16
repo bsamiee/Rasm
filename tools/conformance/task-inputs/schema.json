@@ -1,0 +1,20 @@
+{
+    "$schema": "http://json-schema.org/schema",
+    "$id": "task-inputs",
+    "title": "task-inputs rule configuration",
+    "type": "object",
+    "properties": {
+        "files": {
+            "type": "array",
+            "description": "Globs over workspace files a task hashes only from its own project or the projects it depends on",
+            "items": { "type": "string" }
+        },
+        "env": {
+            "type": "array",
+            "description": "Variables no task hashes",
+            "items": { "type": "string" }
+        }
+    },
+    "required": ["files", "env"],
+    "additionalProperties": false
+}

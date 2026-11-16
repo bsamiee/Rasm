@@ -1,4 +1,4 @@
-import { dirname, join } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 import { DependencyType, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Effect, Option, Record, Schema } from 'effect';
@@ -152,7 +152,7 @@ const packageParts = (options: typeof Options.Type, local: Package, described: R
                             dependsOn: ['build--swift-build'],
                             inputs: [join('{workspaceRoot}', at, INFO), ...inputs],
                             options: { products: [{ package: root, product: held, folder, bin: bins.release }] },
-                            outputs: [join('{workspaceRoot}', folder, `${held}.zip`)],
+                            outputs: [relative(root, folder).startsWith('..') ? join('{workspaceRoot}', folder, `${held}.zip`) : join('{projectRoot}', relative(root, folder), `${held}.zip`)],
                             metadata: { technologies: ['swift'], description: `Zips the release build of ${held} with ditto for a GitHub release`, help: { command: 'man ditto', example: { args: ['--norsrc'] } } },
                         },
                     },
@@ -177,10 +177,13 @@ const packageEdges = ({ file, manifest }: Package, described: ReadonlyMap<string
     const project = (module: string) => (modules.has(module) ? module : manifest.name);
     const linked = locals(manifest, described).map((local) => local.manifest);
     const products = (product: string) => linked.flatMap((local) => local.products.filter((owned) => owned.name === product).flatMap((owned) => owned.targets));
-    return [
-        ...linked.map((local): RawProjectGraphDependency => ({ source: manifest.name, target: local.name, type: DependencyType.static, sourceFile: file })),
-        ...manifest.targets.flatMap((module) => [...module.target_dependencies.map(project), ...module.product_dependencies.flatMap(products)].map((dependency): RawProjectGraphDependency => ({ source: project(module.name), target: dependency, type: DependencyType.implicit }))),
-    ];
+    return Array.dedupeWith(
+        [
+            ...linked.map((local): RawProjectGraphDependency => ({ source: manifest.name, target: local.name, type: DependencyType.static, sourceFile: file })),
+            ...manifest.targets.flatMap((module) => [...module.target_dependencies.map(project), ...module.product_dependencies.flatMap(products)].map((dependency): RawProjectGraphDependency => ({ source: project(module.name), target: dependency, type: DependencyType.implicit }))),
+        ],
+        (left, right) => left.source === right.source && left.target === right.target,
+    );
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------

@@ -94,13 +94,6 @@
             "options": {
                 "outputPath": ".artifacts/storybook/{projectName}"
             }
-        },
-        {
-            "plugin": "@nx/eslint/plugin",
-            "options": {
-                "targetName": "check--eslint",
-                "extensions": ["json"]
-            }
         }
     ],
     "targetDefaults": {
@@ -120,6 +113,60 @@
             "analyzeSourceFiles": false,
             "projectsAffectedByDependencyUpdates": "auto"
         }
+    },
+    "conformance": {
+        "outputPath": ".artifacts/conformance/result.json",
+        "rules": [
+            {
+                "rule": "./tools/conformance/one-version/index.ts",
+                "options": { "packages": ["nx", "@nx/*"] }
+            },
+            { "rule": "./tools/conformance/nx-schemas/index.ts" },
+            {
+                "rule": "./tools/conformance/task-graph/index.ts",
+                "options": {
+                    "folders": [".artifacts/*/**", "**/{dist,.build,.cloudflare/output,.cloudflare/types}{,/**}"],
+                    "clean": "clean"
+                }
+            },
+            {
+                "rule": "./tools/conformance/aggregate-targets/index.ts",
+                "options": { "separator": "--" }
+            },
+            {
+                "rule": "./tools/conformance/task-inputs/index.ts",
+                "options": {
+                    "files": ["apps/nx/!(tests)/**", ".config/mise.lock"],
+                    "env": [
+                        "NODE_AUTH_TOKEN",
+                        "UV_PUBLISH_TOKEN",
+                        "NUGET_API_KEY",
+                        "CARGO_REGISTRY_TOKEN",
+                        "YAK_TOKEN",
+                        "BLENDER_EXTENSIONS_TOKEN",
+                        "SPARKLE_ED_PRIVATE_KEY",
+                        "ASC_API_KEY_P8",
+                        "APPLE_DEVELOPMENT_P12",
+                        "APPLE_DEVELOPMENT_P12_PASSWORD",
+                        "DEVELOPER_ID_P12",
+                        "DEVELOPER_ID_P12_PASSWORD",
+                        "ZXP_CERTIFICATE",
+                        "ZXP_CERTIFICATE_PASSWORD",
+                        "CLOUDFLARE_API_TOKEN",
+                        "DOPPLER_TOKEN",
+                        "DOPPLER_IAC_TOKEN",
+                        "EPIC_GHCR_TOKEN",
+                        "GITHUB_TOKEN",
+                        "PULUMI_ACCESS_TOKEN",
+                        "TAILSCALE_OAUTH_CLIENT_SECRET",
+                        "NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN",
+                        "NX_CACHE_WRITE_TOKEN"
+                    ]
+                }
+            },
+            { "rule": "./tools/conformance/release-projects/index.ts" },
+            { "rule": "./tools/conformance/portable-graph/index.ts" }
+        ]
     },
     "release": {
         "projects": ["tag:release"],

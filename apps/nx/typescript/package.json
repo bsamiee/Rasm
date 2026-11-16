@@ -1,7 +1,7 @@
 {
     "name": "@rasm/nx-typescript",
     "version": "0.1.0",
-    "description": "Nx plugin inferring a TypeScript check or build per tsconfig.json read through the native compiler API, a publint package check, a package manager tarball per package stating a version, and the package manager upgrade of the workspace root",
+    "description": "Nx plugin inferring a TypeScript check or build per tsconfig.json read through the native compiler API, a publint package check, an eslint check per project a flat config governs, Worker binding types per cloudflare.config.ts, a package manager tarball per package stating a version, and the package manager upgrade of the workspace root",
     "license": "MIT",
     "repository": {
         "type": "git",
@@ -12,9 +12,6 @@
         "dist"
     ],
     "type": "module",
-    "imports": {
-        "#package": "./package.json"
-    },
     "exports": {
         ".": "./plugin.ts",
         "./package.json": "./package.json"
@@ -36,6 +33,7 @@
         "@cloudflare/config": "catalog:",
         "@types/node": "catalog:",
         "@typescript/native": "catalog:",
+        "eslint": "catalog:",
         "nx": "catalog:"
     },
     "peerDependencies": {

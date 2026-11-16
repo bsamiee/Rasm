@@ -3,7 +3,7 @@ import { platform } from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { AggregateCreateNodesError, type CreateNodes, type CreateNodesContext, detectPackageManager, getPackageManagerCommand, type ProjectConfiguration, readJsonFile, type TargetConfiguration } from '@nx/devkit';
 import { combineGlobPatterns, getNamedInputs, mergeTargetConfigurations, type PackageJson, quoteShellArg } from '@nx/devkit/internal';
-import { Array, Cause, Effect, FileSystem, Function, Option, Predicate, Record, Result, Schema, String, Struct, UndefinedOr } from 'effect';
+import { Array, Effect, FileSystem, Function, Option, Predicate, Record, Result, Schema, String, Struct, UndefinedOr } from 'effect';
 import which from 'which';
 import { run } from '#/executor';
 import { type Fields, FOLDERS, HOSTS, type Host, Identity } from '#/host-packages';
@@ -55,8 +55,6 @@ const manifested = Effect.fnUntraced(function* (workspaceRoot: string, root: str
     const manifest = join(workspaceRoot, root, 'package.json');
     return (yield* fs.exists(manifest)) ? ((yield* Effect.flatMap(fs.readFileString(manifest), Schema.decodeEffect(Overrides))).nx?.targets ?? {}) : {};
 });
-
-const rendered = (cause: Cause.Cause<unknown>) => Effect.fail(new Cause.UnknownError(cause, Cause.pretty(cause)));
 
 const aggregated = (verbs: Verbs, stated: Readonly<Record<string, Pick<TargetConfiguration, 'inputs'>>>, technology: string): Record<string, TargetConfiguration> =>
     Record.fromEntries(
@@ -111,7 +109,7 @@ const read = Effect.fnUntraced(function* (files: readonly string[], context: Cre
         const named = 'production' in getNamedInputs(root, context) ? 'production' : 'default';
         return Option.map(fields, (held): Declared => ({ file, root, named, fields: held, host: Struct.omit(host, withheld), engines: Option.toArray(stamp), stated, ...Option.getOrUndefined(lock) }));
     });
-    return yield* Effect.partition(matched, (row) => Effect.mapError(Effect.catchCause(one(row), rendered), (error): [string, Error] => [row.file, error]), { concurrency: 'unbounded' });
+    return yield* Effect.partition(matched, (row) => Effect.mapError(one(row), (error): [string, Error] => [row.file, error]), { concurrency: 'unbounded' });
 });
 
 const placed = (operation: keyof typeof FOLDERS) => `{options.outputPath}/${FOLDERS[operation]}`;
@@ -127,7 +125,8 @@ const projects = (declared: readonly Declared[], settings: typeof Options.Type, 
         const hosting = loading.filter((other) => other !== item);
         const lone = item.fields.folders === undefined && item.host.standalone === true && !hosting.some((other) => other.host.build !== undefined);
         const offered: Host = lone ? Struct.omit(item.host, WITHHELD) : item.host;
-        const { technology, archive, platforms = [], standalone = false, build, operations = {}, install, publish, write, manifest, output } = offered;
+        const { technology, archive, platforms = [], standalone = false, build, operations = {}, install, publish, write, output } = offered;
+        const manifest = relative(item.root, item.file);
         const signer = Option.orElse(Record.get(settings.signingIdentities ?? {}, technology), () => Option.fromUndefinedOr(build?.identity));
         const packages = item.fields.packages ?? {};
         const linked = Array.dedupe([...[...declared.filter((other) => other !== item && hosts(other).includes(item)), ...uses(item)].map((other) => other.fields.name), ...Object.values(packages).map(({ project }) => project)]);
@@ -186,16 +185,16 @@ const projects = (declared: readonly Declared[], settings: typeof Options.Type, 
             Record.getSomes({
                 build: Option.map(Option.fromUndefinedOr(build), ({ executor, command, help = ran, pack }): TargetConfiguration => ({
                     executor: `${PLUGIN}:${executor}`,
-                    dependsOn: [...Array.fromNullishOr(pack).map(() => 'build--*'), ...required],
+                    ...Array.match([...Array.fromNullishOr(pack).map(() => 'build--*'), ...required], { onEmpty: () => ({}), onNonEmpty: (dependsOn) => ({ dependsOn }) }),
                     options: { ...options, ...Option.getOrUndefined(Option.map(signer, (identity) => ({ identity }))) },
-                    parallelism: !standalone,
-                    cache: written.length > 0,
+                    ...(standalone && { parallelism: false }),
+                    ...(written.length > 0 && { cache: true }),
                     inputs: engined,
                     outputs: written,
                     metadata: { description: `Builds the ${technology} project its ${manifest} declares with ${command}`, help: { command: help, example: { options: { outputPath } } } },
                 })),
                 check: Option.firstSomeOf([
-                    operated('check', { cache: true, inputs: engined, dependsOn: required, outputs: [] }),
+                    operated('check', { cache: true, inputs: engined, ...Array.match(required, { onEmpty: () => ({}), onNonEmpty: (dependsOn) => ({ dependsOn }) }), outputs: [] }),
                     Option.as(
                         Option.filter(Option.fromUndefinedOr(build), () => standalone),
                         { executor: 'nx:noop', dependsOn: [builder], inputs: engined, metadata: { description: `Checks the ${technology} project with its ${builder} compile`, help: { command: ran, example: { options: {} } } } },
@@ -233,7 +232,7 @@ const projects = (declared: readonly Declared[], settings: typeof Options.Type, 
             metadata: { technologies: [technology] },
             tags: [...Option.toArray(Option.as(released, TAGS.release)), ...platforms.map((os) => `${TAGS.platform}${os}`)],
             ...Array.match(standalone ? linked : [], { onEmpty: () => ({}), onNonEmpty: (implicitDependencies) => ({ implicitDependencies }) }),
-            ...Option.getOrUndefined(Option.map(released, () => ({ release: { version: { versionActions: `${PLUGIN}/release/version-actions`, versionActionsOptions: { manifest: relative(item.root, item.file) } } } }))),
+            ...Option.getOrUndefined(Option.map(released, () => ({ release: { version: { versionActions: `${PLUGIN}/release/version-actions`, versionActionsOptions: { manifest } } } }))),
             targets: {
                 ...aggregated(verbs, item.stated, technology),
                 ...Record.fromIterableWith(Option.toArray(stored), ({ store, command, variable }): [string, TargetConfiguration] => [

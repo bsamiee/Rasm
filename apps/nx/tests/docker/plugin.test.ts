@@ -1,265 +1,951 @@
-import { layer } from '@effect/platform-node/NodeServices';
-import { assert, it } from '@effect/vitest';
-import type { ProjectGraph } from '@nx/devkit';
-import plugin from '@rasm/nx-docker/package.json' with { type: 'json' };
-import { Consumer, Packed } from '@rasm/testing/nx';
-import { Array, Effect, Formatter, Layer, Option, Path, Predicate, Record, Schema } from 'effect';
+import { execFileSync, execSync } from 'node:child_process';
+import { globSync } from 'node:fs';
+import { join } from 'node:path';
+import { type CreateDependenciesContext, type CreateNodesContext, DependencyType } from '@nx/devkit';
+import { createDependencies, createNodes } from '@rasm/nx-docker';
+import { TempFs } from '@rasm/testing/temp-fs';
+import { updateContextWithChangedFiles } from 'nx/src/utils/workspace-context';
+import { describe, expect, test, vi } from 'vitest';
 
-// --- [CONSTANTS] -----------------------------------------------------------------------
+vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
 
-const UNREAD = /mise\.lock|node_modules|@rasm\/nx-|TOKEN|SECRET|PASSWORD|CREDENTIAL/u;
-const bounds = { built: '5 minutes', test: 120_000 } as const;
-const files = {
-    'shared/compose.base.yaml': 'services:\n    store:\n        image: valkey/valkey:8\n',
-    'infra/package.json': '{ "name": "infra", "type": "module" }\n',
-    'infra/compose.yaml':
-        'include:\n    - ../shared/compose.base.yaml\nservices:\n    api:\n        build:\n            context: ../apps/api\n        ports:\n            - "8080:8080"\n        environment:\n            API_TOKEN: $API_TOKEN\n        depends_on:\n            - store\n    traces:\n        image: jaegertracing/jaeger:2\n        profiles:\n            - observed\n',
-    'ops/package.json': '{ "name": "ops", "type": "module" }\n',
-    'shared/proxy.base.yaml': 'services:\n    proxy:\n        image: traefik:v3\n',
-    'ops/compose.yaml': 'services:\n    proxy:\n        extends:\n            file: ../shared/proxy.base.yaml\n            service: proxy\n    site:\n        build:\n            context: ../libs/site/dist\n            dockerfile: ../../../ops/site.Dockerfile\n',
-    'apps/api/package.json': '{ "name": "api", "type": "module" }\n',
-    'apps/api/Dockerfile': 'FROM scratch\nCOPY package.json /package.json\n',
-    'libs/site/project.json': '{ "name": "site", "targets": { "build": { "command": "true", "outputs": ["{projectRoot}/dist"] } } }\n',
-    'ops/site.Dockerfile': 'FROM scratch\nCOPY . /site\n',
-};
-
-// --- [MODELS] --------------------------------------------------------------------------
-
-const Model = Schema.fromJsonString(Schema.Struct({ services: Schema.Record(Schema.String, Schema.Struct({ build: Schema.optionalKey(Schema.Struct({ context: Schema.String, dockerfile: Schema.String })) })) })).annotate({
-    description: 'Fields of the model docker compose config --format json prints: each service with the build context and Dockerfile it resolves, where it builds an image',
-});
-const Profiled = Schema.Record(Schema.String, Schema.Struct({ env: Schema.Record(Schema.String, Schema.String) })).annotate({ description: 'Configurations of an nx:run-commands target, each stating the env option of nx/src/executors/run-commands/schema.json' });
-const Names = Schema.fromJsonString(Schema.Array(Schema.String));
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
-const read = Effect.flatMap(Consumer, (consumer) => consumer.read);
-
-const composed = Effect.fnUntraced(function* (folder: string, ...args: readonly string[]) {
-    const { called } = yield* Consumer;
-    const { checked } = yield* called('docker', ['compose', 'config', ...args], folder);
-    return yield* checked;
+expect.addSnapshotSerializer({
+    serialize: (str: string) => str.replaceAll(/test[a-z0-9]{6}/gu, '{rootName}'),
+    test: (val: unknown) => typeof val === 'string',
 });
 
-const started = Effect.fnUntraced(function* (variables: Readonly<Record<string, string>>, ...flags: readonly string[]) {
-    const { called } = yield* Consumer;
-    const { checked } = yield* called('env', [...Record.collect(variables, (name, value) => `${name}=${value}`), 'docker', 'compose', ...flags, 'config', '--services'], 'infra');
-    return (yield* checked).trim().split('\n').toSorted();
-});
+const [, createNodesFunction] = createNodes;
+const it = test
+    .extend('tempFs', ({}, { onCleanup }) => {
+        const cwd = process.cwd();
+        const tempFs = new TempFs('test');
+        process.chdir(tempFs.tempDir);
+        onCleanup(() => {
+            tempFs.cleanup();
+            process.chdir(cwd);
+        });
+        return tempFs;
+    })
+    .extend('context', ({ tempFs }): CreateNodesContext => ({
+        nxJsonConfiguration: {
+            namedInputs: {
+                default: ['{projectRoot}/**/*'],
+                production: ['!{projectRoot}/**/*.spec.ts'],
+            },
+        },
+        workspaceRoot: tempFs.tempDir,
+    }));
 
-const recipes = Effect.fnUntraced(function* (folder: string) {
-    const [{ root }, path] = yield* Effect.all([Consumer, Path.Path]);
-    const { services } = yield* Effect.flatMap(composed(folder, '--format', 'json'), Schema.decodeEffect(Model));
-    return Array.getSomes(Object.values(services).map(({ build }) => Option.fromUndefinedOr(build))).map(({ context, dockerfile }) => path.relative(root, path.dirname(path.resolve(context, dockerfile))));
-});
+describe('@rasm/nx-docker', () => {
+    it('should create nodes based on compose.yaml', async ({ tempFs, context }) => {
+        await tempFs.createFiles({
+            'proj/compose.yaml': 'services:\n    app:\n        build: .\n',
+            'proj/Dockerfile': 'FROM node:18',
+            'proj/project.json': '{}',
+        });
 
-const tooled = ({ nodes }: Pick<ProjectGraph, 'nodes'>, project: string, verb: string) => Record.filter(nodes[project]?.data.targets ?? {}, (_, name) => name.startsWith(`${verb}--`));
+        const results = await createNodesFunction(['proj/compose.yaml'], {}, context);
 
-// --- [COMPOSITION] ---------------------------------------------------------------------
+        expect(results[0]?.[0]).toBe('proj/compose.yaml');
+        expect(Object.keys({ ...results[0]?.[1].projects })).toStrictEqual(['proj']);
+        expect(results[0]?.[1].projects?.['proj']).toMatchObject({ root: 'proj', metadata: { technologies: ['compose'] } });
+        expect(Object.keys({ ...results[0]?.[1].projects?.['proj']?.targets })).toStrictEqual(['build', 'build--compose', 'serve', 'serve--compose', 'check', 'check--compose', 'check--buildx', 'install', 'install--compose']);
+    });
 
-const workspace = (stated: Readonly<Record<string, string>>) => Layer.provideMerge(Consumer.layer({ resolved: import.meta.url, settings: { plugins: [plugin.name] }, ignored: [], files: stated }), Layer.provideMerge(Packed.layer(plugin.name), layer));
+    it('should create check targets based on compose.yaml', async ({ tempFs, context }) => {
+        await tempFs.createFiles({
+            'proj/compose.yaml': 'services:\n    app:\n        build: .\n',
+            'proj/Dockerfile': 'FROM node:18',
+            'proj/project.json': '{}',
+        });
 
-it.layer(workspace(files), { timeout: bounds.built, excludeTestServices: true })((methods) => {
-    const spec = 'nrwl/nx packages/docker/src/plugins/plugin.spec.ts';
-    const tasks = 'README.md TASKS "install puts a local build into its host or starts local services"';
-    const api = 'nrwl/nx packages/nx/src/project-graph/plugins/public-api.ts CreateNodesV2';
+        const results = await createNodesFunction(['proj/compose.yaml'], {}, context);
 
-    methods.effect(
-        'reading the graph writes no file',
-        Effect.fnUntraced(function* () {
-            const [, written] = yield* Effect.flatMap(Consumer, ({ written: tracked }) => tracked(read));
-            assert.deepStrictEqual(written, [], `${api}: createNodes reads configuration, builds no image, and starts no service`);
-        }),
-        bounds.test,
-    );
+        expect(results[0]?.[1].projects?.['proj']?.targets?.['check']).toMatchInlineSnapshot(`
+          {
+            dependsOn: [
+              check--*,
+            ],
+            inputs: [
+              ...,
+              {workspaceRoot}/proj/.env,
+              {workspaceRoot}/proj/Dockerfile,
+              {workspaceRoot}/proj/compose.yaml,
+              {
+                externalDependencies: [],
+              },
+            ],
+          }
+        `);
+        expect(results[0]?.[1].projects?.['proj']?.targets?.['check--compose']).toMatchInlineSnapshot(`
+          {
+            cache: true,
+            command: docker compose config --quiet,
+            inputs: [
+              {workspaceRoot}/proj/.env,
+              {workspaceRoot}/proj/Dockerfile,
+              {workspaceRoot}/proj/compose.yaml,
+              {
+                externalDependencies: [],
+              },
+            ],
+            metadata: {
+              description: Validates every Compose service of proj, interpolation and env files included, with docker compose config,
+              help: {
+                command: docker compose config --help,
+                example: {
+                  args: [
+                    --dry-run,
+                  ],
+                },
+              },
+              technologies: [
+                compose,
+              ],
+            },
+            options: {
+              cwd: proj,
+              env: {
+                COMPOSE_PROFILES: *,
+              },
+            },
+          }
+        `);
+        expect(results[0]?.[1].projects?.['proj']?.targets?.['check--buildx']).toMatchInlineSnapshot(`
+          {
+            cache: true,
+            command: docker compose build --check,
+            dependsOn: [
+              build--!(compose|buildx),
+              ^build,
+            ],
+            inputs: [
+              {workspaceRoot}/proj/.env,
+              {workspaceRoot}/proj/Dockerfile,
+              {workspaceRoot}/proj/compose.yaml,
+              {
+                externalDependencies: [],
+              },
+            ],
+            metadata: {
+              description: Lints every image proj builds, failing on any warning, with docker compose build --check,
+              help: {
+                command: docker compose build --help,
+                example: {
+                  args: [
+                    --dry-run,
+                  ],
+                },
+              },
+              technologies: [
+                compose,
+              ],
+            },
+            options: {
+              cwd: proj,
+              env: {
+                COMPOSE_PROFILES: *,
+              },
+            },
+          }
+        `);
+    });
 
-    methods.effect(
-        'a Compose file beside a package manifest gives its project an install target the install verb aggregates',
-        Effect.fnUntraced(function* () {
-            const principle = 'README.md PRINCIPLES "Verbs aggregate <verb>--<tool> targets"';
-            const graph = yield* read;
-            const names = Record.keys(tooled(graph, 'infra', 'install'));
-            const { infra } = graph.nodes;
-            const { install } = infra?.data.targets ?? {};
-            const rows = new Set(install?.dependsOn);
-            assert.deepStrictEqual(graph.failures, [], 'a valid workspace reads without failure');
-            assert.isNotEmpty(names, `${tasks}; ${principle}: an install--<tool> target starts the services`);
-            assert.isTrue(rows.has('install--*') || rows.isSupersetOf(new Set(names)), `${principle}: install depends on each install--<tool> target`);
-        }),
-        bounds.test,
-    );
+    it('should create build and serve targets based on compose.yaml', async ({ tempFs, context }) => {
+        await tempFs.createFiles({
+            'proj/compose.yaml': 'services:\n    app:\n        build: .\n',
+            'proj/Dockerfile': 'FROM node:18',
+            'proj/project.json': '{}',
+        });
 
-    methods.effect(
-        'each Compose profile is a configuration of the install target, selecting the services docker compose --profile selects',
-        Effect.fnUntraced(function* () {
-            const selects = 'docs.docker.com/compose/how-tos/profiles "Start specific profiles": COMPOSE_PROFILES selects the services --profile selects';
-            const [graph, profiles] = yield* Effect.all([read, composed('infra', '--profiles')]);
-            const [install] = Object.values(tooled(graph, 'infra', 'install'));
-            const { observed } = yield* Schema.decodeUnknownEffect(Profiled)(install?.configurations);
-            const [stated, flagged, plain] = [yield* started(observed?.env ?? {}), yield* started({}, '--profile', 'observed'), yield* started({})];
-            assert.deepStrictEqual(profiles.trim().split('\n'), ['observed'], 'docker compose config --profiles lists profile observed');
-            assert.deepStrictEqual(stated, flagged, `${tasks}; ${selects}`);
-            assert.deepStrictEqual(Array.difference(stated, plain), ['traces'], `${selects}: service traces starts under profile observed alone`);
-        }),
-        bounds.test,
-    );
+        const results = await createNodesFunction(['proj/compose.yaml'], {}, context);
 
-    methods.effect(
-        'the project holding the Dockerfile of a service gets the image build and the service start',
-        Effect.fnUntraced(function* () {
-            const [graph, folders] = yield* Effect.all([read, Effect.forEach(['infra', 'ops'], recipes)]);
-            assert.deepStrictEqual(folders.flat(), ['apps/api', 'ops'], 'docker compose config resolves the Dockerfile of service api under apps/api and of service site under ops');
-            assert.deepStrictEqual(
-                Object.values(graph.nodes)
-                    .filter(({ name }) => !(Record.isEmptyRecord(tooled(graph, name, 'build')) || Record.isEmptyRecord(tooled(graph, name, 'serve'))))
-                    .map(({ data }) => data.root)
-                    .toSorted(),
-                folders.flat(),
-                `${spec} "should create nodes based on Dockerfile": the Dockerfile folder holds the image build; README.md TASKS "serve ... starts the Compose services whose Dockerfile it holds, which stay up"`,
-            );
-        }),
-        bounds.test,
-    );
+        expect(results[0]?.[1].projects?.['proj']?.targets?.['build']).toMatchInlineSnapshot(`
+          {
+            dependsOn: [
+              build--*,
+            ],
+            inputs: [
+              ...,
+              default,
+              ^default,
+              {workspaceRoot}/proj/.env,
+              {workspaceRoot}/proj/Dockerfile,
+              {workspaceRoot}/proj/compose.yaml,
+              {
+                externalDependencies: [],
+              },
+            ],
+          }
+        `);
+        expect(results[0]?.[1].projects?.['proj']?.targets?.['build--compose']).toMatchInlineSnapshot(`
+          {
+            command: docker compose build,
+            dependsOn: [
+              build--!(compose|buildx),
+              ^build,
+            ],
+            inputs: [
+              default,
+              ^default,
+              {workspaceRoot}/proj/.env,
+              {workspaceRoot}/proj/Dockerfile,
+              {workspaceRoot}/proj/compose.yaml,
+              {
+                externalDependencies: [],
+              },
+            ],
+            metadata: {
+              description: Builds the images of proj into the engine with docker compose build,
+              help: {
+                command: docker compose build --help,
+                example: {
+                  args: [
+                    --dry-run,
+                  ],
+                },
+              },
+              technologies: [
+                compose,
+              ],
+            },
+            options: {
+              cwd: proj,
+            },
+          }
+        `);
+        expect(results[0]?.[1].projects?.['proj']?.targets?.['serve']).toMatchInlineSnapshot(`
+          {
+            dependsOn: [
+              serve--*,
+            ],
+            inputs: [
+              ...,
+              default,
+              ^default,
+              {workspaceRoot}/proj/.env,
+              {workspaceRoot}/proj/Dockerfile,
+              {workspaceRoot}/proj/compose.yaml,
+              {
+                externalDependencies: [],
+              },
+            ],
+          }
+        `);
+        expect(results[0]?.[1].projects?.['proj']?.targets?.['serve--compose']).toMatchInlineSnapshot(`
+          {
+            command: docker compose up --wait --no-build app && docker compose logs --follow app,
+            continuous: true,
+            dependsOn: [
+              build--*,
+            ],
+            inputs: [
+              default,
+              ^default,
+              {workspaceRoot}/proj/.env,
+              {workspaceRoot}/proj/Dockerfile,
+              {workspaceRoot}/proj/compose.yaml,
+              {
+                externalDependencies: [],
+              },
+            ],
+            metadata: {
+              description: Starts app of proj with the services each depends on from built images and follows their logs with docker compose up, the services staying up after the run,
+              help: {
+                command: docker compose up --help,
+                example: {
+                  args: [
+                    --dry-run,
+                  ],
+                },
+              },
+              technologies: [
+                compose,
+              ],
+            },
+            options: {
+              cwd: proj,
+            },
+            readyWhen: {
+              command: node -e "require('@rasm/nx-docker/ready-check').waitForDevServer('app')",
+              interval: 1000,
+            },
+          }
+        `);
+    });
 
-    methods.effect(
-        'a build context under the declared output of another project gives the Compose project an edge to it, and its image build waits for that build',
-        Effect.fnUntraced(function* () {
-            const reported = 'README.md PRINCIPLES "Manifest nx tables state only a dependency or path no manifest row or tool reports": docker compose config reports build context libs/site/dist, the declared output of site:build';
-            const [{ planned }, { dependencies }] = yield* Effect.all([Consumer, read]);
-            const { ops = [] } = dependencies;
-            const waits = (yield* planned('run', 'ops:build--compose')).dependencies;
-            assert.include(
-                ops.map(({ target }) => target),
-                'site',
-                reported,
-            );
-            assert.include(Object.values(waits).flatMap(Array.map(({ id }) => id)), 'site:build', `${reported}; nx/schemas/project-schema.json dependsOn "^build"`);
-        }),
-        bounds.test,
-    );
+    it('should create install targets based on compose.yaml', async ({ tempFs, context }) => {
+        await tempFs.createFiles({
+            'proj/compose.yaml': 'services:\n    app:\n        build: .\n',
+            'proj/Dockerfile': 'FROM node:18',
+            'proj/project.json': '{}',
+        });
 
-    methods.effect(
-        'the start of a service depends on its image build',
-        Effect.fnUntraced(function* () {
-            const graph = yield* read;
-            const built = Record.keys(tooled(graph, 'api', 'build'));
-            assert.isTrue(
-                Object.values(tooled(graph, 'api', 'serve'))
-                    .map(({ dependsOn = [] }) => dependsOn)
-                    .every(Array.some((row) => row === 'build' || built.includes(Predicate.isString(row) ? row : row.target))),
-                `${spec} "dependency handling > should set run target to depend on build target"`,
-            );
-        }),
-        bounds.test,
-    );
+        const results = await createNodesFunction(['proj/compose.yaml'], {}, context);
 
-    methods.effect.each(['shared/compose.base.yaml', 'apps/api/Dockerfile'] as const)(
-        'a change to %s marks the Compose project affected',
-        Effect.fnUntraced(function* (file) {
-            const { nx } = yield* Consumer;
-            const { checked } = yield* nx('show', 'projects', '--affected', `--files=${file}`, '--json');
-            assert.include(yield* Effect.flatMap(checked, Schema.decodeEffect(Names)), 'infra', `README.md TASKS "--files=<path> limits it to one change's reach": infra/compose.yaml includes shared/compose.base.yaml and builds apps/api`);
-        }),
-        bounds.test,
-    );
+        expect(results[0]?.[1].projects?.['proj']?.targets?.['install']).toMatchInlineSnapshot(`
+          {
+            dependsOn: [
+              install--*,
+            ],
+            inputs: [
+              ...,
+              default,
+              ^default,
+              {workspaceRoot}/proj/.env,
+              {workspaceRoot}/proj/Dockerfile,
+              {workspaceRoot}/proj/compose.yaml,
+              {
+                externalDependencies: [],
+              },
+            ],
+          }
+        `);
+        expect(results[0]?.[1].projects?.['proj']?.targets?.['install--compose']).toMatchInlineSnapshot(`
+          {
+            command: docker compose up --wait --no-build --remove-orphans,
+            dependsOn: [
+              build--*,
+            ],
+            inputs: [
+              default,
+              ^default,
+              {workspaceRoot}/proj/.env,
+              {workspaceRoot}/proj/Dockerfile,
+              {workspaceRoot}/proj/compose.yaml,
+              {
+                externalDependencies: [],
+              },
+            ],
+            metadata: {
+              description: Starts the services of proj from built images and waits until each is healthy with docker compose up,
+              help: {
+                command: docker compose up --help,
+                example: {
+                  args: [
+                    --dry-run,
+                  ],
+                },
+              },
+              technologies: [
+                compose,
+              ],
+            },
+            options: {
+              cwd: proj,
+            },
+          }
+        `);
+    });
 
-    methods.effect(
-        'a change to a file a service extends marks the Compose project affected, and its check inputs name that file',
-        Effect.fnUntraced(function* () {
-            const extended = 'docs.docker.com/reference/compose-file/services/#extends: file names the Compose file holding the extended service, relative to the extending file';
-            const [{ nx }, graph] = yield* Effect.all([Consumer, read]);
-            const { checked } = yield* nx('show', 'projects', '--affected', '--files=shared/proxy.base.yaml', '--json');
-            const inputs = Object.values(tooled(graph, 'ops', 'check'))
-                .flatMap(({ inputs: rows = [] }) => rows)
-                .map((row) => Formatter.format(row));
-            assert.include(yield* Effect.flatMap(checked, Schema.decodeEffect(Names)), 'ops', `${extended}; README.md TASKS "--files=<path> limits it to one change's reach"`);
-            assert.isTrue(
-                inputs.some((row) => row.includes('shared/proxy.base.yaml')),
-                `${extended}; README.md PRINCIPLES "Task inputs hold the files a task's tool reads"`,
-            );
-        }),
-        bounds.test,
-    );
+    it('should use default namedInputs whether production is available or not, since docker build reads every file of its context', async ({ tempFs, context }) => {
+        await tempFs.createFiles({
+            'proj/compose.yaml': 'services:\n    app:\n        build: .\n',
+            'proj/Dockerfile': 'FROM node:18',
+            'proj/project.json': '{}',
+        });
 
-    methods.effect(
-        'plugin isolation on and off give equal projects',
-        Effect.fnUntraced(function* () {
-            const { called } = yield* Consumer;
-            const printed = (isolate: boolean) => called('env', ['NX_CACHE_PROJECT_GRAPH=false', `NX_ISOLATE_PLUGINS=${isolate}`, 'nx', 'show', 'project', 'api', '--json']);
-            const [isolated, shared] = [yield* printed(true), yield* printed(false)];
-            assert.deepStrictEqual([shared.code, shared.stdout], [isolated.code, isolated.stdout], 'nrwl/nx packages/nx/src/project-graph/plugins/isolation/isolated-plugin.spec.ts: a plugin returns the same project from a worker and in process');
-        }),
-        bounds.test,
-    );
+        const results = await createNodesFunction(['proj/compose.yaml'], {}, { ...context, nxJsonConfiguration: { namedInputs: { default: ['{projectRoot}/**/*'] } } });
 
-    methods.effect(
-        'no input of an inferred target is plugin source, mise.lock, or a credential variable',
-        Effect.fnUntraced(function* () {
-            const rows = Object.values((yield* read).nodes)
-                .flatMap(({ data }) => Object.values(data.targets ?? {}))
-                .flatMap(({ inputs = [] }) => inputs)
-                .map((row) => Formatter.format(row));
-            assert.deepStrictEqual(
-                rows.filter((row) => UNREAD.test(row)),
-                [],
-                'README.md PRINCIPLES "Task inputs hold the files a task\'s tool reads: plugin and executor source, .config/mise.lock, and credentials are no input"',
-            );
-        }),
-        bounds.test,
-    );
+        expect(results).toStrictEqual(await createNodesFunction(['proj/compose.yaml'], {}, context));
+        expect(results[0]?.[1].projects?.['proj']?.targets?.['build--compose']?.inputs).toStrictEqual(['default', '^default', '{workspaceRoot}/proj/.env', '{workspaceRoot}/proj/Dockerfile', '{workspaceRoot}/proj/compose.yaml', { externalDependencies: [] }]);
+    });
 
-    methods.effect(
-        'two reads of one workspace give equal projects, and a file no config reads changes none',
-        Effect.fnUntraced(function* () {
-            const { wrote } = yield* Consumer;
-            const [first, second] = [yield* read, yield* read];
-            yield* wrote({ 'docs/notes.md': '# Notes\n' });
-            assert.deepStrictEqual(second.nodes, first.nodes, `${api}: one set of files gives one set of nodes`);
-            assert.deepStrictEqual((yield* read).nodes, first.nodes, `${api}: a file no config reads changes no node`);
-        }),
-        bounds.test,
-    );
+    it('should handle nested project structures', async ({ tempFs, context }) => {
+        await tempFs.createFiles({
+            'apps/api/compose.yaml': 'services:\n    app:\n        build: .\n',
+            'apps/api/Dockerfile': 'FROM node:18',
+            'apps/api/project.json': '{}',
+        });
 
-    methods.effect(
-        'a service given a build context gets its project the image build on the next read',
-        Effect.fnUntraced(function* () {
-            const { wrote } = yield* Consumer;
-            yield* wrote({ 'ops/compose.yaml': 'services:\n    proxy:\n        build:\n            context: ../apps/edge\n', 'apps/edge/package.json': '{ "name": "edge", "type": "module" }\n', 'apps/edge/Dockerfile': 'FROM scratch\n' });
-            assert.isNotEmpty(Record.keys(tooled(yield* read, 'edge', 'build')), 'nrwl/nx packages/nx/src/project-graph/nx-deps-cache.spec.ts: a changed file invalidates what was computed from it');
-        }),
-        bounds.test,
-    );
+        const results = await createNodesFunction(['apps/api/compose.yaml'], {}, context);
 
-    methods.effect(
-        'an edit to a Compose file included from outside the project folder moves the install configurations on the next read',
-        Effect.fnUntraced(function* () {
-            const { wrote } = yield* Consumer;
-            yield* wrote({ 'shared/compose.base.yaml': `${files['shared/compose.base.yaml']}    cache:\n        image: valkey/valkey:8\n        profiles:\n            - cached\n` });
-            const [graph, profiles] = yield* Effect.all([read, composed('infra', '--profiles')]);
-            assert.deepStrictEqual(
-                Object.values(tooled(graph, 'infra', 'install')).map(({ configurations = {} }) => Record.keys(configurations).toSorted()),
-                [profiles.trim().split('\n').toSorted()],
-                'docs.docker.com/compose/how-tos/multiple-compose-files/include: an included file is part of the model docker compose config resolves; nrwl/nx packages/nx/src/project-graph/nx-deps-cache.spec.ts: a changed file invalidates what was computed from it',
-            );
-        }),
-        bounds.test,
-    );
-});
+        expect(results[0]?.[0]).toBe('apps/api/compose.yaml');
+        expect(results[0]?.[1].projects?.['apps/api']?.targets?.['check--compose']).toMatchInlineSnapshot(`
+          {
+            cache: true,
+            command: docker compose config --quiet,
+            inputs: [
+              {workspaceRoot}/apps/api/.env,
+              {workspaceRoot}/apps/api/Dockerfile,
+              {workspaceRoot}/apps/api/compose.yaml,
+              {
+                externalDependencies: [],
+              },
+            ],
+            metadata: {
+              description: Validates every Compose service of api, interpolation and env files included, with docker compose config,
+              help: {
+                command: docker compose config --help,
+                example: {
+                  args: [
+                    --dry-run,
+                  ],
+                },
+              },
+              technologies: [
+                compose,
+              ],
+            },
+            options: {
+              cwd: apps/api,
+              env: {
+                COMPOSE_PROFILES: *,
+              },
+            },
+          }
+        `);
+        expect(results[0]?.[1].projects?.['apps/api']?.targets?.['build--compose']).toMatchInlineSnapshot(`
+          {
+            command: docker compose build,
+            dependsOn: [
+              build--!(compose|buildx),
+              ^build,
+            ],
+            inputs: [
+              default,
+              ^default,
+              {workspaceRoot}/apps/api/.env,
+              {workspaceRoot}/apps/api/Dockerfile,
+              {workspaceRoot}/apps/api/compose.yaml,
+              {
+                externalDependencies: [],
+              },
+            ],
+            metadata: {
+              description: Builds the images of api into the engine with docker compose build,
+              help: {
+                command: docker compose build --help,
+                example: {
+                  args: [
+                    --dry-run,
+                  ],
+                },
+              },
+              technologies: [
+                compose,
+              ],
+            },
+            options: {
+              cwd: apps/api,
+            },
+          }
+        `);
+        expect(results[0]?.[1].projects?.['apps/api']?.targets?.['serve--compose']).toMatchInlineSnapshot(`
+          {
+            command: docker compose up --wait --no-build app && docker compose logs --follow app,
+            continuous: true,
+            dependsOn: [
+              build--*,
+            ],
+            inputs: [
+              default,
+              ^default,
+              {workspaceRoot}/apps/api/.env,
+              {workspaceRoot}/apps/api/Dockerfile,
+              {workspaceRoot}/apps/api/compose.yaml,
+              {
+                externalDependencies: [],
+              },
+            ],
+            metadata: {
+              description: Starts app of api with the services each depends on from built images and follows their logs with docker compose up, the services staying up after the run,
+              help: {
+                command: docker compose up --help,
+                example: {
+                  args: [
+                    --dry-run,
+                  ],
+                },
+              },
+              technologies: [
+                compose,
+              ],
+            },
+            options: {
+              cwd: apps/api,
+            },
+            readyWhen: {
+              command: node -e "require('@rasm/nx-docker/ready-check').waitForDevServer('app')",
+              interval: 1000,
+            },
+          }
+        `);
+        expect(results[0]?.[1].projects?.['apps/api']?.targets?.['install--compose']).toMatchInlineSnapshot(`
+          {
+            command: docker compose up --wait --no-build --remove-orphans,
+            dependsOn: [
+              build--*,
+            ],
+            inputs: [
+              default,
+              ^default,
+              {workspaceRoot}/apps/api/.env,
+              {workspaceRoot}/apps/api/Dockerfile,
+              {workspaceRoot}/apps/api/compose.yaml,
+              {
+                externalDependencies: [],
+              },
+            ],
+            metadata: {
+              description: Starts the services of api from built images and waits until each is healthy with docker compose up,
+              help: {
+                command: docker compose up --help,
+                example: {
+                  args: [
+                    --dry-run,
+                  ],
+                },
+              },
+              technologies: [
+                compose,
+              ],
+            },
+            options: {
+              cwd: apps/api,
+            },
+          }
+        `);
+    });
 
-it.layer(workspace({ ...files, 'ops/compose.yaml': 'services:\n    proxy:\n        image: [traefik\n' }), { timeout: bounds.built, excludeTestServices: true })((methods) => {
-    methods.effect(
-        'a Compose file that fails to load is named in the failure, and every other project keeps its targets',
-        Effect.fnUntraced(function* () {
-            const errors = 'nrwl/nx packages/nx/src/project-graph/error-types.ts AggregateCreateNodesError';
-            const graph = yield* read;
-            assert.include(
-                graph.failures.flatMap(({ files: failed }) => failed).map(({ file }) => file),
-                'ops/compose.yaml',
-                `${errors}: errors hold a [file, error] tuple for the file that failed`,
-            );
-            assert.isNotEmpty(Record.keys(tooled(graph, 'infra', 'install')), `${errors}: "It allows Nx to recieve partial results and continue processing"`);
-            assert.isNotEmpty(Record.keys(tooled(graph, 'api', 'build')), `${errors}: partial results hold every project whose file loaded`);
-        }),
-        bounds.test,
-    );
+    it('should handle project names with special characters', async ({ tempFs, context }) => {
+        await tempFs.createFiles({
+            'apps/my-app/compose.yaml': 'services:\n    app:\n        build: .\n',
+            'apps/my-app/Dockerfile': 'FROM node:18',
+            'apps/my-app/project.json': '{}',
+        });
+
+        const results = await createNodesFunction(['apps/my-app/compose.yaml'], {}, context);
+
+        expect(results[0]?.[1].projects?.['apps/my-app']?.targets?.['build--compose']).toMatchObject({ command: 'docker compose build', options: { cwd: 'apps/my-app' }, metadata: { description: 'Builds the images of my-app into the engine with docker compose build' } });
+    });
+
+    it('should handle multiple Compose files', async ({ tempFs, context }) => {
+        await tempFs.createFiles({
+            'app1/compose.yaml': 'services:\n    app:\n        image: node:18\n',
+            'app1/compose.override.yaml': 'services:\n    app:\n        ports:\n            - "3000:3000"\n',
+            'app1/project.json': '{}',
+            'app2/compose.yaml': 'services:\n    app:\n        image: node:18\n',
+            'app2/project.json': '{}',
+        });
+
+        const results = await createNodesFunction(['app1/compose.override.yaml', 'app1/compose.yaml', 'app2/compose.yaml'], {}, context);
+
+        expect(results).toHaveLength(2);
+        expect(results[0]?.[0]).toBe('app1/compose.override.yaml');
+        expect(results[1]?.[0]).toBe('app2/compose.yaml');
+        expect(Object.keys({ ...results[0]?.[1].projects })).toStrictEqual(['app1']);
+        expect(Object.keys({ ...results[1]?.[1].projects })).toStrictEqual(['app2']);
+    });
+
+    it('should use cached targets when hash matches', async ({ tempFs, context }) => {
+        await tempFs.createFiles({
+            'proj/compose.yaml': 'services:\n    app:\n        build: .\n',
+            'proj/Dockerfile': 'FROM node:18',
+            'proj/project.json': '{}',
+        });
+
+        const results1 = await createNodesFunction(['proj/compose.yaml'], {}, context);
+
+        const results2 = await createNodesFunction(['proj/compose.yaml'], {}, context);
+
+        expect(results1).toStrictEqual(results2);
+    });
+
+    it('should re-read when a file the Compose model reads changes', async ({ tempFs, context }) => {
+        await tempFs.createFiles({
+            'shared/compose.base.yaml': 'services:\n    store:\n        image: valkey/valkey:8\n',
+            'infra/compose.yaml': 'include:\n    - ../shared/compose.base.yaml\nservices:\n    api:\n        image: node:18\n',
+            'infra/project.json': '{}',
+        });
+
+        const results1 = await createNodesFunction(['infra/compose.yaml'], {}, context);
+        tempFs.writeFile('shared/compose.base.yaml', 'services:\n    store:\n        image: valkey/valkey:8\n        profiles:\n            - cached\n');
+        await updateContextWithChangedFiles(tempFs.tempDir, [], ['shared/compose.base.yaml'], []);
+        const results2 = await createNodesFunction(['infra/compose.yaml'], {}, context);
+
+        expect(results1[0]?.[1].projects?.['infra']?.targets?.['install--compose']).not.toHaveProperty('configurations');
+        expect(results2[0]?.[1].projects?.['infra']?.targets?.['install--compose']?.configurations).toStrictEqual({ cached: { env: { COMPOSE_PROFILES: 'cached' } } });
+    });
+
+    it('should handle root level compose.yaml', async ({ tempFs, context }) => {
+        await tempFs.createFiles({
+            'compose.yaml': 'services:\n    app:\n        build: .\n',
+            Dockerfile: 'FROM node:18',
+            'project.json': '{}',
+        });
+
+        const results = await createNodesFunction(['compose.yaml'], {}, context);
+
+        expect(results[0]?.[0]).toBe('compose.yaml');
+        expect(results[0]?.[1].projects?.['.']?.targets?.['check--compose']).toMatchInlineSnapshot(`
+          {
+            cache: true,
+            command: docker compose config --quiet,
+            inputs: [
+              {workspaceRoot}/.env,
+              {workspaceRoot}/Dockerfile,
+              {workspaceRoot}/compose.yaml,
+              {
+                externalDependencies: [],
+              },
+            ],
+            metadata: {
+              description: Validates every Compose service of {rootName}, interpolation and env files included, with docker compose config,
+              help: {
+                command: docker compose config --help,
+                example: {
+                  args: [
+                    --dry-run,
+                  ],
+                },
+              },
+              technologies: [
+                compose,
+              ],
+            },
+            options: {
+              cwd: .,
+              env: {
+                COMPOSE_PROFILES: *,
+              },
+            },
+          }
+        `);
+        expect(results[0]?.[1].projects?.['.']?.targets?.['build--compose']).toMatchInlineSnapshot(`
+          {
+            command: docker compose build,
+            dependsOn: [
+              build--!(compose|buildx),
+              ^build,
+            ],
+            inputs: [
+              default,
+              ^default,
+              {workspaceRoot}/.env,
+              {workspaceRoot}/Dockerfile,
+              {workspaceRoot}/compose.yaml,
+              {
+                externalDependencies: [],
+              },
+            ],
+            metadata: {
+              description: Builds the images of {rootName} into the engine with docker compose build,
+              help: {
+                command: docker compose build --help,
+                example: {
+                  args: [
+                    --dry-run,
+                  ],
+                },
+              },
+              technologies: [
+                compose,
+              ],
+            },
+            options: {
+              cwd: .,
+            },
+          }
+        `);
+        expect(results[0]?.[1].projects?.['.']?.targets?.['serve--compose']).toMatchInlineSnapshot(`
+          {
+            command: docker compose up --wait --no-build app && docker compose logs --follow app,
+            continuous: true,
+            dependsOn: [
+              build--*,
+            ],
+            inputs: [
+              default,
+              ^default,
+              {workspaceRoot}/.env,
+              {workspaceRoot}/Dockerfile,
+              {workspaceRoot}/compose.yaml,
+              {
+                externalDependencies: [],
+              },
+            ],
+            metadata: {
+              description: Starts app of {rootName} with the services each depends on from built images and follows their logs with docker compose up, the services staying up after the run,
+              help: {
+                command: docker compose up --help,
+                example: {
+                  args: [
+                    --dry-run,
+                  ],
+                },
+              },
+              technologies: [
+                compose,
+              ],
+            },
+            options: {
+              cwd: .,
+            },
+            readyWhen: {
+              command: node -e "require('@rasm/nx-docker/ready-check').waitForDevServer('app')",
+              interval: 1000,
+            },
+          }
+        `);
+        expect(results[0]?.[1].projects?.['.']?.targets?.['install--compose']).toMatchInlineSnapshot(`
+          {
+            command: docker compose up --wait --no-build --remove-orphans,
+            dependsOn: [
+              build--*,
+            ],
+            inputs: [
+              default,
+              ^default,
+              {workspaceRoot}/.env,
+              {workspaceRoot}/Dockerfile,
+              {workspaceRoot}/compose.yaml,
+              {
+                externalDependencies: [],
+              },
+            ],
+            metadata: {
+              description: Starts the services of {rootName} from built images and waits until each is healthy with docker compose up,
+              help: {
+                command: docker compose up --help,
+                example: {
+                  args: [
+                    --dry-run,
+                  ],
+                },
+              },
+              technologies: [
+                compose,
+              ],
+            },
+            options: {
+              cwd: .,
+            },
+          }
+        `);
+    });
+
+    it('should write nothing outside the declared outputs when build--compose runs', { timeout: 120_000 }, async ({ tempFs, context, onTestFinished }) => {
+        await tempFs.createFiles({
+            'proj/compose.yaml': 'services:\n    app:\n        build: .\n',
+            'proj/Dockerfile': 'FROM scratch\nCOPY compose.yaml /compose.yaml\n',
+            'proj/project.json': '{}',
+        });
+        const results = await createNodesFunction(['proj/compose.yaml'], {}, context);
+        const target = results[0]?.[1].projects?.['proj']?.targets?.['build--compose'];
+        const before = globSync('**', { cwd: tempFs.tempDir });
+        onTestFinished(() => {
+            execFileSync('docker', ['image', 'rm', '--force', 'proj-app'], { stdio: 'ignore' });
+        });
+
+        execSync(String(target?.command), { cwd: join(tempFs.tempDir, 'proj'), stdio: 'ignore' });
+
+        expect(target).toMatchObject({ command: 'docker compose build', options: { cwd: 'proj' } });
+        expect(target).not.toHaveProperty('outputs');
+        expect(globSync('**', { cwd: tempFs.tempDir })).toStrictEqual(before);
+    });
+
+    describe('project roots', () => {
+        it('should not create nodes for a Compose file outside a project root', async ({ tempFs, context }) => {
+            await tempFs.createFiles({
+                'package.json': '{ "name": "workspace", "workspaces": ["apps/*"] }',
+                'deploy/compose.yaml': 'services:\n    app:\n        image: node:18\n',
+                'tools/compose.yaml': 'services:\n    app:\n        image: node:18\n',
+                'tools/package.json': '{ "name": "tools" }',
+            });
+
+            const results = await createNodesFunction(['deploy/compose.yaml', 'tools/compose.yaml'], {}, context);
+
+            expect(results).toStrictEqual([]);
+        });
+
+        it('should create nodes for a package.json in the package-manager workspaces', async ({ tempFs, context }) => {
+            await tempFs.createFiles({
+                'package.json': '{ "name": "workspace", "workspaces": ["apps/*"] }',
+                'apps/api/compose.yaml': 'services:\n    app:\n        build: .\n',
+                'apps/api/Dockerfile': 'FROM node:18',
+                'apps/api/package.json': '{ "name": "api" }',
+            });
+
+            const results = await createNodesFunction(['apps/api/compose.yaml'], {}, context);
+
+            expect(Object.keys({ ...results[0]?.[1].projects })).toStrictEqual(['apps/api']);
+        });
+
+        it('should give no start to a Dockerfile folder outside a project root', async ({ tempFs, context }) => {
+            await tempFs.createFiles({
+                'infra/compose.yaml': 'services:\n    api:\n        build:\n            context: ../images/api\n',
+                'infra/project.json': '{}',
+                'images/api/Dockerfile': 'FROM node:18',
+            });
+
+            const results = await createNodesFunction(['infra/compose.yaml'], {}, context);
+
+            expect(Object.keys({ ...results[0]?.[1].projects })).toStrictEqual(['infra']);
+            expect(results[0]?.[1].projects?.['infra']?.targets).toHaveProperty('build--compose');
+        });
+    });
+
+    describe('project name generation', () => {
+        it('should handle leading slashes in project root', async ({ tempFs, context }) => {
+            await tempFs.createFiles({
+                'proj/compose.yaml': 'services:\n    app:\n        build: .\n',
+                'proj/Dockerfile': 'FROM node:18',
+                'proj/project.json': '{}',
+            });
+
+            const results = await createNodesFunction(['proj/compose.yaml'], {}, context);
+
+            expect(results[0]?.[1].projects?.['proj']?.targets?.['build--compose']?.metadata?.description).toBe('Builds the images of proj into the engine with docker compose build');
+        });
+
+        it('should handle spaces in project path', async ({ tempFs, context }) => {
+            await tempFs.createFiles({
+                'my proj/compose.yaml': 'services:\n    app:\n        build: .\n',
+                'my proj/Dockerfile': 'FROM node:18',
+                'my proj/project.json': '{}',
+            });
+
+            const results = await createNodesFunction(['my proj/compose.yaml'], {}, context);
+
+            expect(results[0]?.[1].projects?.['my proj']?.targets?.['build--compose']).toMatchObject({ command: 'docker compose build', options: { cwd: 'my proj' }, metadata: { description: 'Builds the images of myproj into the engine with docker compose build' } });
+        });
+
+        it('should replace shell metacharacters in project path', async ({ tempFs, context }) => {
+            await tempFs.createFiles({
+                'a;touch pwned;$(id)/compose.yaml': 'services:\n    app:\n        build: .\n',
+                'a;touch pwned;$(id)/Dockerfile': 'FROM node:18',
+                'a;touch pwned;$(id)/project.json': '{}',
+            });
+
+            const results = await createNodesFunction(['a;touch pwned;$(id)/compose.yaml'], {}, context);
+
+            expect(results[0]?.[1].projects?.['a;touch pwned;$(id)']?.targets).toMatchObject({
+                'build--compose': { command: 'docker compose build', options: { cwd: 'a;touch pwned;$(id)' }, metadata: { description: 'Builds the images of atouchpwnedid into the engine with docker compose build' } },
+                'serve--compose': { command: 'docker compose up --wait --no-build app && docker compose logs --follow app', options: { cwd: 'a;touch pwned;$(id)' } },
+            });
+        });
+    });
+
+    describe('dependency handling', () => {
+        it('should set run target to depend on build target', async ({ tempFs, context }) => {
+            await tempFs.createFiles({
+                'proj/compose.yaml': 'services:\n    app:\n        build: .\n',
+                'proj/Dockerfile': 'FROM node:18',
+                'proj/project.json': '{}',
+            });
+
+            const results = await createNodesFunction(['proj/compose.yaml'], {}, context);
+
+            expect(results[0]?.[1].projects?.['proj']?.targets?.['serve--compose']?.dependsOn).toStrictEqual(['build--*']);
+            expect(results[0]?.[1].projects?.['proj']?.targets?.['install--compose']?.dependsOn).toStrictEqual(['build--*']);
+        });
+
+        it('should build a Dockerfile a Compose service of the project builds once, through build--compose', async ({ tempFs, context }) => {
+            await tempFs.createFiles({
+                'proj/compose.yaml': 'services:\n    app:\n        build: .\n    worker:\n        build:\n            context: ../apps/worker\n',
+                'proj/Dockerfile': 'FROM node:18',
+                'proj/project.json': '{}',
+                'apps/worker/Dockerfile': 'FROM node:18',
+                'apps/worker/project.json': '{}',
+            });
+
+            const results = await createNodesFunction(['proj/compose.yaml'], {}, context);
+
+            expect(results[0]?.[1].projects?.['proj']?.targets).not.toHaveProperty('build--buildx');
+            expect(results[0]?.[1].projects?.['proj']?.targets).toHaveProperty('build--compose');
+            expect(Object.keys({ ...results[0]?.[1].projects?.['apps/worker']?.targets })).toStrictEqual(['build', 'build--buildx', 'serve', 'serve--compose']);
+            expect(results[0]?.[1].projects?.['apps/worker']?.targets?.['build--buildx']?.command).toBe('docker compose build --with-dependencies worker');
+        });
+
+        it('should give the project holding the Dockerfile of a service its image build and start', async ({ tempFs, context }) => {
+            await tempFs.createFiles({
+                'infra/compose.yaml': 'services:\n    api:\n        build:\n            context: ../apps/api\n',
+                'infra/project.json': '{}',
+                'apps/api/Dockerfile': 'FROM node:18',
+                'apps/api/project.json': '{}',
+            });
+
+            const results = await createNodesFunction(['infra/compose.yaml'], {}, context);
+
+            expect(Object.keys({ ...results[0]?.[1].projects })).toStrictEqual(['apps/api', 'infra']);
+            expect(Object.keys({ ...results[0]?.[1].projects?.['apps/api']?.targets })).toStrictEqual(['build', 'build--buildx', 'serve', 'serve--compose']);
+            expect(results[0]?.[1].projects?.['apps/api']?.targets).toMatchObject({ 'build--buildx': { options: { cwd: 'infra' } }, 'serve--compose': { options: { cwd: 'infra' } } });
+        });
+
+        it('should name every file the Compose model reads as an input', async ({ tempFs, context }) => {
+            await tempFs.createFiles({
+                'shared/compose.base.yaml': 'services:\n    store:\n        image: valkey/valkey:8\n',
+                'shared/proxy.base.yaml': 'services:\n    proxy:\n        image: traefik:v3\n',
+                'infra/compose.yaml': 'include:\n    - ../shared/compose.base.yaml\nservices:\n    api:\n        build:\n            context: ../apps/api\n        env_file: api.env\n    proxy:\n        extends:\n            file: ../shared/proxy.base.yaml\n            service: proxy\n',
+                'infra/api.env': 'PORT=8080\n',
+                'infra/project.json': '{}',
+                'apps/api/Dockerfile': 'FROM node:18',
+            });
+
+            const results = await createNodesFunction(['infra/compose.yaml'], {}, context);
+
+            expect(results[0]?.[1].projects?.['infra']?.targets?.['check--compose']?.inputs).toStrictEqual([
+                '{workspaceRoot}/apps/api/Dockerfile',
+                '{workspaceRoot}/infra/.env',
+                '{workspaceRoot}/infra/api.env',
+                '{workspaceRoot}/infra/compose.yaml',
+                '{workspaceRoot}/shared/compose.base.yaml',
+                '{workspaceRoot}/shared/proxy.base.yaml',
+                { externalDependencies: [] },
+            ]);
+        });
+
+        it('should create a dependency on the project whose output holds a build context', async ({ tempFs, context }) => {
+            await tempFs.createFiles({
+                'ops/compose.yaml': 'services:\n    site:\n        build:\n            context: ../libs/site/dist\n            dockerfile: ../../../ops/site.Dockerfile\n',
+                'ops/site.Dockerfile': 'FROM scratch\nCOPY . /site\n',
+                'ops/project.json': '{}',
+            });
+
+            const results = await createNodesFunction(['ops/compose.yaml'], {}, context);
+            const dependencies = await createDependencies({}, {
+                externalNodes: {},
+                fileMap: { projectFileMap: {}, nonProjectFiles: [] },
+                filesToProcess: { projectFileMap: {}, nonProjectFiles: [] },
+                nxJsonConfiguration: context.nxJsonConfiguration,
+                projects: {
+                    ops: { root: 'ops', ...results[0]?.[1].projects?.['ops'] },
+                    site: { root: 'libs/site', targets: { build: { command: 'true', outputs: ['{projectRoot}/dist'] } } },
+                },
+                workspaceRoot: tempFs.tempDir,
+            } satisfies CreateDependenciesContext);
+
+            expect(dependencies).toStrictEqual([{ source: 'ops', target: 'site', type: DependencyType.static, sourceFile: 'ops/compose.yaml' }]);
+            expect(results[0]?.[1].projects?.['ops']?.targets?.['build--compose']?.dependsOn).toStrictEqual(['build--!(compose|buildx)', '^build']);
+        });
+    });
+
+    describe('target configurations', () => {
+        it('should create configurations from Compose profiles', async ({ tempFs, context }) => {
+            await tempFs.createFiles({
+                'proj/compose.yaml': 'services:\n    app:\n        build: .\n    traces:\n        image: jaegertracing/jaeger:2\n        profiles:\n            - observed\n    debugger:\n        image: node:18\n        profiles:\n            - debug\n',
+                'proj/Dockerfile': 'FROM node:18',
+                'proj/project.json': '{}',
+            });
+
+            const results = await createNodesFunction(['proj/compose.yaml'], {}, context);
+
+            const configurations = { debug: { env: { COMPOSE_PROFILES: 'debug' } }, observed: { env: { COMPOSE_PROFILES: 'observed' } } };
+            expect(results[0]?.[1].projects?.['proj']?.targets).toMatchObject({ 'build--compose': { configurations }, 'install--compose': { configurations } });
+        });
+
+        it('should not include configurations if not defined', async ({ tempFs, context }) => {
+            await tempFs.createFiles({
+                'proj/compose.yaml': 'services:\n    app:\n        build: .\n',
+                'proj/Dockerfile': 'FROM node:18',
+                'proj/project.json': '{}',
+            });
+
+            const results = await createNodesFunction(['proj/compose.yaml'], {}, context);
+
+            expect(results[0]?.[1].projects?.['proj']?.targets?.['build--compose']).not.toHaveProperty('configurations');
+            expect(results[0]?.[1].projects?.['proj']?.targets?.['install--compose']).not.toHaveProperty('configurations');
+        });
+    });
 });

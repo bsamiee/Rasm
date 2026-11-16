@@ -1,8 +1,8 @@
-import { dirname, join, relative } from 'node:path';
+import { posix } from 'node:path';
 import { layer } from '@effect/platform-node/NodeServices';
-import { AggregateCreateNodesError, type CreateNodes, type CreateNodesContext, type CreateNodesResult, type TargetConfiguration } from '@nx/devkit';
-import { mergeTargetConfigurations, quoteShellArg } from '@nx/devkit/internal';
-import { Array, Cause, Effect, FileSystem, Option, Predicate, Record, Result, Schema } from 'effect';
+import { AggregateCreateNodesError, type CreateNodes, type CreateNodesContext, type CreateNodesResult, readJsonFile, type TargetConfiguration } from '@nx/devkit';
+import { buildPackageJsonPatterns, buildPackageJsonWorkspacesMatcher, combineGlobPatterns, getNamedInputs, globWithWorkspaceContext, mergeTargetConfigurations, type PackageJson, quoteShellArg } from '@nx/devkit/internal';
+import { Array, Effect, FileSystem, Option, Predicate, Record, Result, Schema } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -69,13 +69,14 @@ const programmed = ({ name, bin, dependencies, devDependencies }: typeof Manifes
                           Option.liftPredicate(Object.values(stated), (entries) => entries.length === 1),
                           Array.head,
                       ),
-                (entry) => [program, join(dirname(file), entry)] as const,
+                (entry) => [program, posix.join(posix.dirname(file), entry)] as const,
             ),
     );
 
-const targets = (root: string, entry: string, hosted: boolean, configurations: (typeof Options.Type)['configurations']): Verbs =>
-    Record.fromIterableWith(VERBS, (verb): [string, Readonly<Record<string, TargetConfiguration>>] => {
-        const command = ['node', relative(root, entry), verb].map(quoteShellArg).join(' ');
+const targets = (root: string, entry: string, hosted: boolean, built: boolean, context: CreateNodesContext, configurations: (typeof Options.Type)['configurations']): Verbs => {
+    const inputs = 'production' in getNamedInputs(root, context) ? ['production', '^production'] : ['default', '^default'];
+    return Record.fromIterableWith(VERBS, (verb): [string, Readonly<Record<string, TargetConfiguration>>] => {
+        const command = ['node', posix.relative(root, entry), verb].map(quoteShellArg).join(' ');
         const configured = Record.map(configurations[verb] ?? {}, (words) => ({ args: words.map(quoteShellArg).join(' ') }));
         return [
             verb,
@@ -83,45 +84,47 @@ const targets = (root: string, entry: string, hosted: boolean, configurations: (
                 pulumi: {
                     command,
                     options: { cwd: root },
-                    dependsOn: [hosted ? 'build--*' : '^build', `^${verb}`],
+                    dependsOn: [...(hosted || built ? ['build--*'] : []), ...(hosted && !built ? [] : ['^build']), `^${verb}`],
                     parallelism: false,
-                    inputs: ['default', '^default', { externalDependencies: [] }],
+                    inputs: [...inputs, { externalDependencies: [] }],
                     ...(!Record.isEmptyRecord(configured) && { configurations: configured }),
                     metadata: { description: `Runs the Pulumi Automation API program ${hosted ? 'the project depends on' : 'of the project'} with ${command}` },
                 },
             },
         ];
     });
+};
 
-const inferred = (programs: ReadonlyMap<string, string>, configurations: (typeof Options.Type)['configurations'], { name, dependencies, nx }: typeof Manifest.Type, file: string): CreateNodesResult => {
-    const root = dirname(file);
+const inferred = (programs: ReadonlyMap<string, string>, tracked: ReadonlySet<string>, configurations: (typeof Options.Type)['configurations'], { name, dependencies, nx }: typeof Manifest.Type, file: string, context: CreateNodesContext): Option.Option<readonly [string, CreateNodesResult]> => {
+    const root = posix.dirname(file);
     const own = Option.flatMap(Option.fromUndefinedOr(name), (held) => Option.fromUndefinedOr(programs.get(held)));
     const hosting = Array.getSomes(
         Record.keys(dependencies)
             .toSorted()
             .map((dependency) => Option.fromUndefinedOr(programs.get(dependency))),
     );
-    return Option.match(
+    return Option.map(
         Option.orElse(own, () => Array.head(hosting)),
-        {
-            onNone: () => ({}),
-            onSome: (entry) => ({ projects: { [root]: { root, metadata: { technologies: ['pulumi'] }, targets: aggregated(targets(root, entry, Option.isNone(own), configurations), nx?.targets ?? {}, 'pulumi') } } }),
-        },
+        (entry) => [file, { projects: { [root]: { root, metadata: { technologies: ['pulumi'] }, targets: aggregated(targets(root, entry, Option.isNone(own), !tracked.has(entry), context, configurations), nx?.targets ?? {}, 'pulumi') } } }] as const,
     );
 };
 
 const nodes = Effect.fnUntraced(function* (files: readonly string[], options: typeof Options.Encoded | undefined, context: CreateNodesContext) {
     const [fs, { configurations }] = yield* Effect.all([FileSystem.FileSystem, Schema.decodeEffect(Options)(options ?? {})]);
-    const rows = Array.zip(files, yield* Effect.forEach(files, (file) => Effect.result(Effect.flatMap(fs.readFileString(join(context.workspaceRoot, file)), Schema.decodeEffect(Manifest))), { concurrency: 'unbounded' }));
+    const member = buildPackageJsonWorkspacesMatcher(buildPackageJsonPatterns(context.workspaceRoot, (file) => readJsonFile<PackageJson>(posix.join(context.workspaceRoot, file))));
+    const roots = new Set(files.filter((file) => posix.basename(file) === 'project.json').map((file) => posix.dirname(file)));
+    const handed = files.filter((file) => posix.basename(file) === 'package.json' && (member(file) || roots.has(posix.dirname(file))));
+    const rows = Array.zip(handed, yield* Effect.forEach(handed, (file) => Effect.result(Effect.flatMap(fs.readFileString(posix.join(context.workspaceRoot, file)), Schema.decodeEffect(Manifest))), { concurrency: 'unbounded' }));
     const programs = new Map(Array.getSomes(rows.map(([file, read]) => Option.flatMap(Option.getSuccess(read), (manifest) => programmed(manifest, file)))));
-    const results = Array.filterMap(rows, ([file, read]) => Result.map(read, (manifest) => [file, inferred(programs, configurations, manifest, file)] as const));
-    const failures = Array.filterMap(rows, ([file, read]) => Result.map(Result.flip(read), (error): [string, Error] => [file, new Cause.UnknownError(error, `${file} does not decode as a package manifest: ${error.message}`)]));
+    const tracked = new Set(yield* Effect.promise(() => globWithWorkspaceContext(context.workspaceRoot, [...programs.values()])));
+    const results = Array.getSomes(rows.map(([file, read]) => Option.flatMap(Option.getSuccess(read), (manifest) => inferred(programs, tracked, configurations, manifest, file, context))));
+    const failures = Array.filterMap(rows, ([file, read]) => Result.map(Result.flip(read), (error): [string, Error] => [file, error]));
     return yield* Array.match(failures, { onEmpty: () => Effect.succeed(results), onNonEmpty: (refused) => Effect.fail(new AggregateCreateNodesError(refused, results)) });
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const createNodes: CreateNodes<typeof Options.Encoded> = ['**/package.json', (files, options, context) => run(nodes(files, options, context))];
+const createNodes: CreateNodes<typeof Options.Encoded> = [combineGlobPatterns(['**/package.json', '**/project.json']), (files, options, context) => run(nodes(files, options, context))];
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

@@ -5,8 +5,23 @@ import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { Worker } from 'node:worker_threads';
 import { layer } from '@effect/platform-node/NodeServices';
-import { AggregateCreateNodesError, type CreateNodes, type CreateNodesContext, type CreateNodesResult, detectPackageManager, getPackageManagerCommand, hashArray, normalizePath, type ProjectConfiguration, type TargetConfiguration } from '@nx/devkit';
-import { calculateHashesForCreateNodes, getLockFileName, getNamedInputs, hashFile, hashObject, hashWithWorkspaceContext, mergeTargetConfigurations, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
+import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, type CreateNodesResult, detectPackageManager, getPackageManagerCommand, hashArray, normalizePath, type ProjectConfiguration, readJsonFile, type TargetConfiguration } from '@nx/devkit';
+import {
+    buildPackageJsonPatterns,
+    buildPackageJsonWorkspacesMatcher,
+    calculateHashesForCreateNodes,
+    getLockFileName,
+    getNamedInputs,
+    getReadyCheckReadyWhen,
+    hashFile,
+    hashObject,
+    hashWithWorkspaceContext,
+    mergeTargetConfigurations,
+    type PackageJson,
+    PluginCache,
+    quoteShellArg,
+    workspaceDataDirectory,
+} from '@nx/devkit/internal';
 import { getRootTsConfigFileName } from '@nx/js';
 import { walkTsconfigExtendsChain } from '@nx/js/internal';
 import web from '@nx/web/package.json' with { type: 'json' };
@@ -21,6 +36,8 @@ type Verbs = Readonly<Record<string, Readonly<Record<string, TargetConfiguration
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const WORKER = fileURLToPath(import.meta.resolve('#/worker'));
+const CHECK = normalizePath(fileURLToPath(import.meta.resolve('@nx/storybook/ready-check')));
+const RUNNER = '@storybook/test-runner';
 const OWN = pipe(
     Effect.flatMap(FileSystem.FileSystem, (fs) => fs.readDirectory(import.meta.dirname)),
     Effect.map((names) => hashArray(names.toSorted().flatMap((name) => [name, ...Array.fromNullishOr(hashFile(join(import.meta.dirname, name)))]))),
@@ -36,17 +53,15 @@ const Overrides = Schema.fromJsonString(Schema.Struct({ nx: Schema.optionalKey(S
     description: "The nx.targets rows of a project's package.json, whose inputs Nx merges over the inferred targets after every plugin",
 });
 const Entry = Schema.Union([Schema.String, Schema.Struct({ name: Schema.String })]);
-const Main = Schema.Struct({ framework: Schema.optionalKey(Entry), addons: Schema.optionalKey(Schema.Array(Entry)) }).annotate({
-    description: 'The framework and addons of a Storybook main config, each a package specifier or path, alone or as the name of an object holding its options',
+const Main = Schema.Struct({ framework: Schema.optionalKey(Entry), addons: Schema.optionalKey(Schema.Array(Entry)), stories: Schema.Array(Schema.Struct({ directory: Schema.String, files: Schema.String })) }).annotate({
+    description: 'The framework and addons of a Storybook main config, each a package specifier or path, alone or as the name of an object holding its options, and each stories folder relative to the workspace root with its file glob',
 });
-const Loaded = Schema.Struct({ main: Schema.fromJsonString(Main), loaded: Schema.Array(Schema.String) }).annotate({ description: 'The framework and addons the worker read from a Storybook main config, and the URL of every module its load resolved' });
+const Loaded = Schema.Struct({ main: Schema.fromJsonString(Main), loaded: Schema.Array(Schema.String) }).annotate({ description: 'The framework, addons, and stories the worker read from a Storybook main config, and the URL of every module its load resolved' });
 const Named = Schema.fromJsonString(Schema.Struct({ name: Schema.String })).annotate({ description: 'The name field of a package.json' });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const run = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem>) => Effect.runPromise(Effect.provide(effect, layer));
-
-const rendered = (cause: Cause.Cause<unknown>) => Effect.fail(new Cause.UnknownError(cause, Cause.pretty(cause)));
 
 const manifested = Effect.fnUntraced(function* (workspaceRoot: string, root: string) {
     const fs = yield* FileSystem.FileSystem;
@@ -97,28 +112,29 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string) {
     const [root, main] = [dirname(dirname(file)), join(workspaceRoot, file)];
     const failed = (cause: unknown) => new Cause.UnknownError(cause, `${file} does not load as a Storybook main config`);
     const listened = Effect.acquireUseRelease(
-        Effect.sync(() => new Worker(WORKER, { workerData: main })),
+        Effect.sync(() => new Worker(WORKER, { workerData: [main, workspaceRoot] })),
         (worker) => Effect.raceFirst(Effect.tryPromise({ try: (signal) => once(worker, 'message', { signal }), catch: failed }), Effect.flatMap(Effect.tryPromise({ try: (signal) => once(worker, 'exit', { signal }), catch: failed }), flow(failed, Effect.fail))),
         (worker) => Effect.promise(() => worker.terminate()),
     );
     const {
-        main: { framework, addons = [] },
+        main: { framework, addons = [], stories },
         loaded,
     } = yield* Effect.flatMap(listened, ([message]) => Schema.decodeUnknownEffect(Loaded)(message));
     const sources = Array.dedupe(loaded.filter((url) => url.startsWith('file:')).map((url) => normalizePath(relative(workspaceRoot, fileURLToPath(url))))).filter((at) => !(at.startsWith('..') || at.startsWith(`${root}/`) || at.split('/').includes('node_modules')));
     const specifiers = Array.dedupe([...Array.fromNullishOr(framework), ...addons].map((entry) => (Predicate.isString(entry) ? entry : entry.name)));
-    const manifests = yield* Effect.forEach(Array.getSomes(specifiers.map((specifier) => Option.flatMap(Option.liftThrowable(findPackageJSON)(specifier, pathToFileURL(main)), Option.fromUndefinedOr))), (at) => fs.realPath(at));
+    const found = (specifier: string) => Option.flatMap(Option.liftThrowable(findPackageJSON)(specifier, pathToFileURL(main)), Option.fromUndefinedOr);
+    const manifests = yield* Effect.forEach(Array.getSomes(specifiers.map(found)), (at) => fs.realPath(at));
     const named = yield* Effect.forEach(manifests, (at) => Effect.map(Effect.flatMap(fs.readFileString(at), Schema.decodeEffect(Named)), ({ name }) => (at.split(sep).includes('node_modules') ? Result.succeed(name) : Result.fail(name))));
     const [packages, linked] = Array.partition(named, identity);
-    return { packages, linked, sources, stamp: yield* stamped(workspaceRoot, sources) };
+    const globs = Array.dedupe(stories.map(({ directory, files }) => normalizePath(join(directory, files)))).filter((at) => !at.startsWith('..'));
+    return { packages, linked, sources, globs, runner: Option.isSome(found(RUNNER)), stamp: yield* stamped(workspaceRoot, sources) };
 });
 
-const targets = (root: string, { packages, linked, sources }: Resolved, chain: readonly string[], upstream: string, output: Option.Option<string>, exec: string): Verbs => {
+const targets = (root: string, { packages, linked, sources, globs, runner }: Resolved, chain: readonly string[], production: boolean, output: Option.Option<string>, exec: string): Verbs => {
     const rooted = getRootTsConfigFileName();
     const inputs = [
-        'default',
-        upstream,
-        ...chain.map((at) => ({ json: join('{workspaceRoot}', at), fields: ['compilerOptions'], ...(at === rooted && { excludeFields: ['compilerOptions.paths'] }) })),
+        ...(production ? ['production', '{workspaceRoot}/{projectRoot}/.storybook/**/*', ...globs.map((at) => join('{workspaceRoot}', at)), '^production'] : ['default', '^default']),
+        ...chain.filter((at) => at !== rooted).map((at) => ({ json: join('{workspaceRoot}', at), fields: ['compilerOptions'] })),
         ...sources.map((at) => join('{workspaceRoot}', at)),
         ...Array.match(linked, {
             onEmpty: () => [],
@@ -136,7 +152,7 @@ const targets = (root: string, { packages, linked, sources }: Resolved, chain: r
             command: ['storybook', 'build', ...Option.match(output, { onNone: () => [], onSome: (at) => ['--output-dir', relative(root, at)] })].map(quoteShellArg).join(' '),
             ...needs,
             cache: true,
-            outputs: [join('{workspaceRoot}', written)],
+            outputs: [...Option.match(output, { onNone: () => ['{projectRoot}/storybook-static'], onSome: (at) => [relative(root, at).startsWith('..') ? join('{workspaceRoot}', at) : join('{projectRoot}', relative(root, at))] }), ...['output-dir', 'outputDir', 'o'].map((option) => `{projectRoot}/{options.${option}}`)],
             metadata: { description: 'Builds the static Storybook of the project stories with storybook build', help: { command: `${exec} storybook build --help`, example: { args: ['--test'] } } },
         },
     } satisfies Record<string, TargetConfiguration>;
@@ -159,10 +175,21 @@ const targets = (root: string, { packages, linked, sources }: Resolved, chain: r
                 command: 'storybook dev',
                 ...needs,
                 continuous: true,
-                readyWhen: { port: '{options.port ?? env.SBCONFIG_PORT ?? env.PORT ?? auto}', host: '{env.SBCONFIG_HOSTNAME ?? options.host ?? localhost}' },
+                readyWhen: getReadyCheckReadyWhen(CHECK),
                 metadata: { description: 'Serves the project stories with storybook dev', help: { command: `${exec} storybook dev --help`, example: { args: ['--port=<port>'] } } },
             },
         },
+        test: runner
+            ? {
+                  storybook: {
+                      command: 'test-storybook',
+                      options: { cwd: root },
+                      dependsOn: [{ target: 'serve--storybook', waitFor: 'ready' }],
+                      inputs: [{ externalDependencies: ['storybook', RUNNER] }],
+                      metadata: { description: 'Runs the stories of the Storybook serve--storybook serves as tests with test-storybook', help: { command: `${exec} test-storybook --help`, example: { args: ['--url', 'http://localhost:6006'] } } },
+                  },
+              }
+            : {},
         clean: {
             storybook: {
                 executor: `${distribution.name}:clean`,
@@ -189,14 +216,14 @@ const inferred = Effect.fnUntraced(function* (cache: PluginCache<Resolved>, stor
     });
     const stated = yield* manifested(context.workspaceRoot, root);
     const outside = chain.filter((config) => !config.startsWith(`${root}/`));
-    const project: ProjectConfiguration = { root, metadata: { technologies: ['storybook'] }, targets: aggregated(targets(root, resolved, outside, 'production' in getNamedInputs(root, context) ? '^production' : '^default', output, exec), stated, 'storybook') };
+    const project: ProjectConfiguration = { root, metadata: { technologies: ['storybook'] }, targets: aggregated(targets(root, resolved, outside, 'production' in getNamedInputs(root, context), output, exec), stated, 'storybook') };
     return { projects: { [root]: project } } satisfies CreateNodesResult;
 });
 
 const nodes = Effect.fnUntraced(function* (files: readonly string[], options: typeof Options.Encoded | undefined, context: CreateNodesContext) {
     const settings = yield* Schema.decodeEffect(Options)(options ?? {});
-    const mains = files.filter((file) => existsSync(join(context.workspaceRoot, dirname(dirname(file)), 'package.json')));
-    const roots = mains.map((file) => dirname(dirname(file)));
+    const member = buildPackageJsonWorkspacesMatcher(buildPackageJsonPatterns(context.workspaceRoot, (file) => readJsonFile<PackageJson>(join(context.workspaceRoot, file))));
+    const [mains, roots] = Array.unzip(files.map((file) => [file, dirname(dirname(file))] as const).filter(([, root]) => existsSync(join(context.workspaceRoot, root, 'project.json')) || (member(join(root, 'package.json')) && existsSync(join(context.workspaceRoot, root, 'package.json')))));
     const chains = roots.map((root) => extended(context.workspaceRoot, root));
     const manager = detectPackageManager(context.workspaceRoot);
     const { exec } = getPackageManagerCommand(manager);
@@ -211,15 +238,15 @@ const nodes = Effect.fnUntraced(function* (files: readonly string[], options: ty
     );
     const cache = new PluginCache<Resolved>(join(workspaceDataDirectory, `storybook-${hashObject(options ?? {})}.hash`));
     const stored = MutableRef.make(false);
-    const rows = Array.zipWith(Array.zip(mains, chains), hashes, ([file, chain], hash) => ({ file, chain, key: hashArray([hash, own, file]) }));
-    const settled = Array.zip(mains, yield* Effect.forEach(rows, (row) => Effect.result(Effect.catchCause(inferred(cache, stored, context, Option.fromUndefinedOr(settings.outputPath), exec, row), rendered)), { concurrency: 'unbounded' }));
-    yield* Effect.when(
-        Effect.sync(() => cache.writeToDisk()),
-        Effect.sync(() => MutableRef.get(stored)),
+    const rows = new Map(Array.zipWith(Array.zip(mains, chains), hashes, ([file, chain], hash) => [file, { file, chain, key: hashArray([hash, own, file]) }] as const));
+    const each = (file: string) => run(Effect.flatMap(Effect.fromNullishOr(rows.get(file)), (row) => inferred(cache, stored, context, Option.fromUndefinedOr(settings.outputPath), exec, row)));
+    return yield* Effect.ensuring(
+        Effect.promise(() => createNodesFromFiles(each, mains, options, context)),
+        Effect.when(
+            Effect.sync(() => cache.writeToDisk()),
+            Effect.sync(() => MutableRef.get(stored)),
+        ),
     );
-    const failures = Array.filterMap(settled, ([file, result]) => Result.map(Result.flip(result), (error): [string, Error] => [file, error]));
-    const results = Array.filterMap(settled, ([file, result]) => Result.map(result, (held) => [file, held] as const));
-    return yield* Array.match(failures, { onEmpty: () => Effect.succeed(results), onNonEmpty: (failed) => Effect.fail(new AggregateCreateNodesError(failed, results)) });
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

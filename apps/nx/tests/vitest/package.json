@@ -1,15 +1,14 @@
 {
     "name": "@rasm/test-nx-vitest",
     "private": true,
-    "description": "@rasm/nx-vitest suites over temporary workspaces: Nx's own Vitest plugin specs ported to the project graph Nx builds, checked against the projects Vitest resolves and the files a run writes",
+    "description": "@rasm/nx-vitest suites over temporary workspaces: nrwl/nx @nx/vitest plugin specs ported to createNodes calls on real Vitest configs",
     "type": "module",
     "devDependencies": {
-        "@effect/platform-node": "catalog:",
-        "@effect/vitest": "catalog:",
         "@nx/devkit": "catalog:",
         "@rasm/nx-vitest": "workspace:*",
         "@rasm/testing": "workspace:*",
         "@types/node": "catalog:",
+        "@vitest/coverage-v8": "catalog:",
         "effect": "catalog:",
         "nx": "catalog:",
         "vite": "catalog:",

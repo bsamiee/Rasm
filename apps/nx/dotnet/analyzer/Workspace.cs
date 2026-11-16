@@ -4,6 +4,7 @@ using Microsoft.Build.Evaluation.Context;
 using Microsoft.Build.Execution;
 using NuGet.Configuration;
 using NuGet.ProjectModel;
+using System.Text.RegularExpressions;
 
 namespace MsbuildAnalyzer;
 
@@ -15,7 +16,7 @@ internal sealed record Package(string Id, string Version, string Hash, bool Dire
 
 internal sealed record Tracking(string Shipped, string Unshipped);
 
-internal sealed record Mode(string Configuration, ImmutableArray<string> Outputs, ImmutableArray<string> Published, ImmutableArray<string> Reports, string Packed);
+internal sealed record Mode(string Configuration, ImmutableArray<string> Outputs, ImmutableArray<string> Published, ImmutableArray<string> Reports, ImmutableArray<string> Documents, string Packed);
 
 internal sealed record Node(
     string File,
@@ -45,11 +46,14 @@ internal sealed record Report(ImmutableArray<Node> Nodes, ImmutableArray<Failure
 
 // --- [OPERATIONS] -----------------------------------------------------------------------
 
-internal static class Workspace {
+internal static partial class Workspace {
     public static readonly ImmutableDictionary<string, string> Defaults = Seq("EnableDefaultEmbeddedResourceItems", "EnableDefaultNoneItems", "EnableDefaultContentItems")
         .Fold(ImmutableDictionary.Create<string, string>(StringComparer.OrdinalIgnoreCase), static (held, name) => held.SetItem(name, "false"));
 
     private static readonly FrozenSet<string> Projects = FrozenSet.Create(StringComparer.OrdinalIgnoreCase, ".csproj", ".fsproj", ".vbproj");
+
+    [GeneratedRegex("""--file-name[=:\s]\s*"?(?<name>[^\s"]+)"?""", RegexOptions.None, matchTimeoutMilliseconds: 1000)]
+    private static partial Regex FileName { get; }
 
     public static Report Analyze(string root, Seq<string> files) {
         EvaluationContext context = EvaluationContext.Create(EvaluationContext.SharingPolicy.Shared);
@@ -86,6 +90,18 @@ internal static class Workspace {
             [.. held.Map(static instance => instance.GetPropertyValue("OutputPath")).Map(Placed).Distinct().Order(StringComparer.Ordinal)],
             [.. held.Filter(static instance => Flag(instance, "IsPublishable")).Map(static instance => instance.GetPropertyValue("PublishDir")).Map(Placed).Distinct().Order(StringComparer.Ordinal)],
             [.. held.Choose(static instance => toSeq(instance.GetPropertyValue("ErrorLog").Split([';', ','], StringSplitOptions.RemoveEmptyEntries)).Head).Map(Placed).Distinct().Order(StringComparer.Ordinal)],
+            [.. held
+                .Filter(static instance => instance.GetPropertyValue("OpenApiDocumentsDirectory").Length > 0 && !instance.GetPropertyValue("OpenApiGenerateDocumentsOnBuild").Equals("false", StringComparison.OrdinalIgnoreCase))
+                .Map(static instance => (
+                    Instance: instance,
+                    Directory: instance.ExpandString("$([MSBuild]::NormalizeDirectory($(MSBuildProjectDirectory), $(OpenApiDocumentsDirectory)))"),
+                    Stem: FileName.Match(instance.GetPropertyValue("OpenApiGenerateDocumentsOptions")) is { Success: true } named ? named.Groups["name"].Value : instance.GetPropertyValue("MSBuildProjectName")))
+                .Filter(documents => !Under(documents.Directory, Path.Combine(folder, documents.Instance.GetPropertyValue("OutputPath"))) && !instances.Exists(instance => Under(documents.Directory, Extensions(instance))))
+                .Bind(static documents => Seq(Path.Combine(documents.Directory, $"{documents.Stem}.json"), Path.Combine(documents.Directory, $"{documents.Stem}_*.json")))
+                .Map(Placed)
+                .Filter(static documents => !documents.StartsWith("..", StringComparison.Ordinal))
+                .Distinct()
+                .Order(StringComparer.Ordinal)],
             Placed(held.Head.IfNone(outer).GetPropertyValue("PackageOutputPath")));
         string Extensions(ProjectInstance instance) => Path.GetFullPath(Path.Combine(folder, instance.GetPropertyValue("MSBuildProjectExtensionsPath")));
         Seq<string> imports =
@@ -104,7 +120,9 @@ internal static class Workspace {
                 file.Replace('\\', '/'),
                 outer.GetPropertyValue(Flag(outer, "IsPackable") ? "PackageId" : "MSBuildProjectName"),
                 outer.GetPropertyValue("Language"),
-                instances.Exists(static instance => Flag(instance, "IsTestProject") || Flag(instance, "IsTestingPlatformApplication")),
+                instances.Exists(static instance =>
+                    Flag(instance, "IsTestProject") || Flag(instance, "IsTestingPlatformApplication") || (instance.GetPropertyValue("IsTestProject").Length is 0
+                        && toSeq(instance.GetItems("PackageReference")).Exists(static item => item.EvaluatedInclude.Equals("Microsoft.NET.Test.Sdk", StringComparison.OrdinalIgnoreCase) || item.EvaluatedInclude.StartsWith("Microsoft.Testing.", StringComparison.OrdinalIgnoreCase)))),
                 Flag(outer, "IsPackable"),
                 Flag(outer, "IsPublishable"),
                 pushed,

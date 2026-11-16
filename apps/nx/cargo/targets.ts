@@ -151,7 +151,7 @@ const crateTargets = (workspace: Workspace, reports: Reports, { crate, root, pac
                     `Builds ${crate.name} with cargo build, bringing Cargo.lock in line with the manifests`,
                     { ...selected, commands: built([]), outputs: debug },
                     {
-                        cache: Option.isSome(workspace.placed),
+                        ...(Option.isSome(workspace.placed) && { cache: true }),
                         outputs: debug.map((_, index) => `{options.outputs.${index}}`),
                         configurations: Record.fromIterableWith(profiles, (profile) => [profile, { commands: built(['--profile', profile]), outputs: outputs(profile) }] as const),
                     },
@@ -196,7 +196,7 @@ const crateTargets = (workspace: Workspace, reports: Reports, { crate, root, pac
                     'install',
                     `Installs the binaries of ${crate.name} into Cargo's install root with cargo install, in release unless a configuration names a profile`,
                     { cwd: workspace.root, commands: installed([]) },
-                    { configurations: Record.fromIterableWith(workspace.profiles, (profile) => [profile, { commands: installed(['--profile', profile]) }] as const) },
+                    Array.match(workspace.profiles, { onEmpty: () => ({}), onNonEmpty: (named) => ({ configurations: Record.fromIterableWith(named, (profile) => [profile, { commands: installed(['--profile', profile]) }] as const) }) }),
                 ),
             }),
         },
@@ -235,12 +235,12 @@ const workspaceTargets = (workspace: Workspace): Verbs => {
 
 const projectTargets = (workspace: Workspace, reports: Reports, member: Option.Option<Member>, stated: Readonly<Record<string, Pick<TargetConfiguration, 'inputs'>>>): Record<string, TargetConfiguration> => {
     const nested = Option.filter(member, ({ root }) => root !== workspace.root);
-    const packed = Option.map(Option.all({ held: Option.filter(member, ({ versioned }) => versioned), placed: workspace.placed }), ({ held: { crate, packages }, placed: artifacts }) =>
+    const packed = Option.map(Option.all({ held: Option.filter(member, ({ versioned }) => versioned), placed: workspace.placed }), ({ held: { crate, packages, root }, placed: artifacts }) =>
         cargoTarget(
             'package',
             `Packs ${crate.name} into a .crate archive with cargo package beside the workspace crates it depends on, without the verification build`,
             { cwd: workspace.root, package: crate.name, commands: [{ args: ['package', '--no-verify', LOCKED], packages }] },
-            { cache: true, outputs: [tokened(join(artifacts, 'package', `${crate.name}-${crate.version}.crate`))] },
+            { cache: true, outputs: [join(artifacts, 'package', `${crate.name}-${crate.version}.crate`)].map((at) => (relative(root, at).startsWith('..') ? tokened(at) : join('{projectRoot}', relative(root, at)))) },
         ),
     );
     const tools = [...Option.toArray(Option.map(member, (held) => crateTargets(workspace, reports, held))), ...(Option.isNone(nested) ? [workspaceTargets(workspace)] : []), { pack: Option.match(packed, { onNone: (): Readonly<Record<string, TargetConfiguration>> => ({}), onSome: (cargo) => ({ cargo }) }) }].reduce(

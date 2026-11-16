@@ -192,7 +192,7 @@ const xcodeParts = (
                     cache: true,
                     inputs: [...read, { env: NOTARY.keyId }],
                     options: { exports: archived.map(({ archive, folder, run }) => ({ archive, folder, run })) },
-                    outputs: archived.flatMap(({ folder }) => ['.dmg', '.zip'].map((extension) => join('{workspaceRoot}', folder, `*${extension}`))),
+                    outputs: archived.flatMap(({ folder }) => ['.dmg', '.zip'].map((extension) => (relative(dirname(container.path), folder).startsWith('..') ? join('{workspaceRoot}', folder, `*${extension}`) : join('{projectRoot}', relative(dirname(container.path), folder), `*${extension}`)))),
                     metadata: {
                         technologies: ['xcode'],
                         description: `Archives each app with installed products with xcodebuild archive, then zips it with ditto, or where ${NOTARY.key}, ${NOTARY.keyId}, and ${NOTARY.issuer} are set exports it under the Developer ID Application identity into a disk image that is signed, notarized, and stapled`,

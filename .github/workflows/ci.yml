@@ -38,6 +38,7 @@ jobs:
             - &tools
               uses: ./.github/actions/tools
             - run: nx sync:check
+            - run: nx conformance:check
             - id: unreal
               uses: ./.github/actions/unreal
             - id: listed

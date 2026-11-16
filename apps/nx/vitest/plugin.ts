@@ -4,8 +4,23 @@ import { basename, dirname, isAbsolute, join, matchesGlob, relative, resolve, se
 import { env } from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { layer } from '@effect/platform-node/NodeServices';
-import { AggregateCreateNodesError, type CreateNodes, type CreateNodesContext, createNodesFromFiles, detectPackageManager, getPackageManagerCommand, hashArray, normalizePath, type ProjectConfiguration, readJsonFile, type TargetConfiguration } from '@nx/devkit';
-import { calculateHashesForCreateNodes, getLockFileName, getNamedInputs, hashFile, hashObject, hashWithWorkspaceContext, mergeTargetConfigurations, type PackageJson, PluginCache, quoteShellArg, retryOnRequireEsmRace, workspaceDataDirectory } from '@nx/devkit/internal';
+import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, detectPackageManager, getPackageManagerCommand, hashArray, normalizePath, type ProjectConfiguration, readJsonFile, type TargetConfiguration } from '@nx/devkit';
+import {
+    buildPackageJsonPatterns,
+    buildPackageJsonWorkspacesMatcher,
+    calculateHashesForCreateNodes,
+    getLockFileName,
+    getNamedInputs,
+    hashFile,
+    hashObject,
+    hashWithWorkspaceContext,
+    mergeTargetConfigurations,
+    type PackageJson,
+    PluginCache,
+    quoteShellArg,
+    retryOnRequireEsmRace,
+    workspaceDataDirectory,
+} from '@nx/devkit/internal';
 import { getRootTsConfigFileName } from '@nx/js';
 import { walkTsconfigExtendsChain } from '@nx/js/internal';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
@@ -50,8 +65,6 @@ const Overrides = Schema.fromJsonString(Schema.Struct({ nx: Schema.optionalKey(S
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const run = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem>) => Effect.runPromise(Effect.provide(effect, layer));
-
-const rendered = (cause: Cause.Cause<unknown>) => Effect.fail(new Cause.UnknownError(cause, Cause.pretty(cause)));
 
 const manifested = Effect.fnUntraced(function* (workspaceRoot: string, root: string) {
     const fs = yield* FileSystem.FileSystem;
@@ -116,36 +129,42 @@ const surveyed = Effect.fnUntraced(function* (workspaceRoot: string, file: strin
     const local = (at: string) => normalizePath(relative(workspaceRoot, at));
     const [runner, defaults, vite] = yield* Effect.all([loaded<{ readonly parseCLI: typeof parseCLI; readonly resolveConfig: typeof resolveConfig }>(file, entry, 'vitest/node'), loaded<{ readonly configDefaults: typeof configDefaults }>(file, entry, 'vitest/config'), loaded<typeof Vite>(file, entry, 'vite')]);
     const config = yield* Effect.tryPromise({
-        try: () => retryOnRequireEsmRace(() => runner.resolveConfig({ ...runner.parseCLI(['vitest', 'run', ...flags]).options, config: entry, root: folder, watch: false }, { logLevel: 'silent' })),
+        try: () =>
+            retryOnRequireEsmRace(() =>
+                runner.resolveConfig(
+                    { ...runner.parseCLI(['vitest', 'run', ...flags]).options, config: entry, watch: false },
+                    {
+                        logLevel: 'silent',
+                        plugins: [{ name: PLUGIN, enforce: 'pre', config: { order: 'pre', handler: ({ root: base, test }) => ({ root: resolve(folder, base ?? '.'), ...(test?.root !== undefined && { test: { root: resolve(folder, test.root) } }) }) } }],
+                    },
+                ),
+            ),
         catch: (cause) => new Cause.UnknownError(cause, `${file} does not load as a Vitest config`),
     });
-    const { root, coverage, attachmentsDir, outputFile, reporters, forceRerunTriggers, resolvedProjects } = config.test;
-    const declared = resolvedProjects.filter(({ inline, viteConfig }) => inline === true || viteConfig.configFile === entry);
+    const { root, coverage, attachmentsDir, outputFile, reporters, forceRerunTriggers, projects: listed, resolvedProjects } = config.test;
+    const declared = resolvedProjects.filter(({ inline, viteConfig: { configFile } }) => inline === true || configFile === undefined || configFile === entry);
     const parents = new Map(declared.filter(({ hidden }) => hidden === true).map(({ viteConfig, projectConfig }) => [viteConfig, projectConfig.name] as const));
+    const member = buildPackageJsonWorkspacesMatcher(buildPackageJsonPatterns(workspaceRoot, (at) => readJsonFile<PackageJson>(join(workspaceRoot, at))));
+    const lists = Option.isSome(Option.fromNullishOr(listed));
     const probes = yield* Effect.forEach(
         declared.filter(({ hidden }) => hidden !== true),
         Effect.fnUntraced(function* ({ viteConfig, projectConfig: { name, root: base, setupFiles, globalSetup, browser } }) {
-            const manifests = above(local(base) || '.').map((at) => join(at, 'package.json'));
-            const manifest = yield* Effect.mapError(
-                Effect.flatMap(
-                    Effect.findFirst(manifests, (at) => fs.exists(join(workspaceRoot, at))),
-                    Effect.fromOption,
-                ),
-                (cause) => new Cause.UnknownError(cause, `${file} declares a project under ${local(base) || '.'}, which no package holds`),
+            const manifests = (lists ? above(join(local(base), '.')) : [dirname(file)]).flatMap((at) => [join(at, 'package.json'), join(at, 'project.json')]);
+            const manifest = yield* Effect.findFirst(
+                manifests.filter((at) => basename(at) === 'project.json' || member(at)),
+                (at) => fs.exists(join(workspaceRoot, at)),
             );
-            const owner = dirname(manifest);
-            const setup = [...setupFiles, ...Array.ensure(globalSetup)].map(local).filter((at) => kept(at) && !at.startsWith(`${owner}/`));
-            return {
-                owner,
+            yield* Effect.when(Effect.fail(new Cause.UnknownError(base, `${file} declares a project under ${local(base)}, which no project root holds`)), Effect.succeed(lists && Option.isNone(manifest)));
+            return Option.map(manifest, (at) => ({
+                owner: dirname(at),
                 project: parents.get(viteConfig) ?? name,
                 manifests,
-                setup,
-                tsconfigs: setup.flatMap((at) => extended(workspaceRoot, dirname(at))),
+                setup: [...setupFiles, ...Array.ensure(globalSetup)].map(local).filter(kept),
                 browser: browser.enabled,
                 written: browser.enabled ? Array.getSomes([Option.fromUndefinedOr(browser.trace.tracesDir), Option.fromNullishOr(browser.screenshotDirectory)]) : [],
-            };
+            }));
         }),
-    );
+    ).pipe(Effect.map(Array.getSomes));
     const selectable = Array.dedupe(probes.map(({ project }) => project));
     const suites = Record.collect(
         Array.groupBy(probes, ({ owner }) => owner),
@@ -154,8 +173,7 @@ const surveyed = Effect.fnUntraced(function* (workspaceRoot: string, file: strin
             return {
                 root: owner,
                 projects: selected.length === selectable.length ? [] : selected,
-                setup: Array.dedupe(group.flatMap(({ setup }) => setup)),
-                tsconfigs: Array.dedupe(group.flatMap(({ tsconfigs }) => tsconfigs)),
+                setup: Array.dedupe(group.flatMap(({ setup }) => setup)).filter((at) => !at.startsWith(`${owner}/`)),
                 parallelism: group.every(({ browser }) => !browser),
                 coverage: local(resolve(root, coverage.reportsDirectory)),
             };
@@ -190,7 +208,7 @@ const surveyed = Effect.fnUntraced(function* (workspaceRoot: string, file: strin
         loaded: depended,
         triggers: Array.difference(forceRerunTriggers, defaults.configDefaults.forceRerunTriggers).map((glob) => (isAbsolute(glob) ? local(glob) : glob)),
         folders: Array.dedupe([attachmentsDir, ...reports, ...probes.flatMap((probe) => probe.written)].map((written) => local(resolve(root, written)))),
-        sources: Array.dedupe([...depended, ...probes.flatMap((probe) => [...probe.manifests, ...probe.setup, ...probe.tsconfigs])]),
+        sources: Array.dedupe([...depended, 'package.json', 'pnpm-workspace.yaml', 'lerna.json', ...probes.flatMap((probe) => probe.manifests)]),
     };
 });
 
@@ -217,7 +235,7 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, f
 const targets = (
     home: string,
     { loaded: configs, packages, linked, triggers, folders }: Resolved,
-    { root, projects, setup, tsconfigs, parallelism, coverage }: Resolved['suites'][number],
+    { root, projects, setup, parallelism, coverage }: Resolved['suites'][number],
     chain: readonly string[],
     upstream: string,
     { outputPath, coveragePath }: typeof Options.Type,
@@ -227,11 +245,8 @@ const targets = (
     const held = Array.fromNullishOr(outputPath);
     const rooted = getRootTsConfigFileName();
     const outside = Record.filter(
-        Record.fromEntries([
-            ...[...chain, ...tsconfigs].map((at): readonly [string, typeof Input.Type] => [at, { json: join('{workspaceRoot}', at), fields: ['compilerOptions'], ...(at === rooted && { excludeFields: ['compilerOptions.paths'] }) }]),
-            ...[...configs, ...setup].map((at): readonly [string, typeof Input.Type] => [at, join('{workspaceRoot}', at)]),
-        ]),
-        (_input, at) => root !== '.' && !at.startsWith(`${root}/`),
+        Record.fromEntries([...chain.map((at): readonly [string, typeof Input.Type] => [at, { json: join('{workspaceRoot}', at), fields: ['compilerOptions'] }]), ...[...configs, ...setup].map((at): readonly [string, typeof Input.Type] => [at, join('{workspaceRoot}', at)])]),
+        (_input, at) => root !== '.' && !at.startsWith(`${root}/`) && at !== rooted,
     );
     const test = {
         vitest: {
@@ -239,7 +254,7 @@ const targets = (
             options: { cwd: home },
             dependsOn: ['codegen--*', '^codegen'],
             cache: true,
-            parallelism,
+            ...(!parallelism && { parallelism }),
             inputs: [
                 'default',
                 upstream,
@@ -249,11 +264,11 @@ const targets = (
                 }),
                 ...Object.values(outside),
                 ...triggers.map((at) => join('{workspaceRoot}', at)),
-                { dependentTasksOutputFiles: '**/*', transitive: true },
-                { env: 'CI' },
                 { externalDependencies: Array.dedupe(['vitest', ...packages]) },
+                { env: 'CI' },
+                { dependentTasksOutputFiles: '**/*.{js,mjs,cjs,ts,mts,cts,jsx,tsx}', transitive: true },
             ],
-            outputs: [...[...held, ...folders.filter((at) => !held.some((folder) => at.startsWith(`${folder}/`)))].map((at) => join('{workspaceRoot}', at)), '{options.outputs.0}'],
+            outputs: [...[...held, ...folders.filter((at) => !held.some((folder) => at === folder || at.startsWith(`${folder}/`)))].map((at) => (relative(root, at).startsWith('..') ? join('{workspaceRoot}', at) : join('{projectRoot}', relative(root, at)))), '{options.outputs.0}'],
             configurations: {
                 coverage: { 'coverage.enabled': true, 'coverage.reporter': 'lcovonly', ...(coveragePath === undefined ? {} : { 'coverage.reportsDirectory': relative(home, coveragePath) }), outputs: [join('{workspaceRoot}', coveragePath ?? coverage, 'lcov.info')] },
             },
@@ -286,10 +301,12 @@ const inferred = Effect.fnUntraced(function* (cache: PluginCache<Resolved>, cont
         resolved.suites,
         Effect.fnUntraced(function* (suite) {
             const stated = yield* manifested(context.workspaceRoot, suite.root);
+            const setup = suite.setup.filter((at) => existsSync(join(context.workspaceRoot, at)));
+            const chain = [suite.root, ...setup.map(dirname)].flatMap((at) => extended(context.workspaceRoot, at));
             const project: ProjectConfiguration = {
                 root: suite.root,
                 metadata: { technologies: ['vitest'] },
-                targets: aggregated(targets(home, resolved, suite, extended(context.workspaceRoot, suite.root), 'production' in getNamedInputs(suite.root, context) ? '^production' : '^default', settings, flags, getPackageManagerCommand(manager).exec), stated, 'vitest'),
+                targets: aggregated(targets(home, resolved, { ...suite, setup }, chain, 'production' in getNamedInputs(suite.root, context) ? '^production' : '^default', settings, flags, getPackageManagerCommand(manager).exec), stated, 'vitest'),
             };
             return [suite.root, project] as const;
         }),
@@ -311,10 +328,7 @@ const nodes = Effect.fnUntraced(function* (files: readonly string[], options: ty
         ),
     );
     return yield* Effect.ensuring(
-        Effect.tryPromise({
-            try: () => createNodesFromFiles((file, _options, _context, index) => run(Effect.catchCause(inferred(cache, context, settings, `${hashes[index]}`, file), rendered)), configs, options, context),
-            catch: (cause) => (cause instanceof AggregateCreateNodesError ? cause : new AggregateCreateNodesError([[null, new Cause.UnknownError(cause, `${PLUGIN} infers no project`)]], [])),
-        }),
+        Effect.promise(() => createNodesFromFiles((file, _options, _context, index) => run(inferred(cache, context, settings, `${hashes[index]}`, file)), configs, options, context)),
         Effect.sync(() => cache.writeToDisk()),
     );
 });

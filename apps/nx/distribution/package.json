@@ -27,7 +27,9 @@
         "./release/version-actions": "./version-actions.ts",
         "./package.json": "./package.json",
         "./executors.json": "./executors.json",
-        "./generators.json": "./generators.json"
+        "./generators.json": "./generators.json",
+        "./executors/*": "./executors/*/executor.ts",
+        "./generators/*": "./generators/*/generator.ts"
     },
     "publishConfig": {
         "imports": {
@@ -40,7 +42,9 @@
             "./release/version-actions": "./dist/version-actions.js",
             "./package.json": "./package.json",
             "./executors.json": "./executors.json",
-            "./generators.json": "./generators.json"
+            "./generators.json": "./generators.json",
+            "./executors/*": "./dist/executors/*/executor.js",
+            "./generators/*": "./dist/generators/*/generator.js"
         },
         "access": "public"
     },

@@ -1,11 +1,9 @@
 {
     "name": "@rasm/test-nx-vite",
     "private": true,
-    "description": "@rasm/nx-vite suites over temporary workspaces: Nx's own Vite plugin specs ported to the project graph Nx builds, checked against the configuration Vite resolves",
+    "description": "@rasm/nx-vite specs ported from @nx/vite plugin.spec.ts, calling createNodes over temporary workspaces with the Vite each config resolves",
     "type": "module",
     "devDependencies": {
-        "@effect/platform-node": "catalog:",
-        "@effect/vitest": "catalog:",
         "@nx/devkit": "catalog:",
         "@nx/vite": "catalog:",
         "@rasm/nx-vite": "workspace:*",

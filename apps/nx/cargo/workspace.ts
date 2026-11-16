@@ -83,18 +83,17 @@ const library = (candidate: Target) => own(candidate) && !binary(candidate);
 
 const tokened = (file: string) => join('{workspaceRoot}', file);
 
-const rendered = (cause: Cause.Cause<unknown>) => Effect.fail(new Cause.UnknownError(cause, Cause.pretty(cause)));
-
 const spawned = Effect.fnUntraced(function* (argv: Array.NonEmptyReadonlyArray<string>, options: ChildProcess.CommandOptions = {}) {
     const handle = yield* ChildProcess.make(Array.headNonEmpty(argv), Array.tailNonEmpty(argv), { stdin: 'ignore', ...options, extendEnv: true, detached: false });
     const [stdout, stderr, code] = yield* Effect.all([Stream.mkString(Stream.decodeText(handle.stdout)), Stream.mkString(Stream.decodeText(handle.stderr)), handle.exitCode], { concurrency: 'unbounded' });
     return code === 0 ? stdout : yield* new Cause.UnknownError(code, [`${CommandLine.display(argv)} exits ${code}`, ...[stderr.trim()].filter(String.isNonEmpty)].join(': '));
 }, Effect.scoped);
 
-const manifested = Effect.fnUntraced(function* (workspaceRoot: string, root: string) {
+const manifested = Effect.fnUntraced(function* (workspaceRoot: string, root: string, listed: (file: string) => boolean) {
     const fs = yield* FileSystem.FileSystem;
     const manifest = join(workspaceRoot, root, 'package.json');
-    return (yield* fs.exists(manifest)) ? Option.some((yield* Effect.flatMap(fs.readFileString(manifest), Schema.decodeEffect(Overrides))).nx?.targets ?? {}) : Option.none();
+    const [held, marked] = yield* Effect.all([fs.exists(manifest), fs.exists(join(workspaceRoot, root, 'project.json'))]);
+    return held && (listed(join(root, 'package.json')) || marked) ? Option.some((yield* Effect.flatMap(fs.readFileString(manifest), Schema.decodeEffect(Overrides))).nx?.targets ?? {}) : Option.none();
 });
 
 const ancestors = (folder: string): readonly string[] =>
@@ -216,11 +215,11 @@ const resolved = (workspaceRoot: string, { metadata, profile, host, configs, cli
 const workspaces = (workspaceRoot: string, manifests: readonly string[], files: ReadonlySet<string>) =>
     Effect.reduce(
         manifests.toSorted((left, right) => left.split('/').length - right.split('/').length || left.localeCompare(right)),
-        (): readonly (readonly [string, Result.Result<Reading, Cause.UnknownError>])[] => [],
+        (): readonly (readonly [string, Result.Result<Reading, Effect.Error<ReturnType<typeof read>>>])[] => [],
         (done, manifest) =>
             done.some(([, reading]) => Result.isSuccess(reading) && reading.success.metadata.packages.some(({ manifest_path }) => relative(workspaceRoot, manifest_path) === manifest))
                 ? Effect.succeed(done)
-                : Effect.map(Effect.result(Effect.catchCause(read(workspaceRoot, manifest, files), rendered)), (reading) => [...done, [manifest, reading] as const]),
+                : Effect.map(Effect.result(read(workspaceRoot, manifest, files)), (reading) => [...done, [manifest, reading] as const]),
     );
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

@@ -1,373 +1,346 @@
-import { findPackageJSON } from 'node:module';
-import { pathToFileURL } from 'node:url';
-import { layer } from '@effect/platform-node/NodeServices';
-import { assert, it } from '@effect/vitest';
-import type { ProjectGraph } from '@nx/devkit';
+import { execSync } from 'node:child_process';
+import { existsSync, globSync, symlinkSync } from 'node:fs';
+import { delimiter, join } from 'node:path';
+import { env } from 'node:process';
+import { fileURLToPath } from 'node:url';
 import { getReadyCheckReadyWhen } from '@nx/devkit/internal';
-import nxVite from '@nx/vite/package.json' with { type: 'json' };
-import plugin from '@rasm/nx-vite/package.json' with { type: 'json' };
-import { Consumer, kept, Packed } from '@rasm/testing/nx';
-import { Duration, Effect, FileSystem, Formatter, Layer, Path, Predicate, Record, Schema, Struct } from 'effect';
-import vite from 'vite/package.json' with { type: 'json' };
+import { createNodes } from '@rasm/nx-vite';
+import { TempFs } from '@rasm/testing/temp-fs';
+import { resolveConfig } from 'vite';
+import { describe, expect, test, vi } from 'vitest';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const SCHEMA = 'nx/schemas/project-schema.json';
-const REQUIRED = /require\('(?<module>[^']+)'\)/u;
-const UNREAD = /mise\.lock|node_modules|@rasm\/nx-|TOKEN|SECRET|PASSWORD|CREDENTIAL/u;
-const bounds = { built: '5 minutes', test: Duration.toMillis('2 minutes') } as const;
-const html = '<!doctype html><script type="module" src="./main.ts"></script>\n';
-const entry = 'export const entry = 1;\n';
-const library = "lib: { entry: 'index.ts', formats: ['es'] }";
-const base = (outDir: string) => `export const base = { build: { outDir: '${outDir}' } };\n`;
-const files = {
-    'tools/vite/base.ts': base('out'),
-    'apps/web/package.json': '{ "name": "web", "type": "module" }\n',
-    'apps/web/index.html': html,
-    'apps/web/main.ts': entry,
-    'apps/web/vite.config.ts': "import { defineConfig } from 'vite';\n\nexport default defineConfig({ server: { port: 4321, strictPort: true }, preview: { port: 4322, strictPort: true } });\n",
-    'apps/signaled/package.json': '{ "name": "signaled", "type": "module" }\n',
-    'apps/signaled/index.html': html,
-    'apps/signaled/main.ts': entry,
-    'apps/signaled/vite.config.ts': "import { nxReadySignal } from '@nx/vite/plugins/nx-ready-signal.plugin';\nimport { defineConfig } from 'vite';\n\nexport default defineConfig({ plugins: [nxReadySignal()] });\n",
-    'libs/kit/package.json': '{ "name": "kit", "type": "module" }\n',
-    'libs/kit/index.ts': entry,
-    'libs/kit/vite.config.ts': `import { defineConfig, mergeConfig } from 'vite';\nimport { base } from '../../tools/vite/base.ts';\n\nexport default defineConfig(mergeConfig(base, { build: { ${library} } }));\n`,
-    'libs/served/package.json': '{ "name": "served", "type": "module" }\n',
-    'libs/served/index.ts': entry,
-    'libs/served/vite.config.ts': `import { defineConfig } from 'vite';\n\nexport default defineConfig({ build: { ${library} }, server: { port: 3000 } });\n`,
-    'libs/hooked/package.json': '{ "name": "hooked", "type": "module" }\n',
-    'libs/hooked/index.ts': entry,
-    'libs/hooked/vite.config.ts': `import { defineConfig } from 'vite';\n\nexport default defineConfig({ build: { ${library} }, plugins: [{ name: 'user-plugin', config: () => ({ server: { port: 4200 } }) }] });\n`,
-    'libs/builds/package.json': '{ "name": "builds", "type": "module" }\n',
-    'libs/builds/index.ts': entry,
-    'libs/builds/vite.config.ts': `import { defineConfig } from 'vite';\n\nexport default defineConfig(({ command }) => {\n    if (command === 'serve') {\n        throw new Error('This config only builds');\n    }\n    return { build: { ${library} } };\n});\n`,
-    'libs/marked/package.json': '{ "name": "marked", "type": "module" }\n',
-    'libs/marked/index.ts': entry,
-    'libs/marked/vite.config.ts': `import { writeFileSync } from 'node:fs';\nimport { defineConfig } from 'vite';\n\nexport default defineConfig({ build: { ${library} }, plugins: [{ name: 'marker', buildStart: () => writeFileSync(new URL('./started.marker', import.meta.url), '') }] });\n`,
-};
-
-// --- [MODELS] --------------------------------------------------------------------------
-
-const Resolved = Schema.fromJsonString(Schema.Struct({ root: Schema.String, outDir: Schema.String, loaded: Schema.Array(Schema.String) })).annotate({
-    description: 'Fields of the configuration vite resolveConfig returns for vite build: root, build.outDir, and the files the config file loaded',
-});
-const Probed = Schema.Struct({ command: Schema.String }).annotate({ description: 'A readyWhen that runs a command until it exits 0' });
-const Named = Schema.fromJsonString(Schema.Struct({ name: Schema.String })).annotate({ description: 'The name field of a package.json' });
-const Names = Schema.fromJsonString(Schema.Array(Schema.String));
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
-const read = Effect.flatMap(Consumer, (consumer) => consumer.read);
-
-const resolved = Effect.fnUntraced(function* (folder: string) {
-    const { evaluated } = yield* Consumer;
-    const printed = yield* evaluated(
-        `import { resolveConfig } from 'vite';
-const { root, build, configFileDependencies } = await resolveConfig({ logLevel: 'silent' }, process.argv[1]);
-console.log(JSON.stringify({ root, outDir: build.outDir, loaded: configFileDependencies }));`,
-        ['build'],
-        folder,
-    );
-    return yield* Schema.decodeEffect(Resolved)(printed);
-});
-
-const declared = Effect.fnUntraced(function* (name: string) {
-    const { outputs } = yield* Consumer;
-    return (yield* outputs(name)).outputPaths;
-});
-
-const checker = Effect.fnUntraced(function* (readyWhen: unknown) {
-    const fs = yield* FileSystem.FileSystem;
-    const { command } = yield* Schema.decodeUnknownEffect(Probed)(readyWhen);
-    const module = yield* Effect.fromNullishOr(REQUIRED.exec(command)?.at(1));
-    const manifest = yield* Effect.fromNullishOr(findPackageJSON(pathToFileURL(module)));
-    return { module, owner: (yield* Effect.flatMap(fs.readFileString(manifest), Schema.decodeEffect(Named))).name };
-});
-
-const tooled = ({ nodes }: Pick<ProjectGraph, 'nodes'>, project: string, verb: string) => Record.filter(nodes[project]?.data.targets ?? {}, (_, name) => name.startsWith(`${verb}--`));
-
-const verbs = (graph: Pick<ProjectGraph, 'nodes'>, project: string) => ['build', 'serve', 'preview'].filter((verb) => !Record.isEmptyRecord(tooled(graph, project, verb)));
-
-const task = (graph: Pick<ProjectGraph, 'nodes'>, project: string, verb: string) => `${project}:${Record.keys(tooled(graph, project, verb))[0] ?? verb}`;
-
-const workspace = (stated: Readonly<Record<string, string>>) => Layer.provideMerge(Consumer.layer({ resolved: import.meta.url, settings: { plugins: [plugin.name] }, packages: [vite.name, nxVite.name], ignored: ['dist', 'out', 'emitted'], files: stated }), Layer.provideMerge(Packed.layer(plugin.name), layer));
+const check = fileURLToPath(import.meta.resolve('@nx/vite/ready-check'));
+const applicationTargets = ['serve', 'serve--vite', 'preview', 'preview--vite'];
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-it.layer(workspace(files), { timeout: bounds.built, excludeTestServices: true })((methods) => {
-    methods.effect(
-        'keeps every file the builds of every project wrote through a graph read holding no stored plugin result',
-        Effect.fnUntraced(function* () {
-            const { built: run, shown, created, removed } = yield* kept;
-            assert.strictEqual(run.code, 0, `${run.stdout}${run.stderr}`);
-            assert.isNotEmpty(created, 'README.md TASKS: `build` compiles or packages a project into its declared outputs');
-            assert.strictEqual(shown.code, 0, shown.stderr);
-            assert.deepStrictEqual(removed, [], 'nrwl/nx packages/nx/src/project-graph/plugins/public-api.ts CreateNodesFunction: a plugin reads configuration files and returns project configuration, and graph creation removes no file a task wrote');
-        }),
-        bounds.test,
-    );
-
-    const spec = 'nrwl/nx packages/vite/src/plugins/plugin.spec.ts';
-    const snapshot = 'nrwl/nx packages/vite/src/plugins/__snapshots__/plugin.spec.ts.snap';
-    const tasks = 'README.md TASKS';
-    const api = 'nrwl/nx packages/nx/src/project-graph/plugins/public-api.ts CreateNodesV2';
-    const check = 'nrwl/nx packages/vite/src/plugins/plugin.ts getServerReadyWhen';
-
-    methods.effect(
-        'a Vite config beside a package manifest makes its folder a project with a build target the build verb aggregates',
-        Effect.fnUntraced(function* () {
-            const graph = yield* read;
-            const principle = 'README.md PRINCIPLES "Verbs aggregate <verb>--<tool> targets"';
-            const { web } = graph.nodes;
-            const names = Record.keys(tooled(graph, 'web', 'build'));
-            const { build } = web?.data.targets ?? {};
-            const rows = new Set(build?.dependsOn);
-            assert.deepStrictEqual(graph.failures, [], `${spec} "not root project > should create nodes": a valid workspace reads without failure`);
-            assert.strictEqual(web?.data.root, 'apps/web', `${spec} "not root project > should create nodes": the project root is the folder of vite.config.ts`);
-            assert.lengthOf(names, 1, `${principle}: one build--<tool> target runs the Vite build`);
-            assert.isTrue(rows.has('build--*') || rows.isSupersetOf(new Set(names)), `${principle}: build depends on its build--<tool> target`);
-        }),
-        bounds.test,
-    );
-
-    methods.effect(
-        'an application config gets build, serve, and preview targets',
-        Effect.fnUntraced(function* () {
-            assert.deepStrictEqual(verbs(yield* read, 'web'), ['build', 'serve', 'preview'], `${snapshot} "not root project > should create nodes 1": an application holds build, dev server, and preview targets`);
-        }),
-        bounds.test,
-    );
-
-    methods.effect.each([
-        ['web', 'application', 'not root project > should create nodes 1'],
-        ['kit', 'library', 'Library mode > should exclude serve and preview targets when vite.config.ts is in library mode 1'],
-    ] as const)(
-        'the project type follows build.lib: %s',
-        Effect.fnUntraced(function* ([project, type, title]) {
-            assert.strictEqual((yield* read).nodes[project]?.data.projectType, type, `${snapshot} "${title}": projectType is ${type}`);
-        }),
-        bounds.test,
-    );
-
-    methods.effect(
-        'a library-mode config stating no server gets a build target and neither serve nor preview',
-        Effect.fnUntraced(function* () {
-            assert.deepStrictEqual(verbs(yield* read, 'kit'), ['build'], `${spec} "Library mode > should exclude serve and preview targets when vite.config.ts is in library mode"`);
-        }),
-        bounds.test,
-    );
-
-    methods.effect.each([
-        ['served', 'should not exclude serve and preview targets when vite.config.ts is in library mode when user has defined a server config'],
-        ['hooked', 'should keep the application targets when a plugin config hook sets the server in both modes'],
-    ] as const)(
-        'a library-mode config with a server keeps serve and preview: %s',
-        Effect.fnUntraced(function* ([project, title]) {
-            assert.deepStrictEqual(verbs(yield* read, project), ['build', 'serve', 'preview'], `${spec} "Library mode > ${title}"`);
-        }),
-        bounds.test,
-    );
-
-    methods.effect(
-        'a config that throws for the serve command keeps its build target and gets no server target',
-        Effect.fnUntraced(function* () {
-            const graph = yield* read;
-            const title = 'Library mode > should keep the build target and omit the application targets when the config throws in serve mode';
-            assert.deepStrictEqual(graph.failures, [], `${spec} "${title}": a serve-mode throw is no graph failure`);
-            assert.deepStrictEqual(verbs(graph, 'builds'), ['build'], `${spec} "${title}"`);
-        }),
-        bounds.test,
-    );
-
-    methods.effect(
-        'the build is cached, depends on the builds of its dependencies, and hashes the installed vite',
-        Effect.fnUntraced(function* () {
-            const [build] = Object.values(tooled(yield* read, 'web', 'build'));
-            assert.isTrue(build?.cache, `${snapshot} "not root project > should create nodes 1": build states cache true`);
-            assert.include(build?.dependsOn ?? [], '^build', `${snapshot} "not root project > should create nodes 1": build depends on ^build`);
-            assert.deepInclude(build?.inputs ?? [], { externalDependencies: ['vite'] }, `${snapshot} "not root project > should create nodes 1": inputs name external dependency vite`);
-        }),
-        bounds.test,
-    );
-
-    methods.effect.each(['web', 'kit'] as const)(
-        'the build outputs of %s are the folder Vite resolves as build.outDir',
-        Effect.fnUntraced(function* (project) {
-            const [{ root }, path, graph] = yield* Effect.all([Consumer, Path.Path, read]);
-            const { root: folder, outDir } = yield* resolved(graph.nodes[project]?.data.root ?? project);
-            assert.deepStrictEqual(
-                yield* declared(task(graph, project, 'build')),
-                [path.relative(root, path.resolve(folder, outDir))],
-                `${spec} "should keep the application targets when only the serve config has a server, with build outputs from the build config": outputs are the outDir vite resolveConfig returns for command build`,
-            );
-        }),
-        bounds.test,
-    );
-
-    methods.effect(
-        'the development server runs continuously and waits on the address the ready check of @nx/vite resolves when the task runs',
-        Effect.fnUntraced(function* () {
-            const [serve] = Object.values(tooled(yield* read, 'web', 'serve'));
-            assert.isTrue(serve?.continuous, `${snapshot} "not root project > should create nodes 1": the dev server target states continuous true; ${tasks} "serve runs a project's development servers until the run ends"`);
-            const { module, owner } = yield* checker(serve?.readyWhen);
-            assert.deepStrictEqual([serve?.readyWhen, owner], [getReadyCheckReadyWhen(module, 'vite.config.ts', 'serve'), nxVite.name], `${check}: the dev server waits on @nx/vite/ready-check, which resolves the config with the task's env and --port`);
-        }),
-        bounds.test,
-    );
-
-    methods.effect(
-        'the preview runs continuously after the build and waits on the address the ready check of @nx/vite resolves when the task runs',
-        Effect.fnUntraced(function* () {
-            const graph = yield* read;
-            const [preview] = Object.values(tooled(graph, 'web', 'preview'));
-            assert.isTrue(preview?.continuous, `${snapshot} "not root project > should create nodes 1": the preview target states continuous true`);
-            assert.isTrue(
-                (preview?.dependsOn ?? []).some((row) => Predicate.isString(row) && (row === 'build' || Record.has(tooled(graph, 'web', 'build'), row))),
-                `${tasks} "preview builds a project, then serves its build output as serve does"; ${snapshot}: preview depends on the build target`,
-            );
-            const { module, owner } = yield* checker(preview?.readyWhen);
-            assert.deepStrictEqual([preview?.readyWhen, owner], [getReadyCheckReadyWhen(module, 'vite.config.ts', 'preview'), nxVite.name], `${check}: the preview waits on @nx/vite/ready-check for vite preview`);
-        }),
-        bounds.test,
-    );
-
-    methods.effect(
-        'a config holding nxReadySignal() waits for the signal on its server and its preview',
-        Effect.fnUntraced(function* () {
-            const graph = yield* read;
-            const title = 'root project > waits for the signal when the config loads nxReadySignal()';
-            assert.deepStrictEqual(
-                ['serve', 'preview'].map((verb) => Object.values(tooled(graph, 'signaled', verb)).map(Struct.get('readyWhen'))),
-                [[{ signal: true }], [{ signal: true }]],
-                `${spec} "${title}"`,
-            );
-        }),
-        bounds.test,
-    );
-
-    methods.effect(
-        'every file the config file loads is an input of the build',
-        Effect.fnUntraced(function* () {
-            const [{ inputs, root }, path, graph] = yield* Effect.all([Consumer, Path.Path, read]);
-            const { loaded } = yield* resolved('libs/kit');
-            assert.includeMembers(
-                [...(yield* inputs(task(graph, 'kit', 'build'))).files],
-                loaded.map((file) => path.relative(root, file)),
-                `${SCHEMA} inputs; nrwl/nx packages/vitest/src/plugins/setup-file-inputs.spec.ts "should declare a setup file that lives outside the project root": files a config reads outside its project are inputs, here configFileDependencies of vite resolveConfig`,
-            );
-        }),
-        bounds.test,
-    );
-
-    methods.effect(
-        'a change to a file the config loads marks the project affected, and nx affected -t build plans its build',
-        Effect.fnUntraced(function* () {
-            const [{ nx, planned }, graph] = yield* Effect.all([Consumer, read]);
-            const { checked } = yield* nx('show', 'projects', '--affected', '--files=tools/vite/base.ts', '--json');
-            const selected = yield* planned('affected', '--targets=build', '--files=tools/vite/base.ts');
-            assert.include(Record.keys(selected.tasks), task(graph, 'kit', 'build'), 'nrwl/nx packages/nx/src/native/affected/tasks/selection.rs: only the targets the command asked for are kept, and affectedness never travels along plain dependsOn, so verb build states the inputs of build--<tool>');
-            assert.include(yield* Effect.flatMap(checked, Schema.decodeEffect(Names)), 'kit', `${tasks} "--files=<path> limits it to one change's reach": libs/kit/vite.config.ts imports tools/vite/base.ts`);
-        }),
-        bounds.test,
-    );
-
-    methods.effect(
-        'reading the graph writes no file and starts no build',
-        Effect.fnUntraced(function* () {
-            const [, created] = yield* Effect.flatMap(Consumer, ({ written }) => written(read));
-            assert.deepStrictEqual(created, [], `${api}: createNodes reads configuration; buildStart of a Vite plugin runs on a build alone, and a graph read is none`);
-        }),
-        bounds.test,
-    );
-
-    methods.effect(
-        'plugin isolation on and off give equal projects',
-        Effect.fnUntraced(function* () {
-            const { called } = yield* Consumer;
-            const shown = (isolate: boolean) => called('env', ['NX_CACHE_PROJECT_GRAPH=false', `NX_ISOLATE_PLUGINS=${isolate}`, 'nx', 'show', 'project', 'web', '--json']);
-            const [isolated, shared] = [yield* shown(true), yield* shown(false)];
-            assert.deepStrictEqual([shared.code, shared.stdout], [isolated.code, isolated.stdout], 'nrwl/nx packages/nx/src/project-graph/plugins/isolation/isolated-plugin.spec.ts: a plugin returns the same project from a worker and in process');
-        }),
-        bounds.test,
-    );
-
-    methods.effect(
-        'no input of an inferred target is plugin source, mise.lock, or a credential variable',
-        Effect.fnUntraced(function* () {
-            const rows = Object.values((yield* read).nodes)
-                .flatMap(({ data }) => Object.values(data.targets ?? {}))
-                .flatMap(({ inputs = [] }) => inputs)
-                .map((row) => Formatter.format(row));
-            assert.deepStrictEqual(
-                rows.filter((row) => UNREAD.test(row)),
-                [],
-                'README.md PRINCIPLES "Task inputs hold the files a task\'s tool reads: plugin and executor source, .config/mise.lock, and credentials are no input"',
-            );
-        }),
-        bounds.test,
-    );
-    methods.effect(
-        'two reads of one workspace give equal projects, and a file no config reads changes none',
-        Effect.fnUntraced(function* () {
-            const { wrote } = yield* Consumer;
-            const [first, second] = [yield* read, yield* read];
-            yield* wrote({ 'docs/notes.md': '# Notes\n' });
-            assert.deepStrictEqual(second.nodes, first.nodes, `${api}: one set of files gives one set of nodes`);
-            assert.deepStrictEqual((yield* read).nodes, first.nodes, `${api}: a file no config reads changes no node`);
-        }),
-        bounds.test,
-    );
+vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
+vi.mock(import('vite'), async (importOriginal) => {
+    const vite = await importOriginal();
+    return { ...vite, resolveConfig: vi.fn<typeof vite.resolveConfig>(vite.resolveConfig) };
 });
 
-it.layer(workspace(files), { timeout: bounds.built, excludeTestServices: true })((methods) => {
-    methods.effect(
-        'vite build writes every file under the declared outputs',
-        Effect.fnUntraced(function* () {
-            const [{ nx, outputs, written }, path, graph] = yield* Effect.all([Consumer, Path.Path, read]);
-            const [{ code, stdout, stderr }, created] = yield* written(nx('run', task(graph, 'kit', 'build'), '--output-style=static'));
-            const { expandedOutputs: stored } = yield* outputs(task(graph, 'kit', 'build'));
-            const under = new RegExp(`^(?:${stored.map(RegExp.escape).join('|')})(?:${RegExp.escape(path.sep)}|$)`, 'u');
-            assert.strictEqual(code, 0, `nx run ${task(graph, 'kit', 'build')} exits 0: ${stdout}${stderr}`);
-            assert.isNotEmpty(created, 'vite build writes files');
-            assert.deepStrictEqual(
-                created.filter((file) => !under.test(file)),
-                [],
-                `${SCHEMA} outputs: every file the build writes lies under a declared output`,
-            );
-        }),
-        bounds.test,
-    );
+const [, createNodesFunction] = createNodes;
+const it = test
+    .extend('tempFs', ({}, { onCleanup }) => {
+        const cwd = process.cwd();
+        const tempFs = new TempFs('vite-plugin-tests');
+        process.chdir(tempFs.tempDir);
+        symlinkSync(join(import.meta.dirname, 'node_modules'), join(tempFs.tempDir, 'node_modules'), 'dir');
+        onCleanup(() => {
+            tempFs.cleanup();
+            process.chdir(cwd);
+        });
+        return tempFs;
+    })
+    .extend('inferProject', ({ tempFs }) => async (root: string, config: string, extraFiles: readonly string[] = [], options: Parameters<typeof createNodesFunction>[1] = {}) => {
+        vi.mocked(resolveConfig).mockClear();
+        tempFs.createFilesSync({
+            'package-lock.json': '{}',
+            [join(root, 'package.json')]: '{}',
+            'package.json': JSON.stringify({ name: 'repo', workspaces: ['*'], nx: {} }),
+            [join(root, 'vite.config.ts')]: config,
+            ...Object.fromEntries(extraFiles.map((file) => [file, ''])),
+        });
 
-    methods.effect(
-        'an edit to a file the config loads moves the declared outputs to the folder Vite resolves',
-        Effect.fnUntraced(function* () {
-            const [{ root, wrote }, path, graph] = yield* Effect.all([Consumer, Path.Path, read]);
-            yield* wrote({ 'tools/vite/base.ts': base('emitted') });
-            const { root: folder, outDir } = yield* resolved('libs/kit');
-            assert.deepStrictEqual(yield* declared(task(graph, 'kit', 'build')), [path.relative(root, path.resolve(folder, outDir))], 'nrwl/nx packages/nx/src/project-graph/nx-deps-cache.spec.ts: a changed file invalidates what was computed from it');
-        }),
-        bounds.test,
-    );
-});
+        const nodes = await createNodesFunction([join(root, 'vite.config.ts')], options, {
+            nxJsonConfiguration: { namedInputs: { default: ['{projectRoot}/**/*'], production: ['!{projectRoot}/**/*.spec.ts'] } },
+            workspaceRoot: tempFs.tempDir,
+        });
 
-it.layer(workspace({ ...files, 'apps/broken/package.json': '{ "name": "broken", "type": "module" }\n', 'apps/broken/vite.config.ts': "throw new Error('broken on load');\n" }), { timeout: bounds.built, excludeTestServices: true })((methods) => {
-    methods.effect(
-        'a config that fails to load is named in the failure, and every other project keeps its targets',
-        Effect.fnUntraced(function* () {
-            const graph = yield* read;
-            const errors = 'nrwl/nx packages/nx/src/project-graph/error-types.ts AggregateCreateNodesError';
-            assert.include(
-                graph.failures.flatMap((failure) => failure.files).map(({ file }) => file),
-                'apps/broken/vite.config.ts',
-                `${errors}: errors hold a [file, error] tuple for the file that failed`,
-            );
-            assert.deepStrictEqual(
-                ['web', 'kit'].map((project) => verbs(graph, project)),
-                [['build', 'serve', 'preview'], ['build']],
-                `${errors}: "It allows Nx to recieve partial results and continue processing"`,
-            );
-        }),
-        bounds.test,
-    );
+        const { targets = {}, projectType } = nodes[0]?.[1].projects?.[root] ?? {};
+        return {
+            nodes,
+            targets,
+            projectType,
+            inferredApplicationTargets: applicationTargets.filter((target) => target in targets),
+            resolvedCommands: vi.mocked(resolveConfig).mock.calls.map(([, command]) => command),
+        };
+    });
+
+describe('@rasm/nx-vite', () => {
+    describe('root project', () => {
+        it('should create nodes', async ({ inferProject }) => {
+            const { nodes } = await inferProject('.', 'export default {};', ['index.html']);
+
+            const needs = {
+                options: { cwd: '.' },
+                inputs: ['production', '^production', { dependentTasksOutputFiles: '**/*', transitive: true }, { externalDependencies: ['vite'] }],
+            };
+            expect(nodes).toStrictEqual([
+                [
+                    'vite.config.ts',
+                    {
+                        projects: {
+                            '.': {
+                                root: '.',
+                                projectType: 'application',
+                                metadata: { technologies: ['vite'] },
+                                targets: {
+                                    build: { dependsOn: ['build--*'], inputs: ['...', ...needs.inputs] },
+                                    'build--vite': {
+                                        ...needs,
+                                        command: 'vite build',
+                                        dependsOn: ['codegen--*', '^codegen', '^build'],
+                                        cache: true,
+                                        outputs: ['{projectRoot}/dist'],
+                                        metadata: { technologies: ['vite'], description: 'Builds every environment of the Vite config with vite build', help: { command: 'npx vite build --help', example: { args: ['--mode', 'production'] } } },
+                                    },
+                                    clean: { dependsOn: ['clean--*'], inputs: ['...', 'default', '^default', { externalDependencies: [] }] },
+                                    'clean--vite': {
+                                        executor: '@rasm/nx-distribution:clean',
+                                        options: { targets: ['build--vite'] },
+                                        inputs: ['default', '^default', { externalDependencies: [] }],
+                                        metadata: { technologies: ['vite'], description: 'Removes the outputs build--vite declare', help: { command: 'npx nx run --help', example: { options: { targets: ['build--vite'] } } } },
+                                    },
+                                    serve: { dependsOn: ['serve--*'], inputs: ['...', ...needs.inputs] },
+                                    'serve--vite': {
+                                        ...needs,
+                                        command: 'vite',
+                                        dependsOn: ['codegen--*', '^codegen'],
+                                        continuous: true,
+                                        readyWhen: getReadyCheckReadyWhen(check, 'vite.config.ts', 'serve'),
+                                        metadata: { technologies: ['vite'], description: 'Serves every environment of the Vite config with vite', help: { command: 'npx vite --help', example: { args: ['--port', '<port>'] } } },
+                                    },
+                                    preview: { dependsOn: ['preview--*'], inputs: ['...', ...needs.inputs] },
+                                    'preview--vite': {
+                                        ...needs,
+                                        command: 'vite preview',
+                                        dependsOn: ['build--vite'],
+                                        continuous: true,
+                                        readyWhen: getReadyCheckReadyWhen(check, 'vite.config.ts', 'preview'),
+                                        metadata: { technologies: ['vite'], description: 'Serves the build output of the Vite config with vite preview', help: { command: 'npx vite preview --help', example: { args: ['--port', '<port>'] } } },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                ],
+            ]);
+        });
+
+        it('should create nodes when rollupOptions contains input', async ({ inferProject }) => {
+            const { targets } = await inferProject('.', "export default { build: { rollupOptions: { input: { index: 'src/index.js' } } } };", ['index.html']);
+
+            expect(targets['build--vite']?.command).toMatch(/vite/u);
+            expect(targets['serve--vite']?.command).toMatch(/vite/u);
+        });
+
+        it('should not create serve and preview targets for a bundle-only config with no index.html and no server', async ({ inferProject }) => {
+            const { targets } = await inferProject('.', "export default { build: { rollupOptions: { input: { index: 'src/index.js' } } } };");
+
+            expect(targets['build--vite']?.command).toBe('vite build');
+            expect(Object.keys(targets)).toStrictEqual(['build', 'build--vite', 'clean', 'clean--vite']);
+        });
+
+        it('waits for the signal when the config loads nxReadySignal()', async ({ inferProject }) => {
+            const { targets } = await inferProject('.', "import { nxReadySignal } from '@nx/vite/plugins/nx-ready-signal.plugin';\n\nexport default { plugins: [nxReadySignal()] };", ['index.html']);
+
+            expect(targets['serve--vite']?.readyWhen).toStrictEqual({ signal: true });
+            expect(targets['preview--vite']?.readyWhen).toStrictEqual({ signal: true });
+        });
+    });
+
+    describe('not root project', () => {
+        it('should create nodes', async ({ inferProject }) => {
+            const { nodes } = await inferProject('my-app', "import '../tools/vite/base.ts';\n\nexport default {};", ['my-app/index.html', 'tools/vite/base.ts'], { outputPath: '.artifacts/vite/{projectName}' });
+
+            const needs = {
+                options: { cwd: 'my-app' },
+                inputs: ['production', '^production', '{workspaceRoot}/tools/vite/base.ts', { dependentTasksOutputFiles: '**/*', transitive: true }, { externalDependencies: ['vite'] }],
+            };
+            expect(nodes).toStrictEqual([
+                [
+                    'my-app/vite.config.ts',
+                    {
+                        projects: {
+                            'my-app': {
+                                root: 'my-app',
+                                projectType: 'application',
+                                metadata: { technologies: ['vite'] },
+                                targets: {
+                                    build: { dependsOn: ['build--*'], inputs: ['...', ...needs.inputs] },
+                                    'build--vite': {
+                                        ...needs,
+                                        command: "vite build --outDir '../.artifacts/vite/{projectName}' --emptyOutDir",
+                                        dependsOn: ['codegen--*', '^codegen', '^build'],
+                                        cache: true,
+                                        outputs: ['{workspaceRoot}/.artifacts/vite/{projectName}'],
+                                        metadata: { technologies: ['vite'], description: 'Builds every environment of the Vite config with vite build', help: { command: 'npx vite build --help', example: { args: ['--mode', 'production'] } } },
+                                    },
+                                    clean: { dependsOn: ['clean--*'], inputs: ['...', 'default', '^default', { externalDependencies: [] }] },
+                                    'clean--vite': {
+                                        executor: '@rasm/nx-distribution:clean',
+                                        options: { targets: ['build--vite'] },
+                                        inputs: ['default', '^default', { externalDependencies: [] }],
+                                        metadata: { technologies: ['vite'], description: 'Removes the outputs build--vite declare', help: { command: 'npx nx run --help', example: { options: { targets: ['build--vite'] } } } },
+                                    },
+                                    serve: { dependsOn: ['serve--*'], inputs: ['...', ...needs.inputs] },
+                                    'serve--vite': {
+                                        ...needs,
+                                        command: 'vite',
+                                        dependsOn: ['codegen--*', '^codegen'],
+                                        continuous: true,
+                                        readyWhen: getReadyCheckReadyWhen(check, 'vite.config.ts', 'serve'),
+                                        metadata: { technologies: ['vite'], description: 'Serves every environment of the Vite config with vite', help: { command: 'npx vite --help', example: { args: ['--port', '<port>'] } } },
+                                    },
+                                    preview: { dependsOn: ['preview--*'], inputs: ['...', ...needs.inputs] },
+                                    'preview--vite': {
+                                        ...needs,
+                                        command: "vite preview --outDir '../.artifacts/vite/{projectName}'",
+                                        dependsOn: ['build--vite'],
+                                        continuous: true,
+                                        readyWhen: getReadyCheckReadyWhen(check, 'vite.config.ts', 'preview'),
+                                        metadata: { technologies: ['vite'], description: 'Serves the build output of the Vite config with vite preview', help: { command: 'npx vite preview --help', example: { args: ['--port', '<port>'] } } },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                ],
+            ]);
+        });
+    });
+
+    describe('library mode', () => {
+        const lib = "{ entry: 'index.ts', name: 'my-lib' }";
+        const needs = { options: { cwd: 'my-lib' }, inputs: ['production', '^production', { dependentTasksOutputFiles: '**/*', transitive: true }, { externalDependencies: ['vite'] }] };
+
+        it('should exclude serve and preview targets when vite.config.ts is in library mode', async ({ inferProject }) => {
+            const { targets, projectType } = await inferProject('my-lib', `export default { build: { lib: ${lib} } };`);
+
+            expect(projectType).toBe('library');
+            expect(Object.keys(targets)).toStrictEqual(['build', 'build--vite', 'clean', 'clean--vite']);
+            expect(targets['build--vite']).toStrictEqual({
+                ...needs,
+                command: 'vite build',
+                dependsOn: ['codegen--*', '^codegen', '^build'],
+                cache: true,
+                outputs: ['{projectRoot}/dist'],
+                metadata: { technologies: ['vite'], description: 'Builds every environment of the Vite config with vite build', help: { command: 'npx vite build --help', example: { args: ['--mode', 'production'] } } },
+            });
+        });
+
+        it('should not exclude serve and preview targets when vite.config.ts is in library mode when user has defined a server config', async ({ inferProject }) => {
+            const { targets, projectType } = await inferProject('my-lib', `export default { build: { lib: ${lib} }, server: { port: 3000, host: 'localhost' } };`);
+
+            expect(projectType).toBe('library');
+            expect(Object.keys(targets)).toStrictEqual(['build', 'build--vite', 'clean', 'clean--vite', 'serve', 'serve--vite', 'preview', 'preview--vite']);
+            expect(targets['serve--vite']).toStrictEqual({
+                ...needs,
+                command: 'vite',
+                dependsOn: ['codegen--*', '^codegen'],
+                continuous: true,
+                readyWhen: getReadyCheckReadyWhen(check, 'vite.config.ts', 'serve'),
+                metadata: { technologies: ['vite'], description: 'Serves every environment of the Vite config with vite', help: { command: 'npx vite --help', example: { args: ['--port', '<port>'] } } },
+            });
+            expect(targets['preview--vite']).toStrictEqual({
+                ...needs,
+                command: 'vite preview',
+                dependsOn: ['build--vite'],
+                continuous: true,
+                readyWhen: getReadyCheckReadyWhen(check, 'vite.config.ts', 'preview'),
+                metadata: { technologies: ['vite'], description: 'Serves the build output of the Vite config with vite preview', help: { command: 'npx vite preview --help', example: { args: ['--port', '<port>'] } } },
+            });
+        });
+
+        it('should keep the application targets when only the serve config has a server, with build outputs from the build config', async ({ inferProject }) => {
+            const { targets, projectType, inferredApplicationTargets, resolvedCommands } = await inferProject('my-lib', `export default ({ command }) => ({ build: { lib: ${lib}, outDir: command === 'build' ? 'dist-build' : 'dist-serve' }, server: command === 'serve' ? { port: 4200 } : undefined });`);
+
+            expect(inferredApplicationTargets).toStrictEqual(applicationTargets);
+            expect(targets['build--vite']?.outputs).toStrictEqual(['{projectRoot}/dist-build']);
+            expect(projectType).toBe('library');
+            expect(resolvedCommands).toStrictEqual(['build', 'serve']);
+        });
+
+        it.for([
+            ['in both modes', '', ['build']],
+            ['only in serve mode', ", apply: 'serve'", ['build', 'serve']],
+        ] as const)('should keep the application targets when a plugin config hook sets the server %s', async ([, pluginOptions, expectedCommands], { inferProject }) => {
+            const { inferredApplicationTargets, resolvedCommands } = await inferProject('my-lib', `export default { build: { lib: ${lib} }, plugins: [{ name: 'user-plugin', config: () => ({ server: { port: 4200 } })${pluginOptions} }] };`);
+
+            expect(inferredApplicationTargets).toStrictEqual(applicationTargets);
+            expect(resolvedCommands).toStrictEqual(expectedCommands);
+        });
+
+        it('should keep the build target and omit the application targets when the config throws in serve mode', async ({ inferProject }) => {
+            const { targets, inferredApplicationTargets } = await inferProject('my-lib', `export default ({ command }) => {\n    if (command === 'serve') {\n        throw new Error('This config only builds');\n    }\n    return { build: { lib: ${lib} } };\n};`);
+
+            expect(targets['build--vite']?.command).toBe('vite build');
+            expect(inferredApplicationTargets).toStrictEqual([]);
+            expect(resolveConfig).toHaveBeenLastCalledWith(expect.objectContaining({ logLevel: 'silent' }), 'serve', 'development', 'development');
+        });
+
+        it('should keep the application targets for an explicit empty server block', async ({ inferProject }) => {
+            const { inferredApplicationTargets, resolvedCommands } = await inferProject('my-lib', `export default { build: { lib: ${lib} }, server: {} };`);
+
+            expect(inferredApplicationTargets).toStrictEqual(applicationTargets);
+            expect(resolvedCommands).toStrictEqual(['build']);
+        });
+
+        it('should exclude the application targets when neither mode has a server', async ({ inferProject }) => {
+            const { inferredApplicationTargets, resolvedCommands } = await inferProject('my-lib', `export default { build: { lib: ${lib} } };`);
+
+            expect(inferredApplicationTargets).toStrictEqual([]);
+            expect(resolvedCommands).toStrictEqual(['build', 'serve']);
+        });
+
+        it.for([
+            ['an application', 'export default { build: {} };', ['my-lib/index.html']],
+            ['a library with a build mode server', `export default { build: { lib: ${lib} }, server: { port: 3000 } };`, []],
+        ] as const)('should resolve the config once for %s', async ([, config, extraFiles], { inferProject }) => {
+            const { inferredApplicationTargets, resolvedCommands } = await inferProject('my-lib', config, extraFiles);
+
+            expect(inferredApplicationTargets).toStrictEqual(applicationTargets);
+            expect(resolvedCommands).toStrictEqual(['build']);
+            expect(vi.mocked(resolveConfig).mock.calls[0]?.[0].logLevel).toBeUndefined();
+        });
+    });
+
+    it('should add the tsconfig extends chain outside the project root, leaving the root tsconfig to the native hasher', async ({ tempFs, inferProject }) => {
+        tempFs.createFilesSync({
+            'tsconfig.base.json': JSON.stringify({}),
+            'tsconfig.shared.json': JSON.stringify({ extends: './tsconfig.base.json' }),
+            'my-lib/tsconfig.json': JSON.stringify({ extends: '../tsconfig.shared.json' }),
+        });
+        const { targets } = await inferProject('my-lib', "export default { build: { lib: { entry: 'index.ts', name: 'my-lib' } } };");
+
+        expect(targets['build--vite']?.inputs).toContainEqual({ json: '{workspaceRoot}/tsconfig.shared.json', fields: ['compilerOptions'] });
+        expect(targets['build--vite']?.inputs).not.toContainEqual(expect.objectContaining({ json: '{workspaceRoot}/tsconfig.base.json' }));
+    });
+
+    it('should create nodes only where a package.json is in the package manager workspaces or beside a project.json', async ({ tempFs }) => {
+        const config = 'export default { build: { lib: { entry: "index.ts" } } };';
+        tempFs.createFilesSync({
+            'package.json': JSON.stringify({ name: 'repo', workspaces: ['apps/*'] }),
+            'package-lock.json': '{}',
+            'apps/listed/package.json': '{}',
+            'apps/listed/vite.config.ts': config,
+            'tools/marked/project.json': '{}',
+            'tools/marked/vite.config.ts': config,
+            'tools/unlisted/package.json': '{}',
+            'tools/unlisted/vite.config.ts': config,
+        });
+
+        const nodes = await createNodesFunction(['apps/listed/vite.config.ts', 'tools/marked/vite.config.ts', 'tools/unlisted/vite.config.ts'], {}, { nxJsonConfiguration: {}, workspaceRoot: tempFs.tempDir });
+
+        expect(nodes.map(([file]) => file)).toStrictEqual(['apps/listed/vite.config.ts', 'tools/marked/vite.config.ts']);
+    });
+
+    it('writes every declared output and no file outside them', async ({ tempFs, inferProject }) => {
+        tempFs.createFileSync('my-lib/index.ts', 'export const value = 1;\n');
+        const { targets } = await inferProject('my-lib', "export default { build: { lib: { entry: 'index.ts', formats: ['es'] } } };");
+        const listed = () => globSync('**', { cwd: tempFs.tempDir, exclude: ['node_modules', '.nx', 'tmp'] });
+        const before = new Set(listed());
+
+        expect(targets['build--vite']).toMatchObject({ command: 'vite build', options: { cwd: 'my-lib' }, outputs: ['{projectRoot}/dist'] });
+        execSync('vite build', { cwd: join(tempFs.tempDir, 'my-lib'), env: { ...env, PATH: [join(tempFs.tempDir, 'node_modules', '.bin'), env['PATH']].join(delimiter) }, stdio: 'pipe' });
+
+        const written = listed().filter((file) => !before.has(file));
+        expect(written).not.toHaveLength(0);
+        expect(written.filter((file) => !/^my-lib\/dist(?:\/|$)/u.test(file))).toStrictEqual([]);
+        expect(existsSync(join(tempFs.tempDir, 'my-lib', 'dist'))).toBe(true);
+    });
 });

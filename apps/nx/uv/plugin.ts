@@ -1,8 +1,8 @@
 import { readdirSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
-import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesContext, hashArray, type ProjectConfiguration } from '@nx/devkit';
+import { type CreateDependencies, type CreateNodes, type CreateNodesContext, createNodesFromFiles, hashArray, type ProjectConfiguration } from '@nx/devkit';
 import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, hashFile, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
-import { Array, Cause, Effect, Option, Record, Result, Schema } from 'effect';
+import { Array, Cause, Effect, Option, Record, Schema } from 'effect';
 import { ancestors, CONFIGS, documents, Linked, manifested, Options, PLUGIN, run, spawned, targets } from '#/targets';
 import { folders, LOCK, located, MANIFEST, Metadata, report, SCHEMA } from '#/workspace';
 
@@ -25,8 +25,6 @@ const OWN = hashArray(
 const Quoted = Schema.fromJsonString(Schema.String);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-
-const rendered = (cause: Cause.Cause<unknown>) => Effect.fail(new Cause.UnknownError(cause, Cause.pretty(cause)));
 
 const inferred = Effect.fnUntraced(function* (cache: Read, { workspaceRoot }: CreateNodesContext, settings: typeof Options.Type, lock: string) {
     const token = '{workspaceRoot}';
@@ -77,10 +75,7 @@ const createNodes: CreateNodes<typeof Options.Encoded> = [
             Effect.gen(function* () {
                 const settings = yield* Schema.decodeEffect(Options)(options ?? {});
                 (yield* Linked).delete(context.workspaceRoot);
-                const read = Array.zip(locks, yield* Effect.forEach(locks, (lock) => Effect.result(Effect.catchCause(inferred(cache, context, settings, lock), rendered)), { concurrency: 'unbounded' }));
-                const failures = Array.filterMap(read, ([lock, result]) => Result.map(Result.flip(result), (error): [string, Error] => [lock, error]));
-                const results = Array.filterMap(read, ([lock, result]) => Result.map(result, (held) => [lock, held] as const));
-                return yield* failures.length === 0 ? Effect.succeed(results) : Effect.fail(new AggregateCreateNodesError(failures, results));
+                return yield* Effect.promise(() => createNodesFromFiles((lock) => run(inferred(cache, context, settings, lock)), locks, options, context));
             }),
         );
     },

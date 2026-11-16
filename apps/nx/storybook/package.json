@@ -1,7 +1,7 @@
 {
     "name": "@rasm/nx-storybook",
     "version": "0.1.0",
-    "description": "Nx plugin inferring a Storybook build, the file-server preview of that build, and the development server from each Storybook main configuration",
+    "description": "Nx plugin inferring a Storybook build, the file-server preview of that build, the development server, and a test-storybook run against that server where @storybook/test-runner resolves, from each Storybook main configuration",
     "license": "MIT",
     "repository": {
         "type": "git",
@@ -33,13 +33,15 @@
         "@effect/platform-node": "catalog:",
         "@nx/devkit": "catalog:",
         "@nx/js": "catalog:",
+        "@nx/storybook": "catalog:",
         "@rasm/nx-distribution": "workspace:*",
         "effect": "catalog:"
     },
     "devDependencies": {
         "@nx/web": "catalog:",
         "@types/node": "catalog:",
-        "nx": "catalog:"
+        "nx": "catalog:",
+        "storybook": "catalog:"
     },
     "peerDependencies": {
         "@nx/web": "catalog:peers",

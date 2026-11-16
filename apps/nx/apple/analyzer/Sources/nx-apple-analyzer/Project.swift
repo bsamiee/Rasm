@@ -84,9 +84,17 @@ func decoded(_ container: FilePath) throws(AnalyzerError) -> XCSchema.Project {
     }
 }
 
-func versioned(_ held: XCSchema.Project, to version: String) -> XCSchema.Project {
+func versioned(_ data: Data, to version: String?) throws(AnalyzerError) -> XCSchema.Project {
+    let (held, written): (XCSchema.Project, Data)
+    do {
+        held = try XCSchema.Project(jsonRepresentation: data)
+        written = try held.jsonRepresentation()
+    } catch {
+        throw AnalyzerError(subject: "standard input", reason: .undecodable(error))
+    }
+    guard version == nil || written == data else { throw AnalyzerError(subject: "standard input", reason: .rewritten) }
     var next = held
-    next.buildSettings[marketingSetting] = .string(version)
+    next.buildSettings[marketingSetting] = version.map(XCSchema.BuildSetting.string) ?? held.buildSettings[marketingSetting]
     return next
 }
 

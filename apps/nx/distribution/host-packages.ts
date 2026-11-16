@@ -53,7 +53,7 @@ interface Host {
     readonly operations?: Partial<Record<'check' | 'test' | 'pack' | 'install', { readonly command: string; readonly options: Readonly<Record<string, unknown>> }>>;
     readonly output: string;
     readonly read: (text: string, file: string) => Effect.Effect<Option.Option<Fields>, Cause.UnknownError>;
-    readonly write?: (text: string, version: string) => Effect.Effect<string, Cause.UnknownError>;
+    readonly write?: (text: string, version: string, file: string) => Effect.Effect<string, Cause.UnknownError>;
     readonly build?: {
         readonly executor: string;
         readonly command: string;
@@ -122,9 +122,9 @@ const exact = (subject: string, version: string) =>
     );
 
 const extension = (text: string) => {
-    const { cst, tokenVector } = xml.parse(text);
+    const { cst, tokenVector, lexErrors, parseErrors } = xml.parse(text);
     return pipe(
-        Option.liftPredicate(cst, (node): node is DocumentCstNode => node.name === 'document'),
+        Option.liftPredicate(cst, (node): node is DocumentCstNode => node.name === 'document' && lexErrors.length + parseErrors.length === 0),
         Option.flatMap((document) => Option.fromNullOr(ast.buildAst(document, tokenVector).rootElement)),
     );
 };
@@ -238,7 +238,7 @@ const HOSTS: readonly Host[] = [
                     onSuccess: ({ id, version, platforms, build }) => Option.some({ name: id, version, ...UndefinedOr.match(build?.generated?.platforms ?? platforms, { onUndefined: () => ({}), onDefined: (built) => ({ platforms: built, foreign: !built.includes(`${BLENDER[platform]}-${arch}`) }) }) }),
                 }),
             ),
-        write: (text, version) => Effect.mapBoth(Effect.fromResult(Toml.parse(text)), { onFailure: (cause) => new Cause.UnknownError(cause, `${EXTENSION} does not parse as TOML`), onSuccess: (document) => patch(text, { ...document, version }) }),
+        write: (text, version, file) => Effect.mapBoth(Effect.fromResult(Toml.parse(text)), { onFailure: (cause) => new Cause.UnknownError(cause, `${file} does not parse as TOML`), onSuccess: (document) => patch(text, { ...document, version }) }),
         build: {
             executor: 'extension-build',
             command: 'blender_ext.py build',
@@ -282,12 +282,12 @@ const HOSTS: readonly Host[] = [
         archive: '.yak',
         output: '.',
         read: (text) => Effect.succeed(Option.map(Option.flatMap(Option.liftThrowable(Yaml.parse)(text), Schema.decodeUnknownOption(Yak)), ({ name, version }) => ({ name, version }))),
-        write: (text, version) =>
+        write: (text, version, file) =>
             pipe(
                 Option.liftPredicate(parseDocument(text).get('version'), (node) => node instanceof Scalar),
                 Option.flatMap(({ range }) => Option.fromNullishOr(range)),
                 Effect.fromOption,
-                Effect.mapBoth({ onFailure: (cause) => new Cause.UnknownError(cause, 'manifest.yml states no version'), onSuccess: ([start, end]) => `${text.slice(0, start)}${version}${text.slice(end)}` }),
+                Effect.mapBoth({ onFailure: (cause) => new Cause.UnknownError(cause, `${file} states no version`), onSuccess: ([start, end]) => `${text.slice(0, start)}${version}${text.slice(end)}` }),
             ),
         build: {
             executor: 'package',
@@ -327,7 +327,7 @@ const HOSTS: readonly Host[] = [
         archive: '.ccx',
         output: '.',
         read: (text) => Effect.succeed(Option.map(Schema.decodeOption(Uxp)(text), ({ id, version }) => ({ name: id, version }))),
-        write: (text, version) => Effect.as(exact('manifest.json', version), applyEdits(text, modify(text, ['version'], version, {}))),
+        write: (text, version, file) => Effect.as(exact(file, version), applyEdits(text, modify(text, ['version'], version, {}))),
         build: { executor: 'package', command: 'a zip archive named .ccx', pack: ({ at, names }, file) => zipped(at, names, file) },
         install: {
             command: "a copy into the per-user UXP plug-in folder and the plug-in's row in its host's PluginsInfo registry",
@@ -362,15 +362,15 @@ const HOSTS: readonly Host[] = [
                     Option.map(({ ExtensionBundleId, ExtensionBundleVersion }) => ({ name: ExtensionBundleId, version: ExtensionBundleVersion })),
                 ),
             ),
-        write: (text, version) =>
+        write: (text, version, file) =>
             Effect.andThen(
-                exact('CSXS/manifest.xml', version),
+                exact(file, version),
                 pipe(
                     extension(text),
                     Option.flatMap((root) => Array.findFirst(root.attributes, ({ key }) => key === 'ExtensionBundleVersion')),
                     Option.flatMap(({ syntax }) => Option.fromUndefinedOr(syntax.value)),
                     Effect.fromOption,
-                    Effect.mapBoth({ onFailure: (cause) => new Cause.UnknownError(cause, 'CSXS/manifest.xml states no ExtensionBundleVersion'), onSuccess: (value) => `${text.slice(0, value.startOffset + 1)}${version}${text.slice(value.endOffset)}` }),
+                    Effect.mapBoth({ onFailure: (cause) => new Cause.UnknownError(cause, `${file} states no ExtensionBundleVersion`), onSuccess: (value) => `${text.slice(0, value.startOffset + 1)}${version}${text.slice(value.endOffset)}` }),
                 ),
             ),
         build: {
@@ -447,9 +447,9 @@ const HOSTS: readonly Host[] = [
                         references: (Plugins ?? []).map(({ Name, Enabled }) => ({ name: Name, enabled: Enabled === true })),
                     }),
             }),
-        write: (text, version) =>
+        write: (text, version, file) =>
             Effect.mapBoth(Schema.decodeEffect(Plugin)(text), {
-                onFailure: (cause) => new Cause.UnknownError(cause, '.uplugin does not decode'),
+                onFailure: (cause) => new Cause.UnknownError(cause, `${file} does not decode`),
                 onSuccess: ({ Version }) => applyEdits(text, [...modify(text, ['VersionName'], version, {}), ...modify(text, ['Version'], (Version ?? 0) + 1, {})]),
             }),
         build: { executor: 'unreal-build', command: 'AutomationTool BuildPlugin -StrictIncludes', runtime: [PLATFORM.runtime] },

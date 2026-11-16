@@ -1,17 +1,14 @@
 {
     "name": "@rasm/test-nx-pulumi",
     "private": true,
-    "description": "@rasm/nx-pulumi suites over temporary workspaces: README deploy rules and Nx executor rules checked against the stacks the Pulumi Automation API holds in a local backend",
+    "description": "@rasm/nx-pulumi suites over temporary workspaces: the Nx node bin, script-node, and Docker plugin specs ported to Pulumi Automation API programs",
     "type": "module",
     "devDependencies": {
-        "@effect/platform-node": "catalog:",
-        "@effect/vitest": "catalog:",
         "@nx/devkit": "catalog:",
         "@pulumi/pulumi": "catalog:",
         "@rasm/nx-pulumi": "workspace:*",
         "@rasm/testing": "workspace:*",
         "@types/node": "catalog:",
-        "effect": "catalog:",
         "nx": "catalog:",
         "vite": "catalog:",
         "vitest": "catalog:"

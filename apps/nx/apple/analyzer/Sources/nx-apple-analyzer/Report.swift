@@ -30,7 +30,7 @@ struct Versioned: Encodable {
     let project: String
 }
 
-struct Scheme: Encodable {
+struct Scheme: Encodable, Equatable {
     let name: String
     let containers: [String]
     let plans: [String]
@@ -38,7 +38,7 @@ struct Scheme: Encodable {
     let launch: String?
 }
 
-struct Container: Encodable {
+struct Container: Encodable, Equatable {
     let path: String
     let schemes: [Scheme]
     let configurations: [String]
@@ -47,7 +47,7 @@ struct Container: Encodable {
     let buildFiles: [String]
 }
 
-struct Report: Encodable {
+struct Report: Encodable, Equatable {
     let containers: [Container]
     let failures: [String: String]
 }
@@ -68,6 +68,7 @@ struct AnalyzerError: LocalizedError {
         case undecodable(any Error)
         case missing([String])
         case empty
+        case rewritten
     }
 
     let subject: String
@@ -79,6 +80,7 @@ struct AnalyzerError: LocalizedError {
             case .undecodable(let cause): "\(subject) is undecodable: \(cause.localizedDescription)"
             case .missing(let references): (["\(subject) has missing references:"] + references).joined(separator: "\n  ")
             case .empty: "\(subject) is empty"
+            case .rewritten: "\(subject) differs from the form Xcode writes, so rewriting it would change more than MARKETING_VERSION"
         }
     }
 }

@@ -150,9 +150,6 @@
             "path": "./apps/nx/tests/vitest"
         },
         {
-            "path": "./tests/typescript/nx"
-        },
-        {
             "path": "./apps/nx/tests/apple"
         },
         {
@@ -214,6 +211,15 @@
         },
         {
             "path": "./apps/nx/playwright"
+        },
+        {
+            "path": "./apps/nx/tests/playwright"
+        },
+        {
+            "path": "./tools/tests/conformance"
+        },
+        {
+            "path": "./tools/conformance"
         }
     ]
 }

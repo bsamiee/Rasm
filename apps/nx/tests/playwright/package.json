@@ -1,0 +1,15 @@
+{
+    "name": "@rasm/test-nx-playwright",
+    "private": true,
+    "description": "@rasm/nx-playwright suites over temporary workspaces: Nx's own Playwright plugin specs ported to the targets createNodes infers from the configuration Playwright resolves",
+    "type": "module",
+    "devDependencies": {
+        "@nx/devkit": "catalog:",
+        "@playwright/test": "catalog:",
+        "@rasm/nx-playwright": "workspace:*",
+        "@rasm/testing": "workspace:*",
+        "@types/node": "catalog:",
+        "nx": "catalog:",
+        "vitest": "catalog:"
+    }
+}

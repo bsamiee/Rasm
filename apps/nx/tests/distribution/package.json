@@ -1,19 +1,15 @@
 {
     "name": "@rasm/test-nx-distribution",
     "private": true,
-    "description": "@rasm/nx-distribution suites over temporary workspaces: host manifests in each vendor format discovered, packaged, and versioned through nx against README delivery rules, and its clean, publish, and attach executors and sync generator run through nx with gh replaced at the process boundary",
+    "description": "@rasm/nx-distribution suite: Nx's own @nx/docker plugin and release-publish specs, @nx/js release-publish, version actions, and typescript-sync specs ported to host manifests in temporary folders, each executor called directly with gh and store tools replaced at the process boundary",
     "type": "module",
     "devDependencies": {
-        "@effect/platform-node": "catalog:",
-        "@effect/vitest": "catalog:",
         "@nx/devkit": "catalog:",
-        "@nx/js": "catalog:",
         "@rasm/nx-distribution": "workspace:*",
         "@rasm/testing": "workspace:*",
         "@types/node": "catalog:",
         "effect": "catalog:",
         "nx": "catalog:",
-        "vite": "catalog:",
         "vitest": "catalog:"
     }
 }

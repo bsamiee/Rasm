@@ -259,7 +259,7 @@ const replied = Effect.fnUntraced(function* (workspaceRoot: string, root: string
         ...member,
         folders: Array.dedupe(searched.filter(({ projectIndex, folder }) => projectIndex === at && !relative(member.root, folder).startsWith('..')).map(({ folder }) => folder)),
         targets: loaded.filter(({ projectIndex, artifacts }) => projectIndex === at && artifacts.length > 0).map(({ id, name, artifacts }) => ({ name, artifacts, ...binaries.get(id) })),
-        links: linked.filter(({ from }) => from === at).map(({ link }) => link),
+        links: Array.dedupe(linked.filter(({ from }) => from === at).map(({ link }) => link)),
     }));
     const tracked = yield* Effect.promise(() =>
         globWithWorkspaceContext(

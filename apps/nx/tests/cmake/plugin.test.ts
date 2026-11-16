@@ -1,260 +1,796 @@
-import { layer } from '@effect/platform-node/NodeServices';
-import { assert, it } from '@effect/vitest';
-import plugin from '@rasm/nx-cmake/package.json' with { type: 'json' };
-import { conforms } from '@rasm/testing/conformance';
-import { Consumer, Packed } from '@rasm/testing/nx';
-import { Array, Duration, Effect, FileSystem, Layer, Option, Path, Record, Schema } from 'effect';
+import { execSync } from 'node:child_process';
+import { existsSync, globSync } from 'node:fs';
+import { join, matchesGlob } from 'node:path';
+import process from 'node:process';
+import { type CreateNodesContext, readJsonFile } from '@nx/devkit';
+import { createNodes } from '@rasm/nx-cmake';
+import { TempFs } from '@rasm/testing/temp-fs';
+import { Array, Effect, Record, Schema } from 'effect';
+import { describe, expect, onTestFinished, test, vi } from 'vitest';
 
-// --- [CONSTANTS] -----------------------------------------------------------------------
+vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
 
-const REPORT = 'CMake file API codemodel-v2 reply of a second build tree, a source path relative where the top-level source directory holds the file and absolute elsewhere; ctest --show-only=json-v1; cmake_language(PRINT_VARIABLES NAMED PROJECT_NAME PROJECT_VERSION)';
-const [FOLDER, PRESET, MANIFEST, PACKAGING] = ['build', 'default', 'CMakeLists.txt', 'CPackConfig.cmake'] as const;
-const [CORE, MIDDLE, TOOL] = ['libs/core', 'libs/middle', 'apps/tool'] as const;
-const SOURCES = { core: 'libs/core/core.cpp', suite: 'libs/core/core_test.cpp', header: 'libs/middle/include/middle.hpp', tool: 'apps/tool/main.cpp' } as const;
+const presets = (workflows: readonly string[]) =>
+    JSON.stringify({
+        version: 10,
+        configurePresets: workflows.map((name) => ({ name, generator: 'Ninja', binaryDir: `\${sourceDir}/build/\${presetName}` })),
+        buildPresets: workflows.map((name) => ({ name, configurePreset: name })),
+        testPresets: workflows.map((name) => ({ name, configurePreset: name })),
+        packagePresets: workflows.slice(0, 1).map((name) => ({ name, configurePreset: name, generators: ['TGZ'] })),
+        workflowPresets: workflows.map((name) => ({ name, steps: ['configure', 'build', 'test'].map((type) => ({ type, name })) })),
+    });
+
 const files = {
-    '.config/mise.lock': '# tool versions\n',
-    'CMakeLists.txt': `cmake_minimum_required(VERSION 4.5)\nproject(Fixture LANGUAGES CXX)\nenable_testing()\nlist(APPEND CMAKE_PROJECT_INCLUDE "\${CMAKE_CURRENT_SOURCE_DIR}/cmake/package.cmake")\nadd_subdirectory(libs/core)\nadd_subdirectory(libs/middle)\nadd_subdirectory(apps/tool)\n`,
-    'CMakePresets.json': `{\n    "version": 10,\n    "configurePresets": [\n        { "name": "tree", "hidden": true, "generator": "Ninja", "binaryDir": "\${sourceDir}/${FOLDER}/\${presetName}", "toolchainFile": "\${sourceDir}/cmake/toolchain.cmake" },\n        { "name": "${PRESET}", "inherits": "tree", "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" } }\n    ],\n    "buildPresets": [ { "name": "${PRESET}", "configurePreset": "${PRESET}" } ],\n    "testPresets": [ { "name": "${PRESET}", "configurePreset": "${PRESET}", "output": { "outputOnFailure": true } } ],\n    "packagePresets": [ { "name": "${PRESET}", "configurePreset": "${PRESET}", "generators": [ "TXZ" ] } ],\n    "workflowPresets": [ { "name": "${PRESET}", "steps": [ { "type": "configure", "name": "${PRESET}" }, { "type": "build", "name": "${PRESET}" }, { "type": "test", "name": "${PRESET}" } ] } ]\n}\n`,
-    'cmake/toolchain.cmake': 'set(CMAKE_CXX_STANDARD 23)\nset(CMAKE_CXX_STANDARD_REQUIRED ON)\n',
-    'cmake/package.cmake': `set(CPACK_PACKAGE_NAME "\${PROJECT_NAME}")\nset(CPACK_PACKAGE_VERSION "\${PROJECT_VERSION}")\nset(CPACK_SYSTEM_NAME "\${CMAKE_SYSTEM_NAME}-\${CMAKE_SYSTEM_PROCESSOR}")\nset(CPACK_INSTALL_CMAKE_PROJECTS "\${PROJECT_BINARY_DIR};\${PROJECT_NAME};ALL;/")\nset(CPACK_OUTPUT_CONFIG_FILE "\${PROJECT_BINARY_DIR}/${PACKAGING}")\nset(CPACK_SOURCE_OUTPUT_CONFIG_FILE "\${PROJECT_BINARY_DIR}/CPackSourceConfig.cmake")\ninclude(CPack)\n`,
-    'libs/core/CMakeLists.txt':
-        '# Core of the chain\nproject(fixture_core VERSION 0.1.0 SPDX_LICENSE MIT LANGUAGES CXX)\nadd_library(fixture_core STATIC core.cpp)\ntarget_sources(fixture_core PUBLIC FILE_SET HEADERS FILES core.hpp)\nadd_executable(fixture_core_test core_test.cpp)\ntarget_link_libraries(fixture_core_test PRIVATE fixture_core)\nadd_test(NAME fixture_core_test COMMAND fixture_core_test)\ninstall(TARGETS fixture_core EXPORT fixture_core FILE_SET HEADERS)\ninstall(PACKAGE_INFO fixture_core EXPORT fixture_core)\ninstall(SBOM fixture_core EXPORTS fixture_core)\n',
-    'libs/core/core.hpp': 'int one();\n',
-    'libs/core/core.cpp': '#include "core.hpp"\n\nint one() { return 1; }\n',
-    'libs/core/core_test.cpp': '#include "core.hpp"\n\nint main() { return one() == 1 ? 0 : 1; }\n',
-    'libs/middle/CMakeLists.txt': 'project(fixture_middle VERSION 0.1.0 LANGUAGES CXX) # links the core\nadd_library(fixture_middle STATIC src/middle.cpp)\ntarget_include_directories(fixture_middle PUBLIC include)\ntarget_link_libraries(fixture_middle PUBLIC fixture_core)\n',
-    'libs/middle/include/middle.hpp': 'int two();\n',
-    'libs/middle/src/middle.cpp': '#include "middle.hpp"\n\n#include "core.hpp"\n\nint two() { return one() + 1; }\n',
-    'apps/tool/CMakeLists.txt': 'project(fixture_tool VERSION 0.1.0 LANGUAGES CXX)\nadd_executable(fixture_tool main.cpp)\ntarget_link_libraries(fixture_tool PRIVATE fixture_middle)\ninstall(TARGETS fixture_tool)\n',
-    'apps/tool/main.cpp': '#include "middle.hpp"\n\nint main() { return two() == 2 ? 0 : 1; }\n',
+    'CMakePresets.json': presets(['default']),
+    'CMakeLists.txt': `cmake_minimum_required(VERSION 4.5)\nproject(Fixture LANGUAGES CXX)\nenable_testing()\nlist(APPEND CMAKE_PROJECT_INCLUDE "\${CMAKE_CURRENT_SOURCE_DIR}/cmake/package.cmake")\nadd_subdirectory(libs/core)\nadd_subdirectory(apps/tool)\n`,
+    'cmake/package.cmake': `set(CPACK_PACKAGE_NAME "\${PROJECT_NAME}")\nset(CPACK_INSTALL_CMAKE_PROJECTS "\${PROJECT_BINARY_DIR};\${PROJECT_NAME};ALL;/")\nset(CPACK_OUTPUT_CONFIG_FILE "\${PROJECT_BINARY_DIR}/CPackConfig.cmake")\nset(CPACK_SOURCE_OUTPUT_CONFIG_FILE "\${PROJECT_BINARY_DIR}/CPackSourceConfig.cmake")\ninclude(CPack)\n`,
+    'libs/core/CMakeLists.txt': 'project(fixture_core VERSION 0.1.0 LANGUAGES CXX)\nadd_library(fixture_core STATIC core.cpp)\nadd_executable(fixture_core_test core_test.cpp)\ntarget_link_libraries(fixture_core_test PRIVATE fixture_core)\nadd_test(NAME fixture_core_test COMMAND fixture_core_test)\n',
+    'libs/core/core.cpp': 'int one() { return 1; }\n',
+    'libs/core/core_test.cpp': 'int one();\n\nint main() { return one() == 1 ? 0 : 1; }\n',
+    'apps/tool/CMakeLists.txt': 'project(fixture_tool VERSION 0.1.0 LANGUAGES CXX)\nadd_executable(fixture_tool main.cpp)\ntarget_link_libraries(fixture_tool PRIVATE fixture_core)\ninstall(TARGETS fixture_tool)\n',
+    'apps/tool/main.cpp': 'int one();\n\nint main() { return one() == 1 ? 0 : 1; }\n',
 };
 
-// --- [MODELS] --------------------------------------------------------------------------
+const Planned = Schema.Struct({ cwd: Schema.String, commands: Schema.Array(Schema.Struct({ command: Schema.String })), outputs: Schema.Array(Schema.String) });
 
-const Project = Schema.Struct({ name: Schema.String, directoryIndexes: Schema.Array(Schema.Int), targetIndexes: Schema.optionalKey(Schema.Array(Schema.Int)) });
-const Directory = Schema.Struct({ source: Schema.String, build: Schema.String, hasInstallRule: Schema.optionalKey(Schema.Boolean) });
-const Codemodel = Schema.fromJsonString(Schema.Struct({ configurations: Schema.Array(Schema.Struct({ projects: Schema.Array(Project), directories: Schema.Array(Directory), targets: Schema.Array(Schema.Struct({ id: Schema.String, projectIndex: Schema.Int, jsonFile: Schema.String })) })) })).annotate({
-    description: 'CMake file API codemodel-v2 reply: per configuration the projects, their directories and targets',
-});
-const Target = Schema.fromJsonString(
-    Schema.Struct({
-        artifacts: Schema.optionalKey(Schema.Array(Schema.Struct({ path: Schema.String }))),
-        dependencies: Schema.optionalKey(Schema.Array(Schema.Struct({ id: Schema.String, backtrace: Schema.optionalKey(Schema.Int) }))),
-        backtraceGraph: Schema.Struct({ nodes: Schema.Array(Schema.Struct({ command: Schema.optionalKey(Schema.Int) })) }),
-        sources: Schema.Array(Schema.Struct({ path: Schema.String, isGenerated: Schema.optionalKey(Schema.Boolean) })),
-    }),
-).annotate({ description: 'CMake file API target reply: the artifacts, sources, and target dependencies of one target, a dependency whose backtrace node names a command where a command invocation made it' });
-const Tests = Schema.fromJsonString(Schema.Struct({ tests: Schema.Array(Schema.Struct({ properties: Schema.Array(Schema.Struct({ name: Schema.String, value: Schema.Unknown })) })) })).annotate({
-    description: 'JSON ctest --show-only=json-v1 prints: every test of a build tree with its properties',
-});
+const nested = Record.mapKeys(files, (file) => join('nested/nested/proj', file));
 
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
-const described = (
-    path: Path.Path,
-    tree: {
-        readonly projects: readonly (typeof Project.Type)[];
-        readonly directories: readonly (typeof Directory.Type)[];
-        readonly targets: readonly ({ readonly id: string; readonly projectIndex: number } & typeof Target.Type)[];
-        readonly versions: Record.ReadonlyRecord<string, string>;
-        readonly packaged: readonly string[];
-        readonly tested: readonly string[];
-    },
-    { name, directoryIndexes, targetIndexes = [] }: typeof Project.Type,
-) => {
-    const placed = (indexes: readonly number[]) => indexes.slice(0, 1).flatMap((index) => Array.fromNullishOr(tree.directories[index]));
-    const owned = targetIndexes.flatMap((index) => Array.fromNullishOr(tree.targets[index]));
-    const needed = new Set(owned.flatMap(({ dependencies = [], backtraceGraph: { nodes } }) => dependencies.filter(({ backtrace = -1 }) => nodes[backtrace]?.command !== undefined).map(({ id }) => id)));
-    const linked = tree.targets.filter(({ id, projectIndex }) => needed.has(id) && tree.projects[projectIndex]?.name !== name).flatMap(({ projectIndex }) => placed(tree.projects[projectIndex]?.directoryIndexes ?? []));
-    const listed = owned.flatMap(({ sources }) => sources.filter(({ path: at, isGenerated = false }) => !(isGenerated || path.isAbsolute(at))).map((source) => source.path));
-    const written = owned.flatMap(({ artifacts = [] }) => artifacts.map((artifact) => path.join(FOLDER, PRESET, artifact.path)));
-    return Array.zip(placed(directoryIndexes), Option.toArray(Record.get(tree.versions, name))).map(([{ source, build, hasInstallRule = false }, version]) => ({
-        name,
-        version,
-        root: source,
-        manifest: path.join(source, MANIFEST),
-        released: tree.packaged.includes(build),
-        verbs: [...(owned.length > 0 ? ['build', 'clean'] : []), ...(tree.tested.includes(build) ? ['test'] : []), ...(hasInstallRule ? ['install'] : []), ...(tree.packaged.includes(build) ? ['pack'] : [])],
-        sources: [path.join(source, MANIFEST), ...listed],
-        artifacts: written,
-        dependencies: Array.dedupe(linked.map((folder) => folder.source)),
+const it = test
+    .extend('tempFs', async ({}, { onCleanup }) => {
+        const cwd = process.cwd();
+        const tempFs = new TempFs('cmake-plugin');
+        process.chdir(tempFs.tempDir);
+        onCleanup(() => {
+            process.chdir(cwd);
+            tempFs.cleanup();
+        });
+        await tempFs.createFiles(files);
+        return tempFs;
+    })
+    .extend('context', ({ tempFs }): CreateNodesContext => ({
+        nxJsonConfiguration: {
+            namedInputs: {
+                default: ['{projectRoot}/**/*'],
+            },
+        },
+        workspaceRoot: tempFs.tempDir,
     }));
-};
 
-const members = Effect.gen(function* () {
-    const [{ root, called }, fs, path] = yield* Effect.all([Consumer, FileSystem.FileSystem, Path.Path]);
-    const tree = yield* Effect.flatMap(fs.makeTempDirectoryScoped({ prefix: 'cmake-truth-' }), fs.realPath);
-    const [query, reply, probe] = [path.join(tree, '.cmake/api/v1/query'), path.join(tree, '.cmake/api/v1/reply'), path.join(tree, 'probe.cmake')];
-    yield* fs.makeDirectory(query, { recursive: true });
-    yield* fs.writeFileString(path.join(query, 'codemodel-v2'), '');
-    yield* fs.writeFileString(probe, 'cmake_language(PRINT_VARIABLES NAMED PROJECT_NAME PROJECT_VERSION)\n');
-    const { checked } = yield* called('cmake', ['-S', '.', '-B', tree, '-G', 'Ninja', `-DCMAKE_TOOLCHAIN_FILE=${path.join(root, 'cmake/toolchain.cmake')}`, `-DCMAKE_PROJECT_INCLUDE=${probe}`]);
-    const printed = yield* checked;
-    const index = yield* Effect.flatMap(fs.readDirectory(reply), (entries) => Effect.fromOption(Array.findFirst(entries, (entry) => entry.startsWith('codemodel-v2'))));
-    const { configurations } = yield* Effect.flatMap(fs.readFileString(path.join(reply, index)), Schema.decodeEffect(Codemodel));
-    const { projects, directories, targets: stated } = yield* Effect.fromOption(Array.head(configurations));
-    const targets = yield* Effect.forEach(stated, ({ id, projectIndex, jsonFile }) => Effect.map(Effect.flatMap(fs.readFileString(path.join(reply, jsonFile)), Schema.decodeEffect(Target)), (target) => ({ id, projectIndex, ...target })));
-    const listed = yield* Effect.flatMap(called('ctest', ['--test-dir', tree, '--show-only=json-v1']), ({ stdout }) => Schema.decodeEffect(Tests)(stdout));
-    const packaged = yield* Effect.filter(directories, ({ build, hasInstallRule = false }) => Effect.map(fs.exists(path.join(tree, build, PACKAGING)), (configured) => configured && hasInstallRule));
-    const versions = Array.fromIterable(printed.matchAll(/PROJECT_NAME = "(?<name>[^"]*)"\s+PROJECT_VERSION = "(?<version>[^"]*)"/gu)).map(({ groups = {} }) => Option.all([Record.get(groups, 'name'), Record.get(groups, 'version')]));
-    const read = {
-        projects,
-        directories,
-        targets,
-        versions: Record.fromEntries(Array.getSomes(versions)),
-        packaged: packaged.map(({ build }) => build),
-        tested: listed.tests.flatMap(({ properties }) => properties.filter(({ name }) => name === 'WORKING_DIRECTORY').map(({ value }) => path.relative(tree, String(value)))),
-    };
-    return projects.flatMap((project) => described(path, read, project));
-}).pipe(Effect.scoped, Effect.orDie);
+const [glob, createNodesFunction] = createNodes;
 
-const member = (root: string) => Effect.flatMap(members, (stated) => Effect.orDie(Effect.fromOption(Array.findFirst(stated, (candidate) => candidate.root === root))));
+describe('@rasm/nx-cmake/plugin', { timeout: 60_000 }, () => {
+    it('should create nodes', async ({ context }) => {
+        const nodes = await createNodesFunction(Object.keys(files), undefined, context);
 
-// --- [COMPOSITION] ---------------------------------------------------------------------
+        expect(nodes).toHaveLength(1);
+        expect(nodes[0]?.[0]).toBe('CMakePresets.json');
+        expect(Object.keys({ ...nodes[0]?.[1].projects })).toStrictEqual(['libs/core', 'apps/tool']);
+        expect(nodes[0]?.[1].projects?.['apps/tool']).toMatchObject({
+            root: 'apps/tool',
+            name: 'fixture_tool',
+            metadata: { technologies: ['cmake'] },
+            tags: ['release'],
+            release: { version: { versionActions: '@rasm/nx-cmake/release/version-actions' } },
+        });
+        expect(nodes[0]?.[1].projects?.['libs/core']).toMatchObject({ root: 'libs/core', name: 'fixture_core', metadata: { technologies: ['cmake'] } });
+    });
 
-const bound = Duration.toMillis('5 minutes');
-const options = { timeout: bound, excludeTestServices: true } as const;
+    it('should create the inputs of each member from the files cmake reads', async ({ context }) => {
+        const nodes = await createNodesFunction(Object.keys(files), undefined, context);
+        const projects = nodes[0]?.[1].projects;
 
-const workspace = (stated: Readonly<Record<string, string>> = {}) =>
-    Consumer.layer({ resolved: import.meta.url, settings: { plugins: [plugin.name], release: { projects: ['tag:release'] } }, ignored: [FOLDER], files: { ...files, ...stated } }).pipe(Layer.provideMerge(Packed.layer(plugin.name)), Layer.provideMerge(layer));
+        expect(projects?.['apps/tool']?.namedInputs).toMatchInlineSnapshot(`
+          {
+            "default": [
+              "{projectRoot}/**/*",
+              "{workspaceRoot}/CMakeLists.txt",
+              "{workspaceRoot}/apps/tool/CMakeLists.txt",
+              "{workspaceRoot}/cmake/package.cmake",
+              "{workspaceRoot}/CMakePresets.json",
+              {
+                "runtime": "node -p process.platform+process.arch",
+              },
+            ],
+          }
+        `);
+        expect(projects?.['libs/core']?.namedInputs).toMatchInlineSnapshot(`
+          {
+            "default": [
+              "{projectRoot}/**/*",
+              "{workspaceRoot}/CMakeLists.txt",
+              "{workspaceRoot}/cmake/package.cmake",
+              "{workspaceRoot}/libs/core/CMakeLists.txt",
+              "{workspaceRoot}/CMakePresets.json",
+              {
+                "runtime": "node -p process.platform+process.arch",
+              },
+            ],
+          }
+        `);
+        expect(projects?.['libs/core']).not.toHaveProperty('tags');
+    });
 
-conforms({
-    workspace,
-    members,
-    built: ({ artifacts }) => Effect.succeed(artifacts),
-    report: REPORT,
-    tools: ['cmake'],
-    verbs: ['build', 'clean', 'test', 'install', 'pack'],
-    shared: ['CMakePresets.json', MANIFEST, 'cmake/toolchain.cmake', 'cmake/package.cmake'],
-    unlocked: [],
-    scratch: [FOLDER],
-    added: Consumer.use(({ wrote }) =>
-        wrote({
-            [MANIFEST]: files[MANIFEST].replace('add_subdirectory(libs/core)', 'add_subdirectory(libs/extra)\nadd_subdirectory(libs/core)'),
-            'libs/extra/CMakeLists.txt': 'project(fixture_extra VERSION 0.1.0 LANGUAGES CXX)\nadd_library(fixture_extra STATIC extra.cpp)\n',
-            'libs/extra/extra.cpp': 'int zero() { return 0; }\n',
-            'libs/middle/CMakeLists.txt': `${files['libs/middle/CMakeLists.txt']}target_link_libraries(fixture_middle PRIVATE fixture_extra)\n`,
-        }),
-    ),
-    published: false,
-    refused: { 'broken/CMakePresets.json': '{ "version": 10, "configurePresets": [\n', 'broken/CMakeLists.txt': 'cmake_minimum_required(VERSION 4.5)\nproject(Broken LANGUAGES CXX)\n' },
-    manifests: (next) => ({
-        'libs/core/CMakeLists.txt': files['libs/core/CMakeLists.txt'].replace('VERSION 0.1.0', `VERSION ${next}`),
-        'libs/middle/CMakeLists.txt': files['libs/middle/CMakeLists.txt'],
-        'apps/tool/CMakeLists.txt': files['apps/tool/CMakeLists.txt'].replace('VERSION 0.1.0', `VERSION ${next}`),
-    }),
-    edits: {
-        verbs: ['build'],
-        dependent: MIDDLE,
-        upstream: (mark) => ({ [SOURCES.core]: `${files[SOURCES.core]}\nint probe_${mark}() { return 7; }\n` }),
-        outside: (mark) => ({ [SOURCES.tool]: `${files[SOURCES.tool]}\nint aside_${mark}() { return 7; }\n`, 'libs/middle/notes.md': `${mark}\n` }),
-        tested: CORE,
-        failing: { [SOURCES.suite]: files[SOURCES.suite].replace('one() == 1', 'one() == 2') },
-    },
+    it('should create the build and attach targets of a packaged member', async ({ context }) => {
+        const nodes = await createNodesFunction(Object.keys(files), undefined, context);
+        const targets = nodes[0]?.[1].projects?.['apps/tool']?.targets;
+
+        expect(targets?.['build']).toMatchInlineSnapshot(`
+          {
+            "dependsOn": [
+              "build--*",
+            ],
+            "inputs": [
+              "...",
+              "default",
+              "^default",
+              {
+                "externalDependencies": [],
+              },
+            ],
+          }
+        `);
+        expect(targets?.['build--cmake']).toMatchInlineSnapshot(`
+          {
+            "cache": true,
+            "executor": "nx:run-commands",
+            "inputs": [
+              "default",
+              "^default",
+              {
+                "externalDependencies": [],
+              },
+            ],
+            "metadata": {
+              "description": "Builds the targets of fixture_tool in the tree its workflow preset configures with cmake --build",
+              "help": {
+                "command": "cmake --build --help",
+                "example": {
+                  "args": [
+                    "--verbose",
+                  ],
+                },
+              },
+              "technologies": [
+                "cmake",
+              ],
+            },
+            "options": {
+              "commands": [
+                {
+                  "command": "cmake --preset default -S .",
+                  "forwardAllArgs": false,
+                },
+                {
+                  "command": "cmake --build build/default --preset default --target fixture_tool",
+                  "forwardAllArgs": true,
+                },
+              ],
+              "cwd": ".",
+              "outputs": [
+                "{workspaceRoot}/build/default/apps/tool/fixture_tool",
+              ],
+              "parallel": false,
+            },
+            "outputs": [
+              "{options.outputs.0}",
+            ],
+            "parallelism": false,
+          }
+        `);
+        expect(targets?.['attach']).toMatchInlineSnapshot(`
+          {
+            "dependsOn": [
+              "attach--*",
+            ],
+            "inputs": [
+              "...",
+              {
+                "dependentTasksOutputFiles": "**/*",
+                "transitive": true,
+              },
+              {
+                "externalDependencies": [],
+              },
+            ],
+          }
+        `);
+        expect(targets?.['attach--gh']).toMatchInlineSnapshot(`
+          {
+            "dependsOn": [
+              "pack--cpack",
+            ],
+            "executor": "@rasm/nx-distribution:attach",
+            "inputs": [
+              {
+                "dependentTasksOutputFiles": "**/*",
+              },
+              {
+                "externalDependencies": [],
+              },
+            ],
+            "metadata": {
+              "description": "Uploads the files pack--cpack wrote to the GitHub release of the version the project's manifest states with gh release upload",
+              "help": {
+                "command": "gh release upload --help",
+                "example": {
+                  "options": {
+                    "dryRun": true,
+                  },
+                },
+              },
+              "technologies": [
+                "cmake",
+              ],
+            },
+          }
+        `);
+    });
+
+    it('should create the pack and install targets of a packaged member', async ({ context }) => {
+        const nodes = await createNodesFunction(Object.keys(files), undefined, context);
+        const targets = nodes[0]?.[1].projects?.['apps/tool']?.targets;
+
+        expect(targets?.['pack']).toMatchInlineSnapshot(`
+          {
+            "dependsOn": [
+              "pack--*",
+            ],
+            "inputs": [
+              "...",
+              "default",
+              "^default",
+              {
+                "externalDependencies": [],
+              },
+            ],
+          }
+        `);
+        expect(targets?.['pack--cpack']?.options).toMatchInlineSnapshot(`
+          {
+            "commands": [
+              {
+                "command": "cmake --preset default -S .",
+                "forwardAllArgs": false,
+              },
+              {
+                "command": "cmake --build build/default --preset default --target fixture_tool",
+                "forwardAllArgs": false,
+              },
+              {
+                "command": "cmake -E rm -rf build/default/apps/tool/packages",
+                "forwardAllArgs": false,
+              },
+              {
+                "command": "cpack --preset default --config apps/tool/CPackConfig.cmake -B apps/tool -D CPACK_OUTPUT_FILE_PREFIX=apps/tool/packages",
+                "forwardAllArgs": true,
+              },
+            ],
+            "cwd": ".",
+            "parallel": false,
+          }
+        `);
+        expect(targets?.['pack--cpack']?.outputs).toMatchInlineSnapshot(`
+          [
+            "{workspaceRoot}/build/default/apps/tool/packages",
+          ]
+        `);
+        expect(targets?.['install']).toMatchInlineSnapshot(`
+          {
+            "dependsOn": [
+              "install--*",
+            ],
+            "inputs": [
+              "...",
+              "default",
+              "^default",
+              {
+                "externalDependencies": [],
+              },
+            ],
+          }
+        `);
+        expect(targets?.['install--cmake']).toMatchInlineSnapshot(`
+          {
+            "executor": "nx:run-commands",
+            "inputs": [
+              "default",
+              "^default",
+              {
+                "externalDependencies": [],
+              },
+            ],
+            "metadata": {
+              "description": "Builds fixture_tool, then installs it under the install prefix its configure preset states with cmake --install",
+              "help": {
+                "command": "cmake --install --help",
+                "example": {
+                  "args": [
+                    "--verbose",
+                  ],
+                },
+              },
+              "technologies": [
+                "cmake",
+              ],
+            },
+            "options": {
+              "commands": [
+                {
+                  "command": "cmake --preset default -S .",
+                  "forwardAllArgs": false,
+                },
+                {
+                  "command": "cmake --build build/default --preset default --target fixture_tool",
+                  "forwardAllArgs": false,
+                },
+                {
+                  "command": "cmake --install build/default/apps/tool",
+                  "forwardAllArgs": true,
+                },
+              ],
+              "cwd": ".",
+              "parallel": false,
+            },
+            "parallelism": false,
+          }
+        `);
+    });
+
+    it('should create the clean targets of a packaged member', async ({ context }) => {
+        const nodes = await createNodesFunction(Object.keys(files), undefined, context);
+        const targets = nodes[0]?.[1].projects?.['apps/tool']?.targets;
+
+        expect(targets?.['clean']).toMatchInlineSnapshot(`
+          {
+            "dependsOn": [
+              "clean--*",
+            ],
+            "inputs": [
+              "...",
+              "default",
+              "^default",
+              {
+                "externalDependencies": [],
+              },
+            ],
+          }
+        `);
+        expect(targets?.['clean--cmake']?.options).toMatchInlineSnapshot(`
+          {
+            "commands": [
+              [
+                "cmake",
+                "--preset",
+                "default",
+                "-S",
+                ".",
+              ],
+              [
+                "cmake",
+                "--build",
+                "build/default",
+                "--preset",
+                "default",
+                "--target",
+                "clean",
+              ],
+            ],
+            "cwd": ".",
+            "targets": [
+              "build--cmake",
+              "pack--cpack",
+            ],
+          }
+        `);
+        expect(targets?.['clean--cmake']?.metadata).toMatchInlineSnapshot(`
+          {
+            "description": "Removes the outputs build--cmake, pack--cpack declare and the build products of fixture_tool with cmake --build --target clean",
+            "help": {
+              "command": "cmake --build --help",
+              "example": {
+                "args": [
+                  "--verbose",
+                ],
+              },
+            },
+            "technologies": [
+              "cmake",
+            ],
+          }
+        `);
+    });
+
+    it('should create the build, test, and clean targets of a tested member', async ({ context }) => {
+        const nodes = await createNodesFunction(Object.keys(files), undefined, context);
+        const targets = nodes[0]?.[1].projects?.['libs/core']?.targets;
+
+        expect(Object.keys({ ...targets })).toStrictEqual(['build', 'build--cmake', 'test', 'test--ctest', 'clean', 'clean--cmake']);
+        expect(targets?.['build--cmake']).toMatchInlineSnapshot(`
+          {
+            "cache": true,
+            "executor": "nx:run-commands",
+            "inputs": [
+              "default",
+              "^default",
+              {
+                "externalDependencies": [],
+              },
+            ],
+            "metadata": {
+              "description": "Builds the targets of fixture_core in the tree its workflow preset configures with cmake --build",
+              "help": {
+                "command": "cmake --build --help",
+                "example": {
+                  "args": [
+                    "--verbose",
+                  ],
+                },
+              },
+              "technologies": [
+                "cmake",
+              ],
+            },
+            "options": {
+              "commands": [
+                {
+                  "command": "cmake --preset default -S .",
+                  "forwardAllArgs": false,
+                },
+                {
+                  "command": "cmake --build build/default --preset default --target fixture_core fixture_core_test",
+                  "forwardAllArgs": true,
+                },
+              ],
+              "cwd": ".",
+              "outputs": [
+                "{workspaceRoot}/build/default/libs/core/libfixture_core.a",
+                "{workspaceRoot}/build/default/libs/core/fixture_core_test",
+              ],
+              "parallel": false,
+            },
+            "outputs": [
+              "{options.outputs.0}",
+              "{options.outputs.1}",
+            ],
+            "parallelism": false,
+          }
+        `);
+        expect(targets?.['test--ctest']).toMatchInlineSnapshot(`
+          {
+            "cache": true,
+            "dependsOn": [
+              "build--cmake",
+            ],
+            "executor": "nx:run-commands",
+            "inputs": [
+              "default",
+              "^default",
+              {
+                "externalDependencies": [],
+              },
+            ],
+            "metadata": {
+              "description": "Runs the tests of fixture_core with ctest",
+              "help": {
+                "command": "ctest --help",
+                "example": {
+                  "args": [
+                    "--verbose",
+                  ],
+                },
+              },
+              "technologies": [
+                "cmake",
+              ],
+            },
+            "options": {
+              "commands": [
+                {
+                  "command": "cmake --preset default -S .",
+                  "forwardAllArgs": false,
+                },
+                {
+                  "command": "ctest --preset default --test-dir build/default/libs/core --no-tests=error --output-junit Testing/default.xml",
+                  "forwardAllArgs": true,
+                },
+              ],
+              "cwd": ".",
+              "outputs": [
+                "{workspaceRoot}/build/default/libs/core/Testing/default.xml",
+              ],
+              "parallel": false,
+            },
+            "outputs": [
+              "{options.outputs.0}",
+            ],
+            "parallelism": false,
+          }
+        `);
+        expect(targets?.['clean--cmake']?.options).toMatchInlineSnapshot(`
+          {
+            "commands": [
+              [
+                "cmake",
+                "--preset",
+                "default",
+                "-S",
+                ".",
+              ],
+              [
+                "cmake",
+                "--build",
+                "build/default",
+                "--preset",
+                "default",
+                "--target",
+                "clean",
+              ],
+            ],
+            "cwd": ".",
+            "targets": [
+              "build--cmake",
+              "test--ctest",
+            ],
+          }
+        `);
+    });
+
+    it('should write every declared output of build--cmake and nothing outside its build tree', async ({ tempFs, context }) => {
+        const nodes = await createNodesFunction(Object.keys(files), undefined, context);
+        const { cwd, commands, outputs } = await Effect.runPromise(Schema.decodeUnknownEffect(Planned)(nodes[0]?.[1].projects?.['libs/core']?.targets?.['build--cmake']?.options));
+        const before = globSync('**', { cwd: tempFs.tempDir });
+
+        commands.forEach(({ command }) => {
+            execSync(command, { cwd: join(tempFs.tempDir, cwd), stdio: 'ignore' });
+        });
+
+        expect(Array.difference(globSync('**', { cwd: tempFs.tempDir }), before).filter((file) => !file.startsWith('build/default/'))).toStrictEqual([]);
+        expect(outputs.map((output) => output.replace('{workspaceRoot}/', '')).filter((output) => !existsSync(join(tempFs.tempDir, output)))).toStrictEqual([]);
+    });
 });
 
-it.layer(
-    workspace(),
-    options,
-)((methods) => {
-    methods.effect(
-        'declares every build output under the folder CMake configures for a preset inheriting a binaryDir of the sourceDir and presetName macros',
-        Effect.fnUntraced(function* () {
-            const [{ called, cleaned, written, outputs }, path, { name }] = yield* Effect.all([Consumer, Path.Path, member(TOOL)]);
-            yield* cleaned;
-            const [configured, created] = yield* written(called('cmake', ['--preset', PRESET]));
-            assert.strictEqual(configured.code, 0, configured.stderr);
-            const cache = yield* Effect.orDie(Effect.fromOption(Array.findFirst(created, (file) => path.basename(file) === 'CMakeCache.txt')));
-            const { outputPaths } = yield* outputs(`${name}:build--cmake`);
-            assert.isNotEmpty(outputPaths, REPORT);
-            assert.deepStrictEqual(
-                outputPaths.filter((output) => !output.startsWith(`${path.dirname(cache)}/`)),
-                [],
-                'cmake-presets(7) "macros are evaluated in the context of the preset being used"; README.md PRINCIPLES "configures the build folder each configure preset states"',
-            );
-        }),
-        bound,
-    );
+describe('@rasm/nx-cmake/plugin/nodes', { timeout: 60_000 }, () => {
+    it('should create nodes based on cmake for nested project root', async ({ tempFs, context }) => {
+        await tempFs.createFiles(nested);
 
-    methods.effect(
-        'misses the build cache of a project after an edit to a header no target lists and a source of it includes',
-        Effect.fnUntraced(function* () {
-            const [{ ran, wrote }, { name }, stated] = yield* Effect.all([Consumer, member(TOOL), members]);
-            const [run, hit] = [ran(['build', name, '--output-style=static']), (status: string, id: string) => id.startsWith(`${name}:build--`) && status !== 'cache-miss'];
-            yield* run;
-            assert.isTrue(Record.some((yield* run).tasks, hit), 'nrwl/nx e2e/dotnet/src/dotnet-cache.test.ts "should store and use local cache for builds"');
-            assert.notInclude(
-                stated.flatMap(({ sources }) => sources),
-                SOURCES.header,
-                'CMake file API target reply sources[]',
-            );
-            yield* wrote({ [SOURCES.header]: `${files[SOURCES.header]}int probe();\n` });
-            const edited = yield* run;
-            yield* wrote({ [SOURCES.header]: files[SOURCES.header] });
-            assert.strictEqual(edited.code, 0, `${edited.stdout}${edited.stderr}`);
-            assert.isFalse(Record.some(edited.tasks, hit), 'nrwl/nx e2e/gradle/src/gradle-task-dependencies.test.ts "should not serve a cache hit after the dependency changes"; GCC cpp "Search Path": #include "file" reads from the folder of the including file, then each -I folder');
-        }),
-        bound,
-    );
+        const nodes = await createNodesFunction(Object.keys(nested), undefined, context);
 
-    methods.effect(
-        'cleans every member of one build tree in one parallel run',
-        Effect.fnUntraced(function* () {
-            const { nx } = yield* Consumer;
-            yield* nx('run-many', '--targets=build', '--output-style=static');
-            const run = yield* nx('run-many', '--targets=clean', '--parallel=8', '--output-style=static');
-            assert.strictEqual(run.code, 0, `nrwl/nx astro-docs/src/content/docs/reference/project-configuration.mdoc "Parallelism": tasks sharing a resource state parallelism false, and members of one preset share its build tree: ${run.stdout}${run.stderr}`);
-        }),
-        bound,
-    );
+        expect(Object.keys({ ...nodes[0]?.[1].projects })).toStrictEqual(['nested/nested/proj/libs/core', 'nested/nested/proj/apps/tool']);
+        expect(nodes[0]?.[1].projects?.['nested/nested/proj/apps/tool']?.targets?.['build--cmake']?.options).toMatchInlineSnapshot(`
+          {
+            "commands": [
+              {
+                "command": "cmake --preset default -S .",
+                "forwardAllArgs": false,
+              },
+              {
+                "command": "cmake --build build/default --preset default --target fixture_tool",
+                "forwardAllArgs": true,
+              },
+            ],
+            "cwd": "nested/nested/proj",
+            "outputs": [
+              "{workspaceRoot}/nested/nested/proj/build/default/apps/tool/fixture_tool",
+            ],
+            "parallel": false,
+          }
+        `);
+    });
 
-    methods.effect(
-        'packs a project into one CPack archive named from its name, version, and system, holding a CPS file and an SPDX SBOM',
-        Effect.fnUntraced(function* () {
-            const [{ nx, called, written, outputs }, path, { name, version }] = yield* Effect.all([Consumer, Path.Path, member(CORE)]);
-            const [packed, created] = yield* written(nx('pack', name, '--skip-nx-cache', '--output-style=static'));
-            assert.strictEqual(packed.code, 0, `${packed.stdout}${packed.stderr}`);
-            const [system, { outputPaths }] = yield* Effect.all([called('uname', ['-sm']), outputs(`${name}:pack--cpack`)]);
-            const archives = created.filter((file) => outputPaths.includes(path.dirname(file)) && path.basename(file) === `${name}-${version}-${system.stdout.trim().replace(' ', '-')}.tar.xz`);
-            assert.lengthOf(archives, 1, `CMake CPack CPACK_PACKAGE_FILE_NAME default "CPACK_PACKAGE_NAME-CPACK_PACKAGE_VERSION-CPACK_SYSTEM_NAME"; CMake CMAKE_HOST_SYSTEM_NAME "uname -s", CMAKE_HOST_SYSTEM_PROCESSOR "uname -m": ${created.join(', ')}`);
-            const listed = yield* called('tar', ['-tJf', ...archives]);
-            const held = listed.stdout.split('\n');
-            assert.isNotEmpty(
-                held.filter((entry) => entry.endsWith(`/${name}.cps`)),
-                'CMake install(PACKAGE_INFO) "generates and installs a CPS file which describes installed targets"',
-            );
-            assert.isNotEmpty(
-                held.filter((entry) => entry.endsWith('.spdx.json')),
-                'CMake install(SBOM) "Installs a Software Bill of Materials or SBOM which describes the project", FORMAT "the JSON-LD serialization of SPDX v3.0.1"',
-            );
-        }),
-        bound,
-    );
+    it('should create reports and archives under outputPath if it is specified', async ({ context }) => {
+        const nodes = await createNodesFunction(Object.keys(files), { outputPath: '.artifacts/cmake/{projectName}' }, context);
 
-    methods.effect(
-        'refuses a prerelease version, which project(VERSION) cannot state, and changes no manifest',
-        Effect.fnUntraced(function* () {
-            const { nx, called } = yield* Consumer;
-            const versioned = yield* nx('release', 'version', '1.1.0-rc.1');
-            const changed = yield* called('git', ['status', '--porcelain']);
-            assert.notStrictEqual(versioned.code, 0, 'CMake project() "VERSION: Takes a <version> argument composed of non-negative integer components"');
-            assert.include(`${versioned.stdout}${versioned.stderr}`, '1.1.0-rc.1', 'CMake project() "VERSION: Takes a <version> argument composed of non-negative integer components"');
-            assert.strictEqual(changed.stdout, '', 'nrwl/nx packages/js/src/release/version-actions.spec.ts "updateProjectVersion"');
-        }),
-        bound,
-    );
+        expect(nodes[0]?.[1].projects?.['libs/core']?.targets?.['test--ctest']?.options).toMatchInlineSnapshot(`
+          {
+            "commands": [
+              {
+                "command": "cmake --preset default -S .",
+                "forwardAllArgs": false,
+              },
+              {
+                "command": "ctest --preset default --test-dir build/default/libs/core --no-tests=error --output-junit '../../../../.artifacts/cmake/{projectName}/ctest/default.xml'",
+                "forwardAllArgs": true,
+              },
+            ],
+            "cwd": ".",
+            "outputs": [
+              "{workspaceRoot}/.artifacts/cmake/{projectName}/ctest/default.xml",
+            ],
+            "parallel": false,
+          }
+        `);
+        expect(nodes[0]?.[1].projects?.['apps/tool']?.targets?.['pack--cpack']?.options).toMatchInlineSnapshot(`
+          {
+            "commands": [
+              {
+                "command": "cmake --preset default -S .",
+                "forwardAllArgs": false,
+              },
+              {
+                "command": "cmake --build build/default --preset default --target fixture_tool",
+                "forwardAllArgs": false,
+              },
+              {
+                "command": "cmake -E rm -rf '.artifacts/cmake/{projectName}/cpack'",
+                "forwardAllArgs": false,
+              },
+              {
+                "command": "cpack --preset default --config apps/tool/CPackConfig.cmake -B apps/tool -D 'CPACK_OUTPUT_FILE_PREFIX=../../.artifacts/cmake/{projectName}/cpack'",
+                "forwardAllArgs": true,
+              },
+            ],
+            "cwd": ".",
+            "parallel": false,
+          }
+        `);
+        expect(nodes[0]?.[1].projects?.['apps/tool']?.targets?.['pack--cpack']?.outputs).toMatchInlineSnapshot(`
+          [
+            "{workspaceRoot}/.artifacts/cmake/{projectName}/cpack",
+          ]
+        `);
+    });
+
+    it('should not create reports and archives under outputPath if it is not specified', async ({ context }) => {
+        const nodes = await createNodesFunction(Object.keys(files), undefined, context);
+
+        expect(nodes[0]?.[1].projects?.['libs/core']?.targets?.['test--ctest']?.options).toMatchInlineSnapshot(`
+          {
+            "commands": [
+              {
+                "command": "cmake --preset default -S .",
+                "forwardAllArgs": false,
+              },
+              {
+                "command": "ctest --preset default --test-dir build/default/libs/core --no-tests=error --output-junit Testing/default.xml",
+                "forwardAllArgs": true,
+              },
+            ],
+            "cwd": ".",
+            "outputs": [
+              "{workspaceRoot}/build/default/libs/core/Testing/default.xml",
+            ],
+            "parallel": false,
+          }
+        `);
+        expect(nodes[0]?.[1].projects?.['apps/tool']?.targets?.['pack--cpack']?.outputs).toMatchInlineSnapshot(`
+          [
+            "{workspaceRoot}/build/default/apps/tool/packages",
+          ]
+        `);
+    });
+
+    it('should export coverage under coveragePath if it is specified', async ({ tempFs, context }) => {
+        await tempFs.createFiles({ 'CMakePresets.json': presets(['default', 'coverage']) });
+
+        const nodes = await createNodesFunction(Object.keys(files), { coveragePath: '.artifacts/coverage/{projectName}' }, context);
+
+        expect(nodes[0]?.[1].projects?.['libs/core']?.targets?.['test--ctest']?.outputs).toMatchInlineSnapshot(`
+          [
+            "{options.outputs.0}",
+            "{options.outputs.1}",
+          ]
+        `);
+        expect(nodes[0]?.[1].projects?.['libs/core']?.targets?.['test--ctest']?.configurations).toMatchInlineSnapshot(`
+          {
+            "coverage": {
+              "commands": [
+                {
+                  "command": "cmake --preset coverage -S .",
+                  "forwardAllArgs": false,
+                },
+                {
+                  "command": "cmake -E rm -rf build/coverage/libs/core/profiles",
+                  "forwardAllArgs": false,
+                },
+                {
+                  "command": "cmake -E make_directory '.artifacts/coverage/{projectName}'",
+                  "forwardAllArgs": false,
+                },
+                {
+                  "command": "cmake -E env "LLVM_PROFILE_FILE=\${PWD}/build/coverage/libs/core/profiles/%m-%p.profraw" ctest --preset coverage --test-dir build/coverage/libs/core --output-junit Testing/coverage.xml",
+                  "forwardAllArgs": true,
+                },
+                {
+                  "command": "llvm-profdata merge --sparse --output=build/coverage/libs/core/coverage.profdata build/coverage/libs/core/profiles",
+                  "forwardAllArgs": false,
+                },
+                {
+                  "command": "llvm-cov export --format=lcov --instr-profile=build/coverage/libs/core/coverage.profdata --object=build/coverage/libs/core/fixture_core_test > '.artifacts/coverage/{projectName}/lcov.info'",
+                  "forwardAllArgs": false,
+                },
+              ],
+              "cwd": ".",
+              "outputs": [
+                "{workspaceRoot}/build/coverage/libs/core/Testing/coverage.xml",
+                "{workspaceRoot}/.artifacts/coverage/{projectName}/lcov.info",
+              ],
+              "parallel": false,
+            },
+          }
+        `);
+    });
 });
 
-it.layer(
-    workspace({ 'libs/middle/CMakeLists.txt': 'project(fixture_middle LANGUAGES CXX\n' }),
-    options,
-)((methods) => {
-    methods.effect(
-        'names the CMakeLists.txt cmake names in its refusal',
-        Effect.fnUntraced(function* () {
-            const { failures } = yield* Effect.flatMap(Consumer, ({ read }) => read);
-            assert.include([...failures, ...failures.flatMap(({ files: named }) => named)].map(({ message }) => message).join('\n'), 'libs/middle/CMakeLists.txt', 'cmake stderr; nrwl/nx packages/nx/src/project-graph/plugins/utils.spec.ts "should handle partial errors"');
-        }),
-        bound,
-    );
+describe('@rasm/nx-cmake - createNodes', { timeout: 60_000 }, () => {
+    describe('mergeUserTargetConfigurations', () => {
+        it('should merge the inputs a package.json nx.targets row states into its verb target', async ({ tempFs, context }) => {
+            await tempFs.createFiles({ 'libs/core/package.json': JSON.stringify({ nx: { targets: { 'build--cmake': { inputs: ['default', '{projectRoot}/data/**/*'] } } } }) });
+
+            const nodes = await createNodesFunction(Object.keys(files), undefined, context);
+
+            expect(nodes[0]?.[1].projects?.['libs/core']?.targets?.['build']?.inputs).toStrictEqual(['...', 'default', '{projectRoot}/data/**/*']);
+        });
+    });
+
+    describe('config file glob', () => {
+        it.each(['CMakePresets.json', 'CMakeLists.txt', 'libs/core/CMakeLists.txt', 'vcpkg.json', 'libs/core/vcpkg.json', 'vcpkg-configuration.json'])('should match %s', (path) => {
+            expect(matchesGlob(path, glob)).toBe(true);
+        });
+
+        it.each(['libs/core/core.cpp', 'cmake/package.cmake', 'CMakeUserPresets.json', 'package.json'])('should not match %s', (path) => {
+            expect(matchesGlob(path, glob)).toBe(false);
+        });
+    });
+});
+
+describe('CMake Analyzer', { timeout: 60_000 }, () => {
+    it('should run CMake configure with a file API query for the codemodel and its input files', async ({ tempFs, context }) => {
+        await createNodesFunction(Object.keys(files), undefined, context);
+
+        expect(readJsonFile(join(tempFs.tempDir, 'build/default/.cmake/api/v1/query/client-nx-cmake/query.json'))).toStrictEqual({
+            requests: [
+                { kind: 'codemodel', version: 2 },
+                { kind: 'cmakeFiles', version: 1 },
+            ],
+        });
+    });
+
+    it('should handle CMake process failure', async ({ tempFs, context }) => {
+        await tempFs.createFiles({ 'libs/core/CMakeLists.txt': 'project(fixture_core VERSION 0.1.0 LANGUAGES CXX\n' });
+
+        await expect(createNodesFunction(Object.keys(files), undefined, context)).rejects.toMatchObject({
+            errors: [['CMakePresets.json', expect.objectContaining({ message: 'cmake --preset default -S . exits 1: CMake Error at libs/core/CMakeLists.txt:1:\n  Parse error.  Function missing ending ")".  End of file reached.' })]],
+        });
+    });
+
+    it('should handle spawn error', async ({ tempFs, context }) => {
+        vi.stubEnv('PATH', join(tempFs.tempDir, 'apps'));
+        onTestFinished(() => {
+            vi.unstubAllEnvs();
+        });
+
+        await expect(createNodesFunction(Object.keys(files), undefined, context)).rejects.toMatchObject({
+            errors: [['CMakePresets.json', expect.objectContaining({ message: 'NotFound: ChildProcess.spawn (cmake --preset default -S .)' })]],
+        });
+    });
+});
+
+describe('command injection (NXC-4659)', { timeout: 60_000 }, () => {
+    it('should pass a preset name as a literal argument, never through a shell', async ({ tempFs, context }) => {
+        const malicious = 'x && touch pwned';
+        await tempFs.createFiles({ 'CMakePresets.json': presets([malicious]) });
+
+        const nodes = await createNodesFunction(Object.keys(files), undefined, context);
+
+        await expect(tempFs.readFile('pwned')).rejects.toThrow('ENOENT');
+        expect(nodes[0]?.[1].projects?.['apps/tool']?.targets?.['build--cmake']?.options).toMatchInlineSnapshot(`
+          {
+            "commands": [
+              {
+                "command": "cmake --preset 'x && touch pwned' -S .",
+                "forwardAllArgs": false,
+              },
+              {
+                "command": "cmake --build 'build/x && touch pwned' --preset 'x && touch pwned' --target fixture_tool",
+                "forwardAllArgs": true,
+              },
+            ],
+            "cwd": ".",
+            "outputs": [
+              "{workspaceRoot}/build/x && touch pwned/apps/tool/fixture_tool",
+            ],
+            "parallel": false,
+          }
+        `);
+    });
 });

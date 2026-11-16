@@ -63,8 +63,7 @@ struct Version: ParsableCommand {
     var marketingVersion: String?
 
     func run() throws {
-        let held = try XCSchema.Project(jsonRepresentation: input())
-        let next = marketingVersion.map { version in versioned(held, to: version) } ?? held
+        let next = try versioned(input(), to: marketingVersion)
         guard let project = String(validating: try next.jsonRepresentation(), as: UTF8.self) else { throw CocoaError(.fileWriteInapplicableStringEncoding) }
         FileHandle.standardOutput.write(try encoded(Versioned(version: next.buildSettings[marketingSetting]?.text, project: project)))
     }

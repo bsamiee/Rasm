@@ -1,405 +1,273 @@
-import { layer } from '@effect/platform-node/NodeServices';
-import { assert, it } from '@effect/vitest';
-import plugin from '@rasm/nx-cargo/package.json' with { type: 'json' };
-import uv from '@rasm/nx-uv/package.json' with { type: 'json' };
-import { conforms } from '@rasm/testing/conformance';
-import { Consumer, Packed } from '@rasm/testing/nx';
-import { Array, Duration, Effect, Layer, Option, Path, pipe, Schema, String } from 'effect';
+import { execFileSync } from 'node:child_process';
+import { readdirSync } from 'node:fs';
+import { join, relative } from 'node:path';
+import type { CreateNodesContext, ExecutorContext } from '@nx/devkit';
+import { createNodes } from '@rasm/nx-cargo';
+import { Cargo, execute } from '@rasm/nx-cargo/executors/cargo';
+import { TempFs } from '@rasm/testing/temp-fs';
+import { Array, Effect, Schema, String } from 'effect';
+import { describe, expect, test, vi } from 'vitest';
+
+vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const REPORT = 'cargo metadata --format-version 1 --no-deps';
-const [APP, CORE, GENERATOR] = ['crates/app', 'crates/core', 'tools/generator'] as const;
-const SOURCES = { core: 'crates/core/src/lib.rs', generator: 'tools/generator/src/main.rs' } as const;
-const SUITE = /<testsuite\b[^>]*\bname="(?<name>[^"]+)"/gu;
-const RUN = /\buuid="(?<run>[^"]+)"/u;
-const PACKAGE = 'edition.workspace = true\nlicense.workspace = true\ndescription = "Fixture crate"\n';
-const files = {
-    '.config/mise.lock': '# tool versions\n',
-    'Cargo.toml': '[workspace]\nresolver = "3"\nmembers = ["crates/*", "tools/*"]\n\n[workspace.package]\nversion = "0.1.0"\nedition = "2024"\nlicense = "MIT"\n\n[workspace.dependencies]\nrasm-nx-fixture-middle = { path = "crates/middle", version = "0.1.0" }\n',
-    'vendor/shim/Cargo.toml': `[package]\nname = "rasm-nx-fixture-shim"\nversion.workspace = true\n${PACKAGE}\n[lib]\nname = "shim"\n`,
-    'vendor/shim/src/lib.rs': 'pub fn unit() -> u32 {\n    1\n}\n',
-    'crates/core/Cargo.toml': `[package]\nname = "rasm-nx-fixture-core"\nversion = "0.1.0"\n${PACKAGE}\n[dependencies]\ncfg-if = "1"\n\n[dependencies.rasm-nx-fixture-shim]\npath = "../../vendor/shim"\nversion = "0.1.0"\n`,
-    'crates/core/src/lib.rs': 'pub fn one() -> u32 {\n    cfg_if::cfg_if! {\n        if #[cfg(unix)] {\n            shim::unit()\n        } else {\n            1\n        }\n    }\n}\n\n#[cfg(test)]\nmod tests {\n    #[test]\n    fn one_is_one() {\n        assert_eq!(super::one(), 1);\n    }\n}\n',
-    'crates/middle/Cargo.toml': `# Middle of the chain\n[package]\nname = "rasm-nx-fixture-middle"\nversion = "0.1.0" # released with the rest\n${PACKAGE}\n[dependencies]\nkernel = { package = "rasm-nx-fixture-core", path = "../core", version = "0.1.0" } # renamed\n`,
-    'crates/middle/src/lib.rs': 'pub fn two() -> u32 {\n    kernel::one() + 1\n}\n',
-    'crates/app/Cargo.toml': `[package]\nname = "rasm-nx-fixture-app"\nversion = "0.1.0"\n${PACKAGE}\n[dependencies]\nrasm-nx-fixture-middle.workspace = true\n`,
-    'crates/app/src/main.rs': 'fn main() {\n    println!("{}", rasm_nx_fixture_middle::two());\n}\n',
-    'tools/generator/Cargo.toml': `[package]\nname = "rasm-nx-fixture-generator"\nversion = "0.1.0"\npublish = false\n${PACKAGE}\n[dev-dependencies]\nrasm-nx-fixture-core = { path = "../../crates/core" }\n`,
-    'tools/draft/Cargo.toml': `[package]\nname = "rasm-nx-fixture-draft"\n${PACKAGE}`,
-    'tools/draft/src/lib.rs': 'pub fn none() {}\n',
-    'tools/generator/src/main.rs': 'fn main() {}\n\n#[cfg(test)]\nmod tests {\n    #[test]\n    fn reads_core() {\n        assert_eq!(rasm_nx_fixture_core::one(), 1);\n    }\n}\n',
-};
-
-// --- [MODELS] --------------------------------------------------------------------------
-
-const Dependency = Schema.Struct({ name: Schema.String, req: Schema.String, kind: Schema.NullOr(Schema.String), path: Schema.optionalKey(Schema.String) });
-const Crate = Schema.Struct({
-    id: Schema.String,
-    name: Schema.String,
-    version: Schema.String,
-    manifest_path: Schema.String,
-    publish: Schema.NullOr(Schema.Array(Schema.String)),
-    targets: Schema.Array(Schema.Struct({ kind: Schema.Array(Schema.String), name: Schema.String, src_path: Schema.String })),
-    dependencies: Schema.Array(Dependency),
-});
-const Metadata = Schema.fromJsonString(Schema.Struct({ packages: Schema.Array(Crate) })).annotate({
-    description: 'JSON cargo metadata --format-version 1 --no-deps prints: each workspace member with its id, version, manifest, publish registries, targets, and declared dependencies',
-});
-const Message = Schema.fromJsonString(Schema.Struct({ reason: Schema.String, package_id: Schema.optionalKey(Schema.String), filenames: Schema.optionalKey(Schema.Array(Schema.String)) })).annotate({
-    description: 'One JSON line cargo build --message-format=json prints: a compiler-artifact message names the package and the files its target wrote',
-});
+const [, createNodesFunction] = createNodes;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const located = (path: Path.Path, root: string, { path: at, req, kind }: typeof Dependency.Type) => Option.map(Option.fromNullishOr(at), (folder) => ({ root: path.relative(root, folder), req, kind }));
-
-const described = (path: Path.Path, root: string, { manifest_path, targets, dependencies, publish, name, ...crate }: typeof Crate.Type) => {
-    const [folder, needed] = [path.relative(root, path.dirname(manifest_path)), Array.getSomes(dependencies.map((dependency) => located(path, root, dependency)))];
-    const binary = targets.some(({ kind }) => kind.includes('bin'));
-    return {
-        ...crate,
-        crate: name,
-        name: String.kebabToSnake(name),
-        root: folder,
-        manifest: path.relative(root, manifest_path),
-        released: crate.version !== '0.0.0',
-        public: publish === null,
-        verbs: ['build', 'test', 'check', 'fix', 'clean', ...(binary ? ['install'] : [])],
-        sources: [path.relative(root, manifest_path), ...targets.map(({ src_path }) => path.relative(root, src_path))],
-        dependencies: needed.map((dependency) => dependency.root),
-        requirements: needed.map((dependency) => `${folder} -> ${dependency.root} ${dependency.req}`),
-        waits: needed.filter(({ kind }) => kind !== 'dev').map((dependency) => `${folder} -> ${dependency.root}`),
-    };
-};
-
-const members = Effect.gen(function* () {
-    const [{ root, called }, path] = yield* Effect.all([Consumer, Path.Path]);
-    const { checked } = yield* called('cargo', ['metadata', '--format-version', '1', '--no-deps']);
-    const { packages } = yield* Effect.flatMap(checked, Schema.decodeEffect(Metadata));
-    return packages.map((crate) => described(path, root, crate));
-}).pipe(Effect.orDie);
-
-const member = (root: string) => Effect.flatMap(members, (stated) => Effect.orDie(Effect.fromOption(Array.findFirst(stated, (candidate) => candidate.root === root))));
-
-const built = Effect.fnUntraced(function* ({ id, crate }: Effect.Success<typeof members>[number]) {
-    const [{ root, called }, path] = yield* Effect.all([Consumer, Path.Path]);
-    const { checked } = yield* called('cargo', ['build', '--package', crate, '--message-format=json', '--locked']);
-    const lines = yield* checked;
-    const messages = yield* Effect.forEach(lines.trim().split('\n'), (line) => Schema.decodeEffect(Message)(line));
-    return messages.filter(({ reason, package_id }) => reason === 'compiler-artifact' && package_id === id).flatMap(({ filenames = [] }) => filenames.map((file) => path.relative(root, file)));
-}, Effect.orDie);
+const help = (command: string) => ({ command: `${command} --help`, example: { args: ['--verbose'] } });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const bound = Duration.toMillis('5 minutes');
-const options = { timeout: bound, excludeTestServices: true } as const;
+const it = test
+    .extend('tempFs', ({}, { onCleanup }) => {
+        const cwd = process.cwd();
+        const tempFs = new TempFs('cargo-plugin');
+        process.chdir(tempFs.tempDir);
+        onCleanup(() => {
+            process.chdir(cwd);
+            tempFs.cleanup();
+        });
+        return tempFs;
+    })
+    .extend('context', ({ tempFs }): CreateNodesContext => ({
+        nxJsonConfiguration: {
+            namedInputs: {
+                default: ['{projectRoot}/**/*'],
+                production: ['!{projectRoot}/**/*.spec.ts'],
+            },
+        },
+        workspaceRoot: tempFs.tempDir,
+    }));
 
-const locked = Effect.fnUntraced(function* (locks: readonly (readonly [string, ...string[]])[]) {
-    const { called, committed } = yield* Consumer;
-    yield* Effect.forEach(locks, ([command, ...args]) => called(command, args));
-    yield* committed('lock');
-});
+describe('@rasm/nx-cargo', { timeout: 120_000 }, () => {
+    it('should create nodes', async ({ tempFs, context }) => {
+        await tempFs.createFiles({
+            'package.json': JSON.stringify({ name: 'repo' }),
+            'Cargo.toml': '[workspace]\nresolver = "3"\nmembers = ["proj/*"]\n',
+            'proj/library/Cargo.toml': '[package]\nname = "cargo-tutorial"\nversion = "0.1.0"\nedition = "2024"\n',
+            'proj/library/src/lib.rs': 'pub fn one() -> u32 {\n    1\n}\n',
+            'proj/application/Cargo.toml': '[package]\nname = "application"\nversion = "0.1.0"\nedition = "2024"\n\n[dependencies]\ncargo-tutorial = { path = "../library" }\n',
+            'proj/application/src/main.rs': 'fn main() {\n    println!("{}", cargo_tutorial::one());\n}\n',
+        });
 
-const workspace = (stated: Readonly<Record<string, string>> = {}, release: object = {}, plugins: readonly string[] = [plugin.name], locks: readonly (readonly [string, ...string[]])[] = [['cargo', 'generate-lockfile']]) =>
-    Layer.effectDiscard(locked(locks)).pipe(
-        Layer.provideMerge(Consumer.layer({ resolved: import.meta.url, settings: { plugins: [...plugins], release: { projects: ['tag:release'], ...release } }, ignored: ['target', '.installed', '.venv'], files: { ...files, ...stated } })),
-        Layer.provideMerge(Packed.layer(...plugins)),
-        Layer.provideMerge(layer),
-    );
+        const nodes = await createNodesFunction(['Cargo.toml', 'proj/library/Cargo.toml', 'proj/application/Cargo.toml'], undefined, context);
 
-conforms({
-    workspace,
-    members,
-    built,
-    report: REPORT,
-    tools: ['cargo'],
-    verbs: ['build', 'test', 'check', 'fix', 'clean', 'install'],
-    shared: ['Cargo.toml', 'Cargo.lock'],
-    unlocked: ['Cargo.lock'],
-    scratch: [],
-    added: Consumer.use(({ wrote }) =>
-        wrote({
-            'crates/extra/Cargo.toml': '[package]\nname = "rasm-nx-fixture-extra"\nversion = "0.1.0"\nedition.workspace = true\n',
-            'crates/extra/src/lib.rs': 'pub fn zero() -> u32 {\n    0\n}\n',
-            'tools/generator/Cargo.toml': `${files['tools/generator/Cargo.toml']}rasm-nx-fixture-extra = { path = "../../crates/extra" }\n`,
-        }),
-    ),
-    published: true,
-    refused: { 'broken/Cargo.toml': '[package\nname = ' },
-    manifests: (next) => ({
-        'Cargo.toml': files['Cargo.toml'].replaceAll('"0.1.0"', `"${next}"`),
-        'vendor/shim/Cargo.toml': files['vendor/shim/Cargo.toml'],
-        'crates/core/Cargo.toml': files['crates/core/Cargo.toml'].replaceAll('"0.1.0"', `"${next}"`),
-        'crates/middle/Cargo.toml': files['crates/middle/Cargo.toml'].replaceAll('"0.1.0"', `"${next}"`),
-        'crates/app/Cargo.toml': files['crates/app/Cargo.toml'].replaceAll('"0.1.0"', `"${next}"`),
-    }),
-    edits: {
-        verbs: ['build', 'test'],
-        dependent: APP,
-        upstream: (mark) => ({ [SOURCES.core]: `${files[SOURCES.core]}\npub fn probe_${mark}() -> u32 {\n    7\n}\n` }),
-        outside: (mark) => ({ [SOURCES.generator]: `${files[SOURCES.generator]}\npub fn probe_${mark}() {}\n`, 'crates/app/notes.md': `${mark}\n` }),
-        tested: CORE,
-        failing: { [SOURCES.core]: files[SOURCES.core].replace('super::one(), 1', 'super::one(), 2') },
-    },
-});
+        const host = String.kebabToSnake(execFileSync('rustc', ['--print', 'host-tuple'], { encoding: 'utf-8' }).trim()).toUpperCase();
+        const technologies = ['rust'];
+        const sources = ['default', '^default', { externalDependencies: [] }];
+        const messages = ['--keep-going', '--message-format', 'json-diagnostic-rendered-ansi'];
+        const profiles = Array.cartesianWith(['DEV', 'RELEASE', 'TEST', 'BENCH'], ['INHERITS', 'OPT_LEVEL', 'DEBUG', 'SPLIT_DEBUGINFO', 'STRIP', 'DEBUG_ASSERTIONS', 'OVERFLOW_CHECKS', 'LTO', 'PANIC', 'CODEGEN_UNITS', 'RPATH', 'TRIM_PATHS', 'CODEGEN_BACKEND'], (profile, key) => `CARGO_PROFILE_${profile}_${key}`);
+        const compiler = [
+            'RUSTC',
+            'RUSTC_WRAPPER',
+            'RUSTC_WORKSPACE_WRAPPER',
+            'RUSTDOC',
+            'RUSTFLAGS',
+            'CARGO_ENCODED_RUSTFLAGS',
+            'RUSTDOCFLAGS',
+            'CARGO_ENCODED_RUSTDOCFLAGS',
+            'RUSTUP_TOOLCHAIN',
+            'CARGO_BUILD_TARGET',
+            'CARGO_BUILD_RUSTC',
+            'CARGO_BUILD_RUSTC_WRAPPER',
+            'CARGO_BUILD_RUSTC_WORKSPACE_WRAPPER',
+            'CARGO_BUILD_RUSTDOC',
+            'CARGO_BUILD_RUSTFLAGS',
+            'CARGO_BUILD_RUSTDOCFLAGS',
+            `CARGO_TARGET_${host}_LINKER`,
+            `CARGO_TARGET_${host}_RUSTFLAGS`,
+            ...profiles,
+        ].map((env) => ({ env }));
+        const namedInputs = { default: ['{projectRoot}/**/*', '{workspaceRoot}/Cargo.lock', '{workspaceRoot}/Cargo.toml', { runtime: 'rustc --print host-tuple' }, ...compiler] };
+        const release = { version: { versionActions: '@rasm/nx-cargo/release/version-actions', versionActionsOptions: { lock: 'Cargo.lock' } } };
+        const library = { root: 'proj/library', name: 'cargo-tutorial' };
+        const cleaned = { command: 'cargo clean --help', example: { args: ['--dry-run'] } };
+        const crate = (name: string, packages: readonly (typeof library)[]) => ({
+            attach: { dependsOn: ['attach--*'], inputs: ['...', { dependentTasksOutputFiles: '**/*', transitive: true }, { externalDependencies: [] }] },
+            'attach--gh': {
+                dependsOn: ['pack--cargo'],
+                executor: '@rasm/nx-distribution:attach',
+                inputs: [{ dependentTasksOutputFiles: '**/*' }, { externalDependencies: [] }],
+                metadata: {
+                    description: "Uploads the file pack--cargo wrote to the GitHub release of the version the project's manifest states with gh release upload",
+                    help: { command: 'gh release upload --help', example: { options: { dryRun: true } } },
+                    technologies,
+                },
+            },
+            build: { dependsOn: ['build--*'], inputs: ['...', ...sources] },
+            check: { dependsOn: ['check--*'], inputs: ['...', ...sources, { env: 'CLIPPY_CONF_DIR' }] },
+            'check--clippy': {
+                cache: true,
+                executor: '@rasm/nx-cargo:cargo',
+                inputs: [...sources, { env: 'CLIPPY_CONF_DIR' }],
+                metadata: { description: `Reports the clippy findings of ${name} with cargo clippy`, help: help('cargo clippy'), technologies },
+            },
+            clean: { dependsOn: ['clean--*'], inputs: ['...', ...sources] },
+            fix: { dependsOn: ['fix--*'], inputs: ['...', ...sources] },
+            'fix--clippy': {
+                executor: '@rasm/nx-cargo:cargo',
+                inputs: sources,
+                metadata: { description: `Applies the clippy suggestions for ${name} with cargo clippy --fix`, help: help('cargo clippy --fix'), technologies },
+            },
+            pack: { dependsOn: ['pack--*'], inputs: ['...', ...sources] },
+            'pack--cargo': {
+                cache: true,
+                executor: '@rasm/nx-cargo:cargo',
+                inputs: sources,
+                metadata: { description: `Packs ${name} into a .crate archive with cargo package beside the workspace crates it depends on, without the verification build`, help: help('cargo package'), technologies },
+                options: { commands: [{ args: ['package', '--no-verify', '--locked'], packages }], cwd: '.', package: name },
+                outputs: [`{workspaceRoot}/target/package/${name}-0.1.0.crate`],
+            },
+            test: { dependsOn: ['test--*'], inputs: ['...', ...sources, { runtime: 'cargo llvm-cov --version' }] },
+            'test--cargo': {
+                cache: true,
+                configurations: { coverage: { commands: [{ args: ['llvm-cov', 'test', '--lcov', '--locked'], packages }], outputs: [] } },
+                executor: '@rasm/nx-cargo:cargo',
+                inputs: [...sources, { runtime: 'cargo llvm-cov --version' }],
+                metadata: { description: `Tests ${name} with cargo test`, help: help('cargo test'), technologies },
+                options: { commands: [{ args: ['test', '--locked'] }], cwd: '.', package: name },
+                outputs: [],
+            },
+            'nx-release-publish': {
+                dependsOn: ['pack--cargo', '^nx-release-publish'],
+                executor: '@rasm/nx-cargo:release-publish',
+                inputs: sources,
+                metadata: {
+                    description: `Publishes ${name} with cargo publish at the version nx release tagged at the checked-out commit, skipping a version cargo info finds in its registry`,
+                    help: { command: 'cargo publish --help', example: { options: { dryRun: true } } },
+                    technologies,
+                },
+                options: { cwd: '.', package: name, packages },
+            },
+        });
+        const application = crate('application', [library]);
+        const tutorial = crate('cargo-tutorial', []);
 
-it.layer(
-    workspace(),
-    options,
-)((methods) => {
-    methods.effect(
-        'releases a crate stating a version without a publish target where publish is false, and no crate stating none',
-        Effect.fnUntraced(function* () {
-            const [{ read }, draft, generator] = yield* Effect.all([Consumer, member('tools/draft'), member(GENERATOR)]);
-            const { nodes } = yield* read;
-            const held = (name: string) => ({ tagged: (nodes[name]?.data.tags ?? []).includes('release'), targets: Array.intersection(Object.keys(nodes[name]?.data.targets ?? {}), ['pack--cargo', 'attach--gh', 'nx-release-publish']) });
-            assert.deepStrictEqual(held(generator.name).tagged, true, 'README.md PRINCIPLES "Release projects are versioned, packed, and attached, and the switch their registry reads alone gives one a publish target"');
-            assert.sameMembers(held(generator.name).targets, ['pack--cargo', 'attach--gh'], 'Cargo reference manifest "publish = false" prevents a package from being published to a registry');
-            assert.deepStrictEqual(held(draft.name), { tagged: false, targets: [] }, 'README.md PRINCIPLES "Crates stating no version are no release project"; Cargo reference manifest "The version field is optional ... required for publishing packages"');
-        }),
-        bound,
-    );
+        expect(nodes).toStrictEqual([
+            [
+                'Cargo.toml',
+                {
+                    projects: {
+                        'proj/application': {
+                            root: 'proj/application',
+                            name: 'application',
+                            metadata: { technologies },
+                            namedInputs,
+                            release,
+                            tags: ['release'],
+                            targets: {
+                                ...application,
+                                'build--cargo': {
+                                    cache: true,
+                                    configurations: {
+                                        release: { commands: [{ args: ['build', '--profile', 'release', ...messages] }], outputs: ['{workspaceRoot}/target/release/application', '{workspaceRoot}/target/release/application.d'] },
+                                    },
+                                    executor: '@rasm/nx-cargo:cargo',
+                                    inputs: sources,
+                                    metadata: { description: 'Builds application with cargo build, bringing Cargo.lock in line with the manifests', help: help('cargo build'), technologies },
+                                    options: { commands: [{ args: ['build', ...messages] }], cwd: '.', outputs: ['{workspaceRoot}/target/debug/application', '{workspaceRoot}/target/debug/application.d'], package: 'application' },
+                                    outputs: ['{options.outputs.0}', '{options.outputs.1}'],
+                                },
+                                'check--clippy': { ...application['check--clippy'], options: { commands: [{ args: ['clippy', '--bins', '--tests', '--locked', ...messages] }], cwd: '.', package: 'application' } },
+                                'clean--cargo': {
+                                    executor: '@rasm/nx-distribution:clean',
+                                    inputs: sources,
+                                    metadata: { description: 'Removes the build artifacts of application in profiles dev, release with cargo clean --profile', help: cleaned, technologies },
+                                    options: {
+                                        commands: [
+                                            ['cargo', 'clean', '--package', 'application', '--profile', 'dev', '--locked'],
+                                            ['cargo', 'clean', '--package', 'application', '--profile', 'release', '--locked'],
+                                        ],
+                                        cwd: '.',
+                                        targets: ['build--cargo', 'pack--cargo'],
+                                    },
+                                },
+                                'fix--clippy': { ...application['fix--clippy'], options: { commands: [{ args: ['clippy', '--fix', '--allow-dirty', '--bins', '--tests', ...messages] }], cwd: '.', package: 'application' } },
+                                install: { dependsOn: ['install--*'], inputs: ['...', ...sources] },
+                                'install--cargo': {
+                                    executor: '@rasm/nx-cargo:cargo',
+                                    inputs: sources,
+                                    metadata: { description: "Installs the binaries of application into Cargo's install root with cargo install, in release unless a configuration names a profile", help: help('cargo install'), technologies },
+                                    options: { commands: [{ args: ['install', '--path', 'proj/application', '--locked'] }], cwd: '.' },
+                                },
+                            },
+                        },
+                        'proj/library': {
+                            root: 'proj/library',
+                            name: 'cargo_tutorial',
+                            metadata: { technologies },
+                            namedInputs,
+                            release,
+                            tags: ['release'],
+                            targets: {
+                                ...tutorial,
+                                'build--cargo': {
+                                    cache: true,
+                                    configurations: { release: { commands: [{ args: ['build', '--profile', 'release', ...messages] }], outputs: [] } },
+                                    executor: '@rasm/nx-cargo:cargo',
+                                    inputs: sources,
+                                    metadata: { description: 'Builds cargo-tutorial with cargo build, bringing Cargo.lock in line with the manifests', help: help('cargo build'), technologies },
+                                    options: { commands: [{ args: ['build', ...messages] }], cwd: '.', outputs: [], package: 'cargo-tutorial' },
+                                    outputs: [],
+                                },
+                                'check--clippy': { ...tutorial['check--clippy'], options: { commands: [{ args: ['clippy', '--lib', '--tests', '--locked', ...messages] }], cwd: '.', package: 'cargo-tutorial' } },
+                                'clean--cargo': {
+                                    executor: '@rasm/nx-distribution:clean',
+                                    inputs: sources,
+                                    metadata: { description: 'Removes the build artifacts of cargo-tutorial in profiles dev, release with cargo clean --profile', help: cleaned, technologies },
+                                    options: {
+                                        commands: [
+                                            ['cargo', 'clean', '--package', 'cargo-tutorial', '--profile', 'dev', '--locked'],
+                                            ['cargo', 'clean', '--package', 'cargo-tutorial', '--profile', 'release', '--locked'],
+                                        ],
+                                        cwd: '.',
+                                        targets: ['pack--cargo'],
+                                    },
+                                },
+                                'fix--clippy': { ...tutorial['fix--clippy'], options: { commands: [{ args: ['clippy', '--fix', '--allow-dirty', '--lib', '--tests', ...messages] }], cwd: '.', package: 'cargo-tutorial' } },
+                            },
+                        },
+                    },
+                },
+            ],
+        ]);
+    });
 
-    methods.effect(
-        'names a crate by its package name with hyphens as underscores, a [lib] name set apart from it included',
-        Effect.fnUntraced(function* () {
-            const [{ read }, { name, root }] = yield* Effect.all([Consumer, member('vendor/shim')]);
-            const { nodes } = yield* read;
-            assert.strictEqual(nodes[name]?.data.root, root, `${REPORT} packages[].name: Nx names are unique in a workspace, and a uv member can hold the same hyphenated name`);
-        }),
-        bound,
-    );
+    it('should write every output build--cargo declares, and nothing outside the target folder', async ({ tempFs, context }) => {
+        await tempFs.createFiles({
+            'Cargo.toml': '[package]\nname = "tiny"\nversion = "0.1.0"\nedition = "2024"\n',
+            'src/main.rs': 'fn main() {}\n',
+        });
+        execFileSync('cargo', ['generate-lockfile'], { cwd: tempFs.tempDir });
+        const nodes = await createNodesFunction(['Cargo.toml'], undefined, context);
+        const options = await Effect.runPromise(Schema.decodeUnknownEffect(Cargo)(nodes[0]?.[1].projects?.['.']?.targets?.['build--cargo']?.options));
+        const before = new Set(
+            readdirSync(tempFs.tempDir, { recursive: true, withFileTypes: true })
+                .filter((entry) => entry.isFile())
+                .map((entry) => relative(tempFs.tempDir, join(entry.parentPath, entry.name))),
+        );
+        const executed: ExecutorContext = {
+            root: tempFs.tempDir,
+            cwd: tempFs.tempDir,
+            isVerbose: false,
+            projectName: 'tiny',
+            targetName: 'build--cargo',
+            projectGraph: { nodes: { tiny: { name: 'tiny', type: 'app', data: { root: '.' } } }, dependencies: {} },
+            projectsConfigurations: { version: 2, projects: {} },
+            nxJsonConfiguration: {},
+        };
 
-    methods.effect(
-        'gives a warm graph the install target a new binary source adds to a library crate',
-        Effect.fnUntraced(function* () {
-            const { read, wrote } = yield* Consumer;
-            yield* read;
-            yield* wrote({ 'crates/middle/src/bin/report.rs': 'fn main() {\n    println!("{}", rasm_nx_fixture_middle::two());\n}\n' });
-            const [{ nodes }, { name, verbs }] = yield* Effect.all([read, member('crates/middle')]);
-            assert.include(verbs, 'install', `${REPORT} packages[].targets[].kind`);
-            assert.property(nodes[name]?.data.targets, 'install', 'nrwl/nx packages/dotnet/src/analyzer/analyzer-client.spec.ts "should rerun the analyzer when an evaluation input changed"');
-        }),
-        bound,
-    );
+        const result = await execute(options, executed);
 
-    methods.effect(
-        'hashes every source file cargo lists in the dep-info of a binary',
-        Effect.fnUntraced(function* () {
-            const [{ root, nx, text, inputs }, path, { name, crate }] = yield* Effect.all([Consumer, Path.Path, member(APP)]);
-            const run = yield* nx('build', name, '--output-style=static');
-            assert.strictEqual(run.code, 0, `${run.stdout}${run.stderr}`);
-            const listed = yield* text(`target/debug/${crate}.d`);
-            const read = listed
-                .trim()
-                .slice(listed.indexOf(': ') + 2)
-                .split(' ')
-                .map((file) => path.relative(root, file));
-            const { files: hashed } = yield* inputs(`${name}:build`);
-            assert.isAbove(read.length, 1, 'cargo dep-info file target/debug/<binary>.d');
-            assert.deepStrictEqual(Array.difference(read, hashed), [], 'cargo dep-info file target/debug/<binary>.d; nrwl/nx astro-docs/src/content/docs/reference/inputs.mdoc');
-        }),
-        bound,
-    );
-
-    methods.effect.each(['--batch', '--no-batch'])(
-        'builds every crate with %s',
-        Effect.fnUntraced(function* (flag) {
-            const [{ nx, cleaned, absent }, stated] = yield* Effect.all([Consumer, member(APP)]);
-            yield* cleaned;
-            const run = yield* nx('run-many', '--targets=build', '--skip-nx-cache', flag, '--output-style=static');
-            assert.strictEqual(run.code, 0, `nrwl/nx e2e/gradle/src/gradle.test.ts batch runs: ${run.stdout}${run.stderr}`);
-            assert.deepStrictEqual(yield* absent(yield* built(stated)), [], 'cargo build --message-format=json compiler-artifact filenames');
-        }),
-        bound,
-    );
-
-    methods.effect(
-        'fails in one batch only the crate that does not compile, and prints the compiler error',
-        Effect.fnUntraced(function* () {
-            const [{ nx, wrote }, broken, sound] = yield* Effect.all([Consumer, member(GENERATOR), member(APP)]);
-            yield* wrote({ [SOURCES.generator]: 'fn main() {\n    absent_function();\n}\n' });
-            const run = yield* nx('run-many', '--targets=build', '--skip-nx-cache', '--batch', '--nx-bail=false', '--output-style=static');
-            yield* wrote({ [SOURCES.generator]: files[SOURCES.generator] });
-            const [printed, source] = [`${run.stdout}${run.stderr}`, 'nrwl/nx packages/gradle/src/executors/gradle/gradle-batch.impl.spec.ts: a batch reports one result per task'];
-            const failed = printed.slice(printed.indexOf('Failed tasks:'));
-            assert.notStrictEqual(run.code, 0, source);
-            assert.include(printed, 'absent_function', source);
-            assert.include(failed, `${broken.name}:build`, source);
-            assert.notInclude(failed, `${sound.name}:build`, source);
-        }),
-        bound,
-    );
-
-    methods.effect(
-        'installs a binary crate where cargo lists it as installed',
-        Effect.fnUntraced(function* () {
-            const [{ root, called }, path, { name, crate, version }] = yield* Effect.all([Consumer, Path.Path, member(APP)]);
-            const folder = path.join(root, '.installed');
-            const installed = yield* called('env', [`CARGO_INSTALL_ROOT=${folder}`, 'nx', 'install', name, '--output-style=static']);
-            const listed = yield* called('cargo', ['install', '--list', '--root', folder]);
-            assert.strictEqual(installed.code, 0, `${installed.stdout}${installed.stderr}`);
-            assert.include(listed.stdout, `${crate} v${version}`, 'README.md TASKS "install puts a local build into its host"; cargo install --list --root <folder>');
-        }),
-        bound,
-    );
-
-    methods.effect(
-        'removes the target folder with the clean of the workspace root',
-        Effect.fnUntraced(function* () {
-            const { read, nx, absent } = yield* Consumer;
-            const { nodes } = yield* read;
-            const root = yield* Effect.orDie(Effect.fromOption(Array.findFirst(Object.values(nodes), ({ data }) => data.root === '.')));
-            yield* nx('run-many', '--targets=build', '--output-style=static');
-            assert.deepStrictEqual(yield* absent(['target']), [], REPORT);
-            const run = yield* nx('clean', root.name, '--output-style=static');
-            assert.strictEqual(run.code, 0, `${run.stdout}${run.stderr}`);
-            assert.deepStrictEqual(yield* absent(['target']), ['target'], 'cargo clean --help "Remove artifacts that cargo has generated in the past"; README.md TASKS "clean ... runs its tool\'s clean"');
-        }),
-        bound,
-    );
-});
-
-it.layer(
-    workspace(),
-    options,
-)((methods) => {
-    methods.effect(
-        'moves the requirement of every dependent to the new version, a renamed dependency, a table, and one inherited from the workspace included, and leaves a path-only one and the lock in line',
-        Effect.fnUntraced(function* () {
-            const { nx, called } = yield* Consumer;
-            const versioned = yield* nx('release', 'version', '0.2.0');
-            assert.strictEqual(versioned.code, 0, `${versioned.stdout}${versioned.stderr}`);
-            const stated = yield* members;
-            assert.sameMembers(
-                stated.flatMap(({ requirements }) => requirements),
-                ['crates/core -> vendor/shim ^0.2.0', 'crates/middle -> crates/core ^0.2.0', 'crates/app -> crates/middle ^0.2.0', 'tools/generator -> crates/core *'],
-                `${REPORT} packages[].dependencies[].req; Cargo reference "Inheriting a dependency from a workspace"; nrwl/nx packages/nx/src/command-line/release/version/release-group-processor.spec.ts: dependents move with a fixed group`,
-            );
-            const inline = yield* called('cargo', ['metadata', '--format-version', '1', '--locked']);
-            assert.strictEqual(inline.code, 0, `nrwl/nx e2e/release/src/lock-file-updates.test.ts; cargo metadata --locked: ${inline.stderr}`);
-        }),
-        bound,
-    );
-
-    methods.effect(
-        'runs the dry run of cargo publish for every publishable crate under nx release publish --dry-run, uploading nothing',
-        Effect.fnUntraced(function* () {
-            const { nx, committed } = yield* Consumer;
-            yield* committed('release');
-            const published = yield* nx('release', 'publish', '--dry-run');
-            const [printed, source] = [`${published.stdout}${published.stderr}`, 'cargo publish --dry-run; nrwl/nx astro-docs/src/content/docs/kb/publish-rust-crates.mdoc'];
-            assert.strictEqual(published.code, 0, `${source}: ${printed}`);
-            assert.include(printed, 'aborting upload due to dry run', source);
-            assert.notInclude(printed, 'Uploaded', source);
-        }),
-        bound,
-    );
-});
-
-it.layer(
-    workspace({ 'crates/middle/Cargo.toml': '[package\nname = ' }),
-    options,
-)((methods) => {
-    methods.effect(
-        'names the member manifest cargo names in its refusal',
-        Effect.fnUntraced(function* () {
-            const { failures } = yield* Effect.flatMap(Consumer, ({ read }) => read);
-            assert.include([...failures, ...failures.flatMap(({ files: named }) => named)].map(({ message }) => message).join('\n'), 'crates/middle/Cargo.toml', 'cargo metadata stderr; nrwl/nx packages/nx/src/project-graph/plugins/utils.spec.ts "should handle partial errors"');
-        }),
-        bound,
-    );
-});
-
-it.layer(
-    workspace(
-        { 'pyproject.toml': '[tool.uv.workspace]\nmembers = ["packages/*"]\n', 'packages/shim/pyproject.toml': '[project]\nname = "rasm-nx-fixture-shim"\nversion = "0.1.0"\nrequires-python = ">=3.13"\ndependencies = []\n' },
-        {},
-        [plugin.name, uv.name],
-        [
-            ['cargo', 'generate-lockfile'],
-            ['uv', 'lock'],
-        ],
-    ),
-    options,
-)((methods) => {
-    methods.effect(
-        'builds a graph holding a crate and a uv member of one package name as two projects',
-        Effect.fnUntraced(function* () {
-            const { nodes, failures } = yield* Effect.flatMap(Consumer, ({ read }) => read);
-            assert.deepStrictEqual(failures, [], 'nrwl/nx packages/nx/src/project-graph/error-types.ts MultipleProjectsWithSameNameError');
-            assert.includeMembers(
-                Object.values(nodes).map(({ data }) => data.root),
-                ['vendor/shim', 'packages/shim'],
-                `${REPORT}; uv workspace list`,
-            );
-        }),
-        bound,
-    );
-});
-
-it.layer(
-    Layer.effectDiscard(Effect.flatMap(Consumer, ({ called }) => called('cargo', ['generate-lockfile']))).pipe(
-        Layer.provideMerge(
-            Consumer.layer({
-                resolved: import.meta.url,
-                settings: { plugins: [plugin.name], release: { projects: ['tag:release'], version: { currentVersionResolver: 'registry' } } },
-                ignored: ['target'],
-                files: { 'Cargo.toml': '[package]\nname = "itoa"\nversion = "0.0.1"\nedition = "2024"\n', 'src/lib.rs': '' },
-            }),
-        ),
-        Layer.provideMerge(Packed.layer(plugin.name)),
-        Layer.provideMerge(layer),
-    ),
-    options,
-)((methods) => {
-    methods.effect(
-        'reads the current version of a crate from the registry cargo searches',
-        Effect.fnUntraced(function* () {
-            const { nx, called } = yield* Consumer;
-            const found = yield* called('cargo', ['search', 'itoa', '--limit', '1']);
-            const latest = yield* pipe(
-                Array.findFirst(found.stdout.split('\n'), (line) => line.startsWith('itoa = "')),
-                Option.flatMap((line) => Array.get(line.split('"'), 1)),
-                Effect.fromOption,
-                Effect.orDie,
-            );
-            const shown = yield* nx('release', 'version', 'patch', '--dry-run');
-            assert.include(`${shown.stdout}${shown.stderr}`, `Resolved the current version as ${latest} from the remote registry`, 'cargo search <name> --limit 1; nrwl/nx packages/nx/src/command-line/release/version/resolve-current-version.ts "registry"');
-        }),
-        bound,
-    );
-});
-
-it.layer(
-    Layer.effectDiscard(locked([['cargo', 'generate-lockfile']])).pipe(
-        Layer.provideMerge(
-            Consumer.layer({
-                resolved: import.meta.url,
-                settings: { plugins: [{ plugin: plugin.name, options: { outputPath: 'reports/{projectName}' } }] },
-                ignored: ['target', 'reports'],
-                files: { ...files, '.config/nextest.toml': '[profile.default]\nfail-fast = false\n' },
-            }),
-        ),
-        Layer.provideMerge(Packed.layer(plugin.name)),
-        Layer.provideMerge(layer),
-    ),
-    options,
-)((methods) => {
-    methods.effect(
-        'writes each crate of one batched cargo nextest run a JUnit report holding its own test suites alone',
-        Effect.fnUntraced(function* () {
-            const [{ nx, text }, core, generator] = yield* Effect.all([Consumer, member(CORE), member(GENERATOR)]);
-            const run = yield* nx('run-many', '--targets=test--nextest', `--projects=${core.name},${generator.name}`, '--skip-nx-cache', '--batch', '--output-style=static');
-            assert.strictEqual(run.code, 0, `${run.stdout}${run.stderr}`);
-            const [kept, other] = yield* Effect.all([text(`reports/${core.name}/junit.xml`), text(`reports/${generator.name}/junit.xml`)]);
-            const source = 'nexte.st docs/machine-readable/junit "testsuite ... name: the binary ID"; cargo nextest run --tool-config-file';
-            assert.deepStrictEqual([[...kept.matchAll(SUITE)].map(({ groups }) => groups), [...other.matchAll(SUITE)].map(({ groups }) => groups)], [[{ name: core.crate }], [{ name: `${generator.crate}::bin/${generator.crate}` }]], source);
-            const runs = [RUN.exec(kept)?.groups, RUN.exec(other)?.groups];
-            assert.isDefined(runs[0], source);
-            assert.deepStrictEqual(runs[0], runs[1], `${source}: one nextest run serves every task of a batch`);
-        }),
-        bound,
-    );
+        const written = readdirSync(tempFs.tempDir, { recursive: true, withFileTypes: true })
+            .filter((entry) => entry.isFile())
+            .map((entry) => relative(tempFs.tempDir, join(entry.parentPath, entry.name)))
+            .filter((file) => !before.has(file));
+        expect(result).toStrictEqual({ success: true });
+        expect(options.outputs).toStrictEqual(['{workspaceRoot}/target/debug/tiny', '{workspaceRoot}/target/debug/tiny.d']);
+        expect(Array.difference(['target/debug/tiny', 'target/debug/tiny.d'], written)).toStrictEqual([]);
+        expect(written.filter((file) => !file.startsWith('target/'))).toStrictEqual([]);
+    });
 });

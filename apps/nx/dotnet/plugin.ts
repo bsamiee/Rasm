@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesContext, type CreateNodesResult, DependencyType, hashArray, type ProjectGraphExternalNode, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
 import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, globWithWorkspaceContext, hashFile, hashWithWorkspaceContext, mergeTargetConfigurations, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
 import { Array, Cause, Effect, Equivalence, FileSystem, Option, Predicate, Record, Ref, Result, Schema, Stream, Struct } from 'effect';
+import { CommandLine } from 'effect/process';
 import { Edges, Node, PLUGIN, publishing, run, spawned, targets, type Verbs } from '#/targets';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -64,8 +65,6 @@ const aggregated = (verbs: Verbs, stated: Readonly<Record<string, Pick<TargetCon
         ]).flat(),
     );
 
-const rendered = (cause: Cause.Cause<unknown>) => Effect.fail(new Cause.UnknownError(cause, Cause.pretty(cause)));
-
 const external = ({ id, version }: Node['packages'][number]) => `nuget:${id}@${version}`;
 
 const own = Effect.runSync(
@@ -88,7 +87,7 @@ const stamped = Effect.fnUntraced(function* (workspaceRoot: string, analyzer: st
 
 const analyzed = Effect.fnUntraced(function* (workspaceRoot: string, project: Option.Option<string>, matched: readonly string[]) {
     const argv = Option.match(project, { onNone: () => ['dotnet', ANALYZER, workspaceRoot] as const, onSome: (at) => ['dotnet', 'run', '--project', at, '--', workspaceRoot] as const });
-    const report = yield* Effect.flatMap(spawned(argv, { cwd: workspaceRoot, stdin: Stream.encodeText(Stream.make(matched.join('\n'))) }), Schema.decodeEffect(Reported));
+    const report = yield* Effect.flatMap(spawned(argv, { cwd: workspaceRoot, stdin: Stream.encodeText(Stream.make(matched.join('\n'))) }), (stdout) => Effect.mapError(Schema.decodeEffect(Reported)(stdout), (error) => new Cause.UnknownError(error, `${CommandLine.display(argv)} printed no report: ${stdout}`)));
     const known = new Set(yield* Effect.promise(() => globWithWorkspaceContext(workspaceRoot, Array.dedupe(report.nodes.flatMap(({ inputs }) => inputs)))));
     return { ...report, nodes: report.nodes.map((node) => ({ ...node, inputs: node.inputs.filter((input) => known.has(input)) })) };
 });
@@ -147,7 +146,7 @@ const inferred = Effect.fnUntraced(function* (matched: readonly string[], option
     const cache = new PluginCache<{ readonly report: Report; readonly stamp: string }>(join(workspaceDataDirectory, `dotnet-${hashed}.hash`));
     const key = yield* Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, [...matched]));
     const held = yield* Effect.findFirst(Array.fromNullishOr(cache.get(key)), (stored) => Effect.map(stamped(workspaceRoot, analyzer, stored.report), (now) => now === stored.stamp));
-    const read = yield* Effect.result(Effect.catchCause(Option.match(held, { onSome: (stored) => Effect.succeed(stored.report), onNone: () => analyzed(workspaceRoot, project, matched) }), rendered));
+    const read = yield* Effect.result(Option.match(held, { onSome: (stored) => Effect.succeed(stored.report), onNone: () => analyzed(workspaceRoot, project, matched) }));
     const report = Result.getOrElse(read, (): Report => ({ nodes: [], failures: [], evaluated: [] }));
     yield* Option.isNone(held) && Result.isSuccess(read) && report.failures.length === 0 ? Effect.flatMap(stamped(workspaceRoot, analyzer, report), (stamp) => Effect.sync(() => cache.set(key, { report, stamp }))).pipe(Effect.andThen(Effect.sync(() => cache.writeToDisk()))) : Effect.void;
     yield* Ref.set(edges, related(workspaceRoot, project, report));
@@ -168,7 +167,7 @@ const inferred = Effect.fnUntraced(function* (matched: readonly string[], option
             }),
     );
     const results = [...projected(report.nodes, settings, manifests), ...solutions];
-    const failures = [...Option.toArray(Option.map(Result.getFailure(read), (error): [null, Error] => [null, error])), ...report.failures.map(({ file, message }): [string, Error] => [file, new Cause.UnknownError(file, `${file}: ${message}`)])];
+    const failures = [...Option.toArray(Option.map(Result.getFailure(read), (error): [null, Error] => [null, error])), ...report.failures.map(({ file, message }): [string, Error] => [file, new Cause.UnknownError(file, message)])];
     return yield* failures.length === 0 ? Effect.succeed(results) : Effect.fail(new AggregateCreateNodesError(failures, results));
 });
 

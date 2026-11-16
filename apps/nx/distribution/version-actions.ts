@@ -23,15 +23,20 @@ const located = Effect.fnUntraced(function* (tree: Tree, root: string, manifest:
 });
 
 const written = Effect.fnUntraced(function* (tree: Tree, manifest: string, manifests: readonly { readonly manifestPath: string }[], version: string) {
-    const { write } = yield* hosted(manifest);
+    const { read, write } = yield* hosted(manifest);
     const writer = yield* Effect.mapError(Effect.fromNullishOr(write), (cause) => new Cause.UnknownError(cause, `${manifest} takes its version from its build, not from nx release`));
-    return yield* Effect.forEach(
+    const texts = yield* Effect.forEach(
         manifests,
         Effect.fnUntraced(function* ({ manifestPath }) {
-            tree.write(manifestPath, yield* writer(yield* opened(tree, manifestPath), version));
-            return `New version ${version} written to manifest: ${manifestPath}`;
+            const text = yield* writer(yield* opened(tree, manifestPath), version, manifestPath);
+            const stated = Option.flatMap(yield* read(text, manifestPath), (fields) => Option.fromUndefinedOr(fields.version));
+            return Option.contains(stated, version) ? { manifestPath, text } : yield* new Cause.UnknownError(stated, `Cannot update ${manifestPath}: its version resolves to ${Option.getOrElse(stated, () => 'nothing')} instead of ${version}`);
         }),
     );
+    return texts.map(({ manifestPath, text }) => {
+        tree.write(manifestPath, text);
+        return `New version ${version} written to manifest: ${manifestPath}`;
+    });
 });
 
 // --- [SERVICES] ------------------------------------------------------------------------
