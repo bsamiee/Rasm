@@ -119,12 +119,12 @@ Overrides reach the members an operator reads alone:
 - `temp_override` accepts unknown keywords with no raise
 - Background runs hold `window` and `screen` but no area, editor operators overriding with a `screen.areas` `VIEW_3D` area and its `WINDOW` region
 
-Operator calls fail by raising (`RuntimeError`, `TypeError`) or by a return set holding no success, and `called` turns both into a fault keeping the exception or set as `cause`. `object.join` reads `active_object` and `selected_editable_objects` and leaves joined meshes at zero users, one `batch_remove` after the call clearing them on a join and nothing on a failure:
+Operator calls fail by raising (`RuntimeError`, `TypeError`) or by a return set holding no success, and `called` turns both into a fault keeping the exception or set as `cause`. Stubs type each operator as a class with `__new__` stating its properties, and `called` takes them through a `ParamSpec` ty checks per call. `object.join` reads `active_object` and `selected_editable_objects` and leaves joined meshes at zero users, one `batch_remove` after the call clearing them on a join and nothing on a failure:
 
 ```python
-def called(operator: Callable[..., Returns], subject: str, /, **keywords: object) -> Outcome[Returns]:
+def called[**P](operator: Callable[Concatenate["OperatorContextItems", P], Returns], subject: str, /, *args: P.args, **keywords: P.kwargs) -> Outcome[Returns]:
     try:
-        answer = operator("EXEC_DEFAULT", **keywords)
+        answer = operator("EXEC_DEFAULT", *args, **keywords)
     except (RuntimeError, TypeError) as error:
         return Error(Fault.of(Reason.FAILED, subject, error))
     return Ok(answer).filter_with(lambda held: not held.isdisjoint({"FINISHED", "RUNNING_MODAL", "INTERFACE"}), partial(Fault.of, Reason.FAILED, subject))
@@ -150,10 +150,14 @@ Calls and their return sets:
 - `window.workspace` and file-browser `params` writes apply one event-loop pass later, dependent work running from a timer or modal step
 - `area.type` and `show_region_*` writes apply inside the write
 
-Created IDs are the `bpy.data.all_ids` difference across a call in place of a requested name or `selected_objects`. Raising calls keep their writes, and one function serving every importer removes the created set on a failure:
+Created IDs are the `bpy.data.all_ids` difference across a call in place of a requested name or `selected_objects`. Raising calls keep their writes, and one function serving every importer removes the created set on a failure. Importers share no stub base, and `Importer` states the execution context and `filepath` keyword each takes:
 
 ```python
-def imported(importer: Callable[..., Returns], source: Path, /) -> Outcome[frozenset[bpy.types.ID]]:
+class Importer(Protocol):
+    def __call__(self, execution_context: "OperatorContextItems", /, *, filepath: str) -> Returns: ...
+
+
+def imported(importer: Importer, source: Path, /) -> Outcome[frozenset[bpy.types.ID]]:
     before = frozenset(bpy.data.all_ids)
     answer = called(importer, str(source), filepath=str(source))
     created = frozenset(bpy.data.all_ids) - before

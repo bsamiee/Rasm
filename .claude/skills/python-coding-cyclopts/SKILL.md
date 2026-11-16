@@ -212,6 +212,9 @@ app = App(config=(config.Env(f"{package.upper()}_", command=True), config.Toml(f
 `--install-completion` (`app.register_install_completion_command()`) writes a script for the current shell and sources it from its startup file. Scripts hold every command, option, and `Literal` or `Enum` choice, and `Path` hints use shell file completion. `completer=` lists values only a run knows from other arguments in its context:
 
 ```python
+from cyclopts.completion import CompletionContext
+
+
 def entries(context: CompletionContext, /) -> dict[str, str]:
     match context["root"].value:
         case Path() as root:
