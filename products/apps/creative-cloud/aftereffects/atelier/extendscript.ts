@@ -1,3 +1,4 @@
+import '@rasm/extendscript/shim';
 import { containment, open, rasterize, session, undo } from '@rasm/aftereffects/extendscript';
 import { serve } from '@rasm/atelier-protocol/extendscript';
 

@@ -10,6 +10,7 @@
     "dependencies": {
         "@rasm/atelier-protocol": "workspace:*",
         "@rasm/cep": "workspace:*",
+        "@rasm/extendscript": "workspace:*",
         "@rasm/illustrator": "workspace:*"
     },
     "devDependencies": {

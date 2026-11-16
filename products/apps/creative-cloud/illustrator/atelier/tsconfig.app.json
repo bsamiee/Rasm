@@ -8,10 +8,13 @@
     },
     "references": [
         {
-            "path": "../../../../../libs/typescript/creative-cloud/cep"
+            "path": "../../../../../libs/typescript/creative-cloud/illustrator"
         },
         {
-            "path": "../../../../../libs/typescript/creative-cloud/illustrator"
+            "path": "../../../../../libs/typescript/creative-cloud/extendscript"
+        },
+        {
+            "path": "../../../../../libs/typescript/creative-cloud/cep"
         },
         {
             "path": "../../multi-app/atelier/protocol"

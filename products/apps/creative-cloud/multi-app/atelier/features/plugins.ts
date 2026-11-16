@@ -7,6 +7,7 @@ import { ExtensionManifest } from '@rasm/cep';
 import { Completion } from '@rasm/extendscript';
 import runtime from '@rasm/extendscript/host?inline';
 import { lower, traced } from '@rasm/extendscript/node';
+import shim from '@rasm/extendscript/shim?inline';
 import { Resource, Route, registerRpcGroup, Server } from '@rasm/mcp';
 import { HostError, Reference } from '@rasm/object-model';
 import { Unmatched } from '@rasm/search';
@@ -67,16 +68,16 @@ const plugins = Effect.fnUntraced(function* ({ serving, script }: Effect.Success
             return yield* Unmatched.single(peers.filter(Peer.serves(installation)), `linked plugin of ${installation.name}`, Option.none(), ({ application }) => [String(application)]);
         }),
     });
-    const scripted = Effect.fnUntraced(function* (code: string, { instance, installation: { url } }: Effect.Success<ReturnType<typeof script.resolve>>) {
+    const scripted = Effect.fnUntraced(function* (code: string, { instance, installation: { url, name } }: Effect.Success<ReturnType<typeof script.resolve>>) {
         const { source, relined } = yield* lowered(`var body = ${ExecuteScript.expression(code, false)}`, ExtensionManifest.target);
         const { reply } = yield* server.script({
             instance,
             url,
             events: ['DjxM', 'dosc'],
             declared: { doLg: { _tag: 'enumerator', name: 'JSLg' } },
-            direct: `(function (self) { ${source}\n${runtime}\nreturn encodeURIComponent(runtime.reply(function () { return { result: body.call(self) }; }));\n})(this)`,
+            direct: `(function (self) { if (typeof Object.keys !== 'function') { ${shim}\n}\n${source}\n${runtime}\nreturn encodeURIComponent(runtime.reply(function () { return { result: body.call(self) }; }));\n})(this)`,
         });
-        return yield* Schema.decodeUnknownEffect(Scripted)(reply).pipe(Effect.flatMap(Completion.answered(ResultJson, ExecuteScript.make({ code: ExecuteScript.expression(code, false) }).label)), Effect.catchTag('HostError', relined));
+        return yield* Schema.decodeUnknownEffect(Scripted)(reply).pipe(Effect.mapError(HostError.refused(`${name} script reply`)), Effect.flatMap(Completion.answered(ResultJson, ExecuteScript.make({ code: ExecuteScript.expression(code, false) }).label)), Effect.catchTag('HostError', relined));
     });
     const linkedScript = Effect.fnUntraced(function* (code: string, { library: { target, Contract }, client }: Option.Option.Value<Effect.Success<ReturnType<typeof script.resolve>>['linked']>) {
         const { source, relined } = yield* lowered(ExecuteScript.expression(code, Context.get(Contract.annotations, ExecuteScript.Awaits)), target);

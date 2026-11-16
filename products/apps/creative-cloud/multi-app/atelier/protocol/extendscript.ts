@@ -16,6 +16,7 @@ interface Hooks {
     readonly undo?: (label: string) => () => void;
     readonly open: (path: string) => object;
     readonly rasterize: (found: object, payload: typeof Rasterize.Encoded, path: string) => void;
+    readonly declared?: () => Readonly<Record<string, unknown>>;
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -24,7 +25,7 @@ const callable = (value: unknown): value is () => unknown => typeof value === 'f
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const serve = ({ global, containment, base = 0, session, undo, open, rasterize }: Hooks) => {
+const serve = ({ global, containment, base = 0, session, undo, open, rasterize, declared }: Hooks) => {
     const encoder = { reference: (value: object) => reference(containment, value) };
     const resolve = (target: string): object => {
         const path = parse(target);
@@ -62,7 +63,7 @@ const serve = ({ global, containment, base = 0, session, undo, open, rasterize }
                     return null;
                 }
                 case 'object_model': {
-                    return declaration(global, containment.root, base, request.payload.name);
+                    return declaration(global, containment.root, base, request.payload.name, declared?.());
                 }
                 default: {
                     return request satisfies never;

@@ -36,7 +36,7 @@ const applications = Effect.fnUntraced(function* ({ application }: Effect.Succes
                 'Adobe applications open with no document, and a body creates or opens one before working on it',
                 'Illustrator and After Effects take focus while launching, and Photoshop while quitting',
                 'After Effects opens an untitled project with no composition, its Home window above it',
-                'Premiere opens Home under a What is New overlay that read reports as no asking row, capture shows it',
+                'Surveys and What is New panels open at random, a call returns early on one that asks, a capture shows one drawn in a window, and Cancel or close dismisses it',
                 'Acrobat draws no window content while inactive, so capture reads it blank',
             ]),
         (_, opened) => Effect.succeed(opened),

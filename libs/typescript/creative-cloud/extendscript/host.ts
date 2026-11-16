@@ -1,5 +1,3 @@
-import 'es5-shim';
-import 'es5-shim/es5-sham.js';
 import { type Encoder, encode, isList, isPlain, isRecord, read } from '@rasm/object-model/host';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -123,7 +121,7 @@ const declared = (found: unknown) => {
     }
     return enumerated(found) ? { _tag: 'Enumeration', name, members } : { _tag: 'Class', name, parents: [], fields, methods };
 };
-const declaration = (global: unknown, root: object, base: number, name: string | undefined): unknown => {
+const declaration = (global: unknown, root: object, base: number, name: string | undefined, dictionary: Readonly<Record<string, unknown>> = {}): unknown => {
     const found: Record<string, unknown> = {};
     const named = (type: string): unknown => {
         const constructor = read(global, type);
@@ -163,6 +161,9 @@ const declaration = (global: unknown, root: object, base: number, name: string |
     }
     for (const info of infos(reflection(global), 'properties')) {
         followed(undefined, named(String(read(info, 'name'))));
+    }
+    for (const key of keys(dictionary)) {
+        found[key] ??= dictionary[key];
     }
     const [classes, enumerations]: [string[], string[]] = [[], []];
     for (const key of keys(found)) {

@@ -8,13 +8,16 @@
     },
     "references": [
         {
+            "path": "../../../../../libs/typescript/creative-cloud/extendscript"
+        },
+        {
             "path": "../../../../../libs/typescript/creative-cloud/cep"
         },
         {
-            "path": "../../../../../libs/typescript/creative-cloud/aftereffects"
+            "path": "../../multi-app/atelier/protocol"
         },
         {
-            "path": "../../multi-app/atelier/protocol"
+            "path": "../../../../../libs/typescript/creative-cloud/aftereffects"
         }
     ]
 }

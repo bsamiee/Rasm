@@ -11,9 +11,10 @@ import type { UserConfigFnPromise } from 'vite';
 export default Effect.fnUntraced(
     function* () {
         const directory = import.meta.dirname;
+        const resolved = createRequire(join(directory, 'package.json')).resolve;
         return {
             build: { rolldownOptions: { experimental: { lazyBarrel: true }, output: { codeSplitting: false } } },
-            plugins: [script(createRequire(join(directory, 'package.json')).resolve('@rasm/extendscript/host'), 'runtime'), yield* helper(join(directory, 'main.ts'), 'server', { KeepAlive: true }, { project: join(directory, 'macos', 'Atelier.xcodeproj'), target: 'Atelier' })],
+            plugins: [script(resolved('@rasm/extendscript/host'), 'runtime'), script(resolved('@rasm/extendscript/shim'), 'shim'), yield* helper(join(directory, 'main.ts'), 'server', { KeepAlive: true }, { project: join(directory, 'macos', 'Atelier.xcodeproj'), target: 'Atelier' })],
         };
     },
     Effect.provide(layer),

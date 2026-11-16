@@ -1452,6 +1452,9 @@ importers:
       '@rasm/cep':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/creative-cloud/cep
+      '@rasm/extendscript':
+        specifier: workspace:*
+        version: link:../../../../../libs/typescript/creative-cloud/extendscript
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -1471,6 +1474,9 @@ importers:
       '@rasm/cep':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/creative-cloud/cep
+      '@rasm/extendscript':
+        specifier: workspace:*
+        version: link:../../../../../libs/typescript/creative-cloud/extendscript
       '@rasm/illustrator':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/creative-cloud/illustrator
