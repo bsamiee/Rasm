@@ -81,7 +81,7 @@ extension NSWorkspace {
         newInstance: Bool = false,
     ) async throws(ApplicationFailure) -> (instance: Instance, created: Bool) {
         let url = installation.url
-        let running = runningApplications.filter(installation.runs).compactMap { application in try? Instance(application) }
+        let running = instances(of: installation.runs)
         let creating = newInstance || running.isEmpty
         if let reused = running.first, !creating, documents.isEmpty { return (reused, false) }
         let listing: (URL) throws(ApplicationFailure) -> Set<ProcessInstance> = { executable throws(ApplicationFailure) in
@@ -137,43 +137,34 @@ extension NSWorkspace {
         clock: some Clock<Duration> & Sendable = ContinuousClock(),
     ) -> some AsyncSequence<Launching, Never> & Sendable {
         AsyncStream { output in
-            let prompting = Task {
-                for await held in Self.shared.systemPrompts(naming: [installation.name], clock: clock) {
-                    output.yield(.prompts(held.compactMap { instance, state in RunningInstance(instance, state: state) }))
-                }
-            }
             let following = Task {
-                defer {
-                    prompting.cancel()
-                    output.finish()
-                }
-                do throws(ApplicationFailure) {
-                    let (instance, created) = try await Self.shared.launch(
-                        installation,
-                        opening: documents,
-                        arguments: arguments,
-                        environment: environment,
-                        newInstance: newInstance,
-                    )
-                    prompting.cancel()
-                    let replaced = !created && Result(catching: { () throws(Errno) in try instance.process.runsInstalledCode() }) == .success(false)
-                    output.yield(.launched(Launched(instance: instance, identifier: installation.identifier, created: created, replaced: replaced)))
-                    for await state in instance.states(clock: clock) {
-                        if let running = RunningInstance(instance, state: state) { output.yield(.state(running)) }
-                        switch state {
-                            case .running(let running) where !waiting && (!created || running.status.settled || !running.asking.isEmpty): return
-                            case .failed where !waiting: return
-                            case .running, .failed, .exited: continue
+                await withDiscardingTaskGroup { group in
+                    defer { group.cancelAll() }
+                    group.addTask {
+                        for await held in Self.shared.systemPrompts(naming: [installation.name], clock: clock) {
+                            output.yield(.prompts(held.compactMap { instance, state in RunningInstance(instance, state: state) }))
                         }
                     }
-                } catch {
-                    output.yield(.failed(error))
+                    do throws(ApplicationFailure) {
+                        let (instance, created) = try await Self.shared.launch(installation, opening: documents, arguments: arguments, environment: environment, newInstance: newInstance)
+                        group.cancelAll()
+                        let replaced = !created && Result(catching: { () throws(Errno) in try instance.process.runsInstalledCode() }) == .success(false)
+                        output.yield(.launched(Launched(instance: instance, identifier: installation.identifier, created: created, replaced: replaced)))
+                        for await state in instance.states(clock: clock) {
+                            if let running = RunningInstance(instance, state: state) { output.yield(.state(running)) }
+                            switch state {
+                                case .running(let running) where !waiting && (!created || running.status.settled || !running.asking.isEmpty): return
+                                case .failed where !waiting: return
+                                case .running, .failed, .exited: continue
+                            }
+                        }
+                    } catch {
+                        output.yield(.failed(error))
+                    }
                 }
+                output.finish()
             }
-            output.onTermination = { _ in
-                prompting.cancel()
-                following.cancel()
-            }
+            output.onTermination = { _ in following.cancel() }
         }
     }
 }

@@ -29,11 +29,10 @@ public actor ScriptingDefinitions {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension Installation {
-    @concurrent
     public func scriptingDefinition() async throws(AppleEventFailure) -> Data {
         guard !NSWorkspace.shared.instances(of: runs).isEmpty || scriptingDefinitionFile != nil else {
             throw AppleEventFailure(subject: url.path(percentEncoded: false), reason: .requiresRunning)
         }
-        return try await withTaskExecutorPreference(appleEvents) { () throws(AppleEventFailure) in try ScriptingDictionary.definition(of: url) }
+        return try await ScriptingDictionary.definition(of: url)
     }
 }

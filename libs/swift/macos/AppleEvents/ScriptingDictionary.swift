@@ -56,16 +56,14 @@ public final class ScriptingDictionary: Encodable, Sendable {
         public let eventID: AEEventID
         public let parameters: [Term]
 
-        enum Keys: String, CodingKey {
-            case name
-            case code
-            case parameters
+        private enum Key: CodingKey {
+            case name, code, parameters
         }
 
         public var code: UInt64 { UInt64(eventClass) << 32 | UInt64(eventID) }
 
         public func encode(to encoder: any Encoder) throws {
-            var row = encoder.container(keyedBy: Keys.self)
+            var row = encoder.container(keyedBy: Key.self)
             try row.encode(name, forKey: .name)
             try row.encode(code.sdef, forKey: .code)
             try row.encode(parameters, forKey: .parameters)
@@ -92,9 +90,9 @@ public final class ScriptingDictionary: Encodable, Sendable {
 
     public init(definition data: Data) throws(AppleEventFailure) {
         let document = try Result { try XMLDocument(data: data, options: .documentXInclude) }
-            .mapError { error in AppleEventFailure(subject: "XML of \(data.count)-byte scripting definition", reason: .host(error)) }.get()
+            .mapError { error in AppleEventFailure(subject: "XML of \(data.count)-byte scripting definition", reason: .host(error as NSError)) }.get()
         func elements(_ path: String) throws(AppleEventFailure) -> [XMLElement] {
-            try Result { try document.nodes(forXPath: path) }.mapError { error in AppleEventFailure(subject: "scripting definition XPath \(path)", reason: .host(error)) }.get()
+            try Result { try document.nodes(forXPath: path) }.mapError { error in AppleEventFailure(subject: "scripting definition XPath \(path)", reason: .host(error as NSError)) }.get()
                 .compactMap { node in node as? XMLElement }
         }
         let typedKinds: [Kind] = [.class, .recordType, .valueType]
@@ -175,7 +173,7 @@ public final class ScriptingDictionary: Encodable, Sendable {
             """
         let selected = try document.withLock { document throws(AppleEventFailure) in
             try Result { try document.objects(forXQuery: query, constants: ["kind": kind.rawValue, "name": name]) }
-                .mapError { error in AppleEventFailure(subject: "scripting definition XQuery for \(kind.rawValue) \(name)", reason: .host(error)) }.get()
+                .mapError { error in AppleEventFailure(subject: "scripting definition XQuery for \(kind.rawValue) \(name)", reason: .host(error as NSError)) }.get()
                 .compactMap { node in (node as? XMLNode)?.xmlString }
         }
         guard !selected.isEmpty else {
@@ -191,13 +189,14 @@ public final class ScriptingDictionary: Encodable, Sendable {
 extension ScriptingDictionary {
     // --- [DEFINITIONS]
 
-    public static func definition(of application: URL) throws(AppleEventFailure) -> Data {
-        var definition: Unmanaged<CFData>?
-        let status = unsafe OSACopyScriptingDefinitionFromURL(application as CFURL, 0, &definition)
-        guard status == noErr, let data = unsafe definition?.takeRetainedValue() else {
-            throw AppleEventFailure(subject: application.path(percentEncoded: false), reason: .osa(status))
+    @concurrent
+    public static func definition(of application: URL) async throws(AppleEventFailure) -> Data {
+        let (status, definition) = await withTaskExecutorPreference(appleEvents) {
+            var definition: Unmanaged<CFData>?
+            return (unsafe OSACopyScriptingDefinitionFromURL(application as CFURL, 0, &definition), unsafe definition?.takeRetainedValue())
         }
-        return data as Data
+        guard status == noErr, let definition else { throw AppleEventFailure(subject: application.path(percentEncoded: false), reason: .osa(status)) }
+        return definition as Data
     }
 
     // --- [COMMANDS]
@@ -264,7 +263,7 @@ extension ScriptingDictionary {
         let command = try Result { () throws(Unmatched) in try command(query, taking: Set(arguments.keys)) }
             .aggregated { miss in AppleEventFailure(subject: query, reason: .unmatched(miss)) }.get()
         let event = try event(command, arguments: arguments, target: target, refusing: activating)
-        do { return AppleEventValue(try await event.sent(), in: self) } catch { throw AggregateError(first: error) }
+        do { return AppleEventValue(try await event.send(), in: self) } catch { throw AggregateError(first: error) }
     }
 
     func record(_ fields: [String: AppleEventValue], in scopes: [Scope], into descriptor: NSAppleEventDescriptor) throws(AggregateError<AppleEventFailure>) -> NSAppleEventDescriptor {

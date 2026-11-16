@@ -98,22 +98,17 @@ extension Installation {
                 query.searchScopes = directories
                 query.sortDescriptors = [NSSortDescriptor(key: NSMetadataItemDisplayNameKey, ascending: true)]
                 query.operationQueue = .main
-                let (changes, change) = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
-                let observations: [NotificationCenter.ObservationToken] = [
-                    NotificationCenter.default.addObserver(of: query, for: .didFinishGathering) { _ in change.yield() },
-                    NotificationCenter.default.addObserver(of: query, for: NSMetadataQuery.DidUpdateMessage.self) { _ in change.yield() },
-                ]
+                var gathered = NotificationCenter.default.messages(of: query, for: .didFinishGathering, bufferSize: 1).makeAsyncIterator()
                 query.start()
-                defer {
-                    query.stop()
-                    observations.forEach(NotificationCenter.default.removeObserver)
-                }
-                for await _ in changes {
+                defer { query.stop() }
+                guard await gathered.next(isolation: #isolation) != nil else { return continuation.finish() }
+                var updates = NotificationCenter.default.messages(of: query, for: NSMetadataQuery.DidUpdateMessage.self, bufferSize: 1).makeAsyncIterator()
+                repeat {
                     query.disableUpdates()
                     let paths = (0..<query.resultCount).map { index in (query.result(at: index) as? NSMetadataItem)?.value(forAttribute: NSMetadataItemPathKey) as? String }
                     query.enableUpdates()
                     continuation.yield(await Self.listed(paths))
-                }
+                } while await updates.next(isolation: #isolation) != nil
                 continuation.finish()
             }
             continuation.onTermination = { _ in following.cancel() }

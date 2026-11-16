@@ -247,10 +247,7 @@ extension Instance {
             combineLatest(
                 beats(walking: walked, clock: clock),
                 chain([OrderedDictionary<Instance, InstanceState>()].async, NSWorkspace.shared.tracked(of: \.isDialogHelper, walking: \.asking, clock: clock)),
-            ).map {
-                state,
-                helpers in state.prompted(helpers.values.flatMap { helper in helper.prompting(names) })
-            },
+            ).map { state, helpers in state.prompted(helpers.values.flatMap { helper in helper.prompting(names) }) },
             clock: clock,
         )
     }
@@ -292,18 +289,18 @@ extension Instance {
         return AsyncStream { output in
             let following = Task {
                 let (replies, reply) = AsyncStream<Result<InstanceState, ApplicationFailure>>.makeStream()
-                var sending: Task<Void, Never>?
-                defer { sending?.cancel() }
-                for await event in merge(states.map(Result.success), replies) {
-                    output.yield(event)
-                    switch event {
-                        case .success(.exited):
-                            if sending == nil { reply.finish() }
-                        case .success(.running(let running)) where running.asking.isEmpty && [nil, .runnable].contains(running.status[case: \.unresponsive]):
-                            guard sending == nil else { continue }
-                            sending = Task { await requestQuit(saving: saving, answering: reply, clock: clock) }
-                        case .failure, .success(.running), .success(.failed):
-                            return output.finish()
+                await withDiscardingTaskGroup { group in
+                    var sending = false
+                    for await event in merge(states.map(Result.success), replies) {
+                        output.yield(event)
+                        switch event {
+                            case .success(.exited): if !sending { reply.finish() }
+                            case .success(.running(let running)) where running.asking.isEmpty && [nil, .runnable].contains(running.status[case: \.unresponsive]):
+                                guard !sending else { continue }
+                                sending = true
+                                group.addTask { await requestQuit(saving: saving, answering: reply, clock: clock) }
+                            case .failure, .success(.running), .success(.failed): return group.cancelAll()
+                        }
                     }
                 }
                 output.finish()
@@ -329,21 +326,25 @@ extension Instance {
         )
         if saving { request.setParam(NSAppleEventDescriptor(enumCode: kAEYes), forKeyword: keyAESaveOptions) }
         let subject = String(process.pid)
-        do {
-            _ = try await request.sent(timeout: NSAppleEventTimeOutDefault)
+        let outcome: Result<InstanceState, ApplicationFailure>?
+        do throws(AppleEventFailure) {
+            _ = try await request.send(timeout: NSAppleEventTimeOutDefault)
+            outcome = nil
         } catch  where error.status == OSStatus(userCanceledErr) {
             _ = await Result { () async throws(any Error) in try await clock.sleep(for: messagingTimeout) }
-            let read = await state()
-            switch read {
-                case .running(let running) where !running.asking.isEmpty || running.status.is(\.unresponsive): reply.yield(.success(read))
-                case .failed: break
-                case .running, .exited: reply.yield(.failure(ApplicationFailure(subject: subject, reason: .refused(nil))))
-            }
+            outcome =
+                switch await state() {
+                    case .running(let running) where !running.asking.isEmpty || running.status.is(\.unresponsive): .success(.running(running))
+                    case .failed: nil
+                    case .running, .exited: .failure(ApplicationFailure(subject: subject, reason: .refused(nil)))
+                }
         } catch  where error.status == OSStatus(procNotFound) {
-            if case .failure = Result(catching: { () throws(Errno) in try process.signal(SIGTERM) }) { reply.yield(.failure(ApplicationFailure(subject: subject, reason: .event(error)))) }
+            let signaled = Result { () throws(Errno) in try process.signal(SIGTERM) }
+            outcome = if case .failure = signaled { .failure(ApplicationFailure(subject: subject, reason: .event(error))) } else { nil }
         } catch {
-            reply.yield(.failure(ApplicationFailure(subject: subject, reason: .event(error))))
+            outcome = .failure(ApplicationFailure(subject: subject, reason: .event(error)))
         }
+        if let outcome { reply.yield(outcome) }
     }
 }
 

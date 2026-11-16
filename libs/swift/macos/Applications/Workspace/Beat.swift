@@ -167,8 +167,7 @@ extension Instance {
 
     func beats(walking walked: @escaping @Sendable (Element) -> Bool, clock: some Clock<Duration> & Sendable) -> some AsyncSequence<InstanceState, Never> & Sendable {
         let (ticks, tick) = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
-        let heartbeats = AsyncStream { (try? await clock.sleep(for: messagingTimeout)).map { true } }
-        return merge(chain([()].async, ticks).map { _ in false }, heartbeats)
+        return merge(chain([()].async, ticks).map { _ in false }, AsyncStream { (try? await clock.sleep(for: messagingTimeout)).map { true } })
             .reductions(Beat()) { last, heartbeat in await self.beat(after: last, walking: walked, heartbeat: heartbeat, ticks: tick) }
             .compactMap(\.state)
             .prefix { state in state[case: \.failed]?.reason.is(\.noProcess) != true }
