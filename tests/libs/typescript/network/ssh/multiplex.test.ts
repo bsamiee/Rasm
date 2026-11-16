@@ -23,7 +23,7 @@ it.layer(Sshd.layer(), { timeout: bounds.started, excludeTestServices: true })('
             const exited = (script: string, options?: ChildProcess.CommandOptions) =>
                 ssh.run(host, ['sh', '-c', script], options).pipe(
                     Effect.as('0'),
-                    Effect.catchReason('SshError', 'Exit', ({ code }) => Effect.succeed(`${code}`)),
+                    Effect.catchReason('SshError', 'Exit', ({ exit }) => Effect.succeed(`${exit.code}`)),
                 );
             const exits = yield* Effect.forEach(statuses, (status) => Effect.all([exited(`exit ${status}`), exited(`exit ${status}`, { env: { SENT: 'sent' } }), exited(`sleep 2; exec > /dev/null 2>&1; sleep 3; exit ${status}`)], { concurrency: 'unbounded' }), {
                 concurrency: 'unbounded',

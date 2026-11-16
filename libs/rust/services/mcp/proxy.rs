@@ -42,9 +42,9 @@ pub enum Phase {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, derive_more::Display, derive_more::IsVariant)]
 #[display(rename_all = "lowercase")]
 #[serde(rename_all = "lowercase")]
-pub enum Era {
-    Legacy,
-    Modern,
+pub enum Lifecycle {
+    Initialize,
+    Discover,
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -56,7 +56,7 @@ pub struct Liveness {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct Retention {
+pub struct IdleTimeout {
     pub ratio: u32,
     pub floor: Duration,
     pub ceiling: Duration,
@@ -69,7 +69,7 @@ pub struct Policy {
     pub handshake: Duration,
     pub probation: Duration,
     pub liveness: Option<Liveness>,
-    pub retention: Retention,
+    pub idle: IdleTimeout,
     pub line: usize,
     pub queue: usize,
 }
@@ -88,8 +88,8 @@ pub struct Key {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Catalog {
-    pub era: Era,
+pub struct Profile {
+    pub lifecycle: Lifecycle,
     pub handshake: Box<RawValue>,
     pub cost: Duration,
     pub askers: BTreeSet<Key>,
@@ -98,7 +98,7 @@ pub struct Catalog {
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct History {
-    pub catalog: Option<Catalog>,
+    pub profile: Option<Profile>,
     pub failures: usize,
     pub cause: Option<Arc<str>>,
     pub until: Option<Timestamp>,
@@ -112,7 +112,7 @@ pub struct Status {
     pub failures: usize,
     pub delay: Duration,
     pub cause: Option<Arc<str>>,
-    pub catalog: Option<Arc<Catalog>>,
+    pub profile: Option<Arc<Profile>>,
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -140,10 +140,10 @@ impl Proxy {
         C: Future<Output = String> + Send,
     {
         let ((events, inbox), (drains, draining), stopping) = (mpsc::channel(policy.queue), mpsc::channel(1), CancellationToken::new());
-        let History { catalog, failures, cause, until } = history;
+        let History { profile, failures, cause, until } = history;
         let delay = until.map(|until| until.duration_since(Timestamp::now())).filter(SignedDuration::is_positive).map_or(Duration::ZERO, SignedDuration::unsigned_abs);
         let phase = if failures == 0 { Phase::Starting } else { Phase::Down };
-        let (status, watched) = watch::channel(Status { phase, failures, delay, cause, catalog: catalog.map(Arc::new), ..Status::default() });
+        let (status, watched) = watch::channel(Status { phase, failures, delay, cause, profile: profile.map(Arc::new), ..Status::default() });
         let in_flight = Arc::new(AtomicUsize::new(0));
         let proxy = Self {
             events,
@@ -213,12 +213,12 @@ impl Proxy {
                 read = lines.next() => match read {
                     Some(Ok(first)) if initializes(&first) => {
                         let (asked, mut answered) = oneshot::channel();
-                        self.events.send(Event::Era(asked)).await.map_err(stopped)?;
+                        self.events.send(Event::Lifecycle(asked)).await.map_err(stopped)?;
                         let mut early = Vec::new();
-                        let era = loop {
+                        let lifecycle = loop {
                             tokio::select! {
                                 biased;
-                                era = &mut answered => break era.map_err(io::Error::other)?,
+                                lifecycle = &mut answered => break lifecycle.map_err(io::Error::other)?,
                                 line = lines.next(), if early.len() < self.queue => match line.transpose()? {
                                     Some(line) => early.push(line),
                                     None => return Ok(()),
@@ -226,7 +226,7 @@ impl Proxy {
                             }
                         };
                         let leading = iter::once(first).chain(early);
-                        if era == Some(Era::Modern) {
+                        if lifecycle == Some(Lifecycle::Discover) {
                             writer.flush().await?;
                             return Box::pin(forward::serve(self, session, stream::iter(leading.map(Ok)).chain(lines), writer.into_inner(), outbound, cut)).await;
                         }

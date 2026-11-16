@@ -1,5 +1,6 @@
 use core::iter;
 use core::time::Duration;
+use std::collections::BTreeMap;
 #[cfg(unix)]
 use std::error::Report;
 #[cfg(unix)]
@@ -80,7 +81,7 @@ impl Usage {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub fn process<I>(provider: &dyn MeterProvider, pids: impl Fn() -> I + Send + Sync + 'static) -> Result<(), sysinfo::Error>
+pub fn process<I>(provider: &dyn MeterProvider, pids: impl Fn() -> I + Send + Sync + 'static) -> Result<impl Fn() -> BTreeMap<u32, u64> + Send + Sync + 'static, sysinfo::Error>
 where I: IntoIterator<Item = u32> {
     fn measured<I, T>(read: &(impl Fn() -> I, Mutex<(System, Vec<(Pid, Usage)>, Option<Instant>)>), measure: impl Fn(&Process, Usage) -> T) -> Vec<(KeyValue, T)>
     where I: IntoIterator<Item = u32> {
@@ -134,7 +135,7 @@ where I: IntoIterator<Item = u32> {
             })
             .build();
     }
-    let lived = Arc::clone(&pids);
+    let (lived, read) = (Arc::clone(&pids), Arc::clone(&pids));
     meter
         .f64_observable_counter(PROCESS_CPU_TIME)
         .with_unit(SECONDS)
@@ -152,5 +153,5 @@ where I: IntoIterator<Item = u32> {
         .with_unit(SECONDS)
         .with_callback(move |observer| measured(&lived, |process, _| Duration::from_secs(process.run_time()).as_secs_f64()).into_iter().for_each(|(pid, seconds)| observer.observe(seconds, &[pid])))
         .build();
-    Ok(())
+    Ok(move || measured(&read, |process, _| (process.pid().as_u32(), process.memory())).into_iter().map(|(_, reading)| reading).collect())
 }

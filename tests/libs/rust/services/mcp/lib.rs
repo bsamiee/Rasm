@@ -9,7 +9,7 @@ use std::process::Stdio;
 use std::sync::Arc;
 
 use futures::{FutureExt as _, StreamExt as _, stream};
-use rasm_mcp::{CompletionRouter, Elicitation, Log, McpError, Progress, ResourceRouter, Router, Routers, Server, Settings, Shared, decode};
+use rasm_mcp::{CompletionRouter, Elicitation, Logging, McpError, Progress, ResourceRouter, Router, Routers, Server, Settings, Shared, decode};
 use rmcp::handler::server::common::Extension;
 use rmcp::handler::server::wrapper::{Json, Parameters};
 use rmcp::model::{
@@ -319,9 +319,9 @@ impl Everything {
     }
 
     #[tool(description = "Tests tool that emits log messages during execution")]
-    async fn test_tool_with_logging(Extension(log): Extension<Log>, context: RequestContext<RoleServer>) -> Result<String, ErrorData> {
+    async fn test_tool_with_logging(Extension(logging): Extension<Logging>, context: RequestContext<RoleServer>) -> Result<String, ErrorData> {
         for message in ["Tool execution started", "Tool processing data", "Tool execution completed"] {
-            log.send(&context, LoggingMessageNotificationParam::new(LoggingLevel::Info, Value::from(message))).await.map_err(|error| ErrorData::internal_error(error.to_string(), None))?;
+            logging.send(&context, LoggingMessageNotificationParam::new(LoggingLevel::Info, Value::from(message))).await.map_err(|error| ErrorData::internal_error(error.to_string(), None))?;
             time::sleep(Duration::from_millis(50)).await;
         }
         Ok("Logging complete".to_owned())

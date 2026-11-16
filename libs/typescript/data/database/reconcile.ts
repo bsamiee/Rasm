@@ -1,6 +1,6 @@
 import { Array, Cause, Effect, Equal, Filter, Function, flow, Graph, HashSet, Match, Option, Order, Record, Result, Schema, Struct } from 'effect';
 import { Digest } from 'effect/crypto';
-import { type SqlClient, SqlSchema, type Statement } from 'effect/sql';
+import { type SqlClient, type SqlError, SqlSchema, type Statement } from 'effect/sql';
 import type { Catalog } from '#/catalog';
 import { Column } from '#/column';
 import type { Engine } from '#/engine';
@@ -74,9 +74,9 @@ const refusals = ({ name: owner, key, references, columns, indexes }: Relation) 
     ];
 };
 
-// --- [RENDERING]
+// --- [DDL]
 
-const rendering = Effect.fnUntraced(function* (sql: SqlClient.SqlClient, engine: Omit<Engine['Service'], 'names'>, catalog: Catalog, declared: Relation) {
+const tableDdl = Effect.fnUntraced(function* (sql: SqlClient.SqlClient, engine: Omit<Engine['Service'], 'names' | 'plan'>, catalog: Catalog, declared: Relation) {
     const { name: owner, key, references, search, tenant, indexes } = declared;
     const quoted = (name: string) => sql`${sql(name)}`;
     const [entries, relation] = [Object.values(declared.columns), quoted(owner)];
@@ -197,7 +197,7 @@ const rendering = Effect.fnUntraced(function* (sql: SqlClient.SqlClient, engine:
         },
     };
 });
-const render = (sql: SqlClient.SqlClient, engine: Omit<Engine['Service'], 'names'>, catalog: Catalog) => Effect.forEach(catalog.tables, (declared) => Effect.map(rendering(sql, engine, catalog, declared), (rendered) => ({ declared, rendered })));
+const catalogDdl = (sql: SqlClient.SqlClient, engine: Omit<Engine['Service'], 'names' | 'plan'>, catalog: Catalog) => Effect.forEach(catalog.tables, (declared) => Effect.map(tableDdl(sql, engine, catalog, declared), (ddl) => ({ declared, ddl })));
 
 // --- [DIFF]
 
@@ -236,17 +236,17 @@ const diff = <L extends Live & { readonly columns: readonly Live[]; readonly ref
     sql: SqlClient.SqlClient,
     engine: Pick<Engine['Service'], 'rename'>,
     catalog: Catalog,
-    rendered: Effect.Success<ReturnType<typeof render>>,
+    ddl: Effect.Success<ReturnType<typeof catalogDdl>>,
     observed: readonly L[],
 ) => {
     const located = claim(
         observed,
         catalog.retired,
-        rendered.map((table) => ({ table, name: table.declared.name, renamedFrom: table.declared.renamedFrom, identity: table.rendered.identity })),
+        ddl.map((table) => ({ table, name: table.declared.name, renamedFrom: table.declared.renamedFrom, identity: table.ddl.identity })),
     );
     const entries = located.found.map(({ item: { table }, row, owned, identity, recorded }) => {
         const live = Option.match(row, { onNone: Array.empty<L['columns'][number]>, onSome: ({ columns }): readonly L['columns'][number][] => columns });
-        const { found, retiring, claimed, renamed: renamedRows } = claim(live, table.declared.retired.columns, table.rendered.definitions);
+        const { found, retiring, claimed, renamed: renamedRows } = claim(live, table.declared.retired.columns, table.ddl.definitions);
         const fields = found.map(({ item: definition, row: present, ...ownership }) => ({ definition, found: present, ...ownership }));
         const renames = renamedRows.map(({ row: current, item }) => ({ from: current.name, to: item.name }));
         const renamed = new Map(renames.map(({ from, to }) => [from, to]));
@@ -275,7 +275,7 @@ const diff = <L extends Live & { readonly columns: readonly Live[]; readonly ref
     );
     const positions = new Map(unordered.map(({ declared }, index) => [declared.name, index]));
     const edges = unordered.flatMap((entry, child) =>
-        Array.filterMap(entry.rendered.links, (link) => {
+        Array.filterMap(entry.ddl.links, (link) => {
             const parent = positions.get(link.target);
             return parent === undefined || parent === child ? Result.failVoid : Result.succeed({ parent, child, link });
         }),
@@ -308,7 +308,7 @@ const diff = <L extends Live & { readonly columns: readonly Live[]; readonly ref
         },
         plan: (
             parts: Record<'preamble' | 'opening' | 'statements' | 'concurrent', readonly Statement.Statement<object>[]> & {
-                readonly session: readonly { readonly name: string; readonly value: string }[];
+                readonly concurrently: Effect.Effect<void, SqlError.SqlError>;
                 readonly findings: readonly Finding[];
                 readonly replaced: readonly string[];
                 readonly populated: readonly string[];
@@ -325,7 +325,7 @@ const diff = <L extends Live & { readonly columns: readonly Live[]; readonly ref
                 }),
                 ...kept.flatMap((row) => row.references.flatMap(({ columns: linked, target }) => findings(row.name, dropped.has(target) ? linked : [], { _tag: 'RetainedReference', target }))),
                 ...matched.flatMap((entry) => {
-                    const declaredLinks = HashSet.fromIterable(entry.rendered.links.map(Struct.get('columns')));
+                    const declaredLinks = HashSet.fromIterable(entry.ddl.links.map(Struct.get('columns')));
                     return entry.live.references
                         .filter(({ columns: linked, target }) => removed.includes(target) && Array.isReadonlyArrayEmpty(Array.intersection(linked, entry.dropping.map(Struct.get('name')))))
                         .map((reference) => ({ ...reference, columns: Array.map(reference.columns, entry.renamed) }))
@@ -339,12 +339,12 @@ const diff = <L extends Live & { readonly columns: readonly Live[]; readonly ref
                 statements: [
                     ...parts.opening,
                     ...removed.map((name) => sql`DROP TABLE ${sql(name)}`),
-                    ...located.renamed.map(({ row, item }) => engine.rename(sql, row.name, item.table.rendered.relation)),
-                    ...matched.flatMap(({ live, rendered: { relation }, renames }) => (parts.replaced.includes(live.name) ? [] : renames.map(({ from, to }) => sql`ALTER TABLE ${relation} RENAME COLUMN ${sql(from)} TO ${sql(to)}`))),
+                    ...located.renamed.map(({ row, item }) => engine.rename(sql, row.name, item.table.ddl.relation)),
+                    ...matched.flatMap(({ live, ddl: { relation }, renames }) => (parts.replaced.includes(live.name) ? [] : renames.map(({ from, to }) => sql`ALTER TABLE ${relation} RENAME COLUMN ${sql(from)} TO ${sql(to)}`))),
                     ...parts.statements,
                 ],
                 concurrent: parts.concurrent,
-                session: parts.session,
+                concurrently: parts.concurrently,
                 undeclared: { tables: kept.map(({ name }) => name), columns: matched.flatMap(({ declared, retained }) => retained.map(({ name }) => ({ table: declared.name, column: name }))), ...parts.undeclared },
             };
             return Effect.as(ReconcileError.raise(all), planned);
@@ -354,4 +354,4 @@ const diff = <L extends Live & { readonly columns: readonly Live[]; readonly ref
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { constant, diff, digest, Identity, identifier, literal, mergeTreeRefusals, methods, referentialActions, refusals, renameTable, render, replacement, Stamp, unmigrated, unsupported };
+export { catalogDdl, constant, diff, digest, Identity, identifier, literal, mergeTreeRefusals, methods, referentialActions, refusals, renameTable, replacement, Stamp, unmigrated, unsupported };

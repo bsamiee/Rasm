@@ -303,7 +303,7 @@ connectrpc          = { version = "0.9.1", features = ["server", "client-tls", "
 prost               = "0.14.4"                                                           # Protobuf message encoding that generated gRPC types derive
 prost-types         = "0.14.4"                                                           # Protobuf well-known types and the descriptor set gRPC reflection serves
 protovalidate-buffa = { version = "0.7.4", features = ["json"] }                         # Protovalidate rules compiled into message validation
-rmcp                = "3.9.0"                                                            # MCP servers and clients over stdio, Unix sockets, child processes, and Streamable HTTP, each consumer naming its roles and transports
+rmcp                = "3.10.0"                                                           # MCP servers and clients over stdio, Unix sockets, child processes, and Streamable HTTP, each consumer naming its roles and transports
 tonic               = { version = "0.14.9", features = ["gzip"] }                        # gRPC servers and clients over HTTP/2 with deadlines, streaming, and the gzip messages Connect clients send by default, `GrpcTimeout` answers CANCELLED after calling and polling its inner service
 tonic-health        = "0.14.9"                                                           # Standard `grpc.health.v1` service with a status reporter per served service
 tonic-prost         = "0.14.9"                                                           # prost codec that generated gRPC clients and servers encode messages with

@@ -8,8 +8,7 @@ import { all, type CustomResourceOptions, getOrganization, getProject, type Inpu
 import { RandomPassword } from '@pulumi/random';
 import { getDeviceOutput } from '@pulumi/tailscale';
 import { Secret } from '@pulumiverse/doppler';
-import { Access } from '@rasm/hosting';
-import { Sites } from '@rasm/hosting/openai-sites';
+import { Access, Identity } from '@rasm/hosting/identity';
 import { Array, Data, Duration, Effect, Function, Option, Record, Schema, Struct } from 'effect';
 import type { configs } from '#/repository-stack';
 
@@ -222,7 +221,7 @@ const hosted = (machine: Machine, { owner }: Data.TaggedEnum.Args<Role, 'Apps'>)
             default_policy: 'one_factor',
             rules: [
                 { domain: wildcard, methods: ['POST', 'PUT', 'PATCH', 'DELETE'], policy: 'one_factor' },
-                { domain: wildcard, resources: [`^${RegExp.escape(Sites.identity.paths.signin)}([?].*)?$`], policy: 'one_factor' },
+                { domain: wildcard, resources: [`^${RegExp.escape(Identity.sites.paths.signin)}([?].*)?$`], policy: 'one_factor' },
                 { domain: wildcard, policy: 'bypass' },
             ],
         },

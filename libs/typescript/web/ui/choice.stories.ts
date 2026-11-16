@@ -8,8 +8,8 @@ import { Choice } from '#/choice.tsx';
 const meta = preview.meta({
     component: Choice,
     args: {
-        label: 'Scale',
-        description: 'Width of the composition',
+        label: 'Size',
+        description: 'Width of the panel',
         options: [
             { id: 'narrow', label: 'Narrow' },
             { id: 'wide', label: 'Wide' },

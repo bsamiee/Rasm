@@ -1,3 +1,4 @@
+import { Enrollment } from '@rasm/hosting/identity';
 import { Array, Option, Result, Schema, SchemaTransformation } from 'effect';
 import { HttpApi, HttpApiClient, HttpApiEndpoint, HttpApiError, HttpApiGroup, HttpApiMiddleware, HttpApiSchema } from 'effect/http-api';
 import { type Asset, AssetId, uploadLimit } from '#/model/asset';
@@ -12,7 +13,7 @@ const uploadField = { asset: 'asset', renditions: 'renditions', file: 'file' } a
 const Recovery = Schema.Struct({ id: AssetId, name: Schema.NonEmptyString, status: Schema.Literals(['incomplete', 'cleanup', 'removing']) });
 const Revision = Schema.TemplateLiteralParser(['"', Schema.Natural, '"']).pipe(Schema.decodeTo(Schema.Natural, SchemaTransformation.transform({ decode: ([, revision]) => revision, encode: (revision) => ['"', revision, '"'] as const })));
 const draftEtag = { 'draft-etag': Revision };
-const Bootstrap = Schema.Struct({ published: PortfolioData, session: Schema.Literals(['owner', 'signedIn', 'signedOut']) });
+const Bootstrap = Schema.Struct({ published: PortfolioData, session: Enrollment.Session });
 const Refusal = Schema.TaggedUnion({
     Order: {},
     Metadata: Schema.StandardSchemaV1FailureResult.fields,

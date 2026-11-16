@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: tsxlang
 severity: error
-ignores: ['.claude/workflows/*.js', '**/extendscript/**', '**/extendscript.ts']
+ignores: ['.claude/workflows/*.js', '**/creative-cloud/*/host.ts', '**/extendscript.ts']
 utils:
     member:
         kind: member_expression, subscript_expression

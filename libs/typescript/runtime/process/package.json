@@ -2,7 +2,7 @@
     "name": "@rasm/process",
     "version": "0.1.0",
     "private": true,
-    "description": "Child process runs over Effect commands: stdout and stderr of a command that exits 0, an ExitError holding its code and output otherwise, its descendants left running",
+    "description": "Child process spawns and runs over Effect commands, each child joining the caller's trace: stdout and stderr of a command that exits 0, an ExitError holding its code and output otherwise, its descendants left running",
     "license": "MIT",
     "repository": {
         "type": "git",
@@ -22,6 +22,9 @@
             ".": "./dist/index.js"
         },
         "access": "public"
+    },
+    "dependencies": {
+        "@rasm/telemetry": "workspace:*"
     },
     "devDependencies": {
         "@types/node": "catalog:",

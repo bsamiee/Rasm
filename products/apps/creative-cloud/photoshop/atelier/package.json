@@ -3,12 +3,17 @@
     "private": true,
     "description": "Atelier Photoshop",
     "type": "module",
+    "imports": {
+        "#/*": "./*.ts"
+    },
+    "exports": {
+        "./contract": "./contract.ts",
+        "./tools": "./tools.ts"
+    },
     "dependencies": {
         "@rasm/atelier-protocol": "workspace:*",
-        "@rasm/automation": "workspace:*",
-        "@rasm/search": "workspace:*",
+        "@rasm/photoshop": "workspace:*",
         "@rasm/uxp": "workspace:*",
-        "acorn": "catalog:",
         "effect": "catalog:"
     },
     "devDependencies": {

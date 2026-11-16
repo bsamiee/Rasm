@@ -1,59 +1,39 @@
 import AppKit
+import AppleEvents
+import ApplicationServer
 import Applications
-import CoreGraphics
+import CoreServices
 import CurrentProcess
-import EffectRPC
 import Encoding
+import Fonts
 import Foundation
+import JSONRPC
 import Logging
 import Results
+import ScreenCapture
 import ServiceLifecycle
 import ServiceManagement
-import Sparkle
 import System
 import Telemetry
 import Tracing
 import UnixSignals
+import Updater
 
-// --- [SERVICES] ------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 
-final class UpdaterDelegate: NSObject, SPUUpdaterDelegate, SPUStandardUserDriverDelegate {
-    var supportsGentleScheduledUpdateReminders: Bool { true }
+private let adobePrefix: String = "com.adobe."
+private let activatingCommands: KeyValuePairs<String, [String]> = [
+    "\(adobePrefix)InDesign": ["UIUIshow", "K2LKrvlO", "K2LKrvlB"],
+    "\(adobePrefix)Acrobat.Pro": ["CARObfrt"],
+    "\(adobePrefix)PremierePro": ["CR8RCRPr"],
+]
 
-    func updater(_: SPUUpdater, willInstallUpdateOnQuit _: SUAppcastItem, immediateInstallationBlock: () -> Void) -> Bool {
-        immediateInstallationBlock()
-        return true
-    }
+// --- [MODELS] --------------------------------------------------------------------------
 
-    func standardUserDriverWillHandleShowingUpdate(_: Bool, forUpdate _: SUAppcastItem, state _: SPUUserUpdateState) {
-        NSApplication.shared.setActivationPolicy(.regular)
-        NSApplication.shared.dockTile.badgeLabel = "1"
-    }
-
-    func standardUserDriverWillFinishUpdateSession() {
-        NSApplication.shared.dockTile.badgeLabel = nil
-        NSApplication.shared.setActivationPolicy(.prohibited)
-    }
+private enum FaceRequest: Decodable, Sendable {
+    case faces
+    case face(name: String)
 }
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
-private func disclaimResponsibility() throws(Errno) {
-    func check(_ status: Int32) throws(Errno) { if status != 0 { throw Errno(rawValue: status) } }
-    guard responsiblePID(getpid()) != getpid() else { return }
-    guard let executable = Bundle.main.executablePath else { throw .noSuchFileOrDirectory }
-    var attributes: posix_spawnattr_t?
-    try check(unsafe posix_spawnattr_init(&attributes))
-    defer { _ = unsafe posix_spawnattr_destroy(&attributes) }
-    try check(unsafe disclaim(&attributes, 1))
-    try check(unsafe posix_spawnattr_setflags(&attributes, Int16(POSIX_SPAWN_SETEXEC)))
-    try check(unsafe posix_spawn(nil, executable, nil, &attributes, CommandLine.unsafeArgv, environ))
-}
-
-@_silgen_name("responsibility_get_pid_responsible_for_pid")
-private func responsiblePID(_: pid_t) -> pid_t
-@_silgen_name("responsibility_spawnattrs_setdisclaim")
-private func disclaim(_: UnsafeMutablePointer<posix_spawnattr_t?>, _: Int32) -> Int32
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -78,27 +58,28 @@ enum Atelier {
                     return
                 }
                 do { try checkAccessibilityTrust(prompting: true) } catch { logger.notice("Started without Accessibility trust", error: error) }
-                if !CGRequestScreenCaptureAccess() { logger.notice("Started without Screen Recording grant") }
-                let definitions = ScriptingDefinitions()
-                let calls = DispatchQueue(label: "Atelier.calls", attributes: .concurrent)
-                let output = DispatchSerialQueue(label: "Atelier.output")
-                let updaterDelegate = UpdaterDelegate()
-                let updater = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: updaterDelegate, userDriverDelegate: updaterDelegate)
-                defer { extendLifetime((updater, updaterDelegate)) }
+                do { try checkCaptureAccess(prompting: true) } catch { logger.notice("Started without Screen Recording grant", error: error) }
+                let updater = Updater(resting: .prohibited)
+                defer { extendLifetime(updater) }
                 var context = InstrumentationContext.topLevel
                 InstrumentationSystem.instrument.extract(ProcessInfo.processInfo.environment, into: &context, using: EnvironmentCarrier())
                 try await cancelWhenGracefulShutdown { [context] in
                     try await InstrumentationContext.withValue(context) {
                         try await serve(
                             reading: FileHandle.standardInput.bytes.jsonLines,
-                            writing: { line in try await withTaskExecutorPreference(output) { try FileHandle.standardOutput.write(contentsOf: line) } },
-                            dropped: { failure in logger.debug("Dropped request", error: failure) },
-                            { (request: HelperRequest) in try await withTaskExecutorPreference(calls) { try await request.perform(definitions: definitions) } },
-                        )
+                            writing: { line in _ = try FileDescriptor.standardOutput.writeAll(line) },
+                            admitting: { NSPredicate(format: "%K BEGINSWITH %@", kMDItemCFBundleIdentifier as String, adobePrefix) },
+                            refusing: { installation in Set(activatingCommands.first { stem, _ in installation.identifier.hasPrefix(stem) }?.value.compactMap(UInt64.init(sdef:)) ?? []) },
+                        ) { (request: FaceRequest) in
+                            switch request {
+                                case .faces: .value(FontFace.available())
+                                case .face(let name): try .value(FontFace(named: name))
+                            }
+                        }
                     }
                 }
             } catch {
-                guard case .cancelled? = (error as? EffectRPCFailure)?.reason else {
+                guard case .cancelled? = (error as? JSONRPCFailure)?.reason else {
                     logger.critical(serving ? "Request serving failed" : "Server agent registration failed", error: error)
                     throw error
                 }

@@ -3,7 +3,7 @@ import { createServer } from 'node:https';
 import { getCACertificates, setDefaultCACertificates } from 'node:tls';
 import { layer, layerHttpServices, layerTest } from '@effect/platform-node/NodeHttpServer';
 import { assert, it } from '@effect/vitest';
-import { Access, Identity, User } from '@rasm/hosting';
+import { Access, Identity, User } from '@rasm/hosting/identity';
 import { Array, Cause, Context, DateTime, Duration, Effect, FileSystem, Function, Layer, Match, Option, Path, type Record, Schema } from 'effect';
 import { Base64Url } from 'effect/encoding';
 import { HttpClient, HttpClientRequest, HttpRouter, HttpServer, HttpServerResponse } from 'effect/http';

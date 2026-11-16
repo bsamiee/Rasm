@@ -7,16 +7,6 @@ import Processes
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 let callerSession: String? = Program.current.settings.string(forKey: "session").flatMap { session in session.isEmpty ? nil : session }
-let dateFormat: Date.ISO8601FormatStyle = .init(includingFractionalSeconds: true)
-let encoder: JSONEncoder = {
-    let encoder = JSONEncoder()
-    encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
-    encoder.dateEncodingStrategy = .custom { date, target in
-        var value = target.singleValueContainer()
-        try value.encode(dateFormat.format(date))
-    }
-    return encoder
-}()
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -45,7 +35,7 @@ enum Event: Encodable {
     case fail(ApplicationFailure)
     case launched(Launched)
     case running(Outline)
-    case captured(Screenshot)
+    case captured(Footage)
 
     private enum Key: CodingKey {
         case fail, launched, running, captured, created, replaced
@@ -60,7 +50,7 @@ enum Event: Encodable {
                 try row.encode(launched.created, forKey: .created)
                 if launched.replaced { try row.encode(true, forKey: .replaced) }
             case .running(let outline): try fields.encode(outline, forKey: .running)
-            case .captured(let screenshot): try fields.encode(screenshot, forKey: .captured)
+            case .captured(let footage): try fields.encode(footage, forKey: .captured)
         }
     }
 }
@@ -78,24 +68,6 @@ struct Tagged<Value: Encodable>: Encodable {
         var fields = encoder.container(keyedBy: Key.self)
         try fields.encode(instance, forKey: .instance)
     }
-}
-
-struct Lifecycle: Encodable {
-    struct Row: Encodable {
-        let instance: ProcessInstance
-        let pid: pid_t
-        let executable: String?
-        let replaced: Bool?
-    }
-
-    let agents: [LaunchAgent]
-    let processes: [Row]
-    let reports: [CrashReport]
-}
-
-struct Screenshot: Encodable {
-    let file: String
-    let number: CGWindowID
 }
 
 struct Outline: Encodable {

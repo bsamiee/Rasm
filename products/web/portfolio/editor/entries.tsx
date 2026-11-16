@@ -1,12 +1,11 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
-import { Choice, Field, ReorderableList } from '@rasm/ui';
+import { Choice, Field, ModalDialog, ReorderableList } from '@rasm/ui';
 import { Array, Optic, Struct } from 'effect';
 import { useState } from 'react';
 import { Button } from 'react-aria-components';
-import { ConfirmDialog } from '#/editor/confirm-dialog.tsx';
 import { draft, portfolio, updateEntry } from '#/editor/state';
 import { Destination, nextDestination, pendingUploads } from '#/editor/uploader';
-import { choiceLayout, entryTitle, format, joinDetails, literalOptions } from '#/media/labels';
+import { choiceLayout, confirmation, entryTitle, format, joinDetails, literalOptions } from '#/media/labels';
 import { Entry, type EntryId } from '#/model/portfolio';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -23,7 +22,7 @@ const EntryList = ({ entries, selected, onSelect, onRemove }: { readonly entries
     };
     return (
         <ReorderableList
-            actions={(keys) => <ConfirmDialog disabled={locked(keys)} label={format.quantity(keys.size, { one: (count) => `Remove ${count} selected entry`, other: (count) => `Remove ${count} selected entries` })} onConfirm={() => remove(keys)} />}
+            actions={(keys) => <ModalDialog.Confirm {...confirmation} isDisabled={locked(keys)} label={format.quantity(keys.size, { one: (count) => `Remove ${count} selected entry`, other: (count) => `Remove ${count} selected entries` })} onConfirm={() => remove(keys)} />}
             aria-label="Projects and studies"
             className="editor-sequence"
             items={entries}
@@ -37,7 +36,7 @@ const EntryList = ({ entries, selected, onSelect, onRemove }: { readonly entries
                         {entryTitle(item)}
                         <span className="meta-line no-underline">{format.quantity(item.compositions.length, { one: (count) => `${count} composition`, other: (count) => `${count} compositions` })}</span>
                     </Button>
-                    <ConfirmDialog disabled={locked(new Set([item.id]))} label="Remove entry" onConfirm={() => remove(new Set([item.id]))} />
+                    <ModalDialog.Confirm {...confirmation} isDisabled={locked(new Set([item.id]))} label="Remove entry" onConfirm={() => remove(new Set([item.id]))} />
                 </div>
             )}
         </ReorderableList>

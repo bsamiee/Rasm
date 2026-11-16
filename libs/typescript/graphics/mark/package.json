@@ -14,20 +14,12 @@
     ],
     "type": "module",
     "sideEffects": false,
-    "imports": {
-        "#/*": "./*.ts"
-    },
     "exports": {
-        ".": "./index.ts",
-        "./paint": "./paint.ts"
+        ".": "./index.ts"
     },
     "publishConfig": {
-        "imports": {
-            "#/*": "./dist/*.js"
-        },
         "exports": {
-            ".": "./dist/index.js",
-            "./paint": "./dist/paint.js"
+            ".": "./dist/index.js"
         },
         "access": "public"
     },

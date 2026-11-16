@@ -35,7 +35,7 @@ class Catalog extends Data.Class<{
     );
     static readonly reconcile = Effect.fn('Catalog.reconcile')(
         (catalog: Catalog, runtime: Option.Option<string> = Option.none()) => converge(catalog, runtime, ({ statements }, engine) => Array.match(statements, { onEmpty: () => Effect.void, onNonEmpty: engine.execute })),
-        Effect.tap(({ concurrent, session }) => Array.match(concurrent, { onEmpty: () => Effect.void, onNonEmpty: (statements) => concurrently(session, statements) })),
+        Effect.tap(Struct.get('concurrently')),
         Effect.map(Struct.get('undeclared')),
     );
     static readonly layer = <A, E, R, M = never, N = never>(catalog: Catalog, engine: Layer.Layer<A | Engine | SqlClient.SqlClient, E, R>, migrator?: Layer.Layer<SqlClient.SqlClient, M, N>) => Layer.effectDiscard(start(catalog, Option.fromUndefinedOr(migrator))).pipe(Layer.provideMerge(engine));
@@ -60,14 +60,6 @@ const converge = Effect.fnUntraced(function* <E, R>(catalog: Catalog, runtime: O
         );
     return yield* engine.transactional ? client.withTransaction(applied) : Effect.catchTag(applied, 'SqlError', converged);
 });
-const concurrently = Effect.fnUntraced(function* (session: readonly { readonly name: string; readonly value: string }[], statements: Array.NonEmptyReadonlyArray<Statement.Statement<object>>) {
-    const sql = yield* SqlClient.SqlClient;
-    const names = session.map(Struct.get('name'));
-    const connection = yield* Effect.acquireRelease(sql.reserve, (reserved) => Effect.orDie(reserved.executeUnprepared(...sql`SELECT set_config(name, reset_val, false) FROM pg_settings WHERE name = ANY(${names})`.compile(true), undefined)));
-    const run = (statement: Statement.Statement<object>) => connection.executeUnprepared(...statement.compile(true), undefined);
-    yield* Effect.forEach(session, ({ name, value }) => run(sql`SELECT set_config(${name}, ${value}, false)`), { discard: true });
-    return yield* Effect.forEach(statements, run, { discard: true });
-}, Effect.scoped);
 const start = Effect.fnUntraced(function* <M, N>(catalog: Catalog, migrator: Option.Option<Layer.Layer<SqlClient.SqlClient, M, N>>) {
     const [engine, client] = yield* Effect.all([Engine, SqlClient.SqlClient]);
     const undeclared = yield* Option.match(migrator, { onNone: () => Catalog.reconcile(catalog), onSome: (layer) => Effect.flatMap(engine.role(client), (role) => Effect.provide(Catalog.reconcile(catalog, Option.some(role)), layer)) });

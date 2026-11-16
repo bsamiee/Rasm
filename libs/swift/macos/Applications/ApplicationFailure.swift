@@ -1,6 +1,7 @@
 public import AppleEvents
 public import ApplicationServices
 public import CasePaths
+public import Encoding
 public import Files
 public import Foundation
 import Processes
@@ -11,7 +12,7 @@ public import System
 
 public struct ApplicationFailure: CustomNSError, Equatable, LocalizedError {
     @CasePathable
-    public enum Reason: Encodable, Equatable, Sendable {
+    public enum Reason: CaseLabeled, Equatable, Sendable {
         case untrusted
         case noCaptureAccess
         case unanswered(ElementAction?)
@@ -38,11 +39,6 @@ public struct ApplicationFailure: CustomNSError, Equatable, LocalizedError {
         case unnamed([URL])
         case unwatched(FileFailure)
         case malformed(String)
-
-        public func encode(to encoder: any Encoder) throws {
-            var label = encoder.singleValueContainer()
-            try label.encode(caseLabel(of: self))
-        }
     }
 
     public let subject: String
@@ -146,10 +142,4 @@ extension ApplicationFailure {
     init(_ error: Errno, process: String) {
         self = Self(subject: process, reason: error == .noSuchProcess ? .noProcess : .system(error))
     }
-}
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
-func caseLabel(of value: some Any) -> String {
-    Mirror(reflecting: value).children.first?.label ?? String(describing: value)
 }

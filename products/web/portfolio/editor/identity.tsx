@@ -1,10 +1,10 @@
 import { useAtomSet } from '@effect/atom-react';
-import { Sites } from '@rasm/hosting/openai-sites';
 import { Field } from '@rasm/ui';
 import { Optic } from 'effect';
 import type { Atom } from 'effect/reactivity';
 import { PlacementFields } from '#/editor/placement-fields.tsx';
 import { draft, hero, portfolio } from '#/editor/state';
+import hosting from '#/hosting.config';
 import { MediaFigure } from '#/media/media-figure.tsx';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -39,7 +39,7 @@ const Identity = ({ idPrefix, onChooseHero, ...state }: Pick<Atom.Success<typeof
                     </PlacementFields>
                 </>
             )}
-            <a className="mt-8.75 text-sm underline" href={Sites.identity.href('signout', '/')} target="_top">
+            <a className="mt-8.75 text-sm underline" href={hosting.identity.href('signout', '/')} target="_top">
                 Sign out
             </a>
         </>

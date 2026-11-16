@@ -66,6 +66,7 @@ interface RowDialect {
         count: number,
     ) => Effect.Effect<readonly SqlConnection.Row[], SqlError.SqlError | Schema.SchemaError | Cause.NoSuchElementError>;
     readonly atomic: <A extends object>(statements: Array.NonEmptyReadonlyArray<Statement.Statement<A>>) => Effect.Effect<Array.NonEmptyReadonlyArray<readonly A[]>, SqlError.SqlError, SqlClient.SqlClient>;
+    readonly tenant?: (sql: SqlClient.SqlClient, setting: string, value: Column['schema']['Encoded']) => Statement.Statement<object>;
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------

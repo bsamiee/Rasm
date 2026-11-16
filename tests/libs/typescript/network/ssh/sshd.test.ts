@@ -1,7 +1,7 @@
 import process from 'node:process';
 import { assert, it } from '@effect/vitest';
 import { Forward, Ssh, SshError } from '@rasm/ssh';
-import { Array, Effect, FileSystem, Option, Path, pipe, Record, Schedule, Schema } from 'effect';
+import { Array, Effect, FileSystem, Option, Path, pipe, Record, Schedule, Schema, Struct } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import { Asked, Reached } from '#/peer';
 import { answered, bounds, callers, connection, greeted, greeting, Master, printed, reached, reasoned, Sshd, served, vacant, within } from '#/sshd';
@@ -20,7 +20,15 @@ it.layer(Sshd.layer(), { timeout: bounds.started, excludeTestServices: true })('
             const host = yield* sshd.hosted('commands');
             const [sent, failed] = yield* Effect.all([ssh.run(host, ['sh', '-c', 'printf "[%s][%s]" "$GREETING" "$SECOND"'], { env: { GREETING: 'two words "quoted"', SECOND: 'second' } }), Effect.flip(ssh.run(host, ['sh', '-c', 'echo printed; echo refused >&2; exit 7']))]);
             assert.strictEqual(sent, '[two words "quoted"][second]');
-            assert.deepStrictEqual(Schema.is(SshError)(failed) ? failed.reason : failed, { _tag: 'Exit', code: 7, stdout: 'printed\n', stderr: 'refused\n' });
+            assert.deepStrictEqual(
+                pipe(
+                    Option.liftPredicate(failed, Schema.is(SshError)),
+                    Option.map(({ reason }) => reason),
+                    Option.filter(SshError.fields.reason.guards.Exit),
+                    Option.map(({ exit }) => Struct.pick(exit, ['code', 'stdout', 'stderr'])),
+                ),
+                Option.some({ code: 7, stdout: 'printed\n', stderr: 'refused\n' }),
+            );
         }),
         bounds.test,
     );

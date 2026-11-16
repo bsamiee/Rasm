@@ -14,9 +14,9 @@
         "@effect/platform-node": "catalog:",
         "@rasm/applications": "workspace:*",
         "@rasm/atelier-protocol": "workspace:*",
-        "@rasm/automation": "workspace:*",
         "@rasm/cep": "workspace:*",
         "@rasm/mcp": "workspace:*",
+        "@rasm/object-model": "workspace:*",
         "@rasm/quran": "workspace:*",
         "@rasm/search": "workspace:*",
         "@rasm/telemetry": "workspace:*",
@@ -27,7 +27,7 @@
         "plist": "catalog:"
     },
     "devDependencies": {
-        "@rasm/atelier-extendscript": "workspace:*",
+        "@rasm/extendscript": "workspace:*",
         "@types/node": "catalog:",
         "vite": "catalog:"
     },

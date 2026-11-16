@@ -1,3 +1,3 @@
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Completion, DisplayDialogs, Envelope, ExecuteScript, HostUrl, Open, Photoshop, Render, Requests, request } from '#/requests';
+export { ExecuteScript, HostSession, ObjectModel, Open, Rasterize, Requests, request, Written } from '#/requests';

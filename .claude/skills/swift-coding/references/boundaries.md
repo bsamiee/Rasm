@@ -183,6 +183,6 @@ Each metadata interpolation states `privacy:` from `Telemetry` by the value it m
 - `Program.current.directory(.state)` names a per-user folder by bundle identifier, `.log`, `.cache`, and `.runtime` alike
 - `OTEL_LOGS_EXPORTER`, `OTEL_METRICS_EXPORTER`, and `OTEL_TRACES_EXPORTER` each start one signal's export, unset registers nothing, and swift-otel reads every other `OTEL_*` variable
 - `withSpan` from `Tracing` wraps a boundary operation, and `EnvironmentCarrier` from `Telemetry` carries `TRACEPARENT` and `TRACESTATE` through a child's environment
-- `serve` from `EffectRPC` opens one server span per request under the envelope's `traceId` and `spanId`
+- `serve` from `JSONRPC` opens one server span per request under the envelope's `traceId` and `spanId`
 - `MetricKitReports` logs each MetricKit `DiagnosticReport` and `MetricReport`, and `metrickitd` registers a client signed with a team identity alone
 - `OSSignposter(subsystem: Program.current.identifier, category:)` marks Instruments intervals: `withIntervalSignpost` around synchronous work, `beginInterval` and `endInterval` across a suspension

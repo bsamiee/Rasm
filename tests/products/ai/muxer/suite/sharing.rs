@@ -65,13 +65,13 @@ async fn racing_first_sessions_all_share() {
     assert_ok!(passed.await, "a failed test keeps its folder");
 }
 
-// --- [ERAS]
+// --- [LIFECYCLES]
 
 #[tokio::test(flavor = "multi_thread")]
-async fn sessions_of_either_era_reach_servers_of_either_era() {
+async fn sessions_of_either_lifecycle_reach_servers_of_either_lifecycle() {
     let passed = scoped(async |isolated: &Isolated| {
         let agent = |marker: &str| Agent { marker: marker.to_owned(), ..Agent::default() };
-        for (server, served) in [([].as_slice(), "modern"), (["--speaks", "legacy"].as_slice(), "legacy")] {
+        for (server, served) in [([].as_slice(), "discover"), (["--speaks", "legacy"].as_slice(), "initialize")] {
             let (old, new) = (agent("old"), agent("new"));
             let (legacy, _) = assert_ok!(spawned(old.clone(), isolated.relay(&[], server), ClientLifecycleMode::Initialize).await);
             let (current, _) = assert_ok!(spawned(new.clone(), isolated.relay(&[], server), modern()).await);
@@ -82,9 +82,9 @@ async fn sessions_of_either_era_reach_servers_of_either_era() {
             assert_eq!(text(&assert_ok!(current.call_tool(assert_ok!(asked())).await)), "new", "{served} server: the discover session answers its own input request");
             assert_ok!(legacy.call_tool(assert_ok!(call("slow", &Slow { millis: 100, steps: 2 }))).await);
             assert_eq!(assert_ok!(reached(&old.progress, 2).await), 2, "{served} server: progress reaches the initialize session");
-            let eras = Vec::from_iter(servers(isolated, &[]).await.into_iter().filter_map(|held| held.era));
-            assert!(eras.iter().any(|era| era == served), "the state report names a {served} server: {eras:?}");
-            assert_eq!(whoami(&legacy, HOME).await.pid, whoami(&current, HOME).await.pid, "{served} server: sessions of both eras share one server process");
+            let lifecycles = Vec::from_iter(servers(isolated, &[]).await.into_iter().filter_map(|held| held.lifecycle));
+            assert!(lifecycles.iter().any(|lifecycle| lifecycle == served), "the state report names a {served} server: {lifecycles:?}");
+            assert_eq!(whoami(&legacy, HOME).await.pid, whoami(&current, HOME).await.pid, "{served} server: sessions of both lifecycles share one server process");
         }
     });
     assert_ok!(passed.await, "a failed test keeps its folder");

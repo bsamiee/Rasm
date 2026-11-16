@@ -51,12 +51,15 @@ class Face extends Schema.Class<Face, { readonly brand: unique symbol }>('Face')
 ) {
     static readonly TATWEEL = 0x6_40;
     static readonly Instance = Schema.Struct({
+        coordinates: Schema.Array(Schema.Finite)
+            .annotate({ description: 'Axis values in fvar order, under variations by tag' })
+            .pipe(Schema.withDecodingDefaultKey(Effect.succeed([])), Schema.withConstructorDefault(Effect.succeed([]))),
         variations: Schema.Record(Settings.Tag, Schema.Finite)
             .annotate({ description: 'Axis values by tag over selected instance, clamped to axis range, absent axes ignored' })
             .pipe(Schema.withDecodingDefaultKey(Effect.succeed({})), Schema.withConstructorDefault(Effect.succeed({}))),
         size: Schema.OptionFromOptionalKey(Schema.Finite.check(Schema.isGreaterThan(0)).annotate({ description: 'Point size for opsz axis, overrides opsz variation' })).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
     });
-    static readonly open = Effect.fn('Face.open')(function* ({ data, postscriptName: selection }: typeof Source.Type, { variations, size }: typeof Face.Instance.Type = Face.Instance.make({})) {
+    static readonly open = Effect.fn('Face.open')(function* ({ data, postscriptName: selection }: typeof Source.Type, { coordinates, variations, size }: typeof Face.Instance.Type = Face.Instance.make({})) {
         const container = yield* Effect.try({ try: () => create(Buffer.from(data.buffer, data.byteOffset, data.byteLength)), catch: TypographyError.unreadable(Option.getOrElse(selection, () => 'default face')) });
         const fonts = yield* Match.value(container).pipe(
             Match.whenOr({ type: 'WOFF' }, { type: 'WOFF2' }, ({ type }) => Effect.fail(TypographyError.unsupported(`${type} container`))),
@@ -81,7 +84,7 @@ class Face extends Schema.Class<Face, { readonly brand: unique symbol }>('Face')
                 ),
         });
         const tables = yield* Schema.decodeUnknownEffect(Tables)(chosen.sfnt, { errors: 'all' });
-        const requested = { ...selectedVariations, ...variations, ...Record.getSomes({ opsz: size }) };
+        const requested = { ...selectedVariations, ...Record.fromEntries(Array.zip(Array.map(chosen.axisInfos, Struct.get('tag')), coordinates)), ...variations, ...Record.getSomes({ opsz: size }) };
         const axes = chosen.axisInfos.map(({ tag, nameId, flags, min, default: fallback, max }) => ({
             tag,
             name: chosen.names.findById(nameId),
@@ -91,13 +94,13 @@ class Face extends Schema.Class<Face, { readonly brand: unique symbol }>('Face')
             value: Number.clamp({ minimum: min, maximum: max })(Option.getOrElse(Record.get(requested, tag), Function.constant(fallback))),
             hidden: (flags & AxisFlags.HIDDEN) !== 0,
         }));
-        const coordinates = Record.fromIterableWith(axes, ({ tag, value }) => [tag, Names.spelled(value)]);
+        const rounded = Record.fromIterableWith(axes, ({ tag, value }) => [tag, Names.spelled(value)]);
         const changed = Record.fromIterableWith(
             axes.filter(({ value, default: fallback }) => Names.spelled(value) !== Names.spelled(fallback)),
             ({ tag, value }) => [tag, value],
         );
         const identity = yield* Option.match(
-            Array.findFirst([...Option.toArray(namedRow), chosen.base, ...chosen.namedInstances], (row) => Equal.equals(Record.map(row.variations, Names.spelled), coordinates)),
+            Array.findFirst([...Option.toArray(namedRow), chosen.base, ...chosen.namedInstances], (row) => Equal.equals(Record.map(row.variations, Names.spelled), rounded)),
             {
                 onNone: () => Effect.map(chosen.names.generated(changed), (postscriptName) => ({ postscriptName, fullName: Option.none<string>(), style: Option.none<string>() })),
                 onSome: ({ names }) => Effect.succeed(names),
@@ -152,6 +155,9 @@ class Face extends Schema.Class<Face, { readonly brand: unique symbol }>('Face')
     }
     sizeRatio(other: Face, metric: { readonly [K in keyof Metrics]: Metrics[K] extends Option.Option<number> ? K : never }[keyof Metrics], codePoint = 0x6_27) {
         return Option.map(Option.all([this.height(codePoint), Option.filter(other.metrics[metric], Number.isGreaterThan(0))]), ([own, matched]) => own / matched);
+    }
+    get kashida() {
+        return Option.isSome(this.tatweel) || this.layout.substitutions.has('jalt');
     }
     get tatweel() {
         return Array.findFirst([...this.extenders.map((glyph) => this.em(this.font.glyphHAdvance(glyph))), ...Option.toArray(this.advance(Face.TATWEEL))], Number.isGreaterThan(0));

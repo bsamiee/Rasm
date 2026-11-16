@@ -1,6 +1,6 @@
 public import AppleEvents
-public import EffectRPC
 public import Foundation
+public import JSONRPC
 import UniformTypeIdentifiers
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -9,6 +9,13 @@ public struct Artifact: Encodable, Sendable {
     public let uri: URL
     public let mimeType: String?
     public let data: Data
+    public let width: Int?
+    public let height: Int?
+
+    init(reading file: URL, width: Int? = nil, height: Int? = nil) throws {
+        (uri, mimeType, data) = (file, try file.resourceValues(forKeys: [.contentTypeKey]).contentType?.preferredMIMEType, try Data(contentsOf: file))
+        (self.width, self.height) = (width, height)
+    }
 }
 
 public struct Executed: Encodable, Sendable {
@@ -17,8 +24,6 @@ public struct Executed: Encodable, Sendable {
 
     public init(reply: AppleEventValue, reading files: [URL]) {
         self.reply = reply
-        artifacts = files.map { file in
-            Outcome(Result { try Artifact(uri: file, mimeType: file.resourceValues(forKeys: [.contentTypeKey]).contentType?.preferredMIMEType, data: Data(contentsOf: file)) })
-        }
+        artifacts = files.map { file in Outcome(Result { try Artifact(reading: file) }) }
     }
 }

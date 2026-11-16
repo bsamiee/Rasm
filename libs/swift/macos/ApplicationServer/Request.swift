@@ -2,9 +2,13 @@ public import AppKit
 public import AppleEvents
 public import Applications
 import CoreServices
-public import EffectRPC
+public import JSONRPC
+import Logging
 public import Processes
 import Results
+public import ScreenCapture
+import Telemetry
+import UniformTypeIdentifiers
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -24,7 +28,16 @@ public enum Request: Decodable, Sendable {
     case terms(url: URL)
     case definition(url: URL, kind: ScriptingDictionary.Kind, name: String)
     case execute(instance: ProcessInstance, command: String, arguments: [String: AppleEventValue], artifacts: [URL])
-    case screenshot(instance: ProcessInstance, window: CGWindowID?, longestSide: Int?, directory: URL)
+    case capture(instance: ProcessInstance, source: Source?, longestSide: Int?, directory: URL)
+}
+
+private enum Served<Extra: Decodable & Sendable>: Decodable, Sendable {
+    case extra(Extra)
+    case request(Request)
+
+    init(from decoder: any Decoder) throws {
+        do { self = .extra(try Extra(from: decoder)) } catch { self = .request(try Request(from: decoder)) }
+    }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -61,7 +74,7 @@ private func running(_ process: ProcessInstance, admitting: () -> NSPredicate) t
 }
 
 extension Request {
-    public func perform(admitting: @escaping @Sendable () -> NSPredicate, refusing: @Sendable (Installation) -> Set<UInt64>, definitions: ScriptingDefinitions) async throws -> Response {
+    func perform(admitting: @escaping @Sendable () -> NSPredicate, refusing: @Sendable (Installation) -> Set<UInt64>, definitions: ScriptingDefinitions) async throws -> Response {
         switch self {
             case .installations(let identifiers, let prefix):
                 return await .stream(
@@ -105,9 +118,41 @@ extension Request {
                 let reply = try await definitions.dictionary(of: scripted)
                     .reply(to: command, arguments: arguments, target: NSAppleEventDescriptor(processIdentifier: process.pid), refusing: refusing(scripted))
                 return .value(Executed(reply: reply, reading: artifacts))
-            case .screenshot(let process, let window, let longestSide, let directory):
-                let shots = try await running(process, admitting: admitting).capturing(into: directory, window: window, longestSide: longestSide)
-                return .value(Dictionary(uniqueKeysWithValues: shots.map { number, shot in (String(number), Outcome(shot)) }))
+            case .capture(let process, let source, let longestSide, let directory):
+                let stills = try await running(process, admitting: admitting)
+                    .capture(source, to: { number in directory.appending(component: String(number)).appendingPathExtension(for: .png) }, longestSide: longestSide)
+                let artifacts = stills.map { number, still in
+                    (String(number), Outcome(Result { try Artifact(reading: still.get().file, width: still.get().width, height: still.get().height) }))
+                }
+                return .value(Dictionary(uniqueKeysWithValues: artifacts))
         }
     }
+}
+
+// --- [COMPOSITION] ---------------------------------------------------------------------
+
+public func serve<Extra: Decodable & Sendable>(
+    reading lines: @autoclosure @escaping @Sendable () -> any AsyncSequence<Data, any Error>,
+    writing write: @escaping @Sendable (Data) throws -> Void,
+    admitting: @escaping @Sendable () -> NSPredicate,
+    refusing: @escaping @Sendable (Installation) -> Set<UInt64>,
+    extending: @escaping @Sendable (Extra) async throws -> Response = { (_: Never) -> Response in },
+) async throws(JSONRPCFailure) {
+    let logger = Logger(label: String(reflecting: Request.self))
+    let definitions = ScriptingDefinitions()
+    let calls = DispatchQueue(label: "\(Request.self).calls", attributes: .concurrent)
+    let output = DispatchSerialQueue(label: "\(Request.self).output")
+    try await JSONRPC.serve(
+        reading: lines(),
+        writing: { line in try await withTaskExecutorPreference(output) { try write(line) } },
+        dropped: { failure in logger.debug("Dropped request", error: failure) },
+        { (served: Served<Extra>) in
+            try await withTaskExecutorPreference(calls) {
+                switch served {
+                    case .extra(let extra): try await extending(extra)
+                    case .request(let request): try await request.perform(admitting: admitting, refusing: refusing, definitions: definitions)
+                }
+            }
+        },
+    )
 }

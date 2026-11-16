@@ -1,6 +1,6 @@
-import { type ExitError, run } from '@rasm/process';
+import { ExitError, run, spawn } from '@rasm/process';
 import { Array, Cache, Context, Duration, Effect, Exit, FileSystem, Layer, Option, Path, pipe, Record, Schema, Stream } from 'effect';
-import { ChildProcess, ChildProcessSpawner } from 'effect/process';
+import { type ChildProcess, ChildProcessSpawner } from 'effect/process';
 import { Forward } from '#/forward';
 import { type Host, Line } from '#/host';
 
@@ -11,12 +11,12 @@ const errored = 255;
 // --- [ERRORS] --------------------------------------------------------------------------
 
 class SshError extends Schema.TaggedError<SshError, { readonly brand: unique symbol }>()('SshError', {
-    reason: Schema.TaggedUnion({ Exit: { code: Schema.Int, stdout: Schema.String, stderr: Schema.String }, Unreachable: { stderr: Schema.String }, Refused: { stderr: Schema.String } }),
+    reason: Schema.TaggedUnion({ Exit: { exit: ExitError }, Unreachable: { stderr: Schema.String }, Refused: { stderr: Schema.String } }),
     subject: Schema.String,
 }) {
     override get message() {
         const outcome = SshError.fields.reason.match(this.reason, {
-            Exit: ({ code, stderr }) => `remote command exited ${code}, read its output: ${stderr}`,
+            Exit: ({ exit }) => `remote command exited ${exit.code}, read its output: ${exit.stderr}`,
             Unreachable: ({ stderr }) => `OpenSSH exited ${errored} with no shared connection (no connection, a lost connection, or a command exiting ${errored} on its own connection), check the host, its dials, and its identity: ${stderr}`,
             Refused: ({ stderr }) => `OpenSSH refused the forward, free its bind end: ${stderr}`,
         });
@@ -29,17 +29,17 @@ class SshError extends Schema.TaggedError<SshError, { readonly brand: unique sym
 class Ssh extends Context.Service<Ssh>()('@rasm/ssh/client/Ssh', {
     make: Effect.fnUntraced(function* (folder: string) {
         const [spawner, fs, path, root] = yield* Effect.all([ChildProcessSpawner.ChildProcessSpawner, FileSystem.FileSystem, Path.Path, Schema.decodeEffect(Line)(folder)]);
-        const started = (words: Array.NonEmptyReadonlyArray<string>, options?: ChildProcess.CommandOptions) => spawner.spawn(commanded(words, options));
-        const captured = (words: Array.NonEmptyReadonlyArray<string>, options?: ChildProcess.CommandOptions) => Effect.provideService(run(words, { extendEnv: true, ...options }), ChildProcessSpawner.ChildProcessSpawner, spawner);
+        const started = (words: Array.NonEmptyReadonlyArray<string>, options?: ChildProcess.CommandOptions) => Effect.provideService(spawn(words, options), ChildProcessSpawner.ChildProcessSpawner, spawner);
+        const captured = (words: Array.NonEmptyReadonlyArray<string>, options?: ChildProcess.CommandOptions) => Effect.provideService(run(words, options), ChildProcessSpawner.ChildProcessSpawner, spawner);
         const checked = (host: Host) =>
             captured(host.request(host.control(path, root), 'check')).pipe(
                 Effect.as(true),
                 Effect.catchTag('ExitError', () => Effect.succeed(false)),
             );
         const settled = (host: Host) =>
-            Effect.fnUntraced(function* ({ code, stdout, stderr }: ExitError) {
-                const reached = code !== errored || (yield* checked(host));
-                return yield* SshError.make({ reason: reached ? { _tag: 'Exit', code, stdout, stderr } : { _tag: 'Unreachable', stderr }, subject: host.name });
+            Effect.fnUntraced(function* (exit: ExitError) {
+                const reached = exit.code !== errored || (yield* checked(host));
+                return yield* SshError.make({ reason: reached ? { _tag: 'Exit', exit } : { _tag: 'Unreachable', stderr: exit.stderr }, subject: host.name });
             });
         const written = Effect.fnUntraced(function* (host: Host, beside: Readonly<Record<string, string>> = {}) {
             const files = Record.toEntries({ ...(yield* Effect.fromResult(host.files(path, root))), ...beside });
@@ -90,10 +90,6 @@ class Ssh extends Context.Service<Ssh>()('@rasm/ssh/client/Ssh', {
 }) {
     static readonly layer = (folder: string) => Layer.effect(this, this.make(folder));
 }
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
-const commanded = (words: Array.NonEmptyReadonlyArray<string>, options?: ChildProcess.CommandOptions) => ChildProcess.make(Array.headNonEmpty(words), Array.tailNonEmpty(words), { extendEnv: true, ...options });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

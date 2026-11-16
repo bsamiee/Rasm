@@ -1,5 +1,5 @@
-import { Predicate, type Record, Schema } from 'effect';
-import { Specifier } from '#/specifier';
+import { Specifier } from '@rasm/object-model';
+import { Schema } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -16,12 +16,7 @@ const Codec: Schema.Codec<Value, Value<typeof Enumerated.Encoded | typeof Locate
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const Value = Object.assign(Codec, {
-    Fields: Schema.Record(Schema.String, Codec),
-    Enumerated,
-    Located,
-    plainObject: (value: unknown): value is Record.ReadonlyRecord<string, unknown> => Predicate.isObject(value) && Object.getPrototypeOf(value) === Object.prototype,
-});
+const Value = Object.assign(Codec, { Fields: Schema.Record(Schema.String, Codec), Enumerated, Located });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

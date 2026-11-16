@@ -8,12 +8,13 @@ import type { Entry } from '#/model/portfolio';
 
 const format = new Format({ locales: 'en' });
 const choiceLayout = { orientation: 'horizontal', radios: 3 } as const;
+const confirmation = { cancel: 'Keep', description: 'Source files stay in library. Published work changes on next publish', trigger: { className: 'button button-ghost' } } as const;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const literalOptions = <const T extends string>(literals: readonly T[]) => literals.map((id) => ({ id, label: String.capitalize(id) }));
 const joinDetails = (parts: readonly (string | undefined)[]) => parts.filter(Predicate.isNotUndefined).join(' · ');
-const sheetLabel = ({ number, label }: typeof Sheet.Type, total: number) => joinDetails([`Sheet ${number} of ${total}`, label]);
+const sheetLabel = ({ number, label }: Pick<typeof Sheet.Type, 'number' | 'label'>, total: number) => joinDetails([`Sheet ${number} of ${total}`, label]);
 const entryTitle = (entry: typeof Entry.Type) => Option.getOrElse(Option.liftPredicate(entry.title, String.isNonEmpty), () => 'Untitled entry');
 const placementTitle = (placement: typeof Placement.Type) => joinDetails([placement.caption ?? placement.asset.name, placement.kind === 'pdf' ? sheetLabel(placement.page, placement.asset.pages.length) : undefined]);
 const placementAlt = (placement: typeof Placement.Type) => placement.alt ?? placementTitle(placement);
@@ -22,4 +23,4 @@ const compositionLabel = (composition: typeof Composition.Type) => format.list(c
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { choiceLayout, compositionLabel, descriptionLabel, entryTitle, format, joinDetails, literalOptions, placementAlt, placementTitle, sheetLabel };
+export { choiceLayout, compositionLabel, confirmation, descriptionLabel, entryTitle, format, joinDetails, literalOptions, placementAlt, placementTitle, sheetLabel };

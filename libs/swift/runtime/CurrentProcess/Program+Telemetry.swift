@@ -81,8 +81,8 @@ extension Program {
 
     private func crashReports(to logger: Logging.Logger) -> ClosureService {
         ClosureService {
-            let since = UserDefaults.standard.object(forKey: "crashReports.since") as? Date ?? .now
-            UserDefaults.standard.set(Date.now, forKey: "crashReports.since")
+            let since = settings.double(forKey: "crashReports.since").map(Date.init(timeIntervalSince1970:)) ?? .now
+            store(Date.now.timeIntervalSince1970, forKey: "crashReports.since")
             let found = CrashReport.reports(since: since) { report in report.bundleIdentifier == identifier }
             for report in found.reports {
                 let fields: [String: Logging.Logger.MetadataValue?] = [

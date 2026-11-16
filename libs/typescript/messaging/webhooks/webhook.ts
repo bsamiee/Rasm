@@ -1,6 +1,6 @@
-import { Array, DateTime, Duration, Effect, Option, pipe, type Redacted, Schema } from 'effect';
+import { Array, DateTime, Duration, Effect, Option, pipe, type Redacted, type Schedule, Schema } from 'effect';
 import { Digest } from 'effect/crypto';
-import { type Headers, HttpClient, HttpClientRequest, HttpClientResponse, HttpServerRequest, HttpServerResponse } from 'effect/http';
+import { type Headers, HttpClient, type HttpClientError, HttpClientRequest, type HttpClientResponse, HttpServerRequest, HttpServerResponse } from 'effect/http';
 import { PersistedQueue } from 'effect/persistence';
 import { Scheme, Stamp, WebhookError } from '#/scheme';
 
@@ -53,7 +53,10 @@ const Webhook = Effect.fn('Webhook')(function* <S extends Schema.Top>({ scheme, 
         }),
         sign,
         request,
-        deliver: (url: string | URL, delivery: Delivery<S['Type']>) => request(url, delivery).pipe(Effect.flatMap(HttpClient.execute), Effect.flatMap(HttpClientResponse.filterStatusOk)),
+        deliver: Effect.fnUntraced(function* <B, ES, R>(url: string | URL, delivery: Delivery<S['Type']>, schedule: Schedule.Schedule<B, HttpClientResponse.HttpClientResponse | HttpClientError.HttpClientError, ES, R>) {
+            const client = yield* HttpClient.HttpClient;
+            return yield* client.pipe(HttpClient.filterStatusOk, HttpClient.retryTransient(schedule)).execute(yield* request(url, delivery));
+        }),
         queued: Effect.fnUntraced(function* <E, R>(options: Omit<Parameters<typeof PersistedQueue.make>[0], 'schema'>, work: (delivery: Delivery<S['Type']>, attempts: number) => Effect.Effect<unknown, E, R>) {
             const queue = yield* PersistedQueue.make({ ...options, schema: payload });
             yield* queue.take((event, { id, attempts }) => work({ id, event }, attempts)).pipe(Effect.ignoreCause({ log: 'Warn', message: `Webhook queue ${options.name} work failed` }), Effect.forever, Effect.forkScoped);

@@ -1,4 +1,5 @@
 import { Rows } from '@rasm/database';
+import { Enrollment } from '@rasm/hosting/identity';
 import { Template } from '@rasm/hosting/template';
 import { Array, Effect, Function, Match, Schema, SchemaGetter, Struct } from 'effect';
 import { HttpRouter } from 'effect/http';
@@ -37,10 +38,10 @@ const readDocument = Effect.fn('readDocument')(
             execute: (requested) =>
                 Effect.flatMap(
                     Effect.all([SqlClient.SqlClient, empty]),
-                    ([sql, body]) => sql`SELECT COALESCE(d.revision, 0) AS revision, json_object('portfolio', json(COALESCE(d.body, ${body})), 'assets', (
+                    ([sql, body]) => sql`SELECT COALESCE(d.revision, 0) AS revision, json_object('portfolio', json(COALESCE(d.body, ${body})), 'assets', json((
                 SELECT json_group_object(a.id, json_set(json_remove(a.body, ${projectedPaths}), '$.id', a.id)) FROM assets a
                 WHERE a.available AND (s.state = 'draft' OR a.id IN (SELECT asset_id FROM (${references(sql)}) WHERE state = s.state))
-            )) AS data
+            ))) AS data
             FROM (SELECT ${requested} AS state) s LEFT JOIN documents d ON d.state = s.state`,
                 ),
         }),
@@ -98,7 +99,7 @@ const page = HttpRouter.add(
     Effect.fn('page')(
         () => Effect.all({ published: Effect.map(readDocument('published'), Struct.get('data')), session: OwnerAccount.session }, { concurrency: 'unbounded' }),
         Effect.flatMap((bootstrap) => Template.render(shell, bootstrap)),
-        Effect.map(OwnerAccount.sessionScoped),
+        Effect.map(Enrollment.unshared),
     ),
 );
 

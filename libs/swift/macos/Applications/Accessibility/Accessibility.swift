@@ -145,17 +145,9 @@ extension AXUIElement {
         (try value(attribute) as [CFTypeRef]? ?? []).compactMap(Self.checked)
     }
 
-    static func window(framed read: Attributes, among listed: [InstanceState.Window]) -> CGWindowID? {
-        guard let origin = AXValue.unpacked(read.values[kAXPositionAttribute], .cgPoint, CGPoint.zero),
-            let size = AXValue.unpacked(read.values[kAXSizeAttribute], .cgSize, CGSize.zero)
-        else { return nil }
-        let framed = listed.filter { row in row.frame == CGRect(origin: origin, size: size) }
-        let shown = framed.filter(\.onScreen)
-        return switch (framed.count, shown.count) {
-            case (1, _): framed.first?.number
-            case (_, 1): shown.first?.number
-            case (_, _): nil
-        }
+    var window: CGWindowID? {
+        var number: CGWindowID = 0
+        return unsafe windowNumber(self, &number) == .success ? number : nil
     }
 
     func actionNames() throws(ApplicationFailure) -> [String] {
@@ -202,3 +194,6 @@ private func remoteToken(_: AXUIElement) -> Unmanaged<CFData>
 
 @_silgen_name("_AXUIElementCreateWithRemoteToken")
 private func remoteElement(_: CFData) -> Unmanaged<AXUIElement>?
+
+@_silgen_name("_AXUIElementGetWindow")
+private func windowNumber(_: AXUIElement, _: UnsafeMutablePointer<CGWindowID>) -> AXError

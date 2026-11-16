@@ -7,6 +7,7 @@ import Encoding
 import Files
 import OrderedCollections
 import Processes
+import ScreenCapture
 import ScreenCaptureKit
 import Subprocess
 import System
@@ -86,13 +87,13 @@ actor Recorder {
     private let hostLogs: URL
     private let longestSide: Int?
     private let timeline: FileDescriptor
-    private var held: [Instance: (recordings: [CGWindowID: Result<WindowRecording, ApplicationFailure>], logging: Task<Void, Never>)] = [:]
+    private var held: [Instance: (recordings: [CGWindowID: Result<Recording, ApplicationFailure>], logging: Task<Void, Never>)] = [:]
     private var tailing: Task<Void, Never>?
     private var observing: Task<Void, Never>?
     private var open: Bool = true
 
     init(folder: URL, longestSide: Int?) throws(ApplicationFailure) {
-        guard CGPreflightScreenCaptureAccess() else { throw ApplicationFailure(subject: ProcessInfo.processInfo.processName, reason: .noCaptureAccess) }
+        try checkCaptureAccess()
         (self.folder, hostLogs, self.longestSide) = (folder, folder.appending(component: "host", directoryHint: .isDirectory), longestSide)
         do {
             try FileManager.default.createDirectory(at: hostLogs, withIntermediateDirectories: true)
@@ -108,10 +109,10 @@ actor Recorder {
     }
 
     nonisolated func append(_ event: Moment.Event, at: Date = .now) {
-        do { try timeline.writeAll(encoder.encodeLine(Moment(at: at, event: event))) } catch { WatchApps.exit(withError: error) }
+        do { try timeline.writeAll(JSONEncoder.lines.encodeLine(Moment(at: at, event: event))) } catch { WatchApps.exit(withError: error) }
     }
 
-    private func file(_ window: CGWindowID, _ type: UTType) -> URL {
+    private nonisolated func file(_ window: CGWindowID, _ type: UTType) -> URL {
         folder.appending(component: "\(window)-\(fileTime.format(.now))").appendingPathExtension(for: type)
     }
 
@@ -145,17 +146,15 @@ actor Recorder {
             let shown = (now?.windows ?? []).filter { window in window.asking || window.description[case: \.element]?.subrole == kAXStandardWindowSubrole }
             let windows = Set(shown.map(\.number))
             let framed = hung ? windows : asked.intersection(windows)
-            let shots = await Result { () async throws(ApplicationFailure) in
-                try await framed.isEmpty ? [:] : instance.screenshots(of: Array(framed), longestSide: longestSide)
+            let frames = await Result { () async throws(ApplicationFailure) in
+                try await framed.isEmpty
+                    ? [:] : instance.capture(.windows(numbers: Array(framed)), to: { window in self.file(window, .png) }, longestSide: longestSide)
             }
-            if case .failure(let failure) = shots { append(.fail(failure)) }
-            for (window, shot) in shots[case: \.success] ?? [:] {
-                do throws(ApplicationFailure) {
-                    let frame = file(window, .png)
-                    try shot.get().write(to: frame)
-                    append(.frame(Footage(file: frame.lastPathComponent, pid: pid, window: window)))
-                } catch {
-                    append(.fail(error))
+            if case .failure(let failure) = frames { append(.fail(failure)) }
+            for (window, still) in frames[case: \.success] ?? [:] {
+                switch still {
+                    case .success(let still): append(.frame(Footage(file: still.file.lastPathComponent, pid: pid, window: window)))
+                    case .failure(let failure): append(.fail(failure))
                 }
             }
             for window in Set(recordings.keys).subtracting(windows) {
@@ -164,7 +163,7 @@ actor Recorder {
             for window in windows.subtracting(recordings.keys) {
                 let movie = file(window, .quickTimeMovie)
                 let started = await Result { () async throws(ApplicationFailure) in
-                    try await instance.recording(of: window, to: movie, longestSide: longestSide) {
+                    try await instance.recording(.windows(numbers: [window]), to: movie, longestSide: longestSide) {
                         let configuration = SCStreamConfiguration.background
                         configuration.minimumFrameInterval = CMTime(value: 1, timescale: framesPerSecond)
                         return configuration

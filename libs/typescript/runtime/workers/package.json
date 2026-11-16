@@ -2,7 +2,7 @@
     "name": "@rasm/workers",
     "version": "0.1.0",
     "private": true,
-    "description": "Cloudflare Workers entry module of an Effect program: one layer built once per isolate and projected into fetch, scheduled, and queue handlers, with the Worker's configuration row and Pulumi deployment",
+    "description": "Cloudflare Workers entry module of an Effect program: one layer built once per isolate and projected into fetch, scheduled, and queue handlers, and a hosted App served as a Worker with its bindings decoded",
     "license": "MIT",
     "repository": {
         "type": "git",
@@ -19,9 +19,8 @@
     },
     "exports": {
         ".": "./runtime/worker.ts",
-        "./config": "./platform/config.ts",
-        "./deploy": "./platform/deploy.ts",
-        "./execution": "./runtime/execution.ts"
+        "./execution": "./runtime/execution.ts",
+        "./serve": "./runtime/serve.ts"
     },
     "publishConfig": {
         "imports": {
@@ -29,9 +28,8 @@
         },
         "exports": {
             ".": "./dist/runtime/worker.js",
-            "./config": "./dist/platform/config.js",
-            "./deploy": "./dist/platform/deploy.js",
-            "./execution": "./dist/runtime/execution.js"
+            "./execution": "./dist/runtime/execution.js",
+            "./serve": "./dist/runtime/serve.js"
         },
         "access": "public"
     },
@@ -39,32 +37,17 @@
         "@rasm/telemetry": "workspace:*"
     },
     "devDependencies": {
-        "@cloudflare/build-output-utils": "catalog:",
         "@cloudflare/workers-types": "catalog:",
-        "@pulumi/cloudflare": "catalog:",
-        "@pulumi/pulumi": "catalog:",
+        "@rasm/hosting": "workspace:*",
         "@types/node": "catalog:",
-        "cf": "catalog:",
         "effect": "catalog:"
     },
     "peerDependencies": {
-        "@cloudflare/build-output-utils": "catalog:peers",
-        "@pulumi/cloudflare": "catalog:peers",
-        "@pulumi/pulumi": "catalog:peers",
-        "cf": "catalog:peers",
+        "@rasm/hosting": "workspace:*",
         "effect": "catalog:peers"
     },
     "peerDependenciesMeta": {
-        "@cloudflare/build-output-utils": {
-            "optional": true
-        },
-        "@pulumi/cloudflare": {
-            "optional": true
-        },
-        "@pulumi/pulumi": {
-            "optional": true
-        },
-        "cf": {
+        "@rasm/hosting": {
             "optional": true
         }
     }

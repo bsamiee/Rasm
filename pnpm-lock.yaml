@@ -741,6 +741,9 @@ importers:
       '@effect/platform-node':
         specifier: 'catalog:'
         version: 4.1.4(effect@4.1.4)(redis@6.4.0-beta.0(@opentelemetry/api@1.10.0))
+      '@opentelemetry/semantic-conventions':
+        specifier: 'catalog:'
+        version: 1.45.0
       '@rasm/search':
         specifier: workspace:*
         version: link:../../data/search
@@ -755,45 +758,36 @@ importers:
         specifier: 'catalog:'
         version: 4.1.4
 
-  libs/typescript/creative-cloud/automation:
+  libs/typescript/creative-cloud/aftereffects:
     dependencies:
-      '@rasm/search':
+      '@rasm/extendscript':
         specifier: workspace:*
-        version: link:../../data/search
+        version: link:../extendscript
+      '@rasm/object-model':
+        specifier: workspace:*
+        version: link:../object-model
     devDependencies:
-      '@types/node':
+      types-for-adobe:
         specifier: 'catalog:'
-        version: 26.6.6
-      effect:
-        specifier: 'catalog:'
-        version: 4.1.4
-      vite:
-        specifier: 'catalog:'
-        version: 8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2)
+        version: 7.2.6
 
   libs/typescript/creative-cloud/cep:
     dependencies:
       '@effect/platform-node':
         specifier: 'catalog:'
         version: 4.1.4(effect@4.1.4)(redis@6.4.0-beta.0(@opentelemetry/api@1.10.0))
-      '@rasm/automation':
+      '@rasm/extendscript':
         specifier: workspace:*
-        version: link:../automation
-      '@rasm/mark':
+        version: link:../extendscript
+      '@rasm/object-model':
         specifier: workspace:*
-        version: link:../../graphics/mark
+        version: link:../object-model
+      '@rasm/search':
+        specifier: workspace:*
+        version: link:../../data/search
       '@rasm/telemetry':
         specifier: workspace:*
         version: link:../../runtime/telemetry
-      '@swc/wasm':
-        specifier: 'catalog:'
-        version: 1.16.22
-      acorn:
-        specifier: 'catalog:'
-        version: 8.19.0
-      acorn-walk:
-        specifier: 'catalog:'
-        version: 8.3.5
       cheerio:
         specifier: 'catalog:'
         version: 1.2.0
@@ -820,11 +814,52 @@ importers:
         specifier: 'catalog:'
         version: 8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2)
 
+  libs/typescript/creative-cloud/extendscript:
+    dependencies:
+      '@rasm/object-model':
+        specifier: workspace:*
+        version: link:../object-model
+      '@rasm/search':
+        specifier: workspace:*
+        version: link:../../data/search
+      '@swc/wasm':
+        specifier: 'catalog:'
+        version: 1.16.22
+      acorn:
+        specifier: 'catalog:'
+        version: 8.19.0
+      acorn-walk:
+        specifier: 'catalog:'
+        version: 8.3.5
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.6
+      effect:
+        specifier: 'catalog:'
+        version: 4.1.4
+      vite:
+        specifier: 'catalog:'
+        version: 8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2)
+
+  libs/typescript/creative-cloud/illustrator:
+    dependencies:
+      '@rasm/extendscript':
+        specifier: workspace:*
+        version: link:../extendscript
+      '@rasm/object-model':
+        specifier: workspace:*
+        version: link:../object-model
+    devDependencies:
+      types-for-adobe:
+        specifier: 'catalog:'
+        version: 7.2.6
+
   libs/typescript/creative-cloud/indesign:
     dependencies:
-      '@rasm/automation':
+      '@rasm/object-model':
         specifier: workspace:*
-        version: link:../automation
+        version: link:../object-model
       '@rasm/search':
         specifier: workspace:*
         version: link:../../data/search
@@ -848,6 +883,41 @@ importers:
         specifier: 'catalog:'
         version: 1.0.0(@adobe/cc-ext-uxp-types@7.3.1)
 
+  libs/typescript/creative-cloud/object-model:
+    dependencies:
+      '@rasm/search':
+        specifier: workspace:*
+        version: link:../../data/search
+    devDependencies:
+      effect:
+        specifier: 'catalog:'
+        version: 4.1.4
+
+  libs/typescript/creative-cloud/photoshop:
+    dependencies:
+      '@rasm/object-model':
+        specifier: workspace:*
+        version: link:../object-model
+      '@rasm/search':
+        specifier: workspace:*
+        version: link:../../data/search
+      '@rasm/uxp':
+        specifier: workspace:*
+        version: link:../uxp
+    devDependencies:
+      '@adobe-uxp-types/photoshop':
+        specifier: 'catalog:'
+        version: 0.1.8(@adobe-uxp-types/uxp@0.1.4)
+      '@adobe-uxp-types/uxp':
+        specifier: 'catalog:'
+        version: 0.1.4
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.6
+      effect:
+        specifier: 'catalog:'
+        version: 4.1.4
+
   libs/typescript/creative-cloud/uxp:
     dependencies:
       '@effect/platform-node':
@@ -856,19 +926,31 @@ importers:
       '@exodus/bytes':
         specifier: 'catalog:'
         version: 1.16.0
-      '@rasm/automation':
-        specifier: workspace:*
-        version: link:../automation
       '@rasm/mark':
         specifier: workspace:*
         version: link:../../graphics/mark
+      '@rasm/object-model':
+        specifier: workspace:*
+        version: link:../object-model
       '@rasm/telemetry':
         specifier: workspace:*
         version: link:../../runtime/telemetry
+      acorn:
+        specifier: 'catalog:'
+        version: 8.19.0
+      culori:
+        specifier: 'catalog:'
+        version: 4.0.2
+      jsonc-parser:
+        specifier: 'catalog:'
+        version: 4.0.0-next.2
     devDependencies:
       '@adobe-uxp-types/uxp':
         specifier: 'catalog:'
         version: 0.1.4
+      '@types/culori':
+        specifier: 'catalog:'
+        version: 4.0.1
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6
@@ -1044,6 +1126,10 @@ importers:
         version: 4.1.4
 
   libs/typescript/runtime/process:
+    dependencies:
+      '@rasm/telemetry':
+        specifier: workspace:*
+        version: link:../telemetry
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -1121,24 +1207,15 @@ importers:
         specifier: workspace:*
         version: link:../telemetry
     devDependencies:
-      '@cloudflare/build-output-utils':
-        specifier: 'catalog:'
-        version: 0.9.12
       '@cloudflare/workers-types':
         specifier: 'catalog:'
         version: 5.20261110.1
-      '@pulumi/cloudflare':
-        specifier: 'catalog:'
-        version: 6.25.0-alpha.1794552096(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
-      '@pulumi/pulumi':
-        specifier: 3.277.0-alpha.xba20e30
-        version: 3.277.0-alpha.xba20e30(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
+      '@rasm/hosting':
+        specifier: workspace:*
+        version: link:../../web/hosting
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6
-      cf:
-        specifier: 'catalog:'
-        version: 1.0.0-beta.32(@types/node@26.6.6)
       effect:
         specifier: 'catalog:'
         version: 4.1.4
@@ -1149,6 +1226,9 @@ importers:
         specifier: 'catalog:'
         version: 1.0.9
     devDependencies:
+      '@cloudflare/build-output-utils':
+        specifier: 'catalog:'
+        version: 0.9.12
       '@effect/platform-node':
         specifier: 'catalog:'
         version: 4.1.4(effect@4.1.4)(redis@6.4.0-beta.0(@opentelemetry/api@1.10.0))
@@ -1164,9 +1244,9 @@ importers:
       '@rasm/mark':
         specifier: workspace:*
         version: link:../../graphics/mark
-      '@rasm/workers':
+      '@rasm/telemetry':
         specifier: workspace:*
-        version: link:../../runtime/workers
+        version: link:../../runtime/telemetry
       '@types/culori':
         specifier: 'catalog:'
         version: 4.0.1
@@ -1212,6 +1292,9 @@ importers:
       '@use-gesture/react':
         specifier: 'catalog:'
         version: 10.3.1(react@19.3.1)
+      lucide-react:
+        specifier: 'catalog:'
+        version: 1.70.0(@types/react@19.3.0)(react@19.3.1)
       vite-plugin-static-copy:
         specifier: 'catalog:'
         version: 4.1.1(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))
@@ -1234,6 +1317,12 @@ importers:
       react:
         specifier: 'catalog:'
         version: 19.3.1
+      react-aria-components:
+        specifier: 'catalog:'
+        version: 3.0.0-nightly-99e610236-261006(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+      react-zoom-pan-pinch:
+        specifier: 'catalog:'
+        version: 4.2.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       vite:
         specifier: 'catalog:'
         version: 8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2)
@@ -1317,9 +1406,9 @@ importers:
 
   products/apps/creative-cloud/aftereffects/atelier:
     dependencies:
-      '@rasm/atelier-extendscript':
+      '@rasm/aftereffects':
         specifier: workspace:*
-        version: link:../../multi-app/atelier/extendscript
+        version: link:../../../../../libs/typescript/creative-cloud/aftereffects
       '@rasm/atelier-protocol':
         specifier: workspace:*
         version: link:../../multi-app/atelier/protocol
@@ -1339,15 +1428,15 @@ importers:
 
   products/apps/creative-cloud/illustrator/atelier:
     dependencies:
-      '@rasm/atelier-extendscript':
-        specifier: workspace:*
-        version: link:../../multi-app/atelier/extendscript
       '@rasm/atelier-protocol':
         specifier: workspace:*
         version: link:../../multi-app/atelier/protocol
       '@rasm/cep':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/creative-cloud/cep
+      '@rasm/illustrator':
+        specifier: workspace:*
+        version: link:../../../../../libs/typescript/creative-cloud/illustrator
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -1364,12 +1453,15 @@ importers:
       '@rasm/atelier-protocol':
         specifier: workspace:*
         version: link:../../multi-app/atelier/protocol
-      '@rasm/automation':
-        specifier: workspace:*
-        version: link:../../../../../libs/typescript/creative-cloud/automation
       '@rasm/indesign':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/creative-cloud/indesign
+      '@rasm/mcp':
+        specifier: workspace:*
+        version: link:../../../../../libs/typescript/ai/mcp
+      '@rasm/object-model':
+        specifier: workspace:*
+        version: link:../../../../../libs/typescript/creative-cloud/object-model
       '@rasm/search':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/data/search
@@ -1407,15 +1499,15 @@ importers:
       '@rasm/atelier-protocol':
         specifier: workspace:*
         version: link:protocol
-      '@rasm/automation':
-        specifier: workspace:*
-        version: link:../../../../../libs/typescript/creative-cloud/automation
       '@rasm/cep':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/creative-cloud/cep
       '@rasm/mcp':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/ai/mcp
+      '@rasm/object-model':
+        specifier: workspace:*
+        version: link:../../../../../libs/typescript/creative-cloud/object-model
       '@rasm/quran':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/data/quran
@@ -1441,82 +1533,48 @@ importers:
         specifier: 'catalog:'
         version: 5.1.1
     devDependencies:
-      '@rasm/atelier-extendscript':
+      '@rasm/extendscript':
         specifier: workspace:*
-        version: link:extendscript
+        version: link:../../../../../libs/typescript/creative-cloud/extendscript
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6
       vite:
         specifier: 'catalog:'
         version: 8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2)
-
-  products/apps/creative-cloud/multi-app/atelier/extendscript:
-    devDependencies:
-      '@rasm/atelier-protocol':
-        specifier: workspace:*
-        version: link:../protocol
-      '@rasm/automation':
-        specifier: workspace:*
-        version: link:../../../../../../libs/typescript/creative-cloud/automation
-      types-for-adobe:
-        specifier: 'catalog:'
-        version: 7.2.6
 
   products/apps/creative-cloud/multi-app/atelier/protocol:
     dependencies:
       '@rasm/applications':
         specifier: workspace:*
         version: link:../../../../../../libs/typescript/macos/applications
-      '@rasm/automation':
-        specifier: workspace:*
-        version: link:../../../../../../libs/typescript/creative-cloud/automation
       '@rasm/cep':
         specifier: workspace:*
         version: link:../../../../../../libs/typescript/creative-cloud/cep
-      '@rasm/indesign':
+      '@rasm/extendscript':
         specifier: workspace:*
-        version: link:../../../../../../libs/typescript/creative-cloud/indesign
+        version: link:../../../../../../libs/typescript/creative-cloud/extendscript
+      '@rasm/object-model':
+        specifier: workspace:*
+        version: link:../../../../../../libs/typescript/creative-cloud/object-model
       '@rasm/search':
         specifier: workspace:*
         version: link:../../../../../../libs/typescript/data/search
-      '@rasm/typography':
-        specifier: workspace:*
-        version: link:../../../../../../libs/typescript/graphics/typography
-      '@rasm/uxp':
-        specifier: workspace:*
-        version: link:../../../../../../libs/typescript/creative-cloud/uxp
       effect:
         specifier: 'catalog:'
         version: 4.1.4
-      jsonc-parser:
-        specifier: 'catalog:'
-        version: 4.0.0-next.2
-    devDependencies:
-      '@types/node':
-        specifier: 'catalog:'
-        version: 26.6.6
-      vite:
-        specifier: 'catalog:'
-        version: 8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2)
 
   products/apps/creative-cloud/photoshop/atelier:
     dependencies:
       '@rasm/atelier-protocol':
         specifier: workspace:*
         version: link:../../multi-app/atelier/protocol
-      '@rasm/automation':
+      '@rasm/photoshop':
         specifier: workspace:*
-        version: link:../../../../../libs/typescript/creative-cloud/automation
-      '@rasm/search':
-        specifier: workspace:*
-        version: link:../../../../../libs/typescript/data/search
+        version: link:../../../../../libs/typescript/creative-cloud/photoshop
       '@rasm/uxp':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/creative-cloud/uxp
-      acorn:
-        specifier: 'catalog:'
-        version: 8.19.0
       effect:
         specifier: 'catalog:'
         version: 4.1.4
@@ -1924,9 +1982,9 @@ importers:
       '@rasm/hosting':
         specifier: workspace:*
         version: link:../../../libs/typescript/web/hosting
-      '@rasm/telemetry':
+      '@rasm/infra':
         specifier: workspace:*
-        version: link:../../../libs/typescript/runtime/telemetry
+        version: link:../../../infra
       '@rasm/webhooks':
         specifier: workspace:*
         version: link:../../../libs/typescript/messaging/webhooks
@@ -2250,6 +2308,9 @@ importers:
       '@octokit/webhooks-methods':
         specifier: 'catalog:'
         version: 6.0.0
+      '@rasm/testing':
+        specifier: workspace:*
+        version: link:../../../../support/typescript
       '@rasm/webhooks':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/messaging/webhooks
@@ -2313,15 +2374,9 @@ importers:
       '@cloudflare/workers-types':
         specifier: 'catalog:'
         version: 5.20261110.1
-      '@effect/platform-node':
-        specifier: 'catalog:'
-        version: 4.1.4(effect@4.1.4)(redis@6.4.0-beta.0(@opentelemetry/api@1.10.0))
       '@effect/vitest':
         specifier: 'catalog:'
         version: 4.1.4(effect@4.1.4)(vitest@5.1.0)
-      '@pulumi/pulumi':
-        specifier: 3.277.0-alpha.xba20e30
-        version: 3.277.0-alpha.xba20e30(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
       '@rasm/workers':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/runtime/workers
@@ -2349,6 +2404,9 @@ importers:
       '@effect/vitest':
         specifier: 'catalog:'
         version: 4.1.4(effect@4.1.4)(vitest@5.1.0)
+      '@pulumi/pulumi':
+        specifier: 3.277.0-alpha.xba20e30
+        version: 3.277.0-alpha.xba20e30(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
       '@rasm/hosting':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/web/hosting

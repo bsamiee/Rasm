@@ -4,12 +4,13 @@
     "description": "Atelier Illustrator",
     "type": "module",
     "exports": {
-        "./extendscript": "./extendscript.ts"
+        "./extendscript": "./extendscript.ts",
+        "./tools": "./tools.ts"
     },
     "dependencies": {
-        "@rasm/atelier-extendscript": "workspace:*",
         "@rasm/atelier-protocol": "workspace:*",
-        "@rasm/cep": "workspace:*"
+        "@rasm/cep": "workspace:*",
+        "@rasm/illustrator": "workspace:*"
     },
     "devDependencies": {
         "@types/node": "catalog:",

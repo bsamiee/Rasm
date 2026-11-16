@@ -57,17 +57,17 @@ extension Instance {
         if !heartbeat || next.tokens != tokens || next.numbers != numbers {
             let helper = application.isDialogHelper
             let elements = try AXUIElement.candidates(read).map { candidate throws(ApplicationFailure) in
-                try candidate.described(walking: walked, helper: helper, among: listed)
+                try candidate.described(walking: walked, helper: helper, among: numbers)
             }
             .compactMap(\.self)
             next.described = Dictionary(elements.compactMap { row in row.window.map { window in (window, row.element) } }) { first, second in first.asking ? first : second }
             let bars = try element.required(menuBars)
             let barred = try menuBars.enumerated().map { index, bar throws(ApplicationFailure) in
-                try bars.values[bar].flatMap(AXUIElement.checked)?.described(walking: walked, helper: helper, among: listed, bar: index)?.element
+                try bars.values[bar].flatMap(AXUIElement.checked)?.described(walking: walked, helper: helper, among: numbers, bar: index)?.element
             }
             .compactMap(\.self)
             next.menus =
-                try barred + element.applicationMenus().map { menu throws(ApplicationFailure) in try menu.described(walking: walked, helper: helper, among: listed)?.element }.compactMap(\.self)
+                try barred + element.applicationMenus().map { menu throws(ApplicationFailure) in try menu.described(walking: walked, helper: helper, among: numbers)?.element }.compactMap(\.self)
         }
         let status: InstanceState.Running.Status = application.isFinishedLaunching || next.described.values.contains(where: \.asking) ? .responding : .launching
         next.status = status

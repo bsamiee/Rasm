@@ -1,16 +1,16 @@
 import { assert, describe, it } from '@effect/vitest';
 import { Client, Server } from '@rasm/mcp';
-import { Array, Duration, Effect, Layer, MutableRef, Option, Queue, Schema, SubscriptionRef } from 'effect';
+import { Array, Effect, Layer, MutableRef, Option, Queue, Schema, SubscriptionRef } from 'effect';
 import { McpClient, McpProtocol, McpTest } from 'effect/ai';
 import { FetchHttpClient } from 'effect/http';
-import { ENDPOINT, MANIFEST, opened, STATEFUL } from '#/conformance';
+import { ENDPOINT, EXECUTIONS, MANIFEST, opened, STATEFUL } from '#/conformance';
 import { app, Probe } from '#/fixtures';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const connected = Effect.fnUntraced(function* (protocol: (typeof STATEFUL)[number]) {
     const [probe, scheme] = yield* Effect.all([Probe.make, Schema.decodeEffect(Server.Scheme)(MANIFEST.name)]);
-    const client = yield* McpTest.makeClient(Layer.provide(app(probe), Server.layer({ scheme, retention: Duration.minutes(1) })), { protocols: [protocol] });
+    const client = yield* McpTest.makeClient(Layer.provide(app(probe), Server.layer({ scheme, executions: EXECUTIONS })), { protocols: [protocol] });
     yield* Effect.addFinalizer(() => probe.release.open);
     const updated = Queue.take(client.notifications).pipe(
         Effect.repeat({ until: ({ method }) => method === 'notifications/resources/updated' }),

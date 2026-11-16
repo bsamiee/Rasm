@@ -1,3 +1,4 @@
+import { Inspection } from '@rasm/media';
 import { Match } from 'effect';
 import { useInView } from 'motion/react';
 import { lazy, type RefObject, Suspense, useEffect, useRef, useState } from 'react';
@@ -7,10 +8,6 @@ import { MediaFailure, MediaLoading } from '#/media/status.tsx';
 import { assetUrl } from '#/model/api';
 import type { ImageAsset } from '#/model/asset';
 import type { Placement } from '#/model/placement';
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
-const imageSourceSet = (asset: ImageAsset) => asset.renditions && [...asset.renditions.map(({ width: rendition }) => `${assetUrl(asset, rendition)} ${rendition}w`), `${assetUrl(asset)} ${asset.width}w`].join(', ');
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -40,7 +37,7 @@ const MediaElement = ({ placement, active, priority, presentation, layoutId, vie
             () => <MediaFailure asset={placement.asset} message={placement.kind === 'video' ? 'Video failed to play' : 'Image failed to load'} onRetry={() => setAttempt(({ count }) => ({ count: count + 1, failed: false }))} />,
         ),
         Match.when({ kind: 'video', poster: (poster: ImageAsset | undefined): poster is ImageAsset => thumbnail && poster !== undefined }, ({ poster, asset: { width, height } }) => (
-            <img alt={label} className="block size-full object-contain" decoding="async" height={height} loading="lazy" sizes="auto, 100vw" src={assetUrl(poster)} srcSet={imageSourceSet(poster)} width={width} />
+            <img alt={label} className="block size-full object-contain" decoding="async" height={height} loading="lazy" sizes="auto, 100vw" src={assetUrl(poster)} srcSet={Inspection.sourceSet(poster, (rendition) => assetUrl(poster, rendition))} width={width} />
         )),
         Match.discriminatorsExhaustive('kind')({
             pdf: (sheet) => (
@@ -70,7 +67,7 @@ const MediaElement = ({ placement, active, priority, presentation, layoutId, vie
                     onError={fail}
                     sizes={eager ? '100vw' : 'auto, 100vw'}
                     src={url}
-                    srcSet={expanded ? undefined : imageSourceSet(image.asset)}
+                    srcSet={expanded ? undefined : Inspection.sourceSet(image.asset, (rendition) => assetUrl(image.asset, rendition))}
                     width={image.asset.width}
                 />
             ),

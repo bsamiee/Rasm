@@ -26,6 +26,7 @@ rule:
     kind: variable_declarator
     all:
         - inside: { matches: typescript-module-constant }
+        - not: { has: { field: type, kind: type_annotation } }
         - has: { field: name, kind: identifier, pattern: $NAME }
         - has:
               field: value

@@ -1,7 +1,9 @@
+/* oxlint-disable typescript/no-deprecated -- the MCP and GenAI names moved to the GenAI semantic-conventions repository, which publishes no npm package, with values unchanged */
+import { ATTR_ERROR_TYPE, ATTR_GEN_AI_OPERATION_NAME, ATTR_GEN_AI_PROMPT_NAME, ATTR_GEN_AI_TOOL_NAME, ATTR_MCP_METHOD_NAME, ATTR_MCP_RESOURCE_URI, ERROR_TYPE_VALUE_OTHER, GEN_AI_OPERATION_NAME_VALUE_EXECUTE_TOOL, METRIC_MCP_SERVER_OPERATION_DURATION } from '@opentelemetry/semantic-conventions/incubating';
 import { Unmatched } from '@rasm/search';
 import { Array, Cause, Context, Deferred, Duration, Effect, type Exit, Fiber, Function, Layer, Match, Metric, Option, pipe, Record, Ref, Schema, SchemaGetter, type Scope, Stream, Struct, UndefinedOr } from 'effect';
-import { McpProtocol, McpSchema, McpServer, Tool, Toolkit } from 'effect/ai';
-import { Headers, HttpRouter, HttpServerRequest, HttpServerResponse } from 'effect/http';
+import { type McpProtocol, McpSchema, McpServer, Tool, Toolkit } from 'effect/ai';
+import { HttpRouter, HttpServerRequest, HttpServerResponse } from 'effect/http';
 import { Host, NetAddress } from 'effect/net';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -42,11 +44,11 @@ class Server extends Context.Service<Server, { readonly uri: (path: string) => s
         const toolkit = Toolkit.make(Tool.make(tool.name, { description: Tool.getDescription(tool), parameters, success, failure: Schema.ErrorInstance() }).annotateMerge(tool.annotations));
         yield* McpServer.registerToolkit(toolkit).pipe(Effect.provide(toolkit.toLayer({ [tool.name]: Function.identity })));
     });
-    static readonly layer = ({ scheme, retention }: { readonly scheme: typeof Server.Scheme.Type; readonly retention: Duration.Duration }) =>
+    static readonly layer = ({ scheme, executions: settings }: { readonly scheme: typeof Server.Scheme.Type; readonly executions: { readonly name: string; readonly description: string; readonly retention: Duration.Duration } }) =>
         Layer.effect(McpServer.McpServer)(
             Effect.gen(function* () {
                 const [{ uri }, server, scope] = yield* Effect.all([Server, McpServer.McpServer, Effect.scope]);
-                const history = yield* executions(uri, retention, server, scope);
+                const history = yield* executions({ ...settings, uri: uri(settings.name) }, server, scope);
                 yield* Layer.build(metered.layerGlobal);
                 return McpServer.McpServer.of({
                     ...server,
@@ -56,41 +58,21 @@ class Server extends Context.Service<Server, { readonly uri: (path: string) => s
                 });
             }),
         ).pipe(Layer.provideMerge(Layer.succeed(Server)({ uri: (path) => `${scheme}://${path}` })));
-    static readonly layerHttp = <E, R>(
-        manifest: { readonly name: typeof Server.Scheme.Type; readonly version: string; readonly description: string },
-        options: { readonly address: Host.HostPort; readonly hosts: readonly string[]; readonly retention: Duration.Duration; readonly instructions: readonly string[] },
-        app: Layer.Layer<never, E, R>,
-    ) => {
-        const allowed = new Set([...options.hosts, 'localhost', ...NetAddress.loopbackAddresses.map(NetAddress.formatUrlHost), Host.formatHostPort(options.address)]);
-        const hostValidation = HttpRouter.middleware(
-            (next) =>
-                Effect.flatMap(HttpServerRequest.HttpServerRequest, (request) => {
-                    const served = Option.filter(HttpServerRequest.toURL(request), ({ host, hostname }) => allowed.has(host) || allowed.has(hostname));
-                    const origin = Option.flatMap(Headers.get(request.headers, 'origin'), Schema.decodeOption(Schema.URLFromString));
-                    const headers = Option.exists(
-                        Option.zipWith(served, origin, (url, from) => url.host === from.host),
-                        Boolean,
-                    )
-                        ? Headers.remove(request.headers, 'origin')
-                        : request.headers;
-                    return Option.match(served, {
-                        onNone: () => Effect.succeed(HttpServerResponse.empty({ status: 403 })),
-                        onSome: () => Effect.provideService(next, HttpServerRequest.HttpServerRequest, request.modify({ headers })),
-                    });
-                }),
-            { global: true },
-        );
+    static readonly layerStdio = <E, R>(manifest: Parameters<typeof served>[0], settings: Parameters<typeof served>[1], app: Layer.Layer<never, E, R>) =>
+        Layer.unwrap(Effect.map(McpServer.McpServer, (server) => McpServer.layerStdio(served(manifest, settings, app, server)))).pipe(Layer.provideMerge(McpServer.McpServer.layer));
+    static readonly layerHttp = <E, R>(manifest: Parameters<typeof served>[0], { address, hosts, ...settings }: Parameters<typeof served>[1] & { readonly address: Host.HostPort; readonly hosts: readonly string[] }, app: Layer.Layer<never, E, R>) => {
+        const [names, bound] = [['localhost', ...Array.map(NetAddress.loopbackAddresses, NetAddress.formatUrlHost)], Host.formatHostPort(address)];
+        const allowed = new Set([...hosts, ...names, bound]);
+        const hostValidation = HttpRouter.middleware((next) => Effect.flatMap(HttpServerRequest.HttpServerRequest, (request) => (Option.exists(HttpServerRequest.toURL(request), ({ host, hostname }) => allowed.has(host) || allowed.has(hostname)) ? next : Effect.succeed(HttpServerResponse.empty({ status: 403 })))), {
+            global: true,
+        });
         const transport = Layer.unwrap(
             Effect.map(McpServer.McpServer, (server) =>
                 McpServer.layerHttp({
-                    ...manifest,
-                    get instructions() {
-                        return Array.dedupe([manifest.description, ...options.instructions, ...[...server.tools, ...server.resources, ...server.resourceTemplates, ...server.prompts].flatMap(({ annotations }) => Context.get(annotations, Server.Instructions))]).join('\n');
-                    },
+                    ...served(manifest, settings, app, server),
                     path: '/',
                     allowSessionTermination: true,
-                    protocols: [McpProtocol.v2026_07_28, McpProtocol.v2025_11_25, McpProtocol.v2025_06_18, McpProtocol.v2025_03_26, McpProtocol.v2024_11_05],
-                    registrations: Layer.provide(app, Server.layer({ scheme: manifest.name, retention: options.retention })),
+                    allowedOrigins: Array.flatMap(['http', 'https'], (scheme) => Array.map([...hosts, ...Array.map([...hosts, ...names], (name) => `${name}:${address.port}`), bound], (host) => `${scheme}://${host}`)),
                 }),
             ),
         );
@@ -100,30 +82,43 @@ class Server extends Context.Service<Server, { readonly uri: (path: string) => s
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+const served = <E, R>(
+    manifest: { readonly name: typeof Server.Scheme.Type; readonly version: string; readonly description: string },
+    { executions, instructions, protocols }: { readonly executions: Parameters<typeof Server.layer>[0]['executions']; readonly instructions: readonly string[]; readonly protocols: Array.NonEmptyReadonlyArray<McpProtocol.ProtocolAdapter> },
+    app: Layer.Layer<never, E, R>,
+    server: McpServer.McpServer['Service'],
+) => ({
+    ...manifest,
+    get instructions() {
+        return Array.dedupe([manifest.description, ...instructions, ...[...server.tools, ...server.resources, ...server.resourceTemplates, ...server.prompts].flatMap(({ annotations }) => Context.get(annotations, Server.Instructions))]).join('\n');
+    },
+    protocols,
+    registrations: Layer.provide(app, Server.layer({ scheme: manifest.name, executions })),
+});
 const operationDuration = Metric.mapInput(
-    Metric.histogram('mcp.server.operation.duration', {
+    Metric.histogram(METRIC_MCP_SERVER_OPERATION_DURATION, {
         description: 'Duration of MCP server operations',
         boundaries: Array.map(['10 millis', '20 millis', '50 millis', '100 millis', '200 millis', '500 millis', '1 second', '2 seconds', '5 seconds', '10 seconds', '30 seconds', '1 minute', '2 minutes', '5 minutes'] as const, Duration.toSeconds),
     }),
     Duration.toSeconds,
 );
 const failureAttributes = Match.type<Exit.Exit<unknown, unknown>>().pipe(
-    Match.when({ _tag: 'Success', value: Schema.is(Schema.Struct({ isError: Schema.Literal(true) })) }, () => ({ 'error.type': 'tool_error' })),
-    Match.when({ _tag: 'Failure', cause: Cause.hasInterruptsOnly }, () => ({ 'error.type': 'cancelled' })),
-    Match.when({ _tag: 'Failure' }, ({ cause }) => ({ 'error.type': Option.match(Schema.decodeUnknownOption(Tagged)(Cause.squash(cause)), { onNone: () => '_OTHER', onSome: (failure) => failure._tag }) })),
+    Match.when({ _tag: 'Success', value: Schema.is(Schema.Struct({ isError: Schema.Literal(true) })) }, () => ({ [ATTR_ERROR_TYPE]: 'tool_error' })),
+    Match.when({ _tag: 'Failure', cause: Cause.hasInterruptsOnly }, () => ({ [ATTR_ERROR_TYPE]: 'cancelled' })),
+    Match.when({ _tag: 'Failure' }, ({ cause }) => ({ [ATTR_ERROR_TYPE]: Option.match(Schema.decodeUnknownOption(Tagged)(Cause.squash(cause)), { onNone: () => ERROR_TYPE_VALUE_OTHER, onSome: (failure) => failure._tag }) })),
     Match.orElse(() => ({})),
 );
 const operations: Readonly<Partial<Record<McpServer.MiddlewareMethod, (target: string) => Readonly<Record<string, string>>>>> = {
-    'tools/call': (target) => ({ 'gen_ai.tool.name': target, 'gen_ai.operation.name': 'execute_tool' }),
-    'resources/read': (target) => ({ 'mcp.resource.uri': target }),
-    'prompts/get': (target) => ({ 'gen_ai.prompt.name': target }),
+    'tools/call': (target) => ({ [ATTR_GEN_AI_TOOL_NAME]: target, [ATTR_GEN_AI_OPERATION_NAME]: GEN_AI_OPERATION_NAME_VALUE_EXECUTE_TOOL }),
+    'resources/read': (target) => ({ [ATTR_MCP_RESOURCE_URI]: target }),
+    'prompts/get': (target) => ({ [ATTR_GEN_AI_PROMPT_NAME]: target }),
 };
 const metered = McpServer.middleware((effect, { method, target }) =>
     UndefinedOr.match(operations[method], {
         onUndefined: () => effect,
         onDefined: Effect.fnUntraced(function* (attributing) {
             const [duration, exit] = yield* Effect.timed(Effect.exit(effect));
-            yield* Metric.update(Metric.withAttributes(operationDuration, { 'mcp.method.name': method, ...attributing(target), ...failureAttributes(exit) }), duration);
+            yield* Metric.update(Metric.withAttributes(operationDuration, { [ATTR_MCP_METHOD_NAME]: method, ...attributing(target), ...failureAttributes(exit) }), duration);
             return yield* exit;
         }),
     }),
@@ -135,13 +130,12 @@ const ranking =
             const ordered = Unmatched.rank(input, values);
             return McpSchema.CompleteResult.make({ ...rest, completion: { values: ordered, total: ordered.length } });
         });
-const executions = (uri: Server['Service']['uri'], retention: Duration.Duration, server: McpServer.McpServer['Service'], scope: Scope.Scope) => {
+const executions = ({ retention, ...descriptor }: Parameters<typeof Server.layer>[0]['executions'] & { readonly uri: string }, server: McpServer.McpServer['Service'], scope: Scope.Scope) => {
     const entries = Ref.makeUnsafe(Array.empty<Effect.Effect<(typeof Executions.Type)[number]>>());
-    const name = 'executions';
-    const descriptor = { uri: uri(name), name, description: `Refused state-changing calls that keep running, finished calls drop after one read or ${Duration.format(retention)}`, mimeType: 'application/json' };
+    const listed = { ...descriptor, mimeType: 'application/json' };
     const registered = Effect.cached(
         McpServer.registerResource({
-            ...descriptor,
+            ...listed,
             content: Effect.gen(function* () {
                 const rows = yield* Ref.get(entries);
                 const read = yield* Effect.all(rows);
@@ -168,14 +162,14 @@ const executions = (uri: Server['Service']['uri'], retention: Duration.Duration,
         const dropped = Deferred.await(done).pipe(Effect.exit, Effect.andThen(Effect.sleep(retention)), Effect.andThen(Ref.update(entries, Array.difference([entry]))));
         return yield* Effect.as(pending ? Effect.andThen(Ref.update(entries, Array.append(entry)), Effect.forkIn(dropped, scope)) : Effect.void, outcome);
     }, Effect.uninterruptible);
-    return Effect.map(registered, (registration) => ({ registration, record, link: McpSchema.ResourceLink.make(descriptor) }));
+    return Effect.map(registered, (registration) => ({ registration, record, link: McpSchema.ResourceLink.make(listed) }));
 };
 const addTool =
     (server: McpServer.McpServer['Service'], { registration, record, link }: Effect.Success<ReturnType<typeof executions>>) =>
     (options: Parameters<McpServer.McpServer['Service']['addTool']>[0]) => {
         const writes = !Context.get(options.annotations, Tool.Readonly);
         const visible = Context.get(options.annotations, Server.Visible).pipe(
-            Effect.tapCause((cause) => Effect.annotateLogs(Effect.logError('Tool visibility check failed', cause), { 'gen_ai.tool.name': options.tool.name })),
+            Effect.tapCause((cause) => Effect.annotateLogs(Effect.logError('Tool visibility check failed', cause), { [ATTR_GEN_AI_TOOL_NAME]: options.tool.name })),
             Server.orInternalError,
         );
         const handle = Effect.fnUntraced(function* (payload: Schema.Json) {

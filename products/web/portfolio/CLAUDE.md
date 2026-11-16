@@ -77,19 +77,19 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 
 [FIGURES]: `MediaFigure` renders every placement from its resolved asset, presentation decides loading, chrome, and expansion:
 - `Match.discriminatorsExhaustive` over placement `kind` selects each renderer
-- Display text and alt text derive once in `media/labels.ts`, image source sets in `media/media-element.tsx`
+- Display text and alt text derive once in `media/labels.ts`, image source sets through `Inspection.sourceSet`
 - Asset URLs derive from `Api` through `assetUrl` in `model/api.ts`
 - Presentation, priority, and in-view proximity decide media loading and video playback
 - Image renditions fill `srcSet`, expanded views load the original
 - Renditions share their source's authorization, publication, and removal
 - Load failures offer an original file link, with a retry when a repeat can succeed
 - `react-error-boundary` fallbacks catch chunk and render failures
-- `react-zoom-pan-pinch` owns image zoom
+- `ZoomViewer` of `@rasm/media/zoom-viewer` owns image zoom
 - PDF.js (`pdfjs-dist`) owns PDF inspection, rendering, and sheet viewer
 - `PdfDocument` shares one PDF.js document across every sheet of a PDF, opened for range requests (`disableStream`, `disableAutoFetch`)
 - `PdfViewer.useViewer` renders the sheet preview and the sheet viewer, its `AsyncResult` failure renders the original-file link
 - Sheet previews draw annotations without a text layer
-- Sheet viewer writes page and scale through `PdfViewer` state `assign`, rotation through `rotate`, and highlights through `find` when Find reopens
+- Sheet viewer renders `PdfViewer.useViewer` controls, passing sheet labels and the original file URL
 - Videos take no text track, owners burn captions in and write transcripts as descriptions
 
 ## [06]-[EDITOR]
@@ -111,20 +111,19 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 - Each file's destination stays editable until its processing starts, PDF sheets are chosen after upload
 - Success places compositions at their destination in queue order under concurrent uploads
 - Upload recovery lists incomplete uploads and removals, each with one discard action the owner confirms
-- Uppy retries a request failing without a status or with a 5xx, an `UploadRefused` body fails it with its reason
+- Uppy retries a request `isTransientUpload` accepts, an `UploadRefused` body fails it with its reason
 - Until Dashboard renders one Informer, the view passes `disableInformer` and renders Uppy `info` state as one alert per message
 
 ## [07]-[HOSTING]
 
-[DECLARATION]: `hosting.config.ts` declares the app once as an `App`:
-- `DB` is a `sqlite` store, `BUCKET` a `bucket` with its lifecycle rules, and `OWNER_EMAIL` a `text` value
-- `allowed` holds the addresses a provider sign-in accepts, and `limits` the CPU count and memory of the hosted container
-- `cloudflare.config.ts` projects the `App` through `worker(hosting, config)`, and the hosting row names each deployed Worker and resource by its mode
-- `server/main.ts` passes the `App` to `serveNode`, which reads each store variable from the environment and each `text` value from the declaration
+[DECLARATION]: `hosting.config.ts` declares the app once as an `App`, and every runtime, projection, and deployment reads it:
+- `DB` is a `sqlite` store and `BUCKET` a `bucket` with its upload prefix and lifecycle rules
+- `allowed` holds the addresses a sign-in accepts, `identity` the `Identity.sites` header layout, `limits` the CPU count and memory of a container
+- `targets` holds `Cloudflare` and `Sites`, the OpenAI Sites project whose `.openai/hosting.json` `nodeBundle` writes at build
+- `cloudflare.config.ts` projects the `App` through `worker(hosting, config)`, which adds the assets binding and `OTEL_SERVICE_NAME`
 - Worker binding types are the global `Env` that `cf workers types` generates from `cloudflare.config.ts`
 - `tsconfig.json` references one program per runtime: `tsconfig.app.json` browser code, `tsconfig.node.json` Node entry and tool configs
 - `tsconfig.worker.json` holds the Worker entry with `cloudflare.config.ts` and `.cloudflare/types`
-- `.openai/hosting.json` names the D1 and R2 bindings OpenAI Sites supplies, written by hand, and the host assigns `project_id`
 - `nx install @rasm/portfolio` applies the app on the local engine, `nx run @rasm/portfolio:deploy--pulumi --stack=<row>` on one hosting row
 - `-c release --stack=<row>` applies the production stack of that row, and no `--stack` applies every stack that exists
 - Row `cloudflare` deploys the built Worker with every binding its Build Output states
@@ -132,28 +131,24 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 - `--destroy` on a disposable row empties its bucket and removes every resource, reading the Build Output `build--vite` wrote
 
 [SERVERS]: `server/app.ts` composes routes over passed services, D1 and `r2Storage` from the Worker, SQLite and path-style `s3Storage` from Node:
-- `server/worker.ts` passes its services and `Worker.fetch` over its routes to `Worker`, with `Template` from the assets binding
-- `server/worker.ts` passes `layerTelemetry` of `@rasm/workers/execution` to `Worker`
-- Worker `layerTelemetry` writes one JSON log record per console line and records each span in the Workers trace
-- Worker `layerTelemetry` exports each signal its `OTEL_<SIGNAL>_EXPORTER` variable names at the end of each invocation
-- `server/main.ts` passes `Sites.identity` and an `env` callback to `serveNode`
-- `server/main.ts` passes the HTTP server on `PORT` and the app name as `serviceName` to `layerNodeFromConfig` of `@rasm/telemetry/node`
-- `server/main.ts` sets `layerNodeFromConfig` target `stderr`
-- `layerNodeFromConfig` reads `<NAME>_LOG_{LEVEL,FILTER,TARGET,DIR,SIZE,AGE,FILES}` and writes one JSON log record per line to stderr
-- `layerNodeFromConfig` exports each signal its `OTEL_<SIGNAL>_EXPORTER` variable names through the OpenTelemetry SDK
+- `server/worker.ts` passes the `App` and its routes to `serveWorker`, which decodes each binding and serves `Template` from the assets binding
+- `server/main.ts` passes the `App` and its routes to `serveNode`, which decodes each binding and serves the HTTP server on `PORT`
+- `serveWorker` writes one JSON log record per console line, records each span in the Workers trace, and exports at invocation end
+- `serveNode` passes the app name to `layerNodeFromConfig`, which reads `<NAME>_LOG_{LEVEL,FILTER,TARGET,DIR,SIZE,AGE,FILES}`
+- Each server exports each signal its `OTEL_<SIGNAL>_EXPORTER` variable names
 - `.storybook/main.ts` sets `viteConfigPath: null` and states the React and Tailwind plugins its stories read, so no `vite.config.ts` plugin runs
 - `siteHead` takes `favicon.svg` and `site/theme.css` tokens, emitting the ICO, Apple touch icon, painted SVG, `theme-color`, and `color-scheme`
 - `site/shell.tsx` states the whole content security policy of a production build, and `Template.render` sets no header without one
 
-[IDENTITY]: Views and handlers read `Sites.identity` headers, which each server sets from one trusted source after removing any a client sent:
+[IDENTITY]: Views and handlers read `hosting.identity` headers, which each server sets from one trusted source after removing any a client sent:
 - OpenAI Sites signs users in at its own boundary, a Worker with no `ACCESS` variable serving its headers unchanged
 - `ACCESS` holds one `Access` as JSON, source `Forwarded` reading headers a proxy sets
 - `Access` source `Cloudflare` verifies a Cloudflare Access token from its header or `CF_Authorization` cookie
 - `serveNode` fails at start without `ACCESS`
-- Pages are public, the trusted source guards the sign-in path of `Sites.identity.paths`, and owner endpoints refuse every other session
-- Requests without a user id are signed-out visitors
-- First sign-in with an email equal to `OWNER_EMAIL` ignoring case enrolls its user id, later owner checks read and compare user ids alone
-- `hosting.config.ts` states the owner address, the commit author address and no secret, and `vite dev` binds the `sites()` local sign-in address
+- Pages are public, the trusted source guards the sign-in path of `hosting.identity.paths`, and owner endpoints refuse every other session
+- `Enrollment.session` answers `signedOut`, `signedIn`, or `allowed`, enrolling the first user id an `allowed` address signs in with
+- `ALLOWED` replaces `allowed` with a JSON list, and `vite dev` sets it to the `sites()` local sign-in address
+- `hosting.config.ts` states the owner address, the commit author address and no secret
 
 [STORAGE]: `server/catalog.ts` declares document, asset, and owner tables as `Relation` values:
 - Statements over the tables sit beside their handlers in `server/<aggregate>.ts`

@@ -10,14 +10,15 @@ use opentelemetry_semantic_conventions::attribute::EXCEPTION_MESSAGE;
 use rmcp::handler::client::progress::ProgressDispatcher;
 use rmcp::model::{
     ClientCapabilities, ClientConfig, ClientJsonRpcMessage, ClientNotification, ClientRequest, DEFAULT_MRTR_MAX_ROUNDS, GetExtensions as _, GetMeta as _, InputRequest, InputRequiredResult,
-    InputResponses, JsonRpcNotification, JsonRpcRequest, NotificationMetaObject, ProtocolVersion, RequestMetaObject, ServerConfig, ServerJsonRpcMessage, ServerNotification, ServerPeerInfo,
-    ServerRequest, ServerResult, SubscriptionFilter,
+    InputResponses, JsonRpcNotification, JsonRpcRequest, NotificationMetaObject, ProgressNotificationParam, ProtocolVersion, RequestMetaObject, ServerConfig, ServerJsonRpcMessage, ServerNotification,
+    ServerPeerInfo, ServerRequest, ServerResult, SubscriptionFilter,
 };
 use rmcp::service::{ClientLifecycleMode, NotificationContext, PeerRequestOptions, RequestContext, SubscriptionEnd, serve_client_with_lifecycle_and_ct, serve_server_with_ct};
 use rmcp::{ErrorData, Peer, RoleClient, RoleServer, Service, ServiceError};
 use serde::de::DeserializeOwned;
 use tokio::io::{AsyncWrite, AsyncWriteExt as _};
 use tokio::sync::{broadcast, mpsc, oneshot};
+use tokio_stream::wrappers::ReceiverStream;
 use tokio_util::sync::CancellationToken;
 use tokio_util::task::AbortOnDropHandle;
 
@@ -26,7 +27,7 @@ use super::actor::Event;
 use super::jsonrpc::{Line, decode, encoded};
 use crate::error::internal;
 use crate::shared::{Shared, Subscriptions, list_changes, resynced};
-use crate::{McpError, Subscribe};
+use crate::{McpError, Subscribe, relayed};
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -41,7 +42,7 @@ struct Forward {
 }
 
 impl Forward {
-    async fn sent(&self, mut request: ClientRequest, context: &RequestContext<RoleServer>, reached: &mut Option<f64>) -> Result<ServerResult, ErrorData> {
+    async fn sent(&self, mut request: ClientRequest, context: &RequestContext<RoleServer>, reported: &mpsc::Sender<ProgressNotificationParam>) -> Result<ServerResult, ErrorData> {
         let options = context
             .client_info()
             .zip(context.client_capabilities())
@@ -51,21 +52,13 @@ impl Forward {
         request.extensions_mut().insert(subscribed.clone());
         let released = subscribed.drop_guard();
         let mut handle = self.peer.send_cancellable_request(request, options).await.map_err(fault)?;
-        let reported = self.progress.subscribe(handle.progress_token.clone()).await;
+        let mut updates = self.progress.subscribe(handle.progress_token.clone()).await;
         drop(released);
-        let stated = context.meta.get_progress_token();
-        let mut updates = reported.filter_map(|mut update| {
-            ready(stated.clone().filter(|_| reached.is_none_or(|reached| update.progress > reached)).map(|token| {
-                (*reached, update.progress_token) = (Some(update.progress), token);
-                update
-            }))
-        });
         loop {
             tokio::select! {
                 biased;
                 Some(update) = updates.next() => {
-                    let relayed = context.peer.notify_progress(update).unwrap_or_else(|error| tracing::debug!({ EXCEPTION_MESSAGE } = %Report::new(&error), "progress relay failed"));
-                    let _: Option<()> = context.ct.run_until_cancelled(relayed).await;
+                    let (Ok(()) | Err(mpsc::error::SendError(_))) = reported.send(update).await;
                 }
                 received = &mut handle.rx => break received.map_err(|oneshot::error::RecvError { .. }| ServiceError::TransportClosed).flatten().map_err(fault),
                 () = context.ct.cancelled() => break handle.cancel(None).await.map_err(fault).and(Err(fault(ServiceError::Cancelled { reason: None }))),
@@ -100,14 +93,17 @@ impl Forward {
 impl Service<RoleServer> for Forward {
     async fn handle_request(&self, mut request: ClientRequest, context: RequestContext<RoleServer>) -> Result<ServerResult, ErrorData> {
         *request.get_meta_mut() = context.meta.clone();
-        let mut reached = None;
-        for _round in 0..DEFAULT_MRTR_MAX_ROUNDS {
-            match self.sent(request.clone(), &context, &mut reached).await? {
-                ServerResult::InputRequiredResult(required) => Self::answered(&mut request, required, &context).await?,
-                answer => return Ok(answer),
+        let ((reported, updates), asked) = (mpsc::channel(1), &context);
+        let rounds = async move {
+            for _round in 0..DEFAULT_MRTR_MAX_ROUNDS {
+                match self.sent(request.clone(), asked, &reported).await? {
+                    ServerResult::InputRequiredResult(required) => Self::answered(&mut request, required, asked).await?,
+                    answer => return Ok(answer),
+                }
             }
-        }
-        Err(fault(ServiceError::InputRequiredRoundsExceeded { max_rounds: DEFAULT_MRTR_MAX_ROUNDS }))
+            Err(fault(ServiceError::InputRequiredRoundsExceeded { max_rounds: DEFAULT_MRTR_MAX_ROUNDS }))
+        };
+        relayed(&context, ReceiverStream::new(updates), Box::pin(rounds)).await
     }
 
     fn handle_notification(&self, _: ClientNotification, _: NotificationContext<RoleServer>) -> impl Future<Output = Result<(), ErrorData>> + Send + '_ { ready(Ok(())) }

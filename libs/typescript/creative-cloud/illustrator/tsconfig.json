@@ -1,0 +1,15 @@
+{
+    "extends": "../../../../tsconfig.base.json",
+    "compilerOptions": {
+        "lib": ["es2022"],
+        "types": ["types-for-adobe/Illustrator/2022"]
+    },
+    "references": [
+        {
+            "path": "../extendscript"
+        },
+        {
+            "path": "../object-model"
+        }
+    ]
+}

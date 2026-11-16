@@ -124,18 +124,18 @@ where
     S: Store<K>,
 {
     let mut status = member.status();
-    let mut written = (status.borrow().catalog.clone(), status.borrow().failures);
+    let mut written = (status.borrow().profile.clone(), status.borrow().failures);
     loop {
-        let Status { phase, sessions, starts: _, failures, delay, cause, catalog } = status.borrow_and_update().clone();
-        let learned = catalog.as_ref().is_some_and(|catalog| written.0.as_ref().is_none_or(|held| !Arc::ptr_eq(held, catalog)));
+        let Status { phase, sessions, starts: _, failures, delay, cause, profile } = status.borrow_and_update().clone();
+        let learned = profile.as_ref().is_some_and(|profile| written.0.as_ref().is_none_or(|held| !Arc::ptr_eq(held, profile)));
         if learned || written.1 != failures {
             let down = failures > 0 && phase > Phase::Up;
             let until = Timestamp::now().checked_add(delay).inspect_err(|error| tracing::debug!({ EXCEPTION_MESSAGE } = %Report::new(error), "retry time past the calendar")).ok();
-            let history = History { catalog: catalog.as_deref().cloned(), failures: if down { failures } else { 0 }, cause: cause.filter(|_| down), until: until.filter(|_| down) };
+            let history = History { profile: profile.as_deref().cloned(), failures: if down { failures } else { 0 }, cause: cause.filter(|_| down), until: until.filter(|_| down) };
             if let Err(error) = store.save(&key, history).await {
                 tracing::debug!({ EXCEPTION_MESSAGE } = %Report::new(&error), "server history not stored");
             }
-            written = (catalog, failures);
+            written = (profile, failures);
         }
         let left = |proxies: &mut BTreeMap<K, Proxy>, unused: bool| {
             let own = proxies.get(&key).is_some_and(|held| held.events.same_channel(&member.events));

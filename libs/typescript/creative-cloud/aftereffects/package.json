@@ -1,0 +1,33 @@
+{
+    "name": "@rasm/aftereffects",
+    "version": "0.1.0",
+    "private": true,
+    "description": "After Effects DOM for ExtendScript: its containment table from 1, dialog suppression, undo groups, project open, and rasterize of a composition frame",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/bsamiee/Rasm.git",
+        "directory": "libs/typescript/creative-cloud/aftereffects"
+    },
+    "files": [
+        "dist"
+    ],
+    "type": "module",
+    "sideEffects": false,
+    "exports": {
+        "./extendscript": "./extendscript.ts"
+    },
+    "publishConfig": {
+        "exports": {
+            "./extendscript": "./dist/extendscript.js"
+        },
+        "access": "public"
+    },
+    "dependencies": {
+        "@rasm/extendscript": "workspace:*",
+        "@rasm/object-model": "workspace:*"
+    },
+    "devDependencies": {
+        "types-for-adobe": "catalog:"
+    }
+}

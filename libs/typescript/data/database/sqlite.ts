@@ -3,7 +3,7 @@ import { type SqlClient, SqlSchema, Statement } from 'effect/sql';
 import type { Catalog } from '#/catalog';
 import type { Kind } from '#/column';
 import { type Dialect, Engine, Rows } from '#/engine';
-import { constant, diff, literal, mergeTreeRefusals, referentialActions, renameTable, render, replacement, Stamp, unmigrated, unsupported } from '#/reconcile';
+import { catalogDdl, constant, diff, literal, mergeTreeRefusals, referentialActions, renameTable, replacement, Stamp, unmigrated, unsupported } from '#/reconcile';
 import { Tokenizer } from '#/relation';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -159,12 +159,13 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
             }),
         };
     };
-    static readonly plan: Engine['Service']['plan'] = Effect.fnUntraced(function* (sql: SqlClient.SqlClient, catalog: Catalog) {
-        const { observed: live } = yield* SqlSchema.findOne({
-            Request: Schema.Void,
-            Result: Observed,
-            execute: () =>
-                sql`WITH relations AS (SELECT l.name, l.type, l.strict, l.wr, m.sql FROM pragma_table_list l JOIN sqlite_schema m ON m.name = l.name WHERE l.schema = 'main' AND l.name NOT GLOB 'sqlite_*' AND (${sql.driver !== 'd1'} OR instr(l.name, '_cf_') <> 1))
+    static readonly plan = (reserved: readonly string[]): Dialect['plan'] =>
+        Effect.fnUntraced(function* (sql: SqlClient.SqlClient, catalog: Catalog) {
+            const { observed: live } = yield* SqlSchema.findOne({
+                Request: Schema.Void,
+                Result: Observed,
+                execute: () =>
+                    sql`WITH relations AS (SELECT l.name, l.type, l.strict, l.wr, m.sql FROM pragma_table_list l JOIN sqlite_schema m ON m.name = l.name WHERE l.schema = 'main' AND ${sql.and(['sqlite_*', ...reserved].map((pattern) => sql`l.name NOT GLOB ${pattern}`))})
                     SELECT json_object(
                         'tables', json((SELECT json_group_array(json_object('name', r.name, 'strict', r.strict, 'withoutRowid', r.wr, 'sql', r.sql,
                             'columns', json((SELECT json_group_array(json_object('name', x.name, 'type', nullif(x.type, ''), 'required', x."notnull", 'default', x.dflt_value, 'hidden', x.hidden)) FROM pragma_table_xinfo(r.name) x)),
@@ -176,11 +177,11 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
                             'triggers', json((SELECT json_group_array(json_object('name', m.name, 'sql', m.sql)) FROM sqlite_schema m WHERE m.type = 'trigger' AND m.tbl_name = r.name)))) FROM relations r WHERE r.type = 'table')),
                         'virtual', json((SELECT json_group_array(json_object('name', r.name, 'sql', r.sql)) FROM relations r WHERE r.type = 'virtual'))
                     ) AS observed`,
-        })();
-        const resolved = diff(sql, Sqlite, catalog, yield* render(sql, Sqlite, catalog), live.tables.map(Sqlite.identities));
-        const populated = yield* resolved.populated;
-        return yield* live.#reconcile(sql, resolved, populated);
-    });
+            })();
+            const resolved = diff(sql, Sqlite, catalog, yield* catalogDdl(sql, Sqlite, catalog), live.tables.map(Sqlite.identities));
+            const populated = yield* resolved.populated;
+            return yield* live.#reconcile(sql, resolved, populated);
+        });
     #reconcile(sql: SqlClient.SqlClient, resolved: ReturnType<typeof diff<ReturnType<typeof Sqlite.identities>>>, populated: readonly string[]) {
         const quoted = (name: string) => sql`${sql(name)}`;
         const analyze = (entry: (typeof resolved.matched)[number]) => {
@@ -191,12 +192,12 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
                 return { ...reference, target: parent.name, columns: Array.map(reference.columns, entry.renamed), to: reference.to.map(parent.renamed) };
             });
             const links = HashSet.fromIterable(linked.map(Struct.pick(['target', 'columns', 'onDelete'])));
-            const declaredColumns = HashSet.fromIterable(entry.rendered.links.map(Struct.get('columns')));
+            const declaredColumns = HashSet.fromIterable(entry.ddl.links.map(Struct.get('columns')));
             const fields = Array.filterMap(
                 entry.fields,
                 Filter.fromPredicateOption(({ found, ...field }) => found.pipe(Option.bindTo('found'), Option.map(Struct.assign(field)))),
             );
-            const wanted = entry.rendered.indexes.map((index) => ({ ...index, created: index.text([]), prior: entry.prior(index.parts) }));
+            const wanted = entry.ddl.indexes.map((index) => ({ ...index, created: index.text([]), prior: entry.prior(index.parts) }));
             const wantedNames = new Set(wanted.map(Struct.get('name')));
             const indexesByName = Map.groupBy(
                 wanted.flatMap((index) => Array.dedupe([index.name, index.prior]).map((name) => ({ name, index }))),
@@ -227,7 +228,7 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
                     (!entry.live.strict ||
                         entry.live.withoutRowid !== entry.declared.withoutRowid ||
                         (Array.isReadonlyArrayNonEmpty(entry.required) && !populated.includes(entry.live.name)) ||
-                        entry.rendered.links.some((link) => !HashSet.has(links, Struct.pick(link, ['target', 'columns', 'onDelete']))) ||
+                        entry.ddl.links.some((link) => !HashSet.has(links, Struct.pick(link, ['target', 'columns', 'onDelete']))) ||
                         linked.some(({ columns }) => !new Set(columns).isDisjointFrom(dropping)) ||
                         (entry.live.name !== entry.declared.name && Option.isNone(entry.live.identity)) ||
                         fields.some(({ definition, found }) => found.name !== definition.name && Option.isNone(found.identity)) ||
@@ -263,7 +264,7 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
         const temporary = (name: string) => (rebuildingNames.has(name) ? replacement(name) : name);
         const virtualSql = Record.map(Record.fromIterableBy(this.virtual, Struct.get('name')), Struct.get('sql'));
         const searched = (entry: (typeof tables)[number], recreated: boolean) =>
-            Option.match(entry.rendered.virtual, {
+            Option.match(entry.ddl.virtual, {
                 onNone: () => ({ fresh: false, dropped: [], created: [] }),
                 onSome: (virtual) => {
                     const fresh = !Option.contains(Record.get(virtualSql, virtual.name), virtual.create.compile(true)[0]);
@@ -294,8 +295,8 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
             return {
                 ...entry,
                 search: searched(entry, true),
-                create: entry.rendered.create({ target: Function.flow(temporary, quoted), elements, autoincrement: entry.live.autoincrement, claimed: Option.some(entry) }),
-                copy: sql`WITH live(${observed}) AS (SELECT ${sql.literal(entry.live.withoutRowid ? '*' : '"rowid", *')} FROM ${entry.rendered.relation}) INSERT INTO ${quoted(temporary(entry.declared.name))} (${copied}) SELECT ${copied} FROM live`,
+                create: entry.ddl.create({ target: Function.flow(temporary, quoted), elements, autoincrement: entry.live.autoincrement, claimed: Option.some(entry) }),
+                copy: sql`WITH live(${observed}) AS (SELECT ${sql.literal(entry.live.withoutRowid ? '*' : '"rowid", *')} FROM ${entry.ddl.relation}) INSERT INTO ${quoted(temporary(entry.declared.name))} (${copied}) SELECT ${copied} FROM live`,
             };
         };
         const altered = Array.difference(tables, rebuilds).map((entry) => ({ ...entry, search: searched(entry, false) }));
@@ -305,7 +306,7 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
             findings: rebuilds.flatMap((entry) => [...unsupported(entry.declared.name, 'generated', entry.retained, ({ hidden }) => hidden !== 0), ...unsupported(entry.declared.name, 'retained', entry.retained, ({ hidden, constrained }) => hidden === 0 && constrained)]),
             replaced: rebuilds.map(({ live: row }) => row.name),
             populated: tables.filter(({ owned, required, live: row }) => Array.isReadonlyArrayNonEmpty(required) && (!owned || populated.includes(row.name))).map(({ live: row }) => row.name),
-            session: [],
+            concurrently: Effect.void,
             drifted: ({ live: row }, { definition, found, recorded }) => {
                 const digestChanged = Option.exists(Option.flatMapNullishOr(recorded, Struct.get('digest')), (digest) => digest !== definition.digest);
                 return row.strict && Option.exists(found, ({ type, required: needed, default: stored }) => !Option.contains(type, definition.type) || needed === definition.nullable || !Equal.equals(stored, definition.default) || (Option.isNone(definition.projection) && digestChanged));
@@ -314,20 +315,20 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
             opening: Array.isReadonlyArrayNonEmpty(rebuilds) || Array.isReadonlyArrayNonEmpty(resolved.removed) ? [sql`PRAGMA defer_foreign_keys = on`] : [],
             statements: [
                 ...this.virtual.filter(({ name }) => resolved.removed.some((owner) => name === `${owner}_fts`)).map(({ name }) => sql`DROP TABLE ${sql(name)}`),
-                ...resolved.created.flatMap(({ rendered: table }) => [table.create(), ...table.indexes.map(({ text }) => text([])), ...Option.match(table.virtual, { onNone: () => [], onSome: (virtual) => [virtual.create, ...virtual.triggers.map(({ create }) => create)] })]),
+                ...resolved.created.flatMap(({ ddl: table }) => [table.create(), ...table.indexes.map(({ text }) => text([])), ...Option.match(table.virtual, { onNone: () => [], onSome: (virtual) => [virtual.create, ...virtual.triggers.map(({ create }) => create)] })]),
                 ...altered.flatMap((entry) => [
                     ...entry.dropped.map(({ name }) => sql`DROP INDEX ${sql(name)}`),
                     ...entry.search.dropped,
-                    ...entry.dropping.map(({ name }) => sql`ALTER TABLE ${entry.rendered.relation} DROP COLUMN ${sql(name)}`),
-                    ...entry.added.map(({ text }) => sql`ALTER TABLE ${entry.rendered.relation} ADD COLUMN ${text}`),
+                    ...entry.dropping.map(({ name }) => sql`ALTER TABLE ${entry.ddl.relation} DROP COLUMN ${sql(name)}`),
+                    ...entry.added.map(({ text }) => sql`ALTER TABLE ${entry.ddl.relation} ADD COLUMN ${text}`),
                     ...entry.missing,
                     ...entry.search.created,
                 ]),
                 ...rebuilding.map(({ create }) => create),
                 ...(Array.isReadonlyArrayNonEmpty(sequences) ? [sql`INSERT INTO sqlite_sequence (name, seq) SELECT m.value, s.seq FROM sqlite_sequence s JOIN json_each(${JSON.stringify(Object.fromEntries(sequences))}) m ON m.key = s.name`] : []),
                 ...rebuilding.map(({ copy }) => copy),
-                ...rebuilding.map(({ rendered: table }) => sql`DROP TABLE ${table.relation}`),
-                ...rebuilding.map(({ declared, rendered: table }) => sql`ALTER TABLE ${quoted(temporary(declared.name))} RENAME TO ${table.relation}`),
+                ...rebuilding.map(({ ddl: table }) => sql`DROP TABLE ${table.relation}`),
+                ...rebuilding.map(({ declared, ddl: table }) => sql`ALTER TABLE ${quoted(temporary(declared.name))} RENAME TO ${table.relation}`),
                 ...rebuilding.flatMap((entry) => [
                     ...entry.indexes,
                     ...entry.undeclared.map((index) => sql`${sql.literal(index.sql)}`),
@@ -335,7 +336,7 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
                     ...entry.search.dropped,
                     ...entry.search.created,
                 ]),
-                ...(resolved.created.some(({ rendered: table }) => Array.isReadonlyArrayNonEmpty(table.indexes) || Option.isSome(table.virtual)) ||
+                ...(resolved.created.some(({ ddl: table }) => Array.isReadonlyArrayNonEmpty(table.indexes) || Option.isSome(table.virtual)) ||
                 altered.some(({ missing, search }) => Array.isReadonlyArrayNonEmpty(missing) || search.fresh) ||
                 rebuilding.some(({ indexes, search }) => Array.isReadonlyArrayNonEmpty(indexes) || search.fresh)
                     ? [sql`PRAGMA optimize`]
@@ -348,7 +349,7 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
 
     // --- [LAYERS]
 
-    static readonly layer = <A, E, R>(client: (names: Dialect['names']) => Layer.Layer<A | SqlClient.SqlClient, E, R>, names: Dialect['names'] = Engine.names.snake) => Layer.mergeAll(Layer.succeed(Engine, { ...Sqlite, names }), Layer.succeed(Rows, Sqlite), client(names));
+    static readonly layer = <A, E, R>(client: (names: Dialect['names']) => Layer.Layer<A | SqlClient.SqlClient, E, R>, names: Dialect['names'] = Engine.names.snake) => Layer.mergeAll(Layer.succeed(Engine, { ...Sqlite, names, plan: Sqlite.plan([]) }), Layer.succeed(Rows, Sqlite), client(names));
 }
 const Observed = Schema.Struct({ observed: Schema.fromJsonString(Sqlite) });
 

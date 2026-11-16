@@ -1,13 +1,12 @@
 import { join, relative, resolve } from 'node:path';
-import process from 'node:process';
 import { pathToFileURL } from 'node:url';
 import { getOutputsForTargetAndConfiguration, type ProjectGraphProjectNode } from '@nx/devkit';
-import { all } from '@pulumi/pulumi';
-import { Access } from '@rasm/hosting';
-import { App, type Binding } from '@rasm/hosting/app';
-import { Sites } from '@rasm/hosting/openai-sites';
-import { deployApp } from '@rasm/hosting/pulumi';
-import { Array, ByteSize, Cause, ConfigProvider, Effect, Match, Option, Record, Schema, Struct } from 'effect';
+import { all, secret } from '@pulumi/pulumi';
+import { App } from '@rasm/hosting';
+import { container } from '@rasm/hosting/container';
+import { deployApp } from '@rasm/hosting/deploy';
+import { Access } from '@rasm/hosting/identity';
+import { Array, ByteSize, Cause, ConfigProvider, Effect, Option, Record, Redacted, Schema, Struct } from 'effect';
 import { bucketed, hosts, local, Machine, Role } from '#/platform-stack';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -34,54 +33,23 @@ const bundled = Effect.fnUntraced(function* (workspace: string, node: ProjectGra
 });
 
 const placed = Effect.fnUntraced(function* (workspace: string, node: ProjectGraphProjectNode, directory: string, app: App, mode: keyof typeof App.modes, host: string) {
-    const port = 8080;
-    const [mount, name, { kept }] = ['/data', App.resource(app, mode), App.modes[mode]];
-    const variables = yield* Effect.all(
-        Record.map(app.env, (binding, variable) =>
-            Match.value<Binding>(binding).pipe(
-                Match.tag('sqlite', () => Effect.succeedSome(join(mount, variable, 'database.sqlite'))),
-                Match.when({ _tag: 'bucket', cors: Array.isReadonlyArrayEmpty }, () => Effect.succeedSome(App.resource(app, mode, variable))),
-                Match.tag('text', 'json', () => Effect.succeedNone),
-                Match.orElse(({ _tag }) => Effect.fail(new Cause.IllegalArgumentError(`${app.name} binds ${variable} as ${_tag}, ${host} serves sqlite, bucket without cors, text, and json`))),
-            ),
-        ),
-    );
-    const [bundle, { machine, storage }] = [yield* bundled(workspace, node, directory), Machine.joined(host)];
-    const access = yield* Effect.orDie(Schema.encodeEffect(Access.json)(machine.access));
-    const buckets = Record.filter(app.env, App.Binding.$is('bucket'));
-    const scoped = Record.isEmptyRecord(buckets)
-        ? {}
-        : bucketed(
-              name,
-              storage,
-              Record.mapEntries(buckets, ({ abort, expire }, variable) => [App.resource(app, mode, variable), { kept, expire: { [App.uploads]: abort, ...expire[mode] } }]),
-          );
-    const image = machine.imaged(
-        name,
-        `# syntax=docker/dockerfile:1
-FROM node:${process.versions.node}-slim
-USER node
-WORKDIR /app
-COPY --from=client / ./${App.bundle.assets}
-COPY . .
-ENTRYPOINT ["node"]
-CMD ["${App.bundle.entry}.js"]
-`,
-        { context: { location: bundle.server, named: { client: { location: bundle.client } } } },
-    );
+    const [port, name, { machine, storage }] = [8080, App.resource(app, mode), Machine.joined(host)];
+    const [projected, access] = yield* Effect.all([Effect.flatMap(bundled(workspace, node, directory), (bundle) => container(app, mode, port, bundle)), Effect.orDie(Schema.encodeEffect(Access.json)(machine.access))]);
+    const image = machine.imaged(name, projected.image.dockerfile, { context: projected.image.context });
     const { address, named, labels } = machine.routed(name, port, { [`traefik.http.routers.${name}.middlewares`]: Machine.guard });
+    const environment = Record.map(projected.env, (value) => (Redacted.isRedacted(value) ? secret(Redacted.value(value)) : value));
     const serving = machine.contained(
         name,
-        ['CMD', 'node', '--input-type=module', '--eval', `const response = await fetch('http://127.0.0.1:${port}${App.bundle.readiness}'); if (response.status !== 204) throw new Error('HTTP ' + response.status);`],
+        projected.healthcheck,
         {
             image,
-            envs: all({ ...Record.getSomes(variables), ...scoped, [App.bundle.portVariable]: `${port}`, [Access.variable]: access }).apply(Record.collect((variable, value) => `${variable}=${value}`)),
+            envs: all({ ...environment, ...(Record.isEmptyRecord(projected.buckets) ? {} : bucketed(name, storage, projected.buckets)), [Access.variable]: access }).apply(Record.collect((variable, value) => `${variable}=${value}`)),
             cpus: `${app.limits.cpus}`,
             memory: ByteSize.toUnit(app.limits.memory, 'MiB'),
-            mounts: Record.keys(Record.filter(app.env, App.Binding.$is('sqlite'))).map((variable) => ({ type: 'volume', source: machine.kept(App.resource(app, mode, variable)), target: join(mount, variable) })),
+            mounts: projected.volumes.map(({ name: volume, target }) => ({ type: 'volume', source: machine.kept(volume), target })),
             labels,
         },
-        { dependsOn: named, protect: kept },
+        { dependsOn: named, protect: App.modes[mode].kept },
     );
     return { url: serving.id.apply(() => `https://${address}`) };
 });
@@ -103,16 +71,20 @@ const hostingStacks = Effect.fnUntraced(function* (workspace: string, node: Proj
         onSome: ({ production, rows }) => {
             const mode = production ? 'production' : 'disposable';
             const apps = Record.filter<string, (typeof hosts)[keyof typeof hosts]>(hosts, ({ roles }) => roles.some(Role.$is('Apps')));
-            return Effect.forEach(
-                app.targets,
-                App.Target.$match({
-                    Cloudflare: () => Effect.succeed({ stackName: `${App.resource(app, mode)}.cloudflare`, program: deployApp({ app, mode, identity: Sites.identity, root: directory }).pipe(Effect.provide(ConfigProvider.layer(ConfigProvider.fromUnknown(rows)))) }),
-                    Machine: ({ host }) =>
-                        Effect.as(
-                            Effect.fromOption(Record.get(apps, host), () => new Cause.NoSuchElementError(`${app.name} deploys to ${host}, machines with role Apps are ${Record.keys(apps).join(', ')}`)),
-                            on(mode, host),
-                        ),
-                }),
+            return Effect.map(
+                Effect.forEach(
+                    app.targets,
+                    App.Target.$match({
+                        Cloudflare: () => Effect.succeedSome({ stackName: `${App.resource(app, mode)}.cloudflare`, program: deployApp({ app, mode, root: directory }).pipe(Effect.provide(ConfigProvider.layer(ConfigProvider.fromUnknown(rows)))) }),
+                        Machine: ({ host }) =>
+                            Effect.as(
+                                Effect.fromOption(Record.get(apps, host), () => new Cause.NoSuchElementError(`${app.name} deploys to ${host}, machines with role Apps are ${Record.keys(apps).join(', ')}`)),
+                                Option.some(on(mode, host)),
+                            ),
+                        Sites: () => Effect.succeedNone,
+                    }),
+                ),
+                Array.getSomes,
             );
         },
     });

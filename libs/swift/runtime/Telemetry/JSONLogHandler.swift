@@ -52,12 +52,6 @@ private struct LogRecord: Encodable {
 public struct JSONLogHandler: LogHandler {
     // --- [STATE]
 
-    private static let encoder: JSONEncoder = {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
-        return encoder
-    }()
-
     public var metadata: Logger.Metadata = [:]
     public var metadataProvider: Logger.MetadataProvider?
     private var level: Logger.Level?
@@ -124,7 +118,7 @@ public struct JSONLogHandler: LogHandler {
         }
         let reported = file?.failure != nil
         do {
-            let line = try Self.encoder.encodeLine(record)
+            let line = try JSONEncoder.lines.encodeLine(record)
             if let file { try file.append(line) } else { try FileDescriptor.standardError.writeAll(line) }
         } catch {
             guard !reported else { return }

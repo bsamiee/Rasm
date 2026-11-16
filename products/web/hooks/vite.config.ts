@@ -1,6 +1,7 @@
-import { nodeServer } from '@rasm/hosting/vite';
+import { nodeBundle } from '@rasm/hosting/bundle';
 import { defineConfig } from 'vite';
+import hosting from '#/hosting.config';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-export default defineConfig({ plugins: [nodeServer({ entry: './main.ts' })] });
+export default defineConfig({ plugins: [nodeBundle(hosting, './main.ts')] });

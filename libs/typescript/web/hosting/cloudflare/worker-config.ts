@@ -1,6 +1,5 @@
-import { workerConfig } from '@rasm/workers/config';
 import { bindings, type WorkerConfig } from 'cf/config';
-import { Record, type Schema, Struct } from 'effect';
+import { Array, Record, type Schema, Struct } from 'effect';
 import { App, type Binding } from '#/app/app';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -25,19 +24,20 @@ const projection = {
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const worker = <const E extends Record.ReadonlyRecord<string, Binding>, const C extends Omit<WorkerConfig, 'name'>>(app: App<E>, config: C) =>
-    workerConfig({
+    ({
         ...config,
         name: App.resource(app, 'production'),
+        compatibilityFlags: Array.dedupe([...(config.compatibilityFlags ?? []), 'enable_request_signal']),
         env: {
             ...Struct.get(config, 'env'),
+            [App.bundle.fetcher]: bindings.assets(),
             OTEL_SERVICE_NAME: bindings.text(app.name),
-            UPLOAD_PREFIX: bindings.text(App.uploads),
             ...Struct.evolve(
                 Record.map<keyof E & string, Binding, string>(app.env, (_, variable) => App.resource(app, 'production', variable)),
                 Struct.map(app.env, Struct.lambda<Projection>(App.Binding.$match(projection))),
             ),
         },
-    });
+    }) satisfies WorkerConfig;
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

@@ -8,14 +8,14 @@ import { ReorderableList } from '#/reorderable-list.tsx';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-interface Sheet {
+interface Item {
     readonly id: string;
     readonly title: string;
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const sheets = ({ canvas, userEvent, args }: StoryContext<ComponentProps<typeof ReorderableList<Sheet>>>) => {
+const list = ({ canvas, userEvent, args }: StoryContext<ComponentProps<typeof ReorderableList<Item>>>) => {
     const opened = (title: string) => userEvent.click(canvas.getByRole('button', { name: `Move ${title}` }));
     return {
         select: (title: string) => userEvent.click(within(canvas.getByRole('row', { name: title })).getByText(title)),
@@ -38,16 +38,16 @@ const sheets = ({ canvas, userEvent, args }: StoryContext<ComponentProps<typeof 
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const Owner = ({ items, ...args }: ComponentProps<typeof ReorderableList<Sheet>>) => {
+const Owner = ({ items, ...args }: ComponentProps<typeof ReorderableList<Item>>) => {
     const [present, setPresent] = useState(items);
     return (
         <>
-            <Button onPress={() => setPresent(present.filter(({ id }) => id !== 'detail'))}>Remove Detail</Button>
+            <Button onPress={() => setPresent(present.filter(({ id }) => id !== 'gamma'))}>Remove Gamma</Button>
             <ReorderableList {...args} items={present} />
         </>
     );
 };
-const Sheets = ({ items, onChange, ...props }: ComponentProps<typeof ReorderableList<Sheet>>) => {
+const Items = ({ items, onChange, ...props }: ComponentProps<typeof ReorderableList<Item>>) => {
     const [order, setOrder] = useState(items);
     return (
         <ReorderableList
@@ -62,15 +62,15 @@ const Sheets = ({ items, onChange, ...props }: ComponentProps<typeof Reorderable
 };
 
 const meta = preview.meta({
-    component: Sheets,
+    component: Items,
     args: {
-        'aria-label': 'Sheets',
+        'aria-label': 'Items',
         items: [
-            { id: 'plan', title: 'Plan' },
-            { id: 'section', title: 'Section' },
-            { id: 'detail', title: 'Detail' },
+            { id: 'alpha', title: 'Alpha' },
+            { id: 'beta', title: 'Beta' },
+            { id: 'gamma', title: 'Gamma' },
         ],
-        onChange: fn<ComponentProps<typeof ReorderableList<Sheet>>['onChange']>(),
+        onChange: fn<ComponentProps<typeof ReorderableList<Item>>['onChange']>(),
         textValue: ({ title }) => title,
         actions: (keys) => <output>{`${keys.size} selected`}</output>,
         children: ({ title }) => <span>{title}</span>,
@@ -81,8 +81,8 @@ const meta = preview.meta({
 const Default = meta.story({
     play: async (context) => {
         const { canvas, args } = context;
-        const grid = within(canvas.getByRole('grid', { name: 'Sheets' }));
-        await expect(sheets(context).rows()).toEqual(args.items.map(({ id }) => id));
+        const grid = within(canvas.getByRole('grid', { name: 'Items' }));
+        await expect(list(context).rows()).toEqual(args.items.map(({ id }) => id));
         const controls = args.items.flatMap(({ title }) => {
             const row = within(grid.getByRole('row', { name: title }));
             return Array.make(row.getByRole('checkbox', { name: `Select ${title}` }), row.getByRole('button', { name: `Drag ${title}` }), row.getByRole('button', { name: `Move ${title}` }));
@@ -91,95 +91,95 @@ const Default = meta.story({
     },
 });
 const Single = meta.story({
-    args: { items: [{ id: 'plan', title: 'Plan' }] },
+    args: { items: [{ id: 'alpha', title: 'Alpha' }] },
     play: async ({ canvas }) => {
-        await expect(canvas.getByRole('button', { name: 'Move Plan' })).toBeDisabled();
+        await expect(canvas.getByRole('button', { name: 'Move Alpha' })).toBeDisabled();
     },
 });
 const MoveMenu = meta.story({
     play: async (context) => {
-        const { move, rows, order } = sheets(context);
-        await move('Plan', 'Detail');
-        await expect(order()).toEqual(['section', 'detail', 'plan']);
-        await move('Plan', 'Section');
-        await expect(order()).toEqual(['plan', 'section', 'detail']);
-        await waitFor(() => expect(rows()).toEqual(['plan', 'section', 'detail']));
+        const { move, rows, order } = list(context);
+        await move('Alpha', 'Gamma');
+        await expect(order()).toEqual(['beta', 'gamma', 'alpha']);
+        await move('Alpha', 'Beta');
+        await expect(order()).toEqual(['alpha', 'beta', 'gamma']);
+        await waitFor(() => expect(rows()).toEqual(['alpha', 'beta', 'gamma']));
     },
 });
 const BlockMove = meta.story({
     play: async (context) => {
-        const { select, move, order } = sheets(context);
-        await select('Plan');
-        await select('Section');
-        await move('Plan', 'Detail');
-        await expect(order()).toEqual(['detail', 'plan', 'section']);
+        const { select, move, order } = list(context);
+        await select('Alpha');
+        await select('Beta');
+        await move('Alpha', 'Gamma');
+        await expect(order()).toEqual(['gamma', 'alpha', 'beta']);
     },
 });
 const GatheredSelection = meta.story({
     play: async (context) => {
-        const { select, opened, targets, order } = sheets(context);
-        await select('Plan');
-        await select('Detail');
-        await opened('Detail');
-        await waitFor(() => expect(targets()).toEqual(['Section']));
-        await context.userEvent.click(screen.getByRole('menuitem', { name: 'Section' }));
-        await expect(order()).toEqual(['section', 'plan', 'detail']);
+        const { select, opened, targets, order } = list(context);
+        await select('Alpha');
+        await select('Gamma');
+        await opened('Gamma');
+        await waitFor(() => expect(targets()).toEqual(['Beta']));
+        await context.userEvent.click(screen.getByRole('menuitem', { name: 'Beta' }));
+        await expect(order()).toEqual(['beta', 'alpha', 'gamma']);
     },
 });
 const UnselectedMove = meta.story({
     play: async (context) => {
-        const { select, move, rows, order, status } = sheets(context);
-        await select('Plan');
-        await move('Detail', 'Plan');
-        await expect(order()).toEqual(['detail', 'plan', 'section']);
-        await waitFor(() => expect(rows()).toEqual(['detail', 'plan', 'section']));
+        const { select, move, rows, order, status } = list(context);
+        await select('Alpha');
+        await move('Gamma', 'Alpha');
+        await expect(order()).toEqual(['gamma', 'alpha', 'beta']);
+        await waitFor(() => expect(rows()).toEqual(['gamma', 'alpha', 'beta']));
         await expect(status()).toHaveTextContent('1 selected');
     },
 });
 const SelectionActions = meta.story({
     play: async (context) => {
-        const { select, status } = sheets(context);
+        const { select, status } = list(context);
         await expect(status()).not.toBeInTheDocument();
-        await select('Section');
+        await select('Beta');
         await waitFor(() => expect(status()).toHaveTextContent('1 selected'));
-        await select('Section');
+        await select('Beta');
         await waitFor(() => expect(status()).not.toBeInTheDocument());
     },
 });
 const FullSelection = meta.story({
     play: async (context) => {
-        const { select, disabled } = sheets(context);
-        await select('Plan');
-        await select('Section');
-        await select('Detail');
+        const { select, disabled } = list(context);
+        await select('Alpha');
+        await select('Beta');
+        await select('Gamma');
         await waitFor(() => expect(disabled()).toEqual([true, true, true]));
     },
 });
 const KeyboardReorder = meta.story({
     play: async (context) => {
         const { canvas, userEvent } = context;
-        const { order } = sheets(context);
-        const handle = canvas.getByRole('button', { name: 'Drag Plan' });
+        const { order } = list(context);
+        const handle = canvas.getByRole('button', { name: 'Drag Alpha' });
         await userEvent.tab();
         await userEvent.keyboard('{ArrowRight}{ArrowRight}');
         await expect(handle).toHaveFocus();
         await userEvent.keyboard('{Enter}');
         await waitFor(() => expect(handle).not.toHaveFocus());
         await userEvent.keyboard('{ArrowDown}{Enter}');
-        await waitFor(() => expect(order()).toEqual(['section', 'plan', 'detail']));
+        await waitFor(() => expect(order()).toEqual(['beta', 'alpha', 'gamma']));
     },
 });
 const OwnerRemoval = meta.story({
     render: Owner,
     play: async (context) => {
-        const { select, opened, targets, status } = sheets(context);
-        await select('Detail');
-        await select('Plan');
+        const { select, opened, targets, status } = list(context);
+        await select('Gamma');
+        await select('Alpha');
         await waitFor(() => expect(status()).toHaveTextContent('2 selected'));
-        await context.userEvent.click(context.canvas.getByRole('button', { name: 'Remove Detail' }));
+        await context.userEvent.click(context.canvas.getByRole('button', { name: 'Remove Gamma' }));
         await waitFor(() => expect(status()).toHaveTextContent('1 selected'));
-        await opened('Plan');
-        await waitFor(() => expect(targets()).toEqual(['Section']));
+        await opened('Alpha');
+        await waitFor(() => expect(targets()).toEqual(['Beta']));
     },
 });
 

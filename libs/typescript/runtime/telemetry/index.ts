@@ -1,5 +1,5 @@
 import { SeverityNumber } from '@opentelemetry/api';
-import { ATTR_CODE_FUNCTION_NAME, ATTR_CODE_STACKTRACE, ATTR_EXCEPTION_MESSAGE, ATTR_EXCEPTION_STACKTRACE, ATTR_EXCEPTION_TYPE, ATTR_SERVICE_NAME } from '@opentelemetry/semantic-conventions';
+import { ATTR_CODE_FUNCTION_NAME, ATTR_CODE_STACKTRACE, ATTR_EXCEPTION_MESSAGE, ATTR_EXCEPTION_STACKTRACE, ATTR_EXCEPTION_TYPE, ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
 import { Array, Cause, Config, Context, Effect, ErrorReporter, type Fiber, flow, Formatter, Iterable, Layer, Logger, LogLevel, Match, Metric, Option, Order, Predicate, Record, References, Schema, String, Struct, Tracer, UndefinedOr } from 'effect';
 import { Otlp, OtlpSerialization } from 'effect/observability';
 
@@ -89,6 +89,13 @@ const layerOtlp = (resource?: NonNullable<Parameters<typeof Otlp.layerFromConfig
         Layer.unwrap,
     );
 
+const layer = (resource: NonNullable<Parameters<typeof layerOtlp>[0]> = {}) =>
+    Layer.mergeAll(
+        Logger.layer([Logger.withLeveledConsole(Logger.map(formatLogRecord({ [ATTR_SERVICE_NAME]: resource.serviceName, [ATTR_SERVICE_VERSION]: resource.serviceVersion }), Formatter.formatJson))], { mergeWithExisting: true }).pipe(Layer.provide(layerWithoutDefaultLogger)),
+        ErrorReporter.layer([errorReporter], { mergeWithExisting: true }),
+        layerOtlp(resource),
+    );
+
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { errorReporter, exporters, formatLogRecord, layerMinimumLogLevels, layerOtlp, layerWithoutDefaultLogger };
+export { errorReporter, exporters, formatLogRecord, layer, layerMinimumLogLevels, layerOtlp, layerWithoutDefaultLogger };

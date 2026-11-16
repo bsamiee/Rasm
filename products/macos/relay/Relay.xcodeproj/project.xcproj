@@ -14,12 +14,6 @@
     {
       "kind": "local",
       "path": "../../..",
-    }, {
-      "kind": "remote",
-      "repository": "https://github.com/sparkle-project/Sparkle",
-      "version": {
-        "up-to-next-major-version": "2.10.1",
-      },
     },
   ],
   "files": [
@@ -110,6 +104,10 @@
           "build-phase": { "build-phase": "frameworks" },
         }, {
           "package": "..",
+          "product-name": "Sparkle",
+          "build-phase": { "build-phase": "frameworks" },
+        }, {
+          "package": "..",
           "product-name": "Subprocess",
           "build-phase": { "build-phase": "frameworks" },
         }, {
@@ -121,8 +119,8 @@
           "product-name": "Tracing",
           "build-phase": { "build-phase": "frameworks" },
         }, {
-          "package": "Sparkle",
-          "product-name": "Sparkle",
+          "package": "..",
+          "product-name": "Updater",
           "build-phase": { "build-phase": "frameworks" },
         },
       ],

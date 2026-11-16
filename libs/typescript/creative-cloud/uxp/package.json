@@ -2,7 +2,7 @@
     "name": "@rasm/uxp",
     "version": "0.1.0",
     "private": true,
-    "description": "UXP manifests, plugin and script runtimes, and Vite plugin builds",
+    "description": "UXP manifests, plugin and script runtimes, Spectrum panel controls, and Vite plugin builds",
     "license": "MIT",
     "repository": {
         "type": "git",
@@ -20,6 +20,7 @@
     "exports": {
         ".": "./index.ts",
         "./plugin": "./plugin.ts",
+        "./spectrum": "./spectrum.ts",
         "./vite": "./vite.ts"
     },
     "publishConfig": {
@@ -29,6 +30,7 @@
         "exports": {
             ".": "./dist/index.js",
             "./plugin": "./dist/plugin.js",
+            "./spectrum": "./dist/spectrum.js",
             "./vite": "./dist/vite.js"
         },
         "access": "public"
@@ -36,12 +38,16 @@
     "dependencies": {
         "@effect/platform-node": "catalog:",
         "@exodus/bytes": "catalog:",
-        "@rasm/automation": "workspace:*",
         "@rasm/mark": "workspace:*",
-        "@rasm/telemetry": "workspace:*"
+        "@rasm/object-model": "workspace:*",
+        "@rasm/telemetry": "workspace:*",
+        "acorn": "catalog:",
+        "culori": "catalog:",
+        "jsonc-parser": "catalog:"
     },
     "devDependencies": {
         "@adobe-uxp-types/uxp": "catalog:",
+        "@types/culori": "catalog:",
         "@types/node": "catalog:",
         "effect": "catalog:",
         "vite": "catalog:"

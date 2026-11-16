@@ -9,7 +9,6 @@ const Source = Schema.Struct({
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Digits } from '#/digits';
 export { TypographyError } from '#/error';
 export { Settings } from '#/settings';
 export { Source };

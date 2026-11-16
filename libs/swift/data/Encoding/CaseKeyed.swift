@@ -2,6 +2,8 @@
 
 public protocol CaseKeyed: Encodable {}
 
+public protocol CaseLabeled: Encodable {}
+
 // --- [MODELS] --------------------------------------------------------------------------
 
 private struct CaseKey: CodingKey {
@@ -22,5 +24,14 @@ extension CaseKeyed {
         }
         var fields = encoder.container(keyedBy: CaseKey.self)
         try fields.encode(value, forKey: CaseKey(stringValue: label))
+    }
+}
+
+extension CaseLabeled {
+    public var caseLabel: String { Mirror(reflecting: self).children.first?.label ?? String(describing: self) }
+
+    public func encode(to encoder: any Encoder) throws {
+        var label = encoder.singleValueContainer()
+        try label.encode(caseLabel)
     }
 }

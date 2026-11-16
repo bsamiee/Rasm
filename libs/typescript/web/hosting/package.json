@@ -2,7 +2,7 @@
     "name": "@rasm/hosting",
     "version": "0.1.0",
     "private": true,
-    "description": "One web app declared once and hosted by any provider: its bindings, sign-in source, Node bundle and server, Cloudflare projection and deployment, and server-rendered page",
+    "description": "One web app declared once and hosted by any provider: its bindings, sign-in source and enrollment, Node bundle, server, and container, Cloudflare Worker configuration and deployment, OpenAI Sites metadata, head assets, and server-rendered page",
     "license": "MIT",
     "repository": {
         "type": "git",
@@ -18,34 +18,34 @@
         "#/*": "./*.ts"
     },
     "exports": {
-        ".": "./identity/identity.ts",
-        "./app": "./app/app.ts",
+        ".": "./app/app.ts",
+        "./bundle": "./vite/node-bundle.ts",
         "./cloudflare": "./cloudflare/worker-config.ts",
-        "./head": "./rendering/site-head.ts",
+        "./container": "./node/node-container.ts",
+        "./deploy": "./cloudflare/worker-deploy.ts",
+        "./head": "./vite/site-head.ts",
         "./hydrate": "./rendering/hydrate.ts",
+        "./identity": "./app/identity.ts",
         "./node": "./node/node-server.ts",
-        "./openai-sites": "./identity/openai-sites.ts",
-        "./pulumi": "./cloudflare/worker-deploy.ts",
         "./shell": "./rendering/shell.ts",
-        "./template": "./rendering/template.ts",
-        "./vite": "./node/node-bundle.ts"
+        "./template": "./rendering/template.ts"
     },
     "publishConfig": {
         "imports": {
             "#/*": "./dist/*.js"
         },
         "exports": {
-            ".": "./dist/identity/identity.js",
-            "./app": "./dist/app/app.js",
+            ".": "./dist/app/app.js",
+            "./bundle": "./dist/vite/node-bundle.js",
             "./cloudflare": "./dist/cloudflare/worker-config.js",
-            "./head": "./dist/rendering/site-head.js",
+            "./container": "./dist/node/node-container.js",
+            "./deploy": "./dist/cloudflare/worker-deploy.js",
+            "./head": "./dist/vite/site-head.js",
             "./hydrate": "./dist/rendering/hydrate.js",
+            "./identity": "./dist/app/identity.js",
             "./node": "./dist/node/node-server.js",
-            "./openai-sites": "./dist/identity/openai-sites.js",
-            "./pulumi": "./dist/cloudflare/worker-deploy.js",
             "./shell": "./dist/rendering/shell.js",
-            "./template": "./dist/rendering/template.js",
-            "./vite": "./dist/node/node-bundle.js"
+            "./template": "./dist/rendering/template.js"
         },
         "access": "public"
     },
@@ -53,12 +53,13 @@
         "@types/web-app-manifest": "catalog:"
     },
     "devDependencies": {
+        "@cloudflare/build-output-utils": "catalog:",
         "@effect/platform-node": "catalog:",
         "@pulumi/cloudflare": "catalog:",
         "@pulumi/command": "catalog:",
         "@pulumi/pulumi": "catalog:",
         "@rasm/mark": "workspace:*",
-        "@rasm/workers": "workspace:*",
+        "@rasm/telemetry": "workspace:*",
         "@types/culori": "catalog:",
         "@types/node": "catalog:",
         "@types/react": "catalog:",
@@ -74,12 +75,13 @@
         "vite": "catalog:"
     },
     "peerDependencies": {
+        "@cloudflare/build-output-utils": "catalog:peers",
         "@effect/platform-node": "catalog:peers",
         "@pulumi/cloudflare": "catalog:peers",
         "@pulumi/command": "catalog:peers",
         "@pulumi/pulumi": "catalog:peers",
         "@rasm/mark": "workspace:*",
-        "@rasm/workers": "workspace:*",
+        "@rasm/telemetry": "workspace:*",
         "@vite-pwa/assets-generator": "catalog:peers",
         "cf": "catalog:peers",
         "cheerio": "catalog:peers",
@@ -91,6 +93,9 @@
         "vite": "catalog:peers"
     },
     "peerDependenciesMeta": {
+        "@cloudflare/build-output-utils": {
+            "optional": true
+        },
         "@effect/platform-node": {
             "optional": true
         },
@@ -106,7 +111,7 @@
         "@rasm/mark": {
             "optional": true
         },
-        "@rasm/workers": {
+        "@rasm/telemetry": {
             "optional": true
         },
         "@vite-pwa/assets-generator": {

@@ -3,6 +3,7 @@ public import Configuration
 public import Foundation
 import Logging
 import Synchronization
+public import System
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -84,12 +85,18 @@ public struct Program: Sendable {
             ?? stated ?? folder.parent.appending(path: identifier, directoryHint: .isDirectory)
     }
 
+    public func store(_ value: any Sendable?, forKey key: ConfigKey) {
+        UserDefaults.standard.set(value, forKey: key.description)
+        stored.setValue(value.flatMap { value in Self.values([key.description: value]).values.first }, forKey: AbsoluteConfigKey(key))
+    }
+
     static func values(_ domain: [String: Any]) -> [AbsoluteConfigKey: ConfigValue] {
         domain.reduce(into: [:]) { values, entry in
             let content: ConfigContent? =
                 switch entry.value {
                     case let text as String: .string(text)
                     case let texts as [String]: .stringArray(texts)
+                    case let data as Data: .bytes(Array(data))
                     case let number as NSNumber where CFGetTypeID(number) == CFBooleanGetTypeID(): .bool(number.boolValue)
                     case let number as NSNumber where CFNumberIsFloatType(number): .double(number.doubleValue)
                     case let number as NSNumber: .int(number.intValue)
@@ -99,3 +106,22 @@ public struct Program: Sendable {
         }
     }
 }
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+public func disclaimResponsibility() throws(Errno) {
+    func check(_ status: Int32) throws(Errno) { if status != 0 { throw Errno(rawValue: status) } }
+    guard responsiblePID(getpid()) != getpid() else { return }
+    guard let executable = Bundle.main.executablePath else { throw .noSuchFileOrDirectory }
+    var attributes: posix_spawnattr_t?
+    try check(unsafe posix_spawnattr_init(&attributes))
+    defer { _ = unsafe posix_spawnattr_destroy(&attributes) }
+    try check(unsafe disclaim(&attributes, 1))
+    try check(unsafe posix_spawnattr_setflags(&attributes, Int16(POSIX_SPAWN_SETEXEC)))
+    try check(unsafe posix_spawn(nil, executable, nil, &attributes, CommandLine.unsafeArgv, environ))
+}
+
+@_silgen_name("responsibility_get_pid_responsible_for_pid")
+private func responsiblePID(_: pid_t) -> pid_t
+@_silgen_name("responsibility_spawnattrs_setdisclaim")
+private func disclaim(_: UnsafeMutablePointer<posix_spawnattr_t?>, _: Int32) -> Int32

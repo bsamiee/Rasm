@@ -74,6 +74,7 @@ const video = Effect.fnUntraced(function* (file: File) {
         element.src = url;
     });
 }, Effect.scoped);
+const sourceSet = ({ width, renditions }: { readonly width: number; readonly renditions?: readonly { readonly width: number }[] | undefined }, url: (width?: number) => string) => renditions && [...renditions.map((rendition) => `${url(rendition.width)} ${rendition.width}w`), `${url()} ${width}w`].join(', ');
 const pdf = Effect.fnUntraced(function* (file: File, options: Options) {
     const { PdfDocument } = yield* Effect.tryPromise(() => import('#/pdf-document'));
     return Pdf({ pages: yield* PdfDocument.pages(file, options) });
@@ -87,7 +88,7 @@ const Inspection = Object.assign(
             Match.orElse(() => MediaError.of('Unsupported', file.name)()),
         ),
     ),
-    { Scaling, $is, $match },
+    { Scaling, sourceSet, $is, $match },
 );
 
 // --- [EXPORTS] -------------------------------------------------------------------------

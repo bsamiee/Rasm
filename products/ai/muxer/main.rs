@@ -35,7 +35,7 @@ use tracing_subscriber::layer::Identity;
 
 type Build = (i64, i32, u64);
 
-type Key = (Command, Option<u64>);
+type ServerKey = (Command, Option<u64>);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, ValueEnum, Serialize, Deserialize)]
 enum Per {
@@ -132,16 +132,16 @@ struct State {
     memory: Option<u64>,
     sessions: usize,
     calls: usize,
-    servers: Vec<Server>,
+    servers: Vec<ServerState>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct Server {
+struct ServerState {
     program: PathBuf,
     arguments: Vec<String>,
     directory: PathBuf,
     phase: Phase,
-    era: Option<rasm_mcp::Era>,
+    lifecycle: Option<rasm_mcp::Lifecycle>,
     sessions: usize,
     calls: usize,
     starts: u32,

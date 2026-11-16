@@ -18,12 +18,11 @@ use jiff::Timestamp;
 use opentelemetry::global;
 use opentelemetry_semantic_conventions::attribute::EXCEPTION_MESSAGE;
 use rasm_ipc::{Endpoint, Instance, IpcError, Opened, Refusal};
-use rasm_mcp::{History, Link, Liveness, Policy, Pool, Retention, Store};
+use rasm_mcp::{History, IdleTimeout, Link, Liveness, Policy, Pool, Store};
 use rasm_telemetry::metrics;
 use rmcp::model::{ClientCapabilitiesBuilder, ElicitationCapability, Implementation, InitializeRequestParams, ProtocolVersion, RootsCapabilities, SamplingCapability};
 use rmcp::transport::async_rw::DEFAULT_MAX_LINE_LENGTH;
 use serde::de::IgnoredAny;
-use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System};
 use tempfile::NamedTempFile;
 use tokio::sync::{oneshot, watch};
 use tokio::{task, time};
@@ -31,7 +30,7 @@ use tokio_util::sync::CancellationToken;
 use tokio_util::task::{AbortOnDropHandle, TaskTracker};
 use tracing::Instrument as _;
 
-use crate::{BUFFER, Build, Command, Key, Launch, MuxerError, OPENING, PROTOCOL, Per, Request, Server, State, Welcome, digest, server};
+use crate::{BUFFER, Build, Command, Launch, MuxerError, OPENING, PROTOCOL, Per, Request, ServerKey, ServerState, State, Welcome, digest, server};
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -42,8 +41,8 @@ impl Records {
     fn path(&self, command: &Command) -> io::Result<Utf8PathBuf> { Ok(self.0.join(digest(command)?).with_extension("json")) }
 }
 
-impl Store<Key> for Records {
-    async fn load(&self, key: &Key) -> io::Result<Option<History>> {
+impl Store<ServerKey> for Records {
+    async fn load(&self, key: &ServerKey) -> io::Result<Option<History>> {
         match fs_err::tokio::read(self.path(&key.0)?).await {
             Ok(held) => rasm_mcp::decode::<(Command, History)>(&held).map_err(io::Error::other).map(|(command, history)| (command == key.0).then_some(history)),
             Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(None),
@@ -51,7 +50,7 @@ impl Store<Key> for Records {
         }
     }
 
-    async fn save(&self, key: &Key, history: History) -> io::Result<()> {
+    async fn save(&self, key: &ServerKey, history: History) -> io::Result<()> {
         let (folder, path, record) = (self.0.clone(), self.path(&key.0)?, serde_json::to_vec(&(&key.0, history))?);
         let stored = task::spawn_blocking(move || {
             fs_err::create_dir_all(&folder)?;
@@ -63,13 +62,15 @@ impl Store<Key> for Records {
     }
 }
 
-#[derive(Debug)]
+#[derive(derive_more::Debug)]
 struct Daemon {
     built: Build,
     started: Timestamp,
     idle: Option<Duration>,
-    pool: Pool<Key, Records>,
-    processes: watch::Sender<BTreeMap<Key, u32>>,
+    pool: Pool<ServerKey, Records>,
+    processes: watch::Sender<BTreeMap<ServerKey, u32>>,
+    #[debug(skip)]
+    memory: Option<Box<dyn Fn() -> BTreeMap<u32, u64> + Send + Sync>>,
     joined: AtomicU64,
     superseded: CancellationToken,
     stopping: CancellationToken,
@@ -112,10 +113,10 @@ impl Daemon {
 
     fn start(
         &self,
-        key: &Key,
+        key: &ServerKey,
         environment: Arc<[(String, String)]>,
     ) -> (Policy, impl FnMut(CancellationToken) -> BoxFuture<'static, io::Result<Link<rasm_process::Output, rasm_process::Input, BoxFuture<'static, String>>>> + Send + use<>, tracing::Span) {
-        const RETENTION: Retention = Retention { ratio: 300, floor: Duration::from_mins(1), ceiling: Duration::from_hours(2) };
+        const IDLE: IdleTimeout = IdleTimeout { ratio: 300, floor: Duration::from_mins(1), ceiling: Duration::from_hours(2) };
         const GRACE: Duration = Duration::from_millis(500);
         const TAIL: usize = 8;
         const LINE: u64 = 4 << 10;
@@ -132,7 +133,7 @@ impl Daemon {
             handshake: Duration::from_secs(30),
             probation: Duration::from_secs(2),
             liveness: Some(Liveness { quiet: Duration::from_mins(2), grace: Duration::from_mins(1) }),
-            retention: self.idle.map_or(RETENTION, |idle| Retention { ratio: 0, floor: idle, ceiling: idle }),
+            idle: self.idle.map_or(IDLE, |idle| IdleTimeout { ratio: 0, floor: idle, ceiling: idle }),
             line: DEFAULT_MAX_LINE_LENGTH,
             queue: 256,
         };
@@ -175,33 +176,22 @@ impl Daemon {
     }
 
     fn state(&self) -> State {
-        let (own, processes) = (std::process::id(), self.processes.borrow().clone());
-        let system = match System::new() {
-            Ok(mut system) => {
-                let watched = Vec::from_iter(processes.values().copied().chain([own]).map(Pid::from_u32));
-                system.refresh_processes_specifics(ProcessesToUpdate::Some(&watched), true, ProcessRefreshKind::nothing().with_memory());
-                Some(system)
-            }
-            Err(error) => {
-                tracing::debug!({ EXCEPTION_MESSAGE } = %Report::new(&error), "process readings unavailable");
-                None
-            }
-        };
-        let memory = |pid: u32| system.as_ref().and_then(|system| system.process(Pid::from_u32(pid))).map(sysinfo::Process::memory);
-        let reported = |(key, member): (&Key, &rasm_mcp::Proxy)| {
+        let (own, processes, readings) = (std::process::id(), self.processes.borrow().clone(), self.memory.as_ref().map_or_default(|read| read()));
+        let memory = |pid: u32| readings.get(&pid).copied();
+        let reported = |(key, member): (&ServerKey, &rasm_mcp::Proxy)| {
             let (status, pid) = (member.status().borrow().clone(), processes.get(key).copied());
-            Server {
+            ServerState {
                 program: key.0.program.clone(),
                 arguments: key.0.arguments.clone(),
                 directory: key.0.directory.clone(),
                 phase: status.phase,
-                era: status.catalog.as_ref().map(|catalog| catalog.era),
+                lifecycle: status.profile.as_ref().map(|profile| profile.lifecycle),
                 sessions: status.sessions,
                 calls: member.in_flight(),
                 starts: status.starts,
                 failures: status.failures,
                 cause: status.cause.as_deref().map(str::to_owned),
-                start_cost: status.catalog.as_ref().map(|catalog| catalog.cost),
+                start_cost: status.profile.as_ref().map(|profile| profile.cost),
                 pid,
                 memory: pid.and_then(memory),
             }
@@ -238,20 +228,20 @@ pub(crate) async fn serve(endpoint: Endpoint, cache: &Utf8Path, idle: Option<Dur
     if let Err(error) = pruned.await {
         tracing::trace!({ EXCEPTION_MESSAGE } = %Report::new(&error), "stored server records not pruned");
     }
+    let (processes, own) = (watch::Sender::<BTreeMap<ServerKey, u32>>::default(), std::process::id());
+    let watched = processes.subscribe();
+    let memory = metrics::process(&*global::meter_provider(), move || Vec::from_iter(watched.borrow().values().copied().chain([own])));
     let daemon = Arc::new(Daemon {
         built,
         started: Timestamp::now(),
         idle,
         pool: Pool::new(Records(cache.to_owned())),
-        processes: watch::Sender::default(),
+        processes,
+        memory: memory.inspect_err(|error| tracing::debug!({ EXCEPTION_MESSAGE } = %Report::new(error), "process metrics unavailable")).ok().map(|read| Box::new(read) as Box<_>),
         joined: AtomicU64::new(0),
         superseded: CancellationToken::new(),
         stopping: CancellationToken::new(),
     });
-    let processes = daemon.processes.subscribe();
-    if let Err(error) = metrics::process(&*global::meter_provider(), move || Vec::from_iter(processes.borrow().values().copied())) {
-        tracing::debug!({ EXCEPTION_MESSAGE } = %Report::new(&error), "server process metrics unavailable");
-    }
     let (sessions, mut unused) = (TaskTracker::new(), pin!(time::sleep(LINGER).then(|()| daemon.pool.unused())));
     let reason = loop {
         tokio::select! {

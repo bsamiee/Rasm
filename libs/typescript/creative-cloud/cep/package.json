@@ -2,7 +2,7 @@
     "name": "@rasm/cep",
     "version": "0.1.0",
     "private": true,
-    "description": "CEP extension manifest, the panel runtime following the host skin and launching a caller link, the swc lowering of ExtendScript, and the Vite builders of CEP extensions and ExtendScript engines",
+    "description": "CEP extension manifest, the panel runtime following the host skin, launching a caller link, and serving an RPC group through the host script, and the Vite builder of CEP extensions",
     "license": "MIT",
     "repository": {
         "type": "git",
@@ -19,7 +19,6 @@
     },
     "exports": {
         ".": "./index.ts",
-        "./node": "./node.ts",
         "./panel": "./panel.ts",
         "./vite": "./vite.ts"
     },
@@ -29,7 +28,6 @@
         },
         "exports": {
             ".": "./dist/index.js",
-            "./node": "./dist/node.js",
             "./panel": "./dist/panel.js",
             "./vite": "./dist/vite.js"
         },
@@ -37,12 +35,10 @@
     },
     "dependencies": {
         "@effect/platform-node": "catalog:",
-        "@rasm/automation": "workspace:*",
-        "@rasm/mark": "workspace:*",
+        "@rasm/extendscript": "workspace:*",
+        "@rasm/object-model": "workspace:*",
+        "@rasm/search": "workspace:*",
         "@rasm/telemetry": "workspace:*",
-        "@swc/wasm": "catalog:",
-        "acorn": "catalog:",
-        "acorn-walk": "catalog:",
         "cheerio": "catalog:",
         "culori": "catalog:",
         "fast-xml-builder": "catalog:",

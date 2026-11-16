@@ -1,19 +1,20 @@
-import { Hex } from 'effect/encoding';
-
-// --- [TYPES] ---------------------------------------------------------------------------
-
-interface Fill {
-    readonly color: string;
-    readonly opacity?: number;
-}
+import { Resvg } from '@resvg/resvg-js';
+import { load } from 'cheerio';
+import { Cause, Effect, FileSystem } from 'effect';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const fillColor = ({ color, opacity = 1 }: Fill & { readonly color: `#${string}` }) => {
-    const opaque = 0xff;
-    return `${color}${Hex.encode(Uint8Array.of(Math.round(opacity * opaque)))}`;
-};
+const paint = Effect.fnUntraced(function* (master: string, { color, opacity = 1 }: { readonly color: string; readonly opacity?: number | undefined }, width?: number) {
+    const fs = yield* FileSystem.FileSystem;
+    const document = load(yield* fs.readFileString(master), { xml: true });
+    document
+        .root()
+        .children('svg')
+        .attr({ color, opacity: `${opacity}` });
+    const svg = yield* Effect.try({ try: () => new Resvg(document.xml(), { fitTo: width === undefined ? { mode: 'original' } : { mode: 'width', value: width } }), catch: (cause) => new Cause.UnknownError(cause, `resvg refused ${master}`) });
+    return width === undefined ? new TextEncoder().encode(svg.toString()) : svg.render().asPng();
+});
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { type Fill, fillColor };
+export { paint };

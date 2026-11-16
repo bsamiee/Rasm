@@ -66,19 +66,6 @@ methods! {
     Logged = LoggingMessageNotificationMethod,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum Severity {
-    Debug,
-    Info,
-    Notice,
-    Warning,
-    Error,
-    Critical,
-    Alert,
-    Emergency,
-}
-
 // --- [MODELS] --------------------------------------------------------------------------
 
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -1,5 +1,5 @@
 import { Server } from '@rasm/mcp';
-import { Duration, Effect, Option, Predicate, Record, Schema, String } from 'effect';
+import { Array, Duration, Effect, Option, Predicate, Record, Schema, String } from 'effect';
 import { McpProtocol } from 'effect/ai';
 import { HttpRouter } from 'effect/http';
 import { Host } from 'effect/net';
@@ -31,6 +31,7 @@ const SESSION = 'Mcp-Session-Id';
 const VERSION = 'Mcp-Protocol-Version';
 const STATEFUL = [McpProtocol.v2024_11_05, McpProtocol.v2025_03_26, McpProtocol.v2025_06_18, McpProtocol.v2025_11_25] as const;
 const PROTOCOLS = [...STATEFUL, McpProtocol.v2026_07_28] as const;
+const EXECUTIONS = { name: 'executions', description: 'Refused state-changing calls that keep running', retention: Duration.minutes(1) };
 const ROUTED: Record.ReadonlyRecord<string, string> = { 'resources/read': 'uri', 'tools/call': 'name', 'prompts/get': 'name' };
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -40,9 +41,9 @@ const Meta = Schema.Struct({ _meta: Schema.Record(Schema.String, Schema.Unknown)
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const hosted = Effect.gen(function* () {
-    const [probe, name, address] = yield* Effect.all([Probe.make, Schema.decodeEffect(Server.Scheme)(MANIFEST.name), Effect.fromResult(Host.hostPortFromString(BOUND))]);
-    return { probe, layer: Server.layerHttp({ ...MANIFEST, name }, { address, hosts: [ALLOWED], retention: Duration.minutes(1), instructions: INSTRUCTIONS }, app(probe)) };
+const hosted = Effect.fnUntraced(function* (bound: string = BOUND) {
+    const [probe, name, address] = yield* Effect.all([Probe.make, Schema.decodeEffect(Server.Scheme)(MANIFEST.name), Effect.fromResult(Host.hostPortFromString(bound))]);
+    return { probe, layer: Server.layerHttp({ ...MANIFEST, name }, { address, hosts: [ALLOWED], executions: EXECUTIONS, instructions: INSTRUCTIONS, protocols: Array.reverse(PROTOCOLS) }, app(probe)) };
 });
 const messages = (response: Response) =>
     Effect.flatMap(
@@ -55,7 +56,7 @@ const messages = (response: Response) =>
     );
 
 const opened = Effect.fnUntraced(function* (protocol: (typeof PROTOCOLS)[number]) {
-    const { probe, layer } = yield* hosted;
+    const { probe, layer } = yield* hosted();
     const { handler, dispose } = HttpRouter.toWebHandler(layer, { disableLogger: true });
     yield* Effect.addFinalizer(() => Effect.promise(dispose));
     yield* Effect.addFinalizer(() => probe.release.open);
@@ -97,4 +98,4 @@ const opened = Effect.fnUntraced(function* (protocol: (typeof PROTOCOLS)[number]
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { ALLOWED, BOUND, CLIENT, ENDPOINT, hosted, INSTRUCTIONS, MANIFEST, opened, PROTOCOLS, SESSION, STATEFUL, VERSION };
+export { ALLOWED, BOUND, CLIENT, ENDPOINT, EXECUTIONS, hosted, INSTRUCTIONS, MANIFEST, opened, PROTOCOLS, SESSION, STATEFUL, VERSION };

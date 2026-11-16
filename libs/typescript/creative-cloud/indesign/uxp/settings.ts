@@ -1,6 +1,6 @@
-import type { HostError } from '@rasm/automation';
-import type { Unmatched } from '@rasm/search';
-import { Digits, Settings } from '@rasm/typography';
+import type { HostError } from '@rasm/object-model';
+import { Digits, type Unmatched } from '@rasm/search';
+import { Settings } from '@rasm/typography';
 import type { Capitalization, CharacterDirectionOptions, DigitsTypeOptions, InDesignDOMObject, Justification, KashidasOptions, Leading, PageSideOptions, ParagraphDirectionOptions, ParagraphJustificationOptions, SingleWordJustification, Text, TextDefault } from 'adobe:indesign';
 import { Array, type Cause, Effect, Equal, identity, Match, Number, Option, Predicate, Record, Schema, SchemaGetter, SchemaIssue, SchemaTransformation, Struct } from 'effect';
 import { STYLISTIC_SETS } from '#/uxp/dictionary';
@@ -61,18 +61,9 @@ const JUSTIFICATIONS = {
     NASKH_JUSTIFICATION: { _tag: 'Stretched', fractional: false },
 } as const satisfies Record<Members<typeof ParagraphJustificationOptions>, { readonly _tag: Exclude<Settings['kashida']['_tag'], 'None'>; readonly fractional: boolean }>;
 const KASHIDA_WIDTHS = { None: 0, Short: 1, Medium: 2, Long: 3 } as const;
-const ROUND_TRIPS: Record.ReadonlyRecord<string, Record.ReadonlyRecord<string, string>> = {
-    digitsType: Record.map(NUMBERING, String),
-    paragraphJustification: Record.map(JUSTIFICATIONS, ({ _tag, fractional }) => `${_tag} ${fractional}`),
-};
+const ROUND_TRIPS: Record.ReadonlyRecord<string, Record.ReadonlyRecord<string, string>> = { digitsType: Record.map(NUMBERING, String), paragraphJustification: Record.map(JUSTIFICATIONS, ({ _tag, fractional }) => `${_tag} ${fractional}`) };
 const FEATURE_FLAGS = { otfTitling: 'titl', otfContextualAlternate: 'calt', otfDiscretionaryLigature: 'dlig', otfStylisticAlternate: 'salt', otfJustificationAlternate: 'jalt' } as const;
-const CAPITALIZATIONS = {
-    CAP_TO_SMALL_CAP: ['c2sc', 'smcp'],
-    SMALL_CAPS: ['smcp'],
-    NORMAL: [],
-    ALL_CAPS: [],
-    LOWER_CASE: [],
-} as const satisfies Record<Members<typeof Capitalization>, readonly string[]>;
+const CAPITALIZATIONS = { CAP_TO_SMALL_CAP: ['c2sc', 'smcp'], SMALL_CAPS: ['smcp'], NORMAL: [], ALL_CAPS: [], LOWER_CASE: [] } as const satisfies Record<Members<typeof Capitalization>, readonly string[]>;
 const SPACING = Record.map({ word: 'WordSpacing', letter: 'LetterSpacing', glyph: 'GlyphScaling' } as const, (suffix) => Record.map({ min: 'minimum', desired: 'desired', max: 'maximum' } as const, (prefix) => `${prefix}${suffix}` as const));
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -81,10 +72,7 @@ const scaled = (factor: number) => Schema.Finite.pipe(Schema.decodeTo(Schema.Fin
 const { thousandths, percent } = Record.map({ thousandths: 1000, percent: 100 }, scaled);
 const ParagraphDirection = Schema.Literals(['LEFT_TO_RIGHT_DIRECTION', 'RIGHT_TO_LEFT_DIRECTION'] as const satisfies readonly Members<typeof ParagraphDirectionOptions>[]).transform(['LTR', 'RTL']);
 const Placement = Schema.Struct({ pointSize: Schema.Finite.check(Schema.isGreaterThan(0)), paragraphDirection: ParagraphDirection, side: Schema.optionalKey(Schema.Literals(Struct.keys(SPINES))) });
-const direction = Schema.Struct({
-    paragraphDirection: Schema.optionalKey(ParagraphDirection),
-    characterDirection: Schema.optionalKey(Schema.Literals(['DEFAULT_DIRECTION', 'LEFT_TO_RIGHT_DIRECTION', 'RIGHT_TO_LEFT_DIRECTION'] satisfies Members<typeof CharacterDirectionOptions>[])),
-}).pipe(
+const direction = Schema.Struct({ paragraphDirection: Schema.optionalKey(ParagraphDirection), characterDirection: Schema.optionalKey(Schema.Literals(['DEFAULT_DIRECTION', 'LEFT_TO_RIGHT_DIRECTION', 'RIGHT_TO_LEFT_DIRECTION'] satisfies Members<typeof CharacterDirectionOptions>[])) }).pipe(
     Schema.decodeTo(Schema.toType(Settings.fields.direction), {
         decode: SchemaGetter.transform(({ paragraphDirection }) => Option.fromUndefinedOr(paragraphDirection)),
         encode: SchemaGetter.transform(Option.match({ onNone: () => ({ characterDirection: 'DEFAULT_DIRECTION' as const }), onSome: (paragraphDirection) => ({ paragraphDirection }) })),
@@ -95,10 +83,7 @@ const alignment = (sided: Sides) =>
     alignmentMembers.pipe(
         Schema.decodeTo(Schema.toType(Settings.fields.alignment), {
             decode: SchemaGetter.transform(({ justification, singleWordJustification = 'FULLY_JUSTIFIED' }) =>
-                Match.valueTags(ALIGNMENTS[justification], {
-                    Aligned: ({ _tag, edge }) => ({ _tag, side: sided[edge] }),
-                    Justified: ({ _tag, edge }) => ({ _tag, last: sided[edge], single: sided[SINGLE_WORDS[singleWordJustification]] }),
-                }),
+                Match.valueTags(ALIGNMENTS[justification], { Aligned: ({ _tag, edge }) => ({ _tag, side: sided[edge] }), Justified: ({ _tag, edge }) => ({ _tag, last: sided[edge], single: sided[SINGLE_WORDS[singleWordJustification]] }) }),
             ),
             encode: SchemaGetter.transformEffect(
                 Effect.fnUntraced(function* (aligned: Settings['alignment']) {
@@ -152,33 +137,18 @@ const elongated = Effect.fnUntraced(function* (elongation: Exclude<Settings['kas
     const paragraphJustification = yield* inverse(JUSTIFICATIONS, (row) => Predicate.isTagged(row, elongation._tag) && row.fractional === elongation.fractional, elongation, elongation.fractional ? `No paragraphJustification for ${elongation._tag} fractional` : `No paragraphJustification for ${elongation._tag}`);
     return { kashidas: 'DEFAULT_KASHIDAS' as const, paragraphJustification, paragraphKashidaWidth };
 });
-const kashida = Schema.Struct({
-    kashidas: Schema.Literals(['DEFAULT_KASHIDAS', 'KASHIDAS_OFF'] satisfies Members<typeof KashidasOptions>[]),
-    paragraphJustification: Schema.optionalKey(Schema.Literals(Struct.keys(JUSTIFICATIONS))),
-    paragraphKashidaWidth: kashidaWidth,
-}).pipe(
+const kashida = Schema.Struct({ kashidas: Schema.Literals(['DEFAULT_KASHIDAS', 'KASHIDAS_OFF'] satisfies Members<typeof KashidasOptions>[]), paragraphJustification: Schema.optionalKey(Schema.Literals(Struct.keys(JUSTIFICATIONS))), paragraphKashidaWidth: kashidaWidth }).pipe(
     Schema.decodeTo(Schema.toType(Settings.fields.kashida), {
         decode: SchemaGetter.transform(({ kashidas, paragraphJustification = 'DEFAULT_JUSTIFICATION', paragraphKashidaWidth }) =>
             kashidas === 'KASHIDAS_OFF' || paragraphKashidaWidth === KASHIDA_WIDTHS.None ? { _tag: 'None' as const } : { ...JUSTIFICATIONS[paragraphJustification], lower: paragraphKashidaWidth, upper: paragraphKashidaWidth },
         ),
-        encode: SchemaGetter.transformEffect(
-            Match.valueTags({
-                None: () => Effect.succeed({ kashidas: 'KASHIDAS_OFF' as const, paragraphKashidaWidth: KASHIDA_WIDTHS.None }),
-                Tatweel: elongated,
-                Stretched: elongated,
-            }),
-        ),
+        encode: SchemaGetter.transformEffect(Match.valueTags({ None: () => Effect.succeed({ kashidas: 'KASHIDAS_OFF' as const, paragraphKashidaWidth: KASHIDA_WIDTHS.None }), Tatweel: elongated, Stretched: elongated })),
     }),
 );
 const marks = Schema.Struct(Struct.Record(['x', 'y'], thousandths)).pipe(Schema.encodeKeys({ x: 'xOffsetDiacritic', y: 'yOffsetDiacritic' }));
 const featureValues = Schema.Array(Schema.Tuple([Schema.String, Schema.Finite]));
 const heldFeatures = Schema.Struct({ capitalization: Schema.String, existing: featureValues });
-const features = Schema.Struct({
-    otfStylisticSets: Schema.Int,
-    ...Record.map(FEATURE_FLAGS, () => Schema.Boolean),
-    capitalization: Schema.Literals(Struct.keys(CAPITALIZATIONS)),
-    opentypeFeatures: Schema.optionalKey(featureValues),
-}).pipe(
+const features = Schema.Struct({ otfStylisticSets: Schema.Int, ...Record.map(FEATURE_FLAGS, () => Schema.Boolean), capitalization: Schema.Literals(Struct.keys(CAPITALIZATIONS)), opentypeFeatures: Schema.optionalKey(featureValues) }).pipe(
     Schema.decodeTo(Schema.toType(Settings.fields.features), {
         decode: SchemaGetter.transform(({ otfStylisticSets, capitalization, opentypeFeatures = [], ...flags }) =>
             Record.fromEntries([...[...STYLISTIC_TAGS.filter((_, bit) => Math.floor(otfStylisticSets / 2 ** bit) % 2 === 1), ...CAPITALIZATIONS[capitalization]].map((tag) => [tag, 1] as const), ...Record.collect(FEATURE_FLAGS, (flag, tag) => [tag, flags[flag] ? 1 : 0] as const), ...opentypeFeatures]),
@@ -190,12 +160,7 @@ const features = Schema.Struct({
                 () => 'NORMAL' as const,
             );
             const memberTags = new Set<string>([...STYLISTIC_TAGS, ...Object.values(FEATURE_FLAGS), ...CAPITALIZATIONS[capitalization]]);
-            return {
-                otfStylisticSets: Number.sumAll(STYLISTIC_TAGS.map((tag, bit) => (flagged(tag) ? 2 ** bit : 0))),
-                ...Record.map(FEATURE_FLAGS, flagged),
-                capitalization,
-                opentypeFeatures: Record.toEntries(Record.filter(chosen, (_, tag) => !memberTags.has(tag))),
-            };
+            return { otfStylisticSets: Number.sumAll(STYLISTIC_TAGS.map((tag, bit) => (flagged(tag) ? 2 ** bit : 0))), ...Record.map(FEATURE_FLAGS, flagged), capitalization, opentypeFeatures: Record.toEntries(Record.filter(chosen, (_, tag) => !memberTags.has(tag))) };
         }),
     }),
 );
@@ -262,11 +227,7 @@ const featureMembers = (target: Text | TextDefault, { capitalization, opentypeFe
         Model.read(heldFeatures, `features of ${target.toSpecifier()}`, () => ({ capitalization: target.capitalization, existing: 'opentypeFeatures' in target ? target.opentypeFeatures : [] })),
         ({ capitalization: current, existing }) => {
             const replaced = Record.toEntries({ ...Record.map(Record.fromEntries(existing), () => 0), ...Record.fromEntries(opentypeFeatures) });
-            return {
-                ...flags,
-                ...(capitalization === 'NORMAL' && Option.exists(Record.get<string, readonly string[]>(CAPITALIZATIONS, current), Array.isReadonlyArrayEmpty) ? {} : { capitalization }),
-                ...(Array.isReadonlyArrayEmpty(replaced) ? {} : { opentypeFeatures: replaced }),
-            };
+            return { ...flags, ...(capitalization === 'NORMAL' && Option.exists(Record.get<string, readonly string[]>(CAPITALIZATIONS, current), Array.isReadonlyArrayEmpty) ? {} : { capitalization }), ...(Array.isReadonlyArrayEmpty(replaced) ? {} : { opentypeFeatures: replaced }) };
         },
     );
 

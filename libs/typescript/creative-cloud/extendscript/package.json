@@ -1,0 +1,59 @@
+{
+    "name": "@rasm/extendscript",
+    "version": "0.1.0",
+    "private": true,
+    "description": "ExtendScript runtime and its reply wire: the ES3 reply writer, value writes, scopes, and reflection a host script runs, the completion a panel or server decodes, the swc lowering to ES3 with source map lines, and the Vite builds of ExtendScript",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/bsamiee/Rasm.git",
+        "directory": "libs/typescript/creative-cloud/extendscript"
+    },
+    "files": [
+        "dist"
+    ],
+    "type": "module",
+    "sideEffects": false,
+    "imports": {
+        "#/*": "./*.ts"
+    },
+    "exports": {
+        ".": "./index.ts",
+        "./host": "./host.ts",
+        "./node": "./node.ts",
+        "./vite": "./vite.ts"
+    },
+    "publishConfig": {
+        "imports": {
+            "#/*": "./dist/*.js"
+        },
+        "exports": {
+            ".": "./dist/index.js",
+            "./host": "./dist/host.js",
+            "./node": "./dist/node.js",
+            "./vite": "./dist/vite.js"
+        },
+        "access": "public"
+    },
+    "dependencies": {
+        "@rasm/object-model": "workspace:*",
+        "@rasm/search": "workspace:*",
+        "@swc/wasm": "catalog:",
+        "acorn": "catalog:",
+        "acorn-walk": "catalog:"
+    },
+    "devDependencies": {
+        "@types/node": "catalog:",
+        "effect": "catalog:",
+        "vite": "catalog:"
+    },
+    "peerDependencies": {
+        "effect": "catalog:peers",
+        "vite": "catalog:peers"
+    },
+    "peerDependenciesMeta": {
+        "vite": {
+            "optional": true
+        }
+    }
+}

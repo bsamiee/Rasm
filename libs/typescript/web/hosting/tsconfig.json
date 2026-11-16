@@ -5,7 +5,7 @@
     },
     "references": [
         {
-            "path": "../../runtime/workers"
+            "path": "../../runtime/telemetry"
         },
         {
             "path": "../../graphics/mark"

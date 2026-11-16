@@ -1,14 +1,14 @@
 import { useAtomValue } from '@effect/atom-react';
-import { Sites } from '@rasm/hosting/openai-sites';
-import { Backdrop } from '@rasm/ui';
+import { ModalDialog } from '@rasm/ui';
 import { flow, Option, Schema } from 'effect';
 import { UrlParams } from 'effect/http';
 import { Atom } from 'effect/reactivity';
 import { ArrowDown, ArrowUp, Plus } from 'lucide-react';
 import { MotionConfig } from 'motion/react';
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
-import { Button, Dialog, DialogTrigger, Heading, Modal } from 'react-aria-components';
+import { Button, DialogTrigger, Heading } from 'react-aria-components';
 import { ErrorBoundary } from 'react-error-boundary';
+import hosting from '#/hosting.config';
 import { MediaFigure } from '#/media/media-figure.tsx';
 import type { Bootstrap } from '#/model/api';
 import type { PortfolioData } from '#/model/portfolio';
@@ -27,10 +27,10 @@ const Editor = lazy(() => import('#/editor/editor.tsx').then((module) => ({ defa
 const Site = ({ published: served, session }: typeof Bootstrap.Type) => {
     const [published, setPublished] = useState(served);
     const [preview, setPreview] = useState(Option.none<typeof PortfolioData.Type>());
-    const requested = Option.isSome(useAtomValue(editing)) && session === 'owner';
+    const requested = Option.isSome(useAtomValue(editing)) && session === 'allowed';
     const [toggled, setToggled] = useState(Option.none<boolean>());
     const open = Option.getOrElse(toggled, () => requested);
-    const modalOpen = useAtomValue(Backdrop.open, (count) => count > 0);
+    const modalOpen = useAtomValue(ModalDialog.open, (count) => count > 0);
     const opener = useRef<HTMLButtonElement>(null);
     const work = useRef<HTMLElement>(null);
     const sticky = useRef<HTMLDivElement>(null);
@@ -52,7 +52,7 @@ const Site = ({ published: served, session }: typeof Bootstrap.Type) => {
                     {portfolio.name || 'Portfolio'}
                     <Plus className="size-9 shrink-0 stroke-2 text-accent" nonScalingStroke />
                 </a>
-                {session === 'owner' ? (
+                {session === 'allowed' ? (
                     <DialogTrigger isOpen={open} onOpenChange={flow(Option.some, setToggled)}>
                         <Button className="quiet-link" ref={opener}>
                             Edit portfolio
@@ -60,19 +60,15 @@ const Site = ({ published: served, session }: typeof Bootstrap.Type) => {
                         {(Option.isSome(toggled) || requested) && (
                             <ErrorBoundary
                                 fallback={
-                                    <Backdrop className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/55 p-5" isDismissable>
-                                        <Modal className="w-full max-w-lg bg-background p-9">
-                                            <Dialog className="flex flex-col gap-5">
-                                                <Heading className="text-2xl tracking-tight" slot="title">
-                                                    Editor failed to open
-                                                </Heading>
-                                                <p className="hint">Published portfolio is unaffected</p>
-                                                <Button className="button self-start" slot="close">
-                                                    Close
-                                                </Button>
-                                            </Dialog>
-                                        </Modal>
-                                    </Backdrop>
+                                    <ModalDialog className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/55 p-5" dialog={{ className: 'flex flex-col gap-5' }} isDismissable modal={{ className: 'w-full max-w-lg bg-background p-9' }}>
+                                        <Heading className="text-2xl tracking-tight" slot="title">
+                                            Editor failed to open
+                                        </Heading>
+                                        <p className="hint">Published portfolio is unaffected</p>
+                                        <Button className="button self-start" slot="close">
+                                            Close
+                                        </Button>
+                                    </ModalDialog>
                                 }
                             >
                                 <Suspense fallback={<output className="block p-9">Opening editor…</output>}>
@@ -89,7 +85,7 @@ const Site = ({ published: served, session }: typeof Bootstrap.Type) => {
                         )}
                     </DialogTrigger>
                 ) : (
-                    <a className="quiet-link" href={session === 'signedIn' ? Sites.identity.href('signout', '/') : Sites.identity.href('signin', `/?${UrlParams.toString({ [edit.name]: edit.value })}`)} target="_top">
+                    <a className="quiet-link" href={session === 'signedIn' ? hosting.identity.href('signout', '/') : hosting.identity.href('signin', `/?${UrlParams.toString({ [edit.name]: edit.value })}`)} target="_top">
                         {session === 'signedIn' ? 'Sign out' : 'Owner sign-in'}
                     </a>
                 )}

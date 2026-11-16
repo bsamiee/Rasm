@@ -3,6 +3,7 @@ import AppleEvents
 import AsyncAlgorithms
 public import CasePaths
 import CasePathsCore
+public import Encoding
 public import OrderedCollections
 public import Processes
 import Subprocess
@@ -20,17 +21,12 @@ public struct Instance: Hashable, Sendable {
 public enum InstanceState: Equatable, Sendable {
     public struct Running: Equatable, Sendable {
         @CasePathable
-        public enum Status: Encodable, Equatable, Sendable {
+        public enum Status: CaseLabeled, Equatable, Sendable {
             case launching
             case responding
             case unresponsive(ProcessStatus)
 
             public var settled: Bool { self != .launching }
-
-            public func encode(to encoder: any Encoder) throws {
-                var label = encoder.singleValueContainer()
-                try label.encode(caseLabel(of: self))
-            }
         }
 
         public let status: Status
@@ -45,7 +41,7 @@ public enum InstanceState: Equatable, Sendable {
 
     public struct Window: Equatable, Sendable {
         @CasePathable
-        public enum Description: Encodable, Equatable, Sendable {
+        public enum Description: CaseLabeled, Equatable, Sendable {
             case element(Element)
             case undescribed
             case blocking
@@ -53,9 +49,7 @@ public enum InstanceState: Equatable, Sendable {
             public func encode(to encoder: any Encoder) throws {
                 switch self {
                     case .element(let element): try element.kind.encode(to: encoder)
-                    case .undescribed, .blocking:
-                        var label = encoder.singleValueContainer()
-                        try label.encode(caseLabel(of: self))
+                    case .undescribed, .blocking: try caseLabel.encode(to: encoder)
                 }
             }
         }

@@ -1,5 +1,6 @@
 import type { Body, Meta, State, Uppy, UppyEventMap, UppyFile } from '@uppy/core';
 import { Cause, Effect, FiberSet, type Types } from 'effect';
+import { HttpClient, HttpClientError, HttpClientRequest, HttpClientResponse } from 'effect/http';
 import { Atom } from 'effect/reactivity';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -10,6 +11,11 @@ const selectUploadState = <M extends Meta, B extends Body, A>(uploader: Atom.Ato
         get.addFinalizer(current.store.subscribe((_, next) => get.setSelf(select(next))));
         return select(current.getState());
     });
+const isTransientUpload = (xhr: XMLHttpRequest) => {
+    const request = HttpClientRequest.post(xhr.responseURL);
+    const reason = xhr.status === 0 ? new HttpClientError.TransportError({ request }) : new HttpClientError.StatusCodeError({ request, response: HttpClientResponse.fromWeb(request, new Response(null, { status: xhr.status, statusText: xhr.statusText })) });
+    return HttpClient.isTransientError(new HttpClientError.HttpClientError({ reason }));
+};
 const preprocessUploads = Effect.fn('preprocessUploads')(function* <M extends Meta, B extends Body, E extends Parameters<UppyEventMap<M, B>['upload-error']>[1], R>(
     uploader: Uppy<M, B>,
     prepare: (file: UppyFile<M, B>, data: Blob) => Effect.Effect<Partial<M>, E, R>,
@@ -51,4 +57,4 @@ const preprocessUploads = Effect.fn('preprocessUploads')(function* <M extends Me
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { preprocessUploads, selectUploadState };
+export { isTransientUpload, preprocessUploads, selectUploadState };

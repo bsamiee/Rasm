@@ -14,12 +14,6 @@
     {
       "kind": "local",
       "path": "../../../../../..",
-    }, {
-      "kind": "remote",
-      "repository": "https://github.com/sparkle-project/Sparkle",
-      "version": {
-        "up-to-next-major-version": "2.10.1",
-      },
     },
   ],
   "files": [
@@ -93,11 +87,15 @@
           "build-phase": { "build-phase": "frameworks" },
         }, {
           "package": "..",
-          "product-name": "EffectRPC",
+          "product-name": "Encoding",
           "build-phase": { "build-phase": "frameworks" },
         }, {
           "package": "..",
-          "product-name": "Encoding",
+          "product-name": "Fonts",
+          "build-phase": { "build-phase": "frameworks" },
+        }, {
+          "package": "..",
+          "product-name": "JSONRPC",
           "build-phase": { "build-phase": "frameworks" },
         }, {
           "package": "..",
@@ -106,6 +104,10 @@
         }, {
           "package": "..",
           "product-name": "Results",
+          "build-phase": { "build-phase": "frameworks" },
+        }, {
+          "package": "..",
+          "product-name": "ScreenCapture",
           "build-phase": { "build-phase": "frameworks" },
         }, {
           "package": "..",
@@ -124,8 +126,8 @@
           "product-name": "UnixSignals",
           "build-phase": { "build-phase": "frameworks" },
         }, {
-          "package": "Sparkle",
-          "product-name": "Sparkle",
+          "package": "..",
+          "product-name": "Updater",
           "build-phase": { "build-phase": "frameworks" },
         },
       ],

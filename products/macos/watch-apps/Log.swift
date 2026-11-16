@@ -22,7 +22,7 @@ struct Log: ParsableCommand {
 
     func run() throws {
         let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .custom { decoder in try dateFormat.parse(decoder.singleValueContainer().decode(String.self)) }
+        decoder.dateDecodingStrategy = .custom { decoder in try Date.ISO8601FormatStyle(includingFractionalSeconds: true).parse(decoder.singleValueContainer().decode(String.self)) }
         let pid = pid
         let printed = Result { () throws(ApplicationFailure) in
             do {
@@ -36,7 +36,7 @@ struct Log: ParsableCommand {
                             guard var summary = run.records.first else { return }
                             let lines = run.records.dropFirst().reduce(into: [String: JSONValue]()) { merged, record in merged.merge(record.line ?? [:]) { _, next in next } }
                             (summary.line, summary.exit) = (run.records.count > 1 ? lines : nil, run.records.last?.exit)
-                            text += try encoder.encodeLine(summary)
+                            text += try JSONEncoder.lines.encodeLine(summary)
                         }
                 }
             } catch {
@@ -46,7 +46,7 @@ struct Log: ParsableCommand {
         switch printed {
             case .success(let text): try FileDescriptor.standardOutput.writeAll(text)
             case .failure(let failure):
-                try FileDescriptor.standardOutput.writeAll(encoder.encodeLine([Program.current.name: Event.fail(failure)]))
+                try FileDescriptor.standardOutput.writeAll(JSONEncoder.lines.encodeLine([Program.current.name: Event.fail(failure)]))
                 WatchApps.exit(withError: ExitCode.failure)
         }
     }

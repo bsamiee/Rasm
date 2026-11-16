@@ -8,6 +8,7 @@ import ServiceLifecycle
 import Sparkle
 import SwiftUI
 import Telemetry
+import Updater
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -17,16 +18,11 @@ struct RelayApp: App {
 
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate: AppDelegate
     @SwiftUI.Environment(\.openWindow) private var openWindow: OpenWindowAction
-    private let userDriverDelegate: UserDriverDelegate = .init()
-    private let updater: SPUStandardUpdaterController
-
-    init() {
-        updater = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: nil, userDriverDelegate: userDriverDelegate)
-    }
+    private let updater: Updater = .init(resting: .accessory)
 
     var body: some Scene {
         MenuBarExtra {
-            MenuBarExtraContent(store: delegate.store, updater: updater.updater)
+            MenuBarExtraContent(store: delegate.store, updater: updater.controller.updater)
         } label: {
             Image(.relaySymbol)
                 .accessibilityLabel("Relay")
@@ -94,19 +90,5 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             sender.reply(toApplicationShouldTerminate: true)
         }
         return .terminateLater
-    }
-}
-
-final class UserDriverDelegate: NSObject, SPUStandardUserDriverDelegate {
-    var supportsGentleScheduledUpdateReminders: Bool { true }
-
-    func standardUserDriverWillHandleShowingUpdate(_: Bool, forUpdate _: SUAppcastItem, state: SPUUserUpdateState) {
-        NSApplication.shared.setActivationPolicy(.regular)
-        if !state.userInitiated { NSApplication.shared.dockTile.badgeLabel = "1" }
-    }
-
-    func standardUserDriverWillFinishUpdateSession() {
-        NSApplication.shared.dockTile.badgeLabel = nil
-        NSApplication.shared.setActivationPolicy(.accessory)
     }
 }

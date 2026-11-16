@@ -1,4 +1,5 @@
 import { type ByteSize, Data, type Duration, type Record, type Schema, String } from 'effect';
+import type { Identity } from '#/app/identity';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -6,6 +7,7 @@ type Binding = Data.TaggedEnum<{
     sqlite: object;
     postgres: object;
     bucket: {
+        readonly uploads: string;
         readonly abort: Duration.Duration;
         readonly expire: Record.ReadonlyRecord<keyof typeof App.modes, Record.ReadonlyRecord<string, Duration.Duration>>;
         readonly infrequentAccess: Record.ReadonlyRecord<string, Duration.Duration>;
@@ -15,23 +17,23 @@ type Binding = Data.TaggedEnum<{
     text: { readonly value: string };
     json: { readonly value: Schema.MutableJson };
 }>;
-type Target = Data.TaggedEnum<{ Cloudflare: object; Machine: { readonly host: string } }>;
+type Target = Data.TaggedEnum<{ Cloudflare: object; Machine: { readonly host: string }; Sites: { readonly project: string } }>;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-// oxlint-disable-next-line typescript/no-unnecessary-type-parameters -- `const E` keeps the literal env keys `worker()` and `serveNode()` recover through `App<E>`
+// oxlint-disable-next-line typescript/no-unnecessary-type-parameters -- `const E` keeps the literal env keys `worker()`, `serveNode()`, and `serveWorker()` recover through `App<E>`
 class App<const E extends Record.ReadonlyRecord<string, Binding> = Record.ReadonlyRecord<string, Binding>> extends Data.Class<{
     readonly name: string;
     readonly env: E;
     readonly allowed: readonly string[];
+    readonly identity: Identity;
     readonly targets: readonly Target[];
     readonly limits: { readonly cpus: number; readonly memory: ByteSize.ByteSize };
 }> {
     static readonly Binding = Data.taggedEnum<Binding>();
     static readonly Target = Data.taggedEnum<Target>();
     static readonly modes = { production: { suffix: '', kept: true }, disposable: { suffix: '-disposable', kept: false } } as const;
-    static readonly bundle = { environment: 'node', entry: 'index', assets: 'assets', portVariable: 'PORT', readiness: '/readyz' } as const;
-    static readonly uploads = '.uploads/';
+    static readonly bundle = { environment: 'node', entry: 'index', assets: 'assets', fetcher: 'ASSETS', portVariable: 'PORT', readiness: '/readyz' } as const;
     static readonly resource = (app: App, mode: keyof typeof App.modes, ...variables: readonly string[]) => `${[app.name, ...variables.map((variable) => String.snakeToKebab(variable.toLowerCase()))].join('-')}${App.modes[mode].suffix}`;
 }
 

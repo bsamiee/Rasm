@@ -8,13 +8,13 @@ import { MenuButton } from '#/menu-button.tsx';
 const meta = preview.meta({
     component: MenuButton,
     args: {
-        'aria-label': 'Sheet',
+        'aria-label': 'Sort',
         options: [
-            { id: 'plan', label: 'Plan' },
-            { id: 'section', label: 'Section' },
+            { id: 'name', label: 'Name' },
+            { id: 'date', label: 'Date' },
         ],
         onAction: fn<ComponentProps<typeof MenuButton>['onAction']>(),
-        children: 'Choose sheet',
+        children: 'Sort by',
     },
 });
 

@@ -1,4 +1,4 @@
-import { HostError, ObjectModel } from '@rasm/automation';
+import { Declaration, HostError } from '@rasm/object-model';
 import { Unmatched } from '@rasm/search';
 import { app, type InDesignDOMObject, type MenuAction, ScriptLanguage } from 'adobe:indesign';
 import { Array, Effect, flow, Match, Number, Option, Record, Schema, SchemaGetter, Struct } from 'effect';
@@ -43,12 +43,12 @@ const Described = Schema.TemplateLiteralParser([
     ),
     Schema.Literals(['.', OPTIONAL]),
 ]).pipe(Schema.decodeTo(Schema.Struct({ types: Schema.Array(Schema.String), optional: Schema.Boolean }), { decode: SchemaGetter.transform((parsed) => ({ types: parsed[2], optional: parsed[3] === OPTIONAL })), encode: SchemaGetter.forbiddenEncoding }));
-const Stated = ObjectModel.Field.mapFields(Struct.omit(['members', 'unavailable', 'settable']));
+const Stated = Declaration.Field.mapFields(Struct.omit(['members', 'unavailable', 'settable']));
 const Parameter = Stated.pipe(Schema.fieldsAssign({ optional: Schema.Boolean }));
-const Declaration = Schema.Struct({
+const Dictionary = Schema.Struct({
     parent: Schema.OptionFromOptionalKey(Schema.String),
     fields: Schema.Record(Schema.String, Stated.pipe(Schema.fieldsAssign({ settable: Schema.Boolean }))),
-    methods: Schema.Record(Schema.String, ObjectModel.Method.mapFields(Struct.assign({ parameters: Schema.Array(Parameter) }))),
+    methods: Schema.Record(Schema.String, Declaration.Method.mapFields(Struct.assign({ parameters: Schema.Array(Parameter) }))),
     statics: Schema.Record(Schema.String, Schema.String),
 });
 const Typed = [Schema.String, Schema.OptionFromNullOr(Schema.String), Schema.OptionFromNullOr(Schema.String), Schema.Boolean, Schema.OptionFromNullOr(Schema.Finite), Schema.OptionFromNullOr(Schema.Finite)] as const;
@@ -58,7 +58,7 @@ const stated = ([flagged, name, description, type, array, minimum, maximum]: typ
     return { name, type, types: Option.orElse(Option.map(described, Struct.get('types')), () => Option.map(type, Array.of)), description, array, minimum, maximum, optional: flagged || Option.exists(described, Struct.get('optional')) };
 };
 const Declared = Schema.Tuple([Schema.OptionFromNullOr(Schema.String), Schema.Array(Flagged), Schema.Array(Schema.Tuple([Schema.Array(Flagged), ...Typed])), Schema.Array(Flagged)]).pipe(
-    Schema.decodeTo(Schema.toType(Declaration), {
+    Schema.decodeTo(Schema.toType(Dictionary), {
         decode: SchemaGetter.transform(([parent, properties, methods, statics]) => ({
             parent,
             fields: Record.fromIterableWith(properties, ([readonly, ...each]) => [each[0], { ...stated([false, ...each]), settable: !readonly }]),
@@ -82,11 +82,9 @@ const readDeclaration = (kind: string, candidates: readonly string[]) =>
     Effect.try({ try: (): unknown => app.doScript(READER, ScriptLanguage.JAVASCRIPT, [kind]), catch: HostError.refused(`dictionary class ${kind}`) }).pipe(
         Effect.flatMap(flow(Schema.decodeUnknownEffect(Schema.OptionFromNullOr(Declared)), Effect.orDie)),
         Effect.flatMap(Effect.fromOption(() => Unmatched.make({ subject: 'class', query: Option.some(kind), candidates }))),
-        Effect.map(Struct.evolve({ fields: Record.map((row: (typeof Declaration.Type.fields)[string]) => ({ ...row, unavailable: unavailableReason(kind, row.name, Option.none(), false) })) })),
+        Effect.map(Struct.evolve({ fields: Record.map((row: (typeof Dictionary.Type.fields)[string]) => ({ ...row, unavailable: unavailableReason(kind, row.name, Option.none(), false) })) })),
     );
-const declaredMember = <S extends typeof ObjectModel.Field | typeof ObjectModel.Method>(schema: S, declared: Record.ReadonlyRecord<string, S['Type']>, { name, settable = false }: { readonly name: string; readonly settable?: boolean }) =>
-    Option.match(Record.get(declared, name), { onSome: Effect.succeed, onNone: () => Effect.orDie(Schema.decodeEffect(schema)({ name, settable, parameters: [] })) });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { AGGREGATE_FIELD, declaredMember, readDeclaration, STYLISTIC_SETS, unavailableReason };
+export { AGGREGATE_FIELD, readDeclaration, STYLISTIC_SETS, unavailableReason };

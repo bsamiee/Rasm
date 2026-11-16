@@ -1,4 +1,5 @@
 public import Applications
+import Configuration
 import Foundation
 import Logging
 import Security
@@ -18,8 +19,8 @@ extension LaunchAgent {
         let read = code.map { code in unsafe SecCodeCopySigningInformation(code, [], &signing) } ?? found
         guard read == errSecSuccess else { throw ApplicationFailure(subject: label, reason: .host(NSError(domain: NSOSStatusErrorDomain, code: Int(read)))) }
         let installed = (signing as? [CFString: Any])?[kSecCodeInfoUnique] as? Data
-        let registered = UserDefaults.standard.dictionary(forKey: "agents.registered") ?? [:]
-        let replaced = registered[label] as? Data != installed
+        let key = ConfigKey("agents.registered.\(label)")
+        let replaced = Program.current.settings.bytes(forKey: key).map(Data.init) != installed
         let stopped = keepAlive ? try !runsInstalledProgram() : false
         let service = service
         let again = service.status == .enabled && (replaced || stopped)
@@ -33,6 +34,6 @@ extension LaunchAgent {
         } catch {
             throw ApplicationFailure(subject: label, reason: .host(error as NSError))
         }
-        UserDefaults.standard.set(registered.merging([label: installed].compactMapValues(\.self)) { _, installed in installed }, forKey: "agents.registered")
+        Program.current.store(installed, forKey: key)
     }
 }

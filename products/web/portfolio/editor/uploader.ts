@@ -1,9 +1,8 @@
-import { preprocessUploads, selectUploadState } from '@rasm/media';
+import { isTransientUpload, preprocessUploads, selectUploadState } from '@rasm/media';
 import Uppy, { type Body, type Meta, type UppyFile } from '@uppy/core';
 import XHRUpload from '@uppy/xhr-upload';
 import { Array, ByteSize, Cause, Data, Effect, Equal, Equivalence, Function, Match, Optic, Option, Predicate, Record, Result, Schema, Struct } from 'effect';
 import { SecureRandom } from 'effect/crypto';
-import { HttpClient, HttpClientRequest, HttpClientResponse } from 'effect/http';
 import { HttpApiClient } from 'effect/http-api';
 import { Atom } from 'effect/reactivity';
 import { assets, draft, hero, recoveryRequest, updateEntry } from '#/editor/state';
@@ -46,7 +45,7 @@ const uppy = Atom.make((get) => {
         fieldName: uploadField.file,
         allowedMetaFields: [uploadField.asset, uploadField.renditions],
         limit: 3,
-        shouldRetry: (xhr) => xhr.status === 0 || HttpClient.isTransientResponse(HttpClientResponse.fromWeb(HttpClientRequest.post(xhr.responseURL), new Response(null, { status: xhr.status }))),
+        shouldRetry: isTransientUpload,
         onAfterResponse: (xhr) =>
             Option.match(refused(xhr.responseText), {
                 onNone: Function.constVoid,

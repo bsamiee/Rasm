@@ -1,20 +1,12 @@
-/// <reference types="vite/client" />
-
 import { Unmatched } from '@rasm/search';
 import { Array, Cause, Deferred, Duration, Effect, Exit, flow, Latch, Layer, Number, Option, Predicate, Record, Ref, Schedule, Schema, SchemaGetter, Stream, Struct, SubscriptionRef } from 'effect';
 import { Headers, HttpRouter, HttpServerRequest, HttpServerResponse, Url } from 'effect/http';
 import { Host, NetAddress } from 'effect/net';
 import { type Rpc, RpcClient, type RpcClientError, type RpcGroup, RpcSerialization, RpcServer } from 'effect/rpc';
 import { Socket, SocketServer } from 'effect/socket';
-import { HostUrl } from '#/requests';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-declare global {
-    interface ImportMetaEnv {
-        readonly LINK: { readonly endpoint: string; readonly redial: `${number} ${Duration.Unit}` };
-    }
-}
 interface Linked<Rpcs extends Rpc.Any> {
     readonly peer: Peer;
     readonly client: RpcClient.RpcClient.Flat<Rpcs, RpcClientError.RpcClientError>;
@@ -28,9 +20,9 @@ const ENDPOINT = Host.hostPortFromStringUnsafe('localhost:7490');
 // --- [MODELS] --------------------------------------------------------------------------
 
 class Peer extends Schema.Class<Peer, { readonly brand: unique symbol }>('Peer')({
-    application: HostUrl.pipe(Schema.decode({ decode: SchemaGetter.transform((url) => Url.setPathname(url, url.pathname.replace(BUNDLE, '/'))), encode: SchemaGetter.passthrough() })).annotate({ description: 'Application bundle URL with trailing slash' }),
+    application: Schema.URLFromString.pipe(Schema.decode({ decode: SchemaGetter.transform((url) => Url.setPathname(url, url.pathname.replace(BUNDLE, '/'))), encode: SchemaGetter.passthrough() })).annotate({ description: 'Application bundle URL with trailing slash' }),
     extension: Schema.String.annotate({ description: 'UXP plugin or CEP extension identifier' }),
-    root: Schema.OptionFromOptionalKey(HostUrl).annotate({ description: 'Directory the host loaded for this plugin' }),
+    root: Schema.OptionFromOptionalKey(Schema.URLFromString).annotate({ description: 'Directory the host loaded for this plugin' }),
 }) {
     static readonly dial =
         <Rpcs extends Rpc.Any, H, EH, RH, E, R>(group: RpcGroup.RpcGroup<Rpcs>, handlers: Layer.Layer<H, EH, RH>, application: Effect.Effect<URL, E, R>) =>
@@ -40,16 +32,24 @@ class Peer extends Schema.Class<Peer, { readonly brand: unique symbol }>('Peer')
                 Layer.provide([
                     Layer.effect(SocketServer.SocketServer)(
                         Effect.gen(function* () {
-                            const [dialed, url, loaded] = yield* Effect.all([Effect.fromResult(Url.fromString(import.meta.env.LINK.endpoint)), application, root]);
-                            const identity = yield* Effect.orDie(Schema.encodeEffect(Peer)(Peer.make({ application: url, extension, root: Option.some(loaded) })));
-                            const { reader, writer } = yield* Socket.makeWebSocket(Url.setUrlParams(dialed, identity).href);
+                            const [dialed, services] = yield* Effect.all([Effect.fromResult(Url.fromString(`${Peer.link.origin}${Peer.link.path}`)), Effect.context<R | R2 | Socket.WebSocketConstructor>()]);
+                            const linked = Effect.fnUntraced(function* <A, X, Y>(handler: (socket: Socket.Socket) => Effect.Effect<A, X, Y>) {
+                                const [url, loaded] = yield* Effect.all([application, root]);
+                                const identity = yield* Effect.orDie(Schema.encodeEffect(Peer)(Peer.make({ application: url, extension, root: Option.some(loaded) })));
+                                const { reader, writer } = yield* Socket.makeWebSocket(Url.setUrlParams(dialed, identity).href);
+                                const opened = yield* reader;
+                                return yield* handler(Socket.make({ reader: Effect.succeed(opened), writer }));
+                            });
                             return {
                                 address: NetAddress.inetAddressUnsafe(NetAddress.ipv4Loopback, globalThis.Number(dialed.port)),
                                 run: (handler) =>
                                     Stream.fromEffectSchedule(
-                                        Effect.exit(Effect.scoped(Effect.flatMap(reader, (opened) => handler(Socket.make({ reader: Effect.succeed(opened), writer }))))).pipe(Effect.map((exit) => (Exit.isFailure(exit) && !Cause.hasInterruptsOnly(exit.cause) ? Option.some(Cause.pretty(exit.cause)) : Option.none()))),
-                                        Schedule.spaced(import.meta.env.LINK.redial),
-                                    ).pipe(Stream.changes, Stream.runForEach(Option.match({ onNone: () => Effect.void, onSome: (failure) => Effect.logError(`Link to ${dialed.href} failed, redialing every ${import.meta.env.LINK.redial}`, failure) })), Effect.forever),
+                                        Effect.exit(Effect.scoped(linked(handler))).pipe(
+                                            Effect.provide(services),
+                                            Effect.map((exit) => (Exit.isFailure(exit) && !Cause.hasInterruptsOnly(exit.cause) ? Option.some(Cause.pretty(exit.cause)) : Option.none())),
+                                        ),
+                                        Schedule.spaced(Peer.link.redial),
+                                    ).pipe(Stream.changes, Stream.runForEach(Option.match({ onNone: () => Effect.void, onSome: (failure) => Effect.logError(`Link to ${dialed.href} failed, redialing every ${Peer.link.redial}`, failure) })), Effect.forever),
                             };
                         }),
                     ),

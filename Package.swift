@@ -32,13 +32,10 @@ let modules: [Target] = [
 
     // --- [RPC]
 
-    .target(name: "JSONRPC", dependencies: ["Encoding", "Results"], path: "libs/swift/rpc/JSONRPC"),
     .target(
-        name: "EffectRPC",
-        dependencies: [
-            "Encoding", "JSONRPC", "Results", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"), .product(name: "Tracing", package: "swift-distributed-tracing"),
-        ],
-        path: "libs/swift/rpc/EffectRPC",
+        name: "JSONRPC",
+        dependencies: ["Encoding", "Results", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"), .product(name: "Tracing", package: "swift-distributed-tracing")],
+        path: "libs/swift/rpc/JSONRPC",
     ),
 
     // --- [RUNTIME]
@@ -77,6 +74,14 @@ let modules: [Target] = [
         path: "libs/swift/runtime/CurrentProcess",
     ),
 
+    // --- [GRAPHICS]
+
+    .target(name: "Fonts", dependencies: ["Results"], path: "libs/swift/graphics/Fonts"),
+
+    // --- [DISTRIBUTION]
+
+    .target(name: "Updater", dependencies: [.product(name: "Sparkle", package: "Sparkle")], path: "libs/swift/distribution/Updater"),
+
     // --- [MACOS]
 
     .target(
@@ -96,11 +101,11 @@ let modules: [Target] = [
         ],
         path: "libs/swift/macos/Applications",
     ),
+    .target(name: "ScreenCapture", dependencies: ["Applications", "Processes"], path: "libs/swift/macos/ScreenCapture"),
     .target(
         name: "ApplicationServer",
         dependencies: [
-            "AppleEvents", "Applications", "EffectRPC", "Processes", "Results", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
-            .product(name: "CasePaths", package: "swift-case-paths"), .product(name: "CasePathsCore", package: "swift-case-paths"), .product(name: "OrderedCollections", package: "swift-collections"),
+            "AppleEvents", "Applications", "JSONRPC", "Processes", "Results", "ScreenCapture", "Telemetry", .product(name: "Logging", package: "swift-log"),
         ],
         path: "libs/swift/macos/ApplicationServer",
     ),
@@ -109,7 +114,7 @@ let executables: [Target] = [
     .executableTarget(
         name: "watch-apps",
         dependencies: [
-            "ApplicationServer", "Applications", "CurrentProcess", "EffectRPC", "Encoding", "Files", "Processes", "Results", "Telemetry",
+            "ApplicationServer", "Applications", "CurrentProcess", "Encoding", "Files", "Processes", "Results", "ScreenCapture", "Telemetry",
             .product(name: "ArgumentParser", package: "swift-argument-parser"), .product(name: "Configuration", package: "swift-configuration"),
             .product(name: "Logging", package: "swift-log"), .product(name: "ServiceLifecycle", package: "swift-service-lifecycle"),
             .product(name: "Tracing", package: "swift-distributed-tracing"), .product(name: "UnixSignals", package: "swift-service-lifecycle"),
@@ -134,11 +139,10 @@ let tests: [Target] = [
         dependencies: ["Results", .product(name: "CustomDump", package: "swift-custom-dump"), .product(name: "PropertyBased", package: "swift-property-based")],
         path: "tests/libs/swift/data/Results",
     ),
-    .testTarget(name: "JSONRPCTests", dependencies: ["Encoding", "JSONRPC", .product(name: "CustomDump", package: "swift-custom-dump")], path: "tests/libs/swift/rpc/JSONRPC"),
     .testTarget(
-        name: "EffectRPCTests",
-        dependencies: ["EffectRPC", "Encoding", "Results", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"), .product(name: "CustomDump", package: "swift-custom-dump")],
-        path: "tests/libs/swift/rpc/EffectRPC",
+        name: "JSONRPCTests",
+        dependencies: ["Encoding", "JSONRPC", "Results", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"), .product(name: "CustomDump", package: "swift-custom-dump")],
+        path: "tests/libs/swift/rpc/JSONRPC",
     ),
 ]
 
@@ -169,6 +173,10 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-log", from: "1.17.0"),
         .package(url: "https://github.com/swift-otel/swift-otel", from: "1.6.0"),
         .package(url: "https://github.com/apple/swift-system-metrics", from: "1.3.0"),
+
+        // --- [DISTRIBUTION]
+
+        .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.10.1"),
 
         // --- [TESTING]
 

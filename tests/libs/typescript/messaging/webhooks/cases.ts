@@ -1,8 +1,8 @@
 import { assert, it } from '@effect/vitest';
+import { transport } from '@rasm/testing/http';
 import { Scheme, Webhook, WebhookError } from '@rasm/webhooks';
 import { TailscaleEvent } from '@rasm/webhooks/tailscale';
-import { WebhookTest } from '@rasm/webhooks/testing';
-import { Array, Bytes, DateTime, Duration, Effect, Exit, Function, Layer, Option, Queue, Record, Redacted, Ref, Schedule, Schema } from 'effect';
+import { Array, Bytes, DateTime, Duration, Effect, Exit, Fiber, Function, Layer, Option, Queue, Record, Redacted, Ref, Schedule, Schema } from 'effect';
 import type { Digest, Mac, Signature } from 'effect/crypto';
 import { Headers, HttpClient, HttpClientRequest, HttpServerRequest, HttpServerResponse } from 'effect/http';
 import { PersistedQueue } from 'effect/persistence';
@@ -265,24 +265,31 @@ const cases = (crypto: Layer.Layer<Mac.Mac | Signature.Signature | Digest.Digest
         }, Effect.provide(crypto)),
     );
     it.effect.each([
-        { status: 200, delivered: true },
-        { status: 204, delivered: true },
-        { status: 299, delivered: true },
-        { status: 301, delivered: false },
-        { status: 404, delivered: false },
-        { status: 410, delivered: false },
-        { status: 429, delivered: false },
-        { status: 500, delivered: false },
-        { status: 502, delivered: false },
-        { status: 503, delivered: false },
-        { status: 504, delivered: false },
+        { status: 200, attempts: 1, delivered: true },
+        { status: 204, attempts: 1, delivered: true },
+        { status: 299, attempts: 1, delivered: true },
+        { status: 301, attempts: 1, delivered: false },
+        { status: 404, attempts: 1, delivered: false },
+        { status: 410, attempts: 1, delivered: false },
+        { status: 408, attempts: 3, delivered: false },
+        { status: 429, attempts: 3, delivered: false },
+        { status: 500, attempts: 3, delivered: false },
+        { status: 502, attempts: 3, delivered: false },
+        { status: 503, attempts: 3, delivered: false },
+        { status: 504, attempts: 3, delivered: false },
     ])(
-        'counts a delivery answered $status as delivered: $delivered',
-        Effect.fnUntraced(function* ({ status, delivered }) {
-            const webhook = yield* made(Scheme.standard, standard.secret);
-            const answered = WebhookTest(Effect.succeed(HttpServerResponse.empty({ status, headers: { location: url, 'retry-after': '120' } })));
-            const sent = yield* Effect.exit(webhook.deliver(url, { id: standard.id, event: { test: 1 } })).pipe(Effect.provide(answered));
-            assert.strictEqual(Exit.isSuccess(sent), delivered);
+        'sends a delivery answered $status $attempts times after its retry-after delays, delivered: $delivered',
+        Effect.fnUntraced(function* ({ status, attempts, delivered }) {
+            const [webhook, answered] = yield* Effect.all([made(Scheme.standard, standard.secret), Ref.make(0)]);
+            const endpoint = Effect.as(
+                Ref.update(answered, (count) => count + 1),
+                HttpServerResponse.empty({ status, headers: { location: url, 'retry-after': '120' } }),
+            );
+            const sending = yield* Effect.forkChild(Effect.exit(webhook.deliver(url, { id: standard.id, event: { test: 1 } }, Schedule.recurs(2))).pipe(Effect.provide(transport(endpoint))));
+            yield* TestClock.adjust('239 seconds');
+            const early = yield* Ref.get(answered);
+            yield* TestClock.adjust('1 second');
+            assert.deepStrictEqual([Exit.isSuccess(yield* Fiber.join(sending)), early, yield* Ref.get(answered)], [delivered, Math.min(attempts, 2), attempts]);
         }, Effect.provide(crypto)),
     );
     it.effect(
@@ -291,14 +298,14 @@ const cases = (crypto: Layer.Layer<Mac.Mac | Signature.Signature | Digest.Digest
             const webhook = yield* TailscaleEvent.webhook([Redacted.make(vectors.tailscale.secret)]);
             const events = yield* Effect.all(Record.map(documented, (rows) => Schema.decodeEffect(TailscaleEvent.Batch)(rows)));
             const batch = Object.values(events).flat();
-            const { deliveries, client } = yield* WebhookTest.capture(webhook);
+            const deliveries = yield* Queue.unbounded<{ readonly id: string; readonly event: typeof TailscaleEvent.Batch.Type }>();
             const text = encoder.encode('not JSON');
             const statuses = yield* Effect.gen(function* () {
-                yield* webhook.deliver(url, { id: 'derived', event: batch });
+                yield* webhook.deliver(url, { id: 'derived', event: batch }, Schedule.recurs(0));
                 const [signed, unparsed] = yield* Effect.all([webhook.sign('derived', vectors.tailscale.bytes), webhook.sign('derived', text)]);
                 const unbounded = Headers.fromInput({ [Scheme.tailscale.signature]: 't=99999999999999999999,v1=00' });
                 return yield* Effect.all({ accepted: posted(signed, vectors.tailscale.bytes), forged: posted(signed, text), unsigned: posted(Headers.empty, text), unbounded: posted(unbounded, text), unparsed: posted(unparsed, text) });
-            }).pipe(Effect.provide(client));
+            }).pipe(Effect.provide(transport(webhook.receive((delivery) => Queue.offer(deliveries, delivery)))));
             const received = yield* Queue.takeAll(deliveries);
             assert.deepStrictEqual(
                 [
@@ -332,11 +339,11 @@ const cases = (crypto: Layer.Layer<Mac.Mac | Signature.Signature | Digest.Digest
                 const seen = yield* Ref.updateAndGet(stamps, Array.append(Option.all([Headers.get(headers, 'webhook-id'), Headers.get(headers, 'webhook-timestamp')])));
                 return seen.length === 1 || Option.contains(Headers.get(headers, 'webhook-id'), 'msg_refused') ? HttpServerResponse.empty({ status: 503 }) : yield* webhook.receive(accept);
             });
-            const transport = yield* Layer.build(WebhookTest(endpoint));
-            const offer = yield* webhook.queued({ name: 'outbox', maxAttempts: 3, retrySchedule: Schedule.spaced('1 minute') }, (queued) => webhook.deliver(url, queued)).pipe(Effect.provide(transport));
+            const client = yield* Layer.build(transport(endpoint));
+            const offer = yield* webhook.queued({ name: 'outbox', maxAttempts: 3, retrySchedule: Schedule.spaced('1 minute') }, (queued) => webhook.deliver(url, queued, Schedule.recurs(0))).pipe(Effect.provide(client));
             yield* Effect.all([offer({ id: 'msg_repeated', event: { count: 1 } }), offer({ id: 'msg_repeated', event: { count: 2 } })]);
             yield* TestClock.adjust('1 minute');
-            yield* Effect.provide(webhook.deliver(url, { id: 'msg_repeated', event: { count: 1 } }), transport);
+            yield* Effect.provide(webhook.deliver(url, { id: 'msg_repeated', event: { count: 1 } }, Schedule.recurs(0)), client);
             yield* offer({ id: 'msg_refused', event: { count: 3 } });
             yield* Effect.repeat(TestClock.adjust('1 minute'), { times: 4 });
             assert.deepStrictEqual(

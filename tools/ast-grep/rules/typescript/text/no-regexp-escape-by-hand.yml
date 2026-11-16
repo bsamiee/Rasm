@@ -4,7 +4,7 @@ severity: error
 ignores:
     - libs/typescript/creative-cloud/indesign/**
     - libs/typescript/creative-cloud/uxp/**
-    - '**/extendscript/**'
+    - '**/creative-cloud/*/host.ts'
     - '**/extendscript.ts'
 utils:
     syntax-class:

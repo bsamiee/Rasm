@@ -83,7 +83,7 @@ Runs other than `watch` act once and exit:
 
 ```bash
 watch-apps read <app-or-pid>... [--window <number>]
-watch-apps capture <app-or-pid>... [--window <number>] [--longest-side <pixels>]
+watch-apps capture <app-or-pid>... [--window <number> | --element <id>] [--longest-side <pixels>]
 watch-apps perform <id> <action>
 watch-apps set <id> -- '<text>'
 watch-apps key <pid> <code>
@@ -93,6 +93,7 @@ watch-apps serve
 
 - `read` prints the whole state with element ids, `--window` walks one row, so answering a dialog costs a fraction of a whole `read`
 - `capture` writes one PNG per presented window with no activation to `$TMPDIR/app.rasm.watch-apps/<number>.png`, printing one `captured` line per file
+- `capture --element` writes the frame of one element id (a pane, panel, or canvas) cropped from its window
 - `capture` reads every window with a window-server number (inactive, covered, minimized, on another unmanaged Space) and needs the Screen Recording grant
 - `perform` runs one of the element's `actions` through `AXUIElementPerformAction`, `AXPress` presses a button or a menu item
 - `AXRaise` is listed in `actions` as the host states it and refused, since it takes focus

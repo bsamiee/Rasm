@@ -37,9 +37,9 @@ type Held = BTreeMap<String, Arc<AbortOnDropHandle<()>>>;
 // --- [SERVICES] ------------------------------------------------------------------------
 
 #[derive(Clone, Debug, Default)]
-pub struct Log(Arc<Mutex<Option<LoggingLevel>>>);
+pub struct Logging(Arc<Mutex<Option<LoggingLevel>>>);
 
-impl Log {
+impl Logging {
     pub async fn send(&self, context: &RequestContext<RoleServer>, message: LoggingMessageNotificationParam) -> Result<(), ServiceError> {
         let initialized = context.protocol_version().is_none_or(|version| version.has_initialize());
         let floor = if initialized { self.0.get_cloned() } else { context.meta.log_level() };
@@ -69,7 +69,7 @@ where S: Subscribe
     pub const fn service(&self) -> &S { &self.service }
 
     #[must_use]
-    pub fn connection(self: &Arc<Self>) -> Connection<S> { Connection { subscriptions: self.subscriptions(), tasks: Mutex::default(), log: Log::default() } }
+    pub fn connection(self: &Arc<Self>) -> Connection<S> { Connection { subscriptions: self.subscriptions(), tasks: Mutex::default(), logging: Logging::default() } }
 
     pub(crate) fn subscriptions(self: &Arc<Self>) -> Subscriptions<S> {
         Subscriptions { shared: Arc::clone(self), subscribed: watch::Sender::default(), accepted: Mutex::default(), broadcast: OnceLock::new() }
@@ -185,7 +185,7 @@ where S: Subscribe
 pub struct Connection<S> {
     subscriptions: Subscriptions<S>,
     tasks: Mutex<HashSet<String>>,
-    log: Log,
+    logging: Logging,
 }
 
 impl<S> Connection<S>
@@ -194,7 +194,7 @@ where S: ServerHandler + Subscribe
     fn admitted(&self, context: &mut RequestContext<RoleServer>) -> Result<TaskTrackerToken, ErrorData> {
         let requests = &self.subscriptions.shared.requests;
         let held = requests.token();
-        context.extensions.insert(self.log.clone());
+        context.extensions.insert(self.logging.clone());
         (!requests.is_closed()).then_some(held).ok_or_else(|| McpError::Stopping.into())
     }
 
@@ -260,7 +260,7 @@ where S: ServerHandler + Subscribe
     }
 
     fn set_level(&self, request: SetLevelRequestParams, _: RequestContext<RoleServer>) -> impl Future<Output = Result<(), ErrorData>> + Send + '_ {
-        ready(ServerHandler::get_info(self).capabilities.logging.map(|_| self.log.0.set(Some(request.level))).ok_or_else(ErrorData::method_not_found::<SetLevelRequestMethod>))
+        ready(ServerHandler::get_info(self).capabilities.logging.map(|_| self.logging.0.set(Some(request.level))).ok_or_else(ErrorData::method_not_found::<SetLevelRequestMethod>))
     }
 
     async fn subscribe(&self, request: SubscribeRequestParams, mut context: RequestContext<RoleServer>) -> Result<(), ErrorData> {

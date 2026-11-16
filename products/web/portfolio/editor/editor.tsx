@@ -1,13 +1,12 @@
 import { useAtom, useAtomRefresh, useAtomSet, useAtomSubscribe, useAtomValue } from '@effect/atom-react';
-import { Backdrop, focusElement, Issues } from '@rasm/ui';
+import { focusElement, Issues, ModalDialog } from '@rasm/ui';
 import { Array, Function, Match, Option, Predicate, Struct } from 'effect';
 import { SecureRandom } from 'effect/crypto';
 import { AsyncResult, type Atom } from 'effect/reactivity';
 import { ArrowLeft, X } from 'lucide-react';
 import { lazy, type ReactNode, Suspense, useEffect, useId, useRef, useState } from 'react';
-import { Button, Dialog, Heading, type Key, Modal, Tab, TabList, TabPanel, Tabs, Text, Toolbar } from 'react-aria-components';
+import { Button, Heading, type Key, Tab, TabList, TabPanel, Tabs, Text, Toolbar } from 'react-aria-components';
 import { Compositions } from '#/editor/compositions.tsx';
-import { ConfirmDialog } from '#/editor/confirm-dialog.tsx';
 import { EntryFields, EntryList } from '#/editor/entries.tsx';
 import { Identity } from '#/editor/identity.tsx';
 import { Library } from '#/editor/library.tsx';
@@ -16,7 +15,7 @@ import { RequestAlert } from '#/editor/request-alert.tsx';
 import { deleteRequest, draft, portfolio, reloadRequest, saveRequest } from '#/editor/state';
 import { UploadRecovery } from '#/editor/upload-recovery.tsx';
 import { Destination, nextDestination, pendingUploads } from '#/editor/uploader';
-import { entryTitle, format } from '#/media/labels';
+import { confirmation, entryTitle, format } from '#/media/labels';
 import type { AssetId } from '#/model/asset';
 import type { CompositionId } from '#/model/placement';
 import { Entry, EntryId, type Portfolio, type PortfolioData } from '#/model/portfolio';
@@ -25,26 +24,22 @@ import { Entry, EntryId, type Portfolio, type PortfolioData } from '#/model/port
 
 const Uploads = lazy(() => import('#/editor/uploads.tsx').then((module) => ({ default: module.Uploads })));
 const EditorDialog = ({ description, busy, children }: { description?: string; busy: boolean; children?: ReactNode }) => (
-    <Backdrop className="fixed inset-0 z-50 bg-foreground/55" isDismissable={!busy} isKeyboardDismissDisabled={busy}>
-        <Modal>
-            <Dialog className="fixed top-0 right-0 h-(--visual-viewport-height) w-full max-w-250 overflow-y-auto bg-background shadow-panel outline-none">
-                <div className="relative px-9 pt-5 pr-18 pb-2 max-sm:px-5 max-sm:pr-15">
-                    <Heading className="text-heading tracking-display max-sm:text-2xl" slot="title">
-                        Portfolio editor<span className="text-accent">.</span>
-                    </Heading>
-                    {description === undefined ? null : (
-                        <Text className="mt-2 text-sm text-muted" elementType="p" slot="description">
-                            {description}
-                        </Text>
-                    )}
-                    <Button aria-label="Close portfolio editor" className="absolute top-5 right-5 grid min-h-11 min-w-11 place-items-center" isDisabled={busy} slot="close">
-                        <X className="size-5" />
-                    </Button>
-                </div>
-                {children}
-            </Dialog>
-        </Modal>
-    </Backdrop>
+    <ModalDialog className="fixed inset-0 z-50 bg-foreground/55" dialog={{ className: 'fixed top-0 right-0 h-(--visual-viewport-height) w-full max-w-250 overflow-y-auto bg-background shadow-panel outline-none' }} isDismissable={!busy} isKeyboardDismissDisabled={busy}>
+        <div className="relative px-9 pt-5 pr-18 pb-2 max-sm:px-5 max-sm:pr-15">
+            <Heading className="text-heading tracking-display max-sm:text-2xl" slot="title">
+                Portfolio editor<span className="text-accent">.</span>
+            </Heading>
+            {description === undefined ? null : (
+                <Text className="mt-2 text-sm text-muted" elementType="p" slot="description">
+                    {description}
+                </Text>
+            )}
+            <Button aria-label="Close portfolio editor" className="absolute top-5 right-5 grid min-h-11 min-w-11 place-items-center" isDisabled={busy} slot="close">
+                <X className="size-5" />
+            </Button>
+        </div>
+        {children}
+    </ModalDialog>
 );
 const DraftEditor = ({ published, onPreview, ...state }: Atom.Success<typeof draft> & { published: typeof Portfolio.Type; onPreview: (data: typeof PortfolioData.Type) => void }) => {
     const idPrefix = useId();
@@ -126,8 +121,8 @@ const DraftEditor = ({ published, onPreview, ...state }: Atom.Success<typeof dra
                             <RequestAlert error={error} onField={(path) => locate(path, submitted)} />
                             {Predicate.isTagged(error, 'PreconditionFailed') && (
                                 <div className="actions">
-                                    <ConfirmDialog description="Discards unsaved edits. Uploaded files stay in library. Edits stay if reload fails" disabled={busy || pending.length > 0} label="Reload latest draft" onConfirm={() => reload(undefined)} />
-                                    <ConfirmDialog description={`Saves these edits over draft revision ${error.revision}. Published work changes on next publish`} disabled={busy} label="Replace newer draft" onConfirm={() => submit({ ...state, revision: error.revision, publish: false })} />
+                                    <ModalDialog.Confirm {...confirmation} description="Discards unsaved edits. Uploaded files stay in library. Edits stay if reload fails" isDisabled={busy || pending.length > 0} label="Reload latest draft" onConfirm={() => reload(undefined)} />
+                                    <ModalDialog.Confirm {...confirmation} description={`Saves these edits over draft revision ${error.revision}. Published work changes on next publish`} isDisabled={busy} label="Replace newer draft" onConfirm={() => submit({ ...state, revision: error.revision, publish: false })} />
                                 </div>
                             )}
                         </div>

@@ -6,6 +6,13 @@ rule:
     all:
         - has: { any: [{ kind: pair, has: { field: key, regex: '^specifier$' } }, { kind: shorthand_property_identifier, regex: '^specifier$' }] }
         - has: { any: [{ kind: pair, has: { field: key, regex: '^valid$' } }, { kind: shorthand_property_identifier, regex: '^valid$' }] }
-        - inside: { kind: program, stopBy: end, matches: { typescript-module-importer: { module: { regex: '^@rasm/atelier-extendscript/host$' } } } }
-message: 'Object restates the descriptor `reply` encodes from `specifier` hook'
+        - inside:
+              kind: program
+              stopBy: end
+              has:
+                  kind: import_statement
+                  all:
+                      - has: { field: source, has: { kind: string_fragment, regex: '^@rasm/object-model/host$' } }
+                      - has: { stopBy: end, kind: import_specifier, has: { field: name, regex: '^reference$' } }
+message: 'Object restates the reference `encode` builds from the containment table'
 note: 'Return the host object'

@@ -81,8 +81,9 @@ class Relation<const Shape extends Fields = Fields, const Options extends Relati
         Effect.flatMap(Effect.orDie(Effect.fromOption(relation.queries.search)), (find) => find({ text, pattern: `%${text.replaceAll(/[\\%_]/gu, String.raw`\$&`)}%`, count: limit, marks: Option.fromUndefinedOr(marks) }));
     static readonly withTenant = Effect.fnUntraced(function* <F extends Fields, O extends RelationOptions<F> & { readonly tenant: NonNullable<RelationOptions<F>['tenant']> }, A, E, R>(relation: Relation<F, O>, id: F[O['tenant']['column']]['Type'], effect: Effect.Effect<A, E, R>) {
         const { column, setting } = yield* Effect.orDie(Effect.fromOption(relation.tenant));
-        const [sql, encoded] = yield* Effect.all([SqlClient.SqlClient, Schema.encodeEffect(column.schema)(id)]);
-        return yield* sql.withTransaction(Effect.andThen(sql`SELECT set_config(${setting}, ${encoded}, true)`, effect));
+        const [sql, { tenant }, encoded] = yield* Effect.all([SqlClient.SqlClient, Rows, Schema.encodeEffect(column.schema)(id)]);
+        const scoped = yield* Effect.orDie(Effect.fromNullishOr(tenant));
+        return yield* sql.withTransaction(Effect.andThen(scoped(sql, setting, encoded), effect));
     });
     static readonly #stored = Function.memoize((relation: Relation) => Function.memoize((rename: (name: string) => string): Relation => relation.#renamed(rename)));
     #renamed(rename: (name: string) => string) {

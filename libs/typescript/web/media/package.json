@@ -2,7 +2,7 @@
     "name": "@rasm/media",
     "version": "0.1.0",
     "private": true,
-    "description": "Media inspection, Uppy upload preprocessing, and pdf.js document viewing in the browser, with the Vite copy of pdf.js assets",
+    "description": "Browser media for web apps: file inspection with resized image renditions and their srcset, Uppy upload preprocessing and transient-failure retry for XHR uploads, pdf.js documents and a page viewer with navigation, fit, zoom, pan, rotation, and find, a zoom-and-pan image viewer, and the Vite copy of pdf.js assets",
     "license": "MIT",
     "repository": {
         "type": "git",
@@ -15,28 +15,33 @@
     "type": "module",
     "sideEffects": false,
     "imports": {
-        "#/*": "./*.ts"
+        "#/*": "./*.ts",
+        "#/*.tsx": "./*.tsx"
     },
     "exports": {
         ".": "./index.ts",
         "./pdf-document": "./pdf-document.ts",
         "./pdf-viewer": "./pdf-viewer.tsx",
-        "./vite": "./vite.ts"
+        "./vite": "./vite.ts",
+        "./zoom-viewer": "./zoom-viewer.tsx"
     },
     "publishConfig": {
         "imports": {
-            "#/*": "./dist/*.js"
+            "#/*": "./dist/*.js",
+            "#/*.tsx": "./dist/*.js"
         },
         "exports": {
             ".": "./dist/index.js",
             "./pdf-document": "./dist/pdf-document.js",
             "./pdf-viewer": "./dist/pdf-viewer.js",
-            "./vite": "./dist/vite.js"
+            "./vite": "./dist/vite.js",
+            "./zoom-viewer": "./dist/zoom-viewer.js"
         },
         "access": "public"
     },
     "dependencies": {
         "@use-gesture/react": "catalog:",
+        "lucide-react": "catalog:",
         "vite-plugin-static-copy": "catalog:"
     },
     "devDependencies": {
@@ -46,6 +51,8 @@
         "effect": "catalog:",
         "pdfjs-dist": "catalog:",
         "react": "catalog:",
+        "react-aria-components": "catalog:",
+        "react-zoom-pan-pinch": "catalog:",
         "vite": "catalog:"
     },
     "peerDependencies": {
@@ -53,9 +60,14 @@
         "effect": "catalog:peers",
         "pdfjs-dist": "catalog:peers",
         "react": "catalog:peers",
+        "react-aria-components": "catalog:peers",
+        "react-zoom-pan-pinch": "catalog:peers",
         "vite": "catalog:peers"
     },
     "peerDependenciesMeta": {
+        "react-zoom-pan-pinch": {
+            "optional": true
+        },
         "vite": {
             "optional": true
         }

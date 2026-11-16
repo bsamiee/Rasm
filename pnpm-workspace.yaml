@@ -606,6 +606,7 @@ catalogs:
         redis: ^6.0.0-0
         '@playwright/test': ^1.66.0-0
         pdfjs-dist: ^6.0.0
+        react-zoom-pan-pinch: ^4.0.0
         nx: '>=24.1.0-0'
         '@nx/devkit': '>=24.1.0-0'
         '@nx/js': '>=24.1.0-0'

@@ -19,7 +19,10 @@
             "path": "../../../../../libs/typescript/creative-cloud/indesign"
         },
         {
-            "path": "../../../../../libs/typescript/creative-cloud/automation"
+            "path": "../../../../../libs/typescript/creative-cloud/object-model"
+        },
+        {
+            "path": "../../../../../libs/typescript/ai/mcp"
         },
         {
             "path": "../../multi-app/atelier/protocol"

@@ -8,10 +8,13 @@
             "path": "../../runtime/telemetry"
         },
         {
-            "path": "../../graphics/mark"
+            "path": "../object-model"
         },
         {
-            "path": "../automation"
+            "path": "../extendscript"
+        },
+        {
+            "path": "../../data/search"
         }
     ]
 }

@@ -1,3 +1,5 @@
+#![expect(deprecated, reason = "initialize sessions set and filter logging levels, which SEP-2577 deprecates")]
+
 use core::mem;
 use core::time::Duration;
 use std::collections::{BTreeMap, BTreeSet};
@@ -12,8 +14,8 @@ use opentelemetry_semantic_conventions::attribute::EXCEPTION_MESSAGE;
 use rmcp::ErrorData;
 use rmcp::model::{
     CancelledNotificationMethod, CancelledNotificationParam, ConstString as _, DiscoverRequestMethod, EmptyResult, ErrorCode, InitializeRequestParams, InitializeResultMethod,
-    InitializedNotificationMethod, JsonRpcVersion2_0, PingRequestMethod, ProtocolVersion, RequestId, RequestMetaObject, SetLevelRequestMethod, SubscribeRequestMethod, SubscribeRequestParams,
-    UnsubscribeRequestMethod, UnsubscribeRequestParams,
+    InitializedNotificationMethod, JsonRpcVersion2_0, LoggingLevel, PingRequestMethod, ProtocolVersion, RequestId, RequestMetaObject, SetLevelRequestMethod, SubscribeRequestMethod,
+    SubscribeRequestParams, UnsubscribeRequestMethod, UnsubscribeRequestParams,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::value::RawValue;
@@ -24,10 +26,10 @@ use tokio::time::Instant;
 use tokio_util::sync::CancellationToken;
 use tokio_util::time::{DelayQueue, delay_queue};
 
-use super::jsonrpc::{Envelope, Line, Message, Method, Params, Severity, decode, encoded, identity, refusal};
-use super::routing::{Call, Calls, Effect, Held, Origin, Session, Sessions, Subscriptions, issued, read, splice};
+use super::jsonrpc::{Envelope, Line, Message, Method, Params, decode, encoded, identity, refusal};
+use super::routing::{Call, Calls, Effect, Held, Origin, Session, Sessions, Subscribers, issued, read, splice};
 use super::upstream::{Next, Upstream, Wake};
-use super::{Catalog, Era, Key, Link, Liveness, Phase, Policy, Retention, Status, announced};
+use super::{IdleTimeout, Key, Lifecycle, Link, Liveness, Phase, Policy, Profile, Status, announced};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -56,7 +58,7 @@ const ENDED: &str = "the call that asked ended before the request could be route
 pub(super) enum Event {
     Joined { session: u64, out: mpsc::Sender<Bytes>, cut: CancellationToken },
     Line { session: u64, line: Line },
-    Era(oneshot::Sender<Option<Era>>),
+    Lifecycle(oneshot::Sender<Option<Lifecycle>>),
 }
 
 #[derive(Debug, derive_more::IsVariant)]
@@ -120,13 +122,13 @@ pub(super) struct Actor<F, A, R, W, C> {
     status: watch::Sender<Status>,
     upstream: Upstream<A, R, W, C>,
     failures: usize,
-    hint: Option<Era>,
+    hint: Option<Lifecycle>,
     reprobe: bool,
-    catalog: Option<Arc<Catalog>>,
-    eras: Vec<oneshot::Sender<Option<Era>>>,
+    profile: Option<Arc<Profile>>,
+    asking: Vec<oneshot::Sender<Option<Lifecycle>>>,
     sessions: Sessions,
     calls: Calls,
-    subscriptions: Subscriptions,
+    subscribers: Subscribers,
     clock: Clock,
 }
 
@@ -149,9 +151,9 @@ where
         status: watch::Sender<Status>,
         calls: Calls,
     ) -> Self {
-        let (failures, delay, catalog) = {
+        let (failures, delay, profile) = {
             let held = status.borrow();
-            (held.failures, held.delay, held.catalog.clone())
+            (held.failures, held.delay, held.profile.clone())
         };
         Self {
             policy,
@@ -164,11 +166,11 @@ where
             failures,
             hint: None,
             reprobe: false,
-            catalog,
-            eras: Vec::new(),
+            profile,
+            asking: Vec::new(),
             sessions: Sessions::default(),
             calls,
-            subscriptions: Subscriptions::default(),
+            subscribers: Subscribers::default(),
             clock: Clock { timers: DelayQueue::new(), quiet: None, activity: Activity::Quiet, drain: Drain::Serving },
         }
     }
@@ -211,7 +213,7 @@ where
                     self.sessions.reply(session, refusal(&id, &error));
                 }
             }
-            Some(Event::Era(asked)) => self.on_era(asked),
+            Some(Event::Lifecycle(asked)) => self.on_lifecycle(asked),
         }
         false
     }
@@ -244,76 +246,76 @@ where
 
     fn connected(&mut self, link: Link<R, W, C>, stop: CancellationToken, started: Instant) {
         self.upstream = Upstream::link(link, self.policy.line, stop, started);
-        match self.hint.or_else(|| self.catalog.as_ref().map(|catalog| catalog.era)) {
-            Some(Era::Legacy) => self.probe(Era::Legacy),
-            Some(Era::Modern) | None => {
-                self.probe(Era::Modern);
+        match self.hint.or_else(|| self.profile.as_ref().map(|profile| profile.lifecycle)) {
+            Some(Lifecycle::Initialize) => self.probe(Lifecycle::Initialize),
+            Some(Lifecycle::Discover) | None => {
+                self.probe(Lifecycle::Discover);
                 let _grace: delay_queue::Key = self.clock.timers.insert(Timer::Grace, self.policy.handshake);
             }
         }
         self.rearm();
     }
 
-    fn probe(&mut self, era: Era) {
-        let line = match era {
-            Era::Modern => discover(&self.policy.client, self.calls.issue(Origin::Discover)),
-            Era::Legacy => message(Some(self.calls.issue(Origin::Initialize)), InitializeResultMethod::VALUE, Some(&self.policy.client)),
+    fn probe(&mut self, lifecycle: Lifecycle) {
+        let line = match lifecycle {
+            Lifecycle::Discover => discover(&self.policy.client, self.calls.issue(Origin::Discover)),
+            Lifecycle::Initialize => message(Some(self.calls.issue(Origin::Initialize)), InitializeResultMethod::VALUE, Some(&self.policy.client)),
         };
         if let Some(negotiation) = self.upstream.negotiation() {
-            negotiation.sent(era);
+            negotiation.sent(lifecycle);
         }
         self.upstream.send(line);
     }
 
-    fn negotiated(&mut self, era: Era, result: Option<&RawValue>, refused: Option<&RawValue>) {
-        match self.upstream.negotiation().and_then(|negotiation| negotiation.answered(era, result, refused)) {
-            Some(Next::Link(era, handshake)) => self.linked(era, handshake),
-            Some(Next::Probe(era)) => self.probe(era),
+    fn negotiated(&mut self, lifecycle: Lifecycle, result: Option<&RawValue>, refused: Option<&RawValue>) {
+        match self.upstream.negotiation().and_then(|negotiation| negotiation.answered(lifecycle, result, refused)) {
+            Some(Next::Link(lifecycle, handshake)) => self.linked(lifecycle, handshake),
+            Some(Next::Probe(lifecycle)) => self.probe(lifecycle),
             Some(Next::Halt(cause)) => self.halt(&cause),
             None => {}
         }
     }
 
-    fn linked(&mut self, era: Era, handshake: Box<RawValue>) {
+    fn linked(&mut self, lifecycle: Lifecycle, handshake: Box<RawValue>) {
         let Some(cost) = self.upstream.linked() else { return };
-        let held = self.catalog.take().map(Arc::unwrap_or_clone);
-        let (changed, flipped) = held.as_ref().map_or((false, false), |held| (held.handshake.get() != handshake.get(), held.era != era));
-        let (askers, quiet) = held.map_or_default(|Catalog { era: _, handshake: _, cost: _, askers, quiet }| (askers, if changed { BTreeSet::new() } else { quiet }));
-        let catalog = Arc::new(Catalog { era, handshake, cost, askers, quiet });
-        self.catalog = Some(Arc::clone(&catalog));
+        let held = self.profile.take().map(Arc::unwrap_or_clone);
+        let (changed, flipped) = held.as_ref().map_or((false, false), |held| (held.handshake.get() != handshake.get(), held.lifecycle != lifecycle));
+        let (askers, quiet) = held.map_or_default(|Profile { lifecycle: _, handshake: _, cost: _, askers, quiet }| (askers, if changed { BTreeSet::new() } else { quiet }));
+        let profile = Arc::new(Profile { lifecycle, handshake, cost, askers, quiet });
+        self.profile = Some(Arc::clone(&profile));
         let relinked = self.status.borrow().starts > 1;
-        tracing::debug!(%era, ?cost, changed, "server linked");
+        tracing::debug!(%lifecycle, ?cost, changed, "server linked");
         if flipped {
             self.sessions.joined.values().for_each(|session| session.cut.cancel());
         }
-        if era.is_legacy() {
+        if lifecycle.is_initialize() {
             self.upstream.send(message(None, InitializedNotificationMethod::VALUE, None::<()>));
-            for uri in self.subscriptions.resources.keys() {
+            for uri in self.subscribers.resources.keys() {
                 self.upstream.send(message(Some(self.calls.issue(Origin::Internal)), SubscribeRequestMethod::VALUE, Some(SubscribeRequestParams::new(uri))));
             }
-            if let Some(level) = self.subscriptions.level {
+            if let Some(level) = self.subscribers.level {
                 self.upstream.send(message(Some(self.calls.issue(Origin::Internal)), SetLevelRequestMethod::VALUE, Some(BTreeMap::from([("level", level)]))));
             }
-            for line in announced(catalog.handshake.get().as_bytes()).into_iter().filter(|_| relinked || changed) {
+            for line in announced(profile.handshake.get().as_bytes()).into_iter().filter(|_| relinked || changed) {
                 self.sessions.broadcast(&line);
             }
         }
-        self.status.send_modify(|status| (status.phase, status.cause, status.catalog) = (Phase::Up, None, Some(catalog)));
-        self.told(Some(era));
+        self.status.send_modify(|status| (status.phase, status.cause, status.profile) = (Phase::Up, None, Some(profile)));
+        self.told(Some(lifecycle));
         self.rearm();
         self.replay();
     }
 
-    fn told(&mut self, era: Option<Era>) {
-        for asked in self.eras.drain(..) {
-            let (Ok(()) | Err(Some(Era::Legacy | Era::Modern) | None)) = asked.send(era);
+    fn told(&mut self, lifecycle: Option<Lifecycle>) {
+        for asked in self.asking.drain(..) {
+            let (Ok(()) | Err(Some(Lifecycle::Initialize | Lifecycle::Discover) | None)) = asked.send(lifecycle);
         }
     }
 
     fn suspect(&mut self) -> bool {
-        let silent = self.hint.is_none() && self.catalog.is_none() && self.upstream.negotiation().is_some_and(|negotiation| negotiation.silent());
+        let silent = self.hint.is_none() && self.profile.is_none() && self.upstream.negotiation().is_some_and(|negotiation| negotiation.silent());
         if silent {
-            self.hint = Some(Era::Legacy);
+            self.hint = Some(Lifecycle::Initialize);
         }
         silent
     }
@@ -360,8 +362,8 @@ where
     }
 
     async fn idle(&mut self) {
-        self.eras.retain(|asked| !asked.is_closed());
-        if self.upstream.ready() || (self.upstream.negotiation().is_some() && self.sessions.joined.is_empty() && self.eras.is_empty()) {
+        self.asking.retain(|asked| !asked.is_closed());
+        if self.upstream.ready() || (self.upstream.negotiation().is_some() && self.sessions.joined.is_empty() && self.asking.is_empty()) {
             let exit = mem::replace(&mut self.upstream, Upstream::down(Duration::ZERO)).close().await;
             tracing::debug!(exit, "server idle, stopped");
             self.disarm();
@@ -387,12 +389,12 @@ where
     }
 
     fn rearm(&mut self) {
-        let cost = self.catalog.as_ref().map_or(Duration::ZERO, |catalog| catalog.cost);
-        let Retention { ratio, floor, ceiling } = self.policy.retention;
+        let cost = self.profile.as_ref().map_or(Duration::ZERO, |profile| profile.cost);
+        let IdleTimeout { ratio, floor, ceiling } = self.policy.idle;
         let starting = self.upstream.negotiation().is_some();
         self.clock.rearm(match (self.upstream.ready(), self.calls.waiting(), self.policy.liveness) {
             (true, 1.., Some(Liveness { quiet, grace: _ })) => Some(quiet),
-            (true, 0, _) if self.subscriptions.resources.is_empty() => Some(cost.saturating_mul(ratio).max(floor).min(ceiling)),
+            (true, 0, _) if self.subscribers.resources.is_empty() => Some(cost.saturating_mul(ratio).max(floor).min(ceiling)),
             (false, _, _) if starting => Some(ceiling),
             (_, _, _) => None,
         });
@@ -407,7 +409,7 @@ where
         match timer {
             Timer::Grace =>
                 if self.upstream.negotiation().is_some_and(|negotiation| negotiation.unasked()) {
-                    self.probe(Era::Legacy);
+                    self.probe(Lifecycle::Initialize);
                 },
             Timer::Probation => {
                 self.calls.writer = None;
@@ -417,13 +419,13 @@ where
             Timer::Quiet => {
                 self.clock.quiet = None;
                 match (self.clock.activity, self.calls.waiting(), self.policy.liveness) {
-                    (Activity::Quiet | Activity::Probing, 0, _) if self.subscriptions.resources.is_empty() => self.idle().await,
+                    (Activity::Quiet | Activity::Probing, 0, _) if self.subscribers.resources.is_empty() => self.idle().await,
                     (Activity::Touched, _, _) | (Activity::Quiet | Activity::Probing, 0, _) => self.rearm(),
                     (Activity::Quiet, 1.., Some(Liveness { quiet: _, grace })) => {
                         let id = self.calls.issue(Origin::Internal);
-                        self.upstream.send(match self.catalog.as_ref().map(|catalog| catalog.era) {
-                            Some(Era::Modern) => discover(&self.policy.client, id),
-                            Some(Era::Legacy) | None => message(Some(id), PingRequestMethod::VALUE, None::<()>),
+                        self.upstream.send(match self.profile.as_ref().map(|profile| profile.lifecycle) {
+                            Some(Lifecycle::Discover) => discover(&self.policy.client, id),
+                            Some(Lifecycle::Initialize) | None => message(Some(id), PingRequestMethod::VALUE, None::<()>),
                         });
                         self.clock.activity = Activity::Probing;
                         self.clock.quiet = Some(self.clock.timers.insert(Timer::Quiet, grace));
@@ -437,12 +439,12 @@ where
 
     // --- [SESSIONS]
 
-    fn on_era(&mut self, asked: oneshot::Sender<Option<Era>>) {
+    fn on_lifecycle(&mut self, asked: oneshot::Sender<Option<Lifecycle>>) {
         self.wake();
-        self.eras.push(asked);
-        let era = self.catalog.as_ref().map(|catalog| catalog.era);
-        if era.is_some() || self.upstream.is_down() {
-            self.told(era);
+        self.asking.push(asked);
+        let lifecycle = self.profile.as_ref().map(|profile| profile.lifecycle);
+        if lifecycle.is_some() || self.upstream.is_down() {
+            self.told(lifecycle);
         }
     }
 
@@ -459,7 +461,7 @@ where
         for id in Vec::from_iter(self.calls.asked.extract_if(.., |_, asked| *asked == session).map(|(id, _)| id)) {
             self.decline(&id, "client session closed before answering");
         }
-        for uri in self.subscriptions.leave(session) {
+        for uri in self.subscribers.leave(session) {
             self.upstream.send(message(Some(self.calls.issue(Origin::Internal)), UnsubscribeRequestMethod::VALUE, Some(UnsubscribeRequestParams::new(uri))));
         }
         self.status.send_modify(|status| status.sessions = self.sessions.joined.len());
@@ -531,18 +533,18 @@ where
                 self.sessions.answer(session, id, &EmptyResult {});
                 return true;
             }
-            Method::Initialize => return self.greet(session, id, Era::Legacy, params),
-            Method::Discover => return self.greet(session, id, Era::Modern, params),
+            Method::Initialize => return self.greet(session, id, Lifecycle::Initialize, params),
+            Method::Discover => return self.greet(session, id, Lifecycle::Discover, params),
             Method::Subscribe => uri().map_or(Effect::Plain, Effect::Subscribe),
             Method::Unsubscribe => uri().map_or(Effect::Plain, Effect::Unsubscribe),
-            Method::SetLevel => read::<Severity>(params.and_then(|params| params.level)).map_or(Effect::Plain, Effect::Level),
+            Method::SetLevel => read::<LoggingLevel>(params.and_then(|params| params.level)).map_or(Effect::Plain, Effect::Level),
             Method::Listen => Effect::Listen,
             Method::Initialized | Method::Cancelled | Method::Progress | Method::CallTool | Method::GetPrompt | Method::ResourceUpdated | Method::Logged | Method::Other => Effect::Plain,
         };
         self.call(session, line, id, method, params, effect)
     }
 
-    fn greet(&mut self, session: u64, id: &RawValue, asked: Era, params: Option<&Params<'_>>) -> bool {
+    fn greet(&mut self, session: u64, id: &RawValue, asked: Lifecycle, params: Option<&Params<'_>>) -> bool {
         #[derive(Serialize, Deserialize)]
         struct Greeting {
             #[serde(rename = "protocolVersion")]
@@ -551,28 +553,29 @@ where
             rest: Map<String, Value>,
         }
         self.wake();
-        let Some(catalog) = &self.catalog else { return false };
+        let Some(profile) = &self.profile else { return false };
         let requested = read::<ProtocolVersion>(params.and_then(|params| params.protocol_version));
         let refused = |error: &ErrorData| self.sessions.reply(session, refusal(id.get().as_bytes(), error));
-        match (asked, catalog.era) {
-            (Era::Modern, Era::Modern) => self.sessions.answer(session, id, &catalog.handshake),
-            (Era::Modern, Era::Legacy) => {
-                let era = format!("this server opens with initialize at protocol {} or earlier and serves no server/discover", ProtocolVersion::LATEST_WITH_INITIALIZE.as_str());
-                refused(&ErrorData::new(ErrorCode::METHOD_NOT_FOUND, era, None));
+        match (asked, profile.lifecycle) {
+            (Lifecycle::Discover, Lifecycle::Discover) => self.sessions.answer(session, id, &profile.handshake),
+            (Lifecycle::Discover, Lifecycle::Initialize) => {
+                let refused_discover = format!("this server opens with initialize at protocol {} or earlier and serves no server/discover", ProtocolVersion::LATEST_WITH_INITIALIZE.as_str());
+                refused(&ErrorData::new(ErrorCode::METHOD_NOT_FOUND, refused_discover, None));
             }
-            (Era::Legacy, Era::Modern) => {
+            (Lifecycle::Initialize, Lifecycle::Discover) => {
                 let modern = Vec::from_iter(ProtocolVersion::KNOWN_VERSIONS.iter().filter(|version| !version.has_initialize()).cloned());
                 refused(&ErrorData::unsupported_protocol_version(requested.unwrap_or(ProtocolVersion::LATEST_WITH_INITIALIZE), &modern));
             }
-            (Era::Legacy, Era::Legacy) => match (decode::<Greeting>(catalog.handshake.get().as_bytes()), requested.filter(|requested| ProtocolVersion::KNOWN_VERSIONS.contains(requested))) {
-                (Ok(served), Some(requested)) if requested.as_str() < served.protocol_version.as_str() =>
-                    self.sessions.answer(session, id, &Greeting { protocol_version: requested, rest: served.rest }),
-                (Ok(_), _) => self.sessions.answer(session, id, &catalog.handshake),
-                (Err(error), _) => {
-                    tracing::debug!({ EXCEPTION_MESSAGE } = %Report::new(&error), "stored initialize result unreadable");
-                    self.sessions.answer(session, id, &catalog.handshake);
-                }
-            },
+            (Lifecycle::Initialize, Lifecycle::Initialize) =>
+                match (decode::<Greeting>(profile.handshake.get().as_bytes()), requested.filter(|requested| ProtocolVersion::KNOWN_VERSIONS.contains(requested))) {
+                    (Ok(served), Some(requested)) if requested.as_str() < served.protocol_version.as_str() =>
+                        self.sessions.answer(session, id, &Greeting { protocol_version: requested, rest: served.rest }),
+                    (Ok(_), _) => self.sessions.answer(session, id, &profile.handshake),
+                    (Err(error), _) => {
+                        tracing::debug!({ EXCEPTION_MESSAGE } = %Report::new(&error), "stored initialize result unreadable");
+                        self.sessions.answer(session, id, &profile.handshake);
+                    }
+                },
         }
         true
     }
@@ -583,18 +586,18 @@ where
             return true;
         }
         self.wake();
-        let Some(catalog) = self.catalog.as_ref().filter(|_| self.upstream.ready()) else { return false };
+        let Some(profile) = self.profile.as_ref().filter(|_| self.upstream.ready()) else { return false };
         let joined = self.sessions.joined.get_mut(&session);
         match (&effect, joined) {
             (Effect::Level(level), Some(joined)) => joined.level = Some(*level),
             (Effect::Plain | Effect::Subscribe(_) | Effect::Unsubscribe(_) | Effect::Level(_) | Effect::Listen, _) => {}
         }
-        if self.subscriptions.local(&effect, session) {
+        if self.subscribers.local(&effect, session) {
             self.sessions.answer(session, id, &EmptyResult {});
             return true;
         }
         let key = Key { method, name: params.and_then(|params| params.name).map(|name| name.get().into()) };
-        let exclusive = catalog.era.is_legacy() && !catalog.quiet.contains(&key);
+        let exclusive = profile.lifecycle.is_initialize() && !profile.quiet.contains(&key);
         if exclusive && self.calls.writer.is_some() {
             return false;
         }
@@ -661,17 +664,17 @@ where
     }
 
     fn learn(&mut self, key: Key, asks: bool) {
-        let Some(catalog) = &mut self.catalog else { return };
-        if catalog.askers.contains(&key) || (!asks && catalog.quiet.contains(&key)) {
+        let Some(profile) = &mut self.profile else { return };
+        if profile.askers.contains(&key) || (!asks && profile.quiet.contains(&key)) {
             return;
         }
-        let held = Arc::make_mut(catalog);
+        let held = Arc::make_mut(profile);
         if asks {
             held.quiet.remove(&key);
         }
         (if asks { &mut held.askers } else { &mut held.quiet }).insert(key);
-        let learned = Arc::clone(catalog);
-        self.status.send_modify(|status| status.catalog = Some(learned));
+        let learned = Arc::clone(profile);
+        self.status.send_modify(|status| status.profile = Some(learned));
     }
 
     // --- [UPSTREAM_READS]
@@ -707,8 +710,8 @@ where
                 self.sessions.reply(call.session, refusal(&call.id, &error));
                 self.settled(request, None);
             }
-            Some((_, Origin::Discover)) => self.negotiated(Era::Modern, None, None),
-            Some((_, Origin::Initialize)) => self.negotiated(Era::Legacy, None, None),
+            Some((_, Origin::Discover)) => self.negotiated(Lifecycle::Discover, None, None),
+            Some((_, Origin::Initialize)) => self.negotiated(Lifecycle::Initialize, None, None),
             Some((_, Origin::Internal)) | None => {}
         }
     }
@@ -718,12 +721,12 @@ where
         match origin {
             Origin::Session(Call { session, id: held, token: _, key, effect, asked }) => {
                 self.failures = 0;
-                self.subscriptions.applied(effect, result.is_some(), session);
+                self.subscribers.applied(effect, result.is_some(), session);
                 self.sessions.deliver(session, splice(line, (id.get().as_bytes(), held), None));
                 self.settled(request, (!asked).then_some(key));
             }
-            Origin::Discover => self.negotiated(Era::Modern, result, error),
-            Origin::Initialize => self.negotiated(Era::Legacy, result, error),
+            Origin::Discover => self.negotiated(Lifecycle::Discover, result, error),
+            Origin::Initialize => self.negotiated(Lifecycle::Initialize, result, error),
             Origin::Internal => {}
         }
     }
@@ -733,7 +736,7 @@ where
             let pong = Message::<&RawValue, (), _> { jsonrpc: JsonRpcVersion2_0, id: Some(id), method: None, params: None, result: Some(EmptyResult {}), error: None };
             return self.upstream.send(encoded(&pong));
         }
-        let Some(quiet) = self.catalog.as_ref().filter(|catalog| catalog.era.is_legacy()).map(|catalog| &catalog.quiet) else {
+        let Some(quiet) = self.profile.as_ref().filter(|profile| profile.lifecycle.is_initialize()).map(|profile| &profile.quiet) else {
             return self.decline(id.get().as_bytes(), "a server of this protocol version returns an input-required result in place of a request");
         };
         let unknown = BTreeSet::from_iter(self.calls.callers().filter(|(_, call)| !quiet.contains(&call.key)).map(|(request, _)| request));
@@ -767,12 +770,12 @@ where
                     }
                 },
             Method::ResourceUpdated =>
-                for session in read::<String>(params.and_then(|params| params.uri)).and_then(|uri| self.subscriptions.resources.get(&uri)).into_iter().flatten() {
+                for session in read::<String>(params.and_then(|params| params.uri)).and_then(|uri| self.subscribers.resources.get(&uri)).into_iter().flatten() {
                     self.sessions.deliver(*session, [line.clone()]);
                 },
             Method::Logged =>
-                if let Some(level) = read::<Severity>(params.and_then(|params| params.level)) {
-                    let reading = |held: &&Session| held.level.is_some_and(|floor| floor <= level) && held.out.capacity().saturating_mul(2) > held.out.max_capacity();
+                if let Some(level) = read::<LoggingLevel>(params.and_then(|params| params.level)) {
+                    let reading = |held: &&Session| held.level.is_some_and(|floor| floor as u8 <= level as u8) && held.out.capacity().saturating_mul(2) > held.out.max_capacity();
                     let dropped = self.sessions.joined.values().filter(reading).filter_map(|held| held.out.try_send(line.clone()).err());
                     dropped.for_each(|dropped| tracing::trace!({ EXCEPTION_MESSAGE } = %Report::new(&dropped), "server log message dropped"));
                 },
@@ -787,7 +790,7 @@ where
             | Method::Listen
             | Method::SetLevel
             | Method::Other =>
-                if self.catalog.as_ref().is_some_and(|catalog| catalog.era.is_legacy()) {
+                if self.profile.as_ref().is_some_and(|profile| profile.lifecycle.is_initialize()) {
                     self.sessions.broadcast(line);
                 },
         }

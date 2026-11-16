@@ -1,10 +1,10 @@
 import { AYAH_MARK, ayahMark, type MarkKind, Mushaf } from '@quran.ws/text';
-import { Unmatched } from '@rasm/search';
-import { Digits, type Settings } from '@rasm/typography';
+import { Digits, Unmatched } from '@rasm/search';
+import type { Settings } from '@rasm/typography';
 import type { Face } from '@rasm/typography/shaping';
-import { Array, Effect, Equivalence, Formatter, Number, Option, Order, pipe, Record, Schema, Stream, Struct } from 'effect';
+import { Array, Effect, Equivalence, Formatter, Number, Option, Order, Record, Schema, Stream, Struct } from 'effect';
 import { Csv } from 'effect/encoding';
-import { findSurahAyahByAyahId, formatSurahAyah, generatePartBlocks, getListsOfRiwaya, isValidSurah, isValidSurahAyah, type PartBlock, partNames, type RiwayaData, type RiwayaName, type RiwayasNames, type SurahAyah, type SurahNames, surahNamesAr, surahNamesEn } from 'quran-meta';
+import { ayahsInPart, formatSurahAyah, generatePartBlocks, getListsOfRiwaya, isValidSurah, isValidSurahAyah, partNames, type RiwayaData, type RiwayaName, type RiwayasNames, type SurahAyah, type SurahNames, surahNamesAr, surahNamesEn } from 'quran-meta';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -86,7 +86,7 @@ class Quran extends Schema.Class<Quran, { readonly brand: unique symbol }>('Qura
     static readonly Render = Schema.Struct({
         marks: Schema.optionalKey(Schema.Union([Schema.Boolean, Schema.mutable(Schema.Array(Schema.Literals(['waqf', 'division', 'sajdah', 'sajdah_line', 'sah', 'raised_dot'] as const satisfies readonly MarkKind[])))]).annotate({ description: 'Signs printed against words, true for every kind' })),
         lines: Schema.optionalKey(Schema.Boolean.annotate({ description: 'Break text where printed lines break' })),
-    }).annotate({ description: 'Mushaf text rendering, ayah marks set against the face' });
+    }).annotate({ description: 'Signs and line breaks written into mushaf ayah text' });
     static readonly mushaf = Effect.fn('Quran.mushaf')(function* (json: Option.Option<string> = Option.none(), render: typeof Quran.Render.Type = {}, tables: readonly SurahNames[] = NAMES) {
         const mushaf = yield* Option.match(json, {
             onNone: () => Effect.tryPromise({ try: () => Mushaf.hafs(), catch: (cause) => QuranError.make({ subject: 'bundled Hafs mushaf', cause }) }),
@@ -150,8 +150,6 @@ const uncounted =
     (data: RiwayaData) =>
     ({ number, ayahs }: Surah): readonly string[] =>
         isValidSurah(number, data.meta) ? ayahs.filter((ayah) => !isValidSurahAyah([number, ayah.number], data)).map((ayah) => `${number}:${ayah.number}`) : [String(number)];
-const blocks = (part: (typeof PARTS)[number], data: RiwayaData): readonly PartBlock[] =>
-    part === 'hizb' ? Array.chunksOf(blocks('rubAlHizb', data), data.meta.numRubAlHizbs / data.meta.numHizbs).map((hizb) => ({ startAyahId: Array.headNonEmpty(hizb).startAyahId, ayahCount: Number.sumAll(hizb.map(Struct.get('ayahCount'))) })) : (generatePartBlocks(part, data) ?? []);
 const spanned = (subject: string, { from, to }: typeof Bounds.Type, numbers: readonly number[]) => {
     const end = Option.getOrElse(Array.last(numbers), () => 0);
     const range = { minimum: Option.getOrElse(from, () => 1), maximum: Option.getOrElse(to, () => end) };
@@ -160,15 +158,13 @@ const spanned = (subject: string, { from, to }: typeof Bounds.Type, numbers: rea
 const within = (surah: Surah, bounds: typeof Bounds.Type) => Effect.map(spanned(`ayah in surah ${surah.number}`, bounds, surah.ayahs.map(Struct.get('number'))), (range) => surah.ayahs.filter(({ number }) => Number.between(number, range)));
 const counted = Effect.fnUntraced(function* (quran: Quran, { part, number, from, to }: typeof Quran.Selection.cases.Part.Type) {
     const data = getListsOfRiwaya(yield* Effect.fromOption(quran.riwayah, () => Unmatched.make({ subject: `riwayah counting ${part}`, candidates: Riwayah.literals })));
-    const listed = blocks(part, data);
-    const ordinals = listed.map((_, index) => String(index + 1));
-    const { startAyahId, ayahCount } = yield* Effect.fromOption(Array.get(listed, number - 1), () => Unmatched.make({ subject: `${part} in ${data.meta.riwayaName}`, query: Option.some(String(number)), candidates: ordinals }));
-    const { minimum, maximum } = yield* spanned(`ayah in ${part} ${number}`, { from, to }, Array.range(1, ayahCount));
-    return yield* pipe(
-        Array.range(startAyahId + minimum - 1, startAyahId + maximum - 1),
-        Effect.validate((id: number) => quran.ayah(findSurahAyahByAyahId(id, data))),
-        Effect.mapError((missing) => Unmatched.make({ subject: 'ayah text', query: Option.some(Array.getSomes(missing.map(Struct.get('query'))).join(', ')) })),
-    );
+    const quarters = data.meta.numRubAlHizbs / data.meta.numHizbs;
+    const references = yield* Effect.try({
+        try: () => (part === 'hizb' ? Array.range((number - 1) * quarters + 1, number * quarters).flatMap((quarter) => Array.fromIterable(ayahsInPart('rubAlHizb', quarter, data))) : Array.fromIterable(ayahsInPart(part, number, data))),
+        catch: () => Unmatched.make({ subject: `${part} in ${data.meta.riwayaName}`, query: Option.some(String(number)), candidates: (part === 'hizb' ? Array.range(1, data.meta.numHizbs) : (generatePartBlocks(part, data) ?? []).map((_, index) => index + 1)).map(String) }),
+    });
+    const { minimum, maximum } = yield* spanned(`ayah in ${part} ${number}`, { from, to }, Array.range(1, references.length));
+    return yield* Effect.validate(references.slice(minimum - 1, maximum), (reference) => quran.ayah(reference)).pipe(Effect.mapError((missing) => Unmatched.make({ subject: 'ayah text', query: Option.some(Array.getSomes(missing.map(Struct.get('query'))).join(', ')) })));
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------

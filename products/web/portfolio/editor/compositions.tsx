@@ -1,14 +1,13 @@
 import { useAtomSet } from '@effect/atom-react';
-import { Choice, MenuButton, ReorderableList } from '@rasm/ui';
+import { Choice, MenuButton, ModalDialog, ReorderableList } from '@rasm/ui';
 import { Array, Optic, Struct } from 'effect';
 import { SecureRandom } from 'effect/crypto';
 import { useState } from 'react';
 import { Button } from 'react-aria-components';
-import { ConfirmDialog } from '#/editor/confirm-dialog.tsx';
 import { PlacementFields } from '#/editor/placement-fields.tsx';
 import { draft, hero, updateEntry } from '#/editor/state';
 import { CompositionGrid } from '#/media/composition-grid.tsx';
-import { choiceLayout, compositionLabel, entryTitle, format, literalOptions, placementTitle } from '#/media/labels';
+import { choiceLayout, compositionLabel, confirmation, entryTitle, format, literalOptions, placementTitle } from '#/media/labels';
 import type { Assets } from '#/model/asset';
 import { Alignment, type Composition, CompositionId, type Placement, Scale } from '#/model/placement';
 import type { Entry } from '#/model/portfolio';
@@ -59,7 +58,7 @@ const CompositionEditor = ({ assets, entry, item }: { readonly assets: typeof As
                         </button>
                     </>
                 )}
-                <ConfirmDialog label="Remove composition" onConfirm={() => replace()} />
+                <ModalDialog.Confirm {...confirmation} label="Remove composition" onConfirm={() => replace()} />
             </div>
         </div>
     );
@@ -102,7 +101,8 @@ const Compositions = ({
                 <div className="min-w-0 max-editor:not-data-open:hidden editor:editor-scroll" data-open={choosing || undefined}>
                     <ReorderableList
                         actions={(keys) => (
-                            <ConfirmDialog
+                            <ModalDialog.Confirm
+                                {...confirmation}
                                 label={format.quantity(keys.size, { one: (count) => `Remove ${count} selected composition`, other: (count) => `Remove ${count} selected compositions` })}
                                 onConfirm={() => setDraft(updateEntry(entry.id, Struct.evolve({ compositions: Array.filter((candidate) => !keys.has(candidate.id)) })))}
                             />

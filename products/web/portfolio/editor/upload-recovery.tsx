@@ -1,11 +1,11 @@
 import { useAtom, useAtomRefresh, useAtomValue } from '@effect/atom-react';
+import { ModalDialog } from '@rasm/ui';
 import { Array, Result } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
-import { ConfirmDialog } from '#/editor/confirm-dialog.tsx';
 import { RequestAlert } from '#/editor/request-alert.tsx';
 import { discardRequest, recoveryRequest } from '#/editor/state';
 import { queue } from '#/editor/uploader';
-import { joinDetails } from '#/media/labels';
+import { confirmation, joinDetails } from '#/media/labels';
 import type { Recovery } from '#/model/api';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -51,7 +51,7 @@ const UploadRecovery = () => {
                                 {value.map((upload) => (
                                     <li className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-3" key={upload.id}>
                                         <span className="min-w-0 flex-1 text-sm wrap-anywhere">{upload.name}</span>
-                                        <ConfirmDialog description={joinDetails([upload.name, actions[upload.status].description])} disabled={discarded.waiting || queuedUploads.has(upload.id)} label={actions[upload.status].label} onConfirm={() => discard(upload)} />
+                                        <ModalDialog.Confirm {...confirmation} description={joinDetails([upload.name, actions[upload.status].description])} isDisabled={discarded.waiting || queuedUploads.has(upload.id)} label={actions[upload.status].label} onConfirm={() => discard(upload)} />
                                         {queuedUploads.has(upload.id) && <p className="w-full hint">Retry or remove file in upload queue first</p>}
                                     </li>
                                 ))}

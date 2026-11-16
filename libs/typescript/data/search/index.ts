@@ -1,5 +1,5 @@
 import UFuzzy from '@leeoniya/ufuzzy';
-import { Array, Effect, Equivalence, Function, flow, Option, Predicate, pipe, Schema } from 'effect';
+import { Array, Effect, Equivalence, Function, flow, Option, Predicate, pipe, Record, Schema, SchemaGetter, SchemaIssue } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -20,6 +20,33 @@ const FUZZY = new UFuzzy({
     intraContr: String.raw`'\p{L}{1,2}\b`,
 });
 
+// --- [MODELS] --------------------------------------------------------------------------
+
+class Digits extends Schema.Class<Digits, { readonly brand: unique symbol }>('Digits')({ system: Schema.String, table: Schema.Array(Schema.String.check(Schema.isPattern(DIGIT))).check(Schema.isBetweenLength(DECIMAL_DIGITS, DECIMAL_DIGITS)) }) {
+    static readonly #bySystem = pipe(
+        Intl.supportedValuesOf('numberingSystem'),
+        Record.fromIterableWith((system) => [system, Array.makeBy(DECIMAL_DIGITS, new Intl.NumberFormat(undefined, { numberingSystem: system }).format)]),
+        Record.filterMap((table, system) => Schema.decodeResult(Digits)({ system, table })),
+    );
+    static readonly #values = Record.fromEntries(Object.values(Digits.#bySystem).flatMap(({ table }) => table.map((digit, value) => [digit, value] as const)));
+    static readonly #replace = (text: string, written: (value: number) => string) => text.replaceAll(DECIMAL, (digit) => Option.match(Record.get(Digits.#values, digit), { onNone: () => digit, onSome: written }));
+    static readonly fold = (text: string): string => Digits.#replace(text, String);
+    static readonly of = (system: string): Option.Option<Digits> => Record.get(Digits.#bySystem, system);
+    static readonly System = Schema.Literals(Record.keys(Digits.#bySystem))
+        .annotate({ description: 'Decimal numbering system id' })
+        .pipe(
+            Schema.decodeTo(Schema.instanceOf(Digits), {
+                decode: SchemaGetter.transformEffect((system: string, options) => Effect.fromOption(Digits.of(system), () => new SchemaIssue.InvalidValue({ message: `No numbering system ${system}` }, system, options))),
+                encode: SchemaGetter.transform((digits: Digits) => digits.system),
+            }),
+        );
+    static readonly Numeral = Schema.String.check(Schema.isPattern(/^\s*[+-]?\p{Nd}+\s*$/u)).pipe(Schema.decodeTo(Schema.NumberFromString.check(Schema.isInt()), { decode: SchemaGetter.transform(Digits.fold), encode: SchemaGetter.passthrough() }));
+
+    format(text: string): string {
+        return Digits.#replace(text, (value) => Array.getUnsafe(this.table, value));
+    }
+}
+
 // --- [ERRORS] --------------------------------------------------------------------------
 
 class Unmatched extends Schema.TaggedError<Unmatched, { readonly brand: unique symbol }>()('Unmatched', {
@@ -28,10 +55,8 @@ class Unmatched extends Schema.TaggedError<Unmatched, { readonly brand: unique s
     candidates: Schema.Array(Schema.String).pipe(Schema.withConstructorDefault(Effect.succeed([]))),
 }) {
     static readonly named = Equivalence.make((left: string, right: string) => COLLATOR.compare(left, right) === 0);
-    static readonly #preceding = (point: number): number => (DIGIT.test(String.fromCodePoint(point - 1)) ? 1 + Unmatched.#preceding(point - 1) : 0);
-    static readonly #folded = (text: string) => text.replaceAll(DECIMAL, (digit) => String(Unmatched.#preceding(digit.codePointAt(0) ?? 0) % DECIMAL_DIGITS));
     static readonly rank = (query: string, candidates: readonly string[]): readonly string[] => {
-        const [matches, info, order] = FUZZY.search(candidates.map(Unmatched.#folded), Unmatched.#folded(query), 0, Number.POSITIVE_INFINITY);
+        const [matches, info, order] = FUZZY.search(candidates.map(Digits.fold), Digits.fold(query), 0, Number.POSITIVE_INFINITY);
         return matches === null ? candidates : (info === null ? matches : order.map((position) => Array.getUnsafe(info.idx, position))).map((index) => Array.getUnsafe(candidates, index));
     };
     static readonly #candidateNames = <A>(candidates: readonly A[], names: (candidate: A) => Array.NonEmptyReadonlyArray<string>): readonly string[] => Array.dedupe(Array.map(candidates, flow(names, Array.headNonEmpty)));
@@ -78,4 +103,4 @@ class Unmatched extends Schema.TaggedError<Unmatched, { readonly brand: unique s
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Unmatched };
+export { Digits, Unmatched };

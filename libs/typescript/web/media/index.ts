@@ -2,4 +2,4 @@
 
 export { MediaError } from '#/error';
 export { Inspection } from '#/inspection';
-export { preprocessUploads, selectUploadState } from '#/uploads';
+export { isTransientUpload, preprocessUploads, selectUploadState } from '#/uploads';

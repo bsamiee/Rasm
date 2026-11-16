@@ -7,7 +7,7 @@ use backon::ExponentialBuilder;
 use claims::{assert_err, assert_none, assert_ok, assert_some};
 use futures::FutureExt as _;
 use futures::future::{self, BoxFuture};
-use rasm_mcp::{History, Line, Lines, Link, Liveness, Policy, Proxy, Retention, decode, identity};
+use rasm_mcp::{History, IdleTimeout, Line, Lines, Link, Liveness, Policy, Proxy, decode, identity};
 use rmcp::model::{ClientCapabilities, DiscoverResult, Implementation, InitializeRequestParams, JsonRpcVersion2_0, ProtocolVersion, ServerCapabilities};
 use serde::{Deserialize, Serialize};
 use serde_json::Number;
@@ -168,7 +168,7 @@ fn proxy(queue: usize, line: usize) -> (Proxy, mpsc::UnboundedReceiver<Served>, 
         handshake: GRACE,
         probation: Duration::from_secs(2),
         liveness: Some(Liveness { quiet: QUIET, grace: Duration::from_mins(1) }),
-        retention: Retention { ratio: 300, floor: Duration::from_mins(1), ceiling: Duration::from_hours(2) },
+        idle: IdleTimeout { ratio: 300, floor: Duration::from_mins(1), ceiling: Duration::from_hours(2) },
         line,
         queue,
     };

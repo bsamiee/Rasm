@@ -1,54 +1,35 @@
 import { Relation } from '@rasm/database';
-import { Sites } from '@rasm/hosting/openai-sites';
-import { Array, Context, Effect, Layer, Option, Struct } from 'effect';
-import { HttpMethod, HttpServerRequest, HttpServerResponse } from 'effect/http';
+import { Enrollment } from '@rasm/hosting/identity';
+import { Effect, Layer } from 'effect';
+import type { HttpServerRequest } from 'effect/http';
 import { HttpApiError } from 'effect/http-api';
 import { Owner } from '#/model/api';
 import { owner, unavailable } from '#/server/catalog';
 
-// --- [CONSTANTS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
-const address = new Intl.Collator(undefined, { usage: 'search', sensitivity: 'accent' });
+const session = Enrollment.session({ enrolled: (addresses) => Relation.select(owner, { email: addresses }), enroll: (entry) => Relation.ensure(owner, [entry]) }).pipe(Effect.catchTag(['SqlError', 'SchemaError'], unavailable));
+const authorize = Effect.filterOrFail(
+    session,
+    (current) => current === 'allowed',
+    () => HttpApiError.Forbidden.make(),
+);
 
-// --- [SERVICES] ------------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
-class OwnerAccount extends Context.Service<OwnerAccount, { readonly email: string }>()('@rasm/portfolio/server/owner/OwnerAccount') {
-    static readonly session = Effect.gen(function* () {
-        const [{ email }, user] = yield* Effect.all([OwnerAccount, Sites.identity.current]);
-        return yield* Option.match(user, {
-            onNone: () => Effect.succeed('signedOut' as const),
-            onSome: Effect.fnUntraced(function* (signed) {
-                const enrolled = Option.map(Array.head(yield* Relation.select(owner, { email: [email] })), Struct.get('userId'));
-                const ownerId = Option.isNone(enrolled) && Option.isSome(signed.email) && address.compare(signed.email.value, email) === 0 ? Option.some((yield* Relation.ensure(owner, [{ email, userId: signed.id }]))[0].userId) : enrolled;
-                return Option.contains(ownerId, signed.id) ? ('owner' as const) : ('signedIn' as const);
-            }),
-        });
-    }).pipe(Effect.catchTag(['SqlError', 'SchemaError'], unavailable), Effect.withSpan('OwnerAccount.session'));
-    static readonly authorize = Effect.filterOrFail(
-        OwnerAccount.session,
-        (current) => current === 'owner',
-        () => HttpApiError.Forbidden.make(),
-    );
-    static readonly sessionScoped = HttpServerResponse.setHeader('Cache-Control', 'private, no-store');
-    static readonly middleware = Layer.effect(
+const OwnerAccount = {
+    session,
+    authorize,
+    middleware: Layer.effect(
         Owner,
         Effect.map(
-            Effect.context<Exclude<Effect.Services<typeof OwnerAccount.authorize>, HttpServerRequest.HttpServerRequest>>(),
+            Effect.context<Exclude<Effect.Services<typeof authorize>, HttpServerRequest.HttpServerRequest>>(),
             (context) =>
                 (effect): ReturnType<typeof Owner.Service> =>
-                    HttpServerRequest.HttpServerRequest.pipe(
-                        Effect.filterOrFail(
-                            ({ method, headers }) => !HttpMethod.hasBody(method) || headers['sec-fetch-site'] === 'same-origin',
-                            () => HttpApiError.Forbidden.make(),
-                        ),
-                        Effect.andThen(OwnerAccount.authorize),
-                        Effect.provideContext(context),
-                        Effect.andThen(effect),
-                        Effect.map(OwnerAccount.sessionScoped),
-                    ),
+                    Enrollment.sameOrigin.pipe(Effect.andThen(authorize), Effect.provideContext(context), Effect.andThen(effect), Effect.map(Enrollment.unshared)),
         ),
-    );
-}
+    ),
+} as const;
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

@@ -1,0 +1,15 @@
+{
+    "extends": "../../../../tsconfig.base.json",
+    "compilerOptions": {
+        "lib": ["es2022"],
+        "types": ["types-for-adobe/AfterEffects/26.0"]
+    },
+    "references": [
+        {
+            "path": "../extendscript"
+        },
+        {
+            "path": "../object-model"
+        }
+    ]
+}

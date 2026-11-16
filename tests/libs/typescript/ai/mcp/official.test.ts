@@ -41,10 +41,11 @@ const Checks = Schema.fromJsonString(Schema.Array(Schema.Struct({ id: Schema.Str
 const served = (address: NetAddress.InetAddress) => Effect.map(Effect.fromResult(NetAddress.toUrl(address)), ({ href }) => href);
 
 const endpoint = Effect.gen(function* () {
-    const { layer: server } = yield* hosted;
-    const handler = yield* HttpRouter.toHttpEffect(server);
-    const { address } = Context.get(yield* Layer.build(Layer.provideMerge(HttpServer.serve(handler), layerServer(createServer, { host: '127.0.0.1', port: 0 }))), HttpServer.HttpServer);
-    return yield* Match.valueTags(address, { UnixPathAddress: Effect.die, InetAddressV4: served, InetAddressV6: served });
+    const listening = Context.get(yield* Layer.build(layerServer(createServer, { host: '127.0.0.1', port: 0 })), HttpServer.HttpServer);
+    const url = yield* Match.valueTags(listening.address, { UnixPathAddress: Effect.die, InetAddressV4: served, InetAddressV6: served });
+    const handler = yield* HttpRouter.toHttpEffect((yield* hosted(new URL(url).host)).layer);
+    yield* Effect.provideService(Layer.build(HttpServer.serve(handler)), HttpServer.HttpServer, listening);
+    return url;
 });
 
 const checked = Effect.fnUntraced(function* (scenario: (typeof SCENARIOS)[number]) {

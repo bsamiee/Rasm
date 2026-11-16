@@ -1,5 +1,5 @@
 import { load } from 'cheerio/slim';
-import { Cause, Context, Effect, Function, Layer, Option, Record, Schema, UndefinedOr } from 'effect';
+import { Cause, Context, Duration, Effect, Exit, Function, Layer, Option, Record, Schema, UndefinedOr } from 'effect';
 import { HttpServerResponse } from 'effect/http';
 import { renderToReadableStream } from 'react-dom/server';
 import { HostingError } from '#/app/error';
@@ -7,7 +7,7 @@ import type { Shell } from '#/rendering/shell';
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class Template extends Context.Service<Template, string>()('@rasm/hosting/rendering/template') {
+class Template extends Context.Service<Template, Effect.Effect<string, HostingError>>()('@rasm/hosting/rendering/template') {
     static readonly layer = (assets: { readonly fetch: (request: Request) => Promise<Response> }) =>
         Layer.effect(
             Template,
@@ -17,10 +17,11 @@ class Template extends Context.Service<Template, string>()('@rasm/hosting/render
                     ({ status }) => HostingError.of('Template', `answer ${status}`)(),
                 ),
                 Effect.flatMap((response) => Effect.tryPromise({ try: () => response.text(), catch: HostingError.of('Template', 'read') })),
+                Effect.cachedWithTTL((exit) => (Exit.isSuccess(exit) ? Duration.infinity : Duration.zero)),
             ),
         );
     static readonly render = Effect.fn('Template.render')(function* <S extends Schema.Codec<unknown, unknown>>(shell: Shell<S>, value: S['Type']) {
-        const [template, context] = yield* Effect.all([Template, Effect.context<never>()]);
+        const [template, context] = yield* Effect.all([Effect.flatten(Template), Effect.context<never>()]);
         const onError = (error: unknown) => Effect.runSyncWith(context)(Effect.logError(Cause.die(error)));
         const [serialized, markup] = yield* Effect.all(
             [

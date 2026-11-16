@@ -87,7 +87,7 @@ const registerRpcGroup = Effect.fnUntraced(function* <Rpcs extends Rpc.Any & Rpc
     }: {
         readonly tools: { readonly [Tag in Rpcs['_tag']]?: ToolRow<Rpc.Success<Extract<Rpcs, { readonly _tag: Tag }>>> };
         readonly resources: { readonly [Tag in Rpcs['_tag']]?: ResourceRow<Rpc.Success<Extract<Rpcs, { readonly _tag: Tag }>>, keyof Extract<Rpcs, { readonly _tag: Tag }>['payloadSchema']['fields'] & string> };
-        // oxlint-disable-next-line typescript/no-unnecessary-type-parameters -- a generic route (atelier `routes.serving`) unifies with this signature to infer `Fields`, a plain `Rpcs['_tag']` parameter leaves it at the index signature
+        // oxlint-disable-next-line typescript/no-unnecessary-type-parameters -- a generic route unifies with this signature to infer `Fields`, a plain `Rpcs['_tag']` parameter leaves it at the index signature
         readonly route: <Tag extends Rpcs['_tag']>(tag: Tag) => RpcRoute<Chosen, Fields, R>;
         readonly invoke: (rpc: Rpcs) => (payload: Rpc.Payload<Rpcs>, chosen: Chosen) => Effect.Effect<Rpc.Success<Rpcs>, Error, R>;
     },

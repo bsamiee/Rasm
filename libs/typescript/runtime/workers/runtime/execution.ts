@@ -1,6 +1,6 @@
-import { errorReporter, formatLogRecord, layerOtlp, layerWithoutDefaultLogger } from '@rasm/telemetry';
+import { layer } from '@rasm/telemetry';
 import { env, tracing } from 'cloudflare:workers';
-import { ConfigProvider, Context, Effect, ErrorReporter, Exit, Formatter, Layer, Logger, Predicate, Record, Scheduler, Scope, Tracer } from 'effect';
+import { ConfigProvider, Context, Effect, Exit, Formatter, Layer, Predicate, Record, Scheduler, Scope, Tracer } from 'effect';
 import { FetchHttpClient } from 'effect/http';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -57,13 +57,7 @@ class Execution extends Context.Service<Execution, ExecutionContext>()('@rasm/wo
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const layerTelemetry = (resource?: Parameters<typeof layerOtlp>[0]) =>
-    Layer.mergeAll(
-        Logger.layer([Logger.withLeveledConsole(formatLogRecord())], { mergeWithExisting: true }).pipe(Layer.provide(layerWithoutDefaultLogger)),
-        ErrorReporter.layer([errorReporter], { mergeWithExisting: true }),
-        Layer.succeed(Tracer.Tracer, Tracer.make({ span: (options) => new WorkersSpan(options) })),
-        Layer.succeed(Execution.Invocation, layerOtlp(resource).pipe(Layer.provide(FetchHttpClient.layer), Layer.orDie)),
-    );
+const layerTelemetry = (resource?: Parameters<typeof layer>[0]) => Layer.merge(Layer.succeed(Tracer.Tracer, Tracer.make({ span: (options) => new WorkersSpan(options) })), Layer.succeed(Execution.Invocation, layer(resource).pipe(Layer.provide(FetchHttpClient.layer), Layer.orDie)));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

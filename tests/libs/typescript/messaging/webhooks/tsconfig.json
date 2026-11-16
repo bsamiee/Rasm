@@ -3,6 +3,9 @@
     "references": [
         {
             "path": "../../../../../libs/typescript/messaging/webhooks"
+        },
+        {
+            "path": "../../../../support/typescript"
         }
     ]
 }

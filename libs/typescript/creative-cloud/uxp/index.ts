@@ -1,3 +1,4 @@
+import type { Rgb } from 'culori/fn';
 import { Record, Schema, SemVer, Struct } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -77,7 +78,7 @@ class UxpManifest extends Schema.Class<UxpManifest, { readonly brand: unique sym
     static readonly version = VERSION;
     static readonly themes = THEMES;
     static readonly Theme = Schema.Literals(Struct.keys(THEMES));
-    static readonly fills = Record.map(THEMES, (tone) => ({ color: ({ light: '#000000', dark: '#FFFFFF' } as const)[tone], opacity: 0.8 }));
+    static readonly fills = Record.map(THEMES, (tone): Rgb => ({ mode: 'rgb', ...Struct.Record(['r', 'g', 'b'], tone === 'light' ? 0 : 1), alpha: 0.8 }));
     static readonly json = Schema.fromJsonString(UxpManifest);
     static readonly identity = Schema.fromJsonString(Schema.Struct({ id: Schema.String })).annotate({ description: 'Plugin id, the one manifest field a running plugin reads' });
     static readonly file = 'manifest.json';

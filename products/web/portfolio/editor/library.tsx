@@ -1,12 +1,11 @@
 import { useAtomSet } from '@effect/atom-react';
-import { focusElement, MenuButton } from '@rasm/ui';
+import { focusElement, MenuButton, ModalDialog } from '@rasm/ui';
 import { Array, ByteSize, Function, Optic, Option, Record } from 'effect';
 import { FileText, Film } from 'lucide-react';
 import { useId } from 'react';
 import { GridList, GridListItem } from 'react-aria-components';
-import { ConfirmDialog } from '#/editor/confirm-dialog.tsx';
 import { deleteRequest, draft, hero } from '#/editor/state';
-import { entryTitle, format, joinDetails } from '#/media/labels';
+import { confirmation, entryTitle, format, joinDetails } from '#/media/labels';
 import { MediaFigure } from '#/media/media-figure.tsx';
 import { Asset, type AssetId, type Assets } from '#/model/asset';
 import { Placement } from '#/model/placement';
@@ -109,7 +108,7 @@ const Library = ({
                                 <details className="hint">
                                     <summary className="min-h-11 cursor-pointer content-center">Deletion</summary>
                                     {uses.length > 0 && <p>Remove its placements and publish before deleting</p>}
-                                    <ConfirmDialog description="Deletion is permanent" disabled={uses.length > 0} label="Delete file" onConfirm={() => remove(asset.id)} />
+                                    <ModalDialog.Confirm {...confirmation} description="Deletion is permanent" isDisabled={uses.length > 0} label="Delete file" onConfirm={() => remove(asset.id)} />
                                 </details>
                             </div>
                         );

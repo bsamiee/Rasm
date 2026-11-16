@@ -1,4 +1,5 @@
-import { HostError, type ObjectModel, Reference } from '@rasm/automation';
+import { type Declaration, HostError, Reference, Specifier } from '@rasm/object-model';
+import { encode, isPlain } from '@rasm/object-model/host';
 import { Unmatched } from '@rasm/search';
 import { Uxp } from '@rasm/uxp/plugin';
 import indesign, {
@@ -31,10 +32,9 @@ import indesign, {
     type XmlStory,
 } from 'adobe:indesign';
 import { Array, Cache, Cause, Context, Deferred, Duration, Effect, Equal, Equivalence, Exit, Function, flow, identity, Match, Number, Option, Predicate, pipe, Record, Result, Schema, SchemaAST, Struct, Tuple } from 'effect';
-import { Extent, type Search } from '#/index';
-import { Specifier } from '#/specifier';
 import { readDeclaration, unavailableReason } from '#/uxp/dictionary';
 import { Value } from '#/value';
+import { Extent, type Search } from '#/views';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -139,11 +139,7 @@ class Model extends Context.Service<Model>()('@rasm/indesign/uxp/model', {
         const declarations = yield* Cache.makeWith(
             Effect.fnUntraced(function* (kind: string) {
                 const { fields, methods, ...declared } = yield* readDeclaration(kind, classes);
-                return {
-                    ...declared,
-                    fields: Record.map(fields, filled),
-                    methods: Record.map(methods, Struct.evolve({ parameters: Array.map(filled) })),
-                };
+                return { ...declared, fields: Record.map(fields, filled), methods: Record.map(methods, Struct.evolve({ parameters: Array.map(filled) })) };
             }),
             retried,
         );
@@ -166,7 +162,7 @@ class Model extends Context.Service<Model>()('@rasm/indesign/uxp/model', {
             owning,
             domObject,
             collection,
-            picked: (schema: Schema.Top, value: object, skipped: readonly PropertyKey[] = []): Record.ReadonlyRecord<string, unknown> => Option.getOrElse(Option.liftPredicate(picking(SchemaAST.toEncoded(schema.ast), value, skipped), Value.plainObject), Record.empty),
+            picked: (schema: Schema.Top, value: object, skipped: readonly PropertyKey[] = []): Record.ReadonlyRecord<string, unknown> => Option.getOrElse(Option.liftPredicate(picking(SchemaAST.toEncoded(schema.ast), value, skipped), isPlain), Record.empty),
             named: owning('name'),
             application,
             document,
@@ -253,7 +249,7 @@ class Model extends Context.Service<Model>()('@rasm/indesign/uxp/model', {
         });
     });
     static readonly resolve = Effect.fn('Model.resolve')(function* (specifier: Specifier) {
-        const [model, written] = yield* Effect.all([Model, specifier.path]);
+        const [model, written] = [yield* Model, specifier.path];
         const located = (path: string): Option.Option<InDesignDOMObject<unknown> | readonly InDesignDOMObject<unknown>[]> => {
             const requested = identified(path);
             const valid = (each: unknown): each is InDesignDOMObject<unknown> => model.domObject(each) && each.isValid && (Option.isNone(requested) || Equal.equals(identified(each.toSpecifier()), requested));
@@ -263,8 +259,8 @@ class Model extends Context.Service<Model>()('@rasm/indesign/uxp/model', {
         };
         const nearest = function* (): Effect.fn.Return<readonly InDesignDOMObject<unknown>[], HostError | Unmatched> {
             const listed = flow(located, Option.toArray, Array.flatMap(Array.ensure));
-            const siblings = listed(`${specifier.container}${specifier.separator}${specifier.kind}`);
-            const container = Array.head(listed(specifier.container || '/'));
+            const siblings = listed(specifier.unselected);
+            const container = Array.head(listed(specifier.parent));
             const fields = Option.toArray(yield* Effect.transposeOption(Option.map(container, (at) => Cache.get(model.declarations, at.constructorName)))).flatMap(flow(Struct.get('fields'), Record.toEntries));
             const value = (field: string): unknown => Option.getOrUndefined(Option.map(container, (at): unknown => Reflect.get(at, field)));
             const sibling = Option.map(Array.head(siblings), Struct.get('constructorName'));
@@ -283,21 +279,19 @@ class Model extends Context.Service<Model>()('@rasm/indesign/uxp/model', {
                     (every) => every.getElements(),
                 ),
                 () =>
-                    Option.exists(specifier.selector, Reference.Selector.guards.Indexed)
+                    Option.exists(specifier.selector, Specifier.Selector.guards.Index)
                         ? Unmatched.make({ subject: Array.isReadonlyArrayNonEmpty(siblings) ? `object among indexes 0 to ${siblings.length - 1}` : 'object', query: Option.some(written) })
                         : Unmatched.make({ subject: 'object', query: Option.some(written), candidates }),
             );
         };
-        return yield* Option.match(located(written), {
-            onSome: (resolved) => Effect.succeed(specifier.root || Option.isSome(specifier.selector) || specifier.property ? resolved : Array.ensure(resolved)),
-            onNone: () => Option.match(specifier.end, { onNone: () => Effect.gen(nearest), onSome: () => Effect.fail(Unmatched.make({ subject: 'range', query: Option.some(written) })) }),
-        });
+        const absent = specifier.end === undefined ? Effect.gen(nearest) : Effect.fail(Unmatched.make({ subject: 'range', query: Option.some(written) }));
+        return yield* Option.match(located(written), { onSome: (resolved) => Effect.succeed(specifier.root || Option.isSome(specifier.selector) || specifier.property ? resolved : Array.ensure(resolved)), onNone: () => absent });
     });
     static readonly located = (specifier: Specifier) =>
         Model.use(
             Effect.fnUntraced(function* (model: Context.Service.Shape<typeof Model>) {
                 const found = yield* Model.resolve(specifier);
-                return model.domObject(found) ? found : yield* Unmatched.make({ subject: 'object', query: Option.some(yield* specifier.path) });
+                return model.domObject(found) ? found : yield* Unmatched.make({ subject: 'object', query: Option.some(specifier.path) });
             }),
         );
     static readonly referenceUnsafe = (object: InDesignDOMObject<unknown>): Reference => {
@@ -307,20 +301,28 @@ class Model extends Context.Service<Model>()('@rasm/indesign/uxp/model', {
     static readonly collected = (items: Owned['everyItem']) => ({ type: items.constructor.name, length: items.length, specifier: Option.map(Option.fromNullishOr(items.everyItem()), (every) => every.toSpecifier()) });
     static readonly reference = (object: InDesignDOMObject<unknown>): Effect.Effect<Reference, HostError> => Effect.try({ try: () => Model.referenceUnsafe(object), catch: HostError.refused('object reference') });
     static readonly encoder = Effect.map(Model, ({ enumerator, collection, domObject }) => {
-        const replacer = function (this: object, key: string, part: unknown) {
-            const held: unknown = Reflect.get(this, key);
-            return Match.value(held).pipe(
+        const host = {
+            enumerator: (value: object) => (enumerator(value) ? String(value) : undefined),
+            collection: (value: object) =>
+                Option.getOrUndefined(
+                    Option.map(Option.liftPredicate(value, collection), (items) => {
+                        const { specifier, ...held } = Model.collected(items);
+                        return { ...held, ...Record.getSomes({ specifier }) };
+                    }),
+                ),
+            reference: (value: object) =>
+                Option.getOrUndefined(
+                    Option.map(Option.liftPredicate(value, domObject), (object) => {
+                        const { name, ...held } = Model.referenceUnsafe(object);
+                        return { ...held, ...Record.getSomes({ name }) };
+                    }),
+                ),
+            replace: Match.type<unknown>().pipe(
                 Match.when(Option.isOption, Option.getOrUndefined),
                 Match.when(Result.isResult, Result.match({ onSuccess: (success) => ({ _tag: 'Success', success }), onFailure: (failure) => ({ _tag: 'Failure', failure }) })),
-                Match.orElse(() => part),
-                Match.value,
-                Match.when(enumerator, String),
-                Match.when(collection, Model.collected),
-                Match.when(domObject, Model.referenceUnsafe),
                 Match.when(Predicate.isPromise, () => {
-                    throw new Cause.IllegalArgumentError(`${key} holds a promise, scripts answer before it settles`);
+                    throw new Cause.IllegalArgumentError('Result holds a promise, scripts answer before it settles');
                 }),
-                Match.when(Value.plainObject, identity),
                 Match.when(Schema.is(Uxp.Entry), ({ url }) => String(url)),
                 Match.when(Predicate.isError, flow(Schema.encodeOption(Schema.Defect()), Option.getOrUndefined)),
                 Match.when(
@@ -330,12 +332,12 @@ class Model extends Context.Service<Model>()('@rasm/indesign/uxp/model', {
                 Match.when(Predicate.isSet, (entries) => [...entries]),
                 Match.when(Predicate.isBigInt, String),
                 Match.orElse(identity),
-            );
+            ),
         };
-        return (value: unknown): string | undefined => JSON.stringify(value, replacer);
+        return (value: unknown): string | undefined => JSON.stringify(encode(value, host));
     });
     static readonly decoder = (target: unknown, fonts: Effect.Effect<(name: string) => Effect.Effect<Font, Unmatched>, HostError, Model>) => {
-        const typed = (row: Option.Option<Pick<typeof ObjectModel.Field.Type, 'type' | 'types'>>) =>
+        const typed = (row: Option.Option<Pick<typeof Declaration.Field.Type, 'type' | 'types'>>) =>
             Effect.fnUntraced(function* (text: string) {
                 const { enumeration, classes, owner } = yield* Model;
                 const types = Option.getOrElse(Option.flatMap(row, Struct.get('types')), Array.empty<string>);
@@ -360,7 +362,7 @@ class Model extends Context.Service<Model>()('@rasm/indesign/uxp/model', {
                     Match.when(Predicate.isString, typed(row)),
                     Match.when(Array.isArray, Effect.forEach(decode(row, within))),
                     Match.when(
-                        Value.plainObject,
+                        isPlain,
                         Effect.fnUntraced(function* (properties: Record.ReadonlyRecord<string, unknown>) {
                             const { declarations } = yield* Model;
                             const fields = yield* Effect.transposeOption(Option.map(within, (kind) => Effect.map(Cache.get(declarations, kind), Struct.get('fields'))));
@@ -376,29 +378,27 @@ class Model extends Context.Service<Model>()('@rasm/indesign/uxp/model', {
                 );
         return decode;
     };
-    static readonly write: {
-        (values: Record.ReadonlyRecord<string, unknown>): (target: InDesignDOMObject<unknown>) => Effect.Effect<readonly string[], Failure, Model>;
-        (target: InDesignDOMObject<unknown>, values: Record.ReadonlyRecord<string, unknown>): Effect.Effect<readonly string[], Failure, Model>;
-    } = Function.dual(
-        2,
-        Effect.fnUntraced(function* (target: InDesignDOMObject<unknown>, values: Record.ReadonlyRecord<string, unknown>) {
-            const specifier = target.toSpecifier();
-            const write = writer(target, specifier, yield* Effect.cached(Model.fonts));
-            const { declarations, collectionField } = yield* Model;
-            const { fields } = yield* Cache.get(declarations, target.constructorName);
-            const writable = Record.toEntries(Record.filter(fields, Predicate.not(collectionField)));
-            return yield* Effect.validate(
-                Object.entries(values),
-                Effect.fnUntraced(function* ([wanted, value]: readonly [string, unknown]) {
-                    const [, row] = yield* Unmatched.single(writable, `field of ${specifier}`, Option.some(wanted), flow(Tuple.get(0), Array.of));
-                    return yield* write(row, value);
-                }, Effect.sandbox),
-            ).pipe(
-                Effect.map(Array.flatten),
-                Effect.catch((error) => Effect.failCause(Cause.fromReasons(error.flatMap(Struct.get('reasons'))))),
-            );
-        }),
-    );
+    static readonly write: { (values: Record.ReadonlyRecord<string, unknown>): (target: InDesignDOMObject<unknown>) => Effect.Effect<readonly string[], Failure, Model>; (target: InDesignDOMObject<unknown>, values: Record.ReadonlyRecord<string, unknown>): Effect.Effect<readonly string[], Failure, Model> } =
+        Function.dual(
+            2,
+            Effect.fnUntraced(function* (target: InDesignDOMObject<unknown>, values: Record.ReadonlyRecord<string, unknown>) {
+                const specifier = target.toSpecifier();
+                const write = writer(target, specifier, yield* Effect.cached(Model.fonts));
+                const { declarations, collectionField } = yield* Model;
+                const { fields } = yield* Cache.get(declarations, target.constructorName);
+                const writable = Record.toEntries(Record.filter(fields, Predicate.not(collectionField)));
+                return yield* Effect.validate(
+                    Object.entries(values),
+                    Effect.fnUntraced(function* ([wanted, value]: readonly [string, unknown]) {
+                        const [, row] = yield* Unmatched.single(writable, `field of ${specifier}`, Option.some(wanted), flow(Tuple.get(0), Array.of));
+                        return yield* write(row, value);
+                    }, Effect.sandbox),
+                ).pipe(
+                    Effect.map(Array.flatten),
+                    Effect.catch((error) => Effect.failCause(Cause.fromReasons(error.flatMap(Struct.get('reasons'))))),
+                );
+            }),
+        );
     static readonly extent = Effect.fn('Model.extent')(function* (...placed: readonly (Page | PageItem)[]) {
         const { AnchorPoint, BoundingBoxLimits, CoordinateSpaces } = yield* Model;
         return yield* Effect.try({
@@ -451,9 +451,9 @@ const entry = (node: SchemaAST.Arrays, index: number): SchemaAST.AST =>
         () => Schema.Unknown.ast,
     );
 const identified = (path: string) =>
-    Option.map(
-        Option.filter(Schema.decodeUnknownOption(Specifier.Path)(path), ({ end, selector }) => Option.isNone(end) && Option.exists(selector, Reference.Selector.guards.Identified)),
-        Struct.get('kind'),
+    Option.flatMap(
+        Option.filter(Schema.decodeOption(Specifier.Path)(path), ({ end, selector }) => end === undefined && Option.exists(selector, (step) => Specifier.Selector.guards.Key(step) && step.key === 'id')),
+        ({ steps }) => Option.map(Array.last(steps), Struct.get('kind')),
     );
 const joined =
     <E>(failed: E | Unmatched) =>
@@ -466,14 +466,14 @@ const joined =
 const firstOf = <A, E, R>([head, ...rest]: Array.NonEmptyReadonlyArray<Effect.Effect<A, E, R>>) => rest.reduce<Effect.Effect<A, E | Unmatched, R>>((chosen, fallback) => Effect.catch(chosen, (failed) => Effect.mapError(fallback, joined(failed))), head);
 const writer = (target: InDesignDOMObject<unknown>, specifier: string, fonts: Parameters<typeof Model.decoder>[1]) => {
     const decode = Model.decoder(target, fonts);
-    return Effect.fnUntraced(function* (row: typeof ObjectModel.Field.Type, value: unknown) {
+    return Effect.fnUntraced(function* (row: typeof Declaration.Field.Type, value: unknown) {
         const field = row.name;
         const refused = HostError.refused(`${specifier} ${field}`);
-        const nested = Value.plainObject(value) && !row.settable;
+        const nested = isPlain(value) && !row.settable;
         const { domObject } = yield* Model;
         yield* Effect.transposeOption(Option.map(unavailableReason(target.constructorName, field, Option.some(target), !nested), refused));
         const inner: unknown = nested ? yield* Effect.try({ try: (): unknown => Reflect.get(target, field), catch: refused }) : undefined;
-        if (Value.plainObject(value) && domObject(inner)) {
+        if (isPlain(value) && domObject(inner)) {
             return Array.map(yield* Model.write(inner, value), (name) => `${field}.${name}`);
         }
         const native = yield* decode(Option.some(row), row.type)(value);

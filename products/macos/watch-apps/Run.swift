@@ -82,7 +82,7 @@ final class Run: Sendable {
             try recording.map { target throws(ApplicationFailure) in try Recorder(folder: target.folder, longestSide: target.longestSide) }
         }
         let opening = Result { () throws(ApplicationFailure) in
-            do { return try Journal(start: encoder.encodeLine(Record<JSONValue>(argv: CommandLine.arguments))) } catch {
+            do { return try Journal(start: JSONEncoder.lines.encodeLine(Record<JSONValue>(argv: CommandLine.arguments))) } catch {
                 throw ApplicationFailure(subject: Journal.folder.path(percentEncoded: false), reason: .host(error as NSError))
             }
         }
@@ -97,7 +97,7 @@ final class Run: Sendable {
     }
 
     private func encoded(_ value: some Encodable) -> Data {
-        do { return try encoder.encodeLine(value) } catch { WatchApps.exit(withError: error) }
+        do { return try JSONEncoder.lines.encodeLine(value) } catch { WatchApps.exit(withError: error) }
     }
 
     private func emit(_ line: Data, logging shown: some Encodable, as key: String) {
@@ -197,15 +197,6 @@ final class Run: Sendable {
                 case .state(let row) where claims != nil: settle(row.state)
                 case .state, .prompts: break
             }
-        }
-    }
-
-    func recording(_ steps: some AsyncSequence<any Encodable & Sendable, Never> & Sendable) -> some AsyncSequence<any Encodable & Sendable, Never> & Sendable {
-        steps.map { step in
-            if case .launched(let launched)? = step as? Launching {
-                self.show(.launched(launched), as: launched.instance.key)
-            }
-            return step
         }
     }
 

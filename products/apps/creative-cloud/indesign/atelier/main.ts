@@ -1,23 +1,10 @@
-import { Adjust, Typeset } from '@rasm/atelier-protocol/indesign';
-import { KASHIDA_WIDTHS, Model, STYLISTIC_TAGS, thousandths } from '@rasm/indesign/uxp';
+import { adjust, KASHIDA_WIDTHS, listened, Model, STYLISTIC_TAGS, thousandths, typeset } from '@rasm/indesign/uxp';
 import { Settings } from '@rasm/typography';
 import { Plugin } from '@rasm/uxp/plugin';
-import { Array, Cause, Effect, Function, flow, Match, MutableRef, Number, Option, Record, Schema, Struct } from 'effect';
-import { handlers, link } from '#/handlers';
-
-// --- [TYPES] ---------------------------------------------------------------------------
-
-declare global {
-    interface HTMLElementTagNameMap {
-        readonly 'sp-action-button': HTMLElement & { quiet: boolean };
-        readonly 'sp-checkbox': HTMLElement & { checked: boolean };
-        readonly 'sp-detail': HTMLElement;
-        readonly 'sp-label': HTMLElement;
-        readonly 'sp-menu': HTMLElement;
-        readonly 'sp-menu-item': HTMLElement;
-        readonly 'sp-picker': HTMLElement & { selectedIndex: number };
-    }
-}
+import { picker, widget } from '@rasm/uxp/spectrum';
+import { Array, Cause, Effect, Function, flow, Match, Number, Option, Record, Schema, Struct } from 'effect';
+import { Adjust, Typeset } from '#/contract';
+import { link } from '#/handlers';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -30,47 +17,12 @@ const elongating = Settings.fields.kashida.schema.isAnyOf(['Tatweel', 'Stretched
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-// --- [CONTROLS]
-
-const widget = <K extends keyof HTMLElementTagNameMap>(tag: K, fields: Partial<HTMLElementTagNameMap[K]>, ...children: readonly HTMLElement[]): HTMLElementTagNameMap[K] => {
-    const element = document.createElement(tag);
-    children.forEach((child) => element.append(child));
-    return Object.assign(element, fields);
-};
-const slotted = (slot: string, element: HTMLElement) => {
-    element.setAttribute('slot', slot);
-    return element;
-};
-const picker = <A>(label: string, options: readonly (readonly [string, A])[]) => {
-    const shown = MutableRef.make(0);
-    const element = widget('sp-picker', { selectedIndex: MutableRef.get(shown) }, slotted('label', widget('sp-label', { textContent: label })), slotted('options', widget('sp-menu', {}, ...Array.map(options, ([textContent]) => widget('sp-menu-item', { textContent })))));
-    return {
-        element,
-        read: () => Option.map(Array.get(options, element.selectedIndex), ([, value]) => value),
-        show: (value: unknown) =>
-            Object.assign(element, {
-                selectedIndex: MutableRef.setAndGet(
-                    shown,
-                    options.findIndex(([, each]) => each === value),
-                ),
-            }),
-        picked: (work: () => void) =>
-            element.addEventListener('change', () => {
-                if (MutableRef.getAndSet(shown, element.selectedIndex) !== element.selectedIndex) {
-                    work();
-                }
-            }),
-    };
-};
-
-// --- [REQUESTS]
-
-const typesetSelection = (settings: Option.Option<typeof Settings.Partial.Type>) => Effect.flatMap(Model.selection, (item) => handlers.typeset(Typeset.make({ target: item.toSpecifier(), settings })));
+const typesetSelection = (settings: Option.Option<typeof Settings.Partial.Type>) => Effect.flatMap(Model.selection, (item) => typeset(Typeset.make({ target: item.toSpecifier(), settings })));
 const nudged = Effect.fnUntraced(function* (deltas: Option.Option<(steps: typeof Steps.Type) => Adjust['deltas']>, multiple: number) {
     const [{ app, owning }, item, delta] = yield* Effect.all([Model, Model.selection, Effect.fromOption(deltas)]);
     const styled = yield* Effect.fromOption(Option.liftPredicate(item, owning('textStyleRanges')), () => new Cause.NoSuchElementError(`text style range in selection ${item.toSpecifier()}`));
     const steps = yield* Model.read(Steps, 'text preferences', () => ({ kerning: multiple * app.textPreferences.kerningKeyIncrement, baselineShift: (multiple * app.textPreferences.baselineShiftKeyIncrement) / styled.textStyleRanges.firstItem().pointSize }));
-    yield* handlers.adjust(Adjust.make({ target: item.toSpecifier(), deltas: delta(steps) }));
+    yield* adjust(Adjust.make({ target: item.toSpecifier(), deltas: delta(steps) }));
     return Option.none();
 });
 
@@ -78,7 +30,7 @@ const nudged = Effect.fnUntraced(function* (deltas: Option.Option<(steps: typeof
 
 const { linked, scripted } = Effect.runSync(link);
 const typesetting = Effect.fnUntraced(function* (root: HTMLElement, fork: <A, X>(work: Effect.Effect<A, X>) => void) {
-    const [{ app }, { id }] = yield* Effect.all([Model, Plugin]);
+    const { id } = yield* Plugin;
     const mode = picker(
         'Mode',
         Record.toEntries({
@@ -130,17 +82,7 @@ const typesetting = Effect.fnUntraced(function* (root: HTMLElement, fork: <A, X>
     buttons.forEach(nudging);
     Object.assign(root, { textContent: '' });
     Record.collect(groups, (textContent, children) => widget('div', {}, widget('sp-detail', { textContent }), ...children)).forEach((child) => root.append(child));
-    const events = ['afterSelectionChanged', 'afterSelectionAttributeChanged', 'afterContextChanged'] as const;
-    const listened = (event: (typeof events)[number]) =>
-        Effect.sync(() => {
-            const name = `${id}:${event}`;
-            const stale = app.eventListeners.itemByName(name);
-            if (stale.isValid) {
-                stale.remove();
-            }
-            Object.assign(app.addEventListener(event, changed), { name });
-        });
-    yield* Effect.forEach(events, listened, { discard: true });
+    yield* listened(['afterSelectionChanged', 'afterSelectionAttributeChanged', 'afterContextChanged'], id, changed);
     yield* Effect.sync(changed);
 }, scripted);
 

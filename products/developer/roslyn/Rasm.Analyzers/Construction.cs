@@ -338,3 +338,26 @@ public sealed class NullForgivingAnalyzer : DiagnosticAnalyzer {
         || (member is IMethodSymbol method && method.ContainingType.AllInterfaces.SelectMany(static contract => contract.GetMembers())
             .Any(contract => SymbolEqualityComparer.Default.Equals(method.ContainingType.FindImplementationForInterfaceMember(contract), method)));
 }
+
+[DiagnosticAnalyzer(LanguageNames.CSharp)]
+public sealed class HostInstantiatedSuppressor : DiagnosticSuppressor {
+
+    // --- [RULES]
+
+    private static readonly ImmutableDictionary<string, SuppressionDescriptor> Rules = new SuppressionDescriptor[] {
+        new("RASM3114", "CA1812", "A host constructs types deriving from a `RASM3114.instantiated` type through reflection"),
+        new("RASM3115", "MA0182", "A host constructs types deriving from a `RASM3114.instantiated` type through reflection"),
+    }.ToImmutableDictionary(static rule => rule.SuppressedDiagnosticId, StringComparer.Ordinal);
+
+    public override ImmutableArray<SuppressionDescriptor> SupportedSuppressions => [.. Rules.Values];
+
+    public override void ReportSuppressions(SuppressionAnalysisContext context) {
+        ImmutableArray<INamedTypeSymbol> roots = [.. Declared(context.Compilation, [.. Option(context.Options, "RASM3114.instantiated")]).OfType<INamedTypeSymbol>()];
+        foreach (Diagnostic diagnostic in context.ReportedDiagnostics) {
+            if (diagnostic.Location.SourceTree is { } tree
+                && context.GetSemanticModel(tree).GetDeclaredSymbol(tree.GetRoot(context.CancellationToken).FindNode(diagnostic.Location.SourceSpan), context.CancellationToken) is INamedTypeSymbol type
+                && roots.Any(root => Derives(type, root) || type.AllInterfaces.Contains(root, SymbolEqualityComparer.Default)))
+                context.ReportSuppression(Suppression.Create(Rules[diagnostic.Id], diagnostic));
+        }
+    }
+}

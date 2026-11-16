@@ -1,34 +1,43 @@
+import AppKit
 import ApplicationServer
 import Applications
 import ArgumentParser
-import CurrentProcess
-import EffectRPC
 import Encoding
-import Foundation
-import Logging
+import JSONRPC
 import System
+
+// --- [MODELS] --------------------------------------------------------------------------
+
+private enum Journaled: Decodable, Sendable {
+    case launch(url: URL, documents: [URL], arguments: [String], environment: [String: String], new: Bool)
+}
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 struct Serve: AsyncParsableCommand {
-    static let configuration: CommandConfiguration = .init(abstract: "Serves ApplicationServer requests as JSON lines over standard input and output, under its parent's privacy grants")
+    static let configuration: CommandConfiguration = .init(
+        abstract: "Serves ApplicationServer requests as JSON lines over standard input and output, under its parent's privacy grants, journaling launched instances"
+    )
 
     func run() async {
-        let logger = Logger(label: String(reflecting: Self.self))
-        let definitions = ScriptingDefinitions()
-        let calls = DispatchQueue(label: "\(Program.current.name).calls", attributes: .concurrent)
-        let output = DispatchSerialQueue(label: "\(Program.current.name).output")
         await Run.execute(Self.self, output: nil, accessibility: false) { run throws(ApplicationFailure) in
-            do throws(EffectRPCFailure) {
+            do throws(JSONRPCFailure) {
                 try await serve(
                     reading: FileHandle.standardInput.bytes.jsonLines,
-                    writing: { line in _ = try await withTaskExecutorPreference(output) { try FileDescriptor.standardOutput.writeAll(line) } },
-                    dropped: { failure in logger.debug("Dropped request", error: failure) },
-                ) { (request: Request) in
-                    let response = try await withTaskExecutorPreference(calls) {
-                        try await request.perform(admitting: { NSPredicate(value: true) }, refusing: { _ in [] }, definitions: definitions)
+                    writing: { line in _ = try FileDescriptor.standardOutput.writeAll(line) },
+                    admitting: { NSPredicate(value: true) },
+                    refusing: { _ in [] },
+                ) { (request: Journaled) in
+                    switch request {
+                        case .launch(let url, let documents, let arguments, let environment, let new):
+                            .stream(
+                                try NSWorkspace.shared.launching(Installation(at: url), opening: documents, arguments: arguments, environment: environment, newInstance: new)
+                                    .map { step -> any Encodable & Sendable in
+                                        if case .launched(let launched) = step { run.show(step, as: launched.instance.key) }
+                                        return step
+                                    }
+                            )
                     }
-                    return if case .launch = request, case .stream(let steps) = response { .stream(run.recording(steps)) } else { response }
                 }
             } catch {
                 throw ApplicationFailure(subject: "connection", reason: .host(error as NSError))

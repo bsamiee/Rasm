@@ -8,9 +8,11 @@ import CurrentProcess
 import Files
 import OrderedCollections
 import Processes
+import ScreenCapture
 import System
 import Telemetry
 import Tracing
+import UniformTypeIdentifiers
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -27,51 +29,6 @@ private func installed(_ names: [String], _ run: Run) async -> [(name: String, i
         }
     }
     .reduce(into: []) { found, entry in found.append(entry) }
-}
-
-private func lifecycle(of name: String, reports limit: Int) async throws(ApplicationFailure) -> Lifecycle {
-    let exited = ProcessInstance(rawValue: name)
-    let named: ProcessInstance?
-    do throws(Errno) { named = try ProcessInstance(named: name) } catch  where error == .noSuchProcess && exited != nil { named = exited } catch {
-        throw ApplicationFailure(subject: name, reason: error == .noSuchProcess ? .noProcess : .system(error))
-    }
-    let file: URL?
-    do throws(Errno) { file = named == nil && !FilePath(name).removingLastComponent().isEmpty ? try ifPresent { () throws(Errno) in try URL(filePath: name).canonical() } : nil } catch {
-        throw ApplicationFailure(subject: name, reason: .system(error))
-    }
-    let regular: Bool
-    do { regular = try file?.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile == true } catch { throw ApplicationFailure(subject: name, reason: .host(error as NSError)) }
-    let executable = regular ? file.map { file in FilePath(file.path(percentEncoded: false)) } : nil
-    let installations = named == nil && executable == nil ? try await Installation.installed(named: name) : []
-    let agents = Array(try installations.map { installation throws(ApplicationFailure) in try installation.agents() }.joined())
-    let bundles: [FilePath]
-    do throws(Errno) { bundles = try installations.map { installation throws(Errno) in FilePath(try installation.url.canonical().path(percentEncoded: false)) } } catch {
-        throw ApplicationFailure(subject: name, reason: .system(error))
-    }
-    let scoped: (FilePath) -> Bool = { path in path == executable || bundles.contains(where: path.starts(with:)) }
-    let owned: (CrashReport) -> Bool = { report in
-        report.executable.map { path in scoped(FilePath(path)) } == true || installations.contains { installation in installation.identifier == report.bundleIdentifier }
-            || agents.contains { agent in agent.label == report.service }
-    }
-    let running: [ProcessInstance]
-    do throws(Errno) {
-        running =
-            switch named {
-                case .some(let named) where named.hasExited: []
-                case .some(let named): [named]
-                case .none: try ProcessInstance.executing(scoped)
-            }
-    } catch {
-        throw ApplicationFailure(subject: name, reason: .system(error))
-    }
-    let found = CrashReport.reports { report in named.map { named in report.instance == named } ?? owned(report) }
-    return Lifecycle(
-        agents: agents,
-        processes: running.map { instance in
-            Lifecycle.Row(instance: instance, pid: instance.pid, executable: try? instance.executable().string, replaced: (try? instance.runsInstalledCode()).map { installed in !installed })
-        },
-        reports: Array(found.reports.prefix(limit)),
-    )
 }
 
 private func act(_ command: (some ParsableCommand).Type, _ action: ElementAction, key: String) async {
@@ -146,7 +103,7 @@ struct Watch: AsyncParsableCommand {
 
     @Option(
         help: ArgumentHelp(
-            "Folder taking one movie per standard window and asking row, a clip and frame of the \(WindowRecording.buffered.formatted(.units(width: .wide))) before each dialog, hang, and exit by signal, and timeline.jsonl",
+            "Folder taking one movie per standard window and asking row, a clip and frame of the \(Recording.buffered.formatted(.units(width: .wide))) before each dialog, hang, and exit by signal, and timeline.jsonl",
             valueName: "folder",
         ),
         transform: { folder in URL(filePath: folder, directoryHint: .isDirectory) },
@@ -294,36 +251,47 @@ struct Read: AsyncParsableCommand {
 }
 
 struct Capture: AsyncParsableCommand {
-    static let configuration: CommandConfiguration = .init(abstract: "Writes one PNG per presented window, or of --window, with no activation. Prints one line per file")
+    static let configuration: CommandConfiguration = .init(
+        abstract: "Writes one PNG per presented window, of --window, or of --element's frame inside its window, with no activation. Prints one line per file"
+    )
 
     @OptionGroup var running: Running
 
     @Option(help: "Window number from a line")
     var window: CGWindowID?
 
+    @Option(
+        help: "Element ID from a read line, a pane, panel, or canvas",
+        transform: { id in
+            guard let element = Element.ID(base64Encoded: id) else { throw ValidationError("\(id) is not base64") }
+            return element
+        },
+    )
+    var element: Element.ID?
+
     @Option(help: ArgumentHelp("Longest side in pixels, smaller captures keep native size", valueName: "pixels"))
     var longestSide: Int?
 
     func validate() throws(ValidationError) {
         if let longestSide, longestSide <= 0 { throw ValidationError("\(longestSide) is not a positive integer") }
+        if window != nil, element != nil { throw ValidationError("Pass --window or --element") }
     }
 
     func run() async {
+        let source: Source? = window.map { number in Source.windows(numbers: [number]) } ?? element.map(Source.element(id:))
         await Run.execute(Self.self) { run throws(ApplicationFailure) in
             let directory = Program.current.directory(.runtime)
             do { try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true) } catch {
                 throw ApplicationFailure(subject: directory.path(percentEncoded: false), reason: .host(error as NSError))
             }
             await running.each(run) { instance throws(ApplicationFailure) in
-                let shots = try await instance.capturing(into: directory, window: window, longestSide: longestSide)
-                guard !shots.isEmpty else { throw ApplicationFailure(subject: instance.key, reason: .noWindow) }
-                for (number, shot) in shots.sorted(by: { first, second in first.key < second.key }) {
+                let stills = try await instance.capture(source, to: { number in directory.appending(component: String(number)).appendingPathExtension(for: .png) }, longestSide: longestSide)
+                guard !stills.isEmpty else { throw ApplicationFailure(subject: instance.key, reason: .noWindow) }
+                for (number, still) in stills.sorted(by: { first, second in first.key < second.key }) {
                     do throws(ApplicationFailure) {
-                        let file = try shot.get()
-                        run.emit(
-                            instance.key,
-                            [String(instance.process.pid): Tagged(instance: instance.process, value: Event.captured(Screenshot(file: file.path(percentEncoded: false), number: number)))],
-                        )
+                        let file = try still.get().file
+                        let footage = Footage(file: file.path(percentEncoded: false), pid: instance.process.pid, window: number)
+                        run.emit(instance.key, [String(instance.process.pid): Tagged(instance: instance.process, value: Event.captured(footage))])
                     } catch {
                         run.fail(instance.key, error)
                     }
@@ -413,7 +381,7 @@ struct ProcessTable: AsyncParsableCommand {
     func run() async {
         await Run.execute(Self.self, accessibility: false) { run in
             for name in OrderedSet(names) {
-                do throws(ApplicationFailure) { run.emit(name, try await lifecycle(of: name, reports: reports)) } catch { run.fail(name, error) }
+                do throws(ApplicationFailure) { run.emit(name, try await Lifecycle(of: name, reports: reports)) } catch { run.fail(name, error) }
             }
         }
     }

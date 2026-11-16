@@ -28,7 +28,6 @@ tempfile                           = { workspace = true }
 dirs                               = { workspace = true }
 interprocess                       = { workspace = true }
 rlimit                             = { workspace = true }
-sysinfo                            = { workspace = true }
 which                              = { workspace = true }
 sysexits                           = { workspace = true }
 thiserror                          = { workspace = true }

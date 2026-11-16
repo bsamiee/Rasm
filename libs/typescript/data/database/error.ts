@@ -19,7 +19,7 @@ const refusals = {
     unique: 'ClickHouse has no unique, partial, or gist index',
     fulltext: 'ClickHouse has no declared text search',
     collection: 'ClickHouse collection column takes no Nullable, default, or JSON path projection',
-    layout: 'ClickHouse expires needs an instant column, version an integer or instant column, and a codec a stored column',
+    mergeTreeColumn: 'ClickHouse expires needs an instant column, version an integer or instant column, and a codec a stored column',
 };
 
 // --- [MODELS] --------------------------------------------------------------------------

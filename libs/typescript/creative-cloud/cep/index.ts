@@ -1,4 +1,4 @@
-import { Record, Schema, SchemaGetter } from 'effect';
+import { Schema, SchemaGetter } from 'effect';
 import Builder from 'fast-xml-builder';
 import { XMLParser } from 'fast-xml-parser';
 
@@ -33,7 +33,6 @@ class ExtensionManifest extends Schema.Class<ExtensionManifest, { readonly brand
     panel: Schema.String.annotate({ description: 'MainPath, the panel page relative to the extension folder' }),
     script: Schema.OptionFromUndefinedOr(Schema.String).annotate({ description: 'ScriptPath, the host script relative to the extension folder' }),
 }) {
-    static readonly fills = Record.map({ light: '#000000', dark: '#FFFFFF' } as const, (color) => ({ color, opacity: 0.65 }));
     static readonly target = 'es3';
     static readonly chromium = 'chrome99';
     static readonly global = 'handle';

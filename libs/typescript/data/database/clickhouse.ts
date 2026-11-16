@@ -4,7 +4,7 @@ import { SqlClient, SqlSchema, Statement } from 'effect/sql';
 import type { Catalog } from '#/catalog';
 import { Column, type Kind } from '#/column';
 import { type Dialect, Engine } from '#/engine';
-import { constant, diff, digest, Identity, identifier, literal, render, replacement, Stamp, unmigrated, unsupported } from '#/reconcile';
+import { catalogDdl, constant, diff, digest, Identity, identifier, literal, replacement, Stamp, unmigrated, unsupported } from '#/reconcile';
 import type { Relation } from '#/relation';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -28,12 +28,12 @@ const quoted = flow(literal, String.replaceAll('\\', '$&$&'));
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Part = Schema.Struct({ kind: Schema.Literals(Struct.keys(kinds)), name: Schema.String, digest: Schema.String, columns: Schema.Array(Schema.String) });
-const Layout = Schema.Struct({ key: Schema.Array(Schema.String), version: Schema.optionalKey(Schema.String), partition: Schema.optionalKey(Schema.String) });
-const Mark = Schema.fromJsonString(Identity.mapFields(Struct.assign({ layout: Layout, expires: Schema.optionalKey(Schema.Int), codecs: Schema.Record(Schema.String, Schema.NonEmptyArray(Schema.String)), parts: Schema.Array(Part) })));
+const MergeTree = Schema.Struct({ key: Schema.Array(Schema.String), version: Schema.optionalKey(Schema.String), partition: Schema.optionalKey(Schema.String) });
+const TableStamp = Schema.fromJsonString(Identity.mapFields(Struct.assign({ mergeTree: MergeTree, expires: Schema.optionalKey(Schema.Int), codecs: Schema.Record(Schema.String, Schema.NonEmptyArray(Schema.String)), parts: Schema.Array(Part) })));
 const recorded = <S extends Schema.Codec<unknown, string>>(stamp: S) => Schema.String.pipe(Schema.decodeTo(Schema.Option(Schema.toType(stamp)), { decode: SchemaGetter.transform(Schema.decodeOption(stamp)), encode: SchemaGetter.forbiddenEncoding }));
 const Table = Schema.Struct({
     name: Schema.String,
-    identity: recorded(Mark),
+    identity: recorded(TableStamp),
     columns: Schema.Array(Schema.Struct({ name: Schema.String, identity: recorded(Stamp), comment: Schema.String, definition: Schema.String, codec: Schema.String, copied: Schema.BooleanFromBit })),
     parts: Schema.Array(Schema.Struct({ kind: Part.fields.kind, name: Schema.String, definition: Schema.String })),
 });
@@ -116,7 +116,7 @@ class Clickhouse extends Schema.Class<Clickhouse, { readonly brand: unique symbo
         return [
             ...Record.collect(named, (refusal, names) => unsupported(owner, refusal, all, ({ name }) => names.includes(name))).flat(),
             ...unsupported(owner, 'collection', all, ({ name, nullable, collection, default: preset }) => Option.isSome(collection) && (nullable || Option.isSome(preset) || sources.includes(name))),
-            ...unsupported(owner, 'layout', all, ({ name, kind, projection }) => (Option.contains(expiring, name) && kind !== 'instant') || (Option.contains(version, name) && kind !== 'integer' && kind !== 'instant') || (Record.has(codecs, name) && Option.isSome(projection))),
+            ...unsupported(owner, 'mergeTreeColumn', all, ({ name, kind, projection }) => (Option.contains(expiring, name) && kind !== 'instant') || (Option.contains(version, name) && kind !== 'integer' && kind !== 'instant') || (Record.has(codecs, name) && Option.isSome(projection))),
         ];
     };
     static readonly role = unmigrated;
@@ -126,12 +126,12 @@ class Clickhouse extends Schema.Class<Clickhouse, { readonly brand: unique symbo
     static readonly transactional = false;
     static readonly plan: Dialect['plan'] = Effect.fnUntraced(
         function* (sql: SqlClient.SqlClient, catalog: Catalog) {
-            const rendered = yield* render(sql, Clickhouse, catalog);
+            const ddl = yield* catalogDdl(sql, Clickhouse, catalog);
             const live = yield* observed(Array.map(catalog.tables, ({ name }) => replacement(name)));
-            const resolved = diff(sql, Clickhouse, catalog, rendered, live.tables.map(Struct.assign({ references: [] })));
+            const resolved = diff(sql, Clickhouse, catalog, ddl, live.tables.map(Struct.assign({ references: [] })));
             const matched = yield* Effect.forEach(resolved.matched, (entry) => Effect.map(parts(sql, entry), (wanted) => aligned(entry, wanted)));
-            const created = yield* Effect.forEach(resolved.created, ({ declared, rendered: table }) =>
-                Effect.map(parts(sql, { declared, rendered: table }), (wanted) => [table.create(), built(sql, table.relation, { declared, parts: wanted, mark: mark(declared, table.identity, wanted), stamps: table.definitions, foreign: [] })]),
+            const created = yield* Effect.forEach(resolved.created, ({ declared, ddl: table }) =>
+                Effect.map(parts(sql, { declared, ddl: table }), (wanted) => [table.create(), built(sql, table.relation, { declared, parts: wanted, stamp: tableStamp(declared, table.identity, wanted), stamps: table.definitions, foreign: [] })]),
             );
             const [replaced, kept] = Array.partition(
                 matched,
@@ -142,7 +142,7 @@ class Clickhouse extends Schema.Class<Clickhouse, { readonly brand: unique symbo
                 findings: [],
                 replaced: replaced.map(({ live: table }) => table.name),
                 populated: yield* resolved.populated,
-                session: [],
+                concurrently: Effect.void,
                 drifted: ({ live: table }, { definition, recorded: stamp }) => Option.isSome(table.identity) && !Option.contains(Option.flatMapNullishOr(stamp, Struct.get('digest')), definition.digest),
                 preamble: [],
                 opening: changes.flatMap(Struct.get('opening')),
@@ -187,7 +187,7 @@ const observed = SqlSchema.findOne({
 const seconds = (after: Duration.Duration) => Math.ceil(Duration.toSeconds(after));
 const ttl = (sql: SqlClient.SqlClient, { column, after }: Option.Option.Value<Relation['mergeTree']['expires']>) => sql`TTL toDateTime(${sql(column)}) + INTERVAL ${sql.literal(seconds(after).toString())} SECOND`;
 const commented = (sql: SqlClient.SqlClient, name: string, identity: typeof Identity.Type) => sql`COMMENT COLUMN ${sql(name)} ${sql.literal(quoted(Formatter.formatJson(identity)))}`;
-const parts = Effect.fnUntraced(function* (sql: SqlClient.SqlClient, { declared: { columns }, rendered: { definitions, indexes } }: Effect.Success<ReturnType<typeof render>>[number]) {
+const parts = Effect.fnUntraced(function* (sql: SqlClient.SqlClient, { declared: { columns }, ddl: { definitions, indexes } }: Effect.Success<ReturnType<typeof catalogDdl>>[number]) {
     const maps = new Map(
         Object.values(columns)
             .filter(({ collection }) => Option.exists(collection, Column.Collection.$is('Map')))
@@ -204,20 +204,20 @@ const parts = Effect.fnUntraced(function* (sql: SqlClient.SqlClient, { declared:
     });
     return yield* Effect.forEach([...checks, ...accessed], (part) => Effect.map(digest(sql`${part.body}`.compile(true)[0]), (hashed) => ({ ...part, digest: hashed })));
 });
-const mark = ({ key, mergeTree: { version, expires, codecs } }: Relation, { origin, generation }: typeof Identity.Type, wanted: Effect.Success<ReturnType<typeof parts>>): (typeof Mark)['Type'] => ({
+const tableStamp = ({ key, mergeTree: { version, expires, codecs } }: Relation, { origin, generation }: typeof Identity.Type, wanted: Effect.Success<ReturnType<typeof parts>>): (typeof TableStamp)['Type'] => ({
     origin,
     generation,
-    layout: { key, ...Option.getOrUndefined(Option.map(version, (column) => ({ version: column }))), ...Option.getOrUndefined(Option.map(expires, ({ column }) => ({ partition: column }))) },
+    mergeTree: { key, ...Option.getOrUndefined(Option.map(version, (column) => ({ version: column }))), ...Option.getOrUndefined(Option.map(expires, ({ column }) => ({ partition: column }))) },
     ...Option.getOrUndefined(Option.map(expires, ({ after }) => ({ expires: seconds(after) }))),
     codecs,
     parts: wanted.map(Struct.pick(['kind', 'name', 'digest', 'columns'])),
 });
-const recoded = (sql: SqlClient.SqlClient, { columns, mergeTree }: Relation, held: (typeof Mark)['Type']['codecs']) =>
+const recoded = (sql: SqlClient.SqlClient, { columns, mergeTree }: Relation, held: (typeof TableStamp)['Type']['codecs']) =>
     Array.filterMap(Object.values(columns), ({ name }) => {
         const codec = Record.get(mergeTree.codecs, name);
         return Equal.equals(codec, Record.get(held, name)) ? Result.failVoid : Result.succeed(sql`MODIFY COLUMN ${sql(name)} ${sql.literal(Option.match(codec, { onNone: () => 'REMOVE CODEC', onSome: (chain) => ['CODEC(', chain.join(', '), ')'].join('') }))}`);
     });
-const built = (sql: SqlClient.SqlClient, target: Statement.Fragment, { declared, parts: wanted, mark: stamp, stamps, foreign }: Pick<Aligned, 'declared' | 'parts' | 'mark' | 'stamps' | 'foreign'>) =>
+const built = (sql: SqlClient.SqlClient, target: Statement.Fragment, { declared, parts: wanted, stamp, stamps, foreign }: Pick<Aligned, 'declared' | 'parts' | 'stamp' | 'stamps' | 'foreign'>) =>
     sql`ALTER TABLE ${target} ${sql.csv([
         ...recoded(sql, declared, {}),
         ...[...wanted, ...foreign.map(({ kind, name, definition }) => ({ kind, name, body: sql.literal(definition) }))].map(({ kind, name, body }) => sql`ADD ${sql.literal(kind)} ${sql(name)} ${body}`),
@@ -226,7 +226,7 @@ const built = (sql: SqlClient.SqlClient, target: Statement.Fragment, { declared,
     ])}`;
 const keyed = ({ kind, name }: Pick<(typeof Part)['Type'], 'kind' | 'name'>) => ({ kind, name });
 const aligned = (entry: ReturnType<typeof diff<typeof Table.Type & { readonly references: never[] }>>['matched'][number], wanted: Effect.Success<ReturnType<typeof parts>>) => {
-    const [stamp, present, declared] = [mark(entry.declared, entry.identity, wanted), HashSet.fromIterable(entry.live.parts.map(keyed)), HashSet.fromIterable(wanted.map(keyed))];
+    const [stamp, present, declared] = [tableStamp(entry.declared, entry.identity, wanted), HashSet.fromIterable(entry.live.parts.map(keyed)), HashSet.fromIterable(wanted.map(keyed))];
     const managed = Option.filter(entry.live.identity, () => entry.owned);
     const moved = new Set([...entry.dropping.map(Struct.get('name')), ...entry.renames.map(Struct.get('from'))]);
     const retired = new Set(entry.declared.retired.indexes.map(identifier));
@@ -239,31 +239,31 @@ const aligned = (entry: ReturnType<typeof diff<typeof Table.Type & { readonly re
     return {
         ...entry,
         parts: wanted,
-        mark: stamp,
+        stamp,
         managed,
         gone,
         stamps: entry.fields.map(({ definition, identity }) => ({ name: definition.name, stamp: { ...identity, digest: definition.digest } })),
         missing: wanted.filter((part) => !HashSet.has(HashSet.difference(present, gone), keyed(part))),
         foreign: entry.live.parts.filter((part) => !(HashSet.has(gone, keyed(part)) || HashSet.has(declared, keyed(part)))),
-        rebuild: entry.owned && (retyped || !Option.exists(entry.live.identity, ({ layout }) => Equal.equals(layout, stamp.layout))),
+        rebuild: entry.owned && (retyped || !Option.exists(entry.live.identity, ({ mergeTree }) => Equal.equals(mergeTree, stamp.mergeTree))),
     };
 };
 const altered = (sql: SqlClient.SqlClient, entry: Aligned) => {
-    const marks = entry.fields.filter(({ definition, found, recorded: held, identity }) => Option.isSome(found) && !Option.contains(held, { ...identity, digest: definition.digest }));
-    const expiry = Option.filter(entry.declared.mergeTree.expires, () => Option.exists(entry.managed, ({ expires }) => !Equal.equals(expires, entry.mark.expires)));
+    const restamped = entry.fields.filter(({ definition, found, recorded: held, identity }) => Option.isSome(found) && !Option.contains(held, { ...identity, digest: definition.digest }));
+    const expiry = Option.filter(entry.declared.mergeTree.expires, () => Option.exists(entry.managed, ({ expires }) => !Equal.equals(expires, entry.stamp.expires)));
     const actions = [
         ...entry.dropping.map(({ name }) => sql`DROP COLUMN ${sql(name)}`),
         ...entry.added.map(({ text }) => sql`ADD COLUMN ${text}`),
         ...Option.toArray(entry.managed).flatMap(({ codecs }) => recoded(sql, entry.declared, Record.mapKeys(codecs, entry.renamed))),
         ...entry.missing.flatMap(({ kind, name, body }) => [sql`ADD ${sql.literal(kind)} ${sql(name)} ${body}`, ...(kinds[kind].stored ? [sql`MATERIALIZE ${sql.literal(kind)} ${sql(name)}`] : [])]),
-        ...[...entry.added.map((definition) => ({ definition, identity: definition.identity })), ...marks].map(({ definition, identity }) => commented(sql, definition.name, { ...identity, digest: definition.digest })),
-        ...Option.toArray(Option.filter(entry.managed, (held) => !Equal.equals(held, entry.mark))).map(() => sql`MODIFY COMMENT ${sql.literal(quoted(Formatter.formatJson(entry.mark)))}`),
+        ...[...entry.added.map((definition) => ({ definition, identity: definition.identity })), ...restamped].map(({ definition, identity }) => commented(sql, definition.name, { ...identity, digest: definition.digest })),
+        ...Option.toArray(Option.filter(entry.managed, (held) => !Equal.equals(held, entry.stamp))).map(() => sql`MODIFY COMMENT ${sql.literal(quoted(Formatter.formatJson(entry.stamp)))}`),
         ...Option.toArray(expiry).map((expires) => sql`MODIFY ${ttl(sql, expires)}`),
     ];
     const stale = Array.fromIterable(entry.gone).map(({ kind, name }) => sql`DROP ${sql.literal(kind)} ${sql(name)}`);
     return {
         opening: Array.match(stale, { onEmpty: () => [], onNonEmpty: (all) => [sql`ALTER TABLE ${sql(entry.live.name)} ${sql.csv(all)}`] }),
-        statements: Array.match(actions, { onEmpty: () => [], onNonEmpty: (all) => [sql`ALTER TABLE ${entry.rendered.relation} ${sql.csv(all)}`] }),
+        statements: Array.match(actions, { onEmpty: () => [], onNonEmpty: (all) => [sql`ALTER TABLE ${entry.ddl.relation} ${sql.csv(all)}`] }),
     };
 };
 const rebuilt = (sql: SqlClient.SqlClient, entry: Aligned) => {
@@ -274,13 +274,7 @@ const rebuilt = (sql: SqlClient.SqlClient, entry: Aligned) => {
         ...entry.retained.filter(Struct.get('copied')).map(({ name }) => ({ from: name, to: name })),
     ];
     const listed = (side: 'from' | 'to') => sql.csv(copied.map((pair) => sql`${sql(pair[side])}`));
-    return [
-        entry.rendered.create({ target: () => target, elements, claimed: Option.some(entry) }),
-        built(sql, target, entry),
-        sql`INSERT INTO ${target} (${listed('to')}) SELECT ${listed('from')} FROM ${entry.rendered.relation}`,
-        sql`EXCHANGE TABLES ${entry.rendered.relation} AND ${target}`,
-        sql`DROP TABLE ${target} SYNC`,
-    ];
+    return [entry.ddl.create({ target: () => target, elements, claimed: Option.some(entry) }), built(sql, target, entry), sql`INSERT INTO ${target} (${listed('to')}) SELECT ${listed('from')} FROM ${entry.ddl.relation}`, sql`EXCHANGE TABLES ${entry.ddl.relation} AND ${target}`, sql`DROP TABLE ${target} SYNC`];
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------

@@ -15,7 +15,7 @@ use tokio_util::codec::{BytesCodec, FramedRead, FramedWrite};
 use tokio_util::sync::CancellationToken;
 
 use super::jsonrpc::{Line, Lines};
-use super::{Era, Link};
+use super::{Lifecycle, Link};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -30,8 +30,8 @@ enum Probe {
 
 #[derive(Debug)]
 pub(super) enum Next {
-    Link(Era, Box<RawValue>),
-    Probe(Era),
+    Link(Lifecycle, Box<RawValue>),
+    Probe(Lifecycle),
     Halt(String),
 }
 
@@ -44,24 +44,24 @@ pub(super) struct Negotiation {
 }
 
 impl Negotiation {
-    pub(super) fn sent(&mut self, era: Era) {
-        match era {
-            Era::Modern => self.discover = Probe::Pending,
-            Era::Legacy => self.initialize = Probe::Pending,
+    pub(super) fn sent(&mut self, lifecycle: Lifecycle) {
+        match lifecycle {
+            Lifecycle::Discover => self.discover = Probe::Pending,
+            Lifecycle::Initialize => self.initialize = Probe::Pending,
         }
     }
 
-    pub(super) fn answered(&mut self, era: Era, result: Option<&RawValue>, refused: Option<&RawValue>) -> Option<Next> {
+    pub(super) fn answered(&mut self, lifecycle: Lifecycle, result: Option<&RawValue>, refused: Option<&RawValue>) -> Option<Next> {
         let answer = result.map_or_else(|| Probe::Refused(refused.map_or("no result", RawValue::get).to_owned()), |result| Probe::Answered(result.to_owned()));
-        match era {
-            Era::Modern => self.discover = answer,
-            Era::Legacy => self.initialize = answer,
+        match lifecycle {
+            Lifecycle::Discover => self.discover = answer,
+            Lifecycle::Initialize => self.initialize = answer,
         }
         match (&self.discover, &self.initialize) {
-            (Probe::Unsent | Probe::Pending | Probe::Answered(_) | Probe::Refused(_), Probe::Answered(handshake)) => Some(Next::Link(Era::Legacy, handshake.clone())),
-            (Probe::Answered(handshake), Probe::Unsent | Probe::Refused(_)) => Some(Next::Link(Era::Modern, handshake.clone())),
-            (Probe::Refused(_), Probe::Unsent) => Some(Next::Probe(Era::Legacy)),
-            (Probe::Unsent, Probe::Refused(_)) => Some(Next::Probe(Era::Modern)),
+            (Probe::Unsent | Probe::Pending | Probe::Answered(_) | Probe::Refused(_), Probe::Answered(handshake)) => Some(Next::Link(Lifecycle::Initialize, handshake.clone())),
+            (Probe::Answered(handshake), Probe::Unsent | Probe::Refused(_)) => Some(Next::Link(Lifecycle::Discover, handshake.clone())),
+            (Probe::Refused(_), Probe::Unsent) => Some(Next::Probe(Lifecycle::Initialize)),
+            (Probe::Unsent, Probe::Refused(_)) => Some(Next::Probe(Lifecycle::Discover)),
             (Probe::Refused(discover), Probe::Refused(initialize)) => Some(Next::Halt(format!("server refused server/discover ({discover}) and initialize ({initialize})"))),
             (Probe::Unsent | Probe::Pending | Probe::Answered(_) | Probe::Refused(_), Probe::Pending) | (Probe::Pending, Probe::Unsent | Probe::Refused(_)) | (Probe::Unsent, Probe::Unsent) => None,
         }

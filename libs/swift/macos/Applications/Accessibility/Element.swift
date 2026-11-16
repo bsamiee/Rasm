@@ -278,15 +278,15 @@ extension AXUIElement {
         return [own].compactMap(\.self) + unread
     }
 
-    func described(walking walked: (Element) -> Bool, helper: Bool, among listed: [InstanceState.Window], bar: Int? = nil) throws(ApplicationFailure) -> (window: CGWindowID?, element: Element)? {
+    func described(walking walked: (Element) -> Bool, helper: Bool, among listed: Set<CGWindowID>, bar: Int? = nil) throws(ApplicationFailure) -> (window: CGWindowID?, element: Element)? {
         let read = try values(
             [
                 kAXRoleAttribute, kAXSubroleAttribute, kAXModalAttribute, kAXIdentifierAttribute, kAXTitleAttribute, kAXDescriptionAttribute, kAXDocumentAttribute, kAXMainAttribute,
                 kAXFocusedAttribute, kAXMinimizedAttribute, kAXParentAttribute,
-            ] + buttonAttributes + childAttributes + frameAttributes
+            ] + buttonAttributes + childAttributes
         )
         guard let role = read.values[kAXRoleAttribute] as? String else { return nil }
-        let window = Self.window(framed: read, among: listed)
+        let window = self.window.flatMap { number in listed.contains(number) ? number : nil }
         guard window != nil || menuRoles.contains(role) else { return nil }
         let marked = buttonAttributes.compactMap { attribute in
             read.values[attribute].flatMap(Self.checked).map { node in (attribute: attribute, node: node) }
@@ -335,5 +335,20 @@ extension AXUIElement {
                 )
             ),
         )
+    }
+}
+
+extension Element.ID {
+    @concurrent
+    public func framed() async throws(ApplicationFailure) -> (window: CGWindowID, frame: CGRect) {
+        try await withTaskExecutorPreference(accessibility) { () throws(ApplicationFailure) in
+            guard let node = try AXUIElement.element(token) else { throw ApplicationFailure(subject: description, reason: .unresolved) }
+            let read = try node.values(frameAttributes + [kAXWindowAttribute])
+            guard let origin = AXValue.unpacked(read.values[kAXPositionAttribute], .cgPoint, CGPoint.zero), let size = AXValue.unpacked(read.values[kAXSizeAttribute], .cgSize, CGSize.zero) else {
+                throw ApplicationFailure(subject: description, reason: .unreadable(FailedRead(reads: frameAttributes, role: nil, label: read.label, error: .noValue)))
+            }
+            guard let window = (read.values[kAXWindowAttribute].flatMap(AXUIElement.checked) ?? node).window else { throw ApplicationFailure(subject: description, reason: .noWindow) }
+            return (window, CGRect(origin: origin, size: size))
+        }
     }
 }

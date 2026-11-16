@@ -1,19 +1,12 @@
 import { appendFileSync } from 'node:fs';
 import process, { type ProcessEventMap } from 'node:process';
 import { finished } from 'node:stream/promises';
-import { layer, OtelLoggerProvider } from '@effect/opentelemetry/OtelLogger';
-import { makeProducer } from '@effect/opentelemetry/OtelMetrics';
 import { layerGlobal, makeExternalSpan, OtelTraceState } from '@effect/opentelemetry/OtelTracer';
 import { configToAttributes, layerEmpty } from '@effect/opentelemetry/Resource';
 import { type DiagLogger, DiagLogLevel, diag, logs, propagation, ROOT_CONTEXT, TraceFlags, trace } from '@opentelemetry/api';
 import { CompositePropagator, diagLogLevelFromString, getStringFromEnv, W3CBaggagePropagator, W3CTraceContextPropagator } from '@opentelemetry/core';
 import type { Instrumentation } from '@opentelemetry/instrumentation';
-import { HostMetricsInstrumentation } from '@opentelemetry/instrumentation-host-metrics';
-import { RuntimeNodeInstrumentation } from '@opentelemetry/instrumentation-runtime-node';
 import { EnvironmentGetter, EnvironmentSetter } from '@opentelemetry/propagator-env-carrier';
-import { LoggerProvider } from '@opentelemetry/sdk-logs';
-import { PeriodicExportingMetricReader } from '@opentelemetry/sdk-metrics';
-import { startNodeSdk } from '@opentelemetry/sdk-node';
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
 import { ATTR_PROCESS_PID } from '@opentelemetry/semantic-conventions/incubating';
 import { Array, Cause, Config, Context, Effect, ErrorReporter, Exit, Formatter, Function, flow, Layer, Logger, LogLevel, Match, Metric, MutableRef, Option, Predicate, Record, Ref, Runtime, Schema, SchemaTransformation, String, Struct, Tracer, UndefinedOr } from 'effect';
@@ -101,11 +94,26 @@ const toRotatingFile = Effect.fnUntraced(function* <Message>(self: Logger.Logger
 const stderrWarnings = Logger.make((entry: Logger.Options<unknown>) => (LogLevel.isGreaterThanOrEqualTo(entry.logLevel, 'Warn') ? Logger.defaultLogger.log(entry) : undefined));
 const metricReader = Effect.gen(function* () {
     const { protocol, timing } = yield* metricReading;
-    const [{ OTLPMetricExporter }, producer] = yield* Effect.all([metricExporters[protocol], makeProducer()]);
+    const [{ OTLPMetricExporter }, { PeriodicExportingMetricReader }, producer] = yield* Effect.all([
+        metricExporters[protocol],
+        Effect.promise(() => import('@opentelemetry/sdk-metrics')),
+        Effect.flatMap(
+            Effect.promise(() => import('@effect/opentelemetry/OtelMetrics')),
+            ({ makeProducer }) => makeProducer(),
+        ),
+    ]);
     return new PeriodicExportingMetricReader({ exporter: new OTLPMetricExporter(), metricProducers: [producer], ...Record.getSomes(timing) });
 }).pipe(Effect.provide(layerEmpty));
-const started = Effect.fnUntraced(function* (named: Config.Success<typeof exporters>, resource: Parameters<typeof configToAttributes>[0], instrumentations: Function.LazyArg<Instrumentation[]>) {
+const started = Effect.fnUntraced(function* (named: Config.Success<typeof exporters>, resource: Parameters<typeof configToAttributes>[0], instrumentations?: Function.LazyArg<Instrumentation[]>) {
     const local = yield* Effect.context<never>();
+    const [{ startNodeSdk }, instrumented] = yield* Effect.all([
+        Effect.promise(() => import('@opentelemetry/sdk-node')),
+        UndefinedOr.match(instrumentations, {
+            onDefined: Effect.sync,
+            onUndefined: () =>
+                Effect.map(Effect.all([Effect.promise(() => import('@opentelemetry/instrumentation-runtime-node')), Effect.promise(() => import('@opentelemetry/instrumentation-host-metrics'))]), ([runtime, host]): Instrumentation[] => [new runtime.RuntimeNodeInstrumentation(), new host.HostMetricsInstrumentation()]),
+        }),
+    ]);
     const diagnostics = Record.map(
         DIAGNOSTICS,
         (severity) =>
@@ -123,7 +131,7 @@ const started = Effect.fnUntraced(function* (named: Config.Success<typeof export
             startNodeSdk({
                 logLevel: DiagLogLevel[Math.min(level, DiagLogLevel.WARN)],
                 resourceAttributes: configToAttributes(resource),
-                instrumentations: instrumentations(),
+                instrumentations: instrumented,
                 ...metrics,
                 ...(Array.isReadonlyArrayEmpty(named.traces) ? { spanProcessors: [] } : {}),
                 ...(Array.isReadonlyArrayEmpty(named.logs) ? { logRecordProcessors: [] } : {}),
@@ -141,14 +149,18 @@ const layerFromEnvironment = Layer.unwrap(
         return Layer.merge(UndefinedOr.match(trace.getSpanContext(context), { onUndefined: () => Layer.empty, onDefined: flow(makeExternalSpan, Layer.parentSpan) }), Layer.succeed(Baggage, propagation.getBaggage(context)));
     }),
 );
-const layerNodeSdk = Effect.fnUntraced(function* (resource: Parameters<typeof started>[1], instrumentations: Parameters<typeof started>[2] = () => [new RuntimeNodeInstrumentation(), new HostMetricsInstrumentation()]) {
+const layerNodeSdk = Effect.fnUntraced(function* (resource: Parameters<typeof started>[1], instrumentations?: Parameters<typeof started>[2]) {
     const named = yield* exporters;
     return Object.values(named).every(Array.isReadonlyArrayEmpty)
         ? Layer.empty
         : Layer.mergeAll(
               Array.isReadonlyArrayEmpty(named.traces) ? Layer.empty : layerGlobal,
               Array.isReadonlyArrayEmpty(named.metrics) ? Layer.empty : Metric.enableRuntimeMetricsLayer,
-              Layer.unwrap(Effect.sync(() => Option.match(Option.liftPredicate(logs.getLoggerProvider(), Schema.is(Schema.instanceOf(LoggerProvider))), { onNone: () => Layer.empty, onSome: (provider) => Layer.provide(layer({}), Layer.succeed(OtelLoggerProvider, provider)) }))),
+              Layer.unwrap(
+                  Effect.map(Effect.all([Effect.promise(() => import('@opentelemetry/sdk-logs')), Effect.promise(() => import('@effect/opentelemetry/OtelLogger'))]), ([{ LoggerProvider }, { layer, OtelLoggerProvider }]) =>
+                      Option.match(Option.liftPredicate(logs.getLoggerProvider(), Schema.is(Schema.instanceOf(LoggerProvider))), { onNone: () => Layer.empty, onSome: (provider) => Layer.provide(layer({}), Layer.succeed(OtelLoggerProvider, provider)) }),
+                  ),
+              ),
           ).pipe(Layer.provide(Layer.effectDiscard(started(named, resource, instrumentations))));
 }, Layer.unwrap);
 const layerUncaughtExceptionMonitor = Layer.effectDiscard(

@@ -6,6 +6,9 @@
     "references": [
         {
             "path": "../telemetry"
+        },
+        {
+            "path": "../../web/hosting"
         }
     ]
 }

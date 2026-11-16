@@ -63,7 +63,7 @@ pub struct Whoami {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct Served {
     pub arguments: Vec<String>,
-    pub era: Option<String>,
+    pub lifecycle: Option<String>,
     pub calls: usize,
     pub starts: u32,
     pub failures: usize,

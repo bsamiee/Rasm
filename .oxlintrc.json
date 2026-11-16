@@ -52,6 +52,7 @@
         "import/no-named-export": "off",
         "import/no-nodejs-modules": "off",
         "import/no-relative-parent-imports": "off",
+        "import/no-namespace": ["error", { "ignore": ["adobe:*"] }],
         "import/no-unassigned-import": ["error", { "allow": ["**/*.css", "pdfjs-dist"] }],
         "import/prefer-default-export": "off",
         "jsx-a11y/no-autofocus": ["error", { "ignoreNonDOM": true }],
@@ -128,14 +129,19 @@
             }
         },
         {
-            "files": ["**/extendscript/**", "**/extendscript.ts"],
+            "files": ["**/extendscript.ts", "**/creative-cloud/*/host.ts"],
             "rules": {
                 "guard-for-in": "off",
+                "complexity": "off",
+                "no-nested-ternary": "off",
+                "no-throw-literal": "off",
+                "typescript/no-base-to-string": "off",
                 "prefer-named-capture-group": "off",
                 "prefer-object-has-own": "off",
                 "require-unicode-regexp": "off",
                 "typescript/only-throw-error": "off",
                 "typescript/prefer-string-starts-ends-with": "off",
+                "unicorn/no-nested-ternary": "off",
                 "unicorn/prefer-at": "off",
                 "unicorn/prefer-code-point": "off",
                 "unicorn/prefer-number-properties": "off",

@@ -9,8 +9,8 @@ import { OwnerAccount } from '#/server/owner';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const app = <A, E, R>(ownerEmail: string, services: Layer.Layer<A, E, R>) => {
-    const provided = Layer.mergeAll(services, Layer.succeed(OwnerAccount, { email: ownerEmail }), SecureRandom.layerWebCrypto);
+const app = <A, E, R>(services: Layer.Layer<A, E, R>) => {
+    const provided = Layer.merge(services, SecureRandom.layerWebCrypto);
     return HttpApiBuilder.layer(Api).pipe(Layer.provide([documentGroup, assetGroup]), Layer.provide(OwnerAccount.middleware), Layer.merge(page), HttpRouter.provideRequest(provided), Layer.provide(provided));
 };
 

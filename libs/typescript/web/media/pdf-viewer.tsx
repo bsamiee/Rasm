@@ -1,10 +1,13 @@
 import 'pdfjs-dist';
-import { usePinch } from '@use-gesture/react';
-import { Cause, Data, Duration, Effect, Filter, flow, HashSet, identity, Option, Predicate, Queue, Result, Schema, Stream, Struct } from 'effect';
+import { useDrag, usePinch } from '@use-gesture/react';
+import { Array, Cause, Data, Duration, Effect, Filter, flow, Function, HashSet, identity, Match, Option, Predicate, Queue, Record, Result, Schema, Stream, Struct } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
+import { ChevronLeft, ChevronRight, RotateCw } from 'lucide-react';
 import type { DEFAULT_SCALE, DEFAULT_SCALE_VALUE, MAX_SCALE, MIN_SCALE, TextLayerMode } from 'pdfjs-dist/types/web/ui_utils.js';
 import { EventBus, FindState, PDFFindController, PDFLinkService, PDFViewer, ScrollMode, SpreadMode } from 'pdfjs-dist/web/pdf_viewer.mjs';
 import { type ComponentProps, useEffect, useEffectEvent, useState } from 'react';
+import { Button, Group, Input, SearchField, ToggleButton, Toolbar, VisuallyHidden } from 'react-aria-components';
+import { ZoomControls } from '#/zoom-controls.tsx';
 import 'pdfjs-dist/web/pdf_viewer.css';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -34,8 +37,12 @@ const Rendered = Schema.Struct({ pageNumber: Schema.Int, error: Schema.Unknown }
 const useViewer = (document: NonNullable<Parameters<PDFViewer['setDocument']>[0]>, { pinch, ...options }: Options & { readonly pinch?: { readonly drawingDelay: Duration.Input } }) => {
     const [container, setContainer] = useState<HTMLDivElement | null>(null);
     const [state, setState] = useState<AsyncResult.AsyncResult<PdfViewer, Cause.UnknownError>>(AsyncResult.initial());
+    const [pan, setPan] = useState(false);
+    const [query, setQuery] = useState('');
     const initial = useEffectEvent(() => options);
-    const pinching = Option.all([AsyncResult.value(state), Option.fromNullishOr(pinch)]);
+    const live = AsyncResult.value(state);
+    const pinching = Option.all([live, Option.fromNullishOr(pinch)]);
+    const panning = Option.filter(live, () => pan);
     useEffect(() => {
         const controller = new AbortController();
         const publish = (result: AsyncResult.AsyncResult<PdfViewer, Cause.UnknownError>) => Effect.sync(() => setState(result));
@@ -60,13 +67,102 @@ const useViewer = (document: NonNullable<Parameters<PDFViewer['setDocument']>[0]
         preventDefault: true,
         eventOptions: { passive: false },
     });
+    useDrag(({ delta: [x, y] }) => Option.map(panning, ({ pdfViewer }) => pdfViewer.panBy(x, y)), { target: { current: container }, enabled: Option.isSome(panning), pointer: { touch: true } });
     return {
         state,
-        container: (props: Omit<ComponentProps<'div'>, 'children' | 'ref'> & Readonly<Record<`data-${string}`, string | number | boolean | undefined>>) => (
-            <div {...props} ref={setContainer}>
+        container: (props: Omit<ComponentProps<'div'>, 'children' | 'ref' | 'onDoubleClick'> & Readonly<Record<`data-${string}`, string | number | boolean | undefined>>) => (
+            <div {...props} data-pan={pan || undefined} onDoubleClick={() => Option.match(panning, { onNone: Function.constVoid, onSome: ({ pdfViewer }) => pdfViewer.increaseScale() })} ref={setContainer}>
                 <div className="pdfViewer" />
             </div>
         ),
+        controls: ({ className, href, page }: { readonly className?: string; readonly href: string; readonly page: (number: number) => string }) =>
+            AsyncResult.builder(state)
+                .onSuccess((viewer) => (
+                    <ZoomControls
+                        className={className}
+                        fit={Record.collect({ 'page-fit': 'Fit page', 'page-width': 'Fit width' } as const, (scale, label) => (
+                            <ToggleButton isSelected={viewer.currentScaleValue === scale} key={scale} onPress={() => viewer.assign({ currentScaleValue: scale })}>
+                                {label}
+                            </ToggleButton>
+                        ))}
+                        href={`${href}#page=${viewer.currentPageNumber}`}
+                        zoomIn={() => viewer.pdfViewer.increaseScale()}
+                        zoomOut={() => viewer.pdfViewer.decreaseScale()}
+                    >
+                        <Group aria-label="Pages">
+                            <VisuallyHidden elementType="output">{page(viewer.currentPageNumber)}</VisuallyHidden>
+                            <Button
+                                aria-label="Previous page"
+                                isDisabled={viewer.currentPageNumber === 1}
+                                onPress={() => {
+                                    viewer.pdfViewer.previousPage();
+                                }}
+                            >
+                                <ChevronLeft />
+                            </Button>
+                            <select aria-label="Page" onChange={(event) => viewer.assign({ currentPageNumber: Number(event.currentTarget.value) })} value={viewer.currentPageNumber}>
+                                {Array.makeBy(viewer.pdfViewer.pagesCount, (index) => (
+                                    <option key={index} value={index + 1}>
+                                        {page(index + 1)}
+                                    </option>
+                                ))}
+                            </select>
+                            <Button
+                                aria-label="Next page"
+                                isDisabled={viewer.currentPageNumber === viewer.pdfViewer.pagesCount}
+                                onPress={() => {
+                                    viewer.pdfViewer.nextPage();
+                                }}
+                            >
+                                <ChevronRight />
+                            </Button>
+                        </Group>
+                        <details>
+                            <summary>Tools</summary>
+                            <Toolbar aria-label="View options">
+                                <ToggleButton isSelected={pan} onChange={setPan}>
+                                    Pan
+                                </ToggleButton>
+                                <Button onPress={() => viewer.rotate(1)}>
+                                    <RotateCw />
+                                    Rotate view
+                                </Button>
+                            </Toolbar>
+                            <p>Select text to copy. Drag with Pan on or press arrow keys on focused page to move</p>
+                        </details>
+                        <details onToggle={(event) => (event.currentTarget.open ? viewer.find(query, 'highlightallchange') : viewer.closeFind())}>
+                            <summary>Find</summary>
+                            <div>
+                                <SearchField
+                                    aria-label="Find in document"
+                                    onChange={(text) => {
+                                        setQuery(text);
+                                        viewer.find(text, '');
+                                    }}
+                                    onSubmit={() => viewer.find(query, 'again')}
+                                    value={query}
+                                >
+                                    <Input />
+                                    <Button isDisabled={query === ''}>Clear</Button>
+                                </SearchField>
+                                <Button aria-label="Previous match" isDisabled={viewer.matchesCount.total === 0} onPress={() => viewer.find(query, 'again', { findPrevious: true })}>
+                                    <ChevronLeft />
+                                </Button>
+                                <Button aria-label="Next match" isDisabled={viewer.matchesCount.total === 0} onPress={() => viewer.find(query, 'again')}>
+                                    <ChevronRight />
+                                </Button>
+                                <output>
+                                    {Match.value({ query, ...viewer.matchesCount }).pipe(
+                                        Match.when({ query: '' }, () => 'Search text'),
+                                        Match.when({ total: 0 }, () => 'No matches'),
+                                        Match.orElse(({ current, total }) => `${current} of ${total}`),
+                                    )}
+                                </output>
+                            </div>
+                        </details>
+                    </ZoomControls>
+                ))
+                .orNull(),
     };
 };
 class PdfViewer extends Data.Class<typeof View.Type & Status & { readonly pdfViewer: PDFViewer }> {

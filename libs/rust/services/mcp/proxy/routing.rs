@@ -1,3 +1,6 @@
+#![expect(deprecated, reason = "initialize sessions set and filter logging levels, which SEP-2577 deprecates")]
+
+use core::cmp;
 use core::sync::atomic::{AtomicUsize, Ordering};
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::error::Report;
@@ -8,7 +11,7 @@ use futures::FutureExt as _;
 use futures::future::BoxFuture;
 use futures::stream::FuturesUnordered;
 use opentelemetry_semantic_conventions::attribute::EXCEPTION_MESSAGE;
-use rmcp::model::JsonRpcVersion2_0;
+use rmcp::model::{JsonRpcVersion2_0, LoggingLevel};
 use serde::{Deserialize, Serialize};
 use serde_json::value::RawValue;
 use tokio::sync::mpsc;
@@ -16,7 +19,7 @@ use tokio_util::sync::CancellationToken;
 use tokio_util::time::delay_queue;
 
 use super::Key;
-use super::jsonrpc::{Message, Severity, decode, encoded};
+use super::jsonrpc::{Message, decode, encoded};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -25,7 +28,7 @@ pub(super) enum Effect {
     Plain,
     Subscribe(String),
     Unsubscribe(String),
-    Level(Severity),
+    Level(LoggingLevel),
     Listen,
 }
 
@@ -54,7 +57,7 @@ pub(super) struct Session {
     pub(super) out: mpsc::Sender<Bytes>,
     pub(super) cut: CancellationToken,
     pub(super) initialized: bool,
-    pub(super) level: Option<Severity>,
+    pub(super) level: Option<LoggingLevel>,
 }
 
 #[derive(Debug)]
@@ -169,17 +172,17 @@ impl Calls {
 }
 
 #[derive(Debug, Default)]
-pub(super) struct Subscriptions {
+pub(super) struct Subscribers {
     pub(super) resources: BTreeMap<String, BTreeSet<u64>>,
-    pub(super) level: Option<Severity>,
+    pub(super) level: Option<LoggingLevel>,
 }
 
-impl Subscriptions {
+impl Subscribers {
     pub(super) fn local(&mut self, effect: &Effect, session: u64) -> bool {
         match effect {
             Effect::Subscribe(uri) => self.resources.get_mut(uri).map(|held| held.insert(session)).is_some(),
             Effect::Unsubscribe(uri) => self.resources.get_mut(uri).filter(|held| held.len() > 1 || !held.contains(&session)).map(|held| held.remove(&session)).is_some(),
-            Effect::Level(level) => self.level.is_some_and(|held| held <= *level),
+            Effect::Level(level) => self.level.is_some_and(|held| held as u8 <= *level as u8),
             Effect::Plain | Effect::Listen => false,
         }
     }
@@ -188,7 +191,7 @@ impl Subscriptions {
         match (effect, answered) {
             (Effect::Subscribe(uri), true) => drop(self.resources.entry(uri).or_default().insert(session)),
             (Effect::Unsubscribe(uri), _) => drop(self.resources.extract_if(.., |held, sessions| *held == uri && sessions.remove(&session) && sessions.is_empty()).count()),
-            (Effect::Level(level), true) => self.level = Some(self.level.map_or(level, |held| held.min(level))),
+            (Effect::Level(level), true) => self.level = Some(self.level.map_or(level, |held| cmp::min_by_key(held, level, |held| *held as u8))),
             (Effect::Subscribe(_) | Effect::Level(_), false) | (Effect::Plain | Effect::Listen, _) => {}
         }
     }

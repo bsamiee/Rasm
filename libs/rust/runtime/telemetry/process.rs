@@ -246,7 +246,7 @@ impl Options {
                 if let Some(meter) = &providers.meter {
                     global::set_meter_provider(meter.clone());
                     opentelemetry_instrumentation_tokio::observe_current_runtime();
-                    metrics::process(meter, || [process::id()]).unwrap_or_else(|error| tracing::warn!({ EXCEPTION_MESSAGE } = %Report::new(&error), "process metrics unavailable"));
+                    metrics::process(meter, || [process::id()]).map_or_else(|error| tracing::warn!({ EXCEPTION_MESSAGE } = %Report::new(&error), "process metrics unavailable"), drop);
                 }
                 let exporting = detected.then(|| DropGuard::new((providers, local.clone()), stopped as fn(_)));
                 let previous = Arc::<dyn Fn(&PanicHookInfo<'_>) + Send + Sync>::from(panic::take_hook());

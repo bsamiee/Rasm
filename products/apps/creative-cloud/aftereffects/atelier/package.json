@@ -4,10 +4,11 @@
     "description": "Atelier After Effects",
     "type": "module",
     "exports": {
-        "./extendscript": "./extendscript.ts"
+        "./extendscript": "./extendscript.ts",
+        "./tools": "./tools.ts"
     },
     "dependencies": {
-        "@rasm/atelier-extendscript": "workspace:*",
+        "@rasm/aftereffects": "workspace:*",
         "@rasm/atelier-protocol": "workspace:*",
         "@rasm/cep": "workspace:*"
     },

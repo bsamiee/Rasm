@@ -1,44 +1,10 @@
-import { HostError } from '@rasm/automation';
-import { fillColor } from '@rasm/mark';
-import { errorReporter, layerOtlp } from '@rasm/telemetry';
+import { HostError } from '@rasm/object-model';
+import { layer } from '@rasm/telemetry';
+import { parse } from 'acorn';
 import fs from 'adobe:fs';
 import uxp, { entrypoints } from 'adobe:uxp';
-import {
-    Array,
-    Cause,
-    Clock,
-    Console,
-    Context,
-    Deferred,
-    Duration,
-    Effect,
-    ErrorReporter,
-    Exit,
-    Fiber,
-    FiberHandle,
-    FiberSet,
-    Function,
-    flow,
-    Layer,
-    Logger,
-    ManagedRuntime,
-    Option,
-    Path,
-    PlatformError,
-    Predicate,
-    pipe,
-    Queue,
-    Record,
-    Result,
-    Schema,
-    SchemaGetter,
-    Scope,
-    ScopedRef,
-    Sink,
-    Stdio,
-    Stream,
-    Struct,
-} from 'effect';
+import { formatHex8 } from 'culori/fn';
+import { Array, Cause, Clock, Console, Context, Deferred, Duration, Effect, Exit, Fiber, FiberHandle, FiberSet, Function, flow, Layer, Logger, ManagedRuntime, Option, Path, PlatformError, Predicate, pipe, Queue, Record, Result, Schema, SchemaGetter, Scope, ScopedRef, Sink, Stdio, Stream, Struct } from 'effect';
 import { FetchHttpClient } from 'effect/http';
 import { RpcMessage, RpcSerialization, RpcServer } from 'effect/rpc';
 import { UxpManifest } from '#/index';
@@ -55,13 +21,15 @@ interface ThemeEvents {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const EVALUATED = 'evaluated.js';
-const IDENTIFIER = /^[$_\p{ID_Start}](?:[$\p{ID_Continue}]|‌|‍)*$/u;
+const IDENTIFIER = /^(?!(?:await|break|case|catch|class|const|continue|debugger|default|delete|do|else|enum|export|extends|false|finally|for|function|if|import|in|instanceof|let|new|null|return|static|super|switch|this|throw|true|try|typeof|var|void|while|with|yield)$)[$_\p{ID_Start}](?:[$\p{ID_Continue}]|‌|‍)*$/u;
 const MANIFEST = `plugin:/${UxpManifest.file}`;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Thrown = Schema.Struct({ message: Schema.Unknown });
 const Chunk = Schema.Union([Schema.String, Schema.Uint8Array.pipe(Schema.decodeTo(Schema.String, { decode: SchemaGetter.transform((bytes) => new TextDecoder().decode(bytes)), encode: SchemaGetter.forbiddenEncoding }))]);
+const Parameter = Schema.Struct({ type: Schema.String, start: Schema.Int, end: Schema.Int, left: Schema.OptionFromOptionalKey(Schema.Struct({ start: Schema.Int, end: Schema.Int })) });
+const Declared = Schema.Struct({ body: Schema.Tuple([Schema.Struct({ expression: Schema.Struct({ body: Schema.Struct({ body: Schema.Tuple([Schema.Struct({ value: Schema.Struct({ params: Schema.Array(Parameter) }) })]) }) }) })]) });
 const Callable = Schema.declare((value): value is (...args: readonly unknown[]) => unknown => Predicate.isFunction(value));
 const Script = Schema.Struct({ script: Schema.declare(Schema.is(Schema.Struct({ args: Schema.Array(Schema.String), setResult: Callable }))) });
 const Entrypoints = Schema.Struct({ setup: Callable });
@@ -92,7 +60,6 @@ class Uxp extends Context.Service<Uxp, { readonly uxp: typeof uxp; readonly fs: 
             ),
             Layer.succeed(Uxp)(modules),
             Layer.succeed(Logger.LogToStderr)(true),
-            ErrorReporter.layer([errorReporter], { mergeWithExisting: true }),
             Path.layer,
         );
     static readonly thrown = (cause: unknown): HostError => {
@@ -182,7 +149,7 @@ class Plugin extends Context.Service<Plugin, typeof UxpManifest.identity.Type>()
                 Effect.mapError(HostError.refused('UXP plugin folder')),
             );
             const linked = link === undefined ? Layer.empty : Layer.launch(link(manifest.id, root)).pipe(reported, Effect.forkScoped, Layer.effectDiscard);
-            const runtime = ManagedRuntime.make(linked.pipe(Layer.provideMerge(Layer.succeed(Plugin)(manifest)), Layer.provideMerge(Layer.provide(layerOtlp({ serviceName: manifest.id }), FetchHttpClient.layer)), Layer.provideMerge(hosted)));
+            const runtime = ManagedRuntime.make(linked.pipe(Layer.provideMerge(Layer.succeed(Plugin)(manifest)), Layer.provideMerge(Layer.provide(layer({ serviceName: manifest.id }), FetchHttpClient.layer)), Layer.provideMerge(hosted)));
             const [handled, shown] = yield* Effect.all([
                 Effect.all(
                     Record.map(
@@ -207,8 +174,18 @@ const declared = (each: object) => {
     return {
         name: each.constructor.name,
         fields: Array.filterMap(descriptors, ([name, descriptor]) => (descriptor.get === undefined ? Result.failVoid : Result.succeed({ name, settable: descriptor.set !== undefined }))),
-        methods: Array.filterMap(descriptors, ([name, { value }]: readonly [string, { readonly value?: unknown }]) => (Schema.is(Callable)(value) && name !== 'constructor' ? Result.succeed({ name, value }) : Result.failVoid)),
+        methods: Array.filterMap(descriptors, ([name, { value }]: readonly [string, { readonly value?: unknown }]) => (Schema.is(Callable)(value) && name !== 'constructor' ? Result.succeed({ name, parameters: parameters(value) }) : Result.failVoid)),
     };
+};
+const parameters = (method: { readonly length: number }) => {
+    const source = `(class { ${globalThis.Function.prototype.toString.call(method)} })`;
+    return Option.liftThrowable(parse)(source, { ecmaVersion: 'latest' }).pipe(
+        Option.flatMap(Schema.decodeUnknownOption(Declared)),
+        Option.match({
+            onNone: () => Array.makeBy(method.length, (at) => ({ name: `arguments[${at}]`, optional: false })),
+            onSome: ({ body }) => Array.map(body[0].expression.body.body[0].value.params, ({ type, start, end, left }) => ({ name: Option.match(left, { onNone: () => source.slice(start, end), onSome: (bound) => source.slice(bound.start, bound.end) }), optional: Option.isSome(left) || type === 'RestElement' })),
+        }),
+    );
 };
 const reported = <A, X, R>(effect: Effect.Effect<A, X, R>) => effect.pipe(Effect.tapCauseIf(Predicate.not(Cause.hasInterruptsOnly<X>), Effect.logError));
 const followed = <E>(theme: ThemeEvents, queue: Queue.Queue<unknown, E>) => {
@@ -226,7 +203,7 @@ const followed = <E>(theme: ThemeEvents, queue: Queue.Queue<unknown, E>) => {
 const themed = (root: HTMLElement) =>
     Stream.runForEach(Plugin.theme, (theme) =>
         Effect.sync(() => {
-            Object.assign(root.style, { color: fillColor(UxpManifest.fills[theme]) });
+            Object.assign(root.style, { color: formatHex8(UxpManifest.fills[theme]) });
         }),
     );
 const panel = Effect.fnUntraced(function* <E, F>(runtime: ManagedRuntime.ManagedRuntime<Uxp | Plugin, E>, body: Panel<F>) {

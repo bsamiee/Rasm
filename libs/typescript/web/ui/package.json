@@ -2,7 +2,7 @@
     "name": "@rasm/ui",
     "version": "0.1.0",
     "private": true,
-    "description": "Accessible interface controls for web apps",
+    "description": "Accessible React interface for web apps: form controls, choice, menu, and reorderable lists, modal and confirmation dialogs with an open-dialog count, schema issue display, Intl formatting, scoped CSS custom properties, and deferred focus",
     "license": "MIT",
     "repository": {
         "type": "git",
