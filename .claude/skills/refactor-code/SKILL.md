@@ -152,7 +152,7 @@ Every member gets faster through fewer passes, allocations, and parses over one 
 
 ## [06]-[ADVERSARY]
 
-Fresh agents with no prior context follow each pass over the same scope under the same instruction, edit in place, and lean further toward removal and depth: the first removes what the pass kept, calls hosts and packages where the pass hand-wrote, and builds what the depth criterion of `[03]` names, the second collapses what remains into one structure per member, deepens again, and restores each regression of the first, then `review-change` judges the result hunk by hunk. Each runs as a delegated agent, one per file group in a folder scope.
+Fresh agents with no prior context follow each pass over the same scope under the same instruction, edit in place, and lean further toward removal and depth: the first removes what the pass kept, calls hosts and packages where the pass hand-wrote, and builds what the depth criterion of `[03]` names, the second collapses what remains into one structure per member, deepens again, and restores each regression of the first. Each runs as a delegated agent, one per file group in a folder scope.
 
 Brief contents:
 - What the file is for, who calls it, how it runs, and every entry point of `[01]` step 4

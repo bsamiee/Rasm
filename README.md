@@ -252,7 +252,7 @@ Installs, releases, and channels each deliver a product, releases and channels f
 |  [12]   | Task graph                     | `nx.json` plugin rows                                                                                  |
 |  [13]   | Checker configuration          | Tool's own file, `pyproject.toml` `[tool.*]` for Python tools                                          |
 |  [14]   | File-level check               | `.config/hk.pkl` step                                                                                  |
-|  [15]   | Secret                         | Doppler `rasm` project and 1Password, read through the `secrets` skill                                 |
+|  [15]   | Secret                         | Doppler `rasm` project and 1Password                                                                   |
 |  [16]   | Registry token                 | Doppler `rasm/release` row named as the variable its publish target reads (`NODE_AUTH_TOKEN`)          |
 |  [17]   | Mac app release format         | Doppler `rasm/release` `ASC_API_*` rows, set for a notarized `.dmg`, absent for a `.zip`               |
 |  [18]   | Resource or repository setting | Typed row of an `infra/` program, applied by workflow `Deploy`                                         |
