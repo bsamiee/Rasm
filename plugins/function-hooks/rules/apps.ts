@@ -66,7 +66,7 @@ const opens = (named: readonly string[], waits: readonly string[], allowed: read
             return [];
         }
         if (waited !== undefined) {
-            return refusal(`${program} ${waited} waits, run ${WATCH_APPS} watch ${target} in Monitor`);
+            return refusal(`${program} ${waited} waits, use ${WATCH_APPS} launch --wait ${target}`);
         }
         if (foreign.size > 0) {
             return refusal(`${program} ${[...foreign].join(' ')} opens ${target}, use ${WATCH_APPS} launch ${target}`);

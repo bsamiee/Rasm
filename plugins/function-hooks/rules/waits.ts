@@ -25,46 +25,17 @@ const WAITERS: ReadonlySet<string> = new Set(['sleep', 'timeout', 'caffeinate', 
 
 // --- [WATCH_APPS]
 
-const watchAction = ({ request }: Call, names: readonly string[]): string => {
-    const shown = names.length === 0 ? ['<app>'] : names.map((name) => quote(name));
-    return request.kind === 'plain' ? `run ${WATCH_APPS} read ${shown.join(' ')}` : `run ${WATCH_APPS} watch ${shown.join(' ')} in Monitor`;
-};
+const reading = (names: readonly string[]): string => `run ${WATCH_APPS} read ${(names.length === 0 ? ['<app>'] : names.map((name) => quote(name))).join(' ')}`;
 
-const polling = (names: readonly string[], call: Call) => refusal(`Loop polls ${names.join(' ') || WATCH_APPS}, ${watchAction(call, names)}`);
+const polling = (names: readonly string[]) => refusal(`Loop polls ${names.join(' ') || WATCH_APPS}, ${reading(names)}`);
 
-const watch: Rule = (invocation, call) => {
-    const { command, operands, path } = invocation;
+const watch: Rule = (invocation) => {
+    const { operands, path } = invocation;
     const names = path[0] === 'perform' || path[0] === 'set' ? [] : operands.map(({ text }) => text);
-    const later = Array.dedupe(stages(invocation, call).later.map(({ command: stage }) => stage));
-    const closing = Array.last(later).pipe(
-        Option.filter(
-            ({ pipes, stage }) =>
-                !pipes &&
-                Option.exists(
-                    Option.zipWith(stage, command.stage, (end, own) => end.at - own.at),
-                    (gap) => gap === later.length,
-                ),
-        ),
-    );
-    if (invocation.repeated && (path[0] === 'read' || path[0] === 'watch') && operands.every(({ known }) => known)) {
-        return polling(names, call);
+    if (invocation.repeated && path[0] === 'read' && operands.every(({ known }) => known)) {
+        return polling(names);
     }
-    if (path[0] !== 'watch') {
-        return [];
-    }
-    if (command.job && reaped(call)) {
-        return [];
-    }
-    if (call.request.kind !== 'monitor') {
-        return refusal(`${WATCH_APPS} watch never exits, ${watchAction(call, names)}`);
-    }
-    const fitted = invocation.has('--line-length') ? [] : inserted(invocation, Array.lastNonEmpty(invocation.words).end, ' --line-length 500');
-    return command.pipes
-        ? Option.match(closing, {
-              onNone: () => refusal(`Filter drops ${WATCH_APPS} lines, run it unfiltered`),
-              onSome: ({ end }) => [...fitted, ...erased(invocation, { start: command.end, end }, 'Filter')],
-          })
-        : fitted;
+    return path[0] === 'watch' ? refusal(`${WATCH_APPS} watch streams every state into the session, which hook context already gives for dialogs, hangs, and crashes of each launched app, ${reading(names)}`) : [];
 };
 
 const polledApp: Rule = (invocation, call) => {
@@ -74,7 +45,7 @@ const polledApp: Rule = (invocation, call) => {
         : Effect.orElseSucceed(
               Effect.map(call.host.installations(pids), (running) => {
                   const bundles = running.filter(({ activationPolicy }) => activationPolicy !== 'prohibited').map(({ identifier }) => identifier);
-                  return bundles.length === 0 ? [] : polling(bundles, call);
+                  return bundles.length === 0 ? [] : polling(bundles);
               }),
               () => [],
           );
