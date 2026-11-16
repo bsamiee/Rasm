@@ -11,7 +11,7 @@
     "hooks": {
         "SessionStart": [
             {
-                "hooks": [{ "type": "command", "command": "mise exec -- pitchfork project enter --pid \"$PPID\" && mise daemons start" }]
+                "hooks": [{ "type": "command", "command": "mise daemons register && mise exec -- pitchfork project enter --pid \"$PPID\"" }]
             }
         ]
     },
