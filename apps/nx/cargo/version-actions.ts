@@ -29,7 +29,7 @@ const table = (value: unknown): Readonly<Record<string, unknown>> => Option.getO
 const parsed = (text: string, subject: string) => Effect.try({ try: (): unknown => parse(text), catch: (cause) => new Cause.UnknownError(cause, `${subject} does not read as TOML`) });
 
 const read = Effect.fnUntraced(function* (tree: Tree, file: string) {
-    const text = yield* Effect.mapError(Effect.fromNullishOr(tree.read(file, 'utf8')), () => new Cause.NoSuchElementError(`${file} does not exist`));
+    const text = yield* Effect.mapError(Effect.fromNullishOr(tree.read(file, 'utf-8')), () => new Cause.NoSuchElementError(`${file} does not exist`));
     const raw = table(yield* parsed(text, file));
     return { file, text, raw, manifest: yield* Schema.decodeEffect(Manifest)(raw) };
 });

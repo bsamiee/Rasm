@@ -13,7 +13,7 @@ const Options = Schema.Struct({ manifest: Schema.String });
 
 const hosted = (manifest: string) => Effect.mapError(Effect.fromOption(Array.findFirst(HOSTS, (host) => matchesGlob(manifest, host.manifest))), (cause) => new Cause.UnknownError(cause, `${manifest} is no host manifest`));
 
-const opened = (tree: Tree, at: string) => Effect.mapError(Effect.fromNullishOr(tree.read(at, 'utf8')), (cause) => new Cause.UnknownError(cause, `${at} is missing`));
+const opened = (tree: Tree, at: string) => Effect.mapError(Effect.fromNullishOr(tree.read(at, 'utf-8')), (cause) => new Cause.UnknownError(cause, `${at} is missing`));
 
 const located = Effect.fnUntraced(function* (tree: Tree, root: string, manifest: string) {
     const at = joinPathFragments(root, manifest);

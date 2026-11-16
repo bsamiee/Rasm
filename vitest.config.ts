@@ -43,7 +43,7 @@ const manifested = (root: string) =>
 
 const hosted = (root: string, { devDependencies = {} }: (typeof Manifest.Type)['default']): readonly Hosted[] => {
     const at = join(import.meta.dirname, root);
-    const served = (file: string) => parseSync(file, readFileSync(join(at, file), 'utf8')).module.staticImports.some(({ moduleRequest }) => moduleRequest.value.startsWith('@effect/platform-node'));
+    const served = (file: string) => parseSync(file, readFileSync(join(at, file), 'utf-8')).module.staticImports.some(({ moduleRequest }) => moduleRequest.value.startsWith('@effect/platform-node'));
     const [node, workers] = existsSync(join(at, 'cloudflare.config.ts')) ? Array.partition(globSync('**/*.test.ts', { cwd: at, exclude: ['node_modules/**'] }), Filter.fromPredicate(served)) : [[], []];
     const runtimes = [
         { files: node, suffix: 'node', plugins: [] },

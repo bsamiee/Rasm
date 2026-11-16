@@ -15,7 +15,7 @@ const Versioned = Schema.fromJsonString(Schema.Struct({ version: Schema.NullOr(S
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const read = (tree: Tree, at: string) => Effect.mapError(Effect.fromNullishOr(tree.read(at, 'utf8')), (cause) => new Cause.UnknownError(cause, `${at} is missing`));
+const read = (tree: Tree, at: string) => Effect.mapError(Effect.fromNullishOr(tree.read(at, 'utf-8')), (cause) => new Cause.UnknownError(cause, `${at} is missing`));
 
 const piped = (argv: Array.NonEmptyReadonlyArray<string>, input: string) => spawned(argv, { stdin: Stream.encodeText(Stream.make(input)) });
 

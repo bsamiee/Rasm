@@ -12,6 +12,7 @@ type Tokenizer = Data.TaggedEnum<{ Trigram: object; Words: { readonly configurat
 interface RelationOptions<F extends Fields> {
     readonly key?: Array.NonEmptyReadonlyArray<Present<F>>;
     readonly defaults?: { readonly [K in keyof F]?: Exclude<F[K]['Encoded'], Uint8Array | readonly number[]> };
+    // oxlint-disable-next-line typescript/consistent-indexed-object-style -- optional keys over a generic key union, `Partial<Record>` breaks assignability at the relation call sites
     readonly projections?: { readonly [K in FieldName<F>]?: { readonly from: FieldName<F>; readonly path: Array.NonEmptyReadonlyArray<string> } | { readonly where: Where<F> } };
     readonly indexes?: readonly {
         readonly columns: Array.NonEmptyReadonlyArray<FieldName<F> | { readonly casefold: FieldName<F> }>;
@@ -44,6 +45,7 @@ class Relation<const Shape extends Fields = Fields, const Options extends Relati
     readonly name: string;
     readonly renamedFrom: Option.Option<string>;
     readonly key: Array.NonEmptyReadonlyArray<string>;
+    // oxlint-disable-next-line typescript/consistent-indexed-object-style -- readonly keys over a generic key union, `Readonly<Record>` breaks assignability at the relation call sites
     readonly columns: { readonly [K in FieldName<Shape>]: Column };
     readonly indexes: readonly {
         readonly keys: Array.NonEmptyReadonlyArray<{ readonly column: string; readonly casefold: boolean }>;

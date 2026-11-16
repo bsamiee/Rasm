@@ -8,7 +8,7 @@ const HOSTS = ['ILST', 'AEFT', 'PHXS', 'IDSN', 'PPRO', 'AUDT', 'FLPR', 'DRWV', '
 const ATTRIBUTE = '@_';
 const BUILDER = new Builder({ ignoreAttributes: false, attributeNamePrefix: ATTRIBUTE, format: true, indentBy: '    ', suppressEmptyNode: true });
 const PARSER = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: ATTRIBUTE });
-const PROLOG = { '@_version': '1.0', '@_encoding': 'UTF-8' };
+const PROLOG = { '@_version': '1.0', '@_encoding': 'utf-8' };
 
 // --- [MODELS] --------------------------------------------------------------------------
 

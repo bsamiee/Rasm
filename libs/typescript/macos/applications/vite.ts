@@ -89,7 +89,7 @@ const helper = Effect.fnUntraced(function* (
             const sea = JSON.stringify({ main: join(outDir, `${name}.mjs`), mainFormat: 'module', output: join(outDir, name), useVfs: true, disableExperimentalSEAWarning: true, assets });
             return signing.pipe(
                 Effect.map(({ CODE_SIGN_ENTITLEMENTS, DEVELOPMENT_TEAM, PROJECT_DIR, label }): readonly Rolldown.EmittedAsset[] => {
-                    const entitlements = parse(readFileSync(resolve(PROJECT_DIR, CODE_SIGN_ENTITLEMENTS), 'utf8'));
+                    const entitlements = parse(readFileSync(resolve(PROJECT_DIR, CODE_SIGN_ENTITLEMENTS), 'utf-8'));
                     return [
                         { type: 'asset', fileName: 'sea.json', source: sea },
                         { type: 'asset', fileName: 'sea.entitlements', source: build({ ...(typeof entitlements === 'object' && !Array.isArray(entitlements) && !(entitlements instanceof Date) && !(entitlements instanceof Uint8Array) ? entitlements : {}), 'com.apple.security.cs.allow-jit': true }) },

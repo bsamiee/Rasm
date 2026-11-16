@@ -29,4 +29,5 @@ const read = Effect.fnUntraced(function* (main: string) {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
+// oxlint-disable-next-line unicorn/require-post-message-target-origin -- `worker_threads` `MessagePort.postMessage` takes a transfer list, no target origin
 parentPort?.postMessage(await Effect.runPromise(Effect.scoped(read(String(workerData)))));

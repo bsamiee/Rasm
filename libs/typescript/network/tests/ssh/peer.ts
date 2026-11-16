@@ -20,7 +20,7 @@ const held = Effect.gen(function* () {
 });
 
 if (import.meta.main) {
-    Layer.launch(Layer.effectDiscard(held)).pipe(Effect.provide(layer), runMain);
+    runMain(Layer.launch(Layer.effectDiscard(held)).pipe(Effect.provide(layer)));
 }
 
 // --- [EXPORTS] -------------------------------------------------------------------------

@@ -71,7 +71,7 @@ const raised = (floors: ReadonlyMap<string, string>, row: string) =>
     );
 
 const project = Effect.fnUntraced(function* (tree: Tree, at: string) {
-    const text = yield* Effect.mapError(Effect.fromNullishOr(tree.read(at, 'utf8')), () => new Cause.NoSuchElementError(`${at} does not exist`));
+    const text = yield* Effect.mapError(Effect.fromNullishOr(tree.read(at, 'utf-8')), () => new Cause.NoSuchElementError(`${at} does not exist`));
     const parsed = yield* Effect.try({ try: (): unknown => parse(text), catch: (cause) => new Cause.UnknownError(cause, `${at} does not read as TOML`) }).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Table)));
     const [decoded, raw] = yield* Effect.all([Schema.decodeUnknownEffect(Project)(parsed), Schema.decodeUnknownEffect(Raw)(parsed)]);
     return { text, parsed, project: decoded.project, groups: decoded['dependency-groups'], table: raw.project };
