@@ -4,7 +4,7 @@ Rules a crate-by-crate build of `libs/rust` follows.
 
 ## [01]-[LAYERS]
 
-Crates build on whole layers beneath them, and hosts and apps compose them from outside:
+Crates build on whole layers beneath them, and products compose them from outside:
 - Categories stack crates by dependency, and no crate holds a type of a crate above it
 - Crates below `rasm-mcp` hold no rmcp type and crates below `rasm-http` no axum type
 - Crates exchange catalog types: nalgebra, parry shapes, kurbo paths, geo_types, arrow batches, ndarray, petgraph, jiff, uom, and rmcp
@@ -13,7 +13,7 @@ Crates build on whole layers beneath them, and hosts and apps compose them from 
 - Paper space is `f64` millimeters on kurbo
 - Hosts reach a crate through a served process (an MCP endpoint, a daemon) or a stdio binary inside the host package
 - Crates name, bind, and couple to no host application, and the catalog holds no in-process binding row
-- App content (presets, looks, captions, host paths, vendor `_meta` keys, a render queue and its output naming) sits in the composing app
+- Product content (presets, looks, captions, host paths, vendor `_meta` keys, a render queue and its output naming) sits in the composing product
 - Crates restate no `libs/dotnet` or `libs/python` capability: `Rasm.Drafting` standards, grading, filters, or codec pipelines
 - Runs view written PDF, SVG, and raster output as PNG from `pdftoppm`, `resvg`, `vips`, or `qlmanage -t`, leaving the frontmost app unchanged
 

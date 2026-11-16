@@ -143,7 +143,6 @@ flowchart LR
 - File-level formatting and linting belong to hk for speed, project-level work to Nx plugins, and neither calls the other
 - Commits run hk on their message alone, and file checks run when a shell or agent calls hk
 - Nx plugins are publishable packages built on public Nx plugin APIs, serving any workspace of their ecosystem
-- Libraries and plugins take paths, names, and policies from their caller and hold no repository convention
 - Plugin options default to their tool's behavior, and `nx.json` plugin rows set only what departs from it
 - Tool behavior comes from its source and docs at the installed version
 - Plugins add only what no tool, host, package, or Nx does
@@ -269,9 +268,7 @@ Installs, releases, and channels each deliver a product, releases and channels f
 ## [08]-[STRUCTURE]
 
 - Projects hold no `src/` directory
-- Libraries sit at `libs/<language>/<category>/<package>/`, categories name the concern spanning their packages and siblings that field anticipates
-- New categories start from the package being made, its sibling packages outside it, and the higher-order concern they share
-- Packages are named by the term practitioners use for that concern
+- Libraries sit at `libs/<language>/<category>/<package>/`
 - Projects a host loads target the runtime and libraries their host bundles, and build output holds none of them
 - Each uv root resolves one Python range: projects on a host's Python get their own root, and a package shared across roots declares the lower bound
 - Nested uv roots each take a `[deps.<root>]` row in `.config/mise.toml` whose `dir` names the root

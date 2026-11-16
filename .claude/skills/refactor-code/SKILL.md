@@ -53,7 +53,7 @@ Finding the member and the case the host lacks it:
 - Absent value: a value no host declaration states enters as caller data at the boundary, stated once, the library derives, defaults, and composes
 - Absent value outcome: library code holds no product name, style name, palette, sheet size, margin, path, or tuned value
 - Absent behavior: a behavior no host member performs composes host kinds and package members over caller data, never a copy of a host member
-- Level: a capability sits once at the lowest level holding it whole (universal, cross-host, host, product), never split or repeated above
+- Level: a capability sits once at the most general level holding it whole (universal, cross-host, host, product), never split or copied down
 
 ## [03]-[PACKAGES]
 

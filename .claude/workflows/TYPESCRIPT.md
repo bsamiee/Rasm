@@ -7,17 +7,12 @@ Rules a package-by-package rebuild of `libs/typescript` and its consumers follow
 - `Unmatched` is every lookup refusal, contract errors `Schema.Union([Unmatched, <Package>Error])`
 - `registerRpcGroup` names each tool by `rpc._tag`, and libraries spell each tag they publish as a snake_case tool name
 
-Compositions hold app content and pass it to a library as arguments:
+Products hold their own content and pass it to a library as arguments:
 - Env names, flag text, tuned timeouts, and `forcePathStyle`
 - OpenAI Sites contract, Cloudflare Access paths, `app.tenant`, and `_cf_*`
 - Vendor install paths and English stdout matches
 - Tool prose, tool names, link paths, bundle identifiers, and body targets
-
-Capability mined from host products enters as general logic at its level:
-- Distilled host product logic rebuilds in repository shape at its strongest form where products overlap
-- Fixed product names, widths and styles become their host mechanism (a numbering style on InDesign's GREP styling), values entering as caller data
-- Capability products share (alignment behind many commands) is one relation at its level, their functions its uses
-- Code targets the newest host releases, and an older release loads only products built for it
+- Fixed names, widths, and styles, applied by the library through its host's mechanism (a numbering style on InDesign's GREP styling)
 
 ## [02]-[WIRE]
 
