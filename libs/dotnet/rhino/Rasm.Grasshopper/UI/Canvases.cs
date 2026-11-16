@@ -57,7 +57,7 @@ public static class Canvases {
         (bool Objects, bool Wires, bool Groups, bool Dragging) was = (canvas.WindowSelectObjects, canvas.WindowSelectWires, canvas.WindowSelectGroups, canvas.ViewportDragging);
         (bool Objects, bool Wires, bool Groups, bool Dragging) set =
             (was.Objects && next.AllowObjectSelect, was.Wires && next.AllowObjectSelect && next.AlloWireSelect, was.Groups && next.AllowObjectSelect, was.Dragging && next.AllowDrag);
-        _ = Merged(canvas.AllowedActions, next, None);
+        Merged(canvas.AllowedActions, next, None);
         (canvas.WindowSelectObjects, canvas.WindowSelectWires, canvas.WindowSelectGroups, canvas.ViewportDragging) = set;
         Interaction guard = Guarded(canvas);
         canvas.PushFocus(guard);
@@ -67,7 +67,7 @@ public static class Canvases {
     private static Unit Released(
         Canvas canvas, (CanvasActions Prior, CanvasActions Next, (bool Objects, bool Wires, bool Groups, bool Dragging) Was, (bool Objects, bool Wires, bool Groups, bool Dragging) Set, Option<Document> Document, Interaction Guard) restriction) {
         canvas.PopFocus(restriction.Guard);
-        _ = Merged(canvas.AllowedActions, restriction.Prior, Some(restriction.Next));
+        Merged(canvas.AllowedActions, restriction.Prior, Some(restriction.Next));
         (canvas.WindowSelectObjects, canvas.WindowSelectWires, canvas.WindowSelectGroups) = (
             Kept(canvas.WindowSelectObjects, restriction.Set.Objects, restriction.Was.Objects),
             Kept(canvas.WindowSelectWires, restriction.Set.Wires, restriction.Was.Wires),
@@ -77,7 +77,7 @@ public static class Canvases {
     }
 
     private static CanvasActions Merged(CanvasActions live, CanvasActions source, Option<CanvasActions> installed) {
-        _ = toSeq(typeof(CanvasActions).GetProperties(BindingFlags.Public | BindingFlags.Instance))
+        toSeq(typeof(CanvasActions).GetProperties(BindingFlags.Public | BindingFlags.Instance))
             .Filter(property => installed.ForAll(held => Equals(property.GetValue(live), property.GetValue(held))))
             .Iter(property => property.SetValue(live, property.GetValue(source)));
         return live;
@@ -87,7 +87,7 @@ public static class Canvases {
 
     private static Option<IResponsive> Hovered(Ref<Option<IResponsive>> over, Option<IResponsive> next) {
         Option<IResponsive> prior = atomic(() => (Prior: over.Value, Next: over.Swap(_ => next)).Prior);
-        _ = prior.Filter(held => !next.Exists(target => ReferenceEquals(target, held))).Iter(static held => held.Responder.MouseLeave());
+        prior.Filter(held => !next.Exists(target => ReferenceEquals(target, held))).Iter(static held => held.Responder.MouseLeave());
         return next;
     }
 
@@ -127,14 +127,14 @@ public static class Canvases {
 
     private static Response Gated(Canvas canvas) {
         CanvasActions actions = canvas.AllowedActions;
-        _ = Optional(canvas.Document).Filter(static document => !toSeq(document.Objects.Forwards).Exists(static item => item.Attributes is IResponsive { Responder.HasFocus: true })).Iter(document => {
+        Optional(canvas.Document).Filter(static document => !toSeq(document.Objects.Forwards).Exists(static item => item.Attributes is IResponsive { Responder.HasFocus: true })).Iter(document => {
             if (!actions.AllowDeleteWire) document.Objects.DeselectAllWires();
-            _ = Optional(actions.DeleteWireFilter).Filter(_ => actions.AllowDeleteWire).Iter(protect => toSeq(document.Objects.SelectedWires)
+            Optional(actions.DeleteWireFilter).Filter(_ => actions.AllowDeleteWire).Iter(protect => toSeq(document.Objects.SelectedWires)
                 .Filter(wire => (from source in Optional(document.Objects.FindParameter(wire.Source))
                                  from target in Optional(document.Objects.FindParameter(wire.Target))
                                  select (source, target)).Exists(protect))
                 .Iter(wire => document.Objects.DeselectWire(wire)));
-            if (!actions.AllowDeleteObject) _ = document.Methods.DeselectAll();
+            if (!actions.AllowDeleteObject) document.Methods.DeselectAll();
         });
         return Response.Ignored;
     }
@@ -179,7 +179,7 @@ public static class Canvases {
             (from state in use(args.Graphics.ProjectionState)
              from drawn in IO.lift(() => Optional(args.Canvas.Document).Iter(document => {
                  Context context = args.Graphics.ContentContext;
-                 _ = toSeq(document.Objects.Forwards)
+                 toSeq(document.Objects.Forwards)
                      .Filter(item => item.Attributes.Intersects(args.Canvas.VisibleFrame))
                      .Iter(item => mark(item).Iter(draw => draw(context, args.Skin)));
              }))
@@ -212,7 +212,7 @@ public static class Canvases {
             control.PopFocus(region);
             control.UnregisterIResponsive(region);
             control.Cursor = Cursors.Default;
-            _ = Cleared(control);
+            Cleared(control);
         })).Map(unit);
 
     private static Interaction Tracked(FlexControl control, RectangleF bounds, SizeF minimum, SizeF maximum, Func<RectangleF, IO<Unit>> placed) {
@@ -249,26 +249,26 @@ public static class Canvases {
                     return frame.Resized;
                 })
                 : start.Contains(point) ? Some<Func<PointF, RectangleF>>(location => Moved(snapping, start, point.SizeTo(location), FlexControl.ShiftKeyDown)) : None;
-            _ = track.Swap(_ => step.Map(next => (start, next)));
+            track.Swap(_ => step.Map(next => (start, next)));
             return step.IsSome ? Response.Capture : Response.Ignored;
         }
 
         Response Shown(RectangleF next, Response response) {
             region.RegionBoundary = next;
-            _ = Session.Run(placed(next), unit);
+            Session.Run(placed(next), unit);
             region.OnRedrawRequired();
             return response;
         }
 
         Response Ended(Response response) {
-            _ = track.Swap(static _ => None);
-            _ = Cleared(control);
+            track.Swap(static _ => None);
+            Cleared(control);
             return response;
         }
 
         Response Toggled() {
             Settings.CanvasSnapToObjects.Value = !Settings.CanvasSnapToObjects.Value;
-            _ = Cleared(control);
+            Cleared(control);
             return Response.Handled;
         }
     }

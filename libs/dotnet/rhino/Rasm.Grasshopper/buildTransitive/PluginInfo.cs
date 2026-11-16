@@ -12,7 +12,7 @@ public sealed class PluginInfo : Plugin {
     private readonly (Action OnLoaded, IIcon Icon) members;
 
     public PluginInfo() {
-        _ = AssemblyLoadContext.GetLoadContext(Assembly)?.LoadFromAssemblyPath(Path.ChangeExtension(Path.ChangeExtension(Location, extension: null), Path.GetExtension(Location)));
+        AssemblyLoadContext.GetLoadContext(Assembly)?.LoadFromAssemblyPath(Path.ChangeExtension(Path.ChangeExtension(Location, extension: null), Path.GetExtension(Location)));
         members = Attached(this);
     }
 

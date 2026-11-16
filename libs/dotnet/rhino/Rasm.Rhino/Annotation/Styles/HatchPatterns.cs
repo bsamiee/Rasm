@@ -19,7 +19,7 @@ public static class HatchPatterns {
     public static HatchPattern Hatching(LineGroup lines) {
         HatchPattern pattern = new() { FillType = HatchPatternFillType.Lines, PatternUnitSystem = UnitSystem.Millimeters };
         using HatchLine line = new() { Angle = lines.Hatching.Angle.Radians.ToDouble(), Offset = new Vector2d(0d, lines.Hatching.Spacing.Millimeters.ToDouble()) };
-        _ = pattern.AddHatchLine(line);
+        pattern.AddHatchLine(line);
         return pattern;
     }
 

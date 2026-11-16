@@ -24,7 +24,7 @@ public sealed class SceneView : Drawable {
             Bitmap target = held.Filter(bitmap => bitmap.Size == pixels).IfNone(() => Allocated(pixels));
             using (BitmapData data = target.Lock()) {
                 (int reads, int rows, int last) = data.Flipped ? (pixels.Height, 1, pixels.Height - 1) : (1, pixels.Height, 0);
-                _ = Range(0, reads).ForAll(row => surface.ReadPixels(format.WithSize(pixels.Width, rows), data.Data + ((last - row) * data.ScanWidth), data.ScanWidth, 0, row));
+                Range(0, reads).ForAll(row => surface.ReadPixels(format.WithSize(pixels.Width, rows), data.Data + ((last - row) * data.ScanWidth), data.ScanWidth, 0, row));
             }
             graphics.ImageInterpolation = ImageInterpolation.None;
             graphics.DrawImage(target, new RectangleF(PointF.Empty, logical));
@@ -39,7 +39,7 @@ public sealed class SceneView : Drawable {
         }
 
         public void Dispose() {
-            _ = held.Iter(static bitmap => bitmap.Dispose());
+            held.Iter(static bitmap => bitmap.Dispose());
             held = None;
         }
     }
@@ -110,7 +110,7 @@ public sealed class SceneView : Drawable {
 
     private IO<Unit> Invalidated(Seq<SKRectI> damage) =>
         IO.lift(() => {
-            _ = damage.Iter(rect => Invalidate(new Rectangle(rect.Left, rect.Top, rect.Width, rect.Height), invalidateChildren: false));
+            damage.Iter(rect => Invalidate(new Rectangle(rect.Left, rect.Top, rect.Width, rect.Height), invalidateChildren: false));
             return popups.Values.ToSeq().Iter(static held => held.Surface.Invalidate());
         });
 
@@ -152,7 +152,7 @@ public sealed class SceneView : Drawable {
         IO.lift(() => {
             layout.Move(placed.Clip, slot.ClipRect.Left, slot.ClipRect.Top);
             placed.Inner.Move(placed.Control, slot.ControlRect.Left, slot.ControlRect.Top);
-            _ = (from text in slot.Entry from box in Optional(placed.Control as TextBox) where !string.Equals(box.Text, text.Content, StringComparison.Ordinal) select (Box: box, text.Content)).Iter(static held => held.Box.Text = held.Content);
+            (from text in slot.Entry from box in Optional(placed.Control as TextBox) where !string.Equals(box.Text, text.Content, StringComparison.Ordinal) select (Box: box, text.Content)).Iter(static held => held.Box.Text = held.Content);
             return Sized(placed, slot);
         });
 
@@ -175,7 +175,7 @@ public sealed class SceneView : Drawable {
         box.LostFocus += (_, _) => Edited(path, EditPhase.Commit, box.Text);
         box.KeyDown += (_, args) => {
             args.Handled = args.Key is Keys.Enter;
-            if (args.Handled) _ = Edited(path, EditPhase.Commit, box.Text);
+            if (args.Handled) Edited(path, EditPhase.Commit, box.Text);
         };
         return box;
     }
@@ -187,7 +187,7 @@ public sealed class SceneView : Drawable {
 
     private HashMap<Seq<Key>, Popped> Reopened(Mount mount) {
         HashMap<Seq<Key>, Hosted.Popup> wanted = toHashMap(mount.Hosted.Choose(static hosted => Optional(hosted as Hosted.Popup)).Map(static popup => (popup.Path, popup)));
-        _ = popups.Filter((path, _) => !wanted.ContainsKey(path)).Values.ToSeq().Iter(static held => held.Dispose());
+        popups.Filter((path, _) => !wanted.ContainsKey(path)).Values.ToSeq().Iter(static held => held.Dispose());
         return wanted.Map((path, popup) => Framed(popups.Find(path).Map(held => held with { Popup = popup }).IfNone(() => Opened(popup))));
     }
 
@@ -220,7 +220,7 @@ public sealed class SceneView : Drawable {
             .Map(static _ => unit));
 
     protected override void OnPaint(PaintEventArgs e) {
-        _ = Painted(None, this, e.Graphics, backing);
+        Painted(None, this, e.Graphics, backing);
         base.OnPaint(e);
     }
 
@@ -228,32 +228,32 @@ public sealed class SceneView : Drawable {
 
     protected override void OnLoadComplete(EventArgs e) {
         base.OnLoadComplete(e);
-        _ = Run(Rehosted);
+        Run(Rehosted);
     }
 
     protected override void OnSizeChanged(EventArgs e) {
         base.OnSizeChanged(e);
-        if (Loaded) _ = Run(Rehosted);
+        if (Loaded) Run(Rehosted);
     }
 
     protected override void OnThemeChanged(EventArgs e) {
         base.OnThemeChanged(e);
-        _ = Run(Rehosted);
+        Run(Rehosted);
     }
 
     protected override void OnGotFocus(EventArgs e) {
         base.OnGotFocus(e);
-        _ = Run(Rehosted);
+        Run(Rehosted);
     }
 
     protected override void OnLostFocus(EventArgs e) {
         base.OnLostFocus(e);
-        _ = Run(Rehosted);
+        Run(Rehosted);
     }
 
     protected override void OnMouseDown(MouseEventArgs e) {
         e.Handled = Projection.Pointed(e, EditPhase.Begin, 1, SKPoint.Empty).Exists(Received);
-        if (e.Handled && e.Buttons.HasFlag(MouseButtons.Primary)) _ = CaptureMouse();
+        if (e.Handled && e.Buttons.HasFlag(MouseButtons.Primary)) CaptureMouse();
         base.OnMouseDown(e);
     }
 
@@ -293,8 +293,8 @@ public sealed class SceneView : Drawable {
     protected override void Dispose(bool disposing) {
         if (disposing) {
             frames.Dispose();
-            _ = Run(controls.Released);
-            _ = popups.Values.ToSeq().Iter(static held => held.Dispose());
+            Run(controls.Released);
+            popups.Values.ToSeq().Iter(static held => held.Dispose());
             backing.Dispose();
             layout.Dispose();
             host.Dispose();

@@ -11,12 +11,6 @@ import Subprocess
 import System
 import Telemetry
 
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-nonisolated extension Environment.Key {
-    static let codexHome: Self = "CODEX_HOME"
-}
-
 // --- [MODELS] --------------------------------------------------------------------------
 
 private nonisolated struct CodexPackage: Decodable {
@@ -35,14 +29,14 @@ actor CodexClient: ProviderClient {
     nonisolated let liveHome: URL
     private let paths: FileLocations
     private let environment: [Environment.Key: String]
-    private let logger: Logger = .init(label: String(reflecting: CodexClient.self))
+    private let logger = Logger(label: String(reflecting: CodexClient.self))
     private var servers: [URL: (connection: Connection, task: Task<Void, Never>, identity: AccountIdentity?)] = [:]
 
     init(paths: FileLocations, environment: [Environment.Key: String]) {
         self.paths = paths
         self.environment = environment
         liveHome =
-            environment[.codexHome].flatMap { value in value.isEmpty ? nil : URL(filePath: value, directoryHint: .isDirectory) } ?? paths.home.appending(path: ".codex", directoryHint: .isDirectory)
+            environment["CODEX_HOME"].flatMap { value in value.isEmpty ? nil : URL(filePath: value, directoryHint: .isDirectory) } ?? paths.home.appending(path: ".codex", directoryHint: .isDirectory)
     }
 
     nonisolated var liveAuthFile: URL { CodexAuthFile.file(in: liveHome) }
@@ -174,7 +168,9 @@ actor CodexClient: ProviderClient {
         let invocation = Configuration(
             executable: .path(executable),
             arguments: ["app-server"],
-            environment: .custom(environment.filter { key, _ in !key.rawValue.hasPrefix("CODEX_") && !excluded.contains(key) }).updating([.codexHome: FilePath(home.path(percentEncoded: false)).string]
+            environment: .custom(environment.filter { key, _ in !key.rawValue.hasPrefix("CODEX_") && !excluded.contains(key) }).updating([
+                "CODEX_HOME": FilePath(home.path(percentEncoded: false)).string
+            ]
             ),
             platformOptions: .session(),
         )

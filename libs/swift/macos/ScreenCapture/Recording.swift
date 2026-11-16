@@ -29,7 +29,7 @@ public final class Recording {
     private let type: AVFileType
     private let owner: ProcessInstance
     private let stream: SCStream
-    private let buffer: SCClipBufferingOutput = .init(delegate: nil)
+    private let buffer = SCClipBufferingOutput(delegate: nil)
     private let written: Task<Result<Void, ApplicationFailure>, Never>
 
     init(_ filter: SCContentFilter, _ configuration: SCStreamConfiguration, of owner: ProcessInstance, to file: URL) async throws(ApplicationFailure) {

@@ -83,24 +83,24 @@ internal sealed class PlugInBody {
         (this.host, assembly, this.definition, this.register, this.license) = (host, defined.Assembly, definition, register, license);
         catalog = new ViewCatalog(definition, definition.Views.Concat(kindViews));
         Platform.Instance.LoadAssembly(typeof(PlugInBody).Assembly);
-        _ = Session.RunSafe(Session.Bind(host, defined), CancellationToken.None).ThrowIfFail();
+        Session.RunSafe(Session.Bind(host, defined), CancellationToken.None).ThrowIfFail();
     }
 
     // --- [MEMBERS]
 
     public PlugInMembers Members =>
-        (LoadTime, Load, () => _ = Commands(), static () => _ = Session.Run(Session.Close), static () => _ = Session.Run(HostDialogs.ResetMessageBoxes(ViewCatalog.Current)),
+        (LoadTime, Load, () => Commands(), static () => Session.Run(Session.Close), static () => Session.Run(HostDialogs.ResetMessageBoxes(ViewCatalog.Current)),
             definition.Published.ValueUnsafe(), definition.Help.IsSome, DisplayHelp,
-            static pages => _ = Session.Run(ViewRegistration.OptionsDialogPages(pages)),
-            static (doc, pages) => _ = Session.Run(ViewRegistration.DocumentPropertiesDialogPages(doc, pages)),
-            static collection => _ = Session.Run(ViewRegistration.ObjectPropertiesPages(collection)),
+            static pages => Session.Run(ViewRegistration.OptionsDialogPages(pages)),
+            static (doc, pages) => Session.Run(ViewRegistration.DocumentPropertiesDialogPages(doc, pages)),
+            static collection => Session.Run(ViewRegistration.ObjectPropertiesPages(collection)),
             options => Session.Run(
                 from saved in IO.lift(() => Optional(options.RhinoDoc).Filter(_ => !options.WriteGeometryOnly && options.WriteUserData && !options.WriteSelectedObjectsOnly))
                 from filled in saved.Traverse(doc => Products.Each(definition.Frames.Map(frame => frame.Filled(doc, options)))).As()
                 select filled.Exists(static held => held.Exists(identity)),
                 failed: false),
-            (doc, archive, options) => _ = Session.Operation($"{nameof(DocumentFrame)}.{nameof(DocumentFrame.Write)}", definition.Frames.TraverseM(frame => frame.Write(doc, archive, options)).As().Map(unit), unit),
-            (doc, archive, options) => _ = Session.Operation(
+            (doc, archive, options) => Session.Operation($"{nameof(DocumentFrame)}.{nameof(DocumentFrame.Write)}", definition.Frames.TraverseM(frame => frame.Write(doc, archive, options)).As().Map(unit), unit),
+            (doc, archive, options) => Session.Operation(
                 $"{nameof(DocumentFrame)}.{nameof(DocumentFrame.Read)}",
                 IO.lift(() => options.OpenMode || options.NewMode).Bind(opened => when(opened, definition.Frames.TraverseM(frame => frame.Read(doc, archive)).As().Map(unit)).As()),
                 unit));
@@ -172,7 +172,7 @@ internal static class FileFormats {
 
     public static (Func<TOptions, FileTypeList> AddFileTypes, Func<string, int, RhinoDoc, TOptions, TResult> File, Action<string, string> DisplayOptionsDialog) Members<TOptions, TResult>(
         IterableNE<FileFormat<TOptions>> formats, TResult done, TResult cancelled, TResult failed) where TOptions : class =>
-        (_ => AddFileTypes(formats), (path, index, doc, options) => Run(formats, index, path, doc, options, done, cancelled, failed), (description, extension) => _ = DisplayOptionsDialog(formats, description, extension));
+        (_ => AddFileTypes(formats), (path, index, doc, options) => Run(formats, index, path, doc, options, done, cancelled, failed), (description, extension) => DisplayOptionsDialog(formats, description, extension));
 
     public static Seq<View> Dialogs<TOptions>(IterableNE<FileFormat<TOptions>> formats) where TOptions : class =>
         toSeq(formats).Choose(static format => format.Options.Map<View>(static dialog => dialog));
@@ -245,7 +245,7 @@ public static partial class PlugInShell {
             (doc, mode, fastPreview) => Session.Run(Batches.Render(doc, mode, definition.Engine, new RenderStart.Full(fastPreview)), Result.Failure),
             (doc, mode, fastPreview, view, rect, inWindow) => Session.Run(Batches.Render(doc, mode, definition.Engine, new RenderStart.Region(fastPreview, view, rect, inWindow)), Result.Failure),
             definition.Features.Contains,
-            current => _ = Session.Run(definition.Engine.Current.Traverse(set => set(current)).As()),
+            current => Session.Run(definition.Engine.Current.Traverse(set => set(current)).As()),
             inherited => [.. definition.Engine.OutputTypes(toSeq(inherited))],
             () => definition.Engine.Serializers.Map(static row => (RenderContentSerializer)new DefinedContentSerializer(row)),
             [.. definition.Engine.SupportedChannels],
@@ -267,16 +267,16 @@ public static partial class PlugInShell {
             definition.Engine.CreateMaterial.IsSome,
             (doc, material) => RenderEngine.Pressed(definition.Engine.CreateMaterial, doc, material),
             definition.Engine.Choosable,
-            static panels => _ = Session.Run(ViewRegistration.RegisterRenderPanels(panels)),
-            static tabs => _ = Session.Run(ViewRegistration.RegisterRenderTabs(tabs)),
-            sections => _ = Session.Run(ViewRegistration.CustomSections(definition.SettingsSections, sections)),
-            sections => _ = Session.Run(ViewRegistration.CustomSections(definition.SunSections, sections)),
-            types => _ = Session.Run(IO.lift(() => definition.SaveTypes.Iter(type => types.RegisterFileType(
+            static panels => Session.Run(ViewRegistration.RegisterRenderPanels(panels)),
+            static tabs => Session.Run(ViewRegistration.RegisterRenderTabs(tabs)),
+            sections => Session.Run(ViewRegistration.CustomSections(definition.SettingsSections, sections)),
+            sections => Session.Run(ViewRegistration.CustomSections(definition.SunSections, sections)),
+            types => Session.Run(IO.lift(() => definition.SaveTypes.Iter(type => types.RegisterFileType(
                 Seq(type.Extension),
                 LocalText.Of(type.Description).Local,
                 (fileName, includeAlpha, window) => Session.Run(type.Write(window, fileName, includeAlpha).Map(value: true), failed: false))))),
             inherited => [.. inherited, .. Session.Run(Products.Many(RenderContentType.GetAllAvailableTypes).Map(types => types.Filter(type => type.PlugInId == host.Id).Map(static type => type.Id).Strict()), Seq<Guid>())],
             definition.Preview.Map<RenderPlugIn.PreviewRenderTypes?>(static row => row.Type).ValueUnsafe(),
-            args => _ = Session.Run(definition.Preview.Traverse(row => row.Content(args).Bind(image => IO.lift(() => image.Iter(bitmap => args.PreviewImage = bitmap)))).As()),
-            args => _ = Session.Run(definition.Preview.Traverse(row => row.Texture(args).Bind(image => IO.lift(() => image.Iter(bitmap => args.PreviewImage = bitmap)))).As()));
+            args => Session.Run(definition.Preview.Traverse(row => row.Content(args).Bind(image => IO.lift(() => image.Iter(bitmap => args.PreviewImage = bitmap)))).As()),
+            args => Session.Run(definition.Preview.Traverse(row => row.Texture(args).Bind(image => IO.lift(() => image.Iter(bitmap => args.PreviewImage = bitmap)))).As()));
 }

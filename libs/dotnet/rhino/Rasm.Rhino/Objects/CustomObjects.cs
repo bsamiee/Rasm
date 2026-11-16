@@ -74,7 +74,7 @@ internal sealed class ObjectBody<TState, TGeometry>(ObjectDefinition<TState, TGe
 
     internal void Draw(RhinoObject owner, DrawEventArgs e, Action<DrawEventArgs> host) {
         host(e);
-        _ = definition.Draw.Iter(draw => State(owner).Iter(state => draw(state, e)));
+        definition.Draw.Iter(draw => State(owner).Iter(state => draw(state, e)));
     }
 
     internal IEnumerable<ObjRef>? Picked(RhinoObject owner, IEnumerable<ObjRef>? candidates) =>
@@ -84,7 +84,7 @@ internal sealed class ObjectBody<TState, TGeometry>(ObjectDefinition<TState, TGe
 
     internal void Transformed(RhinoObject owner, Transform transform) => Restamped(owner, state => definition.Transformed(state, transform));
 
-    internal void Morphed(RhinoObject owner, SpaceMorph morph) => _ = definition.Morphed.Iter(morphed => Restamped(owner, state => morphed(state, morph)));
+    internal void Morphed(RhinoObject owner, SpaceMorph morph) => definition.Morphed.Iter(morphed => Restamped(owner, state => morphed(state, morph)));
 
     private void Restamped(RhinoObject owner, Func<TState, TState> change) =>
         _ = (from state in State(owner)
@@ -136,7 +136,7 @@ public abstract class DefinedCurveObject<TSelf, TState> : CustomCurveObject
 
     private static IO<TSelf> Fresh(Curve curve) =>
         use(static () => new TSelf()).Map(fresh => {
-            _ = fresh.SetCurve(curve);
+            fresh.SetCurve(curve);
             return fresh;
         });
 
@@ -176,7 +176,7 @@ public abstract class DefinedMeshObject<TSelf, TState> : CustomMeshObject
 
     private static IO<TSelf> Fresh(Mesh mesh) =>
         use(static () => new TSelf()).Map(fresh => {
-            _ = fresh.SetMesh(mesh);
+            fresh.SetMesh(mesh);
             return fresh;
         });
 

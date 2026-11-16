@@ -402,7 +402,7 @@ public sealed class PageControlAnalyzer : DiagnosticAnalyzer {
                             ImmutableArray<IOperation> operations = [.. ControlFlow.Operations(root, block.CancellationToken)];
                             (IMethodSymbol? Realized, ImmutableArray<IOperation> Operations) read = (operations.Select(Realization).FirstOrDefault(static made => made is not null),
                                 [.. operations.Where(static operation => operation is IPropertyReferenceOperation or IFieldReferenceOperation or IInvocationOperation)]);
-                            _ = bodies.AddOrUpdate(owner, read, (_, prior) => (prior.Realized ?? read.Realized, prior.Operations.AddRange(read.Operations)));
+                            bodies.AddOrUpdate(owner, read, (_, prior) => (prior.Realized ?? read.Realized, prior.Operations.AddRange(read.Operations)));
                         }
                     });
                 },

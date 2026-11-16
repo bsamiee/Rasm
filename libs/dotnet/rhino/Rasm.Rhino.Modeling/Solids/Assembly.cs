@@ -89,7 +89,7 @@ public static class SolidAssembly {
 
     private static Unit Flagged(Brep brep, Seq<(BrepTrim Trim, Option<IsoStatus> Iso)> trims) {
         brep.SetTrimIsoFlags();
-        _ = trims.Iter(static held => held.Iso.Iter(iso => held.Trim.IsoStatus = iso));
+        trims.Iter(static held => held.Iso.Iter(iso => held.Trim.IsoStatus = iso));
         brep.SetTolerancesBoxesAndFlags(
             bLazy: true, bSetVertexTolerances: true, bSetEdgeTolerances: true, bSetTrimTolerances: true,
             bSetTrimIsoFlags: false, bSetTrimTypeFlags: true, bSetLoopTypeFlags: true, bSetTrimBoxes: true);

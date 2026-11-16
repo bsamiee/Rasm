@@ -67,7 +67,7 @@ public static class Animations {
 
     public static IO<Unit> Write(RhinoDoc doc, AnimationSequence sequence) =>
         Products.Of(() => doc.AnimationProperties).Bind(held => IO.lift(() => {
-            _ = Written(sequence).Iter(write => write(held));
+            Written(sequence).Iter(write => write(held));
             doc.AnimationProperties = held;
         })).Bracket();
 

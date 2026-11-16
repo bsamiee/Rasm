@@ -65,7 +65,7 @@ public static class Diagnostics {
         from checkedMesh in IO.lift(() => {
             using TextLog log = new();
             MeshCheckParameters counts = MeshCheckParameters.Defaults();
-            _ = mesh.Check(log, ref counts);
+            mesh.Check(log, ref counts);
             return (Logs: Conversions.Present(log.ToString()).ToSeq(), Counts: counts);
         })
         from manifold in MeshManifold.Of(mesh)
@@ -73,7 +73,7 @@ public static class Diagnostics {
         let badNormals = counts.NonUnitVectorNormalCount + counts.ZeroLengthNormalCount + counts.VertexFaceNormalsDifferCount
         select (checkedMesh.Logs, Seq(
                 (Count: counts.DegenerateFaceCount, Locate: (Func<Defect<T>>)(() => {
-                    _ = mesh.Faces.GetZeroAreaFaces(out int[] whole, out int[] partial);
+                    mesh.Faces.GetZeroAreaFaces(out int[] whole, out int[] partial);
                     return Located<T, Mesh>(DefectKind.ZeroAreaFaces, counts.DegenerateFaceCount, Components(ComponentIndexType.MeshFace, toSeq(whole) + toSeq(partial)), [Steps.Count<Mesh>(static held => {
                         int repaired = 0;
                         return held.Faces.RemoveZeroAreaFaces(ref repaired) + repaired;

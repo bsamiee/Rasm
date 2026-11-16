@@ -31,7 +31,7 @@ public static class ContentKeys {
     extension(XxHash128 accumulator) {
         public XxHash128 Integer<T>(T value) where T : unmanaged, IBinaryInteger<T> {
             Span<byte> field = stackalloc byte[value.GetByteCount()];
-            _ = value.WriteLittleEndian(field);
+            value.WriteLittleEndian(field);
             accumulator.Append(field);
             return accumulator;
         }
@@ -43,13 +43,13 @@ public static class ContentKeys {
 
         public XxHash128 Text(string value) {
             using SpanOwner<byte> field = SpanOwner<byte>.Allocate(Encoding.UTF8.GetByteCount(value));
-            _ = Encoding.UTF8.GetBytes(value, field.Span);
+            Encoding.UTF8.GetBytes(value, field.Span);
             return accumulator.Bytes(field.Span);
         }
 
         public XxHash128 Id(Guid value) {
             Span<byte> field = stackalloc byte[Unsafe.SizeOf<Guid>()];
-            _ = value.TryWriteBytes(field, bigEndian: true, out _);
+            value.TryWriteBytes(field, bigEndian: true, out _);
             return accumulator.Integer(BinaryPrimitives.ReadUInt128BigEndian(field));
         }
 

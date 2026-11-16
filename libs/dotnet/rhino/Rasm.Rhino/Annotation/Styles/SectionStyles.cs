@@ -75,11 +75,11 @@ public static class SectionStyles {
             (staged.SectionFillRule, staged.BoundaryVisible, staged.HatchIndex) = (definition.SectionFillRule, definition.Boundary.IsSome, pattern);
             (staged.BackgroundFillMode, staged.BackgroundFillColor, staged.BackgroundFillPrintColor) =
                 (definition.Fill.Mode, Conversions.Unset(definition.Fill.Color), Conversions.Unset(definition.Fill.PrintColor));
-            _ = definition.Boundary.Iter(boundary =>
+            definition.Boundary.Iter(boundary =>
                 (staged.BoundaryColor, staged.BoundaryPrintColor, staged.BoundaryWidthScale, staged.BoundaryPlotWeightMillimeters, staged.BoundaryLinetypeIndex) = (
                     Conversions.Unset(boundary.Color), Conversions.Unset(boundary.PrintColor), boundary.WidthScale, PlotWeight.ToInheritable(boundary.PrintWidth),
                     linetype.Flatten().IfNone(RhinoMath.UnsetIntIndex)));
-            _ = definition.Hatch.Iter(hatch =>
+            definition.Hatch.Iter(hatch =>
                 (staged.HatchScale, staged.HatchRotationRadians, staged.HatchPatternColor, staged.HatchPatternPrintColor, staged.HatchPatternPlotWeightMillimeters) = (
                     hatch.Scale, hatch.Rotation.Radians.ToDouble(), Conversions.Unset(hatch.Color), Conversions.Unset(hatch.PrintColor), PlotWeight.ToInheritable(hatch.PrintWidth)));
         })

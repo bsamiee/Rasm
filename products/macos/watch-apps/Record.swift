@@ -16,9 +16,9 @@ import UniformTypeIdentifiers
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 private let framesPerSecond: CMTimeScale = 10
-private let logTime: Date.ISO8601FormatStyle = .init(includingFractionalSeconds: true).year().month().day().dateTimeSeparator(.space).time(includingFractionalSeconds: true)
+private let logTime = Date.ISO8601FormatStyle(includingFractionalSeconds: true).year().month().day().dateTimeSeparator(.space).time(includingFractionalSeconds: true)
     .timeZone(separator: .omitted)
-private let fileTime: Date.ISO8601FormatStyle = .init(includingFractionalSeconds: true).dateSeparator(.omitted).timeSeparator(.omitted)
+private let fileTime = Date.ISO8601FormatStyle(includingFractionalSeconds: true).dateSeparator(.omitted).timeSeparator(.omitted)
 
 // --- [MODELS] --------------------------------------------------------------------------
 

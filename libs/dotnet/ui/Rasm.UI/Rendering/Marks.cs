@@ -49,7 +49,7 @@ internal static class Marks {
 
     private static void Points(SKCanvas canvas, Painter.Pass pass, LayoutNode layout, Context context, MarkKey key, Figure.Points points, Option<SKColorF> lead) {
         if (points is not { Marker.IsNone: true, Sizes.IsNone: true, Values.IsNone: true, Opacity.IsNone: true }) {
-            _ = lead.Iter(color => Sprites(canvas, pass, layout, key, color, points.Marker, Placed(points, key.Frame, key.Pen)));
+            lead.Iter(color => Sprites(canvas, pass, layout, key, color, points.Marker, Placed(points, key.Frame, key.Pen)));
             return;
         }
         Seq<SKPaint> paints = Edged(pass, layout, context, points, key.Frame, key.Pen);
@@ -57,7 +57,7 @@ internal static class Marks {
             SKPoint[] at = [.. points.At.Map(key.Frame.Point)];
             using SKPictureRecorder recorder = new();
             SKCanvas recording = recorder.BeginRecording(Reach(at, key.Pen.Stroke));
-            _ = paints.Iter(paint => recording.DrawPoints(SKPointMode.Points, at, paint));
+            paints.Iter(paint => recording.DrawPoints(SKPointMode.Points, at, paint));
             return recorder.EndRecording();
         }));
     }
@@ -68,12 +68,12 @@ internal static class Marks {
             Outline.Traced interior = cache.Interiors.GetOrAdd(key, () => Outline.Of(path => figure.Interior(path, frame, pen)));
             Seq<Action<SKCanvas>> fills = style.Fills.Map((fill, index) => Fills.Fill(new FillContext(pass, layout, context, interior.Path.Bounds, index) { Blend = style.Look.Blend }, fill, interior)).Somes().Strict();
             using SKAutoCanvasRestore covered = new(canvas);
-            _ = fills.Iter(fill => fill(canvas));
+            fills.Iter(fill => fill(canvas));
         }
         Outline.Traced edge = cache.Contours.GetOrAdd(key, () => Outline.Of(path => figure.Edges(path, frame, pen)));
-        _ = Edged(pass, layout, context, figure, frame, pen).Iter(paint => canvas.DrawPath(edge.Path, paint));
+        Edged(pass, layout, context, figure, frame, pen).Iter(paint => canvas.DrawPath(edge.Path, paint));
         Seq<(Marker Marker, SKPoint At, float Degrees)> placements = figure.Markers(edge.Path);
-        _ = lead.Iter(color => toSeq(placements.GroupBy(static placed => placed.Marker)).Iter(group =>
+        lead.Iter(color => toSeq(placements.GroupBy(static placed => placed.Marker)).Iter(group =>
             Sprites(canvas, pass, layout, key, color, Some(group.Key), toSeq(group).Map(static placed => (placed.At, placed.Degrees, Diameter: placed.Marker.Size, Value: Option<float>.None, Opacity: 1f)))));
     }
 
@@ -100,7 +100,7 @@ internal static class Marks {
         float scale = key.Pen.Density;
         float diameter = placed.Map(static sprite => sprite.Diameter).Max(0f);
         Option<SKImage> sheet = pass.Cache.Sprites.GetOrAdd((layout, marker, diameter, scale), () => Sheet(pass, layout, marker, diameter, scale));
-        _ = sheet.Iter(image => canvas.DrawPicture(pass.Cache.Atlases.GetOrAdd((key, marker, color), () => {
+        sheet.Iter(image => canvas.DrawPicture(pass.Cache.Atlases.GetOrAdd((key, marker, color), () => {
             using SKPictureRecorder recorder = new();
             recorder.BeginRecording(Reach(placed.Map(static sprite => sprite.At), diameter)).DrawAtlas(image,
                 [.. placed.Map(_ => SKRect.Create(image.Width, image.Height))],
@@ -136,12 +136,12 @@ internal static class Marks {
     // --- [FIELDS]
 
     private static void Field(SKCanvas canvas, Painter.Pass pass, LayoutNode layout, MarkKey key, Figure.Field field, Option<SKColorF> lead) =>
-        _ = pass.Cache.Fields.GetOrAdd((key, lead), () => Ramp(layout.Style.Look.Scale.Match(
+        pass.Cache.Fields.GetOrAdd((key, lead), () => Ramp(layout.Style.Look.Scale.Match(
                 Some: scale => Resolved(layout, scale),
                 None: () => fraction => lead.Map(color => color.WithAlpha(color.Alpha * (float)fraction))))
             .Map(ramp => FieldPaint(ramp, field, key.Frame))).Iter(paint => {
                 if (key.Frame.Plane.Separable) canvas.DrawPath(pass.Cache.Interiors.GetOrAdd(key, () => Outline.Of(path => field.Interior(path, key.Frame, key.Pen))).Path, paint);
-                else _ = pass.Cache.Meshes.GetOrAdd(key, () => Meshes(field, key.Frame)).Iter(vertices => canvas.DrawVertices(vertices, SKBlendMode.Modulate, paint));
+                else pass.Cache.Meshes.GetOrAdd(key, () => Meshes(field, key.Frame)).Iter(vertices => canvas.DrawVertices(vertices, SKBlendMode.Modulate, paint));
             });
 
     private static SKPaint FieldPaint(SKImage ramp, Figure.Field field, PlotFrame frame) {
@@ -210,11 +210,11 @@ internal static class Marks {
     // --- [LABELS]
 
     internal static void Label(SKCanvas canvas, Painter.Pass pass, LayoutNode.Text layout, Context context, Figure.Label label, SKColorF color) =>
-        _ = context.Plot.Iter(frame => {
+        context.Plot.Iter(frame => {
             Pen pen = context.Pen(layout.Style);
             MarkKey key = new(label.Along, frame, pen);
             Outline.Traced along = pass.Cache.Contours.GetOrAdd(key, () => Outline.Of(path => label.Along.Edges(path, frame, pen)));
-            _ = pass.Cache.Labels.GetOrAdd((layout.Typeset, key), () => Typesetting.Along(layout.Typeset, along.Path, label.Offset))
+            pass.Cache.Labels.GetOrAdd((layout.Typeset, key), () => Typesetting.Along(layout.Typeset, along.Path, label.Offset))
                 .Iter(blob => canvas.DrawText(blob, 0f, 0f, pass.Cache.Solid(color)));
         });
 }

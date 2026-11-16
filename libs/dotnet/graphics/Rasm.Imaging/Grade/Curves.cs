@@ -29,7 +29,7 @@ public sealed partial class PointCurve {
     public static Fin<PointCurve> Validated(Seq<Vector2> points) => TryCreate(points, out PointCurve? curve, out ImagingFault? fault) ? curve : fault;
 
     static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref Seq<Vector2> points) =>
-        validationError = points.Count >= 2 && points.AsIterable().Window(2, static pair => pair[0].X < pair[1].X).All(static rising => rising) ? null : ImagingFault.Of(ImagingReason.Degenerate, points);
+        validationError = points.Count >= 2 && points.Zip(points.Tail).ForAll(static pair => pair.First.X < pair.Second.X) ? null : ImagingFault.Of(ImagingReason.Degenerate, points);
 
     private static IInterpolation Interpolated(Seq<Vector2> points) =>
         (points.Map(static point => (double)point.X).ToArray(), points.Map(static point => (double)point.Y).ToArray()) switch {

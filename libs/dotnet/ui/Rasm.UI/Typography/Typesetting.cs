@@ -234,7 +234,7 @@ internal static class Typesetting {
 
     internal static Typeset Set(Shaping shaping, View.Text text, Cascade cascade, TextStyle style, float width, CultureInfo culture) {
         TextBlock source = new() { FontMapper = shaping.Mapper, BaseDirection = culture.TextInfo.IsRightToLeft ? TextDirection.RTL : TextDirection.LTR };
-        _ = text.Placeholder.Filter(_ => text.Edited.IsNone && text.Content.Length is 0).Match(
+        text.Placeholder.Filter(_ => text.Edited.IsNone && text.Content.Length is 0).Match(
                 Some: placeholder => FaceRuns(shaping, placeholder, style with { TextColor = Colored(cascade, cascade.Resolve(Roles.Placeholder, cascade.Enclosing.Conditions)) }, culture),
                 None: () => text.Spans.Fold(Seq<(Span Span, int Head)>(), static (held, span) => held.Add((span, held.Last.Filter(prior => span.Part.IsSome && prior.Span.Part == span.Part).Map(static prior => prior.Head).IfNone(held.Count))))
                     .Bind(Seq<(string Text, TextStyle Style)> (held) => FaceRuns(shaping, held.Span.Text, SpanStyle(shaping, cascade, style, held.Span, held.Head), culture)))
@@ -349,7 +349,7 @@ internal static class Typesetting {
 
             Seq<Typeset.Run> Joined(Seq<Typeset.Run> parts) {
                 TextBlock display = new() { FontMapper = shaping.Mapper, BaseDirection = source.BaseDirection };
-                _ = parts.Iter(run => display.AddText(run.Text, run.Style));
+                parts.Iter(run => display.AddText(run.Text, run.Style));
                 Seq<FontRun> directional = toSeq(display.FontRuns);
                 Slice<int> displayed = display.CodePoints.AsSlice();
                 return toSeq(from piece in parts.Zip(parts.Scan(0, static (offset, run) => offset + run.Text.Length)).AsEnumerable()
@@ -451,7 +451,7 @@ internal static class Typesetting {
         }
 
         Typeset.Run Replacement() {
-            _ = font.TryGetGlyph(style.ReplacementCharacter, out uint glyph);
+            font.TryGetGlyph(style.ReplacementCharacter, out uint glyph);
             float advance = (font.GetHorizontalGlyphAdvance(glyph) * PerUnit(typeface, style.FontSize)) + style.LetterSpacing;
             bool rightToLeft = direction is TextDirection.RTL;
             string value = Utf32Utils.FromUtf32(text);

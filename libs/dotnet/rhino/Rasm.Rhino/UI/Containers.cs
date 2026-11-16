@@ -100,7 +100,7 @@ internal static class Containers {
         from cells in toSeq(tiles.Cells).TraverseM(command => CommandRows.Button(command, IconSlot.PanelButton, scope)).As()
         from configured in IO.lift(() => {
             row.ItemPadding = RhinoLayout.Padding(RhinoLayout.PaddingType.ButtonRow);
-            _ = cells.Iter(cell => row.Items.Add(cell.Control));
+            cells.Iter(cell => row.Items.Add(cell.Control));
         })
         select (Control)row;
 }

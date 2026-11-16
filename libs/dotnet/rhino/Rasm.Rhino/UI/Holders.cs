@@ -44,7 +44,7 @@ internal sealed class HostedSection : IDisposable {
 
     internal HostedSection(EtoCollapsibleSection section, Seq<Command<Invoke>> actions, Option<Guid> data, Func<bool> excluded, bool visible, IO<ViewBody> realize) {
         (this.section, this.actions, this.data, this.excluded, this.visible, this.realize) = (section, actions, data, excluded, visible, realize);
-        _ = Session.Run(ViewOps.Loaded(section, Listening).Scoped(scope));
+        Session.Run(ViewOps.Loaded(section, Listening).Scoped(scope));
     }
 
     internal int Height => body.Match(Some: static held => held.Height, None: static () => 0);
@@ -59,7 +59,7 @@ internal sealed class HostedSection : IDisposable {
             : Some<IHeaderButtonHandler>(new HeaderButtons(section, actions.Map(static action => action.Face), index =>
                 Realizing(shown: true).Bind(_ => IO.lift(Conversions.Required(body.Bind(held => held.Clicks.At(index))))).Bind(static click => click)));
 
-    internal Unit Reread => Session.Run(IO.lift(() => body).Bind(static held => held.Traverse(static current => current.Reread).As()));
+    internal Unit Reread() => Session.Run(IO.lift(() => body).Bind(static held => held.Traverse(static current => current.Reread).As()));
 
     internal Unit Visible(bool shown) =>
         Session.Run(IO.lift(() => {
@@ -88,7 +88,7 @@ internal sealed class HostedSection : IDisposable {
     // --- [RELEASE]
 
     public void Dispose() {
-        _ = Session.Run(IO.lift(scope.DisposeResources));
+        Session.Run(IO.lift(scope.DisposeResources));
         scope.Dispose();
     }
 }
@@ -153,9 +153,9 @@ internal sealed class DefinedSection : EtoCollapsibleSection3, ICollapsibleSecti
         Holder = Optional(holder as SectionHolder);
     }
 
-    public override void HolderVisible(bool visible) => _ = hosted.Visible(visible);
+    public override void HolderVisible(bool visible) => hosted.Visible(visible);
 
-    public override void UpdateView(uint flags) => _ = hosted.Reread;
+    public override void UpdateView(uint flags) => hosted.Reread();
 
     // --- [RELEASE]
 
@@ -188,7 +188,7 @@ internal sealed class SectionHolder : EtoCollapsibleSectionHolder2 {
         select stack;
 
     private static void Detached(SectionHolder stack) {
-        _ = toSeq(stack.Sections).Strict().Iter(stack.Remove);
+        toSeq(stack.Sections).Strict().Iter(stack.Remove);
         stack.Dispose();
     }
 

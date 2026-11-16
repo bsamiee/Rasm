@@ -25,7 +25,7 @@ public abstract class DefinedLightManager<TSelf> : LightManagerSupport where TSe
 
     private static readonly Atom<Option<DefinedLightManager<TSelf>>> Constructed = Atom(Option<DefinedLightManager<TSelf>>.None);
 
-    protected DefinedLightManager() => _ = Constructed.Swap(_ => Some(this));
+    protected DefinedLightManager() => Constructed.Swap(_ => Some(this));
 
     public static IO<DefinedLightManager<TSelf>> Present =>
         IO.lift(static () => Constructed.Value.ToFin(new RhinoFault(typeof(TSelf).Name, RhinoReason.Missing)));
@@ -40,7 +40,7 @@ public abstract class DefinedLightManager<TSelf> : LightManagerSupport where TSe
 
     public sealed override void GetLights(RhinoDoc doc, ref LightArray light_array) {
         LightArray lights = light_array;
-        _ = Session.Run(
+        Session.Run(
             from gamma in Lights.PreProcessGamma(doc)
             from held in TSelf.Definition.Read(doc)
             from appended in Products.Each(held.Map(engine =>
@@ -81,7 +81,7 @@ public abstract class DefinedLightManager<TSelf> : LightManagerSupport where TSe
     // --- [EDITS]
 
     public sealed override void ModifyLight(RhinoDoc doc, Light light) =>
-        _ = Session.Run(
+        Session.Run(
             from state in IO.lift(() => Lights.State(light))
             from modified in TSelf.Definition.Modify(doc, state)
             from notified in Changed(doc, LightMangerSupportCustomEvent.light_modified)
@@ -99,10 +99,10 @@ public abstract class DefinedLightManager<TSelf> : LightManagerSupport where TSe
         Session.Run(Requested(light_array, TSelf.Definition.Edit.Map(edit => par(edit, doc))).Map(static edited => edited.Map(static _ => true)).IfNone(IO.pure(value: false)), failed: false);
 
     public sealed override void GroupLights(RhinoDoc doc, ref LightArray light_array) =>
-        _ = Session.Run(Grouping(doc, light_array, grouped: true));
+        Session.Run(Grouping(doc, light_array, grouped: true));
 
     public sealed override void UnGroup(RhinoDoc doc, ref LightArray light_array) =>
-        _ = Session.Run(Grouping(doc, light_array, grouped: false));
+        Session.Run(Grouping(doc, light_array, grouped: false));
 
     private static IO<Unit> Grouping(RhinoDoc doc, LightArray lights, bool grouped) =>
         Requested(lights, TSelf.Definition.Group.Map(group => par(group, doc, grouped))).IfNone(IO.pure(unit));

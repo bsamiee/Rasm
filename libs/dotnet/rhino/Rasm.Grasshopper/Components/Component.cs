@@ -48,7 +48,7 @@ public abstract class Component<TSelf> : ModularComponent, GrasshopperIO.ICustom
 
     protected Component(GrasshopperIO.IReader reader) : base(reader) {
         AddOutputs(new OutputAdder(this));
-        _ = declared.Iter(held => held.Ports.Restore(reader));
+        declared.Iter(held => held.Ports.Restore(reader));
     }
 
     public Guid CustomIoId => DataTypes.IoId(typeof(TSelf));
@@ -76,7 +76,7 @@ public abstract class Component<TSelf> : ModularComponent, GrasshopperIO.ICustom
 
     private static Unit Reported(IDataAccess access, Error error) {
         Seq<Error> leaves = toSeq(error.AsIterable()).Filter(static leaf => !leaf.Is(Errors.Cancelled)).Strict();
-        _ = leaves.Iter(leaf => access.AddError(leaf.Message, leaf.Inner.Map(static cause => cause.Message).ValueUnsafe()));
+        leaves.Iter(leaf => access.AddError(leaf.Message, leaf.Inner.Map(static cause => cause.Message).ValueUnsafe()));
         return leaves.Filter(static leaf => leaf.IsExceptional).Iter(static leaf => Session.Run(IO.fail<Unit>(leaf), unit));
     }
 
@@ -87,7 +87,7 @@ public abstract class Component<TSelf> : ModularComponent, GrasshopperIO.ICustom
         Seq<BarItem> rows = declared.ToSeq().Bind(static held => held.Ports.Rows).Choose(static row => row()).Strict();
         if (!rows.IsEmpty) {
             using IDisposable category = panel.BeginCategory(Nomen.Name);
-            _ = rows.Iter(row => panel.AddBar(drawCategoryLabels: false, row));
+            rows.Iter(row => panel.AddBar(drawCategoryLabels: false, row));
         }
     }
 }
@@ -124,7 +124,7 @@ public sealed class Ports<TSelf> where TSelf : Component<TSelf>, IComponentDefin
 
     internal Func<IDataAccess, Fin<Unit>> Define() {
         Func<IDataAccess, Fin<Unit>> solve = TSelf.Define(this);
-        _ = restored.Iter(orphan => {
+        restored.Iter(orphan => {
             if (Owner.Parameters.IsInput(orphan)) Owner.Parameters.RemoveInput(orphan, undo: null);
             else Owner.Parameters.RemoveOutput(orphan, undo: null);
         });
@@ -161,7 +161,7 @@ public sealed class Ports<TSelf> where TSelf : Component<TSelf>, IComponentDefin
 
     public Func<IDataAccess, Fin<TEnum>> Choice<TEnum>(Parameter<int> parameter, TEnum initial, Option<(string Category, Color Tint, bool Hidden)> modular = default) where TEnum : struct, Enum {
         (Parameter<int> bound, Func<IDataAccess, Option<Pear<int>>> read) = Read(parameter, Requirement.MustExist, Some(Convert.ToInt32(initial, CultureInfo.InvariantCulture)), modular);
-        _ = bound.Presets.AddEnum<TEnum>();
+        bound.Presets.AddEnum<TEnum>();
         return access =>
             from pear in read(access).ToFin(new GrasshopperFault(bound.UserName, GrasshopperReason.Missing))
             let choice = (TEnum)Enum.ToObject(typeof(TEnum), pear.Item)
@@ -223,7 +223,7 @@ public sealed class Ports<TSelf> where TSelf : Component<TSelf>, IComponentDefin
     public Func<IDataAccess, double> Units(UnitSystem basis) {
         SupportedPins = SupportedPins.AddOrUpdate(Grasshopper2.Parameters.Standard.UnitSystemPin.Id);
         return access => {
-            _ = access.GetUnitScaling(basis, out double scale);
+            access.GetUnitScaling(basis, out double scale);
             return scale;
         };
     }
@@ -231,8 +231,8 @@ public sealed class Ports<TSelf> where TSelf : Component<TSelf>, IComponentDefin
     public Func<IDataAccess, (double Absolute, double Relative, Angle Angular)> Tolerance() {
         SupportedPins = SupportedPins.AddOrUpdate(Grasshopper2.Parameters.Standard.AbsoluteTolerancePin.Id).AddOrUpdate(Grasshopper2.Parameters.Standard.RelativeTolerancePin.Id).AddOrUpdate(Grasshopper2.Parameters.Standard.AngularTolerancePin.Id);
         return static access => {
-            _ = access.GetTolerance(out double absolute, out double relative);
-            _ = access.GetTolerance(out Angle angular);
+            access.GetTolerance(out double absolute, out double relative);
+            access.GetTolerance(out Angle angular);
             return (absolute, relative, angular);
         };
     }
@@ -240,7 +240,7 @@ public sealed class Ports<TSelf> where TSelf : Component<TSelf>, IComponentDefin
     public Func<IDataAccess, Language> Language() {
         SupportedPins = SupportedPins.AddOrUpdate(Grasshopper2.Parameters.Standard.LinguisticCulturePin.Id);
         return static access => {
-            _ = access.GetLanguage(out Language language);
+            access.GetLanguage(out Language language);
             return language;
         };
     }
@@ -270,8 +270,8 @@ public sealed class Ports<TSelf> where TSelf : Component<TSelf>, IComponentDefin
 
     private static DropDown<T> Choice<T>(Preference<T> preference, T current, Nomen face, Seq<T> choices) where T : notnull {
         DropDown<T> choice = new(face, value => Written(preference, value));
-        _ = choices.Iter(item => choice.AddOption(item, new Nomen(string.Create(CultureInfo.InvariantCulture, $"{item}"), face.Info)));
-        _ = choice.SetValue(current);
+        choices.Iter(item => choice.AddOption(item, new Nomen(string.Create(CultureInfo.InvariantCulture, $"{item}"), face.Info)));
+        choice.SetValue(current);
         return choice;
     }
 
@@ -283,7 +283,7 @@ public sealed class Ports<TSelf> where TSelf : Component<TSelf>, IComponentDefin
             TextField field = new(icon: null, face, initial) { Validator = _ => parsed.Success };
             field.TextChanged += (_, text) => {
                 parsed = assistant.Parse(constructor: null, text, existing);
-                if (parsed.Success) _ = Written(preference, parsed.Value);
+                if (parsed.Success) Written(preference, parsed.Value);
             };
             return (BarItem)field;
         });
@@ -293,7 +293,7 @@ public sealed class Ports<TSelf> where TSelf : Component<TSelf>, IComponentDefin
     // --- [ATTRIBUTES]
 
     public Unit Body(SizeF minimum, SizeF maximum, Action<Context, Skin, Shade, RectangleF> paint, Option<IResponsive> widget = default) {
-        _ = Owner.OverrideAttributes(new BodyAttributes(Owner, minimum, maximum, paint, widget));
+        Owner.OverrideAttributes(new BodyAttributes(Owner, minimum, maximum, paint, widget));
         return unit;
     }
 
@@ -305,7 +305,7 @@ public sealed class Ports<TSelf> where TSelf : Component<TSelf>, IComponentDefin
     }
 
     private Unit Reattached(Option<Document> document) {
-        _ = attachment.Iter(static scope => scope.Dispose());
+        attachment.Iter(static scope => scope.Dispose());
         attachment = attachments.IsEmpty ? None : document.Map(static _ => EnvIO.New(token: CancellationToken.None));
         return attachment.Iter(scope => Session.Run(IO.liftVAsync(_ => attachments.TraverseM(acquire => acquire(Owner)).As().Map(static _ => unit).RunAsync(scope)), unit));
     }
@@ -354,7 +354,7 @@ public sealed class Ports<TSelf> where TSelf : Component<TSelf>, IComponentDefin
             || candidates.Find(held => string.Equals(held.Nomen.Name, declared.Nomen.Name, StringComparison.Ordinal));
         restored = restored.Filter(held => !matched.Exists(claimed => ReferenceEquals(claimed, held))).Strict();
         Parameter<T> bound = matched.IfNone(() => {
-            _ = add(declared);
+            add(declared);
             return declared;
         });
         bound.OverrideAccess(access, expire: false);

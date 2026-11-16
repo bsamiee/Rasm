@@ -66,7 +66,7 @@ internal sealed class PointSpaceMorph(Func<Point3d, Point3d> map) : SpaceMorph {
         try {
             return mapping(point);
         } catch (Exception error) {
-            _ = Interlocked.CompareExchange(ref failure, ExceptionDispatchInfo.Capture(error), comparand: null);
+            Interlocked.CompareExchange(ref failure, ExceptionDispatchInfo.Capture(error), comparand: null);
             return point;
         }
     }

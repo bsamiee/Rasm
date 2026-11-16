@@ -21,7 +21,7 @@ public sealed class SceneHost : IDisposable {
         internal bool Fits(SKImageInfo wanted, float at, SKPoint from) => info == wanted && scale.Equals(at) && origin == from;
 
         internal void Damaged(Seq<SKRect> rects) =>
-            _ = rects.Iter(rect => damage.Op(SKRectI.Intersect(SKRectI.Ceiling(device.MapRect(rect), outwards: true), info.Rect), SKRegionOperation.Union));
+            rects.Iter(rect => damage.Op(SKRectI.Intersect(SKRectI.Ceiling(device.MapRect(rect), outwards: true), info.Rect), SKRegionOperation.Union));
 
         internal Fin<SKSurface> Drawn(Mount mount, Option<Seq<Key>> popup, Duration now) {
             if (damage.IsEmpty) return surface;
@@ -123,7 +123,7 @@ public sealed class SceneHost : IDisposable {
         select mount.Output.Effects.IsSome;
 
     private Unit Damaged(Mount mount) {
-        _ = rasters.Filter((popup, _) => popup.Exists(path => !mount.Scene.Popups.Contains(path))).Iter(static (_, held) => held.Dispose());
+        rasters.Filter((popup, _) => popup.Exists(path => !mount.Scene.Popups.Contains(path))).Iter(static (_, held) => held.Dispose());
         rasters = rasters.Filter((popup, _) => popup.ForAll(mount.Scene.Popups.Contains));
         return toSeq(rasters.Values).Iter(held => held.Damaged(mount.Output.Damage));
     }
@@ -151,7 +151,7 @@ public sealed class SceneHost : IDisposable {
     private void TimerElapsed() {
         Session held = Volatile.Read(ref session);
         using EnvIO environment = EnvIO.New(token: CancellationToken.None, syncContext: held.Context.ValueUnsafe());
-        _ = IO.lift(() => Volatile.Read(ref session).Running).Bind(static running => running.Traverse(static run => run(true)).As()).Post().Run(environment);
+        IO.lift(() => Volatile.Read(ref session).Running).Bind(static running => running.Traverse(static run => run(true)).As()).Post().Run(environment);
     }
 
     // --- [DRAWING]
@@ -173,7 +173,7 @@ public sealed class SceneHost : IDisposable {
     private Fin<Raster> Rastered(Option<Seq<Key>> popup, SKImageInfo info, float scale, SKPoint origin) {
         Option<Raster> prior = rasters.Find(popup);
         return prior.Filter(held => held.Fits(info, scale, origin)).Match(Some: static held => held, None: () => {
-            _ = prior.Iter(static held => held.Dispose());
+            prior.Iter(static held => held.Dispose());
             Fin<Raster> made = backend.Allocated(info).Map(surface => new Raster(surface, info, new PaintCache(info, surface.SurfaceProperties, shaping, Optional(surface.Context)), scale, origin));
             rasters = made.Map(held => rasters.AddOrUpdate(popup, held)).IfFail(rasters.Remove(popup));
             return made;
@@ -193,11 +193,11 @@ public sealed class SceneHost : IDisposable {
     private Session Taken() => Stored(static held => (Session.Empty, held));
 
     private Unit Cleared(Session held) {
-        _ = held.Current.Iter(mount => {
-            _ = timer.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+        held.Current.Iter(mount => {
+            timer.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
             mount.Scene.Outlines.Dispose();
         });
-        _ = toSeq(rasters.Values).Iter(static raster => raster.Dispose());
+        toSeq(rasters.Values).Iter(static raster => raster.Dispose());
         rasters = [];
         return unit;
     }
@@ -205,6 +205,6 @@ public sealed class SceneHost : IDisposable {
     public void Dispose() {
         using (shaping)
         using (timer)
-            _ = Released.Run();
+            Released.Run();
     }
 }

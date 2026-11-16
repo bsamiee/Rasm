@@ -35,7 +35,7 @@ internal abstract class LoadedMedia : IDisposable {
     internal SKRect Fitted(SKRect box) => ImageFit.Contain.Fitted(box, Bounds.Size);
 
     internal virtual void Draw(SKCanvas canvas, SKRect into, Option<SKPaint> tint) =>
-        _ = Still.Iter(picture => {
+        Still.Iter(picture => {
             using SKAutoCanvasRestore restore = new(canvas);
             canvas.Concat(ImageFit.Mapping(picture.CullRect, into));
             if (tint.Case is SKPaint washed) canvas.DrawRect(picture.CullRect, washed);
@@ -82,7 +82,7 @@ internal abstract class LoadedMedia : IDisposable {
         internal override void Draw(SKCanvas canvas, SKRect into, Option<SKPaint> tint) {
             using SKAutoCanvasRestore restore = new(canvas);
             canvas.Concat(ImageFit.Mapping(Bounds, into));
-            if (tint.Case is SKPaint washed) _ = canvas.SaveLayer(Bounds, washed);
+            if (tint.Case is SKPaint washed) canvas.SaveLayer(Bounds, washed);
             motion.Render(canvas, Bounds);
         }
 
@@ -100,7 +100,7 @@ internal sealed class Decoded(Seq<(SKImage Image, Duration Shown)> frames) : IDi
         return frames.Fold((frames[0].Image, Start: Duration.Zero), (held, frame) => (held.Start <= phase ? frame.Image : held.Image, held.Start + frame.Shown)).Image;
     }
 
-    public void Dispose() => _ = frames.Iter(static frame => frame.Image.Dispose());
+    public void Dispose() => frames.Iter(static frame => frame.Image.Dispose());
 }
 
 internal sealed class Decoding {
@@ -141,7 +141,7 @@ internal sealed class Decoding {
     private static Fin<LoadedMedia> Motion(ArtKey key) {
         using AnimationBuilder builder = Animation.CreateBuilder();
         using DataUriResourceProvider embedded = new(preDecode: true);
-        _ = builder.SetFontManager(SKFontManager.Default).SetResourceProvider(embedded);
+        builder.SetFontManager(SKFontManager.Default).SetResourceProvider(embedded);
         return Optional(builder.Build(key.Source.Shown(key.Shaded))).ToFin(new UIFault(key.Source.Key, UIReason.Unreadable)).Map(static motion => (LoadedMedia)new LoadedMedia.Lottie(motion));
     }
 
@@ -191,7 +191,7 @@ internal sealed class Decoding {
         return new Decoded(frames);
 
         Fin<Decoded> Failed(UIFault error) {
-            _ = frames.Iter(static frame => frame.Image.Dispose());
+            frames.Iter(static frame => frame.Image.Dispose());
             return error;
         }
     }

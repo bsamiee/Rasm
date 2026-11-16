@@ -34,11 +34,11 @@ public static class Solutions {
     public static IO<A> Paused<A>(Seq<Document> documents, IO<A> body) =>
         (from prior in use(static () => SolutionServer.EnableSolutions, prior => {
             SolutionServer.EnableSolutions = prior;
-            if (prior) _ = documents.Iter(static document => _ = document.Solution.Start());
+            if (prior) documents.Iter(static document => _ = document.Solution.Start());
         })
          from paused in IO.lift(() => {
              SolutionServer.EnableSolutions = false;
-             _ = documents.Iter(static document => document.Solution.Stop());
+             documents.Iter(static document => document.Solution.Stop());
          })
          from value in body
          select value).Bracket();

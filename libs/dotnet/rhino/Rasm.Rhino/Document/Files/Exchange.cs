@@ -89,7 +89,7 @@ public static class Exchange {
         IO.lift(() => toSeq(PlugIn.GetInstalledPlugIns().Keys)
             .Choose(static id => Optional(PlugIn.GetPlugInInfo(id)))
             .Filter(info => {
-                _ = info.IsLoadProtected(out bool loadSilently);
+                info.IsLoadProtected(out bool loadSilently);
                 return info.PlugInType.HasFlag(direction) && loadSilently;
             })
             .Bind(FileTypeRow.Of)

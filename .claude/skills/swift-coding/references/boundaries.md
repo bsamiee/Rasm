@@ -105,7 +105,7 @@ extension Configuration {
     }
 }
 
-let log: Configuration = .init(executable: .name("git"), arguments: ["log", "--format=%H"], workingDirectory: directory, platformOptions: .session(grace: grace))
+let log = Configuration(executable: .name("git"), arguments: ["log", "--format=%H"], workingDirectory: directory, platformOptions: .session(grace: grace))
 let revisions: [String] = try await log.reduceLines(into: [], limit: limit) { hashes, hash in hashes.append(hash) }
 ```
 
@@ -133,7 +133,7 @@ extension Bounded: ExpressibleByArgument {}
 
 @main
 struct Report: ParsableCommand {
-    static let configuration: CommandConfiguration = .init(abstract: "Total the placed order lines of a log")
+    static let configuration = CommandConfiguration(abstract: "Total the placed order lines of a log")
 
     @Argument(help: "Order log to read", transform: { URL(filePath: $0) })
     var log: URL
@@ -161,7 +161,7 @@ struct Report: ParsableCommand {
 Code logs through swift-log, a `Logger` labeled by its owning type, with a literal message, values in `metadata:`, and an `Error` as `error:`:
 
 ```swift
-let logger: Logger = .init(label: String(reflecting: Orders.self))
+let logger = Logger(label: String(reflecting: Orders.self))
 logger.error("Order save failed", error: error, metadata: ["order": "\(order.id, privacy: .public)", "file": "\(file.path(percentEncoded: false), privacy: .private)"])
 ```
 

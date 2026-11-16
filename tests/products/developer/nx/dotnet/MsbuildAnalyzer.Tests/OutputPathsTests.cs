@@ -12,7 +12,7 @@ public sealed class OutputPathsTests : IDisposable {
     public void Dispose() => workspace.Dispose();
 
     private OutputPathsTests Props(string properties) {
-        _ = workspace.Write("Directory.Build.props", $"<Project><PropertyGroup>{properties}</PropertyGroup></Project>");
+        workspace.Write("Directory.Build.props", $"<Project><PropertyGroup>{properties}</PropertyGroup></Project>");
         return this;
     }
 

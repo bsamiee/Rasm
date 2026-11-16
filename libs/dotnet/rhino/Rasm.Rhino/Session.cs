@@ -119,7 +119,7 @@ public static class Session {
 
     public static T Run<T>(IO<T> effect, T failed, [CallerMemberName] string member = "") =>
         RunSafe(effect, CancellationToken.None).IfFail(error => {
-            _ = State.Value.Iter(bound => bound.Logger.Value.IfSucc(logger => logger.Failed(error, member)));
+            State.Value.Iter(bound => bound.Logger.Value.IfSucc(logger => logger.Failed(error, member)));
             return failed;
         });
 
@@ -136,7 +136,7 @@ public static class Session {
     public static Task<Fin<T>> StartAsync<T>(IO<T> effect, [CallerMemberName] string member = "", IDisposable? owned = null) =>
         Read(bound => bound.Pending.Context.CreateFactory(bound.Pending).RunAsync(async () => {
             Fin<T> answer = await RunSafeAsync(effect, bound.Scope.Token, owned).ConfigureAwait(false);
-            _ = answer.IfFail(error => bound.Logger.Value.IfSucc(logger => logger.Failed(error, member)));
+            answer.IfFail(error => bound.Logger.Value.IfSucc(logger => logger.Failed(error, member)));
             return answer;
         }).Task);
 
@@ -191,7 +191,7 @@ internal sealed class CommandWindowLoggerProvider : ILoggerProvider {
     // --- [RELEASE]
 
     public void Dispose() {
-        _ = lines.Writer.TryComplete();
+        lines.Writer.TryComplete();
         drain.Join();
     }
 }
@@ -202,6 +202,6 @@ internal sealed class CommandWindowLogger(string category, ChannelWriter<string>
     public bool IsEnabled(LogLevel logLevel) => logLevel is >= LogLevel.Warning and not LogLevel.None;
 
     public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter) {
-        if (IsEnabled(logLevel)) _ = lines.TryWrite(exception is null ? $"{category}: {formatter(state, exception)}" : $"{category}: {formatter(state, exception)}: {exception.Message}");
+        if (IsEnabled(logLevel)) lines.TryWrite(exception is null ? $"{category}: {formatter(state, exception)}" : $"{category}: {formatter(state, exception)}: {exception.Message}");
     }
 }

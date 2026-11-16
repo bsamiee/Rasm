@@ -7,7 +7,7 @@ import Foundation
 
 @main
 struct WatchApps: AsyncParsableCommand {
-    static let configuration: CommandConfiguration = .init(
+    static let configuration = CommandConfiguration(
         abstract: "Observes and drives installed applications in the background. Exits 1 after printing any fail line",
         version: Program.current.version ?? "",
         subcommands: [Find.self, ProcessTable.self, Watch.self, Launch.self, Read.self, Capture.self, Perform.self, SetValue.self, Key.self, Quit.self, Log.self],

@@ -220,7 +220,7 @@ public static class Toolbars {
             from marks in item.Run.Marked.Traverse(rule => rule.Holds(scope)).As()
             from written in IO.lift(() => {
                 (ui.Enabled, ui.Text) = (holds.ForAll(static held => held), LocalText.Of(item.Run.Face.Caption).Local);
-                _ = marks.Iter(held => {
+                marks.Iter(held => {
                     if (item.Radio) ui.RadioChecked = held;
                     else ui.Checked = held;
                 });

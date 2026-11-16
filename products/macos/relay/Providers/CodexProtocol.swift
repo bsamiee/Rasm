@@ -34,8 +34,8 @@ nonisolated enum CodexProtocol {
             let experimentalApi: Bool = true
         }
 
-        let clientInfo: ClientInfo = .init()
-        let capabilities: Capabilities = .init()
+        let clientInfo = ClientInfo()
+        let capabilities = Capabilities()
     }
 
     struct ConfigReadParams: Encodable, Sendable {

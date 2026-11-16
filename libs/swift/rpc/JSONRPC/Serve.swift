@@ -67,9 +67,9 @@ extension AggregateError where Element == Reason {
 actor Server<Request: Decodable & Sendable, Failure: Error> {
     // --- [STATE]
 
-    let output: AsyncChannel<Data> = .init()
-    private let encoder: JSONEncoder = .init()
-    private let decoder: JSONDecoder = .init()
+    let output = AsyncChannel<Data>()
+    private let encoder = JSONEncoder()
+    private let decoder = JSONDecoder()
     private let perform: @Sendable (Request) async throws(Failure) -> Response
     private let dropped: @Sendable (JSONRPCFailure) -> Void
     private var running: [JSONValue: (task: Task<Void, Never>, acks: AsyncStream<Void>.Continuation, streaming: Bool)] = [:]

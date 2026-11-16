@@ -66,7 +66,7 @@ public sealed class DefinedEffectSection<TState> : EtoPostEffectCollapsibleSecti
 
     bool ICollapsibleSection2.ShowHeaderButton(int index, bool bShow) => false;
 
-    void ICollapsibleSection3.UpdateView(uint flags) => _ = hosted.Reread;
+    void ICollapsibleSection3.UpdateView(uint flags) => hosted.Reread();
 
     // --- [RELEASE]
 

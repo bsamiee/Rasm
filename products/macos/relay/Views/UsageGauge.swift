@@ -15,7 +15,7 @@ extension VerticalAlignment {
         }
     }
 
-    static let glyphRow: VerticalAlignment = .init(GlyphRow.self)
+    static let glyphRow = VerticalAlignment(GlyphRow.self)
 }
 
 extension Provider {

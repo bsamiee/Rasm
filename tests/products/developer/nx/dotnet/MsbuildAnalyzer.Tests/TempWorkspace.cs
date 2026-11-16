@@ -41,7 +41,7 @@ public sealed class TempWorkspace : IDisposable {
                 RedirectStandardError = true,
             },
         };
-        _ = process.Start();
+        process.Start();
         process.StandardInput.Write(string.Join('\n', files));
         process.StandardInput.Close();
         string stdout = process.StandardOutput.ReadToEnd();

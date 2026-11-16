@@ -110,7 +110,7 @@ public sealed partial class JsonLinesLoggerProvider : ILoggerProvider {
             LoggingConfiguration configuration = new(factory);
             configuration.AddRuleForAllLevels(read.File.Target.Open(read.File, name, Record(name, version)));
             factory.Configuration = configuration;
-            _ = (read.Rejected + rejected()).Filter(rejection => reported.TryAdd(rejection, unit))
+            (read.Rejected + rejected()).Filter(rejection => reported.TryAdd(rejection, unit))
                 .Iter(rejection => Rejected(logger, rejection.Setting, rejection.Value, rejection.Accepted));
         };
         opened();
@@ -175,11 +175,11 @@ public sealed partial class JsonLinesLoggerProvider : ILoggerProvider {
 public static class JsonLinesLoggerExtensions {
     extension(ILoggingBuilder builder) {
         public ILoggingBuilder AddJsonLines(IConfiguration settings, string name, Option<string> version, Seq<string> roots) {
-            _ = builder.Services
+            builder.Services
                 .AddSingleton<IOptionsChangeTokenSource<LoggerFilterOptions>>(new ConfigurationChangeTokenSource<LoggerFilterOptions>(settings))
                 .Configure<LoggerFilterOptions>(filters => {
                     filters.MinLevel = LogLevel.Warning;
-                    _ = LogSettings.Read(settings, name, roots).Rules.Iter(filters.Rules.Add);
+                    LogSettings.Read(settings, name, roots).Rules.Iter(filters.Rules.Add);
                 });
             builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<ILoggerProvider, JsonLinesLoggerProvider>(services => new JsonLinesLoggerProvider(
                 () => LogSettings.Read(settings, name, roots), settings.GetReloadToken, () => toSeq(services.GetServices<SettingRejection>()), name, version)));

@@ -141,7 +141,7 @@ public sealed class ContainerDisposeAnalyzer : DiagnosticAnalyzer {
                     if (!seen.Add((current, mode))) continue;
                     if (mode is ControlReach.Type) {
                         if (Derives(current, control)) return truth;
-                        if (current is ITypeParameterSymbol) _ = result.Add((current, mode));
+                        if (current is ITypeParameterSymbol) result.Add((current, mode));
                         continue;
                     }
                     ImmutableHashSet<(ITypeSymbol Type, ControlReach Reach)> formula = Formula((current.OriginalDefinition, mode));
@@ -150,13 +150,13 @@ public sealed class ContainerDisposeAnalyzer : DiagnosticAnalyzer {
                         ITypeSymbol argument = parameter is ITypeParameterSymbol variable
                             && Containers(current).OfType<INamedTypeSymbol>().FirstOrDefault(part => Same(part, variable.ContainingSymbol)) is { } owner
                                 ? owner.TypeArguments[variable.Ordinal] : parameter;
-                        if (SymbolEqualityComparer.Default.Equals(argument, parameter)) _ = result.Add((parameter, required));
+                        if (SymbolEqualityComparer.Default.Equals(argument, parameter)) result.Add((parameter, required));
                         else pending.Enqueue((argument, required));
                     }
                 }
                 return result.ToImmutable();
             }
-            _ = Evaluate(source, ControlReach.Collection);
+            Evaluate(source, ControlReach.Collection);
             bool changed;
             do {
                 token.ThrowIfCancellationRequested();
@@ -174,10 +174,10 @@ public sealed class ContainerDisposeAnalyzer : DiagnosticAnalyzer {
                     equations[(owner, mode)] = result;
                     changed = true;
                 }
-                _ = Evaluate(source, ControlReach.Collection);
+                Evaluate(source, ControlReach.Collection);
                 changed |= count != equations.Count;
             } while (changed);
-            foreach (KeyValuePair<(ITypeSymbol Type, ControlReach Reach), ImmutableHashSet<(ITypeSymbol Type, ControlReach Reach)>> equation in equations) _ = completed.TryAdd(equation.Key, equation.Value);
+            foreach (KeyValuePair<(ITypeSymbol Type, ControlReach Reach), ImmutableHashSet<(ITypeSymbol Type, ControlReach Reach)>> equation in equations) completed.TryAdd(equation.Key, equation.Value);
             return Evaluate(source, ControlReach.Collection).Contains((control, ControlReach.Type));
         });
         IEnumerable<IOperation> Initialized(IOperation? initializer, CancellationToken token) =>

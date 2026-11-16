@@ -42,13 +42,13 @@ internal sealed class Slot<TKey, TValue>(Action<TValue> release) : ISlot where T
     public void Evict() {
         HashMap<TKey, TValue> dead;
         lock (gate) (dead, live, aging) = (aging, [], live);
-        _ = toSeq(dead.Values).Iter(release);
+        toSeq(dead.Values).Iter(release);
     }
 
     public void Dispose() {
         HashMap<TKey, TValue> dead;
         lock (gate) (dead, live, aging) = (live + aging, [], []);
-        _ = toSeq(dead.Values).Iter(release);
+        toSeq(dead.Values).Iter(release);
     }
 
     private TValue Kept(TKey key, TValue value) {
@@ -144,7 +144,7 @@ internal sealed class PaintCache : IDisposable {
             Seq<SKImageFilter> graph = stack.Filter(static held => !held.Shadow.Inside).Map(held => held.Shadow.Filtered(held.Color, Space)).Strict().Add(Source)
                 + stack.Filter(static held => held.Shadow.Inside).Map(held => held.Shadow.Filtered(held.Color, Space)).Strict();
             using SKImageFilter merged = SKImageFilter.CreateMerge([.. graph]);
-            _ = graph.Filter(static filter => !ReferenceEquals(filter, Source)).Iter(static filter => filter.Dispose());
+            graph.Filter(static filter => !ReferenceEquals(filter, Source)).Iter(static filter => filter.Dispose());
             return new SKPaint { ImageFilter = merged };
         });
 
@@ -220,9 +220,9 @@ internal sealed class PaintCache : IDisposable {
         HashSet<LayoutNode> left = toHashSet(leaving);
         if (retained.Exists(held => ReferenceEquals(held.Scene, scene) && held.Leaving == left && held.Scale.CompareTo(scale) is 0)) return unit;
         Seq<LayoutNode> drawn = (scene.Layout.Cons(scene.Layers) + scene.Fragments.Values.ToSeq() + leaving).Bind(static layout => layout.Preorder).Strict();
-        _ = drawn.Iter(layout => Leaves.Find(layout));
-        _ = drawn.Choose(static layout => layout.TextNode).Bind(static text => text.Typeset.Lines).Bind(static line => line.Runs).Iter(held => TextBlobs.Find(held.Run));
-        _ = sceneSlots.Add(scene.Outlines).Iter(static slot => slot.Evict());
+        drawn.Iter(layout => Leaves.Find(layout));
+        drawn.Choose(static layout => layout.TextNode).Bind(static text => text.Typeset.Lines).Bind(static line => line.Runs).Iter(held => TextBlobs.Find(held.Run));
+        sceneSlots.Add(scene.Outlines).Iter(static slot => slot.Evict());
         Seq<((LayoutNode Layout, GlyphSource Source) Shown, Fin<LoadedMedia> Media)> arts = (
             from layout in drawn
             from source in (layout.View is View.Glyph glyph ? Seq(glyph.Art) : [])
@@ -250,9 +250,9 @@ internal sealed class PaintCache : IDisposable {
     }
 
     internal void Framed(Painter.Pass pass) {
-        _ = frameSlots.Iter(static slot => slot.Evict());
-        _ = retained.Iter(held => toSeq(held.Art.Values).Filter(static shown => shown.Animated).Distinct().Iter(shown => shown.Seek(pass.Now)));
-        _ = Leaves.Values.Iter(leaf => leaf.Framed(pass));
+        frameSlots.Iter(static slot => slot.Evict());
+        retained.Iter(held => toSeq(held.Art.Values).Filter(static shown => shown.Animated).Distinct().Iter(shown => shown.Seek(pass.Now)));
+        Leaves.Values.Iter(leaf => leaf.Framed(pass));
     }
 
     internal Option<LoadedMedia> Art(LayoutNode layout, GlyphSource source) => retained.Bind(held => held.Art.Find((layout, source)));
@@ -266,5 +266,5 @@ internal sealed class PaintCache : IDisposable {
                 from frames in held.Cache.Decoded.Find(Decoding.Requested(held.Layout, held.Image, encoded, kept.Scale))
                 select frames.At(held.Now));
 
-    public void Dispose() => _ = (sceneSlots + frameSlots).Iter(static slot => slot.Dispose());
+    public void Dispose() => (sceneSlots + frameSlots).Iter(static slot => slot.Dispose());
 }

@@ -93,11 +93,11 @@ public sealed record ConduitDefinition(Seq<ConduitChannel> Channels) {
 // --- [SERVICES] ------------------------------------------------------------------------
 
 internal sealed class BoundingBoxConduit(Func<CalculateBoundingBoxEventArgs, Option<BoundingBox>> box) : DisplayConduit {
-    protected override void CalculateBoundingBox(CalculateBoundingBoxEventArgs e) => _ = box(e).Iter(e.IncludeBoundingBox);
+    protected override void CalculateBoundingBox(CalculateBoundingBoxEventArgs e) => box(e).Iter(e.IncludeBoundingBox);
 }
 
 internal sealed class ZoomExtentsConduit(Func<CalculateBoundingBoxEventArgs, Option<BoundingBox>> box) : DisplayConduit {
-    protected override void CalculateBoundingBoxZoomExtents(CalculateBoundingBoxEventArgs e) => _ = box(e).Iter(e.IncludeBoundingBox);
+    protected override void CalculateBoundingBoxZoomExtents(CalculateBoundingBoxEventArgs e) => box(e).Iter(e.IncludeBoundingBox);
 }
 
 internal sealed class CullingConduit(Func<CullObjectEventArgs, bool> culled) : DisplayConduit {
@@ -184,7 +184,7 @@ public static class Conduits {
             from marked in IO.lift(() => shown.Swap(_ => toHashSet(resolved.Map(static row => row.Viewport.Id))))
             from rebound in IO.lift(() => conduits.Iter(conduit => {
                 conduit.UnbindAll();
-                _ = resolved.Iter(row => (bound.Exclusive ? (Action<RhinoViewport>)conduit.ExclusiveBind : conduit.Bind)(row.Viewport));
+                resolved.Iter(row => (bound.Exclusive ? (Action<RhinoViewport>)conduit.ExclusiveBind : conduit.Bind)(row.Viewport));
                 conduit.Enabled = !resolved.IsEmpty;
             }))
             select rebound);

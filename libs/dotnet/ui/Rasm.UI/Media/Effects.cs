@@ -96,8 +96,8 @@ internal sealed record RuntimeEffect {
         if (uniforms.Contains(Clock)) uniforms[Clock] = clock;
         if (uniforms.Contains(Radii)) uniforms[Radii] = radii.ToArray();
         if (uniforms.Contains(Pointer)) uniforms[Pointer] = pointer;
-        _ = colors.Iter((name, color) => uniforms[name] = color);
-        _ = floats.Iter((name, value) => uniforms[name] = value);
+        colors.Iter((name, color) => uniforms[name] = color);
+        floats.Iter((name, value) => uniforms[name] = value);
     }
 }
 
@@ -182,7 +182,7 @@ public abstract partial record Filter {
     internal static float Reach(SKImageFilter graph) {
         using SKImageFilter owned = graph;
         using SKPaint probe = new() { ImageFilter = owned };
-        _ = probe.GetFastBounds(SKRect.Create(1f, 1f), out SKRect bounds);
+        probe.GetFastBounds(SKRect.Create(1f, 1f), out SKRect bounds);
         return float.Max(float.Max(-bounds.Left, -bounds.Top), float.Max(bounds.Right - 1f, bounds.Bottom - 1f));
     }
 

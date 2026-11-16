@@ -8,13 +8,6 @@ import Security
 import Subprocess
 import System
 
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-nonisolated extension Environment.Key {
-    static let claudeConfigDirectory: Self = "CLAUDE_CONFIG_DIR"
-    static let claudeSecureStorageDirectory: Self = "CLAUDE_SECURESTORAGE_CONFIG_DIR"
-}
-
 // --- [MODELS] --------------------------------------------------------------------------
 
 nonisolated struct ClaudeOAuthToken: Sendable {
@@ -89,14 +82,14 @@ nonisolated struct ClaudeCredentialStore: Sendable {
 
     init(home: URL, environment: [Environment.Key: String], username: String) {
         let defaultDirectory = home.appending(path: ".claude", directoryHint: .isDirectory)
-        let configured = environment[.claudeConfigDirectory].flatMap { value in value.isEmpty ? nil : URL(filePath: value, directoryHint: .isDirectory) }
-        let secure = (environment[.claudeSecureStorageDirectory] ?? environment[.claudeConfigDirectory]).flatMap { value in value.isEmpty ? nil : value.precomposedStringWithCanonicalMapping }
+        let configured = environment["CLAUDE_CONFIG_DIR"].flatMap { value in value.isEmpty ? nil : URL(filePath: value, directoryHint: .isDirectory) }
+        let secure = (environment["CLAUDE_SECURESTORAGE_CONFIG_DIR"] ?? environment["CLAUDE_CONFIG_DIR"]).flatMap { value in value.isEmpty ? nil : value.precomposedStringWithCanonicalMapping }
         directory = secure.map { value in URL(filePath: value, directoryHint: .isDirectory) } ?? defaultDirectory
         configFile = (configured ?? home).appending(path: ".claude.json")
         directoryConfigFile = (configured ?? defaultDirectory).appending(path: ".config.json")
         service = secure.map { value in "Claude Code-credentials-" + SHA256.hash(data: Data(value.utf8)).prefix(4).hexEncoded() } ?? "Claude Code-credentials"
         self.username = username
-        variables = environment.filter { key, _ in [.claudeConfigDirectory, .claudeSecureStorageDirectory].contains(key) }
+        variables = environment.filter { key, _ in ["CLAUDE_CONFIG_DIR", "CLAUDE_SECURESTORAGE_CONFIG_DIR"].contains(key) }
     }
 
     private var credentialFile: URL { directory.appending(path: ".credentials.json") }

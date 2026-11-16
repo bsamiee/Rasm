@@ -37,7 +37,7 @@ internal sealed class WpfPlatform : IHostPlatform {
         from link in IO.lift(() => {
             bool running = false;
             void Rendered(object? sender, EventArgs args) {
-                if (!tick(Duration.FromTimeSpan(((RenderingEventArgs)args).RenderingTime))) _ = Run(next: false);
+                if (!tick(Duration.FromTimeSpan(((RenderingEventArgs)args).RenderingTime))) Run(next: false);
             }
             Unit Run(bool next) {
                 if (next == running) return unit;

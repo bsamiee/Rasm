@@ -298,11 +298,11 @@ internal sealed class ControlFlow {
                         if (Next(branch, continuation) is { } next) predecessors[State(next)].Add(current);
                 }
             }
-            _ = State((graph.Blocks[0].Ordinal, default));
+            State((graph.Blocks[0].Ordinal, default));
             Expand();
             foreach (BasicBlock block in graph.Blocks.Where(static block => block.IsReachable)) {
                 if (blocks.Contains(block.Ordinal)) continue;
-                _ = State((block.Ordinal, default));
+                State((block.Ordinal, default));
                 Expand();
             }
             States = [.. states];

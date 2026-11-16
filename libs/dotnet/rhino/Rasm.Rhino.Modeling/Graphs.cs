@@ -106,8 +106,8 @@ public abstract partial record TopologySource {
         IEnumerable<int[]> found = RTree.Point3dClosestPoints(ends, ends, tolerances.Absolute);
         using IDisposable? tree = found as IDisposable;
         UndirectedGraph<int, SUndirectedEdge<int>> near = new();
-        _ = near.AddVertexRange(Enumerable.Range(0, ends.Count));
-        _ = near.AddEdgeRange(found.SelectMany(static (hay, needle) => hay.Where(other => other > needle).Select(other => new SUndirectedEdge<int>(needle, other))));
+        near.AddVertexRange(Enumerable.Range(0, ends.Count));
+        near.AddEdgeRange(found.SelectMany(static (hay, needle) => hay.Where(other => other > needle).Select(other => new SUndirectedEdge<int>(needle, other))));
         Dictionary<int, int> component = [];
         int count = near.ConnectedComponents(component);
         Seq<(int Start, int End)> joints = curves.Map((_, index) => (Start: component[2 * index], End: component[(2 * index) + 1])).Strict();

@@ -87,7 +87,7 @@ internal sealed record RampShown(ColorRamp Ramp) {
             }
         }
         graphics.FillRectangle(Ramp.Stops[0].Color.ToEto(), new RectangleF(0f, 0f, (float)Ramp.Stops[0].Position * band.Width, band.Height));
-        _ = Ramp.Stops.Last.Iter(last => graphics.FillRectangle(last.Color.ToEto(), new RectangleF((float)last.Position * band.Width, 0f, (float)(1d - last.Position) * band.Width, band.Height)));
+        Ramp.Stops.Last.Iter(last => graphics.FillRectangle(last.Color.ToEto(), new RectangleF((float)last.Position * band.Width, 0f, (float)(1d - last.Position) * band.Width, band.Height)));
         graphics.DrawRectangle(zone.Entry.Enabled.Border, band);
         foreach ((ColorStop stop, int index) in Ramp.Stops.Map(static (stop, index) => (stop, index))) {
             float x = (float)stop.Position * band.Width;
@@ -175,7 +175,7 @@ public sealed record GradientRow(ColorRamp Ramp, Func<Edit<ColorRamp>, IO<Unit>>
             select unit
         from pressed in Subscriptions.On<MouseEventArgs>(h => strip.MouseDown += h, h => strip.MouseDown -= h).Attach(args =>
             from focused in IO.lift(strip.Focus)
-            from captured in IO.lift(() => { if (args.Buttons is MouseButtons.Primary) _ = strip.CaptureMouse(); })
+            from captured in IO.lift(() => { if (args.Buttons is MouseButtons.Primary) strip.CaptureMouse(); })
             from row in latest
             let picked = args.Buttons is MouseButtons.Primary || !strip.IsMouseCaptured
                 ? strip.State.Nearest(args.Location, strip.Size).Map(static index => (Current: index, Opening: index))

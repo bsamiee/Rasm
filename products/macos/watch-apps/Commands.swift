@@ -84,7 +84,7 @@ struct Running: ParsableArguments {
 }
 
 struct Find: AsyncParsableCommand {
-    static let configuration: CommandConfiguration = .init(abstract: "Prints each name's installations with no launch")
+    static let configuration = CommandConfiguration(abstract: "Prints each name's installations with no launch")
 
     @Argument(help: installedNames)
     var names: [String]
@@ -97,7 +97,7 @@ struct Find: AsyncParsableCommand {
 }
 
 struct Watch: AsyncParsableCommand {
-    static let configuration: CommandConfiguration = .init(
+    static let configuration = CommandConfiguration(
         abstract: "Prints one line per instance change, per system prompt naming an instance, and per system pressure change above nominal. Records standard windows and asking rows with --record"
     )
 
@@ -162,7 +162,7 @@ struct Watch: AsyncParsableCommand {
 }
 
 struct Launch: AsyncParsableCommand {
-    static let configuration: CommandConfiguration = .init(
+    static let configuration = CommandConfiguration(
         abstract: "Opens applications, files, or URLs without activation, reusing a running instance. Prints states until each instance settles or asks, or until it exits with --wait"
     )
 
@@ -241,7 +241,7 @@ struct Launch: AsyncParsableCommand {
 }
 
 struct Read: AsyncParsableCommand {
-    static let configuration: CommandConfiguration = .init(abstract: "Prints each instance's whole state with element ids once, --window walks one window")
+    static let configuration = CommandConfiguration(abstract: "Prints each instance's whole state with element ids once, --window walks one window")
 
     @OptionGroup var running: Running
 
@@ -256,7 +256,7 @@ struct Read: AsyncParsableCommand {
 }
 
 struct Capture: AsyncParsableCommand {
-    static let configuration: CommandConfiguration = .init(
+    static let configuration = CommandConfiguration(
         abstract: "Writes one PNG per presented window, of --window, or of --element's frame inside its window, with no activation. Prints one line per file"
     )
 
@@ -306,7 +306,7 @@ struct ElementOperand: ParsableArguments {
 }
 
 struct Perform: AsyncParsableCommand {
-    static let configuration: CommandConfiguration = .init(abstract: "Performs one Accessibility action on an element. Prints its instance's next state")
+    static let configuration = CommandConfiguration(abstract: "Performs one Accessibility action on an element. Prints its instance's next state")
 
     @OptionGroup var element: ElementOperand
 
@@ -317,7 +317,7 @@ struct Perform: AsyncParsableCommand {
 }
 
 struct SetValue: AsyncParsableCommand {
-    static let configuration: CommandConfiguration = .init(commandName: "set", abstract: "Sets an element's \(kAXValueAttribute) to text. Prints its instance's next state")
+    static let configuration = CommandConfiguration(commandName: "set", abstract: "Sets an element's \(kAXValueAttribute) to text. Prints its instance's next state")
 
     @OptionGroup var element: ElementOperand
 
@@ -328,7 +328,7 @@ struct SetValue: AsyncParsableCommand {
 }
 
 struct Key: AsyncParsableCommand {
-    static let configuration: CommandConfiguration = .init(
+    static let configuration = CommandConfiguration(
         abstract: "Posts one key to a process whose window blocks its main thread, leaving the frontmost app and cursor unchanged. Prints its next state"
     )
 
@@ -342,7 +342,7 @@ struct Key: AsyncParsableCommand {
 }
 
 struct Quit: AsyncParsableCommand {
-    static let configuration: CommandConfiguration = .init(abstract: "Sends each running instance the quit event. Prints states and exits 1 unless each instance exited")
+    static let configuration = CommandConfiguration(abstract: "Sends each running instance the quit event. Prints states and exits 1 unless each instance exited")
 
     @OptionGroup var running: Running
 
@@ -359,7 +359,7 @@ struct Quit: AsyncParsableCommand {
 }
 
 struct ProcessTable: AsyncParsableCommand {
-    static let configuration: CommandConfiguration = .init(commandName: "processes", abstract: "Prints each name's launch agents, running processes, and newest crash reports with no launch")
+    static let configuration = CommandConfiguration(commandName: "processes", abstract: "Prints each name's launch agents, running processes, and newest crash reports with no launch")
 
     @Argument(help: "Names as find takes, executable paths, process IDs, or instance values from a line, an exited instance included")
     var names: [String]

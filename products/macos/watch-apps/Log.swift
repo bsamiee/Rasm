@@ -9,7 +9,7 @@ import System
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 struct Log: ParsableCommand {
-    static let configuration: CommandConfiguration = .init(
+    static let configuration = CommandConfiguration(
         abstract: "Prints the last line per key of each run sharing this WATCH_APPS_SESSION. A process ID prints every record of that run",
         discussion: """
             Each run writes its records to one file named by its session and process ID in \(Journal.folder.path(percentEncoded: false)), under a folder WATCH_APPS_LOG_DIR replaces. \

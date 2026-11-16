@@ -165,7 +165,7 @@ public abstract class DefinedAnalysisMode<TSelf> : VisualAnalysisMode where TSel
     public sealed override AnalysisStyle Style => definition.Style;
     public sealed override bool ShowIsoCurves => definition.ShowIsoCurves.IfNone(base.ShowIsoCurves);
 
-    public sealed override void EnableUserInterface(bool on) => _ = definition.UserInterface.Iter(show => Session.Run(show(on)));
+    public sealed override void EnableUserInterface(bool on) => definition.UserInterface.Iter(show => Session.Run(show(on)));
 
     public sealed override bool ObjectSupportsAnalysisMode(RhinoObject obj) => definition.Supports.Match(Some: supports => supports(obj), None: () => base.ObjectSupportsAnalysisMode(obj));
 
@@ -179,7 +179,7 @@ public abstract class DefinedAnalysisMode<TSelf> : VisualAnalysisMode where TSel
             wireframe: static (_, _) => { });
 
     protected sealed override void UpdateVertexColors(RhinoObject obj, Mesh[] meshes) =>
-        _ = Optional(definition as AnalysisDefinition.FalseColor).Bind(Colored).Iter(painted => Painted(painted.Color, painted.Measure, obj, meshes));
+        Optional(definition as AnalysisDefinition.FalseColor).Bind(Colored).Iter(painted => Painted(painted.Color, painted.Measure, obj, meshes));
 
     private Option<(VertexMeasure Measure, Func<double, Color> Color)> Colored(AnalysisDefinition.FalseColor falseColor) =>
         falseColor.Scale() switch {
@@ -196,7 +196,7 @@ public abstract class DefinedAnalysisMode<TSelf> : VisualAnalysisMode where TSel
             Color[] colors = new Color[mesh.Vertices.Count];
             for (int vertex = 0; vertex < colors.Length; vertex++)
                 colors[vertex] = color(measure(obj, index, mesh, vertex));
-            _ = mesh.VertexColors.SetColors(colors);
+            mesh.VertexColors.SetColors(colors);
         }
     }
 

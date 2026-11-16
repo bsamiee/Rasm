@@ -1,19 +1,15 @@
 public import Foundation
-import Synchronization
 import System
+import os
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
 public struct RotatingFile: Sendable {
-    private final class Held: Sendable {
-        let state: Mutex<(handle: FileHandle?, failure: FileFailure?)> = .init((nil, nil))
-    }
-
     public let url: URL
     public var size: Int = 8 << 20
     public var age: Duration = .seconds(86_400)
     public var files: Int = 7
-    private let held: Held = .init()
+    private let state = OSAllocatedUnfairLock<(handle: FileHandle?, failure: FileFailure?)>(initialState: (nil, nil))
 
     public init(_ url: URL) { self.url = url }
 }
@@ -23,7 +19,7 @@ public struct RotatingFile: Sendable {
 extension RotatingFile {
     public var urls: [URL] { stride(from: files, through: 0, by: -1).map(file) }
 
-    public var failure: FileFailure? { held.state.withLock { held in held.failure } }
+    public var failure: FileFailure? { state.withLock { held in held.failure } }
 
     private func file(_ index: Int) -> URL { index == 0 ? url : url.appendingPathExtension(String(index)) }
 
@@ -51,7 +47,7 @@ extension RotatingFile {
     public func append(_ data: Data, at now: Date = .now) throws(FileFailure) {
         let path = FilePath(url.path(percentEncoded: false))
         let expiry: Duration = .seconds(now.timeIntervalSince1970) - age
-        try held.state.withLock { held throws(FileFailure) in
+        try state.withLock { held -> Result<Void, FileFailure> in
             do {
                 let inode = try ifPresent { () throws(Errno) in try path.stat().inode }
                 if let stale = held.handle, try FileDescriptor(rawValue: stale.fileDescriptor).stat().inode != inode {
@@ -69,11 +65,12 @@ extension RotatingFile {
                 held.handle = current
                 try current.write(contentsOf: data)
                 held.failure = nil
+                return .success(())
             } catch {
                 let failure = FileFailure(file: url, reason: .filesystem(error))
                 held.failure = failure
-                throw failure
+                return .failure(failure)
             }
-        }
+        }.get()
     }
 }

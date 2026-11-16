@@ -1,6 +1,5 @@
 using Rasm.Rhino.Document.Units;
 using Rhino;
-using SuperLinq;
 
 namespace Rasm.Rhino.Modeling.Curves;
 
@@ -12,7 +11,7 @@ public sealed partial class AscendingParameters {
     public Seq<double> Values { get; }
 
     static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref Seq<double> values) =>
-        validationError = values.Count >= 2 && values.Window(2, static pair => pair[0] < pair[1]).All(static increasing => increasing)
+        validationError = values.Count >= 2 && values.Zip(values.Tail).ForAll(static pair => pair.First < pair.Second)
             ? null
             : new RhinoFault(values, RhinoReason.Outside);
 }

@@ -189,9 +189,9 @@ public static class Layouts {
             Some: static held => IO.pure(held.Index),
             None: (from shapes in marks.TraverseM(static mark => IO.lift(mark.Shape).Bind(static made => use(() => made))).As()
                    from index in GeometryPair.WithAttributes(doc.CreateDefaultAttributes, shapes.Map(static shape => new GeometryPair(shape, None)), (geometry, attributes) => IO.lift(() => {
-                       _ = attributes.Zip(marks).Iter(row => {
+                       attributes.Zip(marks).Iter(row => {
                            row.First.LayerIndex = layer;
-                           _ = row.Second.PlotWeight.Iter(stroke => (row.First.PlotWeightSource, row.First.PlotWeight) = (ObjectPlotWeightSource.PlotWeightFromObject, stroke));
+                           row.Second.PlotWeight.Iter(stroke => (row.First.PlotWeightSource, row.First.PlotWeight) = (ObjectPlotWeightSource.PlotWeightFromObject, stroke));
                        });
                        return Conversions.Required(Conversions.Present(doc.InstanceDefinitions.Add(name, FrameKey, Point3d.Origin, geometry, attributes)));
                    }))

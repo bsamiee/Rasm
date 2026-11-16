@@ -43,9 +43,9 @@ public sealed record LayerStateMask(RestoreLayerProperties Properties, bool Mode
     public IO<Unit> Write(Option<RhinoDoc> doc) =>
         Panel.Map(owner => doc.Match(
             Some: document => {
-                _ = document.Strings.SetString(owner.Section, PropertiesKey, ((uint)Properties).ToString(CultureInfo.InvariantCulture));
-                _ = document.Strings.SetString(owner.Section, ModelKey, ModelProperties.ToString(CultureInfo.InvariantCulture));
-                _ = document.Strings.SetString(owner.Section, ViewportKey, ViewportProperties.ToString(CultureInfo.InvariantCulture));
+                document.Strings.SetString(owner.Section, PropertiesKey, ((uint)Properties).ToString(CultureInfo.InvariantCulture));
+                document.Strings.SetString(owner.Section, ModelKey, ModelProperties.ToString(CultureInfo.InvariantCulture));
+                document.Strings.SetString(owner.Section, ViewportKey, ViewportProperties.ToString(CultureInfo.InvariantCulture));
             },
             None: () => {
                 PersistentSettings node = owner.Settings.AddChild(SettingsNode);

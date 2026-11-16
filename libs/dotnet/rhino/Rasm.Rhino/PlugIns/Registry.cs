@@ -32,7 +32,7 @@ public static class PlugInRegistry {
     private static IO<Unit> LoadInstalled(Guid id) =>
         from info in Products.Of(() => PlugIn.GetPlugInInfo(id))
         from silent in IO.lift(() => {
-            _ = info.IsLoadProtected(out bool loadSilently);
+            info.IsLoadProtected(out bool loadSilently);
             return RhinoFault.Unless(loadSilently, RhinoReason.Unavailable, id);
         })
         from loaded in when(!info.IsLoaded, Products.Accepted(() => PlugIn.LoadPlugIn(id))).As()
@@ -43,7 +43,7 @@ public static class PlugInRegistry {
     public static IO<Unit> SetLoadProtection(Guid id, bool loadSilently) =>
         from info in Products.Of(() => PlugIn.GetPlugInInfo(id))
         from current in IO.lift(() => {
-            _ = info.IsLoadProtected(out bool held);
+            info.IsLoadProtected(out bool held);
             return held;
         })
         let changed = current != loadSilently

@@ -49,8 +49,8 @@ public sealed record NumberRange(double Low, double High) {
 
     internal Unit Applied(NumericUpDownWithUnitParsing field) {
         (field.MinValue, field.MaxValue, field.Suffix) = (Low, High, Conversions.Unset(Suffix.Map(static suffix => $" {suffix}")));
-        _ = Step.Iter(step => field.Increment = step);
-        _ = Decimals.Iter(decimals => (field.DecimalPlaces, field.MaximumDecimalPlaces) = (decimals, decimals));
+        Step.Iter(step => field.Increment = step);
+        Decimals.Iter(decimals => (field.DecimalPlaces, field.MaximumDecimalPlaces) = (decimals, decimals));
         return unit;
     }
 }

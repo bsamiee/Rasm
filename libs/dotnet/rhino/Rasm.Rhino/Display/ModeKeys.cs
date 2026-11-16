@@ -149,7 +149,7 @@ internal static partial class Ini {
 
     private static IniData Data(Guid id, HashMap<(Option<string> Section, string Key), string> table) {
         IniData data = new() { Configuration = Configuration };
-        _ = toSeq(Enumerable.OrderBy(
+        toSeq(Enumerable.OrderBy(
                 table.AsIterable().Select(row => (Name: row.Key.Section.Match(Some: section => $@"DisplayMode\{id:D}\{section}", None: () => $@"DisplayMode\{id:D}"), row.Key.Key, row.Value)),
                 static row => row.Name, StringComparer.Ordinal))
             .Iter(row => data[row.Name][row.Key] = row.Value);

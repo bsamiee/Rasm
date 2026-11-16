@@ -42,7 +42,7 @@ public abstract class DefinedEffect<TSelf, TState> : PostEffect
     private readonly Atom<TState> held = Atom(TSelf.Definition.Default);
 
     protected DefinedEffect() =>
-        _ = EffectList.Held(this, text => EffectList.Decoded<TState>(text).Exists(state => EqualityComparer<TState>.Default.Equals(state, held.Value)));
+        EffectList.Held(this, text => EffectList.Decoded<TState>(text).Exists(state => EqualityComparer<TState>.Default.Equals(state, held.Value)));
 
     // --- [EXECUTION]
 
@@ -82,16 +82,16 @@ public abstract class DefinedEffect<TSelf, TState> : PostEffect
         return Session.Run(Products.Accepted(() => target.SetValue(EffectList.StateKey, EffectList.Encoded(held.Value))).Map(static _ => true), failed: false);
     }
 
-    public sealed override void ResetToFactoryDefaults() => _ = Session.Run(Changing(IO.pure(TSelf.Definition.Default)));
+    public sealed override void ResetToFactoryDefaults() => Session.Run(Changing(IO.pure(TSelf.Definition.Default)));
 
     private IO<Unit> Changing(IO<TState> next) =>
         IO.lift(() => BeginChange(RenderContent.ChangeContexts.Program))
-        >> next.Bind(state => writeIO(held, state)).Bind(_ => IO.lift(Changed)).Finally(IO.lift(() => _ = EndChange()));
+        >> next.Bind(state => writeIO(held, state)).Bind(_ => IO.lift(Changed)).Finally(IO.lift(EndChange));
 
     // --- [UI]
 
     public sealed override void AddUISections(PostEffectUI ui) =>
-        _ = Session.Run(Products.Each(TSelf.Definition.Sections.Map(build => IO.lift(() => ui.AddSection(new DefinedEffectSection<TState>(this, TSelf.Definition.Default, build))))));
+        Session.Run(Products.Each(TSelf.Definition.Sections.Map(build => IO.lift(() => ui.AddSection(new DefinedEffectSection<TState>(this, TSelf.Definition.Default, build))))));
 
     public sealed override bool DisplayHelp() =>
         Session.Run(TSelf.Definition.Help.Map(static topic => topic.Show.Map(static _ => true)).IfNone(IO.pure(value: false)), failed: false);
@@ -99,7 +99,7 @@ public abstract class DefinedEffect<TSelf, TState> : PostEffect
     // --- [RELEASE]
 
     public sealed override void Dispose(bool bDisposing) {
-        _ = EffectList.Released(this);
+        EffectList.Released(this);
         base.Dispose(bDisposing);
     }
 }

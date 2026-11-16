@@ -86,7 +86,7 @@ actor ClaudeClient: ProviderClient {
     private let paths: FileLocations
     private let environment: [Environment.Key: String]
     private let username: String
-    private let logger: Logger = .init(label: String(reflecting: ClaudeClient.self))
+    private let logger = Logger(label: String(reflecting: ClaudeClient.self))
     private var lastCredential: ClaudeCredential?
     private var reading: Task<Result<ClaudeUsageReport?, AccountFailure>, Never>?
 
@@ -110,7 +110,7 @@ actor ClaudeClient: ProviderClient {
     }
 
     private nonisolated func privateStore(_ id: UUID) -> ClaudeCredentialStore {
-        ClaudeCredentialStore(home: paths.home, environment: [.claudeConfigDirectory: FilePath(paths.claudeDirectory(id).path(percentEncoded: false)).string], username: username)
+        ClaudeCredentialStore(home: paths.home, environment: ["CLAUDE_CONFIG_DIR": FilePath(paths.claudeDirectory(id).path(percentEncoded: false)).string], username: username)
     }
 
     // --- [SELECTION]

@@ -29,7 +29,7 @@ internal sealed class ContentBody<TState> where TState : notnull {
     public ContentBody(RenderContent content, ContentDefinition<TState> definition) {
         this.definition = definition;
         fields = definition.Fields.Map(row => (Field: row.Add(content.Fields, Conversions.Unset(row.Prompt.Map(static prompt => LocalText.Of(prompt).Local)), definition.Default), Row: row)).Strict();
-        _ = fields.Iter(bound => content.BindParameterToField(bound.Field.Name, bound.Field, RenderContent.ChangeContexts.UI));
+        fields.Iter(bound => content.BindParameterToField(bound.Field.Name, bound.Field, RenderContent.ChangeContexts.UI));
     }
 
     public TState State() => fields.Fold(definition.Default, static (state, bound) => bound.Row.Read(bound.Field, state));
@@ -38,7 +38,7 @@ internal sealed class ContentBody<TState> where TState : notnull {
         Contents.Edit(content, RenderContent.ChangeContexts.Program, [
             Steps.Then<RenderContent>(changed => {
                 TState next = change(State());
-                _ = fields.Iter(bound => changed.SetParameter(bound.Field.Name, bound.Row.Value(next)));
+                fields.Iter(bound => changed.SetParameter(bound.Field.Name, bound.Row.Value(next)));
                 return changed;
             }),
         ]);
@@ -53,7 +53,7 @@ internal sealed class ContentBody<TState> where TState : notnull {
     public Option<Bitmap> Icon(Size size) => Optional(DrawingUtilities.BitmapFromSvg(definition.Svg, size.Width, size.Height, adjustForDarkMode: true));
 
     public void Sections(RenderContent content) =>
-        _ = Session.Run(when(definition.Fields.Exists(static field => field.Prompt.IsSome), Products.Accepted(() => content.AddAutomaticUserInterfaceSection(TypeName, 0))).As());
+        Session.Run(when(definition.Fields.Exists(static field => field.Prompt.IsSome), Products.Accepted(() => content.AddAutomaticUserInterfaceSection(TypeName, 0))).As());
 
     public string[] Excluded(string[] names) => [.. names, .. definition.Fields.Filter(static field => !field.Hashed).Map(static field => field.Key)];
 }

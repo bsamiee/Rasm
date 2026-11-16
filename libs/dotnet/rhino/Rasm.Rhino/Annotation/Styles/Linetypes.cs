@@ -123,8 +123,8 @@ public static class Linetypes {
             }))
         from styled in IO.lift(() => {
             staged.LineCapStyle = definition.Settings.LineCapStyle;
-            _ = definition.Settings.LineJoinStyle.Iter(joint => staged.LineJoinStyle = joint);
-            _ = definition.Settings.AlwaysModelDistances.Iter(model => staged.AlwaysModelDistances = model);
+            definition.Settings.LineJoinStyle.Iter(joint => staged.LineJoinStyle = joint);
+            definition.Settings.AlwaysModelDistances.Iter(model => staged.AlwaysModelDistances = model);
         })
         from tapered in IO.lift(() => taper.Match(
             Some: lowered => lowered.Waist.Match(

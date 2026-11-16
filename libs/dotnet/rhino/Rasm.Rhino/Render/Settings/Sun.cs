@@ -71,7 +71,7 @@ public sealed record SunSite(GeoCoordinate Place, Angle North, StandardOffset St
         IO.lift(() => {
             (sun.Latitude, sun.Longitude, sun.North) = (Place.Latitude.Degrees.ToDouble(), Place.Longitude.Degrees.ToDouble(), North.Degrees.ToDouble());
             (sun.TimeZone, sun.DaylightSavingOn) = (Standard.Hours, Saving.IsSome);
-            _ = Saving.Iter(saving => sun.DaylightSavingMinutes = saving.Minutes);
+            Saving.Iter(saving => sun.DaylightSavingMinutes = saving.Minutes);
         });
 
     public IO<Unit> SetDateTime(Sun sun, LocalDateTime local) =>

@@ -34,7 +34,7 @@ public sealed record GrasshopperTheme(string Name) {
         get {
             SkinDefinition definition = SkinDefinition.Default;
             Seq<(PropertyId Id, Binding Binding)> chosen = toSeq(SkinProperties.All).Choose(id => Skin(id).Map(binding => (id, binding))).Strict();
-            _ = chosen.Iter(row => definition.Unbind(row.Id));
+            chosen.Iter(row => definition.Unbind(row.Id));
             return chosen.Traverse(row => Try.lift(fun(() => definition.Bind(row.Id, row.Binding))).Run()
                     .MapFail(error => new GrasshopperFault(SkinProperties.ToToken(row.Id), GrasshopperReason.Invalid, Inner: error)))
                 .As().Map(_ => definition);

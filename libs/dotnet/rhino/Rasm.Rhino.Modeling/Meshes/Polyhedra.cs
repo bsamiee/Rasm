@@ -31,7 +31,7 @@ public sealed partial class PointGroup {
          select new Quaternion(components[0], components[1], components[2], components[3]))
         .Distinct()
         .Map(static root => {
-            _ = root.GetRotation(out Transform rotation);
+            root.GetRotation(out Transform rotation);
             return rotation;
         }).Strict();
 

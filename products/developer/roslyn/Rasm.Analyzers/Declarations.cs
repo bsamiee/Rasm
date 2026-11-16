@@ -228,19 +228,19 @@ public sealed class SingleReaderAnalyzer : DiagnosticAnalyzer {
                 if (analysis.Operation is INameOfOperation name) {
                     SymbolInfo info = analysis.Operation.SemanticModel!.GetSymbolInfo(name.Argument.Syntax, analysis.CancellationToken);
                     foreach (ISymbol symbol in info.Symbol is { } found ? [found] : info.CandidateSymbols)
-                        _ = pinned.TryAdd(symbol.OriginalDefinition, 0);
+                        pinned.TryAdd(symbol.OriginalDefinition, 0);
                     return;
                 }
                 if (Target(analysis.Operation) is not { } referenced) return;
                 ISymbol target = (referenced is IMethodSymbol { ReducedFrom: { } reduced } ? reduced : referenced).OriginalDefinition;
                 if (analysis.IsGeneratedCode) {
-                    _ = pinned.TryAdd(Member(target), 0);
+                    pinned.TryAdd(Member(target), 0);
                     return;
                 }
                 ISymbol reader = Member(Enclosing(analysis.ContainingSymbol));
                 if (analysis.Operation is IPropertyReferenceOperation read && hidden(read.Property) && analysis.ContainingSymbol.ContainingType is { } containing) uses.Add((read, containing));
-                if (Candidate(target)) _ = reads.AddOrUpdate(target, (analysis.Operation, reader, 1), static (_, held) => (held.Read, held.Reader, held.Count + 1));
-                else if (target.DeclaredAccessibility is not Accessibility.Private && Sourced(target)) _ = assembled.AddOrUpdate(Member(target), (analysis.Operation, reader, 1), static (_, held) => (held.Read, held.Reader, held.Count + 1));
+                if (Candidate(target)) reads.AddOrUpdate(target, (analysis.Operation, reader, 1), static (_, held) => (held.Read, held.Reader, held.Count + 1));
+                else if (target.DeclaredAccessibility is not Accessibility.Private && Sourced(target)) assembled.AddOrUpdate(Member(target), (analysis.Operation, reader, 1), static (_, held) => (held.Read, held.Reader, held.Count + 1));
             },
             OperationKind.FieldReference,
             OperationKind.PropertyReference,
@@ -325,7 +325,7 @@ public sealed class SingleReaderAnalyzer : DiagnosticAnalyzer {
             foreach (KeyValuePair<ISymbol, (IOperation Read, ISymbol Reader, int Count)> pair in reads) {
                 end.CancellationToken.ThrowIfCancellationRequested();
                 if (pair.Value.Count is 1 && !pinned.ContainsKey(pair.Key) && !cyclic.Contains(pair.Key) && values.TryGetValue(pair.Key, out IOperation? value) && Inlined(pair.Key, value, pair.Value.Read, pair.Value.Reader)) {
-                    _ = reported.Add(pair.Key);
+                    reported.Add(pair.Key);
                     end.ReportDiagnostic(Diagnostic.Create(Rule, pair.Key.Locations[0], [pair.Value.Read.Syntax.GetLocation()], pair.Key.Name, Named(pair.Value.Reader)));
                 }
             }
@@ -378,7 +378,7 @@ public sealed class SingleReaderAnalyzer : DiagnosticAnalyzer {
             foreach (KeyValuePair<IPropertySymbol, IOperation> pair in forwards) {
                 end.CancellationToken.ThrowIfCancellationRequested();
                 if (!Readable(pair.Key, pair.Value)) continue;
-                _ = reported.Add(pair.Key);
+                reported.Add(pair.Key);
                 end.ReportDiagnostic(Diagnostic.Create(Forwarded, pair.Key.Locations[0], pair.Key.Name, pair.Value.Syntax));
             }
             foreach (KeyValuePair<ISymbol, (IOperation Read, ISymbol Reader, int Count)> pair in assembled) {

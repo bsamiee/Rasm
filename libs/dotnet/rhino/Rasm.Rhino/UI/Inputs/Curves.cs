@@ -74,14 +74,14 @@ internal sealed record CurvePlot(CurveChannel Channel) {
     public void Paint(Graphics graphics, RectangleF bounds, ThemeZone zone) {
         RectangleF frame = new(0f, 0f, bounds.Width - 1f, bounds.Height - 1f);
         graphics.FillRectangle(zone.Entry.Enabled.Background, frame);
-        _ = Underlay.Iter(bins => {
+        Underlay.Iter(bins => {
             using SolidBrush brush = new(new Color(zone.Text.Secondary, 0.35f));
             float width = frame.Width / bins.Count;
             float peak = float.Max(bins.Fold(0f, float.Max), float.Epsilon);
-            _ = bins.Iter((bin, index) => graphics.FillRectangle(brush, new RectangleF(index * width, frame.Bottom - (bin / peak * frame.Height), width, bin / peak * frame.Height)));
+            bins.Iter((bin, index) => graphics.FillRectangle(brush, new RectangleF(index * width, frame.Bottom - (bin / peak * frame.Height), width, bin / peak * frame.Height)));
         });
         graphics.DrawRectangle(zone.Entry.Enabled.Border, frame);
-        _ = References.Iter(reference => Traced(graphics, reference, zone.Text.Disabled, bounds.Size));
+        References.Iter(reference => Traced(graphics, reference, zone.Text.Disabled, bounds.Size));
         Traced(graphics, Channel.Fit, zone.Text.Enabled, bounds.Size);
         foreach ((Vector2 point, int index) in Channel.Points.Map(static (point, index) => (point, index))) {
             PointF at = Placed(point, bounds.Size);
@@ -132,7 +132,7 @@ public sealed record CurveRow(IterableNE<CurveChannel> Channels) : IRow<CurveRow
             select unit
         from pressed in Subscriptions.On<MouseEventArgs>(h => view.MouseDown += h, h => view.MouseDown -= h).Attach(args =>
             from focused in IO.lift(view.Focus)
-            from captured in IO.lift(() => { if (args.Buttons is MouseButtons.Primary) _ = view.CaptureMouse(); })
+            from captured in IO.lift(() => { if (args.Buttons is MouseButtons.Primary) view.CaptureMouse(); })
             let picked = args.Buttons is MouseButtons.Primary || !view.IsMouseCaptured ? view.State.Nearest(args.Location, view.Size) : view.State.Picked
             from chosen in view.Show(view.State with { Picked = picked })
             from added in when(picked.IsNone && args.Buttons is MouseButtons.Primary, Inserted(active, view, [view.State.Plotted(args.Location, view.Size).X])).As()
@@ -184,7 +184,7 @@ public sealed record CurveRow(IterableNE<CurveChannel> Channels) : IRow<CurveRow
         select ((Control)field, (Func<Option<float>, IO<Unit>>)(value =>
             from channel in active
             from ranged in IO.lift(() => {
-                _ = range(channel).Applied(field);
+                range(channel).Applied(field);
                 field.Enabled = value.IsSome;
             })
             from written in value.Traverse(held => show(Some((double)held))).As()

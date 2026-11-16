@@ -55,7 +55,7 @@ public static partial class ErrorDiagnostics {
                 return unit;
             }
             (Option<Exception> thrown, string stated) = Parts(error);
-            _ = Marked(Activity.Current, error);
+            Marked(Activity.Current, error);
             if (stated.Length is 0) Threw(logger, member, ErrorType(error), thrown.ValueUnsafe());
             else Failure(logger, member, ErrorType(error), stated, thrown.ValueUnsafe());
             return unit;

@@ -67,7 +67,7 @@ public sealed record BrowserRow<TItem, TKey>(Func<TItem, TKey> Key, Func<TItem, 
         let controls = wanted.Choose(key => held.Find(key).Map(static button => (Control)button.Value))
         from ordered in unless(toSeq(grid.Items) == controls, IO.lift(() => {
             grid.Items.Clear();
-            _ = controls.Iter(control => grid.Items.Add(control));
+            controls.Iter(control => grid.Items.Add(control));
         })).As()
         from dropped in toSeq(held.Keys).Filter(key => !chosen.Contains(key)).TraverseM(key => Products.Clear(buttons, key).Scoped(owned)).As()
         from pruned in toSeq(images.Keys).Filter(request => !requests.Contains(request)).TraverseM(request => Products.Clear(tiles, request).Scoped(owned)).As()

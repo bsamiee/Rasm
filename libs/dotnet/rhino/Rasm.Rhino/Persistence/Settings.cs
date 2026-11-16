@@ -181,7 +181,7 @@ internal static class SettingOverloads<T> where T : notnull {
         Typed.Iter(write => write(settings, key, value));
 
     private static Unit Stored(PersistentSettings settings, string key, T fallback, Option<Func<T, bool>> rule) {
-        _ = Defaulter.Iter(write => write(settings, key, fallback));
+        Defaulter.Iter(write => write(settings, key, fallback));
         return rule.Iter(check => settings.RegisterSettingsValidator<T>(key, (_, args) => args.Cancel = !check(args.NewValue)));
     }
 

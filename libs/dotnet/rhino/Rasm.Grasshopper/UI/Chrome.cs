@@ -25,7 +25,7 @@ public static class Chrome {
                 Shortcut = shortcut,
                 DelegatedCommand = new RelayCommand<Canvas>(
                     canvas => {
-                        if (ready(canvas)) _ = Shown(face, run(canvas));
+                        if (ready(canvas)) Shown(face, run(canvas));
                     },
                     canvas => ready(canvas)),
             },
@@ -66,7 +66,7 @@ public static class Chrome {
 
     private static Unit Opened(Seq<Command> commands, bool open) =>
         commands.Iter(command => {
-            if (command is CheckCommand toggle) _ = Refreshed(toggle);
+            if (command is CheckCommand toggle) Refreshed(toggle);
             else if (command.DelegatedCommand is RelayCommand<Canvas> relay && open) relay.UpdateCanExecute();
             else if (command.DelegatedCommand is RelayCommand<Canvas>) command.Enabled = true;
         });
@@ -92,7 +92,7 @@ public static class Chrome {
             from host in IO.lift(() => (EditorMainMenu)editor.Menu)
             from menu in use(IO.lift(() => {
                 SubMenuItem submenu = new() { Text = Session.PlugIn.Name };
-                _ = commands.Iter(command => {
+                commands.Iter(command => {
                     command.CommandParameter = editor.Canvas;
                     submenu.Items.Add(command.CreateMenuItem());
                 });
@@ -110,9 +110,9 @@ public static class Chrome {
             Seq<Command> commands = pick.Kind == kind && !(canvas.AllowedActions.AllowObjectMenu && Optional(canvas.Document).Exists(document => document.Objects.Find(pick.ObjectUnderPick) is not null))
                 ? rows(pick)
                 : Seq<Command>();
-            _ = commands.Head.Iter(_ => args.Menu.AddSeparator());
-            _ = Opened(commands, open: true);
-            _ = commands.Iter(command => {
+            commands.Head.Iter(_ => args.Menu.AddSeparator());
+            Opened(commands, open: true);
+            commands.Iter(command => {
                 command.CommandParameter = canvas;
                 args.Menu.Items.Add(command.CreateMenuItem());
             });
@@ -123,14 +123,14 @@ public static class Chrome {
             Memo<Color> rest = memo(() => control.FloatingButtons[command.MenuText].Colour);
             control.FloatingButtons.Add(position, command.MenuText, command.ToolTip, click: (button, _) => Clicked(button));
             _ = rest.Value;
-            _ = Shaded(control.FloatingButtons[command.MenuText]);
+            Shaded(control.FloatingButtons[command.MenuText]);
             return command.MenuText;
 
             Unit Shaded(FloatingButton button) => Optional(command as CheckCommand).Iter(toggle => button.ModifyColour(Refreshed(toggle) ? SystemColors.Highlight : rest.Value));
 
             Response Clicked(FloatingButton button) {
-                _ = Execute(command, control);
-                _ = Shaded(button);
+                Execute(command, control);
+                Shaded(button);
                 return Response.Handled;
             }
         }), name => IO.lift(() => control.FloatingButtons.Close(name)))).As().Map(unit);
@@ -138,7 +138,7 @@ public static class Chrome {
     public static IO<Unit> Shortcuts(Canvas canvas, Seq<Command> commands) =>
         Subscriptions.Inline<KeyEventArgs>(h => canvas.KeyDown += h, h => canvas.KeyDown -= h).Attach(args => IO.lift(() =>
             commands.Find(command => !args.Handled && command.Shortcut is not Keys.None && command.Shortcut == args.KeyData && Allowed(command, canvas)).Iter(command => {
-                _ = Execute(command, canvas);
+                Execute(command, canvas);
                 args.Handled = true;
             })));
 }

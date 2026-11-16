@@ -28,7 +28,7 @@ public enum Folder: Sendable {
 final class UnrecognizedValues: AccessReporter {
     private let accepted: [String: [String]]
     private let raw: ConfigReader
-    private let state: Mutex<(reported: Set<String>, pending: [(variable: String, value: String, accepted: String)])> = .init(([], []))
+    private let state = Mutex<(reported: Set<String>, pending: [(variable: String, value: String, accepted: String)])>(([], []))
 
     init(accepted: [String: [String]], raw: ConfigReader) { (self.accepted, self.raw) = (accepted, raw) }
 
@@ -59,7 +59,7 @@ final class UnrecognizedValues: AccessReporter {
 }
 
 public struct Program: Sendable {
-    public static let current: Program = .init()
+    public static let current = Self()
 
     public let identifier: String
     public let name: String

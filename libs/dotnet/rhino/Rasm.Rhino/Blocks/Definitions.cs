@@ -61,7 +61,7 @@ public static class Definitions {
 
         public (int TopLevel, int Nested) Usage {
             get {
-                _ = definition.UseCount(out int topLevel, out int nested);
+                definition.UseCount(out int topLevel, out int nested);
                 return (topLevel, nested);
             }
         }
@@ -116,8 +116,8 @@ public static class Definitions {
             return watching;
         }).Bind(static watching => unless(watching,
             (Products.Released(static () => {
-                _ = atomic(static () => Watching.Value = false);
-                _ = Evicted(static _ => true);
+                atomic(static () => Watching.Value = false);
+                Evicted(static _ => true);
             })
              >> Subscriptions.Inline<DocumentEventArgs>(static h => RhinoDoc.CloseDocument += h, static h => RhinoDoc.CloseDocument -= h)
                  .Attach(static args => IO.lift(() => Evicted(key => key.Document == args.DocumentSerialNumber)))

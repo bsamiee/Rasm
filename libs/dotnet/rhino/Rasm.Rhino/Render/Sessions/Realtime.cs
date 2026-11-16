@@ -152,7 +152,7 @@ public abstract class DefinedRealtimeEngine<TSelf> : RealtimeDisplayMode where T
     public sealed override bool UseFastDraw() => TSelf.Definition.FastDraw;
 
     public sealed override void CreateWorld(RhinoDoc doc, ViewInfo viewInfo, DisplayPipelineAttributes displayPipelineAttributes) =>
-        _ = attributes.Swap(_ => Some(displayPipelineAttributes));
+        attributes.Swap(_ => Some(displayPipelineAttributes));
 
     public sealed override bool StartRenderer(int w, int h, RhinoDoc doc, ViewInfo view, ViewportInfo viewportInfo, bool forCapture, RenderWindow renderWindow) =>
         Session.Run(Started(new RealtimeTarget(new Size(w, h), forCapture, renderWindow), doc, view, viewportInfo).Map(static _ => true), failed: false);
@@ -165,7 +165,7 @@ public abstract class DefinedRealtimeEngine<TSelf> : RealtimeDisplayMode where T
                 .IfNone(IO.lift(() => base.OnRenderSizeChanged(width, height))),
             failed: false);
 
-    public sealed override void ShutdownRenderer() => _ = Session.Run(Stop().Finally(Closed));
+    public sealed override void ShutdownRenderer() => Session.Run(Stop().Finally(Closed));
 
     public sealed override void GetRenderSize(out int width, out int height) =>
         (width, height) = Running.Map(static session => (session.Target.Size.Width, session.Target.Size.Height)).IfNone((0, 0));

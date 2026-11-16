@@ -248,7 +248,7 @@ internal static partial class QueueRuns {
                 RenderSettings.RenderingSources.SnapShot => Some<Action<string>>(view => settings.Snapshot = view),
                 _ => None,
             };
-            _ = placed.Iter(place => entry.View.Iter(place));
+            placed.Iter(place => entry.View.Iter(place));
         }));
 
     private static IO<Unit> Widened(RunScope scope, Pending run, OverscanFrame rendered) =>

@@ -77,7 +77,7 @@ public static partial class ProcessEntry {
         TaskScheduler.UnobservedTaskException += (_, args) => Unobserved(logger, args.Exception);
         using (activities.StartActivity($"{name}.{nameof(Run)}", ActivityKind.Internal, ProcessEnvironment.Extract(None))) {
             int code = program(new ProcessServices(name, settings, loggers, activities)).RunSafe().IfFail(error => {
-                _ = logger.Failed(error, name);
+                logger.Failed(error, name);
                 return 1;
             });
             Stop([sdk.LoggerProvider], [sdk.TracerProvider], [sdk.MeterProvider]);
@@ -89,9 +89,9 @@ public static partial class ProcessEntry {
         public IHostApplicationBuilder AddTelemetry() {
             string name = builder.Environment.ApplicationName;
             string? version = Assembly.GetEntryAssembly()?.GetName().Version?.ToString();
-            _ = builder.Configuration.AddEnvironmentVariables(ProcessEnvironment.Key(Some(name), ""));
+            builder.Configuration.AddEnvironmentVariables(ProcessEnvironment.Key(Some(name), ""));
             Logged(builder.Logging.ClearProviders(), builder.Configuration, name, version);
-            _ = Exported(builder.Services.AddOpenTelemetry(), builder.Configuration, name, version, HostSources, HostMeters).AddHostedService(static services => new Terminations(
+            Exported(builder.Services.AddOpenTelemetry(), builder.Configuration, name, version, HostSources, HostMeters).AddHostedService(static services => new Terminations(
                 services.GetRequiredService<ILoggerFactory>(), services.GetServices<LoggerProvider>(), services.GetServices<TracerProvider>(), services.GetServices<MeterProvider>()));
             return builder;
         }
@@ -114,9 +114,9 @@ public static partial class ProcessEntry {
             .ConfigureOpenTelemetryMeterProvider(metrics => metrics.AddMeter(["System.Runtime", .. meters]).AddProcessInstrumentation());
 
     private static void Logged(ILoggingBuilder logging, IConfiguration settings, string name, string? version) {
-        _ = logging.AddJsonLines(settings, name, Optional(version), [name]);
-        if (settings.GetSection("RandomProbabilisticSampler").Exists()) _ = logging.AddRandomProbabilisticSampler(settings);
-        _ = logging.Services.AddSingleton<ILoggerProvider>(_ =>
+        logging.AddJsonLines(settings, name, Optional(version), [name]);
+        if (settings.GetSection("RandomProbabilisticSampler").Exists()) logging.AddRandomProbabilisticSampler(settings);
+        logging.Services.AddSingleton<ILoggerProvider>(_ =>
             LogSettings.Read(settings, name, [name]).File.Target == LogTarget.Stderr
                 ? NullLoggerProvider.Instance
                 : new NLogLoggerProvider(
@@ -127,9 +127,9 @@ public static partial class ProcessEntry {
 
     private static void Stop(IEnumerable<LoggerProvider> logs, IEnumerable<TracerProvider> traces, IEnumerable<MeterProvider> metrics) =>
         Parallel.Invoke([
-            .. logs.Select(static provider => new Action(() => _ = provider.Shutdown(ExportMilliseconds))),
-            .. traces.Select(static provider => new Action(() => _ = provider.Shutdown(ExportMilliseconds))),
-            .. metrics.Select(static provider => new Action(() => _ = provider.Shutdown(ExportMilliseconds))),
+            .. logs.Select(static provider => new Action(() => provider.Shutdown(ExportMilliseconds))),
+            .. traces.Select(static provider => new Action(() => provider.Shutdown(ExportMilliseconds))),
+            .. metrics.Select(static provider => new Action(() => provider.Shutdown(ExportMilliseconds))),
         ]);
 
     private sealed class Terminations(ILoggerFactory loggers, IEnumerable<LoggerProvider> logs, IEnumerable<TracerProvider> traces, IEnumerable<MeterProvider> metrics) : IHostedService {

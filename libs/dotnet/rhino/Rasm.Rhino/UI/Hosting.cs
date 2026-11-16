@@ -159,11 +159,11 @@ internal sealed class HostedView(Func<IO<(ViewBody Body, Control Frame)>> realiz
         Session.Run((visible ? Realized : realized.Value.Map(static held => held.Value)).Traverse(held => held.Body.Shown(visible)).As());
 
     internal bool Activated(bool active) {
-        _ = Shown(active);
+        Shown(active);
         return true;
     }
 
-    internal Unit Reread => Session.Run(Current.Traverse(static body => body.Reread).As());
+    internal Unit Reread() => Session.Run(Current.Traverse(static body => body.Reread).As());
 
     internal bool Run(Func<ViewBody, IO<Unit>> step) => Session.Run(Current.Traverse(step).As().Map(static _ => true), failed: false);
 
@@ -203,7 +203,7 @@ internal sealed class HostedView(Func<IO<(ViewBody Body, Control Frame)>> realiz
 internal sealed class HostFrame(HostedView hosted) : Panel {
     protected override void Dispose(bool disposing) {
         if (disposing) {
-            _ = Session.Run(IO.lift(hosted.Scope.DisposeResources));
+            Session.Run(IO.lift(hosted.Scope.DisposeResources));
             hosted.Scope.Dispose();
         }
         base.Dispose(disposing);
@@ -229,17 +229,17 @@ public abstract class DefinedPanel<TSelf> : Panel, IPanel, IHelp where TSelf : D
 
     protected DefinedPanel(RhinoDoc document) {
         hosted = new HostedView(() => HostedView.Opened(TSelf.Definition, Some(document), new CommitMode.Immediate(), None));
-        _ = TSelf.Definition.MinimumSize.Iter(size => MinimumSize = size);
+        TSelf.Definition.MinimumSize.Iter(size => MinimumSize = size);
         Content = hosted.Frame.ValueUnsafe();
     }
 
     public string HelpUrl => HostedView.HelpUrl(TSelf.Definition);
 
-    public void PanelShown(uint documentSerialNumber, ShowPanelReason reason) => _ = hosted.Shown(visible: true);
+    public void PanelShown(uint documentSerialNumber, ShowPanelReason reason) => hosted.Shown(visible: true);
 
-    public void PanelHidden(uint documentSerialNumber, ShowPanelReason reason) => _ = hosted.Shown(visible: false);
+    public void PanelHidden(uint documentSerialNumber, ShowPanelReason reason) => hosted.Shown(visible: false);
 
-    public void PanelClosing(uint documentSerialNumber, bool onCloseDocument) => _ = hosted.Shown(visible: false);
+    public void PanelClosing(uint documentSerialNumber, bool onCloseDocument) => hosted.Shown(visible: false);
 }
 
 internal sealed class DefinedOptionsPage : OptionsDialogPage {
@@ -268,13 +268,13 @@ internal sealed class DefinedOptionsPage : OptionsDialogPage {
 
     public override bool OnActivate(bool active) => hosted.Activated(active);
 
-    public override void OnHelp() => _ = Session.Run(HelpTopic.Shown(row.Help));
+    public override void OnHelp() => Session.Run(HelpTopic.Shown(row.Help));
 
     public override bool OnApply() => hosted.Run(static body => body.Scope.Apply(body.Group));
 
-    public override void OnCancel() => _ = hosted.Run(static body => body.Scope.Revert(body.Group));
+    public override void OnCancel() => hosted.Run(static body => body.Scope.Revert(body.Group));
 
-    public override void OnDefaults() => _ = hosted.Run(static body => body.Scope.Commit(body.Group, body.Group.Defaults).Map(unit));
+    public override void OnDefaults() => hosted.Run(static body => body.Scope.Commit(body.Group, body.Group.Defaults).Map(unit));
 
     public override Result RunScript(RhinoDoc doc, RunMode mode) => HostedView.Scripted(row, IO.pure(doc), new CommitMode.Immediate());
 
@@ -335,11 +335,11 @@ internal sealed class DefinedPropertiesPage : ObjectPropertiesPage {
             select shown,
             failed: false);
 
-    public override void UpdatePage(ObjectPropertiesPageEventArgs e) => _ = hosted.Reread;
+    public override void UpdatePage(ObjectPropertiesPageEventArgs e) => hosted.Reread();
 
     public override bool OnActivate(bool active) => hosted.Activated(active);
 
-    public override void OnHelp() => _ = Session.Run(HelpTopic.Shown(row.Help));
+    public override void OnHelp() => Session.Run(HelpTopic.Shown(row.Help));
 
     public override Result RunScript(ObjectPropertiesPageEventArgs e) =>
         HostedView.Scripted(row, IO.lift(() => Conversions.Required(e.Document)), new CommitMode.Targets(this));
@@ -378,7 +378,7 @@ internal static class ViewOps {
         from parts in Runs(children).TraverseM(run => Part(run, scope)).As()
         from configured in IO.lift(() => {
             stack.HorizontalContentAlignment = HorizontalAlignment.Stretch;
-            _ = parts.Iter(part => stack.Items.Add(new StackLayoutItem(part.Body, part.Fill)));
+            parts.Iter(part => stack.Items.Add(new StackLayoutItem(part.Body, part.Fill)));
         })
         select (Control)stack;
 

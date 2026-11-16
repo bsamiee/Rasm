@@ -206,7 +206,7 @@ public sealed class DataFreeSmartEnumAnalyzer : DiagnosticAnalyzer {
                     })
                         && declaration.AttributeLists.SelectMany(static list => list.Attributes).All(attribute => Among(node.SemanticModel.GetSymbolInfo(attribute, node.CancellationToken).Symbol?.ContainingType, allowed));
                     bool items = declaration.Members.Any(static member => member is FieldDeclarationSyntax);
-                    _ = free.AddOrUpdate(type, (held, items), (_, prior) => (prior.Plain && held, prior.Items || items));
+                    free.AddOrUpdate(type, (held, items), (_, prior) => (prior.Plain && held, prior.Items || items));
                 },
                 SyntaxKind.ClassDeclaration);
             start.RegisterOperationAction(
@@ -287,7 +287,7 @@ public sealed class HostPickingUnionAnalyzer : DiagnosticAnalyzer {
                     ImmutableArray<IOperation> arms = [.. call.Arguments.Where(static argument => argument.Parameter?.Type.TypeKind is TypeKind.Delegate).Select(static argument => Stripped(argument.Value))];
                     if (arms.IsEmpty) return;
                     bool each = arms.All(arm => Lambda(arm) is { } function && Picks(function, owner, analysis.CancellationToken));
-                    _ = picked.AddOrUpdate(owner.OriginalDefinition, each, (_, prior) => prior && each);
+                    picked.AddOrUpdate(owner.OriginalDefinition, each, (_, prior) => prior && each);
                 },
                 OperationKind.Invocation);
             start.RegisterCompilationEndAction(end => {

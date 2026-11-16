@@ -208,7 +208,7 @@ public static class ObjectSelections {
 
     private static int Selected(Document document, LanguageExt.HashSet<Guid> chosen) {
         Seq<IDocumentObject> changed = toSeq(document.Objects.PrimaryAndSecondary).Filter(member => member.Selected != chosen.Contains(member.InstanceId)).Strict();
-        _ = changed.Iter(static member => member.Selection = member.Selected ? ObjectSelection.Unselected : ObjectSelection.Selected);
+        changed.Iter(static member => member.Selection = member.Selected ? ObjectSelection.Unselected : ObjectSelection.Selected);
         return changed.Count;
     }
 

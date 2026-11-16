@@ -82,9 +82,9 @@ public static class SurfaceConstruction {
         select surface;
 
     private static Unit Filled(HermiteSurface hermite, HermiteGrid grid) {
-        _ = grid.U.Values.Iter(hermite.SetUParameterAt);
-        _ = grid.V.Values.Iter(hermite.SetVParameterAt);
-        _ = grid.Stations.Iter((index, station) => {
+        grid.U.Values.Iter(hermite.SetUParameterAt);
+        grid.V.Values.Iter(hermite.SetVParameterAt);
+        grid.Stations.Iter((index, station) => {
             (int u, int v) = int.DivRem(index, grid.V.Values.Count);
             hermite.SetPointAt(u, v, station.Point);
             hermite.SetUTangentAt(u, v, station.UTangent);

@@ -65,7 +65,7 @@ internal sealed partial class SkinBody<TDefinition> where TDefinition : IDefined
     public SkinBody(Skin host, Func<bool> hasBootSplash, Action<int> setBootSplashProgress, Action dismissBootSplash, Func<string, RhinoDoc?> openNewDocument) {
         (this.hasBootSplash, this.setBootSplashProgress, this.dismissBootSplash, this.openNewDocument) = (hasBootSplash, setBootSplashProgress, dismissBootSplash, openNewDocument);
         Eto.Platform.Instance.LoadAssembly(typeof(SkinBody<TDefinition>).Assembly);
-        _ = Session.RunSafe(
+        Session.RunSafe(
             Session.Bind(host, typeof(TDefinition)).Bind(static _ => Subscriptions.Inline<EventHandler, EventArgs>(static h => RhinoApp.Closing += h, static h => RhinoApp.Closing -= h, static handler => handler.Invoke)
                 .Attach(static _ => Session.Close).Scoped()),
             CancellationToken.None).ThrowIfFail();
@@ -97,28 +97,28 @@ internal sealed partial class SkinBody<TDefinition> where TDefinition : IDefined
     // --- [LOADS]
 
     private void OnBeginLoadAtStartPlugIns(int expectedCount) =>
-        _ = Session.Run(Advanced(current => expectedCount > 0 ? new SkinLoad.Loading(expectedCount, None, Ended: 0) : current) >> PlugInRegistry.LoadPlugIns(TDefinition.Definition.PlugIns));
+        Session.Run(Advanced(current => expectedCount > 0 ? new SkinLoad.Loading(expectedCount, None, Ended: 0) : current) >> PlugInRegistry.LoadPlugIns(TDefinition.Definition.PlugIns));
 
     private void OnBeginLoadPlugIn(string description) =>
-        _ = Session.Run(Advanced(current => current.Switch<string, SkinLoad>(
+        Session.Run(Advanced(current => current.Switch<string, SkinLoad>(
             description,
             starting: static (_, starting) => starting,
             loading: static (begun, loading) => loading with { Current = Some(begun) },
             ready: static (_, ready) => ready)));
 
     private void OnEndLoadPlugIn() =>
-        _ = Session.Run(Advanced(static current => current.Switch<SkinLoad>(
+        Session.Run(Advanced(static current => current.Switch<SkinLoad>(
                 starting: static starting => starting,
                 loading: static loading => loading with { Ended = loading.Ended + 1 },
                 ready: static ready => ready))
             .Bind(next => IO.lift(() => next.Percent.Iter(setBootSplashProgress))));
 
-    private void OnEndLoadAtStartPlugIns() => _ = Session.Run(Advanced(static _ => new SkinLoad.Ready()).Bind(_ => IO.lift(dismissBootSplash)));
+    private void OnEndLoadAtStartPlugIns() => Session.Run(Advanced(static _ => new SkinLoad.Ready()).Bind(_ => IO.lift(dismissBootSplash)));
 
     private IO<SkinLoad> Advanced(Func<SkinLoad, SkinLoad> transition) =>
         from next in load.SwapIO(transition)
         from shown in IO.lift(() => {
-            _ = splash.Value.Iter(owned => {
+            splash.Value.Iter(owned => {
                 Refresh(next, owned.Value.Status, owned.Value.Bar);
                 Placed(owned.Value.Window, Size.Max(owned.Value.Window.ClientSize, Size.Ceiling(owned.Value.Window.Content.GetPreferredSize())));
             });
@@ -128,18 +128,18 @@ internal sealed partial class SkinBody<TDefinition> where TDefinition : IDefined
 
     // --- [HOOKS]
 
-    private void OnMainFrameWindowCreated() => _ = Session.Run(TDefinition.Definition.MainFrameCreated.IfNone(IO.pure(unit)));
+    private void OnMainFrameWindowCreated() => Session.Run(TDefinition.Definition.MainFrameCreated.IfNone(IO.pure(unit)));
 
-    private void OnLicenseCheckCompleted() => _ = Session.Run(TDefinition.Definition.LicenseChecked.IfNone(IO.pure(unit)));
+    private void OnLicenseCheckCompleted() => Session.Run(TDefinition.Definition.LicenseChecked.IfNone(IO.pure(unit)));
 
-    private void OnBuiltInCommandsRegistered() => _ = Session.Run(TDefinition.Definition.CommandsRegistered.IfNone(IO.pure(unit)));
+    private void OnBuiltInCommandsRegistered() => Session.Run(TDefinition.Definition.CommandsRegistered.IfNone(IO.pure(unit)));
 
     // --- [SPLASH]
 
     private void ShowSplash() =>
-        _ = Session.Run(unless(hasBootSplash(), Products.Replace(splash, Splashed).Scoped().Bind(static _ => IO.lift(static () => Application.Instance.RunIteration()))).As());
+        Session.Run(unless(hasBootSplash(), Products.Replace(splash, Splashed).Scoped().Bind(static _ => IO.lift(static () => Application.Instance.RunIteration()))).As());
 
-    private void HideSplash() => _ = Session.Run(Products.Clear(splash).Scoped());
+    private void HideSplash() => Session.Run(Products.Clear(splash).Scoped());
 
     private IO<Splash> Splashed =>
         from mark in Mark
@@ -169,7 +169,7 @@ internal sealed partial class SkinBody<TDefinition> where TDefinition : IDefined
     // --- [HELP]
 
     private void ShowHelp() =>
-        _ = Session.Run(
+        Session.Run(
             from mark in Mark
             from detail in TDefinition.Definition.About.IfNone(static () =>
                 use(static () => new Label { Text = LocalText.Of("Rhino {0}", arguments: [RhinoApp.Version]).Local, Font = EtoFonts.NormalFont, TextAlignment = TextAlignment.Center })
@@ -188,7 +188,7 @@ internal sealed partial class SkinBody<TDefinition> where TDefinition : IDefined
     // --- [DOCUMENTS]
 
     private void ShowChooseTemplate() =>
-        _ = Session.Run(
+        Session.Run(
             Chosen(
                 from paths in HostDialogs.ShowOpenFileDialog(static dialog => {
                     dialog.Title = LocalText.Of("New from Template").Local;
@@ -199,7 +199,7 @@ internal sealed partial class SkinBody<TDefinition> where TDefinition : IDefined
                 select unit));
 
     private void ShowChooseRecent() =>
-        _ = Session.Run(
+        Session.Run(
             Chosen(
                 from recent in TDefinition.Definition.Recent.IfNone(static () => IO.lift(static () => toSeq(FileSettings.RecentlyOpenedFiles())))
                 from files in IO.pure(recent.Map(static path => new ChoiceItem<string>(path, path)).AsIterableNE())
@@ -223,7 +223,7 @@ internal sealed partial class SkinBody<TDefinition> where TDefinition : IDefined
                 Some: static plugIn => LocalText.Of("Loading {0}", arguments: [plugIn]),
                 None: static () => LocalText.Of("Loading plug-ins")),
             ready: static _ => LocalText.Of("Preparing viewports")).Local;
-        _ = state.Percent.Match(
+        state.Percent.Match(
             Some: percent => {
                 bar.Indeterminate = false;
                 bar.Value = percent;

@@ -26,13 +26,13 @@ public abstract class DefinedTab<TSelf> : Eto.Forms.Panel where TSelf : DefinedT
 
     public IO<Option<RenderWindow>> Window => IO.lift(() => Conversions.Present(RenderTabs.SidePaneUiIdFromTab(this)).Bind(static id => Optional(RenderWindow.FromSessionId(id))));
 
-    public void OnVisibilityChanged(bool visible) => _ = hosted.Shown(visible);
+    public void OnVisibilityChanged(bool visible) => hosted.Shown(visible);
 
-    public void TabActivated(uint state) => _ = hosted.Shown(state != 0);
+    public void TabActivated(uint state) => hosted.Shown(state != 0);
 
-    public void DisplayData() => _ = hosted.Reread;
+    public void DisplayData() => hosted.Reread();
 
-    public void DoHelp() => _ = Session.Run(HelpTopic.Shown(TSelf.Definition.Help));
+    public void DoHelp() => Session.Run(HelpTopic.Shown(TSelf.Definition.Help));
 
     public void Destroy() => Dispose();
 
@@ -55,7 +55,7 @@ public abstract class DefinedPane<TSelf> : Eto.Forms.Panel, IHelp where TSelf : 
             .Bind(data => Conversions.Present(ContentViews.SidePaneUiIdFromPanelObject(data, this)))
             .Bind(static id => Optional(RenderWindow.FromSessionId(id))));
 
-    public void OnVisibilityChanged(bool visible) => _ = hosted.Shown(visible);
+    public void OnVisibilityChanged(bool visible) => hosted.Shown(visible);
 
     public void Destroy() => Dispose();
 
@@ -87,7 +87,7 @@ internal sealed class DefinedContentSection : EtoContentUISection3, ICollapsible
 
     public override IHeaderButtonHandler NewHeaderButtonHandler() => hosted.Header.IfNone(base.NewHeaderButtonHandler);
 
-    public override void UpdateView(uint flags) => _ = hosted.Reread;
+    public override void UpdateView(uint flags) => hosted.Reread();
 
     private bool Excluded => base.Hidden || !Selected.Head.ForAll(row.Scope.Covers);
 

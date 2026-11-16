@@ -17,7 +17,7 @@ internal sealed class GumballGetter : GetTransform {
     internal GumballGetter(GumballDisplayConduit conduit, string prompt, Seq<RhinoObject> objects) {
         this.conduit = conduit;
         SetCommandPrompt(prompt);
-        _ = objects.Iter(ObjectList.Add);
+        objects.Iter(ObjectList.Add);
     }
 
     public override Transform CalculateTransform(RhinoViewport viewport, Point3d point) => conduit.InRelocate ? conduit.PreTransform : conduit.GumballTransform;
@@ -31,7 +31,7 @@ internal sealed class GumballGetter : GetTransform {
         if (e.Viewport.GetFrustumLine(e.WindowPoint.X, e.WindowPoint.Y, out Line line))
             pick.PickLine = line;
         pick.UpdateClippingPlanes();
-        _ = conduit.PickGumball(pick, this);
+        conduit.PickGumball(pick, this);
     }
 
     protected override void OnMouseMove(GetPointMouseEventArgs e) {

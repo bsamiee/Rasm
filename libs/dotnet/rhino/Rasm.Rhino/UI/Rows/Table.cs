@@ -81,7 +81,7 @@ public sealed class RowTable {
     private IO<Unit> Faced(RealizedRow current, Row row) =>
         from enabled in Holds(row.Enabled)
         from faced in IO.lift(() => {
-            _ = current.Content.Value.Caption.Iter(label => (label.Text, label.Font, label.Enabled) = (LocalText.Of(row.Label).Local, row.Modified ? SystemFonts.Bold(SystemFonts.Label().Size) : SystemFonts.Label(), enabled));
+            current.Content.Value.Caption.Iter(label => (label.Text, label.Font, label.Enabled) = (LocalText.Of(row.Label).Local, row.Modified ? SystemFonts.Bold(SystemFonts.Label().Size) : SystemFonts.Label(), enabled));
             (current.Content.Value.Control.Enabled, current.Content.Value.Control.ToolTip) = (enabled, row.Help.Map(static help => LocalText.Of(help).Local).ValueUnsafe());
         })
         select unit;
@@ -116,7 +116,7 @@ public sealed class RowTable {
         IO.lift(() => {
             view.Content = null;
             held.Table.RemoveAll();
-            _ = held.Runs.Iter(static run => {
+            held.Runs.Iter(static run => {
                 run.RemoveAll();
                 run.Dispose();
             });

@@ -30,7 +30,6 @@ only_rules:
     - empty_enum_arguments
     - empty_string
     - explicit_init
-    - explicit_type_interface
     - fallthrough
     - fatal_error_message
     - file_name_no_space
@@ -124,8 +123,6 @@ deployment_target:
     macOS_deployment_target: '27.0'
 discouraged_direct_init:
     types: [Bundle, DateFormatter, ISO8601DateFormatter, NSError]
-explicit_type_interface:
-    excluded: [local]
 legacy_objc_type:
     allowed_types: [NSNumber, NSString]
 modifier_order:

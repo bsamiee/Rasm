@@ -138,12 +138,12 @@ public sealed partial class Denoiser : IDisposable {
                     report.Report((int)(n * target.Size.Height));
                 return !token.IsCancellationRequested;
             };
-            _ = images.Iter(image => oidnWriteBuffer(buffer, image.Offset, Bytes(image.Frame), image.Frame.Block));
-            _ = images.Add(("output", target, 0)).Iter(image => oidnSetFilterImage(
+            images.Iter(image => oidnWriteBuffer(buffer, image.Offset, Bytes(image.Frame), image.Frame.Block));
+            images.Add(("output", target, 0)).Iter(image => oidnSetFilterImage(
                 filter, image.Role, buffer, Float3, (nuint)target.Size.Width, (nuint)target.Size.Height,
                 image.Offset + ((((nuint)(target.Origin.Y - image.Frame.Origin.Y) * (nuint)image.Frame.Size.Width) + (nuint)(target.Origin.X - image.Frame.Origin.X)) * stride),
                 stride, (nuint)image.Frame.Size.Width * stride));
-            _ = parameters.Iter(parameter => oidnSetFilterBool(filter, parameter.Name, parameter.Value));
+            parameters.Iter(parameter => oidnSetFilterBool(filter, parameter.Name, parameter.Value));
             oidnSetFilterInt(filter, "quality", quality);
             oidnSetFilterProgressMonitorFunction(filter, Marshal.GetFunctionPointerForDelegate(monitor), 0);
             oidnCommitFilter(filter);

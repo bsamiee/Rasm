@@ -34,7 +34,7 @@ public static class Flattening {
         from unroller in IO.lift(() => {
             Unroller created = source.Switch(surface: static surface => new Unroller(surface), brep: static brep => new Unroller(brep));
             (created.AbsoluteTolerance, created.RelativeTolerance, created.ExplodeOutput) = (tolerances.Absolute, tolerances.Relative, explode.IsSome);
-            _ = explode.Iter(spacing => created.ExplodeSpacing = spacing);
+            explode.Iter(spacing => created.ExplodeSpacing = spacing);
             created.AddFollowingGeometry(curves);
             created.AddFollowingGeometry(points);
             created.AddFollowingGeometry(dots);

@@ -48,11 +48,11 @@ internal sealed class AsyncContext : AsyncRenderContext {
         .Catch(error => Products.Each(Seq(IO.lift(StopRendering), Products.Clear(works).Scoped())).Map(static _ => unit) >> IO.fail<bool>(error)).As();
 
     public override void StopRendering() =>
-        _ = Session.Run(Products.Each(Seq(IO.lift(cancellation.Cancel), IO.lift(JoinRenderThread), IO.lift(base.StopRendering))));
+        Session.Run(Products.Each(Seq(IO.lift(cancellation.Cancel), IO.lift(JoinRenderThread), IO.lift(base.StopRendering))));
 
     protected override void Dispose(bool isDisposing) {
         if (isDisposing) {
-            _ = Session.Run(Products.Clear(works).Scoped());
+            Session.Run(Products.Clear(works).Scoped());
             cancellation.Dispose();
         }
         base.Dispose(isDisposing);
@@ -65,8 +65,8 @@ internal sealed class AsyncContext : AsyncRenderContext {
                 .Catch(static error => error.Is(Errors.Cancelled), static _ => IO.pure(unit))
                 .Map(static _ => RenderSuccessCode.Completed),
             RenderSuccessCode.Failed);
-        _ = Session.Run(Products.Each(Seq(IO.lift(() => window.SetProgress(caption, 1f)), IO.lift(() => window.EndAsyncRender(answer)))));
-        _ = control.Iter(GC.KeepAlive);
+        Session.Run(Products.Each(Seq(IO.lift(() => window.SetProgress(caption, 1f)), IO.lift(() => window.EndAsyncRender(answer)))));
+        control.Iter(GC.KeepAlive);
     }
 }
 
@@ -110,11 +110,11 @@ internal sealed class BatchPipeline : RenderPipeline {
     public override void ResumeRendering() => Paused(paused: false);
 
     protected override void Dispose(bool isDisposing) =>
-        _ = Session.Run(Products.Each(isDisposing && mode is RunMode.Scripted
+        Session.Run(Products.Each(isDisposing && mode is RunMode.Scripted
             ? Seq(IO.lift(context.Dispose), IO.lift(() => base.Dispose(isDisposing)))
             : Seq(IO.lift(() => base.Dispose(isDisposing)))));
 
-    private void Paused(bool paused) => _ = Session.Run(context.Work.Bind(static work => work.Pause).Traverse(pause => pause(paused)).As());
+    private void Paused(bool paused) => Session.Run(context.Work.Bind(static work => work.Pause).Traverse(pause => pause(paused)).As());
 
     private bool Begin(Option<Size> quiet, [CallerMemberName] string member = "") =>
         Session.Run(

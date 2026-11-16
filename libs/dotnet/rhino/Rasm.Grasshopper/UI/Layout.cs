@@ -114,10 +114,10 @@ public static class Placements {
     private static Unit Nudged(Canvas canvas, Document document, SizeF offset, Ref<Option<(Document Document, HashMap<Guid, PivotAction> Started)>> gesture, KeyEventArgs args) {
         Seq<IDocumentObject> rows = Rows(document, toHashSet(toSeq(document.Objects.SelectedObjects).Bind(item => Movable(document, item))));
         if (rows.IsEmpty) return unit;
-        _ = atomic(() => gesture.Swap(held => Some((document, rows.Fold(
+        atomic(() => gesture.Swap(held => Some((document, rows.Fold(
             held.Map(static started => started.Started).IfNone(HashMap<Guid, PivotAction>()),
             static (started, row) => started.ContainsKey(row.InstanceId) ? started : started.Add(row.InstanceId, new PivotAction(row)))))));
-        _ = rows.Iter(row => row.Attributes.Pivot += offset);
+        rows.Iter(row => row.Attributes.Pivot += offset);
         args.Handled = true;
         canvas.Invalidate();
         return unit;
@@ -191,7 +191,7 @@ public static class Placements {
             frame: static (s, p) => Framed(s.Axis, s.Rows, s.Pivots, p.Bounds),
             grid: static (s, p) => Snapped(s.Axis, s.Rows, s.Pivots, p.Snaps))).Strict();
         AdjacencyGraph<Guid, SEquatableEdge<Guid>> linked = rules.Bind(static rule => toSeq(rule.Linked.Window(2, static pair => new SEquatableEdge<Guid>(pair[0], pair[1])))).ToAdjacencyGraph<Guid, SEquatableEdge<Guid>>(allowParallelEdges: false);
-        _ = linked.AddVertexRange(rows.Map(static row => row.InstanceId));
+        linked.AddVertexRange(rows.Map(static row => row.InstanceId));
         IOrderedEnumerable<IDocumentObject> ordered = rows.OrderBy(row => Coordinate(axis, row.Attributes.Pivot));
         HashMap<Guid, double> strengths = toHashMap(
             from component in toSeq(linked.CondensateWeaklyConnected<Guid, SEquatableEdge<Guid>, AdjacencyGraph<Guid, SEquatableEdge<Guid>>>().Vertices)
@@ -199,7 +199,7 @@ public static class Placements {
             from vertex in toSeq(component.Vertices)
             select (vertex, vertex == anchor ? Strength.Medium : Strength.Weak / component.VertexCount));
         Solver solver = new();
-        _ = rules.Map(static rule => rule.Rule)
+        rules.Map(static rule => rule.Rule)
             .Concat(rows.Map(row => Constraint.Equal(pivots[row.InstanceId], Coordinate(axis, row.Attributes.Pivot), strengths[row.InstanceId])))
             .Iter(solver.AddConstraint);
         solver.Solve();
@@ -294,8 +294,8 @@ public static class Placements {
         moves.Filter(static move => move.Pivot != move.Object.Attributes.Pivot).Strict() switch {
             { IsEmpty: true } => IO.pure(value: false),
             var changed => DocumentEdits.Commit(document, new VerbNoun(verb, changed.Count is 1 ? "Object" : "Objects"), actions => IO.lift(() => {
-                _ = changed.Iter(move => actions.Add(new PivotAction(move.Object)));
-                _ = changed.Iter(static move => move.Object.Attributes.Pivot = move.Pivot);
+                changed.Iter(move => actions.Add(new PivotAction(move.Object)));
+                changed.Iter(static move => move.Object.Attributes.Pivot = move.Pivot);
                 return true;
             })),
         };

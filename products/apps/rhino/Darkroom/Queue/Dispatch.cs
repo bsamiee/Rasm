@@ -247,7 +247,7 @@ internal static partial class Dispatch {
     private static Fin<ProcessStartInfo> Launch(string job) {
         string script = $"_{RenderJob.EnglishName}";
         Dictionary<string, string?> variables = new(StringComparer.Ordinal) { [JobVariable] = job, [ParentVariable] = Environment.ProcessId.ToString(CultureInfo.InvariantCulture) };
-        _ = ProcessEnvironment.Inject(variables, Some(Session.Activities.Name));
+        ProcessEnvironment.Inject(variables, Some(Session.Activities.Name));
         return OperatingSystem.IsMacOS()
             ? new ProcessStartInfo("open", [
                 "-n", "-g", "-a", RhinoApp.GetInstallDirectory().FullName,

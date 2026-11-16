@@ -21,7 +21,7 @@ public sealed class Surface<TState> : Drawable where TState : notnull {
     internal bool Stepped(Duration now, Func<Duration, TState, Option<TState>> step) =>
         step(now, state.Value).Match(
             Some: next => {
-                _ = state.Swap(_ => next);
+                state.Swap(_ => next);
                 Invalidate();
                 return true;
             },

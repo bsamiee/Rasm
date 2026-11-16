@@ -12,7 +12,7 @@ namespace Rasm.Rhino.Display;
 internal sealed class DraggedGrip(Point3d location, Func<Point3d, MouseState, IO<Unit>> dragged) : GripUserInterfaceObject(location) {
     protected override void OnDrag(Point3d newLocation, MouseState mouse) {
         base.OnDrag(newLocation, mouse);
-        _ = Session.Run(dragged(GripLocation, mouse));
+        Session.Run(dragged(GripLocation, mouse));
     }
 }
 
@@ -20,14 +20,14 @@ internal sealed class DraggedDirectionGrip(Point3d location, Vector3d direction,
     : DirectionGripUserInterfaceObject(location, direction) {
     protected override void OnDrag(Point3d newLocation, MouseState mouse) {
         base.OnDrag(newLocation, mouse);
-        _ = Session.Run(dragged(GripLocation, mouse));
+        Session.Run(dragged(GripLocation, mouse));
     }
 }
 
 internal sealed class RotatedGrip(Plane plane, double radius, Func<double, MouseState, IO<Unit>> rotated) : RotationGripUserInterfaceObject(plane, radius) {
     protected override void OnRotationDrag(double angle, MouseState mouse) {
         base.OnRotationDrag(angle, mouse);
-        _ = Session.Run(rotated(angle, mouse));
+        Session.Run(rotated(angle, mouse));
     }
 }
 
@@ -127,9 +127,9 @@ public static class ViewportControls {
     public static UserInterfaceGrid Grid(Option<string> heading, Seq<(string Label, UserInterfaceControl Control)> rows) {
         UserInterfaceGrid grid = new(columnCount: 2);
         grid.SetColumnAutoWidth(0);
-        _ = heading.Iter(text => grid.AddHeading(text));
-        _ = rows.Iter(row => {
-            _ = grid.AddLabel(row.Label);
+        heading.Iter(text => grid.AddHeading(text));
+        rows.Iter(row => {
+            grid.AddLabel(row.Label);
             grid.AddChild(row.Control);
         });
         return grid;

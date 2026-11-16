@@ -24,6 +24,7 @@ dotnet_diagnostic.CA2249.severity = none
 
 # --- [IDE_ANALYZERS] --------------------------------------------------------------------
 
+dotnet_diagnostic.IDE0058.severity = none
 dotnet_diagnostic.IDE0072.severity = none
 dotnet_diagnostic.IDE0079.severity = none
 dotnet_diagnostic.IDE0320.severity = none
@@ -63,7 +64,6 @@ dotnet_diagnostic.MA0042.severity = none
 dotnet_diagnostic.MA0045.severity = none
 dotnet_diagnostic.MA0048.severity = none
 dotnet_diagnostic.MA0051.severity = none
-dotnet_diagnostic.MA0060.severity = none
 dotnet_diagnostic.MA0104.severity = none
 dotnet_diagnostic.MA0109.severity = none
 dotnet_diagnostic.MA0112.severity = none
@@ -135,4 +135,3 @@ roslynator_object_creation_parentheses_style = omit
 dotnet_diagnostic.VSTHRD010.severity = none
 dotnet_diagnostic.VSTHRD103.severity = none
 dotnet_diagnostic.VSTHRD104.severity = none
-dotnet_diagnostic.VSTHRD110.severity = none

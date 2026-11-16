@@ -104,17 +104,17 @@ internal static class Fills {
         """);
 
     private static void Glass(SKCanvas canvas, FillContext held, Material.Glass glass, Outline shape) {
-        _ = held.Pass.Cache.Brushes.GetOrAdd(held.Key(held.Context.Scale, timed: false, pointing: false), () => Rimmed(held, glass)).Iter(paint => {
+        held.Pass.Cache.Brushes.GetOrAdd(held.Key(held.Context.Scale, timed: false, pointing: false), () => Rimmed(held, glass)).Iter(paint => {
             using SKAutoCanvasRestore outside = new(canvas);
             shape.Clip(canvas, SKClipOperation.Difference);
-            _ = held.Pass.Outlined(held.Layout, held.Frame, Material.Glass.Band(held.Context.Scale)).Iter(band => band.Draw(canvas, paint));
+            held.Pass.Outlined(held.Layout, held.Frame, Material.Glass.Band(held.Context.Scale)).Iter(band => band.Draw(canvas, paint));
         });
         Option<SKImageFilter> backdrop = held.Pass.Cache.Backdrops.GetOrAdd(held.Key(held.Context.Scale, glass.Timed, glass.Pointing), () => Filter.Chained(glass.Backdrop + (
             from refraction in glass.Refraction
             from map in held.Pass.Cache.Mattes.GetOrAdd((held.Frame.Size, held.Layout.Corners, held.Layout.Smoothing, held.Context.Scale), () => Displacement(held))
             select (Filter)new Filter.Displace(new Material.Image(map), refraction)).ToSeq(), held.Target));
         shape.Clip(canvas, SKClipOperation.Intersect);
-        _ = canvas.SaveLayer(new SKCanvasSaveLayerRec { Backdrop = backdrop.ValueUnsafe(), Flags = held.Pass.Cache.Precision });
+        canvas.SaveLayer(new SKCanvasSaveLayerRec { Backdrop = backdrop.ValueUnsafe(), Flags = held.Pass.Cache.Precision });
     }
 
     private static SKShader Edged(SKRuntimeEffect effect, FillContext held, SKMatrix local) {

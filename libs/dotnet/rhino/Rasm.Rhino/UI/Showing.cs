@@ -72,8 +72,8 @@ public static class Showing {
                  (false, false) => CommandDialog.ShowButtons.Close,
              };
              dialog.Content = body.Content;
-             _ = box.Iter(held => dialog.ButtonOptions = held);
-             _ = row.DisplayMode.Iter(mode => dialog.DisplayMode = mode);
+             box.Iter(held => dialog.ButtonOptions = held);
+             row.DisplayMode.Iter(mode => dialog.DisplayMode = mode);
              dialog.UseRhinoStyle();
              dialog.LocalizeAndRestore(row.Identity);
          })

@@ -48,7 +48,7 @@ public static class Licensing {
 
     private static OnLeaseChangedDelegate LeaseHandler(Func<Option<LicenseLease>, IO<Unit>> leaseChanged, Option<Icon> icon) =>
         (args, out answer) => {
-            _ = Session.Run(IO.lift(() => Some(args.Lease).Filter(static lease => !string.IsNullOrEmpty(lease.LeaseId))).Bind(leaseChanged));
+            Session.Run(IO.lift(() => Some(args.Lease).Filter(static lease => !string.IsNullOrEmpty(lease.LeaseId))).Bind(leaseChanged));
             answer = icon.ValueUnsafe();
         };
 }

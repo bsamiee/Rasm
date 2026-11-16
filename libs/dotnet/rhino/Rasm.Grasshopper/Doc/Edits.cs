@@ -23,7 +23,7 @@ public static class DocumentEdits {
         from value in body(actions).Catch(error => Closed(document, actions, name, record => record.Undo(document)) >> IO.fail<A>(error)).As()
         from closed in Closed(document, actions, name, record => {
             document.Undo.Do(record);
-            _ = toSeq(actions.Actions.OfType<ObjectAction>())
+            toSeq(actions.Actions.OfType<ObjectAction>())
                 .Fold(HashMap<Guid, Effects>(), static (held, action) => held.AddOrUpdate(action.Id, prior => prior | action.Response, action.Response))
                 .Iter((id, response) => Optional(document.Objects.Find(id)).Iter(target => {
                     if (response.HasFlag(Effects.ExpireSolution)) target.Expire();
@@ -40,7 +40,7 @@ public static class DocumentEdits {
     public static IO<Unit> Assign<T>(Parameter<T> parameter, Tree<T> data, VerbNoun name) =>
         Located(parameter).Bind(document => Commit(document, name, actions => IO.lift(() => {
             actions.Add(new PersistentDataAction(parameter, Guid.Empty));
-            _ = parameter.Set(data);
+            parameter.Set(data);
         })));
 
     public static IO<Unit> Restore(History history, Node node) =>
@@ -59,7 +59,7 @@ public static class DocumentEdits {
     private static IO<Unit> Closed(Document document, ActionList actions, VerbNoun name, Action<Record> close) =>
         IO.lift(() => Optional(actions.ToRecord(name)).Iter(record => {
             close(record);
-            _ = document.File.AutoSave(toSeq(actions.Actions).Fold(AutoSaveReason.Unspecified, static (reason, action) => reason | action switch {
+            document.File.AutoSave(toSeq(actions.Actions).Fold(AutoSaveReason.Unspecified, static (reason, action) => reason | action switch {
                 CreateObjectAction => AutoSaveReason.ObjectAdded,
                 DeleteObjectAction => AutoSaveReason.ObjectRemoved,
                 ReplaceObjectAction => AutoSaveReason.ObjectAdded | AutoSaveReason.ObjectRemoved,
@@ -71,7 +71,7 @@ public static class DocumentEdits {
                 ExpressionEnabledAction or ExpressionTextAction => AutoSaveReason.ExpressionChanged,
                 _ => AutoSaveReason.ObjectChanged,
             }));
-            if (record.Response.HasFlag(Effects.ExpireLayout) || record.Response.HasFlag(Effects.InvalidateLayout)) _ = Optional(Editor.Instance).Iter(static editor => editor.Canvas.Invalidate());
+            if (record.Response.HasFlag(Effects.ExpireLayout) || record.Response.HasFlag(Effects.InvalidateLayout)) Optional(Editor.Instance).Iter(static editor => editor.Canvas.Invalidate());
             if (record.Response.HasFlag(Effects.ExpireSolution) || record.Response.HasFlag(Effects.InvalidateSolution)) _ = document.Solution.Start();
             if (record.Response.HasFlag(Effects.ExpireDisplay) || record.Response.HasFlag(Effects.InvalidateDisplay)) document.Display.UpdateDisplay();
         }));

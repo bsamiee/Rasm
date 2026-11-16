@@ -40,7 +40,7 @@ internal sealed class BodyAttributes : ComponentAttributes, IResizableAttributes
         Responder.MouseUpHook += Released;
         Responder.KeyDownHook += Keyed;
         Responder.LostFocus += (_, _) => resize.Iter(held => Restored(held.Undo));
-        _ = widget.Map(Forwarded);
+        widget.Iter(Forwarded);
     }
 
     // --- [LAYOUT]
@@ -62,17 +62,17 @@ internal sealed class BodyAttributes : ComponentAttributes, IResizableAttributes
     protected override void LayoutCentralBox(Font font) {
         ContentBox = RectangleF.FromCenter(Pivot, ((IResizableAttributes)this).Size);
         CentralBox = RectangleF.FromCenter(Pivot, ContentBox.Size + new SizeF(2f * StandardLayout.IconPadding, 2f * StandardLayout.IconPadding));
-        _ = widget.Iter(held => held.Responder.RegionBoundary = ContentBox);
+        widget.Iter(held => held.Responder.RegionBoundary = ContentBox);
     }
 
     protected override void LayoutInputParameters(Font font) {
         LayoutInputParameters(font, component.ModularInputs.VisibleParameters, component.ModularInputs.VisibleCount);
-        _ = toSeq(component.ModularInputs.HiddenParameters).Iter(hidden => Optional(hidden.Attributes as InputParameterAttributes).Iter(held => held.AssignBounds(new RectangleF(Pivot, SizeF.Empty))));
+        toSeq(component.ModularInputs.HiddenParameters).Iter(hidden => Optional(hidden.Attributes as InputParameterAttributes).Iter(held => held.AssignBounds(new RectangleF(Pivot, SizeF.Empty))));
     }
 
     protected override void LayoutOutputParameters(Font font) {
         LayoutOutputParameters(font, component.ModularOutputs.VisibleParameters, component.ModularOutputs.VisibleCount);
-        _ = toSeq(component.ModularOutputs.HiddenParameters).Iter(hidden => Optional(hidden.Attributes as OutputParameterAttributes).Iter(held => held.AssignBounds(new RectangleF(Pivot, SizeF.Empty))));
+        toSeq(component.ModularOutputs.HiddenParameters).Iter(hidden => Optional(hidden.Attributes as OutputParameterAttributes).Iter(held => held.AssignBounds(new RectangleF(Pivot, SizeF.Empty))));
     }
 
     // --- [DRAWING]
@@ -125,8 +125,8 @@ internal sealed class BodyAttributes : ComponentAttributes, IResizableAttributes
 
     private Response Released(ResponseMouseArgs args) =>
         resize.Filter(_ => args.Buttons is MouseButtons.Primary).Map(held => {
-            _ = Ended();
-            _ = Optional(Owner.Document).Iter(document => document.Undo.Do(new VerbNoun("Resize", Owner.Nomen.Name), held.Undo));
+            Ended();
+            Optional(Owner.Document).Iter(document => document.Undo.Do(new VerbNoun("Resize", Owner.Nomen.Name), held.Undo));
             return Response.Release;
         }).IfNone(Response.Ignored);
 
@@ -138,7 +138,7 @@ internal sealed class BodyAttributes : ComponentAttributes, IResizableAttributes
         }).IfNone(Response.Ignored);
 
     private Response Restored(ResizeAction undo) {
-        _ = Ended();
+        Ended();
         return Fitted(undo.Size, undo.Pivot, Response.Release);
     }
 
@@ -171,7 +171,7 @@ internal sealed class BodyAttributes : ComponentAttributes, IResizableAttributes
 
     private bool Inside(ResponseMouseArgs args) => ContentBox.Contains(args.ContentLocation);
 
-    private Unit Forwarded(IResponsive held) {
+    private void Forwarded(IResponsive held) {
         Responses target = held.Responder;
         Responder.MouseDownHook += args => Inside(args) ? target.MouseDown(args) : Response.Ignored;
         Responder.MouseSingleClickHook += args => Inside(args) ? target.MouseSingleClick(args) : Response.Ignored;
@@ -188,6 +188,5 @@ internal sealed class BodyAttributes : ComponentAttributes, IResizableAttributes
         Responder.KeyUpHook += target.KeyUp;
         Responder.TextInputHook += target.TextInput;
         Responder.RotationHook += target.Rotation;
-        return unit;
     }
 }

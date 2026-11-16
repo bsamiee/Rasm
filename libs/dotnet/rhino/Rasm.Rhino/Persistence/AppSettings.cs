@@ -68,7 +68,7 @@ public static class AppSettings {
                 select written,
             Some(Preferences.AppSettingsChanged));
 
-    public static Preference<Seq<CommandName>> NeverRepeat { get; } = Commands(NeverRepeatList.CommandNames, static names => _ = NeverRepeatList.SetList(names));
+    public static Preference<Seq<CommandName>> NeverRepeat { get; } = Commands(NeverRepeatList.CommandNames, static names => NeverRepeatList.SetList(names));
 
     public static Preference<Seq<CommandName>> AutoSaveBeforeCommands { get; } = Commands(FileSettings.AutoSaveBeforeCommands, FileSettings.SetAutoSaveBeforeCommands);
 

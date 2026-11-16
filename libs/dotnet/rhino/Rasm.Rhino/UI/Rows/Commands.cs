@@ -150,7 +150,7 @@ public static class CommandRows {
             from marked in marking(command)
             select holds
         from deliver in Delivered(run, scope)
-        from execute in IO.lift(() => new AsyncRelayCommand(async () => _ = await Session.StartAsync(updated.Bind(holds => when(holds, deliver).As()).Finally(updated.Map(unit).OnUiThread())).ConfigureAwait(true), () => allowed.Value))
+        from execute in IO.lift(() => new AsyncRelayCommand(async () => await Session.StartAsync(updated.Bind(holds => when(holds, deliver).As()).Finally(updated.Map(unit).OnUiThread())).ConfigureAwait(true), () => allowed.Value))
         from delegated in use(IO.lift(() => { command.DelegatedCommand = execute; return command; }), static held => IO.lift(() => { held.DelegatedCommand = null; }))
         let refresh = updated.Map(unit) >> IO.lift(execute.NotifyCanExecuteChanged)
         from first in refresh

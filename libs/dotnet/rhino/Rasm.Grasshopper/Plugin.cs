@@ -29,7 +29,7 @@ public static class PluginShell {
         Hosted(host, typeof(TDefinition).Assembly, TDefinition.Definition.PlugIn);
 
     private static (Action OnLoaded, IIcon Icon) Hosted(Plugin host, Assembly assembly, PlugInDefinition definition) =>
-        (() => _ = InputPath.Of(assembly.Location)
+        (() => InputPath.Of(assembly.Location)
                 .Bind(static path => PlugInRegistry.LoadPlugIn(path).RunSafe())
                 .Bind(_ => Session.RunSafe(
                     (from errors in IO.lift(() => toSeq(assembly.GetTypes())

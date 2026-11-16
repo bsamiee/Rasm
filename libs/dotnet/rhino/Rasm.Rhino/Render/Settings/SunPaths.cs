@@ -6,8 +6,8 @@ public sealed record SunCoverage(Seq<Point3d> Vertices, Seq<MeshFace> Faces) {
     public Mesh ToMesh() {
         Mesh mesh = new();
         mesh.Vertices.AddVertices(Vertices);
-        _ = mesh.Faces.AddFaces(Faces);
-        _ = mesh.Normals.ComputeNormals();
+        mesh.Faces.AddFaces(Faces);
+        mesh.Normals.ComputeNormals();
         return mesh;
     }
 }

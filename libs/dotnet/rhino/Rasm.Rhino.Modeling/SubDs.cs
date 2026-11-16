@@ -84,7 +84,7 @@ public static class SubDs {
 
     private static SubDEdgeChain Linked(SubD subd, SubDEdge[] links) {
         SubDEdgeChain chain = new(subd, links[0]);
-        _ = toSeq(links).Tail.Iter(link => _ = chain.AddEdge(link));
+        toSeq(links).Tail.Iter(link => chain.AddEdge(link));
         return chain;
     }
 

@@ -69,9 +69,9 @@ public abstract partial record PlotPlane : IInterpolated<PlotPlane> {
     }
 
     internal virtual void Enclose(SKPathBuilder path, PlotFrame frame, Pen pen, Seq<(float Low, float High)> across, Seq<(float Low, float High)> up) =>
-        _ = (from x in across
-             from y in up
-             select frame.Matrix.MapRect(new SKRect(x.Low, y.Low, x.High, y.High)))
+        (from x in across
+         from y in up
+         select frame.Matrix.MapRect(new SKRect(x.Low, y.Low, x.High, y.High)))
             .Iter(cell => {
                 SKPoint low = pen.Snapped(cell.Location);
                 SKPoint high = pen.Snapped(new SKPoint(cell.Right, cell.Bottom));
@@ -86,7 +86,7 @@ public abstract partial record PlotPlane : IInterpolated<PlotPlane> {
 
     internal Vector2 Valued(Vector2 fractions) => Each(fractions, static (axis, held) => axis.Value(held));
 
-    internal void Fractions(PhysicalAxis along, float[] values) => _ = Dimension(along).Iter(axis => axis.Fractions(values, values));
+    internal void Fractions(PhysicalAxis along, float[] values) => Dimension(along).Iter(axis => axis.Fractions(values, values));
 
     internal bool Contains(PhysicalAxis along, Option<AxisRange> band, float value) =>
         Dimension(along).Match(Some: axis => axis.Contains(band.IfNone(axis.Domain), value), None: () => band.IfNone(AxisRange.Unit).Contains(value));
@@ -170,7 +170,7 @@ public abstract partial record PlotPlane : IInterpolated<PlotPlane> {
             float turn = MathF.CopySign(360f, frame.Matrix.ScaleX * frame.Matrix.ScaleY);
             float start = across.Head.Map(static span => span.Low).IfNone(0f) * turn;
             float sweep = extent * turn;
-            _ = up.Iter(ring => {
+            up.Iter(ring => {
                 if (extent >= 1f) {
                     path.FillType = SKPathFillType.EvenOdd;
                     path.AddCircle(center.X, center.Y, half * ring.High);
@@ -244,9 +244,9 @@ public abstract partial record PlotPlane : IInterpolated<PlotPlane> {
             path.AddPoly([.. frame.Projected(Walked(held.With(Vector2.Zero, at), held.With(Vector2.One, at), frame.Density(pen)).Add(held.With(Vector2.One, at)))], close: false);
 
         internal override void Enclose(SKPathBuilder path, PlotFrame frame, Pen pen, Seq<(float Low, float High)> across, Seq<(float Low, float High)> up) =>
-            _ = (from x in across
-                 from y in up
-                 select Densified([new(x.Low, y.Low), new(x.High, y.Low), new(x.High, y.High), new(x.Low, y.High)], closed: true, frame.Density(pen)))
+            (from x in across
+             from y in up
+             select Densified([new(x.Low, y.Low), new(x.High, y.Low), new(x.High, y.High), new(x.Low, y.High)], closed: true, frame.Density(pen)))
                 .Iter(cell => path.AddPoly([.. frame.Projected(cell)], close: true));
 
         private protected override Option<PlotPlane> Over(Func<PhysicalAxis, Axis, Option<Axis>> map) =>

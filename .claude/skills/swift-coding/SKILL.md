@@ -62,7 +62,7 @@ Current instant, user locale, and random source (`inout some RandomNumberGenerat
 - `let <name>: <Type> = switch <subject> { ... }` binds a value each arm selects, a `throw` arm stays in place
 - `count(where:)` counts, `indices(where:)` returns a `RangeSet` that `removeSubranges` and the `subranges` subscript take whole
 - Values that vary by case are one complete value per case chosen in one expression, never fragments joined around an empty one
-- Signatures, stored properties, and statics state their type, a property naming it once as `let <name>: <Type> = .init(...)` or `= .<member>`
+- Signatures state their type, and stored properties and statics take the type their initializer names (`let <name> = <Type>(...)`)
 - Locals and `if`, `guard`, and `for` bindings state a type only where inference picks another (empty literal, implicit member, generic result)
 
 ### [02.1]-[PATTERN_MATCHING]
@@ -239,9 +239,10 @@ Isolation decides where code runs and what it touches, and the state a value sha
 |  [01]   | No mutable state shared                    | `Sendable` values and nonisolated functions               |
 |  [02]   | State the user interface reads             | `@MainActor` types and functions                          |
 |  [03]   | Shared mutable state whose updates suspend | `actor`                                                   |
-|  [04]   | Shared mutable state updated synchronously | `Mutex` or `Atomic` stored in a `final class: Sendable`   |
-|  [05]   | CPU-bound work off the caller's executor   | `@concurrent` function                                    |
-|  [06]   | Blocking host call                         | `@concurrent` function under `withTaskExecutorPreference` |
+|  [04]   | Shared mutable state updated synchronously | `Mutex` or `Atomic` in a `final class: Sendable`          |
+|  [05]   | Same state held by a copyable value        | `OSAllocatedUnfairLock`                                   |
+|  [06]   | CPU-bound work off the caller's executor   | `@concurrent` function                                    |
+|  [07]   | Blocking host call                         | `@concurrent` function under `withTaskExecutorPreference` |
 
 Child tasks follow the shape of the work, and each child returns its typed `Result` for its parent to decide once:
 

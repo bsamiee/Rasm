@@ -182,7 +182,7 @@ public sealed class CapturedWriteAnalyzer : DiagnosticAnalyzer {
                             .Select(static declaration => (declaration.SyntaxTree, declaration.Span)));
                         continue;
                     }
-                    _ = result.Add((value.Syntax.SyntaxTree, value.Syntax.Span));
+                    result.Add((value.Syntax.SyntaxTree, value.Syntax.Span));
                 }
                 return origins[(source, calls)] = result.ToImmutable();
             }

@@ -19,7 +19,7 @@ public final class JSONRPCConnection<Method: RawRepresentable<String> & Hashable
     private let timeout: Duration
     private let failure: @Sendable (JSONRPCFailure) -> Failure
     private let state: Mutex<State> = Mutex(State())
-    private let encoder: JSONEncoder = .init()
+    private let encoder = JSONEncoder()
 
     private init(write: @escaping @Sendable (Data) async throws -> Void, timeout: Duration, failure: @escaping @Sendable (JSONRPCFailure) -> Failure) {
         (self.write, self.timeout, self.failure) = (write, timeout, failure)

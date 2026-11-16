@@ -155,7 +155,7 @@ public static class Subscriptions {
             from failed in On<ErrorEventHandler, ErrorEventArgs>(h => watcher.Error += h, h => watcher.Error -= h, static handler => handler.Invoke)
                 .Attach(args => deliver(Left(args)))
             from enabled in IO.lift(() => {
-                _ = filters.Iter(watcher.Filters.Add);
+                filters.Iter(watcher.Filters.Add);
                 watcher.EnableRaisingEvents = true;
             })
             select unit);

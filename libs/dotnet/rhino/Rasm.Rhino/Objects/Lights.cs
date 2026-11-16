@@ -188,7 +188,7 @@ public static class Lights {
         (light.LightStyle, light.Name, light.IsEnabled, light.Diffuse, light.Intensity, light.ShadowIntensity, light.AttenuationVector) =
             (spec.Shape.Style, Conversions.Unset(spec.Name), spec.Enabled, emitted.Diffuse, spec.Intensity * emitted.Gain, spec.ShadowIntensity, spec.AttenuationVector);
         spec.Shape.Write(light);
-        _ = spec.Power.Iter(power => power.Write(light));
+        spec.Power.Iter(power => power.Write(light));
         return light;
     }
 

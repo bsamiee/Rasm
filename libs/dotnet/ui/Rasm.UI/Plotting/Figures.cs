@@ -75,10 +75,10 @@ public sealed partial class Interpolation {
             }
         } else if (Bump.Case is PhysicalAxis along && knots.Count >= 2) {
             path.MoveTo(knots[0]);
-            _ = toSeq(knots.AsIterable().Window(2)).Iter(pair => {
-                (Vector2 from, Vector2 to) = ((Vector2)pair[0], (Vector2)pair[1]);
+            knots.Zip(knots.Tail).Iter(pair => {
+                (Vector2 from, Vector2 to) = ((Vector2)pair.First, (Vector2)pair.Second);
                 float middle = (along.Of(from) + along.Of(to)) / 2f;
-                path.CubicTo((SKPoint)along.With(from, middle), (SKPoint)along.With(to, middle), pair[1]);
+                path.CubicTo((SKPoint)along.With(from, middle), (SKPoint)along.With(to, middle), pair.Second);
             });
         } else {
             path.AddPoly([.. Simplified(knots, 0.5f / density, closed)], closed);
@@ -87,7 +87,7 @@ public sealed partial class Interpolation {
         if (closed) path.Close();
     }
 
-    internal static double[] Chords(Seq<SKPoint> knots) => [.. toSeq(knots.AsIterable().Window(2, static pair => (double)SKPoint.Distance(pair[0], pair[1]))).Scan(0d, static (length, step) => length + step)];
+    internal static double[] Chords(Seq<SKPoint> knots) => [.. knots.Zip(knots.Tail, static (from, to) => (double)SKPoint.Distance(from, to)).Scan(0d, static (length, step) => length + step)];
 
     private static Seq<SKPoint> Splined(Seq<SKPoint> knots, double[] at, float density, Func<double[], double[], CubicSpline> spline) {
         (CubicSpline across, CubicSpline up) = Curves(knots, at, spline);
@@ -205,7 +205,7 @@ public abstract partial record Figure : IInterpolated<Figure> {
 
     private static void Filled(SKPathBuilder path, Seq<Seq<SKPoint>> rings) {
         if (rings.Count > 1) path.FillType = SKPathFillType.EvenOdd;
-        _ = rings.Iter(ring => path.AddPoly([.. ring], close: true));
+        rings.Iter(ring => path.AddPoly([.. ring], close: true));
     }
 
     private static float Distance(SKPoint point, SKPoint local, Option<PhysicalAxis> along) =>
@@ -228,7 +228,7 @@ public abstract partial record Figure : IInterpolated<Figure> {
         internal override void Edges(SKPathBuilder path, PlotFrame frame, Pen pen) => Outlined(path, frame, pen, Closed);
 
         internal override void Interior(SKPathBuilder path, PlotFrame frame, Pen pen) =>
-            _ = Ribbon(frame).Match(Some: ribbon => Filled(path, ribbon), None: () => {
+            Ribbon(frame).Match(Some: ribbon => Filled(path, ribbon), None: () => {
                 if (Closed) Outlined(path, frame, pen, closed: true);
             });
 
@@ -247,7 +247,7 @@ public abstract partial record Figure : IInterpolated<Figure> {
         private void Outlined(SKPathBuilder path, PlotFrame frame, Pen pen, bool closed) {
             if (!Holes.IsEmpty) path.FillType = SKPathFillType.EvenOdd;
             Emitted(path, frame, pen, Vertices, closed);
-            _ = Holes.Iter(hole => Emitted(path, frame, pen, hole, closed: true));
+            Holes.Iter(hole => Emitted(path, frame, pen, hole, closed: true));
         }
 
         private void Emitted(SKPathBuilder path, PlotFrame frame, Pen pen, Seq<Vector2> loop, bool closed) {
@@ -304,7 +304,7 @@ public abstract partial record Figure : IInterpolated<Figure> {
         public override Seq<Datum> Data => Samples.Data(Domain);
 
         internal override void Edges(SKPathBuilder path, PlotFrame frame, Pen pen) =>
-            _ = Runs(frame, pen, Samples, Shared(frame, None)).Iter(run => Shaping(frame, pen).Edges(path, Knots(frame, pen, run), Abscissa(run), pen.Density, closed: false));
+            Runs(frame, pen, Samples, Shared(frame, None)).Iter(run => Shaping(frame, pen).Edges(path, Knots(frame, pen, run), Abscissa(run), pen.Density, closed: false));
 
         internal override void Interior(SKPathBuilder path, PlotFrame frame, Pen pen) => Filled(path, Outlines(frame, pen));
 
@@ -363,7 +363,7 @@ public abstract partial record Figure : IInterpolated<Figure> {
         public Option<float> Spacing { get; init; }
 
         internal override void Edges(SKPathBuilder path, PlotFrame frame, Pen pen) =>
-            _ = frame.Plane.Dimension(Along).Iter(axis => axis.Ticks(Least(frame, pen)).Filter(tick => tick.Major == Major).Iter(tick => frame.Plane.GridLine(path, frame, pen, Along, axis.Fraction(tick.Value))));
+            frame.Plane.Dimension(Along).Iter(axis => axis.Ticks(Least(frame, pen)).Filter(tick => tick.Major == Major).Iter(tick => frame.Plane.GridLine(path, frame, pen, Along, axis.Fraction(tick.Value))));
 
         internal override float Weight(PlotFrame frame, Pen pen) =>
             Major ? 1f : frame.Plane.Dimension(Along).Map(axis => axis.Ticks(Least(frame, pen)).Map(tick => axis.Fraction(tick.Value)).Window(2)
@@ -387,13 +387,13 @@ public abstract partial record Figure : IInterpolated<Figure> {
 
         internal override void Edges(SKPathBuilder path, PlotFrame frame, Pen pen) {
             Interior(path, frame, pen);
-            _ = Dots(frame).Filter(static held => held.Size.IsNone).Iter(held => {
+            Dots(frame).Filter(static held => held.Size.IsNone).Iter(held => {
                 path.MoveTo(held.At);
                 path.LineTo(held.At);
             });
         }
 
-        internal override void Interior(SKPathBuilder path, PlotFrame frame, Pen pen) => _ = Dots(frame).Iter(held => held.Size.Iter(size => path.AddCircle(held.At.X, held.At.Y, size * pen.Icon / 2f)));
+        internal override void Interior(SKPathBuilder path, PlotFrame frame, Pen pen) => Dots(frame).Iter(held => held.Size.Iter(size => path.AddCircle(held.At.X, held.At.Y, size * pen.Icon / 2f)));
 
         internal override bool Hits(PlotFrame frame, SKPoint local, float reach) => Nearest(frame, local, None).Exists(datum => SKPoint.Distance(frame.Point(datum.Value), local) <= reach);
 
@@ -415,8 +415,10 @@ public abstract partial record Figure : IInterpolated<Figure> {
 
         internal override void Edges(SKPathBuilder path, PlotFrame frame, Pen pen) => Interior(path, frame, pen);
 
-        internal override void Interior(SKPathBuilder path, PlotFrame frame, Pen pen) =>
-            _ = Values.Visible(frame, Domain) switch { var window => toSeq(Range(window.Start, window.End - window.Start)).Choose(index => Bar(frame, index)).Iter(bar => bar.Interior(path, frame, pen)) };
+        internal override void Interior(SKPathBuilder path, PlotFrame frame, Pen pen) {
+            (int start, int end) = Values.Visible(frame, Domain);
+            toSeq(Range(start, end - start)).Choose(index => Bar(frame, index)).Iter(bar => bar.Interior(path, frame, pen));
+        }
 
         internal override bool Hits(PlotFrame frame, SKPoint local, float reach) =>
             frame.Valued(local).Bind(at => Values.Nearest(Domain, at.X)).Bind(datum => Bar(frame, datum.Index)).Exists(bar => bar.Hits(frame, local, reach));
@@ -442,11 +444,11 @@ public abstract partial record Figure : IInterpolated<Figure> {
         internal override void Edges(SKPathBuilder path, PlotFrame frame, Pen pen) {
             float half = Half(frame);
             Interior(path, frame, pen);
-            _ = Seq<Seq<Vector2>>([new(At - half, Summary.Median), new(At + half, Summary.Median)], [new(At, Summary.Minimum), new(At, Summary.Lower)], [new(At, Summary.Upper), new(At, Summary.Maximum)])
+            Seq<Seq<Vector2>>([new(At - half, Summary.Median), new(At + half, Summary.Median)], [new(At, Summary.Minimum), new(At, Summary.Lower)], [new(At, Summary.Upper), new(At, Summary.Maximum)])
                 .Iter(whisker => new Path(whisker).Edges(path, frame, pen));
         }
 
-        internal override void Interior(SKPathBuilder path, PlotFrame frame, Pen pen) => _ = Body(frame).Iter(body => body.Interior(path, frame, pen));
+        internal override void Interior(SKPathBuilder path, PlotFrame frame, Pen pen) => Body(frame).Iter(body => body.Interior(path, frame, pen));
 
         internal override bool Hits(PlotFrame frame, SKPoint local, float reach) => Body(frame).Exists(body => body.Hits(frame, local, reach));
 

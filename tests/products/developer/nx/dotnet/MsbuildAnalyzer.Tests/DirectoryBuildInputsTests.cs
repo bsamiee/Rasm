@@ -12,7 +12,7 @@ public sealed class DirectoryBuildInputsTests : IDisposable {
 
     private string?[] Inputs(string project, params ReadOnlySpan<string> files) {
         foreach (string file in files)
-            _ = workspace.Write(file, "<Project />");
+            workspace.Write(file, "<Project />");
         return workspace.Write(project, TempWorkspace.Project()).Node(project).Strings("inputs");
     }
 
@@ -89,14 +89,14 @@ public sealed class DirectoryBuildInputsTests : IDisposable {
 
     [Fact]
     public void GlobalJsonNearestAncestorWins() {
-        _ = workspace.Write("global.json", "{}").Write("apps/global.json", "{}");
+        workspace.Write("global.json", "{}").Write("apps/global.json", "{}");
 
         Assert.Equal(["apps/global.json"], Inputs(Project));
     }
 
     [Fact]
     public void NuGetConfigEveryAncestorIsAnInput() {
-        _ = workspace.Write("nuget.config", "<configuration />").Write("apps/foo/nuget.config", "<configuration />");
+        workspace.Write("nuget.config", "<configuration />").Write("apps/foo/nuget.config", "<configuration />");
         string?[] inputs = Inputs(Project);
 
         Assert.Contains("apps/foo/nuget.config", inputs, StringComparer.Ordinal);
@@ -106,7 +106,7 @@ public sealed class DirectoryBuildInputsTests : IDisposable {
 
     [Fact]
     public void NuGetConfigKeepsTheOnDiskCasing() {
-        _ = workspace.Write("NuGet.Config", "<configuration />");
+        workspace.Write("NuGet.Config", "<configuration />");
 
         Assert.Equal(["NuGet.Config"], Inputs(Project));
     }

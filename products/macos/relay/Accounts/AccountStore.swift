@@ -56,8 +56,8 @@ final class AccountStore {
     private let locations: FileLocations
     private let claude: ClaudeClient
     private let codex: CodexClient
-    private let logger: Logging.Logger = .init(label: String(reflecting: AccountStore.self))
-    private let signposter: OSSignposter = .init(subsystem: Program.current.identifier, category: String(reflecting: AccountStore.self))
+    private let logger = Logging.Logger(label: String(reflecting: AccountStore.self))
+    private let signposter = OSSignposter(subsystem: Program.current.identifier, category: String(reflecting: AccountStore.self))
     private let saves: (stream: AsyncStream<Void>, continuation: AsyncStream<Void>.Continuation) = AsyncStream.makeStream(bufferingPolicy: .bufferingNewest(1))
     private let coding: (decoder: JSONDecoder, encoder: JSONEncoder) = {
         let (decoder, encoder) = (JSONDecoder(), JSONEncoder())

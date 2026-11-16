@@ -320,7 +320,7 @@ internal static class Lists {
 
     private static IO<Unit> Handled(KeyEventArgs args, Option<Action> action) =>
         IO.lift(fun(() => {
-            _ = action.Iter(static run => run());
+            action.Iter(static run => run());
             args.Handled = action.IsSome;
         }));
 

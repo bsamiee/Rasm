@@ -185,7 +185,7 @@ internal sealed class DefinedSnapshotClient<TDocument, TObject>(SnapshotDefiniti
 
     public override bool RestoreDocument(RhinoDoc doc, BinaryArchiveReader archive) => Succeeded(definition.Document.Map(state => state.Restore(doc, archive)));
 
-    public override void SnapshotRestored(RhinoDoc doc) => _ = Session.Run(definition.Restored.Map(restored => IO.lift(() => restored(doc)).Flatten()).IfNone(IO.pure(unit)));
+    public override void SnapshotRestored(RhinoDoc doc) => Session.Run(definition.Restored.Map(restored => IO.lift(() => restored(doc)).Flatten()).IfNone(IO.pure(unit)));
 
     public override bool IsCurrentModelStateInAnySnapshot(RhinoDoc doc, BinaryArchiveReader archive, SimpleArrayBinaryArchiveReader archive_array, TextLog? text_log = null) =>
         Session.Run(definition.Document.Map(state => state.InAny(archive, Stored(archive_array))).IfNone(IO.pure(value: true)), failed: false);

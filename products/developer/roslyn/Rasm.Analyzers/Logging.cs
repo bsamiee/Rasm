@@ -98,7 +98,7 @@ public sealed class DoubleReportAnalyzer : DiagnosticAnalyzer {
                             .SelectMany(call => Calls(call, reading, flow, callbacks)).Select(static target => target.OriginalDefinition),
                     ])) pending.Push(called);
                 }
-                foreach (IMethodSymbol visited in seen) _ = reports.TryAdd(visited, value: false);
+                foreach (IMethodSymbol visited in seen) reports.TryAdd(visited, value: false);
                 return false;
             }
             IInvocationOperation? Reporter(IOperation tree, Reading reading) =>

@@ -73,7 +73,7 @@ internal sealed class DefinedGripObject : CustomGripObject {
     }
 
     public override void NewLocation() {
-        _ = Point.Constraint.Map(constrain => constrain(CurrentLocation)).Filter(constrained => constrained != CurrentLocation).Iter(Move);
+        Point.Constraint.Map(constrain => constrain(CurrentLocation)).Filter(constrained => constrained != CurrentLocation).Iter(Move);
         base.NewLocation();
     }
 
@@ -113,7 +113,7 @@ internal sealed class GripBody(GripDefinition definition) {
         definition.Rebuild(Points.Map(static grip => grip.Current).Strict()).Match(
             Succ: static geometry => Some(geometry),
             Fail: static error => {
-                _ = Session.Failed(error);
+                Session.Failed(error);
                 return Option<GeometryBase>.None;
             });
 
@@ -124,12 +124,12 @@ internal sealed class GripBody(GripDefinition definition) {
             grips.NewLocation = false;
             ReplacePreview(Rebuilt());
         }
-        if (args.DrawDynamicStuff) _ = preview.Value.Bind(geometry => Drawn(args.Display, geometry)).Iter(static draw => draw());
-        _ = definition.Polygon.Iter(edge => args.DrawControlPolygonLine(new Line(Points[edge.From].CurrentLocation, Points[edge.To].CurrentLocation), edge.From, edge.To));
+        if (args.DrawDynamicStuff) preview.Value.Bind(geometry => Drawn(args.Display, geometry)).Iter(static draw => draw());
+        definition.Polygon.Iter(edge => args.DrawControlPolygonLine(new Line(Points[edge.From].CurrentLocation, Points[edge.To].CurrentLocation), edge.From, edge.To));
     }
 
     internal void ReplacePreview(Option<GeometryBase> next) =>
-        _ = atomic(() => {
+        atomic(() => {
             Option<GeometryBase> prior = preview.Value;
             preview.Value = next;
             return prior;
@@ -164,7 +164,7 @@ public abstract class DefinedObjectGrips : CustomObjectGrips {
 
     protected DefinedObjectGrips(GripDefinition definition) : base(definition.Control.Host.Type) {
         (control, body) = (definition.Control, new GripBody(definition));
-        _ = body.Points.Iter(AddGrip);
+        body.Points.Iter(AddGrip);
     }
 
     // --- [CALLBACKS]

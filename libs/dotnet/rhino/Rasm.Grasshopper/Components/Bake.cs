@@ -89,7 +89,7 @@ public static class Bakes {
             select (Name: name.ToString(), Value: meta[name].ToString())).Strict();
         if (count > 1)
             attributes.AddToGroup(addGroup());
-        _ = texts.Iter(text => attributes.SetUserString(text.Name, text.Value));
+        texts.Iter(text => attributes.SetUserString(text.Name, text.Value));
         return attributes;
     }
 
@@ -98,7 +98,7 @@ public static class Bakes {
     // --- [WRITES]
 
     private static Fin<Seq<Guid>> Written(RhinoDoc document, (Seq<(BakeKey Key, GeometryBase Geometry, ObjectAttributes Attributes, Option<Guid> Into)> Writes, Seq<Guid> Deleted, Seq<Guid> Severed) plan) {
-        _ = plan.Severed.Iter(id => Optional(document.Objects.FindId(id)).Iter(static found => Severed(found.Attributes.UserDictionary)));
+        plan.Severed.Iter(id => Optional(document.Objects.FindId(id)).Iter(static found => Severed(found.Attributes.UserDictionary)));
         Seq<bool> deleted = plan.Deleted.Map(id => Optional(document.Objects.FindId(id)).Exists(found => document.Objects.Delete(found, quiet: true, ignoreModes: true))).Strict();
         return GrasshopperFault.Unless(deleted.ForAll(static removed => removed), GrasshopperReason.Declined, plan.Deleted)
             .Bind(_ => plan.Writes.TraverseM(write => write.Into.Match(
@@ -115,7 +115,7 @@ public static class Bakes {
     }
 
     private static Fin<Seq<Guid>> Written(File3dm file, (Seq<(BakeKey Key, GeometryBase Geometry, ObjectAttributes Attributes, Option<Guid> Into)> Writes, Seq<Guid> Deleted, Seq<Guid> Severed) plan) {
-        _ = plan.Severed.Iter(id => Optional(file.Objects.FindId(id)).Iter(static found => Severed(found.Attributes.UserDictionary)));
+        plan.Severed.Iter(id => Optional(file.Objects.FindId(id)).Iter(static found => Severed(found.Attributes.UserDictionary)));
         return GrasshopperFault.Unless(file.Objects.Delete(plan.Deleted) == plan.Deleted.Count, GrasshopperReason.Declined, plan.Deleted)
             .Bind(_ => plan.Writes.TraverseM(write =>
                 (from deleted in write.Into.Traverse(objectId => GrasshopperFault.Unless(file.Objects.Delete(objectId), GrasshopperReason.Declined, write.Key)).As()

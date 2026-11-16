@@ -64,8 +64,8 @@ public static class DisplayModeRules {
 
     private static unsafe void AllViewportsRemoved(ObjectAttributes staged, Guid key) {
         DisplayMaterialRef marked = default(DisplayMaterialRef) with { DisplayMaterialId = key };
-        _ = AddExport(NonConstPointer(staged), marked);
-        _ = RemoveExport(NonConstPointer(staged), marked.ViewportId, marked.DisplayMaterialId);
+        AddExport(NonConstPointer(staged), marked);
+        RemoveExport(NonConstPointer(staged), marked.ViewportId, marked.DisplayMaterialId);
         GC.KeepAlive(staged);
     }
 
@@ -162,7 +162,7 @@ public static class DisplayModeRules {
         mode.Match(
             Some: id => DisplayModes.With(id, description =>
                 from allowed in IO.lift(() => Assignable(description))
-                from written in IO.lift(() => { _ = staged.SetDisplayModeOverride(description, slot); })
+                from written in IO.lift(() => { staged.SetDisplayModeOverride(description, slot); })
                 select written),
             None: () => slot == Guid.Empty
                 ? IO.lift(() => AllViewportsRemoved(staged, Guid.NewGuid()))

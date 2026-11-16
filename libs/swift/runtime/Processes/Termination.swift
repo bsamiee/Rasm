@@ -5,9 +5,9 @@ public import System
 // --- [MODELS] --------------------------------------------------------------------------
 
 public struct ExitDetail: OptionSet, Sendable {
-    public static let decryptFail: Self = .init(rawValue: NOTE_EXIT_DECRYPTFAIL)
-    public static let memory: Self = .init(rawValue: NOTE_EXIT_MEMORY)
-    public static let csError: Self = .init(rawValue: NOTE_EXIT_CSERROR)
+    public static let decryptFail = Self(rawValue: NOTE_EXIT_DECRYPTFAIL)
+    public static let memory = Self(rawValue: NOTE_EXIT_MEMORY)
+    public static let csError = Self(rawValue: NOTE_EXIT_CSERROR)
 
     public let rawValue: Int32
 

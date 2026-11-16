@@ -193,7 +193,7 @@ public static class Getters {
             request.Accept.Nothing.Map(nothing => new Route<T>(GetResult.Nothing, nothing.Then) {
                 Enable = IO.lift(() => {
                     getter.AcceptNothing(enable: true);
-                    _ = nothing.Shown.Iter(shown => getter.SetCommandPromptDefault(LocalText.Of(shown).Local));
+                    nothing.Shown.Iter(shown => getter.SetCommandPromptDefault(LocalText.Of(shown).Local));
                 }),
             }),
             request.Accept.Undo.Map(then => new Route<T>(GetResult.Undo, then) { Enable = IO.lift(() => getter.AcceptUndo(enable: true)) }),
@@ -201,7 +201,7 @@ public static class Getters {
             request.Accept.Color.Map(color => new Route<T>(GetResult.Color, IO.lift(getter.Color).Bind(color.Then)) {
                 Enable = IO.lift(() => {
                     getter.AcceptColor(enable: true);
-                    _ = color.Default.Iter(getter.SetDefaultColor);
+                    color.Default.Iter(getter.SetDefaultColor);
                 }),
             }),
             request.Accept.Number.Map(number => new Route<T>(GetResult.Number, Numbered(getter, number, doc)) { Enable = IO.lift(() => getter.AcceptNumber(enable: true, number.Zero)) }),
@@ -260,7 +260,7 @@ public static class Getters {
                 from handlers in request.Handlers.TraverseM(handler => handler.Attach(getter)).As()
                 from result in IO.lift(() => {
                     getter.FullFrameRedrawDuringGet |= request.Handlers.Exists(static handler => handler.FullFrame);
-                    _ = request.Default.Iter(getter.SetDefaultPoint);
+                    request.Default.Iter(getter.SetDefaultPoint);
                     return get(getter);
                 })
                 select result,
@@ -306,7 +306,7 @@ public static class Getters {
             request,
             doc,
             getter => IO.lift(() => {
-                _ = request.Default.Iter(getter.SetDefaultInteger);
+                request.Default.Iter(getter.SetDefaultInteger);
                 return getter.Get();
             }),
             getter => Seq(new Route<T>(GetResult.Number, IO.lift(() => new Entered<int>(getter.Number(), getter.GotDefault())).Bind(entered))));
@@ -321,7 +321,7 @@ public static class Getters {
             request,
             doc,
             getter => IO.lift(() => {
-                _ = request.Default.Iter(getter.SetDefaultString);
+                request.Default.Iter(getter.SetDefaultString);
                 return literal ? getter.GetLiteralString() : getter.Get();
             }),
             getter => Seq(new Route<T>(GetResult.String, IO.lift(() => new Entered<string>(getter.StringResult(), getter.GotDefault())).Bind(entered))));
@@ -336,7 +336,7 @@ public static class Getters {
             request,
             doc,
             getter => IO.lift(() => {
-                _ = request.Default.Iter(value => getter.SetDefaultNumber(shown(value)));
+                request.Default.Iter(value => getter.SetDefaultNumber(shown(value)));
                 return getter.Get();
             }),
             getter => Seq(new Route<T>(GetResult.Number, IO.lift(() => new Entered<TValue>(read(getter.Number()), getter.GotDefault())).Bind(entered))));

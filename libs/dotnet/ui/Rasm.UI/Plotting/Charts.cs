@@ -49,7 +49,7 @@ public sealed record Plotted(Key Key, string Label, Figure Figure) {
     private static Fin<Figure> Binned(Samples samples, Seq<float> edges) {
         Seq<(float From, float To)> bins = toSeq(edges.AsIterable().Window(2).Select(static pair => (pair[0], pair[1]))).Strict();
         Histogram histogram = new();
-        _ = bins.Iter(bin => histogram.AddBucket(new Bucket(bin.From, bin.To)));
+        bins.Iter(bin => histogram.AddBucket(new Bucket(bin.From, bin.To)));
         histogram.AddData(samples.Finite.Where(value => value >= edges[0] && value <= edges[^1]).Select(static value => (double)value));
         float[] counts = [.. Enumerable.Range(0, histogram.BucketCount).Select(index => (float)histogram[index].Count)];
         float width = edges[1] - edges[0];

@@ -211,7 +211,7 @@ public static class Values {
                     offered.Contains(DisplayAndPrintColorSourceMode.ByLayer), offered.Contains(DisplayAndPrintColorSourceMode.ByObject),
                     offered.Contains(DisplayAndPrintColorSourceMode.ByParent), offered.Contains(DisplayAndPrintColorSourceMode.Viewport),
                     offered.Contains(DisplayAndPrintColorSourceMode.None));
-                _ = resolved.Iter(held => (picker.DisplayResolvedColor, picker.PrintResolvedColor) = (held.Display.Color.ToEto(), held.Print.Color.ToEto()));
+                resolved.Iter(held => (picker.DisplayResolvedColor, picker.PrintResolvedColor) = (held.Display.Color.ToEto(), held.Print.Color.ToEto()));
             }),
         };
 
@@ -258,7 +258,7 @@ public static class Values {
                     .Choose(static args => Conversions.Present(args.PropertyName is "OnEndChanged", unit))),
             Attached = slider => IO.lift(() => {
                 slider.SetMinMax(low, high);
-                _ = decimals.Iter(places => slider.Decimals = places);
+                decimals.Iter(places => slider.Decimals = places);
             }),
         };
 

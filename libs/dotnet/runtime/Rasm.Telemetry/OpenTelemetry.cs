@@ -44,7 +44,7 @@ public static class ConfiguredExporterExtensions {
                 where !string.Equals(name, NoExporter, StringComparison.OrdinalIgnoreCase)
                 select (signal.Variable, name, exporters.Find(name).Bind(signal.Exported),
                     string.Join(", ", exporters.Filter(exporter => signal.Exported(exporter).IsSome).Keys.Add(NoExporter)))).Strict();
-            _ = named.Filter(static row => row.Configure.IsNone).Iter(row => builder.Services.AddSingleton(new SettingRejection(row.Variable, row.Name, row.Accepted)));
+            named.Filter(static row => row.Configure.IsNone).Iter(row => builder.Services.AddSingleton(new SettingRejection(row.Variable, row.Name, row.Accepted)));
             Seq<Func<IOpenTelemetryBuilder, IOpenTelemetryBuilder>> exported = named.Choose(static row => row.Configure);
             Seq<Func<IOpenTelemetryBuilder, IOpenTelemetryBuilder>> unexported =
                 Signals.Filter(signal => !named.Exists(row => row.Configure.IsSome && string.Equals(row.Variable, signal.Variable, StringComparison.Ordinal))).Map(static signal => signal.Unexported);

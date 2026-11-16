@@ -40,9 +40,9 @@ public abstract partial record Loading<T> where T : notnull {
 // --- [SERVICES] ------------------------------------------------------------------------
 
 public sealed class WorkProgress<T>(Atom<Loading<T>> work, long total) : IProgress<int>, IProgress<(int Done, string Stage)> where T : notnull {
-    public void Report(int value) => _ = work.Swap(_ => new Loading<T>.Pending(Progress.Of(value, total)));
+    public void Report(int value) => work.Swap(_ => new Loading<T>.Pending(Progress.Of(value, total)));
 
-    public void Report((int Done, string Stage) value) => _ = work.Swap(_ => new Loading<T>.Pending(Progress.Of(value.Done, total)) { Stage = Some(value.Stage) });
+    public void Report((int Done, string Stage) value) => work.Swap(_ => new Loading<T>.Pending(Progress.Of(value.Done, total)) { Stage = Some(value.Stage) });
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

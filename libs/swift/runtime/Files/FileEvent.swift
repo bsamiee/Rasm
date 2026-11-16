@@ -27,7 +27,7 @@ public struct FileEvent: Sendable {
         // --- [STATE]
 
         private let continuation: AsyncStream<Result<[FileEvent], FileFailure>>.Continuation
-        private let queue: DispatchSerialQueue = .init(label: String(reflecting: FileEvent.self))
+        private let queue = DispatchSerialQueue(label: String(reflecting: FileEvent.self))
         private var stream: FSEventStreamRef?
 
         init(continuation: AsyncStream<Result<[FileEvent], FileFailure>>.Continuation) {

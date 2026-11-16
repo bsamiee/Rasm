@@ -62,7 +62,7 @@ public sealed class DefinedChangeFeed : ChangeQueue.ChangeQueue {
     private IO<Unit> Signal => wake.TraverseM(static signal => signal).As().Map(static _ => unit);
 
     protected override void Dispose(bool isDisposing) =>
-        _ = Session.Run(
+        Session.Run(
             from prior in atomicIO(() => {
                 Option<SceneFeed> held = feed.Value;
                 feed.Value = None;
@@ -164,11 +164,11 @@ public sealed class DefinedChangeFeed : ChangeQueue.ChangeQueue {
 
     // --- [NOTICES]
 
-    protected override void NotifyBeginUpdates() => _ = Session.Run(Signal);
+    protected override void NotifyBeginUpdates() => Session.Run(Signal);
 
-    protected override void NotifyEndUpdates() => _ = Session.Run(Drain);
+    protected override void NotifyEndUpdates() => Session.Run(Drain);
 
-    protected override void NotifyDynamicUpdatesAreAvailable() => _ = Session.Run(Drain);
+    protected override void NotifyDynamicUpdatesAreAvailable() => Session.Run(Drain);
 
     // --- [POLICIES]
 
@@ -179,7 +179,7 @@ public sealed class DefinedChangeFeed : ChangeQueue.ChangeQueue {
     // --- [COLLECTION]
 
     private void Collect(IO<SceneBatch> change, [CallerMemberName] string member = "") =>
-        _ = Session.Run(
+        Session.Run(
             Products.Transfer(static () => EnvIO.New(token: CancellationToken.None), scope =>
                 from batch in change.Scoped(scope)
                 from collected in atomicIO(() => feed.Swap(held => from state in held select state with { Collecting = state.Collecting.Combine(batch), Held = state.Held.Add(scope) }))

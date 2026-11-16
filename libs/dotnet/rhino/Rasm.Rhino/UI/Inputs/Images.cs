@@ -41,7 +41,7 @@ public abstract partial record Thumbnail {
         float scale = float.Min(bounds.Width / extent.Width, bounds.Height / extent.Height);
         PointF origin = bounds.Center - (new SizeF(extent.Width, extent.Height) * scale / 2f);
         using Pen pen = new(color);
-        _ = shapes.Iter(shape => {
+        shapes.Iter(shape => {
             PointF[] points = [.. shape.Points.Map(point => new PointF(origin.X + (point.X * scale), origin.Y + ((extent.Height - point.Y) * scale)))];
             if (shape.Closed) graphics.DrawPolygon(pen, points);
             else graphics.DrawLines(pen, points);

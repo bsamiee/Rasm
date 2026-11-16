@@ -28,7 +28,7 @@ internal sealed class CommandBody<TInput>(CommandDefinition<TInput> definition) 
     public string HelpUrl => Conversions.Unset(Optional(PlugIn.GetPlugInInfo(host.Id)).Bind(static info => Conversions.Present(info.WebSite)));
 
     public void Help() =>
-        _ = Session.Run(definition.Help.Match(Some: static topic => topic.Show, None: () => IO.lift(() => ignore(host.DisplayHelp(windowHandle: 0)))), member: definition.EnglishName);
+        Session.Run(definition.Help.Match(Some: static topic => topic.Show, None: () => IO.lift(() => ignore(host.DisplayHelp(windowHandle: 0)))), member: definition.EnglishName);
 
     // --- [EXECUTION]
 

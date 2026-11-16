@@ -71,7 +71,7 @@ public static class RhinoObjects {
 
         public Option<bool> Closed {
             get {
-                _ = o.ShortDescriptionWithClosedStatus(prepend: false, plural: false, out int status);
+                o.ShortDescriptionWithClosedStatus(prepend: false, plural: false, out int status);
                 return Some(status).Filter(static closed => closed is not 0).Map(static closed => closed is 2);
             }
         }

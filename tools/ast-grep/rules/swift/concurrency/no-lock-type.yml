@@ -16,4 +16,4 @@ rule:
                   kind: call_expression
                   follows: { stopBy: { kind: parameter }, kind: parameter, has: { stopBy: end, kind: type_identifier, pattern: $LOCK } }
 message: '`$LOCK` guards state through a lock type'
-note: 'Hold shared state in an actor, and synchronous state in `Mutex<State>` from `Synchronization` with each access in one `withLock`'
+note: 'Hold shared state in an actor, synchronous state in a class in `Mutex<State>`, and synchronous state of a copyable value in `OSAllocatedUnfairLock<State>`, each access in one `withLock`'

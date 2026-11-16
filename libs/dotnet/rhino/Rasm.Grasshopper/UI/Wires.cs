@@ -81,7 +81,7 @@ public sealed class RoutedWire<TRoute> : WireShape where TRoute : IWireRoute {
         Seq<Seq<Point3d>> runs = edge.DashStyle is { IsSolid: false }
             ? Seq(toSeq(line.Trim(0.0, middle)), toSeq(line.Trim(middle, line.Count - 1)).Rev())
             : Seq(toSeq(line));
-        _ = runs.Iter(run => graphics.DrawLines(faded ?? edge, run.Map(static point => point.ToPointF())));
+        runs.Iter(run => graphics.DrawLines(faded ?? edge, run.Map(static point => point.ToPointF())));
     }
 }
 

@@ -12,7 +12,7 @@ import UniformTypeIdentifiers
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-private let identifierKey: String = kMDItemCFBundleIdentifier as String
+private let identifierKey = kMDItemCFBundleIdentifier as String
 
 // --- [MODELS] --------------------------------------------------------------------------
 

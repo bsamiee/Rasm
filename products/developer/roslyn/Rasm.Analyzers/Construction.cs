@@ -210,7 +210,7 @@ public sealed class SentinelAnalyzer : DiagnosticAnalyzer {
                     IPropertySubpatternOperation { Pattern: IConstantPatternOperation constant, Member: IMemberReferenceOperation reference } when Empty(constant.Value) => reference.Member,
                     _ => null,
                 };
-                if (member is not null) _ = compared.TryAdd(member.OriginalDefinition, 0);
+                if (member is not null) compared.TryAdd(member.OriginalDefinition, 0);
             }, OperationKind.Binary, OperationKind.Invocation, OperationKind.IsPattern, OperationKind.PropertySubpattern);
             start.RegisterOperationAction(analysis => {
                 if (analysis.Operation.Type is INamedTypeSymbol made && Data(made)) records.Add(analysis.Operation);

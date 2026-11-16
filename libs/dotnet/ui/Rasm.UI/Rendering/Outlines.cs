@@ -166,7 +166,7 @@ internal abstract class Outline : IDisposable {
         Seq<(float P, float A, float B, float C, float D, float Arc)> shapes = radii.Map((radius, corner) => Smoothed(radius,
             float.Min(Share(radii, corner, (corner + 1) % 4, Side(frame, corner)), Share(radii, corner, (corner + 3) % 4, Side(frame, (corner + 3) % 4))), float.Min(smoothing, 1f)));
         path.MoveTo(vertices[0] - (SKPoint)(Directions[0] * shapes[0].P));
-        _ = shapes.Iter((corner, shape) => {
+        shapes.Iter((corner, shape) => {
             float radius = radii[corner];
             if (radius > 0f) {
                 SKPoint origin = vertices[corner] - (SKPoint)(Directions[corner] * shape.P);

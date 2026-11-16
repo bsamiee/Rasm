@@ -64,7 +64,7 @@ public abstract partial record ColorRamp {
 
     public Seq<Stop> Stops { get; private protected init; }
 
-    private protected Seq<(Stop Low, Stop High)> Segments => toSeq(Stops.AsIterable().Window(2, static pair => (Low: pair[0], High: pair[1])));
+    private protected Seq<(Stop Low, Stop High)> Segments => Stops.Zip(Stops.Tail);
 
     private protected Option<ColorValue> Last => Stops.Last.Map(static stop => stop.Color);
 
@@ -94,7 +94,7 @@ public abstract partial record ColorRamp {
 
     private static Option<Seq<(Fraction At, SKColorF Color)>> Subdivided(Seq<Fraction> knots, Func<Fraction, Option<SKColorF>> color, ColourSpace blend) =>
         from resolved in knots.Traverse(at => color(at).Map(held => (At: at, Color: held))).As()
-        from segments in toSeq(resolved.AsIterable().Window(2, static pair => (Low: pair[0], High: pair[1]))).Traverse(pair => Split(color, blend, pair.Low, pair.High).Map(inner => inner.Add(pair.High))).As()
+        from segments in resolved.Zip(resolved.Tail).Traverse(pair => Split(color, blend, pair.First, pair.Second).Map(inner => inner.Add(pair.Second))).As()
         select resolved.Take(1) + segments.Bind(static inner => inner);
 
     private static Option<Seq<(Fraction At, SKColorF Color)>> Split(Func<Fraction, Option<SKColorF>> color, ColourSpace blend, (Fraction At, SKColorF Color) low, (Fraction At, SKColorF Color) high) =>

@@ -32,7 +32,7 @@ public static class Framing {
     public static IO<Unit> Choose(RenderSettingsSource.Section section, RenderSize size) =>
         from sized in RenderSettingsSources.Edit(section, scope => IO.lift(() => {
             scope.Settings.UseViewportSize = size.Viewport;
-            _ = size.Size.Iter(pixels => scope.Settings.ImageSize = pixels);
+            size.Size.Iter(pixels => scope.Settings.ImageSize = pixels);
         }))
         from preset in SectionModels.Write(section.Host, Provider.RhinoSettings, data => IO.lift(() => data.CustomImageSizeIsPreset = size.Preset))
         select unit;

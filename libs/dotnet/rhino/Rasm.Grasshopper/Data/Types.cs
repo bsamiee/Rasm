@@ -66,7 +66,7 @@ public sealed class ValueParameter<T> : Parameter<T>, GrasshopperIO.ICustomIoId 
     public override IPresets PresetsWeak {
         get {
             if (Presets.Count is 0 && TypeAssistant is ValueAssistant<T> owner)
-                _ = owner.Presets.Iter(preset => Presets.Add(preset));
+                owner.Presets.Iter(preset => Presets.Add(preset));
             return Presets;
         }
     }

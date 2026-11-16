@@ -60,7 +60,7 @@ public abstract class DefinedMeshProvider(string name) : RenderMeshProvider {
         Session.Run(Parameter(doc, objectId, parameterName), failed: Option<object>.None).ValueUnsafe();
 
     public sealed override void SetParameter(RhinoDoc doc, Guid objectId, string parameterName, object value) =>
-        _ = Session.Run(Parametrized(doc, objectId, parameterName, value));
+        Session.Run(Parametrized(doc, objectId, parameterName, value));
 
     // --- [HOOKS]
 
