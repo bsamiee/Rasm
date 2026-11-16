@@ -217,4 +217,4 @@ Actions go to the app's process through AX actions on its elements and leave the
 - `ffmpeg -ss <offset> -i <movie> -frames:v 1 <png>` writes one frame to read as an image, and `use-antigravity` watches a clip or movie
 - `--longest-side <pixels>` scales recorded frames, a full-motion window at native size writing megabytes a second
 - Recorded windows show the system's capture indicator in place of their traffic lights, a `Window` row holding it joining `windows`
-- Movies read once their window closes or the watch ends (Monitor stop, signal), and a `watch` ended by `SIGKILL` leaves them unreadable
+- Movies read once their window closes or the watch ends, `SIGKILL` included, since replayd stops and finalizes a dead client's streams

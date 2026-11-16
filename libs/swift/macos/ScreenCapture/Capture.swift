@@ -1,5 +1,6 @@
 public import AppKit
 public import Applications
+import CoreImage.CIFilterBuiltins
 import ImageIO
 import Processes
 import ScreenCaptureKit
@@ -21,19 +22,12 @@ public func checkCaptureAccess(prompting: Bool = false) throws(ApplicationFailur
 }
 
 private func transparent(_ image: CGImage) -> Bool {
-    guard
-        let context = unsafe CGContext(
-            data: nil,
-            width: image.width,
-            height: image.height,
-            bitsPerComponent: 8,
-            bytesPerRow: 0,
-            space: nil as CGColorSpace?,
-            bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.alphaOnly.rawValue),
-        )
-    else { return false }
-    context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
-    return context.makeImage()?.dataProvider?.data.map { alpha in (alpha as Data).allSatisfy { byte in byte == 0 } } ?? false
+    let maximum = CIFilter.areaMaximumAlpha()
+    (maximum.inputImage, maximum.extent) = (CIImage(cgImage: image), CGRect(x: 0, y: 0, width: image.width, height: image.height))
+    var alpha: UInt8 = 0
+    guard let output = maximum.outputImage else { return false }
+    unsafe CIContext().render(output, toBitmap: &alpha, rowBytes: 1, bounds: CGRect(x: 0, y: 0, width: 1, height: 1), format: .A8, colorSpace: nil)
+    return alpha == 0
 }
 
 extension Instance {
@@ -96,9 +90,7 @@ extension Instance {
                 do { output = try await SCScreenshotManager.captureScreenshot(contentFilter: filter, configuration: configuration) } catch {
                     throw ApplicationFailure(subject: String(number), reason: .host(error as NSError))
                 }
-                let pixels = region.map { region in
-                    CGRect(x: (region.minX * factor).rounded(), y: (region.minY * factor).rounded(), width: (region.width * factor).rounded(), height: (region.height * factor).rounded())
-                }
+                let pixels = region.map { region in region.applying(CGAffineTransform(scaleX: factor, y: factor)).integral }
                 guard let image = pixels.map({ pixels in output.sdrImage?.cropping(to: pixels) }) ?? output.sdrImage else { throw ApplicationFailure(subject: String(number), reason: .noImage) }
                 guard source != nil || !transparent(image) else { return nil }
                 let data: CFMutableData = CFDataCreateMutable(nil, 0)

@@ -69,6 +69,7 @@ actor Server<Request: Decodable & Sendable, Failure: Error> {
 
     let output: AsyncChannel<Data> = .init()
     private let encoder: JSONEncoder = .init()
+    private let decoder: JSONDecoder = .init()
     private let perform: @Sendable (Request) async throws(Failure) -> Response
     private let dropped: @Sendable (JSONRPCFailure) -> Void
     private var running: [JSONValue: (task: Task<Void, Never>, acks: AsyncStream<Void>.Continuation, streaming: Bool)] = [:]
@@ -82,7 +83,7 @@ actor Server<Request: Decodable & Sendable, Failure: Error> {
 
     func receive(_ line: Data) {
         let envelope: Envelope<JSONValue, JSONValue>
-        do { envelope = try JSONDecoder().decode(Envelope<JSONValue, JSONValue>.self, from: line) } catch {
+        do { envelope = try decoder.decode(Envelope<JSONValue, JSONValue>.self, from: line) } catch {
             dropped(JSONRPCFailure(subject: "connection", reason: .unreadable(error)))
             return
         }

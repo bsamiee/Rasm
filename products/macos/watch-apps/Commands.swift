@@ -21,6 +21,11 @@ private let installedNames: ArgumentHelp =
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+private func elementID(_ id: String) throws(ValidationError) -> Element.ID {
+    guard let element = Element.ID(base64Encoded: id) else { throw ValidationError("\(id) is not base64") }
+    return element
+}
+
 private func installed(_ names: [String], _ run: Run) async -> [(name: String, installations: [Installation])] {
     await OrderedSet(names).async.compactMap { name -> (name: String, installations: [Installation])? in
         do throws(ApplicationFailure) { return (name, try await Installation.installed(named: name)) } catch {
@@ -260,13 +265,7 @@ struct Capture: AsyncParsableCommand {
     @Option(help: "Window number from a line")
     var window: CGWindowID?
 
-    @Option(
-        help: "Element ID from a read line, a pane, panel, or canvas",
-        transform: { id in
-            guard let element = Element.ID(base64Encoded: id) else { throw ValidationError("\(id) is not base64") }
-            return element
-        },
-    )
+    @Option(help: "Element ID from a read line, a pane, panel, or canvas", transform: elementID)
     var element: Element.ID?
 
     @Option(help: ArgumentHelp("Longest side in pixels, smaller captures keep native size", valueName: "pixels"))
@@ -302,13 +301,7 @@ struct Capture: AsyncParsableCommand {
 }
 
 struct ElementOperand: ParsableArguments {
-    @Argument(
-        help: "Element ID from a read line",
-        transform: { id in
-            guard let element = Element.ID(base64Encoded: id) else { throw ValidationError("\(id) is not base64") }
-            return element
-        },
-    )
+    @Argument(help: "Element ID from a read line", transform: elementID)
     var id: Element.ID
 }
 

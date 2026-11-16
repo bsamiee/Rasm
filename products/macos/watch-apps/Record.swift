@@ -10,7 +10,6 @@ import Processes
 import ScreenCapture
 import ScreenCaptureKit
 import Subprocess
-import Synchronization
 import System
 import UniformTypeIdentifiers
 
@@ -88,7 +87,6 @@ actor Recorder {
     private let hostLogs: URL
     private let longestSide: Int?
     private let timeline: FileDescriptor
-    private let broken: Atomic<Bool> = .init(false)
     private var held: [Instance: (recordings: [CGWindowID: Result<Recording, ApplicationFailure>], logging: Task<Void, Never>)] = [:]
     private var tailing: Task<Void, Never>?
     private var observing: Task<Void, Never>?
@@ -111,14 +109,7 @@ actor Recorder {
     }
 
     nonisolated func append(_ event: Moment.Event, at: Date = .now) {
-        guard !broken.load(ordering: .relaxed) else { return }
-        do { try timeline.writeAll(JSONEncoder.lines.encodeLine(Moment(at: at, event: event))) } catch {
-            guard !broken.exchange(true, ordering: .relaxed) else { return }
-            Task {
-                await finish()
-                WatchApps.exit(withError: error)
-            }
-        }
+        do { try timeline.writeAll(JSONEncoder.lines.encodeLine(Moment(at: at, event: event))) } catch { WatchApps.exit(withError: error) }
     }
 
     private nonisolated func file(_ window: CGWindowID, _ type: UTType) -> URL {
@@ -171,12 +162,10 @@ actor Recorder {
             }
             for window in windows.subtracting(recordings.keys) {
                 let movie = file(window, .quickTimeMovie)
+                let configuration = SCStreamConfiguration.background
+                configuration.minimumFrameInterval = CMTime(value: 1, timescale: framesPerSecond)
                 let started = await Result { () async throws(ApplicationFailure) in
-                    try await instance.recording(.windows(numbers: [window]), to: movie, longestSide: longestSide) {
-                        let configuration = SCStreamConfiguration.background
-                        configuration.minimumFrameInterval = CMTime(value: 1, timescale: framesPerSecond)
-                        return configuration
-                    }
+                    try await instance.recording(.windows(numbers: [window]), to: movie, longestSide: longestSide, configuration: configuration)
                 }
                 recordings[window] = started
                 switch started {
@@ -203,6 +192,7 @@ actor Recorder {
         _ = await observing?.value
         tailing?.cancel()
         for instance in held.keys { await release(instance) }
+        _ = await tailing?.value
     }
 
     private nonisolated func logging(_ pid: pid_t) async {

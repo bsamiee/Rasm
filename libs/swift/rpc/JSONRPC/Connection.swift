@@ -19,6 +19,7 @@ public final class JSONRPCConnection<Method: RawRepresentable<String> & Hashable
     private let timeout: Duration
     private let failure: @Sendable (JSONRPCFailure) -> Failure
     private let state: Mutex<State> = Mutex(State())
+    private let encoder: JSONEncoder = .init()
 
     private init(write: @escaping @Sendable (Data) async throws -> Void, timeout: Duration, failure: @escaping @Sendable (JSONRPCFailure) -> Failure) {
         (self.write, self.timeout, self.failure) = (write, timeout, failure)
@@ -155,7 +156,7 @@ public final class JSONRPCConnection<Method: RawRepresentable<String> & Hashable
 
     private func send(_ envelope: Envelope<some Encodable & Sendable, some Encodable & Sendable>, subject: String) async throws(Failure) {
         if let terminal = state.withLock({ state in state.terminal }) { throw terminal }
-        let line = try Result { try JSONEncoder().encodeLine(envelope) }.mapError { error in failure(JSONRPCFailure(subject: subject, reason: .unencodable(error))) }.get()
+        let line = try Result { try encoder.encodeLine(envelope) }.mapError { error in failure(JSONRPCFailure(subject: subject, reason: .unencodable(error))) }.get()
         try await Result { try await write(line) }.mapError { error in failure(JSONRPCFailure(subject: subject, transport: error)) }.get()
     }
 
