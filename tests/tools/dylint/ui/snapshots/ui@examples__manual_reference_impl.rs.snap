@@ -44,5 +44,5 @@ note: repeated here
     |
 212 |     fn as_ref(&self) -> &str { self.0.as_ref() }
     |     ^^^^^^^^^^^^^^^^^^^^^^^^
-    = help: generate the `AsRef` impls from one `macro_rules!` over the implementing type
+    = help: replace the implementing types with one type holding what they differ by as a field and one `AsRef` impl
     = note: `#[deny(duplicate_body)]` on by default

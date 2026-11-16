@@ -32,6 +32,7 @@ enum Failure {
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 #[test]
+#[expect(clippy::disallowed_methods, reason = "`insta::glob!` canonicalizes its base folder")]
 fn ui() -> Result<(), Failure> {
     let output = Command::new(env!("CARGO"))
         .args(["dylint", "--all", "-p", env!("CARGO_PKG_NAME"), "--fail-on-no-libraries", "--", "--locked", "--keep-going", "--examples", "--test", "*", "--message-format=json"])

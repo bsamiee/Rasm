@@ -150,21 +150,20 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
         }
         let Some(callee) = fn_def_id(cx, expr) else { return };
         let parent = associated_trait(cx.tcx, callee).unwrap_or_else(|| cx.tcx.parent(callee));
-        if !self.calls.contains(&callee) && !self.owners.contains(&parent) {
-            if !self.streams.contains(&parent) || result_parts(cx, cx.typeck_results().expr_ty(expr)).is_none() {
-                return;
+        let mut walked = match expr.kind {
+            _ if self.calls.contains(&callee) || self.owners.contains(&parent) => None,
+            ExprKind::MethodCall(_, operand, ..) | ExprKind::Call(_, [operand, ..]) if self.streams.contains(&parent) && result_parts(cx, cx.typeck_results().expr_ty(expr)).is_some() =>
+                Some(cx.typeck_results().expr_ty_adjusted(operand).walk()),
+            _ => return,
+        };
+        while let Some(walker) = walked.as_mut() {
+            let Some(argument) = walker.next() else { return };
+            let held = argument.as_type();
+            if held.and_then(Ty::opt_def_id).is_some_and(|handle| self.handles.contains(&handle)) {
+                break;
             }
-            let (ExprKind::MethodCall(_, operand, ..) | ExprKind::Call(_, [operand, ..])) = expr.kind else { return };
-            let mut walked = cx.typeck_results().expr_ty_adjusted(operand).walk();
-            loop {
-                let Some(argument) = walked.next() else { return };
-                let held = argument.as_type();
-                if held.and_then(Ty::opt_def_id).is_some_and(|handle| self.handles.contains(&handle)) {
-                    break;
-                }
-                if !held.is_some_and(Ty::is_ref) && !held.and_then(Ty::ty_adt_def).is_some_and(|adt| adt.is_box() || adt.is_diag_item(cx, sym::Arc) || self.forwarders.contains(&adt.did())) {
-                    walked.skip_current_subtree();
-                }
+            if !held.is_some_and(Ty::is_ref) && !held.and_then(Ty::ty_adt_def).is_some_and(|adt| adt.is_box() || adt.is_diag_item(cx, sym::Arc) || self.forwarders.contains(&adt.did())) {
+                walker.skip_current_subtree();
             }
         }
         let span = expr.span.source_callsite();

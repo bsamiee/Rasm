@@ -255,15 +255,12 @@ where
                 Err(closed) if closed.kind() == io::ErrorKind::BrokenPipe => break,
                 Err(unsent) => return Err(unsent),
             }
-            let awaited = sent.id.filter(|_| sent.method.is_some());
-            while let Some(id) = awaited.as_ref()
+            let mut awaited = sent.id.filter(|_| sent.method.is_some());
+            while let Some(id) = awaited.take()
                 && let Some(message) = self.next().await?
             {
-                let answered = message.method.is_none() && message.id.as_ref() == Some(id);
+                awaited = Some(id).filter(|id| message.method.is_some() || message.id.as_ref() != Some(id));
                 seen.push(message);
-                if answered {
-                    break;
-                }
             }
         }
         while let Ok(late) = time::timeout(QUIET, self.next()).await

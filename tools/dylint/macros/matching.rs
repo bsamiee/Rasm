@@ -12,7 +12,7 @@ use itertools::{Either, Itertools as _};
 use rustc_attr_ir::lang_items::LangItem;
 use rustc_data_structures::fx::FxHashMap;
 use rustc_hir::def::Res;
-use rustc_hir::{Arm, BinOpKind, ByRef, Expr, ExprKind, Pat, PatKind, QPath, UnOp};
+use rustc_hir::{Arm, BinOpKind, ByRef, Expr, ExprKind, Pat, PatKind, Path, QPath, UnOp};
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::ty::TyCtxt;
 use rustc_middle::ty::adjustment::{Adjust, DerefAdjustKind};
@@ -57,21 +57,13 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
 
         fn stable<'tcx>(cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) -> bool {
             let typeck = cx.typeck_results();
-            for_each_expr_without_closures(expr, |part| {
-                let native = match part.kind {
-                    ExprKind::Path(QPath::Resolved(_, path)) => matches!(path.res, Res::Local(_)),
-                    ExprKind::Field(..) | ExprKind::Index(..) | ExprKind::Lit(_) => true,
-                    ExprKind::Unary(UnOp::Deref, inner) => typeck.expr_ty(inner).is_ref(),
-                    _ => false,
-                };
-                if native
-                    && typeck.type_dependent_def_id(part.hir_id).is_none()
-                    && typeck.expr_adjustments(part).iter().all(|adjustment| matches!(adjustment.kind, Adjust::Deref(DerefAdjustKind::Builtin)))
-                {
-                    ControlFlow::Continue(())
-                } else {
-                    ControlFlow::Break(())
-                }
+            for_each_expr_without_closures(expr, |part| match part.kind {
+                ExprKind::Unary(UnOp::Deref, inner) if !typeck.expr_ty(inner).is_ref() => ControlFlow::Break(()),
+                ExprKind::Path(QPath::Resolved(_, &Path { res: Res::Local(_), .. })) | ExprKind::Field(..) | ExprKind::Index(..) | ExprKind::Lit(_) | ExprKind::Unary(UnOp::Deref, _)
+                    if typeck.type_dependent_def_id(part.hir_id).is_none()
+                        && typeck.expr_adjustments(part).iter().all(|adjustment| matches!(adjustment.kind, Adjust::Deref(DerefAdjustKind::Builtin))) =>
+                    ControlFlow::Continue(()),
+                _ => ControlFlow::Break(()),
             })
             .is_none()
         }
@@ -131,14 +123,8 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
         {
             let bindings = |pattern: &'tcx Pat<'tcx>| {
                 let mut bindings = FxHashMap::default();
-                let mut retained = true;
-                pattern.each_binding_or_first(&mut |_, id, span, name| {
-                    let mode = typeck.extract_binding_mode(cx.tcx.sess, id, span);
-                    let held = typeck.node_type(id);
-                    retained &= mode.0 != ByRef::No || is_copy(cx, held);
-                    bindings.insert(name.name, (mode, held));
-                });
-                retained.then_some(bindings)
+                pattern.each_binding_or_first(&mut |_, id, span, name| _ = bindings.insert(name.name, (typeck.extract_binding_mode(cx.tcx.sess, id, span), typeck.node_type(id))));
+                bindings.values().all(|&(mode, held)| mode.0 != ByRef::No || is_copy(cx, held)).then_some(bindings)
             };
             let Some(expected) = bindings(first.pat) else { return };
             let compatible = |candidate: &'tcx Expr<'tcx>| {

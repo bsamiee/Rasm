@@ -60,14 +60,9 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 None
             };
             let suffix = if mutable { "_mut" } else { "" };
-            let sized = |bound: &Expr<'_>| {
-                if let ExprKind::Path(path) = &bound.kind
-                    && let Res::Def(DefKind::ConstParam, found) = typeck.qpath_res(path, bound.hir_id)
-                {
-                    parameter == Some(found)
-                } else {
-                    matches!((size, ConstEvalCtxt::new(cx).eval(bound)), (Some(length), Some(Constant::Int(bound))) if u128::from(length) == bound)
-                }
+            let sized = |bound: &Expr<'_>| match &bound.kind {
+                ExprKind::Path(path) if let Res::Def(DefKind::ConstParam, found) = typeck.qpath_res(path, bound.hir_id) => parameter == Some(found),
+                _ => matches!((size, ConstEvalCtxt::new(cx).eval(bound)), (Some(length), Some(Constant::Int(bound))) if u128::from(length) == bound),
             };
             let (receiver, method) = match bounded {
                 Some((base, Some(Range { ty: RangeTy::OpsTo, start: None, end: Some(end), .. }))) if sized(end) => (base, format!("first_chunk{suffix}")),
@@ -95,10 +90,9 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 argument.addr()
             };
             span_lint_hir_and_then(cx, MANUAL_SLICE_AS_ARRAY, expr.hir_id, expr.span, format!("fallible conversion checks the length of `{}` to view it as `{target}`", text(viewed)), |diag| {
-                if let Some(ok) = converted {
-                    suggest(cx, expr.hir_id, diag, ok.span, format!("call `<[T]>::{method}`"), format!("<[_]>::{method}::<{length_text}>({argument}){copied}"), applicability);
-                } else {
-                    diag.help(format!("call `<[T]>::{method}::<{length_text}>` and handle `None`"));
+                match converted {
+                    Some(ok) => suggest(cx, expr.hir_id, diag, ok.span, format!("call `<[T]>::{method}`"), format!("<[_]>::{method}::<{length_text}>({argument}){copied}"), applicability),
+                    None => _ = diag.help(format!("call `<[T]>::{method}::<{length_text}>` and handle `None`")),
                 }
             });
         }

@@ -101,7 +101,7 @@ pub fn spectrogram(series: &Series, welch: Welch) -> Result<Spectrogram, Spectra
     let Frames { values: [mut powers], factors, frequencies, hop } = frames(series.rate, [&series.samples], welch, Complex::norm_sqr)?;
     let centre = convert::<usize, f64>(welch.segment.get()) / 2.0;
     powers.zip_mut_with(&factors, |power, &factor| *power *= factor);
-    Ok(Spectrogram { times: Array1::from_shape_fn(powers.nrows(), |frame| (convert::<usize, f64>(frame.strict_mul(hop.get())) + centre) / *series.rate), frequencies, powers })
+    Ok(Spectrogram { times: Array1::from_shape_fn(powers.nrows(), |frame| (convert::<usize, f64>(frame * hop.get()) + centre) / *series.rate), frequencies, powers })
 }
 
 pub fn transfer(input: &Series, output: &Series, welch: Welch) -> Result<Transfer, SpectraError> {
@@ -139,7 +139,7 @@ where T: Default + Clone + Send {
     let Welch { segment, hop, padding, taper, detrend, scaling, average: _ } = welch;
     let (length, samples) = (segment.get(), series.iter().map(|samples| samples.len()).min().unwrap_or_default());
     let transform = segment.checked_add(padding).filter(|_| (2..=samples).contains(&length)).ok_or(SpectraError::Segment { segment, padding, samples })?;
-    let periodic = length.strict_add(1);
+    let periodic = length + 1;
     let (weights, overlap) = match taper {
         Taper::Rectangular => (Array1::ones(periodic), const { NonZero::new(1).unwrap() }),
         Taper::Triangular => (Array1::from_iter(triangular_iter(periodic)), const { NonZero::new(2).unwrap() }),
@@ -151,7 +151,7 @@ where T: Default + Clone + Send {
     };
     let weights = weights.slice_axis_move(Axis(0), Slice::from(..length));
     let hop = hop.unwrap_or_else(|| segment.div_ceil(overlap));
-    let count = samples.strict_sub(length).strict_div(hop.get()).strict_add(1);
+    let count = (samples - length) / hop + 1;
     let width = convert::<usize, f64>(length);
     let ramp = Array1::linspace(-(width - 1.0) / 2.0, (width - 1.0) / 2.0, length);
     let (spread, handler) = (ramp.dot(&ramp), RealFftPlanner::<f64>::new().plan_fft_forward(transform.get()));
@@ -199,14 +199,14 @@ where T: Sync {
     match average {
         Average::Mean => lanes.par_map_collect(|lane, &factor| factor * (lane.fold(0.0, |sum, entry| sum + project(entry)) / convert::<usize, f64>(count))),
         Average::Median => {
-            let bias = (1..=count.strict_sub(1).strict_div(2)).map(|term| convert::<usize, f64>(term.strict_mul(2))).map(|even| (even + 1.0).recip() - even.recip()).sum::<f64>() + 1.0;
+            let bias = (1..=(count - 1) / 2).map(|term| convert::<usize, f64>(term * 2)).map(|even| (even + 1.0).recip() - even.recip()).sum::<f64>() + 1.0;
             let mut powers = Array1::zeros(factors.len());
             lanes.and(&mut powers).into_par_iter().for_each_init(
                 || Vec::with_capacity(count),
                 |ordered, (lane, &factor, power)| {
                     ordered.clear();
                     ordered.extend(lane.iter().map(&project));
-                    let (lower, &mut upper, _) = ordered.select_nth_unstable_by(count.strict_div(2), f64::total_cmp);
+                    let (lower, &mut upper, _) = ordered.select_nth_unstable_by(count / 2, f64::total_cmp);
                     let median = count.is_multiple_of(2).then_some(lower).and_then(|lower| lower.iter().copied().max_by(f64::total_cmp)).map_or(upper, |below| below.midpoint(upper));
                     *power = factor * (median / bias);
                 },

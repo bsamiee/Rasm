@@ -55,16 +55,15 @@ impl Pass {
             let span = Span::with_root_ctxt(file.start_pos, file.absolute_position(RelativeBytePos::from_usize(first)));
             let report = |message: String| span_lint(cx, ORPHAN_MODULE, span, message);
             match fs_err::read_dir(folder).and_then(|entries| entries.map(|entry| entry.map(|entry| entry.path())).collect::<Result<Vec<_>, _>>()) {
-                Ok(entries) => entries.into_iter().sorted().for_each(|entry| {
-                    let nested = entry.extension().is_none_or(|extension| extension != EXTENSION);
-                    let module = if nested { entry.join("mod.rs") } else { entry };
-                    match fs_err::canonicalize(&module) {
-                        Ok(physical) if declared.contains(dunce::simplified(&physical)) => {}
-                        Ok(_) => report(format!("`{}` sits in this module's folder with no module declaring it, declare it here or delete it", module.display())),
-                        Err(error) if nested && matches!(error.kind(), ErrorKind::NotFound | ErrorKind::NotADirectory) => {}
-                        Err(error) => report(error.to_string()),
-                    }
-                }),
+                Ok(entries) =>
+                    entries.into_iter().sorted().map(|entry| if entry.extension().is_none_or(|extension| extension != EXTENSION) { (true, entry.join("mod.rs")) } else { (false, entry) }).for_each(
+                        |(nested, module)| match fs_err::canonicalize(&module) {
+                            Ok(physical) if declared.contains(dunce::simplified(&physical)) => (),
+                            Ok(_) => report(format!("`{}` sits in this module's folder with no module declaring it, declare it here or delete it", module.display())),
+                            Err(error) if nested && matches!(error.kind(), ErrorKind::NotFound | ErrorKind::NotADirectory) => (),
+                            Err(error) => report(error.to_string()),
+                        },
+                    ),
                 Err(error) if error.kind() == ErrorKind::NotFound => {}
                 Err(error) => report(error.to_string()),
             }
@@ -224,13 +223,10 @@ fn module_paths(psess: &ParseSess, name: FileName, file: &Path, relative: Option
                 .for_each(|attribute| explicit_paths(self.directory, &mut explicit, &attribute));
             let rustc_ast::ModKind::Loaded(items, ..) = module else {
                 self.paths.extend(explicit.into_iter().map(|path| (path, true)));
-                if direct {
-                    return;
-                }
-                return match default_submod_path(self.psess, *name, self.relative, self.directory) {
-                    Ok(path) => self.paths.push((path.file_path, matches!(path.dir_ownership, DirOwnership::Owned { relative: None }))),
-                    Err(ModError::MultipleCandidates(_, sibling, folder)) => self.paths.extend([(sibling, false), (folder, true)]),
-                    Err(_) => (),
+                return match (!direct).then(|| default_submod_path(self.psess, *name, self.relative, self.directory)) {
+                    Some(Ok(path)) => self.paths.push((path.file_path, matches!(path.dir_ownership, DirOwnership::Owned { relative: None }))),
+                    Some(Err(ModError::MultipleCandidates(_, sibling, folder))) => self.paths.extend([(sibling, false), (folder, true)]),
+                    Some(Err(_)) | None => (),
                 };
             };
             let default = (!direct).then(|| self.relative.map_or_else(|| self.directory.to_path_buf(), |relative| self.directory.join(relative.as_str())).join(name.as_str()));
@@ -330,18 +326,17 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
 
             fn visit_item(&mut self, i: &'tcx Item<'tcx>) {
                 let outer = self.depth;
-                let filed = if let ItemKind::Mod(_, module) = i.kind
-                    && !module.spans.inner_span.is_dummy()
-                    && let file = self.tcx.sess.source_map().lookup_source_file(module.spans.inner_span.lo())
-                    && !file.contains(i.span.lo())
-                {
-                    self.modules.insert(file.start_pos, find_attr!(self.tcx, i.hir_id(), Path(..)));
-                    true
-                } else {
-                    false
+                let filed = match i.kind {
+                    ItemKind::Mod(_, module)
+                        if !module.spans.inner_span.is_dummy()
+                            && let file = self.tcx.sess.source_map().lookup_source_file(module.spans.inner_span.lo())
+                            && !file.contains(i.span.lo()) =>
+                        Some(file),
+                    _ => None,
                 };
+                self.modules.extend(filed.as_ref().map(|file| (file.start_pos, find_attr!(self.tcx, i.hir_id(), Path(..)))));
                 let braced = matches!(i.kind, ItemKind::Impl(_) | ItemKind::Trait { .. } | ItemKind::Mod(..)) && !i.span.from_expansion();
-                self.depth = if filed { 0 } else { outer.strict_add(usize::from(braced)) };
+                self.depth = filed.map_or_else(|| outer + usize::from(braced), |_| 0);
                 self.owned(i.owner_id.def_id, |walk| intravisit::walk_item(walk, i));
                 self.depth = outer;
             }
@@ -352,13 +347,13 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
 
             fn visit_block(&mut self, b: &'tcx Block<'tcx>) {
                 let braced = usize::from(!b.span.from_expansion());
-                self.depth = self.depth.strict_add(braced);
-                for &(owner, start) in &self.owners {
-                    let relative = self.depth.strict_sub(start);
-                    self.deepest.entry(owner).and_modify(|deepest| *deepest = (*deepest).max(relative)).or_insert(relative);
-                }
+                self.depth += braced;
+                self.owners
+                    .iter()
+                    .map(|&(owner, start)| (owner, self.depth - start))
+                    .for_each(|(owner, relative)| _ = self.deepest.entry(owner).and_modify(|deepest| *deepest = (*deepest).max(relative)).or_insert(relative));
                 intravisit::walk_block(self, b);
-                self.depth = self.depth.strict_sub(braced);
+                self.depth -= braced;
             }
         }
         let tcx = cx.tcx;
@@ -427,10 +422,13 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
         while let Some((source_file, source_path, sibling_modules, walked)) = pending.pop() {
             let Some(source) = &source_file.src else { continue };
             if walked {
-                unseen.extend(tokenize_with_text(source).filter(|(kind, ..)| matches!(kind, TokenKind::Ident | TokenKind::RawIdent)).filter_map(|(_, text, span)| {
-                    let name = text.trim_prefix(RAW_IDENTIFIER_PREFIX);
-                    (!walk.seen.contains(&source_file.absolute_position(RelativeBytePos::from_usize(span.start.strict_add(text.len().strict_sub(name.len())))))).then(|| Symbol::intern(name))
-                }));
+                unseen.extend(
+                    tokenize_with_text(source)
+                        .filter(|(kind, ..)| matches!(kind, TokenKind::Ident | TokenKind::RawIdent))
+                        .map(|(_, text, span)| (text.trim_prefix(RAW_IDENTIFIER_PREFIX), span.end))
+                        .filter(|&(name, end)| !walk.seen.contains(&source_file.absolute_position(RelativeBytePos::from_usize(end - name.len()))))
+                        .map(|(name, _)| Symbol::intern(name)),
+                );
             }
             let Some(sibling_modules) = sibling_modules else { continue };
             let relative = source_path.file_stem().filter(|_| !sibling_modules).and_then(OsStr::to_str).map(Ident::from_str);
@@ -441,13 +439,11 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                     Err(error) if error.kind() == ErrorKind::NotFound => continue,
                     Err(error) => return failed(&error),
                 };
-                if !known.insert(id) {
-                    continue;
-                }
-                match map.load_file(&candidate) {
-                    Ok(file) => pending.push((file, candidate, Some(siblings), walked)),
-                    Err(error) if error.kind() == ErrorKind::NotFound => (),
-                    Err(error) => return failed(&error),
+                match known.insert(id).then(|| map.load_file(&candidate)) {
+                    Some(Ok(file)) => pending.push((file, candidate, Some(siblings), walked)),
+                    Some(Err(error)) if error.kind() == ErrorKind::NotFound => (),
+                    Some(Err(error)) => return failed(&error),
+                    None => (),
                 }
             }
         }
@@ -463,7 +459,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 && !find_attr!(tcx, target, Used { .. })
                 && let name = tcx.item_name(target)
                 && !unseen.contains(&name)
-                && walk.enclosing.get(&caller).is_some_and(|&enclosing| walk.deepest.get(&target).copied().unwrap_or_default().strict_add(enclosing) <= LEVELS)
+                && walk.enclosing.get(&caller).is_some_and(|&enclosing| walk.deepest.get(&target).copied().unwrap_or_default() + enclosing <= LEVELS)
                 && let module = tcx.parent_module_from_def_id(caller)
                 && (module == tcx.parent_module_from_def_id(target) || movable(cx, target, module))
             {
@@ -474,10 +470,9 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                     DefKind::Fn => "a closure",
                     _ => "a nested item",
                 };
-                span_lint_hir_and_then(cx, SINGLE_READER, tcx.local_def_id_to_hir_id(target), tcx.def_span(target), format!("`{name}` has one reader, `{caller_name}`"), |diag| {
-                    diag.span_note(outside().map(|&(_, site)| site).collect::<Vec<_>>(), "read here");
-                    diag.help(format!("move `{name}` into `{caller_name}` as {form}"));
-                });
+                let (message, read, help) =
+                    (format!("`{name}` has one reader, `{caller_name}`"), outside().map(|&(_, site)| site).collect::<Vec<_>>(), format!("move `{name}` into `{caller_name}` as {form}"));
+                span_lint_hir_and_then(cx, SINGLE_READER, tcx.local_def_id_to_hir_id(target), tcx.def_span(target), message, |diag| _ = diag.span_note(read, "read here").help(help));
             }
         }
     }

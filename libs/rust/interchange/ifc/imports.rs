@@ -113,7 +113,7 @@ where
             && let Some((url, _)) = declared.get_index(launched)
         {
             loading.push(retrieved(url.clone()));
-            launched = launched.strict_add(1);
+            launched += 1;
         }
         match loading.next().await {
             Some(Ok((url, layer, bytes))) => {

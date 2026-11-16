@@ -148,12 +148,11 @@ where
                 ]
             };
             fn stamped(time: &DateTime, after: Span) -> Result<Timestamp, Malformed> {
-                let (Ok(year), Ok(month), Ok(day), Ok(hour), Ok(minute), Ok(seconds)) =
-                    (i16::try_from(time.year), i8::try_from(time.month), i8::try_from(time.day), i8::try_from(time.hour), i8::try_from(time.minute), i8::try_from(time.second))
-                else {
-                    return Err(Malformed::Undated);
-                };
-                Ok(Offset::UTC.to_timestamp(civil::DateTime::new(year, month, day, hour, minute, seconds, 0)?.checked_add(after)?)?)
+                match (i16::try_from(time.year), i8::try_from(time.month), i8::try_from(time.day), i8::try_from(time.hour), i8::try_from(time.minute), i8::try_from(time.second)) {
+                    (Ok(year), Ok(month), Ok(day), Ok(hour), Ok(minute), Ok(seconds)) =>
+                        Ok(Offset::UTC.to_timestamp(civil::DateTime::new(year, month, day, hour, minute, seconds, 0)?.checked_add(after)?)?),
+                    _ => Err(Malformed::Undated),
+                }
             }
             let span = |time: &TimeRange<i32>| -> Result<Span, Malformed> {
                 let length = i64::from(time.len);
@@ -161,25 +160,25 @@ where
                     Some(Table4_4::Second) => Span::new().try_seconds(length),
                     Some(Table4_4::Minute) => Span::new().try_minutes(length),
                     Some(Table4_4::Hour) => Span::new().try_hours(length),
-                    Some(Table4_4::ThreeHours) => Span::new().try_hours(length.strict_mul(3)),
-                    Some(Table4_4::SixHours) => Span::new().try_hours(length.strict_mul(6)),
-                    Some(Table4_4::TwelveHours) => Span::new().try_hours(length.strict_mul(12)),
+                    Some(Table4_4::ThreeHours) => Span::new().try_hours(length * 3),
+                    Some(Table4_4::SixHours) => Span::new().try_hours(length * 6),
+                    Some(Table4_4::TwelveHours) => Span::new().try_hours(length * 12),
                     Some(Table4_4::Day) => Span::new().try_days(length),
                     Some(Table4_4::Month) => Span::new().try_months(length),
                     Some(Table4_4::Year) => Span::new().try_years(length),
-                    Some(Table4_4::Decade) => Span::new().try_years(length.strict_mul(10)),
-                    Some(Table4_4::Normal) => Span::new().try_years(length.strict_mul(30)),
-                    Some(Table4_4::Century) => Span::new().try_years(length.strict_mul(100)),
+                    Some(Table4_4::Decade) => Span::new().try_years(length * 10),
+                    Some(Table4_4::Normal) => Span::new().try_years(length * 30),
+                    Some(Table4_4::Century) => Span::new().try_years(length * 100),
                     Some(_) | None => return Err(Malformed::Undated),
                 }?)
             };
             let definition = message.prod_def();
             let parameter = (message.indicator().discipline, definition.parameter_category(), definition.parameter_number());
-            let Some(field) = definition.fixed_surfaces().filter(|_| matches!(definition.prod_tmpl_num(), 0 | 1 | 8 | 11)).and_then(|(surface, _)| {
-                PARAMETERS.into_iter().find_map(|(category, number, surface_type, height, field)| {
-                    (parameter == (METEOROLOGY, Some(category), Some(number)) && surface.surface_type == surface_type && height.is_none_or(|metres| (surface.value() - metres).abs() < RESOLUTION))
-                        .then_some(field)
-                })
+            let surfaces = definition.fixed_surfaces().filter(|_| matches!(definition.prod_tmpl_num(), 0 | 1 | 8 | 11));
+            let Some(field) = PARAMETERS.into_iter().find_map(|(category, number, surface_type, height, field)| {
+                (parameter == (METEOROLOGY, Some(category), Some(number))
+                    && surfaces.as_ref().is_some_and(|(surface, _)| surface.surface_type == surface_type && height.is_none_or(|metres| (surface.value() - metres).abs() < RESOLUTION)))
+                .then_some(field)
             }) else {
                 return Ok(None);
             };
@@ -238,8 +237,8 @@ where
             grid.indices
                 .iter()
                 .scan((decoder.dispatch()?, 0), |(samples, next), &(index, corner)| {
-                    let value = samples.nth(index.strict_sub(*next));
-                    *next = index.strict_add(1);
+                    let value = samples.nth(index - *next);
+                    *next = index + 1;
                     Some(value.map(|value| (corner, f64::from(value))))
                 })
                 .flatten()
@@ -484,7 +483,7 @@ fn projected<R>(message: &SubMessage<'_, R>, template: &GridDefinitionTemplate, 
             let projection = Merc::new(&MercParams { ellipsoid: ellipsoid(earth_shape)?, lat_ts: f64::from(*lad) * ANGLE, lon_0: west.midpoint(east) }).map_err(Malformed::Projection)?;
             let [start, end] = [(west, *first_point_lat), (east, *last_point_lat)]
                 .try_map(|(longitude, latitude)| projection.project(&radians(longitude, f64::from(latitude) * ANGLE), false).map_err(Malformed::Projection))?;
-            let increments = [(end.0 - start.0, ni), (end.1 - start.1, nj)].map(|(span, count)| span / nalgebra::convert::<usize, f64>(count.strict_sub(1)));
+            let increments = [(end.0 - start.0, ni), (end.1 - start.1, nj)].map(|(span, count)| span / nalgebra::convert::<usize, f64>(count - 1));
             (Box::new(projection), radians(west, f64::from(*first_point_lat) * ANGLE), increments)
         }
         _ => return Err(Malformed::Grid),
@@ -492,8 +491,8 @@ fn projected<R>(message: &SubMessage<'_, R>, template: &GridDefinitionTemplate, 
     let forward = |point: (f64, f64)| projection.project(&point, false).map_err(Malformed::Projection);
     let origin = forward(first)?;
     let cell = |at: f64, count: usize| {
-        (0.0..=nalgebra::convert::<usize, f64>(count.strict_sub(1))).contains(&at).then(|| {
-            let lower = at.floor().to_int_saturating::<usize>().min(count.strict_sub(2));
+        (0.0..=nalgebra::convert::<usize, f64>(count - 1)).contains(&at).then(|| {
+            let lower = at.floor().to_int_saturating::<usize>().min(count - 2);
             (lower, at - nalgebra::convert::<usize, f64>(lower))
         })
     };
@@ -511,7 +510,7 @@ fn projected<R>(message: &SubMessage<'_, R>, template: &GridDefinitionTemplate, 
                 })
                 .transpose()?;
             Ok(cell((y - origin.1) / dy, nj).zip(cell((x - origin.0) / dx, ni)).map(|((south, row_at), (west, column_at))| {
-                let (upper, right) = (south.strict_add(1), west.strict_add(1));
+                let (upper, right) = (south + 1, west + 1);
                 Cell { corners: [(south, west), (south, right), (upper, west), (upper, right)], axes: [[0.0, 1.0], [0.0, 1.0]], at: (row_at, column_at), rotation }
             }))
         })

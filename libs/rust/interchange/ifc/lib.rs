@@ -350,21 +350,13 @@ impl PartialEq for Composed {
         let mut pair = (self, other);
         loop {
             let (left, right) = pair;
-            if left.children.is_empty() || seen.insert((ptr::from_ref(left), ptr::from_ref(right))) {
-                if left.path != right.path || left.attributes != right.attributes || left.children.len() != right.children.len() {
-                    return false;
-                }
-                if left
-                    .children
-                    .iter()
-                    .try_for_each(|(name, child)| {
-                        pending.push((child.as_ref(), right.children.get(name)?.as_ref()));
-                        Some(())
-                    })
-                    .is_none()
-                {
-                    return false;
-                }
+            if (left.children.is_empty() || seen.insert((ptr::from_ref(left), ptr::from_ref(right))))
+                && (left.path != right.path
+                    || left.attributes != right.attributes
+                    || left.children.len() != right.children.len()
+                    || left.children.iter().try_for_each(|(name, child)| right.children.get(name).map(|counterpart| pending.push((child.as_ref(), counterpart.as_ref())))).is_none())
+            {
+                return false;
             }
             let Some(next) = pending.pop() else { return true };
             pair = next;
@@ -433,7 +425,7 @@ impl Model {
                 }
                 Some((node, root, None)) => (node, root),
                 None => {
-                    names.truncate(names.len().strict_sub(1));
+                    names.truncate(names.len() - 1);
                     continue;
                 }
             };

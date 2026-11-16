@@ -37,7 +37,7 @@ impl Extend<f64> for Summary {
                 self.moments.add(value);
                 self.digest.update(value);
             } else {
-                self.non_finite = self.non_finite.strict_add(1);
+                self.non_finite += 1;
             }
         });
     }
@@ -56,7 +56,7 @@ impl Merge for Summary {
     fn merge(&mut self, other: &Self) {
         self.moments.merge(&other.moments);
         self.digest.merge(&other.digest);
-        self.non_finite = self.non_finite.strict_add(other.non_finite);
+        self.non_finite += other.non_finite;
     }
 }
 
@@ -68,7 +68,7 @@ impl FromIterator<Self> for Summary {
             .into_iter()
             .inspect(|summary| {
                 moments.merge(&summary.moments);
-                non_finite = non_finite.strict_add(summary.non_finite);
+                non_finite += summary.non_finite;
             })
             .map(|summary| summary.digest)
             .collect();

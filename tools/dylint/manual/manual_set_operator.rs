@@ -45,14 +45,13 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             let mut borrowed = |operand: &'tcx Expr<'tcx>| {
                 let written = Sugg::hir_with_context(cx, operand, ctxt, "..", &mut applicability);
                 let target = typeck.expr_ty_adjusted(operand);
-                if typeck.expr_ty(operand) == target {
-                    written
-                } else {
-                    typeck.expr_adjustments(operand).iter().take_while_inclusive(|step| step.target != target).fold(written, |written, step| match step.kind {
+                match typeck.expr_adjustments(operand) {
+                    _ if typeck.expr_ty(operand) == target => written,
+                    adjustments => adjustments.iter().take_while_inclusive(|step| step.target != target).fold(written, |written, step| match step.kind {
                         Adjust::Deref(_) => written.deref(),
                         Adjust::Borrow(_) => written.addr(),
                         _ => written,
-                    })
+                    }),
                 }
             };
             let (left, right) = (borrowed(set), borrowed(other));

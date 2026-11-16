@@ -105,14 +105,12 @@ impl<'tcx> LateLintPass<'tcx> for Pass<'tcx> {
                         && get_parent_expr(&context, built)
                             .filter(|call| matches!(call.kind, ExprKind::MethodCall(_, receiver, ..) | ExprKind::Call(_, [receiver, ..]) if receiver.hir_id == site))
                             .and_then(|call| fn_def_id(&context, call).map(|method| (call, method)))
-                            .is_some_and(|(call, method)| {
-                                iterator_method(&context, call)
-                                    && match tcx.item_name(method) {
-                                        sym::count | sym::fold | sym::for_each | sym::last | sym::reduce => true,
-                                        sym::collect => collects_vec(&context, item, context.typeck_results().expr_ty(call)),
-                                        sym::sum | sym::product => context.typeck_results().expr_ty(call).is_numeric() && item.peel_refs().is_numeric(),
-                                        _ => false,
-                                    }
+                            .filter(|&(call, _)| iterator_method(&context, call))
+                            .is_some_and(|(call, method)| match tcx.item_name(method) {
+                                sym::count | sym::fold | sym::for_each | sym::last | sym::reduce => true,
+                                sym::collect => collects_vec(&context, item, context.typeck_results().expr_ty(call)),
+                                sym::sum | sym::product => context.typeck_results().expr_ty(call).is_numeric() && item.peel_refs().is_numeric(),
+                                _ => false,
                             })
                 })
         };

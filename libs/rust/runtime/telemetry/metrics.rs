@@ -126,13 +126,7 @@ where I: IntoIterator<Item = u32> {
         meter
             .u64_observable_counter(name)
             .with_unit(unit)
-            .with_callback(move |observer| {
-                for (pid, counts) in observed() {
-                    for (kind, count) in iter::zip(labels, counts) {
-                        observer.observe(count, &[pid.clone(), KeyValue::new(key, kind)]);
-                    }
-                }
-            })
+            .with_callback(move |observer| observed().for_each(|(pid, counts)| iter::zip(labels, counts).for_each(|(kind, count)| observer.observe(count, &[pid.clone(), KeyValue::new(key, kind)]))))
             .build();
     }
     let (lived, read) = (Arc::clone(&pids), Arc::clone(&pids));

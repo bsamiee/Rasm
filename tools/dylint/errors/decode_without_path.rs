@@ -46,15 +46,12 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             owner
                 .get_attrs(&cx.tcx)
                 .iter()
-                .filter_map(|attribute| {
-                    if let Attribute::DeriveHelper(helper) = attribute
-                        && helper.path.segments.iter().eq([&sym::serde])
-                        && let AttrArgs::Delimited(arguments) = &helper.args
-                    {
-                        Some(&arguments.tokens)
-                    } else {
-                        None
-                    }
+                .filter_map(|attribute| match attribute {
+                    Attribute::DeriveHelper(helper)
+                        if helper.path.segments.iter().eq([&sym::serde])
+                            && let AttrArgs::Delimited(arguments) = &helper.args =>
+                        Some(&arguments.tokens),
+                    _ => None,
                 })
                 .flat_map(|tokens| tokens.iter())
                 .any(|tree| matches!(tree, TokenTree::Token(token, _) if keys.iter().any(|&key| token.is_ident_named(key))))
@@ -80,10 +77,11 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                                     .variants()
                                     .iter()
                                     .all(|variant| variant.ctor_kind() == Some(CtorKind::Const) && !delegated(variant.def_id, &[Symbol::intern("with"), Symbol::intern("deserialize_with")]))
-                                && cx.tcx.non_blanket_impls_for_ty(cx.tcx.parent(called), decoded).any(|implementation| {
-                                    cx.tcx.is_automatically_derived(implementation)
-                                        && cx.tcx.expn_that_defined(implementation).expn_data().macro_def_id.is_some_and(|derived| self.deserialize_derive.contains(&derived))
-                                }))
+                                && cx
+                                    .tcx
+                                    .non_blanket_impls_for_ty(cx.tcx.parent(called), decoded)
+                                    .filter(|&implementation| cx.tcx.is_automatically_derived(implementation))
+                                    .any(|implementation| cx.tcx.expn_that_defined(implementation).expn_data().macro_def_id.is_some_and(|derived| self.deserialize_derive.contains(&derived))))
                     })
             })
             && !expanded_externally(cx, expr.span)

@@ -249,31 +249,33 @@ pub fn instances(model: &Model, scope: Option<&[Path]>, flags: TriMeshFlags) -> 
         form::<PointCloud>(node, |PointCloud(bytes)| {
             let failed = |source| IfcError::Cloud { node: node.path.clone(), source };
             let absent = |field| IfcError::Attribute { node: node.path.clone(), attribute: PointCloud::ID.into(), reason: Fault::Column(field) };
-            DynReader::from_bytes(&bytes).map_err(failed).map_or_else(Validated::fail, |reader| {
-                let located = |field: Column| reader.meta().field_defs.iter().position(|definition| definition.name == <&str>::from(field)).map(|index| (field, index));
-                let column = |field: Column| Validated::from(located(field).ok_or_else(|| absent(field)));
-                let rgb = located(Column::Rgb);
-                let ascii = matches!(reader.meta().data, DataKind::Ascii);
-                let coordinate = |fields: &[Field], (name, index): (Column, usize)| {
-                    Validated::from(fields.get(index).and_then(|field| field.to_value::<f32>().map(f64::from).or_else(|| field.to_value::<f64>())).ok_or_else(|| absent(name)))
-                };
-                let color = |field: &Field| {
-                    let Rgb { r, g, b } = Rgb::from_packed(match (ascii, field.to_value::<f32>(), field.to_value::<u32>()) {
-                        (false, Some(value), _) => Some(value),
-                        (true, Some(value), _) => Some(f32::from_bits(value.to_int_saturating::<u32>())),
-                        (_, None, Some(packed)) => Some(f32::from_bits(packed)),
-                        (_, None, None) => None,
-                    }?);
-                    Some(OpaqueColor::<Srgb>::from_rgb8(r, g, b).components)
-                };
-                let point = |DynRecord(fields): DynRecord, [x, y, z]: [(Column, usize); 3]| {
-                    let tint = Validated::from(rgb.map(|(name, index)| fields.get(index).and_then(color).ok_or_else(|| absent(name))).transpose());
-                    coordinate(&fields, x).map4(coordinate(&fields, y), coordinate(&fields, z), tint, |east, north, up, shade| (Point3::new(east, north, up), shade))
-                };
-                column(Column::East).map3(column(Column::North), column(Column::Up), |x, y, z| [x, y, z]).ok().map_or_else(Validated::Fail, |axes| {
-                    let records = reader.map(|record| record.map_err(failed).map_or_else(Validated::fail, |fields| point(fields, axes))).collect::<Validated<(Vec<_>, Vec<_>), _>>();
-                    records.ok().map_or_else(Validated::Fail, |(positions, colors)| Validated::from(cloud(node, PointCloud::ID, positions, colors.into_iter().collect())))
-                })
+            let reader = match DynReader::from_bytes(&bytes) {
+                Ok(reader) => reader,
+                Err(source) => return Validated::fail(failed(source)),
+            };
+            let located = |field: Column| reader.meta().field_defs.iter().position(|definition| definition.name == <&str>::from(field)).map(|index| (field, index));
+            let column = |field: Column| Validated::from(located(field).ok_or_else(|| absent(field)));
+            let rgb = located(Column::Rgb);
+            let ascii = matches!(reader.meta().data, DataKind::Ascii);
+            let coordinate = |fields: &[Field], (name, index): (Column, usize)| {
+                Validated::from(fields.get(index).and_then(|field| field.to_value::<f32>().map(f64::from).or_else(|| field.to_value::<f64>())).ok_or_else(|| absent(name)))
+            };
+            let color = |field: &Field| {
+                let Rgb { r, g, b } = Rgb::from_packed(match (ascii, field.to_value::<f32>(), field.to_value::<u32>()) {
+                    (false, Some(value), _) => Some(value),
+                    (true, Some(value), _) => Some(f32::from_bits(value.to_int_saturating::<u32>())),
+                    (_, None, Some(packed)) => Some(f32::from_bits(packed)),
+                    (_, None, None) => None,
+                }?);
+                Some(OpaqueColor::<Srgb>::from_rgb8(r, g, b).components)
+            };
+            let point = |DynRecord(fields): DynRecord, [x, y, z]: [(Column, usize); 3]| {
+                let tint = Validated::from(rgb.map(|(name, index)| fields.get(index).and_then(color).ok_or_else(|| absent(name))).transpose());
+                coordinate(&fields, x).map4(coordinate(&fields, y), coordinate(&fields, z), tint, |east, north, up, shade| (Point3::new(east, north, up), shade))
+            };
+            column(Column::East).map3(column(Column::North), column(Column::Up), |x, y, z| [x, y, z]).ok().map_or_else(Validated::Fail, |axes| {
+                let records = reader.map(|record| record.map_err(failed).map_or_else(Validated::fail, |fields| point(fields, axes))).collect::<Validated<(Vec<_>, Vec<_>), _>>();
+                records.ok().map_or_else(Validated::Fail, |(positions, colors)| Validated::from(cloud(node, PointCloud::ID, positions, colors.into_iter().collect())))
             })
         })
     };
@@ -307,11 +309,11 @@ pub fn instances(model: &Model, scope: Option<&[Path]>, flags: TriMeshFlags) -> 
                                 .iter()
                                 .scan(0_u32, |start, &count| {
                                     let first = *start;
-                                    *start = first.strict_add(count);
+                                    *start = first + count;
                                     Some(first..start.saturating_sub(1))
                                 })
                                 .flatten()
-                                .map(|from| [from, from.strict_add(1)])
+                                .map(|from| [from, from + 1])
                                 .collect::<Vec<_>>(),
                         ),
                     Some(_) => return Validated::fail(IfcError::Attribute { node: node.path.clone(), attribute: Curves::ID.into(), reason: Fault::Counts { points: vertices.len() } }),
@@ -440,7 +442,7 @@ pub fn shape_attribute(node: &Path, shape: &Shape) -> Result<(Box<str>, Option<V
         Shape::Curve(curve) => {
             let mut segments = curve.segments();
             let (points, curve_vertex_counts) = curve.indices().chunk_by(|left, right| left[1] == right[0]).try_fold((Vec::new(), Vec::new()), |(mut points, mut counts), run| {
-                let count = run.len().strict_add(1);
+                let count = run.len() + 1;
                 counts.push(u32::try_from(count).map_err(|source| IfcError::Vertices { node: node.clone(), count, source })?);
                 let mut run = segments.by_ref().take(run.len()).peekable();
                 points.extend(run.peek().map(|segment| segment.a.to_array()));

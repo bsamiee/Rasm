@@ -86,13 +86,13 @@ where
         Interval::Bca => {
             let blocks = count.div_ceil(block.get());
             let groups = blocks.min(resamples.get());
-            let edge = |group: usize| group.strict_mul(blocks).strict_div(groups).strict_mul(block.get()).min(count);
+            let edge = |group: usize| (group * blocks / groups * block.get()).min(count);
             let jackknife = (0..groups)
                 .into_par_iter()
                 .map_init(
                     || Vec::with_capacity(count),
                     |leftover, group| {
-                        let [start, last] = [group, group.strict_add(1)].map(edge);
+                        let [start, last] = [group, group + 1].map(edge);
                         leftover.clear();
                         leftover.extend(sample.iter().take(start).chain(sample.iter().skip(last)).cloned());
                         (!leftover.is_empty()).then(|| statistic(leftover))

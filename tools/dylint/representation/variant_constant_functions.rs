@@ -5,13 +5,12 @@ use clippy_utils::peel_blocks;
 use clippy_utils::res::MaybeQPath as _;
 use clippy_utils::visitors::is_const_evaluatable;
 use rustc_ast::LitKind;
-use rustc_data_structures::fx::{FxHashSet, FxIndexMap};
+use rustc_data_structures::fx::FxIndexMap;
 use rustc_errors::listify;
 use rustc_hir::def::{DefKind, Res};
 use rustc_hir::def_id::{DefId, LocalDefId};
-use rustc_hir::{BinOpKind, Expr, ExprKind, PatKind};
+use rustc_hir::{Expr, ExprKind, PatKind};
 use rustc_lint::{LateContext, LateLintPass};
-use rustc_middle::ty::{self, AdtDef};
 
 use super::fieldless_local_enum;
 use crate::{expanded_externally, generated};
@@ -21,7 +20,6 @@ use crate::{expanded_externally, generated};
 #[derive(Default)]
 pub(crate) struct Pass {
     functions: FxIndexMap<DefId, Vec<LocalDefId>>,
-    reads: FxHashSet<DefId>,
 }
 
 lint!(default Pass; VARIANT_CONSTANT_FUNCTIONS: "functions that each match every variant of a fieldless local enum to one constant");
@@ -31,41 +29,22 @@ lint!(default Pass; VARIANT_CONSTANT_FUNCTIONS: "functions that each match every
 impl<'tcx> LateLintPass<'tcx> for Pass {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) {
         let typeck = cx.typeck_results();
-        match expr.kind {
-            ExprKind::Match(scrutinee, arms, _)
-                if let Some(keyed) = fieldless_local_enum(typeck.expr_ty_adjusted(scrutinee))
-                    && !generated(cx, expr.hir_id) =>
-            {
-                let owner = cx.tcx.hir_enclosing_body_owner(expr.hir_id);
-                let tabled = !expanded_externally(cx, expr.span)
-                    && matches!(cx.tcx.def_kind(owner), DefKind::Fn | DefKind::AssocFn)
-                    && cx.tcx.trait_item_of(owner).is_none()
-                    && peel_blocks(cx.tcx.hir_body_owned_by(owner).value).hir_id == expr.hir_id
-                    && !arms.iter().all(|arm| matches!(peel_blocks(arm.body).kind, ExprKind::Lit(literal) if matches!(literal.node, LitKind::Str(..))))
-                    && arms.iter().all(|arm| {
-                        arm.guard.is_none()
-                            && is_const_evaluatable(cx.tcx, typeck, arm.body)
-                            && if let PatKind::Or(alternatives) = arm.pat.kind { alternatives } else { slice::from_ref(arm.pat) }
-                                .iter()
-                                .all(|alternative| matches!(alternative.res(typeck), Res::Def(..)))
-                    });
-                if tabled {
-                    self.functions.entry(keyed.did()).or_default().push(owner);
-                } else {
-                    self.reads.insert(keyed.did());
-                }
-            }
-            ExprKind::Binary(operator, compared, _) if matches!(operator.node, BinOpKind::Eq | BinOpKind::Ne) =>
-                self.reads.extend(fieldless_local_enum(typeck.expr_ty_adjusted(compared)).filter(|_| !generated(cx, expr.hir_id)).map(AdtDef::did)),
-            ExprKind::Let(binding) => self.reads.extend(fieldless_local_enum(typeck.expr_ty_adjusted(binding.init)).filter(|_| !generated(cx, expr.hir_id)).map(AdtDef::did)),
-            _ => self.reads.extend(
-                match typeck.expr_ty(expr).kind() {
-                    ty::Array(element, _) => fieldless_local_enum(*element).map(AdtDef::did),
-                    ty::Adt(_, arguments) => arguments.types().next().and_then(fieldless_local_enum).map(AdtDef::did),
-                    _ => None,
-                }
-                .filter(|_| !generated(cx, expr.hir_id)),
-            ),
+        if let ExprKind::Match(scrutinee, arms, _) = expr.kind
+            && let Some(keyed) = fieldless_local_enum(typeck.expr_ty_adjusted(scrutinee))
+            && !generated(cx, expr.hir_id)
+            && !expanded_externally(cx, expr.span)
+            && let owner = cx.tcx.hir_enclosing_body_owner(expr.hir_id)
+            && matches!(cx.tcx.def_kind(owner), DefKind::Fn | DefKind::AssocFn)
+            && cx.tcx.trait_item_of(owner).is_none()
+            && peel_blocks(cx.tcx.hir_body_owned_by(owner).value).hir_id == expr.hir_id
+            && !arms.iter().all(|arm| matches!(peel_blocks(arm.body).kind, ExprKind::Lit(literal) if matches!(literal.node, LitKind::Str(..))))
+            && arms.iter().all(|arm| {
+                arm.guard.is_none()
+                    && is_const_evaluatable(cx.tcx, typeck, arm.body)
+                    && if let PatKind::Or(alternatives) = arm.pat.kind { alternatives } else { slice::from_ref(arm.pat) }.iter().all(|alternative| matches!(alternative.res(typeck), Res::Def(..)))
+            })
+        {
+            self.functions.entry(keyed.did()).or_default().push(owner);
         }
     }
 
@@ -76,11 +55,6 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             .filter_map(|(keyed, functions)| Some((keyed.as_local()?, listify(&functions, |&function| format!("`{}`", cx.tcx.item_name(function)))?, functions)));
         for (local, listed, functions) in tables {
             let name = cx.tcx.item_name(local);
-            let help = if self.reads.contains(&local.to_def_id()) {
-                format!("return the values of {listed} from one match on `{name}`")
-            } else {
-                format!("replace `{name}` with a struct holding {listed} and one `const` per variant")
-            };
             span_lint_hir_and_then(
                 cx,
                 VARIANT_CONSTANT_FUNCTIONS,
@@ -89,7 +63,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 format!("{listed} each match every `{name}` variant to one constant"),
                 |diag| {
                     diag.span_note(functions.iter().map(|&function| cx.tcx.def_span(function)).collect::<Vec<_>>(), "matched here");
-                    diag.help(help);
+                    diag.help(format!("return the values of {listed} from one match on `{name}`"));
                 },
             );
         }

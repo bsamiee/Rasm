@@ -134,7 +134,7 @@ fn named<'tcx>(cx: &LateContext<'tcx>, typeck: &TypeckResults<'tcx>, pat: &'tcx 
     }
     let counts = shape(cx, typeck, [pat]).filter_map(Either::left).try_fold(FxIndexMap::<_, usize>::default(), |mut counts, subject| {
         (!subject.1.variant_list_has_applicable_non_exhaustive()).then(|| {
-            counts.entry(subject).and_modify(|count| *count = count.strict_add(1)).or_insert(1);
+            counts.entry(subject).and_modify(|count| *count += 1).or_insert(1);
             counts
         })
     })?;

@@ -46,7 +46,7 @@ pub(crate) fn path(entity: &EntityType, frame: Affine, tolerance: Tolerance) -> 
             Some(seam) => sides
                 .iter()
                 .cycle()
-                .skip(seam.strict_add(1))
+                .skip(seam + 1)
                 .zip(sides.iter().cycle().skip(seam).map(|(_, _, hidden)| *hidden))
                 .take(sides.len())
                 .filter(|((_, _, hidden), _)| !hidden)
@@ -242,7 +242,7 @@ pub(super) fn boundary(hatch: &Hatch, frame: Affine, tolerance: Tolerance, subje
         HatchStyleType::Outer => (FillRule::EvenOdd, Some(1)),
         HatchStyleType::Ignore => (FillRule::NonZero, Some(0)),
     };
-    let depth = |index: usize, start: Point| loops.iter().take(index).chain(loops.iter().skip(index.strict_add(1))).filter(|other| other.winding(start) != 0).count();
+    let depth = |index: usize, start: Point| loops.iter().take(index).chain(loops.iter().skip(index + 1)).filter(|other| other.winding(start) != 0).count();
     let mut kept = loops
         .iter()
         .enumerate()
@@ -318,7 +318,7 @@ pub(super) fn signed(dashes: &Dashes, offset: f64) -> Vec<f64> {
         })
         .collect::<Vec<_>>();
     let phase = offset.rem_euclid(dashes.iter().sum());
-    let index = starts.partition_point(|start| *start <= phase).strict_sub(1);
+    let index = starts.partition_point(|start| *start <= phase) - 1;
     let within = phase - starts[index];
     let (before, after) = runs.split_at(index);
     match after.split_first() {
@@ -372,7 +372,7 @@ fn nurbs(degree: usize, control: &[Point], weights: Option<&[f64]>, knots: &[f64
         && knots.is_sorted();
     let domain = knots.get(degree..=count).filter(|_| valid)?;
     if !rational
-        && count == degree.strict_add(1)
+        && count == degree + 1
         && domain[0] < domain[1]
         && knots.chunk_by(|left, right| left.total_cmp(right).is_eq()).map(<[f64]>::len).eq([count, count])
         && let Some(element) = polynomial(control, |point| *point)
@@ -415,7 +415,7 @@ fn nurbs(degree: usize, control: &[Point], weights: Option<&[f64]>, knots: &[f64
         }
         controls.clear();
         controls.extend(piece.iter().map(cartesian));
-        let last = piece.len().strict_sub(1);
+        let last = piece.len() - 1;
         let (start, end) = (controls[0], controls[last]);
         let magnitude = controls.iter().map(|point| point.x.abs().max(point.y.abs())).fold(0.0, |largest, next| max_by(largest, next, f64::total_cmp));
         let flat = magnitude == 0.0 || {
@@ -433,10 +433,10 @@ fn nurbs(degree: usize, control: &[Point], weights: Option<&[f64]>, knots: &[f64
         let mut right = left.clone();
         for level in 1..=last {
             for index in (level..=last).rev() {
-                let (low, high) = (left[index.strict_sub(1)], left[index]);
+                let (low, high) = (left[index - 1], left[index]);
                 left[index] = array::from_fn(|axis| low[axis].midpoint(high[axis]));
             }
-            right[last.strict_sub(level)] = left[last];
+            right[last - level] = left[last];
         }
         pending.extend([right, left]);
     }
@@ -501,7 +501,7 @@ fn cubic(pieces: &[PathSeg], closed: bool) -> Spline {
         degree: 3,
         flags: SplineFlags { closed, planar: true, ..SplineFlags::new() },
         knots: iter::successors(Some(0.0_f64), |knot| Some(knot + 1.0))
-            .take(count.strict_add(1))
+            .take(count + 1)
             .enumerate()
             .flat_map(|(index, knot)| iter::repeat_n(knot, if index == 0 || index == count { 4 } else { 3 }))
             .collect(),

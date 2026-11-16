@@ -5,6 +5,7 @@ use clippy_utils::source::snippet;
 use clippy_utils::ty::same_type_modulo_regions;
 use clippy_utils::{expr_or_init, fn_def_id, peel_hir_expr_while, sym};
 use rustc_data_structures::fx::{FxHashMap, FxHashSet};
+use rustc_errors::Diag;
 use rustc_hir::def_id::DefId;
 use rustc_hir::{Expr, ExprKind, MatchSource};
 use rustc_lint::{LateContext, LateLintPass};
@@ -77,11 +78,10 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             let (wrapper, direct, returned) = with_forced_trimmed_paths!((item_path(cx, wrapper), item_path(cx, *direct), returned.to_string()));
             let value = snippet(cx, value.span, "..");
             span_lint_hir_and_then(cx, MANUAL_SERIALIZATION, expr.hir_id, expr.span, format!("`{wrapper}` receives text from `{}`", cx.tcx.def_path_str(serializer)), |diag| {
-                diag.span_note(serialized.span, "serialized here");
-                diag.help(format!("pass `{value}` to `{direct}`"));
-                if retyped {
-                    diag.note(format!("`{direct}` returns `{returned}`"));
-                }
+                retyped
+                    .then(|| format!("`{direct}` returns `{returned}`"))
+                    .into_iter()
+                    .fold(diag.span_note(serialized.span, "serialized here").help(format!("pass `{value}` to `{direct}`")), Diag::note);
             });
         }
     }

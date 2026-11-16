@@ -54,7 +54,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 .filter_map(|field| {
                     let field = field.did.as_local()?;
                     let held = cx.tcx.type_of(field).instantiate_identity().skip_normalization();
-                    if held.is_bool() { Some(Either::Left(field)) } else { option_arg_ty(cx, held).map(|held| Either::Right((field, held))) }
+                    held.is_bool().then_some(Either::Left(field)).or_else(|| option_arg_ty(cx, held).map(|held| Either::Right((field, held))))
                 })
                 .partition_map(|kind| kind);
             let (errors, values) = options.iter().partition::<Vec<_>, _>(|&&(_, held)| is_error(cx, held) || is_text(cx, held));
@@ -78,14 +78,9 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                     .filter(|&method| matches!(impl_owner(cx.tcx, method).opt_diag_name(cx), Some(sym::Option | sym::Result)))
                     .map(|method| cx.tcx.item_name(method))
             };
-            let source = |value: &'tcx Expr<'tcx>| {
-                if let ExprKind::MethodCall(_, source, [], _) = value.kind
-                    && called(value) == Some(sym::ok)
-                {
-                    source.peel_borrows()
-                } else {
-                    value
-                }
+            let source = |value: &'tcx Expr<'tcx>| match value.kind {
+                ExprKind::MethodCall(_, source, [], _) if called(value) == Some(sym::ok) => source.peel_borrows(),
+                _ => value,
             };
             for (pair, observed) in observations {
                 let states = match *pair {
@@ -132,39 +127,37 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             (!written.contains(&first) && !written.contains(&second) && (mirrored || states == combinations([(true, false), (false, true)]))).then_some((pair, mirrored))
         });
         let held = |field: LocalDefId| option_arg_ty(cx, cx.tcx.type_of(field).instantiate_identity().skip_normalization());
-        for (pair, mirrored) in decided {
-            let name = |field: LocalDefId| cx.tcx.item_name(field);
-            match pair {
-                FieldPair::Flag { flag, value } => {
-                    let (read, flag_name, value_name) = (if mirrored { "is_some" } else { "is_none" }, name(flag), name(value));
-                    span_lint_hir_and_then(
-                        cx,
-                        REDUNDANT_OPTION_FLAG,
-                        cx.tcx.local_def_id_to_hir_id(flag),
-                        cx.tcx.def_span(flag),
-                        format!("every construction sets `{}::{flag_name}` to `{value_name}.{read}()`", name(cx.tcx.local_parent(flag))),
-                        |diag| {
-                            diag.span_note(cx.tcx.def_span(value), format!("`{value_name}` declared here"));
-                            diag.help(format!("delete `{flag_name}` and read `{value_name}.{read}()` or match `{value_name}`"));
-                        },
-                    );
-                }
-                FieldPair::Outcome { value, error } if !mirrored && let Some((succeeded, failed)) = held(value).zip(held(error)) => {
-                    let (value_name, error_name, outcome) = (name(value), name(error), with_forced_trimmed_paths!(format!("Result<{succeeded}, {failed}>")));
-                    span_lint_hir_and_then(
-                        cx,
-                        OPTION_FIELDS_AS_RESULT,
-                        cx.tcx.local_def_id_to_hir_id(error),
-                        cx.tcx.def_span(error),
-                        format!("every construction of `{}` sets exactly one of success `{value_name}` and failure `{error_name}`", name(cx.tcx.local_parent(error))),
-                        |diag| {
-                            diag.span_note(cx.tcx.def_span(value), format!("`{value_name}` declared here"));
-                            diag.help(format!("replace `{value_name}` and `{error_name}` with one `{outcome}` field"));
-                        },
-                    );
-                }
-                FieldPair::Outcome { value: _, error: _ } => {}
+        let name = |field: LocalDefId| cx.tcx.item_name(field);
+        decided.for_each(|(pair, mirrored)| match pair {
+            FieldPair::Flag { flag, value } => {
+                let (read, flag_name, value_name) = (if mirrored { "is_some" } else { "is_none" }, name(flag), name(value));
+                span_lint_hir_and_then(
+                    cx,
+                    REDUNDANT_OPTION_FLAG,
+                    cx.tcx.local_def_id_to_hir_id(flag),
+                    cx.tcx.def_span(flag),
+                    format!("every construction sets `{}::{flag_name}` to `{value_name}.{read}()`", name(cx.tcx.local_parent(flag))),
+                    |diag| {
+                        diag.span_note(cx.tcx.def_span(value), format!("`{value_name}` declared here"));
+                        diag.help(format!("delete `{flag_name}` and read `{value_name}.{read}()` or match `{value_name}`"));
+                    },
+                );
             }
-        }
+            FieldPair::Outcome { value, error } if !mirrored && let Some((succeeded, failed)) = held(value).zip(held(error)) => {
+                let (value_name, error_name, outcome) = (name(value), name(error), with_forced_trimmed_paths!(format!("Result<{succeeded}, {failed}>")));
+                span_lint_hir_and_then(
+                    cx,
+                    OPTION_FIELDS_AS_RESULT,
+                    cx.tcx.local_def_id_to_hir_id(error),
+                    cx.tcx.def_span(error),
+                    format!("every construction of `{}` sets exactly one of success `{value_name}` and failure `{error_name}`", name(cx.tcx.local_parent(error))),
+                    |diag| {
+                        diag.span_note(cx.tcx.def_span(value), format!("`{value_name}` declared here"));
+                        diag.help(format!("replace `{value_name}` and `{error_name}` with one `{outcome}` field"));
+                    },
+                );
+            }
+            FieldPair::Outcome { value: _, error: _ } => {}
+        });
     }
 }

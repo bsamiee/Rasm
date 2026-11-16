@@ -51,13 +51,13 @@ async fn sessions_share_one_server_per_key() {
 #[tokio::test(flavor = "multi_thread")]
 async fn racing_first_sessions_all_share() {
     let passed = scoped(async |isolated: &Isolated| {
+        let relay = |round: usize| {
+            let mut command = isolated.relay(&[], &[]);
+            command.env("MCP_MUXER_RUNTIME_DIR", format!("r{round}")).env("MCP_MUXER_IDLE", "5s");
+            session(Agent::default(), command)
+        };
         for round in 0..100 {
-            let relay = || {
-                let mut command = isolated.relay(&[], &[]);
-                command.env("MCP_MUXER_RUNTIME_DIR", format!("r{round}")).env("MCP_MUXER_IDLE", "5s");
-                session(Agent::default(), command)
-            };
-            let (first, second) = future::join(relay(), relay()).await;
+            let (first, second) = future::join(relay(round), relay(round)).await;
             let (first, second) = (assert_ok!(first), assert_ok!(second));
             assert_eq!(whoami(&first, HOME).await.pid, whoami(&second, HOME).await.pid, "round {round}: neither racing session fell back to an unshared server");
         }

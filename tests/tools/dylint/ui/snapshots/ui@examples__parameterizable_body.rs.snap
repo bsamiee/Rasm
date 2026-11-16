@@ -60,7 +60,7 @@ note: repeated here
 ...
 87 |     fn render(&self) -> String { String::from("footer") }
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
-   = help: replace `Page`, `Banner` and `Footer` with one struct holding the value, one `const` per replaced type, and one `Render` impl
+   = help: replace `Page`, `Banner` and `Footer` with one type holding the value as a field and one `Render` impl
    = note: `#[deny(parameterizable_body)]` on by default
 
 error: `retry_writes` repeats the body of `retry_reads` with another value in place of `3`

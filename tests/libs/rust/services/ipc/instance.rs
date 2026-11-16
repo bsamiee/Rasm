@@ -50,9 +50,7 @@ async fn socket_file_is_writable_by_its_owner_alone() {
         let mut modes = Vec::new();
         while let Some(entry) = assert_ok!(entries.next_entry().await) {
             let metadata = assert_ok!(entry.metadata().await);
-            if metadata.file_type().is_socket() {
-                modes.push(metadata.permissions().mode() & 0o777);
-            }
+            modes.extend(metadata.file_type().is_socket().then(|| metadata.permissions().mode() & 0o777));
         }
         assert_eq!(modes.is_empty(), !endpoint.name.is_path(), "a path name leaves one socket file in its folder: {modes:?}");
         assert!(modes.iter().all(|mode| mode & 0o022 == 0), "write access is how a local socket authenticates, so group and others hold none: {modes:?}");

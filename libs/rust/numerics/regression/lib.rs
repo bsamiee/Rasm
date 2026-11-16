@@ -104,7 +104,7 @@ impl Estimate {
     pub const fn null_space(&self) -> &DMatrix<f64> { &self.null_space }
 
     #[must_use]
-    pub fn rank(&self) -> usize { self.null_space.nrows().strict_sub(self.null_space.ncols()) }
+    pub fn rank(&self) -> usize { self.null_space.nrows() - self.null_space.ncols() }
 
     #[must_use]
     pub fn freedom(&self) -> f64 { convert::<usize, f64>(self.leverage.len()) - self.leverage.sum() }
@@ -326,7 +326,7 @@ fn estimate(design: &DMatrix<f64>, target: &DMatrix<f64>, regularization: Regula
         parameters,
         residuals: residuals.transpose(),
         leverage: spectrum.left.map(|entry| entry * entry) * &factors,
-        null_space: spectrum.right.columns(spectrum.rank, spectrum.singular.len().strict_sub(spectrum.rank)).into_owned(),
+        null_space: spectrum.right.columns(spectrum.rank, spectrum.singular.len() - spectrum.rank).into_owned(),
         pseudoinverse,
         lambda,
     })
@@ -374,11 +374,7 @@ fn robust(design: &DMatrix<f64>, target: &DMatrix<f64>, options: Options, hooks:
 pub fn total_degree(dimensions: usize, degree: u8) -> DMatrix<u8> {
     let monomials = (0..=dimensions).combinations_with_replacement(usize::from(degree));
     let terms = monomials.size_hint().0;
-    DMatrix::from_iterator(
-        dimensions,
-        terms,
-        monomials.flat_map(|monomial| (1..=dimensions).map(move |symbol| monomial.iter().filter(|&&index| index == symbol).fold(0_u8, |count, _| count.strict_add(1)))),
-    )
+    DMatrix::from_iterator(dimensions, terms, monomials.flat_map(|monomial| (1..=dimensions).map(move |symbol| monomial.iter().filter(|&&index| index == symbol).fold(0_u8, |count, _| count + 1))))
 }
 
 pub fn fit(observations: &Observations, exponents: DMatrix<u8>, options: Options, hooks: SearchHooks<'_>) -> Result<(Polynomial, Estimate), NEVec<RegressionError>> {
@@ -394,7 +390,7 @@ pub fn fit(observations: &Observations, exponents: DMatrix<u8>, options: Options
         term.iter().positions(|&exponent| exponent > 0).all(|lowered| {
             exponents
                 .column_iter()
-                .any(|other| iter::zip(other.iter(), term.iter()).enumerate().all(|(dimension, (&held, &exponent))| u16::from(held).strict_add(u16::from(dimension == lowered)) == u16::from(exponent)))
+                .any(|other| iter::zip(other.iter(), term.iter()).enumerate().all(|(dimension, (&held, &exponent))| u16::from(held) + u16::from(dimension == lowered) == u16::from(exponent)))
         })
     });
     let offsets = DVector::from_iterator(dimensions, sites.row_iter().map(|coordinates| if centred { f64::midpoint(coordinates.min(), coordinates.max()) } else { 0.0 }));
@@ -596,7 +592,7 @@ where
     let residual = |shape: &DVector<f64>| {
         projected(shape.as_view()).and_then(|(coefficients, lambda)| {
             finite_residuals(&Profile { separable: model, coefficients: &coefficients }, observations, &scales, shape).map(|fitted| {
-                DVector::from_iterator(points.strict_add(coefficients.len()), fitted.iter().map(|&value| rooted(value).0).chain(coefficients.iter().map(|coefficient| lambda.sqrt() * coefficient)))
+                DVector::from_iterator(points + coefficients.len(), fitted.iter().map(|&value| rooted(value).0).chain(coefficients.iter().map(|coefficient| lambda.sqrt() * coefficient)))
             })
         })
     };
@@ -604,13 +600,13 @@ where
         projected(shape.as_view()).and_then(|(coefficients, _)| {
             let profile = Profile { separable: model, coefficients: &coefficients };
             let (fitted, slopes) = (finite_residuals(&profile, observations, &scales, shape)?, slopes(&profile, observations, &scales, shape)?);
-            Ok(DMatrix::from_fn(points.strict_add(coefficients.len()), slopes.ncols(), |row, column| fitted.get(row).map_or_default(|&value| rooted(value).1 * slopes[(row, column)])))
+            Ok(DMatrix::from_fn(points + coefficients.len(), slopes.ncols(), |row, column| fitted.get(row).map_or_default(|&value| rooted(value).1 * slopes[(row, column)])))
         })
     };
     let (distinct, failures) = minima(space, starts, Options { loss: Loss::Squared, ..options }, &residual, &jacobian)?;
     let shape = &distinct.first().point;
     let (coefficients, _) = projected(shape.as_view()).map_err(NEVec::new)?;
-    let joint = DVector::from_iterator(shapes.strict_add(coefficients.len()), iter::chain(shape.iter(), coefficients.iter()).copied());
+    let joint = DVector::from_iterator(shapes + coefficients.len(), iter::chain(shape.iter(), coefficients.iter()).copied());
     Ok(Fit { estimate: linearized(&Joint { separable: model, shapes }, observations, &scales, options, &joint, hooks)?, active: active(space, shape), minima: distinct, failures })
 }
 
@@ -695,8 +691,8 @@ pub fn uncertainty(estimate: &Estimate, estimator: Estimator) -> Result<Vec<Unce
                 let influence = scored(&lack.transpose());
                 let reach = lags.get().min(points.saturating_sub(1));
                 let serial = (1..=reach).fold(&influence * influence.transpose(), |total, lag| {
-                    let cross = influence.columns(lag, points.strict_sub(lag)) * influence.columns(0, points.strict_sub(lag)).transpose();
-                    total + (&cross + cross.transpose()) * (1.0 - convert::<usize, f64>(lag) / convert::<usize, f64>(reach.strict_add(1)))
+                    let cross = influence.columns(lag, points - lag) * influence.columns(0, points - lag).transpose();
+                    total + (&cross + cross.transpose()) * (1.0 - convert::<usize, f64>(lag) / convert::<usize, f64>(reach + 1))
                 });
                 Validated::Good((serial * (convert::<usize, f64>(points) / freedom), reduced, freedom))
             }

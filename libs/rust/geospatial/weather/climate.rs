@@ -186,70 +186,68 @@ where S: AsRef<Place> + Clone {
     }
     let parameters @ [dry_bulb, _, _]: [fn(&Hour) -> Option<f64>; 3] =
         [|hour| hour.dry_bulb.map(|value| value.value), |hour| hour.global_irradiance.map(|value| value.value), |hour| hour.relative_humidity.map(|value| value.value)];
-    let records = {
-        let months = hours
-            .records
-            .iter()
-            .map(|hour| {
-                let date = local(hours, hour).date();
-                ((date.year(), date.month()), (date, hour))
-            })
-            .into_group_map();
-        let wind = |hour: &Hour| hour.wind_speed.map(|value| value.value);
-        let days = months
-            .values()
-            .flatten()
-            .copied()
-            .into_group_map()
-            .into_iter()
-            .map(|(date, day)| (date, parameters.map(|field| time_weighted(day.iter().copied(), field)), day))
-            .sorted_by_key(|&(date, _, _)| date)
-            .collect_vec();
-        let chosen = (1..=12_i8)
-            .map(|month| {
-                let dates = days.iter().filter(|(date, _, _)| date.month() == month).collect_vec();
-                let years = dates.iter().copied().into_group_map_by(|(date, _, _)| date.year()).into_iter().sorted_by_key(|candidate| candidate.0).collect_vec();
-                let ranks = (0..parameters.len())
-                    .map(|parameter| {
-                        let all = dates.iter().filter_map(|(_, means, _)| means[parameter]).sorted_by(f64::total_cmp).collect_vec();
-                        let cumulative = |value: f64| nalgebra::convert::<usize, f64>(all.partition_point(|&stated| stated <= value)) / nalgebra::convert::<usize, f64>(all.len().strict_add(1));
-                        let statistics = years
-                            .iter()
-                            .map(|candidate| {
-                                let own = candidate.1.iter().filter_map(|(_, means, _)| means[parameter]).sorted_by(f64::total_cmp).collect_vec();
-                                let count = nalgebra::convert::<usize, f64>(own.len().strict_add(1));
-                                own.iter().enumerate().map(|(index, &value)| (nalgebra::convert::<usize, f64>(index.strict_add(1)) / count - cumulative(value)).abs()).sum1()
-                            })
-                            .collect_vec();
-                        let ordered = statistics.iter().flatten().copied().sorted_by(f64::total_cmp).collect_vec();
-                        statistics.into_iter().map(|own| own.map_or(ordered.len(), |own| ordered.partition_point(|&other| other < own))).collect_vec()
-                    })
-                    .collect_vec();
-                let long_term = time_weighted(dates.iter().flat_map(|(_, _, day)| day.iter().copied()), wind);
-                years
-                    .iter()
-                    .enumerate()
-                    .map(|(index, candidate)| {
-                        let total = ranks.iter().map(|statistics| statistics[index]).sum::<usize>();
-                        let mean = time_weighted(candidate.1.iter().flat_map(|(_, _, day)| day.iter().copied()), wind);
-                        (candidate.0, total, mean.zip(long_term).map_or_default(|(own, mean)| (own - mean).abs()))
-                    })
-                    .sorted_by_key(|&(_, total, _)| total)
-                    .take(CANDIDATES)
-                    .min_by(|(left_year, left_rank, left), (right_year, right_rank, right)| left.total_cmp(right).then(left_rank.cmp(right_rank)).then(left_year.cmp(right_year)))
-                    .map(|(candidate, _, _)| (month, candidate))
-                    .ok_or(Refusal::Typical(month))
-            })
-            .collect::<Validated<Vec<_>, _>>()
-            .ok()?;
-        drop(days);
-        let leap = civil::Date::new(year, 1, 1)?.in_leap_year();
-        chosen
-            .iter()
-            .flat_map(|&(month, source)| months.get(&(source, month)).into_iter().flatten().filter(move |(date, _)| leap || (date.month(), date.day()) != (2, 29)).map(|&(_, hour)| hour))
-            .map(|hour| redated(hour.clone(), zone(hours), year))
-            .collect::<Result<Vec<_>, _>>()?
-    };
+    let monthly = hours
+        .records
+        .iter()
+        .map(|hour| {
+            let date = local(hours, hour).date();
+            ((date.year(), date.month()), (date, hour))
+        })
+        .into_group_map();
+    let wind = |hour: &Hour| hour.wind_speed.map(|value| value.value);
+    let days = monthly
+        .values()
+        .flatten()
+        .copied()
+        .into_group_map()
+        .into_iter()
+        .map(|(date, day)| (date, parameters.map(|field| time_weighted(day.iter().copied(), field)), day))
+        .sorted_by_key(|&(date, _, _)| date)
+        .collect_vec();
+    let chosen = (1..=12_i8)
+        .map(|month| {
+            let dates = days.iter().filter(|(date, _, _)| date.month() == month).collect_vec();
+            let years = dates.iter().copied().into_group_map_by(|(date, _, _)| date.year()).into_iter().sorted_by_key(|candidate| candidate.0).collect_vec();
+            let ranks = (0..parameters.len())
+                .map(|parameter| {
+                    let all = dates.iter().filter_map(|(_, means, _)| means[parameter]).sorted_by(f64::total_cmp).collect_vec();
+                    let cumulative = |value: f64| nalgebra::convert::<usize, f64>(all.partition_point(|&stated| stated <= value)) / nalgebra::convert::<usize, f64>(all.len() + 1);
+                    let statistics = years
+                        .iter()
+                        .map(|candidate| {
+                            let own = candidate.1.iter().filter_map(|(_, means, _)| means[parameter]).sorted_by(f64::total_cmp).collect_vec();
+                            let count = nalgebra::convert::<usize, f64>(own.len() + 1);
+                            own.iter().enumerate().map(|(index, &value)| (nalgebra::convert::<usize, f64>(index + 1) / count - cumulative(value)).abs()).sum1()
+                        })
+                        .collect_vec();
+                    let ordered = statistics.iter().flatten().copied().sorted_by(f64::total_cmp).collect_vec();
+                    statistics.into_iter().map(|own| own.map_or(ordered.len(), |own| ordered.partition_point(|&other| other < own))).collect_vec()
+                })
+                .collect_vec();
+            let long_term = time_weighted(dates.iter().flat_map(|(_, _, day)| day.iter().copied()), wind);
+            years
+                .iter()
+                .enumerate()
+                .map(|(index, candidate)| {
+                    let total = ranks.iter().map(|statistics| statistics[index]).sum::<usize>();
+                    let mean = time_weighted(candidate.1.iter().flat_map(|(_, _, day)| day.iter().copied()), wind);
+                    (candidate.0, total, mean.zip(long_term).map_or_default(|(own, mean)| (own - mean).abs()))
+                })
+                .sorted_by_key(|&(_, total, _)| total)
+                .take(CANDIDATES)
+                .min_by(|(left_year, left_rank, left), (right_year, right_rank, right)| left.total_cmp(right).then(left_rank.cmp(right_rank)).then(left_year.cmp(right_year)))
+                .map(|(candidate, _, _)| (month, candidate))
+                .ok_or(Refusal::Typical(month))
+        })
+        .collect::<Validated<Vec<_>, _>>()
+        .ok()?;
+    drop(days);
+    let leap = civil::Date::new(year, 1, 1)?.in_leap_year();
+    let records = chosen
+        .iter()
+        .flat_map(|&(month, source)| monthly.get(&(source, month)).into_iter().flatten().filter(move |(date, _)| leap || (date.month(), date.day()) != (2, 29)).map(|&(_, hour)| hour))
+        .map(|hour| redated(hour.clone(), zone(hours), year))
+        .collect::<Result<Vec<_>, _>>()?;
     let typical = Hours::try_new(hours.site.clone(), records)?;
     let dated = typical.records.iter().map(|hour| (local(&typical, hour).date(), hour)).chunk_by(|&(date, _)| date);
     let means = (&dated).into_iter().filter_map(|(date, day)| time_weighted(day.map(|(_, hour)| hour), dry_bulb).map(|mean| (date, mean))).collect_vec();
@@ -258,7 +256,7 @@ where S: AsRef<Place> + Clone {
     let periods = seasons
         .into_iter()
         .flat_map(|(season, months, extreme): (&str, [i8; 3], Option<(&str, f64)>)| {
-            let months = if southern { months.map(|month| month.strict_add(5).rem_euclid(12).strict_add(1)) } else { months };
+            let months = if southern { months.map(|month| (month + 5).rem_euclid(12) + 1) } else { months };
             let means = means.iter().copied().filter(|(date, _)| months.contains(&date.month())).collect_vec();
             let average = weighted(means.iter().map(|&(_, mean)| (mean, 1.0)));
             let weeks = means

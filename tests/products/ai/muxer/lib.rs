@@ -169,12 +169,12 @@ impl ClientHandler for Agent {
     }
 
     fn on_progress(&self, _: ProgressNotificationParam, _: NotificationContext<RoleClient>) -> impl Future<Output = ()> + Send + '_ {
-        self.progress.send_modify(|seen| *seen = seen.strict_add(1));
+        self.progress.send_modify(|seen| *seen += 1);
         ready(())
     }
 
     fn on_tool_list_changed(&self, _: NotificationContext<RoleClient>) -> impl Future<Output = ()> + Send + '_ {
-        self.changes.send_modify(|seen| *seen = seen.strict_add(1));
+        self.changes.send_modify(|seen| *seen += 1);
         ready(())
     }
 }

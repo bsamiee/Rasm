@@ -42,4 +42,4 @@ note: matched here
 ...
 80 |     const fn timeout(self) -> Duration {
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   = help: replace `Pace` with a struct holding `interval` and `timeout` and one `const` per variant
+   = help: return the values of `interval` and `timeout` from one match on `Pace`

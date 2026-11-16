@@ -48,12 +48,12 @@ fn recorded(instants: &[Time], reason: OdeSolverStopReason<f64>) -> (Vec<usize>,
 
 fn selected<M>(matrix: &M, columns: &[usize]) -> DMatrix<f64>
 where M: DenseMatrix<T = f64> {
-    let rows = matrix.nrows().strict_mul(matrix.context().nbatch());
+    let rows = matrix.nrows() * matrix.context().nbatch();
     let mut views = columns.iter().map(|&index| matrix.column(index));
     let values = views.next().map_or_default(|first| {
         let mut column = first.into_owned();
         let mut values = column.clone_as_vec();
-        values.reserve(rows.strict_mul(views.len()));
+        values.reserve(rows * views.len());
         views.for_each(|view| {
             column.copy_from_view(&view);
             values.extend(column.clone_as_vec());
@@ -180,8 +180,8 @@ where
                 let cotangent = if batches == 1 {
                     cotangent
                 } else {
-                    let mut reordered = DMatrix::zeros(outputs, columns.strict_mul(batches));
-                    (0..batches).for_each(|batch| reordered.columns_mut(batch.strict_mul(columns), columns).copy_from(&cotangent.rows(batch.strict_mul(outputs), outputs)));
+                    let mut reordered = DMatrix::zeros(outputs, columns * batches);
+                    (0..batches).for_each(|batch| reordered.columns_mut(batch * columns, columns).copy_from(&cotangent.rows(batch * outputs, outputs)));
                     reordered
                 };
                 <Eqn::V as DefaultDenseMatrix>::M::from_vec(outputs, columns, cotangent.data.into(), context.clone())
@@ -240,7 +240,7 @@ where
                     None => slot.insert(build()?),
                 };
                 let scenario = design.column(column);
-                let (expected, found) = (problem.eqn.nparams().strict_mul(problem.context().nbatch()), scenario.nrows());
+                let (expected, found) = (problem.eqn.nparams() * problem.context().nbatch(), scenario.nrows());
                 (found == expected).ok_or(DynamicsError::Parameters { expected, found })?;
                 scenario
                     .iter()

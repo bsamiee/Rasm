@@ -80,14 +80,12 @@ where G: Network + IntoEdgesDirected {
             |event| match event {
                 DijkstraEvent::Discover(node, distance) => {
                     let tied = frontier.remove(&node).into_iter().flatten().filter(|&(_, arrival, _, _)| arrival - distance <= tolerance * distance);
-                    let reached = tied.fold(None, |reached, (edge, _, spanned, paths)| {
-                        Some(match reached {
-                            None => Reached { distance, extent: spanned, paths, predecessors: vec![edge] },
-                            Some(Reached { distance: _, extent: least, paths: counted, mut predecessors }) => {
-                                predecessors.push(edge);
-                                Reached { distance, extent: least.min(spanned), paths: counted + paths, predecessors }
-                            }
-                        })
+                    let reached = tied.fold(None, |reached, (edge, _, spanned, paths)| match reached {
+                        None => Some(Reached { distance, extent: spanned, paths, predecessors: vec![edge] }),
+                        Some(Reached { distance: _, extent: least, paths: counted, mut predecessors }) => {
+                            predecessors.push(edge);
+                            Some(Reached { distance, extent: least.min(spanned), paths: counted + paths, predecessors })
+                        }
                     });
                     if let Some(reached) = reached {
                         current = (reached.distance, reached.extent, reached.paths);

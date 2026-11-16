@@ -78,12 +78,11 @@ impl<'tcx> Visitor<'tcx> for Signature<'_, 'tcx> {
                     {
                         report(self.cx, hir_ty.hir_id, hir_ty.span, error, untyped);
                     },
-                None =>
-                    if output && let Some(UntypedKind::Many(item)) = untyped_kind(self.cx, held) {
-                        span_lint_hir_and_then(self.cx, UNTYPED_ERROR, hir_ty.hir_id, hir_ty.span, with_forced_trimmed_paths!(format!("function signals success with an empty `{held}`")), |diag| {
-                            diag.help(with_forced_trimmed_paths!(format!("collect the results into `validated::Validated` and return `Result<(), NEVec<{item}>>` from `.ok()`")));
-                        });
-                    },
+                None if output && let Some(UntypedKind::Many(item)) = untyped_kind(self.cx, held) =>
+                    span_lint_hir_and_then(self.cx, UNTYPED_ERROR, hir_ty.hir_id, hir_ty.span, with_forced_trimmed_paths!(format!("function signals success with an empty `{held}`")), |diag| {
+                        _ = diag.help(with_forced_trimmed_paths!(format!("collect the results into `validated::Validated` and return `Result<(), NEVec<{item}>>` from `.ok()`")));
+                    }),
+                None => (),
             }
         }
         intravisit::walk_ty(self, t);
@@ -138,10 +137,9 @@ fn retained_report<'tcx>(cx: &LateContext<'tcx>, body: &Body<'tcx>, report: Ty<'
             let declared = awaited_output(cx.tcx, callee);
             let error = result_parts(cx, declared).map_or(declared, |(_, error)| error);
             if same_type_modulo_regions(error, report) && !error.has_non_region_param() && !callee.is_local() {
-                let incoming = iter::chain(receiver, arguments).any(|input| {
-                    let input = typeck.expr_ty(input);
-                    same_type_modulo_regions(input, report) || result_parts(cx, input).is_some_and(|(_, carried)| same_type_modulo_regions(carried, report))
-                });
+                let incoming = iter::chain(receiver, arguments)
+                    .map(|input| typeck.expr_ty(input))
+                    .any(|input| same_type_modulo_regions(input, report) || result_parts(cx, input).is_some_and(|(_, carried)| same_type_modulo_regions(carried, report)));
                 return (incoming || report.ty_adt_def().is_some_and(|report| report.did().krate != callee.krate)).then_some(true);
             }
             if result_parts(cx, declared).is_some()
@@ -252,20 +250,15 @@ impl<'tcx> LateLintPass<'tcx> for Pass<'tcx> {
         let checked = matches!(cx.tcx.def_kind(owner), DefKind::Fn | DefKind::Struct | DefKind::Enum | DefKind::Union | DefKind::TyAlias) && !expanded_externally(cx, item.span);
         if checked && matches!(item.kind, ItemKind::Struct(..) | ItemKind::Enum(..)) && is_error(cx, cx.tcx.type_of(owner).instantiate_identity().skip_normalization()) {
             let variants = cx.tcx.adt_def(owner).variants().iter().filter_map(|variant| {
-                let (reason, help) = variant.fields.iter().find_map(|field| {
-                    let held = cx.tcx.type_of(field.did).instantiate_identity().skip_normalization();
-                    match untyped_kind(cx, held) {
-                        Some(untyped @ UntypedKind::Erased) => Some((<&str>::from(untyped), String::from("hold the wrapped error's concrete type as `#[source]`"))),
-                        Some(untyped @ UntypedKind::Many(element)) => Some((<&str>::from(untyped), with_forced_trimmed_paths!(format!("hold the errors as `nonempty_collections::NEVec<{element}>`")))),
-                        Some(UntypedKind::Report | UntypedKind::Text | UntypedKind::Code | UntypedKind::Tuple | UntypedKind::Unit | UntypedKind::Messages | UntypedKind::NoError(_)) | None => None,
-                    }
+                let (reason, help) = variant.fields.iter().find_map(|field| match untyped_kind(cx, cx.tcx.type_of(field.did).instantiate_identity().skip_normalization()) {
+                    Some(untyped @ UntypedKind::Erased) => Some((<&str>::from(untyped), String::from("hold the wrapped error's concrete type as `#[source]`"))),
+                    Some(untyped @ UntypedKind::Many(element)) => Some((<&str>::from(untyped), with_forced_trimmed_paths!(format!("hold the errors as `nonempty_collections::NEVec<{element}>`")))),
+                    Some(UntypedKind::Report | UntypedKind::Text | UntypedKind::Code | UntypedKind::Tuple | UntypedKind::Unit | UntypedKind::Messages | UntypedKind::NoError(_)) | None => None,
                 })?;
                 Some((variant, variant.def_id.as_local()?, reason, help))
             });
             for (variant, local, reason, help) in variants {
-                span_lint_hir_and_then(cx, UNTYPED_ERROR, cx.tcx.local_def_id_to_hir_id(local), cx.tcx.def_span(local), format!("error `{}` holds {reason}", variant.name), |diag| {
-                    diag.help(help);
-                });
+                span_lint_hir_and_then(cx, UNTYPED_ERROR, cx.tcx.local_def_id_to_hir_id(local), cx.tcx.def_span(local), format!("error `{}` holds {reason}", variant.name), |diag| _ = diag.help(help));
             }
         }
         if checked {
@@ -290,20 +283,21 @@ impl<'tcx> LateLintPass<'tcx> for Pass<'tcx> {
         }
 
         let owner = item.owner_id.def_id;
-        if !expanded_externally(cx, item.span) {
-            match (cx.tcx.associated_item(owner).trait_item_def_id(), item.kind) {
-                (None, _) => intravisit::walk_impl_item(&mut Signature::new(self, cx, owner), item),
-                (Some(declared), ImplItemKind::Type(defined)) => {
-                    intravisit::walk_impl_item(&mut Signature::new(self, cx, owner), item);
-                    let error = cx.tcx.type_of(owner).instantiate_identity().skip_normalization();
-                    if let Some(untyped) = untyped_kind(cx, error)
-                        && error_alias(cx, declared)
-                    {
-                        report(cx, item.hir_id(), defined.span, error, untyped);
-                    }
+        if expanded_externally(cx, item.span) {
+            return;
+        }
+        match (cx.tcx.associated_item(owner).trait_item_def_id(), item.kind) {
+            (None, _) => intravisit::walk_impl_item(&mut Signature::new(self, cx, owner), item),
+            (Some(declared), ImplItemKind::Type(defined)) => {
+                intravisit::walk_impl_item(&mut Signature::new(self, cx, owner), item);
+                let error = cx.tcx.type_of(owner).instantiate_identity().skip_normalization();
+                if let Some(untyped) = untyped_kind(cx, error)
+                    && error_alias(cx, declared)
+                {
+                    report(cx, item.hir_id(), defined.span, error, untyped);
                 }
-                (Some(_), _) => {}
             }
+            (Some(_), _) => {}
         }
     }
 
@@ -350,18 +344,13 @@ impl<'tcx> LateLintPass<'tcx> for Pass<'tcx> {
                     ExprKind::MethodCall(_, operand, [], _) if declared(typeck.type_dependent_def_id(part.hir_id), sym::Into) => Some((typeck.expr_ty(part), typeck.expr_ty(operand))),
                     ExprKind::Path(qpath)
                         if matches!(typeck.qpath_res(&qpath, part.hir_id).opt_def_id().and_then(|method| associated_trait(tcx, method)).opt_diag_name(cx), Some(sym::From | sym::Into)) =>
-                    {
-                        let declaration = typeck.expr_ty(part).fn_sig(tcx).skip_binder();
-                        declaration.inputs().first().map(|&source| (declaration.output(), source))
-                    }
+                        match typeck.expr_ty(part).fn_sig(tcx).skip_binder().inputs_and_output.as_slice() {
+                            &[source, .., target] => Some((target, source)),
+                            _ => None,
+                        },
                     _ => None,
                 };
-                if let Some((target, source)) = conversion
-                    && source.ty_adt_def().is_some_and(|adt| adt.did().is_local())
-                    && is_error(cx, source)
-                {
-                    found.entry(target).or_insert(source);
-                }
+                found.extend(conversion.filter(|&(target, source)| !found.contains_key(&target) && source.ty_adt_def().is_some_and(|adt| adt.did().is_local()) && is_error(cx, source)));
                 ControlFlow::<()>::Continue(())
             });
             found

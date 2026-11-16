@@ -36,13 +36,10 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             let mut applicability = Applicability::MachineApplicable;
             let argument = Sugg::hir_with_context(cx, receiver, expr.span.ctxt(), "..", &mut applicability);
             let argument = if cx.typeck_results().expr_ty(receiver).is_ref() { argument } else { argument.addr() };
-            span_lint_hir_and_then(cx, MANUAL_PATH_IS_EMPTY, expr.hir_id, expr.span, "path emptiness is tested through `OsStr`", |diag| {
-                let help = "call `Path::is_empty`";
-                if std_or_core(cx) == Some("std") {
-                    suggest(cx, expr.hir_id, diag, expr.span, help, format!("<::std::path::Path>::is_empty({argument})"), applicability);
-                } else {
-                    diag.help(help);
-                }
+            let help = "call `Path::is_empty`";
+            span_lint_hir_and_then(cx, MANUAL_PATH_IS_EMPTY, expr.hir_id, expr.span, "path emptiness is tested through `OsStr`", |diag| match std_or_core(cx) {
+                Some("std") => suggest(cx, expr.hir_id, diag, expr.span, help, format!("<::std::path::Path>::is_empty({argument})"), applicability),
+                _ => _ = diag.help(help),
             });
         }
     }

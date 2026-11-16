@@ -92,15 +92,18 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             && !is_from_proc_macro(cx, converted)
         {
             let removed = converted.span.with_lo(receiver.hi());
-            if homogeneous {
-                span_lint_hir_and_then(cx, REDUNDANT_ERROR_CONVERSION, converted.hir_id, removed, "`?` in a homogeneous `try` block applies no `From`, `map_err` converts by hand", |diag| {
-                    diag.help("name the block's type with `try bikeshed <result> { .. }` and delete the `map_err` call, each `?` converting into it");
-                });
+            let (message, help) = if homogeneous {
+                (
+                    "`?` in a homogeneous `try` block applies no `From`, `map_err` converts by hand",
+                    Some("name the block's type with `try bikeshed <result> { .. }` and delete the `map_err` call, each `?` converting into it"),
+                )
             } else {
-                span_lint_hir_and_then(cx, REDUNDANT_ERROR_CONVERSION, converted.hir_id, removed, "`map_err` repeats the `From` conversion `?` applies", |diag| {
-                    suggest(cx, converted.hir_id, diag, removed, "delete the `map_err` call", "", Applicability::MachineApplicable);
-                });
-            }
+                ("`map_err` repeats the `From` conversion `?` applies", None)
+            };
+            span_lint_hir_and_then(cx, REDUNDANT_ERROR_CONVERSION, converted.hir_id, removed, message, |diag| match help {
+                Some(help) => _ = diag.help(help),
+                None => suggest(cx, converted.hir_id, diag, removed, "delete the `map_err` call", "", Applicability::MachineApplicable),
+            });
         }
     }
 

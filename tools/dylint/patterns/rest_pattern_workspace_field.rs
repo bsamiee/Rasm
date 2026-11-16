@@ -31,11 +31,14 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                         .filter(|(index, field)| accessible(field) && !named.contains(index))
                         .map(|(_, field)| format!("{}: _", Ident::new(field.name, pat.span)))
                         .join(", ");
-                    let whole = variant.fields.iter().all(accessible) && !variant.field_list_has_applicable_non_exhaustive();
-                    (!unnamed.is_empty()).then(|| if whole { (Some(rest), unnamed) } else { (Some(rest.shrink_to_lo()), format!("{unnamed}, ")) })
+                    match (unnamed.is_empty(), variant.fields.iter().all(accessible) && !variant.field_list_has_applicable_non_exhaustive()) {
+                        (true, _) => None,
+                        (false, true) => Some((Some(rest), unnamed)),
+                        (false, false) => Some((Some(rest.shrink_to_lo()), format!("{unnamed}, "))),
+                    }
                 }
                 PatKind::TupleStruct(_, fields @ [_, ..], rest) => (rest.as_opt_usize().is_some() && fields.len() < variant.fields.len() && variant.fields.iter().all(accessible))
-                    .then(|| (None, iter::repeat_n("_", variant.fields.len().strict_sub(fields.len())).join(", "))),
+                    .then(|| (None, iter::repeat_n("_", variant.fields.len() - fields.len()).join(", "))),
                 _ => None,
             }
         }

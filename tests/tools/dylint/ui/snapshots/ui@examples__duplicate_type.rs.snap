@@ -66,7 +66,7 @@ error: every variant of `Event` repeats the same fields
 65 | enum Event {
    | ^^^^^^^^^^
    |
-   = help: declare `Event` as a struct of the shared fields and a fieldless enum of its variants
+   = help: declare `Event` as one struct of the shared fields holding what its variants differ by as a field
 
 error: variant `Fetch` repeats the fields of `Origin`
   --> tests/tools/dylint/examples/duplicate_type.rs:72:5
@@ -232,7 +232,7 @@ note: repeated here
 323 |     #[error("cannot write the manifest")]
 324 |     Write(#[source] io::Error),
     |     ^^^^^
-    = help: replace `Read` and `Write` with one variant of the shared fields and a fieldless `derive_more::Display` enum for their messages
+    = help: replace `Read` and `Write` with one variant of the shared fields holding what they differ by as a field
 
 error: error variants `Runtime` and `Serve` of `ServeError` repeat the same fields
    --> tests/tools/dylint/examples/duplicate_type.rs:330:1
@@ -248,7 +248,7 @@ note: repeated here
 333 |     #[error("cannot serve the endpoint")]
 334 |     Serve(#[source] io::Error),
     |     ^^^^^
-    = help: replace `Runtime` and `Serve` with one variant of the shared fields and a fieldless `derive_more::Display` enum for their messages
+    = help: replace `Runtime` and `Serve` with one variant of the shared fields holding what they differ by as a field
 
 error: error variants `Invalid` and `Truncated` of `SchemaError` repeat the same fields
    --> tests/tools/dylint/examples/duplicate_type.rs:348:1
@@ -264,7 +264,7 @@ note: repeated here
 351 |     #[error("{path} ends at line {line}")]
 352 |     Truncated { path: String, line: u32 },
     |     ^^^^^^^^^
-    = help: replace `Invalid` and `Truncated` with one variant of the shared fields and a fieldless `derive_more::Display` enum for their messages
+    = help: replace `Invalid` and `Truncated` with one variant of the shared fields holding what they differ by as a field
 
 error: `Shim` duplicates `AddressDto`
    --> tests/tools/dylint/examples/duplicate_type.rs:413:5

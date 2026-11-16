@@ -147,7 +147,7 @@ where D: Dimension {
                 .iter()
                 .tuple_windows()
                 .positions(|(earlier, later)| later <= earlier || almost::equal(*later, *earlier))
-                .map(move |window| Err(AnalysisError::Site { dimension, point: window.strict_add(1), placement: Placement::Unordered })),
+                .map(move |window| Err(AnalysisError::Site { dimension, point: window + 1, placement: Placement::Unordered })),
         )
         .chain(refused_weights(Some(dimension), axis.weights.into_iter().flatten()))
         .collect::<Vec<_>>()
@@ -158,7 +158,7 @@ where D: Dimension {
         .chain(values.indexed_iter().filter(|(_, value)| !value.is_finite()).map(|(index, _)| Err(AnalysisError::Value { index: index.slice().to_vec() })))
         .collect::<Validated<(), _>>()
         .ok()?;
-    let last = values.ndim().strict_sub(1);
+    let last = values.ndim() - 1;
     let fitted = axes.into_iter().enumerate().rev().try_fold((values.to_owned(), Vec::new()), |(current, mut fitted), (dimension, axis)| -> Result<_, AnalysisError> {
         let (sites, weights, current) = match axis.period {
             Some(period) => (
@@ -177,18 +177,15 @@ where D: Dimension {
                 smoothed(ArrayView1::from(&*sites), weights.as_deref().map(ArrayRef1::view), lanes.view(), smooth.map(Smooth::into_inner)).map(|(coefficients, smooth)| (coefficients, smooth, None))?,
             Method::Gcv =>
                 cross_validated(ArrayView1::from(&*sites), weights.as_deref().map(ArrayRef1::view), lanes.view()).map(|(coefficients, smooth, freedom)| (coefficients, smooth, Some(freedom)))?,
-            Method::Monotone => (
-                Array2::from_shape_vec((lanes.nrows(), 4_usize.strict_mul(sites.len().strict_sub(1))), lanes.rows().into_iter().flat_map(|lane| monotone(ArrayView1::from(&*sites), lane)).collect())?,
-                None,
-                None,
-            ),
+            Method::Monotone =>
+                (Array2::from_shape_vec((lanes.nrows(), 4_usize * (sites.len() - 1)), lanes.rows().into_iter().flat_map(|lane| monotone(ArrayView1::from(&*sites), lane)).collect())?, None, None),
         };
         let shape = outer.iter().copied().chain(iter::once(coefficients.ncols())).collect::<Vec<_>>();
         let restored = (0..=last)
             .map(|index| match index.cmp(&dimension) {
                 Ordering::Less => index,
                 Ordering::Equal => last,
-                Ordering::Greater => index.strict_sub(1),
+                Ordering::Greater => index - 1,
             })
             .collect::<Vec<_>>();
         let reshaped = coefficients.as_standard_layout().into_owned().into_shape_with_order(IxDyn(&shape))?.permuted_axes(IxDyn(&restored));
@@ -214,20 +211,20 @@ pub fn curve(observations: &Observations, method: Method, period: Option<f64>, h
 
 // --- [READINGS]
 
-fn falling(exponent: usize, times: usize) -> f64 { (exponent.strict_sub(times).strict_add(1)..=exponent).map(convert::<usize, f64>).product() }
+fn falling(exponent: usize, times: usize) -> f64 { (exponent - times + 1..=exponent).map(convert::<usize, f64>).product() }
 
 pub fn evaluate(spline: &Spline, sites: DMatrixView<'_, f64>, readings: &[Reading], extrapolation: Extrapolation) -> Result<DVector<f64>, NEVec<AnalysisError>> {
     let dimensions = spline.axes.len();
     let functional = |breaks: &[f64], width: usize, reading: &Reading, at: f64| -> Vec<(usize, f64)> {
-        let pieces = breaks.len().strict_sub(1);
-        let order = width.strict_div(pieces);
+        let pieces = breaks.len() - 1;
+        let order = width / pieces;
         let raised = |base: f64, exponent: usize| base.powi(convert::<usize, i32>(exponent));
         let local = |power: usize| {
             let piece = breaks[..pieces].partition_point(|&start| start <= at).saturating_sub(1);
             (0..order)
-                .map(|block| (block, order.strict_sub(1).strict_sub(block)))
+                .map(|block| (block, order - 1 - block))
                 .filter(|&(_, exponent)| exponent >= power)
-                .map(move |(block, exponent)| (block.strict_mul(pieces).strict_add(piece), falling(exponent, power) * raised(at - breaks[piece], exponent.strict_sub(power))))
+                .map(move |(block, exponent)| (block * pieces + piece, falling(exponent, power) * raised(at - breaks[piece], exponent - power)))
                 .collect()
         };
         match reading {
@@ -240,8 +237,8 @@ pub fn evaluate(spline: &Spline, sites: DMatrixView<'_, f64>, readings: &[Readin
                 .flat_map(|(piece, (&start, &last))| {
                     let (lower, upper) = (interval.start.max(start) - start, interval.last.min(last) - start);
                     (0..order).filter(move |_| upper > lower).map(move |block| {
-                        let exponent = order.strict_sub(block);
-                        (block.strict_mul(pieces).strict_add(piece), (raised(upper, exponent) - raised(lower, exponent)) / convert::<usize, f64>(exponent))
+                        let exponent = order - block;
+                        (block * pieces + piece, (raised(upper, exponent) - raised(lower, exponent)) / convert::<usize, f64>(exponent))
                     })
                 })
                 .collect(),
@@ -305,16 +302,14 @@ pub fn crossings(spline: &Spline, level: f64, derivative: u8) -> Result<Vec<f64>
     let [axis] = &spline.axes else {
         return Err(NEVec::new(AnalysisError::Shape { input: Input::Axes, expected: 1, found: spline.axes.len() }));
     };
-    let pieces = axis.breaks.len().strict_sub(1);
-    let order = spline.coefficients.len().strict_div(pieces);
+    let pieces = axis.breaks.len() - 1;
+    let order = spline.coefficients.len() / pieces;
     let times = usize::from(derivative);
     let found = axis.breaks.iter().tuple_windows().enumerate().map(|(piece, (&start, &last))| {
         let shifted = (times..order)
-            .map(|exponent| {
-                Some(spline.coefficients.get([order.strict_sub(1).strict_sub(exponent).strict_mul(pieces).strict_add(piece)])?.mul_add(falling(exponent, times), -level * f64::from(exponent == times)))
-            })
+            .map(|exponent| Some(spline.coefficients.get([(order - 1 - exponent) * pieces + piece])?.mul_add(falling(exponent, times), -level * f64::from(exponent == times))))
             .collect::<Option<Vec<_>>>()
-            .ok_or_else(|| NEVec::new(AnalysisError::Shape { input: Input::Coefficients, expected: order.strict_mul(pieces), found: spline.coefficients.len() }))?;
+            .ok_or_else(|| NEVec::new(AnalysisError::Shape { input: Input::Coefficients, expected: order * pieces, found: spline.coefficients.len() }))?;
         match real(&shifted, RangeInclusive { start: 0.0, last: last - start }) {
             Ok(roots) => Ok(roots.into_iter().map(|root| root + start).collect::<Vec<_>>()),
             Err(errors) if errors.iter().all(AnalysisError::is_zero) => Ok(Vec::new()),

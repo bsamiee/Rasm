@@ -146,13 +146,10 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             let (deque, kept) = (Sugg::hir_with_context(cx, deque, ctxt, "..", &mut applicability), Sugg::hir_with_context(cx, kept, ctxt, "..", &mut applicability));
             let message = format!("`{deque}` drops front elements by hand to keep its last `{kept}`");
             let argument = if borrowed { deque } else { deque.mut_addr() };
-            span_lint_hir_and_then(cx, MANUAL_RETAIN_BACK, expr.hir_id, expr.span, message, |diag| {
-                let help = "call `VecDeque::retain_back`";
-                if std_or_core(cx) == Some("std") {
-                    suggest(cx, expr.hir_id, diag, expr.span, help, format!("::std::collections::VecDeque::retain_back({argument}, {kept}){terminator}"), applicability);
-                } else {
-                    diag.help(help);
-                }
+            let help = "call `VecDeque::retain_back`";
+            span_lint_hir_and_then(cx, MANUAL_RETAIN_BACK, expr.hir_id, expr.span, message, |diag| match std_or_core(cx) {
+                Some("std") => suggest(cx, expr.hir_id, diag, expr.span, help, format!("::std::collections::VecDeque::retain_back({argument}, {kept}){terminator}"), applicability),
+                _ => _ = diag.help(help),
             });
         }
     }

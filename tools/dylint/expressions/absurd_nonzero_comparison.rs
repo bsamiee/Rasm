@@ -43,25 +43,23 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 Some(receiver),
             _ => None,
         };
-        if let Some((relation, lower, upper)) = normalize_comparison(operator.node, left, right)
-            && let Some((receiver, bound, below)) = read(lower).map(|receiver| (receiver, upper, true)).or_else(|| read(upper).map(|receiver| (receiver, lower, false)))
-            && let unsigned = matches!(typeck.expr_ty(bound).kind(), ty::Uint(_))
-            && let Some(fixed) = match (relation, ConstEvalCtxt::new(cx).eval(bound), below) {
-                (Rel::Eq, Some(Constant::Int(0)), _) => Some(false),
-                (Rel::Ne, Some(Constant::Int(0)), _) => Some(true),
-                (Rel::Lt, Some(Constant::Int(0)), false) | (Rel::Le, Some(Constant::Int(1)), false) if unsigned => Some(true),
-                (Rel::Lt, Some(Constant::Int(1)), true) | (Rel::Le, Some(Constant::Int(0)), true) if unsigned => Some(false),
-                _ => None,
+        let Some((relation, lower, upper)) = normalize_comparison(operator.node, left, right) else { return };
+        let Some((receiver, bound, below)) = read(lower).map(|receiver| (receiver, upper, true)).or_else(|| read(upper).map(|receiver| (receiver, lower, false))) else { return };
+        let unsigned = matches!(typeck.expr_ty(bound).kind(), ty::Uint(_));
+        let fixed = match (relation, ConstEvalCtxt::new(cx).eval(bound), below) {
+            (Rel::Eq, Some(Constant::Int(0)), _) => false,
+            (Rel::Ne, Some(Constant::Int(0)), _) => true,
+            (Rel::Lt, Some(Constant::Int(0)), false) | (Rel::Le, Some(Constant::Int(1)), false) if unsigned => true,
+            (Rel::Lt, Some(Constant::Int(1)), true) | (Rel::Le, Some(Constant::Int(0)), true) if unsigned => false,
+            _ => return,
+        };
+        let nonzero = typeck.expr_ty_adjusted(receiver).peel_refs();
+        span_lint_hir_and_then(cx, ABSURD_NONZERO_COMPARISON, expr.hir_id, expr.span, format!("`{}` is always `{fixed}`, `{nonzero}` holds no zero", snippet(cx, expr.span, "..")), |diag| {
+            if switch_to_eager_eval(cx, receiver) {
+                suggest(cx, expr.hir_id, diag, expr.span, format!("replace the comparison with `{fixed}`"), fixed.to_string(), Applicability::MachineApplicable);
+            } else {
+                diag.help(format!("retain operand evaluation and replace comparison with `{fixed}`"));
             }
-        {
-            let nonzero = typeck.expr_ty_adjusted(receiver).peel_refs();
-            span_lint_hir_and_then(cx, ABSURD_NONZERO_COMPARISON, expr.hir_id, expr.span, format!("`{}` is always `{fixed}`, `{nonzero}` holds no zero", snippet(cx, expr.span, "..")), |diag| {
-                if switch_to_eager_eval(cx, receiver) {
-                    suggest(cx, expr.hir_id, diag, expr.span, format!("replace the comparison with `{fixed}`"), fixed.to_string(), Applicability::MachineApplicable);
-                } else {
-                    diag.help(format!("retain operand evaluation and replace comparison with `{fixed}`"));
-                }
-            });
-        }
+        });
     }
 }

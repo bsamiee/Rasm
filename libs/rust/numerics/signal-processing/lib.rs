@@ -115,7 +115,7 @@ pub enum SpectraError {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const fn real_bins(len: usize) -> usize { len.strict_div(2).strict_add(1) }
+const fn real_bins(len: usize) -> usize { len / 2 + 1 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

@@ -61,5 +61,5 @@ note: branched on here
 19 | |         _ => 0,
 20 | |     }
    | |_____^
-   = help: declare `owned` as a `strum::EnumString` enum with a variant per value and parse the text where it enters
+   = help: rebuild the branches over the value `owned` stands for, read from the type, member, or host stating it
    = note: `#[deny(stringly_typed_value)]` on by default

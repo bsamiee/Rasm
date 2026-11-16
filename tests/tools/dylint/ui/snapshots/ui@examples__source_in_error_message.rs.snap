@@ -92,5 +92,5 @@ note: repeated here
 36 |     #[error("cannot accept: \u{7b}source\u{7d}")]
 37 |     Accept { source: io::Error },
    |     ^^^^^^
-   = help: replace `Accept`, `Close` and `Receive` with one variant of the shared fields and a fieldless `derive_more::Display` enum for their messages
+   = help: replace `Accept`, `Close` and `Receive` with one variant of the shared fields holding what they differ by as a field
    = note: `#[deny(duplicate_type)]` on by default

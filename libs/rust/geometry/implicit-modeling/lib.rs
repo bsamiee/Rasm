@@ -247,7 +247,7 @@ where S: Sample {
                  z: &[<S::Eval as BulkEvaluator>::Data]|
      -> Result<Vec<S>, ImplicitError> {
         cancellation_point(evaluation.cancel.as_ref())?;
-        evaluator.eval_with_vars(S::tape(shape), x, y, z, vars)?.iter().copied().zip(chunk.strict_mul(size)..).map(|(value, index)| S::widen(value).ok_or(ImplicitError::NotFinite { index })).collect()
+        evaluator.eval_with_vars(S::tape(shape), x, y, z, vars)?.iter().copied().zip(chunk * size..).map(|(value, index)| S::widen(value).ok_or(ImplicitError::NotFinite { index })).collect()
     };
     match evaluation.threads {
         None => {

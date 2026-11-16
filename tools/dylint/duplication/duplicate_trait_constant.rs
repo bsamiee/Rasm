@@ -16,7 +16,7 @@ use rustc_hir::{HirId, Lifetime, LifetimeKind, QPath};
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::hir::nested_filter;
 use rustc_middle::mir;
-use rustc_middle::ty::{self, AssocKind, Binder, Clause, EarlyBinder, TraitRef, TyCtxt};
+use rustc_middle::ty::{self, AssocKind, Binder, Clause, EarlyBinder, TraitRef, Ty, TyCtxt};
 use rustc_span::{Span, Symbol};
 use rustc_trait_selection::regions::test_region_obligations;
 use rustc_trait_selection::traits::{ObligationCause, ObligationCtxt};
@@ -112,18 +112,6 @@ impl<'tcx> LateLintPass<'tcx> for Pass<'tcx> {
             let compatible = |constant: LocalDefId| {
                 normalized(tcx, constant.to_def_id(), tcx.type_of(constant).instantiate_identity()).is_some_and(|actual| canonical(tcx, actual, None) == canonical(tcx, declared_type, None))
             };
-            let output_matches = |output| {
-                if output == declared_type {
-                    return true;
-                }
-                let param_env = tcx.param_env(declared);
-                let known = tcx.assumed_wf_types(declared).iter().map(|&(held, _)| held).collect();
-                test_region_obligations(tcx, declared, param_env, &known, |infcx| {
-                    let obligations = ObligationCtxt::new(infcx);
-                    obligations.sub(&ObligationCause::dummy(), param_env, output, declared_type).map_err(|_| ())?;
-                    obligations.evaluate_obligations_error_on_ambiguity().no_errors().ok_or(())
-                })
-            };
             if !(matches!(tcx.associated_item(declared).kind, AssocKind::Const { .. })
                 && constants.len() > 1
                 && tcx.local_trait_impls(tcx.parent(declared.to_def_id())).len() == constants.len()
@@ -154,7 +142,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass<'tcx> {
                 .filter(|&((declaration, argument), source)| source.name == declaration.name && tcx.mk_param_from_def(source) == argument)
                 .map(|((declaration, _), source)| (source.def_id, tcx.mk_param_from_def(declaration)))
                 .collect::<FxHashMap<_, _>>();
-            let inherited: Option<Option<HirId>> = try {
+            let inherited: Option<(Option<HirId>, Ty<'tcx>)> = try {
                 let (qpath, initializer) = peel_blocks(body).opt_qpath()?;
                 let typeck = tcx.typeck(tcx.typeck_root_def_id_local(first));
                 let called = typeck.qpath_res(qpath, initializer).opt_def_id()?;
@@ -174,12 +162,24 @@ impl<'tcx> LateLintPass<'tcx> for Pass<'tcx> {
                         .map(|_| initializer),
                 };
                 let required = TraitRef::from_assoc(tcx, trait_owner, arguments);
-                let required = Binder::dummy(if self_path.is_some() { required.with_replaced_self_ty(tcx, tcx.types.self_param) } else { required });
+                let required = Binder::dummy(self_path.map_or(required, |_| required.with_replaced_self_ty(tcx, tcx.types.self_param)));
                 let symbolic =
                     available.iter().filter_map(|clause| clause.as_trait_clause().map(|bound| bound.map_bound(|predicate| predicate.trait_ref))).find(|&bound| bound == required)?.no_bound_vars()?;
                 let symbolic_arguments = arguments.rebase_onto(tcx, trait_owner, symbolic.args);
                 let output = normalized(tcx, declared.to_def_id(), tcx.type_of(member).instantiate(tcx, symbolic_arguments))?;
-                (output_matches(output) && tcx.clauses_of(member).instantiate_own(tcx, symbolic_arguments).all(|(clause, _)| available.contains(&clause.skip_normalization()))).then_some(self_path)?
+                tcx.clauses_of(member).instantiate_own(tcx, symbolic_arguments).all(|(clause, _)| available.contains(&clause.skip_normalization())).then_some((self_path, output))?
+            };
+            let param_env = tcx.param_env(declared);
+            let inherited = match inherited {
+                Some((_, output))
+                    if output != declared_type
+                        && !test_region_obligations(tcx, declared, param_env, &tcx.assumed_wf_types(declared).iter().map(|&(held, _)| held).collect(), |infcx| {
+                            let obligations = ObligationCtxt::new(infcx);
+                            obligations.sub(&ObligationCause::dummy(), param_env, output, declared_type).map_err(|_| ())?;
+                            obligations.evaluate_obligations_error_on_ambiguity().no_errors().ok_or(())
+                        }) =>
+                    None,
+                inherited => inherited.map(|(self_path, _)| self_path),
             };
             let parameters = if inherited.is_some() { parameters } else { FxHashMap::default() };
             let mut declaration = Declaration { tcx, body: body.span, module: module.to_def_id(), generics, parameters, self_owner: inherited.flatten().map(|node| (implementation, node)) };

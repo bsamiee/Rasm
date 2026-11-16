@@ -153,5 +153,5 @@ note: repeated here
 ...
 29 |     Retry(#[source] Utf8Error),
    |     ^^^^^
-   = help: replace `Retry` and `Text` with one variant of the shared fields and a fieldless `derive_more::Display` enum for their messages
+   = help: replace `Retry` and `Text` with one variant of the shared fields holding what they differ by as a field
    = note: `#[deny(duplicate_type)]` on by default

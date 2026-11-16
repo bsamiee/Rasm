@@ -121,16 +121,13 @@ impl<'tcx> LateLintPass<'tcx> for Pass<'tcx> {
         let mut dead_after = |index| {
             let Some(facts) = self.bodies.entry(parent).or_insert_with(|| Captures::new(cx, parent)).as_mut() else { return false };
             let Some(captures) = facts.closures.get(&closure.def_id) else { return false };
-            captures.iter().all(|(location, target, operands)| {
-                if let Some(Operand::Move(reference)) = operands.get(index)
-                    && let Some(reference) = reference.as_local()
-                    && let Some(variable) = facts.borrowed.get(&reference).copied().flatten()
-                {
+            captures.iter().all(|(location, target, operands)| match operands.get(index) {
+                Some(Operand::Move(reference))
+                    if let Some(reference) = reference.as_local()
+                        && let Some(variable) = facts.borrowed.get(&reference).copied().flatten() =>
                     facts.borrowers.bounded_borrowers(&[], &[reference, *target], variable, *location)
-                        && visit_local_usage([variable], facts.mir, *location).is_some_and(|[usage]| usage.local_use_locs.is_empty())
-                } else {
-                    false
-                }
+                        && visit_local_usage([variable], facts.mir, *location).is_some_and(|[usage]| usage.local_use_locs.is_empty()),
+                _ => false,
             })
         };
         let cloned = tcx.closure_captures(closure.def_id).iter().enumerate().filter_map(|(index, captured)| {

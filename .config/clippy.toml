@@ -8,7 +8,7 @@ avoid-breaking-exported-api = false
 
 warn-on-all-wildcard-imports                 = true
 matches-for-let-else                         = "AllTypes"
-excessive-nesting-threshold                  = 5
+excessive-nesting-threshold                  = 4
 check-inconsistent-struct-field-initializers = true
 enforce-iter-loop-reborrow                   = true
 allow-mixed-uninlined-format-args            = false
@@ -125,6 +125,7 @@ disallowed-methods          = [
     { path = "std::os::windows::fs::symlink_file", replacement = "fs_err::os::windows::fs::symlink_file", reason = "`io::Error` names no path", allow-invalid = true },
     { path = "std::fs::canonicalize", replacement = "dunce::simplified", reason = "`io::Error` names no path and Windows results hold verbatim prefix, use `dunce::simplified(&fs_err::canonicalize(..)?)`" },
     { path = "dunce::canonicalize", replacement = "dunce::simplified", reason = "`io::Error` names no path and Windows results hold verbatim prefix, use `dunce::simplified(&fs_err::canonicalize(..)?)`" },
+    { path = "std::path::Path::canonicalize", replacement = "dunce::simplified", reason = "`io::Error` names no path and Windows results hold verbatim prefix, use `dunce::simplified(&fs_err::canonicalize(..)?)`" },
     { path = "std::fs::File::open", replacement = "fs_err::File::open", reason = "`io::Error` names no path" },
     { path = "std::fs::File::create", replacement = "fs_err::File::create", reason = "`io::Error` names no path" },
     { path = "std::fs::File::create_new", replacement = "fs_err::File::create_new", reason = "`io::Error` names no path" },
@@ -213,6 +214,14 @@ disallowed-methods          = [
     { path = "opentelemetry::logs::LoggerProvider::logger", replacement = "opentelemetry::logs::LoggerProvider::logger_with_scope", reason = "Names scope without version, build `InstrumentationScope` with `with_version`" },
     { path = "opentelemetry::global::tracer", replacement = "opentelemetry::global::tracer_with_scope", reason = "Names scope without version, build `InstrumentationScope` with `with_version`" },
     { path = "opentelemetry::global::meter", replacement = "opentelemetry::global::meter_with_scope", reason = "Names scope without version, build `InstrumentationScope` with `with_version`" },
+    { path = "opentelemetry_otlp::MetricExporterBuilder::with_temporality", reason = "Overrides `OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE`, set it in the process environment" },
+    { path = "opentelemetry_otlp::WithExportConfig::with_protocol", reason = "Overrides `OTEL_EXPORTER_OTLP_PROTOCOL` and its `TRACES`, `METRICS`, and `LOGS` variants, set them in the process environment" },
+    { path = "opentelemetry_otlp::WithHttpConfig::with_compression", reason = "Overrides `OTEL_EXPORTER_OTLP_COMPRESSION` and its `TRACES`, `METRICS`, and `LOGS` variants, set them in the process environment" },
+    { path = "opentelemetry_sdk::trace::TracerProviderBuilder::with_max_attributes_per_span", reason = "Overrides `OTEL_SPAN_ATTRIBUTE_COUNT_LIMIT`, set it in the process environment" },
+    { path = "opentelemetry_sdk::trace::TracerProviderBuilder::with_max_events_per_span", reason = "Overrides `OTEL_SPAN_EVENT_COUNT_LIMIT`, set it in the process environment" },
+    { path = "opentelemetry_sdk::trace::TracerProviderBuilder::with_max_links_per_span", reason = "Overrides `OTEL_SPAN_LINK_COUNT_LIMIT`, set it in the process environment" },
+    { path = "opentelemetry_sdk::logs::BatchConfigBuilder::with_max_queue_size", reason = "Overrides `OTEL_BLRP_MAX_QUEUE_SIZE`, set it in the process environment" },
+    { path = "opentelemetry_sdk::logs::BatchConfigBuilder::with_max_export_batch_size", reason = "Overrides `OTEL_BLRP_MAX_EXPORT_BATCH_SIZE`, set it in the process environment" },
     { path = "tracing_appender::rolling::RollingFileAppender::new", replacement = "tracing_appender::rolling::RollingFileAppender::builder", reason = "Panics on non-UTF-8 prefix or unopenable log path, `Builder::build` returns `InitError`" },
     { path = "tracing_appender::rolling::minutely", replacement = "tracing_appender::rolling::RollingFileAppender::builder", reason = "Panics on non-UTF-8 prefix or unopenable log path, `Builder::build` returns `InitError`" },
     { path = "tracing_appender::rolling::hourly", replacement = "tracing_appender::rolling::RollingFileAppender::builder", reason = "Panics on non-UTF-8 prefix or unopenable log path, `Builder::build` returns `InitError`" },

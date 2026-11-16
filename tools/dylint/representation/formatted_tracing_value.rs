@@ -85,13 +85,13 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 Rendering::Converted { receiver, typed } if value.hir_id == field.hir_id => {
                     let mut applicability = Applicability::MaybeIncorrect;
                     let source = Sugg::hir_with_context(cx, receiver, call.ctxt(), "..", &mut applicability);
-                    let shown = if recorded { source.addr() } else { source };
                     let converted = cx.typeck_results().expr_ty(receiver);
                     let displayed = "record the value through its `Display` impl";
                     let (help, replacement) = match (typed, recorded) {
-                        (true, _) => (format!("record the `{converted}` as a typed field"), shown.to_string()),
-                        (false, false) => (String::from(displayed), format!("%{shown}")),
-                        (false, true) => (String::from(displayed), format!("tracing::field::display({shown})")),
+                        (true, false) => (format!("record the `{converted}` as a typed field"), source.to_string()),
+                        (true, true) => (format!("record the `{converted}` as a typed field"), source.addr().to_string()),
+                        (false, false) => (String::from(displayed), format!("%{source}")),
+                        (false, true) => (String::from(displayed), format!("tracing::field::display({})", source.addr())),
                     };
                     suggest(cx, value.hir_id, diag, span, help, replacement, applicability);
                 }

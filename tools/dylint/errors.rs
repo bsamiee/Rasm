@@ -74,33 +74,31 @@ fn has_single_failure_cause<'tcx>(cx: &LateContext<'tcx>, conversion: &'tcx Expr
             let owner = associated_trait(cx.tcx, callee);
             let array = owner.is_none() && impl_owner(cx.tcx, callee).is_lang_item(cx, LangItem::AllocLayout) && cx.tcx.item_name(callee) == sym::array;
             if array || matches!(owner.opt_diag_name(cx), Some(sym::TryFrom | sym::TryInto)) {
-                let (source, target) = if let Some((_, arguments)) = selected {
-                    let declared = cx.tcx.fn_sig(callee).instantiate(cx.tcx, arguments.no_bound_vars()?).skip_normalization().skip_binder();
-                    (declared.inputs()[0], result_parts(cx, declared.output())?.0)
-                } else {
-                    let source = match expr.kind {
-                        ExprKind::Call(_, [source]) | ExprKind::MethodCall(_, source, [], _) => typeck.expr_ty_adjusted(source),
-                        _ => return false,
-                    };
-                    (source, result_parts(cx, typeck.expr_ty(expr))?.0)
+                let (source, target) = match (selected, expr.kind) {
+                    (Some((_, arguments)), _) => arguments
+                        .no_bound_vars()
+                        .map(|arguments| cx.tcx.fn_sig(callee).instantiate(cx.tcx, arguments).skip_normalization().skip_binder())
+                        .and_then(|declared| result_parts(cx, declared.output()).map(|(target, _)| (declared.inputs()[0], target)))?,
+                    (None, ExprKind::Call(_, [source]) | ExprKind::MethodCall(_, source, [], _)) => (typeck.expr_ty_adjusted(source), result_parts(cx, typeck.expr_ty(expr))?.0),
+                    (None, _) => return false,
                 };
-                let cause = if array {
-                    None
-                } else {
-                    Some(match (source.kind(), target.kind()) {
-                        (ty::Uint(_), ty::Int(_) | ty::Uint(_)) => IntErrorKind::PosOverflow,
-                        (ty::Int(_), ty::Uint(_)) if source.int_size_and_signed(cx.tcx).0 <= target.int_size_and_signed(cx.tcx).0 => IntErrorKind::NegOverflow,
-                        _ => return false,
-                    })
+                let cause = match (array, source.kind(), target.kind()) {
+                    (true, ..) => None,
+                    (false, ty::Uint(_), ty::Int(_) | ty::Uint(_)) => Some(IntErrorKind::PosOverflow),
+                    (false, ty::Int(_), ty::Uint(_)) if source.int_size_and_signed(cx.tcx).0 <= target.int_size_and_signed(cx.tcx).0 => Some(IntErrorKind::NegOverflow),
+                    (false, ..) => return false,
                 };
-                if failure.replace(cause).is_some_and(|previous| previous != cause) {
-                    return false;
-                }
+                failure.replace(cause).is_none_or(|previous| previous == cause).then_some(())?;
             } else if impl_owner(cx.tcx, callee).is_diag_item(cx, sym::Result) {
-                let (ExprKind::MethodCall(_, receiver, [handler], _) | ExprKind::Call(_, [receiver, handler])) = expr.kind else { return false };
-                match cx.tcx.item_name(callee) {
-                    sym::map => pending.push(receiver),
-                    sym::and_then => pending.extend([receiver, if let ExprKind::Closure(closure) = handler.kind { without_abrupt_exits(cx.tcx.hir_body(closure.body).value)? } else { handler }]),
+                match (cx.tcx.item_name(callee), expr.kind) {
+                    (sym::map, ExprKind::MethodCall(_, receiver, [_], _) | ExprKind::Call(_, [receiver, _])) => pending.push(receiver),
+                    (sym::and_then, ExprKind::MethodCall(_, receiver, [handler], _) | ExprKind::Call(_, [receiver, handler])) => pending.extend([
+                        receiver,
+                        match handler.kind {
+                            ExprKind::Closure(closure) => without_abrupt_exits(cx.tcx.hir_body(closure.body).value)?,
+                            _ => handler,
+                        },
+                    ]),
                     _ => return false,
                 }
             } else {
@@ -201,7 +199,6 @@ fn unread<'tcx>(cx: &LateContext<'tcx>, handler: &Expr<'tcx>) -> Option<&'tcx Ex
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-pub(crate) mod canonicalize_without_path;
 pub(crate) mod debug_main_error;
 pub(crate) mod decode_without_path;
 pub(crate) mod discarded_error;

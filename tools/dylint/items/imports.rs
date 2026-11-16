@@ -3,7 +3,7 @@ use core::iter;
 
 use clippy_utils::diagnostics::span_lint_hir_and_then;
 use clippy_utils::paths::{PathNS, lookup_path};
-use itertools::Itertools as _;
+use itertools::{Either, Itertools as _};
 use rustc_attr_ir::find_attr;
 use rustc_data_structures::fx::{FxBuildHasher, FxHashMap, FxHashSet};
 use rustc_hir::def::{DefKind, Namespace, PerNS, Res};
@@ -117,23 +117,18 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
         }
 
         gen fn item_bindings(cx: &LateContext<'_>, item: &Item<'_>) -> (Symbol, Res) {
-            let ItemKind::Use(import) = item.kind else {
-                if let Some(ident) = item.kind.ident() {
-                    yield (ident.name, Res::Def(cx.tcx.def_kind(item.owner_id), item.owner_id.to_def_id()));
-                }
-                return;
-            };
-            for (tree, alias, ..) in leaves(import, item.hir_id()) {
-                match alias {
-                    Some(ident) =>
-                        for res in tree.prefix.res.present_items() {
-                            yield (ident.name, res);
-                        },
-                    None =>
-                        for child in tree.prefix.res.present_items().filter_map(|res| res.opt_def_id()).flat_map(|target| cx.tcx.module_children(target)) {
-                            yield binding(child);
-                        },
-                }
+            match item.kind {
+                ItemKind::Use(import) =>
+                    for bound in leaves(import, item.hir_id()).flat_map(move |(tree, alias, ..)| match alias {
+                        Some(ident) => Either::Left(tree.prefix.res.present_items().map(move |res| (ident.name, res))),
+                        None => Either::Right(tree.prefix.res.present_items().filter_map(|res| res.opt_def_id()).flat_map(move |target| cx.tcx.module_children(target)).map(binding)),
+                    }) {
+                        yield bound;
+                    },
+                _ =>
+                    if let Some(ident) = item.kind.ident() {
+                        yield (ident.name, Res::Def(cx.tcx.def_kind(item.owner_id), item.owner_id.to_def_id()));
+                    },
             }
         }
 
@@ -200,38 +195,37 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 (item, renamed.collect::<Vec<_>>())
             })
             .filter(|(_, renamed)| !renamed.is_empty());
+        let remove_collisions = |renames: &mut Vec<Rename>, bindings: &FxHashMap<Symbol, Vec<Res>>| {
+            renames.retain(|rename| {
+                bindings.get(&rename.original.name).is_none_or(|bound| bound.iter().all(|&res| res.ns().is_some_and(|namespace| rename.imported[namespace].is_none_or(|imported| imported == res))))
+            });
+        };
         for (item, mut renames) in imports {
             let module = tcx.parent_module_from_def_id(item.owner_id.def_id);
             let boundary = tcx.local_def_id_to_hir_id(module.to_local_def_id());
-            let mut remove_collisions = |bindings: &FxHashMap<Symbol, Vec<Res>>| {
-                renames.retain(|rename| {
-                    bindings.get(&rename.original.name).is_none_or(|bound| bound.iter().all(|&res| res.ns().is_some_and(|namespace| rename.imported[namespace].is_none_or(|imported| imported == res))))
-                });
-            };
-            remove_collisions(&prelude);
-            remove_collisions(scopes.entry(boundary).or_insert_with(|| scope(tcx, tcx.module_children_local(module.to_local_def_id()).iter().map(binding))));
-            for (node, block) in
-                tcx.hir_parent_iter(item.hir_id()).take_while(|&(parent, _)| parent != boundary).filter_map(|(node, found)| if let Node::Block(block) = found { Some((node, block)) } else { None })
-            {
-                remove_collisions(scopes.entry(node).or_insert_with(|| {
-                    let bindings = block
+            remove_collisions(&mut renames, &prelude);
+            remove_collisions(&mut renames, scopes.entry(boundary).or_insert_with(|| scope(tcx, tcx.module_children_local(module.to_local_def_id()).iter().map(binding))));
+            for (node, bindings) in tcx.hir_parent_iter(item.hir_id()).take_while(|&(parent, _)| parent != boundary).filter_map(|(node, found)| match found {
+                Node::Block(block) => Some((
+                    node,
+                    block
                         .stmts
                         .iter()
-                        .filter_map(|stmt| match stmt.kind {
+                        .filter_map(move |stmt| match stmt.kind {
                             StmtKind::Item(id) => Some(tcx.hir_item(id)),
                             _ => None,
                         })
-                        .flat_map(|scoped| item_bindings(cx, scoped));
-                    scope(tcx, bindings)
-                }));
+                        .flat_map(move |scoped| item_bindings(cx, scoped)),
+                )),
+                _ => None,
+            }) {
+                remove_collisions(&mut renames, scopes.entry(node).or_insert_with(|| scope(tcx, bindings)));
             }
             let declared =
                 tcx.hir_parent_iter(item.hir_id()).take_while(|&(parent, _)| parent != boundary).find_map(|(node, found)| matches!(found, Node::Block(_)).then_some(node)).unwrap_or(boundary);
             for rename in &renames {
                 self.bindings.entry(rename.original.name).or_default();
-                for res in rename.imported.present_items() {
-                    self.references.entry((rename.alias.name, res)).or_default();
-                }
+                rename.imported.present_items().for_each(|res| _ = self.references.entry((rename.alias.name, res)).or_default());
             }
             self.renames.extend(renames.into_iter().map(|rename| (rename, declared)));
         }
@@ -267,31 +261,35 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                     .take_while(|parent| !matches!(tcx.def_kind(parent.owner.def_id), DefKind::Mod))
                     .any(|parent| {
                         let generics = tcx.generics_of(parent.owner.def_id);
-                        (0..generics.count()).any(|index| {
-                            let param = generics.param_at(index, tcx);
-                            param.name == name && matches!((&param.kind, namespace), (GenericParamDefKind::Type { .. }, Namespace::TypeNS) | (GenericParamDefKind::Const { .. }, Namespace::ValueNS))
-                        }) || namespace == Namespace::ValueNS
-                            && self.bindings.get(&name).into_iter().flatten().filter(|binding| binding.owner == parent.owner).any(|binding| {
-                                let tree = tcx.region_scope_tree(parent.owner.def_id);
-                                let position = Scope { local_id: parent.local_id, data: ScopeData::Node };
-                                parent.owner != node.owner || tree.opt_encl_scope(position).is_none() || tree.var_scope(binding.local_id).is_some_and(|scope| tree.is_subscope_of(position, scope))
-                            })
+                        let tree = tcx.region_scope_tree(parent.owner.def_id);
+                        let position = Scope { local_id: parent.local_id, data: ScopeData::Node };
+                        let enclosing = parent.owner != node.owner || tree.opt_encl_scope(position).is_none();
+                        (0..generics.count())
+                            .map(|index| generics.param_at(index, tcx))
+                            .filter(|param| param.name == name)
+                            .any(|param| matches!((&param.kind, namespace), (GenericParamDefKind::Type { .. }, Namespace::TypeNS) | (GenericParamDefKind::Const { .. }, Namespace::ValueNS)))
+                            || namespace == Namespace::ValueNS
+                                && self
+                                    .bindings
+                                    .get(&name)
+                                    .into_iter()
+                                    .flatten()
+                                    .filter(|binding| binding.owner == parent.owner)
+                                    .any(|binding| enclosing || tree.var_scope(binding.local_id).is_some_and(|scope| tree.is_subscope_of(position, scope)))
                     })
         };
         for (rename, _) in self.renames.drain(..).filter(|(rename, declared)| {
             let module = tcx.parent_module_from_def_id(rename.node.owner.def_id);
             let within = |node: HirId| tcx.parent_module_from_def_id(node.owner.def_id) == module && iter::once(node).chain(tcx.hir_parent_id_iter(node)).any(|parent| parent == *declared);
-            !rename.imported.present_items().any(|res| {
-                res.ns().is_some_and(|namespace| {
-                    shadowed(rename.original.name, namespace, *declared)
-                        || namespace == Namespace::ValueNS
-                            && !matches!(res, Res::Def(DefKind::Fn | DefKind::AssocFn, _))
-                            && self.bindings.get(&rename.original.name).is_some_and(|bindings| bindings.iter().copied().any(within))
-                        || self
-                            .references
-                            .get(&(rename.alias.name, res))
-                            .is_some_and(|references| references.iter().copied().any(|reference| within(reference) && shadowed(rename.original.name, namespace, reference)))
-                })
+            !rename.imported.present_items().filter_map(|res| res.ns().map(|namespace| (res, namespace))).any(|(res, namespace)| {
+                shadowed(rename.original.name, namespace, *declared)
+                    || namespace == Namespace::ValueNS
+                        && !matches!(res, Res::Def(DefKind::Fn | DefKind::AssocFn, _))
+                        && self.bindings.get(&rename.original.name).is_some_and(|bindings| bindings.iter().copied().any(within))
+                    || self
+                        .references
+                        .get(&(rename.alias.name, res))
+                        .is_some_and(|references| references.iter().copied().any(|reference| within(reference) && shadowed(rename.original.name, namespace, reference)))
             })
         }) {
             span_lint_hir_and_then(

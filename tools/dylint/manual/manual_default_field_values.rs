@@ -53,24 +53,20 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             && fields.iter().is_sorted_by_key(|field| typeck.field_index(field.hir_id))
             && let construction = (LateContext { enclosing_body: Some(construction.id()), typeck_results: Some(typeck), param_env: cx.tcx.param_env(built.hir_id.owner), ..*cx })
             && let (explicit, implicit) = fields.iter().partition_map::<Vec<&ExprField<'tcx>>, HirIdSet, _, _, _>(|field| {
-                if for_each_expr_without_closures(field.expr, |part| {
-                    let contract = fn_def_id(&construction, part).and_then(|called| associated_trait(cx.tcx, called));
-                    if match part.kind {
-                        ExprKind::Call(callee, []) => !is_default_equivalent_call(&construction, callee, None) || contract.is_some_and(|implemented| !implemented.is_diag_item(cx, sym::Default)),
-                        ExprKind::Call(_, [_]) => !contract.is_diag_item(cx, sym::From),
-                        _ => false,
-                    } || typeck
+                if for_each_expr_without_closures(field.expr, |part| match (part.kind, fn_def_id(&construction, part).and_then(|called| associated_trait(cx.tcx, called))) {
+                    (ExprKind::Call(callee, []), contract)
+                        if !is_default_equivalent_call(&construction, callee, None) || contract.is_some_and(|implemented| !implemented.is_diag_item(cx, sym::Default)) =>
+                        ControlFlow::Break(()),
+                    (ExprKind::Call(_, [_]), contract) if !contract.is_diag_item(cx, sym::From) => ControlFlow::Break(()),
+                    _ if typeck
                         .expr_adjustments(part)
                         .iter()
                         .filter(|adjustment| matches!(adjustment.kind, Adjust::Pointer(PointerCoercion::Unsize)))
                         .flat_map(|adjustment| adjustment.target.walk())
                         .filter_map(ty::GenericArg::as_type)
-                        .any(|held| matches!(held.kind(), ty::Dynamic(..)))
-                    {
-                        ControlFlow::Break(())
-                    } else {
-                        ControlFlow::Continue(())
-                    }
+                        .any(|held| matches!(held.kind(), ty::Dynamic(..))) =>
+                        ControlFlow::Break(()),
+                    _ => ControlFlow::Continue(()),
                 })
                 .is_some()
                     || !is_default_equivalent(&construction, field.expr)
@@ -85,18 +81,20 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 let (infcx, param_env) = cx.tcx.infer_ctxt().build_with_typing_env(TypingEnv::non_body_analysis(cx.tcx, definition));
                 let obligations = ObligationCtxt::new(&infcx);
                 let cause = ObligationCause::dummy();
-                let _: Option<()> = for_each_expr_without_closures(built, |part| {
-                    if implicit.contains(&part.hir_id) {
-                        return ControlFlow::Continue(Descend::No);
+                let _: Option<()> = for_each_expr_without_closures(built, |part| match fn_def_id_with_node_args(&construction, part) {
+                    _ if implicit.contains(&part.hir_id) => ControlFlow::Continue(Descend::No),
+                    Some((called, arguments)) if cx.tcx.is_conditionally_const(called) => {
+                        obligations.register_obligations(
+                            cx.tcx
+                                .const_conditions(called)
+                                .instantiate(cx.tcx, arguments)
+                                .into_iter()
+                                .map(|(bound, _)| obligations.normalize(&cause, param_env, bound).to_host_effect_clause(cx.tcx, ty::BoundConstness::Const))
+                                .map(|clause| Obligation::new(cx.tcx, cause.clone(), param_env, clause)),
+                        );
+                        ControlFlow::Continue(Descend::Yes)
                     }
-                    let Some((called, arguments)) = fn_def_id_with_node_args(&construction, part).filter(|&(called, _)| cx.tcx.is_conditionally_const(called)) else {
-                        return ControlFlow::Continue(Descend::Yes);
-                    };
-                    obligations.register_obligations(cx.tcx.const_conditions(called).instantiate(cx.tcx, arguments).into_iter().map(|(bound, _)| {
-                        let bound = obligations.normalize(&cause, param_env, bound);
-                        Obligation::new(cx.tcx, cause.clone(), param_env, bound.to_host_effect_clause(cx.tcx, ty::BoundConstness::Const))
-                    }));
-                    ControlFlow::Continue(Descend::Yes)
+                    _ => ControlFlow::Continue(Descend::Yes),
                 });
                 obligations.evaluate_obligations_error_on_ambiguity().no_errors()
             }
@@ -123,10 +121,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             } else {
                 let declared = explicit
                     .iter()
-                    .map(|field| {
-                        let declared = &declaration.fields()[typeck.field_index(field.hir_id).as_usize()];
-                        format!("`{} = {}`", snippet(cx, declared.span, ".."), snippet(cx, field.expr.span, ".."))
-                    })
+                    .map(|field| format!("`{} = {}`", snippet(cx, declaration.fields()[typeck.field_index(field.hir_id).as_usize()].span, ".."), snippet(cx, field.expr.span, "..")))
                     .join(", ");
                 ("a constant", format!("declare {declared} under `#![feature(default_field_values)]`, {derive}, and delete the impl"))
             };
@@ -135,10 +130,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 None => format!("`Default` for `{name}` builds each field from {source}"),
             };
             span_lint_hir_and_then(cx, MANUAL_DEFAULT_FIELD_VALUES, value.hir_id, value.span, message, |diag| {
-                if delegate.is_some() {
-                    diag.span_note(built.span, "fields built here");
-                }
-                diag.help(help);
+                delegate.into_iter().fold(diag, |diag, _| diag.span_note(built.span, "fields built here")).help(help);
             });
         }
     }

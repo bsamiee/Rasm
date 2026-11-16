@@ -128,7 +128,7 @@ pub(crate) fn lines(frame: &Frame, scene: &Scene, features: Vec<Feature>, tolera
             EdgeKind::Silhouette | EdgeKind::Boundary | EdgeKind::Cut => true,
         })
     };
-    let endpoints = |segment: usize| [segment.strict_mul(2), segment.strict_mul(2).strict_add(1)];
+    let endpoints = |segment: usize| [segment * 2, segment * 2 + 1];
     let placed = |segment: usize, line: &Line, point: Point| {
         let Nearest { distance_sq, t: station } = line.nearest(point, 0.0);
         let [first, last] = endpoints(segment);
@@ -176,11 +176,10 @@ pub(crate) fn lines(frame: &Frame, scene: &Scene, features: Vec<Feature>, tolera
                 })
         })
         .partition_map(convert::identity);
-    let shared = segments.len().strict_mul(2);
+    let shared = segments.len() * 2;
     let vertices = segments.iter().flat_map(|(_, _, line)| [line.p0, line.p1]).chain(crossings.iter().map(|&(_, point)| point)).collect::<Vec<_>>();
     let stations =
-        iter::chain(probes, crossings.iter().enumerate().flat_map(|(crossing, &(sides, _))| sides.into_iter().map(move |(segment, station)| (segment, (station, shared.strict_add(crossing))))))
-            .into_group_map();
+        iter::chain(probes, crossings.iter().enumerate().flat_map(|(crossing, &(sides, _))| sides.into_iter().map(move |(segment, station)| (segment, (station, shared + crossing))))).into_group_map();
     let (near, far): (Vec<_>, Vec<_>) = segments
         .par_iter()
         .enumerate()

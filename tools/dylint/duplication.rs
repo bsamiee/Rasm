@@ -79,12 +79,15 @@ impl<'tcx> Bodies<'tcx> {
                 let (signature, clauses) = declaration(tcx, normalized(tcx, function.to_def_id(), Unnormalized::new((signature, clauses)))?, owner(tcx, function));
                 let attributes = tcx.codegen_fn_attrs(function);
                 let exported = (attributes.contains_extern_indicator() || !attributes.foreign_item_symbol_aliases.is_empty()).then_some(function.to_def_id());
-                let overridable = tcx.opt_associated_item(function.to_def_id()).is_some_and(|associated| associated.defaultness(tcx).is_default());
+                let qualifiers = (
+                    tcx.constness(function),
+                    tcx.asyncness(function),
+                    tcx.visibility(function),
+                    tcx.opt_associated_item(function.to_def_id()).is_some_and(|associated| associated.defaultness(tcx).is_default()),
+                );
                 let attributes = tcx.with_stable_hashing_context(|mut context| {
                     let mut hasher = StableHasher::new();
-                    context.while_hashing_spans(false, |context| {
-                        ((tcx.constness(function), tcx.asyncness(function), tcx.visibility(function), overridable), attributes, exported).stable_hash(context, &mut hasher);
-                    });
+                    context.while_hashing_spans(false, |context| (qualifiers, attributes, exported).stable_hash(context, &mut hasher));
                     hasher.finish()
                 });
                 Some(Rc::new(Callable { signature, clauses, attributes }))
@@ -98,7 +101,12 @@ impl<'tcx> Bodies<'tcx> {
         impl<'tcx> intravisit::Visitor<'tcx> for BodyScope {
             type Result = ControlFlow<()>;
 
-            fn visit_expr(&mut self, ex: &'tcx Expr<'tcx>) -> Self::Result { if matches!(ex.kind, ExprKind::Binary(..)) { ControlFlow::Break(()) } else { intravisit::walk_expr(self, ex) } }
+            fn visit_expr(&mut self, ex: &'tcx Expr<'tcx>) -> Self::Result {
+                match ex.kind {
+                    ExprKind::Binary(..) => ControlFlow::Break(()),
+                    _ => intravisit::walk_expr(self, ex),
+                }
+            }
 
             fn visit_anon_const(&mut self, _: &'tcx AnonConst) -> Self::Result { ControlFlow::Break(()) }
 
@@ -123,9 +131,6 @@ impl<'tcx> Bodies<'tcx> {
                         },
                         _ => None,
                     });
-                    if let Some((declared, arguments)) = resolved.and_then(|called| resolved_item(tcx, called, typeck.node_args(expr.hir_id))) {
-                        operations.push(Resolved::Item(declared, arguments));
-                    }
                     let constructed = match expr.kind {
                         ExprKind::Struct(..) => true,
                         ExprKind::Path(qpath) =>
@@ -133,30 +138,29 @@ impl<'tcx> Bodies<'tcx> {
                         ExprKind::Call(callee, _) if let ExprKind::Path(qpath) = callee.kind => matches!(typeck.qpath_res(&qpath, callee.hir_id), Res::Def(DefKind::Ctor(..), _) | Res::SelfCtor(_)),
                         _ => false,
                     };
-                    if constructed {
-                        operations.push(Resolved::Type(typeck.expr_ty(expr)));
-                    }
-                    let nested = match expr.kind {
-                        ExprKind::Closure(closure) => Some(closure.def_id),
-                        ExprKind::ConstBlock(constant) => Some(constant.def_id),
-                        _ => None,
+                    let (nested, signature) = match expr.kind {
+                        ExprKind::Closure(closure) => (
+                            Some(closure.def_id),
+                            match typeck.expr_ty(expr).kind() {
+                                ty::Closure(_, args) => Some(args.as_closure().sig_as_fn_ptr_ty()),
+                                ty::CoroutineClosure(_, args) => Some(args.as_coroutine_closure().signature_parts_ty()),
+                                ty::Coroutine(_, args) => Some(args.as_coroutine().sig()).map(|signature| Ty::new_tup(tcx, &[signature.resume_ty, signature.yield_ty, signature.return_ty])),
+                                _ => None,
+                            },
+                        ),
+                        ExprKind::ConstBlock(constant) => (Some(constant.def_id), None),
+                        _ => (None, None),
                     };
-                    if let ExprKind::Closure(_) = expr.kind
-                        && let Some(signature) = match typeck.expr_ty(expr).kind() {
-                            ty::Closure(_, args) => Some(args.as_closure().sig_as_fn_ptr_ty()),
-                            ty::CoroutineClosure(_, args) => Some(args.as_coroutine_closure().signature_parts_ty()),
-                            ty::Coroutine(_, args) => {
-                                let signature = args.as_coroutine().sig();
-                                Some(Ty::new_tup(tcx, &[signature.resume_ty, signature.yield_ty, signature.return_ty]))
-                            }
-                            _ => None,
-                        }
-                    {
-                        operations.push(Resolved::Type(signature));
-                    }
-                    if let Some(nested) = nested {
-                        operations.push(Resolved::Body(nested));
-                    }
+                    operations.extend(
+                        [
+                            resolved.and_then(|called| resolved_item(tcx, called, typeck.node_args(expr.hir_id))).map(|(declared, arguments)| Resolved::Item(declared, arguments)),
+                            constructed.then(|| Resolved::Type(typeck.expr_ty(expr))),
+                            signature.map(Resolved::Type),
+                            nested.map(Resolved::Body),
+                        ]
+                        .into_iter()
+                        .flatten(),
+                    );
                     ControlFlow::Continue(())
                 });
                 let output = match tcx.def_kind(owner) {
@@ -210,24 +214,22 @@ impl<'tcx> Bodies<'tcx> {
                 return None;
             }
         }
-        let equal = {
-            let mut spanless = SpanlessEq::new(cx).expr_fallback(|left_typeck, left_expr, right_typeck, right_expr| {
-                if let (ExprKind::Closure(left_closure), ExprKind::Closure(right_closure)) = (left_expr.kind, right_expr.kind) {
-                    closures.borrow_mut().push((left_closure.body, right_closure.body));
-                    left_closure.capture_clause == right_closure.capture_clause && left_closure.constness == right_closure.constness && left_closure.kind == right_closure.kind
-                } else if differ(left_typeck, left_expr, right_typeck, right_expr) {
-                    differences.borrow_mut().push((left_expr.hir_id, right_expr.hir_id));
-                    true
-                } else {
-                    false
-                }
-            });
-            let mut inter = spanless.inter_expr(SyntaxContext::root());
-            let mut compare = |left_body: BodyId, right_body: BodyId| parameters_match(cx.tcx, &mut inter.locals, left_body, right_body) && inter.eq_body(left_body, right_body);
-            compare(cx.tcx.hir_body_owned_by(left_function).id(), cx.tcx.hir_body_owned_by(right_function).id())
-                && iter::from_fn(|| closures.borrow_mut().pop()).all(|(left_body, right_body)| compare(left_body, right_body))
-        };
-        equal.then(|| differences.into_inner())
+        let mut spanless = SpanlessEq::new(cx).expr_fallback(|left_typeck, left_expr, right_typeck, right_expr| {
+            if let (ExprKind::Closure(left_closure), ExprKind::Closure(right_closure)) = (left_expr.kind, right_expr.kind) {
+                closures.borrow_mut().push((left_closure.body, right_closure.body));
+                left_closure.capture_clause == right_closure.capture_clause && left_closure.constness == right_closure.constness && left_closure.kind == right_closure.kind
+            } else if differ(left_typeck, left_expr, right_typeck, right_expr) {
+                differences.borrow_mut().push((left_expr.hir_id, right_expr.hir_id));
+                true
+            } else {
+                false
+            }
+        });
+        let mut inter = spanless.inter_expr(SyntaxContext::root());
+        let mut compare = |left_body: BodyId, right_body: BodyId| parameters_match(cx.tcx, &mut inter.locals, left_body, right_body) && inter.eq_body(left_body, right_body);
+        (compare(cx.tcx.hir_body_owned_by(left_function).id(), cx.tcx.hir_body_owned_by(right_function).id())
+            && iter::from_fn(|| closures.borrow_mut().pop()).all(|(left_body, right_body)| compare(left_body, right_body)))
+        .then(|| differences.take())
     }
 }
 

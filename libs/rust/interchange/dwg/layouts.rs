@@ -76,21 +76,21 @@ pub fn pages(document: &mut CadDocument, projection: &Projection, sheets: Option
             view_height: layout.max_extents.1 - layout.min_extents.1,
         };
         let block = document.block_records.iter().find(|record| record.handle == layout.block_record).map(|record| record.name.clone());
-        let ports = block.as_deref().map_or_default(|block| {
-            document
-                .entities_in_block(block)
-                .filter_map(|entity| {
-                    if let EntityType::Viewport(viewport) = entity
-                        && viewport.id > 1
-                        && viewport.is_on()
-                    {
-                        Some(viewport.clone())
-                    } else {
-                        None
-                    }
-                })
-                .collect::<Vec<_>>()
-        });
+        let ports = block
+            .as_deref()
+            .into_iter()
+            .flat_map(|block| document.entities_in_block(block))
+            .filter_map(|entity| {
+                if let EntityType::Viewport(viewport) = entity
+                    && viewport.id > 1
+                    && viewport.is_on()
+                {
+                    Some(viewport.clone())
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
         let sheet = sheets
             .and_then(|(database, drawing)| database.sheet_for(drawing, Some(&layout.name)))
             .filter(|sheet| sheet.named(REFERENCE).and_then(|reference| reference.prop("Name")).is_some_and(|name| name.eq_ignore_ascii_case(&layout.name)));
@@ -112,7 +112,10 @@ pub fn pages(document: &mut CadDocument, projection: &Projection, sheets: Option
                 let nearest = |proportion: f64| NonZero::<u32>::MIN.saturating_add(proportion.round().to_int_saturating::<u32>().saturating_sub(1));
                 document
                     .viewport_annotation_scale(viewport.common.handle)
-                    .and_then(|handle| if let Some(ObjectType::Scale(scale)) = document.objects.get(&handle) { Some(scale) } else { None })
+                    .and_then(|handle| match document.objects.get(&handle) {
+                        Some(ObjectType::Scale(scale)) => Some(scale),
+                        Some(_) | None => None,
+                    })
                     .filter(|scale| (scale.paper_units / scale.drawing_units - geometric).abs() <= f64::EPSILON * 64.0 * geometric)
                     .and_then(|scale| whole(scale.paper_units).zip(whole(scale.drawing_units)))
                     .map_or_else(
@@ -204,7 +207,7 @@ pub fn drawing(pages: Vec<(Arc<str>, Page)>, authoring: &Authoring) -> Result<Ca
                     .transpose()?;
                 let view = Affine::rotate(twist) * mapped.inverse() * center;
                 let mut viewport = Viewport {
-                    id: i16::try_from(index.strict_add(2)).map_err(|source| refused(Refusal::from(source)))?,
+                    id: i16::try_from(index + 2).map_err(|source| refused(Refusal::from(source)))?,
                     status: ViewportStatusFlags { non_rectangular_clipping: clip.is_some(), ..ViewportStatusFlags::default_on() },
                     view_center: Vector3::new(view.x, view.y, 0.0),
                     twist_angle: twist,
@@ -250,19 +253,15 @@ pub fn drawing(pages: Vec<(Arc<str>, Page)>, authoring: &Authoring) -> Result<Ca
     let mut laid = |index: usize, key: &Arc<str>, size: Size, unit: rasm_drawing::Unit| -> Result<(), CadError> {
         let (factor, millimeters) = ((insertion / *unit).get::<ratio>(), (*unit).get::<millimeter>());
         let (paper, dictionary) = (document.header.paper_space_block_handle, document.header.acad_layout_dict_handle);
-        let first = (index == 0)
-            .then(|| {
-                document.objects.values().find_map(|object| {
-                    if let ObjectType::Layout(layout) = object
-                        && layout.block_record == paper
-                    {
-                        Some(layout.handle)
-                    } else {
-                        None
-                    }
-                })
-            })
-            .flatten();
+        let first = (index == 0).then(|| document.objects.values()).into_iter().flatten().find_map(|object| {
+            if let ObjectType::Layout(layout) = object
+                && layout.block_record == paper
+            {
+                Some(layout.handle)
+            } else {
+                None
+            }
+        });
         let handle = first.map_or_else(|| document.add_layout(key).map_err(|source| CadError::Drawing { operation: Operation::Layout(Arc::clone(key)), source }), Ok)?;
         if let Some(ObjectType::Dictionary(layouts)) = document.objects.get_mut(&dictionary)
             && let Some((name, _)) = layouts.entries.iter_mut().find(|(_, entry)| *entry == handle)

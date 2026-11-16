@@ -115,7 +115,7 @@ pub(crate) fn draw(typesetter: &mut Typesetter, style: &crate::Style, placement:
     let measured = placed.iter().map(|&(_, span, cell, lead)| span.into_iter().any(open).then(|| set(cell, &lead, None))).collect::<Vec<_>>();
     let widths = iter::zip(&placed, &measured)
         .filter_map(|(&(_, span, cell, _), sized)| sized.as_ref()?.as_ref().ok().map(|graphics| (span, boxed(cell, graphics).width())))
-        .sorted_by_key(|&(span, _)| span.end.strict_sub(span.start))
+        .sorted_by_key(|&(span, _)| span.end - span.start)
         .fold(columns.iter().map(|column| column.width.map_or(gap * 2.0, Width::into_inner)).collect::<Vec<_>>(), |sizes, (span, need)| spread(sizes, span, open, need));
     let sets = iter::zip(&placed, measured)
         .map(|(&(rows, span, cell, lead), sized)| {
@@ -132,7 +132,7 @@ pub(crate) fn draw(typesetter: &mut Typesetter, style: &crate::Style, placement:
         .ok()?;
     let heights = iter::zip(&placed, &sets)
         .map(|(&(rows, _, cell, _), graphics)| (rows, boxed(cell, graphics).height()))
-        .sorted_by_key(|&(rows, _)| rows.end.strict_sub(rows.start))
+        .sorted_by_key(|&(rows, _)| rows.end - rows.start)
         .fold(vec![gap * 2.0; depth], |sizes, (rows, need)| spread(sizes, rows, |_| true, need));
     let across = edges(widths.iter().copied()).collect::<Vec<_>>();
     let width = across[columns.len().get()];
@@ -151,9 +151,9 @@ pub(crate) fn draw(typesetter: &mut Typesetter, style: &crate::Style, placement:
     let mut segment = |offset: f64, body: Range<usize>| -> Result<Graphics, NEVec<DraftingError>> {
         let down = edges((0..header).chain(body).map(|row| heights[row])).collect::<Vec<_>>();
         let basis = Affine::translate((origin.x + offset, origin.y));
-        let local = |row: usize| if row < header { Some(row) } else { body.contains(&row).then(|| header.strict_add(row.strict_sub(body.start))) };
+        let local = |row: usize| if row < header { Some(row) } else { body.contains(&row).then(|| header + (row - body.start)) };
         let grid = iter::zip(&placed, &sets)
-            .filter_map(|(&(rows, span, cell, lead), graphics)| local(rows.start).map(|start| (Range::from(start..start.saturating_add(rows.end.strict_sub(rows.start))), span, cell, lead, graphics)))
+            .filter_map(|(&(rows, span, cell, lead), graphics)| local(rows.start).map(|start| (Range::from(start..start.saturating_add(rows.end - rows.start)), span, cell, lead, graphics)))
             .collect::<Vec<_>>();
         let row_breaks = &merged(grid.iter().map(|&(rows, span, ..)| (rows, span)));
         let column_breaks = &merged(grid.iter().map(|&(rows, span, ..)| (span, rows)));
@@ -174,7 +174,7 @@ pub(crate) fn draw(typesetter: &mut Typesetter, style: &crate::Style, placement:
         let ruled = |boundary: usize, y: f64| {
             across.array_windows().enumerate().filter(move |&(column, _)| !row_breaks.contains(&(boundary, column))).map(move |(_, &[left, right])| PathSeg::Line(Line::new((left, y), (right, y))))
         };
-        let reach = down[down.len().strict_sub(1)];
+        let reach = down[down.len() - 1];
         let [verticals, horizontals] = [&across, &down].map(|positions| positions.iter().copied().enumerate().skip(1).dropping_back(1));
         let pieces = |rule: Rule| -> Vec<PathSeg> {
             match rule {

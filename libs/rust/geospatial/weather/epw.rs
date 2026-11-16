@@ -439,7 +439,7 @@ where R: io::Read {
             .scan((first.map(civil::DateTime::year), first), |(year, previous), record| {
                 let local = zone.to_datetime(record.interval.start);
                 if previous.replace(local).is_some_and(|earlier| (local.month(), local.day(), local.time()) < (earlier.month(), earlier.day(), earlier.time())) {
-                    *year = year.map(|stated| stated.strict_add(1));
+                    *year = year.map(|stated| stated + 1);
                 }
                 Some(year.map(|stated| (stated, record)))
             })
@@ -459,7 +459,7 @@ where R: io::Read {
                 .as_bytes()
                 .as_array::<9>()
                 .filter(|_| row.observation == Some(0))
-                .map(|codes| codes.map(|code| if code.is_ascii_digit() { code.strict_sub(b'0') } else { 9 })),
+                .map(|codes| codes.map(|code| if code.is_ascii_digit() { code - b'0' } else { 9 })),
             flags: row.flags,
         } from row))
     };
@@ -558,8 +558,8 @@ where W: io::Write {
             year: year.unwrap_or_else(|| before.year()),
             month: before.month(),
             day: before.day(),
-            hour: before.hour().strict_add(1),
-            minute: before.minute().strict_add(1),
+            hour: before.hour() + 1,
+            minute: before.minute() + 1,
             flags: record.flags.clone(),
             observation: Some(record.present_weather.map_or(9, |_| 0)),
             present_weather: record.present_weather.unwrap_or([9; 9]).iter().join(""),

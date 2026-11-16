@@ -248,10 +248,10 @@ pub fn resampled<S>(hours: &Hours<S>, step: SignedDuration, gap: SignedDuration)
 where S: Clone {
     fn received<D>(run: &[Hour], gap: SignedDuration, field: impl Fn(&Hour) -> Option<Measure<D>> + Copy) -> impl FnMut(Range<Timestamp>) -> Option<Measure<D>>
     where D: si::Dimension + ?Sized {
-        let mut midpoint = instant(run, |hour| hour.interval.start.as_nanosecond().strict_add(hour.interval.end.as_nanosecond()), gap, field);
+        let mut midpoint = instant(run, |hour| hour.interval.start.as_nanosecond() + hour.interval.end.as_nanosecond(), gap, field);
         move |interval| {
             if length(interval) < length(run[run.partition_point(|hour| hour.interval.end <= interval.start)].interval) {
-                midpoint(interval.start.as_nanosecond().strict_add(interval.end.as_nanosecond()))
+                midpoint(interval.start.as_nanosecond() + interval.end.as_nanosecond())
             } else {
                 averaged(run, interval, |hour| hour.interval, gap, |hour| field(hour).map(|quantity| (quantity.value, 1.0))).map(measure)
             }
@@ -260,14 +260,14 @@ where S: Clone {
 
     macro_rules! resample {
         ($run:ident, $intervals:expr; $($point:ident),*; $($flux:ident),*) => {{
-            let ending = |hour: &Hour| hour.interval.end.as_nanosecond().strict_mul(2);
+            let ending = |hour: &Hour| hour.interval.end.as_nanosecond() * 2;
             $(let mut $point = instant($run, ending, gap, |hour| hour.$point);)*
             $(let mut $flux = received($run, gap, |hour| hour.$flux);)*
             let toward = |component: fn(Vector2<f64>) -> f64| instant($run, ending, gap, move |hour| hour.wind_direction.map(|direction| Ratio::new::<ratio>(component(heading(direction)))));
             let (mut east, mut north) = (toward(|vector| vector.x), toward(|vector| vector.y));
             $intervals.map(|(start, end)| {
                 let interval = Range { start, end };
-                let to = end.as_nanosecond().strict_mul(2);
+                let to = end.as_nanosecond() * 2;
                 let span = Time::new::<second>(length(interval).as_secs_f64());
                 let holding = &$run[$run.partition_point(|hour| hour.interval.end < end)];
                 let precipitation = averaged($run, interval, |hour| hour.interval, gap, |hour| hour.precipitation.map(|depth| (depth.value, length(hour.interval).as_secs_f64())))
@@ -307,18 +307,18 @@ fn instant<D>(run: &[Hour], node: impl Fn(&Hour) -> i128, gap: SignedDuration, f
 where D: si::Dimension + ?Sized {
     let mut following = run.iter().enumerate().filter_map(move |(index, hour)| field(hour).map(|quantity| (index, node(hour), quantity))).peekable();
     let mut earlier = None;
-    let gap = gap.as_nanos().strict_mul(2);
+    let gap = gap.as_nanos() * 2;
     move |at| {
         earlier = following.peeking_take_while(|&(_, time, _)| time < at).last().or(earlier);
-        let near = |time: i128| time.strict_sub(at).strict_abs() <= gap;
+        let near = |time: i128| (time - at).abs() <= gap;
         match (earlier, following.peek().copied()) {
             (None, None) => None,
             (_, Some((_, time, later))) if time <= at => Some(later),
-            (Some((before, earlier_time, earlier)), Some((after, later_time, later))) => (after == before.strict_add(1) || later_time.strict_sub(earlier_time) <= gap).then(|| {
-                let share = nalgebra::convert::<i128, f64>(at.strict_sub(earlier_time)) / nalgebra::convert::<i128, f64>(later_time.strict_sub(earlier_time));
+            (Some((before, earlier_time, earlier)), Some((after, later_time, later))) => (after == before + 1 || later_time - earlier_time <= gap).then(|| {
+                let share = nalgebra::convert::<i128, f64>(at - earlier_time) / nalgebra::convert::<i128, f64>(later_time - earlier_time);
                 measure((later.value - earlier.value).mul_add(share, earlier.value))
             }),
-            (Some((index, time, value)), None) => (index.strict_add(1) == run.len() || near(time)).then_some(value),
+            (Some((index, time, value)), None) => (index + 1 == run.len() || near(time)).then_some(value),
             (None, Some((index, time, value))) => (index == 0 || near(time)).then_some(value),
         }
     }
@@ -344,7 +344,7 @@ fn weighted(readings: impl IntoIterator<Item = (f64, f64)>) -> Option<f64> {
 }
 
 fn runs(records: &[Hour]) -> impl Iterator<Item = (&[Hour], Range<Timestamp>)> {
-    records.chunk_by(|earlier, later| earlier.interval.end == later.interval.start).map(|run| (run, Range { start: run[0].interval.start, end: run[run.len().strict_sub(1)].interval.end }))
+    records.chunk_by(|earlier, later| earlier.interval.end == later.interval.start).map(|run| (run, Range { start: run[0].interval.start, end: run[run.len() - 1].interval.end }))
 }
 
 fn aligned(duration: SignedDuration, step: SignedDuration) -> bool { duration.as_nanos().checked_rem_euclid(step.as_nanos()) == Some(0) }

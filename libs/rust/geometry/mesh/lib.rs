@@ -182,7 +182,7 @@ pub fn original(solid: &Solid) -> Option<NonZero<u32>> { original_id(solid.0.ori
 pub fn export(solid: &Solid) -> Result<(TriMesh, Vec<Source>), MeshError> {
     let buffers = solid.0.get_mesh_glp::<f64, u32>(-1);
     let sources = iter::zip(0_u32.., buffers.run_index.array_windows::<2>().zip(&buffers.run_original_id))
-        .flat_map(|(run, (&[start, end], &original))| iter::repeat_n((NonZero::new(original), run), (end.strict_sub(start) / 3) as usize))
+        .flat_map(|(run, (&[start, end], &original))| iter::repeat_n((NonZero::new(original), run), ((end - start) / 3) as usize))
         .zip(&buffers.face_id)
         .map(|((original, run), &face)| Source { original, run, face })
         .collect();

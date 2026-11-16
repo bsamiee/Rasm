@@ -225,7 +225,7 @@ where S: AsRef<Place> {
         let count = nalgebra::convert::<usize, f64>(ranked.len());
         let [low, high] = [share - band, share + band].map(|bound| (bound.clamp(0.0, 1.0) * count).to_int_saturating::<usize>());
         let low = low.min(ranked.len().saturating_sub(1));
-        &ranked[low..high.max(low.strict_add(1)).min(ranked.len())]
+        &ranked[low..high.max(low + 1).min(ranked.len())]
     }
     fn average<'sample, T>(within: impl IntoIterator<Item = &'sample T>, field: impl Fn(&T) -> Option<f64>) -> Option<f64>
     where T: 'sample {

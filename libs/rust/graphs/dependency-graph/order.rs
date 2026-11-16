@@ -19,7 +19,7 @@ where K: Ord {
 #[must_use]
 pub fn layers<N, E>(evaluation: &Evaluation<N, E>, direction: Direction) -> Vec<NEVec<NodeIndex>> {
     let levels = pass(evaluation, direction, |node, levels| {
-        evaluation.neighbors_directed(node, direction.opposite()).filter_map(|neighbor| at(levels, neighbor)).max().map_or_default(|level: usize| level.strict_add(1))
+        evaluation.neighbors_directed(node, direction.opposite()).filter_map(|neighbor| at(levels, neighbor)).max().map_or_default(|level: usize| level + 1)
     });
     entries(&levels)
         .sorted_by_key(|&(_, &level)| level)

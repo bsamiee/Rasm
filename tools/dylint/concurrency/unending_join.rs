@@ -144,7 +144,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                         ExprKind::Field(base, _) => Some(base),
                         _ => None,
                     });
-                    let base = if cx.typeck_results().expr_ty(base).is_ref() { expr_or_init(cx, base).peel_borrows() } else { base };
+                    let base = Some(base).filter(|base| cx.typeck_results().expr_ty(base).is_ref()).map_or(base, |base| expr_or_init(cx, base).peel_borrows());
                     match base.res(cx.typeck_results()) {
                         Res::Local(binding) if live_owner(binding) => Some((Some(binding), sender.span)),
                         Res::Def(DefKind::Static { mutability: Mutability::Not, .. }, _) => Some((None, sender.span)),
@@ -156,8 +156,9 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 _ => None,
             }
         };
-        if let ExprKind::Call(_, operands) = expr.kind
-            && let Some((join, expansion)) = fn_def_id(cx, expr).and_then(|called| {
+        let ExprKind::Call(_, operands) = expr.kind else { return };
+        let Some((join, expansion)) = fn_def_id(cx, expr)
+            .and_then(|called| {
                 if self.joins.contains(&called) {
                     (!expanded_externally(cx, expr.span)).then_some((called, None))
                 } else if self.maybe_done.contains(&called) {
@@ -170,60 +171,63 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                     None
                 }
             })
-            && (expansion.is_some()
-                || get_parent_expr(cx, expr).and_then(|parent| get_parent_expr(cx, parent)).is_some_and(|awaited| desugar_await(awaited).is_some_and(|future| future.hir_id == expr.hir_id)))
-        {
-            let evaluated = expansion
-                .and_then(|expansion| {
-                    cx.tcx
-                        .hir_parent_iter(expr.hir_id)
-                        .filter_map(|(_, node)| if let Node::Expr(parent) = node { Some(parent) } else { None })
-                        .take_while(|parent| parent.span.ctxt().outer_expn().is_descendant_of(expansion))
-                        .last()
-                })
-                .unwrap_or(expr);
-            let moved_during = uses.joined.entry(evaluated.hir_id).or_insert_with(|| {
-                let mut moved = FxHashSet::default();
-                let _: Option<()> = for_each_expr_without_closures(evaluated, |part| {
-                    moved.extend(match part.kind {
-                        ExprKind::Closure(closure) => Either::Left(
-                            cx.tcx
-                                .closure_captures(closure.def_id)
-                                .iter()
-                                .filter(|capture| native_sender(capture.get_root_variable()) && moved_capture(cx, capture))
-                                .map(|capture| capture.get_root_variable()),
-                        ),
-                        _ => Either::Right(part.res_local_id().filter(|&binding| native_sender(binding) && invalidated(part)).into_iter()),
-                    });
-                    ControlFlow::Continue(())
+            .filter(|&(_, expansion)| {
+                expansion.is_some()
+                    || get_parent_expr(cx, expr).and_then(|parent| get_parent_expr(cx, parent)).is_some_and(|awaited| desugar_await(awaited).is_some_and(|future| future.hir_id == expr.hir_id))
+            })
+        else {
+            return;
+        };
+        let evaluated = expansion
+            .and_then(|expansion| {
+                cx.tcx
+                    .hir_parent_iter(expr.hir_id)
+                    .filter_map(|(_, node)| if let Node::Expr(parent) = node { Some(parent) } else { None })
+                    .take_while(|parent| parent.span.ctxt().outer_expn().is_descendant_of(expansion))
+                    .last()
+            })
+            .unwrap_or(expr);
+        let moved_during = uses.joined.entry(evaluated.hir_id).or_insert_with(|| {
+            let mut moved = FxHashSet::default();
+            let _: Option<()> = for_each_expr_without_closures(evaluated, |part| {
+                moved.extend(match part.kind {
+                    ExprKind::Closure(closure) => Either::Left(
+                        cx.tcx
+                            .closure_captures(closure.def_id)
+                            .iter()
+                            .filter(|capture| native_sender(capture.get_root_variable()) && moved_capture(cx, capture))
+                            .map(|capture| capture.get_root_variable()),
+                    ),
+                    _ => Either::Right(part.res_local_id().filter(|&binding| native_sender(binding) && invalidated(part)).into_iter()),
                 });
-                moved
+                ControlFlow::Continue(())
             });
-            let outlives = |binding| !uses.invalidated.contains(&binding) && !moved_during.contains(&binding);
-            let join = if expansion.is_some() { format!("{}!", cx.tcx.item_name(join)) } else { item_path(cx, join) };
-            let drains = operands.iter().filter_map(|operand| {
-                let drain = expr_or_init(cx, operand);
-                let ExprKind::MethodCall(method, receiver, ..) = drain.kind else { return None };
-                self.drains.contains(&fn_def_id(cx, drain)?).then_some(())?;
-                let stream = cx.typeck_results().expr_ty_adjusted(receiver).peel_refs().opt_def_id().filter(|stream| self.streams.contains(stream))?;
-                let built = expr_or_init(cx, receiver);
-                let ExprKind::Call(_, [subscribed]) = built.kind else { return None };
-                self.wrappers.contains(&fn_def_id(cx, built)?).then_some(())?;
-                Some((drain, method.ident, stream, sender(subscribed)?))
-            });
-            for (drain, method, stream, (_, held)) in drains.filter(|&(.., (holder, _))| holder.is_none_or(outlives)) {
-                span_lint_hir_and_then(
-                    cx,
-                    UNENDING_JOIN,
-                    drain.hir_id,
-                    drain.span,
-                    format!("`{method}` over `{}` can keep `{join}` pending while a sender remains alive", cx.tcx.item_name(stream)),
-                    |diag| {
-                        diag.span_note(held, "sender held here");
-                        diag.help(format!("pin the futures, combine any remaining futures, and race `{method}` against them through `futures::future::select` in place of `{join}`"));
-                    },
-                );
-            }
+            moved
+        });
+        let outlives = |binding| !uses.invalidated.contains(&binding) && !moved_during.contains(&binding);
+        let join = if expansion.is_some() { format!("{}!", cx.tcx.item_name(join)) } else { item_path(cx, join) };
+        let drains = operands.iter().filter_map(|operand| {
+            let drain = expr_or_init(cx, operand);
+            let ExprKind::MethodCall(method, receiver, ..) = drain.kind else { return None };
+            self.drains.contains(&fn_def_id(cx, drain)?).then_some(())?;
+            let stream = cx.typeck_results().expr_ty_adjusted(receiver).peel_refs().opt_def_id().filter(|stream| self.streams.contains(stream))?;
+            let built = expr_or_init(cx, receiver);
+            let ExprKind::Call(_, [subscribed]) = built.kind else { return None };
+            self.wrappers.contains(&fn_def_id(cx, built)?).then_some(())?;
+            Some((drain, method.ident, stream, sender(subscribed)?))
+        });
+        for (drain, method, stream, (_, held)) in drains.filter(|&(.., (holder, _))| holder.is_none_or(outlives)) {
+            span_lint_hir_and_then(
+                cx,
+                UNENDING_JOIN,
+                drain.hir_id,
+                drain.span,
+                format!("`{method}` over `{}` can keep `{join}` pending while a sender remains alive", cx.tcx.item_name(stream)),
+                |diag| {
+                    diag.span_note(held, "sender held here")
+                        .help(format!("pin the futures, combine any remaining futures, and race `{method}` against them through `futures::future::select` in place of `{join}`"));
+                },
+            );
         }
     }
 

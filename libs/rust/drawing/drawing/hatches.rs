@@ -40,7 +40,7 @@ pub fn expand<'pattern>(region: &Region, pattern: &'pattern Pattern, placement: 
                 .flat_map(|line| {
                     let closed = line.0.len() > 2 && line.is_closed();
                     let LineString(coords) = line;
-                    let kept = coords.len().strict_sub(usize::from(closed));
+                    let kept = coords.len() - usize::from(closed);
                     let mut points = coords.into_iter().take(kept).map(|coord| Point::from(coord.x_y()));
                     iter::chain(points.next().map(PathEl::MoveTo), points.map(PathEl::LineTo)).chain(closed.then_some(PathEl::ClosePath))
                 })

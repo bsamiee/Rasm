@@ -164,16 +164,13 @@ impl Fmu {
         match &mut self.instance {
             Instance::Fmi2 { instance, import: _, variables: _ } => {
                 let mut settled = instance.do_step(time, step, true);
-                while matches!(settled, Ok(Fmi2Res::Pending)) {
-                    if cancel.load(Ordering::Relaxed) {
-                        instance.cancel_step().map(drop).map_err(failure(Operation::Step))?;
-                        return Ok(ControlFlow::Break(None));
-                    }
+                while matches!(settled, Ok(Fmi2Res::Pending)) && !cancel.load(Ordering::Relaxed) {
                     thread::yield_now();
                     settled = instance.do_step_status().and_then(FmiStatus::ok);
                 }
                 match settled {
-                    Ok(Fmi2Res::OK | Fmi2Res::Warning | Fmi2Res::Pending) => Ok(ControlFlow::Continue(())),
+                    Ok(Fmi2Res::Pending) => instance.cancel_step().map(|_| ControlFlow::Break(None)),
+                    Ok(Fmi2Res::OK | Fmi2Res::Warning) => Ok(ControlFlow::Continue(())),
                     Err(Fmi2Error::Discard) => instance.terminated().and_then(|terminated| {
                         terminated.ok_or(Fmi2Error::Discard)?;
                         instance.last_successful_time().map(|last_successful_time| ControlFlow::Break(Some(Time::new::<second>(last_successful_time))))

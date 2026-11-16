@@ -247,7 +247,7 @@ pub fn krige(observations: &Observations, kernel: Kernel, lengths: &[Tolerance],
     let lack = &targets - &basis * &coefficients;
     let weights = solved(&factor, lack.clone());
     let determinants = log_determinant(&factor) + log_determinant(&trend);
-    let likelihood = -0.5 * convert::<usize, f64>(targets.ncols()).mul_add(convert::<usize, f64>(points.strict_sub(terms)).mul_add(TAU.ln(), determinants), lack.dot(&weights));
+    let likelihood = -0.5 * convert::<usize, f64>(targets.ncols()).mul_add(convert::<usize, f64>(points - terms).mul_add(TAU.ln(), determinants), lack.dot(&weights));
     Ok(Kriging { sites: sites.clone(), lengths, variance, kernel, nugget, basis, drift: Polynomial { exponents: drift, coefficients }, weights, factor, trend, likelihood })
 }
 

@@ -149,12 +149,14 @@ where
             let owner = thread::current().id();
             let hooked = Arc::clone(&held);
             panic::update_hook(move |hook, info| {
-                if cfg_select! {
+                (cfg_select! {
                     panic = "abort" => true,
                     _ => thread::current().id() == owner,
-                } {
-                    session::left(P::MODES, &hooked).for_each(|error| tracing::error!({ EXCEPTION_MESSAGE } = %Report::new(&error), "terminal release failed"));
-                }
+                })
+                .then(|| session::left(P::MODES, &hooked))
+                .into_iter()
+                .flatten()
+                .for_each(|error| tracing::error!({ EXCEPTION_MESSAGE } = %Report::new(&error), "terminal release failed"));
                 hook(info);
             });
             let entering = try bikeshed io::Result<Terminal<CrosstermBackend<io::Stdout>>> {
@@ -174,8 +176,8 @@ where
                 .take_until(signals.next())
                 .ready_chunks(BATCH)
             );
-            let failures = match entering {
-                Err(source) => vec![P::Error::from(session::failed(Operation::Enter)(source))],
+            let (failures, stepped, filter) = match entering {
+                Err(source) => (vec![P::Error::from(session::failed(Operation::Enter)(source))], level, filter),
                 Ok(terminal) => {
                     let Session { terminal: _, program: _, pane: _, level: stepped, logs: _, filter, effects: _, held: _, failures } = executor::block_on_stream(inputs.as_mut())
                         .try_fold(
@@ -193,12 +195,12 @@ where
                             |session, batch| session::batched(session, batch, &styles),
                         )
                         .into_value();
-                    if stepped != level {
-                        session::reloaded(&filter, level);
-                    }
-                    failures
+                    (failures, stepped, filter)
                 }
             };
+            if stepped != level {
+                session::reloaded(&filter, level);
+            }
             let status = if inputs.get_ref().is_stopped() { ExitCode::TempFail } else { ExitCode::Ok };
             iter::chain(failures, session::left(P::MODES, &held).map(P::Error::from)).try_into_nonempty_iter().map(NonEmptyIterator::collect::<NEVec<_>>).map_or(Ok(status), Err)
         })

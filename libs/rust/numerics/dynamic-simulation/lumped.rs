@@ -426,11 +426,9 @@ impl NonLinearOpSensAdjoint for Free<'_> {
             difference(self.0.network.incidence.as_ref(), &scratch.temperatures, &mut scratch.flux);
             let mut slots = products.iter_mut();
             izip!(slots.by_ref().take(edges), &scratch.differences, &scratch.flux).for_each(|(product, change, weighted)| *product = change * weighted);
-            izip!(self.0.network.holding(slots), &scratch.weights, &scratch.nets, &self.0.scales).for_each(|(slot, weight, net, scale)| {
-                if let Some(product) = slot {
-                    *product = weight * net * scale;
-                }
-            });
+            izip!(self.0.network.holding(slots), &scratch.weights, &scratch.nets, &self.0.scales)
+                .filter_map(|(slot, weight, net, scale)| slot.map(|product| (product, weight * net * scale)))
+                .for_each(|(product, value)| *product = value);
         });
     }
 
@@ -456,9 +454,8 @@ impl ConstantOpSensAdjoint for Free<'_> {
 impl LinearOp for Free<'_> {
     fn gemv_inplace(&self, x: &Self::V, _t: Self::T, beta: Self::T, y: &mut Self::V) {
         y.for_each_batch_host([x], |products, [direction], _| {
-            izip!(products, direction, self.0.network.capacities()).for_each(|(product, change, capacity)| {
-                *product = if capacity > HeatCapacity::ZERO { beta.mul_add(*product, *change) } else { beta * *product };
-            });
+            izip!(products, direction, self.0.network.capacities())
+                .for_each(|(product, change, capacity)| *product = if capacity > HeatCapacity::ZERO { beta.mul_add(*product, *change) } else { beta * *product });
         });
     }
 

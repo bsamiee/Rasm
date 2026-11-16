@@ -140,34 +140,32 @@ impl Daemon {
         let (key, processes) = (key.clone(), self.processes.clone());
         let span = tracing::info_span!(parent: None, "server", program = %key.0.program.display());
         let connect = move |stop: CancellationToken| {
-            let (key, environment, processes) = (key.clone(), Arc::clone(&environment), processes.clone());
-            async move {
-                let (attached, attachment) = oneshot::channel();
-                let process = server(&key.0, &environment, Stdio::piped());
-                let mut exited = async move {
-                    let attach = async |streams| attached.send(streams).map_err(|rasm_process::Streams { id: _, stdin: _, stdout: _, stderr: _ }| io::Error::from(io::ErrorKind::BrokenPipe));
-                    match rasm_process::run(process, Some(BUFFER), None, GRACE, &stop, attach).await {
-                        Ok(status) | Err(rasm_process::ProcessError { program: _, process: Some((_, Some(status))), failures: _ }) => status.to_string(),
-                        Err(error) => Report::new(&error).to_string(),
-                    }
+            let (key, processes, (attached, attachment)) = (key.clone(), processes.clone(), oneshot::channel());
+            let process = server(&key.0, &environment, Stdio::piped());
+            let mut exited = async move {
+                let attach = async |streams| attached.send(streams).map_err(|rasm_process::Streams { id: _, stdin: _, stdout: _, stderr: _ }| io::Error::from(io::ErrorKind::BrokenPipe));
+                match rasm_process::run(process, Some(BUFFER), None, GRACE, &stop, attach).await {
+                    Ok(status) | Err(rasm_process::ProcessError { program: _, process: Some((_, Some(status))), failures: _ }) => status.to_string(),
+                    Err(error) => Report::new(&error).to_string(),
                 }
-                .boxed();
+            }
+            .boxed();
+            async move {
                 let streams = match future::select(attachment, &mut exited).await {
                     Either::Left((Ok(streams), _)) => streams,
                     Either::Left((Err(oneshot::error::RecvError { .. }), _)) => return Err(io::Error::other(exited.await)),
                     Either::Right((exit, _)) => return Err(io::Error::other(exit)),
                 };
-                let (Some(reader), Some(writer)) = (streams.stdout, streams.stdin) else { return Err(io::ErrorKind::BrokenPipe.into()) };
+                let (reader, writer) = streams.stdout.zip(streams.stdin).ok_or(io::ErrorKind::BrokenPipe)?;
                 processes.send_if_modified(|processes| processes.insert(key.clone(), streams.id.get()).is_none());
                 let read = |stderr| AbortOnDropHandle::new(task::spawn(rasm_process::tail(stderr, TAIL, LINE, |line| tracing::debug!(line, "server stderr")).in_current_span()));
-                let closed = future::join(exited, OptionFuture::from(streams.stderr.map(read))).map(move |(exit, tail)| {
-                    processes.send_if_modified(|processes| processes.remove(&key).is_some());
-                    match tail {
+                let closed = future::join(exited, OptionFuture::from(streams.stderr.map(read))).inspect(move |_| _ = processes.send_if_modified(|processes| processes.remove(&key).is_some())).map(
+                    |(exit, tail)| match tail {
                         Some(Ok(tail)) if !tail.is_empty() => format!("{exit}; stderr: {}", tail.iter().join(" | ")),
                         Some(Ok(_)) | None => exit,
                         Some(Err(error)) => format!("{exit}; stderr unread: {}", Report::new(&error)),
-                    }
-                });
+                    },
+                );
                 Ok(Link { reader, writer, closed: closed.boxed() })
             }
             .boxed()

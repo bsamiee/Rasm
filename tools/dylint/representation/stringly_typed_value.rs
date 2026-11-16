@@ -272,26 +272,27 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             };
             let closed = written.get(&held).and_then(Option::as_ref).filter(|_| closable);
             tags.extend(closed.into_iter().flatten().copied());
-            if tags.len() > 1 && (closed.is_some() || multiple) {
-                let listed = tags.iter().format_with(", ", |tag, write| write(&format_args!("`\"{tag}\"`")));
-                let name = held.name(cx);
-                let message = match held {
-                    Place::Field(_) => format!("field `{name}` holds one of {listed} as text"),
-                    Place::Static(_) => format!("static `{name}` holds one of {listed} as text"),
-                    Place::Parameter(_) | Place::Local(_) => format!("`{name}` holds one of {listed} as text"),
-                };
-                span_lint_hir_and_then(cx, STRINGLY_TYPED_VALUE, held.hir_id(cx), held.span(cx), message, |diag| {
-                    diag.span_note(sites, "branched on here");
-                    diag.help(format!("declare `{name}` as a `strum::EnumString` enum with a variant per value and parse the text where it enters"));
-                });
+            if tags.len() <= 1 || (closed.is_none() && !multiple) {
+                continue;
             }
+            let listed = tags.iter().format_with(", ", |tag, write| write(&format_args!("`\"{tag}\"`")));
+            let name = held.name(cx);
+            let message = match held {
+                Place::Field(_) => format!("field `{name}` holds one of {listed} as text"),
+                Place::Static(_) => format!("static `{name}` holds one of {listed} as text"),
+                Place::Parameter(_) | Place::Local(_) => format!("`{name}` holds one of {listed} as text"),
+            };
+            span_lint_hir_and_then(cx, STRINGLY_TYPED_VALUE, held.hir_id(cx), held.span(cx), message, |diag| {
+                diag.span_note(sites, "branched on here");
+                diag.help(format!("rebuild the branches over the value `{name}` stands for, read from the type, member, or host stating it"));
+            });
         }
         for (held, (sites, literals)) in mem::take(&mut self.keyed).into_iter().filter(|(_, (_, literals))| literals.len() > 1) {
             let listed = literals.iter().format_with(", ", |literal, write| write(&format_args!("`\"{literal}\"`")));
             let name = held.name(cx);
             span_lint_hir_and_then(cx, STRINGLY_TYPED_VALUE, held.hir_id(cx), held.span(cx), format!("text-keyed `{name}` is addressed by fixed keys {listed}"), |diag| {
                 diag.span_note(sites, "addressed here");
-                diag.help(format!("key `{name}` by an enum with a variant per key, or replace it with a struct holding a field per key"));
+                diag.help(format!("replace `{name}` with a struct holding a field per key, or key it by the value each key stands for"));
             });
         }
     }

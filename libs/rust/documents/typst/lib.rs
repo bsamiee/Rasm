@@ -456,7 +456,7 @@ pub fn diagnostics(world: &dyn DiagnosticWorld, diagnostics: &[SourceDiagnostic]
             world.source(id).inspect_err(|error| tracing::warn!({ EXCEPTION_MESSAGE } = %Report::new(error), file = %world.name(id), "diagnostic source refused")).ok().zip(world.range(span))?;
         let (line, column) = source.lines().byte_to_line_column(range.start)?;
         let (end_line, end_column) = source.lines().byte_to_line_column(range.end)?;
-        Some(Location { file: world.name(id).into(), line: line.strict_add(1), column: column.strict_add(1), end_line: end_line.strict_add(1), end_column: end_column.strict_add(1) })
+        Some(Location { file: world.name(id).into(), line: line + 1, column: column + 1, end_line: end_line + 1, end_column: end_column + 1 })
     };
     diagnostics
         .iter()

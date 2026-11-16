@@ -69,7 +69,7 @@ impl Set {
                         Arc::clone(name),
                         (
                             enum_map! {
-                                Mention::Number => Arc::from(position.strict_add(1).to_string()),
+                                Mention::Number => Arc::from((position + 1).to_string()),
                                 Mention::Sheet => Arc::clone(key),
                             },
                             Destination::Page { index, area: viewport.boundary.as_ref().map(Shape::bounding_box) },

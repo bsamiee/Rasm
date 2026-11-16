@@ -39,6 +39,8 @@ pub enum Refusal {
     Area,
     #[display("is narrower than the block")]
     Width,
+    #[display("grows past the last sheet row")]
+    Height,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -84,7 +86,7 @@ pub fn value(at: (u32, u32), cell: &Data) -> Result<Value<'_>, WorkbooksError> {
         Data::DateTime(serial) if serial.is_duration() => SignedDuration::try_from_secs_f64(serial.as_f64() * SignedDuration::from_hours(24).as_secs_f64()).map(Value::Duration),
         Data::DateTime(serial) => {
             let (year, month, day, hour, minute, second, milli) = serial.to_ymd_hms_milli();
-            civil::DateTime::new(year.cast_signed(), month.cast_signed(), day.cast_signed(), hour.cast_signed(), minute.cast_signed(), second.cast_signed(), i32::from(milli).strict_mul(1_000_000))
+            civil::DateTime::new(year.cast_signed(), month.cast_signed(), day.cast_signed(), hour.cast_signed(), minute.cast_signed(), second.cast_signed(), i32::from(milli) * 1_000_000)
                 .map(Value::DateTime)
         }
         Data::DateTimeIso(text) => text.parse().map(Value::DateTime),
@@ -97,8 +99,7 @@ pub fn value(at: (u32, u32), cell: &Data) -> Result<Value<'_>, WorkbooksError> {
 
 fn cells(block: &Range<Data>) -> impl Iterator<Item = ((u32, u32), (u32, u32), &Data)> {
     block.start().zip(block.end()).into_iter().flat_map(|((top, left), (bottom, right))| {
-        iter::zip(block.rows(), top..=bottom)
-            .flat_map(move |(row_cells, row)| iter::zip(row_cells, left..=right).map(move |(cell, column)| ((row.strict_sub(top), column.strict_sub(left)), (row, column), cell)))
+        iter::zip(block.rows(), top..=bottom).flat_map(move |(row_cells, row)| iter::zip(row_cells, left..=right).map(move |(cell, column)| ((row - top, column - left), (row, column), cell)))
     })
 }
 
@@ -109,7 +110,7 @@ where
 {
     let (top, left): (u64, u64) = (row.into(), column.into());
     cells(block).filter(|&(_, _, cell)| !cell.is_empty()).map(move |((down, across), at, cell)| -> Result<_, WorkbooksError> {
-        let target = (top.strict_add(u64::from(down)), left.strict_add(u64::from(across)));
+        let target = (top + u64::from(down), left + u64::from(across));
         let placed = R::try_from(target.0).and_then(|placed_row| C::try_from(target.1).map(|placed_column| (placed_row, placed_column)));
         Ok((placed.map_err(|source| WorkbooksError::Coordinate { cell: target, source })?, value(at, cell)?))
     })

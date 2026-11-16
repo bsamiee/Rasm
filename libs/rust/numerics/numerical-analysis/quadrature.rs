@@ -103,14 +103,14 @@ fn mass(factors: impl IntoIterator<Item = (f64, isize)>) -> (f64, isize) {
     factors.into_iter().fold((1.0, 0_isize), |(mantissa, exponent), (factor, shift)| {
         let (factor, carry) = frexp(factor);
         let (mantissa, offset) = frexp(mantissa * factor);
-        (mantissa, exponent.strict_add(shift).strict_add(carry.strict_cast::<isize>()).strict_add(offset.strict_cast::<isize>()))
+        (mantissa, exponent + shift + carry.strict_cast::<isize>() + offset.strict_cast::<isize>())
     })
 }
 
 fn half_width(start: f64, last: f64) -> (f64, (f64, isize)) {
     let half = last / 2.0 - start / 2.0;
     let (mantissa, exponent) = frexp(last - start);
-    (half, (mantissa, exponent.strict_sub(1).strict_cast::<isize>()))
+    (half, (mantissa, (exponent - 1).strict_cast::<isize>()))
 }
 
 fn magnitude<T>(values: &DVector<T>, norm: &impl Fn(&T) -> f64) -> f64
@@ -140,16 +140,16 @@ where
 {
     fn scaled<T>(values: DVector<T>, (mantissa, exponent): (f64, isize)) -> DVector<T>
     where T: DualNum<Primitive = f64> {
-        let extent = if exponent > 0 { f64::MAX_EXP.strict_sub(1) } else { f64::MIN_EXP }.strict_cast::<isize>();
+        let extent = if exponent > 0 { f64::MAX_EXP - 1 } else { f64::MIN_EXP }.strict_cast::<isize>();
         let first = if exponent > 0 { exponent.min(extent) } else { exponent.max(extent) };
         let values = {
             let factor = mantissa * convert::<isize, f64>(first).exp2();
             values.apply_into(|value| *value *= factor)
         };
-        let remaining = exponent.strict_sub(first).unsigned_abs();
+        let remaining = (exponent - first).unsigned_abs();
         let chunk = extent.unsigned_abs();
         (0..remaining.div_ceil(chunk)).fold(values, |values, index| {
-            let factor = (convert::<usize, f64>(remaining.strict_sub(index.strict_mul(chunk)).min(chunk)) * convert::<isize, f64>(extent.signum())).exp2();
+            let factor = (convert::<usize, f64>((remaining - index * chunk).min(chunk)) * convert::<isize, f64>(extent.signum())).exp2();
             values.apply_into(|value| *value *= factor)
         })
     }
@@ -190,7 +190,7 @@ where
         Validated::from(measured(piece.chart, &piece.lower, &left_upper))
             .map2(Validated::from(measured(piece.chart, &right_lower, &piece.upper)), |(left_integral, left_count), (right_integral, right_count)| {
                 let error = magnitude(&(&piece.estimate - (&left_integral + &right_integral)), norm);
-                let child = |lower: NEVec<f64>, upper: NEVec<f64>, estimate: DVector<T>| Piece { chart: piece.chart, lower, upper, depth: piece.depth.strict_add(1), estimate };
+                let child = |lower: NEVec<f64>, upper: NEVec<f64>, estimate: DVector<T>| Piece { chart: piece.chart, lower, upper, depth: piece.depth + 1, estimate };
                 Subdivision {
                     halves: [child(piece.lower.clone(), left_upper, left_integral), child(right_lower, piece.upper.clone(), right_integral)],
                     error,
@@ -221,8 +221,8 @@ where
         }
         state.error = state.error - released + error;
         state.evaluations = state.evaluations.saturating_add(evaluations);
-        let next = state.next.strict_add(halves.len());
-        state.pieces.extend(halves.into_iter().enumerate().map(|(offset, piece)| ((share, state.next.strict_add(offset)), piece)));
+        let next = state.next + halves.len();
+        state.pieces.extend(halves.into_iter().enumerate().map(|(offset, piece)| ((share, state.next + offset), piece)));
         state.next = next;
         Ok(())
     }
@@ -278,7 +278,7 @@ where
                 let determinant = first.dot(&first) * second.dot(&second) - first.dot(&second).sqr();
                 let context = Context::<HalfEven>::new(convert(f64::MANTISSA_DIGITS));
                 let area = context.unwrap_fp(context.sqrt(determinant.repr()));
-                let exponent = area.repr().exponent().strict_add(area.repr().significand().bit_len().strict_cast::<isize>());
+                let exponent = area.repr().exponent() + area.repr().significand().bit_len().strict_cast::<isize>();
                 let area = ((area >> exponent).to_f64().value(), exponent);
                 let coordinates = affine.map(|coordinate| coordinate.to_f64().value());
                 let affine = if coordinates.iter().all(|coordinate| coordinate.is_finite()) { Either::Left(coordinates) } else { Either::Right(affine) };

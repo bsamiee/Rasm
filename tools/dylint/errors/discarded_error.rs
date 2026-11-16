@@ -204,13 +204,14 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             Gate::Succeeds => arguments.first().is_some_and(|value| {
                 let body = unread(cx, value).unwrap_or_else(|| peel_blocks(value));
                 if typeck.expr_ty_adjusted(receiver).peel_refs().is_diag_item(cx, sym::Option) {
-                    !find_all_ret_expressions(cx, body, |leaf| {
-                        matches!(leaf.kind, ExprKind::Path(qpath) if cx.qpath_res(&qpath, leaf.hir_id).ctor_parent(cx).is_lang_item(cx, LangItem::OptionNone))
-                            || matches!(leaf.kind, ExprKind::Call(_, [argument])
-                                if fn_def_id(cx, leaf).ctor_parent(cx).is_lang_item(cx, LangItem::ResultErr)
-                                    && result_parts(cx, typeck.expr_ty(leaf)).is_some_and(|(_, translated)| is_error(cx, translated) && untyped_kind(cx, translated).is_none())
-                                    && !contains_return(argument)
-                                    && !contains_break_or_continue(argument))
+                    !find_all_ret_expressions(cx, body, |leaf| match leaf.kind {
+                        ExprKind::Path(qpath) => cx.qpath_res(&qpath, leaf.hir_id).ctor_parent(cx).is_lang_item(cx, LangItem::OptionNone),
+                        ExprKind::Call(_, [argument]) =>
+                            fn_def_id(cx, leaf).ctor_parent(cx).is_lang_item(cx, LangItem::ResultErr)
+                                && result_parts(cx, typeck.expr_ty(leaf)).is_some_and(|(_, translated)| is_error(cx, translated) && untyped_kind(cx, translated).is_none())
+                                && !contains_return(argument)
+                                && !contains_break_or_continue(argument),
+                        _ => false,
                     })
                 } else {
                     fn_def_id(cx, body).ctor_parent(cx).is_lang_item(cx, LangItem::ResultOk)
@@ -286,10 +287,9 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 }),
             _ => None,
         };
-        let mut site = expr;
         let found = found.and_then(|(span, discard, label, error)| {
             if !matches!(discard, Discard::Absence) {
-                return Some((span, discard, label, error));
+                return Some((span, discard, label, error, expr));
             }
             let singleton = singular(cx, error);
             if !singleton
@@ -297,7 +297,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                         if matches!(receiver.kind, ExprKind::Call(function, ..) if has_single_failure_cause(cx, function))
                             || has_single_failure_cause(cx, receiver))
             {
-                return Some((span, discard, label, error));
+                return Some((span, discard, label, error, expr));
             }
             let mut relayed = expr;
             while let Some(parent) = get_parent_expr(cx, relayed)
@@ -305,24 +305,22 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 && receiver.hir_id == relayed.hir_id
                 && fn_def_id(cx, parent).is_some_and(|method| impl_owner(cx.tcx, method).is_diag_item(cx, sym::Option) || self.methods.contains_key(&method))
             {
-                if let Some(&Some((method_discard, gate))) = fn_def_id(cx, parent).and_then(|method| self.methods.get(&method))
-                    && gated(gate, receiver, arguments, parent)
-                {
-                    site = parent;
-                    return Some((segment.ident.span.to(parent.span.shrink_to_hi()), method_discard, Cow::Borrowed(segment.ident.as_str()), error));
-                }
                 let output = typeck.expr_ty(parent);
-                if !output.is_diag_item(cx, sym::Option) {
-                    return (!result_parts(cx, output).is_some_and(|(_, translated)| is_error(cx, translated) && untyped_kind(cx, translated).is_none())).then_some((span, discard, label, error));
+                match fn_def_id(cx, parent).and_then(|method| self.methods.get(&method)) {
+                    Some(&Some((method_discard, gate))) if gated(gate, receiver, arguments, parent) =>
+                        return Some((segment.ident.span.to(parent.span.shrink_to_hi()), method_discard, Cow::Borrowed(segment.ident.as_str()), error, parent)),
+                    _ if !output.is_diag_item(cx, sym::Option) =>
+                        return (!result_parts(cx, output).is_some_and(|(_, translated)| is_error(cx, translated) && untyped_kind(cx, translated).is_none()))
+                            .then_some((span, discard, label, error, expr)),
+                    _ => relayed = parent,
                 }
-                relayed = parent;
             }
             get_parent_expr(cx, relayed)
                 .filter(|branch| !singleton && matches!(branch.kind, ExprKind::Call(..)) && fn_def_id(cx, branch).is_lang_item(cx, LangItem::TryTraitBranch))
                 .filter(|branch| !matches!(get_parent_expr(cx, branch), Some(parent) if matches!(parent.kind, ExprKind::Match(_, _, MatchSource::TryDesugar(called)) if called == branch.hir_id)))
-                .map(|_branch| (span, discard, label, error))
+                .map(|_branch| (span, discard, label, error, expr))
         });
-        if let Some((span, discard, label, error)) = found
+        if let Some((span, discard, label, error, site)) = found
             && match discard {
                 Discard::View => !body_output(cx, cx.tcx.hir_enclosing_body_owner(site.hir_id)).is_some_and(Ty::is_bool),
                 Discard::Absence => true,

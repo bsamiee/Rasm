@@ -70,7 +70,7 @@ pub fn sign(document: &Document, credentials: &SigningCredentials, options: Sign
             .collect::<HashSet<_>>();
         let mut update = IncrementalDocument::create_from(bytes, prior);
         let named = |ordinal: usize| format!("Signature{ordinal}");
-        let name = (1..=taken.len()).map(named).find(|name| !taken.contains(name)).unwrap_or_else(|| named(taken.len().strict_add(1)));
+        let name = (1..=taken.len()).map(named).find(|name| !taken.contains(name)).unwrap_or_else(|| named(taken.len() + 1));
         let widget = update
             .new_document
             .try_add_object(dictionary! { TYPE => "Annot", SUBTYPE => "Widget", FT => "Sig", T => text_string(&name), F => PRINT_LOCKED, RECT => vec![Object::from(0); 4], P => page })?;

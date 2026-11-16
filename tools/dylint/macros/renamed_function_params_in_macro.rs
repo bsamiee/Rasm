@@ -28,10 +28,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                     item.hir_id(),
                     impl_ident.span,
                     format!("`{}!` names the `{}` parameter `{trait_ident}` as `{impl_ident}`", cx.tcx.item_name(expansion.def_id), cx.tcx.def_path_str(declared)),
-                    |diag| {
-                        diag.span_note(expansion.span, "expanded here");
-                        diag.help(format!("rename `{impl_ident}` to `{trait_ident}`"));
-                    },
+                    |diag| _ = diag.span_note(expansion.span, "expanded here").help(format!("rename `{impl_ident}` to `{trait_ident}`")),
                 );
             }
         }

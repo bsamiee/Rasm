@@ -142,12 +142,9 @@ impl Definition {
             let mixed = !spans
                 .clone()
                 .map(|(part, piece)| {
-                    let paint = piece.fill().map(|filling| {
-                        let solid = match filling.paint() {
-                            Paint::Color(color) => Some(*color),
-                            Paint::LinearGradient(_) | Paint::RadialGradient(_) | Paint::Pattern(_) => None,
-                        };
-                        (solid, filling.opacity())
+                    let paint = piece.fill().map(|filling| match filling.paint() {
+                        Paint::Color(color) => (Some(*color), filling.opacity()),
+                        Paint::LinearGradient(_) | Paint::RadialGradient(_) | Paint::Pattern(_) => (None, filling.opacity()),
                     });
                     (part.anchor(), piece.font(), piece.font_size(), piece.dominant_baseline(), piece.alignment_baseline(), paint, piece.is_visible(), piece.text_length())
                 })

@@ -164,10 +164,8 @@ where K: Ord + Send {
             subpaths.iter().enumerate().flat_map(move |(subpath, segments)| {
                 segments.iter().enumerate().filter(|(_, original)| original.start != original.end).flat_map(move |(segment, &original)| {
                     let key = [stroke, subpath, segment];
-                    let normal = {
-                        let delta = original.delta();
-                        Coord { x: -delta.y, y: delta.x } * (grid / Euclidean.length(&original))
-                    };
+                    let delta = original.delta();
+                    let normal = Coord { x: -delta.y, y: delta.x } * (grid / Euclidean.length(&original));
                     iter::chain(iter::once(Piece { line: original, original, key }), [original.start, original.end].map(|end| Piece { line: Line::new(end - normal, end + normal), original, key }))
                 })
             })
@@ -229,7 +227,7 @@ where K: Ord + Send {
             let outcome = match event {
                 Either::Left(outcome) => outcome,
                 Either::Right((index, region, keep, count)) => completed
-                    .drain(completed.len().strict_sub(count)..)
+                    .drain(completed.len() - count..)
                     .filter_map(Result::transpose)
                     .collect::<Validated<Vec<_>, _>>()
                     .ok()
@@ -273,7 +271,7 @@ pub fn chain(segments: impl IntoIterator<Item = PathSeg>, tolerance: Tolerance) 
             let backward = iter::successors(next((first.reverse(), behind)), |&link| next(link)).map(|(link, _)| link.reverse()).collect::<Vec<_>>();
             let run = backward.iter().rev().chain(forward.iter());
             let origin = backward.last().unwrap_or(&first).start();
-            let closed = backward.len().strict_add(forward.len().get()) > 1 && forward.last().end().distance(origin) <= radius;
+            let closed = backward.len() + forward.len().get() > 1 && forward.last().end().distance(origin) <= radius;
             iter::once(PathEl::MoveTo(origin)).chain(run.map(PathSeg::as_path_el)).chain(closed.then_some(PathEl::ClosePath)).collect::<BezPath>()
         })
         .collect()
@@ -285,23 +283,23 @@ fn flattened(elements: Vec<Element>) -> impl Iterator<Item = Event> {
         let mut parents = Vec::new();
         let mut next = 0_usize;
         loop {
-            match current.next() {
-                Some((index, Element::Stroke { path, pen, linetype })) => {
+            match current.next().ok_or_else(|| parents.pop()) {
+                Ok((index, Element::Stroke { path, pen, linetype })) => {
                     let stroke = next;
-                    next = next.strict_add(1);
+                    next += 1;
                     yield Event::Stroke { index, stroke, path, pen, linetype };
                 }
-                Some((index, Element::Clip { region, keep, elements: grouped })) => {
+                Ok((index, Element::Clip { region, keep, elements: grouped })) => {
                     let grouped = grouped.into_inner();
                     let count = grouped.len();
                     parents.push((index, region, keep, count, mem::replace(&mut current, grouped.into_iter().enumerate())));
                 }
-                Some((_, element @ (Element::Fill { .. } | Element::Hatch { .. } | Element::Text { .. } | Element::Glyphs { .. } | Element::Placed { .. }))) => yield Event::Kept(element),
-                None => {
-                    let Some((index, region, keep, count, parent)) = parents.pop() else { break };
+                Ok((_, element @ (Element::Fill { .. } | Element::Hatch { .. } | Element::Text { .. } | Element::Glyphs { .. } | Element::Placed { .. }))) => yield Event::Kept(element),
+                Err(Some((index, region, keep, count, parent))) => {
                     current = parent;
                     yield Event::Closed { index, region, keep, count };
                 }
+                Err(None) => break,
             }
         }
     }

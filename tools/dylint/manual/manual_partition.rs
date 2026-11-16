@@ -40,11 +40,10 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             if !fn_def_id(cx, collected).is_diag_item(cx, sym::iterator_collect_fn) || !collected_ty.is_diag_item(cx, sym::Vec) {
                 return None;
             }
-            let filtered = if fn_def_id(cx, iterator).is_diag_item(cx, sym::iter_copied) {
-                let (ExprKind::MethodCall(_, inner, [], _) | ExprKind::Call(_, [inner])) = iterator.kind else { return None };
-                inner
-            } else {
-                iterator
+            let filtered = match (fn_def_id(cx, iterator).is_diag_item(cx, sym::iter_copied), iterator.kind) {
+                (true, ExprKind::MethodCall(_, inner, [], _) | ExprKind::Call(_, [inner])) => inner,
+                (true, _) => return None,
+                (false, _) => iterator,
             };
             let (ExprKind::MethodCall(_, iterated, [predicate], _) | ExprKind::Call(_, [iterated, predicate])) = filtered.kind else { return None };
             let (ExprKind::MethodCall(_, source, [], _) | ExprKind::Call(_, [source])) = iterated.kind else { return None };

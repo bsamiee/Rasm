@@ -299,7 +299,7 @@ fn composed(parts: &NEVec<(&Source, &[(usize, ObjectId)])>, application: &str) -
     let structure_root = assembly.structure.try_new_object_id()?;
     let (next_key, tagged) = iter::zip(&catalogs, &kept).try_fold((0_i64, Vec::new()), |(base, mut tagged), (catalog, sheets)| {
         tagging(&mut assembly, catalog, sheets, base, structure_root).and_then(|tagging| {
-            let next = tagging.as_ref().map_or(Ok(base), |tagging| i64::try_from(i128::from(base).strict_add(i128::from(tagging.span))))?;
+            let next = tagging.as_ref().map_or(Ok(base), |tagging| i64::try_from(i128::from(base) + i128::from(tagging.span)))?;
             tagged.extend(tagging);
             Ok((next, tagged))
         })
@@ -343,12 +343,11 @@ fn composed(parts: &NEVec<(&Source, &[(usize, ObjectId)])>, application: &str) -
     }
     if !tagged.is_empty() {
         let unioned = |key: &[u8]| {
-            tagged.iter().map(|tagging| entry(&assembly.structure, &tagging.tree, key)?.map(Object::as_dict).transpose().map(Option::<&Dictionary>::cloned)).try_collect::<Vec<_>>().map(|found| {
-                found.into_iter().flatten().flatten().fold(Dictionary::new(), |mut first, (name, value)| {
-                    first.as_hashmap_mut().entry(name).or_insert(value);
-                    first
-                })
-            })
+            let found = tagged.iter().map(|tagging| entry(&assembly.structure, &tagging.tree, key)?.map(Object::as_dict).transpose().map(Option::<&Dictionary>::cloned)).try_collect::<Vec<_>>()?;
+            Ok::<_, lopdf::Error>(found.into_iter().flatten().flatten().fold(Dictionary::new(), |mut first, (name, value)| {
+                first.as_hashmap_mut().entry(name).or_insert(value);
+                first
+            }))
         };
         let numbers =
             tagged.iter().flat_map(|tagging| tagging.numbers.iter().cloned()).collect::<BTreeMap<_, _>>().into_iter().flat_map(|(key, value)| [Object::Integer(key), value]).collect::<Vec<_>>();
@@ -418,7 +417,7 @@ fn placed(source: &Source, merged: &mut lopdf::Document, chosen: &[(usize, Objec
     let offset = merged.max_id;
     let ceiling = admitted.iter().map(|&(number, _)| number).max().unwrap_or_default();
     merged.max_id = offset.checked_add(ceiling).ok_or(lopdf::Error::ObjectIdOverflow)?;
-    let moved = |(number, generation): ObjectId| (number.strict_add(offset), generation);
+    let moved = |(number, generation): ObjectId| (number + offset, generation);
     let shift = |root: &mut Object| {
         let mut pending = vec![root];
         while let Some(object) = pending.pop() {
@@ -535,27 +534,24 @@ fn tagging(assembly: &mut Assembly, catalog: &Dictionary, sheets: &[(ObjectId, O
                 let keep = !current.3.is_empty();
                 structure.get_dictionary_mut(current.0)?.set(K, mem::take(&mut current.3));
                 active.remove(&current.0);
-                let Some((element, _, _, _)) = pending.pop() else {
-                    return Ok(keep);
-                };
-                pending.last_mut().3.extend(keep.then_some(Object::Reference(element)));
+                match pending.pop() {
+                    Some((element, _, _, _)) => pending.last_mut().3.extend(keep.then_some(Object::Reference(element))),
+                    None => return Ok(keep),
+                }
                 continue;
             };
             let keep = match (&item, resolved(structure, &item)?) {
                 (Object::Integer(_), _) => current.1 == Some(true),
                 (Object::Dictionary(reference), _) => placed(reference, current.1) == Some(true),
                 (Object::Reference(_), Object::Dictionary(reference)) if reference.has_type(b"MCR") || reference.has_type(OBJR) => placed(reference, current.1) == Some(true),
-                (Object::Reference(element), Object::Dictionary(reference)) => {
-                    active.insert(*element).ok_or(lopdf::Error::ReferenceCycle(*element))?;
-                    match children(structure, reference, current.1)? {
-                        (page, Some(descendants)) => pending.push((*element, page, descendants, Vec::new())),
-                        (page, None) => {
-                            active.remove(element);
-                            current.3.extend((page != Some(false)).then_some(item));
-                        }
+                (Object::Reference(element), Object::Dictionary(reference)) => match children(structure, reference, current.1)? {
+                    (page, Some(descendants)) => {
+                        active.insert(*element).ok_or(lopdf::Error::ReferenceCycle(*element))?;
+                        pending.push((*element, page, descendants, Vec::new()));
+                        continue;
                     }
-                    continue;
-                }
+                    (page, None) => page != Some(false),
+                },
                 _ => false,
             };
             current.3.extend(keep.then_some(item));
@@ -573,7 +569,7 @@ fn tagging(assembly: &mut Assembly, catalog: &Dictionary, sheets: &[(ObjectId, O
         .into_iter()
         .collect::<BTreeMap<_, _>>();
     let declared = entry(&assembly.structure, &tree, PARENT_TREE_NEXT_KEY)?.map(Object::as_i64).transpose()?;
-    let span = iter::chain(numbers.keys().next_back().map(|&key| i64::try_from(i128::from(key).strict_add(1))).transpose()?, declared).max().unwrap_or_default();
+    let span = iter::chain(numbers.keys().next_back().map(|&key| i64::try_from(i128::from(key) + 1)).transpose()?, declared).max().unwrap_or_default();
     let originals = sheets.iter().filter(|(original, page)| original == page).map(|&(page, _)| page).collect::<Vec<_>>();
     let annotated = originals.iter().map(|&page| annotations(assembly, page)).try_collect::<Vec<_>>()?.concat();
     let forms = originals
@@ -607,7 +603,7 @@ fn tagging(assembly: &mut Assembly, catalog: &Dictionary, sheets: &[(ObjectId, O
             let Some(own) = holder.as_hashmap().get(key).map(Object::as_i64).transpose()? else {
                 return Ok(None);
             };
-            let shifted = i64::try_from(i128::from(own).strict_add(i128::from(base)))?;
+            let shifted = i64::try_from(i128::from(own) + i128::from(base))?;
             holder.set(key, shifted);
             Ok::<_, lopdf::Error>(numbers.get(&own).map(|value| (shifted, value.clone())))
         })

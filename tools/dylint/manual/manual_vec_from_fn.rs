@@ -34,13 +34,10 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             && get_iterator_item_ty(cx, typeck.expr_ty(mapped)).is_some_and(|item| collects_vec(cx, item, typeck.expr_ty(expr)))
         {
             let (length, producer) = (snippet(cx, end.span, ".."), snippet(cx, producer.span, ".."));
-            span_lint_hir_and_then(cx, MANUAL_VEC_FROM_FN, expr.hir_id, expr.span, format!("`(0..{length}).map(..).collect()` builds a `Vec` from each index"), |diag| {
-                let help = "call `Vec::from_fn`";
-                if std_or_core(cx) == Some("std") {
-                    suggest(cx, expr.hir_id, diag, expr.span, help, format!("::std::vec::Vec::from_fn({length}, {producer})"), Applicability::MachineApplicable);
-                } else {
-                    diag.help(help);
-                }
+            let help = "call `Vec::from_fn`";
+            span_lint_hir_and_then(cx, MANUAL_VEC_FROM_FN, expr.hir_id, expr.span, format!("`(0..{length}).map(..).collect()` builds a `Vec` from each index"), |diag| match std_or_core(cx) {
+                Some("std") => suggest(cx, expr.hir_id, diag, expr.span, help, format!("::std::vec::Vec::from_fn({length}, {producer})"), Applicability::MachineApplicable),
+                _ => _ = diag.help(help),
             });
         }
     }

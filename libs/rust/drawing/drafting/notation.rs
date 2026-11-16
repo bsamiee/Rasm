@@ -182,7 +182,7 @@ pub fn linear(notation: &Linear, length: Length, sign: Sign) -> String {
             };
             let fraction = numerator.to_u16().and_then(NonZero::new).map(|numerator| {
                 let shift = numerator.trailing_zeros().min(parts.trailing_zeros());
-                format!("{}/{}", numerator.get().strict_shr(shift), parts.get().strict_shr(shift))
+                format!("{}/{}", numerator.get() >> shift, parts.get() >> shift)
             });
             imperial(signed(count, sign), whole, feet, fraction.is_none(), |inches, shown| match &fraction {
                 Some(reduced) if !shown && inches.is_zero() => reduced.clone(),
@@ -209,10 +209,9 @@ pub fn angular(notation: &Angular, angle: Angle, sign: Sign) -> String {
             let sixty = rust_decimal::Decimal::from(60);
             let Some((total, (degrees, places))) = rounded(value, digits.increment.into_inner()).and_then(|total| {
                 let parts = (0..rank).try_fold((total.abs(), Vec::new()), |(rest, mut places), _| {
-                    split(rest, sixty).map(|(quotient, remainder)| {
-                        places.push(remainder);
-                        (quotient, places)
-                    })
+                    let (quotient, remainder) = split(rest, sixty)?;
+                    places.push(remainder);
+                    Some((quotient, places))
                 })?;
                 Some((total, parts))
             }) else {

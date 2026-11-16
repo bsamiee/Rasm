@@ -127,7 +127,7 @@ where
             sampler
                 .set_position(&iter::zip(starts.column(index).iter(), space.values()).map(|(&x, bounds)| (x - bounds.start).ln() - (bounds.last - x).ln()).collect::<Box<[f64]>>())
                 .map_err(failed)?;
-            iter::repeat_with(|| sampler.draw().map_err(failed)).take(settings.hint_num_tune().strict_add(settings.hint_num_draws())).process_results(|drawn| {
+            iter::repeat_with(|| sampler.draw().map_err(failed)).take(settings.hint_num_tune().saturating_add(settings.hint_num_draws())).process_results(|drawn| {
                 drawn.take_while_inclusive(|(_, progress)| stop(progress).is_continue()).filter(|(_, progress)| !progress.tuning).fold(
                     Trace { draws: DMatrix::zeros(dimensions, 0), progress: Vec::new() },
                     |mut trace, (draw, progress)| {
@@ -158,11 +158,11 @@ where K: Ord {
     let dimensions = space.len().get();
     traces.iter().try_for_each(|trace| (trace.draws.nrows() == dimensions).ok_or(StatsError::Shape { expected: dimensions, found: trace.draws.nrows() }))?;
     let length = traces.iter().map(|trace| trace.draws.ncols()).min().unwrap_or_default();
-    let half = length.strict_div(2);
+    let half = length / 2;
     (half >= 2).ok_or(StatsError::Degenerate { found: length, sample: Sample::Draws })?;
     let normal = Normal::standard();
     let draws = nalgebra::convert::<usize, f64>(half);
-    let padded = half.strict_mul(2).strict_sub(1).next_power_of_two();
+    let padded = (half * 2 - 1).next_power_of_two();
     let stages = nalgebra::convert::<u32, usize>(padded.ilog2());
     let mut transforms = LazyCell::new(|| {
         let mut planner = FftPlanner::<f64>::new();
@@ -204,15 +204,12 @@ where K: Ord {
         let centered = DMatrixView::from_slice(&values, half, moments.len());
         let transformed = LazyCell::new(|| autocovariance(centered));
         let autocorrelation = |lag: usize| {
-            let lagged = if lag <= stages {
-                centered.column_iter().map(|chain| chain.rows_range(..half.strict_sub(lag)).dot(&chain.rows_range(lag..)) / draws).collect::<Mean>().mean()
-            } else {
-                transformed.row(lag).x
-            };
+            let lagged =
+                if lag <= stages { centered.column_iter().map(|chain| chain.rows_range(..half - lag).dot(&chain.rows_range(lag..)) / draws).collect::<Mean>().mean() } else { transformed.row(lag).x };
             1.0 - (within - lagged) / plus
         };
         let pairs = iter::once(1.0 + autocorrelation(1))
-            .chain((1..half.strict_div(2)).map(|pair| autocorrelation(pair.strict_mul(2)) + autocorrelation(pair.strict_mul(2).strict_add(1))))
+            .chain((1..half / 2).map(|pair| autocorrelation(pair * 2) + autocorrelation(pair * 2 + 1)))
             .take_while(|&sum| sum > 0.0)
             .scan(f64::INFINITY, |floor, sum| {
                 *floor = floor.min(sum);
@@ -227,8 +224,7 @@ where K: Ord {
         .map(|(dimension, key)| {
             let values = Iterator::try_collect::<Vec<_>>(&mut traces.iter().enumerate().flat_map(|(index, trace)| {
                 let indexed = |range: Range<usize>| iter::zip(range.clone(), trace.draws.view_range(dimension, range));
-                iter::chain(indexed(0..half), indexed(length.strict_sub(half)..length))
-                    .map(move |(draw, &value)| value.is_finite().then_some(value).ok_or(StatsError::Draw { trace: index, dimension, draw }))
+                iter::chain(indexed(0..half), indexed(length - half..length)).map(move |(draw, &value)| value.is_finite().then_some(value).ok_or(StatsError::Draw { trace: index, dimension, draw }))
             }))?;
             let mut ordered = Data::new(values.clone());
             let bulk = scores(&mut ordered);
@@ -254,7 +250,7 @@ pub fn fit(pairs: impl IntoIterator<Item = (f64, f64)>, parameters: u32) -> Resu
             moments.extend([(measured, residual, residual.powi(2))]);
             (moments, non_finite)
         } else {
-            (moments, non_finite.strict_add(1))
+            (moments, non_finite + 1)
         }
     });
     (measurements.len() > u64::from(parameters)).ok_or(StatsError::Pairs { found: measurements.len(), parameters })?;

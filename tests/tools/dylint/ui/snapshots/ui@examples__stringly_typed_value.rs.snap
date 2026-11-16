@@ -25,7 +25,7 @@ note: branched on here
 15 |             self.base().strict_mul(2)
 16 |         } else if level == "info" {
    |                   ^^^^^^^^^^^^^^^
-   = help: declare `level` as a `strum::EnumString` enum with a variant per value and parse the text where it enters
+   = help: rebuild the branches over the value `level` stands for, read from the type, member, or host stating it
    = note: `#[deny(stringly_typed_value)]` on by default
 
 error: field `kind` holds one of `"build"`, `"test"` as text
@@ -43,7 +43,7 @@ note: branched on here
 75 | |         _ => 0,
 76 | |     }
    | |_____^
-   = help: declare `kind` as a `strum::EnumString` enum with a variant per value and parse the text where it enters
+   = help: rebuild the branches over the value `kind` stands for, read from the type, member, or host stating it
 
 error: field `state` holds one of `"done"`, `"pending"` as text
   --> tests/tools/dylint/examples/stringly_typed_value.rs:51:5
@@ -56,7 +56,7 @@ note: branched on here
    |
 81 | fn finished(steps: &[Step]) -> usize { steps.iter().filter(|step| step.state == DONE).count() }
    |                                                                   ^^^^^^^^^^^^^^^^^^
-   = help: declare `state` as a `strum::EnumString` enum with a variant per value and parse the text where it enters
+   = help: rebuild the branches over the value `state` stands for, read from the type, member, or host stating it
 
 error: `level` holds one of `"warn"`, `"info"` as text
   --> tests/tools/dylint/examples/stringly_typed_value.rs:85:11
@@ -69,7 +69,7 @@ note: branched on here
    |
 85 | fn logged(level: &str, text: &str) -> String { if level == "warn" { text.to_uppercase() } else { text.to_owned() } }
    |                                                   ^^^^^^^^^^^^^^^
-   = help: declare `level` as a `strum::EnumString` enum with a variant per value and parse the text where it enters
+   = help: rebuild the branches over the value `level` stands for, read from the type, member, or host stating it
 
 error: `mode` holds one of `"fast"`, `"slow"`, `"pause"` as text
    --> tests/tools/dylint/examples/stringly_typed_value.rs:106:9
@@ -87,7 +87,7 @@ note: branched on here
 111 | |         _ => 0,
 112 | |     }
     | |_____^
-    = help: declare `mode` as a `strum::EnumString` enum with a variant per value and parse the text where it enters
+    = help: rebuild the branches over the value `mode` stands for, read from the type, member, or host stating it
 
 error: `level` holds one of `"warn"`, `"info"` as text
    --> tests/tools/dylint/examples/stringly_typed_value.rs:146:12
@@ -103,7 +103,7 @@ note: branched on here
 148 |         text.len()
 149 |     } else if level == "info" {
     |               ^^^^^^^^^^^^^^^
-    = help: declare `level` as a `strum::EnumString` enum with a variant per value and parse the text where it enters
+    = help: rebuild the branches over the value `level` stands for, read from the type, member, or host stating it
 
 error: `mode` holds one of `"fast"`, `"slow"` as text
    --> tests/tools/dylint/examples/stringly_typed_value.rs:169:10
@@ -120,7 +120,7 @@ note: branched on here
 173 | |         _ => 3,
 174 | |     }
     | |_____^
-    = help: declare `mode` as a `strum::EnumString` enum with a variant per value and parse the text where it enters
+    = help: rebuild the branches over the value `mode` stands for, read from the type, member, or host stating it
 
 error: field `kind` holds one of `"json"`, `"text"` as text
    --> tests/tools/dylint/examples/stringly_typed_value.rs:187:5
@@ -136,7 +136,7 @@ note: branched on here
 192 |         1
 193 |     } else if request.kind == "text" {
     |               ^^^^^^^^^^^^^^^^^^^^^^
-    = help: declare `kind` as a `strum::EnumString` enum with a variant per value and parse the text where it enters
+    = help: rebuild the branches over the value `kind` stands for, read from the type, member, or host stating it
 
 error: text-keyed `tally` is addressed by fixed keys `"ok"`, `"err"`
    --> tests/tools/dylint/examples/stringly_typed_value.rs:163:9
@@ -153,4 +153,4 @@ note: addressed here
     |                  ^^^^^
 166 |     tally.get("ok").copied().unwrap_or_default().strict_add(tally["err"])
     |               ^^^^                                                ^^^^^
-    = help: key `tally` by an enum with a variant per key, or replace it with a struct holding a field per key
+    = help: replace `tally` with a struct holding a field per key, or key it by the value each key stands for

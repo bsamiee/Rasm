@@ -145,7 +145,7 @@ pub(crate) fn projected(drawing: &mut CadDocument, space: &str, context: &Contex
             [(head_on, head), .., (tail_on, tail)] if head_on == tail_on => {
                 let phase = *tail;
                 *head += phase;
-                runs.truncate(runs.len().strict_sub(1));
+                runs.truncate(runs.len() - 1);
                 phase
             }
             _ => 0.0,
@@ -488,14 +488,9 @@ pub(crate) fn projected(drawing: &mut CadDocument, space: &str, context: &Contex
     let merge = |earlier: Validated<Vec<pages::Layer>, CadError>, more: Validated<Vec<pages::Layer>, CadError>| {
         earlier.map2(more, |earlier, more| {
             more.into_iter().fold(earlier, |mut layers, added| {
-                if let Some(last) = layers.last_mut()
-                    && last.name == added.name
-                    && last.print == added.print
-                    && last.view == added.view
-                {
-                    last.elements.extend(added.elements);
-                } else {
-                    layers.push(added);
+                match layers.last_mut() {
+                    Some(last) if last.name == added.name && last.print == added.print && last.view == added.view => last.elements.extend(added.elements),
+                    Some(_) | None => layers.push(added),
                 }
                 layers
             })
@@ -563,16 +558,13 @@ pub(crate) fn written(document: &mut CadDocument, space: &str, layers: Vec<pages
             elements
                 .into_iter()
                 .enumerate()
-                .map(|(index, element)| -> Validated<(), CadError> {
+                .map(|(index, element)| -> Result<(), NEVec<CadError>> {
                     let subject = Subject::Element { space: Arc::clone(&space), layer: Arc::clone(&name), index };
-                    entities(document, element, &name, (frame, unit), authoring.tolerance, &subject)
-                        .and_then(|entities| {
-                            entities.into_iter().try_for_each(|entity| {
-                                document.add_entity_to_layout(entity, &space).map(|_| ()).map_err(|source| NEVec::new(CadError::Drawing { operation: Operation::Layout(Arc::clone(&space)), source }))
-                            })
-                        })
-                        .map_or_else(Validated::Fail, Validated::Good)
+                    entities(document, element, &name, (frame, unit), authoring.tolerance, &subject)?.into_iter().try_for_each(|entity| {
+                        document.add_entity_to_layout(entity, &space).map(|_| ()).map_err(|source| NEVec::new(CadError::Drawing { operation: Operation::Layout(Arc::clone(&space)), source }))
+                    })
                 })
+                .map(|outcome| outcome.map_or_else(Validated::Fail, Validated::Good))
                 .collect::<Validated<(), _>>()
                 .ok()
                 .map(|()| handle)

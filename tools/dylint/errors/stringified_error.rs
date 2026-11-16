@@ -175,7 +175,7 @@ impl<'tcx> Visitor<'tcx> for Uses<'tcx> {
     fn visit_expr(&mut self, ex: &'tcx Expr<'tcx>) {
         if let Some(local) = ex.res_local_id() {
             self.locals.entry(local).or_default().push((self.position, ex));
-            self.position = self.position.strict_add(1);
+            self.position += 1;
         }
         intravisit::walk_expr(self, ex);
         self.ends.insert(ex.hir_id, self.position);
@@ -402,33 +402,31 @@ fn handed_off<'tcx>(cx: &LateContext<'tcx>, produced: Ty<'tcx>) -> bool { produc
 impl<'tcx> LateLintPass<'tcx> for Pass<'tcx> {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) {
         let typeck = cx.typeck_results();
-        let rendered =
-            match (expr.kind, expanded_externally(cx, expr.span)) {
-                (ExprKind::MethodCall(_, operand, [], _) | ExprKind::Call(_, [operand]), false) if fn_def_id(cx, expr).is_diag_item(cx, sym::to_string_method) =>
-                    Some((expr.span, typeck.expr_ty(operand))),
-                (ExprKind::Path(_), false) if fn_item_value(cx, expr).is_diag_item(cx, sym::to_string_method) =>
-                    typeck.expr_ty(expr).fn_sig(cx.tcx).skip_binder().inputs().first().map(|&input| (expr.span, input)),
-                _ if let Some(call) =
-                    first_node_macro_backtrace(cx, expr).find(|call| cx.tcx.is_diagnostic_item(sym::format_macro, call.def_id)).filter(|call| !expanded_externally(cx, call.span)) =>
-                    self.format_args
-                        .get(cx, expr, call.expn)
-                        .and_then(|arguments| {
-                            arguments
-                                .template
-                                .iter()
-                                .filter_map(|piece| {
-                                    let FormatArgsPiece::Placeholder(placeholder) = piece else { return None };
-                                    let argument = arguments.arguments.all_args().get(placeholder.argument.index.ok()?)?;
-                                    find_format_arg_expr(expr, argument).map(|value| typeck.expr_ty(value))
-                                })
-                                .fold_while(None, |first, operand| {
-                                    if is_error(cx, operand) { FoldWhile::Done(Some(operand)) } else { FoldWhile::Continue(first.or_else(|| (!is_text(cx, operand)).then_some(operand))) }
-                                })
-                                .into_inner()
-                        })
-                        .map(|operand| (call.span, operand)),
-                _ => None,
-            };
+        let rendered = match (expr.kind, expanded_externally(cx, expr.span)) {
+            (ExprKind::MethodCall(_, operand, [], _) | ExprKind::Call(_, [operand]), false) if fn_def_id(cx, expr).is_diag_item(cx, sym::to_string_method) =>
+                Some((expr.span, typeck.expr_ty(operand))),
+            (ExprKind::Path(_), false) if fn_item_value(cx, expr).is_diag_item(cx, sym::to_string_method) =>
+                typeck.expr_ty(expr).fn_sig(cx.tcx).skip_binder().inputs().first().map(|&input| (expr.span, input)),
+            _ if let Some(call) = first_node_macro_backtrace(cx, expr).find(|call| cx.tcx.is_diagnostic_item(sym::format_macro, call.def_id)).filter(|call| !expanded_externally(cx, call.span))
+                && let Some(arguments) = self.format_args.get(cx, expr, call.expn) =>
+                arguments
+                    .template
+                    .iter()
+                    .filter_map(|piece| {
+                        let FormatArgsPiece::Placeholder(placeholder) = piece else { return None };
+                        let argument = arguments.arguments.all_args().get(placeholder.argument.index.ok()?)?;
+                        find_format_arg_expr(expr, argument).map(|value| typeck.expr_ty(value))
+                    })
+                    .fold_while(
+                        None,
+                        |first, operand| {
+                            if is_error(cx, operand) { FoldWhile::Done(Some(operand)) } else { FoldWhile::Continue(first.or_else(|| (!is_text(cx, operand)).then_some(operand))) }
+                        },
+                    )
+                    .into_inner()
+                    .map(|operand| (call.span, operand)),
+            _ => None,
+        };
         if let Some((span, operand)) = rendered.filter(|&(_, operand)| !is_text(cx, operand))
             && let error = is_error(cx, operand)
             && let Some(sink) = sink(cx, self, expr, error.then_some(operand))

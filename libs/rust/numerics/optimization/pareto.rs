@@ -38,10 +38,12 @@ pub fn rank(objectives: DMatrixView<'_, f64>, constraints: Option<DMatrixView<'_
             sorted.extend(members.iter().enumerate().map(|(slot, &(point, _))| (slot, row[point])).filter(|&(_, value)| !value.is_nan()));
             sorted.sort_unstable_by(|&(left, value), &(right, against)| value.total_cmp(&against).then_with(|| left.cmp(&right)));
             let mut finite = sorted.iter().map(|&(_, value)| value).filter(|value| value.is_finite());
-            let span = finite.next().zip(finite.next_back()).filter(|(low, high)| low < high).map(|(low, high)| {
-                let scale = if (high - low).is_finite() { 1.0 } else { 0.5 };
-                (scale, low.mul_add(-scale, high * scale))
-            });
+            let span = finite
+                .next()
+                .zip(finite.next_back())
+                .filter(|(low, high)| low < high)
+                .map(|(low, high)| (if (high - low).is_finite() { 1.0 } else { 0.5 }, low, high))
+                .map(|(scale, low, high)| (scale, low.mul_add(-scale, high * scale)));
             let gaps = iter::once(f64::INFINITY)
                 .chain(sorted.array_windows().map(|&[(_, before), _, (_, after)]| span.filter(|_| before < after).map_or_default(|(scale, span)| before.mul_add(-scale, after * scale) / span)))
                 .chain(iter::once(f64::INFINITY))

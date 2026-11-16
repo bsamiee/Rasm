@@ -160,16 +160,10 @@ where
             }
             .unzip();
             (try {
-                if let Some(replacement) = replacement {
-                    solver.update_P(replacement.as_ref())?;
-                }
+                replacement.map(|replacement| solver.update_P(replacement.as_ref())).transpose()?;
                 solver.update_q(&update.linear)?;
-                if let Some(matrix) = matrix {
-                    solver.update_A(&matrix)?;
-                }
-                if let Some(b) = b {
-                    solver.update_b(&b)?;
-                }
+                matrix.map(|matrix| solver.update_A(&matrix)).transpose()?;
+                b.map(|b| solver.update_b(&b)).transpose()?;
             })
             .map_err(|source| NEVec::new(OptimizeError::Update(source)))?;
         }

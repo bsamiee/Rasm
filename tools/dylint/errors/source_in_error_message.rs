@@ -73,9 +73,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             && derives(cx, cx.tcx.type_of(item.owner_id).instantiate_identity().skip_normalization(), sym::Error)
         {
             for (node, span, message, help) in cx.tcx.adt_def(item.owner_id).variants().iter().filter_map(|variant| printed_source(cx, variant)) {
-                span_lint_hir_and_then(cx, SOURCE_IN_ERROR_MESSAGE, node, span, message, |diag| {
-                    diag.help(help);
-                });
+                span_lint_hir_and_then(cx, SOURCE_IN_ERROR_MESSAGE, node, span, message, |diag| _ = diag.help(help));
             }
         }
     }

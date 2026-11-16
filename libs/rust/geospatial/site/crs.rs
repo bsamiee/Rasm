@@ -76,13 +76,13 @@ impl Crs {
             (72.0.., 9.0..21.0) => 33,
             (72.0.., 21.0..33.0) => 35,
             (72.0.., 33.0..42.0) => 37,
-            _ => (east.floor() + 180.0).rem_euclid(360.0).div_euclid(6.0).to_int_saturating::<u32>().strict_add(1),
+            _ => (east.floor() + 180.0).rem_euclid(360.0).div_euclid(6.0).to_int_saturating::<u32>() + 1,
         };
         let code = match north {
             _ if north > 84.0 => 32_661,
             ..-80.0 => 32_761,
-            ..0.0 => 32_700_u32.strict_add(zone),
-            _ => 32_600_u32.strict_add(zone),
+            ..0.0 => 32_700_u32 + zone,
+            _ => 32_600_u32 + zone,
         };
         Self(Cow::Owned(format!("EPSG:{code}")))
     }

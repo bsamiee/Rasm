@@ -230,41 +230,41 @@ impl Options {
         let carrier = HashMap::<_, _>::from_iter(fields.into_iter().filter_map(|(name, value)| Some((name.to_owned(), value?))));
         let located = file.as_ref().ok().and_then(Option::as_ref);
         let local = Dispatch::new(tracing_subscriber::registry().with(LevelFilter::WARN).with(written(&json, located, stderr.clone())));
-        let started = dispatcher::with_default(&local, || {
-            (try bikeshed Result<_, NEVec<ObservabilityError>> {
-                let file = file?;
-                let (filtered, handle) = reload::Layer::new(Filter::directed(&scopes, &directives, level)?);
-                let filter = Filter { handle, scopes: scopes.into(), directives: directives.into(), level: Arc::new(Mutex::new(level)) };
-                let providers = Providers::otlp(exported, &resource)?;
-                let records = tracing_subscriber::registry().with(filtered).with(layer).with(written(&json, file.as_ref(), stderr)).with(providers.layer());
-                Validated::from(subscriber::set_global_default(records).map_err(|SetGlobalDefaultError { .. }| ObservabilityError::Dispatch))
-                    .map2(Validated::from(LogTracer::init().map_err(|SetLoggerError { .. }| ObservabilityError::Forward)), |(), ()| ())
-                    .ok()?;
-                global::set_tracer_provider(providers.tracer.clone());
-                global::set_text_map_propagator(TextMapCompositePropagator::new(composed.collect()));
-                let parent = global::get_text_map_propagator(|propagator| propagator.extract(&carrier));
-                if let Some(meter) = &providers.meter {
-                    global::set_meter_provider(meter.clone());
-                    opentelemetry_instrumentation_tokio::observe_current_runtime();
-                    metrics::process(meter, || [process::id()]).map_or_else(|error| tracing::warn!({ EXCEPTION_MESSAGE } = %Report::new(&error), "process metrics unavailable"), drop);
-                }
-                let exporting = detected.then(|| DropGuard::new((providers, local.clone()), stopped as fn(_)));
-                let previous = Arc::<dyn Fn(&PanicHookInfo<'_>) + Send + Sync>::from(panic::take_hook());
-                let chained = Arc::clone(&previous);
+        let scoped = dispatcher::set_default(&local);
+        let started = (try bikeshed Result<_, NEVec<ObservabilityError>> {
+            let file = file?;
+            let (filtered, handle) = reload::Layer::new(Filter::directed(&scopes, &directives, level)?);
+            let filter = Filter { handle, scopes: scopes.into(), directives: directives.into(), level: Arc::new(Mutex::new(level)) };
+            let providers = Providers::otlp(exported, &resource)?;
+            let records = tracing_subscriber::registry().with(filtered).with(layer).with(written(&json, file.as_ref(), stderr)).with(providers.layer());
+            Validated::from(subscriber::set_global_default(records).map_err(|SetGlobalDefaultError { .. }| ObservabilityError::Dispatch))
+                .map2(Validated::from(LogTracer::init().map_err(|SetLoggerError { .. }| ObservabilityError::Forward)), |(), ()| ())
+                .ok()?;
+            global::set_tracer_provider(providers.tracer.clone());
+            global::set_text_map_propagator(TextMapCompositePropagator::new(composed.collect()));
+            let parent = global::get_text_map_propagator(|propagator| propagator.extract(&carrier));
+            if let Some(meter) = &providers.meter {
+                global::set_meter_provider(meter.clone());
+                opentelemetry_instrumentation_tokio::observe_current_runtime();
+                metrics::process(meter, || [process::id()]).map_or_else(|error| tracing::warn!({ EXCEPTION_MESSAGE } = %Report::new(&error), "process metrics unavailable"), drop);
+            }
+            let exporting = detected.then(|| DropGuard::new((providers, local.clone()), stopped as fn(_)));
+            let previous = Arc::<dyn Fn(&PanicHookInfo<'_>) + Send + Sync>::from(panic::take_hook());
+            let chained = Arc::clone(&previous);
+            #[cfg(panic = "abort")]
+            let flushed = (exporting.as_deref().cloned(), file.clone());
+            panic::set_hook(Box::new(move |info| {
+                crate::panicked(info);
                 #[cfg(panic = "abort")]
-                let flushed = (exporting.as_deref().cloned(), file.clone());
-                panic::set_hook(Box::new(move |info| {
-                    crate::panicked(info);
-                    #[cfg(panic = "abort")]
-                    flushed.0.iter().cloned().for_each(stopped);
-                    #[cfg(panic = "abort")]
-                    flushed.1.iter().cloned().for_each(Appender::flushed);
-                    chained(info);
-                }));
-                (file.map(|file| DropGuard::new(file, Appender::flushed as fn(_))), filter, parent, exporting, previous)
-            })
-            .inspect_err(reported)
-        });
+                flushed.0.iter().cloned().for_each(stopped);
+                #[cfg(panic = "abort")]
+                flushed.1.iter().cloned().for_each(Appender::flushed);
+                chained(info);
+            }));
+            (file.map(|file| DropGuard::new(file, Appender::flushed as fn(_))), filter, parent, exporting, previous)
+        })
+        .inspect_err(reported);
+        drop(scoped);
         let (appended, filter, parent, exporting, previous) = started.map_err(Either::Left)?;
         for Refusal { setting, error } in &refused {
             let (value, accepted) = (error.get(ContextKind::InvalidValue).map(field::display), error.get(ContextKind::ValidValue).map(field::display));

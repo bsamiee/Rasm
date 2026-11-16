@@ -133,10 +133,8 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 let inference = LazyCell::new(|| tcx.infer_ctxt().build_with_typing_env(ty::TypingEnv::new(ty::ParamEnv::new(tcx, required.iter().copied()), ty::TypingMode::non_body_analysis())));
                 tcx.clauses_of(item.owner_id).instantiate_own_identity().all(|(clause, _)| {
                     let clause = clause.skip_normalization();
-                    required.contains(&clause) || {
-                        let (infcx, param_env) = &*inference;
-                        infcx.evaluate_obligation(&Obligation::new(tcx, ObligationCause::dummy(), *param_env, clause)).is_ok_and(EvaluationResult::must_apply_considering_regions)
-                    }
+                    required.contains(&clause)
+                        || inference.0.evaluate_obligation(&Obligation::new(tcx, ObligationCause::dummy(), inference.1, clause)).is_ok_and(EvaluationResult::must_apply_considering_regions)
                 })
             }
         {

@@ -95,7 +95,7 @@ fn bound_to_trait<'tcx>(cx: &LateContext<'tcx>, function: LocalDefId, implemente
         .enumerate()
         .map(|(index, argument)| {
             if index >= inherited {
-                declared.get(tcx.generics_of(declaration).parent_count.strict_add(index.strict_sub(inherited))).copied()
+                declared.get(tcx.generics_of(declaration).parent_count + (index - inherited)).copied()
             } else {
                 implementation.args.iter().zip(declared).find_map(|(held, target)| (held == argument).then_some(target))
             }
@@ -146,19 +146,21 @@ fn bound_to_trait<'tcx>(cx: &LateContext<'tcx>, function: LocalDefId, implemente
                     (false, None) => return ControlFlow::Break(()),
                 }
             }
-            if let Some(called) = resolved.filter(|&called| matches!(tcx.def_kind(called), DefKind::Fn | DefKind::AssocFn | DefKind::Const | DefKind::AssocConst | DefKind::Static { .. }))
-                && let called_args = typeck.node_args(expr.hir_id)
-                && called_args.iter().filter_map(GenericArg::as_type).any(depends)
+            match resolved
+                .filter(|&called| matches!(tcx.def_kind(called), DefKind::Fn | DefKind::AssocFn | DefKind::Const | DefKind::AssocConst | DefKind::Static { .. }))
+                .map(|called| (called, typeck.node_args(expr.hir_id)))
+                .filter(|&(_, called_args)| called_args.iter().filter_map(GenericArg::as_type).any(depends))
+                .map(|(called, called_args)| (called, rebased(tcx, called_args, arguments, declared_owner)))
             {
-                let called_args = rebased(tcx, called_args, arguments, declared_owner);
-                if called_args.has_erased_regions() {
-                    return ControlFlow::Break(());
+                Some((_, called_args)) if called_args.has_erased_regions() => ControlFlow::Break(()),
+                Some((called, called_args)) => {
+                    obligations.register_obligations(
+                        tcx.clauses_of(called).instantiate(tcx, called_args).clauses.into_iter().map(|clause| Obligation::new(tcx, cause.clone(), param_env, clause.skip_normalization())),
+                    );
+                    ControlFlow::Continue(())
                 }
-                obligations.register_obligations(
-                    tcx.clauses_of(called).instantiate(tcx, called_args).clauses.into_iter().map(|clause| Obligation::new(tcx, cause.clone(), param_env, clause.skip_normalization())),
-                );
+                None => ControlFlow::Continue(()),
             }
-            ControlFlow::Continue(())
         })
         .is_some();
         (!unavailable && obligations.evaluate_obligations_error_on_ambiguity().no_errors()).ok_or(())
@@ -176,8 +178,8 @@ impl<'tcx> LateLintPass<'tcx> for Pass<'tcx> {
         {
             bucket
                 .iter()
-                .fold(FxIndexMap::<LocalDefId, (T, Option<(Vec<LocalDefId>, Difference<'tcx>)>)>::default(), |mut families, &(later, data)| {
-                    let added = families.iter_mut().any(|(&root, (earlier, family))| match (family, varied(root, *earlier, later, data)) {
+                .fold(FxIndexMap::<LocalDefId, (T, Option<(Vec<LocalDefId>, Difference<'tcx>)>)>::default(), |mut families, &(later, data)| match later {
+                    _ if families.iter_mut().any(|(&root, (earlier, family))| match (family, varied(root, *earlier, later, data)) {
                         (family @ None, Some(form @ (Difference::Value(..) | Difference::ConstantPerType(..) | Difference::Type { .. }))) => {
                             *family = Some((vec![later], form));
                             true
@@ -203,11 +205,12 @@ impl<'tcx> LateLintPass<'tcx> for Pass<'tcx> {
                         | (Some((_, Difference::Value(..))), Some(Difference::ConstantPerType(..) | Difference::Type { .. }))
                         | (Some((_, Difference::ConstantPerType(..))), Some(Difference::Value(..) | Difference::ConstantPerType(..) | Difference::Type { .. }))
                         | (Some((_, Difference::Type { .. })), Some(Difference::Value(..) | Difference::ConstantPerType(..) | Difference::Type { .. })) => false,
-                    });
-                    if !added {
+                    }) =>
+                        families,
+                    _ => {
                         families.insert(later, (data, None));
+                        families
                     }
-                    families
                 })
                 .into_iter()
                 .filter_map(|(root, (_, family))| Some((root, family?)))
@@ -226,7 +229,10 @@ impl<'tcx> LateLintPass<'tcx> for Pass<'tcx> {
             let repeat = if let [_] = members { "repeats" } else { "repeat" };
             let values = |differing: &FxIndexSet<HirId>| {
                 let written = differing.iter().map(|&value| snippet(cx, tcx.hir_span(value), "..")).unique().collect::<Vec<_>>();
-                let other = if let [_] = &written { "another value" } else { "other values" };
+                let other = match &written {
+                    [_] => "another value",
+                    _ => "other values",
+                };
                 listify(&written, |value| format!("`{value}`")).map(|shown| format!("{other} in place of {shown}"))
             };
             let varied = with_forced_trimmed_paths!(match form {
@@ -238,7 +244,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass<'tcx> {
                 Difference::Value(None, differing) =>
                     Some(format!("replace {every} with one function that takes {}", if differing.len() == 1 { "the value as a parameter" } else { "the values as parameters" })),
                 Difference::ConstantPerType(implemented, _) => listify(&functions.iter().filter_map(|&function| owner(tcx, function)).collect::<Vec<_>>(), |held| format!("`{held}`"))
-                    .map(|owners| format!("replace {owners} with one struct holding the value, one `const` per replaced type, and one `{}` impl", tcx.item_name(*implemented))),
+                    .map(|owners| format!("replace {owners} with one type holding the value as a field and one `{}` impl", tcx.item_name(*implemented))),
                 Difference::Type { from: _, traits: _, direct: Some(method) } => Some(format!("call `{}` directly in place of {every}", item_path(cx, *method))),
                 Difference::Type { from: _, traits, direct: None } =>
                     Some(format!("replace {every} with one function generic over `S: {}`", traits.iter().map(|implemented| implemented.print_only_trait_path().to_string()).join(" + "))),
@@ -268,25 +274,13 @@ impl<'tcx> LateLintPass<'tcx> for Pass<'tcx> {
             let (from_types, to_types) = (adts(earlier_signature.skip_binder().inputs_and_output), adts(later_signature.skip_binder().inputs_and_output));
             let mut candidates = from_types.iter().copied().filter(|held| !to_types.contains(held)).collect::<Vec<_>>();
             candidates.sort_by_key(|held| held.walk().count());
-            let (from, to) = candidates.into_iter().find_map(|from| {
-                to_types
-                    .iter()
-                    .copied()
-                    .filter(|held| !from_types.contains(held))
-                    .find(|&to| {
-                        from.ty_adt_def() != to.ty_adt_def()
-                            && substitute_types(tcx, (later_signature, later_contract.clauses), |held| (held == to).then_some(from)) == (earlier_signature, earlier_contract.clauses)
-                    })
-                    .map(|to| (from, to))
+            let (from, to) = candidates.into_iter().flat_map(|from| to_types.iter().copied().filter(|held| !from_types.contains(held)).map(move |to| (from, to))).find(|&(from, to)| {
+                from.ty_adt_def() != to.ty_adt_def()
+                    && substitute_types(tcx, (later_signature, later_contract.clauses), |held| (held == to).then_some(from)) == (earlier_signature, earlier_contract.clauses)
             })?;
-            let ctor_of = |held: Ty<'tcx>, adt: Ty<'tcx>| {
-                if let ty::FnDef(ctor, _) = *held.kind()
-                    && let DefKind::Ctor(CtorOf::Struct, _) = tcx.def_kind(ctor)
-                {
-                    adt.ty_adt_def().is_some_and(|built| built.did() == tcx.parent(ctor))
-                } else {
-                    false
-                }
+            let ctor_of = |held: Ty<'tcx>, adt: Ty<'tcx>| match *held.kind() {
+                ty::FnDef(ctor, _) if let DefKind::Ctor(CtorOf::Struct, _) = tcx.def_kind(ctor) => adt.ty_adt_def().is_some_and(|built| built.did() == tcx.parent(ctor)),
+                _ => false,
             };
             bodies.equal(
                 cx,
@@ -300,27 +294,27 @@ impl<'tcx> LateLintPass<'tcx> for Pass<'tcx> {
                 },
                 |left, right| substitute_types(tcx, right, |held| (held == to).then_some(from)) == left,
             )?;
-            let generic_calls = |function: LocalDefId, held: Ty<'tcx>| {
-                let typeck = tcx.typeck(function);
-                let receives = |node: HirId| typeck.node_args_opt(node).and_then(|args| args.types().next()).is_some_and(|receiver| receiver.peel_refs() == held);
-                let mut called = Vec::new();
-                let _: Option<()> = for_each_expr(tcx, tcx.hir_body_owned_by(function).value, |expr| {
-                    called.extend(
-                        typeck.type_dependent_def_id(expr.hir_id).or_else(|| expr.res(typeck).opt_def_id().filter(|&item| tcx.def_kind(item) == DefKind::AssocFn)).map(|item| (expr.hir_id, item)),
-                    );
-                    ControlFlow::Continue(())
-                });
-                let bound = |node: HirId, implemented: DefId| {
-                    let args = typeck.node_args(node).truncate_to(tcx, tcx.generics_of(implemented));
-                    substitute_types(tcx, TraitRef::new_from_args(tcx, implemented, args), |written| (written == held).then(|| Ty::new_param(tcx, 0, Symbol::intern("S"))))
-                };
-                (!called.iter().any(|&(_, item)| impl_owner(tcx, item).is_some_and(|owner| owner.ty_adt_def() == held.ty_adt_def())))
-                    .then(|| called.iter().filter(|&&(node, _)| receives(node)).filter_map(|&(node, item)| Some(bound(node, tcx.trait_of_assoc(item)?))).unique().collect::<Vec<_>>())
-            };
-            let traits = generic_calls(earlier, from)?;
+            let mut calls = Vec::new();
+            let _: Option<()> = for_each_expr(tcx, (tcx.hir_body_owned_by(earlier).value, tcx.hir_body_owned_by(later).value), |expr| {
+                let typeck = tcx.typeck(expr.hir_id.owner.def_id);
+                calls
+                    .extend(typeck.type_dependent_def_id(expr.hir_id).or_else(|| expr.res(typeck).opt_def_id().filter(|&item| tcx.def_kind(item) == DefKind::AssocFn)).map(|item| (expr.hir_id, item)));
+                ControlFlow::Continue(())
+            });
+            let foreign = [(earlier, from), (later, to)]
+                .iter()
+                .any(|&(function, held)| calls.iter().any(|&(node, item)| node.owner.def_id == function && impl_owner(tcx, item).is_some_and(|owner| owner.ty_adt_def() == held.ty_adt_def())));
             let owned = tcx.hir_body_owned_by(earlier);
             let body = peel_blocks(owned.value);
             let typeck = tcx.typeck(earlier);
+            let traits = calls
+                .iter()
+                .filter(|&&(node, _)| node.owner.def_id == earlier && typeck.node_args_opt(node).and_then(|args| args.types().next()).is_some_and(|receiver| receiver.peel_refs() == from))
+                .filter_map(|&(node, item)| Some((node, tcx.trait_of_assoc(item)?)))
+                .map(|(node, implemented)| TraitRef::new_from_args(tcx, implemented, typeck.node_args(node).truncate_to(tcx, tcx.generics_of(implemented))))
+                .map(|bound| substitute_types(tcx, bound, |written| (written == from).then(|| Ty::new_param(tcx, 0, Symbol::intern("S")))))
+                .unique()
+                .collect::<Vec<_>>();
             let passed = |argument: &Expr<'_>| parameter(owned, argument).is_some();
             let direct = match body.kind {
                 ExprKind::Call(&Expr { kind: ExprKind::Path(qpath), hir_id, .. }, arguments) if arguments.iter().all(passed) => typeck.qpath_res(&qpath, hir_id).opt_def_id(),
@@ -328,7 +322,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass<'tcx> {
                 _ => None,
             }
             .filter(|&called| tcx.trait_of_assoc(called).is_some_and(|implemented| traits.iter().any(|bound| bound.def_id == implemented)));
-            (!traits.is_empty() && generic_calls(later, to).is_some()).then_some(Difference::Type { from, traits, direct })
+            (!foreign && !traits.is_empty()).then_some(Difference::Type { from, traits, direct })
         }
 
         fn varied_value<'tcx>(cx: &LateContext<'tcx>, earlier: LocalDefId, later: LocalDefId, differences: &[(HirId, HirId)]) -> Option<Difference<'tcx>> {
@@ -382,10 +376,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass<'tcx> {
                     tcx.local_def_id_to_hir_id(duplicate),
                     tcx.def_span(duplicate),
                     format!("`{duplicate_path}` repeats the body and signature of `{kept_path}`"),
-                    |diag| {
-                        diag.span_note(tcx.def_span(kept), format!("`{kept_path}` declared here"));
-                        diag.help(format!("delete `{duplicate_path}` and call `{kept_path}` at each call site"));
-                    },
+                    |diag| _ = diag.span_note(tcx.def_span(kept), format!("`{kept_path}` declared here")).help(format!("delete `{duplicate_path}` and call `{kept_path}` at each call site")),
                 );
             }
             let forwards = |function: LocalDefId| {
@@ -409,7 +400,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass<'tcx> {
                 (Some(_), ..) | (None, None, true, _) => None,
                 (None, Some(_), ..) => Some(format!("move the body into `{name}::{method}` as its default and delete each repeated `{method}`")),
                 (None, None, false, Some(common)) => Some(format!("replace the impls with one `{name}` impl generic over `{}` type arguments", tcx.def_path_str(common.did()))),
-                (None, None, false, None) => Some(format!("generate the `{name}` impls from one `macro_rules!` over the implementing type")),
+                (None, None, false, None) => Some(format!("replace the implementing types with one type holding what they differ by as a field and one `{name}` impl")),
             };
             match (every, help) {
                 (Some(local), _) =>
@@ -457,18 +448,14 @@ impl<'tcx> LateLintPass<'tcx> for Pass<'tcx> {
                 .iter()
                 .fold(FxIndexMap::<LocalDefId, Vec<LocalDefId>>::default(), |mut groups, &function| {
                     let mut matching = groups
-                        .iter_mut()
-                        .filter(|&(&kept, _)| !one_expansion(kept, function))
-                        .filter_map(|(&kept, members)| bodies.equal(cx, kept, function, literal_difference, |first, second| first == second).map(|differences| (kept, members, differences)))
-                        .take_while_inclusive(|(_, _, differences)| !differences.is_empty())
+                        .keys()
+                        .filter(|&&kept| !one_expansion(kept, function))
+                        .filter_map(|&kept| bodies.equal(cx, kept, function, literal_difference, |first, second| first == second).map(|differences| (kept, differences)))
+                        .take_while_inclusive(|(_, differences)| !differences.is_empty())
                         .collect::<Vec<_>>();
-                    let equal = matching.pop_if(|(_, _, differences)| differences.is_empty());
-                    if let Some((_, group, _)) = equal {
-                        group.push(function);
-                    } else {
-                        compared.extend(matching.into_iter().map(|(kept, _, differences)| ((kept, function), differences)));
-                        groups.insert(function, Vec::new());
-                    }
+                    let equal = matching.pop_if(|(_, differences)| differences.is_empty()).map(|(kept, _)| kept);
+                    compared.extend(matching.into_iter().filter(|_| equal.is_none()).map(|(kept, differences)| ((kept, function), differences)));
+                    groups.entry(equal.unwrap_or(function)).or_default().extend(equal.map(|_| function));
                     groups
                 })
                 .into_iter()
@@ -489,12 +476,9 @@ impl<'tcx> LateLintPass<'tcx> for Pass<'tcx> {
         let families = valued
             .flat_map(|bucket| families(&bucket, |earlier, (), later, ()| compared.get(&(earlier, later)).and_then(|differences| varied_value(cx, earlier, later, differences))))
             .chain(typed.values().flat_map(|bucket| {
-                families(
-                    bucket,
-                    |earlier, earlier_signature, later, later_signature| {
-                        if one_expansion(earlier, later) { None } else { varied_type(bodies, cx, earlier, later, earlier_signature, later_signature) }
-                    },
-                )
+                families(bucket, |earlier, earlier_signature, later, later_signature| {
+                    (!one_expansion(earlier, later)).then(|| varied_type(bodies, cx, earlier, later, earlier_signature, later_signature)).flatten()
+                })
             }));
         for (root, (members, form)) in families {
             parameterized(cx, root, &members, &form);

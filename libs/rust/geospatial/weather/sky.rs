@@ -200,7 +200,7 @@ where K: Ord + Hash {
         let clearness = ((((horizontal + normal) / horizontal).max(1.0) + cubed) / (1.0 + cubed)).clamp(1.0, 11.9);
         let measured = (horizontal / 0.15_f64.mul_add((93.885 - zenith.to_degrees()).powf(-1.253), zenith.cos()) / extraterrestrial).max(0.01);
         let brightness = if clearness > held.lower && clearness < released.lower { measured.max(0.2) } else { measured };
-        let bin = PEREZ.partition_point(|row| clearness >= row.lower).strict_sub(1);
+        let bin = PEREZ.partition_point(|row| clearness >= row.lower) - 1;
         (brightness, bin, &PEREZ[bin])
     }
 
@@ -259,7 +259,7 @@ where K: Ord + Hash {
             let distribution = match model {
                 Model::Perez => measured.map(|(brightness, bin, row)| (coefficients(brightness, zenith, bin, row.distribution), 1.0, zenith)),
                 Model::Cie(kind) => {
-                    let coefficients @ [_, _, circumsolar, width, _] = GENERAL[usize::from(kind.get()).strict_sub(1)];
+                    let coefficients @ [_, _, circumsolar, width, _] = GENERAL[usize::from(kind.get()) - 1];
                     Some((coefficients, circumsolar.mul_add(-(width * FRAC_PI_2).exp(), 1.0), position.zenith_angle().clamp(0.0, 90.0).to_radians()))
                 }
             };
@@ -295,7 +295,7 @@ where K: Ord + Hash {
             });
             for ((_, _, hour, share), (diffuse, beam, ([horizon, gradient, circumsolar, width, backscatter], baseline, zenith)), position) in lit {
                 let toward = direction(Angle::new::<degree>(position.azimuth()), Angle::new::<radian>(FRAC_PI_2 - zenith), UnitQuaternion::identity());
-                luminance.resize(dome.len().strict_sub(1), 0.0);
+                luminance.resize(dome.len() - 1, 0.0);
                 let horizontal = iter::zip(luminance.iter_mut(), dome.iter().skip(1)).fold(0.0, |total, (relative, patch)| {
                     let scattering = toward.dot(&patch.direction).clamp(-1.0, 1.0);
                     *relative = (horizon.mul_add((gradient / patch.direction.z).exp(), 1.0)

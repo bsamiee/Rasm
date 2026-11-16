@@ -32,8 +32,8 @@ pub fn convolve(data: &Series, kernel: &Series, product: Product, boundary: Boun
     let (samples, taps) = (data.samples.len(), kernel.samples.len());
     (data.rate == kernel.rate).ok_or(SpectraError::Rates { rates: [data.rate, kernel.rate] })?;
     let ([front, back], stride) = match mode {
-        ConvMode::Full => ([taps.strict_sub(1); 2], 1),
-        ConvMode::Same => ([taps / 2, taps.strict_sub(1) / 2], 1),
+        ConvMode::Full => ([taps - 1; 2], 1),
+        ConvMode::Same => ([taps / 2, (taps - 1) / 2], 1),
         ConvMode::Valid => ([0; 2], 1),
         ConvMode::Custom { padding: [side], strides: [stride] } => ([side; 2], stride),
         ConvMode::Explicit { padding: [sides], strides: [stride] } => (sides, stride),
@@ -57,7 +57,7 @@ pub fn convolve(data: &Series, kernel: &Series, product: Product, boundary: Boun
     (extends && samples.checked_add(front).and_then(|padded| padded.checked_add(back)).is_some()).ok_or_else(refused)?;
     let rate = Rate::try_new(*data.rate / convert::<usize, f64>(stride.get()))?;
     let (oriented, reach) = match product {
-        Product::Convolution => (kernel.samples.reverse(), taps.strict_sub(1)),
+        Product::Convolution => (kernel.samples.reverse(), taps - 1),
         Product::Correlation => (kernel.samples.no_reverse(), 0),
     };
     let output = data.samples.conv_fft_par(oriented, mode, padding).map_err(|(Error::DataShape(_) | Error::KernelShape(_) | Error::MismatchShape(..))| refused())?;
@@ -68,7 +68,7 @@ pub fn deconvolve(recording: &Series, excitation: &Series, regularization: f64) 
     let (samples, taps) = (recording.samples.len(), excitation.samples.len());
     (recording.rate == excitation.rate).ok_or(SpectraError::Rates { rates: [recording.rate, excitation.rate] })?;
     (regularization.is_finite() && regularization >= 0.0).ok_or(SpectraError::Regularization { regularization })?;
-    let size = samples.strict_add(taps).strict_sub(1);
+    let size = samples + taps - 1;
     let padded = Array2::from_shape_fn((2, size), |(row, index)| if row == 0 { recording } else { excitation }.samples.get(index).copied().unwrap_or_default());
     let spectra = spectrum(&padded, Axis(1), [])?;
     let (output, input) = (spectra.row(0), spectra.row(1));
@@ -80,5 +80,5 @@ pub fn deconvolve(recording: &Series, excitation: &Series, regularization: f64) 
     let quotient = Zip::from(&output).and(&input).map_collect(|recorded, excited| recorded * excited.conj() / (excited.norm_sqr() + floor));
     let response = signal(&quotient, Axis(0), size, [])?;
     let rotated = iter::chain(&response.slice_axis(Axis(0), Slice::from(samples..)), &response.slice_axis(Axis(0), Slice::from(..samples))).copied().collect::<Array1<f64>>();
-    Ok(Lagged { lag: -convert::<usize, f64>(taps.strict_sub(1)) / *recording.rate, series: Series { rate: recording.rate, samples: Samples::try_new(rotated)? } })
+    Ok(Lagged { lag: -convert::<usize, f64>(taps - 1) / *recording.rate, series: Series { rate: recording.rate, samples: Samples::try_new(rotated)? } })
 }

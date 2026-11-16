@@ -92,7 +92,7 @@ where I: IntoIterator<Item: Borrow<Stage>> {
                 Some(_) => f64::INFINITY,
                 None => 0.0,
             };
-            let pad = (decay + convert::<usize, f64>(sections.len().strict_mul(2))).to_int_saturating::<usize>().min(length.strict_sub(1));
+            let pad = (decay + convert::<usize, f64>(sections.len() * 2)).to_int_saturating::<usize>().min(length - 1);
             let extended = signal
                 .first()
                 .into_iter()
@@ -100,7 +100,7 @@ where I: IntoIterator<Item: Borrow<Stage>> {
                 .chain(signal.iter().copied())
                 .chain(signal.last().into_iter().flat_map(|&last| signal.iter().rev().skip(1).take(pad).map(move |sample| 2.0_f64.mul_add(last, -sample))));
             let forward = run(&sections, identity, extended).collect::<Array1<f64>>();
-            run(&sections, identity, forward.iter().rev().copied()).collect::<Array1<f64>>().slice_axis_move(Axis(0), Slice::from(pad..pad.strict_add(length)).step_by(-1))
+            run(&sections, identity, forward.iter().rev().copied()).collect::<Array1<f64>>().slice_axis_move(Axis(0), Slice::from(pad..pad + length).step_by(-1))
         }
     };
     Samples::try_new(filtered).map(|samples| Series { rate: series.rate, samples })

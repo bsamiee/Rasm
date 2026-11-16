@@ -83,7 +83,6 @@ path = "ui/main.rs"
 [dev-dependencies]
 strum                              = { workspace = true }
 itertools                          = { workspace = true }
-dunce                              = { workspace = true }
 cargo_metadata                     = { workspace = true }
 futures                            = { workspace = true }
 tokio                              = { workspace = true }
@@ -103,7 +102,6 @@ fs-err                             = { workspace = true, features = ["tokio"] }
 rmcp                               = { workspace = true }
 opentelemetry-otlp                 = { workspace = true }
 opentelemetry-semantic-conventions = { workspace = true }
-opentelemetry_sdk                  = { workspace = true }
 tracing                            = { workspace = true }
 clap                               = { workspace = true }
 nuts-rs                            = { workspace = true }

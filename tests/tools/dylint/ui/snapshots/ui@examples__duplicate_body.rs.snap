@@ -141,7 +141,7 @@ note: repeated here
     |
 136 |     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result { formatter.write_str("shape") }
     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    = help: generate the `Display` impls from one `macro_rules!` over the implementing type
+    = help: replace the implementing types with one type holding what they differ by as a field and one `Display` impl
 
 error: `Display` impls for `Labeled<u8>` and `Labeled<u16>` have the same `fmt` body
    --> tests/tools/dylint/examples/duplicate_body.rs:166:5
@@ -169,7 +169,7 @@ note: repeated here
 147 | /     fn extend<I>(&mut self, items: I)
 148 | |     where I: IntoIterator<Item = C> {
     | |___________________________________^
-    = help: generate the `Extend` impls from one `macro_rules!` over the implementing type
+    = help: replace the implementing types with one type holding what they differ by as a field and one `Extend` impl
 
 error: `sum` repeats the body and signature of `total`
    --> tests/tools/dylint/examples/duplicate_body.rs:221:1

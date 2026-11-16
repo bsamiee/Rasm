@@ -44,7 +44,7 @@ fn formatted(range: &PageLabelRange, page: usize) -> Option<String> {
     match range.style {
         PageLabelStyle::AlphaUpper | PageLabelStyle::AlphaLower => {
             let position = number.checked_sub(1)?;
-            let letter = PageLabelRange::new(page).with_style(range.style).with_start_value((position % LETTERS).strict_add(1)).format_label(page);
+            let letter = PageLabelRange::new(page).with_style(range.style).with_start_value(position % LETTERS + 1).format_label(page);
             let repeats = position / LETTERS;
             Some(format!("{}{}", range.prefix.as_deref().unwrap_or_default(), fmt::from_fn(|formatter| (0..=repeats).try_for_each(|_| formatter.write_str(&letter)))))
         }
@@ -59,7 +59,7 @@ where I: IntoIterator<Item = (&'part Navigation, &'part [usize])> {
         .into_iter()
         .scan(0_usize, |offset, (navigation, pages)| {
             let start = *offset;
-            *offset = start.strict_add(pages.len());
+            *offset = start + pages.len();
             Some((navigation, iter::zip(pages.iter().copied(), start..*offset)))
         })
         .collect::<Vec<_>>();
@@ -117,9 +117,9 @@ pub(crate) fn write(structure: &mut lopdf::Document, navigation: &Navigation) ->
             structure.get_dictionary_mut(id)?.as_hashmap_mut().extend(present([
                 (PARENT, Some(parent.into())),
                 (PREV, index.checked_sub(1).and_then(|before| siblings.get(before)).map(|&(previous_id, _)| previous_id.into())),
-                (NEXT, siblings.get(index.strict_add(1)).map(|&(next_id, _)| next_id.into())),
+                (NEXT, siblings.get(index + 1).map(|&(next_id, _)| next_id.into())),
             ]));
-            Ok::<_, lopdf::Error>(count.strict_add(descendants).strict_add(1))
+            Ok::<_, lopdf::Error>(count + descendants + 1)
         })?;
         Ok((count, siblings.first().zip(siblings.last()).map(|(first, last)| [first.0, last.0])))
     }

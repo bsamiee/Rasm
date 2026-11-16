@@ -148,19 +148,19 @@ where
             ControlFlow::Break(session)
         }
     };
+    #[cfg(unix)]
+    let suspended = |mut current: Session<P>| {
+        let resumed = released(P::MODES, &current.held).and_then(|()| {
+            (try bikeshed io::Result<()> {
+                kill_current_process_group(Signal::TSTP)?;
+                entered(P::MODES, &current.held)?;
+                current.terminal.clear()?
+            })
+            .map_err(NEVec::new)
+        });
+        ended(current, Operation::Suspend, resumed)
+    };
     let keyed = |session: Session<P>, event: Event| {
-        #[cfg(unix)]
-        let suspended = |mut current: Session<P>| {
-            let resumed = released(P::MODES, &current.held).and_then(|()| {
-                (try bikeshed io::Result<()> {
-                    kill_current_process_group(Signal::TSTP)?;
-                    entered(P::MODES, &current.held)?;
-                    current.terminal.clear()?
-                })
-                .map_err(NEVec::new)
-            });
-            ended(current, Operation::Suspend, resumed)
-        };
         let leveled = |current: Session<P>, step: fn(&LevelFilter) -> LevelFilter| {
             let level = step(&current.level);
             reloaded(&current.filter, level);

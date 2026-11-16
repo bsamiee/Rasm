@@ -8,7 +8,7 @@ use clippy_utils::diagnostics::span_lint_hir_and_then;
 use clippy_utils::res::{MaybeDef as _, MaybeResPath as _};
 use clippy_utils::ty::implements_trait_with_env_from_iter;
 use clippy_utils::{fn_def_id, is_lint_allowed, peel_blocks, peel_hir_expr_while, peel_hir_pat_refs, sym};
-use itertools::Itertools as _;
+use itertools::{Either, Itertools as _};
 use rustc_ast::tokenstream::TokenTree;
 use rustc_attr_ir::{AttrArgs, AttrItem, Attribute};
 use rustc_data_structures::fx::{FxBuildHasher, FxHashMap, FxHashSet, FxIndexMap, FxIndexSet};
@@ -20,7 +20,8 @@ use rustc_hir::{Arm, Expr, ExprKind, ImplItemImplKind, MatchSource, PatExpr, Pat
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::middle::privacy::Level;
 use rustc_middle::ty::{
-    self, AdtDef, AssocKind, EarlyBinder, GenericArg, GenericArgKind, GenericArgs, GenericArgsRef, Ty, TyCtxt, TypeFoldable, TypeVisitableExt as _, TypeckResults, TypingEnv, Unnormalized, VariantDef,
+    self, AdtDef, AdtKind, AssocKind, EarlyBinder, GenericArg, GenericArgKind, GenericArgs, GenericArgsRef, Ty, TyCtxt, TypeFoldable, TypeVisitableExt as _, TypeckResults, TypingEnv, Unnormalized,
+    VariantDef,
 };
 use rustc_span::{ExpnKind, MacroKind, Span, Symbol};
 use rustc_trait_selection::regions::test_region_obligations;
@@ -241,14 +242,9 @@ impl<'tcx> LateLintPass<'tcx> for Pass<'tcx> {
             T: TypeFoldable<TyCtxt<'tcx>>,
             W: Fn(GenericArgsRef<'tcx>) -> Ty<'tcx>,
         {
-            substitute_types(tcx, value, |held| {
-                if let ty::Adt(adt, args) = held.kind()
-                    && adt.did() == item
-                {
-                    Some(with(args))
-                } else {
-                    None
-                }
+            substitute_types(tcx, value, |held| match held.kind() {
+                ty::Adt(adt, args) if adt.did() == item => Some(with(args)),
+                _ => None,
             })
         }
 
@@ -261,10 +257,8 @@ impl<'tcx> LateLintPass<'tcx> for Pass<'tcx> {
             }
             let mut cases = if adt.is_enum() && !adt.variants().is_empty() {
                 adt.discriminants(tcx)
-                    .map(|(index, discriminant)| {
-                        let variant = adt.variant(index);
-                        Some(Case { variant, fields: fields(tcx, item, variant)?, discriminant: Some(discriminant.val) })
-                    })
+                    .map(|(index, discriminant)| (adt.variant(index), discriminant.val))
+                    .map(|(variant, discriminant)| Some(Case { variant, fields: fields(tcx, item, variant)?, discriminant: Some(discriminant) }))
                     .collect::<Option<Vec<_>>>()?
             } else if adt.is_struct()
                 && let variant = adt.non_enum_variant()
@@ -286,10 +280,10 @@ impl<'tcx> LateLintPass<'tcx> for Pass<'tcx> {
 
         fn unified_ty<'tcx>(unifier: &mut ShapeUnifier<'tcx>, pair: (Ty<'tcx>, Ty<'tcx>)) -> Option<bool> {
             let identity = |item: DefId| GenericArgs::identity_for_item(unifier.tcx, item);
-            let mut pending = vec![(GenericArg::from(pair.0), GenericArg::from(pair.1))];
+            let pending = RefCell::new(vec![(GenericArg::from(pair.0), GenericArg::from(pair.1))]);
             let mut shared = true;
-            while let Some((left, right)) = pending.pop() {
-                let matched = match (left.kind(), right.kind()) {
+            iter::from_fn(|| pending.borrow_mut().pop())
+                .all(|(left, right)| match (left.kind(), right.kind()) {
                     _ if left == right && !right.has_param() => true,
                     (GenericArgKind::Type(_), GenericArgKind::Type(right_ty)) if let ty::Param(param) = right_ty.kind() => *unifier.bound.entry(param.index).or_insert(left) == left,
                     (GenericArgKind::Lifetime(_), GenericArgKind::Lifetime(right_region)) if let ty::ReEarlyParam(param) = right_region.kind() =>
@@ -298,29 +292,29 @@ impl<'tcx> LateLintPass<'tcx> for Pass<'tcx> {
                         *unifier.bound.entry(param.index).or_insert(left) == left,
                     (GenericArgKind::Type(left_ty), GenericArgKind::Type(right_ty)) => match (left_ty.kind(), right_ty.kind()) {
                         (ty::Adt(left_adt, left_args), ty::Adt(right_adt, right_args)) if left_adt == right_adt => {
-                            pending.extend(iter::zip(*left_args, *right_args).rev());
+                            pending.borrow_mut().extend(iter::zip(*left_args, *right_args).rev());
                             true
                         }
                         (ty::Adt(left_adt, left_args), ty::Adt(right_adt, right_args)) if (left_adt.did(), right_adt.did()) == (unifier.pair.0.to_def_id(), unifier.pair.1) =>
                             *left_args == identity(left_adt.did()) && *right_args == identity(right_adt.did()),
                         (&ty::Ref(left_region, left_inner, left_mutability), &ty::Ref(right_region, right_inner, right_mutability)) if left_mutability == right_mutability => {
-                            pending.extend([(left_inner.into(), right_inner.into()), (left_region.into(), right_region.into())]);
+                            pending.borrow_mut().extend([(left_inner.into(), right_inner.into()), (left_region.into(), right_region.into())]);
                             true
                         }
                         (&ty::RawPtr(left_inner, left_mutability), &ty::RawPtr(right_inner, right_mutability)) if left_mutability == right_mutability => {
-                            pending.push((left_inner.into(), right_inner.into()));
+                            pending.borrow_mut().push((left_inner.into(), right_inner.into()));
                             true
                         }
                         (&ty::Slice(left_inner), &ty::Slice(right_inner)) => {
-                            pending.push((left_inner.into(), right_inner.into()));
+                            pending.borrow_mut().push((left_inner.into(), right_inner.into()));
                             true
                         }
                         (&ty::Array(left_inner, left_length), &ty::Array(right_inner, right_length)) => {
-                            pending.extend([(left_inner.into(), right_inner.into()), (left_length.into(), right_length.into())]);
+                            pending.borrow_mut().extend([(left_inner.into(), right_inner.into()), (left_length.into(), right_length.into())]);
                             true
                         }
                         (ty::Tuple(left_items), ty::Tuple(right_items)) if left_items.len() == right_items.len() => {
-                            pending.extend(left_items.iter().map(GenericArg::from).zip(right_items.iter().map(GenericArg::from)).rev());
+                            pending.borrow_mut().extend(left_items.iter().map(GenericArg::from).zip(right_items.iter().map(GenericArg::from)).rev());
                             true
                         }
                         _ => unifier.differences.as_mut().is_some_and(|(forward, backward)| {
@@ -329,12 +323,8 @@ impl<'tcx> LateLintPass<'tcx> for Pass<'tcx> {
                         }),
                     },
                     _ => left == right,
-                };
-                if !matched {
-                    return None;
-                }
-            }
-            Some(shared)
+                })
+                .then_some(shared)
         }
 
         fn unified_field<'tcx>(unifier: &mut ShapeUnifier<'tcx>, (left_field, left_ty): (&ty::FieldDef, Ty<'tcx>), (right_field, right_ty): (&ty::FieldDef, Ty<'tcx>)) -> bool {
@@ -397,15 +387,15 @@ impl<'tcx> LateLintPass<'tcx> for Pass<'tcx> {
             let tcx = cx.tcx;
             let held = shape.cases.iter().filter(|case| case.variant.ctor_kind().is_none() && case.fields.len() > 1).filter_map(|case| {
                 let records = index.get(&(DefKind::Struct, case.fields.iter().map(|(field, _)| field.name).collect()))?;
-                let (record, held) = records.iter().flat_map(|record| record.cases.iter().map(move |held| (record, held))).find_map(|(record, held)| {
-                    let mut unifier = unifier(tcx, (item, record.item), false);
-                    (nameable_visibility(tcx, record.item).partial_cmp(nameable_visibility(tcx, item.to_def_id()), tcx).is_some_and(Ordering::is_ge)
-                        && !tcx.adt_def(record.item).has_dtor(tcx)
-                        && case.variant.is_field_list_non_exhaustive() == held.variant.is_field_list_non_exhaustive()
-                        && unified_fields(&mut unifier, &case.fields, &held.fields))
-                    .then(|| well_formed(&unifier))?
-                    .map(|held| (record, held.to_string()))
-                })?;
+                let (record, held) = records
+                    .iter()
+                    .flat_map(|record| record.cases.iter().map(move |held| (record, held)))
+                    .filter(|&(record, _)| nameable_visibility(tcx, record.item).partial_cmp(nameable_visibility(tcx, item.to_def_id()), tcx).is_some_and(Ordering::is_ge))
+                    .filter(|&(record, _)| !tcx.adt_def(record.item).has_dtor(tcx))
+                    .filter(|&(_, held)| case.variant.is_field_list_non_exhaustive() == held.variant.is_field_list_non_exhaustive())
+                    .map(|(record, held)| (record, held, unifier(tcx, (item, record.item), false)))
+                    .find_map(|(record, held, mut unifier)| Some(record).zip(unified_fields(&mut unifier, &case.fields, &held.fields).then(|| well_formed(&unifier)).flatten()))
+                    .map(|(record, held)| (record, held.to_string()))?;
                 let variant = case.variant;
                 Some((variant.def_id.as_local()?, variant.name, path(tcx, record.item)?, held))
             });
@@ -416,9 +406,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass<'tcx> {
                     tcx.local_def_id_to_hir_id(variant),
                     tcx.def_span(variant),
                     format!("variant `{variant_name}` repeats the fields of `{record_name}`"),
-                    |diag| {
-                        diag.help(format!("declare `{variant_name}({record_type})`"));
-                    },
+                    |diag| _ = diag.help(format!("declare `{variant_name}({record_type})`")),
                 );
             }
             let alike = |left: &Case<'tcx>, right: &Case<'tcx>| {
@@ -451,9 +439,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass<'tcx> {
                     tcx.local_def_id_to_hir_id(item),
                     tcx.def_span(item),
                     format!("every variant of `{}` repeats the same fields", tcx.item_name(item)),
-                    |diag| {
-                        diag.help(format!("declare `{}` as a struct of the shared fields and a fieldless enum of its variants", tcx.item_name(item)));
-                    },
+                    |diag| _ = diag.help(format!("declare `{}` as one struct of the shared fields holding what its variants differ by as a field", tcx.item_name(item))),
                 );
             }
             if !every
@@ -466,16 +452,14 @@ impl<'tcx> LateLintPass<'tcx> for Pass<'tcx> {
                     .find(|group| group.len() > 1)
                 && let Some(listed) = listify(&group, |variant| format!("`{}`", variant.name))
             {
+                let repeated = group.iter().map(|variant| tcx.def_span(variant.def_id)).collect::<Vec<_>>();
                 span_lint_hir_and_then(
                     cx,
                     DUPLICATE_TYPE,
                     tcx.local_def_id_to_hir_id(item),
                     tcx.def_span(item),
                     format!("error variants {listed} of `{}` repeat the same fields", tcx.item_name(item)),
-                    |diag| {
-                        diag.span_note(group.iter().map(|variant| tcx.def_span(variant.def_id)).collect::<Vec<_>>(), "repeated here");
-                        diag.help(format!("replace {listed} with one variant of the shared fields and a fieldless `derive_more::Display` enum for their messages"));
-                    },
+                    |diag| _ = diag.span_note(repeated, "repeated here").help(format!("replace {listed} with one variant of the shared fields holding what they differ by as a field")),
                 );
             }
         }
@@ -491,21 +475,20 @@ impl<'tcx> LateLintPass<'tcx> for Pass<'tcx> {
                 Duplicate::Parallel(other, _, _) => format!("`{name}` repeats `{}` member by member", tcx.item_name(*other)),
             };
             span_lint_hir_and_then(cx, DUPLICATE_TYPE, tcx.local_def_id_to_hir_id(item), tcx.def_span(item), message, |diag| match duplicate {
-                Duplicate::Same(other, text) => {
-                    if other.is_local() {
-                        diag.span_note(tcx.def_span(other), format!("`{}` declared here", tcx.item_name(other)));
-                    }
-                    diag.help(format!("use `{text}` in place of `{name}`"));
-                }
+                Duplicate::Same(other, text) =>
+                    _ = if other.is_local() { diag.span_note(tcx.def_span(other), format!("`{}` declared here", tcx.item_name(other))) } else { diag }
+                        .help(format!("use `{text}` in place of `{name}`")),
                 Duplicate::Generalized(other, _) => {
                     let other_name = tcx.item_name(other);
                     diag.span_note(tcx.def_span(other), format!("`{other_name}` declared here"));
                     diag.help(format!("use `{other_name}` generic over the differing field types in place of `{name}`"));
                 }
-                Duplicate::Subset(other, other_name, copied, spans) => {
-                    diag.span_note(spans, format!("built from `{other_name}` fields here"));
-                    diag.help(if other.is_local() { format!("hold `{name}` in `{other_name}` in place of {copied}") } else { format!("use `{other_name}` in place of `{name}`") });
-                }
+                Duplicate::Subset(other, other_name, copied, spans) =>
+                    _ = diag.span_note(spans, format!("built from `{other_name}` fields here")).help(if other.is_local() {
+                        format!("hold `{name}` in `{other_name}` in place of {copied}")
+                    } else {
+                        format!("use `{other_name}` in place of `{name}`")
+                    }),
                 Duplicate::Kind(other, other_name, spans) => {
                     diag.span_note(spans, format!("built from a match on `{other_name}` here"));
                     diag.help(match derive.filter(|_| other.is_local()).and_then(|derive| path(tcx, derive)) {
@@ -658,148 +641,150 @@ impl<'tcx> LateLintPass<'tcx> for Pass<'tcx> {
         };
         let comparisons = RefCell::new(FxHashMap::default());
         let distinct = |left: LocalDefId, right: LocalDefId| {
-            *comparisons.borrow_mut().entry((left, right)).or_insert_with(|| {
-                let [left_owner, right_owner] = [left, right].map(|item| Some(tcx.type_of(item).instantiate_identity().skip_normalization()));
-                let (left_behavior, right_behavior) = (behavior(left), behavior(right));
-                let (left_impls, right_impls) = (&left_behavior.implementations, &right_behavior.implementations);
-                let (left_tools, right_tools) = (&left_behavior.attributes, &right_behavior.attributes);
-                let same_tools = left_tools.len() == right_tools.len()
-                    && iter::zip(left_tools, right_tools).all(|(left_tool, right_tool)| {
-                        left_tool.path.segments == right_tool.path.segments
-                            && match (&left_tool.args, &right_tool.args) {
-                                (AttrArgs::Empty, AttrArgs::Empty) => true,
-                                (AttrArgs::Delimited(left_args), AttrArgs::Delimited(right_args)) =>
-                                    left_args.delim == right_args.delim
-                                        && left_args.tokens.len() == right_args.tokens.len()
-                                        && iter::zip(left_args.tokens.iter(), right_args.tokens.iter()).all(|(left_token, right_token)| left_token.eq_unspanned(right_token)),
-                                (AttrArgs::Eq { expr: left_value, .. }, AttrArgs::Eq { expr: right_value, .. }) => left_value.kind == right_value.kind,
-                                (AttrArgs::Empty | AttrArgs::Delimited(_) | AttrArgs::Eq { .. }, _) => false,
-                            }
-                    });
-                let alike = |left_implementation: LocalDefId, right_implementation: LocalDefId| {
-                    let [left_header, right_header] = [left_implementation, right_implementation].map(|item| tcx.impl_trait_header(item));
-                    let (left_members, right_members) = (associated(left_implementation), associated(right_implementation));
-                    declaration(tcx, left_header.trait_ref.instantiate_identity(), left_owner) == declaration(tcx, right_header.trait_ref.instantiate_identity(), right_owner)
-                        && left_header.polarity == right_header.polarity
-                        && left_header.safety == right_header.safety
-                        && left_header.constness == right_header.constness
-                        && tcx.defaultness(left_implementation) == tcx.defaultness(right_implementation)
-                        && clauses(left_implementation, left_owner) == clauses(right_implementation, right_owner)
-                        && left_members.len() == right_members.len()
-                        && left_members.iter().all(|(&name, &member)| right_members.get_by_key(name).any(|&counterpart| same_member(member, counterpart, left_owner, right_owner)))
-                };
-                !same_tools
-                    || left_impls.len() != right_impls.len()
-                    || left_impls.iter().any(|&(implemented, implementation)| !right_impls.iter().any(|&(other, counterpart)| implemented == other && alike(implementation, counterpart)))
-                    || left_behavior.inherent.len() != right_behavior.inherent.len()
-                    || left_behavior.inherent.iter().any(|(&name, &member)| !right_behavior.inherent.get_by_key(name).any(|&counterpart| same_member(member, counterpart, left_owner, right_owner)))
-            })
+            if let Some(&known) = comparisons.borrow().get(&(left, right)) {
+                return known;
+            }
+            let [left_owner, right_owner] = [left, right].map(|item| Some(tcx.type_of(item).instantiate_identity().skip_normalization()));
+            let (left_behavior, right_behavior) = (behavior(left), behavior(right));
+            let (left_impls, right_impls) = (&left_behavior.implementations, &right_behavior.implementations);
+            let (left_tools, right_tools) = (&left_behavior.attributes, &right_behavior.attributes);
+            let same_tools = left_tools.len() == right_tools.len()
+                && iter::zip(left_tools, right_tools).all(|(left_tool, right_tool)| {
+                    left_tool.path.segments == right_tool.path.segments
+                        && match (&left_tool.args, &right_tool.args) {
+                            (AttrArgs::Empty, AttrArgs::Empty) => true,
+                            (AttrArgs::Delimited(left_args), AttrArgs::Delimited(right_args)) =>
+                                left_args.delim == right_args.delim
+                                    && left_args.tokens.len() == right_args.tokens.len()
+                                    && iter::zip(left_args.tokens.iter(), right_args.tokens.iter()).all(|(left_token, right_token)| left_token.eq_unspanned(right_token)),
+                            (AttrArgs::Eq { expr: left_value, .. }, AttrArgs::Eq { expr: right_value, .. }) => left_value.kind == right_value.kind,
+                            (AttrArgs::Empty | AttrArgs::Delimited(_) | AttrArgs::Eq { .. }, _) => false,
+                        }
+                });
+            let alike = |left_implementation: LocalDefId, right_implementation: LocalDefId| {
+                let [left_header, right_header] = [left_implementation, right_implementation].map(|item| tcx.impl_trait_header(item));
+                let (left_members, right_members) = (associated(left_implementation), associated(right_implementation));
+                declaration(tcx, left_header.trait_ref.instantiate_identity(), left_owner) == declaration(tcx, right_header.trait_ref.instantiate_identity(), right_owner)
+                    && left_header.polarity == right_header.polarity
+                    && left_header.safety == right_header.safety
+                    && left_header.constness == right_header.constness
+                    && tcx.defaultness(left_implementation) == tcx.defaultness(right_implementation)
+                    && clauses(left_implementation, left_owner) == clauses(right_implementation, right_owner)
+                    && left_members.len() == right_members.len()
+                    && left_members.iter().all(|(&name, &member)| right_members.get_by_key(name).any(|&counterpart| same_member(member, counterpart, left_owner, right_owner)))
+            };
+            let differs = !same_tools
+                || left_impls.len() != right_impls.len()
+                || left_impls.iter().any(|&(implemented, implementation)| !right_impls.iter().any(|&(other, counterpart)| implemented == other && alike(implementation, counterpart)))
+                || left_behavior.inherent.len() != right_behavior.inherent.len()
+                || left_behavior.inherent.iter().any(|(&name, &member)| !right_behavior.inherent.get_by_key(name).any(|&counterpart| same_member(member, counterpart, left_owner, right_owner)));
+            comparisons.borrow_mut().insert((left, right), differs);
+            differs
+        };
+        let has_no_own_behavior = |item: LocalDefId, owner: Ty<'tcx>| {
+            let behavior = behavior(item);
+            let replacement = EarlyBinder::bind(tcx, owner);
+            behavior.attributes.is_empty()
+                && behavior.inherent.is_empty()
+                && behavior.implementations.is_empty()
+                && impls
+                    .get(&item)
+                    .into_iter()
+                    .flatten()
+                    .map(|&(_, implementation)| (TypingEnv::non_body_analysis(tcx, implementation), tcx.impl_trait_ref(implementation).instantiate_identity().skip_normalization()))
+                    .map(|(typing_env, trait_ref)| (typing_env, substituted(tcx, trait_ref, item.to_def_id(), |args| replacement.instantiate(tcx, args).skip_normalization())))
+                    .all(|(typing_env, replaced)| implements_trait_with_env_from_iter(tcx, typing_env, replaced.self_ty(), replaced.def_id, None, replaced.args.iter().skip(1)))
         };
         let duplicate = |item: LocalDefId, left: &Shape<'tcx>| {
-            let has_no_own_behavior = |owner: Ty<'tcx>| {
-                let behavior = behavior(item);
-                behavior.attributes.is_empty()
-                    && behavior.inherent.is_empty()
-                    && behavior.implementations.is_empty()
-                    && impls.get(&item).into_iter().flatten().all(|&(_, implementation)| {
-                        let trait_ref = tcx.impl_trait_ref(implementation).instantiate_identity().skip_normalization();
-                        let replaced = substituted(tcx, trait_ref, item.to_def_id(), |args| EarlyBinder::bind(tcx, owner).instantiate(tcx, args).skip_normalization());
-                        implements_trait_with_env_from_iter(tcx, TypingEnv::non_body_analysis(tcx, implementation), replaced.self_ty(), replaced.def_id, None, replaced.args.iter().skip(1))
-                    })
-            };
             let candidates = || index.get(&key(left)).into_iter().flatten().filter(|right| right.item != left.item);
             let earlier = |right: &Shape<'_>| position.get(&right.item) < position.get(&left.item);
             let dependency = candidates().filter(|right| !right.item.is_local()).find_map(|right| {
                 let mut unifier = unifier(tcx, (item, right.item), false);
-                unified_shapes(&mut unifier, left, right).filter(|&held| has_no_own_behavior(held)).map(|held| Duplicate::Same(right.item, held.to_string()))
+                unified_shapes(&mut unifier, left, right).filter(|&held| has_no_own_behavior(item, held)).map(|held| Duplicate::Same(right.item, held.to_string()))
             });
             let local = || {
-                candidates().filter_map(|right| Some((right, right.item.as_local()?))).find_map(|(right, other)| {
-                    let mut forward = unifier(tcx, (item, right.item), false);
-                    let held = unified_shapes(&mut forward, left, right).filter(|_| !distinct(item, other))?;
-                    let general = unified_shapes(&mut unifier(tcx, (other, left.item), false), right, left).is_some();
-                    (!general || earlier(right)).then(|| Duplicate::Same(right.item, held.to_string()))
+                candidates().filter_map(|right| Some((right, right.item.as_local()?))).find_map(|(right, other)| match unified_shapes(&mut unifier(tcx, (item, right.item), false), left, right) {
+                    Some(held) if !distinct(item, other) && (unified_shapes(&mut unifier(tcx, (other, left.item), false), right, left).is_none() || earlier(right)) =>
+                        Some(Duplicate::Same(right.item, held.to_string())),
+                    Some(_) | None => None,
                 })
             };
             let generalized = || {
-                candidates().filter(|right| right.item.is_local() && earlier(right)).find_map(|right| {
-                    let mut unifier = unifier(tcx, (item, right.item), true);
-                    (unified_shapes(&mut unifier, left, right).is_some() && unifier.shared && right.item.as_local().is_some_and(|other| !distinct(item, other)))
-                        .then_some(unifier.differences)
-                        .flatten()
-                        .and_then(|(differences, _)| listify(&differences.into_iter().collect::<Vec<_>>(), |(from, to)| format!("`{from}` in place of `{to}`")))
-                        .map(|varied| Duplicate::Generalized(right.item, varied))
-                })
+                candidates()
+                    .filter(|right| right.item.is_local() && earlier(right))
+                    .map(|right| (right, unifier(tcx, (item, right.item), true)))
+                    .filter_map(|(right, mut unifier)| unified_shapes(&mut unifier, left, right).map(|_| (right, unifier)))
+                    .filter(|(right, unifier)| unifier.shared && right.item.as_local().is_some_and(|other| !distinct(item, other)))
+                    .filter_map(|(right, unifier)| Some((right, unifier.differences?.0)))
+                    .map(|(right, differences)| (right, differences.into_iter().collect::<Vec<_>>()))
+                    .find_map(|(right, differences)| Some(Duplicate::Generalized(right.item, listify(&differences, |(from, to)| format!("`{from}` in place of `{to}`"))?)))
             };
             let subset = || {
-                self.copies.iter().filter(|&(&(copy, _), conversion)| copy == left.item && left.record() && !conversion.retyped).find_map(|(&(_, source), conversion)| {
-                    let pairs = conversion.pairs.as_ref()?;
-                    let held = fields(tcx, source, tcx.adt_def(source).non_enum_variant())?;
-                    let mut unifier = unifier(tcx, (item, source), false);
-                    let copied = left.cases.iter().flat_map(|case| &case.fields).collect::<Vec<_>>();
-                    let within =
-                        copied.iter().all(|field| held.iter().find(|other| pairs.get(&field.0.did) == Some(&other.0.did)).is_some_and(|other| unified_fields(&mut unifier, &[**field], &[*other])));
-                    (copied.len() < held.len() && within)
-                        .then(|| Some(Duplicate::Subset(source, path(tcx, source)?, listify(&copied, |field| format!("`{}`", field.0.name))?, conversion.spans.clone())))?
-                })
+                let copied = left.cases.iter().flat_map(|case| &case.fields).collect::<Vec<_>>();
+                self.copies
+                    .iter()
+                    .filter(|&(&(copy, _), conversion)| copy == left.item && left.record() && !conversion.retyped)
+                    .filter_map(|(&(_, source), conversion)| Some((source, conversion, conversion.pairs.as_ref()?)))
+                    .find_map(|(source, conversion, pairs)| match (fields(tcx, source, tcx.adt_def(source).non_enum_variant()), unifier(tcx, (item, source), false)) {
+                        (Some(held), mut unifier) if copied.len() < held.len() => copied
+                            .iter()
+                            .all(|field| held.iter().find(|other| pairs.get(&field.0.did) == Some(&other.0.did)).is_some_and(|other| unified_fields(&mut unifier, &[**field], &[*other])))
+                            .then(|| Some(Duplicate::Subset(source, path(tcx, source)?, listify(&copied, |field| format!("`{}`", field.0.name))?, conversion.spans.clone())))
+                            .flatten(),
+                        (Some(_) | None, _) => None,
+                    })
             };
             let kind = || {
-                self.matches.iter().filter(|&(&(source, target), _)| target == left.item && unit(left) && projects(source, left)).find_map(|(&(source, _), conversion)| {
-                    conversion
-                        .pairs
-                        .as_ref()?
-                        .iter()
-                        .all(|(&target_variant, &source_variant)| tcx.item_name(target_variant) == tcx.item_name(source_variant))
-                        .then(|| Some(Duplicate::Kind(source, path(tcx, source)?, conversion.spans.clone())))?
-                })
+                self.matches
+                    .iter()
+                    .filter(|&(&(source, target), _)| target == left.item && unit(left) && projects(source, left))
+                    .filter_map(|(&(source, _), conversion)| Some((source, conversion, conversion.pairs.as_ref()?)))
+                    .filter(|(_, _, pairs)| pairs.iter().all(|(&target_variant, &source_variant)| tcx.item_name(target_variant) == tcx.item_name(source_variant)))
+                    .find_map(|(source, conversion, _)| Some(Duplicate::Kind(source, path(tcx, source)?, conversion.spans.clone())))
             };
             dependency.or_else(local).or_else(generalized).or_else(subset).or_else(kind)
         };
         let parallel = |item: LocalDefId| {
-            let members = |owner: DefId| {
-                let adt = tcx.adt_def(owner);
-                if adt.is_enum() { adt.variants().iter().map(|variant| variant.def_id).collect::<FxHashSet<_>>() } else { adt.all_fields().map(|field| field.did).collect() }
+            let members = |owner: DefId| match tcx.adt_def(owner) {
+                adt if adt.is_enum() => adt.variants().iter().map(|variant| variant.def_id).collect::<FxHashSet<_>>(),
+                adt => adt.all_fields().map(|field| field.did).collect(),
             };
             let copies = self.copies.iter().map(|(&(target, source), conversion)| (target, source, conversion));
-            copies.chain(self.matches.iter().map(|(&(source, target), conversion)| (target, source, conversion))).filter(|&(target, _, _)| target == item.to_def_id()).find_map(
-                |(target, source, conversion)| {
-                    let pairs = conversion.pairs.as_ref()?;
-                    source.as_local().filter(|&local| !distinct(item, local))?;
-                    let built = members(target);
-                    let read = pairs.values().copied().collect::<FxHashSet<_>>();
-                    if !(pairs.len() == built.len() && pairs.keys().all(|field| built.contains(field)) && read == members(source) && read.len() == pairs.len()) {
-                        return None;
-                    }
-                    if conversion.retyped {
-                        return Some(Duplicate::Parallel(source, true, conversion.spans.clone()));
-                    }
+            copies
+                .chain(self.matches.iter().map(|(&(source, target), conversion)| (target, source, conversion)))
+                .filter(|&(target, _, _)| target == item.to_def_id())
+                .filter_map(|(target, source, conversion)| Some((target, source, conversion, conversion.pairs.as_ref()?)))
+                .filter(|&(_, source, _, _)| source.as_local().is_some_and(|local| !distinct(item, local)))
+                .map(|(target, source, conversion, pairs)| (target, source, conversion, pairs, members(target), pairs.values().copied().collect::<FxHashSet<_>>()))
+                .filter(|(_, source, _, pairs, built, read)| pairs.len() == built.len() && pairs.keys().all(|field| built.contains(field)) && *read == members(*source) && read.len() == pairs.len())
+                .find_map(|(target, source, conversion, pairs, _, _)| {
                     let (target_adt, source_adt) = (tcx.adt_def(target), tcx.adt_def(source));
-                    if !(target_adt.repr().equal_up_to_seed(&source_adt.repr())
-                        && nameable_visibility(tcx, source).partial_cmp(nameable_visibility(tcx, target), tcx).is_some_and(Ordering::is_ge)
-                        && target_adt.is_variant_list_non_exhaustive() == source_adt.is_variant_list_non_exhaustive())
-                    {
-                        return None;
-                    }
                     let mut unifier = unifier(tcx, (item, source), false);
-                    let mut corresponding = |target_variant: &'tcx VariantDef, source_variant: &'tcx VariantDef| {
-                        target_variant.is_field_list_non_exhaustive() == source_variant.is_field_list_non_exhaustive()
-                            && fields(tcx, target, target_variant)
-                                .zip(fields(tcx, source, source_variant))
-                                .is_some_and(|(left, right)| left.len() == right.len() && iter::zip(left, right).all(|(left, right)| unified_field(&mut unifier, left, right)))
-                    };
-                    let same_fields = if target_adt.is_enum() {
-                        pairs
-                            .iter()
-                            .map(|(&target_case, &source_case)| (target_adt.variant_index_with_id(target_case), source_adt.variant_index_with_id(source_case)))
-                            .map(|(left, right)| (target_adt.discriminant_for_variant(tcx, left), source_adt.discriminant_for_variant(tcx, right), target_adt.variant(left), source_adt.variant(right)))
-                            .all(|(left, right, target_variant, source_variant)| (left.val, left.ty) == (right.val, right.ty) && corresponding(target_variant, source_variant))
-                    } else {
-                        let (target_variant, source_variant) = (target_adt.non_enum_variant(), source_adt.non_enum_variant());
-                        target_variant.fields.iter().zip(source_variant.fields.iter()).all(|(left, right)| pairs.get(&left.did) == Some(&right.did)) && corresponding(target_variant, source_variant)
-                    };
-                    (same_fields && well_formed(&unifier).is_some()).then(|| Duplicate::Parallel(source, false, conversion.spans.clone()))
-                },
-            )
+                    let mut variants = match target_adt.adt_kind() {
+                        AdtKind::Enum => Either::Left(
+                            pairs
+                                .iter()
+                                .map(|(&target_case, &source_case)| (target_adt.variant_index_with_id(target_case), source_adt.variant_index_with_id(source_case)))
+                                .map(|(left, right)| (target_adt.discriminant_for_variant(tcx, left), source_adt.discriminant_for_variant(tcx, right), left, right))
+                                .map(|(left, right, target_index, source_index)| ((left.val, left.ty) == (right.val, right.ty), target_adt.variant(target_index), source_adt.variant(source_index))),
+                        ),
+                        AdtKind::Struct | AdtKind::Union => Either::Right(iter::once((
+                            target_adt.non_enum_variant().fields.iter().zip(source_adt.non_enum_variant().fields.iter()).all(|(left, right)| pairs.get(&left.did) == Some(&right.did)),
+                            target_adt.non_enum_variant(),
+                            source_adt.non_enum_variant(),
+                        ))),
+                    }
+                    .map(|(aligned, built, read)| (aligned && built.is_field_list_non_exhaustive() == read.is_field_list_non_exhaustive(), built, read))
+                    .map(|(aligned, built, read)| aligned.then(|| fields(tcx, target, built).zip(fields(tcx, source, read))).flatten());
+                    (conversion.retyped
+                        || (target_adt.repr().equal_up_to_seed(&source_adt.repr())
+                            && nameable_visibility(tcx, source).partial_cmp(nameable_visibility(tcx, target), tcx).is_some_and(Ordering::is_ge)
+                            && target_adt.is_variant_list_non_exhaustive() == source_adt.is_variant_list_non_exhaustive()
+                            && variants
+                                .all(|paired| paired.is_some_and(|(left, right)| left.len() == right.len() && iter::zip(left, right).all(|(left, right)| unified_field(&mut unifier, left, right))))
+                            && well_formed(&unifier).is_some()))
+                    .then(|| Duplicate::Parallel(source, conversion.retyped, conversion.spans.clone()))
+                })
         };
         let kind = |item: DefId| owned.get(&item).is_some_and(|generated| unit(generated) && owned.values().any(|other| projects(other.item, generated)));
         let conversion = |item: DefId| {
@@ -807,24 +792,25 @@ impl<'tcx> LateLintPass<'tcx> for Pass<'tcx> {
                 && tcx.is_diagnostic_item(sym::From, tcx.impl_trait_id(item))
                 && tcx.impl_trait_ref(item).instantiate_identity().skip_normalization().args.types().all(|converted| converted.ty_adt_def().is_some_and(|adt| adt.is_struct() && adt.did().is_local()))
         };
-        let derived = |converts: bool| {
+        let derived = |produced: &dyn Fn(DefId) -> bool| {
             items.definitions().filter(|&item| expanded_externally(cx, tcx.def_span(item))).find_map(|item| {
                 let expansion = tcx.def_span(item).ctxt().outer_expn_data();
-                let produced = if converts { conversion(item.to_def_id()) } else { kind(item.to_def_id()) };
-                (matches!(expansion.kind, ExpnKind::Macro(MacroKind::Derive, _)) && produced).then_some(expansion.macro_def_id?)
+                (matches!(expansion.kind, ExpnKind::Macro(MacroKind::Derive, _)) && produced(item.to_def_id())).then_some(expansion.macro_def_id?)
             })
         };
-        let (derive, mapping) = (derived(false), derived(true));
+        let (derive, mapping) = (derived(&kind), derived(&conversion));
         let mut same = FxHashSet::default();
         for item in checked {
             let left = owned.get(&item.to_def_id()).copied().filter(|left| left.record() || tcx.adt_def(item).is_enum());
-            if let Some(duplicate) = left.and_then(|left| duplicate(item, left)).or_else(|| parallel(item))
-                && !matches!(duplicate, Duplicate::Generalized(other, _) if same.contains(&(other, item.to_def_id())))
-            {
-                if let Duplicate::Same(other, _) = duplicate {
-                    same.insert((item.to_def_id(), other));
-                }
-                report(cx, item, duplicate, derive, mapping);
+            let found = left
+                .and_then(|left| duplicate(item, left))
+                .or_else(|| parallel(item))
+                .filter(|duplicate| !matches!(duplicate, Duplicate::Generalized(other, _) if same.contains(&(*other, item.to_def_id()))));
+            if let Some(Duplicate::Same(other, _)) = found {
+                same.insert((item.to_def_id(), other));
+            }
+            if let Some(reported) = found {
+                report(cx, item, reported, derive, mapping);
             }
             if let Some(left) = left.filter(|left| !left.record()) {
                 payloads(cx, item, left, &index);

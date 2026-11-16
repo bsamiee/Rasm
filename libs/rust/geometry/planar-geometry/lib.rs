@@ -327,19 +327,18 @@ where
         .enumerate()
         .map(|(index, role)| {
             let body = role.is_left();
-            separated(&role.into_inner().into_iter().collect_vec(), tolerance)
-                .map(|pieces| {
-                    let whole = pieces.iter().map(|piece| piece.polyline.area()).sum::<f64>() < 0.0;
-                    pieces
-                        .into_iter()
-                        .map(|piece| {
-                            let along = (piece.polyline.area() < 0.0) == whole;
-                            let subject = ((index, None), piece);
-                            if along == body { Either::Left(subject) } else { Either::Right(subject) }
-                        })
-                        .collect()
-                })
-                .map_err(|defect| (index, defect))
+            let pieces = separated(&role.into_inner().into_iter().collect_vec(), tolerance).map_err(|defect| (index, defect))?;
+            let whole = pieces.iter().map(|piece| piece.polyline.area()).sum::<f64>() < 0.0;
+            Ok::<Vec<_>, (usize, Defect)>(
+                pieces
+                    .into_iter()
+                    .map(|piece| {
+                        let along = (piece.polyline.area() < 0.0) == whole;
+                        let subject = ((index, None), piece);
+                        if along == body { Either::Left(subject) } else { Either::Right(subject) }
+                    })
+                    .collect(),
+            )
         })
         .partition_result();
     enclosed(kept.into_iter().flatten(), refused, tolerance).map_err(|loops| PlanarError::Output { loops })

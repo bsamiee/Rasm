@@ -29,18 +29,13 @@ impl Pass {
     fn restated(&mut self, cx: &LateContext<'_>, node: HirId, span: Span, literal: LitKind) {
         let (tcx, Self { named, values }) = (cx.tcx, self);
         let declared = gen {
-            let mut visited = FxHashSet::default();
-            let mut modules = tcx.crates(()).iter().filter(|&&krate| tcx.extern_crate(krate).is_some_and(ExternCrate::is_direct)).map(|krate| krate.as_def_id()).collect::<Vec<_>>();
-            while let Some(module) = modules.pop() {
-                if !visited.insert(module) {
-                    continue;
-                }
-                for child in tcx.module_children(module).iter().filter(|child| child.vis.is_public()) {
-                    match child.res {
-                        Res::Def(DefKind::Mod, inner) => modules.push(inner),
-                        Res::Def(DefKind::Const, constant) if tcx.lookup_deprecation(constant).is_none() => yield (child.ident.name, (constant, module)),
-                        _ => (),
-                    }
+            let mut visited = tcx.crates(()).iter().filter(|&&krate| tcx.extern_crate(krate).is_some_and(ExternCrate::is_direct)).map(|krate| krate.as_def_id()).collect::<FxHashSet<_>>();
+            let mut children = visited.iter().flat_map(|&root| tcx.module_children(root).iter().filter(|child| child.vis.is_public()).map(move |child| (child, root))).collect::<Vec<_>>();
+            while let Some((child, module)) = children.pop() {
+                match child.res {
+                    Res::Def(DefKind::Mod, inner) if visited.insert(inner) => children.extend(tcx.module_children(inner).iter().filter(|nested| nested.vis.is_public()).map(|nested| (nested, inner))),
+                    Res::Def(DefKind::Const, constant) if tcx.lookup_deprecation(constant).is_none() => yield (child.ident.name, (constant, module)),
+                    _ => (),
                 }
             }
         };
@@ -56,11 +51,10 @@ impl Pass {
                 .filter(|&(constant, _)| {
                     *values.entry(constant).or_insert_with(|| {
                         let held = tcx.type_of(constant).instantiate_identity().skip_normalization();
-                        held.peel_refs()
-                            .is_str()
-                            .then(|| tcx.const_eval_poly(constant).ok().and_then(|value| mir_to_const(tcx, value, held)))
-                            .flatten()
-                            .and_then(|value| if let Constant::Str(contents) = value { Some(Symbol::intern(&contents)) } else { None })
+                        held.peel_refs().is_str().then(|| tcx.const_eval_poly(constant).ok().and_then(|value| mir_to_const(tcx, value, held))).flatten().and_then(|value| match value {
+                            Constant::Str(contents) => Some(Symbol::intern(&contents)),
+                            _ => None,
+                        })
                     }) == Some(text)
                 })
                 .min_by_key(|&(_, module)| tcx.def_path_str(module))

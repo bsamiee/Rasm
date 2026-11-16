@@ -46,7 +46,7 @@ pub fn render(document: &Document, index: usize, raster: &Raster) -> Result<Rgba
     let density = crate::per_point(raster.resolution);
     let [width, height] = [paper.width, paper.height].map(|side| (side * density).ceil().to_int_saturating::<u64>());
     let (columns, rows) = match (u32::try_from(width), u32::try_from(height)) {
-        (Ok(columns), Ok(rows)) => alloc::Layout::array::<Rgba<u8>>(u64::from(columns).strict_mul(u64::from(rows)).saturating_cast())
+        (Ok(columns), Ok(rows)) => alloc::Layout::array::<Rgba<u8>>((u64::from(columns) * u64::from(rows)).saturating_cast())
             .map(|_| (columns, rows))
             .map_err(|alloc::LayoutError { .. }| PdfError::Raster { width, height })?,
         (Ok(_), Err(TryFromIntError { .. })) | (Err(TryFromIntError { .. }), Ok(_) | Err(TryFromIntError { .. })) => return Err(PdfError::Raster { width, height }),
@@ -66,7 +66,7 @@ pub fn render(document: &Document, index: usize, raster: &Raster) -> Result<Rgba
         }
     };
     let tile = raster.tile.get();
-    let side = |origin: u32, extent: u32| extent.strict_sub(origin).saturating_cast::<u16>().min(tile);
+    let side = |origin: u32, extent: u32| (extent - origin).saturating_cast::<u16>().min(tile);
     let cache = RenderCache::new();
     let interpreter_settings = raster.interpreter_settings.clone().unwrap_or_default();
     let render_settings = raster.render_settings.unwrap_or_default();

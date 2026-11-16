@@ -76,11 +76,10 @@ where
             sent = match woke {
                 Either::Left(Some(Ok(Line::Whole(line)))) if self.received(&line) => {
                     delivered = true;
-                    self.answers.write_all(&line).await?;
-                    if replies.read_buffer().is_empty() {
-                        self.answers.flush().await?;
-                    }
-                    Ok(())
+                    Ok(match self.answers.write_all(&line).await {
+                        Ok(()) if replies.read_buffer().is_empty() => self.answers.flush().await,
+                        written => written,
+                    }?)
                 }
                 Either::Left(Some(Ok(Line::Whole(_) | Line::Oversized { head: _, tail: _ }))) => Ok(()),
                 Either::Left(Some(Err(error))) => Err(error),

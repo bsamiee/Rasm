@@ -56,13 +56,13 @@ pub(crate) fn visible(frame: &Frame, scene: &Scene, lines: &Lines, tolerance: To
     let snapped = |point: Point| mitigate_underflow(Point2::new((point.x / pitch).round() * pitch, (point.y / pitch).round() * pitch));
     let mut triangulation = ConstrainedDelaunayTriangulation::<Point2<f64>, Cell<bool>, (), Option<Sample>, HierarchyHintGenerator<f64>>::new();
     let handles = iter::chain(&lines.vertices, &corners).map(|&point| triangulation.insert(snapped(point))).collect::<Result<Vec<_>, _>>().map_err(|source| NEVec::new(ViewsError::from(source)))?;
-    let first = handles.len().strict_sub(corners.len());
+    let first = handles.len() - corners.len();
     let mut pending = lines
         .pieces
         .iter()
         .filter(|piece| piece.visibility == Visibility::Visible)
         .map(|&Piece { ends, depths: _, kind: _, visibility: _ }| ends)
-        .chain((first..first.strict_add(corners.len())).circular_tuple_windows::<(usize, usize)>().map(<[usize; 2]>::from))
+        .chain((first..first + corners.len()).circular_tuple_windows::<(usize, usize)>().map(<[usize; 2]>::from))
         .map(|[from, to]| [handles[from], handles[to]])
         .filter(|[from, to]| from != to)
         .collect::<Vec<_>>();

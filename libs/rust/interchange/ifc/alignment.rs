@@ -164,7 +164,7 @@ impl Alignment {
                     let (entry, change) = (start_cant_left - start_cant_right, (end_cant_left - end_cant_right) - (start_cant_left - start_cant_right));
                     let exit = change.mul_add(reached, entry);
                     match evaluation.rail_head_distance.map(|distance| distance.into_inner().get::<meter>()) {
-                        Some(distance) if entry.abs().max(exit.abs()) > distance => Err(Fault::Cant { cant: if entry.abs() > distance { entry } else { exit }, distance }),
+                        Some(distance) if entry.abs().max(exit.abs()) > distance => Err(Fault::Cant { cant: Some(entry).filter(|entry| entry.abs() > distance).unwrap_or(exit), distance }),
                         Some(_) | None => Ok(Superelevation {
                             elevation: start_cant_left.midpoint(start_cant_right),
                             cant: entry,

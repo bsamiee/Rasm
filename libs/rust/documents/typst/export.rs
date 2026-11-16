@@ -191,7 +191,7 @@ fn extent(page: &Page, options: &RenderOptions) -> Size {
 fn pixel_count(path: &VirtualPath, number: NonZero<usize>, page: &Page, options: &RenderOptions) -> Result<u64, TypesetError> {
     let size = extent(page, options).map(|axis| (options.pixel_per_pt.get().cast::<f32>() * axis.to_pt().cast::<f32>()).round().max(1.0).to_int_saturating::<u32>());
     let row_fits = size.x <= i32::MAX.cast_unsigned() / 4;
-    row_fits.then(|| u64::from(size.x).strict_mul(u64::from(size.y))).ok_or_else(|| TypesetError::Raster { path: path.clone(), page: number, width: size.x, height: size.y })
+    row_fits.then(|| u64::from(size.x) * u64::from(size.y)).ok_or_else(|| TypesetError::Raster { path: path.clone(), page: number, width: size.x, height: size.y })
 }
 
 fn within_budget<I>(path: &VirtualPath, pixels: I, budget: Option<NonZero<u64>>) -> Validated<(), TypesetError>

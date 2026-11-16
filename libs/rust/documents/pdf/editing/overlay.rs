@@ -41,6 +41,87 @@ enum Painted {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 pub fn overlay(earlier: &Document, later: &Document, pairs: impl IntoIterator<Item = (usize, usize)>, colors: [OpaqueColor<Srgb>; 2]) -> Result<Document, PdfError> {
+    fn recolored<I>(document: &Document, pages: I, color: OpaqueColor<Srgb>) -> Result<PdfDocument, PdfError>
+    where I: IntoIterator<Item = usize> {
+        fn spaces<'held, I>(structure: &lopdf::Document, resources: I) -> Result<BTreeMap<Vec<u8>, Option<Mixing>>, lopdf::Error>
+        where I: IntoIterator<Item = &'held Dictionary> {
+            resources
+                .into_iter()
+                .filter(|held| held.has(COLORSPACE))
+                .map(|held| structure.get_dict_in_dict(held, COLORSPACE))
+                .try_collect::<Vec<_>>()?
+                .into_iter()
+                .flat_map(Dictionary::iter)
+                .map(|(name, space)| mixing(structure, space).map(|mixing| (name.clone(), mixing)))
+                .collect()
+        }
+        fn mixing(structure: &lopdf::Document, space: &Object) -> Result<Option<Mixing>, lopdf::Error> {
+            const fn channels(components: i64) -> Option<Mixing> {
+                match components {
+                    1 | 3 => Some(Mixing::Additive),
+                    4 => Some(Mixing::Subtractive),
+                    _ => None,
+                }
+            }
+            match structure.dereference(space)?.1 {
+                Object::Name(name) => Ok(device(name)),
+                Object::Array([Object::Name(b"ICCBased"), profile]) => structure.dereference(profile)?.1.as_stream()?.dict.get(N)?.as_i64().map(channels),
+                Object::Array([Object::Name(b"CalGray" | b"CalRGB"), ..]) => Ok(Some(Mixing::Additive)),
+                Object::Array([Object::Name(b"Separation" | b"DeviceN"), ..]) => Ok(Some(Mixing::Subtractive)),
+                _ => Ok(None),
+            }
+        }
+        let mut structure = crate::structure(document)?;
+        let sheets = structure.page_iter().collect::<Vec<_>>();
+        let selected = pages.into_iter().collect::<BTreeSet<_>>().into_iter().map(|index| sheets.get(index).copied().ok_or(PdfError::Page { index, count: sheets.len() })).try_collect::<Vec<_>>()?;
+        let revision = color.components;
+        let held = selected
+            .iter()
+            .map(|&sheet| {
+                let (own, inherited) = structure.get_page_resources(sheet)?;
+                inherited.into_iter().rev().map(|id| structure.get_dictionary(id)).chain(own.map(Ok)).try_collect::<Vec<_>>().map(|resources| (sheet, resources))
+            })
+            .try_collect::<Vec<_>>()?;
+        let found = held.iter().flat_map(|(_, resources)| resources).try_fold(BTreeSet::new(), |found, resources| super::forms(&structure, resources, found))?;
+        let painted = held
+            .iter()
+            .map(|(sheet, resources)| {
+                structure
+                    .get_dictionary(*sheet)?
+                    .has(CONTENTS)
+                    .then(|| {
+                        let colorspaces = spaces(&structure, resources.iter().copied())?;
+                        let content = structure.get_and_decode_page_content(*sheet)?;
+                        Content {
+                            operations: iter::chain(Painting::VARIANTS.iter().map(|&painting| painted(painting, revision)), repainted(content.operations, &colorspaces, revision)).collect::<Vec<_>>(),
+                        }
+                        .encode()
+                    })
+                    .transpose()
+                    .map(|content| content.map(|content| (Painted::Page(*sheet), content)))
+            })
+            .filter_map(Result::transpose)
+            .chain(found.into_iter().map(|form| {
+                let stream = structure.get_object(form)?.as_stream()?;
+                let resources = crate::nested(&structure, &stream.dict, &[RESOURCES])?;
+                spaces(&structure, resources)
+                    .and_then(|colorspaces| {
+                        stream
+                            .decompressed_content()
+                            .and_then(|bytes| Content::decode(&bytes))
+                            .and_then(|content| Content { operations: repainted(content.operations, &colorspaces, revision).collect::<Vec<_>>() }.encode())
+                    })
+                    .map(|content| (Painted::Form(form), content))
+            }))
+            .try_collect::<Vec<_>>()?;
+        for (target, content) in painted {
+            match target {
+                Painted::Page(sheet) => structure.change_page_content(sheet, content)?,
+                Painted::Form(form) => structure.get_object_mut(form)?.as_stream_mut()?.set_plain_content(content),
+            }
+        }
+        crate::saved(structure).and_then(|recolored| crate::embedded(&recolored))
+    }
     let sized = |document: &Document, index: usize| {
         Validated::from(
             crate::page(document, index)
@@ -78,91 +159,6 @@ pub fn overlay(earlier: &Document, later: &Document, pairs: impl IntoIterator<It
         sheet.finish();
     }
     Document::new(canvas.finish()?, None)
-}
-
-fn recolored<I>(document: &Document, pages: I, color: OpaqueColor<Srgb>) -> Result<PdfDocument, PdfError>
-where I: IntoIterator<Item = usize> {
-    fn spaces<'held, I>(structure: &lopdf::Document, resources: I) -> Result<BTreeMap<Vec<u8>, Option<Mixing>>, lopdf::Error>
-    where I: IntoIterator<Item = &'held Dictionary> {
-        resources
-            .into_iter()
-            .filter(|held| held.has(COLORSPACE))
-            .map(|held| structure.get_dict_in_dict(held, COLORSPACE))
-            .try_collect::<Vec<_>>()?
-            .into_iter()
-            .flat_map(Dictionary::iter)
-            .map(|(name, space)| mixing(structure, space).map(|mixing| (name.clone(), mixing)))
-            .collect()
-    }
-    fn mixing(structure: &lopdf::Document, space: &Object) -> Result<Option<Mixing>, lopdf::Error> {
-        const fn channels(components: i64) -> Option<Mixing> {
-            match components {
-                1 | 3 => Some(Mixing::Additive),
-                4 => Some(Mixing::Subtractive),
-                _ => None,
-            }
-        }
-        match structure.dereference(space)?.1 {
-            Object::Name(name) => Ok(device(name)),
-            Object::Array([Object::Name(b"ICCBased"), profile]) => structure.dereference(profile)?.1.as_stream()?.dict.get(N)?.as_i64().map(channels),
-            Object::Array([Object::Name(b"CalGray" | b"CalRGB"), ..]) => Ok(Some(Mixing::Additive)),
-            Object::Array([Object::Name(b"Separation" | b"DeviceN"), ..]) => Ok(Some(Mixing::Subtractive)),
-            _ => Ok(None),
-        }
-    }
-    let mut structure = crate::structure(document)?;
-    let sheets = structure.page_iter().collect::<Vec<_>>();
-    let selected = pages.into_iter().collect::<BTreeSet<_>>().into_iter().map(|index| sheets.get(index).copied().ok_or(PdfError::Page { index, count: sheets.len() })).try_collect::<Vec<_>>()?;
-    let revision = color.components;
-    let held = selected
-        .iter()
-        .map(|&sheet| {
-            let (own, inherited) = structure.get_page_resources(sheet)?;
-            inherited.into_iter().rev().map(|id| structure.get_dictionary(id)).chain(own.map(Ok)).try_collect::<Vec<_>>().map(|resources| (sheet, resources))
-        })
-        .try_collect::<Vec<_>>()?;
-    let found = held.iter().flat_map(|(_, resources)| resources).try_fold(BTreeSet::new(), |found, resources| super::forms(&structure, resources, found))?;
-    let painted = held
-        .iter()
-        .map(|(sheet, resources)| {
-            structure
-                .get_dictionary(*sheet)?
-                .has(CONTENTS)
-                .then(|| {
-                    spaces(&structure, resources.iter().copied()).and_then(|colorspaces| {
-                        structure.get_and_decode_page_content(*sheet).and_then(|content| {
-                            Content {
-                                operations: iter::chain(Painting::VARIANTS.iter().map(|&painting| painted(painting, revision)), repainted(content.operations, &colorspaces, revision))
-                                    .collect::<Vec<_>>(),
-                            }
-                            .encode()
-                        })
-                    })
-                })
-                .transpose()
-                .map(|content| content.map(|content| (Painted::Page(*sheet), content)))
-        })
-        .filter_map(Result::transpose)
-        .chain(found.into_iter().map(|form| {
-            let stream = structure.get_object(form)?.as_stream()?;
-            let resources = crate::nested(&structure, &stream.dict, &[RESOURCES])?;
-            spaces(&structure, resources)
-                .and_then(|colorspaces| {
-                    stream
-                        .decompressed_content()
-                        .and_then(|bytes| Content::decode(&bytes))
-                        .and_then(|content| Content { operations: repainted(content.operations, &colorspaces, revision).collect::<Vec<_>>() }.encode())
-                })
-                .map(|content| (Painted::Form(form), content))
-        }))
-        .try_collect::<Vec<_>>()?;
-    for (target, content) in painted {
-        match target {
-            Painted::Page(sheet) => structure.change_page_content(sheet, content)?,
-            Painted::Form(form) => structure.get_object_mut(form)?.as_stream_mut()?.set_plain_content(content),
-        }
-    }
-    crate::saved(structure).and_then(|recolored| crate::embedded(&recolored))
 }
 
 const fn device(name: &[u8]) -> Option<Mixing> {

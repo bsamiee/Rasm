@@ -60,7 +60,7 @@ impl Decay {
         const ONSET: f64 = 1.0e-2;
         let peak = response.samples.iter().map(|sample| sample.abs()).max_by(f64::total_cmp).filter(|peak| *peak > 0.0).ok_or(SpectraError::Silent)?;
         let padding = response.samples.iter().rev().take_while(|sample| **sample == 0.0).count();
-        let powers = response.samples.iter().take(response.samples.len().strict_sub(padding)).map(|sample| (sample / peak).powi(2));
+        let powers = response.samples.iter().take(response.samples.len() - padding).map(|sample| (sample / peak).powi(2));
         let onset = powers.clone().take_while(|power| *power < ONSET).count();
         let squared = powers.skip(onset).collect::<Array1<f64>>();
         let crossing = |noise: f64, [intercept, slope]: [f64; 2]| (level(noise) - intercept) / slope;
@@ -95,7 +95,7 @@ impl Decay {
                 .into_value()
         };
         let fitted = truncation.map(truncated).transpose()?;
-        let last = squared.len().strict_sub(1);
+        let last = squared.len() - 1;
         let (end, [power, attenuation]) = fitted.map_or((last, [0.0; 2]), |(noise, decay @ [intercept, slope])| {
             let end = crossing(noise, decay).round().to_int_saturating::<usize>().min(last);
             (end, [slope.mul_add(convert::<usize, f64>(end), intercept), slope].map(|decibels| 10.0_f64.powf(decibels / 10.0)))
@@ -166,7 +166,7 @@ pub fn lateral(decay: &Decay, figure: &Series, reference: &Series) -> Result<Lat
     let window = figure.samples.iter().enumerate().take(end).skip(start);
     Ok(Lateral {
         fraction: Ratio::new::<ratio>(window.clone().map(|(_, sample)| sample.powi(2)).sum::<f64>() / (decay.peak.powi(2) * omni)),
-        cosine: Ratio::new::<ratio>(window.filter_map(|(index, sample)| decay.energy.get(index.strict_sub(decay.onset)).map(|power| (sample * power.sqrt()).abs())).sum::<f64>() / (decay.peak * omni)),
+        cosine: Ratio::new::<ratio>(window.filter_map(|(index, sample)| decay.energy.get(index - decay.onset).map(|power| (sample * power.sqrt()).abs())).sum::<f64>() / (decay.peak * omni)),
         level: level(late / free),
     })
 }
@@ -182,7 +182,7 @@ pub fn interaural(decay: &Decay, left: &Series, right: &Series, window: Range<Ti
     let correlation = |lag: isize| {
         (start..end).filter_map(|index| index.checked_add_signed(lag).and_then(|shifted| right.samples.get(shifted)).zip(left.samples.get(index)).map(|(later, earlier)| later * earlier)).sum::<f64>()
     };
-    Ok(Ratio::new::<ratio>((reach.strict_neg()..=reach).map(|lag| correlation(lag).abs()).fold(0.0, f64::max) / left.rate.get::<hertz>() / norm))
+    Ok(Ratio::new::<ratio>((-reach..=reach).map(|lag| correlation(lag).abs()).fold(0.0, f64::max) / left.rate.get::<hertz>() / norm))
 }
 
 pub(crate) fn refused(lundeby: &Lundeby) -> impl Iterator<Item = (&'static str, f64, &'static str)> {

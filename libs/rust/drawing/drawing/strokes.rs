@@ -28,7 +28,7 @@ pub fn phases<'path>(path: &'path BezPath, linetype: &Linetype, tolerance: Toler
                 let corner = |(_, (_, incoming)): &(PathSeg, (Vec2, Vec2)), (_, (outgoing, _)): &(PathSeg, (Vec2, Vec2))| crate::deflection(*incoming, *outgoing) > angle.into_inner();
                 let mut runs = segments(elements.iter().copied()).filter_map(|segment| crate::tangents(&segment).map(|tangents| (segment, tangents))).collect::<Vec<_>>();
                 let seam = if matches!(elements.last(), Some(PathEl::ClosePath)) {
-                    runs.iter().circular_tuple_windows::<(_, _)>().position(|(left, right)| corner(left, right)).map(|seam| seam.strict_add(1))
+                    runs.iter().circular_tuple_windows::<(_, _)>().position(|(left, right)| corner(left, right)).map(|seam| seam + 1)
                 } else {
                     Some(0)
                 };

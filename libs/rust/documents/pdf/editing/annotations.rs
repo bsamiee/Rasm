@@ -51,8 +51,8 @@ where I: IntoIterator<Item: Borrow<Redaction>> {
         editor.apply_redactions_destructive(options).and_then(|applied| {
             editor.sanitize_document(options).map(|scrubbed| {
                 let mut report = applied;
-                report.annotations_removed = applied.annotations_removed.strict_add(scrubbed.annotations_removed);
-                report.bytes_removed = applied.bytes_removed.strict_add(scrubbed.bytes_removed);
+                report.annotations_removed = applied.annotations_removed + scrubbed.annotations_removed;
+                report.bytes_removed = applied.bytes_removed + scrubbed.bytes_removed;
                 report
             })
         })

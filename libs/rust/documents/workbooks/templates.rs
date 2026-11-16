@@ -42,15 +42,15 @@ pub fn fill(book: &mut Workbook, name: &str, block: &Range<Data>) -> Result<(), 
         }
     };
     let ([first_column, last_column], [first_row, last_row]) = (cmp::minmax(start_column, end_column), cmp::minmax(start_row, end_row));
-    let (row_span, column_span) = block.start().zip(block.end()).map_or((0, 0), |((top, left), (bottom, right))| (bottom.strict_sub(top), right.strict_sub(left)));
-    if column_span > last_column.strict_sub(first_column) {
+    let (row_span, column_span) = block.start().zip(block.end()).map_or((0, 0), |((top, left), (bottom, right))| (bottom - top, right - left));
+    if column_span > last_column - first_column {
         return Err(refused(Refusal::Width));
     }
     let values = crate::values(block, (first_row, first_column)).try_collect::<Vec<_>>()?;
     let template = book.sheet_by_name(&sheet_name)?;
     let styles = (first_column..=last_column).filter_map(|column| template.cell((column, first_row)).map(|cell| (column, cell.style().clone()))).collect::<Vec<_>>();
-    let extra = row_span.saturating_sub(last_row.strict_sub(first_row));
-    let bottom = last_row.strict_add(extra);
+    let extra = row_span.saturating_sub(last_row - first_row);
+    let bottom = last_row.checked_add(extra).ok_or_else(|| refused(Refusal::Height))?;
     let grown = (extra > 0).then(|| {
         let mut grown = DefinedName::default();
         grown.set_name(defined.name()).set_address(join_address(

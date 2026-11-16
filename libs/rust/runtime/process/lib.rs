@@ -187,9 +187,7 @@ pub fn standard(buffer: Option<usize>) -> io::Result<(impl AsyncRead + Send + Un
                 match (kind.is_socket(), kind.is_fifo()) {
                     (true, _) => {
                         let socket = Socket::from(OwnedFd::from(file));
-                        if let Some(buffer) = buffer {
-                            sized(&socket, buffer)?;
-                        }
+                        buffer.map(|buffer| sized(&socket, buffer)).transpose()?;
                         socket.set_nonblocking(true)?;
                         UnixStream::from_std(socket).map(Either::Left)
                     }

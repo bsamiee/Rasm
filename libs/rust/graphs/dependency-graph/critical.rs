@@ -83,37 +83,26 @@ where
         pass(evaluation, direction, |node, dates| {
             let (length, bounds) = (duration(&evaluation[node]), constraint(&evaluation[node]));
             let bound = |(near, date): (Event, T)| {
-                EnumMap::try_from_fn(|event| {
-                    match (near, event) {
-                        (Event::Start, Event::Finish) => date.checked_add(&length),
-                        (Event::Finish, Event::Start) => date.checked_sub(&length),
-                        (Event::Start, Event::Start) | (Event::Finish, Event::Finish) => Some(date),
-                    }
-                    .ok_or(node)
+                EnumMap::try_from_fn(|event| match (near, event) {
+                    (Event::Start, Event::Finish) => date.checked_add(&length).ok_or(node),
+                    (Event::Finish, Event::Start) => date.checked_sub(&length).ok_or(node),
+                    (Event::Start, Event::Start) | (Event::Finish, Event::Finish) => Ok(date),
                 })
             };
             evaluation
                 .edges_directed(node, direction.opposite())
                 .filter_map(|edge| {
                     let Precedence { predecessor, successor, lag } = precedence(edge.weight());
-                    let (neighbor, near, far) = match direction {
-                        Direction::Outgoing => (edge.source(), successor, predecessor),
-                        Direction::Incoming => (edge.target(), predecessor, successor),
+                    let (neighbor, near, far, shifted): (_, _, _, fn(&T, &T) -> Option<T>) = match direction {
+                        Direction::Outgoing => (edge.source(), successor, predecessor, <T as CheckedAdd>::checked_add),
+                        Direction::Incoming => (edge.target(), predecessor, successor, <T as CheckedSub>::checked_sub),
                     };
-                    at(dates, neighbor).map(|known: Result<EnumMap<Event, T>, NodeIndex>| {
-                        let known = known?;
-                        match direction {
-                            Direction::Outgoing => known[far].checked_add(&lag),
-                            Direction::Incoming => known[far].checked_sub(&lag),
-                        }
-                        .map(|date| (near, date))
-                        .ok_or(node)
-                    })
+                    at(dates, neighbor).map(|known: Result<EnumMap<Event, T>, NodeIndex>| known.and_then(|known| shifted(&known[far], &lag).map(|date| (near, date)).ok_or(node)))
                 })
                 .chain(bounds.into_iter().filter_map(|(event, bounds)| limit(bounds).map(|date| Ok((event, date)))))
-                .try_fold(bound(origin)?, |dates, candidate| {
-                    let (near, date) = candidate?;
-                    if date.cmp(&dates[near]) == tighter { bound((near, date)) } else { Ok(dates) }
+                .try_fold(bound(origin)?, |dates, candidate| match candidate? {
+                    (near, date) if date.cmp(&dates[near]) == tighter => bound((near, date)),
+                    (_, _) => Ok(dates),
                 })
         })
         .into_iter()

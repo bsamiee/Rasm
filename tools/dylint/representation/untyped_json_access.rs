@@ -83,10 +83,7 @@ impl Pass {
 impl<'tcx> LateLintPass<'tcx> for Pass {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) {
         fn fixed<'tcx>(cx: &LateContext<'tcx>, key: &'tcx Expr<'tcx>) -> Option<String> {
-            let key = peel_hir_expr_while(key, |key| {
-                let initialized = expr_or_init(cx, key.peel_borrows());
-                if initialized.hir_id == key.hir_id { text_view(cx, key) } else { Some(initialized) }
-            });
+            let key = peel_hir_expr_while(key, |key| Some(expr_or_init(cx, key.peel_borrows())).filter(|initialized| initialized.hir_id != key.hir_id).or_else(|| text_view(cx, key)));
             Some(match ConstEvalCtxt::new(cx).eval(key)? {
                 Constant::Str(text) => format!("{text:?}"),
                 Constant::Int(index) => index.to_string(),

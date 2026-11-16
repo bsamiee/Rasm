@@ -143,13 +143,12 @@ pub fn polynomial(coefficients: &[f64]) -> Result<Vec<Root>, NEVec<AnalysisError
         .iter()
         .enumerate()
         .filter(|&(_, coefficient)| !(-coefficient / leading).is_finite())
-        .map(|(index, &coefficient)| Err(AnalysisError::Coefficient { index: origin.strict_add(index), coefficient, leading }))
+        .map(|(index, &coefficient)| Err(AnalysisError::Coefficient { index: origin + index, coefficient, leading }))
         .collect::<Validated<(), _>>()
         .ok()?;
-    let degree = significant.len().strict_sub(1);
+    let degree = significant.len() - 1;
     let scale = (DVectorView::from_slice(significant, significant.len()).amax() / leading.abs()).log2().ceil().min(f64::from(f64::MAX_EXP) - 1.0).exp2();
-    let mut companion =
-        DMatrix::from_fn(degree, degree, |row, column| if row == 0 { -significant[degree.strict_sub(column).strict_sub(1)] / leading } else { f64::from(row.strict_sub(1) == column) }) / scale;
+    let mut companion = DMatrix::from_fn(degree, degree, |row, column| if row == 0 { -significant[degree - column - 1] / leading } else { f64::from(row - 1 == column) }) / scale;
     balance_parlett_reinsch(&mut companion);
     let order = convert::<usize, f64>(degree);
     let horner = |at: Complex<f64>| significant.iter().rev().fold((Complex::<f64>::ZERO, Complex::<f64>::ZERO), |(value, slope), &coefficient| (value * at + coefficient, slope * at + value));

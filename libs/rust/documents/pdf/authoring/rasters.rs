@@ -186,15 +186,11 @@ fn decoded(reader: &mut Decoder<Cursor<&[u8]>>) -> Result<(Size, Frame), PdfErro
     let (bytes, bits_per_component, width_of_sample) = match (buffer, color.bit_depth()) {
         (DecodingResult::U8(packed), 8) => (packed, BitsPerComponent::Eight, 1_usize),
         (DecodingResult::U8(packed), depth @ (1 | 2 | 4)) => {
-            let across = usize::try_from(width).map_err(TiffError::from)?.strict_mul(samples);
-            let mask = u8::MAX.strict_shr(u32::from(8_u8.strict_sub(depth)));
+            let across = usize::try_from(width).map_err(TiffError::from)? * samples;
+            let mask = u8::MAX >> u32::from(8_u8 - depth);
             let widened = packed
-                .chunks_exact(across.strict_mul(depth.into()).div_ceil(8))
-                .flat_map(|row| {
-                    row.iter()
-                        .flat_map(move |&byte| (1..=8_u8.strict_div(depth)).map(move |position| (byte.rotate_left(u32::from(position.strict_mul(depth))) & mask).strict_mul(u8::MAX.strict_div(mask))))
-                        .take(across)
-                })
+                .chunks_exact((across * usize::from(depth)).div_ceil(8))
+                .flat_map(|row| row.iter().flat_map(move |&byte| (1..=8_u8 / depth).map(move |position| (byte.rotate_left(u32::from(position * depth)) & mask) * (u8::MAX / mask))).take(across))
                 .collect();
             (widened, BitsPerComponent::Eight, 1)
         }
@@ -204,15 +200,13 @@ fn decoded(reader: &mut Decoder<Cursor<&[u8]>>) -> Result<(Size, Frame), PdfErro
     let (color_channel, alpha_channel) = if samples == components {
         (Arc::from(bytes), None)
     } else {
-        let [colors, alphas] = [components, samples.strict_sub(components)].map(|count| Vec::with_capacity(bytes.len().strict_div(samples).strict_mul(count)));
-        let [colors, alphas] = bytes.chunks_exact(samples.strict_mul(width_of_sample)).map(|pixel| pixel.split_at(components.strict_mul(width_of_sample))).fold(
-            [colors, alphas],
-            |[mut colors, mut alphas], (channels, alpha)| {
+        let [colors, alphas] = [components, samples - components].map(|count| Vec::with_capacity(bytes.len() / samples * count));
+        let [colors, alphas] =
+            bytes.chunks_exact(samples * width_of_sample).map(|pixel| pixel.split_at(components * width_of_sample)).fold([colors, alphas], |[mut colors, mut alphas], (channels, alpha)| {
                 colors.extend_from_slice(channels);
                 alphas.extend_from_slice(alpha);
                 [colors, alphas]
-            },
-        );
+            });
         (Arc::from(colors), Some(Arc::from(alphas)))
     };
     Ok((measured, Frame { color_channel, alpha_channel, bits_per_component, size, icc_profile, color_space }))

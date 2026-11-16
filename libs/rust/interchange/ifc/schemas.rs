@@ -234,9 +234,17 @@ impl<'de> Visitor<'de> for &Descriptions<'_> {
             let arrays = self
                 .described
                 .iter()
-                .map(|description| {
-                    let DataType::Array { restrictions } = &description.data_type else { return None };
-                    Some(&**restrictions)
+                .map(|description| match &description.data_type {
+                    DataType::Array { restrictions } => Some(&**restrictions),
+                    DataType::Real { quantity_kind: _ }
+                    | DataType::Boolean
+                    | DataType::Integer
+                    | DataType::String
+                    | DataType::DateTime
+                    | DataType::Enum { restrictions: _ }
+                    | DataType::Object { restrictions: _ }
+                    | DataType::Reference
+                    | DataType::Blob => None,
                 })
                 .collect::<Option<Vec<_>>>()?;
             let lengths = arrays.iter().filter_map(|restrictions| restrictions.min).max().unwrap_or_default()..=arrays.iter().filter_map(|restrictions| restrictions.max).min().unwrap_or(usize::MAX);
@@ -260,9 +268,17 @@ impl<'de> Visitor<'de> for &Descriptions<'_> {
             let objects = self
                 .described
                 .iter()
-                .map(|description| {
-                    let DataType::Object { restrictions } = &description.data_type else { return None };
-                    Some(restrictions.as_ref())
+                .map(|description| match &description.data_type {
+                    DataType::Object { restrictions } => Some(restrictions.as_ref()),
+                    DataType::Real { quantity_kind: _ }
+                    | DataType::Boolean
+                    | DataType::Integer
+                    | DataType::String
+                    | DataType::DateTime
+                    | DataType::Enum { restrictions: _ }
+                    | DataType::Array { restrictions: _ }
+                    | DataType::Reference
+                    | DataType::Blob => None,
                 })
                 .collect::<Option<Vec<_>>>()?
                 .into_iter()

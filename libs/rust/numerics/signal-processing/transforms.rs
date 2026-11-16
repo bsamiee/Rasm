@@ -106,7 +106,7 @@ where
         iter::zip(lane, bins.iter().enumerate()).for_each(|(value, (bin, &coefficient))| {
             *value = match bin {
                 0 => coefficient,
-                bin if bin.strict_mul(2) == len => coefficient,
+                bin if bin * 2 == len => coefficient,
                 _ => coefficient * 2.0,
             };
         });
@@ -122,7 +122,7 @@ where
 {
     let (count, shape) = shaped(input.raw_dim(), axis, |_| bins.get())?;
     let (rate, start) = (rate.get::<hertz>(), band.start.get::<hertz>());
-    let (sweep, size) = (pitch(band, bins) / (2.0 * rate), count.max(1).strict_add(bins.get()).strict_sub(1).next_power_of_two());
+    let (sweep, size) = (pitch(band, bins) / (2.0 * rate), (count.max(1) + bins.get() - 1).next_power_of_two());
     let turns = |coefficient: f64, value: f64| {
         let product = coefficient * value;
         product.rem_euclid(1.0) + coefficient.mul_add(value, -product)
@@ -135,7 +135,7 @@ where
     let mut planner = FftPlanner::new();
     let [forward, inverse] = [FftDirection::Forward, FftDirection::Inverse].map(|direction| planner.plan_fft(size, direction));
     let scratch_len = forward.get_inplace_scratch_len().max(inverse.get_inplace_scratch_len());
-    let mut kernel = Vec::from_fn(size, |index| match size.strict_sub(index) {
+    let mut kernel = Vec::from_fn(size, |index| match size - index {
         _ if index < bins.get() => chirp(index),
         back if back < count => chirp(back),
         _ => Complex::ZERO,
@@ -203,7 +203,7 @@ pub fn resample(series: &Series, rate: Rate) -> Result<Series, SpectraError> {
         },
     );
     let resized = Array1::from_shape_fn(real_bins(usize::from(target)), |bin| match bins.get(bin) {
-        Some(&coefficient) if bin.strict_mul(2) == shared => coefficient * scale * fold,
+        Some(&coefficient) if bin * 2 == shared => coefficient * scale * fold,
         Some(&coefficient) => coefficient * scale,
         None => Complex::ZERO,
     });
@@ -223,11 +223,11 @@ pub fn frequencies(rate: Rate, len: NonZero<usize>, transform: Transform) -> Arr
         Transform::Zoom(band) => (len.get(), band.start.get::<hertz>(), pitch(band, len), len),
     };
     Array1::from_shape_fn(size, |bin| {
-        let folded = bin.strict_div(wrap.get()).strict_mul(len.get());
+        let folded = bin / wrap * len.get();
         Frequency::new::<hertz>(spacing.mul_add(convert::<usize, f64>(bin) - convert::<usize, f64>(folded), origin))
     })
 }
 
 fn pitch(band: Band, bins: NonZero<usize>) -> f64 {
-    NonZero::new(bins.get().strict_sub(1)).map_or_default(|intervals| (band.last.get::<hertz>() - band.start.get::<hertz>()) / convert::<usize, f64>(intervals.get()))
+    NonZero::new(bins.get() - 1).map_or_default(|intervals| (band.last.get::<hertz>() - band.start.get::<hertz>()) / convert::<usize, f64>(intervals.get()))
 }

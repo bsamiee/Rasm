@@ -308,10 +308,8 @@ impl Typesetter {
                         .ok_or(ScaleError::GlyphNotFound(id))
                         .and_then(|outline| outline.draw(DrawMemory::default(), &mut Outline { path: &mut path, affine: *run.placement * origin * Affine::scale_non_uniform(em, -em) }))
                         .map(|_metrics| ())
-                        .map_err(|source| {
-                            path.truncate(start);
-                            DraftingError::Outline { glyph: glyph.id, source }
-                        })
+                        .inspect_err(|_| path.truncate(start))
+                        .map_err(|source| DraftingError::Outline { glyph: glyph.id, source })
                 })
                 .collect::<Validated<(), _>>()
                 .ok()?;

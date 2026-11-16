@@ -65,7 +65,7 @@ where I: IntoNonEmptyIterator<Item: Borrow<Page>> {
             Destination::Page { index, area: anchor } => {
                 (*index < count).ok_or(PdfError::Page { index: *index, count })?;
                 let origin = anchor.map_or(Point::ZERO, |rect| rect.abs().origin()).to_vec2() * scale;
-                let label = navigation::label(labels, *index).filter(|text| !text.is_empty()).unwrap_or_else(|| format!("page {}", index.strict_add(1)));
+                let label = navigation::label(labels, *index).filter(|text| !text.is_empty()).unwrap_or_else(|| format!("page {}", index + 1));
                 (Target::Destination(XyzDestination::new(*index, geom::Point::from_xy(origin.x.cast::<f32>(), origin.y.cast::<f32>())).into()), label)
             }
         };

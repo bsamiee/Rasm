@@ -75,16 +75,17 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 tcx.def_span(declared),
                 with_forced_trimmed_paths!(format!("trait `{name}` is implemented only for `{implementor}`")),
                 |diag| {
-                    if let Some(objects) = self.objects.get(&declared).map(|objects| objects.iter().copied().filter(|&object| !expanded_externally(cx, object)).collect::<Vec<_>>())
-                        && !objects.is_empty()
-                    {
-                        diag.span_note(objects, with_forced_trimmed_paths!(format!("`dyn {name}` always holds `{implementor}`")));
-                    }
-                    diag.help(match (local, bound) {
-                        (true, _) => with_forced_trimmed_paths!(format!("replace `{name}` with an inherent `impl {implementor}` block")),
-                        (false, Some(bound)) => format!("replace `{name}` with the `{bound}` bound and retain behavior in generic functions"),
-                        (false, None) => with_forced_trimmed_paths!(format!("replace `{name}` with functions and constants for `{implementor}`")),
-                    });
+                    self.objects
+                        .get(&declared)
+                        .map(|objects| objects.iter().copied().filter(|&object| !expanded_externally(cx, object)).collect::<Vec<_>>())
+                        .filter(|objects| !objects.is_empty())
+                        .into_iter()
+                        .fold(diag, |diag, objects| diag.span_note(objects, with_forced_trimmed_paths!(format!("`dyn {name}` always holds `{implementor}`"))))
+                        .help(match (local, bound) {
+                            (true, _) => with_forced_trimmed_paths!(format!("replace `{name}` with an inherent `impl {implementor}` block")),
+                            (false, Some(bound)) => format!("replace `{name}` with the `{bound}` bound and retain behavior in generic functions"),
+                            (false, None) => with_forced_trimmed_paths!(format!("replace `{name}` with functions and constants for `{implementor}`")),
+                        });
                 },
             );
         }

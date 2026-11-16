@@ -39,7 +39,7 @@ pub fn bin(subdivision: NonZero<u8>, north: UnitQuaternion<f64>, direction: Unit
     let (band, _, row) = rows(subdivision);
     if local.z >= 0.0 {
         let (first, count) = row((local.z.atan2(local.xy().norm()) / band).floor().to_int_saturating::<usize>());
-        first.strict_add(sector(Angle::new::<radian>(local.x.atan2(local.y)), count))
+        first + sector(Angle::new::<radian>(local.x.atan2(local.y)), count)
     } else {
         0
     }
@@ -54,10 +54,10 @@ pub fn sector(azimuth: Angle, count: NonZero<usize>) -> usize {
 fn rows(subdivision: NonZero<u8>) -> (f64, usize, impl Fn(usize) -> (usize, NonZero<usize>) + Copy) {
     const TREGENZA: [usize; 7] = [30, 30, 24, 24, 18, 12, 6];
     let split = NonZero::<usize>::from(subdivision);
-    let zenith_row = TREGENZA.len().strict_mul(split.get());
+    let zenith_row = TREGENZA.len() * split.get();
     (FRAC_PI_2 / (nalgebra::convert::<usize, f64>(zenith_row) + 0.5), zenith_row, move |row: usize| {
         let (tier, step) = (row / split, row % split);
         let count = TREGENZA.get(tier).copied().and_then(NonZero::new).map_or(NonZero::<usize>::MIN, |count| count.saturating_mul(split));
-        (TREGENZA.iter().take(tier).sum::<usize>().strict_mul(split.get().strict_pow(2)).strict_add(step.strict_mul(count.get())).strict_add(1), count)
+        (TREGENZA.iter().take(tier).sum::<usize>() * split.get().pow(2) + step * count.get() + 1, count)
     })
 }

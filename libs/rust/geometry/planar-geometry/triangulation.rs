@@ -33,7 +33,7 @@ impl Triangulation {
         let edges = loops
             .iter()
             .scan(0_usize, |start, points| {
-                let ring = *start..start.strict_add(points.len());
+                let ring = *start..*start + points.len();
                 *start = ring.end;
                 Some(ring)
             })
@@ -71,7 +71,7 @@ impl Triangulation {
             .iter()
             .scan(0_usize, |next, used| {
                 let slot = *next;
-                *next = next.strict_add(usize::from(*used));
+                *next += usize::from(*used);
                 Some(slot)
             })
             .collect_vec();

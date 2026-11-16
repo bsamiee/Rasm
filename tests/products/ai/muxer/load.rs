@@ -5,7 +5,7 @@ use std::io;
 
 use backon::{ConstantBuilder, Retryable as _};
 use claims::{assert_ok, assert_some};
-use futures::future;
+use futures::{FutureExt as _, StreamExt as _, future, stream};
 use hdrhistogram::Histogram;
 use mcp_muxer_tests::{Agent, Ask, Echo, Isolated, Sized, Slow, call, exited, modern, spawned, text};
 use opentelemetry_semantic_conventions::attribute::EXCEPTION_MESSAGE;
@@ -121,18 +121,17 @@ async fn attached(isolated: &Isolated, through: Through, server: &[&str], lifecy
     Attached { running, agent, process }
 }
 
-async fn timed(attached: &Attached, latency: &mut Histogram<u64>, request: io::Result<CallToolRequestParams>) -> String {
-    let (request, started) = (assert_ok!(request), Instant::now());
-    let result = assert_ok!(attached.running.call_tool(request).await);
-    assert_ok!(latency.record(assert_ok!(u64::try_from(started.elapsed().as_micros()))));
-    text(&result)
-}
-
 async fn crowded(isolated: &Isolated, level: &'static str) {
     const SESSIONS: usize = 150;
     const BURST: usize = 20;
     let isolated = &Isolated { level, ..isolated.clone() };
     let legacy = || ClientLifecycleMode::Initialize;
+    let timed = async |attached: &Attached, latency: &mut Histogram<u64>, request: io::Result<CallToolRequestParams>| {
+        let (request, started) = (assert_ok!(request), Instant::now());
+        let result = assert_ok!(attached.running.call_tool(request).await);
+        assert_ok!(latency.record(assert_ok!(u64::try_from(started.elapsed().as_micros()))));
+        text(&result)
+    };
     let measure = |pids: &[u32]| {
         let mut system = assert_ok!(System::new());
         let watched = Vec::from_iter(pids.iter().copied().map(Pid::from_u32));
@@ -264,9 +263,12 @@ async fn one_session_two_thousand_calls() {
             let started = Instant::now();
             let session = attached(isolated, through, &LEGACY, ClientLifecycleMode::Initialize, 0).await;
             let (start, mut latency) = (started.elapsed(), assert_ok!(Histogram::<u64>::new(3)));
-            for _ in 0..2000 {
-                timed(&session, &mut latency, call("echo", &Echo { text: "x".to_owned() })).await;
-            }
+            let answered = stream::repeat_with(|| (assert_ok!(call("echo", &Echo { text: "x".to_owned() })), Instant::now()))
+                .take(2000)
+                .then(|(request, sent)| session.running.call_tool(request).map(move |result| (assert_ok!(result), sent.elapsed())))
+                .collect::<Vec<_>>()
+                .await;
+            assert_ok!(answered.iter().try_for_each(|(_, taken)| latency.record(assert_ok!(u64::try_from(taken.as_micros())))));
             measured.insert(name, (start.as_micros(), summary(&latency)));
         }
         printed(&measured).await;

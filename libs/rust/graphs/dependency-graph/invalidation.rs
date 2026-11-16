@@ -59,7 +59,7 @@ impl<'id, N, E> Propagation<'_, 'id, N, E> {
             .neighbors_directed(node, Direction::Outgoing)
             .filter(|&target| match self.pending.get_mut(target.index()).and_then(Option::as_mut) {
                 Some(pending) => {
-                    *pending = (pending.0.strict_sub(1), pending.1.max(outcome));
+                    *pending = (pending.0 - 1, pending.1.max(outcome));
                     pending.0 == 0
                 }
                 None if outcome == Outcome::Changed => {

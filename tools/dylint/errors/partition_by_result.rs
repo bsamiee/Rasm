@@ -63,13 +63,12 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 _ => None,
             };
             let mut negated = false;
-            let tested = peel_hir_expr_while(peel_blocks(tested), |inner| {
-                if let ExprKind::Unary(UnOp::Not, operand) = inner.kind {
+            let tested = peel_hir_expr_while(peel_blocks(tested), |inner| match inner.kind {
+                ExprKind::Unary(UnOp::Not, operand) => {
                     negated.toggle();
                     Some(peel_blocks(operand))
-                } else {
-                    None
                 }
+                _ => None,
             });
             match tested.kind {
                 ExprKind::MethodCall(_, receiver, [], _) => typeck.type_dependent_def_id(tested.hir_id).and_then(|method| pass.cases.get(&method).copied()).filter(|_| reaches(receiver)),
@@ -107,12 +106,13 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             && result_parts(cx, item.peel_refs()).is_some()
             && !expanded_externally(cx, expr.span)
         {
+            let help = format!(
+                "call `Itertools::partition_result`{}{}",
+                if item.is_ref() { " after mapping each borrowed result with `Result::as_ref`" } else { "" },
+                if ok_first { " and delete the unwraps after it" } else { ", swap the halves, and delete the unwraps after it" },
+            );
             span_lint_hir_and_then(cx, PARTITION_BY_RESULT, expr.hir_id, span.to(expr.span.shrink_to_hi()), "`partition` leaves each half of the results wrapped in `Ok` or `Err`", |diag| {
-                diag.help(format!(
-                    "call `Itertools::partition_result`{}{}",
-                    if item.is_ref() { " after mapping each borrowed result with `Result::as_ref`" } else { "" },
-                    if ok_first { " and delete the unwraps after it" } else { ", swap the halves, and delete the unwraps after it" },
-                ));
+                _ = diag.help(help);
             });
         }
     }
