@@ -67,7 +67,6 @@ struct Journal: Sendable {
 }
 
 final class Run: Sendable {
-    private let output: FileDescriptor?
     private let lineLength: Int?
     private let telemetry: ServiceGroup = Program.current.telemetry(scopes: [Run.self])
     private let services: Task<Void, any Error>
@@ -77,7 +76,7 @@ final class Run: Sendable {
     private let claims: (stream: AsyncStream<Instance?>, continuation: AsyncStream<Instance?>.Continuation)?
     private let recorder: Recorder?
 
-    init(output: FileDescriptor? = .standardOutput, lineLength: Int? = nil, waiting: Bool = false, recording: (folder: URL, longestSide: Int?)? = nil) {
+    init(lineLength: Int? = nil, waiting: Bool = false, recording: (folder: URL, longestSide: Int?)? = nil) {
         let recorded = Result { () throws(ApplicationFailure) in
             try recording.map { target throws(ApplicationFailure) in try Recorder(folder: target.folder, longestSide: target.longestSide) }
         }
@@ -86,7 +85,6 @@ final class Run: Sendable {
                 throw ApplicationFailure(subject: Journal.folder.path(percentEncoded: false), reason: .host(error as NSError))
             }
         }
-        self.output = output
         self.lineLength = lineLength
         services = Task(name: "Telemetry") { [telemetry] in try await telemetry.run() }
         logger = Logger(label: String(reflecting: Run.self))
@@ -106,7 +104,7 @@ final class Run: Sendable {
         let open = held.withLock { held in
             do {
                 try held.journal?.append(record, replacing: key)
-                try output?.writeAll(line)
+                try FileDescriptor.standardOutput.writeAll(line)
                 return true
             } catch Errno.brokenPipe {
                 return false
@@ -253,14 +251,13 @@ final class Run: Sendable {
 
     static func execute(
         _ command: (some ParsableCommand).Type,
-        output: FileDescriptor? = .standardOutput,
         lineLength: Int? = nil,
         accessibility: Bool = true,
         waiting: Bool = false,
         recording: (folder: URL, longestSide: Int?)? = nil,
         _ work: @escaping @Sendable (Run) async throws(ApplicationFailure) -> Void,
     ) async {
-        let run = Run(output: output, lineLength: lineLength, waiting: waiting, recording: recording)
+        let run = Run(lineLength: lineLength, waiting: waiting, recording: recording)
         let operation = "\(Program.current.name) \(command._commandName)"
         let signals = await UnixSignalsSequence(trapping: .sigterm, .sigint, .sighup).map { signal in Int32?.some(signal.rawValue) }
         let parent = Result { () throws(Errno) in try ProcessInstance(of: getppid()) }

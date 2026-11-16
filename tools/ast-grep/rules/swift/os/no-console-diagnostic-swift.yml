@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: swiftlang
+severity: error
+rule:
+    all:
+        - pattern: $OUT
+        - matches: swift-console-write
+        - not: { matches: swift-log-handler-body }
+        - any:
+              - { not: { kind: call_expression }, regex: '(?i)err|(?-u:\b)2$' }
+              - { kind: call_expression, has: { nthChild: 1, regex: '(^|\.)(debugPrint|dump|NSLog|NSLogv|os_log|perror|CFShow|_printChanges)$' } }
+              - all:
+                    - { kind: call_expression, has: { nthChild: 1, regex: '(^|\.)print$' } }
+                    - has: { kind: call_suffix, has: { kind: value_arguments, has: { kind: value_argument, has: { field: name, regex: '^to$' } } } }
+message: '`$OUT` writes a diagnostic outside `Logger`'
+note: 'Log diagnostics through `Logger`, whose `LogHandler` alone writes them in `log`'

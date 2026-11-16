@@ -88,7 +88,6 @@ watch-apps perform <id> <action>
 watch-apps set <id> -- '<text>'
 watch-apps key <pid> <code>
 watch-apps log [<run pid>]
-watch-apps serve
 ```
 
 - `read` prints the whole state with element ids, `--window` walks one row, so answering a dialog costs a fraction of a whole `read`
@@ -115,7 +114,6 @@ watch-apps serve
 - Run files past 1 MB keep the run start and its last line per key, and the newest 64 run files stay
 - Failures append one OpenTelemetry log record each to `watch-apps.log` in the same folder, with run `trace_id` and `span_id` while traces export
 - `watch-apps.log` rotates at 8 MB or 1 day to `.1` through `.7` beside it, the oldest replaced and each one older than 1 day deleted
-- `serve` answers the `ApplicationServer` wire over standard input and output, holding its parent's grants
 
 ## [03]-[STATES]
 

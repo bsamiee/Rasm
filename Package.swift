@@ -114,7 +114,7 @@ let executables: [Target] = [
     .executableTarget(
         name: "watch-apps",
         dependencies: [
-            "ApplicationServer", "Applications", "CurrentProcess", "Encoding", "Files", "Processes", "Results", "ScreenCapture", "Telemetry",
+            "Applications", "CurrentProcess", "Encoding", "Files", "Processes", "Results", "ScreenCapture", "Telemetry",
             .product(name: "ArgumentParser", package: "swift-argument-parser"), .product(name: "Configuration", package: "swift-configuration"),
             .product(name: "Logging", package: "swift-log"), .product(name: "ServiceLifecycle", package: "swift-service-lifecycle"),
             .product(name: "Tracing", package: "swift-distributed-tracing"), .product(name: "UnixSignals", package: "swift-service-lifecycle"),

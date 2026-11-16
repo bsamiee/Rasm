@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: swift-console-write
+language: swiftlang
+rule:
+    any:
+        - kind: navigation_expression
+          regex: '^((Foundation(\.|::))?FileHandle|((SystemPackage|System)(\.|::))?FileDescriptor)\.standard(Output|Error)$'
+        - kind: value_argument
+          regex: '^((Darwin|Glibc)(\.|::))?std(out|err)$'
+          inside: { kind: value_arguments, inside: { kind: call_suffix, inside: { kind: call_expression, has: { nthChild: 1, regex: '^((Darwin|Glibc)(\.|::))?(fputs|fprintf|vfprintf|fwrite|fputc|putc)$' } } } }
+        - kind: value_argument
+          nthChild: 1
+          regex: '^(((Darwin|Glibc)(\.|::))?STD(OUT|ERR)_FILENO|1|2)$'
+          inside: { kind: value_arguments, inside: { kind: call_suffix, inside: { kind: call_expression, has: { nthChild: 1, regex: '^((Darwin|Glibc)(\.|::))?(write|dprintf|vdprintf)$' } } } }
+        - kind: value_argument
+          nthChild: 1
+          regex: '^(fileDescriptor|rawValue):[\t-\r ]*(((Darwin|Glibc)(\.|::))?STD(OUT|ERR)_FILENO|1|2)$'
+          inside: { kind: value_arguments, inside: { kind: call_suffix, inside: { kind: call_expression, has: { nthChild: 1, regex: '^((Foundation|System|SystemPackage)(\.|::))?(FileHandle|FileDescriptor)$' } } } }
+        - kind: call_expression
+          has: { nthChild: 1, regex: '^((Swift|Foundation|CoreFoundation|Darwin|Glibc|os)(\.|::))?(print|puts|putchar|printf|vprintf|debugPrint|dump|NSLog|NSLogv|os_log|perror|CFShow)$' }
+        - kind: call_expression
+          has: { nthChild: 1, kind: navigation_expression, has: { field: suffix, regex: '^\._printChanges$' } }
