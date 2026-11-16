@@ -78,7 +78,8 @@
             "include": ["tests/**"],
             "options": {
                 "compilerPackages": ["@typescript/native", "@effect/tsgo"],
-                "noEmit": true
+                "noEmit": true,
+                "outputPath": ".artifacts/pnpm/{projectName}"
             }
         },
         {
