@@ -20,10 +20,9 @@ Each place holding state changes through one action:
 - Table `hosts` holds one row per machine, keyed by DNS name, stating public IPv4 `address`, `tags`, and `roles`
 - `.config/mise.toml` `[bootstrap.remote.hosts]` holds one row per machine by tailnet name, and its `mise_env` loads a role file (`.config/mise.runner.toml`)
 - `[bootstrap]` declares the Docker and Tailscale apt sources and packages, each settings file every machine gets, and the system service the file restarts
-- `[bootstrap]` removes the hand-written Docker and Tailscale apt source files first, as apt refuses a second `Signed-By` key for one repository
 - `mise bootstrap remote` sends folder `.config` and applies parts `accounts`, `packages`, `files`, and `services` as `root@<name>` over Tailscale SSH
 - Role `Cache` runs the Nx cache server with its proxy and object storage
-- Role `Runner` runs the GitHub Actions runner services and pulls each Unreal image
+- Role `Runner` runs GitHub Actions runner services and pulls an Unreal image per engine release a tracked `.uproject` names
 - Role `Apps` runs the proxy, sign-in, and object storage of hosted apps, on one machine per zone, as a zone holds each public name once
 - Stacks declare containers, volumes, networks, and images through the Docker provider
 - Docker engines build stack images from inline Dockerfiles
@@ -81,6 +80,4 @@ Each place holding state changes through one action:
 
 - Machines install Ubuntu `*-updates` and Docker packages daily at 05:00 `America/Chicago`, after a random delay of up to an hour
 - Machines reboot as soon as an update requires it, which stops a job running there and any CI run reading the cache it serves
-- `runner-prune.timer` runs `runner-prune.service` each Sunday at 09:00 UTC to prune the pnpm store, uv cache, and unused mise tool versions
-- `runner-prune.service` removes stopped Docker containers created over an hour before, unused anonymous volumes, and dangling images
 - Docker Engine's default garbage collection bounds the build cache, and no job prunes it

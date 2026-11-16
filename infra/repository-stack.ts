@@ -3,7 +3,8 @@ import { ActionsEnvironmentSecret, ActionsEnvironmentVariable, IssueLabels, Repo
 import { interpolate, jsonStringify, secret } from '@pulumi/pulumi';
 import { Acl, DnsPreferences, OauthClient, TailnetSettings } from '@pulumi/tailscale';
 import { Environment, Project, ServiceToken, secretssync, Webhook } from '@pulumiverse/doppler';
-import { Array, Cause, Effect, FileSystem, Path, Record, Schema, SchemaGetter, SchemaIssue, Struct } from 'effect';
+import { run } from '@rasm/process';
+import { Array, Cause, Effect, FileSystem, Path, Record, Schema, SchemaGetter, SchemaIssue, String, Struct } from 'effect';
 import { Yaml } from 'effect/encoding';
 import { hosts } from '#/platform-stack';
 
@@ -16,7 +17,8 @@ const configs = ['dev', 'ci', 'release', 'deploy'] as const;
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Manifest = Schema.fromJsonString(Schema.Struct({ name: Schema.NonEmptyString, description: Schema.NonEmptyString, repository: Schema.Struct({ url: Schema.TemplateLiteralParser(['git+https://github.com/', Schema.NonEmptyString, '/', Schema.NonEmptyString, '.git']) }) }));
-const Uproject = Schema.fromJsonString(Schema.Struct({ EngineAssociation: Schema.NonEmptyString }));
+const Uproject = Schema.fromJsonString(Schema.Struct({ EngineAssociation: Schema.optionalKey(Schema.Unknown) }));
+const Release = Schema.String.check(Schema.isPattern(/^[0-9.]+$/u));
 const Feed = Schema.TemplateLiteralParser([`${feed.setting} = `, Schema.URLFromString]);
 const Form = Schema.String.pipe(
     Schema.decodeTo(Schema.Unknown, {
@@ -33,14 +35,11 @@ const identified = Effect.fnUntraced(function* (root: string) {
     const [manifest, settings, engines] = yield* Effect.all([
         Effect.flatMap(fs.readFileString(path.join(root, 'package.json')), Schema.decodeEffect(Manifest)),
         fs.readFileString(path.join(root, 'Xcode.xcconfig')),
-        Effect.flatMap(
-            fs.glob('products/apps/unreal/**/*.uproject', { root }),
-            Effect.forEach((project) => Effect.flatMap(fs.readFileString(path.join(root, project)), Schema.decodeEffect(Uproject))),
-        ),
+        Effect.flatMap(run(['git', 'ls-files', '-z', '--', '*.uproject'], { cwd: root }), ({ stdout }) => Effect.forEach(stdout.split('\0').filter(String.isNonEmpty), (project) => Effect.flatMap(fs.readFileString(path.join(root, project)), Schema.decodeEffect(Uproject)))),
     ]);
     const [, { hostname }] = yield* Effect.flatMap(Effect.fromNullishOr(settings.split('\n').find((line) => line.startsWith(feed.setting))), (line) => Schema.decodeUnknownEffect(Feed)(line.replace('/$()/', '//')));
     const [, owner, , repository] = manifest.repository.url;
-    return { project: manifest.name, description: manifest.description, owner, repository, feed: { domain: hostname, zone: hostname.split('.').slice(1).join('.') }, engines: Array.dedupe(engines.map(Struct.get('EngineAssociation'))).toSorted() };
+    return { project: manifest.name, description: manifest.description, owner, repository, feed: { domain: hostname, zone: hostname.split('.').slice(1).join('.') }, engines: Array.dedupe(engines.map(Struct.get('EngineAssociation')).filter(Schema.is(Release))).toSorted() };
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

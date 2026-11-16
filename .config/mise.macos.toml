@@ -17,9 +17,6 @@ working_directory     = "{{ config_root }}"
 
 # --- [DAEMONS] --------------------------------------------------------------------------
 
-[daemon_groups]
-default = ["docker"]
-
 [daemons.docker]
 auto        = ["start", "stop"]
 health_cmd  = { run = ["docker", "version"], interval = "30s", retries = 10 }

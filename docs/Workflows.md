@@ -61,6 +61,8 @@
 
 ## [05]-[MAINTENANCE]
 
-- Workflow `Maintenance` runs each Sunday at 09:00 UTC, before the machine update hour, on runner instance `container` and by dispatch
+- Workflow `Maintenance` runs each Sunday at 09:00 UTC, before the machine update hour, on both runner instances and by dispatch
 - Job `container` checks out clean, removing every ignored file of its work folder, the container tools and package store included
-- Job `container` takes the queue of instance `container`, so its reset never overlaps a container job as a machine timer would
+- Job `host` keeps ignored files, installs tools and packages, then prunes the pnpm store, uv cache, and unused mise tool versions
+- Job `host` removes stopped Docker containers created over an hour before, unused anonymous volumes, and dangling images
+- Jobs `container` and `host` each take the queue of their instance, so a reset or prune never overlaps a job there as a machine timer would
