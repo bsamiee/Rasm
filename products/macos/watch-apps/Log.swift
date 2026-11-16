@@ -23,13 +23,13 @@ struct Log: ParsableCommand {
     func run() throws {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .custom { decoder in try Date.ISO8601FormatStyle(includingFractionalSeconds: true).parse(decoder.singleValueContainer().decode(String.self)) }
-        let pid = pid
-        let printed = Result { () throws(ApplicationFailure) in
-            do {
-                let runs = try Journal.files().compactMap { file in try ifPresent { try Data(contentsOf: file) } }.map { text in
-                    (text: text, records: try text.split(separator: UInt8(ascii: "\n")).map { line in try decoder.decode(Record<[String: JSONValue]>.self, from: line) })
-                }
-                return switch pid {
+        let text: Data
+        do {
+            let runs = try Journal.files().compactMap { file in try ifPresent { try Data(contentsOf: file) } }.map { text in
+                (text: text, records: try text.split(separator: UInt8(ascii: "\n")).map { line in try decoder.decode(Record<[String: JSONValue]>.self, from: line) })
+            }
+            text =
+                switch pid {
                     case let pid?: runs.last { run in run.records.first?.pid == pid }?.text ?? Data()
                     case nil:
                         try runs.filter { run in run.records.first?.session == callerSession }.reduce(into: Data()) { text, run in
@@ -39,15 +39,11 @@ struct Log: ParsableCommand {
                             text += try JSONEncoder.lines.encodeLine(summary)
                         }
                 }
-            } catch {
-                throw ApplicationFailure(subject: Journal.folder.path(percentEncoded: false), reason: .host(error as NSError))
-            }
+        } catch {
+            let failure = ApplicationFailure(subject: Journal.folder.path(percentEncoded: false), reason: .host(error as NSError))
+            try FileDescriptor.standardOutput.writeAll(JSONEncoder.lines.encodeLine([Program.current.name: Event.fail(failure)]))
+            WatchApps.exit(withError: ExitCode.failure)
         }
-        switch printed {
-            case .success(let text): try FileDescriptor.standardOutput.writeAll(text)
-            case .failure(let failure):
-                try FileDescriptor.standardOutput.writeAll(JSONEncoder.lines.encodeLine([Program.current.name: Event.fail(failure)]))
-                WatchApps.exit(withError: ExitCode.failure)
-        }
+        try FileDescriptor.standardOutput.writeAll(text)
     }
 }

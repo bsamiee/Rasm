@@ -9,7 +9,7 @@ import Foundation
 struct WatchApps: AsyncParsableCommand {
     static let configuration: CommandConfiguration = .init(
         abstract: "Observes and drives installed applications in the background. Exits 1 after printing any fail line",
-        version: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "",
+        version: Program.current.version ?? "",
         subcommands: [Find.self, ProcessTable.self, Watch.self, Launch.self, Read.self, Capture.self, Perform.self, SetValue.self, Key.self, Quit.self, Log.self],
     )
 

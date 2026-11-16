@@ -86,9 +86,9 @@ struct Outline: Encodable {
     let status: InstanceState.Running.Status
     var windows: [CGWindowID]
 
-    func fitted<Failure: Error>(within limit: Int, measuring length: (Self) throws(Failure) -> Int) throws(Failure) -> Self {
+    func fitted(within limit: Int, measuring length: (Self) -> Int) -> Self {
         var cut = self
-        var excess = try length(cut) - limit
+        var excess = length(cut) - limit
         while excess > 0 {
             switch (cut.asking.lastIndex { row in !row.text.isEmpty }, cut.asking.lastIndex { row in !row.options.isEmpty }, cut.windows.isEmpty) {
                 case (nil, nil, true): return cut
@@ -98,7 +98,7 @@ struct Outline: Encodable {
                 case (nil, let row?, _): cut.asking[row].options.removeLast()
                 case (nil, nil, false): cut.windows.removeLast()
             }
-            excess = try length(cut) - limit
+            excess = length(cut) - limit
         }
         return cut
     }
