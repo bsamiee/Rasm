@@ -341,7 +341,7 @@ def _marked(glyph: Glyph, stack: float, wide: float, /) -> Glyph:
     """Anchors a mark at its outline foot, in the wide class past the wide width, and marks stacked on it the stack gap past its head in both classes."""
     match paths.bounds(glyph.contours), glyph.role:
         case paths.Box(middle=(x, _), ymin=ymin, ymax=ymax, width=width), Mark(side=side):
-            name, (foot, head) = side.anchor, (ymin, ymax + stack) if side is Side.ABOVE else (ymax, ymin - stack)
+            name, (foot, head) = side, (ymin, ymax + stack) if side is Side.ABOVE else (ymax, ymin - stack)
             return msgspec.structs.replace(glyph, anchors=(Anchor(name=f"_{name}{'wide' if width > wide else ''}", x=x, y=foot), *(Anchor(name=f"{name}{tier}", x=x, y=head) for tier in ("", "wide"))))
         case _:
             return glyph

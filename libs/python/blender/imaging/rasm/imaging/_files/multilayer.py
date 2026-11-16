@@ -20,7 +20,7 @@ import OpenImageIO
 import PyOpenColorIO
 
 from rasm.imaging._files.buffers import Depth
-from rasm.imaging._files.images import Compression, Deflate, emitted, ImageFile, opened, read_file, read_pixels, Storage, Subimage
+from rasm.imaging._files.images import Deflate, emitted, ImageFile, opened, read_file, read_pixels, Storage, Subimage
 from rasm.records import accumulated, content_hash, ContentHash, Fault, Outcome, paired, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -184,8 +184,8 @@ class Multilayer(msgspec.Struct, frozen=True, kw_only=True):
         return emitted(path, lambda _: tuple(subimage(group) for group in groups))
 
     @staticmethod
-    def rewritten(path: pathlib.Path, display: Option[OpenImageIO.ROI], channels: Callable[[tuple[str, ...]], tuple[str, ...]], compression: Option[Compression]) -> Outcome[pathlib.Path]:
-        """Rewrites windows to `display` in data window pixels, channel names through `channels`, and `compression` where a part names none, skipping unchanged files.
+    def rewritten(path: pathlib.Path, display: Option[OpenImageIO.ROI], channels: Callable[[tuple[str, ...]], tuple[str, ...]]) -> Outcome[pathlib.Path]:
+        """Rewrites windows to `display` in data window pixels and channel names through `channels`, each part keeping its header compression, skipping unchanged files.
 
         Returns:
             Path, or `UNREADABLE` or `UNWRITABLE` fault.
@@ -207,9 +207,7 @@ class Multilayer(msgspec.Struct, frozen=True, kw_only=True):
             for frame in display.to_list():
                 spec.x, spec.y, spec.full_x, spec.full_y, spec.full_width, spec.full_height = -frame.xbegin, -frame.ybegin, 0, 0, frame.width, frame.height
             spec.channelnames = names
-            return Subimage(
-                spec=spec, attributes=compression.filter(lambda _: not spec.get_string_attribute("compression")).map(lambda held: held.attributes).default_value(()), pixels=lambda: Ok(array)
-            )
+            return Subimage(spec=spec, attributes=(), pixels=lambda: Ok(array))
 
         return opened(path, parts).bind(lambda read: read.map(lambda parts: emitted(path, lambda _: parts)).default_value(Ok(path)))
 

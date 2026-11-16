@@ -34,16 +34,12 @@ if TYPE_CHECKING:
 
 
 class MaskOperation(Enum):
-    """Join of a key with the coverage of the masks before it, clamped to unit coverage."""
+    """Join of a key with the coverage of the masks before it, clamped to unit coverage, valued by the Math operation joining the key onto running coverage."""
 
-    ADD = ("MAXIMUM", 0.0)
-    SUBTRACT = ("SUBTRACT", 1.0)
-    MULTIPLY = ("MULTIPLY", 1.0)
-
-    def __init__(self, operation: "rna_enums.NodeMathItems", identity: float) -> None:
-        """Holds the Math operation joining the key onto running coverage and the coverage the first mask joins onto."""
-        self.operation: rna_enums.NodeMathItems = operation
-        self.identity = identity
+    _value_: "rna_enums.NodeMathItems"
+    ADD = "MAXIMUM"
+    SUBTRACT = "SUBTRACT"
+    MULTIPLY = "MULTIPLY"
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -305,7 +301,7 @@ def mask(config: PyOpenColorIO.Config) -> Outcome[NodeGroup]:
 
     def keyed(groups: tuple[NodeGroup, ...]) -> Expr:
         key = abs(socket_input(_INVERT) - menu(socket_input(_CHOICE), {item: placed(item, group) for item, group in zip(built, groups, strict=True)}))
-        joins = {MenuItem.of(operation): math(operation.operation, socket_input(_RUNNING), key, clamp=True) for operation in MaskOperation}
+        joins = {MenuItem.of(operation): math(operation.value, socket_input(_RUNNING), key, clamp=True) for operation in MaskOperation}
         return menu(socket_input(_OPERATION), joins)
 
     interface = msgspec.structs.replace(MASK, inputs=(*heads, *MASK.inputs), outputs=(_COVERAGE,))
@@ -332,7 +328,7 @@ def masked(count: int) -> tuple[InterfacePanel, ...]:
 
 def coverage(count: int, image: Term, aspect: Term, scale: Term, outer: Callable[[Key], Expr], config: PyOpenColorIO.Config) -> Outcome[Option[Expr]]:
     """Returns chained coverage of `count` masks over the displayed frame, each mask's inputs at `outer(item_key(index, key))`, the first joining onto its operation's identity, Nothing at zero count."""
-    first = menu(outer(item_key(1, _OPERATION.key)), {MenuItem.of(operation): operation.identity for operation in MaskOperation}) if count else 0.0
+    first = menu(outer(item_key(1, _OPERATION.key)), {MenuItem.of(operation): 0.0 if operation is MaskOperation.ADD else 1.0 for operation in MaskOperation}) if count else 0.0
 
     def chained(group: NodeGroup) -> Expr:
         def placed(running: Term, index: int) -> Expr:

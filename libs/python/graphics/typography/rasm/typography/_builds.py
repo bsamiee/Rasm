@@ -23,7 +23,7 @@ lazy from ufo2ft import compileTTF
 lazy from ufo2ft.constants import OPENTYPE_CATEGORIES_KEY, OPENTYPE_META_KEY, TRUETYPE_INSTRUCTIONS_KEY
 lazy from ufoLib2.objects.info import GaspBehavior, GaspRangeRecord
 
-from rasm.typography._faces.glyphs import Category, fetched, Source, VerticalMetrics
+from rasm.typography._faces.glyphs import fetched, Ligature, Mark, Source, VerticalMetrics
 lazy from rasm.records import Fault, Faults, Outcome, Reason
 lazy from rasm.typography._faces.declaration import Face, Faces
 lazy from rasm.typography._faces.importing import imported
@@ -77,7 +77,7 @@ def _built(rule: Metrics, corpus: Corpus, source: Source, /) -> Construction:
     face = source.face
     writer = FeatureWriter(source=source)
     info, metrics, languages = source.info, source.metrics, list(source.scripts)
-    categories = {glyph.name.text: glyph.category for glyph in source.glyphs}
+    categories = {glyph.name.text: glyph.role.category for glyph in source.glyphs}
     regular, bold, italic = 400, 700, metrics.italic_angle != 0
     weight = face.weight if isinstance(face, Face) else regular
     slope = "Italic" if italic else "Roman"
@@ -115,7 +115,7 @@ def _built(rule: Metrics, corpus: Corpus, source: Source, /) -> Construction:
     ufo.info.openTypeOS2WidthClass = face.width if isinstance(face, Face) else None
     ufo.info.openTypeGaspRangeRecords = [GaspRangeRecord(rangeMaxPPEM=0xFFFF, rangeGaspBehavior=list(GaspBehavior))]
     ufo.lib.update({
-        **({OPENTYPE_CATEGORIES_KEY: categories} if {Category.MARK, Category.LIGATURE} & {*categories.values()} else {}),
+        **({OPENTYPE_CATEGORIES_KEY: categories} if any(isinstance(glyph.role, Mark | Ligature) for glyph in source.glyphs) else {}),
         TRUETYPE_INSTRUCTIONS_KEY: {"formatVersion": "1", "controlValueProgram": "PUSHW[ ] 511 SCANCTRL[ ] PUSHB[ ] 4 SCANTYPE[ ]"},
         **({OPENTYPE_META_KEY: {"slng": languages, **({"dlng": sorted(face.genre.script.scripts)} if isinstance(face, Face) else {})}} if languages else {}),
     })

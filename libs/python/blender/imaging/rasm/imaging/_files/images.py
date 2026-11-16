@@ -35,18 +35,9 @@ class Codec(StrEnum):
     PXR24 = "pxr24"
     B44 = "b44"
     B44A = "b44a"
-    HTJ2K32 = "htj2k32"
-    HTJ2K256 = "htj2k256"
     LZW = "lzw"
     PACKBITS = "packbits"
     LOSSLESS = "lossless"
-
-
-class Blocks(StrEnum):
-    """Scanlines per DWA block, its value the OpenEXR codec."""
-
-    DWAA = "dwaa"
-    DWAB = "dwab"
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -63,7 +54,7 @@ _DEPTH_WRITERS: Final = MappingProxyType({
 })
 _CODEC_WRITERS: Final = MappingProxyType({
     Codec.NONE: frozenset({"openexr", "tiff"}),
-    **dict.fromkeys((Codec.RLE, Codec.ZIPS, Codec.PIZ, Codec.PXR24, Codec.B44, Codec.B44A, Codec.HTJ2K32, Codec.HTJ2K256), frozenset({"openexr"})),
+    **dict.fromkeys((Codec.RLE, Codec.ZIPS, Codec.PIZ, Codec.PXR24, Codec.B44, Codec.B44A), frozenset({"openexr"})),
     **dict.fromkeys((Codec.LZW, Codec.PACKBITS), frozenset({"tiff"})),
     Codec.LOSSLESS: frozenset({"webp"}),
 })
@@ -112,7 +103,6 @@ class Dwa(Case, frozen=True, kw_only=True):
 
     writers = frozenset({"openexr"})
     lossy = True
-    blocks: Blocks = Blocks.DWAA
     level: Annotated[int, msgspec.Meta(ge=0, le=450)] = 45
 
     @property
@@ -122,8 +112,8 @@ class Dwa(Case, frozen=True, kw_only=True):
 
     @property
     def attributes(self) -> tuple[tuple[str, OpenImageIO.TypeDesc, str | int], ...]:
-        """Spec attributes the blocks and level set."""
-        return (("compression", OpenImageIO.TypeString, f"{self.blocks.value}:{self.level}"),)
+        """Spec attributes the level sets."""
+        return (("compression", OpenImageIO.TypeString, f"dwaa:{self.level}"),)
 
 
 class Quality(Case, frozen=True, kw_only=True):
@@ -476,7 +466,6 @@ def profile(config: PyOpenColorIO.Config, colorspace: str) -> Outcome[Option[byt
 
 __all__ = [
     "UNTAGGED",
-    "Blocks",
     "Codec",
     "Compression",
     "Deflate",

@@ -1,9 +1,9 @@
 """Glyph records with outlines, anchors, and roles, and the face source holding them."""
 
 from datetime import datetime
-from enum import auto, StrEnum
+from enum import StrEnum
 from functools import cache, cached_property, partial
-from typing import Annotated, Self
+from typing import Annotated, ClassVar, Self
 from urllib.parse import urlsplit
 lazy from collections.abc import Callable, Mapping
 lazy import csv
@@ -49,29 +49,15 @@ class Joining(StrEnum):
 
 
 class Side(StrEnum):
-    """Side of its base a mark attaches to."""
+    """Side of its base a mark attaches to, each value its base anchor name, its mark anchor prefixed by `_`."""
 
-    ABOVE = auto()
-    BELOW = auto()
-
-    @property
-    def anchor(self) -> str:
-        """Base anchor name of the side, its mark anchor prefixed by `_`."""
-        return "top" if self is Side.ABOVE else "bottom"
+    ABOVE = "top"
+    BELOW = "bottom"
 
     @classmethod
     def of(cls, code: int, /) -> Side:
         """Returns the side a mark's canonical combining class states, below for class 220 and the kasra and kasratan classes."""
         return cls.BELOW if unicodedata.combining(chr(code)) in {220, *map(unicodedata.combining, "ٍِ")} else cls.ABOVE
-
-
-class Category(StrEnum):
-    """OpenType category `public.openTypeCategories` gives a glyph, each value its UFO token."""
-
-    BASE = auto()
-    LIGATURE = auto()
-    MARK = auto()
-    UNASSIGNED = auto()
 
 
 type Joinings = frozendict[int, tuple[Joining, str]]
@@ -109,7 +95,9 @@ class Component(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class _Role(msgspec.Struct, frozen=True, kw_only=True, tag_field="kind", tag=str.lower):
-    """Part a glyph plays in text."""
+    """Part a glyph plays in text, `category` its `public.openTypeCategories` token, controls left unassigned and spaces bases a mark can attach to."""
+
+    category: ClassVar[str] = "base"
 
 
 class Letter(_Role, frozen=True, kw_only=True):
@@ -122,12 +110,14 @@ class Letter(_Role, frozen=True, kw_only=True):
 class Mark(_Role, frozen=True, kw_only=True):
     """Combining mark on one side of its base."""
 
+    category: ClassVar[str] = "mark"
     side: Side
 
 
 class Ligature(_Role, frozen=True, kw_only=True):
     """Ligature of component glyphs."""
 
+    category: ClassVar[str] = "ligature"
     components: Annotated[tuple[str, ...], msgspec.Meta(min_length=2)]
 
 
@@ -151,6 +141,8 @@ class Space(_Role, frozen=True, kw_only=True):
 
 class Control(_Role, frozen=True, kw_only=True):
     """Zero-width format control."""
+
+    category: ClassVar[str] = "unassigned"
 
 
 type _Roles = Letter | Mark | Ligature | Digit | Sign | Ornament | Space | Control
@@ -178,19 +170,6 @@ class Glyph(msgspec.Struct, frozen=True, kw_only=True):
     def decomposed(self, glyphs: Mapping[str, Glyph], /) -> Self:
         """Resolves component geometry against a glyph set while retaining the glyph's other facts."""
         return msgspec.structs.replace(self, contours=traced(lambda pen: self.draw(DecomposingFilterPen(pen, glyphs))), components=()) if self.components else self
-
-    @property
-    def category(self) -> Category:
-        """OpenType category for `public.openTypeCategories`, controls left unassigned and spaces bases a mark can attach to."""
-        match self.role:
-            case Mark():
-                return Category.MARK
-            case Ligature():
-                return Category.LIGATURE
-            case Control():
-                return Category.UNASSIGNED
-            case Letter() | Digit() | Sign() | Ornament() | Space():
-                return Category.BASE
 
     def anchor(self, name: str, /) -> Option[Anchor]:
         """Returns the anchor with a name."""
@@ -405,7 +384,6 @@ def fetched(cache: Path, /) -> Outcome[Joinings]:
 
 __all__ = [
     "Anchor",
-    "Category",
     "Component",
     "Control",
     "Digit",

@@ -632,7 +632,7 @@ def _rewritten(_scene: bpy.types.Scene, file: Written, _identity: Identity) -> O
             for layer in (name.rpartition(".")[0],)
         )
 
-    return Multilayer.rewritten(Path(file.path), file.display, channels, file.format.codec).map(lambda _: None)
+    return Multilayer.rewritten(Path(file.path), file.display, channels).map(lambda _: None)
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------

@@ -236,8 +236,8 @@ def _source(original: bytes, face: Faces, joinings: Joinings, /) -> Outcome[Sour
         votes = Counter((record.Class, Side.of(code)) for mark, record in zip(marks, records) if mark in named for code in named[mark].codes[:1])
         sides = {klass: Side.BELOW if votes[klass, Side.BELOW] > votes[klass, Side.ABOVE] else Side.ABOVE for klass in {record.Class for record in records}}
         placed = (
-            *((mark, f"_{sides[record.Class].anchor}", record.MarkAnchor) for mark, record in zip(marks, records)),
-            *((base, f"{sides[klass].anchor}{suffix}", point) for base, suffix, points in attached for klass, point in enumerate(points) if point and klass in sides),
+            *((mark, f"_{sides[record.Class]}", record.MarkAnchor) for mark, record in zip(marks, records)),
+            *((base, f"{sides[klass]}{suffix}", point) for base, suffix, points in attached for klass, point in enumerate(points) if point and klass in sides),
         )
         for owner, label, point in placed:
             anchors.setdefault(owner, {}).setdefault(label, (point.XCoordinate, point.YCoordinate))

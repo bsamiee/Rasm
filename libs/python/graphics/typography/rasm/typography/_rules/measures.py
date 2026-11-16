@@ -138,7 +138,7 @@ def nuqta(source: Source, dotted: int | None, /) -> tuple[tuple[Point, ...], ...
 def vowels(source: Source, recipes: Collection[int], side: Side, /) -> tuple[tuple[str, tuple[tuple[Point, ...], ...]], ...]:
     """Recipe marks of a side the face draws, each anchor tier's marks united about their foot, with the base anchor the tier attaches to."""
     return tuple(
-        (f"{side.anchor}{tier}", outline)
+        (f"{side}{tier}", outline)
         for tier in ("", "wide")
         for outline in (
             paths.union(
@@ -148,7 +148,7 @@ def vowels(source: Source, recipes: Collection[int], side: Side, /) -> tuple[tup
                     if Side.of(code) is side
                     for raw in source.glyph(source.key(code)).to_list()
                     for glyph in (source.drawn(raw.name.text),)
-                    for anchor in glyph.anchor(f"_{side.anchor}{tier}").to_list()
+                    for anchor in glyph.anchor(f"_{side}{tier}").to_list()
                 )
             ),
         )

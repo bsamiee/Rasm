@@ -26,16 +26,12 @@ if TYPE_CHECKING:
 
 
 class Join(Enum):
-    """Smooth boolean of two regions."""
+    """Smooth boolean of two regions, valued by the signs of this and the other field and the Math operation joining both widths, None where this field's width stays."""
 
+    _value_: tuple[float, float, "rna_enums.NodeMathItems | None"]
     UNION = (1.0, 1.0, "MAXIMUM")
     DIFFERENCE = (-1.0, 1.0, None)
     INTERSECTION = (-1.0, -1.0, "MINIMUM")
-
-    def __init__(self, outer: float, inner: float, widest: "rna_enums.NodeMathItems | None") -> None:
-        """Holds the signs of this and the other field, and the Math operation joining both widths, Nothing where this field's width stays."""
-        self.outer, self.inner = outer, inner
-        self.widest: Option[rna_enums.NodeMathItems] = option.of_optional(widest)
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -77,10 +73,11 @@ class Bounded(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
     def joined(self, other: Self, seam: Expr, join: Join) -> Self:
         """Joins both regions through a quadratic smooth minimum of the signed fields, blending the joined boundary over `seam`."""
-        left, right = self.distance * join.outer, other.distance * join.inner
+        outer, inner, widest = join.value
+        left, right = self.distance * outer, other.distance * inner
         overlap = math("MAXIMUM", seam - abs(left - right), 0.0)
-        width = join.widest.map(lambda operation: math(operation, self.width, other.width)).default_value(self.width)
-        return type(self)(distance=(math("MINIMUM", left, right) - overlap * overlap / (seam * 4.0)) * join.outer, width=width)
+        width = option.of_optional(widest).map(lambda operation: math(operation, self.width, other.width)).default_value(self.width)
+        return type(self)(distance=(math("MINIMUM", left, right) - overlap * overlap / (seam * 4.0)) * outer, width=width)
 
     def morphed(self, other: Self, share: Scalar) -> Self:
         """Blends this field toward the other by `share`."""

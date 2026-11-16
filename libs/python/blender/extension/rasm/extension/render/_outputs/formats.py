@@ -22,7 +22,7 @@ from rasm.extension.nodes._trees import matched_items, nested, ordered_items
 from rasm.extension.render._color.spaces import DisplaySettings, Settings, ViewSettings
 from rasm.extension.settings._presets import Preset
 from rasm.extension.ui._layout.values import Listing
-from rasm.imaging import Codec, Compression, Depth, Plain
+from rasm.imaging import Depth
 from rasm.records import accumulated, Fault, Outcome, Reason, transfer
 from rasm.rendering import Output
 
@@ -119,11 +119,6 @@ class OutputFormat(Settings, frozen=True, kw_only=True):
     def layered(self) -> bool:
         """Whether the format writes one multilayer file."""
         return self.media_type == "MULTI_LAYER_IMAGE"
-
-    @property
-    def codec(self) -> Option[Compression]:
-        """HTJ2K codec a reader's header metadata lacks, Nothing for every other storage."""
-        return Some(Plain(codec=Codec.HTJ2K32)) if self.file_format in EXR and self.exr_codec == "HTJ2K" else NOTHING
 
     def applied(self, settings: bpy.types.ImageFormatSettings) -> Outcome[None]:
         """Writes the set members onto image format settings."""
