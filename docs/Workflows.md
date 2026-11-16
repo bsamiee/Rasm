@@ -7,11 +7,12 @@
 - Jobs run `nx affected` over `check`, `test`, and `build`, as many tasks at once as their machine has cores (mise `[env]` `NX_PARALLEL`)
 - Job `affected` runs `nx sync:check`, as CI task runs skip sync
 - Job `affected` runs `nx conformance:check`, as no Nx task runs the `nx.json` `conformance` rules
-- Job `affected` lists affected projects of technology `unreal` and the engines their `.uproject` files name
+- Job `affected` lists affected projects of technology `unreal` and the engines every tracked `.uproject` names
 - Unreal projects hold no target on a runner outside their engine image
 - Job `affected` runs `nrwl/nx-set-shas` once and passes base and head to jobs `linux` and `macos`, as a CI run finishing between jobs moves the base `nx-set-shas` finds
 - Job `linux` runs the affected projects tagged `os:linux`, `os:all`, or no `os:` tag on runner instance `host`
 - Job `linux` removes earlier runs' reports first, as the kept checkout holds them
+- Job `linux` starts daemon `playwright` before `nx affected` and stops it after, as browsers in its container stay clear of the runner's Docker network changes and the runner kills the supervisor but leaves the container holding its port
 - Job `macos` runs on GitHub-hosted runner `xcode-27` and selects `os:darwin` and `os:all` projects itself, as no Linux graph holds an Apple project
 - Job `unreal` runs the projects `affected` lists in Epic's `dev-slim` image of each engine on instance `container`, where both lists hold one
 - Job containers install only the mise rows graph creation and Unreal targets read, under `.cache` of the checkout

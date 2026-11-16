@@ -55,7 +55,7 @@ NX_PARALLEL                                   = "100%"
 NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN      = { default = '''{% if env?.CI != "true" %}{% set login = get_env(name="DOPPLER_CONFIG_DIR", default=get_env(name="HOME", default="") ~ "/.doppler") ~ "/.doppler.yaml" %}{% set key = env.DOPPLER_PROJECT ~ env.DOPPLER_CONFIG %}{% if login is file %}{% set key = key ~ (login | hash_file) %}{% endif %}{% set read = "doppler secrets get NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN --plain --attempts 1 --timeout 3s --dns-resolver-timeout 1s 2>/dev/null || true" %}{{ exec(command=read, cache_key=key, cache_duration="15m") or exec(command=read, cache_key=key ~ "-empty", cache_duration="1m") }}{% endif %}''', redact = true, tools = true }
 NX_SELF_HOSTED_REMOTE_CACHE_SERVER            = { tools = true, value = '''{% set probe = `server="${NX_SELF_HOSTED_REMOTE_CACHE_SERVER:-$(doppler secrets get NX_SELF_HOSTED_REMOTE_CACHE_SERVER --plain --attempts 1 --timeout 3s --dns-resolver-timeout 1s 2>/dev/null)}" pkl eval --timeout 5 --http-header "**=Authorization: Bearer ${NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN:-}" -x 'let (server = read?("env:server") ?? "") if (server.isEmpty || read?(server + "/v1/cache/0") is Resource?) server else ""' pkl:base 2>/dev/null || echo "::warning title=Nx remote cache::The cache server refused a read or gave no answer, Nx uses the local cache alone" >&2` %}{% set key = "nx-remote-cache-" ~ (env?.NX_SELF_HOSTED_REMOTE_CACHE_SERVER or "doppler") ~ (env?.NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN or "") %}{{ exec(command=probe, cache_key=key, cache_duration="15m") or exec(command=probe, cache_key=key ~ "-empty", cache_duration="1m") }}''' }
 NX_WORKSPACE_DATA_DIRECTORY                   = "{{config_root}}/.cache/nx/workspace-data"
-PITCHFORK_SUPERVISOR_AUTO_START               = "false"
+PITCHFORK_SUPERVISOR_AUTO_START               = '{{ os() != "macos" }}'
 PLAYWRIGHT_CLI_SESSION                        = "{{ env?.CLAUDE_CODE_SESSION_ID or env?.CODEX_THREAD_ID or env?.ANTIGRAVITY_CONVERSATION_ID or '' }}"
 PLAYWRIGHT_MCP_ALLOW_UNRESTRICTED_FILE_ACCESS = "true"
 PLAYWRIGHT_MCP_BACKGROUND                     = "1"
@@ -67,6 +67,8 @@ PLAYWRIGHT_MCP_OUTPUT_MAX_SIZE                = "268435456"
 PLAYWRIGHT_MCP_USER_AGENT                     = '''{% set browsers = config_root ~ "/node_modules/@playwright/test/../../playwright/../playwright-core/browsers.json" %}{% if browsers is file %}Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{{ [browser.browserVersion for browser in read_json(path=browsers)["browsers"] if browser.name == "chromium"] | first | split(pat=".") | first }}.0.0.0 Safari/537.36{% endif %}'''
 PLAYWRIGHT_TRANSFORM_CACHE_DIR                = "{{config_root}}/.cache/playwright/transform"
 PULUMI_HOME                                   = "{{config_root}}/.cache/pulumi"
+PW_TEST_CONNECT_EXPOSE_NETWORK                = '{% if os() == "linux" %}<loopback>{% endif %}'
+PW_TEST_CONNECT_WS_ENDPOINT                   = '{% if os() == "linux" %}ws://127.0.0.1:{{ env.PLAYWRIGHT_PORT }}/{% endif %}'
 PYTEST_CACHE_DIR                              = "{{config_root}}/.cache/pytest"
 RUSTUP_AUTO_INSTALL                           = "0"
 RUSTUP_TOOLCHAIN                              = false
@@ -248,6 +250,14 @@ retry       = 3
 run         = "exec colima start --foreground --activate=false --ssh-config=false --mount none --port-forwarder grpc --cpus {{ (num_cpus() | int / 2) | int }} --memory 8"
 stop_signal = { signal = "SIGTERM", timeout = "5m" }
 
+[daemons.playwright]
+command      = ["sh", "-c", "node /workspace/node_modules/@playwright/test/cli.js install --only-shell chromium && exec node /workspace/node_modules/@playwright/test/cli.js run-server --host 0.0.0.0 --port {{ env.PLAYWRIGHT_PORT }}"]
+image        = "mcr.microsoft.com/playwright:v1.65.1-resolute"
+port         = 6677
+ready_output = "^Listening on "
+runtime_args = ["--init", "--ipc=host", "--user=pwuser"]
+volumes      = ["./node_modules:/workspace/node_modules:ro", "playwright:/ms-playwright"]
+
 # --- [VARS] -----------------------------------------------------------------------------
 
 [vars]
@@ -300,7 +310,7 @@ ninja                                                                        = "
 node                                                                         = "26"
 "npm:@modelcontextprotocol/conformance"                                      = "0.2.0-alpha.12"
 "npm:@tavily/cli"                                                            = { allow_low_downloads = true, os = ["macos"], version = "latest" }
-pitchfork                                                                    = { os = ["macos"], version = "latest" }
+pitchfork                                                                    = { os = ["unix"], version = "latest" }
 pixi                                                                         = "latest"
 pkl                                                                          = "latest"
 pnpm                                                                         = "latest"

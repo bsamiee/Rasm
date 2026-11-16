@@ -62,8 +62,11 @@ jobs:
             - run: rm -rf .artifacts/nextest .artifacts/playwright .artifacts/vitest
             - *checkout
             - *tools
-            - run: playwright install --with-deps --only-shell chromium
+            - id: playwright
+              run: mise daemons start playwright
             - run: nx affected --targets=check,test,build --exclude='tag:os:*,!tag:os:linux,!tag:os:all'
+            - if: ${{ always() && steps.playwright.outcome != 'skipped' }}
+              run: mise daemons stop playwright
             - &reports
               if: always()
               uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
