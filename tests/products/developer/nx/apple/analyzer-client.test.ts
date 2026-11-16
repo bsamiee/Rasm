@@ -9,7 +9,8 @@ vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()),
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const PACKAGE = '// swift-tools-version: 6.4\nimport PackageDescription\n\nlet package = Package(name: "Proj", products: [.library(name: "Lib", targets: ["Lib"])], targets: [.target(name: "Lib")])\n';
+const SHIM = `#!/bin/sh\nprintf '%s\\n' "$*" >> "\${0%/*}/calls.log"\nPATH="\${PATH#*:}"\nexec swift "$@"\n`;
+const PACKAGE ='// swift-tools-version: 6.4\nimport PackageDescription\n\nlet package = Package(name: "Proj", products: [.library(name: "Lib", targets: ["Lib"])], targets: [.target(name: "Lib")])\n';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -26,17 +27,15 @@ const it = test
         return tempFs;
     })
     .extend('context', ({ tempFs }): CreateNodesContext => ({ nxJsonConfiguration: {}, workspaceRoot: tempFs.tempDir }))
-    .extend('spied', ({ tempFs }, { onCleanup }) => {
+    .extend('spied', async ({ tempFs }, { onCleanup }) => {
         onCleanup(() => {
             vi.unstubAllEnvs();
         });
+        await tempFs.createFiles({ '.bin/swift': SHIM });
+        chmodSync(`${tempFs.tempDir}/.bin/swift`, 0o755);
+        vi.stubEnv('PATH', `${tempFs.tempDir}/.bin:/usr/bin:/bin`);
         return async () => {
-            await tempFs.createFiles({
-                '.bin/swift': `#!/bin/sh\nprintf '%s\\n' "$*" >> "\${0%/*}/calls.log"\nPATH="\${PATH#*:}"\n[ -e "\${0%/*}/upgraded" ] && [ "$1" = -print-target-info ] && { swift "$@" | sed 's|"target"|"upgraded": true, "target"|'; exit; }\nexec swift "$@"\n`,
-                '.bin/calls.log': '',
-            });
-            chmodSync(`${tempFs.tempDir}/.bin/swift`, 0o755);
-            vi.stubEnv('PATH', `${tempFs.tempDir}/.bin:/usr/bin:/bin`);
+            await tempFs.createFiles({ '.bin/calls.log': '' });
             return () => tempFs.readFile('.bin/calls.log').then((log) => log.split('\n').filter((line) => line.startsWith('package --package-path ')));
         };
     });
@@ -104,7 +103,8 @@ describe('analyzeProjects', { timeout: 120_000 }, () => {
 
         it('should rerun swift when the toolchain changed', async ({ tempFs, context, spied }) => {
             await createNodesFunction(['proj/Package.swift'], {}, context);
-            await tempFs.createFiles({ '.bin/upgraded': '' });
+            await tempFs.createFiles({ '.bin/swift': `${SHIM}# upgraded\n` });
+            chmodSync(`${tempFs.tempDir}/.bin/swift`, 0o755);
             const calls = await spied();
 
             await createNodesFunction(['proj/Package.swift'], {}, context);

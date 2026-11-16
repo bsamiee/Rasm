@@ -148,8 +148,14 @@ const createNodes: CreateNodes<typeof Options.Encoded> = [
         runtime.runPromise(
             Effect.gen(function* () {
                 const [files, fs] = [process.platform === HOST ? matched.toSorted() : [], yield* FileSystem.FileSystem];
-                const [settings, hashed, developer, compiled] = yield* Effect.all(
-                    [Schema.decodeEffect(Options)(options ?? {}), own, Effect.option(spawned(['xcode-select', '--print-path'], { cwd: workspaceRoot })), Effect.option(Effect.tap(analyzer, (at) => fs.stat(at)))],
+                const [settings, hashed, developer, swift, compiled] = yield* Effect.all(
+                    [
+                        Schema.decodeEffect(Options)(options ?? {}),
+                        own,
+                        Effect.option(spawned(['xcode-select', '--print-path'], { cwd: workspaceRoot })),
+                        Effect.option(spawned(['which', 'swift'], { cwd: workspaceRoot })),
+                        Effect.option(Effect.tap(analyzer, (at) => fs.stat(at))),
+                    ],
                     { concurrency: 'unbounded' },
                 );
                 const name = `apple-${hashArray([hashObject(options ?? {}), hashed])}.hash`;
@@ -157,7 +163,7 @@ const createNodes: CreateNodes<typeof Options.Encoded> = [
                 const stamps = [
                     ...Option.toArray(developer),
                     ...Option.toArray(Option.flatMap(developer, (path) => Option.fromNullishOr(hashFile(join(path.trim(), '..', 'version.plist'))))),
-                    ...Option.toArray(Option.flatMap(compiled, flow(hashFile, Option.fromNullishOr))),
+                    ...[...Option.toArray(swift), ...Option.toArray(compiled)].flatMap((file) => [file, ...Array.fromNullishOr(hashFile(file.trim()))]),
                     process.env['TOOLCHAINS'] ?? '',
                 ];
                 const key = hashArray([yield* Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, READ)), ...stamps, ...files]);
