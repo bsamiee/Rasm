@@ -6,10 +6,10 @@ import bpy
 from expression import Ok, Some
 import PyOpenColorIO
 
-from rasm_bpy.nodes import Expr, Interface, InterfacePanel, math, Socket, switched, vector, xyz
-from rasm_bpy.render import AXES, CompositorEffect, CompositorRecord, grades, GraphInputs, Mix
-from rasm_imaging import luma
-from rasm_records import Outcome
+from rasm.extension.nodes import Expr, Interface, InterfacePanel, math, Socket, switched, vector, xyz
+from rasm.extension.render import AXES, CompositorEffect, CompositorRecord, grades, GraphInputs, Mix
+from rasm.imaging import luma
+from rasm.records import Outcome
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 

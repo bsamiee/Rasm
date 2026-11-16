@@ -14,8 +14,8 @@ import numpy as np
 import numpy.typing as npt
 import OpenImageIO
 
-from rasm_bpy.nodes import Component, decoded, Expr, EXPRESSIONS, Interface, InterfacePanel, math, MenuItem, mixed, rgba, Scalar, Socket, switched, vector, where, WhiteNoise, xyz
-from rasm_bpy.render import (
+from rasm.extension.nodes import Component, decoded, Expr, EXPRESSIONS, Interface, InterfacePanel, math, MenuItem, mixed, rgba, Scalar, Socket, switched, vector, where, WhiteNoise, xyz
+from rasm.extension.render import (
     blurred,
     Border,
     capacity,
@@ -41,8 +41,8 @@ from rasm_bpy.render import (
     value,
     ycc,
 )
-from rasm_imaging import buffers, Depth, Elementwise, gaussian, images, located, Namespace, pixels, stream, unassociated
-from rasm_records import accumulated, Count, Outcome, paired
+from rasm.imaging import buffers, Depth, Elementwise, gaussian, images, located, Namespace, pixels, stream, unassociated
+from rasm.records import accumulated, Count, Outcome, paired
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 

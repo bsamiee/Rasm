@@ -428,14 +428,14 @@ class Lease(msgspec.Struct, frozen=True, kw_only=True):
 
 ## [06]-[MODULES]
 
-Each module holds one owner, and imports point down its layers, absolute from its package root:
+Each module holds one owner, and imports point down its layers, absolute from the `rasm` namespace:
 
 ```python
 import msgspec
 lazy from expression import Ok
 lazy import numpy as np
 
-lazy from signals.faults import Outcome
+lazy from rasm.signals._faults import Outcome
 
 
 class Window(msgspec.Struct, frozen=True, kw_only=True):
@@ -451,8 +451,10 @@ def smoothed(window: Window, values: np.ndarray, /) -> Outcome[np.ndarray]:
 - Imports bind each name as its source declares it or as its import convention aliases it (`np`)
 - Names another import or definition holds read through their module (`msgspec.Struct`)
 - Names a module defines take no import of the same name
+- Packages sit in `rasm/<name>/` under the PEP 420 namespace `rasm`, which holds no `__init__.py`, and import as `rasm.<name>`
 - Each package's `__init__.py` is its entry: a docstring, one import per private module of its public names, and `__all__`
-- Other modules import siblings by private path and re-export nothing, and consumers import entries alone
+- Private modules and internal subpackages take `_`, siblings import them by that path and re-export nothing
+- Consumers import entries alone, so a module or subpackage no consumer imports stays private
 - Entries export every capability a consumer outside the package composes, whether a consumer exists or not
 - Names a sibling module imports are public in their private module's `__all__`, names one file alone reads take `_` and leave every `__all__`
 - Names a host or codec derives from (command key, wire tag) stay public or state the derived value

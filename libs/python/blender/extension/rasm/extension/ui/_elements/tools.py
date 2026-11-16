@@ -1,0 +1,187 @@
+"""Workspace tools an extension registers into a toolbar."""
+
+from collections.abc import Callable, Generator
+from contextlib import contextmanager, ExitStack
+from functools import partial, reduce
+from typing import Literal, TYPE_CHECKING
+
+from bl_ui.space_toolsystem_common import ToolDef
+from bl_ui.space_topbar import TOPBAR_PT_tool_settings_extra
+import bpy
+from expression import NOTHING, Ok, Option, Some
+from expression.extra.result import catch
+import msgspec
+
+from rasm.extension.commands.invocations import Pick
+from rasm.extension.commands.keymaps import Bindings, resolved, Row
+from rasm.extension.commands.operators import Command, idname, Operation, Operator, Placement
+from rasm.extension.data._lifecycle.identity import Identity, Key
+from rasm.extension.data._lifecycle.registration import acquired_rows, Acquisitions, Tier
+from rasm.extension.data._lifecycle.reports import Refusal
+from rasm.extension.data._rna.paths import rna_definition, Struct
+from rasm.extension.ui._drawing.handlers import DrawCallback, Drawing
+from rasm.extension.ui._elements.gizmos import GizmoGroup
+from rasm.extension.ui._layout.rows import realized, RowContent, RowDraw
+from rasm.records import accumulated, Fault, Outcome, paired
+
+if TYPE_CHECKING:
+    from bpy.stub_internal import rna_enums
+
+# --- [MODELS] ---------------------------------------------------------------------------
+
+
+class Tool[S = None](msgspec.Struct, frozen=True, kw_only=True):
+    """Toolbar tool labelled by its key, running an operator, with its icon, key bindings in the tool keymap, widget group, cursor drawing, and header settings.
+
+    `icon` names a geometry icon Blender installs (`ops.generic.select_circle`), the only icon form the toolbar loads.
+    `settings` draw over the operator's tool properties, every visible one while none is declared, `widget_settings` over the widget group's properties, and `extra_settings` in the host's extra options popover the header opens.
+    Brush type narrows a brush tool's brushes and requires `USE_BRUSHES`.
+    """
+
+    key: Key
+    operator: Command | Operation
+    icon: str
+    bindings: Bindings = ()
+    description: Option[str | Callable[[bpy.types.Context, ToolDef, bpy.types.KeyMap | None], str]] = NOTHING
+    cursor: "Option[rna_enums.WindowCursorItems]" = NOTHING
+    widget: Option[GizmoGroup | type[bpy.types.GizmoGroup]] = NOTHING
+    widget_properties: tuple[tuple[str, object], ...] = ()
+    pointer: Option[Drawing[S]] = NOTHING
+    options: frozenset[Literal["KEYMAP_FALLBACK", "USE_BRUSHES"]] = frozenset()
+    brush_type: Option[str] = NOTHING
+    data_block: Option[str] = NOTHING
+    settings: tuple[RowContent, ...] = ()
+    widget_settings: tuple[RowContent, ...] = ()
+    extra_settings: tuple[RowContent, ...] = ()
+
+
+class Tools[S = None](msgspec.Struct, frozen=True, kw_only=True):
+    """Tools of one toolbar space and context mode, the first after a tool `after` names or at the end, each later tool after its predecessor.
+
+    `group` opens a flyout group led by the first tool, and `separator` draws a separator before the entry.
+    """
+
+    # --- [STATE]
+
+    space: "rna_enums.SpaceTypeItems"
+    tools: tuple[Tool[S], *tuple[Tool[S], ...]]
+    mode: Option[str] = NOTHING
+    after: frozenset[str] = frozenset()
+    separator: bool = False
+    group: bool = False
+
+    # --- [ACTIVATION]
+
+    def activation(self, identity: Identity, tool: Tool[S], *, cycle: bool = False, as_fallback: bool = False) -> Placement:
+        """Returns the `wm.tool_set_by_id` placement activating the tool in its space."""
+        return Placement(bpy.ops.wm.tool_set_by_id, {"name": identity.name(bpy.types.Operator, tool.key), "space_type": self.space, "cycle": cycle, "as_fallback": as_fallback})
+
+    # --- [REGISTRATION]
+
+    def acquisitions(self, identity: Identity) -> Acquisitions:
+        """Returns what every tool holds, then the toolbar registration, each tool class built once the interface tier opens and its settings realize."""
+        pointers = tuple(tool.pointer.map(lambda drawing: drawing.acquired(identity)) for tool in self.tools)
+        held = tuple(
+            row
+            for tool, pointed in zip(self.tools, pointers)
+            for row in (
+                *(widget for widget in tool.widget.to_list() if isinstance(widget, GizmoGroup)),
+                *(row for rows, _ in pointed.to_list() for row in rows),
+                *acquired_rows((tool.operator, *(placement for _, placement in tool.bindings), *tool.settings, *tool.widget_settings, *tool.extra_settings)),
+            )
+        )
+        return (*held, (Tier.INTERFACE, _registered(self, identity, tuple(pointed.starmap(lambda _rows, callback: callback) for pointed in pointers))))
+
+    def tool_class(self, identity: Identity, tool: Tool[S], pointer: Option[DrawCallback]) -> Outcome[type[bpy.types.WorkSpaceTool]]:
+        """Builds the tool class once its names, keymap rows, widget, and settings resolve."""
+        match tool.operator:
+            case Operator(invoke=Some(Pick(cursor=picked))):
+                pending: Option[rna_enums.WindowCursorItems] = Some(picked)
+            case _:
+                pending = NOTHING
+        widget = tool.widget.map(lambda held: identity.name(bpy.types.GizmoGroup, held.key) if isinstance(held, GizmoGroup) else rna_definition(held).identifier)
+
+        def realizing(rows: tuple[RowContent, ...]) -> Outcome[Option[RowDraw]]:
+            """Realizes declared rows into one draw, Nothing while none is declared."""
+            return realized(rows, identity).map(Some) if rows else Ok(NOTHING)
+
+        def built(rows: tuple[Row, ...], draws: tuple[Option[RowDraw], Option[RowDraw], Option[RowDraw]]) -> type[bpy.types.WorkSpaceTool]:
+            name, operator = identity.name(bpy.types.Operator, tool.key), idname(identity, tool.operator)
+            native = {
+                "bl_space_type": self.space,
+                "bl_context_mode": self.mode.to_optional(),
+                "bl_idname": name,
+                "bl_label": bpy.path.display_name(tool.key),
+                "bl_description": tool.description.to_optional(),
+                "bl_icon": tool.icon,
+                "bl_cursor": tool.cursor.or_else(pending).to_optional(),
+                "bl_widget": widget.to_optional(),
+                "bl_widget_properties": list(tool.widget_properties),
+                "bl_options": set(tool.options),
+                "bl_brush_type": tool.brush_type.to_optional(),
+                "bl_data_block": tool.data_block.to_optional(),
+                "bl_keymap": rows or None,
+                "bl_operator": operator,
+                "draw_settings": partial(_settings, operator, draws),
+                "draw_cursor": pointer.map(lambda callback: lambda _context, _tool, xy: callback("POST_PIXEL", Some(xy))).to_optional(),
+            }
+            return type(name, (bpy.types.WorkSpaceTool,), native)
+
+        drawn = paired(realizing(tool.settings), realizing(tool.widget_settings), realizing(tool.extra_settings))
+        return paired(resolved(identity, tool.bindings), drawn).map(lambda parts: built(*parts))
+
+
+# --- [OPERATIONS] -----------------------------------------------------------------------
+
+# --- [CLASSES]
+
+
+@contextmanager
+def _registered[S](tools: Tools[S], identity: Identity, pointers: tuple[Option[DrawCallback], ...]) -> Generator[Outcome[None]]:
+    """Registers each tool after the one before for the scope, stopping at the first refusal."""
+    with ExitStack() as stack:
+
+        def placed(classes: tuple[type[bpy.types.WorkSpaceTool], ...], result: Outcome[None], order: int) -> Outcome[None]:
+            cls, first = classes[order], order == 0
+            after = (set(tools.after) or None) if first else {classes[order - 1].__name__}
+            return result.bind(
+                lambda _: (
+                    catch(bpy.utils.register_tool, exception=Exception)(cls, after=after, separator=tools.separator and first, group=tools.group and first)
+                    .map(lambda _: stack.callback(bpy.utils.unregister_tool, cls))
+                    .map(lambda _: None)
+                    .map_error(partial(Fault.of, Refusal.UNREGISTERED, cls.__name__))
+                )
+            )
+
+        drafts = accumulated(tools.tool_class(identity, tool, pointer) for tool, pointer in zip(tools.tools, pointers))
+        yield drafts.bind(lambda classes: reduce(partial(placed, classes), range(len(classes)), Ok(None)))
+
+
+# --- [DRAWING]
+
+
+def _settings(
+    operator: str, draws: tuple[Option[RowDraw], Option[RowDraw], Option[RowDraw]], context: bpy.types.Context, layout: bpy.types.UILayout, tool: bpy.types.WorkSpaceTool, *, extra: bool = False
+) -> None:
+    """Draws the header settings and the extra options popover button, or the extra settings inside that popover."""
+
+    def every(layout: bpy.types.UILayout, properties: Struct, _context: bpy.types.Context) -> None:
+        for prop in (held for held in properties.bl_rna.properties if not held.is_hidden):
+            layout.prop(properties, prop.identifier)
+
+    settings, widgeted, extras = draws
+    properties = tool.operator_properties(operator)
+    if extra:
+        for draw in extras.to_list():
+            draw(layout, properties, context)
+        return
+    settings.default_value(every)(layout, properties, context)
+    for draw in widgeted.to_list() if tool.widget else ():
+        draw(layout, tool.gizmo_group_properties(tool.widget), context)
+    if extras.is_some():
+        layout.popover(TOPBAR_PT_tool_settings_extra.bl_idname, text="...")
+
+
+# --- [EXPORTS] --------------------------------------------------------------------------
+
+__all__ = ["Tool", "Tools"]

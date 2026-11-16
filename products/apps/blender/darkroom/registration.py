@@ -1,11 +1,11 @@
 """Darkroom registration over every row the extension declares: icons, preferences, effects, renders, color, and review."""
 
-from rasm_bpy.data import Registration
-from rasm_bpy.ui import Icons, PreferencesPage
+from rasm.extension.data import Registration
+from rasm.extension.ui import Icons, PreferencesPage
 
 from . import catalog
 from .color import looks, luts, response
-from .rendering import renders
+from .render import renders
 from .review import calibration, metering, results
 
 # --- [COMPOSITION] ----------------------------------------------------------------------

@@ -9,10 +9,10 @@ import bpy
 from expression import Option, Some
 import msgspec
 
-from rasm_bpy.data import Key
-from rasm_bpy.nodes import Expr, Interface, InterfacePanel, item_key, math, MenuItem, MenuItems, menus, Scalar, Socket, switched, Term, textures, vector, xyz
-from rasm_bpy.render import GraphInputs, origin
-from rasm_records import Case, Positive
+from rasm.extension.data import Key
+from rasm.extension.nodes import Expr, Interface, InterfacePanel, item_key, math, MenuItem, MenuItems, menus, Scalar, Socket, switched, Term, textures, vector, xyz
+from rasm.extension.render import GraphInputs, origin
+from rasm.records import Case, Positive
 
 # --- [TYPES] ----------------------------------------------------------------------------
 

@@ -14,11 +14,11 @@ import numpy as np
 import numpy.typing as npt
 import PyOpenColorIO
 
-from rasm_bpy.commands import Chord, Keymap, Placement
-from rasm_bpy.data import Acquisitions, annotated, Declaration, Handle, Identity, Resource, retained
-from rasm_bpy.render import CompletedRender, Consume, EXPOSURE, HistoryBrowser, ResultRead
-from rasm_bpy.settings import Attachment
-from rasm_bpy.ui import (
+from rasm.extension.commands import Chord, Keymap, Placement
+from rasm.extension.data import Acquisitions, annotated, Declaration, Handle, Identity, Resource, retained
+from rasm.extension.render import CompletedRender, Consume, EXPOSURE, HistoryBrowser, ResultRead
+from rasm.extension.settings import Attachment
+from rasm.extension.ui import (
     Append,
     Beside,
     Chart,
@@ -44,8 +44,8 @@ from rasm_bpy.ui import (
     Signal,
     Texture,
 )
-from rasm_imaging import Clipping, converted_image, DisplayView, ImageFile
-from rasm_records import accumulated, Outcome, paired
+from rasm.imaging import Clipping, converted_image, DisplayView, ImageFile
+from rasm.records import accumulated, Outcome, paired
 
 from ..effects.formation.display import current_view
 from ..effects.grade.exposure import gain

@@ -1,11 +1,13 @@
 # --- [PROJECT] --------------------------------------------------------------------------
 
 [project]
-name            = "rasm-testing"
-version         = "0.1.0"
-description     = "Fixtures for pytest, each behind an extra: a private SQLite database and HTTP servers a test hosts on a loopback port"
-classifiers     = ["Framework :: Pytest", "Private :: Do Not Upload", "Typing :: Typed"]
-requires-python = ">=3.13"
+name              = "rasm-testing"
+version           = "0.1.0"
+description       = "Fixtures for pytest, each behind an extra: a private SQLite database and HTTP servers a test hosts on a loopback port"
+classifiers       = ["Framework :: Pytest", "Private :: Do Not Upload"]
+requires-python   = ">=3.13"
+import-names      = ["rasm.testing"]
+import-namespaces = ["rasm"]
 
 dependencies = [
     "expression",    # Outcome a test step settles
@@ -31,6 +33,7 @@ requires      = ["uv_build>=0.13.8,<0.14.0"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]
+module-name = "rasm.testing"
 module-root = ""
 
 # --- [RUFF] -----------------------------------------------------------------------------

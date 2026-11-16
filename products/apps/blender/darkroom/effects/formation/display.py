@@ -12,12 +12,12 @@ import numpy as np
 import numpy.typing as npt
 import PyOpenColorIO
 
-from rasm_bpy.commands import Answer, Call, Done, Operator, Unchanged
-from rasm_bpy.data import Acquisitions, assigned, Identity, Key, rooted, Snapshot, Subscription
-from rasm_bpy.nodes import Expr, Interface, owned, Socket
-from rasm_bpy.render import ColorManagement, CompositorEffect, CompositorRecord, entered, followed, grades, GraphInputs, HdrWindow, Holds, Mix, Named, NO_LOOK, READ, Seeded, viewed
-from rasm_imaging import converted, DisplayView, ImageFile, Samples
-from rasm_records import accumulated, Fault, Outcome, paired, Reason
+from rasm.extension.commands import Answer, Call, Done, Operator, Unchanged
+from rasm.extension.data import Acquisitions, assigned, Identity, Key, rooted, Snapshot, Subscription
+from rasm.extension.nodes import Expr, Interface, owned, Socket
+from rasm.extension.render import ColorManagement, CompositorEffect, CompositorRecord, entered, followed, grades, GraphInputs, HdrWindow, Holds, Mix, Named, NO_LOOK, READ, Seeded, viewed
+from rasm.imaging import converted, DisplayView, ImageFile, Samples
+from rasm.records import accumulated, Fault, Outcome, paired, Reason
 
 from ..grade.exposure import exposed
 

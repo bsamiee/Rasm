@@ -11,11 +11,11 @@ import numpy as np
 import numpy.typing as npt
 import OpenImageIO
 
-from rasm_bpy.data import Identity
-from rasm_bpy.nodes import column, decoded, Interface, InterfacePanel, Noise, POSITION, sampled, Voronoi, W
-from rasm_bpy.render import CLOCK, Clock, CompositorEffect, CompositorRecord, Mix, precise, Prepared, SEED, Stage, toggled, value
-from rasm_imaging import checked, Estimate, footprint, located, pixels, Population, Precision, Raster, Seed, smoothstep, stream, uniforms
-from rasm_records import accumulated, AtLeastOne, NonNegative, Outcome, paired, Positive, Unit
+from rasm.extension.data import Identity
+from rasm.extension.nodes import column, decoded, Interface, InterfacePanel, Noise, POSITION, sampled, Voronoi, W
+from rasm.extension.render import CLOCK, Clock, CompositorEffect, CompositorRecord, Mix, precise, Prepared, SEED, Stage, toggled, value
+from rasm.imaging import checked, Estimate, footprint, located, pixels, Population, Precision, Raster, Seed, smoothstep, stream, uniforms
+from rasm.records import accumulated, AtLeastOne, NonNegative, Outcome, paired, Positive, Unit
 
 # --- [TYPES] ----------------------------------------------------------------------------
 

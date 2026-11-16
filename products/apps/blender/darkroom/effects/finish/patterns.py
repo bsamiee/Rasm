@@ -10,9 +10,30 @@ import msgspec
 import numpy as np
 import PyOpenColorIO
 
-from rasm_bpy.data import Descriptor, Key
-from rasm_bpy.nodes import Expr, grouped, Interface, InterfacePanel, MapRange, math, MenuItem, mixed, Noise, Ramp, rgba, Scalar, Socket, StockInput, switched, vector, Voronoi, where, WhiteNoise, xyz
-from rasm_bpy.render import (
+from rasm.extension.data import Descriptor, Key
+from rasm.extension.nodes import (
+    Expr,
+    grouped,
+    Interface,
+    InterfacePanel,
+    MapRange,
+    math,
+    MenuItem,
+    mixed,
+    Noise,
+    Ramp,
+    rgba,
+    Scalar,
+    Socket,
+    StockInput,
+    switched,
+    vector,
+    Voronoi,
+    where,
+    WhiteNoise,
+    xyz,
+)
+from rasm.extension.render import (
     block_mean,
     blurred,
     CLOCK,
@@ -33,8 +54,8 @@ from rasm_bpy.render import (
     uv_mapped,
     with_alpha,
 )
-from rasm_imaging import stream
-from rasm_records import Outcome, paired
+from rasm.imaging import stream
+from rasm.records import Outcome, paired
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 

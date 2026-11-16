@@ -38,7 +38,6 @@ dev     = [
     "pydantic",                  # mypy plugin typing each pydantic model, whose replace signature holds explicit `Any` without it
     "rasm-refurb",               # Refurb checks over mypy types Ruff lacks, loaded by refurb as a plugin
     "refurb",                    # FURB checks Ruff lacks, over a mypy build
-    "ruff",                      # Linter and formatter hk runs from this root's environment
     "scipy-stubs",
     "ty",                        # Type checker of every member
     "types-networkx",
@@ -53,17 +52,22 @@ environments                  = [
     "sys_platform == 'darwin' and platform_machine == 'arm64'",
     "sys_platform == 'linux' and platform_machine == 'x86_64'",
     "sys_platform == 'win32' and platform_machine == 'AMD64'",
-]                                                                                 # Platforms the manifests of the extensions bundling these members list, a package with no source distribution and no wheel for one fails `uv lock`
-minimum-libc-version          = { glibc = "2.28" }                                # The extension build selects `x86_64-manylinux_2_28` wheels, a package with no source distribution and no wheel glibc 2.28 loads fails `uv lock`
+]                                                                                 # The platforms the manifests of the extensions bundling these members list, the only ones uv solves for
+required-environments         = [
+    "sys_platform == 'darwin' and platform_machine == 'arm64'",
+    "sys_platform == 'linux' and platform_machine == 'x86_64'",
+    "sys_platform == 'win32' and platform_machine == 'AMD64'",
+]                                                                                 # Each needs a wheel or source distribution of every package, else `uv lock` fails
+minimum-libc-version          = { glibc = "2.28" }                                # Linux wheels in `required-environments` load on glibc 2.28, the `x86_64-manylinux_2_28` tag the extension build selects
 prerelease                    = "allow"
 preview-features              = ["lockfile-format-check", "minimum-libc-version"]
 build-constraint-dependencies = ["opencolorio==2.5.0"]                            # Builds generating the PyOpenColorIO stubs import the OpenColorIO release Blender bundles
 
 [tool.uv.workspace]
-members = ["bpy", "imaging", "opencolorio-stubs", "rendering", "tests/rendering"]
+members = ["extension", "imaging", "opencolorio-stubs", "rendering", "../../../tests/libs/python/blender/rendering"]
 
 [tool.uv.sources]
-rasm-bpy               = { workspace = true }
+rasm-extension         = { workspace = true }
 rasm-imaging           = { workspace = true }
 rasm-opencolorio-stubs = { workspace = true }
 rasm-rendering         = { workspace = true }

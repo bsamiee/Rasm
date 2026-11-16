@@ -139,7 +139,7 @@ describe('@rasm/nx-uv/plugin/nodes', { timeout: 120_000 }, () => {
                             targets: {
                                 check: { dependsOn: ['check--*'] },
                                 'check--ty': {
-                                    command: 'uv run --no-active --locked --package library --all-extras --group dev ty check proj/library',
+                                    command: 'uv run --no-active --locked --package library --all-extras --group dev ty check proj/library --python-version 3.13',
                                     options: { cwd: '.' },
                                     cache: true,
                                     inputs: ['{projectRoot}/**/*.py', '{projectRoot}/**/*.pyi', '{workspaceRoot}/ty.toml', { env: 'TY_UV' }, { runtime: 'node -p process.platform+process.arch' }, '^default', '{workspaceRoot}/.python-version', '{workspaceRoot}/uv.lock', { externalDependencies: [] }],

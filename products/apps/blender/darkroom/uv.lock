@@ -11,6 +11,11 @@ supported-markers = [
     "platform_machine == 'x86_64' and sys_platform == 'linux'",
     "platform_machine == 'AMD64' and sys_platform == 'win32'",
 ]
+required-markers = [
+    "platform_machine == 'arm64' and sys_platform == 'darwin'",
+    "platform_machine == 'x86_64' and sys_platform == 'linux'",
+    "platform_machine == 'AMD64' and sys_platform == 'win32'",
+]
 
 [options]
 prerelease-mode = "allow"
@@ -954,9 +959,117 @@ wheels = [
 ]
 
 [[package]]
-name = "rasm-bpy"
+name = "rasm-darkroom"
+source = { virtual = "." }
+dependencies = [
+    { name = "colour-science" },
+    { name = "expression" },
+    { name = "httpx2" },
+    { name = "msgspec" },
+    { name = "numpy" },
+    { name = "opencolorio" },
+    { name = "openimageio" },
+    { name = "rasm-extension" },
+    { name = "rasm-imaging" },
+    { name = "rasm-records" },
+    { name = "rasm-rendering" },
+    { name = "scipy" },
+]
+
+[package.dev-dependencies]
+blender = [
+    { name = "attrs" },
+    { name = "autopep8" },
+    { name = "cattrs" },
+    { name = "certifi" },
+    { name = "charset-normalizer" },
+    { name = "cython" },
+    { name = "docutils" },
+    { name = "idna" },
+    { name = "numpy" },
+    { name = "opencolorio" },
+    { name = "openimageio" },
+    { name = "packaging" },
+    { name = "pip" },
+    { name = "pycodestyle" },
+    { name = "pyproject-metadata" },
+    { name = "requests" },
+    { name = "setuptools" },
+    { name = "tomli-w" },
+    { name = "typing-extensions" },
+    { name = "urllib3" },
+    { name = "zstandard" },
+]
+dev = [
+    { name = "fake-bpy-module-latest" },
+    { name = "mypy" },
+    { name = "pydantic" },
+    { name = "rasm-opencolorio-stubs" },
+    { name = "rasm-refurb" },
+    { name = "refurb" },
+    { name = "scipy-stubs" },
+    { name = "ty" },
+    { name = "types-networkx" },
+    { name = "vulture" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "colour-science" },
+    { name = "expression" },
+    { name = "httpx2" },
+    { name = "msgspec" },
+    { name = "numpy" },
+    { name = "opencolorio" },
+    { name = "openimageio" },
+    { name = "rasm-extension", editable = "../../../../libs/python/blender/extension" },
+    { name = "rasm-imaging", editable = "../../../../libs/python/blender/imaging" },
+    { name = "rasm-records", editable = "../../../../libs/python/data/records" },
+    { name = "rasm-rendering", editable = "../../../../libs/python/blender/rendering" },
+    { name = "scipy" },
+]
+
+[package.metadata.requires-dev]
+blender = [
+    { name = "attrs", specifier = "==25.3.0" },
+    { name = "autopep8", specifier = "==2.3.1" },
+    { name = "cattrs", specifier = "==25.1.1" },
+    { name = "certifi", specifier = "==2025.4.26" },
+    { name = "charset-normalizer", specifier = "==3.4.1" },
+    { name = "cython", specifier = "==3.0.11" },
+    { name = "docutils", specifier = "==0.22.4" },
+    { name = "idna", specifier = "==3.10" },
+    { name = "numpy", specifier = "==2.3.4" },
+    { name = "opencolorio", specifier = "==2.5.0" },
+    { name = "openimageio", specifier = "==3.1.16.0" },
+    { name = "packaging", specifier = "==25.0" },
+    { name = "pip", specifier = "==26.0.1" },
+    { name = "pycodestyle", specifier = "==2.13.0" },
+    { name = "pyproject-metadata", specifier = "==0.9.1" },
+    { name = "requests", specifier = "==2.32.3" },
+    { name = "setuptools", specifier = "==80.9.0" },
+    { name = "tomli-w", specifier = "==1.2.0" },
+    { name = "typing-extensions", specifier = "==4.14.1" },
+    { name = "urllib3", specifier = "==2.4.0" },
+    { name = "zstandard", specifier = "==0.25.0" },
+]
+dev = [
+    { name = "fake-bpy-module-latest" },
+    { name = "mypy" },
+    { name = "pydantic" },
+    { name = "rasm-opencolorio-stubs", editable = "../../../../libs/python/blender/opencolorio-stubs" },
+    { name = "rasm-refurb", editable = "../../../../tools/refurb" },
+    { name = "refurb" },
+    { name = "scipy-stubs" },
+    { name = "ty" },
+    { name = "types-networkx" },
+    { name = "vulture" },
+]
+
+[[package]]
+name = "rasm-extension"
 version = "0.1.0"
-source = { editable = "../../../../libs/python/blender/bpy" }
+source = { editable = "../../../../libs/python/blender/extension" }
 dependencies = [
     { name = "blender-asset-tracer" },
     { name = "coloraide" },
@@ -1006,116 +1119,6 @@ requires-dist = [
     { name = "typing-extensions" },
     { name = "typing-inspection" },
     { name = "tzdata" },
-]
-
-[[package]]
-name = "rasm-darkroom"
-source = { virtual = "." }
-dependencies = [
-    { name = "colour-science" },
-    { name = "expression" },
-    { name = "httpx2" },
-    { name = "msgspec" },
-    { name = "numpy" },
-    { name = "opencolorio" },
-    { name = "openimageio" },
-    { name = "rasm-bpy" },
-    { name = "rasm-imaging" },
-    { name = "rasm-records" },
-    { name = "rasm-rendering" },
-    { name = "scipy" },
-]
-
-[package.dev-dependencies]
-blender = [
-    { name = "attrs" },
-    { name = "autopep8" },
-    { name = "cattrs" },
-    { name = "certifi" },
-    { name = "charset-normalizer" },
-    { name = "cython" },
-    { name = "docutils" },
-    { name = "idna" },
-    { name = "numpy" },
-    { name = "opencolorio" },
-    { name = "openimageio" },
-    { name = "packaging" },
-    { name = "pip" },
-    { name = "pycodestyle" },
-    { name = "pyproject-metadata" },
-    { name = "requests" },
-    { name = "setuptools" },
-    { name = "tomli-w" },
-    { name = "typing-extensions" },
-    { name = "urllib3" },
-    { name = "zstandard" },
-]
-dev = [
-    { name = "fake-bpy-module-latest" },
-    { name = "mypy" },
-    { name = "pydantic" },
-    { name = "rasm-opencolorio-stubs" },
-    { name = "rasm-refurb" },
-    { name = "refurb" },
-    { name = "ruff" },
-    { name = "scipy-stubs" },
-    { name = "ty" },
-    { name = "types-networkx" },
-    { name = "vulture" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "colour-science" },
-    { name = "expression" },
-    { name = "httpx2" },
-    { name = "msgspec" },
-    { name = "numpy" },
-    { name = "opencolorio" },
-    { name = "openimageio" },
-    { name = "rasm-bpy", editable = "../../../../libs/python/blender/bpy" },
-    { name = "rasm-imaging", editable = "../../../../libs/python/blender/imaging" },
-    { name = "rasm-records", editable = "../../../../libs/python/data/records" },
-    { name = "rasm-rendering", editable = "../../../../libs/python/blender/rendering" },
-    { name = "scipy" },
-]
-
-[package.metadata.requires-dev]
-blender = [
-    { name = "attrs", specifier = "==25.3.0" },
-    { name = "autopep8", specifier = "==2.3.1" },
-    { name = "cattrs", specifier = "==25.1.1" },
-    { name = "certifi", specifier = "==2025.4.26" },
-    { name = "charset-normalizer", specifier = "==3.4.1" },
-    { name = "cython", specifier = "==3.0.11" },
-    { name = "docutils", specifier = "==0.22.4" },
-    { name = "idna", specifier = "==3.10" },
-    { name = "numpy", specifier = "==2.3.4" },
-    { name = "opencolorio", specifier = "==2.5.0" },
-    { name = "openimageio", specifier = "==3.1.16.0" },
-    { name = "packaging", specifier = "==25.0" },
-    { name = "pip", specifier = "==26.0.1" },
-    { name = "pycodestyle", specifier = "==2.13.0" },
-    { name = "pyproject-metadata", specifier = "==0.9.1" },
-    { name = "requests", specifier = "==2.32.3" },
-    { name = "setuptools", specifier = "==80.9.0" },
-    { name = "tomli-w", specifier = "==1.2.0" },
-    { name = "typing-extensions", specifier = "==4.14.1" },
-    { name = "urllib3", specifier = "==2.4.0" },
-    { name = "zstandard", specifier = "==0.25.0" },
-]
-dev = [
-    { name = "fake-bpy-module-latest" },
-    { name = "mypy" },
-    { name = "pydantic" },
-    { name = "rasm-opencolorio-stubs", editable = "../../../../libs/python/blender/opencolorio-stubs" },
-    { name = "rasm-refurb", editable = "../../../../tools/refurb" },
-    { name = "refurb" },
-    { name = "ruff" },
-    { name = "scipy-stubs" },
-    { name = "ty" },
-    { name = "types-networkx" },
-    { name = "vulture" },
 ]
 
 [[package]]
@@ -1176,7 +1179,6 @@ dependencies = [
     { name = "expression" },
     { name = "msgspec", extra = ["toml"] },
     { name = "numpy" },
-    { name = "typing-extensions" },
 ]
 
 [package.metadata]
@@ -1185,7 +1187,6 @@ requires-dist = [
     { name = "expression", specifier = ">=6.0.1" },
     { name = "msgspec", extras = ["toml"], specifier = ">=0.22.0" },
     { name = "numpy", specifier = ">=2.3.4" },
-    { name = "typing-extensions", specifier = ">=4.14.1" },
 ]
 
 [[package]]
@@ -1331,18 +1332,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/63/70/2bf7780ad2d390a8d301ad0b550f1581eadbd9a20f896afe06353c2a2913/requests-2.32.3.tar.gz", hash = "sha256:55365417734eb18255590a9ff9eb97e9e1da868d4ccd6402399eaf68af20a760", size = 131218, upload-time = "2024-05-29T15:37:49.536Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/f9/9b/335f9764261e915ed497fcdeb11df5dfd6f7bf257d4a6a2a686d80da4d54/requests-2.32.3-py3-none-any.whl", hash = "sha256:70761cfe03c773ceb22aa2f671b4757976145175cdfca038c02654d061d6dcc6", size = 64928, upload-time = "2024-05-29T15:37:47.027Z" },
-]
-
-[[package]]
-name = "ruff"
-version = "0.17.5"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/86/cc/7b71512eb8b49926efb887cc66c74dd993642943c29eba51a877f6b85692/ruff-0.17.5.tar.gz", hash = "sha256:625e57d80cd43352d12ea81690f3eac46cddc8c0f35026d137fb0f157f94592e", size = 5368382, upload-time = "2026-11-12T17:54:55.04Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/dc/4b/8b10f6c9d0a18413301ae8dd2af9d180a81bb738b1b731d944a37404c523/ruff-0.17.5-py3-none-macosx_11_0_arm64.whl", hash = "sha256:6f0db748508f04a04e3fbebcc636a5c8b3bd76274f8ed28f497c44d75c2ea2d7", size = 9504737, upload-time = "2026-11-12T17:54:14.567Z" },
-    { url = "https://files.pythonhosted.org/packages/f2/8a/1e29c0c3785ae7e5cd0d54ee8717a08867ef71545796340be4c653c57e24/ruff-0.17.5-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:40ca8afaac309b41a5b2e09e4e7beb1f824826b93c25697c4d74f573324fba4e", size = 10613231, upload-time = "2026-11-12T17:54:30.862Z" },
-    { url = "https://files.pythonhosted.org/packages/8f/a9/35f078ce98d4df318328ea5270382b5b65e680f7953b3db54f8e009c420c/ruff-0.17.5-py3-none-musllinux_1_2_x86_64.whl", hash = "sha256:86bd1f3b83c25f9b8055c6e796f0685b39d3127ce947322098c3108cf82fd586", size = 10793672, upload-time = "2026-11-12T17:54:44.342Z" },
-    { url = "https://files.pythonhosted.org/packages/ec/8c/e4db9ae1e0ee233c04df007ab6d0d42f799ae9abd95d352b6092ee7bc4bf/ruff-0.17.5-py3-none-win_amd64.whl", hash = "sha256:aa415d57c244299279901d776607fee3df7831c2a7435433fbfacde8632c6550", size = 10275454, upload-time = "2026-11-12T17:54:49.401Z" },
 ]
 
 [[package]]

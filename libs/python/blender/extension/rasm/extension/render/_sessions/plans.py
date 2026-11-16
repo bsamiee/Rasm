@@ -1,0 +1,478 @@
+"""Render plans, target preferences, queue observations, and dispatch checks."""
+
+from collections.abc import Callable, Generator
+from contextlib import contextmanager
+import datetime
+from enum import auto, Enum
+from functools import partial
+import subprocess
+import threading
+from typing import Annotated, Final, Self
+
+import bpy
+from expression import Error, NOTHING, Ok, Option, option, Some
+from expression.extra.result import catch
+import msgspec
+import numpy as np
+
+from rasm.extension.data._lifecycle.identity import Identity
+from rasm.extension.data._lifecycle.registration import Resource
+from rasm.extension.data._lifecycle.reports import Refusal
+from rasm.extension.data._rna.conditions import Setting
+from rasm.extension.data._rna.descriptors import Descriptor
+from rasm.extension.data._rna.paths import rooted
+from rasm.extension.data._rna.properties import case_choices, enum_choices
+from rasm.extension.data._rna.snapshots import Snapshot
+from rasm.extension.render._outputs.framing import Framed
+from rasm.extension.render._outputs.paths import OutputPath
+from rasm.extension.render._sessions.members import Members
+from rasm.extension.render._sessions.renders import Render
+from rasm.extension.render._view_layers.passes import used
+from rasm.extension.render._view_layers.routing import PassRouting
+from rasm.extension.settings._attachments import Attached
+from rasm.extension.ui._elements.panels import Preference
+from rasm.records import accumulated, Fault, Faults, Outcome, paired, Reason, RecordFile
+from rasm.rendering import (
+    cleared,
+    Ending,
+    Endpoint,
+    FixedCamera,
+    Flamenco,
+    Frames,
+    HostCommands,
+    JobCamera,
+    JobFile,
+    Listener,
+    LocalMachine,
+    MarkedCamera,
+    Marker,
+    Notice,
+    NumberKey,
+    observed,
+    Output,
+    Progress,
+    published,
+    Renderon,
+    RenderQueue,
+    RunCommand,
+    RunFile,
+    Target,
+    TextKey,
+)
+
+# --- [TYPES] ----------------------------------------------------------------------------
+
+
+class RenderScope(Enum):
+    """Dispatch render scope."""
+
+    SETS = auto()
+    SCENE = auto()
+    LAYER = auto()
+    CAMERAS = auto()
+
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+_ONLINE: Final = Setting(descriptor=Descriptor(root=bpy.types.Preferences, owner=("system",), prop=bpy.types.PreferencesSystem.bl_rna.properties["use_online_access"]))
+
+# --- [MODELS] ---------------------------------------------------------------------------
+
+
+class Dispatch(bpy.types.PropertyGroup):
+    """Dispatch dialog options."""
+
+    scope: Annotated[str, bpy.props.EnumProperty(name="Render", description="Scope queue renders", items=enum_choices(RenderScope))]
+
+
+class JobScope(msgspec.Struct, frozen=True, kw_only=True):
+    """Planned job render scope: the scene values its job file takes before writing, and the plan positions of scopes whose frames it reads."""
+
+    scene: str
+    camera: JobCamera
+    layer: str | None = None
+    values: Snapshot | None = None
+    prerequisites: tuple[int, ...] = ()
+
+
+class Plan(msgspec.Struct, frozen=True, kw_only=True):
+    """Ordered job scopes and dispatch time."""
+
+    moment: datetime.datetime
+    scopes: tuple[JobScope, ...]
+
+
+class Refused(msgspec.Struct, frozen=True, kw_only=True):
+    """Fault messages `prepare` stopped on."""
+
+    messages: tuple[str, ...]
+
+
+class PrepareArguments(msgspec.Struct, frozen=True, kw_only=True):
+    """Plan key and target `prepare` command reads."""
+
+    plan: str
+    target: Target
+
+
+class Sent(msgspec.Struct, frozen=True, kw_only=True):
+    """Sent queue with target and each issued path or farm job ID."""
+
+    queue: RenderQueue
+    target: Target
+    issued: tuple[str, ...]
+
+
+class Queued(bpy.types.PropertyGroup):
+    """Key of the last dispatched plan, stored in the file text record, empty before the first dispatch."""
+
+    plan: Annotated[str, bpy.props.StringProperty(name="Plan", description="Content key of the dispatched plan")]
+
+    @property
+    def dispatched(self) -> Option[str]:
+        """Plan key, `Nothing` before the first dispatch."""
+        return Some(self.plan).filter(bool)
+
+
+class QueuePreferences(bpy.types.PropertyGroup):
+    """Queue preferences: target, notices, power hold, heartbeat, and Flamenco scripts folder, read as the records the queue runs on."""
+
+    kind: Annotated[str, bpy.props.EnumProperty(name="Target", description="Where queue renders", items=case_choices(Target))]
+    retries: Annotated[int, bpy.props.IntProperty(name="Retries", description="Restarts of crashed render from remaining frames", min=0, default=LocalMachine().retries)]
+    sampled: Annotated[bool, bpy.props.BoolProperty(name="Sampled", description="Render first two frames of each ready job before others", default=LocalMachine().sampled)]
+    manager: Annotated[str, bpy.props.StringProperty(name="Manager", description="Flamenco Manager address", default=Flamenco().server.url)]
+    priority: Annotated[int, bpy.props.IntProperty(name="Priority", description="Order among queued jobs", default=Flamenco().priority)]
+    chunk: Annotated[int, bpy.props.IntProperty(name="Chunk", description="Frames each task renders", min=1, default=Flamenco().chunk)]
+    paused: Annotated[bool, bpy.props.BoolProperty(name="Paused", description="Jobs wait for start from Manager", default=Flamenco().paused)]
+    tag: Annotated[str, bpy.props.StringProperty(name="Worker Tag", description="Workers taking jobs, every worker when empty")]
+    executable: Annotated[str, bpy.props.StringProperty(name="B-Renderon", description="B-Renderon program, queue file alone when empty", subtype="FILE_PATH")]
+    blender: Annotated[str, bpy.props.StringProperty(name="B-Renderon Blender", description="B-Renderon name of rendering Blender", default=Renderon().blender)]
+    folder: Annotated[str, bpy.props.StringProperty(name="Job Folder", description="Job file folder, extension folder when empty", subtype="DIR_PATH")]
+    command: Annotated[str, bpy.props.StringProperty(name="Command", description="Program taking job file path, job file alone when empty", subtype="FILE_PATH")]
+    server: Annotated[str, bpy.props.StringProperty(name="Notice Server", description="ntfy server", default=Listener().server.url)]
+    topic: Annotated[str, bpy.props.StringProperty(name="Notice Topic", description="Topic devices subscribe to, no notices when empty")]
+    awake: Annotated[bool, bpy.props.BoolProperty(name="Keep Awake", description="Prevent sleep while queue renders", default=True)]
+    shutdown: Annotated[bool, bpy.props.BoolProperty(name="Shut Down", description="Shut down one minute after queue finishes")]
+    interval: Annotated[
+        float,
+        bpy.props.FloatProperty(
+            name="Heartbeat", description="Seconds between progress record touches", subtype="TIME_ABSOLUTE", min=float(np.finfo(np.float32).tiny), max=threading.TIMEOUT_MAX, default=3.0
+        ),
+    ]
+    misses: Annotated[int, bpy.props.IntProperty(name="Missed Heartbeats", description="Missed heartbeats before run reads as stopped", min=2, default=10)]
+    kept: Annotated[int, bpy.props.IntProperty(name="Runs Kept", description="Newest plans and queues whose run files and logs stay in extension folder", min=1, max=1000, default=16)]
+    scripts_folder: Annotated[str, bpy.props.StringProperty(name="Flamenco Scripts", description="Manager job type scripts folder, none when empty", subtype="DIR_PATH")]
+
+    @property
+    def target(self) -> Outcome[Target]:
+        """Target record of the chosen kind, an `INVALID` fault for a Manager address outside an `http` or `https` URL naming a host."""
+        match self.kind:
+            case Flamenco.__name__:
+                return (
+                    catch(Endpoint, exception=ValueError)(url=self.manager)
+                    .map_error(partial(Fault.of, Reason.INVALID, f"Manager {self.manager!r}"))
+                    .map(lambda server: Flamenco(server=server, priority=self.priority, chunk=self.chunk, paused=self.paused, tag=self.tag or None))
+                )
+            case Renderon.__name__:
+                return Ok(Renderon(executable=self.executable or None, blender=self.blender))
+            case JobFile.__name__:
+                return Ok(JobFile(folder=self.folder or None, command=self.command or None))
+            case _:
+                return Ok(LocalMachine(retries=self.retries, sampled=self.sampled))
+
+    @property
+    def listener(self) -> Outcome[Listener]:
+        """Notice server and topic, an `INVALID` fault for a server address outside an `http` or `https` URL naming a host."""
+        return (
+            catch(Endpoint, exception=ValueError)(url=self.server)
+            .map_error(partial(Fault.of, Reason.INVALID, f"Notice Server {self.server!r}"))
+            .map(lambda server: Listener(server=server, topic=self.topic or None))
+        )
+
+    @property
+    def stale(self) -> datetime.timedelta:
+        """Heartbeat age past which a run reads as stopped."""
+        return datetime.timedelta(seconds=self.interval * self.misses)
+
+    @property
+    def scripts(self) -> Option[str]:
+        """Manager job type scripts folder, `Nothing` while empty."""
+        return Some(self.scripts_folder).filter(bool)
+
+
+class Observed(msgspec.Struct, frozen=True, kw_only=True):
+    """Plan key, sent record, refusals, and local progress the timer last read."""
+
+    plan: str
+    sent: Option[Sent]
+    progress: Option[tuple[Progress, datetime.datetime]]
+    refused: tuple[str, ...] = ()
+
+    def unrecorded(self, exited: Option[int], /) -> Option[Faults]:
+        """Fault of a `prepare` that exited before writing its sent or refused record, its exit read before this observation."""
+        return exited.filter(lambda _: self.sent.is_none() and not self.refused).map(lambda code: Fault.of(Reason.FAILED, RunCommand.PREPARE, (code, (RunFile.SENT, RunFile.REFUSED))))
+
+
+class LocalRun(msgspec.Struct, frozen=True, kw_only=True):
+    """Observed local run: queue, target, progress record, and last heartbeat."""
+
+    queue: RenderQueue
+    target: LocalMachine
+    progress: Progress
+    beat: datetime.datetime
+
+
+# --- [CODECS] ---------------------------------------------------------------------------
+
+PLAN_DECODER: Final = msgspec.json.Decoder(Plan)
+REFUSED_DECODER: Final = msgspec.json.Decoder(Refused)
+SENT_DECODER: Final = msgspec.json.Decoder(Sent)
+
+# --- [SERVICES] -------------------------------------------------------------------------
+
+
+class QueueState:
+    """Last queue observation, its native timer, and the preparation process the last dispatch started."""
+
+    __slots__ = ("observed", "preparing", "watching")
+
+    def __init__(self) -> None:
+        """Holds no observation, timer, or process."""
+        self.observed: Option[Observed] = NOTHING
+        self.watching: Option[Callable[[], float | None]] = NOTHING
+        self.preparing: Option[tuple[str, subprocess.Popen[bytes]]] = NOTHING
+
+    def started(self, plan: str, process: subprocess.Popen[bytes]) -> subprocess.Popen[bytes]:
+        """Holds the dispatched plan key with its native preparation process."""
+        self.preparing = Some((plan, process))
+        return process
+
+    def exited(self) -> Option[tuple[str, int]]:
+        """Plan key and native preparation exit status once its process ends."""
+        return self.preparing.bind(lambda held: option.of_optional(held[1].poll()).map(lambda code: (held[0], code)))
+
+    @classmethod
+    @contextmanager
+    def held(cls) -> Generator[Self]:
+        """Yields fresh state, stopping its observation timer at scope exit."""
+        state = cls()
+        try:
+            yield state
+        finally:
+            state.unwatched()
+
+    def watched(self, tick: Callable[[], float | None]) -> None:
+        """Starts the observation timer unless one runs, the timer stopping itself once nothing is pending."""
+        if not self.watching.filter(bpy.app.timers.is_registered).is_some():
+            self.watching = Some(tick)
+            bpy.app.timers.register(tick, first_interval=1.0, persistent=True)
+
+    def unwatched(self) -> None:
+        """Stops the observation timer while the host holds it."""
+        for tick in self.watching.filter(bpy.app.timers.is_registered).to_list():
+            bpy.app.timers.unregister(tick)
+
+
+QUEUES: Final = Resource[QueueState](made=lambda _identity: QueueState.held())
+
+
+class Dispatcher(msgspec.Struct, frozen=True):
+    """Bound queue dependencies and session state."""
+
+    # --- [STATE]
+
+    identity: Identity
+    state: QueueState
+    members: Members
+    framed: Framed
+    routing: PassRouting
+    queued: Attached[Queued]
+    render: Render
+    planning: Option[Callable[[Identity, Plan], Outcome[Plan]]]
+    preparing: Option[Callable[[Identity, Plan], Outcome[Plan]]]
+    preference: Preference[QueuePreferences]
+
+    # --- [ACCESS]
+
+    @property
+    def host(self) -> HostCommands:
+        """Run commands of the running binary over the extension's `runs` folder, each run log written under the extension's log settings by the program this process records as."""
+        return HostCommands(
+            binary=bpy.app.binary_path, folder=str(self.identity.folder / "runs"), commands={command: self.identity.identifier(command) for command in RunCommand}, logs=self.identity.reports.handler
+        )
+
+    @staticmethod
+    def connected() -> Outcome[None]:
+        """Requires `bpy.app.online_access`, set by preferences and `--offline-mode`."""
+        return Ok(None) if bpy.app.online_access else Error(Fault.of(Refusal.REQUIRED, _ONLINE.message))
+
+    @staticmethod
+    def posted(listener: Outcome[Listener], notice: Notice) -> Outcome[None]:
+        """Posts notice to the listener the preferences hold, requiring online access for an enabled topic."""
+        return listener.bind(lambda held: (Dispatcher.connected() if held.topic is not None else Ok(None)).bind(lambda _: published(held, notice)))
+
+    # --- [PLANNING]
+
+    def planned(self, context: bpy.types.Context, dispatch: Dispatch, moment: datetime.datetime, *, revising: Option[Callable[[Identity, Plan], Outcome[Plan]]]) -> Outcome[Plan]:
+        """Plans scene scopes through the supplied declaration or preparation phase."""
+
+        def marked(scene: bpy.types.Scene) -> MarkedCamera:
+            return MarkedCamera(
+                camera=option.of_optional(scene.camera).map(lambda camera: camera.name).to_optional(),
+                markers=tuple(
+                    Marker(frame=marker.frame, camera=camera.name)
+                    for marker in sorted(scene.timeline_markers, key=lambda marker: marker.frame)
+                    for camera in option.of_optional(marker.camera).to_list()
+                ),
+            )
+
+        def reached(scene: bpy.types.Scene) -> Outcome[tuple[JobScope, ...]]:
+            match RenderScope[dispatch.scope]:
+                case RenderScope.SETS:
+                    return self.members.rendered(context).map(
+                        lambda members: tuple(JobScope(scene=held.name, layer=layer.map(lambda value: value.name).to_optional(), camera=marked(held)) for held, layer in members)
+                    )
+                case RenderScope.SCENE:
+                    return Ok((JobScope(scene=scene.name, camera=marked(scene)),))
+                case RenderScope.LAYER:
+                    return rooted(bpy.types.ViewLayer, context).map(lambda layer: (JobScope(scene=scene.name, layer=layer.name, camera=marked(scene)),))
+                case RenderScope.CAMERAS:
+                    return Ok(tuple(JobScope(scene=scene.name, camera=FixedCamera(camera=camera.name)) for camera in context.selected_objects if camera.type == "CAMERA"))
+
+        return (
+            rooted(bpy.types.Scene, context)
+            .bind(reached)
+            .bind(lambda scopes: Ok(Plan(moment=moment, scopes=scopes)) if scopes else Error(Fault.of(Reason.ABSENT, repr(context), member=dispatch.scope)))
+            .bind(lambda plan: revising.map(lambda revise: revise(self.identity, plan)).default_value(Ok(plan)))
+        )
+
+    # --- [OBSERVATION]
+
+    def observation(self, context: bpy.types.Context) -> Outcome[Option[Observed]]:
+        """Reads sent record and local progress, `Nothing` sent before `prepare` writes it."""
+
+        def read(plan: str) -> Outcome[Observed]:
+            found: Outcome[Option[Sent]] = RecordFile(path=self.host.path(plan, RunFile.SENT), decoder=SENT_DECODER).found()
+            refused: Outcome[Option[Refused]] = RecordFile(path=self.host.path(plan, RunFile.REFUSED), decoder=REFUSED_DECODER).found()
+            return paired(found, refused).bind(
+                lambda pair: (
+                    pair[0]
+                    .filter(lambda record: isinstance(record.target, LocalMachine))
+                    .map(lambda record: observed(self.host.path(record.queue.stem, RunFile.PROGRESS)))
+                    .default_value(Ok(NOTHING))
+                    .map(lambda progress: Observed(plan=plan, sent=pair[0], progress=progress, refused=pair[1].map(lambda held: held.messages).default_value(())))
+                )
+            )
+
+        return rooted(bpy.types.WindowManager, context).bind(lambda manager: self.queued.struct(manager).dispatched.map(lambda plan: read(plan).map(Some)).default_value(Ok(NOTHING)))
+
+    def local_run(self) -> Outcome[LocalRun]:
+        """Returns observed local run, absent fault without local progress."""
+        match self.state.observed.bind(lambda held: held.sent.bind(lambda sent: held.progress.map(lambda pair: (sent, *pair)))).to_optional():
+            case (Sent(queue=queue, target=LocalMachine() as target), progress, beat):
+                return Ok(LocalRun(queue=queue, target=target, progress=progress, beat=beat))
+            case _:
+                return Error(Fault.of(Reason.ABSENT, repr(self.queued), member=RunFile.PROGRESS))
+
+    def ticked(self) -> Outcome[bool]:
+        """Refreshes progress, clears successful run files, logs recorded preparation refusals, and reports recordless preparation exits, answering whether a run remains pending."""
+        state = self.state
+        exited = state.exited()
+
+        def acted(fresh: Option[Observed]) -> Outcome[bool]:
+            prior = state.observed
+            crashed = fresh.bind(lambda now: exited.filter(lambda held: held[0] == now.plan).bind(lambda held: now.unrecorded(Some(held[1]))))
+            current = fresh.map(
+                lambda now: msgspec.structs.replace(
+                    now,
+                    progress=now.progress.or_else_with(lambda: prior.bind(lambda last: last.progress).filter(lambda pair: now.sent.filter(lambda sent: sent.queue.key == pair[0].queue).is_some())),
+                    refused=crashed.map(lambda faults: tuple(fault.message for fault in faults)).default_value(now.refused),
+                )
+            )
+            state.observed = current
+            for messages in fresh.map(lambda now: now.refused).filter(bool).to_list():
+                self.identity.reports.logged(Fault.of(Refusal.REFUSED, RunCommand.PREPARE, " ".join(messages)))
+            ended = current.bind(lambda held: held.progress).bind(lambda pair: option.of_optional(pair[0].ending))
+            pending = (
+                current
+                .filter(lambda held: not held.refused)
+                .map(lambda held: held.sent.map(lambda sent: isinstance(sent.target, LocalMachine) and ended.is_none()).default_value(value=True))
+                .default_value(value=False)
+            )
+            return paired(
+                fresh
+                .bind(lambda now: now.sent.bind(lambda sent: now.progress.filter(lambda pair: pair[0].ending is Ending.SUCCEEDED).map(lambda _: sent.queue)))
+                .map(lambda queue: cleared(queue, self.host))
+                .default_value(Ok(None)),
+                crashed.map(Error).default_value(Ok(None)),
+            ).map(lambda _: pending)
+
+        return self.observation(bpy.context).bind(acted)
+
+    def tick(self) -> float | None:
+        """Host timer body refreshing the observation each second, stopping once no dispatched run is pending."""
+        return 1.0 if self.identity.reports.reported(self.ticked)().default_value(value=False) else None
+
+    def watched(self) -> Outcome[Option[float]]:
+        """Observes a dispatched run until nothing it dispatched is pending, the session state holding the one timer, answering as a one-shot timer body."""
+        self.state.watched(self.tick)
+        return Ok(NOTHING)
+
+
+# --- [OPERATIONS] -----------------------------------------------------------------------
+
+# --- [SCENES]
+
+
+def scene_of(name: str) -> Outcome[bpy.types.Scene]:
+    """Returns the scene a planned scope or job names, absent fault once it is gone."""
+    return catch(lambda: bpy.data.scenes[name], exception=KeyError)().map_error(partial(Fault.of, Reason.ABSENT, repr(bpy.data.scenes), member=name))
+
+
+def ranged(scene: bpy.types.Scene) -> Frames:
+    """Returns inclusive frame range and step of scene."""
+    return Frames(start=scene.frame_start, end=scene.frame_end, step=scene.frame_step)
+
+
+# --- [CHECKS]
+
+
+def templated(path: OutputPath, scope: JobScope, scene: bpy.types.Scene, frames: Frames) -> Outcome[None]:
+    """Accumulates output path faults and missing layer, pass, or frame template fields."""
+    layers = option.of_optional(scope.layer).map(lambda layer: (layer,)).default_with(lambda: tuple(layer.name for layer in used(scene)))
+    keys = path.name.keys
+    varied = (
+        *((TextKey.LAYER,) if len(layers) > 1 and TextKey.LAYER not in keys else ()),
+        *((TextKey.PASS,) if not keys & {TextKey.PASS, TextKey.OUTPUT} else ()),
+        *((NumberKey.FRAME,) if len(frames.numbers) > 1 and NumberKey.FRAME not in keys else ()),
+    )
+    return paired(
+        accumulated(path.literal(layer, output, NOTHING, frames.start) for layer in layers for output in Output),
+        accumulated(Error(Fault.of(Refusal.REQUIRED, f"{{{field}}} in output template to name one file per {field}")) for field in varied),
+    ).map(lambda _: None)
+
+
+# --- [EXPORTS] --------------------------------------------------------------------------
+
+__all__ = [
+    "PLAN_DECODER",
+    "QUEUES",
+    "REFUSED_DECODER",
+    "SENT_DECODER",
+    "Dispatch",
+    "Dispatcher",
+    "JobScope",
+    "LocalRun",
+    "Observed",
+    "Plan",
+    "PrepareArguments",
+    "QueuePreferences",
+    "QueueState",
+    "Queued",
+    "Refused",
+    "RenderScope",
+    "Sent",
+    "ranged",
+    "scene_of",
+    "templated",
+]

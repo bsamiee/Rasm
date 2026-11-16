@@ -27,7 +27,7 @@ const CHECKERS = {
         folder: identity<string>,
         origin: identity<string>,
         run: [],
-        command: (at: string) => ['ty', 'check', at],
+        command: (at: string, _config?: string, version?: string) => ['ty', 'check', at, ...flagged('--python-version', version)],
         mypy: undefined,
         coverage: undefined,
         description: 'Type-checks the member with ty check',
@@ -41,10 +41,10 @@ const CHECKERS = {
         files: [['mypy.ini'], ['.mypy.ini'], ['pyproject.toml', 'tool', 'mypy'], ['setup.cfg', 'mypy']],
         matches: ['*.py', '*.pyi'],
         sources: ['*.py', '*.pyi'],
-        folder: identity<string>,
+        folder: (_: string, base: string) => base,
         origin: identity<string>,
         run: [],
-        command: (at: string) => ['mypy', at],
+        command: (at: string, _config?: string, version?: string) => ['mypy', at, ...flagged('--python-version', version)],
         mypy: [],
         coverage: undefined,
         description: 'Type-checks the member with mypy and the plugins its configuration loads',
@@ -104,6 +104,7 @@ const CHECKERS = {
     },
 } as const;
 const PIXI = 'pixi.toml';
+const FLOOR = /(?:>=|==|~=)\s*(?<floor>\d+\.\d+)/u;
 const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#package'))).name;
 const PLATFORM = { runtime: 'node -p process.platform+process.arch' } as const;
 const UV = { runtime: 'uv self version --short' } as const;
@@ -240,6 +241,7 @@ const targets = (member: Member, { outputPath, coveragePath }: typeof Options.Ty
                     ...row.command(
                         relative(base, member.root) || '.',
                         UndefinedOr.map(stated.config, (file) => relative(base, file)),
+                        UndefinedOr.map(member.python, (range) => FLOOR.exec(range)?.groups?.['floor']),
                     ),
                     ...(row.mypy === undefined ? [] : [...row.mypy, '--cache-dir', join(cache.replace('$MYPY_CONFIG_FILE_DIR', relative(base, config === undefined ? base : dirname(config)) || '.'), member.root, key)]),
                 ];

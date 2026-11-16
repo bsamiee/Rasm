@@ -8,11 +8,11 @@ from bl_ui.space_image import IMAGE_PT_image_properties
 from bl_ui.space_node import NODE_PT_active_node_generic
 import bpy
 
-from rasm_bpy.commands import Answer, Call, Done, Empty, Operator
-from rasm_bpy.data import rooted
-from rasm_bpy.render import ChartCalibration, ChartEditing, entered, path_key
-from rasm_bpy.ui import Beside, OperatorButton, Panel
-from rasm_records import Outcome, paired
+from rasm.extension.commands import Answer, Call, Done, Empty, Operator
+from rasm.extension.data import rooted
+from rasm.extension.render import ChartCalibration, ChartEditing, entered, path_key
+from rasm.extension.ui import Beside, OperatorButton, Panel
+from rasm.records import Outcome, paired
 
 from ..catalog import chain
 from ..effects.grade.colorimetry import MIXER, Primaries, REMAP

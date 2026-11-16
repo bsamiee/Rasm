@@ -9,7 +9,8 @@
         "directory": "products/developer/nx/uv"
     },
     "files": [
-        "dist"
+        "dist/**/*.js",
+        "dist/**/*.d.ts"
     ],
     "type": "module",
     "imports": {
@@ -47,5 +48,8 @@
     },
     "peerDependencies": {
         "nx": "catalog:peers"
+    },
+    "engines": {
+        "node": "^24.14.0 || >=25.4.0"
     }
 }

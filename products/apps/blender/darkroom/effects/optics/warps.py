@@ -10,9 +10,9 @@ import bpy
 from expression import Error, NOTHING, Ok, Option, option, Some
 import msgspec
 
-from rasm_bpy.data import Identity, Key, Value
-from rasm_bpy.nodes import composed, Expr, EXPRESSIONS, Interface, InterfacePanel, inverted, item_key, math, MenuItem, Socket, switched, textures, transformed, vector, xyz
-from rasm_bpy.render import (
+from rasm.extension.data import Identity, Key, Value
+from rasm.extension.nodes import composed, Expr, EXPRESSIONS, Interface, InterfacePanel, inverted, item_key, math, MenuItem, Socket, switched, textures, transformed, vector, xyz
+from rasm.extension.render import (
     AFFINE,
     Border,
     BORDERS,
@@ -50,9 +50,9 @@ from rasm_bpy.render import (
     value,
     valued,
 )
-from rasm_bpy.scene import camera_type
-from rasm_imaging import Equirectangular, folded, from_polar, Homography, Panoramas, Quad, stream, to_polar
-from rasm_records import accumulated, Fault, Outcome, paired, Reason
+from rasm.extension.scene import camera_type
+from rasm.imaging import Equirectangular, folded, from_polar, Homography, Panoramas, Quad, stream, to_polar
+from rasm.records import accumulated, Fault, Outcome, paired, Reason
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 

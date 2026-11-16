@@ -13,11 +13,11 @@ import numpy.typing as npt
 import OpenImageIO
 from scipy.spatial import cKDTree
 
-from rasm_bpy.data import Identity
-from rasm_bpy.nodes import decoded, fielded, Interface, InterfacePanel, item_key, POSITION, sampled, textures, W
-from rasm_bpy.render import chosen, Clock, CompositorEffect, CompositorRecord, lenses, Mix, origin, precise, Prepared, rate, Shutter, Stage, toggled
-from rasm_imaging import Aperture, Estimate, fringed, located, pixels, Population, Precision, Region, Seed, stream, transmitted, uniforms
-from rasm_records import accumulated, AtLeastOne, Fault, Finite, NonNegative, Outcome, paired, Positive, Reason, Unit
+from rasm.extension.data import Identity
+from rasm.extension.nodes import decoded, fielded, Interface, InterfacePanel, item_key, POSITION, sampled, textures, W
+from rasm.extension.render import chosen, Clock, CompositorEffect, CompositorRecord, lenses, Mix, origin, precise, Prepared, rate, Shutter, Stage, toggled
+from rasm.imaging import Aperture, Estimate, fringed, located, pixels, Population, Precision, Region, Seed, stream, transmitted, uniforms
+from rasm.records import accumulated, AtLeastOne, Fault, Finite, NonNegative, Outcome, paired, Positive, Reason, Unit
 
 from . import bases, emission
 from .bases import Basis, drawn, Perlin, TEXTURE, Voronoi

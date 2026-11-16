@@ -11,11 +11,11 @@ import numpy as np
 import numpy.typing as npt
 import PyOpenColorIO
 
-from rasm_bpy.data import Identity, Key, Value
-from rasm_bpy.nodes import decoded, Expr, Interface, InterfacePanel, item_key, math, MenuItem, MenuItems, menus, mixed, Ramp, sampled, Scalar, Socket, StockInput, vector, W
-from rasm_bpy.render import chosen, GraphInputs, luminance, path_key, Step
-from rasm_imaging import colorimetry, Stops
-from rasm_records import accumulated, Case, Outcome
+from rasm.extension.data import Identity, Key, Value
+from rasm.extension.nodes import decoded, Expr, Interface, InterfacePanel, item_key, math, MenuItem, MenuItems, menus, mixed, Ramp, sampled, Scalar, Socket, StockInput, vector, W
+from rasm.extension.render import chosen, GraphInputs, luminance, path_key, Step
+from rasm.imaging import colorimetry, Stops
+from rasm.records import accumulated, Case, Outcome
 
 from .bases import cased
 

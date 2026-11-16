@@ -8,9 +8,9 @@ import bpy
 from expression import NOTHING, Option, Some
 from expression.collections import Block
 
-from rasm_bpy.data import Key, Snapshot
-from rasm_bpy.nodes import Expr, functions, group_input, Interface, InterfacePanel, item_key, math, menu, MenuItem, mixed, NodeGroup, Scalar, Socket, StockInput, switched, vector, where
-from rasm_bpy.render import (
+from rasm.extension.data import Key, Snapshot
+from rasm.extension.nodes import Expr, functions, group_input, Interface, InterfacePanel, item_key, math, menu, MenuItem, mixed, NodeGroup, Scalar, Socket, StockInput, switched, vector, where
+from rasm.extension.render import (
     BLEND,
     COLOR_INPUT,
     COLOR_RESULT,
@@ -38,7 +38,7 @@ from rasm_bpy.render import (
     TermFiltering,
     TERMS,
 )
-from rasm_records import Outcome
+from rasm.records import Outcome
 
 from ..grade.exposure import LATER, later
 

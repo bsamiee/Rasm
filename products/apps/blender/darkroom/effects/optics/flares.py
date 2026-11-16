@@ -8,9 +8,9 @@ import bpy
 from expression import Ok, Option, Some
 import msgspec
 
-from rasm_bpy.data import Descriptor, Identity, Key, Present
-from rasm_bpy.nodes import Expr, EXPRESSIONS, Interface, InterfacePanel, math, MenuItem, MenuItems, mixed, Ramp, Scalar, Socket, StockInput, Stop, switched, textures, vector, xyz
-from rasm_bpy.render import (
+from rasm.extension.data import Descriptor, Identity, Key, Present
+from rasm.extension.nodes import Expr, EXPRESSIONS, Interface, InterfacePanel, math, MenuItem, MenuItems, mixed, Ramp, Scalar, Socket, StockInput, Stop, switched, textures, vector, xyz
+from rasm.extension.render import (
     captured,
     chosen,
     CLOCK,
@@ -32,9 +32,9 @@ from rasm_bpy.render import (
     timing,
     valued,
 )
-from rasm_bpy.scene import camera_type
-from rasm_imaging import Aperture, fringed, stream
-from rasm_records import accumulated, Outcome, paired
+from rasm.extension.scene import camera_type
+from rasm.imaging import Aperture, fringed, stream
+from rasm.records import accumulated, Outcome, paired
 
 from .bases import bases, Basis, Perlin, textured
 from .emission import Emission, emission, emitted, Gradient, Tint

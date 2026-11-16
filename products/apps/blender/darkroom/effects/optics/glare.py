@@ -12,11 +12,11 @@ import numpy.typing as npt
 import PyOpenColorIO
 import scipy as sp
 
-from rasm_bpy.data import Ownership, Saved, Tag, Value
-from rasm_bpy.nodes import Expr, Generated, Interface, InterfacePanel, mixed, Scalar, Socket, StockInput, switched, vector, xyz
-from rasm_bpy.render import blurred, CompositorEffect, CompositorRecord, dimensions, filters, GraphInputs, masks, Prepared, shorter, Stage, uv_mapped
-from rasm_imaging import Pupil, Raster, Specks
-from rasm_records import content_hash, Outcome
+from rasm.extension.data import Ownership, Saved, Tag, Value
+from rasm.extension.nodes import Expr, Generated, Interface, InterfacePanel, mixed, Scalar, Socket, StockInput, switched, vector, xyz
+from rasm.extension.render import blurred, CompositorEffect, CompositorRecord, dimensions, filters, GraphInputs, masks, Prepared, shorter, Stage, uv_mapped
+from rasm.imaging import Pupil, Raster, Specks
+from rasm.records import content_hash, Outcome
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 

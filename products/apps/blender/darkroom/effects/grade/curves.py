@@ -13,12 +13,12 @@ import numpy as np
 import numpy.typing as npt
 import PyOpenColorIO
 
-from rasm_bpy.commands import Answer, Call, Done, Operator, Unchanged
-from rasm_bpy.data import Identity, Key, rooted
-from rasm_bpy.nodes import CurveAxes, CurvePoints, Expr, item_key, math, owned, Points, rgba, Scalar
-from rasm_bpy.render import CompositorEffect, CompositorRecord, curved, GraphInputs, grouped, hsy, logarithmic, Mix, Named, READ
-from rasm_imaging import converted, ImageFile, lin_to_log, luma, Samples
-from rasm_records import accumulated, Fault, Outcome, paired, Reason
+from rasm.extension.commands import Answer, Call, Done, Operator, Unchanged
+from rasm.extension.data import Identity, Key, rooted
+from rasm.extension.nodes import CurveAxes, CurvePoints, Expr, item_key, math, owned, Points, rgba, Scalar
+from rasm.extension.render import CompositorEffect, CompositorRecord, curved, GraphInputs, grouped, hsy, logarithmic, Mix, Named, READ
+from rasm.imaging import converted, ImageFile, lin_to_log, luma, Samples
+from rasm.records import accumulated, Fault, Outcome, paired, Reason
 
 from .colorimetry import unread
 

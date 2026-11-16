@@ -4,9 +4,17 @@
 name            = "rasm-opencolorio-stubs"
 version         = "0.1.0"
 description     = "PyOpenColorIO stubs pybind11-stubgen generates at build time from the OpenColorIO release Blender bundles"
-classifiers     = ["Private :: Do Not Upload", "Typing :: Stubs Only"]
+readme          = "README.md"
+license         = "MIT"
+license-files   = ["LICENSE"]
+authors         = [{ name = "Bardia Samiee", email = "b.samiee93@gmail.com" }]
+classifiers     = ["Private :: Do Not Upload"]
 requires-python = ">=3.13"
-dependencies    = []
+
+[project.urls]
+Homepage = "https://github.com/bsamiee/Rasm/tree/main/libs/python/blender/opencolorio-stubs"
+Source   = "https://github.com/bsamiee/Rasm"
+Issues   = "https://github.com/bsamiee/Rasm/issues"
 
 # --- [DEPENDENCY_GROUPS] ----------------------------------------------------------------
 

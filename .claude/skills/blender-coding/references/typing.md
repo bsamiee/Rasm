@@ -8,7 +8,7 @@ Blender's Python 3.13 evaluates module, class, and signature annotations as thei
 - Signatures name earlier declarations and aliases, a quote holding a later declaration
 - Unresolvable annotations raise at `register_class` on `PropertyGroup` and `AddonPreferences` classes or bases, and leave `Operator` with no property
 - Registrable classes annotate properties and runtime-bound names alone
-- Classes `rasm_bpy.data.Registration` registers take `Annotated[<value type>, <bpy.props definition>]`, which `annotated` hands Blender
+- Classes `rasm.extension.data.Registration` registers take `Annotated[<value type>, <bpy.props definition>]`, which `annotated` hands Blender
 - Classes a script registers through `bpy.utils.register_class` (MCP runs, `use-blender` scripts) take the bare `bpy.props` call
 - `register_class` registers nothing from an `Annotated` hint and prints no error, and a bare call takes `# ty: ignore[invalid-type-form]`
 - Blender's main thread flushes subnormal floats to zero where worker threads keep them, and `msgspec.Meta(gt=0.0)` accepts `0.0` on the main thread
@@ -44,7 +44,7 @@ Stub defects take their row's form, and suppressions stay only where a live run 
 |  [12]   | `bl_ui` classes on `_bpy_types` bases        | `bpy.types` class subclasses   | `type[bpy.types.Panel]` local, `invalid-assignment`   |
 |  [13]   | `gpu.matrix` stack contexts as plain classes | Context managers               | `push` with a `pop` callback                          |
 |  [14]   | `GPUFrameBuffer.bind` returning `None`       | `enter_context` takes it       | `func-returns-value`, `invalid-argument-type`         |
-|  [15]   | `gpu.state.blend_get` as `str`               | Mode `blend_set` takes         | `rasm_bpy.ui.Canvas.blended`                          |
+|  [15]   | `gpu.state.blend_get` as `str`               | Mode `blend_set` takes         | `rasm.extension.ui.Canvas.blended`                          |
 |  [16]   | `foreach_set`, batch, `FromPolygons` arrays  | Take numpy arrays              | Arrays as is, `tolist()` into `FromPolygons`          |
 |  [17]   | `PropertyGroup` without `is_registered`      | Flag on registrable classes    | `"bl_rna" in vars(<class>)`                           |
 |  [18]   | `bpy.props` call as class annotation         | Registers the property         | `Annotated[<value type>, <definition>]`               |

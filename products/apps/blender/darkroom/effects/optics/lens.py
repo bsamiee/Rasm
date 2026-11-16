@@ -15,10 +15,10 @@ import numpy as np
 import numpy.typing as npt
 import PyOpenColorIO
 
-from rasm_bpy.commands import Answer, Call, Done, Operator, Save, Unchanged
-from rasm_bpy.data import Key, rooted, Snapshot, Value
-from rasm_bpy.nodes import Component, Expr, EXPRESSIONS, Interface, InterfacePanel, item_key, math, MenuItem, MenuItems, mixed, rgba, Socket, switched, vector
-from rasm_bpy.render import (
+from rasm.extension.commands import Answer, Call, Done, Operator, Save, Unchanged
+from rasm.extension.data import Key, rooted, Snapshot, Value
+from rasm.extension.nodes import Component, Expr, EXPRESSIONS, Interface, InterfacePanel, item_key, math, MenuItem, MenuItems, mixed, rgba, Socket, switched, vector
+from rasm.extension.render import (
     Border,
     BORDERS,
     captured,
@@ -46,8 +46,8 @@ from rasm_bpy.render import (
     Whole,
     with_alpha,
 )
-from rasm_imaging import Aperture, ImageFile, Radial, Raster, StMap, Storage
-from rasm_records import Fault, Outcome, paired, Reason
+from rasm.imaging import Aperture, ImageFile, Radial, Raster, StMap, Storage
+from rasm.records import Fault, Outcome, paired, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 

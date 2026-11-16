@@ -7,7 +7,7 @@ from bl_ui.properties_compositor import SCENE_PT_compositor_effects
 from bl_ui.space_node import NODE_PT_backdrop
 from expression import Some
 
-from rasm_bpy.render import (
+from rasm.extension.render import (
     Adjustment,
     EffectTiles,
     Enabled,
@@ -34,7 +34,7 @@ from rasm_bpy.render import (
     Valued,
     WHOLE,
 )
-from rasm_bpy.ui import Beside, Panel
+from rasm.extension.ui import Beside, Panel
 
 from .effects.finish.damage import damage
 from .effects.finish.dither import dither
@@ -58,7 +58,7 @@ from .effects.optics.media import atmosphere, noise_field
 from .effects.optics.particles import particles
 from .effects.optics.shapes import shapes
 from .effects.optics.warps import projection, transform
-from .rendering import temporal
+from .render import temporal
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 

@@ -15,12 +15,12 @@ import numpy as np
 import numpy.typing as npt
 import PyOpenColorIO
 
-from rasm_bpy.data import Acquisitions, Handle, Identity, Key, Resource, root_in
-from rasm_bpy.render import fingerprinted, Job, Latest, PreviewFeed, PreviewScene, Rank, rate
-from rasm_bpy.settings import Attachment
-from rasm_bpy.ui import Append, AreaQuery, Chart, DrawingPart, GRID, image_type, Label, Layer, Layout, Member, Metrics, overlaid, Property, ruled, Signal, TRACE
-from rasm_imaging import applied, DisplayView, GRAY
-from rasm_records import accumulated, ContentHash, Fault, Outcome, paired, Reason
+from rasm.extension.data import Acquisitions, Handle, Identity, Key, Resource, root_in
+from rasm.extension.render import fingerprinted, Job, Latest, PreviewFeed, PreviewScene, Rank, rate
+from rasm.extension.settings import Attachment
+from rasm.extension.ui import Append, AreaQuery, Chart, DrawingPart, GRID, image_type, Label, Layer, Layout, Member, Metrics, overlaid, Property, ruled, Signal, TRACE
+from rasm.imaging import applied, DisplayView, GRAY
+from rasm.records import accumulated, ContentHash, Fault, Outcome, paired, Reason
 
 from ..catalog import tones
 from ..effects.formation.display import encoding, formation

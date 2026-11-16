@@ -1,0 +1,177 @@
+"""Member bindings rooted at an owner type or an attachment, resolved on the root type or a live root and located at the drawing holder or context."""
+
+from collections.abc import Callable, Mapping
+from functools import partial
+from itertools import pairwise
+from typing import Generic, overload, TypeVar
+
+import bpy
+from expression import NOTHING, Ok, Option, Some
+import msgspec
+
+from rasm.extension.data._lifecycle.identity import Identity
+from rasm.extension.data._lifecycle.registration import Declaration
+from rasm.extension.data._rna.conditions import Scoped
+from rasm.extension.data._rna.descriptors import Descriptor
+from rasm.extension.data._rna.paths import Native, RnaPath, Struct
+from rasm.extension.data._rna.snapshots import Snapshot
+from rasm.extension.settings._attachments import Attachment
+from rasm.records import accumulated, Outcome
+
+# --- [TYPES] ----------------------------------------------------------------------------
+
+_R_co = TypeVar("_R_co", bound=type[Struct] | Attachment[bpy.types.PropertyGroup], covariant=True, default=type[Struct] | Attachment[bpy.types.PropertyGroup])
+
+type At = tuple[Native, str]
+type Reach = Callable[[bpy.types.Context], Option[Struct]]
+type LocatedMembers = tuple[tuple[Descriptor, At], ...]
+
+# --- [MODELS] ---------------------------------------------------------------------------
+
+
+class ResolvedMember[P: bpy.types.Property = bpy.types.Property](msgspec.Struct, frozen=True, kw_only=True):
+    """RNA definition with the reach of its owner's root, the drawing holder or the context root while no reach is stated."""
+
+    descriptor: Descriptor[P]
+    reach: Option[Reach] = NOTHING
+
+    def at(self, holder: Struct, context: bpy.types.Context) -> Option[At]:
+        """Locates the property owner through the reach, the drawing holder, or the context root."""
+        descriptor = self.descriptor
+        owner = self.reach.map(lambda reach: reach(context).bind(descriptor.owner_of)).default_with(lambda: descriptor.owner_of(context, Some(holder)))
+        return owner.map(lambda found: (found, descriptor.prop.identifier))
+
+
+class Member(msgspec.Struct, Generic[_R_co], frozen=True, kw_only=True):  # ruff: ignore[non-pep695-generic-class]
+    """Property path rooted at its owner type, or at the form group an attachment holds on its owner, reached through context when the owner is no drawing holder, labelled as mixed while the owners `scope` selects differ.
+
+    The root parameter separates declarations from native roots: `located` roots attachments under the registered pointer; `resolved` and `bound` take native roots.
+    """
+
+    root: _R_co
+    path: RnaPath
+    reach: Option[Reach] = NOTHING
+    scope: Option[Scoped] = NOTHING
+
+    @property
+    def prerequisites(self) -> tuple[Declaration, ...]:
+        """Attachment the root names."""
+        return (self.root,) if isinstance(self.root, Attachment) else ()
+
+    @overload
+    def located[M: Member[type[Struct]]](self: M, identity: Identity, /) -> Outcome[M]: ...
+
+    @overload
+    def located(self, identity: Identity, /) -> "Outcome[Member[type[Struct]]]": ...
+
+    def located(self, identity: Identity, /) -> "Outcome[Member]":
+        """Roots an attachment member under its registered pointer, retaining its type and fields; native members return unchanged."""
+        match self.root:
+            case Attachment() as attachment:
+                return attachment.bound(identity).map(lambda attached: msgspec.structs.replace(self, root=attached.owner, path=(attached.name, *self.path)))
+            case _:
+                return Ok(self)
+
+    @overload
+    def resolved(self: "Member[type[Struct]]", *, root: Option[Struct] = NOTHING) -> Outcome[ResolvedMember]: ...
+
+    @overload
+    def resolved[P: bpy.types.Property](self: "Member[type[Struct]]", kind: type[P], *, root: Option[Struct] = NOTHING) -> Outcome[ResolvedMember[P]]: ...
+
+    def resolved(self: "Member[type[Struct]]", kind: type[bpy.types.Property] = bpy.types.Property, *, root: Option[Struct] = NOTHING) -> Outcome[ResolvedMember]:
+        """Resolves metadata on the native root type or live `root`."""
+        return Descriptor.resolve(root.default_value(self.root), self.path, kind).map(lambda descriptor: ResolvedMember(descriptor=descriptor, reach=self.reach))
+
+    @overload
+    def realized(self, identity: Identity, /) -> Outcome[ResolvedMember]: ...
+
+    @overload
+    def realized[P: bpy.types.Property](self, identity: Identity, kind: type[P], /) -> Outcome[ResolvedMember[P]]: ...
+
+    def realized(self, identity: Identity, kind: type[bpy.types.Property] = bpy.types.Property, /) -> Outcome[ResolvedMember]:
+        """Locates the member under the extension's pointers, then resolves its metadata on the root type within `kind`."""
+        return self.located(identity).bind(lambda found: found.resolved(kind))
+
+    def bound[M: Member[type[Struct]]](self: M) -> Outcome[ResolvedMember | M]:  # ruff: ignore[custom-type-var-for-self]
+        """Resolves a member with no reach once, a reached member staying to resolve on its live root each draw."""
+        match self.reach:
+            case Some():
+                return Ok(self)
+            case _:
+                return self.resolved()
+
+    def labelled(self, setting: Descriptor, context: bpy.types.Context) -> Outcome[Mapping[str, str | bool]]:
+        """Mixed label keywords of the setting across the scope's owners, none without a scope or while the owners agree, the host labelling the property itself."""
+        return (
+            self.scope
+            .map(lambda scope: scope.owners(context).bind(partial(marked, setting)))
+            .default_value(Ok(NOTHING))
+            .map(lambda mixed: mixed.map(lambda text: dict[str, str | bool](text=text, translate=False)).default_value(dict[str, str | bool]()))
+        )
+
+
+# --- [OPERATIONS] -----------------------------------------------------------------------
+
+# --- [IDENTITY]
+
+
+def owner_key(struct: Native) -> str:
+    """Identifier per native owner: ID `session_uid`, pointer identity for other structs."""
+    match struct:
+        case bpy.types.bpy_prop_collection(data=bpy.types.bpy_struct() as holder):
+            return owner_key(holder)
+        case bpy.types.ID(session_uid=uid):
+            return str(uid)
+        case bpy.types.bpy_struct():
+            return str(struct.as_pointer())
+        case _:
+            raise TypeError(struct)
+
+
+# --- [LABELS]
+
+
+def marked(setting: Descriptor, owners: tuple[Struct, ...], /) -> Outcome[Option[str]]:
+    """Translated name of a setting marked as mixed while owner values differ, nothing while they agree, the host labelling it."""
+    prop = setting.prop
+    return accumulated(Snapshot.capture(owner, Some((setting,))) for owner in owners).map(
+        lambda values: Some(f"{bpy.app.translations.pgettext_iface(prop.name, prop.translation_context)} —").filter(lambda _: any(left != right for left, right in pairwise(values)))
+    )
+
+
+# --- [BINDING]
+
+
+def resolved_at(member: Member[type[Struct]] | ResolvedMember, holder: Struct, context: bpy.types.Context, /) -> Outcome[Option[tuple[Descriptor, At]]]:
+    """Returns metadata and owner from one reach, nothing for an absent root or owner, or faults from resolving metadata."""
+    match member:
+        case Member(reach=Some(reach)):
+            return (
+                reach(context)
+                .map(lambda root: member.resolved(root=Some(root)).map(lambda found: found.descriptor.owner_of(root).map(lambda owner: (found.descriptor, (owner, found.descriptor.prop.identifier)))))
+                .default_value(Ok(NOTHING))
+            )
+        case Member():
+            return member.resolved().bind(lambda found: resolved_at(found, holder, context))
+        case ResolvedMember():
+            return Ok(member.at(holder, context).map(lambda at: (member.descriptor, at)))
+
+
+def bound(
+    identity: Identity, members: tuple[Member[type[Struct]], ...], place: Callable[[LocatedMembers, bpy.types.UILayout, Struct, bpy.types.Context], None], /
+) -> Outcome[Callable[[bpy.types.UILayout, Struct, bpy.types.Context], None]]:
+    """Resolves fixed members once and reached members each draw, drawing over the located owners while every one is found."""
+
+    def drawn(held: tuple[ResolvedMember | Member[type[Struct]], ...], layout: bpy.types.UILayout, holder: Struct, context: bpy.types.Context) -> None:
+        """Draws over present owners, logging every refusal."""
+        for current in identity.reports.settled(accumulated(resolved_at(each, holder, context) for each in held)).to_list():
+            located = tuple(member for each in current for member in each.to_list())
+            if len(located) == len(held):
+                place(located, layout, holder, context)
+
+    return accumulated(member.bound() for member in members).map(lambda held: partial(drawn, held))
+
+
+# --- [EXPORTS] --------------------------------------------------------------------------
+
+__all__ = ["At", "LocatedMembers", "Member", "Reach", "ResolvedMember", "bound", "marked", "owner_key", "resolved_at"]

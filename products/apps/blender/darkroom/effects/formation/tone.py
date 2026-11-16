@@ -18,10 +18,10 @@ import numpy as np
 import numpy.typing as npt
 import PyOpenColorIO
 
-from rasm_bpy.commands import Answer, Call, Done, Empty, Operator
-from rasm_bpy.data import Identity, Key, Value
-from rasm_bpy.nodes import composed, directed, Expr, functions, grouped, Interface, InterfacePanel, inverted, item_key, math, matrix, mixed, RESULT, Socket, StockInput, vector, where, xyz
-from rasm_bpy.render import (
+from rasm.extension.commands import Answer, Call, Done, Empty, Operator
+from rasm.extension.data import Identity, Key, Value
+from rasm.extension.nodes import composed, directed, Expr, functions, grouped, Interface, InterfacePanel, inverted, item_key, math, matrix, mixed, RESULT, Socket, StockInput, vector, where, xyz
+from rasm.extension.render import (
     AXES,
     captured,
     ColorSpace,
@@ -44,8 +44,8 @@ from rasm_bpy.render import (
     value,
     valued,
 )
-from rasm_imaging import ConfigBuild, GRAY, ImageFile, Lattice, Logarithmic, pixels, processor, REC709_SCENE, rendering_basis, Samples
-from rasm_records import accumulated, committed, Fault, Outcome, Reason
+from rasm.imaging import ConfigBuild, GRAY, ImageFile, Lattice, Logarithmic, pixels, processor, REC709_SCENE, rendering_basis, Samples
+from rasm.records import accumulated, committed, Fault, Outcome, Reason
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 

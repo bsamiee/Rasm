@@ -16,9 +16,9 @@ addopts                   = [
     "-p",
     "randomly",
     "-p",
-    "rasm_testing.hosting",                     # Hosted HTTP servers of `tests/support/python`
+    "rasm.testing.hosting",                     # Hosted HTTP servers of `tests/support/python`
     "-p",
-    "rasm_testing.sqlite",                      # SQLite database of `tests/support/python`
+    "rasm.testing.sqlite",                      # SQLite database of `tests/support/python`
     "-p",
     "pytest_socket",                            # Named by its module, the entry point name `socket` being the standard library module the hosting plugin imports first
     "-p",

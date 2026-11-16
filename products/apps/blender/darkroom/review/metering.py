@@ -14,13 +14,13 @@ import numpy as np
 import numpy.typing as npt
 import PyOpenColorIO
 
-from rasm_bpy import render
-from rasm_bpy.commands import Answer, Button, Call, Chord, Done, Empty, Operator, Placement
-from rasm_bpy.data import Acquisitions, assigned, Declaration, Descriptor, Handle, Handler, Identity, Job, Resource, root_in, rooted, Setting, Timer
-from rasm_bpy.render import Enabled, entered, fingerprinted, Latest, path_key, PreviewFeed, PreviewScene, queue, Rank, rate, READ, value, valued, viewed
-from rasm_bpy.scene import camera_frame
-from rasm_bpy.settings import Attachment
-from rasm_bpy.ui import (
+from rasm.extension import render
+from rasm.extension.commands import Answer, Button, Call, Chord, Done, Empty, Operator, Placement
+from rasm.extension.data import Acquisitions, assigned, Declaration, Descriptor, Handle, Handler, Identity, Job, Resource, root_in, rooted, Setting, Timer
+from rasm.extension.render import Enabled, entered, fingerprinted, Latest, path_key, PreviewFeed, PreviewScene, queue, Rank, rate, READ, value, valued, viewed
+from rasm.extension.scene import camera_frame
+from rasm.extension.settings import Attachment
+from rasm.extension.ui import (
     AreaQuery,
     Canvas,
     captured,
@@ -42,8 +42,8 @@ from rasm_bpy.ui import (
     Tool,
     Tools,
 )
-from rasm_imaging import applied, DisplayView, ImageFile, Lattice, Logarithmic, Meter, processor, Quad, Region
-from rasm_records import accumulated, ContentHash, Fault, Outcome, paired, Reason
+from rasm.imaging import applied, DisplayView, ImageFile, Lattice, Logarithmic, Meter, processor, Quad, Region
+from rasm.records import accumulated, ContentHash, Fault, Outcome, paired, Reason
 
 from ..catalog import chain
 from ..effects.grade.exposure import exposure, gain, STOPS

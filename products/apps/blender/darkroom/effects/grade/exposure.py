@@ -8,9 +8,9 @@ import numpy as np
 import numpy.typing as npt
 import PyOpenColorIO
 
-from rasm_bpy.data import Animation, id_path, Identity, Keys, sampled
-from rasm_bpy.nodes import Expr, Interface, InterfacePanel, math, mixed, Noise, rgba, Socket, Term, where, xyz
-from rasm_bpy.render import (
+from rasm.extension.data import Animation, id_path, Identity, Keys, sampled
+from rasm.extension.nodes import Expr, Interface, InterfacePanel, math, mixed, Noise, rgba, Socket, Term, where, xyz
+from rasm.extension.render import (
     bilateral,
     BLEND,
     CLOCK,
@@ -32,8 +32,8 @@ from rasm_bpy.render import (
     SEED,
     timing,
 )
-from rasm_imaging import GRAY, ImageFile, Samples, stream
-from rasm_records import accumulated, Fault, Outcome, paired, Reason
+from rasm.imaging import GRAY, ImageFile, Samples, stream
+from rasm.records import accumulated, Fault, Outcome, paired, Reason
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 

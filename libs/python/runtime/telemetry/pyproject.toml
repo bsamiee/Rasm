@@ -1,13 +1,17 @@
 # --- [PROJECT] --------------------------------------------------------------------------
 
 [project]
-name            = "rasm-telemetry"
-version         = "0.1.0"
-description     = "Log settings, entries as JSON records in rotated files over structlog and stdlib handlers, child process output and unhandled exceptions as entries, and OpenTelemetry instrumentation of a process or a threadless host"
-license         = "MIT"
-authors         = [{ name = "Bardia Samiee", email = "b.samiee93@gmail.com" }]
-classifiers     = ["Intended Audience :: Developers", "Operating System :: OS Independent", "Private :: Do Not Upload", "Topic :: System :: Logging", "Topic :: System :: Monitoring", "Typing :: Typed"]
-requires-python = ">=3.13"
+name              = "rasm-telemetry"
+version           = "0.1.0"
+description       = "Log settings, entries as JSON records in rotated files over structlog and stdlib handlers, child process output and unhandled exceptions as entries, and OpenTelemetry instrumentation of a process or a threadless host"
+readme            = "README.md"
+license           = "MIT"
+license-files     = ["LICENSE"]
+authors           = [{ name = "Bardia Samiee", email = "b.samiee93@gmail.com" }]
+classifiers       = ["Intended Audience :: Developers", "Operating System :: OS Independent", "Private :: Do Not Upload", "Topic :: System :: Logging", "Topic :: System :: Monitoring"]
+requires-python   = ">=3.13"
+import-names      = ["rasm.telemetry"]
+import-namespaces = ["rasm"]
 
 dependencies = [
     # --- [ENTRIES]
@@ -61,6 +65,7 @@ requires      = ["uv_build>=0.13.8,<0.14.0"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]
+module-name = "rasm.telemetry"
 module-root = ""
 
 # --- [RUFF] -----------------------------------------------------------------------------

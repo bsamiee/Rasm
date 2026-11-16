@@ -11,13 +11,13 @@ from expression import NOTHING, Option, option, Some
 import msgspec
 import PyOpenColorIO
 
-from rasm_bpy.data import Callbacks, choices, Handle, IconedItem, id_data, Identity, Struct, written
-from rasm_bpy.nodes import item_key
-from rasm_bpy.render import ConfigInstall, ConfigView, Entry, NO_LOOK, Valued, viewed
-from rasm_bpy.settings import Attachment
-from rasm_bpy.ui import aligned, Child, Gallery, Layout, Member, OperatorButton, Panel, Section
-from rasm_imaging import DisplayView, Film
-from rasm_records import Outcome
+from rasm.extension.data import Callbacks, choices, Handle, IconedItem, id_data, Identity, Struct, written
+from rasm.extension.nodes import item_key
+from rasm.extension.render import ConfigInstall, ConfigView, Entry, NO_LOOK, Valued, viewed
+from rasm.extension.settings import Attachment
+from rasm.extension.ui import aligned, Child, Gallery, Layout, Member, OperatorButton, Panel, Section
+from rasm.imaging import DisplayView, Film
+from rasm.records import Outcome
 
 from ..catalog import stacks, tiles
 from ..effects.formation.display import displays, Formation, reformed

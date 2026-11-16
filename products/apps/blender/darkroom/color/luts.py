@@ -10,13 +10,13 @@ from expression import NOTHING, Ok, Option, option, Some
 from expression.collections import Block
 import PyOpenColorIO
 
-from rasm_bpy.commands import Answer, Call, Done, Empty, Operator, Popup, Save
-from rasm_bpy.data import Callbacks, choices, IconedItem, Identity, Job, Key, Mark, rooted, Struct
-from rasm_bpy.render import Baking, ConfigInstall, ConfigView, extension, lattice_of, LatticeFields, LutExport, output, PreviewScene, viewed
-from rasm_bpy.settings import Attachment
-from rasm_bpy.ui import Append, OperatorButton
-from rasm_imaging import DisplayView
-from rasm_records import Fault, Outcome, paired
+from rasm.extension.commands import Answer, Call, Done, Empty, Operator, Popup, Save
+from rasm.extension.data import Callbacks, choices, IconedItem, Identity, Job, Key, Mark, rooted, Struct
+from rasm.extension.render import Baking, ConfigInstall, ConfigView, extension, lattice_of, LatticeFields, LutExport, output, PreviewScene, viewed
+from rasm.extension.settings import Attachment
+from rasm.extension.ui import Append, OperatorButton
+from rasm.imaging import DisplayView
+from rasm.records import Fault, Outcome, paired
 
 from ..catalog import chain, tones
 from ..effects.formation.display import formation

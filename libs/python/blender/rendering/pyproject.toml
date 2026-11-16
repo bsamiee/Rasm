@@ -1,11 +1,17 @@
 # --- [PROJECT] --------------------------------------------------------------------------
 
 [project]
-name            = "rasm-rendering"
-version         = "0.1.0"
-description     = "Render management: render queues and farm targets, background-render supervision, light rigs, sun positions, and output naming"
-requires-python = ">=3.13"
-classifiers     = ["Private :: Do Not Upload"]
+name              = "rasm-rendering"
+version           = "0.1.0"
+description       = "Render management: render queues and farm targets, background-render supervision, light rigs, sun positions, and output naming"
+readme            = "README.md"
+license           = "MIT"
+license-files     = ["LICENSE"]
+authors           = [{ name = "Bardia Samiee", email = "b.samiee93@gmail.com" }]
+classifiers       = ["Private :: Do Not Upload"]
+requires-python   = ">=3.13"
+import-names      = ["rasm.rendering"]
+import-namespaces = ["rasm"]
 
 dependencies = [
     # --- [CORE]
@@ -41,6 +47,11 @@ dependencies = [
     "wakepy",                              # System sleep held off while a local queue renders
 ]
 
+[project.urls]
+Homepage = "https://github.com/bsamiee/Rasm/tree/main/libs/python/blender/rendering"
+Source   = "https://github.com/bsamiee/Rasm"
+Issues   = "https://github.com/bsamiee/Rasm/issues"
+
 # --- [BUILD_SYSTEM] ---------------------------------------------------------------------
 
 [build-system]
@@ -48,4 +59,5 @@ requires      = ["uv_build>=0.13.8,<0.14.0"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]
+module-name = "rasm.rendering"
 module-root = ""

@@ -72,11 +72,17 @@
         ".cargo/rustc-source": true,
         ".nx": true,
         ".pixi": true,
+        "docs/research": true,
+        "tests/.tmp": true,
+        "**/.archive/**": true,
         "**/.build/**": true,
         "**/.cloudflare/**": true,
+        "**/.mypy_cache/**": true,
         "**/.swiftpm/**": true,
         "**/.venv/**": true,
         "**/__pycache__/**": true,
+        "**/__traces__/**": true,
+        "**/coverage/**": true,
         "**/dist/**": true,
         "**/node_modules/**": true,
         "**/xcuserdata/**": true
@@ -92,6 +98,8 @@
     // --- [SOURCE_CONTROL]
 
     "git.autoRepositoryDetection": false,
+    "git.decorations.enabled": false,
+    "scm.diffDecorations": "gutter",
 
     // --- [VISIBILITY]
 
@@ -112,6 +120,8 @@
         "**/xcuserdata": true
     },
     "search.exclude": { ".codex/skills": true },
+    "search.experimental.useIgnoreFilesInFindFiles": true,
+    "search.followSymlinks": false,
 
     // --- [CLANGD] ----------------------------------------------------------------------
 
@@ -159,13 +169,13 @@
 
     // --- [PYTHON] ----------------------------------------------------------------------
 
-    "python.defaultInterpreterPath": "${workspaceFolder}/.venv",
-    "python.terminal.activateEnvironment": false,
+    "python.languageServer": "None",
     "ruff.configurationPreference": "filesystemFirst",
     "ty.experimental.useUv": "on",
 
     // --- [RUST] ------------------------------------------------------------------------
 
+    "rust-analyzer.cargo.targetDir": true,
     "rust-analyzer.checkOnSave": false,
     "rust-analyzer.rustc.source": "discover",
     "rust-analyzer.rustfmt.extraArgs": ["--config-path", "${workspaceFolder}/.config/rustfmt.toml"],

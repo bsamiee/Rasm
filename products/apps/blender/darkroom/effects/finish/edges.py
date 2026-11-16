@@ -10,10 +10,10 @@ from expression import Ok, Option, Some
 import msgspec
 import numpy as np
 
-from rasm_bpy.data import Descriptor
-from rasm_bpy.nodes import cell, Component, Expr, Interface, InterfacePanel, math, MenuItem, Ramp, Scalar, Socket, StockInput, switched, vector, xyz
-from rasm_bpy.render import camera_info, CompositorEffect, CompositorRecord, CryptomatteKind, dimensions, filtered, FRAME_SCALE, GraphInputs, Mix, PassRequest, uv_mapped
-from rasm_records import accumulated, Fault, Outcome, Reason
+from rasm.extension.data import Descriptor
+from rasm.extension.nodes import cell, Component, Expr, Interface, InterfacePanel, math, MenuItem, Ramp, Scalar, Socket, StockInput, switched, vector, xyz
+from rasm.extension.render import camera_info, CompositorEffect, CompositorRecord, CryptomatteKind, dimensions, filtered, FRAME_SCALE, GraphInputs, Mix, PassRequest, uv_mapped
+from rasm.records import accumulated, Fault, Outcome, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 

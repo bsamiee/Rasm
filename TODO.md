@@ -73,7 +73,7 @@ Numbers run in order; a number with a letter runs beside the number it shares.
 - 1c: Font library `libs/python/graphics/typography` and its `foundry` command, building, refining and verifying any font, Perso-Arabic one domain in depth:
   - Round one committed (3,049 lines in seven packages, `foundry ACTION DECLARATION [NAME] [DESTINATION]`), so push it first
   - Then 2 or 3 `deepen` rounds over both paths with `deepen-brief.md` input, each a fresh run from the prior round
-  - `rasm-bpy:typecheck:mypy` spends 7.5 s on `rasm_bpy/ui/_resources/icons.py`'s literal-union `case _`; fix it at its cause
+  - `rasm-extension:typecheck:mypy` spends 7.5 s on `libs/python/blender/extension/rasm/extension/ui/_resources/icons.py`'s literal-union `case _`; fix it at its cause
   - First round folds type, class, constant and string spam into richer objects with higher-order operations for fonts in general
   - Each change rebuilds only what it reaches; CLI takes no flag a question does not need; nothing is tied to old tooling or one font
   - Then `tune` over Python

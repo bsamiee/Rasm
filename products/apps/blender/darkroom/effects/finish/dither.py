@@ -13,9 +13,9 @@ import numpy as np
 import OpenImageIO
 import PyOpenColorIO
 
-from rasm_bpy.data import choices, Identity, Key, Ownership, Saved, Snapshot, Tag, Value
-from rasm_bpy.nodes import Expr, Generated, Interface, math, MenuItem, MenuItems, mixed, Socket, switched, vector
-from rasm_bpy.render import (
+from rasm.extension.data import choices, Identity, Key, Ownership, Saved, Snapshot, Tag, Value
+from rasm.extension.nodes import Expr, Generated, Interface, math, MenuItem, MenuItems, mixed, Socket, switched, vector
+from rasm.extension.render import (
     captured,
     chosen,
     code_step,
@@ -35,10 +35,10 @@ from rasm_bpy.render import (
     valued,
     Written,
 )
-from rasm_bpy.settings import Attachment
-from rasm_imaging import Coding, Depth, Format, ImageFile, IntegerDepth, ranks, read_file, Storage
-from rasm_records import accumulated, content_hash, Fault, Outcome, Reason
-from rasm_rendering import Output
+from rasm.extension.settings import Attachment
+from rasm.imaging import Coding, Depth, Format, ImageFile, IntegerDepth, ranks, read_file, Storage
+from rasm.records import accumulated, content_hash, Fault, Outcome, Reason
+from rasm.rendering import Output
 
 from ..formation.display import displayed_frame
 

@@ -16,10 +16,8 @@ dev                   = [
     "pydantic",                                                                   # mypy plugin typing each pydantic model, whose replace signature holds explicit `Any` without it
     "rasm-refurb",                                                                # Refurb checks over mypy types Ruff lacks, loaded by refurb as a plugin
     "refurb",                                                                     # FURB checks Ruff lacks, over a mypy build
-    "ruff",                                                                       # Linter and formatter of every project
     "ty",                                                                         # Type checker of every project
     "vulture",                                                                    # Private functions, classes, methods, and attributes nothing reads
-    "yamllint",                                                                   # YAML linter of every YAML file
 
     # --- [STUBS]
 
@@ -44,7 +42,6 @@ test                  = [
     "pytest-socket",                                                              # Block unrequested network connections
     "pytest-timeout",                                                             # Per-test deadline
     "rasm-testing[hosting,sqlite]",                                               # SQLite and hosted server fixtures, each loaded by pytest as a plugin
-    "testcontainers",                                                             # Disposable service containers a test starts, stops, and restarts, with Postgres, ClickHouse, Valkey, MinIO, and Kafka modules in one distribution
 ]
 core                  = [
     "beartype",                                                                   # Runtime type checks over annotations
@@ -367,6 +364,12 @@ environments             = [
     "sys_platform == 'linux' and platform_machine == 'aarch64'",
     "sys_platform == 'win32' and platform_machine == 'AMD64'",
 ]
+required-environments    = [
+    "sys_platform == 'darwin' and platform_machine == 'arm64'",
+    "sys_platform == 'linux' and platform_machine == 'x86_64'",
+    "sys_platform == 'linux' and platform_machine == 'aarch64'",
+    "sys_platform == 'win32' and platform_machine == 'AMD64'",
+]                                                                # Each needs a wheel or source distribution of every package its markers select, else `uv lock` fails
 prerelease               = "allow"
 preview-features         = ["lockfile-format-check"]
 no-build-package         = ["epdx"]                              # `epdx` sdist lacks `project.version`
@@ -456,11 +459,11 @@ WEASYPRINT_DLL_DIRECTORIES = "%CONDA_PREFIX%\\Library\\bin"
 # --- [RUFF] -----------------------------------------------------------------------------
 
 [tool.ruff]
-cache-dir   = ".cache/ruff"
-preview     = true
-line-length = 200
-src         = ["products/cli/*", "libs/python/*/*", "tests/support/python", "tools/refurb"]
-format      = { exclude = ["*.md"], docstring-code-format = true, skip-magic-trailing-comma = true }
+preview            = true
+line-length        = 200
+src                = ["products/cli/*", "libs/python/*/*", "tests/support/python", "tools/refurb"]
+namespace-packages = ["products/cli/*/rasm", "libs/python/*/*/rasm", "tools/refurb/rasm"]                   # PEP 420 `rasm` folders, read as packages so each module resolves under `rasm.<name>`
+format             = { exclude = ["*.md"], docstring-code-format = true, skip-magic-trailing-comma = true }
 
 [tool.ruff.lint]
 select                    = ["ALL"]
@@ -530,23 +533,23 @@ task-tags                 = ["---", "TODO", "FIXME", "XXX"]                     
 pylint                    = { allow-dunder-method-names = ["__name__", "__version__"], allow-magic-value-types = ["str", "bytes", "int"] }                                                       # Protocol properties type module attributes, which ty matches to a property alone
 
 [tool.ruff.lint.per-file-ignores]
-"**/tests/**"                                                           = ["assert"]
-"tests/libs/python/runtime/telemetry/suite/conftest.py"                 = ["banned-api", "pytest-fixture-autouse"]                                                # Copies structlog `tests/conftest.py:23,26,74` and CPython `Lib/test/test_logging.py:117`: autouse fixtures over `logging.getLogger()` and the root logger
-"tests/libs/python/runtime/telemetry/suite/test_environment_carrier.py" = ["import-private-name"]                                                                 # Copies opentelemetry-api `tests/propagators/test__envcarrier.py:14-16`: the environment setter lives in private `_envcarrier` alone
-"tests/libs/python/runtime/telemetry/suite/test_instrumented.py"        = ["banned-api", "hardcoded-temp-file", "import-private-name", "pytest-raises-too-broad"] # Copies `test_configurator_file_routing.py:47,57` path `/tmp/otel.yaml`, `test_proto_span_exporter.py:46,230,242`, and CPython `Lib/test/test_logging.py:3580`: a private variable name, `assertRaises(RuntimeError)` with no message, and `logging.getLogger`
-"tests/libs/python/runtime/telemetry/suite/test_instrumented_logs.py"   = ["error-instead-of-exception", "import-private-name", "logging-exc-info"]               # Copies opentelemetry-instrumentation-structlog `tests/test_structlog.py:12,17-21,164,188,209`: `logger.error(..., exc_info=...)` inside `except`, and the logs API and SDK in private modules alone
-"tests/libs/python/runtime/telemetry/suite/test_logger.py"              = ["banned-api"]                                                                          # Copies structlog `tests/test_stdlib.py:247,290,311,323` and CPython `Lib/test/test_logging.py:117`: `logging.getLogger("Test")` and the root logger
-"tests/libs/python/runtime/telemetry/suite/test_otlp_http.py"           = ["banned-api", "import-private-name", "private-member-access"]                          # Copies `test_proto_span_exporter.py:32-35,265,447-450,644,747`: `_DEFAULT_TIMEOUT` of private `_common`, `exporter._client._transport`, `_endpoint`, `_compression`, `_client._headers`, `_client._timeout`, and `time.sleep`
-"tests/libs/python/runtime/telemetry/suite/test_record.py"              = ["banned-api", "error-instead-of-exception", "import-private-name"]                     # Copies opentelemetry-instrumentation-logging `tests/test_handler.py:247,780` and opentelemetry-instrumentation `tests/test_log_utils.py:6`: `logging.getLogger("foo")`, `logger.error(..., exc_info=False)` inside `except`, and `SeverityNumber` in private `opentelemetry._logs` alone
-"tests/libs/python/runtime/telemetry/suite/test_rotation.py"            = ["banned-api", "blind-except", "private-member-access"]                                 # Copies concurrent-log-handler `tests/test_concurrent_rotation_multiprocess.py:43,46,62,98` and `tests/test_fork_deadlock.py:80,105`: `clh._do_lock`, `os._exit`, `except Exception`, and `logging.getLogger`
-"tests/libs/python/runtime/telemetry/suite/test_settings.py"            = ["banned-api"]                                                                          # Copies CPython `Lib/test/test_logging.py:198-202`: `logging.getLogger("ERR")` and `logging.LoggerAdapter`
-"tests/libs/python/runtime/telemetry/suite/test_span_export.py"         = ["banned-api"]                                                                          # Copies opentelemetry-sdk `tests/trace/export/test_export.py:49`: `time.sleep`
-"tests/libs/python/runtime/telemetry/suite/test_unhandled.py"           = ["banned-api", "import-private-name"]                                                   # Copies opentelemetry-instrumentation-exceptions `tests/test_exceptions.py:6,14-18,329-333`: `asyncio.BaseEventLoop` and `SeverityNumber` in private `opentelemetry._logs` alone
-"libs/python/runtime/telemetry/rasm_telemetry/_entries.py"              = ["banned-api"]                                                                          # Holds the stdlib logger under each bound logger, the `logging.getLogger` call every other module leaves to it
-"libs/python/runtime/telemetry/rasm_telemetry/export.py"                = ["import-private-name"]                                                                 # opentelemetry-api holds the entry point lookup the SDK caches in private `_importlib_metadata` alone
-"libs/python/runtime/telemetry/rasm_telemetry/process.py"               = ["banned-api", "import-private-name", "private-member-access"]                          # Composition root the `logging` rows name, opentelemetry-api holds environment carriers and its cached entry point lookup, the SDK its exporter name resolution, and system-metrics its default table in private members alone
-"libs/python/blender/bpy/rasm_bpy/data/_extension/reports.py"           = ["import-private-name"]                                                                 # opentelemetry-semantic-conventions holds `process.exit.code` in `_incubating` alone
-"libs/python/blender/rendering/rasm_rendering/_batch/supervision.py"    = ["import-private-name"]                                                                 # opentelemetry-api holds `EnvironmentSetter` in private `_envcarrier` alone
+"**/tests/**"                                                             = ["assert"]
+"tests/libs/python/runtime/telemetry/conftest.py"                         = ["banned-api", "pytest-fixture-autouse"]                                                # Copies structlog `tests/conftest.py:23,26,74` and CPython `Lib/test/test_logging.py:117`: autouse fixtures over `logging.getLogger()` and the root logger
+"tests/libs/python/runtime/telemetry/test_environment_carrier.py"         = ["import-private-name"]                                                                 # Copies opentelemetry-api `tests/propagators/test__envcarrier.py:14-16`: the environment setter lives in private `_envcarrier` alone
+"tests/libs/python/runtime/telemetry/test_instrumented.py"                = ["banned-api", "hardcoded-temp-file", "import-private-name", "pytest-raises-too-broad"] # Copies `test_configurator_file_routing.py:47,57` path `/tmp/otel.yaml`, `test_proto_span_exporter.py:46,230,242`, and CPython `Lib/test/test_logging.py:3580`: a private variable name, `assertRaises(RuntimeError)` with no message, and `logging.getLogger`
+"tests/libs/python/runtime/telemetry/test_instrumented_logs.py"           = ["error-instead-of-exception", "import-private-name", "logging-exc-info"]               # Copies opentelemetry-instrumentation-structlog `tests/test_structlog.py:12,17-21,164,188,209`: `logger.error(..., exc_info=...)` inside `except`, and the logs API and SDK in private modules alone
+"tests/libs/python/runtime/telemetry/test_logger.py"                      = ["banned-api"]                                                                          # Copies structlog `tests/test_stdlib.py:247,290,311,323` and CPython `Lib/test/test_logging.py:117`: `logging.getLogger("Test")` and the root logger
+"tests/libs/python/runtime/telemetry/test_otlp_http.py"                   = ["banned-api", "import-private-name", "private-member-access"]                          # Copies `test_proto_span_exporter.py:32-35,265,447-450,644,747`: `_DEFAULT_TIMEOUT` of private `_common`, `exporter._client._transport`, `_endpoint`, `_compression`, `_client._headers`, `_client._timeout`, and `time.sleep`
+"tests/libs/python/runtime/telemetry/test_record.py"                      = ["banned-api", "error-instead-of-exception", "import-private-name"]                     # Copies opentelemetry-instrumentation-logging `tests/test_handler.py:247,780` and opentelemetry-instrumentation `tests/test_log_utils.py:6`: `logging.getLogger("foo")`, `logger.error(..., exc_info=False)` inside `except`, and `SeverityNumber` in private `opentelemetry._logs` alone
+"tests/libs/python/runtime/telemetry/test_rotation.py"                    = ["banned-api", "blind-except", "private-member-access"]                                 # Copies concurrent-log-handler `tests/test_concurrent_rotation_multiprocess.py:43,46,62,98` and `tests/test_fork_deadlock.py:80,105`: `clh._do_lock`, `os._exit`, `except Exception`, and `logging.getLogger`
+"tests/libs/python/runtime/telemetry/test_settings.py"                    = ["banned-api"]                                                                          # Copies CPython `Lib/test/test_logging.py:198-202`: `logging.getLogger("ERR")` and `logging.LoggerAdapter`
+"tests/libs/python/runtime/telemetry/test_span_export.py"                 = ["banned-api"]                                                                          # Copies opentelemetry-sdk `tests/trace/export/test_export.py:49`: `time.sleep`
+"tests/libs/python/runtime/telemetry/test_unhandled.py"                   = ["banned-api", "import-private-name"]                                                   # Copies opentelemetry-instrumentation-exceptions `tests/test_exceptions.py:6,14-18,329-333`: `asyncio.BaseEventLoop` and `SeverityNumber` in private `opentelemetry._logs` alone
+"libs/python/runtime/telemetry/rasm/telemetry/_entries.py"                = ["banned-api"]                                                                          # Holds the stdlib logger under each bound logger, the `logging.getLogger` call every other module leaves to it
+"libs/python/runtime/telemetry/rasm/telemetry/export.py"                  = ["import-private-name"]                                                                 # opentelemetry-api holds the entry point lookup the SDK caches in private `_importlib_metadata` alone
+"libs/python/runtime/telemetry/rasm/telemetry/process.py"                 = ["banned-api", "import-private-name", "private-member-access"]                          # Composition root the `logging` rows name, opentelemetry-api holds environment carriers and its cached entry point lookup, the SDK its exporter name resolution, and system-metrics its default table in private members alone
+"libs/python/blender/extension/rasm/extension/data/_lifecycle/reports.py" = ["import-private-name"]                                                                 # opentelemetry-semantic-conventions holds `process.exit.code` in `_incubating` alone
+"libs/python/blender/rendering/rasm/rendering/_batch/supervision.py"      = ["import-private-name"]                                                                 # opentelemetry-api holds `EnvironmentSetter` in private `_envcarrier` alone
 
 [tool.ruff.lint.flake8-tidy-imports]
 ban-lazy             = ["abc", "os", "sys"] # Interpreter startup loads them before any module runs
@@ -652,24 +655,31 @@ require-lazy         = [
 
 [tool.ty]
 environment = { python-platform = "all" }
-src         = { exclude = ["libs/python/blender", "products/apps/blender"] }                                                     # 3.13 uv roots `libs/python/blender` and `products/apps/blender/darkroom`, each checked through its own `[tool.ty]`; ty opens one project per root and finds no nested one
+src         = { exclude = ["libs/python/blender", "products/apps/blender", "tests/libs/python/blender"] }                                                     # 3.13 uv roots `libs/python/blender` and `products/apps/blender/darkroom`, each checked through its own `[tool.ty]`; ty opens one project per root and finds no nested one
 analysis    = { allowed-unresolved-imports = ["uharfbuzz.**"] }                                                                  # uharfbuzz re-exports its compiled `_harfbuzz` module, which ships no stub
 rules       = { all = "error", unsound-assignment = "ignore", unsound-return = "ignore", unused-type-ignore-comment = "ignore" } # mypy owns `Any` assigned and returned through a typed boundary, `unused-ignore` unused `type: ignore` comments
 
 # --- [MYPY] -----------------------------------------------------------------------------
 
 [tool.mypy]
-cache_dir               = "$MYPY_CONFIG_FILE_DIR/.cache/mypy"
-strict                  = true
-warn_unreachable        = true
-exclude_gitignore       = true
-disallow_any_explicit   = true
-disallow_any_unimported = true
-plugins                 = ["pydantic.mypy"]                                                                                                                                                                                                                                                                                                                                                                          # Typed `__init__` and `model_construct` of each pydantic model, frozen models under a settings base, and no explicit `Any` in a synthesized signature
-untyped_calls_exclude   = ["_skimage2.transform._geometric.ProjectiveTransform", "fontTools", "OpenImageIO.ColorConfig", "opentelemetry.distro", "opentelemetry.exporter.otlp.proto.http.trace_exporter", "opentelemetry.instrumentation.structlog", "opentelemetry.sdk._configuration", "opentelemetry.sdk._logs._internal.export.in_memory_log_exporter", "opentelemetry.test.mock_test_classes", "ots", "ufo2ft"] # Definitions these packages ship unannotated, OpenImageIO types `ColorConfig` methods from 3.2.2, after the release Blender bundles
-enable_error_code       = ["deprecated", "exhaustive-match", "explicit-override", "narrowed-type-not-subtype", "redundant-self", "truthy-bool", "truthy-iterable", "unused-awaitable"]
-disable_error_code      = ["abstract", "arg-type", "assert-type", "assignment", "attr-defined", "call-arg", "call-overload", "import", "import-not-found", "index", "name-defined", "no-redef", "operator", "override", "redundant-cast", "return", "return-value", "type-arg", "union-attr", "unused-coroutine", "valid-type", "var-annotated"]                                                                     # ty owns each defect these codes report, ruff PGH003 owns suppressions without a code
-overrides               = [{ module = ["fontTools.*", "ots.*", "pathops.*", "sysexits", "ttfautohint.*", "ufo2ft.*"], follow_untyped_imports = true }, { module = ["pathops"], implicit_reexport = true }, { module = ["PyOpenColorIO.PyOpenColorIO.ColorSpaceHelpers", "PyOpenColorIO.PyOpenColorIO.DisplayViewHelpers"], follow_imports = "skip", follow_imports_for_stubs = true }]                               # OpenColorIO binds `AddColorSpace` and `AddDisplayView` with a required parameter after a defaulted one, which no stub states
+cache_dir                = "$MYPY_CONFIG_FILE_DIR/.cache/mypy"
+strict                   = true
+warn_unreachable         = true
+exclude_gitignore        = true
+disallow_any_explicit    = true
+disallow_any_unimported  = true
+strict_equality_for_none = true
+explicit_package_bases   = true                                                                                                                                                                                                                                                                                                                                                                                                # Each run names modules from its working folder, the member root holding the `rasm` namespace folder
+plugins                  = ["pydantic.mypy"]                                                                                                                                                                                                                                                                                                                                                                                   # Typed `__init__` and `model_construct` of each pydantic model, frozen models under a settings base, and no explicit `Any` in a synthesized signature
+untyped_calls_exclude    = ["_skimage2.transform._geometric.ProjectiveTransform", "fontTools", "OpenImageIO.ColorConfig", "opentelemetry.distro", "opentelemetry.exporter.otlp.proto.http.trace_exporter", "opentelemetry.instrumentation.structlog", "opentelemetry.sdk._configuration", "opentelemetry.sdk._logs._internal.export.in_memory_log_exporter", "opentelemetry.test.mock_test_classes", "ots", "pvlib", "ufo2ft"] # Definitions these packages ship unannotated, OpenImageIO types `ColorConfig` methods from 3.2.2, after the release Blender bundles
+enable_error_code        = ["exhaustive-match", "redundant-self", "truthy-bool"]                                                                                                                                                                                                                                                                                                                                               # ty owns `deprecated`, `missing-override-decorator`, `truthiness-test-of-iterable`, and `unused-awaitable`
+disable_error_code       = ["abstract", "arg-type", "assert-type", "assignment", "attr-defined", "call-arg", "call-overload", "import-not-found", "index", "name-defined", "no-redef", "operator", "override", "redundant-cast", "return", "return-value", "type-arg", "union-attr", "unused-coroutine", "valid-type", "var-annotated"]                                                                                        # ty owns each defect these codes report, ruff PGH003 owns suppressions without a code
+overrides                = [{ module = ["fontTools.*", "ots.*", "pathops.*", "pvlib.*", "sysexits", "ttfautohint.*", "ufo2ft.*", "uharfbuzz.*"], follow_untyped_imports = true }, { module = ["pathops"], implicit_reexport = true }]
+
+[tool.pydantic-mypy]
+init_typed                    = true
+init_forbid_extra             = true
+warn_required_dynamic_aliases = true
 
 # --- [REFURB] ---------------------------------------------------------------------------
 

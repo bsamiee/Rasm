@@ -10,8 +10,8 @@ import bpy
 from expression import NOTHING, Some
 import msgspec
 
-from rasm_bpy.nodes import Expr, Group, grouped, Interface, InterfacePanel, item_key, math, MenuItem, MenuItems, mixed, Ramp, Scalar, Socket, switched, Term, textures, vector, xyz
-from rasm_bpy.render import (
+from rasm.extension.nodes import Expr, Group, grouped, Interface, InterfacePanel, item_key, math, MenuItem, MenuItems, mixed, Ramp, Scalar, Socket, switched, Term, textures, vector, xyz
+from rasm.extension.render import (
     angular,
     Border,
     BORDERS,
@@ -52,8 +52,8 @@ from rasm_bpy.render import (
     turned,
     with_alpha,
 )
-from rasm_imaging import stream
-from rasm_records import Outcome
+from rasm.imaging import stream
+from rasm.records import Outcome
 
 from .bases import bases, Basis, Perlin, textured
 from .emission import Emission, emission, emitted, Tint

@@ -1,13 +1,17 @@
 # --- [PROJECT] --------------------------------------------------------------------------
 
 [project]
-name            = "rasm-cli"
-version         = "0.1.0"
-description     = "Process entry of a command-line tool over cyclopts: settings and per-user folders from flags and the tool's variables, each command line inside the process telemetry scope, results as JSON lines, and fault exit statuses"
-license         = "MIT"
-authors         = [{ name = "Bardia Samiee", email = "b.samiee93@gmail.com" }]
-classifiers     = ["Environment :: Console", "Intended Audience :: Developers", "Operating System :: OS Independent", "Private :: Do Not Upload", "Topic :: Software Development :: Libraries", "Typing :: Typed"]
-requires-python = ">=3.15"
+name              = "rasm-cli"
+version           = "0.1.0"
+description       = "Process entry of a command-line tool over cyclopts: settings and per-user folders from flags and the tool's variables, each command line inside the process telemetry scope, results as JSON lines, and fault exit statuses"
+readme            = "README.md"
+license           = "MIT"
+license-files     = ["LICENSE"]
+authors           = [{ name = "Bardia Samiee", email = "b.samiee93@gmail.com" }]
+classifiers       = ["Environment :: Console", "Intended Audience :: Developers", "Operating System :: OS Independent", "Private :: Do Not Upload", "Topic :: Software Development :: Libraries"]
+requires-python   = ">=3.15"
+import-names      = ["rasm.cli"]
+import-namespaces = ["rasm"]
 
 dependencies = [
     # --- [CORE]
@@ -43,4 +47,5 @@ requires      = ["uv_build>=0.13.8,<0.14.0"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]
+module-name = "rasm.cli"
 module-root = ""

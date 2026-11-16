@@ -172,7 +172,7 @@
             }
         },
         {
-            "files": ["libs/python/blender/rendering/rasm_rendering/_batch/rasm_render.js", "products/apps/rhino/Darkroom/EmbeddedResources/darkroom_render.js"],
+            "files": ["libs/python/blender/rendering/rasm/rendering/_batch/rasm_render.js", "products/apps/rhino/Darkroom/EmbeddedResources/darkroom_render.js"],
             "rules": {
                 "import/unambiguous": "off",
                 "typescript/no-unsafe-argument": "off",

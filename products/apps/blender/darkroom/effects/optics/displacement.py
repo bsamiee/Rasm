@@ -12,9 +12,9 @@ from expression import Ok, Some
 import msgspec
 import PyOpenColorIO
 
-from rasm_bpy.data import Tag
-from rasm_bpy.nodes import Expr, EXPRESSIONS, Interface, InterfacePanel, Loaded, math, MenuItem, MenuItems, mixed, Scalar, Socket, StockInput, switched, textures, vector, xyz
-from rasm_bpy.render import (
+from rasm.extension.data import Tag
+from rasm.extension.nodes import Expr, EXPRESSIONS, Interface, InterfacePanel, Loaded, math, MenuItem, MenuItems, mixed, Scalar, Socket, StockInput, switched, textures, vector, xyz
+from rasm.extension.render import (
     blurred,
     Border,
     CLOCK,
@@ -40,8 +40,8 @@ from rasm_bpy.render import (
     uv_mapped,
     with_alpha,
 )
-from rasm_imaging import GRAY, placement, Population, smoothstep, stream
-from rasm_records import Outcome, paired
+from rasm.imaging import GRAY, placement, Population, smoothstep, stream
+from rasm.records import Outcome, paired
 
 from ..grade.exposure import LATER, later
 from .bases import bases, Basis, Perlin, textured

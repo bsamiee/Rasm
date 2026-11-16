@@ -5,7 +5,7 @@ description: "Use when writing or reviewing Python that runs inside Blender, cov
 
 # [BLENDER_CODING]
 
-Code runs on Blender's bundled Python 3.13 and takes no 3.14 or 3.15 form: imports stay eager, frozen mappings are `types.MappingProxyType`, `TypeForm` imports from `typing_extensions`, annotations read through `inspect.get_annotations(owner, eval_str=True)`, and text another program parses escapes each value at its format site (`shlex.join`) in place of a t-string. A package entry that also runs on 3.15 names its private modules in `__lazy_modules__`, which 3.13 ignores.
+Code runs on Blender's bundled Python 3.13 and takes no 3.14 or 3.15 form: imports stay eager, frozen mappings are `types.MappingProxyType`, `TypeForm` imports from `typing_extensions`, annotations read through `inspect.get_annotations(owner, eval_str=True)`, and text another program parses escapes each value at its format site (`shlex.join`) in place of a t-string. A package entry that also runs on 3.15 names its private modules in `__lazy_modules__` as `rasm.<name>._<module>`, which 3.13 ignores.
 
 - Kinds, keys, and states are Blender's own values (`rna_enums` literals, `<Class>.bl_idname`)
 - Rewrites keep every used behavior, failure cause, public export, and named value
@@ -169,7 +169,7 @@ def imported(importer: Importer, source: Path, /) -> Outcome[frozenset[bpy.types
 
 ## [03]-[PROPERTIES]
 
-Settings, operator properties, and preferences are `bpy.props` annotations on `PropertyGroup`, `Operator`, and `AddonPreferences` classes. Properties take Blender's keywords (`min`, `max`, `soft_min`, `soft_max`, `step`, `precision`, `subtype`), a `use_<name>` `BoolProperty` beside each value it switches. Copies of an RNA member take every keyword its RNA states, enum items as 5-tuples keeping each item's RNA `value` and floats their `unit` in place of `subtype`. Update callbacks act on the owning ID through `rasm_bpy.data.id_data` in place of the active item:
+Settings, operator properties, and preferences are `bpy.props` annotations on `PropertyGroup`, `Operator`, and `AddonPreferences` classes. Properties take Blender's keywords (`min`, `max`, `soft_min`, `soft_max`, `step`, `precision`, `subtype`), a `use_<name>` `BoolProperty` beside each value it switches. Copies of an RNA member take every keyword its RNA states, enum items as 5-tuples keeping each item's RNA `value` and floats their `unit` in place of `subtype`. Update callbacks act on the owning ID through `rasm.extension.data.id_data` in place of the active item:
 
 ```python
 def copied(owner: type[Struct], member: str, /, *, update: Callable[[bpy.types.PropertyGroup, bpy.types.Context], None] | None = None) -> bpy.props._PropertyDeferred:

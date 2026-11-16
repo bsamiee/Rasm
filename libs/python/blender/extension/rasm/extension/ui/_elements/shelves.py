@@ -1,0 +1,113 @@
+"""Asset shelves an extension registers."""
+
+from collections.abc import Callable
+from functools import partial, wraps
+from typing import TYPE_CHECKING
+
+import bpy
+from expression import Error, NOTHING, Option, option, Some
+import msgspec
+
+from rasm.extension.commands.operators import Answer, Call, Empty, Operator, Placement, PopupKind, PopupTarget
+from rasm.extension.data._lifecycle.identity import Identity, Key
+from rasm.extension.data._lifecycle.registration import acquired_rows, Acquisitions, Classes, Tier
+from rasm.extension.data._rna.conditions import Condition, polled
+from rasm.extension.files._assets import AssetMark
+from rasm.extension.ui._layout.rows import realized, RowContent, RowDraw
+from rasm.records import Fault, Outcome, Reason
+
+if TYPE_CHECKING:
+    from bpy.stub_internal import rna_enums
+
+# --- [MODELS] ---------------------------------------------------------------------------
+
+
+class Shelf(msgspec.Struct, frozen=True, kw_only=True):
+    """Asset shelf listing the assets an extension marked under the keys `assets` names, or the assets its predicate accepts, context menu rows drawing over the clicked asset.
+
+    `activate` and a `drag` body each register an internal operator over the context asset, described by the body's docstring.
+    """
+
+    key: Key
+    space: "rna_enums.SpaceTypeItems"
+    filters: frozenset[str]
+    assets: frozenset[Key] | Callable[[bpy.types.AssetRepresentation], bool]
+    activate: Option[Callable[[Call[Empty], bpy.types.AssetRepresentation], Outcome[Answer]]] = NOTHING
+    drag: bool | Callable[[Call[Empty], bpy.types.AssetRepresentation], Outcome[Answer]] = True
+    active: Option[Callable[[bpy.types.Context], Option[bpy.types.AssetWeakReference]]] = NOTHING
+    menu: tuple[RowContent, ...] = ()
+    preview: Option[int] = NOTHING
+    visible: bool = False
+    catalogs_in_preferences: bool = True
+    condition: Option[Condition] = NOTHING
+
+    @property
+    def popup(self) -> Placement:
+        """Placement buttons and keymaps open the shelf through as a popover."""
+        return Placement(PopupTarget(self.key, PopupKind.SHELF))
+
+    def acquisitions(self, identity: Identity, /) -> Acquisitions:
+        """Returns the action operators and menu rows, then the shelf class built when the interface tier opens.
+
+        Args:
+            identity: Extension owning class names and asset marks.
+
+        Returns:
+            Acquisitions, the class build keeping menu row faults.
+        """
+        dragging = NOTHING if isinstance(self.drag, bool) else Some(self.drag)
+        actions = tuple(
+            (member, Operator(form=Empty, options=frozenset({"INTERNAL", "UNDO"}), run=wraps(use)(partial(_acted, use)), named=Some(f"{role}_{self.key}")))
+            for role, member, offered in (("activate", "bl_activate_operator", self.activate), ("drag", "bl_drag_operator", dragging))
+            for use in offered.to_list()
+        )
+
+        def classed() -> Outcome[tuple[type, ...]]:
+            """Builds the shelf class once its menu rows resolve."""
+
+            def listed(_cls: type[bpy.types.AssetShelf], asset: bpy.types.AssetRepresentation) -> bool:
+                """Whether the shelf lists the asset: one the extension marked under a named key, or one the predicate accepts."""
+                match self.assets:
+                    case frozenset(keys):
+                        return AssetMark.key_of(identity, asset).filter(keys.__contains__).is_some()
+                    case accepts:
+                        return accepts(asset)
+
+            def built(draw: RowDraw) -> tuple[type, ...]:
+                name = identity.name(bpy.types.AssetShelf, self.key)
+                options = {
+                    *(("STORE_ENABLED_CATALOGS_IN_PREFERENCES",) if self.catalogs_in_preferences else ()),
+                    *(("DEFAULT_VISIBLE",) if self.visible else ()),
+                    *(("NO_ASSET_DRAG",) if self.drag is False else ()),
+                    *(("ACTIVATE_FOR_CONTEXT_MENU",) if self.activate.is_some() and self.menu else ()),
+                }
+                native = {
+                    "bl_idname": name,
+                    "bl_space_type": self.space,
+                    "bl_options": options,
+                    "asset_poll": classmethod(listed),
+                    **dict.fromkeys(self.filters, True),
+                    **polled(self.condition),
+                    **self.active.map(lambda active: {"get_active_asset": classmethod(lambda _cls: active(bpy.context).to_optional())}).default_value({}),
+                    **({"draw_context_menu": classmethod(lambda _cls, context, asset, layout: draw(layout, asset, context))} if self.menu else {}),
+                    **{member: identity.name(bpy.types.Operator, row.key) for member, row in actions},
+                    **self.preview.map(lambda size: {"bl_default_preview_size": size}).default_value({}),
+                }
+                return (type(name, (bpy.types.AssetShelf,), native),)
+
+            return realized(self.menu, identity).map(built)
+
+        return (*(row for _, row in actions), *acquired_rows(self.menu), (Tier.INTERFACE, Classes(build=classed)))
+
+
+# --- [OPERATIONS] -----------------------------------------------------------------------
+
+
+def _acted(use: Callable[[Call[Empty], bpy.types.AssetRepresentation], Outcome[Answer]], call: Call[Empty]) -> Outcome[Answer]:
+    """Runs a shelf action over the context asset, absent fault without one."""
+    return option.of_optional(call.context.asset).map(lambda asset: use(call, asset)).default_with(lambda: Error(Fault.of(Reason.ABSENT, "bpy.context", member="asset")))
+
+
+# --- [EXPORTS] --------------------------------------------------------------------------
+
+__all__ = ["Shelf"]
