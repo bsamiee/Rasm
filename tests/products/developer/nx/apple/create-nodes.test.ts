@@ -209,7 +209,23 @@ describe('@rasm/nx-apple - createNodes', () => {
                 ['apps/Viewer/Viewer.xcodeproj/project.xcproj', { projects: { 'apps/Viewer': { name: 'Viewer', tags: ['release', 'os:darwin'], release: { version: { versionActions: '@rasm/nx-apple/release/version-actions', versionActionsOptions: { manifest: 'Viewer.xcodeproj/project.xcproj' } } } } } }],
             ]);
             expect(Object.keys({ ...results[0]?.[1].projects })).toStrictEqual(['apps/Viewer']);
-            expect(Object.keys({ ...results[0]?.[1].projects?.['apps/Viewer']?.targets })).toStrictEqual(['build', 'build--xcodebuild', 'check', 'check--xcodebuild', 'pack', 'pack--ditto', 'install', 'install--xcodebuild', 'attach', 'attach--gh', 'clean', 'clean--xcodebuild', 'nx-release-publish']);
+            expect(Object.keys({ ...results[0]?.[1].projects?.['apps/Viewer']?.targets })).toStrictEqual([
+                'build',
+                'build--xcodebuild',
+                'check',
+                'check--xcodebuild',
+                'upgrade',
+                'upgrade--xcodebuild',
+                'pack',
+                'pack--ditto',
+                'install',
+                'install--xcodebuild',
+                'attach',
+                'attach--gh',
+                'clean',
+                'clean--xcodebuild',
+                'nx-release-publish',
+            ]);
             expect(results[0]?.[1].projects?.['apps/Viewer']?.targets).toMatchObject({
                 'build--xcodebuild': {
                     cache: true,

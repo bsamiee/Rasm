@@ -1,4 +1,4 @@
-import { dirname, join, relative } from 'node:path';
+import { dirname, join } from 'node:path';
 import { DependencyType, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
 import type { Verbs } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
@@ -11,6 +11,7 @@ interface Package {
     readonly file: string;
     readonly root: string;
     readonly plists: ReadonlySet<string>;
+    readonly entitled: ReadonlySet<string>;
     readonly bins: Readonly<Record<'debug' | 'release' | 'codecov', string>>;
     readonly whole: boolean;
     readonly manifest: typeof Described.Type;
@@ -20,6 +21,7 @@ interface Package {
 
 const MANIFEST = 'Package.swift';
 const INFO = 'Info.plist';
+const ENTITLEMENTS = '.entitlements';
 const RESOLVED = 'Package.resolved';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -50,7 +52,7 @@ const sources = ({ root, manifest }: Package, described: ReadonlyMap<string, Pac
 ];
 
 const packageParts = (options: typeof Options.Type, local: Package, described: ReadonlyMap<string, Package>): readonly Part[] => {
-    const { file, root, plists, manifest, bins, whole } = local;
+    const { file, root, plists, entitled, manifest, bins, whole } = local;
     const modules = manifest.targets.filter((module) => module.product_memberships.length > 0 && module.name !== manifest.name);
     const suites = manifest.targets.filter(({ type }) => Schema.is(Tests)(type));
     const tested = new Set(suites.flatMap(({ target_dependencies }) => target_dependencies));
@@ -127,6 +129,12 @@ const packageParts = (options: typeof Options.Type, local: Package, described: R
     };
     return [{ name: manifest.name, at: root, own: owned, clean: cleaning }, ...modules.map((module) => ({ name: module.name, at: join(root, module.path), own: forwarded(module.name), clean: relayed }))].map(({ name, at, own, clean }): Part => {
         const product = Option.fromUndefinedOr(products.get(name));
+        const signing = Option.getOrUndefined(
+            Option.map(
+                Option.filter(product, () => entitled.has(name)),
+                (held) => ({ entitlements: join(at, `${held}${ENTITLEMENTS}`) }),
+            ),
+        );
         const zipped = Option.map(
             Option.filter(product, () => plists.has(name)),
             (held) => ({ held, folder: options.outputPath === undefined ? bins.release : join(options.outputPath, held) }),
@@ -139,8 +147,8 @@ const packageParts = (options: typeof Options.Type, local: Package, described: R
                         'swift-package': {
                             executor: `${PLUGIN}:install`,
                             inputs,
-                            options: { package: root, product: held },
-                            metadata: { technologies: ['swift'], description: `Builds ${held} in release with swift build and replaces it in SwiftPM's install folder`, help: { command: 'swift package experimental-install --help', example: { args: ['--jobs', '4'] } } },
+                            options: { package: root, product: held, ...signing },
+                            metadata: { technologies: ['swift'], description: `Builds ${held} in release with swift build, signs it, and replaces it in ~/.local/bin`, help: { command: 'swift build --help', example: { args: ['--jobs', '4'] } } },
                         },
                     },
                 })),
@@ -152,9 +160,9 @@ const packageParts = (options: typeof Options.Type, local: Package, described: R
                             executor: `${PLUGIN}:package`,
                             dependsOn: ['build--swift-build'],
                             inputs: [join('{workspaceRoot}', at, INFO), ...inputs],
-                            options: { products: [{ package: root, product: held, folder, bin: bins.release }] },
-                            outputs: [relative(root, folder).startsWith('..') ? join('{workspaceRoot}', folder, `${held}.zip`) : join('{projectRoot}', relative(root, folder), `${held}.zip`)],
-                            metadata: { technologies: ['swift'], description: `Zips the release build of ${held} with ditto for a GitHub release`, help: { command: 'man ditto', example: { args: ['--norsrc'] } } },
+                            options: { products: [{ package: root, product: held, folder, bin: bins.release, ...signing }] },
+                            outputs: [join('{workspaceRoot}', folder, `${held}.zip`)],
+                            metadata: { technologies: ['swift'], description: `Signs the release build of ${held} and zips it with ditto for a GitHub release`, help: { command: 'man ditto', example: { args: ['--norsrc'] } } },
                         },
                     },
                     attach: { gh: ATTACH },
@@ -189,4 +197,4 @@ const packageEdges = ({ file, manifest }: Package, described: ReadonlyMap<string
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Described, INFO, MANIFEST, type Package, packageEdges, packageParts, RESOLVED, sources };
+export { Described, ENTITLEMENTS, INFO, MANIFEST, type Package, packageEdges, packageParts, RESOLVED, sources };

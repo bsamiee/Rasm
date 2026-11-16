@@ -25,6 +25,7 @@ interface Part {
 
 const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#package'))).name;
 const NOTARY = { key: 'ASC_API_KEY_P8', keyId: 'ASC_API_KEY_ID', issuer: 'ASC_API_ISSUER_ID' } as const;
+const SIGNED = { development: 'Apple Development', distribution: 'Developer ID Application' } as const;
 const APPCAST = { key: 'SPARKLE_ED_PRIVATE_KEY', bucket: 'SPARKLE_FEED_BUCKET' } as const;
 const SWIFTPM = ['--force-resolved-versions', '--no-color-diagnostics'] as const;
 const PLATFORM = { runtime: 'swift --version' } as const;
@@ -70,4 +71,4 @@ const run = <A, E>(effect: Effect.Effect<A, E, NodeServices | Scope.Scope>) => e
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { APPCAST, ATTACH, analyzer, INPUTS, NOTARY, Options, type Part, PLUGIN, ran, run, SWIFTPM, sequenced, tokened };
+export { APPCAST, ATTACH, analyzer, INPUTS, NOTARY, Options, type Part, PLUGIN, ran, run, SIGNED, SWIFTPM, sequenced, tokened };

@@ -5,7 +5,7 @@ import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, D
 import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, emitPluginWorkerLog, hashFile, hashObject, hashWithWorkspaceContext, mergeTargetConfigurations, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
 import { aggregated, fingerprinted, manifested, spawned, type Verbs } from '@rasm/nx-distribution/inference';
 import { Array, Cause, Context, Effect, FileSystem, flow, Layer, ManagedRuntime, Option, Record, Result, Schema, Stream } from 'effect';
-import { Described, INFO, MANIFEST, type Package, packageEdges, packageParts, RESOLVED, sources } from '#/swift-package';
+import { Described, ENTITLEMENTS, INFO, MANIFEST, type Package, packageEdges, packageParts, RESOLVED, sources } from '#/swift-package';
 import { analyzer, Options, type Part, PLUGIN, tokened } from '#/targets';
 import { Analyzed, evaluated, xcodeParts } from '#/xcode-project';
 
@@ -60,13 +60,16 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: typ
     });
     const packages = yield* Effect.forEach(
         Array.filterMap(Array.zip(readable, describedResults), ([file, result]) => Result.map(result, (manifest) => ({ file, root: dirname(file), manifest }))),
-        Effect.fnUntraced(function* (swiftPackage: Omit<Package, 'plists' | 'bins' | 'whole'>) {
-            const listed = yield* Effect.filter(swiftPackage.manifest.targets, (module) => fs.exists(join(workspaceRoot, swiftPackage.root, module.path, INFO)));
+        Effect.fnUntraced(function* (swiftPackage: Omit<Package, 'plists' | 'entitled' | 'bins' | 'whole'>) {
+            const [listed, entitled] = yield* Effect.all([
+                Effect.filter(swiftPackage.manifest.targets, (module) => fs.exists(join(workspaceRoot, swiftPackage.root, module.path, INFO))),
+                Effect.filter(swiftPackage.manifest.targets, (module) => fs.exists(join(workspaceRoot, swiftPackage.root, module.path, `${module.name}${ENTITLEMENTS}`))),
+            ]);
             const { products, targets } = swiftPackage.manifest;
             const shown = (...argv: readonly string[]) => Effect.map(spawned(['swift', ...argv, '--package-path', swiftPackage.root, '--experimental-skip-acquiring-lock'], { cwd: workspaceRoot }), (at) => relative(workspaceRoot, at.trim()));
             const whole = Array.isReadonlyArrayNonEmpty(products) && products.every(({ type }) => 'executable' in type) && targets.every(({ resources }) => resources.length === 0);
             const bins = yield* Effect.all({ debug: shown('build', '--show-bin-path'), release: shown('build', '--configuration', 'release', '--show-bin-path'), codecov: shown('test', '--show-codecov-path') }, { concurrency: 'unbounded' });
-            return { ...swiftPackage, bins, whole, plists: new Set(listed.map(({ name }) => name)) } satisfies Package;
+            return { ...swiftPackage, bins, whole, plists: new Set(listed.map(({ name }) => name)), entitled: new Set(entitled.map(({ name }) => name)) } satisfies Package;
         }),
     );
     const described = new Map(packages.map((swiftPackage) => [resolve(workspaceRoot, swiftPackage.root), swiftPackage] as const));
@@ -100,7 +103,9 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: typ
     const linkedSources = (container: (typeof xcode)[number]['container']) => Array.getSomes(container.projects.map(local)).flatMap((swiftPackage) => sources(swiftPackage, described));
     const parts: readonly Part[] = [
         ...packages.flatMap((swiftPackage) => packageParts(options, swiftPackage, described)),
-        ...xcode.map(({ container, inputs, archives, coverage }) => xcodeParts(options, marker(container.path), container, Array.dedupe([...inputs.flatMap(tokened), ...linkedSources(container).filter((input) => !input.endsWith(RESOLVED))]), { archives, coverage }, built(container.path), destinations, packaged)),
+        ...xcode.map(({ container, inputs, archives, coverage }) =>
+            xcodeParts(options, marker(container.path), container, Array.dedupe([...inputs.flatMap(tokened), ...linkedSources(container).filter((input) => !input.endsWith(RESOLVED))]), { archives, coverage }, built(container.path), destinations, packaged, relative(workspaceRoot, workspaceDataDirectory)),
+        ),
     ];
     const grouped = Array.groupBy(parts, (part) => part.root);
     const conflicts = Record.filter(grouped, (group) => new Set(group.map((part) => part.name)).size > 1);

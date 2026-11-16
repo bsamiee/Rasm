@@ -3,12 +3,12 @@
         "install": {
             "implementation": "./dist/executors/install/executor#execute",
             "schema": "./executors/install/schema.json",
-            "description": "Builds a SwiftPM executable product in release and renames it over the copy SwiftPM's install folder holds, or installs it through experimental-install when the folder holds none"
+            "description": "Builds a SwiftPM executable product in release, signs a copy under the Apple Development identity with the hardened runtime, and renames it over ~/.local/bin/<product>, the per-user folder launchd's PATH holds"
         },
         "package": {
             "implementation": "./dist/executors/package/executor#execute",
             "schema": "./executors/package/schema.json",
-            "description": "Archives each app with its xcodebuild invocation and builds each SwiftPM executable product in release, then zips each under its bundle or product name with ditto; where ASC_API_KEY_P8, ASC_API_KEY_ID, and ASC_API_ISSUER_ID are set, exports each archive under the Developer ID Application identity into a disk image in place of the zip, signs it, notarizes it with that App Store Connect key, and staples the ticket"
+            "description": "Archives each app with its xcodebuild invocation and builds each SwiftPM executable product in release, signing each product under the Apple Development identity with the hardened runtime, then zips each under its bundle or product name with ditto; where ASC_API_KEY_P8, ASC_API_KEY_ID, and ASC_API_ISSUER_ID are set, exports each archive under the Developer ID Application identity into a disk image in place of the zip, signs it, notarizes it with that App Store Connect key, and staples the ticket, and signs each product under that identity with a secure timestamp and notarizes its zip"
         },
         "run": {
             "implementation": "./dist/executors/run/executor#execute",

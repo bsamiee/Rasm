@@ -119,9 +119,11 @@ const xcodeParts = (
     built: string,
     destinations: (roots: readonly string[]) => readonly string[],
     packaged: (at: string) => boolean,
+    data: string,
 ): Part => {
     const { lock, flags } = invocation(options, built);
     const name = basename(container.path, extname(container.path));
+    const cloned = join(data, 'xcode-packages', container.path);
     const invoke = (action: string, scheme: string, extra: readonly string[]) => ['xcodebuild', action, ...flags, '-onlyUsePackageVersionsFromResolvedFile', '-scheme', scheme, ...extra] as const;
     const schemes = container.schemes.filter(({ containers }) => containers.length > 0).map((scheme) => ({ ...scheme, packages: scheme.containers.every(packaged) }));
     const output = (scheme: string) => Option.map(Option.fromUndefinedOr(options.outputPath), (at) => join(at, scheme));
@@ -185,6 +187,17 @@ const xcodeParts = (
                 ),
             },
             check: { xcodebuild: { dependsOn: ['build--xcodebuild'], inputs: read, metadata: { technologies: ['xcode'], description: 'Type-checks each shared scheme with xcodebuild build', help: { command: 'xcodebuild -help', example: { args: ['-quiet'] } } } } },
+            upgrade: {
+                xcodebuild: sequenced(
+                    [['rm', '-rf', join(cloned, 'workspace-state.json'), join(cloned, 'checkouts'), lock] as const, ...schemes.slice(0, 1).map((scheme) => ['xcodebuild', '-resolvePackageDependencies', ...flags, '-clonedSourcePackagesDirPath', cloned, '-scheme', scheme.name] as const)],
+                    {
+                        technologies: ['xcode'],
+                        description: `Removes ${name}'s Package.resolved and the checkouts and state of its upgrade package folder, keeping that folder's git mirrors, then resolves its package references to the newest releases their requirements and the local packages they name allow with xcodebuild -resolvePackageDependencies`,
+                        help: { command: 'xcodebuild -help', example: { args: ['-quiet'] } },
+                    },
+                    { inputs: read },
+                ),
+            },
         }),
         ...(Array.isReadonlyArrayNonEmpty(archived) && {
             pack: {

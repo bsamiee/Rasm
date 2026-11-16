@@ -28,7 +28,7 @@ use_versions_host_track             = false
 # --- [ENV] ------------------------------------------------------------------------------
 
 [env]
-_.path                                        = ["./node_modules/.bin", "{{ xdg_config_home }}/swiftpm/bin", "{{ get_env(name='HOME', default='') }}/Library/Application Support/McNeel/Rhinoceros/ai/bin"]
+_.path                                        = ["./node_modules/.bin", "{{ get_env(name='HOME', default='') }}/Library/Application Support/McNeel/Rhinoceros/ai/bin"]
 CARGO_LLVM_COV_DENY_WARNINGS                  = "1"
 CF_QUIET                                      = "1"
 CLOUDFLARE_DEV_REGISTRY_PATH                  = "{{config_root}}/.cache/cloudflare/registry"

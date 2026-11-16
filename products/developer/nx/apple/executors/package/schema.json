@@ -49,6 +49,10 @@
                     "bin": {
                         "type": "string",
                         "description": "Release bin folder swift build --show-bin-path names for the package"
+                    },
+                    "entitlements": {
+                        "type": "string",
+                        "description": "Entitlements file <product>.entitlements beside the target sources, signed into the product where present"
                     }
                 },
                 "required": ["package", "product", "folder", "bin"],
@@ -70,5 +74,5 @@
     },
     "additionalProperties": true,
     "title": "Package",
-    "description": "Archives each app with its xcodebuild invocation and builds each SwiftPM executable product in release, then zips each under its bundle or product name with ditto; where ASC_API_KEY_P8, ASC_API_KEY_ID, and ASC_API_ISSUER_ID are set, exports each archive under the Developer ID Application identity into a disk image in place of the zip, signs it, notarizes it with that App Store Connect key, and staples the ticket"
+    "description": "Archives each app with its xcodebuild invocation and builds each SwiftPM executable product in release, signing each product under the Apple Development identity with the hardened runtime, then zips each under its bundle or product name with ditto; where ASC_API_KEY_P8, ASC_API_KEY_ID, and ASC_API_ISSUER_ID are set, exports each archive under the Developer ID Application identity into a disk image in place of the zip, signs it, notarizes it with that App Store Connect key, and staples the ticket, and signs each product under that identity with a secure timestamp and notarizes its zip"
 }

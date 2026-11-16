@@ -11,6 +11,10 @@
             "type": "string",
             "description": "Executable product the plugin infers from swift package describe"
         },
+        "entitlements": {
+            "type": "string",
+            "description": "Entitlements file <product>.entitlements beside the target sources, signed into the product where present"
+        },
         "__unparsed__": {
             "type": "array",
             "description": "Words after -- of the run, appended after the configured arguments",
@@ -27,5 +31,5 @@
     "required": ["package", "product"],
     "additionalProperties": true,
     "title": "Install",
-    "description": "Builds a SwiftPM executable product in release and renames it over the copy SwiftPM's install folder holds, or installs it through experimental-install when the folder holds none"
+    "description": "Builds a SwiftPM executable product in release, signs a copy under the Apple Development identity with the hardened runtime, and renames it over ~/.local/bin/<product>, the per-user folder launchd's PATH holds"
 }
