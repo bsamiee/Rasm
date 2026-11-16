@@ -766,6 +766,40 @@ ignore_names      = ["[!_]*", "_*_"] # Public names are API, `_x_` and `__x__` n
 ignore_decorators = ["@*.register"]  # `functools.singledispatch` calls registered handlers through its dispatcher
 exclude           = [".venv/"]       # Third-party packages of a virtual environment a member folder holds
 
+# --- [PYTEST] ---------------------------------------------------------------------------
+
+[tool.pytest]
+strict                    = true
+cache_dir                 = "$PYTEST_CACHE_DIR"
+collect_imported_tests    = false
+empty_parameter_set_mark  = "fail_at_collect"
+addopts                   = [
+    "--disable-plugin-autoload",                # Loads the plugins named below alone, never every `pytest11` entry point the environment holds
+    "-p",
+    "hypothesispytest",
+    "-p",
+    "pytest_cov",
+    "-p",
+    "pytester",                                 # Inner pytest runs for the suites of pytest plugins
+    "-p",
+    "randomly",
+    "-p",
+    "rasm.testing.hosting",                     # Hosted HTTP servers of `tests/support/python`
+    "-p",
+    "rasm.testing.sqlite",                      # SQLite database of `tests/support/python`
+    "-p",
+    "pytest_socket",                            # Named by its module, the entry point name `socket` being the standard library module the hosting plugin imports first
+    "-p",
+    "timeout",
+    "--tb=short",
+    "--import-mode=importlib",
+    "--disable-socket",
+    "--allow-unix-socket",
+]
+filterwarnings            = ["error"]
+timeout                   = "30"
+tmp_path_retention_policy = "failed"            # Keeps the folders of failed tests alone, as the SQLite fixture keeps the file of a failed test
+
 # --- [COVERAGE] -------------------------------------------------------------------------
 
 [tool.coverage]
