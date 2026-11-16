@@ -21,7 +21,6 @@ type Resolved = Effect.Success<ReturnType<typeof read>>;
 const EXTENSIONS = '{js,mjs,ts,cjs,mts,cts}';
 const SUITE = `vitest.config.${EXTENSIONS}`;
 const MODE = { TEST: 'true', VITEST: 'true', NODE_ENV: 'test' } as const;
-const REPORTS: Record.ReadonlyRecord<string, string> = { html: '.vitest', blob: '.vitest/blob', json: '.vitest/json', junit: '.vitest/junit' };
 const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#package'))).name;
 const OWN = fingerprinted(import.meta.dirname);
 
@@ -102,7 +101,7 @@ const surveyed = Effect.fnUntraced(function* (workspaceRoot: string, file: strin
         const built = Option.liftPredicate(name, Predicate.isString);
         const pointed = Option.flatMap(built, (key) => Option.fromUndefinedOr(keyed[key]));
         const stated = Array.getSomes([Option.firstSomeOf([Option.flatMap(decoded, ({ outputFile: direct }) => Option.fromUndefinedOr(direct)), Option.liftPredicate(outputFile, Predicate.isString), pointed]), Option.flatMap(decoded, ({ outputDir }) => Option.fromUndefinedOr(outputDir))]);
-        return Array.isReadonlyArrayNonEmpty(stated) || Option.exists(decoded, ({ stdout }) => stdout === true) ? stated : Option.toArray(Option.flatMap(built, (key) => Record.get(REPORTS, key)));
+        return Array.isReadonlyArrayNonEmpty(stated) || Option.exists(decoded, ({ stdout }) => stdout === true) ? stated : Option.toArray(Option.as(built, '.vitest'));
     });
     const depended = Array.dedupe([entry, ...config.configFileDependencies, ...declared.flatMap(({ viteConfig }) => viteConfig.configFileDependencies)].map(local)).filter(within);
     const provider = coverage.provider === 'custom' ? Array.fromNullishOr(coverage.customProviderModule) : [`@vitest/coverage-${coverage.provider}`];
@@ -164,7 +163,7 @@ const targets = (home: string, { loaded: configs, packages, linked, triggers, fo
                 { env: 'CI' },
                 { dependentTasksOutputFiles: '**/*.{js,mjs,cjs,ts,mts,cts,jsx,tsx}', transitive: true },
             ],
-            outputs: [...held, ...folders.filter((at) => !held.some((folder) => at === folder || at.startsWith(`${folder}/`))), join(coveragePath ?? coverage, 'lcov.info')].map(tokened(root)),
+            outputs: [...Array.dedupe([...held, ...folders]).filter((at, _index, all) => !all.some((folder) => at.startsWith(`${folder}/`))), join(coveragePath ?? coverage, 'lcov.info')].map(tokened(root)),
             configurations: {
                 coverage: { 'coverage.enabled': true, 'coverage.reporter': 'lcovonly', ...(coveragePath === undefined ? {} : { 'coverage.reportsDirectory': relative(home, coveragePath) }) },
             },

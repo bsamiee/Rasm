@@ -70,7 +70,7 @@ describe('@rasm/nx-vitest', () => {
                                             technologies: ['vitest'],
                                         },
                                         options: { cwd: '.' },
-                                        outputs: ['{projectRoot}/.vitest/attachments', '{projectRoot}/coverage/lcov.info'],
+                                        outputs: ['{projectRoot}/.vitest', '{projectRoot}/coverage/lcov.info'],
                                         configurations: { coverage: { 'coverage.enabled': true, 'coverage.reporter': 'lcovonly' } },
                                     },
                                 },
@@ -96,7 +96,7 @@ describe('@rasm/nx-vitest', () => {
 
             expect(nodes[0]?.[1].projects?.['.']?.targets?.['test--vitest']).toMatchObject({
                 command: "vitest run {args} --attachmentsDir '.artifacts/vitest/{projectName}/attachments' --outputFile.junit '.artifacts/vitest/{projectName}/junit.xml'",
-                outputs: ['{projectRoot}/.artifacts/vitest/{projectName}', '{projectRoot}/.artifacts/coverage/{projectName}/lcov.info'],
+                outputs: ['{projectRoot}/.artifacts/vitest/{projectName}', '{projectRoot}/.vitest', '{projectRoot}/.artifacts/coverage/{projectName}/lcov.info'],
                 configurations: {
                     coverage: {
                         'coverage.enabled': true,

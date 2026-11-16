@@ -141,11 +141,12 @@ describe('@rasm/nx-playwright', () => {
         expect(target?.options).toStrictEqual({
             cwd: '.',
             env: {
-                PLAYWRIGHT_BLOB_OUTPUT_DIR: '.artifacts/playwright/{projectName}/blob-report',
-                PLAYWRIGHT_HTML_OUTPUT_DIR: '.artifacts/playwright/{projectName}/playwright-report',
-                PLAYWRIGHT_JSON_OUTPUT_FILE: '.artifacts/playwright/{projectName}/report.json',
-                PLAYWRIGHT_JUNIT_OUTPUT_FILE: '.artifacts/playwright/{projectName}/junit.xml',
-                PLAYWRIGHT_PERFETTO_OUTPUT_FILE: '.artifacts/playwright/{projectName}/perfetto.json',
+                PLAYWRIGHT_HTML_OUTPUT_DIR: '.artifacts/playwright/{projectName}/html',
+                PLAYWRIGHT_HTML_OUTPUT_FILE: '.artifacts/playwright/{projectName}/html',
+                PLAYWRIGHT_JUNIT_OUTPUT_DIR: '.artifacts/playwright/{projectName}/junit',
+                PLAYWRIGHT_JUNIT_OUTPUT_FILE: '.artifacts/playwright/{projectName}/junit',
+                PLAYWRIGHT_LIST_OUTPUT_DIR: '.artifacts/playwright/{projectName}/list',
+                PLAYWRIGHT_LIST_OUTPUT_FILE: '.artifacts/playwright/{projectName}/list',
             },
         });
         expect(target?.outputs).toStrictEqual(['{projectRoot}/.artifacts/playwright/{projectName}']);
@@ -165,13 +166,7 @@ describe('@rasm/nx-playwright', () => {
         symlinkSync(join(playwright, 'cli.js'), join(tempFs.tempDir, 'node_modules/.bin/playwright'));
         const results = await createNodesFunction(['playwright.config.js'], { outputPath: 'dist/e2e' }, context);
         const target = results[0]?.[1].projects?.['.']?.targets?.['test--playwright'];
-        const routed = {
-            PLAYWRIGHT_BLOB_OUTPUT_DIR: 'dist/e2e/blob-report',
-            PLAYWRIGHT_HTML_OUTPUT_DIR: 'dist/e2e/playwright-report',
-            PLAYWRIGHT_JSON_OUTPUT_FILE: 'dist/e2e/report.json',
-            PLAYWRIGHT_JUNIT_OUTPUT_FILE: 'dist/e2e/junit.xml',
-            PLAYWRIGHT_PERFETTO_OUTPUT_FILE: 'dist/e2e/perfetto.json',
-        };
+        const routed = { PLAYWRIGHT_HTML_OUTPUT_DIR: 'dist/e2e/html', PLAYWRIGHT_HTML_OUTPUT_FILE: 'dist/e2e/html', PLAYWRIGHT_JUNIT_OUTPUT_DIR: 'dist/e2e/junit', PLAYWRIGHT_JUNIT_OUTPUT_FILE: 'dist/e2e/junit' };
         const outside = () => globSync('**', { cwd: tempFs.tempDir, exclude: ['node_modules', 'node_modules/**', 'tmp', 'tmp/**', 'dist', 'dist/e2e', 'dist/e2e/**'] });
         const before = outside();
 
@@ -181,7 +176,7 @@ describe('@rasm/nx-playwright', () => {
         execSync('playwright test --output=dist/e2e/test-results', { cwd: tempFs.tempDir, env: { ...env, ...routed, PATH: [join(tempFs.tempDir, 'node_modules/.bin'), env['PATH']].join(delimiter) }, stdio: 'pipe' });
 
         expect(outside()).toStrictEqual(before);
-        expect(globSync(['dist/e2e/junit.xml', 'dist/e2e/playwright-report/index.html', 'dist/e2e/test-results'], { cwd: tempFs.tempDir })).toHaveLength(3);
+        expect(globSync(['dist/e2e/junit', 'dist/e2e/html/index.html', 'dist/e2e/test-results'], { cwd: tempFs.tempDir })).toHaveLength(3);
     });
 
     it('should create nodes only where a package.json is in the package manager workspaces or beside a project.json', async ({ tempFs, context }) => {

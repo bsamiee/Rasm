@@ -1,5 +1,5 @@
 import { createRequire, registerHooks } from 'node:module';
-import { dirname, extname, join, relative, resolve } from 'node:path';
+import { dirname, join, relative, resolve } from 'node:path';
 import { env } from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, detectPackageManager, getPackageManagerCommand, hashArray, normalizePath, type ProjectConfiguration, readJsonFile, type TargetConfiguration } from '@nx/devkit';
@@ -17,8 +17,6 @@ type Resolved = Effect.Success<ReturnType<typeof read>>;
 
 const RUN = /^(?:(?:npx|yarn|bunx?|bun x|pnpm(?: exec)?|pnpx) )?nx (?:run (?<project>[^\s:]+):(?<target>[^\s:]+)(?::\S*)?|(?<target>\S+) (?<project>\S+))$/u;
 const NX = /(?:^|\s)nx(?:@\S+)?\s/u;
-const REPORTS: Record.ReadonlyRecord<string, string> = { html: 'playwright-report', blob: 'blob-report', junit: 'junit.xml', json: 'report.json', perfetto: 'perfetto.json' };
-const FOLDERS: Record.ReadonlyRecord<string, string> = { html: 'playwright-report', blob: 'blob-report', coverage: 'coverage' };
 const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#package'))).name;
 const OWN = fingerprinted(import.meta.dirname);
 const LOADING = Semaphore.makeUnsafe(1);
@@ -54,10 +52,10 @@ const Task = Schema.Struct({ project: Schema.String, target: Schema.String }).an
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const directed = (to: string) => ({ flags: [`--output=${join(to, 'test-results')}`], env: Record.mapEntries(REPORTS, (at, name) => [`PLAYWRIGHT_${name.toUpperCase()}_OUTPUT_${extname(at) === '' ? 'DIR' : 'FILE'}`, join(to, at)]) });
+const directed = (to: string, reporters: readonly string[]) => ({ flags: [`--output=${join(to, 'test-results')}`], env: Record.fromEntries(reporters.flatMap((name) => [`PLAYWRIGHT_${name.toUpperCase()}_OUTPUT_DIR`, `PLAYWRIGHT_${name.toUpperCase()}_OUTPUT_FILE`].map((key) => [key, join(to, name)] as const))) });
 
 const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, output: Option.Option<string>, lock: string) {
-    const [home, entry] = [dirname(file), join(workspaceRoot, file)];
+    const entry = join(workspaceRoot, file);
     const local = (at: string) => normalizePath(relative(workspaceRoot, at));
     const { configLoader, cc } = yield* Effect.flatMap(
         Effect.tryPromise({
@@ -137,10 +135,12 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, o
         ),
     );
     const reports = Array.getSomes(
-        resolvedConfig.reporter.map(([name, options]) => {
+        resolvedConfig.reporter.map(([, options]) => {
             const stated = Option.flatMap(Schema.decodeUnknownOption(Reported)(options), ({ outputFile, outputDir, outputFolder }) => Option.fromUndefinedOr(outputFile ?? outputDir ?? outputFolder));
-            const placed = Option.firstSomeOf([Option.map(stated, (at) => resolve(configDir, at)), Option.map(Record.get(FOLDERS, name), (at) => join(workspaceRoot, home, at))]);
-            return Option.filter(placed, () => Option.isNone(output) || !(name in REPORTS));
+            return Option.filter(
+                Option.map(stated, (at) => resolve(configDir, at)),
+                () => Option.isNone(output),
+            );
         }),
     );
     const commands = [...webServers, ...projects.flatMap(({ project }) => project.webServer)]
@@ -156,15 +156,16 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, o
         loaded,
         servers: Array.dedupeWith(Array.getSomes(tasks), (left, right) => left.project === right.project && left.target === right.target),
         folders: Array.dedupe([...projects.map(({ project }) => project.outputDir), ...reports].map(local)),
+        reporters: resolvedConfig.reporter.map(([name]) => name),
         sources,
         stamp: yield* stamped(workspaceRoot)(sources),
     };
 });
 
-const targets = (home: string, { loaded: configs, packages, linked, servers, folders }: Resolved, chain: readonly string[], upstream: readonly string[], { outputPath }: typeof Options.Type, exec: string): Verbs => {
+const targets = (home: string, { loaded: configs, packages, linked, servers, folders, reporters }: Resolved, chain: readonly string[], upstream: readonly string[], { outputPath }: typeof Options.Type, exec: string): Verbs => {
     const held = Array.fromNullishOr(outputPath);
     const rooted = getRootTsConfigFileName();
-    const routed = outputPath === undefined ? { flags: [], env: {} } : directed(relative(home, outputPath));
+    const routed = outputPath === undefined ? { flags: [], env: {} } : directed(relative(home, outputPath), reporters);
     const outside = Record.filter(
         Record.fromEntries([...chain.map((at): readonly [string, typeof Input.Type] => [at, { json: join('{workspaceRoot}', at), fields: ['compilerOptions', 'extends'] }]), ...configs.map((at): readonly [string, typeof Input.Type] => [at, join('{workspaceRoot}', at)])]),
         (_input, at) => home !== '.' && !at.startsWith(`${home}/`) && at !== rooted,
