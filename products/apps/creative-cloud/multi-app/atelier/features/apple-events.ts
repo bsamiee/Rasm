@@ -1,6 +1,6 @@
 import { Execute, TermKind, Terms } from '@rasm/applications';
 import { ApplicationServer } from '@rasm/applications/node';
-import { Content, Resource, Route } from '@rasm/mcp';
+import { Content, Resource, Route, Server } from '@rasm/mcp';
 import { Array, Effect, Schema, SchemaAST, Struct, SubscriptionRef } from 'effect';
 import { McpSchema, Tool } from 'effect/ai';
 import type { routes } from '#/routes';
@@ -30,7 +30,10 @@ const appleEvents = Effect.fnUntraced(function* ({ dictionary }: Effect.Success<
         },
         content: (_, given, kind, name) => Effect.flatMap(dictionary.named(given), ({ url }) => server.definition({ url, kind, name })),
     });
-    yield* Route(dictionary)(Tool.make('command', { description: 'Sends scripting dictionary command, refused while a dialog requires an answer', parameters: Execute, success: CommandResult }), (given, { instance }) => server.execute({ ...given, instance }));
+    yield* Route(dictionary)(
+        Tool.make('command', { description: 'Sends scripting dictionary command, refused while a dialog requires an answer', parameters: Execute, success: CommandResult }).annotate(Server.Instructions, ['Acrobat crashes on do script with a file parameter, and a script passes as direct text']),
+        (given, { instance }) => server.execute({ ...given, instance }),
+    );
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
