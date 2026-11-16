@@ -3,21 +3,6 @@ import Foundation
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-nonisolated struct UsageAmount: Equatable, Sendable {
-    let percent: Double
-
-    var fraction: Double { percent / 100 }
-    var isExhausted: Bool { percent >= 100 }
-
-    private init(percent: Double) {
-        self.percent = percent
-    }
-
-    static func make(percent: Double) -> Result<Self, QuotaFailure> {
-        if (0...100).contains(percent) { .success(Self(percent: percent)) } else { .failure(.invalidPercentage(percent)) }
-    }
-}
-
 nonisolated enum QuotaKind: Hashable, Codable, Sendable {
     case weekly
     case model(String)
@@ -30,16 +15,31 @@ nonisolated enum QuotaKind: Hashable, Codable, Sendable {
     }
 }
 
-nonisolated struct QuotaWindow: Equatable, Sendable {
+nonisolated struct QuotaWindow: Codable, Equatable, Sendable {
     let kind: QuotaKind
-    let used: UsageAmount
+    let percent: Double
     let resetsAt: Date?
 
+    init(kind: QuotaKind, percent: Double, resetsAt: Date?) throws(AccountFailure) {
+        guard (0...100).contains(percent) else { throw AccountFailure(subject: "\(kind.name) usage \(percent)%", reason: .outOfRange) }
+        (self.kind, self.percent, self.resetsAt) = (kind, percent, resetsAt)
+    }
+
+    init(from decoder: any Decoder) throws {
+        let fields = try decoder.container(keyedBy: CodingKeys.self)
+        try self.init(
+            kind: fields.decode(QuotaKind.self, forKey: .kind),
+            percent: fields.decode(Double.self, forKey: .percent),
+            resetsAt: fields.decodeIfPresent(Date.self, forKey: .resetsAt),
+        )
+    }
+
+    var fraction: Double { percent / 100 }
     func hasReset(at now: Date) -> Bool { resetsAt.map { reset in reset <= now } ?? false }
-    func blocks(at now: Date) -> Bool { !hasReset(at: now) && used.isExhausted }
+    func blocks(at now: Date) -> Bool { !hasReset(at: now) && percent >= 100 }
 }
 
-nonisolated struct AccountUsage: Equatable, Sendable {
+nonisolated struct AccountUsage: Codable, Equatable, Sendable {
     let windows: [QuotaWindow]
     let includedUsageAllowed: Bool?
     let observedAt: Date
@@ -62,10 +62,4 @@ enum UsageState: Sendable {
             case .current(let usage), .stale(let usage): usage
         }
     }
-}
-
-// --- [ERRORS] --------------------------------------------------------------------------
-
-nonisolated enum QuotaFailure: Error {
-    case invalidPercentage(Double)
 }

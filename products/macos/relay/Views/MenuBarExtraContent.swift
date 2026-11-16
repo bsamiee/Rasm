@@ -138,6 +138,21 @@ private struct AccountCard: View {
     let now: Date
     let remove: () -> Void
 
+    private var note: String? {
+        let expired = model.usage.usage?.signInExpiresAt.flatMap { expiry in expiry <= now ? expiry : nil }
+        let parts: [String?] =
+            switch (model.authentication, model.usage.usage, expired) {
+                case (_, _, .some(let expiry)): ["Sign-in expired \(expiry.formatted(.monthDay))"]
+                case (.signInRequired, _, .none): ["Sign in required"]
+                case (.connected, .none, .none): []
+                case (.connected, .some(let reading), .none):
+                    (reading.isBlocked(at: now) ? ["Blocked", reading.weekly?.resetText(at: now)] : [])
+                        + [model.usage.is(\.stale) ? "Updated \(reading.observedAt.formatted(.relative(presentation: .named)))" : nil]
+            }
+        let text = parts.compactMap(\.self)
+        return text.isEmpty ? nil : text.joined(separator: readingSeparator)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline) {
@@ -158,7 +173,7 @@ private struct AccountCard: View {
                 providerGlyph
                 VStack(alignment: .leading, spacing: 8) {
                     gauges
-                    if let note = model.note(at: now) {
+                    if let note {
                         Text(note)
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
@@ -196,4 +211,17 @@ private struct AccountCard: View {
             }
         }
     }
+}
+
+private struct PanelToolTips: NSViewRepresentable {
+    final class Host: NSView {
+        override func viewWillMove(toWindow newWindow: NSWindow?) {
+            super.viewWillMove(toWindow: newWindow)
+            newWindow?.allowsToolTipsWhenApplicationIsInactive = true
+        }
+    }
+
+    func makeNSView(context _: Context) -> Host { Host() }
+
+    func updateNSView(_: Host, context _: Context) {}
 }

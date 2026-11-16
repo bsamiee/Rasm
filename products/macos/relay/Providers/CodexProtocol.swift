@@ -1,3 +1,4 @@
+import CurrentProcess
 import Encoding
 import Files
 import Foundation
@@ -24,9 +25,9 @@ nonisolated enum CodexProtocol {
 
     struct InitializeParams: Encodable, Sendable {
         struct ClientInfo: Encodable, Sendable {
-            let name: String? = Bundle.main.bundleIdentifier
+            let name: String = Program.current.identifier
             let title: String? = Bundle.main.object(forInfoDictionaryKey: kCFBundleNameKey as String) as? String
-            let version: String? = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
+            let version: String? = Program.current.version
         }
 
         struct Capabilities: Encodable, Sendable {
@@ -63,8 +64,6 @@ nonisolated enum CodexProtocol {
         let limitId: String?
         let primary: RateLimitWindow?
         let secondary: RateLimitWindow?
-
-        var isCodex: Bool { limitId == nil || limitId == Self.codexLimitID }
     }
 
     struct AccountRateLimits: Decodable, Sendable {
@@ -73,24 +72,20 @@ nonisolated enum CodexProtocol {
         let rateLimits: RateLimitSnapshot
         let rateLimitsByLimitId: [String: RateLimitSnapshot]?
 
-        func usage(identity: AccountIdentity, observedAt: Date) throws(CodexFailure) -> AccountUsage {
-            guard accountId == nil || accountId == identity.organizationID else { throw .identityChanged }
-            guard let limits = rateLimitsByLimitId?[RateLimitSnapshot.codexLimitID] ?? (rateLimits.isCodex ? rateLimits : nil) else {
-                throw .invalidResponse(.accountRateLimitsRead)
+        func usage(identity: AccountIdentity, observedAt: Date) throws(AccountFailure) -> AccountUsage {
+            guard accountId == nil || accountId == identity.organizationID else { throw AccountFailure(.openAI, .accountChanged) }
+            let fallback = [nil, RateLimitSnapshot.codexLimitID].contains(rateLimits.limitId) ? rateLimits : nil
+            guard let limits = rateLimitsByLimitId?[RateLimitSnapshot.codexLimitID] ?? fallback else {
+                throw AccountFailure(subject: "Codex \(RateLimitSnapshot.codexLimitID) rate limits", reason: .missing)
             }
-            let weekly = [limits.primary, limits.secondary].compactMap(\.self).filter { window in (window.windowDurationMins ?? 0) >= 7 * 24 * 60 }
+            let weekly: [RateLimitWindow] = [limits.primary, limits.secondary].compactMap(\.self).filter { window in (window.windowDurationMins ?? 0) >= 7 * 24 * 60 }
             let windows = try traverse(weekly) { window in
-                UsageAmount.make(percent: window.usedPercent)
-                    .aggregated(\.self)
-                    .map { amount in
-                        QuotaWindow(
-                            kind: .weekly,
-                            used: amount,
-                            resetsAt: window.resetsAt.map { seconds in Date(timeIntervalSince1970: TimeInterval(seconds)) },
-                        )
-                    }
+                Result { () throws(AccountFailure) in
+                    try QuotaWindow(kind: .weekly, percent: window.usedPercent, resetsAt: window.resetsAt.map { seconds in Date(timeIntervalSince1970: TimeInterval(seconds)) })
+                }
+                .aggregated(\.self)
             }
-            .mapError(CodexFailure.invalidQuota)
+            .mapError { causes in AccountFailure(subject: "Codex usage", reason: .invalid(causes)) }
             .get()
             return AccountUsage(windows: windows, includedUsageAllowed: ordinaryUsageAllowed, observedAt: observedAt, signInExpiresAt: nil)
         }
@@ -113,14 +108,15 @@ nonisolated enum CodexProtocol {
 
     struct EffectiveConfig: Decodable, Sendable {
         struct Config: Decodable, Sendable {
-            let cliAuthCredentialsStore: Lenient<AuthCredentialsStore>?
-            let forcedChatgptWorkspaceId: JSONValue?
-
             enum CodingKeys: String, CodingKey {
                 case cliAuthCredentialsStore = "cli_auth_credentials_store"
                 case forcedChatgptWorkspaceId = "forced_chatgpt_workspace_id"
             }
+
+            let cliAuthCredentialsStore: Lenient<AuthCredentialsStore>?
+            let forcedChatgptWorkspaceId: JSONValue?
         }
+
         let config: Config
     }
 }
@@ -143,6 +139,11 @@ nonisolated enum CodexAuthFile {
     }
 
     private struct Claims: Decodable, Sendable {
+        enum CodingKeys: String, CodingKey {
+            case email
+            case auth = "https://api.openai.com/auth"
+        }
+
         struct Auth: Decodable, Sendable {
             let chatgptAccountId: String?
             let chatgptUserId: String?
@@ -152,34 +153,25 @@ nonisolated enum CodexAuthFile {
 
         let email: String?
         let auth: Auth?
-
-        enum CodingKeys: String, CodingKey {
-            case email
-            case auth = "https://api.openai.com/auth"
-        }
     }
 
     static func file(in home: URL) -> URL { home.appending(path: "auth.json") }
 
-    static func read(in home: URL) throws(CodexFailure) -> (data: Data, identity: AccountIdentity?)? {
+    static func read(in home: URL) throws(AccountFailure) -> (data: Data, identity: AccountIdentity?)? {
         let url = file(in: home)
-        guard let data = try Result(catching: { try ifPresent { try Data(contentsOf: url) } }).mapError(CodexFailure.storage).get() else { return nil }
-        let document = try Result { try decoder.decode(Document.self, from: data) }.mapError { error in CodexFailure.invalidAuthFile(url, error) }.get()
-        if let mode = document.authMode, mode != CodexProtocol.authMode { throw .subscriptionRequired }
+        guard let data = try url.contents() else { return nil }
+        let subject = "Codex \(url.lastPathComponent)"
+        let document = try decoder.decode(Document.self, from: data, subject: subject)
+        if let mode = document.authMode, mode != CodexProtocol.authMode { throw AccountFailure(subject: "ChatGPT", reason: .signInRequired) }
         guard let tokens = document.tokens, let idToken = tokens.idToken else { return (data, nil) }
-        let components = idToken.split(separator: ".")
-        guard components.count == 3 else { throw .invalidAuthFile(url, nil) }
-        let encoded = String(components[1]).replacing("-", with: "+").replacing("_", with: "/")
-        guard let payload = Data(base64Encoded: encoded + String(repeating: "=", count: (4 - encoded.count % 4) % 4)) else { throw .invalidAuthFile(url, nil) }
-        let claims = try Result { try decoder.decode(Claims.self, from: payload) }.mapError { error in CodexFailure.invalidAuthFile(url, error) }.get()
-        let workspace = claims.auth?.chatgptAccountId ?? tokens.accountId
-        let identity = try combine(
-            AccountIdentity.make(accountID: claims.auth?.chatgptUserId ?? claims.auth?.userId, organizationID: workspace, email: claims.email, plan: claims.auth?.chatgptPlanType),
-            workspace.map(Result.success) ?? .failure(AggregateError(first: IdentityError(field: \AccountIdentity.organizationID))),
-        )
-        .map { identity, _ in identity }
-        .mapError(CodexFailure.invalidIdentity)
-        .get()
-        return (data, identity)
+        let segments = idToken.split(separator: ".")
+        let encoded: String = segments.count == 3 ? String(segments[1]).replacing("-", with: "+").replacing("_", with: "/") : ""
+        let padded: String = encoded.padding(toLength: (encoded.count + 3) / 4 * 4, withPad: "=", startingAt: 0)
+        guard let payload = Data(base64Encoded: padded), !payload.isEmpty else {
+            throw AccountFailure(subject: "\(subject) id token payload", reason: .missing)
+        }
+        let claims = try decoder.decode(Claims.self, from: payload, subject: "\(subject) id token")
+        guard let workspace = claims.auth?.chatgptAccountId ?? tokens.accountId else { throw AccountFailure(subject: "OpenAI workspace", reason: .missing) }
+        return (data, try AccountIdentity(accountID: claims.auth?.chatgptUserId ?? claims.auth?.userId, organizationID: workspace, email: claims.email, plan: claims.auth?.chatgptPlanType))
     }
 }

@@ -1,6 +1,21 @@
 // swift-tools-version: 6.4
 import PackageDescription
 
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+let swiftSettings: [SwiftSetting] = [
+    .enableUpcomingFeature("ExistentialAny"),
+    .enableUpcomingFeature("ImmutableWeakCaptures"),
+    .enableUpcomingFeature("InferIsolatedConformances"),
+    .enableUpcomingFeature("InternalImportsByDefault"),
+    .enableUpcomingFeature("MemberImportVisibility"),
+    .enableUpcomingFeature("NonisolatedNonsendingByDefault"),
+    .strictMemorySafety(),
+    .treatAllWarnings(as: .error),
+]
+
+// --- [COMPOSITION] ---------------------------------------------------------------------
+
 let package = Package(
     name: "NxApple",
     platforms: [.macOS(.v27)],
@@ -12,7 +27,12 @@ let package = Package(
         .executableTarget(
             name: "nx-apple-analyzer",
             dependencies: [.product(name: "ArgumentParser", package: "swift-argument-parser"), .product(name: "XcodeProjectFormat", package: "xcode-project-format")],
+            swiftSettings: swiftSettings,
         ),
-        .testTarget(name: "AnalyzerTests", dependencies: ["nx-apple-analyzer", .product(name: "XcodeProjectFormat", package: "xcode-project-format")]),
+        .testTarget(
+            name: "AnalyzerTests",
+            dependencies: ["nx-apple-analyzer", .product(name: "XcodeProjectFormat", package: "xcode-project-format")],
+            swiftSettings: swiftSettings,
+        ),
     ],
 )

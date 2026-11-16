@@ -2,6 +2,21 @@ import CasePathsCore
 import ServiceManagement
 import SwiftUI
 
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+extension AuthenticationPhase {
+    var description: String {
+        switch self {
+            case .pending: "Waiting for browser sign-in"
+            case .completing: "Completing sign-in"
+            case .refused(.differentAccount(let email)): "Signed-in account is not \(email)"
+            case .refused(.alreadyConnected(let email)): "\(email) is already connected"
+            case .refused(.failure(let error)): error.localizedDescription
+            case .cancelling: "Canceling sign-in"
+        }
+    }
+}
+
 // --- [VIEWS] ---------------------------------------------------------------------------
 
 struct SettingsView: View {
