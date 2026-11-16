@@ -83,4 +83,4 @@ Each place holding state changes through one action:
 - Machines reboot as soon as an update requires it, which stops a job running there and any CI run reading the cache it serves
 - `runner-prune.timer` runs `runner-prune.service` each Sunday at 09:00 UTC to prune the pnpm store, uv cache, and unused mise tool versions
 - `runner-prune.service` removes stopped Docker containers created over an hour before, unused anonymous volumes, and dangling images
-- Docker Engine's default build cache garbage collection removes cache unused for 60 days, and cache past 80% of the disk or under 20% free down to 10% of the disk, and no job prunes build cache
+- Docker Engine's default garbage collection bounds the build cache, and no job prunes it

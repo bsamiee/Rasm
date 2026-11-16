@@ -54,7 +54,7 @@ ty, mypy, and ruff configuration of the Python packages Nx checks.
 - `TY_CONFIG_FILE` replaces project options whole, so it cannot share one table across roots
 - `ty` takes the Python version from the table holder's `requires-python`, the root's `>=3.15` for every root member
 - `nx-uv` passes `--python-version` from each member's `requires-python` floor to ty and mypy
-- Floor checks run `rasm-records`, `rasm-telemetry`, `rasm-refurb`, and `rasm-testing` at 3.13, the Python Blender loads them under
+- Members with a `>=3.13` floor are checked at 3.13, the Python Blender loads them under
 - `--python-version` sits above file options, so root rules stay in force
 - `ty` overrides carry `rules` and `analysis` alone, with no `environment`
 - Paths passed on the command line bypass `src.exclude`, which keeps a bare root `ty check` off the 3.13 roots
@@ -75,18 +75,3 @@ ty, mypy, and ruff configuration of the Python packages Nx checks.
 - `rasm-opencolorio-stubs` generates `PyOpenColorIO-stubs` with pybind11-stubgen in a hatchling build hook, editable installs included
 - `pybind11` binds a required parameter after a defaulted one, which Python refuses
 - Hook `hatch_build.py` drops each default a required parameter follows, and drops `from __future__ import annotations` from the stubs
-- `uharfbuzz` ships no stubs, which a ty `allowed-unresolved-imports` row covers
-- Packages without `py.typed` (`fontTools`, `pvlib`, `uharfbuzz`) take a mypy `follow_untyped_imports` override row
-
-## [07]-[REGRESSIONS]
-
-| [INDEX] | [WRONG]                                                  | [CORRECT]                                                    |
-| :-----: | :------------------------------------------------------- | :----------------------------------------------------------- |
-|  [01]   | `py.typed` deleted from unpublished packages             | Marker in every import package mypy reaches through a `.pth` |
-|  [02]   | `disable_error_code` holding `import`                    | `import-not-found` alone, `import-untyped` reporting         |
-|  [03]   | Code enabled in both checkers                            | One owner per defect                                         |
-|  [04]   | `follow_imports = "skip"` over broken generated stubs    | Stubs fixed in the build hook generating them                |
-|  [05]   | `>=3.13` libraries checked at 3.15 alone                 | `--python-version` from each member's floor                  |
-|  [06]   | `pydantic` plugin without `init_typed`                   | `[tool.pydantic-mypy] init_typed = true`                     |
-|  [07]   | Bare `ty check` from a nested root in an activated shell | `uv run --no-active`, as nx-uv runs it                       |
-|  [08]   | `narrowed-type-not-subtype` in `enable_error_code`       | Absent, mypy enables it by default                           |

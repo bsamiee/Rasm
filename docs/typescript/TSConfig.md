@@ -32,7 +32,7 @@ TypeScript compiler configuration of an Effect-based pnpm and Nx monorepo.
 ```jsonc
 {
     "compilerOptions": {
-        "target": "es2025",
+        "target": "esnext",
         "lib": ["esnext"],
         "module": "nodenext",
         "outDir": "${configDir}/dist",
@@ -69,7 +69,7 @@ Package config, source at the package root:
 
 | [INDEX] | [OPTION]                     | [VALUE]                  | [REASON]                                                               |
 | :-----: | :--------------------------- | :----------------------- | :--------------------------------------------------------------------- |
-|  [01]   | `target`                     | Oldest runtime's level   | `nodenext` implies `esnext`, above what the oldest supported Node runs |
+|  [01]   | `target`                     | `esnext`                 | Node at the `engines.node` floor runs emitted syntax unlowered         |
 |  [02]   | `lib`                        | `["esnext"]`             | TypeScript 6 has no `es2026` lib, so ES2026 members sit in `esnext`    |
 |  [03]   | `module`                     | `nodenext`               | Code Node runs and published libraries; resolution follows it          |
 |  [04]   | `module`                     | `preserve`               | Bundled applications alone; resolution becomes `bundler`               |
@@ -136,20 +136,3 @@ catalog:
 - Plugin keys `ignoreEffect{Suggestions,Warnings,Errors}InTscExitCode` decide which severities fail `tsc`, suggestions passing by default
 - `plugins` is one array, so a package config that overrides it restates the whole entry
 - TypeScript 7 refuses every option TypeScript 6 deprecated: `baseUrl`, `moduleResolution: node10`, `target: es5`, `downlevelIteration`, `module: amd`
-
-## [07]-[REGRESSIONS]
-
-| [INDEX] | [WRONG]                                                     | [CORRECT]                                                          |
-| :-----: | :---------------------------------------------------------- | :----------------------------------------------------------------- |
-|  [01]   | Base tsconfig moved into a config folder                    | Root `tsconfig.base.json`, which Nx reads by literal name          |
-|  [02]   | Root layers per environment (`tsconfig.web.json`)           | One base, runtime options in the package config needing them       |
-|  [03]   | Separate emit layer for publishable packages                | One base emitting for every package                                |
-|  [04]   | Per-package `tsconfig.lib.json`, `tsconfig.spec.json` pairs | One config per package, a second program only for another runtime  |
-|  [05]   | `tsconfig.build.json` differing only in emit options        | Emit options in the base                                           |
-|  [06]   | TypeScript 7 alone as `typescript`                          | TypeScript 6 as `typescript`, TypeScript 7 as `@typescript/native` |
-|  [07]   | `module: preserve` in a library `tsc` publishes             | `nodenext`, as `bundler` resolution accepts code only bundlers run |
-|  [08]   | `declaration: false, noEmit: true` restated per test config | `tests/tsconfig.base.json` setting `noEmit` for every suite        |
-|  [09]   | `paths` mapping one package to another's source             | Workspace links and `exports`                                      |
-|  [10]   | `ignoreDeprecations: "6.0"`                                 | Deprecated options removed                                         |
-|  [11]   | `strict: false`, `experimentalDecorators`                   | Default `strict`, standard decorators                              |
-|  [12]   | Loose `.d.ts` files beside source                           | Declarations emitted to an ignored `dist`                          |

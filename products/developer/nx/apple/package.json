@@ -58,7 +58,7 @@
         "@rasm/nx-apple-darwin-arm64": "workspace:*"
     },
     "engines": {
-        "node": "^24.14.0 || >=25.4.0"
+        "node": ">=26"
     },
     "executors": "./executors.json"
 }

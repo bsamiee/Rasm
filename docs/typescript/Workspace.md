@@ -132,7 +132,7 @@ Library manifest:
 |  [06]   | `imports`       | One `#/*` row                     | Files inside a package reach each other without relative paths |
 |  [07]   | `files`         | `dist` `.js` and `.d.ts` globs    | Tarball allowlist                                              |
 |  [08]   | `publishConfig` | `exports` and `imports` to `dist` | pnpm hoists both over the source maps at pack                  |
-|  [09]   | `engines.node`  | Oldest Node with every API used   | `#/` imports need `^24.14.0 \|\| >=25.4.0`                     |
+|  [09]   | `engines.node`  | `>=26`                            | Node release mise installs                                     |
 |  [10]   | `nx`            | Facts no manifest row states      | Holds tags and target options in place of `project.json`       |
 
 - `main`, `module`, and top-level `types` serve resolvers older than `exports`, which Node, TypeScript, and bundlers read in their place
@@ -165,29 +165,5 @@ Library manifest:
 - `npm:` aliases install one package at more than one version (TypeScript 6 and 7)
 - `link:` and `file:` specifiers stay in fixtures
 
-Linking forms in reference monorepos, and the one recommended:
-
-| [INDEX] | [FORM]                               | [COST]                                                      | [STATUS]    |
-| :-----: | :----------------------------------- | :---------------------------------------------------------- | :---------- |
-|  [01]   | `exports` to source, `publishConfig` | Source and publish maps per manifest, publish through pnpm  | Recommended |
-|  [02]   | Custom condition to source           | Every tool takes the condition, tarball names absent source | Avoid       |
-|  [03]   | `exports` to `dist` alone            | Builds precede every check and test                         | Avoid       |
-
 - `exports` to source give TypeScript, Vite, and Node one resolver answer with no condition, alias, or build step
 - Node strips types only outside `node_modules`, and a workspace link resolves to its real folder, so sibling source runs as written
-
-## [08]-[REGRESSIONS]
-
-| [INDEX] | [WRONG]                                                 | [CORRECT]                                                |
-| :-----: | :------------------------------------------------------ | :------------------------------------------------------- |
-|  [01]   | Catalog versions copied into root `devDependencies`     | Root lists only tools it loads, each as `catalog:`       |
-|  [02]   | Task scripts in root or package `scripts`               | Nx targets inferred from tool configuration              |
-|  [03]   | Deep imports (`@scope/pkg/model`, `@scope/pkg/pkg/pkg`) | One `.` entry, runtime entries, `#/*` inside the package |
-|  [04]   | Generated index barrels and a generator for them        | One hand-written `index.ts` forwarding exports           |
-|  [05]   | `"./*": "./*.ts"` export opening every file             | Closed entries, private files reached through `#/*`      |
-|  [06]   | `#/*` flipped between `./*` and `./*.ts`                | `./*.ts`, specifiers written without extension           |
-|  [07]   | Claiming `publishConfig` cannot override `imports`      | pnpm hoists `imports` from `publishConfig`               |
-|  [08]   | pnpm settings in `.npmrc` or a `pnpm` manifest key      | `pnpm-workspace.yaml`                                    |
-|  [09]   | `onlyBuiltDependencies` and its siblings                | `allowBuilds`                                            |
-|  [10]   | Restated defaults (`minimumReleaseAge: 1440`)           | Omitted rows                                             |
-|  [11]   | `postinstall` that builds every package                 | `exports` to source, builds only at pack                 |
