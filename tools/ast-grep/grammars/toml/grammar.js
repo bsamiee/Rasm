@@ -4,7 +4,7 @@ import { after, any, chain, drop, extend, located, replace, rewrite, string } fr
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const SECONDS = ':([0-5][0-9]|60)([.][0-9]+)?';
-const ESCAPES = '[btnfr"\\\\]';
+const ESCAPES = String.raw`[btnfr"\\]`;
 const NEWLINE = located(toml.grammar.rules.array, ({ type }) => type === 'PATTERN');
 const SPACE = toml.grammar.extras.find(({ type }) => type === 'PATTERN');
 
@@ -35,7 +35,7 @@ export default extend(toml, {
         _multiline_literal_string: bodied('_multiline_literal_string'),
         _multiline_literal_string_body: body('_multiline_literal_string'),
         escape_sequence: respelled(ESCAPES, `[btnfre"\\\\]|x[0-9a-fA-F]{2}`),
-        _escape_line_ending: after(({ type, value }) => type === 'PATTERN' && value === '\\\\', repeat(SPACE)),
+        _escape_line_ending: after(({ type, value }) => type === 'PATTERN' && value === String.raw`\\`, repeat(SPACE)),
         local_time: timed,
         local_date_time: timed,
         offset_date_time: timed,

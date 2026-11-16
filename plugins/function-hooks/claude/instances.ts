@@ -52,17 +52,18 @@ const runningAs = ({ pid, instance }: Pick<typeof Instance.Type, 'pid' | 'instan
     );
 };
 
-const exitedAs = Match.type<typeof State.Exited.Type>().pipe(
-    Match.withReturnType<readonly Note[]>(),
-    Match.when({ report: Match.defined }, ({ report: { url } }) => [['crashed', `read ${fileURLToPath(url)} before a launch`]]),
-    Match.when({ reportFailure: Match.defined }, ({ reportFailure }) => [[`crashed with report failure ${reportFailure}`]]),
-    Match.when({ reporting: true }, () => [['crashed', 'wait for its report before a launch']]),
-    Match.when({ _tag: 'Signal' }, ({ signal, detail = [] }) => [[['ended on signal', signal, ...detail].join(' ')]]),
-    Match.when({ _tag: 'Status', status: 0 }, () => []),
-    Match.when({ _tag: 'Status' }, ({ status }) => [[`exited ${status}`]]),
-    Match.when({ _tag: 'Unread' }, () => []),
-    Match.exhaustive,
-);
+const exitedAs = (exited: typeof State.Exited.Type): readonly Note[] =>
+    Option.match(
+        Option.firstSomeOf([
+            Option.map(Option.fromNullishOr(exited.report), ({ url }): Note => ['crashed', `read ${fileURLToPath(url)} before a launch`]),
+            Option.map(Option.fromNullishOr(exited.reportFailure), (failure): Note => [`crashed with report failure ${failure}`]),
+            Option.liftPredicate<Note>(['crashed', 'wait for its report before a launch'], () => exited.reporting === true),
+        ]),
+        {
+            onSome: Array.of,
+            onNone: () => State.Exited.match(exited, { Signal: ({ signal, detail = [] }): readonly Note[] => [[['ended on signal', signal, ...detail].join(' ')]], Status: ({ status }): readonly Note[] => (status === 0 ? [] : [[`exited ${status}`]]), Unread: () => [] }),
+        },
+    );
 
 const watched = (text: string) => {
     const lines = linesOf(text);

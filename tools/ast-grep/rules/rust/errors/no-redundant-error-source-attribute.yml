@@ -7,17 +7,17 @@ utils:
     from-attribute:
         kind: attribute_item
         regex: from
-        has: {kind: attribute, has: {field: path, pattern: from}}
+        has: { kind: attribute, has: { field: path, pattern: from } }
     source-attribute:
         kind: attribute_item
         regex: source
-        has: {kind: attribute, has: {field: path, pattern: source}}
+        has: { kind: attribute, has: { field: path, pattern: source } }
     redundant-source:
         matches: source-attribute
         any:
-            - follows: {stopBy: {not: {matches: attribute-run}}, matches: from-attribute}
-            - precedes: {stopBy: {not: {matches: attribute-run}}, matches: from-attribute}
-            - precedes: {stopBy: {not: {matches: attribute-run}}, kind: field_declaration, has: {field: name, regex: '^source$'}}
+            - follows: { stopBy: { not: { matches: attribute-run } }, matches: from-attribute }
+            - precedes: { stopBy: { not: { matches: attribute-run } }, matches: from-attribute }
+            - precedes: { stopBy: { not: { matches: attribute-run } }, kind: field_declaration, has: { field: name, regex: '^source$' } }
 rule:
     matches: redundant-source
 fix: ''

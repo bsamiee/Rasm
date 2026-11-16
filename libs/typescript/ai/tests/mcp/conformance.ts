@@ -1,5 +1,5 @@
 import { Server } from '@rasm/mcp';
-import { Deferred, Duration, Effect, Option, Predicate, Record, Schema, String } from 'effect';
+import { Duration, Effect, Option, Predicate, Record, Schema, String } from 'effect';
 import { McpProtocol } from 'effect/ai';
 import { HttpRouter } from 'effect/http';
 import { Host } from 'effect/net';
@@ -44,25 +44,25 @@ const hosted = Effect.gen(function* () {
     const [probe, name, address] = yield* Effect.all([Probe.make, Schema.decodeEffect(Server.Scheme)(MANIFEST.name), Effect.fromResult(Host.hostPortFromString(BOUND))]);
     return { probe, layer: Server.layerHttp({ ...MANIFEST, name }, { address, hosts: [ALLOWED], retention: Duration.minutes(1), instructions: INSTRUCTIONS }, app(probe)) };
 });
+const messages = (response: Response) =>
+    Effect.flatMap(
+        Effect.promise(() => response.text()),
+        (text) => {
+            const field = 'data: ';
+            const records = response.headers.get('content-type')?.includes('text/event-stream') === true ? text.split('\n').filter(String.startsWith(field)).map(String.slice(field.length)) : [text].filter(String.isNonEmpty);
+            return Effect.forEach(records, (record) => Schema.decodeEffect(Json)(record));
+        },
+    );
 
 const opened = Effect.fnUntraced(function* (protocol: (typeof PROTOCOLS)[number]) {
     const { probe, layer } = yield* hosted;
     const { handler, dispose } = HttpRouter.toWebHandler(layer, { disableLogger: true });
     yield* Effect.addFinalizer(() => Effect.promise(dispose));
-    yield* Effect.addFinalizer(() => Deferred.succeed(probe.release, undefined));
+    yield* Effect.addFinalizer(() => probe.release.open);
     const stateless = Predicate.isTagged(protocol.runtime, 'Stateless');
     const raw = (body: Option.Option<string>, { method = 'POST', headers = {} }: Sent = {}) =>
         Effect.promise(() => handler(new Request(ENDPOINT, { method, headers: { accept: 'application/json, text/event-stream', 'content-type': 'application/json', ...headers }, ...Option.getOrUndefined(Option.map(body, (text) => ({ body: text }))) })));
     const post = (body: unknown, sent?: Sent) => Effect.flatMap(Effect.orDie(Schema.encodeUnknownEffect(Json)(body)), (text) => raw(Option.some(text), sent));
-    const messages = (response: Response) =>
-        Effect.flatMap(
-            Effect.promise(() => response.text()),
-            (text) => {
-                const field = 'data: ';
-                const records = response.headers.get('content-type')?.includes('text/event-stream') === true ? text.split('\n').filter(String.startsWith(field)).map(String.slice(field.length)) : [text].filter(String.isNonEmpty);
-                return Effect.forEach(records, (record) => Schema.decodeEffect(Json)(record));
-            },
-        );
     const enveloped = ({ method, params = {}, ...rest }: Message & { readonly method: string }) => {
         const meta = Option.getOrUndefined(Option.map(Schema.decodeUnknownOption(Meta)(params), ({ _meta }) => _meta));
         const named = Record.get(ROUTED, method).pipe(

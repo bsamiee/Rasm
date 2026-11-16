@@ -3,28 +3,28 @@ id: typescript-complementary-filter
 language: tsxlang
 utils:
     list-module:
-        matches: {effect-module: {name: {regex: '(?-u:\b)(Array|Chunk)$'}}}
+        matches: { effect-module: { name: { regex: '(?-u:\b)(Array|Chunk)$' } } }
     predicate-not:
-        matches: {effect-module-member: {module: {regex: '(?-u:\b)Predicate$'}, member: {regex: '^not$'}}}
+        matches: { effect-module-member: { module: { regex: '(?-u:\b)Predicate$' }, member: { regex: '^not$' } } }
     filtering:
         kind: call_expression
         all:
-            - has: {field: function, kind: member_expression, has: {field: property, regex: '^filter$'}}
+            - has: { field: function, kind: member_expression, has: { field: property, regex: '^filter$' } }
             - any:
-                - all:
-                    - has: {field: arguments, has: {nthChild: {position: 1, ofRule: &code {not: {kind: 'comment, html_comment'}}}}, not: {has: {nthChild: {position: 2, ofRule: *code}}}}
-                    - has: {field: function, has: {field: object, pattern: $R, not: {matches: effect-namespace}}}
-                - all:
-                    - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: *code}, pattern: $R}}, {has: {nthChild: {position: 2, ofRule: *code}}}, {not: {has: {nthChild: {position: 3, ofRule: *code}}}}]}
-                    - has: {field: function, has: {field: object, matches: list-module}}
-                - all:
-                    - has: {field: arguments, has: {nthChild: {position: 1, ofRule: *code}}, not: {has: {nthChild: {position: 2, ofRule: *code}}}}
-                    - any:
-                        - nthChild: {position: 1, ofRule: *code}
-                          inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^pipe$'}}, {has: {field: object, pattern: $R}}]}}}
-                        - nthChild: {position: 2, ofRule: *code}
-                          inside: {kind: arguments, has: {nthChild: {position: 1, ofRule: *code}, pattern: $R}, inside: {kind: call_expression, has: {field: function, regex: '^pipe$'}}}
-                    - has: {field: function, has: {field: object, matches: list-module}}
+                  - all:
+                        - has: { field: arguments, has: { nthChild: { position: 1, ofRule: &code { not: { kind: 'comment, html_comment' } } } }, not: { has: { nthChild: { position: 2, ofRule: *code } } } }
+                        - has: { field: function, has: { field: object, pattern: $R, not: { matches: effect-namespace } } }
+                  - all:
+                        - has: { field: arguments, all: [{ has: { nthChild: { position: 1, ofRule: *code }, pattern: $R } }, { has: { nthChild: { position: 2, ofRule: *code } } }, { not: { has: { nthChild: { position: 3, ofRule: *code } } } }] }
+                        - has: { field: function, has: { field: object, matches: list-module } }
+                  - all:
+                        - has: { field: arguments, has: { nthChild: { position: 1, ofRule: *code } }, not: { has: { nthChild: { position: 2, ofRule: *code } } } }
+                        - any:
+                              - nthChild: { position: 1, ofRule: *code }
+                                inside: { kind: arguments, inside: { kind: call_expression, has: { field: function, kind: member_expression, all: [{ has: { field: property, regex: '^pipe$' } }, { has: { field: object, pattern: $R } }] } } }
+                              - nthChild: { position: 2, ofRule: *code }
+                                inside: { kind: arguments, has: { nthChild: { position: 1, ofRule: *code }, pattern: $R }, inside: { kind: call_expression, has: { field: function, regex: '^pipe$' } } }
+                        - has: { field: function, has: { field: object, matches: list-module } }
     negating:
         any:
             - pattern: '($P) => !$F($P)'
@@ -33,7 +33,7 @@ utils:
             - pattern: '$P => !($F($P))'
             - kind: call_expression
               pattern: '$NOT($F)'
-              has: {field: function, matches: predicate-not}
+              has: { field: function, matches: predicate-not }
     passing:
         any:
             - pattern: $F
@@ -54,17 +54,17 @@ rule:
     all:
         - matches: filtering
         - any:
-            - all:
-                - has: {field: arguments, has: {nthChild: {position: 1, reverse: true, ofRule: *code}, matches: negating}}
-                - inside:
-                    kind: &scope 'statement_block, arrow_function, program'
-                    stopBy: &unconditional
-                        not:
-                            kind: 'call_expression, member_expression, arguments, lexical_declaration, variable_declarator, expression_statement, return_statement, array, object, pair, spread_element, parenthesized_expression, await_expression, assignment_expression, as_expression, satisfies_expression, non_null_expression'
-                    has: {stopBy: *unconditional, matches: filtering, has: {field: arguments, has: {nthChild: {position: 1, reverse: true, ofRule: *code}, matches: passing}}}
-            - all:
-                - has: {field: arguments, has: {nthChild: {position: 1, reverse: true, ofRule: *code}, matches: negated}}
-                - inside:
-                    kind: *scope
-                    stopBy: *unconditional
-                    has: {stopBy: *unconditional, matches: filtering, has: {field: arguments, has: {nthChild: {position: 1, reverse: true, ofRule: *code}, matches: kept}}}
+              - all:
+                    - has: { field: arguments, has: { nthChild: { position: 1, reverse: true, ofRule: *code }, matches: negating } }
+                    - inside:
+                          kind: &scope 'statement_block, arrow_function, program'
+                          stopBy: &unconditional
+                              not:
+                                  kind: 'call_expression, member_expression, arguments, lexical_declaration, variable_declarator, expression_statement, return_statement, array, object, pair, spread_element, parenthesized_expression, await_expression, assignment_expression, as_expression, satisfies_expression, non_null_expression'
+                          has: { stopBy: *unconditional, matches: filtering, has: { field: arguments, has: { nthChild: { position: 1, reverse: true, ofRule: *code }, matches: passing } } }
+              - all:
+                    - has: { field: arguments, has: { nthChild: { position: 1, reverse: true, ofRule: *code }, matches: negated } }
+                    - inside:
+                          kind: *scope
+                          stopBy: *unconditional
+                          has: { stopBy: *unconditional, matches: filtering, has: { field: arguments, has: { nthChild: { position: 1, reverse: true, ofRule: *code }, matches: kept } } }

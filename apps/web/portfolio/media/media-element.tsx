@@ -8,6 +8,10 @@ import { assetUrl } from '#/model/api';
 import type { ImageAsset } from '#/model/asset';
 import type { Placement } from '#/model/placement';
 
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+const imageSourceSet = (asset: ImageAsset) => asset.renditions && [...asset.renditions.map(({ width: rendition }) => `${assetUrl(asset, rendition)} ${rendition}w`), `${assetUrl(asset)} ${asset.width}w`].join(', ');
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const PdfSheet = lazy(() => import('#/media/pdf-sheet.tsx').then((module) => ({ default: module.PdfSheet })));
@@ -22,7 +26,6 @@ const MediaElement = ({ placement, active, priority, presentation, layoutId, vie
     const expanded = presentation === 'expanded';
     const eager = priority || presentation === 'expandable';
     const fail = () => setAttempt(({ count }) => ({ count, failed: true }));
-    const imageSourceSet = (asset: ImageAsset) => asset.renditions && [...asset.renditions.map(({ width: rendition }) => `${assetUrl(asset, rendition)} ${rendition}w`), `${assetUrl(asset)} ${asset.width}w`].join(', ');
     useEffect(() => {
         if (!(active && visible)) {
             video.current?.pause();
@@ -48,11 +51,10 @@ const MediaElement = ({ placement, active, priority, presentation, layoutId, vie
                 </ErrorBoundary>
             ),
             video: ({ poster, asset: { width, height } }) => (
-                // biome-ignore lint/a11y/useMediaCaption: Uploads hold no timed text, owners burn in captions and write transcripts as descriptions
-                <video aria-label={label} className="block size-full object-contain" controls={!thumbnail} height={height} key={attempt.count} onError={fail} playsInline={true} poster={poster && assetUrl(poster)} preload={active || thumbnail || eager ? 'metadata' : 'none'} ref={video} src={url} width={width} />
+                // oxlint-disable-next-line jsx-a11y/media-has-caption -- Uploads hold no timed text, owners burn in captions and write transcripts as descriptions
+                <video aria-label={label} className="block size-full object-contain" controls={!thumbnail} height={height} key={attempt.count} onError={fail} playsInline poster={poster && assetUrl(poster)} preload={active || thumbnail || eager ? 'metadata' : 'none'} ref={video} src={url} width={width} />
             ),
             image: (image) => (
-                // biome-ignore lint/a11y/noNoninteractiveElementInteractions: Error event is the only load failure signal of img
                 <img
                     alt={label}
                     className={expanded ? 'block max-w-none' : { contain: 'block size-full object-contain', cover: 'block size-full object-cover object-[var(--media-focus-x)_var(--media-focus-y)]' }[image.role === 'drawing' ? 'contain' : image.framing.mode]}

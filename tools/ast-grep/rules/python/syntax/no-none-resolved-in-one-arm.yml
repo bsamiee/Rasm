@@ -6,66 +6,66 @@ utils:
         any:
             - kind: conditional_expression
               any:
-                - pattern: $X if $X is not None else $D
-                - pattern: $X if None is not $X else $D
-                - pattern: $D if $X is None else $X
-                - pattern: $D if None is $X else $X
+                  - pattern: $X if $X is not None else $D
+                  - pattern: $X if None is not $X else $D
+                  - pattern: $D if $X is None else $X
+                  - pattern: $D if None is $X else $X
             - kind: if_statement
               all:
-                - has: {field: condition, any: [{pattern: $X is None}, {pattern: None is $X}]}
-                - has: {field: consequence, has: {kind: expression_statement, has: {pattern: $X = $D}}, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}}
-                - not: {has: {kind: "else_clause, elif_clause"}}
+                  - has: { field: condition, any: [{ pattern: $X is None }, { pattern: None is $X }] }
+                  - has: { field: consequence, has: { kind: expression_statement, has: { pattern: $X = $D } }, not: { has: { nthChild: { position: 2, ofRule: { not: { kind: comment } } } } } }
+                  - not: { has: { kind: 'else_clause, elif_clause' } }
     raw-use:
         kind: identifier, attribute, subscript
         pattern: $X
         not:
             any:
-                - inside: {kind: comparison_operator, has: {kind: none}}
-                - inside: {kind: 'assignment, for_statement, for_in_clause', field: left}
-                - inside: {matches: resolving, stopBy: {kind: 'conditional_expression, if_statement'}}
+                - inside: { kind: comparison_operator, has: { kind: none } }
+                - inside: { kind: 'assignment, for_statement, for_in_clause', field: left }
+                - inside: { matches: resolving, stopBy: { kind: 'conditional_expression, if_statement' } }
     holds-raw:
         any:
             - matches: raw-use
-            - has: {matches: raw-use, stopBy: end}
+            - has: { matches: raw-use, stopBy: end }
     conditional-arm:
         any:
-            - nthChild: {position: 1, ofRule: {not: {kind: comment}}}
-              inside: {kind: conditional_expression, has: {nthChild: {position: 3, ofRule: {not: {kind: comment}}}, matches: holds-raw}}
-            - nthChild: {position: 3, ofRule: {not: {kind: comment}}}
-              inside: {kind: conditional_expression, has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: holds-raw}}
+            - nthChild: { position: 1, ofRule: { not: { kind: comment } } }
+              inside: { kind: conditional_expression, has: { nthChild: { position: 3, ofRule: { not: { kind: comment } } }, matches: holds-raw } }
+            - nthChild: { position: 3, ofRule: { not: { kind: comment } } }
+              inside: { kind: conditional_expression, has: { nthChild: { position: 1, ofRule: { not: { kind: comment } } }, matches: holds-raw } }
     branch:
         any:
             - kind: block
-              inside: {kind: if_statement}
+              inside: { kind: if_statement }
             - kind: elif_clause, else_clause, case_clause
     raw-branch:
         all:
             - matches: branch
-            - has: {matches: raw-use, stopBy: end}
-            - not: {has: {matches: resolving, stopBy: end}}
-            - not: {has: {stopBy: end, matches: {python-binding: {name: {pattern: $X}}}}}
+            - has: { matches: raw-use, stopBy: end }
+            - not: { has: { matches: resolving, stopBy: end } }
+            - not: { has: { stopBy: end, matches: { python-binding: { name: { pattern: $X } } } } }
     statement-arm:
         matches: branch
         any:
             - inside:
-                kind: if_statement
-                any:
-                    - has: {matches: raw-branch}
-                    - precedes: {stopBy: end, matches: holds-raw}
+                  kind: if_statement
+                  any:
+                      - has: { matches: raw-branch }
+                      - precedes: { stopBy: end, matches: holds-raw }
             - inside:
-                kind: block
-                inside: {kind: match_statement, precedes: {stopBy: end, matches: holds-raw}}
-            - inside: {kind: block, has: {kind: case_clause, matches: raw-branch}}
+                  kind: block
+                  inside: { kind: match_statement, precedes: { stopBy: end, matches: holds-raw } }
+            - inside: { kind: block, has: { kind: case_clause, matches: raw-branch } }
 rule:
     kind: conditional_expression, if_statement
     all:
         - matches: resolving
         - any:
-            - matches: conditional-arm
-            - inside:
-                stopBy: {kind: 'function_definition, lambda'}
-                any:
-                    - matches: conditional-arm
-                    - matches: statement-arm
+              - matches: conditional-arm
+              - inside:
+                    stopBy: { kind: 'function_definition, lambda' }
+                    any:
+                        - matches: conditional-arm
+                        - matches: statement-arm
 message: '`$X` resolves `None` to `$D` in one arm and reaches the other arm as `None`'
 note: 'Bind `<name> = <default> if <value> is None else <value>` before the branch and read `<name>` in every arm'

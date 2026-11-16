@@ -5,45 +5,48 @@ files: ['libs/**', 'tools/**', 'plugins/**', 'apps/creative-cloud/**', '.claude/
 utils:
     program:
         kind: string
-        nthChild: {position: 1, ofRule: &code {not: {kind: 'comment, html_comment'}}}
-        inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, regex: '(^|\.)(spawn|spawnSync|execFile|execFileSync)$|^(ChildProcess\.)?make$'}}}
+        nthChild: { position: 1, ofRule: &code { not: { kind: 'comment, html_comment' } } }
+        inside: { kind: arguments, inside: { kind: call_expression, has: { field: function, regex: '(^|\.)(spawn|spawnSync|execFile|execFileSync)$|^(ChildProcess\.)?make$' } } }
     activating-script:
         regex: '(?-u:\b)activate(?-u:\b)|(?-u:\b)set[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]+frontmost(?-u:\b)|AXRaise'
     activating-line:
         all:
             - any:
-                - kind: template_string
-                  inside: {kind: call_expression, field: arguments, has: {field: function, regex: '(?s)(^|\.)make(\(.*\))?$'}}
-                - kind: 'string, template_string'
-                  nthChild: {position: 1, ofRule: *code}
-                  inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, regex: '(^|\.)(exec|execSync)$'}}}
+                  - kind: template_string
+                    inside: { kind: call_expression, field: arguments, has: { field: function, regex: '(?s)(^|\.)make(\(.*\))?$' } }
+                  - kind: 'string, template_string'
+                    nthChild: { position: 1, ofRule: *code }
+                    inside: { kind: arguments, inside: { kind: call_expression, has: { field: function, regex: '(^|\.)(exec|execSync)$' } } }
             - any:
-                - regex: '^[`''"][\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*(/usr/bin/)?open([\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]|[`''"])'
-                  not: {regex: '^[`''"][\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*(/usr/bin/)?open([\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]+([^-[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]][^\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*|-[^-[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]][^\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*|--([^a[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]][^\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*|a[^r[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]][^\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*|ar[^g[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]][^\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*|arg[^s[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]][^\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*|args[^\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]+|ar|arg|a)?))*?[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]+(-[eftFWRnjh]*g[A-Za-z]*|--background)([\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]|[`''"])'}
-                - regex: '^[`''"][\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*(/usr/bin/)?osascript[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]'
-                  matches: activating-script
+                  - regex: '^[`''"][\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*(/usr/bin/)?open([\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]|[`''"])'
+                    not:
+                        {
+                            regex: '^[`''"][\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*(/usr/bin/)?open([\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]+([^-[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]][^\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*|-[^-[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]][^\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*|--([^a[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]][^\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*|a[^r[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]][^\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*|ar[^g[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]][^\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*|arg[^s[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]][^\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*|args[^\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]+|ar|arg|a)?))*?[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]+(-[eftFWRnjh]*g[A-Za-z]*|--background)([\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]|[`''"])',
+                        }
+                  - regex: '^[`''"][\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*(/usr/bin/)?osascript[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]'
+                    matches: activating-script
 rule:
     kind: call_expression
     pattern: $SITE
     any:
         - all:
-            - has: {field: arguments, has: {matches: program, regex: '^[''"](/usr/bin/)?open[''"]$'}}
-            - not: {has: {field: arguments, has: {nthChild: {position: 2, ofRule: *code}, not: {kind: 'object, array'}}}}
-            - not:
-                has:
-                    field: arguments
+              - has: { field: arguments, has: { matches: program, regex: '^[''"](/usr/bin/)?open[''"]$' } }
+              - not: { has: { field: arguments, has: { nthChild: { position: 2, ofRule: *code }, not: { kind: 'object, array' } } } }
+              - not:
                     has:
-                        nthChild: {position: 2, ofRule: *code}
-                        kind: array
+                        field: arguments
                         has:
-                            any:
-                                - kind: spread_element
-                                - kind: string
-                                  regex: '^[''"](-[eftFWRnjh]*g[A-Za-z]*|--background)[''"]$'
-                                  not: {follows: {stopBy: end, kind: string, regex: '^[''"]--args[''"]$'}}
+                            nthChild: { position: 2, ofRule: *code }
+                            kind: array
+                            has:
+                                any:
+                                    - kind: spread_element
+                                    - kind: string
+                                      regex: '^[''"](-[eftFWRnjh]*g[A-Za-z]*|--background)[''"]$'
+                                      not: { follows: { stopBy: end, kind: string, regex: '^[''"]--args[''"]$' } }
         - all:
-            - has: {field: arguments, has: {matches: program, regex: '^[''"](/usr/bin/)?osascript[''"]$'}}
-            - has: {field: arguments, has: {nthChild: {position: 2, ofRule: *code}, kind: array, has: {kind: 'string, template_string', matches: activating-script}}}
-        - has: {field: arguments, any: [{matches: activating-line}, {has: {matches: activating-line}}]}
+              - has: { field: arguments, has: { matches: program, regex: '^[''"](/usr/bin/)?osascript[''"]$' } }
+              - has: { field: arguments, has: { nthChild: { position: 2, ofRule: *code }, kind: array, has: { kind: 'string, template_string', matches: activating-script } } }
+        - has: { field: arguments, any: [{ matches: activating-line }, { has: { matches: activating-line } }] }
 message: '`$SITE` takes focus from the frontmost application'
 note: 'Pass `-g` to `open` for a LaunchServices launch with no activation, drop AppleScript `activate`, `AXRaise`, and `frontmost` writes'

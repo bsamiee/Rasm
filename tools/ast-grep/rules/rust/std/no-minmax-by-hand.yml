@@ -5,30 +5,30 @@ rule:
     any:
         - kind: if_expression
           any:
-            - pattern: 'if $A <= $B { ($A, $B) } else { ($B, $A) }'
-            - pattern: 'if $A < $B { ($A, $B) } else { ($B, $A) }'
-            - pattern: 'if $A >= $B { ($B, $A) } else { ($A, $B) }'
-            - pattern: 'if $A > $B { ($B, $A) } else { ($A, $B) }'
-            - pattern: 'if $A.$KEY <= $B.$KEY { ($A, $B) } else { ($B, $A) }'
-            - pattern: 'if $A.$KEY < $B.$KEY { ($A, $B) } else { ($B, $A) }'
-            - pattern: 'if $A.$KEY >= $B.$KEY { ($B, $A) } else { ($A, $B) }'
-            - pattern: 'if $A.$KEY > $B.$KEY { ($B, $A) } else { ($A, $B) }'
-            - pattern: 'if $A <= $B { [$A, $B] } else { [$B, $A] }'
-            - pattern: 'if $A < $B { [$A, $B] } else { [$B, $A] }'
-            - pattern: 'if $A >= $B { [$B, $A] } else { [$A, $B] }'
-            - pattern: 'if $A > $B { [$B, $A] } else { [$A, $B] }'
+              - pattern: 'if $A <= $B { ($A, $B) } else { ($B, $A) }'
+              - pattern: 'if $A < $B { ($A, $B) } else { ($B, $A) }'
+              - pattern: 'if $A >= $B { ($B, $A) } else { ($A, $B) }'
+              - pattern: 'if $A > $B { ($B, $A) } else { ($A, $B) }'
+              - pattern: 'if $A.$KEY <= $B.$KEY { ($A, $B) } else { ($B, $A) }'
+              - pattern: 'if $A.$KEY < $B.$KEY { ($A, $B) } else { ($B, $A) }'
+              - pattern: 'if $A.$KEY >= $B.$KEY { ($B, $A) } else { ($A, $B) }'
+              - pattern: 'if $A.$KEY > $B.$KEY { ($B, $A) } else { ($A, $B) }'
+              - pattern: 'if $A <= $B { [$A, $B] } else { [$B, $A] }'
+              - pattern: 'if $A < $B { [$A, $B] } else { [$B, $A] }'
+              - pattern: 'if $A >= $B { [$B, $A] } else { [$A, $B] }'
+              - pattern: 'if $A > $B { [$B, $A] } else { [$A, $B] }'
         - kind: array_expression
           any:
-            - pattern: '[cmp::min($A, $B), cmp::max($A, $B)]'
-            - pattern: '[cmp::min_by($A, $B, $O), cmp::max_by($A, $B, $O)]'
-            - pattern: '[cmp::min_by_key($A, $B, $K), cmp::max_by_key($A, $B, $K)]'
+              - pattern: '[cmp::min($A, $B), cmp::max($A, $B)]'
+              - pattern: '[cmp::min_by($A, $B, $O), cmp::max_by($A, $B, $O)]'
+              - pattern: '[cmp::min_by_key($A, $B, $K), cmp::max_by_key($A, $B, $K)]'
         - kind: call_expression
           all:
-            - has: {field: function, kind: field_expression, has: {field: field, regex: '^min$'}}
-            - pattern: $A.min($B)
-            - inside:
-                kind: 'block, match_arm'
-                stopBy: {kind: 'block, match_arm, function_item'}
-                has: {stopBy: {kind: match_arm}, kind: call_expression, pattern: $A.max($B)}
+              - has: { field: function, kind: field_expression, has: { field: field, regex: '^min$' } }
+              - pattern: $A.min($B)
+              - inside:
+                    kind: 'block, match_arm'
+                    stopBy: { kind: 'block, match_arm, function_item' }
+                    has: { stopBy: { kind: match_arm }, kind: call_expression, pattern: $A.max($B) }
 message: '`if`, a `min` and `max` pair, or a `min_by` and `max_by` pair orders `$A` and `$B` by hand'
 note: 'Use `cmp::minmax`, `minmax_by`, or `minmax_by_key`; compare floats through `total_cmp` and read `[min, max]`'

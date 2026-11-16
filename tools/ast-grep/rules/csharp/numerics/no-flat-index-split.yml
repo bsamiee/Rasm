@@ -5,37 +5,37 @@ utils:
     counter:
         any:
             - kind: for_statement
-              has: {field: initializer, has: {kind: variable_declarator, has: {field: name, pattern: $INDEX}}}
+              has: { field: initializer, has: { kind: variable_declarator, has: { field: name, pattern: $INDEX } } }
             - kind: lambda_expression
-              has: {field: parameters, any: [{kind: implicit_parameter, pattern: $INDEX}, {has: {kind: parameter, has: {field: name, pattern: $INDEX}}}]}
-              inside: {kind: argument, inside: {kind: argument_list, inside: {kind: invocation_expression, has: {field: function, matches: index-source}}}}
+              has: { field: parameters, any: [{ kind: implicit_parameter, pattern: $INDEX }, { has: { kind: parameter, has: { field: name, pattern: $INDEX } } }] }
+              inside: { kind: argument, inside: { kind: argument_list, inside: { kind: invocation_expression, has: { field: function, matches: index-source } } } }
     index-source:
         any:
-            - matches: {csharp-type-name: {name: {regex: '^For$'}}}
+            - matches: { csharp-type-name: { name: { regex: '^For$' } } }
             - kind: member_access_expression
               all:
-                - has: {field: name, regex: '^(Select|Map|Iter)$'}
-                - has: {field: expression, kind: invocation_expression, matches: {csharp-named-call: {name: {regex: '^Range$'}}}}
+                  - has: { field: name, regex: '^(Select|Map|Iter)$' }
+                  - has: { field: expression, kind: invocation_expression, matches: { csharp-named-call: { name: { regex: '^Range$' } } } }
     quotient:
         kind: binary_expression
         all:
-            - has: {field: operator, regex: '^/$'}
-            - has: {field: left, kind: identifier, pattern: $INDEX}
-            - has: {field: right, pattern: $WIDTH}
+            - has: { field: operator, regex: '^/$' }
+            - has: { field: left, kind: identifier, pattern: $INDEX }
+            - has: { field: right, pattern: $WIDTH }
 rule:
     any:
         - kind: invocation_expression
           pattern: $SPLIT
           all:
-            - has: {field: function, kind: member_access_expression, all: [{has: {field: expression, regex: '^(int|long|Math)$'}}, {has: {field: name, regex: '^DivRem$'}}]}
-            - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {kind: identifier, pattern: $INDEX}}}
-            - inside: {stopBy: end, matches: counter}
+              - has: { field: function, kind: member_access_expression, all: [{ has: { field: expression, regex: '^(int|long|Math)$' } }, { has: { field: name, regex: '^DivRem$' } }] }
+              - has: { field: arguments, has: { kind: argument, nthChild: 1, has: { kind: identifier, pattern: $INDEX } } }
+              - inside: { stopBy: end, matches: counter }
         - kind: binary_expression
           pattern: $SPLIT
           all:
-            - has: {field: operator, regex: '^%$'}
-            - has: {field: left, kind: identifier, pattern: $INDEX}
-            - has: {field: right, pattern: $WIDTH}
-            - inside: {stopBy: end, matches: counter, has: {stopBy: end, matches: quotient}}
+              - has: { field: operator, regex: '^%$' }
+              - has: { field: left, kind: identifier, pattern: $INDEX }
+              - has: { field: right, pattern: $WIDTH }
+              - inside: { stopBy: end, matches: counter, has: { stopBy: end, matches: quotient } }
 message: '`$SPLIT` recovers a row and column from flat index `$INDEX`'
 note: 'Address buffer as `Span2D<T>` rows through `GetRowSpan`, pitch `Mat.Step` over a `Mat`, or run the pass through `ParallelHelper.For2D`'

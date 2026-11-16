@@ -3,4 +3,4 @@ id: serde-record
 language: rustlang
 rule:
     kind: 'struct_item, enum_item'
-    matches: {rust-attributed: {attribute: {matches: {rust-derive: {trait: {regex: '^(Serialize|Deserialize)$'}}}}}}
+    matches: { rust-attributed: { attribute: { matches: { rust-derive: { trait: { regex: '^(Serialize|Deserialize)$' } } } } } }

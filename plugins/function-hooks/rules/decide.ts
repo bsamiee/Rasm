@@ -1,6 +1,6 @@
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Clock, Duration, Effect, Layer, Option, Record, Schema } from 'effect';
+import { Clock, Combiner, Duration, Effect, Layer, Option, Record, Schema } from 'effect';
 import { KeyValueStore } from 'effect/persistence';
 import { Host } from '#/host';
 import manifest from '#/manifest' with { type: 'json' };
@@ -21,7 +21,7 @@ const RULESETS: readonly Ruleset[] = [APPS, FILES, WAITS, GIT, GHIDRA, TASKS, { 
 const EVERY = RULESETS.flatMap(({ every = [] }) => every);
 const CALLS = RULESETS.flatMap(({ calls = [] }) => calls);
 const BY_NAME = new Map(
-    Record.toEntries(RULESETS.reduce<Ruleset['programs']>((rows, { programs }) => Record.union(rows, programs, (existing, added) => ({ ...existing, ...added, rules: [...(existing.rules ?? []), ...(added.rules ?? [])] })), {})).flatMap(([name, row]) =>
+    Record.toEntries(Record.makeReducerUnion<string, Ruleset['programs'][string]>(Combiner.make((existing, added) => ({ ...existing, ...added, rules: [...(existing.rules ?? []), ...(added.rules ?? [])] }))).combineAll(RULESETS.map(({ programs }) => programs))).flatMap(([name, row]) =>
         [name, ...(row.aliases ?? [])].map((alias) => [alias, row] as const),
     ),
 );

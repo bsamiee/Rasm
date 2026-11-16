@@ -201,6 +201,37 @@ const render = (sql: SqlClient.SqlClient, engine: Omit<Engine['Service'], 'names
 
 // --- [DIFF]
 
+const claim = <R extends Live, D extends { readonly name: string; readonly renamedFrom: Option.Option<string>; readonly identity: typeof Identity.Type }>(live: readonly R[], retired: readonly string[], declared: readonly D[]) => {
+    const generations = Map.groupBy(retired, Function.identity);
+    const [standing, retiring] = Array.partition(live, (row) => {
+        const { origin, generation } = Option.getOrElse(row.identity, () => ({ origin: row.name, generation: 0 }));
+        return generation < (generations.get(row.name)?.length ?? 0) ? Result.fail(row) : Result.succeed({ row, origin, generation, recorded: row.identity });
+    });
+    type Candidate = (typeof standing)[number];
+    const take = (claimed: HashSet.HashSet<string>, matches: (candidate: Candidate) => boolean) => {
+        const pick = Array.findFirst(standing, (candidate) => !HashSet.has(claimed, candidate.row.name) && matches(candidate));
+        return [Option.match(pick, { onNone: () => claimed, onSome: (candidate) => HashSet.add(claimed, candidate.row.name) }), pick] as const;
+    };
+    const unclaimed = HashSet.empty<string>();
+    const [owners, owned] = Array.mapAccum(declared, unclaimed, (claimed, item) => {
+        const aliases = new Set([item.name, ...Option.toArray(item.renamedFrom)]);
+        return take(claimed, (candidate) => candidate.generation === item.identity.generation && (aliases.has(candidate.row.name) || aliases.has(candidate.origin)));
+    });
+    const paired = Array.zip(declared, owned);
+    const [, chosen] = Array.mapAccum(paired, owners, (claimed, [item, own]) => (Option.isSome(own) ? ([claimed, own] as const) : take(claimed, (candidate) => candidate.row.name === item.name)));
+    const found = Array.zipWith(paired, chosen, ([item, own], choice) => ({
+        item,
+        row: Option.map(choice, Struct.get('row')),
+        owned: Option.isSome(own),
+        identity: Option.match(choice, { onNone: () => ({ origin: item.identity.origin, generation: item.identity.generation }), onSome: ({ origin, generation }) => ({ origin, generation }) }),
+        recorded: Option.flatMap(choice, Struct.get('recorded')),
+    }));
+    const renamed = Array.filterMap(
+        found,
+        Filter.fromPredicateOption(({ item, row }) => Option.filter(row, ({ name }) => name !== item.name).pipe(Option.map((current) => ({ row: current, item })))),
+    );
+    return { found, retiring, renamed, claimed: Array.getSomes(found.map(Struct.get('row'))) };
+};
 const diff = <L extends Live & { readonly columns: readonly Live[]; readonly references: readonly { readonly columns: Array.NonEmptyReadonlyArray<string>; readonly target: string }[] }>(
     sql: SqlClient.SqlClient,
     engine: Pick<Engine['Service'], 'rename'>,
@@ -208,37 +239,6 @@ const diff = <L extends Live & { readonly columns: readonly Live[]; readonly ref
     rendered: Effect.Success<ReturnType<typeof render>>,
     observed: readonly L[],
 ) => {
-    const claim = <R extends Live, D extends { readonly name: string; readonly renamedFrom: Option.Option<string>; readonly identity: typeof Identity.Type }>(live: readonly R[], retired: readonly string[], declared: readonly D[]) => {
-        const generations = Map.groupBy(retired, Function.identity);
-        const [standing, retiring] = Array.partition(live, (row) => {
-            const { origin, generation } = Option.getOrElse(row.identity, () => ({ origin: row.name, generation: 0 }));
-            return generation < (generations.get(row.name)?.length ?? 0) ? Result.fail(row) : Result.succeed({ row, origin, generation, recorded: row.identity });
-        });
-        type Candidate = (typeof standing)[number];
-        const take = (claimed: HashSet.HashSet<string>, matches: (candidate: Candidate) => boolean) => {
-            const pick = Array.findFirst(standing, (candidate) => !HashSet.has(claimed, candidate.row.name) && matches(candidate));
-            return [Option.match(pick, { onNone: () => claimed, onSome: (candidate) => HashSet.add(claimed, candidate.row.name) }), pick] as const;
-        };
-        const unclaimed = HashSet.empty<string>();
-        const [owners, owned] = Array.mapAccum(declared, unclaimed, (claimed, item) => {
-            const aliases = new Set([item.name, ...Option.toArray(item.renamedFrom)]);
-            return take(claimed, (candidate) => candidate.generation === item.identity.generation && (aliases.has(candidate.row.name) || aliases.has(candidate.origin)));
-        });
-        const paired = Array.zip(declared, owned);
-        const [, chosen] = Array.mapAccum(paired, owners, (claimed, [item, own]) => (Option.isSome(own) ? ([claimed, own] as const) : take(claimed, (candidate) => candidate.row.name === item.name)));
-        const found = Array.zipWith(paired, chosen, ([item, own], choice) => ({
-            item,
-            row: Option.map(choice, Struct.get('row')),
-            owned: Option.isSome(own),
-            identity: Option.match(choice, { onNone: () => ({ origin: item.identity.origin, generation: item.identity.generation }), onSome: ({ origin, generation }) => ({ origin, generation }) }),
-            recorded: Option.flatMap(choice, Struct.get('recorded')),
-        }));
-        const renamed = Array.filterMap(
-            found,
-            Filter.fromPredicateOption(({ item, row }) => Option.filter(row, ({ name }) => name !== item.name).pipe(Option.map((current) => ({ row: current, item })))),
-        );
-        return { found, retiring, renamed, claimed: Array.getSomes(found.map(Struct.get('row'))) };
-    };
     const located = claim(
         observed,
         catalog.retired,
@@ -281,9 +281,10 @@ const diff = <L extends Live & { readonly columns: readonly Live[]; readonly ref
         }),
     );
     const graph = (included: typeof edges) =>
-        Graph.directed<(typeof unordered)[number], number>((mutable) => {
-            unordered.forEach((entry) => Graph.addNode(mutable, entry));
-            included.forEach(({ parent, child }) => Graph.addEdge(mutable, parent, child, child));
+        Graph.fromSnapshot({
+            type: 'directed',
+            nodes: unordered.map((data, index) => ({ index, data })),
+            edges: included.map(({ parent, child, link }, index) => ({ index, source: parent, target: child, data: link })),
         });
     const components = Graph.stronglyConnectedComponents(graph(edges));
     const cyclic = edges.filter(({ parent, child }) => components.some((component) => component.includes(parent) && component.includes(child)));
@@ -315,14 +316,14 @@ const diff = <L extends Live & { readonly columns: readonly Live[]; readonly ref
                 readonly drifted: (entry: (typeof matched)[number], field: (typeof matched)[number]['fields'][number]) => boolean;
             },
         ) => {
-            const dropped = [...removed, ...parts.replaced];
+            const dropped = new Set([...removed, ...parts.replaced]);
             const all = [
                 ...matched.flatMap(({ live, declared, required }) => findings(declared.name, parts.populated.includes(live.name) ? required.map(Struct.get('name')) : [], { _tag: 'Required' })),
                 ...matched.flatMap((entry) => {
                     const moved = entry.fields.filter((field) => entry.owned && field.owned && !field.definition.retype && parts.drifted(entry, field)).map(({ definition }) => definition.name);
                     return findings(entry.declared.name, moved, { _tag: 'Retype' });
                 }),
-                ...kept.flatMap((row) => row.references.flatMap(({ columns: linked, target }) => findings(row.name, dropped.includes(target) ? linked : [], { _tag: 'RetainedReference', target }))),
+                ...kept.flatMap((row) => row.references.flatMap(({ columns: linked, target }) => findings(row.name, dropped.has(target) ? linked : [], { _tag: 'RetainedReference', target }))),
                 ...matched.flatMap((entry) => {
                     const declaredLinks = HashSet.fromIterable(entry.rendered.links.map(Struct.get('columns')));
                     return entry.live.references

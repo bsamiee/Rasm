@@ -3,14 +3,17 @@
     "version": "0.1.0",
     "private": true,
     "description": "Effect programs exposed to agents as tools and resources, and a client that opens a new session after its server restarts",
+    "license": "MIT",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/bsamiee/Rasm.git",
         "directory": "libs/typescript/ai/mcp"
     },
-    "license": "MIT",
-    "sideEffects": false,
+    "files": [
+        "dist"
+    ],
     "type": "module",
+    "sideEffects": false,
     "imports": {
         "#/*": "./*.ts"
     },
@@ -18,7 +21,16 @@
         ".": "./index.ts",
         "./node": "./node.ts"
     },
-    "files": [ "dist" ],
+    "publishConfig": {
+        "imports": {
+            "#/*": "./dist/*.js"
+        },
+        "exports": {
+            ".": "./dist/index.js",
+            "./node": "./dist/node.js"
+        },
+        "access": "public"
+    },
     "dependencies": {
         "@effect/platform-node": "catalog:",
         "@rasm/search": "workspace:*",
@@ -30,15 +42,5 @@
     },
     "peerDependencies": {
         "effect": "catalog:peers"
-    },
-    "publishConfig": {
-        "access": "public",
-        "exports": {
-            ".": "./dist/index.js",
-            "./node": "./dist/node.js"
-        },
-        "imports": {
-            "#/*": "./dist/*.js"
-        }
     }
 }

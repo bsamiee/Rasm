@@ -3,46 +3,55 @@ language: tsxlang
 severity: error
 utils:
     uninterruptible:
-        matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^uninterruptible$'}}}
+        matches: { effect-module-member: { module: { regex: '(?-u:\b)Effect$' }, member: { regex: '^uninterruptible$' } } }
     fork-member:
-        matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^(forkChild|forkDetach|forkIn|forkScoped)$'}}}
+        matches: { effect-module-member: { module: { regex: '(?-u:\b)Effect$' }, member: { regex: '^(forkChild|forkDetach|forkIn|forkScoped)$' } } }
     fork-options:
         kind: object
-        not: {has: {any: [{kind: spread_element}, {kind: pair, has: {field: key, regex: '^uninterruptible$'}}, {kind: shorthand_property_identifier, regex: '^uninterruptible$'}]}}
+        not: { has: { any: [{ kind: spread_element }, { kind: pair, has: { field: key, regex: '^uninterruptible$' } }, { kind: shorthand_property_identifier, regex: '^uninterruptible$' }] } }
     fork-step:
         any:
             - matches: fork-member
-              not: {has: {field: property, regex: '^forkIn$'}}
+              not: { has: { field: property, regex: '^forkIn$' } }
             - kind: call_expression
               all:
-                - has: {field: function, matches: fork-member}
-                - any:
-                    - all:
-                        - has: {field: function, has: {field: property, regex: '^forkIn$'}}
-                        - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: &code {not: {kind: 'comment, html_comment'}}}, not: {kind: object}}}, {not: {has: {nthChild: {position: 2, ofRule: *code}, not: {matches: fork-options}}}}, {not: {has: {nthChild: {position: 3, ofRule: *code}}}}]}
-                    - all:
-                        - has: {field: function, not: {has: {field: property, regex: '^forkIn$'}}}
-                        - has: {field: arguments, all: [{not: {has: {nthChild: {position: 1, ofRule: *code}, not: {matches: fork-options}}}}, {not: {has: {nthChild: {position: 2, ofRule: *code}}}}]}
+                  - has: { field: function, matches: fork-member }
+                  - any:
+                        - all:
+                              - has: { field: function, has: { field: property, regex: '^forkIn$' } }
+                              - has:
+                                    {
+                                        field: arguments,
+                                        all:
+                                            [
+                                                { has: { nthChild: { position: 1, ofRule: &code { not: { kind: 'comment, html_comment' } } }, not: { kind: object } } },
+                                                { not: { has: { nthChild: { position: 2, ofRule: *code }, not: { matches: fork-options } } } },
+                                                { not: { has: { nthChild: { position: 3, ofRule: *code } } } },
+                                            ],
+                                    }
+                        - all:
+                              - has: { field: function, not: { has: { field: property, regex: '^forkIn$' } } }
+                              - has: { field: arguments, all: [{ not: { has: { nthChild: { position: 1, ofRule: *code }, not: { matches: fork-options } } } }, { not: { has: { nthChild: { position: 2, ofRule: *code } } } }] }
     uninterruptible-effect:
         any:
             - kind: call_expression
-              has: {field: function, matches: uninterruptible}
+              has: { field: function, matches: uninterruptible }
             - kind: call_expression
               all:
-                - has: {field: function, kind: member_expression, has: {field: property, regex: '^pipe$'}}
-                - has: {field: arguments, has: {matches: uninterruptible, nthChild: {position: 1, reverse: true, ofRule: *code}}}
+                  - has: { field: function, kind: member_expression, has: { field: property, regex: '^pipe$' } }
+                  - has: { field: arguments, has: { matches: uninterruptible, nthChild: { position: 1, reverse: true, ofRule: *code } } }
 rule:
     any:
         - matches: uninterruptible
-          inside: {kind: arguments}
-          precedes: {matches: fork-step, pattern: $FORK, stopBy: {not: {regex: '^,$'}}}
+          inside: { kind: arguments }
+          precedes: { matches: fork-step, pattern: $FORK, stopBy: { not: { regex: '^,$' } } }
         - kind: call_expression
           all:
-            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: *code}, matches: uninterruptible-effect}}
-            - has: {field: function, pattern: $HEAD, any: [{matches: fork-member}, {matches: {effect-runner: {name: {regex: '^run(Callback|Fork|Promise|PromiseExit)'}}}}]}
+              - has: { field: arguments, has: { nthChild: { position: 1, ofRule: *code }, matches: uninterruptible-effect } }
+              - has: { field: function, pattern: $HEAD, any: [{ matches: fork-member }, { matches: { effect-runner: { name: { regex: '^run(Callback|Fork|Promise|PromiseExit)' } } } }] }
         - kind: call_expression
           all:
-            - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^pipe$'}}, {has: {field: object, matches: uninterruptible-effect}}]}
-            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: *code}, matches: fork-step, pattern: $HEAD}}
+              - has: { field: function, kind: member_expression, all: [{ has: { field: property, regex: '^pipe$' } }, { has: { field: object, matches: uninterruptible-effect } }] }
+              - has: { field: arguments, has: { nthChild: { position: 1, ofRule: *code }, matches: fork-step, pattern: $HEAD } }
 message: '`$FORK$HEAD` starts its fiber interruptible until its `Effect.uninterruptible` step runs'
 note: 'Pass `{ uninterruptible: true }` to the fork or run call in place of `Effect.uninterruptible`'

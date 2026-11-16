@@ -9,52 +9,52 @@ utils:
         kind: string_literal
         any:
             - regex: '^"(?:[^"]*[/\\])?cargo(?:\.exe)?"$'
-              inside: {stopBy: {kind: function_item}, kind: function_item, has: {stopBy: end, kind: string_literal, regex: '^"metadata"$'}}
+              inside: { stopBy: { kind: function_item }, kind: function_item, has: { stopBy: end, kind: string_literal, regex: '^"metadata"$' } }
             - regex: '^"(?:[^"]*[/\\])?security"$'
-              inside: {stopBy: {kind: function_item}, kind: function_item, has: {stopBy: end, kind: string_literal, regex: '^"(find|add|delete)-(generic|internet)-password"$'}}
+              inside: { stopBy: { kind: function_item }, kind: function_item, has: { stopBy: end, kind: string_literal, regex: '^"(find|add|delete)-(generic|internet)-password"$' } }
     program:
         pattern: $PROGRAM
-        any: [{matches: library-program}, {matches: conditional-program}]
+        any: [{ matches: library-program }, { matches: conditional-program }]
     relayed-program:
         kind: identifier
         pattern: $NAME
         any:
-            - inside: {kind: function_item, stopBy: {kind: function_item}, has: {stopBy: end, kind: let_declaration, all: [{has: {field: pattern, pattern: $NAME}}, {has: {field: value, matches: program}}]}}
-            - inside: {kind: source_file, stopBy: end, has: {stopBy: end, kind: 'const_item, static_item', all: [{has: {field: name, pattern: $NAME}}, {has: {field: value, matches: program}}]}}
+            - inside: { kind: function_item, stopBy: { kind: function_item }, has: { stopBy: end, kind: let_declaration, all: [{ has: { field: pattern, pattern: $NAME } }, { has: { field: value, matches: program } }] } }
+            - inside: { kind: source_file, stopBy: end, has: { stopBy: end, kind: 'const_item, static_item', all: [{ has: { field: name, pattern: $NAME } }, { has: { field: value, matches: program } }] } }
     shell-command:
         kind: string_literal
         pattern: $PROGRAM
         regex: '^"\p{Pattern_White_Space}*(?:\P{Pattern_White_Space}*[/\\])?(tar|gzip|gunzip|zip|unzip|7z|7zz|zstd|xz|bzip2|brotli|curl|wget|ssh|scp|sftp|openssl|ffmpeg|ffprobe|magick|convert|vips|pdftotext|pdftoppm|pdftocairo|pdfimages|pdfunite|pdfseparate|pdfinfo|pdffonts|pdfsig|pdfattach|pdfdetach|pdftohtml|pdftk|cpdf|qpdf|mutool|gs|ocrmypdf|tesseract|verapdf|img2pdf|svg2pdf|typst|resvg|rsvg-convert|mmdc|sqlite3|psql|jq|less|more|secret-tool|ps|pgrep|pkill|kill|killall|top|uname|sw_vers|hostname|nproc|df|free|vm_stat)(?:\.exe)?(?:\p{Pattern_White_Space}|"$)'
         matches: argument-line
     argument-line:
-        inside: {stopBy: {kind: call_expression}, kind: call_expression, has: {field: function, kind: field_expression, has: {field: field, regex: '^args?$'}}}
+        inside: { stopBy: { kind: call_expression }, kind: call_expression, has: { field: function, kind: field_expression, has: { field: field, regex: '^args?$' } } }
 rule:
     all:
         - matches: rust-command-new
         - any:
-            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, any: [{matches: program}, {matches: relayed-program}]}}
-            - all:
-                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, matches: rust-shell-program}}
-                - any:
-                    - inside: {stopBy: {inside: {kind: block}}, inside: {kind: block}, has: {stopBy: end, matches: shell-command}}
-                    - all:
-                        - inside: {kind: let_declaration, field: value, has: {field: pattern, kind: identifier, pattern: $COMMAND}}
-                        - inside: {kind: function_item, stopBy: {kind: function_item}, has: {stopBy: end, kind: expression_statement, all: [{has: {stopBy: end, kind: field_expression, has: {field: value, kind: identifier, pattern: $COMMAND}}}, {has: {stopBy: end, matches: shell-command}}]}}
+              - has: { field: arguments, has: { nthChild: { position: 1, ofRule: { matches: rust-statement } }, any: [{ matches: program }, { matches: relayed-program }] } }
+              - all:
+                    - has: { field: arguments, has: { nthChild: { position: 1, ofRule: { matches: rust-statement } }, matches: rust-shell-program } }
+                    - any:
+                          - inside: { stopBy: { inside: { kind: block } }, inside: { kind: block }, has: { stopBy: end, matches: shell-command } }
+                          - all:
+                                - inside: { kind: let_declaration, field: value, has: { field: pattern, kind: identifier, pattern: $COMMAND } }
+                                - inside: { kind: function_item, stopBy: { kind: function_item }, has: { stopBy: end, kind: expression_statement, all: [{ has: { stopBy: end, kind: field_expression, has: { field: value, kind: identifier, pattern: $COMMAND } } }, { has: { stopBy: end, matches: shell-command } }] } }
 rewriters:
     - id: line-word
       rule:
-        kind: string_literal
-        pattern: $LINE
-        matches: argument-line
+          kind: string_literal
+          pattern: $LINE
+          matches: argument-line
       transform:
-        WORD: {replace: {source: $LINE, replace: '^"\p{Pattern_White_Space}*(?:\P{Pattern_White_Space}*[/\\])?([^\p{Pattern_White_Space}"/\\]+?)(?:\.exe)?(?:\p{Pattern_White_Space}[^"]*)?"$', by: '$1'}}
+          WORD: { replace: { source: $LINE, replace: '^"\p{Pattern_White_Space}*(?:\P{Pattern_White_Space}*[/\\])?([^\p{Pattern_White_Space}"/\\]+?)(?:\.exe)?(?:\p{Pattern_White_Space}[^"]*)?"$', by: '$1' } }
       fix: $WORD
     - id: path-segment
       rule:
-        kind: string_literal
-        pattern: $PATH
+          kind: string_literal
+          pattern: $PATH
       transform:
-        SEGMENT: {replace: {source: $PATH, replace: '^"(?:[^"]*[/\\])?([^"/\\]+?)(?:\.exe)?"$', by: '$1'}}
+          SEGMENT: { replace: { source: $PATH, replace: '^"(?:[^"]*[/\\])?([^"/\\]+?)(?:\.exe)?"$', by: '$1' } }
       fix: $SEGMENT
 transform:
     TOOL: rewrite($PROGRAM, rewriters=[line-word, path-segment])
@@ -64,7 +64,7 @@ transform:
     LZMA: replace($SEVENZ, replace='^xz$', by='lzma-rust2')
     HTTP: replace($LZMA, replace='^(curl|wget)$', by='reqwest')
     SSH: replace($HTTP, replace='^(ssh|scp|sftp)$', by='russh` and `russh-sftp')
-    TLS: {replace: {source: $SSH, replace: '^openssl$', by: 'aws-lc-rs`, `rcgen`, or `x509-parser'}}
+    TLS: { replace: { source: $SSH, replace: '^openssl$', by: 'aws-lc-rs`, `rcgen`, or `x509-parser' } }
     MEDIA: replace($TLS, replace='^(ffmpeg|ffprobe)$', by='ffmpeg-next')
     IMAGE: replace($MEDIA, replace='^(magick|convert|vips)$', by='image` or `libvips')
     PDF_DOCUMENT: replace($IMAGE, replace='^(pdftotext|pdfimages|pdfunite|pdfseparate|pdfinfo|pdffonts|pdfsig|pdfattach|pdfdetach|pdftohtml|pdftk|cpdf|qpdf|ocrmypdf|tesseract|verapdf)$', by='pdf_oxide')
@@ -82,4 +82,4 @@ transform:
     KEYCHAIN: replace($PAGER, replace='^(security|secret-tool)$', by='keyring')
     CRATE: replace($KEYCHAIN, replace='^(ps|pgrep|pkill|kill|killall|top|uname|sw_vers|hostname|nproc|df|free|vm_stat)$', by='sysinfo')
 message: '`$PROGRAM` runs as a child process for work `$CRATE` does in process'
-note: 'Call the crate''s API in place of `Command`'
+note: "Call the crate's API in place of `Command`"

@@ -6,7 +6,7 @@ import { generateManifestIconsEntry } from '@vite-pwa/assets-generator/api/gener
 import { instructions } from '@vite-pwa/assets-generator/api/instructions';
 import { minimal2023Preset } from '@vite-pwa/assets-generator/presets/minimal-2023';
 import { formatRgb } from 'culori';
-import { Array, Cause, Duration, Effect, FileSystem, Function, Match, Option, Record, Result, Schema, Struct, UndefinedOr } from 'effect';
+import { Array, Cause, Deferred, Duration, Effect, FileSystem, flow, Function, Match, Option, Record, Result, Schema, Struct, UndefinedOr } from 'effect';
 import { type ChildNode, list, parse } from 'postcss';
 import { type DevEnvironment, type HtmlTagDescriptor, normalizePath, type Plugin, type ResolvedConfig, type Rolldown } from 'vite';
 import type { WebAppManifest } from 'web-app-manifest';
@@ -114,47 +114,46 @@ const renderHead = Effect.fnUntraced(
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const siteHead = (head: Head): Plugin => {
-    let resolved: ResolvedConfig;
-    const files = () => [head.master, head.stylesheet].map((file) => normalizePath(join(resolved.root, file)));
-    const [rendered, invalidate] = Effect.runSync(
-        Effect.cachedInvalidateWithTTL(
-            Effect.suspend(() => renderHead(resolved, head)),
-            Duration.infinity,
-        ),
+    const config = Deferred.makeUnsafe<ResolvedConfig>();
+    const files = ({ root }: ResolvedConfig) => [head.master, head.stylesheet].map((file) => normalizePath(join(root, file)));
+    const [rendered, invalidate] = Deferred.await(config).pipe(
+        Effect.flatMap((resolved) => renderHead(resolved, head)),
+        Effect.cachedInvalidateWithTTL(Duration.infinity),
+        Effect.runSync,
     );
     return {
         name: '@rasm/hosting:head',
-        applyToEnvironment: ({ config }) => config.consumer === 'client',
-        configResolved: (config) => {
-            resolved = config;
+        applyToEnvironment: ({ config: { consumer } }) => consumer === 'client',
+        configResolved: (resolved) => {
+            Deferred.doneUnsafe(config, Effect.succeed(resolved));
         },
-        configureServer: ({ middlewares, watcher }) => {
-            watcher.add(files());
+        configureServer: ({ config: resolved, middlewares, watcher }) => {
+            watcher.add(files(resolved));
             middlewares.use((request, response, next) => {
-                Effect.runPromise(rendered)
-                    .then(({ assets }) =>
-                        Option.match(
-                            Option.flatMap(Option.fromNullishOr(request.url), (url) => Record.get(assets, url)),
-                            { onNone: () => next(), onSome: ({ mimeType, source }) => response.setHeader('Content-Type', mimeType).end(source) },
-                        ),
-                    )
-                    .catch(next);
+                Effect.runFork(
+                    Effect.matchCause(rendered, {
+                        onFailure: flow(Cause.squash, next),
+                        onSuccess: ({ assets }) =>
+                            Option.match(
+                                Option.flatMap(Option.fromNullishOr(request.url), (url) => Record.get(assets, url)),
+                                { onNone: () => next(), onSome: ({ mimeType, source }) => response.setHeader('Content-Type', mimeType).end(source) },
+                            ),
+                    }),
+                );
             });
         },
-        hotUpdate(this: { readonly environment: DevEnvironment }, { file }) {
-            if (!files().includes(file)) {
-                return;
+        hotUpdate(this: { readonly environment: DevEnvironment }, { file, modules }) {
+            if (!files(this.environment.config).includes(file)) {
+                return modules;
             }
             Effect.runSync(invalidate);
             this.environment.hot.send({ type: 'full-reload', path: '*', triggeredBy: file });
             return [];
         },
         generateBundle(this: Rolldown.PluginContext) {
-            return Effect.runPromise(rendered).then(({ assets }) => {
-                Object.values(assets).forEach(({ name, source }) => this.emitFile({ type: 'asset', fileName: name, source }));
-            });
+            return Effect.runPromise(Effect.flatMap(rendered, ({ assets }) => Effect.forEach(Object.values(assets), ({ name, source }) => Effect.sync(() => this.emitFile({ type: 'asset', fileName: name, source })), { discard: true })));
         },
-        transformIndexHtml: () => Effect.runPromise(rendered).then(Struct.get('tags')),
+        transformIndexHtml: () => Effect.runPromise(Effect.map(rendered, Struct.get('tags'))),
     };
 };
 

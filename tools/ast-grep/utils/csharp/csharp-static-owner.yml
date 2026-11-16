@@ -7,13 +7,13 @@ utils:
             - kind: identifier
               regex: '^@?[A-Z]'
             - kind: generic_name
-              has: {kind: identifier, regex: '^@?[A-Z]'}
+              has: { kind: identifier, regex: '^@?[A-Z]' }
 rule:
     any:
         - matches: segment
         - kind: alias_qualified_name
-          has: {field: name, matches: csharp-static-owner}
+          has: { field: name, matches: csharp-static-owner }
         - kind: qualified_name
-          all: [{has: {field: qualifier, matches: csharp-static-owner}}, {has: {field: name, matches: segment}}]
+          all: [{ has: { field: qualifier, matches: csharp-static-owner } }, { has: { field: name, matches: segment } }]
         - kind: member_access_expression
-          all: [{has: {field: expression, matches: csharp-static-owner}}, {has: {field: name, matches: segment}}]
+          all: [{ has: { field: expression, matches: csharp-static-owner } }, { has: { field: name, matches: segment } }]

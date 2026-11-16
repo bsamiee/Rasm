@@ -11,5 +11,5 @@ rule:
               matches: name
             - kind: scoped_identifier
               all:
-                - has: {field: path, regex: '^(::)?(std|core|alloc)$'}
-                - has: {field: name, matches: name}
+                  - has: { field: path, regex: '^(::)?(std|core|alloc)$' }
+                  - has: { field: name, matches: name }

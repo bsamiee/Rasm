@@ -5,13 +5,13 @@ rule:
     kind: while_statement
     pattern: $SITE
     all:
-        - has: {kind: comparison_expression, all: [{has: {field: lhs, kind: simple_identifier, pattern: $WRITTEN}}, {has: {field: op, regex: '^<$'}}, {has: {field: rhs, regex: '\.count$'}}]}
+        - has: { kind: comparison_expression, all: [{ has: { field: lhs, kind: simple_identifier, pattern: $WRITTEN } }, { has: { field: op, regex: '^<$' } }, { has: { field: rhs, regex: '\.count$' } }] }
         - has:
-            kind: statements
-            all:
-                - has: {stopBy: end, kind: call_expression, has: {nthChild: 1, kind: navigation_expression, regex: '\.write$'}}
-                - has: {stopBy: end, kind: assignment, all: [{has: {field: operator, regex: '^\+=$'}}, {has: {field: target, pattern: $WRITTEN}}]}
+              kind: statements
+              all:
+                  - has: { stopBy: end, kind: call_expression, has: { nthChild: 1, kind: navigation_expression, regex: '\.write$' } }
+                  - has: { stopBy: end, kind: assignment, all: [{ has: { field: operator, regex: '^\+=$' } }, { has: { field: target, pattern: $WRITTEN } }] }
 transform:
-    HEAD: {replace: {source: $SITE, replace: '(?s)\n.*$', by: ''}}
+    HEAD: { replace: { source: $SITE, replace: '(?s)\n.*$', by: '' } }
 message: '`$HEAD` loops `write` until `$WRITTEN` reaches the buffer count'
 note: 'Call `<descriptor>.writeAll(<buffer>)` and delete the loop'

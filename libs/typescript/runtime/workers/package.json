@@ -3,14 +3,17 @@
     "version": "0.1.0",
     "private": true,
     "description": "Cloudflare Workers entry module of an Effect program: one layer built once per isolate and projected into fetch, scheduled, and queue handlers, with the Worker's configuration row and Pulumi deployment",
+    "license": "MIT",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/bsamiee/Rasm.git",
         "directory": "libs/typescript/runtime/workers"
     },
-    "license": "MIT",
-    "sideEffects": false,
+    "files": [
+        "dist"
+    ],
     "type": "module",
+    "sideEffects": false,
     "imports": {
         "#/*": "./*.ts"
     },
@@ -20,7 +23,18 @@
         "./deploy": "./platform/deploy.ts",
         "./execution": "./runtime/execution.ts"
     },
-    "files": [ "dist" ],
+    "publishConfig": {
+        "imports": {
+            "#/*": "./dist/*.js"
+        },
+        "exports": {
+            ".": "./dist/runtime/worker.js",
+            "./config": "./dist/platform/config.js",
+            "./deploy": "./dist/platform/deploy.js",
+            "./execution": "./dist/runtime/execution.js"
+        },
+        "access": "public"
+    },
     "dependencies": {
         "@rasm/telemetry": "workspace:*"
     },
@@ -52,18 +66,6 @@
         },
         "cf": {
             "optional": true
-        }
-    },
-    "publishConfig": {
-        "access": "public",
-        "exports": {
-            ".": "./dist/runtime/worker.js",
-            "./config": "./dist/platform/config.js",
-            "./deploy": "./dist/platform/deploy.js",
-            "./execution": "./dist/runtime/execution.js"
-        },
-        "imports": {
-            "#/*": "./dist/*.js"
         }
     }
 }

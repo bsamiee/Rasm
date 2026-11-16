@@ -9,7 +9,7 @@ type AppleEventValue =
     | number
     | string
     | readonly AppleEventValue[]
-    | { readonly _tag: 'record'; readonly type: string; readonly fields: { readonly [term: string]: AppleEventValue } }
+    | { readonly _tag: 'record'; readonly type: string; readonly fields: Readonly<Record<string, AppleEventValue>> }
     | { readonly _tag: 'specifier'; readonly want: string; readonly form: typeof Form.Type; readonly seld: AppleEventValue; readonly from?: AppleEventValue }
     | typeof Leaf.Type
     | { readonly _tag?: never; readonly [term: string]: AppleEventValue };
@@ -63,7 +63,7 @@ class Terms extends Schema.Class<Terms, { readonly brand: unique symbol }>('Term
     { ...Struct.Record(TermKind.literals, Schema.Array(Term)), command: Schema.Array(Term.mapFields(Struct.assign({ parameters: Schema.Array(Term) }))) },
     { description: 'Every declaration by kind, name, and code, commands with their parameters' },
 ) {
-    static readonly script = Effect.fnUntraced(function* ({ command }: Terms, { events, direct, declared = {} }: { readonly events: Array.NonEmptyReadonlyArray<string>; readonly direct: AppleEventValue; readonly declared?: { readonly [code: string]: AppleEventValue } }) {
+    static readonly script = Effect.fnUntraced(function* ({ command }: Terms, { events, direct, declared = {} }: { readonly events: Array.NonEmptyReadonlyArray<string>; readonly direct: AppleEventValue; readonly declared?: Readonly<Record<string, AppleEventValue>> }) {
         const { name, parameters } = yield* Effect.fromOption(
             Array.findFirst(events, (event) => Array.findFirst(command, flow(Struct.get('code'), String.endsWith(event)))),
             () => Unmatched.make({ subject: `command with event ${events.join(' or ')}`, candidates: Array.map(command, Struct.get('name')) }),

@@ -8,5 +8,5 @@ rule:
         field: function
         kind: member_access_expression
         all:
-            - has: {field: name, matches: member}
-            - has: {field: expression, matches: languageext-atom-cell}
+            - has: { field: name, matches: member }
+            - has: { field: expression, matches: languageext-atom-cell }

@@ -6,4 +6,4 @@ rule:
         kind: arrow_expression_clause
         inside:
             kind: method_declaration, local_function_statement
-            has: {field: parameters, all: [{has: {kind: parameter, nthChild: 1}}, {not: {has: {kind: parameter, nthChild: 2}}}]}
+            has: { field: parameters, all: [{ has: { kind: parameter, nthChild: 1 } }, { not: { has: { kind: parameter, nthChild: 2 } } }] }

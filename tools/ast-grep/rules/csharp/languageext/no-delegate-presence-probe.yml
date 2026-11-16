@@ -7,19 +7,19 @@ utils:
         kind: argument
         has:
             any:
-                - {kind: identifier, regex: '^None$'}
-                - {kind: collection_expression, not: {has: {nthChild: 1}}}
+                - { kind: identifier, regex: '^None$' }
+                - { kind: collection_expression, not: { has: { nthChild: 1 } } }
                 - pattern: Edit.Cancel<$VALUE>()
 rule:
     kind: member_access_expression
     pattern: $PROBE
     all:
-        - has: {field: name, regex: '^IsSome$'}
+        - has: { field: name, regex: '^IsSome$' }
         - has:
-            field: expression
-            kind: invocation_expression
-            all:
-                - has: {field: function, any: [{kind: identifier}, {kind: member_access_expression}]}
-                - has: {field: arguments, kind: argument_list, all: [{has: {matches: sentinel}}, {not: {has: {kind: argument, nthChild: 2}}}]}
+              field: expression
+              kind: invocation_expression
+              all:
+                  - has: { field: function, any: [{ kind: identifier }, { kind: member_access_expression }] }
+                  - has: { field: arguments, kind: argument_list, all: [{ has: { matches: sentinel } }, { not: { has: { kind: argument, nthChild: 2 } } }] }
 message: '`$PROBE` probes a delegate with a sentinel input to learn its presence'
 note: 'Declare a presence-tested callback as an `Option<Func<…>>` init member and read its `IsSome`'

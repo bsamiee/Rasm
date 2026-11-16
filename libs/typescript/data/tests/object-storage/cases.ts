@@ -1,46 +1,50 @@
 import { assert, type Vitest } from '@effect/vitest';
 import { ObjectStorage } from '@rasm/object-storage';
-import { Array, ByteSize, Bytes, Context, Deferred, Duration, Effect, Fiber, Function, Layer, Option, Record, type Scope, Stream, Struct } from 'effect';
+import { Array, ByteSize, Bytes, Context, Deferred, Duration, Effect, Fiber, Function, Latch, Layer, Option, Record, type Scope, Stream, Struct } from 'effect';
 import { HttpServerRequest, HttpServerResponse, Multipart } from 'effect/http';
 import { isObjectNotFoundError } from 'partial-content';
 import { checkObjectStore, checkResumableWriteStore, formatConformanceReport, tallyConformance } from 'partial-content/conformance';
 import { isUploadNotFoundError } from 'partial-content/upload';
 
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+const part = ByteSize.toNumberUnsafe(ByteSize.fromStringUnsafe('5 MiB'));
+const chunk = ByteSize.toNumberUnsafe(ByteSize.fromStringUnsafe('1 MiB')) + 1;
+const media = { mime: 'video/mp4', options: { disposition: 'inline', securityHeaders: () => ({ 'X-Content-Type-Options': 'nosniff' }) } } as const;
+const code = { ok: 200, partial: 206, unchanged: 304, missing: 404, failed: 412, unsatisfiable: 416 };
+const timeout = { timeout: Duration.toMillis('1 minute') };
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const cases = <E, R>(it: Vitest.MethodsNonLive<R>, storage: Layer.Layer<ObjectStorage, E, R>) => {
-    const part = ByteSize.toNumberUnsafe(ByteSize.fromStringUnsafe('5 MiB'));
-    const chunk = ByteSize.toNumberUnsafe(ByteSize.fromStringUnsafe('1 MiB')) + 1;
-    const fill = (size: number, seed: number) => Uint8Array.from({ length: size }, (_, index) => (index + seed) * Math.SQRT2);
-    const content = fill(2 * part + chunk, 0);
-    const media = { mime: 'video/mp4', options: { disposition: 'inline', securityHeaders: () => ({ 'X-Content-Type-Options': 'nosniff' }) } } as const;
-    const code = { ok: 200, partial: 206, unchanged: 304, missing: 404, failed: 412, unsatisfiable: 416 };
-    const timeout = { timeout: Duration.toMillis('1 minute') };
-    const chunked = (bytes: Uint8Array) => Stream.fromIterable(Array.makeBy(Math.ceil(bytes.length / chunk), (index) => bytes.subarray(index * chunk, (index + 1) * chunk)));
-    const put = (key: string, size: number, body: Stream.Stream<Uint8Array, unknown>, started: (uploadToken: string) => Effect.Effect<unknown> = Function.constant(Effect.void)) =>
-        ObjectStorage.upload({ key, size: ByteSize.bytes(size) }).pipe(
-            Effect.tap(({ uploadToken }) => started(uploadToken)),
-            Effect.flatMap(({ write }) => write(body)),
-            Effect.scoped,
-        );
-    const read = Effect.fn('read')(function* (key: string, init: RequestInit = {}) {
-        const response = HttpServerResponse.toWeb(yield* ObjectStorage.serve({ key, mime: media.mime }, media.options).pipe(Effect.provideService(HttpServerRequest.HttpServerRequest, HttpServerRequest.fromWeb(new Request(`https://storage.test/${key}`, init)))));
-        return { status: response.status, headers: response.headers, body: yield* Effect.tryPromise(() => response.bytes()) };
-    });
-    const status = (key: string) => Effect.map(read(key), Struct.get('status'));
-    const objectBytes = Effect.fn('objectBytes')(
-        function* (key: string) {
-            const { objects } = yield* ObjectStorage;
-            const { body } = yield* Effect.tryPromise(() => objects.getObject(key));
-            return yield* Effect.tryPromise(() => new Response(body).bytes());
-        },
-        Effect.catchIf(
-            ({ cause }) => isObjectNotFoundError(cause),
-            () => Effect.undefined,
-        ),
+const fill = (size: number, seed: number) => Uint8Array.from({ length: size }, (_, index) => (index + seed) * Math.SQRT2);
+const content = fill(2 * part + chunk, 0);
+const chunked = (bytes: Uint8Array) => Stream.fromIterable(Array.makeBy(Math.ceil(bytes.length / chunk), (index) => bytes.subarray(index * chunk, (index + 1) * chunk)));
+const put = (key: string, size: number, body: Stream.Stream<Uint8Array, unknown>, started: (uploadToken: string) => Effect.Effect<unknown> = Function.constant(Effect.void)) =>
+    ObjectStorage.upload({ key, size: ByteSize.bytes(size) }).pipe(
+        Effect.tap(({ uploadToken }) => started(uploadToken)),
+        Effect.flatMap(({ write }) => write(body)),
+        Effect.scoped,
     );
+const read = Effect.fn('read')(function* (key: string, init: RequestInit = {}) {
+    const response = HttpServerResponse.toWeb(yield* ObjectStorage.serve({ key, mime: media.mime }, media.options).pipe(Effect.provideService(HttpServerRequest.HttpServerRequest, HttpServerRequest.fromWeb(new Request(`https://storage.test/${key}`, init)))));
+    return { status: response.status, headers: response.headers, body: yield* Effect.tryPromise(() => response.bytes()) };
+});
+const status = (key: string) => Effect.map(read(key), Struct.get('status'));
+const objectBytes = Effect.fn('objectBytes')(
+    function* (key: string) {
+        const { objects } = yield* ObjectStorage;
+        const { body } = yield* Effect.tryPromise(() => objects.getObject(key));
+        return yield* Effect.tryPromise(() => new Response(body).bytes());
+    },
+    Effect.catchIf(
+        ({ cause }) => isObjectNotFoundError(cause),
+        () => Effect.undefined,
+    ),
+);
+const discarded = (uploadToken: string) => ObjectStorage.use(({ uploads }) => Effect.tryPromise(() => uploads.getUploadState(uploadToken)).pipe(Effect.match({ onFailure: ({ cause }) => isUploadNotFoundError(cause), onSuccess: Function.constFalse })));
+
+const cases = <E, R>(it: Vitest.MethodsNonLive<R>, storage: Layer.Layer<ObjectStorage, E, R>) => {
     const reopened = Effect.map(Layer.build(Layer.fresh(storage)), (built) => Context.get(built, ObjectStorage).uploads);
-    const discarded = (uploadToken: string) => ObjectStorage.use(({ uploads }) => Effect.tryPromise(() => uploads.getUploadState(uploadToken)).pipe(Effect.match({ onFailure: ({ cause }) => isUploadNotFoundError(cause), onSuccess: Function.constFalse })));
     it.effect(
         'serves ranges across multipart boundaries, answers preconditions and sets the caller headers',
         Effect.fnUntraced(function* () {
@@ -76,7 +80,7 @@ const cases = <E, R>(it: Vitest.MethodsNonLive<R>, storage: Layer.Layer<ObjectSt
                 { concurrency: 'unbounded' },
             );
             assert.deepStrictEqual(
-                Record.map(requests, ([, , [start, end]], name) => [served[name].status, served[name].headers.get('content-range'), Bytes.Equivalence(served[name].body, content.subarray(start, end))]),
+                Record.map(requests, ({ 2: [start, end] }, name) => [served[name].status, served[name].headers.get('content-range'), Bytes.Equivalence(served[name].body, content.subarray(start, end))]),
                 Record.map(requests, ([, expected, , range]) => [expected, range, true]),
             );
             assert.deepStrictEqual(
@@ -96,11 +100,11 @@ const cases = <E, R>(it: Vitest.MethodsNonLive<R>, storage: Layer.Layer<ObjectSt
     it.effect(
         'aborts failed and interrupted uploads past a part and leaves no object or upload resource',
         Effect.fnUntraced(function* () {
-            const [failedToken, interruptedToken, stalled] = yield* Effect.all([Deferred.make<string>(), Deferred.make<string>(), Deferred.make<void>()]);
+            const [failedToken, interruptedToken, stalled] = yield* Effect.all([Deferred.make<string>(), Deferred.make<string>(), Latch.make()]);
             const prefix = chunked(content.subarray(0, part + 1));
             const failed = yield* Effect.flip(put('media/failed', content.length, Stream.concat(prefix, Stream.fail(Multipart.MultipartError.fromReason('Parse'))), (uploadToken) => Deferred.succeed(failedToken, uploadToken)));
-            const interrupted = yield* Effect.forkChild(put('media/interrupted', content.length, Stream.concat(Stream.onEnd(prefix, Deferred.succeed(stalled, undefined)), Stream.never), (uploadToken) => Deferred.succeed(interruptedToken, uploadToken)));
-            yield* Effect.andThen(Deferred.await(stalled), Fiber.interrupt(interrupted));
+            const interrupted = yield* Effect.forkChild(put('media/interrupted', content.length, Stream.concat(Stream.onEnd(prefix, stalled.open), Stream.never), (uploadToken) => Deferred.succeed(interruptedToken, uploadToken)));
+            yield* Effect.andThen(stalled.await, Fiber.interrupt(interrupted));
             const tokens = yield* Effect.all([Deferred.await(failedToken), Deferred.await(interruptedToken)]);
             assert.deepStrictEqual([failed.reason._tag, yield* Effect.forEach(tokens, discarded), yield* Effect.forEach(['media/failed', 'media/interrupted'], status)], ['Refused', [true, true], [code.missing, code.missing]]);
         }, Effect.provide(storage)),

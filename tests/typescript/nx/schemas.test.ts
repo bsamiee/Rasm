@@ -69,7 +69,7 @@ const implemented = (entry: Entry, projects: Record<string, ProjectConfiguration
 const optioned = (entry: Entry, projects: Record<string, ProjectConfiguration>) => {
     const { $schema: _, version, type, ...options }: Record<string, unknown> = informed(entry, projects).schema;
     new Ajv({ strict: false }).compile({ type, ...options });
-    return assert.deepStrictEqual({ type, version }, { type: 'object', version: { executors: VERSION, generators: version }[entry.kind] });
+    assert.deepStrictEqual({ type, version }, { type: 'object', version: { executors: VERSION, generators: version }[entry.kind] });
 };
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

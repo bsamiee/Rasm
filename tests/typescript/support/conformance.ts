@@ -216,9 +216,9 @@ const conforms = <R, M extends Member>({ workspace, members, built, report, tool
                     pairs(stated),
                     `${report}; nrwl/nx e2e/dotnet/src/dotnet.test.ts "should detect project dependencies"; e2e/dotnet/src/dotnet-dependency-graph.test.ts "should only show direct dependencies, not transitive ones"`,
                 );
-                const holders = stated.filter(({ root, manifest }) => manifest.startsWith(`${root}/`)).map(({ name }) => name);
+                const holders = new Set(stated.filter(({ root, manifest }) => manifest.startsWith(`${root}/`)).map(({ name }) => name));
                 assert.deepStrictEqual(
-                    edges.filter(({ source, type }) => (type === 'static') !== holders.includes(source)).map(({ source, target, type }) => `${source} -> ${target} ${type}`),
+                    edges.filter(({ source, type }) => (type === 'static') !== holders.has(source)).map(({ source, target, type }) => `${source} -> ${target} ${type}`),
                     [],
                     'nrwl/nx packages/gradle/src/plugin/dependencies.spec.ts "records an edge as static when the source project owns the build file", "records an ancestor-configured project as implicit, since Nx rejects a sourceFile outside the source project"',
                 );

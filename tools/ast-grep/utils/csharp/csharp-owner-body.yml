@@ -6,9 +6,9 @@ rule:
     inside:
         stopBy: end
         kind: method_declaration
-        has: {field: name, matches: member}
+        has: { field: name, matches: member }
         inside:
             kind: declaration_list
             inside:
                 kind: class_declaration, record_declaration, struct_declaration
-                has: {field: name, matches: type}
+                has: { field: name, matches: type }

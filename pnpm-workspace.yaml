@@ -15,7 +15,6 @@ minimumReleaseAge: 0
 # --- [CATALOG] --------------------------------------------------------------------------
 
 catalog:
-
     # --- [CORE]
 
     effect: 4.1.4
@@ -328,10 +327,10 @@ catalog:
     '@deck.gl/mapbox': 9.4.1
     '@deck.gl/mesh-layers': 9.4.1
     '@deck.gl/extensions': 9.4.1
-    '@loaders.gl/3d-tiles': "5.0.0-alpha.12"
-    '@loaders.gl/core': "5.0.0-beta.6"
-    '@loaders.gl/las': "5.0.0-alpha.14"
-    '@loaders.gl/wkt': "5.0.0-alpha.14" # WKB and EWKB geometry values PostGIS returns, read and written
+    '@loaders.gl/3d-tiles': '5.0.0-alpha.12'
+    '@loaders.gl/core': '5.0.0-beta.6'
+    '@loaders.gl/las': '5.0.0-alpha.14'
+    '@loaders.gl/wkt': '5.0.0-alpha.14' # WKB and EWKB geometry values PostGIS returns, read and written
     '@geoarrow/deck.gl-geoarrow': 0.4.2
     '@turf/turf': 7.4.0
     '@types/geojson': 7946.0.16
@@ -431,31 +430,31 @@ catalog:
 
     # --- [INFRASTRUCTURE]
 
-    '@pulumi/pulumi': "3.277.0-alpha.xba20e30"
-    '@pulumi/kubernetes': "4.35.0-alpha.1794380153"
-    '@pulumi/aws': "7.55.0-alpha.1794552106"
-    '@pulumi/awsx': "3.14.0-alpha.1794550163"
+    '@pulumi/pulumi': '3.277.0-alpha.xba20e30'
+    '@pulumi/kubernetes': '4.35.0-alpha.1794380153'
+    '@pulumi/aws': '7.55.0-alpha.1794552106'
+    '@pulumi/awsx': '3.14.0-alpha.1794550163'
     '@pulumi/gcp': 10.3.0
-    '@pulumi/postgresql': "3.19.0-alpha.1794552961"
-    '@pulumi/tls': "5.7.0-alpha.1794554477"
-    '@pulumi/random': "4.22.0-alpha.1794553339"
-    '@pulumi/docker': "5.4.0-alpha.1794549571"
-    '@pulumi/docker-build': "0.1.0-alpha.1794549978"
-    '@pulumi/minio': "1.0.0-alpha.1789107308"
-    '@pulumi/policy': "1.22.0-alpha.1787747072"
-    '@pulumi/github': "6.16.0-alpha.1794550154"
+    '@pulumi/postgresql': '3.19.0-alpha.1794552961'
+    '@pulumi/tls': '5.7.0-alpha.1794554477'
+    '@pulumi/random': '4.22.0-alpha.1794553339'
+    '@pulumi/docker': '5.4.0-alpha.1794549571'
+    '@pulumi/docker-build': '0.1.0-alpha.1794549978'
+    '@pulumi/minio': '1.0.0-alpha.1789107308'
+    '@pulumi/policy': '1.22.0-alpha.1787747072'
+    '@pulumi/github': '6.16.0-alpha.1794550154'
     '@pulumi/synced-folder': 0.13.0
     '@pulumi/esc-sdk': 0.14.0
-    '@pulumi/pulumiservice': "1.8.0-alpha.1794523008"
-    '@pulumiverse/acme': "0.20.0-alpha.1794232718"
-    '@pulumi/cloudflare': "6.25.0-alpha.1794552096"
-    '@pulumi/command': "1.4.0-alpha.1794375652"
-    '@pulumi/tailscale': "1.0.0-alpha.1794554155"
-    '@pulumiverse/doppler': "0.9.0" # Newest published Doppler SDK, `@dopplerhq/pulumi-doppler` replaces it once on npm
+    '@pulumi/pulumiservice': '1.8.0-alpha.1794523008'
+    '@pulumiverse/acme': '0.20.0-alpha.1794232718'
+    '@pulumi/cloudflare': '6.25.0-alpha.1794552096'
+    '@pulumi/command': '1.4.0-alpha.1794375652'
+    '@pulumi/tailscale': '1.0.0-alpha.1794554155'
+    '@pulumiverse/doppler': '0.9.0' # Newest published Doppler SDK, `@dopplerhq/pulumi-doppler` replaces it once on npm
     '@pulumiverse/grafana': 2.45.0
     '@grafana/grafana-foundation-sdk': 0.0.22
-    '@pulumi/eks': "4.7.0-alpha.1794553920"
-    '@pulumi/cloudinit': "1.7.0-alpha.1794548170"
+    '@pulumi/eks': '4.7.0-alpha.1794553920'
+    '@pulumi/cloudinit': '1.7.0-alpha.1794548170'
 
     # --- [COMPILERS]
 
@@ -468,13 +467,13 @@ catalog:
 
     # --- [NX]
 
-    nx: 24.1.0-beta.0
-    '@nx/devkit': 24.1.0-beta.0
-    '@nx/js': 24.1.0-beta.0 # tsconfig `extends` chains the config-reading plugins hash
-    '@nx/web': 24.1.0-beta.0 # `file-server` executor serving a built Storybook
-    '@nx/vite': 24.1.0-beta.0 # `nxReadySignal` Vite plugin a served config holds
-    '@nx/plugin': 24.1.0-beta.0 # Generators and checks for plugins, executors, generators, and migrations
-    '@nx/workspace': 24.1.0-beta.0 # `move`, `remove`, and `infer-targets` generators
+    nx: 24.1.0-beta.1
+    '@nx/devkit': 24.1.0-beta.1
+    '@nx/js': 24.1.0-beta.1 # tsconfig `extends` chains the config-reading plugins hash
+    '@nx/web': 24.1.0-beta.1 # `file-server` executor serving a built Storybook
+    '@nx/vite': 24.1.0-beta.1 # `nxReadySignal` Vite plugin a served config holds
+    '@nx/plugin': 24.1.0-beta.1 # Generators and checks for plugins, executors, generators, and migrations
+    '@nx/workspace': 24.1.0-beta.1 # `move`, `remove`, and `infer-targets` generators
     nx-mcp: 0.25.3 # Nx MCP server answering workspace, project, and task questions for agents
 
     # --- [BUILD]
@@ -517,7 +516,9 @@ catalog:
 
     # --- [LINTING]
 
-    '@biomejs/biome': 2.6.6
+    oxlint: 1.93.0
+    oxlint-tsgolint: 7.0.2007 # Type-aware oxlint rules over the native TypeScript program
+    oxfmt: 0.78.0
     publint: 0.3.25 # Published package layout checked over the tarball its package manager packs
     knip: 6.45.0 # Unused files, internal exports, and dependencies per package, catalog rows never reported
     refa: 0.12.1 # Regular expression character classes the ast-grep catalogs compare
@@ -582,7 +583,6 @@ catalog:
     ajv: 8.20.0 # JSON Schema validation of resolved Nx project configuration against Nx's own schema
 
 catalogs:
-
     # --- [PEERS]
 
     peers:

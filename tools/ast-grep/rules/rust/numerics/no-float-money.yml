@@ -5,23 +5,23 @@ utils:
     money-name:
         regex: '(?i)^account_balances?$|(^|_)(prices?|subtotals?|tax(es)?|fees?|payments?|refunds?|discounts?|revenues?|salar(y|ies)|wages?|money|amount_(usd|eur|gbp|jpy|chf|cad|aud)|\p{XID_Continue}+_(usd|eur|gbp|jpy|chf|cad|aud|dollars|euros))$'
     float-type:
-        any: [{matches: rust-float-type}, {has: {stopBy: end, matches: rust-float-type}}]
+        any: [{ matches: rust-float-type }, { has: { stopBy: end, matches: rust-float-type } }]
 rule:
     all:
         - any:
-            - kind: 'const_item, static_item, field_declaration, parameter, let_declaration'
-              all:
-                - any: [{has: {field: name, matches: money-name}}, {has: {field: pattern, kind: identifier, matches: money-name}}]
-                - has: {field: type, matches: float-type}
-                - not: {inside: {kind: parameters, inside: {matches: rust-trait-impl-or-extern-function}}}
-            - kind: identifier
-              matches: money-name
-              inside:
-                kind: function_item
-                field: name
+              - kind: 'const_item, static_item, field_declaration, parameter, let_declaration'
                 all:
-                    - has: {field: return_type, matches: float-type}
-                    - not: {matches: rust-trait-impl-or-extern-function}
+                    - any: [{ has: { field: name, matches: money-name } }, { has: { field: pattern, kind: identifier, matches: money-name } }]
+                    - has: { field: type, matches: float-type }
+                    - not: { inside: { kind: parameters, inside: { matches: rust-trait-impl-or-extern-function } } }
+              - kind: identifier
+                matches: money-name
+                inside:
+                    kind: function_item
+                    field: name
+                    all:
+                        - has: { field: return_type, matches: float-type }
+                        - not: { matches: rust-trait-impl-or-extern-function }
         - pattern: $DECLARATION
 message: '`$DECLARATION` holds money as a binary float'
 note: 'Type the amount as `rust_decimal::Decimal` and round through `round_dp_with_strategy(<places>, RoundingStrategy::<strategy>)`'

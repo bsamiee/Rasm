@@ -3,14 +3,17 @@
     "version": "0.1.0",
     "private": true,
     "description": "InDesign object model for UXP plugins: specifiers, values, find/change kinds, and extents, the Model reading the running host's dictionary, and typesetting settings over it",
+    "license": "MIT",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/bsamiee/Rasm.git",
         "directory": "libs/typescript/creative-cloud/indesign"
     },
-    "license": "MIT",
-    "sideEffects": false,
+    "files": [
+        "dist"
+    ],
     "type": "module",
+    "sideEffects": false,
     "imports": {
         "#/*": "./*.ts"
     },
@@ -18,7 +21,16 @@
         ".": "./index.ts",
         "./uxp": "./uxp/index.ts"
     },
-    "files": [ "dist" ],
+    "publishConfig": {
+        "imports": {
+            "#/*": "./dist/*.js"
+        },
+        "exports": {
+            ".": "./dist/index.js",
+            "./uxp": "./dist/uxp/index.js"
+        },
+        "access": "public"
+    },
     "dependencies": {
         "@rasm/automation": "workspace:*",
         "@rasm/search": "workspace:*",
@@ -33,15 +45,5 @@
     },
     "peerDependencies": {
         "effect": "catalog:peers"
-    },
-    "publishConfig": {
-        "access": "public",
-        "exports": {
-            ".": "./dist/index.js",
-            "./uxp": "./dist/uxp/index.js"
-        },
-        "imports": {
-            "#/*": "./dist/*.js"
-        }
     }
 }

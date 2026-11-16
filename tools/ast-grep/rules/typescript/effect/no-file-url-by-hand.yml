@@ -4,30 +4,30 @@ severity: error
 utils:
     pathname:
         kind: member_expression
-        has: {field: property, regex: '^pathname$'}
+        has: { field: property, regex: '^pathname$' }
 rule:
     pattern: $URL
     any:
         - kind: template_string
           all:
-            - has: {kind: string_fragment, nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, regex: '^file:/*$'}
-            - has: {kind: template_substitution, nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}
+              - has: { kind: string_fragment, nthChild: { position: 1, ofRule: { not: { kind: 'comment, html_comment' } } }, regex: '^file:/*$' }
+              - has: { kind: template_substitution, nthChild: { position: 2, ofRule: { not: { kind: 'comment, html_comment' } } } }
         - kind: binary_expression
           all:
-            - has: {field: operator, regex: '^\+$'}
-            - has: {field: left, kind: string, regex: '^.file:/*.$'}
+              - has: { field: operator, regex: '^\+$' }
+              - has: { field: left, kind: string, regex: '^.file:/*.$' }
         - kind: call_expression
           all:
-            - has: {field: function, pattern: decodeURIComponent}
-            - has:
-                field: arguments
-                has:
-                    nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}
-                    any:
-                        - matches: pathname
-                        - kind: call_expression
-                          has: {field: function, kind: member_expression, has: {field: object, matches: pathname}}
-            - has: {field: function, matches: typescript-global-reference}
-            - inside: {kind: program, stopBy: end, matches: {typescript-module-importer: {module: {regex: '^(adobe:)?(indesign|photoshop|premierepro|uxp)$'}}}}
+              - has: { field: function, pattern: decodeURIComponent }
+              - has:
+                    field: arguments
+                    has:
+                        nthChild: { position: 1, ofRule: { not: { kind: 'comment, html_comment' } } }
+                        any:
+                            - matches: pathname
+                            - kind: call_expression
+                              has: { field: function, kind: member_expression, has: { field: object, matches: pathname } }
+              - has: { field: function, matches: typescript-global-reference }
+              - inside: { kind: program, stopBy: end, matches: { typescript-module-importer: { module: { regex: '^(adobe:)?(indesign|photoshop|premierepro|uxp)$' } } } }
 message: '`$URL` converts between a file path and a file URL by hand'
 note: 'Yield `path.toFileUrl(<path>)` or `path.fromFileUrl(<url>)` from the `Path.Path` service'

@@ -6,53 +6,53 @@ utils:
         kind: statements
         all:
             - not:
-                has:
-                    all:
-                        - &result-statement {pattern: $_, not: {kind: 'comment, multiline_comment'}}
-                        - follows: {stopBy: end, all: [*result-statement]}
-            - has: {all: [*result-statement, {matches: result-construction}]}
+                  has:
+                      all:
+                          - &result-statement { pattern: $_, not: { kind: 'comment, multiline_comment' } }
+                          - follows: { stopBy: end, all: [*result-statement] }
+            - has: { all: [*result-statement, { matches: result-construction }] }
     result-construction:
         any:
             - matches: swift-success-call
             - matches: swift-failure-call
             - kind: ternary_expression
               all:
-                - has: {field: if_true, matches: result-construction}
-                - has: {field: if_false, matches: result-construction}
+                  - has: { field: if_true, matches: result-construction }
+                  - has: { field: if_false, matches: result-construction }
             - kind: switch_statement
               all:
-                - has: {kind: switch_entry}
-                - not: {has: {kind: switch_entry, not: {has: {kind: statements, matches: result-branch}}}}
+                  - has: { kind: switch_entry }
+                  - not: { has: { kind: switch_entry, not: { has: { kind: statements, matches: result-branch } } } }
             - kind: if_statement
               all:
-                - has: {regex: '^else$'}
-                - not: {has: {kind: statements, not: {matches: result-branch}}}
-                - not: {has: {kind: if_statement, not: {matches: result-construction}}}
+                  - has: { regex: '^else$' }
+                  - not: { has: { kind: statements, not: { matches: result-branch } } }
+                  - not: { has: { kind: if_statement, not: { matches: result-construction } } }
     lifted-body:
         matches: swift-sole-statement
-        has: {any: [{matches: result-construction}, {kind: control_transfer_statement, has: {field: result, matches: result-construction}}]}
+        has: { any: [{ matches: result-construction }, { kind: control_transfer_statement, has: { field: result, matches: result-construction } }] }
     callback:
         kind: lambda_literal
-        has: {matches: lifted-body}
+        has: { matches: lifted-body }
     lifting-call:
         kind: call_expression
         all:
-            - has: {nthChild: 1, kind: navigation_expression, all: [{has: {field: suffix, has: {field: suffix, pattern: $METHOD, regex: '^flatMap(Error)?$'}}}, {has: {field: target, matches: swift-result-value}}]}
+            - has: { nthChild: 1, kind: navigation_expression, all: [{ has: { field: suffix, has: { field: suffix, pattern: $METHOD, regex: '^flatMap(Error)?$' } } }, { has: { field: target, matches: swift-result-value } }] }
             - has:
-                kind: call_suffix
-                any:
-                    - all: [{has: {matches: callback}}, {not: {has: {kind: value_arguments}}}]
-                    - has: {kind: value_arguments, not: {has: {nthChild: {position: 2, ofRule: {kind: value_argument}}}}, has: {kind: value_argument, not: {has: {kind: value_argument_label}}, has: {field: value, matches: callback}}}
+                  kind: call_suffix
+                  any:
+                      - all: [{ has: { matches: callback } }, { not: { has: { kind: value_arguments } } }]
+                      - has: { kind: value_arguments, not: { has: { nthChild: { position: 2, ofRule: { kind: value_argument } } } }, has: { kind: value_argument, not: { has: { kind: value_argument_label } }, has: { field: value, matches: callback } } }
 rule:
     matches: lifting-call
     any:
         - all:
-            - has: {kind: navigation_expression, has: {field: suffix, has: {field: suffix, regex: '^flatMap$'}}}
-            - has: {kind: call_suffix, has: {stopBy: end, matches: lifted-body, has: {stopBy: {kind: lambda_literal}, matches: swift-success-call, pattern: $LIFTED}}}
-            - not: {has: {kind: call_suffix, has: {stopBy: end, matches: lifted-body, has: {stopBy: {kind: lambda_literal}, matches: swift-failure-call}}}}
+              - has: { kind: navigation_expression, has: { field: suffix, has: { field: suffix, regex: '^flatMap$' } } }
+              - has: { kind: call_suffix, has: { stopBy: end, matches: lifted-body, has: { stopBy: { kind: lambda_literal }, matches: swift-success-call, pattern: $LIFTED } } }
+              - not: { has: { kind: call_suffix, has: { stopBy: end, matches: lifted-body, has: { stopBy: { kind: lambda_literal }, matches: swift-failure-call } } } }
         - all:
-            - has: {kind: navigation_expression, has: {field: suffix, has: {field: suffix, regex: '^flatMapError$'}}}
-            - has: {kind: call_suffix, has: {stopBy: end, matches: lifted-body, has: {stopBy: {kind: lambda_literal}, matches: swift-failure-call, pattern: $LIFTED}}}
-            - not: {has: {kind: call_suffix, has: {stopBy: end, matches: lifted-body, has: {stopBy: {kind: lambda_literal}, matches: swift-success-call}}}}
+              - has: { kind: navigation_expression, has: { field: suffix, has: { field: suffix, regex: '^flatMapError$' } } }
+              - has: { kind: call_suffix, has: { stopBy: end, matches: lifted-body, has: { stopBy: { kind: lambda_literal }, matches: swift-failure-call, pattern: $LIFTED } } }
+              - not: { has: { kind: call_suffix, has: { stopBy: end, matches: lifted-body, has: { stopBy: { kind: lambda_literal }, matches: swift-success-call } } } }
 message: '`$METHOD` callback wraps its value back into a `Result` through `$LIFTED`'
 note: 'Call `map` for `flatMap` or `mapError` for `flatMapError` returning the unwrapped value, and pass a sole wrapper as a function (`map(<Type>.init)`)'

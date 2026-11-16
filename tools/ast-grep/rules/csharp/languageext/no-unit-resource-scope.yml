@@ -8,15 +8,15 @@ rule:
         field: function
         kind: member_access_expression
         all:
-            - has: {field: name, regex: '^Bracket(Fail|IO)?$', pattern: {context: 'class $SCOPE;', selector: identifier}}
+            - has: { field: name, regex: '^Bracket(Fail|IO)?$', pattern: { context: 'class $SCOPE;', selector: identifier } }
             - has:
-                field: expression
-                any:
-                    - kind: identifier
-                      regex: '^(unit|unitIO)$'
-                    - kind: invocation_expression
-                      all:
-                        - has: {field: function, any: [{matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^pure$'}}}}, {kind: identifier, regex: '^Pure$'}]}
-                        - has: {field: arguments, has: {kind: argument, has: {kind: identifier, regex: '^unit$'}}, not: {has: {kind: argument, nthChild: 2}}}
+                  field: expression
+                  any:
+                      - kind: identifier
+                        regex: '^(unit|unitIO)$'
+                      - kind: invocation_expression
+                        all:
+                            - has: { field: function, any: [{ matches: { csharp-owner-member: { type: { regex: '^IO$' }, member: { regex: '^pure$' } } } }, { kind: identifier, regex: '^Pure$' }] }
+                            - has: { field: arguments, has: { kind: argument, has: { kind: identifier, regex: '^unit$' } }, not: { has: { kind: argument, nthChild: 2 } } }
 message: '`$SCOPE` acquires `unit` to run a release after its body'
 note: 'Write `<body>.Finally(<release>)`'

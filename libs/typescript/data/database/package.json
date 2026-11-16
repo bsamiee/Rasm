@@ -3,14 +3,17 @@
     "version": "0.1.0",
     "private": true,
     "description": "Databases reconciled to their declared schemas",
+    "license": "MIT",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/bsamiee/Rasm.git",
         "directory": "libs/typescript/data/database"
     },
-    "license": "MIT",
-    "sideEffects": false,
+    "files": [
+        "dist"
+    ],
     "type": "module",
+    "sideEffects": false,
     "imports": {
         "#/*": "./*.ts"
     },
@@ -22,7 +25,20 @@
         "./pg": "./pg.ts",
         "./sqlite": "./sqlite.ts"
     },
-    "files": [ "dist" ],
+    "publishConfig": {
+        "imports": {
+            "#/*": "./dist/*.js"
+        },
+        "exports": {
+            ".": "./dist/index.js",
+            "./clickhouse": "./dist/clickhouse.js",
+            "./d1": "./dist/d1.js",
+            "./hyperdrive": "./dist/hyperdrive.js",
+            "./pg": "./dist/pg.js",
+            "./sqlite": "./dist/sqlite.js"
+        },
+        "access": "public"
+    },
     "dependencies": {
         "@pgsql/traverse": "catalog:",
         "@pgsql/types": "catalog:",
@@ -50,20 +66,6 @@
         },
         "@effect/sql-pg": {
             "optional": true
-        }
-    },
-    "publishConfig": {
-        "access": "public",
-        "exports": {
-            ".": "./dist/index.js",
-            "./clickhouse": "./dist/clickhouse.js",
-            "./d1": "./dist/d1.js",
-            "./hyperdrive": "./dist/hyperdrive.js",
-            "./pg": "./dist/pg.js",
-            "./sqlite": "./dist/sqlite.js"
-        },
-        "imports": {
-            "#/*": "./dist/*.js"
         }
     }
 }

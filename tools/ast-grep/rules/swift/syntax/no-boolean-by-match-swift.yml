@@ -10,68 +10,68 @@ utils:
                         - kind: boolean_literal
                         - kind: control_transfer_statement
                           regex: '^return(?-u:\b)'
-                          has: {field: result, kind: boolean_literal}
+                          has: { field: result, kind: boolean_literal }
     literal-entry:
         kind: switch_entry
         all:
-            - not: {has: {kind: where_keyword}}
-            - has: {kind: statements, matches: literal-body}
+            - not: { has: { kind: where_keyword } }
+            - has: { kind: statements, matches: literal-body }
     single-pattern:
         kind: switch_entry
         all:
-            - has: {kind: switch_pattern}
-            - not: {has: {kind: switch_pattern, nthChild: {position: 2, ofRule: {kind: switch_pattern}}}}
+            - has: { kind: switch_pattern }
+            - not: { has: { kind: switch_pattern, nthChild: { position: 2, ofRule: { kind: switch_pattern } } } }
     second-entry:
         kind: switch_entry
-        nthChild: {position: 2, ofRule: {kind: switch_entry}}
+        nthChild: { position: 2, ofRule: { kind: switch_entry } }
     two-entries:
         kind: switch_statement
         all:
-            - has: {field: expr, pattern: $_}
-            - not: {has: {kind: switch_entry, nthChild: {position: 3, ofRule: {kind: switch_entry}}}}
+            - has: { field: expr, pattern: $_ }
+            - not: { has: { kind: switch_entry, nthChild: { position: 3, ofRule: { kind: switch_entry } } } }
     boolean-switch:
         matches: two-entries
         all:
-            - has: {all: [{matches: swift-first-switch-case}, {matches: literal-entry}]}
-            - has: {all: [{matches: second-entry}, {matches: literal-entry}]}
+            - has: { all: [{ matches: swift-first-switch-case }, { matches: literal-entry }] }
+            - has: { all: [{ matches: second-entry }, { matches: literal-entry }] }
 rule:
     all:
         - any:
-            - kind: if_statement
-              matches: {swift-boolean-match: {matched: {pattern: $IN}, other: {pattern: $OUT}}}
-            - kind: guard_statement
-              matches: {swift-boolean-match: {matched: {pattern: $IN}, other: {pattern: $OUT}}}
-            - matches: boolean-switch
-              all:
-                - has:
-                    all: [{matches: swift-first-switch-case}, {matches: single-pattern}]
-                    has: {kind: statements, has: {kind: boolean_literal, pattern: $IN, stopBy: end}}
-                - has:
-                    matches: second-entry
-                    has: {kind: statements, has: {kind: boolean_literal, pattern: $OUT, stopBy: end, not: {pattern: $IN}}}
-            - matches: boolean-switch
-              all:
-                - has:
-                    matches: swift-first-switch-case
-                    not: {matches: single-pattern}
-                    has: {kind: statements, has: {kind: boolean_literal, pattern: $OUT, stopBy: end}}
-                - has:
-                    all: [{matches: second-entry}, {matches: single-pattern}]
-                    has: {kind: statements, has: {kind: boolean_literal, pattern: $IN, stopBy: end, not: {pattern: $OUT}}}
+              - kind: if_statement
+                matches: { swift-boolean-match: { matched: { pattern: $IN }, other: { pattern: $OUT } } }
+              - kind: guard_statement
+                matches: { swift-boolean-match: { matched: { pattern: $IN }, other: { pattern: $OUT } } }
+              - matches: boolean-switch
+                all:
+                    - has:
+                          all: [{ matches: swift-first-switch-case }, { matches: single-pattern }]
+                          has: { kind: statements, has: { kind: boolean_literal, pattern: $IN, stopBy: end } }
+                    - has:
+                          matches: second-entry
+                          has: { kind: statements, has: { kind: boolean_literal, pattern: $OUT, stopBy: end, not: { pattern: $IN } } }
+              - matches: boolean-switch
+                all:
+                    - has:
+                          matches: swift-first-switch-case
+                          not: { matches: single-pattern }
+                          has: { kind: statements, has: { kind: boolean_literal, pattern: $OUT, stopBy: end } }
+                    - has:
+                          all: [{ matches: second-entry }, { matches: single-pattern }]
+                          has: { kind: statements, has: { kind: boolean_literal, pattern: $IN, stopBy: end, not: { pattern: $OUT } } }
         - any:
-            - all:
-                - any:
-                    - kind: 'if_statement, guard_statement'
-                    - has: {kind: switch_entry, has: {kind: statements, has: {kind: control_transfer_statement}}}
-                - inside: {stopBy: {matches: swift-function-scope}, kind: function_declaration, has: {field: return_type, regex: '^(Swift(\.|::))?Bool$'}}
-            - inside:
-                matches: swift-sole-statement
-                inside: {kind: function_body, inside: {kind: function_declaration, has: {field: return_type, regex: '^(Swift(\.|::))?Bool$'}}}
-            - inside: {kind: control_transfer_statement, field: result, inside: {stopBy: {matches: swift-function-scope}, kind: function_declaration, has: {field: return_type, regex: '^(Swift(\.|::))?Bool$'}}}
-            - {follows: {regex: '^=$'}, inside: {kind: property_declaration, has: {kind: type_annotation, has: {field: name, regex: '^(Swift(\.|::))?Bool$'}}}}
-            - inside:
-                kind: computed_property
-                stopBy: {matches: swift-function-scope}
-                inside: {kind: property_declaration, has: {kind: type_annotation, has: {field: name, regex: '^(Swift(\.|::))?Bool$'}}}
+              - all:
+                    - any:
+                          - kind: 'if_statement, guard_statement'
+                          - has: { kind: switch_entry, has: { kind: statements, has: { kind: control_transfer_statement } } }
+                    - inside: { stopBy: { matches: swift-function-scope }, kind: function_declaration, has: { field: return_type, regex: '^(Swift(\.|::))?Bool$' } }
+              - inside:
+                    matches: swift-sole-statement
+                    inside: { kind: function_body, inside: { kind: function_declaration, has: { field: return_type, regex: '^(Swift(\.|::))?Bool$' } } }
+              - inside: { kind: control_transfer_statement, field: result, inside: { stopBy: { matches: swift-function-scope }, kind: function_declaration, has: { field: return_type, regex: '^(Swift(\.|::))?Bool$' } } }
+              - { follows: { regex: '^=$' }, inside: { kind: property_declaration, has: { kind: type_annotation, has: { field: name, regex: '^(Swift(\.|::))?Bool$' } } } }
+              - inside:
+                    kind: computed_property
+                    stopBy: { matches: swift-function-scope }
+                    inside: { kind: property_declaration, has: { kind: type_annotation, has: { field: name, regex: '^(Swift(\.|::))?Bool$' } } }
 message: 'Match yields `$IN` for one pattern and `$OUT` for every other'
 note: 'Write `if case <pattern> = <value> { <matched> } else { <other> }`, or `<value> == <case>` for an `Equatable` type'

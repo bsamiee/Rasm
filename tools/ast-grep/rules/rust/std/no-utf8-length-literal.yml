@@ -4,58 +4,58 @@ severity: error
 utils:
     utf8-call:
         kind: call_expression
-        has: {field: function, kind: field_expression, has: {field: field, regex: '^encode_utf8$'}}
+        has: { field: function, kind: field_expression, has: { field: field, regex: '^encode_utf8$' } }
     utf16-call:
         kind: call_expression
-        has: {field: function, kind: field_expression, has: {field: field, regex: '^encode_utf16$'}}
+        has: { field: function, kind: field_expression, has: { field: field, regex: '^encode_utf16$' } }
     inline-utf8:
-        inside: {kind: reference_expression, inside: {kind: arguments, inside: {matches: utf8-call}}}
+        inside: { kind: reference_expression, inside: { kind: arguments, inside: { matches: utf8-call } } }
     inline-utf16:
-        inside: {kind: reference_expression, inside: {kind: arguments, inside: {matches: utf16-call}}}
+        inside: { kind: reference_expression, inside: { kind: arguments, inside: { matches: utf16-call } } }
     shadowed-buffer:
         follows:
             stopBy: end
             kind: let_declaration
             all:
-                - has: {field: pattern, pattern: $BUF}
-                - follows: {stopBy: end, pattern: $BINDING}
+                - has: { field: pattern, pattern: $BUF }
+                - follows: { stopBy: end, pattern: $BINDING }
     bound-utf8:
         inside:
             kind: let_declaration
             pattern: $BINDING
-            has: {field: pattern, pattern: $BUF}
+            has: { field: pattern, pattern: $BUF }
             precedes:
                 stopBy: end
                 all:
-                    - has: {stopBy: end, matches: utf8-call, has: {field: arguments, has: {kind: reference_expression, has: {pattern: $BUF}}}}
-                    - not: {matches: shadowed-buffer}
+                    - has: { stopBy: end, matches: utf8-call, has: { field: arguments, has: { kind: reference_expression, has: { pattern: $BUF } } } }
+                    - not: { matches: shadowed-buffer }
     bound-utf16:
         inside:
             kind: let_declaration
             pattern: $BINDING
-            has: {field: pattern, pattern: $BUF}
+            has: { field: pattern, pattern: $BUF }
             precedes:
                 stopBy: end
                 all:
-                    - has: {stopBy: end, matches: utf16-call, has: {field: arguments, has: {kind: reference_expression, has: {pattern: $BUF}}}}
-                    - not: {matches: shadowed-buffer}
+                    - has: { stopBy: end, matches: utf16-call, has: { field: arguments, has: { kind: reference_expression, has: { pattern: $BUF } } } }
+                    - not: { matches: shadowed-buffer }
 rule:
     kind: integer_literal
     all:
         - any:
-            - all:
-                - regex: '^4(_?usize)?$'
-                - inside: {kind: array_expression, any: [{matches: inline-utf8}, {matches: bound-utf8}]}
-                - pattern: $UTF8
-            - all:
-                - regex: '^2(_?usize)?$'
-                - inside: {kind: array_expression, any: [{matches: inline-utf16}, {matches: bound-utf16}]}
-                - pattern: $UTF16
-        - inside: {kind: array_expression, field: length}
+              - all:
+                    - regex: '^4(_?usize)?$'
+                    - inside: { kind: array_expression, any: [{ matches: inline-utf8 }, { matches: bound-utf8 }] }
+                    - pattern: $UTF8
+              - all:
+                    - regex: '^2(_?usize)?$'
+                    - inside: { kind: array_expression, any: [{ matches: inline-utf16 }, { matches: bound-utf16 }] }
+                    - pattern: $UTF16
+        - inside: { kind: array_expression, field: length }
         - pattern: $LEN
 transform:
-    UTF8_OUT: {replace: {source: $UTF8, replace: '^[\p{Pattern_White_Space}\P{Pattern_White_Space}]+$', by: 'char::MAX_LEN_UTF8'}}
-    UTF16_OUT: {replace: {source: $UTF16, replace: '^[\p{Pattern_White_Space}\P{Pattern_White_Space}]+$', by: 'char::MAX_LEN_UTF16'}}
+    UTF8_OUT: { replace: { source: $UTF8, replace: '^[\p{Pattern_White_Space}\P{Pattern_White_Space}]+$', by: 'char::MAX_LEN_UTF8' } }
+    UTF16_OUT: { replace: { source: $UTF16, replace: '^[\p{Pattern_White_Space}\P{Pattern_White_Space}]+$', by: 'char::MAX_LEN_UTF16' } }
 fix: $UTF8_OUT$UTF16_OUT
 message: '`$LEN` restates the longest encoding of one `char`'
 note: 'Size an `encode_utf8` buffer by `char::MAX_LEN_UTF8` and an `encode_utf16` buffer by `char::MAX_LEN_UTF16`'

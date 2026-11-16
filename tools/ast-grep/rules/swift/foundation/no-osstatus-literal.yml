@@ -8,43 +8,43 @@ utils:
         any:
             - kind: 'integer_literal, hex_literal'
             - kind: prefix_expression
-              has: {field: target, kind: 'integer_literal, hex_literal'}
+              has: { field: target, kind: 'integer_literal, hex_literal' }
     status-binding:
         any:
             - kind: property_declaration
               all:
-                - has: {kind: pattern, has: {field: bound_identifier, pattern: $NAME}, precedes: {stopBy: {kind: pattern}, kind: type_annotation, has: {field: name, matches: status-type}}}
+                  - has: { kind: pattern, has: { field: bound_identifier, pattern: $NAME }, precedes: { stopBy: { kind: pattern }, kind: type_annotation, has: { field: name, matches: status-type } } }
             - kind: parameter
               all:
-                - has: {kind: simple_identifier, pattern: $NAME}
-                - has: {kind: user_type, matches: status-type}
+                  - has: { kind: simple_identifier, pattern: $NAME }
+                  - has: { kind: user_type, matches: status-type }
     status-value:
         kind: simple_identifier
         pattern: $NAME
         inside:
             stopBy: end
             kind: 'statements, function_declaration, init_declaration, lambda_literal'
-            has: {matches: status-binding}
+            has: { matches: status-binding }
 rule:
     pattern: $SITE
     any:
         - kind: property_declaration
           all:
-            - has: {kind: pattern, all: [{precedes: {stopBy: {kind: pattern}, kind: type_annotation, has: {field: name, matches: status-type}}}, {precedes: {stopBy: {kind: pattern}, follows: {regex: '^=$'}, matches: status-literal}}]}
+              - has: { kind: pattern, all: [{ precedes: { stopBy: { kind: pattern }, kind: type_annotation, has: { field: name, matches: status-type } } }, { precedes: { stopBy: { kind: pattern }, follows: { regex: '^=$' }, matches: status-literal } }] }
         - kind: call_expression
           all:
-            - has: {nthChild: 1, matches: status-type}
-            - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, not: {has: {field: name, kind: value_argument_label}}, has: {field: value, matches: status-literal}}}}
+              - has: { nthChild: 1, matches: status-type }
+              - has: { kind: call_suffix, has: { kind: value_arguments, has: { kind: value_argument, not: { has: { field: name, kind: value_argument_label } }, has: { field: value, matches: status-literal } } } }
         - kind: 'equality_expression, infix_expression'
           all:
-            - has: {field: op, regex: '^[!=]=$'}
-            - has: {matches: status-literal}
-            - has: {matches: status-value}
+              - has: { field: op, regex: '^[!=]=$' }
+              - has: { matches: status-literal }
+              - has: { matches: status-value }
         - kind: switch_statement
           all:
-            - has: {field: expr, matches: status-value}
-            - has: {kind: switch_entry, has: {kind: switch_pattern, has: {kind: pattern, has: {matches: status-literal}}}}
+              - has: { field: expr, matches: status-value }
+              - has: { kind: switch_entry, has: { kind: switch_pattern, has: { kind: pattern, has: { matches: status-literal } } } }
 transform:
-    HEAD: {replace: {source: $SITE, replace: '(?s)\n.*$', by: ''}}
+    HEAD: { replace: { source: $SITE, replace: '(?s)\n.*$', by: '' } }
 message: '`$HEAD` spells an SDK status code as an integer literal'
 note: 'Name the SDK constant (`noErr`, `errSecItemNotFound` from `Security`)'

@@ -5,42 +5,42 @@ utils:
     iteration:
         any:
             - kind: generator_expression
-              not: {has: {kind: for_in_clause, regex: '^async'}}
+              not: { has: { kind: for_in_clause, regex: '^async' } }
             - kind: call
               has:
-                field: function
-                any:
-                    - matches: {python-builtin-name: {name: {regex: '^(filter|map)$'}}}
-                    - kind: list_splat
-                      has: {matches: {python-builtin-name: {name: {regex: '^(filter|map)$'}}}}
+                  field: function
+                  any:
+                      - matches: { python-builtin-name: { name: { regex: '^(filter|map)$' } } }
+                      - kind: list_splat
+                        has: { matches: { python-builtin-name: { name: { regex: '^(filter|map)$' } } } }
     consumed:
         any:
             - kind: call
               all:
-                - has:
-                    field: function
-                    any:
-                        - matches: {python-builtin-name: {name: {regex: '^(frozenset|list|set|tuple)$'}}}
-                        - matches: {python-member-use: {module: {regex: '^collections$'}, name: {regex: '^deque$'}}}
-                - has:
-                    field: arguments
-                    any:
-                        - matches: iteration
-                        - kind: argument_list
-                          all:
-                            - has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: iteration, not: {has: {field: function, kind: list_splat}}}
-                            - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}, not: {kind: keyword_argument}}}
-                            - not: {has: {nthChild: {position: 3, ofRule: {not: {kind: comment}}}}}
+                  - has:
+                        field: function
+                        any:
+                            - matches: { python-builtin-name: { name: { regex: '^(frozenset|list|set|tuple)$' } } }
+                            - matches: { python-member-use: { module: { regex: '^collections$' }, name: { regex: '^deque$' } } }
+                  - has:
+                        field: arguments
+                        any:
+                            - matches: iteration
+                            - kind: argument_list
+                              all:
+                                  - has: { nthChild: { position: 1, ofRule: { not: { kind: comment } } }, matches: iteration, not: { has: { field: function, kind: list_splat } } }
+                                  - not: { has: { nthChild: { position: 2, ofRule: { not: { kind: comment } } }, not: { kind: keyword_argument } } }
+                                  - not: { has: { nthChild: { position: 3, ofRule: { not: { kind: comment } } } } }
             - kind: list, set, tuple
               all:
-                - has:
-                    nthChild: {position: 1, ofRule: {not: {kind: comment}}}
-                    any:
-                        - kind: list_splat
-                          has: {matches: iteration}
-                        - matches: iteration
-                          has: {field: function, kind: list_splat}
-                - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+                  - has:
+                        nthChild: { position: 1, ofRule: { not: { kind: comment } } }
+                        any:
+                            - kind: list_splat
+                              has: { matches: iteration }
+                            - matches: iteration
+                              has: { field: function, kind: list_splat }
+                  - not: { has: { nthChild: { position: 2, ofRule: { not: { kind: comment } } } } }
     dropped:
         any:
             - kind: conditional_expression, boolean_operator, list_comprehension, set_comprehension, dictionary_comprehension
@@ -48,12 +48,12 @@ utils:
     dropping-statement:
         kind: expression_statement
         any:
-            - has: {stopBy: {not: {kind: parenthesized_expression}}, matches: dropped}
+            - has: { stopBy: { not: { kind: parenthesized_expression } }, matches: dropped }
             - has:
-                kind: assignment
-                all:
-                    - has: {field: left, pattern: _}
-                    - has: {field: right, any: [{matches: dropped}, {kind: parenthesized_expression, has: {stopBy: {not: {kind: parenthesized_expression}}, matches: dropped}}]}
+                  kind: assignment
+                  all:
+                      - has: { field: left, pattern: _ }
+                      - has: { field: right, any: [{ matches: dropped }, { kind: parenthesized_expression, has: { stopBy: { not: { kind: parenthesized_expression } }, matches: dropped } }] }
 rule:
     matches: dropping-statement
 message: 'Expression statement discards the value of its selection or iteration'

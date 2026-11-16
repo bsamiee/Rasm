@@ -9,11 +9,11 @@ rule:
         kind: simple_identifier
         any:
             - inside:
-                kind: property_declaration
-                stopBy: end
-                has: {kind: type_annotation, has: {stopBy: end, kind: type_identifier, pattern: $LOCK}}
+                  kind: property_declaration
+                  stopBy: end
+                  has: { kind: type_annotation, has: { stopBy: end, kind: type_identifier, pattern: $LOCK } }
             - inside:
-                kind: call_expression
-                follows: {stopBy: {kind: parameter}, kind: parameter, has: {stopBy: end, kind: type_identifier, pattern: $LOCK}}
+                  kind: call_expression
+                  follows: { stopBy: { kind: parameter }, kind: parameter, has: { stopBy: end, kind: type_identifier, pattern: $LOCK } }
 message: '`$LOCK` guards state through a lock type'
 note: 'Hold shared state in an actor, and synchronous state in `Mutex<State>` from `Synchronization` with each access in one `withLock`'

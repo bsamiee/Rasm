@@ -3,4 +3,4 @@ id: swift-plain-string
 language: swiftlang
 rule:
     kind: line_string_literal
-    not: {has: {kind: interpolated_expression}}
+    not: { has: { kind: interpolated_expression } }

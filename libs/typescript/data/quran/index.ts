@@ -67,9 +67,9 @@ class Quran extends Schema.Class<Quran, { readonly brand: unique symbol }>('Qura
         Surah: { surah: Schema.String.annotate({ description: 'Surah name or number' }), ...Bounds.fields },
         Part: { part: Schema.Literals(PARTS).annotate({ description: 'Division the riwayah counts' }), number: Ordinal, ...Bounds.fields },
     }).annotate({ description: 'Ayahs of a surah or numbered division, within ayah bounds' });
+    static readonly #rows = <F extends Schema.Struct.Fields>(row: Schema.Struct<F>, text: string, headed: { readonly [K in keyof F]: string }) => Stream.make(text).pipe(Stream.pipeThroughChannel(Csv.decodeSchemaString(row.pipe(Schema.encodeKeys(headed)))({ headers: true, ignoreEmptyLines: true })), Stream.runCollect);
     static readonly decode = Effect.fn('Quran.decode')(function* (csv: { readonly ayahs: string; readonly surahs: string }, columns: typeof Quran.Columns.Type, riwayah: Option.Option<typeof Riwayah.Type> = Option.none(), tables: readonly SurahNames[] = NAMES) {
-        const rows = <F extends Schema.Struct.Fields>(row: Schema.Struct<F>, text: string, headed: { readonly [K in keyof F]: string }) => Stream.make(text).pipe(Stream.pipeThroughChannel(Csv.decodeSchemaString(row.pipe(Schema.encodeKeys(headed)))({ headers: true, ignoreEmptyLines: true })), Stream.runCollect);
-        const [ayahs, surahs] = yield* Effect.all([rows(AyahRow, csv.ayahs, columns.ayahs), rows(SurahRow, csv.surahs, columns.surahs)]);
+        const [ayahs, surahs] = yield* Effect.all([Quran.#rows(AyahRow, csv.ayahs, columns.ayahs), Quran.#rows(SurahRow, csv.surahs, columns.surahs)]);
         const ayahsBySurah = Map.groupBy(ayahs, Struct.get('surah'));
         const named = Array.dedupeWith(surahs, sameNumber);
         const numbers = named.map(Struct.get('number'));

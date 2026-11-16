@@ -2,8 +2,8 @@
     "extends": "../../../../../tsconfig.base.json",
     "compilerOptions": {
         "jsx": "react-jsx",
-        "lib": [ "esnext", "dom" ],
-        "types": [ "node", "vite/client" ],
+        "lib": ["esnext", "dom"],
+        "types": ["node", "vite/client"],
         "noEmit": true
     },
     "references": [

@@ -4,7 +4,7 @@ severity: error
 rule:
     all:
         - matches: swift-unstructured-task
-        - has: {nthChild: 1, pattern: $TASK}
-        - inside: {kind: defer_statement, stopBy: {kind: 'defer_statement, lambda_literal, function_declaration'}}
+        - has: { nthChild: 1, pattern: $TASK }
+        - inside: { kind: defer_statement, stopBy: { kind: 'defer_statement, lambda_literal, function_declaration' } }
 message: '`$TASK` in `defer` starts cleanup that outlives the scope it cleans up'
 note: 'Await cleanup in the `defer` body, inside `withTaskCancellationShield` when it must finish after cancellation'

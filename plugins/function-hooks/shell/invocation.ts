@@ -43,7 +43,7 @@ class Parser extends Context.Service<Parser>()('@rasm/function-hooks/shell/invoc
                 usages: Cache.makeWith(
                     (program: string) => {
                         const row = programs.get(program) ?? {};
-                        const [[primary] = [program]] = [...programs].filter(([, held]) => held === row);
+                        const [primary] = programs.entries().find(([, held]) => held === row) ?? [program];
                         return usageOf(program, row, primary);
                     },
                     { capacity: programs.size, ...KEEP_SUCCESSES },
@@ -69,17 +69,24 @@ const invocationOf = (command: Command, head: Word, args: readonly Word[], assig
     const { informational = [], readsUnless = [], code = [], shell = [] } = row;
     const inner = row.wraps === undefined && row.module === undefined ? [] : parsed.rest;
     const own = args.slice(0, args.length - inner.length);
-    const { until, when, roots: rooted = [] } = row.recursive ?? {};
-    const given = [
-        ...supplied(...rooted),
-        ...(until === undefined
-            ? inputs
-            : Array.takeWhile(
-                  Array.dropWhile(own, ({ text }) => LEADING_OPTION.test(text)),
-                  ({ text }) => !until.some((prefix) => text.startsWith(prefix)),
-              )),
-    ];
-    const roots = row.recursive === undefined || (when !== undefined && !has(...when)) ? [] : [...given, ...(given.length === 0 && !command.fed ? [{ ...head, raw: '.', text: '.', known: true, glob: false }] : [])];
+    const roots = Option.match(
+        Option.filter(Option.fromNullishOr(row.recursive), ({ when }) => when === undefined || has(...when)),
+        {
+            onNone: (): readonly Word[] => [],
+            onSome: ({ until, roots: rooted = [] }) => {
+                const given = [
+                    ...supplied(...rooted),
+                    ...(until === undefined
+                        ? inputs
+                        : Array.takeWhile(
+                              Array.dropWhile(own, ({ text }) => LEADING_OPTION.test(text)),
+                              ({ text }) => !until.some((prefix) => text.startsWith(prefix)),
+                          )),
+                ];
+                return [...given, ...(given.length === 0 && !command.fed ? [{ ...head, raw: '.', text: '.', known: true, glob: false }] : [])];
+            },
+        },
+    );
     const reads = row.reads === true && !leading.some(({ text }) => row.readsNothing?.test(text) === true) && !has(...readsUnless, ...code, ...shell);
     return {
         ...parsed,
@@ -141,7 +148,7 @@ const bodyAnalyzed = Effect.fnUntraced(function* ({ invocation, text, file }: Re
     const { cwd, fed } = invocation.command;
     const script = Option.getOrUndefined(Option.filter(host.resolve(text, cwd), (unvisited) => !visited.has(unvisited)));
     const tracked = !file || script === undefined || (host.inside(script, host.root) && (yield* Effect.orElseSucceed(host.run(['git', 'ls-files', '--error-unmatch', '--', script]), () => ({ code: 1 }))).code === 0);
-    const content = !tracked && script !== undefined ? Option.map(yield* Effect.option(host.fs.readFileString(script)), (read) => ({ text: read, visited: visited.union(new Set([script])) })) : Option.liftPredicate({ text, visited }, () => !file);
+    const content = tracked ? Option.liftPredicate({ text, visited }, () => !file) : Option.map(yield* Effect.option(host.fs.readFileString(script)), (read) => ({ text: read, visited: visited.union(new Set([script])) }));
     const stated = invocation.program === 'zsh' || (file && text.endsWith('.zsh')) ? 'zsh' : 'bash';
     const dialect = invocation.row.concatenates === true ? enclosing : stated;
     const parsed = yield* Effect.transposeOption(Option.map(content, (body) => Cache.get(trees, [dialect, body.text])));

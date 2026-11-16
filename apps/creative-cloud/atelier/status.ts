@@ -5,12 +5,15 @@ import { Array, Effect, Function, Option, Struct, SubscriptionRef } from 'effect
 import { McpSchema } from 'effect/ai';
 import { Adobe } from '#/adobe';
 
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+const awaitsAnswer = (state: typeof State.Type) => Array.isReadonlyArrayNonEmpty(State.asking(state));
+const report = (state: typeof State.Type) => awaitsAnswer(state) || State.matchOrElse(state, { running: ({ running }) => running.active || running.status === 'unresponsive' }, Function.constTrue);
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const status = Effect.gen(function* () {
     const { instances } = yield* Adobe;
-    const awaitsAnswer = (state: typeof State.Type) => Array.isReadonlyArrayNonEmpty(State.asking(state));
-    const report = (state: typeof State.Type) => awaitsAnswer(state) || State.matchOrElse(state, { running: ({ running }) => running.active || running.status === 'unresponsive' }, Function.constTrue);
     const template = yield* Resource.template`status/${McpSchema.param('instance', ProcessInstance)}`({
         name: 'status',
         schema: State,

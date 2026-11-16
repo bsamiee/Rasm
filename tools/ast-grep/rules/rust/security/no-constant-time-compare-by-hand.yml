@@ -3,99 +3,99 @@ language: rustlang
 severity: error
 utils:
     left-byte:
-        any: [{kind: identifier, pattern: $LEFT}, {kind: unary_expression, pattern: '*$LEFT'}]
+        any: [{ kind: identifier, pattern: $LEFT }, { kind: unary_expression, pattern: '*$LEFT' }]
     right-byte:
-        any: [{kind: identifier, pattern: $RIGHT}, {kind: unary_expression, pattern: '*$RIGHT'}]
+        any: [{ kind: identifier, pattern: $RIGHT }, { kind: unary_expression, pattern: '*$RIGHT' }]
     xor:
         any:
             - kind: binary_expression
               all:
-                - has: {field: operator, regex: '^\^$'}
-                - inside:
-                    kind: closure_expression
-                    stopBy: {kind: closure_expression}
-                    has:
-                        field: parameters
+                  - has: { field: operator, regex: '^\^$' }
+                  - inside:
+                        kind: closure_expression
+                        stopBy: { kind: closure_expression }
                         has:
-                            kind: tuple_pattern
-                            all:
-                                - has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, any: [{kind: identifier, pattern: $LEFT}, {kind: reference_pattern, has: {kind: identifier, pattern: $LEFT}}]}
-                                - has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}, any: [{kind: identifier, pattern: $RIGHT}, {kind: reference_pattern, has: {kind: identifier, pattern: $RIGHT}}]}
-                                - not: {has: {nthChild: {position: 3, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}
-                - any:
-                    - all: [{has: {field: left, matches: left-byte}}, {has: {field: right, matches: right-byte}}]
-                    - all: [{has: {field: right, matches: left-byte}}, {has: {field: left, matches: right-byte}}]
+                            field: parameters
+                            has:
+                                kind: tuple_pattern
+                                all:
+                                    - has: { nthChild: { position: 1, ofRule: { not: { kind: 'line_comment, block_comment' } } }, any: [{ kind: identifier, pattern: $LEFT }, { kind: reference_pattern, has: { kind: identifier, pattern: $LEFT } }] }
+                                    - has: { nthChild: { position: 2, ofRule: { not: { kind: 'line_comment, block_comment' } } }, any: [{ kind: identifier, pattern: $RIGHT }, { kind: reference_pattern, has: { kind: identifier, pattern: $RIGHT } }] }
+                                    - not: { has: { nthChild: { position: 3, ofRule: { not: { kind: 'line_comment, block_comment' } } } } }
+                  - any:
+                        - all: [{ has: { field: left, matches: left-byte } }, { has: { field: right, matches: right-byte } }]
+                        - all: [{ has: { field: right, matches: left-byte } }, { has: { field: left, matches: right-byte } }]
             - kind: parenthesized_expression
-              has: {matches: xor}
+              has: { matches: xor }
     zero:
         kind: integer_literal
         regex: '^0(_?[ui](8|16|32|64|128|size))?$'
     or-of-xor:
         kind: binary_expression
         all:
-            - has: {field: operator, regex: '^\|$'}
+            - has: { field: operator, regex: '^\|$' }
             - any:
-                - all: [{has: {field: left, pattern: $ACC}}, {has: {field: right, matches: xor}}]
-                - all: [{has: {field: right, pattern: $ACC}}, {has: {field: left, matches: xor}}]
+                  - all: [{ has: { field: left, pattern: $ACC } }, { has: { field: right, matches: xor } }]
+                  - all: [{ has: { field: right, pattern: $ACC } }, { has: { field: left, matches: xor } }]
     or-of-item:
         kind: binary_expression
         all:
-            - has: {field: operator, regex: '^\|$'}
+            - has: { field: operator, regex: '^\|$' }
             - any:
-                - all: [{has: {field: left, pattern: $ACC}}, {has: {field: right, pattern: $ITEM}}]
-                - all: [{has: {field: right, pattern: $ACC}}, {has: {field: left, pattern: $ITEM}}]
+                  - all: [{ has: { field: left, pattern: $ACC } }, { has: { field: right, pattern: $ITEM } }]
+                  - all: [{ has: { field: right, pattern: $ACC } }, { has: { field: left, pattern: $ITEM } }]
     xor-map:
         kind: call_expression
         all:
-            - has: {field: function, kind: field_expression, has: {field: field, regex: '^map$'}}
-            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: closure_expression, has: {field: body, any: [{matches: xor}, {kind: block, has: {matches: xor}}]}}}
+            - has: { field: function, kind: field_expression, has: { field: field, regex: '^map$' } }
+            - has: { field: arguments, has: { nthChild: { position: 1, ofRule: { not: { kind: 'line_comment, block_comment' } } }, kind: closure_expression, has: { field: body, any: [{ matches: xor }, { kind: block, has: { matches: xor } }] } } }
     fold-call:
         kind: call_expression
         all:
-            - has: {field: function, kind: field_expression, has: {field: field, regex: '^fold$'}}
-            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: zero}}
+            - has: { field: function, kind: field_expression, has: { field: field, regex: '^fold$' } }
+            - has: { field: arguments, has: { nthChild: { position: 1, ofRule: { not: { kind: 'line_comment, block_comment' } } }, matches: zero } }
     xor-or-fold:
         any:
             - matches: fold-call
               has:
-                field: arguments
-                has:
-                    nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}
-                    kind: closure_expression
-                    all:
-                        - has: {field: parameters, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: identifier, pattern: $ACC}}
-                        - has: {field: parameters, has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: tuple_pattern}}
-                        - has: {field: body, any: [{matches: or-of-xor}, {kind: block, has: {matches: or-of-xor}}]}
+                  field: arguments
+                  has:
+                      nthChild: { position: 2, ofRule: { not: { kind: 'line_comment, block_comment' } } }
+                      kind: closure_expression
+                      all:
+                          - has: { field: parameters, has: { nthChild: { position: 1, ofRule: { not: { kind: 'line_comment, block_comment' } } }, kind: identifier, pattern: $ACC } }
+                          - has: { field: parameters, has: { nthChild: { position: 2, ofRule: { not: { kind: 'line_comment, block_comment' } } }, kind: tuple_pattern } }
+                          - has: { field: body, any: [{ matches: or-of-xor }, { kind: block, has: { matches: or-of-xor } }] }
             - all:
-                - matches: fold-call
-                - has: {field: function, has: {field: value, matches: xor-map}}
-                - has:
-                    field: arguments
-                    has:
-                        nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}
-                        kind: closure_expression
-                        all:
-                            - has: {field: parameters, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: identifier, pattern: $ACC}}
-                            - has: {field: parameters, has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: identifier, pattern: $ITEM}}
-                            - has: {field: body, any: [{matches: or-of-item}, {kind: block, has: {matches: or-of-item}}]}
+                  - matches: fold-call
+                  - has: { field: function, has: { field: value, matches: xor-map } }
+                  - has:
+                        field: arguments
+                        has:
+                            nthChild: { position: 2, ofRule: { not: { kind: 'line_comment, block_comment' } } }
+                            kind: closure_expression
+                            all:
+                                - has: { field: parameters, has: { nthChild: { position: 1, ofRule: { not: { kind: 'line_comment, block_comment' } } }, kind: identifier, pattern: $ACC } }
+                                - has: { field: parameters, has: { nthChild: { position: 2, ofRule: { not: { kind: 'line_comment, block_comment' } } }, kind: identifier, pattern: $ITEM } }
+                                - has: { field: body, any: [{ matches: or-of-item }, { kind: block, has: { matches: or-of-item } }] }
             - all:
-                - matches: fold-call
-                - has: {field: function, has: {field: value, matches: xor-map}}
-                - has: {field: arguments, has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: bit-or-path}}
+                  - matches: fold-call
+                  - has: { field: function, has: { field: value, matches: xor-map } }
+                  - has: { field: arguments, has: { nthChild: { position: 2, ofRule: { not: { kind: 'line_comment, block_comment' } } }, matches: bit-or-path } }
             - kind: call_expression
               all:
-                - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^reduce$'}}, {has: {field: value, matches: xor-map}}]}
-                - has:
-                    field: arguments
-                    has:
-                        nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}
-                        any:
-                            - matches: bit-or-path
-                            - kind: closure_expression
-                              all:
-                                - has: {field: parameters, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: identifier, pattern: $ACC}}
-                                - has: {field: parameters, has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: identifier, pattern: $ITEM}}
-                                - has: {field: body, any: [{matches: or-of-item}, {kind: block, has: {matches: or-of-item}}]}
+                  - has: { field: function, kind: field_expression, all: [{ has: { field: field, regex: '^reduce$' } }, { has: { field: value, matches: xor-map } }] }
+                  - has:
+                        field: arguments
+                        has:
+                            nthChild: { position: 1, ofRule: { not: { kind: 'line_comment, block_comment' } } }
+                            any:
+                                - matches: bit-or-path
+                                - kind: closure_expression
+                                  all:
+                                      - has: { field: parameters, has: { nthChild: { position: 1, ofRule: { not: { kind: 'line_comment, block_comment' } } }, kind: identifier, pattern: $ACC } }
+                                      - has: { field: parameters, has: { nthChild: { position: 2, ofRule: { not: { kind: 'line_comment, block_comment' } } }, kind: identifier, pattern: $ITEM } }
+                                      - has: { field: body, any: [{ matches: or-of-item }, { kind: block, has: { matches: or-of-item } }] }
     bit-or-path:
         kind: scoped_identifier
         regex: '^((::)?(std|core)::)?(ops::)?BitOr::bitor$|^(u8|u16|u32|u64|u128|usize)::bitor$'
@@ -111,58 +111,58 @@ utils:
         any:
             - pattern: $COMPARE
             - kind: parenthesized_expression
-              has: {matches: comparison-value}
+              has: { matches: comparison-value }
             - kind: call_expression
               all:
-                - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^unwrap_or$'}}, {has: {field: value, matches: comparison-value}}]}
-                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: zero}, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}
+                  - has: { field: function, kind: field_expression, all: [{ has: { field: field, regex: '^unwrap_or$' } }, { has: { field: value, matches: comparison-value } }] }
+                  - has: { field: arguments, has: { nthChild: { position: 1, ofRule: { not: { kind: 'line_comment, block_comment' } } }, matches: zero }, not: { has: { nthChild: { position: 2, ofRule: { not: { kind: 'line_comment, block_comment' } } } } } }
     byte-slice:
         kind: reference_type
-        has: {field: type, kind: array_type, has: {field: element, kind: primitive_type, regex: '^u8$'}}
+        has: { field: type, kind: array_type, has: { field: element, kind: primitive_type, regex: '^u8$' } }
     length-test:
         kind: binary_expression
         all:
-            - has: {field: operator, pattern: $$OP}
+            - has: { field: operator, pattern: $$OP }
             - any:
-                - all: [{has: {field: left, pattern: $A.len()}}, {has: {field: right, pattern: $B.len()}}]
-                - all: [{has: {field: left, pattern: $B.len()}}, {has: {field: right, pattern: $A.len()}}]
+                  - all: [{ has: { field: left, pattern: $A.len() } }, { has: { field: right, pattern: $B.len() } }]
+                  - all: [{ has: { field: left, pattern: $B.len() } }, { has: { field: right, pattern: $A.len() } }]
 rule:
     kind: call_expression
     all:
         - matches: xor-or-fold
         - has:
-            field: function
-            has:
-                field: value
-                any:
-                    - matches: paired-iterator
-                    - matches: xor-map
-                      has: {field: function, has: {field: value, matches: paired-iterator}}
+              field: function
+              has:
+                  field: value
+                  any:
+                      - matches: paired-iterator
+                      - matches: xor-map
+                        has: { field: function, has: { field: value, matches: paired-iterator } }
         - pattern: $COMPARE
         - inside:
-            kind: binary_expression
-            stopBy: {kind: 'function_item, closure_expression, block'}
-            all:
-                - has: {field: operator, pattern: $$OP, regex: '^(==|!=)$'}
-                - has: {matches: zero}
-                - has: {matches: comparison-value}
+              kind: binary_expression
+              stopBy: { kind: 'function_item, closure_expression, block' }
+              all:
+                  - has: { field: operator, pattern: $$OP, regex: '^(==|!=)$' }
+                  - has: { matches: zero }
+                  - has: { matches: comparison-value }
         - inside:
-            kind: function_item
-            stopBy: {kind: function_item}
-            has:
-                field: parameters
-                all:
-                    - has: {kind: parameter, all: [{has: {field: pattern, pattern: $A}}, {has: {field: type, matches: byte-slice}}]}
-                    - has: {kind: parameter, all: [{has: {field: pattern, pattern: $B}}, {has: {field: type, matches: byte-slice}}]}
+              kind: function_item
+              stopBy: { kind: function_item }
+              has:
+                  field: parameters
+                  all:
+                      - has: { kind: parameter, all: [{ has: { field: pattern, pattern: $A } }, { has: { field: type, matches: byte-slice } }] }
+                      - has: { kind: parameter, all: [{ has: { field: pattern, pattern: $B } }, { has: { field: type, matches: byte-slice } }] }
         - inside:
-            kind: binary_expression
-            stopBy: {kind: 'function_item, closure_expression, block'}
-            any:
-                - all:
-                    - has: {field: operator, regex: '^&&$'}
-                    - has: {matches: length-test, has: {field: operator, regex: '^==$'}}
-                - all:
-                    - has: {field: operator, regex: '^\|\|$'}
-                    - has: {matches: length-test, has: {field: operator, regex: '^!=$'}}
+              kind: binary_expression
+              stopBy: { kind: 'function_item, closure_expression, block' }
+              any:
+                  - all:
+                        - has: { field: operator, regex: '^&&$' }
+                        - has: { matches: length-test, has: { field: operator, regex: '^==$' } }
+                  - all:
+                        - has: { field: operator, regex: '^\|\|$' }
+                        - has: { matches: length-test, has: { field: operator, regex: '^!=$' } }
 message: '`$COMPARE` compares byte slices `$A` and `$B` through an XOR-OR reduction'
 note: 'Call `aws_lc_rs::constant_time::verify_slices_are_equal(<a>, <b>)` and treat `Err` as unequal bytes or lengths'

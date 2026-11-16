@@ -1,5 +1,5 @@
 import { Content, Resource, Server } from '@rasm/mcp';
-import { Cause, Context, Deferred, Effect, flow, Layer, Option, Queue, Ref, Schema, Stream, SubscriptionRef } from 'effect';
+import { Cause, Context, Effect, flow, Latch, Layer, Option, Queue, Ref, Schema, Stream, SubscriptionRef } from 'effect';
 import { McpSchema, Tool } from 'effect/ai';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -24,7 +24,7 @@ const Valued = Schema.Struct({ value: Schema.String });
 
 class Probe extends Context.Service<Probe>()('@rasm/test-mcp/fixtures/Probe', {
     make: Effect.gen(function* () {
-        const [calls, entered, interrupted, release, watched] = yield* Effect.all([Ref.make<readonly string[]>([]), Queue.unbounded<string>(), Queue.unbounded<string>(), Deferred.make<void>(), SubscriptionRef.make('open')]);
+        const [calls, entered, interrupted, release, watched] = yield* Effect.all([Ref.make<readonly string[]>([]), Queue.unbounded<string>(), Queue.unbounded<string>(), Latch.make(), SubscriptionRef.make('open')]);
         return { calls, entered, interrupted, release, watched };
     }),
 }) {}
@@ -36,7 +36,7 @@ const registered = Effect.fnUntraced(function* ({ calls, entered, interrupted, r
     const gated = (name: string) =>
         called(
             name,
-            Deferred.await(release).pipe(
+            release.await.pipe(
                 Effect.as('released'),
                 Effect.onInterrupt(() => Queue.offer(interrupted, name)),
             ),

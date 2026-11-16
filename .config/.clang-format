@@ -14,15 +14,15 @@ EnumTrailingComma: Insert
 FixNamespaceComments: false
 IncludeBlocks: Regroup
 IncludeCategories:
-    - {Regex: '\.generated\.h"$', Priority: 4}
-    - {Regex: '^<.*\.h(pp)?>$', Priority: 1}
-    - {Regex: '^<.*>$', Priority: 2}
-    - {Regex: '.*', Priority: 3}
+    - { Regex: '\.generated\.h"$', Priority: 4 }
+    - { Regex: '^<.*\.h(pp)?>$', Priority: 1 }
+    - { Regex: '^<.*>$', Priority: 2 }
+    - { Regex: '.*', Priority: 3 }
 IndentExportBlock: false
 InsertBraces: true
-PackArguments: {BinPack: OnePerLine}
+PackArguments: { BinPack: OnePerLine }
 PackConstructorInitializers: NextLineOnly
-PackParameters: {BinPack: OnePerLine}
+PackParameters: { BinPack: OnePerLine }
 PointerAlignment: Left
 QualifierAlignment: Custom
 QualifierOrder: [friend, static, inline, constexpr, const, volatile, type]

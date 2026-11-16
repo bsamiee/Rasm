@@ -20,5 +20,5 @@ utils:
             - pattern: $_TCX.get_diagnostic_name($_T)
             - kind: binary_expression
               all:
-                - has: {field: left, matches: item-test}
-                - has: {field: right, matches: item-test}
+                  - has: { field: left, matches: item-test }
+                  - has: { field: right, matches: item-test }

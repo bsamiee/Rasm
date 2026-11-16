@@ -6,31 +6,31 @@ utils:
         pattern: $M.gen($_BODY)
         has:
             field: arguments
-            has: {kind: generator_function, pattern: $_BODY, not: {has: {field: name, kind: identifier}}}
+            has: { kind: generator_function, pattern: $_BODY, not: { has: { field: name, kind: identifier } } }
     thunk-body:
         any:
             - matches: generator-effect
               pattern: $GENERATOR
             - kind: parenthesized_expression
-              has: {matches: generator-effect, pattern: $GENERATOR}
+              has: { matches: generator-effect, pattern: $GENERATOR }
             - kind: statement_block
-              not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}
-              has: {kind: return_statement, has: {matches: generator-effect, pattern: $GENERATOR}}
+              not: { has: { nthChild: { position: 2, ofRule: { not: { kind: 'comment, html_comment' } } } } }
+              has: { kind: return_statement, has: { matches: generator-effect, pattern: $GENERATOR } }
 rule:
     kind: call_expression
     all:
-        - has: {field: function, pattern: $M.suspend}
-        - not: {has: {field: type_arguments, kind: type_arguments}}
+        - has: { field: function, pattern: $M.suspend }
+        - not: { has: { field: type_arguments, kind: type_arguments } }
         - has:
-            field: arguments
-            has:
-                kind: arrow_function, function_expression
-                not: {any: [{has: {regex: '^async$'}}, {has: {field: parameters, has: {pattern: $_}}}, {has: {field: return_type, kind: type_annotation}}]}
-                has: {field: body, matches: thunk-body}
-        - not: {has: {stopBy: end, kind: comment, not: {inside: {stopBy: end, pattern: $GENERATOR}}}}
+              field: arguments
+              has:
+                  kind: arrow_function, function_expression
+                  not: { any: [{ has: { regex: '^async$' } }, { has: { field: parameters, has: { pattern: $_ } } }, { has: { field: return_type, kind: type_annotation } }] }
+                  has: { field: body, matches: thunk-body }
+        - not: { has: { stopBy: end, kind: comment, not: { inside: { stopBy: end, pattern: $GENERATOR } } } }
 constraints:
-    M: {matches: {effect-module: {name: {regex: '(?-u:\b)Effect$'}}}}
+    M: { matches: { effect-module: { name: { regex: '(?-u:\b)Effect$' } } } }
 message: '`$M.suspend` wraps `$M.gen`, an effect that defers its body'
 note: 'Remove the `Effect.suspend` wrapper around `Effect.gen`'
 labels:
-    GENERATOR: {style: primary}
+    GENERATOR: { style: primary }

@@ -23,7 +23,7 @@ utils:
 rule:
     kind: 'macro_invocation, binary_expression, compound_assignment_expr, call_expression'
     all:
-        - {matches: {rust-text-assembly: {text: {kind: &literal 'string_literal, raw_string_literal', matches: item-text}, head: {kind: *literal, matches: item-head}}}}
-        - {pattern: $SOURCE}
+        - { matches: { rust-text-assembly: { text: { kind: &literal 'string_literal, raw_string_literal', matches: item-text }, head: { kind: *literal, matches: item-head } } } }
+        - { pattern: $SOURCE }
 message: '`$SOURCE` builds Rust source as text'
 note: 'Build the item as `quote!` tokens, parse them with `syn::parse2::<syn::File>`, and print with `prettyplease::unparse`'

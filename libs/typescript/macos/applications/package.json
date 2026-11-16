@@ -3,14 +3,17 @@
     "version": "0.1.0",
     "private": true,
     "description": "Mac application server wire contract and watch-apps process table, the Node client of that server, and the build of a Node helper a Mac application embeds",
+    "license": "MIT",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/bsamiee/Rasm.git",
         "directory": "libs/typescript/macos/applications"
     },
-    "license": "MIT",
-    "sideEffects": false,
+    "files": [
+        "dist"
+    ],
     "type": "module",
+    "sideEffects": false,
     "imports": {
         "#/*": "./*.ts"
     },
@@ -19,7 +22,17 @@
         "./node": "./node.ts",
         "./vite": "./vite.ts"
     },
-    "files": [ "dist" ],
+    "publishConfig": {
+        "imports": {
+            "#/*": "./dist/*.js"
+        },
+        "exports": {
+            ".": "./dist/index.js",
+            "./node": "./dist/node.js",
+            "./vite": "./dist/vite.js"
+        },
+        "access": "public"
+    },
     "dependencies": {
         "@rasm/process": "workspace:*",
         "@rasm/search": "workspace:*",
@@ -37,17 +50,6 @@
     "peerDependenciesMeta": {
         "vite": {
             "optional": true
-        }
-    },
-    "publishConfig": {
-        "access": "public",
-        "exports": {
-            ".": "./dist/index.js",
-            "./node": "./dist/node.js",
-            "./vite": "./dist/vite.js"
-        },
-        "imports": {
-            "#/*": "./dist/*.js"
         }
     }
 }

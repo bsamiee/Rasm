@@ -4,24 +4,24 @@ language: swiftlang
 utils:
     logger:
         any:
-            - has: {nthChild: 1, kind: navigation_expression, has: {field: target, kind: call_expression, has: {nthChild: 1, regex: '^(os(\.|::))?Logger(\.init)?$'}}}
-            - matches: {swift-typed-use: {type: {regex: '^(os(\.|::))?Logger$'}}}
+            - has: { nthChild: 1, kind: navigation_expression, has: { field: target, kind: call_expression, has: { nthChild: 1, regex: '^(os(\.|::))?Logger(\.init)?$' } } }
+            - matches: { swift-typed-use: { type: { regex: '^(os(\.|::))?Logger$' } } }
     signposter:
         any:
-            - has: {nthChild: 1, kind: navigation_expression, has: {field: target, kind: call_expression, has: {nthChild: 1, regex: '^(os(\.|::))?OSSignposter(\.init)?$'}}}
-            - matches: {swift-typed-use: {type: {regex: '^(os(\.|::))?OSSignposter$'}}}
+            - has: { nthChild: 1, kind: navigation_expression, has: { field: target, kind: call_expression, has: { nthChild: 1, regex: '^(os(\.|::))?OSSignposter(\.init)?$' } } }
+            - matches: { swift-typed-use: { type: { regex: '^(os(\.|::))?OSSignposter$' } } }
 rule:
     kind: call_expression
     any:
         - all:
-            - has: {nthChild: 1, kind: navigation_expression, has: {field: suffix, regex: '^\.(trace|debug|info|notice|warning|error|critical|fault)$'}}
-            - any:
-                - matches: logger
-                - has: {kind: call_suffix, has: {kind: value_arguments, has: {nthChild: {position: 1, ofRule: {kind: value_argument}}, not: {has: {field: name, kind: value_argument_label}}, has: {field: value, kind: line_string_literal}}}}
+              - has: { nthChild: 1, kind: navigation_expression, has: { field: suffix, regex: '^\.(trace|debug|info|notice|warning|error|critical|fault)$' } }
+              - any:
+                    - matches: logger
+                    - has: { kind: call_suffix, has: { kind: value_arguments, has: { nthChild: { position: 1, ofRule: { kind: value_argument } }, not: { has: { field: name, kind: value_argument_label } }, has: { field: value, kind: line_string_literal } } } }
         - all:
-            - has: {nthChild: 1, kind: navigation_expression, has: {field: suffix, regex: '^\.(emitEvent|beginInterval|beginAnimationInterval|endInterval|withIntervalSignpost)$'}}
-            - matches: signposter
+              - has: { nthChild: 1, kind: navigation_expression, has: { field: suffix, regex: '^\.(emitEvent|beginInterval|beginAnimationInterval|endInterval|withIntervalSignpost)$' } }
+              - matches: signposter
         - all:
-            - has: {nthChild: 1, kind: navigation_expression, has: {field: suffix, regex: '^\.log$'}}
-            - has: {kind: call_suffix, has: {kind: value_arguments, has: {nthChild: {position: 1, ofRule: {kind: value_argument}}, any: [{not: {has: {field: name, regex: '.'}}}, {has: {field: name, regex: '^level$'}}]}}}
-            - matches: logger
+              - has: { nthChild: 1, kind: navigation_expression, has: { field: suffix, regex: '^\.log$' } }
+              - has: { kind: call_suffix, has: { kind: value_arguments, has: { nthChild: { position: 1, ofRule: { kind: value_argument } }, any: [{ not: { has: { field: name, regex: '.' } } }, { has: { field: name, regex: '^level$' } }] } } }
+              - matches: logger

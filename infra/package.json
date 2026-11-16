@@ -2,12 +2,12 @@
     "name": "@rasm/infra",
     "private": true,
     "description": "IaC programs for the repository, its machines, and app hosting",
+    "bin": "./stacks.ts",
     "type": "module",
     "imports": {
         "#/*": "./*.ts",
         "#/*.json": "./*.json"
     },
-    "bin": "./stacks.ts",
     "dependencies": {
         "@effect/platform-node": "catalog:",
         "@nx/devkit": "catalog:",

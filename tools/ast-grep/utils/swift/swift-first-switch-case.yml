@@ -3,4 +3,4 @@ id: swift-first-switch-case
 language: swiftlang
 rule:
     kind: switch_entry
-    nthChild: {position: 1, ofRule: {kind: switch_entry}}
+    nthChild: { position: 1, ofRule: { kind: switch_entry } }

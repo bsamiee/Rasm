@@ -5,90 +5,90 @@ files: ['{apps/blender,libs/python/blender,libs/python/data/records,libs/python/
 utils:
     record-base:
         any:
-            - matches: {python-member-use: {module: {regex: '^msgspec$'}, name: {regex: '^Struct$'}}}
-            - matches: {python-member-use: {module: {regex: '^pydantic$'}, name: {regex: '^BaseModel$'}}}
-            - matches: {python-base-class: {superclasses: {has: {matches: record-base}}}}
+            - matches: { python-member-use: { module: { regex: '^msgspec$' }, name: { regex: '^Struct$' } } }
+            - matches: { python-member-use: { module: { regex: '^pydantic$' }, name: { regex: '^BaseModel$' } } }
+            - matches: { python-base-class: { superclasses: { has: { matches: record-base } } } }
     partial-class:
         any:
             - matches: functools-partial-callee
             - all:
-                - inside: {kind: module, stopBy: end, regex: '(?-u:\b)partial(?-u:\b)'}
-                - matches: {python-base-class: {superclasses: {has: {matches: partial-class}}}}
+                  - inside: { kind: module, stopBy: end, regex: '(?-u:\b)partial(?-u:\b)' }
+                  - matches: { python-base-class: { superclasses: { has: { matches: partial-class } } } }
     class-var:
-        matches: {python-member-use: {module: {regex: '^typing(_extensions)?$'}, name: {regex: '^ClassVar$'}}}
+        matches: { python-member-use: { module: { regex: '^typing(_extensions)?$' }, name: { regex: '^ClassVar$' } } }
     record-decorator:
-        matches: {python-member-use: {module: {regex: '^pydantic\.dataclasses$'}, name: {regex: '^dataclass$'}}}
+        matches: { python-member-use: { module: { regex: '^pydantic\.dataclasses$' }, name: { regex: '^dataclass$' } } }
     record-class:
         kind: class_definition
         any:
-            - has: {field: superclasses, has: {matches: record-base}}
-            - inside: {kind: decorated_definition, has: {kind: decorator, has: {any: [{matches: record-decorator}, {kind: call, has: {field: function, matches: record-decorator}}]}}}
+            - has: { field: superclasses, has: { matches: record-base } }
+            - inside: { kind: decorated_definition, has: { kind: decorator, has: { any: [{ matches: record-decorator }, { kind: call, has: { field: function, matches: record-decorator } }] } } }
     record-field:
         kind: assignment
-        has: {field: type, not: {has: {stopBy: end, matches: class-var}}}
-        inside: {kind: class_definition, stopBy: {kind: 'function_definition, class_definition, lambda'}, matches: record-class}
+        has: { field: type, not: { has: { stopBy: end, matches: class-var } } }
+        inside: { kind: class_definition, stopBy: { kind: 'function_definition, class_definition, lambda' }, matches: record-class }
     class-body:
-        inside: {kind: class_definition, stopBy: {kind: 'function_definition, class_definition, lambda'}}
+        inside: { kind: class_definition, stopBy: { kind: 'function_definition, class_definition, lambda' } }
     class-owner:
         kind: identifier
         any:
             - pattern: $OWNER
-              inside: {kind: module, stopBy: end, has: {kind: class_definition, stopBy: {kind: 'function_definition, class_definition'}, has: {field: name, pattern: $OWNER}}}
+              inside: { kind: module, stopBy: end, has: { kind: class_definition, stopBy: { kind: 'function_definition, class_definition' }, has: { field: name, pattern: $OWNER } } }
             - pattern: $CLS
               inside:
-                kind: function_definition
-                stopBy: {kind: 'function_definition, class_definition, lambda'}
-                all:
-                    - matches: class-body
-                    - has: {field: parameters, has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, any: [{pattern: $CLS}, {kind: typed_parameter, has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, pattern: $CLS}}]}}
-                    - any:
-                        - has: {field: name, pattern: __init_subclass__}
-                        - inside: {kind: decorated_definition, has: {kind: decorator, has: {matches: {python-builtin-name: {name: {regex: '^classmethod$'}}}}}}
+                  kind: function_definition
+                  stopBy: { kind: 'function_definition, class_definition, lambda' }
+                  all:
+                      - matches: class-body
+                      - has: { field: parameters, has: { nthChild: { position: 1, ofRule: { not: { kind: comment } } }, any: [{ pattern: $CLS }, { kind: typed_parameter, has: { nthChild: { position: 1, ofRule: { not: { kind: comment } } }, pattern: $CLS } }] } }
+                      - any:
+                            - has: { field: name, pattern: __init_subclass__ }
+                            - inside: { kind: decorated_definition, has: { kind: decorator, has: { matches: { python-builtin-name: { name: { regex: '^classmethod$' } } } } } }
     target:
         any:
             - kind: identifier
               matches: class-body
             - kind: attribute
-              has: {field: object, matches: class-owner}
+              has: { field: object, matches: class-owner }
     type-namespace:
         kind: dictionary, call
-        nthChild: {position: 3, ofRule: {not: {kind: comment}}}
-        inside: {kind: argument_list, inside: {kind: call, has: {field: function, matches: {python-builtin-name: {name: {regex: '^type$'}}}}}}
+        nthChild: { position: 3, ofRule: { not: { kind: comment } } }
+        inside: { kind: argument_list, inside: { kind: call, has: { field: function, matches: { python-builtin-name: { name: { regex: '^type$' } } } } } }
     bound:
         all:
-            - inside: {kind: 'assignment, named_expression, parenthesized_expression, boolean_operator, conditional_expression, expression_list, tuple, argument_list, pair, keyword_argument'}
+            - inside: { kind: 'assignment, named_expression, parenthesized_expression, boolean_operator, conditional_expression, expression_list, tuple, argument_list, pair, keyword_argument' }
             - any:
-                - inside: {kind: assignment, field: right, any: [{has: {field: left, matches: target}}, {matches: bound}]}
-                - inside: {kind: named_expression, field: value, any: [{has: {field: name, matches: target}}, {matches: bound}]}
-                - inside: {kind: parenthesized_expression, matches: bound}
-                - inside: {kind: boolean_operator, field: right, matches: bound}
-                - inside: {kind: boolean_operator, field: left, all: [{has: {field: operator, regex: '^or$'}}, {matches: bound}]}
-                - inside: {kind: conditional_expression, matches: bound}
-                  not: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}
-                - inside: {kind: 'expression_list, tuple', inside: {kind: assignment, field: right, has: {field: left, kind: 'pattern_list, tuple_pattern, list_pattern', has: {matches: target}}}}
-                - nthChild: {position: 3, ofRule: {not: {kind: comment}}}
-                  inside:
-                    kind: argument_list
-                    has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: class-owner}
-                    inside: {kind: call, has: {field: function, matches: {python-builtin-name: {name: {regex: '^setattr$'}}}}}
-                - inside: {kind: pair, field: value, inside: {kind: dictionary, matches: type-namespace}}
-                - inside:
-                    kind: keyword_argument
-                    field: value
-                    inside: {kind: argument_list, inside: {kind: call, matches: type-namespace, has: {field: function, matches: {python-builtin-name: {name: {regex: '^dict$'}}}}}}
+                  - inside: { kind: assignment, field: right, any: [{ has: { field: left, matches: target } }, { matches: bound }] }
+                  - inside: { kind: named_expression, field: value, any: [{ has: { field: name, matches: target } }, { matches: bound }] }
+                  - inside: { kind: parenthesized_expression, matches: bound }
+                  - inside: { kind: boolean_operator, field: right, matches: bound }
+                  - inside: { kind: boolean_operator, field: left, all: [{ has: { field: operator, regex: '^or$' } }, { matches: bound }] }
+                  - inside: { kind: conditional_expression, matches: bound }
+                    not: { nthChild: { position: 2, ofRule: { not: { kind: comment } } } }
+                  - inside: { kind: 'expression_list, tuple', inside: { kind: assignment, field: right, has: { field: left, kind: 'pattern_list, tuple_pattern, list_pattern', has: { matches: target } } } }
+                  - nthChild: { position: 3, ofRule: { not: { kind: comment } } }
+                    inside:
+                        kind: argument_list
+                        has: { nthChild: { position: 1, ofRule: { not: { kind: comment } } }, matches: class-owner }
+                        inside: { kind: call, has: { field: function, matches: { python-builtin-name: { name: { regex: '^setattr$' } } } } }
+                  - inside: { kind: pair, field: value, inside: { kind: dictionary, matches: type-namespace } }
+                  - inside:
+                        kind: keyword_argument
+                        field: value
+                        inside: { kind: argument_list, inside: { kind: call, matches: type-namespace, has: { field: function, matches: { python-builtin-name: { name: { regex: '^dict$' } } } } } }
 rule:
     all:
         - any:
-            - kind: call
-              all:
-                - matches: bound
-                - has: {field: function, matches: partial-class}
-                - not: {inside: {matches: record-field, stopBy: {not: {kind: 'parenthesized_expression, conditional_expression, boolean_operator'}}}}
-            - kind: decorator
-              all:
-                - not: {follows: {kind: decorator, stopBy: end}}
-                - inside: {kind: decorated_definition, matches: class-body}
-                - has: {matches: partial-class}
+              - kind: call
+                all:
+                    - matches: bound
+                    - has: { field: function, matches: partial-class }
+                    - not: { inside: { matches: record-field, stopBy: { not: { kind: 'parenthesized_expression, conditional_expression, boolean_operator' } } } }
+              - kind: decorator
+                all:
+                    - not: { follows: { kind: decorator, stopBy: end } }
+                    - inside: { kind: decorated_definition, matches: class-body }
+                    - has: { matches: partial-class }
         - pattern: $VALUE
 message: '`$VALUE` as a class attribute binds as a method from Python 3.14 and stays unbound below it'
 note: 'Wrap the partial in `staticmethod` for an unbound call or `enum.member` for an enum member, else write `functools.partialmethod`'

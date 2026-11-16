@@ -2,6 +2,9 @@
     "name": "@rasm/atelier",
     "private": true,
     "description": "Background agent control of Adobe applications",
+    "os": [
+        "darwin"
+    ],
     "type": "module",
     "imports": {
         "#/*": "./*.ts",
@@ -28,11 +31,15 @@
         "@types/node": "catalog:",
         "vite": "catalog:"
     },
-    "os": [ "darwin" ],
     "nx": {
         "targets": {
             "build--vite": {
-                "inputs": [ "...", "{projectRoot}/macos/Atelier.xcodeproj/project.xcproj", "{projectRoot}/macos/Atelier.entitlements", "{workspaceRoot}/Xcode.xcconfig" ]
+                "inputs": [
+                    "...",
+                    "{projectRoot}/macos/Atelier.xcodeproj/project.xcproj",
+                    "{projectRoot}/macos/Atelier.entitlements",
+                    "{workspaceRoot}/Xcode.xcconfig"
+                ]
             }
         }
     }

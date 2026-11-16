@@ -24,7 +24,10 @@
     "nx": {
         "targets": {
             "build--vite": {
-                "inputs": [ "...", "{workspaceRoot}/apps/creative-cloud/atelier/macos/Resources/AppIcon.icon/Assets/Atelier.svg" ]
+                "inputs": [
+                    "...",
+                    "{workspaceRoot}/apps/creative-cloud/atelier/macos/Resources/AppIcon.icon/Assets/Atelier.svg"
+                ]
             }
         }
     }

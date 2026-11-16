@@ -6,16 +6,20 @@ rule:
     kind: call_expression
     pattern: $CALL
     all:
-        - has: {field: function, kind: member_expression, has: {field: property, regex: '^slice$'}}
-        - has: {field: arguments, regex: '^\([\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*1[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*,[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*-[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*1[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\)$'}
+        - has: { field: function, kind: member_expression, has: { field: property, regex: '^slice$' } }
         - has:
-            field: function
-            has:
-                field: object
-                kind: call_expression
-                all:
-                    - has: {field: function, kind: member_expression, has: {field: property, regex: '^stringify$'}}
-                    - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^stringify$'}}, {has: {field: object, regex: '(^|\.)JSON$', matches: typescript-global-member}}]}
-                    - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: &code {not: {kind: 'comment, html_comment'}}}}}, {not: {has: {nthChild: {position: 2, ofRule: *code}}}}]}
+              {
+                  field: arguments,
+                  regex: '^\([\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*1[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*,[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*-[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*1[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\)$',
+              }
+        - has:
+              field: function
+              has:
+                  field: object
+                  kind: call_expression
+                  all:
+                      - has: { field: function, kind: member_expression, has: { field: property, regex: '^stringify$' } }
+                      - has: { field: function, kind: member_expression, all: [{ has: { field: property, regex: '^stringify$' } }, { has: { field: object, regex: '(^|\.)JSON$', matches: typescript-global-member } }] }
+                      - has: { field: arguments, all: [{ has: { nthChild: { position: 1, ofRule: &code { not: { kind: 'comment, html_comment' } } } } }, { not: { has: { nthChild: { position: 2, ofRule: *code } } } }] }
 message: '`$CALL` escapes text for JSON by slicing an encoded string'
 note: 'Substitute into the decoded `Schema.Json` value and encode it once, or decode field through `SchemaGetter.transformEffect`'

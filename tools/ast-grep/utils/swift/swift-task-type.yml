@@ -4,4 +4,4 @@ language: swiftlang
 rule:
     kind: user_type
     regex: '^(_Concurrency(\.|::))?Task<'
-    has: {kind: type_arguments, nthChild: {position: 1, reverse: true}}
+    has: { kind: type_arguments, nthChild: { position: 1, reverse: true } }

@@ -1,5 +1,5 @@
-import { env, exports } from 'cloudflare:workers';
 import { assert, it } from '@effect/vitest';
+import { env, exports } from 'cloudflare:workers';
 import { Array, DateTime, Duration, Effect, Schedule } from 'effect';
 import { answers, type Job, refused } from '#/server/worker';
 
@@ -9,6 +9,7 @@ const interval = Duration.toMillis('1 second');
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+// oxlint-disable-next-line import/no-commonjs -- `exports` is the cloudflare:workers named export holding the Worker's entrypoints, not CommonJS
 const running = Effect.fromNullishOr(exports.default);
 const fetched = Effect.fnUntraced(function* (path: string, init?: RequestInit) {
     const self = yield* running;

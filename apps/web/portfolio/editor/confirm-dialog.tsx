@@ -8,17 +8,17 @@ const ConfirmDialog = ({ label, onConfirm, description = 'Source files stay in l
         <Button className="button button-ghost" isDisabled={disabled}>
             {label}
         </Button>
-        <Backdrop className="bg-foreground/55 fixed inset-0 z-60 flex items-center justify-center p-4">
-            <Modal className="bg-background max-h-full w-full max-w-120 overflow-auto">
+        <Backdrop className="fixed inset-0 z-60 flex items-center justify-center bg-foreground/55 p-4">
+            <Modal className="max-h-full w-full max-w-120 overflow-auto bg-background">
                 <Dialog className="p-7 outline-none" role="alertdialog">
                     <Heading className="text-heading tracking-display" slot="title">
                         {label}?
                     </Heading>
-                    <Text className="hint mt-3.5 mb-6" elementType="p" slot="description">
+                    <Text className="mt-3.5 mb-6 hint" elementType="p" slot="description">
                         {description}
                     </Text>
                     <div className="flex flex-wrap justify-end gap-2.5">
-                        <Button autoFocus={true} className="button button-outline" slot="close">
+                        <Button autoFocus className="button button-outline" slot="close">
                             Keep
                         </Button>
                         <Button className="button" onPress={onConfirm} slot="close">

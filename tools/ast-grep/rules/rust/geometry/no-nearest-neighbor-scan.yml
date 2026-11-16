@@ -5,12 +5,12 @@ utils:
     set-iter:
         kind: call_expression
         all:
-            - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^(iter|into_iter)$'}}, {has: {field: value, pattern: $PTS}}]}
-            - has: {field: arguments, not: {has: {pattern: $_}}}
+            - has: { field: function, kind: field_expression, all: [{ has: { field: field, regex: '^(iter|into_iter)$' } }, { has: { field: value, pattern: $PTS } }] }
+            - has: { field: arguments, not: { has: { pattern: $_ } } }
     set-iteration:
         any:
             - kind: reference_expression
-              has: {field: value, pattern: $PTS}
+              has: { field: value, pattern: $PTS }
             - matches: set-iter
             - pattern: $PTS
     distance-closure:
@@ -19,30 +19,30 @@ utils:
     mapped-distance:
         kind: call_expression
         all:
-            - has: {field: function, kind: field_expression, has: {field: field, regex: '^(map|filter_map)$'}}
-            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: distance-closure}}
+            - has: { field: function, kind: field_expression, has: { field: field, regex: '^(map|filter_map)$' } }
+            - has: { field: arguments, has: { nthChild: { position: 1, ofRule: { not: { kind: 'line_comment, block_comment' } } }, matches: distance-closure } }
 rule:
     kind: call_expression
     all:
-        - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^(min_by|min_by_key|min|reduce|fold)$'}}, {has: {field: value, pattern: $SCAN}}]}
+        - has: { field: function, kind: field_expression, all: [{ has: { field: field, regex: '^(min_by|min_by_key|min|reduce|fold)$' } }, { has: { field: value, pattern: $SCAN } }] }
         - any:
-            - all:
-                - has: {field: function, has: {field: field, regex: '^(min_by|min_by_key)$'}}
-                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: distance-closure}}
-            - all:
-                - has: {field: function, has: {field: value, any: [{matches: mapped-distance}, {has: {stopBy: end, matches: mapped-distance}}]}}
-                - any:
-                    - has: {field: function, has: {field: field, regex: '^(min_by|min_by_key|min)$'}}
-                    - has: {field: arguments, regex: '(?-u:\b)min(?-u:\b)'}
-        - has: {field: function, has: {field: value, any: [{matches: set-iter}, {has: {stopBy: end, matches: set-iter}}]}}
+              - all:
+                    - has: { field: function, has: { field: field, regex: '^(min_by|min_by_key)$' } }
+                    - has: { field: arguments, has: { nthChild: { position: 1, ofRule: { not: { kind: 'line_comment, block_comment' } } }, matches: distance-closure } }
+              - all:
+                    - has: { field: function, has: { field: value, any: [{ matches: mapped-distance }, { has: { stopBy: end, matches: mapped-distance } }] } }
+                    - any:
+                          - has: { field: function, has: { field: field, regex: '^(min_by|min_by_key|min)$' } }
+                          - has: { field: arguments, regex: '(?-u:\b)min(?-u:\b)' }
+        - has: { field: function, has: { field: value, any: [{ matches: set-iter }, { has: { stopBy: end, matches: set-iter } }] } }
         - any:
-            - inside:
-                kind: for_expression
-                stopBy: {kind: 'function_item, closure_expression'}
-                has: {field: value, matches: set-iteration}
-            - inside:
-                kind: closure_expression
-                stopBy: {kind: function_item}
-                inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, kind: field_expression, has: {field: value, matches: set-iteration}}}}
+              - inside:
+                    kind: for_expression
+                    stopBy: { kind: 'function_item, closure_expression' }
+                    has: { field: value, matches: set-iteration }
+              - inside:
+                    kind: closure_expression
+                    stopBy: { kind: function_item }
+                    inside: { kind: arguments, inside: { kind: call_expression, has: { field: function, kind: field_expression, has: { field: value, matches: set-iteration } } } }
 message: '`$SCAN` scans point set `$PTS` once per point of the same set'
 note: 'Build one `kiddo::ImmutableKdTree` over the points and query each through `nearest_n` of 2 to skip itself, or `rstar::RTree` for boxes'

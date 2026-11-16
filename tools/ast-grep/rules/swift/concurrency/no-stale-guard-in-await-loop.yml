@@ -6,54 +6,54 @@ utils:
         kind: simple_identifier
         all:
             - pattern: $STATE
-            - not: {follows: {regex: '^\.$'}}
+            - not: { follows: { regex: '^\.$' } }
             - inside:
-                kind: 'for_statement, while_statement'
-                stopBy: end
-                has:
-                    kind: statements
-                    has:
-                        kind: assignment
-                        stopBy: end
-                        has: {field: target, has: {kind: simple_identifier, pattern: $STATE, stopBy: end}}
+                  kind: 'for_statement, while_statement'
+                  stopBy: end
+                  has:
+                      kind: statements
+                      has:
+                          kind: assignment
+                          stopBy: end
+                          has: { field: target, has: { kind: simple_identifier, pattern: $STATE, stopBy: end } }
     await-loop:
         any:
             - kind: for_statement
-              has: {field: item, has: {field: bound_identifier, pattern: $L}, follows: {regex: '^await$'}}
+              has: { field: item, has: { field: bound_identifier, pattern: $L }, follows: { regex: '^await$' } }
             - kind: while_statement
               all:
-                - has: {field: bound_identifier, pattern: $L}
-                - has: {kind: await_expression, has: {field: expr, pattern: $_.next()}}
+                  - has: { field: bound_identifier, pattern: $L }
+                  - has: { kind: await_expression, has: { field: expr, pattern: $_.next() } }
 rule:
     kind: 'for_statement, while_statement'
     all:
         - matches: await-loop
         - any:
-            - has:
-                kind: where_clause
-                pattern: $GUARD
-                all:
-                    - has: {matches: loop-state, stopBy: end}
-                    - not: {has: {pattern: $L, stopBy: end}}
-            - has:
-                kind: statements
-                has:
-                    kind: 'guard_statement, if_statement'
-                    nthChild: 1
+              - has:
+                    kind: where_clause
                     pattern: $GUARD
                     all:
-                        - has: {kind: statements, has: {kind: control_transfer_statement, regex: '^(break|return)(?-u:\b)'}}
-                        - has: {matches: loop-state, stopBy: end, inside: {kind: 'guard_statement, if_statement', stopBy: {kind: statements}}}
-                        - not: {has: {pattern: $L, stopBy: end}}
-        - not: {has: {field: collection, kind: call_expression, all: [{has: {nthChild: 1, regex: '^(Observation(\.|::))?Observations$'}}, {has: {stopBy: end, kind: simple_identifier, pattern: $STATE}}]}}
+                        - has: { matches: loop-state, stopBy: end }
+                        - not: { has: { pattern: $L, stopBy: end } }
+              - has:
+                    kind: statements
+                    has:
+                        kind: 'guard_statement, if_statement'
+                        nthChild: 1
+                        pattern: $GUARD
+                        all:
+                            - has: { kind: statements, has: { kind: control_transfer_statement, regex: '^(break|return)(?-u:\b)' } }
+                            - has: { matches: loop-state, stopBy: end, inside: { kind: 'guard_statement, if_statement', stopBy: { kind: statements } } }
+                            - not: { has: { pattern: $L, stopBy: end } }
+        - not: { has: { field: collection, kind: call_expression, all: [{ has: { nthChild: 1, regex: '^(Observation(\.|::))?Observations$' } }, { has: { stopBy: end, kind: simple_identifier, pattern: $STATE } }] } }
         - not:
-            has:
-                kind: statements
-                has:
-                    kind: if_statement
-                    not: {nthChild: 1}
-                    has: {kind: statements, has: {kind: control_transfer_statement, regex: '^break$'}}
+              has:
+                  kind: statements
+                  has:
+                      kind: if_statement
+                      not: { nthChild: 1 }
+                      has: { kind: statements, has: { kind: control_transfer_statement, regex: '^break$' } }
 transform:
-    HEAD: {replace: {source: $GUARD, replace: '(?s)\n.*$', by: ''}}
+    HEAD: { replace: { source: $GUARD, replace: '(?s)\n.*$', by: '' } }
 message: '`$HEAD` reads `$STATE` from the previous iteration and awaits one more `$L` before exiting'
 note: 'End loop body with `if <finished> { break }` after setting `<state>`, or finish the input sequence'

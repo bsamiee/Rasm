@@ -12,6 +12,7 @@
         "ms-dotnettools.csharp",
         "ms-vscode.cmake-tools",
         "ms-vscode.hexeditor",
+        "oxc.oxc-vscode",
         "pkief.material-icon-theme",
         "redhat.java",
         "redhat.vscode-yaml",

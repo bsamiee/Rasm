@@ -6,15 +6,15 @@ rule:
     pattern: $SITE
     any:
         - all:
-            - has: {nthChild: 1, regex: '^((Darwin|Glibc|Musl)(\.|::))?kill$'}
-            - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, nthChild: {position: 1, ofRule: {kind: value_argument}}, regex: '\.processIdentifier\.value\)?$'}}}
+              - has: { nthChild: 1, regex: '^((Darwin|Glibc|Musl)(\.|::))?kill$' }
+              - has: { kind: call_suffix, has: { kind: value_arguments, has: { kind: value_argument, nthChild: { position: 1, ofRule: { kind: value_argument } }, regex: '\.processIdentifier\.value\)?$' } } }
         - all:
-            - pattern: '$EXECUTION.send(signal: .kill)'
-            - inside:
-                stopBy: {kind: statements}
-                kind: statements
-                all:
-                    - has: {stopBy: end, matches: {swift-task-call: {member: {regex: '^sleep$'}}}}
-                    - has: {stopBy: end, pattern: '$EXECUTION.send(signal: .terminate)'}
+              - pattern: '$EXECUTION.send(signal: .kill)'
+              - inside:
+                    stopBy: { kind: statements }
+                    kind: statements
+                    all:
+                        - has: { stopBy: end, matches: { swift-task-call: { member: { regex: '^sleep$' } } } }
+                        - has: { stopBy: end, pattern: '$EXECUTION.send(signal: .terminate)' }
 message: '`$SITE` signals a Subprocess child by hand'
 note: 'Call `<execution>.send(signal:toProcessGroup:)`, and `teardown(using:)` or a `teardownSequence` for a terminate-then-kill stop'

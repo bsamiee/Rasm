@@ -4,103 +4,103 @@ severity: error
 utils:
     runner-function:
         any:
-            - matches: {python-member-use: {module: {regex: '^anyio$'}, name: {regex: '^run$'}}}
-            - matches: {python-member-use: {module: {regex: '^anyio\.from_thread$'}, name: {regex: '^run(_sync|_eventloop)?$'}}}
-            - matches: {python-member-use: {module: {regex: '^anyio\.to_(thread|process|interpreter)$'}, name: {regex: '^run_sync$'}}}
+            - matches: { python-member-use: { module: { regex: '^anyio$' }, name: { regex: '^run$' } } }
+            - matches: { python-member-use: { module: { regex: '^anyio\.from_thread$' }, name: { regex: '^run(_sync|_eventloop)?$' } } }
+            - matches: { python-member-use: { module: { regex: '^anyio\.to_(thread|process|interpreter)$' }, name: { regex: '^run_sync$' } } }
             - kind: attribute
-              not: {matches: python-shadowed-name}
+              not: { matches: python-shadowed-name }
               all:
-                - has: {field: attribute, pattern: run_sync}
-                - has: {field: object, matches: {python-submodule: {parent: {regex: '^anyio$'}, child: {regex: '^to_(thread|process|interpreter)$'}}}}
+                  - has: { field: attribute, pattern: run_sync }
+                  - has: { field: object, matches: { python-submodule: { parent: { regex: '^anyio$' }, child: { regex: '^to_(thread|process|interpreter)$' } } } }
             - kind: attribute
-              not: {matches: python-shadowed-name}
+              not: { matches: python-shadowed-name }
               all:
-                - has: {field: attribute, regex: '^run(_sync|_eventloop)?$'}
-                - has: {field: object, matches: {python-submodule: {parent: {regex: '^anyio$'}, child: {regex: '^from_thread$'}}}}
+                  - has: { field: attribute, regex: '^run(_sync|_eventloop)?$' }
+                  - has: { field: object, matches: { python-submodule: { parent: { regex: '^anyio$' }, child: { regex: '^from_thread$' } } } }
     task-factory:
-        matches: {python-member-use: {module: {regex: '^anyio$'}, name: {regex: '^create_task_group$'}}}
+        matches: { python-member-use: { module: { regex: '^anyio$' }, name: { regex: '^create_task_group$' } } }
     portal-factory:
         any:
-            - matches: {python-member-use: {module: {regex: '^anyio\.from_thread$'}, name: {regex: '^(BlockingPortal|start_blocking_portal)$'}}}
+            - matches: { python-member-use: { module: { regex: '^anyio\.from_thread$' }, name: { regex: '^(BlockingPortal|start_blocking_portal)$' } } }
             - kind: attribute
-              not: {matches: python-shadowed-name}
+              not: { matches: python-shadowed-name }
               all:
-                - has: {field: attribute, regex: '^(BlockingPortal|start_blocking_portal)$'}
-                - has: {field: object, matches: {python-submodule: {parent: {regex: '^anyio$'}, child: {regex: '^from_thread$'}}}}
+                  - has: { field: attribute, regex: '^(BlockingPortal|start_blocking_portal)$' }
+                  - has: { field: object, matches: { python-submodule: { parent: { regex: '^anyio$' }, child: { regex: '^from_thread$' } } } }
     receiver-binding:
-        matches: {python-binding: {name: {pattern: $RECEIVER}}}
+        matches: { python-binding: { name: { pattern: $RECEIVER } } }
     runner-method:
         kind: attribute
         all:
-            - has: {field: object, kind: identifier, pattern: $RECEIVER}
+            - has: { field: object, kind: identifier, pattern: $RECEIVER }
             - any:
-                - has: {field: attribute, regex: '^start(_soon)?$'}
-                  inside:
-                    kind: with_statement
-                    stopBy: {kind: 'function_definition, class_definition, lambda'}
-                    has:
-                        kind: with_clause
+                  - has: { field: attribute, regex: '^start(_soon)?$' }
+                    inside:
+                        kind: with_statement
+                        stopBy: { kind: 'function_definition, class_definition, lambda' }
                         has:
-                            kind: with_item
+                            kind: with_clause
                             has:
-                                kind: as_pattern
-                                all:
-                                    - has: {field: alias, pattern: $RECEIVER}
-                                    - has: {kind: call, has: {field: function, matches: task-factory}}
-                - has: {field: attribute, regex: '^(call|start_task(_soon)?)$'}
-                  inside:
-                    kind: with_statement
-                    stopBy: {kind: 'function_definition, class_definition, lambda'}
-                    has:
-                        kind: with_clause
+                                kind: with_item
+                                has:
+                                    kind: as_pattern
+                                    all:
+                                        - has: { field: alias, pattern: $RECEIVER }
+                                        - has: { kind: call, has: { field: function, matches: task-factory } }
+                  - has: { field: attribute, regex: '^(call|start_task(_soon)?)$' }
+                    inside:
+                        kind: with_statement
+                        stopBy: { kind: 'function_definition, class_definition, lambda' }
                         has:
-                            kind: with_item
+                            kind: with_clause
                             has:
-                                kind: as_pattern
-                                all:
-                                    - has: {field: alias, pattern: $RECEIVER}
-                                    - has: {kind: call, has: {field: function, matches: portal-factory}}
+                                kind: with_item
+                                has:
+                                    kind: as_pattern
+                                    all:
+                                        - has: { field: alias, pattern: $RECEIVER }
+                                        - has: { kind: call, has: { field: function, matches: portal-factory } }
             - not:
-                inside:
-                    kind: with_statement
-                    stopBy: {kind: 'function_definition, class_definition, lambda'}
-                    has: {field: body, has: {stopBy: {kind: 'function_definition, class_definition, lambda'}, matches: receiver-binding}}
+                  inside:
+                      kind: with_statement
+                      stopBy: { kind: 'function_definition, class_definition, lambda' }
+                      has: { field: body, has: { stopBy: { kind: 'function_definition, class_definition, lambda' }, matches: receiver-binding } }
     runner-callee:
-        matches: {python-unparenthesized: {value: {any: [{matches: runner-function}, {matches: runner-method}]}}}
+        matches: { python-unparenthesized: { value: { any: [{ matches: runner-function }, { matches: runner-method }] } } }
     runner:
         kind: call
-        has: {field: function, matches: runner-callee}
+        has: { field: function, matches: runner-callee }
     partial-callee:
-        matches: {python-unparenthesized: {value: {matches: functools-partial-callee}}}
+        matches: { python-unparenthesized: { value: { matches: functools-partial-callee } } }
     partial:
         any:
             - kind: parenthesized_expression
-              has: {matches: partial}
+              has: { matches: partial }
             - kind: call
               all:
-                - has:
-                    field: arguments
-                    all:
-                        - has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, not: {kind: 'list_splat, parenthesized_list_splat'}}
-                        - not: {has: {kind: 'keyword_argument, dictionary_splat'}}
-                - has: {field: function, matches: partial-callee}
-                - not:
-                    all:
-                        - inside: {kind: module, stopBy: end, regex: '(?-u:\b)Placeholder(?-u:\b)'}
-                        - has: {field: arguments, has: {stopBy: end, matches: {python-member-use: {module: {regex: '^functools$'}, name: {regex: '^Placeholder$'}}}}}
+                  - has:
+                        field: arguments
+                        all:
+                            - has: { nthChild: { position: 1, ofRule: { not: { kind: comment } } }, not: { kind: 'list_splat, parenthesized_list_splat' } }
+                            - not: { has: { kind: 'keyword_argument, dictionary_splat' } }
+                  - has: { field: function, matches: partial-callee }
+                  - not:
+                        all:
+                            - inside: { kind: module, stopBy: end, regex: '(?-u:\b)Placeholder(?-u:\b)' }
+                            - has: { field: arguments, has: { stopBy: end, matches: { python-member-use: { module: { regex: '^functools$' }, name: { regex: '^Placeholder$' } } } } }
 rule:
     kind: call, parenthesized_expression, keyword_argument
-    nthChild: {position: 1, ofRule: {not: {kind: comment}}}
+    nthChild: { position: 1, ofRule: { not: { kind: comment } } }
     all:
-        - inside: {kind: argument_list}
+        - inside: { kind: argument_list }
         - any:
-            - matches: partial
-            - kind: keyword_argument
-              all:
-                - has: {field: name, pattern: func}
-                - has: {field: value, matches: partial}
-                - inside: {kind: argument_list, not: {has: {kind: list_splat}}}
-        - inside: {kind: argument_list, inside: {matches: runner}}
+              - matches: partial
+              - kind: keyword_argument
+                all:
+                    - has: { field: name, pattern: func }
+                    - has: { field: value, matches: partial }
+                    - inside: { kind: argument_list, not: { has: { kind: list_splat } } }
+        - inside: { kind: argument_list, inside: { matches: runner } }
         - pattern: $BOUND
 message: '`$BOUND` binds arguments the AnyIO runner takes directly'
 note: 'Pass `<callable>, <arguments>` to the runner in place of `partial`'

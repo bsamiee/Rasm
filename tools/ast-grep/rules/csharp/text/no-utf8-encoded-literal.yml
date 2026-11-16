@@ -3,42 +3,42 @@ language: csharplang
 severity: error
 utils:
     encoding-owner:
-        matches: {csharp-qualified-name: {name: {regex: '^Encoding$'}, qualifier: {regex: '^(?:System|Text)$'}}}
+        matches: { csharp-qualified-name: { name: { regex: '^Encoding$' }, qualifier: { regex: '^(?:System|Text)$' } } }
     utf8-encoding:
         any:
             - kind: member_access_expression
-              all: [{has: {field: expression, matches: encoding-owner}}, {has: {field: name, regex: '^UTF8$'}}]
+              all: [{ has: { field: expression, matches: encoding-owner } }, { has: { field: name, regex: '^UTF8$' } }]
             - kind: object_creation_expression
-              has: {field: type, matches: {csharp-qualified-name: {name: {regex: '^UTF8Encoding$'}, qualifier: {regex: '^(?:System|Text)$'}}}}
+              has: { field: type, matches: { csharp-qualified-name: { name: { regex: '^UTF8Encoding$' }, qualifier: { regex: '^(?:System|Text)$' } } } }
             - kind: parenthesized_expression
-              has: {matches: utf8-encoding}
+              has: { matches: utf8-encoding }
     ascii-encoding:
         kind: member_access_expression
-        all: [{has: {field: expression, matches: encoding-owner}}, {has: {field: name, regex: '^(ASCII|Latin1)$'}}]
+        all: [{ has: { field: expression, matches: encoding-owner } }, { has: { field: name, regex: '^(ASCII|Latin1)$' } }]
     text:
         kind: 'string_literal, verbatim_string_literal, raw_string_literal'
-        not: {regex: '\\[uU][dD][89a-fA-F]|\\[uU]0000[dD][89a-fA-F]|\\x[dD][89a-fA-F]'}
+        not: { regex: '\\[uU][dD][89a-fA-F]|\\[uU]0000[dD][89a-fA-F]|\\x[dD][89a-fA-F]' }
     ascii-text:
         matches: text
         regex: '^[\x00-\x7F]*$'
-        not: {regex: '\\[uUx]'}
+        not: { regex: '\\[uUx]' }
 rule:
     kind: invocation_expression
     pattern: $CALL
     all:
         - has:
-            field: function
-            kind: member_access_expression
-            all:
-                - has: {field: name, regex: '^(GetBytes|GetByteCount)$'}
-                - has: {field: expression, any: [{matches: utf8-encoding}, {matches: ascii-encoding}]}
+              field: function
+              kind: member_access_expression
+              all:
+                  - has: { field: name, regex: '^(GetBytes|GetByteCount)$' }
+                  - has: { field: expression, any: [{ matches: utf8-encoding }, { matches: ascii-encoding }] }
         - has:
-            field: arguments
-            all:
-                - has: {kind: argument, nthChild: 1, matches: csharp-positional-argument, has: {matches: text, pattern: $TEXT}}
-                - not: {has: {kind: argument, nthChild: 2}}
+              field: arguments
+              all:
+                  - has: { kind: argument, nthChild: 1, matches: csharp-positional-argument, has: { matches: text, pattern: $TEXT } }
+                  - not: { has: { kind: argument, nthChild: 2 } }
         - any:
-            - has: {field: function, has: {field: expression, matches: utf8-encoding}}
-            - has: {field: arguments, has: {kind: argument, has: {matches: ascii-text}}}
+              - has: { field: function, has: { field: expression, matches: utf8-encoding } }
+              - has: { field: arguments, has: { kind: argument, has: { matches: ascii-text } } }
 message: '`$CALL` encodes constant `$TEXT` at run time'
 note: 'Write `"<text>"u8.ToArray()`, or `"<text>"u8.Length` for a byte count'

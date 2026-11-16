@@ -13,13 +13,13 @@ utils:
             any:
                 - kind: attribute
                   all:
-                    - has: {field: attribute, regex: '^(new|new_from_object|load|remove|create_gpencil_data|remove_gpencil_data)$'}
-                    - has: {field: object, kind: attribute, has: {field: object, matches: {python-member-use: {module: {regex: '^bpy$'}, name: {regex: '^data$'}}}}}
-                - matches: {python-member-use: {module: {regex: '^gpu\.types$'}, name: {regex: '^(Buffer|GPUBatch|GPUFrameBuffer|GPUIndexBuf|GPUOffScreen|GPUStorageBuf|GPUTexture|GPUUniformBuf|GPUVertBuf|GPUVertFormat)$'}}}
+                      - has: { field: attribute, regex: '^(new|new_from_object|load|remove|create_gpencil_data|remove_gpencil_data)$' }
+                      - has: { field: object, kind: attribute, has: { field: object, matches: { python-member-use: { module: { regex: '^bpy$' }, name: { regex: '^data$' } } } } }
+                - matches: { python-member-use: { module: { regex: '^gpu\.types$' }, name: { regex: '^(Buffer|GPUBatch|GPUFrameBuffer|GPUIndexBuf|GPUOffScreen|GPUStorageBuf|GPUTexture|GPUUniformBuf|GPUVertBuf|GPUVertFormat)$' } } }
 rule:
     kind: call
     all:
-        - has: {field: arguments, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}, has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: refusing}}
-        - has: {field: function, matches: {python-unparenthesized: {value: {matches: {expression-member: {name: {regex: '^Ok$'}}}}}}}
+        - has: { field: arguments, not: { has: { nthChild: { position: 2, ofRule: { not: { kind: comment } } } } }, has: { nthChild: { position: 1, ofRule: { not: { kind: comment } } }, matches: refusing } }
+        - has: { field: function, matches: { python-unparenthesized: { value: { matches: { expression-member: { name: { regex: '^Ok$' } } } } } } }
 message: '`Ok($CALL)` lets a host refusal raise'
 note: 'Call `expression.extra.result.catch(<callee>, exception=<error>)(<arguments>)`'

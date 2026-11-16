@@ -6,17 +6,17 @@ rule:
     kind: command
     all:
         - any:
-            - has: {field: name, regex: '(?:^|/)open$', pattern: $NAME}
-            - all:
-                - has: {field: name, regex: '^(exec|command)$'}
-                - has: {kind: word, regex: '(?:^|/)open$', pattern: $NAME, follows: {kind: command_name}}
+              - has: { field: name, regex: '(?:^|/)open$', pattern: $NAME }
+              - all:
+                    - has: { field: name, regex: '^(exec|command)$' }
+                    - has: { kind: word, regex: '(?:^|/)open$', pattern: $NAME, follows: { kind: command_name } }
         - not:
-            has:
-                kind: 'word, string, raw_string, concatenation'
-                not: {follows: {stopBy: end, pattern: '--args'}}
-                any:
-                    - regex: '^[''"]?(-[eftFWRnjh]*g[A-Za-z]*|--background)[''"]?$'
-                    - has: {stopBy: end, kind: special_variable_name, regex: '^[@*]$'}
-                    - has: {stopBy: end, kind: subscript, has: {field: index, regex: '^[@*]$'}}
+              has:
+                  kind: 'word, string, raw_string, concatenation'
+                  not: { follows: { stopBy: end, pattern: '--args' } }
+                  any:
+                      - regex: '^[''"]?(-[eftFWRnjh]*g[A-Za-z]*|--background)[''"]?$'
+                      - has: { stopBy: end, kind: special_variable_name, regex: '^[@*]$' }
+                      - has: { stopBy: end, kind: subscript, has: { field: index, regex: '^[@*]$' } }
 message: '`$NAME` supplies no fixed background option'
 note: Pass `-g`, `open` then launches through LaunchServices with no activation

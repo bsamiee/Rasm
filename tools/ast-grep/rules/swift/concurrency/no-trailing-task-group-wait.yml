@@ -7,32 +7,32 @@ utils:
         inside:
             kind: lambda_literal
             all:
-                - has: {kind: lambda_function_type, has: {kind: lambda_function_type_parameters, has: {kind: lambda_parameter, has: {field: name, pattern: $G}}}}
+                - has: { kind: lambda_function_type, has: { kind: lambda_function_type_parameters, has: { kind: lambda_parameter, has: { field: name, pattern: $G } } } }
                 - inside:
-                    kind: call_suffix
-                    inside: {kind: call_expression, has: {nthChild: 1, regex: '^(_Concurrency(\.|::))?with(Throwing)?TaskGroup$'}}
+                      kind: call_suffix
+                      inside: { kind: call_expression, has: { nthChild: 1, regex: '^(_Concurrency(\.|::))?with(Throwing)?TaskGroup$' } }
     drain:
         any:
             - kind: await_expression
-              has: {field: expr, pattern: $G.waitForAll()}
+              has: { field: expr, pattern: $G.waitForAll() }
             - pattern: 'for await _ in $G {}'
-              not: {has: {kind: where_clause}}
+              not: { has: { kind: where_clause } }
             - pattern: 'while await $G.next() != nil {}'
             - pattern: 'while let _ = await $G.next() {}'
 rule:
     pattern: $WAIT
     all:
         - matches: drain
-        - nthChild: {position: 1, reverse: true, ofRule: {not: {kind: 'comment, multiline_comment'}}}
-        - inside: {matches: group-body}
+        - nthChild: { position: 1, reverse: true, ofRule: { not: { kind: 'comment, multiline_comment' } } }
+        - inside: { matches: group-body }
         - not:
-            follows:
-                stopBy: end
-                any:
-                    - kind: property_declaration
-                      has: {kind: pattern, has: {stopBy: end, kind: simple_identifier, pattern: $G}}
-                    - kind: guard_statement
-                      has: {kind: simple_identifier, follows: {kind: value_binding_pattern}, pattern: $G}
+              follows:
+                  stopBy: end
+                  any:
+                      - kind: property_declaration
+                        has: { kind: pattern, has: { stopBy: end, kind: simple_identifier, pattern: $G } }
+                      - kind: guard_statement
+                        has: { kind: simple_identifier, follows: { kind: value_binding_pattern }, pattern: $G }
 fix: ''
 message: '`$WAIT` repeats the wait `withTaskGroup` runs on remaining child tasks after its body returns'
 note: 'Delete the wait'

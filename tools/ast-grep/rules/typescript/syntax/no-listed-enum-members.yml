@@ -4,48 +4,48 @@ severity: error
 utils:
     literal-union:
         kind: union_type
-        not: {has: {stopBy: end, pattern: $_, not: {kind: 'union_type, literal_type, string, string_fragment, escape_sequence'}}}
+        not: { has: { stopBy: end, pattern: $_, not: { kind: 'union_type, literal_type, string, string_fragment, escape_sequence' } } }
     member:
         kind: string
-        inside: {kind: literal_type}
+        inside: { kind: literal_type }
 rule:
     kind: type_alias_declaration
     pattern: $DECLARATION
     all:
-        - has: {field: value, matches: literal-union}
-        - has: {field: name, pattern: $NAME}
+        - has: { field: value, matches: literal-union }
+        - has: { field: name, pattern: $NAME }
         - inside:
-            kind: program
-            stopBy: end
-            has:
-                pattern: $STATEMENT
-                has:
-                    stopBy: end
-                    kind: array
-                    pattern: $LIST
-                    all:
-                        - has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}, kind: string}
-                        - not: {has: {pattern: $_, not: {kind: 'string, comment'}}}
-                        - not:
-                            has:
-                                kind: string
-                                pattern: $ITEM
-                                not: {inside: {kind: program, stopBy: end, has: {stopBy: &top {not: {kind: export_statement}}, pattern: $DECLARATION, has: {field: value, has: {stopBy: end, matches: member, pattern: $ITEM}}}}}
-                        - not:
-                            inside:
-                                kind: program
-                                stopBy: end
+              kind: program
+              stopBy: end
+              has:
+                  pattern: $STATEMENT
+                  has:
+                      stopBy: end
+                      kind: array
+                      pattern: $LIST
+                      all:
+                          - has: { nthChild: { position: 2, ofRule: { not: { kind: 'comment, html_comment' } } }, kind: string }
+                          - not: { has: { pattern: $_, not: { kind: 'string, comment' } } }
+                          - not:
                                 has:
-                                    stopBy: *top
-                                    pattern: $DECLARATION
+                                    kind: string
+                                    pattern: $ITEM
+                                    not: { inside: { kind: program, stopBy: end, has: { stopBy: &top { not: { kind: export_statement } }, pattern: $DECLARATION, has: { field: value, has: { stopBy: end, matches: member, pattern: $ITEM } } } } }
+                          - not:
+                                inside:
+                                    kind: program
+                                    stopBy: end
                                     has:
-                                        field: value
+                                        stopBy: *top
+                                        pattern: $DECLARATION
                                         has:
-                                            stopBy: end
-                                            matches: member
-                                            pattern: $MEMBER
-                                            not: {inside: {kind: program, stopBy: end, has: {pattern: $STATEMENT, has: {stopBy: end, pattern: $LIST, has: {kind: string, pattern: $MEMBER}}}}}
+                                            field: value
+                                            has:
+                                                stopBy: end
+                                                matches: member
+                                                pattern: $MEMBER
+                                                not: { inside: { kind: program, stopBy: end, has: { pattern: $STATEMENT, has: { stopBy: end, pattern: $LIST, has: { kind: string, pattern: $MEMBER } } } } }
 message: '`$LIST` lists every member of `$NAME` again'
 note: 'Declare members once in `Schema.Literals([...])` or `<list> = [...] as const`, and derive `typeof <schema>.Type` or `(typeof <list>)[number]`'
 labels:
-    LIST: {style: primary, message: Listed members}
+    LIST: { style: primary, message: Listed members }

@@ -2,7 +2,7 @@ import { glob } from 'node:fs/promises';
 import { basename, dirname, join, resolve, sep } from 'node:path';
 import { env } from 'node:process';
 import type { ExecutorContext } from '@nx/devkit';
-import { Array, Cause, Config, Effect, FileSystem, Option, Record, Schema } from 'effect';
+import { Array, Cause, Config, Effect, FileSystem, Function, Option, Record, Schema } from 'effect';
 import { ran, run, spawned } from '#/targets';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -40,7 +40,7 @@ const commands = Effect.fnUntraced(function* ({ runs, applications = [], report,
     const reported = Option.fromUndefinedOr(report);
     const cleared = Record.map(
         Record.filter(env, (_, name) => name.startsWith('NX_') || name === 'LERNA_PACKAGE_NAME'),
-        () => undefined,
+        Function.constUndefined,
     );
     const previous = yield* Option.match(reported, { onNone: () => Effect.succeed([]), onSome: ({ profiles }) => matched(profiles, root) });
     yield* Effect.forEach(previous, (at) => fs.remove(at, { force: true }), { discard: true });

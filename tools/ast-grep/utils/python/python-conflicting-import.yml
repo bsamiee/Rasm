@@ -5,38 +5,38 @@ arguments: [module, name]
 rule:
     all:
         - any:
-            - kind: identifier
-              pattern: $BOUND
-            - kind: attribute
-              has: {field: object, kind: identifier, pattern: $BOUND}
+              - kind: identifier
+                pattern: $BOUND
+              - kind: attribute
+                has: { field: object, kind: identifier, pattern: $BOUND }
         - inside:
-            kind: module, function_definition, class_definition
-            stopBy: end
-            has:
-                stopBy: {not: {kind: 'module, block, if_statement, elif_clause, else_clause, for_statement, while_statement, try_statement, except_clause, finally_clause, with_statement, match_statement, case_clause, decorated_definition, import_statement'}}
-                kind: dotted_name, aliased_import, import_from_statement
-                any:
-                    - kind: dotted_name
-                      pattern: $BOUND
-                      inside: {kind: import_statement}
-                      not: {matches: module}
-                    - kind: aliased_import
-                      inside: {kind: import_statement}
-                      all:
-                        - has: {field: alias, pattern: $BOUND}
-                        - has: {field: name, not: {matches: module}}
-                    - kind: import_from_statement
-                      all:
-                        - any:
-                            - has: {kind: dotted_name, pattern: $BOUND, not: {inside: {field: module_name, kind: import_from_statement}}}
-                            - has: {kind: aliased_import, has: {field: alias, pattern: $BOUND}}
-                        - not:
-                            all:
-                                - has: {field: module_name, matches: module}
-                                - any:
-                                    - has: {kind: dotted_name, pattern: $BOUND, matches: name}
-                                    - has:
-                                        kind: aliased_import
-                                        all:
-                                            - has: {field: alias, pattern: $BOUND}
-                                            - has: {field: name, matches: name}
+              kind: module, function_definition, class_definition
+              stopBy: end
+              has:
+                  stopBy: { not: { kind: 'module, block, if_statement, elif_clause, else_clause, for_statement, while_statement, try_statement, except_clause, finally_clause, with_statement, match_statement, case_clause, decorated_definition, import_statement' } }
+                  kind: dotted_name, aliased_import, import_from_statement
+                  any:
+                      - kind: dotted_name
+                        pattern: $BOUND
+                        inside: { kind: import_statement }
+                        not: { matches: module }
+                      - kind: aliased_import
+                        inside: { kind: import_statement }
+                        all:
+                            - has: { field: alias, pattern: $BOUND }
+                            - has: { field: name, not: { matches: module } }
+                      - kind: import_from_statement
+                        all:
+                            - any:
+                                  - has: { kind: dotted_name, pattern: $BOUND, not: { inside: { field: module_name, kind: import_from_statement } } }
+                                  - has: { kind: aliased_import, has: { field: alias, pattern: $BOUND } }
+                            - not:
+                                  all:
+                                      - has: { field: module_name, matches: module }
+                                      - any:
+                                            - has: { kind: dotted_name, pattern: $BOUND, matches: name }
+                                            - has:
+                                                  kind: aliased_import
+                                                  all:
+                                                      - has: { field: alias, pattern: $BOUND }
+                                                      - has: { field: name, matches: name }

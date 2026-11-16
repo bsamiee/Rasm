@@ -3,24 +3,24 @@ language: tsxlang
 severity: error
 rule:
     kind: call_expression
-    not: {all: [{has: {field: function, has: {field: property, regex: '^sort$'}}}, {matches: typescript-extremum-read}]}
+    not: { all: [{ has: { field: function, has: { field: property, regex: '^sort$' } } }, { matches: typescript-extremum-read }] }
     has:
         field: function
         kind: member_expression
         all:
-            - has: {field: property, regex: '^(reverse|sort)$', pattern: $MUTATE}
+            - has: { field: property, regex: '^(reverse|sort)$', pattern: $MUTATE }
             - has:
-                field: object
-                any:
-                    - kind: array
-                      all: [{has: {nthChild: {position: 1, ofRule: &code {not: {kind: 'comment, html_comment'}}}, kind: spread_element, has: {pattern: $LIST}}}, {not: {has: {nthChild: {position: 2, ofRule: *code}}}}]
-                    - kind: call_expression
-                      all:
-                        - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^slice$'}}, {has: {field: object, pattern: $LIST}}]}
-                        - not: {has: {field: arguments, any: [{has: {nthChild: {position: 2, ofRule: *code}}}, {has: {nthChild: {position: 1, ofRule: *code}, not: {regex: '^0$'}}}]}}
-                    - kind: call_expression
-                      all:
-                        - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^from$'}}, {has: {field: object, regex: '(^|\.)Array$', matches: typescript-global-member}}]}
-                        - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: *code}, pattern: $LIST}}, {not: {has: {nthChild: {position: 2, ofRule: *code}}}}]}
+                  field: object
+                  any:
+                      - kind: array
+                        all: [{ has: { nthChild: { position: 1, ofRule: &code { not: { kind: 'comment, html_comment' } } }, kind: spread_element, has: { pattern: $LIST } } }, { not: { has: { nthChild: { position: 2, ofRule: *code } } } }]
+                      - kind: call_expression
+                        all:
+                            - has: { field: function, kind: member_expression, all: [{ has: { field: property, regex: '^slice$' } }, { has: { field: object, pattern: $LIST } }] }
+                            - not: { has: { field: arguments, any: [{ has: { nthChild: { position: 2, ofRule: *code } } }, { has: { nthChild: { position: 1, ofRule: *code }, not: { regex: '^0$' } } }] } }
+                      - kind: call_expression
+                        all:
+                            - has: { field: function, kind: member_expression, all: [{ has: { field: property, regex: '^from$' } }, { has: { field: object, regex: '(^|\.)Array$', matches: typescript-global-member } }] }
+                            - has: { field: arguments, all: [{ has: { nthChild: { position: 1, ofRule: *code }, pattern: $LIST } }, { not: { has: { nthChild: { position: 2, ofRule: *code } } } }] }
 message: '`$MUTATE` reorders a copy of `$LIST` in place'
 note: 'Call `<list>.toReversed()` or `<list>.toSorted(<compare>)` on an array, `Array.reverse` or `Array.sort` from `effect` on an iterable'

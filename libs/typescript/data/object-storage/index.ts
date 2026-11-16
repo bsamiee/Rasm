@@ -50,12 +50,12 @@ class ObjectStorage extends Context.Service<ObjectStorage, { readonly objects: O
     });
     static readonly serve = Effect.fn('ObjectStorage.serve')(function* (object: ServeContext, options: Omit<ServeObjectOptions, 'onError'> = {}) {
         const [{ objects }, request, context] = yield* Effect.all([ObjectStorage, Effect.flatMap(HttpServerRequest.HttpServerRequest, HttpServerRequest.toWeb).pipe(Effect.orDie), Effect.context<never>()]);
-        const served = serveObject(objects, { ...options, onError: (error, { operation, key }) => Effect.logError(Cause.fail(ObjectStorageError.of('Unavailable', `${operation} ${key}`)(error))).pipe(Effect.runSyncWith(context)) });
+        const served = serveObject(objects, { ...options, onError: (error, { operation, key }) => Effect.runSyncWith(context)(Effect.logError(Cause.fail(ObjectStorageError.of('Unavailable', `${operation} ${key}`)(error)))) });
         return HttpServerResponse.fromWeb(yield* Effect.promise(() => served(request, object)));
     });
     static readonly receive = Effect.fn('ObjectStorage.receive')(function* (options: Omit<UploadHandlerOptions, 'onError'>) {
         const [{ uploads }, request, context] = yield* Effect.all([ObjectStorage, Effect.flatMap(HttpServerRequest.HttpServerRequest, HttpServerRequest.toWeb).pipe(Effect.orDie), Effect.context<never>()]);
-        const received = createUploadHandler(uploads, { ...options, onError: (error, { operation }) => Effect.logError(Cause.fail(ObjectStorageError.of('Unavailable', operation)(error))).pipe(Effect.runSyncWith(context)) });
+        const received = createUploadHandler(uploads, { ...options, onError: (error, { operation }) => Effect.runSyncWith(context)(Effect.logError(Cause.fail(ObjectStorageError.of('Unavailable', operation)(error)))) });
         return HttpServerResponse.fromWeb(yield* Effect.promise(() => received(request)));
     });
 }

@@ -5,67 +5,67 @@ utils:
     byte-format:
         kind: macro_invocation
         all:
-            - matches: {rust-std-macro: {name: {regex: '^(format|write|writeln)$'}}}
-            - has: {kind: token_tree, has: {kind: string_literal, regex: '^"\{\p{XID_Continue}*:(0>2|02)[xX]\}"$'}}
+            - matches: { rust-std-macro: { name: { regex: '^(format|write|writeln)$' } } }
+            - has: { kind: token_tree, has: { kind: string_literal, regex: '^"\{\p{XID_Continue}*:(0>2|02)[xX]\}"$' } }
             - inside:
-                stopBy: {kind: 'function_item, closure_expression, for_expression'}
-                any:
-                    - kind: for_expression
-                    - kind: closure_expression
-                      inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, kind: field_expression, has: {field: field, regex: '^(map|fold|for_each|try_fold|try_for_each|flat_map|filter_map|scan)$'}}}}
+                  stopBy: { kind: 'function_item, closure_expression, for_expression' }
+                  any:
+                      - kind: for_expression
+                      - kind: closure_expression
+                        inside: { kind: arguments, inside: { kind: call_expression, has: { field: function, kind: field_expression, has: { field: field, regex: '^(map|fold|for_each|try_fold|try_for_each|flat_map|filter_map|scan)$' } } } }
     pair-step:
         regex: '\.(step_by|chunks|chunks_exact)\(\p{Pattern_White_Space}*2\p{Pattern_White_Space}*\)'
     iteration:
         any:
             - kind: for_expression
             - kind: closure_expression
-              inside: {kind: arguments, inside: {kind: call_expression}}
+              inside: { kind: arguments, inside: { kind: call_expression } }
     pair-parse:
         kind: call_expression
         all:
-            - has: {field: function, regex: '^((::)?(std|core)::)?u8::from_str_radix$'}
-            - has: {field: arguments, all: [{has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}, regex: '^16$'}}, {not: {has: {nthChild: {position: 3, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}]}
+            - has: { field: function, regex: '^((::)?(std|core)::)?u8::from_str_radix$' }
+            - has: { field: arguments, all: [{ has: { nthChild: { position: 2, ofRule: { not: { kind: 'line_comment, block_comment' } } }, regex: '^16$' } }, { not: { has: { nthChild: { position: 3, ofRule: { not: { kind: 'line_comment, block_comment' } } } } } }] }
             - any:
-                - all:
-                    - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, has: {stopBy: end, kind: range_expression, regex: '\+\p{Pattern_White_Space}*2$'}}}
-                    - inside: {stopBy: {kind: 'function_item, closure_expression, for_expression'}, matches: iteration}
-                - inside:
-                    stopBy: {kind: 'function_item, closure_expression, for_expression'}
-                    any:
-                        - kind: for_expression
-                          has: {field: value, matches: pair-step}
-                        - kind: closure_expression
-                          inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, kind: field_expression, has: {field: value, matches: pair-step}}}}
+                  - all:
+                        - has: { field: arguments, has: { nthChild: { position: 1, ofRule: { not: { kind: 'line_comment, block_comment' } } }, has: { stopBy: end, kind: range_expression, regex: '\+\p{Pattern_White_Space}*2$' } } }
+                        - inside: { stopBy: { kind: 'function_item, closure_expression, for_expression' }, matches: iteration }
+                  - inside:
+                        stopBy: { kind: 'function_item, closure_expression, for_expression' }
+                        any:
+                            - kind: for_expression
+                              has: { field: value, matches: pair-step }
+                            - kind: closure_expression
+                              inside: { kind: arguments, inside: { kind: call_expression, has: { field: function, kind: field_expression, has: { field: value, matches: pair-step } } } }
     nibble:
         regex: '>>\p{Pattern_White_Space}*4(?-u:\b)|&\p{Pattern_White_Space}*(0x0?[fF]|15)(?-u:\b)'
     nibble-lookup:
         kind: index_expression
         all:
-            - has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, any: [{kind: string_literal, regex: '^b?"(0123456789abcdef|0123456789ABCDEF)"$'}, {kind: identifier, regex: '^[\p{Lu}_]*HEX[\p{Lu}_]*$'}]}
-            - has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}, has: {stopBy: end, matches: nibble}}
+            - has: { nthChild: { position: 1, ofRule: { not: { kind: 'line_comment, block_comment' } } }, any: [{ kind: string_literal, regex: '^b?"(0123456789abcdef|0123456789ABCDEF)"$' }, { kind: identifier, regex: '^[\p{Lu}_]*HEX[\p{Lu}_]*$' }] }
+            - has: { nthChild: { position: 2, ofRule: { not: { kind: 'line_comment, block_comment' } } }, has: { stopBy: end, matches: nibble } }
     digit-encode:
         kind: call_expression
         all:
-            - has: {field: function, regex: '^((::)?(std|core)::)?(char::)?from_digit$'}
-            - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: nibble}}, {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}, regex: '^16$'}}]}
+            - has: { field: function, regex: '^((::)?(std|core)::)?(char::)?from_digit$' }
+            - has: { field: arguments, all: [{ has: { nthChild: { position: 1, ofRule: { not: { kind: 'line_comment, block_comment' } } }, matches: nibble } }, { has: { nthChild: { position: 2, ofRule: { not: { kind: 'line_comment, block_comment' } } }, regex: '^16$' } }] }
     digit-decode:
         kind: call_expression
         all:
-            - has: {field: function, kind: field_expression, has: {field: field, regex: '^to_digit$'}}
-            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, regex: '^16$'}}
+            - has: { field: function, kind: field_expression, has: { field: field, regex: '^to_digit$' } }
+            - has: { field: arguments, has: { nthChild: { position: 1, ofRule: { not: { kind: 'line_comment, block_comment' } } }, regex: '^16$' } }
             - inside:
-                stopBy: {kind: 'function_item, closure_expression, for_expression'}
-                matches: iteration
-                has: {stopBy: end, kind: binary_expression, any: [{all: [{has: {field: operator, regex: '^<<$'}}, {has: {field: right, regex: '^4$'}}]}, {all: [{has: {field: operator, regex: '^\*$'}}, {has: {field: right, regex: '^16$'}}]}]}
+                  stopBy: { kind: 'function_item, closure_expression, for_expression' }
+                  matches: iteration
+                  has: { stopBy: end, kind: binary_expression, any: [{ all: [{ has: { field: operator, regex: '^<<$' } }, { has: { field: right, regex: '^4$' } }] }, { all: [{ has: { field: operator, regex: '^\*$' } }, { has: { field: right, regex: '^16$' } }] }] }
 rule:
     kind: 'macro_invocation, call_expression, index_expression'
     all:
         - any:
-            - matches: byte-format
-            - matches: pair-parse
-            - matches: nibble-lookup
-            - matches: digit-encode
-            - matches: digit-decode
+              - matches: byte-format
+              - matches: pair-parse
+              - matches: nibble-lookup
+              - matches: digit-encode
+              - matches: digit-decode
         - pattern: $SITE
 message: '`$SITE` encodes or decodes hex text one byte at a time'
 note: 'Encode through `data_encoding::HEXLOWER` or `HEXUPPER` (`encode_write` into a formatter), decode through `HEXLOWER_PERMISSIVE.decode`'

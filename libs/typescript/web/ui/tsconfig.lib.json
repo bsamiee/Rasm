@@ -1,7 +1,7 @@
 {
     "extends": "./tsconfig.json",
-    "include": [ "**/*" ],
-    "exclude": [ "dist", ".storybook", "*.stories.ts", "*.stories.tsx" ],
+    "include": ["**/*"],
+    "exclude": ["dist", ".storybook", "*.stories.ts", "*.stories.tsx"],
     "references": [
         {
             "path": "../../../../tests/typescript/support"

@@ -5,37 +5,37 @@ utils:
     arm-assignment:
         kind: assignment
         all:
-            - has: {field: operator, pattern: $$_EQUALS, regex: '^=$'}
-            - has: {field: target, has: {kind: simple_identifier, pattern: $NAME}, not: {has: {nthChild: 2}}}
+            - has: { field: operator, pattern: $$_EQUALS, regex: '^=$' }
+            - has: { field: target, has: { kind: simple_identifier, pattern: $NAME }, not: { has: { nthChild: 2 } } }
     assigning-arm:
         kind: statements
-        matches: {swift-single-statement: {first: {any: [{matches: arm-assignment}, {kind: control_transfer_statement, regex: '^throw(?-u:\b)'}]}}}
+        matches: { swift-single-statement: { first: { any: [{ matches: arm-assignment }, { kind: control_transfer_statement, regex: '^throw(?-u:\b)' }] } } }
     assigning-if:
         kind: if_statement
         all:
-            - has: {regex: '^else$'}
-            - not: {has: {kind: availability_condition}}
-            - not: {has: {kind: statements, not: {matches: assigning-arm}}}
-            - not: {has: {kind: if_statement, not: {matches: assigning-if}}}
+            - has: { regex: '^else$' }
+            - not: { has: { kind: availability_condition } }
+            - not: { has: { kind: statements, not: { matches: assigning-arm } } }
+            - not: { has: { kind: if_statement, not: { matches: assigning-if } } }
     assigning-switch:
         kind: switch_statement
-        not: {has: {kind: switch_entry, not: {has: {kind: statements, matches: assigning-arm}}}}
+        not: { has: { kind: switch_entry, not: { has: { kind: statements, matches: assigning-arm } } } }
 rule:
     kind: property_declaration
     all:
-        - has: {kind: value_binding_pattern, regex: '^let$'}
+        - has: { kind: value_binding_pattern, regex: '^let$' }
         - has:
-            kind: pattern
-            has: {field: bound_identifier, pattern: $NAME}
-            all:
-                - not: {has: {nthChild: 2}}
-                - precedes: {stopBy: {kind: pattern}, kind: type_annotation}
-                - not: {precedes: {stopBy: {kind: pattern}, any: [{follows: {regex: '^=$'}}, {kind: computed_property}]}}
-        - inside: {kind: statements}
+              kind: pattern
+              has: { field: bound_identifier, pattern: $NAME }
+              all:
+                  - not: { has: { nthChild: 2 } }
+                  - precedes: { stopBy: { kind: pattern }, kind: type_annotation }
+                  - not: { precedes: { stopBy: { kind: pattern }, any: [{ follows: { regex: '^=$' } }, { kind: computed_property }] } }
+        - inside: { kind: statements }
         - precedes:
-            any:
-                - matches: assigning-if
-                - matches: assigning-switch
-            has: {stopBy: end, matches: arm-assignment}
+              any:
+                  - matches: assigning-if
+                  - matches: assigning-switch
+              has: { stopBy: end, matches: arm-assignment }
 message: '`let $NAME` takes its value from an assignment in each arm of the next branch'
 note: 'Declare `let <name>: <Type> = if <condition> { <a> } else { <b> }` or `= switch <subject> { }`, keeping `throw` arms'

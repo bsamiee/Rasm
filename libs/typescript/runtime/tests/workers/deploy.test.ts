@@ -2,7 +2,7 @@ import { layer } from '@effect/platform-node/NodeServices';
 import { assert, it } from '@effect/vitest';
 import { all, runtime } from '@pulumi/pulumi';
 import { deployWorker } from '@rasm/workers/deploy';
-import { Array, Effect, FileSystem, MutableRef, Path, Record, Schema } from 'effect';
+import { Array, Effect, FileSystem, flow, MutableRef, Path, Record, Schema } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -31,7 +31,7 @@ const Json = Schema.fromJsonString(Schema.Unknown);
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-const registered = MutableRef.make<ReadonlyArray<{ readonly type: string; readonly name: string; readonly inputs: Record.ReadonlyRecord<string, unknown> & { readonly bindings?: unknown } }>>([]);
+const registered = MutableRef.make<readonly { readonly type: string; readonly name: string; readonly inputs: Record.ReadonlyRecord<string, unknown> & { readonly bindings?: unknown } }[]>([]);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -56,22 +56,20 @@ it.effect(
     'creates each store a binding names with the jurisdiction or delivery delay the binding states, binds an R2 bucket in its jurisdiction, and binds a D1 database stated by id without creating it',
     Effect.fnUntraced(function* () {
         yield* Effect.promise(() =>
-            Promise.resolve(
-                runtime.setMocks({
-                    newResource: ({ type, name, inputs }) => {
-                        MutableRef.update(registered, Array.append({ type, name, inputs }));
-                        return { id: `${name}-id`, state: inputs };
-                    },
-                    call: ({ inputs }) => inputs,
-                }),
-            ),
+            runtime.setMocks({
+                newResource: (resource: (typeof registered.current)[number]) => {
+                    MutableRef.update(registered, Array.append(resource));
+                    return { id: `${resource.name}-id`, state: resource.inputs };
+                },
+                call: ({ inputs }: { readonly inputs: Record.ReadonlyRecord<string, unknown> }) => inputs,
+            }),
         );
         const { stores, workers } = yield* deployWorker({ accountId: 'account', root: yield* built(), production: false, named: (configured) => `${configured}-next`, bindings: () => ({}), options: {} });
         const { default: worker } = workers;
         const { version } = yield* Effect.fromNullishOr(worker);
         const urns = [...Object.values(stores.d1), ...Object.values(stores.r2), ...Object.values(stores.queue)].map(({ urn }) => urn);
-        yield* Effect.callback<void>((resume) => {
-            all([version, ...urns]).apply(() => resume(Effect.void));
+        yield* Effect.callback<string[]>((resume) => {
+            all([version, ...urns]).apply(flow(Effect.succeed, resume));
         });
         const made = Record.map(
             Array.groupBy(MutableRef.get(registered), ({ type }) => type),

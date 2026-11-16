@@ -4,28 +4,28 @@ severity: error
 rule:
     all:
         - any:
-            - kind: macro_invocation
-              has: {field: macro, pattern: $LOG, regex: '^(::)?((tracing|log)::)?((trace|debug|info|warn|error)(_span)?|event|span|log)$'}
-            - kind: attribute_item
-              has: {kind: attribute, has: {stopBy: end, kind: 'identifier, scoped_identifier', pattern: $LOG, regex: '^(::)?(tracing::)?instrument$'}}
+              - kind: macro_invocation
+                has: { field: macro, pattern: $LOG, regex: '^(::)?((tracing|log)::)?((trace|debug|info|warn|error)(_span)?|event|span|log)$' }
+              - kind: attribute_item
+                has: { kind: attribute, has: { stopBy: end, kind: 'identifier, scoped_identifier', pattern: $LOG, regex: '^(::)?(tracing::)?instrument$' } }
         - inside:
-            stopBy: end
-            kind: impl_item
-            has:
-                field: trait
-                pattern: $TRAIT
-                regex: '(?s)^((::)?(std|core|alloc)::)?((convert|str|fmt|borrow|ops|cmp|hash|clone|default)::)?(From|Into|TryFrom|TryInto|FromStr|AsRef|AsMut|Borrow|BorrowMut|Deref|DerefMut|Display|Debug|LowerHex|UpperHex|Octal|Binary|LowerExp|UpperExp|Pointer|PartialEq|Eq|PartialOrd|Ord|Hash|Clone|Default)(<.*)?$'
+              stopBy: end
+              kind: impl_item
+              has:
+                  field: trait
+                  pattern: $TRAIT
+                  regex: '(?s)^((::)?(std|core|alloc)::)?((convert|str|fmt|borrow|ops|cmp|hash|clone|default)::)?(From|Into|TryFrom|TryInto|FromStr|AsRef|AsMut|Borrow|BorrowMut|Deref|DerefMut|Display|Debug|LowerHex|UpperHex|Octal|Binary|LowerExp|UpperExp|Pointer|PartialEq|Eq|PartialOrd|Ord|Hash|Clone|Default)(<.*)?$'
         - not:
-            inside:
-                kind: source_file
-                stopBy: end
-                has:
-                    stopBy: end
-                    any:
-                        - kind: macro_definition
-                          has: {field: name, pattern: $LOG}
-                        - kind: use_declaration
-                          regex: '^use\p{Pattern_White_Space}+(crate|self|super)(?-u:\b)'
-                          has: {stopBy: end, kind: identifier, pattern: $LOG}
+              inside:
+                  kind: source_file
+                  stopBy: end
+                  has:
+                      stopBy: end
+                      any:
+                          - kind: macro_definition
+                            has: { field: name, pattern: $LOG }
+                          - kind: use_declaration
+                            regex: '^use\p{Pattern_White_Space}+(crate|self|super)(?-u:\b)'
+                            has: { stopBy: end, kind: identifier, pattern: $LOG }
 message: '`$LOG` emits telemetry inside an `impl $TRAIT`'
 note: 'Delete the event or span and log at each boundary calling `<method>`'

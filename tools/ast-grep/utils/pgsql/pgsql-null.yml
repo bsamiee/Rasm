@@ -3,4 +3,4 @@ id: pgsql-null
 language: pgsql
 rule:
     matches: pgsql-wrapper
-    has: {stopBy: {not: {matches: pgsql-wrapper}}, kind: AexprConst, regex: '(?i-u)^null$'}
+    has: { stopBy: { not: { matches: pgsql-wrapper } }, kind: AexprConst, regex: '(?i-u)^null$' }

@@ -3,14 +3,17 @@
     "version": "0.1.0",
     "private": true,
     "description": "OpenType typesetting, from font faces to composed text",
+    "license": "MIT",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/bsamiee/Rasm.git",
         "directory": "libs/typescript/graphics/typography"
     },
-    "license": "MIT",
-    "sideEffects": false,
+    "files": [
+        "dist"
+    ],
     "type": "module",
+    "sideEffects": false,
     "imports": {
         "#/*": "./*.ts"
     },
@@ -18,7 +21,16 @@
         ".": "./index.ts",
         "./shaping": "./shaping/index.ts"
     },
-    "files": [ "dist" ],
+    "publishConfig": {
+        "imports": {
+            "#/*": "./dist/*.js"
+        },
+        "exports": {
+            ".": "./dist/index.js",
+            "./shaping": "./dist/shaping/index.js"
+        },
+        "access": "public"
+    },
     "dependencies": {
         "@rasm/search": "workspace:*",
         "fontkit": "catalog:",
@@ -32,15 +44,5 @@
     },
     "peerDependencies": {
         "effect": "catalog:peers"
-    },
-    "publishConfig": {
-        "access": "public",
-        "exports": {
-            ".": "./dist/index.js",
-            "./shaping": "./dist/shaping/index.js"
-        },
-        "imports": {
-            "#/*": "./dist/*.js"
-        }
     }
 }

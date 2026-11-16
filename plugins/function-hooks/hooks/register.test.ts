@@ -75,7 +75,13 @@ const worldOf = (on: On, decide: () => HttpResponse | Error, given: Given = {}) 
         return { value: { exitCode: 0, stdout: '', stderr: '', isStdoutTruncated: false, isStderrTruncated: false } };
     });
     on('process.spawn', async function* (_, e, next) {
-        next.signal.addEventListener('abort', () => seen.stopped.push(e.argv), { once: true });
+        next.signal.addEventListener(
+            'abort',
+            () => {
+                seen.stopped.push(e.argv);
+            },
+            { once: true },
+        );
         const chunks = e.argv.slice(0, 1).flatMap((program) => printed.get(program) ?? []);
         const listening = chunks.some(({ stream }) => stream === 'stdout');
         seen.spawned.push(e.argv);
@@ -85,7 +91,7 @@ const worldOf = (on: On, decide: () => HttpResponse | Error, given: Given = {}) 
     });
     on('http.fetch', (_, e) => {
         const route = new URL(e.url).pathname.slice(1);
-        seen.sent.push([route, JSON.parse(String(e.init?.body))]);
+        seen.sent.push([route, typeof e.init?.body === 'string' ? JSON.parse(e.init.body) : e.init?.body]);
         const reply = route === 'decide' ? decide() : answered(replies.get(route));
         return reply instanceof Error ? { deny: reply.message } : { value: reply };
     });

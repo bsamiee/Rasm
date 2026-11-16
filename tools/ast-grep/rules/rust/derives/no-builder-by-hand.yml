@@ -3,39 +3,48 @@ language: rustlang
 severity: error
 utils:
     stored-value:
-        any: [{pattern: $V}, {pattern: $V.into()}, {pattern: Some($V)}, {pattern: Some($V.into())}]
+        any: [{ pattern: $V }, { pattern: $V.into() }, { pattern: Some($V) }, { pattern: Some($V.into()) }]
     setter:
         kind: function_item
         all:
-            - has: {field: parameters, all: [{has: {kind: self_parameter, regex: '^(mut\p{Pattern_White_Space}+self|&\p{Pattern_White_Space}*mut\p{Pattern_White_Space}+self|self)$'}}, {has: {kind: parameter, has: {field: pattern, kind: identifier, pattern: $V}}}]}
+            - has: { field: parameters, all: [{ has: { kind: self_parameter, regex: '^(mut\p{Pattern_White_Space}+self|&\p{Pattern_White_Space}*mut\p{Pattern_White_Space}+self|self)$' } }, { has: { kind: parameter, has: { field: pattern, kind: identifier, pattern: $V } } }] }
             - has:
-                field: body
-                any:
-                    - all:
-                        - has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, kind: expression_statement, has: {kind: assignment_expression, all: [{has: {field: left, pattern: self.$F}}, {has: {field: right, matches: stored-value}}]}}
-                        - has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}, kind: self}
-                        - not: {has: {nthChild: {position: 3, ofRule: {matches: rust-statement}}}}
-                    - all:
-                        - has:
-                            nthChild: {position: 1, ofRule: {matches: rust-statement}}
-                            kind: struct_expression
-                            all:
-                                - has: {field: name, regex: '^Self$'}
-                                - has: {field: body, all: [{has: {any: [{kind: field_initializer, has: {field: value, matches: stored-value}}, {kind: shorthand_field_initializer, pattern: $V}]}}, {has: {kind: base_field_initializer, regex: '^\.\.\p{Pattern_White_Space}*self$'}}, {not: {has: {nthChild: {position: 3, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}]}
-                        - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}
+                  field: body
+                  any:
+                      - all:
+                            - has: { nthChild: { position: 1, ofRule: { matches: rust-statement } }, kind: expression_statement, has: { kind: assignment_expression, all: [{ has: { field: left, pattern: self.$F } }, { has: { field: right, matches: stored-value } }] } }
+                            - has: { nthChild: { position: 2, ofRule: { matches: rust-statement } }, kind: self }
+                            - not: { has: { nthChild: { position: 3, ofRule: { matches: rust-statement } } } }
+                      - all:
+                            - has:
+                                  nthChild: { position: 1, ofRule: { matches: rust-statement } }
+                                  kind: struct_expression
+                                  all:
+                                      - has: { field: name, regex: '^Self$' }
+                                      - has:
+                                            {
+                                                field: body,
+                                                all:
+                                                    [
+                                                        { has: { any: [{ kind: field_initializer, has: { field: value, matches: stored-value } }, { kind: shorthand_field_initializer, pattern: $V }] } },
+                                                        { has: { kind: base_field_initializer, regex: '^\.\.\p{Pattern_White_Space}*self$' } },
+                                                        { not: { has: { nthChild: { position: 3, ofRule: { not: { kind: 'line_comment, block_comment' } } } } } },
+                                                    ],
+                                            }
+                            - not: { has: { nthChild: { position: 2, ofRule: { matches: rust-statement } } } }
 rule:
     kind: impl_item
     all:
-        - not: {has: {field: trait, pattern: $_}}
-        - has: {field: type, any: [{kind: generic_type, has: {field: type, pattern: $B}}, {pattern: $B}]}
-        - has: {field: body, has: {nthChild: {position: 3, ofRule: {matches: setter}}}}
+        - not: { has: { field: trait, pattern: $_ } }
+        - has: { field: type, any: [{ kind: generic_type, has: { field: type, pattern: $B } }, { pattern: $B }] }
+        - has: { field: body, has: { nthChild: { position: 3, ofRule: { matches: setter } } } }
         - any:
-            - has: {field: body, has: {kind: function_item, has: {field: name, regex: '^(build|finish)$', pattern: $BUILD}}}
-            - all:
-                - has: {field: type, regex: '^\p{XID_Continue}*Builder(?-u:\b)'}
-                - has: {field: body, has: {kind: function_item, nthChild: {position: 1, reverse: true, ofRule: {kind: function_item}}, has: {field: name, pattern: $BUILD}}}
+              - has: { field: body, has: { kind: function_item, has: { field: name, regex: '^(build|finish)$', pattern: $BUILD } } }
+              - all:
+                    - has: { field: type, regex: '^\p{XID_Continue}*Builder(?-u:\b)' }
+                    - has: { field: body, has: { kind: function_item, nthChild: { position: 1, reverse: true, ofRule: { kind: function_item } }, has: { field: name, pattern: $BUILD } } }
 labels:
-    B: {style: primary, message: 'Builder written by hand'}
-    BUILD: {style: secondary, message: 'Builds the value'}
+    B: { style: primary, message: 'Builder written by hand' }
+    BUILD: { style: secondary, message: 'Builds the value' }
 message: '`$B` sets members through hand-written setters before `$BUILD`'
 note: 'Replace the builder with field defaults and a struct literal, or `#[bon::builder]` on a function with optional arguments'

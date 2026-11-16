@@ -2,4 +2,4 @@
 id: languageext-unit-type
 language: csharplang
 rule:
-    matches: {csharp-type-name: {name: {regex: '^Unit$'}}}
+    matches: { csharp-type-name: { name: { regex: '^Unit$' } } }

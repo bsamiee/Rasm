@@ -28,7 +28,7 @@
                         }
                     }
                 },
-                "required": [ "archive", "folder", "run" ],
+                "required": ["archive", "folder", "run"],
                 "additionalProperties": true
             }
         },
@@ -51,7 +51,7 @@
                         "description": "Release bin folder swift build --show-bin-path names for the package"
                     }
                 },
-                "required": [ "package", "product", "folder", "bin" ],
+                "required": ["package", "product", "folder", "bin"],
                 "additionalProperties": true
             }
         },

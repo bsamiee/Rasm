@@ -5,19 +5,19 @@ utils:
     defaulted:
         kind: function_call
         all:
-            - has: {field: name, regex: '(?i-u)^["`\[]?(ifnull|coalesce)["`\]]?$'}
+            - has: { field: name, regex: '(?i-u)^["`\[]?(ifnull|coalesce)["`\]]?$' }
             - has:
-                field: arguments
-                kind: normal_function_arguments
-                all:
-                    - not: {has: {nthChild: {position: 3, ofRule: &named {not: {kind: 'line_comment, block_comment'}}}}}
-                    - has: {nthChild: {position: 2, ofRule: *named}, pattern: $X}
+                  field: arguments
+                  kind: normal_function_arguments
+                  all:
+                      - not: { has: { nthChild: { position: 3, ofRule: &named { not: { kind: 'line_comment, block_comment' } } } } }
+                      - has: { nthChild: { position: 2, ofRule: *named }, pattern: $X }
 rule:
     kind: binary_expression
     pattern: $COMPARISON
     all:
-        - has: {field: operator, regex: '^(==?|<>|!=)$'}
-        - has: {field: left, matches: defaulted}
-        - has: {field: right, matches: defaulted}
+        - has: { field: operator, regex: '^(==?|<>|!=)$' }
+        - has: { field: left, matches: defaulted }
+        - has: { field: right, matches: defaulted }
 message: '`$COMPARISON` replaces NULL with `$X` before comparison'
 note: 'Use a NULL-aware comparison when `<default>` differs from every non-NULL value'

@@ -3,4 +3,4 @@ id: csharp-generic-type
 language: csharplang
 arguments: [name, list]
 rule:
-    matches: {csharp-type-name: {name: {matches: name, inside: {kind: generic_name, has: {kind: type_argument_list, matches: list}}}}}
+    matches: { csharp-type-name: { name: { matches: name, inside: { kind: generic_name, has: { kind: type_argument_list, matches: list } } } } }

@@ -4,23 +4,23 @@ language: pythonlang
 arguments: [name]
 utils:
     implicit-module:
-        matches: {python-builtin-identifier: {name: {regex: '^__builtins__$'}}}
+        matches: { python-builtin-identifier: { name: { regex: '^__builtins__$' } } }
     implicit-reference:
         any:
             - matches: implicit-module
-            - matches: {python-assigned-name: {value: {matches: implicit-module}}}
+            - matches: { python-assigned-name: { value: { matches: implicit-module } } }
 rule:
     any:
-        - matches: {python-builtin-identifier: {name: {matches: name}}}
+        - matches: { python-builtin-identifier: { name: { matches: name } } }
         - kind: identifier
           all:
-            - not: {matches: name}
-            - matches: {python-imported-name: {module: {regex: '^builtins$'}, name: {matches: name}}}
+              - not: { matches: name }
+              - matches: { python-imported-name: { module: { regex: '^builtins$' }, name: { matches: name } } }
         - kind: attribute
           all:
-            - has: {field: attribute, matches: name}
-            - matches: {python-member-use: {module: {regex: '^builtins$'}, name: {matches: name}}}
+              - has: { field: attribute, matches: name }
+              - matches: { python-member-use: { module: { regex: '^builtins$' }, name: { matches: name } } }
         - kind: attribute
           all:
-            - has: {field: attribute, matches: name}
-            - has: {field: object, matches: implicit-reference}
+              - has: { field: attribute, matches: name }
+              - has: { field: object, matches: implicit-reference }

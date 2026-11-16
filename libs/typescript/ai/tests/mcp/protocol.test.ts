@@ -11,7 +11,7 @@ const INITIALIZE = { jsonrpc: '2.0', id: 1, method: 'initialize', params: PARAMS
 const PING = { jsonrpc: '2.0', id: 'ping', method: 'ping' } as const;
 const CANCELLED = { jsonrpc: '2.0', method: 'notifications/cancelled', params: { requestId: 'gated' } } as const;
 const DELETED = { ended: 404, declined: 405 } as const;
-const VISIBLE = /^[\x21-\x7e]+$/u;
+const VISIBLE = /^[!-~]+$/u;
 const REFUSED = [
     { label: 'an unknown method', body: '{"jsonrpc":"2.0","id":7,"method":"no/such","params":{}}', code: -32_601, id: 7 },
     { label: 'params that break the method schema', body: '{"jsonrpc":"2.0","id":"seven","method":"tools/call","params":{"name":5}}', code: -32_602, id: 'seven' },

@@ -3,4 +3,4 @@ id: tracing-macro
 language: rustlang
 rule:
     kind: macro_invocation
-    has: {field: macro, regex: '^(::)?(tracing::)?((trace|debug|info|warn|error)(_span)?|event|span)$'}
+    has: { field: macro, regex: '^(::)?(tracing::)?((trace|debug|info|warn|error)(_span)?|event|span)$' }

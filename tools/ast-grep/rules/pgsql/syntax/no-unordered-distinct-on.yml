@@ -5,10 +5,10 @@ rule:
     kind: simple_select
     pattern: $SELECT
     all:
-        - has: {kind: distinct_clause, has: {regex: '(?i-u)^on$', not: {pattern: $_}}}
-        - inside: {kind: select_no_parens, not: {has: {kind: 'sort_clause, substitution'}}}
-        - not: {has: {kind: substitution, stopBy: end}}
+        - has: { kind: distinct_clause, has: { regex: '(?i-u)^on$', not: { pattern: $_ } } }
+        - inside: { kind: select_no_parens, not: { has: { kind: 'sort_clause, substitution' } } }
+        - not: { has: { kind: substitution, stopBy: end } }
 transform:
-    HEAD: {replace: {source: $SELECT, replace: '(?s)\n.*$', by: ''}}
+    HEAD: { replace: { source: $SELECT, replace: '(?s)\n.*$', by: '' } }
 message: '`$HEAD` keeps an arbitrary row from each group'
 note: 'Order by `distinct on` expressions, then by the columns that decide which row each group keeps'

@@ -4,19 +4,19 @@ severity: error
 rule:
     kind: call_expression
     all:
-        - has: {nthChild: 1, pattern: FSEventStreamCreate}
+        - has: { nthChild: 1, pattern: FSEventStreamCreate }
         - has:
-            kind: call_suffix
-            has:
-                kind: value_arguments
-                has:
-                    kind: value_argument
-                    nthChild: {position: 4, ofRule: {kind: value_argument}}
-                    has:
-                        stopBy: end
-                        kind: array_literal
-                        has:
-                            pattern: $ROOT
-                            regex: '^(NSOpenStepRootDirectory\(\)|"/"|(URL\((filePath|fileURLWithPath): "/"\)|FilePath\("/"\))\.(path|string)(\(.*\))?)$'
+              kind: call_suffix
+              has:
+                  kind: value_arguments
+                  has:
+                      kind: value_argument
+                      nthChild: { position: 4, ofRule: { kind: value_argument } }
+                      has:
+                          stopBy: end
+                          kind: array_literal
+                          has:
+                              pattern: $ROOT
+                              regex: '^(NSOpenStepRootDirectory\(\)|"/"|(URL\((filePath|fileURLWithPath): "/"\)|FilePath\("/"\))\.(path|string)(\(.*\))?)$'
 message: '`FSEventStreamCreate` over `$ROOT` streams every file event on the volume'
 note: 'Root the stream at its watched file or directory'

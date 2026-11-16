@@ -2,9 +2,9 @@
     "extends": "../../../../tsconfig.base.json",
     "compilerOptions": {
         "jsx": "react-jsx",
-        "lib": [ "esnext", "dom" ],
-        "types": [ "node", "vite/client" ]
+        "lib": ["esnext", "dom"],
+        "types": ["node", "vite/client"]
     },
     "files": [],
-    "references": [ { "path": "./tsconfig.lib.json" }, { "path": "./tsconfig.storybook.json" } ]
+    "references": [{ "path": "./tsconfig.lib.json" }, { "path": "./tsconfig.storybook.json" }]
 }

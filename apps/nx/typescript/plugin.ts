@@ -1,11 +1,12 @@
 import { createRequire, findPackageJSON } from 'node:module';
 import { basename, dirname, extname, join, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import type { loadConfig } from '@cloudflare/config';
 import { layer } from '@effect/platform-node/NodeServices';
 import { AggregateCreateNodesError, type CreateNodes, type CreateNodesContext, createNodesFromFiles, detectPackageManager, getPackageManagerCommand, hashArray, normalizePath, type PackageManager, type ProjectConfiguration, readJsonFile, type TargetConfiguration } from '@nx/devkit';
 import { getFilesInDirectoryUsingContext, getLockFileName, getNamedInputs, hashFile, hashObject, hashWithWorkspaceContext, mergeTargetConfigurations, type PackageJson, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
-import type { ParsedCommandLine } from '@typescript/native/sync';
+import type { API, ParsedCommandLine } from '@typescript/native/sync';
 import { Array, Cause, Effect, Equal, FileSystem, Match, Option, Predicate, Record, Result, Schema, UndefinedOr } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -102,14 +103,15 @@ const kept = Effect.fnUntraced(function* (cache: PluginCache<Program>, workspace
     return { config, key, program };
 });
 
+const referenced = ({ projectReferences = [] }: ParsedCommandLine) => projectReferences.map(({ path: at }) => (extname(at) === '.json' ? at : join(at, CONFIG)));
+
 const solved = Effect.fnUntraced(function* (workspaceRoot: string, compiler: string, configs: Array.NonEmptyReadonlyArray<string>) {
     const unopened = (cause: unknown) => new Cause.UnknownError(cause, `${compiler}/sync opens no snapshot of ${workspaceRoot}`);
-    const { API }: typeof import('@typescript/native/sync') = yield* Effect.tryPromise({
-        try: () => import(pathToFileURL(createRequire(resolve(workspaceRoot, Array.headNonEmpty(configs))).resolve(`${compiler}/sync`)).href),
+    const native = yield* Effect.tryPromise({
+        try: (): Promise<{ readonly API: typeof API }> => import(pathToFileURL(createRequire(resolve(workspaceRoot, Array.headNonEmpty(configs))).resolve(`${compiler}/sync`)).href),
         catch: (cause) => new Cause.UnknownError(cause, `${workspaceRoot} resolves no ${compiler}/sync`),
     });
-    const api = yield* Effect.acquireDisposable(Effect.sync(() => new API({ cwd: workspaceRoot })));
-    const referenced = ({ projectReferences = [] }: ParsedCommandLine) => projectReferences.map(({ path: at }) => (extname(at) === '.json' ? at : join(at, CONFIG)));
+    const api = yield* Effect.acquireDisposable(Effect.sync(() => new native.API({ cwd: workspaceRoot })));
     const parsed = (config: string) => {
         const file = resolve(workspaceRoot, config);
         const read = api.parseConfigFile(file);
@@ -264,8 +266,8 @@ const worker = Effect.fnUntraced(function* (context: CreateNodesContext, exec: s
     const unresolved = (cause: unknown) => new Cause.UnknownError(cause, `${file} resolves no @cloudflare/config through cf`);
     const configured = yield* Effect.flatMap(Effect.try({ try: () => findPackageJSON('@cloudflare/config', pathToFileURL(createRequire(at).resolve('cf/package.json'))), catch: unresolved }), Effect.fromNullishOr);
     const { exports } = yield* Effect.flatMap(fs.readFileString(configured), Schema.decodeEffect(Exported));
-    const { loadConfig }: typeof import('@cloudflare/config') = yield* Effect.tryPromise({ try: () => import(pathToFileURL(join(dirname(configured), exports['.'].import)).href), catch: unresolved });
-    const { dependencies } = yield* Effect.tryPromise({ try: () => loadConfig(at), catch: (cause) => new Cause.UnknownError(cause, `${file} does not load as a Cloudflare config`) });
+    const cloudflare = yield* Effect.tryPromise({ try: (): Promise<{ readonly loadConfig: typeof loadConfig }> => import(pathToFileURL(join(dirname(configured), exports['.'].import)).href), catch: unresolved });
+    const { dependencies } = yield* Effect.tryPromise({ try: () => cloudflare.loadConfig(at), catch: (cause) => new Cause.UnknownError(cause, `${file} does not load as a Cloudflare config`) });
     const sources = Array.map(Array.fromIterable(dependencies), (dependency) => normalizePath(relative(context.workspaceRoot, dependency))).filter((dependency) => !(dependency.startsWith('..') || dependency.startsWith(`${root}/`) || dependency.split('/').includes('node_modules')));
     const typed = installed('@cloudflare/workers-types', at);
     const codegen = {
@@ -294,6 +296,8 @@ const worker = Effect.fnUntraced(function* (context: CreateNodesContext, exec: s
     );
 });
 
+const looked = <A, E>(table: ReadonlyMap<string, Result.Result<A, E>>, at: string) => Effect.flatMap(Effect.fromNullishOr(table.get(at)), Effect.fromResult);
+
 const nodes = Effect.fnUntraced(function* (files: readonly string[], options: typeof Options.Encoded | undefined, context: CreateNodesContext) {
     const { workspaceRoot } = context;
     const [settings, hashed] = yield* Effect.all([Schema.decodeEffect(Options)(options ?? {}), own]);
@@ -321,7 +325,6 @@ const nodes = Effect.fnUntraced(function* (files: readonly string[], options: ty
     yield* Effect.forEach(stored, ([key, value]) => Effect.sync(() => cache.set(key, value)));
     yield* Array.isReadonlyArrayNonEmpty(stored) ? Effect.sync(() => cache.writeToDisk()) : Effect.void;
     const programs = new Map<string, Result.Result<Program, Cause.UnknownError>>([...Array.getSomes(rows.map(({ config, program }) => Option.map(program, (cached) => [config, Result.succeed(cached)] as const))), ...Array.zipWith(unread, fresh, ({ config }, program) => [config, program] as const)]);
-    const looked = <A, E>(table: ReadonlyMap<string, Result.Result<A, E>>, at: string) => Effect.flatMap(Effect.fromNullishOr(table.get(at)), Effect.fromResult);
     const read = Effect.fnUntraced(function* (file: string) {
         const root = dirname(file);
         const manifest = yield* looked(manifests, root);

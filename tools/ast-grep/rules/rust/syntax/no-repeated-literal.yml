@@ -5,76 +5,76 @@ utils:
     number:
         kind: 'integer_literal, float_literal'
         regex: '^(0[xXbBoO][0-9A-Fa-f_]{3,}|[0-9][0-9_]{2,}(\.[0-9_]*)?|[0-9]*\.[0-9]{3,})([eE][-+]?[0-9]+)?(_?[uif](8|16|32|64|128|size))?$'
-        not: {regex: '^0?\.0*[1-9](_?f(32|64))?$'}
+        not: { regex: '^0?\.0*[1-9](_?f(32|64))?$' }
     text:
         any:
             - kind: string_literal
               all:
-                - regex: '^"(?s:.{2,})"$'
-                - regex: '[^\\]\p{XID_Continue}'
+                  - regex: '^"(?s:.{2,})"$'
+                  - regex: '[^\\]\p{XID_Continue}'
             - kind: raw_string_literal
               all:
-                - regex: '^r#*"(?s:.{2,})"#*$'
-                - regex: '\p{XID_Continue}'
+                  - regex: '^r#*"(?s:.{2,})"#*$'
+                  - regex: '\p{XID_Continue}'
     unit-site:
         any:
             - matches: rust-calendar-site
             - matches: rust-angle-conversion
             - matches: rust-duration-scaling
     unit-factor:
-        inside: {stopBy: {kind: function_item}, matches: unit-site}
+        inside: { stopBy: { kind: function_item }, matches: unit-site }
     site:
         all:
-            - any: [{matches: number}, {matches: text}]
-            - not: {inside: {stopBy: end, kind: 'const_item, static_item, attribute_item, inner_attribute_item, token_tree, enum_variant'}}
-            - not: {all: [{kind: 'integer_literal, float_literal'}, {matches: unit-factor}]}
+            - any: [{ matches: number }, { matches: text }]
+            - not: { inside: { stopBy: end, kind: 'const_item, static_item, attribute_item, inner_attribute_item, token_tree, enum_variant' } }
+            - not: { all: [{ kind: 'integer_literal, float_literal' }, { matches: unit-factor }] }
     negated:
-        inside: {kind: unary_expression, matches: rust-negative-number}
+        inside: { kind: unary_expression, matches: rust-negative-number }
     plain-site:
         matches: site
-        not: {matches: negated}
+        not: { matches: negated }
     negated-site:
-        all: [{matches: site}, {matches: negated}]
+        all: [{ matches: site }, { matches: negated }]
     earlier-plain:
         follows:
             stopBy: end
-            not: {kind: function_item, inside: {kind: block}}
-            any: [{pattern: $LITERAL, matches: plain-site}, {has: {stopBy: {kind: function_item}, pattern: $LITERAL, matches: plain-site}}]
+            not: { kind: function_item, inside: { kind: block } }
+            any: [{ pattern: $LITERAL, matches: plain-site }, { has: { stopBy: { kind: function_item }, pattern: $LITERAL, matches: plain-site } }]
     earlier-negated:
         follows:
             stopBy: end
-            not: {kind: function_item, inside: {kind: block}}
-            any: [{pattern: $LITERAL, matches: negated-site}, {has: {stopBy: {kind: function_item}, pattern: $LITERAL, matches: negated-site}}]
+            not: { kind: function_item, inside: { kind: block } }
+            any: [{ pattern: $LITERAL, matches: negated-site }, { has: { stopBy: { kind: function_item }, pattern: $LITERAL, matches: negated-site } }]
     method:
         kind: function_item
-        inside: {kind: declaration_list, inside: {kind: 'impl_item, trait_item'}}
+        inside: { kind: declaration_list, inside: { kind: 'impl_item, trait_item' } }
     owner-value:
         kind: 'const_item, static_item'
-        has: {field: value, any: [{pattern: $LITERAL}, {has: {stopBy: end, pattern: $LITERAL}}]}
+        has: { field: value, any: [{ pattern: $LITERAL }, { has: { stopBy: end, pattern: $LITERAL } }] }
     owned:
         any:
-            - inside: {stopBy: end, kind: 'source_file, declaration_list', has: {kind: 'const_item, static_item', matches: owner-value}}
-            - inside: {stopBy: end, kind: 'function_item, impl_item, trait_item', has: {stopBy: end, kind: 'const_item, static_item', matches: owner-value}}
+            - inside: { stopBy: end, kind: 'source_file, declaration_list', has: { kind: 'const_item, static_item', matches: owner-value } }
+            - inside: { stopBy: end, kind: 'function_item, impl_item, trait_item', has: { stopBy: end, kind: 'const_item, static_item', matches: owner-value } }
 rule:
     kind: 'integer_literal, float_literal, string_literal, raw_string_literal'
     all:
         - matches: site
-        - inside: {stopBy: end, kind: 'function_item, impl_item, trait_item'}
-        - not: {matches: rust-test-scope}
+        - inside: { stopBy: end, kind: 'function_item, impl_item, trait_item' }
+        - not: { matches: rust-test-scope }
         - pattern: $LITERAL
         - any:
-            - all:
-                - not: {matches: negated}
-                - any:
-                    - matches: earlier-plain
-                    - inside: {stopBy: {kind: 'function_item, impl_item, trait_item'}, not: {kind: 'function_item, impl_item, trait_item'}, matches: earlier-plain}
-                    - inside: {stopBy: {kind: function_item}, kind: function_item, matches: method, all: [{matches: earlier-plain}]}
-                    - matches: owned
-            - all:
-                - matches: negated
-                - any:
-                    - matches: earlier-negated
-                    - inside: {stopBy: {kind: 'function_item, impl_item, trait_item'}, not: {kind: 'function_item, impl_item, trait_item'}, matches: earlier-negated}
-                    - inside: {stopBy: {kind: function_item}, kind: function_item, matches: method, all: [{matches: earlier-negated}]}
+              - all:
+                    - not: { matches: negated }
+                    - any:
+                          - matches: earlier-plain
+                          - inside: { stopBy: { kind: 'function_item, impl_item, trait_item' }, not: { kind: 'function_item, impl_item, trait_item' }, matches: earlier-plain }
+                          - inside: { stopBy: { kind: function_item }, kind: function_item, matches: method, all: [{ matches: earlier-plain }] }
+                          - matches: owned
+              - all:
+                    - matches: negated
+                    - any:
+                          - matches: earlier-negated
+                          - inside: { stopBy: { kind: 'function_item, impl_item, trait_item' }, not: { kind: 'function_item, impl_item, trait_item' }, matches: earlier-negated }
+                          - inside: { stopBy: { kind: function_item }, kind: function_item, matches: method, all: [{ matches: earlier-negated }] }
 message: '`$LITERAL` repeats an earlier literal of its function, impl, or trait, or a `const` or `static` value'
 note: 'Bind one `let` or `const` for every use, or read the owning constant (`u16::MAX`)'

@@ -1,6 +1,6 @@
-import { env, tracing } from 'cloudflare:workers';
 import { errorReporter, formatLogRecord, layerOtlp, layerWithoutDefaultLogger } from '@rasm/telemetry';
-import { ConfigProvider, Context, Effect, ErrorReporter, Exit, Layer, Logger, Predicate, Record, Scheduler, Scope, Tracer } from 'effect';
+import { env, tracing } from 'cloudflare:workers';
+import { ConfigProvider, Context, Effect, ErrorReporter, Exit, Formatter, Layer, Logger, Predicate, Record, Scheduler, Scope, Tracer } from 'effect';
 import { FetchHttpClient } from 'effect/http';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -23,7 +23,7 @@ class WorkersSpan extends Tracer.NativeSpan {
     }
     override attribute(key: string, value: unknown) {
         super.attribute(key, value);
-        this.traced.setAttribute(key, Predicate.isString(value) || Predicate.isNumber(value) || Predicate.isBoolean(value) ? value : `${value}`);
+        this.traced.setAttribute(key, Predicate.isString(value) || Predicate.isNumber(value) || Predicate.isBoolean(value) ? value : Formatter.format(value));
     }
     override end(endTime: bigint, exit: Exit.Exit<unknown, unknown>) {
         super.end(endTime, exit);

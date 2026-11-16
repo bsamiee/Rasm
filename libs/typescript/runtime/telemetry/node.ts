@@ -1,5 +1,5 @@
 import { appendFileSync } from 'node:fs';
-import process from 'node:process';
+import process, { type ProcessEventMap } from 'node:process';
 import { finished } from 'node:stream/promises';
 import { layer, OtelLoggerProvider } from '@effect/opentelemetry/OtelLogger';
 import { makeProducer } from '@effect/opentelemetry/OtelMetrics';
@@ -60,6 +60,10 @@ const Baggage = Context.Reference<ReturnType<typeof propagation.getBaggage>>('@r
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+const decoded =
+    <A>(codec: Schema.ConstraintCodec<A, unknown>) =>
+    (variable: string) =>
+        Config.schema(codec, variable);
 const interrupted = <A, E>(exit: Exit.Exit<A, E>) => Exit.isFailure(exit) && Cause.hasInterruptsOnly(exit.cause);
 const propagator = new CompositePropagator({ propagators: [new W3CTraceContextPropagator(), new W3CBaggagePropagator()] });
 const lineage: (span: Tracer.AnySpan) => Context.Context<never> = Match.valueTags({ ExternalSpan: Struct.get('annotations'), Span: (local) => Option.match(local.parent, { onNone: () => local.annotations, onSome: lineage }) });
@@ -76,8 +80,12 @@ const toRotatingFile = Effect.fnUntraced(function* <Message>(self: Logger.Logger
         Effect.try({
             try: () =>
                 createStream(filename, { ...ROTATION, ...options })
-                    .on('open', (path) => MutableRef.set(opened, Option.some(path)))
-                    .on('error', (error) => process.stderr.write(`${Formatter.format(error)}\n`)),
+                    .on('open', (path) => {
+                        MutableRef.set(opened, Option.some(path));
+                    })
+                    .on('error', (error) => {
+                        process.stderr.write(`${Formatter.format(error)}\n`);
+                    }),
             catch: (cause) => new Cause.UnknownError(cause, `Rotation options of ${filename} refused`),
         }),
         (rotated) => Effect.ignore(Effect.tryPromise(() => finished(rotated.end()))),
@@ -146,7 +154,7 @@ const layerNodeSdk = Effect.fnUntraced(function* (resource: Parameters<typeof st
 const layerUncaughtExceptionMonitor = Layer.effectDiscard(
     Effect.gen(function* () {
         const services = yield* Effect.context<never>();
-        const crashed: NodeJS.UncaughtExceptionListener = (error, origin) => Effect.logFatal(Cause.die(error)).pipe(Effect.annotateLogs({ origin }), Effect.runSyncWith(services));
+        const crashed = (...[error, origin]: ProcessEventMap['uncaughtExceptionMonitor']) => Effect.runSyncWith(services)(Effect.annotateLogs(Effect.logFatal(Cause.die(error)), { origin }));
         yield* Effect.acquireRelease(
             Effect.sync(() => process.on('uncaughtExceptionMonitor', crashed)),
             () => Effect.sync(() => process.removeListener('uncaughtExceptionMonitor', crashed)),
@@ -180,10 +188,6 @@ const layerNode = ({ resource, file, instrumentations }: { readonly resource: Pa
 const layerNodeFromConfig = Effect.fnUntraced(function* ({ resource, target, level }: { readonly resource: Parameters<typeof layerNode>[0]['resource']; readonly target: typeof Target.Type; readonly level?: LogLevel.LogLevel }) {
     const refused = yield* Ref.make<readonly (readonly [setting: { readonly variable: string; readonly value: string }, error: Config.ConfigError])[]>([]);
     const prefix = String.constantCase(resource.serviceName);
-    const decoded =
-        <A>(codec: Schema.ConstraintCodec<A, unknown>) =>
-        (variable: string) =>
-            Config.schema(codec, variable);
     const read = <A>(variable: string, config: (variable: string) => Config.Config<A>) =>
         Effect.catch(
             Config.nested(Config.option(config(variable)), prefix),

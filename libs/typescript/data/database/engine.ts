@@ -71,7 +71,7 @@ interface RowDialect {
 // --- [SERVICES] ------------------------------------------------------------------------
 
 class Engine extends Context.Service<Engine, Dialect>()('@rasm/database/engine') {
-    static readonly names = { snake: { transformQueryNames: String.camelToSnake, transformResultNames: String.snakeToCamel }, verbatim: {} } as const satisfies { readonly [pair: string]: Dialect['names'] };
+    static readonly names = { snake: { transformQueryNames: String.camelToSnake, transformResultNames: String.snakeToCamel }, verbatim: {} } as const satisfies Readonly<Record<string, Dialect['names']>>;
     static readonly transaction: RowDialect['atomic'] = (statements) => SqlClient.SqlClient.use((sql) => sql.withTransaction(Effect.all(statements)));
 }
 class Rows extends Context.Service<Rows, RowDialect>()('@rasm/database/engine/Rows') {
@@ -98,7 +98,7 @@ class Rows extends Context.Service<Rows, RowDialect>()('@rasm/database/engine/Ro
             keys,
             reads: (scope: Statement.Fragment, ...extra: readonly (string | Statement.Fragment)[]) => sql.csv([...all.map((entry) => rows.read(sql, entry, scope)), ...extra]),
             inserting: (body: string, conflict: Statement.Fragment, returning: Statement.Fragment) => sql`INSERT INTO ${owner} (${sql.csv(written.map((entry) => Statement.fragment([sql(entry.name)])))}) SELECT ${sql.csv(written.map(element))} FROM ${rows.insertion(sql, body, order)} ${conflict} RETURNING ${returning}`,
-            where: (rules: { readonly [field: string]: string | { readonly not: string } | undefined }) =>
+            where: (rules: Readonly<Record<string, string | { readonly not: string } | undefined>>) =>
                 sql.and(
                     all.flatMap((entry) =>
                         Array.fromNullishOr(rules[entry.name]).map((rule) => {

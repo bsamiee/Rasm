@@ -8,20 +8,20 @@ utils:
     tag-call:
         kind: call_expression
         all:
-            - has: {field: function, kind: field_expression, has: {field: field, regex: '^(find|rfind|contains|starts_with|ends_with|strip_prefix|strip_suffix|split|split_once|rsplit_once|match_indices|replace|replacen|trim_start_matches|trim_end_matches)$'}}
-            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: tag-text}}
+            - has: { field: function, kind: field_expression, has: { field: field, regex: '^(find|rfind|contains|starts_with|ends_with|strip_prefix|strip_suffix|split|split_once|rsplit_once|match_indices|replace|replacen|trim_start_matches|trim_end_matches)$' } }
+            - has: { field: arguments, has: { nthChild: { position: 1, ofRule: { not: { kind: 'line_comment, block_comment' } } }, matches: tag-text } }
 rule:
     kind: call_expression
     any:
         - matches: tag-call
-          not: {inside: {kind: field_expression, field: value, inside: {kind: call_expression, field: function, matches: tag-call}}}
+          not: { inside: { kind: field_expression, field: value, inside: { kind: call_expression, field: function, matches: tag-call } } }
         - all:
-            - has: {field: function, regex: '^((::)?regex::)?(bytes::)?(Regex|RegexBuilder|RegexSet)::new$'}
-            - has:
-                field: arguments
-                has:
-                    nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}
-                    kind: 'string_literal, raw_string_literal'
-                    all:
-                        - regex: '<[^"]*(\[\^<?>\]|\.[*+]\?)[^"]*>'
-                        - regex: '(^|[^?P])<\\?/?[A-Za-z][\p{XID_Continue}.:-]*[\p{Pattern_White_Space}>\\/(]'
+              - has: { field: function, regex: '^((::)?regex::)?(bytes::)?(Regex|RegexBuilder|RegexSet)::new$' }
+              - has:
+                    field: arguments
+                    has:
+                        nthChild: { position: 1, ofRule: { not: { kind: 'line_comment, block_comment' } } }
+                        kind: 'string_literal, raw_string_literal'
+                        all:
+                            - regex: '<[^"]*(\[\^<?>\]|\.[*+]\?)[^"]*>'
+                            - regex: '(^|[^?P])<\\?/?[A-Za-z][\p{XID_Continue}.:-]*[\p{Pattern_White_Space}>\\/(]'

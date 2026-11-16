@@ -2,12 +2,17 @@
     "name": "@rasm/nx-cargo",
     "version": "0.1.0",
     "description": "Nx plugin inferring Cargo workspaces, crates, checks, and releases from cargo's own output",
+    "license": "MIT",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/bsamiee/Rasm.git",
         "directory": "apps/nx/cargo"
     },
-    "license": "MIT",
+    "files": [
+        "dist",
+        "executors.json",
+        "executors/*/schema.json"
+    ],
     "type": "module",
     "imports": {
         "#/*": "./*.ts",
@@ -19,7 +24,19 @@
         "./package.json": "./package.json",
         "./executors.json": "./executors.json"
     },
-    "files": [ "dist", "executors.json", "executors/*/schema.json" ],
+    "publishConfig": {
+        "imports": {
+            "#/*": "./dist/*.js",
+            "#package": "./package.json"
+        },
+        "exports": {
+            ".": "./dist/plugin.js",
+            "./release/version-actions": "./dist/version-actions.js",
+            "./package.json": "./package.json",
+            "./executors.json": "./executors.json"
+        },
+        "access": "public"
+    },
     "dependencies": {
         "@decimalturn/toml-patch": "catalog:",
         "@effect/platform-node": "catalog:",
@@ -35,19 +52,6 @@
     },
     "peerDependencies": {
         "nx": "catalog:peers"
-    },
-    "publishConfig": {
-        "access": "public",
-        "exports": {
-            ".": "./dist/plugin.js",
-            "./release/version-actions": "./dist/version-actions.js",
-            "./package.json": "./package.json",
-            "./executors.json": "./executors.json"
-        },
-        "imports": {
-            "#/*": "./dist/*.js",
-            "#package": "./package.json"
-        }
     },
     "executors": "./executors.json"
 }

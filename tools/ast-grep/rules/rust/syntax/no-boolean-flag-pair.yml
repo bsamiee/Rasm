@@ -8,54 +8,54 @@ utils:
     wrapped-type:
         any:
             - kind: reference_type
-              has: {field: type, matches: plain-type}
+              has: { field: type, matches: plain-type }
             - kind: generic_type
               all:
-                - has: {field: type, regex: '^((std|core)::option::)?Option$'}
-                - has: {field: type_arguments, has: {kind: 'primitive_type, unit_type', any: [{matches: plain-type}, {kind: unit_type}]}, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}
+                  - has: { field: type, regex: '^((std|core)::option::)?Option$' }
+                  - has: { field: type_arguments, has: { kind: 'primitive_type, unit_type', any: [{ matches: plain-type }, { kind: unit_type }] }, not: { has: { nthChild: { position: 2, ofRule: { not: { kind: 'line_comment, block_comment' } } } } } }
     flag-type:
-        any: [{matches: plain-type}, {matches: wrapped-type}]
+        any: [{ matches: plain-type }, { matches: wrapped-type }]
     packed-type:
         any:
             - kind: tuple_type
-              has: {matches: flag-type, precedes: {stopBy: end, matches: flag-type}}
+              has: { matches: flag-type, precedes: { stopBy: end, matches: flag-type } }
             - kind: array_type
-              has: {field: element, matches: flag-type}
+              has: { field: element, matches: flag-type }
     flag:
         any:
             - kind: 'parameter, field_declaration'
-              has: {field: type, matches: flag-type}
+              has: { field: type, matches: flag-type }
             - matches: flag-type
     wrapped-flag:
         any:
             - kind: 'parameter, field_declaration'
-              has: {field: type, matches: wrapped-type}
+              has: { field: type, matches: wrapped-type }
             - matches: wrapped-type
     packed-flag:
         any:
             - kind: 'parameter, field_declaration'
-              has: {field: type, matches: packed-type}
+              has: { field: type, matches: packed-type }
             - matches: packed-type
     flag-pair:
         any:
-            - has: {matches: wrapped-flag, pattern: $FIRST, precedes: {stopBy: end, matches: flag, pattern: $SECOND}}
-            - has: {matches: flag, pattern: $FIRST, precedes: {stopBy: end, matches: wrapped-flag, pattern: $SECOND}}
-            - has: {matches: packed-flag, pattern: $FIRST}
+            - has: { matches: wrapped-flag, pattern: $FIRST, precedes: { stopBy: end, matches: flag, pattern: $SECOND } }
+            - has: { matches: flag, pattern: $FIRST, precedes: { stopBy: end, matches: wrapped-flag, pattern: $SECOND } }
+            - has: { matches: packed-flag, pattern: $FIRST }
 rule:
     any:
         - kind: 'function_item, function_signature_item'
           all:
-            - has: {field: name, pattern: $NAME}
-            - any: [{has: {field: parameters, matches: flag-pair}}, {has: {field: return_type, any: [{kind: tuple_type, matches: packed-type}, {has: {stopBy: end, kind: tuple_type, matches: packed-type}}], pattern: $FIRST}}]
-            - not: {matches: rust-trait-impl-or-extern-function}
+              - has: { field: name, pattern: $NAME }
+              - any: [{ has: { field: parameters, matches: flag-pair } }, { has: { field: return_type, any: [{ kind: tuple_type, matches: packed-type }, { has: { stopBy: end, kind: tuple_type, matches: packed-type } }], pattern: $FIRST } }]
+              - not: { matches: rust-trait-impl-or-extern-function }
         - kind: struct_item
           all:
-            - has: {field: name, pattern: $NAME}
-            - has: {field: body, matches: flag-pair}
-            - not: {matches: serde-record}
+              - has: { field: name, pattern: $NAME }
+              - has: { field: body, matches: flag-pair }
+              - not: { matches: serde-record }
 labels:
-    NAME: {style: primary, message: 'Holds the flags'}
-    FIRST: {style: secondary, message: 'First flag'}
-    SECOND: {style: secondary, message: 'Second flag'}
+    NAME: { style: primary, message: 'Holds the flags' }
+    FIRST: { style: secondary, message: 'First flag' }
+    SECOND: { style: secondary, message: 'Second flag' }
 message: '`$NAME` spreads one choice over `bool`, `&bool`, `Option<bool>`, or `Option<()>` flags'
 note: 'Replace the flags with one enum holding a variant per handled combination'

@@ -64,33 +64,35 @@ const legacy = Relation.make('legacy', { id: Schema.String, count: Schema.Int, b
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+const declared = (relations: Catalog['tables'], retiredTables: readonly string[] = []) => Catalog.make({ tables: relations, retired: retiredTables, timeouts: { lock: '5 seconds', transaction: '2 minutes' } });
+const uuid = SecureRandom.SecureRandom.use(({ uuidV7 }) => uuidV7());
+const rows = (name: string) => SqlClient.SqlClient.use((sql) => sql`SELECT * FROM ${sql(name)} ORDER BY 1`);
+const tables = SqlClient.SqlClient.use((sql) =>
+    sql.onDialectOrElse({
+        pg: () => sql`SELECT table_name AS name FROM information_schema.tables WHERE table_schema = current_schema() AND table_type = 'BASE TABLE' ORDER BY 1`,
+        orElse: () => sql`SELECT name FROM pragma_table_list WHERE schema = 'main' AND type = 'table' AND name NOT GLOB '_cf_*' AND name NOT GLOB 'sqlite_*' ORDER BY 1`,
+    }),
+);
+const shape = SqlClient.SqlClient.use((sql) =>
+    sql.onDialectOrElse({
+        pg: () => sql`SELECT table_name AS name, concat_ws(' ', column_name, data_type, is_nullable, column_default) AS definition FROM information_schema.columns WHERE table_schema = current_schema()
+            UNION ALL SELECT tablename, indexdef FROM pg_indexes WHERE schemaname = current_schema()
+            UNION ALL SELECT conrelid::regclass::text, conname || ' ' || pg_get_constraintdef(oid) FROM pg_constraint WHERE connamespace = current_schema()::regnamespace
+            UNION ALL SELECT c.relname, d.objsubid || ' ' || d.description FROM pg_description d JOIN pg_class c ON c.oid = d.objoid WHERE c.relnamespace = current_schema()::regnamespace
+            ORDER BY 1, 2`,
+        orElse: () => sql`SELECT name, sql AS definition FROM sqlite_schema WHERE name NOT GLOB '_cf_*' ORDER BY name`,
+    }),
+);
+const findings = (catalog: Catalog) =>
+    Catalog.reconcile(catalog).pipe(
+        Effect.as([]),
+        Effect.catchTag('ReconcileError', ({ findings: refusals }) => Effect.succeed(refusals)),
+    );
+const refused = <A, E, Q>(effect: Effect.Effect<A, E, Q>, reason: SqlError.SqlErrorReason['_tag']) =>
+    Effect.all([Effect.flip(effect), Effect.serviceOption(D1Client.D1Client)]).pipe(Effect.map(([error, d1]) => assert.strictEqual(SqlError.isSqlError(error) ? error.reason._tag : error, Option.match(d1, { onNone: () => reason, onSome: () => 'UnknownError' }))));
+const account = (id: string, email: string, deleted: boolean) => ({ id, email, deletedAt: deleted ? DateTime.makeUnsafe('2026-10-17T00:00:00.000Z') : null, profile: { plan: 'pro' } });
+
 const cases = <R, F, W = never>(it: Vitest.MethodsNonLive<R>, client: Client<F, NoInfer<R>>, { postgres = false, record }: { readonly postgres?: boolean; readonly record?: (title: string, planned: Effect.Success<ReturnType<typeof Catalog.plan>>) => Effect.Effect<void, W, NoInfer<R>> } = {}) => {
-    const declared = (relations: Catalog['tables'], retiredTables: readonly string[] = []) => Catalog.make({ tables: relations, retired: retiredTables, timeouts: { lock: '5 seconds', transaction: '2 minutes' } });
-    const uuid = SecureRandom.SecureRandom.use(({ uuidV7 }) => uuidV7());
-    const rows = (name: string) => SqlClient.SqlClient.use((sql) => sql`SELECT * FROM ${sql(name)} ORDER BY 1`);
-    const tables = SqlClient.SqlClient.use((sql) =>
-        sql.onDialectOrElse({
-            pg: () => sql`SELECT table_name AS name FROM information_schema.tables WHERE table_schema = current_schema() AND table_type = 'BASE TABLE' ORDER BY 1`,
-            orElse: () => sql`SELECT name FROM pragma_table_list WHERE schema = 'main' AND type = 'table' AND name NOT GLOB '_cf_*' AND name NOT GLOB 'sqlite_*' ORDER BY 1`,
-        }),
-    );
-    const shape = SqlClient.SqlClient.use((sql) =>
-        sql.onDialectOrElse({
-            pg: () => sql`SELECT table_name AS name, concat_ws(' ', column_name, data_type, is_nullable, column_default) AS definition FROM information_schema.columns WHERE table_schema = current_schema()
-                UNION ALL SELECT tablename, indexdef FROM pg_indexes WHERE schemaname = current_schema()
-                UNION ALL SELECT conrelid::regclass::text, conname || ' ' || pg_get_constraintdef(oid) FROM pg_constraint WHERE connamespace = current_schema()::regnamespace
-                UNION ALL SELECT c.relname, d.objsubid || ' ' || d.description FROM pg_description d JOIN pg_class c ON c.oid = d.objoid WHERE c.relnamespace = current_schema()::regnamespace
-                ORDER BY 1, 2`,
-            orElse: () => sql`SELECT name, sql AS definition FROM sqlite_schema WHERE name NOT GLOB '_cf_*' ORDER BY name`,
-        }),
-    );
-    const findings = (catalog: Catalog) =>
-        Catalog.reconcile(catalog).pipe(
-            Effect.as([]),
-            Effect.catchTag('ReconcileError', ({ findings: refusals }) => Effect.succeed(refusals)),
-        );
-    const refused = <A, E, Q>(effect: Effect.Effect<A, E, Q>, reason: SqlError.SqlErrorReason['_tag']) =>
-        Effect.all([Effect.flip(effect), Effect.serviceOption(D1Client.D1Client)]).pipe(Effect.map(([error, d1]) => assert.strictEqual(SqlError.isSqlError(error) ? error.reason._tag : error, Option.match(d1, { onNone: () => reason, onSome: () => 'UnknownError' }))));
     const reconciling =
         (title: string) =>
         (catalog: Catalog, runtime: Option.Option<string> = Option.none()) =>
@@ -346,7 +348,6 @@ const cases = <R, F, W = never>(it: Vitest.MethodsNonLive<R>, client: Client<F, 
         'enforces partial case-insensitive unique keys and reads virtual columns from JSON and predicates',
         isolated(function* (reconcile) {
             yield* reconcile(declared([accounts]));
-            const account = (id: string, email: string, deleted: boolean) => ({ id, email, deletedAt: deleted ? DateTime.makeUnsafe('2026-10-17T00:00:00.000Z') : null, profile: { plan: 'pro' } });
             yield* Relation.insert(accounts, [account(yield* uuid, 'A@example.com', true), account(yield* uuid, 'a@example.com', false)]);
             yield* refused(Relation.insert(accounts, [account(yield* uuid, 'A@EXAMPLE.COM', false)]), 'UniqueViolation');
             assert.deepStrictEqual((yield* Relation.select(accounts, { email: ['a@example.com', 'A@example.com'] }, { order: ['email'] })).map(Struct.pick(['email', 'plan', 'active'])), [

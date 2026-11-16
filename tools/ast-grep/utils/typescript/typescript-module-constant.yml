@@ -3,5 +3,5 @@ id: typescript-module-constant
 language: tsxlang
 rule:
     kind: lexical_declaration
-    has: {field: kind, regex: '^const$'}
-    inside: {any: [{kind: program}, {kind: export_statement, inside: {kind: program}}]}
+    has: { field: kind, regex: '^const$' }
+    inside: { any: [{ kind: program }, { kind: export_statement, inside: { kind: program } }] }

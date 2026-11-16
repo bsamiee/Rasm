@@ -15,7 +15,7 @@ interface ToolRow<A> {
 }
 type ResourceRow<A, Field extends string> = Pick<Parameters<ReturnType<Resource<A>['depend']>>[0], 'report'> & {
     readonly description: string;
-    readonly completion: { readonly [Key in Field]?: (success: A) => readonly string[] };
+    readonly completion: Readonly<Partial<Record<Field, (success: A) => readonly string[]>>>;
 };
 interface RpcSchemas<Rpcs extends Rpc.Any> {
     readonly payloadSchema: Schema.Codec<Rpc.Payload<Rpcs>, unknown> & { readonly fields: Schema.Struct.Fields };
@@ -87,6 +87,7 @@ const registerRpcGroup = Effect.fnUntraced(function* <Rpcs extends Rpc.Any & Rpc
     }: {
         readonly tools: { readonly [Tag in Rpcs['_tag']]?: ToolRow<Rpc.Success<Extract<Rpcs, { readonly _tag: Tag }>>> };
         readonly resources: { readonly [Tag in Rpcs['_tag']]?: ResourceRow<Rpc.Success<Extract<Rpcs, { readonly _tag: Tag }>>, keyof Extract<Rpcs, { readonly _tag: Tag }>['payloadSchema']['fields'] & string> };
+        // oxlint-disable-next-line typescript/no-unnecessary-type-parameters -- a generic route (atelier `routes.serving`) unifies with this signature to infer `Fields`, a plain `Rpcs['_tag']` parameter leaves it at the index signature
         readonly route: <Tag extends Rpcs['_tag']>(tag: Tag) => RpcRoute<Chosen, Fields, R>;
         readonly invoke: (rpc: Rpcs) => (payload: Rpc.Payload<Rpcs>, chosen: Chosen) => Effect.Effect<Rpc.Success<Rpcs>, Error, R>;
     },

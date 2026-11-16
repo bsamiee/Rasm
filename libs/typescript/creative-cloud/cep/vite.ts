@@ -92,7 +92,9 @@ const cep = (directory: string, { script: hostScript, panel, config = {} }: Exte
                             .filter((file) => file.type === 'chunk' && file.isEntry)
                             .map((file) => document('<script>').attr('src', file.fileName)),
                     );
-                    [{ fileName: manifest.panel, source: document.html() }, { fileName: ExtensionManifest.file, source }, ...(mode === 'development' ? [{ fileName: ExtensionManifest.debugFile, source: manifest.debug }] : [])].forEach((file) => this.emitFile({ type: 'asset', ...file }));
+                    [{ fileName: manifest.panel, source: document.html() }, { fileName: ExtensionManifest.file, source }, ...(mode === 'development' ? [{ fileName: ExtensionManifest.debugFile, source: manifest.debug }] : [])].forEach((file) => {
+                        this.emitFile({ type: 'asset', ...file });
+                    });
                 },
             } satisfies Rolldown.Plugin;
             return mergeConfig(

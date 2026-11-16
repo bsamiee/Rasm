@@ -4,9 +4,9 @@ language: rustlang
 rule:
     all:
         - inside:
-            kind: token_tree
-            stopBy: end
-            any:
-                - inside: {kind: macro_invocation}
-                - follows: {regex: '^!$', follows: {kind: identifier}}
-        - not: {matches: rust-test-scope}
+              kind: token_tree
+              stopBy: end
+              any:
+                  - inside: { kind: macro_invocation }
+                  - follows: { regex: '^!$', follows: { kind: identifier } }
+        - not: { matches: rust-test-scope }

@@ -8,102 +8,132 @@ utils:
                 name:
                     regex: '^(sbyte|byte|short|ushort|int|uint|long|ulong|nint|nuint|decimal|SByte|Byte|Int16|UInt16|Int32|UInt32|Int64|UInt64|Int128|UInt128|IntPtr|UIntPtr|Decimal)$'
     unsigned-type:
-        matches: {csharp-type-name: {name: {regex: '^(byte|ushort|uint|ulong|nuint|Byte|UInt16|UInt32|UInt64|UInt128|UIntPtr)$'}}}
+        matches: { csharp-type-name: { name: { regex: '^(byte|ushort|uint|ulong|nuint|Byte|UInt16|UInt32|UInt64|UInt128|UIntPtr)$' } } }
     limit:
         kind: member_access_expression
-        has: {field: expression, matches: integer-type, pattern: $TYPE}
+        has: { field: expression, matches: integer-type, pattern: $TYPE }
     minimum:
         any:
             - kind: member_access_expression
-              all: [{matches: limit}, {has: {field: name, regex: '^MinValue$'}}]
+              all: [{ matches: limit }, { has: { field: name, regex: '^MinValue$' } }]
             - kind: integer_literal
               regex: '^0[uUlL]*$'
             - kind: 'cast_expression, parenthesized_expression'
-              has: {matches: minimum}
+              has: { matches: minimum }
     maximum:
         any:
             - kind: member_access_expression
-              all: [{matches: limit}, {has: {field: name, regex: '^MaxValue$'}}]
+              all: [{ matches: limit }, { has: { field: name, regex: '^MaxValue$' } }]
             - kind: 'cast_expression, parenthesized_expression'
-              has: {matches: maximum}
+              has: { matches: maximum }
     own-minimum:
         any:
-            - has: {stopBy: end, kind: member_access_expression, all: [{has: {field: expression, pattern: $TYPE}}, {has: {field: name, regex: '^MinValue$'}}]}
-            - has: {stopBy: end, kind: member_access_expression, has: {field: expression, matches: unsigned-type, pattern: $TYPE}}
+            - has: { stopBy: end, kind: member_access_expression, all: [{ has: { field: expression, pattern: $TYPE } }, { has: { field: name, regex: '^MinValue$' } }] }
+            - has: { stopBy: end, kind: member_access_expression, has: { field: expression, matches: unsigned-type, pattern: $TYPE } }
     bound-call:
         kind: invocation_expression
         all:
-            - has: {field: function, kind: member_access_expression}
-            - has: {field: arguments, all: [{has: {kind: argument, nthChild: 2}}, {not: {has: {kind: argument, nthChild: 3}}}]}
+            - has: { field: function, kind: member_access_expression }
+            - has: { field: arguments, all: [{ has: { kind: argument, nthChild: 2 } }, { not: { has: { kind: argument, nthChild: 3 } } }] }
     ordering:
         kind: binary_expression
-        has: {field: operator, regex: '^[<>]=?$'}
+        has: { field: operator, regex: '^[<>]=?$' }
     literal:
         any:
             - kind: integer_literal
-            - {kind: prefix_unary_expression, regex: '^-', has: {kind: integer_literal}}
+            - { kind: prefix_unary_expression, regex: '^-', has: { kind: integer_literal } }
     literal-clamp:
         any:
             - kind: parenthesized_expression
-              has: {matches: literal-clamp}
+              has: { matches: literal-clamp }
             - kind: invocation_expression
               all:
-                - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^Clamp$'}}
-                - has: {field: arguments, all: [{has: {kind: argument, nthChild: 2, has: {matches: literal, pattern: $LO}}}, {has: {kind: argument, nthChild: 3, has: {matches: literal, pattern: $HI}}}]}
+                  - has: { field: function, kind: member_access_expression, has: { field: name, regex: '^Clamp$' } }
+                  - has: { field: arguments, all: [{ has: { kind: argument, nthChild: 2, has: { matches: literal, pattern: $LO } } }, { has: { kind: argument, nthChild: 3, has: { matches: literal, pattern: $HI } } }] }
             - kind: invocation_expression
               matches: bound-call
               any:
-                - all:
-                    - has: {field: function, has: {field: name, regex: '^Min$'}}
-                    - has: {field: arguments, has: {kind: argument, has: {matches: literal, pattern: $HI}}}
-                    - has: {field: arguments, has: {kind: argument, has: {matches: bound-call, all: [{has: {field: function, has: {field: name, regex: '^Max$'}}}, {has: {field: arguments, has: {kind: argument, has: {matches: literal, pattern: $LO}}}}]}}}
-                - all:
-                    - has: {field: function, has: {field: name, regex: '^Max$'}}
-                    - has: {field: arguments, has: {kind: argument, has: {matches: literal, pattern: $LO}}}
-                    - has: {field: arguments, has: {kind: argument, has: {matches: bound-call, all: [{has: {field: function, has: {field: name, regex: '^Min$'}}}, {has: {field: arguments, has: {kind: argument, has: {matches: literal, pattern: $HI}}}}]}}}
+                  - all:
+                        - has: { field: function, has: { field: name, regex: '^Min$' } }
+                        - has: { field: arguments, has: { kind: argument, has: { matches: literal, pattern: $HI } } }
+                        - has: { field: arguments, has: { kind: argument, has: { matches: bound-call, all: [{ has: { field: function, has: { field: name, regex: '^Max$' } } }, { has: { field: arguments, has: { kind: argument, has: { matches: literal, pattern: $LO } } } }] } } }
+                  - all:
+                        - has: { field: function, has: { field: name, regex: '^Max$' } }
+                        - has: { field: arguments, has: { kind: argument, has: { matches: literal, pattern: $LO } } }
+                        - has: { field: arguments, has: { kind: argument, has: { matches: bound-call, all: [{ has: { field: function, has: { field: name, regex: '^Min$' } } }, { has: { field: arguments, has: { kind: argument, has: { matches: literal, pattern: $HI } } } }] } } }
             - kind: conditional_expression
               any:
-                - all: [{has: {field: condition, matches: ordering}}, {has: {field: consequence, matches: literal, pattern: $LO}}, {has: {field: alternative, kind: conditional_expression, all: [{has: {field: condition, matches: ordering}}, {has: {field: consequence, matches: literal, pattern: $HI}}]}}]
-                - all: [{has: {field: condition, matches: ordering}}, {has: {field: consequence, matches: literal, pattern: $HI}}, {has: {field: alternative, kind: conditional_expression, all: [{has: {field: condition, matches: ordering}}, {has: {field: consequence, matches: literal, pattern: $LO}}]}}]
+                  - all:
+                        [
+                            { has: { field: condition, matches: ordering } },
+                            { has: { field: consequence, matches: literal, pattern: $LO } },
+                            { has: { field: alternative, kind: conditional_expression, all: [{ has: { field: condition, matches: ordering } }, { has: { field: consequence, matches: literal, pattern: $HI } }] } },
+                        ]
+                  - all:
+                        [
+                            { has: { field: condition, matches: ordering } },
+                            { has: { field: consequence, matches: literal, pattern: $HI } },
+                            { has: { field: alternative, kind: conditional_expression, all: [{ has: { field: condition, matches: ordering } }, { has: { field: consequence, matches: literal, pattern: $LO } }] } },
+                        ]
     literal-range:
         kind: cast_expression
         all:
-            - has: {field: value, matches: literal-clamp}
+            - has: { field: value, matches: literal-clamp }
             - any:
-                - all: [{has: {field: type, matches: {csharp-qualified-name: {name: {regex: '^(?:byte|Byte)$'}, qualifier: {regex: '^System$'}}}, pattern: $TYPE}}, {has: {stopBy: end, kind: 'integer_literal, prefix_unary_expression', pattern: $LO, regex: '^0$'}}, {has: {stopBy: end, kind: 'integer_literal, prefix_unary_expression', pattern: $HI, regex: '^255$'}}]
-                - all: [{has: {field: type, matches: {csharp-qualified-name: {name: {regex: '^(?:sbyte|SByte)$'}, qualifier: {regex: '^System$'}}}, pattern: $TYPE}}, {has: {stopBy: end, kind: 'integer_literal, prefix_unary_expression', pattern: $LO, regex: '^-128$'}}, {has: {stopBy: end, kind: 'integer_literal, prefix_unary_expression', pattern: $HI, regex: '^127$'}}]
-                - all: [{has: {field: type, matches: {csharp-qualified-name: {name: {regex: '^(?:short|Int16)$'}, qualifier: {regex: '^System$'}}}, pattern: $TYPE}}, {has: {stopBy: end, kind: 'integer_literal, prefix_unary_expression', pattern: $LO, regex: '^-32768$'}}, {has: {stopBy: end, kind: 'integer_literal, prefix_unary_expression', pattern: $HI, regex: '^32767$'}}]
-                - all: [{has: {field: type, matches: {csharp-qualified-name: {name: {regex: '^(?:ushort|UInt16)$'}, qualifier: {regex: '^System$'}}}, pattern: $TYPE}}, {has: {stopBy: end, kind: 'integer_literal, prefix_unary_expression', pattern: $LO, regex: '^0$'}}, {has: {stopBy: end, kind: 'integer_literal, prefix_unary_expression', pattern: $HI, regex: '^65535$'}}]
+                  - all:
+                        [
+                            { has: { field: type, matches: { csharp-qualified-name: { name: { regex: '^(?:byte|Byte)$' }, qualifier: { regex: '^System$' } } }, pattern: $TYPE } },
+                            { has: { stopBy: end, kind: 'integer_literal, prefix_unary_expression', pattern: $LO, regex: '^0$' } },
+                            { has: { stopBy: end, kind: 'integer_literal, prefix_unary_expression', pattern: $HI, regex: '^255$' } },
+                        ]
+                  - all:
+                        [
+                            { has: { field: type, matches: { csharp-qualified-name: { name: { regex: '^(?:sbyte|SByte)$' }, qualifier: { regex: '^System$' } } }, pattern: $TYPE } },
+                            { has: { stopBy: end, kind: 'integer_literal, prefix_unary_expression', pattern: $LO, regex: '^-128$' } },
+                            { has: { stopBy: end, kind: 'integer_literal, prefix_unary_expression', pattern: $HI, regex: '^127$' } },
+                        ]
+                  - all:
+                        [
+                            { has: { field: type, matches: { csharp-qualified-name: { name: { regex: '^(?:short|Int16)$' }, qualifier: { regex: '^System$' } } }, pattern: $TYPE } },
+                            { has: { stopBy: end, kind: 'integer_literal, prefix_unary_expression', pattern: $LO, regex: '^-32768$' } },
+                            { has: { stopBy: end, kind: 'integer_literal, prefix_unary_expression', pattern: $HI, regex: '^32767$' } },
+                        ]
+                  - all:
+                        [
+                            { has: { field: type, matches: { csharp-qualified-name: { name: { regex: '^(?:ushort|UInt16)$' }, qualifier: { regex: '^System$' } } }, pattern: $TYPE } },
+                            { has: { stopBy: end, kind: 'integer_literal, prefix_unary_expression', pattern: $LO, regex: '^0$' } },
+                            { has: { stopBy: end, kind: 'integer_literal, prefix_unary_expression', pattern: $HI, regex: '^65535$' } },
+                        ]
 rule:
     pattern: $CLAMP
     any:
         - all:
-            - any:
-                - kind: invocation_expression
-                  all:
-                    - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^Clamp$'}}
-                    - has:
-                        field: arguments
-                        all:
-                            - has: {kind: argument, nthChild: 2, has: {matches: minimum}}
-                            - has: {kind: argument, nthChild: 3, has: {matches: maximum}}
-                            - not: {has: {kind: argument, nthChild: 4}}
-                - kind: invocation_expression
-                  matches: bound-call
-                  any:
-                    - all:
-                        - has: {field: function, has: {field: name, regex: '^Max$'}}
-                        - has: {field: arguments, has: {kind: argument, has: {matches: minimum}}}
-                        - has: {field: arguments, has: {kind: argument, has: {matches: bound-call, all: [{has: {field: function, has: {field: name, regex: '^Min$'}}}, {has: {field: arguments, has: {kind: argument, has: {matches: maximum}}}}]}}}
-                    - all:
-                        - has: {field: function, has: {field: name, regex: '^Min$'}}
-                        - has: {field: arguments, has: {kind: argument, has: {matches: bound-call, all: [{has: {field: function, has: {field: name, regex: '^Max$'}}}, {has: {field: arguments, has: {kind: argument, has: {matches: minimum}}}}]}}}
-                        - has: {field: arguments, has: {kind: argument, has: {matches: maximum}}}
-                - kind: conditional_expression
-                  any:
-                    - all: [{has: {field: condition, matches: ordering}}, {has: {field: consequence, matches: minimum}}, {has: {field: alternative, kind: conditional_expression, all: [{has: {field: condition, matches: ordering}}, {has: {field: consequence, matches: maximum}}]}}]
-                    - all: [{has: {field: condition, matches: ordering}}, {has: {field: consequence, matches: maximum}}, {has: {field: alternative, kind: conditional_expression, all: [{has: {field: condition, matches: ordering}}, {has: {field: consequence, matches: minimum}}]}}]
-            - matches: own-minimum
+              - any:
+                    - kind: invocation_expression
+                      all:
+                          - has: { field: function, kind: member_access_expression, has: { field: name, regex: '^Clamp$' } }
+                          - has:
+                                field: arguments
+                                all:
+                                    - has: { kind: argument, nthChild: 2, has: { matches: minimum } }
+                                    - has: { kind: argument, nthChild: 3, has: { matches: maximum } }
+                                    - not: { has: { kind: argument, nthChild: 4 } }
+                    - kind: invocation_expression
+                      matches: bound-call
+                      any:
+                          - all:
+                                - has: { field: function, has: { field: name, regex: '^Max$' } }
+                                - has: { field: arguments, has: { kind: argument, has: { matches: minimum } } }
+                                - has: { field: arguments, has: { kind: argument, has: { matches: bound-call, all: [{ has: { field: function, has: { field: name, regex: '^Min$' } } }, { has: { field: arguments, has: { kind: argument, has: { matches: maximum } } } }] } } }
+                          - all:
+                                - has: { field: function, has: { field: name, regex: '^Min$' } }
+                                - has: { field: arguments, has: { kind: argument, has: { matches: bound-call, all: [{ has: { field: function, has: { field: name, regex: '^Max$' } } }, { has: { field: arguments, has: { kind: argument, has: { matches: minimum } } } }] } } }
+                                - has: { field: arguments, has: { kind: argument, has: { matches: maximum } } }
+                    - kind: conditional_expression
+                      any:
+                          - all: [{ has: { field: condition, matches: ordering } }, { has: { field: consequence, matches: minimum } }, { has: { field: alternative, kind: conditional_expression, all: [{ has: { field: condition, matches: ordering } }, { has: { field: consequence, matches: maximum } }] } }]
+                          - all: [{ has: { field: condition, matches: ordering } }, { has: { field: consequence, matches: maximum } }, { has: { field: alternative, kind: conditional_expression, all: [{ has: { field: condition, matches: ordering } }, { has: { field: consequence, matches: minimum } }] } }]
+              - matches: own-minimum
         - matches: literal-range
 message: '`$CLAMP` saturates a value into `$TYPE` range by hand'
 note: 'Convert through `<type>.CreateSaturating(<value>)`'

@@ -4,49 +4,49 @@ severity: error
 ignores: ['.claude/workflows/*.js', 'plugins/function-hooks/hooks/**']
 utils:
     collection:
-        matches: {effect-module: {name: {regex: '(?-u:\b)(Array|Chunk|HashSet)$'}}}
+        matches: { effect-module: { name: { regex: '(?-u:\b)(Array|Chunk|HashSet)$' } } }
     native-receiver:
-        not: {any: [{kind: 'string, template_string'}, {matches: {effect-module: {name: {regex: '[^\x00-#%-/:-@\[-\^`{-~\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]'}}}}]}
+        not: { any: [{ kind: 'string, template_string' }, { matches: { effect-module: { name: { regex: '[^\x00-#%-/:-@\[-\^`{-~\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]' } } } }] }
     membership:
         kind: call_expression
         all:
-            - has: {field: function, kind: member_expression, has: {field: object, pattern: $OWNER}}
+            - has: { field: function, kind: member_expression, has: { field: object, pattern: $OWNER } }
             - any:
-                - pattern: $OWNER.has($SEEN, $X)
-                  has: {field: function, has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)HashSet$'}}}}}
-                - pattern: $OWNER.contains($SEEN, $X)
-                  has: {field: function, has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)(Array|Chunk|Iterable)$'}}}}}
-                - pattern: $OWNER.includes($X)
-                  has: {field: function, has: {field: object, pattern: $SEEN, matches: native-receiver}}
+                  - pattern: $OWNER.has($SEEN, $X)
+                    has: { field: function, has: { field: object, matches: { effect-module: { name: { regex: '(?-u:\b)HashSet$' } } } } }
+                  - pattern: $OWNER.contains($SEEN, $X)
+                    has: { field: function, has: { field: object, matches: { effect-module: { name: { regex: '(?-u:\b)(Array|Chunk|Iterable)$' } } } } }
+                  - pattern: $OWNER.includes($X)
+                    has: { field: function, has: { field: object, pattern: $SEEN, matches: native-receiver } }
     predicate:
         kind: arrow_function
         all:
-            - has: {field: parameters, has: {kind: required_parameter, nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, has: {field: pattern, kind: identifier, pattern: $X}}, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}}
-            - has: {field: body, any: [{matches: membership}, {pattern: '!$_INNER', has: {matches: membership}}]}
+            - has: { field: parameters, has: { kind: required_parameter, nthChild: { position: 1, ofRule: { not: { kind: 'comment, html_comment' } } }, has: { field: pattern, kind: identifier, pattern: $X } }, not: { has: { nthChild: { position: 2, ofRule: { not: { kind: 'comment, html_comment' } } } } } }
+            - has: { field: body, any: [{ matches: membership }, { pattern: '!$_INNER', has: { matches: membership } }] }
     set-test:
         pattern: $_SET.has($_SEEN, $_ITEM)
-        has: {field: function, has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)HashSet$'}}}}}
+        has: { field: function, has: { field: object, matches: { effect-module: { name: { regex: '(?-u:\b)HashSet$' } } } } }
     set-predicate:
         kind: arrow_function
-        has: {field: body, any: [{matches: set-test}, {has: {matches: set-test}}]}
+        has: { field: body, any: [{ matches: set-test }, { has: { matches: set-test } }] }
 rule:
     kind: call_expression
     all:
-        - has: {field: function, kind: member_expression, has: {field: property, regex: '^filter$'}}
+        - has: { field: function, kind: member_expression, has: { field: property, regex: '^filter$' } }
         - any:
-            - all:
-                - has: {field: arguments, has: {matches: predicate, nthChild: {position: 1, reverse: true, ofRule: {not: {kind: 'comment, html_comment'}}}}}
-                - has: {field: function, has: {field: object, matches: collection}}
-                - any:
-                    - has: {field: function, has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)Array$'}}}}}
-                      not: {has: {field: arguments, has: {matches: set-predicate}}}
-                    - has: {field: function, has: {field: object, pattern: $OWNER}}
-            - all:
-                - has: {field: function, has: {field: object, matches: native-receiver}}
-                - has: {field: arguments, has: {matches: predicate, nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}}, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}}
-                - not: {has: {field: arguments, has: {matches: set-predicate}}}
-        - not: {matches: typescript-complementary-filter}
+              - all:
+                    - has: { field: arguments, has: { matches: predicate, nthChild: { position: 1, reverse: true, ofRule: { not: { kind: 'comment, html_comment' } } } } }
+                    - has: { field: function, has: { field: object, matches: collection } }
+                    - any:
+                          - has: { field: function, has: { field: object, matches: { effect-module: { name: { regex: '(?-u:\b)Array$' } } } } }
+                            not: { has: { field: arguments, has: { matches: set-predicate } } }
+                          - has: { field: function, has: { field: object, pattern: $OWNER } }
+              - all:
+                    - has: { field: function, has: { field: object, matches: native-receiver } }
+                    - has: { field: arguments, has: { matches: predicate, nthChild: { position: 1, ofRule: { not: { kind: 'comment, html_comment' } } } }, not: { has: { nthChild: { position: 2, ofRule: { not: { kind: 'comment, html_comment' } } } } } }
+                    - not: { has: { field: arguments, has: { matches: set-predicate } } }
+        - not: { matches: typescript-complementary-filter }
 constraints:
-    SEEN: {not: {any: [{kind: identifier, pattern: $X}, {has: {stopBy: end, kind: identifier, pattern: $X}}]}}
+    SEEN: { not: { any: [{ kind: identifier, pattern: $X }, { has: { stopBy: end, kind: identifier, pattern: $X } }] } }
 message: '`filter` tests each element for membership in `$SEEN` by hand'
 note: 'Call `<module>.difference(<list>, <seen>)` for elements absent from `<seen>`, or `<module>.intersection` for elements present'

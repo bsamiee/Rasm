@@ -16,49 +16,49 @@ utils:
             - kind: identifier
               regex: '^Rhino$'
             - kind: alias_qualified_name
-              has: {field: name, regex: '^Rhino$'}
+              has: { field: name, regex: '^Rhino$' }
             - kind: qualified_name
-              has: {field: qualifier, matches: rhino-root}
+              has: { field: qualifier, matches: rhino-root }
     host-type:
         pattern: $HOST
         any:
             - matches: host-name
             - kind: alias_qualified_name
-              has: {field: name, matches: host-name}
+              has: { field: name, matches: host-name }
             - kind: qualified_name
-              all: [{has: {field: qualifier, kind: qualified_name, matches: rhino-root}}, {has: {field: name, matches: host-name}}]
+              all: [{ has: { field: qualifier, kind: qualified_name, matches: rhino-root } }, { has: { field: name, matches: host-name } }]
     first-base:
         nthChild: 1
-        inside: {kind: base_list}
+        inside: { kind: base_list }
     host-base:
         any:
             - matches: host-type
             - kind: identifier
               pattern: $BASE
               inside:
-                kind: compilation_unit
-                stopBy: end
-                has:
-                    stopBy: end
-                    any:
-                        - kind: using_directive
-                          all:
-                            - has: {field: name, pattern: $BASE}
-                            - has: {nthChild: 2, matches: host-type}
-                        - kind: class_declaration
-                          all:
-                            - has: {field: name, pattern: $BASE}
-                            - has: {kind: base_list, has: {matches: first-base, all: [{matches: host-type}]}}
+                  kind: compilation_unit
+                  stopBy: end
+                  has:
+                      stopBy: end
+                      any:
+                          - kind: using_directive
+                            all:
+                                - has: { field: name, pattern: $BASE }
+                                - has: { nthChild: 2, matches: host-type }
+                          - kind: class_declaration
+                            all:
+                                - has: { field: name, pattern: $BASE }
+                                - has: { kind: base_list, has: { matches: first-base, all: [{ matches: host-type }] } }
 rule:
     kind: class_declaration
     all:
-        - has: {field: name, pattern: $NAME}
-        - not: {has: {kind: modifier, regex: '^abstract$'}}
-        - not: {has: {kind: parameter_list, has: {kind: parameter}}}
+        - has: { field: name, pattern: $NAME }
+        - not: { has: { kind: modifier, regex: '^abstract$' } }
+        - not: { has: { kind: parameter_list, has: { kind: parameter } } }
         - not:
-            all:
-                - has: {kind: declaration_list, has: {kind: constructor_declaration, has: {kind: parameter_list, has: {kind: parameter}}}}
-                - not: {has: {kind: declaration_list, has: {kind: constructor_declaration, has: {kind: parameter_list, not: {has: {kind: parameter}}}}}}
-        - has: {kind: base_list, has: {matches: first-base, all: [{matches: host-base}]}}
+              all:
+                  - has: { kind: declaration_list, has: { kind: constructor_declaration, has: { kind: parameter_list, has: { kind: parameter } } } }
+                  - not: { has: { kind: declaration_list, has: { kind: constructor_declaration, has: { kind: parameter_list, not: { has: { kind: parameter } } } } } }
+        - has: { kind: base_list, has: { matches: first-base, all: [{ matches: host-base }] } }
 message: 'Library class `$NAME` derives from `$HOST` and stays instantiable'
 note: 'Declare `<name>` `abstract` and give its application subclass the public parameterless constructor Rhino calls'

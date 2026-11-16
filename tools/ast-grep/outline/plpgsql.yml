@@ -1,25 +1,25 @@
 utils:
     header:
-        has: {kind: 'kw_for, kw_foreach, kw_while, kw_loop', pattern: $OPENER}
-        any: [{has: {kind: for_variable, pattern: $VARIABLE}}, {kind: 'stmt_loop, stmt_while'}]
-    nested: {inside: {stopBy: end, any: [{kind: pl_block}, {kind: 'stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: {kind: loop_label}}]}}
-    owner: {any: [{inside: {stopBy: end, kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: {kind: 'block_label, loop_label', pattern: $OWNER}, matches: nested}}, {kind: decl_statement}]}
-    failed: {any: [{kind: ERROR}, {regex: '^$'}]}
+        has: { kind: 'kw_for, kw_foreach, kw_while, kw_loop', pattern: $OPENER }
+        any: [{ has: { kind: for_variable, pattern: $VARIABLE } }, { kind: 'stmt_loop, stmt_while' }]
+    nested: { inside: { stopBy: end, any: [{ kind: pl_block }, { kind: 'stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: { kind: loop_label } }] } }
+    owner: { any: [{ inside: { stopBy: end, kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: { kind: 'block_label, loop_label', pattern: $OWNER }, matches: nested } }, { kind: decl_statement }] }
+    failed: { any: [{ kind: ERROR }, { regex: '^$' }] }
 rewriters:
-    - {id: value, rule: {kind: sql_expression, not: {regex: "^(?:[eE]|[uU]&)?'(?:[^']|'')*'$"}}, fix: …}
+    - { id: value, rule: { kind: sql_expression, not: { regex: "^(?:[eE]|[uU]&)?'(?:[^']|'')*'$" } }, fix: … }
     - id: lineage
       rule:
-        kind: 'block_label, loop_label'
-        has: {pattern: $SEGMENT}
-        inside:
-            kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a'
-            any:
-                - inside: {stopBy: end, kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: {kind: 'block_label, loop_label', pattern: $UP}, matches: nested}
-                - kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a'
+          kind: 'block_label, loop_label'
+          has: { pattern: $SEGMENT }
+          inside:
+              kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a'
+              any:
+                  - inside: { stopBy: end, kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: { kind: 'block_label, loop_label', pattern: $UP }, matches: nested }
+                  - kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a'
       transform:
-        ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
+          ABOVE: { rewrite: { source: $UP, rewriters: [lineage], joinBy: '' } }
       fix: $ABOVE$SEGMENT.
-    - {id: strip, rule: {kind: comment}, fix: ''}
+    - { id: strip, rule: { kind: comment }, fix: '' }
 transform:
     LABELED: replace($NAME, replace='(?s)^(.+)$', by='<<${1}>>')
     FORM: replace($OPENER, replace='^', by=' ')
@@ -27,17 +27,17 @@ transform:
     CODE: replace($STATE, replace="^(?:[eE]|[uU]&)?'|'$", by='')
     ERRNAME: replace($ERRCODE, replace="^(?:[eE]|[uU]&)?'|'$", by='')
     STATED: replace($KEYWORD, replace='$', by=' ')
-    VALUED: {rewrite: {source: $OPTION, rewriters: [value]}}
+    VALUED: { rewrite: { source: $OPTION, rewriters: [value] } }
     USING: replace($VALUED, replace='(?s)^(.)', by='USING ${1}')
     LINE: replace($USING, replace='[\t\n\x0B\f\r ]+', by=' ')
-    QUALIFIER: {rewrite: {source: $OWNER, rewriters: [lineage], joinBy: ''}}
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [value, strip]}}
+    QUALIFIER: { rewrite: { source: $OWNER, rewriters: [lineage], joinBy: '' } }
+    HEADER: { rewrite: { source: $DECLARATION, rewriters: [value, strip] } }
     FOLDED: replace($HEADER, replace='[\t\n\x0B\f\r ]+', by=' ')
     SIGNATURE: replace($FOLDED, replace=' ?;$', by='')
 variants:
     declared:
         rewriters:
-            - {id: value, rule: {kind: sql_expression, inside: {kind: decl_defval}}, fix: …}
+            - { id: value, rule: { kind: sql_expression, inside: { kind: decl_defval } }, fix: … }
 ---
 id: plpgsql-option
 role: item
@@ -45,7 +45,7 @@ symbolType: operator
 isExported: false
 rule:
     kind: comp_option
-    has: {kind: 'kw_option, kw_print_strict_params, kw_variable_conflict', pattern: $NAME}
+    has: { kind: 'kw_option, kw_print_strict_params, kw_variable_conflict', pattern: $NAME }
 name: $NAME
 ---
 id: plpgsql-scope
@@ -55,13 +55,13 @@ isExported: false
 rule:
     any:
         - kind: pl_block
-          has: {kind: block_label, has: {pattern: $NAME}}
+          has: { kind: block_label, has: { pattern: $NAME } }
         - kind: pl_block
-          has: {kind: decl_sect, has: {kind: kw_declare, pattern: $KEYWORD}}
+          has: { kind: decl_sect, has: { kind: kw_declare, pattern: $KEYWORD } }
         - kind: pl_block
-          has: {kind: kw_begin, pattern: $KEYWORD}
+          has: { kind: kw_begin, pattern: $KEYWORD }
         - kind: 'stmt_loop, stmt_while, stmt_for, stmt_foreach_a'
-          has: {kind: loop_label, has: {pattern: $NAME}}
+          has: { kind: loop_label, has: { pattern: $NAME } }
           matches: header
 name: $NAME$KEYWORD
 signature: $LABELED$KEYWORD$FORM$TARGET
@@ -73,7 +73,7 @@ isExported: false
 rule:
     kind: for_variable
     pattern: $NAME
-    inside: {kind: stmt_for, field: for, has: {field: in, kind: 'for_integer_range, for_cursor'}}
+    inside: { kind: stmt_for, field: for, has: { field: in, kind: 'for_integer_range, for_cursor' } }
 name: $NAME
 signature: $NAME
 ---
@@ -87,14 +87,14 @@ rule:
 utils:
     condition:
         any:
-            - has: {kind: any_identifier, pattern: $CONDITION}
-            - all: [{has: {kind: kw_sqlstate, pattern: $KEYWORD}}, {has: {field: sqlstate, pattern: $STATE}}]
+            - has: { kind: any_identifier, pattern: $CONDITION }
+            - all: [{ has: { kind: kw_sqlstate, pattern: $KEYWORD } }, { has: { field: sqlstate, pattern: $STATE } }]
             - has:
-                kind: raise_option
-                pattern: $OPTION
-                has: {field: left, kind: kw_errcode}
-                any: [{has: {field: right, regex: "^(?:[eE]|[uU]&)?'(?:[^']|'')*'$", pattern: $ERRCODE}}, {has: {field: left, pattern: $ERRKEY}}]
-        not: {has: {field: raise, kind: raise_level, not: {has: {kind: kw_exception}}}}
+                  kind: raise_option
+                  pattern: $OPTION
+                  has: { field: left, kind: kw_errcode }
+                  any: [{ has: { field: right, regex: "^(?:[eE]|[uU]&)?'(?:[^']|'')*'$", pattern: $ERRCODE } }, { has: { field: left, pattern: $ERRKEY } }]
+        not: { has: { field: raise, kind: raise_level, not: { has: { kind: kw_exception } } } }
 name: $CONDITION$CODE$ERRNAME$ERRKEY
 signature: RAISE $CONDITION$STATED$STATE$LINE
 ---
@@ -104,18 +104,18 @@ symbolType: 'null'
 rule:
     any:
         - regex: '^$'
-          any: [{kind: 'kw_end, kw_loop, identifier, sql_expression'}, {pattern: ';'}, {pattern: ')'}, {pattern: ']'}]
+          any: [{ kind: 'kw_end, kw_loop, identifier, sql_expression' }, { pattern: ';' }, { pattern: ')' }, { pattern: ']' }]
         - kind: ERROR
           not:
-            has:
-                stopBy: end
-                any:
-                    - kind: 'pl_block, comp_option'
-                    - {kind: 'stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: {kind: loop_label}}
-                    - {kind: for_variable, inside: {kind: stmt_for, field: for, has: {field: in, kind: 'for_integer_range, for_cursor'}}}
-                    - kind: stmt_raise
-                      any: [{has: {kind: any_identifier}}, {has: {kind: kw_sqlstate}}, {has: {kind: raise_option, has: {field: left, kind: kw_errcode}}}]
-                      not: {has: {field: raise, kind: raise_level, not: {has: {kind: kw_exception}}}}
+              has:
+                  stopBy: end
+                  any:
+                      - kind: 'pl_block, comp_option'
+                      - { kind: 'stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: { kind: loop_label } }
+                      - { kind: for_variable, inside: { kind: stmt_for, field: for, has: { field: in, kind: 'for_integer_range, for_cursor' } } }
+                      - kind: stmt_raise
+                        any: [{ has: { kind: any_identifier } }, { has: { kind: kw_sqlstate } }, { has: { kind: raise_option, has: { field: left, kind: kw_errcode } } }]
+                        not: { has: { field: raise, kind: raise_level, not: { has: { kind: kw_exception } } } }
 name: ERROR
 signature: ''
 isImport: false
@@ -126,18 +126,18 @@ role: member
 symbolType: namespace
 parentRuleIds: [plpgsql-scope]
 rule:
-    has: {pattern: $NAME}
-    not: {has: {kind: ERROR}}
+    has: { pattern: $NAME }
+    not: { has: { kind: ERROR } }
     any:
         - kind: block_label
-          inside: {kind: pl_block, matches: scope}
+          inside: { kind: pl_block, matches: scope }
         - kind: loop_label
-          inside: {kind: 'stmt_loop, stmt_while, stmt_for, stmt_foreach_a', all: [{matches: scope}, {matches: header}]}
+          inside: { kind: 'stmt_loop, stmt_while, stmt_for, stmt_foreach_a', all: [{ matches: scope }, { matches: header }] }
 utils:
     scope:
         matches: nested
         any:
-            - inside: {stopBy: end, kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: {kind: 'block_label, loop_label', pattern: $OWNER}, matches: nested}
+            - inside: { stopBy: end, kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: { kind: 'block_label, loop_label', pattern: $OWNER }, matches: nested }
             - kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a'
 name: $QUALIFIER$NAME
 signature: $LABELED$FORM$TARGET
@@ -149,11 +149,11 @@ parentRuleIds: [plpgsql-scope]
 rule:
     kind: decl_varname
     pattern: $NAME
-    inside: {kind: decl_statement, pattern: $DECLARATION, has: {kind: kw_cursor}, matches: owner}
+    inside: { kind: decl_statement, pattern: $DECLARATION, has: { kind: kw_cursor }, matches: owner }
 rewriters:
-    - {id: query, rule: {kind: 'kw_for, kw_is, sql_expression', inside: {kind: decl_statement}}, fix: ''}
+    - { id: query, rule: { kind: 'kw_for, kw_is, sql_expression', inside: { kind: decl_statement } }, fix: '' }
 transform:
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [query, strip]}}
+    HEADER: { rewrite: { source: $DECLARATION, rewriters: [query, strip] } }
 name: $QUALIFIER$NAME
 signature: $SIGNATURE
 ---
@@ -166,12 +166,12 @@ rule:
     any:
         - kind: decl_statement
           pattern: $DECLARATION
-          has: {kind: decl_varname, pattern: $NAME}
-          all: [{not: {has: {kind: 'kw_constant, kw_cursor'}}}, {not: {has: {stopBy: end, matches: failed}}}, {matches: owner}]
+          has: { kind: decl_varname, pattern: $NAME }
+          all: [{ not: { has: { kind: 'kw_constant, kw_cursor' } } }, { not: { has: { stopBy: end, matches: failed } } }, { matches: owner }]
         - kind: decl_varname
           regex: .
           pattern: $NAME
-          inside: {kind: decl_statement, pattern: $DECLARATION, all: [{not: {has: {kind: 'kw_constant, kw_cursor'}}}, {has: {stopBy: end, matches: failed}}, {matches: owner}]}
+          inside: { kind: decl_statement, pattern: $DECLARATION, all: [{ not: { has: { kind: 'kw_constant, kw_cursor' } } }, { has: { stopBy: end, matches: failed } }, { matches: owner }] }
 name: $QUALIFIER$NAME
 signature: $SIGNATURE
 ---
@@ -184,30 +184,30 @@ rule:
     any:
         - kind: decl_cursor_arg
           pattern: $DECLARATION
-          has: {kind: decl_varname, pattern: $NAME}
-          not: {has: {stopBy: end, matches: failed}}
+          has: { kind: decl_varname, pattern: $NAME }
+          not: { has: { stopBy: end, matches: failed } }
           matches: argument
         - kind: decl_varname
           regex: .
           pattern: $NAME
-          inside: {kind: decl_cursor_arg, pattern: $DECLARATION, has: {stopBy: end, matches: failed}, matches: argument}
+          inside: { kind: decl_cursor_arg, pattern: $DECLARATION, has: { stopBy: end, matches: failed }, matches: argument }
         - kind: for_variable
           pattern: $DECLARATION
-          has: {kind: dotted_name, pattern: $NAME}
-          not: {has: {stopBy: end, matches: failed}}
+          has: { kind: dotted_name, pattern: $NAME }
+          not: { has: { stopBy: end, matches: failed } }
           inside:
-            kind: stmt_for
-            field: for
-            has: {field: in, kind: 'for_integer_range, for_cursor'}
-            any:
-                - {has: {kind: loop_label, pattern: $OWNER}, matches: nested}
-                - inside: {stopBy: end, kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: {kind: 'block_label, loop_label', pattern: $OWNER}, matches: nested}
-                - kind: stmt_for
+              kind: stmt_for
+              field: for
+              has: { field: in, kind: 'for_integer_range, for_cursor' }
+              any:
+                  - { has: { kind: loop_label, pattern: $OWNER }, matches: nested }
+                  - inside: { stopBy: end, kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: { kind: 'block_label, loop_label', pattern: $OWNER }, matches: nested }
+                  - kind: stmt_for
 utils:
-    argument: {inside: {kind: decl_cursor_args, inside: {kind: decl_statement, has: {kind: decl_varname, pattern: $CURSOR}, matches: owner}}}
+    argument: { inside: { kind: decl_cursor_args, inside: { kind: decl_statement, has: { kind: decl_varname, pattern: $CURSOR }, matches: owner } } }
 transform:
     PARENT: replace($CURSOR, replace='$', by='.')
-    STRIPPED: {rewrite: {source: $DECLARATION, rewriters: [strip]}}
+    STRIPPED: { rewrite: { source: $DECLARATION, rewriters: [strip] } }
     SIGNATURE: replace($STRIPPED, replace='[\t\n\x0B\f\r ]+', by=' ')
 name: $QUALIFIER$PARENT$NAME
 signature: $SIGNATURE
@@ -221,12 +221,12 @@ rule:
     any:
         - kind: decl_statement
           pattern: $DECLARATION
-          has: {kind: decl_varname, pattern: $NAME}
-          all: [{has: {kind: kw_constant}}, {not: {has: {stopBy: end, matches: failed}}}, {matches: owner}]
+          has: { kind: decl_varname, pattern: $NAME }
+          all: [{ has: { kind: kw_constant } }, { not: { has: { stopBy: end, matches: failed } } }, { matches: owner }]
         - kind: decl_varname
           regex: .
           pattern: $NAME
-          inside: {kind: decl_statement, pattern: $DECLARATION, all: [{has: {kind: kw_constant}}, {has: {stopBy: end, matches: failed}}, {matches: owner}]}
+          inside: { kind: decl_statement, pattern: $DECLARATION, all: [{ has: { kind: kw_constant } }, { has: { stopBy: end, matches: failed } }, { matches: owner }] }
 name: $QUALIFIER$NAME
 signature: $SIGNATURE
 ---
@@ -238,19 +238,19 @@ parentRuleIds: [plpgsql-scope]
 rule:
     any:
         - kind: proc_condition
-          not: {has: {stopBy: end, matches: failed}}
+          not: { has: { stopBy: end, matches: failed } }
           matches: condition
         - kind: 'any_identifier, kw_sqlstate'
           regex: .
-          inside: {kind: proc_condition, has: {stopBy: end, matches: failed}, matches: condition}
+          inside: { kind: proc_condition, has: { stopBy: end, matches: failed }, matches: condition }
 utils:
     condition:
-        any: [{has: {kind: any_identifier, pattern: $CONDITION}}, {has: {field: sqlstate, pattern: $STATE}}]
-        inside: {kind: proc_conditions, pattern: $CONDITIONS, inside: {kind: proc_exception}}
+        any: [{ has: { kind: any_identifier, pattern: $CONDITION } }, { has: { field: sqlstate, pattern: $STATE } }]
+        inside: { kind: proc_conditions, pattern: $CONDITIONS, inside: { kind: proc_exception } }
         matches: owner
-    owner: {any: [{inside: {stopBy: end, kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: {kind: 'block_label, loop_label', pattern: $OWNER}, matches: nested}}, {kind: proc_condition}]}
+    owner: { any: [{ inside: { stopBy: end, kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: { kind: 'block_label, loop_label', pattern: $OWNER }, matches: nested } }, { kind: proc_condition }] }
 transform:
-    CLAUSE: {rewrite: {source: $CONDITIONS, rewriters: [strip]}}
+    CLAUSE: { rewrite: { source: $CONDITIONS, rewriters: [strip] } }
     HEADER: replace($CLAUSE, replace='[\t\n\x0B\f\r ]+', by=' ')
 name: $QUALIFIER$CONDITION$CODE
 signature: WHEN $HEADER
@@ -262,22 +262,22 @@ parentRuleIds: [plpgsql-scope]
 rule:
     any:
         - kind: stmt_raise
-          all: [{matches: condition}, {not: {has: {stopBy: end, matches: failed}}}]
+          all: [{ matches: condition }, { not: { has: { stopBy: end, matches: failed } } }]
         - kind: kw_raise
-          inside: {kind: stmt_raise, all: [{matches: condition}, {has: {stopBy: end, matches: failed}}]}
+          inside: { kind: stmt_raise, all: [{ matches: condition }, { has: { stopBy: end, matches: failed } }] }
 utils:
     condition:
         any:
-            - has: {kind: any_identifier, pattern: $CONDITION}
-            - all: [{has: {kind: kw_sqlstate, pattern: $KEYWORD}}, {has: {field: sqlstate, pattern: $STATE}}]
+            - has: { kind: any_identifier, pattern: $CONDITION }
+            - all: [{ has: { kind: kw_sqlstate, pattern: $KEYWORD } }, { has: { field: sqlstate, pattern: $STATE } }]
             - has:
-                kind: raise_option
-                pattern: $OPTION
-                has: {field: left, kind: kw_errcode}
-                any: [{has: {field: right, regex: "^(?:[eE]|[uU]&)?'(?:[^']|'')*'$", pattern: $ERRCODE}}, {has: {field: left, pattern: $ERRKEY}}]
-        not: {has: {field: raise, kind: raise_level, not: {has: {kind: kw_exception}}}}
+                  kind: raise_option
+                  pattern: $OPTION
+                  has: { field: left, kind: kw_errcode }
+                  any: [{ has: { field: right, regex: "^(?:[eE]|[uU]&)?'(?:[^']|'')*'$", pattern: $ERRCODE } }, { has: { field: left, pattern: $ERRKEY } }]
+        not: { has: { field: raise, kind: raise_level, not: { has: { kind: kw_exception } } } }
         matches: owner
-    owner: {any: [{inside: {stopBy: end, kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: {kind: 'block_label, loop_label', pattern: $OWNER}, matches: nested}}, {kind: stmt_raise}]}
+    owner: { any: [{ inside: { stopBy: end, kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: { kind: 'block_label, loop_label', pattern: $OWNER }, matches: nested } }, { kind: stmt_raise }] }
 name: $QUALIFIER$CONDITION$CODE$ERRNAME$ERRKEY
 signature: RAISE $CONDITION$STATED$STATE$LINE
 ---
@@ -288,38 +288,38 @@ symbolType: 'null'
 rule:
     any:
         - regex: '^$'
-          any: [{kind: 'kw_end, kw_loop, identifier, sql_expression'}, {pattern: ';'}, {pattern: ')'}, {pattern: ']'}]
+          any: [{ kind: 'kw_end, kw_loop, identifier, sql_expression' }, { pattern: ';' }, { pattern: ')' }, { pattern: ']' }]
         - kind: ERROR
           not:
-            has:
-                stopBy: end
-                any:
-                    - {kind: decl_statement, inside: {stopBy: end, kind: pl_block}}
-                    - {kind: decl_cursor_arg, inside: {kind: decl_cursor_args, inside: {kind: decl_statement}}}
-                    - {kind: block_label, inside: {kind: pl_block}}
-                    - {kind: loop_label, inside: {kind: 'stmt_loop, stmt_while, stmt_for, stmt_foreach_a'}}
-                    - {kind: for_variable, inside: {kind: stmt_for, field: for, has: {field: in, kind: 'for_integer_range, for_cursor'}}}
-                    - {kind: proc_condition, inside: {kind: proc_conditions, inside: {kind: proc_exception}}}
-                    - matches: condition-raise
+              has:
+                  stopBy: end
+                  any:
+                      - { kind: decl_statement, inside: { stopBy: end, kind: pl_block } }
+                      - { kind: decl_cursor_arg, inside: { kind: decl_cursor_args, inside: { kind: decl_statement } } }
+                      - { kind: block_label, inside: { kind: pl_block } }
+                      - { kind: loop_label, inside: { kind: 'stmt_loop, stmt_while, stmt_for, stmt_foreach_a' } }
+                      - { kind: for_variable, inside: { kind: stmt_for, field: for, has: { field: in, kind: 'for_integer_range, for_cursor' } } }
+                      - { kind: proc_condition, inside: { kind: proc_conditions, inside: { kind: proc_exception } } }
+                      - matches: condition-raise
         - kind: kw_begin
           inside:
-            any:
-                - kind: ERROR
-                - {kind: pl_block, inside: {stopBy: {matches: boundary}, kind: ERROR}}
+              any:
+                  - kind: ERROR
+                  - { kind: pl_block, inside: { stopBy: { matches: boundary }, kind: ERROR } }
         - kind: 'kw_declare, kw_exception, kw_cursor'
-          inside: {kind: ERROR}
+          inside: { kind: ERROR }
         - kind: 'kw_option, kw_print_strict_params, kw_variable_conflict, loop_label, dotted_name'
           inside:
-            kind: 'comp_option, stmt_loop, stmt_while, stmt_for, stmt_foreach_a, for_variable'
-            inside: {stopBy: {matches: boundary}, kind: ERROR}
+              kind: 'comp_option, stmt_loop, stmt_while, stmt_for, stmt_foreach_a, for_variable'
+              inside: { stopBy: { matches: boundary }, kind: ERROR }
         - kind: kw_raise
-          inside: {matches: condition-raise, inside: {stopBy: {matches: boundary}, kind: ERROR}}
+          inside: { matches: condition-raise, inside: { stopBy: { matches: boundary }, kind: ERROR } }
 utils:
-    boundary: {any: [{kind: 'ERROR, pl_block'}, {kind: 'stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: {kind: loop_label}}]}
+    boundary: { any: [{ kind: 'ERROR, pl_block' }, { kind: 'stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: { kind: loop_label } }] }
     condition-raise:
         kind: stmt_raise
-        any: [{has: {kind: any_identifier}}, {has: {kind: kw_sqlstate}}, {has: {kind: raise_option, has: {field: left, kind: kw_errcode}}}]
-        not: {has: {field: raise, kind: raise_level, not: {has: {kind: kw_exception}}}}
+        any: [{ has: { kind: any_identifier } }, { has: { kind: kw_sqlstate } }, { has: { kind: raise_option, has: { field: left, kind: kw_errcode } } }]
+        not: { has: { field: raise, kind: raise_level, not: { has: { kind: kw_exception } } } }
 name: ERROR
 signature: ''
 isPublic: false

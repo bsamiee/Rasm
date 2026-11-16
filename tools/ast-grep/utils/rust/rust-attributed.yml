@@ -4,6 +4,6 @@ language: rustlang
 arguments: [attribute]
 rule:
     follows:
-        stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}
+        stopBy: { not: { kind: 'attribute_item, line_comment, block_comment' } }
         kind: attribute_item
         matches: attribute

@@ -5,20 +5,20 @@ utils:
     decode:
         kind: call_expression
         all:
-            - has: {field: function, kind: scoped_identifier, regex: '^((::)?(std|core|alloc)::)?str::from_utf8$'}
-            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, pattern: $B}}
+            - has: { field: function, kind: scoped_identifier, regex: '^((::)?(std|core|alloc)::)?str::from_utf8$' }
+            - has: { field: arguments, has: { nthChild: { position: 1, ofRule: { not: { kind: 'line_comment, block_comment' } } }, pattern: $B } }
 rule:
     kind: call_expression
     all:
         - pattern: $TEXT.parse::<$T>()
         - any:
-            - pattern: $DECODED.ok()?.parse::<$T>()
-            - pattern: $DECODED?.parse::<$T>()
-            - pattern: $DECODED.unwrap().parse::<$T>()
-            - pattern: $DECODED.expect($_).parse::<$T>()
-        - has: {field: function, has: {field: function, has: {field: value, has: {stopBy: end, matches: decode}}}}
+              - pattern: $DECODED.ok()?.parse::<$T>()
+              - pattern: $DECODED?.parse::<$T>()
+              - pattern: $DECODED.unwrap().parse::<$T>()
+              - pattern: $DECODED.expect($_).parse::<$T>()
+        - has: { field: function, has: { field: function, has: { field: value, has: { stopBy: end, matches: decode } } } }
 constraints:
-    T: {regex: '^((::)?(std|core)::num::)?([iu](8|16|32|64|128|size)|NonZero(<[iu](8|16|32|64|128|size)>|[IU](8|16|32|64|128|size)))$'}
-    DECODED: {kind: call_expression, has: {field: function, kind: scoped_identifier, regex: '^((::)?(std|core|alloc)::)?str::from_utf8$'}}
+    T: { regex: '^((::)?(std|core)::num::)?([iu](8|16|32|64|128|size)|NonZero(<[iu](8|16|32|64|128|size)>|[IU](8|16|32|64|128|size)))$' }
+    DECODED: { kind: call_expression, has: { field: function, kind: scoped_identifier, regex: '^((::)?(std|core|alloc)::)?str::from_utf8$' } }
 message: '`$B` decodes as UTF-8 text only to parse a `$T`'
 note: 'Call `<int>::from_ascii_bytes(<bytes>)` (`#![feature(int_from_ascii)]`) and handle non-ASCII input through its `ParseIntError`'

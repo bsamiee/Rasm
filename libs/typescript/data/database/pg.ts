@@ -31,7 +31,7 @@ interface Planning {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const trigram = { extension: 'pg_trgm', classes: { gin: 'gin_trgm_ops', gist: 'gist_trgm_ops' } } as const;
-const confdeltype = { 'NO ACTION': 'a', RESTRICT: 'r', CASCADE: 'c', 'SET NULL': 'n', 'SET DEFAULT': 'd' } as const satisfies { readonly [A in (typeof referentialActions)[number]]: string };
+const confdeltype = { 'NO ACTION': 'a', RESTRICT: 'r', CASCADE: 'c', 'SET NULL': 'n', 'SET DEFAULT': 'd' } as const satisfies Readonly<Record<(typeof referentialActions)[number], string>>;
 const privileges = { runtime: ['SELECT', 'INSERT', 'UPDATE', 'DELETE'], reader: ['SELECT'] } as const;
 const stored = (type: string): Storage => ({ type, extract: '#>>', element: (sql, text) => sql`(${text})::${sql.literal(type)}`, domain: () => [], constant });
 const bounded: Storage['domain'] = (sql, subject) => [sql`${subject} NOT IN ('NaN', 'Infinity', '-Infinity')`];
@@ -45,9 +45,9 @@ const kinds = {
     real: { ...stored('double precision'), domain: bounded },
     boolean: { ...stored('boolean'), constant: (_, value) => `${value === 1}` },
     blob: { ...stored('bytea'), element: (sql, text) => sql`decode(${text}, 'hex')` },
-} as const satisfies { readonly [K in Kind]: Storage };
+} as const satisfies Readonly<Record<Kind, Storage>>;
 const ordinary = Record.map(kinds, () => Option.none<{ readonly name: string; readonly extensions: readonly string[] }>());
-const opclasses: { readonly [M in (typeof methods)[number]]: { readonly [K in Kind]?: (typeof ordinary)[K] } } = {
+const opclasses: Readonly<Record<(typeof methods)[number], { readonly [K in Kind]?: (typeof ordinary)[K] }>> = {
     btree: ordinary,
     gin: { text: Option.some({ name: trigram.classes.gin, extensions: [trigram.extension] }), json: Option.some({ name: 'jsonb_path_ops', extensions: [] }) },
     gist: { text: Option.some({ name: trigram.classes.gist, extensions: [trigram.extension] }) },
@@ -58,6 +58,7 @@ const opclasses: { readonly [M in (typeof methods)[number]]: { readonly [K in Ki
 
 const Names = Schema.Array(Schema.String);
 const Role = Schema.Struct({ role: Schema.String });
+const ColumnRef = Schema.Struct({ fields: Schema.Array(Schema.Unknown) });
 const Configuration = Schema.Struct({ name: Schema.String, configuration: Schema.String, filters: Names });
 const Prelude = Schema.Struct({ required: Names, filters: Names, declared: Schema.fromJsonString(Schema.Array(Configuration)) });
 const Configurations = Schema.Struct({
@@ -120,7 +121,15 @@ class PgTable extends PgObject.extend<PgTable>('PgTable')({
                 .filter(({ columns }) => Equal.equals(columns, [column]))
                 .map(({ definition }) => {
                     const parsed = parseSync(`ALTER TABLE _ ADD ${definition}`);
-                    traverse(parsed, { ColumnRef: (ref) => (Option.contains(Array.last<Node>(ref.node.fields), { String: { sval: column } }) ? ref.replaceWith(PgTable.#reference) : undefined) });
+                    traverse(parsed, {
+                        ColumnRef: (ref) =>
+                            Option.contains(
+                                Option.flatMap(Schema.decodeUnknownOption(ColumnRef)(ref.node), ({ fields }) => Array.last(fields)),
+                                { String: { sval: column } },
+                            )
+                                ? ref.replaceWith(PgTable.#reference)
+                                : undefined,
+                    });
                     return deparseSync(parsed);
                 }),
         );
@@ -166,7 +175,7 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
                         score: sql`${sql.literal(namespace)}.word_similarity(${text}, ${body})`,
                         source: owner,
                         filter: sql`(${body}) ILIKE ${pattern}`,
-                        mark: (part: string, open: string, close: string) => sql`regexp_replace(${sql(part)}, ${['***=', text].join('')}, ${[open, close].map((marker) => marker.replaceAll('\\', '\\\\')).join('\\&')}, 'gi')`,
+                        mark: (part: string, open: string, close: string) => sql`regexp_replace(${sql(part)}, ${['***=', text].join('')}, ${[open, close].map((marker) => marker.replaceAll('\\', String.raw`\\`)).join(String.raw`\&`)}, 'gi')`,
                     })),
                 Words: (words) => {
                     const dictionary = sql.literal(literal(Pg.configuration(words)));
@@ -404,8 +413,8 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
             yield* Effect.all(preamble, { discard: true });
             const { path } = yield* located(prelude);
             const environment = yield* configured(prelude);
-            const existing = environment.configurations.filter(({ configured: present }) => present).map(({ name }) => name);
-            const ready = ({ extensions, configuration }: (typeof indexes)[number]) => Array.isReadonlyArrayEmpty(Array.intersection(extensions, environment.absent)) && Option.toArray(configuration).every(({ name }) => existing.includes(name));
+            const existing = new Set(environment.configurations.filter(({ configured: present }) => present).map(({ name }) => name));
+            const ready = ({ extensions, configuration }: (typeof indexes)[number]) => Array.isReadonlyArrayEmpty(Array.intersection(extensions, environment.absent)) && Option.toArray(configuration).every(({ name }) => existing.has(name));
             const role = Option.match(runtime, { onNone: () => sql.literal('PUBLIC'), onSome: (name) => sql`${sql(name)}` });
             const temporary = (name: string) => sql`pg_temp.${sql(name)}`;
             const desired = rendered.flatMap(({ declared: { name }, rendered: table }) => [

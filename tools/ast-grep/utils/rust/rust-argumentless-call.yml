@@ -2,4 +2,4 @@
 id: rust-argumentless-call
 language: rustlang
 rule:
-    has: {field: arguments, not: {has: {pattern: $_}}}
+    has: { field: arguments, not: { has: { pattern: $_ } } }

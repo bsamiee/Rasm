@@ -3,14 +3,17 @@
     "version": "0.1.0",
     "private": true,
     "description": "UXP manifests, plugin and script runtimes, and Vite plugin builds",
+    "license": "MIT",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/bsamiee/Rasm.git",
         "directory": "libs/typescript/creative-cloud/uxp"
     },
-    "license": "MIT",
-    "sideEffects": false,
+    "files": [
+        "dist"
+    ],
     "type": "module",
+    "sideEffects": false,
     "imports": {
         "#/*": "./*.ts"
     },
@@ -19,7 +22,17 @@
         "./plugin": "./plugin.ts",
         "./vite": "./vite.ts"
     },
-    "files": [ "dist" ],
+    "publishConfig": {
+        "imports": {
+            "#/*": "./dist/*.js"
+        },
+        "exports": {
+            ".": "./dist/index.js",
+            "./plugin": "./dist/plugin.js",
+            "./vite": "./dist/vite.js"
+        },
+        "access": "public"
+    },
     "dependencies": {
         "@effect/platform-node": "catalog:",
         "@exodus/bytes": "catalog:",
@@ -40,17 +53,6 @@
     "peerDependenciesMeta": {
         "vite": {
             "optional": true
-        }
-    },
-    "publishConfig": {
-        "access": "public",
-        "exports": {
-            ".": "./dist/index.js",
-            "./plugin": "./dist/plugin.js",
-            "./vite": "./dist/vite.js"
-        },
-        "imports": {
-            "#/*": "./dist/*.js"
         }
     }
 }

@@ -3,4 +3,4 @@ id: rust-command-new
 language: rustlang
 rule:
     kind: call_expression
-    has: {field: function, kind: scoped_identifier, regex: '^((::)?((std|tokio|async_std|async_process|smol)::)?process::)?Command::new$|^((::)?process_wrap::(std|tokio)::)?CommandWrap::with_new$'}
+    has: { field: function, kind: scoped_identifier, regex: '^((::)?((std|tokio|async_std|async_process|smol)::)?process::)?Command::new$|^((::)?process_wrap::(std|tokio)::)?CommandWrap::with_new$' }

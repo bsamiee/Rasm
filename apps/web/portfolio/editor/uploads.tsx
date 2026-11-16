@@ -11,6 +11,10 @@ import { choiceLayout, entryTitle, format, joinDetails } from '#/media/labels';
 import { Asset, type AssetId, type Assets, uploadLimit } from '#/model/asset';
 import type { Entry, EntryId } from '#/model/portfolio';
 
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+const key = (value: Destination): string => (Destination.$is('Entry')(value) ? value.id : String.uncapitalize(value._tag));
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const Uploads = ({ assets, entries, onPlace }: { assets: typeof Assets.Service; entries: readonly (typeof Entry.Type)[]; onPlace: (entryId: typeof EntryId.Type, assetId: typeof AssetId.Type) => void }) => {
@@ -22,7 +26,6 @@ const Uploads = ({ assets, entries, onPlace }: { assets: typeof Assets.Service; 
     const notices = useUppyState(uploader, Struct.get('info'));
     const [selected, setSelected] = useState<string>();
     const [target, setTarget] = useAtom(nextDestination);
-    const key = (value: Destination): string => (Destination.$is('Entry')(value) ? value.id : String.uncapitalize(value._tag));
     const options = [{ target: Destination.Library(), label: 'Library' }, { target: Destination.Hero(), label: 'Hero (one file)' }, ...entries.map((entry) => ({ target: Destination.Entry({ id: entry.id }), label: joinDetails([entryTitle(entry), String.capitalize(entry.kind)]) }))].map((option) => ({
         ...option,
         id: key(option.target),
@@ -44,7 +47,7 @@ const Uploads = ({ assets, entries, onPlace }: { assets: typeof Assets.Service; 
             )}
             {selectedFile !== undefined && (
                 <div className="min-w-0">
-                    <p className="hint mb-2 wrap-anywhere">{selectedFile.name}</p>
+                    <p className="mb-2 hint wrap-anywhere">{selectedFile.name}</p>
                     {selectedFile.progress.uploadStarted === null && selectedFile.meta.prepared === undefined && !Object.values(batches).some((batch) => batch.fileIDs.includes(selectedFile.id)) ? (
                         <Choice
                             {...choiceLayout}
@@ -67,8 +70,8 @@ const Uploads = ({ assets, entries, onPlace }: { assets: typeof Assets.Service; 
                     )}
                 </div>
             )}
-            <div className="upload-dashboard min-w-0">
-                <p className="hint mb-3">
+            <div className="min-w-0 upload-dashboard">
+                <p className="mb-3 hint">
                     {joinDetails([
                         format.list(
                             Asset.mediaTypes.map((type) => type.slice(type.indexOf('/') + 1).toUpperCase()),
@@ -78,13 +81,13 @@ const Uploads = ({ assets, entries, onPlace }: { assets: typeof Assets.Service; 
                     ])}
                 </p>
                 <div className={files.length > 0 ? 'h-88' : 'h-50'}>
-                    <Dashboard disableInformer={true} doneButtonHandler={() => uploader.removeFiles(files.map(Struct.get('id')))} height="100%" proudlyDisplayPoweredByUppy={false} uppy={uploader} width="100%" />
+                    <Dashboard disableInformer doneButtonHandler={() => uploader.removeFiles(files.map(Struct.get('id')))} height="100%" proudlyDisplayPoweredByUppy={false} uppy={uploader} width="100%" />
                 </div>
                 {notices
                     .filter(({ isHidden }) => isHidden !== true)
                     .map(({ message, details: detail }) => [message, ...(Predicate.isString(detail) ? [detail] : Object.values(detail ?? {}))].filter(String.isNonEmpty).join(' '))
                     .map((text) => (
-                        <p className="hint mt-3 wrap-anywhere" key={text} role="alert">
+                        <p className="mt-3 hint wrap-anywhere" key={text} role="alert">
                             {text}
                         </p>
                     ))}
@@ -95,10 +98,10 @@ const Uploads = ({ assets, entries, onPlace }: { assets: typeof Assets.Service; 
                         </MenuButton>
                     </div>
                 )}
-                <p className="hint mt-3">Images and videos place directly. Choose PDF sheets after upload</p>
-                {pending.length > 0 && <p className="hint mt-3">Keep tab open until uploads finish. Closing editor is safe</p>}
-                <p className="hint mt-3">Publishing any sheet makes whole PDF public</p>
-                <details className="hint mt-3">
+                <p className="mt-3 hint">Images and videos place directly. Choose PDF sheets after upload</p>
+                {pending.length > 0 && <p className="mt-3 hint">Keep tab open until uploads finish. Closing editor is safe</p>}
+                <p className="mt-3 hint">Publishing any sheet makes whole PDF public</p>
+                <details className="mt-3 hint">
                     <summary className="min-h-11 cursor-pointer content-center">Upload guidance</summary>
                     <p>File destinations retargets queued files until processing starts</p>
                     <p className="mt-2">Done clears queue. Uploaded files stay in library</p>

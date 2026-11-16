@@ -3,9 +3,9 @@
     "compilerOptions": {
         "module": "preserve",
         "noEmit": true,
-        "types": [ "node", "@cloudflare/workers-types/experimental", "@cloudflare/vitest-plugin/types" ]
+        "types": ["node", "@cloudflare/workers-types/experimental", "@cloudflare/vitest-plugin/types"]
     },
-    "include": [ "**/*", ".cloudflare/types" ],
+    "include": ["**/*", ".cloudflare/types"],
     "references": [
         {
             "path": "../../webhooks"

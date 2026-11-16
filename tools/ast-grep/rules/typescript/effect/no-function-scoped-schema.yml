@@ -5,39 +5,39 @@ utils:
     constructor:
         kind: member_expression
         any:
-            - has: {field: property, regex: '^mapFields$'}
-            - matches: {effect-module-member: {module: {regex: '(?-u:\b)Schema$'}, member: {regex: '^(Array|Literals|NonEmptyArray|Record|Struct|TaggedStruct|TaggedUnion|Tuple|Union|fromJsonString)$'}}}
+            - has: { field: property, regex: '^mapFields$' }
+            - matches: { effect-module-member: { module: { regex: '(?-u:\b)Schema$' }, member: { regex: '^(Array|Literals|NonEmptyArray|Record|Struct|TaggedStruct|TaggedUnion|Tuple|Union|fromJsonString)$' } } }
     declared:
         any:
-            - inside: {kind: 'required_parameter, optional_parameter', field: pattern}
-            - inside: {kind: arrow_function, field: parameter}
-            - inside: {kind: rest_pattern}
-            - inside: {kind: variable_declarator, field: name}
-            - inside: {kind: 'object_pattern, array_pattern', stopBy: end}
-            - inside: {kind: for_in_statement, field: left}
-            - inside: {kind: catch_clause, field: parameter}
+            - inside: { kind: 'required_parameter, optional_parameter', field: pattern }
+            - inside: { kind: arrow_function, field: parameter }
+            - inside: { kind: rest_pattern }
+            - inside: { kind: variable_declarator, field: name }
+            - inside: { kind: 'object_pattern, array_pattern', stopBy: end }
+            - inside: { kind: for_in_statement, field: left }
+            - inside: { kind: catch_clause, field: parameter }
     local:
         kind: 'identifier, shorthand_property_identifier'
         pattern: $NAME
         inside:
             stopBy: end
             kind: &function 'arrow_function, function_expression, function_declaration, generator_function, generator_function_declaration, method_definition'
-            has: {stopBy: {kind: *function}, kind: 'identifier, shorthand_property_identifier_pattern', pattern: $NAME, matches: declared}
+            has: { stopBy: { kind: *function }, kind: 'identifier, shorthand_property_identifier_pattern', pattern: $NAME, matches: declared }
 rule:
     kind: call_expression
     all:
-        - has: {field: function, pattern: $SCHEMA, matches: constructor}
-        - inside: {stopBy: end, kind: *function}
-        - not: {inside: {stopBy: {kind: *function}, kind: call_expression, has: {field: function, matches: constructor}}}
-        - not: {inside: {stopBy: end, kind: call_expression, has: {field: function, kind: member_expression, has: {field: property, regex: '^(suspend|memoize)$'}}}}
+        - has: { field: function, pattern: $SCHEMA, matches: constructor }
+        - inside: { stopBy: end, kind: *function }
+        - not: { inside: { stopBy: { kind: *function }, kind: call_expression, has: { field: function, matches: constructor } } }
+        - not: { inside: { stopBy: end, kind: call_expression, has: { field: function, kind: member_expression, has: { field: property, regex: '^(suspend|memoize)$' } } } }
         - not:
-            inside:
-                stopBy: {kind: *function}
-                kind: *function
-                any:
-                    - inside: {kind: pair, field: value, has: {field: key, regex: '^to[A-Z][^\x00-#%-/:-@\[-\^`{-~\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*$'}}
-                    - inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, matches: constructor}}}
-        - not: {has: {stopBy: end, kind: this}}
-        - not: {has: {stopBy: end, matches: local}}
+              inside:
+                  stopBy: { kind: *function }
+                  kind: *function
+                  any:
+                      - inside: { kind: pair, field: value, has: { field: key, regex: '^to[A-Z][^\x00-#%-/:-@\[-\^`{-~\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*$' } }
+                      - inside: { kind: arguments, inside: { kind: call_expression, has: { field: function, matches: constructor } } }
+        - not: { has: { stopBy: end, kind: this } }
+        - not: { has: { stopBy: end, matches: local } }
 message: '`$SCHEMA` builds a schema inside a function from values its scope does not bind'
 note: 'Declare the schema at module scope, parsers cache by its AST'

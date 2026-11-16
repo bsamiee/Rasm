@@ -4,82 +4,82 @@ severity: error
 utils:
     parameter:
         kind: formal_parameter, spread_parameter
-        any: [{has: {field: name, pattern: $P}}, {has: {kind: variable_declarator, has: {field: name, pattern: $P}}}]
+        any: [{ has: { field: name, pattern: $P } }, { has: { kind: variable_declarator, has: { field: name, pattern: $P } } }]
     parameter-read:
         kind: identifier
         pattern: $P
-        inside: {kind: method_declaration, stopBy: {kind: method_declaration}, has: {field: parameters, has: {matches: parameter}}}
+        inside: { kind: method_declaration, stopBy: { kind: method_declaration }, has: { field: parameters, has: { matches: parameter } } }
     parameter-order:
         inside:
             kind: method_declaration
-            stopBy: {kind: method_declaration}
+            stopBy: { kind: method_declaration }
             has:
                 field: parameters
                 has:
                     kind: formal_parameter, spread_parameter
-                    any: [{has: {field: name, pattern: $EARLIER}}, {has: {kind: variable_declarator, has: {field: name, pattern: $EARLIER}}}]
+                    any: [{ has: { field: name, pattern: $EARLIER } }, { has: { kind: variable_declarator, has: { field: name, pattern: $EARLIER } } }]
                     precedes:
                         stopBy: end
                         kind: formal_parameter, spread_parameter
-                        any: [{has: {field: name, pattern: $LATER}}, {has: {kind: variable_declarator, has: {field: name, pattern: $LATER}}}]
+                        any: [{ has: { field: name, pattern: $LATER } }, { has: { kind: variable_declarator, has: { field: name, pattern: $LATER } } }]
     named-callee:
         kind: identifier, field_access, this, super
         not:
             any:
                 - matches: parameter-read
-                - has: {stopBy: end, any: [{kind: method_invocation}, {matches: parameter-read}]}
+                - has: { stopBy: end, any: [{ kind: method_invocation }, { matches: parameter-read }] }
     forwarded:
         all:
             - any:
-                - kind: method_invocation
-                  all:
-                    - has: {field: name, pattern: $F}
-                    - not: {has: {field: object, not: {any: [{matches: named-callee}, {matches: parameter-read}]}}}
-                    - not:
-                        all:
-                            - has: {field: name, pattern: $FN}
-                            - not: {has: {field: object, not: {kind: 'this, super'}}}
-                - kind: object_creation_expression
-                  has: {field: type, pattern: $F}
-                  not: {has: {kind: class_body}}
+                  - kind: method_invocation
+                    all:
+                        - has: { field: name, pattern: $F }
+                        - not: { has: { field: object, not: { any: [{ matches: named-callee }, { matches: parameter-read }] } } }
+                        - not:
+                              all:
+                                  - has: { field: name, pattern: $FN }
+                                  - not: { has: { field: object, not: { kind: 'this, super' } } }
+                  - kind: object_creation_expression
+                    has: { field: type, pattern: $F }
+                    not: { has: { kind: class_body } }
             - has:
-                field: arguments
-                all:
-                    - not: {has: {pattern: $_, not: {any: [{matches: parameter-read}, {kind: 'line_comment, block_comment'}]}}}
-                    - not: {has: {kind: identifier, pattern: $LATER, follows: {stopBy: end, kind: identifier, pattern: $EARLIER, not: {matches: parameter-order}}}}
-            - not: {all: [{has: {field: object, pattern: $RECEIVER}}, {has: {field: arguments, has: {pattern: $RECEIVER}}}]}
+                  field: arguments
+                  all:
+                      - not: { has: { pattern: $_, not: { any: [{ matches: parameter-read }, { kind: 'line_comment, block_comment' }] } } }
+                      - not: { has: { kind: identifier, pattern: $LATER, follows: { stopBy: end, kind: identifier, pattern: $EARLIER, not: { matches: parameter-order } } } }
+            - not: { all: [{ has: { field: object, pattern: $RECEIVER } }, { has: { field: arguments, has: { pattern: $RECEIVER } } }] }
 rule:
     kind: method_declaration
     all:
-        - has: {field: name, pattern: $FN}
-        - has: {kind: modifiers, has: {any: [{pattern: private}, {pattern: static}]}}
+        - has: { field: name, pattern: $FN }
+        - has: { kind: modifiers, has: { any: [{ pattern: private }, { pattern: static }] } }
         - not:
-            any:
-                - has: {field: name, pattern: main}
-                - has:
-                    kind: modifiers
-                    any:
-                        - has: {pattern: synchronized}
-                        - has: {kind: 'marker_annotation, annotation', not: {has: {field: name, regex: '^(?:java\.lang\.)?(?:Deprecated|SafeVarargs|SuppressWarnings)$'}}}
-        - has: {field: parameters, has: {kind: 'formal_parameter, spread_parameter'}}
+              any:
+                  - has: { field: name, pattern: main }
+                  - has:
+                        kind: modifiers
+                        any:
+                            - has: { pattern: synchronized }
+                            - has: { kind: 'marker_annotation, annotation', not: { has: { field: name, regex: '^(?:java\.lang\.)?(?:Deprecated|SafeVarargs|SuppressWarnings)$' } } }
+        - has: { field: parameters, has: { kind: 'formal_parameter, spread_parameter' } }
         - has:
-            field: body
-            not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}
-            has: {kind: 'return_statement, expression_statement', has: {matches: forwarded}}
+              field: body
+              not: { has: { nthChild: { position: 2, ofRule: { not: { kind: 'line_comment, block_comment' } } } } }
+              has: { kind: 'return_statement, expression_statement', has: { matches: forwarded } }
         - not:
-            has:
-                field: parameters
-                has:
-                    all:
-                        - matches: parameter
-                        - not:
-                            inside:
-                                kind: method_declaration
-                                stopBy: {kind: method_declaration}
-                                has:
-                                    field: body
+              has:
+                  field: parameters
+                  has:
+                      all:
+                          - matches: parameter
+                          - not:
+                                inside:
+                                    kind: method_declaration
+                                    stopBy: { kind: method_declaration }
                                     has:
-                                        kind: return_statement, expression_statement
-                                        has: {any: [{has: {field: arguments, has: {pattern: $P}}}, {has: {field: object, pattern: $P}}]}
+                                        field: body
+                                        has:
+                                            kind: return_statement, expression_statement
+                                            has: { any: [{ has: { field: arguments, has: { pattern: $P } } }, { has: { field: object, pattern: $P } }] }
 message: '`$FN` forwards its parameters unchanged to `$F`'
 note: Widen callee visibility to match forwarding method, call it directly, and delete forwarding method

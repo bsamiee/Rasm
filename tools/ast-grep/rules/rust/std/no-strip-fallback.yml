@@ -6,6 +6,6 @@ rule:
     all:
         - pattern: $S.$STRIP($P).unwrap_or($S)
 constraints:
-    STRIP: {regex: '^strip_(prefix|suffix)$'}
+    STRIP: { regex: '^strip_(prefix|suffix)$' }
 message: '`$S.$STRIP($P)` falls back to `$S`'
 note: 'Call `<value>.trim_prefix(<pattern>)` or `<value>.trim_suffix(<pattern>)`'

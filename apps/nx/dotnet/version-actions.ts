@@ -13,7 +13,7 @@ const Found = Schema.fromJsonString(Schema.Struct({ searchResult: Schema.Array(S
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const read = (tree: Tree, file: string) => Effect.mapError(Effect.fromNullishOr(tree.read(file, 'utf-8')), () => new Cause.NoSuchElementError(`${file} is absent from the tree`));
+const read = (tree: Tree, file: string) => Effect.mapError(Effect.fromNullishOr(tree.read(file, 'utf8')), () => new Cause.NoSuchElementError(`${file} is absent from the tree`));
 
 const versioned = Effect.fnUntraced(function* (tree: Tree, at: string) {
     const text = yield* read(tree, at);

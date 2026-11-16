@@ -4,9 +4,9 @@ language: rustlang
 rule:
     kind: macro_invocation
     all:
-        - matches: {rust-std-macro: {name: {regex: '^format$'}}}
+        - matches: { rust-std-macro: { name: { regex: '^format$' } } }
         - has:
-            kind: token_tree
-            any:
-                - has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: string_literal, regex: '\{[_\p{XID_Start}]'}
-                - has: {kind: identifier, follows: {stopBy: end, regex: '^,$'}, not: {any: [{regex: '^(std|core|alloc)$'}, {precedes: {regex: '^(!|::)$'}}]}}
+              kind: token_tree
+              any:
+                  - has: { nthChild: { position: 1, ofRule: { not: { kind: 'line_comment, block_comment' } } }, kind: string_literal, regex: '\{[_\p{XID_Start}]' }
+                  - has: { kind: identifier, follows: { stopBy: end, regex: '^,$' }, not: { any: [{ regex: '^(std|core|alloc)$' }, { precedes: { regex: '^(!|::)$' } }] } }

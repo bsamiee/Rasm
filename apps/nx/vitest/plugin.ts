@@ -1,5 +1,3 @@
-/// <reference types="vitest/config" />
-
 import { existsSync } from 'node:fs';
 import { createRequire, findPackageJSON } from 'node:module';
 import { basename, dirname, isAbsolute, join, matchesGlob, relative, resolve, sep } from 'node:path';
@@ -12,6 +10,8 @@ import { getRootTsConfigFileName } from '@nx/js';
 import { walkTsconfigExtendsChain } from '@nx/js/internal';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Cause, Effect, Equal, FileSystem, identity, Option, Predicate, pipe, Record, Result, Schema } from 'effect';
+import type { configDefaults } from 'vitest/config';
+import type { parseCLI, resolveConfig, Vite } from 'vitest/node';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -114,9 +114,9 @@ const surveyed = Effect.fnUntraced(function* (workspaceRoot: string, file: strin
     const fs = yield* FileSystem.FileSystem;
     const [folder, entry] = [join(workspaceRoot, dirname(file)), join(workspaceRoot, file)];
     const local = (at: string) => normalizePath(relative(workspaceRoot, at));
-    const [{ parseCLI, resolveConfig }, { configDefaults }, { parseSync }] = yield* Effect.all([loaded<typeof import('vitest/node')>(file, entry, 'vitest/node'), loaded<typeof import('vitest/config')>(file, entry, 'vitest/config'), loaded<typeof import('vite')>(file, entry, 'vite')]);
+    const [runner, defaults, vite] = yield* Effect.all([loaded<{ readonly parseCLI: typeof parseCLI; readonly resolveConfig: typeof resolveConfig }>(file, entry, 'vitest/node'), loaded<{ readonly configDefaults: typeof configDefaults }>(file, entry, 'vitest/config'), loaded<typeof Vite>(file, entry, 'vite')]);
     const config = yield* Effect.tryPromise({
-        try: () => retryOnRequireEsmRace(() => resolveConfig({ ...parseCLI(['vitest', 'run', ...flags]).options, config: entry, root: folder, watch: false }, { logLevel: 'silent' })),
+        try: () => retryOnRequireEsmRace(() => runner.resolveConfig({ ...runner.parseCLI(['vitest', 'run', ...flags]).options, config: entry, root: folder, watch: false }, { logLevel: 'silent' })),
         catch: (cause) => new Cause.UnknownError(cause, `${file} does not load as a Vitest config`),
     });
     const { root, coverage, attachmentsDir, outputFile, reporters, forceRerunTriggers, resolvedProjects } = config.test;
@@ -134,7 +134,7 @@ const surveyed = Effect.fnUntraced(function* (workspaceRoot: string, file: strin
                 (cause) => new Cause.UnknownError(cause, `${file} declares a project under ${local(base) || '.'}, which no package holds`),
             );
             const owner = dirname(manifest);
-            const setup = [...setupFiles, ...globalSetup].map(local).filter((at) => kept(at) && !at.startsWith(`${owner}/`));
+            const setup = [...setupFiles, ...Array.ensure(globalSetup)].map(local).filter((at) => kept(at) && !at.startsWith(`${owner}/`));
             return {
                 owner,
                 project: parents.get(viteConfig) ?? name,
@@ -161,7 +161,7 @@ const surveyed = Effect.fnUntraced(function* (workspaceRoot: string, file: strin
             };
         },
     );
-    const keyed: Readonly<Record<string, string | undefined>> = Predicate.isString(outputFile) ? {} : (outputFile ?? {});
+    const keyed: Readonly<Record<string, string | undefined>> = Predicate.isObject(outputFile) ? outputFile : {};
     const reports = reporters.flatMap((reporter) => {
         const [name, options] = Array.isArray(reporter) ? reporter : [reporter, {}];
         const decoded = Schema.decodeUnknownOption(Reported)(options);
@@ -172,7 +172,7 @@ const surveyed = Effect.fnUntraced(function* (workspaceRoot: string, file: strin
     });
     const depended = Array.dedupe([entry, ...config.configFileDependencies, ...declared.flatMap(({ viteConfig }) => viteConfig.configFileDependencies)].map(local)).filter(kept);
     const texts = yield* Effect.forEach(depended, (at) => fs.readFileString(join(workspaceRoot, at)), { concurrency: 'unbounded' });
-    const statements = Array.zipWith(depended, texts, (at, text) => parseSync(at, text).module.staticImports.map(({ moduleRequest, entries }) => ({ specifier: moduleRequest.value, from: join(workspaceRoot, at), entries }))).flat();
+    const statements = Array.zipWith(depended, texts, (at, text) => vite.parseSync(at, text).module.staticImports.map(({ moduleRequest, entries }) => ({ specifier: moduleRequest.value, from: join(workspaceRoot, at), entries }))).flat();
     const imported = statements.filter(({ entries }) => entries.length === 0 || entries.some(({ isType }) => !isType)).map(({ specifier, from }) => [specifier, from] as const);
     const provider = coverage.provider === 'custom' ? Array.fromNullishOr(coverage.customProviderModule) : [`@vitest/coverage-${coverage.provider}`];
     const found = Array.getSomes([...provider.map((specifier) => [specifier, entry] as const), ...imported].map(([specifier, from]) => Option.flatMap(Option.liftThrowable(findPackageJSON)(specifier, pathToFileURL(from)), Option.fromUndefinedOr)));
@@ -188,7 +188,7 @@ const surveyed = Effect.fnUntraced(function* (workspaceRoot: string, file: strin
         packages: Array.dedupe(packages),
         linked: Array.dedupe(linked),
         loaded: depended,
-        triggers: Array.difference(forceRerunTriggers, configDefaults.forceRerunTriggers).map((glob) => (isAbsolute(glob) ? local(glob) : glob)),
+        triggers: Array.difference(forceRerunTriggers, defaults.configDefaults.forceRerunTriggers).map((glob) => (isAbsolute(glob) ? local(glob) : glob)),
         folders: Array.dedupe([attachmentsDir, ...reports, ...probes.flatMap((probe) => probe.written)].map((written) => local(resolve(root, written)))),
         sources: Array.dedupe([...depended, ...probes.flatMap((probe) => [...probe.manifests, ...probe.setup, ...probe.tsconfigs])]),
     };
@@ -197,8 +197,8 @@ const surveyed = Effect.fnUntraced(function* (workspaceRoot: string, file: strin
 const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, flags: readonly string[], lock: string) {
     const [folder, entry] = [join(workspaceRoot, dirname(file)), join(workspaceRoot, file)];
     const plain = yield* Effect.when(
-        Effect.flatMap(loaded<typeof import('vite')>(file, entry, 'vite'), ({ resolveConfig }) =>
-            Effect.tryPromise({ try: () => retryOnRequireEsmRace(() => resolveConfig({ configFile: entry, root: folder, logLevel: 'silent' }, 'serve', 'test')), catch: (cause) => new Cause.UnknownError(cause, `${file} does not load for vite serve`) }),
+        Effect.flatMap(loaded<typeof Vite>(file, entry, 'vite'), (vite) =>
+            Effect.tryPromise({ try: () => retryOnRequireEsmRace(() => vite.resolveConfig({ configFile: entry, root: folder, logLevel: 'silent' }, 'serve', 'test')), catch: (cause) => new Cause.UnknownError(cause, `${file} does not load for vite serve`) }),
         ),
         Effect.succeed(!matchesGlob(basename(file), SUITE)),
     );
@@ -335,7 +335,9 @@ const createNodes: CreateNodes<typeof Options.Encoded> = [
                 () => nodes(files, options, context),
                 (before) =>
                     Effect.sync(() => {
-                        Record.keys(MODE).forEach((name) => Reflect.deleteProperty(env, name));
+                        Record.keys(MODE).forEach((name) => {
+                            Reflect.deleteProperty(env, name);
+                        });
                         Object.assign(env, before);
                     }),
             ),

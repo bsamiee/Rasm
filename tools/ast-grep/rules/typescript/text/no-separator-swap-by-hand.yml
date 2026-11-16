@@ -7,16 +7,16 @@ rule:
     pattern: $CALL
     any:
         - all:
-            - has: {field: function, kind: member_expression, has: {field: property, regex: '^replace(All)?$'}}
-            - has: {field: arguments, matches: typescript-separator-swap, has: {nthChild: {position: 1, ofRule: &code {not: {kind: 'comment, html_comment'}}}, pattern: $SEARCH}}
-            - not: {all: [{has: {field: function, has: {field: property, regex: '^replace$'}}}, {has: {field: arguments, has: {nthChild: {position: 1, ofRule: *code}, kind: string}}}]}
+              - has: { field: function, kind: member_expression, has: { field: property, regex: '^replace(All)?$' } }
+              - has: { field: arguments, matches: typescript-separator-swap, has: { nthChild: { position: 1, ofRule: &code { not: { kind: 'comment, html_comment' } } }, pattern: $SEARCH } }
+              - not: { all: [{ has: { field: function, has: { field: property, regex: '^replace$' } } }, { has: { field: arguments, has: { nthChild: { position: 1, ofRule: *code }, kind: string } } }] }
         - all:
-            - matches: typescript-separator-swap
-            - has: {field: function, has: {field: object, has: {field: arguments, has: {nthChild: {position: 1, ofRule: *code}, pattern: $SEARCH}}}}
-    not: {inside: {kind: program, stopBy: end, matches: extendscript-file}}
+              - matches: typescript-separator-swap
+              - has: { field: function, has: { field: object, has: { field: arguments, has: { nthChild: { position: 1, ofRule: *code }, pattern: $SEARCH } } } }
+    not: { inside: { kind: program, stopBy: end, matches: extendscript-file } }
 transform:
-    KEBAB: {replace: {source: $SEARCH, replace: '^.*-.*$', by: kebabToSnake}}
-    TARGET: {replace: {source: $KEBAB, replace: '^[^k].*$', by: snakeToKebab}}
-    HEAD: {replace: {source: $CALL, replace: '(?s)^([^(]+)\(.*$', by: '$1'}}
+    KEBAB: { replace: { source: $SEARCH, replace: '^.*-.*$', by: kebabToSnake } }
+    TARGET: { replace: { source: $KEBAB, replace: '^[^k].*$', by: snakeToKebab } }
+    HEAD: { replace: { source: $CALL, replace: '(?s)^([^(]+)\(.*$', by: '$1' } }
 message: '`$HEAD` swaps `-` and `_` by hand in place of `String.$TARGET`'
 note: 'Call `String.kebabToSnake(<text>)` or `String.snakeToKebab(<text>)`, point-free inside a pipe'

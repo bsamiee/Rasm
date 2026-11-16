@@ -175,7 +175,7 @@ const grepsAsRg: Predicate.Predicate<Invocation> = (invocation) => {
 
 const grepArguments: Rule = (invocation) => {
     const pattern = (word: Word): string => {
-        const extended = invocation.has('--extended-regexp', '--fixed-strings') ? word.text : word.text.replace(BASIC_REGEX_SWAPS, (held: string, escaped?: string, unescaped?: string) => escaped ?? (unescaped === undefined ? held : `\\${unescaped}`));
+        const extended = invocation.has('--extended-regexp', '--fixed-strings') ? word.text : word.text.replaceAll(BASIC_REGEX_SWAPS, (held: string, escaped?: string, unescaped?: string) => escaped ?? (unescaped === undefined ? held : `\\${unescaped}`));
         return extended === word.text ? word.raw : quote(extended);
     };
     return [

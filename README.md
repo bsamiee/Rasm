@@ -41,7 +41,8 @@ Rasm/
 ├── tsconfig.json             # Solution references to every composite project, written by nx sync
 ├── tsconfig.base.json        # TypeScript options every package compiles and emits with
 ├── tsconfig.tests.json       # TypeScript program checking root vitest.config.ts
-├── biome.json                # TypeScript and JSON formatting and lint
+├── .oxlintrc.json            # TypeScript and JavaScript lint rules, type-aware rules included
+├── .oxfmtrc.json             # TypeScript, JavaScript, JSON, CSS, HTML, and YAML formatting
 ├── pyproject.toml            # uv workspace root, dependency groups, Pixi environment, and checker settings
 ├── Workspace.slnx            # .NET solution listing every project
 ├── global.json               # .NET SDK and test runner
@@ -191,7 +192,7 @@ Other tasks run through their own commands:
 - `mise deps` syncs pnpm packages and each uv root from its lock where its inputs changed, the workspace root through Pixi libraries
 - `pixi run --locked python` supplies the library search path for `magic` and `weasyprint`
 - `nx sync` writes executor schemas and tsconfig `references`, task runs in a terminal apply it, and runs in other shells stop until it runs
-- `nx migrate latest`, then `nx migrate --run-migrations`, applies a new Nx release's migrations
+- `nx migrate <version>`, then `nx migrate --run-migrations`, applies a new Nx release's migrations, and `pnpm dedupe` moves peer ranges the lock held at the old release
 - `@rasm/nx-playwright` infers `test--playwright` per Playwright config, which starts the `nx run` task of each `webServer` row with `reuseExistingServer` and waits until it is ready
 - `mise daemons stop docker` stops the container engine until a session enters, `mise daemons start docker` starts it and waits until Docker answers
 - `nx install @rasm/infra` runs the proxy, sign-in, and object storage containers of role `Apps` on the local Docker engine, under `rasm.localhost`

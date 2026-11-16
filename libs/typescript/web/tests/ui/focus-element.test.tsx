@@ -21,6 +21,7 @@ it('focuses element with ID that needs escaping after next frame', async () => {
     focusElement(id);
     await expect.element(screen.getByRole('textbox', { name: 'Title' })).toHaveFocus();
 });
+
 it('focuses element a render commits after the call within the same frame', async () => {
     const id = 'entry:2 title';
     const screen = await render(<input aria-label="Source" />);
@@ -33,6 +34,7 @@ it('focuses element a render commits after the call within the same frame', asyn
     );
     await expect.element(screen.getByRole('textbox', { name: 'Title' })).toHaveFocus();
 });
+
 it('leaves focus in place when the target unmounts before the frame', async () => {
     const id = 'entry:3 title';
     const screen = await render(

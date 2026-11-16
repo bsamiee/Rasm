@@ -5,6 +5,6 @@ rule:
     kind: call_expression
     all:
         - pattern: '$RANGE(0, $N - 1)'
-        - has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Array$'}, member: {regex: '^range$'}}}}
+        - has: { field: function, matches: { effect-module-member: { module: { regex: '(?-u:\b)Array$' }, member: { regex: '^range$' } } } }
 message: '`$RANGE(0, $N - 1)` returns `[0]` when `$N` is 0'
 note: 'Call `globalThis.Array.from({ length: <count> }, (_, index) => <value>)` for a sequence that can be empty'

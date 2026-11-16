@@ -2,12 +2,15 @@
     "name": "@rasm/nx-storybook",
     "version": "0.1.0",
     "description": "Nx plugin inferring a Storybook build, the file-server preview of that build, and the development server from each Storybook main configuration",
+    "license": "MIT",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/bsamiee/Rasm.git",
         "directory": "apps/nx/storybook"
     },
-    "license": "MIT",
+    "files": [
+        "dist"
+    ],
     "type": "module",
     "imports": {
         "#/*": "./*.ts"
@@ -16,7 +19,16 @@
         ".": "./plugin.ts",
         "./package.json": "./package.json"
     },
-    "files": [ "dist" ],
+    "publishConfig": {
+        "imports": {
+            "#/*": "./dist/*.js"
+        },
+        "exports": {
+            ".": "./dist/plugin.js",
+            "./package.json": "./package.json"
+        },
+        "access": "public"
+    },
     "dependencies": {
         "@effect/platform-node": "catalog:",
         "@nx/devkit": "catalog:",
@@ -33,15 +45,5 @@
         "@nx/web": "catalog:peers",
         "nx": "catalog:peers",
         "storybook": "catalog:peers"
-    },
-    "publishConfig": {
-        "access": "public",
-        "exports": {
-            ".": "./dist/plugin.js",
-            "./package.json": "./package.json"
-        },
-        "imports": {
-            "#/*": "./dist/*.js"
-        }
     }
 }

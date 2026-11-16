@@ -7,7 +7,7 @@ utils:
     outermost:
         kind: string
         matches: invisible
-        not: {inside: {kind: string, stopBy: end}}
+        not: { inside: { kind: string, stopBy: end } }
 rule:
     matches: outermost
 message: 'String literal holds an invisible code point'

@@ -34,7 +34,7 @@ const Options = Schema.Struct({ outputPath: Schema.optionalKey(Schema.String) })
     description: 'outputPath: workspace folder a suite writes test-results and the files of each built-in reporter to, {projectName} naming the project, absent leaves Playwright its own folders',
 });
 const Loader = Schema.Struct({
-    configLoader: Schema.Struct({ loadConfigFromFile: Schema.instanceOf(Function) }),
+    configLoader: Schema.Struct({ loadConfigFromFile: Schema.declare((input: unknown): input is (file: string, overrides: { readonly outputDir?: string }) => Promise<unknown> => Predicate.isFunction(input)) }),
 }).annotate({ description: 'The configLoader member of playwright/lib/common, the loader playwright test resolves its configuration with' });
 const Server = Schema.Struct({
     command: Schema.optional(Schema.String),
@@ -136,8 +136,8 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, o
     const config = yield* Effect.acquireUseRelease(
         Effect.sync(() =>
             registerHooks({
-                resolve: (specifier, context, next) => {
-                    const resolved = next(specifier, context);
+                resolve: (specifier, context, nextResolve) => {
+                    const resolved = nextResolve(specifier, context);
                     const at = resolved.url.startsWith('file:') ? Option.some(fileURLToPath(resolved.url)) : Option.none();
                     edges.push({ specifier, parent: context.parentURL, url: resolved.url });
                     return Option.exists(at, (path) => kept(local(path)) && context.conditions.includes('import')) ? { ...resolved, url: `${resolved.url}?${fresh}` } : resolved;

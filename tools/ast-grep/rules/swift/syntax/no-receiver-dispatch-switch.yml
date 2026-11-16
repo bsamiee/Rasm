@@ -5,25 +5,25 @@ utils:
     chained:
         kind: call_expression
         all:
-            - has: {nthChild: 1, kind: navigation_expression, has: {field: suffix, has: {field: suffix, pattern: $N}}}
-            - has: {kind: call_suffix, pattern: $B}
+            - has: { nthChild: 1, kind: navigation_expression, has: { field: suffix, has: { field: suffix, pattern: $N } } }
+            - has: { kind: call_suffix, pattern: $B }
     receiver-call:
         any:
-            - {kind: &wrapper 'try_expression, await_expression, control_transfer_statement', has: {matches: receiver-call}}
-            - {matches: chained, has: {nthChild: 1, has: {field: target, matches: receiver-call}}}
+            - { kind: &wrapper 'try_expression, await_expression, control_transfer_statement', has: { matches: receiver-call } }
+            - { matches: chained, has: { nthChild: 1, has: { field: target, matches: receiver-call } } }
             - pattern: $R.$M($$$A)
     member-call:
         any:
-            - {kind: *wrapper, has: {matches: member-call}}
-            - {matches: chained, has: {nthChild: 1, has: {field: target, matches: member-call}}}
+            - { kind: *wrapper, has: { matches: member-call } }
+            - { matches: chained, has: { nthChild: 1, has: { field: target, matches: member-call } } }
             - pattern: $_.$M($$$A)
 rule:
     kind: switch_statement
     all:
-        - has: {matches: swift-first-switch-case, has: {matches: swift-sole-statement, has: {matches: receiver-call}}}
-        - not: {has: {kind: switch_entry, not: {has: {matches: swift-sole-statement, has: {matches: member-call}}}}}
-        - has: {kind: switch_entry, not: {has: {pattern: $R, stopBy: end}}}
+        - has: { matches: swift-first-switch-case, has: { matches: swift-sole-statement, has: { matches: receiver-call } } }
+        - not: { has: { kind: switch_entry, not: { has: { matches: swift-sole-statement, has: { matches: member-call } } } } }
+        - has: { kind: switch_entry, not: { has: { pattern: $R, stopBy: end } } }
 constraints:
-    R: {kind: simple_identifier}
+    R: { kind: simple_identifier }
 message: 'Every arm calls `$M` with the same arguments on a different receiver'
 note: 'Conform receivers to one protocol, select the receiver once, and call `<member>` on it, through a task group in case order for `async let` pairs'

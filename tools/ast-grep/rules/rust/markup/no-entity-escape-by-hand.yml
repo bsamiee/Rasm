@@ -4,7 +4,7 @@ severity: error
 rule:
     kind: 'call_expression, match_expression, string_literal'
     all:
-        - {matches: rust-entity-escape}
-        - {pattern: $ESCAPE}
+        - { matches: rust-entity-escape }
+        - { pattern: $ESCAPE }
 message: '`$ESCAPE` converts between markup characters and entities by hand'
 note: 'Call `quick_xml::escape::escape`, `partial_escape`, or `minimal_escape` to write text and `quick_xml::escape::unescape` to read it'

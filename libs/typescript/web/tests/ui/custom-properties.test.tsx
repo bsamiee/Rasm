@@ -20,14 +20,16 @@ const hoisted = (names: readonly string[], values: readonly string[]) => {
 it('resolves declared properties on element with scope attribute', async () => {
     const screen = await render(scoped('Scoped', { '--ratio': 1.5, '--tone': 'red' }));
     const style = getComputedStyle(screen.getByText('Scoped').element());
-    expect([style.getPropertyValue('--ratio'), style.getPropertyValue('--tone')]).toEqual(['1.5', 'red']);
+    expect([style.getPropertyValue('--ratio'), style.getPropertyValue('--tone')]).toStrictEqual(['1.5', 'red']);
 });
+
 it('resolves values holding spaces, commas, parentheses, quotes, and percentages verbatim', async () => {
     const properties = { '--pair-columns': 'minmax(0, 1.5fr) minmax(0, 1fr)', '--ratio-sum': 2.5, '--media-focus': '37.5% 100%', '--family': '"Söhne Breit", sans-serif' };
     const screen = await render(scoped('Composition', properties));
     const style = getComputedStyle(screen.getByText('Composition').element());
-    expect(Object.keys(properties).map((name) => style.getPropertyValue(name))).toEqual(Object.values(properties).map(String));
+    expect(Object.keys(properties).map((name) => style.getPropertyValue(name))).toStrictEqual(Object.values(properties).map(String));
 });
+
 it('keeps scopes with different declarations apart and hoists one shared rule for equal declarations', async () => {
     const screen = await render(
         <>
@@ -36,14 +38,16 @@ it('keeps scopes with different declarations apart and hoists one shared rule fo
             {scoped('Third', { '--ratio': 0.5 })}
         </>,
     );
-    expect([...hoisted(['--ratio'], ['2', '0.5']), ...['First', 'Second', 'Third'].map((text) => getComputedStyle(screen.getByText(text).element()).getPropertyValue('--ratio'))]).toEqual([1, 1, '2', '2', '0.5']);
+    expect([...hoisted(['--ratio'], ['2', '0.5']), ...['First', 'Second', 'Third'].map((text) => getComputedStyle(screen.getByText(text).element()).getPropertyValue('--ratio'))]).toStrictEqual([1, 1, '2', '2', '0.5']);
 });
+
 it('follows changed declarations on rerender', async () => {
     const screen = await render(scoped('Figure', { '--media-ratio': 1.5, '--media-focus': '50% 50%' }));
     await screen.rerender(scoped('Figure', { '--media-ratio': 0.75 }));
     const element = screen.getByText('Figure').element();
-    await expect.poll(() => [getComputedStyle(element).getPropertyValue('--media-ratio'), getComputedStyle(element).getPropertyValue('--media-focus')]).toEqual(['0.75', '']);
+    await expect.poll(() => [getComputedStyle(element).getPropertyValue('--media-ratio'), getComputedStyle(element).getPropertyValue('--media-focus')]).toStrictEqual(['0.75', '']);
 });
+
 it('hoists one rule per declaration whatever the key order or the other declarations', async () => {
     await render(
         <>
@@ -52,14 +56,16 @@ it('hoists one rule per declaration whatever the key order or the other declarat
             {scoped('Third', { '--ratio': 3, '--tone': 'green' })}
         </>,
     );
-    expect(hoisted(['--ratio', '--tone'], ['3', 'blue', 'green'])).toEqual([1, 1, 1]);
+    expect(hoisted(['--ratio', '--tone'], ['3', 'blue', 'green'])).toStrictEqual([1, 1, 1]);
 });
+
 it('keeps braces, semicolons, and markup inside the declaration value', async () => {
     const screen = await render(scoped('Escaped', { '--tone': 'red;--other:1}p{outline:solid}</style><b>' }));
     const style = getComputedStyle(screen.getByText('Escaped').element());
-    expect([style.getPropertyValue('--other'), style.outlineStyle, document.querySelectorAll('b').length]).toEqual(['', 'none', 0]);
+    expect([style.getPropertyValue('--other'), style.outlineStyle, document.querySelectorAll('b').length]).toStrictEqual(['', 'none', 0]);
 });
+
 it('keeps markup inside the declaration value through server rendering', () => {
     const parsed = new DOMParser().parseFromString(renderToString(scoped('Served', { '--tone': '</style><b>' })), 'text/html');
-    expect([parsed.querySelectorAll('b').length, parsed.querySelectorAll('style').length]).toEqual([0, 1]);
+    expect([parsed.querySelectorAll('b').length, parsed.querySelectorAll('style').length]).toStrictEqual([0, 1]);
 });

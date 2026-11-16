@@ -5,8 +5,8 @@
         "declarationMap": false,
         "noEmit": true,
         "rootDir": "..",
-        "typeRoots": [ "../.claude-plugin/types", "../node_modules/@types" ],
-        "types": [ "claude-code", "claude-code-tools", "claude-code-mcp" ]
+        "typeRoots": ["../.claude-plugin/types", "../node_modules/@types"],
+        "types": ["claude-code", "claude-code-tools", "claude-code-mcp"]
     },
-    "include": [ "." ]
+    "include": ["."]
 }

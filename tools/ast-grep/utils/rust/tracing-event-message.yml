@@ -3,5 +3,5 @@ id: tracing-event-message
 language: rustlang
 rule:
     kind: 'string_literal, raw_string_literal'
-    follows: {stopBy: {not: {kind: 'line_comment, block_comment'}}, regex: '^[(,]$'}
-    not: {precedes: {regex: '^=$'}}
+    follows: { stopBy: { not: { kind: 'line_comment, block_comment' } }, regex: '^[(,]$' }
+    not: { precedes: { regex: '^=$' } }

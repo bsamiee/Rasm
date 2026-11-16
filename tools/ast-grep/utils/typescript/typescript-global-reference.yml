@@ -6,8 +6,8 @@ rule:
         - kind: identifier, undefined
           pattern: $GLOBAL
           not:
-            any:
-                - matches: {typescript-local-binding: {owner: {pattern: $_}}}
-                - inside: {kind: program, stopBy: end, has: {kind: import_statement, has: {stopBy: end, pattern: $GLOBAL, matches: typescript-import-binding}}}
+              any:
+                  - matches: { typescript-local-binding: { owner: { pattern: $_ } } }
+                  - inside: { kind: program, stopBy: end, has: { kind: import_statement, has: { stopBy: end, pattern: $GLOBAL, matches: typescript-import-binding } } }
         - kind: member_expression
-          has: {field: object, matches: typescript-global-reference}
+          has: { field: object, matches: typescript-global-reference }

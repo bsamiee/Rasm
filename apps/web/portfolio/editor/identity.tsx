@@ -15,9 +15,9 @@ const Identity = ({ idPrefix, onChooseHero, ...state }: Pick<Atom.Success<typeof
     return (
         <>
             <Field {...field('name')} label="Display name" placeholder="Name or studio" />
-            <Field {...field('introduction')} label="Introduction" multiline={true} placeholder="Optional" />
+            <Field {...field('introduction')} label="Introduction" multiline placeholder="Optional" />
             <Field {...field('email')} label="Public contact email" placeholder="Optional" type="email" />
-            <h3 className="text-heading tracking-display mt-2 outline-none" id={`${idPrefix}hero`} tabIndex={-1}>
+            <h3 className="mt-2 text-heading tracking-display outline-none" id={`${idPrefix}hero`} tabIndex={-1}>
                 Hero
             </h3>
             {state.portfolio.hero === undefined ? (
@@ -29,11 +29,11 @@ const Identity = ({ idPrefix, onChooseHero, ...state }: Pick<Atom.Success<typeof
                 </div>
             ) : (
                 <>
-                    <div className="media-h-80 flex justify-center">
-                        <MediaFigure active={true} placement={state.portfolio.hero} presentation="full" priority={false} renderMedia={true} />
+                    <div className="flex justify-center media-h-80">
+                        <MediaFigure active placement={state.portfolio.hero} presentation="full" priority={false} renderMedia />
                     </div>
                     <PlacementFields assets={state.assets} onChange={(placement) => setDraft(Optic.replace(hero, placement))} value={state.portfolio.hero}>
-                        <button className="button button-outline self-start" onClick={() => setDraft(Optic.replace(hero, undefined))} type="button">
+                        <button className="button self-start button-outline" onClick={() => setDraft(Optic.replace(hero, undefined))} type="button">
                             Clear hero
                         </button>
                     </PlacementFields>

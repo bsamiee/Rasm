@@ -4,50 +4,50 @@ language: csharplang
 utils:
     mapper-class:
         kind: class_declaration
-        matches: {csharp-attributed: {name: {regex: '^Mapper(Attribute)?$'}}}
+        matches: { csharp-attributed: { name: { regex: '^Mapper(Attribute)?$' } } }
     use-attribute:
-        matches: {csharp-qualified-name: {name: {regex: '^Map(?:Property(?:FromSource)?|Value)(?:Attribute)?$'}, qualifier: {regex: '^Abstractions$'}}}
+        matches: { csharp-qualified-name: { name: { regex: '^Map(?:Property(?:FromSource)?|Value)(?:Attribute)?$' }, qualifier: { regex: '^Abstractions$' } } }
     user-mapping:
-        matches: {csharp-attributed: {name: {regex: '^(User|Named)Mapping(Attribute)?$'}}}
+        matches: { csharp-attributed: { name: { regex: '^(User|Named)Mapping(Attribute)?$' } } }
     generated-mapping:
         all:
-            - has: {kind: modifier, regex: '^partial$'}
-            - not: {has: {field: body, kind: 'arrow_expression_clause, block'}}
-            - inside: {kind: declaration_list, inside: {matches: mapper-class}}
+            - has: { kind: modifier, regex: '^partial$' }
+            - not: { has: { field: body, kind: 'arrow_expression_clause, block' } }
+            - inside: { kind: declaration_list, inside: { matches: mapper-class } }
     use-argument:
         kind: attribute_argument
-        has: {field: name, regex: '^Use$'}
+        has: { field: name, regex: '^Use$' }
         inside:
             kind: attribute_argument_list
             inside:
                 kind: attribute
-                has: {field: name, matches: use-attribute}
+                has: { field: name, matches: use-attribute }
     use-helper:
         all:
-            - has: {field: name, pattern: {context: 'class $HELPER;', selector: identifier}}
+            - has: { field: name, pattern: { context: 'class $HELPER;', selector: identifier } }
             - inside:
-                kind: declaration_list
-                inside:
-                    matches: mapper-class
-                    has:
-                        field: body
-                        has:
-                            stopBy: {kind: 'class_declaration, struct_declaration, record_declaration, interface_declaration, block, arrow_expression_clause'}
-                            matches: use-argument
-                            has:
-                                any:
-                                    - matches: csharp-nameof-call
-                                      has:
-                                        field: arguments
+                  kind: declaration_list
+                  inside:
+                      matches: mapper-class
+                      has:
+                          field: body
+                          has:
+                              stopBy: { kind: 'class_declaration, struct_declaration, record_declaration, interface_declaration, block, arrow_expression_clause' }
+                              matches: use-argument
+                              has:
+                                  any:
+                                      - matches: csharp-nameof-call
                                         has:
-                                            kind: argument
+                                            field: arguments
                                             has:
-                                                any:
-                                                    - {kind: identifier, pattern: {context: 'class $HELPER;', selector: identifier}}
-                                                    - {kind: member_access_expression, not: {regex: '^@'}, has: {field: name, pattern: {context: 'class $HELPER;', selector: identifier}}}
-                                    - kind: string_literal
-                                      has: {kind: string_literal_content, pattern: {context: 'var s = "$HELPER";', selector: string_literal_content}}
-                                      not: {has: {kind: escape_sequence}}
+                                                kind: argument
+                                                has:
+                                                    any:
+                                                        - { kind: identifier, pattern: { context: 'class $HELPER;', selector: identifier } }
+                                                        - { kind: member_access_expression, not: { regex: '^@' }, has: { field: name, pattern: { context: 'class $HELPER;', selector: identifier } } }
+                                      - kind: string_literal
+                                        has: { kind: string_literal_content, pattern: { context: 'var s = "$HELPER";', selector: string_literal_content } }
+                                        not: { has: { kind: escape_sequence } }
 rule:
     kind: method_declaration
     any:

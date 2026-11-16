@@ -120,7 +120,7 @@ jobs:
         env:
             GH_TOKEN: *github
             HOME: /home/ue4
-            UnrealBuildTool_UnrealBuildAccelerator__AllowDetour: "false"
+            UnrealBuildTool_UnrealBuildAccelerator__AllowDetour: 'false'
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:

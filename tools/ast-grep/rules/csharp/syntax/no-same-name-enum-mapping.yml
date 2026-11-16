@@ -9,126 +9,126 @@ utils:
             selector: switch_expression_arm
     discard-arm:
         kind: switch_expression_arm
-        has: {kind: discard, nthChild: 1}
+        has: { kind: discard, nthChild: 1 }
     same-name-switch:
         kind: switch_expression
         all:
             - has:
-                kind: switch_expression_arm
-                pattern:
-                    context: 'var t = k switch { $A.$FIRST => $B.$FIRST };'
-                    selector: switch_expression_arm
-                not: {pattern: {context: 'var t = k switch { $A.$FIRST => $A.$FIRST };', selector: switch_expression_arm}}
-            - not: {has: {kind: switch_expression_arm, not: {any: [{matches: same-name-arm}, {matches: discard-arm}]}}}
-            - has: {kind: switch_expression_arm, nthChild: {position: 2, ofRule: {kind: switch_expression_arm, not: {matches: discard-arm}}}}
+                  kind: switch_expression_arm
+                  pattern:
+                      context: 'var t = k switch { $A.$FIRST => $B.$FIRST };'
+                      selector: switch_expression_arm
+                  not: { pattern: { context: 'var t = k switch { $A.$FIRST => $A.$FIRST };', selector: switch_expression_arm } }
+            - not: { has: { kind: switch_expression_arm, not: { any: [{ matches: same-name-arm }, { matches: discard-arm }] } } }
+            - has: { kind: switch_expression_arm, nthChild: { position: 2, ofRule: { kind: switch_expression_arm, not: { matches: discard-arm } } } }
     text-type:
         any:
             - kind: implicit_type
-            - matches: {csharp-type-name: {name: {regex: '^(string|String|StringBuilder)$'}}}
-            - matches: {csharp-generic-type: {name: {regex: '^(?:ReadOnly)?Span$'}, list: {has: {regex: '^char$'}}}}
+            - matches: { csharp-type-name: { name: { regex: '^(string|String|StringBuilder)$' } } }
+            - matches: { csharp-generic-type: { name: { regex: '^(?:ReadOnly)?Span$' }, list: { has: { regex: '^char$' } } } }
     declared-receiver:
         kind: identifier
-        matches: {csharp-declared-type: {type: {not: {any: [{matches: text-type}, {kind: predefined_type}]}}}}
+        matches: { csharp-declared-type: { type: { not: { any: [{ matches: text-type }, { kind: predefined_type }] } } } }
     name-format:
         kind: argument_list
         any:
-            - not: {has: {kind: argument}}
+            - not: { has: { kind: argument } }
             - all:
-                - has: {kind: argument, has: {kind: string_literal, regex: '^"[GgFf]"$'}}
-                - not: {has: {kind: argument, nthChild: 2}}
+                  - has: { kind: argument, has: { kind: string_literal, regex: '^"[GgFf]"$' } }
+                  - not: { has: { kind: argument, nthChild: 2 } }
     name-string:
         kind: invocation_expression
         all:
             - has:
-                field: function
-                any:
-                    - kind: member_access_expression
-                      all: [{has: {field: name, regex: '^ToString$'}}, {has: {field: expression, matches: declared-receiver}}]
-                    - kind: conditional_access_expression
-                      all: [{has: {kind: member_binding_expression, has: {field: name, regex: '^ToString$'}}}, {has: {field: condition, matches: declared-receiver}}]
-            - has: {field: arguments, kind: argument_list, matches: name-format}
+                  field: function
+                  any:
+                      - kind: member_access_expression
+                        all: [{ has: { field: name, regex: '^ToString$' } }, { has: { field: expression, matches: declared-receiver } }]
+                      - kind: conditional_access_expression
+                        all: [{ has: { kind: member_binding_expression, has: { field: name, regex: '^ToString$' } } }, { has: { field: condition, matches: declared-receiver } }]
+            - has: { field: arguments, kind: argument_list, matches: name-format }
     member-name:
         any:
             - kind: invocation_expression
-              matches: {csharp-owner-call: {type: {regex: '^Enum$'}, member: {regex: '^GetName$'}}}
+              matches: { csharp-owner-call: { type: { regex: '^Enum$' }, member: { regex: '^GetName$' } } }
             - matches: name-string
             - kind: invocation_expression
               matches: csharp-nameof-call
             - kind: interpolated_string_expression
               all:
-                - has: {kind: interpolation, has: {matches: declared-receiver}}
-                - not: {has: {kind: string_content}}
-                - not: {has: {kind: interpolation, nthChild: {position: 2, ofRule: {kind: interpolation}}}}
+                  - has: { kind: interpolation, has: { matches: declared-receiver } }
+                  - not: { has: { kind: string_content } }
+                  - not: { has: { kind: interpolation, nthChild: { position: 2, ofRule: { kind: interpolation } } } }
             - kind: invocation_expression
               all:
-                - matches: {csharp-owner-call: {type: {regex: '^Convert$'}, member: {regex: '^ToString$'}}}
-                - has: {field: arguments, all: [{has: {kind: argument, nthChild: 1, has: {matches: declared-receiver}}}, {not: {has: {kind: argument, nthChild: 2}}}]}
+                  - matches: { csharp-owner-call: { type: { regex: '^Convert$' }, member: { regex: '^ToString$' } } }
+                  - has: { field: arguments, all: [{ has: { kind: argument, nthChild: 1, has: { matches: declared-receiver } } }, { not: { has: { kind: argument, nthChild: 2 } } }] }
             - kind: invocation_expression
               all:
-                - matches: {csharp-owner-call: {type: {regex: '^(string|String)$'}, member: {regex: '^Format$'}}}
-                - has: {field: arguments, all: [{has: {kind: argument, nthChild: 1, regex: '^"\{0(:[GgFf])?\}"$'}}, {has: {kind: argument, nthChild: 2, has: {matches: declared-receiver}}}, {not: {has: {kind: argument, nthChild: 3}}}]}
+                  - matches: { csharp-owner-call: { type: { regex: '^(string|String)$' }, member: { regex: '^Format$' } } }
+                  - has: { field: arguments, all: [{ has: { kind: argument, nthChild: 1, regex: '^"\{0(:[GgFf])?\}"$' } }, { has: { kind: argument, nthChild: 2, has: { matches: declared-receiver } } }, { not: { has: { kind: argument, nthChild: 3 } } }] }
     name-value:
         any:
             - matches: member-name
             - kind: postfix_unary_expression
-              has: {matches: name-value}
+              has: { matches: name-value }
             - kind: binary_expression
               all:
-                - has: {field: operator, regex: '^\?\?$'}
-                - has: {field: left, matches: name-value}
+                  - has: { field: operator, regex: '^\?\?$' }
+                  - has: { field: left, matches: name-value }
             - kind: invocation_expression
               has:
-                field: function
-                kind: member_access_expression
-                all:
-                    - has: {field: name, regex: '^(ToUpperInvariant|ToLowerInvariant|ToUpper|ToLower|Trim|AsSpan|AsMemory)$'}
-                    - has: {field: expression, matches: name-value}
-            - matches: {csharp-block-local: {declarator: {has: {nthChild: 2, matches: name-value}}}}
+                  field: function
+                  kind: member_access_expression
+                  all:
+                      - has: { field: name, regex: '^(ToUpperInvariant|ToLowerInvariant|ToUpper|ToLower|Trim|AsSpan|AsMemory)$' }
+                      - has: { field: expression, matches: name-value }
+            - matches: { csharp-block-local: { declarator: { has: { nthChild: 2, matches: name-value } } } }
     any-name:
         any:
             - kind: invocation_expression
               all:
-                - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^ToString$'}}
-                - has: {field: arguments, matches: name-format}
+                  - has: { field: function, kind: member_access_expression, has: { field: name, regex: '^ToString$' } }
+                  - has: { field: arguments, matches: name-format }
             - matches: member-name
     name-equality:
         any:
             - kind: binary_expression
               all:
-                - has: {field: operator, regex: '^==$'}
-                - has: {field: left, matches: any-name}
-                - has: {field: right, matches: any-name}
+                  - has: { field: operator, regex: '^==$' }
+                  - has: { field: left, matches: any-name }
+                  - has: { field: right, matches: any-name }
             - kind: invocation_expression
               all:
-                - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Equals$'}}, {has: {field: expression, matches: any-name}}]}
-                - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {matches: any-name}}}
+                  - has: { field: function, kind: member_access_expression, all: [{ has: { field: name, regex: '^Equals$' } }, { has: { field: expression, matches: any-name } }] }
+                  - has: { field: arguments, has: { kind: argument, nthChild: 1, has: { matches: any-name } } }
             - kind: invocation_expression
               all:
-                - matches: {csharp-owner-call: {type: {regex: '^(string|String)$'}, member: {regex: '^Equals$'}}}
-                - has: {field: arguments, all: [{has: {kind: argument, nthChild: 1, has: {matches: any-name}}}, {has: {kind: argument, nthChild: 2, has: {matches: any-name}}}]}
+                  - matches: { csharp-owner-call: { type: { regex: '^(string|String)$' }, member: { regex: '^Equals$' } } }
+                  - has: { field: arguments, all: [{ has: { kind: argument, nthChild: 1, has: { matches: any-name } } }, { has: { kind: argument, nthChild: 2, has: { matches: any-name } } }] }
 rule:
     pattern: $CONVERSION
     any:
         - matches: same-name-switch
         - kind: invocation_expression
           all:
-            - has: {field: function, regex: Parse}
-            - matches: {csharp-owner-call: {type: {regex: '^Enum$'}, member: {regex: '^(TryParse|Parse)$'}}}
-            - has: {field: arguments, has: {kind: argument, has: {matches: name-value}}}
+              - has: { field: function, regex: Parse }
+              - matches: { csharp-owner-call: { type: { regex: '^Enum$' }, member: { regex: '^(TryParse|Parse)$' } } }
+              - has: { field: arguments, has: { kind: argument, has: { matches: name-value } } }
         - kind: invocation_expression
           all:
-            - has:
-                field: function
-                kind: member_access_expression
-                all:
-                    - has: {field: name, regex: '^(First|FirstOrDefault|Single|SingleOrDefault|Last|LastOrDefault|Find|Where|Filter)$'}
-                    - has: {field: expression, kind: invocation_expression, matches: {csharp-owner-call: {type: {regex: '^Enum$'}, member: {regex: '^(GetValues|GetValuesAsUnderlyingType)$'}}}}
-            - has: {field: arguments, has: {kind: argument, has: {kind: lambda_expression, has: {field: body, matches: name-equality}}}}
+              - has:
+                    field: function
+                    kind: member_access_expression
+                    all:
+                        - has: { field: name, regex: '^(First|FirstOrDefault|Single|SingleOrDefault|Last|LastOrDefault|Find|Where|Filter)$' }
+                        - has: { field: expression, kind: invocation_expression, matches: { csharp-owner-call: { type: { regex: '^Enum$' }, member: { regex: '^(GetValues|GetValuesAsUnderlyingType)$' } } } }
+              - has: { field: arguments, has: { kind: argument, has: { kind: lambda_expression, has: { field: body, matches: name-equality } } } }
         - kind: switch_expression
           all:
-            - has: {kind: switch_expression_arm, has: {nthChild: 1, kind: constant_pattern, has: {kind: string_literal}}}
-            - has: {nthChild: 1, matches: name-value}
+              - has: { kind: switch_expression_arm, has: { nthChild: 1, kind: constant_pattern, has: { kind: string_literal } } }
+              - has: { nthChild: 1, matches: name-value }
 transform:
-    HEAD: {replace: {source: $CONVERSION, replace: '(?s)^([@\p{XID_Continue}.]+).*$', by: '$1'}}
+    HEAD: { replace: { source: $CONVERSION, replace: '(?s)^([@\p{XID_Continue}.]+).*$', by: '$1' } }
 message: '`$HEAD` converts between enums by member name'
 note: 'Delete the same-named copy, or declare a Mapperly mapping with `[MapEnum(EnumMappingStrategy.ByName)]` where both enums stay'

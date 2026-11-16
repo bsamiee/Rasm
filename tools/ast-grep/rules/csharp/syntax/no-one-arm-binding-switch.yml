@@ -3,63 +3,63 @@ language: csharplang
 severity: error
 utils:
     read:
-        pattern: {context: 'class $NAME;', selector: identifier}
-        not: {inside: {kind: 'member_access_expression, member_binding_expression', field: name}}
+        pattern: { context: 'class $NAME;', selector: identifier }
+        not: { inside: { kind: 'member_access_expression, member_binding_expression', field: name } }
     other-read:
-        pattern: {context: 'class $OTHER;', selector: identifier}
-        not: {inside: {kind: 'member_access_expression, member_binding_expression', field: name}}
+        pattern: { context: 'class $OTHER;', selector: identifier }
+        not: { inside: { kind: 'member_access_expression, member_binding_expression', field: name } }
     holds-read:
-        not: {kind: declaration_pattern}
-        any: [{matches: read}, {has: {stopBy: end, matches: read}}]
+        not: { kind: declaration_pattern }
+        any: [{ matches: read }, { has: { stopBy: end, matches: read } }]
     repeat-read:
         matches: read
         any:
             - inside:
-                stopBy: end
-                kind: 'lambda_expression, anonymous_method_expression, local_function_statement, query_expression'
-                inside: &declaring {stopBy: end, kind: switch_expression_arm, has: {nthChild: 1, kind: declaration_pattern, has: {stopBy: end, pattern: {context: 'class $NAME;', selector: identifier}}}}
-            - precedes: {stopBy: end, matches: holds-read}
-            - inside: {stopBy: end, precedes: {stopBy: end, matches: holds-read}, inside: *declaring}
+                  stopBy: end
+                  kind: 'lambda_expression, anonymous_method_expression, local_function_statement, query_expression'
+                  inside: &declaring { stopBy: end, kind: switch_expression_arm, has: { nthChild: 1, kind: declaration_pattern, has: { stopBy: end, pattern: { context: 'class $NAME;', selector: identifier } } } }
+            - precedes: { stopBy: end, matches: holds-read }
+            - inside: { stopBy: end, precedes: { stopBy: end, matches: holds-read }, inside: *declaring }
     shared-argument:
         kind: argument
-        inside: {kind: argument_list, inside: {kind: invocation_expression}}
+        inside: { kind: argument_list, inside: { kind: invocation_expression } }
         all:
-            - has: {nthChild: 1, pattern: {context: 'class $SHARED;', selector: identifier}}
-            - inside: {stopBy: end, kind: switch_expression_arm, follows: {stopBy: end, has: {stopBy: end, pattern: {context: 'class $SHARED;', selector: identifier}}}}
+            - has: { nthChild: 1, pattern: { context: 'class $SHARED;', selector: identifier } }
+            - inside: { stopBy: end, kind: switch_expression_arm, follows: { stopBy: end, has: { stopBy: end, pattern: { context: 'class $SHARED;', selector: identifier } } } }
     prior-shared-argument:
-        not: {kind: declaration_pattern}
-        any: [{matches: shared-argument}, {has: {stopBy: end, matches: shared-argument}}]
+        not: { kind: declaration_pattern }
+        any: [{ matches: shared-argument }, { has: { stopBy: end, matches: shared-argument } }]
     late-read:
         matches: read
         any:
-            - follows: {stopBy: end, matches: prior-shared-argument}
-            - inside: {stopBy: end, follows: {stopBy: end, matches: prior-shared-argument}, inside: *declaring}
+            - follows: { stopBy: end, matches: prior-shared-argument }
+            - inside: { stopBy: end, follows: { stopBy: end, matches: prior-shared-argument }, inside: *declaring }
     late-name:
-        pattern: {context: 'class $NAME;', selector: identifier}
-        inside: {stopBy: {kind: declaration_pattern}, kind: declaration_pattern, precedes: {stopBy: end, any: [{matches: late-read}, {has: {stopBy: end, matches: late-read}}]}}
+        pattern: { context: 'class $NAME;', selector: identifier }
+        inside: { stopBy: { kind: declaration_pattern }, kind: declaration_pattern, precedes: { stopBy: end, any: [{ matches: late-read }, { has: { stopBy: end, matches: late-read } }] } }
     reused-name:
-        pattern: {context: 'class $NAME;', selector: identifier}
-        inside: {stopBy: {kind: declaration_pattern}, kind: declaration_pattern, precedes: {stopBy: end, any: [{matches: repeat-read}, {has: {stopBy: end, matches: repeat-read}}]}}
+        pattern: { context: 'class $NAME;', selector: identifier }
+        inside: { stopBy: { kind: declaration_pattern }, kind: declaration_pattern, precedes: { stopBy: end, any: [{ matches: repeat-read }, { has: { stopBy: end, matches: repeat-read } }] } }
     read-name:
-        pattern: {context: 'class $NAME;', selector: identifier}
-        inside: {stopBy: {kind: declaration_pattern}, kind: declaration_pattern, precedes: {stopBy: end, any: [{matches: read}, {has: {stopBy: end, matches: read}}]}}
+        pattern: { context: 'class $NAME;', selector: identifier }
+        inside: { stopBy: { kind: declaration_pattern }, kind: declaration_pattern, precedes: { stopBy: end, any: [{ matches: read }, { has: { stopBy: end, matches: read } }] } }
     other-read-name:
-        pattern: {context: 'class $OTHER;', selector: identifier}
-        not: {pattern: $NAME}
-        inside: {stopBy: {kind: declaration_pattern}, kind: declaration_pattern, precedes: {stopBy: end, any: [{matches: other-read}, {has: {stopBy: end, matches: other-read}}]}}
+        pattern: { context: 'class $OTHER;', selector: identifier }
+        not: { pattern: $NAME }
+        inside: { stopBy: { kind: declaration_pattern }, kind: declaration_pattern, precedes: { stopBy: end, any: [{ matches: other-read }, { has: { stopBy: end, matches: other-read } }] } }
     binding-arm:
         kind: switch_expression_arm
         all:
-            - has: {nthChild: 1, kind: declaration_pattern, pattern: $PATTERN, all: [{has: {field: type, kind: implicit_type}}, {not: {has: {kind: discard}}}]}
-            - not: {has: {kind: when_clause}}
-            - not: {has: {nthChild: 1, has: {stopBy: end, matches: reused-name}}}
-            - not: {has: {nthChild: 1, has: {stopBy: end, matches: late-name}}}
-            - not: {has: {nthChild: 1, all: [{has: {stopBy: end, matches: read-name}}, {has: {stopBy: end, matches: other-read-name}}]}}
+            - has: { nthChild: 1, kind: declaration_pattern, pattern: $PATTERN, all: [{ has: { field: type, kind: implicit_type } }, { not: { has: { kind: discard } } }] }
+            - not: { has: { kind: when_clause } }
+            - not: { has: { nthChild: 1, has: { stopBy: end, matches: reused-name } } }
+            - not: { has: { nthChild: 1, has: { stopBy: end, matches: late-name } } }
+            - not: { has: { nthChild: 1, all: [{ has: { stopBy: end, matches: read-name } }, { has: { stopBy: end, matches: other-read-name } }] } }
 rule:
     kind: switch_expression
     all:
-        - has: {nthChild: 1, pattern: $VALUE}
-        - not: {has: {kind: switch_expression_arm, nthChild: {position: 2, ofRule: {kind: switch_expression_arm}}}}
-        - has: {matches: binding-arm}
+        - has: { nthChild: 1, pattern: $VALUE }
+        - not: { has: { kind: switch_expression_arm, nthChild: { position: 2, ofRule: { kind: switch_expression_arm } } } }
+        - has: { matches: binding-arm }
 message: 'One-arm switch over `$VALUE` binds `$PATTERN` for at most one read'
 note: Write the switched value at its read and drop the switch

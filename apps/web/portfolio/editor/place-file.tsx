@@ -51,8 +51,8 @@ const PlaceFile = ({
                 </button>
             </div>
             {pages.length > 0 ? (
-                <CheckboxGroup aria-label="Sheets in presentation order" className="media-h-40 grid-cols-sheets grid gap-3" onChange={setOrder} value={order}>
-                    <div className="actions col-span-full">
+                <CheckboxGroup aria-label="Sheets in presentation order" className="grid grid-cols-sheets gap-3 media-h-40" onChange={setOrder} value={order}>
+                    <div className="col-span-full actions">
                         <button className="button button-ghost" onClick={() => setOrder(pages.map(({ page }) => String(page.number)))} type="button">
                             All sheets
                         </button>
@@ -63,12 +63,12 @@ const PlaceFile = ({
                     {pages.map((placement) => {
                         const position = order.indexOf(String(placement.page.number));
                         return (
-                            <div className="bg-background min-w-0 p-3" key={placement.page.number}>
-                                <MediaFigure active={true} placement={placement} presentation="thumbnail" priority={false} renderMedia={true} />
+                            <div className="min-w-0 bg-background p-3" key={placement.page.number}>
+                                <MediaFigure active placement={placement} presentation="thumbnail" priority={false} renderMedia />
                                 <Field.Checkbox value={String(placement.page.number)}>
                                     <span className="min-w-0 text-sm wrap-anywhere">
                                         {sheetLabel(placement.page, pages.length)}
-                                        {position >= 0 && <span className="text-muted block text-xs">Order {position + 1}</span>}
+                                        {position !== -1 && <span className="block text-xs text-muted">Order {position + 1}</span>}
                                     </span>
                                 </Field.Checkbox>
                             </div>
@@ -78,7 +78,7 @@ const PlaceFile = ({
             ) : (
                 chosen.map((placement) => (
                     <div className="media-h-60" key={placement.asset.id}>
-                        <MediaFigure active={true} placement={placement} presentation="expandable" priority={false} renderMedia={true} />
+                        <MediaFigure active placement={placement} presentation="expandable" priority={false} renderMedia />
                     </div>
                 ))
             )}

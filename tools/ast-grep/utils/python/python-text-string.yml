@@ -3,4 +3,4 @@ id: python-text-string
 language: pythonlang
 rule:
     kind: string
-    has: {kind: string_start, regex: '^[rRuU]?["'']'}
+    has: { kind: string_start, regex: '^[rRuU]?["'']' }

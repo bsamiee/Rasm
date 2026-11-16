@@ -4,26 +4,26 @@ severity: error
 utils:
     element-array:
         any:
-            - {kind: array_type, has: {field: name, pattern: $ELEMENT}}
+            - { kind: array_type, has: { field: name, pattern: $ELEMENT } }
             - kind: user_type
               all:
-                - has: {kind: type_identifier, regex: '^Array$'}
-                - has: {kind: type_arguments, all: [{has: {field: name, pattern: $ELEMENT}}, {not: {has: {nthChild: 2}}}]}
+                  - has: { kind: type_identifier, regex: '^Array$' }
+                  - has: { kind: type_arguments, all: [{ has: { field: name, pattern: $ELEMENT } }, { not: { has: { nthChild: 2 } } }] }
     stored:
         kind: property_declaration
-        not: {has: {kind: computed_property}}
+        not: { has: { kind: computed_property } }
 rule:
     kind: class_declaration
     all:
-        - has: {field: declaration_kind, regex: '^struct$'}
-        - not: {has: {kind: type_parameters}}
-        - has: {kind: inheritance_specifier, regex: '(Error|Failure)$'}
-        - has: {field: body, has: {matches: stored, has: {kind: type_annotation, has: {field: name, matches: element-array}}}}
+        - has: { field: declaration_kind, regex: '^struct$' }
+        - not: { has: { kind: type_parameters } }
+        - has: { kind: inheritance_specifier, regex: '(Error|Failure)$' }
+        - has: { field: body, has: { matches: stored, has: { kind: type_annotation, has: { field: name, matches: element-array } } } }
         - not:
-            has:
-                field: body
-                has:
-                    matches: stored
-                    not: {has: {kind: type_annotation, has: {field: name, any: [{pattern: $ELEMENT}, {matches: element-array}]}}}
+              has:
+                  field: body
+                  has:
+                      matches: stored
+                      not: { has: { kind: type_annotation, has: { field: name, any: [{ pattern: $ELEMENT }, { matches: element-array }] } } }
 message: 'Non-generic error struct aggregates `$ELEMENT` values by hand'
 note: 'Aggregate elements through one generic `struct <Aggregate><Element: Sendable>: Error` holding a first element and an array of the rest'

@@ -228,7 +228,7 @@ const killsFound: Rule = (invocation, call) => {
 
 const killsByName: Rule = Effect.fnUntraced(function* (invocation, { host }) {
     const { program, words } = invocation;
-    const [signal] = words.slice(1, 2).filter(({ text }) => SIGNAL.test(text));
+    const signal = words.slice(1, 2).find(({ text }) => SIGNAL.test(text));
     const rest = words.slice(signal === undefined ? 1 : 2);
     const flags = rest.map(({ text }) => text).filter((text) => text.startsWith('-'));
     const queries = program === 'pkill' ? [rest.map(({ text }) => text)] : invocation.operands.map(({ text }) => [...(flags.includes('-m') ? [] : ['-x']), text]);

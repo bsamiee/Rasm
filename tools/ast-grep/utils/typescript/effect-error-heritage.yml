@@ -3,12 +3,12 @@ id: effect-error-heritage
 language: tsxlang
 utils:
     error-module:
-        matches: {effect-module: {name: {regex: '(?-u:\b)(Data|Schema)$'}}}
+        matches: { effect-module: { name: { regex: '(?-u:\b)(Data|Schema)$' } } }
     error-constructor:
         kind: member_expression
         all:
-            - has: {field: property, regex: '^(Error|TaggedError)$'}
-            - has: {field: object, matches: error-module}
+            - has: { field: property, regex: '^(Error|TaggedError)$' }
+            - has: { field: object, matches: error-module }
 rule:
     kind: extends_clause
     has:
@@ -17,7 +17,7 @@ rule:
             - matches: error-constructor
             - kind: call_expression
               has:
-                field: function
-                any:
-                    - matches: error-constructor
-                    - {kind: call_expression, has: {field: function, matches: error-constructor}}
+                  field: function
+                  any:
+                      - matches: error-constructor
+                      - { kind: call_expression, has: { field: function, matches: error-constructor } }

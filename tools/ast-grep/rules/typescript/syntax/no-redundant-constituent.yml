@@ -11,20 +11,20 @@ utils:
 rule:
     kind: union_type
     pattern: $UNION
-    not: {inside: {kind: union_type}}
+    not: { inside: { kind: union_type } }
     any:
-        - has: {stopBy: &member {not: {kind: union_type}}, kind: predefined_type, regex: '^(unknown|any|never)$', pattern: $WIDE}
+        - has: { stopBy: &member { not: { kind: union_type } }, kind: predefined_type, regex: '^(unknown|any|never)$', pattern: $WIDE }
         - all:
-            - has: {stopBy: *member, matches: primitive, regex: '^string$'}
-            - has: {stopBy: *member, matches: literal, any: [{kind: template_literal_type}, {has: {kind: string}}]}
+              - has: { stopBy: *member, matches: primitive, regex: '^string$' }
+              - has: { stopBy: *member, matches: literal, any: [{ kind: template_literal_type }, { has: { kind: string } }] }
         - all:
-            - has: {stopBy: *member, matches: primitive, regex: '^number$'}
-            - has: {stopBy: *member, matches: literal, has: {any: [{kind: number, not: {regex: 'n$'}}, {kind: unary_expression, has: {kind: number, not: {regex: 'n$'}}}]}}
+              - has: { stopBy: *member, matches: primitive, regex: '^number$' }
+              - has: { stopBy: *member, matches: literal, has: { any: [{ kind: number, not: { regex: 'n$' } }, { kind: unary_expression, has: { kind: number, not: { regex: 'n$' } } }] } }
         - all:
-            - has: {stopBy: *member, matches: primitive, regex: '^bigint$'}
-            - has: {stopBy: *member, matches: literal, has: {any: [{kind: number, regex: 'n$'}, {kind: unary_expression, has: {kind: number, regex: 'n$'}}]}}
+              - has: { stopBy: *member, matches: primitive, regex: '^bigint$' }
+              - has: { stopBy: *member, matches: literal, has: { any: [{ kind: number, regex: 'n$' }, { kind: unary_expression, has: { kind: number, regex: 'n$' } }] } }
         - all:
-            - has: {stopBy: *member, matches: primitive, regex: '^boolean$'}
-            - has: {stopBy: *member, matches: literal, has: {kind: 'true, false'}}
+              - has: { stopBy: *member, matches: primitive, regex: '^boolean$' }
+              - has: { stopBy: *member, matches: literal, has: { kind: 'true, false' } }
 message: '`$UNION` reduces to fewer constituents through `$WIDE`'
 note: 'Remove each constituent the union reduces away, or write `string & {}` in place of `string` to keep literal completions'

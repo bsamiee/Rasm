@@ -7,45 +7,45 @@ rule:
         - kind: call_expression
           pattern: $SITE
           any:
-            - all:
-                - has: {nthChild: 1, regex: '(^|\.)activate$'}
-                - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, nthChild: {position: 1, ofRule: {kind: value_argument}}, has: {field: name, regex: '^(options|from|ignoringOtherApps)$'}}}}
-            - has: {nthChild: 1, regex: '^((AppKit(\.|::))?NSApp|(AppKit(\.|::))?NSApplication\.shared)\.(activate|unhide)$'}
-            - has: {nthChild: 1, regex: '(^|\.)activateFileViewerSelecting$'}
-            - all:
-                - has: {nthChild: 1, regex: '(^|\.)(selectFile|showSearchResults)$'}
-                - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, has: {field: name, regex: '^(inFileViewerRootedAtPath|forQueryString)$'}}}}
-            - all:
-                - has:
-                    nthChild: 1
-                    any:
-                        - regex: '^(AppKit(\.|::))?NSWorkspace\.shared\.open$'
-                        - {regex: '^(self\.)?open$', inside: {kind: class_declaration, stopBy: end, has: {field: name, regex: '^(AppKit(\.|::))?NSWorkspace$'}}}
-                - not: {has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, has: {field: name, regex: '^configuration$'}}}}}
-            - all:
-                - has: {nthChild: 1, regex: '(^|\.)(openApplication|open)$'}
-                - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, all: [{has: {field: name, regex: '^configuration$'}}, {has: {field: value, pattern: $CONFIGURATION}}]}}}
-                - not:
-                    inside:
-                        kind: 'function_declaration, init_declaration, source_file'
-                        stopBy: {kind: 'function_declaration, init_declaration, source_file'}
-                        has: {stopBy: end, kind: assignment, pattern: $CONFIGURATION.activates = false}
-            - all:
-                - has: {nthChild: 1, regex: '^AXUIElementPerformAction$'}
-                - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, nthChild: {position: 2, ofRule: {kind: value_argument}}, regex: '^(kAXRaiseAction(?-u:\b)|"AXRaise")'}}}
-            - all:
-                - has: {nthChild: 1, regex: '^AXUIElementSetAttributeValue$'}
-                - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, nthChild: {position: 2, ofRule: {kind: value_argument}}, regex: '^(kAXFrontmostAttribute(?-u:\b)|"AXFrontmost")'}}}
-            - all:
-                - has: {nthChild: 1, regex: '^(NSAppleEventDescriptor(\.init)?|AECreateAppleEvent)$'}
-                - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, has: {stopBy: end, pattern: kAEActivate}}}}
-            - all:
-                - has: {nthChild: 1, regex: '^NSAppleScript(\.init)?$'}
-                - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, all: [{has: {field: name, regex: '^source$'}}, {has: {field: value, regex: '(?-u:\b)activate(?-u:\b)|(?-u:\b)set[\t-\r ]+frontmost(?-u:\b)|AXRaise'}}]}}}
+              - all:
+                    - has: { nthChild: 1, regex: '(^|\.)activate$' }
+                    - has: { kind: call_suffix, has: { kind: value_arguments, has: { kind: value_argument, nthChild: { position: 1, ofRule: { kind: value_argument } }, has: { field: name, regex: '^(options|from|ignoringOtherApps)$' } } } }
+              - has: { nthChild: 1, regex: '^((AppKit(\.|::))?NSApp|(AppKit(\.|::))?NSApplication\.shared)\.(activate|unhide)$' }
+              - has: { nthChild: 1, regex: '(^|\.)activateFileViewerSelecting$' }
+              - all:
+                    - has: { nthChild: 1, regex: '(^|\.)(selectFile|showSearchResults)$' }
+                    - has: { kind: call_suffix, has: { kind: value_arguments, has: { kind: value_argument, has: { field: name, regex: '^(inFileViewerRootedAtPath|forQueryString)$' } } } }
+              - all:
+                    - has:
+                          nthChild: 1
+                          any:
+                              - regex: '^(AppKit(\.|::))?NSWorkspace\.shared\.open$'
+                              - { regex: '^(self\.)?open$', inside: { kind: class_declaration, stopBy: end, has: { field: name, regex: '^(AppKit(\.|::))?NSWorkspace$' } } }
+                    - not: { has: { kind: call_suffix, has: { kind: value_arguments, has: { kind: value_argument, has: { field: name, regex: '^configuration$' } } } } }
+              - all:
+                    - has: { nthChild: 1, regex: '(^|\.)(openApplication|open)$' }
+                    - has: { kind: call_suffix, has: { kind: value_arguments, has: { kind: value_argument, all: [{ has: { field: name, regex: '^configuration$' } }, { has: { field: value, pattern: $CONFIGURATION } }] } } }
+                    - not:
+                          inside:
+                              kind: 'function_declaration, init_declaration, source_file'
+                              stopBy: { kind: 'function_declaration, init_declaration, source_file' }
+                              has: { stopBy: end, kind: assignment, pattern: $CONFIGURATION.activates = false }
+              - all:
+                    - has: { nthChild: 1, regex: '^AXUIElementPerformAction$' }
+                    - has: { kind: call_suffix, has: { kind: value_arguments, has: { kind: value_argument, nthChild: { position: 2, ofRule: { kind: value_argument } }, regex: '^(kAXRaiseAction(?-u:\b)|"AXRaise")' } } }
+              - all:
+                    - has: { nthChild: 1, regex: '^AXUIElementSetAttributeValue$' }
+                    - has: { kind: call_suffix, has: { kind: value_arguments, has: { kind: value_argument, nthChild: { position: 2, ofRule: { kind: value_argument } }, regex: '^(kAXFrontmostAttribute(?-u:\b)|"AXFrontmost")' } } }
+              - all:
+                    - has: { nthChild: 1, regex: '^(NSAppleEventDescriptor(\.init)?|AECreateAppleEvent)$' }
+                    - has: { kind: call_suffix, has: { kind: value_arguments, has: { kind: value_argument, has: { stopBy: end, pattern: kAEActivate } } } }
+              - all:
+                    - has: { nthChild: 1, regex: '^NSAppleScript(\.init)?$' }
+                    - has: { kind: call_suffix, has: { kind: value_arguments, has: { kind: value_argument, all: [{ has: { field: name, regex: '^source$' } }, { has: { field: value, regex: '(?-u:\b)activate(?-u:\b)|(?-u:\b)set[\t-\r ]+frontmost(?-u:\b)|AXRaise' } }] } } }
         - kind: assignment
           pattern: $SITE
           all:
-            - has: {field: target, regex: '\.activates$'}
-            - has: {field: result, regex: '^true$'}
+              - has: { field: target, regex: '\.activates$' }
+              - has: { field: result, regex: '^true$' }
 message: '`$SITE` takes focus from the frontmost application'
 note: 'Call `NSWorkspace.launch` from `Applications`, use Accessibility actions except `AXRaise`, and delete activation calls'

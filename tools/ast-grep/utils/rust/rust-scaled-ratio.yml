@@ -5,34 +5,34 @@ arguments: [numerator, denominator]
 utils:
     multiply:
         kind: binary_expression
-        has: {field: operator, regex: '^\*$'}
+        has: { field: operator, regex: '^\*$' }
     divide:
         kind: binary_expression
-        has: {field: operator, regex: '^/$'}
+        has: { field: operator, regex: '^/$' }
     ratio:
         all:
             - matches: divide
-            - has: {field: left, matches: numerator}
-            - has: {field: right, matches: denominator}
+            - has: { field: left, matches: numerator }
+            - has: { field: right, matches: denominator }
     grouped-ratio:
-        any: [{matches: ratio}, {kind: parenthesized_expression, has: {matches: grouped-ratio}}]
+        any: [{ matches: ratio }, { kind: parenthesized_expression, has: { matches: grouped-ratio } }]
 rule:
     kind: 'binary_expression, call_expression'
     any:
         - all:
-            - matches: divide
-            - has:
-                field: left
-                matches: multiply
-                any: [{has: {field: left, matches: numerator}}, {has: {field: right, matches: numerator}}]
-            - has: {field: right, matches: denominator}
+              - matches: divide
+              - has:
+                    field: left
+                    matches: multiply
+                    any: [{ has: { field: left, matches: numerator } }, { has: { field: right, matches: numerator } }]
+              - has: { field: right, matches: denominator }
         - all:
-            - matches: multiply
-            - any:
-                - all:
-                    - has: {field: right, matches: numerator}
-                    - has: {field: left, matches: divide, has: {field: right, matches: denominator}}
-                - has: {field: left, matches: grouped-ratio}
-                - has: {field: right, matches: grouped-ratio}
+              - matches: multiply
+              - any:
+                    - all:
+                          - has: { field: right, matches: numerator }
+                          - has: { field: left, matches: divide, has: { field: right, matches: denominator } }
+                    - has: { field: left, matches: grouped-ratio }
+                    - has: { field: right, matches: grouped-ratio }
         - pattern: $_VALUE.mul_add($_RATIO, $_OFFSET)
-          has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: grouped-ratio}}
+          has: { field: arguments, has: { nthChild: { position: 1, ofRule: { not: { kind: 'line_comment, block_comment' } } }, matches: grouped-ratio } }

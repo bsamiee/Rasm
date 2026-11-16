@@ -2,7 +2,7 @@ import { dirname, join } from 'node:path';
 import { parse, patch } from '@decimalturn/toml-patch';
 import { joinPathFragments, type ProjectGraph, readCachedProjectGraph, type Tree } from '@nx/devkit';
 import { clean, explain, RANGE_PATTERN, satisfies } from '@renovatebot/pep440';
-import { Array, Cause, Effect, FileSystem, Option, Predicate, Record, Schema, SemVer, Stream, String } from 'effect';
+import { Array, Cause, Effect, FileSystem, Function, Option, Predicate, Record, Schema, SemVer, Stream, String, Struct } from 'effect';
 import { type AfterAllProjectsVersioned, VersionActions } from 'nx/release';
 import { ancestors, run, spawned } from '#/targets';
 import { LOCK, MANIFEST, normalized } from '#/workspace';
@@ -38,6 +38,7 @@ const Semantic = Schema.Struct({
     dev: Schema.Null,
     local: Schema.Null,
 });
+const WithoutPost = Semantic.mapFields(Struct.pick(['post']));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -47,11 +48,7 @@ const semver = (version: string) =>
         Effect.mapBoth({ onFailure: (cause) => new Cause.UnknownError(cause, `${version}: has an epoch, post, dev, or local part, or more than three release numbers, which SemVer cannot state`), onSuccess: SemVer.format }),
     );
 
-const pep440 = (version: string) =>
-    Effect.fromOption(
-        Option.filter(Option.fromNullishOr(clean(version)), (cleaned) => explain(cleaned)?.post === null),
-        () => new Cause.UnknownError(version, `${version}: has no PEP 440 form; use a prerelease id of alpha, beta, or rc`),
-    );
+const pep440 = (version: string) => Effect.fromOption(Option.filter(Option.fromNullishOr(clean(version)), Function.flow(explain, Schema.is(WithoutPost))), () => new Cause.UnknownError(version, `${version}: has no PEP 440 form; use a prerelease id of alpha, beta, or rc`));
 
 const required = (requirement: string) => Option.flatMap(Option.fromNullishOr(REQUIREMENT.exec(requirement)?.groups), ({ name, specifier = '' }) => Option.map(Option.fromNullishOr(name), (stated) => ({ name: normalized(stated), specifier: specifier.trim() })));
 
@@ -66,7 +63,7 @@ const raised = (floors: ReadonlyMap<string, string>, row: string) =>
                     const { operator, version: stated } = clause.groups ?? {};
                     const [held, next] = [explain(stated)?.release ?? [], explain(version)?.release ?? []];
                     const moved = held.length < next.length ? next.slice(0, held.length).join('.') : version;
-                    return stated !== undefined && operator !== undefined && RAISED.has(operator) && (marked < 0 || clause.index < marked) ? `${text.slice(0, clause.index)}${clause[0].replace(stated, moved)}${text.slice(clause.index + clause[0].length)}` : text;
+                    return stated !== undefined && operator !== undefined && RAISED.has(operator) && (marked === -1 || clause.index < marked) ? `${text.slice(0, clause.index)}${clause[0].replace(stated, moved)}${text.slice(clause.index + clause[0].length)}` : text;
                 }, row);
                 return Option.exists(required(written), ({ specifier }) => satisfies(version, specifier)) ? Effect.succeed(written) : Effect.fail(new Cause.UnknownError(row, `${row}: excludes the released ${version} once each lower bound moves to it`));
             },
@@ -74,7 +71,7 @@ const raised = (floors: ReadonlyMap<string, string>, row: string) =>
     );
 
 const project = Effect.fnUntraced(function* (tree: Tree, at: string) {
-    const text = yield* Effect.mapError(Effect.fromNullishOr(tree.read(at, 'utf-8')), () => new Cause.NoSuchElementError(`${at} does not exist`));
+    const text = yield* Effect.mapError(Effect.fromNullishOr(tree.read(at, 'utf8')), () => new Cause.NoSuchElementError(`${at} does not exist`));
     const parsed = yield* Effect.try({ try: (): unknown => parse(text), catch: (cause) => new Cause.UnknownError(cause, `${at} does not read as TOML`) }).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Table)));
     const [decoded, raw] = yield* Effect.all([Schema.decodeUnknownEffect(Project)(parsed), Schema.decodeUnknownEffect(Raw)(parsed)]);
     return { text, parsed, project: decoded.project, groups: decoded['dependency-groups'], table: raw.project };
@@ -182,8 +179,7 @@ const afterAllProjectsVersioned: AfterAllProjectsVersioned = (cwd, { dryRun, roo
                 (lock) => fs.exists(join(cwd, lock)),
                 { concurrency: 'unbounded' },
             );
-            const refresh = (lock: string) => spawned(['uv', 'lock', '--no-locked'], { cwd: join(cwd, dirname(lock)) });
-            const changedFiles = yield* Effect.filter(locks, (lock) => Effect.zipWith(fs.readFileString(join(cwd, lock)), Effect.andThen(refresh(lock), fs.readFileString(join(cwd, lock))), (before, after) => before !== after));
+            const changedFiles = yield* Effect.filter(locks, (lock) => Effect.zipWith(fs.readFileString(join(cwd, lock)), Effect.andThen(spawned(['uv', 'lock', '--no-locked'], { cwd: join(cwd, dirname(lock)) }), fs.readFileString(join(cwd, lock))), (before, after) => before !== after));
             return { changedFiles, deletedFiles: [] };
         }),
     );

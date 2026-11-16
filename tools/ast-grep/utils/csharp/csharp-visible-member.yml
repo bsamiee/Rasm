@@ -2,18 +2,18 @@
 id: csharp-visible-member
 language: csharplang
 utils:
-    enclosing: {kind: 'class_declaration, enum_declaration, interface_declaration, record_declaration, struct_declaration, union_declaration'}
+    enclosing: { kind: 'class_declaration, enum_declaration, interface_declaration, record_declaration, struct_declaration, union_declaration' }
     public:
         any:
-            - has: {kind: modifier, regex: '^(?:public|protected)$', stopBy: {not: {kind: preproc_if}}}
-              not: {has: {kind: modifier, regex: '^private$', stopBy: {not: {kind: preproc_if}}}}
-            - has: {kind: explicit_interface_specifier}
-            - inside: {stopBy: {matches: enclosing}, kind: interface_declaration}
-              not: {has: {kind: modifier, regex: '^(?:private|internal)$', stopBy: {not: {kind: preproc_if}}}}
+            - has: { kind: modifier, regex: '^(?:public|protected)$', stopBy: { not: { kind: preproc_if } } }
+              not: { has: { kind: modifier, regex: '^private$', stopBy: { not: { kind: preproc_if } } } }
+            - has: { kind: explicit_interface_specifier }
+            - inside: { stopBy: { matches: enclosing }, kind: interface_declaration }
+              not: { has: { kind: modifier, regex: '^(?:private|internal)$', stopBy: { not: { kind: preproc_if } } } }
 rule:
     any:
         - kind: 'field_declaration, event_field_declaration, property_declaration, indexer_declaration, event_declaration, method_declaration'
           matches: public
         - kind: parameter
-          inside: {kind: parameter_list, inside: {kind: record_declaration}}
-    not: {inside: {stopBy: end, matches: enclosing, not: {matches: public}}}
+          inside: { kind: parameter_list, inside: { kind: record_declaration } }
+    not: { inside: { stopBy: end, matches: enclosing, not: { matches: public } } }

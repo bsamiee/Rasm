@@ -114,6 +114,8 @@ const read = Effect.fnUntraced(function* (files: readonly string[], context: Cre
     return yield* Effect.partition(matched, (row) => Effect.mapError(Effect.catchCause(one(row), rendered), (error): [string, Error] => [row.file, error]), { concurrency: 'unbounded' });
 });
 
+const placed = (operation: keyof typeof FOLDERS) => `{options.outputPath}/${FOLDERS[operation]}`;
+
 const projects = (declared: readonly Declared[], settings: typeof Options.Type, exec: string) => {
     const holds = (other: Declared, item: Declared) => (other.fields.folders ?? []).some((folder) => !relative(join(other.root, folder), item.root).startsWith('..')) && !(other.fields.references ?? []).some((reference) => reference.name === item.fields.name && !reference.enabled);
     const hosts = Function.memoize((item: Declared) => (item.fields.folders === undefined ? declared.filter((other) => holds(other, item)) : [item]));
@@ -130,7 +132,6 @@ const projects = (declared: readonly Declared[], settings: typeof Options.Type, 
         const packages = item.fields.packages ?? {};
         const linked = Array.dedupe([...[...declared.filter((other) => other !== item && hosts(other).includes(item)), ...uses(item)].map((other) => other.fields.name), ...Object.values(packages).map(({ project }) => project)]);
         const outputPath = settings.outputPath ?? join('{projectRoot}', output);
-        const placed = (operation: keyof typeof FOLDERS) => `{options.outputPath}/${FOLDERS[operation]}`;
         const options = standalone ? { outputPath, descriptor: item.file, hosts: loading.map((other) => other.file), dependencies: uses(item).map((other) => other.file), ...(Record.isEmptyRecord(packages) ? {} : { packages }) } : { outputPath };
         const inputs: NonNullable<TargetConfiguration['inputs']> = [
             item.named,
@@ -153,17 +154,14 @@ const projects = (declared: readonly Declared[], settings: typeof Options.Type, 
             hosts(item).filter((other) => other.host.build !== undefined),
             { onEmpty: () => [], onNonEmpty: (holders) => [{ projects: holders.map((other) => other.fields.name), target: 'build' }] },
         );
-        const operated = (verb: keyof NonNullable<Host['operations']>, extra: TargetConfiguration) =>
-            Option.map(
-                Option.all({ built: Option.fromUndefinedOr(build), operation: Option.fromUndefinedOr(operations[verb]) }),
-                ({ built: { executor }, operation: { command, options: added } }): TargetConfiguration => ({
-                    executor: `${PLUGIN}:${executor}`,
-                    parallelism: false,
-                    ...extra,
-                    options: { ...options, ...added, ...extra.options },
-                    metadata: { description: `${String.capitalize(verb)}s the ${technology} project its ${manifest} declares with ${command}`, help: { command: ran, example: { options: added } } },
-                }),
-            );
+        const operated = (verb: keyof NonNullable<Host['operations']>, extra: TargetConfiguration<Readonly<Record<string, unknown>>>) =>
+            Option.map(Option.all({ built: Option.fromUndefinedOr(build), operation: Option.fromUndefinedOr(operations[verb]) }), ({ built: { executor }, operation: { command, options: added } }): TargetConfiguration => ({
+                executor: `${PLUGIN}:${executor}`,
+                parallelism: false,
+                ...extra,
+                options: { ...options, ...added, ...extra.options },
+                metadata: { description: `${String.capitalize(verb)}s the ${technology} project its ${manifest} declares with ${command}`, help: { command: ran, example: { options: added } } },
+            }));
         const written = [
             ...UndefinedOr.match(operations.pack, {
                 onUndefined: () => [...Array.fromNullishOr(archive).map((extension) => `{options.outputPath}/*${extension}`), ...(build?.outputs?.(item.fields) ?? []).map((at) => join('{projectRoot}', at))],
@@ -186,19 +184,16 @@ const projects = (declared: readonly Declared[], settings: typeof Options.Type, 
         ]);
         const own = Record.map(
             Record.getSomes({
-                build: Option.map(
-                    Option.fromUndefinedOr(build),
-                    ({ executor, command, help = ran, pack }): TargetConfiguration => ({
-                        executor: `${PLUGIN}:${executor}`,
-                        dependsOn: [...Array.fromNullishOr(pack).map(() => 'build--*'), ...required],
-                        options: { ...options, ...Option.getOrUndefined(Option.map(signer, (identity) => ({ identity }))) },
-                        parallelism: !standalone,
-                        cache: written.length > 0,
-                        inputs: engined,
-                        outputs: written,
-                        metadata: { description: `Builds the ${technology} project its ${manifest} declares with ${command}`, help: { command: help, example: { options: { outputPath } } } },
-                    }),
-                ),
+                build: Option.map(Option.fromUndefinedOr(build), ({ executor, command, help = ran, pack }): TargetConfiguration => ({
+                    executor: `${PLUGIN}:${executor}`,
+                    dependsOn: [...Array.fromNullishOr(pack).map(() => 'build--*'), ...required],
+                    options: { ...options, ...Option.getOrUndefined(Option.map(signer, (identity) => ({ identity }))) },
+                    parallelism: !standalone,
+                    cache: written.length > 0,
+                    inputs: engined,
+                    outputs: written,
+                    metadata: { description: `Builds the ${technology} project its ${manifest} declares with ${command}`, help: { command: help, example: { options: { outputPath } } } },
+                })),
                 check: Option.firstSomeOf([
                     operated('check', { cache: true, inputs: engined, dependsOn: required, outputs: [] }),
                     Option.as(

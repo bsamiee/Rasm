@@ -4,15 +4,15 @@ severity: error
 rule:
     kind: call_expression
     all:
-        - has: {nthChild: 1, kind: navigation_expression, regex: '^(_Concurrency(\.|::))?Task(<[^{]*>)?\.sleep$', pattern: $SLEEP}
+        - has: { nthChild: 1, kind: navigation_expression, regex: '^(_Concurrency(\.|::))?Task(<[^{]*>)?\.sleep$', pattern: $SLEEP }
         - has:
-            kind: call_suffix
-            has:
-                kind: value_arguments
-                has:
-                    kind: value_argument
-                    all:
-                        - has: {field: name, regex: '^nanoseconds$'}
-                        - has: {field: value, pattern: $N}
+              kind: call_suffix
+              has:
+                  kind: value_arguments
+                  has:
+                      kind: value_argument
+                      all:
+                          - has: { field: name, regex: '^nanoseconds$' }
+                          - has: { field: value, pattern: $N }
 message: '`$SLEEP(nanoseconds: $N)` takes a raw `UInt64` count in place of a `Duration`'
 note: 'Call `Task.sleep(for: .nanoseconds(<count>))`'

@@ -5,67 +5,67 @@ utils:
     binding:
         kind: switch_expression
         all:
-            - has: {kind: switch_expression_arm, has: {kind: declaration_pattern, nthChild: 1, has: {field: type, kind: implicit_type}}, not: {has: {kind: when_clause}}}
-            - not: {has: {kind: switch_expression_arm, nthChild: {position: 2, ofRule: {kind: switch_expression_arm}}}}
+            - has: { kind: switch_expression_arm, has: { kind: declaration_pattern, nthChild: 1, has: { field: type, kind: implicit_type } }, not: { has: { kind: when_clause } } }
+            - not: { has: { kind: switch_expression_arm, nthChild: { position: 2, ofRule: { kind: switch_expression_arm } } } }
     control:
         any:
             - kind: for_statement, foreach_statement, while_statement, do_statement, switch_statement
             - kind: switch_expression
-              not: {matches: binding}
+              not: { matches: binding }
             - kind: if_statement
-              not: {inside: {kind: if_statement, field: alternative}}
+              not: { inside: { kind: if_statement, field: alternative } }
             - kind: conditional_expression
-              not: {inside: {kind: conditional_expression, field: alternative, stopBy: {not: {kind: parenthesized_expression}}}}
-    scope: {any: [{matches: control}, &declaration {kind: 'lambda_expression, anonymous_method_expression, local_function_statement, method_declaration, constructor_declaration, destructor_declaration, operator_declaration, conversion_operator_declaration, accessor_declaration'}]}
+              not: { inside: { kind: conditional_expression, field: alternative, stopBy: { not: { kind: parenthesized_expression } } } }
+    scope: { any: [{ matches: control }, &declaration { kind: 'lambda_expression, anonymous_method_expression, local_function_statement, method_declaration, constructor_declaration, destructor_declaration, operator_declaration, conversion_operator_declaration, accessor_declaration' }] }
     conditioned:
         any:
-            - inside: {kind: 'if_statement, while_statement, do_statement, for_statement, conditional_expression', field: condition, stopBy: &scope {matches: scope}}
-            - inside: {kind: for_statement, field: initializer, stopBy: *scope}
-            - inside: {kind: for_statement, field: update, stopBy: *scope}
-            - inside: {kind: foreach_statement, field: right, stopBy: *scope}
-            - inside: {kind: switch_statement, field: value, stopBy: *scope}
+            - inside: { kind: 'if_statement, while_statement, do_statement, for_statement, conditional_expression', field: condition, stopBy: &scope { matches: scope } }
+            - inside: { kind: for_statement, field: initializer, stopBy: *scope }
+            - inside: { kind: for_statement, field: update, stopBy: *scope }
+            - inside: { kind: foreach_statement, field: right, stopBy: *scope }
+            - inside: { kind: switch_statement, field: value, stopBy: *scope }
             - nthChild: 1
-              inside: {matches: control, kind: switch_expression}
-            - inside: {nthChild: 1, inside: {matches: control, kind: switch_expression}, stopBy: *scope}
+              inside: { matches: control, kind: switch_expression }
+            - inside: { nthChild: 1, inside: { matches: control, kind: switch_expression }, stopBy: *scope }
     level:
         matches: control
-        not: {matches: conditioned}
+        not: { matches: conditioned }
     body:
         any:
-            - inside: {matches: level, field: body}
-            - inside: {matches: level, field: consequence}
-            - inside: {matches: level, field: alternative}
-            - {kind: switch_expression_arm, inside: {matches: level}}
+            - inside: { matches: level, field: body }
+            - inside: { matches: level, field: consequence }
+            - inside: { matches: level, field: alternative }
+            - { kind: switch_expression_arm, inside: { matches: level } }
     within-first:
         any:
-            - {matches: body, inside: {matches: level}}
-            - inside: {matches: body, stopBy: *declaration, inside: {matches: level}}
-    second: {matches: level, all: [{matches: within-first}]}
+            - { matches: body, inside: { matches: level } }
+            - inside: { matches: body, stopBy: *declaration, inside: { matches: level } }
+    second: { matches: level, all: [{ matches: within-first }] }
     within-second:
         any:
-            - {matches: body, inside: {matches: second}}
-            - inside: {matches: body, stopBy: *declaration, inside: {matches: second}}
-    third: {matches: level, all: [{matches: within-second}]}
+            - { matches: body, inside: { matches: second } }
+            - inside: { matches: body, stopBy: *declaration, inside: { matches: second } }
+    third: { matches: level, all: [{ matches: within-second }] }
     within-third:
         any:
-            - {matches: body, inside: {matches: third}}
-            - inside: {matches: body, stopBy: *declaration, inside: {matches: third}}
-    fourth: {matches: level, all: [{matches: within-third}]}
+            - { matches: body, inside: { matches: third } }
+            - inside: { matches: body, stopBy: *declaration, inside: { matches: third } }
+    fourth: { matches: level, all: [{ matches: within-third }] }
     within-fourth:
         any:
-            - {matches: body, inside: {matches: fourth}}
-            - inside: {matches: body, stopBy: *declaration, inside: {matches: fourth}}
+            - { matches: body, inside: { matches: fourth } }
+            - inside: { matches: body, stopBy: *declaration, inside: { matches: fourth } }
 rule:
     pattern: $SCOPE
     all:
         - matches: fourth
-        - not: {matches: within-fourth}
+        - not: { matches: within-fourth }
         - inside:
-            matches: body
-            stopBy: *declaration
-            inside: {matches: level, pattern: $OUTER, not: {matches: within-first}}
+              matches: body
+              stopBy: *declaration
+              inside: { matches: level, pattern: $OUTER, not: { matches: within-first } }
 labels:
-    SCOPE: {style: primary, message: Fourth nesting level}
-    OUTER: {style: secondary, message: First nesting level}
+    SCOPE: { style: primary, message: Fourth nesting level }
+    OUTER: { style: secondary, message: First nesting level }
 message: Nesting reaches a fourth level
 note: 'Rebuild nested decisions or loops as one switch expression, query expression, or pipeline over their inputs'

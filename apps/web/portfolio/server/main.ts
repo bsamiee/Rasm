@@ -16,15 +16,17 @@ import { catalog } from '#/server/catalog';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-serveNode(hosting, Sites.identity, (env) =>
-    app(
-        env.OWNER_EMAIL,
-        Layer.mergeAll(
-            Catalog.layer(
-                catalog,
-                Sqlite.layer((names) => SqliteClient.layer({ filename: env.DB, ...names })),
+runMain(
+    serveNode(hosting, Sites.identity, (env) =>
+        app(
+            env.OWNER_EMAIL,
+            Layer.mergeAll(
+                Catalog.layer(
+                    catalog,
+                    Sqlite.layer((names) => SqliteClient.layer({ filename: env.DB, ...names })),
+                ),
+                s3Storage({ bucket: env.BUCKET, uploadPrefix: App.uploads }, { forcePathStyle: true }),
             ),
-            s3Storage({ bucket: env.BUCKET, uploadPrefix: App.uploads }, { forcePathStyle: true }),
         ),
-    ),
-).pipe(Layer.provide(layerConfig(createServer, { port: Config.Port(App.bundle.portVariable) })), Layer.provide(layerNodeFromConfig({ resource: { serviceName: hosting.name }, target: 'stderr' })), Layer.launch, runMain);
+    ).pipe(Layer.provide(layerConfig(createServer, { port: Config.Port(App.bundle.portVariable) })), Layer.provide(layerNodeFromConfig({ resource: { serviceName: hosting.name }, target: 'stderr' })), Layer.launch),
+);

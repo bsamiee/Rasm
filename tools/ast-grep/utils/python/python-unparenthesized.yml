@@ -7,6 +7,6 @@ utils:
         any:
             - matches: value
             - kind: parenthesized_expression
-              has: {matches: wrapped}
+              has: { matches: wrapped }
 rule:
     matches: wrapped

@@ -8,24 +8,24 @@ import type { methods, referentialActions } from '#/reconcile';
 
 type Present<F extends Fields> = string extends keyof F ? string : { readonly [K in keyof F]: null extends F[K]['Encoded'] ? never : K }[keyof F] & string;
 type Method = (typeof methods)[number];
-type Tokenizer = Data.TaggedEnum<{ Trigram: Record<never, never>; Words: { readonly configuration: string; readonly filters: readonly string[]; readonly tokenize: string } }>;
+type Tokenizer = Data.TaggedEnum<{ Trigram: object; Words: { readonly configuration: string; readonly filters: readonly string[]; readonly tokenize: string } }>;
 interface RelationOptions<F extends Fields> {
     readonly key?: Array.NonEmptyReadonlyArray<Present<F>>;
     readonly defaults?: { readonly [K in keyof F]?: Exclude<F[K]['Encoded'], Uint8Array | readonly number[]> };
     readonly projections?: { readonly [K in FieldName<F>]?: { readonly from: FieldName<F>; readonly path: Array.NonEmptyReadonlyArray<string> } | { readonly where: Where<F> } };
-    readonly indexes?: ReadonlyArray<{
+    readonly indexes?: readonly {
         readonly columns: Array.NonEmptyReadonlyArray<FieldName<F> | { readonly casefold: FieldName<F> }>;
         readonly unique?: true;
         readonly where?: Where<F>;
         readonly include?: readonly FieldName<F>[];
         readonly method?: Method;
-    }>;
-    readonly references?: ReadonlyArray<{ readonly columns: Array.NonEmptyReadonlyArray<FieldName<F>>; readonly table: Relation; readonly onDelete?: (typeof referentialActions)[number] }>;
+    }[];
+    readonly references?: readonly { readonly columns: Array.NonEmptyReadonlyArray<FieldName<F>>; readonly table: Relation; readonly onDelete?: (typeof referentialActions)[number] }[];
     readonly search?: { readonly columns: Array.NonEmptyReadonlyArray<FieldName<F>>; readonly tokenizer: Tokenizer };
     readonly withoutRowid?: true;
     readonly tenant?: { readonly column: Present<F>; readonly setting: string };
-    readonly mergeTree?: { readonly expires?: { readonly column: Present<F>; readonly after: Duration.Input }; readonly version?: Present<F>; readonly codecs?: { readonly [K in FieldName<F>]?: Array.NonEmptyReadonlyArray<string> } };
-    readonly renamed?: { readonly [K in FieldName<F>]?: string };
+    readonly mergeTree?: { readonly expires?: { readonly column: Present<F>; readonly after: Duration.Input }; readonly version?: Present<F>; readonly codecs?: Readonly<Partial<Record<FieldName<F>, Array.NonEmptyReadonlyArray<string>>>> };
+    readonly renamed?: Readonly<Partial<Record<FieldName<F>, string>>>;
     readonly renamedFrom?: string;
     readonly retype?: readonly FieldName<F>[];
     readonly retired?: readonly string[];
@@ -57,12 +57,12 @@ class Relation<const Shape extends Fields = Fields, const Options extends Relati
     readonly search: Option.Option<{ readonly columns: Array.NonEmptyReadonlyArray<Column>; readonly tokenizer: Tokenizer }>;
     readonly withoutRowid: boolean;
     readonly tenant: Option.Option<{ readonly column: Column; readonly setting: string }>;
-    readonly mergeTree: { readonly expires: Option.Option<{ readonly column: string; readonly after: Duration.Duration }>; readonly version: Option.Option<string>; readonly codecs: { readonly [column: string]: Array.NonEmptyReadonlyArray<string> } };
+    readonly mergeTree: { readonly expires: Option.Option<{ readonly column: string; readonly after: Duration.Duration }>; readonly version: Option.Option<string>; readonly codecs: Readonly<Record<string, Array.NonEmptyReadonlyArray<string>>> };
     readonly retired: { readonly columns: readonly string[]; readonly indexes: readonly (readonly string[])[] };
     readonly paths: readonly string[];
     readonly queries: ReturnType<typeof queries<Shape>>;
 }> {
-    static readonly make = <const F extends Fields, const O extends RelationOptions<F> = Record<never, never>>(name: string, fields: F, ...[options]: 'id' extends Present<F> ? readonly [options?: O] : readonly [options: O & { readonly key: Array.NonEmptyReadonlyArray<Present<F>> }]): Relation<F, O> => {
+    static readonly make = <const F extends Fields, const O extends RelationOptions<F> = object>(name: string, fields: F, ...[options]: 'id' extends Present<F> ? readonly [options?: O] : readonly [options: O & { readonly key: Array.NonEmptyReadonlyArray<Present<F>> }]): Relation<F, O> => {
         const [schema, declared] = [Schema.Struct(fields), { name, ...definition<F>(fields, options ?? {}, Function.identity) }];
         return new Relation<F, O>({ schema, options: Option.fromUndefinedOr(options), ...declared, queries: queries(schema, declared) });
     };
@@ -72,11 +72,11 @@ class Relation<const Shape extends Fields = Fields, const Options extends Relati
     static readonly select = <F extends Fields, O extends RelationOptions<F>>(
         relation: Relation<F, O>,
         where: Selection<F>,
-        { order = [], limit, per }: { readonly order?: ReadonlyArray<FieldName<F> | { readonly descending: FieldName<F> }> } & ({ readonly limit?: number; readonly per?: never } | { readonly limit: number; readonly per: FieldName<F> }) = {},
+        { order = [], limit, per }: { readonly order?: readonly (FieldName<F> | { readonly descending: FieldName<F> })[] } & ({ readonly limit?: number; readonly per?: never } | { readonly limit: number; readonly per: FieldName<F> }) = {},
     ) => relation.queries.select({ where, order, limit: Option.fromUndefinedOr(limit), per: Option.fromUndefinedOr(per) });
     static readonly remove = <F extends Fields, O extends RelationOptions<F>>(relation: Relation<F, O>, where: Selection<F>) => relation.queries.remove(where);
     static readonly search = <F extends Fields, O extends RelationOptions<F> & { readonly search: NonNullable<RelationOptions<F>['search']> }>(relation: Relation<F, O>, text: string, limit: number, marks?: { readonly open: string; readonly close: string }) =>
-        Effect.flatMap(Effect.orDie(Effect.fromOption(relation.queries.search)), (find) => find({ text, pattern: `%${text.replaceAll(/[\\%_]/gu, '\\$&')}%`, count: limit, marks: Option.fromUndefinedOr(marks) }));
+        Effect.flatMap(Effect.orDie(Effect.fromOption(relation.queries.search)), (find) => find({ text, pattern: `%${text.replaceAll(/[\\%_]/gu, String.raw`\$&`)}%`, count: limit, marks: Option.fromUndefinedOr(marks) }));
     static readonly withTenant = Effect.fnUntraced(function* <F extends Fields, O extends RelationOptions<F> & { readonly tenant: NonNullable<RelationOptions<F>['tenant']> }, A, E, R>(relation: Relation<F, O>, id: F[O['tenant']['column']]['Type'], effect: Effect.Effect<A, E, R>) {
         const { column, setting } = yield* Effect.orDie(Effect.fromOption(relation.tenant));
         const [sql, encoded] = yield* Effect.all([SqlClient.SqlClient, Schema.encodeEffect(column.schema)(id)]);
@@ -147,7 +147,7 @@ const definition = <F extends Fields>(fields: F, options: RelationOptions<F>, re
 const selecting = (
     { sql, owner, prefix, unqualified, reads, keys, where: matching }: ReturnType<typeof Rows.fragments>,
     columns: Relation['columns'],
-    { where, order, limit, per }: { readonly where: Parameters<ReturnType<typeof Rows.fragments>['where']>[0]; readonly order: ReadonlyArray<string | { readonly descending: string }>; readonly limit: Option.Option<number>; readonly per: Option.Option<string> },
+    { where, order, limit, per }: { readonly where: Parameters<ReturnType<typeof Rows.fragments>['where']>[0]; readonly order: readonly (string | { readonly descending: string })[]; readonly limit: Option.Option<number>; readonly per: Option.Option<string> },
 ) => {
     const ordering = (scope: Statement.Fragment) =>
         sql.csv([
@@ -165,13 +165,13 @@ const selecting = (
             sql`SELECT ${reads(outer)} FROM (SELECT *, ROW_NUMBER() OVER (PARTITION BY ${sql(by.name)} ORDER BY ${ordering(prefix)}) AS ${sql(Rows.flags.position)} FROM ${owner} WHERE ${filter}) t WHERE t.${sql(Rows.flags.position)} <= ${count} ORDER BY ${sql.csv([sql.join('', false)([outer, Statement.fragment([sql(by.name)])]), ordering(outer)])}`,
     });
 };
+const wire = (entry: Column) => (entry.kind === 'blob' ? Schema.encodeTo(Schema.NullOr(Schema.Uint8ArrayFromHex))(entry.schema) : entry.schema);
+const list = (entry: Column) => Schema.fromJsonString(Schema.NonEmptyArray(wire(entry)));
 const queries = <F extends Fields>(schema: Schema.Struct<F>, relation: Pick<Relation, 'name' | 'columns' | 'key' | 'search'>) => {
     const run = <A, E>(statement: (context: ReturnType<typeof Rows.fragments>) => Effect.Effect<A, E, SqlClient.SqlClient>) => Effect.flatMap(Effect.all([SqlClient.SqlClient, Rows]), ([sql, rows]) => statement(Rows.fragments(sql, rows, relation)));
     const all = Object.values<Column>(relation.columns);
-    const wire = (entry: Column) => (entry.kind === 'blob' ? Schema.encodeTo(Schema.NullOr(Schema.Uint8ArrayFromHex))(entry.schema) : entry.schema);
     const written = all.filter(({ projection }) => Option.isNone(projection));
     const keyed = written.filter(({ name }) => relation.key.includes(name)).map(Struct.get('name'));
-    const list = (entry: Column) => Schema.fromJsonString(Schema.NonEmptyArray(wire(entry)));
     const Batch = Schema.Array(Schema.Struct(Record.fromIterableWith(written, (entry) => [entry.name, wire(entry)])));
     const Selection = Schema.Struct(Record.fromIterableWith(all, (entry) => [entry.name, Schema.optionalKey(Schema.Union([list(entry), Schema.Struct({ not: list(entry) })]))]));
     return {

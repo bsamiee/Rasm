@@ -21,12 +21,12 @@ const EXECUTE_SCRIPT = 'execute_script' as const satisfies Tag;
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const names = (installation: Installation) => Array.of(installation.name);
+const linked = (tag: Tag) => (installation: Installation, peers: readonly Peer[]) => Option.filter(library(installation), ({ Contract }) => Contract.requests.has(tag) && peers.some(Peer.serves(installation.url)));
 const runningIn = (instances: readonly RunningInstance[]) => (installation: Installation) => instances.some(Installation.runs(installation));
 const routes = Effect.fnUntraced(function* ({ answering }: Effect.Success<typeof status>, links: Effect.Success<typeof listening>) {
     const { installed: listing, instances: tracked } = yield* Adobe;
     const current = Effect.all({ installed: listing, instances: SubscriptionRef.get(tracked), peers: links.peers });
     const registered = yield* current;
-    const linked = (tag: Tag) => (installation: Installation, peers: readonly Peer[]) => Option.filter(library(installation), ({ Contract }) => Contract.requests.has(tag) && peers.some(Peer.serves(installation.url)));
     const connected =
         (installation: Installation) =>
         <Owner>(owner: Owner) =>

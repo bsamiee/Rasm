@@ -3,6 +3,6 @@ id: typescript-package-reference
 language: tsxlang
 rule:
     any:
-        - matches: {typescript-import-reference: {source: {regex: '^[^.]'}, exported: {regex: '.'}}}
+        - matches: { typescript-import-reference: { source: { regex: '^[^.]' }, exported: { regex: '.' } } }
         - kind: member_expression
-          has: {field: object, matches: typescript-package-reference}
+          has: { field: object, matches: typescript-package-reference }

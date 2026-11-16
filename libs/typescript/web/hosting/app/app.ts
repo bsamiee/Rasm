@@ -3,22 +3,23 @@ import { type ByteSize, Data, type Duration, type Record, type Schema, String } 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Binding = Data.TaggedEnum<{
-    sqlite: Record.ReadonlyRecord<never, never>;
-    postgres: Record.ReadonlyRecord<never, never>;
+    sqlite: object;
+    postgres: object;
     bucket: {
         readonly abort: Duration.Duration;
         readonly expire: Record.ReadonlyRecord<keyof typeof App.modes, Record.ReadonlyRecord<string, Duration.Duration>>;
         readonly infrequentAccess: Record.ReadonlyRecord<string, Duration.Duration>;
         readonly cors: readonly { readonly origins: readonly string[]; readonly methods: readonly ('GET' | 'PUT' | 'POST' | 'DELETE' | 'HEAD')[]; readonly headers: readonly string[]; readonly exposed: readonly string[]; readonly age: Duration.Duration }[];
     };
-    secret: Record.ReadonlyRecord<never, never>;
+    secret: object;
     text: { readonly value: string };
     json: { readonly value: Schema.MutableJson };
 }>;
-type Target = Data.TaggedEnum<{ Cloudflare: Record.ReadonlyRecord<never, never>; Machine: { readonly host: string } }>;
+type Target = Data.TaggedEnum<{ Cloudflare: object; Machine: { readonly host: string } }>;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
+// oxlint-disable-next-line typescript/no-unnecessary-type-parameters -- `const E` keeps the literal env keys `worker()` and `serveNode()` recover through `App<E>`
 class App<const E extends Record.ReadonlyRecord<string, Binding> = Record.ReadonlyRecord<string, Binding>> extends Data.Class<{
     readonly name: string;
     readonly env: E;

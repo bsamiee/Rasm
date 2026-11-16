@@ -57,7 +57,7 @@ const decisionOf = Effect.fnUntraced(function* <E, R>(command: string, verdicts:
     const edits = editsOf(verdicts);
     const observes = verdicts.some(Verdict.$is('Observe'));
     const background = verdicts.some(Verdict.$is('Background'));
-    const [refused] = verdicts.filter(Verdict.$is('Refuse'));
+    const refused = verdicts.find(Verdict.$is('Refuse'));
     if (refused !== undefined) {
         return Decision.cases.Deny.make({ reason: refused.reason });
     }

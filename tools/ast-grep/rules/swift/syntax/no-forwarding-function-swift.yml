@@ -6,160 +6,160 @@ utils:
         nthChild: 1
         pattern: $F
         any:
-            - {kind: simple_identifier, pattern: $FN}
-            - {kind: navigation_expression, matches: swift-member-reference, has: {field: suffix, has: {field: suffix, pattern: $FN}}}
-            - {matches: swift-implicit-member, has: {field: target, pattern: $FN}}
+            - { kind: simple_identifier, pattern: $FN }
+            - { kind: navigation_expression, matches: swift-member-reference, has: { field: suffix, has: { field: suffix, pattern: $FN } } }
+            - { matches: swift-implicit-member, has: { field: target, pattern: $FN } }
     call-arguments:
         kind: value_arguments
         pattern: $ARGS
-        has: {regex: '^[(\[]$'}
+        has: { regex: '^[(\[]$' }
     declared-call:
         kind: call_expression
         all:
-            - has: {matches: declared-callee}
+            - has: { matches: declared-callee }
             - has:
-                kind: call_suffix
-                not: {has: {kind: lambda_literal}}
-                has:
-                    matches: call-arguments
-                    not: {has: {kind: value_argument, not: {any: [{has: {field: value, matches: swift-fixed-value}}, {matches: swift-fixed-value}]}}}
+                  kind: call_suffix
+                  not: { has: { kind: lambda_literal } }
+                  has:
+                      matches: call-arguments
+                      not: { has: { kind: value_argument, not: { any: [{ has: { field: value, matches: swift-fixed-value } }, { matches: swift-fixed-value }] } } }
     declared-statement:
         any:
             - matches: declared-call
             - kind: 'try_expression, await_expression, control_transfer_statement'
-              has: {matches: declared-statement}
+              has: { matches: declared-statement }
             - kind: assignment
               all:
-                - inside: {kind: init_declaration, stopBy: end}
-                - has: {field: target, has: {kind: self_expression}}
-                - has: {field: result, matches: declared-statement}
+                  - inside: { kind: init_declaration, stopBy: end }
+                  - has: { field: target, has: { kind: self_expression } }
+                  - has: { field: result, matches: declared-statement }
     sole-declared:
         matches: swift-sole-statement
-        has: {matches: declared-statement}
+        has: { matches: declared-statement }
     declared-body:
         any:
-            - has: {field: body, has: {matches: sole-declared}}
-            - has: {kind: computed_property, not: {has: {kind: 'computed_setter, computed_modify'}}, any: [{has: {matches: sole-declared}}, {has: {kind: computed_getter, has: {matches: sole-declared}}}]}
+            - has: { field: body, has: { matches: sole-declared } }
+            - has: { kind: computed_property, not: { has: { kind: 'computed_setter, computed_modify' } }, any: [{ has: { matches: sole-declared } }, { has: { kind: computed_getter, has: { matches: sole-declared } } }] }
     unforwarded-parameter:
         kind: parameter
         all:
-            - has: {field: name, kind: simple_identifier, pattern: $P}
-            - not: {inside: {kind: &declaration 'function_declaration, init_declaration, subscript_declaration', has: {stopBy: end, kind: value_argument, has: {field: value, pattern: $P}}}}
+            - has: { field: name, kind: simple_identifier, pattern: $P }
+            - not: { inside: { kind: &declaration 'function_declaration, init_declaration, subscript_declaration', has: { stopBy: end, kind: value_argument, has: { field: value, pattern: $P } } } }
     fixed-argument:
         kind: value_argument
         all:
-            - has: {field: value, pattern: $V}
-            - not: {inside: {stopBy: {kind: *declaration}, kind: *declaration, has: {kind: parameter, has: {field: name, kind: simple_identifier, pattern: $V}}}}
+            - has: { field: value, pattern: $V }
+            - not: { inside: { stopBy: { kind: *declaration }, kind: *declaration, has: { kind: parameter, has: { field: name, kind: simple_identifier, pattern: $V } } } }
     copy-with:
         kind: call_expression
         all:
-            - has: {nthChild: 1, kind: simple_identifier, regex: '^[A-Z]'}
-            - has: {stopBy: end, matches: fixed-argument, has: {field: value, kind: 'simple_identifier, navigation_expression'}}
+            - has: { nthChild: 1, kind: simple_identifier, regex: '^[A-Z]' }
+            - has: { stopBy: end, matches: fixed-argument, has: { field: value, kind: 'simple_identifier, navigation_expression' } }
     plain-parameters:
         kind: *declaration
         not:
             any:
-                - has: {field: default_value, pattern: $_}
-                - has: {kind: parameter, has: {regex: '^\.\.\.$'}}
+                - has: { field: default_value, pattern: $_ }
+                - has: { kind: parameter, has: { regex: '^\.\.\.$' } }
     super-argument:
         kind: value_argument
         any:
             - all:
-                - has: {field: name, has: {kind: simple_identifier, pattern: $SUPER_LABEL}}
-                - has: {field: value, kind: simple_identifier, pattern: $SUPER_VALUE}
-                - inside:
-                    kind: init_declaration
-                    stopBy: end
-                    has:
-                        kind: parameter
-                        any:
-                            - all: [{has: {field: external_name, pattern: $SUPER_LABEL}}, {has: {field: name, kind: simple_identifier, pattern: $SUPER_VALUE}}]
-                            - all: [{not: {has: {field: external_name, kind: simple_identifier}}}, {has: {field: name, kind: simple_identifier, all: [{pattern: $SUPER_LABEL}, {pattern: $SUPER_VALUE}]}}]
+                  - has: { field: name, has: { kind: simple_identifier, pattern: $SUPER_LABEL } }
+                  - has: { field: value, kind: simple_identifier, pattern: $SUPER_VALUE }
+                  - inside:
+                        kind: init_declaration
+                        stopBy: end
+                        has:
+                            kind: parameter
+                            any:
+                                - all: [{ has: { field: external_name, pattern: $SUPER_LABEL } }, { has: { field: name, kind: simple_identifier, pattern: $SUPER_VALUE } }]
+                                - all: [{ not: { has: { field: external_name, kind: simple_identifier } } }, { has: { field: name, kind: simple_identifier, all: [{ pattern: $SUPER_LABEL }, { pattern: $SUPER_VALUE }] } }]
             - all:
-                - not: {has: {field: name, kind: value_argument_label}}
-                - has: {field: value, kind: simple_identifier, pattern: $SUPER_VALUE}
-                - inside: {kind: init_declaration, stopBy: end, has: {kind: parameter, all: [{has: {field: external_name, pattern: _}}, {has: {field: name, kind: simple_identifier, pattern: $SUPER_VALUE}}]}}
+                  - not: { has: { field: name, kind: value_argument_label } }
+                  - has: { field: value, kind: simple_identifier, pattern: $SUPER_VALUE }
+                  - inside: { kind: init_declaration, stopBy: end, has: { kind: parameter, all: [{ has: { field: external_name, pattern: _ } }, { has: { field: name, kind: simple_identifier, pattern: $SUPER_VALUE } }] } }
     super-init:
         kind: call_expression
         all:
-            - has: {nthChild: 1, regex: '^super\.init$'}
-            - has: {kind: call_suffix, not: {has: {kind: lambda_literal}}}
-            - not: {has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, not: {matches: super-argument}}}}}
+            - has: { nthChild: 1, regex: '^super\.init$' }
+            - has: { kind: call_suffix, not: { has: { kind: lambda_literal } } }
+            - not: { has: { kind: call_suffix, has: { kind: value_arguments, has: { kind: value_argument, not: { matches: super-argument } } } } }
     super-init-statement:
         any:
             - matches: super-init
             - kind: await_expression
-              has: {matches: super-init}
+              has: { matches: super-init }
             - kind: try_expression
               all:
-                - has: {kind: try_operator, regex: '^try$'}
-                - has: {any: [{matches: super-init}, {kind: await_expression, has: {matches: super-init}}]}
+                  - has: { kind: try_operator, regex: '^try$' }
+                  - has: { any: [{ matches: super-init }, { kind: await_expression, has: { matches: super-init } }] }
     super-init-body:
         matches: swift-sole-statement
-        has: {matches: super-init-statement}
+        has: { matches: super-init-statement }
     unneeded-override:
         kind: init_declaration
         all:
-            - has: {kind: modifiers, has: {kind: member_modifier, regex: '^override$'}}
-            - not: {has: {kind: modifiers, any: [{has: {kind: attribute}}, {has: {kind: visibility_modifier, regex: '^private$'}}]}}
-            - not: {has: {regex: '^[?!]$'}}
-            - has: {field: body, has: {matches: super-init-body}}
+            - has: { kind: modifiers, has: { kind: member_modifier, regex: '^override$' } }
+            - not: { has: { kind: modifiers, any: [{ has: { kind: attribute } }, { has: { kind: visibility_modifier, regex: '^private$' } }] } }
+            - not: { has: { regex: '^[?!]$' } }
+            - has: { field: body, has: { matches: super-init-body } }
     forced-required:
         kind: init_declaration
         all:
-            - has: {kind: modifiers, has: {regex: '^required$'}}
-            - has: {field: body, has: {matches: super-init-body}}
-            - inside: {kind: class_body, has: {kind: init_declaration, not: {has: {kind: modifiers, has: {regex: '^(required|convenience)$'}}}}}
+            - has: { kind: modifiers, has: { regex: '^required$' } }
+            - has: { field: body, has: { matches: super-init-body } }
+            - inside: { kind: class_body, has: { kind: init_declaration, not: { has: { kind: modifiers, has: { regex: '^(required|convenience)$' } } } } }
     assigned-field:
         kind: directly_assignable_expression
         any:
-            - has: {kind: simple_identifier, pattern: $FIELD}
-            - has: {kind: navigation_expression, has: {field: target, kind: self_expression}, all: [{has: {field: suffix, has: {field: suffix, pattern: $FIELD}}}]}
+            - has: { kind: simple_identifier, pattern: $FIELD }
+            - has: { kind: navigation_expression, has: { field: target, kind: self_expression }, all: [{ has: { field: suffix, has: { field: suffix, pattern: $FIELD } } }] }
     parameter-read:
         kind: simple_identifier
         pattern: $PARAM
-        inside: {kind: init_declaration, stopBy: end, has: {kind: parameter, has: {field: name, pattern: $PARAM}}}
+        inside: { kind: init_declaration, stopBy: end, has: { kind: parameter, has: { field: name, pattern: $PARAM } } }
     constant-result:
         matches: swift-fixed-value
-        not: {any: [{matches: parameter-read}, {has: {stopBy: end, matches: parameter-read}}]}
+        not: { any: [{ matches: parameter-read }, { has: { stopBy: end, matches: parameter-read } }] }
     field-statements:
         kind: statements
         all:
-            - not: {has: {pattern: $_, not: {kind: 'assignment, comment, multiline_comment'}}}
-            - not: {has: {kind: assignment, not: {has: {field: result, any: [{matches: parameter-read}, {matches: constant-result}]}}}}
+            - not: { has: { pattern: $_, not: { kind: 'assignment, comment, multiline_comment' } } }
+            - not: { has: { kind: assignment, not: { has: { field: result, any: [{ matches: parameter-read }, { matches: constant-result }] } } } }
             - has:
-                kind: assignment
-                all:
-                    - has: {field: result, matches: constant-result}
-                    - has: {field: target, matches: assigned-field}
+                  kind: assignment
+                  all:
+                      - has: { field: result, matches: constant-result }
+                      - has: { field: target, matches: assigned-field }
 rule:
     not:
         any:
-            - has: {kind: modifiers, has: {kind: attribute, regex: '^@(objc|IBAction)(?-u:\b)'}}
-            - inside: {kind: 'class_body, enum_class_body', inside: {kind: class_declaration, has: {kind: modifiers, has: {kind: attribute, regex: '^@resultBuilder$'}}}}
+            - has: { kind: modifiers, has: { kind: attribute, regex: '^@(objc|IBAction)(?-u:\b)' } }
+            - inside: { kind: 'class_body, enum_class_body', inside: { kind: class_declaration, has: { kind: modifiers, has: { kind: attribute, regex: '^@resultBuilder$' } } } }
     any:
         - matches: plain-parameters
           all:
-            - matches: declared-body
-            - not: {any: [{matches: unneeded-override}, {matches: forced-required}]}
-            - not: {has: {matches: unforwarded-parameter}}
-            - not: {has: {stopBy: end, matches: copy-with}}
-            - any:
-                - not: {has: {field: name, kind: function_name, pattern: $FN}}
-                - has: {stopBy: end, matches: fixed-argument}
-                - has: {field: body, has: {stopBy: end, kind: navigation_expression, has: {field: target, not: {kind: 'self_expression, super_expression'}}}}
+              - matches: declared-body
+              - not: { any: [{ matches: unneeded-override }, { matches: forced-required }] }
+              - not: { has: { matches: unforwarded-parameter } }
+              - not: { has: { stopBy: end, matches: copy-with } }
+              - any:
+                    - not: { has: { field: name, kind: function_name, pattern: $FN } }
+                    - has: { stopBy: end, matches: fixed-argument }
+                    - has: { field: body, has: { stopBy: end, kind: navigation_expression, has: { field: target, not: { kind: 'self_expression, super_expression' } } } }
         - kind: init_declaration
           all:
-            - has: {field: body, has: {matches: field-statements}}
-            - inside:
-                kind: class_body
-                has: {kind: init_declaration, has: {kind: parameter, has: {field: name, pattern: $FIELD}}}
-                inside: {kind: class_declaration, has: {field: name, pattern: $F}}
+              - has: { field: body, has: { matches: field-statements } }
+              - inside:
+                    kind: class_body
+                    has: { kind: init_declaration, has: { kind: parameter, has: { field: name, pattern: $FIELD } } }
+                    inside: { kind: class_declaration, has: { field: name, pattern: $F } }
         - kind: 'function_declaration, subscript_declaration'
           all:
-            - not: {has: {kind: parameter}}
-            - any:
-                - has: {field: body, has: {matches: &read {swift-forwarded-member: {read: {pattern: $F}}}}}
-                - has: {kind: computed_property, not: {has: {kind: 'computed_setter, computed_modify'}}, any: [{has: {matches: *read}}, {has: {kind: computed_getter, has: {matches: *read}}}]}
+              - not: { has: { kind: parameter } }
+              - any:
+                    - has: { field: body, has: { matches: &read { swift-forwarded-member: { read: { pattern: $F } } } } }
+                    - has: { kind: computed_property, not: { has: { kind: 'computed_setter, computed_modify' } }, any: [{ has: { matches: *read } }, { has: { kind: computed_getter, has: { matches: *read } } }] }
 message: 'Declaration passes or assigns its parameters and fixed values unchanged where `$F` already takes them'
 note: 'Call `<callee>` or read `<value>.<member>` at each use, keep one memberwise init, move a conformance its declaration satisfies to the forwarded type'

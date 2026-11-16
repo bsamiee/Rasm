@@ -64,8 +64,8 @@ const described = (
 ) => {
     const placed = (indexes: readonly number[]) => indexes.slice(0, 1).flatMap((index) => Array.fromNullishOr(tree.directories[index]));
     const owned = targetIndexes.flatMap((index) => Array.fromNullishOr(tree.targets[index]));
-    const needed = owned.flatMap(({ dependencies = [], backtraceGraph: { nodes } }) => dependencies.filter(({ backtrace = -1 }) => nodes[backtrace]?.command !== undefined).map(({ id }) => id));
-    const linked = tree.targets.filter(({ id, projectIndex }) => needed.includes(id) && tree.projects[projectIndex]?.name !== name).flatMap(({ projectIndex }) => placed(tree.projects[projectIndex]?.directoryIndexes ?? []));
+    const needed = new Set(owned.flatMap(({ dependencies = [], backtraceGraph: { nodes } }) => dependencies.filter(({ backtrace = -1 }) => nodes[backtrace]?.command !== undefined).map(({ id }) => id)));
+    const linked = tree.targets.filter(({ id, projectIndex }) => needed.has(id) && tree.projects[projectIndex]?.name !== name).flatMap(({ projectIndex }) => placed(tree.projects[projectIndex]?.directoryIndexes ?? []));
     const listed = owned.flatMap(({ sources }) => sources.filter(({ path: at, isGenerated = false }) => !(isGenerated || path.isAbsolute(at))).map((source) => source.path));
     const written = owned.flatMap(({ artifacts = [] }) => artifacts.map((artifact) => path.join(FOLDER, PRESET, artifact.path)));
     return Array.zip(placed(directoryIndexes), Option.toArray(Record.get(tree.versions, name))).map(([{ source, build, hasInstallRule = false }, version]) => ({

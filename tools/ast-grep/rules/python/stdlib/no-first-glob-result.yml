@@ -6,48 +6,48 @@ utils:
         kind: call
         all:
             - has:
-                field: function
-                regex: '(^|\.)(glob|rglob|iterdir|scandir)$'
-                not: {matches: {python-member-use: {module: {regex: '^glob$'}, name: {regex: '^glob$'}}}}
+                  field: function
+                  regex: '(^|\.)(glob|rglob|iterdir|scandir)$'
+                  not: { matches: { python-member-use: { module: { regex: '^glob$' }, name: { regex: '^glob$' } } } }
             - pattern: $SEARCH
     searched:
         any:
             - matches: query
             - kind: generator_expression, list_comprehension
-              has: {kind: for_in_clause, has: {field: right, matches: query}}
+              has: { kind: for_in_clause, has: { field: right, matches: query } }
     listed:
         any:
             - matches: searched
             - kind: call
               all:
-                - has: {field: function, regex: '^(list|tuple)$'}
-                - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: searched}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}}]}
+                  - has: { field: function, regex: '^(list|tuple)$' }
+                  - has: { field: arguments, all: [{ has: { nthChild: { position: 1, ofRule: { not: { kind: comment } } }, matches: searched } }, { not: { has: { nthChild: { position: 2, ofRule: { not: { kind: comment } } } } } }] }
             - kind: list, tuple
               all:
-                - has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, kind: list_splat, has: {matches: searched}}
-                - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+                  - has: { nthChild: { position: 1, ofRule: { not: { kind: comment } } }, kind: list_splat, has: { matches: searched } }
+                  - not: { has: { nthChild: { position: 2, ofRule: { not: { kind: comment } } } } }
     exit:
         kind: return_statement, break_statement
 rule:
     any:
         - regex: 'glob|iterdir|scandir'
-          matches: {python-first-item: {source: {any: [{matches: query, pattern: $SEARCH}, {kind: 'generator_expression, list_comprehension', has: {kind: for_in_clause, has: {field: right, matches: query, pattern: $SEARCH}}}]}}}
+          matches: { python-first-item: { source: { any: [{ matches: query, pattern: $SEARCH }, { kind: 'generator_expression, list_comprehension', has: { kind: for_in_clause, has: { field: right, matches: query, pattern: $SEARCH } } }] } } }
         - kind: subscript
           all:
-            - has: {field: subscript, regex: '^-1$'}
-            - has: {field: value, matches: listed}
+              - has: { field: subscript, regex: '^-1$' }
+              - has: { field: value, matches: listed }
         - kind: call
           all:
-            - has: {field: function, kind: attribute, all: [{has: {field: attribute, pattern: pop}}, {has: {field: object, matches: listed}}]}
-            - has: {field: arguments, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}}
+              - has: { field: function, kind: attribute, all: [{ has: { field: attribute, pattern: pop } }, { has: { field: object, matches: listed } }] }
+              - has: { field: arguments, not: { has: { nthChild: { position: 2, ofRule: { not: { kind: comment } } } } } }
         - kind: assignment
           all:
-            - has: {field: left, kind: 'pattern_list, list_pattern, tuple_pattern', has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, kind: list_splat_pattern}, not: {has: {nthChild: {position: 3, ofRule: {not: {kind: comment}}}}}}
-            - has: {field: right, matches: listed}
+              - has: { field: left, kind: 'pattern_list, list_pattern, tuple_pattern', has: { nthChild: { position: 1, ofRule: { not: { kind: comment } } }, kind: list_splat_pattern }, not: { has: { nthChild: { position: 3, ofRule: { not: { kind: comment } } } } } }
+              - has: { field: right, matches: listed }
         - kind: for_statement
           all:
-            - has: {field: right, matches: searched}
-            - has: {field: body, has: {matches: exit}}
-            - not: {has: {field: alternative, kind: else_clause}}
+              - has: { field: right, matches: searched }
+              - has: { field: body, has: { matches: exit } }
+              - not: { has: { field: alternative, kind: else_clause } }
 message: 'Path taken from `$SEARCH` depends on filesystem order'
 note: 'Build the known path directly, or `match` listed results against `case [<path>]`'

@@ -4,62 +4,62 @@ severity: error
 utils:
     value-position:
         any:
-            - {follows: {regex: '^=$'}, inside: {kind: property_declaration}}
-            - inside: {kind: 'assignment, control_transfer_statement', field: result}
+            - { follows: { regex: '^=$' }, inside: { kind: property_declaration } }
+            - inside: { kind: 'assignment, control_transfer_statement', field: result }
     empty-array:
         any:
             - pattern: '[]'
             - pattern: '[$_]()'
             - pattern: Array()
     one-element:
-        not: {has: {kind: lambda_function_type, regex: '->'}}
+        not: { has: { kind: lambda_function_type, regex: '->' } }
         any:
             - pattern: '{ [$_] }'
             - pattern: '{ $_ in [$_] }'
     shorthand-identity:
         kind: lambda_literal
         all:
-            - not: {has: {field: type, kind: lambda_function_type}}
-            - has: {matches: {swift-single-statement: {first: {kind: array_literal, not: {has: {regex: '^,$'}}, has: {pattern: '$0'}}}}}
+            - not: { has: { field: type, kind: lambda_function_type } }
+            - has: { matches: { swift-single-statement: { first: { kind: array_literal, not: { has: { regex: '^,$' } }, has: { pattern: '$0' } } } } }
     mapped:
         kind: call_expression
         all:
-            - has: {kind: navigation_expression, all: [{has: {field: target, pattern: $X}}, {has: {field: suffix, regex: '^\.(map|flatMap)$'}}]}
-            - has: {kind: call_suffix, not: {has: {kind: value_arguments}}}
+            - has: { kind: navigation_expression, all: [{ has: { field: target, pattern: $X } }, { has: { field: suffix, regex: '^\.(map|flatMap)$' } }] }
+            - has: { kind: call_suffix, not: { has: { kind: value_arguments } } }
 rule:
     any:
         - kind: nil_coalescing_expression
           all:
-            - has: {field: if_nil, matches: empty-array}
-            - has:
-                field: value
-                any:
-                    - {matches: mapped, has: {kind: call_suffix, has: {matches: shorthand-identity}}}
-                    - pattern: '$X.map { $V in [$V] }'
-                    - pattern: '$X.flatMap { $V in [$V] }'
-                    - {matches: mapped, has: {kind: call_suffix, has: {kind: lambda_literal, matches: one-element}}}
+              - has: { field: if_nil, matches: empty-array }
+              - has:
+                    field: value
+                    any:
+                        - { matches: mapped, has: { kind: call_suffix, has: { matches: shorthand-identity } } }
+                        - pattern: '$X.map { $V in [$V] }'
+                        - pattern: '$X.flatMap { $V in [$V] }'
+                        - { matches: mapped, has: { kind: call_suffix, has: { kind: lambda_literal, matches: one-element } } }
         - kind: switch_statement
           all:
-            - matches: value-position
-            - has: {field: expr, pattern: $X}
-            - not: {has: {kind: switch_entry, nthChild: {position: 3, ofRule: {kind: switch_entry}}}}
-            - has:
-                kind: switch_entry
-                any:
-                    - pattern: {context: 'switch x { case .some(let $V): [$V] }', selector: switch_entry}
-                    - pattern: {context: 'switch x { case let $V?: [$V] }', selector: switch_entry}
-            - has:
-                kind: switch_entry
-                any:
-                    - pattern: {context: 'switch x { case .none: [] }', selector: switch_entry}
-                    - pattern: {context: 'switch x { default: [] }', selector: switch_entry}
+              - matches: value-position
+              - has: { field: expr, pattern: $X }
+              - not: { has: { kind: switch_entry, nthChild: { position: 3, ofRule: { kind: switch_entry } } } }
+              - has:
+                    kind: switch_entry
+                    any:
+                        - pattern: { context: 'switch x { case .some(let $V): [$V] }', selector: switch_entry }
+                        - pattern: { context: 'switch x { case let $V?: [$V] }', selector: switch_entry }
+              - has:
+                    kind: switch_entry
+                    any:
+                        - pattern: { context: 'switch x { case .none: [] }', selector: switch_entry }
+                        - pattern: { context: 'switch x { default: [] }', selector: switch_entry }
         - kind: if_statement
           all:
-            - matches: value-position
-            - any:
-                - pattern: 'if let $V = $X { [$V] } else { [] }'
-                - pattern: 'if let $X { [$X] } else { [] }'
-                - pattern: 'if let $_ = $X { [$_] } else { [] }'
-                - pattern: 'if let $X { [$_] } else { [] }'
+              - matches: value-position
+              - any:
+                    - pattern: 'if let $V = $X { [$V] } else { [] }'
+                    - pattern: 'if let $X { [$X] } else { [] }'
+                    - pattern: 'if let $_ = $X { [$_] } else { [] }'
+                    - pattern: 'if let $X { [$_] } else { [] }'
 message: '`$X` becomes an array through a closure or branch with an empty default'
 note: 'Write `[<optional>].compactMap(\.self)`, or `[<optional>.map { <transform> }].compactMap(\.self)` for a transform'

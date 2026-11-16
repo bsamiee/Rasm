@@ -6,39 +6,39 @@ utils:
     sorting:
         kind: member_expression
         all:
-            - has: {field: property, regex: '^(sort|sortWith|sortBy)$'}
-            - matches: {effect-module-member: {module: {regex: '(?-u:\b)Array$'}, member: {regex: '^(sort|sortWith|sortBy)$'}}}
+            - has: { field: property, regex: '^(sort|sortWith|sortBy)$' }
+            - matches: { effect-module-member: { module: { regex: '(?-u:\b)Array$' }, member: { regex: '^(sort|sortWith|sortBy)$' } } }
     sorted:
         kind: call_expression
         any:
-            - has: {field: function, pattern: $SORT, matches: sorting}
-            - has: {field: function, kind: call_expression, has: {field: function, pattern: $SORT, matches: sorting}}
+            - has: { field: function, pattern: $SORT, matches: sorting }
+            - has: { field: function, kind: call_expression, has: { field: function, pattern: $SORT, matches: sorting } }
     native-sorted:
         kind: call_expression
-        has: {field: function, kind: member_expression, pattern: $SORT, has: {field: property, regex: '^(sort|toSorted)$'}}
+        has: { field: function, kind: member_expression, pattern: $SORT, has: { field: property, regex: '^(sort|toSorted)$' } }
     end:
         kind: member_expression
         all:
-            - has: {field: property, regex: '^(head|headNonEmpty|last|lastNonEmpty|take|takeRight)$'}
-            - matches: {effect-module-member: {module: {regex: '(?-u:\b)Array$'}, member: {regex: '^(head|headNonEmpty|last|lastNonEmpty|take|takeRight)$'}}}
+            - has: { field: property, regex: '^(head|headNonEmpty|last|lastNonEmpty|take|takeRight)$' }
+            - matches: { effect-module-member: { module: { regex: '(?-u:\b)Array$' }, member: { regex: '^(head|headNonEmpty|last|lastNonEmpty|take|takeRight)$' } } }
 rule:
     any:
         - kind: call_expression
           all:
-            - has: {field: function, matches: end}
-            - any:
-                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: &code {not: {kind: 'comment, html_comment'}}}, matches: sorted}, not: {has: {nthChild: {position: 2, ofRule: *code}}}}
-                - has: {field: arguments, all: [{has: {nthChild: {position: 2, ofRule: *code}, regex: '^1$'}}, {not: {has: {nthChild: {position: 3, ofRule: *code}}}}, {has: {nthChild: {position: 1, ofRule: *code}, matches: sorted}}]}
-            - not: {all: [{has: {field: function, has: {field: property, regex: '^take'}}}, {not: {has: {field: arguments, has: {nthChild: {position: 2, ofRule: *code}}}}}]}
+              - has: { field: function, matches: end }
+              - any:
+                    - has: { field: arguments, has: { nthChild: { position: 1, ofRule: &code { not: { kind: 'comment, html_comment' } } }, matches: sorted }, not: { has: { nthChild: { position: 2, ofRule: *code } } } }
+                    - has: { field: arguments, all: [{ has: { nthChild: { position: 2, ofRule: *code }, regex: '^1$' } }, { not: { has: { nthChild: { position: 3, ofRule: *code } } } }, { has: { nthChild: { position: 1, ofRule: *code }, matches: sorted } }] }
+              - not: { all: [{ has: { field: function, has: { field: property, regex: '^take' } } }, { not: { has: { field: arguments, has: { nthChild: { position: 2, ofRule: *code } } } } }] }
         - kind: member_expression
           all:
-            - matches: end
-            - not: {has: {field: property, regex: '^take'}}
-            - inside: {kind: arguments}
-            - follows: {stopBy: {not: {regex: '^,$'}}, kind: call_expression, has: {field: function, pattern: $SORT, matches: sorting}, not: {has: {field: arguments, has: {nthChild: {position: 2, ofRule: *code}}}}}
+              - matches: end
+              - not: { has: { field: property, regex: '^take' } }
+              - inside: { kind: arguments }
+              - follows: { stopBy: { not: { regex: '^,$' } }, kind: call_expression, has: { field: function, pattern: $SORT, matches: sorting }, not: { has: { field: arguments, has: { nthChild: { position: 2, ofRule: *code } } } } }
         - kind: call_expression
           all:
-            - any: [{matches: native-sorted}, {matches: sorted}]
-            - matches: typescript-extremum-read
+              - any: [{ matches: native-sorted }, { matches: sorted }]
+              - matches: typescript-extremum-read
 message: '`$SORT` sorts a whole list to read one extremum'
 note: 'Call `Array.min(<list>, <order>)` or `Array.max` on a list `Array.isReadonlyArrayNonEmpty` or `Option.liftPredicate` narrows to non-empty'

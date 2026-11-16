@@ -2,12 +2,18 @@
     "name": "@rasm/nx-dotnet",
     "version": "0.1.0",
     "description": "Nx plugin inferring MSBuild projects, their restores, builds, checks, tests, fixes, and NuGet releases from one MSBuild evaluation of the workspace",
+    "license": "MIT",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/bsamiee/Rasm.git",
         "directory": "apps/nx/dotnet"
     },
-    "license": "MIT",
+    "files": [
+        "dist",
+        "analyzer/dist",
+        "executors.json",
+        "executors/*/schema.json"
+    ],
     "type": "module",
     "imports": {
         "#/*": "./*.ts",
@@ -20,7 +26,20 @@
         "./package.json": "./package.json",
         "./executors.json": "./executors.json"
     },
-    "files": [ "dist", "analyzer/dist", "executors.json", "executors/*/schema.json" ],
+    "publishConfig": {
+        "imports": {
+            "#/*": "./dist/*.js",
+            "#analyzer": "./analyzer/dist/MsbuildAnalyzer.dll",
+            "#package": "./package.json"
+        },
+        "exports": {
+            ".": "./dist/plugin.js",
+            "./release/version-actions": "./dist/version-actions.js",
+            "./package.json": "./package.json",
+            "./executors.json": "./executors.json"
+        },
+        "access": "public"
+    },
     "dependencies": {
         "@effect/platform-node": "catalog:",
         "@nx/devkit": "catalog:",
@@ -36,25 +55,14 @@
     "peerDependencies": {
         "nx": "catalog:peers"
     },
-    "publishConfig": {
-        "access": "public",
-        "exports": {
-            ".": "./dist/plugin.js",
-            "./release/version-actions": "./dist/version-actions.js",
-            "./package.json": "./package.json",
-            "./executors.json": "./executors.json"
-        },
-        "imports": {
-            "#/*": "./dist/*.js",
-            "#analyzer": "./analyzer/dist/MsbuildAnalyzer.dll",
-            "#package": "./package.json"
-        }
-    },
     "executors": "./executors.json",
     "nx": {
         "targets": {
             "pack--pnpm": {
-                "dependsOn": [ "...", "^build--dotnet" ]
+                "dependsOn": [
+                    "...",
+                    "^build--dotnet"
+                ]
             }
         }
     }

@@ -4,84 +4,107 @@ severity: error
 ignores: ['apps/roslyn/**']
 utils:
     type-parameter:
-        pattern: {context: 'class $TP;', selector: identifier}
+        pattern: { context: 'class $TP;', selector: identifier }
         inside:
             stopBy: end
-            has: {kind: type_parameter_list, has: {kind: type_parameter, has: {pattern: {context: 'class $TP;', selector: identifier}}}}
-            not: {has: {kind: type_parameter_constraints_clause, all: [{has: {pattern: {context: 'class $TP;', selector: identifier}}}, {has: {kind: type_parameter_constraint, has: {field: type, matches: {csharp-type-name: {name: {regex: '^I(?:Number|NumberBase|BinaryInteger|BinaryNumber|FloatingPoint.*|SignedNumber|UnsignedNumber|AdditiveIdentity)$'}}}}}}]}}
+            has: { kind: type_parameter_list, has: { kind: type_parameter, has: { pattern: { context: 'class $TP;', selector: identifier } } } }
+            not:
+                {
+                    has:
+                        {
+                            kind: type_parameter_constraints_clause,
+                            all:
+                                [
+                                    { has: { pattern: { context: 'class $TP;', selector: identifier } } },
+                                    { has: { kind: type_parameter_constraint, has: { field: type, matches: { csharp-type-name: { name: { regex: '^I(?:Number|NumberBase|BinaryInteger|BinaryNumber|FloatingPoint.*|SignedNumber|UnsignedNumber|AdditiveIdentity)$' } } } } } },
+                                ],
+                        },
+                }
     struct-parameter:
         matches: type-parameter
         inside:
             stopBy: end
-            has: {kind: type_parameter_constraints_clause, all: [{has: {pattern: {context: 'class $TP;', selector: identifier}}}, {has: {kind: type_parameter_constraint, regex: '^struct$'}}]}
+            has: { kind: type_parameter_constraints_clause, all: [{ has: { pattern: { context: 'class $TP;', selector: identifier } } }, { has: { kind: type_parameter_constraint, regex: '^struct$' } }] }
     generic-operand:
         any:
             - kind: postfix_unary_expression
-              has: {matches: generic-operand}
+              has: { matches: generic-operand }
             - matches: generic-local
-            - pattern: {context: 'class $OPERAND;', selector: identifier}
+            - pattern: { context: 'class $OPERAND;', selector: identifier }
               inside:
-                kind: 'class_declaration, record_declaration, struct_declaration'
-                stopBy: end
-                has: {kind: declaration_list, has: {kind: 'field_declaration, property_declaration', any: [{all: [{has: {field: type, matches: type-parameter}}, {has: {field: name, pattern: {context: 'class $OPERAND;', selector: identifier}}}]}, {has: {kind: variable_declaration, all: [{has: {field: type, matches: type-parameter}}, {has: {kind: variable_declarator, has: {field: name, pattern: {context: 'class $OPERAND;', selector: identifier}}}}]}}]}}
+                  kind: 'class_declaration, record_declaration, struct_declaration'
+                  stopBy: end
+                  has:
+                      {
+                          kind: declaration_list,
+                          has:
+                              {
+                                  kind: 'field_declaration, property_declaration',
+                                  any:
+                                      [
+                                          { all: [{ has: { field: type, matches: type-parameter } }, { has: { field: name, pattern: { context: 'class $OPERAND;', selector: identifier } } }] },
+                                          { has: { kind: variable_declaration, all: [{ has: { field: type, matches: type-parameter } }, { has: { kind: variable_declarator, has: { field: name, pattern: { context: 'class $OPERAND;', selector: identifier } } } }] } },
+                                      ],
+                              },
+                      }
     generic-local:
-        pattern: {context: 'class $OPERAND;', selector: identifier}
-        matches: {csharp-declared-type: {type: {matches: type-parameter}}}
+        pattern: { context: 'class $OPERAND;', selector: identifier }
+        matches: { csharp-declared-type: { type: { matches: type-parameter } } }
     default-value:
         any:
             - kind: default_expression
             - kind: 'postfix_unary_expression, parenthesized_expression'
-              has: {matches: default-value}
+              has: { matches: default-value }
             - kind: cast_expression
-              has: {field: value, matches: default-value}
+              has: { field: value, matches: default-value }
             - kind: identifier
-              matches: {csharp-block-local: {declarator: {has: {not: {kind: identifier}, matches: default-value}}}}
+              matches: { csharp-block-local: { declarator: { has: { not: { kind: identifier }, matches: default-value } } } }
             - kind: object_creation_expression
               all:
-                - has: {field: type, matches: struct-parameter}
-                - matches: csharp-argumentless-call
+                  - has: { field: type, matches: struct-parameter }
+                  - matches: csharp-argumentless-call
     default-argument:
         kind: argument
-        has: {nthChild: {position: 1, reverse: true}, matches: default-value}
+        has: { nthChild: { position: 1, reverse: true }, matches: default-value }
     comparer:
         kind: 'generic_name, qualified_name, member_access_expression'
-        matches: {csharp-generic-type: {name: {regex: '^(?:EqualityComparer|Comparer)$'}, list: {has: {matches: type-parameter}}}}
+        matches: { csharp-generic-type: { name: { regex: '^(?:EqualityComparer|Comparer)$' }, list: { has: { matches: type-parameter } } } }
 rule:
     pattern: $COMPARISON
     any:
         - kind: invocation_expression
           all:
-            - any:
-                - has:
-                    field: function
-                    kind: member_access_expression
-                    all:
-                        - has: {field: name, regex: '^(Equals|Compare)$'}
-                        - has:
-                            field: expression
-                            kind: member_access_expression
-                            all:
-                                - has: {field: name, regex: '^Default$'}
-                                - has: {field: expression, matches: comparer}
-                - all:
+              - any:
                     - has:
-                        field: function
-                        any:
-                            - {kind: identifier, regex: '^(Equals|ReferenceEquals)$'}
-                            - matches: {csharp-owner-member: {type: {regex: '^(Object|object)$'}, member: {regex: '^(Equals|ReferenceEquals)$'}}}
-                    - has: {field: arguments, has: {kind: argument, has: {matches: generic-operand}}}
-                - has:
-                    field: function
-                    kind: member_access_expression
-                    all:
-                        - has: {field: name, regex: '^Equals$'}
-                        - has: {field: expression, matches: generic-operand}
-            - has: {field: arguments, has: {matches: default-argument}}
+                          field: function
+                          kind: member_access_expression
+                          all:
+                              - has: { field: name, regex: '^(Equals|Compare)$' }
+                              - has:
+                                    field: expression
+                                    kind: member_access_expression
+                                    all:
+                                        - has: { field: name, regex: '^Default$' }
+                                        - has: { field: expression, matches: comparer }
+                    - all:
+                          - has:
+                                field: function
+                                any:
+                                    - { kind: identifier, regex: '^(Equals|ReferenceEquals)$' }
+                                    - matches: { csharp-owner-member: { type: { regex: '^(Object|object)$' }, member: { regex: '^(Equals|ReferenceEquals)$' } } }
+                          - has: { field: arguments, has: { kind: argument, has: { matches: generic-operand } } }
+                    - has:
+                          field: function
+                          kind: member_access_expression
+                          all:
+                              - has: { field: name, regex: '^Equals$' }
+                              - has: { field: expression, matches: generic-operand }
+              - has: { field: arguments, has: { matches: default-argument } }
         - kind: binary_expression
           all:
-            - has: {field: operator, regex: '^[=!]=$'}
-            - any:
-                - all: [{has: {field: right, matches: default-value}}, {has: {field: left, matches: generic-operand}}]
-                - all: [{has: {field: left, matches: default-value}}, {has: {field: right, matches: generic-operand}}]
+              - has: { field: operator, regex: '^[=!]=$' }
+              - any:
+                    - all: [{ has: { field: right, matches: default-value } }, { has: { field: left, matches: generic-operand } }]
+                    - all: [{ has: { field: left, matches: default-value } }, { has: { field: right, matches: generic-operand } }]
 message: '`$COMPARISON` reads the `default` of a type parameter as absence'
 note: 'Return absence from the producer as `Option<A>` and match `None` in place of a `default` test'

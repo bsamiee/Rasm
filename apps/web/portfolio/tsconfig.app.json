@@ -4,9 +4,9 @@
         "composite": false,
         "declarationMap": false,
         "noEmit": true,
-        "types": [ "vite/client" ]
+        "types": ["vite/client"]
     },
-    "include": [ "site", "editor", "media", "model", ".storybook/preview.ts" ],
+    "include": ["site", "editor", "media", "model", ".storybook/preview.ts"],
     "references": [
         {
             "path": "../../../libs/typescript/runtime/workers"

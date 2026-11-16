@@ -5,8 +5,8 @@ arguments: [name]
 rule:
     any:
         - kind: impl_item
-          all: [{has: {field: trait, regex: '(^|::)Error$'}}, {has: {field: type, matches: name}}]
+          all: [{ has: { field: trait, regex: '(^|::)Error$' } }, { has: { field: type, matches: name } }]
         - kind: 'struct_item, enum_item'
           all:
-            - has: {field: name, matches: name}
-            - matches: {rust-attributed: {attribute: {matches: {rust-derive: {trait: {regex: '^Error$'}}}}}}
+              - has: { field: name, matches: name }
+              - matches: { rust-attributed: { attribute: { matches: { rust-derive: { trait: { regex: '^Error$' } } } } } }

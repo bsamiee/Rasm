@@ -7,58 +7,64 @@ utils:
             - kind: identifier
               pattern: $ROOT
             - kind: attribute
-              has: {field: object, matches: root}
+              has: { field: object, matches: root }
     binding:
         kind: &binding 'identifier, typed_parameter, list_splat_pattern, dictionary_splat_pattern, default_parameter, typed_default_parameter, assignment, augmented_assignment, for_statement, for_in_clause, named_expression, as_pattern, function_definition, class_definition, type_alias_statement, delete_statement'
         all:
             - any:
-                - kind: identifier
-                  pattern: $ROOT
-                - has: {field: name, pattern: $ROOT}
-                - has: {field: left, any: [{pattern: $ROOT}, {has: {stopBy: end, kind: identifier, pattern: $ROOT}}]}
-                - has: {field: alias, has: {stopBy: end, kind: identifier, pattern: $ROOT}}
-                - kind: typed_parameter, list_splat_pattern, dictionary_splat_pattern, delete_statement
-                  has: {stopBy: end, kind: identifier, pattern: $ROOT}
-            - matches: {python-binding: {name: {pattern: $ROOT}}}
+                  - kind: identifier
+                    pattern: $ROOT
+                  - has: { field: name, pattern: $ROOT }
+                  - has: { field: left, any: [{ pattern: $ROOT }, { has: { stopBy: end, kind: identifier, pattern: $ROOT } }] }
+                  - has: { field: alias, has: { stopBy: end, kind: identifier, pattern: $ROOT } }
+                  - kind: typed_parameter, list_splat_pattern, dictionary_splat_pattern, delete_statement
+                    has: { stopBy: end, kind: identifier, pattern: $ROOT }
+            - matches: { python-binding: { name: { pattern: $ROOT } } }
     bound:
         any:
             - has:
-                stopBy: {not: {kind: 'block, expression_statement, assignment, if_statement, elif_clause, else_clause, for_statement, while_statement, try_statement, except_clause, finally_clause, with_statement, with_clause, with_item, match_statement, case_clause, case_pattern, as_pattern, class_pattern, keyword_pattern, union_pattern, dict_pattern, list_pattern, tuple_pattern, splat_pattern, dotted_name, pattern_list, for_in_clause, as_pattern_target, tuple, list, parenthesized_expression, list_splat, decorated_definition, parameters, lambda_parameters'}}
-                kind: *binding
-                matches: binding
+                  stopBy:
+                      {
+                          not:
+                              {
+                                  kind: 'block, expression_statement, assignment, if_statement, elif_clause, else_clause, for_statement, while_statement, try_statement, except_clause, finally_clause, with_statement, with_clause, with_item, match_statement, case_clause, case_pattern, as_pattern, class_pattern, keyword_pattern, union_pattern, dict_pattern, list_pattern, tuple_pattern, splat_pattern, dotted_name, pattern_list, for_in_clause, as_pattern_target, tuple, list, parenthesized_expression, list_splat, decorated_definition, parameters, lambda_parameters',
+                              },
+                      }
+                  kind: *binding
+                  matches: binding
             - all:
-                - any: [{kind: module, regex: ':='}, {inside: {kind: module, stopBy: end, regex: ':='}}]
-                - has: {stopBy: &nested-scope {kind: 'module, function_definition, lambda, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression, class_definition'}, kind: named_expression, matches: binding}
+                  - any: [{ kind: module, regex: ':=' }, { inside: { kind: module, stopBy: end, regex: ':=' } }]
+                  - has: { stopBy: &nested-scope { kind: 'module, function_definition, lambda, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression, class_definition' }, kind: named_expression, matches: binding }
     enclosing-lookup:
         any:
             - inside:
-                kind: for_in_clause
-                not: &preceding-iterable {follows: {kind: for_in_clause, stopBy: end}}
-                field: right
-                stopBy: *nested-scope
-                inside: {all: [&lexical-scope {kind: 'module, function_definition, lambda, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression'}, {matches: enclosing-lookup}]}
-            - not: {inside: {kind: for_in_clause, not: *preceding-iterable, field: right, stopBy: *nested-scope}}
+                  kind: for_in_clause
+                  not: &preceding-iterable { follows: { kind: for_in_clause, stopBy: end } }
+                  field: right
+                  stopBy: *nested-scope
+                  inside: { all: [&lexical-scope { kind: 'module, function_definition, lambda, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression' }, { matches: enclosing-lookup }] }
+            - not: { inside: { kind: for_in_clause, not: *preceding-iterable, field: right, stopBy: *nested-scope } }
               inside:
-                stopBy: *lexical-scope
-                all: [*lexical-scope]
-                any: [{matches: bound}, {matches: enclosing-lookup}]
+                  stopBy: *lexical-scope
+                  all: [*lexical-scope]
+                  any: [{ matches: bound }, { matches: enclosing-lookup }]
     lookup:
         any:
             - inside:
-                kind: for_in_clause
-                not: *preceding-iterable
-                field: right
-                stopBy: *nested-scope
-                inside: {all: [*lexical-scope, {matches: lookup}]}
-            - not: {inside: {kind: for_in_clause, not: *preceding-iterable, field: right, stopBy: *nested-scope}}
+                  kind: for_in_clause
+                  not: *preceding-iterable
+                  field: right
+                  stopBy: *nested-scope
+                  inside: { all: [*lexical-scope, { matches: lookup }] }
+            - not: { inside: { kind: for_in_clause, not: *preceding-iterable, field: right, stopBy: *nested-scope } }
               inside:
-                stopBy: *nested-scope
-                all: [*nested-scope]
-                any: [{matches: bound}, {matches: enclosing-lookup}]
+                  stopBy: *nested-scope
+                  all: [*nested-scope]
+                  any: [{ matches: bound }, { matches: enclosing-lookup }]
 rule:
     all:
         - any:
-            - matches: root
-            - kind: call
-              has: {field: function, matches: root}
+              - matches: root
+              - kind: call
+                has: { field: function, matches: root }
         - matches: lookup

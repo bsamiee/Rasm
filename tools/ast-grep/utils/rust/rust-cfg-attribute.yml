@@ -7,5 +7,5 @@ rule:
     has:
         kind: attribute
         all:
-            - has: {field: path, pattern: cfg}
-            - has: {field: arguments, has: {stopBy: end, kind: identifier, not: {regex: '^(all|any|not)$'}}}
+            - has: { field: path, pattern: cfg }
+            - has: { field: arguments, has: { stopBy: end, kind: identifier, not: { regex: '^(all|any|not)$' } } }

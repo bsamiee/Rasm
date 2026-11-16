@@ -34,7 +34,7 @@ const elongating = Settings.fields.kashida.schema.isAnyOf(['Tatweel', 'Stretched
 
 const widget = <K extends keyof HTMLElementTagNameMap>(tag: K, fields: Partial<HTMLElementTagNameMap[K]>, ...children: readonly HTMLElement[]): HTMLElementTagNameMap[K] => {
     const element = document.createElement(tag);
-    children.forEach((child) => element.appendChild(child));
+    children.forEach((child) => element.append(child));
     return Object.assign(element, fields);
 };
 const slotted = (slot: string, element: HTMLElement) => {
@@ -99,8 +99,9 @@ const typesetting = Effect.fnUntraced(function* (root: HTMLElement, fork: <A, X>
     const withheld = (held: readonly HTMLElement[]) => inputs.forEach((input) => (held.includes(input) ? input.setAttribute('disabled', '') : input.removeAttribute('disabled')));
     const checked =
         (features: Settings['features']) =>
-        ([tag, box]: (typeof sets)[number]) =>
+        ([tag, box]: (typeof sets)[number]) => {
             Object.assign(box, { checked: Option.exists(Record.get(features, tag), Number.isGreaterThan(0)) });
+        };
     const displayed = ({ kashida, features }: Settings) =>
         Effect.sync(() => {
             withheld(elongating(kashida) ? [] : [width.element]);
@@ -128,7 +129,7 @@ const typesetting = Effect.fnUntraced(function* (root: HTMLElement, fork: <A, X>
     sets.forEach(toggled);
     buttons.forEach(nudging);
     Object.assign(root, { textContent: '' });
-    Record.collect(groups, (textContent, children) => widget('div', {}, widget('sp-detail', { textContent }), ...children)).forEach((child) => root.appendChild(child));
+    Record.collect(groups, (textContent, children) => widget('div', {}, widget('sp-detail', { textContent }), ...children)).forEach((child) => root.append(child));
     const events = ['afterSelectionChanged', 'afterSelectionAttributeChanged', 'afterContextChanged'] as const;
     const listened = (event: (typeof events)[number]) =>
         Effect.sync(() => {

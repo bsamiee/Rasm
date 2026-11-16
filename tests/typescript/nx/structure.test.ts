@@ -64,8 +64,8 @@ const unresolved = ({ nodes, dependencies, externalNodes }: Graph) =>
 
 const depended = (workspace: Graph, project: string, entry: NonNullable<TargetConfiguration['dependsOn']>[number]) => {
     const names = (owner: string) => Record.keys(workspace.nodes[owner]?.data.targets ?? {});
-    const { target: pattern, projects, dependencies = false } = Predicate.isString(entry) ? { target: entry.replace(UPSTREAM, ''), dependencies: UPSTREAM.test(entry) } : normalizeTargetDependencyWithStringProjects(entry);
-    const anywhere = dependencies === true || (projects === undefined && new Minimatch(pattern).hasMagic());
+    const { target: pattern, projects, dependencies = false } = Predicate.isString(entry) ? { target: entry.replace(UPSTREAM, ''), dependencies: entry.startsWith('^') } : normalizeTargetDependencyWithStringProjects(entry);
+    const anywhere = dependencies || (projects === undefined && new Minimatch(pattern).hasMagic());
     return (anywhere ? [Record.keys(workspace.nodes).flatMap(names)] : (projects ?? [project]).map(names)).every((targets) => targets.some((candidate) => minimatch(candidate, pattern)));
 };
 

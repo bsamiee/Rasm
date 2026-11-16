@@ -59,6 +59,8 @@ const memberInputs = (tree: Tree, member: Member, stated: TargetConfiguration['i
     PLATFORM,
 ];
 
+const preset = (name: string | undefined) => Array.fromNullishOr(name).flatMap((stated) => ['--preset', stated]);
+
 const memberTargets = (
     tree: Tree,
     member: Member,
@@ -69,7 +71,6 @@ const memberTargets = (
 ): Record<string, TargetConfiguration> => {
     const others = tree.workflows.filter((workflow) => workflow !== head);
     const within = (at: string) => relative(tree.root, at) || '.';
-    const preset = (name: string | undefined) => Array.fromNullishOr(name).flatMap((stated) => ['--preset', stated]);
     const targets = Option.liftPredicate(
         member.targets.map(({ name }) => name),
         Array.isArrayNonEmpty,
@@ -119,7 +120,7 @@ const memberTargets = (
     const placed = (workflow: Workflow, tool: string, inside: string) => UndefinedOr.match(outputPath, { onUndefined: () => join(workflow.tree, member.build, inside), onDefined: (at) => join(at, tool) });
     const compiled = (workflow: Workflow, at: string, names: Array.NonEmptyReadonlyArray<string>) => Array.make('cmake', '--build', within(at), ...preset(workflow.build), '--target', ...names);
     const varied = (each: (workflow: Workflow) => object) => ({ configurations: Record.fromIterableWith(others, (workflow) => [workflow.name, each(workflow)] as const) });
-    const target = (help: string, description: string, options: TargetConfiguration['options'], extra: Partial<TargetConfiguration>): TargetConfiguration => ({
+    const target = (help: string, description: string, options: Readonly<Record<string, unknown>>, extra: Partial<TargetConfiguration>): TargetConfiguration => ({
         executor: 'nx:run-commands',
         options,
         parallelism: false,
@@ -219,7 +220,7 @@ const memberTargets = (
         }),
     };
     const removed = Record.collect(tools, (verb, held) => Record.keys(Record.filter(held, ({ outputs = [] }) => outputs.length > 0)).map((tool) => `${verb}--${tool}`)).flat();
-    const cleaning: TargetConfiguration = Option.match(targets, {
+    const cleaning: TargetConfiguration<Readonly<Record<string, unknown>>> = Option.match(targets, {
         onNone: () => ({ metadata: { description: `Removes the outputs ${removed.join(', ')} declare`, help: { command: 'nx run --help', example: { options: { targets: removed } } } } }),
         onSome: () => ({
             options: cleans(head),

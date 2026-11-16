@@ -8,74 +8,74 @@ utils:
             field: function
             kind: field_expression
             all:
-                - has: {field: field, regex: '^(next|peek|next_if|next_if_eq|nth|by_ref)$'}
-                - has: {field: value, pattern: $IT}
+                - has: { field: field, regex: '^(next|peek|next_if|next_if_eq|nth|by_ref)$' }
+                - has: { field: value, pattern: $IT }
     pull:
         kind: call_expression
         all:
-            - has: {field: function, kind: field_expression, has: {field: field, regex: '^(next|peek)$'}}
-            - has: {field: function, kind: field_expression, has: {field: value, pattern: $IT}}
-            - has: {field: arguments, not: {has: {pattern: $_}}}
+            - has: { field: function, kind: field_expression, has: { field: field, regex: '^(next|peek)$' } }
+            - has: { field: function, kind: field_expression, has: { field: value, pattern: $IT } }
+            - has: { field: arguments, not: { has: { pattern: $_ } } }
     char-arm:
         kind: match_arm
-        has: {field: pattern, has: {stopBy: end, kind: char_literal}}
+        has: { field: pattern, has: { stopBy: end, kind: char_literal } }
     scrutinee:
         any:
-            - {kind: identifier, pattern: $CHAR}
-            - {kind: unary_expression, all: [{has: {field: operator, regex: '^\*$'}}, {has: {kind: identifier, pattern: $CHAR}}]}
+            - { kind: identifier, pattern: $CHAR }
+            - { kind: unary_expression, all: [{ has: { field: operator, regex: '^\*$' } }, { has: { kind: identifier, pattern: $CHAR } }] }
     char-test:
         kind: binary_expression
         all:
-            - has: {field: operator, regex: '^(==|!=)$'}
-            - has: {kind: char_literal}
-            - any: [{has: {field: left, matches: scrutinee}}, {has: {field: right, matches: scrutinee}}]
+            - has: { field: operator, regex: '^(==|!=)$' }
+            - has: { kind: char_literal }
+            - any: [{ has: { field: left, matches: scrutinee } }, { has: { field: right, matches: scrutinee } }]
     char-branch:
         any:
             - kind: match_expression
               all:
-                - has: {field: value, matches: scrutinee}
-                - has: {field: body, has: {matches: char-arm}}
+                  - has: { field: value, matches: scrutinee }
+                  - has: { field: body, has: { matches: char-arm } }
             - kind: if_expression
               all:
-                - has: {field: condition, any: [{matches: char-test}, {has: {stopBy: end, matches: char-test}}]}
-                - has: {field: alternative, has: {kind: if_expression, has: {field: condition, any: [{matches: char-test}, {has: {stopBy: end, matches: char-test}}]}}}
+                  - has: { field: condition, any: [{ matches: char-test }, { has: { stopBy: end, matches: char-test } }] }
+                  - has: { field: alternative, has: { kind: if_expression, has: { field: condition, any: [{ matches: char-test }, { has: { stopBy: end, matches: char-test } }] } } }
     index-read:
         kind: index_expression
         pattern: '$S[$I]'
     index-step:
         kind: compound_assignment_expr
         all:
-            - has: {field: operator, regex: '^\+=$'}
-            - has: {field: left, pattern: $I}
+            - has: { field: operator, regex: '^\+=$' }
+            - has: { field: left, pattern: $I }
 rule:
     any:
         - kind: while_expression
           all:
-            - has: {field: condition, kind: let_condition, has: {field: value, matches: pull}}
-            - has: {field: body, has: {stopBy: {kind: 'closure_expression, function_item'}, matches: char-branch}}
-            - has: {field: condition, has: {field: pattern, has: {stopBy: end, kind: identifier, pattern: $CHAR}}}
-            - has: {field: body, has: {stopBy: {kind: 'closure_expression, function_item'}, matches: advance}}
+              - has: { field: condition, kind: let_condition, has: { field: value, matches: pull } }
+              - has: { field: body, has: { stopBy: { kind: 'closure_expression, function_item' }, matches: char-branch } }
+              - has: { field: condition, has: { field: pattern, has: { stopBy: end, kind: identifier, pattern: $CHAR } } }
+              - has: { field: body, has: { stopBy: { kind: 'closure_expression, function_item' }, matches: advance } }
         - kind: loop_expression
           has:
-            field: body
-            has:
-                stopBy: {kind: 'closure_expression, function_item'}
-                kind: match_expression
-                all:
-                    - has: {field: value, matches: pull}
-                    - has: {field: body, has: {matches: char-arm}}
-                    - has: {field: body, has: {stopBy: {kind: 'closure_expression, function_item'}, matches: advance}}
+              field: body
+              has:
+                  stopBy: { kind: 'closure_expression, function_item' }
+                  kind: match_expression
+                  all:
+                      - has: { field: value, matches: pull }
+                      - has: { field: body, has: { matches: char-arm } }
+                      - has: { field: body, has: { stopBy: { kind: 'closure_expression, function_item' }, matches: advance } }
         - kind: while_expression
           all:
-            - has: {field: condition, kind: binary_expression, any: [{pattern: $I < $S.len()}, {pattern: $S.len() > $I}]}
-            - has:
-                field: body
-                has:
-                    stopBy: {kind: 'closure_expression, function_item'}
-                    kind: match_expression
-                    all:
-                        - has: {field: value, any: [{matches: index-read}, {kind: unary_expression, has: {matches: index-read}}]}
-                        - has: {field: body, has: {matches: char-arm}}
-            - has: {field: body, has: {stopBy: {kind: 'closure_expression, function_item'}, matches: index-step}}
+              - has: { field: condition, kind: binary_expression, any: [{ pattern: $I < $S.len() }, { pattern: $S.len() > $I }] }
+              - has:
+                    field: body
+                    has:
+                        stopBy: { kind: 'closure_expression, function_item' }
+                        kind: match_expression
+                        all:
+                            - has: { field: value, any: [{ matches: index-read }, { kind: unary_expression, has: { matches: index-read } }] }
+                            - has: { field: body, has: { matches: char-arm } }
+              - has: { field: body, has: { stopBy: { kind: 'closure_expression, function_item' }, matches: index-step } }
 message: 'Loop lexes `$IT$S` by hand through a branch per character literal'
 note: 'Write the grammar as `winnow` parsers over `&str`, or as `chumsky` parsers to recover and report every error'

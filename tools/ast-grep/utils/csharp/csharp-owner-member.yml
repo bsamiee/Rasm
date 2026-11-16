@@ -3,15 +3,15 @@ id: csharp-owner-member
 language: csharplang
 arguments: [type, member]
 utils:
-    member-name: {matches: {csharp-simple-name: {name: {matches: member}}}}
-    owner: {matches: {csharp-type-name: {name: {matches: type}}}}
+    member-name: { matches: { csharp-simple-name: { name: { matches: member } } } }
+    owner: { matches: { csharp-type-name: { name: { matches: type } } } }
 rule:
     any:
         - kind: member_access_expression
           all:
-            - has: {field: name, matches: member-name}
-            - has: {field: expression, matches: owner}
+              - has: { field: name, matches: member-name }
+              - has: { field: expression, matches: owner }
         - all:
-            - matches: member-name
-            - not: {inside: {field: name, pattern: $_}}
-            - inside: {stopBy: end, kind: 'class_declaration, record_declaration, struct_declaration', has: {field: name, matches: owner}}
+              - matches: member-name
+              - not: { inside: { field: name, pattern: $_ } }
+              - inside: { stopBy: end, kind: 'class_declaration, record_declaration, struct_declaration', has: { field: name, matches: owner } }

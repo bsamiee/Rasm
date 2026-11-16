@@ -6,73 +6,73 @@ utils:
     assignment:
         any:
             - kind: assignment
-              all: [{has: {field: left, kind: identifier, pattern: $NAME}}, {has: {field: right, matches: value}}]
+              all: [{ has: { field: left, kind: identifier, pattern: $NAME } }, { has: { field: right, matches: value } }]
             - kind: named_expression
-              all: [{has: {field: name, pattern: $NAME}}, {has: {field: value, matches: value}}]
+              all: [{ has: { field: name, pattern: $NAME } }, { has: { field: value, matches: value } }]
     binding:
         kind: &binding 'identifier, typed_parameter, list_splat_pattern, dictionary_splat_pattern, default_parameter, typed_default_parameter, assignment, augmented_assignment, for_statement, for_in_clause, named_expression, as_pattern, function_definition, class_definition, type_alias_statement, delete_statement, import_statement, import_from_statement'
         any:
-            - matches: {python-binding: {name: {pattern: $NAME}}}
-            - matches: {python-import-binding: {name: {pattern: $NAME}}}
+            - matches: { python-binding: { name: { pattern: $NAME } } }
+            - matches: { python-import-binding: { name: { pattern: $NAME } } }
     conflicting-binding:
         all:
             - matches: binding
             - not:
-                any:
-                    - matches: assignment
-                    - kind: assignment
-                      not: {has: {field: right, pattern: $_}}
+                  any:
+                      - matches: assignment
+                      - kind: assignment
+                        not: { has: { field: right, pattern: $_ } }
     assigns:
         any:
-            - has: {stopBy: {not: {kind: 'block, expression_statement, assignment, if_statement, elif_clause, else_clause, for_statement, while_statement, try_statement, except_clause, finally_clause, with_statement, match_statement, case_clause, decorated_definition'}}, kind: assignment, matches: assignment}
+            - has: { stopBy: { not: { kind: 'block, expression_statement, assignment, if_statement, elif_clause, else_clause, for_statement, while_statement, try_statement, except_clause, finally_clause, with_statement, match_statement, case_clause, decorated_definition' } }, kind: assignment, matches: assignment }
             - all:
-                - any: [{kind: module, regex: ':='}, {inside: {kind: module, stopBy: end, regex: ':='}}]
-                - has: {stopBy: &nested-scope {kind: 'module, function_definition, lambda, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression, class_definition'}, kind: named_expression, matches: assignment}
+                  - any: [{ kind: module, regex: ':=' }, { inside: { kind: module, stopBy: end, regex: ':=' } }]
+                  - has: { stopBy: &nested-scope { kind: 'module, function_definition, lambda, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression, class_definition' }, kind: named_expression, matches: assignment }
     scope-binding:
-        has: {stopBy: *nested-scope, kind: *binding, matches: binding}
+        has: { stopBy: *nested-scope, kind: *binding, matches: binding }
     assigned-scope:
         all:
             - matches: assigns
-            - not: {has: {stopBy: *nested-scope, kind: *binding, matches: conflicting-binding}}
+            - not: { has: { stopBy: *nested-scope, kind: *binding, matches: conflicting-binding } }
     bound-scope:
         any:
             - matches: assigned-scope
-            - all: [{not: {matches: scope-binding}}, {matches: enclosing-lookup}]
+            - all: [{ not: { matches: scope-binding } }, { matches: enclosing-lookup }]
     enclosing-lookup:
         any:
             - inside:
-                kind: for_in_clause
-                not: &preceding-iterable {follows: {kind: for_in_clause, stopBy: end}}
-                field: right
-                stopBy: *nested-scope
-                inside: {all: [&lexical-scope {kind: 'module, function_definition, lambda, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression'}, {matches: enclosing-lookup}]}
-            - not: {inside: {kind: for_in_clause, not: *preceding-iterable, field: right, stopBy: *nested-scope}}
+                  kind: for_in_clause
+                  not: &preceding-iterable { follows: { kind: for_in_clause, stopBy: end } }
+                  field: right
+                  stopBy: *nested-scope
+                  inside: { all: [&lexical-scope { kind: 'module, function_definition, lambda, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression' }, { matches: enclosing-lookup }] }
+            - not: { inside: { kind: for_in_clause, not: *preceding-iterable, field: right, stopBy: *nested-scope } }
               inside:
-                stopBy: *lexical-scope
-                all: [*lexical-scope, {matches: bound-scope}]
+                  stopBy: *lexical-scope
+                  all: [*lexical-scope, { matches: bound-scope }]
     lookup:
         any:
             - inside:
-                kind: for_in_clause
-                not: *preceding-iterable
-                field: right
-                stopBy: *nested-scope
-                inside: {all: [*lexical-scope, {matches: lookup}]}
-            - not: {inside: {kind: for_in_clause, not: *preceding-iterable, field: right, stopBy: *nested-scope}}
+                  kind: for_in_clause
+                  not: *preceding-iterable
+                  field: right
+                  stopBy: *nested-scope
+                  inside: { all: [*lexical-scope, { matches: lookup }] }
+            - not: { inside: { kind: for_in_clause, not: *preceding-iterable, field: right, stopBy: *nested-scope } }
               any:
-                - inside:
-                    stopBy: *nested-scope
-                    all: [*lexical-scope, {matches: bound-scope}]
-                - inside:
-                    kind: class_definition
-                    stopBy: *nested-scope
-                    any:
-                        - matches: assigned-scope
-                        - not: {matches: scope-binding}
-                          matches: enclosing-lookup
+                  - inside:
+                        stopBy: *nested-scope
+                        all: [*lexical-scope, { matches: bound-scope }]
+                  - inside:
+                        kind: class_definition
+                        stopBy: *nested-scope
+                        any:
+                            - matches: assigned-scope
+                            - not: { matches: scope-binding }
+                              matches: enclosing-lookup
 rule:
     kind: identifier
     all:
         - pattern: $NAME
-        - inside: {stopBy: end, all: [*nested-scope], matches: assigns}
+        - inside: { stopBy: end, all: [*nested-scope], matches: assigns }
         - matches: lookup

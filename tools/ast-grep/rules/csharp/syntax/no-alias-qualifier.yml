@@ -4,6 +4,6 @@ severity: error
 rule:
     kind: alias_qualified_name
     pattern: $NAME
-    has: {field: alias, regex: '^global$'}
+    has: { field: alias, regex: '^global$' }
 message: '`$NAME` uses the global namespace qualifier'
 note: 'Resolve namespace and type conflicts at their owning declarations and import the required type or namespace with `using`'

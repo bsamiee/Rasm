@@ -82,7 +82,7 @@ export default extend(java, {
             widen(
                 choiceOf(({ type }) => type === 'PATTERN'),
                 escaped(ESCAPE),
-            )($, drop(({ type, value }) => type === 'PATTERN' && value.startsWith('\\\\'))($, original)),
+            )($, drop(({ type, value }) => type === 'PATTERN' && value.startsWith(String.raw`\\`))($, original)),
         _escape_sequence: ($) => choice(token.immediate(escaped(LINE_TERMINATOR)), $.escape_sequence),
         escape_sequence: () => token.immediate(escaped(ESCAPE)),
     },

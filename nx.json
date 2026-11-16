@@ -6,7 +6,7 @@
     "neverConnectToCloud": true,
     "sync": {
         "applyChanges": true,
-        "globalGenerators": [ "@rasm/nx-distribution:executor-schemas" ]
+        "globalGenerators": ["@rasm/nx-distribution:executor-schemas"]
     },
     "plugins": [
         {
@@ -32,7 +32,7 @@
         },
         {
             "plugin": "@rasm/nx-cmake",
-            "exclude": [ "tools/ast-grep/grammars/**" ],
+            "exclude": ["tools/ast-grep/grammars/**"],
             "options": {
                 "outputPath": ".artifacts/cmake/projects/{projectName}",
                 "coveragePath": ".artifacts/coverage/{projectName}"
@@ -40,7 +40,7 @@
         },
         {
             "plugin": "@rasm/nx-uv",
-            "exclude": [ ".config/mise/locks/**" ],
+            "exclude": [".config/mise/locks/**"],
             "options": {
                 "outputPath": ".artifacts/uv/{projectName}",
                 "coveragePath": ".artifacts/coverage/{projectName}"
@@ -58,7 +58,7 @@
             "options": {
                 "configurations": {
                     "deploy": {
-                        "release": [ "--production" ]
+                        "release": ["--production"]
                     }
                 }
             }
@@ -66,7 +66,7 @@
         {
             "plugin": "@rasm/nx-typescript",
             "options": {
-                "compilerPackages": [ "@typescript/native", "@effect/tsgo" ],
+                "compilerPackages": ["@typescript/native", "@effect/tsgo"],
                 "outputPath": ".artifacts/pnpm/{projectName}"
             }
         },
@@ -99,11 +99,11 @@
     "targetDefaults": {
         "@nx/js:release-publish": {
             "executor": "@rasm/nx-distribution:publish",
-            "dependsOn": [ "build--*" ],
-            "inputs": [ "default", "^default", { "externalDependencies": [] } ],
+            "dependsOn": ["build--*"],
+            "inputs": ["default", "^default", { "externalDependencies": [] }],
             "options": {
-                "publish": [ "pnpm", "publish", "--recursive", "--filter", "{projectName}", "--no-git-checks" ],
-                "preview": [ "--dry-run" ],
+                "publish": ["pnpm", "publish", "--recursive", "--filter", "{projectName}", "--no-git-checks"],
+                "preview": ["--dry-run"],
                 "credential": "NODE_AUTH_TOKEN"
             }
         }
@@ -115,7 +115,7 @@
         }
     },
     "release": {
-        "projects": [ "tag:release" ],
+        "projects": ["tag:release"],
         "projectsRelationship": "independent",
         "version": {
             "conventionalCommits": true,

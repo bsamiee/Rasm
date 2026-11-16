@@ -3,44 +3,49 @@ language: rustlang
 severity: error
 utils:
     entry:
-        inside: {kind: function_item, stopBy: end, has: {field: name, regex: '^main$'}}
+        inside: { kind: function_item, stopBy: end, has: { field: name, regex: '^main$' } }
     sink-crate:
-        inside: {kind: source_file, stopBy: end, has: {kind: use_declaration, regex: '(?-u:\b)(crossterm|ratatui|termion|console|indicatif|dialoguer|cursive|tui|env_logger|pretty_env_logger|fern|simplelog|simple_logger|tracing_subscriber|tracing_appender|log4rs|flexi_logger|slog_term|anstream|termcolor|owo_colors|colored|yansi)(?-u:\b)'}}
+        inside:
+            {
+                kind: source_file,
+                stopBy: end,
+                has: { kind: use_declaration, regex: '(?-u:\b)(crossterm|ratatui|termion|console|indicatif|dialoguer|cursive|tui|env_logger|pretty_env_logger|fern|simplelog|simple_logger|tracing_subscriber|tracing_appender|log4rs|flexi_logger|slog_term|anstream|termcolor|owo_colors|colored|yansi)(?-u:\b)' },
+            }
     handed-over:
         any:
-            - inside: {kind: arguments, stopBy: {not: {kind: 'reference_expression, parenthesized_expression'}}, not: {inside: {kind: call_expression, has: {field: function, regex: '(^|::)(Write::(write|write_all|write_fmt|write_vectored|flush)|copy)$'}}}}
-            - inside: {kind: field_initializer, field: value, stopBy: {not: {kind: 'reference_expression, parenthesized_expression'}}}
-            - inside: {kind: function_item, stopBy: end, has: {field: return_type, regex: '(?-u:\b)(Stdout|Stderr|StdoutLock|StderrLock|Write)(?-u:\b)'}}
+            - inside: { kind: arguments, stopBy: { not: { kind: 'reference_expression, parenthesized_expression' } }, not: { inside: { kind: call_expression, has: { field: function, regex: '(^|::)(Write::(write|write_all|write_fmt|write_vectored|flush)|copy)$' } } } }
+            - inside: { kind: field_initializer, field: value, stopBy: { not: { kind: 'reference_expression, parenthesized_expression' } } }
+            - inside: { kind: function_item, stopBy: end, has: { field: return_type, regex: '(?-u:\b)(Stdout|Stderr|StdoutLock|StderrLock|Write)(?-u:\b)' } }
     stream-call:
         kind: call_expression
         all:
-            - has: {field: function, regex: '^((::)?std::)?(io::)?(stdout|stderr)$'}
-            - has: {field: arguments, not: {has: {pattern: $_}}}
-            - not: {inside: {kind: field_expression, field: value, has: {field: field, regex: '^(is_terminal|as_raw_fd|as_fd|as_raw_handle|as_handle)$'}}}
-            - not: {matches: handed-over}
+            - has: { field: function, regex: '^((::)?std::)?(io::)?(stdout|stderr)$' }
+            - has: { field: arguments, not: { has: { pattern: $_ } } }
+            - not: { inside: { kind: field_expression, field: value, has: { field: field, regex: '^(is_terminal|as_raw_fd|as_fd|as_raw_handle|as_handle)$' } } }
+            - not: { matches: handed-over }
     stream-token:
         kind: identifier
         regex: '^(stdout|stderr)$'
-        precedes: {kind: token_tree, regex: '^\(\p{Pattern_White_Space}*\)$'}
+        precedes: { kind: token_tree, regex: '^\(\p{Pattern_White_Space}*\)$' }
     stream-macro:
         kind: macro_invocation
         all:
-            - matches: {rust-std-macro: {name: {regex: '^write(ln)?$'}}}
-            - has: {kind: token_tree, has: {matches: stream-token, precedes: {stopBy: end, regex: '^,$'}}}
+            - matches: { rust-std-macro: { name: { regex: '^write(ln)?$' } } }
+            - has: { kind: token_tree, has: { matches: stream-token, precedes: { stopBy: end, regex: '^,$' } } }
 rule:
     all:
         - any:
-            - all:
-                - matches: stream-call
-                - any:
-                    - has: {field: function, regex: 'stderr$'}
-                    - not: {matches: entry}
-            - all:
-                - matches: stream-macro
-                - any:
-                    - has: {kind: token_tree, has: {matches: stream-token, regex: '^stderr$'}}
-                    - not: {matches: entry}
+              - all:
+                    - matches: stream-call
+                    - any:
+                          - has: { field: function, regex: 'stderr$' }
+                          - not: { matches: entry }
+              - all:
+                    - matches: stream-macro
+                    - any:
+                          - has: { kind: token_tree, has: { matches: stream-token, regex: '^stderr$' } }
+                          - not: { matches: entry }
         - pattern: $OUT
-        - not: {matches: sink-crate}
+        - not: { matches: sink-crate }
 message: '`$OUT` writes to stderr outside the tracing subscriber or to stdout outside `main`'
 note: 'Emit diagnostics through `tracing::<level>!(<fields>, "<message>")` and write results to stdout from `main`'

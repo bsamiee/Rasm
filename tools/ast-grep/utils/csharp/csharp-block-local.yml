@@ -4,18 +4,18 @@ language: csharplang
 arguments: [declarator]
 rule:
     kind: identifier
-    pattern: {context: 'class $LOCAL;', selector: identifier}
+    pattern: { context: 'class $LOCAL;', selector: identifier }
     inside:
         stopBy: end
         all:
-            - inside: {kind: 'block, switch_section'}
+            - inside: { kind: 'block, switch_section' }
             - follows:
-                stopBy: end
-                kind: local_declaration_statement
-                has:
-                    kind: variable_declaration
-                    has:
-                        kind: variable_declarator
-                        all:
-                            - has: {field: name, pattern: {context: 'class $LOCAL;', selector: identifier}}
-                            - matches: declarator
+                  stopBy: end
+                  kind: local_declaration_statement
+                  has:
+                      kind: variable_declaration
+                      has:
+                          kind: variable_declarator
+                          all:
+                              - has: { field: name, pattern: { context: 'class $LOCAL;', selector: identifier } }
+                              - matches: declarator

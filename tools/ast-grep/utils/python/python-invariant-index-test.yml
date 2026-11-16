@@ -3,57 +3,57 @@ id: python-invariant-index-test
 language: pythonlang
 utils:
     constructor:
-        matches: {python-builtin-name: {name: {regex: '^(set|frozenset|list|tuple|dict|sorted)$'}}}
+        matches: { python-builtin-name: { name: { regex: '^(set|frozenset|list|tuple|dict|sorted)$' } } }
     construct:
         any:
             - kind: call
               all:
-                - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, kind: 'identifier, attribute', pattern: $SOURCE}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}}]}
-                - has: {field: function, matches: constructor}
+                  - has: { field: arguments, all: [{ has: { nthChild: { position: 1, ofRule: { not: { kind: comment } } }, kind: 'identifier, attribute', pattern: $SOURCE } }, { not: { has: { nthChild: { position: 2, ofRule: { not: { kind: comment } } } } } }] }
+                  - has: { field: function, matches: constructor }
             - kind: 'list_comprehension, set_comprehension, dictionary_comprehension'
-              has: {kind: for_in_clause, not: {follows: {kind: for_in_clause, stopBy: end}}, has: {field: right, pattern: $SOURCE}}
+              has: { kind: for_in_clause, not: { follows: { kind: for_in_clause, stopBy: end } }, has: { field: right, pattern: $SOURCE } }
     mutated:
         any:
             - kind: call
               has:
-                field: function
-                kind: attribute
-                all:
-                    - has: {field: object, pattern: $SOURCE}
-                    - has: {field: attribute, regex: '^(add|append|appendleft|clear|discard|extend|extendleft|insert|pop|popitem|popleft|remove|reverse|setdefault|sort|update)$'}
+                  field: function
+                  kind: attribute
+                  all:
+                      - has: { field: object, pattern: $SOURCE }
+                      - has: { field: attribute, regex: '^(add|append|appendleft|clear|discard|extend|extendleft|insert|pop|popitem|popleft|remove|reverse|setdefault|sort|update)$' }
             - kind: 'assignment, augmented_assignment'
-              has: {field: left, any: [{pattern: $SOURCE}, {kind: subscript, has: {field: value, pattern: $SOURCE}}]}
+              has: { field: left, any: [{ pattern: $SOURCE }, { kind: subscript, has: { field: value, pattern: $SOURCE } }] }
             - kind: delete_statement
-              has: {stopBy: end, kind: subscript, has: {field: value, pattern: $SOURCE}}
+              has: { stopBy: end, kind: subscript, has: { field: value, pattern: $SOURCE } }
     per-item:
         any:
             - kind: block
-              inside: {kind: 'for_statement, while_statement', field: body, pattern: $LOOP}
-            - inside: {kind: while_statement, field: condition, pattern: $LOOP}
+              inside: { kind: 'for_statement, while_statement', field: body, pattern: $LOOP }
+            - inside: { kind: while_statement, field: condition, pattern: $LOOP }
             - kind: if_clause
-              inside: {kind: 'list_comprehension, set_comprehension, dictionary_comprehension, generator_expression', pattern: $LOOP}
-            - inside: {kind: 'list_comprehension, set_comprehension, dictionary_comprehension, generator_expression', field: body, pattern: $LOOP}
+              inside: { kind: 'list_comprehension, set_comprehension, dictionary_comprehension, generator_expression', pattern: $LOOP }
+            - inside: { kind: 'list_comprehension, set_comprehension, dictionary_comprehension, generator_expression', field: body, pattern: $LOOP }
             - kind: for_in_clause
-              follows: {stopBy: end, kind: for_in_clause}
-              inside: {kind: 'list_comprehension, set_comprehension, dictionary_comprehension, generator_expression', pattern: $LOOP}
+              follows: { stopBy: end, kind: for_in_clause }
+              inside: { kind: 'list_comprehension, set_comprehension, dictionary_comprehension, generator_expression', pattern: $LOOP }
     bound:
-        matches: {python-binding: {name: {pattern: $NAME}}}
-        not: {inside: {stopBy: end, pattern: $INDEX}}
+        matches: { python-binding: { name: { pattern: $NAME } } }
+        not: { inside: { stopBy: end, pattern: $INDEX } }
     variant:
         kind: identifier
         pattern: $NAME
-        not: {inside: {kind: attribute, field: attribute}}
+        not: { inside: { kind: attribute, field: attribute } }
         inside:
             stopBy: end
             pattern: $LOOP
             any:
                 - matches: bound
-                - has: {stopBy: &scope {kind: 'function_definition, lambda, class_definition'}, matches: bound}
+                - has: { stopBy: &scope { kind: 'function_definition, lambda, class_definition' }, matches: bound }
 rule:
     kind: comparison_operator
     all:
-        - has: {field: operators, regex: '^(not[\t-\r \x{200B}\x{2060}\x{FEFF}]+)?in$'}
-        - any: [{matches: per-item}, {inside: {stopBy: *scope, matches: per-item}}]
-        - has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}, matches: construct, pattern: $INDEX}
-        - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}, has: {stopBy: end, matches: variant}}}
-        - not: {inside: {stopBy: end, pattern: $LOOP, has: {stopBy: end, matches: mutated}}}
+        - has: { field: operators, regex: '^(not[\t-\r \x{200B}\x{2060}\x{FEFF}]+)?in$' }
+        - any: [{ matches: per-item }, { inside: { stopBy: *scope, matches: per-item } }]
+        - has: { nthChild: { position: 2, ofRule: { not: { kind: comment } } }, matches: construct, pattern: $INDEX }
+        - not: { has: { nthChild: { position: 2, ofRule: { not: { kind: comment } } }, has: { stopBy: end, matches: variant } } }
+        - not: { inside: { stopBy: end, pattern: $LOOP, has: { stopBy: end, matches: mutated } } }

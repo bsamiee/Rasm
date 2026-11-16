@@ -65,6 +65,8 @@ const line = (argv: readonly string[]) => argv.map(quoteShellArg).join(' ');
 
 const metadata = (verb: string, description: string) => ({ description, help: { command: `dotnet ${verb} --help`, example: { args: ['--verbosity', 'detailed'] } } });
 
+const written = (...modes: readonly { readonly outputs: readonly string[] }[]) => Array.makeBy(Math.max(0, ...modes.map(({ outputs }) => outputs.length)), (index) => `{options.outputs.${index}}`);
+
 const targets = (node: Node, coverage: Option.Option<string>): Verbs => {
     const root = dirname(node.file);
     const project = join('{projectRoot}', basename(node.file));
@@ -77,7 +79,6 @@ const targets = (node: Node, coverage: Option.Option<string>): Verbs => {
         { externalDependencies: [] },
     ];
     const moded = <A extends object>(each: (mode: Node['evaluated']) => A) => ({ options: each(node.evaluated), configurations: Record.fromIterableWith(node.declared, (mode) => [mode.configuration.toLowerCase(), each(mode)] as const) });
-    const written = (...modes: readonly { readonly outputs: readonly string[] }[]) => Array.makeBy(Math.max(0, ...modes.map(({ outputs }) => outputs.length)), (index) => `{options.outputs.${index}}`);
     const verb = node.publishable ? 'publish' : 'build';
     const built = moded(({ configuration, outputs, published, reports }) => ({ project, command: [verb, '--configuration', configuration], outputs: [...outputs, ...published, ...reports, ...node.restored] }));
     const packed = moded(({ configuration, packed: folder }) => ({ project, command: ['pack', '--no-build', '-restore', '--configuration', configuration], outputs: [join(folder, '*.nupkg')] }));

@@ -5,68 +5,68 @@ ignores: ['apps/roslyn/**']
 utils:
     scope-entry:
         kind: invocation_expression
-        has: {field: function, kind: member_access_expression, has: {field: name, regex: '^EnterScope$'}}
+        has: { field: function, kind: member_access_expression, has: { field: name, regex: '^EnterScope$' } }
     lock-acquire:
         kind: invocation_expression
         any:
             - all:
-                - matches: {csharp-owner-call: {type: {regex: '^Monitor$'}, member: {regex: '^(Enter|TryEnter)$'}}}
-                - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {pattern: $LOCK}}}
+                  - matches: { csharp-owner-call: { type: { regex: '^Monitor$' }, member: { regex: '^(Enter|TryEnter)$' } } }
+                  - has: { field: arguments, has: { kind: argument, nthChild: 1, has: { pattern: $LOCK } } }
             - has:
-                field: function
-                kind: member_access_expression
-                all:
-                    - has: {field: name, regex: '^(Enter|TryEnter|Wait|WaitAsync|WaitOne|EnterWriteLock|EnterReadLock|EnterUpgradeableReadLock|TryEnterWriteLock|TryEnterReadLock|TryEnterUpgradeableReadLock)$'}
-                    - has: {field: expression, pattern: $LOCK, not: {matches: {csharp-type-name: {name: {regex: '^Monitor$'}}}}}
+                  field: function
+                  kind: member_access_expression
+                  all:
+                      - has: { field: name, regex: '^(Enter|TryEnter|Wait|WaitAsync|WaitOne|EnterWriteLock|EnterReadLock|EnterUpgradeableReadLock|TryEnterWriteLock|TryEnterReadLock|TryEnterUpgradeableReadLock)$' }
+                      - has: { field: expression, pattern: $LOCK, not: { matches: { csharp-type-name: { name: { regex: '^Monitor$' } } } } }
     lock-release:
         kind: invocation_expression
         any:
             - all:
-                - matches: {csharp-owner-call: {type: {regex: '^Monitor$'}, member: {regex: '^Exit$'}}}
-                - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {pattern: $LOCK}}}
+                  - matches: { csharp-owner-call: { type: { regex: '^Monitor$' }, member: { regex: '^Exit$' } } }
+                  - has: { field: arguments, has: { kind: argument, nthChild: 1, has: { pattern: $LOCK } } }
             - has:
-                field: function
-                kind: member_access_expression
-                all:
-                    - has: {field: name, regex: '^(Exit|Release|ReleaseMutex|ExitWriteLock|ExitReadLock|ExitUpgradeableReadLock)$'}
-                    - has: {field: expression, pattern: $LOCK, not: {matches: {csharp-type-name: {name: {regex: '^Monitor$'}}}}}
+                  field: function
+                  kind: member_access_expression
+                  all:
+                      - has: { field: name, regex: '^(Exit|Release|ReleaseMutex|ExitWriteLock|ExitReadLock|ExitUpgradeableReadLock)$' }
+                      - has: { field: expression, pattern: $LOCK, not: { matches: { csharp-type-name: { name: { regex: '^Monitor$' } } } } }
     locked-try:
         kind: try_statement
         all:
-            - has: {kind: finally_clause, has: {stopBy: end, matches: lock-release}}
+            - has: { kind: finally_clause, has: { stopBy: end, matches: lock-release } }
             - any:
-                - has: {field: body, has: {stopBy: end, matches: lock-acquire}}
-                - follows: {stopBy: end, has: {stopBy: end, matches: lock-acquire}}
+                  - has: { field: body, has: { stopBy: end, matches: lock-acquire } }
+                  - follows: { stopBy: end, has: { stopBy: end, matches: lock-acquire } }
     lock-region:
         any:
             - kind: lock_statement
             - kind: using_statement
-              has: {matches: scope-entry}
+              has: { matches: scope-entry }
             - follows:
-                stopBy: end
-                kind: local_declaration_statement
-                all: [{has: {regex: '^using$'}}]
-                has: {stopBy: end, matches: scope-entry}
+                  stopBy: end
+                  kind: local_declaration_statement
+                  all: [{ has: { regex: '^using$' } }]
+                  has: { stopBy: end, matches: scope-entry }
             - kind: 'block, catch_clause'
-              inside: {matches: locked-try}
+              inside: { matches: locked-try }
     mutation:
         kind: invocation_expression
         all:
             - matches: languageext-atom-mutation
             - any:
-                - has: {field: function, kind: member_access_expression, has: {field: expression, pattern: $CELL}}
-                - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {pattern: $CELL}}}
+                  - has: { field: function, kind: member_access_expression, has: { field: expression, pattern: $CELL } }
+                  - has: { field: arguments, has: { kind: argument, nthChild: 1, has: { pattern: $CELL } } }
 rule:
     kind: invocation_expression
     pattern: $WRITE
     all:
         - matches: mutation
         - inside:
-            stopBy: {kind: 'lambda_expression, anonymous_method_expression, local_function_statement'}
-            matches: lock-region
-            pattern: $REGION
+              stopBy: { kind: 'lambda_expression, anonymous_method_expression, local_function_statement' }
+              matches: lock-region
+              pattern: $REGION
 labels:
-    WRITE: {style: primary, message: 'Writes the atom'}
-    REGION: {style: secondary, message: 'Holds the lock'}
+    WRITE: { style: primary, message: 'Writes the atom' }
+    REGION: { style: secondary, message: 'Holds the lock' }
 message: '`$WRITE` writes an atom under a lock that serializes the write a second time'
 note: 'Write through `Atom` operations without a lock, or hold state in a plain field under the lock'

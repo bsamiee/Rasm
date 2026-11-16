@@ -22,7 +22,7 @@ class Metrics extends Schema.Class<Metrics, { readonly brand: unique symbol }>('
     bounds: Schema.Struct(Struct.Record(['minX', 'minY', 'maxX', 'maxY'], Schema.Finite)).annotate({ description: 'head table box at default instance' }),
     italicAngle: Schema.Finite.annotate({ description: 'Degrees counterclockwise from vertical, slnt axis value when present' }),
 }) {
-    static readonly of = ({ font, tables, axes }: { readonly font: Font; readonly tables: typeof Tables.Type; readonly axes: ReadonlyArray<{ readonly tag: string; readonly value: number }> }) => {
+    static readonly of = ({ font, tables, axes }: { readonly font: Font; readonly tables: typeof Tables.Type; readonly axes: readonly { readonly tag: string; readonly value: number }[] }) => {
         const em = (units: number) => units / font.face.upem;
         const metric = (tag: MetricsTag) => Option.map(Option.fromUndefinedOr(font.getMetricPosition(tag)), em);
         const drawn = Option.filter(({ thickness }: typeof Stroke.Type) => thickness !== 0);

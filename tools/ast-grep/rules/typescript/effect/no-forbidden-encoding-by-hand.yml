@@ -4,26 +4,26 @@ severity: error
 utils:
     getter:
         kind: member_expression
-        matches: {effect-module-member: {module: {regex: '(?-u:\b)SchemaGetter$'}, member: {regex: '^(forbidden|succeed)$'}}}
+        matches: { effect-module-member: { module: { regex: '(?-u:\b)SchemaGetter$' }, member: { regex: '^(forbidden|succeed)$' } } }
     transformation:
-        matches: {effect-module-member: {module: {regex: '(?-u:\b)SchemaTransformation$'}, member: {regex: '^Transformation$'}}}
+        matches: { effect-module-member: { module: { regex: '(?-u:\b)SchemaTransformation$' }, member: { regex: '^Transformation$' } } }
     encode-position:
         any:
-            - inside: {kind: pair, field: value, has: {field: key, regex: '^encode$'}}
-            - inside: {kind: arguments, inside: {kind: new_expression, has: {field: constructor, matches: transformation}}}
-              nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}
+            - inside: { kind: pair, field: value, has: { field: key, regex: '^encode$' } }
+            - inside: { kind: arguments, inside: { kind: new_expression, has: { field: constructor, matches: transformation } } }
+              nthChild: { position: 2, ofRule: { not: { kind: 'comment, html_comment' } } }
 rule:
     kind: call_expression
     pattern: $HAND
     all:
-        - has: {field: function, matches: getter}
+        - has: { field: function, matches: getter }
         - any:
-            - all:
-                - has: {field: function, has: {field: property, regex: '^forbidden$'}}
-                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: {typescript-constant-function: {result: {kind: 'string, template_string', not: {has: {kind: template_substitution}}}}}}}
-                - matches: encode-position
-            - all:
-                - has: {field: function, has: {field: property, regex: '^succeed$'}}
-                - matches: effect-union-member-encode
+              - all:
+                    - has: { field: function, has: { field: property, regex: '^forbidden$' } }
+                    - has: { field: arguments, has: { nthChild: { position: 1, ofRule: { not: { kind: 'comment, html_comment' } } }, matches: { typescript-constant-function: { result: { kind: 'string, template_string', not: { has: { kind: template_substitution } } } } } } }
+                    - matches: encode-position
+              - all:
+                    - has: { field: function, has: { field: property, regex: '^succeed$' } }
+                    - matches: effect-union-member-encode
 message: '`$HAND` encodes without reading the decoded value'
 note: 'Pass `SchemaGetter.forbiddenEncoding` as the encode getter of a decode-only link'

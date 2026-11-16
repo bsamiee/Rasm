@@ -4,22 +4,22 @@ language: csharplang
 arguments: [name]
 utils:
     attribute-name:
-        matches: {csharp-type-name: {name: {matches: name}}}
+        matches: { csharp-type-name: { name: { matches: name } } }
     alias-binding:
         kind: &using using_directive
-        has: {field: name, pattern: {context: 'class $ATTRIBUTE_ALIAS;', selector: identifier}}
+        has: { field: name, pattern: { context: 'class $ATTRIBUTE_ALIAS;', selector: identifier } }
     alias-scope:
         kind: &scope 'compilation_unit, namespace_declaration'
         any:
             - has:
-                stopBy: {kind: &declaration 'namespace_declaration, class_declaration, struct_declaration, record_declaration, interface_declaration'}
-                kind: *using
-                matches: alias-binding
-                all:
-                    - has: {matches: attribute-name, not: {inside: {kind: using_directive, field: name}}}
-                    - not: {precedes: {stopBy: end, matches: alias-binding}}
-            - not: {has: {stopBy: {kind: *declaration}, kind: *using, matches: alias-binding}}
-              inside: {stopBy: {kind: *scope}, matches: alias-scope}
+                  stopBy: { kind: &declaration 'namespace_declaration, class_declaration, struct_declaration, record_declaration, interface_declaration' }
+                  kind: *using
+                  matches: alias-binding
+                  all:
+                      - has: { matches: attribute-name, not: { inside: { kind: using_directive, field: name } } }
+                      - not: { precedes: { stopBy: end, matches: alias-binding } }
+            - not: { has: { stopBy: { kind: *declaration }, kind: *using, matches: alias-binding } }
+              inside: { stopBy: { kind: *scope }, matches: alias-scope }
 rule:
     has:
         kind: attribute_list
@@ -29,15 +29,15 @@ rule:
                 field: name
                 any:
                     - all:
-                        - matches: attribute-name
-                        - not:
-                            kind: identifier
-                            pattern: {context: 'class $ATTRIBUTE_ALIAS;', selector: identifier}
-                            inside:
-                                stopBy: end
-                                kind: *scope
-                                has: {stopBy: {kind: *declaration}, kind: *using, matches: alias-binding}
+                          - matches: attribute-name
+                          - not:
+                                kind: identifier
+                                pattern: { context: 'class $ATTRIBUTE_ALIAS;', selector: identifier }
+                                inside:
+                                    stopBy: end
+                                    kind: *scope
+                                    has: { stopBy: { kind: *declaration }, kind: *using, matches: alias-binding }
                     - kind: identifier
                       all:
-                        - pattern: {context: 'class $ATTRIBUTE_ALIAS;', selector: identifier}
-                        - inside: {stopBy: {kind: *scope}, matches: alias-scope}
+                          - pattern: { context: 'class $ATTRIBUTE_ALIAS;', selector: identifier }
+                          - inside: { stopBy: { kind: *scope }, matches: alias-scope }

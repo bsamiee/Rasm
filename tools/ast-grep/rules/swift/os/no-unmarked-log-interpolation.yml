@@ -6,10 +6,10 @@ rule:
     matches: os-log-interpolation
     not:
         precedes:
-            stopBy: {any: [{kind: 'line_str_text, multi_line_str_text'}, {kind: interpolated_expression, not: {has: {kind: value_argument_label}}}]}
+            stopBy: { any: [{ kind: 'line_str_text, multi_line_str_text' }, { kind: interpolated_expression, not: { has: { kind: value_argument_label } } }] }
             kind: interpolated_expression
             all:
-                - has: {field: name, regex: '^privacy$'}
-                - has: {field: value, regex: '^((os(\.|::))?OSLogPrivacy)?\.(public|private|sensitive)(?-u:\b)'}
+                - has: { field: name, regex: '^privacy$' }
+                - has: { field: value, regex: '^((os(\.|::))?OSLogPrivacy)?\.(public|private|sensitive)(?-u:\b)' }
 message: '`$VALUE` enters a log message or its metadata with no privacy mark'
 note: 'Move the value into `metadata:` and mark its interpolation `privacy: .public` or `.private`, an `os` signpost message takes `.sensitive` too'

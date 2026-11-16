@@ -5,21 +5,27 @@ rule:
     any:
         - kind: new_expression
           all:
-            - has: {field: constructor, kind: member_expression, pattern: $FORMATTER, all: [{has: {field: property, regex: '^[A-Z][^\x00-#%-/:-@\[-\^`{-~\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*$'}}, {has: {field: object, regex: '(^|\.)Intl$', matches: typescript-global-member}}]}
-            - not: {has: {field: arguments, has: {pattern: $_, not: {matches: typescript-literal-expression}}}}
-            - inside: {stopBy: end, kind: &boundary 'arrow_function, function_expression, function_declaration, generator_function, generator_function_declaration, method_definition'}
+              - has:
+                    {
+                        field: constructor,
+                        kind: member_expression,
+                        pattern: $FORMATTER,
+                        all: [{ has: { field: property, regex: '^[A-Z][^\x00-#%-/:-@\[-\^`{-~\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*$' } }, { has: { field: object, regex: '(^|\.)Intl$', matches: typescript-global-member } }],
+                    }
+              - not: { has: { field: arguments, has: { pattern: $_, not: { matches: typescript-literal-expression } } } }
+              - inside: { stopBy: end, kind: &boundary 'arrow_function, function_expression, function_declaration, generator_function, generator_function_declaration, method_definition' }
         - kind: call_expression
           all:
-            - has: {field: function, kind: member_expression, pattern: $FORMATTER, has: {field: property, regex: '^(toLocaleString|toLocaleDateString|toLocaleTimeString)$'}}
-            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: &code {not: {kind: 'comment, html_comment'}}}}}
-            - not: {has: {field: arguments, has: {pattern: $_, not: {matches: typescript-literal-expression}}}}
-            - inside: {stopBy: end, kind: *boundary}
+              - has: { field: function, kind: member_expression, pattern: $FORMATTER, has: { field: property, regex: '^(toLocaleString|toLocaleDateString|toLocaleTimeString)$' } }
+              - has: { field: arguments, has: { nthChild: { position: 1, ofRule: &code { not: { kind: 'comment, html_comment' } } } } }
+              - not: { has: { field: arguments, has: { pattern: $_, not: { matches: typescript-literal-expression } } } }
+              - inside: { stopBy: end, kind: *boundary }
         - kind: call_expression
           all:
-            - has: {field: function, kind: member_expression, pattern: $FORMATTER, has: {field: property, regex: '^localeCompare$'}}
-            - has: {field: arguments, has: {nthChild: {position: 2, ofRule: *code}}}
-            - not: {has: {field: arguments, has: {nthChild: 'n+2', not: {matches: typescript-literal-expression}}}}
-            - inside: {stopBy: end, kind: *boundary}
-    not: {inside: {kind: program, stopBy: end, matches: extendscript-file}}
+              - has: { field: function, kind: member_expression, pattern: $FORMATTER, has: { field: property, regex: '^localeCompare$' } }
+              - has: { field: arguments, has: { nthChild: { position: 2, ofRule: *code } } }
+              - not: { has: { field: arguments, has: { nthChild: 'n+2', not: { matches: typescript-literal-expression } } } }
+              - inside: { stopBy: end, kind: *boundary }
+    not: { inside: { kind: program, stopBy: end, matches: extendscript-file } }
 message: '`$FORMATTER` builds an `Intl` object from constant arguments at each call'
 note: 'Build `Intl` object once in a module `const` and call its `format` or `compare` inside the function'

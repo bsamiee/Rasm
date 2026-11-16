@@ -5,14 +5,14 @@ utils:
     any-tag-regex:
         kind: call_expression
         all:
-            - has: {field: function, regex: '^((::)?regex::)?(bytes::)?(Regex|RegexBuilder|RegexSet)::new$'}
-            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: 'string_literal, raw_string_literal', regex: '^r?#*"<(/\??)?(\[\^>\][*+]\??|\.[*+]\?)>"#*$'}}
+            - has: { field: function, regex: '^((::)?regex::)?(bytes::)?(Regex|RegexBuilder|RegexSet)::new$' }
+            - has: { field: arguments, has: { nthChild: { position: 1, ofRule: { not: { kind: 'line_comment, block_comment' } } }, kind: 'string_literal, raw_string_literal', regex: '^r?#*"<(/\??)?(\[\^>\][*+]\??|\.[*+]\?)>"#*$' } }
 rule:
     kind: call_expression
     all:
         - any:
-            - matches: rust-html-tag-scan
-            - matches: any-tag-regex
+              - matches: rust-html-tag-scan
+              - matches: any-tag-regex
         - pattern: $SCAN
 message: '`$SCAN` reads HTML by searching tag text'
 note: 'Select through `scraper::Html` and `Selector`, strip markup through `ammonia::Builder::empty()`, convert to Markdown through `htmd::convert`'

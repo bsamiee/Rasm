@@ -7,22 +7,22 @@ utils:
         kind: argument_list
         any:
             - inside:
-                kind: primary_constructor_base_type
-                has: {field: type, matches: languageext-error-subtype}
+                  kind: primary_constructor_base_type
+                  has: { field: type, matches: languageext-error-subtype }
             - inside:
-                kind: constructor_initializer
-                has: {regex: '^base$'}
-                inside: {kind: constructor_declaration, inside: {kind: declaration_list, inside: {matches: languageext-error-record}}}
+                  kind: constructor_initializer
+                  has: { regex: '^base$' }
+                  inside: { kind: constructor_declaration, inside: { kind: declaration_list, inside: { matches: languageext-error-record } } }
             - inside:
-                kind: object_creation_expression
-                has: {field: type, matches: languageext-error-subtype}
+                  kind: object_creation_expression
+                  has: { field: type, matches: languageext-error-subtype }
             - inside:
-                kind: invocation_expression
-                matches: {csharp-owner-call: {type: {regex: '^Error$'}, member: {regex: '^New$'}}}
+                  kind: invocation_expression
+                  matches: { csharp-owner-call: { type: { regex: '^Error$' }, member: { regex: '^New$' } } }
 rule:
     kind: string_literal, verbatim_string_literal, raw_string_literal
     pattern: $TEXT
     regex: '\{[_\p{XID_Start}]\p{XID_Continue}*\}'
-    inside: {kind: argument, inside: {matches: message-arguments}}
+    inside: { kind: argument, inside: { matches: message-arguments } }
 message: 'Error message `$TEXT` holds a `{Name}` placeholder nothing fills'
 note: 'Write an interpolated string `$"..."`, inside `string.Create(CultureInfo.InvariantCulture, $"...")` where a number formats'

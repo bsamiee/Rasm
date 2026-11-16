@@ -6,98 +6,103 @@ utils:
         any:
             - kind: string, number
             - kind: template_string
-              not: {has: {kind: template_substitution}}
+              not: { has: { kind: template_substitution } }
     key:
         pattern: $KEY
-        not: {matches: literal}
+        not: { matches: literal }
         any:
-            - {kind: identifier, pattern: $ROOT}
-            - has: {stopBy: end, kind: identifier, pattern: $ROOT}
+            - { kind: identifier, pattern: $ROOT }
+            - has: { stopBy: end, kind: identifier, pattern: $ROOT }
     computed:
         any:
             - kind: call_expression, await_expression, new_expression, yield_expression
-            - has: {stopBy: end, kind: 'call_expression, await_expression, new_expression, yield_expression'}
-            - {kind: identifier, pattern: $ROOT}
-            - has: {stopBy: end, kind: identifier, pattern: $ROOT}
+            - has: { stopBy: end, kind: 'call_expression, await_expression, new_expression, yield_expression' }
+            - { kind: identifier, pattern: $ROOT }
+            - has: { stopBy: end, kind: identifier, pattern: $ROOT }
     value-return:
         kind: return_statement
-        has: {pattern: $_}
-        not: {has: {matches: computed}}
+        has: { pattern: $_ }
+        not: { has: { matches: computed } }
     returning-case:
         kind: switch_case, switch_default
         all:
-            - not: {has: {nthChild: {position: 3, ofRule: &code {not: {kind: 'comment, html_comment'}}}}}
-            - not: {has: {field: body, not: {matches: value-return}}}
+            - not: { has: { nthChild: { position: 3, ofRule: &code { not: { kind: 'comment, html_comment' } } } } }
+            - not: { has: { field: body, not: { matches: value-return } } }
     literal-case:
         kind: switch_case
-        has: {field: value, matches: literal}
+        has: { field: value, matches: literal }
     key-test:
         kind: binary_expression
         all:
-            - has: {field: operator, regex: '^===$'}
+            - has: { field: operator, regex: '^===$' }
             - any:
-                - all: [{has: {field: left, matches: key}}, {has: {field: right, matches: literal}}]
-                - all: [{has: {field: right, matches: key}}, {has: {field: left, matches: literal}}]
+                  - all: [{ has: { field: left, matches: key } }, { has: { field: right, matches: literal } }]
+                  - all: [{ has: { field: right, matches: key } }, { has: { field: left, matches: literal } }]
     returning-if:
         kind: if_statement
         all:
-            - has: {field: condition, has: {matches: key-test}}
+            - has: { field: condition, has: { matches: key-test } }
             - has:
-                field: consequence
-                any:
-                    - matches: value-return
-                    - kind: statement_block
-                      has: {matches: value-return}
-                      not: {has: {nthChild: {position: 2, ofRule: *code}}}
-            - not: {has: {field: alternative, pattern: $_}}
+                  field: consequence
+                  any:
+                      - matches: value-return
+                      - kind: statement_block
+                        has: { matches: value-return }
+                        not: { has: { nthChild: { position: 2, ofRule: *code } } }
+            - not: { has: { field: alternative, pattern: $_ } }
     match-value:
-        matches: {effect-module-member: {module: {regex: '(?-u:\b)Match$'}, member: {regex: '^value$'}}}
+        matches: { effect-module-member: { module: { regex: '(?-u:\b)Match$' }, member: { regex: '^value$' } } }
     match-arm:
-        matches: {effect-module-member: {module: {regex: '(?-u:\b)Match$'}, member: {regex: '^(tag|when|whenOr)$'}}}
+        matches: { effect-module-member: { module: { regex: '(?-u:\b)Match$' }, member: { regex: '^(tag|when|whenOr)$' } } }
     match-default:
-        matches: {effect-module-member: {module: {regex: '(?-u:\b)Match$'}, member: {regex: '^orElse$'}}}
+        matches: { effect-module-member: { module: { regex: '(?-u:\b)Match$' }, member: { regex: '^orElse$' } } }
     match-exhaustive:
-        matches: {effect-module-member: {module: {regex: '(?-u:\b)Match$'}, member: {regex: '^exhaustive$'}}}
+        matches: { effect-module-member: { module: { regex: '(?-u:\b)Match$' }, member: { regex: '^exhaustive$' } } }
     literal-handler:
         kind: arrow_function
-        has: {field: body, matches: literal}
+        has: { field: body, matches: literal }
     literal-arm:
         kind: call_expression
         all:
-            - has: {field: function, matches: match-arm}
+            - has: { field: function, matches: match-arm }
             - has:
-                field: arguments
-                all:
-                    - has: {nthChild: {position: 1, reverse: true, ofRule: *code}, matches: literal-handler}
-                    - not: {has: {pattern: $_, not: {any: [{kind: comment}, {matches: literal}, {matches: literal-handler}, {kind: object, not: {has: {pattern: $_, not: {kind: pair, has: {field: value, matches: literal}}}}}]}}}
+                  field: arguments
+                  all:
+                      - has: { nthChild: { position: 1, reverse: true, ofRule: *code }, matches: literal-handler }
+                      - not: { has: { pattern: $_, not: { any: [{ kind: comment }, { matches: literal }, { matches: literal-handler }, { kind: object, not: { has: { pattern: $_, not: { kind: pair, has: { field: value, matches: literal } } } } }] } } }
     literal-close:
         any:
             - matches: match-exhaustive
             - kind: call_expression
-              all: [{has: {field: function, matches: match-default}}, {has: {field: arguments, has: {matches: literal-handler}}}]
+              all: [{ has: { field: function, matches: match-default } }, { has: { field: arguments, has: { matches: literal-handler } } }]
 rule:
     any:
         - kind: switch_statement
           all:
-            - has: {field: value, has: {matches: key}}
-            - has:
-                field: body
-                all:
-                    - has: {kind: switch_case, has: {field: body, kind: return_statement}}
-                    - not: {has: {kind: switch_case, not: {matches: literal-case}}}
-                    - not: {has: {kind: 'switch_case, switch_default', not: {matches: returning-case}}}
+              - has: { field: value, has: { matches: key } }
+              - has:
+                    field: body
+                    all:
+                        - has: { kind: switch_case, has: { field: body, kind: return_statement } }
+                        - not: { has: { kind: switch_case, not: { matches: literal-case } } }
+                        - not: { has: { kind: 'switch_case, switch_default', not: { matches: returning-case } } }
         - matches: returning-if
-          precedes: {matches: returning-if}
-          not: {follows: {matches: returning-if}}
+          precedes: { matches: returning-if }
+          not: { follows: { matches: returning-if } }
         - kind: call_expression
           all:
-            - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^pipe$'}}, {has: {field: object, kind: call_expression, all: [{has: {field: function, matches: match-value}}, {has: {field: arguments, has: {nthChild: {position: 1, ofRule: *code}, matches: key}}}]}}]}
-            - has:
-                field: arguments
-                all:
-                    - has: {nthChild: {position: 3, ofRule: *code}}
-                    - has: {nthChild: {position: 1, reverse: true, ofRule: *code}, matches: literal-close}
-                    - not: {has: {pattern: $_, not: {any: [{kind: comment}, {matches: literal-arm}, {matches: literal-close}]}}}
-                    - has: {matches: literal-arm, nthChild: {position: 2, ofRule: {matches: literal-arm}}}
+              - has:
+                    {
+                        field: function,
+                        kind: member_expression,
+                        all: [{ has: { field: property, regex: '^pipe$' } }, { has: { field: object, kind: call_expression, all: [{ has: { field: function, matches: match-value } }, { has: { field: arguments, has: { nthChild: { position: 1, ofRule: *code }, matches: key } } }] } }],
+                    }
+              - has:
+                    field: arguments
+                    all:
+                        - has: { nthChild: { position: 3, ofRule: *code } }
+                        - has: { nthChild: { position: 1, reverse: true, ofRule: *code }, matches: literal-close }
+                        - not: { has: { pattern: $_, not: { any: [{ kind: comment }, { matches: literal-arm }, { matches: literal-close }] } } }
+                        - has: { matches: literal-arm, nthChild: { position: 2, ofRule: { matches: literal-arm } } }
 message: '`$KEY` selects one value per literal case'
 note: 'Index a literal-keyed record by the key or its `_tag`, a raw key decoded at entry through `Schema.Literals(Struct.keys(<record>))`'

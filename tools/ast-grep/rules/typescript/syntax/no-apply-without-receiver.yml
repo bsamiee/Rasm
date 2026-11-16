@@ -4,12 +4,12 @@ severity: error
 rule:
     kind: call_expression
     all:
-        - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^apply$'}}, {has: {field: object, regex: '(^|\.)Reflect$', matches: typescript-global-member}}]}
+        - has: { field: function, kind: member_expression, all: [{ has: { field: property, regex: '^apply$' } }, { has: { field: object, regex: '(^|\.)Reflect$', matches: typescript-global-member } }] }
         - pattern: '$_($F, $RECEIVER, $LIST)'
-        - not: {has: {field: arguments, has: {kind: comment, stopBy: end}}}
+        - not: { has: { field: arguments, has: { kind: comment, stopBy: end } } }
 constraints:
-    F: {not: {any: [{kind: 'member_expression, subscript_expression, parenthesized_expression'}, {pattern: eval}]}}
-    RECEIVER: {kind: undefined, matches: typescript-global-reference}
-    LIST: {kind: array}
+    F: { not: { any: [{ kind: 'member_expression, subscript_expression, parenthesized_expression' }, { pattern: eval }] } }
+    RECEIVER: { kind: undefined, matches: typescript-global-reference }
+    LIST: { kind: array }
 message: '`$F` is called through `Reflect.apply` with no receiver'
 note: 'Call `<function>(<arguments>)`, spreading a held argument list as `<function>(...<arguments>)`'

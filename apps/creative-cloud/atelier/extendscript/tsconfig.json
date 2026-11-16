@@ -1,7 +1,7 @@
 {
     "extends": "../../../../tsconfig.base.json",
     "compilerOptions": {
-        "types": [ "types-for-adobe/shared/global" ]
+        "types": ["types-for-adobe/shared/global"]
     },
     "references": [
         {

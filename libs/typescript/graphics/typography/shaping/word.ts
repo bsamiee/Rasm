@@ -13,9 +13,9 @@ interface JoiningState {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const LETTERS = /\p{L}/gu;
-const UNJOINED = [JoiningType.NonJoining, JoiningType.Transparent];
-const JOINS_FORWARD = [JoiningType.DualJoining, JoiningType.LeftJoining, JoiningType.JoinCausing];
-const JOINS_BACKWARD = [JoiningType.DualJoining, JoiningType.RightJoining, JoiningType.JoinCausing];
+const UNJOINED = new Set([JoiningType.NonJoining, JoiningType.Transparent]);
+const JOINS_FORWARD = new Set([JoiningType.DualJoining, JoiningType.LeftJoining, JoiningType.JoinCausing]);
+const JOINS_BACKWARD = new Set([JoiningType.DualJoining, JoiningType.RightJoining, JoiningType.JoinCausing]);
 const LINES = LineSegmenter.createAuto();
 const BIDI = new Bidi();
 
@@ -47,7 +47,7 @@ class Word extends Data.Class<{
             ),
             ([start, next]) => {
                 const content = text.slice(start, next).trimEnd();
-                return content === '' ? Result.failVoid : Result.succeed(new Word({ start, end: start + content.length, joins: closedJoins([...content].reduce<JoiningState>(joiningStep, { offset: start, joins: [], open: Option.none(), previous: 0 })) }));
+                return content === '' ? Result.failVoid : Result.succeed(new Word({ start, end: start + content.length, joins: closedJoins(Array.fromIterable(content).reduce<JoiningState>(joiningStep, { offset: start, joins: [], open: Option.none(), previous: 0 })) }));
             },
         );
     static readonly expand = (text: string, first: number, last: number): readonly [number, number] =>
@@ -74,10 +74,10 @@ const joiningStep = (state: JoiningState, character: string): JoiningState => {
     const point = character.codePointAt(0) ?? 0;
     const type = JoiningType.forChar(point);
     const transparent = type === JoiningType.Transparent;
-    const joins = transparent || (isDigit(point) && isDigit(state.previous)) || (JOINS_FORWARD.includes(JoiningType.forChar(state.previous)) && JOINS_BACKWARD.includes(type));
+    const joins = transparent || (isDigit(point) && isDigit(state.previous)) || (JOINS_FORWARD.has(JoiningType.forChar(state.previous)) && JOINS_BACKWARD.has(type));
     return {
         offset: state.offset + character.length,
-        ...(Option.isSome(state.open) && joins ? { joins: state.joins, open: state.open } : { joins: closedJoins(state), open: UNJOINED.includes(type) && !isDigit(point) ? Option.none() : Option.some(state.offset) }),
+        ...(Option.isSome(state.open) && joins ? { joins: state.joins, open: state.open } : { joins: closedJoins(state), open: UNJOINED.has(type) && !isDigit(point) ? Option.none() : Option.some(state.offset) }),
         previous: transparent ? state.previous : point,
     };
 };

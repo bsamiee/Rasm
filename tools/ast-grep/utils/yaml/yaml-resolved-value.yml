@@ -7,29 +7,29 @@ utils:
         kind: anchor_name
         all:
             - pattern: $ANCHOR
-            - inside: {kind: anchor, inside: {pattern: $RESOLVED}}
+            - inside: { kind: anchor, inside: { pattern: $RESOLVED } }
     last-anchor:
         any:
             - matches: anchor-name
             - all:
-                - has: {stopBy: end, kind: anchor_name, pattern: $ANCHOR}
-                - has:
-                    all:
-                        - not: {precedes: {pattern: $$_}}
-                        - any:
-                            - matches: last-anchor
-                            - follows: {stopBy: end, matches: last-anchor}
+                  - has: { stopBy: end, kind: anchor_name, pattern: $ANCHOR }
+                  - has:
+                        all:
+                            - not: { precedes: { pattern: $$_ } }
+                            - any:
+                                  - matches: last-anchor
+                                  - follows: { stopBy: end, matches: last-anchor }
 rule:
     kind: block_node, flow_node
     any:
         - matches: value
         - all:
-            - has: {kind: alias, has: {kind: alias_name, pattern: $ANCHOR}}
-            - any:
-                - follows: {stopBy: end, matches: last-anchor}
-                - inside:
-                    stopBy: {kind: document}
-                    not: {kind: document}
-                    follows: {stopBy: end, matches: last-anchor}
+              - has: { kind: alias, has: { kind: alias_name, pattern: $ANCHOR } }
+              - any:
+                    - follows: { stopBy: end, matches: last-anchor }
+                    - inside:
+                          stopBy: { kind: document }
+                          not: { kind: document }
+                          follows: { stopBy: end, matches: last-anchor }
 constraints:
-    RESOLVED: {matches: value}
+    RESOLVED: { matches: value }

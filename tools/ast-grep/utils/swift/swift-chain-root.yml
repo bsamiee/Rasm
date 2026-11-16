@@ -6,4 +6,4 @@ rule:
     kind: 'simple_identifier, call_expression, navigation_expression'
     any:
         - matches: root
-        - has: {stopBy: {not: {kind: 'call_expression, navigation_expression'}}, nthChild: 1, matches: root}
+        - has: { stopBy: { not: { kind: 'call_expression, navigation_expression' } }, nthChild: 1, matches: root }

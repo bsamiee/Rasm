@@ -4,19 +4,19 @@ severity: error
 utils:
     negated-in:
         all:
-            - has: {regex: '(?i-u)^in$', not: {pattern: $_}}
+            - has: { regex: '(?i-u)^in$', not: { pattern: $_ } }
             - any:
-                - has: {regex: '(?i-u)^not$', not: {pattern: $_}}
-                - inside: {kind: a_expr, stopBy: {not: {matches: pgsql-wrapper}}, has: {field: operator, regex: '(?i-u)^not$'}}
+                  - has: { regex: '(?i-u)^not$', not: { pattern: $_ } }
+                  - inside: { kind: a_expr, stopBy: { not: { matches: pgsql-wrapper } }, has: { field: operator, regex: '(?i-u)^not$' } }
     unequal-all:
         all:
-            - has: {kind: subquery_Op, regex: '^(<>|!=)$'}
-            - has: {kind: sub_type, regex: '(?i-u)^all$'}
+            - has: { kind: subquery_Op, regex: '^(<>|!=)$' }
+            - has: { kind: sub_type, regex: '(?i-u)^all$' }
 rule:
     kind: a_expr
     all:
-        - has: {kind: select_with_parens}
-        - any: [{matches: negated-in}, {matches: unequal-all}]
+        - has: { kind: select_with_parens }
+        - any: [{ matches: negated-in }, { matches: unequal-all }]
         - pattern: $TEST
 message: '`$TEST` yields NULL when a compared value is NULL'
 note: 'Preserve nullable operand behavior when replacing the comparison with `not exists`'

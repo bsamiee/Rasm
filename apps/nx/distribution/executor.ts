@@ -1,9 +1,10 @@
-import { join, matchesGlob } from 'node:path';
+import { join } from 'node:path';
 import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
 import type { ExecutorContext } from '@nx/devkit';
 import { createTaskId } from '@nx/devkit/internal';
 import { Array, Cause, Config, Effect, FileSystem, Function, Option, Result, Schema, type Scope, SemVer, Stream, String, Struct } from 'effect';
 import { ChildProcess, type ChildProcessSpawner, CommandLine } from 'effect/process';
+import { minimatch } from 'minimatch';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -49,7 +50,7 @@ const packaged = Effect.fnUntraced(function* ({ root, projectName, targetName, c
         Effect.fnUntraced(function* ({ dependentTasksOutputFiles, transitive = false }) {
             const outputs = [...upstream(new Set([own]), transitive)].filter((id) => id !== own).map((id) => tasks[id]?.outputs ?? []);
             const files = yield* Effect.forEach(outputs, (stated) => listed(root, stated));
-            return { outputs: outputs.flat(), files: files.flat().filter((file) => matchesGlob(file, dependentTasksOutputFiles)) };
+            return { outputs: outputs.flat(), files: files.flat().filter((file) => minimatch(file, dependentTasksOutputFiles, { dot: true })) };
         }),
     );
     const [outputs, files] = [Array.dedupe(matched.flatMap(Struct.get('outputs'))), Array.dedupe(matched.flatMap(Struct.get('files'))).toSorted()];

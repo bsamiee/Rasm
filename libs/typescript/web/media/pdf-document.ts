@@ -35,7 +35,7 @@ const open = Effect.fn('open')(function* (source: Source, subject: string) {
         catch: Match.type<unknown>().pipe(
             Match.when(Match.instanceOf(PasswordException), MediaError.of('Protected', subject)),
             Match.when(Match.instanceOf(InvalidPDFException), MediaError.of('Unreadable', subject)),
-            Match.when((cause: unknown) => cause instanceof ResponseException && cause.missing, MediaError.of('Missing', subject)),
+            Match.when((cause: unknown) => cause instanceof ResponseException && cause.missing === true, MediaError.of('Missing', subject)),
             Match.orElse((cause) => new Cause.UnknownError(cause)),
         ),
     });

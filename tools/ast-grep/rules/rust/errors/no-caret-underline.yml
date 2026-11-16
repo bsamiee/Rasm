@@ -19,39 +19,48 @@ utils:
         regex: '\{[^{}]*:[^{}]?>[^{}]*\}'
     caret-repeat:
         kind: call_expression
-        has: {field: function, kind: field_expression, all: [{has: {field: value, matches: caret-only}}, {has: {field: field, regex: '^repeat$'}}]}
+        has: { field: function, kind: field_expression, all: [{ has: { field: value, matches: caret-only } }, { has: { field: field, regex: '^repeat$' } }] }
     caret-iterator:
         kind: call_expression
         any:
             - all:
-                - has: {field: function, regex: '^((::)?(std|core)::)?(iter::)?repeat_n$'}
-                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: caret-only}}
+                  - has: { field: function, regex: '^((::)?(std|core)::)?(iter::)?repeat_n$' }
+                  - has: { field: arguments, has: { nthChild: { position: 1, ofRule: { not: { kind: 'line_comment, block_comment' } } }, matches: caret-only } }
             - all:
-                - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^take$'}}, {has: {field: value, kind: call_expression, all: [{has: {field: function, regex: '^((::)?(std|core)::)?(iter::)?repeat$'}}, {has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: caret-only}}}]}}]}
+                  - has:
+                        {
+                            field: function,
+                            kind: field_expression,
+                            all:
+                                [
+                                    { has: { field: field, regex: '^take$' } },
+                                    { has: { field: value, kind: call_expression, all: [{ has: { field: function, regex: '^((::)?(std|core)::)?(iter::)?repeat$' } }, { has: { field: arguments, has: { nthChild: { position: 1, ofRule: { not: { kind: 'line_comment, block_comment' } } }, matches: caret-only } } }] } },
+                                ],
+                        }
     space-repeat:
         kind: call_expression
-        has: {field: function, kind: field_expression, all: [{has: {field: value, matches: space-literal}}, {has: {field: field, regex: '^repeat$'}}]}
+        has: { field: function, kind: field_expression, all: [{ has: { field: value, matches: space-literal } }, { has: { field: field, regex: '^repeat$' } }] }
     caret-push:
         kind: expression_statement
         has:
             kind: call_expression
             all:
-                - has: {field: function, kind: field_expression, all: [{has: {field: value, pattern: $BUFFER}}, {has: {field: field, regex: '^(push|push_str)$'}}]}
-                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, any: [{matches: caret-literal}, {matches: caret-text}]}}
+                - has: { field: function, kind: field_expression, all: [{ has: { field: value, pattern: $BUFFER } }, { has: { field: field, regex: '^(push|push_str)$' } }] }
+                - has: { field: arguments, has: { nthChild: { position: 1, ofRule: { not: { kind: 'line_comment, block_comment' } } }, any: [{ matches: caret-literal }, { matches: caret-text }] } }
 rule:
     all:
         - any:
-            - matches: caret-repeat
-            - matches: caret-iterator
-            - kind: tuple_expression
-              any:
-                - all: [{has: {matches: caret-text}}, {has: {matches: space-repeat}}]
-                - all: [{has: {matches: padded-placeholder}}, {has: {matches: caret-literal}}]
-            - kind: call_expression
-              all:
-                - has: {field: function, kind: field_expression, all: [{has: {field: value, pattern: $BUFFER}}, {has: {field: field, regex: '^push_str$'}}]}
-                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: reference_expression, has: {matches: space-repeat}}}
-                - inside: {kind: expression_statement, precedes: {stopBy: end, matches: caret-push}}
+              - matches: caret-repeat
+              - matches: caret-iterator
+              - kind: tuple_expression
+                any:
+                    - all: [{ has: { matches: caret-text } }, { has: { matches: space-repeat } }]
+                    - all: [{ has: { matches: padded-placeholder } }, { has: { matches: caret-literal } }]
+              - kind: call_expression
+                all:
+                    - has: { field: function, kind: field_expression, all: [{ has: { field: value, pattern: $BUFFER } }, { has: { field: field, regex: '^push_str$' } }] }
+                    - has: { field: arguments, has: { nthChild: { position: 1, ofRule: { not: { kind: 'line_comment, block_comment' } } }, kind: reference_expression, has: { matches: space-repeat } } }
+                    - inside: { kind: expression_statement, precedes: { stopBy: end, matches: caret-push } }
         - pattern: $SITE
 message: '`$SITE` underlines source text with carets by hand'
 note: 'Render a `Snippet::source(<source>)` annotated with `AnnotationKind::Primary.span(<range>)` through `annotate_snippets::Renderer`'

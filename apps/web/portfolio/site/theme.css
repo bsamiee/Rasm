@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 @plugin "tailwindcss-react-aria-components";
 
 /* --- [THEME] ------------------------------------------------------------------------- */
@@ -22,7 +22,7 @@
     --color-line: rgb(215 215 210);
     --color-muted: rgb(105 105 101);
     --container-intro: 60rem;
-    --content-ordinal: "[" counter(ordinal, decimal-leading-zero) "]";
+    --content-ordinal: '[' counter(ordinal, decimal-leading-zero) ']';
     --font-mono: ui-monospace, SFMono-Regular, Consolas, monospace;
     --font-sans: Arial, Helvetica, sans-serif;
     --grid-template-columns-leading: max-content minmax(0, 1fr);
@@ -92,7 +92,7 @@
     button {
         @apply touch-manipulation;
     }
-    button:enabled:not([aria-disabled="true"]) {
+    button:enabled:not([aria-disabled='true']) {
         @apply cursor-pointer;
     }
 }
@@ -100,13 +100,13 @@
 /* --- [UTILITIES] --------------------------------------------------------------------- */
 
 @utility site-header {
-    @apply mx-(--page-gutter) flex min-h-23 items-center justify-between gap-7 border-line border-b py-4.5 max-md:min-h-19 max-md:gap-5;
+    @apply mx-(--page-gutter) flex min-h-23 items-center justify-between gap-7 border-b border-line py-4.5 max-md:min-h-19 max-md:gap-5;
 }
 @utility site-name {
     font-size: 27px;
     line-height: 1.1;
     letter-spacing: -0.04em;
-    @apply wrap-anywhere flex min-w-0 max-w-9/20 items-center gap-5 max-md:max-w-13/20;
+    @apply flex max-w-9/20 min-w-0 items-center gap-5 wrap-anywhere max-md:max-w-13/20;
 }
 @utility site-content {
     margin-left: calc(var(--page-gutter) + var(--index-width) + var(--index-gap));
@@ -116,13 +116,13 @@
     }
 }
 @utility site-introduction {
-    @apply @container grid grid-cols-1 items-end gap-8 pt-12 @intro:grid-cols-2 max-md:pt-7.5;
+    @apply @container grid grid-cols-1 items-end gap-8 pt-12 max-md:pt-7.5 @intro:grid-cols-2;
 }
 @utility site-title {
     font-size: clamp(4rem, calc(2rem + 12cqw), 11.5rem);
     line-height: 0.91;
     letter-spacing: -0.055em;
-    @apply wrap-anywhere mb-8 font-medium;
+    @apply mb-8 font-medium wrap-anywhere;
     @variant @intro {
         font-size: clamp(4rem, 8cqw, 7.5rem);
     }
@@ -132,13 +132,13 @@
     @apply pt-20.5 pb-18 outline-none max-md:py-15;
 }
 @utility site-footer {
-    @apply flex items-center justify-between gap-6 border-line border-t pt-6 pb-8 text-sm max-sm:flex-wrap max-sm:gap-x-6 max-sm:gap-y-2;
+    @apply flex items-center justify-between gap-6 border-t border-line pt-6 pb-8 text-sm max-sm:flex-wrap max-sm:gap-x-6 max-sm:gap-y-2;
 }
 @utility work-title {
-    [data-populated="true"] & {
-        @apply font-medium text-sm;
+    [data-populated='true'] & {
+        @apply text-sm font-medium;
     }
-    [data-populated="false"] & {
+    [data-populated='false'] & {
         font-size: clamp(1.875rem, calc(1rem + 3cqw), 4rem);
         line-height: 1.05;
         letter-spacing: -0.045em;
@@ -149,7 +149,7 @@
     @apply relative flex items-center justify-center border border-line bg-background-muted;
     &::before,
     &::after {
-        content: "";
+        content: '';
         @apply absolute size-5.5 border-accent;
     }
     &::before {
@@ -173,14 +173,14 @@
 @utility index-link {
     font-size: var(--text-sm);
     line-height: 1.45;
-    @apply col-span-full grid min-h-11 grid-cols-subgrid items-baseline gap-x-3 border-line border-t py-3.25 focus-visible:-outline-offset-2;
+    @apply col-span-full grid min-h-11 grid-cols-subgrid items-baseline gap-x-3 border-t border-line py-3.25 focus-visible:-outline-offset-2;
 }
 @utility ordinal {
     counter-increment: ordinal;
     @apply before:content-ordinal;
 }
 @utility chapter {
-    @apply border-line border-b pt-14 pb-16 last:border-b-0 max-md:pt-10 max-md:pb-12;
+    @apply border-b border-line pt-14 pb-16 last:border-b-0 max-md:pt-10 max-md:pb-12;
 }
 @utility chapter-heading {
     @apply mb-8 grid grid-cols-1 items-start gap-x-8 gap-y-6;
@@ -193,11 +193,11 @@
 @utility chapter-title {
     font-size: clamp(2.25rem, calc(1.25rem + 3.6cqw), 4.5rem);
     line-height: 1.05;
-    @apply wrap-anywhere col-start-1 row-start-2 min-w-0 text-balance tracking-display outline-none;
+    @apply col-start-1 row-start-2 min-w-0 tracking-display text-balance wrap-anywhere outline-none;
 }
 @utility chapter-lead {
     text-align-last: start;
-    @apply lead col-span-full max-w-prose hyphens-auto text-justify leading-body;
+    @apply col-span-full lead max-w-prose text-justify leading-body hyphens-auto;
     @supports (hyphenate-limit-chars: 7 3 3) {
         hyphenate-limit-chars: 7 3 3;
     }
@@ -226,18 +226,18 @@
 }
 @utility viewer-heading {
     max-height: calc(var(--visual-viewport-height) * 0.25);
-    @apply wrap-anywhere min-w-0 overflow-y-auto text-lg leading-tight max-sm:text-base landscape-short:col-start-1 landscape-short:row-start-1;
+    @apply min-w-0 overflow-y-auto text-lg leading-tight wrap-anywhere max-sm:text-base landscape-short:col-start-1 landscape-short:row-start-1;
     @variant landscape-short {
         font-size: 15px;
     }
 }
 @utility viewer-hint {
     max-height: calc(var(--visual-viewport-height) * 0.15);
-    @apply wrap-anywhere shrink-0 overflow-y-auto text-caption text-muted landscape-short:hidden;
+    @apply shrink-0 overflow-y-auto text-caption wrap-anywhere text-muted landscape-short:hidden;
 }
 @utility viewer-controls {
     max-height: calc(var(--visual-viewport-height) * 0.4);
-    @apply flex shrink-0 flex-wrap items-center gap-x-2 gap-y-1 overflow-y-auto border-line border-y py-2 landscape-short:col-span-full landscape-short:row-start-2 landscape-short:py-1;
+    @apply flex shrink-0 flex-wrap items-center gap-x-2 gap-y-1 overflow-y-auto border-y border-line py-2 landscape-short:col-span-full landscape-short:row-start-2 landscape-short:py-1;
 }
 @utility viewer-toolbar {
     @apply flex w-fit max-w-full items-center;
@@ -258,7 +258,7 @@
     }
 }
 @utility editor-tab {
-    @apply min-h-11 cursor-pointer px-3.5 py-2.5 text-sm selected:text-accent-text selected:underline selected:decoration-2 selected:underline-offset-8 max-sm:p-2 max-sm:text-xs;
+    @apply min-h-11 cursor-pointer px-3.5 py-2.5 text-sm max-sm:p-2 max-sm:text-xs selected:text-accent-text selected:underline selected:decoration-2 selected:underline-offset-8;
 }
 @utility editor-panel {
     @apply flex flex-col gap-5 data-inert:hidden;
@@ -290,7 +290,7 @@
 }
 @utility lead {
     max-width: 55ch;
-    @apply min-w-0 wrap-anywhere text-lg leading-prose whitespace-pre-line max-sm:text-base;
+    @apply min-w-0 text-lg leading-prose wrap-anywhere whitespace-pre-line max-sm:text-base;
 }
 @utility meta-line {
     @apply mt-1.25 block text-xs text-muted;
@@ -310,23 +310,23 @@
 @layer components {
     .composition {
         @apply @container flex items-center;
-        &[data-align="left"] {
+        &[data-align='left'] {
             @apply justify-start;
         }
-        &[data-align="center"] {
+        &[data-align='center'] {
             @apply justify-center;
         }
-        &[data-align="right"] {
+        &[data-align='right'] {
             @apply justify-end;
         }
-        &[data-presentation="thumbnail"] {
+        &[data-presentation='thumbnail'] {
             @apply aspect-4/3;
         }
-        &[data-presentation="expandable"] {
+        &[data-presentation='expandable'] {
             min-height: 32svh;
             @apply py-3 max-sm:min-h-0;
         }
-        &[data-presentation="preview"] {
+        &[data-presentation='preview'] {
             @apply border border-line bg-background-muted p-5 max-sm:p-3;
             & figure > div {
                 @apply bg-background;
@@ -343,33 +343,33 @@
         &:has(> figure + figure) {
             --gaps: 1;
         }
-        [data-align="left"] > & {
+        [data-align='left'] > & {
             @apply justify-items-start;
         }
-        [data-align="center"] > & {
+        [data-align='center'] > & {
             @apply justify-items-center;
         }
-        [data-align="right"] > & {
+        [data-align='right'] > & {
             @apply justify-items-end;
         }
-        [data-scale="medium"] > & {
+        [data-scale='medium'] > & {
             --scale: 0.78;
         }
-        [data-scale="small"] > & {
+        [data-scale='small'] > & {
             --scale: 0.58;
         }
-        [data-presentation="preview"] > & {
+        [data-presentation='preview'] > & {
             --media-height: calc(280px * var(--scale));
         }
         @container (width < 600px) {
             --media-height: calc(58svh * var(--scale));
-            [data-scale="medium"] > & {
+            [data-scale='medium'] > & {
                 --scale: 0.9;
             }
-            [data-scale="small"] > & {
+            [data-scale='small'] > & {
                 --scale: 0.75;
             }
-            [data-presentation="preview"] > & {
+            [data-presentation='preview'] > & {
                 --media-height: calc(210px * var(--scale));
             }
         }
@@ -377,7 +377,7 @@
             grid-template-columns: var(--pair-columns);
             width: min(100% * var(--scale), var(--media-height) * var(--ratio-sum) + var(--composition-gap) * var(--gaps));
         }
-        [data-presentation="thumbnail"] > & {
+        [data-presentation='thumbnail'] > & {
             --composition-gap: 0.5rem;
             --media-height: 75cqw;
             grid-template-columns: var(--pair-columns);
@@ -400,20 +400,20 @@
     counter-reset: ordinal;
     & .react-aria-GridListItem {
         grid-template-columns: auto auto minmax(0, 1fr) auto;
-        @apply ordinal grid items-center gap-x-1 border-line border-t bg-background dragging:opacity-50 before:col-start-3 before:row-start-1 before:whitespace-nowrap before:font-mono before:text-muted before:text-xs;
-        & [role="gridcell"] > * {
+        @apply grid items-center gap-x-1 border-t border-line bg-background ordinal before:col-start-3 before:row-start-1 before:font-mono before:text-xs before:whitespace-nowrap before:text-muted dragging:opacity-50;
+        & [role='gridcell'] > * {
             grid-column: 1 / -1;
         }
-        & [role="gridcell"] > .react-aria-CheckboxField {
+        & [role='gridcell'] > .react-aria-CheckboxField {
             grid-area: 1 / 1;
         }
-        & [role="gridcell"] > [slot="drag"] {
+        & [role='gridcell'] > [slot='drag'] {
             grid-area: 1 / 2;
             @apply grid min-h-11 min-w-11 cursor-grab touch-none place-items-center text-muted;
         }
-        & [role="gridcell"] > [aria-haspopup] {
+        & [role='gridcell'] > [aria-haspopup] {
             grid-area: 1 / 4;
-            @apply button border-0 bg-transparent px-2 text-muted text-xs;
+            @apply button border-0 bg-transparent px-2 text-xs text-muted;
         }
     }
     & .react-aria-CheckboxButton {
@@ -449,14 +449,14 @@
     .react-aria-TextArea {
         @apply control min-h-22.5 resize-y;
     }
-    .react-aria-TextField [slot="description"] {
-        @apply hint mt-3.25;
+    .react-aria-TextField [slot='description'] {
+        @apply mt-3.25 hint;
     }
-    .react-aria-Button[aria-haspopup="true"] {
-        @apply button button-outline max-w-full min-w-0 text-left wrap-anywhere whitespace-normal;
+    .react-aria-Button[aria-haspopup='true'] {
+        @apply button max-w-full min-w-0 button-outline text-left wrap-anywhere whitespace-normal;
     }
     .react-aria-Select .react-aria-Button {
-        @apply control flex items-center justify-between gap-2 text-left;
+        @apply flex control items-center justify-between gap-2 text-left;
     }
     .react-aria-SelectValue {
         @apply min-w-0 truncate placeholder-shown:text-muted;
@@ -481,7 +481,7 @@
     }
     .react-aria-ListBoxItem,
     .react-aria-MenuItem {
-        @apply min-h-11 cursor-pointer wrap-anywhere px-4 py-2.5 focus:bg-foreground focus:text-background selected:underline selected:underline-offset-4;
+        @apply min-h-11 cursor-pointer px-4 py-2.5 wrap-anywhere focus:bg-foreground focus:text-background selected:underline selected:underline-offset-4;
     }
     .react-aria-RadioGroup {
         @apply flex min-w-0 flex-wrap items-center gap-x-1 gap-y-1.75 text-caption text-muted;
@@ -498,7 +498,7 @@
     .react-aria-FieldError {
         @apply text-caption text-accent-text;
     }
-    [role="alert"] li > .react-aria-Button {
+    [role='alert'] li > .react-aria-Button {
         @apply block text-left text-accent-text underline;
     }
 }

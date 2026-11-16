@@ -6,8 +6,8 @@ import plugin from '@rasm/nx-storybook/package.json' with { type: 'json' };
 import { Consumer, kept, Packed } from '@rasm/testing/nx';
 import framework from '@storybook/react-vite/package.json' with { type: 'json' };
 import { Effect, Formatter, Layer, Path, Predicate, Record } from 'effect';
-import react from 'react/package.json' with { type: 'json' };
 import dom from 'react-dom/package.json' with { type: 'json' };
+import react from 'react/package.json' with { type: 'json' };
 import storybook from 'storybook/package.json' with { type: 'json' };
 import vite from 'vite/package.json' with { type: 'json' };
 

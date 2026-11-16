@@ -3,14 +3,14 @@ id: thinktecture-smart-enum-items
 language: csharplang
 utils:
     owner-type:
-        matches: {csharp-type-name: {name: {regex: '^[A-Z]'}}}
+        matches: { csharp-type-name: { name: { regex: '^[A-Z]' } } }
 rule:
     kind: member_access_expression
     all:
-        - has: {field: name, regex: '^Items$'}
-        - has: {field: expression, kind: 'identifier, generic_name, qualified_name', matches: owner-type, pattern: $OWNER}
+        - has: { field: name, regex: '^Items$' }
+        - has: { field: expression, kind: 'identifier, generic_name, qualified_name', matches: owner-type, pattern: $OWNER }
         - not:
-            inside:
-                kind: compilation_unit
-                stopBy: end
-                has: {stopBy: end, kind: 'property_declaration, variable_declarator, parameter', has: {field: name, pattern: $OWNER}}
+              inside:
+                  kind: compilation_unit
+                  stopBy: end
+                  has: { stopBy: end, kind: 'property_declaration, variable_declarator, parameter', has: { field: name, pattern: $OWNER } }

@@ -81,7 +81,7 @@ const GIT: Ruleset = {
                         branch: [refuse(...BRANCHES, ...BRANCH_WRITES), when(({ operands, has }) => operands.length > 0 && !has('--list', '--all', '--remotes', '--verbose', '--show-current', '--contains', '--no-contains', '--merged', '--no-merged', '--points-at', '-u', ...BRANCH_WRITES), refuse(...BRANCHES))],
                         checkout: [UNFORCED, refuse(...OVERWRITES, '-B', '--patch', '--ours', '--theirs'), refuse(...BRANCHES, '-b', '--orphan', '--track'), checkoutPaths],
                         clean: [when(({ has }) => !has('--dry-run'), refuse('deletes untracked files', 'rm each by name'))],
-                        config: [when(({ operands }) => operands.slice(0, -1).some(({ text }) => ALIAS.test(text)), refuse(...ALIASES))],
+                        config: [when(({ operands }) => operands.slice(0, -1).some(({ text }) => text.startsWith('alias.')), refuse(...ALIASES))],
                         push: [when(Predicate.not(holds(TAG)), UNFORCED, refuse(...REMOTE, '--delete', '--mirror', '--prune'), when(holds(HISTORY), refuse(...REMOTE)))],
                         rebase: [when(({ has }) => !has(...UNWINDS), refuse('rewrites shared commits', 'merge or commit forward'))],
                         reflog: [when(nested('delete', 'drop', 'expire'), refuse('deletes entries', 'leave the reflog intact'))],

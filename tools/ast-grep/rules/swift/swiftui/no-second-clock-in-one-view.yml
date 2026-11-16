@@ -4,23 +4,23 @@ severity: error
 utils:
     timeline:
         kind: call_expression
-        has: {nthChild: 1, regex: '^(SwiftUI(\.|::))?TimelineView$'}
+        has: { nthChild: 1, regex: '^(SwiftUI(\.|::))?TimelineView$' }
     clock:
         any:
             - matches: timeline
             - kind: 'value_argument, interpolated_expression'
               all:
-                - any:
-                    - kind: interpolated_expression
-                    - inside: {kind: value_arguments, inside: {kind: call_suffix, inside: {kind: call_expression, has: {nthChild: 1, regex: '^(SwiftUI(\.|::))?(Text|ProgressView)$'}}}}
-                - any:
-                    - has: {field: name, regex: '^timerInterval$'}
-                    - all:
-                        - has: {field: name, regex: '^style$'}
-                        - has: {field: value, regex: '^((SwiftUI(\.|::))?Text\.DateStyle)?\.(relative|offset|timer)$'}
-                    - all:
-                        - has: {field: name, regex: '^format$'}
-                        - has: {field: value, regex: '^((SwiftUI(\.|::))?SystemFormatStyle(\.[^.(]+)?)?\.(offset|reference|timer|stopwatch)\('}
+                  - any:
+                        - kind: interpolated_expression
+                        - inside: { kind: value_arguments, inside: { kind: call_suffix, inside: { kind: call_expression, has: { nthChild: 1, regex: '^(SwiftUI(\.|::))?(Text|ProgressView)$' } } } }
+                  - any:
+                        - has: { field: name, regex: '^timerInterval$' }
+                        - all:
+                              - has: { field: name, regex: '^style$' }
+                              - has: { field: value, regex: '^((SwiftUI(\.|::))?Text\.DateStyle)?\.(relative|offset|timer)$' }
+                        - all:
+                              - has: { field: name, regex: '^format$' }
+                              - has: { field: value, regex: '^((SwiftUI(\.|::))?SystemFormatStyle(\.[^.(]+)?)?\.(offset|reference|timer|stopwatch)\(' }
             - kind: 'prefix_expression, navigation_expression'
               regex: '^((SwiftUI(\.|::))?TimeDataSource(<[^>]*>)?)?\.(currentDate|durationOffset|dateRange)$'
 rule:
@@ -28,25 +28,25 @@ rule:
         - matches: clock
           pattern: $SECOND
         - inside:
-            stopBy: {kind: class_declaration}
-            kind: class_declaration
-            all:
-                - has: {kind: class_body, has: {matches: swiftui-view-builder}}
-                - has: {stopBy: {kind: class_declaration}, matches: timeline, pattern: $FIRST}
+              stopBy: { kind: class_declaration }
+              kind: class_declaration
+              all:
+                  - has: { kind: class_body, has: { matches: swiftui-view-builder } }
+                  - has: { stopBy: { kind: class_declaration }, matches: timeline, pattern: $FIRST }
         - not:
-            any:
-                - pattern: $FIRST
-                - inside:
-                    stopBy: end
-                    kind: switch_entry
-                    not: {has: {stopBy: end, pattern: $FIRST}}
-                    inside: {kind: switch_statement, has: {kind: switch_entry, has: {stopBy: end, pattern: $FIRST}}}
-                - inside:
-                    stopBy: end
-                    kind: statements
-                    not: {has: {stopBy: end, pattern: $FIRST}}
-                    inside: {kind: if_statement, stopBy: {not: {kind: if_statement}}, has: {stopBy: end, pattern: $FIRST}}
+              any:
+                  - pattern: $FIRST
+                  - inside:
+                        stopBy: end
+                        kind: switch_entry
+                        not: { has: { stopBy: end, pattern: $FIRST } }
+                        inside: { kind: switch_statement, has: { kind: switch_entry, has: { stopBy: end, pattern: $FIRST } } }
+                  - inside:
+                        stopBy: end
+                        kind: statements
+                        not: { has: { stopBy: end, pattern: $FIRST } }
+                        inside: { kind: if_statement, stopBy: { not: { kind: if_statement } }, has: { stopBy: end, pattern: $FIRST } }
 labels:
-    SECOND: {style: primary}
+    SECOND: { style: primary }
 message: '`$SECOND` runs a second clock beside `TimelineView` in one view'
-note: 'Pass `context.date` from the view''s one `TimelineView` to every text and subview it renders'
+note: "Pass `context.date` from the view's one `TimelineView` to every text and subview it renders"

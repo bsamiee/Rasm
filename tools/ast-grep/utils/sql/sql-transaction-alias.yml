@@ -3,4 +3,4 @@ id: sql-transaction-alias
 language: sql
 rule:
     kind: begin_statement, commit_statement, rollback_statement
-    has: {regex: '(?i-u)^(transaction|end)$', not: {pattern: $_}}
+    has: { regex: '(?i-u)^(transaction|end)$', not: { pattern: $_ } }

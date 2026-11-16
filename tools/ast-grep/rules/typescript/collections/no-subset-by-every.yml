@@ -4,13 +4,13 @@ severity: error
 rule:
     kind: call_expression
     all:
-        - has: {field: function, kind: member_expression, has: {field: property, regex: '^every$'}}
+        - has: { field: function, kind: member_expression, has: { field: property, regex: '^every$' } }
         - any:
-            - pattern: '$XS.every(($X) => $S.has($X))'
-            - pattern: '$XS.every($X => $S.has($X))'
-            - pattern: '$XS.every(($X) => !$S.has($X))'
-            - pattern: '$XS.every($X => !$S.has($X))'
-        - not: {has: {field: function, has: {field: object, matches: effect-namespace}}}
-        - not: {has: {field: arguments, has: {has: {field: body, has: {stopBy: end, kind: member_expression, has: {field: object, pattern: $S, matches: effect-namespace}}}}}}
+              - pattern: '$XS.every(($X) => $S.has($X))'
+              - pattern: '$XS.every($X => $S.has($X))'
+              - pattern: '$XS.every(($X) => !$S.has($X))'
+              - pattern: '$XS.every($X => !$S.has($X))'
+        - not: { has: { field: function, has: { field: object, matches: effect-namespace } } }
+        - not: { has: { field: arguments, has: { has: { field: body, has: { stopBy: end, kind: member_expression, has: { field: object, pattern: $S, matches: effect-namespace } } } } } }
 message: '`$XS.every` tests each element against `$S` by hand'
 note: 'Call `new Set(<list>).isSubsetOf(<set>)`, or `isDisjointFrom` for every element absent'

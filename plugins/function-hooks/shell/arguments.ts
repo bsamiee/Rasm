@@ -136,23 +136,23 @@ const usageOf = Effect.fnUntraced(function* (program: string, row: Program, prim
 
 const optionOf = ({ text }: Word, usage: Usage, row: Program): Option.Option<readonly [flags: readonly Flag[], attached: Option.Option<number>]> => {
     const cut = text.indexOf('=');
-    const given = cut < 0 ? text : text.slice(0, cut);
+    const given = cut === -1 ? text : text.slice(0, cut);
     const head = row.camelCase === true ? given.replaceAll(CAMEL, (letter) => `-${letter.toLowerCase()}`) : given;
-    const attached = cut < 0 ? Option.none() : Option.some(cut + 1);
+    const attached = cut === -1 ? Option.none() : Option.some(cut + 1);
     const exact = usage.flags.get(head);
     if (exact !== undefined) {
         return Option.some([[exact], attached]);
     }
-    if (row.strict === true && !given.startsWith('--') && [...given.slice(1)].some((letter) => !usage.flags.has(`-${letter}`))) {
+    if (row.strict === true && !given.startsWith('--') && Array.fromIterable(given.slice(1)).some((letter) => !usage.flags.has(`-${letter}`))) {
         return Option.none();
     }
     if (given.startsWith('--') || ![...usage.flags.keys()].every((spelling) => spelling.startsWith('--') || spelling.length === 2)) {
         return row.strict === true ? Option.none() : Option.some([[{ name: head, arity: 0 }], attached]);
     }
-    const letters = [...text.slice(1)];
+    const letters = Array.fromIterable(text.slice(1));
     const flags = letters.map((letter): Flag => usage.flags.get(`-${letter}`) ?? { name: `-${letter}`, arity: 0 });
     const taking = flags.findIndex(({ arity }) => arity > 0);
-    return Option.some(taking < 0 ? [flags, Option.none()] : [flags.slice(0, taking + 1), taking + 1 === letters.length ? Option.none() : Option.some(letters.slice(0, taking + 1).join('').length + 1)]);
+    return Option.some(taking === -1 ? [flags, Option.none()] : [flags.slice(0, taking + 1), taking + 1 === letters.length ? Option.none() : Option.some(letters.slice(0, taking + 1).join('').length + 1)]);
 };
 
 const optionStep = (word: Word, scan: Scan, words: readonly Word[], row: Program): Option.Option<readonly [Partial<Arguments>, Scan]> =>
@@ -160,7 +160,16 @@ const optionStep = (word: Word, scan: Scan, words: readonly Word[], row: Program
         Option.map(Option.match(attached, { onNone: () => Option.some(Option.none<Word>()), onSome: (at) => Option.map(slicedWord(word, at), Option.some) }), (value) => {
             const flag = flags.at(-1);
             const from = scan.at + 1;
-            const taken = flag !== undefined && row.execs?.includes(flag.name) === true ? words.slice(from, words.findIndex(({ text }, index) => index >= from && (text === ';' || text === '+')) + 1 || words.length) : words.slice(from, from + (flag?.arity ?? 0));
+            const taken =
+                flag !== undefined && row.execs?.includes(flag.name) === true
+                    ? words.slice(
+                          from,
+                          Option.match(
+                              Array.findFirstIndex(words, ({ text }, index) => index >= from && (text === ';' || text === '+')),
+                              { onNone: () => words.length, onSome: (index) => index + 1 },
+                          ),
+                      )
+                    : words.slice(from, from + (flag?.arity ?? 0));
             const supplied = Option.isSome(value) ? [] : taken;
             const names = flags.map(({ name }) => name);
             return [{ args: [{ names, words: [word, ...supplied], values: [...Option.toArray(value), ...supplied] }] }, { ...scan, at: from + supplied.length, ended: names.some((name) => name === row.module || row.restAfter?.includes(name) === true) }];
@@ -211,8 +220,8 @@ const parseArguments = (words: readonly Word[], usage: Usage, row: Program): Arg
     const canonical = (name: string): string => reached.flags.get(name)?.name ?? usage.flags.get(name)?.name ?? name;
     const has = (...listed: readonly string[]): boolean => listed.some((name) => names.has(canonical(name)));
     const supplied = (...listed: readonly string[]): readonly Word[] => {
-        const wanted = listed.map(canonical);
-        return args.filter((argument) => argument.names.some((name) => wanted.includes(name))).flatMap(({ values }) => values);
+        const wanted = new Set(listed.map(canonical));
+        return args.filter((argument) => argument.names.some((name) => wanted.has(name))).flatMap(({ values }) => values);
     };
     const operands = [...args.filter((argument) => argument.names.length === 0).flatMap((argument) => argument.words), ...tail, ...(row.wraps !== undefined || row.module !== undefined || row.restAfter !== undefined ? [] : rest)];
     const count = has(...(row.leadingUnless ?? [])) ? 0 : (row.leading ?? 0);

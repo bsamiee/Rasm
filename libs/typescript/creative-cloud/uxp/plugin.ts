@@ -1,8 +1,8 @@
-import fs from 'adobe:fs';
-import uxp, { entrypoints } from 'adobe:uxp';
 import { HostError } from '@rasm/automation';
 import { fillColor } from '@rasm/mark';
 import { errorReporter, layerOtlp } from '@rasm/telemetry';
+import fs from 'adobe:fs';
+import uxp, { entrypoints } from 'adobe:uxp';
 import {
     Array,
     Cause,
@@ -62,9 +62,10 @@ const MANIFEST = `plugin:/${UxpManifest.file}`;
 
 const Thrown = Schema.Struct({ message: Schema.Unknown });
 const Chunk = Schema.Union([Schema.String, Schema.Uint8Array.pipe(Schema.decodeTo(Schema.String, { decode: SchemaGetter.transform((bytes) => new TextDecoder().decode(bytes)), encode: SchemaGetter.forbiddenEncoding }))]);
-const Script = Schema.Struct({ script: Schema.declare(Schema.is(Schema.Struct({ args: Schema.Array(Schema.String), setResult: Schema.declare(Predicate.isFunction) }))) });
-const Entrypoints = Schema.Struct({ setup: Schema.declare(Predicate.isFunction) });
-const ThemeEvents = Schema.Struct({ getCurrent: Schema.declare(Predicate.isFunction), onUpdated: Schema.Struct({ addListener: Schema.declare(Predicate.isFunction), removeListener: Schema.declare(Predicate.isFunction) }) });
+const Callable = Schema.declare((value): value is (...args: readonly unknown[]) => unknown => Predicate.isFunction(value));
+const Script = Schema.Struct({ script: Schema.declare(Schema.is(Schema.Struct({ args: Schema.Array(Schema.String), setResult: Callable }))) });
+const Entrypoints = Schema.Struct({ setup: Callable });
+const ThemeEvents = Schema.Struct({ getCurrent: Callable, onUpdated: Schema.Struct({ addListener: Callable, removeListener: Callable }) });
 const Themed = Schema.Struct({ theme: Schema.declare((value): value is ThemeEvents => Schema.is(ThemeEvents)(value)) });
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -75,16 +76,17 @@ class Uxp extends Context.Service<Uxp, { readonly uxp: typeof uxp; readonly fs: 
         Layer.mergeAll(
             Layer.effect(Clock.Clock)(
                 Effect.map(Clock.Clock, (base) => {
-                    const monotonicTimeNanosUnsafe = (): bigint => Duration.toNanosUnsafe(performance.now());
-                    const currentTimeNanosUnsafe = (): bigint => Duration.toNanosUnsafe(base.currentTimeMillisUnsafe());
+                    const nanos = {
+                        currentTimeNanosUnsafe: (): bigint => Duration.toNanosUnsafe(base.currentTimeMillisUnsafe()),
+                        monotonicTimeNanosUnsafe: (): bigint => Duration.toNanosUnsafe(performance.now()),
+                    };
                     return {
+                        ...nanos,
                         currentTimeMillisUnsafe: base.currentTimeMillisUnsafe.bind(base),
                         currentTimeMillis: base.currentTimeMillis,
                         sleep: base.sleep.bind(base),
-                        currentTimeNanosUnsafe,
-                        currentTimeNanos: Effect.sync(currentTimeNanosUnsafe),
-                        monotonicTimeNanosUnsafe,
-                        monotonicTimeNanos: Effect.sync(monotonicTimeNanosUnsafe),
+                        currentTimeNanos: Effect.sync(nanos.currentTimeNanosUnsafe),
+                        monotonicTimeNanos: Effect.sync(nanos.monotonicTimeNanosUnsafe),
                     };
                 }),
             ),
@@ -94,26 +96,27 @@ class Uxp extends Context.Service<Uxp, { readonly uxp: typeof uxp; readonly fs: 
             Path.layer,
         );
     static readonly thrown = (cause: unknown): HostError => {
-        const prepare = Error.prepareStackTrace;
+        const prepare: unknown = Reflect.get(Error, 'prepareStackTrace');
         const lines: number[] = [];
         Error.prepareStackTrace = (error, frames) => {
             lines.push(...frames.filter((frame) => frame.getScriptNameOrSourceURL() === EVALUATED).flatMap((frame) => frame.getLineNumber() ?? []));
-            return prepare?.(error, frames) ?? [String(error), ...frames.map((frame) => `    at ${frame}`)].join('\n');
+            // oxlint-disable-next-line typescript/no-base-to-string, typescript/restrict-template-expressions -- NodeJS.CallSite omits the toString V8 call sites carry
+            return Schema.is(Callable)(prepare) ? prepare(error, frames) : [String(error), ...frames.map((frame) => `    at ${frame}`)].join('\n');
         };
         try {
             const line = Predicate.hasProperty(cause, 'stack') && Predicate.isString(cause.stack) ? Array.head(lines) : Option.none();
             return HostError.thrown(String(Option.match(Schema.decodeUnknownOption(Thrown)(cause), { onNone: () => cause, onSome: Struct.get('message') })), line)(cause);
         } finally {
-            Error.prepareStackTrace = prepare;
+            Reflect.set(Error, 'prepareStackTrace', prepare);
         }
     };
     static readonly evaluate = (scope: Record.ReadonlyRecord<string, unknown>, code: string) =>
         Effect.try({
-            // biome-ignore lint/nursery/noImpliedEval: execute_script evaluates caller source in the host
+            // oxlint-disable-next-line typescript/no-implied-eval, typescript/no-unsafe-call -- execute_script evaluates caller source in the host
             try: (): unknown => new globalThis.Function(`{ ${Record.keys(Record.filter(scope, (_, key) => IDENTIFIER.test(key))).join(', ')} }`, 'return eval(arguments[1])')(scope, `${code}\n//# sourceURL=${EVALUATED}`),
             catch: Uxp.thrown,
         }).pipe(
-            Effect.filterOrFail(Predicate.isFunction, (value) => new Cause.IllegalArgumentError(`code evaluates to ${typeof value}, not a body function`)),
+            Effect.filterOrFail(Schema.is(Callable), (value) => new Cause.IllegalArgumentError(`code evaluates to ${typeof value}, not a body function`)),
             Effect.map((body) => Effect.try({ try: (): unknown => body(), catch: Uxp.thrown })),
         );
     static readonly restore = (target: object, saved: Record.ReadonlyRecord<string, unknown>) =>
@@ -128,21 +131,10 @@ class Uxp extends Context.Service<Uxp, { readonly uxp: typeof uxp; readonly fs: 
         const current = (key: string): unknown => Reflect.get(target, key);
         return Effect.acquireRelease(Effect.try({ try: () => Record.fromIterableWith(keys, (key) => [key, current(key)] as const), catch: refused }), (saved) => Uxp.restore(target, saved)).pipe(Effect.tap(Effect.try({ try: () => Object.assign(target, replacements), catch: refused })));
     };
-    static readonly members = (prototype: object) => {
-        const declared = (each: object) => {
-            const descriptors = Record.toEntries(Object.getOwnPropertyDescriptors(each));
-            return {
-                name: each.constructor.name,
-                fields: Array.filterMap(descriptors, ([name, { get, set }]) => (get === undefined ? Result.failVoid : Result.succeed({ name, settable: set !== undefined }))),
-                methods: Array.filterMap(descriptors, ([name, { value }]) => (Predicate.isFunction(value) && name !== 'constructor' ? Result.succeed(name) : Result.failVoid)),
-            };
-        };
-        const above = (each: unknown) => (Predicate.isObject(each) && each !== Object.prototype ? Option.some([declared(each), Object.getPrototypeOf(each)] as const) : Option.none());
-        return Array.prepend(Array.unfold(Object.getPrototypeOf(prototype), above), declared(prototype));
-    };
+    static readonly members = (prototype: unknown) => Array.unfold(prototype, (each) => (Predicate.isObject(each) && each !== Object.prototype ? Option.some([declared(each), Object.getPrototypeOf(each)] as const) : Option.none()));
     static readonly script = <E>(modules: Uxp['Service'], server: Layer.Layer<never, E, RpcServer.Protocol | Uxp>): void => {
         Effect.gen(function* () {
-            const [{ script }, context, done] = yield* Effect.all([Schema.decodeUnknownEffect(Script)(modules.uxp), Effect.context<Uxp>(), Deferred.make<void>()]);
+            const [{ script }, context, done] = yield* Effect.all([Schema.decodeUnknownEffect(Script)(modules.uxp), Effect.context<Uxp>(), Deferred.make<undefined>()]);
             const answered = flow(
                 Schema.decodeEffect(Chunk),
                 Effect.orDie,
@@ -183,7 +175,7 @@ class Plugin extends Context.Service<Plugin, typeof UxpManifest.identity.Type>()
         Effect.gen(function* () {
             const [manifest, { setup }] = yield* Effect.all([
                 Effect.try({ try: () => fs.readFileSync(MANIFEST, 'utf-8'), catch: (cause) => PlatformError.systemError({ _tag: 'Unknown', module: 'FileSystem', method: 'readFileString', pathOrDescriptor: MANIFEST, cause }) }).pipe(Effect.flatMap(Schema.decodeEffect(UxpManifest.identity))),
-                Schema.decodeEffect(Entrypoints)(entrypoints),
+                Schema.decodeUnknownEffect(Entrypoints)(entrypoints),
             ]);
             const root = Effect.all([Effect.tryPromise(() => uxp.storage.localFileSystem.getPluginFolder()), Path.Path]).pipe(
                 Effect.flatMap(([{ nativePath }, path]) => path.toFileUrl(nativePath)),
@@ -196,7 +188,7 @@ class Plugin extends Context.Service<Plugin, typeof UxpManifest.identity.Type>()
                     Record.map(
                         commands,
                         Effect.fnUntraced(function* (command) {
-                            const running = yield* FiberHandle.make<void, F>();
+                            const running = yield* FiberHandle.make<unknown, F>();
                             return { run: () => runtime.runPromise(Effect.flatMap(FiberHandle.run(running, reported(command)), Fiber.join)), cancel: () => runtime.runPromise(FiberHandle.clear(running)) };
                         }),
                     ),
@@ -210,6 +202,14 @@ class Plugin extends Context.Service<Plugin, typeof UxpManifest.identity.Type>()
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+const declared = (each: object) => {
+    const descriptors = Record.toEntries(Object.getOwnPropertyDescriptors(each));
+    return {
+        name: each.constructor.name,
+        fields: Array.filterMap(descriptors, ([name, descriptor]) => (descriptor.get === undefined ? Result.failVoid : Result.succeed({ name, settable: descriptor.set !== undefined }))),
+        methods: Array.filterMap(descriptors, ([name, { value }]: readonly [string, { readonly value?: unknown }]) => (Schema.is(Callable)(value) && name !== 'constructor' ? Result.succeed({ name, value }) : Result.failVoid)),
+    };
+};
 const reported = <A, X, R>(effect: Effect.Effect<A, X, R>) => effect.pipe(Effect.tapCauseIf(Predicate.not(Cause.hasInterruptsOnly<X>), Effect.logError));
 const followed = <E>(theme: ThemeEvents, queue: Queue.Queue<unknown, E>) => {
     const listener = (current: unknown): void => {
@@ -234,9 +234,11 @@ const panel = Effect.fnUntraced(function* <E, F>(runtime: ManagedRuntime.Managed
     const run = <X>(effect: Effect.Effect<unknown, X, Uxp | Plugin>): Promise<void> => runtime.runPromise(Effect.asVoid(reported(effect)));
     const fork = Effect.fnUntraced(
         function* (element: HTMLElement) {
-            const forked = yield* FiberSet.makeRuntime<Uxp | Plugin, void, never>();
+            const forked = yield* FiberSet.makeRuntime<Uxp | Plugin, unknown, never>();
             yield* Effect.forkScoped(reported(themed(element)));
-            return yield* body(element, flow(reported, Effect.ignore(), forked));
+            return yield* body(element, (work) => {
+                forked(Effect.ignore(reported(work)));
+            });
         },
         (effect) => Effect.asVoid(Effect.forkScoped(reported(effect))),
     );

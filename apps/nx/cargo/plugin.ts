@@ -22,7 +22,9 @@ const inferred = Effect.fnUntraced(function* (context: CreateNodesContext, files
     const links = yield* Links;
     const workspace = resolved(context.workspaceRoot, reading, files);
     const reports = { coverage: Option.map(Option.fromUndefinedOr(settings.coveragePath), (at) => join(at, 'lcov.info')), junit: Option.map(Option.fromUndefinedOr(settings.outputPath), (at) => join(at, 'junit.xml')) };
-    workspace.members.forEach((member) => links.set(dirname(member.crate.manifest_path), member));
+    workspace.members.forEach((member) => {
+        links.set(dirname(member.crate.manifest_path), member);
+    });
     const roots = [...new Map<string, Option.Option<Member>>([[workspace.root, Option.none()], ...workspace.members.map((member) => [member.root, Option.some(member)] as const)])];
     const manifests = yield* Effect.forEach(roots, ([root]) => manifested(context.workspaceRoot, root));
     const present = Array.zip(roots, manifests).filter(([[, member], stated]) => Option.isSome(member) || Option.isSome(stated));

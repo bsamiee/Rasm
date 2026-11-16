@@ -7,14 +7,14 @@ utils:
         any:
             - kind: predefined_type
               matches: name
-            - matches: {csharp-simple-name: {name: {matches: name}}}
+            - matches: { csharp-simple-name: { name: { matches: name } } }
     named:
         any:
             - matches: leaf
             - kind: qualified_name, alias_qualified_name, member_access_expression
-              has: {field: name, matches: leaf}
+              has: { field: name, matches: leaf }
 rule:
     any:
         - matches: named
         - kind: nullable_type
-          has: {field: type, matches: named}
+          has: { field: type, matches: named }

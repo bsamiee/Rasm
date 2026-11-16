@@ -31,8 +31,47 @@ const View = Schema.Struct({
 });
 const Found = Schema.Struct({ matchesCount: Schema.Struct({ current: Schema.Int, total: Schema.Int }), findState: Schema.optionalKey(Schema.Enum(FindState)) }).pipe(Schema.encodeKeys({ findState: 'state' }));
 const Rendered = Schema.Struct({ pageNumber: Schema.Int, error: Schema.Unknown });
+const useViewer = (document: NonNullable<Parameters<PDFViewer['setDocument']>[0]>, { pinch, ...options }: Options & { readonly pinch?: { readonly drawingDelay: Duration.Input } }) => {
+    const [container, setContainer] = useState<HTMLDivElement | null>(null);
+    const [state, setState] = useState<AsyncResult.AsyncResult<PdfViewer, Cause.UnknownError>>(AsyncResult.initial());
+    const initial = useEffectEvent(() => options);
+    const pinching = Option.all([AsyncResult.value(state), Option.fromNullishOr(pinch)]);
+    useEffect(() => {
+        const controller = new AbortController();
+        const publish = (result: AsyncResult.AsyncResult<PdfViewer, Cause.UnknownError>) => Effect.sync(() => setState(result));
+        if (container !== null) {
+            Effect.runFork(
+                PdfViewer.mount(container, document, initial()).pipe(
+                    Stream.runForEach(flow(AsyncResult.success, publish)),
+                    Effect.catchCause(flow(AsyncResult.failure<PdfViewer, Cause.UnknownError>, publish)),
+                    Effect.onInterrupt(() => publish(AsyncResult.initial())),
+                ),
+                { signal: controller.signal },
+            );
+        }
+        return () => controller.abort();
+    }, [container, document]);
+    usePinch(({ offset: [target], origin }) => Option.map(pinching, ([{ pdfViewer }, { drawingDelay }]) => pdfViewer.updateScale({ scaleFactor: target / pdfViewer.currentScale, origin: [...origin], drawingDelay: Duration.toMillis(drawingDelay) })), {
+        target: { current: container },
+        enabled: Option.isSome(pinching),
+        from: () => [Option.match(pinching, { onNone: () => 1 satisfies typeof DEFAULT_SCALE, onSome: ([{ pdfViewer }]) => pdfViewer.currentScale }), 0],
+        scaleBounds: { min: 0.1, max: 25 } satisfies { readonly min: typeof MIN_SCALE; readonly max: typeof MAX_SCALE },
+        pointer: { touch: true },
+        preventDefault: true,
+        eventOptions: { passive: false },
+    });
+    return {
+        state,
+        container: (props: Omit<ComponentProps<'div'>, 'children' | 'ref'> & Readonly<Record<`data-${string}`, string | number | boolean | undefined>>) => (
+            <div {...props} ref={setContainer}>
+                <div className="pdfViewer" />
+            </div>
+        ),
+    };
+};
 class PdfViewer extends Data.Class<typeof View.Type & Status & { readonly pdfViewer: PDFViewer }> {
     static readonly TextLayerMode = { DISABLE: 0, ENABLE: 1, ENABLE_PERMISSIONS: 2 } as const satisfies typeof TextLayerMode;
+    static readonly useViewer = useViewer;
     static readonly mount = flow(
         Effect.fn('PdfViewer.mount')(function* (container: HTMLDivElement, document: NonNullable<Parameters<PDFViewer['setDocument']>[0]>, { link, find, view: { currentScaleValue = 'auto' satisfies typeof DEFAULT_SCALE_VALUE, ...view } = {}, ...options }: Options) {
             const labels = yield* Effect.tryPromise(() => document.getPageLabels());
@@ -79,45 +118,6 @@ class PdfViewer extends Data.Class<typeof View.Type & Status & { readonly pdfVie
         }),
         Stream.unwrap,
     );
-    static readonly useViewer = (document: NonNullable<Parameters<PDFViewer['setDocument']>[0]>, { pinch, ...options }: Options & { readonly pinch?: { readonly drawingDelay: Duration.Input } }) => {
-        const [container, setContainer] = useState<HTMLDivElement | null>(null);
-        const [state, setState] = useState<AsyncResult.AsyncResult<PdfViewer, Cause.UnknownError>>(AsyncResult.initial());
-        const initial = useEffectEvent(() => options);
-        const pinching = Option.all([AsyncResult.value(state), Option.fromNullishOr(pinch)]);
-        useEffect(() => {
-            if (container === null) {
-                return;
-            }
-            const publish = (result: AsyncResult.AsyncResult<PdfViewer, Cause.UnknownError>) => Effect.sync(() => setState(result));
-            const controller = new AbortController();
-            Effect.runFork(
-                PdfViewer.mount(container, document, initial()).pipe(
-                    Stream.runForEach(flow(AsyncResult.success, publish)),
-                    Effect.catchCause(flow(AsyncResult.failure<PdfViewer, Cause.UnknownError>, publish)),
-                    Effect.onInterrupt(() => publish(AsyncResult.initial())),
-                ),
-                { signal: controller.signal },
-            );
-            return () => controller.abort();
-        }, [container, document]);
-        usePinch(({ offset: [target], origin }) => Option.map(pinching, ([{ pdfViewer }, { drawingDelay }]) => pdfViewer.updateScale({ scaleFactor: target / pdfViewer.currentScale, origin: [...origin], drawingDelay: Duration.toMillis(drawingDelay) })), {
-            target: { current: container },
-            enabled: Option.isSome(pinching),
-            from: () => [Option.match(pinching, { onNone: () => 1 satisfies typeof DEFAULT_SCALE, onSome: ([{ pdfViewer }]) => pdfViewer.currentScale }), 0],
-            scaleBounds: { min: 0.1, max: 25 } satisfies { readonly min: typeof MIN_SCALE; readonly max: typeof MAX_SCALE },
-            pointer: { touch: true },
-            preventDefault: true,
-            eventOptions: { passive: false },
-        });
-        return {
-            state,
-            container: (props: Omit<ComponentProps<'div'>, 'children' | 'ref'> & { readonly [attribute: `data-${string}`]: string | number | boolean | undefined }) => (
-                <div {...props} ref={setContainer}>
-                    <div className="pdfViewer" />
-                </div>
-            ),
-        };
-    };
     assign(view: Partial<typeof View.Type>) {
         Object.assign(this.pdfViewer, view);
     }

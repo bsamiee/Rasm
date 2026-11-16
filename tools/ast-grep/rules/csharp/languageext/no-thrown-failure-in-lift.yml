@@ -6,18 +6,18 @@ utils:
     thrown:
         kind: invocation_expression
         all:
-            - has: {field: function, kind: member_access_expression, all: [{has: {field: expression, pattern: $VALUE}}, {has: {field: name, regex: '^ThrowIfFail$'}}]}
+            - has: { field: function, kind: member_access_expression, all: [{ has: { field: expression, pattern: $VALUE } }, { has: { field: name, regex: '^ThrowIfFail$' } }] }
             - matches: csharp-argumentless-call
     thunk:
         kind: lambda_expression
         all:
             - matches: csharp-parameterless
-            - inside: {kind: argument, inside: {kind: argument_list, inside: {kind: invocation_expression, matches: {csharp-owner-call: {type: {regex: '^IO$'}, member: {regex: '^lift$'}}}}}}
+            - inside: { kind: argument, inside: { kind: argument_list, inside: { kind: invocation_expression, matches: { csharp-owner-call: { type: { regex: '^IO$' }, member: { regex: '^lift$' } } } } } }
 rule:
     all:
         - matches: thrown
         - any:
-            - inside: {field: body, matches: thunk}
-            - inside: {kind: return_statement, inside: {kind: block, inside: {matches: thunk}}}
+              - inside: { field: body, matches: thunk }
+              - inside: { kind: return_statement, inside: { kind: block, inside: { matches: thunk } } }
 message: '`$VALUE.ThrowIfFail()` throws a failure the `IO.lift` thunk can return as `Fin`'
 note: 'Return `Fin` from the thunk'

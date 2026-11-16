@@ -1,88 +1,88 @@
 utils:
-    visible: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: 'public|open|package'}}}
-    exposed: {any: [{matches: visible}, {inside: {kind: protocol_body}}, {inside: {kind: class_body, inside: {kind: class_declaration, matches: visible, has: {field: declaration_kind, regex: extension}}}, not: {has: {kind: modifiers, has: {kind: visibility_modifier}}}}]}
-    open: {not: {inside: {stopBy: end, any: [{kind: statements}, {kind: 'class_declaration, protocol_declaration', not: {any: [{matches: exposed}, {has: {field: declaration_kind, regex: extension}, not: {has: {kind: modifiers, has: {kind: visibility_modifier}}}}]}}]}}}
-    public: {all: [{matches: exposed}, {matches: open}]}
-    owned: {inside: {kind: 'class_body, enum_class_body, protocol_body', inside: {kind: 'class_declaration, protocol_declaration', any: [{inside: {kind: 'source_file, ERROR'}}, {has: {field: name, pattern: $OWNER}}]}}}
+    visible: { has: { kind: modifiers, has: { kind: visibility_modifier, regex: 'public|open|package' } } }
+    exposed: { any: [{ matches: visible }, { inside: { kind: protocol_body } }, { inside: { kind: class_body, inside: { kind: class_declaration, matches: visible, has: { field: declaration_kind, regex: extension } } }, not: { has: { kind: modifiers, has: { kind: visibility_modifier } } } }] }
+    open: { not: { inside: { stopBy: end, any: [{ kind: statements }, { kind: 'class_declaration, protocol_declaration', not: { any: [{ matches: exposed }, { has: { field: declaration_kind, regex: extension }, not: { has: { kind: modifiers, has: { kind: visibility_modifier } } } }] } }] } } }
+    public: { all: [{ matches: exposed }, { matches: open }] }
+    owned: { inside: { kind: 'class_body, enum_class_body, protocol_body', inside: { kind: 'class_declaration, protocol_declaration', any: [{ inside: { kind: 'source_file, ERROR' } }, { has: { field: name, pattern: $OWNER } }] } } }
     local:
         inside:
             kind: statements
             any:
                 - inside:
-                    stopBy: {any: [{kind: 'function_declaration, init_declaration, deinit_declaration, subscript_declaration, class_declaration'}, {kind: property_declaration, inside: {kind: 'class_body, enum_class_body'}}]}
-                    any:
-                        - {kind: function_declaration, inside: {kind: 'source_file, ERROR'}}
-                        - {kind: 'function_declaration, init_declaration, deinit_declaration, subscript_declaration', has: {kind: 'function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator', pattern: $OWNER}}
-                        - {kind: property_declaration, inside: {kind: 'class_body, enum_class_body'}, has: {field: name, pattern: $OWNER}}
+                      stopBy: { any: [{ kind: 'function_declaration, init_declaration, deinit_declaration, subscript_declaration, class_declaration' }, { kind: property_declaration, inside: { kind: 'class_body, enum_class_body' } }] }
+                      any:
+                          - { kind: function_declaration, inside: { kind: 'source_file, ERROR' } }
+                          - { kind: 'function_declaration, init_declaration, deinit_declaration, subscript_declaration', has: { kind: 'function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator', pattern: $OWNER } }
+                          - { kind: property_declaration, inside: { kind: 'class_body, enum_class_body' }, has: { field: name, pattern: $OWNER } }
                 - kind: statements
-    nested: {any: [{matches: owned}, {matches: local}]}
-    hollow: {all: [{not: {has: {field: body, has: {pattern: $_, not: {kind: 'comment, multiline_comment, directive'}}}}}, {not: {has: {stopBy: end, kind: ERROR}}}]}
-    leaf: {not: {has: {stopBy: end, any: [{kind: 'function_declaration, class_declaration, typealias_declaration', inside: {kind: statements}}, {kind: ERROR}]}}}
+    nested: { any: [{ matches: owned }, { matches: local }] }
+    hollow: { all: [{ not: { has: { field: body, has: { pattern: $_, not: { kind: 'comment, multiline_comment, directive' } } } } }, { not: { has: { stopBy: end, kind: ERROR } } }] }
+    leaf: { not: { has: { stopBy: end, any: [{ kind: 'function_declaration, class_declaration, typealias_declaration', inside: { kind: statements } }, { kind: ERROR }] } } }
 rewriters:
-    - {id: body, rule: {kind: 'class_body, enum_class_body', inside: {kind: class_declaration, field: body}}, fix: "\n"}
-    - {id: closure, rule: {kind: lambda_literal}, fix: '{…}'}
-    - {id: comment, rule: {kind: 'comment, multiline_comment'}, fix: "\n"}
-    - {id: definition, rule: {kind: macro_definition, inside: {kind: macro_declaration, field: definition}}, fix: "\n"}
-    - {id: default, rule: {kind: parameter, pattern: $PARAMETER, precedes: {regex: '^=$'}}, fix: {template: '$PARAMETER = …', expandEnd: {not: {regex: '^=$'}, stopBy: end}}}
-    - {id: value, rule: {kind: 'pattern, type_annotation', pattern: $BOUND, precedes: {regex: '^=$'}, not: {pattern: $DECLARATION}}, fix: {template: '$BOUND', expandEnd: {not: {regex: '^=$'}, stopBy: end}}}
-    - {id: observer, rule: {kind: willset_didset_block}, fix: "\n"}
-    - {id: accessor, rule: {kind: 'computed_getter, computed_setter, computed_modify', has: {kind: 'getter_specifier, setter_specifier, modify_specifier', pattern: $SPEC}}, fix: $SPEC}
-    - {id: initializer, rule: {kind: computed_init}, fix: init}
-    - {id: implicit, rule: {kind: computed_property, has: {kind: statements}}, fix: '{ get }'}
-    - {id: attributes, rule: {kind: precedence_group_attributes, inside: {kind: precedence_group_declaration}}, fix: {template: "\n", expandStart: {regex: '\{'}, expandEnd: {regex: '\}'}}}
+    - { id: body, rule: { kind: 'class_body, enum_class_body', inside: { kind: class_declaration, field: body } }, fix: "\n" }
+    - { id: closure, rule: { kind: lambda_literal }, fix: '{…}' }
+    - { id: comment, rule: { kind: 'comment, multiline_comment' }, fix: "\n" }
+    - { id: definition, rule: { kind: macro_definition, inside: { kind: macro_declaration, field: definition } }, fix: "\n" }
+    - { id: default, rule: { kind: parameter, pattern: $PARAMETER, precedes: { regex: '^=$' } }, fix: { template: '$PARAMETER = …', expandEnd: { not: { regex: '^=$' }, stopBy: end } } }
+    - { id: value, rule: { kind: 'pattern, type_annotation', pattern: $BOUND, precedes: { regex: '^=$' }, not: { pattern: $DECLARATION } }, fix: { template: '$BOUND', expandEnd: { not: { regex: '^=$' }, stopBy: end } } }
+    - { id: observer, rule: { kind: willset_didset_block }, fix: "\n" }
+    - { id: accessor, rule: { kind: 'computed_getter, computed_setter, computed_modify', has: { kind: 'getter_specifier, setter_specifier, modify_specifier', pattern: $SPEC } }, fix: $SPEC }
+    - { id: initializer, rule: { kind: computed_init }, fix: init }
+    - { id: implicit, rule: { kind: computed_property, has: { kind: statements } }, fix: '{ get }' }
+    - { id: attributes, rule: { kind: precedence_group_attributes, inside: { kind: precedence_group_declaration } }, fix: { template: "\n", expandStart: { regex: '\{' }, expandEnd: { regex: '\}' } } }
     - id: lineage
       rule:
-        kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern'
-        pattern: $LEVEL
-        any:
-            - inside:
-                kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration, property_declaration'
-                inside:
-                    stopBy: {any: [{kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration'}, {kind: property_declaration, inside: {kind: 'class_body, enum_class_body'}}]}
-                    not: {inside: {kind: 'source_file, ERROR'}}
-                    has: {kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern', pattern: $UP}
-            - pattern: $LEVEL
+          kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern'
+          pattern: $LEVEL
+          any:
+              - inside:
+                    kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration, property_declaration'
+                    inside:
+                        stopBy: { any: [{ kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration' }, { kind: property_declaration, inside: { kind: 'class_body, enum_class_body' } }] }
+                        not: { inside: { kind: 'source_file, ERROR' } }
+                        has: { kind: 'type_name, function_name, init_keyword, deinit_keyword, subscript_keyword, referenceable_operator, pattern', pattern: $UP }
+              - pattern: $LEVEL
       transform:
-        ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
+          ABOVE: { rewrite: { source: $UP, rewriters: [lineage], joinBy: '' } }
       fix: $ABOVE$LEVEL.
 transform:
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, closure, comment]}}
-    LINES: {replace: {source: $HEADER, replace: '[\t-\r ]+$|[\t-\r ]*\n[\t-\r ]*', by: "\n"}}
-    TRIMMED: {replace: {source: $LINES, replace: '([(\[<.])\n|,?\n([)\]>,]|$)', by: '$1$2'}}
-    SIGNATURE: {replace: {source: $TRIMMED, replace: '\n', by: ' '}}
-    PREFIX: {replace: {source: $MODIFIERS, replace: '(.)$|[\t-\r ]*\n[\t-\r ]*', by: '$1 '}}
-    KEYWORD: {replace: {source: $BINDING, replace: '$', by: ' '}}
-    WORD: {replace: {source: $DIAGNOSTIC, replace: '^#|\((?s:.*)', by: ''}}
-    QUALIFIER: {rewrite: {source: $OWNER, rewriters: [lineage], joinBy: ''}}
+    HEADER: { rewrite: { source: $DECLARATION, rewriters: [body, closure, comment] } }
+    LINES: { replace: { source: $HEADER, replace: '[\t-\r ]+$|[\t-\r ]*\n[\t-\r ]*', by: "\n" } }
+    TRIMMED: { replace: { source: $LINES, replace: '([(\[<.])\n|,?\n([)\]>,]|$)', by: '$1$2' } }
+    SIGNATURE: { replace: { source: $TRIMMED, replace: '\n', by: ' ' } }
+    PREFIX: { replace: { source: $MODIFIERS, replace: '(.)$|[\t-\r ]*\n[\t-\r ]*', by: '$1 ' } }
+    KEYWORD: { replace: { source: $BINDING, replace: '$', by: ' ' } }
+    WORD: { replace: { source: $DIAGNOSTIC, replace: '^#|\((?s:.*)', by: '' } }
+    QUALIFIER: { rewrite: { source: $OWNER, rewriters: [lineage], joinBy: '' } }
 variants:
     function:
         rewriters:
-            - {id: body, rule: {kind: function_body, inside: {kind: 'function_declaration, init_declaration, deinit_declaration', field: body}}, fix: "\n"}
+            - { id: body, rule: { kind: function_body, inside: { kind: 'function_declaration, init_declaration, deinit_declaration', field: body } }, fix: "\n" }
     protocol:
         rewriters:
-            - {id: body, rule: {kind: protocol_body, inside: {kind: protocol_declaration, field: body}}, fix: "\n"}
+            - { id: body, rule: { kind: protocol_body, inside: { kind: protocol_declaration, field: body } }, fix: "\n" }
     stored:
         transform:
-            HEADER: {rewrite: {source: $DECLARATION, rewriters: [value, observer, closure, comment]}}
+            HEADER: { rewrite: { source: $DECLARATION, rewriters: [value, observer, closure, comment] } }
     item-function:
         transform:
-            HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, definition, default, closure, comment]}}
+            HEADER: { rewrite: { source: $DECLARATION, rewriters: [body, definition, default, closure, comment] } }
     macro:
         transform:
-            HEADER: {rewrite: {source: $DECLARATION, rewriters: [closure, comment]}}
+            HEADER: { rewrite: { source: $DECLARATION, rewriters: [closure, comment] } }
     member-function:
         transform:
-            HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, default, closure, comment]}}
+            HEADER: { rewrite: { source: $DECLARATION, rewriters: [body, default, closure, comment] } }
 ---
 id: swift-import
 role: item
 symbolType: module
 rule:
     kind: import_declaration
-    has: {kind: identifier, pattern: $NAME}
+    has: { kind: identifier, pattern: $NAME }
 name: $NAME
 isImport: true
-isExported: {has: {kind: modifiers, has: {any: [{kind: visibility_modifier, regex: 'public|package'}, {kind: attribute, regex: '@_exported'}]}}}
+isExported: { has: { kind: modifiers, has: { any: [{ kind: visibility_modifier, regex: 'public|package' }, { kind: attribute, regex: '@_exported' }] } } }
 ---
 id: swift-class
 role: item
@@ -90,23 +90,23 @@ symbolType: class
 rule:
     kind: class_declaration
     pattern: $DECLARATION
-    inside: {kind: 'source_file, ERROR'}
-    all: [{has: {field: declaration_kind, regex: class}}, {has: {field: name, pattern: $NAME}}]
+    inside: { kind: 'source_file, ERROR' }
+    all: [{ has: { field: declaration_kind, regex: class } }, { has: { field: name, pattern: $NAME } }]
 name: $NAME
 signature: $SIGNATURE
-isExported: {matches: visible}
+isExported: { matches: visible }
 ---
 id: swift-struct
 role: item
 symbolType: struct
 rule:
     pattern: $DECLARATION
-    inside: {kind: 'source_file, ERROR'}
-    has: {field: name, pattern: $NAME}
-    any: [{kind: class_declaration, has: {field: declaration_kind, regex: struct}}, {kind: typealias_declaration}]
+    inside: { kind: 'source_file, ERROR' }
+    has: { field: name, pattern: $NAME }
+    any: [{ kind: class_declaration, has: { field: declaration_kind, regex: struct } }, { kind: typealias_declaration }]
 name: $NAME
 signature: $SIGNATURE
-isExported: {matches: visible}
+isExported: { matches: visible }
 ---
 id: swift-enum
 role: item
@@ -114,11 +114,11 @@ symbolType: enum
 rule:
     kind: class_declaration
     pattern: $DECLARATION
-    inside: {kind: 'source_file, ERROR'}
-    all: [{has: {field: body, kind: enum_class_body}}, {has: {field: name, pattern: $NAME}}]
+    inside: { kind: 'source_file, ERROR' }
+    all: [{ has: { field: body, kind: enum_class_body } }, { has: { field: name, pattern: $NAME } }]
 name: $NAME
 signature: $SIGNATURE
-isExported: {matches: visible}
+isExported: { matches: visible }
 ---
 id: swift-object
 role: item
@@ -126,11 +126,11 @@ symbolType: object
 rule:
     kind: class_declaration
     pattern: $DECLARATION
-    inside: {kind: 'source_file, ERROR'}
-    all: [{has: {field: declaration_kind, regex: 'actor|extension'}}, {has: {field: name, pattern: $NAME}}]
+    inside: { kind: 'source_file, ERROR' }
+    all: [{ has: { field: declaration_kind, regex: 'actor|extension' } }, { has: { field: name, pattern: $NAME } }]
 name: $NAME
 signature: $SIGNATURE
-isExported: {any: [{matches: visible}, {has: {field: body, has: {matches: visible}}}]}
+isExported: { any: [{ matches: visible }, { has: { field: body, has: { matches: visible } } }] }
 ---
 id: swift-protocol
 role: item
@@ -139,11 +139,11 @@ variants: [protocol]
 rule:
     kind: protocol_declaration
     pattern: $DECLARATION
-    inside: {kind: 'source_file, ERROR'}
-    has: {field: name, pattern: $NAME}
+    inside: { kind: 'source_file, ERROR' }
+    has: { field: name, pattern: $NAME }
 name: $NAME
 signature: $SIGNATURE
-isExported: {matches: visible}
+isExported: { matches: visible }
 ---
 id: swift-function-leaf
 role: item
@@ -152,12 +152,12 @@ variants: [function, item-function]
 rule:
     kind: 'function_declaration, macro_declaration'
     pattern: $DECLARATION
-    inside: {kind: 'source_file, ERROR'}
-    has: {kind: 'function_name, referenceable_operator', pattern: $NAME}
-    not: {has: {stopBy: end, any: [{kind: 'function_declaration, class_declaration, typealias_declaration', inside: {kind: statements}}, {kind: ERROR}]}}
+    inside: { kind: 'source_file, ERROR' }
+    has: { kind: 'function_name, referenceable_operator', pattern: $NAME }
+    not: { has: { stopBy: end, any: [{ kind: 'function_declaration, class_declaration, typealias_declaration', inside: { kind: statements } }, { kind: ERROR }] } }
 name: $NAME
 signature: $SIGNATURE
-isExported: {matches: visible}
+isExported: { matches: visible }
 ---
 id: swift-function
 role: item
@@ -166,11 +166,11 @@ variants: [function, item-function]
 rule:
     kind: 'function_declaration, macro_declaration'
     pattern: $DECLARATION
-    inside: {kind: 'source_file, ERROR'}
-    has: {kind: 'function_name, referenceable_operator', pattern: $NAME}
+    inside: { kind: 'source_file, ERROR' }
+    has: { kind: 'function_name, referenceable_operator', pattern: $NAME }
 name: $NAME
 signature: $SIGNATURE
-isExported: {matches: visible}
+isExported: { matches: visible }
 ---
 id: swift-constant
 role: item
@@ -180,23 +180,23 @@ rule:
     any:
         - kind: property_declaration
           pattern: $DECLARATION
-          inside: {kind: 'source_file, ERROR'}
+          inside: { kind: 'source_file, ERROR' }
           all:
-            - has: {kind: value_binding_pattern, regex: let}
-            - has: {field: name, has: {kind: simple_identifier, pattern: $NAME}}
-            - not: {has: {kind: pattern, nthChild: {position: 2, ofRule: {kind: pattern}}}}
+              - has: { kind: value_binding_pattern, regex: let }
+              - has: { field: name, has: { kind: simple_identifier, pattern: $NAME } }
+              - not: { has: { kind: pattern, nthChild: { position: 2, ofRule: { kind: pattern } } } }
         - kind: pattern
           pattern: $BINDER
-          has: {kind: simple_identifier, pattern: $NAME}
-          any: [{precedes: {kind: type_annotation, pattern: $DECLARATION, stopBy: {not: {any: [{kind: pattern}, {regex: '^,$'}]}}}}, {kind: pattern}]
+          has: { kind: simple_identifier, pattern: $NAME }
+          any: [{ precedes: { kind: type_annotation, pattern: $DECLARATION, stopBy: { not: { any: [{ kind: pattern }, { regex: '^,$' }] } } } }, { kind: pattern }]
           inside:
-            kind: property_declaration
-            stopBy: {kind: 'property_declaration, statements'}
-            inside: {kind: 'source_file, ERROR'}
-            all: [{has: {kind: value_binding_pattern, regex: let, pattern: $BINDING}}, {any: [{has: {kind: modifiers, pattern: $MODIFIERS}}, {kind: property_declaration}]}]
+              kind: property_declaration
+              stopBy: { kind: 'property_declaration, statements' }
+              inside: { kind: 'source_file, ERROR' }
+              all: [{ has: { kind: value_binding_pattern, regex: let, pattern: $BINDING } }, { any: [{ has: { kind: modifiers, pattern: $MODIFIERS } }, { kind: property_declaration }] }]
 name: $NAME
 signature: $PREFIX$KEYWORD$BINDER$SIGNATURE
-isExported: {any: [{matches: visible}, {inside: {kind: property_declaration, stopBy: {kind: 'property_declaration, statements'}, matches: visible}}]}
+isExported: { any: [{ matches: visible }, { inside: { kind: property_declaration, stopBy: { kind: 'property_declaration, statements' }, matches: visible } }] }
 ---
 id: swift-variable
 role: item
@@ -205,25 +205,25 @@ rule:
     any:
         - kind: property_declaration
           pattern: $DECLARATION
-          inside: {kind: 'source_file, ERROR'}
+          inside: { kind: 'source_file, ERROR' }
           all:
-            - has: {kind: value_binding_pattern, regex: var}
-            - has: {field: name, has: {kind: simple_identifier, pattern: $NAME}}
-            - not: {has: {kind: pattern, nthChild: {position: 2, ofRule: {kind: pattern}}}}
+              - has: { kind: value_binding_pattern, regex: var }
+              - has: { field: name, has: { kind: simple_identifier, pattern: $NAME } }
+              - not: { has: { kind: pattern, nthChild: { position: 2, ofRule: { kind: pattern } } } }
         - kind: pattern
           pattern: $BINDER
-          has: {kind: simple_identifier, pattern: $NAME}
-          any: [{precedes: {kind: type_annotation, pattern: $DECLARATION, stopBy: {not: {any: [{kind: pattern}, {regex: '^,$'}]}}}}, {kind: pattern}]
+          has: { kind: simple_identifier, pattern: $NAME }
+          any: [{ precedes: { kind: type_annotation, pattern: $DECLARATION, stopBy: { not: { any: [{ kind: pattern }, { regex: '^,$' }] } } } }, { kind: pattern }]
           inside:
-            kind: property_declaration
-            stopBy: {kind: 'property_declaration, statements'}
-            inside: {kind: 'source_file, ERROR'}
-            all: [{has: {kind: value_binding_pattern, regex: var, pattern: $BINDING}}, {any: [{has: {kind: modifiers, pattern: $MODIFIERS}}, {kind: property_declaration}]}]
+              kind: property_declaration
+              stopBy: { kind: 'property_declaration, statements' }
+              inside: { kind: 'source_file, ERROR' }
+              all: [{ has: { kind: value_binding_pattern, regex: var, pattern: $BINDING } }, { any: [{ has: { kind: modifiers, pattern: $MODIFIERS } }, { kind: property_declaration }] }]
 transform:
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [value, observer, accessor, initializer, implicit, closure, comment]}}
+    HEADER: { rewrite: { source: $DECLARATION, rewriters: [value, observer, accessor, initializer, implicit, closure, comment] } }
 name: $NAME
 signature: $PREFIX$KEYWORD$BINDER$SIGNATURE
-isExported: {any: [{matches: visible}, {inside: {kind: property_declaration, stopBy: {kind: 'property_declaration, statements'}, matches: visible}}]}
+isExported: { any: [{ matches: visible }, { inside: { kind: property_declaration, stopBy: { kind: 'property_declaration, statements' }, matches: visible } }] }
 ---
 id: swift-operator
 role: item
@@ -231,10 +231,10 @@ symbolType: operator
 rule:
     kind: 'operator_declaration, precedence_group_declaration'
     pattern: $DECLARATION
-    inside: {kind: 'source_file, ERROR'}
-    has: {kind: 'referenceable_operator, simple_identifier', pattern: $NAME}
+    inside: { kind: 'source_file, ERROR' }
+    has: { kind: 'referenceable_operator, simple_identifier', pattern: $NAME }
 transform:
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [attributes, comment]}}
+    HEADER: { rewrite: { source: $DECLARATION, rewriters: [attributes, comment] } }
 name: $NAME
 signature: $SIGNATURE
 ---
@@ -245,8 +245,8 @@ variants: [macro]
 rule:
     kind: 'macro_invocation, diagnostic'
     pattern: $DECLARATION
-    inside: {kind: 'source_file, ERROR'}
-    any: [{has: {kind: simple_identifier, pattern: $NAME}}, {kind: diagnostic, pattern: $DIAGNOSTIC}]
+    inside: { kind: 'source_file, ERROR' }
+    any: [{ has: { kind: simple_identifier, pattern: $NAME } }, { kind: diagnostic, pattern: $DIAGNOSTIC }]
 name: $NAME$WORD
 signature: $SIGNATURE
 isExported: false
@@ -256,8 +256,15 @@ role: item
 symbolType: 'null'
 rule:
     any:
-        - {kind: ERROR, any: [{not: {has: {kind: 'simple_identifier, comment, multiline_comment'}}}, {not: {has: {stopBy: end, kind: 'import_declaration, class_declaration, protocol_declaration, typealias_declaration, function_declaration, macro_declaration, property_declaration, operator_declaration, precedence_group_declaration, macro_invocation, diagnostic'}}}]}
-        - {kind: 'simple_identifier, comment, multiline_comment', all: [{inside: {kind: ERROR}}, {not: {follows: {kind: 'simple_identifier, comment, multiline_comment', stopBy: end}}}, {nthChild: {position: 1, ofRule: {kind: 'simple_identifier, comment, multiline_comment'}}}]}
+        - {
+              kind: ERROR,
+              any:
+                  [
+                      { not: { has: { kind: 'simple_identifier, comment, multiline_comment' } } },
+                      { not: { has: { stopBy: end, kind: 'import_declaration, class_declaration, protocol_declaration, typealias_declaration, function_declaration, macro_declaration, property_declaration, operator_declaration, precedence_group_declaration, macro_invocation, diagnostic' } } },
+                  ],
+          }
+        - { kind: 'simple_identifier, comment, multiline_comment', all: [{ inside: { kind: ERROR } }, { not: { follows: { kind: 'simple_identifier, comment, multiline_comment', stopBy: end } } }, { nthChild: { position: 1, ofRule: { kind: 'simple_identifier, comment, multiline_comment' } } }] }
 name: ERROR
 signature: ''
 isImport: false
@@ -268,56 +275,56 @@ role: member
 parentRuleIds: [swift-class, swift-struct, swift-enum, swift-object, swift-protocol, swift-function]
 symbolType: struct
 utils:
-    struct: {all: [{matches: nested}, {any: [{has: {field: declaration_kind, regex: struct}}, {kind: typealias_declaration}]}]}
+    struct: { all: [{ matches: nested }, { any: [{ has: { field: declaration_kind, regex: struct } }, { kind: typealias_declaration }] }] }
 rule:
     any:
-        - {kind: 'class_declaration, typealias_declaration', pattern: $DECLARATION, all: [{matches: struct}, {has: {field: name, pattern: $NAME}}, {matches: hollow}]}
-        - {kind: 'type_name, type_identifier', pattern: $NAME, inside: {kind: 'class_declaration, typealias_declaration', field: name, pattern: $DECLARATION, matches: struct}}
+        - { kind: 'class_declaration, typealias_declaration', pattern: $DECLARATION, all: [{ matches: struct }, { has: { field: name, pattern: $NAME } }, { matches: hollow }] }
+        - { kind: 'type_name, type_identifier', pattern: $NAME, inside: { kind: 'class_declaration, typealias_declaration', field: name, pattern: $DECLARATION, matches: struct } }
 name: $QUALIFIER$NAME
 signature: $SIGNATURE
-isPublic: {any: [{matches: public}, {inside: {field: name, matches: public}}]}
+isPublic: { any: [{ matches: public }, { inside: { field: name, matches: public } }] }
 ---
 id: swift-member-enum
 role: member
 parentRuleIds: [swift-class, swift-struct, swift-enum, swift-object, swift-protocol, swift-function]
 symbolType: enum
 utils:
-    enum: {all: [{matches: nested}, {has: {field: body, kind: enum_class_body}}]}
+    enum: { all: [{ matches: nested }, { has: { field: body, kind: enum_class_body } }] }
 rule:
     any:
-        - {kind: class_declaration, pattern: $DECLARATION, all: [{matches: enum}, {has: {field: name, pattern: $NAME}}, {matches: hollow}]}
-        - {kind: type_name, pattern: $NAME, inside: {kind: class_declaration, field: name, pattern: $DECLARATION, matches: enum}}
+        - { kind: class_declaration, pattern: $DECLARATION, all: [{ matches: enum }, { has: { field: name, pattern: $NAME } }, { matches: hollow }] }
+        - { kind: type_name, pattern: $NAME, inside: { kind: class_declaration, field: name, pattern: $DECLARATION, matches: enum } }
 name: $QUALIFIER$NAME
 signature: $SIGNATURE
-isPublic: {any: [{matches: public}, {inside: {field: name, matches: public}}]}
+isPublic: { any: [{ matches: public }, { inside: { field: name, matches: public } }] }
 ---
 id: swift-member-class
 role: member
 parentRuleIds: [swift-class, swift-struct, swift-enum, swift-object, swift-protocol, swift-function]
 symbolType: class
 utils:
-    class: {all: [{matches: nested}, {has: {field: declaration_kind, regex: class}}]}
+    class: { all: [{ matches: nested }, { has: { field: declaration_kind, regex: class } }] }
 rule:
     any:
-        - {kind: class_declaration, pattern: $DECLARATION, all: [{matches: class}, {has: {field: name, pattern: $NAME}}, {matches: hollow}]}
-        - {kind: type_name, pattern: $NAME, inside: {kind: class_declaration, field: name, pattern: $DECLARATION, matches: class}}
+        - { kind: class_declaration, pattern: $DECLARATION, all: [{ matches: class }, { has: { field: name, pattern: $NAME } }, { matches: hollow }] }
+        - { kind: type_name, pattern: $NAME, inside: { kind: class_declaration, field: name, pattern: $DECLARATION, matches: class } }
 name: $QUALIFIER$NAME
 signature: $SIGNATURE
-isPublic: {any: [{matches: public}, {inside: {field: name, matches: public}}]}
+isPublic: { any: [{ matches: public }, { inside: { field: name, matches: public } }] }
 ---
 id: swift-member-object
 role: member
 parentRuleIds: [swift-class, swift-struct, swift-enum, swift-object, swift-protocol, swift-function]
 symbolType: object
 utils:
-    object: {all: [{matches: nested}, {has: {field: declaration_kind, regex: 'actor|extension'}}]}
+    object: { all: [{ matches: nested }, { has: { field: declaration_kind, regex: 'actor|extension' } }] }
 rule:
     any:
-        - {kind: class_declaration, pattern: $DECLARATION, all: [{matches: object}, {has: {field: name, pattern: $NAME}}, {matches: hollow}]}
-        - {kind: 'type_name, user_type', pattern: $NAME, inside: {kind: class_declaration, field: name, pattern: $DECLARATION, matches: object}}
+        - { kind: class_declaration, pattern: $DECLARATION, all: [{ matches: object }, { has: { field: name, pattern: $NAME } }, { matches: hollow }] }
+        - { kind: 'type_name, user_type', pattern: $NAME, inside: { kind: class_declaration, field: name, pattern: $DECLARATION, matches: object } }
 name: $QUALIFIER$NAME
 signature: $SIGNATURE
-isPublic: {any: [{matches: public}, {inside: {field: name, matches: public}}]}
+isPublic: { any: [{ matches: public }, { inside: { field: name, matches: public } }] }
 ---
 id: swift-member-protocol
 role: member
@@ -326,11 +333,11 @@ symbolType: interface
 variants: [protocol]
 rule:
     any:
-        - {kind: protocol_declaration, pattern: $DECLARATION, all: [{matches: nested}, {has: {field: name, pattern: $NAME}}, {matches: hollow}]}
-        - {kind: type_name, pattern: $NAME, inside: {kind: protocol_declaration, field: name, pattern: $DECLARATION, matches: nested}}
+        - { kind: protocol_declaration, pattern: $DECLARATION, all: [{ matches: nested }, { has: { field: name, pattern: $NAME } }, { matches: hollow }] }
+        - { kind: type_name, pattern: $NAME, inside: { kind: protocol_declaration, field: name, pattern: $DECLARATION, matches: nested } }
 name: $QUALIFIER$NAME
 signature: $SIGNATURE
-isPublic: {any: [{matches: public}, {inside: {field: name, matches: public}}]}
+isPublic: { any: [{ matches: public }, { inside: { field: name, matches: public } }] }
 ---
 id: swift-member-constant
 role: member
@@ -338,49 +345,49 @@ parentRuleIds: [swift-class, swift-struct, swift-enum, swift-object, swift-proto
 symbolType: constant
 variants: [stored]
 utils:
-    static: {all: [{matches: owned}, {has: {kind: value_binding_pattern, regex: let}}, {has: {kind: modifiers, has: {kind: property_modifier, regex: static}}}]}
+    static: { all: [{ matches: owned }, { has: { kind: value_binding_pattern, regex: let } }, { has: { kind: modifiers, has: { kind: property_modifier, regex: static } } }] }
 rule:
     any:
         - kind: property_declaration
           pattern: $DECLARATION
           all:
-            - matches: static
-            - has: {field: name, has: {kind: simple_identifier, pattern: $NAME}}
-            - not: {has: {kind: pattern, nthChild: {position: 2, ofRule: {kind: pattern}}}}
-            - matches: leaf
+              - matches: static
+              - has: { field: name, has: { kind: simple_identifier, pattern: $NAME } }
+              - not: { has: { kind: pattern, nthChild: { position: 2, ofRule: { kind: pattern } } } }
+              - matches: leaf
         - kind: pattern
           pattern: $BINDER
-          has: {kind: simple_identifier, pattern: $NAME}
-          any: [{precedes: {kind: type_annotation, pattern: $DECLARATION, stopBy: {not: {any: [{kind: pattern}, {regex: '^,$'}]}}}}, {kind: pattern}]
+          has: { kind: simple_identifier, pattern: $NAME }
+          any: [{ precedes: { kind: type_annotation, pattern: $DECLARATION, stopBy: { not: { any: [{ kind: pattern }, { regex: '^,$' }] } } } }, { kind: pattern }]
           inside:
-            kind: property_declaration
-            stopBy: {kind: 'property_declaration, statements'}
-            all: [{matches: static}, {has: {kind: value_binding_pattern, pattern: $BINDING}}, {has: {kind: modifiers, pattern: $MODIFIERS}}]
+              kind: property_declaration
+              stopBy: { kind: 'property_declaration, statements' }
+              all: [{ matches: static }, { has: { kind: value_binding_pattern, pattern: $BINDING } }, { has: { kind: modifiers, pattern: $MODIFIERS } }]
 name: $QUALIFIER$NAME
 signature: $PREFIX$KEYWORD$BINDER$SIGNATURE
-isPublic: {any: [{matches: public}, {inside: {kind: property_declaration, stopBy: {kind: 'property_declaration, statements'}, matches: public}}]}
+isPublic: { any: [{ matches: public }, { inside: { kind: property_declaration, stopBy: { kind: 'property_declaration, statements' }, matches: public } }] }
 ---
 id: swift-member-property
 role: member
 parentRuleIds: [swift-class, swift-struct, swift-enum, swift-object, swift-protocol, swift-function]
 symbolType: property
 utils:
-    computed: {all: [{matches: owned}, {has: {kind: 'computed_property, protocol_property_requirements'}}]}
+    computed: { all: [{ matches: owned }, { has: { kind: 'computed_property, protocol_property_requirements' } }] }
 rule:
     any:
         - kind: 'property_declaration, protocol_property_declaration'
           pattern: $DECLARATION
-          all: [{matches: computed}, {has: {field: name, has: {kind: simple_identifier, pattern: $NAME}}}, {matches: leaf}]
+          all: [{ matches: computed }, { has: { field: name, has: { kind: simple_identifier, pattern: $NAME } } }, { matches: leaf }]
         - kind: pattern
-          has: {kind: simple_identifier, pattern: $NAME}
-          inside: {kind: 'property_declaration, protocol_property_declaration', pattern: $DECLARATION, matches: computed}
+          has: { kind: simple_identifier, pattern: $NAME }
+          inside: { kind: 'property_declaration, protocol_property_declaration', pattern: $DECLARATION, matches: computed }
 rewriters:
-    - {id: value, rule: {kind: 'pattern, type_annotation', pattern: $BOUND, precedes: {regex: '^=$'}}, fix: {template: '$BOUND', expandEnd: {not: {regex: '^=$'}, stopBy: end}}}
+    - { id: value, rule: { kind: 'pattern, type_annotation', pattern: $BOUND, precedes: { regex: '^=$' } }, fix: { template: '$BOUND', expandEnd: { not: { regex: '^=$' }, stopBy: end } } }
 transform:
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [value, accessor, initializer, implicit, closure, comment]}}
+    HEADER: { rewrite: { source: $DECLARATION, rewriters: [value, accessor, initializer, implicit, closure, comment] } }
 name: $QUALIFIER$NAME
 signature: $SIGNATURE
-isPublic: {any: [{matches: public}, {inside: {kind: 'property_declaration, protocol_property_declaration', matches: public}}]}
+isPublic: { any: [{ matches: public }, { inside: { kind: 'property_declaration, protocol_property_declaration', matches: public } }] }
 ---
 id: swift-member-field
 role: member
@@ -388,27 +395,27 @@ parentRuleIds: [swift-class, swift-struct, swift-enum, swift-object, swift-proto
 symbolType: field
 variants: [stored]
 utils:
-    stored: {all: [{matches: owned}, {not: {has: {kind: computed_property}}}]}
+    stored: { all: [{ matches: owned }, { not: { has: { kind: computed_property } } }] }
 rule:
     any:
         - kind: property_declaration
           pattern: $DECLARATION
           all:
-            - matches: stored
-            - has: {field: name, has: {kind: simple_identifier, pattern: $NAME}}
-            - not: {has: {kind: pattern, nthChild: {position: 2, ofRule: {kind: pattern}}}}
-            - matches: leaf
+              - matches: stored
+              - has: { field: name, has: { kind: simple_identifier, pattern: $NAME } }
+              - not: { has: { kind: pattern, nthChild: { position: 2, ofRule: { kind: pattern } } } }
+              - matches: leaf
         - kind: pattern
           pattern: $BINDER
-          has: {kind: simple_identifier, pattern: $NAME}
-          any: [{precedes: {kind: type_annotation, pattern: $DECLARATION, stopBy: {not: {any: [{kind: pattern}, {regex: '^,$'}]}}}}, {kind: pattern}]
+          has: { kind: simple_identifier, pattern: $NAME }
+          any: [{ precedes: { kind: type_annotation, pattern: $DECLARATION, stopBy: { not: { any: [{ kind: pattern }, { regex: '^,$' }] } } } }, { kind: pattern }]
           inside:
-            kind: property_declaration
-            stopBy: {kind: 'property_declaration, statements'}
-            all: [{matches: stored}, {has: {kind: value_binding_pattern, pattern: $BINDING}}, {any: [{has: {kind: modifiers, pattern: $MODIFIERS}}, {kind: property_declaration}]}]
+              kind: property_declaration
+              stopBy: { kind: 'property_declaration, statements' }
+              all: [{ matches: stored }, { has: { kind: value_binding_pattern, pattern: $BINDING } }, { any: [{ has: { kind: modifiers, pattern: $MODIFIERS } }, { kind: property_declaration }] }]
 name: $QUALIFIER$NAME
 signature: $PREFIX$KEYWORD$BINDER$SIGNATURE
-isPublic: {any: [{matches: public}, {inside: {kind: property_declaration, stopBy: {kind: 'property_declaration, statements'}, matches: public}}]}
+isPublic: { any: [{ matches: public }, { inside: { kind: property_declaration, stopBy: { kind: 'property_declaration, statements' }, matches: public } }] }
 ---
 id: swift-member-method
 role: member
@@ -419,15 +426,15 @@ rule:
     any:
         - kind: 'function_declaration, protocol_function_declaration, subscript_declaration'
           pattern: $DECLARATION
-          all: [{matches: owned}, {has: {kind: 'function_name, subscript_keyword', pattern: $NAME}}, {matches: leaf}]
+          all: [{ matches: owned }, { has: { kind: 'function_name, subscript_keyword', pattern: $NAME } }, { matches: leaf }]
         - kind: 'function_name, subscript_keyword'
           pattern: $NAME
-          inside: {kind: 'function_declaration, protocol_function_declaration, subscript_declaration', pattern: $DECLARATION, matches: owned}
+          inside: { kind: 'function_declaration, protocol_function_declaration, subscript_declaration', pattern: $DECLARATION, matches: owned }
 transform:
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, default, accessor, implicit, closure, comment]}}
+    HEADER: { rewrite: { source: $DECLARATION, rewriters: [body, default, accessor, implicit, closure, comment] } }
 name: $QUALIFIER$NAME
 signature: $SIGNATURE
-isPublic: {any: [{matches: public}, {inside: {kind: 'function_declaration, protocol_function_declaration, subscript_declaration', matches: public}}]}
+isPublic: { any: [{ matches: public }, { inside: { kind: 'function_declaration, protocol_function_declaration, subscript_declaration', matches: public } }] }
 ---
 id: swift-member-operator
 role: member
@@ -436,14 +443,14 @@ symbolType: operator
 variants: [function]
 rule:
     any:
-        - {kind: 'function_declaration, protocol_function_declaration', pattern: $DECLARATION, all: [{matches: owned}, {has: {kind: referenceable_operator, pattern: $NAME}}, {matches: leaf}]}
-        - {kind: referenceable_operator, pattern: $NAME, inside: {kind: 'function_declaration, protocol_function_declaration', pattern: $DECLARATION, matches: owned}}
-        - {kind: 'operator_declaration, precedence_group_declaration', pattern: $DECLARATION, matches: owned, has: {kind: 'referenceable_operator, simple_identifier', pattern: $NAME}}
+        - { kind: 'function_declaration, protocol_function_declaration', pattern: $DECLARATION, all: [{ matches: owned }, { has: { kind: referenceable_operator, pattern: $NAME } }, { matches: leaf }] }
+        - { kind: referenceable_operator, pattern: $NAME, inside: { kind: 'function_declaration, protocol_function_declaration', pattern: $DECLARATION, matches: owned } }
+        - { kind: 'operator_declaration, precedence_group_declaration', pattern: $DECLARATION, matches: owned, has: { kind: 'referenceable_operator, simple_identifier', pattern: $NAME } }
 transform:
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, default, attributes, closure, comment]}}
+    HEADER: { rewrite: { source: $DECLARATION, rewriters: [body, default, attributes, closure, comment] } }
 name: $QUALIFIER$NAME
 signature: $SIGNATURE
-isPublic: {any: [{matches: public}, {inside: {kind: 'function_declaration, protocol_function_declaration', matches: public}}]}
+isPublic: { any: [{ matches: public }, { inside: { kind: 'function_declaration, protocol_function_declaration', matches: public } }] }
 ---
 id: swift-member-constructor
 role: member
@@ -454,13 +461,13 @@ rule:
     any:
         - kind: 'init_declaration, deinit_declaration'
           pattern: $DECLARATION
-          all: [{matches: owned}, {has: {kind: 'init_keyword, deinit_keyword', pattern: $NAME}}, {matches: leaf}]
+          all: [{ matches: owned }, { has: { kind: 'init_keyword, deinit_keyword', pattern: $NAME } }, { matches: leaf }]
         - kind: 'init_keyword, deinit_keyword'
           pattern: $NAME
-          inside: {kind: 'init_declaration, deinit_declaration', pattern: $DECLARATION, matches: owned}
+          inside: { kind: 'init_declaration, deinit_declaration', pattern: $DECLARATION, matches: owned }
 name: $QUALIFIER$NAME
 signature: $SIGNATURE
-isPublic: {any: [{matches: public}, {inside: {kind: 'init_declaration, deinit_declaration', matches: public}}]}
+isPublic: { any: [{ matches: public }, { inside: { kind: 'init_declaration, deinit_declaration', matches: public } }] }
 ---
 id: swift-member-macro
 role: member
@@ -471,7 +478,7 @@ rule:
     kind: 'macro_invocation, diagnostic'
     pattern: $DECLARATION
     matches: owned
-    any: [{has: {kind: simple_identifier, pattern: $NAME}}, {kind: diagnostic, pattern: $DIAGNOSTIC}]
+    any: [{ has: { kind: simple_identifier, pattern: $NAME } }, { kind: diagnostic, pattern: $DIAGNOSTIC }]
 name: $QUALIFIER$NAME$WORD
 signature: $SIGNATURE
 isPublic: false
@@ -483,7 +490,7 @@ symbolType: module
 rule:
     kind: import_declaration
     matches: owned
-    has: {kind: identifier, pattern: $NAME}
+    has: { kind: identifier, pattern: $NAME }
 name: $QUALIFIER$NAME
 isPublic: false
 ---
@@ -495,12 +502,12 @@ rule:
     kind: associatedtype_declaration
     pattern: $DECLARATION
     matches: owned
-    has: {field: name, pattern: $NAME}
+    has: { field: name, pattern: $NAME }
 transform:
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [comment]}}
+    HEADER: { rewrite: { source: $DECLARATION, rewriters: [comment] } }
 name: $QUALIFIER$NAME
 signature: $SIGNATURE
-isPublic: {matches: public}
+isPublic: { matches: public }
 ---
 id: swift-member-case
 role: member
@@ -508,33 +515,33 @@ parentRuleIds: [swift-class, swift-struct, swift-enum, swift-object, swift-proto
 symbolType: enumMember
 utils:
     entry:
-        inside: {kind: enum_class_body, inside: {kind: class_declaration, any: [{inside: {kind: 'source_file, ERROR'}}, {has: {field: name, pattern: $OWNER}}]}}
+        inside: { kind: enum_class_body, inside: { kind: class_declaration, any: [{ inside: { kind: 'source_file, ERROR' } }, { has: { field: name, pattern: $OWNER } }] } }
         all:
-            - any: [{has: {kind: modifiers, pattern: $MODIFIERS}}, {kind: enum_entry}]
-            - any: [{has: {regex: '^indirect$', pattern: $$INDIRECT}}, {kind: enum_entry}]
+            - any: [{ has: { kind: modifiers, pattern: $MODIFIERS } }, { kind: enum_entry }]
+            - any: [{ has: { regex: '^indirect$', pattern: $$INDIRECT } }, { kind: enum_entry }]
 rule:
     any:
         - kind: enum_entry
           all:
-            - matches: entry
-            - has: {field: name, pattern: $NAME}
-            - not: {has: {kind: case_name, nthChild: {position: 2, ofRule: {kind: case_name}}}}
-            - any: [{has: {field: data_contents, pattern: $TAIL}}, {kind: enum_entry}]
-            - matches: leaf
+              - matches: entry
+              - has: { field: name, pattern: $NAME }
+              - not: { has: { kind: case_name, nthChild: { position: 2, ofRule: { kind: case_name } } } }
+              - any: [{ has: { field: data_contents, pattern: $TAIL } }, { kind: enum_entry }]
+              - matches: leaf
         - kind: case_name
           pattern: $NAME
-          inside: {kind: enum_entry, matches: entry}
+          inside: { kind: enum_entry, matches: entry }
           any:
-            - precedes: {kind: enum_type_parameters, pattern: $TAIL, stopBy: {not: {kind: 'comment, multiline_comment'}}}
-            - pattern: $NAME
+              - precedes: { kind: enum_type_parameters, pattern: $TAIL, stopBy: { not: { kind: 'comment, multiline_comment' } } }
+              - pattern: $NAME
 rewriters:
-    - {id: default, rule: {follows: {regex: '^=$'}, inside: {kind: enum_type_parameters}}, fix: …}
+    - { id: default, rule: { follows: { regex: '^=$' }, inside: { kind: enum_type_parameters } }, fix: … }
 transform:
-    MARKED: {replace: {source: $INDIRECT, replace: '$', by: ' '}}
-    HEADER: {rewrite: {source: $TAIL, rewriters: [default, closure, comment]}}
+    MARKED: { replace: { source: $INDIRECT, replace: '$', by: ' ' } }
+    HEADER: { rewrite: { source: $TAIL, rewriters: [default, closure, comment] } }
 name: $QUALIFIER$NAME
 signature: $PREFIX$MARKEDcase $NAME$SIGNATURE
-isPublic: {matches: open}
+isPublic: { matches: open }
 ---
 id: swift-member-function
 role: member
@@ -545,10 +552,10 @@ rule:
     any:
         - kind: function_declaration
           pattern: $DECLARATION
-          all: [{matches: local}, {has: {kind: 'function_name, referenceable_operator', pattern: $NAME}}, {matches: leaf}]
+          all: [{ matches: local }, { has: { kind: 'function_name, referenceable_operator', pattern: $NAME } }, { matches: leaf }]
         - kind: 'function_name, referenceable_operator'
           pattern: $NAME
-          inside: {kind: function_declaration, pattern: $DECLARATION, matches: local}
+          inside: { kind: function_declaration, pattern: $DECLARATION, matches: local }
 name: $QUALIFIER$NAME
 signature: $SIGNATURE
 isPublic: false
@@ -559,8 +566,8 @@ parentRuleIds: [swift-class, swift-struct, swift-enum, swift-object, swift-proto
 symbolType: 'null'
 rule:
     any:
-        - {kind: ERROR, any: [{not: {has: {kind: 'simple_identifier, comment, multiline_comment'}}}, {not: {has: {stopBy: end, kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration, property_declaration'}}}]}
-        - {kind: 'simple_identifier, comment, multiline_comment', all: [{inside: {kind: ERROR}}, {not: {follows: {kind: 'simple_identifier, comment, multiline_comment', stopBy: end}}}, {nthChild: {position: 1, ofRule: {kind: 'simple_identifier, comment, multiline_comment'}}}]}
+        - { kind: ERROR, any: [{ not: { has: { kind: 'simple_identifier, comment, multiline_comment' } } }, { not: { has: { stopBy: end, kind: 'class_declaration, protocol_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration, property_declaration' } } }] }
+        - { kind: 'simple_identifier, comment, multiline_comment', all: [{ inside: { kind: ERROR } }, { not: { follows: { kind: 'simple_identifier, comment, multiline_comment', stopBy: end } } }, { nthChild: { position: 1, ofRule: { kind: 'simple_identifier, comment, multiline_comment' } } }] }
 name: ERROR
 signature: ''
 isPublic: false

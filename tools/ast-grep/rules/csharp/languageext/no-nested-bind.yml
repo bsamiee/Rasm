@@ -7,21 +7,21 @@ utils:
         any:
             - kind: invocation_expression
               all:
-                - has: {field: function, kind: member_access_expression, has: {field: name, matches: {csharp-simple-name: {name: {regex: '^(Bind|Map|Select|SelectMany|Filter|Where)$'}}}}}
-                - has: {field: arguments, has: {stopBy: end, kind: identifier, pattern: {context: 'class $VALUE;', selector: identifier}}}
+                  - has: { field: function, kind: member_access_expression, has: { field: name, matches: { csharp-simple-name: { name: { regex: '^(Bind|Map|Select|SelectMany|Filter|Where)$' } } } } }
+                  - has: { field: arguments, has: { stopBy: end, kind: identifier, pattern: { context: 'class $VALUE;', selector: identifier } } }
             - kind: query_expression
-              has: {stopBy: end, kind: identifier, pattern: {context: 'class $VALUE;', selector: identifier}}
+              has: { stopBy: end, kind: identifier, pattern: { context: 'class $VALUE;', selector: identifier } }
             - kind: parenthesized_expression
-              has: {matches: step}
+              has: { matches: step }
     step-return:
         kind: block
         all:
-            - has: {kind: return_statement, nthChild: {position: 1, reverse: true}, has: {matches: step}}
-            - not: {has: {pattern: $_, not: {kind: 'local_declaration_statement, return_statement, comment'}}}
+            - has: { kind: return_statement, nthChild: { position: 1, reverse: true }, has: { matches: step } }
+            - not: { has: { pattern: $_, not: { kind: 'local_declaration_statement, return_statement, comment' } } }
 rule:
     kind: invocation_expression
     all:
-        - has: {field: function, kind: member_access_expression, has: {field: name, pattern: $BIND, regex: '^(Bind|SelectMany)'}}
-        - matches: {languageext-bind-callback: {value: {pattern: $VALUE}, body: {any: [{matches: step}, {matches: step-return}]}}}
+        - has: { field: function, kind: member_access_expression, has: { field: name, pattern: $BIND, regex: '^(Bind|SelectMany)' } }
+        - matches: { languageext-bind-callback: { value: { pattern: $VALUE }, body: { any: [{ matches: step }, { matches: step-return }] } } }
 message: '`$BIND` callback nests a step that reads the callback value `$VALUE`'
 note: 'Write a query expression with one `from` per step, callback value bound in the first `from`'

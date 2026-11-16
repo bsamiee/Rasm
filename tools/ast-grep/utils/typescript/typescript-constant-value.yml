@@ -6,13 +6,13 @@ rule:
     kind: identifier
     pattern: $NAME
     all:
-        - matches: {typescript-local-binding: {owner: {pattern: $OWNER}}}
+        - matches: { typescript-local-binding: { owner: { pattern: $OWNER } } }
         - inside:
-            pattern: $OWNER
-            stopBy: end
-            has:
-                stopBy: {not: {kind: export_statement}}
-                kind: lexical_declaration
-                all:
-                    - has: {field: kind, regex: '^const$'}
-                    - has: {kind: variable_declarator, all: [{has: {field: name, pattern: $NAME}}, {has: {field: value, matches: value}}]}
+              pattern: $OWNER
+              stopBy: end
+              has:
+                  stopBy: { not: { kind: export_statement } }
+                  kind: lexical_declaration
+                  all:
+                      - has: { field: kind, regex: '^const$' }
+                      - has: { kind: variable_declarator, all: [{ has: { field: name, pattern: $NAME } }, { has: { field: value, matches: value } }] }

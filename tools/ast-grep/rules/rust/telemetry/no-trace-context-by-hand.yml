@@ -4,48 +4,48 @@ severity: error
 utils:
     constructed:
         kind: call_expression
-        has: {field: function, kind: scoped_identifier, regex: '(^|::)\p{XID_Continue}*Propagator::(new|default)$'}
+        has: { field: function, kind: scoped_identifier, regex: '(^|::)\p{XID_Continue}*Propagator::(new|default)$' }
     propagator:
         any:
             - matches: constructed
             - kind: reference_expression
-              has: {field: value, matches: propagator}
+              has: { field: value, matches: propagator }
             - kind: identifier
               pattern: $LOCAL
               inside:
-                kind: function_item
-                stopBy: end
-                has:
-                    stopBy: end
-                    kind: let_declaration
-                    all:
-                        - has: {field: pattern, pattern: $LOCAL}
-                        - any:
-                            - has: {field: value, matches: constructed}
-                            - has: {field: type, regex: '(^|::)\p{XID_Continue}*Propagator$'}
-              not: {inside: {kind: closure_expression, stopBy: {kind: function_item}, has: {field: parameters, has: {stopBy: end, kind: identifier, pattern: $LOCAL}}}}
+                  kind: function_item
+                  stopBy: end
+                  has:
+                      stopBy: end
+                      kind: let_declaration
+                      all:
+                          - has: { field: pattern, pattern: $LOCAL }
+                          - any:
+                                - has: { field: value, matches: constructed }
+                                - has: { field: type, regex: '(^|::)\p{XID_Continue}*Propagator$' }
+              not: { inside: { kind: closure_expression, stopBy: { kind: function_item }, has: { field: parameters, has: { stopBy: end, kind: identifier, pattern: $LOCAL } } } }
     local-propagator:
         kind: call_expression
         any:
             - has:
-                field: function
-                kind: field_expression
-                all:
-                    - has: {field: field, regex: '^(inject|inject_context|extract|extract_with_context|fields)$'}
-                    - has: {field: value, all: [{matches: propagator}, {pattern: $SITE}]}
+                  field: function
+                  kind: field_expression
+                  all:
+                      - has: { field: field, regex: '^(inject|inject_context|extract|extract_with_context|fields)$' }
+                      - has: { field: value, all: [{ matches: propagator }, { pattern: $SITE }] }
             - all:
-                - has: {field: function, kind: scoped_identifier, regex: '(^|::)(TextMapPropagator::)?(inject|inject_context|extract|extract_with_context|fields)$'}
-                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, all: [{matches: propagator}, {pattern: $SITE}]}}
+                  - has: { field: function, kind: scoped_identifier, regex: '(^|::)(TextMapPropagator::)?(inject|inject_context|extract|extract_with_context|fields)$' }
+                  - has: { field: arguments, has: { nthChild: { position: 1, ofRule: { not: { kind: 'line_comment, block_comment' } } }, all: [{ matches: propagator }, { pattern: $SITE }] } }
     header-name:
         kind: 'string_literal, raw_string_literal'
         all:
             - any:
-                - regex: '^b?(r#*)?"(?i:traceparent|tracestate)"#*$'
-                - regex: '^(r#*)?"00-\{[^{}]*\}-\{[^{}]*\}-(\{[^{}]*\}|0[01])"#*$'
+                  - regex: '^b?(r#*)?"(?i:traceparent|tracestate)"#*$'
+                  - regex: '^(r#*)?"00-\{[^{}]*\}-\{[^{}]*\}-(\{[^{}]*\}|0[01])"#*$'
             - pattern: $SITE
 rule:
     kind: 'call_expression, string_literal, raw_string_literal'
-    not: {matches: rust-test-scope}
+    not: { matches: rust-test-scope }
     any:
         - matches: local-propagator
         - matches: header-name

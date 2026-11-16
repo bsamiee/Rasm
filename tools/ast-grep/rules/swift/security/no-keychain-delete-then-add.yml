@@ -4,32 +4,32 @@ severity: error
 utils:
     delete-command:
         any:
-            - matches: {swift-security-arguments: {subcommand: {regex: '^"delete-(generic|internet)-password"$'}}}
+            - matches: { swift-security-arguments: { subcommand: { regex: '^"delete-(generic|internet)-password"$' } } }
             - kind: line_string_literal, multi_line_string_literal, raw_string_literal
               regex: '(?m)(?:^#*"*|\\n)[ \t]*delete-(?:generic|internet)-password[ \t]'
             - kind: call_expression
-              has: {nthChild: 1, pattern: SecItemDelete}
+              has: { nthChild: 1, pattern: SecItemDelete }
     after-delete:
-        inside: {kind: statements}
-        follows: {stopBy: end, any: [{matches: delete-command}, {has: {stopBy: end, matches: delete-command}}]}
+        inside: { kind: statements }
+        follows: { stopBy: end, any: [{ matches: delete-command }, { has: { stopBy: end, matches: delete-command } }] }
 rule:
     pattern: $ADD
     any:
         - kind: line_string_literal, multi_line_string_literal, raw_string_literal
           regex: '(?ms)(?:^#*"*|\\n)[ \t]*delete-(?:generic|internet)-password[ \t].*(?:^|\\n)[ \t]*add-(?:generic|internet)-password[ \t]'
         - all:
-            - any:
-                - matches: {swift-security-arguments: {subcommand: {regex: '^"add-(generic|internet)-password"$'}}}
-                - kind: line_string_literal, multi_line_string_literal, raw_string_literal
-                  regex: '(?m)(?:^#*"*|\\n)[ \t]*add-(?:generic|internet)-password[ \t]'
-                - kind: call_expression
-                  has: {nthChild: 1, pattern: SecItemAdd}
-            - any:
-                - matches: after-delete
-                - inside: {stopBy: end, matches: after-delete}
-                - inside:
-                    stopBy: end
-                    kind: call_suffix
-                    inside: {kind: call_expression, has: {kind: navigation_expression, has: {stopBy: end, matches: delete-command}}}
-message: '`$ADD` recreates a deleted keychain item, losing attributes it omits and resetting access and partition list to the writer''s'
+              - any:
+                    - matches: { swift-security-arguments: { subcommand: { regex: '^"add-(generic|internet)-password"$' } } }
+                    - kind: line_string_literal, multi_line_string_literal, raw_string_literal
+                      regex: '(?m)(?:^#*"*|\\n)[ \t]*add-(?:generic|internet)-password[ \t]'
+                    - kind: call_expression
+                      has: { nthChild: 1, pattern: SecItemAdd }
+              - any:
+                    - matches: after-delete
+                    - inside: { stopBy: end, matches: after-delete }
+                    - inside:
+                          stopBy: end
+                          kind: call_suffix
+                          inside: { kind: call_expression, has: { kind: navigation_expression, has: { stopBy: end, matches: delete-command } } }
+message: "`$ADD` recreates a deleted keychain item, losing attributes it omits and resetting access and partition list to the writer's"
 note: 'Remove the delete call and update item data in place through `add-generic-password -U` or `SecItemUpdate`'

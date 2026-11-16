@@ -5,22 +5,22 @@ utils:
     empty-string:
         any:
             - kind: line_string_literal
-              not: {has: {kind: 'line_str_text, interpolated_expression'}}
+              not: { has: { kind: 'line_str_text, interpolated_expression' } }
             - kind: call_expression
               regex: '^(Swift(\.|::))?String(\.init)?\([\t-\r ]*\)$'
     empty-result:
         any:
             - matches: empty-string
             - kind: control_transfer_statement
-              has: {field: result, matches: empty-string}
+              has: { field: result, matches: empty-string }
     empty-block:
-        matches: {swift-single-statement: {first: {matches: empty-result}}}
+        matches: { swift-single-statement: { first: { matches: empty-result } } }
     text-fragment:
-        inside: {kind: 'additive_expression, interpolated_expression', stopBy: {not: {kind: tuple_expression}}}
+        inside: { kind: 'additive_expression, interpolated_expression', stopBy: { not: { kind: tuple_expression } } }
     host-unset:
         inside:
             kind: value_argument
-            has: {field: name, regex: '^(abstract|discussion|version)$'}
+            has: { field: name, regex: '^(abstract|discussion|version)$' }
             inside:
                 kind: value_arguments
                 inside:
@@ -30,63 +30,63 @@ utils:
                         any:
                             - regex: '^(ArgumentParser\.)?CommandConfiguration(\.init)?\('
                             - regex: '^\.init\('
-                              inside: {kind: property_declaration, has: {kind: type_annotation, regex: 'CommandConfiguration$'}}
+                              inside: { kind: property_declaration, has: { kind: type_annotation, regex: 'CommandConfiguration$' } }
 rule:
     any:
         - kind: nil_coalescing_expression
           all:
-            - has: {field: value, pattern: $SHAPE, not: {any: [{kind: try_expression, regex: '^try\?'}, {kind: tuple_expression, has: {kind: try_expression, regex: '^try\?'}}]}}
-            - has: {field: if_nil, matches: empty-string}
-            - not: {matches: text-fragment}
-            - not: {matches: host-unset}
+              - has: { field: value, pattern: $SHAPE, not: { any: [{ kind: try_expression, regex: '^try\?' }, { kind: tuple_expression, has: { kind: try_expression, regex: '^try\?' } }] } }
+              - has: { field: if_nil, matches: empty-string }
+              - not: { matches: text-fragment }
+              - not: { matches: host-unset }
         - kind: ternary_expression
           all:
-            - has: {field: condition, pattern: $SHAPE}
-            - any: [{has: {field: if_true, matches: empty-string}}, {has: {field: if_false, matches: empty-string}}]
-            - not: {matches: text-fragment}
+              - has: { field: condition, pattern: $SHAPE }
+              - any: [{ has: { field: if_true, matches: empty-string } }, { has: { field: if_false, matches: empty-string } }]
+              - not: { matches: text-fragment }
         - kind: switch_entry
           all:
-            - has: {kind: 'switch_pattern, default_keyword', pattern: $SHAPE}
-            - has: {matches: empty-block}
+              - has: { kind: 'switch_pattern, default_keyword', pattern: $SHAPE }
+              - has: { matches: empty-block }
         - kind: guard_statement
           all:
-            - has: {kind: value_binding_pattern}
-            - has: {field: bound_identifier, pattern: $SHAPE}
-            - has: {matches: empty-block}
+              - has: { kind: value_binding_pattern }
+              - has: { field: bound_identifier, pattern: $SHAPE }
+              - has: { matches: empty-block }
         - kind: if_statement
           all:
-            - has: {kind: value_binding_pattern}
-            - has: {field: bound_identifier, pattern: $SHAPE}
-            - has: {matches: empty-block, follows: {regex: '^else$', stopBy: end}}
+              - has: { kind: value_binding_pattern }
+              - has: { field: bound_identifier, pattern: $SHAPE }
+              - has: { matches: empty-block, follows: { regex: '^else$', stopBy: end } }
         - kind: catch_block
           all:
-            - pattern: $SHAPE
-            - has: {matches: empty-block}
+              - pattern: $SHAPE
+              - has: { matches: empty-block }
         - kind: value_argument
           all:
-            - has: {field: name, regex: '^default$'}
-            - has: {field: value, matches: empty-string}
-            - inside:
-                kind: value_arguments
-                regex: '^\['
-                inside:
-                    kind: call_suffix
-                    inside: {kind: call_expression, pattern: $SHAPE, not: {inside: {kind: 'directly_assignable_expression, navigation_expression'}}}
+              - has: { field: name, regex: '^default$' }
+              - has: { field: value, matches: empty-string }
+              - inside:
+                    kind: value_arguments
+                    regex: '^\['
+                    inside:
+                        kind: call_suffix
+                        inside: { kind: call_expression, pattern: $SHAPE, not: { inside: { kind: 'directly_assignable_expression, navigation_expression' } } }
         - matches: empty-string
           all:
-            - inside: {kind: 'function_declaration, init_declaration'}
-            - follows: {kind: parameter, pattern: $SHAPE, stopBy: end}
+              - inside: { kind: 'function_declaration, init_declaration' }
+              - follows: { kind: parameter, pattern: $SHAPE, stopBy: end }
         - kind: property_declaration
           all:
-            - inside: {kind: 'class_body, enum_class_body'}
-            - has: {kind: value_binding_pattern, regex: '^let$'}
-            - has:
-                kind: pattern
-                pattern: $SHAPE
-                all:
-                    - precedes: {stopBy: {kind: pattern}, follows: {regex: '^=$'}, matches: empty-string}
-                    - any:
-                        - precedes: {stopBy: {kind: pattern}, kind: type_annotation, has: {field: name, regex: '^(Swift(\.|::))?String$'}}
-                        - not: {precedes: {stopBy: {kind: pattern}, kind: type_annotation}}
+              - inside: { kind: 'class_body, enum_class_body' }
+              - has: { kind: value_binding_pattern, regex: '^let$' }
+              - has:
+                    kind: pattern
+                    pattern: $SHAPE
+                    all:
+                        - precedes: { stopBy: { kind: pattern }, follows: { regex: '^=$' }, matches: empty-string }
+                        - any:
+                              - precedes: { stopBy: { kind: pattern }, kind: type_annotation, has: { field: name, regex: '^(Swift(\.|::))?String$' } }
+                              - not: { precedes: { stopBy: { kind: pattern }, kind: type_annotation } }
 message: '`$SHAPE` yields an empty string standing for absence'
 note: 'Declare or return `String?` with `nil` for absence, or choose a complete value per case in one expression (`<condition> ? "<whole text>" : "<other whole text>"`)'

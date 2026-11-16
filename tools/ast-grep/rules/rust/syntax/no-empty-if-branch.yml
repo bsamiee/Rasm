@@ -6,12 +6,12 @@ utils:
         kind: 'line_comment, block_comment'
     empty-then:
         kind: block
-        not: {has: {pattern: $_, not: {matches: comment}}}
+        not: { has: { pattern: $_, not: { matches: comment } } }
 rule:
     kind: if_expression
     all:
-        - has: {field: consequence, matches: empty-then}
-        - has: {field: condition, pattern: $COND}
-        - has: {field: alternative, kind: else_clause}
+        - has: { field: consequence, matches: empty-then }
+        - has: { field: condition, pattern: $COND }
+        - has: { field: alternative, kind: else_clause }
 message: '`if $COND` holds an empty branch beside its `else`'
 note: 'Negate the condition, using `let .. else` for diverging pattern failures or `!matches!(..)` for boolean pattern tests'

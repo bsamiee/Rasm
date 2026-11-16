@@ -42,6 +42,7 @@ const inherited = Record.filter(env, (value, name): value is string => Predicate
 
 const Json = Schema.fromJsonString(Schema.Unknown, { space: 4 });
 const Version = Schema.fromJsonString(Schema.Struct({ version: Schema.String }));
+const Listening = Schema.Struct({ port: Schema.Int }).annotate({ description: 'The address a TCP server returns once listening, its port the one the system chose' });
 
 const Planned = Schema.fromJsonString(
     Schema.Struct({
@@ -141,11 +142,12 @@ class Consumer extends Context.Service<
                 const spawned = (argv: Array.NonEmptyReadonlyArray<string>, folder = '.', set: Record.ReadonlyRecord<string, string> = {}) => exited(argv, { cwd: path.join(root, folder), extendEnv: false, env: { ...variables, ...set } }).pipe(Effect.provide(services), Effect.orDie);
                 const called = (command: string, args: readonly string[], folder = '.') => spawned([command, ...args], folder);
                 const done = (command: string, ...args: readonly string[]) => Effect.orDie(Effect.flatMap(called(command, args), ({ checked }) => checked));
-                const evaluated = Effect.fnUntraced(function* (script: string, args: readonly string[] = [], folder = '.', stated: Record.ReadonlyRecord<string, string> = {}) {
-                    const { checked } = yield* spawned(['node', '--input-type=module', '--eval', script, ...args], folder, stated);
-                    const printed = yield* checked;
-                    return yield* Effect.fromOption(Array.last(printed.trimEnd().split('\n')));
-                }, Effect.orDie);
+                const evaluated = (script: string, args: readonly string[] = [], folder = '.', stated: Record.ReadonlyRecord<string, string> = {}) =>
+                    spawned(['node', '--input-type=module', '--eval', script, ...args], folder, stated).pipe(
+                        Effect.flatMap(({ checked }) => checked),
+                        Effect.flatMap((printed) => Effect.fromOption(Array.last(printed.trimEnd().split('\n')))),
+                        Effect.orDie,
+                    );
                 const others = Effect.map(done('git', 'ls-files', '--others', '--', ':/', ':!node_modules', ':!.nx'), (listed) => listed.split('\n').filter((file) => file !== ''));
                 const wrote = (stated: Record.ReadonlyRecord<string, string>) => Effect.orDie(Effect.forEach(Record.toEntries(stated), ([file, text]) => Effect.andThen(fs.makeDirectory(path.join(root, path.dirname(file)), { recursive: true }), fs.writeFileString(path.join(root, file), text)), { discard: true }));
                 const committed = (message: string) => Effect.asVoid(Effect.andThen(done('git', 'add', '--all'), done('git', 'commit', '--quiet', '--allow-empty', '--message', message)));
@@ -274,7 +276,9 @@ const served = (token: string, answer: (asked: Asked) => Option.Option<number>) 
     const server = createServer((request, response) => {
         const chunks: Buffer[] = [];
         requests.push(`${request.method} ${request.url}`);
-        request.on('data', (chunk: Buffer) => chunks.push(chunk));
+        request.on('data', (chunk: Buffer) => {
+            chunks.push(chunk);
+        });
         request.on('end', () => {
             const body = request.method === 'PUT' ? held.set(String(request.url), Buffer.concat(chunks)).get(String(request.url)) : held.get(String(request.url));
             Option.match(answer({ authorized: request.headers.authorization === `Bearer ${token}`, held: body }), {
@@ -286,24 +290,21 @@ const served = (token: string, answer: (asked: Asked) => Option.Option<number>) 
     return { server, requests };
 };
 
-const remote = (token: string, answer: (asked: Asked) => Option.Option<number>) =>
-    Effect.map(
-        Effect.acquireRelease(
-            Effect.callback<ReturnType<typeof served>>((resume) => {
-                const listening = served(token, answer);
-                listening.server.listen(0, '127.0.0.1', () => resume(Effect.succeed(listening)));
+const remote = Effect.fnUntraced(function* (token: string, answer: (asked: Asked) => Option.Option<number>) {
+    const { server, requests } = yield* Effect.acquireRelease(
+        Effect.callback<ReturnType<typeof served>>((resume) => {
+            const listening = served(token, answer);
+            listening.server.listen(0, '127.0.0.1', () => resume(Effect.succeed(listening)));
+        }),
+        ({ server: listening }) =>
+            Effect.promise(() => {
+                listening.closeAllConnections();
+                return listening[Symbol.asyncDispose]();
             }),
-            ({ server }) =>
-                Effect.callback<void>((resume) => {
-                    server.closeAllConnections();
-                    server.close(() => resume(Effect.void));
-                }),
-        ),
-        ({ server, requests }) => {
-            const address = server.address();
-            return { address: `http://127.0.0.1:${Predicate.isObject(address) ? address.port : address}`, requests };
-        },
     );
+    const { port } = yield* Schema.decodeUnknownEffect(Listening)(server.address());
+    return { address: `http://127.0.0.1:${port}`, requests };
+}, Effect.orDie);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

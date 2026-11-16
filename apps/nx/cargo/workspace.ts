@@ -159,8 +159,9 @@ const moved = ({ metadata, ...reading }: Reading, to: (at: string) => string): R
 
 const placed = (workspaceRoot: string) => ({ stored: (reading: Reading) => moved(reading, (at) => relative(workspaceRoot, at)), loaded: (reading: Reading) => moved(reading, (at) => resolve(workspaceRoot, at)) });
 
+const variable = (key: string) => key.toUpperCase().replaceAll(/[-.]/gu, '_');
+
 const resolved = (workspaceRoot: string, { metadata, profile, host, configs, clippy, unstable, uplifted, deny }: Reading, files: ReadonlySet<string>) => {
-    const variable = (key: string) => key.toUpperCase().replaceAll(/[-.]/gu, '_');
     const within = (at: string) => relative(workspaceRoot, at) || '.';
     const inside = (at: string) => Option.liftPredicate(within(at), (folder) => !(folder.startsWith('..') || isAbsolute(folder)));
     const root = within(metadata.workspace_root);

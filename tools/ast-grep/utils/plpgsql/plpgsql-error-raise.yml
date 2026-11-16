@@ -3,4 +3,4 @@ id: plpgsql-error-raise
 language: plpgsql
 rule:
     kind: stmt_raise
-    not: {has: {field: raise, kind: raise_level, not: {has: {kind: kw_exception}}}}
+    not: { has: { field: raise, kind: raise_level, not: { has: { kind: kw_exception } } } }

@@ -5,41 +5,41 @@ utils:
     variant-value:
         any:
             - kind: scoped_identifier
-              has: {field: path, pattern: $E}
+              has: { field: path, pattern: $E }
             - kind: call_expression
               all:
-                - has: {field: function, regex: '^(Some|Ok)$'}
-                - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: scoped_identifier, has: {field: path, pattern: $E}}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}]}
+                  - has: { field: function, regex: '^(Some|Ok)$' }
+                  - has: { field: arguments, all: [{ has: { nthChild: { position: 1, ofRule: { not: { kind: 'line_comment, block_comment' } } }, kind: scoped_identifier, has: { field: path, pattern: $E } } }, { not: { has: { nthChild: { position: 2, ofRule: { not: { kind: 'line_comment, block_comment' } } } } } }] }
             - kind: block
               all:
-                - has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, matches: variant-value}
-                - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}
+                  - has: { nthChild: { position: 1, ofRule: { matches: rust-statement } }, matches: variant-value }
+                  - not: { has: { nthChild: { position: 2, ofRule: { matches: rust-statement } } } }
     literal-arm:
         kind: match_arm
         all:
-            - has: {field: pattern, kind: match_pattern, regex: '^"[^"\\]*"(\p{Pattern_White_Space}*\|\p{Pattern_White_Space}*"[^"\\]*")*$'}
-            - has: {field: value, matches: variant-value}
+            - has: { field: pattern, kind: match_pattern, regex: '^"[^"\\]*"(\p{Pattern_White_Space}*\|\p{Pattern_White_Space}*"[^"\\]*")*$' }
+            - has: { field: value, matches: variant-value }
     fallback-arm:
         kind: match_arm
         all:
-            - has: {field: pattern, kind: match_pattern, regex: '^(_|[_\p{Ll}]\p{XID_Continue}*)$'}
-            - has: {field: value, any: [{regex: '^\{?\p{Pattern_White_Space}*(return\p{Pattern_White_Space}+)?(None(?-u:\b)|Err\p{Pattern_White_Space}*\(|((::)?anyhow\p{Pattern_White_Space}*::\p{Pattern_White_Space}*)?bail\p{Pattern_White_Space}*!)'}, {matches: variant-value}]}
+            - has: { field: pattern, kind: match_pattern, regex: '^(_|[_\p{Ll}]\p{XID_Continue}*)$' }
+            - has: { field: value, any: [{ regex: '^\{?\p{Pattern_White_Space}*(return\p{Pattern_White_Space}+)?(None(?-u:\b)|Err\p{Pattern_White_Space}*\(|((::)?anyhow\p{Pattern_White_Space}*::\p{Pattern_White_Space}*)?bail\p{Pattern_White_Space}*!)' }, { matches: variant-value }] }
 rule:
     kind: match_expression
     all:
-        - has: {field: value, pattern: $SUBJECT}
+        - has: { field: value, pattern: $SUBJECT }
         - has:
-            field: body
-            all:
-                - has: {kind: match_arm, nthChild: {position: 1, reverse: true, ofRule: {kind: match_arm}}, matches: fallback-arm}
-                - has: {kind: match_arm, matches: literal-arm}
-                - not: {has: {kind: match_arm, not: {any: [{matches: literal-arm}, {matches: fallback-arm}]}}}
-        - inside: {kind: 'function_item, closure_expression', stopBy: {kind: 'function_item, closure_expression'}}
+              field: body
+              all:
+                  - has: { kind: match_arm, nthChild: { position: 1, reverse: true, ofRule: { kind: match_arm } }, matches: fallback-arm }
+                  - has: { kind: match_arm, matches: literal-arm }
+                  - not: { has: { kind: match_arm, not: { any: [{ matches: literal-arm }, { matches: fallback-arm }] } } }
+        - inside: { kind: 'function_item, closure_expression', stopBy: { kind: 'function_item, closure_expression' } }
         - any:
-            - inside: {kind: source_file, stopBy: end, has: {stopBy: end, kind: enum_item, has: {field: name, pattern: $E}}}
-            - all:
-                - has: {field: body, has: {kind: match_arm, has: {field: value, regex: '(?-u:\b)Self::'}}}
-                - inside: {kind: impl_item, stopBy: end, has: {field: type, kind: type_identifier, pattern: $T}}
-                - inside: {kind: source_file, stopBy: end, has: {stopBy: end, kind: enum_item, has: {field: name, pattern: $T}}}
+              - inside: { kind: source_file, stopBy: end, has: { stopBy: end, kind: enum_item, has: { field: name, pattern: $E } } }
+              - all:
+                    - has: { field: body, has: { kind: match_arm, has: { field: value, regex: '(?-u:\b)Self::' } } }
+                    - inside: { kind: impl_item, stopBy: end, has: { field: type, kind: type_identifier, pattern: $T } }
+                    - inside: { kind: source_file, stopBy: end, has: { stopBy: end, kind: enum_item, has: { field: name, pattern: $T } } }
 message: '`match` on `$SUBJECT` decodes text into enum variants through one literal arm per variant'
 note: 'Derive `strum::EnumString` with `#[strum(serialize = "<text>")]` per variant and `#[strum(default)]` on a fallback, then call `<text>.parse()`'

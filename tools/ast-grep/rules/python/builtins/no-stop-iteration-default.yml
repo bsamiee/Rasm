@@ -4,41 +4,41 @@ severity: error
 utils:
     lone:
         kind: block
-        not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+        not: { has: { nthChild: { position: 2, ofRule: { not: { kind: comment } } } } }
     next-function:
-        matches: {python-unparenthesized: {value: {matches: {python-builtin-name: {name: {regex: '^next$'}}}, not: {has: {stopBy: end, kind: call}}}}}
+        matches: { python-unparenthesized: { value: { matches: { python-builtin-name: { name: { regex: '^next$' } } }, not: { has: { stopBy: end, kind: call } } } } }
     anext-function:
-        matches: {python-unparenthesized: {value: {matches: {python-builtin-name: {name: {regex: '^anext$'}}}, not: {has: {stopBy: end, kind: call}}}}}
+        matches: { python-unparenthesized: { value: { matches: { python-builtin-name: { name: { regex: '^anext$' } } }, not: { has: { stopBy: end, kind: call } } } } }
     sync-exception-name:
-        matches: {python-unparenthesized: {value: {matches: {python-builtin-name: {name: {regex: '^StopIteration$'}}}, not: {has: {stopBy: end, kind: call}}}}}
+        matches: { python-unparenthesized: { value: { matches: { python-builtin-name: { name: { regex: '^StopIteration$' } } }, not: { has: { stopBy: end, kind: call } } } } }
     async-exception-name:
-        matches: {python-unparenthesized: {value: {matches: {python-builtin-name: {name: {regex: '^StopAsyncIteration$'}}}, not: {has: {stopBy: end, kind: call}}}}}
+        matches: { python-unparenthesized: { value: { matches: { python-builtin-name: { name: { regex: '^StopAsyncIteration$' } } }, not: { has: { stopBy: end, kind: call } } } } }
     sync-exception:
         any:
             - matches: sync-exception-name
             - kind: tuple
-              has: {matches: sync-exception-name}
-              not: {has: {pattern: $_, not: {matches: sync-exception-name}}}
+              has: { matches: sync-exception-name }
+              not: { has: { pattern: $_, not: { matches: sync-exception-name } } }
     async-exception:
         any:
             - matches: async-exception-name
             - kind: tuple
-              has: {matches: async-exception-name}
-              not: {has: {pattern: $_, not: {matches: async-exception-name}}}
+              has: { matches: async-exception-name }
+              not: { has: { pattern: $_, not: { matches: async-exception-name } } }
     sync-handler:
         kind: except_clause
         all:
-            - has: {field: value, pattern: $ERROR, matches: sync-exception}
-            - not: {has: {field: alias, pattern: $_}}
-            - not: {has: {pattern: $_, not: {any: [{kind: block}, {matches: sync-exception}]}}}
+            - has: { field: value, pattern: $ERROR, matches: sync-exception }
+            - not: { has: { field: alias, pattern: $_ } }
+            - not: { has: { pattern: $_, not: { any: [{ kind: block }, { matches: sync-exception }] } } }
     async-handler:
         kind: except_clause
         all:
-            - has: {field: value, pattern: $ERROR, matches: async-exception}
-            - not: {has: {field: alias, pattern: $_}}
-            - not: {has: {pattern: $_, not: {any: [{kind: block}, {matches: async-exception}]}}}
+            - has: { field: value, pattern: $ERROR, matches: async-exception }
+            - not: { has: { field: alias, pattern: $_ } }
+            - not: { has: { pattern: $_, not: { any: [{ kind: block }, { matches: async-exception }] } } }
     reference:
-        matches: {python-unparenthesized: {value: {kind: identifier}}}
+        matches: { python-unparenthesized: { value: { kind: identifier } } }
     literal:
         matches:
             python-unparenthesized:
@@ -48,53 +48,53 @@ utils:
                         - matches: python-plain-string
                         - kind: unary_operator
                           all:
-                            - has: {field: operator, regex: '^[+-]$'}
-                            - has: {field: argument, kind: 'integer, float'}
+                              - has: { field: operator, regex: '^[+-]$' }
+                              - has: { field: argument, kind: 'integer, float' }
                         - kind: tuple
-                          not: {has: {pattern: $_, not: {matches: literal}}}
+                          not: { has: { pattern: $_, not: { matches: literal } } }
     sync-advance:
         kind: call
         pattern: $NEXT($IT)
         all:
-            - has: {field: function, matches: next-function}
-            - has: {field: arguments, has: {matches: reference}}
-            - inside: {kind: try_statement, stopBy: &advance-owner {kind: 'try_statement, function_definition, class_definition, lambda'}, has: {matches: sync-handler}}
+            - has: { field: function, matches: next-function }
+            - has: { field: arguments, has: { matches: reference } }
+            - inside: { kind: try_statement, stopBy: &advance-owner { kind: 'try_statement, function_definition, class_definition, lambda' }, has: { matches: sync-handler } }
     async-advance:
         kind: await
         has:
             kind: call
             pattern: $NEXT($IT)
             all:
-                - has: {field: function, matches: anext-function}
-                - has: {field: arguments, has: {matches: reference}}
-                - inside: {kind: try_statement, stopBy: *advance-owner, has: {matches: async-handler}}
+                - has: { field: function, matches: anext-function }
+                - has: { field: arguments, has: { matches: reference } }
+                - inside: { kind: try_statement, stopBy: *advance-owner, has: { matches: async-handler } }
     advance:
         any:
             - matches: sync-advance
             - matches: async-advance
             - kind: parenthesized_expression
-              has: {matches: advance}
+              has: { matches: advance }
     default-try:
         kind: try_statement
         all:
-            - not: {has: {stopBy: end, kind: comment}}
-            - not: {has: {kind: except_clause, has: {regex: '^\*$'}}}
+            - not: { has: { stopBy: end, kind: comment } }
+            - not: { has: { kind: except_clause, has: { regex: '^\*$' } } }
             - not:
-                has:
-                    any:
-                        - kind: else_clause, finally_clause
-                        - kind: except_clause
-                          nthChild: {position: 2, ofRule: {kind: except_clause}}
+                  has:
+                      any:
+                          - kind: else_clause, finally_clause
+                          - kind: except_clause
+                            nthChild: { position: 2, ofRule: { kind: except_clause } }
             - any:
-                - all:
-                    - has: {field: body, matches: lone, has: {kind: return_statement, has: {matches: advance}}}
-                    - has: {kind: except_clause, has: {matches: lone, has: {kind: return_statement, any: [{has: {matches: literal}}, {not: {has: {pattern: $_}}}]}}}
-                - all:
-                    - has: {field: body, matches: lone, has: {kind: expression_statement, has: {kind: assignment, all: [{has: {field: left, kind: 'identifier, attribute', pattern: $TARGET}}, {has: {field: right, matches: advance}}, {not: {has: {field: type, kind: type}}}]}}}
-                    - has: {kind: except_clause, has: {matches: lone, has: {kind: expression_statement, has: {pattern: $TARGET = $DEFAULT}}}}
+                  - all:
+                        - has: { field: body, matches: lone, has: { kind: return_statement, has: { matches: advance } } }
+                        - has: { kind: except_clause, has: { matches: lone, has: { kind: return_statement, any: [{ has: { matches: literal } }, { not: { has: { pattern: $_ } } }] } } }
+                  - all:
+                        - has: { field: body, matches: lone, has: { kind: expression_statement, has: { kind: assignment, all: [{ has: { field: left, kind: 'identifier, attribute', pattern: $TARGET } }, { has: { field: right, matches: advance } }, { not: { has: { field: type, kind: type } } }] } } }
+                        - has: { kind: except_clause, has: { matches: lone, has: { kind: expression_statement, has: { pattern: $TARGET = $DEFAULT } } } }
 rule:
     matches: default-try
 constraints:
-    DEFAULT: {matches: literal}
+    DEFAULT: { matches: literal }
 message: '`try` around `$NEXT($IT)` catches `$ERROR` to supply a literal default'
 note: 'Call `next(<it>, <default>)` or `await anext(...)`, retaining handlers for a raising assignment target'

@@ -8,54 +8,54 @@ utils:
     presence:
         any:
             - kind: call_expression
-              has: {field: function, regex: '^((Predicate\.)?hasProperty|Object\.hasOwn|Reflect\.has|.+\.hasOwnProperty(\.call)?)$'}
+              has: { field: function, regex: '^((Predicate\.)?hasProperty|Object\.hasOwn|Reflect\.has|.+\.hasOwnProperty(\.call)?)$' }
             - kind: binary_expression
-              has: {field: operator, regex: '^in$'}
+              has: { field: operator, regex: '^in$' }
             - kind: call_expression
               all:
-                - has: {field: function, regex: '^(Predicate\.)?is[A-Z][A-Za-z]*$'}
-                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: &code {not: {kind: 'comment, html_comment'}}}, matches: member}}
+                  - has: { field: function, regex: '^(Predicate\.)?is[A-Z][A-Za-z]*$' }
+                  - has: { field: arguments, has: { nthChild: { position: 1, ofRule: &code { not: { kind: 'comment, html_comment' } } }, matches: member } }
             - kind: binary_expression
               any:
-                - pattern: typeof $_ === $_
-                - pattern: typeof $_ !== $_
-              has: {field: left, has: {matches: member}}
+                  - pattern: typeof $_ === $_
+                  - pattern: typeof $_ !== $_
+              has: { field: left, has: { matches: member } }
             - kind: binary_expression
               all:
-                - has: {field: operator, regex: '^instanceof$'}
-                - has: {field: left, matches: member}
+                  - has: { field: operator, regex: '^instanceof$' }
+                  - has: { field: left, matches: member }
             - kind: binary_expression
               all:
-                - has: {field: operator, regex: '^(!==|!=)$'}
-                - has: {field: left, matches: member}
-                - has: {field: right, regex: '^(undefined|null)$'}
+                  - has: { field: operator, regex: '^(!==|!=)$' }
+                  - has: { field: left, matches: member }
+                  - has: { field: right, regex: '^(undefined|null)$' }
     object-test:
         any:
             - kind: call_expression
-              has: {field: function, regex: '^(Predicate\.)?(isObject|isRecord|isNotNullish|isNotNull|isNotUndefined)$'}
+              has: { field: function, regex: '^(Predicate\.)?(isObject|isRecord|isNotNullish|isNotNull|isNotUndefined)$' }
             - kind: binary_expression
               any:
-                - pattern: typeof $_ === 'object'
-                - pattern: $_ !== null
-                - pattern: $_ != null
-                - pattern: $_ !== undefined
+                  - pattern: typeof $_ === 'object'
+                  - pattern: $_ !== null
+                  - pattern: $_ != null
+                  - pattern: $_ !== undefined
     conjunct:
         any:
             - matches: presence
             - matches: object-test
             - kind: parenthesized_expression
-              has: {matches: conjunct}
+              has: { matches: conjunct }
             - kind: binary_expression
               all:
-                - has: {field: operator, regex: '^&&$'}
-                - has: {field: left, matches: conjunct}
-                - has: {field: right, matches: conjunct}
+                  - has: { field: operator, regex: '^&&$' }
+                  - has: { field: left, matches: conjunct }
+                  - has: { field: right, matches: conjunct }
     test:
         all:
             - matches: conjunct
             - any:
-                - matches: presence
-                - has: {stopBy: end, matches: presence}
+                  - matches: presence
+                  - has: { stopBy: end, matches: presence }
     tested-body:
         has:
             field: body
@@ -63,51 +63,51 @@ utils:
                 - matches: test
                 - kind: statement_block
                   all:
-                    - has: {kind: return_statement, has: {matches: test}}
-                    - not: {has: {pattern: $_, not: {any: [{kind: comment}, {kind: return_statement}]}}}
+                      - has: { kind: return_statement, has: { matches: test } }
+                      - not: { has: { pattern: $_, not: { any: [{ kind: comment }, { kind: return_statement }] } } }
     asserted:
-        has: {kind: type_predicate, has: {field: type, pattern: $TYPE}}
+        has: { kind: type_predicate, has: { field: type, pattern: $TYPE } }
     call-presence:
         kind: call_expression
         all:
-            - has: {field: function, regex: '^((Predicate\.)?hasProperty|Object\.hasOwn|Reflect\.has)$'}
-            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: *code}, kind: 'identifier, member_expression', pattern: $TYPE}}
+            - has: { field: function, regex: '^((Predicate\.)?hasProperty|Object\.hasOwn|Reflect\.has)$' }
+            - has: { field: arguments, has: { nthChild: { position: 1, ofRule: *code }, kind: 'identifier, member_expression', pattern: $TYPE } }
     in-presence:
         kind: binary_expression
         all:
-            - has: {field: operator, regex: '^in$'}
-            - has: {field: right, kind: 'identifier, member_expression', pattern: $TYPE}
+            - has: { field: operator, regex: '^in$' }
+            - has: { field: right, kind: 'identifier, member_expression', pattern: $TYPE }
     member-read:
         kind: member_expression, subscript_expression
-        has: {field: object, pattern: $TYPE}
+        has: { field: object, pattern: $TYPE }
 rule:
     any:
         - kind: ternary_expression
           all:
-            - has:
-                field: condition
-                any:
-                    - matches: call-presence
-                    - has: {stopBy: end, matches: call-presence}
-                    - all:
-                        - any: [{matches: in-presence}, {has: {stopBy: end, matches: in-presence}}]
-                        - has: {stopBy: end, matches: object-test}
-            - has: {field: consequence, any: [{matches: member-read}, {has: {stopBy: end, matches: member-read}}]}
+              - has:
+                    field: condition
+                    any:
+                        - matches: call-presence
+                        - has: { stopBy: end, matches: call-presence }
+                        - all:
+                              - any: [{ matches: in-presence }, { has: { stopBy: end, matches: in-presence } }]
+                              - has: { stopBy: end, matches: object-test }
+              - has: { field: consequence, any: [{ matches: member-read }, { has: { stopBy: end, matches: member-read } }] }
         - kind: arrow_function, function_expression, function_declaration, method_definition
           all:
-            - any:
-                - has: {field: return_type, matches: asserted}
-                - inside:
-                    kind: variable_declarator
-                    field: value
-                    has:
-                        field: type
-                        has:
-                            kind: generic_type
-                            all:
-                                - has: {field: name, regex: '^(Predicate\.)?Refinement$'}
-                                - has: {field: type_arguments, has: {nthChild: {position: 2, ofRule: *code}, pattern: $TYPE}}
-            - matches: tested-body
-    not: {inside: {kind: program, stopBy: end, matches: extendscript-file}}
+              - any:
+                    - has: { field: return_type, matches: asserted }
+                    - inside:
+                          kind: variable_declarator
+                          field: value
+                          has:
+                              field: type
+                              has:
+                                  kind: generic_type
+                                  all:
+                                      - has: { field: name, regex: '^(Predicate\.)?Refinement$' }
+                                      - has: { field: type_arguments, has: { nthChild: { position: 2, ofRule: *code }, pattern: $TYPE } }
+              - matches: tested-body
+    not: { inside: { kind: program, stopBy: end, matches: extendscript-file } }
 message: '`$TYPE` narrows on a test in place of its schema'
 note: 'Decode with `Schema` at boundaries, or match literal discriminants (`constructorName` in InDesign) through `Match.discriminators`'

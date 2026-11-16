@@ -3,7 +3,7 @@ language: csharplang
 severity: error
 utils:
     function-name:
-        matches: {csharp-simple-name: {name: {pattern: {context: 'class $NAME;', selector: identifier}}}}
+        matches: { csharp-simple-name: { name: { pattern: { context: 'class $NAME;', selector: identifier } } } }
     recursion:
         kind: invocation_expression
         has:
@@ -12,96 +12,96 @@ utils:
                 - matches: function-name
                 - kind: member_access_expression
                   all:
-                    - has: {field: name, matches: function-name}
-                    - has: {field: expression, any: [{regex: '^this$'}, {kind: identifier, regex: '^[a-z_]'}]}
+                      - has: { field: name, matches: function-name }
+                      - has: { field: expression, any: [{ regex: '^this$' }, { kind: identifier, regex: '^[a-z_]' }] }
     passes-successor:
         any:
-            - has: {field: function, kind: member_access_expression, has: {field: expression, pattern: {context: 'class $NEXT;', selector: identifier}}}
+            - has: { field: function, kind: member_access_expression, has: { field: expression, pattern: { context: 'class $NEXT;', selector: identifier } } }
             - all:
-                - not: {has: {field: function, kind: member_access_expression, has: {field: expression, not: {regex: '^this$'}}}}
-                - has: {field: arguments, has: {stopBy: end, pattern: {context: 'class $NEXT;', selector: identifier}}}
+                  - not: { has: { field: function, kind: member_access_expression, has: { field: expression, not: { regex: '^this$' } } } }
+                  - has: { field: arguments, has: { stopBy: end, pattern: { context: 'class $NEXT;', selector: identifier } } }
     node:
-        pattern: {context: 'class $NODE;', selector: identifier}
-        inside: {stopBy: {kind: &function 'method_declaration, local_function_statement'}, kind: *function, has: {field: parameters, has: {kind: parameter, has: {field: name, pattern: {context: 'class $NODE;', selector: identifier}}}}}
+        pattern: { context: 'class $NODE;', selector: identifier }
+        inside: { stopBy: { kind: &function 'method_declaration, local_function_statement' }, kind: *function, has: { field: parameters, has: { kind: parameter, has: { field: name, pattern: { context: 'class $NODE;', selector: identifier } } } } }
     relation:
         regex: '(?i)(parents|predecessors|successors|dependencies|dependents|deps|importers|imports|callers|callees|references|referrers|neighbors|neighbours|supertypes|superclasses|bases|edges|incoming|outgoing)$'
     relation-lookup:
         kind: element_access_expression
-        has: {field: subscript, has: {kind: argument, has: {matches: node}}}
+        has: { field: subscript, has: { kind: argument, has: { matches: node } } }
     relation-read:
         any:
             - kind: member_access_expression
               all:
-                - has: {field: name, matches: relation}
-                - has: {field: expression, any: [{matches: node}, {matches: relation-lookup}]}
+                  - has: { field: name, matches: relation }
+                  - has: { field: expression, any: [{ matches: node }, { matches: relation-lookup }] }
             - kind: invocation_expression
               all:
-                - has: {field: function, any: [{kind: identifier, matches: relation}, {has: {field: name, any: [{matches: relation}, {kind: generic_name, has: {kind: identifier, matches: relation}}]}}]}
-                - any:
-                    - has: {field: arguments, has: {kind: argument, has: {matches: node}}}
-                    - has: {field: function, kind: member_access_expression, has: {field: expression, matches: node}}
+                  - has: { field: function, any: [{ kind: identifier, matches: relation }, { has: { field: name, any: [{ matches: relation }, { kind: generic_name, has: { kind: identifier, matches: relation } }] } }] }
+                  - any:
+                        - has: { field: arguments, has: { kind: argument, has: { matches: node } } }
+                        - has: { field: function, kind: member_access_expression, has: { field: expression, matches: node } }
     successors:
         any:
             - matches: relation-read
-            - {kind: invocation_expression, has: {field: function, kind: member_access_expression, has: {field: expression, matches: successors}}}
-            - {kind: member_access_expression, has: {field: expression, matches: successors}}
-            - {kind: parenthesized_expression, has: {matches: successors}}
+            - { kind: invocation_expression, has: { field: function, kind: member_access_expression, has: { field: expression, matches: successors } } }
+            - { kind: member_access_expression, has: { field: expression, matches: successors } }
+            - { kind: parenthesized_expression, has: { matches: successors } }
     successor-call:
-        inside: {kind: argument, inside: {kind: argument_list, inside: {kind: invocation_expression, has: {field: function, kind: member_access_expression, has: {field: expression, matches: successors}}}}}
+        inside: { kind: argument, inside: { kind: argument_list, inside: { kind: invocation_expression, has: { field: function, kind: member_access_expression, has: { field: expression, matches: successors } } } } }
     membership-test:
         any:
             - kind: invocation_expression
               any:
-                - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Contains|ContainsKey|TryGetValue|GetValueOrDefault|GetOrAdd|Find|FindOrAdd)$'}}
-                - all:
-                    - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Add|TryAdd)$'}}
-                    - not: {inside: {kind: expression_statement}}
+                  - has: { field: function, kind: member_access_expression, has: { field: name, regex: '^(Contains|ContainsKey|TryGetValue|GetValueOrDefault|GetOrAdd|Find|FindOrAdd)$' } }
+                  - all:
+                        - has: { field: function, kind: member_access_expression, has: { field: name, regex: '^(Add|TryAdd)$' } }
+                        - not: { inside: { kind: expression_statement } }
             - kind: member_access_expression
-              has: {field: name, regex: '^(Contains|ContainsKey|TryGetValue|GetValueOrDefault|GetOrAdd|Find|FindOrAdd|Add|TryAdd)$'}
-              inside: {kind: argument}
+              has: { field: name, regex: '^(Contains|ContainsKey|TryGetValue|GetValueOrDefault|GetOrAdd|Find|FindOrAdd|Add|TryAdd)$' }
+              inside: { kind: argument }
 rule:
     kind: *function
     all:
-        - has: {field: name, pattern: {context: 'class $NAME;', selector: identifier}}
-        - has: {field: body, has: {stopBy: end, pattern: {context: 'class $NAME;', selector: identifier}}}
+        - has: { field: name, pattern: { context: 'class $NAME;', selector: identifier } }
+        - has: { field: body, has: { stopBy: end, pattern: { context: 'class $NAME;', selector: identifier } } }
         - any:
-            - has:
-                field: body
-                has:
-                    stopBy: {kind: *function}
-                    all:
-                        - matches: recursion
-                        - any:
-                            - inside:
-                                kind: foreach_statement
-                                field: body
-                                stopBy: {kind: *function}
-                                all:
-                                    - has: {field: right, matches: successors}
-                                    - has: {field: left, pattern: {context: 'class $NEXT;', selector: identifier}}
-                            - inside:
-                                kind: 'lambda_expression, anonymous_method_expression'
-                                stopBy: {kind: *function}
-                                all:
-                                    - matches: successor-call
-                                    - has: {field: parameters, any: [{pattern: {context: 'f($NEXT => 0);', selector: implicit_parameter}}, {kind: parameter_list, has: {kind: parameter, has: {field: name, pattern: {context: 'class $NEXT;', selector: identifier}}}}]}
-                        - matches: passes-successor
-            - has:
-                field: body
-                has:
-                    stopBy: {kind: *function}
-                    kind: argument
-                    all:
-                        - has: {matches: function-name}
-                        - inside: {kind: argument_list, inside: {kind: invocation_expression, has: {field: function, kind: member_access_expression, has: {field: expression, matches: successors}}}}
-            - has:
-                field: body
-                has:
-                    stopBy: {kind: *function}
-                    kind: query_expression
-                    all:
-                        - has: {kind: from_clause, has: {matches: successors}}
-                        - has: {stopBy: end, matches: recursion}
-        - not: {has: {field: body, has: {stopBy: {kind: *function}, matches: membership-test}}}
+              - has:
+                    field: body
+                    has:
+                        stopBy: { kind: *function }
+                        all:
+                            - matches: recursion
+                            - any:
+                                  - inside:
+                                        kind: foreach_statement
+                                        field: body
+                                        stopBy: { kind: *function }
+                                        all:
+                                            - has: { field: right, matches: successors }
+                                            - has: { field: left, pattern: { context: 'class $NEXT;', selector: identifier } }
+                                  - inside:
+                                        kind: 'lambda_expression, anonymous_method_expression'
+                                        stopBy: { kind: *function }
+                                        all:
+                                            - matches: successor-call
+                                            - has: { field: parameters, any: [{ pattern: { context: 'f($NEXT => 0);', selector: implicit_parameter } }, { kind: parameter_list, has: { kind: parameter, has: { field: name, pattern: { context: 'class $NEXT;', selector: identifier } } } }] }
+                            - matches: passes-successor
+              - has:
+                    field: body
+                    has:
+                        stopBy: { kind: *function }
+                        kind: argument
+                        all:
+                            - has: { matches: function-name }
+                            - inside: { kind: argument_list, inside: { kind: invocation_expression, has: { field: function, kind: member_access_expression, has: { field: expression, matches: successors } } } }
+              - has:
+                    field: body
+                    has:
+                        stopBy: { kind: *function }
+                        kind: query_expression
+                        all:
+                            - has: { kind: from_clause, has: { matches: successors } }
+                            - has: { stopBy: end, matches: recursion }
+        - not: { has: { field: body, has: { stopBy: { kind: *function }, matches: membership-test } } }
 message: '`$NAME` recurses into every successor of `$NODE` with no visited test'
 note: 'Load the nodes into a graph once and walk it with a traversal that marks visited nodes, QuikGraph `DepthFirstSearchAlgorithm` or `BreadthFirstSearchAlgorithm` where the project references QuikGraph'

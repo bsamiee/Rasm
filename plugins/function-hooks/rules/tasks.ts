@@ -2,7 +2,7 @@ import { devNull } from 'node:os';
 import { matchesGlob } from 'node:path';
 import process from 'node:process';
 import type { ProjectGraphProjectNode, TargetConfiguration } from '@nx/devkit';
-import { Array, Effect, Option, Predicate, pipe, Record, Result, Schema, String } from 'effect';
+import { Array, Effect, Option, Predicate, pipe, Record, Result, Schema, String, Struct } from 'effect';
 import { all, type Call, cut, edited, ensure, feedsJq, holds, inserted, perSubcommand, quote, type Rule, type Ruleset, redirected, refusal, refuse, respell, silent, spelled, unassign, when, whole } from '#/rules/rule';
 import { analyzed, type Invocation } from '#/shell/invocation';
 import type { Word } from '#/shell/script';
@@ -22,6 +22,7 @@ const FORMAT_FLAGS = ['-p, --package=', '--manifest-path=', '--message-format=']
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Plan = Schema.fromJsonString(Schema.Struct({ steps: Schema.Array(Schema.Struct({ status: Schema.String })) }));
+const Options = Schema.Struct({ command: Schema.String });
 const Metadata = Schema.fromJsonString(Schema.Struct({ workspace_root: Schema.String, packages: Schema.Array(Schema.Struct({ name: Schema.String, manifest_path: Schema.String })) }));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -48,7 +49,7 @@ const aggregateOf = (targets: Targets, target: string): string =>
 
 // --- [NX_TARGETS]
 
-const keysOf = ({ args }: Pick<Invocation, 'args'>): ReadonlySet<string> => new Set(args.flatMap(({ names, values }) => [...names, ...Array.cartesianWith(names.slice(-1), values, (name, value) => `${name}=${value}`)]));
+const keysOf = ({ args }: Pick<Invocation, 'args'>): ReadonlySet<string> => new Set(args.flatMap(({ names, values }) => [...names, ...Array.cartesianWith(names.slice(-1), values, (name, value) => `${name}=${value.text}`)]));
 
 const flagsOf = ({ args, row }: Invocation): ReadonlySet<string> => keysOf({ args: args.filter(({ names }) => new Set(names).isDisjointFrom(new Set(row.nx?.ignores))) });
 
@@ -240,7 +241,7 @@ const askedTargets = (invocation: Invocation, graph: Graph) => {
 
 const aggregateArgs: Rule = Effect.fnUntraced(function* (invocation, { host }) {
     const asked = Option.match(yield* host.graph, { onNone: () => [], onSome: (graph) => askedTargets(invocation, graph) });
-    const [aggregated] = asked.filter(([asking, target]) => patternsOf(targetsOf(asking)[target] ?? {}).length > 0);
+    const aggregated = asked.find(([asking, target]) => patternsOf(targetsOf(asking)[target] ?? {}).length > 0);
     if (aggregated === undefined) {
         return [];
     }
@@ -256,7 +257,7 @@ const forwardedOptions: Rule = Effect.fnUntraced(function* (invocation, call) {
         Option.flatMap(addressOf(invocation, graph), ([project, target]) => {
             const entry = graph.nodes[project]?.data.targets?.[target];
             const configuration = invocation.values('--configuration').at(-1) ?? entry?.defaultConfiguration;
-            return Schema.decodeUnknownOption(Schema.String)(entry === undefined ? undefined : { ...entry.options, ...(configuration === undefined ? {} : entry.configurations?.[configuration]) }.command);
+            return Option.map(Schema.decodeUnknownOption(Options)(entry === undefined ? undefined : { ...entry.options, ...(configuration === undefined ? {} : entry.configurations?.[configuration]) }), Struct.get('command'));
         }),
     );
     const ran = yield* Option.match(configured, {

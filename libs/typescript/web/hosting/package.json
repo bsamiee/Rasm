@@ -3,14 +3,17 @@
     "version": "0.1.0",
     "private": true,
     "description": "One web app declared once and hosted by any provider: its bindings, sign-in source, Node bundle and server, Cloudflare projection and deployment, and server-rendered page",
+    "license": "MIT",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/bsamiee/Rasm.git",
         "directory": "libs/typescript/web/hosting"
     },
-    "license": "MIT",
-    "sideEffects": false,
+    "files": [
+        "dist"
+    ],
     "type": "module",
+    "sideEffects": false,
     "imports": {
         "#/*": "./*.ts"
     },
@@ -27,7 +30,25 @@
         "./template": "./rendering/template.ts",
         "./vite": "./node/node-bundle.ts"
     },
-    "files": [ "dist" ],
+    "publishConfig": {
+        "imports": {
+            "#/*": "./dist/*.js"
+        },
+        "exports": {
+            ".": "./dist/identity/identity.js",
+            "./app": "./dist/app/app.js",
+            "./cloudflare": "./dist/cloudflare/worker-config.js",
+            "./head": "./dist/rendering/site-head.js",
+            "./hydrate": "./dist/rendering/hydrate.js",
+            "./node": "./dist/node/node-server.js",
+            "./openai-sites": "./dist/identity/openai-sites.js",
+            "./pulumi": "./dist/cloudflare/worker-deploy.js",
+            "./shell": "./dist/rendering/shell.js",
+            "./template": "./dist/rendering/template.js",
+            "./vite": "./dist/node/node-bundle.js"
+        },
+        "access": "public"
+    },
     "dependencies": {
         "@types/web-app-manifest": "catalog:"
     },
@@ -111,25 +132,6 @@
         },
         "vite": {
             "optional": true
-        }
-    },
-    "publishConfig": {
-        "access": "public",
-        "exports": {
-            ".": "./dist/identity/identity.js",
-            "./app": "./dist/app/app.js",
-            "./cloudflare": "./dist/cloudflare/worker-config.js",
-            "./head": "./dist/rendering/site-head.js",
-            "./hydrate": "./dist/rendering/hydrate.js",
-            "./node": "./dist/node/node-server.js",
-            "./openai-sites": "./dist/identity/openai-sites.js",
-            "./pulumi": "./dist/cloudflare/worker-deploy.js",
-            "./shell": "./dist/rendering/shell.js",
-            "./template": "./dist/rendering/template.js",
-            "./vite": "./dist/node/node-bundle.js"
-        },
-        "imports": {
-            "#/*": "./dist/*.js"
         }
     }
 }

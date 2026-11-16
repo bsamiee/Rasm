@@ -4,85 +4,90 @@ language: pythonlang
 arguments: [module, name]
 utils:
     loader:
-        matches: {python-builtin-identifier: {name: {regex: '^__import__$'}}}
+        matches: { python-builtin-identifier: { name: { regex: '^__import__$' } } }
     module-import:
-        matches: {python-module-import: {module: {matches: module}, binding: {pattern: $MODULE}}}
+        matches: { python-module-import: { module: { matches: module }, binding: { pattern: $MODULE } } }
     source:
         any:
             - kind: identifier, attribute
               pattern: $MODULE
               all:
-                - any:
-                    - inside:
-                        kind: module, function_definition
-                        stopBy: end
-                        has: {stopBy: &statement-walk {not: {kind: 'module, block, if_statement, elif_clause, else_clause, for_statement, while_statement, try_statement, except_clause, finally_clause, with_statement, match_statement, case_clause, decorated_definition'}}, kind: import_statement, matches: module-import}
-                    - inside:
-                        kind: class_definition
-                        stopBy: {kind: 'function_definition, lambda'}
-                        has: {stopBy: *statement-walk, kind: import_statement, matches: module-import}
-                - not: {matches: {python-conflicting-import: {module: {matches: module}, name: {regex: '^$'}}}}
-                - not: {matches: python-shadowed-name}
+                  - any:
+                        - inside:
+                              kind: module, function_definition
+                              stopBy: end
+                              has:
+                                  {
+                                      stopBy: &statement-walk { not: { kind: 'module, block, if_statement, elif_clause, else_clause, for_statement, while_statement, try_statement, except_clause, finally_clause, with_statement, match_statement, case_clause, decorated_definition' } },
+                                      kind: import_statement,
+                                      matches: module-import,
+                                  }
+                        - inside:
+                              kind: class_definition
+                              stopBy: { kind: 'function_definition, lambda' }
+                              has: { stopBy: *statement-walk, kind: import_statement, matches: module-import }
+                  - not: { matches: { python-conflicting-import: { module: { matches: module }, name: { regex: '^$' } } } }
+                  - not: { matches: python-shadowed-name }
             - kind: call
               all:
-                - has: {field: function, matches: loader}
-                - has:
-                    field: arguments
-                    kind: argument_list
-                    all:
-                        - has:
-                            nthChild: {position: 1, ofRule: {not: {kind: comment}}}
-                            kind: string
-                            has: {kind: string_content, matches: module, not: {regex: '\.'}}
-                            not: {has: {kind: 'escape_sequence, interpolation', stopBy: end}}
-                        - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+                  - has: { field: function, matches: loader }
+                  - has:
+                        field: arguments
+                        kind: argument_list
+                        all:
+                            - has:
+                                  nthChild: { position: 1, ofRule: { not: { kind: comment } } }
+                                  kind: string
+                                  has: { kind: string_content, matches: module, not: { regex: '\.' } }
+                                  not: { has: { kind: 'escape_sequence, interpolation', stopBy: end } }
+                            - not: { has: { nthChild: { position: 2, ofRule: { not: { kind: comment } } } } }
     root-import:
         any:
-            - matches: {python-module-import: {module: {pattern: $ROOT}, binding: {pattern: $ROOT}}}
+            - matches: { python-module-import: { module: { pattern: $ROOT }, binding: { pattern: $ROOT } } }
             - kind: import_statement
-              has: {kind: dotted_name, has: {nthChild: 1, kind: identifier, pattern: $ROOT}}
+              has: { kind: dotted_name, has: { nthChild: 1, kind: identifier, pattern: $ROOT } }
     imported-root:
         kind: identifier
         pattern: $ROOT
         all:
             - any:
-                - inside:
-                    kind: module, function_definition
-                    stopBy: end
-                    has: {stopBy: *statement-walk, kind: import_statement, matches: root-import}
-                - inside:
-                    kind: class_definition
-                    stopBy: {kind: 'function_definition, lambda'}
-                    has: {stopBy: *statement-walk, kind: import_statement, matches: root-import}
-            - not: {matches: {python-conflicting-import: {module: {pattern: $ROOT}, name: {regex: '^$'}}}}
-            - not: {matches: python-shadowed-name}
+                  - inside:
+                        kind: module, function_definition
+                        stopBy: end
+                        has: { stopBy: *statement-walk, kind: import_statement, matches: root-import }
+                  - inside:
+                        kind: class_definition
+                        stopBy: { kind: 'function_definition, lambda' }
+                        has: { stopBy: *statement-walk, kind: import_statement, matches: root-import }
+            - not: { matches: { python-conflicting-import: { module: { pattern: $ROOT }, name: { regex: '^$' } } } }
+            - not: { matches: python-shadowed-name }
     rooted:
         any:
             - matches: imported-root
             - kind: attribute
-              has: {field: object, matches: rooted}
+              has: { field: object, matches: rooted }
     module-reference:
         any:
             - matches: source
-            - matches: {python-assigned-name: {value: {matches: source}}}
+            - matches: { python-assigned-name: { value: { matches: source } } }
             - kind: attribute
               matches: module
-              has: {field: object, matches: rooted}
+              has: { field: object, matches: rooted }
             - kind: list_splat, parenthesized_expression
-              has: {matches: module-reference}
+              has: { matches: module-reference }
     module-member:
         any:
             - kind: dotted_name
               matches: name
               any:
-                - inside: {kind: import_from_statement, has: {field: module_name, matches: module}}
-                  follows: {kind: dotted_name, stopBy: end}
-                - inside: {kind: aliased_import, field: name, inside: {kind: import_from_statement, has: {field: module_name, matches: module}}}
+                  - inside: { kind: import_from_statement, has: { field: module_name, matches: module } }
+                    follows: { kind: dotted_name, stopBy: end }
+                  - inside: { kind: aliased_import, field: name, inside: { kind: import_from_statement, has: { field: module_name, matches: module } } }
             - kind: attribute
               all:
-                - has: {field: attribute, kind: identifier, matches: name}
-                - has: {field: object, matches: module-reference}
+                  - has: { field: attribute, kind: identifier, matches: name }
+                  - has: { field: object, matches: module-reference }
 rule:
     any:
         - matches: module-member
-        - matches: {python-imported-name: {module: {matches: module}, name: {matches: name}}}
+        - matches: { python-imported-name: { module: { matches: module }, name: { matches: name } } }

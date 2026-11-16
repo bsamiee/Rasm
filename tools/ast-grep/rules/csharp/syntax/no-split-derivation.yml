@@ -7,27 +7,27 @@ utils:
     member-body:
         kind: arrow_expression_clause
         any:
-            - inside: {matches: member}
-            - inside: {kind: accessor_declaration, has: {field: name, regex: '^get$'}}
+            - inside: { matches: member }
+            - inside: { kind: accessor_declaration, has: { field: name, regex: '^get$' } }
     derivation:
-        not: {kind: 'identifier, member_access_expression, generic_name, qualified_name, predefined_type'}
+        not: { kind: 'identifier, member_access_expression, generic_name, qualified_name, predefined_type' }
     part:
         kind: 'member_access_expression, element_access_expression'
-        has: {field: expression, pattern: $DERIVATION}
+        has: { field: expression, pattern: $DERIVATION }
     split-part:
         kind: 'member_access_expression, element_access_expression'
-        has: {field: expression, matches: derivation, pattern: $DERIVATION}
+        has: { field: expression, matches: derivation, pattern: $DERIVATION }
 rule:
     matches: member
     all:
-        - has: {field: name, pattern: {context: 'class $NAME;', selector: identifier}}
-        - has: {stopBy: &member-body-path {not: {kind: 'accessor_list, accessor_declaration'}}, matches: member-body, has: {nthChild: 1, matches: split-part}}
+        - has: { field: name, pattern: { context: 'class $NAME;', selector: identifier } }
+        - has: { stopBy: &member-body-path { not: { kind: 'accessor_list, accessor_declaration' } }, matches: member-body, has: { nthChild: 1, matches: split-part } }
         - any:
-            - follows: {stopBy: end, matches: member, pattern: $OTHER, has: {stopBy: *member-body-path, matches: member-body, has: {nthChild: 1, matches: part}}}
-            - follows: {stopBy: end, matches: member, pattern: $OTHER, has: {stopBy: *member-body-path, matches: member-body, has: {nthChild: 1, pattern: $DERIVATION}}}
-            - precedes: {stopBy: end, matches: member, pattern: $OTHER, has: {stopBy: *member-body-path, matches: member-body, has: {nthChild: 1, pattern: $DERIVATION}}}
+              - follows: { stopBy: end, matches: member, pattern: $OTHER, has: { stopBy: *member-body-path, matches: member-body, has: { nthChild: 1, matches: part } } }
+              - follows: { stopBy: end, matches: member, pattern: $OTHER, has: { stopBy: *member-body-path, matches: member-body, has: { nthChild: 1, pattern: $DERIVATION } } }
+              - precedes: { stopBy: end, matches: member, pattern: $OTHER, has: { stopBy: *member-body-path, matches: member-body, has: { nthChild: 1, pattern: $DERIVATION } } }
 labels:
-    NAME: {style: primary, message: Member deriving a part}
-    OTHER: {style: secondary, message: Member deriving from the same value}
+    NAME: { style: primary, message: Member deriving a part }
+    OTHER: { style: secondary, message: Member deriving from the same value }
 message: '`$NAME` and another member each derive from `$DERIVATION`'
 note: 'Return the shared value from one member, a tuple or record when it has parts, consumers read each part'

@@ -148,10 +148,16 @@ const versioned = (text: string, at: string) => {
             [...text.slice(start).matchAll(ARGUMENT)].filter(([token]) => !token.startsWith('#')),
             ([token]) => token !== ')',
         );
-        return Option.map(Array.get(tokens, tokens.findIndex(([token]) => token === 'VERSION') + 1 || tokens.length), ({ 0: token, index }) => {
-            const quote = token.startsWith('"') ? 1 : 0;
-            return { version: token.slice(quote, token.length - quote), start: start + index + quote, end: start + index + token.length - quote };
-        });
+        return Option.map(
+            Option.flatMap(
+                Array.findFirstIndex(tokens, ([token]) => token === 'VERSION'),
+                (keyword) => Array.get(tokens, keyword + 1),
+            ),
+            ({ 0: token, index }) => {
+                const quote = token.startsWith('"') ? 1 : 0;
+                return { version: token.slice(quote, token.length - quote), start: start + index + quote, end: start + index + token.length - quote };
+            },
+        );
     });
     return Effect.mapError(Effect.fromOption(stated), (cause) => new Cause.UnknownError(cause, `${at} states no VERSION in a project() call, which nx release reads and writes`));
 };
@@ -270,7 +276,7 @@ const resolved = Effect.fnUntraced(function* (workspaceRoot: string, presets: st
     const source = join(workspaceRoot, root);
     const { configurePresets, packagePresets: packages, workflowPresets } = yield* Effect.flatMap(fs.readFileString(join(workspaceRoot, presets)), Schema.decodeEffect(Presets));
     type Steps = (typeof workflowPresets)[number]['steps'];
-    const chain = (name: string): readonly (typeof configurePresets)[number][] => configurePresets.filter((preset) => preset.name === name).flatMap((preset) => [preset, ...Array.ensure(preset.inherits ?? []).flatMap(chain)]);
+    const chain = (name: string): readonly (typeof configurePresets)[number][] => configurePresets.flatMap((preset) => (preset.name === name ? [preset, ...Array.ensure(preset.inherits ?? []).flatMap(chain)] : []));
     const macros = (configure: string, at: string) =>
         expanded(
             {
@@ -301,7 +307,11 @@ const resolved = Effect.fnUntraced(function* (workspaceRoot: string, presets: st
             Array.findFirst(listed, (each) => each.type === kind),
             (each) => each.name,
         );
-    const followed = (listed: Steps) => stepped(listed.slice(listed.findIndex((each) => each.type === 'test') + 1 || listed.length), 'build');
+    const followed = (listed: Steps) =>
+        Option.flatMap(
+            Array.findFirstIndex(listed, (each) => each.type === 'test'),
+            (at) => stepped(listed.slice(at + 1), 'build'),
+        );
     const rooted = (configure: string) =>
         relative(
             workspaceRoot,

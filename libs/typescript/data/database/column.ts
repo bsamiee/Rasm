@@ -1,11 +1,9 @@
-import { Array, Data, Equal, Filter, flow, Match, Option, Predicate, Record, Schema, SchemaAST, SchemaGetter, SchemaRepresentation, Struct } from 'effect';
+import { Array, Data, Equal, Filter, Function, flow, Match, Option, Predicate, Record, Schema, SchemaAST, SchemaGetter, SchemaRepresentation, Struct } from 'effect';
 import type { RelationOptions } from '#/relation';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-interface Fields extends Schema.Struct.Fields {
-    readonly [field: PropertyKey]: Schema.ConstraintCodec<unknown, string | number | Uint8Array | readonly number[] | null>;
-}
+type Fields = Schema.Struct.Fields & Readonly<Record<PropertyKey, Schema.ConstraintCodec<unknown, string | number | Uint8Array | readonly number[] | null>>>;
 type FieldName<F> = keyof F & string;
 type Constants<S extends Fields[string]> = Array.NonEmptyReadonlyArray<Extract<S['Encoded'], string | number>>;
 type Where<F extends Fields> = { readonly [K in FieldName<F>]?: null | Constants<F[K]> | { readonly not: null | Constants<F[K]> } };
@@ -18,10 +16,10 @@ type Collection = Data.TaggedEnum<{
     Scalar: { readonly kind: Kind };
     Array: { readonly element: Collection };
     Map: { readonly value: Collection };
-    Records: { readonly members: { readonly [name: string]: Collection } };
+    Records: { readonly members: Readonly<Record<string, Collection>> };
 }>;
 type Limit = number | bigint | Date;
-type Range = { readonly [K in 'minimum' | 'maximum' | 'minCodePoints' | 'maxCodePoints']?: Limit | undefined } & { readonly [K in 'exclusiveMinimum' | 'exclusiveMaximum']?: Limit | true | undefined };
+type Range = Readonly<Partial<Record<'minimum' | 'maximum' | 'minCodePoints' | 'maxCodePoints', Limit | undefined>>> & Readonly<Partial<Record<'exclusiveMinimum' | 'exclusiveMaximum', Limit | true | undefined>>>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -65,13 +63,19 @@ class Column extends Data.Class<{
                 Match.orElse((values) => ({ negated: false, values: Option.fromNullOr(values) })),
             ),
         }));
+    static readonly #members = (node: SchemaRepresentation.Representation) =>
+        Match.value(node).pipe(
+            Match.tag('Literal', ({ literal }) => [literal]),
+            Match.tag('Enum', ({ enums }) => enums.map(([, member]) => member)),
+            Match.option,
+        );
     static readonly make = <F extends Fields>(field: FieldName<F>, schema: F[FieldName<F>], { defaults, projections, renamed, retype }: Pick<RelationOptions<F>, 'defaults' | 'projections' | 'renamed' | 'retype'>, retired: readonly string[], rename: (name: string) => string) => {
         const flat = (node: SchemaRepresentation.Representation): readonly SchemaRepresentation.Representation[] =>
             Match.value(node).pipe(
                 Match.tag('Union', ({ types }) => types.flatMap(flat)),
                 Match.orElse((leaf) => [leaf]),
             );
-        const walk = (ast: SchemaAST.AST) => Array.partition(flat(SchemaRepresentation.toRepresentation(ast, { referencePolicy: () => undefined }).representation), Filter.tagged<SchemaRepresentation.Representation>()('Null'));
+        const walk = (ast: SchemaAST.AST) => Array.partition(flat(SchemaRepresentation.toRepresentation(ast, { referencePolicy: Function.constUndefined }).representation), Filter.tagged<SchemaRepresentation.Representation>()('Null'));
         const [nulls, values] = walk(schema.ast);
         const [, decoded] = walk(SchemaAST.toType(schema.ast));
         const leaves = (check: SchemaRepresentation.Check): readonly SchemaRepresentation.Check[] =>
@@ -99,14 +103,8 @@ class Column extends Data.Class<{
             Array.fromNullishOr(exclusive === undefined || exclusive === true ? inclusive : exclusive).map((value) => Column.Bound.Compare({ op: exclusive === undefined ? (`${op}=` as const) : op, value, subject }));
         const ranges = (read: typeof stored, subject: 'value' | 'codePoints', revivers: readonly Pick<SchemaRepresentation.FilterReviver<Range>, 'id' | 'payloadSchema'>[]) =>
             revivers.flatMap(read).flatMap((range) => [...side(subject, '>', range.minimum ?? range.minCodePoints, range.exclusiveMinimum), ...side(subject, '<', range.maximum ?? range.maxCodePoints, range.exclusiveMaximum)]);
-        const members = (node: SchemaRepresentation.Representation) =>
-            Match.value(node).pipe(
-                Match.tag('Literal', ({ literal }) => [literal]),
-                Match.tag('Enum', ({ enums }) => enums.map(([, member]) => member)),
-                Match.option,
-            );
         const storage = (node: SchemaRepresentation.Representation): readonly string[] =>
-            Option.match(members(node), {
+            Option.match(Column.#members(node), {
                 onSome: Array.map((member) => typeof member),
                 onNone: () =>
                     Match.value(node._tag).pipe(
@@ -117,7 +115,7 @@ class Column extends Data.Class<{
                     ),
             });
         const boolean = decoded.some(Predicate.isTagged('Boolean'));
-        const literals = boolean ? [] : Option.match(Option.all(values.map(members)), { onNone: () => [], onSome: Array.flatten });
+        const literals = boolean ? [] : Option.match(Option.all(values.map(Column.#members)), { onNone: () => [], onSome: Array.flatten });
         const numeric = Array.isReadonlyArrayNonEmpty(literals) && literals.every((member) => typeof member === 'number');
         const integer = Array.isReadonlyArrayNonEmpty(numbers(SchemaRepresentation.isIntReviver)) || (numeric && literals.every(Number.isInteger));
         const finite = Array.isReadonlyArrayNonEmpty(numbers(SchemaRepresentation.isFiniteReviver));

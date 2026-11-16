@@ -5,34 +5,34 @@ utils:
     filter-call:
         kind: call_expression
         all:
-            - has: {nthChild: 1, kind: navigation_expression, all: [{has: {field: suffix, has: {field: suffix, regex: '^filter$'}}}, {has: {field: target, pattern: $C}}]}
+            - has: { nthChild: 1, kind: navigation_expression, all: [{ has: { field: suffix, has: { field: suffix, regex: '^filter$' } } }, { has: { field: target, pattern: $C } }] }
             - has:
-                kind: call_suffix
-                any:
-                    - all:
-                        - has: {kind: lambda_literal}
-                        - not: {has: {kind: value_arguments}}
-                    - all:
-                        - not: {has: {kind: lambda_literal}}
-                        - has:
-                            kind: value_arguments
-                            all:
-                                - has: {kind: value_argument, not: {has: {kind: value_argument_label}}, has: {field: value, pattern: $_}}
-                                - not: {has: {kind: value_argument, nthChild: {position: 2, ofRule: {kind: value_argument}}}}
+                  kind: call_suffix
+                  any:
+                      - all:
+                            - has: { kind: lambda_literal }
+                            - not: { has: { kind: value_arguments } }
+                      - all:
+                            - not: { has: { kind: lambda_literal } }
+                            - has:
+                                  kind: value_arguments
+                                  all:
+                                      - has: { kind: value_argument, not: { has: { kind: value_argument_label } }, has: { field: value, pattern: $_ } }
+                                      - not: { has: { kind: value_argument, nthChild: { position: 2, ofRule: { kind: value_argument } } } }
     zero-test:
         any:
             - kind: 'equality_expression, comparison_expression'
-            - {kind: infix_expression, has: {field: op, regex: '^(==|!=|<=?|>=?)$'}}
-        has: {pattern: '0'}
+            - { kind: infix_expression, has: { field: op, regex: '^(==|!=|<=?|>=?)$' } }
+        has: { pattern: '0' }
 rule:
     kind: navigation_expression
     all:
-        - has: {field: suffix, has: {field: suffix, regex: '^count$'}}
+        - has: { field: suffix, has: { field: suffix, regex: '^count$' } }
         - has:
-            field: target
-            any:
-                - matches: filter-call
-                - {kind: try_expression, has: {field: expr, matches: filter-call}}
-        - not: {inside: {matches: zero-test}}
+              field: target
+              any:
+                  - matches: filter-call
+                  - { kind: try_expression, has: { field: expr, matches: filter-call } }
+        - not: { inside: { matches: zero-test } }
 message: '`$C.filter` builds a collection only to count its elements'
 note: 'Call `<sequence>.count(where: <test>)`'

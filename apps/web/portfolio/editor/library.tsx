@@ -12,6 +12,10 @@ import { Asset, type AssetId, type Assets } from '#/model/asset';
 import { Placement } from '#/model/placement';
 import { type EntryId, Portfolio } from '#/model/portfolio';
 
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+const summary = (asset: typeof Asset.Type) => [format.bytes(ByteSize.bytes(asset.size)), asset.kind === 'pdf' ? format.quantity(asset.pages.length, { one: (count) => `${count} sheet`, other: (count) => `${count} sheets` }) : undefined];
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const Library = ({
@@ -33,17 +37,16 @@ const Library = ({
     const setDraft = useAtomSet(draft);
     const remove = useAtomSet(deleteRequest);
     const selected = Option.flatMap(assetId, (id) => Record.get(assets, id));
-    const summary = (asset: typeof Asset.Type) => [format.bytes(ByteSize.bytes(asset.size)), asset.kind === 'pdf' ? format.quantity(asset.pages.length, { one: (count) => `${count} sheet`, other: (count) => `${count} sheets` }) : undefined];
     return (
-        <section className="border-line min-w-0 border-t pt-5">
+        <section className="min-w-0 border-t border-line pt-5">
             <div className="mb-4 flex items-center justify-between gap-3">
                 <h3 className="text-xl tracking-tight">Library</h3>
-                <span className="text-muted text-xs">{format.quantity(Object.keys(assets).length, { one: (count) => `${count} file`, other: (count) => `${count} files` })}</span>
+                <span className="text-xs text-muted">{format.quantity(Object.keys(assets).length, { one: (count) => `${count} file`, other: (count) => `${count} files` })}</span>
             </div>
-            <div className="editor:grid-cols-2 grid min-w-0 gap-6">
+            <div className="grid min-w-0 gap-6 editor:grid-cols-2">
                 <GridList
                     aria-label="Source files"
-                    className="max-editor:data-chosen:hidden grid grid-cols-2 content-start gap-3"
+                    className="grid grid-cols-2 content-start gap-3 max-editor:data-chosen:hidden"
                     data-chosen={Option.isSome(selected) || undefined}
                     id={`${idPrefix}library`}
                     items={Object.values(assets)}
@@ -56,12 +59,12 @@ const Library = ({
                     selectionMode="single"
                 >
                     {(asset) => (
-                        <GridListItem className="border-line focus-visible:outline-accent-text selected:border-accent-text min-w-0 cursor-pointer border p-3 outline-none focus-visible:outline-2" id={asset.id} textValue={asset.name}>
-                            <div className="media-h-30 bg-background-muted pointer-events-none grid aspect-4/3 place-items-center">
+                        <GridListItem className="min-w-0 cursor-pointer border border-line p-3 outline-none focus-visible:outline-2 focus-visible:outline-accent-text selected:border-accent-text" id={asset.id} textValue={asset.name}>
+                            <div className="pointer-events-none grid aspect-4/3 place-items-center bg-background-muted media-h-30">
                                 {Asset.match(asset, {
-                                    pdf: () => <FileText className="text-muted size-6" />,
-                                    video: () => <Film className="text-muted size-6" />,
-                                    image: (image) => <MediaFigure active={false} placement={Array.headNonEmpty(Placement.fromAsset(image))} presentation="thumbnail" priority={false} renderMedia={true} />,
+                                    pdf: () => <FileText className="size-6 text-muted" />,
+                                    video: () => <Film className="size-6 text-muted" />,
+                                    image: (image) => <MediaFigure active={false} placement={Array.headNonEmpty(Placement.fromAsset(image))} presentation="thumbnail" priority={false} renderMedia />,
                                 })}
                             </div>
                             <span className="mt-3 block text-sm wrap-anywhere">{asset.name}</span>
@@ -75,9 +78,9 @@ const Library = ({
                         const uses = Record.keys(Record.filter({ draft: portfolio, 'published work': published }, (document) => Portfolio.assetIds(document).has(asset.id)));
                         const placement = Array.headNonEmpty(Placement.fromAsset(asset));
                         return (
-                            <div className="editor:border-line editor:border-l editor:pl-6 flex min-w-0 flex-col gap-4">
+                            <div className="flex min-w-0 flex-col gap-4 editor:border-l editor:border-line editor:pl-6">
                                 <button
-                                    className="button button-ghost self-start"
+                                    className="button self-start button-ghost"
                                     onClick={() => {
                                         onSelect(Option.none());
                                         focusElement(`${idPrefix}library`);
@@ -89,8 +92,8 @@ const Library = ({
                                 <h4 className="text-lg tracking-tight wrap-anywhere outline-none" id={`${idPrefix}place`} tabIndex={-1}>
                                     {asset.name}
                                 </h4>
-                                <div className="media-h-70 bg-background-muted grid place-items-center p-3">
-                                    <MediaFigure active={true} placement={placement} presentation="expandable" priority={false} renderMedia={true} />
+                                <div className="grid place-items-center bg-background-muted p-3 media-h-70">
+                                    <MediaFigure active placement={placement} presentation="expandable" priority={false} renderMedia />
                                 </div>
                                 <div className="actions">
                                     {portfolio.entries.length > 0 && (

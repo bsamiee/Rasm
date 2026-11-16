@@ -318,7 +318,7 @@ const cases = (crypto: Layer.Layer<Mac.Mac | Signature.Signature | Digest.Digest
                     ],
                 ],
             );
-            assert.deepStrictEqual([received[0]?.event, TailscaleEvent.Kind.literals], [batch, ['nodeCreated', 'nodeNeedsApproval', 'nodeApproved', 'nodeDeleted', 'nodeKeyExpiringInOneDay', 'nodeKeyExpired', 'policyUpdate', 'userRoleUpdated']]);
+            assert.deepStrictEqual([received[0].event, TailscaleEvent.Kind.literals], [batch, ['nodeCreated', 'nodeNeedsApproval', 'nodeApproved', 'nodeDeleted', 'nodeKeyExpiringInOneDay', 'nodeKeyExpired', 'policyUpdate', 'userRoleUpdated']]);
         }, Effect.provide(crypto)),
     );
     it.effect(

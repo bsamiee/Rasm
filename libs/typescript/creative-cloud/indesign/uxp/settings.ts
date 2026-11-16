@@ -1,8 +1,7 @@
-import type { Capitalization, CharacterDirectionOptions, DigitsTypeOptions, InDesignDOMObject, Justification, KashidasOptions, Leading, PageSideOptions, ParagraphDirectionOptions, ParagraphJustificationOptions, SingleWordJustification, Text, TextDefault } from 'adobe:indesign';
-
 import type { HostError } from '@rasm/automation';
 import type { Unmatched } from '@rasm/search';
 import { Digits, Settings } from '@rasm/typography';
+import type { Capitalization, CharacterDirectionOptions, DigitsTypeOptions, InDesignDOMObject, Justification, KashidasOptions, Leading, PageSideOptions, ParagraphDirectionOptions, ParagraphJustificationOptions, SingleWordJustification, Text, TextDefault } from 'adobe:indesign';
 import { Array, type Cause, Effect, Equal, identity, Match, Number, Option, Predicate, Record, Schema, SchemaGetter, SchemaIssue, SchemaTransformation, Struct } from 'effect';
 import { STYLISTIC_SETS } from '#/uxp/dictionary';
 import { Model } from '#/uxp/model';
@@ -190,12 +189,12 @@ const features = Schema.Struct({
                 Array.findFirst(Struct.keys(CAPITALIZATIONS), (member) => Array.isReadonlyArrayNonEmpty(CAPITALIZATIONS[member]) && CAPITALIZATIONS[member].every(flagged)),
                 () => 'NORMAL' as const,
             );
-            const memberTags: readonly string[] = [...STYLISTIC_TAGS, ...Object.values(FEATURE_FLAGS), ...CAPITALIZATIONS[capitalization]];
+            const memberTags = new Set<string>([...STYLISTIC_TAGS, ...Object.values(FEATURE_FLAGS), ...CAPITALIZATIONS[capitalization]]);
             return {
                 otfStylisticSets: Number.sumAll(STYLISTIC_TAGS.map((tag, bit) => (flagged(tag) ? 2 ** bit : 0))),
                 ...Record.map(FEATURE_FLAGS, flagged),
                 capitalization,
-                opentypeFeatures: Record.toEntries(Record.filter(chosen, (_, tag) => !memberTags.includes(tag))),
+                opentypeFeatures: Record.toEntries(Record.filter(chosen, (_, tag) => !memberTags.has(tag))),
             };
         }),
     }),
@@ -227,7 +226,7 @@ class InDesignSettings extends Schema.Class<InDesignSettings, { readonly brand: 
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const inverse = <K extends string, V>(table: { readonly [key in K]: V }, wanted: (row: V) => boolean, actual: unknown, message: string) =>
+const inverse = <K extends string, V>(table: Readonly<Record<K, V>>, wanted: (row: V) => boolean, actual: unknown, message: string) =>
     Effect.fromOption(
         Array.findFirst(Struct.keys(table), (key) => wanted(table[key])),
         () => new SchemaIssue.InvalidValue({ message }, actual),

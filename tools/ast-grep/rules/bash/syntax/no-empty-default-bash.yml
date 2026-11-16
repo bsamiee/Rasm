@@ -4,6 +4,6 @@ severity: error
 rule:
     kind: expansion
     pattern: $EXPANSION
-    has: {field: operator, regex: '^:?-$', precedes: {regex: '^\}$'}}
+    has: { field: operator, regex: '^:?-$', precedes: { regex: '^\}$' } }
 message: '`$EXPANSION` turns an unset variable into an empty string'
 note: 'Fail on absence with `${name:?reason}`, or test presence with `[[ -v name ]]`'

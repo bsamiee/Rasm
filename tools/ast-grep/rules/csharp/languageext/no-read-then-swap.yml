@@ -6,103 +6,115 @@ utils:
     transaction:
         kind: invocation_expression
         all:
-            - has: {field: function, regex: 'atomic|snapshot|serial'}
-            - matches: {csharp-named-call: {name: {regex: '^(atomic|atomicIO|snapshot|serial)$'}}}
+            - has: { field: function, regex: 'atomic|snapshot|serial' }
+            - matches: { csharp-named-call: { name: { regex: '^(atomic|atomicIO|snapshot|serial)$' } } }
     callback:
         kind: 'lambda_expression, anonymous_method_expression'
     receiver:
         any:
             - kind: identifier
-              pattern: {context: 'class $ALIAS;', selector: identifier}
+              pattern: { context: 'class $ALIAS;', selector: identifier }
               inside:
-                stopBy: end
-                kind: block
-                has:
-                    kind: local_declaration_statement
-                    has:
-                        kind: variable_declaration
-                        has:
-                            kind: variable_declarator
-                            all:
-                                - has: {field: name, pattern: {context: 'class $ALIAS;', selector: identifier}}
-                                - has: {nthChild: 2, any: [{kind: identifier, pattern: {context: 'class $NAME;', selector: identifier}}, {kind: member_access_expression, all: [{has: {field: expression, regex: '^this$'}}, {has: {field: name, pattern: {context: 'class $NAME;', selector: identifier}}}]}]}
+                  stopBy: end
+                  kind: block
+                  has:
+                      kind: local_declaration_statement
+                      has:
+                          kind: variable_declaration
+                          has:
+                              kind: variable_declarator
+                              all:
+                                  - has: { field: name, pattern: { context: 'class $ALIAS;', selector: identifier } }
+                                  - has:
+                                        {
+                                            nthChild: 2,
+                                            any: [{ kind: identifier, pattern: { context: 'class $NAME;', selector: identifier } }, { kind: member_access_expression, all: [{ has: { field: expression, regex: '^this$' } }, { has: { field: name, pattern: { context: 'class $NAME;', selector: identifier } } }] }],
+                                        }
             - kind: identifier
-              pattern: {context: 'class $NAME;', selector: identifier}
+              pattern: { context: 'class $NAME;', selector: identifier }
             - kind: member_access_expression
               all:
-                - has: {field: expression, regex: '^this$'}
-                - has: {field: name, pattern: {context: 'class $NAME;', selector: identifier}}
+                  - has: { field: expression, regex: '^this$' }
+                  - has: { field: name, pattern: { context: 'class $NAME;', selector: identifier } }
             - kind: member_access_expression
               pattern: $NAME
-              not: {has: {field: expression, regex: '^this$'}}
+              not: { has: { field: expression, regex: '^this$' } }
     swap:
         kind: invocation_expression
         pattern: $WRITE
         all:
             - matches: languageext-atom-mutation
             - any:
-                - has: {field: function, kind: member_access_expression, all: [{has: {field: expression, matches: receiver}}, {has: {field: name, pattern: $SWAP}}]}
-                - all:
-                    - has: {field: function, pattern: $SWAP}
-                    - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {matches: receiver}}}
+                  - has: { field: function, kind: member_access_expression, all: [{ has: { field: expression, matches: receiver } }, { has: { field: name, pattern: $SWAP } }] }
+                  - all:
+                        - has: { field: function, pattern: $SWAP }
+                        - has: { field: arguments, has: { kind: argument, nthChild: 1, has: { matches: receiver } } }
     binding:
         kind: 'local_declaration_statement, from_clause, let_clause'
-        not: {inside: {kind: if_statement, field: consequence}}
+        not: { inside: { kind: if_statement, field: consequence } }
         any:
-            - has: {field: name, pattern: {context: 'class $BOUND;', selector: identifier}}
-            - has: {kind: identifier, nthChild: 1, pattern: {context: 'class $BOUND;', selector: identifier}}
-            - has: {stopBy: end, kind: variable_declarator, has: {field: name, pattern: {context: 'class $BOUND;', selector: identifier}}}
+            - has: { field: name, pattern: { context: 'class $BOUND;', selector: identifier } }
+            - has: { kind: identifier, nthChild: 1, pattern: { context: 'class $BOUND;', selector: identifier } }
+            - has: { stopBy: end, kind: variable_declarator, has: { field: name, pattern: { context: 'class $BOUND;', selector: identifier } } }
     derived:
         kind: 'local_declaration_statement, from_clause, let_clause'
         all:
-            - has: {stopBy: end, kind: identifier, pattern: {context: 'class $BOUND;', selector: identifier}}
+            - has: { stopBy: end, kind: identifier, pattern: { context: 'class $BOUND;', selector: identifier } }
             - any:
-                - has: {field: name, pattern: {context: 'class $DERIVED;', selector: identifier}}
-                - has: {kind: identifier, nthChild: 1, pattern: {context: 'class $DERIVED;', selector: identifier}}
-                - has: {stopBy: end, kind: variable_declarator, has: {field: name, pattern: {context: 'class $DERIVED;', selector: identifier}}}
+                  - has: { field: name, pattern: { context: 'class $DERIVED;', selector: identifier } }
+                  - has: { kind: identifier, nthChild: 1, pattern: { context: 'class $DERIVED;', selector: identifier } }
+                  - has: { stopBy: end, kind: variable_declarator, has: { field: name, pattern: { context: 'class $DERIVED;', selector: identifier } } }
     bound-input:
         kind: invocation_expression
         all:
             - matches: swap
-            - has: {stopBy: end, kind: identifier, pattern: {context: 'class $BOUND;', selector: identifier}}
+            - has: { stopBy: end, kind: identifier, pattern: { context: 'class $BOUND;', selector: identifier } }
     derived-input:
         kind: invocation_expression
         all:
             - matches: swap
-            - has: {stopBy: end, kind: identifier, pattern: {context: 'class $DERIVED;', selector: identifier}}
+            - has: { stopBy: end, kind: identifier, pattern: { context: 'class $DERIVED;', selector: identifier } }
 rule:
     kind: member_access_expression
     all:
-        - has: {field: name, pattern: {context: 'class $READER;', selector: identifier}, regex: '^(Value|ValueIO|Find|ContainsKey|Contains|Count|IsEmpty)$'}
-        - has: {field: expression, pattern: $CELL, matches: receiver}
-        - not: {inside: {stopBy: end, kind: 'lambda_expression, anonymous_method_expression', has: {field: parameters, any: [{kind: implicit_parameter, pattern: {context: 'var f = $CELL => 0;', selector: implicit_parameter}}, {has: {kind: parameter, has: {field: name, pattern: {context: 'class $CELL;', selector: identifier}}}}]}}}
-        - not: {inside: {stopBy: end, matches: transaction}}
+        - has: { field: name, pattern: { context: 'class $READER;', selector: identifier }, regex: '^(Value|ValueIO|Find|ContainsKey|Contains|Count|IsEmpty)$' }
+        - has: { field: expression, pattern: $CELL, matches: receiver }
+        - not:
+              {
+                  inside:
+                      {
+                          stopBy: end,
+                          kind: 'lambda_expression, anonymous_method_expression',
+                          has: { field: parameters, any: [{ kind: implicit_parameter, pattern: { context: 'var f = $CELL => 0;', selector: implicit_parameter } }, { has: { kind: parameter, has: { field: name, pattern: { context: 'class $CELL;', selector: identifier } } } }] },
+                      },
+              }
+        - not: { inside: { stopBy: end, matches: transaction } }
         - any:
-            - inside:
-                stopBy: end
-                matches: binding
-                precedes:
+              - inside:
                     stopBy: end
-                    any:
-                        - has: {stopBy: end, matches: bound-input}
-                        - all:
-                            - matches: derived
-                            - precedes: {stopBy: end, has: {stopBy: end, matches: derived-input}}
-            - inside:
-                stopBy: end
-                field: condition
-                kind: 'if_statement, conditional_expression, while_statement, do_statement'
-                has: {stopBy: end, matches: swap}
-            - inside:
-                stopBy: end
-                kind: from_clause
-                precedes: {stopBy: end, has: {stopBy: end, matches: swap}}
-            - inside:
-                stopBy: {matches: callback}
-                kind: argument
-                inside: {kind: 'tuple_expression, argument_list'}
-                precedes: {stopBy: end, has: {stopBy: {matches: callback}, matches: swap}}
+                    matches: binding
+                    precedes:
+                        stopBy: end
+                        any:
+                            - has: { stopBy: end, matches: bound-input }
+                            - all:
+                                  - matches: derived
+                                  - precedes: { stopBy: end, has: { stopBy: end, matches: derived-input } }
+              - inside:
+                    stopBy: end
+                    field: condition
+                    kind: 'if_statement, conditional_expression, while_statement, do_statement'
+                    has: { stopBy: end, matches: swap }
+              - inside:
+                    stopBy: end
+                    kind: from_clause
+                    precedes: { stopBy: end, has: { stopBy: end, matches: swap } }
+              - inside:
+                    stopBy: { matches: callback }
+                    kind: argument
+                    inside: { kind: 'tuple_expression, argument_list' }
+                    precedes: { stopBy: end, has: { stopBy: { matches: callback }, matches: swap } }
 labels:
-    WRITE: {style: secondary, message: 'Writes the atom an earlier read observed'}
+    WRITE: { style: secondary, message: 'Writes the atom an earlier read observed' }
 message: '`$CELL.$READER` is read before a separate `$SWAP` of `$CELL`'
 note: 'Read in one `Swap`; `AtomHashMap` uses `FindOrAdd`, `TryAdd`, or `SwapKey`; `Ref` under `atomicIO` returns before/after pairs'

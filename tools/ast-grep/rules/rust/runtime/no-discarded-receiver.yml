@@ -14,26 +14,26 @@ utils:
             any:
                 - matches: channel-path
                 - kind: generic_function
-                  has: {field: function, matches: channel-path}
+                  has: { field: function, matches: channel-path }
     unread-receiver:
         any:
-            - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: identifier}}
+            - not: { has: { nthChild: { position: 2, ofRule: { not: { kind: 'line_comment, block_comment' } } }, kind: identifier } }
             - all:
-                - has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: identifier, pattern: $RECEIVER}
-                - not: {inside: {kind: function_item, stopBy: {kind: function_item}, has: {stopBy: end, kind: identifier, pattern: $RECEIVER, not: {inside: {kind: tuple_pattern}}}}}
+                  - has: { nthChild: { position: 2, ofRule: { not: { kind: 'line_comment, block_comment' } } }, kind: identifier, pattern: $RECEIVER }
+                  - not: { inside: { kind: function_item, stopBy: { kind: function_item }, has: { stopBy: end, kind: identifier, pattern: $RECEIVER, not: { inside: { kind: tuple_pattern } } } } }
     tuple-binding:
         kind: let_declaration
         all:
-            - has: {field: value, matches: channel-call}
-            - has: {field: pattern, kind: tuple_pattern, all: [{regex: '^\(\p{Pattern_White_Space}*(mut\p{Pattern_White_Space}+)?\p{XID_Continue}+\p{Pattern_White_Space}*,\p{Pattern_White_Space}*_\p{XID_Continue}*\p{Pattern_White_Space}*,?\p{Pattern_White_Space}*\)$'}, {matches: unread-receiver}]}
+            - has: { field: value, matches: channel-call }
+            - has: { field: pattern, kind: tuple_pattern, all: [{ regex: '^\(\p{Pattern_White_Space}*(mut\p{Pattern_White_Space}+)?\p{XID_Continue}+\p{Pattern_White_Space}*,\p{Pattern_White_Space}*_\p{XID_Continue}*\p{Pattern_White_Space}*,?\p{Pattern_White_Space}*\)$' }, { matches: unread-receiver }] }
             - any:
-                - has: {field: type, kind: tuple_type}
-                - not: {has: {field: type, pattern: $_}}
+                  - has: { field: type, kind: tuple_type }
+                  - not: { has: { field: type, pattern: $_ } }
     sender-field:
         kind: field_expression
         all:
-            - has: {field: field, regex: '^0$'}
-            - has: {field: value, matches: channel-call}
+            - has: { field: field, regex: '^0$' }
+            - has: { field: value, matches: channel-call }
 rule:
     any:
         - matches: tuple-binding

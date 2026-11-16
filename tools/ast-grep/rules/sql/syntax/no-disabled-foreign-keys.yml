@@ -4,8 +4,8 @@ severity: error
 rule:
     kind: pragma_statement
     all:
-        - has: {field: name, regex: '(?i-u)^["''`\[]?foreign_keys["''`\]]?$'}
+        - has: { field: name, regex: '(?i-u)^["''`\[]?foreign_keys["''`\]]?$' }
         - matches: sql-pragma-off
         - pattern: $PRAGMA
 message: '`$PRAGMA` disables foreign key enforcement only outside a transaction, D1, and Durable Objects'
-note: 'Open the rebuild with `pragma defer_foreign_keys = on` and point rebuilt children at their rebuilt parent''s temporary name'
+note: "Open the rebuild with `pragma defer_foreign_keys = on` and point rebuilt children at their rebuilt parent's temporary name"

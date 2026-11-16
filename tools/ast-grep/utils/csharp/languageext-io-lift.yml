@@ -3,4 +3,4 @@ id: languageext-io-lift
 language: csharplang
 rule:
     kind: invocation_expression
-    matches: {csharp-owner-call: {type: {regex: '^IO$'}, member: {regex: '^(lift|liftAsync|liftVAsync)$'}}}
+    matches: { csharp-owner-call: { type: { regex: '^IO$' }, member: { regex: '^(lift|liftAsync|liftVAsync)$' } } }

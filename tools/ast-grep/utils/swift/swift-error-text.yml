@@ -7,55 +7,55 @@ utils:
     error-value:
         any:
             - all:
-                - kind: simple_identifier
-                - matches: {swift-typed-use: {type: {matches: error-type}}}
+                  - kind: simple_identifier
+                  - matches: { swift-typed-use: { type: { matches: error-type } } }
             - kind: call_expression
-              has: {nthChild: 1, regex: '^(Foundation(\.|::))?NSError(\.init)?$'}
+              has: { nthChild: 1, regex: '^(Foundation(\.|::))?NSError(\.init)?$' }
             - kind: tuple_expression
-              not: {has: {regex: '^,$'}}
-              has: {field: value, matches: error-value}
+              not: { has: { regex: '^,$' } }
+              has: { field: value, matches: error-value }
             - kind: 'await_expression, unsafe_expression, consume_expression'
-              has: {field: expr, matches: error-value}
+              has: { field: expr, matches: error-value }
             - kind: try_expression
               all:
-                - not: {has: {kind: try_operator, regex: '^try\?$'}}
-                - has: {field: expr, matches: error-value}
+                  - not: { has: { kind: try_operator, regex: '^try\?$' } }
+                  - has: { field: expr, matches: error-value }
 rule:
     any:
         - kind: navigation_expression
-          has: {field: suffix, has: {field: suffix, regex: '^(localizedDescription|localizedFailureReason|localizedRecoverySuggestion|errorDescription|failureReason|recoverySuggestion|helpAnchor)$'}}
+          has: { field: suffix, has: { field: suffix, regex: '^(localizedDescription|localizedFailureReason|localizedRecoverySuggestion|errorDescription|failureReason|recoverySuggestion|helpAnchor)$' } }
         - kind: navigation_expression
           all:
-            - has: {field: suffix, has: {field: suffix, regex: '^(description|debugDescription)$'}}
-            - has: {field: target, pattern: $ERROR}
+              - has: { field: suffix, has: { field: suffix, regex: '^(description|debugDescription)$' } }
+              - has: { field: target, pattern: $ERROR }
         - kind: call_expression
           all:
-            - has: {nthChild: 1, regex: '^(Swift(\.|::))?String(\.init)?$'}
-            - has:
-                kind: call_suffix
-                has:
-                    kind: value_arguments
-                    not: {has: {kind: value_argument, follows: {stopBy: end, kind: value_argument}}}
-                    has: {kind: value_argument, all: [{has: {field: name, regex: '^(describing|reflecting)$'}}, {has: {field: value, pattern: $ERROR}}]}
+              - has: { nthChild: 1, regex: '^(Swift(\.|::))?String(\.init)?$' }
+              - has:
+                    kind: call_suffix
+                    has:
+                        kind: value_arguments
+                        not: { has: { kind: value_argument, follows: { stopBy: end, kind: value_argument } } }
+                        has: { kind: value_argument, all: [{ has: { field: name, regex: '^(describing|reflecting)$' } }, { has: { field: value, pattern: $ERROR } }] }
         - kind: line_string_literal
           all:
-            - not: {has: {kind: line_str_text}}
-            - not: {has: {kind: interpolated_expression, follows: {stopBy: end, kind: interpolated_expression}}}
-            - has: {field: interpolation, not: {has: {kind: value_argument_label}}, has: {field: value, pattern: $ERROR}}
+              - not: { has: { kind: line_str_text } }
+              - not: { has: { kind: interpolated_expression, follows: { stopBy: end, kind: interpolated_expression } } }
+              - has: { field: interpolation, not: { has: { kind: value_argument_label } }, has: { field: value, pattern: $ERROR } }
         - kind: call_expression
           all:
-            - has:
-                nthChild: 1
-                kind: navigation_expression
-                all:
-                    - has: {field: suffix, regex: '^\.userInfo$'}
-                    - has: {field: target, pattern: $ERROR}
-            - has:
-                kind: call_suffix
-                has:
-                    kind: value_arguments
-                    regex: '^\['
-                    not: {has: {kind: value_argument, follows: {stopBy: end, kind: value_argument}}}
-                    has: {kind: value_argument, has: {field: value, regex: '^(Foundation(\.|::))?NS(Localized(Description|FailureReason(Error)?|RecoverySuggestion(Error)?)|DebugDescriptionError)Key$'}}
+              - has:
+                    nthChild: 1
+                    kind: navigation_expression
+                    all:
+                        - has: { field: suffix, regex: '^\.userInfo$' }
+                        - has: { field: target, pattern: $ERROR }
+              - has:
+                    kind: call_suffix
+                    has:
+                        kind: value_arguments
+                        regex: '^\['
+                        not: { has: { kind: value_argument, follows: { stopBy: end, kind: value_argument } } }
+                        has: { kind: value_argument, has: { field: value, regex: '^(Foundation(\.|::))?NS(Localized(Description|FailureReason(Error)?|RecoverySuggestion(Error)?)|DebugDescriptionError)Key$' } }
 constraints:
-    ERROR: {matches: error-value}
+    ERROR: { matches: error-value }

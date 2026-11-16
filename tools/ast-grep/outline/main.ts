@@ -80,7 +80,7 @@ const unanchored = (doc: Document) => {
     return flat.value;
 };
 const shared = (header: unknown): Shared => {
-    const variants = header instanceof YAMLMap ? header.get(SELECTOR) : undefined;
+    const variants: unknown = header instanceof YAMLMap ? header.get(SELECTOR) : undefined;
     return { table: table(header), variants: Record.fromEntries(Array.getSomes((variants instanceof YAMLMap ? [...variants.pairs()] : []).map((pair) => Option.map(named(pair.key), (key) => [key, table(pair.value)] as const)))) };
 };
 
@@ -183,4 +183,4 @@ const build = Effect.gen(function* () {
     const texts = yield* Effect.forEach(Option.isSome(header) ? docs.slice(1) : docs, (doc, index) => written(common, language, source, doc, index + Number(Option.isSome(header))));
     yield* fs.writeFileString(output, texts.join('---\n'));
 });
-build.pipe(Effect.provide(layer), runMain);
+runMain(Effect.provide(build, layer));

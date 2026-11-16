@@ -5,99 +5,100 @@ ignores: ['apps/roslyn/**']
 utils:
     error-type-name:
         any:
-            - matches: {csharp-type-name: {name: {regex: '^(Error|Expected|Exceptional|ManyErrors|Exception)$'}}}
+            - matches: { csharp-type-name: { name: { regex: '^(Error|Expected|Exceptional|ManyErrors|Exception)$' } } }
             - any:
-                - kind: identifier
-                  pattern: {context: 'class $ERROR;', selector: identifier}
-                - kind: qualified_name
-                  has: {field: name, pattern: {context: 'class $ERROR;', selector: identifier}}
+                  - kind: identifier
+                    pattern: { context: 'class $ERROR;', selector: identifier }
+                  - kind: qualified_name
+                    has: { field: name, pattern: { context: 'class $ERROR;', selector: identifier } }
               inside:
-                stopBy: end
-                kind: compilation_unit
-                has:
-                    stopBy: {not: {kind: 'compilation_unit, global_statement, namespace_declaration, declaration_list, class_declaration, struct_declaration, record_declaration, interface_declaration, union_declaration, extension_declaration, extension_body, parameter_list, preproc_if, preproc_elif, preproc_else'}}
-                    kind: record_declaration
-                    all: [{has: {field: name, pattern: {context: 'class $ERROR;', selector: identifier}}}, {matches: languageext-error-record}]
+                  stopBy: end
+                  kind: compilation_unit
+                  has:
+                      stopBy:
+                          { not: { kind: 'compilation_unit, global_statement, namespace_declaration, declaration_list, class_declaration, struct_declaration, record_declaration, interface_declaration, union_declaration, extension_declaration, extension_body, parameter_list, preproc_if, preproc_elif, preproc_else' } }
+                      kind: record_declaration
+                      all: [{ has: { field: name, pattern: { context: 'class $ERROR;', selector: identifier } } }, { matches: languageext-error-record }]
     failure-name:
         regex: '^(error|failure|fault|reason|problem|cause)|(^|[a-z0-9])(Error|Failure|Fault|Reason|Problem|Cause)([A-Z0-9]|$)'
     failure-type:
         any:
             - kind: 'generic_name, qualified_name'
-              matches: {csharp-generic-type: {name: {regex: '^Option$'}, list: {has: {nthChild: 1, matches: error-type-name}}}}
+              matches: { csharp-generic-type: { name: { regex: '^Option$' }, list: { has: { nthChild: 1, matches: error-type-name } } } }
             - kind: nullable_type
-              has: {field: type, matches: error-type-name}
-            - matches: {csharp-generic-type: {name: {regex: '^Fin$'}, list: {has: {nthChild: 1, matches: languageext-unit-type}, not: {has: {nthChild: 2}}}}}
-            - matches: {csharp-generic-type: {name: {regex: '^(?:Either|Validation)$'}, list: {all: [{has: {nthChild: 1, matches: {csharp-type-name: {name: {regex: '^Error$'}}}}}, {has: {nthChild: 2, matches: languageext-unit-type}}], not: {has: {nthChild: 3}}}}}
+              has: { field: type, matches: error-type-name }
+            - matches: { csharp-generic-type: { name: { regex: '^Fin$' }, list: { has: { nthChild: 1, matches: languageext-unit-type }, not: { has: { nthChild: 2 } } } } }
+            - matches: { csharp-generic-type: { name: { regex: '^(?:Either|Validation)$' }, list: { all: [{ has: { nthChild: 1, matches: { csharp-type-name: { name: { regex: '^Error$' } } } } }, { has: { nthChild: 2, matches: languageext-unit-type } }], not: { has: { nthChild: 3 } } } } }
     optional-text:
         any:
-            - matches: {csharp-generic-type: {name: {regex: '^Option$'}, list: {has: {pattern: string}, not: {has: {nthChild: 2}}}}}
+            - matches: { csharp-generic-type: { name: { regex: '^Option$' }, list: { has: { pattern: string }, not: { has: { nthChild: 2 } } } } }
             - kind: nullable_type
-              has: {field: type, pattern: string}
+              has: { field: type, pattern: string }
     optional-failure:
         any:
-            - has: {field: type, matches: failure-type}
+            - has: { field: type, matches: failure-type }
             - all:
-                - has: {field: type, matches: optional-text}
-                - has: {field: name, matches: failure-name}
+                  - has: { field: type, matches: optional-text }
+                  - has: { field: name, matches: failure-name }
     optional-failure-field:
         kind: field_declaration
         has:
             kind: variable_declaration
             any:
-                - has: {field: type, matches: failure-type}
+                - has: { field: type, matches: failure-type }
                 - all:
-                    - has: {field: type, matches: optional-text}
-                    - has: {kind: variable_declarator, has: {field: name, matches: failure-name}}
+                      - has: { field: type, matches: optional-text }
+                      - has: { kind: variable_declarator, has: { field: name, matches: failure-name } }
     owner:
         kind: 'record_declaration, class_declaration, struct_declaration'
-        not: {kind: record_declaration, has: {kind: base_list}}
+        not: { kind: record_declaration, has: { kind: base_list } }
     data-member:
         kind: 'property_declaration, field_declaration'
-        not: {any: [{matches: optional-failure}, {matches: optional-failure-field}]}
+        not: { any: [{ matches: optional-failure }, { matches: optional-failure-field }] }
     member-with-data:
         kind: declaration_list
-        inside: {matches: owner}
+        inside: { matches: owner }
         any:
-            - inside: {kind: 'record_declaration, class_declaration, struct_declaration', has: {kind: parameter_list, has: {kind: parameter}}}
-            - has: {matches: data-member}
+            - inside: { kind: 'record_declaration, class_declaration, struct_declaration', has: { kind: parameter_list, has: { kind: parameter } } }
+            - has: { matches: data-member }
     status:
         kind: parameter, property_declaration
         all:
-            - has: {field: type, regex: '^bool$'}
-            - has: {field: name, regex: '^(Is)?(Success|Succeeded|Failure|Failed|Ok)$'}
+            - has: { field: type, regex: '^bool$' }
+            - has: { field: name, regex: '^(Is)?(Success|Succeeded|Failure|Failed|Ok)$' }
 rule:
     inside:
         stopBy: end
         matches: owner
         any:
-            - has: {kind: parameter_list, has: {matches: status}}
-            - has: {field: body, has: {matches: status}}
+            - has: { kind: parameter_list, has: { matches: status } }
+            - has: { field: body, has: { matches: status } }
     any:
         - kind: parameter
           all:
-            - matches: optional-failure
-            - has: {field: name, pattern: {context: 'class $FIELD;', selector: identifier}}
-            - inside: {kind: parameter_list, inside: {matches: owner}}
-            - any:
-                - follows: {stopBy: end, kind: parameter}
-                - precedes: {stopBy: end, kind: parameter}
+              - matches: optional-failure
+              - has: { field: name, pattern: { context: 'class $FIELD;', selector: identifier } }
+              - inside: { kind: parameter_list, inside: { matches: owner } }
+              - any:
+                    - follows: { stopBy: end, kind: parameter }
+                    - precedes: { stopBy: end, kind: parameter }
         - kind: tuple_element
           all:
-            - matches: optional-failure
-            - has: {field: name, pattern: {context: 'class $FIELD;', selector: identifier}}
-            - any:
-                - follows: {stopBy: end, kind: tuple_element}
-                - precedes: {stopBy: end, kind: tuple_element}
+              - matches: optional-failure
+              - has: { field: name, pattern: { context: 'class $FIELD;', selector: identifier } }
+              - any:
+                    - follows: { stopBy: end, kind: tuple_element }
+                    - precedes: { stopBy: end, kind: tuple_element }
         - kind: property_declaration
           all:
-            - matches: optional-failure
-            - has: {field: name, pattern: {context: 'class $FIELD;', selector: identifier}}
-            - has: {field: accessors, kind: accessor_list}
-            - inside: {matches: member-with-data}
+              - matches: optional-failure
+              - has: { field: name, pattern: { context: 'class $FIELD;', selector: identifier } }
+              - has: { field: accessors, kind: accessor_list }
+              - inside: { matches: member-with-data }
         - kind: field_declaration
           all:
-            - matches: optional-failure-field
-            - has: {kind: variable_declaration, has: {kind: variable_declarator, has: {field: name, pattern: {context: 'class $FIELD;', selector: identifier}}}}
-            - inside: {matches: member-with-data}
+              - matches: optional-failure-field
+              - has: { kind: variable_declaration, has: { kind: variable_declarator, has: { field: name, pattern: { context: 'class $FIELD;', selector: identifier } } } }
+              - inside: { matches: member-with-data }
 message: '`$FIELD` holds an optional failure beside a success flag'
 note: 'Return `Fin<T>`, or a union with one case per result state'

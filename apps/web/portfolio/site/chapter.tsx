@@ -1,4 +1,4 @@
-import { Match, String } from 'effect';
+import { String } from 'effect';
 import useEmblaCarousel from 'embla-carousel-react';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { useInView, useReducedMotion } from 'motion/react';
@@ -44,14 +44,12 @@ const Chapter = ({ entry, navigation }: { entry: typeof Entry.Type; navigation: 
             navigation.select(entry.id, composition);
         }
     });
-    const navigate = (event: KeyboardEvent<HTMLButtonElement>) =>
-        Match.value(event).pipe(
-            Match.when({ altKey: false, ctrlKey: false, metaKey: false, key: Match.is('ArrowLeft', 'ArrowRight') }, ({ key }) => {
-                event.preventDefault();
-                ({ ArrowLeft: api.goToPrev, ArrowRight: api.goToNext })[key]();
-            }),
-            Match.option,
-        );
+    const navigate = (event: KeyboardEvent<HTMLButtonElement>) => {
+        if (!(event.altKey || event.ctrlKey || event.metaKey) && (event.key === 'ArrowLeft' || event.key === 'ArrowRight')) {
+            event.preventDefault();
+            ({ ArrowLeft: api.goToPrev, ArrowRight: api.goToNext })[event.key]();
+        }
+    };
     useEffect(() => {
         const allowDrag = (_api: unknown, { detail }: { readonly detail: Event }) => !(detail.target instanceof Element && detail.target.closest('a,button,video') !== null);
         const release = () => reduced === true && api.goTo(api.selectedSnap(), true);
@@ -62,37 +60,37 @@ const Chapter = ({ entry, navigation }: { entry: typeof Entry.Type; navigation: 
     }, [api, reduced]);
     useEffect(() => {
         const target = entry.compositions.findIndex((item) => item.id === selected);
-        if (target >= 0 && target !== api.selectedSnap()) {
+        if (target !== -1 && target !== api.selectedSnap()) {
             api.goTo(target, true);
         }
     }, [api, selected, entry.compositions]);
     return (
         <section aria-labelledby={headingId} className="chapter" id={entry.id} ref={chapter}>
             <div className="chapter-heading">
-                <div className="eyebrow text-muted col-start-1 row-start-1 flex min-w-0 flex-col gap-2">
-                    <span className="before:text-accent-text inline-flex items-baseline gap-3 ordinal">{String.capitalize(entry.kind)}</span>
+                <div className="col-start-1 row-start-1 flex min-w-0 flex-col gap-2 eyebrow text-muted">
+                    <span className="inline-flex items-baseline gap-3 ordinal before:text-accent-text">{String.capitalize(entry.kind)}</span>
                     <span className="wrap-anywhere empty:hidden">{[entry.year, entry.location].filter(Boolean).join(' / ')}</span>
                 </div>
                 <h3 className="chapter-title" id={headingId} tabIndex={-1}>
                     {title}
                 </h3>
                 {entry.cover !== undefined && (
-                    <div className="media-h-45 col-start-2 row-span-2 row-start-1 w-45 self-end @max-3xl:hidden">
-                        <MediaFigure active={false} placement={entry.cover} presentation="thumbnail" priority={false} renderMedia={true} />
+                    <div className="col-start-2 row-span-2 row-start-1 w-45 self-end media-h-45 @max-3xl:hidden">
+                        <MediaFigure active={false} placement={entry.cover} presentation="thumbnail" priority={false} renderMedia />
                     </div>
                 )}
                 <p className="chapter-lead empty:hidden">{entry.description}</p>
             </div>
             {entry.compositions.length > 0 ? (
                 <section aria-label={`${title} compositions`} aria-roledescription="carousel" className="@container touch-pan-y touch-pinch-zoom">
-                    <div className={carousel ? 'grid-cols-trailing-pair grid items-center gap-x-3 gap-y-2' : undefined}>
+                    <div className={carousel ? 'grid grid-cols-trailing-pair items-center gap-x-3 gap-y-2' : undefined}>
                         {carousel && (
                             <>
-                                <Overview compositions={entry.compositions} onSelect={api.goTo} selected={selectedSnap} title={title} />
-                                <button aria-disabled={!api.canGoToPrev()} aria-label="Previous composition" className="button button-ghost not-aria-disabled:hover:text-accent-text aria-disabled:text-control-line col-start-2 row-start-1 size-11 p-0" onClick={() => api.goToPrev()} onKeyDown={navigate} type="button">
+                                <Overview compositions={entry.compositions} onSelect={(slide) => api.goTo(slide)} selected={selectedSnap} title={title} />
+                                <button aria-disabled={!api.canGoToPrev()} aria-label="Previous composition" className="col-start-2 row-start-1 button size-11 button-ghost p-0 not-aria-disabled:hover:text-accent-text aria-disabled:text-control-line" onClick={() => api.goToPrev()} onKeyDown={navigate} type="button">
                                     <ArrowLeft aria-hidden="true" className="size-5" />
                                 </button>
-                                <button aria-disabled={!api.canGoToNext()} aria-label="Next composition" className="button button-ghost not-aria-disabled:hover:text-accent-text aria-disabled:text-control-line col-start-3 row-start-1 size-11 p-0" onClick={() => api.goToNext()} onKeyDown={navigate} type="button">
+                                <button aria-disabled={!api.canGoToNext()} aria-label="Next composition" className="col-start-3 row-start-1 button size-11 button-ghost p-0 not-aria-disabled:hover:text-accent-text aria-disabled:text-control-line" onClick={() => api.goToNext()} onKeyDown={navigate} type="button">
                                     <ArrowRight aria-hidden="true" className="size-5" />
                                 </button>
                                 <span aria-atomic="true" aria-live="polite" className="sr-only">
@@ -117,10 +115,10 @@ const Chapter = ({ entry, navigation }: { entry: typeof Entry.Type; navigation: 
                 </div>
             )}
             {details.length > 0 && (
-                <dl className="leading-prose mt-10 flex gap-12 text-sm max-sm:flex-wrap max-sm:gap-6">
+                <dl className="mt-10 flex gap-12 text-sm leading-prose max-sm:flex-wrap max-sm:gap-6">
                     {details.map(({ label, value }) => (
                         <div className="min-w-0 wrap-anywhere" key={label}>
-                            <dt className="text-muted tracking-label text-xs uppercase">{label}</dt>
+                            <dt className="text-xs tracking-label text-muted uppercase">{label}</dt>
                             <dd className="whitespace-pre-line">{value}</dd>
                         </div>
                     ))}

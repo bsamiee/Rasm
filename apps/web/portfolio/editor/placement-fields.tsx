@@ -16,7 +16,7 @@ const present = <K extends 'caption' | 'alt' | 'description'>(key: K, input: str
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const PlacementFields = ({ value, assets, onChange, children }: { readonly value: typeof Placement.Type; readonly assets: typeof Assets.Service; readonly onChange: (value: typeof Placement.Type) => void; readonly children?: ReactNode }) => (
-    <div className="border-line flex flex-col gap-3.25 border-t pt-4.5">
+    <div className="flex flex-col gap-3.25 border-t border-line pt-4.5">
         <span className="text-caption wrap-anywhere">{value.asset.name}</span>
         <Field
             label="Caption"
@@ -76,7 +76,7 @@ const PlacementFields = ({ value, assets, onChange, children }: { readonly value
                             {film.poster === undefined ? 'Choose poster image' : joinDetails(['Poster', film.poster.name])}
                         </MenuButton>
                         {film.poster && (
-                            <button className="button button-ghost self-start" onClick={() => onChange(Struct.omit(film, ['poster']))} type="button">
+                            <button className="button self-start button-ghost" onClick={() => onChange(Struct.omit(film, ['poster']))} type="button">
                                 Clear poster
                             </button>
                         )}
@@ -96,7 +96,7 @@ const PlacementFields = ({ value, assets, onChange, children }: { readonly value
         />
         <Field
             label={descriptionLabel(value)}
-            multiline={true}
+            multiline
             onChange={(description) => {
                 const { description: _, ...rest } = value;
                 onChange({ ...rest, ...present('description', description) });

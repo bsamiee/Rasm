@@ -3,14 +3,17 @@
     "version": "0.1.0",
     "private": true,
     "description": "Logs, traces, and metrics of an Effect program: log records in the OpenTelemetry log data model, failures reported as log records, OTLP export over the caller's HTTP client, and for Node a rotated log file, trace context through process environments, crash capture, and OpenTelemetry SDK export with runtime and host metrics",
+    "license": "MIT",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/bsamiee/Rasm.git",
         "directory": "libs/typescript/runtime/telemetry"
     },
-    "license": "MIT",
-    "sideEffects": false,
+    "files": [
+        "dist"
+    ],
     "type": "module",
+    "sideEffects": false,
     "imports": {
         "#/*": "./*.ts"
     },
@@ -18,7 +21,16 @@
         ".": "./index.ts",
         "./node": "./node.ts"
     },
-    "files": [ "dist" ],
+    "publishConfig": {
+        "imports": {
+            "#/*": "./dist/*.js"
+        },
+        "exports": {
+            ".": "./dist/index.js",
+            "./node": "./dist/node.js"
+        },
+        "access": "public"
+    },
     "devDependencies": {
         "@effect/opentelemetry": "catalog:",
         "@opentelemetry/api": "catalog:",
@@ -110,16 +122,6 @@
         },
         "rotating-file-stream": {
             "optional": true
-        }
-    },
-    "publishConfig": {
-        "access": "public",
-        "exports": {
-            ".": "./dist/index.js",
-            "./node": "./dist/node.js"
-        },
-        "imports": {
-            "#/*": "./dist/*.js"
         }
     }
 }

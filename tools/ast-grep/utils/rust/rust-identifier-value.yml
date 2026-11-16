@@ -6,5 +6,5 @@ rule:
         - kind: identifier
         - kind: unary_expression
           all:
-            - has: {field: operator, regex: '^\*$'}
-            - has: {kind: identifier}
+              - has: { field: operator, regex: '^\*$' }
+              - has: { kind: identifier }

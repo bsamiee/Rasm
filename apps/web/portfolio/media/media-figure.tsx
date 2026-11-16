@@ -27,12 +27,12 @@ const MediaFigure = ({ placement, active, presentation, priority, renderMedia }:
         <CustomProperties properties={{ '--media-ratio': Placement.ratio(placement), ...(placement.kind === 'image' && placement.role === 'photograph' && placement.framing.mode === 'cover' && { '--media-focus-x': `${placement.framing.x}%`, '--media-focus-y': `${placement.framing.y}%` }) }}>
             {(scope) => (
                 <figure aria-hidden={presentation === 'thumbnail'} className="media-figure" ref={figure} {...scope}>
-                    <motion.div {...(viewer && { layoutId })} className="bg-background-muted relative flex aspect-(--media-ratio) w-full items-center justify-center overflow-hidden">
+                    <motion.div {...(viewer && { layoutId })} className="relative flex aspect-(--media-ratio) w-full items-center justify-center overflow-hidden bg-background-muted">
                         {renderMedia && <MediaElement active={active} key={placement.asset.id} placement={placement} presentation={presentation} priority={priority} viewport={figure} />}
                     </motion.div>
                     {presentation !== 'thumbnail' && (
                         <>
-                            <figcaption className="grid-cols-trailing text-muted leading-body grid items-start gap-x-3 pt-2 text-sm wrap-anywhere empty:hidden">
+                            <figcaption className="grid grid-cols-trailing items-start gap-x-3 pt-2 text-sm leading-body wrap-anywhere text-muted empty:hidden">
                                 {placement.caption !== undefined && <span className="col-start-1 block min-w-0 whitespace-pre-line">{placement.caption}</span>}
                                 {placement.kind === 'pdf' && (
                                     <span className="col-start-1 flex min-w-0 flex-wrap items-baseline gap-x-4 gap-y-1">
@@ -49,17 +49,17 @@ const MediaFigure = ({ placement, active, presentation, priority, renderMedia }:
                                 )}
                                 {viewer && (
                                     <DialogTrigger>
-                                        <Button aria-label={`Expand ${placementTitle(viewer)}`} className="text-foreground hover:text-accent-text col-start-2 row-start-1 grid size-11 place-items-center">
+                                        <Button aria-label={`Expand ${placementTitle(viewer)}`} className="col-start-2 row-start-1 grid size-11 place-items-center text-foreground hover:text-accent-text">
                                             <Expand className="size-4.5" />
                                         </Button>
-                                        <Backdrop className="bg-foreground/70 motion-safe:entering:animate-fade motion-safe:exiting:animate-fade-out fixed inset-0 z-50" isDismissable={true}>
+                                        <Backdrop className="fixed inset-0 z-50 bg-foreground/70 motion-safe:entering:animate-fade motion-safe:exiting:animate-fade-out" isDismissable>
                                             <Modal>
-                                                <AnimatedDialog className="viewer-dialog" layoutRoot={true}>
-                                                    <div className="landscape-short:contents flex shrink-0 items-start justify-between gap-4">
+                                                <AnimatedDialog className="viewer-dialog" layoutRoot>
+                                                    <div className="flex shrink-0 items-start justify-between gap-4 landscape-short:contents">
                                                         <Heading className="viewer-heading" slot="title">
                                                             {viewer.kind === 'pdf' ? viewer.asset.name : placementTitle(viewer)}
                                                         </Heading>
-                                                        <Button aria-label="Close viewer" className="landscape-short:col-start-2 landscape-short:row-start-1 grid min-h-11 min-w-11 shrink-0 place-items-center" slot="close">
+                                                        <Button aria-label="Close viewer" className="grid min-h-11 min-w-11 shrink-0 place-items-center landscape-short:col-start-2 landscape-short:row-start-1" slot="close">
                                                             <X className="size-6" />
                                                         </Button>
                                                     </div>

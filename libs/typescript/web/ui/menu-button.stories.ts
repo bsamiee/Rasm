@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { fn } from 'storybook/test';
 import preview from '#/.storybook/preview';
 import { MenuButton } from '#/menu-button.tsx';
@@ -12,7 +13,7 @@ const meta = preview.meta({
             { id: 'plan', label: 'Plan' },
             { id: 'section', label: 'Section' },
         ],
-        onAction: fn(),
+        onAction: fn<ComponentProps<typeof MenuButton>['onAction']>(),
         children: 'Choose sheet',
     },
 });

@@ -9,51 +9,60 @@ utils:
               regex: '^(IsLoadProtected|GetLoadProtection)$'
               pattern: $MEMBER
             - kind: member_access_expression
-              has: {field: name, regex: '^(IsLoadProtected|GetLoadProtection)$', pattern: $MEMBER}
+              has: { field: name, regex: '^(IsLoadProtected|GetLoadProtection)$', pattern: $MEMBER }
             - kind: conditional_access_expression
-              has: {kind: member_binding_expression, has: {field: name, regex: '^(IsLoadProtected|GetLoadProtection)$', pattern: $MEMBER}}
+              has: { kind: member_binding_expression, has: { field: name, regex: '^(IsLoadProtected|GetLoadProtection)$', pattern: $MEMBER } }
     out-argument:
         kind: argument
-        has: {regex: '^out$'}
+        has: { regex: '^out$' }
     presence-test:
         any:
             - inside:
-                kind: binary_expression
-                all:
-                    - has: {field: operator, regex: '^(==|!=)$'}
-                    - has: {kind: null_literal}
+                  kind: binary_expression
+                  all:
+                      - has: { field: operator, regex: '^(==|!=)$' }
+                      - has: { kind: null_literal }
             - inside:
-                kind: is_pattern_expression
-                field: expression
-                has: {field: pattern, any: [{kind: constant_pattern, has: {kind: null_literal}}, {kind: recursive_pattern, has: {kind: property_pattern_clause, not: {has: {kind: subpattern}}}}, {kind: negated_pattern, has: {any: [{kind: constant_pattern, has: {kind: null_literal}}, {kind: recursive_pattern, has: {kind: property_pattern_clause, not: {has: {kind: subpattern}}}}]}}]}
+                  kind: is_pattern_expression
+                  field: expression
+                  has:
+                      {
+                          field: pattern,
+                          any:
+                              [
+                                  { kind: constant_pattern, has: { kind: null_literal } },
+                                  { kind: recursive_pattern, has: { kind: property_pattern_clause, not: { has: { kind: subpattern } } } },
+                                  { kind: negated_pattern, has: { any: [{ kind: constant_pattern, has: { kind: null_literal } }, { kind: recursive_pattern, has: { kind: property_pattern_clause, not: { has: { kind: subpattern } } } }] } },
+                              ],
+                      }
 rule:
     kind: invocation_expression
     all:
-        - has: {field: function, matches: protection-callee}
+        - has: { field: function, matches: protection-callee }
         - has:
-            field: arguments
-            has:
-                matches: out-argument
-                has:
-                    any:
-                        - kind: declaration_expression
-                          has: {field: name, pattern: $SILENT}
-                        - kind: identifier, member_access_expression
-                          pattern: $SILENT
-                          not: {inside: {kind: argument, field: name}}
+              field: arguments
+              has:
+                  matches: out-argument
+                  has:
+                      any:
+                          - kind: declaration_expression
+                            has: { field: name, pattern: $SILENT }
+                          - kind: identifier, member_access_expression
+                            pattern: $SILENT
+                            not: { inside: { kind: argument, field: name } }
         - not:
-            any:
-                - inside: {kind: expression_statement}
-                - inside: {kind: assignment_expression, field: right, all: [{has: {field: left, regex: '^_$'}}, {has: {field: operator, regex: '^=$'}}]}
-                - all: [{has: {field: function, kind: conditional_access_expression}}, {matches: presence-test}]
+              any:
+                  - inside: { kind: expression_statement }
+                  - inside: { kind: assignment_expression, field: right, all: [{ has: { field: left, regex: '^_$' } }, { has: { field: operator, regex: '^=$' } }] }
+                  - all: [{ has: { field: function, kind: conditional_access_expression } }, { matches: presence-test }]
         - inside:
-            stopBy: {kind: 'method_declaration, local_function_statement, lambda_expression, anonymous_method_expression, constructor_declaration, operator_declaration, accessor_declaration, property_declaration, field_declaration'}
-            kind: 'method_declaration, local_function_statement, lambda_expression, anonymous_method_expression, constructor_declaration, operator_declaration, accessor_declaration, property_declaration, field_declaration'
-            has:
-                stopBy: end
-                pattern: $SILENT
-                not: {inside: {any: [{kind: declaration_expression}, {matches: out-argument}]}}
+              stopBy: { kind: 'method_declaration, local_function_statement, lambda_expression, anonymous_method_expression, constructor_declaration, operator_declaration, accessor_declaration, property_declaration, field_declaration' }
+              kind: 'method_declaration, local_function_statement, lambda_expression, anonymous_method_expression, constructor_declaration, operator_declaration, accessor_declaration, property_declaration, field_declaration'
+              has:
+                  stopBy: end
+                  pattern: $SILENT
+                  not: { inside: { any: [{ kind: declaration_expression }, { matches: out-argument }] } }
 constraints:
-    SILENT: {not: {regex: '^_$'}}
+    SILENT: { not: { regex: '^_$' } }
 message: '`$MEMBER` result read beside `$SILENT`, an out value the host sets `true` for every `false` result'
 note: 'Write `_ = <call>` and read `<silent>` alone, or pass `out _` and read the result alone'

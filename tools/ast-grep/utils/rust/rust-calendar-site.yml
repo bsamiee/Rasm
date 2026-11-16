@@ -5,41 +5,41 @@ utils:
     divisible-by-four:
         matches:
             rust-divisibility-test:
-                dividend: {pattern: $YEAR}
-                divisor: {kind: integer_literal, regex: '^4(_?[iu](8|16|32|64|128|size))?$'}
+                dividend: { pattern: $YEAR }
+                divisor: { kind: integer_literal, regex: '^4(_?[iu](8|16|32|64|128|size))?$' }
     divisible-by-hundred:
         matches:
             rust-divisibility-test:
-                dividend: {pattern: $YEAR}
-                divisor: {kind: integer_literal, regex: '^100(_?[iu](8|16|32|64|128|size))?$'}
+                dividend: { pattern: $YEAR }
+                divisor: { kind: integer_literal, regex: '^100(_?[iu](8|16|32|64|128|size))?$' }
     four-with-hundred:
         all:
             - matches: divisible-by-four
             - inside:
-                stopBy:
-                    not: &boolean
-                        any:
-                            - kind: parenthesized_expression
-                            - kind: unary_expression
-                              has: {field: operator, regex: '^!$'}
-                            - kind: binary_expression
-                              has: {field: operator, regex: '^(&&|\|\|)$'}
-                kind: binary_expression
-                pattern: $LEAP
-                has: {stopBy: {not: *boolean}, matches: divisible-by-hundred}
+                  stopBy:
+                      not: &boolean
+                          any:
+                              - kind: parenthesized_expression
+                              - kind: unary_expression
+                                has: { field: operator, regex: '^!$' }
+                              - kind: binary_expression
+                                has: { field: operator, regex: '^(&&|\|\|)$' }
+                  kind: binary_expression
+                  pattern: $LEAP
+                  has: { stopBy: { not: *boolean }, matches: divisible-by-hundred }
     leap-rule:
         kind: binary_expression
         all:
-            - has: {field: operator, regex: '^(&&|\|\|)$'}
-            - not: {inside: {stopBy: {not: *boolean}, kind: binary_expression, has: {field: operator, regex: '^(&&|\|\|)$'}}}
+            - has: { field: operator, regex: '^(&&|\|\|)$' }
+            - not: { inside: { stopBy: { not: *boolean }, kind: binary_expression, has: { field: operator, regex: '^(&&|\|\|)$' } } }
             - pattern: $LEAP
-            - has: {stopBy: {not: *boolean}, matches: four-with-hundred}
+            - has: { stopBy: { not: *boolean }, matches: four-with-hundred }
     month-table:
         any:
             - kind: array_expression
               any:
-                - regex: '^\[\p{Pattern_White_Space}*(31\p{XID_Continue}*\p{Pattern_White_Space}*,\p{Pattern_White_Space}*2[89]\p{XID_Continue}*\p{Pattern_White_Space}*,\p{Pattern_White_Space}*31\p{XID_Continue}*\p{Pattern_White_Space}*,\p{Pattern_White_Space}*30|0\p{XID_Continue}*\p{Pattern_White_Space}*,\p{Pattern_White_Space}*31\p{XID_Continue}*\p{Pattern_White_Space}*,\p{Pattern_White_Space}*(59\p{XID_Continue}*\p{Pattern_White_Space}*,\p{Pattern_White_Space}*90|60\p{XID_Continue}*\p{Pattern_White_Space}*,\p{Pattern_White_Space}*91))(?-u:\b)'
-                - regex: '^\[\p{Pattern_White_Space}*4\p{XID_Continue}*\p{Pattern_White_Space}*,\p{Pattern_White_Space}*6\p{XID_Continue}*\p{Pattern_White_Space}*,\p{Pattern_White_Space}*9\p{XID_Continue}*\p{Pattern_White_Space}*,\p{Pattern_White_Space}*11\p{XID_Continue}*\p{Pattern_White_Space}*\]$'
+                  - regex: '^\[\p{Pattern_White_Space}*(31\p{XID_Continue}*\p{Pattern_White_Space}*,\p{Pattern_White_Space}*2[89]\p{XID_Continue}*\p{Pattern_White_Space}*,\p{Pattern_White_Space}*31\p{XID_Continue}*\p{Pattern_White_Space}*,\p{Pattern_White_Space}*30|0\p{XID_Continue}*\p{Pattern_White_Space}*,\p{Pattern_White_Space}*31\p{XID_Continue}*\p{Pattern_White_Space}*,\p{Pattern_White_Space}*(59\p{XID_Continue}*\p{Pattern_White_Space}*,\p{Pattern_White_Space}*90|60\p{XID_Continue}*\p{Pattern_White_Space}*,\p{Pattern_White_Space}*91))(?-u:\b)'
+                  - regex: '^\[\p{Pattern_White_Space}*4\p{XID_Continue}*\p{Pattern_White_Space}*,\p{Pattern_White_Space}*6\p{XID_Continue}*\p{Pattern_White_Space}*,\p{Pattern_White_Space}*9\p{XID_Continue}*\p{Pattern_White_Space}*,\p{Pattern_White_Space}*11\p{XID_Continue}*\p{Pattern_White_Space}*\]$'
             - kind: match_pattern
               regex: '^(4\p{Pattern_White_Space}*\|\p{Pattern_White_Space}*6\p{Pattern_White_Space}*\|\p{Pattern_White_Space}*9\p{Pattern_White_Space}*\|\p{Pattern_White_Space}*11|1\p{Pattern_White_Space}*\|\p{Pattern_White_Space}*3\p{Pattern_White_Space}*\|\p{Pattern_White_Space}*5\p{Pattern_White_Space}*\|\p{Pattern_White_Space}*7\p{Pattern_White_Space}*\|\p{Pattern_White_Space}*8\p{Pattern_White_Space}*\|\p{Pattern_White_Space}*10\p{Pattern_White_Space}*\|\p{Pattern_White_Space}*12)$'
             - kind: binary_expression
@@ -50,44 +50,44 @@ utils:
     duration-argument:
         any:
             - all:
-                - inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, regex: '(^|::)Duration::from_secs$'}}}
-                - has: {stopBy: end, kind: integer_literal, regex: '^3_*6_*0_*0(_?u64)?$'}
+                  - inside: { kind: arguments, inside: { kind: call_expression, has: { field: function, regex: '(^|::)Duration::from_secs$' } } }
+                  - has: { stopBy: end, kind: integer_literal, regex: '^3_*6_*0_*0(_?u64)?$' }
             - all:
-                - inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, regex: '(^|::)Duration::from_millis$'}}}
-                - has: {stopBy: end, kind: integer_literal, regex: '^3_*6_*0_*0_*0_*0_*0(_?u64)?$'}
+                  - inside: { kind: arguments, inside: { kind: call_expression, has: { field: function, regex: '(^|::)Duration::from_millis$' } } }
+                  - has: { stopBy: end, kind: integer_literal, regex: '^3_*6_*0_*0_*0_*0_*0(_?u64)?$' }
     second-count-split:
         all:
             - any:
-                - kind: 'binary_expression, compound_assignment_expr'
-                  all:
-                    - has: {field: operator, regex: '^(/|%|\*)=?$'}
-                    - has: {field: right, matches: second-count}
-                - kind: binary_expression
-                  all:
-                    - has: {field: operator, regex: '^\*$'}
-                    - has: {field: left, matches: second-count}
-                - kind: call_expression
-                  all:
-                    - has: {field: function, kind: field_expression, has: {field: field, regex: &method '^(((checked|saturating|wrapping|strict|overflowing)_)?(mul|div|rem)|(div|rem)_euclid|div_(ceil|floor))$'}}
-                    - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: second-count}, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}
-                - kind: call_expression
-                  all:
-                    - has: {field: function, kind: scoped_identifier, all: [{has: {field: path, regex: '^[iu](8|16|32|64|128|size)$'}}, {has: {field: name, regex: *method}}]}
-                    - has: {field: arguments, has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: second-count}}
-            - not: {matches: duration-argument}
+                  - kind: 'binary_expression, compound_assignment_expr'
+                    all:
+                        - has: { field: operator, regex: '^(/|%|\*)=?$' }
+                        - has: { field: right, matches: second-count }
+                  - kind: binary_expression
+                    all:
+                        - has: { field: operator, regex: '^\*$' }
+                        - has: { field: left, matches: second-count }
+                  - kind: call_expression
+                    all:
+                        - has: { field: function, kind: field_expression, has: { field: field, regex: &method '^(((checked|saturating|wrapping|strict|overflowing)_)?(mul|div|rem)|(div|rem)_euclid|div_(ceil|floor))$' } }
+                        - has: { field: arguments, has: { nthChild: { position: 1, ofRule: { not: { kind: 'line_comment, block_comment' } } }, matches: second-count }, not: { has: { nthChild: { position: 2, ofRule: { not: { kind: 'line_comment, block_comment' } } } } } }
+                  - kind: call_expression
+                    all:
+                        - has: { field: function, kind: scoped_identifier, all: [{ has: { field: path, regex: '^[iu](8|16|32|64|128|size)$' } }, { has: { field: name, regex: *method } }] }
+                        - has: { field: arguments, has: { nthChild: { position: 2, ofRule: { not: { kind: 'line_comment, block_comment' } } }, matches: second-count } }
+            - not: { matches: duration-argument }
     named-count:
         kind: 'const_item, static_item, let_declaration'
-        has: {field: value, matches: second-count}
+        has: { field: value, matches: second-count }
     factor-chain:
         kind: binary_expression
         all:
-            - has: {field: operator, regex: '^[*/%]$'}
+            - has: { field: operator, regex: '^[*/%]$' }
             - regex: '(^|\*\p{Pattern_White_Space}*)(24|60|7)(\.0*)?(_?[iu](8|16|32|64|128|size)|_?f(32|64))?\p{Pattern_White_Space}*\*\p{Pattern_White_Space}*(60|24)(\.0*)?(_?[iu](8|16|32|64|128|size)|_?f(32|64))?(?-u:\b)|/\p{Pattern_White_Space}*60(\.0*)?(_?[iu](8|16|32|64|128|size)|_?f(32|64))?\p{Pattern_White_Space}*[/%]\p{Pattern_White_Space}*(60|24)(\.0*)?(_?[iu](8|16|32|64|128|size)|_?f(32|64))?(?-u:\b)'
-            - not: {inside: {kind: binary_expression, has: {field: operator, regex: '^[*/%]$'}}}
-            - not: {matches: duration-argument}
+            - not: { inside: { kind: binary_expression, has: { field: operator, regex: '^[*/%]$' } } }
+            - not: { matches: duration-argument }
     date-format:
         kind: 'string_literal, raw_string_literal'
-        not: {matches: rust-macro-argument}
+        not: { matches: rust-macro-argument }
         any:
             - regex: '\{\p{XID_Continue}*:0>?4\}[-/.]?\{\p{XID_Continue}*:0>?2\}[-/.]?\{\p{XID_Continue}*:0>?2\}'
             - regex: '\{\p{XID_Continue}*:0>?2\}[-/.]\{\p{XID_Continue}*:0>?2\}[-/.]\{\p{XID_Continue}*:0>?4\}'

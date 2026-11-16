@@ -4,68 +4,68 @@ severity: error
 utils:
     fold:
         kind: navigation_expression
-        has: {field: suffix, has: {field: suffix, regex: '^reduce$'}}
+        has: { field: suffix, has: { field: suffix, regex: '^reduce$' } }
     seed:
         kind: value_argument
         nthChild: 1
-        not: {has: {kind: value_argument_label}}
-        has: {field: value, not: {regex: '^(\[|"|(Array|ContiguousArray|Set|Dictionary|String)(?-u:\b))'}}
+        not: { has: { kind: value_argument_label } }
+        has: { field: value, not: { regex: '^(\[|"|(Array|ContiguousArray|Set|Dictionary|String)(?-u:\b))' } }
     seeded:
         kind: value_arguments
         all:
-            - has: {matches: seed}
-            - not: {has: {kind: value_argument, nthChild: {position: 2, ofRule: {kind: value_argument}}}}
+            - has: { matches: seed }
+            - not: { has: { kind: value_argument, nthChild: { position: 2, ofRule: { kind: value_argument } } } }
     fold-closure:
         kind: lambda_literal
         any:
             - inside:
-                kind: call_suffix
-                all:
-                    - has: {matches: seeded}
-                    - inside: {kind: call_expression, has: {nthChild: 1, matches: fold}}
+                  kind: call_suffix
+                  all:
+                      - has: { matches: seeded }
+                      - inside: { kind: call_expression, has: { nthChild: 1, matches: fold } }
             - inside:
-                kind: call_suffix
-                not: {has: {kind: value_arguments}}
-                inside:
-                    kind: call_expression
-                    has:
-                        nthChild: 1
-                        kind: call_expression
-                        all:
-                            - has: {nthChild: 1, matches: fold}
-                            - has: {kind: call_suffix, has: {matches: seeded}}
+                  kind: call_suffix
+                  not: { has: { kind: value_arguments } }
+                  inside:
+                      kind: call_expression
+                      has:
+                          nthChild: 1
+                          kind: call_expression
+                          all:
+                              - has: { nthChild: 1, matches: fold }
+                              - has: { kind: call_suffix, has: { matches: seeded } }
             - inside:
-                kind: value_argument
-                field: value
-                inside:
-                    kind: value_arguments
-                    has: {matches: seed}
-                    inside: {kind: call_suffix, inside: {kind: call_expression, has: {nthChild: 1, matches: fold}}}
+                  kind: value_argument
+                  field: value
+                  inside:
+                      kind: value_arguments
+                      has: { matches: seed }
+                      inside: { kind: call_suffix, inside: { kind: call_expression, has: { nthChild: 1, matches: fold } } }
     copied:
         kind: additive_expression
         all:
-            - has: {field: op, regex: '^\+$'}
+            - has: { field: op, regex: '^\+$' }
             - any:
-                - all: [{has: {field: lhs, kind: simple_identifier, pattern: $ACC}}, {has: {field: rhs, kind: array_literal}}]
-                - all: [{has: {field: lhs, kind: array_literal}}, {has: {field: rhs, kind: simple_identifier, pattern: $ACC}}]
+                  - all: [{ has: { field: lhs, kind: simple_identifier, pattern: $ACC } }, { has: { field: rhs, kind: array_literal } }]
+                  - all: [{ has: { field: lhs, kind: array_literal } }, { has: { field: rhs, kind: simple_identifier, pattern: $ACC } }]
 rule:
     all:
         - matches: copied
         - any:
-            - inside:
-                stopBy: {matches: swift-function-scope}
-                matches: fold-closure
-                any:
-                    - has: {field: type, has: {kind: lambda_function_type_parameters, has: {kind: lambda_parameter, nthChild: {position: 1, ofRule: {kind: lambda_parameter}}, has: {field: name, pattern: $ACC}}}}
-                    - not: {has: {field: type, kind: lambda_function_type}}
-                      has: {stopBy: {kind: lambda_literal}, kind: simple_identifier, pattern: $ACC, regex: '^\$0$'}
-            - has: {field: lhs, kind: array_literal}
-              inside:
-                kind: assignment
-                field: result
-                all:
-                    - has: {field: operator, regex: '^=$'}
-                    - has: {field: target, has: {pattern: $ACC}}
-                    - inside: {stopBy: {matches: swift-function-scope}, kind: 'for_statement, while_statement, repeat_while_statement'}
+              - inside:
+                    stopBy: { matches: swift-function-scope }
+                    matches: fold-closure
+                    any:
+                        - has: { field: type, has: { kind: lambda_function_type_parameters, has: { kind: lambda_parameter, nthChild: { position: 1, ofRule: { kind: lambda_parameter } }, has: { field: name, pattern: $ACC } } } }
+                        - not: { has: { field: type, kind: lambda_function_type } }
+                          has: { stopBy: { kind: lambda_literal }, kind: simple_identifier, pattern: $ACC, regex: '^\$0$' }
+              - has: { field: lhs, kind: array_literal }
+                inside:
+                    kind: assignment
+                    field: result
+                    all:
+                        - has: { field: operator, regex: '^=$' }
+                        - has: { field: target, has: { pattern: $ACC } }
+                        - inside: { stopBy: { matches: swift-function-scope }, kind: 'for_statement, while_statement, repeat_while_statement' }
 message: 'Each pass copies `$ACC` whole to add elements, quadratic in input length'
 note: 'Append in `reduce(into:)` or to a loop buffer (reversed once for a prepend), or derive the elements in one `map`, `flatMap`, or `compactMap`'

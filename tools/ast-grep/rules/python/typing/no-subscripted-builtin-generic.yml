@@ -8,7 +8,7 @@ rule:
             value:
                 pattern: $G
                 any:
-                    - matches: {python-builtin-name: {name: {regex: '^(classmethod|memoryview|slice|staticmethod)$'}}}
-                    - matches: {python-member-use: {module: {regex: '^(_?(abc|ctypes|sqlite3)|types)$'}, name: {regex: '^(abstractclassmethod|abstractstaticmethod|py_object|Binary|UnionType)$'}}}
-message: '`$G` has no `__class_getitem__` on Blender''s Python 3.13 and raises `TypeError` when subscripted'
+                    - matches: { python-builtin-name: { name: { regex: '^(classmethod|memoryview|slice|staticmethod)$' } } }
+                    - matches: { python-member-use: { module: { regex: '^(_?(abc|ctypes|sqlite3)|types)$' }, name: { regex: '^(abstractclassmethod|abstractstaticmethod|py_object|Binary|UnionType)$' } } }
+message: "`$G` has no `__class_getitem__` on Blender's Python 3.13 and raises `TypeError` when subscripted"
 note: 'Write `<a> | <b>` for `types.UnionType`, annotate `slice` unsubscripted, or quote the subscripted annotation'

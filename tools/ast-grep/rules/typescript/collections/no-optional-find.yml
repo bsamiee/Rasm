@@ -7,30 +7,30 @@ utils:
         any:
             - kind: object, array, string, template_string, number, regex
             - matches: typescript-expression-wrapper
-              has: {nthChild: {position: 1, ofRule: &code {not: {kind: 'comment, html_comment'}}}, matches: uncallable}
+              has: { nthChild: { position: 1, ofRule: &code { not: { kind: 'comment, html_comment' } } }, matches: uncallable }
     query:
         any:
             - matches: uncallable
             - kind: identifier
               pattern: $QUERY
               inside:
-                stopBy: end
-                kind: statement_block, program
-                has:
-                    stopBy: {not: {kind: 'lexical_declaration, export_statement'}}
-                    kind: variable_declarator
-                    all: [{has: {field: name, pattern: $QUERY}}, {has: {field: value, matches: uncallable}}]
+                  stopBy: end
+                  kind: statement_block, program
+                  has:
+                      stopBy: { not: { kind: 'lexical_declaration, export_statement' } }
+                      kind: variable_declarator
+                      all: [{ has: { field: name, pattern: $QUERY } }, { has: { field: value, matches: uncallable } }]
 rule:
     kind: member_expression, subscript_expression
     all:
-        - has: {kind: optional_chain}
+        - has: { kind: optional_chain }
         - has:
-            field: object
-            kind: call_expression
-            pattern: $FIND
-            all:
-                - has: {field: function, kind: member_expression, has: {field: property, regex: '^(find|findLast)$'}}
-                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: *code}, not: {matches: query}}, not: {has: {nthChild: {position: 2, ofRule: *code}}}}
-                - not: {has: {field: function, has: {field: object, matches: effect-namespace}}}
+              field: object
+              kind: call_expression
+              pattern: $FIND
+              all:
+                  - has: { field: function, kind: member_expression, has: { field: property, regex: '^(find|findLast)$' } }
+                  - has: { field: arguments, has: { nthChild: { position: 1, ofRule: *code }, not: { matches: query } }, not: { has: { nthChild: { position: 2, ofRule: *code } } } }
+                  - not: { has: { field: function, has: { field: object, matches: effect-namespace } } }
 message: '`$FIND` reads an absent element as `undefined` through optional chaining'
 note: 'Map `Array.findFirst(<list>, <predicate>)` or `Array.findLast` through `Option.map` and fold absence once'

@@ -3,14 +3,17 @@
     "version": "0.1.0",
     "private": true,
     "description": "Accessible interface controls for web apps",
+    "license": "MIT",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/bsamiee/Rasm.git",
         "directory": "libs/typescript/web/ui"
     },
-    "license": "MIT",
-    "sideEffects": false,
+    "files": [
+        "dist"
+    ],
     "type": "module",
+    "sideEffects": false,
     "imports": {
         "#/*": "./*.ts",
         "#/*.tsx": "./*.tsx"
@@ -18,7 +21,16 @@
     "exports": {
         ".": "./index.ts"
     },
-    "files": [ "dist" ],
+    "publishConfig": {
+        "imports": {
+            "#/*": "./dist/*.js",
+            "#/*.tsx": "./dist/*.js"
+        },
+        "exports": {
+            ".": "./dist/index.js"
+        },
+        "access": "public"
+    },
     "dependencies": {
         "lucide-react": "catalog:"
     },
@@ -46,15 +58,5 @@
         "effect": "catalog:peers",
         "react": "catalog:peers",
         "react-aria-components": "catalog:peers"
-    },
-    "publishConfig": {
-        "access": "public",
-        "exports": {
-            ".": "./dist/index.js"
-        },
-        "imports": {
-            "#/*": "./dist/*.js",
-            "#/*.tsx": "./dist/*.js"
-        }
     }
 }

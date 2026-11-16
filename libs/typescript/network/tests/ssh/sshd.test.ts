@@ -82,7 +82,7 @@ it.layer(Sshd.layer(), { timeout: bounds.started, excludeTestServices: true })('
             assert.deepStrictEqual(first, [near.name]);
             assert.deepStrictEqual(stopped, [far.name, [far.name]]);
             assert.deepStrictEqual(resumed, [far.name]);
-            assert.deepStrictEqual(flips.flat(2), [far.name, near.name, far.name, near.name]);
+            assert.deepStrictEqual(Array.flatMap(flips, Array.flatten), [far.name, near.name, far.name, near.name]);
         }),
         bounds.test,
     );

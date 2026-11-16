@@ -204,8 +204,11 @@ const declared = (documented: ReadonlyMap<string, unknown>, root: string, checke
     };
 };
 
+const line = (argv: readonly string[]) => argv.map(quoteShellArg).join(' ');
+
+const joined = (held: Readonly<Record<string, TargetConfiguration>>, added: Readonly<Record<string, TargetConfiguration>>) => ({ ...held, ...added });
+
 const targets = (member: Member, { outputPath, coveragePath }: typeof Options.Type, manifest: Readonly<Record<string, Pick<TargetConfiguration, 'inputs'>>>): Record<string, TargetConfiguration> => {
-    const line = (argv: readonly string[]) => argv.map(quoteShellArg).join(' ');
     const named = (template: string) => template.replaceAll('{projectName}', member.name);
     const root = member.root === member.workspace;
     const distributions = Option.map(Option.fromUndefinedOr(outputPath), named);
@@ -298,7 +301,6 @@ const targets = (member: Member, { outputPath, coveragePath }: typeof Options.Ty
               },
           }
         : {};
-    const joined = (held: Readonly<Record<string, TargetConfiguration>>, added: Readonly<Record<string, TargetConfiguration>>) => ({ ...held, ...added });
     const tools: Verbs = pipe(
         Array.groupBy(checked, ({ verb }): string => verb),
         Record.map(Record.fromIterableWith(({ key, target }) => [key, target] as const)),

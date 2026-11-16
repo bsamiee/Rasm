@@ -5,9 +5,9 @@ rule:
     kind: if_expression
     matches:
         rust-repeated-else:
-            outer: {pattern: $_}
-            inner: {pattern: $B}
-            then: {pattern: $_}
-            fallback: {pattern: $_}
+            outer: { pattern: $_ }
+            inner: { pattern: $B }
+            then: { pattern: $_ }
+            fallback: { pattern: $_ }
 message: 'Nested `if $B` repeats the outer `else` block'
 note: 'Join the conditions in one chain, `if <outer> && <inner> { <body> } else { <fallback> }`'

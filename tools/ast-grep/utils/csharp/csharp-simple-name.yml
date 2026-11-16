@@ -7,4 +7,4 @@ rule:
         - kind: identifier
           matches: name
         - kind: generic_name
-          has: {kind: identifier, matches: name}
+          has: { kind: identifier, matches: name }

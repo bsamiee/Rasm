@@ -3,72 +3,72 @@ language: pythonlang
 severity: error
 utils:
     rejection:
-        matches: {python-builtin-name: {name: {regex: '^(TypeError|ValueError|AttributeError|KeyError|IndexError|LookupError|OverflowError|RuntimeError)$'}}}
+        matches: { python-builtin-name: { name: { regex: '^(TypeError|ValueError|AttributeError|KeyError|IndexError|LookupError|OverflowError|RuntimeError)$' } } }
     caught-type:
         any:
             - matches: rejection
             - kind: 'tuple, parenthesized_expression'
-              has: {matches: caught-type}
+              has: { matches: caught-type }
             - kind: as_pattern
-              has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: caught-type}
+              has: { nthChild: { position: 1, ofRule: { not: { kind: comment } } }, matches: caught-type }
     written-value:
         any:
             - kind: 'identifier, integer, float, true, false, none'
             - matches: python-plain-string
             - kind: 'attribute, unary_operator, tuple, list'
-              not: {has: {stopBy: end, kind: 'call, subscript, interpolation, binary_operator, await'}}
+              not: { has: { stopBy: end, kind: 'call, subscript, interpolation, binary_operator, await' } }
     held-path:
         kind: 'identifier, attribute'
-        not: {has: {stopBy: end, kind: 'call, subscript'}}
+        not: { has: { stopBy: end, kind: 'call, subscript' } }
     target:
         any:
             - kind: attribute
-              has: {field: object, matches: held-path}
+              has: { field: object, matches: held-path }
             - kind: subscript
               all:
-                - has: {field: value, matches: held-path}
-                - has: {field: subscript, matches: written-value}
+                  - has: { field: value, matches: held-path }
+                  - has: { field: subscript, matches: written-value }
     member-write:
         kind: expression_statement
         any:
             - has:
-                kind: assignment
-                all:
-                    - has: {field: left, matches: target}
-                    - has: {field: right, matches: written-value}
+                  kind: assignment
+                  all:
+                      - has: { field: left, matches: target }
+                      - has: { field: right, matches: written-value }
             - has:
-                kind: call
-                all:
-                    - has: {field: function, matches: {python-builtin-name: {name: {regex: '^setattr$'}}}}
-                    - has: {field: arguments, has: {nthChild: {position: 3, ofRule: {not: {kind: comment}}}, matches: written-value}}
+                  kind: call
+                  all:
+                      - has: { field: function, matches: { python-builtin-name: { name: { regex: '^setattr$' } } } }
+                      - has: { field: arguments, has: { nthChild: { position: 3, ofRule: { not: { kind: comment } } }, matches: written-value } }
     exit:
         any:
             - kind: 'break_statement, continue_statement, pass_statement, comment'
             - kind: return_statement
-              not: {has: {pattern: $_, not: {matches: written-value}}}
+              not: { has: { pattern: $_, not: { matches: written-value } } }
     write-block:
         kind: block
         all:
-            - has: {matches: member-write, pattern: $WRITE}
-            - not: {has: {not: {any: [{matches: member-write}, {matches: exit}]}}}
+            - has: { matches: member-write, pattern: $WRITE }
+            - not: { has: { not: { any: [{ matches: member-write }, { matches: exit }] } } }
     swallowing-handler:
         kind: except_clause
         all:
-            - has: {field: value, matches: caught-type}
-            - not: {has: {kind: block, has: {stopBy: end, kind: raise_statement}}}
+            - has: { field: value, matches: caught-type }
+            - not: { has: { kind: block, has: { stopBy: end, kind: raise_statement } } }
             - not:
-                has:
-                    kind: block
-                    has: {kind: 'pass_statement, continue_statement'}
-                    not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+                  has:
+                      kind: block
+                      has: { kind: 'pass_statement, continue_statement' }
+                      not: { has: { nthChild: { position: 2, ofRule: { not: { kind: comment } } } } }
             - not:
-                all:
-                    - has: {field: value, kind: as_pattern, has: {field: alias, has: {kind: identifier, pattern: $ERROR}}}
-                    - has: {kind: block, has: {stopBy: end, kind: identifier, pattern: $ERROR}}
+                  all:
+                      - has: { field: value, kind: as_pattern, has: { field: alias, has: { kind: identifier, pattern: $ERROR } } }
+                      - has: { kind: block, has: { stopBy: end, kind: identifier, pattern: $ERROR } }
 rule:
     kind: try_statement
     all:
-        - has: {field: body, matches: write-block}
-        - has: {matches: swallowing-handler}
+        - has: { field: body, matches: write-block }
+        - has: { matches: swallowing-handler }
 message: '`try` around `$WRITE` discards the error a rejected value raises'
 note: 'Validate values at construction, or return the caught error as a typed failure holding it as cause'

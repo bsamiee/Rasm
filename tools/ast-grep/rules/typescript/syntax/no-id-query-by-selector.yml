@@ -5,28 +5,28 @@ rule:
     kind: call_expression
     pattern: $CALL
     all:
-        - not: {has: {field: type_arguments, kind: type_arguments, not: {regex: '^<HTMLElement>$'}}}
+        - not: { has: { field: type_arguments, kind: type_arguments, not: { regex: '^<HTMLElement>$' } } }
         - has:
-            field: function
-            kind: member_expression
-            all:
-                - has: {field: property, regex: '^querySelector$'}
-                - has: {field: object, regex: '(^|\.)document$', matches: typescript-global-member}
+              field: function
+              kind: member_expression
+              all:
+                  - has: { field: property, regex: '^querySelector$' }
+                  - has: { field: object, regex: '(^|\.)document$', matches: typescript-global-member }
         - has:
-            field: arguments
-            all:
-                - not: {has: {nthChild: {position: 2, ofRule: &code {not: {kind: 'comment, html_comment'}}}}}
-                - has:
-                    nthChild: {position: 1, ofRule: *code}
-                    any:
-                        - pattern: '`#${$CSS.escape($ID)}`'
-                        - pattern: "'#' + $CSS.escape($ID)"
-                        - pattern: '"#" + $CSS.escape($ID)'
+              field: arguments
+              all:
+                  - not: { has: { nthChild: { position: 2, ofRule: &code { not: { kind: 'comment, html_comment' } } } } }
+                  - has:
+                        nthChild: { position: 1, ofRule: *code }
+                        any:
+                            - pattern: '`#${$CSS.escape($ID)}`'
+                            - pattern: "'#' + $CSS.escape($ID)"
+                            - pattern: '"#" + $CSS.escape($ID)'
 constraints:
-    CSS: {regex: '(^|\.)CSS$', matches: typescript-global-member}
+    CSS: { regex: '(^|\.)CSS$', matches: typescript-global-member }
     ID:
         kind: string, template_string
-        has: {kind: string_fragment, regex: '^[^\x00]+$'}
-        not: {has: {kind: 'escape_sequence, template_substitution'}}
+        has: { kind: string_fragment, regex: '^[^\x00]+$' }
+        not: { has: { kind: 'escape_sequence, template_substitution' } }
 message: '`$CALL` finds one element through a selector built from an id'
 note: 'Call `getElementById(<id>)` on the same document with id unescaped'

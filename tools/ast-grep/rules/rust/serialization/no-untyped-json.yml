@@ -5,66 +5,75 @@ utils:
     json-macro:
         kind: macro_invocation
         all:
-            - has: {field: macro, regex: '^((::)?serde_json::)?json$'}
-            - has: {kind: token_tree, has: {stopBy: end, kind: token_tree, regex: '^\{', has: {kind: string_literal, precedes: {regex: '^:$'}}}}
+            - has: { field: macro, regex: '^((::)?serde_json::)?json$' }
+            - has: { kind: token_tree, has: { stopBy: end, kind: token_tree, regex: '^\{', has: { kind: string_literal, precedes: { regex: '^:$' } } } }
     json-format:
         kind: macro_invocation
         all:
-            - matches: {rust-std-macro: {name: {regex: '^(format|format_args|write|writeln|print|println|eprint|eprintln)$'}}}
-            - has: {kind: token_tree, has: {kind: 'string_literal, raw_string_literal', regex: '\{\{\p{Pattern_White_Space}*(\\"[^"\\]+\\"|"[^"]+")\p{Pattern_White_Space}*:'}}
+            - matches: { rust-std-macro: { name: { regex: '^(format|format_args|write|writeln|print|println|eprint|eprintln)$' } } }
+            - has: { kind: token_tree, has: { kind: 'string_literal, raw_string_literal', regex: '\{\{\p{Pattern_White_Space}*(\\"[^"\\]+\\"|"[^"]+")\p{Pattern_White_Space}*:' } }
     key-literal:
         any:
             - kind: string_literal
             - kind: call_expression
               all:
-                - has: {field: function, regex: '^((::)?(std::)?(string::)?)?String::from$'}
-                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: string_literal}}
+                  - has: { field: function, regex: '^((::)?(std::)?(string::)?)?String::from$' }
+                  - has: { field: arguments, has: { nthChild: { position: 1, ofRule: { not: { kind: 'line_comment, block_comment' } } }, kind: string_literal } }
             - kind: call_expression
               all:
-                - has: {field: function, kind: field_expression, all: [{has: {field: value, kind: string_literal}}, {has: {field: field, regex: '^(to_owned|to_string|into)$'}}]}
-                - has: {field: arguments, regex: '^\(\p{Pattern_White_Space}*\)$'}
+                  - has: { field: function, kind: field_expression, all: [{ has: { field: value, kind: string_literal } }, { has: { field: field, regex: '^(to_owned|to_string|into)$' } }] }
+                  - has: { field: arguments, regex: '^\(\p{Pattern_White_Space}*\)$' }
     json-value:
         any:
             - kind: scoped_identifier
               regex: '^((::)?serde_json::)?Value::Null$'
             - kind: call_expression
-              has: {field: function, regex: '^((::)?serde_json::)?(Value::(Bool|Number|String|Array|Object|from)|to_value)$'}
+              has: { field: function, regex: '^((::)?serde_json::)?(Value::(Bool|Number|String|Array|Object|from)|to_value)$' }
             - kind: try_expression
-              has: {kind: call_expression, has: {field: function, regex: '^((::)?serde_json::)?to_value$'}}
+              has: { kind: call_expression, has: { field: function, regex: '^((::)?serde_json::)?to_value$' } }
             - kind: macro_invocation
-              has: {field: macro, regex: '^((::)?serde_json::)?json$'}
+              has: { field: macro, regex: '^((::)?serde_json::)?json$' }
     keyed-entry:
         kind: tuple_expression
         all:
-            - has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: key-literal}
-            - has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: json-value}
-            - not: {has: {nthChild: {position: 3, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}
-            - inside: {kind: array_expression}
+            - has: { nthChild: { position: 1, ofRule: { not: { kind: 'line_comment, block_comment' } } }, matches: key-literal }
+            - has: { nthChild: { position: 2, ofRule: { not: { kind: 'line_comment, block_comment' } } }, matches: json-value }
+            - not: { has: { nthChild: { position: 3, ofRule: { not: { kind: 'line_comment, block_comment' } } } } }
+            - inside: { kind: array_expression }
     keyed-insert:
         kind: call_expression
         all:
-            - has: {field: function, kind: field_expression, has: {field: field, regex: '^insert$'}}
-            - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: key-literal}}, {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: json-value}}, {not: {has: {nthChild: {position: 3, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}]}
+            - has: { field: function, kind: field_expression, has: { field: field, regex: '^insert$' } }
+            - has:
+                  {
+                      field: arguments,
+                      all:
+                          [
+                              { has: { nthChild: { position: 1, ofRule: { not: { kind: 'line_comment, block_comment' } } }, matches: key-literal } },
+                              { has: { nthChild: { position: 2, ofRule: { not: { kind: 'line_comment, block_comment' } } }, matches: json-value } },
+                              { not: { has: { nthChild: { position: 3, ofRule: { not: { kind: 'line_comment, block_comment' } } } } } },
+                          ],
+                  }
     json-text:
         kind: string_literal
         regex: '^"\{\p{Pattern_White_Space}*\\"[^"\\]+\\"\p{Pattern_White_Space}*:'
         any:
-            - inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, regex: '(^|::|\.)(from|push_str|write_str)$'}}}
-            - inside: {field: value, kind: field_expression, has: {field: field, regex: '^(to_owned|to_string|into)$'}}
-            - inside: {kind: binary_expression, has: {field: operator, regex: '^\+$'}}
+            - inside: { kind: arguments, inside: { kind: call_expression, has: { field: function, regex: '(^|::|\.)(from|push_str|write_str)$' } } }
+            - inside: { field: value, kind: field_expression, has: { field: field, regex: '^(to_owned|to_string|into)$' } }
+            - inside: { kind: binary_expression, has: { field: operator, regex: '^\+$' } }
 rule:
     all:
         - any:
-            - all:
-                - any: [{matches: json-macro}, {matches: json-format}]
-                - not: {has: {stopBy: end, matches: rust-geometry-format-text}}
-            - matches: keyed-entry
-            - matches: keyed-insert
-            - matches: json-text
-              not: {matches: rust-geometry-format-text}
-        - not: {matches: rust-test-scope}
+              - all:
+                    - any: [{ matches: json-macro }, { matches: json-format }]
+                    - not: { has: { stopBy: end, matches: rust-geometry-format-text } }
+              - matches: keyed-entry
+              - matches: keyed-insert
+              - matches: json-text
+                not: { matches: rust-geometry-format-text }
+        - not: { matches: rust-test-scope }
         - pattern: $DOCUMENT
 transform:
-    HEAD: {replace: {source: $DOCUMENT, replace: '(?s)\n.*$', by: ''}}
+    HEAD: { replace: { source: $DOCUMENT, replace: '(?s)\n.*$', by: '' } }
 message: '`$HEAD` builds a JSON document as text or a string-keyed value with no declared type'
 note: 'Declare a `#[derive(Serialize, Deserialize, JsonSchema)]` record per document and write it through `serde_json`'

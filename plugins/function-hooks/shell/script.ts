@@ -2,11 +2,15 @@ import { Array, Equal, Equivalence, Match, Option, Predicate, Result, Schema, St
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Node = { readonly Pos: Offset; readonly End: Offset; readonly Semicolon?: Offset } & { readonly [Key in 'Type' | 'Op' | 'Value']?: string } & { readonly [Key in 'Dollar' | 'Background' | 'TempFile' | 'ReplyVar']?: boolean } & {
-    readonly [Key in 'Cmd' | 'X' | 'Y' | 'Else' | 'Loop' | 'Body' | 'Word' | 'Hdoc' | 'N' | 'Name' | 'Param']?: Node;
-} & {
-    readonly [Key in 'Stmts' | 'Parts' | 'Redirs' | 'Cond' | 'Then' | 'Do' | 'Items' | 'Patterns']?: readonly Node[];
-} & { readonly [Key in 'Args' | 'Assigns']?: readonly Assign[] };
+interface Node
+    extends
+        Readonly<Record<'Pos' | 'End', Offset>>,
+        Readonly<Partial<Record<'Semicolon', Offset>>>,
+        Readonly<Partial<Record<'Type' | 'Op' | 'Value', string>>>,
+        Readonly<Partial<Record<'Dollar' | 'Background' | 'TempFile' | 'ReplyVar', boolean>>>,
+        Readonly<Partial<Record<'Cmd' | 'X' | 'Y' | 'Else' | 'Loop' | 'Body' | 'Word' | 'Hdoc' | 'N' | 'Name' | 'Param', Node>>>,
+        Readonly<Partial<Record<'Stmts' | 'Parts' | 'Redirs' | 'Cond' | 'Then' | 'Do' | 'Items' | 'Patterns', readonly Node[]>>>,
+        Readonly<Partial<Record<'Args' | 'Assigns', readonly Assign[]>>> {}
 interface Assign extends Pick<Node, 'Pos' | 'End' | 'Parts' | 'Name'> {
     readonly Value?: Node;
     readonly Array?: unknown;
@@ -74,7 +78,7 @@ const PWD = 'PWD';
 const REFERENCE = /(?<=\$\{?)[A-Za-z_]\w*/gu;
 const DECODER = new TextDecoder();
 const ANSI_ESCAPE = /\\(?:(?<code>[abeEfnrtv\\'"?])|(?<octal>[0-7]{1,3})|x(?<hex>[\da-fA-F]{1,2})|[uU](?<wide>[\da-fA-F]{1,8}))/gu;
-const ANSI_CODES = { a: '\x07', b: '\b', e: '\x1B', E: '\x1B', f: '\f', n: '\n', r: '\r', t: '\t', v: '\v', '\\': '\\', "'": "'", '"': '"', '?': '?' } as const;
+const ANSI_CODES = { a: '\u0007', b: '\b', e: '\u001B', E: '\u001B', f: '\f', n: '\n', r: '\r', t: '\t', v: '\v', '\\': '\\', "'": "'", '"': '"', '?': '?' } as const;
 const UNQUOTED_ESCAPE = /\\(?:\n|(?<code>[\s\S]))/gu;
 const QUOTED_ESCAPE = /\\(?:\n|(?<code>["\\$`]))/gu;
 const CHARACTER = /[\s\S]/gu;
@@ -179,7 +183,7 @@ const slicedWord = (word: Word, at: number): Option.Option<Word> => {
             const before = part.text.slice(0, left);
             const after = part.text.slice(left);
             const { name, offset, length } = part.parameter;
-            const consumed = [...before].length;
+            const consumed = Array.fromIterable(before).length;
             const next = offset + consumed;
             return [
                 [{ ...part, raw: `\${${name}:${offset}:${consumed}}`, text: before, glob: part.quote === undefined && GLOB.test(before), spread: part.quote === undefined && SPREADS.test(before), parameter: { name, offset, length: consumed } }],
@@ -210,7 +214,7 @@ const fields = (word: Word): readonly Word[] => {
     const matches = [...word.text.matchAll(FIELD)];
     const parts = matches.map((match): Part => {
         const [text] = match;
-        const parameter = { name: splitting.parameter.name, offset: splitting.parameter.offset + [...word.text.slice(0, match.index)].length, length: [...text].length };
+        const parameter = { name: splitting.parameter.name, offset: splitting.parameter.offset + Array.fromIterable(word.text.slice(0, match.index)).length, length: Array.fromIterable(text).length };
         const raw = `\${${parameter.name}:${parameter.offset}:${parameter.length}}`;
         return { ...splitting, raw, text, glob: GLOB.test(text), spread: false, parameter };
     });

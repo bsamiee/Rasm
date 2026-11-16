@@ -5,10 +5,10 @@ utils:
     closed:
         kind: class_declaration, record_declaration
         all:
-            - has: {kind: modifier, regex: '^abstract$'}
+            - has: { kind: modifier, regex: '^abstract$' }
             - any:
-                - has: {kind: declaration_list, has: {kind: constructor_declaration, has: {kind: modifier, regex: '^private$'}}}
-                - has: {kind: modifier, regex: '^partial$'}
+                  - has: { kind: declaration_list, has: { kind: constructor_declaration, has: { kind: modifier, regex: '^private$' } } }
+                  - has: { kind: modifier, regex: '^partial$' }
     member-union:
         kind: class_declaration, struct_declaration
         has:
@@ -19,38 +19,38 @@ utils:
                     field: name
                     kind: generic_name
                     all:
-                        - has: {kind: identifier, regex: '^Union$'}
-                        - has: {kind: type_argument_list, has: {pattern: {context: 'class $NAME;', selector: identifier}}}
+                        - has: { kind: identifier, regex: '^Union$' }
+                        - has: { kind: type_argument_list, has: { pattern: { context: 'class $NAME;', selector: identifier } } }
 rule:
     kind: class_declaration, record_declaration, struct_declaration, interface_declaration, enum_declaration, delegate_declaration
     all:
-        - has: {field: name, pattern: {context: 'class $NAME;', selector: identifier}}
-        - has: {kind: modifier, regex: '^(public|protected)$', pattern: $ACCESS}
-        - not: {has: {kind: modifier, regex: '^private$'}}
+        - has: { field: name, pattern: { context: 'class $NAME;', selector: identifier } }
+        - has: { kind: modifier, regex: '^(public|protected)$', pattern: $ACCESS }
+        - not: { has: { kind: modifier, regex: '^private$' } }
         - inside:
-            kind: declaration_list
-            stopBy: {not: {kind: 'preproc_if, preproc_elif, preproc_else'}}
-            inside:
-                kind: class_declaration, record_declaration, struct_declaration, interface_declaration
-                has: {field: name, pattern: {context: 'class $OWNER;', selector: identifier}}
-                not: {any: [{matches: {thinktecture-union: {name: {pattern: $_}}}}, {matches: member-union}]}
+              kind: declaration_list
+              stopBy: { not: { kind: 'preproc_if, preproc_elif, preproc_else' } }
+              inside:
+                  kind: class_declaration, record_declaration, struct_declaration, interface_declaration
+                  has: { field: name, pattern: { context: 'class $OWNER;', selector: identifier } }
+                  not: { any: [{ matches: { thinktecture-union: { name: { pattern: $_ } } } }, { matches: member-union }] }
         - not:
-            all:
-                - inside:
-                    kind: declaration_list
-                    stopBy: {not: {kind: 'preproc_if, preproc_elif, preproc_else'}}
-                    inside: {matches: closed}
-                - any:
-                    - has: {kind: base_list, has: {stopBy: end, pattern: $OWNER}}
-                    - all:
-                        - has: {kind: base_list, has: {stopBy: end, pattern: {context: 'class $BASE;', selector: identifier}}}
-                        - inside:
-                            kind: declaration_list
-                            stopBy: {not: {kind: 'preproc_if, preproc_elif, preproc_else'}}
-                            has:
-                                matches: closed
-                                all:
-                                    - has: {field: name, pattern: {context: 'class $BASE;', selector: identifier}}
-                                    - has: {kind: base_list, has: {stopBy: end, pattern: $OWNER}}
+              all:
+                  - inside:
+                        kind: declaration_list
+                        stopBy: { not: { kind: 'preproc_if, preproc_elif, preproc_else' } }
+                        inside: { matches: closed }
+                  - any:
+                        - has: { kind: base_list, has: { stopBy: end, pattern: $OWNER } }
+                        - all:
+                              - has: { kind: base_list, has: { stopBy: end, pattern: { context: 'class $BASE;', selector: identifier } } }
+                              - inside:
+                                    kind: declaration_list
+                                    stopBy: { not: { kind: 'preproc_if, preproc_elif, preproc_else' } }
+                                    has:
+                                        matches: closed
+                                        all:
+                                            - has: { field: name, pattern: { context: 'class $BASE;', selector: identifier } }
+                                            - has: { kind: base_list, has: { stopBy: end, pattern: $OWNER } }
 message: '`$ACCESS` type `$NAME` nests inside `$OWNER`'
 note: 'Declare the type at file level, union cases stay nested in their base'

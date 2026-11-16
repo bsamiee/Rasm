@@ -4,36 +4,36 @@ severity: error
 utils:
     text:
         kind: string, concatenated_string
-        not: {regex: '^[rRuU]?[bB]'}
+        not: { regex: '^[rRuU]?[bB]' }
     data:
         kind: string, concatenated_string
         regex: '^[rR]?[bB]'
     homogeneous:
         any:
-            - not: {has: {pattern: $_, not: {matches: text}}}
-            - not: {has: {pattern: $_, not: {matches: data}}}
-            - not: {has: {pattern: $_, not: {kind: 'integer, float, unary_operator'}}}
-            - not: {has: {pattern: $_, not: {kind: 'tuple, list'}}}
-            - not: {has: {pattern: $_, not: {kind: identifier}}}
-            - not: {has: {pattern: $_, not: {kind: attribute}}}
-            - not: {has: {pattern: $_, not: {kind: 'true, false'}}}
+            - not: { has: { pattern: $_, not: { matches: text } } }
+            - not: { has: { pattern: $_, not: { matches: data } } }
+            - not: { has: { pattern: $_, not: { kind: 'integer, float, unary_operator' } } }
+            - not: { has: { pattern: $_, not: { kind: 'tuple, list' } } }
+            - not: { has: { pattern: $_, not: { kind: identifier } } }
+            - not: { has: { pattern: $_, not: { kind: attribute } } }
+            - not: { has: { pattern: $_, not: { kind: 'true, false' } } }
             - all:
-                - has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, kind: call, has: {field: function, pattern: $CALLEE}}
-                - not: {has: {pattern: $_, not: {kind: call, has: {field: function, pattern: $CALLEE}}}}
+                  - has: { nthChild: { position: 1, ofRule: { not: { kind: comment } } }, kind: call, has: { field: function, pattern: $CALLEE } }
+                  - not: { has: { pattern: $_, not: { kind: call, has: { field: function, pattern: $CALLEE } } } }
 rule:
     kind: assignment
     pattern: $MEMBER
     all:
-        - has: {field: left, kind: identifier, not: {regex: '^_'}}
-        - has: {field: right, kind: 'tuple, list, expression_list', has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}, not: {matches: homogeneous}}
+        - has: { field: left, kind: identifier, not: { regex: '^_' } }
+        - has: { field: right, kind: 'tuple, list, expression_list', has: { nthChild: { position: 2, ofRule: { not: { kind: comment } } } }, not: { matches: homogeneous } }
         - inside:
-            kind: expression_statement
-            inside:
-                kind: block
-                inside:
-                    kind: class_definition
-                    all:
-                        - has: {field: superclasses, has: {matches: enum-base}}
-                        - not: {has: {field: body, has: {kind: function_definition, has: {field: name, pattern: __init__}}}}
+              kind: expression_statement
+              inside:
+                  kind: block
+                  inside:
+                      kind: class_definition
+                      all:
+                          - has: { field: superclasses, has: { matches: enum-base } }
+                          - not: { has: { field: body, has: { kind: function_definition, has: { field: name, pattern: __init__ } } } }
 message: '`$MEMBER` packs mixed-kind values into one enum tuple read by position'
 note: 'Hold each value as a frozen record and read its parts by field name'

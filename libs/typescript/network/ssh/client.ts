@@ -29,7 +29,6 @@ class SshError extends Schema.TaggedError<SshError, { readonly brand: unique sym
 class Ssh extends Context.Service<Ssh>()('@rasm/ssh/client/Ssh', {
     make: Effect.fnUntraced(function* (folder: string) {
         const [spawner, fs, path, root] = yield* Effect.all([ChildProcessSpawner.ChildProcessSpawner, FileSystem.FileSystem, Path.Path, Schema.decodeEffect(Line)(folder)]);
-        const commanded = (words: Array.NonEmptyReadonlyArray<string>, options?: ChildProcess.CommandOptions) => ChildProcess.make(Array.headNonEmpty(words), Array.tailNonEmpty(words), { extendEnv: true, ...options });
         const started = (words: Array.NonEmptyReadonlyArray<string>, options?: ChildProcess.CommandOptions) => spawner.spawn(commanded(words, options));
         const captured = (words: Array.NonEmptyReadonlyArray<string>, options?: ChildProcess.CommandOptions) => Effect.provideService(run(words, { extendEnv: true, ...options }), ChildProcessSpawner.ChildProcessSpawner, spawner);
         const checked = (host: Host) =>
@@ -91,6 +90,10 @@ class Ssh extends Context.Service<Ssh>()('@rasm/ssh/client/Ssh', {
 }) {
     static readonly layer = (folder: string) => Layer.effect(this, this.make(folder));
 }
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+const commanded = (words: Array.NonEmptyReadonlyArray<string>, options?: ChildProcess.CommandOptions) => ChildProcess.make(Array.headNonEmpty(words), Array.tailNonEmpty(words), { extendEnv: true, ...options });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

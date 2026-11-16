@@ -5,53 +5,53 @@ utils:
     empty-string:
         any:
             - kind: string
-              not: {has: {kind: string_fragment}}
+              not: { has: { kind: string_fragment } }
             - kind: template_string
-              not: {has: {kind: 'string_fragment, template_substitution'}}
+              not: { has: { kind: 'string_fragment, template_substitution' } }
     empty-fallback:
         kind: arrow_function
-        has: {field: body, matches: empty-string}
+        has: { field: body, matches: empty-string }
     get-or-else:
         kind: call_expression
         has:
             field: function
             kind: member_expression
             all:
-                - has: {field: property, regex: '^getOrElse$'}
-                - has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)Option$'}}}}
+                - has: { field: property, regex: '^getOrElse$' }
+                - has: { field: object, matches: { effect-module: { name: { regex: '(?-u:\b)Option$' } } } }
     host-text:
-        inside: {kind: jsx_attribute, has: {kind: property_identifier, regex: '^(value|defaultValue)$'}, stopBy: end}
+        inside: { kind: jsx_attribute, has: { kind: property_identifier, regex: '^(value|defaultValue)$' }, stopBy: end }
 rule:
-    not: {matches: host-text}
+    not: { matches: host-text }
     any:
         - kind: binary_expression
           all:
-            - has: {field: left, pattern: $ELEMENT}
-            - has: {field: operator, regex: '^(\?\?|\|\|)$'}
-            - has: {field: right, matches: empty-string}
+              - has: { field: left, pattern: $ELEMENT }
+              - has: { field: operator, regex: '^(\?\?|\|\|)$' }
+              - has: { field: right, matches: empty-string }
         - kind: ternary_expression
-          has: {field: condition, pattern: $ELEMENT}
+          has: { field: condition, pattern: $ELEMENT }
           any:
-            - has: {field: consequence, matches: empty-string}
-            - has: {field: alternative, matches: empty-string}
+              - has: { field: consequence, matches: empty-string }
+              - has: { field: alternative, matches: empty-string }
         - kind: pair
           all:
-            - has: {field: key, regex: '^onNone$', pattern: $ELEMENT}
-            - has: {field: value, matches: empty-fallback}
+              - has: { field: key, regex: '^onNone$', pattern: $ELEMENT }
+              - has: { field: value, matches: empty-fallback }
         - kind: call_expression
           pattern: $ELEMENT
           any:
-            - all:
-                - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^succeed$'}}, {has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)Effect$'}}}}}]}
-                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: &code {not: {kind: 'comment, html_comment'}}}, matches: empty-string}, not: {has: {nthChild: {position: 2, ofRule: *code}}}}
-            - all:
-                - matches: get-or-else
-                - has: {field: arguments, has: {nthChild: {position: 1, reverse: true, ofRule: *code}, matches: empty-fallback}}
+              - all:
+                    - has: { field: function, kind: member_expression, all: [{ has: { field: property, regex: '^succeed$' } }, { has: { field: object, matches: { effect-module: { name: { regex: '(?-u:\b)Effect$' } } } } }] }
+                    - has: { field: arguments, has: { nthChild: { position: 1, ofRule: &code { not: { kind: 'comment, html_comment' } } }, matches: empty-string }, not: { has: { nthChild: { position: 2, ofRule: *code } } } }
+              - all:
+                    - matches: get-or-else
+                    - has: { field: arguments, has: { nthChild: { position: 1, reverse: true, ofRule: *code }, matches: empty-fallback } }
         - kind: 'assignment_pattern, object_assignment_pattern'
           all:
-            - inside: {kind: 'array_pattern, object_pattern, pair_pattern'}
-            - has: {field: left, pattern: $ELEMENT}
-            - has: {field: right, matches: empty-string}
-            - not: {inside: {kind: 'required_parameter, optional_parameter', stopBy: {not: {kind: 'array_pattern, object_pattern, pair_pattern, assignment_pattern, object_assignment_pattern, rest_pattern'}}}}
+              - inside: { kind: 'array_pattern, object_pattern, pair_pattern' }
+              - has: { field: left, pattern: $ELEMENT }
+              - has: { field: right, matches: empty-string }
+              - not: { inside: { kind: 'required_parameter, optional_parameter', stopBy: { not: { kind: 'array_pattern, object_pattern, pair_pattern, assignment_pattern, object_assignment_pattern, rest_pattern' } } } }
 message: '`$ELEMENT` resolves absence to an empty string'
 note: 'Keep absence as `undefined` or the `Option` its read returns, choose between complete values in one expression (a ternary, `Option.match`, `Match`), and fail where the operation needs the value'

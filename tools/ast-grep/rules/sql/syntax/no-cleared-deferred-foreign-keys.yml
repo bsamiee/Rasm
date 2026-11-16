@@ -4,7 +4,7 @@ severity: error
 rule:
     kind: pragma_statement
     all:
-        - has: {field: name, regex: '(?i-u)^["''`\[]?defer_foreign_keys["''`\]]?$'}
+        - has: { field: name, regex: '(?i-u)^["''`\[]?defer_foreign_keys["''`\]]?$' }
         - matches: sql-pragma-off
         - pattern: $PRAGMA
 message: '`$PRAGMA` clears pending foreign key violations and lets orphan rows commit'

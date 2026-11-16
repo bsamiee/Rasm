@@ -5,44 +5,44 @@ utils:
     own-callee:
         nthChild: 1
         any:
-            - {kind: simple_identifier, not: {regex: '^[A-Z]'}}
-            - {kind: navigation_expression, has: {field: target, kind: self_expression}}
+            - { kind: simple_identifier, not: { regex: '^[A-Z]' } }
+            - { kind: navigation_expression, has: { field: target, kind: self_expression } }
     member-callee:
         nthChild: 1
         kind: navigation_expression
-        has: {field: target, matches: swift-member-reference, not: {regex: '^[A-Z]'}}
+        has: { field: target, matches: swift-member-reference, not: { regex: '^[A-Z]' } }
     own-call:
         kind: call_expression
         pattern: $READ
         any:
             - all:
-                - has: {matches: own-callee}
-                - has:
-                    kind: call_suffix
-                    not: {has: {kind: lambda_literal}}
-                    has:
-                        kind: value_arguments
-                        not: {has: {kind: value_argument, not: {any: [{has: {field: value, matches: swift-fixed-value}}, {matches: swift-fixed-value}]}}}
+                  - has: { matches: own-callee }
+                  - has:
+                        kind: call_suffix
+                        not: { has: { kind: lambda_literal } }
+                        has:
+                            kind: value_arguments
+                            not: { has: { kind: value_argument, not: { any: [{ has: { field: value, matches: swift-fixed-value } }, { matches: swift-fixed-value }] } } }
             - all:
-                - has: {matches: member-callee}
-                - has: {kind: call_suffix, not: {has: {kind: lambda_literal}}, has: {kind: value_arguments, not: {has: {kind: value_argument}}}}
+                  - has: { matches: member-callee }
+                  - has: { kind: call_suffix, not: { has: { kind: lambda_literal } }, has: { kind: value_arguments, not: { has: { kind: value_argument } } } }
     own-call-statement:
         any:
             - matches: own-call
             - kind: 'try_expression, await_expression, control_transfer_statement'
-              has: {matches: own-call-statement}
+              has: { matches: own-call-statement }
     getter:
         kind: statements
         any:
-            - matches: {swift-forwarded-member: {read: {pattern: $READ}}}
-            - matches: {swift-single-statement: {first: {matches: own-call-statement}}}
+            - matches: { swift-forwarded-member: { read: { pattern: $READ } } }
+            - matches: { swift-single-statement: { first: { matches: own-call-statement } } }
     setter-value:
         kind: simple_identifier
         any:
             - pattern: newValue
             - all:
-                - pattern: $VALUE
-                - inside: {kind: computed_setter, stopBy: end, has: {kind: simple_identifier, pattern: $VALUE}}
+                  - pattern: $VALUE
+                  - inside: { kind: computed_setter, stopBy: end, has: { kind: simple_identifier, pattern: $VALUE } }
     forwarding-setter:
         kind: computed_setter
         has:
@@ -50,30 +50,30 @@ utils:
             has:
                 kind: assignment
                 all:
-                    - has: {field: target, has: {pattern: $READ}}
-                    - has: {field: result, matches: setter-value}
+                    - has: { field: target, has: { pattern: $READ } }
+                    - has: { field: result, matches: setter-value }
     host-member:
         any:
-            - has: {kind: modifiers, any: [{has: {kind: attribute, regex: '^@(objc|IBOutlet|IBInspectable|NSManaged)(?-u:\b)'}}, {has: {regex: '^(override|dynamic)$'}}]}
-            - inside: {kind: class_declaration, stopBy: end, has: {kind: modifiers, has: {kind: attribute, regex: '^@objcMembers$'}}}
+            - has: { kind: modifiers, any: [{ has: { kind: attribute, regex: '^@(objc|IBOutlet|IBInspectable|NSManaged)(?-u:\b)' } }, { has: { regex: '^(override|dynamic)$' } }] }
+            - inside: { kind: class_declaration, stopBy: end, has: { kind: modifiers, has: { kind: attribute, regex: '^@objcMembers$' } } }
     converted-text:
         all:
-            - has: {kind: pattern, has: {field: bound_identifier, regex: '^(description|debugDescription)$'}}
-            - has: {field: computed_value, has: {kind: statements, has: {kind: call_expression}}}
-            - inside: {kind: class_declaration, stopBy: {kind: class_declaration}, has: {kind: inheritance_specifier, regex: '^Custom(Debug)?StringConvertible$'}}
+            - has: { kind: pattern, has: { field: bound_identifier, regex: '^(description|debugDescription)$' } }
+            - has: { field: computed_value, has: { kind: statements, has: { kind: call_expression } } }
+            - inside: { kind: class_declaration, stopBy: { kind: class_declaration }, has: { kind: inheritance_specifier, regex: '^Custom(Debug)?StringConvertible$' } }
 rule:
     kind: property_declaration
     all:
-        - has: {kind: pattern, has: {field: bound_identifier, pattern: $NAME}}
-        - not: {has: {kind: pattern, regex: '^body$'}}
-        - not: {matches: host-member}
-        - not: {matches: converted-text}
-        - not: {has: {field: computed_value, has: {kind: computed_init}}}
+        - has: { kind: pattern, has: { field: bound_identifier, pattern: $NAME } }
+        - not: { has: { kind: pattern, regex: '^body$' } }
+        - not: { matches: host-member }
+        - not: { matches: converted-text }
+        - not: { has: { field: computed_value, has: { kind: computed_init } } }
         - has:
-            field: computed_value
-            any:
-                - has: {matches: getter}
-                - has: {kind: computed_getter, has: {matches: getter}}
-        - not: {has: {field: computed_value, has: {kind: 'computed_setter, computed_modify', not: {matches: forwarding-setter}}}}
+              field: computed_value
+              any:
+                  - has: { matches: getter }
+                  - has: { kind: computed_getter, has: { matches: getter } }
+        - not: { has: { field: computed_value, has: { kind: 'computed_setter, computed_modify', not: { matches: forwarding-setter } } } }
 message: 'Property `$NAME` forwards `$READ` unchanged'
 note: 'Read `<owner>.<member>` or call `<owner>.<function>()` at each use and move a conformance its property satisfies to the forwarded type'

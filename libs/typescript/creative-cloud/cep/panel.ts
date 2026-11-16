@@ -78,8 +78,10 @@ const servePanel = <E = never, F = never>({ link, face }: { readonly link?: (cep
         yield* link === undefined ? Effect.void : Effect.forkScoped(Layer.launch(link(cep)));
         if (face !== undefined) {
             yield* Effect.forkScoped(Stream.runForEach(skin, skinned(document.documentElement)));
-            const forked = yield* FiberSet.makeRuntime<never, void, never>();
-            yield* face(document.body, (work) => forked(Effect.ignore(Effect.tapCause(Effect.asVoid(work), Effect.logError))));
+            const forked = yield* FiberSet.makeRuntime<never, unknown, never>();
+            yield* face(document.body, (work) => {
+                forked(Effect.ignore(Effect.tapCause(work, Effect.logError)));
+            });
         }
     }).pipe(
         Layer.effectDiscard,

@@ -7,31 +7,31 @@ utils:
         kind: argument
         has:
             any:
-                - {kind: identifier, regex: '^(MinValue|MaxValue)$'}
-                - {has: {stopBy: end, kind: identifier, regex: '^(MinValue|MaxValue)$'}}
+                - { kind: identifier, regex: '^(MinValue|MaxValue)$' }
+                - { has: { stopBy: end, kind: identifier, regex: '^(MinValue|MaxValue)$' } }
     literal:
         any:
             - kind: 'integer_literal, real_literal'
-            - {kind: prefix_unary_expression, has: {kind: 'integer_literal, real_literal'}}
+            - { kind: prefix_unary_expression, has: { kind: 'integer_literal, real_literal' } }
     saturation:
         kind: invocation_expression
         any:
             - all:
-                - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^Clamp$'}}
-                - has: {field: arguments, has: {kind: argument, not: {any: [{nthChild: 1}, {matches: type-bound}]}}}
+                  - has: { field: function, kind: member_access_expression, has: { field: name, regex: '^Clamp$' } }
+                  - has: { field: arguments, has: { kind: argument, not: { any: [{ nthChild: 1 }, { matches: type-bound }] } } }
             - all:
-                - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Min|Max)$'}}
-                - has: {field: arguments, all: [{has: {kind: argument, nthChild: 2}}, {has: {kind: argument, has: {matches: literal}}}]}
+                  - has: { field: function, kind: member_access_expression, has: { field: name, regex: '^(Min|Max)$' } }
+                  - has: { field: arguments, all: [{ has: { kind: argument, nthChild: 2 } }, { has: { kind: argument, has: { matches: literal } } }] }
 rule:
     kind: invocation_expression
     pattern: $FACTORY
     all:
         - has:
-            field: function
-            kind: member_access_expression
-            all:
-                - has: {field: name, regex: '^(Validated|Validate|TryCreate)$'}
-                - has: {field: expression, kind: identifier, regex: '^[A-Z]'}
-        - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {matches: saturation, pattern: $CLAMP}}}
+              field: function
+              kind: member_access_expression
+              all:
+                  - has: { field: name, regex: '^(Validated|Validate|TryCreate)$' }
+                  - has: { field: expression, kind: identifier, regex: '^[A-Z]' }
+        - has: { field: arguments, has: { kind: argument, nthChild: 1, has: { matches: saturation, pattern: $CLAMP } } }
 message: '`$CLAMP` restates bounds `$FACTORY` validates'
-note: 'Saturate into the type''s `MinValue` and `MaxValue`, or pass the measured value to `<type>.Validated`'
+note: "Saturate into the type's `MinValue` and `MaxValue`, or pass the measured value to `<type>.Validated`"

@@ -6,21 +6,21 @@ utils:
     inner-if:
         kind: if_expression
         all:
-            - has: {field: condition, matches: inner}
-            - has: {field: consequence, matches: then}
-            - has: {field: alternative, kind: else_clause, has: {kind: block, pattern: $ELSE}}
+            - has: { field: condition, matches: inner }
+            - has: { field: consequence, matches: then }
+            - has: { field: alternative, kind: else_clause, has: { kind: block, pattern: $ELSE } }
 rule:
     kind: if_expression
     all:
-        - has: {field: condition, matches: outer}
-        - has: {field: alternative, kind: else_clause, has: {kind: block, pattern: $ELSE, matches: fallback}}
+        - has: { field: condition, matches: outer }
+        - has: { field: alternative, kind: else_clause, has: { kind: block, pattern: $ELSE, matches: fallback } }
         - has:
-            field: consequence
-            all:
-                - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}
-                - has:
-                    nthChild: {position: 1, ofRule: {matches: rust-statement}}
-                    any:
-                        - matches: inner-if
-                        - kind: expression_statement
-                          has: {matches: inner-if}
+              field: consequence
+              all:
+                  - not: { has: { nthChild: { position: 2, ofRule: { matches: rust-statement } } } }
+                  - has:
+                        nthChild: { position: 1, ofRule: { matches: rust-statement } }
+                        any:
+                            - matches: inner-if
+                            - kind: expression_statement
+                              has: { matches: inner-if }

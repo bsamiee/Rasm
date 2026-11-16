@@ -5,28 +5,28 @@ rule:
     kind: call_expression
     all:
         - has:
-            field: function
-            kind: member_expression
-            all:
-                - has: {field: property, pattern: $CASE}
-                - has: {field: object, kind: member_expression, all: [{has: {field: property, regex: '^guards$'}}, {has: {field: object, pattern: $UNION}}]}
-        - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, pattern: $VALUE}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}}]}
+              field: function
+              kind: member_expression
+              all:
+                  - has: { field: property, pattern: $CASE }
+                  - has: { field: object, kind: member_expression, all: [{ has: { field: property, regex: '^guards$' } }, { has: { field: object, pattern: $UNION } }] }
+        - has: { field: arguments, all: [{ has: { nthChild: { position: 1, ofRule: { not: { kind: 'comment, html_comment' } } }, pattern: $VALUE } }, { not: { has: { nthChild: { position: 2, ofRule: { not: { kind: 'comment, html_comment' } } } } } }] }
         - any:
-            - all:
-                - has: {field: function, has: {field: object, has: {field: object, kind: member_expression, all: [{has: {field: property, pattern: $FIELD}}, {has: {field: object, kind: member_expression, has: {field: property, regex: '^fields$'}}}]}}}
-                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, kind: member_expression, has: {field: property, pattern: $FIELD}}}
-            - all:
-                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, kind: identifier, matches: {typescript-local-binding: {owner: {pattern: $OWNER}}}}}
-                - inside:
-                    stopBy: end
-                    pattern: $OWNER
-                    matches: typescript-function-boundary
-                    has:
-                        field: parameters
-                        has:
-                            kind: required_parameter
-                            all:
-                                - has: {field: pattern, pattern: $VALUE}
-                                - has: {field: type, has: {kind: type_query, has: {kind: member_expression, all: [{has: {field: object, pattern: $UNION}}, {has: {field: property, regex: '^Type$'}}]}}}
+              - all:
+                    - has: { field: function, has: { field: object, has: { field: object, kind: member_expression, all: [{ has: { field: property, pattern: $FIELD } }, { has: { field: object, kind: member_expression, has: { field: property, regex: '^fields$' } } }] } } }
+                    - has: { field: arguments, has: { nthChild: { position: 1, ofRule: { not: { kind: 'comment, html_comment' } } }, kind: member_expression, has: { field: property, pattern: $FIELD } } }
+              - all:
+                    - has: { field: arguments, has: { nthChild: { position: 1, ofRule: { not: { kind: 'comment, html_comment' } } }, kind: identifier, matches: { typescript-local-binding: { owner: { pattern: $OWNER } } } } }
+                    - inside:
+                          stopBy: end
+                          pattern: $OWNER
+                          matches: typescript-function-boundary
+                          has:
+                              field: parameters
+                              has:
+                                  kind: required_parameter
+                                  all:
+                                      - has: { field: pattern, pattern: $VALUE }
+                                      - has: { field: type, has: { kind: type_query, has: { kind: member_expression, all: [{ has: { field: object, pattern: $UNION } }, { has: { field: property, regex: '^Type$' } }] } } }
 message: '`$UNION.guards.$CASE` validates `$VALUE` in full, a value decoded as `$UNION`'
-note: 'Test the tag of a decoded value with `<union>.isAnyOf([''<case>''])`, `guards` stays for unknown input'
+note: "Test the tag of a decoded value with `<union>.isAnyOf(['<case>'])`, `guards` stays for unknown input"

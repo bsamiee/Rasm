@@ -53,10 +53,11 @@ export default handleEnvelope({
         const held = composition.resolutionFactor;
         composition.resolutionFactor = [factor, factor];
         try {
+            // oxlint-disable-next-line typescript/no-confusing-void-expression -- types-for-adobe declares saveFrameToPng void, After Effects returns a deferred call holding wait()
             const deferred: unknown = composition.saveFrameToPng(composition.time, fileFromUrl(payload.file));
             const wait = readProperty(deferred, 'wait');
             if (typeof wait !== 'function') {
-                throw new Error(`saveFrameToPng returned ${typeof deferred} without wait, the PNG write of ${payload.file} is unconfirmed`);
+                throw new TypeError(`saveFrameToPng returned ${typeof deferred} without wait, the PNG write of ${payload.file} is unconfirmed`);
             }
             wait.call(deferred);
         } finally {

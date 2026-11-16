@@ -5,29 +5,29 @@ utils:
     tag-field:
         kind: public_field_definition
         all:
-            - has: {field: name, regex: '^_tag$'}
+            - has: { field: name, regex: '^_tag$' }
             - has:
-                field: value
-                any:
-                    - {kind: string}
-                    - {kind: 'as_expression, type_assertion', has: {kind: string}}
-            - not: {has: {regex: '^static$'}}
+                  field: value
+                  any:
+                      - { kind: string }
+                      - { kind: 'as_expression, type_assertion', has: { kind: string } }
+            - not: { has: { regex: '^static$' } }
     tagged-class:
         kind: class_declaration
         all:
-            - has: {field: name, pattern: $NAME}
+            - has: { field: name, pattern: $NAME }
             - has:
-                kind: class_heritage
-                has:
-                    kind: extends_clause
-                    all:
-                        - has: {field: value, kind: member_expression, pattern: $DATA.$BASE}
-                        - has: {field: type_arguments, kind: type_arguments}
-            - has: {field: body, has: {matches: tag-field}}
+                  kind: class_heritage
+                  has:
+                      kind: extends_clause
+                      all:
+                          - has: { field: value, kind: member_expression, pattern: $DATA.$BASE }
+                          - has: { field: type_arguments, kind: type_arguments }
+            - has: { field: body, has: { matches: tag-field } }
 rule:
     matches: tagged-class
 constraints:
-    BASE: {regex: '^(Error|Class)$'}
-    DATA: {matches: {effect-module: {name: {regex: '(?-u:\b)Data$'}}}}
+    BASE: { regex: '^(Error|Class)$' }
+    DATA: { matches: { effect-module: { name: { regex: '(?-u:\b)Data$' } } } }
 message: '`$NAME` sets `_tag` by hand on `$DATA.$BASE`'
 note: 'Extend `Data.TaggedClass(<tag>)` for data or `Schema.TaggedError` for an error, and delete the `_tag` field'

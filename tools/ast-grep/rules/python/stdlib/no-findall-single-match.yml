@@ -4,86 +4,86 @@ severity: error
 utils:
     compile-call:
         kind: call
-        has: {field: function, matches: {python-member-use: {module: {regex: '^(re|regex)$'}, name: {regex: '^compile$'}}}}
+        has: { field: function, matches: { python-member-use: { module: { regex: '^(re|regex)$' }, name: { regex: '^compile$' } } } }
     compiled-pattern:
         kind: identifier
         any:
-            - matches: {python-assigned-name: {value: {matches: compile-call}}}
-            - matches: {python-typed-parameter: {type: {kind: type, has: {stopBy: {not: {kind: 'generic_type, parenthesized_expression, type'}}, matches: {python-member-use: {module: {regex: '^(re|regex)$'}, name: {regex: '^Pattern$'}}}}}}}
+            - matches: { python-assigned-name: { value: { matches: compile-call } } }
+            - matches: { python-typed-parameter: { type: { kind: type, has: { stopBy: { not: { kind: 'generic_type, parenthesized_expression, type' } }, matches: { python-member-use: { module: { regex: '^(re|regex)$' }, name: { regex: '^Pattern$' } } } } } } }
     regex-callee:
         any:
-            - matches: {python-member-use: {module: {regex: '^(re|regex)$'}, name: {regex: '^(findall|finditer)$'}}}
+            - matches: { python-member-use: { module: { regex: '^(re|regex)$' }, name: { regex: '^(findall|finditer)$' } } }
             - kind: attribute
               all:
-                - has: {field: attribute, regex: '^(findall|finditer)$'}
-                - has: {field: object, matches: compiled-pattern}
+                  - has: { field: attribute, regex: '^(findall|finditer)$' }
+                  - has: { field: object, matches: compiled-pattern }
     every-match:
         kind: call
-        has: {field: function, regex: '(^|\.)(findall|finditer)$', matches: regex-callee}
+        has: { field: function, regex: '(^|\.)(findall|finditer)$', matches: regex-callee }
     iterated:
         matches: every-match
-        has: {field: function, regex: 'finditer$'}
+        has: { field: function, regex: 'finditer$' }
     match-list:
         any:
             - matches: every-match
-              has: {field: function, regex: 'findall$'}
+              has: { field: function, regex: 'findall$' }
             - kind: call
               all:
-                - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: iterated}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}}]}
-                - has: {field: function, matches: {python-builtin-name: {name: {regex: '^(list|tuple)$'}}}}
+                  - has: { field: arguments, all: [{ has: { nthChild: { position: 1, ofRule: { not: { kind: comment } } }, matches: iterated } }, { not: { has: { nthChild: { position: 2, ofRule: { not: { kind: comment } } } } } }] }
+                  - has: { field: function, matches: { python-builtin-name: { name: { regex: '^(list|tuple)$' } } } }
     truth:
         any:
-            - inside: {kind: 'if_statement, elif_clause, while_statement', field: condition}
-            - inside: {kind: 'not_operator, if_clause'}
-            - all: [{nthChild: {position: 2, ofRule: {not: {kind: comment}}}}, {inside: {kind: conditional_expression}}]
-            - inside: {kind: 'boolean_operator, parenthesized_expression', matches: truth}
-            - inside: {kind: argument_list, inside: {kind: call, has: {field: function, regex: '^bool$'}}}
+            - inside: { kind: 'if_statement, elif_clause, while_statement', field: condition }
+            - inside: { kind: 'not_operator, if_clause' }
+            - all: [{ nthChild: { position: 2, ofRule: { not: { kind: comment } } } }, { inside: { kind: conditional_expression } }]
+            - inside: { kind: 'boolean_operator, parenthesized_expression', matches: truth }
+            - inside: { kind: argument_list, inside: { kind: call, has: { field: function, regex: '^bool$' } } }
     present:
         kind: call
         all:
-            - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: iterated}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}}]}
-            - has: {field: function, matches: {python-builtin-name: {name: {regex: '^any$'}}}}
+            - has: { field: arguments, all: [{ has: { nthChild: { position: 1, ofRule: { not: { kind: comment } } }, matches: iterated } }, { not: { has: { nthChild: { position: 2, ofRule: { not: { kind: comment } } } } } }] }
+            - has: { field: function, matches: { python-builtin-name: { name: { regex: '^any$' } } } }
     counted:
         kind: call
         all:
-            - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: match-list}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}}]}
-            - has: {field: function, matches: {python-builtin-name: {name: {regex: '^len$'}}}}
+            - has: { field: arguments, all: [{ has: { nthChild: { position: 1, ofRule: { not: { kind: comment } } }, matches: match-list } }, { not: { has: { nthChild: { position: 2, ofRule: { not: { kind: comment } } } } } }] }
+            - has: { field: function, matches: { python-builtin-name: { name: { regex: '^len$' } } } }
     presence:
         kind: comparison_operator
         all:
-            - has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: counted}
-            - not: {has: {nthChild: {position: 3, ofRule: {not: {kind: comment}}}}}
+            - has: { nthChild: { position: 1, ofRule: { not: { kind: comment } } }, matches: counted }
+            - not: { has: { nthChild: { position: 3, ofRule: { not: { kind: comment } } } } }
             - any:
-                - all: [{has: {field: operators, regex: '^(>|!=|==)$'}}, {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}, regex: '^0$'}}]
-                - all: [{has: {field: operators, regex: '^(>=|<)$'}}, {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}, regex: '^1$'}}]
+                  - all: [{ has: { field: operators, regex: '^(>|!=|==)$' } }, { has: { nthChild: { position: 2, ofRule: { not: { kind: comment } } }, regex: '^0$' } }]
+                  - all: [{ has: { field: operators, regex: '^(>=|<)$' } }, { has: { nthChild: { position: 2, ofRule: { not: { kind: comment } } }, regex: '^1$' } }]
     first-read:
         kind: identifier
         any:
-            - inside: {kind: subscript, field: value, has: {field: subscript, regex: '^0$'}}
-            - inside: {kind: not_operator}
-            - inside: {kind: 'if_statement, elif_clause, while_statement', field: condition}
+            - inside: { kind: subscript, field: value, has: { field: subscript, regex: '^0$' } }
+            - inside: { kind: not_operator }
+            - inside: { kind: 'if_statement, elif_clause, while_statement', field: condition }
     bound-list:
         kind: assignment
         all:
-            - has: {field: left, kind: identifier, pattern: $MATCHES}
+            - has: { field: left, kind: identifier, pattern: $MATCHES }
             - inside:
-                kind: expression_statement
-                inside:
-                    kind: block, module
-                    all:
-                        - has: {stopBy: end, kind: identifier, pattern: $MATCHES, inside: {kind: subscript, field: value, has: {field: subscript, regex: '^0$'}}}
-                        - not: {has: {stopBy: end, kind: identifier, pattern: $MATCHES, not: {any: [{matches: first-read}, {inside: {kind: assignment, field: left}}]}}}
+                  kind: expression_statement
+                  inside:
+                      kind: block, module
+                      all:
+                          - has: { stopBy: end, kind: identifier, pattern: $MATCHES, inside: { kind: subscript, field: value, has: { field: subscript, regex: '^0$' } } }
+                          - not: { has: { stopBy: end, kind: identifier, pattern: $MATCHES, not: { any: [{ matches: first-read }, { inside: { kind: assignment, field: left } }] } } }
 rule:
     pattern: $CALL
     regex: '(?-u:\b)(findall|finditer)(?-u:\b)'
     any:
-        - matches: {python-first-item: {source: {matches: every-match}}}
+        - matches: { python-first-item: { source: { matches: every-match } } }
         - kind: call
           matches: match-list
           any:
-            - inside: {kind: match_statement, field: subject}
-            - inside: {matches: bound-list, field: right}
-            - matches: truth
+              - inside: { kind: match_statement, field: subject }
+              - inside: { matches: bound-list, field: right }
+              - matches: truth
         - matches: present
         - matches: presence
 message: '`$CALL` collects every match to read or test one'

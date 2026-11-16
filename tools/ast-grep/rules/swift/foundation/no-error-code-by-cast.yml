@@ -6,63 +6,63 @@ utils:
         regex: '^(Foundation(\.|::))?[^.:]*Error$'
     error-cast:
         kind: as_expression
-        has: {field: name, matches: error-type}
+        has: { field: name, matches: error-type }
     cast-binding:
         any:
             - kind: property_declaration
               all:
-                - has: {kind: pattern, has: {field: bound_identifier, pattern: $NAME}, precedes: {stopBy: {kind: pattern}, follows: {regex: '^=$'}, matches: error-cast}}
+                  - has: { kind: pattern, has: { field: bound_identifier, pattern: $NAME }, precedes: { stopBy: { kind: pattern }, follows: { regex: '^=$' }, matches: error-cast } }
             - kind: 'if_statement, guard_statement, while_statement'
               all:
-                - has: {kind: simple_identifier, pattern: $NAME}
-                - has: {matches: error-cast}
+                  - has: { kind: simple_identifier, pattern: $NAME }
+                  - has: { matches: error-cast }
             - kind: catch_block
               has:
-                field: error
-                all:
-                    - has: {kind: pattern, has: {field: bound_identifier, pattern: $NAME}}
-                    - has: {field: name, matches: error-type}
+                  field: error
+                  all:
+                      - has: { kind: pattern, has: { field: bound_identifier, pattern: $NAME } }
+                      - has: { field: name, matches: error-type }
             - kind: switch_entry
               has:
-                kind: switch_pattern
-                has:
-                    kind: pattern
-                    all:
-                        - has: {kind: pattern, has: {field: bound_identifier, pattern: $NAME}}
-                        - has: {field: name, matches: error-type}
+                  kind: switch_pattern
+                  has:
+                      kind: pattern
+                      all:
+                          - has: { kind: pattern, has: { field: bound_identifier, pattern: $NAME } }
+                          - has: { field: name, matches: error-type }
     member:
-        has: {field: suffix, has: {field: suffix, regex: '^(code|errorCode|domain)$'}}
+        has: { field: suffix, has: { field: suffix, regex: '^(code|errorCode|domain)$' } }
     code-read:
         kind: navigation_expression
         all:
             - matches: member
             - any:
-                - has: {field: target, kind: tuple_expression, has: {matches: error-cast}}
-                - all:
-                    - has: {field: target, kind: simple_identifier, pattern: $NAME}
-                    - inside: {stopBy: end, matches: cast-binding}
-                - all:
-                    - has: {field: target, kind: simple_identifier, pattern: $NAME}
-                    - inside: {stopBy: end, kind: statements, has: {matches: cast-binding}}
+                  - has: { field: target, kind: tuple_expression, has: { matches: error-cast } }
+                  - all:
+                        - has: { field: target, kind: simple_identifier, pattern: $NAME }
+                        - inside: { stopBy: end, matches: cast-binding }
+                  - all:
+                        - has: { field: target, kind: simple_identifier, pattern: $NAME }
+                        - inside: { stopBy: end, kind: statements, has: { matches: cast-binding } }
 rule:
     pattern: $MATCH
     any:
         - kind: equality_expression
           all:
-            - has: {kind: navigation_expression, has: {field: suffix, has: {field: suffix, regex: '^rawValue$'}}}
-            - has: {kind: simple_identifier, regex: '^E[A-Z0-9]+$'}
+              - has: { kind: navigation_expression, has: { field: suffix, has: { field: suffix, regex: '^rawValue$' } } }
+              - has: { kind: simple_identifier, regex: '^E[A-Z0-9]+$' }
         - kind: equality_expression
-          has: {matches: code-read}
+          has: { matches: code-read }
         - kind: switch_statement
-          has: {field: expr, any: [{matches: code-read}, {kind: tuple_expression, has: {matches: code-read}}]}
+          has: { field: expr, any: [{ matches: code-read }, { kind: tuple_expression, has: { matches: code-read } }] }
         - kind: call_expression
           all:
-            - has: {nthChild: 1, kind: navigation_expression, has: {field: suffix, has: {field: suffix, regex: '^contains$'}}}
-            - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, has: {field: value, matches: code-read}}}}
+              - has: { nthChild: 1, kind: navigation_expression, has: { field: suffix, has: { field: suffix, regex: '^contains$' } } }
+              - has: { kind: call_suffix, has: { kind: value_arguments, has: { kind: value_argument, has: { field: value, matches: code-read } } } }
         - matches: code-read
-          inside: {kind: 'if_statement, guard_statement, while_statement'}
-          follows: {regex: '^=$'}
+          inside: { kind: 'if_statement, guard_statement, while_statement' }
+          follows: { regex: '^=$' }
 transform:
-    HEAD: {replace: {source: $MATCH, replace: '(?s)\n.*$', by: ''}}
+    HEAD: { replace: { source: $MATCH, replace: '(?s)\n.*$', by: '' } }
 message: '`$HEAD` compares an error code read through a cast or a raw value'
 note: 'Match the code as a `catch`, `switch`, or `if case` pattern (`.noSuchFileOrDirectory as Errno`), and an `Errno` by case (`== .permissionDenied`)'

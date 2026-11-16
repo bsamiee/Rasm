@@ -9,7 +9,7 @@ const reporting: Pick<NonNullable<ViteUserConfig['test']>, 'chaiConfig' | 'repor
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const provided = <K extends keyof ProvidedContext & string, E>(key: K, acquire: Effect.Effect<ProvidedContext[K], E, Scope.Scope>) =>
+const provided = <K extends Parameters<TestProject['provide']>[0], E>(key: K, acquire: Effect.Effect<ProvidedContext[K], E, Scope.Scope>) =>
     flow(
         Effect.fnUntraced(function* (project: TestProject) {
             const [scope, services] = yield* Effect.all([Scope.make(), Effect.context<never>()]);

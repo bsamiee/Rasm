@@ -16,7 +16,7 @@ const OPTIONAL = 'opt_';
 const CASED = /\[(?<upper>.)(?<lower>.)\]/gu;
 const UNICODE_ESCAPE = `(?:[\\t\\n\\v\\f\\r ]*[uU][eE][sS][cC][aA][pP][eE][\\t\\n\\v\\f\\r ]*'[^']')?`;
 const ENTRY = 'toplevel_stmt';
-const TAILED = ['a_expr', 'func_table'];
+const TAILED = new Set(['a_expr', 'func_table']);
 const WHITESPACE = /[\t\n\v\f\r ]+/u;
 const PLACEHOLDERS = [/%s/u, /%\([^)\n]+\)s/u];
 const CLAUSES = [
@@ -95,8 +95,8 @@ const refers = (rule, name) => Option.exists(referenced(rule), (held) => held ==
 
 // --- [NORMAL_FORM]
 
+const layer = (name) => `${name}_prec`;
 const unlayered = (rules) => {
-    const layer = (name) => `${name}_prec`;
     const layers = new Map(Object.keys(rules).map((name) => [layer(name), name]));
     const merged = (name, rule) => (layer(name) in rules ? alternatives([...arms(rules[layer(name)]), ...arms(rule).filter((arm) => !reaches(arm, symbol(layer(name))))]) : rule);
     const renamed = (rule) => rewrite(rule, (part) => (part.type === 'SYMBOL' && layers.has(part.name) ? { ...part, name: layers.get(part.name) } : part));
@@ -205,19 +205,16 @@ const role = (name, part) => {
     if (part.type !== 'SEQ') {
         return part;
     }
-    const middle = (members) => members.map((member) => field('operator', member));
-    if (infix(name, part.members)) {
-        return seq(field('left', part.members[0]), ...middle(part.members.slice(1, -1)), field('right', part.members.at(-1)));
+    const binary = infix(name, part.members);
+    if (!binary && !prefix(name, part.members)) {
+        return part;
     }
-    return prefix(name, part.members) ? seq(...middle(part.members.slice(0, -1)), field('operand', part.members.at(-1))) : part;
+    const operators = part.members.slice(binary ? 1 : 0, -1).map((member) => field('operator', member));
+    return binary ? seq(field('left', part.members[0]), ...operators, field('right', part.members.at(-1))) : seq(...operators, field('operand', part.members.at(-1)));
 };
 
 // --- [FIELDS]
 
-const label = (counts) => (part) => {
-    const target = part.type === 'SYMBOL' ? part.name : undefined;
-    return target !== undefined && hidden.has(target) && counts.get(target) === 1 ? field(snake(target), part) : part;
-};
 const descend = (part, place) =>
     ({
         FIELD: () => part,
@@ -238,19 +235,24 @@ const sequenced = (part, place) =>
               part,
               children(part).map((child) => sequenced(child, place)),
           );
-const counted = (arm) => collected(arm, ({ type }) => type === 'SYMBOL').reduce((held, { name }) => held.set(name, (held.get(name) ?? 0) + 1), new Map());
+const label = (arm) => {
+    const counts = collected(arm, ({ type }) => type === 'SYMBOL').reduce((held, { name }) => held.set(name, (held.get(name) ?? 0) + 1), new Map());
+    return sequenced(arm, (part) => {
+        const target = part.type === 'SYMBOL' ? part.name : undefined;
+        return target !== undefined && hidden.has(target) && counts.get(target) === 1 ? field(snake(target), part) : part;
+    });
+};
 const labelled = (rule) => {
     const body = bare(rule);
-    const placed = (arm) => sequenced(arm, label(counted(arm)));
-    return body.type === 'CHOICE' ? rewrite(rule, (part) => (part === body ? rebuild(part, part.members.map(placed)) : part)) : placed(rule);
+    return body.type === 'CHOICE' ? rewrite(rule, (part) => (part === body ? rebuild(part, part.members.map(label)) : part)) : label(rule);
 };
 
 // --- [SPLITS]
 
-const shaped = ($, name) => labelled(rewrite(scanned($, spelled(identified($, name, TAILED.includes(name) ? associated(extensions(RULES[name])) : RULES[name]))), (part) => role(name, part)));
+const shaped = ($, name) => labelled(rewrite(scanned($, spelled(identified($, name, TAILED.has(name) ? associated(extensions(RULES[name])) : RULES[name]))), (part) => role(name, part)));
 const shared = (lists) => {
     const differing = lists[0].findIndex((member, at) => lists.some((list) => JSON.stringify(list[at]) !== JSON.stringify(member)));
-    return differing < 0 ? lists[0].findIndex(Predicate.not(spoken)) : differing;
+    return differing === -1 ? lists[0].findIndex(Predicate.not(spoken)) : differing;
 };
 const split = (name, part) => {
     const bounds = ($) => {

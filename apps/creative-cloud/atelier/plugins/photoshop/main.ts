@@ -1,11 +1,11 @@
-import photoshop, { action, app, constants, core, type Document, type ExecutionContext } from 'adobe:photoshop';
-import { type File, host } from 'adobe:uxp';
 import { DisplayDialogs, ExecuteScript, Photoshop } from '@rasm/atelier-protocol';
 import { Peer } from '@rasm/atelier-protocol/peer';
 import { HostError, ObjectModel, Reference } from '@rasm/automation';
 import { Unmatched } from '@rasm/search';
 import { Plugin, Uxp } from '@rasm/uxp/plugin';
 import { parse } from 'acorn';
+import photoshop, { action, app, constants, core, type Document, type ExecutionContext } from 'adobe:photoshop';
+import { type File, host } from 'adobe:uxp';
 import { Array, Cause, Effect, Exit, flow, Layer, Match, Option, Path, Predicate, Record, Schema, String, Struct } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -24,7 +24,10 @@ const COLLECTIONS = {
     layerComp: 'layerComps',
     pathItem: 'pathItems',
 } as const satisfies Record<string, keyof typeof app | keyof Document>;
-const classes = Record.filter({ ...app }, Predicate.isFunction);
+const classes = Record.filter(
+    Record.fromIterableWith(Object.keys(app), (key): readonly [string, unknown] => [key, Reflect.get(app, key)]),
+    Predicate.isFunction,
+);
 const scope = { ...photoshop, ...classes, ...constants };
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -73,8 +76,8 @@ const parameters = (method: { readonly length: number }) => {
     );
 };
 const declaration = (name: string, { prototype }: { readonly prototype: object }) => {
-    const [{ fields, methods }, ...parents] = Uxp.members(prototype);
-    return Effect.orDie(Schema.decodeEffect(ObjectModel.Result.cases.Class)({ _tag: 'Class', name, parents: Array.map(parents, Struct.get('name')), fields, methods: Array.map(methods, (method) => ({ name: method, parameters: parameters(Reflect.get(prototype, method)) })) }));
+    const [{ fields, methods } = { fields: [], methods: [] }, ...parents] = Uxp.members(prototype);
+    return Effect.orDie(Schema.decodeEffect(ObjectModel.Result.cases.Class)({ _tag: 'Class', name, parents: Array.map(parents, Struct.get('name')), fields, methods: Array.map(methods, ({ name: method, value }) => ({ name: method, parameters: parameters(value) })) }));
 };
 const cancelled = (context: ExecutionContext) =>
     Effect.callback<never>((resume) => {

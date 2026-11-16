@@ -6,66 +6,66 @@ utils:
     unit-call:
         kind: invocation_expression
         any:
-            - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Iter|IfSome|IfSucc)$'}}
-            - matches: {csharp-named-call: {name: {regex: '^(iter|ignore)$'}}}
+            - has: { field: function, kind: member_access_expression, has: { field: name, regex: '^(Iter|IfSome|IfSucc)$' } }
+            - matches: { csharp-named-call: { name: { regex: '^(iter|ignore)$' } } }
             - matches: invoked-action
     unit-value:
         any:
             - kind: 'identifier, member_access_expression'
-              matches: {csharp-type-name: {name: {regex: '^unit$'}}}
-            - matches: {csharp-owner-member: {type: {regex: '^Unit$'}, member: {regex: '^Default$'}}}
+              matches: { csharp-type-name: { name: { regex: '^unit$' } } }
+            - matches: { csharp-owner-member: { type: { regex: '^Unit$' }, member: { regex: '^Default$' } } }
     unit-term:
         any:
             - matches: unit-call
             - matches: unit-value
             - matches: unit-sum
             - kind: parenthesized_expression
-              has: {matches: unit-term}
+              has: { matches: unit-term }
     text:
         kind: 'string_literal, interpolated_string_expression, verbatim_string_literal, raw_string_literal'
     unit-sum:
         kind: binary_expression
         all:
-            - has: {field: operator, regex: '^\+$'}
+            - has: { field: operator, regex: '^\+$' }
             - any:
-                - all: [{has: {field: left, matches: unit-term}}, {has: {field: right, matches: unit-term}}]
-                - all:
-                    - any: [{has: {field: left, matches: unit-call}}, {has: {field: right, matches: unit-call}}]
-                    - not: {has: {matches: text}}
+                  - all: [{ has: { field: left, matches: unit-term } }, { has: { field: right, matches: unit-term } }]
+                  - all:
+                        - any: [{ has: { field: left, matches: unit-call } }, { has: { field: right, matches: unit-call } }]
+                        - not: { has: { matches: text } }
     invoked-action:
         kind: invocation_expression
         all:
-            - has: {field: function, kind: invocation_expression, matches: {csharp-named-call: {name: {regex: '^fun$'}}}}
+            - has: { field: function, kind: invocation_expression, matches: { csharp-named-call: { name: { regex: '^fun$' } } } }
             - matches: csharp-argumentless-call
     unit-sequence:
         all:
             - any:
-                - matches: unit-sum
-                - kind: assignment_expression
-                  all:
-                    - has: {field: operator, regex: '^\+=$'}
-                    - has: {field: right, matches: unit-term}
-                - kind: invocation_expression
-                  has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Return', matches: {csharp-simple-name: {name: {regex: '^Return$'}}}}}, {has: {field: expression, matches: unit-term}}]}
-                - kind: tuple_expression
-                  all:
-                    - has: {kind: argument, nthChild: 1, has: {matches: unit-term}}
-                    - has: {kind: argument, nthChild: 2, has: {matches: unit-term}}
-            - has: {stopBy: end, matches: unit-call}
+                  - matches: unit-sum
+                  - kind: assignment_expression
+                    all:
+                        - has: { field: operator, regex: '^\+=$' }
+                        - has: { field: right, matches: unit-term }
+                  - kind: invocation_expression
+                    has: { field: function, kind: member_access_expression, all: [{ has: { field: name, regex: '^Return', matches: { csharp-simple-name: { name: { regex: '^Return$' } } } } }, { has: { field: expression, matches: unit-term } }] }
+                  - kind: tuple_expression
+                    all:
+                        - has: { kind: argument, nthChild: 1, has: { matches: unit-term } }
+                        - has: { kind: argument, nthChild: 2, has: { matches: unit-term } }
+            - has: { stopBy: end, matches: unit-call }
     outer-sum:
         any:
-            - inside: {kind: binary_expression, matches: unit-sum}
-            - inside: {kind: parenthesized_expression, inside: {kind: binary_expression, matches: unit-sum}}
+            - inside: { kind: binary_expression, matches: unit-sum }
+            - inside: { kind: parenthesized_expression, inside: { kind: binary_expression, matches: unit-sum } }
 rule:
     pattern: $VALUE
     any:
         - all:
-            - matches: unit-sequence
-            - not: {matches: outer-sum}
+              - matches: unit-sequence
+              - not: { matches: outer-sum }
         - all:
-            - matches: invoked-action
-            - not: {inside: {stopBy: end, matches: unit-sequence}}
+              - matches: invoked-action
+              - not: { inside: { stopBy: end, matches: unit-sequence } }
 transform:
-    HEAD: {replace: {source: $VALUE, replace: '(?s)^[([\t-\r\x{85}\p{Zs}\x{2028}\x{2029}\x{FEFF}]]*([@\p{XID_Continue}.]+).*$', by: '$1'}}
+    HEAD: { replace: { source: $VALUE, replace: '(?s)^[([\t-\r\x{85}\p{Zs}\x{2028}\x{2029}\x{FEFF}]]*([@\p{XID_Continue}.]+).*$', by: '$1' } }
 message: '`$HEAD` sequences statements through `Unit` values'
 note: 'Write each call as a block statement, `IO.lift(<action>)` where an `IO<Unit>` is required, `<action>()` in place of `fun(<action>)()`'

@@ -1,6 +1,6 @@
 import { SeverityNumber } from '@opentelemetry/api';
 import { ATTR_CODE_FUNCTION_NAME, ATTR_CODE_STACKTRACE, ATTR_EXCEPTION_MESSAGE, ATTR_EXCEPTION_STACKTRACE, ATTR_EXCEPTION_TYPE, ATTR_SERVICE_NAME } from '@opentelemetry/semantic-conventions';
-import { Array, Cause, Config, Context, Effect, ErrorReporter, type Fiber, Formatter, Iterable, Layer, Logger, LogLevel, Match, Metric, Option, Order, Predicate, Record, References, Schema, String, Struct, Tracer, UndefinedOr } from 'effect';
+import { Array, Cause, Config, Context, Effect, ErrorReporter, type Fiber, flow, Formatter, Iterable, Layer, Logger, LogLevel, Match, Metric, Option, Order, Predicate, Record, References, Schema, String, Struct, Tracer, UndefinedOr } from 'effect';
 import { Otlp, OtlpSerialization } from 'effect/observability';
 
 // --- [TABLES] --------------------------------------------------------------------------
@@ -45,7 +45,7 @@ const formatLogRecord = (resource?: Record.ReadonlyRecord<string, unknown>) =>
             ...(resource === undefined ? {} : { resource }),
         };
     });
-const errorReporter = ErrorReporter.make(({ error, severity, attributes, fiber }) => Effect.logWithLevel(Predicate.hasProperty(error, ErrorReporter.severity) ? severity : 'Error')(Cause.fail(error)).pipe(Effect.annotateLogs(attributes), Effect.runSyncWith(fiber.context)));
+const errorReporter = ErrorReporter.make(({ error, severity, attributes, fiber }) => Effect.runSyncWith(fiber.context)(Effect.annotateLogs(Effect.logWithLevel(Predicate.hasProperty(error, ErrorReporter.severity) ? severity : 'Error')(Cause.fail(error)), attributes)));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -66,7 +66,20 @@ const layerMinimumLogLevels = (minimum: LogLevel.LogLevel, scopes: Record.Readon
             ? Layer.empty
             : Layer.effect(
                   Logger.CurrentLoggers,
-                  Effect.map(Logger.CurrentLoggers, (loggers) => new Set(Iterable.map(loggers, (logger) => Logger.make((entry: Logger.Options<unknown>) => (LogLevel.isGreaterThanOrEqualTo(entry.logLevel, floor(entry.fiber)) ? logger.log(entry) : undefined))))),
+                  Effect.map(
+                      Logger.CurrentLoggers,
+                      (loggers) =>
+                          new Set(
+                              Iterable.map(loggers, (logger) =>
+                                  Logger.make(
+                                      flow(
+                                          Option.liftPredicate((entry: Logger.Options<unknown>) => LogLevel.isGreaterThanOrEqualTo(entry.logLevel, floor(entry.fiber))),
+                                          Option.map(logger.log),
+                                      ),
+                                  ),
+                              ),
+                          ),
+                  ),
               ),
     );
 };

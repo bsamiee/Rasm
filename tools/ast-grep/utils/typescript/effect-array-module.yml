@@ -2,4 +2,4 @@
 id: effect-array-module
 language: tsxlang
 rule:
-    matches: {effect-module: {name: {regex: '(?-u:\b)Array$'}}}
+    matches: { effect-module: { name: { regex: '(?-u:\b)Array$' } } }

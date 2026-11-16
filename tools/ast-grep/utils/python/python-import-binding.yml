@@ -6,17 +6,17 @@ rule:
     any:
         - kind: import_statement
           has:
-            any:
-                - kind: dotted_name
-                  has: {nthChild: 1, kind: identifier, matches: name}
-                - kind: aliased_import
-                  has: {field: alias, matches: name}
+              any:
+                  - kind: dotted_name
+                    has: { nthChild: 1, kind: identifier, matches: name }
+                  - kind: aliased_import
+                    has: { field: alias, matches: name }
         - kind: import_from_statement
           has:
-            any:
-                - kind: wildcard_import
-                - kind: dotted_name
-                  matches: name
-                  not: {inside: {kind: import_from_statement, field: module_name}}
-                - kind: aliased_import
-                  has: {field: alias, matches: name}
+              any:
+                  - kind: wildcard_import
+                  - kind: dotted_name
+                    matches: name
+                    not: { inside: { kind: import_from_statement, field: module_name } }
+                  - kind: aliased_import
+                    has: { field: alias, matches: name }

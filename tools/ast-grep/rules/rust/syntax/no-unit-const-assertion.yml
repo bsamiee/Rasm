@@ -4,9 +4,9 @@ severity: error
 rule:
     kind: let_declaration
     all:
-        - has: {field: value, kind: scoped_identifier, has: {field: name, regex: '^\p{Lu}[\p{Lu}\p{Nd}_]*$'}, pattern: $PATH}
+        - has: { field: value, kind: scoped_identifier, has: { field: name, regex: '^\p{Lu}[\p{Lu}\p{Nd}_]*$' }, pattern: $PATH }
         - any:
-            - has: {field: pattern, kind: tuple_pattern, regex: '^\(\p{Pattern_White_Space}*\)$'}
-            - has: {field: pattern, pattern: $$_P, regex: '^_$'}
+              - has: { field: pattern, kind: tuple_pattern, regex: '^\(\p{Pattern_White_Space}*\)$' }
+              - has: { field: pattern, pattern: $$_P, regex: '^_$' }
 message: '`let` reads `$PATH` to force its compile-time evaluation'
 note: 'Assert in place with `const { assert!(<condition>, "<invariant>") };` and delete the unit associated constant'

@@ -44,13 +44,13 @@ const Site = ({ published: served, session }: typeof Bootstrap.Type) => {
     }, [requested]);
     return (
         <MotionConfig reducedMotion="user">
-            <a className="bg-background fixed -top-25 left-5 z-100 p-3.75 focus:top-2.5" href={UrlFragment.work}>
+            <a className="fixed -top-25 left-5 z-100 bg-background p-3.75 focus:top-2.5" href={UrlFragment.work}>
                 Skip to work
             </a>
             <header className="site-header">
                 <a className="site-name" href={UrlFragment.top}>
                     {portfolio.name || 'Portfolio'}
-                    <Plus className="text-accent size-9 shrink-0 stroke-2" nonScalingStroke={true} />
+                    <Plus className="size-9 shrink-0 stroke-2 text-accent" nonScalingStroke />
                 </a>
                 {session === 'owner' ? (
                     <DialogTrigger isOpen={open} onOpenChange={flow(Option.some, setToggled)}>
@@ -60,8 +60,8 @@ const Site = ({ published: served, session }: typeof Bootstrap.Type) => {
                         {(Option.isSome(toggled) || requested) && (
                             <ErrorBoundary
                                 fallback={
-                                    <Backdrop className="bg-foreground/55 fixed inset-0 z-50 flex items-center justify-center p-5" isDismissable={true}>
-                                        <Modal className="bg-background w-full max-w-lg p-9">
+                                    <Backdrop className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/55 p-5" isDismissable>
+                                        <Modal className="w-full max-w-lg bg-background p-9">
                                             <Dialog className="flex flex-col gap-5">
                                                 <Heading className="text-2xl tracking-tight" slot="title">
                                                     Editor failed to open
@@ -75,13 +75,7 @@ const Site = ({ published: served, session }: typeof Bootstrap.Type) => {
                                     </Backdrop>
                                 }
                             >
-                                <Suspense
-                                    fallback={
-                                        <div className="p-9" role="status">
-                                            Opening editor…
-                                        </div>
-                                    }
-                                >
+                                <Suspense fallback={<output className="block p-9">Opening editor…</output>}>
                                     <Editor
                                         onPreview={flow(Option.some, setPreview)}
                                         onPublish={(data) => {
@@ -103,10 +97,10 @@ const Site = ({ published: served, session }: typeof Bootstrap.Type) => {
             <WorkIndex navigation={navigation} portfolio={portfolio} />
             <StickyBar navigation={navigation} portfolio={portfolio} ref={sticky}>
                 {Option.isSome(preview) && (
-                    <div className="bg-foreground text-background text-caption flex items-center gap-3.75 px-6 py-2 max-sm:flex-wrap max-sm:gap-1 max-sm:px-4">
+                    <div className="flex items-center gap-3.75 bg-foreground px-6 py-2 text-caption text-background max-sm:flex-wrap max-sm:gap-1 max-sm:px-4">
                         <span className="max-sm:w-full">Private preview · snapshot</span>
                         <Button
-                            className="button button-outline ml-auto max-sm:ml-0"
+                            className="ml-auto button button-outline max-sm:ml-0"
                             onPress={() => {
                                 opener.current?.focus({ preventScroll: true });
                                 setToggled(Option.some(true));
@@ -143,18 +137,17 @@ const Site = ({ published: served, session }: typeof Bootstrap.Type) => {
                         </div>
                         {portfolio.hero === undefined ? (
                             <div className="hero-placeholder">
-                                <span className="eyebrow text-muted absolute top-5 left-5.5 max-sm:top-4 max-sm:left-4">Hero placement</span>
-                                <Plus className="text-cross size-11 stroke-1" nonScalingStroke={true} />
+                                <span className="absolute top-5 left-5.5 eyebrow text-muted max-sm:top-4 max-sm:left-4">Hero placement</span>
+                                <Plus className="size-11 stroke-1 text-cross" nonScalingStroke />
                             </div>
                         ) : (
-                            <div className="media-h-hero flex min-w-0 justify-center">
-                                <MediaFigure active={true} placement={portfolio.hero} presentation="expandable" priority={true} renderMedia={true} />
+                            <div className="flex min-w-0 justify-center media-h-hero">
+                                <MediaFigure active placement={portfolio.hero} presentation="expandable" priority renderMedia />
                             </div>
                         )}
                     </section>
-                    {/* biome-ignore lint/correctness/useUniqueElementIds: Public #work links and history entries target section */}
                     <section className="site-work" data-populated={populated} id="work" ref={work} tabIndex={-1}>
-                        <div className="border-foreground border-t pt-4.75">
+                        <div className="border-t border-foreground pt-4.75">
                             <h2 className="work-title">Projects and studies</h2>
                         </div>
                         {portfolio.entries.map((entry) => (
@@ -174,7 +167,7 @@ const Site = ({ published: served, session }: typeof Bootstrap.Type) => {
                             Contact
                         </a>
                     )}
-                    <a className="plain-link ml-auto gap-1" href={UrlFragment.top}>
+                    <a className="ml-auto plain-link gap-1" href={UrlFragment.top}>
                         Back to top
                         <ArrowUp className="size-5" />
                     </a>

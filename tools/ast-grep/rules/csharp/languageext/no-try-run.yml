@@ -5,57 +5,57 @@ ignores: ['apps/roslyn/**']
 utils:
     tried-shape:
         any:
-            - pattern: {context: 'class C { object F() => $_EFFECT.Try(); }', selector: invocation_expression, strictness: cst}
-            - pattern: {context: 'class C { object F() => $_EFFECT.Try().As(); }', selector: invocation_expression, strictness: cst}
+            - pattern: { context: 'class C { object F() => $_EFFECT.Try(); }', selector: invocation_expression, strictness: cst }
+            - pattern: { context: 'class C { object F() => $_EFFECT.Try().As(); }', selector: invocation_expression, strictness: cst }
             - kind: parenthesized_expression
-              has: {matches: tried-shape}
+              has: { matches: tried-shape }
     tried-local:
         kind: identifier
-        pattern: {context: 'class $LOCAL;', selector: identifier}
+        pattern: { context: 'class $LOCAL;', selector: identifier }
         inside:
-            stopBy: {kind: 'method_declaration, local_function_statement, lambda_expression, anonymous_method_expression, accessor_declaration, constructor_declaration, operator_declaration'}
+            stopBy: { kind: 'method_declaration, local_function_statement, lambda_expression, anonymous_method_expression, accessor_declaration, constructor_declaration, operator_declaration' }
             kind: method_declaration, local_function_statement, lambda_expression, anonymous_method_expression, accessor_declaration, constructor_declaration, operator_declaration
             has:
-                stopBy: {kind: 'local_function_statement, lambda_expression, anonymous_method_expression'}
+                stopBy: { kind: 'local_function_statement, lambda_expression, anonymous_method_expression' }
                 kind: variable_declarator
                 all:
-                    - has: {field: name, pattern: {context: 'class $LOCAL;', selector: identifier}}
-                    - has: {nthChild: 2, matches: tried-shape}
+                    - has: { field: name, pattern: { context: 'class $LOCAL;', selector: identifier } }
+                    - has: { nthChild: 2, matches: tried-shape }
     local-run:
         any:
             - kind: member_access_expression
               all:
-                - has: {field: name, regex: '^runFin$'}
-                - has: {field: expression, matches: tried-local}
+                  - has: { field: name, regex: '^runFin$' }
+                  - has: { field: expression, matches: tried-local }
             - kind: invocation_expression
               all:
-                - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Run$'}}, {has: {field: expression, matches: tried-local}}]}
-                - matches: csharp-argumentless-call
+                  - has: { field: function, kind: member_access_expression, all: [{ has: { field: name, regex: '^Run$' } }, { has: { field: expression, matches: tried-local } }] }
+                  - matches: csharp-argumentless-call
     direct:
         any:
-            - matches: {languageext-tried-run: {effect: {pattern: $_}}}
+            - matches: { languageext-tried-run: { effect: { pattern: $_ } } }
             - kind: invocation_expression
               all:
-                - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^As$'}}, {has: {field: expression, matches: direct}}]}
-                - matches: csharp-argumentless-call
+                  - has: { field: function, kind: member_access_expression, all: [{ has: { field: name, regex: '^As$' } }, { has: { field: expression, matches: direct } }] }
+                  - matches: csharp-argumentless-call
             - kind: parenthesized_expression
-              has: {matches: direct}
+              has: { matches: direct }
     kept:
         any:
             - matches: local-run
             - kind: invocation_expression
               all:
-                - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^As$'}}, {has: {field: expression, matches: kept}}]}
-                - matches: csharp-argumentless-call
+                  - has: { field: function, kind: member_access_expression, all: [{ has: { field: name, regex: '^As$' } }, { has: { field: expression, matches: kept } }] }
+                  - matches: csharp-argumentless-call
             - kind: parenthesized_expression
-              has: {matches: kept}
+              has: { matches: kept }
 rule:
     kind: invocation_expression
     all:
-        - has: {field: function, regex: 'Run(Async)?$'}
-        - pattern: {context: 'class C { object F() => $IO.$RUN($$$_ENV); }', selector: invocation_expression, strictness: cst}
-        - has: {field: function, has: {field: expression, any: [{matches: direct}, {matches: kept}]}}
+        - has: { field: function, regex: 'Run(Async)?$' }
+        - pattern: { context: 'class C { object F() => $IO.$RUN($$$_ENV); }', selector: invocation_expression, strictness: cst }
+        - has: { field: function, has: { field: expression, any: [{ matches: direct }, { matches: kept }] } }
 constraints:
-    RUN: {regex: '^Run(Async)?$'}
+    RUN: { regex: '^Run(Async)?$' }
 message: '`$IO.$RUN` spells `RunSafe` through `Try` and `Run`'
 note: 'Call `RunSafe` or `RunSafeAsync` on the effect with same environment argument'

@@ -11,112 +11,112 @@ utils:
                 - pattern: super()
                 - matches: member-chain
     single-parameter:
-        not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+        not: { has: { nthChild: { position: 2, ofRule: { not: { kind: comment } } } } }
         has:
-            nthChild: {position: 1, ofRule: {not: {kind: comment}}}
+            nthChild: { position: 1, ofRule: { not: { kind: comment } } }
             any:
-                - {kind: identifier, pattern: $SELF}
-                - {kind: typed_parameter, has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, kind: identifier, pattern: $SELF}}
+                - { kind: identifier, pattern: $SELF }
+                - { kind: typed_parameter, has: { nthChild: { position: 1, ofRule: { not: { kind: comment } } }, kind: identifier, pattern: $SELF } }
     forwarded-read:
         matches: member-chain
         pattern: $READ
-        not: {has: {field: object, kind: identifier, pattern: $SELF}}
+        not: { has: { field: object, kind: identifier, pattern: $SELF } }
     own-call:
         pattern: $SELF.$_()
         all:
             - pattern: $READ
-            - not: {inside: {kind: decorated_definition, stopBy: end, has: {kind: decorator, has: {matches: caching-callee}}}}
-            - not: {inside: {kind: call, stopBy: end, has: {field: function, matches: caching-callee}}}
+            - not: { inside: { kind: decorated_definition, stopBy: end, has: { kind: decorator, has: { matches: caching-callee } } } }
+            - not: { inside: { kind: call, stopBy: end, has: { field: function, matches: caching-callee } } }
     forwarded-value:
-        any: [{matches: forwarded-read}, {matches: own-call}]
+        any: [{ matches: forwarded-read }, { matches: own-call }]
     caching-callee:
-        matches: {python-member-use: {module: {regex: '^functools$'}, name: {regex: '^cached_property$'}}}
+        matches: { python-member-use: { module: { regex: '^functools$' }, name: { regex: '^cached_property$' } } }
     property-callee:
         any:
-            - matches: {python-builtin-name: {name: {regex: '^property$'}}}
-            - matches: {python-member-use: {module: {regex: '^(enum|types)$'}, name: {regex: '^(property|DynamicClassAttribute)$'}}}
+            - matches: { python-builtin-name: { name: { regex: '^property$' } } }
+            - matches: { python-member-use: { module: { regex: '^(enum|types)$' }, name: { regex: '^(property|DynamicClassAttribute)$' } } }
             - matches: caching-callee
     property-decorator:
         kind: decorator
-        has: {matches: property-callee}
+        has: { matches: property-callee }
     getter:
         any:
             - kind: lambda
               all:
-                - has: {field: parameters, matches: single-parameter}
-                - has: {field: body, matches: forwarded-value}
+                  - has: { field: parameters, matches: single-parameter }
+                  - has: { field: body, matches: forwarded-value }
             - kind: call
               all:
-                - has:
-                    field: arguments
-                    not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
-                    has:
-                        nthChild: {position: 1, ofRule: {not: {kind: comment}}}
-                        kind: string
-                        pattern: $READ
-                        has: {kind: string_content, regex: '\.'}
-                        not: {has: {kind: 'escape_sequence, interpolation', stopBy: end}}
-                - has: {field: function, matches: {python-member-use: {module: {regex: '^operator$'}, name: {regex: '^attrgetter$'}}}}
+                  - has:
+                        field: arguments
+                        not: { has: { nthChild: { position: 2, ofRule: { not: { kind: comment } } } } }
+                        has:
+                            nthChild: { position: 1, ofRule: { not: { kind: comment } } }
+                            kind: string
+                            pattern: $READ
+                            has: { kind: string_content, regex: '\.' }
+                            not: { has: { kind: 'escape_sequence, interpolation', stopBy: end } }
+                  - has: { field: function, matches: { python-member-use: { module: { regex: '^operator$' }, name: { regex: '^attrgetter$' } } } }
     getter-argument:
         any:
-            - nthChild: {position: 1, ofRule: {not: {kind: comment}}}
+            - nthChild: { position: 1, ofRule: { not: { kind: comment } } }
               matches: getter
             - kind: keyword_argument
               all:
-                - has: {field: name, pattern: fget}
-                - has: {field: value, matches: getter}
+                  - has: { field: name, pattern: fget }
+                  - has: { field: value, matches: getter }
     forwarding-accessor:
         kind: function_definition
         all:
-            - has: {field: parameters, has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}, matches: {python-parameter: {name: {pattern: $VALUE}}}}}
+            - has: { field: parameters, has: { nthChild: { position: 2, ofRule: { not: { kind: comment } } }, matches: { python-parameter: { name: { pattern: $VALUE } } } } }
             - has:
-                field: body
-                matches: python-single-statement-block
-                has:
-                    any:
-                        - kind: expression_statement
-                          has: {kind: assignment, all: [{has: {field: left, pattern: $READ}}, {has: {field: right, pattern: $VALUE}}]}
-                        - kind: delete_statement
-                          has: {pattern: $READ}
+                  field: body
+                  matches: python-single-statement-block
+                  has:
+                      any:
+                          - kind: expression_statement
+                            has: { kind: assignment, all: [{ has: { field: left, pattern: $READ } }, { has: { field: right, pattern: $VALUE } }] }
+                          - kind: delete_statement
+                            has: { pattern: $READ }
 rule:
     all:
         - any:
-            - kind: function_definition
-              all:
-                - has: {field: name, pattern: $NAME}
-                - has: {field: parameters, matches: single-parameter}
-                - has:
-                    field: body
-                    matches: python-single-statement-block
-                    has: {kind: return_statement, has: {matches: forwarded-value}}
-                - inside:
-                    kind: decorated_definition
-                    has: {matches: property-decorator}
-                    not: {has: {kind: decorator, not: {any: [{matches: property-decorator}, {has: {matches: typing-override}}]}}}
-                - any:
-                    - not: {inside: {kind: decorated_definition, has: {kind: decorator, has: {matches: typing-override}}}}
-                    - has: {field: body, has: {kind: return_statement, has: {pattern: super().$NAME}}}
-            - kind: assignment
-              all:
-                - inside: {kind: expression_statement, inside: {kind: block, inside: {kind: class_definition, field: body}}}
-                - has: {field: left, kind: identifier, pattern: $NAME}
-                - has:
-                    field: right
-                    kind: call
-                    all:
-                        - has:
-                            field: arguments
-                            has: {matches: getter-argument}
-                            not: {has: {pattern: $_, not: {any: [{matches: getter-argument}, {kind: keyword_argument, has: {field: name, pattern: doc}}]}}}
-                        - has: {field: function, matches: property-callee}
+              - kind: function_definition
+                all:
+                    - has: { field: name, pattern: $NAME }
+                    - has: { field: parameters, matches: single-parameter }
+                    - has:
+                          field: body
+                          matches: python-single-statement-block
+                          has: { kind: return_statement, has: { matches: forwarded-value } }
+                    - inside:
+                          kind: decorated_definition
+                          has: { matches: property-decorator }
+                          not: { has: { kind: decorator, not: { any: [{ matches: property-decorator }, { has: { matches: typing-override } }] } } }
+                    - any:
+                          - not: { inside: { kind: decorated_definition, has: { kind: decorator, has: { matches: typing-override } } } }
+                          - has: { field: body, has: { kind: return_statement, has: { pattern: super().$NAME } } }
+              - kind: assignment
+                all:
+                    - inside: { kind: expression_statement, inside: { kind: block, inside: { kind: class_definition, field: body } } }
+                    - has: { field: left, kind: identifier, pattern: $NAME }
+                    - has:
+                          field: right
+                          kind: call
+                          all:
+                              - has:
+                                    field: arguments
+                                    has: { matches: getter-argument }
+                                    not: { has: { pattern: $_, not: { any: [{ matches: getter-argument }, { kind: keyword_argument, has: { field: name, pattern: doc } }] } } }
+                              - has: { field: function, matches: property-callee }
         - not:
-            inside:
-                kind: block
-                stopBy: {kind: block}
-                has:
-                    kind: decorated_definition
-                    all:
-                        - has: {kind: decorator, has: {kind: attribute, all: [{has: {field: object, pattern: $NAME}}, {has: {field: attribute, regex: '^(setter|deleter)$'}}]}}
-                        - not: {has: {field: definition, matches: forwarding-accessor}}
+              inside:
+                  kind: block
+                  stopBy: { kind: block }
+                  has:
+                      kind: decorated_definition
+                      all:
+                          - has: { kind: decorator, has: { kind: attribute, all: [{ has: { field: object, pattern: $NAME } }, { has: { field: attribute, regex: '^(setter|deleter)$' } }] } }
+                          - not: { has: { field: definition, matches: forwarding-accessor } }
 message: 'Property `$NAME` forwards `$READ` unchanged'
 note: 'Read `<owner>.<member>` or call `<owner>.<method>()` at each use, or delete an override returning `super().<name>`'

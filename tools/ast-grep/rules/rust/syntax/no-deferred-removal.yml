@@ -6,14 +6,14 @@ rule:
         - kind: attribute
           pattern: $MARK
           any:
-            - has: {field: path, pattern: deprecated}
-            - all:
-                - has: {field: path, pattern: cfg_attr}
-                - has: {field: arguments, has: {pattern: deprecated, follows: {regex: '^,$'}}}
-            - all:
-                - has: {field: path, regex: '^cfg(_attr)?$'}
-                - has: {field: arguments, regex: '^\(\p{Pattern_White_Space}*(any\p{Pattern_White_Space}*\(\p{Pattern_White_Space}*\)|false|not\p{Pattern_White_Space}*\(\p{Pattern_White_Space}*all\p{Pattern_White_Space}*\(\p{Pattern_White_Space}*\)\p{Pattern_White_Space}*\))\p{Pattern_White_Space}*[,)]'}
+              - has: { field: path, pattern: deprecated }
+              - all:
+                    - has: { field: path, pattern: cfg_attr }
+                    - has: { field: arguments, has: { pattern: deprecated, follows: { regex: '^,$' } } }
+              - all:
+                    - has: { field: path, regex: '^cfg(_attr)?$' }
+                    - has: { field: arguments, regex: '^\(\p{Pattern_White_Space}*(any\p{Pattern_White_Space}*\(\p{Pattern_White_Space}*\)|false|not\p{Pattern_White_Space}*\(\p{Pattern_White_Space}*all\p{Pattern_White_Space}*\(\p{Pattern_White_Space}*\)\p{Pattern_White_Space}*\))\p{Pattern_White_Space}*[,)]' }
         - kind: 'function_item, function_signature_item, struct_item, enum_item, union_item, const_item, static_item, type_item, trait_item, trait_alias, mod_item, macro_definition'
-          has: {field: name, regex: '^_\p{XID_Continue}', pattern: $MARK}
+          has: { field: name, regex: '^_\p{XID_Continue}', pattern: $MARK }
 message: '`$MARK` keeps an item in place of finishing its removal'
 note: 'Delete the item and move each consumer to its replacement in one change, or drop the leading underscore from a name its crate reads'

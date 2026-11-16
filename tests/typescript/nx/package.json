@@ -20,8 +20,12 @@
         "vitest": "catalog:"
     },
     "nx": {
-        "tags": [ "os:all" ],
-        "implicitDependencies": [ "@rasm/nx-*" ],
+        "tags": [
+            "os:all"
+        ],
+        "implicitDependencies": [
+            "@rasm/nx-*"
+        ],
         "targets": {
             "test--vitest": {
                 "inputs": [

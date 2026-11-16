@@ -4,17 +4,17 @@ severity: error
 utils:
     observable-class:
         kind: class_declaration
-        has: {kind: modifiers, has: {kind: attribute, regex: '^@(Observation(\.|::))?Observable$'}}
+        has: { kind: modifiers, has: { kind: attribute, regex: '^@(Observation(\.|::))?Observable$' } }
 rule:
     pattern: $SITE
     any:
         - kind: property_declaration
-          has: {kind: type_annotation, has: {field: name, kind: 'array_type, dictionary_type', regex: '(?-u:\b)Async(Throwing)?Stream<.*>\.Continuation\]$'}}
-          inside: {kind: class_body, inside: {matches: observable-class}}
+          has: { kind: type_annotation, has: { field: name, kind: 'array_type, dictionary_type', regex: '(?-u:\b)Async(Throwing)?Stream<.*>\.Continuation\]$' } }
+          inside: { kind: class_body, inside: { matches: observable-class } }
         - kind: didset_clause
-          has: {kind: statements, has: {stopBy: end, kind: navigation_expression, has: {field: suffix, has: {field: suffix, regex: '^yield$'}}}}
-          inside: {kind: willset_didset_block, inside: {kind: property_declaration, inside: {kind: class_body, inside: {matches: observable-class}}}}
+          has: { kind: statements, has: { stopBy: end, kind: navigation_expression, has: { field: suffix, has: { field: suffix, regex: '^yield$' } } } }
+          inside: { kind: willset_didset_block, inside: { kind: property_declaration, inside: { kind: class_body, inside: { matches: observable-class } } } }
 transform:
-    HEAD: {replace: {source: $SITE, replace: '(?s)\n.*$', by: ''}}
+    HEAD: { replace: { source: $SITE, replace: '(?s)\n.*$', by: '' } }
 message: '`$HEAD` feeds waiters of an `@Observable` model through stream continuations by hand'
 note: 'Iterate `Observations { <model>.<property> }` at each waiter, with the waited state a tracked stored property'

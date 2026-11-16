@@ -18,7 +18,7 @@
                         "description": "Folder holding the disk image of that app"
                     }
                 },
-                "required": [ "archive", "folder" ],
+                "required": ["archive", "folder"],
                 "additionalProperties": true
             }
         },
@@ -39,7 +39,7 @@
             }
         }
     },
-    "required": [ "exports" ],
+    "required": ["exports"],
     "additionalProperties": true,
     "title": "Release publish",
     "description": "Signs a Sparkle feed for each disk image an export folder holds with generate_appcast under the key SPARKLE_ED_PRIVATE_KEY holds, pointing at the image's asset on the GitHub release of the project's tag at the checked-out commit, the tag nx release made from release.releaseTag.pattern, and uploads it to the R2 bucket SPARKLE_FEED_BUCKET names at the path of the app's SUFeedURL with cf r2 objects put, and where a folder holds no disk image, either variable is unset, or nx release released no version of the project at that commit names what is missing and publishes nothing; runs through nx release publish, a dry run previewing every project"

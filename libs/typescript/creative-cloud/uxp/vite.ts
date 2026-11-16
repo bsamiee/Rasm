@@ -1,4 +1,4 @@
-import { createRequire, isBuiltin } from 'node:module';
+import { isBuiltin } from 'node:module';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { layer } from '@effect/platform-node/NodeServices';
@@ -26,7 +26,7 @@ const RASTER = /\.png$/u;
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const emitted = Effect.fnUntraced(function* (directory: string, { width, path, scale = [1], theme = [] }: Icon, master: Option.Option<string>) {
-    const files = RASTER.test(path) ? Array.map(scale, (factor) => ({ fileName: path.replace(RASTER, `@${factor}x.png`), width: Option.some(width * factor) })) : [{ fileName: path, width: Option.none<number>() }];
+    const files = path.endsWith('.png') ? Array.map(scale, (factor) => ({ fileName: path.replace(RASTER, `@${factor}x.png`), width: Option.some(width * factor) })) : [{ fileName: path, width: Option.none<number>() }];
     const fs = yield* FileSystem.FileSystem;
     const painting = yield* Effect.transposeOption(
         Option.map(master, (painted) =>
@@ -39,7 +39,7 @@ const emitted = Effect.fnUntraced(function* (directory: string, { width, path, s
     );
     return yield* Effect.forEach(files, ({ fileName, width: sized }) => Effect.map(Option.match(painting, { onNone: () => fs.readFile(join(directory, fileName)), onSome: ([painted, fill]) => paint(painted, fill, ...Option.toArray(sized)) }), (source) => ({ fileName, source })), { concurrency: 'unbounded' });
 });
-const uxpScript = (directory: string, config: UserConfig): UserConfig => {
+const uxpScript = (directory: string, exported: readonly string[], config: UserConfig): UserConfig => {
     const encoding = fileURLToPath(import.meta.resolve('@exodus/bytes/encoding-lite.js'));
     return mergeConfig(
         bundle({
@@ -51,7 +51,7 @@ const uxpScript = (directory: string, config: UserConfig): UserConfig => {
                     platform: 'neutral',
                     transform: {
                         inject: Record.fromIterableWith(
-                            Object.keys(createRequire(import.meta.url)(encoding)).filter((name) => name in globalThis),
+                            exported.filter((name) => name in globalThis),
                             (name) => [name, [encoding, name] satisfies [string, string]],
                         ),
                     },
@@ -80,10 +80,11 @@ const uxp = (directory: string, { masters = {}, config = {} }: Plugin = {}): Use
         function* () {
             const source = yield* FileSystem.FileSystem.use((fs) => fs.readFileString(join(directory, UxpManifest.file)));
             const manifest = yield* Schema.decodeEffect(UxpManifest.json)(source);
-            const context = yield* Effect.context<Effect.Services<ReturnType<typeof emitted>>>();
+            const [context, lite] = yield* Effect.all([Effect.context<Effect.Services<ReturnType<typeof emitted>>>(), Effect.promise(() => import('@exodus/bytes/encoding-lite.js'))]);
             const icons = [...Array.map(manifest.icons ?? [], (icon) => [icon, Option.fromUndefinedOr(masters.plugin)] as const), ...manifest.entrypoints.flatMap((entry) => (entry.type === 'panel' ? Array.map(entry.icons ?? [], (icon) => [icon, Option.fromUndefinedOr(masters.panels?.[entry.id])] as const) : []))];
             return uxpScript(
                 directory,
+                Object.keys(lite),
                 mergeConfig(
                     {
                         plugins: [

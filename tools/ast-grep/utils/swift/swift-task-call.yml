@@ -8,9 +8,9 @@ rule:
         nthChild: 1
         kind: navigation_expression
         all:
-            - has: {field: suffix, has: {field: suffix, matches: member}}
+            - has: { field: suffix, has: { field: suffix, matches: member } }
             - has:
-                field: target
-                any:
-                    - {regex: '^(_Concurrency(\.|::))?Task$'}
-                    - matches: swift-task-type
+                  field: target
+                  any:
+                      - { regex: '^(_Concurrency(\.|::))?Task$' }
+                      - matches: swift-task-type

@@ -25,7 +25,7 @@ class Profile extends Data.Class<{
 }> {
     static readonly outline = (commands: readonly SvgPathCommand[]): readonly (readonly Segment[])[] => {
         const [, drawn] = Array.mapAccum(commands, { cursor: ORIGIN, start: ORIGIN, contour: 0 }, ({ cursor, start, contour }, { type, values }) => {
-            const points = Array.chunksOf(values, 2).map(([x = 0, y = 0]) => ({ x, y }));
+            const points = Array.chunksOf(values, 2).map(([x, y = 0]) => ({ x, y }));
             const end = Option.getOrElse(Array.last(points), () => start);
             const moving = type === 'M';
             const next = moving ? contour + 1 : contour;
@@ -102,10 +102,10 @@ const flattened = (curve: readonly Point[]): readonly Point[] => {
     const tolerance = 0.5;
     return deviation(curve) <= tolerance ? Array.takeRight(curve, 1) : halves(curve).flatMap((half) => flattened(half));
 };
+const crossing = (band: number, entry: number, exit: number) => ({ band, left: Math.min(entry, exit), right: Math.max(entry, exit) });
 const crossings = ([from, to]: Segment) => {
     const [low, high] = [Math.min(from.y, to.y), Math.max(from.y, to.y)];
     const at = (y: number) => from.x + ((to.x - from.x) * (y - from.y)) / (to.y - from.y);
-    const crossing = (band: number, entry: number, exit: number) => ({ band, left: Math.min(entry, exit), right: Math.max(entry, exit) });
     return low === high ? [crossing(Math.floor(low), from.x, to.x)] : Array.range(Math.floor(low), Math.ceil(high) - 1).map((band) => crossing(band, at(Math.max(low, band)), at(Math.min(high, band + 1))));
 };
 

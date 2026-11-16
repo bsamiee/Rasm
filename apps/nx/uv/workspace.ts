@@ -159,7 +159,7 @@ const report = (workspaceRoot: string, lock: string, metadata: typeof Metadata.T
         edges: members.flatMap((member) => {
             const sourceFile = join(member.root, MANIFEST);
             const own = Record.keys(Record.filter(resolution, (node) => node.name === member.name && Option.contains(local(node), member.root)));
-            const targeted = [...own.flatMap((id) => Array.getSomes((resolution[id]?.dependencies ?? []).map(located))).map(({ root }) => root)];
+            const targeted = own.flatMap((id) => Array.getSomes((resolution[id]?.dependencies ?? []).map(located))).map(({ root }) => root);
             return targeted.map((target): RawProjectGraphDependency => ({ source: member.root, target, type: DependencyType.static, sourceFile }));
         }),
     };

@@ -45,7 +45,7 @@ const readProperty = (value: unknown, key: string): unknown => attempt(() => (is
 const unmatched = (subject: string, query: string, candidates: readonly string[]): Replied<'Unmatched'> => ({ _tag: 'Unmatched', subject, query, candidates });
 const illegalArgument = (text: string): Replied<'IllegalArgument'> => ({ _tag: 'IllegalArgument', message: text });
 const escaped = (text: string) => `"${text.replace(UNESCAPED, (character) => ['\\', 'u', ['000', character.charCodeAt(0).toString(HEX)].join('').slice(HEX_WIDTH)].join(''))}"`;
-const encoded = (value: unknown, specifier: (value: object) => string | undefined = () => undefined): string => {
+const encoded = (value: unknown, specifier?: (value: object) => string | undefined): string => {
     if (typeof value === 'string') {
         return escaped(value);
     }
@@ -60,21 +60,21 @@ const encoded = (value: unknown, specifier: (value: object) => string | undefine
     }
     return isPlain(value) ? `{${map(recordKeys(value), (key) => [escaped(key), encoded(value[key], specifier)].join(':')).join(',')}}` : described(value, specifier);
 };
-const described = (value: unknown, specifier: (value: object) => string | undefined): string => {
-    const at = isRecord(value) ? specifier(value) : undefined;
+const described = (value: unknown, specifier?: (value: object) => string | undefined): string => {
+    const at = isRecord(value) ? specifier?.(value) : undefined;
     const [type, name] = [readProperty(readProperty(value, 'reflect'), 'name'), readProperty(value, 'name')];
     return at === undefined ? escaped(String(value)) : encoded({ type: typeof type === 'string' ? type : String(value), specifier: at, name: typeof name === 'string' ? name : undefined, valid: true }, specifier);
 };
-const reply = (answer: () => unknown, specifier: (value: object) => string | undefined = () => undefined, evaluated: (thrown: unknown) => boolean = () => true): string => {
+const reply = (answer: () => unknown, specifier?: (value: object) => string | undefined, evaluated: (thrown: unknown) => boolean = () => true): string => {
     try {
         return encoded({ _tag: 'Value' satisfies Replied<'Value'>['_tag'], value: answer() }, specifier);
-    } catch (thrown) {
-        const tag = readProperty(thrown, '_tag');
-        if (isRecord(thrown) && (tag === 'Unmatched' || tag === 'IllegalArgument')) {
-            return encoded(thrown, specifier);
+    } catch (error) {
+        const tag = readProperty(error, '_tag');
+        if (isRecord(error) && (tag === 'Unmatched' || tag === 'IllegalArgument')) {
+            return encoded(error, specifier);
         }
-        const line = evaluated(thrown) ? finite(readProperty(thrown, 'line') ?? readProperty(thrown, 'lineNumber')) : undefined;
-        return encoded({ _tag: 'Thrown', message: message(thrown), number: finite(readProperty(thrown, 'number')), line } satisfies Omit<Replied<'Thrown'>, 'number' | 'line'> & Record<'number' | 'line', number | undefined>, specifier);
+        const line = evaluated(error) ? finite(readProperty(error, 'line') ?? readProperty(error, 'lineNumber')) : undefined;
+        return encoded({ _tag: 'Thrown', message: message(error), number: finite(readProperty(error, 'number')), line } satisfies Omit<Replied<'Thrown'>, 'number' | 'line'> & Record<'number' | 'line', number | undefined>, specifier);
     }
 };
 

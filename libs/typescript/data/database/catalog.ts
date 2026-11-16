@@ -28,12 +28,10 @@ class Catalog extends Data.Class<{
                 reader,
             }),
         );
+    static readonly #text = (written: readonly Statement.Statement<object>[]) => written.map((statement) => statement.compile(true)[0]);
     static readonly plan = Effect.fn('Catalog.plan')(
         (catalog: Catalog, runtime: Option.Option<string> = Option.none()) => converge(catalog, runtime, () => Effect.void),
-        Effect.map(({ preamble, statements, concurrent, undeclared }) => {
-            const text = (written: readonly Statement.Statement<object>[]) => written.map((statement) => statement.compile(true)[0]);
-            return { preamble: text(preamble), statements: text(statements), concurrent: text(concurrent), undeclared };
-        }),
+        Effect.map(({ preamble, statements, concurrent, undeclared }) => ({ preamble: Catalog.#text(preamble), statements: Catalog.#text(statements), concurrent: Catalog.#text(concurrent), undeclared })),
     );
     static readonly reconcile = Effect.fn('Catalog.reconcile')(
         (catalog: Catalog, runtime: Option.Option<string> = Option.none()) => converge(catalog, runtime, ({ statements }, engine) => Array.match(statements, { onEmpty: () => Effect.void, onNonEmpty: engine.execute })),

@@ -4,38 +4,38 @@ severity: error
 utils:
     writer-binding:
         kind: property_declaration
-        has: {follows: {regex: '^=$'}, regex: '\.standardInputWriter$'}
+        has: { follows: { regex: '^=$' }, regex: '\.standardInputWriter$' }
     writer:
         any:
             - regex: '\.standardInputWriter$'
             - kind: simple_identifier
               pattern: $WRITER
               inside:
-                stopBy: {kind: lambda_literal}
-                kind: statements
-                has: {nthChild: 1, matches: writer-binding, has: {kind: pattern, has: {field: bound_identifier, pattern: $WRITER}, precedes: {stopBy: {kind: pattern}, regex: '\.standardInputWriter$'}}}
+                  stopBy: { kind: lambda_literal }
+                  kind: statements
+                  has: { nthChild: 1, matches: writer-binding, has: { kind: pattern, has: { field: bound_identifier, pattern: $WRITER }, precedes: { stopBy: { kind: pattern }, regex: '\.standardInputWriter$' } } }
     writer-call:
         kind: call_expression
-        has: {nthChild: 1, kind: navigation_expression, has: {field: target, matches: writer}}
+        has: { nthChild: 1, kind: navigation_expression, has: { field: target, matches: writer } }
     writer-write:
         matches: writer-call
-        has: {nthChild: 1, has: {field: suffix, has: {field: suffix, regex: '^write$'}}}
+        has: { nthChild: 1, has: { field: suffix, has: { field: suffix, regex: '^write$' } } }
     writer-finish:
         matches: writer-call
-        has: {nthChild: 1, has: {field: suffix, has: {field: suffix, regex: '^finish$'}}}
+        has: { nthChild: 1, has: { field: suffix, has: { field: suffix, regex: '^finish$' } } }
 rule:
     kind: lambda_literal
     all:
-        - inside: {kind: call_expression, stopBy: {kind: call_expression}, has: {nthChild: 1, regex: '^(Subprocess(\.|::))?run$'}}
+        - inside: { kind: call_expression, stopBy: { kind: call_expression }, has: { nthChild: 1, regex: '^(Subprocess(\.|::))?run$' } }
         - has:
-            kind: statements
-            any:
-                - all:
-                    - has: {nthChild: 1, has: {stopBy: &statement {not: {kind: 'assignment, try_expression, await_expression'}}, matches: writer-write, pattern: $WRITE}}
-                    - has: {nthChild: 2, has: {stopBy: *statement, matches: writer-finish}}
-                - all:
-                    - has: {nthChild: 1, matches: writer-binding}
-                    - has: {nthChild: 2, has: {stopBy: *statement, matches: writer-write, pattern: $WRITE}}
-                    - has: {nthChild: 3, has: {stopBy: *statement, matches: writer-finish}}
+              kind: statements
+              any:
+                  - all:
+                        - has: { nthChild: 1, has: { stopBy: &statement { not: { kind: 'assignment, try_expression, await_expression' } }, matches: writer-write, pattern: $WRITE } }
+                        - has: { nthChild: 2, has: { stopBy: *statement, matches: writer-finish } }
+                  - all:
+                        - has: { nthChild: 1, matches: writer-binding }
+                        - has: { nthChild: 2, has: { stopBy: *statement, matches: writer-write, pattern: $WRITE } }
+                        - has: { nthChild: 3, has: { stopBy: *statement, matches: writer-finish } }
 message: '`$WRITE` writes one fixed value to standard input and closes it'
 note: 'Pass the value to `run` as `input: .string(<text>)`, `.array(<bytes>)`, or `.data(<data>)`'

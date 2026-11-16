@@ -3,4 +3,4 @@ id: csharp-nameof-call
 language: csharplang
 rule:
     kind: invocation_expression
-    has: {field: function, kind: identifier, regex: '^nameof$'}
+    has: { field: function, kind: identifier, regex: '^nameof$' }

@@ -1,0 +1,8 @@
+{
+    "$schema": "./node_modules/oxfmt/configuration_schema.json",
+    "printWidth": 320,
+    "singleQuote": true,
+    "sortImports": { "newlinesBetween": false },
+    "ignorePatterns": ["assets/**", ".claude/workflows/**", ".config/mise/locks/**", "**/packages*.lock.json", "**/*.md", "**/*.toml", "**/*.xcassets", "**/*.icon"],
+    "overrides": [{ "files": ["apps/web/**", "libs/typescript/web/**"], "options": { "sortTailwindcss": { "stylesheet": "./apps/web/portfolio/site/theme.css" } } }]
+}

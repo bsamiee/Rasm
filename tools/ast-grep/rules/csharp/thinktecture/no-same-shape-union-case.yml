@@ -6,14 +6,14 @@ utils:
     shaped-case:
         kind: record_declaration
         all:
-            - has: {kind: parameter_list, pattern: $PARAMETERS, has: {kind: parameter}}
-            - not: {has: {field: body, kind: declaration_list}}
+            - has: { kind: parameter_list, pattern: $PARAMETERS, has: { kind: parameter } }
+            - not: { has: { field: body, kind: declaration_list } }
 rule:
     kind: record_declaration
     all:
-        - has: {field: name, pattern: $CASE}
+        - has: { field: name, pattern: $CASE }
         - matches: shaped-case
-        - inside: {kind: declaration_list, inside: {kind: 'record_declaration, class_declaration', matches: {thinktecture-union: {name: {kind: identifier}}}}}
-        - follows: {stopBy: end, kind: record_declaration, matches: shaped-case}
+        - inside: { kind: declaration_list, inside: { kind: 'record_declaration, class_declaration', matches: { thinktecture-union: { name: { kind: identifier } } } } }
+        - follows: { stopBy: end, kind: record_declaration, matches: shaped-case }
 message: '`$CASE` repeats parameters `$PARAMETERS` of an earlier case'
 note: 'Merge same-shape cases into one record keyed by a data-holding smart enum item or holding formula parameters, other-shape cases stay'

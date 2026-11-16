@@ -7,50 +7,50 @@ rule:
         - kind: identifier
           matches: name
           any:
-            - inside:
-                any:
-                    - kind: 'parameters, lambda_parameters, splat_pattern'
-                    - kind: 'pattern_list, tuple_pattern, list_pattern, list_splat_pattern'
-                      inside:
-                        stopBy: {not: {kind: 'pattern_list, tuple_pattern, list_pattern, list_splat_pattern'}}
-                        kind: 'assignment, augmented_assignment, for_statement, for_in_clause'
-                    - kind: dotted_name
-                      not: {has: {nthChild: 2}}
-                      inside: {kind: "case_pattern, keyword_pattern"}
-                    - kind: as_pattern
-                      inside: {kind: case_pattern}
-            - inside:
-                kind: as_pattern_target
-                stopBy: {not: {kind: 'tuple, list, parenthesized_expression, list_splat'}}
+              - inside:
+                    any:
+                        - kind: 'parameters, lambda_parameters, splat_pattern'
+                        - kind: 'pattern_list, tuple_pattern, list_pattern, list_splat_pattern'
+                          inside:
+                              stopBy: { not: { kind: 'pattern_list, tuple_pattern, list_pattern, list_splat_pattern' } }
+                              kind: 'assignment, augmented_assignment, for_statement, for_in_clause'
+                        - kind: dotted_name
+                          not: { has: { nthChild: 2 } }
+                          inside: { kind: 'case_pattern, keyword_pattern' }
+                        - kind: as_pattern
+                          inside: { kind: case_pattern }
+              - inside:
+                    kind: as_pattern_target
+                    stopBy: { not: { kind: 'tuple, list, parenthesized_expression, list_splat' } }
         - kind: typed_parameter, list_splat_pattern, dictionary_splat_pattern
           has:
-            nthChild: {position: 1, ofRule: {not: {kind: comment}}}
-            any:
-                - kind: identifier
-                  matches: name
-                - kind: list_splat_pattern, dictionary_splat_pattern
-                  has: {kind: identifier, matches: name}
+              nthChild: { position: 1, ofRule: { not: { kind: comment } } }
+              any:
+                  - kind: identifier
+                    matches: name
+                  - kind: list_splat_pattern, dictionary_splat_pattern
+                    has: { kind: identifier, matches: name }
         - kind: default_parameter, typed_default_parameter
-          has: {field: name, matches: name}
+          has: { field: name, matches: name }
         - kind: assignment, augmented_assignment, for_statement, for_in_clause
           has:
-            field: left
-            any:
-                - kind: identifier
-                  matches: name
-                - kind: pattern_list, tuple_pattern, list_pattern, list_splat_pattern
-                  has: {stopBy: {kind: 'attribute, subscript'}, kind: identifier, matches: name}
+              field: left
+              any:
+                  - kind: identifier
+                    matches: name
+                  - kind: pattern_list, tuple_pattern, list_pattern, list_splat_pattern
+                    has: { stopBy: { kind: 'attribute, subscript' }, kind: identifier, matches: name }
         - kind: named_expression
-          has: {field: name, matches: name}
+          has: { field: name, matches: name }
         - kind: as_pattern
-          has: {field: alias, has: {stopBy: {kind: 'attribute, subscript'}, kind: identifier, matches: name}}
+          has: { field: alias, has: { stopBy: { kind: 'attribute, subscript' }, kind: identifier, matches: name } }
         - kind: function_definition, class_definition
-          has: {field: name, matches: name}
+          has: { field: name, matches: name }
         - kind: type_alias_statement
           has:
-            field: left
-            any:
-                - has: {kind: identifier, matches: name}
-                - has: {kind: generic_type, has: {kind: identifier, matches: name}}
+              field: left
+              any:
+                  - has: { kind: identifier, matches: name }
+                  - has: { kind: generic_type, has: { kind: identifier, matches: name } }
         - kind: delete_statement
-          has: {stopBy: {kind: 'attribute, subscript'}, kind: identifier, matches: name}
+          has: { stopBy: { kind: 'attribute, subscript' }, kind: identifier, matches: name }

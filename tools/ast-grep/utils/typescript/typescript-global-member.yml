@@ -5,5 +5,5 @@ rule:
     any:
         - kind: identifier
         - kind: member_expression
-          has: {field: object, kind: identifier, regex: '^(globalThis|window|self)$'}
+          has: { field: object, kind: identifier, regex: '^(globalThis|window|self)$' }
     matches: typescript-global-reference

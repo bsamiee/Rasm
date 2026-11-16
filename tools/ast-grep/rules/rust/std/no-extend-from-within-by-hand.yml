@@ -12,15 +12,15 @@ rule:
     any:
         - kind: expression_statement
           has:
-            nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}
-            kind: for_expression
-            all:
-                - has: {field: pattern, kind: identifier, pattern: $ITEM}
-                - has: {field: value, matches: own-copy}
-                - has: {field: body, matches: {rust-single-statement: {first: {any: [{pattern: $V.push($ITEM)}, {kind: expression_statement, has: {pattern: $V.push($ITEM)}}]}}}}
+              nthChild: { position: 1, ofRule: { not: { kind: 'line_comment, block_comment' } } }
+              kind: for_expression
+              all:
+                  - has: { field: pattern, kind: identifier, pattern: $ITEM }
+                  - has: { field: value, matches: own-copy }
+                  - has: { field: body, matches: { rust-single-statement: { first: { any: [{ pattern: $V.push($ITEM) }, { kind: expression_statement, has: { pattern: $V.push($ITEM) } }] } } } }
         - kind: call_expression
           all:
-            - any: [{pattern: $V.extend($_)}, {pattern: $V.extend_from_slice($_)}, {pattern: $V.push_str($_)}, {pattern: $V.append(&mut $_)}]
-            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, any: [{matches: own-copy}, {kind: reference_expression, has: {matches: own-copy}}]}}
+              - any: [{ pattern: $V.extend($_) }, { pattern: $V.extend_from_slice($_) }, { pattern: $V.push_str($_) }, { pattern: $V.append(&mut $_) }]
+              - has: { field: arguments, has: { nthChild: { position: 1, ofRule: { not: { kind: 'line_comment, block_comment' } } }, any: [{ matches: own-copy }, { kind: reference_expression, has: { matches: own-copy } }] } }
 message: '`$V` copies itself to append its own elements'
 note: 'Call `<buffer>.extend_from_within(..)` on a `Vec` or `String`, with a range for part of the buffer'

@@ -3,81 +3,81 @@ language: csharplang
 severity: error
 utils:
     member-owner:
-        inside: {kind: declaration_list, inside: {kind: 'record_declaration, class_declaration, struct_declaration', not: {has: {regex: '^ref$'}}, has: {field: name, pattern: {context: 'class $TYPE;', selector: identifier}}}}
+        inside: { kind: declaration_list, inside: { kind: 'record_declaration, class_declaration, struct_declaration', not: { has: { regex: '^ref$' } }, has: { field: name, pattern: { context: 'class $TYPE;', selector: identifier } } } }
     record-owner:
-        inside: {kind: declaration_list, inside: {kind: record_declaration, has: {field: name, pattern: {context: 'class $TYPE;', selector: identifier}}}}
+        inside: { kind: declaration_list, inside: { kind: record_declaration, has: { field: name, pattern: { context: 'class $TYPE;', selector: identifier } } } }
     single-declarator:
         has:
             kind: variable_declaration
-            not: {has: {kind: variable_declarator, nthChild: {position: 2, ofRule: {kind: variable_declarator}}}}
+            not: { has: { kind: variable_declarator, nthChild: { position: 2, ofRule: { kind: variable_declarator } } } }
     writable-collection-property:
         kind: property_declaration
         matches: csharp-visible-member
-        has: {field: type, any: [{matches: writable-collection}, {kind: nullable_type, has: {field: type, matches: writable-collection}}]}
+        has: { field: type, any: [{ matches: writable-collection }, { kind: nullable_type, has: { field: type, matches: writable-collection } }] }
     writable-collection:
         any:
             - kind: 'generic_name, qualified_name'
               all:
-                - matches:
-                    csharp-generic-type:
-                        name:
-                            regex: |-
-                                (?x)^(List|Dictionary|SortedDictionary|SortedList|SortedSet|Queue|Stack|LinkedList|IList|ICollection|IDictionary|ISet
-                                |Collection|ObservableCollection|ConcurrentDictionary|ConcurrentBag|ConcurrentQueue|ConcurrentStack|BlockingCollection)$
-                        list: {kind: type_argument_list}
-                - matches: {csharp-qualified-name: {name: {kind: identifier}, qualifier: {regex: '^(?:Generic|ObjectModel|Concurrent)$'}}}
+                  - matches:
+                        csharp-generic-type:
+                            name:
+                                regex: |-
+                                    (?x)^(List|Dictionary|SortedDictionary|SortedList|SortedSet|Queue|Stack|LinkedList|IList|ICollection|IDictionary|ISet
+                                    |Collection|ObservableCollection|ConcurrentDictionary|ConcurrentBag|ConcurrentQueue|ConcurrentStack|BlockingCollection)$
+                            list: { kind: type_argument_list }
+                  - matches: { csharp-qualified-name: { name: { kind: identifier }, qualifier: { regex: '^(?:Generic|ObjectModel|Concurrent)$' } } }
             - kind: 'generic_name, qualified_name'
-              matches: {csharp-qualified-name: {name: {regex: '^ArraySegment$'}, qualifier: {regex: '^System$'}}}
+              matches: { csharp-qualified-name: { name: { regex: '^ArraySegment$' }, qualifier: { regex: '^System$' } } }
             - kind: qualified_name
-              matches: {csharp-qualified-name: {name: {regex: '^HashSet$'}, qualifier: {regex: '^Generic$'}}}
-              has: {field: qualifier, pattern: $_}
+              matches: { csharp-qualified-name: { name: { regex: '^HashSet$' }, qualifier: { regex: '^Generic$' } } }
+              has: { field: qualifier, pattern: $_ }
             - kind: 'identifier, qualified_name'
-              matches: {csharp-qualified-name: {name: {regex: '^(?:ArrayList|Hashtable)$'}, qualifier: {regex: '^Collections$'}}}
+              matches: { csharp-qualified-name: { name: { regex: '^(?:ArrayList|Hashtable)$' }, qualifier: { regex: '^Collections$' } } }
 rule:
     any:
         - kind: accessor_declaration
           all:
-            - has: {field: name, regex: '^set$'}
-            - not:
-                all:
-                    - has: {kind: modifier, regex: '^private$'}
-                    - inside: {kind: accessor_list, inside: {kind: property_declaration, inside: {kind: declaration_list, inside: {kind: class_declaration}}}}
-            - not:
-                all:
-                    - has: {kind: modifier, regex: '^internal$'}
-                    - inside: {kind: accessor_list, inside: {kind: property_declaration, inside: {kind: declaration_list, inside: {kind: class_declaration, has: {kind: base_list}}}}}
-            - inside:
-                kind: accessor_list
-                inside:
-                    kind: 'property_declaration, indexer_declaration'
-                    not:
-                        any:
-                            - has: {kind: modifier, regex: '^(override|static)$'}
-                            - matches: writable-collection-property
-                            - has: {kind: explicit_interface_specifier}
-                    matches: member-owner
+              - has: { field: name, regex: '^set$' }
+              - not:
+                    all:
+                        - has: { kind: modifier, regex: '^private$' }
+                        - inside: { kind: accessor_list, inside: { kind: property_declaration, inside: { kind: declaration_list, inside: { kind: class_declaration } } } }
+              - not:
+                    all:
+                        - has: { kind: modifier, regex: '^internal$' }
+                        - inside: { kind: accessor_list, inside: { kind: property_declaration, inside: { kind: declaration_list, inside: { kind: class_declaration, has: { kind: base_list } } } } }
+              - inside:
+                    kind: accessor_list
+                    inside:
+                        kind: 'property_declaration, indexer_declaration'
+                        not:
+                            any:
+                                - has: { kind: modifier, regex: '^(override|static)$' }
+                                - matches: writable-collection-property
+                                - has: { kind: explicit_interface_specifier }
+                        matches: member-owner
         - kind: field_declaration
           all:
-            - not: {has: {kind: modifier, regex: '^(readonly|const|required|static)$'}}
-            - not: {matches: csharp-visible-member}
-            - matches: record-owner
+              - not: { has: { kind: modifier, regex: '^(readonly|const|required|static)$' } }
+              - not: { matches: csharp-visible-member }
+              - matches: record-owner
         - kind: field_declaration
           all:
-            - has: {kind: modifier, regex: '^(public|internal|protected)$'}
-            - not: {has: {kind: modifier, regex: '^(readonly|const|required|private|static)$'}}
-            - not: {matches: csharp-visible-member}
-            - inside: {kind: declaration_list, inside: {kind: 'class_declaration, struct_declaration', not: {has: {regex: '^ref$'}}, has: {field: name, pattern: {context: 'class $TYPE;', selector: identifier}}}}
+              - has: { kind: modifier, regex: '^(public|internal|protected)$' }
+              - not: { has: { kind: modifier, regex: '^(readonly|const|required|private|static)$' } }
+              - not: { matches: csharp-visible-member }
+              - inside: { kind: declaration_list, inside: { kind: 'class_declaration, struct_declaration', not: { has: { regex: '^ref$' } }, has: { field: name, pattern: { context: 'class $TYPE;', selector: identifier } } } }
         - kind: field_declaration
           all:
-            - has: {kind: modifier, regex: '^required$'}
-            - not: {matches: csharp-visible-member}
-            - matches: single-declarator
-            - matches: member-owner
+              - has: { kind: modifier, regex: '^required$' }
+              - not: { matches: csharp-visible-member }
+              - matches: single-declarator
+              - matches: member-owner
         - kind: record_declaration
           all:
-            - has: {regex: '^struct$'}
-            - has: {field: name, pattern: {context: 'class $TYPE;', selector: identifier}}
-            - has: {kind: parameter_list, has: {kind: parameter}}
-            - not: {has: {kind: modifier, regex: '^readonly$'}}
+              - has: { regex: '^struct$' }
+              - has: { field: name, pattern: { context: 'class $TYPE;', selector: identifier } }
+              - has: { kind: parameter_list, has: { kind: parameter } }
+              - not: { has: { kind: modifier, regex: '^readonly$' } }
 message: '`$TYPE` holds a member that changes after construction'
 note: 'Write `init`, `readonly`, or `required` `{ get; init; }`, and implement a host interface setter explicitly'

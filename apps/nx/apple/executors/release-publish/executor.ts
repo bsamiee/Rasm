@@ -1,7 +1,7 @@
 import { fileURLToPath } from 'node:url';
 import type { ExecutorContext } from '@nx/devkit';
 import cf from 'cf/package.json' with { type: 'json' };
-import { Array, Cause, Config, Effect, FileSystem, Function, Option, Path, Result, Schema, SemVer, Stream } from 'effect';
+import { Array, Cause, Config, Effect, FileSystem, Function, Option, Path, Record, Result, Schema, SemVer, Stream } from 'effect';
 import { APPCAST, NOTARY, run, spawned } from '#/targets';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -45,8 +45,7 @@ const fed = Effect.fnUntraced(function* (context: ExecutorContext, { archive, fo
     if (!Array.isReadonlyArrayNonEmpty(images)) {
         return yield* Effect.logWarning(`Skipped the Sparkle feed of ${folder}: it holds no disk image, which pack--ditto writes where ${NOTARY.key}, ${NOTARY.keyId}, and ${NOTARY.issuer} are set`);
     }
-    const configured = (variable: string) => Effect.map(Config.option(Config.String(variable)), Result.fromOption(Function.constant(variable)));
-    const held = yield* Effect.all({ key: configured(APPCAST.key), bucket: configured(APPCAST.bucket) });
+    const held = yield* Effect.all(Record.map(APPCAST, (variable) => Effect.map(Config.option(Config.String(variable)), Result.fromOption(Function.constant(variable)))));
     const signed = Effect.fnUntraced(function* ({ key, bucket }: { readonly key: string; readonly bucket: string }) {
         if (dry) {
             return yield* Effect.logInfo(`Would publish the Sparkle feed of ${images.join(', ')} for ${tag} through generate_appcast and cf r2 objects put`);

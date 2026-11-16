@@ -1,6 +1,7 @@
 import { type AgentStatus, atom, type EngineInterface, type HookStream, type ProcessSpawnChunk, type ProcessSpawnResult, type Register, read, update } from 'claude-code';
 import type { Routes } from '#/claude/routes';
 import type { Row } from '#/hooks/state';
+import type { WATCH_APPS } from '#/shell/programs';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -17,7 +18,7 @@ interface State {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const WATCH_APPS = 'watch-apps' satisfies typeof import('#/shell/programs').WATCH_APPS;
+const WATCH_APPS_CLI = 'watch-apps' satisfies typeof WATCH_APPS;
 const ROWS = atom({ plugin: 'function-hooks', key: 'rows' } as const, [], { shape: 'rows-1' });
 const LAST_SEGMENT = /\/[^/]*$/u;
 const ERROR_LINE = /Error\b/u;
@@ -56,7 +57,9 @@ const started = ($: EngineInterface, servers: State['servers']): Promise<string>
     servers.clear();
     servers.set(ready.promise, child);
     supervised()
-        .finally(() => servers.delete(ready.promise))
+        .finally(() => {
+            servers.delete(ready.promise);
+        })
         .catch(ready.reject);
     return ready.promise;
 };
@@ -66,17 +69,19 @@ const posted = <R extends keyof Routes>($: EngineInterface, { session, servers }
     const served = () => session.promise.then((opened) => opened.served());
     const asked = (socketPath: string) => $.http.fetch(`http://${$.plugin.name}/${route}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body), socketPath });
     const answered = async (): Promise<Routes[R][1]> => {
+        signal?.throwIfAborted();
         const [running = served()] = servers.keys();
         const socket = await running;
         const first = await asked(socket).catch(() => undefined);
         signal?.throwIfAborted();
         const [current] = servers.keys();
         const { ok, status, text } = first ?? (await asked(await (current === undefined || (await current.catch(() => undefined)) === socket ? served() : current)));
+        // oxlint-disable-next-line typescript/no-unsafe-assignment -- hooks modules import no package to decode with, and the server encodes this body through the Routes schemas
         const answer: Routes[R][1] = ok ? JSON.parse(text) : await Promise.reject(new Error(`${route} answered ${status}, ${text}`));
         return answer;
     };
     signal?.addEventListener('abort', () => stopped.reject(signal.reason), { once: true });
-    return Promise.race([signal?.aborted === true ? Promise.reject(signal.reason) : answered(), stopped.promise]);
+    return Promise.race([answered(), stopped.promise]);
 };
 
 // --- [NOTES]
@@ -117,7 +122,8 @@ const noted = ($: EngineInterface, tracked: State['tracked'], own: readonly Watc
 
 const taken = async ($: EngineInterface, tracked: State['tracked'], agent: string | undefined): Promise<readonly Tracked[]> => {
     const orphaned = agent === undefined && [...tracked.values()].some(({ owner, pending }) => owner !== undefined && pending.length > 0);
-    const running = new Set(orphaned ? (await $.agent.list()).filter(({ status }) => !ENDED.has(status)).map(({ id }) => id) : []);
+    const agents = orphaned ? await $.agent.list() : [];
+    const running = new Set(agents.filter(({ status }) => !ENDED.has(status)).map(({ id }) => id));
     const owned = [...tracked.values()].filter(({ owner, pending }) => pending.length > 0 && (owner === agent || (agent === undefined && owner !== undefined && !running.has(owner))));
     owned.forEach((state) => held(tracked, { ...state, pending: [] }));
     return owned;
@@ -146,7 +152,7 @@ const watching = async ($: EngineInterface, state: State, bundle: string, agent:
     const seen = new Map<string, Watched>();
     state.watches.set(key, seen);
     const buffer = { partial: '' };
-    const child = $.process.spawn({ argv: [WATCH_APPS, 'watch', bundle] });
+    const child = $.process.spawn({ argv: [WATCH_APPS_CLI, 'watch', bundle] });
     try {
         for await (const { stream, text } of child) {
             const lines = stream === 'stdout' ? `${buffer.partial}${text}` : buffer.partial;
@@ -159,7 +165,9 @@ const watching = async ($: EngineInterface, state: State, bundle: string, agent:
             const rows = await read($, ROWS);
             const own = states.filter((watched) => seen.has(watched.instance) || rows.every((row) => row.bundle !== watched.bundle) || rows.some((row) => row.instance === watched.instance));
             cleared(state.tracked, seen, absent);
-            own.forEach((watched) => seen.set(watched.instance, watched));
+            own.forEach((watched) => {
+                seen.set(watched.instance, watched);
+            });
             noted($, state.tracked, own, rows, agent);
             await recorded($, undefined, { created: [], exited: own.filter(({ ended }) => ended).map(({ instance }) => instance) });
             if (seen.size > 0 && [...seen.values()].every(({ ended }) => ended)) {
@@ -168,7 +176,7 @@ const watching = async ($: EngineInterface, state: State, bundle: string, agent:
         }
         const { code } = await child.result;
         if (code !== null && code !== 0) {
-            watchFailed($)(new Error(`${WATCH_APPS} watch ${bundle} exited ${code}`));
+            watchFailed($)(new Error(`${WATCH_APPS_CLI} watch ${bundle} exited ${code}`));
         }
     } finally {
         state.watches.delete(key);
@@ -196,7 +204,8 @@ const register: Register = (on) => {
     on('session.start', async ($, e, next) => {
         const answer = await next(e);
         const stored = await $.store.get(await $.session.id());
-        const rows = await update($, ROWS, (current) => (current.length === 0 && Array.isArray(stored) ? stored : current));
+        // oxlint-disable-next-line typescript/no-unsafe-return -- $.store answers unknown JSON, here the rows recorded() wrote, and hooks modules import no package to decode with
+        const rows = await update($, ROWS, (current): Row[] => (current.length === 0 && Array.isArray(stored) ? stored : current));
         state.session.resolve({ served: () => started($, state.servers), watched: (bundle, agent) => watching($, state, bundle, agent) });
         if (state.servers.size === 0) {
             started($, state.servers).catch(() => undefined);
@@ -220,7 +229,8 @@ const register: Register = (on) => {
         if (answer.deny !== undefined) {
             return answer;
         }
-        const notes = (await taken($, state.tracked, e.agentId)).flatMap(({ pending }) => pending);
+        const owned = await taken($, state.tracked, e.agentId);
+        const notes = owned.flatMap(({ pending }) => pending);
         return notes.length === 0 ? answer : { ...answer, context: [...(answer.context ?? []), ...notes] };
     });
     on('tool.call', { tool: RHINO_TOOLS }, ($, e, next) => {
@@ -237,14 +247,14 @@ const register: Register = (on) => {
             state.driven.add(pid);
             Promise.all([posted($, state, 'owners', [`${pid}`], next.signal), state.session.promise])
                 .then(([bundles, { watched }]) => Promise.all(bundles.map((bundle) => watched(bundle, e.agentId))))
-                .catch((cause: unknown) => {
+                .catch((error: unknown) => {
                     state.driven.delete(pid);
-                    watchFailed($)(cause);
+                    watchFailed($)(error);
                 });
         }
         return next(e);
     });
-    on('tool.call', { tool: COMPUTER_USE }, () => ({ deny: `computer-use takes focus and the pointer, read with ${WATCH_APPS} and act with mcp__cua-driver__ tools` }));
+    on('tool.call', { tool: COMPUTER_USE }, () => ({ deny: `computer-use takes focus and the pointer, read with ${WATCH_APPS_CLI} and act with mcp__cua-driver__ tools` }));
     on('tool.call', { tool: 'AskUserQuestion' }, async ($, e, next) => {
         const since = await $.clock.now();
         const waited = async (first: readonly string[]): Promise<readonly string[]> => {
@@ -285,14 +295,18 @@ const register: Register = (on) => {
             return note !== undefined && answer.deny === undefined ? { ...answer, context: [...(answer.context ?? []), note] } : answer;
         };
         switch (decision._tag) {
-            case 'Deny':
+            case 'Deny': {
                 return { deny: decision.reason };
-            case 'Allow':
+            }
+            case 'Allow': {
                 return settled(await next(e), decision.observes);
-            case 'Rewrite':
+            }
+            case 'Rewrite': {
                 return settled(await next(bash === undefined ? { ...e, command: decision.command } : { ...bash, command: decision.command, ...(decision.background && { run_in_background: true }) }), decision.observes, decision.note);
-            default:
+            }
+            default: {
                 return decision satisfies never;
+            }
         }
     }).catch(async ($, e, next) => {
         if (next.called) {
@@ -309,8 +323,9 @@ const register: Register = (on) => {
     });
     on('turn.complete', async ($, e, next) => {
         const answer = await next(e);
-        const ended = new Set((await $.agent.list()).filter(({ status }) => ENDED.has(status)).map(({ id }) => id));
-        const owned = (await read($, ROWS)).filter(({ agent }) => agent !== undefined && ended.has(agent));
+        const [agents, rows] = await Promise.all([$.agent.list(), read($, ROWS)]);
+        const ended = new Set(agents.filter(({ status }) => ENDED.has(status)).map(({ id }) => id));
+        const owned = rows.filter(({ agent }) => agent !== undefined && ended.has(agent));
         if (owned.length > 0) {
             await recorded($, undefined, { created: [], exited: await posted($, state, 'quit', owned, next.signal) });
         }
@@ -324,7 +339,7 @@ const register: Register = (on) => {
         state.unjudged.clear();
         shown($, state.tracked);
         if (rows.length > 0) {
-            await $.process.run(['sh', '-c', `${WATCH_APPS} quit "$@" </dev/null >/dev/null 2>&1 &`, 'sh', ...rows.map(({ instance }) => instance)], { stdin: '' });
+            await $.process.run(['sh', '-c', `${WATCH_APPS_CLI} quit "$@" </dev/null >/dev/null 2>&1 &`, 'sh', ...rows.map(({ instance }) => instance)], { stdin: '' });
         }
         await update($, ROWS, () => []);
         await $.store.delete(e.sessionId);

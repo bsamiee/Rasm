@@ -4,52 +4,52 @@ severity: error
 utils:
     blocking-callee:
         any:
-            - matches: {python-imported-name: {module: {regex: '^_?socket$'}, name: {regex: '^getnameinfo$'}}}
-            - matches: {python-imported-name: {module: {regex: '^tempfile$'}, name: {regex: '^(gettempdirb?|mkdtemp|mkstemp)$'}}}
+            - matches: { python-imported-name: { module: { regex: '^_?socket$' }, name: { regex: '^getnameinfo$' } } }
+            - matches: { python-imported-name: { module: { regex: '^tempfile$' }, name: { regex: '^(gettempdirb?|mkdtemp|mkstemp)$' } } }
             - kind: attribute
-              matches: {python-member-use: {module: {regex: '^_?socket$'}, name: {regex: '^getnameinfo$'}}}
+              matches: { python-member-use: { module: { regex: '^_?socket$' }, name: { regex: '^getnameinfo$' } } }
             - kind: attribute
-              matches: {python-member-use: {module: {regex: '^tempfile$'}, name: {regex: '^(gettempdirb?|mkdtemp|mkstemp)$'}}}
+              matches: { python-member-use: { module: { regex: '^tempfile$' }, name: { regex: '^(gettempdirb?|mkdtemp|mkstemp)$' } } }
             - kind: parenthesized_expression
-              has: {matches: blocking-callee}
+              has: { matches: blocking-callee }
     generator-input:
         inside:
             kind: for_in_clause
             field: right
-            stopBy: &evaluation-boundary {kind: 'function_definition, lambda, class_definition, parameters, type, generator_expression'}
-            not: {follows: {kind: for_in_clause, stopBy: end}}
-            inside: {kind: generator_expression}
+            stopBy: &evaluation-boundary { kind: 'function_definition, lambda, class_definition, parameters, type, generator_expression' }
+            not: { follows: { kind: for_in_clause, stopBy: end } }
+            inside: { kind: generator_expression }
     coroutine:
         any:
-            - inside: {kind: function_definition, has: {field: name, follows: {regex: '^def$', follows: {regex: '^async$'}}}, stopBy: *evaluation-boundary}
+            - inside: { kind: function_definition, has: { field: name, follows: { regex: '^def$', follows: { regex: '^async$' } } }, stopBy: *evaluation-boundary }
             - matches: generator-input
-              inside: {kind: generator_expression, matches: coroutine, stopBy: *evaluation-boundary}
-            - not: {matches: generator-input}
+              inside: { kind: generator_expression, matches: coroutine, stopBy: *evaluation-boundary }
+            - not: { matches: generator-input }
               inside:
-                kind: generator_expression
-                stopBy: *evaluation-boundary
-                any:
-                    - has: {kind: for_in_clause, regex: '^async'}
-                    - has:
-                        kind: await
-                        stopBy: {kind: 'function_definition, lambda, class_definition, generator_expression'}
-                        not: {matches: generator-input}
+                  kind: generator_expression
+                  stopBy: *evaluation-boundary
+                  any:
+                      - has: { kind: for_in_clause, regex: '^async' }
+                      - has:
+                            kind: await
+                            stopBy: { kind: 'function_definition, lambda, class_definition, generator_expression' }
+                            not: { matches: generator-input }
             - inside:
-                kind: default_parameter, typed_default_parameter
-                field: value
-                stopBy: *evaluation-boundary
-                inside: {kind: 'parameters, lambda_parameters', inside: {kind: 'function_definition, lambda', matches: coroutine}}
+                  kind: default_parameter, typed_default_parameter
+                  field: value
+                  stopBy: *evaluation-boundary
+                  inside: { kind: 'parameters, lambda_parameters', inside: { kind: 'function_definition, lambda', matches: coroutine } }
             - inside:
-                kind: argument_list
-                stopBy: *evaluation-boundary
-                inside: {kind: class_definition, field: superclasses, matches: coroutine}
-            - inside: {kind: class_definition, field: body, stopBy: *evaluation-boundary, matches: coroutine}
+                  kind: argument_list
+                  stopBy: *evaluation-boundary
+                  inside: { kind: class_definition, field: superclasses, matches: coroutine }
+            - inside: { kind: class_definition, field: body, stopBy: *evaluation-boundary, matches: coroutine }
 rule:
     kind: call
     all:
-        - inside: {kind: function_definition, stopBy: end, regex: '^async'}
+        - inside: { kind: function_definition, stopBy: end, regex: '^async' }
         - matches: coroutine
-        - has: {field: function, pattern: $CALLEE, matches: blocking-callee}
-        - has: {field: arguments, pattern: $ARGS}
+        - has: { field: function, pattern: $CALLEE, matches: blocking-callee }
+        - has: { field: arguments, pattern: $ARGS }
 message: '`$CALLEE$ARGS` blocks the event loop inside a coroutine'
 note: 'Call `await anyio.<name>(<arguments>)`'

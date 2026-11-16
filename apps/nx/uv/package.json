@@ -2,12 +2,15 @@
     "name": "@rasm/nx-uv",
     "version": "0.1.0",
     "description": "Nx plugin inferring uv workspace members, their checkers, tests, builds, and releases from uv's own workspace metadata",
+    "license": "MIT",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/bsamiee/Rasm.git",
         "directory": "apps/nx/uv"
     },
-    "license": "MIT",
+    "files": [
+        "dist"
+    ],
     "type": "module",
     "imports": {
         "#/*": "./*.ts",
@@ -18,7 +21,18 @@
         "./release/version-actions": "./version-actions.ts",
         "./package.json": "./package.json"
     },
-    "files": [ "dist" ],
+    "publishConfig": {
+        "imports": {
+            "#/*": "./dist/*.js",
+            "#package": "./package.json"
+        },
+        "exports": {
+            ".": "./dist/plugin.js",
+            "./release/version-actions": "./dist/version-actions.js",
+            "./package.json": "./package.json"
+        },
+        "access": "public"
+    },
     "dependencies": {
         "@decimalturn/toml-patch": "catalog:",
         "@effect/platform-node": "catalog:",
@@ -33,17 +47,5 @@
     },
     "peerDependencies": {
         "nx": "catalog:peers"
-    },
-    "publishConfig": {
-        "access": "public",
-        "exports": {
-            ".": "./dist/plugin.js",
-            "./release/version-actions": "./dist/version-actions.js",
-            "./package.json": "./package.json"
-        },
-        "imports": {
-            "#/*": "./dist/*.js",
-            "#package": "./package.json"
-        }
     }
 }

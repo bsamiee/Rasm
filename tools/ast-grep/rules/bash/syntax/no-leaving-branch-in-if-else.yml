@@ -5,28 +5,28 @@ utils:
     leaving-command:
         kind: command
         any:
-            - has: {field: name, regex: '^exit$'}
-            - has: {field: name, regex: '^return$'}
-              inside: {kind: function_definition, stopBy: end}
-            - matches: {bash-loop-control: {command: {regex: '^(break|continue)$'}}}
+            - has: { field: name, regex: '^exit$' }
+            - has: { field: name, regex: '^return$' }
+              inside: { kind: function_definition, stopBy: end }
+            - matches: { bash-loop-control: { command: { regex: '^(break|continue)$' } } }
     then-leaving:
         matches: leaving-command
-        precedes: {stopBy: end, kind: else_clause}
+        precedes: { stopBy: end, kind: else_clause }
 rule:
     kind: if_statement
     all:
-        - not: {has: {kind: elif_clause}}
-        - has: {kind: else_clause}
+        - not: { has: { kind: elif_clause } }
+        - has: { kind: else_clause }
         - any:
-            - has:
-                kind: else_clause
-                has:
-                    matches: leaving-command
-                    has: {field: name, pattern: $LEAVE}
-                    not: {precedes: {stopBy: end, pattern: $_, not: {kind: comment}}}
-            - has:
-                matches: then-leaving
-                has: {field: name, pattern: $LEAVE}
-                not: {precedes: {stopBy: end, pattern: $_, not: {kind: comment}, precedes: {stopBy: end, kind: else_clause}}}
+              - has:
+                    kind: else_clause
+                    has:
+                        matches: leaving-command
+                        has: { field: name, pattern: $LEAVE }
+                        not: { precedes: { stopBy: end, pattern: $_, not: { kind: comment } } }
+              - has:
+                    matches: then-leaving
+                    has: { field: name, pattern: $LEAVE }
+                    not: { precedes: { stopBy: end, pattern: $_, not: { kind: comment }, precedes: { stopBy: end, kind: else_clause } } }
 message: '`if` nests a branch beside another ending in `$LEAVE`'
 note: Guard the leaving branch and unnest its alternative while preserving surrounding control flow and redirections

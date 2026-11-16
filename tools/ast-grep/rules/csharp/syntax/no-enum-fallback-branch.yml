@@ -7,19 +7,19 @@ utils:
         has:
             field: expression
             any:
-                - pattern: {context: 'class $ENUM;', selector: identifier}
+                - pattern: { context: 'class $ENUM;', selector: identifier }
                 - kind: member_access_expression
-                  has: {field: name, pattern: $ENUM}
+                  has: { field: name, pattern: $ENUM }
     single-enum:
         kind: enum_declaration
         all:
-            - has: {field: name, pattern: {context: 'class $ENUM;', selector: identifier}}
-            - not: {matches: {csharp-attributed: {name: {regex: '^Flags(Attribute)?$'}}}}
+            - has: { field: name, pattern: { context: 'class $ENUM;', selector: identifier } }
+            - not: { matches: { csharp-attributed: { name: { regex: '^Flags(Attribute)?$' } } } }
     file-enum:
         inside:
             kind: compilation_unit
             stopBy: end
-            has: {stopBy: &member-body {kind: 'block, arrow_expression_clause'}, matches: single-enum}
+            has: { stopBy: &member-body { kind: 'block, arrow_expression_clause' }, matches: single-enum }
     two-member-file-enum:
         inside:
             kind: compilation_unit
@@ -30,75 +30,84 @@ utils:
                 has:
                     kind: enum_member_declaration_list
                     all:
-                        - has: {kind: enum_member_declaration, nthChild: {position: 2, ofRule: {kind: enum_member_declaration}}}
-                        - not: {has: {kind: enum_member_declaration, nthChild: {position: 3, ofRule: {kind: enum_member_declaration}}}}
+                        - has: { kind: enum_member_declaration, nthChild: { position: 2, ofRule: { kind: enum_member_declaration } } }
+                        - not: { has: { kind: enum_member_declaration, nthChild: { position: 3, ofRule: { kind: enum_member_declaration } } } }
     member-pattern:
         any:
             - kind: constant_pattern
-              has: {matches: member-access}
+              has: { matches: member-access }
             - kind: 'or_pattern, parenthesized_pattern, negated_pattern'
-              has: {matches: member-pattern}
+              has: { matches: member-pattern }
     member-test:
         any:
             - kind: binary_expression
               all:
-                - has: {field: operator, regex: '^[=!]=$'}
-                - any:
-                    - all: [{has: {field: right, matches: member-access}}, {has: {field: left, pattern: $SUBJECT}}]
-                    - all: [{has: {field: left, matches: member-access}}, {has: {field: right, pattern: $SUBJECT}}]
+                  - has: { field: operator, regex: '^[=!]=$' }
+                  - any:
+                        - all: [{ has: { field: right, matches: member-access } }, { has: { field: left, pattern: $SUBJECT } }]
+                        - all: [{ has: { field: left, matches: member-access } }, { has: { field: right, pattern: $SUBJECT } }]
             - kind: is_pattern_expression
-              all: [{has: {field: expression, pattern: $SUBJECT}}, {has: {field: pattern, matches: member-pattern}}]
+              all: [{ has: { field: expression, pattern: $SUBJECT } }, { has: { field: pattern, matches: member-pattern } }]
             - kind: member_access_expression
-              has: {field: expression, kind: is_pattern_expression, all: [{has: {field: expression, pattern: $SUBJECT}}, {has: {field: pattern, any: [{kind: constant_pattern, has: {pattern: {context: 'class $ENUM;', selector: identifier}}}, {kind: negated_pattern, has: {kind: constant_pattern, has: {pattern: {context: 'class $ENUM;', selector: identifier}}}}]}}]}
+              has:
+                  {
+                      field: expression,
+                      kind: is_pattern_expression,
+                      all:
+                          [
+                              { has: { field: expression, pattern: $SUBJECT } },
+                              { has: { field: pattern, any: [{ kind: constant_pattern, has: { pattern: { context: 'class $ENUM;', selector: identifier } } }, { kind: negated_pattern, has: { kind: constant_pattern, has: { pattern: { context: 'class $ENUM;', selector: identifier } } } }] } },
+                          ],
+                  }
             - kind: parenthesized_expression
-              has: {matches: member-test}
+              has: { matches: member-test }
     else-chain:
         kind: if_statement
         all:
-            - has: {field: condition, matches: member-test}
+            - has: { field: condition, matches: member-test }
             - any:
-                - all:
-                    - has: {field: alternative, pattern: $_}
-                    - not: {has: {field: alternative, kind: if_statement, not: {matches: else-chain}}}
-                - all:
-                    - not: {has: {field: alternative, pattern: $_}}
-                    - has: {field: consequence, matches: returning}
-                    - inside: {stopBy: end, kind: if_statement, not: {inside: {kind: if_statement, field: alternative}}, precedes: {kind: return_statement}}
+                  - all:
+                        - has: { field: alternative, pattern: $_ }
+                        - not: { has: { field: alternative, kind: if_statement, not: { matches: else-chain } } }
+                  - all:
+                        - not: { has: { field: alternative, pattern: $_ } }
+                        - has: { field: consequence, matches: returning }
+                        - inside: { stopBy: end, kind: if_statement, not: { inside: { kind: if_statement, field: alternative } }, precedes: { kind: return_statement } }
     returning:
         any:
             - kind: return_statement
             - kind: block
-              has: {kind: return_statement}
+              has: { kind: return_statement }
 rule:
     any:
         - kind: conditional_expression
           all:
-            - has: {field: condition, matches: member-test}
-            - not: {has: {field: alternative, kind: conditional_expression}}
-            - matches: two-member-file-enum
+              - has: { field: condition, matches: member-test }
+              - not: { has: { field: alternative, kind: conditional_expression } }
+              - matches: two-member-file-enum
         - kind: conditional_expression
           all:
-            - has: {field: condition, matches: member-test}
-            - has: {field: alternative, kind: conditional_expression, has: {field: condition, matches: member-test}}
-            - matches: file-enum
+              - has: { field: condition, matches: member-test }
+              - has: { field: alternative, kind: conditional_expression, has: { field: condition, matches: member-test } }
+              - matches: file-enum
         - kind: if_statement
           all:
-            - has: {field: condition, matches: member-test}
-            - has: {field: alternative, matches: else-chain}
-            - not: {inside: {kind: if_statement, field: alternative}}
-            - matches: file-enum
+              - has: { field: condition, matches: member-test }
+              - has: { field: alternative, matches: else-chain }
+              - not: { inside: { kind: if_statement, field: alternative } }
+              - matches: file-enum
         - kind: if_statement
           all:
-            - has: {field: condition, matches: member-test}
-            - not: {inside: {kind: if_statement, field: alternative}}
-            - any:
-                - all:
-                    - has: {field: alternative, pattern: $_}
-                    - not: {has: {field: alternative, kind: if_statement}}
-                - all:
-                    - not: {has: {field: alternative, pattern: $_}}
-                    - has: {field: consequence, matches: returning}
-                    - precedes: {kind: return_statement}
-            - matches: two-member-file-enum
-message: 'Fallback branch over `$ENUM` sends every member the branches never name to one member''s result'
+              - has: { field: condition, matches: member-test }
+              - not: { inside: { kind: if_statement, field: alternative } }
+              - any:
+                    - all:
+                          - has: { field: alternative, pattern: $_ }
+                          - not: { has: { field: alternative, kind: if_statement } }
+                    - all:
+                          - not: { has: { field: alternative, pattern: $_ } }
+                          - has: { field: consequence, matches: returning }
+                          - precedes: { kind: return_statement }
+              - matches: two-member-file-enum
+message: "Fallback branch over `$ENUM` sends every member the branches never name to one member's result"
 note: 'Write a `switch` over the enum with one arm per member and no `_` arm'

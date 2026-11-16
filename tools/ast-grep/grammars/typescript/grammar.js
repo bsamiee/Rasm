@@ -6,7 +6,7 @@ import { after, chain, choiceOf, classes, collected, constants, drop, extend, le
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const PHASES = { defer: 'namespace_import', source: 'identifier' };
-const IMPORT_TYPES = ['_type_query_call_expression_in_type_annotation', '_type_query_member_expression_in_type_annotation'];
+const IMPORT_TYPES = new Set(['_type_query_call_expression_in_type_annotation', '_type_query_member_expression_in_type_annotation']);
 const CONTEXTUAL = ['using', ...Object.keys(PHASES), 'out', 'accessor', 'abstract', 'as', 'satisfies', 'unknown', 'never', 'is', 'global', 'require', 'intrinsic', 'assert'];
 const BINDING_OPERATORS = ['as', 'satisfies'];
 const RETIRED_CONFLICTS = [
@@ -53,7 +53,7 @@ const separatedMark = (_, original) => rewrite(original, (rule) => (rule.type ==
 // --- [EXPORTS] -------------------------------------------------------------------------
 
 export default extend(tsx, {
-    precedences: (_, original) => [...original.filter((row) => !row.some(({ name }) => IMPORT_TYPES.includes(name))), ['call', 'import_type'], ['member', 'import_type']],
+    precedences: (_, original) => [...original.filter((row) => !row.some(({ name }) => IMPORT_TYPES.has(name))), ['call', 'import_type'], ['member', 'import_type']],
     externals: ($, original) => [...original, $._adjacent_type_arguments_open],
     conflicts: ($, original) => [
         ...original.filter((set) => !RETIRED_CONFLICTS.some((names) => names.length === set.length && set.every(({ name }) => names.includes(name)))),

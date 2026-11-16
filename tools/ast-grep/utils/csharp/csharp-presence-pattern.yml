@@ -4,7 +4,7 @@ language: csharplang
 rule:
     any:
         - kind: negated_pattern
-          has: {kind: constant_pattern, has: {kind: null_literal}}
+          has: { kind: constant_pattern, has: { kind: null_literal } }
         - kind: recursive_pattern
-          has: {kind: property_pattern_clause, not: {has: {kind: subpattern}}}
-          not: {has: {nthChild: 2}}
+          has: { kind: property_pattern_clause, not: { has: { kind: subpattern } } }
+          not: { has: { nthChild: 2 } }

@@ -3,11 +3,11 @@ id: os-log-interpolation
 language: swiftlang
 rule:
     kind: interpolated_expression
-    not: {has: {kind: value_argument_label}}
+    not: { has: { kind: value_argument_label } }
     inside:
         kind: 'line_string_literal, multi_line_string_literal, raw_string_literal'
-        stopBy: {not: {kind: raw_str_interpolation}}
+        stopBy: { not: { kind: raw_str_interpolation } }
         inside:
             stopBy: end
             kind: value_argument
-            inside: {kind: value_arguments, inside: {kind: call_suffix, inside: {matches: os-log-call}}}
+            inside: { kind: value_arguments, inside: { kind: call_suffix, inside: { matches: os-log-call } } }

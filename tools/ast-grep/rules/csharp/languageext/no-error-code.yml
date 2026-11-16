@@ -4,50 +4,50 @@ severity: error
 ignores: ['apps/roslyn/**']
 utils:
     library-code:
-        matches: {csharp-owner-member: {type: {regex: '^ErrorCodes$'}, member: {regex: ^}}}
+        matches: { csharp-owner-member: { type: { regex: '^ErrorCodes$' }, member: { regex: ^ } } }
     coded-owner:
         any:
             - kind: primary_constructor_base_type
-              has: {field: type, regex: 'Expected|Exceptional', matches: languageext-error-subtype}
-              inside: {kind: base_list, inside: {matches: languageext-error-record}}
+              has: { field: type, regex: 'Expected|Exceptional', matches: languageext-error-subtype }
+              inside: { kind: base_list, inside: { matches: languageext-error-record } }
             - kind: constructor_initializer
-              has: {regex: '^base$'}
-              inside: {kind: constructor_declaration, inside: {kind: declaration_list, inside: {matches: languageext-error-record}}}
+              has: { regex: '^base$' }
+              inside: { kind: constructor_declaration, inside: { kind: declaration_list, inside: { matches: languageext-error-record } } }
             - kind: object_creation_expression
-              has: {field: type, regex: 'Expected|Exceptional', matches: languageext-error-subtype}
+              has: { field: type, regex: 'Expected|Exceptional', matches: languageext-error-subtype }
     error-new:
         kind: invocation_expression
         all:
-            - has: {field: function, regex: 'New'}
-            - matches: {csharp-owner-call: {type: {regex: '^Error$'}, member: {regex: '^New$'}}}
+            - has: { field: function, regex: 'New' }
+            - matches: { csharp-owner-call: { type: { regex: '^Error$' }, member: { regex: '^New$' } } }
     code-argument:
         kind: argument
         all:
-            - inside: {kind: argument_list, inside: {matches: coded-owner}}
+            - inside: { kind: argument_list, inside: { matches: coded-owner } }
             - any:
-                - all:
-                    - nthChild: {position: 2, ofRule: {kind: argument}}
-                    - matches: csharp-positional-argument
-                - has: {field: name, regex: '^code$'}
-            - not: {has: {any: [{pattern: '0'}, {matches: library-code}]}}
+                  - all:
+                        - nthChild: { position: 2, ofRule: { kind: argument } }
+                        - matches: csharp-positional-argument
+                  - has: { field: name, regex: '^code$' }
+            - not: { has: { any: [{ pattern: '0' }, { matches: library-code }] } }
     numbered-code:
         kind: argument
         all:
             - has:
-                any:
-                    - kind: integer_literal
-                    - kind: cast_expression
-                      has: {field: type, regex: '^int$'}
+                  any:
+                      - kind: integer_literal
+                      - kind: cast_expression
+                        has: { field: type, regex: '^int$' }
             - inside:
-                kind: argument_list
-                all:
-                    - inside: {matches: error-new}
-                    - has: {kind: argument, nthChild: {position: 2, ofRule: {kind: argument}}}
-            - nthChild: {position: 1, ofRule: {kind: argument}}
+                  kind: argument_list
+                  all:
+                      - inside: { matches: error-new }
+                      - has: { kind: argument, nthChild: { position: 2, ofRule: { kind: argument } } }
+            - nthChild: { position: 1, ofRule: { kind: argument } }
             - matches: csharp-positional-argument
 rule:
     kind: argument
-    pattern: {context: 'f($CODE);', selector: argument}
+    pattern: { context: 'f($CODE);', selector: argument }
     any:
         - matches: code-argument
         - matches: numbered-code

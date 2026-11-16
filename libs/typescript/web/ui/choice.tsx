@@ -1,4 +1,4 @@
-import { Array, Option, Struct } from 'effect';
+import { Array, Function, Option, Struct } from 'effect';
 import { ChevronDown } from 'lucide-react';
 import { Button, type Key, Label, ListBox, ListBoxItem, Popover, RadioButton, RadioField, RadioGroup, type RadioGroupProps, Select, type SelectProps, SelectValue } from 'react-aria-components';
 import { Field } from '#/field.tsx';
@@ -21,7 +21,11 @@ const Choice = <T extends { readonly id: string; readonly label: string; readonl
         readonly onChange: (choice: T) => void;
         readonly radios: number;
     }) => {
-    const choose = (key: Key | null) => Array.findFirst(options, ({ id }) => id === key).pipe(Option.map(onChange));
+    const choose = (key: Key | null) =>
+        Option.match(
+            Array.findFirst(options, ({ id }) => id === key),
+            { onNone: Function.constVoid, onSome: onChange },
+        );
     return options.length <= radios ? (
         <RadioGroup {...props} onChange={choose}>
             <Label>{label}</Label>

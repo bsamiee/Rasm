@@ -24,7 +24,7 @@ const sheets = ({ canvas, userEvent, args }: StoryContext<ComponentProps<typeof 
             await opened(title);
             await userEvent.click(await screen.findByRole('menuitem', { name: target }));
         },
-        rows: () => canvas.getAllByRole('row').map((row) => row.getAttribute('data-key')),
+        rows: () => canvas.getAllByRole('row').map((row) => row.dataset['key']),
         order: () => mocked(args.onChange).mock.lastCall?.[0].map(({ id }) => id),
         disabled: () => args.items.map(({ title }) => canvas.getByRole('button', { name: `Move ${title}` }).hasAttribute('disabled')),
         targets: () =>
@@ -38,6 +38,15 @@ const sheets = ({ canvas, userEvent, args }: StoryContext<ComponentProps<typeof 
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
+const Owner = ({ items, ...args }: ComponentProps<typeof ReorderableList<Sheet>>) => {
+    const [present, setPresent] = useState(items);
+    return (
+        <>
+            <Button onPress={() => setPresent(present.filter(({ id }) => id !== 'detail'))}>Remove Detail</Button>
+            <ReorderableList {...args} items={present} />
+        </>
+    );
+};
 const Sheets = ({ items, onChange, ...props }: ComponentProps<typeof ReorderableList<Sheet>>) => {
     const [order, setOrder] = useState(items);
     return (
@@ -61,7 +70,7 @@ const meta = preview.meta({
             { id: 'section', title: 'Section' },
             { id: 'detail', title: 'Detail' },
         ],
-        onChange: fn(),
+        onChange: fn<ComponentProps<typeof ReorderableList<Sheet>>['onChange']>(),
         textValue: ({ title }) => title,
         actions: (keys) => <output>{`${keys.size} selected`}</output>,
         children: ({ title }) => <span>{title}</span>,
@@ -161,15 +170,7 @@ const KeyboardReorder = meta.story({
     },
 });
 const OwnerRemoval = meta.story({
-    render: function Owner({ items, ...args }) {
-        const [present, setPresent] = useState(items);
-        return (
-            <>
-                <Button onPress={() => setPresent(present.filter(({ id }) => id !== 'detail'))}>Remove Detail</Button>
-                <ReorderableList {...args} items={present} />
-            </>
-        );
-    },
+    render: Owner,
     play: async (context) => {
         const { select, opened, targets, status } = sheets(context);
         await select('Detail');

@@ -12,11 +12,12 @@ import { routes } from '#/senders';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-HttpRouter.serve(Layer.merge(routes, HttpRouter.add('GET', App.bundle.readiness, HttpMiddleware.withLoggerDisabled(Effect.succeed(HttpServerResponse.empty()))))).pipe(
-    Layer.provide(layerConfig(createServer, { port: Config.Port(App.bundle.portVariable) })),
-    Layer.provide([layer, Layer.provide(Layer.merge(PersistedQueue.layer, PersistedQueue.layerCleanup()), PersistedQueue.layerStoreSql()), HttpMiddleware.layerTracerDisabledForUrls([App.bundle.readiness])]),
-    Layer.provide(PgClient.layerConfig({ url: Config.Redacted('POSTGRES_URL') })),
-    Layer.provide(layerNodeFromConfig({ resource: { serviceName: 'hooks' }, target: 'stderr' })),
-    Layer.launch,
-    runMain,
+runMain(
+    HttpRouter.serve(Layer.merge(routes, HttpRouter.add('GET', App.bundle.readiness, HttpMiddleware.withLoggerDisabled(Effect.succeed(HttpServerResponse.empty()))))).pipe(
+        Layer.provide(layerConfig(createServer, { port: Config.Port(App.bundle.portVariable) })),
+        Layer.provide([layer, Layer.provide(Layer.merge(PersistedQueue.layer, PersistedQueue.layerCleanup()), PersistedQueue.layerStoreSql()), HttpMiddleware.layerTracerDisabledForUrls([App.bundle.readiness])]),
+        Layer.provide(PgClient.layerConfig({ url: Config.Redacted('POSTGRES_URL') })),
+        Layer.provide(layerNodeFromConfig({ resource: { serviceName: 'hooks' }, target: 'stderr' })),
+        Layer.launch,
+    ),
 );

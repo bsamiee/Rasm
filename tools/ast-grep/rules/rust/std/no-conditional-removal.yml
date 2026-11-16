@@ -16,8 +16,8 @@ rule:
     kind: if_expression
     all:
         - any:
-            - pattern: 'if $R.$PEEK().is_some_and($P) { $R.$TAKE() } else { None }'
-            - pattern: 'if $R.$PEEK().is_some_and($P) { $R.$TAKE(); }'
+              - pattern: 'if $R.$PEEK().is_some_and($P) { $R.$TAKE() } else { None }'
+              - pattern: 'if $R.$PEEK().is_some_and($P) { $R.$TAKE(); }'
         - matches: paired
 message: '`$R.$TAKE()` runs under a test of the same element through `$PEEK`'
 note: 'Call `take_if`, `pop_if`, `pop_back_if`, or `pop_front_if` with `|value| predicate(&*value)`'

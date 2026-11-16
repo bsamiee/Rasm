@@ -1,6 +1,6 @@
 {
     "extends": "../tsconfig.base.json",
-    "include": [ "**/*", "package.json" ],
+    "include": ["**/*", "package.json"],
     "references": [
         {
             "path": "../libs/typescript/runtime/process"

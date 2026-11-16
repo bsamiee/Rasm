@@ -1,4 +1,3 @@
-import { env } from 'cloudflare:workers';
 import { Catalog } from '@rasm/database';
 import { d1Engine } from '@rasm/database/d1';
 import { Access } from '@rasm/hosting';
@@ -7,6 +6,7 @@ import { Template } from '@rasm/hosting/template';
 import { r2Storage } from '@rasm/object-storage/r2';
 import { Worker } from '@rasm/workers';
 import { layerTelemetry } from '@rasm/workers/execution';
+import { env } from 'cloudflare:workers';
 import { Config, Effect, Layer, Option } from 'effect';
 import { HttpServer } from 'effect/http';
 import { app } from '#/server/app';

@@ -2,8 +2,8 @@ import { ReorderableList } from '@rasm/ui';
 import { Array, Option } from 'effect';
 import type { ComponentProps } from 'react';
 import { expect, it, vi } from 'vitest';
-import { userEvent } from 'vitest/browser';
 import { render } from 'vitest-browser-react';
+import { userEvent } from 'vitest/browser';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -45,19 +45,21 @@ it('counts select-all as every present item and disables moving', async () => {
     await userEvent.tab();
     await userEvent.keyboard('{ControlOrMeta>}a{/ControlOrMeta}');
     await expect.element(screen.getByRole('status')).toHaveTextContent('3 selected');
-    await expect.poll(disabled).toEqual([true, true, true]);
+    await expect.poll(disabled).toStrictEqual([true, true, true]);
 });
+
 it('reorders by pointer drag onto lower and upper halves of later row', async () => {
     const { drag, order } = await sheets();
     await drag('Plan', 'Detail', 'lower');
-    expect(order()).toEqual(['section', 'detail', 'plan']);
+    expect(order()).toStrictEqual(['section', 'detail', 'plan']);
     await drag('Section', 'Plan', 'upper');
-    expect(order()).toEqual(['detail', 'section', 'plan']);
+    expect(order()).toStrictEqual(['detail', 'section', 'plan']);
 });
+
 it('drags every selected row as one block by pointer', async () => {
     const { select, drag, order } = await sheets();
     await select('Plan');
     await select('Section');
     await drag('Plan', 'Detail', 'lower');
-    expect(order()).toEqual(['detail', 'plan', 'section']);
+    expect(order()).toStrictEqual(['detail', 'plan', 'section']);
 });

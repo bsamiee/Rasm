@@ -5,51 +5,51 @@ utils:
     joined-key:
         any:
             - matches: rust-interpolating-format
-              has: {kind: token_tree, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: string_literal, regex: '^"(\{[^{}]*\}[-:./#|_@ ]{1,2})+\{[^{}]*\}"$'}}
+              has: { kind: token_tree, has: { nthChild: { position: 1, ofRule: { not: { kind: 'line_comment, block_comment' } } }, kind: string_literal, regex: '^"(\{[^{}]*\}[-:./#|_@ ]{1,2})+\{[^{}]*\}"$' } }
             - kind: call_expression
               all:
-                - has:
-                    field: function
-                    kind: field_expression
-                    all:
-                        - has: {field: field, regex: '^(join|concat)$'}
-                        - has: {field: value, kind: array_expression, all: [{has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}, {has: {pattern: $_, not: {matches: rust-literal}}}]}
-                - any:
-                    - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: string_literal, regex: '^"[-:./#|_@ ]{1,2}"$'}, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}
-                    - all:
-                        - has: {field: function, has: {field: field, regex: '^concat$'}}
-                        - has: {field: arguments, not: {has: {pattern: $_}}}
+                  - has:
+                        field: function
+                        kind: field_expression
+                        all:
+                            - has: { field: field, regex: '^(join|concat)$' }
+                            - has: { field: value, kind: array_expression, all: [{ has: { nthChild: { position: 2, ofRule: { not: { kind: 'line_comment, block_comment' } } } } }, { has: { pattern: $_, not: { matches: rust-literal } } }] }
+                  - any:
+                        - has: { field: arguments, has: { nthChild: { position: 1, ofRule: { not: { kind: 'line_comment, block_comment' } } }, kind: string_literal, regex: '^"[-:./#|_@ ]{1,2}"$' }, not: { has: { nthChild: { position: 2, ofRule: { not: { kind: 'line_comment, block_comment' } } } } } }
+                        - all:
+                              - has: { field: function, has: { field: field, regex: '^concat$' } }
+                              - has: { field: arguments, not: { has: { pattern: $_ } } }
     owned-key-call:
         kind: call_expression
-        has: {field: function, kind: field_expression, has: {field: field, regex: '^(insert|entry)$'}}
+        has: { field: function, kind: field_expression, has: { field: field, regex: '^(insert|entry)$' } }
     borrowed-key-call:
         kind: call_expression
-        has: {field: function, kind: field_expression, has: {field: field, regex: '^(get|get_mut|get_key_value|contains_key|remove)$'}}
+        has: { field: function, kind: field_expression, has: { field: field, regex: '^(get|get_mut|get_key_value|contains_key|remove)$' } }
     bound-key-call:
         kind: call_expression
         all:
-            - has: {field: function, kind: field_expression, has: {field: field, regex: '^(insert|entry|get|get_mut|get_key_value|contains_key|remove)$'}}
+            - has: { field: function, kind: field_expression, has: { field: field, regex: '^(insert|entry|get|get_mut|get_key_value|contains_key|remove)$' } }
             - any:
-                - all: [{matches: owned-key-call}, {has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, pattern: $BOUND}}}]
-                - all: [{matches: borrowed-key-call}, {has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: reference_expression, has: {pattern: $BOUND}}}}]
+                  - all: [{ matches: owned-key-call }, { has: { field: arguments, has: { nthChild: { position: 1, ofRule: { not: { kind: 'line_comment, block_comment' } } }, pattern: $BOUND } } }]
+                  - all: [{ matches: borrowed-key-call }, { has: { field: arguments, has: { nthChild: { position: 1, ofRule: { not: { kind: 'line_comment, block_comment' } } }, kind: reference_expression, has: { pattern: $BOUND } } } }]
     key-name:
         regex: '(?i)(^|_)(id|key)$'
 rule:
     all:
         - matches: joined-key
         - any:
-            - nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}
-              inside: {kind: arguments, inside: {matches: owned-key-call}}
-            - inside: {kind: reference_expression, nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, inside: {kind: arguments, inside: {matches: borrowed-key-call}}}
-            - inside: {kind: let_declaration, has: {field: pattern, kind: identifier, regex: '(?i)(^|_)id$'}}
-            - inside:
-                kind: let_declaration
-                has: {field: pattern, kind: identifier, pattern: $BOUND}
-                precedes: {stopBy: end, any: [{matches: bound-key-call}, {has: {stopBy: end, matches: bound-key-call}}]}
-            - inside: {kind: field_initializer, has: {field: field, matches: key-name}}
-            - inside: {kind: assignment_expression, has: {field: left, matches: key-name}}
-            - nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}
-              inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, regex: '(Id|Key)$'}}}
+              - nthChild: { position: 1, ofRule: { not: { kind: 'line_comment, block_comment' } } }
+                inside: { kind: arguments, inside: { matches: owned-key-call } }
+              - inside: { kind: reference_expression, nthChild: { position: 1, ofRule: { not: { kind: 'line_comment, block_comment' } } }, inside: { kind: arguments, inside: { matches: borrowed-key-call } } }
+              - inside: { kind: let_declaration, has: { field: pattern, kind: identifier, regex: '(?i)(^|_)id$' } }
+              - inside:
+                    kind: let_declaration
+                    has: { field: pattern, kind: identifier, pattern: $BOUND }
+                    precedes: { stopBy: end, any: [{ matches: bound-key-call }, { has: { stopBy: end, matches: bound-key-call } }] }
+              - inside: { kind: field_initializer, has: { field: field, matches: key-name } }
+              - inside: { kind: assignment_expression, has: { field: left, matches: key-name } }
+              - nthChild: { position: 1, ofRule: { not: { kind: 'line_comment, block_comment' } } }
+                inside: { kind: arguments, inside: { kind: call_expression, has: { field: function, regex: '(Id|Key)$' } } }
         - pattern: $KEY
 message: '`$KEY` joins typed parts into a text key'
 note: 'Key the map by a tuple `(<a>, <b>)` or a struct deriving `Hash` and `Eq` for a hash map or `Ord` for a B-tree map'

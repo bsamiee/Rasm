@@ -4,56 +4,56 @@ severity: error
 utils:
     scope:
         any:
-            - &closure {kind: 'lambda, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression, function_definition'}
+            - &closure { kind: 'lambda, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression, function_definition' }
             - matches: control
     control:
         any:
-            - &statement {kind: 'if_statement, for_statement, while_statement, match_statement'}
+            - &statement { kind: 'if_statement, for_statement, while_statement, match_statement' }
             - kind: conditional_expression
               not:
-                inside:
-                    kind: conditional_expression
-                    stopBy: {any: [*statement, *closure]}
+                  inside:
+                      kind: conditional_expression
+                      stopBy: { any: [*statement, *closure] }
     conditioned:
         any:
-            - inside: {kind: 'if_statement, elif_clause, while_statement', field: condition, stopBy: &scope {matches: scope}}
-            - inside: {kind: 'for_statement, for_in_clause', field: right, stopBy: *scope}
-            - inside: {kind: match_statement, field: subject, stopBy: *scope}
-            - inside: {kind: if_clause, stopBy: *scope}
-            - nthChild: {position: 2, ofRule: {not: {kind: comment}}}
-              inside: {kind: conditional_expression}
-            - inside: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}, inside: {kind: conditional_expression}, stopBy: *scope}
+            - inside: { kind: 'if_statement, elif_clause, while_statement', field: condition, stopBy: &scope { matches: scope } }
+            - inside: { kind: 'for_statement, for_in_clause', field: right, stopBy: *scope }
+            - inside: { kind: match_statement, field: subject, stopBy: *scope }
+            - inside: { kind: if_clause, stopBy: *scope }
+            - nthChild: { position: 2, ofRule: { not: { kind: comment } } }
+              inside: { kind: conditional_expression }
+            - inside: { nthChild: { position: 2, ofRule: { not: { kind: comment } } }, inside: { kind: conditional_expression }, stopBy: *scope }
     nested-body:
         any:
-            - has: {kind: block, not: {matches: python-single-statement-block}}
-            - has: {matches: control, stopBy: *closure}
+            - has: { kind: block, not: { matches: python-single-statement-block } }
+            - has: { matches: control, stopBy: *closure }
     level:
         any:
             - matches: control
-              not: {matches: conditioned}
+              not: { matches: conditioned }
             - kind: lambda, function_definition
               all:
-                - inside: {matches: control, stopBy: {kind: function_definition}}
-                - not: {matches: conditioned}
-                - matches: nested-body
-    boundary: {any: [{matches: level}, {kind: function_definition}]}
+                  - inside: { matches: control, stopBy: { kind: function_definition } }
+                  - not: { matches: conditioned }
+                  - matches: nested-body
+    boundary: { any: [{ matches: level }, { kind: function_definition }] }
 rule:
     kind: &levels 'if_statement, for_statement, while_statement, match_statement, conditional_expression, lambda, function_definition'
     all:
-        - inside: {stopBy: end, kind: *levels, inside: {stopBy: end, kind: *levels, inside: {stopBy: end, kind: *levels}}}
+        - inside: { stopBy: end, kind: *levels, inside: { stopBy: end, kind: *levels, inside: { stopBy: end, kind: *levels } } }
         - matches: level
         - inside:
-            matches: level
-            stopBy: {matches: boundary}
-            inside:
-                matches: level
-                stopBy: {matches: boundary}
-                inside:
-                    matches: level
-                    stopBy: {matches: boundary}
-                    not: {inside: {matches: level, stopBy: {kind: function_definition}}}
+              matches: level
+              stopBy: { matches: boundary }
+              inside:
+                  matches: level
+                  stopBy: { matches: boundary }
+                  inside:
+                      matches: level
+                      stopBy: { matches: boundary }
+                      not: { inside: { matches: level, stopBy: { kind: function_definition } } }
         - pattern: $SCOPE
 message: 'Control flow or closure opens a fourth nesting level'
 note: 'Rebuild nested control flow with `match`, a comprehension or a pipeline over its inputs'
 labels:
-    SCOPE: {style: primary, message: Fourth nesting level}
+    SCOPE: { style: primary, message: Fourth nesting level }

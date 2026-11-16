@@ -3,19 +3,19 @@ language: swiftlang
 severity: error
 rule:
     any:
-        - matches: {swift-security-arguments: {subcommand: {regex: '^"(add-(generic|internet)-password|import)"$', pattern: $COMMAND}}}
-          has: {stopBy: end, kind: line_string_literal, regex: '^"-(T|A)"$'}
-        - matches: {swift-security-arguments: {subcommand: {regex: '^"dump-keychain"$', pattern: $COMMAND}}}
-          has: {stopBy: end, kind: line_string_literal, regex: '^"-[adr]*i[adr]*"$', follows: {stopBy: end, kind: line_string_literal, regex: '^"dump-keychain"$'}}
-        - matches: {swift-security-arguments: {subcommand: {regex: '^"set-(generic-password|internet-password|key)-partition-list"$', pattern: $COMMAND}}}
+        - matches: { swift-security-arguments: { subcommand: { regex: '^"(add-(generic|internet)-password|import)"$', pattern: $COMMAND } } }
+          has: { stopBy: end, kind: line_string_literal, regex: '^"-(T|A)"$' }
+        - matches: { swift-security-arguments: { subcommand: { regex: '^"dump-keychain"$', pattern: $COMMAND } } }
+          has: { stopBy: end, kind: line_string_literal, regex: '^"-[adr]*i[adr]*"$', follows: { stopBy: end, kind: line_string_literal, regex: '^"dump-keychain"$' } }
+        - matches: { swift-security-arguments: { subcommand: { regex: '^"set-(generic-password|internet-password|key)-partition-list"$', pattern: $COMMAND } } }
         - kind: line_string_literal, multi_line_string_literal, raw_string_literal
           pattern: $COMMAND
           any:
-            - regex: '(?m)(?:^#*"*|\\n)[ \t]*(?:add-(?:generic|internet)-password|import)[ \t](?:(?:[^\n\\]|\\[^n])*[ \t])?-[TA](?:[ \t"]|\\n|$)'
-            - regex: '(?m)(?:^#*"*|\\n)[ \t]*dump-keychain[ \t](?:(?:[^\n\\]|\\[^n])*[ \t])?-[adr]*i[adr]*(?:[ \t"]|\\n|$)'
-            - regex: '(?m)(?:^#*"*|\\n)[ \t]*set-(?:generic-password|internet-password|key)-partition-list[ \t]'
+              - regex: '(?m)(?:^#*"*|\\n)[ \t]*(?:add-(?:generic|internet)-password|import)[ \t](?:(?:[^\n\\]|\\[^n])*[ \t])?-[TA](?:[ \t"]|\\n|$)'
+              - regex: '(?m)(?:^#*"*|\\n)[ \t]*dump-keychain[ \t](?:(?:[^\n\\]|\\[^n])*[ \t])?-[adr]*i[adr]*(?:[ \t"]|\\n|$)'
+              - regex: '(?m)(?:^#*"*|\\n)[ \t]*set-(?:generic-password|internet-password|key)-partition-list[ \t]'
         - kind: simple_identifier
           regex: '^kSecAttrAccess$'
           pattern: $COMMAND
-message: '`$COMMAND` rewrites the ACL or partition list a keychain item''s owning program sets'
+message: "`$COMMAND` rewrites the ACL or partition list a keychain item's owning program sets"
 note: 'Update item data through `add-generic-password -U` or `SecItemUpdate` with no `-T`, `-A`, or `kSecAttrAccess`'

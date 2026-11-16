@@ -6,4 +6,4 @@ rule:
     kind: program
     has:
         kind: import_statement
-        has: {field: source, not: {has: {kind: escape_sequence}}, has: {kind: string_fragment, matches: module}}
+        has: { field: source, not: { has: { kind: escape_sequence } }, has: { kind: string_fragment, matches: module } }

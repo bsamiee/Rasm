@@ -106,8 +106,9 @@ const related = (workspaceRoot: string, project: Option.Option<string>, { nodes 
     ];
 };
 
+const releasable = (node: Node) => node.packable || node.publishable;
+
 const projected = (nodes: readonly Node[], settings: typeof Options.Type, manifests: readonly Readonly<Record<string, Pick<TargetConfiguration, 'inputs'>>>[]) => {
-    const releasable = (node: Node) => node.packable || node.publishable;
     const folders = Record.fromIterableWith(nodes, (node) => [dirname(node.file), node] as const);
     const carried = (node: Node): readonly NonNullable<Node['releases']>[] => [
         ...Option.toArray(Option.fromNullOr(node.releases)),

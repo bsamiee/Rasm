@@ -1,5 +1,5 @@
 import { Unmatched } from '@rasm/search';
-import { Array, Context, Duration, Effect, Function, identity, Layer, Record, Schedule, Schema, Stream } from 'effect';
+import { Array, Context, Duration, Effect, Function, identity, Layer, Record, Schedule, Schema, Stream, Struct } from 'effect';
 import type { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import { Rpc, RpcClient, RpcGroup, RpcSerialization } from 'effect/rpc';
 import { Socket } from 'effect/socket';
@@ -48,7 +48,7 @@ class Automation extends Context.Service<Automation>()('@rasm/applications/node/
                 }),
             script: Effect.fn('Automation.script')(function* ({ instance, url, ...script }: Pick<RunningInstance, 'instance' | 'url'> & Parameters<typeof Terms.script>[1]) {
                 const execute = yield* Terms.script(yield* client.terms({ url }), script);
-                return yield* client.execute({ instance, ...execute });
+                return yield* client.execute(Struct.assign(execute, { instance }));
             }),
         };
     }),

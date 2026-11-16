@@ -23,7 +23,7 @@ Libraries in every language and their consumers are rebuilt as general capabilit
   - With `plan`, its rows for the paths group into units by owned files and slice into what one editor writes; without it, one reader per file group
   - Each unit: editors per slice, adversaries (deepen, then collapse), a verdict; then cross-group sets, a lead, one check with the oracle
 - Tune: `tune.js` with `language`, `base` and `exclude` maps the diff since `base` into improvements and regressions, each to its owner:
-  - Ownership order from `languages.js`: Biome/tsconfig, Ruff/ty/mypy/refurb, clippy/dylint, `.editorconfig`/globalconfig/Roslyn, swiftlint, ast-grep
+  - Ownership order from `languages.js`: tsconfig/oxlint/oxfmt, Ruff/ty/mypy/refurb, clippy/dylint, `.editorconfig`/globalconfig/Roslyn, swiftlint, ast-grep
   - One writer per checker, per skill a writer, adversary and clean-prose pass, one close
 - Extension research: `extension-research.js` with `key` one domain note, or `mode` plan and `key` one domain for its build plan, one run at a time
 - Folder guidance: `guidance.js` once the tree is committed after a round of rebuilds

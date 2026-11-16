@@ -3,14 +3,17 @@
     "version": "0.1.0",
     "private": true,
     "description": "What every Adobe host plugin shares: the error a host call reports, the object model and specifier reference a host describes, and the Vite bundle layout of a plugin build",
+    "license": "MIT",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/bsamiee/Rasm.git",
         "directory": "libs/typescript/creative-cloud/automation"
     },
-    "license": "MIT",
-    "sideEffects": false,
+    "files": [
+        "dist"
+    ],
     "type": "module",
+    "sideEffects": false,
     "imports": {
         "#/*": "./*.ts"
     },
@@ -18,7 +21,16 @@
         ".": "./index.ts",
         "./vite": "./vite.ts"
     },
-    "files": [ "dist" ],
+    "publishConfig": {
+        "imports": {
+            "#/*": "./dist/*.js"
+        },
+        "exports": {
+            ".": "./dist/index.js",
+            "./vite": "./dist/vite.js"
+        },
+        "access": "public"
+    },
     "dependencies": {
         "@rasm/search": "workspace:*"
     },
@@ -34,16 +46,6 @@
     "peerDependenciesMeta": {
         "vite": {
             "optional": true
-        }
-    },
-    "publishConfig": {
-        "access": "public",
-        "exports": {
-            ".": "./dist/index.js",
-            "./vite": "./dist/vite.js"
-        },
-        "imports": {
-            "#/*": "./dist/*.js"
         }
     }
 }

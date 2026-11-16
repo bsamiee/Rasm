@@ -5,10 +5,10 @@ rule:
     any:
         - kind: simple_expansion, expansion
           has:
-            any:
-                - kind: variable_name, subscript
-                - kind: special_variable_name
-                  regex: '^[@*_]$'
+              any:
+                  - kind: variable_name, subscript
+                  - kind: special_variable_name
+                    regex: '^[@*_]$'
           not:
-            has: {field: operator, regex: '^#$', precedes: {kind: 'variable_name, subscript, special_variable_name'}}
+              has: { field: operator, regex: '^#$', precedes: { kind: 'variable_name, subscript, special_variable_name' } }
         - kind: command_substitution

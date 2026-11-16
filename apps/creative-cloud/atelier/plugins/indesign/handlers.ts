@@ -1,4 +1,3 @@
-import type { Application, CellStyle, CharacterStyle, Document, Font, InDesignDOMObject, InsertionPoint, MasterSpread, ObjectStyle, Page, PageItem, ParagraphStyle, PreflightProcess, Spread, TableStyle, Text, TextDefault, TextFrame, TextPath, TextStyleRange } from 'adobe:indesign';
 import { ExecuteScript, type Open, type Render } from '@rasm/atelier-protocol';
 import { type Adjust, Call, type Change, type FindChange, type FontFile, InDesign, Inspect, type Invoke, type Kerns, Menu, Preflight, type Runs, ScriptPreferences, type Slice, type Typeset } from '@rasm/atelier-protocol/indesign';
 import { Peer } from '@rasm/atelier-protocol/peer';
@@ -7,6 +6,7 @@ import { Search, Specifier, Value } from '@rasm/indesign';
 import { AGGREGATE_FIELD, declaredMember, InDesignSettings, Model, thousandths, unavailableReason } from '@rasm/indesign/uxp';
 import { Unmatched } from '@rasm/search';
 import { Uxp } from '@rasm/uxp/plugin';
+import type { Application, CellStyle, CharacterStyle, Document, Font, InDesignDOMObject, InsertionPoint, MasterSpread, ObjectStyle, Page, PageItem, ParagraphStyle, PreflightProcess, Spread, TableStyle, Text, TextDefault, TextFrame, TextPath, TextStyleRange } from 'adobe:indesign';
 import { Array, Cache, Cause, Effect, Equivalence, Filter, Formatter, Function, flow, identity, Layer, Match, Number, Option, Path, Predicate, pipe, Record, Result, Schema, SchemaGetter, Scope, Semaphore, String, Struct } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -73,7 +73,14 @@ const search = Effect.fnUntraced(function* ({ mode, find, change, options }: Pic
     );
     const describe = (hit: Text | PageItem) => {
         const placed = model.text(hit) ? Option.filter(Array.head(hit.parentTextFrames), model.item) : Option.liftPredicate(hit, model.item);
-        return { specifier: hit.toSpecifier(), text: model.text(hit) ? Option.some(rendered(hit.contents)) : Option.none(), page: Option.flatMap(placed, (item) => Option.fromNullishOr(item.parentPage?.name)) };
+        return {
+            specifier: hit.toSpecifier(),
+            text: model.text(hit) ? Option.some(rendered(hit.contents)) : Option.none(),
+            page: Option.map(
+                Option.flatMap(placed, (item) => Option.fromNullishOr(item.parentPage)),
+                Struct.get('name'),
+            ),
+        };
     };
     const found = yield* Effect.forEach(
         scopes,
@@ -105,9 +112,9 @@ const nested: (rows: readonly (typeof Flat.Type)[]) => typeof Issues.Type = Arra
         return [{ label, ...Record.getSomes({ page: Option.liftPredicate(page, String.isNonEmpty) }), details: Record.fromEntries(details), rows: nested(under) }, ...nested(after)];
     },
 });
-const Aggregated = Schema.Tuple([Schema.String, Schema.String, Schema.Array(Flat)]).pipe(Schema.decodeTo(Issues, { decode: SchemaGetter.transform(([, , rows]) => nested(rows)), encode: SchemaGetter.forbiddenEncoding }));
+const Aggregated = Schema.Tuple([Schema.String, Schema.String, Schema.Array(Flat)]).pipe(Schema.decodeTo(Issues, { decode: SchemaGetter.transform((aggregate) => nested(aggregate[2])), encode: SchemaGetter.forbiddenEncoding }));
 const aggregated = (process: PreflightProcess) => Result.try(() => process.aggregatedResults).pipe(Result.flatMap(Schema.decodeUnknownResult(Aggregated)));
-const overset = ({ stories }: Document): readonly string[] => Array.filterMap(Array.zip(stories.everyItem().overflows, stories.everyItem().id), ([overflows, id]) => (overflows === true ? Result.succeed(stories.itemByID(id).toSpecifier()) : Result.failVoid));
+const overset = ({ stories }: Document): readonly string[] => Array.filterMap(Array.zip(stories.everyItem().overflows, stories.everyItem().id), ([overflows, id]) => (overflows ? Result.succeed(stories.itemByID(id).toSpecifier()) : Result.failVoid));
 const savedPath = (document: Document) => Effect.flatMap(Effect.try({ try: () => document.saved, catch: HostError.refused(`saved of ${document.toSpecifier()}`) }), (saved) => (saved ? Model.file(document, 'fullName') : Effect.succeedNone));
 const overrides = (text: Pick<Text, 'textHasOverrides' | 'toSpecifier'>) =>
     Model.use(({ StyleType }) => Effect.try({ try: () => ({ paragraph: text.textHasOverrides(StyleType.PARAGRAPH_STYLE_TYPE), character: text.textHasOverrides(StyleType.CHARACTER_STYLE_TYPE) }), catch: HostError.refused(`overrides of ${text.toSpecifier()}`) }));
@@ -156,7 +163,7 @@ const declaration = Effect.fnUntraced(function* (name: string) {
     const declared = yield* Effect.catchTag(Effect.asSome(Cache.get(declarations, name)), 'Unmatched', () => Effect.succeedNone);
     const { fields, methods, statics } = Option.getOrElse(declared, () => ({ fields: {}, methods: {}, statics: {} }));
     const type: unknown = Reflect.get(model, name);
-    const [live] = Predicate.isFunction(type) ? Uxp.members(type.prototype) : [{ fields: [], methods: [] }];
+    const [live = { fields: [], methods: [] }] = Uxp.members(Predicate.isFunction(type) ? type.prototype : undefined);
     return yield* Option.match(enumeration(name), {
         onSome: (enumerated) => Effect.succeed(Enumeration.make({ name, members: Array.map(members(enumerated), (member) => ({ name: member.toString(), description: Record.get(statics, member.toString()) })) })),
         onNone: () =>
@@ -164,7 +171,7 @@ const declaration = Effect.fnUntraced(function* (name: string) {
                 Effect.all({
                     parents: Option.isSome(declared) ? parents(name) : Effect.succeed([]),
                     fields: Effect.forEach(live.fields, (accessor) => declaredMember(ObjectModel.Field, fields, accessor)),
-                    methods: Effect.forEach(live.methods, (method) => declaredMember(ObjectModel.Method, methods, { name: method })),
+                    methods: Effect.forEach(live.methods, (method) => declaredMember(ObjectModel.Method, methods, method)),
                 }),
                 (described) => Class.make({ name, ...described }),
             ),
@@ -180,7 +187,7 @@ const fontView = Effect.fnUntraced(function* (face: Font) {
     const styled = yield* Effect.try({
         try: () =>
             Array.flatMap(open, (document) => [...document.allParagraphStyles, ...document.allCharacterStyles])
-                .filter(({ appliedFont, fontStyle }) => Unmatched.named(`${Predicate.isString(appliedFont) ? appliedFont : appliedFont?.fontFamily}\t${fontStyle}`, face.name))
+                .filter(({ appliedFont, fontStyle }) => Predicate.isString(fontStyle) && Option.exists(Option.fromNullishOr(Predicate.isString(appliedFont) ? appliedFont : appliedFont?.fontFamily), (family) => Unmatched.named(`${family}\t${fontStyle}`, face.name)))
                 .map((each) => each.toSpecifier()),
         catch: HostError.refused(`uses of ${face.name}`),
     });
@@ -448,9 +455,12 @@ const handlers = InDesign.of({
         const decode = Model.decoder(found, yield* Effect.cached(Model.fonts));
         const positioned = yield* Effect.forEach(Array.zip(positional, parameters), ([value, parameter]) => decode(Option.some(parameter), Option.map(returns, Struct.get('type')))(value));
         const properties = Option.map(payload.properties, (supplied) => flow(Array.ensure<unknown>, Array.findFirst(model.domObject), Effect.fromOption(Function.constant(new Cause.IllegalArgumentError(`${kind} ${method} returned no object for properties`))), Effect.flatMap(Model.write(supplied))));
+        const refused = HostError.refused(`${kind} ${method}`);
         return yield* Model.commit(
             payload.label,
-            Effect.try({ try: (): unknown => Reflect.apply(Reflect.get(receiver, method), receiver, positioned), catch: HostError.refused(`${kind} ${method}`) }).pipe(
+            Effect.try({ try: (): unknown => Reflect.get(receiver, method), catch: refused }).pipe(
+                Effect.filterOrFail(Predicate.isFunction, refused),
+                Effect.flatMap((invoked) => Effect.try({ try: (): unknown => Reflect.apply(invoked, receiver, positioned), catch: refused })),
                 Effect.tap((returned) => Effect.transposeOption(Option.map(properties, Function.apply(returned)))),
                 Effect.flatMap((returned) => Model.read(Call.Result, payload.label, flow(Function.constant({ ...before, result: Option.fromUndefinedOr(returned) }), Struct.evolve({ valid: flow(Function.constant(found), Struct.get('isValid')) })))),
             ),
@@ -606,7 +616,7 @@ const handlers = InDesign.of({
 });
 const link = Effect.gen(function* () {
     const [model, permit] = yield* Effect.all([Model.make, Semaphore.make(1)]);
-    const scripted = <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.scopedWith((scope) => Effect.andThen(Scope.provide(scriptPreferences, scope), effect)).pipe(permit.withPermit, Effect.provideService(Model, model));
+    const scripted = <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.scopedWith((scope) => Effect.andThen(Scope.provide(scriptPreferences, scope), effect)).pipe(Semaphore.withPermit(permit), Effect.provideService(Model, model));
     const server = Layer.merge(InDesign.toLayer(handlers), Layer.succeed(ScriptPreferences)(scripted)).pipe(Layer.provide(Layer.succeed(Model)(model)));
     const application = Effect.tryPromise({ try: () => model.app.fullName, catch: HostError.refused('application fullName') }).pipe(
         Effect.flatMap(Schema.decodeUnknownEffect(Uxp.Entry)),

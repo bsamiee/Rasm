@@ -6,6 +6,6 @@ rule:
     any:
         - matches: languageext-atom-transition
         - matches:
-            languageext-atom-call:
-                member:
-                    regex: '^(Add|AddOrUpdateRange|AddRange|Clear|FindOrAdd|FindOrMaybeAdd|Remove|RemoveRange|SetItem|SetItems|TryAdd|TryAddRange|TrySetItem|TrySetItems|Enqueue|Dequeue|DequeueUnsafe|Update)$'
+              languageext-atom-call:
+                  member:
+                      regex: '^(Add|AddOrUpdateRange|AddRange|Clear|FindOrAdd|FindOrMaybeAdd|Remove|RemoveRange|SetItem|SetItems|TryAdd|TryAddRange|TrySetItem|TrySetItems|Enqueue|Dequeue|DequeueUnsafe|Update)$'

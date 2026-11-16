@@ -5,7 +5,7 @@ arguments: [name]
 utils:
     callee:
         any:
-            - matches: {csharp-type-name: {name: {matches: name}}}
-            - matches: {csharp-accessed-name: {name: {matches: name}}}
+            - matches: { csharp-type-name: { name: { matches: name } } }
+            - matches: { csharp-accessed-name: { name: { matches: name } } }
 rule:
-    has: {field: function, matches: callee}
+    has: { field: function, matches: callee }

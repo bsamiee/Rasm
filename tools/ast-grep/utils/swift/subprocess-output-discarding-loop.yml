@@ -5,9 +5,9 @@ rule:
     kind: for_statement
     all:
         - has:
-            field: collection
-            any:
-                - regex: '\.standard(Output|Error)$'
-                - {kind: call_expression, has: {nthChild: 1, kind: navigation_expression, regex: '\.standard(Output|Error)\.strings$'}}
-        - has: {field: item, regex: '^_$'}
-        - not: {has: {kind: statements}}
+              field: collection
+              any:
+                  - regex: '\.standard(Output|Error)$'
+                  - { kind: call_expression, has: { nthChild: 1, kind: navigation_expression, regex: '\.standard(Output|Error)\.strings$' } }
+        - has: { field: item, regex: '^_$' }
+        - not: { has: { kind: statements } }

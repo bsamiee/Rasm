@@ -6,34 +6,34 @@ utils:
         kind: attribute
         any:
             - all:
-                - has: {field: path, pattern: doc}
-                - has: {field: arguments, has: {pattern: hidden}}
+                  - has: { field: path, pattern: doc }
+                  - has: { field: arguments, has: { pattern: hidden } }
             - all:
-                - has: {field: path, pattern: cfg_attr}
-                - has: {field: arguments, has: {kind: token_tree, follows: {pattern: doc}, has: {pattern: hidden}}}
+                  - has: { field: path, pattern: cfg_attr }
+                  - has: { field: arguments, has: { kind: token_tree, follows: { pattern: doc }, has: { pattern: hidden } } }
     exported:
         kind: visibility_modifier
         regex: '^pub$'
     public:
         any:
-            - has: {matches: exported}
+            - has: { matches: exported }
             - kind: enum_variant
-              inside: {kind: enum_variant_list, inside: {kind: enum_item, has: {matches: exported}}}
+              inside: { kind: enum_variant_list, inside: { kind: enum_item, has: { matches: exported } } }
             - kind: 'function_signature_item, function_item, associated_type, const_item, type_item'
-              inside: {kind: declaration_list, inside: {kind: trait_item, has: {matches: exported}}}
+              inside: { kind: declaration_list, inside: { kind: trait_item, has: { matches: exported } } }
             - kind: macro_definition
-              matches: {rust-attributed: {attribute: {has: {kind: attribute, has: {field: path, pattern: macro_export}}}}}
+              matches: { rust-attributed: { attribute: { has: { kind: attribute, has: { field: path, pattern: macro_export } } } } }
 rule:
     kind: attribute_item
     all:
-        - has: {matches: hidden}
+        - has: { matches: hidden }
         - precedes:
-            stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}
-            kind: 'function_item, function_signature_item, struct_item, enum_item, union_item, trait_item, trait_alias, const_item, static_item, type_item, mod_item, use_declaration, field_declaration, enum_variant, associated_type, macro_definition'
-            matches: public
-            any:
-                - has: {field: name, pattern: $NAME}
-                - has: {field: argument, pattern: $NAME}
+              stopBy: { not: { kind: 'attribute_item, line_comment, block_comment' } }
+              kind: 'function_item, function_signature_item, struct_item, enum_item, union_item, trait_item, trait_alias, const_item, static_item, type_item, mod_item, use_declaration, field_declaration, enum_variant, associated_type, macro_definition'
+              matches: public
+              any:
+                  - has: { field: name, pattern: $NAME }
+                  - has: { field: argument, pattern: $NAME }
         - pattern: $ATTRIBUTE
 message: '`$ATTRIBUTE` hides `$NAME` from the API it belongs to'
 note: 'Narrow an item its crate alone reads to `pub(crate)` or `pub(super)`, else delete the attribute'

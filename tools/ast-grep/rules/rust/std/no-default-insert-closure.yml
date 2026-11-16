@@ -6,6 +6,6 @@ rule:
     all:
         - pattern: $O.get_or_insert_with($D)
 constraints:
-    D: {matches: rust-default-value}
+    D: { matches: rust-default-value }
 message: '`$O` inserts the default value through `$D`'
 note: 'Call `<option>.get_or_insert_default()`'

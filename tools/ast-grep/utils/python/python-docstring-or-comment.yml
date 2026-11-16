@@ -6,6 +6,6 @@ rule:
         - kind: comment
         - kind: expression_statement
           has:
-            any:
-                - {kind: string, matches: python-text-string}
-                - {kind: concatenated_string, not: {has: {kind: string, not: {matches: python-text-string}}}}
+              any:
+                  - { kind: string, matches: python-text-string }
+                  - { kind: concatenated_string, not: { has: { kind: string, not: { matches: python-text-string } } } }

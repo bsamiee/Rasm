@@ -6,7 +6,7 @@ import { MANIFEST, restated, run, versioned } from '#/workspace';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const read = (tree: Tree, file: string) => Effect.mapError(Effect.fromNullishOr(tree.read(file, 'utf-8')), (cause) => new Cause.UnknownError(cause, `${file} is absent from the tree nx release versions`));
+const read = (tree: Tree, file: string) => Effect.mapError(Effect.fromNullishOr(tree.read(file, 'utf8')), (cause) => new Cause.UnknownError(cause, `${file} is absent from the tree nx release versions`));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

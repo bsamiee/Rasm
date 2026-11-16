@@ -6,55 +6,71 @@ utils:
         any:
             - kind: call_expression
               all:
-                - has: {field: function, kind: identifier, regex: '^(Ok|Some)$'}
-                - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: scoped_identifier, has: {field: path, any: [{regex: '^Self$'}, {pattern: $T}]}}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}]}
+                  - has: { field: function, kind: identifier, regex: '^(Ok|Some)$' }
+                  - has:
+                        {
+                            field: arguments,
+                            all:
+                                [
+                                    { has: { nthChild: { position: 1, ofRule: { not: { kind: 'line_comment, block_comment' } } }, kind: scoped_identifier, has: { field: path, any: [{ regex: '^Self$' }, { pattern: $T }] } } },
+                                    { not: { has: { nthChild: { position: 2, ofRule: { not: { kind: 'line_comment, block_comment' } } } } } },
+                                ],
+                        }
             - kind: block
               all:
-                - has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, matches: self-variant}
-                - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}
+                  - has: { nthChild: { position: 1, ofRule: { matches: rust-statement } }, matches: self-variant }
+                  - not: { has: { nthChild: { position: 2, ofRule: { matches: rust-statement } } } }
     named-variant:
         any:
             - kind: call_expression
               all:
-                - has: {field: function, kind: identifier, regex: '^(Ok|Some)$'}
-                - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: scoped_identifier, has: {field: path, kind: identifier, not: {pattern: Self}, pattern: $T}}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}]}
+                  - has: { field: function, kind: identifier, regex: '^(Ok|Some)$' }
+                  - has:
+                        {
+                            field: arguments,
+                            all:
+                                [
+                                    { has: { nthChild: { position: 1, ofRule: { not: { kind: 'line_comment, block_comment' } } }, kind: scoped_identifier, has: { field: path, kind: identifier, not: { pattern: Self }, pattern: $T } } },
+                                    { not: { has: { nthChild: { position: 2, ofRule: { not: { kind: 'line_comment, block_comment' } } } } } },
+                                ],
+                        }
             - kind: block
               all:
-                - has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, matches: named-variant}
-                - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}
+                  - has: { nthChild: { position: 1, ofRule: { matches: rust-statement } }, matches: named-variant }
+                  - not: { has: { nthChild: { position: 2, ofRule: { matches: rust-statement } } } }
     discriminant-pattern:
         kind: match_pattern
         any:
             - regex: '^(-?[0-9]\p{XID_Continue}*|b''(\\.|[^''\\])'')$'
-            - has: {field: condition, kind: binary_expression, all: [{has: {field: operator, regex: '^==$'}}, {has: {field: right, kind: type_cast_expression, has: {field: value, kind: scoped_identifier}}}]}
+            - has: { field: condition, kind: binary_expression, all: [{ has: { field: operator, regex: '^==$' } }, { has: { field: right, kind: type_cast_expression, has: { field: value, kind: scoped_identifier } } }] }
     self-arm:
         kind: match_arm
-        all: [{has: {field: pattern, matches: discriminant-pattern}}, {has: {field: value, matches: self-variant}}]
+        all: [{ has: { field: pattern, matches: discriminant-pattern } }, { has: { field: value, matches: self-variant } }]
     named-arm:
         kind: match_arm
-        all: [{has: {field: pattern, matches: discriminant-pattern}}, {has: {field: value, matches: named-variant}}]
+        all: [{ has: { field: pattern, matches: discriminant-pattern } }, { has: { field: value, matches: named-variant } }]
     fallback-arm:
         kind: match_arm
         all:
-            - has: {field: pattern, kind: match_pattern, regex: '^(_|[_\p{Ll}]\p{XID_Continue}*)$'}
-            - has: {field: value, regex: '^\{?\p{Pattern_White_Space}*(return\p{Pattern_White_Space}+)?(Err\p{Pattern_White_Space}*\(|None(?-u:\b))'}
+            - has: { field: pattern, kind: match_pattern, regex: '^(_|[_\p{Ll}]\p{XID_Continue}*)$' }
+            - has: { field: value, regex: '^\{?\p{Pattern_White_Space}*(return\p{Pattern_White_Space}+)?(Err\p{Pattern_White_Space}*\(|None(?-u:\b))' }
     decode-arms:
         all:
-            - has: {kind: match_arm, nthChild: {position: 1, reverse: true, ofRule: {kind: match_arm}}, matches: fallback-arm}
-            - not: {has: {kind: match_arm, has: {field: value, pattern: $SAME}, precedes: {stopBy: end, kind: match_arm, not: {matches: fallback-arm}, has: {field: value, pattern: $SAME}}}}
+            - has: { kind: match_arm, nthChild: { position: 1, reverse: true, ofRule: { kind: match_arm } }, matches: fallback-arm }
+            - not: { has: { kind: match_arm, has: { field: value, pattern: $SAME }, precedes: { stopBy: end, kind: match_arm, not: { matches: fallback-arm }, has: { field: value, pattern: $SAME } } } }
 rule:
     kind: match_expression
     all:
-        - inside: {kind: function_item, stopBy: {kind: 'function_item, closure_expression'}}
+        - inside: { kind: function_item, stopBy: { kind: 'function_item, closure_expression' } }
         - any:
-            - all:
-                - inside:
-                    kind: function_item
-                    stopBy: {kind: 'function_item, closure_expression'}
-                    inside: {kind: declaration_list, inside: {kind: impl_item, has: {field: type, kind: type_identifier, pattern: $T}}}
-                - has: {field: body, all: [{has: {matches: self-arm}}, {not: {has: {kind: match_arm, not: {any: [{matches: self-arm}, {matches: fallback-arm}]}}}}]}
-            - has: {field: body, all: [{has: {matches: named-arm}}, {not: {has: {kind: match_arm, not: {any: [{matches: named-arm}, {matches: fallback-arm}]}}}}]}
-        - has: {field: body, matches: decode-arms}
-        - inside: {kind: source_file, stopBy: end, has: {stopBy: end, kind: enum_item, has: {field: name, pattern: $T}}}
+              - all:
+                    - inside:
+                          kind: function_item
+                          stopBy: { kind: 'function_item, closure_expression' }
+                          inside: { kind: declaration_list, inside: { kind: impl_item, has: { field: type, kind: type_identifier, pattern: $T } } }
+                    - has: { field: body, all: [{ has: { matches: self-arm } }, { not: { has: { kind: match_arm, not: { any: [{ matches: self-arm }, { matches: fallback-arm }] } } } }] }
+              - has: { field: body, all: [{ has: { matches: named-arm } }, { not: { has: { kind: match_arm, not: { any: [{ matches: named-arm }, { matches: fallback-arm }] } } } }] }
+        - has: { field: body, matches: decode-arms }
+        - inside: { kind: source_file, stopBy: end, has: { stopBy: end, kind: enum_item, has: { field: name, pattern: $T } } }
 message: '`match` decodes an integer into `$T` through one literal arm per variant'
 note: 'Set the arm literals as `#[repr(<int>)]` discriminants and derive `strum::FromRepr`, or `derive_more::TryFrom` with `#[try_from(repr)]`'

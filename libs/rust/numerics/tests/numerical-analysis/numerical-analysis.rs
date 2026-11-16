@@ -4,7 +4,7 @@ use core::f64::consts::{FRAC_1_SQRT_2, PI, TAU};
 use core::range::RangeInclusive;
 
 use approx::assert_relative_eq;
-use claims::assert_ok;
+use claims::{assert_ok, assert_some};
 use nalgebra::{DVector, MatrixXx3, Vector3};
 use nonempty_collections::nev;
 use rasm_numerical_analysis::{Domain, Exponent, Settings, Weight, integrate, weighted};
@@ -13,13 +13,15 @@ use rasm_stats::Bounds;
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 fn integral<const N: usize>(integrand: impl Fn([f64; N]) -> f64, domain: Domain) -> f64 {
-    let integral = assert_ok!(integrate(|point| DVector::from_element(1, integrand(assert_ok!(<[f64; N]>::try_from(point.as_slice())))), [domain], Settings { .. }, |value: &f64| value.abs()));
-    assert_ok!(<[f64; 1]>::try_from(integral.estimate.as_slice()).map(|[estimate]| estimate))
+    let integral = assert_ok!(integrate(|point| DVector::from_element(1, integrand(*assert_some!(point.as_slice().as_array::<N>()))), [domain], Settings { .. }, |value: &f64| value.abs()));
+    let &[estimate] = assert_some!(integral.estimate.as_slice().as_array::<1>());
+    estimate
 }
 
 fn moment(weight: Weight, power: i32) -> f64 {
     let integral = assert_ok!(weighted(|node| DVector::from_element(1, node.powi(power)), weight, Settings { .. }, |value: &f64| value.abs()));
-    assert_ok!(<[f64; 1]>::try_from(integral.estimate.as_slice()).map(|[estimate]| estimate))
+    let &[estimate] = assert_some!(integral.estimate.as_slice().as_array::<1>());
+    estimate
 }
 
 #[test]

@@ -5,40 +5,40 @@ utils:
     path-argument:
         any:
             - kind: reference_expression
-              has: {field: value, pattern: $TMP}
+              has: { field: value, pattern: $TMP }
             - pattern: $TMP
-              not: {kind: reference_expression}
+              not: { kind: reference_expression }
     temp-write:
         kind: call_expression
         any:
             - all:
-                - has: {field: function, regex: '^((((::)?(std|tokio|async_std)::)?fs::|(::)?fs_err::(tokio::)?)(write|File::create|File::create_new)|((::)?(std|tokio|async_std|fs_err)::)?(fs::)?File::(create|create_new)|write)$'}
-                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: path-argument}}
+                  - has: { field: function, regex: '^((((::)?(std|tokio|async_std)::)?fs::|(::)?fs_err::(tokio::)?)(write|File::create|File::create_new)|((::)?(std|tokio|async_std|fs_err)::)?(fs::)?File::(create|create_new)|write)$' }
+                  - has: { field: arguments, has: { nthChild: { position: 1, ofRule: { not: { kind: 'line_comment, block_comment' } } }, matches: path-argument } }
             - all:
-                - has: {field: function, regex: '^(((::)?(std|tokio|async_std)::)?fs::|(::)?fs_err::(tokio::)?)?copy$'}
-                - has: {field: arguments, has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: path-argument}}
+                  - has: { field: function, regex: '^(((::)?(std|tokio|async_std)::)?fs::|(::)?fs_err::(tokio::)?)?copy$' }
+                  - has: { field: arguments, has: { nthChild: { position: 2, ofRule: { not: { kind: 'line_comment, block_comment' } } }, matches: path-argument } }
             - all:
-                - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^open$'}}, {has: {field: value, regex: '^((::)?(std|tokio|fs_err|async_std)::)?(fs::)?(OpenOptions::new|File::options)\(\)'}}]}
-                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: path-argument}}
+                  - has: { field: function, kind: field_expression, all: [{ has: { field: field, regex: '^open$' } }, { has: { field: value, regex: '^((::)?(std|tokio|fs_err|async_std)::)?(fs::)?(OpenOptions::new|File::options)\(\)' } }] }
+                  - has: { field: arguments, has: { nthChild: { position: 1, ofRule: { not: { kind: 'line_comment, block_comment' } } }, matches: path-argument } }
     earlier-write:
         follows:
             stopBy: end
             any:
                 - matches: temp-write
                   pattern: $WRITE
-                - has: {stopBy: {kind: function_item}, matches: temp-write, pattern: $WRITE}
+                - has: { stopBy: { kind: function_item }, matches: temp-write, pattern: $WRITE }
 rule:
     kind: call_expression
     all:
-        - has: {field: function, regex: '^(((::)?(std|tokio|async_std)::)?fs::|(::)?fs_err::(tokio::)?)?rename$'}
-        - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: path-argument}}
+        - has: { field: function, regex: '^(((::)?(std|tokio|async_std)::)?fs::|(::)?fs_err::(tokio::)?)?rename$' }
+        - has: { field: arguments, has: { nthChild: { position: 1, ofRule: { not: { kind: 'line_comment, block_comment' } } }, matches: path-argument } }
         - pattern: $RENAME
-        - inside: {kind: function_item, stopBy: {kind: function_item}}
+        - inside: { kind: function_item, stopBy: { kind: function_item } }
         - any:
-            - matches: earlier-write
-            - inside: {stopBy: {kind: function_item}, not: {kind: function_item}, matches: earlier-write}
+              - matches: earlier-write
+              - inside: { stopBy: { kind: function_item }, not: { kind: function_item }, matches: earlier-write }
 labels:
-    RENAME: {style: primary, message: 'Moves the written file into place'}
-    WRITE: {style: secondary, message: 'Writes the file under a fixed name'}
+    RENAME: { style: primary, message: 'Moves the written file into place' }
+    WRITE: { style: secondary, message: 'Writes the file under a fixed name' }
 message: '`$RENAME` moves `$TMP` into place after writing it under a fixed name'
 note: 'Create the file with `tempfile::NamedTempFile::new_in(<destination directory>)?`, write through it, and call `.persist(<destination>)?`'

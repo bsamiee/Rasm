@@ -4,30 +4,30 @@ severity: error
 rule:
     kind: function_definition
     all:
-        - has: {field: name, pattern: $NAME}
-        - inside: {kind: function_definition, stopBy: end}
+        - has: { field: name, pattern: $NAME }
+        - inside: { kind: function_definition, stopBy: end }
         - any:
-            - all:
-                - has:
-                    field: body
-                    has:
-                        any:
-                            - kind: function_definition
-                              has: {field: name, pattern: $INNER}
-                            - kind: decorated_definition
-                              not: {has: {kind: decorator, has: {kind: call, has: {field: function, matches: {python-member-use: {module: {regex: '^functools$'}, name: {regex: '^wraps$'}}}}}}}
-                              has: {field: definition, has: {field: name, pattern: $INNER}}
-                - has:
+              - all:
+                    - has:
+                          field: body
+                          has:
+                              any:
+                                  - kind: function_definition
+                                    has: { field: name, pattern: $INNER }
+                                  - kind: decorated_definition
+                                    not: { has: { kind: decorator, has: { kind: call, has: { field: function, matches: { python-member-use: { module: { regex: '^functools$' }, name: { regex: '^wraps$' } } } } } } }
+                                    has: { field: definition, has: { field: name, pattern: $INNER } }
+                    - has:
+                          field: body
+                          has:
+                              kind: return_statement
+                              stopBy: { kind: 'function_definition, lambda, class_definition' }
+                              has: { kind: identifier, pattern: $INNER }
+              - has:
                     field: body
                     has:
                         kind: return_statement
-                        stopBy: {kind: 'function_definition, lambda, class_definition'}
-                        has: {kind: identifier, pattern: $INNER}
-            - has:
-                field: body
-                has:
-                    kind: return_statement
-                    stopBy: {kind: 'function_definition, lambda, class_definition'}
-                    has: {kind: lambda}
+                        stopBy: { kind: 'function_definition, lambda, class_definition' }
+                        has: { kind: lambda }
 message: '`$NAME` returns a closure from inside a closure'
 note: 'Define the returned function at module level and bind its free values with `functools.partial`'

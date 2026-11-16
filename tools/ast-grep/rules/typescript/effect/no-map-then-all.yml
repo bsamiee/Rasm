@@ -3,43 +3,47 @@ language: tsxlang
 severity: error
 utils:
     all-member:
-        matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^all$'}}}
+        matches: { effect-module-member: { module: { regex: '(?-u:\b)Effect$' }, member: { regex: '^all$' } } }
     array-map:
-        matches: {effect-module-member: {module: {regex: '(?-u:\b)Array$'}, member: {regex: '^map$'}}}
+        matches: { effect-module-member: { module: { regex: '(?-u:\b)Array$' }, member: { regex: '^map$' } } }
     module-mapped:
         kind: call_expression
         all:
-            - has: {field: function, matches: array-map}
-            - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}}}, {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}, {not: {has: {nthChild: {position: 3, ofRule: {not: {kind: 'comment, html_comment'}}}}}}]}
+            - has: { field: function, matches: array-map }
+            - has:
+                  {
+                      field: arguments,
+                      all: [{ has: { nthChild: { position: 1, ofRule: { not: { kind: 'comment, html_comment' } } } } }, { has: { nthChild: { position: 2, ofRule: { not: { kind: 'comment, html_comment' } } } } }, { not: { has: { nthChild: { position: 3, ofRule: { not: { kind: 'comment, html_comment' } } } } } }],
+                  }
     mapping-step:
         kind: call_expression
         all:
-            - has: {field: function, matches: array-map}
-            - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}}]}
+            - has: { field: function, matches: array-map }
+            - has: { field: arguments, all: [{ has: { nthChild: { position: 1, ofRule: { not: { kind: 'comment, html_comment' } } } } }, { not: { has: { nthChild: { position: 2, ofRule: { not: { kind: 'comment, html_comment' } } } } } }] }
     method-pipe:
         kind: call_expression
-        has: {field: function, kind: member_expression, has: {field: property, regex: '^pipe$'}}
+        has: { field: function, kind: member_expression, has: { field: property, regex: '^pipe$' } }
     mapped-list:
         kind: call_expression
         any:
             - matches: module-mapped
             - all:
-                - has: {field: arguments, has: {nthChild: {position: 1, reverse: true, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: mapping-step}}
-                - any: [{matches: method-pipe}, {has: {field: function, matches: {effect-function: {name: {regex: '^pipe$'}}}}}]
+                  - has: { field: arguments, has: { nthChild: { position: 1, reverse: true, ofRule: { not: { kind: 'comment, html_comment' } } }, matches: mapping-step } }
+                  - any: [{ matches: method-pipe }, { has: { field: function, matches: { effect-function: { name: { regex: '^pipe$' } } } } }]
 rule:
     kind: call_expression
     any:
         - all:
-            - has: {field: function, matches: all-member, pattern: $ALL}
-            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: mapped-list}}
+              - has: { field: function, matches: all-member, pattern: $ALL }
+              - has: { field: arguments, has: { nthChild: { position: 1, ofRule: { not: { kind: 'comment, html_comment' } } }, matches: mapped-list } }
         - all:
-            - matches: method-pipe
-            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: all-member, pattern: $ALL}}
-            - has: {field: function, has: {field: object, matches: module-mapped}}
+              - matches: method-pipe
+              - has: { field: arguments, has: { nthChild: { position: 1, ofRule: { not: { kind: 'comment, html_comment' } } }, matches: all-member, pattern: $ALL } }
+              - has: { field: function, has: { field: object, matches: module-mapped } }
         - has:
-            field: arguments
-            has:
-                matches: mapping-step
-                precedes: {matches: all-member, pattern: $ALL, stopBy: {not: {regex: '^,$'}}}
+              field: arguments
+              has:
+                  matches: mapping-step
+                  precedes: { matches: all-member, pattern: $ALL, stopBy: { not: { regex: '^,$' } } }
 message: '`$ALL` runs a list built by mapping each element to an effect'
 note: 'Call `Effect.forEach(<list>, <f>, <options>)`, or `Effect.partition` or `Effect.validate` in place of `mode: "result"`'

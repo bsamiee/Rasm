@@ -5,34 +5,34 @@ utils:
     postfix-expression:
         kind: 'identifier, self, field_expression, call_expression, macro_invocation, parenthesized_expression, index_expression, boolean_literal, scoped_identifier, try_expression, await_expression'
     compound:
-        not: {any: [{matches: postfix-expression}, {kind: 'let_condition, let_chain'}]}
+        not: { any: [{ matches: postfix-expression }, { kind: 'let_condition, let_chain' }] }
     unit-ok:
-        matches: {rust-single-statement: {first: {pattern: Ok(())}}}
+        matches: { rust-single-statement: { first: { pattern: Ok(()) } } }
     error-arm:
-        matches: {rust-single-statement: {first: {pattern: Err($_)}}}
+        matches: { rust-single-statement: { first: { pattern: Err($_) } } }
     ok-first:
         all:
-            - has: {field: consequence, matches: unit-ok}
-            - has: {field: alternative, kind: else_clause, has: {kind: block, matches: error-arm}}
+            - has: { field: consequence, matches: unit-ok }
+            - has: { field: alternative, kind: else_clause, has: { kind: block, matches: error-arm } }
     error-first:
         all:
-            - has: {field: consequence, matches: error-arm}
-            - has: {field: alternative, kind: else_clause, has: {kind: block, matches: unit-ok}}
+            - has: { field: consequence, matches: error-arm }
+            - has: { field: alternative, kind: else_clause, has: { kind: block, matches: unit-ok } }
     negation:
         kind: unary_expression
-        has: {field: operator, regex: '^!$'}
+        has: { field: operator, regex: '^!$' }
     branch:
         kind: if_expression
         all:
-            - not: {inside: {kind: else_clause}}
+            - not: { inside: { kind: else_clause } }
             - any:
-                - all: [{matches: ok-first}, {has: {field: condition, matches: postfix-expression, pattern: $P}}]
-                - all: [{matches: ok-first}, {has: {field: condition, matches: compound, pattern: $Q}}]
-                - all: [{matches: error-first}, {has: {field: condition, matches: negation, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: postfix-expression, pattern: $P}}}]
-                - all: [{matches: error-first}, {has: {field: condition, matches: negation, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: compound, pattern: $Q}}}]
-                - all: [{matches: error-first}, {has: {field: condition, not: {matches: negation}, matches: postfix-expression, pattern: $NP}}]
-                - all: [{matches: error-first}, {has: {field: condition, not: {matches: negation}, matches: compound, pattern: $NQ}}]
-            - not: {matches: rust-const-context}
+                  - all: [{ matches: ok-first }, { has: { field: condition, matches: postfix-expression, pattern: $P } }]
+                  - all: [{ matches: ok-first }, { has: { field: condition, matches: compound, pattern: $Q } }]
+                  - all: [{ matches: error-first }, { has: { field: condition, matches: negation, has: { nthChild: { position: 1, ofRule: { not: { kind: 'line_comment, block_comment' } } }, matches: postfix-expression, pattern: $P } } }]
+                  - all: [{ matches: error-first }, { has: { field: condition, matches: negation, has: { nthChild: { position: 1, ofRule: { not: { kind: 'line_comment, block_comment' } } }, matches: compound, pattern: $Q } } }]
+                  - all: [{ matches: error-first }, { has: { field: condition, not: { matches: negation }, matches: postfix-expression, pattern: $NP } }]
+                  - all: [{ matches: error-first }, { has: { field: condition, not: { matches: negation }, matches: compound, pattern: $NQ } }]
+            - not: { matches: rust-const-context }
     unit-option:
         kind: call_expression
         any:
@@ -63,7 +63,7 @@ rule:
         - matches: unit-map-or
         - matches: flattened-option
 constraints:
-    OK: {regex: '^ok_or(_else)?$'}
-    FOK: {regex: '^ok_or(_else)?$'}
+    OK: { regex: '^ok_or(_else)?$' }
+    FOK: { regex: '^ok_or(_else)?$' }
 message: '`$P$Q$NP$NQ$M$B$FO$C` converts a `bool` or `Option<()>` into a `Result` by hand'
 note: 'Convert bools with `ok_or` or `ok_or_else`, options with `is_none` or `is_some_and`, nested results with `and` or `and_then`'

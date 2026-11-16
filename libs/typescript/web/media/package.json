@@ -3,14 +3,17 @@
     "version": "0.1.0",
     "private": true,
     "description": "Media inspection, Uppy upload preprocessing, and pdf.js document viewing in the browser, with the Vite copy of pdf.js assets",
+    "license": "MIT",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/bsamiee/Rasm.git",
         "directory": "libs/typescript/web/media"
     },
-    "license": "MIT",
-    "sideEffects": false,
+    "files": [
+        "dist"
+    ],
     "type": "module",
+    "sideEffects": false,
     "imports": {
         "#/*": "./*.ts"
     },
@@ -20,7 +23,18 @@
         "./pdf-viewer": "./pdf-viewer.tsx",
         "./vite": "./vite.ts"
     },
-    "files": [ "dist" ],
+    "publishConfig": {
+        "imports": {
+            "#/*": "./dist/*.js"
+        },
+        "exports": {
+            ".": "./dist/index.js",
+            "./pdf-document": "./dist/pdf-document.js",
+            "./pdf-viewer": "./dist/pdf-viewer.js",
+            "./vite": "./dist/vite.js"
+        },
+        "access": "public"
+    },
     "dependencies": {
         "@use-gesture/react": "catalog:",
         "vite-plugin-static-copy": "catalog:"
@@ -44,18 +58,6 @@
     "peerDependenciesMeta": {
         "vite": {
             "optional": true
-        }
-    },
-    "publishConfig": {
-        "access": "public",
-        "exports": {
-            ".": "./dist/index.js",
-            "./pdf-document": "./dist/pdf-document.js",
-            "./pdf-viewer": "./dist/pdf-viewer.js",
-            "./vite": "./dist/vite.js"
-        },
-        "imports": {
-            "#/*": "./dist/*.js"
         }
     }
 }

@@ -5,7 +5,7 @@ rule:
     kind: assignment_expression
     all:
         - any:
-            - pattern: $S = $S.replace($P, "")
-            - pattern: '*$S = $S.replace($P, "")'
+              - pattern: $S = $S.replace($P, "")
+              - pattern: '*$S = $S.replace($P, "")'
 message: '`replace` of `$P` with an empty replacement rebuilds `$S`'
 note: 'Call `<string>.remove_matches(<pattern>)` (`#![feature(string_remove_matches)]`)'

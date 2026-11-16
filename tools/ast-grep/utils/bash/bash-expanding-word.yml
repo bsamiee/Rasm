@@ -5,4 +5,4 @@ rule:
     any:
         - kind: simple_expansion, expansion, command_substitution, arithmetic_expansion
         - kind: string, concatenation
-          has: {matches: bash-expanding-word}
+          has: { matches: bash-expanding-word }

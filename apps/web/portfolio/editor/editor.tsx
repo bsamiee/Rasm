@@ -25,15 +25,15 @@ import { Entry, EntryId, type Portfolio, type PortfolioData } from '#/model/port
 
 const Uploads = lazy(() => import('#/editor/uploads.tsx').then((module) => ({ default: module.Uploads })));
 const EditorDialog = ({ description, busy, children }: { description?: string; busy: boolean; children?: ReactNode }) => (
-    <Backdrop className="bg-foreground/55 fixed inset-0 z-50" isDismissable={!busy} isKeyboardDismissDisabled={busy}>
+    <Backdrop className="fixed inset-0 z-50 bg-foreground/55" isDismissable={!busy} isKeyboardDismissDisabled={busy}>
         <Modal>
-            <Dialog className="bg-background shadow-panel fixed top-0 right-0 h-(--visual-viewport-height) w-full max-w-250 overflow-y-auto outline-none">
+            <Dialog className="fixed top-0 right-0 h-(--visual-viewport-height) w-full max-w-250 overflow-y-auto bg-background shadow-panel outline-none">
                 <div className="relative px-9 pt-5 pr-18 pb-2 max-sm:px-5 max-sm:pr-15">
                     <Heading className="text-heading tracking-display max-sm:text-2xl" slot="title">
                         Portfolio editor<span className="text-accent">.</span>
                     </Heading>
                     {description === undefined ? null : (
-                        <Text className="text-muted mt-2 text-sm" elementType="p" slot="description">
+                        <Text className="mt-2 text-sm text-muted" elementType="p" slot="description">
                             {description}
                         </Text>
                     )}
@@ -107,7 +107,7 @@ const DraftEditor = ({ published, onPreview, ...state }: Atom.Success<typeof dra
     );
     return (
         <EditorDialog busy={busy}>
-            <div className="border-line flex flex-wrap items-center gap-2 border-b px-9 pb-4 max-sm:px-5">
+            <div className="flex flex-wrap items-center gap-2 border-b border-line px-9 pb-4 max-sm:px-5">
                 <Toolbar aria-label="Draft" className="flex flex-wrap items-center gap-2">
                     <button className="button button-ghost" disabled={busy} form={`${idPrefix}form`} ref={save} type="submit">
                         Save draft
@@ -119,9 +119,7 @@ const DraftEditor = ({ published, onPreview, ...state }: Atom.Success<typeof dra
                         Publish
                     </button>
                 </Toolbar>
-                <p className="text-caption text-muted min-h-4.5 w-full" role="status">
-                    {status}
-                </p>
+                <output className="block min-h-4.5 w-full text-caption text-muted">{status}</output>
                 {AsyncResult.builder(operation)
                     .onError(({ error, portfolio: submitted }) => (
                         <div className="w-full">
@@ -142,7 +140,7 @@ const DraftEditor = ({ published, onPreview, ...state }: Atom.Success<typeof dra
                     .onError((error) => <RequestAlert conflict="Saved or published work uses file. Remove its placements and publish before deleting" error={error} />)
                     .orNull()}
                 {pending.length > 0 && (
-                    <p className="text-caption text-muted w-full" id={`${idPrefix}uploads`}>
+                    <p className="w-full text-caption text-muted" id={`${idPrefix}uploads`}>
                         {format.quantity(pending.length, { one: (count) => `${count} file not uploaded`, other: (count) => `${count} files not uploaded` })}. Upload or remove before publishing or reloading{' '}
                         <button className="quiet-link" onClick={() => show('files')} type="button">
                             View uploads
@@ -150,9 +148,9 @@ const DraftEditor = ({ published, onPreview, ...state }: Atom.Success<typeof dra
                     </p>
                 )}
             </div>
-            <fieldset className="max-sm:pb-safe m-0 border-0 px-9 pt-3 pb-15 max-sm:px-5" disabled={busy}>
+            <fieldset className="m-0 border-0 px-9 pt-3 pb-15 max-sm:px-5 max-sm:pb-safe" disabled={busy}>
                 <Tabs isDisabled={busy} onSelectionChange={setTab} selectedKey={tab}>
-                    <TabList aria-label="Portfolio editing" className="border-line mb-6 flex gap-1.5 border-b max-sm:w-full max-sm:flex-wrap">
+                    <TabList aria-label="Portfolio editing" className="mb-6 flex gap-1.5 border-b border-line max-sm:w-full max-sm:flex-wrap">
                         <Tab className="editor-tab" id={`${idPrefix}entries`}>
                             Projects and studies
                         </Tab>
@@ -191,7 +189,7 @@ const DraftEditor = ({ published, onPreview, ...state }: Atom.Success<typeof dra
                             )),
                             Match.when({ workspace: 'entry', current: Match.defined }, ({ current: entry }) => (
                                 <div className="flex flex-col gap-5" key={entry.id}>
-                                    <div className="border-line flex flex-wrap items-center justify-between gap-3 border-b pb-3">
+                                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3">
                                         <h3 className="min-w-0 flex-1 text-xl tracking-tight wrap-anywhere outline-none" id={`${idPrefix}entry`} tabIndex={-1}>
                                             {entryTitle(entry)}
                                         </h3>
@@ -223,20 +221,27 @@ const DraftEditor = ({ published, onPreview, ...state }: Atom.Success<typeof dra
                                             New study
                                         </button>
                                     </div>
-                                    <EntryList entries={state.portfolio.entries} onRemove={() => focusElement(`${idPrefix}new`)} onSelect={({ id }) => open(id)} selected={selected} />
-                                    {state.portfolio.entries.length === 0 && <p className="hint py-8">Create a project or study to add files</p>}
+                                    <EntryList
+                                        entries={state.portfolio.entries}
+                                        onRemove={() => {
+                                            focusElement(`${idPrefix}new`);
+                                        }}
+                                        onSelect={({ id }) => open(id)}
+                                        selected={selected}
+                                    />
+                                    {state.portfolio.entries.length === 0 && <p className="py-8 hint">Create a project or study to add files</p>}
                                 </>
                             )),
                         )}
                     </TabPanel>
                     <TabPanel className="editor-panel" id={`${idPrefix}files`}>
-                        <Suspense fallback={<p role="status">Loading files…</p>}>
+                        <Suspense fallback={<output className="block">Loading files…</output>}>
                             <Uploads assets={state.assets} entries={state.portfolio.entries} onPlace={place} />
                         </Suspense>
                         <UploadRecovery />
                         <Library assetId={assetId} assets={state.assets} onPlace={place} onSelect={setAssetId} portfolio={state.portfolio} published={published} />
                     </TabPanel>
-                    <TabPanel className="editor-panel" id={`${idPrefix}identity`} shouldForceMount={true}>
+                    <TabPanel className="editor-panel" id={`${idPrefix}identity`} shouldForceMount>
                         <form
                             className="flex flex-col gap-5"
                             id={`${idPrefix}form`}

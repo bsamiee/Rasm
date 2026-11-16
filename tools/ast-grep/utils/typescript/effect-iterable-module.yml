@@ -2,4 +2,4 @@
 id: effect-iterable-module
 language: tsxlang
 rule:
-    matches: {effect-module: {name: {regex: '(?-u:\b)(Array|Chunk|Iterable)$'}}}
+    matches: { effect-module: { name: { regex: '(?-u:\b)(Array|Chunk|Iterable)$' } } }

@@ -3,14 +3,17 @@
     "version": "0.1.0",
     "private": true,
     "description": "One SVG master painted with a fill color and opacity, and rastered per size, through resvg",
+    "license": "MIT",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/bsamiee/Rasm.git",
         "directory": "libs/typescript/graphics/mark"
     },
-    "license": "MIT",
-    "sideEffects": false,
+    "files": [
+        "dist"
+    ],
     "type": "module",
+    "sideEffects": false,
     "imports": {
         "#/*": "./*.ts"
     },
@@ -18,7 +21,16 @@
         ".": "./index.ts",
         "./paint": "./paint.ts"
     },
-    "files": [ "dist" ],
+    "publishConfig": {
+        "imports": {
+            "#/*": "./dist/*.js"
+        },
+        "exports": {
+            ".": "./dist/index.js",
+            "./paint": "./dist/paint.js"
+        },
+        "access": "public"
+    },
     "dependencies": {
         "@resvg/resvg-js": "catalog:",
         "cheerio": "catalog:"
@@ -29,15 +41,5 @@
     },
     "peerDependencies": {
         "effect": "catalog:peers"
-    },
-    "publishConfig": {
-        "access": "public",
-        "exports": {
-            ".": "./dist/index.js",
-            "./paint": "./dist/paint.js"
-        },
-        "imports": {
-            "#/*": "./dist/*.js"
-        }
     }
 }

@@ -24,7 +24,7 @@
             }
         }
     },
-    "required": [ "package", "product" ],
+    "required": ["package", "product"],
     "additionalProperties": true,
     "title": "Install",
     "description": "Builds a SwiftPM executable product in release and renames it over the copy SwiftPM's install folder holds, or installs it through experimental-install when the folder holds none"

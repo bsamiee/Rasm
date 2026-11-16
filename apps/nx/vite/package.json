@@ -2,18 +2,27 @@
     "name": "@rasm/nx-vite",
     "version": "0.1.0",
     "description": "Nx plugin inferring Vite builds over every environment a config resolves, and the development and preview servers of configs holding nxReadySignal() of @nx/vite or stating a server",
+    "license": "MIT",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/bsamiee/Rasm.git",
         "directory": "apps/nx/vite"
     },
-    "license": "MIT",
+    "files": [
+        "dist"
+    ],
     "type": "module",
     "exports": {
         ".": "./plugin.ts",
         "./package.json": "./package.json"
     },
-    "files": [ "dist" ],
+    "publishConfig": {
+        "exports": {
+            ".": "./dist/plugin.js",
+            "./package.json": "./package.json"
+        },
+        "access": "public"
+    },
     "dependencies": {
         "@effect/platform-node": "catalog:",
         "@nx/devkit": "catalog:",
@@ -30,12 +39,5 @@
     "peerDependencies": {
         "nx": "catalog:peers",
         "vite": "catalog:peers"
-    },
-    "publishConfig": {
-        "access": "public",
-        "exports": {
-            ".": "./dist/plugin.js",
-            "./package.json": "./package.json"
-        }
     }
 }

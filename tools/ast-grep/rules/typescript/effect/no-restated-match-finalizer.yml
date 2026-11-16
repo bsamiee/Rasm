@@ -5,56 +5,60 @@ utils:
     function-reference:
         any:
             - kind: member_expression
-              has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)Function$'}}}}
+              has: { field: object, matches: { effect-module: { name: { regex: '(?-u:\b)Function$' } } } }
             - kind: identifier
-              matches: {typescript-import-reference: {source: {regex: '^effect/Function$'}, exported: {regex: '^(constant|const(Undefined|Null|Void))$'}}}
+              matches: { typescript-import-reference: { source: { regex: '^effect/Function$' }, exported: { regex: '^(constant|const(Undefined|Null|Void))$' } } }
     option-none:
-        matches: {effect-module-member: {module: {regex: '(?-u:\b)Option$'}, member: {regex: '^none$'}}}
+        matches: { effect-module-member: { module: { regex: '(?-u:\b)Option$' }, member: { regex: '^none$' } } }
     absent-value:
         any:
             - kind: 'undefined, null'
             - kind: unary_expression
-              all: [{has: {field: operator, regex: '^void$'}}]
-              has: {field: argument, kind: number}
+              all: [{ has: { field: operator, regex: '^void$' } }]
+              has: { field: argument, kind: number }
             - kind: parenthesized_expression
-              has: {matches: absent-value}
+              has: { matches: absent-value }
             - kind: call_expression
               all:
-                - has: {field: function, matches: option-none}
-                - not: {has: {field: arguments, has: {pattern: $_}}}
+                  - has: { field: function, matches: option-none }
+                  - not: { has: { field: arguments, has: { pattern: $_ } } }
     unmatched-failure:
         kind: arrow_function, function_expression
         all:
             - any:
-                - has: {field: parameter, kind: identifier, pattern: $INPUT}
-                - has: {field: parameters, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, kind: required_parameter, has: {field: pattern, kind: identifier, pattern: $INPUT}}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}}]}
+                  - has: { field: parameter, kind: identifier, pattern: $INPUT }
+                  - has:
+                        {
+                            field: parameters,
+                            all: [{ has: { nthChild: { position: 1, ofRule: { not: { kind: 'comment, html_comment' } } }, kind: required_parameter, has: { field: pattern, kind: identifier, pattern: $INPUT } } }, { not: { has: { nthChild: { position: 2, ofRule: { not: { kind: 'comment, html_comment' } } } } } }],
+                        }
             - has:
-                field: body
-                kind: call_expression
-                all:
-                    - has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Result$'}, member: {regex: '^fail$'}}}}
-                    - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, kind: identifier, pattern: $INPUT}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}}]}
+                  field: body
+                  kind: call_expression
+                  all:
+                      - has: { field: function, matches: { effect-module-member: { module: { regex: '(?-u:\b)Result$' }, member: { regex: '^fail$' } } } }
+                      - has: { field: arguments, all: [{ has: { nthChild: { position: 1, ofRule: { not: { kind: 'comment, html_comment' } } }, kind: identifier, pattern: $INPUT } }, { not: { has: { nthChild: { position: 2, ofRule: { not: { kind: 'comment, html_comment' } } } } } }] }
 rule:
     kind: call_expression
     all:
-        - has: {field: function, pattern: $OR_ELSE, matches: {effect-module-member: {module: {regex: '(?-u:\b)Match$'}, member: {regex: '^orElse$'}}}}
+        - has: { field: function, pattern: $OR_ELSE, matches: { effect-module-member: { module: { regex: '(?-u:\b)Match$' }, member: { regex: '^orElse$' } } } }
         - has:
-            field: arguments
-            all:
-                - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}
-                - has:
-                    nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}
-                    pattern: $D
-                    any:
-                        - matches: {typescript-constant-function: {result: {matches: absent-value}}}
-                        - kind: call_expression
-                          all:
-                            - has: {field: function, matches: function-reference, regex: '(^|\.)constant$'}
-                            - has: {field: arguments, has: {matches: absent-value}}
-                        - matches: function-reference
-                          regex: '(^|\.)const(Undefined|Null|Void)$'
-                        - matches: option-none
-                        - matches: unmatched-failure
-                        - matches: {effect-module-member: {module: {regex: '(?-u:\b)Result$'}, member: {regex: '^fail$'}}}
+              field: arguments
+              all:
+                  - not: { has: { nthChild: { position: 2, ofRule: { not: { kind: 'comment, html_comment' } } } } }
+                  - has:
+                        nthChild: { position: 1, ofRule: { not: { kind: 'comment, html_comment' } } }
+                        pattern: $D
+                        any:
+                            - matches: { typescript-constant-function: { result: { matches: absent-value } } }
+                            - kind: call_expression
+                              all:
+                                  - has: { field: function, matches: function-reference, regex: '(^|\.)constant$' }
+                                  - has: { field: arguments, has: { matches: absent-value } }
+                            - matches: function-reference
+                              regex: '(^|\.)const(Undefined|Null|Void)$'
+                            - matches: option-none
+                            - matches: unmatched-failure
+                            - matches: { effect-module-member: { module: { regex: '(?-u:\b)Result$' }, member: { regex: '^fail$' } } }
 message: '`$OR_ELSE` restates `Match.option` or `Match.result` with an absent or failing default'
 note: 'Return plain arm values; finish with `Match.option` for absence or `Match.result` for an unmatched input failure'

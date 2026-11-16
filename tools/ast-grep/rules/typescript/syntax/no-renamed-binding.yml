@@ -4,7 +4,7 @@ severity: error
 rule:
     kind: import_specifier, export_specifier
     all:
-        - has: {field: name, pattern: $NAME}
-        - has: {field: alias, pattern: $ALIAS}
+        - has: { field: name, pattern: $NAME }
+        - has: { field: alias, pattern: $ALIAS }
 message: '`$NAME` binds as `$ALIAS`'
 note: 'Name the value for what it is at its owner and import or export it by that name'

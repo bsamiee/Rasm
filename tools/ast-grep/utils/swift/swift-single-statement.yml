@@ -4,4 +4,4 @@ language: swiftlang
 arguments: [first]
 rule:
     matches: swift-sole-statement
-    has: {pattern: $_, not: {kind: 'comment, multiline_comment'}, matches: first}
+    has: { pattern: $_, not: { kind: 'comment, multiline_comment' }, matches: first }

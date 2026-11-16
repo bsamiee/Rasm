@@ -4,70 +4,70 @@ severity: error
 utils:
     marker-method:
         kind: function_definition
-        has: {field: name, regex: '^__(repr|str|format|bool|copy|deepcopy|reduce|reduce_ex|new|init_subclass)__$'}
+        has: { field: name, regex: '^__(repr|str|format|bool|copy|deepcopy|reduce|reduce_ex|new|init_subclass)__$' }
     marker-statement:
         any:
             - kind: pass_statement
             - matches: python-docstring-or-comment
-            - {kind: expression_statement, has: {kind: ellipsis}}
-            - {kind: expression_statement, has: {kind: assignment, has: {field: left, regex: '^__slots__$'}}}
+            - { kind: expression_statement, has: { kind: ellipsis } }
+            - { kind: expression_statement, has: { kind: assignment, has: { field: left, regex: '^__slots__$' } } }
             - matches: marker-method
-            - {kind: decorated_definition, has: {field: definition, matches: marker-method}}
+            - { kind: decorated_definition, has: { field: definition, matches: marker-method } }
     marker-class:
         kind: class_definition
         all:
-            - has: {field: name, pattern: $CLASS}
-            - not: {has: {field: superclasses, has: {pattern: $_, not: {pattern: object}}}}
-            - has: {field: body, not: {has: {pattern: $_, not: {matches: marker-statement}}}}
+            - has: { field: name, pattern: $CLASS }
+            - not: { has: { field: superclasses, has: { pattern: $_, not: { pattern: object } } } }
+            - has: { field: body, not: { has: { pattern: $_, not: { matches: marker-statement } } } }
     enum-member:
         kind: expression_statement
-        has: {kind: assignment, all: [{has: {field: left, kind: identifier, not: {regex: '^__'}}}, {has: {field: right, pattern: $_}}]}
+        has: { kind: assignment, all: [{ has: { field: left, kind: identifier, not: { regex: '^__' } } }, { has: { field: right, pattern: $_ } }] }
     sentinel-value:
         any:
             - kind: call
               has:
-                field: function
-                regex: '^(object|[Ss]entinel)$|\.[Ss]entinel$'
-                any:
-                    - matches: {python-builtin-identifier: {name: {regex: '^object$'}}}
-                    - {kind: identifier, regex: '^[Ss]entinel$', not: {matches: python-shadowed-name}}
-                    - {kind: attribute, has: {field: attribute, regex: '^[Ss]entinel$'}}
+                  field: function
+                  regex: '^(object|[Ss]entinel)$|\.[Ss]entinel$'
+                  any:
+                      - matches: { python-builtin-identifier: { name: { regex: '^object$' } } }
+                      - { kind: identifier, regex: '^[Ss]entinel$', not: { matches: python-shadowed-name } }
+                      - { kind: attribute, has: { field: attribute, regex: '^[Ss]entinel$' } }
             - kind: call
               pattern: $CLASS()
               all:
-                - has: {field: function, kind: identifier}
-                - inside: {kind: module, stopBy: end, has: {any: [{matches: marker-class}, {kind: decorated_definition, has: {field: definition, matches: marker-class}}]}}
-                - not: {inside: {kind: module, stopBy: end, has: {stopBy: end, kind: type, all: [{has: {stopBy: end, kind: identifier, pattern: $CLASS}}, {has: {stopBy: end, kind: none}}]}}}
+                  - has: { field: function, kind: identifier }
+                  - inside: { kind: module, stopBy: end, has: { any: [{ matches: marker-class }, { kind: decorated_definition, has: { field: definition, matches: marker-class } }] } }
+                  - not: { inside: { kind: module, stopBy: end, has: { stopBy: end, kind: type, all: [{ has: { stopBy: end, kind: identifier, pattern: $CLASS } }, { has: { stopBy: end, kind: none } }] } } }
     bound-value:
         any:
             - matches: sentinel-value
-            - {kind: 'parenthesized_expression, named_expression', has: {matches: bound-value}}
-            - {kind: assignment, has: {field: right, matches: bound-value}}
+            - { kind: 'parenthesized_expression, named_expression', has: { matches: bound-value } }
+            - { kind: assignment, has: { field: right, matches: bound-value } }
 rule:
     kind: assignment
     any:
         - all:
-            - inside:
-                kind: expression_statement
-                inside: {kind: 'module, class_definition', stopBy: {kind: 'function_definition, lambda'}}
-            - any:
-                - all:
-                    - has: {field: left, kind: identifier, pattern: $NAME}
-                    - has: {field: right, matches: bound-value}
-                - all:
-                    - has: {field: left, kind: 'pattern_list, tuple_pattern, list_pattern', pattern: $NAME}
-                    - has: {field: right, kind: 'expression_list, tuple, list', has: {matches: bound-value}}
+              - inside:
+                    kind: expression_statement
+                    inside: { kind: 'module, class_definition', stopBy: { kind: 'function_definition, lambda' } }
+              - any:
+                    - all:
+                          - has: { field: left, kind: identifier, pattern: $NAME }
+                          - has: { field: right, matches: bound-value }
+                    - all:
+                          - has: { field: left, kind: 'pattern_list, tuple_pattern, list_pattern', pattern: $NAME }
+                          - has: { field: right, kind: 'expression_list, tuple, list', has: { matches: bound-value } }
         - all:
-            - has: {field: left, kind: identifier, pattern: $NAME}
-            - inside:
-                kind: expression_statement
-                matches: enum-member
-                inside:
-                    kind: block
-                    all:
-                        - inside: {kind: class_definition, has: {field: superclasses, kind: argument_list}}
-                        - not: {has: {nthChild: {position: 2, ofRule: {matches: enum-member}}}}
-                        - not: {has: {pattern: $_, not: {any: [{matches: enum-member}, {matches: marker-statement}]}}}
-                        - inside: {kind: class_definition, has: {field: superclasses, has: {matches: enum-base}}}
+              - has: { field: left, kind: identifier, pattern: $NAME }
+              - inside:
+                    kind: expression_statement
+                    matches: enum-member
+                    inside:
+                        kind: block
+                        all:
+                            - inside: { kind: class_definition, has: { field: superclasses, kind: argument_list } }
+                            - not: { has: { nthChild: { position: 2, ofRule: { matches: enum-member } } } }
+                            - not: { has: { pattern: $_, not: { any: [{ matches: enum-member }, { matches: marker-statement }] } } }
+                            - inside: { kind: class_definition, has: { field: superclasses, has: { matches: enum-base } } }
 message: '`$NAME` is a sentinel that marks absence by identity'
 note: 'Use `Option[<T>]` with `Nothing`, on fields msgspec decodes `<T> | None` or `UnsetType = UNSET`'

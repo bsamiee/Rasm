@@ -29,10 +29,15 @@ const Master = Schema.TemplateLiteralParser(['Master running (pid=', Schema.Fini
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const connection = Array.make('sh', '-c', 'echo "$SSH_CONNECTION"');
-const logged = (alias: string) => (stream: Readable) => stream.on('data', (line) => process.stderr.write(`[${alias}] ${line}`));
+const logged = (alias: string) => (stream: Readable) =>
+    stream.on('data', (line) => {
+        process.stderr.write(`[${alias}] ${line}`);
+    });
 const answered = (options: NetConnectOpts, expected: Uint8Array, sent = new Uint8Array()) =>
     Effect.callback<boolean>((resume) => {
-        const socket = connect(options, () => socket.write(sent));
+        const socket = connect(options, () => {
+            socket.write(sent);
+        });
         socket
             .once('data', (chunk) => resume(Effect.succeed(expected.every((byte, index) => chunk[index] === byte))))
             .once('error', () => resume(Effect.succeed(false)))

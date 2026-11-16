@@ -5,5 +5,5 @@ arguments: [name]
 rule:
     kind: record_declaration, class_declaration
     all:
-        - has: {field: name, matches: name}
-        - matches: {csharp-attributed: {name: {regex: '^Union(Attribute)?$'}}}
+        - has: { field: name, matches: name }
+        - matches: { csharp-attributed: { name: { regex: '^Union(Attribute)?$' } } }

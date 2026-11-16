@@ -4,92 +4,92 @@ severity: error
 utils:
     affix-argument:
         kind: call_suffix
-        has: {kind: value_arguments, has: {kind: value_argument, has: {field: value, pattern: $AFFIX}}}
+        has: { kind: value_arguments, has: { kind: value_argument, has: { field: value, pattern: $AFFIX } } }
     prefix-test:
         kind: call_expression
         all:
-            - any: [{pattern: $R.hasPrefix($_)}, {pattern: '$R.starts(with: $_)'}]
-            - has: {matches: affix-argument}
+            - any: [{ pattern: $R.hasPrefix($_) }, { pattern: '$R.starts(with: $_)' }]
+            - has: { matches: affix-argument }
     suffix-test:
         kind: call_expression
         all:
             - pattern: $R.hasSuffix($_)
-            - has: {matches: affix-argument}
+            - has: { matches: affix-argument }
     prefix-tested:
         any:
             - matches: prefix-test
             - kind: conjunction_expression
-              has: {matches: prefix-tested}
+              has: { matches: prefix-tested }
             - kind: tuple_expression
-              has: {field: value, matches: prefix-tested}
-              not: {has: {regex: '^,$'}}
+              has: { field: value, matches: prefix-tested }
+              not: { has: { regex: '^,$' } }
     suffix-tested:
         any:
             - matches: suffix-test
             - kind: conjunction_expression
-              has: {matches: suffix-tested}
+              has: { matches: suffix-tested }
             - kind: tuple_expression
-              has: {field: value, matches: suffix-tested}
-              not: {has: {regex: '^,$'}}
+              has: { field: value, matches: suffix-tested }
+              not: { has: { regex: '^,$' } }
     prefix-clause:
-        not: {kind: statements}
-        precedes: {stopBy: end, kind: statements}
+        not: { kind: statements }
+        precedes: { stopBy: end, kind: statements }
         matches: prefix-tested
     suffix-clause:
-        not: {kind: statements}
-        precedes: {stopBy: end, kind: statements}
+        not: { kind: statements }
+        precedes: { stopBy: end, kind: statements }
         matches: suffix-tested
     prefix-guard:
         kind: guard_statement
-        has: {matches: prefix-clause}
+        has: { matches: prefix-clause }
     suffix-guard:
         kind: guard_statement
-        has: {matches: suffix-clause}
+        has: { matches: suffix-clause }
     prefix-guarded:
         any:
             - inside:
-                stopBy: end
-                kind: statements
-                nthChild: {position: 1, ofRule: {kind: statements}}
-                inside: {kind: 'if_statement, while_statement', has: {matches: prefix-clause}}
-            - inside: {stopBy: end, kind: ternary_expression, field: if_true, has: {field: condition, matches: prefix-tested}}
+                  stopBy: end
+                  kind: statements
+                  nthChild: { position: 1, ofRule: { kind: statements } }
+                  inside: { kind: 'if_statement, while_statement', has: { matches: prefix-clause } }
+            - inside: { stopBy: end, kind: ternary_expression, field: if_true, has: { field: condition, matches: prefix-tested } }
             - inside:
-                stopBy: end
-                kind: statements
-                inside: {kind: switch_entry, has: {follows: {kind: where_keyword}, matches: prefix-tested}}
-            - follows: {stopBy: end, matches: prefix-guard}
-            - inside: {stopBy: end, follows: {stopBy: end, matches: prefix-guard}}
+                  stopBy: end
+                  kind: statements
+                  inside: { kind: switch_entry, has: { follows: { kind: where_keyword }, matches: prefix-tested } }
+            - follows: { stopBy: end, matches: prefix-guard }
+            - inside: { stopBy: end, follows: { stopBy: end, matches: prefix-guard } }
     suffix-guarded:
         any:
             - inside:
-                stopBy: end
-                kind: statements
-                nthChild: {position: 1, ofRule: {kind: statements}}
-                inside: {kind: 'if_statement, while_statement', has: {matches: suffix-clause}}
-            - inside: {stopBy: end, kind: ternary_expression, field: if_true, has: {field: condition, matches: suffix-tested}}
+                  stopBy: end
+                  kind: statements
+                  nthChild: { position: 1, ofRule: { kind: statements } }
+                  inside: { kind: 'if_statement, while_statement', has: { matches: suffix-clause } }
+            - inside: { stopBy: end, kind: ternary_expression, field: if_true, has: { field: condition, matches: suffix-tested } }
             - inside:
-                stopBy: end
-                kind: statements
-                inside: {kind: switch_entry, has: {follows: {kind: where_keyword}, matches: suffix-tested}}
-            - follows: {stopBy: end, matches: suffix-guard}
-            - inside: {stopBy: end, follows: {stopBy: end, matches: suffix-guard}}
+                  stopBy: end
+                  kind: statements
+                  inside: { kind: switch_entry, has: { follows: { kind: where_keyword }, matches: suffix-tested } }
+            - follows: { stopBy: end, matches: suffix-guard }
+            - inside: { stopBy: end, follows: { stopBy: end, matches: suffix-guard } }
 rule:
     all:
         - pattern: $SLICE
         - any:
-            - all:
-                - any:
-                    - pattern: $R.dropFirst($AFFIX.count)
-                    - pattern: $R.removeFirst($AFFIX.count)
-                    - pattern: '$R[$R.index($R.startIndex, offsetBy: $AFFIX.count)...]'
-                    - pattern: $R.suffix($R.count - $AFFIX.count)
-                - matches: prefix-guarded
-            - all:
-                - any:
-                    - pattern: $R.dropLast($AFFIX.count)
-                    - pattern: $R.removeLast($AFFIX.count)
-                    - pattern: '$R[..<$R.index($R.endIndex, offsetBy: -$AFFIX.count)]'
-                    - pattern: $R.prefix($R.count - $AFFIX.count)
-                - matches: suffix-guarded
+              - all:
+                    - any:
+                          - pattern: $R.dropFirst($AFFIX.count)
+                          - pattern: $R.removeFirst($AFFIX.count)
+                          - pattern: '$R[$R.index($R.startIndex, offsetBy: $AFFIX.count)...]'
+                          - pattern: $R.suffix($R.count - $AFFIX.count)
+                    - matches: prefix-guarded
+              - all:
+                    - any:
+                          - pattern: $R.dropLast($AFFIX.count)
+                          - pattern: $R.removeLast($AFFIX.count)
+                          - pattern: '$R[..<$R.index($R.endIndex, offsetBy: -$AFFIX.count)]'
+                          - pattern: $R.prefix($R.count - $AFFIX.count)
+                    - matches: suffix-guarded
 message: '`$SLICE` removes tested affix `$AFFIX` by a count restating its length'
 note: 'Use `trimmingPrefix` or `trimPrefix`, `replacing(/<affix>\z/, with: "")` for suffixes, or `wholeMatch(of:)?.1` for optional content'

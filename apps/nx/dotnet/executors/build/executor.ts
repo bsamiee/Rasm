@@ -28,9 +28,11 @@ const Build = Schema.Struct({
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+const element = (name: string, attributes: Readonly<Record<string, string>>, ...children: readonly (readonly Xml.Event[])[]): readonly Xml.Event[] => [{ _tag: 'StartElement', name, attributes }, ...children.flat(), { _tag: 'EndElement', name }];
+
+const escaped = (project: string) => project.replaceAll(/[%*?@$();']/gu, (character) => `%${character.codePointAt(0)?.toString(HEX)}`);
+
 const traversal = (projects: readonly string[], target: string) => {
-    const element = (name: string, attributes: Readonly<Record<string, string>>, ...children: readonly (readonly Xml.Event[])[]): readonly Xml.Event[] => [{ _tag: 'StartElement', name, attributes }, ...children.flat(), { _tag: 'EndElement', name }];
-    const escaped = (project: string) => project.replaceAll(/[%*?@$();']/gu, (character) => `%${character.codePointAt(0)?.toString(HEX)}`);
     const [outer, inner] = ["'$(Selected)' == ''", "'$(Selected)' != ''"];
     return Stream.fromIterable(
         element(

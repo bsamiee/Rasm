@@ -5,30 +5,30 @@ utils:
     own-name:
         kind: switch_entry
         any:
-            - pattern: {context: 'switch x { case .$N: return "$N" }', selector: switch_entry}
-            - pattern: {context: 'switch x { case .$N: "$N" }', selector: switch_entry}
+            - pattern: { context: 'switch x { case .$N: return "$N" }', selector: switch_entry }
+            - pattern: { context: 'switch x { case .$N: "$N" }', selector: switch_entry }
     case-literal:
         kind: prefix_expression
         pattern: .$N
     name-literal:
         kind: line_string_literal
-        pattern: {context: 'x = "$N"', selector: line_string_literal}
+        pattern: { context: 'x = "$N"', selector: line_string_literal }
     own-name-key:
         any:
-            - {matches: case-literal, precedes: {stopBy: {not: {regex: '^:$'}}, matches: name-literal}}
-            - {matches: name-literal, precedes: {stopBy: {not: {regex: '^:$'}}, matches: case-literal}}
+            - { matches: case-literal, precedes: { stopBy: { not: { regex: '^:$' } }, matches: name-literal } }
+            - { matches: name-literal, precedes: { stopBy: { not: { regex: '^:$' } }, matches: case-literal } }
     key:
         pattern: $_
-        precedes: {regex: '^:$'}
+        precedes: { regex: '^:$' }
 rule:
     any:
         - kind: switch_statement
           all:
-            - has: {kind: switch_entry, follows: {kind: switch_entry, stopBy: end}}
-            - not: {has: {kind: switch_entry, not: {matches: own-name}}}
+              - has: { kind: switch_entry, follows: { kind: switch_entry, stopBy: end } }
+              - not: { has: { kind: switch_entry, not: { matches: own-name } } }
         - kind: dictionary_literal
           all:
-            - has: {matches: key, follows: {stopBy: end, matches: key}}
-            - not: {has: {matches: key, not: {matches: own-name-key}}}
+              - has: { matches: key, follows: { stopBy: end, matches: key } }
+              - not: { has: { matches: key, not: { matches: own-name-key } } }
 message: 'Switch or dictionary maps each enum case to a string literal of its own name'
 note: 'Declare a `String` raw type on the enum and read `<value>.rawValue` or `<Enum>(rawValue: <text>)`, or encode an enum holding payloads by its case label'

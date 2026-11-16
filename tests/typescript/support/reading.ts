@@ -5,6 +5,13 @@ import { pathToFileURL } from 'node:url';
 import { runMain } from '@effect/platform-node/NodeRuntime';
 import type { ProjectGraph } from '@nx/devkit';
 import { Array, Cause, Console, Effect, Formatter, Record, Result, Schema } from 'effect';
+import type { readNxJson } from 'nx/src/config/nx-json';
+import type { buildProjectGraphAndSourceMapsWithoutDaemon, createProjectGraphAndSourceMapsAsync } from 'nx/src/devkit-internals';
+import type { createTaskHasher } from 'nx/src/hasher/create-task-hasher';
+import type { isAggregateCreateNodesError, ProjectGraphError } from 'nx/src/project-graph/error-types';
+import type { cleanupPlugins } from 'nx/src/project-graph/plugins/get-plugins';
+import type { createTaskGraph } from 'nx/src/tasks-runner/create-task-graph';
+import type { getTaskSpecificEnv } from 'nx/src/tasks-runner/task-env';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -30,21 +37,21 @@ const loaded = <A>(specifier: string) => Effect.promise((): Promise<A> => import
 
 const read = Effect.gen(function* () {
     const [internals, plugins, errors, settings, hasher, planner, environment] = yield* Effect.all([
-        loaded<typeof import('nx/src/devkit-internals')>('nx/src/devkit-internals'),
-        loaded<typeof import('nx/src/project-graph/plugins/get-plugins')>('nx/src/project-graph/plugins/get-plugins'),
-        loaded<typeof import('nx/src/project-graph/error-types')>('nx/src/project-graph/error-types'),
-        loaded<typeof import('nx/src/config/nx-json')>('nx/src/config/nx-json'),
-        loaded<typeof import('nx/src/hasher/create-task-hasher')>('nx/src/hasher/create-task-hasher'),
-        loaded<typeof import('nx/src/tasks-runner/create-task-graph')>('nx/src/tasks-runner/create-task-graph'),
-        loaded<typeof import('nx/src/tasks-runner/task-env')>('nx/src/tasks-runner/task-env'),
+        loaded<{ readonly createProjectGraphAndSourceMapsAsync: (options: Parameters<typeof createProjectGraphAndSourceMapsAsync>[0]) => ReturnType<typeof buildProjectGraphAndSourceMapsWithoutDaemon> }>('nx/src/devkit-internals'),
+        loaded<{ readonly cleanupPlugins: typeof cleanupPlugins }>('nx/src/project-graph/plugins/get-plugins'),
+        loaded<{ readonly ProjectGraphError: typeof ProjectGraphError; readonly isAggregateCreateNodesError: typeof isAggregateCreateNodesError }>('nx/src/project-graph/error-types'),
+        loaded<{ readonly readNxJson: typeof readNxJson }>('nx/src/config/nx-json'),
+        loaded<{ readonly createTaskHasher: typeof createTaskHasher }>('nx/src/hasher/create-task-hasher'),
+        loaded<{ readonly createTaskGraph: typeof createTaskGraph }>('nx/src/tasks-runner/create-task-graph'),
+        loaded<{ readonly getTaskSpecificEnv: typeof getTaskSpecificEnv }>('nx/src/tasks-runner/task-env'),
     ]);
     const { projectGraph, sourceMaps, refusals } = yield* Effect.tryPromise({
         try: () => internals.createProjectGraphAndSourceMapsAsync({ exitOnError: false }),
         catch: (cause) => (cause instanceof errors.ProjectGraphError ? cause : new Cause.UnknownError(cause, 'Nx refused the workspace before reading a plugin result')),
     }).pipe(
-        Effect.map(({ projectGraph: graph, sourceMaps: maps }): { readonly projectGraph: ProjectGraph; readonly sourceMaps: object; readonly refusals: ReturnType<InstanceType<typeof errors.ProjectGraphError>['getErrors']> } => ({ projectGraph: graph, sourceMaps: maps, refusals: [] })),
+        Effect.map(({ projectGraph: graph, sourceMaps: maps }): { readonly projectGraph: ProjectGraph; readonly sourceMaps: object; readonly refusals: ReturnType<ProjectGraphError['getErrors']> } => ({ projectGraph: graph, sourceMaps: maps, refusals: [] })),
         Effect.catchIf(
-            (cause): cause is InstanceType<typeof errors.ProjectGraphError> => cause instanceof errors.ProjectGraphError,
+            (cause): cause is ProjectGraphError => cause instanceof errors.ProjectGraphError,
             (refused) =>
                 Effect.succeed({
                     projectGraph: refused.getPartialProjectGraph(),

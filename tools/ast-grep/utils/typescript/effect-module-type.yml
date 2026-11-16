@@ -4,12 +4,12 @@ language: tsxlang
 arguments: [module, member]
 utils:
     module-object:
-        matches: {effect-module: {name: {matches: module}}}
+        matches: { effect-module: { name: { matches: module } } }
 rule:
     any:
         - kind: nested_type_identifier
           all:
-            - has: {field: name, matches: member}
-            - has: {field: module, matches: module-object}
+              - has: { field: name, matches: member }
+              - has: { field: module, matches: module-object }
         - kind: type_identifier
-          matches: {typescript-import-reference: {source: {matches: {effect-module-source: {name: {matches: module}}}}, exported: {matches: member}}}
+          matches: { typescript-import-reference: { source: { matches: { effect-module-source: { name: { matches: module } } } }, exported: { matches: member } } }

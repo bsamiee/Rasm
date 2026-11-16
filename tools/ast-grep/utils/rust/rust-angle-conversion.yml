@@ -11,28 +11,28 @@ rule:
     kind: 'binary_expression, call_expression'
     any:
         - matches:
-            rust-scaled-ratio:
-                numerator: {matches: rust-angle-turn, regex: 'PI$'}
-                denominator: {matches: rust-angle-turn, regex: '^180'}
+              rust-scaled-ratio:
+                  numerator: { matches: rust-angle-turn, regex: 'PI$' }
+                  denominator: { matches: rust-angle-turn, regex: '^180' }
         - matches:
-            rust-scaled-ratio:
-                numerator: {matches: rust-angle-turn, regex: '^180'}
-                denominator: {matches: rust-angle-turn, regex: 'PI$'}
+              rust-scaled-ratio:
+                  numerator: { matches: rust-angle-turn, regex: '^180' }
+                  denominator: { matches: rust-angle-turn, regex: 'PI$' }
         - matches:
-            rust-scaled-ratio:
-                numerator: {matches: rust-angle-turn, regex: 'TAU$'}
-                denominator: {matches: rust-angle-turn, regex: '^360'}
+              rust-scaled-ratio:
+                  numerator: { matches: rust-angle-turn, regex: 'TAU$' }
+                  denominator: { matches: rust-angle-turn, regex: '^360' }
         - matches:
-            rust-scaled-ratio:
-                numerator: {matches: rust-angle-turn, regex: '^360'}
-                denominator: {matches: rust-angle-turn, regex: 'TAU$'}
+              rust-scaled-ratio:
+                  numerator: { matches: rust-angle-turn, regex: '^360' }
+                  denominator: { matches: rust-angle-turn, regex: 'TAU$' }
         - kind: binary_expression
           all:
-            - has: {field: operator, regex: '^\*$'}
-            - any: [{has: {field: left, matches: factor}}, {has: {field: right, matches: factor}}]
+              - has: { field: operator, regex: '^\*$' }
+              - any: [{ has: { field: left, matches: factor } }, { has: { field: right, matches: factor } }]
         - kind: binary_expression
           all:
-            - has: {field: operator, regex: '^/$'}
-            - has: {field: right, matches: factor}
+              - has: { field: operator, regex: '^/$' }
+              - has: { field: right, matches: factor }
         - pattern: $_VALUE.mul_add($_FACTOR, $_OFFSET)
-          has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: factor}}
+          has: { field: arguments, has: { nthChild: { position: 1, ofRule: { not: { kind: 'line_comment, block_comment' } } }, matches: factor } }

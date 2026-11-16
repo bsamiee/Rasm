@@ -6,18 +6,18 @@ rule:
     pattern: $CALL
     all:
         - has:
-            field: function
-            kind: attribute
-            all:
-                - has: {field: attribute, pattern: command}
-                - has:
-                    field: object
-                    kind: identifier
-                    matches: {python-assigned-name: {value: {kind: call, has: {field: function, matches: {python-member-use: {module: {regex: '^cyclopts$'}, name: {regex: '^App$'}}}}}}}
+              field: function
+              kind: attribute
+              all:
+                  - has: { field: attribute, pattern: command }
+                  - has:
+                        field: object
+                        kind: identifier
+                        matches: { python-assigned-name: { value: { kind: call, has: { field: function, matches: { python-member-use: { module: { regex: '^cyclopts$' }, name: { regex: '^App$' } } } } } } }
         - has:
-            field: arguments
-            kind: argument_list
-            has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, kind: identifier, pattern: $COMMAND, matches: {python-imported-name: {module: {regex: '.'}, name: {regex: '.'}}}}
-            not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+              field: arguments
+              kind: argument_list
+              has: { nthChild: { position: 1, ofRule: { not: { kind: comment } } }, kind: identifier, pattern: $COMMAND, matches: { python-imported-name: { module: { regex: '.' }, name: { regex: '.' } } } }
+              not: { has: { nthChild: { position: 2, ofRule: { not: { kind: comment } } } } }
 message: '`$CALL` imports `$COMMAND` before its command runs'
 note: 'Register `<app>.command("<module>:<function>")` and remove the eager function import'

@@ -60,7 +60,7 @@ const lacking = (tasks: TaskGraph, first: (task: Task) => boolean, needed: (task
 
 const cleaning = (tasks: TaskGraph) =>
     Object.values(tasks.tasks)
-        .filter((task) => task.cache === true && [...reached(tasks, task.id)].some((id) => tasks.tasks[id]?.target.target.split('--')[0] === 'clean'))
+        .filter((task) => task.cache && [...reached(tasks, task.id)].some((id) => tasks.tasks[id]?.target.target.split('--')[0] === 'clean'))
         .map(({ id }) => id);
 
 const unsignalled = (workspace: Graph, { tasks, continuousDependencies }: TaskGraph) => {
@@ -73,7 +73,7 @@ const unsignalled = (workspace: Graph, { tasks, continuousDependencies }: TaskGr
 const awaited = ({ continuousDependencies }: TaskGraph, incomplete: readonly Task[]) => new Set(incomplete.flatMap((task) => (continuousDependencies[task.id] ?? []).map(({ id }) => id)));
 
 const scheduled = Effect.fnUntraced(function* (workspace: Graph, tasks: TaskGraph) {
-    const schedule = new TasksSchedule(workspace, readProjectsConfigurationFromProjectGraph(workspace).projects, tasks, { lifeCycle: { scheduleTask: () => undefined, startTask: () => undefined, endTask: () => undefined } });
+    const schedule = new TasksSchedule(workspace, readProjectsConfigurationFromProjectGraph(workspace).projects, tasks, { lifeCycle: { scheduleTask: () => {}, startTask: () => {}, endTask: () => {} } });
     const drained = <A>(next: () => A | null): readonly A[] => Array.unfold(next(), (item) => Option.map(Option.fromNullOr(item), (held) => [held, next()] as const));
     const slotted = Effect.fnUntraced(function* (slots: readonly Slot[], serving: readonly string[]): Effect.fn.Return<readonly Slot[]> {
         yield* Effect.promise(() => schedule.scheduleNextTasks());

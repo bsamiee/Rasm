@@ -1,4 +1,4 @@
-import AxeBuilder from '@axe-core/playwright';
+import { AxeBuilder } from '@axe-core/playwright';
 import { getPackageManagerCommand, getReadyUrl } from '@nx/devkit';
 import { isCI } from '@nx/devkit/internal';
 import { defineConfig, test } from '@playwright/test';

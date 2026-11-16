@@ -5,8 +5,8 @@ ignores: ['.claude/workflows/*.js']
 utils:
     no-value-type:
         any:
-            - {kind: predefined_type, regex: '^void$'}
-            - {kind: literal_type, has: {kind: undefined}}
+            - { kind: predefined_type, regex: '^void$' }
+            - { kind: literal_type, has: { kind: undefined } }
     value-annotation:
         kind: type_annotation
         not:
@@ -15,100 +15,100 @@ utils:
                     - matches: no-value-type
                     - kind: generic_type
                       all:
-                        - has: {field: name, regex: '^Promise$'}
-                        - has:
-                            field: type_arguments
-                            has: {matches: no-value-type}
+                          - has: { field: name, regex: '^Promise$' }
+                          - has:
+                                field: type_arguments
+                                has: { matches: no-value-type }
     value-function:
         matches: typescript-function-boundary
-        has: {field: return_type, matches: value-annotation}
+        has: { field: return_type, matches: value-annotation }
         not:
             kind: generator_function, generator_function_declaration, method_definition
             all:
-                - has: {regex: '^\*$'}
+                - has: { regex: '^\*$' }
                 - has:
-                    field: return_type
-                    has:
-                        kind: generic_type
-                        all:
-                            - has: {field: name, regex: '^(Async)?Generator$'}
-                            - has:
-                                field: type_arguments
-                                has: {nthChild: {position: 2, ofRule: &code {not: {kind: 'comment, html_comment'}}}, matches: no-value-type}
+                      field: return_type
+                      has:
+                          kind: generic_type
+                          all:
+                              - has: { field: name, regex: '^(Async)?Generator$' }
+                              - has:
+                                    field: type_arguments
+                                    has: { nthChild: { position: 2, ofRule: &code { not: { kind: 'comment, html_comment' } } }, matches: no-value-type }
     null-or-nan-result:
         any:
             - kind: 'null'
             - pattern: NaN
             - kind: member_expression
-              all: [{has: {field: property, regex: '^NaN$'}}, {has: {field: object, regex: '(^|\.)Number$', matches: typescript-global-member}}]
+              all: [{ has: { field: property, regex: '^NaN$' } }, { has: { field: object, regex: '(^|\.)Number$', matches: typescript-global-member } }]
             - matches: typescript-expression-wrapper
-              has: {matches: null-or-nan-result}
+              has: { matches: null-or-nan-result }
             - kind: ternary_expression
-              any: [{has: {field: consequence, matches: null-or-nan-result}}, {has: {field: alternative, matches: null-or-nan-result}}]
+              any: [{ has: { field: consequence, matches: null-or-nan-result } }, { has: { field: alternative, matches: null-or-nan-result } }]
             - kind: binary_expression
-              all: [{has: {field: operator, regex: '^(\?\?|\|\||&&)$'}}, {has: {field: right, matches: null-or-nan-result}}]
+              all: [{ has: { field: operator, regex: '^(\?\?|\|\||&&)$' } }, { has: { field: right, matches: null-or-nan-result } }]
             - kind: binary_expression
-              all: [{has: {field: operator, regex: '^&&$'}}, {has: {field: left, matches: null-or-nan-result}}]
+              all: [{ has: { field: operator, regex: '^&&$' } }, { has: { field: left, matches: null-or-nan-result } }]
     undefined-result:
         any:
             - kind: undefined
             - kind: unary_expression
-              has: {field: operator, regex: '^void$'}
+              has: { field: operator, regex: '^void$' }
             - matches: typescript-expression-wrapper
-              has: {matches: undefined-result}
+              has: { matches: undefined-result }
             - kind: ternary_expression
-              any: [{has: {field: consequence, matches: undefined-result}}, {has: {field: alternative, matches: undefined-result}}]
+              any: [{ has: { field: consequence, matches: undefined-result } }, { has: { field: alternative, matches: undefined-result } }]
             - kind: binary_expression
-              all: [{has: {field: operator, regex: '^(\?\?|\|\||&&)$'}}, {has: {field: right, matches: undefined-result}}]
+              all: [{ has: { field: operator, regex: '^(\?\?|\|\||&&)$' } }, { has: { field: right, matches: undefined-result } }]
             - kind: binary_expression
-              all: [{has: {field: operator, regex: '^&&$'}}, {has: {field: left, matches: undefined-result}}]
+              all: [{ has: { field: operator, regex: '^&&$' } }, { has: { field: left, matches: undefined-result } }]
     component:
         matches: typescript-function-boundary
         any:
-            - has: {stopBy: end, kind: 'jsx_element, jsx_self_closing_element'}
-            - has: {field: return_type, has: {stopBy: end, kind: 'type_identifier, nested_type_identifier', regex: '^(React\.)?(JSX\.Element|ReactNode|ReactElement)$'}}
+            - has: { stopBy: end, kind: 'jsx_element, jsx_self_closing_element' }
+            - has: { field: return_type, has: { stopBy: end, kind: 'type_identifier, nested_type_identifier', regex: '^(React\.)?(JSX\.Element|ReactNode|ReactElement)$' } }
     replacer:
         matches: typescript-function-boundary
-        nthChild: {position: 2, ofRule: *code}
+        nthChild: { position: 2, ofRule: *code }
         inside:
             kind: arguments
-            inside: {kind: call_expression, has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^stringify$'}}, {has: {field: object, regex: '(^|\.)JSON$', matches: typescript-global-member}}]}}
+            inside: { kind: call_expression, has: { field: function, kind: member_expression, all: [{ has: { field: property, regex: '^stringify$' } }, { has: { field: object, regex: '(^|\.)JSON$', matches: typescript-global-member } }] } }
     host-contract:
-        any: [{matches: component}, {matches: replacer}]
+        any: [{ matches: component }, { matches: replacer }]
     void-branch:
         kind: ternary_expression
-        has: {kind: call_expression, has: {field: function, kind: member_expression, has: {field: property, regex: '^forEach$'}}}
+        has: { kind: call_expression, has: { field: function, kind: member_expression, has: { field: property, regex: '^forEach$' } } }
 rule:
     any:
         - kind: return_statement
           all:
-            - has: {matches: null-or-nan-result, pattern: $VALUE}
-            - not: {inside: {matches: host-contract, stopBy: {matches: typescript-function-boundary}}}
+              - has: { matches: null-or-nan-result, pattern: $VALUE }
+              - not: { inside: { matches: host-contract, stopBy: { matches: typescript-function-boundary } } }
         - kind: arrow_function
           all:
-            - has: {field: body, matches: null-or-nan-result, pattern: $VALUE}
-            - not: {matches: host-contract}
+              - has: { field: body, matches: null-or-nan-result, pattern: $VALUE }
+              - not: { matches: host-contract }
         - kind: return_statement
           all:
-            - has: {matches: undefined-result, pattern: $VALUE}
-            - inside: {matches: value-function, stopBy: {matches: typescript-function-boundary}}
-            - not: {inside: {matches: host-contract, stopBy: {matches: typescript-function-boundary}}}
+              - has: { matches: undefined-result, pattern: $VALUE }
+              - inside: { matches: value-function, stopBy: { matches: typescript-function-boundary } }
+              - not: { inside: { matches: host-contract, stopBy: { matches: typescript-function-boundary } } }
         - kind: return_statement
           all:
-            - not: {has: {pattern: $_}}
-            - inside: {matches: value-function, stopBy: {matches: typescript-function-boundary}}
-            - not: {inside: {matches: host-contract, stopBy: {matches: typescript-function-boundary}}}
-            - pattern: $VALUE
+              - not: { has: { pattern: $_ } }
+              - inside: { matches: value-function, stopBy: { matches: typescript-function-boundary } }
+              - not: { inside: { matches: host-contract, stopBy: { matches: typescript-function-boundary } } }
+              - pattern: $VALUE
         - kind: arrow_function
           all:
-            - has: {field: body, matches: undefined-result, pattern: $VALUE}
-            - any:
-                - has: {field: return_type, matches: value-annotation}
-                - all:
-                    - has: {field: body, any: [{kind: &branching 'ternary_expression, binary_expression'}, {matches: typescript-expression-wrapper, has: {stopBy: {not: {matches: typescript-expression-wrapper}}, kind: *branching}}]}
-                    - not: {has: {field: body, any: [{matches: void-branch}, {has: {stopBy: {not: {matches: typescript-expression-wrapper}}, matches: void-branch}}]}}
-                    - inside: {kind: variable_declarator, field: value, inside: {matches: typescript-module-constant}}
-            - not: {matches: host-contract}
-    not: {inside: {kind: program, stopBy: end, matches: extendscript-file}}
+              - has: { field: body, matches: undefined-result, pattern: $VALUE }
+              - any:
+                    - has: { field: return_type, matches: value-annotation }
+                    - all:
+                          - has: { field: body, any: [{ kind: &branching 'ternary_expression, binary_expression' }, { matches: typescript-expression-wrapper, has: { stopBy: { not: { matches: typescript-expression-wrapper } }, kind: *branching } }] }
+                          - not: { has: { field: body, any: [{ matches: void-branch }, { has: { stopBy: { not: { matches: typescript-expression-wrapper } }, matches: void-branch } }] } }
+                          - inside: { kind: variable_declarator, field: value, inside: { matches: typescript-module-constant } }
+              - not: { matches: host-contract }
+    not: { inside: { kind: program, stopBy: end, matches: extendscript-file } }
 message: 'Function returns absence through `$VALUE`'
 note: 'Return an `Option`, with `Option.fromNullishOr` or `Option.liftPredicate` lifting a host value at its boundary'

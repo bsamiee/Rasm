@@ -4,14 +4,14 @@ language: pythonlang
 utils:
     base:
         any:
-            - matches: {python-member-use: {module: {regex: '^msgspec$'}, name: {regex: '^Struct$'}}}
-            - matches: {python-base-class: {superclasses: {has: {matches: base}}}}
+            - matches: { python-member-use: { module: { regex: '^msgspec$' }, name: { regex: '^Struct$' } } }
+            - matches: { python-base-class: { superclasses: { has: { matches: base } } } }
             - kind: subscript
-              has: {field: value, matches: base}
+              has: { field: value, matches: base }
             - kind: parenthesized_expression
-              has: {matches: base}
+              has: { matches: base }
 rule:
     kind: class_definition
     all:
-        - inside: {kind: module, stopBy: end, regex: '(?-u:\b)msgspec(?-u:\b)'}
-        - has: {field: superclasses, has: {matches: base}}
+        - inside: { kind: module, stopBy: end, regex: '(?-u:\b)msgspec(?-u:\b)' }
+        - has: { field: superclasses, has: { matches: base } }

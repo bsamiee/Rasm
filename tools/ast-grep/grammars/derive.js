@@ -83,18 +83,21 @@ const located = (rule, matches) => (matches(rule) ? rule : children(rule).reduce
 const collected = (rule, matches) => [...(matches(rule) ? [rule] : []), ...children(rule).flatMap((part) => collected(part, matches))];
 const closure = (grammar, name) => {
     const held = new Set(name in grammar.rules ? [name] : []);
-    held.forEach((next) => collected(grammar.rules[next], ({ type }) => type === 'SYMBOL').forEach((part) => part.name in grammar.rules && held.add(part.name)));
+    held.forEach((next) =>
+        collected(grammar.rules[next], (part) => part.type === 'SYMBOL' && part.name in grammar.rules).forEach((part) => {
+            held.add(part.name);
+        }),
+    );
     return held;
 };
 const expand = (grammar, open) => (rule) => (rule.type === 'SYMBOL' && rule.name.startsWith('_') && !open.has(rule.name) && !grammar.externals.some(symbol(rule.name)) ? expand(grammar, new Set([...open, rule.name]))(grammar.rules[rule.name]) : rebuild(rule, children(rule).map(expand(grammar, open))));
 const mandatory = (rule) => {
-    const optional = (part) => part.type === 'CHOICE' && part.members.some(({ type }) => type === 'BLANK');
-    const found = (part) => optional(part) || children(part).some(found);
+    const optional = choiceOf(({ type }) => type === 'BLANK');
     if (optional(rule)) {
         const kept = rule.members.filter(({ type }) => type !== 'BLANK');
         return kept.length === 1 ? kept[0] : { ...rule, members: kept };
     }
-    const index = children(rule).findIndex(found);
+    const index = children(rule).findIndex((part) => reaches(part, optional));
     return rebuild(
         rule,
         children(rule).map((part, at) => (at === index ? mandatory(part) : part)),
@@ -150,13 +153,17 @@ const states = (grammar, start, closed) => {
         });
     const successorsOf = (tail) => successors.getOrInsertComputed(tail, () => expanded(tail.slice(1)));
     const fresh = (kernel) => {
-        const key = [...new Set(kernel.map((tail) => tail.map(partId).join()))].toSorted((left, right) => (left < right ? -1 : 1)).join(';');
+        const key = [...new Set(kernel.map((tail) => tail.map(partId).join(',')))].toSorted((left, right) => (left < right ? -1 : 1)).join(';');
         return kernel.length > 0 && !seen.has(key) && seen.add(key);
     };
     const moved = (kernel) => {
         const open = new Set(kernel.filter(([head]) => head.type === 'SYMBOL').flatMap(([head]) => [...closureOf(head.name)]));
         const moves = Map.groupBy(kernel, headOf);
-        open.forEach((name) => productionsOf(name).forEach((tails, head) => moves.set(head, [...(moves.get(head) ?? []), ...tails])));
+        open.forEach((name) => {
+            productionsOf(name).forEach((tails, head) => {
+                moves.set(head, [...(moves.get(head) ?? []), ...tails]);
+            });
+        });
         return { open, next: [...moves.values()].map((tails) => tails.flatMap(successorsOf)).filter(fresh) };
     };
     const explored = (frontier) => {

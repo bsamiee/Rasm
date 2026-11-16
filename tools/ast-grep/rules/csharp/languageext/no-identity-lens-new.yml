@@ -7,86 +7,86 @@ utils:
         any:
             - pattern: $VALUE
             - kind: parenthesized_expression
-              has: {matches: same-value}
+              has: { matches: same-value }
     returned-value:
         any:
             - matches: same-value
             - kind: block
               matches: csharp-single-return
-              has: {kind: return_statement, has: {matches: same-value}}
+              has: { kind: return_statement, has: { matches: same-value } }
     identity-binding:
         any:
             - kind: parameter, variable_declarator, local_function_statement, declaration_pattern, declaration_expression, catch_declaration, from_clause
-              has: {field: name, regex: '^identity$'}
+              has: { field: name, regex: '^identity$' }
             - kind: foreach_statement
-              has: {field: left, regex: '^identity$'}
+              has: { field: left, regex: '^identity$' }
             - kind: tuple_pattern, let_clause, join_clause
-              has: {kind: identifier, regex: '^identity$'}
+              has: { kind: identifier, regex: '^identity$' }
             - kind: implicit_parameter
               regex: '^identity$'
     relay:
         kind: identifier
         all:
-            - pattern: {context: 'class $RELAY;', selector: identifier}
+            - pattern: { context: 'class $RELAY;', selector: identifier }
             - inside:
-                kind: compilation_unit
-                stopBy: end
-                has:
-                    stopBy: end
-                    kind: method_declaration, local_function_statement
-                    all:
-                        - has: {field: name, pattern: {context: 'class $RELAY;', selector: identifier}}
-                        - has: {field: type, pattern: $RELAY_TYPE}
-                        - has:
-                            field: parameters
-                            has:
-                                kind: parameter
-                                all:
-                                    - has: {field: name, pattern: {context: 'class $VALUE;', selector: identifier}}
-                                    - has: {field: type, pattern: $RELAY_TYPE}
-                                not: {has: {kind: 'modifier, attribute_list'}}
-                            not: {has: {kind: parameter, nthChild: 2}}
-                        - has:
-                            field: body
-                            any:
-                                - kind: arrow_expression_clause
-                                  has: {matches: same-value}
-                                - kind: block
-                                  matches: returned-value
+                  kind: compilation_unit
+                  stopBy: end
+                  has:
+                      stopBy: end
+                      kind: method_declaration, local_function_statement
+                      all:
+                          - has: { field: name, pattern: { context: 'class $RELAY;', selector: identifier } }
+                          - has: { field: type, pattern: $RELAY_TYPE }
+                          - has:
+                                field: parameters
+                                has:
+                                    kind: parameter
+                                    all:
+                                        - has: { field: name, pattern: { context: 'class $VALUE;', selector: identifier } }
+                                        - has: { field: type, pattern: $RELAY_TYPE }
+                                    not: { has: { kind: 'modifier, attribute_list' } }
+                                not: { has: { kind: parameter, nthChild: 2 } }
+                          - has:
+                                field: body
+                                any:
+                                    - kind: arrow_expression_clause
+                                      has: { matches: same-value }
+                                    - kind: block
+                                      matches: returned-value
     identity-function:
         any:
             - kind: member_access_expression
-              matches: {csharp-owner-member: {type: {regex: '^Prelude$'}, member: {regex: '^identity$'}}}
+              matches: { csharp-owner-member: { type: { regex: '^Prelude$' }, member: { regex: '^identity$' } } }
             - kind: identifier, generic_name
-              matches: {csharp-simple-name: {name: {regex: '^identity$'}}}
+              matches: { csharp-simple-name: { name: { regex: '^identity$' } } }
               not:
-                inside:
-                    stopBy: end
-                    any:
-                        - kind: method_declaration, constructor_declaration, local_function_statement, lambda_expression, anonymous_method_expression, operator_declaration, accessor_declaration
-                          has: {stopBy: end, matches: identity-binding}
-                        - kind: class_declaration, struct_declaration, record_declaration, interface_declaration
-                          has:
-                            field: body
+                  inside:
+                      stopBy: end
+                      any:
+                          - kind: method_declaration, constructor_declaration, local_function_statement, lambda_expression, anonymous_method_expression, operator_declaration, accessor_declaration
+                            has: { stopBy: end, matches: identity-binding }
+                          - kind: class_declaration, struct_declaration, record_declaration, interface_declaration
                             has:
-                                kind: field_declaration, property_declaration, method_declaration
-                                any:
-                                    - has: {field: name, regex: '^identity$'}
-                                    - has: {kind: variable_declaration, has: {kind: variable_declarator, has: {field: name, regex: '^identity$'}}}
+                                field: body
+                                has:
+                                    kind: field_declaration, property_declaration, method_declaration
+                                    any:
+                                        - has: { field: name, regex: '^identity$' }
+                                        - has: { kind: variable_declaration, has: { kind: variable_declarator, has: { field: name, regex: '^identity$' } } }
             - matches:
-                csharp-unary-callback:
-                    parameter: {pattern: $VALUE}
-                    body: {matches: returned-value}
+                  csharp-unary-callback:
+                      parameter: { pattern: $VALUE }
+                      body: { matches: returned-value }
             - matches: relay
     set-value:
         any:
             - pattern: $SET
             - kind: parenthesized_expression
-              has: {matches: set-value}
+              has: { matches: set-value }
             - matches: csharp-single-return
-              has: {kind: return_statement, has: {matches: set-value}}
+              has: { kind: return_statement, has: { matches: set-value } }
     constant-name:
-        matches: {csharp-type-name: {name: {regex: '^constantA?$'}}}
+        matches: { csharp-type-name: { name: { regex: '^constantA?$' } } }
         not:
             inside:
                 kind: compilation_unit
@@ -94,68 +94,68 @@ utils:
                 has:
                     stopBy: end
                     kind: parameter, variable_declarator, local_function_statement, method_declaration, property_declaration
-                    has: {field: name, regex: '^constantA?$'}
+                    has: { field: name, regex: '^constantA?$' }
     constant-of-set:
         any:
             - kind: lambda_expression
               all:
-                - has:
-                    field: parameters
-                    any:
-                        - kind: implicit_parameter
-                          not: {pattern: {context: 'var f = $SET => 0;', selector: implicit_parameter}}
-                        - kind: parameter_list
-                          has: {kind: parameter, not: {has: {field: name, pattern: {context: 'class $SET;', selector: identifier}}}}
-                          not: {has: {kind: parameter, nthChild: 2}}
-                - has: {field: body, matches: set-value}
+                  - has:
+                        field: parameters
+                        any:
+                            - kind: implicit_parameter
+                              not: { pattern: { context: 'var f = $SET => 0;', selector: implicit_parameter } }
+                            - kind: parameter_list
+                              has: { kind: parameter, not: { has: { field: name, pattern: { context: 'class $SET;', selector: identifier } } } }
+                              not: { has: { kind: parameter, nthChild: 2 } }
+                  - has: { field: body, matches: set-value }
             - kind: invocation_expression
               all:
-                - has: {field: function, matches: constant-name}
-                - has: {field: arguments, has: {kind: argument, matches: csharp-positional-argument, has: {matches: set-value}}, not: {has: {kind: argument, nthChild: 2}}}
+                  - has: { field: function, matches: constant-name }
+                  - has: { field: arguments, has: { kind: argument, matches: csharp-positional-argument, has: { matches: set-value } }, not: { has: { kind: argument, nthChild: 2 } } }
             - kind: parenthesized_expression
-              has: {matches: constant-of-set}
+              has: { matches: constant-of-set }
             - matches: csharp-single-return
-              has: {kind: return_statement, has: {matches: constant-of-set}}
+              has: { kind: return_statement, has: { matches: constant-of-set } }
     replacing-setter:
         any:
             - kind: identifier, generic_name, member_access_expression
               matches: constant-name
             - matches:
-                csharp-unary-callback:
-                    parameter: {pattern: $SET}
-                    body: {matches: constant-of-set}
+                  csharp-unary-callback:
+                      parameter: { pattern: $SET }
+                      body: { matches: constant-of-set }
 rule:
     kind: invocation_expression
     all:
         - has:
-            field: function
-            kind: member_access_expression
-            all:
-                - has: {field: name, regex: '^New$'}
-                - has:
-                    field: expression
-                    matches: {csharp-type-name: {name: {regex: '^Lens$'}}}
-                    has:
-                        stopBy: end
-                        kind: type_argument_list
-                        all:
-                            - has: {nthChild: 1, pattern: $TYPE}
-                            - has: {nthChild: 2, pattern: $TYPE}
+              field: function
+              kind: member_access_expression
+              all:
+                  - has: { field: name, regex: '^New$' }
+                  - has:
+                        field: expression
+                        matches: { csharp-type-name: { name: { regex: '^Lens$' } } }
+                        has:
+                            stopBy: end
+                            kind: type_argument_list
+                            all:
+                                - has: { nthChild: 1, pattern: $TYPE }
+                                - has: { nthChild: 2, pattern: $TYPE }
         - has:
-            field: arguments
-            all:
-                - has:
-                    kind: argument
-                    any:
-                        - has: {field: name, regex: '^Get$'}
-                        - all: [{nthChild: 1}, {matches: csharp-positional-argument}]
-                    has: {nthChild: {position: 1, reverse: true}, matches: identity-function}
-                - has:
-                    kind: argument
-                    any:
-                        - has: {field: name, regex: '^Set$'}
-                        - all: [{nthChild: 2}, {matches: csharp-positional-argument}]
-                    has: {nthChild: {position: 1, reverse: true}, matches: replacing-setter}
+              field: arguments
+              all:
+                  - has:
+                        kind: argument
+                        any:
+                            - has: { field: name, regex: '^Get$' }
+                            - all: [{ nthChild: 1 }, { matches: csharp-positional-argument }]
+                        has: { nthChild: { position: 1, reverse: true }, matches: identity-function }
+                  - has:
+                        kind: argument
+                        any:
+                            - has: { field: name, regex: '^Set$' }
+                            - all: [{ nthChild: 2 }, { matches: csharp-positional-argument }]
+                        has: { nthChild: { position: 1, reverse: true }, matches: replacing-setter }
 message: '`Lens<$TYPE, $TYPE>.New` builds the identity lens'
 note: 'Call `Lens.identity<<type>>()`'
 fix: Lens.identity<$TYPE>()

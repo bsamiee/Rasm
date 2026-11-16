@@ -6,38 +6,38 @@ utils:
         any:
             - kind: binary_expression
               all:
-                - has: {field: operator, regex: '^(==|!=)$'}
-                - has: {field: left, kind: identifier}
-                - has: {field: right, kind: identifier}
-                - has: {pattern: $STATE}
+                  - has: { field: operator, regex: '^(==|!=)$' }
+                  - has: { field: left, kind: identifier }
+                  - has: { field: right, kind: identifier }
+                  - has: { pattern: $STATE }
             - kind: invocation_expression
               all:
-                - matches: {csharp-named-call: {name: {regex: '^Equals$'}}}
-                - any:
-                    - has: {field: function, kind: member_access_expression, has: {field: expression, pattern: $STATE}}
-                    - has: {field: arguments, has: {kind: argument, has: {pattern: $STATE}}}
+                  - matches: { csharp-named-call: { name: { regex: '^Equals$' } } }
+                  - any:
+                        - has: { field: function, kind: member_access_expression, has: { field: expression, pattern: $STATE } }
+                        - has: { field: arguments, has: { kind: argument, has: { pattern: $STATE } } }
     fixed-point-loop:
         kind: 'while_statement, do_statement, for_statement'
-        has: {stopBy: end, matches: equality}
+        has: { stopBy: end, matches: equality }
 rule:
     kind: 'object_creation_expression, implicit_object_creation_expression'
     all:
         - any:
-            - inside: {kind: assignment_expression, field: right, has: {field: left, pattern: $STATE}}
-            - all:
-                - inside: {kind: variable_declarator, has: {field: name, pattern: {context: 'class $NEXT;', selector: identifier}}}
-                - inside:
-                    stopBy: {kind: &function 'method_declaration, local_function_statement, lambda_expression, anonymous_method_expression, constructor_declaration, accessor_declaration'}
-                    kind: 'while_statement, do_statement, for_statement'
-                    has: {stopBy: end, kind: assignment_expression, all: [{has: {field: left, pattern: $STATE}}, {has: {field: right, pattern: $NEXT}}]}
+              - inside: { kind: assignment_expression, field: right, has: { field: left, pattern: $STATE } }
+              - all:
+                    - inside: { kind: variable_declarator, has: { field: name, pattern: { context: 'class $NEXT;', selector: identifier } } }
+                    - inside:
+                          stopBy: { kind: &function 'method_declaration, local_function_statement, lambda_expression, anonymous_method_expression, constructor_declaration, accessor_declaration' }
+                          kind: 'while_statement, do_statement, for_statement'
+                          has: { stopBy: end, kind: assignment_expression, all: [{ has: { field: left, pattern: $STATE } }, { has: { field: right, pattern: $NEXT } }] }
         - has:
-            kind: argument_list
-            has:
-                kind: argument
-                has:
-                    any:
-                        - pattern: $STATE
-                        - {kind: collection_expression, has: {kind: collection_element, has: {kind: expression_element, has: {pattern: $STATE}}}}
-        - inside: {stopBy: {kind: *function}, matches: fixed-point-loop}
+              kind: argument_list
+              has:
+                  kind: argument
+                  has:
+                      any:
+                          - pattern: $STATE
+                          - { kind: collection_expression, has: { kind: collection_element, has: { kind: expression_element, has: { pattern: $STATE } } } }
+        - inside: { stopBy: { kind: *function }, matches: fixed-point-loop }
 message: '`$STATE` wraps its previous value each pass and never equals it in the fixed-point test'
 note: 'Join each pass into a value from a finite set (set union, bounded shape, operand roots)'

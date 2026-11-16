@@ -5,74 +5,83 @@ utils:
     partitioned:
         kind: let_declaration
         all:
-            - has: {field: pattern, kind: tuple_pattern, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, pattern: $OKS}}, {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: identifier, pattern: $ERRORS}}]}
+            - has: { field: pattern, kind: tuple_pattern, all: [{ has: { nthChild: { position: 1, ofRule: { not: { kind: 'line_comment, block_comment' } } }, pattern: $OKS } }, { has: { nthChild: { position: 2, ofRule: { not: { kind: 'line_comment, block_comment' } } }, kind: identifier, pattern: $ERRORS } }] }
             - has:
-                field: value
-                kind: call_expression
-                has:
-                    field: function
-                    any:
-                        - kind: field_expression
-                          has: {field: field, regex: '^partition(_result|_map)?$'}
-                        - kind: generic_function
-                          has: {field: function, kind: field_expression, has: {field: field, regex: '^partition(_result|_map)?$'}}
-                        - kind: scoped_identifier
-                          has: {field: name, regex: '^partition(_result|_map)?$'}
+                  field: value
+                  kind: call_expression
+                  has:
+                      field: function
+                      any:
+                          - kind: field_expression
+                            has: { field: field, regex: '^partition(_result|_map)?$' }
+                          - kind: generic_function
+                            has: { field: function, kind: field_expression, has: { field: field, regex: '^partition(_result|_map)?$' } }
+                          - kind: scoped_identifier
+                            has: { field: name, regex: '^partition(_result|_map)?$' }
     emptiness:
         any:
             - kind: call_expression
               all:
-                - has: {field: function, kind: field_expression, all: [{has: {field: value, pattern: $ERRORS}}, {has: {field: field, regex: '^is_empty$'}}]}
-                - has: {field: arguments, not: {has: {pattern: $_}}}
+                  - has: { field: function, kind: field_expression, all: [{ has: { field: value, pattern: $ERRORS } }, { has: { field: field, regex: '^is_empty$' } }] }
+                  - has: { field: arguments, not: { has: { pattern: $_ } } }
             - kind: call_expression
               all:
-                - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^(is_none|is_some)$'}}, {has: {field: value, kind: call_expression, all: [{has: {field: function, kind: field_expression, all: [{has: {field: value, pattern: $ERRORS}}, {has: {field: field, regex: '^(first|last)$'}}]}}, {has: {field: arguments, not: {has: {pattern: $_}}}}]}}]}
-                - has: {field: arguments, not: {has: {pattern: $_}}}
+                  - has:
+                        {
+                            field: function,
+                            kind: field_expression,
+                            all:
+                                [
+                                    { has: { field: field, regex: '^(is_none|is_some)$' } },
+                                    { has: { field: value, kind: call_expression, all: [{ has: { field: function, kind: field_expression, all: [{ has: { field: value, pattern: $ERRORS } }, { has: { field: field, regex: '^(first|last)$' } }] } }, { has: { field: arguments, not: { has: { pattern: $_ } } } }] } },
+                                ],
+                        }
+                  - has: { field: arguments, not: { has: { pattern: $_ } } }
             - kind: binary_expression
               all:
-                - has: {field: operator, regex: '^(==|!=|>|<|>=|<=)$'}
-                - has: {kind: integer_literal, regex: '^[01]$'}
-                - has: {kind: call_expression, all: [{has: {field: function, kind: field_expression, all: [{has: {field: value, pattern: $ERRORS}}, {has: {field: field, regex: '^len$'}}]}}, {has: {field: arguments, not: {has: {pattern: $_}}}}]}
+                  - has: { field: operator, regex: '^(==|!=|>|<|>=|<=)$' }
+                  - has: { kind: integer_literal, regex: '^[01]$' }
+                  - has: { kind: call_expression, all: [{ has: { field: function, kind: field_expression, all: [{ has: { field: value, pattern: $ERRORS } }, { has: { field: field, regex: '^len$' } }] } }, { has: { field: arguments, not: { has: { pattern: $_ } } } }] }
             - kind: 'unary_expression, parenthesized_expression'
               regex: '^[!(]'
-              has: {matches: emptiness}
+              has: { matches: emptiness }
     error-return:
         kind: call_expression
         all:
-            - has: {field: function, regex: '^Err$'}
-            - has: {field: arguments, has: {stopBy: end, pattern: $ERRORS}}
+            - has: { field: function, regex: '^Err$' }
+            - has: { field: arguments, has: { stopBy: end, pattern: $ERRORS } }
     rollback:
         kind: block
         all:
-            - has: {stopBy: end, kind: call_expression, has: {field: function, regex: '^Err$'}}
-            - has: {stopBy: end, kind: identifier, pattern: $OKS, not: {inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, regex: '^Ok$'}}}}}
+            - has: { stopBy: end, kind: call_expression, has: { field: function, regex: '^Err$' } }
+            - has: { stopBy: end, kind: identifier, pattern: $OKS, not: { inside: { kind: arguments, inside: { kind: call_expression, has: { field: function, regex: '^Ok$' } } } } }
     selection:
         any:
             - kind: if_expression
               all:
-                - has: {field: condition, matches: emptiness}
-                - has: {stopBy: end, matches: error-return}
+                  - has: { field: condition, matches: emptiness }
+                  - has: { stopBy: end, matches: error-return }
             - kind: match_expression
               all:
-                - has: {field: value, matches: emptiness}
-                - has: {stopBy: end, matches: error-return}
+                  - has: { field: value, matches: emptiness }
+                  - has: { stopBy: end, matches: error-return }
             - kind: call_expression
-              has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^(then|then_some)$'}}, {has: {field: value, matches: emptiness}}]}
+              has: { field: function, kind: field_expression, all: [{ has: { field: field, regex: '^(then|then_some)$' } }, { has: { field: value, matches: emptiness } }] }
             - kind: call_expression
               all:
-                - has: {field: function, regex: '^((nonempty_collections::)?(vector::)?NEVec|NonEmpty)::(try_from_vec|from_vec)$'}
-                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, pattern: $ERRORS}}
+                  - has: { field: function, regex: '^((nonempty_collections::)?(vector::)?NEVec|NonEmpty)::(try_from_vec|from_vec)$' }
+                  - has: { field: arguments, has: { nthChild: { position: 1, ofRule: { not: { kind: 'line_comment, block_comment' } } }, pattern: $ERRORS } }
 rule:
     kind: 'if_expression, match_expression, call_expression'
     all:
         - matches: selection
         - any:
-            - follows: {stopBy: end, matches: partitioned}
-            - inside: {stopBy: {kind: 'function_item, closure_expression'}, follows: {stopBy: end, matches: partitioned}}
+              - follows: { stopBy: end, matches: partitioned }
+              - inside: { stopBy: { kind: 'function_item, closure_expression' }, follows: { stopBy: end, matches: partitioned } }
         - not:
-            any:
-                - has: {stopBy: end, matches: rollback}
-                - inside: {stopBy: {kind: 'if_expression, match_expression, block'}, kind: 'if_expression, match_expression', has: {stopBy: end, matches: rollback}}
+              any:
+                  - has: { stopBy: end, matches: rollback }
+                  - inside: { stopBy: { kind: 'if_expression, match_expression, block' }, kind: 'if_expression, match_expression', has: { stopBy: end, matches: rollback } }
         - pattern: $SITE
 message: '`$SITE` selects `Ok` or `Err` by testing `$ERRORS` from a partition for emptiness'
 note: 'Collect into `validated::Validated` and call `ok()`, keep partitions with failure branches that consume successes'

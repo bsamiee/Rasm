@@ -5,48 +5,57 @@ ignores: ['apps/roslyn/**']
 utils:
     typed-none:
         matches: languageext-none-value
-        not: {any: [{regex: '^default$'}, {kind: parenthesized_expression, has: {regex: '^default$'}}]}
+        not: { any: [{ regex: '^default$' }, { kind: parenthesized_expression, has: { regex: '^default$' } }] }
     none-arm:
         any:
             - matches: typed-none
             - kind: lambda_expression
               all:
-                - matches: csharp-parameterless
-                - has:
-                    field: body
-                    any:
-                        - matches: typed-none
-                        - kind: block
-                          has:
-                            kind: return_statement
-                            nthChild: {position: 1, ofRule: {not: {kind: comment}}}
-                            has: {matches: typed-none}
+                  - matches: csharp-parameterless
+                  - has:
+                        field: body
+                        any:
+                            - matches: typed-none
+                            - kind: block
+                              has:
+                                  kind: return_statement
+                                  nthChild: { position: 1, ofRule: { not: { kind: comment } } }
+                                  has: { matches: typed-none }
     generic-callee:
-        matches: {csharp-generic-type: {name: {kind: identifier}, list: {kind: type_argument_list}}}
+        matches: { csharp-generic-type: { name: { kind: identifier }, list: { kind: type_argument_list } } }
     failure-group:
-        all: [{any: [{matches: generic-callee}, {has: {field: expression, matches: generic-callee}}]}]
+        all: [{ any: [{ matches: generic-callee }, { has: { field: expression, matches: generic-callee } }] }]
         any:
-            - matches: {csharp-owner-member: {type: {regex: '^Fin$'}, member: {regex: '^Fail$'}}}
-            - matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^fail$'}}}
-            - matches: {csharp-owner-member: {type: {regex: '^Either$'}, member: {regex: '^Left$'}}}
-            - matches: {csharp-type-name: {name: {regex: '^(FinFail|Fail|Left)$'}}}
+            - matches: { csharp-owner-member: { type: { regex: '^Fin$' }, member: { regex: '^Fail$' } } }
+            - matches: { csharp-owner-member: { type: { regex: '^IO$' }, member: { regex: '^fail$' } } }
+            - matches: { csharp-owner-member: { type: { regex: '^Either$' }, member: { regex: '^Left$' } } }
+            - matches: { csharp-type-name: { name: { regex: '^(FinFail|Fail|Left)$' } } }
     failure-constructor:
         any:
             - kind: invocation_expression
               all:
-                - has: {field: function, any: [{matches: failure-group}, {matches: {csharp-type-name: {name: {regex: '^(Fail|Left)$'}}}}]}
-                - has: {field: arguments, has: {kind: argument, pattern: {context: 'f($ERROR);', selector: argument}}, not: {has: {kind: argument, nthChild: 2}}}
+                  - has: { field: function, any: [{ matches: failure-group }, { matches: { csharp-type-name: { name: { regex: '^(Fail|Left)$' } } } }] }
+                  - has: { field: arguments, has: { kind: argument, pattern: { context: 'f($ERROR);', selector: argument } }, not: { has: { kind: argument, nthChild: 2 } } }
             - kind: object_creation_expression
               all:
-                - has: {field: type, kind: qualified_name, any: [{all: [{has: {field: qualifier, matches: {csharp-type-name: {name: {regex: '^Fin$'}}}}}, {has: {field: name, regex: '^Fail$'}}]}, {all: [{has: {field: qualifier, matches: {csharp-type-name: {name: {regex: '^Either$'}}}}}, {has: {field: name, regex: '^Left$'}}]}]}
-                - has: {field: arguments, has: {kind: argument, pattern: {context: 'f($ERROR);', selector: argument}}, not: {has: {kind: argument, nthChild: 2}}}
+                  - has:
+                        {
+                            field: type,
+                            kind: qualified_name,
+                            any:
+                                [
+                                    { all: [{ has: { field: qualifier, matches: { csharp-type-name: { name: { regex: '^Fin$' } } } } }, { has: { field: name, regex: '^Fail$' } }] },
+                                    { all: [{ has: { field: qualifier, matches: { csharp-type-name: { name: { regex: '^Either$' } } } } }, { has: { field: name, regex: '^Left$' } }] },
+                                ],
+                        }
+                  - has: { field: arguments, has: { kind: argument, pattern: { context: 'f($ERROR);', selector: argument } }, not: { has: { kind: argument, nthChild: 2 } } }
             - kind: cast_expression
               all:
-                - has: {field: type, matches: {csharp-type-name: {name: {regex: '^(Fin|Either|Validation)$'}}}}
-                - has: {field: value, pattern: {context: 'class $ERROR;', selector: identifier}}
+                  - has: { field: type, matches: { csharp-type-name: { name: { regex: '^(Fin|Either|Validation)$' } } } }
+                  - has: { field: value, pattern: { context: 'class $ERROR;', selector: identifier } }
     failure-rebuild:
         any:
-            - pattern: {context: 'class $ERROR;', selector: identifier}
+            - pattern: { context: 'class $ERROR;', selector: identifier }
             - matches: failure-constructor
     error-lambda:
         kind: lambda_expression
@@ -54,109 +63,110 @@ utils:
             field: parameters
             any:
                 - kind: implicit_parameter
-                  pattern: {context: 'var f = $ERROR => 0;', selector: implicit_parameter}
+                  pattern: { context: 'var f = $ERROR => 0;', selector: implicit_parameter }
                 - kind: parameter_list
-                  has: {kind: parameter, has: {field: name, pattern: {context: 'class $ERROR;', selector: identifier}}}
-                  not: {has: {kind: parameter, nthChild: 2}}
+                  has: { kind: parameter, has: { field: name, pattern: { context: 'class $ERROR;', selector: identifier } } }
+                  not: { has: { kind: parameter, nthChild: 2 } }
     rebuild-body:
         any:
             - matches: failure-rebuild
             - kind: block
               has:
-                kind: return_statement
-                nthChild: {position: 1, ofRule: {not: {kind: comment}}}
-                has: {matches: failure-rebuild}
+                  kind: return_statement
+                  nthChild: { position: 1, ofRule: { not: { kind: comment } } }
+                  has: { matches: failure-rebuild }
             - kind: arrow_expression_clause
-              has: {matches: failure-rebuild}
+              has: { matches: failure-rebuild }
     relay-declaration:
         all:
-            - has: {field: name, pattern: {context: 'class $RELAY;', selector: identifier}}
-            - has: {field: parameters, has: {kind: parameter, has: {field: name, pattern: {context: 'class $ERROR;', selector: identifier}}}, not: {has: {kind: parameter, nthChild: 2}}}
-            - has: {field: body, matches: rebuild-body}
+            - has: { field: name, pattern: { context: 'class $RELAY;', selector: identifier } }
+            - has: { field: parameters, has: { kind: parameter, has: { field: name, pattern: { context: 'class $ERROR;', selector: identifier } } }, not: { has: { kind: parameter, nthChild: 2 } } }
+            - has: { field: body, matches: rebuild-body }
     relay:
         kind: identifier
-        pattern: {context: 'class $RELAY;', selector: identifier}
+        pattern: { context: 'class $RELAY;', selector: identifier }
         any:
-            - inside: {stopBy: end, kind: 'block, switch_section', has: {kind: local_function_statement, matches: relay-declaration}}
+            - inside: { stopBy: end, kind: 'block, switch_section', has: { kind: local_function_statement, matches: relay-declaration } }
             - inside:
-                stopBy: end
-                kind: compilation_unit
-                has:
-                    stopBy: {not: {kind: 'compilation_unit, global_statement, namespace_declaration, declaration_list, class_declaration, struct_declaration, record_declaration, interface_declaration, union_declaration, extension_declaration, extension_body, parameter_list, preproc_if, preproc_elif, preproc_else'}}
-                    kind: method_declaration, local_function_statement
-                    matches: relay-declaration
+                  stopBy: end
+                  kind: compilation_unit
+                  has:
+                      stopBy:
+                          { not: { kind: 'compilation_unit, global_statement, namespace_declaration, declaration_list, class_declaration, struct_declaration, record_declaration, interface_declaration, union_declaration, extension_declaration, extension_body, parameter_list, preproc_if, preproc_elif, preproc_else' } }
+                      kind: method_declaration, local_function_statement
+                      matches: relay-declaration
     fail-arm:
         any:
             - matches: failure-group
             - matches: error-lambda
-              has: {field: body, matches: rebuild-body}
+              has: { field: body, matches: rebuild-body }
             - matches: relay
     constructor-fail-arm:
         any:
             - matches: failure-group
             - matches: error-lambda
               has:
-                field: body
-                any:
-                    - matches: failure-constructor
-                    - kind: block
-                      has:
-                        kind: return_statement
-                        nthChild: {position: 1, ofRule: {not: {kind: comment}}}
-                        has: {matches: failure-constructor}
+                  field: body
+                  any:
+                      - matches: failure-constructor
+                      - kind: block
+                        has:
+                            kind: return_statement
+                            nthChild: { position: 1, ofRule: { not: { kind: comment } } }
+                            has: { matches: failure-constructor }
     relift-argument:
         kind: argument
-        has: {nthChild: {position: 1, reverse: true}, any: [{matches: none-arm}, {matches: fail-arm}]}
+        has: { nthChild: { position: 1, reverse: true }, any: [{ matches: none-arm }, { matches: fail-arm }] }
     member-match:
         kind: invocation_expression
         all:
-            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Match', matches: {csharp-simple-name: {name: {regex: '^Match$'}}}}}, {has: {field: expression, pattern: $VALUE}}]}
-            - has: {field: arguments, all: [{has: {kind: argument, nthChild: 2}}, {not: {has: {kind: argument, nthChild: 3}}}]}
+            - has: { field: function, kind: member_access_expression, all: [{ has: { field: name, regex: '^Match', matches: { csharp-simple-name: { name: { regex: '^Match$' } } } } }, { has: { field: expression, pattern: $VALUE } }] }
+            - has: { field: arguments, all: [{ has: { kind: argument, nthChild: 2 } }, { not: { has: { kind: argument, nthChild: 3 } } }] }
     prelude-match:
         kind: invocation_expression
         all:
-            - has: {field: function, regex: 'match'}
-            - matches: {csharp-named-call: {name: {regex: '^match$'}}}
-            - has: {field: arguments, all: [{has: {kind: argument, nthChild: 3}}, {not: {has: {kind: argument, nthChild: 4}}}]}
-            - has: {field: arguments, has: {nthChild: 1, matches: csharp-positional-argument, has: {pattern: $VALUE}}}
+            - has: { field: function, regex: 'match' }
+            - matches: { csharp-named-call: { name: { regex: '^match$' } } }
+            - has: { field: arguments, all: [{ has: { kind: argument, nthChild: 3 } }, { not: { has: { kind: argument, nthChild: 4 } } }] }
+            - has: { field: arguments, has: { nthChild: 1, matches: csharp-positional-argument, has: { pattern: $VALUE } } }
 rule:
     kind: invocation_expression
     any:
         - all:
-            - matches: member-match
-            - has: {field: arguments, has: {matches: relift-argument, has: {field: name, regex: '^(None|Fail|Left)$'}}}
+              - matches: member-match
+              - has: { field: arguments, has: { matches: relift-argument, has: { field: name, regex: '^(None|Fail|Left)$' } } }
         - all:
-            - matches: member-match
-            - has: {field: arguments, has: {kind: argument, has: {field: name, regex: '^(Some|Succ|Right)$'}}}
-            - has: {field: arguments, has: {matches: csharp-positional-argument, all: [{matches: relift-argument}]}}
+              - matches: member-match
+              - has: { field: arguments, has: { kind: argument, has: { field: name, regex: '^(Some|Succ|Right)$' } } }
+              - has: { field: arguments, has: { matches: csharp-positional-argument, all: [{ matches: relift-argument }] } }
         - all:
-            - matches: member-match
-            - not: {has: {field: arguments, has: {kind: argument, not: {matches: csharp-positional-argument}}}}
-            - any:
-                - has: {field: arguments, has: {kind: argument, nthChild: 2, has: {any: [{matches: none-arm}, {matches: constructor-fail-arm}]}}}
-                - has:
-                    field: arguments
-                    all:
-                        - has: {kind: argument, nthChild: 1, has: {matches: constructor-fail-arm, not: {has: {field: body, kind: cast_expression}}}}
-                        - not: {has: {kind: argument, nthChild: 2, has: {kind: lambda_expression, matches: csharp-parameterless}}}
+              - matches: member-match
+              - not: { has: { field: arguments, has: { kind: argument, not: { matches: csharp-positional-argument } } } }
+              - any:
+                    - has: { field: arguments, has: { kind: argument, nthChild: 2, has: { any: [{ matches: none-arm }, { matches: constructor-fail-arm }] } } }
+                    - has:
+                          field: arguments
+                          all:
+                              - has: { kind: argument, nthChild: 1, has: { matches: constructor-fail-arm, not: { has: { field: body, kind: cast_expression } } } }
+                              - not: { has: { kind: argument, nthChild: 2, has: { kind: lambda_expression, matches: csharp-parameterless } } }
         - all:
-            - matches: prelude-match
-            - has: {field: arguments, has: {matches: relift-argument, has: {field: name, regex: '^None$'}}}
+              - matches: prelude-match
+              - has: { field: arguments, has: { matches: relift-argument, has: { field: name, regex: '^None$' } } }
         - all:
-            - matches: prelude-match
-            - not: {has: {field: arguments, has: {kind: argument, not: {matches: csharp-positional-argument}}}}
-            - has: {field: arguments, has: {kind: argument, nthChild: 3, has: {matches: none-arm}}}
+              - matches: prelude-match
+              - not: { has: { field: arguments, has: { kind: argument, not: { matches: csharp-positional-argument } } } }
+              - has: { field: arguments, has: { kind: argument, nthChild: 3, has: { matches: none-arm } } }
         - all:
-            - has: {field: function, regex: 'If(None|Fail|Left)$'}
-            - any:
-                - pattern: {context: 'class C { object F() => $VALUE.Map($CONTINUE).IfNone($ABSENT); }', selector: invocation_expression, strictness: cst}
-                - pattern: {context: 'class C { object F() => $VALUE.Map($CONTINUE).$UNWRAP($REFAIL); }', selector: invocation_expression, strictness: cst}
+              - has: { field: function, regex: 'If(None|Fail|Left)$' }
+              - any:
+                    - pattern: { context: 'class C { object F() => $VALUE.Map($CONTINUE).IfNone($ABSENT); }', selector: invocation_expression, strictness: cst }
+                    - pattern: { context: 'class C { object F() => $VALUE.Map($CONTINUE).$UNWRAP($REFAIL); }', selector: invocation_expression, strictness: cst }
 constraints:
-    UNWRAP: {regex: '^If(Fail|Left)$'}
-    ABSENT: {kind: argument, has: {matches: none-arm}}
+    UNWRAP: { regex: '^If(Fail|Left)$' }
+    ABSENT: { kind: argument, has: { matches: none-arm } }
     REFAIL:
         kind: argument
-        has: {matches: fail-arm}
-        not: {has: {stopBy: end, matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^fail$'}}}}}
+        has: { matches: fail-arm }
+        not: { has: { stopBy: end, matches: { csharp-owner-member: { type: { regex: '^IO$' }, member: { regex: '^fail$' } } } } }
 message: '`$VALUE` is unwrapped only to rebuild the `None`, `Left`, or `Fail` case it holds'
 note: 'Call `<value>.Bind(<continuation>)`, `Map` for a plain-value continuation, `IO.lift(<fin>).Bind(<continuation>)` for an effect continuation'

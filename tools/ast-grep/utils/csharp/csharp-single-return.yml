@@ -6,5 +6,5 @@ rule:
     has:
         kind: return_statement
         all:
-            - nthChild: {position: 1, ofRule: {not: {kind: comment}}}
-            - nthChild: {position: 1, reverse: true, ofRule: {not: {kind: comment}}}
+            - nthChild: { position: 1, ofRule: { not: { kind: comment } } }
+            - nthChild: { position: 1, reverse: true, ofRule: { not: { kind: comment } } }

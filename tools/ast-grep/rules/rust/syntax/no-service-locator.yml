@@ -5,14 +5,14 @@ rule:
     any:
         - kind: static_item
           all:
-            - has: {field: name, pattern: $NAME}
-            - has: {field: type, regex: '^(\p{XID_Continue}+::)*(LazyLock|LazyCell|Lazy)(?-u:\b)'}
-            - has: {field: value, regex: '(?-u:\b)(fs(_err)?::(tokio::)?(read|read_to_string|File::open)|File::open)(?-u:\b)'}
+              - has: { field: name, pattern: $NAME }
+              - has: { field: type, regex: '^(\p{XID_Continue}+::)*(LazyLock|LazyCell|Lazy)(?-u:\b)' }
+              - has: { field: value, regex: '(?-u:\b)(fs(_err)?::(tokio::)?(read|read_to_string|File::open)|File::open)(?-u:\b)' }
         - kind: generic_type
           pattern: $LOCATOR
           all:
-            - has: {field: type, regex: '^((std::)?collections::)?(HashMap|BTreeMap|IndexMap)$'}
-            - has: {field: type_arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, regex: '^((std::)?any::)?TypeId$'}}
-            - has: {field: type_arguments, has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}, has: {stopBy: end, kind: dynamic_type, regex: '(?-u:\b)Any(?-u:\b)'}}}
+              - has: { field: type, regex: '^((std::)?collections::)?(HashMap|BTreeMap|IndexMap)$' }
+              - has: { field: type_arguments, has: { nthChild: { position: 1, ofRule: { not: { kind: 'line_comment, block_comment' } } }, regex: '^((std::)?any::)?TypeId$' } }
+              - has: { field: type_arguments, has: { nthChild: { position: 2, ofRule: { not: { kind: 'line_comment, block_comment' } } }, has: { stopBy: end, kind: dynamic_type, regex: '(?-u:\b)Any(?-u:\b)' } } }
 message: '`$NAME$LOCATOR` supplies a dependency through a lazy global or a type-keyed lookup'
 note: 'Build the value once in `main` and pass it as an argument or a field of handler state'

@@ -37,11 +37,12 @@ return {
       release: 'tsconfig.base.json `lib`, and each package at the release pnpm-workspace.yaml catalogs',
       outlines: ['typescript', 'sql', 'pgsql', 'plpgsql'],
       metadata: [],
-      pathspec: ["'*.ts'", "'*.tsx'", "'*.mts'", "'*.cts'", "'*.js'", "'*.jsx'", "'*.mjs'", "'*.cjs'", "'*.jxa'", "'*.jsxinc'", "'*package.json'", "'*tsconfig*.json'", "'biome.json'", "'pnpm-workspace.yaml'"],
+      pathspec: ["'*.ts'", "'*.tsx'", "'*.mts'", "'*.cts'", "'*.js'", "'*.jsx'", "'*.mjs'", "'*.cjs'", "'*.jxa'", "'*.jsxinc'", "'*package.json'", "'*tsconfig*.json'", "'.oxlintrc.json'", "'.oxfmtrc.json'", "'pnpm-workspace.yaml'"],
       unit: 'folder holding the nearest package.json',
       owners: [
         { name: 'tsc', paths: ['tsconfig.base.json'], decides: 'a `compilerOptions` row or an @effect/language-service diagnostic', skills: [] },
-        { name: 'biome', paths: ['biome.json'], decides: 'a Biome rule or option row', skills: [] },
+        { name: 'oxlint', paths: ['.oxlintrc.json'], decides: 'an oxlint rule, category, override, or option row', skills: [] },
+        { name: 'oxfmt', paths: ['.oxfmtrc.json'], decides: 'an oxfmt option or override row', skills: [] },
       ],
     }),
     python: owned({

@@ -77,7 +77,12 @@ const repositoryStack = Effect.fnUntraced(function* (root: string, { repository:
     const bucket = new R2Bucket(`${name}-updates`, { accountId, name: `${name.toLowerCase()}-updates` }, { protect: true });
     const tags = Array.dedupe(Object.values(hosts).flatMap((row) => row.tags));
     const deployer = 'tag:deploy';
-    const policy = { tagOwners: Record.fromIterableWith([...tags, deployer], (tag) => [tag, ['autogroup:admin']]), grants: [{ src: ['*'], dst: ['*'], ip: ['*'] }], ssh: [{ action: 'accept', src: ['autogroup:member', deployer], dst: tags, users: ['autogroup:nonroot', 'root'] }], nodeAttrs: [{ target: ['autogroup:member'], attr: ['funnel'] }] };
+    const policy = {
+        tagOwners: Record.fromIterableWith([...tags, deployer], (tag) => [tag, ['autogroup:admin']]),
+        grants: [{ src: ['*'], dst: ['*'], ip: ['*'] }],
+        ssh: [{ action: 'accept', src: ['autogroup:member', deployer], dst: tags, users: ['autogroup:nonroot', 'root'] }],
+        nodeAttrs: [{ target: ['autogroup:member'], attr: ['funnel'] }],
+    };
     const tailnet = new Acl('tailnet', { acl: interpolate`${jsonStringify(policy, undefined, '\t')}\n`, overwriteExistingContent: true });
     const joining = new OauthClient(`${name}-deploy`, { description: 'Deploy', scopes: ['auth_keys'], tags: [deployer] }, { dependsOn: tailnet });
     const machines = Record.keys(hosts).map((host) => host.split('.', 1).join(''));

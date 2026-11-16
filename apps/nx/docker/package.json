@@ -2,12 +2,15 @@
     "name": "@rasm/nx-docker",
     "version": "0.1.0",
     "description": "Nx plugin inferring Compose projects, their checks, image builds, and service starts from docker compose's own output; the image build and start of a service join the project of the folder holding its Dockerfile, which a manifest of another plugin names",
+    "license": "MIT",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/bsamiee/Rasm.git",
         "directory": "apps/nx/docker"
     },
-    "license": "MIT",
+    "files": [
+        "dist"
+    ],
     "type": "module",
     "imports": {
         "#/*": "./*.ts",
@@ -18,7 +21,18 @@
         "./package.json": "./package.json",
         "./ready-check": "./ready-check.ts"
     },
-    "files": [ "dist" ],
+    "publishConfig": {
+        "imports": {
+            "#/*": "./dist/*.js",
+            "#package": "./package.json"
+        },
+        "exports": {
+            ".": "./dist/plugin.js",
+            "./package.json": "./package.json",
+            "./ready-check": "./dist/ready-check.js"
+        },
+        "access": "public"
+    },
     "dependencies": {
         "@effect/platform-node": "catalog:",
         "@nx/devkit": "catalog:",
@@ -30,17 +44,5 @@
     },
     "peerDependencies": {
         "nx": "catalog:peers"
-    },
-    "publishConfig": {
-        "access": "public",
-        "exports": {
-            ".": "./dist/plugin.js",
-            "./package.json": "./package.json",
-            "./ready-check": "./dist/ready-check.js"
-        },
-        "imports": {
-            "#/*": "./dist/*.js",
-            "#package": "./package.json"
-        }
     }
 }

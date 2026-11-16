@@ -6,80 +6,84 @@ utils:
         kind: call_expression
         has:
             field: function
-            matches: {effect-module-member: {module: {regex: '(?-u:\b)Schema$'}, member: {regex: '^(NullOr|UndefinedOr|NullishOr)$'}}}
-            has: {field: property, pattern: $WRAP}
+            matches: { effect-module-member: { module: { regex: '(?-u:\b)Schema$' }, member: { regex: '^(NullOr|UndefinedOr|NullishOr)$' } } }
+            has: { field: property, pattern: $WRAP }
     nullable-decode:
         kind: call_expression
         has:
             field: function
             kind: call_expression
             all:
-                - has: {field: function, matches: decoder}
-                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: nullable-schema}}
+                - has: { field: function, matches: decoder }
+                - has: { field: arguments, has: { nthChild: { position: 1, ofRule: { not: { kind: 'comment, html_comment' } } }, matches: nullable-schema } }
     decoder:
-        matches: {effect-schema-codec: {name: {regex: '^decode'}}}
+        matches: { effect-schema-codec: { name: { regex: '^decode' } } }
     synchronous-decoder:
-        matches: {effect-schema-codec: {name: {regex: '^decode(Unknown)?Sync$'}}}
+        matches: { effect-schema-codec: { name: { regex: '^decode(Unknown)?Sync$' } } }
     lift:
         kind: member_expression
         pattern: $OPTION.$FROM
-        matches: {effect-module-member: {module: {regex: '(?-u:\b)Option$'}, member: {regex: '^from(Null|Undefined|Nullish)Or$'}}}
+        matches: { effect-module-member: { module: { regex: '(?-u:\b)Option$' }, member: { regex: '^from(Null|Undefined|Nullish)Or$' } } }
     lifting:
         any:
             - matches: lift
             - kind: arrow_function
               all:
-                - any:
-                    - has: {field: parameter, kind: identifier, pattern: $VALUE}
-                    - has: {field: parameters, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, kind: required_parameter, has: {field: pattern, kind: identifier, pattern: $VALUE}}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}}]}
-                - has:
-                    field: body
-                    kind: call_expression
-                    all:
-                        - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, kind: identifier, pattern: $VALUE}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}}]}
-                        - has: {field: function, matches: lift}
+                  - any:
+                        - has: { field: parameter, kind: identifier, pattern: $VALUE }
+                        - has:
+                              {
+                                  field: parameters,
+                                  all: [{ has: { nthChild: { position: 1, ofRule: { not: { kind: 'comment, html_comment' } } }, kind: required_parameter, has: { field: pattern, kind: identifier, pattern: $VALUE } } }, { not: { has: { nthChild: { position: 2, ofRule: { not: { kind: 'comment, html_comment' } } } } } }],
+                              }
+                  - has:
+                        field: body
+                        kind: call_expression
+                        all:
+                            - has: { field: arguments, all: [{ has: { nthChild: { position: 1, ofRule: { not: { kind: 'comment, html_comment' } } }, kind: identifier, pattern: $VALUE } }, { not: { has: { nthChild: { position: 2, ofRule: { not: { kind: 'comment, html_comment' } } } } } }] }
+                            - has: { field: function, matches: lift }
     map:
         kind: member_expression
-        matches: {effect-module-member: {module: {regex: '(?-u:\b)(Effect|Result)$'}, member: {regex: '^map$'}}}
+        matches: { effect-module-member: { module: { regex: '(?-u:\b)(Effect|Result)$' }, member: { regex: '^map$' } } }
     mapped-lift:
         kind: call_expression
         all:
-            - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: lifting}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}}]}
-            - has: {field: function, matches: map}
+            - has: { field: arguments, all: [{ has: { nthChild: { position: 1, ofRule: { not: { kind: 'comment, html_comment' } } }, matches: lifting } }, { not: { has: { nthChild: { position: 2, ofRule: { not: { kind: 'comment, html_comment' } } } } } }] }
+            - has: { field: function, matches: map }
 rule:
     kind: call_expression
     pattern: $HAND
     any:
         - all:
-            - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: nullable-decode}}, {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: lifting}}]}
-            - has: {field: function, matches: map}
+              - has: { field: arguments, all: [{ has: { nthChild: { position: 1, ofRule: { not: { kind: 'comment, html_comment' } } }, matches: nullable-decode } }, { has: { nthChild: { position: 2, ofRule: { not: { kind: 'comment, html_comment' } } }, matches: lifting } }] }
+              - has: { field: function, matches: map }
         - all:
-            - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^pipe$'}}, {has: {field: object, matches: nullable-decode}}]}
-            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: mapped-lift}}
+              - has: { field: function, kind: member_expression, all: [{ has: { field: property, regex: '^pipe$' } }, { has: { field: object, matches: nullable-decode } }] }
+              - has: { field: arguments, has: { nthChild: { position: 1, ofRule: { not: { kind: 'comment, html_comment' } } }, matches: mapped-lift } }
         - all:
-            - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: nullable-decode}}, {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: mapped-lift}}]}
-            - has: {field: function, matches: {effect-function: {name: {regex: '^pipe$'}}}}
+              - has: { field: arguments, all: [{ has: { nthChild: { position: 1, ofRule: { not: { kind: 'comment, html_comment' } } }, matches: nullable-decode } }, { has: { nthChild: { position: 2, ofRule: { not: { kind: 'comment, html_comment' } } }, matches: mapped-lift } }] }
+              - has: { field: function, matches: { effect-function: { name: { regex: '^pipe$' } } } }
         - all:
-            - has: {field: function, matches: lift}
-            - has:
-                field: arguments
-                has:
-                    nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}
-                    any:
-                        - matches: nullable-decode
-                          has: {field: function, has: {field: function, matches: synchronous-decoder}}
-                        - kind: yield_expression, await_expression
-                          has: {matches: nullable-decode}
+              - has: { field: function, matches: lift }
+              - has:
+                    field: arguments
+                    has:
+                        nthChild: { position: 1, ofRule: { not: { kind: 'comment, html_comment' } } }
+                        any:
+                            - matches: nullable-decode
+                              has: { field: function, has: { field: function, matches: synchronous-decoder } }
+                            - kind: yield_expression, await_expression
+                              has: { matches: nullable-decode }
 constraints:
     FROM:
         any:
             - regex: '^fromNullOr$'
-              inside: {pattern: $HAND, stopBy: end, has: {stopBy: end, pattern: $WRAP, regex: '^NullOr$'}}
+              inside: { pattern: $HAND, stopBy: end, has: { stopBy: end, pattern: $WRAP, regex: '^NullOr$' } }
             - regex: '^fromUndefinedOr$'
-              inside: {pattern: $HAND, stopBy: end, has: {stopBy: end, pattern: $WRAP, regex: '^UndefinedOr$'}}
+              inside: { pattern: $HAND, stopBy: end, has: { stopBy: end, pattern: $WRAP, regex: '^UndefinedOr$' } }
             - regex: '^fromNullishOr$'
-              inside: {pattern: $HAND, stopBy: end, has: {stopBy: end, pattern: $WRAP, regex: '^NullishOr$'}}
+              inside: { pattern: $HAND, stopBy: end, has: { stopBy: end, pattern: $WRAP, regex: '^NullishOr$' } }
 transform:
-    CODEC: {replace: {source: $FROM, replace: '^from', by: OptionFrom}}
+    CODEC: { replace: { source: $FROM, replace: '^from', by: OptionFrom } }
 message: '`$OPTION.$FROM` over a decoded nullable schema restates `Schema.$CODEC`'
 note: 'Decode `Schema.OptionFrom<NullOr|UndefinedOr|NullishOr>(<schema>)` and remove the `Option` conversion'

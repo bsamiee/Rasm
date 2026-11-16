@@ -4,40 +4,45 @@ severity: error
 utils:
     run-body:
         kind: lambda_literal
-        inside: {kind: call_expression, stopBy: {kind: call_expression}, has: {nthChild: 1, regex: '^(Subprocess(\.|::))?run$'}}
+        inside: { kind: call_expression, stopBy: { kind: call_expression }, has: { nthChild: 1, regex: '^(Subprocess(\.|::))?run$' } }
     byte-copy:
         kind: call_expression
         all:
-            - has: {nthChild: 1, regex: '\.withUnsafeBytes$', has: {stopBy: end, kind: simple_identifier, pattern: $CHUNK}}
-            - has: {stopBy: end, kind: call_expression, all: [{has: {kind: navigation_expression, has: {field: suffix, regex: '^\.append$'}}}, {has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, nthChild: {position: 1, ofRule: {kind: value_argument}}, has: {field: name, regex: '^contentsOf$'}}}}}]}
+            - has: { nthChild: 1, regex: '\.withUnsafeBytes$', has: { stopBy: end, kind: simple_identifier, pattern: $CHUNK } }
+            - has:
+                  {
+                      stopBy: end,
+                      kind: call_expression,
+                      all: [{ has: { kind: navigation_expression, has: { field: suffix, regex: '^\.append$' } } }, { has: { kind: call_suffix, has: { kind: value_arguments, has: { kind: value_argument, nthChild: { position: 1, ofRule: { kind: value_argument } }, has: { field: name, regex: '^contentsOf$' } } } } }],
+                  }
     collect:
         kind: for_statement
         all:
-            - has: {field: collection, regex: '\.standard(Output|Error)$'}
-            - has: {field: item, has: {stopBy: end, kind: simple_identifier, pattern: $CHUNK}}
-            - has: {matches: swift-sole-statement, has: {any: [{matches: byte-copy}, {has: {stopBy: end, matches: byte-copy}}]}}
+            - has: { field: collection, regex: '\.standard(Output|Error)$' }
+            - has: { field: item, has: { stopBy: end, kind: simple_identifier, pattern: $CHUNK } }
+            - has: { matches: swift-sole-statement, has: { any: [{ matches: byte-copy }, { has: { stopBy: end, matches: byte-copy } }] } }
 rule:
     pattern: $SITE
     any:
         - matches: subprocess-output-discarding-loop
           inside:
-            matches: run-body
-            stopBy: end
-            has:
-                matches: swift-sole-statement
-                has:
-                    nthChild: 1
-                    any:
-                        - matches: subprocess-output-discarding-loop
-                        - has:
-                            stopBy: {kind: lambda_literal}
-                            kind: call_expression
-                            all:
-                                - has: {nthChild: 1, regex: '^(Swift(\.|::))?Result$'}
-                                - has: {kind: call_suffix, has: {kind: lambda_literal, has: {matches: swift-sole-statement, has: {matches: subprocess-output-discarding-loop}}}}
+              matches: run-body
+              stopBy: end
+              has:
+                  matches: swift-sole-statement
+                  has:
+                      nthChild: 1
+                      any:
+                          - matches: subprocess-output-discarding-loop
+                          - has:
+                                stopBy: { kind: lambda_literal }
+                                kind: call_expression
+                                all:
+                                    - has: { nthChild: 1, regex: '^(Swift(\.|::))?Result$' }
+                                    - has: { kind: call_suffix, has: { kind: lambda_literal, has: { matches: swift-sole-statement, has: { matches: subprocess-output-discarding-loop } } } }
         - matches: collect
-          inside: {matches: run-body, stopBy: end}
+          inside: { matches: run-body, stopBy: end }
 transform:
-    HEAD: {replace: {source: $SITE, replace: '(?s)\n.*$', by: ''}}
+    HEAD: { replace: { source: $SITE, replace: '(?s)\n.*$', by: '' } }
 message: '`$HEAD` discards or collects child output by hand'
 note: 'Pass `output:` or `error:` as `.discarded` for unread output, else `.string(limit:)`, `.data(limit:)`, or `.bytes(limit:)`, and delete the loop'

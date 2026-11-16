@@ -3,4 +3,4 @@ id: rust-statement
 language: rustlang
 rule:
     pattern: $_
-    not: {kind: 'line_comment, block_comment, empty_statement, label'}
+    not: { kind: 'line_comment, block_comment, empty_statement, label' }

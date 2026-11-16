@@ -3,25 +3,25 @@ id: languageext-none-value
 language: csharplang
 utils:
     option-type:
-        matches: {csharp-type-name: {name: {regex: '^Option$'}}}
+        matches: { csharp-type-name: { name: { regex: '^Option$' } } }
 rule:
     any:
         - kind: identifier
           regex: '^None$'
         - kind: member_access_expression
-          matches: {csharp-owner-member: {type: {regex: '^(Prelude|Option)$'}, member: {regex: '^(None|Empty)$'}}}
+          matches: { csharp-owner-member: { type: { regex: '^(Prelude|Option)$' }, member: { regex: '^(None|Empty)$' } } }
         - kind: default_expression
           any:
-            - regex: '^default$'
-            - has: {field: type, matches: option-type}
+              - regex: '^default$'
+              - has: { field: type, matches: option-type }
         - kind: object_creation_expression
           all:
-            - has: {field: type, matches: option-type}
-            - matches: csharp-argumentless-call
-            - not: {has: {field: initializer, kind: initializer_expression}}
+              - has: { field: type, matches: option-type }
+              - matches: csharp-argumentless-call
+              - not: { has: { field: initializer, kind: initializer_expression } }
         - kind: cast_expression
           all:
-            - has: {field: type, matches: option-type}
-            - has: {field: value, matches: languageext-none-value}
+              - has: { field: type, matches: option-type }
+              - has: { field: value, matches: languageext-none-value }
         - kind: parenthesized_expression
-          has: {matches: languageext-none-value}
+          has: { matches: languageext-none-value }

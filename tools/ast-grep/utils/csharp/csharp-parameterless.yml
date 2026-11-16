@@ -2,4 +2,4 @@
 id: csharp-parameterless
 language: csharplang
 rule:
-    has: {field: parameters, kind: parameter_list, not: {has: {kind: parameter}}}
+    has: { field: parameters, kind: parameter_list, not: { has: { kind: parameter } } }

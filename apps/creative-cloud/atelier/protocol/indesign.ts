@@ -346,7 +346,7 @@ class Kerns extends Schema.Class<Kerns, { readonly brand: unique symbol }>('Kern
     static readonly Result = Reference.mapFields(Struct.assign({ written: Schema.Int.annotate({ description: 'Row count' }) }));
 
     get label(): string {
-        const runs: { readonly [Rule in Intl.LDMLPluralRule]?: string } & { readonly other: string } = { one: 'run', other: 'runs' };
+        const runs: Readonly<Partial<Record<Intl.LDMLPluralRule, string>>> & { readonly other: string } = { one: 'run', other: 'runs' };
         return `${Option.isSome(this.restore) ? 'Restore metrics kerning, kern' : 'Kern'} ${this.kerns.length} ${runs[PLURAL.select(this.kerns.length)] ?? runs.other} of ${this.target}`;
     }
 }

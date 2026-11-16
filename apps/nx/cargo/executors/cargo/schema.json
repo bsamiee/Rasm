@@ -55,7 +55,7 @@
                                         "type": "string"
                                     }
                                 },
-                                "required": [ "root", "name" ],
+                                "required": ["root", "name"],
                                 "additionalProperties": true,
                                 "description": "Workspace crate by its folder, relative to the Nx workspace root, and package name"
                             }
@@ -65,7 +65,7 @@
                             "description": "JUnit report of the task's package, relative to the Nx workspace root, holding the test suites of that package from the one cargo nextest run every task of the command shares, whose JUnit path a --tool-config-file layer below the workspace nextest configuration sets"
                         }
                     },
-                    "required": [ "args" ],
+                    "required": ["args"],
                     "additionalProperties": true
                 }
             ],
@@ -112,7 +112,7 @@
                                     "type": "string"
                                 }
                             },
-                            "required": [ "root", "name" ],
+                            "required": ["root", "name"],
                             "additionalProperties": true,
                             "description": "Workspace crate by its folder, relative to the Nx workspace root, and package name"
                         }
@@ -122,7 +122,7 @@
                         "description": "JUnit report of the task's package, relative to the Nx workspace root, holding the test suites of that package from the one cargo nextest run every task of the command shares, whose JUnit path a --tool-config-file layer below the workspace nextest configuration sets"
                     }
                 },
-                "required": [ "args" ],
+                "required": ["args"],
                 "additionalProperties": true
             }
         },
@@ -150,7 +150,7 @@
             }
         }
     },
-    "required": [ "cwd", "commands" ],
+    "required": ["cwd", "commands"],
     "additionalProperties": true,
     "title": "Cargo",
     "description": "Runs cargo commands from a workspace root, one process per command for every selected package, each task decided by the compiler messages of its own package, or by the exit status where the command prints none"

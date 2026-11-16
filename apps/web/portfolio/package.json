@@ -73,7 +73,10 @@
     "nx": {
         "targets": {
             "build--vite": {
-                "outputs": [ "...", "{projectRoot}/.cloudflare/output" ]
+                "outputs": [
+                    "...",
+                    "{projectRoot}/.cloudflare/output"
+                ]
             }
         }
     }

@@ -104,7 +104,7 @@ const packageParts = (options: typeof Options.Type, local: Package, described: R
             ),
         },
     };
-    const cleaning: TargetConfiguration = {
+    const cleaning: TargetConfiguration<Readonly<Record<string, unknown>>> = {
         inputs,
         options: { commands: [['swift', 'package', '--package-path', root, 'clean']], cwd: '.' },
         metadata: { technologies: ['swift'], description: `Removes the build folder of ${manifest.name} with swift package clean`, help: { command: 'swift package clean --help', example: {} } },
@@ -113,16 +113,13 @@ const packageParts = (options: typeof Options.Type, local: Package, described: R
         Record.map(
             Record.filter(work, (_, verb) => verb !== 'test' || tested.has(module)),
             (tools, verb) =>
-                Record.map(
-                    tools,
-                    (_, tool): TargetConfiguration => ({
-                        dependsOn: [{ projects: [manifest.name], target: `${verb}--${tool}` }],
-                        inputs: forwardedInputs,
-                        metadata: { technologies: ['swift'], description: `Runs ${verb}--${tool} of ${manifest.name} with nx run`, help: { command: `nx run ${manifest.name}:${verb}--${tool} --help`, example: { args: ['--verbose'] } } },
-                    }),
-                ),
+                Record.map(tools, (_, tool): TargetConfiguration => ({
+                    dependsOn: [{ projects: [manifest.name], target: `${verb}--${tool}` }],
+                    inputs: forwardedInputs,
+                    metadata: { technologies: ['swift'], description: `Runs ${verb}--${tool} of ${manifest.name} with nx run`, help: { command: `nx run ${manifest.name}:${verb}--${tool} --help`, example: { args: ['--verbose'] } } },
+                })),
         );
-    const relayed: TargetConfiguration = {
+    const relayed: TargetConfiguration<Readonly<Record<string, unknown>>> = {
         dependsOn: [{ projects: [manifest.name], target: 'clean--swift-package' }],
         inputs: forwardedInputs,
         metadata: { technologies: ['swift'], description: `Runs clean--swift-package of ${manifest.name} with nx run`, help: { command: `nx run ${manifest.name}:clean--swift-package --help`, example: { args: ['--verbose'] } } },

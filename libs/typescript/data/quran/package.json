@@ -3,18 +3,26 @@
     "version": "0.1.0",
     "private": true,
     "description": "Quran text from CSV or a mushaf, selected by surah or division a riwayah counts, ayah marks set against a face",
+    "license": "MIT",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/bsamiee/Rasm.git",
         "directory": "libs/typescript/data/quran"
     },
-    "license": "MIT",
-    "sideEffects": false,
+    "files": [
+        "dist"
+    ],
     "type": "module",
+    "sideEffects": false,
     "exports": {
         ".": "./index.ts"
     },
-    "files": [ "dist" ],
+    "publishConfig": {
+        "exports": {
+            ".": "./dist/index.js"
+        },
+        "access": "public"
+    },
     "dependencies": {
         "@quran.ws/text": "catalog:",
         "@rasm/search": "workspace:*",
@@ -27,11 +35,5 @@
     },
     "peerDependencies": {
         "effect": "catalog:peers"
-    },
-    "publishConfig": {
-        "access": "public",
-        "exports": {
-            ".": "./dist/index.js"
-        }
     }
 }

@@ -5,26 +5,26 @@ utils:
     parameter-reference:
         kind: identifier, undefined
         pattern: $PARAMETER
-        matches: {typescript-local-binding: {owner: {pattern: $OWNER}}}
+        matches: { typescript-local-binding: { owner: { pattern: $OWNER } } }
     declared-union:
         any:
             - kind: union_type
               has:
-                any:
-                    - kind: predefined_type
-                      regex: '^(string|number|boolean|symbol)$'
-                    - kind: type_identifier
-                      regex: '^bigint$'
-                    - kind: literal_type
-                      has: {kind: 'string, number, true, false'}
-                    - kind: array_type
-                    - kind: readonly_type
-                      has: {kind: array_type}
-                    - kind: generic_type
-                      has: {field: name, regex: '^(Readonly)?Array$'}
-                    - matches: declared-union
+                  any:
+                      - kind: predefined_type
+                        regex: '^(string|number|boolean|symbol)$'
+                      - kind: type_identifier
+                        regex: '^bigint$'
+                      - kind: literal_type
+                        has: { kind: 'string, number, true, false' }
+                      - kind: array_type
+                      - kind: readonly_type
+                        has: { kind: array_type }
+                      - kind: generic_type
+                        has: { field: name, regex: '^(Readonly)?Array$' }
+                      - matches: declared-union
             - kind: parenthesized_type
-              has: {matches: declared-union}
+              has: { matches: declared-union }
     nullable-union:
         kind: union_type
         any:
@@ -34,48 +34,48 @@ utils:
         any:
             - kind: binary_expression
               all:
-                - has: {field: operator, regex: '^[!=]==?$'}
-                - has: {kind: unary_expression, all: [{has: {field: operator, regex: '^typeof$'}}, {has: {field: argument, matches: parameter-reference}}]}
-                - has: {kind: string}
+                  - has: { field: operator, regex: '^[!=]==?$' }
+                  - has: { kind: unary_expression, all: [{ has: { field: operator, regex: '^typeof$' } }, { has: { field: argument, matches: parameter-reference } }] }
+                  - has: { kind: string }
             - kind: switch_statement
-              has: {field: value, has: {kind: unary_expression, all: [{has: {field: operator, regex: '^typeof$'}}, {has: {field: argument, matches: parameter-reference}}]}}
+              has: { field: value, has: { kind: unary_expression, all: [{ has: { field: operator, regex: '^typeof$' } }, { has: { field: argument, matches: parameter-reference } }] } }
             - kind: call_expression
               all:
-                - has: {field: function, kind: member_expression, has: {field: property, regex: '^isArray$'}}
-                - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: &code {not: {kind: 'comment, html_comment'}}}, matches: parameter-reference}}, {not: {has: {nthChild: {position: 2, ofRule: *code}}}}]}
-                - has:
-                    field: function
-                    any:
-                        - all: [{has: {field: property, regex: '^isArray$'}}, {has: {field: object, regex: '(^|\.)Array$', matches: typescript-global-member}}]
-                        - matches: {effect-module-member: {module: {regex: '(?-u:\b)Array$'}, member: {regex: '^isArray$'}}}
+                  - has: { field: function, kind: member_expression, has: { field: property, regex: '^isArray$' } }
+                  - has: { field: arguments, all: [{ has: { nthChild: { position: 1, ofRule: &code { not: { kind: 'comment, html_comment' } } }, matches: parameter-reference } }, { not: { has: { nthChild: { position: 2, ofRule: *code } } } }] }
+                  - has:
+                        field: function
+                        any:
+                            - all: [{ has: { field: property, regex: '^isArray$' } }, { has: { field: object, regex: '(^|\.)Array$', matches: typescript-global-member } }]
+                            - matches: { effect-module-member: { module: { regex: '(?-u:\b)Array$' }, member: { regex: '^isArray$' } } }
             - kind: call_expression
               all:
-                - has: {field: function, kind: member_expression, has: {field: property, regex: '^is(String|Number|Boolean|BigInt|Symbol)$'}}
-                - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: *code}, matches: parameter-reference}}, {not: {has: {nthChild: {position: 2, ofRule: *code}}}}]}
-                - has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Predicate$'}, member: {regex: '^is(String|Number|Boolean|BigInt|Symbol)$'}}}}
+                  - has: { field: function, kind: member_expression, has: { field: property, regex: '^is(String|Number|Boolean|BigInt|Symbol)$' } }
+                  - has: { field: arguments, all: [{ has: { nthChild: { position: 1, ofRule: *code }, matches: parameter-reference } }, { not: { has: { nthChild: { position: 2, ofRule: *code } } } }] }
+                  - has: { field: function, matches: { effect-module-member: { module: { regex: '(?-u:\b)Predicate$' }, member: { regex: '^is(String|Number|Boolean|BigInt|Symbol)$' } } } }
 rule:
     any:
         - kind: function_signature
           pattern: $SIGNATURE
-          not: {inside: {kind: ambient_declaration, stopBy: end}}
+          not: { inside: { kind: ambient_declaration, stopBy: end } }
         - kind: method_signature
           pattern: $SIGNATURE
-          inside: {kind: class_body}
+          inside: { kind: class_body }
         - matches: shape-test
           inside:
-            matches: typescript-function-boundary
-            stopBy: end
-            pattern: $OWNER
-            all:
-                - has:
-                    field: parameters
-                    has:
-                        kind: required_parameter, optional_parameter
-                        all:
-                            - has: {field: pattern, pattern: $PARAMETER}
-                            - has: {field: type, has: {matches: declared-union}, not: {has: {matches: nullable-union}}}
-                - not: {has: {field: return_type, kind: 'type_predicate_annotation, asserts_annotation'}}
+              matches: typescript-function-boundary
+              stopBy: end
+              pattern: $OWNER
+              all:
+                  - has:
+                        field: parameters
+                        has:
+                            kind: required_parameter, optional_parameter
+                            all:
+                                - has: { field: pattern, pattern: $PARAMETER }
+                                - has: { field: type, has: { matches: declared-union }, not: { has: { matches: nullable-union } } }
+                  - not: { has: { field: return_type, kind: 'type_predicate_annotation, asserts_annotation' } }
 transform:
-    OVERLOAD: {replace: {source: $SIGNATURE, replace: '(?s)^(?:function[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]+)?([^(<]+).*$', by: '$1'}}
+    OVERLOAD: { replace: { source: $SIGNATURE, replace: '(?s)^(?:function[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]+)?([^(<]+).*$', by: '$1' } }
 message: '`$PARAMETER$OVERLOAD` selects behavior by argument shape at runtime'
 note: 'Decode the argument to one shape (`Schema.ArrayEnsure`), or declare one function per shape'

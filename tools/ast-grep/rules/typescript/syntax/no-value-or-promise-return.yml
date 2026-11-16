@@ -5,38 +5,38 @@ utils:
     return-position:
         any:
             - inside:
-                kind: type_annotation
-                inside:
-                    field: return_type
-                    any:
-                        - matches: typescript-function-boundary
-                        - kind: method_signature, function_signature, abstract_method_signature, call_signature
-            - inside: {kind: function_type, field: return_type}
-            - inside: {kind: type_alias_declaration, field: value}
+                  kind: type_annotation
+                  inside:
+                      field: return_type
+                      any:
+                          - matches: typescript-function-boundary
+                          - kind: method_signature, function_signature, abstract_method_signature, call_signature
+            - inside: { kind: function_type, field: return_type }
+            - inside: { kind: type_alias_declaration, field: value }
     promise-of:
         kind: generic_type
         all:
-            - has: {field: name, regex: '^(Promise|PromiseLike)$'}
-            - has: {field: type_arguments, has: {nthChild: {position: 1, ofRule: &code {not: {kind: 'comment, html_comment'}}}, pattern: $T}}
-            - has: {field: type_arguments, has: {nthChild: {position: 1, ofRule: *code}, pattern: $ARG}}
+            - has: { field: name, regex: '^(Promise|PromiseLike)$' }
+            - has: { field: type_arguments, has: { nthChild: { position: 1, ofRule: &code { not: { kind: 'comment, html_comment' } } }, pattern: $T } }
+            - has: { field: type_arguments, has: { nthChild: { position: 1, ofRule: *code }, pattern: $ARG } }
     promise-of-readonly:
         kind: generic_type
         all:
-            - has: {field: name, regex: '^(Promise|PromiseLike)$'}
-            - has: {field: type_arguments, has: {nthChild: {position: 1, ofRule: *code}, kind: readonly_type, pattern: $ARG, has: {pattern: $T}}}
+            - has: { field: name, regex: '^(Promise|PromiseLike)$' }
+            - has: { field: type_arguments, has: { nthChild: { position: 1, ofRule: *code }, kind: readonly_type, pattern: $ARG, has: { pattern: $T } } }
 rule:
     any:
         - kind: union_type
           matches: return-position
           all:
-            - has: {matches: promise-of}
-            - has: {pattern: $T, not: {matches: promise-of}}
+              - has: { matches: promise-of }
+              - has: { pattern: $T, not: { matches: promise-of } }
         - kind: readonly_type
           matches: return-position
           has:
-            kind: union_type
-            all:
-                - has: {matches: promise-of-readonly}
-                - has: {pattern: $T, not: {kind: generic_type}}
+              kind: union_type
+              all:
+                  - has: { matches: promise-of-readonly }
+                  - has: { pattern: $T, not: { kind: generic_type } }
 message: 'Return type holds `$ARG` or a promise of it'
 note: 'Return `Promise<<value>>` alone, built by `Effect.runPromise` at the host boundary'

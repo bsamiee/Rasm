@@ -51,7 +51,7 @@
             }
         }
     },
-    "required": [ "commands", "project" ],
+    "required": ["commands", "project"],
     "additionalProperties": true,
     "title": "Format",
     "description": "Runs dotnet format commands in order on one project, or once each over a solution of every batched project"

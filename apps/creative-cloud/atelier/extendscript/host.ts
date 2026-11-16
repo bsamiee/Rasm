@@ -27,6 +27,7 @@ const ownKeys = (value: object): string[] => {
     }
     return found;
 };
+const isThunk = (value: unknown): value is () => unknown => typeof value === 'function';
 const within = <A>(acquire: () => () => void, body: () => A): A => {
     const release = acquire();
     try {
@@ -35,8 +36,8 @@ const within = <A>(acquire: () => () => void, body: () => A): A => {
         release();
     }
 };
+const isReflection = (each: unknown): each is Reflection => typeof readProperty(each, 'name') === 'string' && isList(readProperty(each, 'properties')) && isList(readProperty(each, 'methods')) && isList(readProperty(each, 'staticProperties'));
 const reflectionOf = (value: unknown): Reflection | undefined => {
-    const isReflection = (each: unknown): each is Reflection => typeof readProperty(each, 'name') === 'string' && isList(readProperty(each, 'properties')) && isList(readProperty(each, 'methods')) && isList(readProperty(each, 'staticProperties'));
     const reflection = readProperty(value, 'reflect');
     return isReflection(reflection) ? reflection : undefined;
 };
@@ -49,10 +50,10 @@ const written = (target: object, values: Fields, prefix: string): string[] => {
             refused = refused.concat(written(held, value, `${prefix}${key}.`));
         } else {
             try {
-                // biome-ignore lint/nursery/noUnsafeTypeAssertion: `object` has no index signature and ES3 has no `Reflect.set`, the host instance takes each key
+                // oxlint-disable-next-line no-param-reassign, typescript/no-unsafe-type-assertion -- `object` has no index signature and ES3 has no `Reflect.set`, the host instance takes each key
                 (target as unknown as Record<string, unknown>)[key] = value;
-            } catch (thrown) {
-                refused.push(`${prefix}${key}: ${message(thrown)}`);
+            } catch (error) {
+                refused.push(`${prefix}${key}: ${message(error)}`);
             }
         }
     }
@@ -113,19 +114,19 @@ const named = (collection: Fields, base: number): string[] => {
     for (let at = base; at < Number(readProperty(collection, 'length')) + base; at += 1) {
         try {
             names.push(String(readProperty(collection[at], 'name')));
-        } catch (thrown) {
-            names.push(`[${at - base}] ${message(thrown)}`);
+        } catch (error) {
+            names.push(`[${at - base}] ${message(error)}`);
         }
     }
     return names;
 };
 const stepped = (base: number, specifier: string, container: object, text: string): Fields => {
     const open = text.indexOf('[');
-    const kind = open < 0 ? text : text.slice(0, open);
-    const held = readProperty(container, open < 0 ? kind : `${kind}s`);
-    const found = open < 0 || !isRecord(held) ? held : member(held, base, text.slice(open + 1, -1));
+    const kind = open === -1 ? text : text.slice(0, open);
+    const held = readProperty(container, open === -1 ? kind : `${kind}s`);
+    const found = open === -1 || !isRecord(held) ? held : member(held, base, text.slice(open + 1, -1));
     if (!isRecord(found)) {
-        throw unmatched(kind, specifier, open >= 0 && isRecord(held) ? named(held, base) : map(reflectionOf(container)?.properties ?? [], ({ name }) => name));
+        throw unmatched(kind, specifier, open !== -1 && isRecord(held) ? named(held, base) : map(reflectionOf(container)?.properties ?? [], ({ name }) => name));
     }
     return found;
 };
@@ -138,8 +139,13 @@ const resolver =
         }
         return chain;
     };
+const described = (info: ReflectionInfo) => ({ name: info.name, description: info.description === '' ? undefined : info.description });
+const declared = (name: string): Reflection | undefined => {
+    const constructor = readProperty($.global, name);
+    const reflection = typeof constructor === 'function' ? reflectionOf(constructor) : undefined;
+    return reflection?.name === name ? reflection : undefined;
+};
 const declaration = (reflection: Reflection): unknown => {
-    const described = (info: ReflectionInfo) => ({ name: info.name, description: info.description === '' ? undefined : info.description });
     const typed = (info: ReflectionInfo, extra: Fields) => {
         const numeric = info.dataType === 'number';
         return assignProperties(described(info), { type: info.dataType, types: [info.dataType], array: info.isCollection, minimum: numeric ? finite(info.min) : undefined, maximum: numeric ? finite(info.max) : undefined }, extra);
@@ -156,11 +162,6 @@ const declaration = (reflection: Reflection): unknown => {
 };
 const reflections = (base: number): Record<string, Reflection> => {
     const found: Record<string, Reflection> = {};
-    const declared = (name: string): Reflection | undefined => {
-        const constructor = readProperty($.global, name);
-        const reflection = typeof constructor === 'function' ? reflectionOf(constructor) : undefined;
-        return reflection?.name === name ? reflection : undefined;
-    };
     const followed = (item: unknown, reflection: Reflection | undefined): void => {
         if (reflection === undefined || found[reflection.name] !== undefined) {
             return;
@@ -217,7 +218,7 @@ const handleEnvelope = ({ indexBase, dialogs, undoGroup, specifier, open, render
         const answer = (): unknown => {
             switch (request.tag) {
                 case 'execute_script': {
-                    // biome-ignore lint/nursery/noImpliedEval: execute_script compiles caller source to run in the host
+                    // oxlint-disable-next-line no-new-func, typescript/no-implied-eval, typescript/no-unsafe-call -- execute_script compiles caller source to run in the host
                     const body: unknown = new Function('alert', 'confirm', 'prompt', 'resolve', 'code', 'return eval(code)')(
                         () => undefined,
                         () => false,
@@ -225,19 +226,24 @@ const handleEnvelope = ({ indexBase, dialogs, undoGroup, specifier, open, render
                         (target: string): unknown => resolve(target).pop() ?? app,
                         request.payload.code,
                     );
-                    if (typeof body !== 'function') {
+                    if (!isThunk(body)) {
                         throw illegalArgument(`${request.tag} code evaluates to ${typeof body}, not a function`);
                     }
                     return { result: body() };
                 }
-                case 'open':
+                case 'open': {
                     return open(request.payload);
-                case 'render':
-                    return render(request.payload, resolve);
-                case 'object_model':
+                }
+                case 'render': {
+                    render(request.payload, resolve);
+                    return undefined;
+                }
+                case 'object_model': {
                     return model(indexBase, request.payload.name);
-                default:
+                }
+                default: {
                     return request satisfies never;
+                }
             }
         };
         const grouped = group === undefined ? answer : () => within(() => group(request.label), answer);

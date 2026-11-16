@@ -33,7 +33,7 @@ const EntryList = ({ entries, selected, onSelect, onRemove }: { readonly entries
         >
             {(item) => (
                 <div className="flex items-center justify-between gap-4.5 pb-2.5 max-sm:items-start max-sm:gap-2">
-                    <Button aria-pressed={selected === item.id} className="aria-pressed:text-accent-text min-w-0 flex-1 text-left text-lg wrap-anywhere aria-pressed:underline aria-pressed:underline-offset-5" onPress={() => onSelect(item)}>
+                    <Button aria-pressed={selected === item.id} className="min-w-0 flex-1 text-left text-lg wrap-anywhere aria-pressed:text-accent-text aria-pressed:underline aria-pressed:underline-offset-5" onPress={() => onSelect(item)}>
                         {entryTitle(item)}
                         <span className="meta-line no-underline">{format.quantity(item.compositions.length, { one: (count) => `${count} composition`, other: (count) => `${count} compositions` })}</span>
                     </Button>
@@ -60,7 +60,7 @@ const EntryFields = ({ entry, titleId }: { readonly entry: typeof Entry.Type; re
                         <Field label="Year" onChange={(year) => update({ year })} value={entry.year} />
                         <Field label="Location" onChange={(location) => update({ location })} value={entry.location} />
                     </div>
-                    <Field label="Description" multiline={true} onChange={(description) => update({ description })} value={entry.description} />
+                    <Field label="Description" multiline onChange={(description) => update({ description })} value={entry.description} />
                     <div className="field-pair">
                         <Field label="Role" onChange={(role) => update({ role })} value={entry.role} />
                         <Field label="Credits" onChange={(credits) => update({ credits })} value={entry.credits} />
@@ -68,7 +68,7 @@ const EntryFields = ({ entry, titleId }: { readonly entry: typeof Entry.Type; re
                 </div>
                 {entry.cover && (
                     <div className="flex flex-wrap items-center justify-between gap-2.5">
-                        <span className="eyebrow min-w-0 wrap-anywhere">{joinDetails(['Cover', entry.cover.asset.name])}</span>
+                        <span className="min-w-0 eyebrow wrap-anywhere">{joinDetails(['Cover', entry.cover.asset.name])}</span>
                         <button className="button button-ghost" onClick={() => setDraft(updateEntry(entry.id, Struct.omit(['cover'])))} type="button">
                             Clear cover
                         </button>

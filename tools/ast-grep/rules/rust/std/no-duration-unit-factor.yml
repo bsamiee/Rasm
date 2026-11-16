@@ -7,4 +7,4 @@ rule:
         - matches: rust-duration-scaling
         - pattern: $FACTOR
 message: '`$FACTOR` converts a duration unit by a literal factor'
-note: 'Call the count''s unit `Duration` constructor, or `as_millis_f64()` (`#![feature(duration_millis_float)]`) for `as_secs_f64() * 1000.0`'
+note: "Call the count's unit `Duration` constructor, or `as_millis_f64()` (`#![feature(duration_millis_float)]`) for `as_secs_f64() * 1000.0`"

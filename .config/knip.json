@@ -1,12 +1,12 @@
 {
     "$schema": "../node_modules/knip/schema.json",
-    "exclude": [ "catalog" ],
+    "exclude": ["catalog"],
     "treatConfigHintsAsErrors": true,
-    "ignoreDependencies": [ "@effect/language-service", "@rasm/atelier-extendscript", "@rasm/infra", "@rasm/portfolio", "adobe", "claude-code", "indesign-uxp-types" ],
-    "ignoreIssues": { "package.json": [ "dependencies", "devDependencies", "optionalPeerDependencies" ] },
-    "wrangler": { "entry": [ "cloudflare.config.ts" ] },
+    "ignoreDependencies": ["@effect/language-service", "@rasm/atelier-extendscript", "@rasm/infra", "@rasm/portfolio", "adobe", "claude-code", "indesign-uxp-types"],
+    "ignoreIssues": { "package.json": ["dependencies", "devDependencies", "optionalPeerDependencies"] },
+    "wrangler": { "entry": ["cloudflare.config.ts"] },
     "workspaces": {
         ".": { "entry": [], "project": [] },
-        "apps/nx/*": { "entry": [ "executors/*/executor.ts", "generators/*/generator.ts" ] }
+        "apps/nx/*": { "entry": ["executors/*/executor.ts", "generators/*/generator.ts"] }
     }
 }

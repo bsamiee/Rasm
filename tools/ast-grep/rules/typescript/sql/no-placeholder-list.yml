@@ -4,14 +4,14 @@ severity: error
 rule:
     kind: call_expression
     all:
-        - has: {field: function, kind: member_expression, all: [{has: {field: object, regex: '^sql$'}}, {has: {field: property, regex: '^in$'}}]}
+        - has: { field: function, kind: member_expression, all: [{ has: { field: object, regex: '^sql$' } }, { has: { field: property, regex: '^in$' } }] }
         - has:
-            field: arguments
-            has:
-                nthChild: {position: 1, reverse: true, ofRule: {not: {kind: 'comment, html_comment'}}}
-                not:
-                    any:
-                        - {kind: array, not: {has: {kind: spread_element}}}
-                        - {kind: member_expression, has: {field: property, regex: '^literals$'}}
+              field: arguments
+              has:
+                  nthChild: { position: 1, reverse: true, ofRule: { not: { kind: 'comment, html_comment' } } }
+                  not:
+                      any:
+                          - { kind: array, not: { has: { kind: spread_element } } }
+                          - { kind: member_expression, has: { field: property, regex: '^literals$' } }
 message: '`sql.in` binds one placeholder per element of a list sized at run time'
 note: 'Bind the list as one parameter, `= any(${<list>})` on PostgreSQL or `in (select value from json_each(${<json>}))` on SQLite'

@@ -5,26 +5,26 @@ arguments: [value]
 utils:
     type-checking-flag:
         any:
-            - matches: {python-member-use: {module: {regex: '^typing$'}, name: {regex: '^TYPE_CHECKING$'}}}
+            - matches: { python-member-use: { module: { regex: '^typing$' }, name: { regex: '^TYPE_CHECKING$' } } }
             - kind: parenthesized_expression
-              has: {matches: type-checking-flag}
+              has: { matches: type-checking-flag }
     subscripted:
         any:
             - kind: identifier, attribute
               matches: value
             - kind: parenthesized_expression
-              has: {matches: subscripted}
+              has: { matches: subscripted }
 rule:
     kind: subscript, generic_type
     all:
-        - has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: subscripted}
+        - has: { nthChild: { position: 1, ofRule: { not: { kind: comment } } }, matches: subscripted }
         - not:
-            any:
-                - inside: {kind: assignment, field: type, stopBy: end, inside: {kind: function_definition, stopBy: {kind: 'function_definition, class_definition'}}}
-                - inside: {kind: 'function_definition, class_definition', field: type_parameters, stopBy: end}
-                - inside: {kind: type_alias_statement, field: left, stopBy: end}
-                - inside:
-                    kind: block
-                    stopBy: end
-                    inside: {kind: 'if_statement, elif_clause', field: consequence, has: {field: condition, matches: type-checking-flag}}
-                - inside: {kind: type_alias_statement, field: right, stopBy: end}
+              any:
+                  - inside: { kind: assignment, field: type, stopBy: end, inside: { kind: function_definition, stopBy: { kind: 'function_definition, class_definition' } } }
+                  - inside: { kind: 'function_definition, class_definition', field: type_parameters, stopBy: end }
+                  - inside: { kind: type_alias_statement, field: left, stopBy: end }
+                  - inside:
+                        kind: block
+                        stopBy: end
+                        inside: { kind: 'if_statement, elif_clause', field: consequence, has: { field: condition, matches: type-checking-flag } }
+                  - inside: { kind: type_alias_statement, field: right, stopBy: end }

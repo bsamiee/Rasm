@@ -5,48 +5,48 @@ rule:
     kind: binary_expression
     any:
         - all:
-            - has: {field: operator, regex: '^(!=|\^)$'}
-            - any:
-                - pattern: ($A > $Y) != ($B > $Y)
-                - pattern: ($A >= $Y) != ($B >= $Y)
-                - pattern: ($A < $Y) != ($B < $Y)
-                - pattern: ($A <= $Y) != ($B <= $Y)
-                - pattern: ($Y > $A) != ($Y > $B)
-                - pattern: ($Y >= $A) != ($Y >= $B)
-                - pattern: ($Y < $A) != ($Y < $B)
-                - pattern: ($Y <= $A) != ($Y <= $B)
-                - pattern: ($A > $Y) ^ ($B > $Y)
-                - pattern: ($A >= $Y) ^ ($B >= $Y)
-                - pattern: ($A < $Y) ^ ($B < $Y)
-                - pattern: ($A <= $Y) ^ ($B <= $Y)
-                - pattern: ($Y > $A) ^ ($Y > $B)
-                - pattern: ($Y >= $A) ^ ($Y >= $B)
-                - pattern: ($Y < $A) ^ ($Y < $B)
-                - pattern: ($Y <= $A) ^ ($Y <= $B)
+              - has: { field: operator, regex: '^(!=|\^)$' }
+              - any:
+                    - pattern: ($A > $Y) != ($B > $Y)
+                    - pattern: ($A >= $Y) != ($B >= $Y)
+                    - pattern: ($A < $Y) != ($B < $Y)
+                    - pattern: ($A <= $Y) != ($B <= $Y)
+                    - pattern: ($Y > $A) != ($Y > $B)
+                    - pattern: ($Y >= $A) != ($Y >= $B)
+                    - pattern: ($Y < $A) != ($Y < $B)
+                    - pattern: ($Y <= $A) != ($Y <= $B)
+                    - pattern: ($A > $Y) ^ ($B > $Y)
+                    - pattern: ($A >= $Y) ^ ($B >= $Y)
+                    - pattern: ($A < $Y) ^ ($B < $Y)
+                    - pattern: ($A <= $Y) ^ ($B <= $Y)
+                    - pattern: ($Y > $A) ^ ($Y > $B)
+                    - pattern: ($Y >= $A) ^ ($Y >= $B)
+                    - pattern: ($Y < $A) ^ ($Y < $B)
+                    - pattern: ($Y <= $A) ^ ($Y <= $B)
         - all:
-            - has: {field: operator, regex: '^\|\|$'}
-            - any:
-                - pattern: ($A <= $Y && $B > $Y) || ($B <= $Y && $A > $Y)
-                - pattern: ($A < $Y && $B >= $Y) || ($B < $Y && $A >= $Y)
-                - pattern: ($A > $Y && $B <= $Y) || ($B > $Y && $A <= $Y)
-                - pattern: ($A >= $Y && $B < $Y) || ($B >= $Y && $A < $Y)
+              - has: { field: operator, regex: '^\|\|$' }
+              - any:
+                    - pattern: ($A <= $Y && $B > $Y) || ($B <= $Y && $A > $Y)
+                    - pattern: ($A < $Y && $B >= $Y) || ($B < $Y && $A >= $Y)
+                    - pattern: ($A > $Y && $B <= $Y) || ($B > $Y && $A <= $Y)
+                    - pattern: ($A >= $Y && $B < $Y) || ($B >= $Y && $A < $Y)
     inside:
         kind: 'function_item, closure_expression'
-        stopBy: {kind: 'function_item, closure_expression'}
+        stopBy: { kind: 'function_item, closure_expression' }
         has:
             stopBy: end
             kind: binary_expression
             all:
-                - has: {field: operator, regex: '^[*/]$'}
+                - has: { field: operator, regex: '^[*/]$' }
                 - any:
-                    - all:
-                        - has: {field: left, has: {stopBy: end, kind: binary_expression, pattern: $Y - $_}}
-                        - has: {field: right, has: {stopBy: end, kind: binary_expression, has: {field: operator, regex: '^-$'}}}
-                    - all:
-                        - has: {field: operator, regex: '^\*$'}
-                        - has: {field: right, has: {stopBy: end, kind: binary_expression, pattern: $Y - $_}}
-                        - has: {field: left, has: {stopBy: end, kind: binary_expression, has: {field: operator, regex: '^-$'}}}
+                      - all:
+                            - has: { field: left, has: { stopBy: end, kind: binary_expression, pattern: $Y - $_ } }
+                            - has: { field: right, has: { stopBy: end, kind: binary_expression, has: { field: operator, regex: '^-$' } } }
+                      - all:
+                            - has: { field: operator, regex: '^\*$' }
+                            - has: { field: right, has: { stopBy: end, kind: binary_expression, pattern: $Y - $_ } }
+                            - has: { field: left, has: { stopBy: end, kind: binary_expression, has: { field: operator, regex: '^-$' } } }
 constraints:
-    Y: {not: {kind: 'integer_literal, float_literal, unary_expression'}}
+    Y: { not: { kind: 'integer_literal, float_literal, unary_expression' } }
 message: 'Crossing test of `$A` and `$B` against `$Y` runs a point-in-polygon ray cast by hand'
 note: 'Build a `geo::Polygon` and call `geo::Contains::contains(&polygon, &point)`, `geo::Intersects::intersects` to count boundary points as inside'

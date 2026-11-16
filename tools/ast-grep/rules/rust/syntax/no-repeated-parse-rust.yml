@@ -5,8 +5,8 @@ utils:
     parse-method:
         kind: field_expression
         all:
-            - has: {field: field, regex: '^parse$'}
-            - has: {field: value, pattern: $INPUT, not: {regex: '\.(next|next_back|nth|pop|pop_front|pop_back|recv|take|remove)\('}}
+            - has: { field: field, regex: '^parse$' }
+            - has: { field: value, pattern: $INPUT, not: { regex: '\.(next|next_back|nth|pop|pop_front|pop_back|recv|take|remove)\(' } }
     parser-path:
         kind: scoped_identifier
         regex: '::(from_str|from_str_radix|try_from|parse)$'
@@ -14,30 +14,30 @@ utils:
         kind: call_expression
         any:
             - all:
-                - has: {field: function, any: [{matches: parse-method}, {kind: generic_function, has: {field: function, matches: parse-method}}]}
-                - has: {field: arguments, not: {has: {pattern: $_}}}
+                  - has: { field: function, any: [{ matches: parse-method }, { kind: generic_function, has: { field: function, matches: parse-method } }] }
+                  - has: { field: arguments, not: { has: { pattern: $_ } } }
             - all:
-                - has: {field: function, matches: parser-path}
-                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, pattern: $INPUT, not: {regex: '^&\p{Pattern_White_Space}*mut(?-u:\b)'}}, not: {has: {nthChild: {position: 3, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}
+                  - has: { field: function, matches: parser-path }
+                  - has: { field: arguments, has: { nthChild: { position: 1, ofRule: { not: { kind: 'line_comment, block_comment' } } }, pattern: $INPUT, not: { regex: '^&\p{Pattern_White_Space}*mut(?-u:\b)' } }, not: { has: { nthChild: { position: 3, ofRule: { not: { kind: 'line_comment, block_comment' } } } } } }
     after-parse:
-        inside: {kind: block}
-        follows: {stopBy: end, any: [{matches: parse-of}, {has: {stopBy: {kind: block}, matches: parse-of}}]}
+        inside: { kind: block }
+        follows: { stopBy: end, any: [{ matches: parse-of }, { has: { stopBy: { kind: block }, matches: parse-of } }] }
     parse-stream:
         inside:
             kind: 'function_item, closure_expression'
             stopBy: end
             any:
-                - has: {field: parameters, has: {kind: parameter, all: [{has: {field: pattern, pattern: $INPUT}}, {has: {field: type, regex: 'Parse(Stream|Buffer)(?-u:\b)'}}]}}
-                - has: {stopBy: end, kind: let_declaration, all: [{has: {field: pattern, pattern: $INPUT}}, {has: {field: value, regex: '\.(fork|lookahead1)\(\)$'}}]}
+                - has: { field: parameters, has: { kind: parameter, all: [{ has: { field: pattern, pattern: $INPUT } }, { has: { field: type, regex: 'Parse(Stream|Buffer)(?-u:\b)' } }] } }
+                - has: { stopBy: end, kind: let_declaration, all: [{ has: { field: pattern, pattern: $INPUT } }, { has: { field: value, regex: '\.(fork|lookahead1)\(\)$' } }] }
 rule:
     kind: call_expression
     all:
         - matches: parse-of
         - any:
-            - matches: after-parse
-            - inside: {stopBy: {kind: 'function_item, closure_expression'}, matches: after-parse}
-        - not: {matches: parse-stream}
-        - not: {matches: rust-test-scope}
+              - matches: after-parse
+              - inside: { stopBy: { kind: 'function_item, closure_expression' }, matches: after-parse }
+        - not: { matches: parse-stream }
+        - not: { matches: rust-test-scope }
         - pattern: $SECOND
 message: '`$SECOND` parses `$INPUT` again after an earlier parse in the block'
 note: 'Parse input once at its boundary into a domain type and pass the parsed value'

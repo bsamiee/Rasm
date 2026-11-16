@@ -3,5 +3,5 @@ id: enum-base
 language: pythonlang
 rule:
     any:
-        - matches: {python-member-use: {module: {regex: '^enum$'}, name: {regex: '^(Enum|IntEnum|StrEnum|Flag|IntFlag|ReprEnum)$'}}}
-        - matches: {python-base-class: {superclasses: {has: {matches: enum-base}}}}
+        - matches: { python-member-use: { module: { regex: '^enum$' }, name: { regex: '^(Enum|IntEnum|StrEnum|Flag|IntFlag|ReprEnum)$' } } }
+        - matches: { python-base-class: { superclasses: { has: { matches: enum-base } } } }

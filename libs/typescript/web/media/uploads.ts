@@ -18,10 +18,16 @@ const preprocessUploads = Effect.fn('preprocessUploads')(function* <M extends Me
     const run = yield* FiberSet.makeRuntimePromise<R>();
     const removed = (file: UppyFile<M, B>) =>
         Effect.callback<void>((resume) => {
-            const unsubscribe = () => uploader.off('file-removed', listener);
-            const listener = (item: UppyFile<M, B>) => item.id === file.id && resume(Effect.sync(unsubscribe));
+            const listener = (item: UppyFile<M, B>) => {
+                if (item.id === file.id) {
+                    resume(unsubscribe);
+                }
+            };
+            const unsubscribe = Effect.sync(() => {
+                uploader.off('file-removed', listener);
+            });
             uploader.on('file-removed', listener);
-            return Effect.sync(unsubscribe);
+            return unsubscribe;
         });
     const prepared = (file: UppyFile<M, B> | undefined) =>
         file?.data instanceof Blob && file.progress.uploadStarted === null

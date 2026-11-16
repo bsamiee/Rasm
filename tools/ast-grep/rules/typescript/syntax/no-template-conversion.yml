@@ -5,9 +5,9 @@ rule:
     kind: template_string
     pattern: $TEMPLATE
     all:
-        - not: {has: {kind: 'string_fragment, escape_sequence'}}
-        - has: {kind: template_substitution, nthChild: {position: 1, ofRule: &code {not: {kind: 'comment, html_comment'}}}, has: {pattern: $VALUE}}
-        - not: {has: {kind: template_substitution, nthChild: {position: 2, ofRule: *code}}}
-        - inside: {kind: member_expression, field: object}
+        - not: { has: { kind: 'string_fragment, escape_sequence' } }
+        - has: { kind: template_substitution, nthChild: { position: 1, ofRule: &code { not: { kind: 'comment, html_comment' } } }, has: { pattern: $VALUE } }
+        - not: { has: { kind: template_substitution, nthChild: { position: 2, ofRule: *code } } }
+        - inside: { kind: member_expression, field: object }
 message: '`$TEMPLATE` converts `$VALUE` to a string through a template'
-note: 'Call the value''s own `toString`'
+note: "Call the value's own `toString`"

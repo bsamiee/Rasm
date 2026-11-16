@@ -84,17 +84,14 @@ const projects = Effect.gen(function* () {
 
 export default defineConfig(() =>
     Effect.runPromise(
-        Effect.map(
-            projects,
-            (declared): ViteUserConfig => ({
-                plugins: [reports()],
-                test: {
-                    ...reporting,
-                    coverage: { allowExternal: true, reportOnFailure: true },
-                    silent: 'passed-only',
-                    projects: declared,
-                },
-            }),
-        ),
+        Effect.map(projects, (declared): ViteUserConfig => ({
+            plugins: [reports()],
+            test: {
+                ...reporting,
+                coverage: { allowExternal: true, reportOnFailure: true },
+                silent: 'passed-only',
+                projects: declared,
+            },
+        })),
     ),
 );

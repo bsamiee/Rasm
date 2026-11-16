@@ -2,12 +2,15 @@
     "name": "@rasm/nx-playwright",
     "version": "0.1.0",
     "description": "Nx plugin inferring one Playwright target per package holding a Playwright configuration, depending on the Nx task each webServer row starts",
+    "license": "MIT",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/bsamiee/Rasm.git",
         "directory": "apps/nx/playwright"
     },
-    "license": "MIT",
+    "files": [
+        "dist"
+    ],
     "type": "module",
     "imports": {
         "#package": "./package.json"
@@ -16,7 +19,13 @@
         ".": "./plugin.ts",
         "./package.json": "./package.json"
     },
-    "files": [ "dist" ],
+    "publishConfig": {
+        "exports": {
+            ".": "./dist/plugin.js",
+            "./package.json": "./package.json"
+        },
+        "access": "public"
+    },
     "dependencies": {
         "@effect/platform-node": "catalog:",
         "@nx/devkit": "catalog:",
@@ -31,12 +40,5 @@
     "peerDependencies": {
         "@playwright/test": "catalog:peers",
         "nx": "catalog:peers"
-    },
-    "publishConfig": {
-        "access": "public",
-        "exports": {
-            ".": "./dist/plugin.js",
-            "./package.json": "./package.json"
-        }
     }
 }

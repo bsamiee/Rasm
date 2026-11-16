@@ -6,20 +6,20 @@ utils:
     unset:
         pattern: $UNSET
         any:
-            - matches: {csharp-owner-member: {type: {regex: '^RhinoMath$'}, member: {regex: '^Unset(Value|Single)$'}}}
-            - matches: {csharp-owner-member: {type: {regex: '^(Point[23][df]|Vector[23][df]|Plane|Line|Arc|Circle|Interval|Transform|BoundingBox|ComponentIndex)$'}, member: {regex: '^Unset$'}}}
+            - matches: { csharp-owner-member: { type: { regex: '^RhinoMath$' }, member: { regex: '^Unset(Value|Single)$' } } }
+            - matches: { csharp-owner-member: { type: { regex: '^(Point[23][df]|Vector[23][df]|Plane|Line|Arc|Circle|Interval|Transform|BoundingBox|ComponentIndex)$' }, member: { regex: '^Unset$' } } }
 rule:
     kind: binary_expression, invocation_expression
     any:
         - kind: binary_expression
           all:
-            - has: {field: operator, regex: '^[!=]=$'}
-            - any:
-                - has: {field: right, matches: unset}
-                - has: {field: left, matches: unset}
+              - has: { field: operator, regex: '^[!=]=$' }
+              - any:
+                    - has: { field: right, matches: unset }
+                    - has: { field: left, matches: unset }
         - kind: invocation_expression
           all:
-            - matches: {csharp-named-call: {name: {regex: '^Equals$'}}}
-            - has: {field: arguments, has: {kind: argument, has: {matches: unset}}}
+              - matches: { csharp-named-call: { name: { regex: '^Equals$' } } }
+              - has: { field: arguments, has: { kind: argument, has: { matches: unset } } }
 message: '`$UNSET` comparison tests validity by sentinel equality'
 note: 'Test `RhinoMath.IsValidDouble`, `RhinoMath.IsValidSingle`, `<value>.IsValid`, or `<index>.IsUnset()`, `Some(<value>).Filter(<test>)` for an `Option`'

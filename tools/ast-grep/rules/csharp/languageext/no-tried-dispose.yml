@@ -5,11 +5,11 @@ ignores: ['apps/roslyn/**']
 rule:
     kind: invocation_expression
     all:
-        - has: {field: function, regex: 'Run$'}
+        - has: { field: function, regex: 'Run$' }
         - pattern: $RELEASE
         - any:
-            - pattern: Try.lift($X.Dispose).Run()
-            - pattern: Try.lift(() => $X.Dispose()).Run()
-            - pattern: Try.lift(() => { $X.Dispose(); return unit; }).Run()
+              - pattern: Try.lift($X.Dispose).Run()
+              - pattern: Try.lift(() => $X.Dispose()).Run()
+              - pattern: Try.lift(() => { $X.Dispose(); return unit; }).Run()
 message: '`$RELEASE` releases `$X` through `Try`'
 note: 'Acquire through `use` and release at the owning `Bracket`, `Finally(IO.lift(<release>))` for a release holding no handle'

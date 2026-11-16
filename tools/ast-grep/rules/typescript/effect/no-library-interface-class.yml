@@ -6,23 +6,23 @@ utils:
         any:
             - kind: nested_type_identifier
               all:
-                - not: {has: {field: name, regex: '^(Equal|Hash|Inspectable|Pipeable|Redactable)$'}}
-                - has: {field: module, matches: effect-namespace}
+                  - not: { has: { field: name, regex: '^(Equal|Hash|Inspectable|Pipeable|Redactable)$' } }
+                  - has: { field: module, matches: effect-namespace }
             - kind: type_identifier
-              matches: {typescript-import-reference: {source: {matches: {effect-module-source: {name: {regex: ''}}}}, exported: {not: {regex: '^(Equal|Hash|Inspectable|Pipeable|Redactable)$'}}}}
+              matches: { typescript-import-reference: { source: { matches: { effect-module-source: { name: { regex: '' } } } }, exported: { not: { regex: '^(Equal|Hash|Inspectable|Pipeable|Redactable)$' } } } }
 rule:
     kind: class_declaration, abstract_class_declaration, class
     all:
-        - has: {field: name, pattern: $NAME}
+        - has: { field: name, pattern: $NAME }
         - has:
-            kind: class_heritage
-            has:
-                kind: implements_clause
-                has:
-                    pattern: $INTERFACE
-                    any:
-                        - matches: library-interface
-                        - kind: generic_type
-                          has: {field: name, matches: library-interface}
+              kind: class_heritage
+              has:
+                  kind: implements_clause
+                  has:
+                      pattern: $INTERFACE
+                      any:
+                          - matches: library-interface
+                          - kind: generic_type
+                            has: { field: name, matches: library-interface }
 message: '`$NAME` reimplements `$INTERFACE`, a value the library constructs'
 note: 'Build the value with `<module>.make` or read it from its runtime (`Tracer.make` over `Effect.tracer` for a tracer)'

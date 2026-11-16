@@ -2,4 +2,4 @@
 id: effect-string-module
 language: tsxlang
 rule:
-    matches: {effect-module: {name: {regex: '(?-u:\b)String$'}}}
+    matches: { effect-module: { name: { regex: '(?-u:\b)String$' } } }

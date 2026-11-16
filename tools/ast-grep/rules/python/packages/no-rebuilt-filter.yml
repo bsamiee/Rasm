@@ -3,84 +3,104 @@ language: pythonlang
 severity: error
 utils:
     ok-constructor:
-        matches: {expression-member: {name: {regex: '^Ok$'}}}
+        matches: { expression-member: { name: { regex: '^Ok$' } } }
     error-constructor:
-        matches: {expression-member: {name: {regex: '^Error$'}}}
+        matches: { expression-member: { name: { regex: '^Error$' } } }
     some-constructor:
-        matches: {expression-member: {name: {regex: '^Some$'}}}
+        matches: { expression-member: { name: { regex: '^Some$' } } }
     nothing-value:
         kind: identifier
-        matches: {expression-member: {name: {regex: '^Nothing$'}}}
+        matches: { expression-member: { name: { regex: '^Nothing$' } } }
     ok-value:
         kind: call
         all:
-            - has: {field: function, matches: ok-constructor}
-            - has: {field: arguments, kind: argument_list, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, pattern: $VALUE}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}}]}
+            - has: { field: function, matches: ok-constructor }
+            - has: { field: arguments, kind: argument_list, all: [{ has: { nthChild: { position: 1, ofRule: { not: { kind: comment } } }, pattern: $VALUE } }, { not: { has: { nthChild: { position: 2, ofRule: { not: { kind: comment } } } } } }] }
     some-value:
         kind: call
         all:
-            - has: {field: function, matches: some-constructor}
-            - has: {field: arguments, kind: argument_list, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, pattern: $VALUE}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}}]}
+            - has: { field: function, matches: some-constructor }
+            - has: { field: arguments, kind: argument_list, all: [{ has: { nthChild: { position: 1, ofRule: { not: { kind: comment } } }, pattern: $VALUE } }, { not: { has: { nthChild: { position: 2, ofRule: { not: { kind: comment } } } } } }] }
     error-value:
         kind: call
-        has: {field: function, matches: error-constructor}
+        has: { field: function, matches: error-constructor }
     type-test:
         kind: call
         all:
-            - has: {field: function, matches: {python-builtin-identifier: {name: {regex: '^isinstance$'}}}}
+            - has: { field: function, matches: { python-builtin-identifier: { name: { regex: '^isinstance$' } } } }
             - has:
-                field: arguments
-                kind: argument_list
-                all:
-                    - has:
-                        nthChild: {position: 1, ofRule: {not: {kind: comment}}}
-                        any:
-                            - pattern: $VALUE
-                            - kind: named_expression
-                              has: {field: name, pattern: $VALUE}
-                    - has:
-                        nthChild: {position: 2, ofRule: {not: {kind: comment}}}
-                        kind: identifier, attribute
-                        not:
+                  field: arguments
+                  kind: argument_list
+                  all:
+                      - has:
+                            nthChild: { position: 1, ofRule: { not: { kind: comment } } }
                             any:
-                                - matches: {python-typed-parameter: {type: {kind: type, not: {regex: '^type\['}}}}
-                                - matches: {python-assigned-name: {value: {kind: 'tuple, binary_operator, parenthesized_expression, subscript'}}}
-                    - not: {has: {nthChild: {position: 3, ofRule: {not: {kind: comment}}}}}
+                                - pattern: $VALUE
+                                - kind: named_expression
+                                  has: { field: name, pattern: $VALUE }
+                      - has:
+                            nthChild: { position: 2, ofRule: { not: { kind: comment } } }
+                            kind: identifier, attribute
+                            not:
+                                any:
+                                    - matches: { python-typed-parameter: { type: { kind: type, not: { regex: '^type\[' } } } }
+                                    - matches: { python-assigned-name: { value: { kind: 'tuple, binary_operator, parenthesized_expression, subscript' } } }
+                      - not: { has: { nthChild: { position: 3, ofRule: { not: { kind: comment } } } } }
     negated-type-test:
         kind: not_operator
-        has: {field: argument, matches: type-test}
+        has: { field: argument, matches: type-test }
     bound-value:
         inside:
             kind: lambda
             field: body
             all:
-                - has: {field: parameters, kind: lambda_parameters, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, kind: identifier, pattern: $VALUE}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}}]}
+                - has: { field: parameters, kind: lambda_parameters, all: [{ has: { nthChild: { position: 1, ofRule: { not: { kind: comment } } }, kind: identifier, pattern: $VALUE } }, { not: { has: { nthChild: { position: 2, ofRule: { not: { kind: comment } } } } } }] }
                 - inside:
-                    kind: argument_list
-                    all:
-                        - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
-                        - inside: {kind: call, has: {field: function, kind: attribute, has: {field: attribute, pattern: bind}}}
+                      kind: argument_list
+                      all:
+                          - not: { has: { nthChild: { position: 2, ofRule: { not: { kind: comment } } } } }
+                          - inside: { kind: call, has: { field: function, kind: attribute, has: { field: attribute, pattern: bind } } }
     instance-test:
         any:
-            - {kind: call, has: {field: function, matches: {python-builtin-identifier: {name: {regex: '^isinstance$'}}}}}
-            - {kind: not_operator, has: {field: argument, kind: call, has: {field: function, matches: {python-builtin-identifier: {name: {regex: '^isinstance$'}}}}}}
+            - { kind: call, has: { field: function, matches: { python-builtin-identifier: { name: { regex: '^isinstance$' } } } } }
+            - { kind: not_operator, has: { field: argument, kind: call, has: { field: function, matches: { python-builtin-identifier: { name: { regex: '^isinstance$' } } } } } }
     value-test:
         all:
             - pattern: $TEST
-            - has: {stopBy: end, kind: identifier, pattern: $VALUE}
-            - not: {matches: instance-test}
+            - has: { stopBy: end, kind: identifier, pattern: $VALUE }
+            - not: { matches: instance-test }
 rule:
     kind: conditional_expression
     any:
-        - all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: some-value}}, {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}, pattern: $TEST, matches: type-test}}, {has: {nthChild: {position: 3, ofRule: {not: {kind: comment}}}, matches: nothing-value}}]
-        - all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: nothing-value}}, {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}, pattern: $TEST, matches: negated-type-test}}, {has: {nthChild: {position: 3, ofRule: {not: {kind: comment}}}, matches: some-value}}]
-        - all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: ok-value}}, {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}, pattern: $TEST, any: [{matches: type-test}, {matches: value-test}]}}, {has: {nthChild: {position: 3, ofRule: {not: {kind: comment}}}, matches: error-value}}]
-        - all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: error-value}}, {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}, pattern: $TEST, any: [{matches: negated-type-test}, {matches: value-test}]}}, {has: {nthChild: {position: 3, ofRule: {not: {kind: comment}}}, matches: ok-value}}]
         - all:
-            - matches: bound-value
-            - any:
-                - all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: some-value}}, {has: {nthChild: {position: 3, ofRule: {not: {kind: comment}}}, matches: nothing-value}}]
-                - all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: nothing-value}}, {has: {nthChild: {position: 3, ofRule: {not: {kind: comment}}}, matches: some-value}}]
-            - has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}, matches: value-test}
+              [
+                  { has: { nthChild: { position: 1, ofRule: { not: { kind: comment } } }, matches: some-value } },
+                  { has: { nthChild: { position: 2, ofRule: { not: { kind: comment } } }, pattern: $TEST, matches: type-test } },
+                  { has: { nthChild: { position: 3, ofRule: { not: { kind: comment } } }, matches: nothing-value } },
+              ]
+        - all:
+              [
+                  { has: { nthChild: { position: 1, ofRule: { not: { kind: comment } } }, matches: nothing-value } },
+                  { has: { nthChild: { position: 2, ofRule: { not: { kind: comment } } }, pattern: $TEST, matches: negated-type-test } },
+                  { has: { nthChild: { position: 3, ofRule: { not: { kind: comment } } }, matches: some-value } },
+              ]
+        - all:
+              [
+                  { has: { nthChild: { position: 1, ofRule: { not: { kind: comment } } }, matches: ok-value } },
+                  { has: { nthChild: { position: 2, ofRule: { not: { kind: comment } } }, pattern: $TEST, any: [{ matches: type-test }, { matches: value-test }] } },
+                  { has: { nthChild: { position: 3, ofRule: { not: { kind: comment } } }, matches: error-value } },
+              ]
+        - all:
+              [
+                  { has: { nthChild: { position: 1, ofRule: { not: { kind: comment } } }, matches: error-value } },
+                  { has: { nthChild: { position: 2, ofRule: { not: { kind: comment } } }, pattern: $TEST, any: [{ matches: negated-type-test }, { matches: value-test }] } },
+                  { has: { nthChild: { position: 3, ofRule: { not: { kind: comment } } }, matches: ok-value } },
+              ]
+        - all:
+              - matches: bound-value
+              - any:
+                    - all: [{ has: { nthChild: { position: 1, ofRule: { not: { kind: comment } } }, matches: some-value } }, { has: { nthChild: { position: 3, ofRule: { not: { kind: comment } } }, matches: nothing-value } }]
+                    - all: [{ has: { nthChild: { position: 1, ofRule: { not: { kind: comment } } }, matches: nothing-value } }, { has: { nthChild: { position: 3, ofRule: { not: { kind: comment } } }, matches: some-value } }]
+              - has: { nthChild: { position: 2, ofRule: { not: { kind: comment } } }, matches: value-test }
 message: 'Conditional on `$TEST` rebuilds `Ok`, `Error`, `Some`, or `Nothing` around one value'
 note: 'Call `.filter_with` or `.filter`, or `Option.of_optional(try_downcast(<type>, <value>))` with `.to_result_with`'

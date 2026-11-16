@@ -5,7 +5,7 @@
         "declarationMap": true,
         "erasableSyntaxOnly": true,
         "exactOptionalPropertyTypes": true,
-        "lib": [ "esnext" ],
+        "lib": ["esnext"],
         "module": "nodenext",
         "noFallthroughCasesInSwitch": true,
         "noImplicitOverride": true,
@@ -16,12 +16,12 @@
         "plugins": [
             {
                 "name": "@effect/language-service",
-                "allowedUnstableApis": [ "effect", "@effect" ],
-                "allowedExperimentalApis": [ "effect", "@effect" ],
-                "barrelImportPackages": [ "effect" ],
-                "effectFn": [ "span", "untraced" ],
+                "allowedUnstableApis": ["effect", "@effect"],
+                "allowedExperimentalApis": ["effect", "@effect"],
+                "barrelImportPackages": ["effect"],
+                "effectFn": ["span", "untraced"],
                 "ignoreEffectSuggestionsInTscExitCode": false,
-                "keyPatterns": [ { "target": "service" }, { "target": "custom" }, { "target": "error", "pattern": "identifier" }, { "target": "taggedClass", "pattern": "identifier" } ],
+                "keyPatterns": [{ "target": "service" }, { "target": "custom" }, { "target": "error", "pattern": "identifier" }, { "target": "taggedClass", "pattern": "identifier" }],
                 "diagnosticSeverity": {
                     "anyUnknownInErrorContext": "error",
                     "catchUnfailableEffect": "error",
@@ -57,13 +57,13 @@
                     "strictBooleanExpressions": "error",
                     "unnecessaryFailYieldableError": "error"
                 },
-                "overrides": [ { "include": [ "**/*.test.tsx", "**/*.spec.ts", "**/*.stories.tsx", "plugins/function-hooks/hooks/*.ts" ], "options": { "diagnosticSeverity": { "asyncFunction": "off" } } } ]
+                "overrides": [{ "include": ["**/*.test.tsx", "**/*.spec.ts", "**/*.stories.tsx", "plugins/function-hooks/hooks/*.ts"], "options": { "diagnosticSeverity": { "asyncFunction": "off" } } }]
             }
         ],
         "skipLibCheck": true,
         "sourceMap": true,
         "target": "es2025",
-        "types": [ "node" ],
+        "types": ["node"],
         "verbatimModuleSyntax": true
     }
 }

@@ -9,11 +9,11 @@ rule:
         - pattern: '$ARRAY.isArray($X) ? $X : [$X]'
         - pattern: '!$ARRAY.isArray($X) ? [$X] : $X'
 constraints:
-    X: {kind: 'identifier, undefined, this, number, string, true, false, null'}
+    X: { kind: 'identifier, undefined, this, number, string, true, false, null' }
     ARRAY:
         any:
             - regex: '^((globalThis|window|self)\.)?Array$'
               matches: typescript-global-reference
-            - matches: {effect-module: {name: {regex: '(?-u:\b)Array$'}}}
+            - matches: { effect-module: { name: { regex: '(?-u:\b)Array$' } } }
 message: '`$CALL` normalizes one `$X` or an array of `$X` into an array by hand'
 note: 'Call `Array.ensure(<value>)` from `effect`'

@@ -6,7 +6,7 @@ import { Button, Toolbar } from 'react-aria-components';
 
 const ZoomControls = ({ zoomOut, fit, zoomIn, href, children }: { zoomOut: () => void; fit: ReactNode; zoomIn: () => void; href: string; children?: ReactNode }) => (
     <div className="viewer-controls">
-        <Toolbar aria-label="Zoom controls" className="viewer-toolbar order-first *:px-2">
+        <Toolbar aria-label="Zoom controls" className="order-first viewer-toolbar *:px-2">
             <Button aria-label="Zoom out" className="button button-ghost" onPress={zoomOut}>
                 <Minus className="size-4" />
             </Button>
@@ -16,7 +16,7 @@ const ZoomControls = ({ zoomOut, fit, zoomIn, href, children }: { zoomOut: () =>
             </Button>
         </Toolbar>
         {children}
-        <a className="text-caption text-link -order-1 ml-auto min-h-11 gap-1" href={href} rel="noreferrer" target="_blank">
+        <a className="-order-1 ml-auto text-link min-h-11 gap-1 text-caption" href={href} rel="noreferrer" target="_blank">
             Original
             <ArrowUpRight className="size-4" />
         </a>

@@ -4,10 +4,10 @@
         "composite": false,
         "declarationMap": false,
         "noEmit": true,
-        "types": [ "node", "vite/client" ]
+        "types": ["node", "vite/client"]
     },
-    "include": [ "**/*", "package.json" ],
-    "exclude": [ "plugins", "protocol", "extendscript" ],
+    "include": ["**/*", "package.json"],
+    "exclude": ["plugins", "protocol", "extendscript"],
     "references": [
         {
             "path": "../../../libs/typescript/creative-cloud/uxp"

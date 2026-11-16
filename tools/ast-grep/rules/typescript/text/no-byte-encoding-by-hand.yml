@@ -5,13 +5,13 @@ utils:
     byte-string:
         any:
             - kind: member_expression
-              all: [{has: {field: property, regex: '^from(CharCode|CodePoint)$'}}, {has: {field: object, regex: '(^|\.)String$', matches: typescript-global-member}}]
+              all: [{ has: { field: property, regex: '^from(CharCode|CodePoint)$' } }, { has: { field: object, regex: '(^|\.)String$', matches: typescript-global-member } }]
             - kind: call_expression
-              has: {field: function, pattern: unescape}
+              has: { field: function, pattern: unescape }
     holds-byte-string:
         any:
             - matches: byte-string
-            - has: {stopBy: end, matches: byte-string}
+            - has: { stopBy: end, matches: byte-string }
     radix:
         kind: number
         regex: '^(16|0x10)$'
@@ -19,25 +19,25 @@ utils:
         kind: call_expression
         pattern: $OP
         all:
-            - has: {field: function, kind: member_expression, has: {field: property, regex: '^toString$'}}
-            - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: &code {not: {kind: 'comment, html_comment'}}}, matches: radix}}, {not: {has: {nthChild: {position: 2, ofRule: *code}}}}]}
+            - has: { field: function, kind: member_expression, has: { field: property, regex: '^toString$' } }
+            - has: { field: arguments, all: [{ has: { nthChild: { position: 1, ofRule: &code { not: { kind: 'comment, html_comment' } } }, matches: radix } }, { not: { has: { nthChild: { position: 2, ofRule: *code } } } }] }
     hex-pair:
         any:
             - kind: call_expression
               all:
-                - has: {field: function, kind: member_expression, has: {field: property, regex: '^padStart$'}}
-                - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: *code}, regex: '^2$'}}, {has: {nthChild: {position: 2, ofRule: *code}, regex: '^[''"`]0[''"`]$'}}, {not: {has: {nthChild: {position: 3, ofRule: *code}}}}]}
-                - has: {field: function, has: {field: object, matches: hex-digits}}
+                  - has: { field: function, kind: member_expression, has: { field: property, regex: '^padStart$' } }
+                  - has: { field: arguments, all: [{ has: { nthChild: { position: 1, ofRule: *code }, regex: '^2$' } }, { has: { nthChild: { position: 2, ofRule: *code }, regex: '^[''"`]0[''"`]$' } }, { not: { has: { nthChild: { position: 3, ofRule: *code } } } }] }
+                  - has: { field: function, has: { field: object, matches: hex-digits } }
             - kind: call_expression
               all:
-                - has: {field: function, kind: member_expression, has: {field: property, regex: '^slice$'}}
-                - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: *code}, regex: '^-2$'}}, {not: {has: {nthChild: {position: 2, ofRule: *code}}}}]}
-                - has: {field: function, has: {field: object, regex: '^\(?[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*([''"]0+[''"]|`0)', has: {stopBy: end, matches: hex-digits}}}
+                  - has: { field: function, kind: member_expression, has: { field: property, regex: '^slice$' } }
+                  - has: { field: arguments, all: [{ has: { nthChild: { position: 1, ofRule: *code }, regex: '^-2$' } }, { not: { has: { nthChild: { position: 2, ofRule: *code } } } }] }
+                  - has: { field: function, has: { field: object, regex: '^\(?[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*([''"]0+[''"]|`0)', has: { stopBy: end, matches: hex-digits } } }
             - kind: binary_expression
               all:
-                - has: {field: operator, regex: '^\+$'}
-                - has: {field: right, matches: hex-digits}
-                - has: {field: left, has: {stopBy: end, kind: ternary_expression, has: {kind: string, regex: '^[''"]0[''"]$'}}}
+                  - has: { field: operator, regex: '^\+$' }
+                  - has: { field: right, matches: hex-digits }
+                  - has: { field: left, has: { stopBy: end, kind: ternary_expression, has: { kind: string, regex: '^[''"]0[''"]$' } } }
     joining-callback:
         kind: arrow_function, function_expression
         inside:
@@ -48,91 +48,92 @@ utils:
                     kind: member_expression
                     field: object
                     all:
-                        - has: {field: property, regex: '^join$'}
-                        - inside: {kind: call_expression, field: function, has: {field: arguments, regex: '^\([\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*(''''|""|``)[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\)$'}}
+                        - has: { field: property, regex: '^join$' }
+                        - inside:
+                              { kind: call_expression, field: function, has: { field: arguments, regex: '^\([\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*(''''|""|``)[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\)$' } }
 rule:
     any:
         - kind: call_expression
           all:
-            - has: {field: function, pattern: $OP, regex: '(^|\.)btoa$', matches: typescript-global-member}
-            - has:
-                field: arguments
-                has:
-                    nthChild: {position: 1, ofRule: *code}
-                    any:
-                        - matches: holds-byte-string
-                        - kind: identifier
-                          pattern: $S
-                          matches: {typescript-local-binding: {owner: {pattern: $S_OWNER}}}
-                          inside:
-                            stopBy: end
-                            pattern: $S_OWNER
-                            has:
-                                stopBy: {matches: typescript-function-boundary}
-                                any:
-                                    - kind: variable_declarator
-                                      all: [{has: {field: name, pattern: $S}}, {has: {field: value, matches: holds-byte-string}}]
-                                    - kind: augmented_assignment_expression
-                                      all: [{has: {field: left, pattern: $S}}, {has: {field: right, matches: holds-byte-string}}]
-        - kind: call_expression
-          all:
-            - has: {field: function, pattern: $OP, regex: '(^|\.)atob$', matches: typescript-global-member}
-            - any:
-                - inside:
-                    stopBy: {kind: 'arrow_function, function_expression, function_declaration, generator_function, generator_function_declaration, method_definition, expression_statement, lexical_declaration, variable_declaration, return_statement'}
-                    kind: 'call_expression, new_expression'
-                    has: {stopBy: end, kind: property_identifier, regex: '^(charCodeAt|codePointAt)$'}
-                - inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, pattern: escape}}}
-                - inside:
-                    kind: variable_declarator
-                    has: {field: name, pattern: $S}
-                    inside:
-                        stopBy: end
-                        kind: 'statement_block, program'
-                        has:
-                            stopBy: end
-                            kind: member_expression
-                            all: [{has: {field: object, pattern: $S}}, {has: {field: property, regex: '^(charCodeAt|codePointAt)$'}}]
-        - all:
-            - any:
-                - kind: call_expression
-                  has: {field: function, kind: member_expression, has: {field: property, regex: '^(padStart|slice)$'}}
-                - kind: binary_expression
-                  has: {field: operator, regex: '^\+$'}
-            - matches: hex-pair
-            - any:
-                - inside: {field: body, matches: joining-callback}
-                - inside: {kind: return_statement, inside: {kind: statement_block, inside: {field: body, matches: joining-callback}}}
-                - inside:
-                    kind: augmented_assignment_expression
-                    field: right
-                    all:
-                        - has: {field: operator, regex: '^\+=$'}
-                        - inside: {stopBy: &boundary {kind: 'arrow_function, function_expression, function_declaration, generator_function, generator_function_declaration, method_definition'}, kind: 'for_in_statement, for_statement, while_statement, do_statement'}
-        - kind: call_expression
-          all:
-            - has: {field: arguments, all: [{has: {nthChild: {position: 2, ofRule: *code}, matches: radix}}, {not: {has: {nthChild: {position: 3, ofRule: *code}}}}]}
-            - has: {field: function, pattern: $OP, any: [{regex: '(^|\.)parseInt$', matches: typescript-global-member}, {kind: member_expression, all: [{has: {field: property, regex: '^parseInt$'}}, {has: {field: object, regex: '(^|\.)Number$', matches: typescript-global-member}}]}]}
-            - any:
-                - has:
+              - has: { field: function, pattern: $OP, regex: '(^|\.)btoa$', matches: typescript-global-member }
+              - has:
                     field: arguments
                     has:
-                        nthChild: {position: 1, ofRule: *code}
-                        any: [{pattern: '$_S.slice($I, $I + 2)'}, {pattern: '$_S.substring($I, $I + 2)'}, {pattern: '$_S.substr($_I, 2)'}]
-                - inside:
-                    stopBy: *boundary
-                    kind: 'arrow_function, function_expression'
-                    inside:
-                        kind: arguments
-                        inside:
-                            kind: 'call_expression, new_expression'
-                            has: {stopBy: end, kind: regex_pattern, regex: '^(\.\{1,2\}|\.\{2\}|\.\.|\[[^\]]+\]\{(1,)?2\})$'}
-    not: {inside: {kind: program, stopBy: end, matches: extendscript-file}}
+                        nthChild: { position: 1, ofRule: *code }
+                        any:
+                            - matches: holds-byte-string
+                            - kind: identifier
+                              pattern: $S
+                              matches: { typescript-local-binding: { owner: { pattern: $S_OWNER } } }
+                              inside:
+                                  stopBy: end
+                                  pattern: $S_OWNER
+                                  has:
+                                      stopBy: { matches: typescript-function-boundary }
+                                      any:
+                                          - kind: variable_declarator
+                                            all: [{ has: { field: name, pattern: $S } }, { has: { field: value, matches: holds-byte-string } }]
+                                          - kind: augmented_assignment_expression
+                                            all: [{ has: { field: left, pattern: $S } }, { has: { field: right, matches: holds-byte-string } }]
+        - kind: call_expression
+          all:
+              - has: { field: function, pattern: $OP, regex: '(^|\.)atob$', matches: typescript-global-member }
+              - any:
+                    - inside:
+                          stopBy: { kind: 'arrow_function, function_expression, function_declaration, generator_function, generator_function_declaration, method_definition, expression_statement, lexical_declaration, variable_declaration, return_statement' }
+                          kind: 'call_expression, new_expression'
+                          has: { stopBy: end, kind: property_identifier, regex: '^(charCodeAt|codePointAt)$' }
+                    - inside: { kind: arguments, inside: { kind: call_expression, has: { field: function, pattern: escape } } }
+                    - inside:
+                          kind: variable_declarator
+                          has: { field: name, pattern: $S }
+                          inside:
+                              stopBy: end
+                              kind: 'statement_block, program'
+                              has:
+                                  stopBy: end
+                                  kind: member_expression
+                                  all: [{ has: { field: object, pattern: $S } }, { has: { field: property, regex: '^(charCodeAt|codePointAt)$' } }]
+        - all:
+              - any:
+                    - kind: call_expression
+                      has: { field: function, kind: member_expression, has: { field: property, regex: '^(padStart|slice)$' } }
+                    - kind: binary_expression
+                      has: { field: operator, regex: '^\+$' }
+              - matches: hex-pair
+              - any:
+                    - inside: { field: body, matches: joining-callback }
+                    - inside: { kind: return_statement, inside: { kind: statement_block, inside: { field: body, matches: joining-callback } } }
+                    - inside:
+                          kind: augmented_assignment_expression
+                          field: right
+                          all:
+                              - has: { field: operator, regex: '^\+=$' }
+                              - inside: { stopBy: &boundary { kind: 'arrow_function, function_expression, function_declaration, generator_function, generator_function_declaration, method_definition' }, kind: 'for_in_statement, for_statement, while_statement, do_statement' }
+        - kind: call_expression
+          all:
+              - has: { field: arguments, all: [{ has: { nthChild: { position: 2, ofRule: *code }, matches: radix } }, { not: { has: { nthChild: { position: 3, ofRule: *code } } } }] }
+              - has: { field: function, pattern: $OP, any: [{ regex: '(^|\.)parseInt$', matches: typescript-global-member }, { kind: member_expression, all: [{ has: { field: property, regex: '^parseInt$' } }, { has: { field: object, regex: '(^|\.)Number$', matches: typescript-global-member } }] }] }
+              - any:
+                    - has:
+                          field: arguments
+                          has:
+                              nthChild: { position: 1, ofRule: *code }
+                              any: [{ pattern: '$_S.slice($I, $I + 2)' }, { pattern: '$_S.substring($I, $I + 2)' }, { pattern: '$_S.substr($_I, 2)' }]
+                    - inside:
+                          stopBy: *boundary
+                          kind: 'arrow_function, function_expression'
+                          inside:
+                              kind: arguments
+                              inside:
+                                  kind: 'call_expression, new_expression'
+                                  has: { stopBy: end, kind: regex_pattern, regex: '^(\.\{1,2\}|\.\{2\}|\.\.|\[[^\]]+\]\{(1,)?2\})$' }
+    not: { inside: { kind: program, stopBy: end, matches: extendscript-file } }
 transform:
-    BASE64: {replace: {source: $OP, replace: '^.*btoa$', by: '<bytes>.toBase64()'}}
-    FROM_BASE64: {replace: {source: $BASE64, replace: '^.*atob$', by: 'Uint8Array.fromBase64(<text>)'}}
-    HEX: {replace: {source: $FROM_BASE64, replace: '(?s)^.*(?-u:\b)toString\(.*$', by: '<bytes>.toHex()'}}
-    METHOD: {replace: {source: $HEX, replace: '^.*parseInt$', by: 'Uint8Array.fromHex(<text>)'}}
-    OP_HEAD: {replace: {source: $OP, replace: '(?s)^([^(]+)\(.*$', by: '$1'}}
+    BASE64: { replace: { source: $OP, replace: '^.*btoa$', by: '<bytes>.toBase64()' } }
+    FROM_BASE64: { replace: { source: $BASE64, replace: '^.*atob$', by: 'Uint8Array.fromBase64(<text>)' } }
+    HEX: { replace: { source: $FROM_BASE64, replace: '(?s)^.*(?-u:\b)toString\(.*$', by: '<bytes>.toHex()' } }
+    METHOD: { replace: { source: $HEX, replace: '^.*parseInt$', by: 'Uint8Array.fromHex(<text>)' } }
+    OP_HEAD: { replace: { source: $OP, replace: '(?s)^([^(]+)\(.*$', by: '$1' } }
 message: '`$OP_HEAD` converts between bytes and text by hand in place of `$METHOD`'
-note: 'Use `Uint8Array` hex/base64 methods over bytes or `TextEncoder` output (`alphabet: ''base64url''` for URLs), `effect/encoding` in UXP'
+note: "Use `Uint8Array` hex/base64 methods over bytes or `TextEncoder` output (`alphabet: 'base64url'` for URLs), `effect/encoding` in UXP"

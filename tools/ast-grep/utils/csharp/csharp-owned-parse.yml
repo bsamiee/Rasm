@@ -6,29 +6,29 @@ utils:
     owner-method:
         kind: method_declaration
         all:
-            - has: {kind: modifier, regex: '^static$'}
-            - has: {field: name, matches: owner}
-            - has: {field: parameters, has: {kind: parameter, nthChild: 1, has: {field: name, pattern: {context: 'class $PARAMETER;', selector: identifier}}}}
+            - has: { kind: modifier, regex: '^static$' }
+            - has: { field: name, matches: owner }
+            - has: { field: parameters, has: { kind: parameter, nthChild: 1, has: { field: name, pattern: { context: 'class $PARAMETER;', selector: identifier } } } }
             - has:
-                field: body
-                kind: arrow_expression_clause
-                has:
-                    pattern: {context: 'class C { object F() => $RECEIVER.$METHOD($PARAMETER, $$$REST); }', selector: invocation_expression, strictness: ast}
-                    matches: csharp-unary-arrow-body
+                  field: body
+                  kind: arrow_expression_clause
+                  has:
+                      pattern: { context: 'class C { object F() => $RECEIVER.$METHOD($PARAMETER, $$$REST); }', selector: invocation_expression, strictness: ast }
+                      matches: csharp-unary-arrow-body
 rule:
     kind: invocation_expression
     all:
-        - pattern: {context: 'class C { object F() => $RECEIVER.$METHOD($_ARGUMENT, $$$REST); }', selector: invocation_expression, strictness: ast}
-        - not: {has: {field: arguments, any: [{has: {kind: argument, has: {regex: '^(out|ref)$'}}}, {has: {kind: argument, nthChild: 1, has: {field: name, kind: identifier}}}]}}
-        - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {matches: argument}}}
+        - pattern: { context: 'class C { object F() => $RECEIVER.$METHOD($_ARGUMENT, $$$REST); }', selector: invocation_expression, strictness: ast }
+        - not: { has: { field: arguments, any: [{ has: { kind: argument, has: { regex: '^(out|ref)$' } } }, { has: { kind: argument, nthChild: 1, has: { field: name, kind: identifier } } }] } }
+        - has: { field: arguments, has: { kind: argument, nthChild: 1, has: { matches: argument } } }
         - any:
-            - all:
-                - not: {matches: csharp-unary-arrow-body}
-                - inside:
-                    stopBy: end
-                    kind: declaration_list
-                    inside: {kind: 'class_declaration, struct_declaration, record_declaration, interface_declaration'}
-                    has: {matches: owner-method}
-            - all:
-                - matches: csharp-unary-arrow-body
-                - inside: {kind: arrow_expression_clause, inside: {follows: {stopBy: end, matches: owner-method}}}
+              - all:
+                    - not: { matches: csharp-unary-arrow-body }
+                    - inside:
+                          stopBy: end
+                          kind: declaration_list
+                          inside: { kind: 'class_declaration, struct_declaration, record_declaration, interface_declaration' }
+                          has: { matches: owner-method }
+              - all:
+                    - matches: csharp-unary-arrow-body
+                    - inside: { kind: arrow_expression_clause, inside: { follows: { stopBy: end, matches: owner-method } } }

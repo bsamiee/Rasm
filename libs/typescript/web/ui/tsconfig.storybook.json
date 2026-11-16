@@ -5,6 +5,6 @@
         "declarationMap": false,
         "noEmit": true
     },
-    "include": [ ".storybook/*", "*.stories.ts", "*.stories.tsx" ],
-    "references": [ { "path": "./tsconfig.lib.json" } ]
+    "include": [".storybook/*", "*.stories.ts", "*.stories.tsx"],
+    "references": [{ "path": "./tsconfig.lib.json" }]
 }

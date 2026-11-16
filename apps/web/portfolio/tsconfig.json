@@ -2,10 +2,10 @@
     "extends": "../../../tsconfig.base.json",
     "compilerOptions": {
         "jsx": "react-jsx",
-        "lib": [ "esnext", "dom" ],
+        "lib": ["esnext", "dom"],
         "module": "preserve",
-        "types": [ "node", "vite/client" ]
+        "types": ["node", "vite/client"]
     },
     "files": [],
-    "references": [ { "path": "./tsconfig.app.json" }, { "path": "./tsconfig.node.json" }, { "path": "./tsconfig.worker.json" } ]
+    "references": [{ "path": "./tsconfig.app.json" }, { "path": "./tsconfig.node.json" }, { "path": "./tsconfig.worker.json" }]
 }

@@ -6,39 +6,39 @@ utils:
         any:
             - kind: binary_expression
               all:
-                - has: {field: operator, regex: '^===?$'}
-                - any:
-                    - has: {kind: 'undefined, null'}
-                    - all: [{has: {kind: unary_expression, has: {field: operator, regex: '^typeof$'}}}, {has: {kind: string, regex: '^.undefined.$'}}]
+                  - has: { field: operator, regex: '^===?$' }
+                  - any:
+                        - has: { kind: 'undefined, null' }
+                        - all: [{ has: { kind: unary_expression, has: { field: operator, regex: '^typeof$' } } }, { has: { kind: string, regex: '^.undefined.$' } }]
             - kind: unary_expression
               all:
-                - has: {field: operator, regex: '^!$'}
-                - has:
-                    field: argument
-                    kind: call_expression
-                    all:
-                        - has: {field: function, kind: member_expression, has: {field: property, regex: '^has$'}}
-                        - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}}, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}}
+                  - has: { field: operator, regex: '^!$' }
+                  - has:
+                        field: argument
+                        kind: call_expression
+                        all:
+                            - has: { field: function, kind: member_expression, has: { field: property, regex: '^has$' } }
+                            - has: { field: arguments, has: { nthChild: { position: 1, ofRule: { not: { kind: 'comment, html_comment' } } } }, not: { has: { nthChild: { position: 2, ofRule: { not: { kind: 'comment, html_comment' } } } } } }
             - kind: binary_expression
               all:
-                - has: {field: operator, regex: '^\|\|$'}
-                - has: {matches: absence-test}
+                  - has: { field: operator, regex: '^\|\|$' }
+                  - has: { matches: absence-test }
             - kind: parenthesized_expression
-              has: {matches: absence-test}
+              has: { matches: absence-test }
     throwing:
         any:
             - kind: throw_statement
             - kind: statement_block
-              has: {kind: throw_statement}
-              not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}
+              has: { kind: throw_statement }
+              not: { has: { nthChild: { position: 2, ofRule: { not: { kind: 'comment, html_comment' } } } } }
 rule:
     kind: if_statement
     pattern: $IF
     all:
-        - has: {field: condition, pattern: $TEST, matches: absence-test}
-        - has: {field: consequence, matches: throwing}
-        - not: {inside: {kind: program, stopBy: end, matches: extendscript-file}}
+        - has: { field: condition, pattern: $TEST, matches: absence-test }
+        - has: { field: consequence, matches: throwing }
+        - not: { inside: { kind: program, stopBy: end, matches: extendscript-file } }
 message: '`if $TEST` throws on an absent value in place of a typed failure'
 note: 'Fail through `Effect.fromOption` or `Effect.fail` with a tagged variant, or call `Option.getOrThrow` where construction rules out absence'
 labels:
-    IF: {style: primary}
+    IF: { style: primary }

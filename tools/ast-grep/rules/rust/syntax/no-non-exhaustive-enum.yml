@@ -5,9 +5,9 @@ rule:
     kind: attribute_item
     regex: non_exhaustive
     all:
-        - has: {kind: attribute, any: [{has: {field: path, pattern: non_exhaustive}}, {all: [{has: {field: path, pattern: cfg_attr}}, {has: {field: arguments, has: {pattern: non_exhaustive, follows: {regex: '^,$'}}}}]}]}
+        - has: { kind: attribute, any: [{ has: { field: path, pattern: non_exhaustive } }, { all: [{ has: { field: path, pattern: cfg_attr } }, { has: { field: arguments, has: { pattern: non_exhaustive, follows: { regex: '^,$' } } } }] }] }
         - any:
-            - precedes: {stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}, kind: enum_item}
-            - inside: {kind: enum_variant_list}
+              - precedes: { stopBy: { not: { kind: 'attribute_item, line_comment, block_comment' } }, kind: enum_item }
+              - inside: { kind: enum_variant_list }
 message: '`#[non_exhaustive]` marks a workspace enum or variant open'
 note: 'Delete the attribute'

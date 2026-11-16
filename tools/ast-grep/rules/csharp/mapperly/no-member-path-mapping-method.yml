@@ -9,68 +9,68 @@ utils:
             - kind: identifier
               pattern: $LOCAL
               inside:
-                stopBy: end
-                inside: {kind: block}
-                follows:
-                    stopBy: end
-                    kind: local_declaration_statement
-                    has:
-                        kind: variable_declaration
-                        has:
-                            kind: variable_declarator
-                            all:
-                                - has: {field: name, pattern: $LOCAL}
-                                - has: {nthChild: 2, matches: member-path}
+                  stopBy: end
+                  inside: { kind: block }
+                  follows:
+                      stopBy: end
+                      kind: local_declaration_statement
+                      has:
+                          kind: variable_declaration
+                          has:
+                              kind: variable_declarator
+                              all:
+                                  - has: { field: name, pattern: $LOCAL }
+                                  - has: { nthChild: 2, matches: member-path }
             - kind: member_access_expression
-              has: {field: expression, matches: path}
+              has: { field: expression, matches: path }
             - kind: conditional_access_expression
               all:
-                - has: {field: condition, matches: path}
-                - has: {kind: member_binding_expression}
+                  - has: { field: condition, matches: path }
+                  - has: { kind: member_binding_expression }
             - kind: postfix_unary_expression
               regex: '!$'
-              has: {matches: path}
+              has: { matches: path }
             - kind: parenthesized_expression
-              has: {matches: path}
+              has: { matches: path }
     member-path:
         any:
             - kind: member_access_expression, conditional_access_expression
               matches: path
             - kind: postfix_unary_expression, parenthesized_expression
-              has: {matches: member-path}
+              has: { matches: member-path }
     path-local:
         kind: local_declaration_statement
         has:
             kind: variable_declaration
             all:
-                - has: {kind: variable_declarator, has: {nthChild: 2, matches: member-path}}
-                - not: {has: {kind: variable_declarator, nthChild: {position: 2, ofRule: {kind: variable_declarator}}}}
+                - has: { kind: variable_declarator, has: { nthChild: 2, matches: member-path } }
+                - not: { has: { kind: variable_declarator, nthChild: { position: 2, ofRule: { kind: variable_declarator } } } }
     path-body:
         any:
             - kind: arrow_expression_clause
-              has: {matches: member-path, pattern: $PATH}
+              has: { matches: member-path, pattern: $PATH }
             - kind: block
               all:
-                - has: {kind: return_statement, has: {matches: member-path, pattern: $PATH}}
-                - not: {has: {pattern: $_, not: {any: [{kind: return_statement}, {matches: path-local}]}}}
+                  - has: { kind: return_statement, has: { matches: member-path, pattern: $PATH } }
+                  - not: { has: { pattern: $_, not: { any: [{ kind: return_statement }, { matches: path-local }] } } }
 rule:
     kind: method_declaration
     all:
-        - not: {has: {kind: modifier, regex: '^partial$'}}
+        - not: { has: { kind: modifier, regex: '^partial$' } }
         - not:
-            has:
-                kind: attribute_list
-                has:
-                    kind: attribute
-                    all:
-                        - has: {field: name, matches: {csharp-type-name: {name: {regex: '^UserMapping(Attribute)?$'}}}}
-                        - not: {has: {kind: attribute_argument_list, has: {kind: attribute_argument, all: [{has: {field: name, regex: '^Default$'}}, {has: {kind: boolean_literal, regex: '^false$'}}]}}}
+              has:
+                  kind: attribute_list
+                  has:
+                      kind: attribute
+                      all:
+                          - has: { field: name, matches: { csharp-type-name: { name: { regex: '^UserMapping(Attribute)?$' } } } }
+                          - not: { has: { kind: attribute_argument_list, has: { kind: attribute_argument, all: [{ has: { field: name, regex: '^Default$' } }, { has: { kind: boolean_literal, regex: '^false$' } }] } } }
         - has:
-            field: parameters
-            all:
-                - has: {kind: parameter, has: {field: name, pattern: $SOURCE}}
-                - not: {has: {kind: parameter, nthChild: 2}}
-        - has: {matches: path-body}
+              field: parameters
+              all:
+                  - has: { kind: parameter, has: { field: name, pattern: $SOURCE } }
+                  - not: { has: { kind: parameter, nthChild: 2 } }
+        - has: { matches: path-body }
         - matches: mapperly-mapping-method
 message: 'Mapping method returns source member path `$PATH`'
 note: 'Replace the method and its `Use` reference with `[MapProperty(nameof(@<source>.<path>), nameof(<target>.<member>))]`'

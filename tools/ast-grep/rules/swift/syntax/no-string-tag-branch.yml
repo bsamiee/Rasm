@@ -4,30 +4,30 @@ severity: error
 utils:
     tag-pattern:
         kind: switch_pattern
-        has: {kind: pattern, has: {matches: swift-plain-string}}
+        has: { kind: pattern, has: { matches: swift-plain-string } }
     tag-test:
         kind: equality_expression
         all:
-            - has: {field: op, regex: '^==$'}
-            - has: {field: lhs, pattern: $SUBJECT, not: {kind: navigation_expression, has: {field: suffix, has: {field: suffix, regex: '^rawValue$'}}}}
-            - has: {field: rhs, matches: swift-plain-string}
+            - has: { field: op, regex: '^==$' }
+            - has: { field: lhs, pattern: $SUBJECT, not: { kind: navigation_expression, has: { field: suffix, has: { field: suffix, regex: '^rawValue$' } } } }
+            - has: { field: rhs, matches: swift-plain-string }
 rule:
     any:
         - kind: switch_statement
           all:
-            - has: {field: expr, pattern: $SUBJECT}
-            - has: {kind: switch_entry, has: {matches: tag-pattern, pattern: $FIRST}}
-            - has: {kind: switch_entry, has: {matches: tag-pattern, not: {pattern: $FIRST}}}
-            - not:
-                has:
-                    kind: switch_entry
-                    all:
-                        - has: {kind: default_keyword}
-                        - has: {kind: statements, has: {pattern: $SUBJECT, stopBy: end, not: {inside: {kind: line_string_literal, stopBy: end}}}}
+              - has: { field: expr, pattern: $SUBJECT }
+              - has: { kind: switch_entry, has: { matches: tag-pattern, pattern: $FIRST } }
+              - has: { kind: switch_entry, has: { matches: tag-pattern, not: { pattern: $FIRST } } }
+              - not:
+                    has:
+                        kind: switch_entry
+                        all:
+                            - has: { kind: default_keyword }
+                            - has: { kind: statements, has: { pattern: $SUBJECT, stopBy: end, not: { inside: { kind: line_string_literal, stopBy: end } } } }
         - kind: if_statement
           all:
-            - not: {inside: {kind: if_statement}}
-            - has: {matches: tag-test, has: {field: rhs, pattern: $FIRST}}
-            - has: {kind: if_statement, has: {matches: tag-test, not: {has: {field: rhs, pattern: $FIRST}}}}
+              - not: { inside: { kind: if_statement } }
+              - has: { matches: tag-test, has: { field: rhs, pattern: $FIRST } }
+              - has: { kind: if_statement, has: { matches: tag-test, not: { has: { field: rhs, pattern: $FIRST } } } }
 message: 'Branch over `$SUBJECT` selects its arm by string literal'
 note: 'Declare tokens as a `String`-backed enum, decode once at the boundary (`init(rawValue:)`, `Decodable`), and switch over its cases'

@@ -4,6 +4,6 @@ language: csharplang
 arguments: [type, member]
 utils:
     callee:
-        matches: {csharp-owner-member: {type: {matches: type}, member: {matches: member}}}
+        matches: { csharp-owner-member: { type: { matches: type }, member: { matches: member } } }
 rule:
-    has: {field: function, matches: callee}
+    has: { field: function, matches: callee }

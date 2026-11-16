@@ -43,7 +43,7 @@ const Stamp = Schema.FiniteFromString.check(Schema.isInt()).pipe(Schema.decodeTo
 
 class Scheme extends Data.Class<{
     readonly signature: string;
-    readonly named: { readonly [P in Part]?: string };
+    readonly named: Readonly<Partial<Record<Part, string>>>;
     readonly signed: readonly Part[];
     readonly separator: string;
     readonly assign: string;
@@ -74,10 +74,9 @@ class Scheme extends Data.Class<{
     // --- [WIRE]
 
     readonly entry = Schema.TemplateLiteralParser([Schema.String, this.assign, Schema.String]);
-    readonly content = (values: { readonly [P in Part]?: string }, body: Uint8Array) => Bytes.concat([encoder.encode([...this.signed.flatMap((part) => Array.fromNullishOr(values[part])), ''].join('.')), body]);
+    readonly content = (values: Readonly<Partial<Record<Part, string>>>, body: Uint8Array) => Bytes.concat([encoder.encode([...this.signed.flatMap((part) => Array.fromNullishOr(values[part])), ''].join('.')), body]);
     static readonly read = Effect.fnUntraced(
         function* ({ signature, named, signed, separator, entry, content, encoding }: Scheme, headers: Headers.Headers, body: Uint8Array) {
-            const found = (name: string, value: Option.Option<string>) => Effect.fromOption(value, WebhookError.of({ _tag: 'Unsigned' }, name));
             const written = Array.filterMap((yield* found(signature, Headers.get(headers, signature))).split(separator), (text) => Schema.decodeResult(entry)(text));
             const listed = Record.fromIterableWith(written, ([label, , value]) => [label, value]);
             const held = yield* Effect.all(Record.fromIterableWith(signed, (part) => [part, UndefinedOr.match(named[part], { onDefined: (header) => found(header, Headers.get(headers, header)), onUndefined: () => found(signature, Record.get(listed, part)) })]));
@@ -87,7 +86,7 @@ class Scheme extends Data.Class<{
         },
         (effect, { signature }) => Effect.catchTag(effect, 'SchemaError', WebhookError.of({ _tag: 'Unsigned' }, signature)),
     );
-    write(values: { readonly [P in Part]: string }, signatures: readonly { readonly label: string; readonly bytes: Uint8Array }[]) {
+    write(values: Readonly<Record<Part, string>>, signatures: readonly { readonly label: string; readonly bytes: Uint8Array }[]) {
         const written = [...this.signed.filter((part) => this.named[part] === undefined).map((part) => [part, this.assign, values[part]] as const), ...signatures.map(({ label, bytes }) => [label, this.assign, this.encoding.encode(bytes)] as const)];
         return Effect.map(Effect.orDie(Effect.forEach(written, (parts) => Schema.encodeEffect(this.entry)(parts))), (texts) =>
             Headers.fromInput([...Record.toEntries(values).flatMap(([part, value]) => Array.fromNullishOr(this.named[part]).map((header) => [header, value] as const)), [this.signature, texts.join(this.separator)]]),
@@ -124,6 +123,10 @@ class WebhookError extends Schema.TaggedError<WebhookError, { readonly brand: un
         return [`${this.reason._tag}: ${this.subject}`, ...(this.cause === undefined ? [] : [Formatter.format(this.cause)])].join(': ');
     }
 }
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+const found = (name: string, value: Option.Option<string>) => Effect.fromOption(value, WebhookError.of({ _tag: 'Unsigned' }, name));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

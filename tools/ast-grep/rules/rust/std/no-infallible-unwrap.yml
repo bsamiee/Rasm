@@ -9,7 +9,7 @@ rule:
         - pattern: 'match $R { Err($E) => match $E {}, Ok($V) => $V }'
         - pattern: 'match $R { Ok($V) => match $V {}, Err($E) => $E }'
         - pattern: 'match $R { Err($E) => $E, Ok($V) => match $V {} }'
-        - all: [{pattern: 'let Ok($$_) = $R;'}, {not: {has: {field: alternative, kind: block}}}]
-        - all: [{pattern: 'let Err($$_) = $R;'}, {not: {has: {field: alternative, kind: block}}}]
+        - all: [{ pattern: 'let Ok($$_) = $R;' }, { not: { has: { field: alternative, kind: block } } }]
+        - all: [{ pattern: 'let Err($$_) = $R;' }, { not: { has: { field: alternative, kind: block } } }]
 message: '`$R` unwraps an uninhabited case through an empty `match` or an irrefutable `let`'
 note: 'Call `<result>.into_ok()` for an `Err` type of `!` and `<result>.into_err()` for an `Ok` type of `!`'

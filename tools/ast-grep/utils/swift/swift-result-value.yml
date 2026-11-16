@@ -5,24 +5,24 @@ rule:
     any:
         - kind: call_expression
           has:
-            nthChild: 1
-            any:
-                - regex: '^(Swift(\.|::))?Result(\.(init|success|failure))?$'
-                - kind: navigation_expression
-                  all:
-                    - has: {field: suffix, regex: '^\.(init|success|failure)$'}
-                    - has: {field: target, matches: swift-result-type}
+              nthChild: 1
+              any:
+                  - regex: '^(Swift(\.|::))?Result(\.(init|success|failure))?$'
+                  - kind: navigation_expression
+                    all:
+                        - has: { field: suffix, regex: '^\.(init|success|failure)$' }
+                        - has: { field: target, matches: swift-result-type }
         - kind: constructor_expression
-          has: {field: constructed_type, matches: swift-result-type}
+          has: { field: constructed_type, matches: swift-result-type }
         - kind: 'await_expression, unsafe_expression, consume_expression'
-          has: {field: expr, matches: swift-result-value}
+          has: { field: expr, matches: swift-result-value }
         - kind: try_expression
           all:
-            - not: {has: {kind: try_operator, regex: '^try\?$'}}
-            - has: {field: expr, matches: swift-result-value}
+              - not: { has: { kind: try_operator, regex: '^try\?$' } }
+              - has: { field: expr, matches: swift-result-value }
         - kind: tuple_expression
-          not: {has: {regex: '^,$'}}
-          has: {field: value, matches: swift-result-value}
+          not: { has: { regex: '^,$' } }
+          has: { field: value, matches: swift-result-value }
         - all:
-            - kind: simple_identifier
-            - matches: {swift-typed-use: {type: {matches: swift-result-type}}}
+              - kind: simple_identifier
+              - matches: { swift-typed-use: { type: { matches: swift-result-type } } }

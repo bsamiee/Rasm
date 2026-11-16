@@ -2,22 +2,22 @@
 id: typescript-separator-swap
 language: tsxlang
 utils:
-    hyphen: {kind: 'string, regex', regex: '^([''"]-[''"]|/-/[a-z]*g[a-z]*)$'}
-    underscore: {kind: 'string, regex', regex: '^([''"]_[''"]|/_/[a-z]*g[a-z]*)$'}
-    hyphen-only: {kind: arguments, has: {nthChild: {position: 1, ofRule: &code {not: {kind: 'comment, html_comment'}}}, kind: string, matches: hyphen}, not: {has: {nthChild: {position: 2, ofRule: *code}}}}
-    underscore-only: {kind: arguments, has: {nthChild: {position: 1, ofRule: *code}, kind: string, matches: underscore}, not: {has: {nthChild: {position: 2, ofRule: *code}}}}
+    hyphen: { kind: 'string, regex', regex: '^([''"]-[''"]|/-/[a-z]*g[a-z]*)$' }
+    underscore: { kind: 'string, regex', regex: '^([''"]_[''"]|/_/[a-z]*g[a-z]*)$' }
+    hyphen-only: { kind: arguments, has: { nthChild: { position: 1, ofRule: &code { not: { kind: 'comment, html_comment' } } }, kind: string, matches: hyphen }, not: { has: { nthChild: { position: 2, ofRule: *code } } } }
+    underscore-only: { kind: arguments, has: { nthChild: { position: 1, ofRule: *code }, kind: string, matches: underscore }, not: { has: { nthChild: { position: 2, ofRule: *code } } } }
 rule:
     any:
         - kind: arguments
           all:
-            - not: {has: {nthChild: {position: 3, ofRule: *code}}}
-            - any:
-                - all: [{has: {nthChild: {position: 1, ofRule: *code}, matches: hyphen}}, {has: {nthChild: {position: 2, ofRule: *code}, kind: string, matches: underscore}}]
-                - all: [{has: {nthChild: {position: 1, ofRule: *code}, matches: underscore}}, {has: {nthChild: {position: 2, ofRule: *code}, kind: string, matches: hyphen}}]
+              - not: { has: { nthChild: { position: 3, ofRule: *code } } }
+              - any:
+                    - all: [{ has: { nthChild: { position: 1, ofRule: *code }, matches: hyphen } }, { has: { nthChild: { position: 2, ofRule: *code }, kind: string, matches: underscore } }]
+                    - all: [{ has: { nthChild: { position: 1, ofRule: *code }, matches: underscore } }, { has: { nthChild: { position: 2, ofRule: *code }, kind: string, matches: hyphen } }]
         - kind: call_expression
           all:
-            - has: {field: function, kind: member_expression, has: {field: property, regex: '^join$'}}
-            - has: {field: function, has: {field: object, kind: call_expression, has: {field: function, kind: member_expression, has: {field: property, regex: '^split$'}}}}
-            - any:
-                - all: [{has: {field: arguments, matches: underscore-only}}, {has: {field: function, has: {field: object, has: {field: arguments, matches: hyphen-only}}}}]
-                - all: [{has: {field: arguments, matches: hyphen-only}}, {has: {field: function, has: {field: object, has: {field: arguments, matches: underscore-only}}}}]
+              - has: { field: function, kind: member_expression, has: { field: property, regex: '^join$' } }
+              - has: { field: function, has: { field: object, kind: call_expression, has: { field: function, kind: member_expression, has: { field: property, regex: '^split$' } } } }
+              - any:
+                    - all: [{ has: { field: arguments, matches: underscore-only } }, { has: { field: function, has: { field: object, has: { field: arguments, matches: hyphen-only } } } }]
+                    - all: [{ has: { field: arguments, matches: hyphen-only } }, { has: { field: function, has: { field: object, has: { field: arguments, matches: underscore-only } } } }]

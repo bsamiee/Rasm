@@ -41,7 +41,8 @@ class ExtensionManifest extends Schema.Class<ExtensionManifest, { readonly brand
     static readonly debugFile = '.debug';
     static readonly debugPort = 8000;
     static readonly fromXml: Schema.Codec<ExtensionManifest, string> = Schema.String.pipe(
-        Schema.decodeTo(Document, { decode: SchemaGetter.transform(PARSER.parse.bind(PARSER)), encode: SchemaGetter.forbiddenEncoding }),
+        Schema.decodeTo(Schema.Unknown, { decode: SchemaGetter.transform((xml): unknown => PARSER.parse(xml)), encode: SchemaGetter.forbiddenEncoding }),
+        Schema.decodeTo(Document),
         Schema.decodeTo(ExtensionManifest, {
             decode: SchemaGetter.transform(
                 ({

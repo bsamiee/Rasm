@@ -18,7 +18,7 @@ const draft = Atom.writable(
 ).pipe(Atom.keepAlive);
 const saveRequest = PortfolioClient.runtime
     .fn(
-        Effect.fnUntraced(function* (submitted: Atom.Success<typeof draft> & { readonly publish: boolean }, get) {
+        Effect.fnUntraced(function* (submitted: Atom.Success<typeof draft> & { readonly publish: boolean }, get: Atom.FnContext) {
             const api = yield* PortfolioClient;
             const response = yield* Schema.encodeEffect(Portfolio)(submitted.portfolio).pipe(
                 Effect.flatMap((payload) => (submitted.publish ? api.documents.publish : api.documents.save)({ payload, headers: { 'if-match': submitted.revision } })),
@@ -31,7 +31,7 @@ const saveRequest = PortfolioClient.runtime
     .pipe(Atom.keepAlive);
 const reloadRequest = PortfolioClient.runtime
     .fn(
-        Effect.fnUntraced(function* (_: undefined, get) {
+        Effect.fnUntraced(function* (_: undefined, get: Atom.FnContext) {
             get.set(draft, AsyncResult.success(yield* load));
             get.set(saveRequest, Atom.Reset);
         }),
@@ -39,7 +39,7 @@ const reloadRequest = PortfolioClient.runtime
     .pipe(Atom.keepAlive);
 const deleteRequest = PortfolioClient.runtime
     .fn(
-        Effect.fnUntraced(function* (id: typeof AssetId.Type, get) {
+        Effect.fnUntraced(function* (id: typeof AssetId.Type, get: Atom.FnContext) {
             yield* PortfolioClient.use((api) => api.assets.delete({ params: { id } })).pipe(Effect.tapError(() => Effect.sync(get.refresh.bind(get, recoveryRequest))));
             get.registry.update(draft, assets.modify(Record.remove(id)));
         }),
@@ -47,7 +47,7 @@ const deleteRequest = PortfolioClient.runtime
     .pipe(Atom.keepAlive);
 const discardRequest = PortfolioClient.runtime
     .fn(
-        Effect.fnUntraced(function* (upload: typeof Recovery.Type, get) {
+        Effect.fnUntraced(function* (upload: typeof Recovery.Type, get: Atom.FnContext) {
             yield* PortfolioClient.use((api) => api.assets.discard({ params: { id: upload.id } })).pipe(Effect.mapError((error) => ({ upload, error })));
             if (upload.status === 'removing') {
                 get.registry.update(draft, assets.modify(Record.remove(upload.id)));

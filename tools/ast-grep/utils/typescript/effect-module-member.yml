@@ -4,9 +4,9 @@ language: tsxlang
 arguments: [module, member]
 utils:
     module-object:
-        matches: {effect-module: {name: {matches: module}}}
+        matches: { effect-module: { name: { matches: module } } }
 rule:
     kind: member_expression
     all:
-        - has: {field: property, matches: member}
-        - has: {field: object, matches: module-object}
+        - has: { field: property, matches: member }
+        - has: { field: object, matches: module-object }

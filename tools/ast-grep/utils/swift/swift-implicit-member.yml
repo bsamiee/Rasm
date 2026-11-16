@@ -4,5 +4,5 @@ language: swiftlang
 rule:
     kind: prefix_expression
     all:
-        - has: {field: operation, regex: '^\.$'}
-        - has: {field: target, kind: simple_identifier}
+        - has: { field: operation, regex: '^\.$' }
+        - has: { field: target, kind: simple_identifier }

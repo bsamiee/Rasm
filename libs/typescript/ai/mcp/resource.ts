@@ -30,6 +30,7 @@ const make = Effect.fnUntraced(function* <A, I, R, D extends Partial<Record<'uri
             Effect.tapCauseIf(flow(Cause.findErrorOption, Option.exists(Cause.isNoSuchElementError)), () => SubscriptionRef.update(store, HashMap.remove(key))),
         );
     const cached = ({ key, content }: { readonly key: string; readonly content: Effect.Effect<A, Error> }) => Effect.flatMap(SubscriptionRef.get(store), flow(HashMap.get(key), Option.match({ onNone: () => observe(key, content), onSome: ({ value }) => Effect.succeed(value) })));
+    const current = ({ key, content }: Parameters<typeof cached>[0]) => Effect.catchNoSuchElement(observe(key, content));
     const matchingEntry = (at: string, holds: Predicate.Predicate<A>) =>
         flow(
             Option.filter(holds),
@@ -70,7 +71,7 @@ const make = Effect.fnUntraced(function* <A, I, R, D extends Partial<Record<'uri
         Effect.forkScoped,
     );
     yield* SubscriptionRef.changes(store).pipe(
-        Stream.mapAccum(HashMap.empty<string, Entry<A>>, (last, current) => [current, updatedUris(last, current)]),
+        Stream.mapAccum(HashMap.empty<string, Entry<A>>, (last, next) => [next, updatedUris(last, next)]),
         Stream.runForEach(updated),
         Effect.forkScoped,
     );
@@ -81,26 +82,23 @@ const make = Effect.fnUntraced(function* <A, I, R, D extends Partial<Record<'uri
         cached,
         depend:
             (source: Effect.Effect<Parameters<typeof cached>[0], Error>) =>
-            ({ refuse, report }: { readonly refuse?: Predicate.Predicate<A> | undefined; readonly report?: Predicate.Predicate<A> | undefined }) => {
-                const current = ({ key, content }: Effect.Success<typeof source>) => Effect.catchNoSuchElement(observe(key, content));
-                return {
-                    refusal: UndefinedOr.match(refuse, {
-                        onUndefined: () => Stream.empty,
-                        onDefined: Effect.fnUntraced(function* (holds: Predicate.Predicate<A>) {
-                            const located = yield* source;
-                            yield* Effect.andThen(watch(located.key), current(located));
-                            return SubscriptionRef.changes(store).pipe(Stream.map(flow(HashMap.get(located.key), Option.map(Struct.get('value')))), Stream.changes, Stream.mapEffect(matchingEntry(located.key, holds)));
-                        }, Stream.unwrap),
+            ({ refuse, report }: { readonly refuse?: Predicate.Predicate<A> | undefined; readonly report?: Predicate.Predicate<A> | undefined }) => ({
+                refusal: UndefinedOr.match(refuse, {
+                    onUndefined: () => Stream.empty,
+                    onDefined: Effect.fnUntraced(function* (holds: Predicate.Predicate<A>) {
+                        const located = yield* source;
+                        yield* Effect.andThen(watch(located.key), current(located));
+                        return SubscriptionRef.changes(store).pipe(Stream.map(flow(HashMap.get(located.key), Option.map(Struct.get('value')))), Stream.changes, Stream.mapEffect(matchingEntry(located.key, holds)));
+                    }, Stream.unwrap),
+                }),
+                report: UndefinedOr.match(report, {
+                    onUndefined: () => Effect.succeedNone,
+                    onDefined: Effect.fnUntraced(function* (holds: Predicate.Predicate<A>) {
+                        const located = yield* source;
+                        return yield* matchingEntry(located.key, holds)(yield* current(located));
                     }),
-                    report: UndefinedOr.match(report, {
-                        onUndefined: () => Effect.succeedNone,
-                        onDefined: Effect.fnUntraced(function* (holds: Predicate.Predicate<A>) {
-                            const located = yield* source;
-                            return yield* matchingEntry(located.key, holds)(yield* current(located));
-                        }),
-                    }),
-                };
-            },
+                }),
+            }),
     };
 });
 const register = Effect.fnUntraced(function* <A, I, E extends Error, R>({

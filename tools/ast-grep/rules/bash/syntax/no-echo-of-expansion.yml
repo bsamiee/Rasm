@@ -5,21 +5,21 @@ utils:
     expanded-argument:
         any:
             - kind: string
-              has: {matches: bash-string-expansion}
-              not: {has: {kind: string_content}}
+              has: { matches: bash-string-expansion }
+              not: { has: { kind: string_content } }
             - matches: bash-string-expansion
-    echo-word: {pattern: echo, nthChild: 2}
+    echo-word: { pattern: echo, nthChild: 2 }
     option:
         kind: word
         regex: '^-[neE]+$'
-        not: {follows: {stopBy: end, not: {any: [{kind: command_name}, {matches: echo-word}, {kind: word, regex: '^-[neE]+$'}]}}}
-    leading-word: {any: [{kind: command_name}, {matches: echo-word}, {matches: option}]}
+        not: { follows: { stopBy: end, not: { any: [{ kind: command_name }, { matches: echo-word }, { kind: word, regex: '^-[neE]+$' }] } } }
+    leading-word: { any: [{ kind: command_name }, { matches: echo-word }, { matches: option }] }
 rule:
     kind: command
     all:
         - any:
-            - has: {field: name, regex: '^echo$'}
-            - all: [{has: {field: name, regex: '^(builtin|command)$'}}, {has: {matches: echo-word}}]
-        - has: {matches: expanded-argument, pattern: $TEXT, not: {follows: {stopBy: end, not: {matches: leading-word}}}}
+              - has: { field: name, regex: '^echo$' }
+              - all: [{ has: { field: name, regex: '^(builtin|command)$' } }, { has: { matches: echo-word } }]
+        - has: { matches: expanded-argument, pattern: $TEXT, not: { follows: { stopBy: end, not: { matches: leading-word } } } }
 message: '`echo` interprets `$TEXT` as options when its value matches `-[neE]+`'
 note: Print with a literal format, `printf '%s\n' "$<value>"`

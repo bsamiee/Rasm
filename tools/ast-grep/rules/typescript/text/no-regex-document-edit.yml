@@ -4,7 +4,7 @@ severity: error
 rule:
     kind: pair
     all:
-        - has: {field: value, kind: regex, has: {field: flags, regex: 'm'}}
-        - has: {field: key, kind: string, pattern: $FILE, regex: '\.(ya?ml|toml|jsonc?|plist|xml)[''"]$'}
+        - has: { field: value, kind: regex, has: { field: flags, regex: 'm' } }
+        - has: { field: key, kind: string, pattern: $FILE, regex: '\.(ya?ml|toml|jsonc?|plist|xml)[''"]$' }
 message: '`$FILE` is edited through a line pattern over its text'
 note: 'Edit values through the format parser to preserve comments and layout'

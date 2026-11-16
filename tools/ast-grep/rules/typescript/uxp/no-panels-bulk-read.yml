@@ -6,15 +6,15 @@ rule:
     pattern: $CALL
     all:
         - has:
-            field: function
-            kind: member_expression
-            all:
-                - has: {field: property, regex: '^(everyItem|itemByRange)$'}
-                - has:
-                    field: object
-                    any:
-                        - {pattern: panels}
-                        - {kind: member_expression, has: {field: property, regex: '^panels$'}}
-        - inside: {kind: program, stopBy: end, matches: {typescript-module-importer: {module: {regex: '^(adobe:)?indesign$'}}}}
+              field: function
+              kind: member_expression
+              all:
+                  - has: { field: property, regex: '^(everyItem|itemByRange)$' }
+                  - has:
+                        field: object
+                        any:
+                            - { pattern: panels }
+                            - { kind: member_expression, has: { field: property, regex: '^panels$' } }
+        - inside: { kind: program, stopBy: end, matches: { typescript-module-importer: { module: { regex: '^(adobe:)?indesign$' } } } }
 message: '`$CALL` reads `undefined` when one `panels` member resolves to nothing'
 note: 'Read `panels.item(<index>)` through `Option.fromUndefinedOr` for each index below `panels.length`'

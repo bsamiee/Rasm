@@ -6,88 +6,88 @@ utils:
         any:
             - &shortfall
               any:
-                - pattern: $WIDTH - len($TEXT)
-                - pattern: max(0, $WIDTH - len($TEXT))
-                - pattern: max($WIDTH - len($TEXT), 0)
+                  - pattern: $WIDTH - len($TEXT)
+                  - pattern: max(0, $WIDTH - len($TEXT))
+                  - pattern: max($WIDTH - len($TEXT), 0)
             - kind: parenthesized_expression
-              has: {matches: count}
+              has: { matches: count }
             - kind: identifier
-              matches: {python-assigned-name: {value: *shortfall}}
+              matches: { python-assigned-name: { value: *shortfall } }
     derived-count:
         any:
             - &mentions
-              any: [{pattern: len($TEXT)}, {has: {stopBy: end, pattern: len($TEXT)}}]
+              any: [{ pattern: len($TEXT) }, { has: { stopBy: end, pattern: len($TEXT) } }]
             - kind: identifier
-              matches: {python-assigned-name: {value: *mentions}}
-            - has: {stopBy: end, kind: identifier, matches: {python-assigned-name: {value: *mentions}}}
+              matches: { python-assigned-name: { value: *mentions } }
+            - has: { stopBy: end, kind: identifier, matches: { python-assigned-name: { value: *mentions } } }
     plus:
-        has: {field: operator, regex: '^\+$'}
+        has: { field: operator, regex: '^\+$' }
     run:
         kind: binary_operator
-        all: [{has: {field: operator, regex: '^\*$'}}, {has: {kind: string, pattern: $FILL}}]
+        all: [{ has: { field: operator, regex: '^\*$' } }, { has: { kind: string, pattern: $FILL } }]
     fill-run:
         any:
-            - all: [{matches: run}, {has: {matches: count}}]
+            - all: [{ matches: run }, { has: { matches: count } }]
             - kind: parenthesized_expression
-              has: {matches: fill-run}
+              has: { matches: fill-run }
     derived-run:
-        all: [{matches: run}, {has: {matches: derived-count}}]
+        all: [{ matches: run }, { has: { matches: derived-count } }]
     fill-interpolation:
         kind: interpolation
-        has: {field: expression, matches: fill-run}
+        has: { field: expression, matches: fill-run }
     run-interpolation:
         kind: interpolation
-        has: {field: expression, matches: run}
+        has: { field: expression, matches: run }
     derived-interpolation:
         kind: interpolation
-        has: {field: expression, matches: derived-run}
+        has: { field: expression, matches: derived-run }
     text-interpolation:
         kind: interpolation
-        pattern: {context: 'f"{$TEXT}"', selector: interpolation}
+        pattern: { context: 'f"{$TEXT}"', selector: interpolation }
     left-padded:
         any:
             - kind: binary_operator
-              all: [{matches: plus}, {has: {field: left, pattern: $TEXT}}, {has: {field: right, matches: fill-run}}]
+              all: [{ matches: plus }, { has: { field: left, pattern: $TEXT } }, { has: { field: right, matches: fill-run } }]
             - kind: binary_operator
               all:
-                - matches: plus
-                - has: {field: left, kind: binary_operator, all: [{matches: plus}, {has: {field: left, pattern: $HEAD}}, {has: {field: right, pattern: $TEXT}}]}
-                - has: {field: right, matches: fill-run}
+                  - matches: plus
+                  - has: { field: left, kind: binary_operator, all: [{ matches: plus }, { has: { field: left, pattern: $HEAD } }, { has: { field: right, pattern: $TEXT } }] }
+                  - has: { field: right, matches: fill-run }
             - kind: augmented_assignment
-              all: [{has: {field: operator, regex: '^\+=$'}}, {has: {field: left, pattern: $TEXT}}, {has: {field: right, matches: fill-run}}]
+              all: [{ has: { field: operator, regex: '^\+=$' } }, { has: { field: left, pattern: $TEXT } }, { has: { field: right, matches: fill-run } }]
     right-padded:
         kind: binary_operator
         all:
             - matches: plus
-            - has: {field: right, pattern: $TEXT}
+            - has: { field: right, pattern: $TEXT }
             - has:
-                field: left
-                any:
-                    - matches: fill-run
-                    - kind: binary_operator
-                      all: [{matches: plus}, {has: {field: left, pattern: $HEAD}}, {has: {field: right, matches: fill-run}}]
+                  field: left
+                  any:
+                      - matches: fill-run
+                      - kind: binary_operator
+                        all: [{ matches: plus }, { has: { field: left, pattern: $HEAD } }, { has: { field: right, matches: fill-run } }]
     field-padded:
         kind: string
         has:
             matches: text-interpolation
-            any: [{precedes: {matches: fill-interpolation}}, {follows: {matches: fill-interpolation}}]
+            any: [{ precedes: { matches: fill-interpolation } }, { follows: { matches: fill-interpolation } }]
     centered:
         any:
             - kind: binary_operator
               all:
-                - matches: plus
-                - has: {field: left, kind: binary_operator, all: [{matches: plus}, {has: {field: right, pattern: $TEXT}}, {has: {field: left, matches: run}}]}
-                - has: {field: right, matches: run}
-                - any: [{has: {field: right, matches: derived-run}}, {has: {field: left, has: {field: left, matches: derived-run}}}]
+                  - matches: plus
+                  - has: { field: left, kind: binary_operator, all: [{ matches: plus }, { has: { field: right, pattern: $TEXT } }, { has: { field: left, matches: run } }] }
+                  - has: { field: right, matches: run }
+                  - any: [{ has: { field: right, matches: derived-run } }, { has: { field: left, has: { field: left, matches: derived-run } } }]
             - kind: string
               has:
-                all:
-                    - matches: text-interpolation
-                    - follows: {matches: run-interpolation}
-                    - precedes: {matches: run-interpolation}
-                    - any: [{follows: {matches: derived-interpolation}}, {precedes: {matches: derived-interpolation}}]
+                  all:
+                      - matches: text-interpolation
+                      - follows: { matches: run-interpolation }
+                      - precedes: { matches: run-interpolation }
+                      - any: [{ follows: { matches: derived-interpolation } }, { precedes: { matches: derived-interpolation } }]
     padded:
-        any: [{matches: left-padded}, {matches: right-padded}, {matches: field-padded}, {matches: centered}]
+        any: [{ matches: left-padded }, { matches: right-padded }, { matches: field-padded }, { matches: centered }]
 rule:
     matches: padded
 constraints:

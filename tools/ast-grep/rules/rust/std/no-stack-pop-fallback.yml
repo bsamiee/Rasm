@@ -11,6 +11,6 @@ constraints:
         any:
             - kind: 'identifier, field_expression'
             - pattern: $BASE.clone()
-              has: {field: function, has: {field: value, kind: 'identifier, field_expression'}}
+              has: { field: function, has: { field: value, kind: 'identifier, field_expression' } }
 message: '`$STACK.pop()` falls back to `$HEAD`'
 note: 'Hold `<base>` as the head of a `nonempty_collections::NEVec` and read its top through `last`'

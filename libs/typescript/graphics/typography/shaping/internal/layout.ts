@@ -1,8 +1,8 @@
 import { Array, Effect, Function, Option, Record, Schema, SchemaGetter, Struct } from 'effect';
-import type { Font } from 'fontkit';
 import { type Face, Feature, type FeatureNameIds } from 'harfbuzzjs';
 import { TypographyError } from '#/error';
 import type { Settings } from '#/settings';
+import type { Member } from '#/shaping/internal/member';
 import type { Names } from '#/shaping/internal/names';
 import { Lookup, type Tables } from '#/shaping/internal/tables';
 import type { ShapedText } from '#/shaping/shaped-text';
@@ -37,7 +37,7 @@ class Layout extends Schema.Class<Layout, { readonly brand: unique symbol }>('La
         .annotate({ description: 'GSUB coverage and alternates of aalt, salt, jalt, cvNN and ssNN by tag' }),
 }) {
     static readonly Choice = Schema.Struct({ cluster: Schema.Int, glyph: Schema.Int, feature: Schema.String }).annotate({ description: 'Alternate glyph of one shaped cluster, feature selecting it in run features' });
-    static readonly of = Effect.fn('Layout.of')(function* ({ handle, sfnt, names, tables }: { readonly handle: Face; readonly sfnt: Font; readonly names: Names; readonly tables: typeof Tables.Type }) {
+    static readonly of = Effect.fn('Layout.of')(function* ({ handle, sfnt, names }: Pick<Member, 'handle' | 'sfnt' | 'names'>, tables: typeof Tables.Type) {
         const records = yield* Effect.try({ try: () => featureRecords(handle, names), catch: TypographyError.unreadable('GSUB FeatureParams') });
         const substituting = records.filter(({ table, tag }) => table === 'GSUB' && (tag === 'jalt' || CHOOSABLE.test(tag) || STYLISTIC.test(tag)));
         const indexes = Array.dedupe(substituting.flatMap(Struct.get('lookups')));

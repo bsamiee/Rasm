@@ -5,32 +5,32 @@ utils:
     byte-source:
         kind: call_expression
         all:
-            - has: {field: function, kind: field_expression, has: {field: field, regex: '^(iter|into_iter|bytes|copied|cloned)$'}}
-            - not: {has: {field: function, has: {field: value, stopBy: end, kind: range_expression}}}
-            - has: {field: function, has: {field: value, any: [{not: {kind: call_expression}}, {matches: byte-source}]}}
+            - has: { field: function, kind: field_expression, has: { field: field, regex: '^(iter|into_iter|bytes|copied|cloned)$' } }
+            - not: { has: { field: function, has: { field: value, stopBy: end, kind: range_expression } } }
+            - has: { field: function, has: { field: value, any: [{ not: { kind: call_expression } }, { matches: byte-source }] } }
     to-char:
         any:
             - kind: scoped_identifier
               regex: '^((std|core)::)?(primitive::)?char::from$'
             - kind: closure_expression
               has:
-                field: body
-                any:
-                    - kind: call_expression
-                      all:
-                        - has: {field: function, regex: '^((std|core)::)?(primitive::)?char::from$'}
-                        - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: rust-identifier-value}, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}
-                    - kind: type_cast_expression
-                      all: [{has: {field: value, matches: rust-identifier-value}}, {has: {field: type, regex: '^char$'}}]
+                  field: body
+                  any:
+                      - kind: call_expression
+                        all:
+                            - has: { field: function, regex: '^((std|core)::)?(primitive::)?char::from$' }
+                            - has: { field: arguments, has: { nthChild: { position: 1, ofRule: { not: { kind: 'line_comment, block_comment' } } }, matches: rust-identifier-value }, not: { has: { nthChild: { position: 2, ofRule: { not: { kind: 'line_comment, block_comment' } } } } } }
+                      - kind: type_cast_expression
+                        all: [{ has: { field: value, matches: rust-identifier-value } }, { has: { field: type, regex: '^char$' } }]
     utf16-unit:
         kind: closure_expression
         has:
             field: body
             any:
-                - has: {stopBy: end, kind: scoped_identifier, regex: '^((std|core)::)?u16::from_(le|be|ne)_bytes$'}
+                - has: { stopBy: end, kind: scoped_identifier, regex: '^((std|core)::)?u16::from_(le|be|ne)_bytes$' }
                 - all:
-                    - has: {stopBy: end, kind: binary_expression, all: [{has: {field: operator, regex: '^<<$'}}, {has: {field: right, regex: '^8$'}}]}
-                    - has: {stopBy: end, kind: type_cast_expression, has: {field: type, regex: '^u16$'}}
+                      - has: { stopBy: end, kind: binary_expression, all: [{ has: { field: operator, regex: '^<<$' } }, { has: { field: right, regex: '^8$' } }] }
+                      - has: { stopBy: end, kind: type_cast_expression, has: { field: type, regex: '^u16$' } }
                 - kind: scoped_identifier
                   regex: '^((std|core)::)?u16::from_(le|be|ne)_bytes$'
     utf16-decode:
@@ -38,42 +38,42 @@ utils:
         regex: '^((std|alloc)::)?(string::)?(String::from_utf16(_lossy)?|char::decode_utf16)$'
     loop-byte:
         any:
-            - {kind: identifier, pattern: $BYTE}
+            - { kind: identifier, pattern: $BYTE }
             - kind: unary_expression
               all:
-                - has: {field: operator, regex: '^\*$'}
-                - has: {kind: identifier, pattern: $BYTE}
+                  - has: { field: operator, regex: '^\*$' }
+                  - has: { kind: identifier, pattern: $BYTE }
     loop-char:
         any:
             - kind: type_cast_expression
-              all: [{has: {field: type, regex: '^char$'}}, {has: {field: value, matches: loop-byte}}]
+              all: [{ has: { field: type, regex: '^char$' } }, { has: { field: value, matches: loop-byte } }]
             - kind: call_expression
               all:
-                - has: {field: function, regex: '^((std|core)::)?(primitive::)?char::from$'}
-                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: loop-byte}, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}
+                  - has: { field: function, regex: '^((std|core)::)?(primitive::)?char::from$' }
+                  - has: { field: arguments, has: { nthChild: { position: 1, ofRule: { not: { kind: 'line_comment, block_comment' } } }, matches: loop-byte }, not: { has: { nthChild: { position: 2, ofRule: { not: { kind: 'line_comment, block_comment' } } } } } }
 rule:
     kind: call_expression
     all:
         - any:
-            - all:
-                - has: {field: function, kind: field_expression, has: {field: field, regex: '^map$'}}
-                - any:
-                    - all:
-                        - has: {field: function, has: {field: value, matches: byte-source}}
-                        - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: to-char}, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}
-                    - all:
-                        - has: {field: function, has: {field: value, kind: call_expression, has: {field: function, kind: field_expression, has: {field: field, regex: '^(chunks_exact|chunks|array_chunks|as_chunks)$'}}}}
-                        - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: utf16-unit}}
-                        - inside: {kind: function_item, stopBy: {kind: function_item}, has: {stopBy: {kind: function_item}, matches: utf16-decode}}
-            - all:
-                - has: {field: function, kind: field_expression, has: {field: field, regex: '^push$'}}
-                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: loop-char}, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}
-                - inside:
-                    kind: for_expression
-                    stopBy: {kind: 'function_item, closure_expression'}
-                    all:
-                        - has: {field: pattern, any: [{pattern: $BYTE}, {has: {stopBy: end, kind: identifier, pattern: $BYTE}}]}
-                        - has: {field: value, any: [{matches: byte-source}, {kind: 'identifier, field_expression, reference_expression'}]}
+              - all:
+                    - has: { field: function, kind: field_expression, has: { field: field, regex: '^map$' } }
+                    - any:
+                          - all:
+                                - has: { field: function, has: { field: value, matches: byte-source } }
+                                - has: { field: arguments, has: { nthChild: { position: 1, ofRule: { not: { kind: 'line_comment, block_comment' } } }, matches: to-char }, not: { has: { nthChild: { position: 2, ofRule: { not: { kind: 'line_comment, block_comment' } } } } } }
+                          - all:
+                                - has: { field: function, has: { field: value, kind: call_expression, has: { field: function, kind: field_expression, has: { field: field, regex: '^(chunks_exact|chunks|array_chunks|as_chunks)$' } } } }
+                                - has: { field: arguments, has: { nthChild: { position: 1, ofRule: { not: { kind: 'line_comment, block_comment' } } }, matches: utf16-unit } }
+                                - inside: { kind: function_item, stopBy: { kind: function_item }, has: { stopBy: { kind: function_item }, matches: utf16-decode } }
+              - all:
+                    - has: { field: function, kind: field_expression, has: { field: field, regex: '^push$' } }
+                    - has: { field: arguments, has: { nthChild: { position: 1, ofRule: { not: { kind: 'line_comment, block_comment' } } }, matches: loop-char }, not: { has: { nthChild: { position: 2, ofRule: { not: { kind: 'line_comment, block_comment' } } } } } }
+                    - inside:
+                          kind: for_expression
+                          stopBy: { kind: 'function_item, closure_expression' }
+                          all:
+                              - has: { field: pattern, any: [{ pattern: $BYTE }, { has: { stopBy: end, kind: identifier, pattern: $BYTE } }] }
+                              - has: { field: value, any: [{ matches: byte-source }, { kind: 'identifier, field_expression, reference_expression' }] }
         - pattern: $DECODE
 message: '`$DECODE` decodes bytes into chars by hand'
 note: 'Call `encoding_rs::mem::decode_latin1` for one char per byte and `String::from_utf16le` or `from_utf16be` for UTF-16 code units'

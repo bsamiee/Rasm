@@ -21,7 +21,7 @@ class Template extends Context.Service<Template, string>()('@rasm/hosting/render
         );
     static readonly render = Effect.fn('Template.render')(function* <S extends Schema.Codec<unknown, unknown>>(shell: Shell<S>, value: S['Type']) {
         const [template, context] = yield* Effect.all([Template, Effect.context<never>()]);
-        const onError = (error: unknown) => Effect.logError(Cause.die(error)).pipe(Effect.runSyncWith(context));
+        const onError = (error: unknown) => Effect.runSyncWith(context)(Effect.logError(Cause.die(error)));
         const [serialized, markup] = yield* Effect.all(
             [
                 Schema.encodeEffect(shell.script.json)(value).pipe(Effect.orDie),

@@ -14,7 +14,7 @@ import type { EntryId } from '#/model/portfolio';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Destination = Data.TaggedEnum<{ Library: Record<never, never>; Hero: Record<never, never>; Entry: { readonly id: typeof EntryId.Type } }>;
+type Destination = Data.TaggedEnum<{ Library: object; Hero: object; Entry: { readonly id: typeof EntryId.Type } }>;
 interface UploadMeta extends Meta {
     readonly destination: Destination;
     readonly [uploadField.asset]?: string;

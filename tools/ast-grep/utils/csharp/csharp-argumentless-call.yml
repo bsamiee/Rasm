@@ -2,4 +2,4 @@
 id: csharp-argumentless-call
 language: csharplang
 rule:
-    has: {field: arguments, not: {has: {kind: argument}}}
+    has: { field: arguments, not: { has: { kind: argument } } }

@@ -4,22 +4,22 @@ severity: error
 utils:
     field:
         kind: expression_statement
-        has: {kind: assignment, has: {field: type, kind: type}}
-    red: {matches: field, has: {kind: assignment, has: {field: left, regex: '^red$'}}}
-    green: {matches: field, has: {kind: assignment, has: {field: left, regex: '^green$'}}}
-    blue: {matches: field, has: {kind: assignment, has: {field: left, regex: '^blue$'}}}
-    top-left: {matches: field, has: {kind: assignment, has: {field: left, regex: '^top_left$'}}}
-    top-right: {matches: field, has: {kind: assignment, has: {field: left, regex: '^top_right$'}}}
-    bottom-right: {matches: field, has: {kind: assignment, has: {field: left, regex: '^bottom_right$'}}}
-    bottom-left: {matches: field, has: {kind: assignment, has: {field: left, regex: '^bottom_left$'}}}
+        has: { kind: assignment, has: { field: type, kind: type } }
+    red: { matches: field, has: { kind: assignment, has: { field: left, regex: '^red$' } } }
+    green: { matches: field, has: { kind: assignment, has: { field: left, regex: '^green$' } } }
+    blue: { matches: field, has: { kind: assignment, has: { field: left, regex: '^blue$' } } }
+    top-left: { matches: field, has: { kind: assignment, has: { field: left, regex: '^top_left$' } } }
+    top-right: { matches: field, has: { kind: assignment, has: { field: left, regex: '^top_right$' } } }
+    bottom-right: { matches: field, has: { kind: assignment, has: { field: left, regex: '^bottom_right$' } } }
+    bottom-left: { matches: field, has: { kind: assignment, has: { field: left, regex: '^bottom_left$' } } }
 rule:
     kind: class_definition
     all:
-        - has: {field: name, pattern: $NAME}
+        - has: { field: name, pattern: $NAME }
         - has:
-            field: body
-            any:
-                - all: [{has: {matches: red}}, {has: {matches: green}}, {has: {matches: blue}}]
-                - all: [{has: {matches: top-left}}, {has: {matches: top-right}}, {has: {matches: bottom-right}}, {has: {matches: bottom-left}}]
+              field: body
+              any:
+                  - all: [{ has: { matches: red } }, { has: { matches: green } }, { has: { matches: blue } }]
+                  - all: [{ has: { matches: top-left } }, { has: { matches: top-right } }, { has: { matches: bottom-right } }, { has: { matches: bottom-left } }]
 message: '`$NAME` declares one field per channel or corner'
 note: 'Declare one field shaped as its consumer takes it whole (`tuple[float, float, float]` for OCIO, `(3,)` `ndarray` for numpy)'

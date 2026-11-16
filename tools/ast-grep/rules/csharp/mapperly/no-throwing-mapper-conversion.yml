@@ -9,84 +9,84 @@ utils:
             - kind: identifier
               pattern: $ELEMENT
               any:
-                - inside:
-                    stopBy: end
-                    kind: lambda_expression
-                    all:
-                        - has:
-                            field: parameters
-                            any:
-                                - kind: implicit_parameter
-                                  pattern: $ELEMENT
-                                - has: {kind: parameter, nthChild: 1, has: {field: name, pattern: $ELEMENT}}
-                        - inside:
-                            kind: argument
-                            inside:
-                                kind: argument_list
-                                inside:
-                                    kind: invocation_expression
-                                    has: {field: function, kind: member_access_expression, has: {field: expression, matches: source-path}}
-                - inside:
-                    stopBy: end
-                    inside: {kind: query_expression}
-                    follows:
+                  - inside:
                         stopBy: end
-                        kind: from_clause
+                        kind: lambda_expression
                         all:
-                            - has: {field: name, pattern: $ELEMENT}
-                            - has: {nthChild: {position: 1, reverse: true}, matches: source-path}
+                            - has:
+                                  field: parameters
+                                  any:
+                                      - kind: implicit_parameter
+                                        pattern: $ELEMENT
+                                      - has: { kind: parameter, nthChild: 1, has: { field: name, pattern: $ELEMENT } }
+                            - inside:
+                                  kind: argument
+                                  inside:
+                                      kind: argument_list
+                                      inside:
+                                          kind: invocation_expression
+                                          has: { field: function, kind: member_access_expression, has: { field: expression, matches: source-path } }
+                  - inside:
+                        stopBy: end
+                        inside: { kind: query_expression }
+                        follows:
+                            stopBy: end
+                            kind: from_clause
+                            all:
+                                - has: { field: name, pattern: $ELEMENT }
+                                - has: { nthChild: { position: 1, reverse: true }, matches: source-path }
             - kind: identifier
               pattern: $LOCAL
               inside:
-                stopBy: end
-                inside: {kind: block}
-                follows:
-                    stopBy: end
-                    kind: local_declaration_statement
-                    has:
-                        kind: variable_declaration
-                        has:
-                            kind: variable_declarator
-                            all:
-                                - has: {field: name, pattern: $LOCAL}
-                                - has: {nthChild: 2, matches: source-path}
+                  stopBy: end
+                  inside: { kind: block }
+                  follows:
+                      stopBy: end
+                      kind: local_declaration_statement
+                      has:
+                          kind: variable_declaration
+                          has:
+                              kind: variable_declarator
+                              all:
+                                  - has: { field: name, pattern: $LOCAL }
+                                  - has: { nthChild: 2, matches: source-path }
     source-path:
         any:
             - matches: source-root
             - kind: member_access_expression
-              has: {field: expression, matches: source-path}
+              has: { field: expression, matches: source-path }
             - kind: invocation_expression
               any:
-                - has: {field: function, kind: member_access_expression, has: {field: expression, matches: source-path}}
-                - has: {field: arguments, has: {matches: source-argument}}
+                  - has: { field: function, kind: member_access_expression, has: { field: expression, matches: source-path } }
+                  - has: { field: arguments, has: { matches: source-argument } }
             - kind: conditional_access_expression
               all:
-                - has: {field: condition, matches: source-path}
-                - has: {kind: member_binding_expression}
+                  - has: { field: condition, matches: source-path }
+                  - has: { kind: member_binding_expression }
             - kind: postfix_unary_expression, parenthesized_expression
-              has: {matches: source-path}
+              has: { matches: source-path }
     source-argument:
         kind: argument
-        has: {nthChild: {position: 1, reverse: true}, matches: source-path}
+        has: { nthChild: { position: 1, reverse: true }, matches: source-path }
     key-source:
         any:
             - kind: identifier
               pattern: $SOURCE
             - kind: invocation_expression
               has:
-                field: function
-                kind: member_access_expression
-                all:
-                    - has: {field: expression, matches: key-source}
-                    - has: {field: name, regex: '^(Trim|TrimStart|TrimEnd|ToUpper|ToUpperInvariant|ToLower|ToLowerInvariant|Normalize|Replace|Substring)$'}
+                  field: function
+                  kind: member_access_expression
+                  all:
+                      - has: { field: expression, matches: key-source }
+                      - has: { field: name, regex: '^(Trim|TrimStart|TrimEnd|ToUpper|ToUpperInvariant|ToLower|ToLowerInvariant|Normalize|Replace|Substring)$' }
             - kind: postfix_unary_expression, parenthesized_expression
-              has: {matches: key-source}
+              has: { matches: key-source }
     source-parameter:
         inside:
             stopBy: end
             kind: method_declaration
             all:
-                - has: {field: parameters, has: {kind: parameter, nthChild: 1, has: {field: name, pattern: $SOURCE}}}
+                - has: { field: parameters, has: { kind: parameter, nthChild: 1, has: { field: name, pattern: $SOURCE } } }
                 - matches: mapperly-mapping-method
     key-parameter:
         inside:
@@ -97,38 +97,38 @@ utils:
                 has:
                     kind: parameter
                     all:
-                        - has: {field: name, pattern: $SOURCE}
-                        - has: {field: type, matches: {csharp-qualified-name: {name: {regex: '^(?:string|bool|Guid|DateTime|DateTimeOffset|DateOnly|TimeOnly|TimeSpan|Uri)$'}, qualifier: {regex: '^System$'}}}}
+                        - has: { field: name, pattern: $SOURCE }
+                        - has: { field: type, matches: { csharp-qualified-name: { name: { regex: '^(?:string|bool|Guid|DateTime|DateTimeOffset|DateOnly|TimeOnly|TimeSpan|Uri)$' }, qualifier: { regex: '^System$' } } } }
 rule:
     kind: invocation_expression, member_access_expression, cast_expression
     all:
         - any:
-            - kind: invocation_expression
-              has: {field: function, matches: csharp-throwing-factory, pattern: $CONVERSION}
-            - kind: member_access_expression
-              matches: csharp-throwing-factory
-              pattern: $CONVERSION
-            - kind: cast_expression
-              pattern: $CONVERSION
-              has: {field: type, kind: 'identifier, generic_name, qualified_name', not: {matches: {csharp-type-name: {name: {regex: '^I[A-Z]'}}}}}
+              - kind: invocation_expression
+                has: { field: function, matches: csharp-throwing-factory, pattern: $CONVERSION }
+              - kind: member_access_expression
+                matches: csharp-throwing-factory
+                pattern: $CONVERSION
+              - kind: cast_expression
+                pattern: $CONVERSION
+                has: { field: type, kind: 'identifier, generic_name, qualified_name', not: { matches: { csharp-type-name: { name: { regex: '^I[A-Z]' } } } } }
         - matches: source-parameter
         - any:
-            - kind: invocation_expression
-              has: {field: arguments, has: {matches: source-argument}}
-            - kind: member_access_expression
-              inside:
-                kind: argument
+              - kind: invocation_expression
+                has: { field: arguments, has: { matches: source-argument } }
+              - kind: member_access_expression
                 inside:
-                    kind: argument_list
+                    kind: argument
                     inside:
-                        kind: invocation_expression
-                        any:
-                            - has: {field: function, kind: member_access_expression, has: {field: expression, matches: source-path}}
-                            - matches: csharp-nameof-call
-                              inside: {kind: attribute_argument, has: {field: name, regex: '^Use$'}}
-            - kind: cast_expression
-              all:
-                - has: {field: value, matches: key-source}
-                - matches: key-parameter
+                        kind: argument_list
+                        inside:
+                            kind: invocation_expression
+                            any:
+                                - has: { field: function, kind: member_access_expression, has: { field: expression, matches: source-path } }
+                                - matches: csharp-nameof-call
+                                  inside: { kind: attribute_argument, has: { field: name, regex: '^Use$' } }
+              - kind: cast_expression
+                all:
+                    - has: { field: value, matches: key-source }
+                    - matches: key-parameter
 message: '`$CONVERSION` throws on rejected `$SOURCE` inside a mapping method'
 note: 'Validate `<source>` into target type through its `Fin`-returning factory before the mapping runs'

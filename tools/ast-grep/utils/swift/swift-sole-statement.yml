@@ -6,5 +6,5 @@ rule:
     not:
         has:
             all:
-                - &statement {pattern: $_, not: {kind: 'comment, multiline_comment'}}
-                - follows: {stopBy: end, all: [*statement]}
+                - &statement { pattern: $_, not: { kind: 'comment, multiline_comment' } }
+                - follows: { stopBy: end, all: [*statement] }

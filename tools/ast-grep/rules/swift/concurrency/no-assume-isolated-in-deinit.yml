@@ -5,12 +5,12 @@ rule:
     kind: call_expression
     all:
         - has:
-            nthChild: 1
-            pattern: $HOP
-            any:
-                - pattern: assumeIsolated
-                - kind: navigation_expression
-                  has: {field: suffix, regex: '^\.assumeIsolated$'}
-        - inside: {kind: deinit_declaration, stopBy: {kind: 'deinit_declaration, lambda_literal, function_declaration'}}
+              nthChild: 1
+              pattern: $HOP
+              any:
+                  - pattern: assumeIsolated
+                  - kind: navigation_expression
+                    has: { field: suffix, regex: '^\.assumeIsolated$' }
+        - inside: { kind: deinit_declaration, stopBy: { kind: 'deinit_declaration, lambda_literal, function_declaration' } }
 message: '`$HOP` asserts actor isolation inside `deinit`'
 note: 'Declare `isolated deinit` and call isolated members directly'

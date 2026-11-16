@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { fn } from 'storybook/test';
 import preview from '#/.storybook/preview';
 import { Choice } from '#/choice.tsx';
@@ -15,7 +16,7 @@ const meta = preview.meta({
             { id: 'full', label: 'Full', isDisabled: true },
         ],
         value: 'narrow',
-        onChange: fn(),
+        onChange: fn<ComponentProps<typeof Choice>['onChange']>(),
         radios: 3,
     },
 });

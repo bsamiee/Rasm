@@ -11,6 +11,7 @@ import { walkTsconfigExtendsChain } from '@nx/js/internal';
 import { nxReadySignal } from '@nx/vite/plugins/nx-ready-signal.plugin';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Cause, Effect, Equal, FileSystem, MutableRef, Option, Predicate, pipe, Record, Result, Schema } from 'effect';
+import type { resolveConfig } from 'vite';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -78,7 +79,9 @@ const secluded = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
         () => effect,
         (before) =>
             Effect.sync(() => {
-                Array.difference(Object.keys(env), Object.keys(before)).forEach((name) => Reflect.deleteProperty(env, name));
+                Array.difference(Object.keys(env), Object.keys(before)).forEach((name) => {
+                    Reflect.deleteProperty(env, name);
+                });
                 Object.assign(env, before);
             }),
     );
@@ -86,13 +89,13 @@ const secluded = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, outDir: Option.Option<string>) {
     const fs = yield* FileSystem.FileSystem;
     const [root, folder, at] = [dirname(file), join(workspaceRoot, dirname(file)), join(workspaceRoot, file)];
-    const { resolveConfig }: typeof import('vite') = yield* Effect.tryPromise({ try: () => import(pathToFileURL(createRequire(at).resolve('vite')).href), catch: (cause) => new Cause.UnknownError(cause, `${file} resolves no vite`) });
+    const vite = yield* Effect.tryPromise({ try: (): Promise<{ readonly resolveConfig: typeof resolveConfig }> => import(pathToFileURL(createRequire(at).resolve('vite')).href), catch: (cause) => new Cause.UnknownError(cause, `${file} resolves no vite`) });
     const stated = MutableRef.make(false);
     const capture = { name: 'nx-vite-stated-server', enforce: 'post', config: { order: 'post', handler: (user: { readonly server?: unknown }) => MutableRef.update(stated, (held) => held || user.server !== undefined) } } as const;
     const resolved = (command: 'build' | 'serve', mode: string, build: { readonly outDir?: string }) =>
         secluded(
             Effect.tryPromise({
-                try: () => retryOnRequireEsmRace(() => resolveConfig({ configFile: at, root: folder, logLevel: 'silent', build, plugins: [capture] }, command, mode, mode)),
+                try: () => retryOnRequireEsmRace(() => vite.resolveConfig({ configFile: at, root: folder, logLevel: 'silent', build, plugins: [capture] }, command, mode, mode)),
                 catch: (cause) => new Cause.UnknownError(cause, `${file} does not load for vite ${command}`),
             }),
         );

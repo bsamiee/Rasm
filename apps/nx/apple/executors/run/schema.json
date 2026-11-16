@@ -60,7 +60,7 @@
                     "description": "File the lcov report is written to"
                 }
             },
-            "required": [ "profiles", "objects", "file" ],
+            "required": ["profiles", "objects", "file"],
             "additionalProperties": true,
             "description": "lcov report written once every invocation passes: the profiles matching profiles merge with xcrun llvm-profdata merge, then export over objects with xcrun llvm-cov export"
         },
@@ -84,7 +84,7 @@
             }
         }
     },
-    "required": [ "runs" ],
+    "required": ["runs"],
     "additionalProperties": true,
     "title": "Run",
     "description": "Runs swift and xcodebuild invocations in order with Nx's per-task environment removed and git status.branch off after the caller's GIT_CONFIG_<n> entries, stopping at the first failure, then writes the lcov report a coverage configuration states"

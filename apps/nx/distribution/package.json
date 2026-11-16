@@ -2,12 +2,20 @@
     "name": "@rasm/nx-distribution",
     "version": "0.1.0",
     "description": "Nx plugin inferring host packages from their manifests, one row per kind (Blender extension, Yak package, Adobe UXP .ccx and CEP .zxp, Unreal plug-in): each row builds the package with its host tool, installs it where the host loads it, attaches it to the project's GitHub release, and publishes it to the host store taking uploads; it holds the clean, attach, and publish executors every plugin names by package, and the sync generator writing each plugin's executor schemas",
+    "license": "MIT",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/bsamiee/Rasm.git",
         "directory": "apps/nx/distribution"
     },
-    "license": "MIT",
+    "files": [
+        "dist",
+        "executors.json",
+        "executors/*/schema.json",
+        "executors/*/vendored.py*",
+        "generators.json",
+        "generators/*/schema.json"
+    ],
     "type": "module",
     "imports": {
         "#/*": "./*.ts",
@@ -21,7 +29,21 @@
         "./executors.json": "./executors.json",
         "./generators.json": "./generators.json"
     },
-    "files": [ "dist", "executors.json", "executors/*/schema.json", "executors/*/vendored.py*", "generators.json", "generators/*/schema.json" ],
+    "publishConfig": {
+        "imports": {
+            "#/*": "./dist/*.js",
+            "#package": "./package.json",
+            "#vendored": "./executors/extension-build/vendored.py"
+        },
+        "exports": {
+            ".": "./dist/plugin.js",
+            "./release/version-actions": "./dist/version-actions.js",
+            "./package.json": "./package.json",
+            "./executors.json": "./executors.json",
+            "./generators.json": "./generators.json"
+        },
+        "access": "public"
+    },
     "dependencies": {
         "@decimalturn/toml-patch": "catalog:",
         "@effect/platform-node": "catalog:",
@@ -30,6 +52,7 @@
         "@xml-tools/parser": "catalog:",
         "effect": "catalog:",
         "jsonc-parser": "catalog:",
+        "minimatch": "catalog:",
         "which": "catalog:",
         "yaml": "catalog:"
     },
@@ -40,21 +63,6 @@
     },
     "peerDependencies": {
         "nx": "catalog:peers"
-    },
-    "publishConfig": {
-        "access": "public",
-        "exports": {
-            ".": "./dist/plugin.js",
-            "./release/version-actions": "./dist/version-actions.js",
-            "./package.json": "./package.json",
-            "./executors.json": "./executors.json",
-            "./generators.json": "./generators.json"
-        },
-        "imports": {
-            "#/*": "./dist/*.js",
-            "#package": "./package.json",
-            "#vendored": "./executors/extension-build/vendored.py"
-        }
     },
     "executors": "./executors.json",
     "generators": "./generators.json"

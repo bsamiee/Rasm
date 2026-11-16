@@ -5,5 +5,5 @@ arguments: [target, attribute]
 rule:
     kind: for_in_clause, for_statement
     all:
-        - has: {field: right, kind: attribute, has: {field: attribute, matches: attribute}}
-        - has: {field: left, matches: target}
+        - has: { field: right, kind: attribute, has: { field: attribute, matches: attribute } }
+        - has: { field: left, matches: target }

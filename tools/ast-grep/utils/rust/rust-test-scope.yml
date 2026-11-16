@@ -3,7 +3,7 @@ id: rust-test-scope
 language: rustlang
 utils:
     marked:
-        matches: {rust-attributed: {attribute: {matches: rust-test-attribute}}}
+        matches: { rust-attributed: { attribute: { matches: rust-test-attribute } } }
 rule:
     inside:
         stopBy: end

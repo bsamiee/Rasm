@@ -121,7 +121,7 @@ class Face extends Schema.Class<Face, { readonly brand: unique symbol }>('Face')
             ...Record.map({ weight: 'usWeightClass', width: 'usWidthClass' } as const, (field) => Option.map(tables['OS/2'], Struct.get(field))),
             monospace: tables.post.isFixedPitch,
             metrics: Metrics.of({ font, tables, axes }),
-            layout: yield* Layout.of({ ...chosen, tables }),
+            layout: yield* Layout.of(chosen, tables),
             color: Color.of(chosen),
             axes,
             namedInstances: chosen.namedInstances.map(({ names: { style, postscriptName }, variations: values }) => ({ style, postscriptName, variations: values })),

@@ -4,8 +4,8 @@ import { AtomRegistry } from 'effect/reactivity';
 import { type ReactNode, StrictMode } from 'react';
 import { Button, Dialog, DialogTrigger, Modal } from 'react-aria-components';
 import { expect, it } from 'vitest';
-import { userEvent } from 'vitest/browser';
 import { render } from 'vitest-browser-react';
+import { userEvent } from 'vitest/browser';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -22,10 +22,16 @@ const controlled = (label: string, isOpen: boolean) => (
         </Modal>
     </Backdrop>
 );
+const dialogs = (first: boolean) => (
+    <>
+        {controlled('First', first)}
+        {controlled('Second', true)}
+    </>
+);
 const triggered = (label: string, content?: ReactNode) => (
     <DialogTrigger>
         <Button>{`Open ${label}`}</Button>
-        <Backdrop isDismissable={true}>
+        <Backdrop isDismissable>
             <Modal>
                 <Dialog aria-label={label}>{content}</Dialog>
             </Modal>
@@ -36,12 +42,6 @@ const triggered = (label: string, content?: ReactNode) => (
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 it('counts each controlled dialog independently as its open state changes', async () => {
-    const dialogs = (first: boolean) => (
-        <>
-            {controlled('First', first)}
-            {controlled('Second', true)}
-        </>
-    );
     const { rerender, open } = await registered(dialogs(true));
     await expect.poll(open).toBe(2);
     await rerender(dialogs(false));
@@ -49,6 +49,7 @@ it('counts each controlled dialog independently as its open state changes', asyn
     await rerender(dialogs(true));
     await expect.poll(open).toBe(2);
 });
+
 it('counts trigger-opened dialog until Escape dismisses it', async () => {
     const { screen, open } = await registered(triggered('Editor'));
     expect(open()).toBe(0);
@@ -59,6 +60,7 @@ it('counts trigger-opened dialog until Escape dismisses it', async () => {
     await expect.element(screen.getByRole('dialog', { name: 'Editor' })).not.toBeInTheDocument();
     await expect.poll(open).toBe(0);
 });
+
 it('counts nested dialog opened from inside another and releases it on dismissal', async () => {
     const { screen, open } = await registered(triggered('Editor', triggered('Confirm')));
     await screen.getByRole('button', { name: 'Open Editor' }).click();
@@ -69,6 +71,7 @@ it('counts nested dialog opened from inside another and releases it on dismissal
     await expect.element(screen.getByRole('dialog', { name: 'Confirm' })).not.toBeInTheDocument();
     await expect.poll(open).toBe(1);
 });
+
 it('counts once under strict mode effect replay and releases every count on unmount', async () => {
     const { screen, open } = await registered(<StrictMode>{controlled('Strict', true)}</StrictMode>);
     await expect.poll(open).toBe(1);

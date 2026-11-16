@@ -29,7 +29,7 @@ class Format extends Data.Class<{ readonly locales?: Intl.LocalesArgument; reado
     readonly date = DateTime.formatIntl(new Intl.DateTimeFormat(this.locales));
     readonly #relative = new Intl.RelativeTimeFormat(this.locales);
     readonly #duration = new Intl.DurationFormat(this.locales);
-    quantity(count: number, forms: { readonly [Category in Intl.LDMLPluralRule]?: (count: string) => string } & { readonly other: (count: string) => string }, type: Intl.PluralRuleType = 'cardinal') {
+    quantity(count: number, forms: Readonly<Partial<Record<Intl.LDMLPluralRule, (count: string) => string>>> & { readonly other: (count: string) => string }, type: Intl.PluralRuleType = 'cardinal') {
         return (forms[this.#plurals[type].select(count)] ?? forms.other)(this.#count.format(count));
     }
     numeral(value: number, total = value) {

@@ -1,4 +1,4 @@
-import { Array, Option, Schema } from 'effect';
+import { Array, Function, Option, Schema } from 'effect';
 import { type RefObject, useEffect, useEffectEvent, useRef, useState, useSyncExternalStore } from 'react';
 import { CompositionId } from '#/model/placement';
 import { type Entry, EntryId, type Portfolio } from '#/model/portfolio';
@@ -14,7 +14,15 @@ const UrlFragment = Object.assign((project: typeof EntryId.Type, composition?: t
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+// oxlint-disable-next-line unicorn/prefer-number-coercion -- `scrollPaddingTop` is a CSS length (`72px`), `Number` reads it as NaN
 const line = () => Number.parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop);
+const first = (entry: typeof Entry.Type, composition: typeof CompositionId.Type | undefined) => (entry.compositions.find(({ id }) => id === composition) ?? entry.compositions[0])?.id;
+const write = (method: 'pushState' | 'replaceState', target: string) => {
+    history.scrollRestoration = target === UrlFragment.top || target === UrlFragment.work ? 'auto' : 'manual';
+    if (location.hash !== target) {
+        history[method](null, '', target);
+    }
+};
 const useNavigation = (portfolio: typeof Portfolio.Type, work: RefObject<HTMLElement | null>, sticky: RefObject<HTMLDivElement | null>, foreground: boolean) => {
     const hash = useSyncExternalStore(
         (notify) => {
@@ -28,14 +36,7 @@ const useNavigation = (portfolio: typeof Portfolio.Type, work: RefObject<HTMLEle
     const intersections = useRef(new Set<string>());
     const located = (target: string) => Option.bind(UrlFragment.read(target), 'entry', ({ project }) => Array.findFirst(portfolio.entries, ({ id }) => id === project));
     const current = located(hash);
-    const first = (entry: typeof Entry.Type, composition: typeof CompositionId.Type | undefined) => (entry.compositions.find(({ id }) => id === composition) ?? entry.compositions[0])?.id;
     const selected = (entry: typeof Entry.Type) => first(entry, Option.getOrUndefined(Option.filter(current, (position) => position.entry === entry))?.composition ?? selections[entry.id]);
-    const write = (method: 'pushState' | 'replaceState', target: string) => {
-        history.scrollRestoration = target === UrlFragment.top || target === UrlFragment.work ? 'auto' : 'manual';
-        if (location.hash !== target) {
-            history[method](null, '', target);
-        }
-    };
     const select = (project: typeof EntryId.Type, composition: typeof CompositionId.Type | undefined) => {
         write('pushState', UrlFragment(project, composition));
         if (composition !== undefined) {
@@ -49,7 +50,9 @@ const useNavigation = (portfolio: typeof Portfolio.Type, work: RefObject<HTMLEle
         section?.scrollIntoView();
     };
     const track = useEffectEvent((records: readonly IntersectionObserverEntry[], entries: readonly (typeof Entry.Type)[]) => {
-        records.forEach(({ isIntersecting, target: { id } }) => intersections.current[isIntersecting ? 'add' : 'delete'](id));
+        records.forEach(({ isIntersecting, target: { id } }) => {
+            intersections.current[isIntersecting ? 'add' : 'delete'](id);
+        });
         const entry = entries.findLast(({ id }) => intersections.current.has(id));
         const page = work.current !== null && work.current.getBoundingClientRect().top > line() ? UrlFragment.top : UrlFragment.work;
         const pinned = Option.exists(current, ({ entry: active }) => {
@@ -81,31 +84,34 @@ const useNavigation = (portfolio: typeof Portfolio.Type, work: RefObject<HTMLEle
     useEffect(() => {
         const [bar, section] = [sticky.current, work.current];
         if (bar === null || section === null) {
-            return;
+            return Function.constVoid;
         }
         const events = new AbortController();
-        let observer: IntersectionObserver | undefined;
-        const observe = () => {
+        const observed = () => {
             const top = line();
             const next = new IntersectionObserver((records) => track(records, portfolio.entries), { rootMargin: `${-top}px 0px ${top + 1 - globalThis.innerHeight}px 0px` });
-            observer?.disconnect();
             intersections.current.clear();
-            [section, ...section.querySelectorAll(':scope > section')].forEach(next.observe, next);
-            observer = next;
+            [section, ...section.querySelectorAll(':scope > section')].forEach((target) => next.observe(target));
+            return next;
         };
-        const measure = () => {
-            document.documentElement.style.setProperty('--sticky-height', `${bar.getBoundingClientRect().height}px`);
-            observe();
-        };
-        const size = new ResizeObserver(measure);
+        const measure = () => document.documentElement.style.setProperty('--sticky-height', `${bar.getBoundingClientRect().height}px`);
         measure();
+        let observer = observed();
+        const observe = () => {
+            observer.disconnect();
+            observer = observed();
+        };
+        const size = new ResizeObserver(() => {
+            measure();
+            observe();
+        });
         restore();
         size.observe(bar);
         ['popstate', 'hashchange'].forEach((name) => globalThis.addEventListener(name, restore, { signal: events.signal }));
         globalThis.addEventListener('resize', observe, { signal: events.signal });
         return () => {
             events.abort();
-            observer?.disconnect();
+            observer.disconnect();
             size.disconnect();
         };
     }, [portfolio.entries, sticky, work]);

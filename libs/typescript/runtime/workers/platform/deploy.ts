@@ -1,7 +1,7 @@
 import { join } from 'node:path';
 import { type BuildOutputWorker, DEFAULT_WORKER_DIRECTORY_NAME, readBuildOutput } from '@cloudflare/build-output-utils';
 import { D1Database, Queue, QueueConsumer, R2Bucket, type types, Worker, WorkersCronTrigger, WorkersCustomDomain, WorkerVersion, Workflow } from '@pulumi/cloudflare';
-import { type CustomResourceOptions, jsonStringify, type Output, secret } from '@pulumi/pulumi';
+import { type CustomResourceOptions, jsonStringify, type Output, type Resource, secret } from '@pulumi/pulumi';
 import { Array, Cause, Config, Duration, Effect, flow, Match, Predicate, Record, Redacted, Result, String, Struct, UndefinedOr } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -37,6 +37,7 @@ const UNNAMED: ReadonlySet<string> = new Set(['assets', 'ai', 'browser', 'images
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+const pointed = <B extends { readonly name?: string | undefined }>(held: readonly B[]) => Record.fromEntries(Array.filterMap(held, (binding) => (binding.name === undefined ? Result.failVoid : Result.succeed([binding.name, binding] as const))));
 const deployed = Effect.fnUntraced(function* ({ accountId, production, named, bindings, options }: Deployment, stores: Stores, { config, bundleDir, assetsDir }: BuildOutputWorker, directory: string) {
     const name = named(config.name);
     const [triggers, exported] = [config.triggers ?? [], config.exports ?? {}];
@@ -69,7 +70,7 @@ const deployed = Effect.fnUntraced(function* ({ accountId, production, named, bi
         .filter((domain) => domain.production)
         .map(({ hostname }) => hostname);
     const domains = hostnames.map((hostname) => new WorkersCustomDomain(hostname, { accountId, hostname, service: worker.name }, options));
-    const address = worker.subdomain.apply(({ enabled, url }) => (enabled === true ? url : undefined));
+    const address = worker.subdomain.apply(({ enabled, url }) => (enabled ? url : undefined));
     const hosts = address.apply((url) => [...hostnames, ...Array.fromNullishOr(url).map((live) => new URL(live).host)]);
     const stated = yield* Effect.forEach(Record.toEntries(config.env ?? {}), ([variable, binding]) =>
         Match.value(binding).pipe(
@@ -102,7 +103,7 @@ const deployed = Effect.fnUntraced(function* ({ accountId, production, named, bi
             bindings: [...stated, ...Record.collect(directory === DEFAULT_WORKER_DIRECTORY_NAME ? bindings(hosts) : {}, (variable, binding) => ({ ...binding, name: variable }))],
             exports: Record.filter(exported, (entry) => entry.type !== 'workflow'),
         },
-        { ...options, dependsOn: Object.values(stores).flatMap((held) => Object.values(held)) },
+        { ...options, dependsOn: Record.values<keyof Stores, Stores[keyof Stores]>(stores).flatMap(Object.values<Resource>) },
     );
     const applied = { ...options, dependsOn: [version] };
     const cron = Array.isArrayNonEmpty(schedules) ? [new WorkersCronTrigger(name, { accountId, scriptName: worker.name, schedules: schedules.map(({ schedule }) => ({ cron: schedule })) }, applied)] : [];
@@ -125,7 +126,6 @@ const deployWorker = Effect.fn('deployWorker')(function* (deployment: Deployment
     const built = yield* Effect.tryPromise({ try: () => readBuildOutput(deployment.root), catch: (cause) => new Cause.UnknownError(cause, `${deployment.root} holds no Build Output tree`) });
     const configs = Object.values(built.workers).map(({ config }) => config);
     const bound = configs.flatMap(({ env = {} }) => Object.values(env));
-    const pointed = <B extends { readonly name?: string | undefined }>(held: readonly B[]) => Record.fromEntries(Array.filterMap(held, (binding) => (binding.name === undefined ? Result.failVoid : Result.succeed([binding.name, binding] as const))));
     const consumed = configs.flatMap(({ triggers = [] }) => triggers.filter((trigger) => trigger.type === 'queue').flatMap(({ name, deadLetterQueue }) => [name, ...Array.fromNullishOr(deadLetterQueue)]));
     const produced = pointed(bound.filter((binding) => binding.type === 'queue'));
     const kept = { ...options, protect: production };

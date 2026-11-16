@@ -6,75 +6,75 @@ utils:
     run-call:
         kind: invocation_expression
         all:
-            - has: {field: function, pattern: $CALLBACK, matches: {csharp-owner-member: {type: {regex: '^Session$'}, member: {regex: '^Run$'}}}}
+            - has: { field: function, pattern: $CALLBACK, matches: { csharp-owner-member: { type: { regex: '^Session$' }, member: { regex: '^Run$' } } } }
             - has:
-                field: arguments
-                has:
-                    kind: argument
-                    any:
-                        - nthChild: 1
-                          matches: csharp-positional-argument
-                        - has: {field: name, regex: '^effect$'}
+                  field: arguments
+                  has:
+                      kind: argument
+                      any:
+                          - nthChild: 1
+                            matches: csharp-positional-argument
+                          - has: { field: name, regex: '^effect$' }
     run-statement:
         any:
             - matches: run-call
             - kind: assignment_expression
               all:
-                - has: {field: left, regex: '^_$'}
-                - has: {field: right, matches: run-call}
+                  - has: { field: left, regex: '^_$' }
+                  - has: { field: right, matches: run-call }
     single:
         any:
             - matches: run-statement
             - kind: block
               all:
-                - has: {nthChild: 1, kind: expression_statement, has: {matches: run-statement}}
-                - any:
-                    - not: {has: {nthChild: 2}}
-                    - all:
-                        - has: {nthChild: 2, kind: return_statement, not: {has: {pattern: $_}}}
-                        - not: {has: {nthChild: 3}}
-                - not: {has: {kind: comment}}
+                  - has: { nthChild: 1, kind: expression_statement, has: { matches: run-statement } }
+                  - any:
+                        - not: { has: { nthChild: 2 } }
+                        - all:
+                              - has: { nthChild: 2, kind: return_statement, not: { has: { pattern: $_ } } }
+                              - not: { has: { nthChild: 3 } }
+                  - not: { has: { kind: comment } }
     sender-unused:
         any:
-            - has: {field: parameters, has: {kind: parameter, nthChild: 1, has: {field: name, regex: '^_$'}}}
-            - not: {has: {stopBy: end, kind: identifier, pattern: $SENDER, not: {inside: {kind: parameter}}}}
+            - has: { field: parameters, has: { kind: parameter, nthChild: 1, has: { field: name, regex: '^_$' } } }
+            - not: { has: { stopBy: end, kind: identifier, pattern: $SENDER, not: { inside: { kind: parameter } } } }
     two-parameters:
         has:
             field: parameters
             kind: parameter_list
             all:
-                - has: {kind: parameter, nthChild: 1, has: {field: name, pattern: $SENDER}}
-                - has: {kind: parameter, nthChild: 2, has: {field: name, pattern: $ARGS}}
-                - not: {has: {kind: parameter, nthChild: 3}}
+                - has: { kind: parameter, nthChild: 1, has: { field: name, pattern: $SENDER } }
+                - has: { kind: parameter, nthChild: 2, has: { field: name, pattern: $ARGS } }
+                - not: { has: { kind: parameter, nthChild: 3 } }
     generic-type:
-        matches: {csharp-generic-type: {name: {regex: '^EventHandler$'}, list: {kind: type_argument_list}}}
+        matches: { csharp-generic-type: { name: { regex: '^EventHandler$' }, list: { kind: type_argument_list } } }
     typed-position:
         any:
             - inside:
-                kind: argument
-                inside:
-                    kind: argument_list
-                    inside:
-                        kind: object_creation_expression
-                        has: {field: type, matches: generic-type}
+                  kind: argument
+                  inside:
+                      kind: argument_list
+                      inside:
+                          kind: object_creation_expression
+                          has: { field: type, matches: generic-type }
             - inside:
-                kind: variable_declarator
-                inside: {kind: variable_declaration, has: {field: type, matches: generic-type}}
+                  kind: variable_declarator
+                  inside: { kind: variable_declaration, has: { field: type, matches: generic-type } }
             - inside:
-                kind: arrow_expression_clause
-                inside: {kind: 'method_declaration, local_function_statement', has: {field: type, matches: generic-type}}
+                  kind: arrow_expression_clause
+                  inside: { kind: 'method_declaration, local_function_statement', has: { field: type, matches: generic-type } }
             - inside:
-                kind: return_statement
-                inside:
-                    kind: block
-                    inside: {kind: 'method_declaration, local_function_statement', has: {field: type, matches: generic-type}}
+                  kind: return_statement
+                  inside:
+                      kind: block
+                      inside: { kind: 'method_declaration, local_function_statement', has: { field: type, matches: generic-type } }
 rule:
     kind: lambda_expression, anonymous_method_expression
     all:
         - matches: two-parameters
-        - has: {field: body, matches: single}
+        - has: { field: body, matches: single }
         - matches: sender-unused
         - matches: typed-position
-        - not: {matches: {csharp-owner-body: {type: {regex: '^Subscriptions$'}, member: {regex: '^(On|Inline)$'}}}}
+        - not: { matches: { csharp-owner-body: { type: { regex: '^Subscriptions$' }, member: { regex: '^(On|Inline)$' } } } }
 message: 'Event handler over `$ARGS` runs its effect through `$CALLBACK`'
 note: 'Use `Subscriptions.Inline<TArgs>(<add>, <remove>).Attach(<args> => <effect>.Map(unit))` to preserve synchronous dispatch'

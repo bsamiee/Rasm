@@ -9,9 +9,9 @@ utils:
             field: function
             any:
                 - kind: identifier, generic_name
-                  matches: {csharp-simple-name: {name: {regex: '^Range$'}}}
-                - matches: {csharp-owner-member: {type: {regex: '^Prelude$'}, member: {regex: '^Range$'}}}
-                - matches: {csharp-owner-member: {type: {regex: '^Range$'}, member: {regex: '^(fromMinMax|fromCount|zero)$'}}}
+                  matches: { csharp-simple-name: { name: { regex: '^Range$' } } }
+                - matches: { csharp-owner-member: { type: { regex: '^Prelude$' }, member: { regex: '^Range$' } } }
+                - matches: { csharp-owner-member: { type: { regex: '^Range$' }, member: { regex: '^(fromMinMax|fromCount|zero)$' } } }
 rule:
     kind: invocation_expression
     inside:
@@ -19,16 +19,16 @@ rule:
         field: expression
         has:
             field: name
-            matches: {csharp-simple-name: {name: {regex: '^(?:Fold(?:Back)?(?:While|Until)?M?|Fold(?:Back)?Maybe|FoldMap(?:Back)?(?:While|Until)?|Exists|ForAll|Contains|Find(?:All)?(?:Back)?|Iter|ForM|Sum|Product|Min|Max|Average|At|Partition|IsEmpty|Count|Head|Last|ToLst|ToArr|ToIterable)$'}}}
-        inside: {kind: invocation_expression, field: function}
+            matches: { csharp-simple-name: { name: { regex: '^(?:Fold(?:Back)?(?:While|Until)?M?|Fold(?:Back)?Maybe|FoldMap(?:Back)?(?:While|Until)?|Exists|ForAll|Contains|Find(?:All)?(?:Back)?|Iter|ForM|Sum|Product|Min|Max|Average|At|Partition|IsEmpty|Count|Head|Last|ToLst|ToArr|ToIterable)$' } } }
+        inside: { kind: invocation_expression, field: function }
     any:
         - all:
-            - has: {field: function, regex: 'toSeq'}
-            - matches: {csharp-named-call: {name: {regex: '^toSeq$'}}}
-            - has: {field: arguments, has: {kind: argument, nthChild: 1, matches: csharp-positional-argument, has: {matches: range, pattern: $RANGE}}}
-            - not: {has: {field: arguments, has: {kind: argument, nthChild: 2}}}
+              - has: { field: function, regex: 'toSeq' }
+              - matches: { csharp-named-call: { name: { regex: '^toSeq$' } } }
+              - has: { field: arguments, has: { kind: argument, nthChild: 1, matches: csharp-positional-argument, has: { matches: range, pattern: $RANGE } } }
+              - not: { has: { field: arguments, has: { kind: argument, nthChild: 2 } } }
         - all:
-            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^ToSeq$'}}, {has: {field: expression, matches: range, pattern: $RANGE}}]}
-            - not: {has: {field: arguments, has: {kind: argument}}}
+              - has: { field: function, kind: member_access_expression, all: [{ has: { field: name, regex: '^ToSeq$' } }, { has: { field: expression, matches: range, pattern: $RANGE } }] }
+              - not: { has: { field: arguments, has: { kind: argument } } }
 message: '`$RANGE` converts to `Seq` before a `Foldable` member `Range` supports'
 note: 'Delete `Seq` conversion around the range'

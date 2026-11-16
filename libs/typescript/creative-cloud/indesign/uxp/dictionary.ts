@@ -1,6 +1,6 @@
-import indesign, { type InDesignDOMObject, type MenuAction } from 'adobe:indesign';
 import { HostError, ObjectModel } from '@rasm/automation';
 import { Unmatched } from '@rasm/search';
+import { app, type InDesignDOMObject, type MenuAction, ScriptLanguage } from 'adobe:indesign';
 import { Array, Effect, flow, Match, Number, Option, Record, Schema, SchemaGetter, Struct } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -42,7 +42,7 @@ const Described = Schema.TemplateLiteralParser([
         }),
     ),
     Schema.Literals(['.', OPTIONAL]),
-]).pipe(Schema.decodeTo(Schema.Struct({ types: Schema.Array(Schema.String), optional: Schema.Boolean }), { decode: SchemaGetter.transform(([, , types, end]) => ({ types, optional: end === OPTIONAL })), encode: SchemaGetter.forbiddenEncoding }));
+]).pipe(Schema.decodeTo(Schema.Struct({ types: Schema.Array(Schema.String), optional: Schema.Boolean }), { decode: SchemaGetter.transform((parsed) => ({ types: parsed[2], optional: parsed[3] === OPTIONAL })), encode: SchemaGetter.forbiddenEncoding }));
 const Stated = ObjectModel.Field.mapFields(Struct.omit(['members', 'unavailable', 'settable']));
 const Parameter = Stated.pipe(Schema.fieldsAssign({ optional: Schema.Boolean }));
 const Declaration = Schema.Struct({
@@ -53,20 +53,18 @@ const Declaration = Schema.Struct({
 });
 const Typed = [Schema.String, Schema.OptionFromNullOr(Schema.String), Schema.OptionFromNullOr(Schema.String), Schema.Boolean, Schema.OptionFromNullOr(Schema.Finite), Schema.OptionFromNullOr(Schema.Finite)] as const;
 const Flagged = Schema.Tuple([Schema.Boolean, ...Typed]);
+const stated = ([flagged, name, description, type, array, minimum, maximum]: typeof Flagged.Type) => {
+    const described = Option.flatMap(description, Schema.decodeUnknownOption(Described));
+    return { name, type, types: Option.orElse(Option.map(described, Struct.get('types')), () => Option.map(type, Array.of)), description, array, minimum, maximum, optional: flagged || Option.exists(described, Struct.get('optional')) };
+};
 const Declared = Schema.Tuple([Schema.OptionFromNullOr(Schema.String), Schema.Array(Flagged), Schema.Array(Schema.Tuple([Schema.Array(Flagged), ...Typed])), Schema.Array(Flagged)]).pipe(
     Schema.decodeTo(Schema.toType(Declaration), {
-        decode: SchemaGetter.transform(([parent, properties, methods, statics]) => {
-            const stated = ([flagged, name, description, type, array, minimum, maximum]: typeof Flagged.Type) => {
-                const described = Option.flatMap(description, Schema.decodeUnknownOption(Described));
-                return { name, type, types: Option.orElse(Option.map(described, Struct.get('types')), () => Option.map(type, Array.of)), description, array, minimum, maximum, optional: flagged || Option.exists(described, Struct.get('optional')) };
-            };
-            return {
-                parent,
-                fields: Record.fromIterableWith(properties, ([readonly, ...each]) => [each[0], { ...stated([false, ...each]), settable: !readonly }]),
-                methods: Record.fromIterableWith(methods, ([parameters, name, description, type, array]) => [name, { name, description, parameters: Array.map(parameters, stated), returns: Option.all({ type, array: Option.some(array) }) }]),
-                statics: Record.getSomes(Record.fromIterableWith(statics, ([, name, description]) => [name, description])),
-            };
-        }),
+        decode: SchemaGetter.transform(([parent, properties, methods, statics]) => ({
+            parent,
+            fields: Record.fromIterableWith(properties, ([readonly, ...each]) => [each[0], { ...stated([false, ...each]), settable: !readonly }]),
+            methods: Record.fromIterableWith(methods, ([parameters, name, description, type, array]) => [name, { name, description, parameters: Array.map(parameters, stated), returns: Option.all({ type, array: Option.some(array) }) }]),
+            statics: Record.getSomes(Record.fromIterableWith(statics, ([, name, description]) => [name, description])),
+        })),
         encode: SchemaGetter.forbiddenEncoding,
     }),
 );
@@ -81,7 +79,7 @@ const unavailableReason = (kind: string, field: string, observed: Option.Option<
         Match.option,
     );
 const readDeclaration = (kind: string, candidates: readonly string[]) =>
-    Effect.try({ try: (): unknown => indesign.app.doScript(READER, indesign.ScriptLanguage.JAVASCRIPT, [kind]), catch: HostError.refused(`dictionary class ${kind}`) }).pipe(
+    Effect.try({ try: (): unknown => app.doScript(READER, ScriptLanguage.JAVASCRIPT, [kind]), catch: HostError.refused(`dictionary class ${kind}`) }).pipe(
         Effect.flatMap(flow(Schema.decodeUnknownEffect(Schema.OptionFromNullOr(Declared)), Effect.orDie)),
         Effect.flatMap(Effect.fromOption(() => Unmatched.make({ subject: 'class', query: Option.some(kind), candidates }))),
         Effect.map(Struct.evolve({ fields: Record.map((row: (typeof Declaration.Type.fields)[string]) => ({ ...row, unavailable: unavailableReason(kind, row.name, Option.none(), false) })) })),

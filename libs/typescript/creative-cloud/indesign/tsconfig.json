@@ -1,7 +1,7 @@
 {
     "extends": "../uxp/tsconfig.json",
     "compilerOptions": {
-        "paths": { "adobe:indesign": [ "${configDir}/node_modules/indesign-uxp-types/flat/module.d.ts" ] }
+        "paths": { "adobe:indesign": ["${configDir}/node_modules/indesign-uxp-types/flat/module.d.ts"] }
     },
     "references": [
         {

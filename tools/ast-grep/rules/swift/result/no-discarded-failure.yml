@@ -4,12 +4,12 @@ severity: error
 rule:
     kind: call_expression
     all:
-        - has: {nthChild: 1, kind: navigation_expression, all: [{has: {field: suffix, regex: '^\.?(mapError|flatMapError)$', pattern: $M}}, {has: {field: target, matches: swift-result-value}}]}
+        - has: { nthChild: 1, kind: navigation_expression, all: [{ has: { field: suffix, regex: '^\.?(mapError|flatMapError)$', pattern: $M } }, { has: { field: target, matches: swift-result-value } }] }
         - has:
-            kind: call_suffix
-            has:
-                stopBy: {kind: lambda_literal}
-                kind: lambda_literal
-                has: {field: type, kind: lambda_function_type, has: {stopBy: end, kind: lambda_parameter, has: {field: name, pattern: _}}}
+              kind: call_suffix
+              has:
+                  stopBy: { kind: lambda_literal }
+                  kind: lambda_literal
+                  has: { field: type, kind: lambda_function_type, has: { stopBy: end, kind: lambda_parameter, has: { field: name, pattern: _ } } }
 message: '`$M` drops its failure through a `_` closure parameter'
 note: 'Name error, recover only host case the fallback answers (`DecodingError.typeMismatch`, `CancellationError`), and pass every other failure on'

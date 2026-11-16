@@ -144,7 +144,7 @@ jobs:
             NX_SELF_HOSTED_REMOTE_CACHE_SERVER: *server
             NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN: *token
             HOME: /home/ue4
-            UnrealBuildTool_UnrealBuildAccelerator__AllowDetour: "false"
+            UnrealBuildTool_UnrealBuildAccelerator__AllowDetour: 'false'
         steps:
             - *checkout
             - *tools

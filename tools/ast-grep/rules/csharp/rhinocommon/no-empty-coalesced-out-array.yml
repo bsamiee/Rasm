@@ -6,167 +6,168 @@ utils:
     empty-collection:
         any:
             - kind: collection_expression
-              not: {has: {kind: collection_element}}
+              not: { has: { kind: collection_element } }
             - kind: invocation_expression
               all:
-                - has: {field: function, kind: member_access_expression, all: [{has: {field: expression, matches: {csharp-type-name: {name: {regex: '^(?:Enumerable|Array)$'}}}}}, {has: {field: name, matches: {csharp-generic-type: {name: {regex: '^Empty$'}, list: {kind: type_argument_list}}}}}]}
-                - matches: csharp-argumentless-call
+                  - has:
+                        { field: function, kind: member_access_expression, all: [{ has: { field: expression, matches: { csharp-type-name: { name: { regex: '^(?:Enumerable|Array)$' } } } } }, { has: { field: name, matches: { csharp-generic-type: { name: { regex: '^Empty$' }, list: { kind: type_argument_list } } } } }] }
+                  - matches: csharp-argumentless-call
             - kind: invocation_expression
               all:
-                - has: {field: function, matches: {csharp-generic-type: {name: {regex: '^(?:Seq|Empty)$'}, list: {kind: type_argument_list}}}}
-                - matches: csharp-argumentless-call
+                  - has: { field: function, matches: { csharp-generic-type: { name: { regex: '^(?:Seq|Empty)$' }, list: { kind: type_argument_list } } } }
+                  - matches: csharp-argumentless-call
             - kind: identifier
               regex: '^Empty$'
             - kind: member_access_expression
-              has: {field: name, regex: '^Empty$'}
+              has: { field: name, regex: '^Empty$' }
             - kind: array_creation_expression
               any:
-                - has: {field: type, kind: array_type, has: {field: rank, has: {pattern: '0'}}}
-                - has: {kind: initializer_expression, not: {has: {pattern: $_}}}
+                  - has: { field: type, kind: array_type, has: { field: rank, has: { pattern: '0' } } }
+                  - has: { kind: initializer_expression, not: { has: { pattern: $_ } } }
             - kind: default_expression
             - kind: object_creation_expression
               all:
-                - matches: csharp-argumentless-call
-                - not: {has: {field: initializer, has: {pattern: $_}}}
+                  - matches: csharp-argumentless-call
+                  - not: { has: { field: initializer, has: { pattern: $_ } } }
             - kind: cast_expression
-              has: {field: value, matches: empty-collection}
+              has: { field: value, matches: empty-collection }
             - kind: parenthesized_expression
-              has: {matches: empty-collection}
+              has: { matches: empty-collection }
     empty-fallback:
         any:
             - matches: empty-collection
             - kind: generic_name
-              has: {kind: identifier, regex: '^(?:Seq|Empty)$'}
+              has: { kind: identifier, regex: '^(?:Seq|Empty)$' }
             - kind: lambda_expression
               all:
-                - matches: csharp-parameterless
-                - has: {field: body, matches: empty-collection}
+                  - matches: csharp-parameterless
+                  - has: { field: body, matches: empty-collection }
     out-argument:
         kind: argument
         all:
-            - has: {regex: '^out$'}
+            - has: { regex: '^out$' }
             - any:
-                - has: {kind: declaration_expression, has: {field: name, pattern: $OUT}}
-                - has: {kind: identifier, pattern: $OUT}
+                  - has: { kind: declaration_expression, has: { field: name, pattern: $OUT } }
+                  - has: { kind: identifier, pattern: $OUT }
     out-declared:
         inside:
             stopBy: end
             kind: 'method_declaration, constructor_declaration, property_declaration, local_function_statement, accessor_declaration, lambda_expression'
-            has: {stopBy: end, matches: out-argument}
+            has: { stopBy: end, matches: out-argument }
     out-value:
         any:
             - kind: identifier
               pattern: $RELAY
               inside:
-                stopBy: end
-                kind: 'method_declaration, constructor_declaration, local_function_statement, accessor_declaration, lambda_expression'
-                has: {stopBy: end, kind: variable_declarator, all: [{has: {field: name, pattern: $RELAY}}, {has: {kind: identifier, pattern: $OUT, nthChild: {position: 1, reverse: true}, not: {inside: {field: name, kind: variable_declarator}}}}]}
+                  stopBy: end
+                  kind: 'method_declaration, constructor_declaration, local_function_statement, accessor_declaration, lambda_expression'
+                  has: { stopBy: end, kind: variable_declarator, all: [{ has: { field: name, pattern: $RELAY } }, { has: { kind: identifier, pattern: $OUT, nthChild: { position: 1, reverse: true }, not: { inside: { field: name, kind: variable_declarator } } } }] }
             - kind: identifier
               pattern: $OUT
     present-pattern:
         any:
             - kind: constant_pattern
-              has: {kind: null_literal}
+              has: { kind: null_literal }
             - kind: recursive_pattern
-              not: {has: {kind: property_pattern_clause, has: {kind: subpattern}}}
+              not: { has: { kind: property_pattern_clause, has: { kind: subpattern } } }
             - kind: declaration_pattern
-              not: {has: {field: type, kind: implicit_type}}
+              not: { has: { field: type, kind: implicit_type } }
             - kind: type_pattern
             - kind: negated_pattern
-              has: {matches: present-pattern}
+              has: { matches: present-pattern }
             - kind: parenthesized_pattern
-              has: {matches: present-pattern}
+              has: { matches: present-pattern }
     null-test:
         any:
             - kind: is_pattern_expression
               all:
-                - has: {field: expression, matches: out-value}
-                - has: {field: pattern, matches: present-pattern}
+                  - has: { field: expression, matches: out-value }
+                  - has: { field: pattern, matches: present-pattern }
             - kind: binary_expression
               all:
-                - has: {field: operator, regex: '^[=!]=$'}
-                - any:
-                    - all: [{has: {field: right, kind: null_literal}}, {has: {field: left, matches: out-value}}]
-                    - all: [{has: {field: left, kind: null_literal}}, {has: {field: right, matches: out-value}}]
+                  - has: { field: operator, regex: '^[=!]=$' }
+                  - any:
+                        - all: [{ has: { field: right, kind: null_literal } }, { has: { field: left, matches: out-value } }]
+                        - all: [{ has: { field: left, kind: null_literal } }, { has: { field: right, matches: out-value } }]
             - kind: parenthesized_expression
-              has: {matches: null-test}
+              has: { matches: null-test }
             - kind: prefix_unary_expression
-              has: {matches: null-test}
+              has: { matches: null-test }
     null-chain:
         any:
             - kind: conditional_access_expression
-              has: {field: condition, matches: out-value}
+              has: { field: condition, matches: out-value }
             - kind: invocation_expression
-              has: {field: function, matches: null-chain}
+              has: { field: function, matches: null-chain }
             - kind: member_access_expression
-              has: {field: expression, matches: null-chain}
+              has: { field: expression, matches: null-chain }
     optional-out:
         kind: invocation_expression
         any:
             - pattern: Optional($OUT)
             - has:
-                field: function
-                kind: member_access_expression
-                all:
-                    - has: {field: name, regex: '^(Map|Bind|Select|SelectMany|Filter|Where)$'}
-                    - has: {field: expression, matches: optional-out}
+                  field: function
+                  kind: member_access_expression
+                  all:
+                      - has: { field: name, regex: '^(Map|Bind|Select|SelectMany|Filter|Where)$' }
+                      - has: { field: expression, matches: optional-out }
     optional-call:
         kind: invocation_expression
-        has: {field: function, kind: member_access_expression, has: {field: expression, matches: optional-out}}
+        has: { field: function, kind: member_access_expression, has: { field: expression, matches: optional-out } }
     optional-sequence:
         kind: invocation_expression
         has:
             field: function
             kind: member_access_expression
             all:
-                - has: {field: name, regex: '^ToSeq$'}
-                - has: {field: expression, matches: optional-out}
+                - has: { field: name, regex: '^ToSeq$' }
+                - has: { field: expression, matches: optional-out }
 rule:
     all:
         - any:
-            - kind: binary_expression
-              all:
-                - has: {field: operator, regex: '^\?\?$'}
-                - has: {field: left, any: [{matches: out-value}, {matches: null-chain}]}
-                - has: {field: right, matches: empty-collection}
-            - kind: assignment_expression
-              all:
-                - has: {field: operator, regex: '^\?\?=$'}
-                - has: {field: left, matches: out-value}
-                - has: {field: right, matches: empty-collection}
-            - kind: conditional_expression
-              all:
-                - has: {field: condition, matches: null-test}
-                - any:
-                    - has: {field: consequence, matches: empty-collection}
-                    - has: {field: alternative, matches: empty-collection}
-            - kind: switch_expression
-              all:
-                - has: {nthChild: 1, matches: out-value}
-                - any:
-                    - has: {kind: switch_expression_arm, all: [{has: {nthChild: 1, kind: constant_pattern, has: {kind: null_literal}}}, {has: {nthChild: 2, matches: empty-collection}}]}
-                    - all:
-                        - has: {kind: switch_expression_arm, has: {nthChild: 1, not: {kind: constant_pattern}, matches: present-pattern}}
-                        - has: {kind: switch_expression_arm, all: [{has: {nthChild: 1, kind: discard}}, {has: {nthChild: 2, matches: empty-collection}}]}
-            - kind: invocation_expression
-              all:
-                - matches: optional-call
-                - has: {field: function, has: {field: name, regex: '^(IfNone|Match)$'}}
-                - has: {field: arguments, has: {kind: argument, has: {matches: empty-fallback}}}
-            - kind: binary_expression
-              all:
-                - has: {field: operator, regex: '^\|$'}
-                - has: {field: left, matches: optional-out}
-                - has: {field: right, matches: empty-fallback}
-            - kind: invocation_expression
-              has:
-                field: function
-                kind: member_access_expression
+              - kind: binary_expression
                 all:
-                    - has: {field: name, regex: '^(Bind|Flatten|SelectMany)$'}
-                    - has: {field: expression, matches: optional-sequence}
+                    - has: { field: operator, regex: '^\?\?$' }
+                    - has: { field: left, any: [{ matches: out-value }, { matches: null-chain }] }
+                    - has: { field: right, matches: empty-collection }
+              - kind: assignment_expression
+                all:
+                    - has: { field: operator, regex: '^\?\?=$' }
+                    - has: { field: left, matches: out-value }
+                    - has: { field: right, matches: empty-collection }
+              - kind: conditional_expression
+                all:
+                    - has: { field: condition, matches: null-test }
+                    - any:
+                          - has: { field: consequence, matches: empty-collection }
+                          - has: { field: alternative, matches: empty-collection }
+              - kind: switch_expression
+                all:
+                    - has: { nthChild: 1, matches: out-value }
+                    - any:
+                          - has: { kind: switch_expression_arm, all: [{ has: { nthChild: 1, kind: constant_pattern, has: { kind: null_literal } } }, { has: { nthChild: 2, matches: empty-collection } }] }
+                          - all:
+                                - has: { kind: switch_expression_arm, has: { nthChild: 1, not: { kind: constant_pattern }, matches: present-pattern } }
+                                - has: { kind: switch_expression_arm, all: [{ has: { nthChild: 1, kind: discard } }, { has: { nthChild: 2, matches: empty-collection } }] }
+              - kind: invocation_expression
+                all:
+                    - matches: optional-call
+                    - has: { field: function, has: { field: name, regex: '^(IfNone|Match)$' } }
+                    - has: { field: arguments, has: { kind: argument, has: { matches: empty-fallback } } }
+              - kind: binary_expression
+                all:
+                    - has: { field: operator, regex: '^\|$' }
+                    - has: { field: left, matches: optional-out }
+                    - has: { field: right, matches: empty-fallback }
+              - kind: invocation_expression
+                has:
+                    field: function
+                    kind: member_access_expression
+                    all:
+                        - has: { field: name, regex: '^(Bind|Flatten|SelectMany)$' }
+                        - has: { field: expression, matches: optional-sequence }
         - matches: out-declared
 constraints:
-    OUT: {kind: identifier}
+    OUT: { kind: identifier }
 message: 'Empty fallback on host out array `$OUT` hides whether the host filled it'
 note: 'Read `<out>` directly where a host always fills it, `Optional(<out>)` where null means absence'

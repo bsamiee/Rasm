@@ -6,40 +6,45 @@ utils:
     plain-import:
         kind: import_from_statement
         all:
-            - has: {field: module_name, matches: module}
-            - has: {kind: dotted_name, not: {nthChild: 1}, all: [{pattern: $BOUND}, {matches: name}]}
+            - has: { field: module_name, matches: module }
+            - has: { kind: dotted_name, not: { nthChild: 1 }, all: [{ pattern: $BOUND }, { matches: name }] }
     aliased-import:
         kind: import_from_statement
         all:
-            - has: {field: module_name, matches: module}
-            - has: {kind: aliased_import, all: [{has: {field: alias, pattern: $BOUND}}, {has: {field: name, matches: name}}]}
+            - has: { field: module_name, matches: module }
+            - has: { kind: aliased_import, all: [{ has: { field: alias, pattern: $BOUND } }, { has: { field: name, matches: name } }] }
     wildcard-import:
         kind: import_from_statement
         all:
-            - has: {field: module_name, matches: module}
-            - has: {kind: wildcard_import}
+            - has: { field: module_name, matches: module }
+            - has: { kind: wildcard_import }
     bound-by-plain:
         any:
-            - inside: {kind: module, stopBy: end, has: {stopBy: &statement-walk {not: {kind: 'module, block, if_statement, elif_clause, else_clause, for_statement, while_statement, try_statement, except_clause, finally_clause, with_statement, match_statement, case_clause, decorated_definition'}}, matches: wildcard-import}}
-            - inside: {kind: 'module, function_definition', stopBy: end, has: {stopBy: *statement-walk, matches: plain-import}}
-            - inside: {kind: class_definition, stopBy: {kind: 'function_definition, lambda'}, has: {stopBy: *statement-walk, matches: plain-import}}
+            - inside:
+                  {
+                      kind: module,
+                      stopBy: end,
+                      has: { stopBy: &statement-walk { not: { kind: 'module, block, if_statement, elif_clause, else_clause, for_statement, while_statement, try_statement, except_clause, finally_clause, with_statement, match_statement, case_clause, decorated_definition' } }, matches: wildcard-import },
+                  }
+            - inside: { kind: 'module, function_definition', stopBy: end, has: { stopBy: *statement-walk, matches: plain-import } }
+            - inside: { kind: class_definition, stopBy: { kind: 'function_definition, lambda' }, has: { stopBy: *statement-walk, matches: plain-import } }
     bound-by-alias:
         all:
-            - inside: {kind: module, stopBy: end, regex: '(?-u:\b)from(?-u:\b)(?:\\(?:\r\n?|\n)|[^\r\n])*?(?-u:\b)import(?:(?:\\(?:\r\n?|\n)|[\t\f ])*\((?:#[^\r\n]*|[^)#])*?|(?-u:\b)(?:\\(?:\r\n?|\n)|[^\r\n])*?)(?-u:\b)as(?-u:\b)'}
+            - inside: { kind: module, stopBy: end, regex: '(?-u:\b)from(?-u:\b)(?:\\(?:\r\n?|\n)|[^\r\n])*?(?-u:\b)import(?:(?:\\(?:\r\n?|\n)|[\t\f ])*\((?:#[^\r\n]*|[^)#])*?|(?-u:\b)(?:\\(?:\r\n?|\n)|[^\r\n])*?)(?-u:\b)as(?-u:\b)' }
             - any:
-                - inside: {kind: 'module, function_definition', stopBy: end, has: {stopBy: *statement-walk, matches: aliased-import}}
-                - inside: {kind: class_definition, stopBy: {kind: 'function_definition, lambda'}, has: {stopBy: *statement-walk, matches: aliased-import}}
+                  - inside: { kind: 'module, function_definition', stopBy: end, has: { stopBy: *statement-walk, matches: aliased-import } }
+                  - inside: { kind: class_definition, stopBy: { kind: 'function_definition, lambda' }, has: { stopBy: *statement-walk, matches: aliased-import } }
 rule:
     kind: identifier
     pattern: $BOUND
     all:
         - any:
-            - all: [{matches: name}, {matches: bound-by-plain}]
-            - matches: bound-by-alias
+              - all: [{ matches: name }, { matches: bound-by-plain }]
+              - matches: bound-by-alias
         - not:
-            any:
-                - inside: {kind: attribute, field: attribute}
-                - inside: {kind: keyword_argument, field: name}
-                - inside: {kind: 'import_statement, import_from_statement', stopBy: {not: {kind: 'dotted_name, aliased_import, relative_import'}}}
-        - not: {matches: {python-conflicting-import: {module: {matches: module}, name: {matches: name}}}}
-        - not: {matches: python-shadowed-name}
+              any:
+                  - inside: { kind: attribute, field: attribute }
+                  - inside: { kind: keyword_argument, field: name }
+                  - inside: { kind: 'import_statement, import_from_statement', stopBy: { not: { kind: 'dotted_name, aliased_import, relative_import' } } }
+        - not: { matches: { python-conflicting-import: { module: { matches: module }, name: { matches: name } } } }
+        - not: { matches: python-shadowed-name }

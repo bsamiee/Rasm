@@ -7,25 +7,25 @@ utils:
         any:
             - kind: attribute
               all:
-                - has: {field: attribute, regex: '^(un)?register_class$'}
-                - has: {field: object, matches: {python-submodule: {parent: {regex: '^bpy$'}, child: {regex: '^utils$'}}}}
+                  - has: { field: attribute, regex: '^(un)?register_class$' }
+                  - has: { field: object, matches: { python-submodule: { parent: { regex: '^bpy$' }, child: { regex: '^utils$' } } } }
             - kind: identifier
               regex: '^(un)?register_class$'
-              matches: {python-imported-name: {module: {regex: '^bpy\.utils$'}, name: {regex: '^(un)?register_class$'}}}
+              matches: { python-imported-name: { module: { regex: '^bpy\.utils$' }, name: { regex: '^(un)?register_class$' } } }
 rule:
     any:
         - kind: call
           has:
-            field: function
-            all:
-                - any:
-                    - matches: registering
-                    - kind: parenthesized_expression
-                      matches: {python-unparenthesized: {value: {matches: registering}}}
-                - pattern: $CALLEE
+              field: function
+              all:
+                  - any:
+                        - matches: registering
+                        - kind: parenthesized_expression
+                          matches: { python-unparenthesized: { value: { matches: registering } } }
+                  - pattern: $CALLEE
         - kind: aliased_import
           all:
-            - has: {field: name, regex: '^(un)?register_class$', pattern: $CALLEE}
-            - inside: {kind: import_from_statement, has: {field: module_name, regex: '^bpy\.utils$'}}
+              - has: { field: name, regex: '^(un)?register_class$', pattern: $CALLEE }
+              - inside: { kind: import_from_statement, has: { field: module_name, regex: '^bpy\.utils$' } }
 message: '`$CALLEE` bypasses `rasm_bpy` registration, and Blender drops `Annotated` property definitions without an error'
 note: 'List the class in a `rasm_bpy.data.Registration` row, which places `Annotated` property definitions where Blender reads them'

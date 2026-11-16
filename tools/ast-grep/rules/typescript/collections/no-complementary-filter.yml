@@ -5,7 +5,7 @@ ignores: ['.claude/workflows/*.js', 'plugins/function-hooks/hooks/**']
 rule:
     kind: call_expression
     all:
-        - has: {field: function, pattern: $FILTER}
+        - has: { field: function, pattern: $FILTER }
         - matches: typescript-complementary-filter
 message: '`$FILTER` keeps elements failing a predicate a sibling `filter` keeps'
 note: 'Call `Array.partition(<list>, Filter.fromPredicate(<predicate>))` once for `[passes, fails]`'

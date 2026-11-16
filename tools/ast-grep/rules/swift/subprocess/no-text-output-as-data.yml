@@ -5,8 +5,8 @@ rule:
     pattern: Data($TEXT.utf8)
     inside:
         kind: function_declaration
-        stopBy: {kind: function_declaration}
-        has: {stopBy: end, kind: value_argument, regex: '^output:[\t-\r ]*\.string\(limit:'}
+        stopBy: { kind: function_declaration }
+        has: { stopBy: end, kind: value_argument, regex: '^output:[\t-\r ]*\.string\(limit:' }
 constraints:
     TEXT:
         any:
@@ -14,12 +14,12 @@ constraints:
             - kind: simple_identifier
               inside:
                   kind: function_declaration
-                  stopBy: {kind: function_declaration}
+                  stopBy: { kind: function_declaration }
                   has:
                       stopBy: end
                       kind: 'property_declaration, guard_statement, if_statement'
                       all:
-                          - any: [{has: {field: bound_identifier, pattern: $TEXT}}, {has: {kind: pattern, has: {field: bound_identifier, pattern: $TEXT}}}]
-                          - has: {stopBy: {kind: statements}, kind: navigation_suffix, regex: '^\.standard(Output|Error)$'}
+                          - any: [{ has: { field: bound_identifier, pattern: $TEXT } }, { has: { kind: pattern, has: { field: bound_identifier, pattern: $TEXT } } }]
+                          - has: { stopBy: { kind: statements }, kind: navigation_suffix, regex: '^\.standard(Output|Error)$' }
 message: '`Data($TEXT.utf8)` turns child output collected as text back into bytes'
 note: 'Collect the output with `.data(limit:)` or `.bytes(limit:)` and decode the bytes'

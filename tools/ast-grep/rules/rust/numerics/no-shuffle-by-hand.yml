@@ -6,49 +6,49 @@ utils:
         any:
             - kind: range_expression
               any:
-                - pattern: $_..=$I
-                - pattern: $_..$I + 1
-                - pattern: $I..$_
-                - pattern: $I..=$_
-            - inside: {kind: for_expression, stopBy: {kind: 'function_item, closure_expression'}, has: {field: pattern, pattern: $I}}
+                  - pattern: $_..=$I
+                  - pattern: $_..$I + 1
+                  - pattern: $I..$_
+                  - pattern: $I..=$_
+            - inside: { kind: for_expression, stopBy: { kind: 'function_item, closure_expression' }, has: { field: pattern, pattern: $I } }
             - kind: assignment_expression
               all:
-                - has: {field: left, kind: range_expression, regex: '^\.\.$'}
-                - has: {field: right, pattern: $I}
+                  - has: { field: left, kind: range_expression, regex: '^\.\.$' }
+                  - has: { field: right, pattern: $I }
     draw:
         any:
             - kind: call_expression
               all:
-                - has: {field: function, kind: field_expression, has: {field: field, regex: '^(random_range|gen_range|usize|u32|u64)$'}}
-                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: covering-range}}
+                  - has: { field: function, kind: field_expression, has: { field: field, regex: '^(random_range|gen_range|usize|u32|u64)$' } }
+                  - has: { field: arguments, has: { nthChild: { position: 1, ofRule: { not: { kind: 'line_comment, block_comment' } } }, matches: covering-range } }
             - kind: call_expression
               all:
-                - has: {field: function, regex: '(^|::)(random_range|gen_range)$|^((::)?fastrand::)usize$'}
-                - has: {field: arguments, has: {matches: covering-range}}
+                  - has: { field: function, regex: '(^|::)(random_range|gen_range)$|^((::)?fastrand::)usize$' }
+                  - has: { field: arguments, has: { matches: covering-range } }
             - kind: binary_expression
               all:
-                - has: {field: operator, regex: '^%$'}
-                - has: {field: right, any: [{pattern: $I + 1}, {kind: parenthesized_expression, has: {pattern: $I + 1}}]}
+                  - has: { field: operator, regex: '^%$' }
+                  - has: { field: right, any: [{ pattern: $I + 1 }, { kind: parenthesized_expression, has: { pattern: $I + 1 } }] }
     drawn:
         any:
             - matches: draw
             - kind: identifier
               pattern: $J
               inside:
-                kind: block
-                stopBy: end
-                has: {kind: let_declaration, all: [{has: {field: pattern, pattern: $J}}, {has: {field: value, matches: draw}}]}
+                  kind: block
+                  stopBy: end
+                  has: { kind: let_declaration, all: [{ has: { field: pattern, pattern: $J } }, { has: { field: value, matches: draw } }] }
 rule:
     kind: call_expression
     all:
-        - has: {field: function, kind: field_expression, has: {field: field, regex: '^swap$'}}
+        - has: { field: function, kind: field_expression, has: { field: field, regex: '^swap$' } }
         - any:
-            - all:
-                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: identifier, pattern: $I}}
-                - has: {field: arguments, has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: drawn}}
-            - all:
-                - has: {field: arguments, has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: identifier, pattern: $I}}
-                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: drawn}}
+              - all:
+                    - has: { field: arguments, has: { nthChild: { position: 1, ofRule: { not: { kind: 'line_comment, block_comment' } } }, kind: identifier, pattern: $I } }
+                    - has: { field: arguments, has: { nthChild: { position: 2, ofRule: { not: { kind: 'line_comment, block_comment' } } }, matches: drawn } }
+              - all:
+                    - has: { field: arguments, has: { nthChild: { position: 2, ofRule: { not: { kind: 'line_comment, block_comment' } } }, kind: identifier, pattern: $I } }
+                    - has: { field: arguments, has: { nthChild: { position: 1, ofRule: { not: { kind: 'line_comment, block_comment' } } }, matches: drawn } }
         - pattern: $SWAP
 message: '`$SWAP` shuffles values by hand'
 note: 'Call `<values>.shuffle(&mut <rng>)` from `rand::seq::SliceRandom`, or `<values>.partial_shuffle(&mut <rng>, <amount>)` for a prefix'

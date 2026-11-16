@@ -4,15 +4,15 @@ severity: error
 utils:
     none-argument:
         kind: argument
-        has: {nthChild: {position: 1, reverse: true}, matches: languageext-none-value}
+        has: { nthChild: { position: 1, reverse: true }, matches: languageext-none-value }
 rule:
     kind: 'object_creation_expression, implicit_object_creation_expression'
     all:
         - has:
-            kind: argument_list
-            has: {matches: none-argument, follows: {stopBy: end, matches: none-argument}}
+              kind: argument_list
+              has: { matches: none-argument, follows: { stopBy: end, matches: none-argument } }
         - any:
-            - has: {field: type, pattern: $TYPE}
-            - pattern: $TYPE
+              - has: { field: type, pattern: $TYPE }
+              - pattern: $TYPE
 message: '`$TYPE` takes absent parts as `None` arguments'
 note: 'Declare optional parts as `init` members or parameters defaulting to `None`, and pass the present parts alone'

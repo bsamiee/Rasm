@@ -13,5 +13,5 @@ rule:
           regex: '^vec!\p{Pattern_White_Space}*(\(\p{Pattern_White_Space}*\)|\[\p{Pattern_White_Space}*\]|\{\p{Pattern_White_Space}*\})$'
         - kind: closure_expression
           all:
-            - has: {field: parameters, regex: '^\|\p{Pattern_White_Space}*(_\p{XID_Continue}*)?\p{Pattern_White_Space}*\|$'}
-            - has: {field: body, matches: rust-default-value}
+              - has: { field: parameters, regex: '^\|\p{Pattern_White_Space}*(_\p{XID_Continue}*)?\p{Pattern_White_Space}*\|$' }
+              - has: { field: body, matches: rust-default-value }

@@ -5,28 +5,28 @@ ignores: ['apps/roslyn/**']
 rule:
     kind: invocation_expression
     all:
-        - has: {field: function, kind: member_access_expression, has: {field: name, pattern: $BIND, regex: '^(Bind|SelectMany)'}}
+        - has: { field: function, kind: member_access_expression, has: { field: name, pattern: $BIND, regex: '^(Bind|SelectMany)' } }
         - matches:
-            languageext-bind-callback:
-                value: {pattern: $VALUE}
-                body:
-                    any:
-                        - &step
-                          kind: invocation_expression
-                          all:
-                            - has: {field: function, kind: member_access_expression, has: {field: name, pattern: $STEP, matches: {csharp-simple-name: {name: {regex: '^(Bind|Map|Select|SelectMany|Filter|Where)$'}}}}}
-                            - has: {field: function, has: {field: expression, has: {stopBy: end, kind: identifier, pattern: {context: 'class $VALUE;', selector: identifier}}}}
-                            - has:
-                                field: arguments
-                                all:
-                                    - not: {has: {kind: argument, nthChild: 2}}
-                                    - has:
-                                        kind: argument
-                                        has: {kind: 'lambda_expression, anonymous_method_expression, identifier, member_access_expression, generic_name'}
-                                        not: {has: {stopBy: end, kind: identifier, pattern: {context: 'class $VALUE;', selector: identifier}}}
-                        - kind: block
-                          all:
-                            - has: {kind: return_statement, nthChild: 1, has: *step}
-                            - not: {has: {nthChild: 2}}
+              languageext-bind-callback:
+                  value: { pattern: $VALUE }
+                  body:
+                      any:
+                          - &step
+                            kind: invocation_expression
+                            all:
+                                - has: { field: function, kind: member_access_expression, has: { field: name, pattern: $STEP, matches: { csharp-simple-name: { name: { regex: '^(Bind|Map|Select|SelectMany|Filter|Where)$' } } } } }
+                                - has: { field: function, has: { field: expression, has: { stopBy: end, kind: identifier, pattern: { context: 'class $VALUE;', selector: identifier } } } }
+                                - has:
+                                      field: arguments
+                                      all:
+                                          - not: { has: { kind: argument, nthChild: 2 } }
+                                          - has:
+                                                kind: argument
+                                                has: { kind: 'lambda_expression, anonymous_method_expression, identifier, member_access_expression, generic_name' }
+                                                not: { has: { stopBy: end, kind: identifier, pattern: { context: 'class $VALUE;', selector: identifier } } }
+                          - kind: block
+                            all:
+                                - has: { kind: return_statement, nthChild: 1, has: *step }
+                                - not: { has: { nthChild: 2 } }
 message: '`$STEP` nests in the `$BIND` callback and its continuation reads nothing from `$VALUE`'
 note: 'Chain the step on outer bind result, one step per chain level'

@@ -3,7 +3,7 @@ id: languageext-error-record
 language: csharplang
 utils:
     error-base:
-        matches: {csharp-type-name: {name: {regex: '^(Expected|Exceptional|Error)$'}}}
+        matches: { csharp-type-name: { name: { regex: '^(Expected|Exceptional|Error)$' } } }
 rule:
     kind: 'record_declaration'
     has:
@@ -11,5 +11,5 @@ rule:
         has:
             nthChild: 1
             any:
-                - {kind: 'identifier, qualified_name', matches: error-base}
-                - {kind: primary_constructor_base_type, has: {field: type, matches: error-base}}
+                - { kind: 'identifier, qualified_name', matches: error-base }
+                - { kind: primary_constructor_base_type, has: { field: type, matches: error-base } }

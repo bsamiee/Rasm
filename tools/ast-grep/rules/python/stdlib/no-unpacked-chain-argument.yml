@@ -5,8 +5,8 @@ files: ['{apps/blender,libs/python/blender,libs/python/data/records,libs/python/
 rule:
     kind: call
     all:
-        - has: {field: arguments, kind: argument_list, all: [{has: {kind: list_splat}}, {not: {has: {kind: 'dictionary_splat, keyword_argument'}}}]}
-        - has: {field: function, any: [{matches: itertools-chain-callee}, {kind: list_splat, has: {matches: itertools-chain-callee}}]}
+        - has: { field: arguments, kind: argument_list, all: [{ has: { kind: list_splat } }, { not: { has: { kind: 'dictionary_splat, keyword_argument' } } }] }
+        - has: { field: function, any: [{ matches: itertools-chain-callee }, { kind: list_splat, has: { matches: itertools-chain-callee } }] }
         - pattern: $CALL
 message: '`$CALL` unpacks iterables into `itertools.chain` arguments'
 note: 'Call `chain.from_iterable` with equivalent outer iteration timing'

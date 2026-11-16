@@ -6,41 +6,41 @@ utils:
     catch-all:
         kind: invocation_expression
         all:
-            - has: {field: function, regex: '[Cc]atch'}
+            - has: { field: function, regex: '[Cc]atch' }
             - any:
-                - has: {field: function, kind: member_access_expression, has: {field: name, pattern: $NAME, matches: {csharp-simple-name: {name: {regex: '^Catch(IO)?$'}}}}}
-                - has: {field: function, pattern: $NAME, matches: {csharp-type-name: {name: {regex: '^@catch$'}}}}
-            - has: {field: arguments, has: {kind: argument, nthChild: {position: 2, ofRule: {kind: argument}}}, not: {has: {kind: argument, nthChild: {position: 3, ofRule: {kind: argument}}}}}
+                  - has: { field: function, kind: member_access_expression, has: { field: name, pattern: $NAME, matches: { csharp-simple-name: { name: { regex: '^Catch(IO)?$' } } } } }
+                  - has: { field: function, pattern: $NAME, matches: { csharp-type-name: { name: { regex: '^@catch$' } } } }
+            - has: { field: arguments, has: { kind: argument, nthChild: { position: 2, ofRule: { kind: argument } } }, not: { has: { kind: argument, nthChild: { position: 3, ofRule: { kind: argument } } } } }
             - has:
-                field: arguments
-                has:
-                    kind: argument
-                    any:
-                        - has: {field: name, regex: '^[Pp]redicate$'}
-                        - all:
-                            - nthChild: {position: 1, ofRule: {kind: argument}}
-                            - matches: csharp-positional-argument
-                    matches: {csharp-constant-lambda: {value: {regex: '^true$'}}}
+                  field: arguments
+                  has:
+                      kind: argument
+                      any:
+                          - has: { field: name, regex: '^[Pp]redicate$' }
+                          - all:
+                                - nthChild: { position: 1, ofRule: { kind: argument } }
+                                - matches: csharp-positional-argument
+                      matches: { csharp-constant-lambda: { value: { regex: '^true$' } } }
             - has:
-                field: arguments
-                has:
-                    kind: argument
-                    any:
-                        - has: {field: name, regex: '^[Ff]ail$'}
-                        - all:
-                            - nthChild: {position: 2, ofRule: {kind: argument}}
-                            - matches: csharp-positional-argument
+                  field: arguments
+                  has:
+                      kind: argument
+                      any:
+                          - has: { field: name, regex: '^[Ff]ail$' }
+                          - all:
+                                - nthChild: { position: 2, ofRule: { kind: argument } }
+                                - matches: csharp-positional-argument
 rule:
     kind: invocation_expression
     any:
         - all:
-            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^As$'}}, {has: {field: expression, matches: catch-all, has: {field: function, has: {field: name, matches: {csharp-simple-name: {name: {regex: '^Catch$'}}}}}}}]}
-            - matches: csharp-argumentless-call
+              - has: { field: function, kind: member_access_expression, all: [{ has: { field: name, regex: '^As$' } }, { has: { field: expression, matches: catch-all, has: { field: function, has: { field: name, matches: { csharp-simple-name: { name: { regex: '^Catch$' } } } } } } }] }
+              - matches: csharp-argumentless-call
         - all:
-            - matches: catch-all
-            - not:
-                all:
-                    - has: {field: function, has: {field: name, matches: {csharp-simple-name: {name: {regex: '^Catch$'}}}}}
-                    - inside: {kind: member_access_expression, field: expression, has: {field: name, regex: '^As$'}}
+              - matches: catch-all
+              - not:
+                    all:
+                        - has: { field: function, has: { field: name, matches: { csharp-simple-name: { name: { regex: '^Catch$' } } } } }
+                        - inside: { kind: member_access_expression, field: expression, has: { field: name, regex: '^As$' } }
 message: '`$NAME` takes a predicate that returns `true` for every error'
 note: 'Pass the handler alone to `Catch`, `CatchIO`, or `@catch`, with `.As()` after `Catch`'

@@ -2,12 +2,17 @@
     "name": "@rasm/nx-apple",
     "version": "0.1.0",
     "description": "Nx plugin inferring SwiftPM packages, Xcode projects, and Xcode workspaces from the toolchain's own output",
+    "license": "MIT",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/bsamiee/Rasm.git",
         "directory": "apps/nx/apple"
     },
-    "license": "MIT",
+    "files": [
+        "dist",
+        "executors.json",
+        "executors/*/schema.json"
+    ],
     "type": "module",
     "imports": {
         "#package": "./package.json",
@@ -20,7 +25,20 @@
         "./package.json": "./package.json",
         "./executors.json": "./executors.json"
     },
-    "files": [ "dist", "executors.json", "executors/*/schema.json" ],
+    "publishConfig": {
+        "imports": {
+            "#package": "./package.json",
+            "#/*": "./dist/*.js",
+            "#analyzer": "@rasm/nx-apple-darwin-arm64/nx-apple-analyzer"
+        },
+        "exports": {
+            ".": "./dist/plugin.js",
+            "./release/version-actions": "./dist/version-actions.js",
+            "./package.json": "./package.json",
+            "./executors.json": "./executors.json"
+        },
+        "access": "public"
+    },
     "dependencies": {
         "@effect/platform-node": "catalog:",
         "@nx/devkit": "catalog:",
@@ -37,20 +55,6 @@
     },
     "optionalDependencies": {
         "@rasm/nx-apple-darwin-arm64": "workspace:*"
-    },
-    "publishConfig": {
-        "access": "public",
-        "exports": {
-            ".": "./dist/plugin.js",
-            "./release/version-actions": "./dist/version-actions.js",
-            "./package.json": "./package.json",
-            "./executors.json": "./executors.json"
-        },
-        "imports": {
-            "#package": "./package.json",
-            "#/*": "./dist/*.js",
-            "#analyzer": "@rasm/nx-apple-darwin-arm64/nx-apple-analyzer"
-        }
     },
     "executors": "./executors.json"
 }

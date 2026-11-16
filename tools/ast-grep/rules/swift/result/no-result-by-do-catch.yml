@@ -4,58 +4,58 @@ severity: error
 utils:
     failure-statement:
         any:
-            - {kind: 'control_transfer_statement, assignment', has: {field: result, matches: swift-failure-call}}
+            - { kind: 'control_transfer_statement, assignment', has: { field: result, matches: swift-failure-call } }
             - kind: call_expression
-              has: {kind: call_suffix, not: {has: {kind: lambda_literal}}, has: {kind: value_arguments, not: {has: {nthChild: {position: 2, ofRule: {kind: value_argument}}}}, has: {kind: value_argument, has: {field: value, matches: swift-failure-call}}}}
+              has: { kind: call_suffix, not: { has: { kind: lambda_literal } }, has: { kind: value_arguments, not: { has: { nthChild: { position: 2, ofRule: { kind: value_argument } } } }, has: { kind: value_argument, has: { field: value, matches: swift-failure-call } } } }
     recovered-statement:
         any:
-            - {kind: control_transfer_statement, has: {field: result, matches: swift-success-call}}
+            - { kind: control_transfer_statement, has: { field: result, matches: swift-success-call } }
             - kind: call_expression
-              has: {kind: call_suffix, not: {has: {kind: lambda_literal}}, has: {kind: value_arguments, not: {has: {nthChild: {position: 2, ofRule: {kind: value_argument}}}}, has: {kind: value_argument, has: {field: value, matches: swift-success-call}}}}
+              has: { kind: call_suffix, not: { has: { kind: lambda_literal } }, has: { kind: value_arguments, not: { has: { nthChild: { position: 2, ofRule: { kind: value_argument } } } }, has: { kind: value_argument, has: { field: value, matches: swift-success-call } } } }
             - kind: assignment
     failure-catch:
         kind: catch_block
         all:
-            - not: {has: {kind: pattern, not: {has: {field: bound_identifier, kind: simple_identifier}, not: {has: {kind: 'pattern, user_type'}}}}}
-            - not: {has: {kind: where_clause}}
-            - has: {kind: statements, matches: {swift-single-statement: {first: {matches: failure-statement}}}}
+            - not: { has: { kind: pattern, not: { has: { field: bound_identifier, kind: simple_identifier }, not: { has: { kind: 'pattern, user_type' } } } } }
+            - not: { has: { kind: where_clause } }
+            - has: { kind: statements, matches: { swift-single-statement: { first: { matches: failure-statement } } } }
     recovering-catch:
         kind: catch_block
         all:
-            - has: {kind: pattern}
-            - has: {kind: statements, matches: {swift-single-statement: {first: {matches: recovered-statement}}}}
+            - has: { kind: pattern }
+            - has: { kind: statements, matches: { swift-single-statement: { first: { matches: recovered-statement } } } }
     result-success-body:
         kind: statements
         pattern: $BODY
         all:
-            - has: {nthChild: {position: 1, reverse: true}, kind: control_transfer_statement, has: {field: result, matches: swift-success-call}}
+            - has: { nthChild: { position: 1, reverse: true }, kind: control_transfer_statement, has: { field: result, matches: swift-success-call } }
             - not:
-                has:
-                    stopBy: {kind: 'lambda_literal, function_declaration'}
-                    kind: control_transfer_statement
-                    not: {all: [{nthChild: {position: 1, reverse: true}}, {inside: {kind: statements, pattern: $BODY}}]}
+                  has:
+                      stopBy: { kind: 'lambda_literal, function_declaration' }
+                      kind: control_transfer_statement
+                      not: { all: [{ nthChild: { position: 1, reverse: true } }, { inside: { kind: statements, pattern: $BODY } }] }
     one-failure-catch:
         all:
-            - has: {matches: failure-catch}
-            - not: {has: {kind: catch_block, nthChild: {position: 2, ofRule: {kind: catch_block}}}}
+            - has: { matches: failure-catch }
+            - not: { has: { kind: catch_block, nthChild: { position: 2, ofRule: { kind: catch_block } } } }
     classifying-catch:
         kind: catch_block
-        has: {kind: statements, matches: {swift-single-statement: {first: {matches: failure-statement}}}}
+        has: { kind: statements, matches: { swift-single-statement: { first: { matches: failure-statement } } } }
     success-last:
         kind: do_statement
         matches: one-failure-catch
-        has: {kind: statements, matches: result-success-body}
+        has: { kind: statements, matches: result-success-body }
 rule:
     kind: do_statement
     any:
         - matches: success-last
         - matches: one-failure-catch
-          not: {has: {kind: statements, matches: result-success-body}}
+          not: { has: { kind: statements, matches: result-success-body } }
         - all:
-            - has: {kind: catch_block, nthChild: {position: 2, ofRule: {kind: catch_block}}}
-            - not: {has: {kind: catch_block, not: {matches: classifying-catch}}}
+              - has: { kind: catch_block, nthChild: { position: 2, ofRule: { kind: catch_block } } }
+              - not: { has: { kind: catch_block, not: { matches: classifying-catch } } }
         - all:
-            - has: {matches: failure-catch}
-            - has: {matches: recovering-catch}
+              - has: { matches: failure-catch }
+              - has: { matches: recovering-catch }
 message: '`do` builds a `Result` by hand from a `.failure` its `catch` returns, assigns, or passes'
 note: 'Write `Result { <try steps> }` (`await Result` when a step awaits) with `throws(<Failure>)` for a passing `catch`, else `mapError` or `flatMapError`'

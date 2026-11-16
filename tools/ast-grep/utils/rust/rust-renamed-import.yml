@@ -6,9 +6,9 @@ rule:
     kind: use_as_clause
     all:
         - has:
-            field: path
-            any:
-                - {kind: identifier, matches: name, pattern: $LEAF}
-                - {kind: scoped_identifier, has: {field: name, matches: name, pattern: $LEAF}}
-        - not: {has: {field: alias, pattern: $LEAF}}
-        - inside: {kind: use_declaration, stopBy: end, matches: source}
+              field: path
+              any:
+                  - { kind: identifier, matches: name, pattern: $LEAF }
+                  - { kind: scoped_identifier, has: { field: name, matches: name, pattern: $LEAF } }
+        - not: { has: { field: alias, pattern: $LEAF } }
+        - inside: { kind: use_declaration, stopBy: end, matches: source }

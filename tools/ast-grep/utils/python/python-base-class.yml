@@ -6,78 +6,83 @@ utils:
     declaration:
         kind: class_definition
         all:
-            - has: {field: name, pattern: $BASE}
-            - has: {field: superclasses, matches: superclasses}
+            - has: { field: name, pattern: $BASE }
+            - has: { field: superclasses, matches: superclasses }
     binding:
         any:
-            - matches: {python-binding: {name: {pattern: $BASE}}}
-            - matches: {python-import-binding: {name: {pattern: $BASE}}}
+            - matches: { python-binding: { name: { pattern: $BASE } } }
+            - matches: { python-import-binding: { name: { pattern: $BASE } } }
     binding-statement:
         any:
             - matches: binding
-            - not: {kind: 'function_definition, class_definition, lambda'}
-              has: {stopBy: &scope {kind: 'function_definition, class_definition, lambda, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression'}, matches: binding}
+            - not: { kind: 'function_definition, class_definition, lambda' }
+              has: { stopBy: &scope { kind: 'function_definition, class_definition, lambda, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression' }, matches: binding }
     bound:
-        has: {stopBy: *scope, matches: binding}
+        has: { stopBy: *scope, matches: binding }
     preceding:
         follows:
             any:
                 - matches: declaration
                 - kind: decorated_definition
-                  has: {field: definition, matches: declaration}
-                - all: [{not: {matches: binding-statement}}, {matches: preceding}]
+                  has: { field: definition, matches: declaration }
+                - all: [{ not: { matches: binding-statement } }, { matches: preceding }]
     frame:
         any:
             - kind: block
-              inside: {kind: 'function_definition, class_definition', field: body}
-            - inside: {kind: lambda, field: body}
+              inside: { kind: 'function_definition, class_definition', field: body }
+            - inside: { kind: lambda, field: body }
             - kind: list_comprehension, set_comprehension, dictionary_comprehension, generator_expression
     global-frame:
         kind: block
         inside:
             kind: function_definition, class_definition
             field: body
-            has: {field: body, has: {stopBy: *scope, kind: global_statement, has: {kind: identifier, pattern: $BASE}}}
+            has: { field: body, has: { stopBy: *scope, kind: global_statement, has: { kind: identifier, pattern: $BASE } } }
     enclosing-lookup:
         any:
             - inside:
-                kind: block
-                stopBy: *scope
-                inside: {kind: class_definition, field: body, matches: enclosing-lookup}
-            - not: {inside: {kind: block, stopBy: *scope, inside: {kind: class_definition, field: body}}}
+                  kind: block
+                  stopBy: *scope
+                  inside: { kind: class_definition, field: body, matches: enclosing-lookup }
+            - not: { inside: { kind: block, stopBy: *scope, inside: { kind: class_definition, field: body } } }
               matches: lookup
     lookup:
         any:
             - inside:
-                stopBy: *scope
-                kind: for_in_clause
-                not: &preceding-iterable {follows: {kind: for_in_clause, stopBy: end}}
-                field: right
-                inside:
-                    kind: list_comprehension, set_comprehension, dictionary_comprehension, generator_expression
-                    inside: {matches: lookup}
-            - not: {inside: {stopBy: *scope, kind: for_in_clause, not: *preceding-iterable, field: right}}
+                  stopBy: *scope
+                  kind: for_in_clause
+                  not: &preceding-iterable { follows: { kind: for_in_clause, stopBy: end } }
+                  field: right
+                  inside:
+                      kind: list_comprehension, set_comprehension, dictionary_comprehension, generator_expression
+                      inside: { matches: lookup }
+            - not: { inside: { stopBy: *scope, kind: for_in_clause, not: *preceding-iterable, field: right } }
               any:
-                - all: [&statement {inside: {kind: 'module, block'}}, {matches: preceding}]
-                - matches: global-frame
-                  inside: {stopBy: end, inside: {kind: module}, matches: preceding}
-                - not:
+                  - all: [&statement { inside: { kind: 'module, block' } }, { matches: preceding }]
+                  - matches: global-frame
+                    inside: { stopBy: end, inside: { kind: module }, matches: preceding }
+                  - not:
+                        any:
+                            - matches: global-frame
+                            - all: [*statement, { follows: { stopBy: end, matches: binding-statement } }]
+                            - kind: block
+                              inside: { kind: function_definition, field: body, matches: bound }
+                            - inside: { kind: lambda, field: body, matches: bound }
+                            - kind: list_comprehension, set_comprehension, dictionary_comprehension, generator_expression
+                              matches: bound
                     any:
-                        - matches: global-frame
-                        - all: [*statement, {follows: {stopBy: end, matches: binding-statement}}]
-                        - kind: block
-                          inside: {kind: function_definition, field: body, matches: bound}
-                        - inside: {kind: lambda, field: body, matches: bound}
-                        - kind: list_comprehension, set_comprehension, dictionary_comprehension, generator_expression
-                          matches: bound
-                  any:
-                    - matches: frame
-                      inside: {matches: enclosing-lookup}
-                    - not: {matches: frame}
-                      inside: {matches: lookup}
+                        - matches: frame
+                          inside: { matches: enclosing-lookup }
+                        - not: { matches: frame }
+                          inside: { matches: lookup }
 rule:
     kind: identifier
     pattern: $BASE
     all:
-        - inside: {kind: module, stopBy: end, has: {stopBy: {not: {kind: 'block, if_statement, elif_clause, else_clause, for_statement, while_statement, try_statement, except_clause, finally_clause, with_statement, match_statement, case_clause, decorated_definition, function_definition, class_definition'}}, matches: declaration}}
+        - inside:
+              {
+                  kind: module,
+                  stopBy: end,
+                  has: { stopBy: { not: { kind: 'block, if_statement, elif_clause, else_clause, for_statement, while_statement, try_statement, except_clause, finally_clause, with_statement, match_statement, case_clause, decorated_definition, function_definition, class_definition' } }, matches: declaration },
+              }
         - matches: lookup

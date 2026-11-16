@@ -5,79 +5,79 @@ ignores: ['apps/roslyn/**']
 utils:
     result-type:
         any:
-            - matches: {csharp-generic-type: {name: {regex: '^(?:Fin|Validation|Try)$'}, list: {kind: type_argument_list}}}
-            - matches: {csharp-generic-type: {name: {regex: '^Either$'}, list: {has: {nthChild: 1, matches: {csharp-type-name: {name: {regex: '^Error$'}}}}}}}
+            - matches: { csharp-generic-type: { name: { regex: '^(?:Fin|Validation|Try)$' }, list: { kind: type_argument_list } } }
+            - matches: { csharp-generic-type: { name: { regex: '^Either$' }, list: { has: { nthChild: 1, matches: { csharp-type-name: { name: { regex: '^Error$' } } } } } } }
     result-argument:
         has:
             kind: type_argument_list
             has:
-                nthChild: {position: 1, reverse: true}
+                nthChild: { position: 1, reverse: true }
                 matches: result-type
     effect-type:
         kind: generic_name
         all:
             - any:
-                - all:
-                    - has: {kind: identifier, nthChild: 1, regex: '^(IO|Eff)$'}
-                    - not: {inside: {kind: member_access_expression, field: name}}
-                - all:
-                    - has: {kind: identifier, nthChild: 1, regex: '^K$'}
-                    - has: {kind: type_argument_list, has: {nthChild: 1, matches: {csharp-type-name: {name: {regex: '^(IO|Eff)$'}}}}}
-                    - not: {inside: {kind: member_access_expression, field: name}}
-                - all:
-                    - has: {kind: identifier, nthChild: 1, regex: '^pure$'}
-                    - inside: {kind: member_access_expression, field: name, has: {field: expression, matches: {csharp-type-name: {name: {regex: '^IO$'}}}}}
+                  - all:
+                        - has: { kind: identifier, nthChild: 1, regex: '^(IO|Eff)$' }
+                        - not: { inside: { kind: member_access_expression, field: name } }
+                  - all:
+                        - has: { kind: identifier, nthChild: 1, regex: '^K$' }
+                        - has: { kind: type_argument_list, has: { nthChild: 1, matches: { csharp-type-name: { name: { regex: '^(IO|Eff)$' } } } } }
+                        - not: { inside: { kind: member_access_expression, field: name } }
+                  - all:
+                        - has: { kind: identifier, nthChild: 1, regex: '^pure$' }
+                        - inside: { kind: member_access_expression, field: name, has: { field: expression, matches: { csharp-type-name: { name: { regex: '^IO$' } } } } }
             - matches: result-argument
     owner:
         kind: method_declaration, local_function_statement, lambda_expression, anonymous_method_expression, accessor_declaration, constructor_declaration, operator_declaration, property_declaration
     result-local:
         kind: identifier
-        pattern: {context: 'class $VALUE;', selector: identifier}
+        pattern: { context: 'class $VALUE;', selector: identifier }
         inside:
-            stopBy: {matches: owner}
+            stopBy: { matches: owner }
             matches: owner
             any:
                 - has:
-                    stopBy: end
-                    kind: parameter
-                    all:
-                        - has: {field: name, pattern: {context: 'class $VALUE;', selector: identifier}}
-                        - has: {field: type, matches: result-type}
+                      stopBy: end
+                      kind: parameter
+                      all:
+                          - has: { field: name, pattern: { context: 'class $VALUE;', selector: identifier } }
+                          - has: { field: type, matches: result-type }
                 - has:
-                    stopBy: {kind: 'local_function_statement, lambda_expression, anonymous_method_expression'}
-                    kind: variable_declaration
-                    all:
-                        - has: {field: type, matches: result-type}
-                        - has: {kind: variable_declarator, has: {field: name, pattern: {context: 'class $VALUE;', selector: identifier}}}
+                      stopBy: { kind: 'local_function_statement, lambda_expression, anonymous_method_expression' }
+                      kind: variable_declaration
+                      all:
+                          - has: { field: type, matches: result-type }
+                          - has: { kind: variable_declarator, has: { field: name, pattern: { context: 'class $VALUE;', selector: identifier } } }
     typed-position:
         any:
-            - inside: {kind: arrow_expression_clause, inside: {matches: owner, has: {field: type, stopBy: end, matches: effect-type}}}
-            - inside: {kind: return_statement, inside: {stopBy: {matches: owner}, matches: owner, has: {field: type, stopBy: end, matches: effect-type}}}
-            - inside: {kind: variable_declarator, inside: {kind: variable_declaration, has: {field: type, stopBy: end, matches: effect-type}}}
+            - inside: { kind: arrow_expression_clause, inside: { matches: owner, has: { field: type, stopBy: end, matches: effect-type } } }
+            - inside: { kind: return_statement, inside: { stopBy: { matches: owner }, matches: owner, has: { field: type, stopBy: end, matches: effect-type } } }
+            - inside: { kind: variable_declarator, inside: { kind: variable_declaration, has: { field: type, stopBy: end, matches: effect-type } } }
     pure-result:
         kind: invocation_expression
         all:
-            - has: {field: function, regex: 'pure'}
-            - matches: {csharp-owner-call: {type: {regex: '^IO$'}, member: {regex: '^pure$'}}}
-            - has: {field: arguments, has: {kind: argument, has: {matches: result-local}}, not: {has: {kind: argument, nthChild: 2}}}
-            - not: {matches: typed-position}
+            - has: { field: function, regex: 'pure' }
+            - matches: { csharp-owner-call: { type: { regex: '^IO$' }, member: { regex: '^pure$' } } }
+            - has: { field: arguments, has: { kind: argument, has: { matches: result-local } }, not: { has: { kind: argument, nthChild: 2 } } }
+            - not: { matches: typed-position }
     tried-run:
-        matches: {languageext-tried-run: {effect: {pattern: $_}}}
+        matches: { languageext-tried-run: { effect: { pattern: $_ } } }
     continued:
         any:
-            - inside: {kind: member_access_expression, field: expression}
-            - inside: {kind: parenthesized_expression, matches: continued}
+            - inside: { kind: member_access_expression, field: expression }
+            - inside: { kind: parenthesized_expression, matches: continued }
     tried-result:
         all:
             - regex: '[Rr]un'
             - any:
-                - matches: tried-run
-                - kind: invocation_expression
-                  all:
-                    - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^As$'}}, {has: {field: expression, matches: tried-run}}]}
-                    - matches: csharp-argumentless-call
-            - not: {matches: continued}
-            - not: {matches: typed-position}
+                  - matches: tried-run
+                  - kind: invocation_expression
+                    all:
+                        - has: { field: function, kind: member_access_expression, all: [{ has: { field: name, regex: '^As$' } }, { has: { field: expression, matches: tried-run } }] }
+                        - matches: csharp-argumentless-call
+            - not: { matches: continued }
+            - not: { matches: typed-position }
 rule:
     pattern: $TYPE
     any:

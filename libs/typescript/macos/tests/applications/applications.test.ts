@@ -54,7 +54,7 @@ it.effect(
         ]);
         assert.deepStrictEqual([keptOf(running), keptOf(failed), keptOf(exited)], ['unresponsive', AX_ERROR, Option.some([PROCESS, 'Launch Constraint Violation'])]);
         assert.deepStrictEqual(launching.map(Struct.get('_tag')), ['launched', 'state', 'prompts', 'failed']);
-        assert.deepStrictEqual(Record.map(shots, Result.isSuccess), { [BLOCKING]: true, 20900: false });
+        assert.deepStrictEqual(Record.map(shots, Result.isSuccess), { [BLOCKING]: true, 20_900: false });
         assert.deepStrictEqual((yield* Effect.fromResult(listing)).map(buildOf), ['3826']);
         assert.lengthOf(executed.artifacts, 1);
         const encodeLaunch = Schema.encodeEffect(Schema.toCodecJson(Launch));

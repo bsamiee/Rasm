@@ -8,37 +8,37 @@ utils:
     trailing-code:
         kind: statements
         any:
-            - has: {kind: defer_statement}
+            - has: { kind: defer_statement }
             - not:
-                has:
-                    kind: control_transfer_statement
-                    regex: '^yield(?-u:\b)'
-                    nthChild: {position: 1, reverse: true, ofRule: {not: {kind: 'comment, multiline_comment'}}}
+                  has:
+                      kind: control_transfer_statement
+                      regex: '^yield(?-u:\b)'
+                      nthChild: { position: 1, reverse: true, ofRule: { not: { kind: 'comment, multiline_comment' } } }
     called-accessor:
         kind: call_expression
         all:
-            - has: {nthChild: 1, matches: accessor-name}
-            - has: {kind: call_suffix, all: [{has: {kind: lambda_literal}}, {not: {has: {kind: value_arguments}}}]}
-            - inside: {kind: statements, inside: {kind: computed_property}}
+            - has: { nthChild: 1, matches: accessor-name }
+            - has: { kind: call_suffix, all: [{ has: { kind: lambda_literal } }, { not: { has: { kind: value_arguments } } }] }
+            - inside: { kind: statements, inside: { kind: computed_property } }
     open-accessor:
         any:
             - kind: computed_modify
-              has: {kind: statements, matches: trailing-code}
+              has: { kind: statements, matches: trailing-code }
             - matches: called-accessor
-              has: {kind: call_suffix, has: {kind: lambda_literal, has: {kind: statements, matches: trailing-code}}}
+              has: { kind: call_suffix, has: { kind: lambda_literal, has: { kind: statements, matches: trailing-code } } }
 rule:
     any:
         - kind: computed_modify
-          has: {kind: modify_specifier, pattern: $NAME}
+          has: { kind: modify_specifier, pattern: $NAME }
         - kind: call_expression
           matches: called-accessor
-          has: {nthChild: 1, pattern: $NAME}
+          has: { nthChild: 1, pattern: $NAME }
     not:
         inside:
             kind: computed_property
-            stopBy: {kind: computed_property}
+            stopBy: { kind: computed_property }
             any:
-                - has: {kind: computed_modify, matches: open-accessor}
-                - has: {kind: statements, has: {kind: call_expression, matches: open-accessor}}
+                - has: { kind: computed_modify, matches: open-accessor }
+                - has: { kind: statements, has: { kind: call_expression, matches: open-accessor } }
 message: '`$NAME` yields storage through an underscored coroutine accessor'
 note: 'Replace `get` or `_read` with `borrow { <storage> }` and `set` or `_modify` with `mutate { &<storage> }`'

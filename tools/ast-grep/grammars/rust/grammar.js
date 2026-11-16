@@ -49,7 +49,7 @@ const constness = optional(field('constness', 'const'));
 const attributed = ($) => repeat($.attribute_item);
 const unattributed = drop((rule) => rule.type === 'REPEAT' && symbol('attribute_item')(rule.content));
 const underscored = replace(
-    ({ type, value }) => type === 'PATTERN' && value.startsWith('u\\{'),
+    ({ type, value }) => type === 'PATTERN' && value.startsWith(String.raw`u\{`),
     (_, part) => ({ ...part, value: part.value.replace('a-fA-F', 'a-fA-F_') }),
 );
 const specialized = optional(choice('default', 'final'));
@@ -339,7 +339,7 @@ export default extend(rust, {
             widen(named('parameters'), ($) => alias($.return_type_parameters, $.parameters)),
             after(named('trait'), optional('::')),
         ),
-        return_type_parameters: (_) => seq('(', '..', ')'),
+        return_type_parameters: () => seq('(', '..', ')'),
         where_predicate: chain(
             replace(named('left'), ($) => field('left', choice($.lifetime, $._type, $.higher_ranked_trait_bound))),
             before(named('left'), attributed),

@@ -1,6 +1,6 @@
 import { Array, Duration, flow, Option, type Path, Record, Result, Schema } from 'effect';
 import { CommandLine } from 'effect/process';
-import SSHConfig from 'ssh-config';
+import { SSHConfig } from 'ssh-config';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -45,7 +45,6 @@ class Host extends Schema.Class<Host, { readonly brand: unique symbol }>('Host')
 
     files(path: Path.Path, folder: string) {
         const [known, control, unshared] = [path.join(folder, this.name, 'known_hosts'), this.control(path, folder), this.unshared];
-        const quiet = (words: readonly string[]) => Result.map(CommandLine.join(words), (line) => `${line} 2>/dev/null`);
         const marked = Host.fields.trust.match({ HostKeys: () => [], Authority: () => ['@cert-authority'] });
         const [dials, routed, hops] = Host.fields.path.match(this.path, {
             Direct: ({ preferred }) => [preferred, {}, []] as const,
@@ -110,6 +109,7 @@ class Host extends Schema.Class<Host, { readonly brand: unique symbol }>('Host')
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+const quiet = (words: readonly string[]) => Result.map(CommandLine.join(words), (line) => `${line} 2>/dev/null`);
 const section = ({ name, user, identity, host, port }: typeof Hop.Type) => ({
     HostName: host,
     User: user,

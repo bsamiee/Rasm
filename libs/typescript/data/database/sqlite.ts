@@ -10,8 +10,8 @@ import { Tokenizer } from '#/relation';
 
 const words = /\s+/u;
 const lexemes = /'(?:[^']|'')*'|"(?:[^"]|"")*"|`(?:[^`]|``)*`|\[[^\]]*\]|\/\*[\s\S]*?\*\/|--[^\n]*|[(),]|[^\s'"`[(),/-]+|\S/gu;
-const types = { text: 'TEXT', uuid: 'TEXT', json: 'TEXT', instant: 'TEXT', integer: 'INTEGER', decimal: 'TEXT', real: 'REAL', boolean: 'INTEGER', blob: 'BLOB' } as const satisfies { readonly [K in Kind]: string };
-const keywords: readonly string[] = ['CHECK', 'COLLATE', 'UNIQUE', 'REFERENCES', 'PRIMARY', 'CONSTRAINT', 'FOREIGN'];
+const types = { text: 'TEXT', uuid: 'TEXT', json: 'TEXT', instant: 'TEXT', integer: 'INTEGER', decimal: 'TEXT', real: 'REAL', boolean: 'INTEGER', blob: 'BLOB' } as const satisfies Readonly<Record<Kind, string>>;
+const keywords: ReadonlySet<string> = new Set(['CHECK', 'COLLATE', 'UNIQUE', 'REFERENCES', 'PRIMARY', 'CONSTRAINT', 'FOREIGN']);
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -54,7 +54,7 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
             onNone: () => sql.literal('NULL'),
             onSome: ({ open, close }) => sql.join('', false)(['json_object(', sql.csv(searched.flatMap((entry, index) => [literal(entry.name), sql`highlight(${virtual}, ${sql.literal(index.toString())}, ${open}, ${close})`])), ')']),
         });
-        const [filter, rank] = Tokenizer.$is('Trigram')(tokenizer) && [...text].length < gram ? [sql.or(searched.map(({ name }) => sql`${virtual}.${sql(name)} LIKE ${pattern} ESCAPE '\\'`)), sql.literal('0')] : [sql`${virtual} MATCH ${terms}`, sql`-${virtual}."rank"`];
+        const [filter, rank] = Tokenizer.$is('Trigram')(tokenizer) && Array.fromIterable(text).length < gram ? [sql.or(searched.map(({ name }) => sql`${virtual}.${sql(name)} LIKE ${pattern} ESCAPE '\\'`)), sql.literal('0')] : [sql`${virtual} MATCH ${terms}`, sql`-${virtual}."rank"`];
         return sql`SELECT ${reads(prefix)}, ${rank} AS ${sql(flags.rank)}, ${marked} AS ${sql(flags.highlight)} FROM ${virtual} JOIN ${owner} ON ${owner}."rowid" = ${virtual}."rowid" WHERE ${filter} ORDER BY ${virtual}."rank", ${keys(prefix)} LIMIT ${count}`;
     };
 
@@ -100,7 +100,7 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
         };
     };
     static readonly policy: Engine['Service']['policy'] = () => Option.none();
-    static readonly comment: Engine['Service']['comment'] = (sql, _, identity) => ({ inline: sql.literal(` /* ${Formatter.formatJson(identity).replaceAll('*/', '*\\/')} */`), statements: () => [] });
+    static readonly comment: Engine['Service']['comment'] = (sql, _, identity) => ({ inline: sql.literal(` /* ${Formatter.formatJson(identity).replaceAll('*/', String.raw`*\/`)} */`), statements: () => [] });
 
     // --- [RECONCILIATION]
 
@@ -108,12 +108,12 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
         const { name: owner, key, columns, indexes, search, tenant, withoutRowid } = relation;
         const [all, aliases] = [Object.values(columns), ['rowid', 'oid', '_rowid_']];
         const unkeyed = Option.isSome(search) && (withoutRowid || !all.some(({ name, kind }) => kind === 'integer' && Equal.equals(key, [name])));
-        const folded = indexes.flatMap(({ keys }) => keys.filter(Struct.get('casefold')).map(Struct.get('column')));
+        const folded = new Set(indexes.flatMap(({ keys }) => keys.filter(Struct.get('casefold')).map(Struct.get('column'))));
         return [
             ...unsupported(owner, 'reserved', all, ({ name }) => aliases.includes(name.toLowerCase())),
             ...unsupported(owner, 'tenant', all, ({ name }) => Option.exists(tenant, ({ column }) => column.name === name)),
             ...unsupported(owner, 'search', all, ({ name }) => unkeyed && key.includes(name)),
-            ...unsupported(owner, 'casefold', all, ({ name, ascii }) => !ascii && folded.includes(name)),
+            ...unsupported(owner, 'casefold', all, ({ name, ascii }) => !ascii && folded.has(name)),
             ...mergeTreeRefusals(relation),
         ];
     };
@@ -121,6 +121,11 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
     static readonly open: Engine['Service']['open'] = (sql) => Effect.andThen(sql`PRAGMA synchronous = NORMAL`, sql`PRAGMA optimize = 0x10002`);
     static readonly execute = Engine.transaction;
     static readonly transactional = true;
+    static readonly #stamped = (token: Option.Option<string>) =>
+        Option.flatMap(
+            Option.filter(token, (text) => text.startsWith('/*')),
+            (text) => Schema.decodeOption(Stamp)(text.slice(2, -2).trim()),
+        );
     static readonly identities = ({ columns, ...table }: typeof SqliteTable.Type) => {
         const tokens: readonly string[] = table.sql.match(lexemes) ?? [];
         const quotes: Readonly<Record<string, string>> = { '"': '"', '`': '`', '[': ']' };
@@ -132,18 +137,13 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
         const body = Array.takeWhile(depths, ({ next }) => next > 0);
         const cuts = Array.filterMap(body, ({ token, depth }, index) => (depth === 1 && token === ',' ? Result.succeed(index) : Result.failVoid));
         const segments = Array.window([-1, ...cuts, body.length], 2).map(([start, end]) => body.slice(start + 1, end).map(Struct.get('token')));
-        const comment = (token: Option.Option<string>) =>
-            Option.flatMap(
-                Option.filter(token, (text) => text.startsWith('/*')),
-                (text) => Schema.decodeOption(Stamp)(text.slice(2, -2).trim()),
-            );
         const unquoted = (token: string) => UndefinedOr.match(quotes[token.charAt(0)], { onUndefined: () => token, onDefined: (close) => token.slice(1, -1).replaceAll(`${close}${close}`, close) });
         const defined = Array.filterMap(
             segments,
             Filter.fromPredicateOption((segment) => {
-                const metadata = { identity: comment(Array.get(segment, 1)), constrained: Array.drop(segment, 1).some((token) => keywords.includes(token.toUpperCase())) };
+                const metadata = { identity: Sqlite.#stamped(Array.get(segment, 1)), constrained: Array.drop(segment, 1).some((token) => keywords.has(token.toUpperCase())) };
                 return Array.head(segment).pipe(
-                    Option.filter((first) => !keywords.includes(first.toUpperCase())),
+                    Option.filter((first) => !keywords.has(first.toUpperCase())),
                     Option.map((first) => ({ name: unquoted(first), ...metadata })),
                 );
             }),
@@ -152,7 +152,7 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
         return {
             ...table,
             autoincrement: body.some(({ token }) => token.toUpperCase() === 'AUTOINCREMENT'),
-            identity: comment(Array.findFirst(Array.take(tokens, Math.max(opening, 0)), (token) => token.startsWith('/*'))),
+            identity: Sqlite.#stamped(Array.findFirst(Array.take(tokens, Math.max(opening, 0)), (token) => token.startsWith('/*'))),
             columns: columns.map((column) => {
                 const parsed = Record.get(definitions, column.name);
                 return { ...column, identity: Option.flatMap(parsed, Struct.get('identity')), constrained: Option.exists(parsed, Struct.get('constrained')) };
@@ -243,10 +243,19 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
         };
         const tables = resolved.matched.map(analyze);
         const positions = new Map(tables.map(({ declared }, index) => [declared.name, index]));
-        const edges = tables.flatMap((entry, child) => Array.filterMap(entry.linked, ({ target }) => Result.fromOption(Option.fromUndefinedOr(positions.get(target)), Function.constVoid)).map((parent) => [parent, child] as const));
-        const graph = Graph.directed<(typeof tables)[number], void>((mutable) => {
-            tables.forEach((entry) => Graph.addNode(mutable, entry));
-            edges.forEach(([parent, child]) => Graph.addEdge(mutable, parent, child, undefined));
+        const graph = Graph.fromSnapshot({
+            type: 'directed',
+            nodes: tables.map((data, index) => ({ index, data })),
+            edges: tables
+                .flatMap((entry, target) =>
+                    Array.filterMap(entry.linked, (link) =>
+                        Result.fromOption(
+                            Option.map(Option.fromUndefinedOr(positions.get(link.target)), (source) => ({ source, target, data: link })),
+                            Function.constVoid,
+                        ),
+                    ),
+                )
+                .map((edge, index) => ({ ...edge, index })),
         });
         const reached = new Set(Graph.values(Graph.dfs(graph, { start: Graph.findNodes(graph, Struct.get('rebuild')) })));
         const rebuilds = tables.filter((entry) => reached.has(entry));

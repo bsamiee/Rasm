@@ -2,4 +2,4 @@
 id: functools-partial-callee
 language: pythonlang
 rule:
-    matches: {python-member-use: {module: {regex: '^functools$'}, name: {regex: '^partial$'}}}
+    matches: { python-member-use: { module: { regex: '^functools$' }, name: { regex: '^partial$' } } }

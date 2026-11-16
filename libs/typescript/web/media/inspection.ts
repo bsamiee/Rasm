@@ -39,37 +39,41 @@ const image = Effect.fnUntraced(function* (file: File, { scaling, concurrency, .
     );
     return Image({ width: source.width, height: source.height, renditions: renditions.filter((rendition) => rendition.file.size < file.size) });
 }, Effect.scoped);
-const video = (file: File) => {
+const video = Effect.fnUntraced(function* (file: File) {
     const unreadable = MediaError.of('Unreadable', file.name);
-    return Effect.acquireUseRelease(
-        Effect.sync(() => ({ element: Object.assign(document.createElement('video'), { preload: 'metadata' }), url: URL.createObjectURL(file) })),
-        ({ element, url }) =>
-            Effect.callback<Inspection, MediaError>((resume, signal) => {
-                const listener: EventListenerObject = {
-                    handleEvent(event) {
-                        switch (event.type) {
-                            case 'error':
-                                resume(unreadable(element.error));
-                                break;
-                            default:
-                                resume(element.videoWidth > 0 && element.videoHeight > 0 ? Effect.succeed(Video({ width: element.videoWidth, height: element.videoHeight, duration: Duration.seconds(element.duration) })) : unreadable());
-                                break;
-                        }
-                    },
-                };
-                const options = { once: true, signal };
-                element.addEventListener('loadedmetadata', listener, options);
-                element.addEventListener('error', listener, options);
-                element.src = url;
-            }),
+    const url = yield* Effect.acquireRelease(
+        Effect.sync(() => URL.createObjectURL(file)),
+        (created) => Effect.sync(() => URL.revokeObjectURL(created)),
+    );
+    const element = yield* Effect.acquireRelease(
+        Effect.sync(() => Object.assign(document.createElement('video'), { preload: 'metadata' })),
         (opened) =>
             Effect.sync(() => {
-                opened.element.removeAttribute('src');
-                opened.element.load();
-                URL.revokeObjectURL(opened.url);
+                opened.removeAttribute('src');
+                opened.load();
             }),
     );
-};
+    return yield* Effect.callback<Inspection, MediaError>((resume, signal) => {
+        const listener: EventListenerObject = {
+            handleEvent(event) {
+                switch (event.type) {
+                    case 'error': {
+                        resume(unreadable(element.error));
+                        break;
+                    }
+                    default: {
+                        resume(element.videoWidth > 0 && element.videoHeight > 0 ? Effect.succeed(Video({ width: element.videoWidth, height: element.videoHeight, duration: Duration.seconds(element.duration) })) : unreadable());
+                        break;
+                    }
+                }
+            },
+        };
+        const options = { once: true, signal };
+        element.addEventListener('loadedmetadata', listener, options);
+        element.addEventListener('error', listener, options);
+        element.src = url;
+    });
+}, Effect.scoped);
 const pdf = Effect.fnUntraced(function* (file: File, options: Options) {
     const { PdfDocument } = yield* Effect.tryPromise(() => import('#/pdf-document'));
     return Pdf({ pages: yield* PdfDocument.pages(file, options) });

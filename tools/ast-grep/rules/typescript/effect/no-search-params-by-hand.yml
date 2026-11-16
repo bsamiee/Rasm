@@ -4,31 +4,31 @@ severity: error
 utils:
     search-params:
         kind: new_expression
-        has: {field: constructor, regex: '^(globalThis\.)?URLSearchParams$', matches: typescript-global-reference}
+        has: { field: constructor, regex: '^(globalThis\.)?URLSearchParams$', matches: typescript-global-reference }
     held-params:
         any:
             - kind: member_expression
-              has: {field: property, regex: '^searchParams$'}
+              has: { field: property, regex: '^searchParams$' }
             - matches: search-params
             - kind: identifier
               pattern: $PARAMS
               inside:
-                kind: statement_block, program
-                stopBy: end
-                has: {kind: lexical_declaration, has: {kind: variable_declarator, all: [{has: {field: name, pattern: $PARAMS}}, {has: {field: value, matches: search-params}}]}}
+                  kind: statement_block, program
+                  stopBy: end
+                  has: { kind: lexical_declaration, has: { kind: variable_declarator, all: [{ has: { field: name, pattern: $PARAMS } }, { has: { field: value, matches: search-params } }] } }
 rule:
     pattern: $HAND
     any:
         - kind: new_expression
           all:
-            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, kind: object}}
-            - matches: search-params
+              - has: { field: arguments, has: { nthChild: { position: 1, ofRule: { not: { kind: 'comment, html_comment' } } }, kind: object } }
+              - matches: search-params
         - kind: call_expression
           has:
-            field: function
-            kind: member_expression
-            all:
-                - has: {field: property, regex: '^(get|getAll|has)$'}
-                - has: {field: object, matches: held-params}
+              field: function
+              kind: member_expression
+              all:
+                  - has: { field: property, regex: '^(get|getAll|has)$' }
+                  - has: { field: object, matches: held-params }
 message: '`$HAND` reads or builds search parameters by hand'
 note: 'Use `HttpServerRequest.schemaSearchParams` for requests, a module-scope `Schema.fromURLSearchParams` codec for other parameters'

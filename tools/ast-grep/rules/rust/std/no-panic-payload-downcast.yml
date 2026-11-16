@@ -8,7 +8,7 @@ utils:
             - pattern: $I.payload().downcast_ref::<&str>().$COPY()
             - pattern: $I.payload().downcast_ref::<&'static str>().$COPY()
             - pattern: '$I.payload().downcast_ref::<&str>().map(|$LITERAL| *$LITERAL)'
-            - pattern: '$I.payload().downcast_ref::<&''static str>().map(|$LITERAL| *$LITERAL)'
+            - pattern: "$I.payload().downcast_ref::<&'static str>().map(|$LITERAL| *$LITERAL)"
     owned-side:
         kind: call_expression
         any:
@@ -18,24 +18,24 @@ utils:
         any:
             - matches: literal-side
             - kind: closure_expression
-              has: {field: body, matches: literal-side}
+              has: { field: body, matches: literal-side }
     owned-fallback:
         any:
             - matches: owned-side
             - kind: closure_expression
-              has: {field: body, matches: owned-side}
+              has: { field: body, matches: owned-side }
 rule:
     kind: call_expression
     all:
-        - has: {field: function, kind: field_expression, has: {field: field, regex: '^(or|or_else)$'}}
+        - has: { field: function, kind: field_expression, has: { field: field, regex: '^(or|or_else)$' } }
         - any:
-            - all:
-                - has: {field: function, has: {field: value, matches: literal-side}}
-                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: owned-fallback}}
-            - all:
-                - has: {field: function, has: {field: value, matches: owned-side}}
-                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: literal-fallback}}
+              - all:
+                    - has: { field: function, has: { field: value, matches: literal-side } }
+                    - has: { field: arguments, has: { nthChild: { position: 1, ofRule: { not: { kind: 'line_comment, block_comment' } } }, matches: owned-fallback } }
+              - all:
+                    - has: { field: function, has: { field: value, matches: owned-side } }
+                    - has: { field: arguments, has: { nthChild: { position: 1, ofRule: { not: { kind: 'line_comment, block_comment' } } }, matches: literal-fallback } }
 constraints:
-    COPY: {regex: '^(copied|cloned)$'}
+    COPY: { regex: '^(copied|cloned)$' }
 message: '`$I` downcasts its panic payload to `&str` and `String` by hand'
 note: 'Call `payload_as_str()` on the `PanicHookInfo`'

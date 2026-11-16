@@ -5,17 +5,17 @@ utils:
     rendering-call:
         kind: identifier
         any:
-            - all: [{regex: '^(format|format_args)$'}, {precedes: {regex: '^!$'}}]
+            - all: [{ regex: '^(format|format_args)$' }, { precedes: { regex: '^!$' } }]
             - all:
-                - pattern: to_string
-                - follows: {regex: '^\.$'}
-                - precedes: {kind: token_tree, regex: '^\(\p{Pattern_White_Space}*\)$', precedes: {stopBy: {not: {kind: 'line_comment, block_comment'}}, regex: '^(,|\)|\})$'}}
+                  - pattern: to_string
+                  - follows: { regex: '^\.$' }
+                  - precedes: { kind: token_tree, regex: '^\(\p{Pattern_White_Space}*\)$', precedes: { stopBy: { not: { kind: 'line_comment, block_comment' } }, regex: '^(,|\)|\})$' } }
             - all:
-                - pattern: to_string
-                - follows: {regex: '^::$'}
-                - precedes: {kind: token_tree, not: {regex: '^\(\p{Pattern_White_Space}*\)$'}}
+                  - pattern: to_string
+                  - follows: { regex: '^::$' }
+                  - precedes: { kind: token_tree, not: { regex: '^\(\p{Pattern_White_Space}*\)$' } }
 rule:
     kind: attribute_item
-    has: {kind: attribute, has: {stopBy: end, matches: tracing-instrument-fields, has: {matches: rendering-call, pattern: $FORMAT}}}
+    has: { kind: attribute, has: { stopBy: end, matches: tracing-instrument-fields, has: { matches: rendering-call, pattern: $FORMAT } } }
 message: '`$FORMAT` renders an `#[instrument]` field value to text before the span records it'
 note: 'Record the value as `<name> = %<value>` for `Display` or `<name> = ?<value>` for `Debug`'

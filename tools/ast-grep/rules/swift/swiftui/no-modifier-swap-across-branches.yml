@@ -7,45 +7,45 @@ utils:
         has:
             kind: call_suffix
             any:
-                - has: {kind: lambda_literal}
+                - has: { kind: lambda_literal }
                 - has:
-                    kind: value_arguments
-                    has:
-                        kind: value_argument
-                        any:
-                            - has: {field: value, kind: lambda_literal}
-                            - has: {field: name, regex: '^action$'}
+                      kind: value_arguments
+                      has:
+                          kind: value_argument
+                          any:
+                              - has: { field: value, kind: lambda_literal }
+                              - has: { field: name, regex: '^action$' }
     unmergeable-link:
         any:
             - kind: navigation_suffix
-              has: {field: suffix, regex: '^(alignmentGuide|matchedGeometryEffect|id)$'}
+              has: { field: suffix, regex: '^(alignmentGuide|matchedGeometryEffect|id)$' }
             - kind: call_expression
               all:
-                - has: {nthChild: 1, kind: simple_identifier}
-                - matches: action-call
+                  - has: { nthChild: 1, kind: simple_identifier }
+                  - matches: action-call
     view-arm:
         matches:
             swift-single-statement:
                 first:
                     all:
-                        - matches: {swift-chain-root: {root: {kind: simple_identifier, pattern: $VIEW}}}
+                        - matches: { swift-chain-root: { root: { kind: simple_identifier, pattern: $VIEW } } }
                         - not:
-                            any:
-                                - matches: unmergeable-link
-                                - has: {stopBy: {not: {kind: 'call_expression, navigation_expression'}}, matches: unmergeable-link}
+                              any:
+                                  - matches: unmergeable-link
+                                  - has: { stopBy: { not: { kind: 'call_expression, navigation_expression' } }, matches: unmergeable-link }
 rule:
     kind: 'if_statement, switch_statement'
     all:
-        - not: {inside: {kind: if_statement}}
-        - inside: {matches: swiftui-view-builder, stopBy: end}
-        - has: {stopBy: {not: {kind: 'if_statement, switch_entry'}}, kind: statements, matches: view-arm, pattern: $FIRST}
-        - has: {stopBy: {not: {kind: 'if_statement, switch_entry'}}, kind: statements, not: {pattern: $FIRST}}
-        - not: {has: {stopBy: {not: {kind: 'if_statement, switch_entry'}}, kind: statements, not: {matches: view-arm}}}
+        - not: { inside: { kind: if_statement } }
+        - inside: { matches: swiftui-view-builder, stopBy: end }
+        - has: { stopBy: { not: { kind: 'if_statement, switch_entry' } }, kind: statements, matches: view-arm, pattern: $FIRST }
+        - has: { stopBy: { not: { kind: 'if_statement, switch_entry' } }, kind: statements, not: { pattern: $FIRST } }
+        - not: { has: { stopBy: { not: { kind: 'if_statement, switch_entry' } }, kind: statements, not: { matches: view-arm } } }
         - has:
-            stopBy: {not: {kind: 'if_statement, switch_entry'}}
-            kind: statements
-            any:
-                - has: {nthChild: 1, kind: simple_identifier, pattern: $VIEW}
-                - has: {stopBy: end, kind: call_expression, has: {nthChild: 1, kind: simple_identifier, pattern: $VIEW, regex: '^[A-Z]'}}
+              stopBy: { not: { kind: 'if_statement, switch_entry' } }
+              kind: statements
+              any:
+                  - has: { nthChild: 1, kind: simple_identifier, pattern: $VIEW }
+                  - has: { stopBy: end, kind: call_expression, has: { nthChild: 1, kind: simple_identifier, pattern: $VIEW, regex: '^[A-Z]' } }
 message: '`$VIEW` repeats per branch with other arguments or modifiers and resets its state at each condition change'
 note: 'Keep one `<view>` and pass the condition as a ternary argument or modifier value (`.tint`, `.disabled`, `.opacity`)'

@@ -4,43 +4,43 @@ language: tsxlang
 arguments: [source, exported]
 utils:
     module-reference:
-        matches: {typescript-module-reference: {source: {matches: source}}}
+        matches: { typescript-module-reference: { source: { matches: source } } }
     type-only:
-        has: {regex: '^type$', not: {pattern: $_}}
+        has: { regex: '^type$', not: { pattern: $_ } }
     module-import:
         kind: import_statement
-        has: {field: source, all: [{has: {kind: string_fragment, matches: source}}, {not: {has: {kind: escape_sequence}}}]}
+        has: { field: source, all: [{ has: { kind: string_fragment, matches: source } }, { not: { has: { kind: escape_sequence } } }] }
     exported-binding:
         any:
             - kind: import_specifier
-              has: {field: name, matches: exported}
+              has: { field: name, matches: exported }
             - kind: namespace_import
-              has: {regex: '^\*$', matches: exported}
+              has: { regex: '^\*$', matches: exported }
     type-position:
-        inside: {kind: 'nested_type_identifier, type_query', stopBy: {not: {kind: 'nested_identifier, member_expression'}}}
+        inside: { kind: 'nested_type_identifier, type_query', stopBy: { not: { kind: 'nested_identifier, member_expression' } } }
 rule:
     any:
         - kind: identifier, undefined
           pattern: $IMPORTED
           all:
-            - any:
-                - inside: {kind: program, stopBy: end, has: {all: [{matches: module-import}, {not: {matches: type-only}}, {has: {stopBy: end, pattern: $IMPORTED, matches: typescript-import-binding, inside: {matches: exported-binding, not: {matches: type-only}}}}]}}
-                - matches: type-position
-                  inside: {kind: program, stopBy: end, has: {all: [{matches: module-import}, {has: {stopBy: end, pattern: $IMPORTED, matches: typescript-import-binding, inside: {matches: exported-binding}}}]}}
-            - not: {matches: {typescript-local-binding: {owner: {pattern: $_}}}}
+              - any:
+                    - inside: { kind: program, stopBy: end, has: { all: [{ matches: module-import }, { not: { matches: type-only } }, { has: { stopBy: end, pattern: $IMPORTED, matches: typescript-import-binding, inside: { matches: exported-binding, not: { matches: type-only } } } }] } }
+                    - matches: type-position
+                      inside: { kind: program, stopBy: end, has: { all: [{ matches: module-import }, { has: { stopBy: end, pattern: $IMPORTED, matches: typescript-import-binding, inside: { matches: exported-binding } } }] } }
+              - not: { matches: { typescript-local-binding: { owner: { pattern: $_ } } } }
         - kind: type_identifier
           pattern: $IMPORTED
           all:
-            - not: {inside: {kind: nested_type_identifier, field: name}}
-            - inside: {kind: program, stopBy: end, has: {all: [{matches: module-import}, {has: {stopBy: end, pattern: $IMPORTED, matches: typescript-import-binding, inside: {matches: exported-binding}}}]}}
-            - not:
-                inside:
-                    stopBy: end
-                    any:
-                        - has: {field: type_parameters, has: {kind: type_parameter, has: {field: name, pattern: $IMPORTED}}}
-                        - kind: statement_block
-                          has: {kind: 'type_alias_declaration, interface_declaration, class_declaration, abstract_class_declaration, enum_declaration', has: {field: name, pattern: $IMPORTED}}
+              - not: { inside: { kind: nested_type_identifier, field: name } }
+              - inside: { kind: program, stopBy: end, has: { all: [{ matches: module-import }, { has: { stopBy: end, pattern: $IMPORTED, matches: typescript-import-binding, inside: { matches: exported-binding } } }] } }
+              - not:
+                    inside:
+                        stopBy: end
+                        any:
+                            - has: { field: type_parameters, has: { kind: type_parameter, has: { field: name, pattern: $IMPORTED } } }
+                            - kind: statement_block
+                              has: { kind: 'type_alias_declaration, interface_declaration, class_declaration, abstract_class_declaration, enum_declaration', has: { field: name, pattern: $IMPORTED } }
         - kind: member_expression, nested_identifier
           all:
-            - has: {field: property, matches: exported}
-            - has: {field: object, matches: module-reference}
+              - has: { field: property, matches: exported }
+              - has: { field: object, matches: module-reference }

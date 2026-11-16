@@ -13,8 +13,8 @@ type Aligned = ReturnType<typeof aligned>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const types = { text: 'String', uuid: 'UUID', json: 'String', instant: 'DateTime64(3)', integer: 'Int64', decimal: 'String', real: 'Float64', boolean: 'Bool', blob: 'String' } as const satisfies { readonly [K in Kind]: string };
-const skips: { readonly [M in Relation['indexes'][number]['method']]?: string } = { brin: 'minmax', gin: 'bloom_filter' };
+const types = { text: 'String', uuid: 'UUID', json: 'String', instant: 'DateTime64(3)', integer: 'Int64', decimal: 'String', real: 'Float64', boolean: 'Bool', blob: 'String' } as const satisfies Readonly<Record<Kind, string>>;
+const skips: Readonly<Partial<Record<Relation['indexes'][number]['method'], string>>> = { brin: 'minmax', gin: 'bloom_filter' };
 const kinds = {
     INDEX: { source: 'data_skipping_indices', stored: true, definition: "concat(expr, ' TYPE ', type_full, ' GRANULARITY ', toString(granularity))" },
     PROJECTION: { source: 'projections', stored: true, definition: "concat('(', query, ')')" },
@@ -23,7 +23,7 @@ const kinds = {
 const bits = { narrowest: 8n, unbounded: 64n, widest: 256n };
 const edges = { '>': { lower: true, round: Math.floor, step: 1n }, '>=': { lower: true, round: Math.ceil, step: 0n }, '<': { lower: false, round: Math.ceil, step: -1n }, '<=': { lower: false, round: Math.floor, step: 0n } };
 const escape = Statement.defaultEscape('"');
-const quoted = flow(literal, String.replaceAll('\\', '\\\\'));
+const quoted = flow(literal, String.replaceAll('\\', '$&$&'));
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -66,7 +66,7 @@ class Clickhouse extends Schema.Class<Clickhouse, { readonly brand: unique symbo
         );
         return entry.nullable ? `Nullable(${held})` : held;
     };
-    static readonly constant: Dialect['constant'] = flow(constant, String.replaceAll('\\', '\\\\'));
+    static readonly constant: Dialect['constant'] = flow(constant, String.replaceAll('\\', '$&$&'));
     static readonly codePoints: Dialect['codePoints'] = (sql, subject) => sql`lengthUTF8(${subject})`;
     static readonly cased: Dialect['cased'] = (sql, subject, _, casing) => sql`${sql.literal(casing)}UTF8(toString(${subject})) = toString(${subject})`;
     static readonly domain: Dialect['domain'] = (sql, subject, kind) => (kind === 'real' ? [sql`isFinite(${subject})`] : []);
@@ -224,8 +224,8 @@ const built = (sql: SqlClient.SqlClient, target: Statement.Fragment, { declared,
         ...stamps.map(({ name, stamp: identity }) => commented(sql, name, identity)),
         sql`MODIFY COMMENT ${sql.literal(quoted(Formatter.formatJson(stamp)))}`,
     ])}`;
+const keyed = ({ kind, name }: Pick<(typeof Part)['Type'], 'kind' | 'name'>) => ({ kind, name });
 const aligned = (entry: ReturnType<typeof diff<typeof Table.Type & { readonly references: never[] }>>['matched'][number], wanted: Effect.Success<ReturnType<typeof parts>>) => {
-    const keyed = ({ kind, name }: Pick<(typeof Part)['Type'], 'kind' | 'name'>) => ({ kind, name });
     const [stamp, present, declared] = [mark(entry.declared, entry.identity, wanted), HashSet.fromIterable(entry.live.parts.map(keyed)), HashSet.fromIterable(wanted.map(keyed))];
     const managed = Option.filter(entry.live.identity, () => entry.owned);
     const moved = new Set([...entry.dropping.map(Struct.get('name')), ...entry.renames.map(Struct.get('from'))]);

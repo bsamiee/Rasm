@@ -2,4 +2,4 @@
 id: effect-record-module
 language: tsxlang
 rule:
-    matches: {effect-module: {name: {regex: '(?-u:\b)Record$'}}}
+    matches: { effect-module: { name: { regex: '(?-u:\b)Record$' } } }

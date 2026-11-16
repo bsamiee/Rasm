@@ -6,15 +6,15 @@ rule:
     pattern: $CONTROL
     inside:
         kind: *control
-        stopBy: &boundary {any: [{kind: *control}, {kind: function_definition}]}
+        stopBy: &boundary { any: [{ kind: *control }, { kind: function_definition }] }
         inside:
             kind: *control
             stopBy: *boundary
             inside:
                 kind: *control
                 stopBy: *boundary
-                not: {inside: {kind: *control, stopBy: {kind: function_definition}}}
+                not: { inside: { kind: *control, stopBy: { kind: function_definition } } }
 transform:
-    HEAD: {replace: {source: $CONTROL, replace: '(?s)\n.*$', by: ''}}
+    HEAD: { replace: { source: $CONTROL, replace: '(?s)\n.*$', by: '' } }
 message: '`$HEAD` opens a fourth nesting level'
 note: Rebuild nested decisions and loops as a `case`, an `&&` or `||` guard, or a pipeline over their inputs

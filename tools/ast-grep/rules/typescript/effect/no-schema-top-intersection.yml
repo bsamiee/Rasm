@@ -6,9 +6,9 @@ rule:
     pattern: $TYPE
     all:
         - has:
-            kind: object_type
-            has: {kind: property_signature}
-            not: {has: {kind: property_signature, not: {has: {field: name, regex: '^(Type|Encoded|DecodingServices|EncodingServices)$'}}}}
-        - has: {matches: {effect-module-type: {module: {regex: '(?-u:\b)Schema$'}, member: {regex: '^Top$'}}}}
+              kind: object_type
+              has: { kind: property_signature }
+              not: { has: { kind: property_signature, not: { has: { field: name, regex: '^(Type|Encoded|DecodingServices|EncodingServices)$' } } } }
+        - has: { matches: { effect-module-type: { module: { regex: '(?-u:\b)Schema$' }, member: { regex: '^Top$' } } } }
 message: '`$TYPE` restates a schema interface through `Schema.Top`'
 note: 'Write `Schema.Schema<T>`, `Schema.Decoder<T, RD>` or `Schema.Codec<T, E, RD, RE>`'

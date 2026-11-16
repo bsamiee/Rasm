@@ -57,7 +57,7 @@
         "Info.plist": "*.entitlements",
         "mise.toml": "mise.lock",
         "nx.json": ".editorconfig, sgconfig.yml",
-        "package.json": "*.config.ts, biome.json, executors.json, pnpm-lock.yaml, pnpm-workspace.yaml, tsconfig*.json",
+        "package.json": "*.config.ts, .oxfmtrc.json, .oxlintrc.json, executors.json, pnpm-lock.yaml, pnpm-workspace.yaml, tsconfig*.json",
         "Package.swift": "Package.resolved, Xcode.xcconfig",
         "pyproject.toml": "hatch_build.py, pixi.lock, uv.lock",
         "README.md": "LICENSE, TODO*.md",
@@ -115,7 +115,7 @@
 
     // --- [CLANGD] ----------------------------------------------------------------------
 
-    "clangd.arguments": [ "--compile-commands-dir=${workspaceFolder}/.artifacts/cmake/default", "--clang-tidy=false", "--fallback-style=none" ],
+    "clangd.arguments": ["--compile-commands-dir=${workspaceFolder}/.artifacts/cmake/default", "--clang-tidy=false", "--fallback-style=none"],
 
     // --- [CMAKE] -----------------------------------------------------------------------
 
@@ -134,17 +134,17 @@
 
     // --- [JAVA] ------------------------------------------------------------------------
 
-    "java.configuration.runtimes": [ { "default": true, "name": "JavaSE-27", "path": "${JAVA_HOME}" } ],
-    "java.import.exclusions": [ "**/.cache/**", "**/.codex/skills", "**/.metadata/**", "**/archetype-resources/**", "**/META-INF/maven/**", "**/node_modules/**" ],
+    "java.configuration.runtimes": [{ "default": true, "name": "JavaSE-27", "path": "${JAVA_HOME}" }],
+    "java.import.exclusions": ["**/.cache/**", "**/.codex/skills", "**/.metadata/**", "**/archetype-resources/**", "**/META-INF/maven/**", "**/node_modules/**"],
     "java.import.gradle.enabled": false,
     "java.import.maven.enabled": false,
-    "java.project.referencedLibraries": [ "${GHIDRA_INSTALL_DIR}/Ghidra/**/lib/*.jar" ],
-    "java.project.resourceFilters": [ "node_modules", "research", "rustc-source", "\\.(artifacts|build|cache|cloudflare|git|pixi|swiftpm|venv)" ],
-    "java.project.sourcePaths": [ ".claude/skills/use-ghidra/scripts" ],
+    "java.project.referencedLibraries": ["${GHIDRA_INSTALL_DIR}/Ghidra/**/lib/*.jar"],
+    "java.project.resourceFilters": ["node_modules", "research", "rustc-source", "\\.(artifacts|build|cache|cloudflare|git|pixi|swiftpm|venv)"],
+    "java.project.sourcePaths": [".claude/skills/use-ghidra/scripts"],
 
     // --- [JSON] ------------------------------------------------------------------------
 
-    "json.schemas": [ { "fileMatch": [ "/biome.json" ], "url": "./node_modules/@biomejs/biome/configuration_schema.json" }, { "fileMatch": [ "**/*.xcodeproj/project.xcproj" ], "schema": { "allowTrailingCommas": true } } ],
+    "json.schemas": [{ "fileMatch": ["**/*.xcodeproj/project.xcproj"], "schema": { "allowTrailingCommas": true } }],
 
     // --- [MISE] ------------------------------------------------------------------------
 
@@ -164,11 +164,11 @@
 
     "rust-analyzer.checkOnSave": false,
     "rust-analyzer.rustc.source": "discover",
-    "rust-analyzer.rustfmt.extraArgs": [ "--config-path", "${workspaceFolder}/.config/rustfmt.toml" ],
+    "rust-analyzer.rustfmt.extraArgs": ["--config-path", "${workspaceFolder}/.config/rustfmt.toml"],
 
     // --- [SHELL] -----------------------------------------------------------------------
 
-    "bashIde.backgroundAnalysisIgnore": [ "**/.artifacts/**", "**/.cache/**", "**/.git/**", "**/.pixi/**", "**/.venv/**", "**/node_modules/**", "assets/**" ],
+    "bashIde.backgroundAnalysisIgnore": ["**/.artifacts/**", "**/.cache/**", "**/.git/**", "**/.pixi/**", "**/.venv/**", "**/node_modules/**", "assets/**"],
 
     // --- [TYPESCRIPT] ------------------------------------------------------------------
 

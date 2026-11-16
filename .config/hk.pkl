@@ -47,28 +47,6 @@ steps {
     }
     diagnostic_format = "gcc"
   }
-  ["biome"] = (Builtins.biome) {
-    glob = "**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts,json,jsonc,css,graphql,html,vue,svelte,astro,grit}"
-    check {
-      command {
-        argv =
-          List("biome", "check", "--error-on-warnings", "--no-errors-on-unmatched", "{{files}}")
-      }
-    }
-    fix {
-      command {
-        argv =
-          List(
-            "biome",
-            "check",
-            "--write",
-            "--error-on-warnings",
-            "--no-errors-on-unmatched",
-            "{{files}}",
-          )
-      }
-    }
-  }
   ["clang-format"] = (Builtins.clang_format) {
     glob = "**/*.{cpp,cppm,ixx,cc,cxx,mm,hpp,hh,hxx,h,ipp,inl,tpp}"
     local style = "--style=file:.config/.clang-format"
@@ -199,6 +177,8 @@ steps {
     check { command = "knip --no-progress --config .config/knip.json" }
     fix = null
   }
+  ["oxlint"] = Builtins.ox_lint
+  ["oxfmt"] = (Builtins.oxfmt) { depends = "oxlint" }
   ["pkl-format"] = Builtins.pkl_format
   ["plutil"] {
     glob = "**/*.{plist,entitlements}"

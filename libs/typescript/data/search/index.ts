@@ -9,6 +9,7 @@ const DIGIT = /^\p{Nd}$/u;
 const COLLATOR = new Intl.Collator(undefined, { usage: 'search', sensitivity: 'accent' });
 const LISTING = new Intl.ListFormat('en');
 const FUZZY = new uFuzzy({
+    // oxlint-disable-next-line typescript/no-unsafe-enum-assignment -- ufuzzy types IntraMode as an ambient const enum, absent at runtime and unreachable under isolatedModules
     intraMode: 1,
     unicode: true,
     interSplit: String.raw`[^\p{L}\p{Nd}']+`,
@@ -28,7 +29,7 @@ class Unmatched extends Schema.TaggedError<Unmatched, { readonly brand: unique s
 }) {
     static readonly named = Equivalence.make((left: string, right: string) => COLLATOR.compare(left, right) === 0);
     static readonly #preceding = (point: number): number => (DIGIT.test(String.fromCodePoint(point - 1)) ? 1 + Unmatched.#preceding(point - 1) : 0);
-    static readonly #folded = (text: string) => text.replace(DECIMAL, (digit) => String(Unmatched.#preceding(digit.codePointAt(0) ?? 0) % DECIMAL_DIGITS));
+    static readonly #folded = (text: string) => text.replaceAll(DECIMAL, (digit) => String(Unmatched.#preceding(digit.codePointAt(0) ?? 0) % DECIMAL_DIGITS));
     static readonly rank = (query: string, candidates: readonly string[]): readonly string[] => {
         const [matches, info, order] = FUZZY.search(candidates.map(Unmatched.#folded), Unmatched.#folded(query), 0, Number.POSITIVE_INFINITY);
         return matches === null ? candidates : (info === null ? matches : order.map((position) => Array.getUnsafe(info.idx, position))).map((index) => Array.getUnsafe(candidates, index));

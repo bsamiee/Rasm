@@ -5,73 +5,73 @@ utils:
     result-decoder:
         kind: call_expression
         pattern: $M.$FN($$$_ARGS)
-        has: {field: function, matches: {effect-schema-codec: {name: {regex: '(Exit|Result)$'}}}}
+        has: { field: function, matches: { effect-schema-codec: { name: { regex: '(Exit|Result)$' } } } }
     success-getter:
         any:
-            - matches: {effect-module-member: {module: {regex: '(?-u:\b)(Result|Option|Exit)$'}, member: {regex: '^getSuccess$'}}}
+            - matches: { effect-module-member: { module: { regex: '(?-u:\b)(Result|Option|Exit)$' }, member: { regex: '^getSuccess$' } } }
             - kind: identifier
-              matches: {typescript-import-reference: {source: {regex: '^effect/(Result|Option|Exit)$'}, exported: {regex: '^getSuccess$'}}}
+              matches: { typescript-import-reference: { source: { regex: '^effect/(Result|Option|Exit)$' }, exported: { regex: '^getSuccess$' } } }
     applied-decoder:
         kind: call_expression
         all:
-            - has: {field: function, matches: result-decoder}
-            - has: {field: arguments, pattern: $_}
+            - has: { field: function, matches: result-decoder }
+            - has: { field: arguments, pattern: $_ }
     decoded-step:
         any:
             - matches: result-decoder
             - matches: applied-decoder
-              nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}
+              nthChild: { position: 1, ofRule: { not: { kind: 'comment, html_comment' } } }
     chain-call:
         kind: call_expression
         has:
             field: function
             any:
-                - matches: {effect-function: {name: {regex: '^(flow|pipe)$'}}}
-                - {kind: member_expression, has: {field: property, regex: '^pipe$'}}
+                - matches: { effect-function: { name: { regex: '^(flow|pipe)$' } } }
+                - { kind: member_expression, has: { field: property, regex: '^pipe$' } }
     conversion-call:
         kind: call_expression
         any:
             - all:
-                - any:
-                    - all:
-                        - pattern: '$_F($_D, $G)'
-                        - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: result-decoder}}
-                        - has: {field: function, matches: {typescript-import-reference: {source: {regex: '^effect(/Function)?$'}, exported: {regex: '^flow$'}}}}
-                    - all:
-                        - pattern: '$_F($_INNER, $G)'
-                        - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: applied-decoder}}
-                        - has: {field: function, matches: {effect-function: {name: {regex: '^pipe$'}}}}
-                    - all:
-                        - pattern: $_INNER.pipe($G)
-                        - has: {field: function, has: {field: object, matches: applied-decoder}}
-                - has: {field: arguments, has: {nthChild: {position: 1, reverse: true, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: success-getter}}
+                  - any:
+                        - all:
+                              - pattern: '$_F($_D, $G)'
+                              - has: { field: arguments, has: { nthChild: { position: 1, ofRule: { not: { kind: 'comment, html_comment' } } }, matches: result-decoder } }
+                              - has: { field: function, matches: { typescript-import-reference: { source: { regex: '^effect(/Function)?$' }, exported: { regex: '^flow$' } } } }
+                        - all:
+                              - pattern: '$_F($_INNER, $G)'
+                              - has: { field: arguments, has: { nthChild: { position: 1, ofRule: { not: { kind: 'comment, html_comment' } } }, matches: applied-decoder } }
+                              - has: { field: function, matches: { effect-function: { name: { regex: '^pipe$' } } } }
+                        - all:
+                              - pattern: $_INNER.pipe($G)
+                              - has: { field: function, has: { field: object, matches: applied-decoder } }
+                  - has: { field: arguments, has: { nthChild: { position: 1, reverse: true, ofRule: { not: { kind: 'comment, html_comment' } } }, matches: success-getter } }
             - all:
-                - pattern: $G($_INNER)
-                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: applied-decoder}}
-                - has: {field: function, matches: success-getter}
+                  - pattern: $G($_INNER)
+                  - has: { field: arguments, has: { nthChild: { position: 1, ofRule: { not: { kind: 'comment, html_comment' } } }, matches: applied-decoder } }
+                  - has: { field: function, matches: success-getter }
     chain-step:
         all:
             - any:
-                - follows: {stopBy: {pattern: $_}, matches: decoded-step}
-                - nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}
-                  inside:
-                    kind: arguments
+                  - follows: { stopBy: { pattern: $_ }, matches: decoded-step }
+                  - nthChild: { position: 1, ofRule: { not: { kind: 'comment, html_comment' } } }
                     inside:
-                        kind: call_expression
-                        has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^pipe$'}}, {has: {field: object, matches: applied-decoder}}]}
-            - inside: {kind: arguments, inside: {matches: chain-call}}
+                        kind: arguments
+                        inside:
+                            kind: call_expression
+                            has: { field: function, kind: member_expression, all: [{ has: { field: property, regex: '^pipe$' } }, { has: { field: object, matches: applied-decoder } }] }
+            - inside: { kind: arguments, inside: { matches: chain-call } }
             - matches: success-getter
-            - not: {inside: {kind: arguments, inside: {matches: conversion-call}}}
+            - not: { inside: { kind: arguments, inside: { matches: conversion-call } } }
 rule:
     any:
         - matches: conversion-call
         - kind: member_expression
           pattern: $G
-          all: [{has: {field: property, regex: '^getSuccess$'}}, {matches: chain-step}]
+          all: [{ has: { field: property, regex: '^getSuccess$' } }, { matches: chain-step }]
         - kind: identifier
           pattern: $G
           matches: chain-step
-    not: {has: {kind: comment, stopBy: end}}
+    not: { has: { kind: comment, stopBy: end } }
 transform:
     OPT: replace($FN, replace='(Result|Exit)$', by='Option')
 message: '`$G` over `$M.$FN` rebuilds `$M.$OPT`'

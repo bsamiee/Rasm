@@ -197,6 +197,12 @@ const engine = Effect.fnUntraced(function* (descriptor: string) {
     return { root, stamp: path.join(root, 'Engine', 'Build', 'Build.version'), platform: host.name, version: `${MajorVersion}.${MinorVersion}`, binaries: path.join(root, 'Engine', 'Binaries', host.name), scripts: path.join(root, 'Engine', 'Build', 'BatchFiles') };
 });
 
+const stated = (host: Host, at: string, text: string, file: string, names: readonly string[]) =>
+    Effect.map(
+        host.read(text, file),
+        Option.flatMap(({ name, version, foreign = false, platforms = [] }) => Option.map(Option.fromUndefinedOr(version), (known): Found => ({ host, at, name, version: known, foreign, platforms, text, names }))),
+    );
+
 const located = Effect.fnUntraced(function* (context: ExecutorContext) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const { project, target, outputs, files: listed } = yield* packaged(context);
@@ -204,11 +210,6 @@ const located = Effect.fnUntraced(function* (context: ExecutorContext) {
     const files = listed.map((file) => path.join(context.root, file));
     const rows = HOSTS.filter(({ technology }) => node.data.metadata?.technologies?.includes(technology) === true);
     const sources = Array.isReadonlyArrayNonEmpty(outputs) ? files : (yield* Effect.promise(() => globWithWorkspaceContext(context.root, [path.join(node.data.root, '**')]))).map((file) => path.join(context.root, file));
-    const stated = (host: Host, at: string, text: string, file: string, names: readonly string[]) =>
-        Effect.map(
-            host.read(text, file),
-            Option.flatMap(({ name, version, foreign = false, platforms = [] }) => Option.map(Option.fromUndefinedOr(version), (known): Found => ({ host, at, name, version: known, foreign, platforms, text, names }))),
-        );
     const packages = yield* Effect.forEach(
         files.flatMap((file) => rows.filter(({ archive }) => archive !== undefined && file.endsWith(archive)).map((host) => ({ file, host }))),
         ({ file, host }) => Effect.flatMap(entry(file, `{,*/}${host.manifest}`), Option.match({ onNone: () => Effect.succeedNone, onSome: ({ at, text }) => stated(host, file, text, path.join(file, at), []) })),

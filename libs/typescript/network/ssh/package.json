@@ -3,21 +3,32 @@
     "version": "0.1.0",
     "private": true,
     "description": "OpenSSH hosts by config: a preferred dial taken when a login answers, connections shared across processes, commands, copies, and forwards",
+    "license": "MIT",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/bsamiee/Rasm.git",
         "directory": "libs/typescript/network/ssh"
     },
-    "license": "MIT",
-    "sideEffects": false,
+    "files": [
+        "dist"
+    ],
     "type": "module",
+    "sideEffects": false,
     "imports": {
         "#/*": "./*.ts"
     },
     "exports": {
         ".": "./index.ts"
     },
-    "files": [ "dist" ],
+    "publishConfig": {
+        "imports": {
+            "#/*": "./dist/*.js"
+        },
+        "exports": {
+            ".": "./dist/index.js"
+        },
+        "access": "public"
+    },
     "dependencies": {
         "@rasm/process": "workspace:*",
         "ssh-config": "catalog:"
@@ -28,14 +39,5 @@
     },
     "peerDependencies": {
         "effect": "catalog:peers"
-    },
-    "publishConfig": {
-        "access": "public",
-        "exports": {
-            ".": "./dist/index.js"
-        },
-        "imports": {
-            "#/*": "./dist/*.js"
-        }
     }
 }

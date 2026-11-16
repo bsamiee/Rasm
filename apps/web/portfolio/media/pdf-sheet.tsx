@@ -2,7 +2,7 @@ import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
 import type { MediaError } from '@rasm/media';
 import { PdfDocument } from '@rasm/media/pdf-document';
 import { PdfViewer } from '@rasm/media/pdf-viewer';
-import { Array, HashSet, Match, Option, Record } from 'effect';
+import { Array, Function, HashSet, Match, Option, Record } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 import { ChevronLeft, ChevronRight, RotateCw } from 'lucide-react';
 import { motion } from 'motion/react';
@@ -32,6 +32,7 @@ const SheetViewer = ({ document, placement, layoutId, url }: { document: PDFDocu
     const viewer = PdfViewer.useViewer(document, { ...sheet(placement.page.number), link: { externalLinkTarget: LinkTarget.BLANK }, pinch: { drawingDelay: '400 millis' } });
     const live = AsyncResult.value(viewer.state);
     const page = Option.flatMap(live, ({ currentPageNumber }) => Array.get(pages, currentPageNumber - 1)).pipe(Option.getOrElse(() => placement.page));
+    const panning = Option.filter(live, () => pan);
     return (
         <>
             {AsyncResult.builder(viewer.state)
@@ -47,10 +48,15 @@ const SheetViewer = ({ document, placement, layoutId, url }: { document: PDFDocu
                         zoomOut={() => state.pdfViewer.decreaseScale()}
                     >
                         <div className="flex w-fit max-w-full min-w-0 items-center">
-                            <span className="sr-only" role="status">
-                                {sheetLabel(page, pages.length)}
-                            </span>
-                            <Button aria-label="Previous sheet" className="button button-ghost min-w-11 px-2" isDisabled={page.number === 1} onPress={() => state.pdfViewer.previousPage()}>
+                            <output className="sr-only">{sheetLabel(page, pages.length)}</output>
+                            <Button
+                                aria-label="Previous sheet"
+                                className="button min-w-11 button-ghost px-2"
+                                isDisabled={page.number === 1}
+                                onPress={() => {
+                                    state.pdfViewer.previousPage();
+                                }}
+                            >
                                 <ChevronLeft className="size-4" />
                             </Button>
                             <select aria-label="Sheet" className="min-h-11 max-w-48 min-w-0 bg-transparent px-1 font-mono text-xs tabular-nums" onChange={(event) => state.assign({ currentPageNumber: Number(event.currentTarget.value) })} value={page.number}>
@@ -60,7 +66,14 @@ const SheetViewer = ({ document, placement, layoutId, url }: { document: PDFDocu
                                     </option>
                                 ))}
                             </select>
-                            <Button aria-label="Next sheet" className="button button-ghost min-w-11 px-2" isDisabled={page.number === pages.length} onPress={() => state.pdfViewer.nextPage()}>
+                            <Button
+                                aria-label="Next sheet"
+                                className="button min-w-11 button-ghost px-2"
+                                isDisabled={page.number === pages.length}
+                                onPress={() => {
+                                    state.pdfViewer.nextPage();
+                                }}
+                            >
                                 <ChevronRight className="size-4" />
                             </Button>
                         </div>
@@ -75,14 +88,14 @@ const SheetViewer = ({ document, placement, layoutId, url }: { document: PDFDocu
                                     Rotate view
                                 </Button>
                             </Toolbar>
-                            <p className="hint py-2">Select text to copy. Drag with Pan on or press arrow keys on focused sheet to move</p>
+                            <p className="py-2 hint">Select text to copy. Drag with Pan on or press arrow keys on focused sheet to move</p>
                         </details>
                         <details className="min-w-0 open:basis-full" onToggle={(event) => (event.currentTarget.open ? state.find(query, 'highlightallchange') : state.closeFind())}>
                             <summary className="min-h-11 cursor-pointer content-center text-sm">Find</summary>
                             <div className="flex flex-wrap items-center gap-2 pb-1">
                                 <SearchField
                                     aria-label="Find in document"
-                                    className="border-control-line flex min-w-0 flex-1 basis-40 items-center border"
+                                    className="flex min-w-0 flex-1 basis-40 items-center border border-control-line"
                                     onChange={(text) => {
                                         setQuery(text);
                                         state.find(text, '');
@@ -95,19 +108,19 @@ const SheetViewer = ({ document, placement, layoutId, url }: { document: PDFDocu
                                         Clear
                                     </Button>
                                 </SearchField>
-                                <Button aria-label="Previous match" className="button button-ghost min-w-11 px-3" isDisabled={state.matchesCount.total === 0} onPress={() => state.find(query, 'again', { findPrevious: true })}>
+                                <Button aria-label="Previous match" className="button min-w-11 button-ghost px-3" isDisabled={state.matchesCount.total === 0} onPress={() => state.find(query, 'again', { findPrevious: true })}>
                                     <ChevronLeft className="size-4" />
                                 </Button>
-                                <Button aria-label="Next match" className="button button-ghost min-w-11 px-3" isDisabled={state.matchesCount.total === 0} onPress={() => state.find(query, 'again')}>
+                                <Button aria-label="Next match" className="button min-w-11 button-ghost px-3" isDisabled={state.matchesCount.total === 0} onPress={() => state.find(query, 'again')}>
                                     <ChevronRight className="size-4" />
                                 </Button>
-                                <span className="text-muted basis-full text-xs" role="status">
+                                <output className="basis-full text-xs text-muted">
                                     {Match.value({ query, ...state.matchesCount }).pipe(
                                         Match.when({ query: '' }, () => 'Search drawing numbers or text'),
                                         Match.when({ total: 0 }, ({ total }) => format.quantity(total, { one: (count) => `${count} match`, other: (count) => `${count} matches` })),
                                         Match.orElse(({ current, total }) => format.quantity(total, { one: (count) => `${current} of ${count} match`, other: (count) => `${current} of ${count} matches` })),
                                     )}
-                                </span>
+                                </output>
                             </div>
                         </details>
                     </ZoomControls>
@@ -115,16 +128,15 @@ const SheetViewer = ({ document, placement, layoutId, url }: { document: PDFDocu
                 .onFailure(() => <MediaFailure asset={placement.asset} message="PDF viewer failed to load" />)
                 .orNull()}
             <RenderFailure asset={placement.asset} page={page.number} viewer={live} />
-            <motion.div
+            <motion.section
                 aria-label={sheetLabel(page, pages.length)}
-                className="viewer-stage relative"
+                className="relative viewer-stage"
                 layoutId={layoutId}
-                onDoubleClick={() => pan && Option.map(live, ({ pdfViewer }) => pdfViewer.increaseScale())}
-                onPan={(_event, info) => pan && Option.map(live, ({ pdfViewer }) => pdfViewer.panBy(info.delta.x, info.delta.y))}
-                role="region"
+                onDoubleClick={() => Option.match(panning, { onNone: Function.constVoid, onSome: ({ pdfViewer }) => pdfViewer.increaseScale() })}
+                onPan={(_event, info) => Option.match(panning, { onNone: Function.constVoid, onSome: ({ pdfViewer }) => pdfViewer.panBy(info.delta.x, info.delta.y) })}
             >
                 {viewer.container({ className: 'sheet-scroller', 'data-pan': pan || undefined, tabIndex: 0 })}
-            </motion.div>
+            </motion.section>
         </>
     );
 };

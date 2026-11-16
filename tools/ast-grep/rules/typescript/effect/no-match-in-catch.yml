@@ -4,12 +4,12 @@ severity: error
 utils:
     error-handler:
         kind: call_expression
-        has: {field: function, pattern: $HANDLER, matches: {effect-module-member: {module: {regex: '(?-u:\b)(Channel|Effect|Layer|Stream)$'}, member: {regex: '^(catch|catchCause|catchEager|catchFilter|catchIf|tapCause|tapError)$'}}}}
+        has: { field: function, pattern: $HANDLER, matches: { effect-module-member: { module: { regex: '(?-u:\b)(Channel|Effect|Layer|Stream)$' }, member: { regex: '^(catch|catchCause|catchEager|catchFilter|catchIf|tapCause|tapError)$' } } } }
     callback-parameter:
         kind: arrow_function, function_expression
         any:
-            - has: {field: parameter, kind: identifier, pattern: $E}
-            - has: {field: parameters, has: {kind: required_parameter, has: {field: pattern, kind: identifier, pattern: $E}}}
+            - has: { field: parameter, kind: identifier, pattern: $E }
+            - has: { field: parameters, has: { kind: required_parameter, has: { field: pattern, kind: identifier, pattern: $E } } }
     tag-parameter:
         kind: arrow_function, function_expression
         has:
@@ -21,77 +21,77 @@ utils:
                     kind: object_pattern
                     has:
                         any:
-                            - {kind: shorthand_property_identifier_pattern, regex: '^_tag$', pattern: $T}
-                            - {kind: pair_pattern, all: [{has: {field: key, regex: '^_tag$'}}, {has: {field: value, kind: identifier, pattern: $T}}]}
+                            - { kind: shorthand_property_identifier_pattern, regex: '^_tag$', pattern: $T }
+                            - { kind: pair_pattern, all: [{ has: { field: key, regex: '^_tag$' } }, { has: { field: value, kind: identifier, pattern: $T } }] }
     selector:
         kind: member_expression
         any:
-            - matches: {effect-module-member: {module: {regex: '(?-u:\b)Match$'}, member: {regex: '^(value|valueTags)$'}}}
-            - matches: {effect-module-member: {module: {regex: '(?-u:\b)Predicate$'}, member: {regex: '^isTagged$'}}}
-            - matches: {effect-module-member: {module: {regex: '(?-u:\b)Schema$'}, member: {regex: '^is$'}}}
+            - matches: { effect-module-member: { module: { regex: '(?-u:\b)Match$' }, member: { regex: '^(value|valueTags)$' } } }
+            - matches: { effect-module-member: { module: { regex: '(?-u:\b)Predicate$' }, member: { regex: '^isTagged$' } } }
+            - matches: { effect-module-member: { module: { regex: '(?-u:\b)Schema$' }, member: { regex: '^is$' } } }
     selected:
         kind: call_expression
-        has: {field: function, any: [{matches: selector}, {kind: call_expression, has: {field: function, matches: selector}}]}
+        has: { field: function, any: [{ matches: selector }, { kind: call_expression, has: { field: function, matches: selector } }] }
     selection:
         any:
             - kind: call_expression
               all:
-                - matches: selected
-                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, any: [{kind: identifier, pattern: $E}, {pattern: $E._tag}]}}
+                  - matches: selected
+                  - has: { field: arguments, has: { nthChild: { position: 1, ofRule: { not: { kind: 'comment, html_comment' } } }, any: [{ kind: identifier, pattern: $E }, { pattern: $E._tag }] } }
             - kind: switch_statement
-              has: {field: value, has: {pattern: $E._tag}}
+              has: { field: value, has: { pattern: $E._tag } }
             - kind: binary_expression
               all:
-                - has: {field: operator, regex: '^[!=]==?$'}
-                - has: {pattern: $E._tag}
+                  - has: { field: operator, regex: '^[!=]==?$' }
+                  - has: { pattern: $E._tag }
             - kind: binary_expression
               all:
-                - has: {field: left, kind: identifier, pattern: $E}
-                - has: {field: operator, regex: '^instanceof$'}
+                  - has: { field: left, kind: identifier, pattern: $E }
+                  - has: { field: operator, regex: '^instanceof$' }
             - kind: call_expression
               all:
-                - has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Cause$'}, member: {regex: '^(is|has)[A-Z][^\x00-#%-/:-@\[-\^`{-~\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*$'}}}}
-                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, kind: identifier, pattern: $E}}
+                  - has: { field: function, matches: { effect-module-member: { module: { regex: '(?-u:\b)Cause$' }, member: { regex: '^(is|has)[A-Z][^\x00-#%-/:-@\[-\^`{-~\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*$' } } } }
+                  - has: { field: arguments, has: { nthChild: { position: 1, ofRule: { not: { kind: 'comment, html_comment' } } }, kind: identifier, pattern: $E } }
     tag-selection:
         any:
             - kind: call_expression
               all:
-                - matches: selected
-                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, kind: identifier, pattern: $T}}
+                  - matches: selected
+                  - has: { field: arguments, has: { nthChild: { position: 1, ofRule: { not: { kind: 'comment, html_comment' } } }, kind: identifier, pattern: $T } }
             - kind: switch_statement
-              has: {field: value, has: {kind: identifier, pattern: $T}}
+              has: { field: value, has: { kind: identifier, pattern: $T } }
             - kind: binary_expression
               all:
-                - has: {field: operator, regex: '^[!=]==?$'}
-                - has: {kind: identifier, pattern: $T}
+                  - has: { field: operator, regex: '^[!=]==?$' }
+                  - has: { kind: identifier, pattern: $T }
     type-matcher:
         kind: call_expression
         any:
             - has:
-                field: function
-                kind: member_expression
-                all:
-                    - has: {field: property, regex: '^pipe$'}
-                    - has: {field: object, kind: call_expression, has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Match$'}, member: {regex: '^type$'}}}}}
-            - has: {field: function, kind: call_expression, has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Match$'}, member: {regex: '^typeTags$'}}}}}
+                  field: function
+                  kind: member_expression
+                  all:
+                      - has: { field: property, regex: '^pipe$' }
+                      - has: { field: object, kind: call_expression, has: { field: function, matches: { effect-module-member: { module: { regex: '(?-u:\b)Match$' }, member: { regex: '^type$' } } } } }
+            - has: { field: function, kind: call_expression, has: { field: function, matches: { effect-module-member: { module: { regex: '(?-u:\b)Match$' }, member: { regex: '^typeTags$' } } } } }
     refailing-catch:
         kind: call_expression
         all:
-            - has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^catch$'}}}}
-            - has: {field: arguments, has: {matches: callback-parameter, has: {stopBy: end, pattern: $_MODULE.fail($E)}}}
+            - has: { field: function, matches: { effect-module-member: { module: { regex: '(?-u:\b)Effect$' }, member: { regex: '^catch$' } } } }
+            - has: { field: arguments, has: { matches: callback-parameter, has: { stopBy: end, pattern: $_MODULE.fail($E) } } }
 rule:
     all:
         - matches: error-handler
         - has:
-            field: arguments
-            has:
-                nthChild: {position: 1, reverse: true, ofRule: {not: {kind: 'comment, html_comment'}}}
-                any:
-                    - matches: callback-parameter
-                      has: {stopBy: {matches: typescript-function-boundary}, matches: selection}
-                    - matches: tag-parameter
-                      has: {stopBy: {matches: typescript-function-boundary}, matches: tag-selection}
-                    - matches: type-matcher
-        - not: {matches: refailing-catch}
+              field: arguments
+              has:
+                  nthChild: { position: 1, reverse: true, ofRule: { not: { kind: 'comment, html_comment' } } }
+                  any:
+                      - matches: callback-parameter
+                        has: { stopBy: { matches: typescript-function-boundary }, matches: selection }
+                      - matches: tag-parameter
+                        has: { stopBy: { matches: typescript-function-boundary }, matches: tag-selection }
+                      - matches: type-matcher
+        - not: { matches: refailing-catch }
 message: '`$HANDLER` selects the failure by hand inside its callback'
 note: 'Select failures with `catchTag`, `catchTags`, `tapErrorTag`, or `catchIf`; select causes with `catchCauseIf` or `tapCauseIf`'
