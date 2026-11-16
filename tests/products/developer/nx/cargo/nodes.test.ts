@@ -52,7 +52,7 @@ describe('@rasm/nx-cargo/plugin/nodes', { timeout: 60_000 }, () => {
         const suites = ['--locked', '--cargo-message-format', 'json-diagnostic-rendered-ansi', '--message-format', 'libtest-json-plus', '--message-format-version', '0.1'];
         const env = { NEXTEST_EXPERIMENTAL_LIBTEST_JSON: '1' };
         const junit = 'reports/{projectName}/junit.xml';
-        expect(project?.namedInputs?.['default']?.filter(Predicate.isString)).toStrictEqual(['{projectRoot}/Cargo.toml', '{projectRoot}/src/**/*', '{projectRoot}/src/bin/**/*', '{projectRoot}/tests/**/*', '{projectRoot}/README.md', '{workspaceRoot}/proj/Cargo.lock']);
+        expect(project?.namedInputs?.['default']?.filter(Predicate.isString)).toStrictEqual(['{projectRoot}/Cargo.toml', '{projectRoot}/src/**/*', '{projectRoot}/src/bin/**/*', '{projectRoot}/tests/**/*', '{projectRoot}/README.md', '{workspaceRoot}/proj/Cargo.lock', '{workspaceRoot}/proj/Cargo.toml']);
         expect(project?.targets?.['test--nextest']).toStrictEqual({
             cache: true,
             configurations: {
@@ -81,7 +81,7 @@ describe('@rasm/nx-cargo/plugin/nodes', { timeout: 60_000 }, () => {
         expect(results.map(([file, { projects }]) => [file, Object.keys({ ...projects })])).toStrictEqual([['nested/nested/proj/Cargo.toml', ['nested/nested/proj']]]);
         expect(project?.name).toBe('nested_proj');
         expect(project?.release).toStrictEqual({ version: { versionActions: '@rasm/nx-cargo/release/version-actions', versionActionsOptions: { lock: 'nested/nested/proj/Cargo.lock' } } });
-        expect(project?.namedInputs?.['default']?.filter(Predicate.isString)).toStrictEqual(['{projectRoot}/Cargo.toml', '{projectRoot}/src/**/*', '{workspaceRoot}/nested/nested/proj/Cargo.lock']);
+        expect(project?.namedInputs?.['default']?.filter(Predicate.isString)).toStrictEqual(['{projectRoot}/Cargo.toml', '{projectRoot}/src/**/*', '{workspaceRoot}/nested/nested/proj/Cargo.lock', '{workspaceRoot}/nested/nested/proj/Cargo.toml']);
         expect(project?.targets?.['build--cargo']?.options).toStrictEqual({
             commands: [{ args: ['build', '--keep-going', '--message-format', 'json-diagnostic-rendered-ansi'] }],
             cwd: 'nested/nested/proj',

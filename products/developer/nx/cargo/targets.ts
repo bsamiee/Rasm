@@ -80,7 +80,7 @@ const crateInputs = (workspace: Workspace, { crate, root }: Member, stated: Targ
     return [
         ...(stated ?? (folders.includes('') ? ['{projectRoot}/**/*'] : [join('{projectRoot}', MANIFEST), ...folders.map((at) => join(placed(at), '**/*')), ...Array.fromNullishOr(crate.readme).map(placed)])),
         tokened(join(workspace.root, LOCK)),
-        ...(workspace.root === root ? [] : [tokened(join(workspace.root, MANIFEST))]),
+        tokened(join(workspace.root, MANIFEST)),
         ...workspace.configs,
         HOST,
         ...workspace.compiler.map((env) => ({ env })),

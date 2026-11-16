@@ -3,7 +3,7 @@ import { type SqlClient, SqlSchema, Statement } from 'effect/sql';
 import type { Catalog } from '#/catalog';
 import type { Kind } from '#/column';
 import { type Dialect, Engine, Rows } from '#/engine';
-import { catalogDdl, constant, diff, literal, mergeTreeRefusals, referentialActions, renameTable, replacement, Stamp, unmigrated, unsupported } from '#/reconcile';
+import { catalogDdl, constant, diff, literal, mergeTreeRefusals, referentialActions, replacement, Stamp, unsupported } from '#/reconcile';
 import { Tokenizer } from '#/relation';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -79,7 +79,7 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
     static readonly methods: Engine['Service']['methods'] = ['btree'];
     static readonly covering: Engine['Service']['covering'] = (sql, unique, include) => ({ keys: unique ? [] : include.map((name) => sql`${sql(name)}`), clause: [] });
     static readonly suffix: Engine['Service']['suffix'] = (sql, { withoutRowid }) => sql.literal(withoutRowid ? ' STRICT, WITHOUT ROWID' : ' STRICT');
-    static readonly rename = renameTable;
+    static readonly rename: Engine['Service']['rename'] = (sql, from, to) => sql`ALTER TABLE ${sql(from)} RENAME TO ${to}`;
     static readonly fulltext: Engine['Service']['fulltext'] = (sql, owner, { columns: searched, tokenizer }) => {
         const name = `${owner}_fts`;
         const [virtual, table, values] = [sql(name), sql(owner), sql.csv(searched.map((entry) => sql`${sql(entry.name)}`))];
@@ -117,7 +117,6 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
             ...mergeTreeRefusals(relation),
         ];
     };
-    static readonly role = unmigrated;
     static readonly open: Engine['Service']['open'] = (sql) => Effect.andThen(sql`PRAGMA synchronous = NORMAL`, sql`PRAGMA optimize = 0x10002`);
     static readonly execute = Engine.transaction;
     static readonly transactional = true;

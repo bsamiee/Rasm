@@ -45,7 +45,6 @@ const Step = Schema.Struct({ separator: Schema.Literals(['/', '//']), kind: Sche
 const Steps = Schema.Array(Step);
 
 class Specifier extends Schema.Class<Specifier, { readonly brand: unique symbol }>('Specifier')({ steps: Steps, end: Schema.optionalKey(Steps.annotate({ description: 'Range end' })) }) {
-    static readonly Selector = Selector;
     static readonly Path: Schema.Codec<Specifier, string> = Schema.String.annotate({ description: 'Object specifier, / for the application' }).pipe(
         Schema.decodeTo(Specifier, {
             decode: SchemaGetter.transformEffect((text: string, options) => Effect.fromNullishOr(parse(text)).pipe(Effect.mapError(() => new SchemaIssue.InvalidValue({ message: `No object specifier ${text}` }, text, options)))),
@@ -106,4 +105,4 @@ class HostError extends Schema.TaggedError<HostError, { readonly brand: unique s
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Declaration, HostError, Reference, Specifier };
+export { Declaration, HostError, Reference, Selector, Specifier };

@@ -1,7 +1,7 @@
 import { Array, Function, flow, Match, Number, Option, Order, Predicate, pipe, Record, Result, Schema, Struct, UndefinedOr } from 'effect';
 import { Feature, type Font } from 'harfbuzzjs';
 import { type JoiningGroup, Script } from 'icu';
-import { Settings } from '#/settings';
+import { Direction, Settings } from '#/settings';
 import { Face } from '#/shaping/face';
 import { ShapedText } from '#/shaping/shaped-text';
 import { Span, Word } from '#/shaping/word';
@@ -55,7 +55,7 @@ class Justification extends Schema.Class<Justification, { readonly brand: unique
             ratios: Schema.Struct(Struct.Record(SPACINGS, Schema.Finite)).annotate({ description: 'Applied spacing ratios' }),
         }),
     ).annotate({ description: 'Style runs in logical order, set in line direction from offset' }),
-    direction: Settings.Direction.annotate({ description: 'Line direction, RTL setting runs from the right' }),
+    direction: Direction.annotate({ description: 'Line direction, RTL setting runs from the right' }),
     offset: Schema.Finite.annotate({ description: 'Em from the line left edge to its first glyph, slack placed by alignment and direction' }),
     slack: Schema.Finite.annotate({ description: 'Width left in em, negative when overfull' }),
     addedWidths: Schema.Struct(Struct.Record(MECHANISMS, Schema.Finite)).annotate({ description: 'Width each mechanism added in em' }),

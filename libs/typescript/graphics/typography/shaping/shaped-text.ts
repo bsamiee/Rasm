@@ -1,6 +1,6 @@
 import { Array, Effect, Function, Number, Option, Order, Record, Schema, SchemaGetter, SchemaIssue, Struct } from 'effect';
 import { Buffer, BufferFlag, ClusterLevel, Direction, Feature, GlyphClass, GlyphFlag, otTagToLanguage, otTagToScript, shape } from 'harfbuzzjs';
-import { Settings } from '#/settings';
+import { Settings, Tag } from '#/settings';
 import type { Face } from '#/shaping/face';
 import { Span } from '#/shaping/word';
 
@@ -36,8 +36,8 @@ class ShapedText extends Schema.Class<ShapedText, { readonly brand: unique symbo
         features: Schema.Array(FeatureString)
             .annotate({ description: 'HarfBuzz features (tag, -tag, tag=value, tag[start:end] in UTF-16 offsets) after settings features' })
             .pipe(Schema.withDecodingDefaultKey(Effect.succeed([])), Schema.withConstructorDefault(Effect.succeed([]))),
-        language: Schema.OptionFromOptionalKey(Settings.Tag.annotate({ description: 'layout.languageSystems tag (SRB, TRK), script default when absent' })).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
-        script: Schema.OptionFromOptionalKey(Settings.Tag.annotate({ description: 'layout.languageSystems script (cyrl, arab), detected from text when absent' })).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
+        language: Schema.OptionFromOptionalKey(Tag.annotate({ description: 'layout.languageSystems tag (SRB, TRK), script default when absent' })).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
+        script: Schema.OptionFromOptionalKey(Tag.annotate({ description: 'layout.languageSystems script (cyrl, arab), detected from text when absent' })).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
         direction: Schema.OptionFromOptionalKey(Schema.Literals(Struct.keys(Struct.omit(Direction, ['INVALID']))).annotate({ description: 'Script direction when absent' })).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
         clusterLevel: Schema.Literals(Struct.keys(Struct.omit(ClusterLevel, ['DEFAULT'])))
             .annotate({ description: 'HarfBuzz cluster level, MONOTONE_CHARACTERS when absent' })

@@ -1,4 +1,4 @@
-import { type Declaration, HostError, Reference, Specifier } from '@rasm/object-model';
+import { type Declaration, HostError, Reference, Selector, Specifier } from '@rasm/object-model';
 import { encode, isPlain } from '@rasm/object-model/host';
 import { Unmatched } from '@rasm/search';
 import { Settings } from '@rasm/typography';
@@ -280,7 +280,7 @@ class Model extends Context.Service<Model>()('@rasm/indesign/uxp/model', {
                     (every) => every.getElements(),
                 ),
                 () =>
-                    Option.exists(specifier.selector, Specifier.Selector.guards.Index)
+                    Option.exists(specifier.selector, Selector.guards.Index)
                         ? Unmatched.make({ subject: Array.isReadonlyArrayNonEmpty(siblings) ? `object among indexes 0 to ${siblings.length - 1}` : 'object', query: Option.some(written) })
                         : Unmatched.make({ subject: 'object', query: Option.some(written), candidates }),
             );
@@ -454,7 +454,7 @@ const entry = (node: SchemaAST.Arrays, index: number): SchemaAST.AST =>
     );
 const identified = (path: string) =>
     Option.flatMap(
-        Option.filter(Schema.decodeOption(Specifier.Path)(path), ({ end, selector }) => end === undefined && Option.exists(selector, (step) => Specifier.Selector.guards.Key(step) && step.key === 'id')),
+        Option.filter(Schema.decodeOption(Specifier.Path)(path), ({ end, selector }) => end === undefined && Option.exists(selector, (step) => Selector.guards.Key(step) && step.key === 'id')),
         ({ steps }) => Option.map(Array.last(steps), Struct.get('kind')),
     );
 const joined =

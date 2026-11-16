@@ -1,4 +1,4 @@
-import { Array, Cause, Effect, Equal, Filter, Function, flow, Graph, HashSet, Match, Option, Order, Record, Result, Schema, Struct } from 'effect';
+import { Array, Effect, Equal, Filter, Function, flow, Graph, HashSet, Match, Option, Order, Record, Result, Schema, Struct } from 'effect';
 import { Digest } from 'effect/crypto';
 import { type SqlClient, type SqlError, SqlSchema, type Statement } from 'effect/sql';
 import type { Catalog } from '#/catalog';
@@ -37,8 +37,6 @@ const constant = ({ kind }: Column, value: string | number) =>
         Match.whenOr('integer', 'real', 'boolean', () => `${value}`),
         Match.orElse(() => literal(`${value}`)),
     );
-const renameTable: Engine['Service']['rename'] = (sql, from, to) => sql`ALTER TABLE ${sql(from)} RENAME TO ${to}`;
-const unmigrated: Engine['Service']['role'] = (sql) => new Cause.IllegalArgumentError(`${sql.driver} has no role to migrate as`);
 const digest = (text: string) =>
     Effect.provide(
         Digest.Digest.use((service) => service.digestHex(Digest.sha256, encoder.encode(text))),
@@ -354,4 +352,4 @@ const diff = <L extends Live & { readonly columns: readonly Live[]; readonly ref
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { catalogDdl, constant, diff, digest, Identity, identifier, literal, mergeTreeRefusals, methods, referentialActions, refusals, renameTable, replacement, Stamp, unmigrated, unsupported };
+export { catalogDdl, constant, diff, digest, Identity, identifier, literal, mergeTreeRefusals, methods, referentialActions, refusals, replacement, Stamp, unsupported };

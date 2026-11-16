@@ -19,9 +19,7 @@ class ImageAsset extends Schema.Class<ImageAsset, { readonly brand: unique symbo
     mime: Schema.Literals(['image/jpeg', 'image/png', 'image/webp', 'image/avif']),
     ...dimensions,
     renditions: Schema.optionalKey(Schema.NonEmptyArray(Rendition).check(Schema.makeFilter((items) => new Set(items.map(({ width }) => width)).size === items.length, { expected: 'unique rendition widths' }))),
-}) {
-    static readonly Rendition = Rendition;
-}
+}) {}
 class VideoAsset extends Schema.Class<VideoAsset, { readonly brand: unique symbol }>('VideoAsset')({ ...file, kind: Schema.tag('video'), mime: Schema.Literals(['video/mp4', 'video/webm']), ...dimensions }) {}
 class PdfAsset extends Schema.Class<PdfAsset, { readonly brand: unique symbol }>('PdfAsset')({ ...file, kind: Schema.tag('pdf'), mime: Schema.Literals(['application/pdf']), pages: Schema.NonEmptyArray(Schema.Struct(page)) }) {
     get sheets() {
@@ -39,4 +37,4 @@ class Assets extends Context.Service<Assets, Record.ReadonlyRecord<typeof AssetI
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Asset, AssetId, Assets, ImageAsset, PdfAsset, Sheet, uploadLimit, VideoAsset };
+export { Asset, AssetId, Assets, ImageAsset, PdfAsset, Rendition, Sheet, uploadLimit, VideoAsset };

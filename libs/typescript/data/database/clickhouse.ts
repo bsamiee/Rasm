@@ -4,7 +4,7 @@ import { SqlClient, SqlSchema, Statement } from 'effect/sql';
 import type { Catalog } from '#/catalog';
 import { Column, type Kind } from '#/column';
 import { type Dialect, Engine } from '#/engine';
-import { catalogDdl, constant, diff, digest, Identity, identifier, literal, replacement, Stamp, unmigrated, unsupported } from '#/reconcile';
+import { catalogDdl, constant, diff, digest, Identity, identifier, literal, replacement, Stamp, unsupported } from '#/reconcile';
 import type { Relation } from '#/relation';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -119,7 +119,6 @@ class Clickhouse extends Schema.Class<Clickhouse, { readonly brand: unique symbo
             ...unsupported(owner, 'mergeTreeColumn', all, ({ name, kind, projection }) => (Option.contains(expiring, name) && kind !== 'instant') || (Option.contains(version, name) && kind !== 'integer' && kind !== 'instant') || (Record.has(codecs, name) && Option.isSome(projection))),
         ];
     };
-    static readonly role = unmigrated;
     static readonly open: Dialect['open'] = () => Effect.void;
     static readonly execute: Dialect['execute'] = (statements) =>
         Effect.flatMap(ClickhouseClient.ClickhouseSettings, (settings) => Effect.all(statements, { discard: true }).pipe(Effect.provideService(ClickhouseClient.ClientMethod, 'command'), Effect.provideService(ClickhouseClient.ClickhouseSettings, { ...settings, alter_sync: '2', mutations_sync: '2' })));

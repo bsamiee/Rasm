@@ -118,8 +118,6 @@ class Settings extends Schema.Class<Settings, { readonly brand: unique symbol }>
     },
     { description: 'Typesetting of one paragraph or run' },
 ) {
-    static readonly Tag = Tag;
-    static readonly Direction = Direction;
     static readonly Partial = Settings.mapFields((fields) =>
         Struct.map(Schema.optionalKey)({
             ...fields,
@@ -181,4 +179,4 @@ const naskh = (): readonly (typeof Place.Type)[] => {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Settings };
+export { Direction, Settings, Tag };

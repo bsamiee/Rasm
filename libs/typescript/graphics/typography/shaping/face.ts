@@ -4,7 +4,7 @@ import { Array, Effect, Equal, Function, flow, Match, Number, Option, Order, Pre
 import { create } from 'fontkit';
 import { AxisFlags, Blob, Font, Variation } from 'harfbuzzjs';
 import { TypographyError } from '#/error';
-import { Settings } from '#/settings';
+import { Tag } from '#/settings';
 import { Color } from '#/shaping/internal/color';
 import { Layout } from '#/shaping/internal/layout';
 import { Member } from '#/shaping/internal/member';
@@ -54,7 +54,7 @@ class Face extends Schema.Class<Face, { readonly brand: unique symbol }>('Face')
         coordinates: Schema.Array(Schema.Finite)
             .annotate({ description: 'Axis values in fvar order, under variations by tag' })
             .pipe(Schema.withDecodingDefaultKey(Effect.succeed([])), Schema.withConstructorDefault(Effect.succeed([]))),
-        variations: Schema.Record(Settings.Tag, Schema.Finite)
+        variations: Schema.Record(Tag, Schema.Finite)
             .annotate({ description: 'Axis values by tag over selected instance, clamped to axis range, absent axes ignored' })
             .pipe(Schema.withDecodingDefaultKey(Effect.succeed({})), Schema.withConstructorDefault(Effect.succeed({}))),
         size: Schema.OptionFromOptionalKey(Schema.Finite.check(Schema.isGreaterThan(0)).annotate({ description: 'Point size for opsz axis, overrides opsz variation' })).pipe(Schema.withConstructorDefault(Effect.succeedNone)),

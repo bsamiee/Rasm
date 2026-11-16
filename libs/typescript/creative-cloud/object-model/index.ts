@@ -1,3 +1,3 @@
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Declaration, HostError, Reference, Specifier } from '#/model';
+export { Declaration, HostError, Reference, Selector, Specifier } from '#/model';

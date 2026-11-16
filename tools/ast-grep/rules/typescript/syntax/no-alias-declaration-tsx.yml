@@ -25,15 +25,6 @@ utils:
                     - kind: import_statement
                       not: { has: { regex: '^type$' } }
                       has: { kind: import_clause, has: { stopBy: end, kind: identifier, pattern: $TARGET, not: { inside: { kind: import_specifier, has: { field: alias, pattern: $_ }, field: name } } } }
-    exported-target:
-        inside:
-            kind: program
-            stopBy: end
-            has:
-                kind: export_statement
-                any:
-                    - has: { matches: stable-target }
-                    - has: { kind: export_clause, has: { kind: export_specifier, has: { field: name, pattern: $TARGET } } }
     slot:
         kind: public_field_definition
         all: [{ has: { regex: '^static$' } }, { has: { field: name, pattern: $ALIAS } }]
@@ -74,9 +65,8 @@ rule:
           all:
               - has: { regex: '^static$' }
               - has: { field: name, kind: property_identifier, pattern: $ALIAS }
-              - has: { field: value, kind: identifier, pattern: $TARGET }
+              - has: { field: value, kind: identifier, pattern: $TARGET, not: { regex: '^use[A-Z0-9]' } }
               - not: { has: { field: type, kind: type_annotation } }
-              - matches: exported-target
               - not: { matches: shared-slot }
         - kind: type_alias_declaration
           all:
@@ -109,6 +99,6 @@ constraints:
     ALIAS: { not: { regex: '^default$' } }
     TARGET: { not: { regex: '^default$' } }
 message: '`$ALIAS` names `$TARGET` or its members again'
-note: 'Write `<target>` or `<target>.<member>` at each use, or import member by name, and delete the alias, a static stays where its module exports no other name for its target or several classes declare its name'
+note: 'Write `<target>` or `<target>.<member>` at each use, or import member by name, and delete the alias, a static holds its value in place of a module name unless several classes declare its name or it names a module hook, which React refuses inside a class'
 labels:
     TARGET: { style: primary, message: Aliased name }

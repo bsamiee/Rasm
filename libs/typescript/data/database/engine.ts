@@ -43,7 +43,7 @@ interface Dialect {
     readonly policy: (sql: SqlClient.SqlClient, owner: string, name: string, type: string, setting: string) => Option.Option<{ readonly name: string; readonly parts: readonly string[]; readonly rule: Statement.Fragment; readonly text: (on: Statement.Fragment, role: Statement.Fragment) => Statement.Statement<object> }>;
     readonly comment: (sql: SqlClient.SqlClient, name: string, identity: typeof Identity.Type) => { readonly inline: Statement.Fragment; readonly statements: (relation: Statement.Fragment, column: Option.Option<string>) => readonly Statement.Statement<object>[] };
     readonly refusals: (relation: Relation) => readonly ReconcileError['findings'][number][];
-    readonly role: (sql: SqlClient.SqlClient) => Effect.Effect<string, SqlError.SqlError | Schema.SchemaError | Cause.NoSuchElementError | Cause.IllegalArgumentError>;
+    readonly role?: (sql: SqlClient.SqlClient) => Effect.Effect<string, SqlError.SqlError | Schema.SchemaError | Cause.NoSuchElementError>;
     readonly open: (sql: SqlClient.SqlClient) => Effect.Effect<unknown, SqlError.SqlError>;
     readonly plan: (sql: SqlClient.SqlClient, catalog: Catalog, runtime: Option.Option<string>) => Effect.Effect<Effect.Success<ReturnType<ReturnType<typeof diff>['plan']>>, SqlError.SqlError | Schema.SchemaError | Cause.NoSuchElementError | ReconcileError>;
     readonly execute: (statements: Array.NonEmptyReadonlyArray<Statement.Statement<object>>) => Effect.Effect<unknown, SqlError.SqlError, SqlClient.SqlClient>;

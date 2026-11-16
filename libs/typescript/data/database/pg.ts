@@ -7,7 +7,7 @@ import { deparseSync, loadModule, parseSync } from 'pgsql-parser';
 import type { Catalog } from '#/catalog';
 import type { Kind } from '#/column';
 import { type Dialect, Engine, Rows } from '#/engine';
-import { catalogDdl, constant, diff, type Identity, identifier, literal, mergeTreeRefusals, methods, type referentialActions, renameTable, Stamp, unsupported } from '#/reconcile';
+import { catalogDdl, constant, diff, type Identity, identifier, literal, mergeTreeRefusals, methods, type referentialActions, Stamp, unsupported } from '#/reconcile';
 import { Tokenizer } from '#/relation';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -207,7 +207,7 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
     static readonly methods: Dialect['methods'] = methods;
     static readonly covering: Dialect['covering'] = (sql, _, include) => ({ keys: [], clause: Array.isReadonlyArrayNonEmpty(include) ? [sql`INCLUDE (${sql.csv(include.map((name) => Statement.fragment([sql(name)])))})`] : [] });
     static readonly suffix: Dialect['suffix'] = (sql) => sql.literal('');
-    static readonly rename = renameTable;
+    static readonly rename: Dialect['rename'] = (sql, from, to) => sql`ALTER TABLE ${sql(from)} RENAME TO ${to}`;
     static readonly fulltext: Dialect['fulltext'] = (sql, owner, search) => {
         const [name, body] = [identifier([owner, 'search']), Pg.document(sql, search)];
         const words = Option.map(Option.liftPredicate(search.tokenizer, Tokenizer.$is('Words')), ({ configuration, filters }) => ({ name: Pg.configuration({ configuration, filters }), configuration, filters }));
@@ -246,7 +246,7 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
         const refused = relation.indexes.flatMap(({ keys, method }) => Array.getSomes(keys.map(({ column, casefold }) => Option.filter(Record.get(named, column), ({ kind }) => Option.isNone(Pg.opclass(method, casefold ? 'text' : kind))))));
         return [...unsupported(relation.name, 'opclass', Array.dedupe(refused), Function.constTrue), ...mergeTreeRefusals(relation)];
     };
-    static readonly role: Dialect['role'] = (sql) => Effect.map(SqlSchema.findOne({ Request: Schema.Void, Result: Role, execute: () => sql`SELECT current_user AS role` })(undefined), Struct.get('role'));
+    static readonly role: NonNullable<Dialect['role']> = (sql) => Effect.map(SqlSchema.findOne({ Request: Schema.Void, Result: Role, execute: () => sql`SELECT current_user AS role` })(undefined), Struct.get('role'));
     static readonly open: Dialect['open'] = () => Effect.void;
     static readonly execute = Engine.transaction;
     static readonly transactional = true;

@@ -3,7 +3,7 @@ import { Record, Schema, SemVer, Struct } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const VERSION = { current: 5, addon: 6 } as const;
+const MANIFEST_VERSIONS = { current: 5, addon: 6 } as const;
 const THEMES = { lightest: 'light', light: 'light', medium: 'dark', dark: 'dark', darkest: 'dark' } as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -29,7 +29,7 @@ const Entrypoint = Schema.Struct({
 
 class UxpManifest extends Schema.Class<UxpManifest, { readonly brand: unique symbol }>('UxpManifest')(
     Schema.Struct({
-        manifestVersion: Schema.Literals([VERSION.current, VERSION.addon]),
+        manifestVersion: Schema.Literals([MANIFEST_VERSIONS.current, MANIFEST_VERSIONS.addon]),
         id: Schema.String,
         name: Schema.String,
         version: Version,
@@ -71,12 +71,11 @@ class UxpManifest extends Schema.Class<UxpManifest, { readonly brand: unique sym
         featureFlags: Schema.optionalKey(Schema.Struct(Struct.Record(['unhandledRejection', 'uncaughtException', 'enableFillAsCustomAttribute', 'enableSWCSupport', 'enableAlerts', 'allowFocusOnClickForPanels', 'enableResizeObserver', 'enableUpdatedResizeBehavior'], Flag))),
     }).check(
         Schema.makeFilter(
-            ({ addon, manifestVersion, requiredPermissions: { enableAddon } }) => addon === undefined || (manifestVersion === VERSION.addon && enableAddon === true) || `addon needs manifestVersion ${VERSION.addon} and requiredPermissions.enableAddon, received ${String(manifestVersion)} and ${String(enableAddon)}`,
+            ({ addon, manifestVersion, requiredPermissions: { enableAddon } }) =>
+                addon === undefined || (manifestVersion === MANIFEST_VERSIONS.addon && enableAddon === true) || `addon needs manifestVersion ${MANIFEST_VERSIONS.addon} and requiredPermissions.enableAddon, received ${String(manifestVersion)} and ${String(enableAddon)}`,
         ),
     ),
 ) {
-    static readonly version = VERSION;
-    static readonly themes = THEMES;
     static readonly Theme = Schema.Literals(Struct.keys(THEMES));
     static readonly fills = Record.map(THEMES, (tone): Rgb => ({ mode: 'rgb', ...Struct.Record(['r', 'g', 'b'], tone === 'light' ? 0 : 1), alpha: 0.8 }));
     static readonly json = Schema.fromJsonString(UxpManifest);
@@ -87,4 +86,4 @@ class UxpManifest extends Schema.Class<UxpManifest, { readonly brand: unique sym
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { UxpManifest };
+export { MANIFEST_VERSIONS, THEMES, UxpManifest };
