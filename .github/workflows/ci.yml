@@ -101,7 +101,7 @@ jobs:
                       .cache/nx/workspace-data
                       !.cache/nx/workspace-data/cache
                       !.cache/nx/workspace-data/*.db*
-                  key: nx-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', 'nx.json', 'apps/nx/**', '!apps/nx/tests/**') }}
+                  key: nx-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', 'nx.json', 'apps/nx/**') }}
                   restore-keys: nx-${{ runner.os }}-
             - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
               with:

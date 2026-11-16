@@ -24,13 +24,17 @@ Rasm/
 │   ├── rust/
 │   ├── swift/
 │   └── typescript/
-├── tests/                    # Test support and end-to-end suites per language
+├── tests/                    # Suites at the path of the source they test
+│   ├── apps/
+│   ├── libs/
+│   ├── tools/
+│   ├── e2e/                  # Suites running against a served or installed product
+│   └── support/              # Shared test harnesses per language
 ├── tools/                    # Checks and grammars other checkers lack, by the tool that runs them
 │   ├── ast-grep/             # Grammars, rules, and outline support per language
 │   ├── conformance/          # Nx conformance rules over the project graph and workspace files
 │   ├── dylint/               # Rust lints reading types and resolved paths Clippy lacks
-│   ├── refurb/               # Python checks reading mypy types Ruff lacks
-│   └── tests/                # conformance and refurb check suites
+│   └── refurb/               # Python checks reading mypy types Ruff lacks
 ├── assets/                   # Reusable assets no app or plugin owns
 ├── infra/                    # Pulumi programs for the repository, its machines, and app hosting
 ├── plugins/                  # Agent harness marketplace
@@ -38,7 +42,7 @@ Rasm/
 ├── nx.json                   # Nx plugin rows and release policy
 ├── package.json              # Workspace root manifest
 ├── pnpm-workspace.yaml       # pnpm workspace globs, catalog, and settings
-├── vitest.config.ts          # Vitest projects of every TypeScript suite without its own config
+├── vitest.config.ts          # Vitest projects of every TypeScript suite
 ├── tsconfig.json             # Solution references to every composite project, written by nx sync
 ├── tsconfig.base.json        # TypeScript options every package compiles and emits with
 ├── tsconfig.tests.json       # TypeScript program checking root vitest.config.ts
@@ -52,7 +56,6 @@ Rasm/
 ├── Directory.Build.targets   # .NET items and Rhino SDK references
 ├── NuGet.config              # NuGet sources
 ├── Package.swift             # Swift modules, executables, and package dependencies
-├── Package.resolved
 ├── Xcode.xcconfig            # Build settings every Xcode project inherits
 ├── Cargo.toml                # Cargo workspace members and workspace dependencies
 ├── rust-toolchain.toml       # Rust toolchain channel and components
@@ -169,8 +172,6 @@ flowchart LR
 
 ## [04]-[TASKS]
 
-hk lints and formats files; Nx runs project tasks
-
 `nx <target> <project>` runs one project, `nx affected -t <target>` runs changed work, and `--files=<path>` limits it to one change's reach:
 - `codegen` writes source code a project's tools derive from its schemas and configuration
 - `build` compiles or packages a project into its declared outputs
@@ -193,9 +194,8 @@ Other tasks run through their own commands:
 - `nx build @rasm/nx-apple-darwin-arm64` builds the core `@rasm/nx-apple` reads Xcode projects through, on a Mac after a clone
 - `mise deps` syncs pnpm packages and each uv root from its lock where its inputs changed, the workspace root through Pixi libraries
 - `pixi run --locked python` supplies the library search path for `magic` and `weasyprint`
-- `nx sync` writes executor schemas and tsconfig `references`, task runs in a terminal apply it, and runs in other shells stop until it runs
+- `nx sync` writes executor schemas and tsconfig `references`
 - `nx migrate <version>`, then `nx migrate --run-migrations`, applies a new Nx release's migrations, and `pnpm dedupe` moves peer ranges the lock held at the old release
-- `@rasm/nx-playwright` infers `test--playwright` per Playwright config, which starts the Nx task each `webServer` row with `reuseExistingServer` runs and waits until it is ready
 - `mise daemons stop docker` stops the container engine until a session enters, `mise daemons start docker` starts it and waits until Docker answers
 - `nx install @rasm/infra` runs the proxy, sign-in, and object storage containers of role `Apps` on the local Docker engine, under `rasm.localhost`
 - `nx deploy @rasm/infra` applies the repository and machine stacks
@@ -205,9 +205,11 @@ Other tasks run through their own commands:
 
 ## [05]-[TESTING]
 
-Projects take tag `os:<platform>` only where their toolchain or target framework limits where they build or test:
-- Rhino test projects keep their test target on Linux
-- Suites sit in a `tests/` folder beside the projects they test, each named for its project
+Suites sit in `tests/` at the path of the source they test (`tests/apps/nx/docker` tests `apps/nx/docker`):
+- End-to-end suites sit in `tests/e2e/<product>/`, shared harnesses in `tests/support/<language>/`
+- Suites inside a nested tool root that stops discovery at its root stay inside it (the SwiftPM analyzer package, the Blender uv root)
+- Plugin folders published whole keep their suites (`plugins/function-hooks`)
+- Projects take tag `os:<platform>` only where their toolchain or target framework limits where they build or test
 - Logic needing no host sits in projects tested on every platform
 - C++ projects take one Nx configuration per CMake workflow preset (`nx test <project> -c asan`), the first preset being the default
 - `nx test <project> -c coverage` writes coverage to option `coveragePath`, else each tool's own report, and plain `nx test` stays uninstrumented

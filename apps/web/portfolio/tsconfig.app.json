@@ -33,7 +33,7 @@
             "path": "../../../libs/typescript/data/database"
         },
         {
-            "path": "../../../tests/typescript/support"
+            "path": "../../../tests/support/typescript"
         },
         {
             "path": "../../../libs/typescript/graphics/mark"

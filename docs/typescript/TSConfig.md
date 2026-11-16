@@ -24,7 +24,7 @@ TypeScript compiler configuration of an Effect-based pnpm and Nx monorepo.
 
 - Tests inside a library package take one root program (`tsconfig.tests.json`) the root `tsconfig.json` references
 - Tests program `references` reach each package it imports by `#/` or self-reference, else TS6307 refuses the files outside its `include`
-- Test packages emit into their ignored `dist`, as `@nx/js/typescript` disables `typecheck` where a config or its references set `noEmit`
+- Test packages set `noEmit`, and `@rasm/nx-typescript` infers `check--tsc` for a `noEmit` program, `build--tsc` for an emitting one
 - Runtime differences (DOM `lib`, Workers `types`, `jsx`) sit in the package config that needs them
 
 ## [03]-[BASE]
@@ -64,7 +64,6 @@ Package config, source at the package root:
 ```
 
 - `include` defaults to `**/*`, and a written `exclude` drops the default `outDir` exclusion, so base `exclude` names `dist` and `test`
-- Source under `src/` takes `"include": ["src"]` and base `"rootDir": "${configDir}/src"`, so `dist` holds one output per `src` file
 - Packages with other globals replace `types` (`["@cloudflare/workers-types"]`), and a browser program sets `"lib": ["esnext", "dom"]`
 
 ## [04]-[COMPILER_OPTIONS]
@@ -113,9 +112,7 @@ Options for one case alone:
 - `references` in a package config list the workspace packages it imports, and `tsc -b` builds them in order, skipping unchanged ones
 - Imports from a referenced project load its emitted `.d.ts`, so a package program re-checks no sibling source
 - Referenced projects set `composite`, and a config with `"include": []` can reference a `noEmit` program (TS6310 needs input files)
-- `@nx/js/typescript` runs `typecheck` through `tsc --build` where root `tsconfig.json` references every composite project
-- `@nx/js/typescript` infers `build` where its `build` option names `configName: "tsconfig.json"` (default `tsconfig.lib.json`)
-- `build.skipBuildCheck: true` keeps that `build` target where `exports` name source, which the plugin otherwise leaves without one
+- `@rasm/nx-typescript` runs `build--tsc` and `check--tsc` through `tsc --build` on each package `tsconfig.json`
 - `@nx/js` sync generator `typescript-sync` writes `references` from graph dependencies, run by `nx sync` and targets listing it in `syncGenerators`
 - `sync.applyChanges: true` syncs before a terminal task run, other shells exit naming `nx sync`, and CI skips sync, which `nx sync:check` guards
 - Without references, each package program type-checks its siblings' `.ts` source through `exports`, which costs time and needs no emit

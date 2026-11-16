@@ -147,7 +147,7 @@ const report = (workspaceRoot: string, lock: string, metadata: typeof Metadata.T
                     const from = Option.match(group, { onNone: () => [], onSome: ({ id }) => resolution[id]?.dependencies ?? [] });
                     const installed = [...reach(new Set([member.id, ...from]))];
                     return {
-                        ...declared(documented, member.root, key),
+                        ...declared(documented, row.origin(workspace, member.root), member.root, key),
                         group: Option.getOrUndefined(group)?.name,
                         projects: Array.dedupe(Array.getSomes(from.map(located)).map(({ name }) => name)).toSorted(),
                         locked: installed.some(distributed(key)),

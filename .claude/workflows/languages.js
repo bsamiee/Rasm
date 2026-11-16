@@ -83,7 +83,7 @@ return {
       unit: 'folder holding the nearest Cargo.toml',
       owners: [
         { name: 'clippy', paths: ['Cargo.toml', '.config/clippy.toml'], decides: 'a rustc or Clippy lint row of `[workspace.lints.*]` or a clippy.toml option', skills: [] },
-        { name: 'dylint', paths: ['tools/dylint'], decides: 'a form that needs types and resolved paths rustc holds, as a lint', skills: ['rust-coding'] },
+        { name: 'dylint', paths: ['tools/dylint', 'tests/tools/dylint'], decides: 'a form that needs types and resolved paths rustc holds, as a lint', skills: ['rust-coding'] },
       ],
     }),
     cpp: owned({

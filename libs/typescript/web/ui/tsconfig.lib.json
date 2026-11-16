@@ -4,7 +4,7 @@
     "exclude": ["dist", ".storybook", "*.stories.ts", "*.stories.tsx"],
     "references": [
         {
-            "path": "../../../../tests/typescript/support"
+            "path": "../../../../tests/support/typescript"
         }
     ]
 }

@@ -1432,7 +1432,7 @@ requires-dist = [
     { name = "pytest-timeout" },
     { name = "rasm-records", editable = "../data/records" },
     { name = "rasm-rendering", editable = "rendering" },
-    { name = "rasm-testing", extras = ["hosting"], editable = "../../../tests/python/support" },
+    { name = "rasm-testing", extras = ["hosting"], editable = "../../../tests/support/python" },
 ]
 
 [[package]]
@@ -1488,7 +1488,7 @@ provides-extras = ["export", "process", "otlp-http", "otlp-grpc", "configuration
 [[package]]
 name = "rasm-testing"
 version = "0.1.0"
-source = { editable = "../../../tests/python/support" }
+source = { editable = "../../../tests/support/python" }
 dependencies = [
     { name = "expression" },
     { name = "pytest" },

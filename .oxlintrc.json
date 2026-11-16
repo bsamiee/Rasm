@@ -147,8 +147,7 @@
         { "files": ["**/*.tsx"], "rules": { "react/rules-of-hooks": "error" } },
         { "files": ["plugins/*/hooks/**"], "rules": { "node/callback-return": "off", "promise/no-callback-in-promise": "off", "unicorn/catch-error-name": "off" } },
         {
-            "files": ["**/*.test.ts", "**/*.test.tsx"],
-            "excludeFiles": ["plugins/*/hooks/*.test.ts"],
+            "files": ["tests/**/*.test.{ts,tsx}"],
             "plugins": ["vitest"],
             "rules": {
                 "no-empty-pattern": ["error", { "allowObjectPatternsAsParameters": true }],

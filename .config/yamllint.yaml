@@ -16,18 +16,15 @@ rules:
     comments-indentation:
         level: error
     document-start: disable
-    empty-values:
-        level: error
+    empty-values: enable
     float-values:
-        level: error
         forbid-inf: true
         forbid-nan: true
         forbid-scientific-notation: true
         require-numeral-before-decimal: true
     indentation: disable
     line-length: disable
-    octal-values:
-        level: error
+    octal-values: enable
     truthy:
         level: error
         check-keys: false

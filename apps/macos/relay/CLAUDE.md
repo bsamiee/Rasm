@@ -19,20 +19,23 @@ One store owns every trigger and account state change, views call it and provide
 
 Claude stores are Claude Code config directories, each with an account file and a login Keychain item:
 - Selected account uses the shared store Claude Code resolves, every other account a private config directory under `Accounts/<id>/Claude`
-- Relay sends no request to Anthropic: `claude auth status --json` reports a store's login, `claude -p "/usage" --output-format stream-json --verbose` its usage, stream JSON in print mode requiring `--verbose`
+- Relay sends no request to Anthropic, and `claude auth status --json` reports a store's login
+- `claude -p "/usage" --output-format stream-json --verbose` reports a store's usage, as print-mode stream JSON requires `--verbose`
 - Claude Code alone refreshes tokens, since refresh tokens are single use and a second refresher revokes the token family
 - `claude auth status` exits 1 for a store with no login and prints email and organization alone, the account file holds the account id
 - Print-mode `/usage` starts no Remote Control bridge, so a read creates no claude.ai session
 - Usage reads run one `claude` at a time and pass `disableClaudeAiConnectors`, skipping the claude.ai connector fetch
 - `/usage` rows are the usage endpoint reply or Claude Code's snapshot under 60 seconds old, and null while the fetch fails
-- Print-mode runs fill a missing account entry from Claude Code's profile fetch, `claude auth status` does not, so a switch first reads usage on a store missing one
+- Print-mode runs fill a missing account entry from Claude Code's profile fetch, and `claude auth status` does not
+- Switches first read usage on a store missing its account entry
 - Keychain items trust `/usr/bin/security` alone, reads and writes go through the `security` CLI, never Security framework calls
 - Security framework writes stamp the item's partition list with Relay's signature, and every later `claude` and Claude Desktop read prompts
 - Writes pass `security -i` lines up to 4032 bytes, Claude Code's limit, and longer items as `add-generic-password -X` arguments
 - Writes to an item or account file replace Relay's fields and keep the rest (`mcpOAuth` MCP server logins)
 - Claude Code signs out by revoking the refresh token and deleting the item, a blanked item reads as signed out
 - `claude` children point at one store and drop variables that redirect their credential or API
-- Claude Code refreshes under `.oauth_refresh.lock` and `<realpath>.lock` and writes credentials under `.storage-write.lock` in its store, its release re-reads selection
+- Claude Code refreshes under `.oauth_refresh.lock` and `<realpath>.lock` and writes credentials under `.storage-write.lock` in its store
+- Relay re-reads selection when Claude Code releases those locks
 - Claude Code writes `.credentials.json` when a Keychain write fails and reads it only while the item is absent
 - While `.credentials.json` exists, running sessions detect outside writes by its mtime alone, Relay's Keychain writes delete it
 - Switch holds Claude Code's locks on every store it touches and runs no `claude` child inside
@@ -69,12 +72,15 @@ Relay logs through swift-log to `Library/Logs/app.rasm.relay/relay.log`, one log
 - File records are OpenTelemetry log records as JSON lines, `info` and above for `Relay` scopes and `warn` and above for every other scope
 - Files rotate to `.1` through `.7` at 8 MiB or 1 day, and a rotated file older than 1 day is deleted
 - Records hold every value whole in a file readable by its owner alone, and OTLP log export writes `<private>` for each value not marked public
-- Failed account operations log once per account, operation, and cause, and `Account failure cleared` states the repeats when the next usage read succeeds
+- Failed account operations log once per account, operation, and cause, and `Account failure cleared` states repeats once a usage read succeeds
 - Account operations run in a span and an Instruments signpost interval named by the operation
-- MetricKit hang, CPU exception, disk write, and launch reports log pid, bundle id, and version, a crash or daily metric report adds the report whole under `report`
+- MetricKit hang, CPU exception, disk write, and launch reports log pid, bundle id, and version
+- MetricKit crash and daily metric reports log those fields and the whole report under `report`
 - Crash reports of `app.rasm.relay` written since the last launch log one `FATAL` record each at launch
-- `codex app-server` standard error logs at `debug` under `Relay.CodexClient`, draining after the connection ends so the last lines of a failing server log
+- `codex app-server` standard error logs at `debug` under `Relay.CodexClient`, drained after the connection ends to keep a failing server's last lines
 - Account state sits in `Application Support/Relay`, named by `CFBundleName`
 - Defaults keys `log.level`, `log.filter`, `log.target`, `log.dir`, `log.size`, `log.age`, `log.files`, and `state.dir` set each value
-- `defaults write app.rasm.relay <key> <value>` or environment variable `RELAY_<KEY>` (`RELAY_LOG_LEVEL`) sets a key, `log.level` and `log.filter` applying while Relay runs
-- `OTEL_LOGS_EXPORTER`, `OTEL_METRICS_EXPORTER`, and `OTEL_TRACES_EXPORTER` in the environment or as defaults keys each start one signal's OTLP export, quit waiting 1 second for the last batch
+- `defaults write app.rasm.relay <key> <value>` or environment variable `RELAY_<KEY>` (`RELAY_LOG_LEVEL`) sets a key
+- `log.level` and `log.filter` apply while Relay runs
+- `OTEL_LOGS_EXPORTER`, `OTEL_METRICS_EXPORTER`, and `OTEL_TRACES_EXPORTER` in the environment or defaults each start one signal's OTLP export
+- Quitting waits 1 second for the last OTLP batch

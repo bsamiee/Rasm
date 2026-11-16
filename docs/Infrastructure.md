@@ -61,7 +61,7 @@ Each place holding state changes through one action:
 ## [06]-[RUNNERS]
 
 - Role `Runner` field `instances` names each runner service by its label
-- `.config/mise.runner.toml` holds user `runner` (uid 1000, group `docker`), the build packages, its passwordless sudo, and the memory limits of unit `host` in a drop-in under `/usr/local/lib/systemd/system`, which `systemctl revert` keeps
+- `.config/mise.runner.toml` holds user `runner` (uid 1000, also in group `docker`), the build packages, its passwordless sudo, and the memory limits of unit `host` in a drop-in under `/usr/local/lib/systemd/system`, which `systemctl revert` keeps
 - Memory drop-in changes notify `runner-prune.timer`, as mise reloads systemd only before a service change and a runner unit exists only after its stack installs it
 - Runner `<machine>-<label>` holds folder `actions-runner-<label>`, its own work folder, and label `<label>` beside the default labels
 - Instance `host` runs jobs on the machine and `container` runs jobs in a container, and a host job and a container job run at once

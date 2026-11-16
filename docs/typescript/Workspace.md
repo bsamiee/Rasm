@@ -5,22 +5,20 @@ pnpm workspace layout of an Effect-based TypeScript monorepo that Nx runs.
 ## [01]-[PRINCIPLES]
 
 - Packages join the workspace by sitting in a folder a `packages` glob matches
-- Package source sits at the package root or under `src/`
-- Snippets show source at the package root, and a `src/` folder prefixes each source path with `src/` (`./src/*.ts`, `${configDir}/src`)
+- Package source sits at the package root
 - Consumers import a sibling package by its name through its `node_modules` link and `exports`, like a package from the registry
 - Every external version sits in the catalog of `pnpm-workspace.yaml`, and manifests name versions only through `catalog:` and `workspace:`
 - Manifests hold no task scripts and no `project.json` exists, as Nx infers projects and targets from manifests and tool configuration
 
 ## [02]-[ROOT_MANIFEST]
 
-Root `package.json` holds workspace identity, a package manager pin, and tools that root configuration files import:
+Root `package.json` holds workspace identity and tools that root configuration files import:
 
 ```json
 {
     "name": "@scope/monorepo",
     "private": true,
     "type": "module",
-    "packageManager": "pnpm@<version>",
     "scripts": { "prepare": "effect-tsgo patch" },
     "devDependencies": {
       "@effect/tsgo": "catalog:",
@@ -34,21 +32,18 @@ Root `package.json` holds workspace identity, a package manager pin, and tools t
 }
 ```
 
-| [INDEX] | [FIELD]           | [VALUE]          | [REASON]                                                                    |
-| :-----: | :---------------- | :--------------- | :-------------------------------------------------------------------------- |
-|  [01]   | `private`         | `true`           | Root is never published                                                     |
-|  [02]   | `type`            | `"module"`       | Node asks every package to state it                                         |
-|  [03]   | `packageManager`  | `"pnpm@<exact>"` | pnpm switches to the pinned version on a mismatch, CI setup actions read it |
-|  [04]   | `scripts`         | `prepare` alone  | Install lifecycle step                                                      |
-|  [05]   | `devDependencies` | `catalog:` rows  | Tools, Nx plugins, and base `types` packages the root loads                 |
-|  [06]   | `workspaces`      | Absent           | pnpm reads members from `pnpm-workspace.yaml` alone                         |
-|  [07]   | `pnpm`            | Absent           | pnpm reads no settings from a `pnpm` manifest key                           |
+| [INDEX] | [FIELD]           | [VALUE]         | [REASON]                                                    |
+| :-----: | :---------------- | :-------------- | :---------------------------------------------------------- |
+|  [01]   | `private`         | `true`          | Root is never published                                     |
+|  [02]   | `type`            | `"module"`      | Node asks every package to state it                         |
+|  [03]   | `packageManager`  | Absent          | `.config/mise.toml` pins pnpm and Node                      |
+|  [04]   | `scripts`         | `prepare` alone | Install lifecycle step                                      |
+|  [05]   | `devDependencies` | `catalog:` rows | Tools, Nx plugins, and base `types` packages the root loads |
+|  [06]   | `workspaces`      | Absent          | pnpm reads members from `pnpm-workspace.yaml` alone         |
+|  [07]   | `pnpm`            | Absent          | pnpm reads no settings from a `pnpm` manifest key           |
 
-- `devEngines.packageManager` accepts a range and records the resolved version in `pnpm-lock.yaml`, where an exact pin is unwanted
-- `devEngines.runtime` makes `pnpm install` resolve a Node range to a runtime, where no other tool pins Node
-- `engines.pnpm` refusing the running pnpm fails install, and beside an exact `packageManager` it adds nothing
 - Root `package.json` holding an `nx` key becomes an Nx project, and `"includedScripts": []` there keeps `prepare` from becoming a target
-- `nx.json` `plugins` names `@nx/js/typescript` for `typecheck` and `build` targets, and a Vitest plugin for `test` targets
+- `nx.json` `plugins` names `@rasm/nx-typescript` for `build--tsc` and `check--tsc` targets, and `@rasm/nx-vitest` for `test--vitest` targets
 
 ## [03]-[WORKSPACE_FILE]
 
@@ -56,17 +51,14 @@ Root `package.json` holds workspace identity, a package manager pin, and tools t
 
 ```yaml
 packages:
-  - packages/*
+  - packages/**
 catalog:
   effect: <version>
 catalogs:
   peers:
     effect: <range>
 catalogMode: strict
-catalogPrune: true
-trustPolicy: no-downgrade
-minimumReleaseAgeExclude:
-  - '@scope/*'
+minimumReleaseAge: 0
 allowBuilds:
   <package>: true
 overrides:
@@ -75,18 +67,15 @@ patchedDependencies:
   <package>@<version>: patches/<file>.patch
 ```
 
-| [INDEX] | [SETTING]                  | [DEFAULT] | [RECOMMENDED]                                                                 |
-| :-----: | :------------------------- | :-------- | :---------------------------------------------------------------------------- |
-|  [01]   | `packages`                 | None      | One glob per folder depth, so a new package edits nothing                     |
-|  [02]   | `catalogMode`              | `manual`  | `strict`: `pnpm add` refuses a version outside the catalog                    |
-|  [03]   | `catalogPrune`             | `false`   | `true`: install removes catalog rows no manifest names                        |
-|  [04]   | `minimumReleaseAge`        | `1440`    | Omit for one day, state another minute count, `0` for none                    |
-|  [05]   | `minimumReleaseAgeExclude` | None      | Own scope and packages released in lockstep with it                           |
-|  [06]   | `trustPolicy`              | `off`     | `no-downgrade`: install fails when a release has less trust than earlier ones |
-|  [07]   | `blockExoticSubdeps`       | `true`    | Omit: transitive git and tarball sources stay refused                         |
-|  [08]   | `allowBuilds`              | None      | Name each package whose install script may run, `true` or `false`             |
-|  [09]   | `overrides`                | None      | Graph pins, `:peer` on the selector targets peer ranges alone                 |
-|  [10]   | `patchedDependencies`      | None      | `<package>@<version>` to a patch file                                         |
+| [INDEX] | [SETTING]             | [DEFAULT] | [RECOMMENDED]                                                     |
+| :-----: | :-------------------- | :-------- | :---------------------------------------------------------------- |
+|  [01]   | `packages`            | None      | Recursive globs (`apps/**`), so a new package edits nothing       |
+|  [02]   | `catalogMode`         | `manual`  | `strict`: `pnpm add` refuses a version outside the catalog        |
+|  [03]   | `minimumReleaseAge`   | `1440`    | `0`: install takes a release the day it publishes                 |
+|  [04]   | `blockExoticSubdeps`  | `true`    | Omit: transitive git and tarball sources stay refused             |
+|  [05]   | `allowBuilds`         | None      | Name each package whose install script may run, `true` or `false` |
+|  [06]   | `overrides`           | None      | Graph pins, `:peer` on the selector targets peer ranges alone     |
+|  [07]   | `patchedDependencies` | None      | `<package>@<version>` to a patch file                             |
 
 - `.npmrc` holds only auth, registry, TLS, proxy, and `local-address` settings, which pnpm reads from it
 - `effect-tsgo patch` rewrites files under `node_modules`, which a global virtual store refuses, so `virtualStoreType` stays `project`
@@ -102,7 +91,7 @@ patchedDependencies:
 
 ## [05]-[PACKAGE_MANIFEST]
 
-Library manifest with `exports` to source, which pnpm swaps to built output at pack:
+Library manifest:
 
 ```json
 {
@@ -144,7 +133,6 @@ Library manifest with `exports` to source, which pnpm swaps to built output at p
 |  [09]   | `engines.node`  | Oldest Node with every API used   | `#/` imports need `^24.14.0 \|\| >=25.4.0`                     |
 |  [10]   | `nx`            | Facts no manifest row states      | Holds tags and target options in place of `project.json`       |
 
-- pnpm hoists entry fields from `publishConfig` at pack, `exports` and `imports` included
 - `main`, `module`, and top-level `types` serve resolvers older than `exports`, which Node, TypeScript, and bundlers read in their place
 - Test packages and applications state `private: true` and leave out `files` and `publishConfig` where nothing publishes them
 

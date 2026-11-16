@@ -1,0 +1,88 @@
+{
+    "name": "@rasm/testing",
+    "version": "0.1.0",
+    "private": true,
+    "description": "Shared test logic by category: Playwright base and served-task config, Storybook addons and accessibility rules, a Vitest global setup that provides a scoped value, one Nx graph reader, temporary Nx workspaces with packed plugins installed, and the conformance suite each ecosystem plugin meets",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/bsamiee/Rasm.git",
+        "directory": "tests/support/typescript"
+    },
+    "files": [
+        "dist"
+    ],
+    "type": "module",
+    "imports": {
+        "#/*": "./*.ts"
+    },
+    "exports": {
+        "./conformance": "./conformance.ts",
+        "./nx": "./nx.ts",
+        "./playwright": "./playwright.ts",
+        "./reading": "./reading.ts",
+        "./storybook": "./storybook.ts",
+        "./temp-fs": "./temp-fs.ts",
+        "./vitest": "./vitest.ts"
+    },
+    "publishConfig": {
+        "imports": {
+            "#/*": "./dist/*.js"
+        },
+        "exports": {
+            "./conformance": "./dist/conformance.js",
+            "./nx": "./dist/nx.js",
+            "./playwright": "./dist/playwright.js",
+            "./reading": "./dist/reading.js",
+            "./storybook": "./dist/storybook.js",
+            "./temp-fs": "./dist/temp-fs.js",
+            "./vitest": "./dist/vitest.js"
+        },
+        "access": "public"
+    },
+    "dependencies": {
+        "@axe-core/playwright": "catalog:",
+        "@effect/platform-node": "catalog:",
+        "@effect/vitest": "catalog:",
+        "@rasm/process": "workspace:*"
+    },
+    "devDependencies": {
+        "@nx/devkit": "catalog:",
+        "@playwright/test": "catalog:",
+        "@storybook/addon-a11y": "catalog:",
+        "@types/node": "catalog:",
+        "effect": "catalog:",
+        "nx": "catalog:",
+        "vite": "catalog:",
+        "vitest": "catalog:"
+    },
+    "peerDependencies": {
+        "@nx/devkit": "catalog:peers",
+        "@playwright/test": "catalog:peers",
+        "@storybook/addon-a11y": "catalog:peers",
+        "effect": "catalog:peers",
+        "nx": "catalog:peers",
+        "vite": "catalog:peers",
+        "vitest": "catalog:peers"
+    },
+    "peerDependenciesMeta": {
+        "@nx/devkit": {
+            "optional": true
+        },
+        "@playwright/test": {
+            "optional": true
+        },
+        "@storybook/addon-a11y": {
+            "optional": true
+        },
+        "nx": {
+            "optional": true
+        },
+        "vite": {
+            "optional": true
+        },
+        "vitest": {
+            "optional": true
+        }
+    }
+}

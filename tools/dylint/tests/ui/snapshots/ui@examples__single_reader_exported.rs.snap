@@ -1,5 +1,0 @@
----
-source: tools/dylint/tests/ui/main.rs
-input_file: tools/dylint/examples/single_reader_exported.rs
----
-

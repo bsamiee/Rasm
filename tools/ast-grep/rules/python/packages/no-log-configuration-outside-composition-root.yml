@@ -6,7 +6,6 @@ files:
     - apps/blender/**
 ignores:
     - libs/python/runtime/telemetry/rasm_telemetry/process.py
-    - '**/tests/**'
 utils:
     configuration-function:
         any:

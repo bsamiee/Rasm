@@ -10,7 +10,6 @@ Library build and publish in an Effect-based pnpm and Nx monorepo.
 - Development resolves source and the tarball resolves `dist`, both from one manifest that pnpm rewrites at pack
 - Packs happen in the package folder, filtered by `files`, with no generated publish folder
 - `dist` and `*.tsbuildinfo` stay ignored by Git
-- Release builds skip the remote cache, so every published file comes from the released commit
 
 ## [02]-[BUILD_AND_EMIT]
 

@@ -1,5 +1,0 @@
----
-source: tools/dylint/tests/ui/main.rs
-input_file: tools/dylint/examples/duplicate_trait_constant_exported.rs
----
-

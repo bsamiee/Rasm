@@ -8143,7 +8143,7 @@ test = [
     { name = "pytest-randomly" },
     { name = "pytest-socket" },
     { name = "pytest-timeout" },
-    { name = "rasm-testing", extras = ["hosting", "sqlite"], editable = "tests/python/support" },
+    { name = "rasm-testing", extras = ["hosting", "sqlite"], editable = "tests/support/python" },
     { name = "testcontainers" },
 ]
 typography = [
@@ -8232,7 +8232,7 @@ requires-dist = [
 [[package]]
 name = "rasm-foundry-tests"
 version = "0.1.0"
-source = { virtual = "apps/cli/tests/foundry" }
+source = { virtual = "tests/apps/cli/foundry" }
 dependencies = [
     { name = "anyio" },
     { name = "cyclopts" },
@@ -8305,7 +8305,7 @@ requires-dist = [
 [[package]]
 name = "rasm-refurb-tests"
 version = "0.1.0"
-source = { virtual = "tools/tests/refurb" }
+source = { virtual = "tests/tools/refurb" }
 dependencies = [
     { name = "expression" },
     { name = "fake-bpy-module-latest" },
@@ -8396,7 +8396,7 @@ provides-extras = ["export", "process", "otlp-http", "otlp-grpc", "configuration
 [[package]]
 name = "rasm-telemetry-tests"
 version = "0.1.0"
-source = { virtual = "libs/python/runtime/tests/telemetry" }
+source = { virtual = "tests/libs/python/runtime/telemetry" }
 dependencies = [
     { name = "concurrent-log-handler" },
     { name = "mocket" },
@@ -8441,7 +8441,7 @@ requires-dist = [
 [[package]]
 name = "rasm-testing"
 version = "0.1.0"
-source = { editable = "tests/python/support" }
+source = { editable = "tests/support/python" }
 dependencies = [
     { name = "expression" },
     { name = "pytest" },
@@ -8512,7 +8512,7 @@ requires-dist = [
 [[package]]
 name = "rasm-typography-tests"
 version = "0.1.0"
-source = { virtual = "libs/python/graphics/tests/typography" }
+source = { virtual = "tests/libs/python/graphics/typography" }
 dependencies = [
     { name = "fonttools" },
     { name = "msgspec" },
@@ -8527,7 +8527,7 @@ requires-dist = [
     { name = "fonttools" },
     { name = "msgspec" },
     { name = "pytest" },
-    { name = "rasm-testing", editable = "tests/python/support" },
+    { name = "rasm-testing", editable = "tests/support/python" },
     { name = "rasm-typography", editable = "libs/python/graphics/typography" },
     { name = "skia-pathops" },
 ]

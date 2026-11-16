@@ -25,6 +25,7 @@ const CHECKERS = {
         matches: ['*.py', '*.pyi'],
         sources: ['*.py', '*.pyi'],
         folder: identity<string>,
+        origin: identity<string>,
         run: [],
         command: (at: string) => ['ty', 'check', at],
         mypy: undefined,
@@ -41,6 +42,7 @@ const CHECKERS = {
         matches: ['*.py', '*.pyi'],
         sources: ['*.py', '*.pyi'],
         folder: identity<string>,
+        origin: identity<string>,
         run: [],
         command: (at: string) => ['mypy', at],
         mypy: [],
@@ -57,6 +59,7 @@ const CHECKERS = {
         matches: ['*.py', '*.pyi'],
         sources: ['*.py', '*.pyi'],
         folder: (_: string, base: string) => base,
+        origin: (_: string, root: string) => root,
         run: [],
         command: (at: string, config?: string) => ['refurb', ...(config === undefined ? [] : ['--config-file', config]), at],
         mypy: ['--'],
@@ -73,6 +76,7 @@ const CHECKERS = {
         matches: ['*.py'],
         sources: ['*.py'],
         folder: identity<string>,
+        origin: (_: string, root: string) => root,
         run: [],
         command: (at: string, config?: string) => ['vulture', at, ...(config === undefined ? [] : ['--config', config])],
         mypy: undefined,
@@ -90,6 +94,7 @@ const CHECKERS = {
         sources: ['*'],
         run: ['--isolated'],
         folder: identity<string>,
+        origin: (_: string, root: string) => root,
         command: (at: string) => ['pytest', at],
         mypy: undefined,
         coverage: 'pytest-cov',
@@ -178,8 +183,8 @@ const documents = Effect.fnUntraced(function* (workspaceRoot: string, roots: rea
     };
 });
 
-const declared = (documented: ReadonlyMap<string, unknown>, root: string, checker: Checker) => {
-    const candidates = ancestors(root).flatMap((folder) => CHECKERS[checker].files.map(([file, ...keys]) => [join(folder, file), keys] as const));
+const declared = (documented: ReadonlyMap<string, unknown>, origin: string, root: string, checker: Checker) => {
+    const candidates = ancestors(origin).flatMap((folder) => CHECKERS[checker].files.map(([file, ...keys]) => [join(folder, file), keys] as const));
     const found = Array.findFirstWithIndex(candidates, ([at, keys]) =>
         Option.flatMap(
             keys.reduce<Option.Option<unknown>>((table, key) => table.pipe(Option.flatMap(Schema.decodeUnknownOption(Table)), Option.flatMap(Record.get(key))), Option.fromUndefinedOr(documented.get(at))),

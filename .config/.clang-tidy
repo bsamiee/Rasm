@@ -31,7 +31,7 @@ WarningsAsErrors: '*'
 
 # --- [SCOPE] ----------------------------------------------------------------------------
 
-HeaderFilterRegex: '/(apps|libs)/'
+HeaderFilterRegex: '/(apps|libs|tests)/'
 ExcludeHeaderFilterRegex: '/\.artifacts/'
 
 # --- [OPTIONS] --------------------------------------------------------------------------

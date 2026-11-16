@@ -3463,17 +3463,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "escargot"
-version = "1.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "189159de09e965c688ce1bfae3d974b8fc6826e2eaefcb6e0d40f337ec98492b"
-dependencies = [
- "log",
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "euclid"
 version = "0.22.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7206,11 +7195,11 @@ dependencies = [
  "backon",
  "claims",
  "clap",
- "escargot",
  "fs-err",
  "futures",
  "hdrhistogram",
  "jiff",
+ "mcp-muxer",
  "nonempty-collections",
  "opentelemetry-semantic-conventions",
  "rasm-cli",
@@ -10398,14 +10387,32 @@ dependencies = [
 name = "rasm-lints"
 version = "0.0.0"
 dependencies = [
- "anyhow",
  "camino",
  "cargo_metadata",
- "clap",
  "clippy_utils",
- "derive_more",
  "dunce",
  "dylint_linting",
+ "fs-err",
+ "itertools 0.15.0",
+ "strum 0.28.0",
+]
+
+[[package]]
+name = "rasm-lints-auxiliary"
+version = "0.0.0"
+dependencies = [
+ "thiserror 2.0.21",
+]
+
+[[package]]
+name = "rasm-lints-tests"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "cargo_metadata",
+ "clap",
+ "derive_more",
+ "dunce",
  "fs-err",
  "futures",
  "insta",
@@ -10429,13 +10436,6 @@ dependencies = [
  "tracing",
  "uuid",
  "validated",
-]
-
-[[package]]
-name = "rasm-lints-auxiliary"
-version = "0.0.0"
-dependencies = [
- "thiserror 2.0.21",
 ]
 
 [[package]]

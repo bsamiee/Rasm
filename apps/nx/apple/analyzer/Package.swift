@@ -13,6 +13,6 @@ let package = Package(
             name: "nx-apple-analyzer",
             dependencies: [.product(name: "ArgumentParser", package: "swift-argument-parser"), .product(name: "XcodeProjectFormat", package: "xcode-project-format")],
         ),
-        .testTarget(name: "AnalyzerTests", dependencies: ["nx-apple-analyzer", .product(name: "XcodeProjectFormat", package: "xcode-project-format")], path: "tests/AnalyzerTests"),
+        .testTarget(name: "AnalyzerTests", dependencies: ["nx-apple-analyzer", .product(name: "XcodeProjectFormat", package: "xcode-project-format")]),
     ],
 )

@@ -1,0 +1,29 @@
+# --- [PACKAGE] --------------------------------------------------------------------------
+
+[package]
+name              = "rasm-solar-geometry-tests"
+edition.workspace = true
+
+# --- [TARGETS] --------------------------------------------------------------------------
+
+[[test]]
+name = "solar-geometry"
+path = "solar-geometry.rs"
+
+# --- [DEPENDENCIES] ---------------------------------------------------------------------
+
+[dev-dependencies]
+approx              = { workspace = true }
+claims              = { workspace = true }
+jiff                = { workspace = true }
+nalgebra            = { workspace = true }
+rasm-site           = { workspace = true }
+rasm-solar-geometry = { workspace = true }
+rstest              = { workspace = true }
+solar-positioning   = { workspace = true }
+uom                 = { workspace = true }
+
+# --- [LINTS] ----------------------------------------------------------------------------
+
+[lints]
+workspace = true

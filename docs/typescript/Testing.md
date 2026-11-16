@@ -7,7 +7,6 @@ Vitest in an Effect-based pnpm and Nx monorepo.
 - Vitest runs unit, integration, and process-level tests
 - Shared test options sit in one file, and each config states only what differs from it
 - Tests import their package by name, so they exercise `exports` as a consumer reads them
-- Vitest strips types without checking them
 - Real dependencies and temporary folders replace module mocks
 - Effect code swaps a service through a test layer
 - Scripts, agents, and CI run `vitest run`, as `vitest` alone watches files in an interactive terminal
@@ -28,10 +27,7 @@ Vitest facts that decide the layout:
 - `--project <name>` runs one project, repeats, and takes `*` and `!` patterns
 
 Nx facts that decide the layout:
-- `@nx/vitest` infers `test` for a folder holding its own `vitest.config.*`, or a `vite.config.*` with a `test` block
-- `@nx/vitest` registers no project for a root config whose `test.projects` is an array, so it infers no target from inline projects
-- `ciTargetName` on its plugin row splits each config's target into one target per test file
-- Inline projects reach Nx through a workspace plugin reading the resolved root config, one `test` target per inline project
+- `@rasm/nx-vitest` reads the resolved root config and infers one `test--vitest` target per inline project
 - Each inferred target runs `vitest run --project <name>` from the workspace root, on the Nx project at that inline project's `root`
 - Inferred targets take root `vitest.config.ts` as an input, so editing shared options invalidates every cached result
 
@@ -133,13 +129,12 @@ test('decode', async ({ bench }) => {
 | [INDEX] | [WRONG]                                                      | [CORRECT]                                                 |
 | :-----: | :----------------------------------------------------------- | :-------------------------------------------------------- |
 |  [01]   | Config file per package with copied options                  | One root config, one inline project per package           |
-|  [02]   | Expecting `@nx/vitest` targets from inline projects          | Workspace plugin inferring one target per inline project  |
-|  [03]   | Config builders with a merge of their own                    | `mergeConfig` from `vitest/config`                        |
-|  [04]   | Suite path tables beside the project list                    | Package options inside that package's project object      |
-|  [05]   | Suite configs reading `nx.json` or plugin internals          | Options from Vitest's own configuration                   |
-|  [06]   | `vitest.workspace.ts`                                        | `test.projects`                                           |
-|  [07]   | `globals: true` with no `vitest/globals` types               | Imports from `vitest`                                     |
-|  [08]   | `allowOnly: true`, global `retry` as a flake net             | Stray `.only` fails, flaky tests get fixed at their cause |
-|  [09]   | Top-level `import { bench } from 'vitest'`                   | `bench` fixture inside `test()`                           |
-|  [10]   | Aliases repeated in Vite and tsconfig with differing targets | `exports` and `imports`, which every resolver reads       |
-|  [11]   | Benchmark numbers pasted into prose and never rerun          | Stored results compared by `bench.from()`                 |
+|  [02]   | Config builders with a merge of their own                    | `mergeConfig` from `vitest/config`                        |
+|  [03]   | Suite path tables beside the project list                    | Package options inside that package's project object      |
+|  [04]   | Suite configs reading `nx.json` or plugin internals          | Options from Vitest's own configuration                   |
+|  [05]   | `vitest.workspace.ts`                                        | `test.projects`                                           |
+|  [06]   | `globals: true` with no `vitest/globals` types               | Imports from `vitest`                                     |
+|  [07]   | `allowOnly: true`, global `retry` as a flake net             | Stray `.only` fails, flaky tests get fixed at their cause |
+|  [08]   | Top-level `import { bench } from 'vitest'`                   | `bench` fixture inside `test()`                           |
+|  [09]   | Aliases repeated in Vite and tsconfig with differing targets | `exports` and `imports`, which every resolver reads       |
+|  [10]   | Benchmark numbers pasted into prose and never rerun          | Stored results compared by `bench.from()`                 |

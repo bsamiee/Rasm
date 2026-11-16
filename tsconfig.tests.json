@@ -4,5 +4,5 @@
         "noEmit": true
     },
     "include": ["vitest.config.ts"],
-    "references": [{ "path": "./tests/typescript/support" }]
+    "references": [{ "path": "./tests/support/typescript" }]
 }

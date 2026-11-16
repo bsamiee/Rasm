@@ -2,7 +2,6 @@
 language: tsxlang
 severity: error
 files: ['**/main.ts', '**/main.tsx']
-ignores: ['**/tests/**']
 rule:
     kind: export_statement
     all:

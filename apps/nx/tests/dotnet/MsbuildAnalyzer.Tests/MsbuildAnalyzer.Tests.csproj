@@ -1,9 +1,0 @@
-<Project Sdk="Microsoft.NET.Sdk">
-    <PropertyGroup>
-        <Description>Suite of MsbuildAnalyzer: Nx's own .NET analyzer specs ported to temporary workspaces each evaluated by the analyzer process</Description>
-    </PropertyGroup>
-
-    <ItemGroup Label="Workspace Projects">
-        <ProjectReference Include="../../../dotnet/analyzer/MsbuildAnalyzer.csproj" />
-    </ItemGroup>
-</Project>

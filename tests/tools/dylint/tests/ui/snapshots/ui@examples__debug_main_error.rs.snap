@@ -1,0 +1,12 @@
+---
+source: tests/tools/dylint/tests/ui/main.rs
+input_file: tests/tools/dylint/examples/debug_main_error.rs
+---
+error: `Termination` prints `Failure` from `main` through its derived `Debug`
+  --> tests/tools/dylint/examples/debug_main_error.rs:13:14
+   |
+13 | fn main() -> Result<(), Failure> {
+   |              ^^^^^^^^^^^^^^^^^^^
+   |
+   = help: return `Result<(), std::error::Report<Failure>>` under `#![feature(error_reporter)]`
+   = note: `#[deny(debug_main_error)]` on by default

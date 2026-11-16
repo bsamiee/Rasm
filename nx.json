@@ -136,7 +136,7 @@
             {
                 "rule": "./tools/conformance/task-inputs/index.ts",
                 "options": {
-                    "files": ["apps/nx/!(tests)/**", ".config/mise.lock"],
+                    "files": ["apps/nx/**", ".config/mise.lock"],
                     "env": [
                         "NODE_AUTH_TOKEN",
                         "UV_PUBLISH_TOKEN",

@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <Description>Per-test resources as xUnit v3 fixtures settled by test result: SQLite databases</Description>
+        <IsTestProject>false</IsTestProject>
+        <OutputType>Library</OutputType>
+    </PropertyGroup>
+
+    <ItemGroup Label="Core">
+        <PackageReference Include="LanguageExt.Core" />
+    </ItemGroup>
+
+    <ItemGroup Label="Data Storage">
+        <PackageReference Include="HiraokaHyperTools.sqlite-vec" />
+        <PackageReference Include="Microsoft.Data.Sqlite" />
+        <PackageReference Include="SQLitePCLRaw.core" />
+    </ItemGroup>
+
+    <ItemGroup Label="Testing">
+        <PackageReference Include="xunit.v3.extensibility.core" />
+    </ItemGroup>
+</Project>

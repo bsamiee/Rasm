@@ -27,3 +27,8 @@ build-backend = "uv_build"
 
 [tool.uv.build-backend]
 module-root = ""
+
+# --- [RUFF] -----------------------------------------------------------------------------
+
+[tool.ruff]
+extend = "../../pyproject.toml" # Ruff reads this manifest's `requires-python` through its own table

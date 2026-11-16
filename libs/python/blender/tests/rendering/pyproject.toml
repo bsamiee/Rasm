@@ -40,7 +40,7 @@ addopts                = [
     "-p",
     "randomly",
     "-p",
-    "rasm_testing.hosting",                  # Hosted HTTP servers of `tests/python/support`
+    "rasm_testing.hosting",                  # Hosted HTTP servers of `tests/support/python`
     "-p",
     "pytest_socket",                         # Named by its module, the entry point name `socket` being the standard library module the server plugins import first
     "-p",

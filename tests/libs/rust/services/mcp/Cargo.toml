@@ -1,0 +1,59 @@
+# --- [PACKAGE] --------------------------------------------------------------------------
+
+[package]
+name              = "rasm-mcp-tests"
+edition.workspace = true
+description       = "MCP suite: an everything server with the official conformance fixtures, a recording client, raw line peers, scripted transcripts, and the official conformance runner"
+
+# --- [TARGETS] --------------------------------------------------------------------------
+
+[lib]
+path    = "lib.rs"
+test    = false
+doctest = false
+bench   = false
+
+[[test]]
+name = "suite"
+path = "suite/main.rs"
+
+[[bin]]
+name = "mcp-everything"
+path = "fixture/main.rs"
+test = false
+
+# --- [DEPENDENCIES] ---------------------------------------------------------------------
+
+[dependencies]
+futures                            = { workspace = true }
+tokio                              = { workspace = true, features = ["io-std"] }
+tokio-stream                       = { workspace = true }
+tokio-util                         = { workspace = true }
+nonempty-collections               = { workspace = true }
+serde                              = { workspace = true }
+serde_json                         = { workspace = true }
+schemars                           = { workspace = true }
+fs-err                             = { workspace = true, features = ["tokio"] }
+opentelemetry-semantic-conventions = { workspace = true }
+tracing                            = { workspace = true }
+axum                               = { workspace = true }
+rmcp                               = { workspace = true, features = ["client", "server", "macros", "elicitation", "transport-io", "transport-child-process", "transport-streamable-http-server"] }
+tracing-subscriber                 = { workspace = true }
+clap                               = { workspace = true }
+rasm-cli                           = { workspace = true }
+rasm-mcp                           = { workspace = true, features = ["proxy", "app", "telemetry"] }
+rasm-telemetry                     = { workspace = true, features = ["process"] }
+
+[dev-dependencies]
+backon       = { workspace = true }
+bytes        = { workspace = true }
+tokio        = { workspace = true, features = ["test-util"] }
+claims       = { workspace = true }
+proptest     = { workspace = true }
+rstest       = { workspace = true }
+rasm-testing = { workspace = true }
+
+# --- [LINTS] ----------------------------------------------------------------------------
+
+[lints]
+workspace = true

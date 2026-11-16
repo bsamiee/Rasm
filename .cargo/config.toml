@@ -37,6 +37,7 @@ feature-unification = "workspace"
 # --- [UNSTABLE] -------------------------------------------------------------------------
 
 [unstable]
+bindeps             = true
 feature-unification = true
 gc                  = true
 git                 = "shallow-deps"

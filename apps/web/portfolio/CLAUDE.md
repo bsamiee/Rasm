@@ -27,8 +27,10 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 
 [CONTRACT]: `HttpApiBuilder` serves and `AtomHttpApi` calls one `Api` over `StoredPortfolio`, editor encodes resolved `Portfolio` into each payload:
 - Expected failures are `HttpApiError` variants and `Schema.TaggedError` classes with `httpApiStatus`, clients match `_tag`
-- `Owner` is an `HttpApiMiddleware.Service` over every endpoint except asset `read`, accepting owner sessions and refusing a body-carrying request whose `Sec-Fetch-Site` is not `same-origin`
-- Asset `read` types its path and failures in `Api` and answers with the ranged `HttpServerResponse` from `ObjectStorage.serve`, the rendered page alone is an `HttpRouter` route
+- `Owner` is an `HttpApiMiddleware.Service` accepting owner sessions over every endpoint except asset `read`
+- `Owner` refuses a request with a body when its `Sec-Fetch-Site` is not `same-origin`
+- Asset `read` types its path and failures in `Api` and answers with the ranged `HttpServerResponse` from `ObjectStorage.serve`
+- Rendered page is the only `HttpRouter` route
 - Multipart field names are `uploadField` in `model/api.ts`, editor and Worker read them, refused parts fail with an `UploadRefused` reason
 
 ## [03]-[WORKER]
@@ -40,14 +42,16 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 - ALWAYS enforce storage invariants as conditions of writing SQL statements
 - Placement references derive through one query over stored documents and the incoming draft
 - Draft and published documents each store one JSON body and a revision
-- `Revision` encodes draft revisions as strong ETags, a stale `If-Match` answers the stored revision, as success when the draft holds the body, else in `PreconditionFailed`
+- `Revision` encodes draft revisions as strong ETags
+- Stale `If-Match` answers the stored revision, as success when the draft holds the body, else in `PreconditionFailed`
 - Draft saves, their publish, and the stored revision read share one `atomic` batch, as do each release sweep and its object list
 - Drafts placing a missing, mistyped, or out-of-range file fail with `PlacementConflict` naming each placement path
 - `ObjectStorage.serve` evaluates HTTP preconditions and ranges for media reads, inline with `nosniff`, an original under its asset name
 - Upload bodies send the asset field, then each rendition named by its width in asset order, then the original, each typed with its media type
 - Uploads are idempotent per asset id, a repeat with equal metadata succeeds and differing metadata conflicts
 - Asset JSON holds upload attempts and object keys, interrupted uploads and removals remain available for owner cleanup
-- Asset reads serve assets placed in published work to anyone with a one-day browser cache lifetime, every other asset to the owner alone and `NotFound` to visitors
+- Asset reads serve assets placed in published work to anyone with a one-day browser cache lifetime
+- Asset reads serve every other asset to the owner alone and `NotFound` to visitors
 
 ## [04]-[PAGE]
 
@@ -62,7 +66,7 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 - Class names take theme tokens and spacing steps, a value one utility reads stays a declaration in that utility
 - Presentation components name visual roles, typed `data-*` attributes select composition layouts
 - Elements carry no `style` attribute, theme rules hold visual choices and the formulas over media values
-- `CustomProperties` sets media values as custom properties, one hoisted `<style precedence>` rule per declaration that a `data-properties` token selects
+- `CustomProperties` sets media values as custom properties, one hoisted `<style precedence>` rule per declaration a `data-properties` token selects
 - Figures reserve their box before media loads, server rendering emits each hoisted rule ahead of the markup it sizes
 - React Aria state variants come from `tailwindcss-react-aria-components`
 - `react-aria-components` owns composite controls, focus, selection, and overlays sized to its `--visual-viewport-height`
@@ -73,7 +77,8 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 
 [FIGURES]: `MediaFigure` renders every placement from its resolved asset, presentation decides loading, chrome, and expansion:
 - `Match.discriminatorsExhaustive` over placement `kind` selects each renderer
-- Display text and alt text derive once in `media/labels.ts`, asset URLs from `Api` through `assetUrl` in `model/api.ts`, and image source sets in `media/media-element.tsx`
+- Display text and alt text derive once in `media/labels.ts`, image source sets in `media/media-element.tsx`
+- Asset URLs derive from `Api` through `assetUrl` in `model/api.ts`
 - Presentation, priority, and in-view proximity decide media loading and video playback
 - Image renditions fill `srcSet`, expanded views load the original
 - Renditions share their source's authorization, publication, and removal
@@ -84,7 +89,7 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 - `PdfDocument` shares one PDF.js document across every sheet of a PDF, opened for range requests (`disableStream`, `disableAutoFetch`)
 - `PdfViewer.useViewer` renders the sheet preview and the sheet viewer, its `AsyncResult` failure renders the original-file link
 - Sheet previews draw annotations without a text layer
-- Sheet viewer writes page and scale through `PdfViewer` state `assign`, rotation through `rotate`, and find highlights through `find` when Find reopens
+- Sheet viewer writes page and scale through `PdfViewer` state `assign`, rotation through `rotate`, and highlights through `find` when Find reopens
 - Videos take no text track, owners burn captions in and write transcripts as descriptions
 
 ## [06]-[EDITOR]
@@ -111,36 +116,47 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 
 ## [07]-[HOSTING]
 
-[DECLARATION]: `hosting.config.ts` declares the app once as an `App`: `DB` a `sqlite` store, `BUCKET` a `bucket` with its lifecycle rules, `OWNER_EMAIL` a `text` value, `allowed` the addresses a provider sign-in accepts, and `limits` the CPU count and memory of the hosted container:
-- `cloudflare.config.ts` projects it through `worker(hosting, config)`, and the hosting row names each deployed Worker and resource by its mode
-- `server/main.ts` passes it to `serveNode`, which reads each store variable from the environment and each `text` value from the declaration
+[DECLARATION]: `hosting.config.ts` declares the app once as an `App`:
+- `DB` is a `sqlite` store, `BUCKET` a `bucket` with its lifecycle rules, and `OWNER_EMAIL` a `text` value
+- `allowed` holds the addresses a provider sign-in accepts, and `limits` the CPU count and memory of the hosted container
+- `cloudflare.config.ts` projects the `App` through `worker(hosting, config)`, and the hosting row names each deployed Worker and resource by its mode
+- `server/main.ts` passes the `App` to `serveNode`, which reads each store variable from the environment and each `text` value from the declaration
 - Worker binding types are the global `Env` that `cf workers types` generates from `cloudflare.config.ts`
-- `tsconfig.json` references one program per runtime: `tsconfig.app.json` browser code, `tsconfig.node.json` Node entry and tool configs, `tsconfig.worker.json` Worker entry with `cloudflare.config.ts` and `.cloudflare/types`
+- `tsconfig.json` references one program per runtime: `tsconfig.app.json` browser code, `tsconfig.node.json` Node entry and tool configs
+- `tsconfig.worker.json` holds the Worker entry with `cloudflare.config.ts` and `.cloudflare/types`
 - `.openai/hosting.json` names the D1 and R2 bindings OpenAI Sites supplies, written by hand, and the host assigns `project_id`
 - `nx install @rasm/portfolio` applies the app on the local engine, `nx run @rasm/portfolio:deploy--pulumi --stack=<row>` on one hosting row
 - `-c release --stack=<row>` applies the production stack of that row, and no `--stack` applies every stack that exists
-- Row `cloudflare` deploys the built Worker with every binding its Build Output states, creating each D1 database and R2 bucket a binding names, bucket lifecycle rules, and an Access application on the sign-in path
+- Row `cloudflare` deploys the built Worker with every binding its Build Output states
+- Row `cloudflare` creates each D1 database and R2 bucket a binding names, bucket lifecycle rules, and an Access application on the sign-in path
 - `--destroy` on a disposable row empties its bucket and removes every resource, reading the Build Output `build--vite` wrote
 
 [SERVERS]: `server/app.ts` composes routes over passed services, D1 and `r2Storage` from the Worker, SQLite and path-style `s3Storage` from Node:
-- `server/worker.ts` passes its services and `Worker.fetch` over its routes to `Worker`, with `Template` from the assets binding and `layerTelemetry` of `@rasm/workers/execution`
-- Worker `layerTelemetry` writes one JSON log record per console line, records each span in the Workers trace, and exports each signal its `OTEL_<SIGNAL>_EXPORTER` variable names at the end of each invocation
-- `server/main.ts` passes `Sites.identity` and an `env` callback to `serveNode`, then the HTTP server on `PORT` and the app name as `serviceName` to `layerNodeFromConfig` of `@rasm/telemetry/node` with target `stderr`
-- `layerNodeFromConfig` reads `<NAME>_LOG_{LEVEL,FILTER,TARGET,DIR,SIZE,AGE,FILES}`, writes one JSON log record per line to stderr, and exports each signal its `OTEL_<SIGNAL>_EXPORTER` variable names through the OpenTelemetry SDK
-- `.storybook/main.ts` sets `viteConfigPath: null` and states the React and Tailwind plugins its stories read, so no plugin of `vite.config.ts` runs in Storybook
+- `server/worker.ts` passes its services and `Worker.fetch` over its routes to `Worker`, with `Template` from the assets binding
+- `server/worker.ts` passes `layerTelemetry` of `@rasm/workers/execution` to `Worker`
+- Worker `layerTelemetry` writes one JSON log record per console line and records each span in the Workers trace
+- Worker `layerTelemetry` exports each signal its `OTEL_<SIGNAL>_EXPORTER` variable names at the end of each invocation
+- `server/main.ts` passes `Sites.identity` and an `env` callback to `serveNode`
+- `server/main.ts` passes the HTTP server on `PORT` and the app name as `serviceName` to `layerNodeFromConfig` of `@rasm/telemetry/node`
+- `server/main.ts` sets `layerNodeFromConfig` target `stderr`
+- `layerNodeFromConfig` reads `<NAME>_LOG_{LEVEL,FILTER,TARGET,DIR,SIZE,AGE,FILES}` and writes one JSON log record per line to stderr
+- `layerNodeFromConfig` exports each signal its `OTEL_<SIGNAL>_EXPORTER` variable names through the OpenTelemetry SDK
+- `.storybook/main.ts` sets `viteConfigPath: null` and states the React and Tailwind plugins its stories read, so no `vite.config.ts` plugin runs
 - `siteHead` takes `favicon.svg` and `site/theme.css` tokens, emitting the ICO, Apple touch icon, painted SVG, `theme-color`, and `color-scheme`
 - `site/shell.tsx` states the whole content security policy of a production build, and `Template.render` sets no header without one
 
 [IDENTITY]: Views and handlers read `Sites.identity` headers, which each server sets from one trusted source after removing any a client sent:
 - OpenAI Sites signs users in at its own boundary, a Worker with no `ACCESS` variable serving its headers unchanged
-- `ACCESS` holds one `Access` as JSON, source `Cloudflare` verifying a Cloudflare Access token from its header or `CF_Authorization` cookie and source `Forwarded` reading headers a proxy sets
+- `ACCESS` holds one `Access` as JSON, source `Forwarded` reading headers a proxy sets
+- `Access` source `Cloudflare` verifies a Cloudflare Access token from its header or `CF_Authorization` cookie
 - `serveNode` fails at start without `ACCESS`
 - Pages are public, the trusted source guards the sign-in path of `Sites.identity.paths`, and owner endpoints refuse every other session
 - Requests without a user id are signed-out visitors
 - First sign-in with an email equal to `OWNER_EMAIL` ignoring case enrolls its user id, later owner checks read and compare user ids alone
 - `hosting.config.ts` states the owner address, the commit author address and no secret, and `vite dev` binds the `sites()` local sign-in address
 
-[STORAGE]: `server/catalog.ts` declares document, asset, and owner tables as `Relation` values, with statements over them beside their handlers in `server/<aggregate>.ts`:
+[STORAGE]: `server/catalog.ts` declares document, asset, and owner tables as `Relation` values:
+- Statements over the tables sit beside their handlers in `server/<aggregate>.ts`
 - `Catalog.layer` builds each entry's client with snake-case identifiers and reconciles tables once per isolate or process start
 - Queries name a multi-word column through `sql('objectKey')` or a `Relation` static
 - With older and newer builds on one database, queries name every column and new required columns carry a default

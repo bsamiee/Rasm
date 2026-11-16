@@ -1,0 +1,19 @@
+---
+source: tests/tools/dylint/tests/ui/main.rs
+input_file: tests/tools/dylint/examples/manual_type_changing_struct_update.rs
+---
+error: `Message` literal copies each unchanged field of `self` to change its type arguments
+  --> tests/tools/dylint/examples/manual_type_changing_struct_update.rs:27:38
+   |
+27 |     fn send(self) -> Message<Sent> { Message { state: PhantomData, body: self.body, id: self.id } }
+   |                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: write the changed fields and `..self` under `#![feature(type_changing_struct_update)]`: `Message { state: PhantomData, ..self }`
+   |
+   = note: `#[deny(manual_type_changing_struct_update)]` on by default
+applicability MaybeIncorrect: write the changed fields and `..self` under `#![feature(type_changing_struct_update)]`
+
+error: `Message` literal copies each unchanged field of `self` to change its type arguments
+  --> tests/tools/dylint/examples/manual_type_changing_struct_update.rs:31:43
+   |
+31 |     fn projected(self) -> Message<Sent> { Message { state: PhantomData, id: self.2, body: self.body } }
+   |                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: write the changed fields and `..self` under `#![feature(type_changing_struct_update)]`: `Message { state: PhantomData, id: self.2, ..self }`
+applicability MaybeIncorrect: write the changed fields and `..self` under `#![feature(type_changing_struct_update)]`

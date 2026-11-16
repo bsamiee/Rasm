@@ -2,13 +2,11 @@
 
 packages:
     - 'libs/typescript/*/*'
-    - 'libs/typescript/*/tests/*'
     - 'apps/**'
-    - 'tests/typescript/**'
+    - 'tests/**'
     - 'plugins/*'
     - 'infra'
     - 'tools/*'
-    - 'tools/tests/*'
 catalogMode: strict
 saveExact: true
 minimumReleaseAge: 0

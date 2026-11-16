@@ -5,9 +5,10 @@
 - Workflow `CI` runs on pull requests, pushes to `main`, and dispatch
 - Newer pushes to a pull request cancel its running CI
 - Jobs run `nx affected` over `check`, `test`, and `build`, as many tasks at once as their machine has cores (mise `[env]` `NX_PARALLEL`)
-- Job `affected` runs `nx sync:check`, as CI task runs skip sync, and lists the affected projects of technology `unreal` and the engines `.uproject` files name
+- Job `affected` runs `nx sync:check`, as CI task runs skip sync
 - Job `affected` runs `nx conformance:check`, as no Nx task runs the `nx.json` `conformance` rules
-- Job `affected` lists projects, as an Unreal project holds no target on a runner outside its engine image
+- Job `affected` lists affected projects of technology `unreal` and the engines their `.uproject` files name
+- Unreal projects hold no target on a runner outside their engine image
 - Job `affected` runs `nrwl/nx-set-shas` once and passes base and head to jobs `linux` and `macos`, as a CI run finishing between jobs moves the base `nx-set-shas` finds
 - Job `linux` runs the affected projects tagged `os:linux`, `os:all`, or no `os:` tag on runner instance `host`
 - Job `linux` removes earlier runs' reports first, as the kept checkout holds them

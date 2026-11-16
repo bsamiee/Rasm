@@ -1,0 +1,45 @@
+---
+source: tests/tools/dylint/tests/ui/main.rs
+input_file: tests/tools/dylint/examples/variant_constant_functions.rs
+---
+error: `unwrap_or_default` replaces `TryFromIntError` with a fallback value
+   --> tests/tools/dylint/examples/variant_constant_functions.rs:108:141
+    |
+108 | ...fset() * f64::from(u32::try_from(unit.symbol().len()).unwrap_or_default())).sum::<f64>();
+    |                                                          ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
+    = note: `#[deny(discarded_error)]` on by default
+
+error: `factor` and `offset` each match every `Unit` variant to one constant
+  --> tests/tools/dylint/examples/variant_constant_functions.rs:8:1
+   |
+ 8 | enum Unit {
+   | ^^^^^^^^^
+   |
+note: matched here
+  --> tests/tools/dylint/examples/variant_constant_functions.rs:34:5
+   |
+34 |     const fn factor(self) -> f64 {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+41 |     const fn offset(self) -> f64 {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   = help: return the values of `factor` and `offset` from one match on `Unit`
+   = note: `#[deny(variant_constant_functions)]` on by default
+
+error: `interval` and `timeout` each match every `Pace` variant to one constant
+  --> tests/tools/dylint/examples/variant_constant_functions.rs:20:1
+   |
+20 | enum Pace {
+   | ^^^^^^^^^
+   |
+note: matched here
+  --> tests/tools/dylint/examples/variant_constant_functions.rs:73:5
+   |
+73 |     const fn interval(self) -> Duration {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+80 |     const fn timeout(self) -> Duration {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   = help: replace `Pace` with a struct holding `interval` and `timeout` and one `const` per variant
