@@ -2,7 +2,7 @@
     "name": "@rasm/quran",
     "version": "0.1.0",
     "private": true,
-    "description": "Quran text from CSV or a mushaf, selected by surah or division a riwayah counts, ayah marks set against a face",
+    "description": "Quran text from CSV or a mushaf, selected by surah or division a riwayah counts, ayah marks set against a face, and Quranic sign sets a face draws",
     "license": "MIT",
     "repository": {
         "type": "git",

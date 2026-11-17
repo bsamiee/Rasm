@@ -69,6 +69,9 @@ catalogs:
     '@leeoniya/ufuzzy':
       specifier: 1.0.19
       version: 1.0.19
+    '@noble/hashes':
+      specifier: 2.4.0
+      version: 2.4.0
     '@nx/conformance':
       specifier: 24.1.0-beta.1
       version: 24.1.0-beta.1
@@ -144,6 +147,9 @@ catalogs:
     '@playwright/test':
       specifier: 1.66.0-alpha-2026-11-16
       version: 1.66.0-alpha-2026-11-16
+    '@plist/parse':
+      specifier: 1.1.0
+      version: 1.1.0
     '@pulumi/aws':
       specifier: 7.55.0-alpha.1794564513
       version: 7.55.0-alpha.1794564513
@@ -737,6 +743,9 @@ importers:
       '@opentelemetry/semantic-conventions':
         specifier: 'catalog:'
         version: 1.45.0
+      '@rasm/rpc':
+        specifier: workspace:*
+        version: link:../../network/rpc
       '@rasm/search':
         specifier: workspace:*
         version: link:../../data/search
@@ -772,6 +781,9 @@ importers:
       '@rasm/extendscript':
         specifier: workspace:*
         version: link:../extendscript
+      '@rasm/mcp':
+        specifier: workspace:*
+        version: link:../../ai/mcp
       '@rasm/object-model':
         specifier: workspace:*
         version: link:../object-model
@@ -809,6 +821,25 @@ importers:
       vite:
         specifier: 'catalog:'
         version: 8.3.8(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2)
+
+  libs/typescript/creative-cloud/desktop:
+    dependencies:
+      '@effect/sql-sqlite-node':
+        specifier: 'catalog:'
+        version: 4.1.4(effect@4.1.4)
+      '@plist/parse':
+        specifier: 'catalog:'
+        version: 1.1.0
+      '@rasm/process':
+        specifier: workspace:*
+        version: link:../../runtime/process
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.6
+      effect:
+        specifier: 'catalog:'
+        version: 4.1.4
 
   libs/typescript/creative-cloud/extendscript:
     dependencies:
@@ -924,7 +955,7 @@ importers:
         version: 4.1.4(effect@4.1.4)(redis@6.3.1(@opentelemetry/api@1.10.0))
       '@exodus/bytes':
         specifier: 'catalog:'
-        version: 1.16.0
+        version: 1.16.0(@noble/hashes@2.4.0)
       '@rasm/mark':
         specifier: workspace:*
         version: link:../../graphics/mark
@@ -943,6 +974,9 @@ importers:
       culori:
         specifier: 'catalog:'
         version: 4.0.2
+      image-size:
+        specifier: 'catalog:'
+        version: 2.1.0
       jsonc-parser:
         specifier: 'catalog:'
         version: 4.0.0-next.2
@@ -1063,6 +1097,9 @@ importers:
 
   libs/typescript/graphics/typography:
     dependencies:
+      '@noble/hashes':
+        specifier: 'catalog:'
+        version: 2.4.0
       '@rasm/search':
         specifier: workspace:*
         version: link:../../data/search
@@ -1438,16 +1475,22 @@ importers:
       '@rasm/aftereffects':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/creative-cloud/aftereffects
-      '@rasm/atelier-protocol':
-        specifier: workspace:*
-        version: link:../../multi-app/atelier/protocol
-      '@rasm/extendscript':
-        specifier: workspace:*
-        version: link:../../../../../libs/typescript/creative-cloud/extendscript
-    devDependencies:
       '@rasm/cep':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/creative-cloud/cep
+      '@rasm/extendscript':
+        specifier: workspace:*
+        version: link:../../../../../libs/typescript/creative-cloud/extendscript
+      '@rasm/mcp':
+        specifier: workspace:*
+        version: link:../../../../../libs/typescript/ai/mcp
+      '@rasm/object-model':
+        specifier: workspace:*
+        version: link:../../../../../libs/typescript/creative-cloud/object-model
+      effect:
+        specifier: 'catalog:'
+        version: 4.1.4
+    devDependencies:
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6
@@ -1460,19 +1503,25 @@ importers:
 
   products/apps/creative-cloud/illustrator/atelier:
     dependencies:
-      '@rasm/atelier-protocol':
+      '@rasm/cep':
         specifier: workspace:*
-        version: link:../../multi-app/atelier/protocol
+        version: link:../../../../../libs/typescript/creative-cloud/cep
       '@rasm/extendscript':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/creative-cloud/extendscript
       '@rasm/illustrator':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/creative-cloud/illustrator
-    devDependencies:
-      '@rasm/cep':
+      '@rasm/mcp':
         specifier: workspace:*
-        version: link:../../../../../libs/typescript/creative-cloud/cep
+        version: link:../../../../../libs/typescript/ai/mcp
+      '@rasm/object-model':
+        specifier: workspace:*
+        version: link:../../../../../libs/typescript/creative-cloud/object-model
+      effect:
+        specifier: 'catalog:'
+        version: 4.1.4
+    devDependencies:
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6
@@ -1485,9 +1534,6 @@ importers:
 
   products/apps/creative-cloud/indesign/atelier:
     dependencies:
-      '@rasm/atelier-protocol':
-        specifier: workspace:*
-        version: link:../../multi-app/atelier/protocol
       '@rasm/indesign':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/creative-cloud/indesign
@@ -1497,9 +1543,6 @@ importers:
       '@rasm/object-model':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/creative-cloud/object-model
-      '@rasm/search':
-        specifier: workspace:*
-        version: link:../../../../../libs/typescript/data/search
       '@rasm/typography':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/graphics/typography
@@ -1531,24 +1574,12 @@ importers:
       '@rasm/applications':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/macos/applications
-      '@rasm/atelier-aftereffects-plugin':
-        specifier: workspace:*
-        version: link:../../aftereffects/atelier
-      '@rasm/atelier-illustrator-plugin':
-        specifier: workspace:*
-        version: link:../../illustrator/atelier
-      '@rasm/atelier-indesign-plugin':
-        specifier: workspace:*
-        version: link:../../indesign/atelier
-      '@rasm/atelier-photoshop-plugin':
-        specifier: workspace:*
-        version: link:../../photoshop/atelier
-      '@rasm/atelier-protocol':
-        specifier: workspace:*
-        version: link:protocol
       '@rasm/cep':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/creative-cloud/cep
+      '@rasm/creative-cloud-desktop':
+        specifier: workspace:*
+        version: link:../../../../../libs/typescript/creative-cloud/desktop
       '@rasm/extendscript':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/creative-cloud/extendscript
@@ -1561,9 +1592,6 @@ importers:
       '@rasm/object-model':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/creative-cloud/object-model
-      '@rasm/process':
-        specifier: workspace:*
-        version: link:../../../../../libs/typescript/runtime/process
       '@rasm/quran':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/data/quran
@@ -1582,12 +1610,9 @@ importers:
       effect:
         specifier: 'catalog:'
         version: 4.1.4
-      image-size:
+      fast-xml-parser:
         specifier: 'catalog:'
-        version: 2.1.0
-      plist:
-        specifier: 'catalog:'
-        version: 5.1.1
+        version: 5.12.1
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -1596,35 +1621,14 @@ importers:
         specifier: 'catalog:'
         version: 8.3.8(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2)
 
-  products/apps/creative-cloud/multi-app/atelier/protocol:
-    dependencies:
-      '@rasm/applications':
-        specifier: workspace:*
-        version: link:../../../../../../libs/typescript/macos/applications
-      '@rasm/cep':
-        specifier: workspace:*
-        version: link:../../../../../../libs/typescript/creative-cloud/cep
-      '@rasm/extendscript':
-        specifier: workspace:*
-        version: link:../../../../../../libs/typescript/creative-cloud/extendscript
-      '@rasm/object-model':
-        specifier: workspace:*
-        version: link:../../../../../../libs/typescript/creative-cloud/object-model
-      '@rasm/rpc':
-        specifier: workspace:*
-        version: link:../../../../../../libs/typescript/network/rpc
-      '@rasm/search':
-        specifier: workspace:*
-        version: link:../../../../../../libs/typescript/data/search
-      effect:
-        specifier: 'catalog:'
-        version: 4.1.4
-
   products/apps/creative-cloud/photoshop/atelier:
     dependencies:
-      '@rasm/atelier-protocol':
+      '@rasm/mcp':
         specifier: workspace:*
-        version: link:../../multi-app/atelier/protocol
+        version: link:../../../../../libs/typescript/ai/mcp
+      '@rasm/object-model':
+        specifier: workspace:*
+        version: link:../../../../../libs/typescript/creative-cloud/object-model
       '@rasm/photoshop':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/creative-cloud/photoshop
@@ -4526,6 +4530,10 @@ packages:
       '@emnapi/core': ^1.7.1 || 2.0.0-beta.2 || 2.0.0-beta.3
       '@emnapi/runtime': ^1.7.1 || 2.0.0-beta.2 || 2.0.0-beta.3
 
+  '@noble/hashes@2.4.0':
+    resolution: {integrity: sha512-X5XaVWZIBCT7HHZGm5I7ZQXDwLG+bGXuSrMQAW+7Zvl87h1kmc1ZB1VSRJcpUfoUrGQp4Fkoxm5kZ+Ms+aW+eA==}
+    engines: {node: '>= 20.19.0'}
+
   '@nodable/entities@3.1.0':
     resolution: {integrity: sha512-LsS/DjHr+uDM647Gru/cA8+J3a3HfhttwCKLyuoyN7yXTFCxKBtSgMQBvrW9yNPa2/zDRUNuGPaH5QUFoa4arQ==}
 
@@ -5852,6 +5860,21 @@ packages:
     resolution: {integrity: sha512-ddrbwhiJmq4lwiI73A+74AmsytBYb/YqaSgej5CbtHfLVoCUsS+suW/oD+dvUEzfihhZFxTXNYE9gZh/w1Vjmw==}
     engines: {node: '>=20'}
     hasBin: true
+
+  '@plist/binary.parse@1.1.0':
+    resolution: {integrity: sha512-0Bkyt9rCZnlEHQghafWStePBMquIne+9Z9nFTns8OF3ku4QsQ2HMdSSM1MvQfc+6JOU0Q5JlGvAPEUtP9meFsw==}
+
+  '@plist/common@1.1.0':
+    resolution: {integrity: sha512-zZAx3dLVsDaW/ulxCbHS3ptVUnO5XEPQ75UPyNJpwPdv9ViWLYXQmbYNmFR8thKpw067RAORuQpBWHvKPffvIg==}
+
+  '@plist/openstep.parse@1.1.1':
+    resolution: {integrity: sha512-ZUDkVGVy4MIoq4D8WDD+Bb10W8rnNopSoF9JBNmaEZuJY3KeNSZvj9to1TkZo99EqEP9OM5bcUR5wzFrrqlbGg==}
+
+  '@plist/parse@1.1.0':
+    resolution: {integrity: sha512-s/8zU3ryJCJGLjd0KWZYaM07+05Y5V4JmPM7F5I1o53a5qXh0iaZ7n1nyxZ/viXgN6Qrk7OxtY5mYoRwjvuhbQ==}
+
+  '@plist/xml.parse@1.1.0':
+    resolution: {integrity: sha512-g3FIK0LjizCi4lIDjtvJY6rQxGQHBlcZP56K3jGHkD2plmNYn9hs1rhtigDbyBfCmIQhqLNWtl3e2JJiL9h3Vw==}
 
   '@polka/url@1.0.0-next.29':
     resolution: {integrity: sha512-wwQAWhWSuHaag8c4q/KN/vCoeOJYshAIvMQwD4GpSb3OiZklFfvAgmj0VCBBImRpuF/aFgIRzllXlVX93Jevww==}
@@ -7471,6 +7494,10 @@ packages:
   fast-xml-builder@1.3.2:
     resolution: {integrity: sha512-OX91VSlShLPDgRZV7tk/YQ4l8tT75QziF5Ixg8g4PFbCVPjuTWwN+yQfAxLJ0dufJpprdOd6HlM74Jhd39TcBQ==}
 
+  fast-xml-parser@4.5.7:
+    resolution: {integrity: sha512-a6Qh1RMCNbSrU1+sAyAAZH3rTe+OaWJbNZIq0S+ifZciUUOQtlVxBJwoTUE2bYhysmG/RYyI5WJFIKdBahJdrQ==}
+    hasBin: true
+
   fast-xml-parser@5.12.1:
     resolution: {integrity: sha512-wR8dO/fx+z8C5exuem1e7BKOWvjsuzvjS/tvA/Xu3Z1zQqJGcXrPzXbcAiaMgp2KjreEROcTkmnnisrcmJ2hYQ==}
     hasBin: true
@@ -8766,6 +8793,9 @@ packages:
     peerDependenciesMeta:
       '@types/node':
         optional: true
+
+  strnum@1.1.2:
+    resolution: {integrity: sha512-vrN+B7DBIoTTZjnPNewwhx6cBA/H+IS7rfW68n7XxC1y7uoiGQBxaKzqucGUgavX15dJgiGztLJ8vxuEzwqBdA==}
 
   strnum@2.5.1:
     resolution: {integrity: sha512-UM4nTLWzQiDBseVxUGxN0wJzIk0UU89Qi7pKXz9qISo+lhviJikTuikBsK/oFRlpvYHvSdz0TVoLyQ+sEpYwxA==}
@@ -10613,7 +10643,9 @@ snapshots:
       '@eslint/core': 1.2.1
       levn: 0.4.1
 
-  '@exodus/bytes@1.16.0': {}
+  '@exodus/bytes@1.16.0(@noble/hashes@2.4.0)':
+    optionalDependencies:
+      '@noble/hashes': 2.4.0
 
   '@grpc/grpc-js@1.14.7':
     dependencies:
@@ -10905,6 +10937,8 @@ snapshots:
       '@emnapi/runtime': 1.11.2
       '@tybys/wasm-util': 0.10.5
     optional: true
+
+  '@noble/hashes@2.4.0': {}
 
   '@nodable/entities@3.1.0': {}
 
@@ -11944,6 +11978,29 @@ snapshots:
   '@playwright/test@1.66.0-alpha-2026-11-16':
     dependencies:
       playwright: 1.66.0-alpha-2026-11-16
+
+  '@plist/binary.parse@1.1.0':
+    dependencies:
+      '@plist/common': 1.1.0
+
+  '@plist/common@1.1.0': {}
+
+  '@plist/openstep.parse@1.1.1':
+    dependencies:
+      '@plist/common': 1.1.0
+
+  '@plist/parse@1.1.0':
+    dependencies:
+      '@plist/binary.parse': 1.1.0
+      '@plist/common': 1.1.0
+      '@plist/openstep.parse': 1.1.1
+      '@plist/xml.parse': 1.1.0
+
+  '@plist/xml.parse@1.1.0':
+    dependencies:
+      '@plist/common': 1.1.0
+      base64-js: 1.5.1
+      fast-xml-parser: 4.5.7
 
   '@polka/url@1.0.0-next.29': {}
 
@@ -13599,6 +13656,10 @@ snapshots:
       path-expression-matcher: 1.6.2
       xml-naming: 0.3.0
 
+  fast-xml-parser@4.5.7:
+    dependencies:
+      strnum: 1.1.2
+
   fast-xml-parser@5.12.1:
     dependencies:
       '@nodable/entities': 3.1.0
@@ -15060,6 +15121,8 @@ snapshots:
   stripe@23.1.0(@types/node@26.6.6):
     optionalDependencies:
       '@types/node': 26.6.6
+
+  strnum@1.1.2: {}
 
   strnum@2.5.1:
     dependencies:

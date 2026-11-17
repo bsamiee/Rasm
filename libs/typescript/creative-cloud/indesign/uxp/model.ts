@@ -157,7 +157,6 @@ class Model extends Context.Service<Model>()('@rasm/indesign/uxp/model', {
             retried,
         );
         return Object.assign(model, {
-            exported,
             classes,
             enumerations,
             owning,

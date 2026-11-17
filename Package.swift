@@ -115,7 +115,7 @@ let applications: [Target] = [
     .target(
         name: "Atelier",
         dependencies: [
-            "AppleEvents", "ApplicationServer", "Applications", "CurrentProcess", "Encoding", "Fonts", "JSONRPC", "Results", "ScreenCapture", "Telemetry", "Updater",
+            "ApplicationServer", "Applications", "CurrentProcess", "Encoding", "JSONRPC", "Results", "Telemetry", "Updater",
             .product(name: "Logging", package: "swift-log"), .product(name: "ServiceLifecycle", package: "swift-service-lifecycle"),
             .product(name: "Tracing", package: "swift-distributed-tracing"), .product(name: "UnixSignals", package: "swift-service-lifecycle"),
         ],

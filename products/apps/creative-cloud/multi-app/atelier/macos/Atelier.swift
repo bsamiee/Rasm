@@ -1,16 +1,13 @@
 import AppKit
-import AppleEvents
 import ApplicationServer
 import Applications
 import CoreServices
 import CurrentProcess
 import Encoding
-import Fonts
 import Foundation
 import JSONRPC
 import Logging
 import Results
-import ScreenCapture
 import ServiceLifecycle
 import ServiceManagement
 import System
@@ -22,18 +19,6 @@ import Updater
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 private let adobePrefix: String = "com.adobe."
-private let activatingCommands: KeyValuePairs<String, [String]> = [
-    "\(adobePrefix)InDesign": ["UIUIshow", "K2LKrvlO", "K2LKrvlB"],
-    "\(adobePrefix)Acrobat.Pro": ["CARObfrt"],
-    "\(adobePrefix)PremierePro": ["CR8RCRPr"],
-]
-
-// --- [MODELS] --------------------------------------------------------------------------
-
-private enum FaceRequest: Decodable, Sendable {
-    case faces
-    case face(name: String)
-}
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -58,7 +43,6 @@ enum Atelier {
                     return
                 }
                 do { try checkAccessibilityTrust(prompting: true) } catch { logger.notice("Started without Accessibility trust", error: error) }
-                do { try checkCaptureAccess(prompting: true) } catch { logger.notice("Started without Screen Recording grant", error: error) }
                 let updater = Updater(resting: .prohibited)
                 defer { extendLifetime(updater) }
                 var context = InstrumentationContext.topLevel
@@ -69,13 +53,8 @@ enum Atelier {
                             reading: FileHandle.standardInput.bytes.jsonLines,
                             writing: { line in try FileDescriptor.standardOutput.writeAll(line) },
                             admitting: { NSPredicate(format: "%K BEGINSWITH %@", kMDItemCFBundleIdentifier as String, adobePrefix) },
-                            refusing: { installation in Set(activatingCommands.first { stem, _ in installation.identifier.hasPrefix(stem) }?.value.compactMap(UInt64.init(sdef:)) ?? []) },
-                        ) { (request: FaceRequest) in
-                            switch request {
-                                case .faces: .value(FontFace.available())
-                                case .face(let name): try .value(FontFace(named: name))
-                            }
-                        }
+                            refusing: { _ in [] },
+                        )
                     }
                 }
             } catch {

@@ -3,17 +3,15 @@
     "private": true,
     "description": "Atelier Illustrator",
     "type": "module",
-    "exports": {
-        "./extendscript": "./extendscript.ts",
-        "./tools": "./tools.ts"
-    },
     "dependencies": {
-        "@rasm/atelier-protocol": "workspace:*",
+        "@rasm/cep": "workspace:*",
         "@rasm/extendscript": "workspace:*",
-        "@rasm/illustrator": "workspace:*"
+        "@rasm/illustrator": "workspace:*",
+        "@rasm/mcp": "workspace:*",
+        "@rasm/object-model": "workspace:*",
+        "effect": "catalog:"
     },
     "devDependencies": {
-        "@rasm/cep": "workspace:*",
         "@types/node": "catalog:",
         "types-for-adobe": "catalog:",
         "vite": "catalog:"

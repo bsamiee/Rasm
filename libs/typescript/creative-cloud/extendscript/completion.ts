@@ -24,7 +24,7 @@ const Completion = Object.assign(Completions, {
             },
         }),
 });
-const Envelope = <Tag extends string, Payload extends Schema.Top>({ _tag, payloadSchema }: { readonly _tag: Tag; readonly payloadSchema: Payload }) => Schema.Struct({ tag: Schema.Literal(_tag), label: Schema.String, payload: payloadSchema });
+const Envelope = <Name extends string, Payload extends Schema.Top>({ name, parametersSchema }: { readonly name: Name; readonly parametersSchema: Payload }) => Schema.Struct({ tag: Schema.Literal(name), label: Schema.String, payload: parametersSchema });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

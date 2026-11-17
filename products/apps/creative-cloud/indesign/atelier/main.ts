@@ -1,10 +1,12 @@
-import { adjust, KASHIDA_WIDTHS, listened, Model, STYLISTIC_TAGS, thousandths, typeset } from '@rasm/indesign/uxp';
+import { Adjust, Typeset, Typesetting } from '@rasm/indesign';
+import { adjust, call, change, findChange, font, inspect, invoke, KASHIDA_WIDTHS, kerns, listened, Model, menu, objectModel, open, preflight, rasterize, runs, STYLISTIC_TAGS, session, thousandths, typeset } from '@rasm/indesign/uxp';
+import { Link } from '@rasm/mcp';
+import { HostError, type Rasterize } from '@rasm/object-model';
 import { Settings } from '@rasm/typography';
-import { Plugin } from '@rasm/uxp/plugin';
+import { Plugin, Uxp } from '@rasm/uxp/plugin';
 import { picker, widget } from '@rasm/uxp/spectrum';
-import { Array, Cause, Effect, Function, flow, Match, Number, Option, Record, Schema, Struct } from 'effect';
-import { Adjust, Typeset } from '#/contract';
-import { link } from '#/handlers';
+import { Array, Cause, Effect, Function, flow, Layer, Match, Number, Option, type Path, Record, Schema, Scope, Semaphore, Struct } from 'effect';
+import { ATELIER, InDesign } from '#/tools';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -25,11 +27,43 @@ const nudged = Effect.fnUntraced(function* (deltas: Option.Option<(steps: typeof
     yield* adjust(Adjust.make({ target: item.toSpecifier(), deltas: delta(steps) }));
     return Option.none();
 });
-
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const { linked, scripted } = Effect.runSync(link);
-const typesetting = Effect.fnUntraced(function* (root: HTMLElement, fork: <A, X>(work: Effect.Effect<A, X>) => void) {
+const [model, permit] = Effect.runSync(Effect.all([Model.make, Semaphore.make(1)]));
+const scripted = <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.scopedWith((scope) => Effect.andThen(Scope.provide(session, scope), effect)).pipe(Semaphore.withPermit(permit), Effect.provideService(Model, model));
+const tools = Link.serve(InDesign).pipe(
+    Layer.provide(
+        InDesign.toLayer(
+            Effect.map(Effect.context<Uxp>(), (services) => {
+                const hosted = <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.provideContext(scripted(effect), services);
+                return {
+                    inspect: flow(inspect, hosted),
+                    change: flow(change, hosted),
+                    call: flow(call, hosted),
+                    find_change: flow(findChange, hosted),
+                    invoke: flow(invoke, hosted),
+                    adjust: flow(adjust, hosted),
+                    menu: flow(menu, hosted),
+                    preflight: flow(preflight, hosted),
+                    object_model: flow(objectModel, hosted),
+                    open: flow(open, hosted),
+                    rasterize: ({ target, longestSide, options }: Rasterize) => hosted(Uxp.rendered((file) => rasterize(target, longestSide, options, file.nativePath), 'rasterized.png')),
+                };
+            }),
+        ),
+    ),
+);
+const typesetting = Typesetting.toLayer({ runs: flow(runs, scripted), kerns: flow(kerns, scripted), typeset: flow(typeset, scripted), font: flow(font, scripted) });
+const linked = (extension: string, root: Effect.Effect<URL, HostError, Path.Path>) =>
+    Link.dial(
+        Typesetting,
+        Layer.merge(tools, typesetting),
+        ATELIER,
+        Effect.all([Effect.tryPromise({ try: () => model.app.fullName, catch: HostError.refused('application fullName') }).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Uxp.Entry))), root]).pipe(
+            Effect.map(([{ url }, folder]) => Link.make({ application: new URL(url), extension, root: Option.some(folder), runtime: Option.none() })),
+        ),
+    );
+const panel = Effect.fnUntraced(function* (root: HTMLElement, fork: <A, X>(work: Effect.Effect<A, X>) => void) {
     const { id } = yield* Plugin;
     const mode = picker(
         'Mode',
@@ -63,14 +97,14 @@ const typesetting = Effect.fnUntraced(function* (root: HTMLElement, fork: <A, X>
             }
             sets.forEach(checked(features));
         });
-    const drawn = <E>(change: Effect.Effect<Option.Option<typeof Settings.Partial.Type>, E, Model>) => scripted(Effect.flatMap(change, typesetSelection)).pipe(Effect.flatMap(displayed));
+    const drawn = <E>(requested: Effect.Effect<Option.Option<typeof Settings.Partial.Type>, E, Model>) => scripted(Effect.flatMap(requested, typesetSelection)).pipe(Effect.flatMap(displayed));
     const changed = () => fork(drawn(Effect.succeedNone).pipe(Effect.onError(Function.constant(Effect.sync(() => withheld(inputs)))), Effect.catchTag('Unmatched', Function.constant(Effect.void))));
     const acted = flow(drawn, Effect.onError(Function.constant(Effect.sync(changed))), fork);
     const elongated = ({ kashida }: Settings) =>
         Option.map(Option.all([elongation.read(), width.read()]), ([tag, lower]) => ({
             kashida: Match.value(tag).pipe(
-                Match.when('None', (none) => ({ _tag: none })),
-                Match.orElse((stretch) => ({ _tag: stretch, lower, upper: lower, fractional: elongating(kashida) && kashida.fractional })),
+                Match.when('None', () => Settings.fields.kashida.schema.cases.None.make({})),
+                Match.orElse((stretch) => Settings.fields.kashida.schema.cases[stretch].make({ ...(elongating(kashida) ? Struct.omit(kashida, ['_tag']) : {}), lower, upper: lower })),
             ),
         }));
     const reshaped = () => acted(Effect.map(typesetSelection(Option.none()), elongated));
@@ -86,4 +120,4 @@ const typesetting = Effect.fnUntraced(function* (root: HTMLElement, fork: <A, X>
     yield* Effect.sync(changed);
 }, scripted);
 
-Plugin.serve({ link: linked, panels: { typesetting } });
+Plugin.serve({ link: linked, panels: { typesetting: panel } });

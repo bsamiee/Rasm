@@ -14,7 +14,10 @@
             "path": "../../../../../libs/typescript/creative-cloud/cep"
         },
         {
-            "path": "../../multi-app/atelier/protocol"
+            "path": "../../../../../libs/typescript/creative-cloud/object-model"
+        },
+        {
+            "path": "../../../../../libs/typescript/ai/mcp"
         },
         {
             "path": "../../../../../libs/typescript/creative-cloud/aftereffects"

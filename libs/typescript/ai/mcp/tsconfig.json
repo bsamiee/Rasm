@@ -9,6 +9,9 @@
         },
         {
             "path": "../../data/search"
+        },
+        {
+            "path": "../../network/rpc"
         }
     ]
 }

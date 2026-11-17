@@ -1,4 +1,4 @@
-import { illegalArgument, keys, preserve, within } from '@rasm/extendscript/host';
+import { declaration, illegalArgument, keys, preserve, within } from '@rasm/extendscript/host';
 import { type Containment, read } from '@rasm/object-model/host';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -28,6 +28,7 @@ const undo = (label: string) => {
         app.endUndoGroup();
     };
 };
+const declared = (name: string | undefined): unknown => declaration($.global, app, 1, name);
 const open = (path: string): object => {
     const project = app.open(new File(path));
     if (project === null) {
@@ -35,18 +36,18 @@ const open = (path: string): object => {
     }
     return project;
 };
-const rasterize = (composition: object, { target, longestSide, options }: { readonly target: string; readonly longestSide: number; readonly options?: Readonly<Record<string, unknown>> }, path: string): void => {
+const rasterize = (composition: object, longestSide: number, options: Readonly<Record<string, unknown>> | undefined, path: string): void => {
     const accepted = String(read(read(CompItem, 'reflect'), 'name'));
     if (!(composition instanceof CompItem)) {
-        throw illegalArgument(`${target} names a ${String(read(read(composition, 'reflect'), 'name'))}, rasterize takes a ${accepted}`);
+        throw illegalArgument(`${String(read(read(composition, 'reflect'), 'name'))} is no ${accepted}, rasterize takes a ${accepted}`);
     }
     if (options !== undefined) {
-        throw illegalArgument(`${accepted} ${target} takes no PNG options, received ${keys(options).join(', ')}`);
+        throw illegalArgument(`${accepted} ${composition.name} takes no PNG options, received ${keys(options).join(', ')}`);
     }
     const longest = Math.max(composition.width, composition.height);
     const factor = Math.ceil(longest / longestSide);
     if (factor > COARSEST) {
-        throw illegalArgument(`${target} spans ${longest} px and resolutionFactor stops at ${COARSEST}, longestSide takes ${Math.ceil(longest / COARSEST)} or more`);
+        throw illegalArgument(`${accepted} ${composition.name} spans ${longest} px and resolutionFactor stops at ${COARSEST}, longestSide takes ${Math.ceil(longest / COARSEST)} or more`);
     }
     within(
         () => preserve(composition, { resolutionFactor: [factor, factor] }),
@@ -64,4 +65,4 @@ const rasterize = (composition: object, { target, longestSide, options }: { read
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { containment, open, rasterize, session, undo };
+export { containment, declared, open, rasterize, session, undo };

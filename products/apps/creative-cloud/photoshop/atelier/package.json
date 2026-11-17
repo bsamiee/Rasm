@@ -6,12 +6,9 @@
     "imports": {
         "#/*": "./*.ts"
     },
-    "exports": {
-        "./contract": "./contract.ts",
-        "./tools": "./tools.ts"
-    },
     "dependencies": {
-        "@rasm/atelier-protocol": "workspace:*",
+        "@rasm/mcp": "workspace:*",
+        "@rasm/object-model": "workspace:*",
         "@rasm/photoshop": "workspace:*",
         "@rasm/uxp": "workspace:*",
         "effect": "catalog:"

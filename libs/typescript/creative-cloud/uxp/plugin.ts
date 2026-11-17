@@ -43,6 +43,7 @@ import {
 } from 'effect';
 import { FetchHttpClient } from 'effect/http';
 import { RpcMessage, RpcSerialization, RpcServer } from 'effect/rpc';
+import { imageSize } from 'image-size';
 import { UxpManifest } from '#/manifest';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -63,6 +64,7 @@ const MANIFEST = `plugin:/${UxpManifest.file}`;
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Thrown = Schema.Struct({ message: Schema.Unknown });
+const Measured = Schema.Struct({ width: Schema.Int, height: Schema.Int }).annotate({ description: 'Image size in pixels' });
 const Chunk = Schema.Union([Schema.String, Schema.Uint8Array.pipe(Schema.decodeTo(Schema.String, { decode: SchemaGetter.transform((bytes) => new TextDecoder().decode(bytes)), encode: SchemaGetter.forbiddenEncoding }))]);
 const Parameter = Schema.Struct({ type: Schema.String, start: Schema.Int, end: Schema.Int, left: Schema.OptionFromOptionalKey(Schema.Struct({ start: Schema.Int, end: Schema.Int })) });
 const Declared = Schema.Struct({ body: Schema.Tuple([Schema.Struct({ expression: Schema.Struct({ body: Schema.Struct({ body: Schema.Tuple([Schema.Struct({ value: Schema.Struct({ params: Schema.Array(Parameter) }) })]) }) }) })]) });
@@ -122,6 +124,17 @@ class Uxp extends Context.Service<Uxp, { readonly uxp: typeof uxp; readonly fs: 
             Effect.filterOrFail(Schema.is(Callable), (value) => new Cause.IllegalArgumentError(`code evaluates to ${typeof value}, not a body function`)),
             Effect.map((body) => Effect.try({ try: (): unknown => body(), catch: Uxp.thrown })),
         );
+    static readonly rendered = Effect.fnUntraced(function* <E, R>(write: (file: Awaited<ReturnType<Awaited<ReturnType<typeof uxp.storage.localFileSystem.getTemporaryFolder>>['createFile']>>) => Effect.Effect<void, E, R>, name: string) {
+        const { uxp: host, fs: files } = yield* Uxp;
+        const folder = yield* Effect.tryPromise({ try: () => host.storage.localFileSystem.getTemporaryFolder(), catch: HostError.refused('temporary folder') });
+        const file = yield* Effect.acquireRelease(Effect.tryPromise({ try: () => folder.createFile(name, { overwrite: true }), catch: HostError.refused(`${name} in ${folder.nativePath}`) }), (entry) =>
+            Effect.orDie(Effect.tryPromise({ try: () => entry.delete(), catch: HostError.refused(`delete of ${entry.nativePath}`) })),
+        );
+        yield* write(file);
+        const image = yield* Effect.try({ try: () => new Uint8Array(files.readFileSync(file.nativePath)), catch: HostError.refused(`read of ${file.nativePath}`) });
+        const size = yield* Effect.try({ try: () => imageSize(image), catch: HostError.refused(`image size of ${file.nativePath}`) });
+        return { image, ...(yield* Schema.decodeEffect(Measured)(size)) };
+    }, Effect.scoped);
     static readonly restore = (target: object, saved: Record.ReadonlyRecord<string, unknown>) =>
         pipe(
             saved,

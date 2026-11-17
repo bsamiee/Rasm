@@ -2,7 +2,7 @@
     "name": "@rasm/illustrator",
     "version": "0.1.0",
     "private": true,
-    "description": "Illustrator DOM for ExtendScript: its containment table, alert suppression, open, and rasterize of a document, artboard, or page item through a temporary artboard",
+    "description": "Illustrator DOM for ExtendScript: its containment table, object model with scripting dictionary enumerations, alert suppression, open, and rasterize of a document, artboard, or page item through a temporary artboard",
     "license": "MIT",
     "repository": {
         "type": "git",

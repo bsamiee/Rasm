@@ -10,8 +10,8 @@ import type { PersistedQueue } from 'effect/persistence';
 
 const senders = {
     tailscale: Effect.fnUntraced(function* (name: string, secret: Redacted.Redacted) {
-        const [webhook, hosts] = yield* Effect.all([TailscaleEvent.webhook([secret]), Config.map(Config.Array(Schema.String, 'TAILSCALE_HOSTS'), (names) => new Set(names))]);
-        const logged = TailscaleEvent.matchOrElse({ KeyExpiry: ({ data }) => (hosts.has(data.deviceName) ? Effect.logError : Effect.logWarning), Policy: () => Effect.logWarning }, () => Effect.logInfo);
+        const webhook = yield* TailscaleEvent.webhook([secret]);
+        const logged = TailscaleEvent.matchOrElse({ KeyExpiry: () => Effect.logWarning, Policy: () => Effect.logWarning }, () => Effect.logInfo);
         const record = Effect.fnUntraced(function* (id: string, occurred: typeof TailscaleEvent.Type) {
             const { data, ...fields } = yield* Effect.orDie(Schema.encodeEffect(TailscaleEvent)(occurred));
             const labels = Record.mapKeys<string, unknown, string>({ ...fields, ...data }, (field) => `${name}.${field}`);

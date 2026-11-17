@@ -5,8 +5,11 @@
         "declarationMap": false,
         "noEmit": true,
         "lib": ["es2022", "dom"],
+        "module": "preserve",
         "types": ["node", "@adobe-uxp-types/uxp/with-protocol"],
-        "paths": { "adobe:indesign": ["${configDir}/node_modules/indesign-uxp-types/flat/module.d.ts"] }
+        "paths": {
+            "adobe:indesign": ["${configDir}/node_modules/indesign-uxp-types/flat/module.d.ts"]
+        }
     },
     "references": [
         {
@@ -16,9 +19,6 @@
             "path": "../../../../../libs/typescript/graphics/typography"
         },
         {
-            "path": "../../../../../libs/typescript/data/search"
-        },
-        {
             "path": "../../../../../libs/typescript/creative-cloud/indesign"
         },
         {
@@ -26,9 +26,6 @@
         },
         {
             "path": "../../../../../libs/typescript/ai/mcp"
-        },
-        {
-            "path": "../../multi-app/atelier/protocol"
         }
     ]
 }

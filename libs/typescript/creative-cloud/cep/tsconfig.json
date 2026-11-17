@@ -16,6 +16,9 @@
         },
         {
             "path": "../../data/search"
+        },
+        {
+            "path": "../../ai/mcp"
         }
     ]
 }

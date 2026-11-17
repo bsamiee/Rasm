@@ -140,7 +140,9 @@ const elongated = Effect.fnUntraced(function* (elongation: Exclude<Settings['kas
 const kashida = Schema.Struct({ kashidas: Schema.Literals(['DEFAULT_KASHIDAS', 'KASHIDAS_OFF'] satisfies Members<typeof KashidasOptions>[]), paragraphJustification: Schema.optionalKey(Schema.Literals(Struct.keys(JUSTIFICATIONS))), paragraphKashidaWidth: kashidaWidth }).pipe(
     Schema.decodeTo(Schema.toType(Settings.fields.kashida), {
         decode: SchemaGetter.transform(({ kashidas, paragraphJustification = 'DEFAULT_JUSTIFICATION', paragraphKashidaWidth }) =>
-            kashidas === 'KASHIDAS_OFF' || paragraphKashidaWidth === KASHIDA_WIDTHS.None ? { _tag: 'None' as const } : { ...JUSTIFICATIONS[paragraphJustification], lower: paragraphKashidaWidth, upper: paragraphKashidaWidth },
+            kashidas === 'KASHIDAS_OFF' || paragraphKashidaWidth === KASHIDA_WIDTHS.None
+                ? Settings.fields.kashida.schema.cases.None.make({})
+                : Settings.fields.kashida.schema.cases[JUSTIFICATIONS[paragraphJustification]._tag].make({ fractional: JUSTIFICATIONS[paragraphJustification].fractional, lower: paragraphKashidaWidth, upper: paragraphKashidaWidth }),
         ),
         encode: SchemaGetter.transformEffect(Match.valueTags({ None: () => Effect.succeed({ kashidas: 'KASHIDAS_OFF' as const, paragraphKashidaWidth: KASHIDA_WIDTHS.None }), Tatweel: elongated, Stretched: elongated })),
     }),

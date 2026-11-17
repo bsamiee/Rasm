@@ -2,7 +2,7 @@ import { ProcessInstance, State } from '@rasm/applications';
 import { ApplicationServer } from '@rasm/applications/node';
 import { Resource } from '@rasm/mcp';
 import { Unmatched } from '@rasm/search';
-import { Array, Effect, flow, Option, Struct, SubscriptionRef } from 'effect';
+import { Array, Effect, Option, Struct, SubscriptionRef } from 'effect';
 import { McpSchema } from 'effect/ai';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -16,11 +16,7 @@ const status = Effect.gen(function* () {
         changes: SubscriptionRef.changes(instances),
         content: (_, instance) => SubscriptionRef.get(instances).pipe(Effect.flatMap(Unmatched.single('running instance', Option.some(instance), (row) => [row.instance])), Effect.map(Struct.get('state'))),
     });
-    return {
-        reported: (instance: typeof ProcessInstance.Type) => template(instance)({ report: State.reports }),
-        answering: (instance: typeof ProcessInstance.Type) => template(instance)({ report: State.reports, refuse: flow(State.asking, Array.isReadonlyArrayNonEmpty) }),
-        launching: (instance: typeof ProcessInstance.Type) => template(instance)({ report: State.reports, refuse: State.launching }),
-    };
+    return (instance: typeof ProcessInstance.Type) => template(instance)({ report: State.reports, refuse: (state) => State.isAnyOf(['exited'])(state) || Array.isReadonlyArrayNonEmpty(State.asking(state)) });
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------

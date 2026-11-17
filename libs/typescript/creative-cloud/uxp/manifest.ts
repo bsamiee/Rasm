@@ -82,6 +82,7 @@ class UxpManifest extends Schema.Class<UxpManifest, { readonly brand: unique sym
     static readonly identity = Schema.fromJsonString(Schema.Struct({ id: Schema.String })).annotate({ description: 'Plugin id, the one manifest field a running plugin reads' });
     static readonly file = 'manifest.json';
     static readonly target = 'es2022';
+    static readonly scripts = { ID: 'idjs', PS: 'psjs' } as const satisfies Partial<Record<UxpManifest['host']['app'], string>>;
 }
 
 // --- [EXPORTS] -------------------------------------------------------------------------

@@ -38,6 +38,7 @@ catalog:
     # --- [PARSING]
 
     plist: 5.1.1 # Property-list parser and builder
+    '@plist/parse': 1.1.0 # Binary, XML, and OpenStep property-list parser
     ssh-config: 5.3.0 # OpenSSH client configuration parser and writer
     yaml: 3.0.0-2
     '@decimalturn/toml-patch': 3.3.3 # TOML edits keeping layout and comments

@@ -3,17 +3,15 @@
     "private": true,
     "description": "Atelier After Effects",
     "type": "module",
-    "exports": {
-        "./extendscript": "./extendscript.ts",
-        "./tools": "./tools.ts"
-    },
     "dependencies": {
         "@rasm/aftereffects": "workspace:*",
-        "@rasm/atelier-protocol": "workspace:*",
-        "@rasm/extendscript": "workspace:*"
+        "@rasm/cep": "workspace:*",
+        "@rasm/extendscript": "workspace:*",
+        "@rasm/mcp": "workspace:*",
+        "@rasm/object-model": "workspace:*",
+        "effect": "catalog:"
     },
     "devDependencies": {
-        "@rasm/cep": "workspace:*",
         "@types/node": "catalog:",
         "types-for-adobe": "catalog:",
         "vite": "catalog:"

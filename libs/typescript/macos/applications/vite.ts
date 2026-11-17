@@ -83,7 +83,7 @@ const helper = Effect.fnUntraced(function* (
         generateBundle(this: Rolldown.PluginContext, _options, output): Promise<void> {
             const folders = Array.dedupe(Object.values(output).flatMap((file) => (file.type === 'chunk' ? file.moduleIds.filter(isAbsolute).map(dirname) : [])));
             const assets = Record.fromIterableWith(
-                Array.flatMap(folders, (folder) => globSync('*.wasm', { cwd: folder, withFileTypes: true })),
+                Array.flatMap(folders, (folder) => globSync('*.{wasm,trie}', { cwd: folder, withFileTypes: true })),
                 ({ name: file, parentPath }) => [file, join(parentPath, file)],
             );
             const sea = JSON.stringify({ main: join(outDir, `${name}.mjs`), mainFormat: 'module', output: join(outDir, name), useVfs: true, disableExperimentalSEAWarning: true, assets });

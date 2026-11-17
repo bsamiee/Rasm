@@ -7,7 +7,6 @@
         "types": ["node", "vite/client"]
     },
     "include": ["**/*", "package.json"],
-    "exclude": ["protocol"],
     "references": [
         {
             "path": "../../../../../libs/typescript/creative-cloud/uxp"
@@ -25,9 +24,6 @@
             "path": "../../../../../libs/typescript/data/quran"
         },
         {
-            "path": "../../../../../libs/typescript/runtime/process"
-        },
-        {
             "path": "../../../../../libs/typescript/creative-cloud/object-model"
         },
         {
@@ -40,10 +36,10 @@
             "path": "../../../../../libs/typescript/creative-cloud/extendscript"
         },
         {
-            "path": "../../../../../libs/typescript/creative-cloud/cep"
+            "path": "../../../../../libs/typescript/creative-cloud/desktop"
         },
         {
-            "path": "protocol"
+            "path": "../../../../../libs/typescript/creative-cloud/cep"
         },
         {
             "path": "../../../../../libs/typescript/macos/applications"

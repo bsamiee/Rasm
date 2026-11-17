@@ -1,17 +1,17 @@
-import { Array, Function, flow, Match, Number, Option, Order, Predicate, pipe, Record, Result, Schema, Struct, UndefinedOr } from 'effect';
+import { Array, Data, Function, flow, Number, Option, Order, pipe, Record, Result, Schema, Struct, UndefinedOr } from 'effect';
 import { Feature, type Font } from 'harfbuzzjs';
-import { type JoiningGroup, Script } from 'icu';
+import { Script } from 'icu';
+import { joins } from '#/arabic/joining';
+import { kashidaFlagged, kashidaMechanisms, kashidaPrepared, kashidaRanks } from '#/arabic/kashida';
 import { Direction, Settings } from '#/settings';
-import { Face } from '#/shaping/face';
+import type { Face } from '#/shaping/face';
 import { ShapedText } from '#/shaping/shaped-text';
-import { Span, Word } from '#/shaping/word';
+import { baseDirection, letters, words } from '#/shaping/word';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Run = typeof ShapedText.Run.Type;
 type Glyph = ShapedText['glyphs'][number];
-type Place = Settings['justification']['places'][number];
-type Elongation = Option.Option.Value<ReturnType<typeof elongationOf>>;
 type Line = Array.NonEmptyReadonlyArray<Measured>;
 interface Styled {
     readonly face: Face;
@@ -23,18 +23,11 @@ interface Amounts {
     readonly letter: number;
     readonly glyph: number;
 }
-interface Measured extends Styled {
-    readonly shaped: ShapedText;
-    readonly base: ReturnType<typeof bases>;
-    readonly scales: ReadonlyMap<number, number>;
-    readonly kashida: number;
-    readonly alternates: number;
-    readonly amounts: Amounts;
-}
 interface Mechanism {
+    readonly index: number;
     readonly capacity: number;
     readonly continuous: boolean;
-    readonly take: (line: Line, amount: number) => Line;
+    readonly take: (measured: Measured, amount: number) => Measured;
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -44,10 +37,37 @@ const WORD_SPACE = /^[\u{20}\u{A0}]$/u;
 const SPACE_SEPARATOR = /^\p{Zs}$/u;
 const SPACINGS = Struct.keys(Settings.fields.spacing.schema.fields);
 const MECHANISMS = [...SPACINGS, 'alternates', 'kashida'] as const;
-const BY_RANK = Order.Struct({ rank: Order.Number, cluster: Order.flip(Order.Number) });
 
 // --- [MODELS] --------------------------------------------------------------------------
 
+class Measured extends Data.Class<
+    Styled & {
+        readonly shaped: ShapedText;
+        readonly base: ReturnType<typeof bases>;
+        readonly scales: ReadonlyMap<number, number>;
+        readonly kashida: number;
+        readonly alternates: number;
+        readonly amounts: Amounts;
+    }
+> {
+    static readonly of = (styled: Styled, run: Run) => {
+        const shaped = ShapedText.of(styled.face, run, styled.settings);
+        return new Measured({ ...styled, run, shaped, base: bases(styled.face, shaped), scales: new Map(), kashida: 0, alternates: 0, amounts: { words: {}, letter: 0, glyph: 0 } });
+    };
+
+    reshaped(run: Run, scales: ReadonlyMap<number, number> = this.scales, font: Font = this.face.font): Measured {
+        const { text, glyphs, missing } = ShapedText.of({ font, em: this.face.em }, run, this.settings);
+        const shaped = ShapedText.make({ text, glyphs: glyphs.map((glyph) => UndefinedOr.match(scales.get(glyph.cluster), { onUndefined: () => glyph, onDefined: (scale) => ({ ...rescaled(glyph, scale), xAdvance: glyph.xAdvance * scale }) })), missing });
+        return new Measured({ ...this, run, scales, shaped, base: bases(this.face, shaped) });
+    }
+    featured(feature: Feature, limit: number) {
+        const next = this.reshaped({ ...this.run, features: [...this.run.features, feature] });
+        return Option.liftPredicate({ next, gain: next.shaped.advance - this.shaped.advance }, ({ gain }) => gain > 0 && gain <= limit);
+    }
+    gained(mechanism: 'alternates' | 'kashida', width: number) {
+        return new Measured({ ...this, [mechanism]: this[mechanism] + width });
+    }
+}
 class Justification extends Schema.Class<Justification, { readonly brand: unique symbol }>('Justification')({
     runs: Schema.NonEmptyArray(
         Schema.Struct({
@@ -60,30 +80,21 @@ class Justification extends Schema.Class<Justification, { readonly brand: unique
     slack: Schema.Finite.annotate({ description: 'Width left in em, negative when overfull' }),
     addedWidths: Schema.Struct(Struct.Record(MECHANISMS, Schema.Finite)).annotate({ description: 'Width each mechanism added in em' }),
 }) {
-    static readonly places = (text: string, rows: readonly Place[], allowed: (cluster: number) => boolean = Function.constTrue) =>
-        Array.sort(
-            Array.getSomes(
-                Word.of(text).map(({ joins }) =>
-                    pipe(
-                        joins.flatMap((join) => candidates(text, join, rows)).filter(({ cluster }) => allowed(cluster)),
-                        Array.match({ onEmpty: Option.none, onNonEmpty: flow(Array.min(BY_RANK), Option.some) }),
-                    ),
-                ),
-            ),
-            BY_RANK,
-        );
     static readonly natural = (runs: Array.NonEmptyReadonlyArray<Styled>) => lineWidth(Array.map(runs, prepared));
     static readonly of = (runs: Array.NonEmptyReadonlyArray<Styled>, width: number, last = false): Justification => {
         const [first] = runs;
         const text = runs.map(({ run }) => Option.match(run.item, { onNone: () => run.text, onSome: (span) => span.slice(run.text) })).join('');
-        const alignment = first.settings.lineAlignment({ last, single: Word.of(text).length <= 1 });
+        const alignment = first.settings.lineAlignment({ last, single: words(text).length <= 1 });
         const aligned = { start: 0, center: 0.5, end: 1, justified: 0 }[alignment];
-        const direction = Option.getOrElse(first.settings.direction, () => Word.direction(text));
+        const direction = Option.getOrElse(first.settings.direction, () => baseDirection(text));
         const unjustified: Line = Array.map(runs, prepared);
         const justifying = alignment === 'justified' || width < lineWidth(unjustified);
         const ranks = Array.dedupe(
             Array.sort(
-                runs.flatMap(({ settings: { justification: ranked } }) => [ranked.word, ranked.alternates, ranked.letter, ranked.glyph, ...Object.values(ranked.scripts), ...ranked.places.map(Struct.get('rank'))]),
+                runs.flatMap(({ settings }) => {
+                    const { word, alternates: alternated, letter, glyph, scripts } = settings.justification;
+                    return [word, alternated, letter, glyph, ...Object.values(scripts), ...kashidaRanks(settings)];
+                }),
                 Order.Number,
             ),
         );
@@ -118,25 +129,25 @@ const alternate = (settings: Settings) => Option.filter(Record.get(settings.feat
 const rescaled = (glyph: Glyph, ratio: number): Glyph => ({ ...glyph, xOffset: glyph.xOffset * ratio, scale: glyph.scale * ratio, extents: Option.map(glyph.extents, (box) => ({ ...box, xBearing: box.xBearing * ratio, width: box.width * ratio })) });
 const isWordSpace = (text: string, cluster: number) => WORD_SPACE.test(text.charAt(cluster));
 const isLetter = (text: string, { class: kind, xAdvance, cluster }: Glyph) => kind !== 'MARK' && xAdvance !== 0 && !SPACE_SEPARATOR.test(text.charAt(cluster));
-const scriptAt = (letters: ReturnType<typeof Word.letters>, cluster: number) =>
+const scriptAt = (placed: ReturnType<typeof letters>, cluster: number) =>
     pipe(
-        Array.findLast(letters, ({ offset }) => offset < cluster),
-        Option.orElse(() => Array.findFirst(letters, ({ offset }) => offset > cluster)),
+        Array.findLast(placed, ({ offset }) => offset < cluster),
+        Option.orElse(() => Array.findFirst(placed, ({ offset }) => offset > cluster)),
         Option.map(({ script }) => script.value),
         Option.getOrElse(() => Script.Common.value),
     );
 const bases = (face: Face, shaped: ShapedText) => {
     const wordSpace = 0x20;
     const { text } = shaped;
-    const letters = Word.letters(text);
-    const joins = Word.of(text).flatMap(Struct.get('joins'));
-    const joinAt = (cluster: number) => Array.findFirstIndex(joins, (join) => join.contains(cluster));
+    const lettered = letters(text);
+    const joined = words(text).flatMap((word) => joins(text, word));
+    const joinAt = (cluster: number) => Array.findFirstIndex(joined, (join) => join.contains(cluster));
     const placed = Array.filterMap(shaped.glyphs, (each, at) => (isLetter(text, each) ? Result.succeed({ at, cluster: each.cluster }) : Result.failVoid));
     return {
         words: Record.map(
             Array.groupBy(
                 shaped.glyphs.filter(({ cluster }) => isWordSpace(text, cluster)),
-                ({ cluster }) => scriptAt(letters, cluster),
+                ({ cluster }) => scriptAt(lettered, cluster),
             ),
             (spaces) => Number.sumAll(spaces.map(Struct.get('xAdvance'))),
         ),
@@ -153,156 +164,40 @@ const widths = ({ base, settings: { spacing }, amounts }: Measured) => ({
 const lineWidth = (line: Line) =>
     Number.sumAll(
         line.map((measured) => {
-            const { words, letter, glyph } = widths(measured);
-            return measured.shaped.advance + summed(words) - summed(measured.base.words) + letter + glyph - measured.base.glyph;
+            const { words: spaces, letter, glyph } = widths(measured);
+            return measured.shaped.advance + summed(spaces) - summed(measured.base.words) + letter + glyph - measured.base.glyph;
         }),
     );
-const remeasured = (measured: Measured, run: Run, scales = measured.scales, font: Font = measured.face.font): Measured => {
-    const { text, glyphs, missing } = ShapedText.of({ font, em: measured.face.em }, run, measured.settings);
-    const shaped = ShapedText.make({ text, glyphs: glyphs.map((glyph) => UndefinedOr.match(scales.get(glyph.cluster), { onUndefined: () => glyph, onDefined: (scale) => ({ ...rescaled(glyph, scale), xAdvance: glyph.xAdvance * scale }) })), missing });
-    return { ...measured, run, scales, shaped, base: bases(measured.face, shaped) };
-};
 const prepared = (styled: Styled): Measured => {
-    const { face, run, settings } = styled;
-    const plain = ShapedText.converted({ ...run, features: Option.isSome(alternate(settings)) ? [new Feature(JUSTIFICATION_ALTERNATES, 0), ...run.features] : run.features, flags: Array.union(run.flags, ['PRODUCE_SAFE_TO_INSERT_TATWEEL' as const]) }, settings);
-    const shaped = ShapedText.of(face, plain, settings);
-    const measured: Measured = { ...styled, run: plain, shaped, base: bases(face, shaped), scales: new Map(), kashida: 0, alternates: 0, amounts: { words: {}, letter: 0, glyph: 0 } };
-    return Option.match(elongationOf(settings), {
-        onNone: () => measured,
-        onSome: (elongation) => tatweeled(measured, elongation, eligible(measured, false, 'text').map(Struct.get('cluster')), Option.none()),
-    });
+    const { run, settings } = styled;
+    const plain = ShapedText.converted(kashidaFlagged({ ...run, features: Option.isSome(alternate(settings)) ? [new Feature(JUSTIFICATION_ALTERNATES, 0), ...run.features] : run.features }, settings), settings);
+    return kashidaPrepared(Measured.of(styled, plain));
 };
-
-// --- [KASHIDA]
-
-const elongationOf = (settings: Settings) => Option.liftPredicate(settings.kashida, Settings.fields.kashida.schema.isAnyOf(['Tatweel', 'Stretched']));
-const candidates = (text: string, join: Word['joins'][number], rows: readonly Place[]) => {
-    const within = (groups: Place['before']) => (group: JoiningGroup) => Option.match(groups, { onNone: Function.constTrue, onSome: ({ groups: listed, except }) => listed.includes(group.value) !== except });
-    const follows = (next: Place['next'], letter: Option.Option<JoiningGroup>) => Option.match(next, { onNone: Function.constTrue, onSome: Match.valueTags({ End: () => Option.isNone(letter), Letter: ({ groups }) => Option.exists(letter, within(groups)) }) });
-    const letters = Word.letters(join.slice(text));
-    return Array.getSomes(
-        Array.window(letters, 2).map(([before, after], at) => {
-            const next = Option.map(Array.get(letters, at + 2), Struct.get('group'));
-            const row = Array.findFirst(rows, (each) => within(each.before)(before.group) && within(each.after)(after.group) && follows(each.next, next));
-            return Option.map(row, ({ rank }) => ({ cluster: join.start + after.offset, rank }));
-        }),
-    );
-};
-const eligible = (measured: Measured, stretched: boolean, stage: Place['stage']) => {
-    const flagged = (glyph: Glyph) => glyph.flags.includes('SAFE_TO_INSERT_TATWEEL') || (stretched && measured.face.layout.covers(JUSTIFICATION_ALTERNATES, glyph.glyph));
-    const clusters = new Set(measured.shaped.glyphs.filter(flagged).map(Struct.get('cluster')));
-    return Justification.places(
-        measured.shaped.text,
-        measured.settings.justification.places.filter((row) => row.stage === stage),
-        (cluster) => clusters.has(cluster),
-    );
-};
-const solved = ({ lower, upper }: Elongation, places: number, limit: Option.Option<number>, room: Option.Option<number>) => {
-    const most = Math.min(
-        places,
-        Option.getOrElse(limit, () => places),
-    );
-    const fitted = Option.match(room, {
-        onNone: () => ({ count: most, length: lower }),
-        onSome: (available) => {
-            const count = Math.min(most, Math.floor(available / lower), Math.ceil(available / upper));
-            return { count, length: Number.clamp(available / count, { minimum: lower, maximum: upper }) };
-        },
-    });
-    return Option.liftPredicate(fitted, ({ count }) => count > 0);
-};
-const tatweeled = (measured: Measured, elongation: Elongation, clusters: readonly number[], room: Option.Option<number>) =>
-    Option.getOrElse(
-        Option.gen(function* () {
-            const [nuqta, tatweel] = yield* Option.all([measured.face.nuqta, measured.face.tatweel]);
-            const { count, length } = yield* solved(
-                elongation,
-                clusters.length,
-                measured.settings.justification.kashidas,
-                Option.map(room, (em) => Math.max(0, em) / nuqta),
-            );
-            const span = length * nuqta;
-            const tatweels = yield* Option.liftPredicate(elongation.fractional ? Math.ceil(span / tatweel) : Math.floor(span / tatweel), Number.isGreaterThan(0));
-            return inserted(measured, Array.sort(Array.take(clusters, count), Order.Number), tatweels, elongation.fractional ? span / (tatweels * tatweel) : 1);
-        }),
-        () => measured,
-    );
-const inserted = (measured: Measured, chosen: readonly number[], tatweels: number, scale: number): Measured => {
-    const shifted = (offset: number, precedes: (cluster: number, offset: number) => boolean) => offset + tatweels * chosen.filter((cluster) => precedes(cluster, offset)).length;
-    const { run } = measured;
-    const text = chosen.reduceRight((inserting, cluster) => `${inserting.slice(0, cluster)}${String.fromCodePoint(Face.TATWEEL).repeat(tatweels)}${inserting.slice(cluster)}`, measured.shaped.text);
-    const scales = [...Array.fromIterable(measured.scales).map(([cluster, ratio]) => [shifted(cluster, Number.isLessThanOrEqualTo), ratio] as const), ...chosen.flatMap((cluster) => Array.makeBy(tatweels, (index) => [shifted(cluster, Number.isLessThan) + index, scale] as const))];
-    const features = run.features.map(({ tag, value, start, end }) => new Feature(tag, value, shifted(start, Number.isLessThanOrEqualTo), Math.min(shifted(end, Number.isLessThan), Feature.GLOBAL_END)));
-    const elongated = remeasured(measured, { ...run, text, item: Option.map(run.item, ({ start, end }) => Span.make({ start: shifted(start, Number.isLessThanOrEqualTo), end: shifted(end, Number.isLessThan) })), features }, new Map(scales));
-    return { ...elongated, kashida: measured.kashida + elongated.shaped.advance - measured.shaped.advance };
-};
-const featured = (measured: Measured, feature: Feature, limit: number) => {
-    const next = remeasured(measured, { ...measured.run, features: [...measured.run.features, feature] });
-    return Option.liftPredicate({ next, gain: next.shaped.advance - measured.shaped.advance }, ({ gain }) => gain > 0 && gain <= limit);
-};
-const probed = (current: Measured, cluster: number, left: number) => {
-    const values = Option.match(
-        Array.findFirst(current.shaped.glyphs, (each) => each.cluster === cluster),
-        { onNone: Array.empty<number>, onSome: ({ glyph }) => current.face.layout.variants(JUSTIFICATION_ALTERNATES, glyph) },
-    );
-    const probes = Array.getSomes(values.map((_, index) => Option.map(featured(current, new Feature(JUSTIFICATION_ALTERNATES, index + 1, cluster, cluster + 1), left), ({ next, gain }) => ({ ...next, kashida: current.kashida + gain }))));
-    return Option.getOrElse(Option.map(Option.liftPredicate(probes, Array.isArrayNonEmpty), Array.max(Order.mapInput(Order.Number, ({ kashida }: Measured) => kashida))), () => current);
-};
-const alternated = (measured: Measured, clusters: readonly number[], room: number) => clusters.reduce((current, cluster) => probed(current, cluster, room - (current.kashida - measured.kashida)), measured);
-const reached = (measured: Measured, stretched: boolean, rank: number) =>
-    eligible(measured, stretched, 'line')
-        .filter((place) => place.rank === rank)
-        .map(Struct.get('cluster'));
-const elongated = (current: Measured, elongation: Elongation, rank: number, amount: number) => {
-    const jalted = Predicate.isTagged(elongation, 'Stretched') ? alternated(current, reached(current, true, rank), amount) : current;
-    return tatweeled(jalted, elongation, reached(jalted, false, rank), Option.some(amount - (jalted.kashida - current.kashida)));
-};
-const kashidas = (measured: Measured, index: number, rank: number): readonly Mechanism[] =>
-    Option.match(Option.all([elongationOf(measured.settings), measured.face.nuqta]), {
-        onNone: () => [],
-        onSome: ([elongation, nuqta]) => [
-            {
-                capacity: Option.match(solved(elongation, reached(measured, Predicate.isTagged(elongation, 'Stretched'), rank).length, measured.settings.justification.kashidas, Option.some(globalThis.Number.POSITIVE_INFINITY)), {
-                    onNone: () => 0,
-                    onSome: ({ count, length }) => count * length * nuqta,
-                }),
-                continuous: false,
-                take: (line, amount) => replaced(line, index, (current) => elongated(current, elongation, rank, amount)),
-            },
-        ],
-    });
 
 // --- [DISTRIBUTION]
 
-const replaced = (line: Line, index: number, update: (measured: Measured) => Measured): Line => Array.map(line, (measured, at) => (at === index ? update(measured) : measured));
-const alternates = (measured: Measured, index: number, rank: number): readonly Mechanism[] =>
+const alternates = (measured: Measured, rank: number): readonly Omit<Mechanism, 'index'>[] =>
     Option.match(
         Option.filter(alternate(measured.settings), () => measured.settings.justification.alternates === rank),
         {
             onNone: () => [],
             onSome: (value) => [
                 {
-                    capacity: Option.match(featured(measured, new Feature(JUSTIFICATION_ALTERNATES, value), globalThis.Number.POSITIVE_INFINITY), { onNone: () => 0, onSome: Struct.get('gain') }),
+                    capacity: Option.match(measured.featured(new Feature(JUSTIFICATION_ALTERNATES, value), globalThis.Number.POSITIVE_INFINITY), { onNone: () => 0, onSome: Struct.get('gain') }),
                     continuous: false,
-                    take: (line, amount) =>
-                        replaced(line, index, (current) =>
-                            Option.match(featured(current, new Feature(JUSTIFICATION_ALTERNATES, value), amount), {
-                                onNone: () => current,
-                                onSome: ({ next, gain }) => ({ ...next, alternates: current.alternates + gain }),
-                            }),
-                        ),
+                    take: (current, amount) => Option.match(current.featured(new Feature(JUSTIFICATION_ALTERNATES, value), amount), { onNone: () => current, onSome: ({ next, gain }) => next.gained('alternates', gain) }),
                 },
             ],
         },
     );
-const spacings = (measured: Measured, index: number, rank: number, stretching: boolean): readonly Mechanism[] => {
+const spacings = (measured: Measured, rank: number, stretching: boolean): readonly Omit<Mechanism, 'index'>[] => {
     const {
         base,
         settings: { spacing, justification: ranked },
     } = measured;
     const sign = stretching ? 1 : -1;
-    const continuous = (at: number, { min, desired, max }: Settings['spacing']['word'], width: number, update: (amounts: Amounts, amount: number) => Amounts): readonly Mechanism[] =>
-        at === rank ? [{ capacity: width * (stretching ? max - desired : desired - min), continuous: true, take: (line, amount) => replaced(line, index, (current) => ({ ...current, amounts: update(current.amounts, sign * amount) })) }] : [];
+    const continuous = (at: number, { min, desired, max }: Settings['spacing']['word'], width: number, update: (amounts: Amounts, amount: number) => Amounts): readonly Omit<Mechanism, 'index'>[] =>
+        at === rank ? [{ capacity: width * (stretching ? max - desired : desired - min), continuous: true, take: (current, amount) => new Measured({ ...current, amounts: update(current.amounts, sign * amount) }) }] : [];
     return [
         ...Record.collect(base.words, (script, total) =>
             continuous(
@@ -318,7 +213,9 @@ const spacings = (measured: Measured, index: number, rank: number, stretching: b
         ...Record.collect({ letter: base.slots.size * base.space, glyph: base.glyph }, (key, width) => continuous(ranked[key], spacing[key], width, (amounts, amount) => ({ ...amounts, [key]: amounts[key] + amount }))),
     ].flat();
 };
-const mechanisms = (line: Line, rank: number, stretching: boolean): readonly Mechanism[] => line.flatMap((measured, index) => [...spacings(measured, index, rank, stretching), ...(stretching ? [...alternates(measured, index, rank), ...kashidas(measured, index, rank)] : [])]);
+const mechanisms = (line: Line, rank: number, stretching: boolean): readonly Mechanism[] =>
+    line.flatMap((measured, index) => [...spacings(measured, rank, stretching), ...(stretching ? [...alternates(measured, rank), ...kashidaMechanisms(measured, rank).map((kashida) => ({ ...kashida, continuous: false }))] : [])].map((mechanism) => ({ ...mechanism, index })));
+const applied = (line: Line, { index, take }: Mechanism, amount: number): Line => Array.map(line, (measured, at) => (at === index ? take(measured, amount) : measured));
 const distribute = (line: Line, rank: number, width: number): Line => {
     const slack = width - lineWidth(line);
     const group = mechanisms(line, rank, slack >= 0).filter((mechanism) => mechanism.capacity > 0);
@@ -328,10 +225,10 @@ const distribute = (line: Line, rank: number, width: number): Line => {
         group,
         Result.liftPredicate((mechanism: Mechanism) => mechanism.continuous, Function.identity),
     );
-    const placed = discrete.reduce((current, mechanism) => mechanism.take(current, (target * mechanism.capacity) / total), line);
+    const placed = discrete.reduce((current, mechanism) => applied(current, mechanism, (target * mechanism.capacity) / total), line);
     const rest = Math.max(0, target - Math.abs(lineWidth(placed) + slack - width));
     const shared = Number.sumAll(continuous.map(Struct.get('capacity')));
-    return continuous.reduce((current, mechanism) => mechanism.take(current, Math.min(mechanism.capacity, (rest * mechanism.capacity) / shared)), placed);
+    return continuous.reduce((current, mechanism) => applied(current, mechanism, Math.min(mechanism.capacity, (rest * mechanism.capacity) / shared)), placed);
 };
 
 // --- [FINISHING]
@@ -348,15 +245,15 @@ const finish = (measured: Measured) => {
             Array.findFirst(measured.face.axes, ({ tag }) => tag === 'wdth'),
             () => widening !== 1,
         ),
-        { onNone: () => measured, onSome: ({ value }) => remeasured(measured, measured.run, measured.scales, measured.face.instance({ wdth: value * widening })) },
+        { onNone: () => measured, onSome: ({ value }) => measured.reshaped(measured.run, measured.scales, measured.face.instance({ wdth: value * widening })) },
     );
     const { base } = set;
     const scale = Option.getOrElse(Number.divide(glyphWidth, base.glyph), () => 1);
     const wordRatio = (script: string) => Option.getOrElse(Option.flatMap(Record.get(spaces, script), Number.divide(Option.getOrElse(Record.get(base.words, script), () => 0))), () => spacing.word.desired);
     const slot = Option.getOrElse(Number.divide(letterWidth, base.slots.size), () => 0);
     const { text } = set.shaped;
-    const letters = Word.letters(text);
-    const spaceRatio = (cluster: number) => (isWordSpace(text, cluster) ? wordRatio(scriptAt(letters, cluster)) : 1);
+    const lettered = letters(text);
+    const spaceRatio = (cluster: number) => (isWordSpace(text, cluster) ? wordRatio(scriptAt(lettered, cluster)) : 1);
     const [, glyphs] = Array.mapAccum(set.shaped.glyphs, { cluster: 0, addedAdvance: 0 }, (previous, each, at) => {
         const ratio = isLetter(text, each) ? scale : spaceRatio(each.cluster);
         const xAdvance = each.xAdvance * ratio + (base.slots.has(at) ? slot : 0);
@@ -382,4 +279,4 @@ const finish = (measured: Measured) => {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Justification };
+export { Justification, type Measured };

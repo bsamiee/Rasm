@@ -105,9 +105,6 @@
             "path": "./tests/e2e/portfolio"
         },
         {
-            "path": "./products/apps/creative-cloud/multi-app/atelier/protocol"
-        },
-        {
             "path": "./products/apps/creative-cloud/multi-app/atelier"
         },
         {
@@ -244,6 +241,9 @@
         },
         {
             "path": "./tests/libs/typescript/web/media"
+        },
+        {
+            "path": "./libs/typescript/creative-cloud/desktop"
         }
     ]
 }

@@ -1,8 +1,11 @@
+import process from 'node:process';
+import { spawn } from '@rasm/process';
 import { child } from '@rasm/rpc';
 import { Unmatched } from '@rasm/search';
-import { Array, Cause, Context, Effect, Fiber, Function, Layer, Option, Predicate, Record, Schema, Sink, Stream, Struct, SubscriptionRef } from 'effect';
+import { Array, Cause, Context, Effect, Fiber, FileSystem, Function, Layer, Option, Path, Predicate, Record, Schema, Sink, Stream, Struct, SubscriptionRef } from 'effect';
 import type { ChildProcessSpawner } from 'effect/process';
 import { Rpc, RpcClient, RpcGroup } from 'effect/rpc';
+import { parse } from 'plist';
 import { Capture, Execute, Installation, Launch, Launching, Perform, Pressure, ProcessInstance, RunningInstance, State, TermKind, Terms, WindowID } from '#/contract';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -12,6 +15,7 @@ const Selection = {
     prefix: Schema.optionalKey(Schema.String.annotate({ description: 'Bundle identifier prefix, joined with identifiers by or, every admitted application when both are absent' })),
 };
 const Failure = Schema.Union([Unmatched, Schema.ErrorInstance()]);
+const Bundle = Schema.Struct({ CFBundleExecutable: Schema.String, CFBundleShortVersionString: Schema.String }).annotate({ description: 'Info.plist of the app bundle holding this Node helper' });
 const Contract = RpcGroup.make(
     Rpc.make('installations', { payload: Selection, success: Schema.Result(Schema.Array(Installation), Schema.ErrorInstance()).annotate({ description: 'On subscribe and each Spotlight update, or discovery error' }), stream: true }),
     Rpc.make('instances', { payload: Selection, success: Schema.Array(RunningInstance).annotate({ description: 'On subscribe and each change, exited instances kept until next change' }), stream: true }),
@@ -71,6 +75,15 @@ class ApplicationServer extends Context.Service<ApplicationServer>()('@rasm/appl
     }),
 }) {
     static readonly layer = <E, R>(spawned: Effect.Effect<ChildProcessSpawner.ChildProcessHandle, E, R>) => Layer.unwrap(Effect.map(spawned, (handle) => Layer.effect(ApplicationServer, ApplicationServer.make(handle)).pipe(Layer.provideMerge(child(handle)))));
+    static readonly bundled = Effect.gen(function* () {
+        const [path, files] = yield* Effect.all([Path.Path, FileSystem.FileSystem]);
+        const contents = path.join(path.dirname(process.execPath), '..');
+        const { CFBundleExecutable, CFBundleShortVersionString } = yield* files.readFileString(path.join(contents, 'Info.plist')).pipe(
+            Effect.flatMap((text) => Effect.try(() => parse(text))),
+            Effect.flatMap(Schema.decodeUnknownEffect(Bundle)),
+        );
+        return { version: CFBundleShortVersionString, layer: ApplicationServer.layer(spawn([path.join(contents, 'MacOS', CFBundleExecutable)], { stderr: 'inherit' })) };
+    });
 }
 
 // --- [EXPORTS] -------------------------------------------------------------------------

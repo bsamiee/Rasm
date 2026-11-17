@@ -280,7 +280,7 @@ const register: Register = (on) => {
         return notes.length === 0 || answer.deny !== undefined ? answer : { ...answer, context: [...(answer.context ?? []), ...notes] };
     });
     on('classic.WorktreeCreate', () => ({ block: 'A worktree makes a second checkout, work in place' }));
-    on('tool.call', { tool: ['mcp__atelier__launch', 'mcp__atelier__open'] }, async ($, e, next) => {
+    on('tool.call', { tool: 'mcp__atelier__applications' }, async ($, e, next) => {
         const answer = await next(e);
         await observed($, state, e.agentId, answer.text, next.signal);
         return answer;

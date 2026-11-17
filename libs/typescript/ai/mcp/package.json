@@ -2,7 +2,7 @@
     "name": "@rasm/mcp",
     "version": "0.1.0",
     "private": true,
-    "description": "Effect programs exposed to agents as tools and resources over Streamable HTTP or stdio, and a client that opens a new session after its server restarts",
+    "description": "Effect programs exposed to agents as tools and resources over Streamable HTTP or stdio, tools of linked extensions served while their link holds, and a client that opens a new session after its server restarts",
     "license": "MIT",
     "repository": {
         "type": "git",
@@ -37,6 +37,7 @@
     "dependencies": {
         "@effect/platform-node": "catalog:",
         "@opentelemetry/semantic-conventions": "catalog:",
+        "@rasm/rpc": "workspace:*",
         "@rasm/search": "workspace:*",
         "@rasm/telemetry": "workspace:*"
     },

@@ -2,7 +2,7 @@
     "name": "@rasm/cep",
     "version": "0.1.0",
     "private": true,
-    "description": "CEP extension manifest, the panel runtime following the host skin, launching a caller link, and serving an RPC group through the host script, and the Vite builder of CEP extensions",
+    "description": "CEP extension manifest, the panel runtime following the host skin, launching a caller link under the extension's link identity, calls into the host script, reads of image files the host script wrote, and the Vite builder of CEP extensions",
     "license": "MIT",
     "repository": {
         "type": "git",
@@ -41,6 +41,7 @@
     "dependencies": {
         "@effect/platform-node": "catalog:",
         "@rasm/extendscript": "workspace:*",
+        "@rasm/mcp": "workspace:*",
         "@rasm/object-model": "workspace:*",
         "@rasm/search": "workspace:*",
         "@rasm/telemetry": "workspace:*",

@@ -23,7 +23,7 @@ const hour = Duration.toSeconds('1 hour');
 
 const signed = (at: number, body: string, secret: string = documented.secret) => [`t=${at}`, createHmac('sha256', secret).update(`${at}.${body}`).digest('hex')].join(',v1=');
 const receiver = HttpRouter.serve(routes, { disableLogger: true, disableListenLog: true }).pipe(
-    Layer.provide([layer, Layer.provide(PersistedQueue.layer, PersistedQueue.layerStoreMemory), ConfigProvider.layer(ConfigProvider.fromEnv({ env: { TAILSCALE_WEBHOOK_SECRET: documented.secret, TAILSCALE_HOSTS: 'alice-workstation1.yak-bebop.ts.net' } }))]),
+    Layer.provide([layer, Layer.provide(PersistedQueue.layer, PersistedQueue.layerStoreMemory), ConfigProvider.layer(ConfigProvider.fromEnv({ env: { TAILSCALE_WEBHOOK_SECRET: documented.secret } }))]),
 );
 const posted = (path: string, body: string, headers: Record.ReadonlyRecord<string, string>) => Effect.map(HttpClient.post(path, { headers, body: HttpBody.text(body, 'application/json') }), ({ status }) => status);
 

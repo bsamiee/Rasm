@@ -1,0 +1,53 @@
+{
+    "name": "@rasm/creative-cloud-desktop",
+    "version": "0.1.0",
+    "private": true,
+    "description": "Creative Cloud desktop app facts: the applications it installs read from its own registry, the apps Acrobat's installer places, and the desktop app itself, each with its product, channel, and version in release order",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/bsamiee/Rasm.git",
+        "directory": "libs/typescript/creative-cloud/desktop"
+    },
+    "files": [
+        "dist/**/*.js",
+        "dist/**/*.d.ts"
+    ],
+    "os": [
+        "darwin"
+    ],
+    "type": "module",
+    "sideEffects": false,
+    "imports": {
+        "#/*": "./*.ts"
+    },
+    "exports": {
+        ".": "./index.ts",
+        "./package.json": "./package.json"
+    },
+    "publishConfig": {
+        "imports": {
+            "#/*": "./dist/*.js"
+        },
+        "exports": {
+            ".": "./dist/index.js",
+            "./package.json": "./package.json"
+        },
+        "access": "public"
+    },
+    "dependencies": {
+        "@effect/sql-sqlite-node": "catalog:",
+        "@plist/parse": "catalog:",
+        "@rasm/process": "workspace:*"
+    },
+    "devDependencies": {
+        "@types/node": "catalog:",
+        "effect": "catalog:"
+    },
+    "peerDependencies": {
+        "effect": "catalog:peers"
+    },
+    "engines": {
+        "node": ">=26"
+    }
+}

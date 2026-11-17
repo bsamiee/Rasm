@@ -2,7 +2,7 @@ import { Declaration, HostError, Specifier } from '@rasm/object-model';
 import { Unmatched } from '@rasm/search';
 import { Uxp } from '@rasm/uxp/plugin';
 import type { Application, CellStyle, CharacterStyle, Document, Font, InDesignDOMObject, MasterSpread, ObjectStyle, Page, PageItem, ParagraphStyle, PreflightProcess, Spread, TableStyle, Text, TextFrame, TextPath, TextStyleRange } from 'adobe:indesign';
-import { Array, Cache, Cause, Effect, Equivalence, Filter, Formatter, Function, flow, identity, Match, Number, Option, Path, Predicate, pipe, Record, Result, Schema, SchemaGetter, String, Struct } from 'effect';
+import { Array, Cache, Cause, Effect, Equivalence, Filter, Formatter, Function, flow, identity, Match, Number, Option, Predicate, pipe, Record, Result, Schema, SchemaGetter, String, Struct } from 'effect';
 import { AGGREGATE_FIELD, unavailableReason } from '#/uxp/dictionary';
 import { Model } from '#/uxp/model';
 import { InDesignSettings } from '#/uxp/settings';
@@ -18,8 +18,6 @@ type Values = Record.ReadonlyRecord<string, typeof Value.Type>;
 const Contents = Schema.Struct({ contents: Schema.Json });
 const Flat = Schema.Tuple([Schema.Int, Schema.String, Schema.String, Schema.String, Schema.Array(Schema.Tuple([Schema.String, Schema.String]))]);
 const MissingFile = Schema.Literal(-2).annotate({ description: 'Value UXP fs throws for a path it finds no entry at' });
-const Executed = Schema.Struct({ result: Schema.OptionFromOptionalKey(Schema.Json) });
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // --- [SEARCH]
@@ -44,7 +42,7 @@ const search = Effect.fnUntraced(function* ({ mode, find, change, options }: { r
         Array.map(Array.ensure(contents), (each) =>
             Match.value(each).pipe(
                 Match.when(enumerator, (special) => `<${special.toString()}>`),
-                Match.when(Predicate.isString, identity),
+                Match.when(Predicate.isString, identity<string>),
                 Match.orElse(Formatter.format),
             ),
         ).join('');
@@ -449,19 +447,12 @@ const preflight = Effect.fn('preflight')(function* ({ document, profile }: { rea
     });
     return yield* Effect.forEach(targets, (target) => checked(target, profile));
 });
-const execute = Effect.fn('execute')(function* ({ label, code }: { readonly label: string; readonly code: string }) {
-    const { exported } = yield* Model;
-    const given = { ...Object.fromEntries(exported), resolve: flow(Schema.decodeUnknownEffect(Specifier.Path), Effect.flatMap(Model.resolve), Effect.runSyncWith(yield* Effect.context<Model>())) };
-    const result = yield* Model.commit(label, yield* Uxp.evaluate(given, code));
-    return yield* Model.read(Executed, label, () => ({ result }));
+const open = Effect.fn('open')(function* ({ label, file }: { readonly label: string; readonly file: string }) {
+    const { app } = yield* Model;
+    return yield* Model.reference(yield* Effect.try({ try: () => app.open(file, false), catch: HostError.refused(label) }));
 });
-const open = Effect.fn('open')(function* ({ label, file }: { readonly label: string; readonly file: URL }) {
-    const [{ app }, path] = yield* Effect.all([Model, Path.Path]);
-    const native = yield* path.fromFileUrl(file);
-    return yield* Model.reference(yield* Effect.try({ try: () => app.open(native, false), catch: HostError.refused(label) }));
-});
-const rasterize = Effect.fn('rasterize')(function* ({ target, longestSide, options, file, label }: { readonly label: string; readonly target: string; readonly longestSide: number; readonly options: Option.Option<Values>; readonly file: URL }) {
-    const [model, specifier, path] = yield* Effect.all([Model, Schema.decodeEffect(Specifier.Path)(target), Path.Path]);
+const rasterize = Effect.fn('rasterize')(function* (target: string, longestSide: number, options: Option.Option<Values>, path: string) {
+    const [model, specifier] = yield* Effect.all([Model, Schema.decodeEffect(Specifier.Path)(target)]);
     const { app, ExportFormat, PNGExportRangeEnum, PNGColorSpaceEnum, PNGQualityEnum } = model;
     const found = yield* Effect.filterOrFail(
         Model.resolve(specifier),
@@ -494,8 +485,7 @@ const rasterize = Effect.fn('rasterize')(function* ({ target, longestSide, optio
     const given = Option.getOrElse(options, Record.empty);
     yield* Uxp.preserve(preferences, defaults, [...Struct.keys(defaults), ...Record.keys(given)]);
     yield* Model.write(preferences, given);
-    const native = yield* path.fromFileUrl(file);
-    yield* Effect.try({ try: () => source.exportFile(ExportFormat.PNG_FORMAT, native), catch: HostError.refused(label) });
+    yield* Effect.try({ try: () => source.exportFile(ExportFormat.PNG_FORMAT, path), catch: HostError.refused(`PNG export of ${target} to ${path}`) });
 }, Effect.scoped);
 const objectModel = ({ name }: { readonly name: Option.Option<string> }) => Effect.flatMap(Model, (model) => Declaration.describe(name, model.classes, model.enumerations, declaration));
 const session = Effect.flatMap(Model, ({ app, MeasurementUnits, UserInteractionLevels }) => Uxp.preserve(app.scriptPreferences, { enableRedraw: false, measurementUnit: MeasurementUnits.POINTS, userInteractionLevel: UserInteractionLevels.NEVER_INTERACT }));
@@ -523,4 +513,4 @@ const listened = Effect.fnUntraced(function* (events: readonly string[], name: s
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { call, change, execute, findChange, font, inspect, invoke, listened, menu, objectModel, open, preflight, rasterize, session };
+export { call, change, findChange, font, inspect, invoke, listened, menu, objectModel, open, preflight, rasterize, session };

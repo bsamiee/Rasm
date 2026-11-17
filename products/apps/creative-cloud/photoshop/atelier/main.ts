@@ -1,20 +1,41 @@
-import { ExecuteScript, HostSession } from '@rasm/atelier-protocol';
-import { Peer } from '@rasm/atelier-protocol/peer';
+import { Link } from '@rasm/mcp';
+import { type HostError, type Rasterize, Script } from '@rasm/object-model';
 import { application, execute, objectModel, open, rasterize, session } from '@rasm/photoshop/uxp';
-import { Plugin } from '@rasm/uxp/plugin';
-import { Effect, Layer, Option, Schema } from 'effect';
-import { Photoshop } from '#/contract';
+import { UxpManifest } from '@rasm/uxp';
+import { Plugin, Uxp } from '@rasm/uxp/plugin';
+import { Effect, Layer, Option, type Path, Semaphore } from 'effect';
+import { ATELIER, Photoshop } from '#/tools';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const handlers = Layer.merge(
-    Photoshop.toLayer({
-        execute_script: ({ code, label }) => Effect.flatMap(execute(code, label), (result) => Schema.decodeUnknownEffect(ExecuteScript.Result)(Option.match(result, { onNone: () => ({}), onSome: (value) => ({ result: value }) }))),
-        open: ({ file, label }) => open(file, label),
-        rasterize: (payload) => rasterize(payload, payload.label),
-        object_model: ({ name }) => objectModel(name),
-    }),
-    Layer.succeed(HostSession)((effect) => Effect.scoped(Effect.andThen(session, effect))),
+const permit = Semaphore.makeUnsafe(1);
+const hosting = Effect.map(
+    Effect.context<Uxp | Path.Path>(),
+    (services) =>
+        <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+            Effect.scoped(Effect.andThen(session, effect)).pipe(Semaphore.withPermit(permit), Effect.provideContext(services)),
 );
+const tools = Link.serve(Photoshop).pipe(
+    Layer.provide(
+        Photoshop.toLayer(
+            Effect.map(hosting, (hosted) => ({
+                open: ({ file, label }: { readonly file: string; readonly label: string }) => hosted(open(file, label)),
+                rasterize: ({ target, longestSide, options }: Rasterize) => hosted(Uxp.rendered((file) => rasterize(target, longestSide, options, file), 'rasterized.png')),
+                object_model: ({ name }: { readonly name: Option.Option<string> }) => hosted(objectModel(name)),
+            })),
+        ),
+    ),
+);
+const script = Script.toLayer(
+    Effect.map(hosting, (hosted) => ({
+        evaluate: ({ code, label }: { readonly code: string; readonly label: string }) =>
+            execute(code, label).pipe(
+                Effect.map((result) => ({ result })),
+                hosted,
+            ),
+    })),
+);
+const linked = (extension: string, root: Effect.Effect<URL, HostError, Path.Path>) =>
+    Link.dial(Script, Layer.merge(tools, script), ATELIER, Effect.all([application, root]).pipe(Effect.map(([name, folder]) => Link.make({ application: name, extension, root: Option.some(folder), runtime: Option.some(UxpManifest.target) }))));
 
-Plugin.serve({ link: Peer.dial(Photoshop, handlers, application) });
+Plugin.serve({ link: linked });

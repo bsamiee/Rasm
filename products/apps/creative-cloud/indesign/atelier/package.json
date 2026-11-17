@@ -6,16 +6,10 @@
     "imports": {
         "#/*": "./*.ts"
     },
-    "exports": {
-        "./contract": "./contract.ts",
-        "./tools": "./tools.ts"
-    },
     "dependencies": {
-        "@rasm/atelier-protocol": "workspace:*",
         "@rasm/indesign": "workspace:*",
         "@rasm/mcp": "workspace:*",
         "@rasm/object-model": "workspace:*",
-        "@rasm/search": "workspace:*",
         "@rasm/typography": "workspace:*",
         "@rasm/uxp": "workspace:*",
         "effect": "catalog:"

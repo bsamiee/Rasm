@@ -13,6 +13,18 @@ public struct Unmatched: Encodable, Equatable, LocalizedError {
         self.candidates = candidates
     }
 
+    private enum CodingKeys: CodingKey {
+        case subject, query, candidates, message
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var fields = encoder.container(keyedBy: CodingKeys.self)
+        try fields.encode(subject, forKey: .subject)
+        try fields.encodeIfPresent(query, forKey: .query)
+        try fields.encode(candidates, forKey: .candidates)
+        try fields.encodeIfPresent(errorDescription, forKey: .message)
+    }
+
     public var errorDescription: String? {
         "No \(subject)\(query.map { query in " matching \(query)" } ?? "")\(candidates.isEmpty ? "" : ", candidates: \(candidates.joined(separator: ", "))")"
     }

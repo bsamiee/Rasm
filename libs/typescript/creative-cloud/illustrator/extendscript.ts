@@ -1,4 +1,4 @@
-import { assign, illegalArgument, preserve } from '@rasm/extendscript/host';
+import { assign, declaration, illegalArgument, preserve } from '@rasm/extendscript/host';
 import { type Containment, read } from '@rasm/object-model/host';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -45,26 +45,26 @@ const parsed = (path: string): XML | undefined => {
     file.close();
     return text === '' ? undefined : new XML(text.slice(text.indexOf('<dictionary')));
 };
-const declared = (): Readonly<Record<string, unknown>> => {
+const declared = (name: string | undefined): unknown => {
     const library = `${app.name} ${app.version.split('.')[0]} Type Library`;
     const found: Record<string, unknown> = {};
     for (const folder of new Folder(`${Folder.appData.fsName}/Adobe/Scripting Dictionaries CC`).getFiles()) {
         const dictionary = parsed(`${folder.fsName}/omv.xml`);
         const held = dictionary !== undefined && named(dictionary, 'map').some((map) => String(map.attribute('title')) === library);
         for (const definition of held ? named(dictionary, 'classdef').filter((each) => String(each.attribute('enumeration')) === 'true') : []) {
-            const name = String(definition.attribute('name'));
-            found[name] = { name, properties: [], methods: [], staticProperties: named(definition, 'property').map((member) => ({ name: String(member.attribute('name')), description: String(named(member, 'shortdesc')[0] ?? '') })) };
+            const enumeration = String(definition.attribute('name'));
+            found[enumeration] = { name: enumeration, properties: [], methods: [], staticProperties: named(definition, 'property').map((member) => ({ name: String(member.attribute('name')), description: String(named(member, 'shortdesc')[0] ?? '') })) };
         }
     }
-    return found;
+    return declaration($.global, app, 0, name, found);
 };
 const session = () => preserve(app, { userInteractionLevel: UserInteractionLevel.DONTDISPLAYALERTS });
 const open = (path: string): object => app.open(new File(path));
-const rasterize = (found: object, { target, longestSide, options }: { readonly target: string; readonly longestSide: number; readonly options?: Readonly<Record<string, unknown>> }, path: string): void => {
+const rasterize = (found: object, longestSide: number, options: Readonly<Record<string, unknown>> | undefined, path: string): void => {
     const document = owner(found);
     const rect = is('Artboard')(found) ? found.artboardRect : is('Document')(found) || placed(found) ? found.visibleBounds : undefined;
     if (document === undefined || rect === undefined) {
-        throw illegalArgument(`${target} names a ${String(read(found, 'typename'))} with no bounds`);
+        throw illegalArgument(`${String(read(found, 'typename'))} has no bounds, rasterize takes a Document, Artboard, or page item`);
     }
     const percent = 100;
     const scale = (longestSide / Math.max(rect[2] - rect[0], rect[1] - rect[3])) * percent;

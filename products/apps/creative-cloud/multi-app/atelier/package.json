@@ -1,7 +1,7 @@
 {
     "name": "@rasm/atelier",
     "private": true,
-    "description": "MCP server driving open Adobe apps through Accessibility, Apple events, and each app's Atelier plugin, with font, Quran, and symbol tools of its own",
+    "description": "MCP server listing and opening installed Adobe applications, running scripts in each through its newest runtime, and serving the tools each linked Adobe extension adds",
     "os": [
         "darwin"
     ],
@@ -13,25 +13,19 @@
     "dependencies": {
         "@effect/platform-node": "catalog:",
         "@rasm/applications": "workspace:*",
-        "@rasm/atelier-aftereffects-plugin": "workspace:*",
-        "@rasm/atelier-illustrator-plugin": "workspace:*",
-        "@rasm/atelier-indesign-plugin": "workspace:*",
-        "@rasm/atelier-photoshop-plugin": "workspace:*",
-        "@rasm/atelier-protocol": "workspace:*",
         "@rasm/cep": "workspace:*",
+        "@rasm/creative-cloud-desktop": "workspace:*",
         "@rasm/extendscript": "workspace:*",
         "@rasm/indesign": "workspace:*",
         "@rasm/mcp": "workspace:*",
         "@rasm/object-model": "workspace:*",
-        "@rasm/process": "workspace:*",
         "@rasm/quran": "workspace:*",
         "@rasm/search": "workspace:*",
         "@rasm/telemetry": "workspace:*",
         "@rasm/typography": "workspace:*",
         "@rasm/uxp": "workspace:*",
         "effect": "catalog:",
-        "image-size": "catalog:",
-        "plist": "catalog:"
+        "fast-xml-parser": "catalog:"
     },
     "devDependencies": {
         "@types/node": "catalog:",

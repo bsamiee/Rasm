@@ -23,7 +23,7 @@ class Verse extends Schema.Class<Verse, { readonly brand: unique symbol }>('Vers
                 .annotate({ description: 'Side each hemistich takes in stanza order, cycling, center ignoring indent' })
                 .pipe(Schema.withConstructorDefault(Effect.succeed(['start', 'end'] as const))),
         },
-    }).annotate({ description: 'Centered hemistich column pairs, even hemistichs at the start side, or one hemistich per row at cycling sides' });
+    }).annotate({ description: 'Arabic-script verse set as centered hemistich column pairs, even hemistichs at the start side, or one hemistich per row at cycling sides' });
     static readonly of = (hemistichs: Array.NonEmptyReadonlyArray<Parameters<typeof Justification.of>[0]>, measure: number, setting: typeof Verse.Setting.Type) => {
         const widest = Math.max(...Array.map(hemistichs, Justification.natural));
         const { width, at } = Verse.Setting.match(setting, {

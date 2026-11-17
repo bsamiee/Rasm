@@ -1,5 +1,6 @@
 import { Digits } from '@rasm/search';
-import { Effect, Match, Option, Predicate, Record, Schema, SchemaTransformation, String, Struct } from 'effect';
+import { Effect, Option, Predicate, Record, Schema, SchemaTransformation, String, Struct } from 'effect';
+import { Elongation } from '#/arabic/elongation';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -11,23 +12,6 @@ const PRINTABLE_ASCII = /^[\u{20}-\u{7E}]+$/u;
 
 const Tag = Schema.String.check(Schema.isBetweenLength(1, TAG_LENGTH), Schema.isPattern(PRINTABLE_ASCII)).pipe(Schema.decodeTo(Schema.String.check(Schema.isBetweenLength(TAG_LENGTH, TAG_LENGTH)), SchemaTransformation.transform({ decode: String.padEnd(TAG_LENGTH), encode: String.trimEnd })));
 const Direction = Schema.Literals(['LTR', 'RTL']).annotate({ description: 'Paragraph direction as HarfBuzz direction key, the bidi base level' });
-const Elongation = {
-    lower: Schema.Int.check(Schema.isGreaterThanOrEqualTo(1)).annotate({ description: 'Lower elongation bound in nuqta, the length of each text-stage place and the least of each line-stage place' }),
-    upper: Schema.Int.annotate({ description: 'Upper elongation bound in nuqta, each chosen place stretching at most this far' }),
-    fractional: Schema.Boolean.annotate({ description: 'Elongation below one tatweel width' }).pipe(Schema.withConstructorDefault(Effect.succeed(false))),
-};
-const Kashida = Schema.TaggedUnion({ None: {}, Tatweel: Elongation, Stretched: Elongation })
-    .check(
-        Schema.makeFilter(
-            (kashida) =>
-                Match.value(kashida).pipe(
-                    Match.tag('None', () => true),
-                    Match.orElse(({ lower, upper }) => lower <= upper),
-                ),
-            { description: 'lower <= upper' },
-        ),
-    )
-    .annotate({ description: 'Elongation by tatweel characters or by jalt alternates then tatweels' });
 const Feature = Schema.Int.check(Schema.isGreaterThanOrEqualTo(0));
 const Marks = Schema.Struct(Struct.Record(['x', 'y'], Schema.Finite.pipe(Schema.withConstructorDefault(Effect.succeed(0))))).annotate({ description: 'Mark offset in em, x right and y away from the base, below-base marks moving down' });
 const Spacing = Schema.Struct(
@@ -76,39 +60,19 @@ const Leading = Schema.Struct({
     ),
 });
 const Rank = Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)).annotate({ description: 'Lower ranks take slack first, equal ranks share it by capacity' });
-const Kashidas = Schema.Int.check(Schema.isGreaterThanOrEqualTo(1)).annotate({ description: 'Most kashida places per run at the text stage, per run and rank at the line stage, every fitting place when absent' });
-const Groups = Schema.Struct({
-    groups: Schema.Array(Schema.String.annotate({ description: 'ICU joining group name (Beh, FarsiYeh)' })),
-    except: Schema.Boolean.annotate({ description: 'Every joining group but these' }).pipe(Schema.withConstructorDefault(Effect.succeed(false))),
-});
-const Next = Schema.TaggedUnion({ End: {}, Letter: { groups: Schema.OptionFromOptionalKey(Groups).pipe(Schema.withConstructorDefault(Effect.succeedNone)) } }).annotate({
-    description: 'Letter after the pair in its join, End when the pair closes it',
-});
-const Place = Schema.Struct({
-    rank: Rank,
-    stage: Schema.Literals(['text', 'line'])
-        .annotate({ description: 'text elongates before line breaking so lines reflow, line fits slack after it' })
-        .pipe(Schema.withConstructorDefault(Effect.succeed('line'))),
-    ...Struct.Record(['before', 'after'], Schema.OptionFromOptionalKey(Groups.annotate({ description: 'Letter beside the place, any when absent' })).pipe(Schema.withConstructorDefault(Effect.succeedNone))),
-    next: Schema.OptionFromOptionalKey(Next).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
-});
 const Ranks = Schema.Struct({
     ...Record.map({ word: 0, alternates: 1, letter: 9, glyph: 10 }, (rank) => Rank.pipe(Schema.withConstructorDefault(Effect.succeed(rank)))),
     scripts: Schema.Record(Schema.String.annotate({ description: 'ICU script name (Arabic, Latin)' }), Rank)
         .annotate({ description: 'Word space ranks by script of the letters beside the space, over word' })
         .pipe(Schema.withConstructorDefault(Effect.succeed({}))),
-    places: Schema.Array(Place)
-        .annotate({ description: 'Kashida places, each word elongating at its best-ranked matching letter pair' })
-        .pipe(Schema.withConstructorDefault(Effect.sync(() => naskh()))),
-    kashidas: Schema.OptionFromOptionalKey(Kashidas).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
-}).annotate({ description: 'Justification mechanism ranks, the default places a Naskh set' });
+}).annotate({ description: 'Justification mechanism ranks, kashida places ranking within kashida' });
 class Settings extends Schema.Class<Settings, { readonly brand: unique symbol }>('Settings')(
     {
         direction: Schema.OptionFromOptionalKey(Direction).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
         numberingSystem: Schema.OptionFromOptionalKey(Digits.System.annotate({ description: 'Digits shaped text takes, source digits when unset' })).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
         alignment: Alignment.pipe(Schema.withConstructorDefault(Effect.sync(() => Alignment.cases.Justified.make({})))),
         leading: Leading.pipe(Schema.withConstructorDefault(Effect.sync(() => Leading.make({})))),
-        kashida: Kashida.pipe(Schema.withConstructorDefault(Effect.sync(() => Kashida.cases.None.make({})))),
+        kashida: Elongation.pipe(Schema.withConstructorDefault(Effect.sync(() => Elongation.cases.None.make({})))),
         justification: Ranks.pipe(Schema.withConstructorDefault(Effect.sync(() => Ranks.make({})))),
         marks: Marks.pipe(Schema.withConstructorDefault(Effect.sync(() => Marks.make({})))),
         features: Schema.Record(Tag, Feature)
@@ -123,12 +87,11 @@ class Settings extends Schema.Class<Settings, { readonly brand: unique symbol }>
             ...fields,
             direction: Schema.OptionFromNullOr(Direction),
             numberingSystem: Schema.OptionFromNullOr(Digits.System),
-            ...Record.map({ leading: Leading, marks: Marks }, (section) => Schema.Struct(Struct.map(section.fields, Schema.optionalKey))),
-            justification: Schema.Struct({ ...Struct.map(Ranks.fields, Schema.optionalKey), kashidas: Schema.optionalKey(Schema.OptionFromNullOr(Kashidas)) }),
+            ...Record.map({ leading: Leading, justification: Ranks, marks: Marks }, (section) => Schema.Struct(Struct.map(section.fields, Schema.optionalKey))),
             features: Schema.Record(Tag, Schema.NullOr(Feature)),
             spacing: Schema.Struct(Record.map(Spacing.fields, (range) => Schema.optionalKey(Schema.Struct(Struct.map(range.schema.fields, Schema.optionalKey))))),
         }),
-    ).annotate({ description: 'Absent keys, section fields, spacing bounds and feature tags stay unchanged, null unsets direction, numbering system, kashida limit or a feature tag' });
+    ).annotate({ description: 'Absent keys, section fields, spacing bounds and feature tags stay unchanged, null unsets direction, numbering system or a feature tag' });
     static readonly merge = (settings: Settings, change: typeof Settings.Partial.Type) =>
         Settings.makeEffect({
             ...settings,
@@ -157,25 +120,6 @@ class Settings extends Schema.Class<Settings, { readonly brand: unique symbol }>
         return Height.match(this.leading.height, { Auto: ({ ratio }) => size * ratio, Fixed: Struct.get('em'), Extents: ({ ratio }) => (extents.descent + extents.ascent) * ratio });
     }
 }
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
-const naskh = (): readonly (typeof Place.Type)[] => {
-    const among = (...groups: readonly string[]) => Option.some(Groups.make({ groups }));
-    const notYeh = Option.some(Groups.make({ groups: ['Yeh', 'FarsiYeh'], except: true }));
-    const end = Option.some(Next.cases.End.make({}));
-    return [
-        { rank: 2, after: among('NoJoiningGroup') },
-        { rank: 3, before: among('Seen') },
-        { rank: 3, before: among('Sad'), after: notYeh },
-        { rank: 3, before: among('Sad'), next: Option.some(Next.cases.Letter.make({})) },
-        { rank: 4, after: among('TehMarbuta', 'Heh', 'Dal'), next: end },
-        { rank: 5, after: among('Alef', 'Tah', 'Lam', 'Kaf', 'Gaf'), next: end },
-        { rank: 6, after: among('Beh'), next: Option.some(Next.cases.Letter.make({ groups: among('Reh', 'Yeh', 'FarsiYeh') })) },
-        { rank: 7, after: among('Waw', 'Ain', 'Qaf', 'Feh'), next: end },
-        { rank: 8, after: notYeh, next: end },
-    ].map((row) => Place.make(row));
-};
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

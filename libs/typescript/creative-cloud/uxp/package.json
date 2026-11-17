@@ -49,6 +49,7 @@
         "acorn": "catalog:",
         "core-js": "catalog:",
         "culori": "catalog:",
+        "image-size": "catalog:",
         "jsonc-parser": "catalog:"
     },
     "devDependencies": {

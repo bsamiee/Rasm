@@ -1,6 +1,6 @@
 import { Buffer } from 'node:buffer';
 import { Unmatched } from '@rasm/search';
-import { Array, Effect, Equal, Function, flow, Match, Number, Option, Order, Predicate, Record, Schema, SchemaGetter, Struct } from 'effect';
+import { Array, Effect, Equal, Function, flow, Match, Number, Option, Predicate, Record, Schema, SchemaGetter, Struct } from 'effect';
 import { create } from 'fontkit';
 import { AxisFlags, Blob, Font, Variation } from 'harfbuzzjs';
 import { TypographyError } from '#/error';
@@ -10,7 +10,6 @@ import { Layout } from '#/shaping/internal/layout';
 import { Member } from '#/shaping/internal/member';
 import { Metrics } from '#/shaping/internal/metrics';
 import { Names } from '#/shaping/internal/names';
-import { Profile } from '#/shaping/internal/profile';
 import { Tables } from '#/shaping/internal/tables';
 import type { Source } from '#/source';
 
@@ -44,12 +43,11 @@ class Face extends Schema.Class<Face, { readonly brand: unique symbol }>('Face')
                 variations: Schema.Record(Schema.String, Schema.Finite).annotate({ description: 'Axis values by tag' }),
             }),
         ).annotate({ description: 'fvar named instances, selectable by PostScript name' }),
-        extenders: Schema.Array(Schema.Int).annotate({ description: 'JSTF arab extender glyphs' }),
+        extenders: Schema.Record(Schema.String, Schema.Array(Schema.Int)).annotate({ description: 'JSTF extender glyphs by script tag' }),
         font: Schema.instanceOf(Font).pipe(Schema.encodeTo(Schema.optionalKey(Schema.Never), { decode: SchemaGetter.forbidden(() => 'Encoded face omits font data'), encode: SchemaGetter.omit() })),
     },
     { description: 'Face at one instance, names from named instance matching coordinates, else Adobe Technical Note 5902 postscriptName' },
 ) {
-    static readonly TATWEEL = 0x6_40;
     static readonly Instance = Schema.Struct({
         coordinates: Schema.Array(Schema.Finite)
             .annotate({ description: 'Axis values in fvar order, under variations by tag' })
@@ -99,11 +97,11 @@ class Face extends Schema.Class<Face, { readonly brand: unique symbol }>('Face')
             axes.filter(({ value, default: fallback }) => Names.spelled(value) !== Names.spelled(fallback)),
             ({ tag, value }) => [tag, value],
         );
-        const identity = yield* Option.match(
+        const identity = Option.match(
             Array.findFirst([...Option.toArray(namedRow), chosen.base, ...chosen.namedInstances], (row) => Equal.equals(Record.map(row.variations, Names.spelled), rounded)),
             {
-                onNone: () => Effect.map(chosen.names.generated(changed), (postscriptName) => ({ postscriptName, fullName: Option.none<string>(), style: Option.none<string>() })),
-                onSome: ({ names }) => Effect.succeed(names),
+                onNone: () => ({ postscriptName: chosen.names.generated(changed), fullName: Option.none<string>(), style: Option.none<string>() }),
+                onSome: Struct.get('names'),
             },
         );
         const font = new Font(chosen.handle);
@@ -128,7 +126,7 @@ class Face extends Schema.Class<Face, { readonly brand: unique symbol }>('Face')
             color: Color.of(chosen),
             axes,
             namedInstances: chosen.namedInstances.map(({ names: { style, postscriptName }, variations: values }) => ({ style, postscriptName, variations: values })),
-            extenders: tables.JSTF.scriptList.flatMap(({ tag, script }) => (tag === 'arab' ? Option.getOrElse(script.extenderGlyphs, Array.empty) : [])),
+            extenders: Record.fromIterableWith(tables.JSTF.scriptList, ({ tag, script }) => [tag, Option.getOrElse(script.extenderGlyphs, Array.empty<number>)]),
             font,
         });
     });
@@ -153,24 +151,8 @@ class Face extends Schema.Class<Face, { readonly brand: unique symbol }>('Face')
     height(codePoint: number) {
         return Option.flatMap(this.glyph(codePoint), (glyph) => Option.map(Option.fromUndefinedOr(this.font.glyphExtents(glyph)), ({ yBearing }) => this.em(yBearing)));
     }
-    sizeRatio(other: Face, metric: { readonly [K in keyof Metrics]: Metrics[K] extends Option.Option<number> ? K : never }[keyof Metrics], codePoint = 0x6_27) {
+    sizeRatio(other: Face, metric: { readonly [K in keyof Metrics]: Metrics[K] extends Option.Option<number> ? K : never }[keyof Metrics], codePoint: number) {
         return Option.map(Option.all([this.height(codePoint), Option.filter(other.metrics[metric], Number.isGreaterThan(0))]), ([own, matched]) => own / matched);
-    }
-    get kashida() {
-        return Option.isSome(this.tatweel) || this.layout.substitutions.has('jalt');
-    }
-    get tatweel() {
-        return Array.findFirst([...this.extenders.map((glyph) => this.em(this.font.glyphHAdvance(glyph))), ...Option.toArray(this.advance(Face.TATWEEL))], Number.isGreaterThan(0));
-    }
-    get nuqta() {
-        const beh = 0x6_28;
-        const widths = Option.map(this.glyph(beh), (glyph) =>
-            Profile.outline(this.font.glyphToJson(glyph))
-                .map((contour) => contour.flat().map(Struct.get('x')))
-                .map((xs) => Math.max(...xs) - Math.min(...xs))
-                .filter(Number.isGreaterThan(0)),
-        );
-        return Option.map(Option.flatMap(widths, Option.liftPredicate(Array.isArrayNonEmpty)), flow(Array.min(Order.Number), this.em));
     }
 }
 

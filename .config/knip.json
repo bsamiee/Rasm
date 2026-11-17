@@ -20,6 +20,9 @@
         },
         "infra": {
             "project": ["**/*.ts", "!sdks/**"]
+        },
+        "products/apps/creative-cloud/*/atelier": {
+            "entry": ["{main,panel,extendscript}.ts"]
         }
     }
 }

@@ -2,7 +2,7 @@
     "name": "@rasm/typography",
     "version": "0.1.0",
     "private": true,
-    "description": "OpenType typesetting, from font faces to composed text",
+    "description": "OpenType typesetting from font faces to composed text, with Arabic-script joining, kashida, kerning, and verse",
     "license": "MIT",
     "repository": {
         "type": "git",
@@ -20,6 +20,7 @@
     },
     "exports": {
         ".": "./index.ts",
+        "./arabic": "./arabic/index.ts",
         "./shaping": "./shaping/index.ts",
         "./package.json": "./package.json"
     },
@@ -29,12 +30,14 @@
         },
         "exports": {
             ".": "./dist/index.js",
+            "./arabic": "./dist/arabic/index.js",
             "./shaping": "./dist/shaping/index.js",
             "./package.json": "./package.json"
         },
         "access": "public"
     },
     "dependencies": {
+        "@noble/hashes": "catalog:",
         "@rasm/search": "workspace:*",
         "fontkit": "catalog:",
         "harfbuzzjs": "catalog:",

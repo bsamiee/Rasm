@@ -1,8 +1,18 @@
-import { type Encoder, encode, isList, isPlain, isRecord, read } from '@rasm/object-model/host';
+import { type Containment, type Encoder, encode, isList, isPlain, isRecord, parse, read, reference, walk } from '@rasm/object-model/host';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Fields = Readonly<Record<string, unknown>>;
+
+interface Host {
+    readonly containment: Containment;
+    readonly session: () => () => void;
+    readonly undo?: (label: string) => () => void;
+}
+interface Scope {
+    readonly resolve: (target: string) => object;
+    readonly grouped: <A>(body: () => A) => A;
+}
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -85,10 +95,6 @@ const preserve = (target: object, values: Fields): (() => void) => {
     return () => {
         assign(target, held);
     };
-};
-const located = (url: string): string => {
-    const after = url.slice(url.indexOf('//') + 2);
-    return after.slice(after.indexOf('/'));
 };
 const reflection = (value: unknown): unknown => {
     const found = read(value, 'reflect');
@@ -177,7 +183,27 @@ const declaration = (global: unknown, root: object, base: number, name: string |
     }
     return { _tag: 'Index', classes, enumerations };
 };
+const serve = <Payloads extends Fields>({ containment, session, undo }: Host, requests: { readonly [Tag in keyof Payloads]: (payload: Payloads[Tag], scope: Scope) => unknown }) => {
+    const encoder: Encoder = { reference: (value) => reference(containment, value) };
+    const resolve = (target: string): object => {
+        const path = parse(target);
+        const found = path === undefined ? undefined : walk(containment, path);
+        if (isRecord(found) && read(found, '_tag') === 'Unmatched') {
+            throw found;
+        }
+        if (!isRecord(found)) {
+            throw illegalArgument(`${target} is no object specifier`);
+        }
+        return found;
+    };
+    return <Tag extends keyof Payloads>({ tag, label, payload }: { readonly tag: Tag; readonly label: string; readonly payload: Payloads[Tag] }): string =>
+        reply(
+            () => within(session, () => requests[tag](payload, { resolve, grouped: (body) => (undo === undefined ? body() : within(() => undo(label), body)) })),
+            encoder,
+            () => false,
+        );
+};
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { assign, declaration, illegalArgument, keys, located, preserve, reply, within, written };
+export { assign, declaration, illegalArgument, keys, preserve, reply, serve, within, written };

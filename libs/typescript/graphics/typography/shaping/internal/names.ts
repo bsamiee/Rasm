@@ -1,5 +1,6 @@
-import { Array, Data, Effect, Number, Option, Order, Record, Schema, SchemaGetter } from 'effect';
-import { Digest } from 'effect/crypto';
+import { sha1 } from '@noble/hashes/legacy.js';
+import { bytesToHex, utf8ToBytes } from '@noble/hashes/utils.js';
+import { Array, Data, Number, Option, Order, Record, Schema, SchemaGetter } from 'effect';
 import type { Face, NameEntry } from 'harfbuzzjs';
 import { Tag } from '#/settings';
 import type { Tables } from '#/shaping/internal/tables';
@@ -50,7 +51,7 @@ class Names extends Data.Class<{ readonly handle: Face; readonly entries: readon
     generated(variations: (typeof Names.Generated.Type)['variations']) {
         const nameLength = 127;
         const named = Option.bind(Option.bindTo(this.prefix, 'prefix'), 'name', ({ prefix }) => Schema.encodeOption(Names.Generated)({ prefix, variations }));
-        return Effect.transposeOption(Option.map(named, ({ prefix, name }) => (name.length > nameLength ? Digest.Digest.use((digest) => digest.digestHex(Digest.sha1, new TextEncoder().encode(name))).pipe(Effect.map((hex) => `${prefix}-${hex}...`)) : Effect.succeed(name))));
+        return Option.map(named, ({ prefix, name }) => (name.length > nameLength ? `${prefix}-${bytesToHex(sha1(utf8ToBytes(name)))}...` : name));
     }
 }
 

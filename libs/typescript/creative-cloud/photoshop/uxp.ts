@@ -4,7 +4,7 @@ import { Unmatched } from '@rasm/search';
 import { Uxp } from '@rasm/uxp/plugin';
 import * as photoshop from 'adobe:photoshop';
 import { type File, host } from 'adobe:uxp';
-import { Array, Cause, Effect, Exit, flow, Match, Option, Predicate, Record, Schema, String, Struct } from 'effect';
+import { Array, Cause, Effect, Exit, flow, Match, Option, Path, Predicate, Record, Schema, String, Struct } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -95,13 +95,6 @@ const history = <A, E, R>(label: string, { hostControl }: photoshop.ExecutionCon
             ),
         body,
     );
-const stored = (url: URL, opened: (files: Uxp['Service']['uxp']['storage']['localFileSystem'], href: string) => Promise<unknown>) =>
-    Effect.flatMap(Uxp, ({ uxp: { storage } }) => Effect.tryPromise({ try: () => opened(storage.localFileSystem, url.href), catch: HostError.refused(url.href) })).pipe(
-        Effect.filterOrFail(
-            (entry): entry is File => Schema.is(Entry)(entry),
-            () => new Cause.IllegalArgumentError(`${url.href} names no file`),
-        ),
-    );
 const session = Uxp.preserve(photoshop.app, { displayDialogs: photoshop.constants.DialogModes.NONE });
 const execute = (code: string, label: string) =>
     modal(label, (context) =>
@@ -113,24 +106,26 @@ const execute = (code: string, label: string) =>
                 const resolve = flow(located, Effect.runSyncWith(services));
                 const value = yield* yield* Uxp.evaluate({ ...modules, ...classes, ...enumerations, resolve }, code);
                 const result = yield* Effect.tryPromise({ try: (): Promise<unknown> => Promise.resolve(value), catch: Uxp.thrown });
-                return Option.map(Option.fromUndefinedOr(result), encoded);
+                return yield* Effect.transposeOption(Option.map(Option.fromUndefinedOr(result), flow(encoded, Schema.decodeUnknownEffect(Schema.Json))));
             }),
         ),
     );
-const open = (file: URL, label: string) =>
-    stored(file, (files, href) => files.getEntryWithUrl(href)).pipe(
-        Effect.flatMap((entry) => modal(label, () => Effect.tryPromise({ try: () => photoshop.app.open(entry), catch: HostError.refused(label) }))),
-        Effect.flatMap(referenced),
-        Effect.catchTag('NoSuchElementError', () => new Cause.IllegalArgumentError(`${label} opened no document`)),
+const open = Effect.fnUntraced(function* (file: string, label: string) {
+    const [{ uxp }, path] = yield* Effect.all([Uxp, Path.Path]);
+    const url = yield* path.toFileUrl(file);
+    const entry = yield* Effect.tryPromise({ try: () => uxp.storage.localFileSystem.getEntryWithUrl(url.href), catch: HostError.refused(file) }).pipe(
+        Effect.filterOrFail(
+            (each): each is File => Schema.is(Entry)(each),
+            () => new Cause.IllegalArgumentError(`${file} names no file`),
+        ),
     );
-const rasterize = Effect.fnUntraced(function* ({ target, longestSide, options, file }: { readonly target: string; readonly longestSide: number; readonly options: Option.Option<unknown>; readonly file: URL }, label: string) {
-    const [png, found, written] = yield* Effect.all([
-        Effect.transposeOption(Option.map(options, Schema.decodeUnknownEffect(Png, { onExcessProperty: 'error' }))),
-        located(target).pipe(Effect.filterOrFail(Schema.is(Exportable), () => new Cause.IllegalArgumentError(`${target} names no document, layer, or artboard`))),
-        stored(file, (files, href) => files.createEntryWithUrl(href, { overwrite: true })),
-    ]);
+    const opened = yield* modal(label, () => Effect.tryPromise({ try: () => photoshop.app.open(entry), catch: HostError.refused(label) }));
+    return yield* Effect.catchTag(referenced(opened), 'NoSuchElementError', () => new Cause.IllegalArgumentError(`${label} opened no document`));
+});
+const rasterize = Effect.fnUntraced(function* (target: string, longestSide: number, options: Option.Option<unknown>, written: File) {
+    const [png, found] = yield* Effect.all([Effect.transposeOption(Option.map(options, Schema.decodeUnknownEffect(Png, { onExcessProperty: 'error' }))), located(target).pipe(Effect.filterOrFail(Schema.is(Exportable), () => new Cause.IllegalArgumentError(`${target} names no document, layer, or artboard`)))]);
     return yield* modal(
-        label,
+        `Rasterize ${target}`,
         Effect.fnUntraced(function* ({ hostControl }) {
             const { document, placed } = Match.value(found).pipe(Match.discriminatorsExhaustive('typename')({ Document: (opened) => ({ document: opened, placed: [] }), Layer: (layer) => ({ document: layer.document, placed: [layer] }) }));
             const copy = yield* Effect.tryPromise({ try: () => document.duplicate(), catch: HostError.refused(`duplicate of document ${document.id}`) });
