@@ -43,11 +43,10 @@ const judged = Effect.fnUntraced(function* (request: typeof Request.Type, noted:
 const converged = Effect.fnUntraced(function* (request: typeof Request.Type, rewrite: typeof Decision.cases.Rewrite.Type, seen: ReadonlySet<string>): Effect.fn.Return<typeof Decision.Type, HostError, Host | Parser | RateLimiter.RateLimiter> {
     const again = yield* judged({ ...request, command: rewrite.command, kind: rewrite.background ? 'background' : request.kind }, (notes) => due(request, notes));
     if (again._tag !== 'Rewrite') {
-        return Decision.match(again, { Allow: () => rewrite, Deny: (denied) => denied, Rewrite: () => rewrite });
+        return Decision.match(again, { Allow: ({ observes }) => Decision.cases.Rewrite.make({ ...rewrite, observes: rewrite.observes || observes }), Deny: (denied) => denied, Rewrite: () => rewrite });
     }
     const notes = Array.dedupe([rewrite.note, again.note].filter(Predicate.isNotUndefined));
-    const tasks = Array.dedupe([...(rewrite.tasks ?? []), ...(again.tasks ?? [])]);
-    const merged = Decision.cases.Rewrite.make({ command: again.command, background: rewrite.background || again.background, ...(notes.length === 0 ? {} : { note: notes.join('. ') }), ...(tasks.length === 0 ? {} : { tasks }) });
+    const merged = Decision.cases.Rewrite.make({ command: again.command, observes: rewrite.observes || again.observes, background: rewrite.background || again.background, ...(notes.length === 0 ? {} : { note: notes.join('. ') }) });
     if (again.command === rewrite.command) {
         return merged;
     }

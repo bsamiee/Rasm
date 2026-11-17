@@ -31,7 +31,7 @@ use clippy_utils::macros::{FormatArgsStorage, macro_backtrace};
 use clippy_utils::paths::{PathNS, lookup_path_str};
 use clippy_utils::res::{MaybeDef as _, MaybeResPath as _};
 use clippy_utils::ty::{implements_trait, is_copy};
-use clippy_utils::{fn_def_id, get_expr_use_site, get_parent_expr, is_from_proc_macro, is_in_cfg_test, is_in_test_function, peel_hir_expr_refs, sym};
+use clippy_utils::{fn_def_id, get_expr_use_site, get_parent_expr, is_entrypoint_fn, is_from_proc_macro, is_in_cfg_test, is_in_test_function, peel_hir_expr_refs, sym};
 use itertools::Either;
 use rustc_abi::FieldIdx;
 use rustc_ast::{Crate, FormatArgs};
@@ -39,7 +39,7 @@ use rustc_attr_ir::lang_items::LangItem;
 use rustc_data_structures::fx::{FxHashMap, FxHashSet};
 use rustc_errors::{Applicability, Diag, DiagMessage};
 use rustc_hir::def::{CtorKind, DefKind, Res};
-use rustc_hir::def_id::{DefId, LocalDefId, LocalDefIdMap};
+use rustc_hir::def_id::{CRATE_DEF_ID, DefId, LocalDefId, LocalDefIdMap};
 use rustc_hir::pat_util::EnumerateAndAdjustIterator as _;
 use rustc_hir::{Body, BodyId, Expr, ExprKind, HirId, HirIdMap, HirIdSet, Mutability, Node, Pat, PatExpr, PatKind, UnOp};
 use rustc_lint::{EarlyContext, EarlyLintPass, LateContext, LateLintPass, LintId, LintPass, LintVec};
@@ -166,6 +166,10 @@ fn derived(tcx: TyCtxt<'_>, item: DefId) -> bool {
 fn derived_impl(tcx: TyCtxt<'_>, implementation: DefId) -> bool { tcx.is_automatically_derived(implementation) && derived(tcx, implementation) }
 
 fn exported(cx: &LateContext<'_>, item: LocalDefId) -> bool { cx.tcx.entry_fn(()).is_none() && cx.effective_visibilities.is_exported(item) }
+
+fn entry(cx: &LateContext<'_>, item: LocalDefId) -> bool {
+    is_entrypoint_fn(cx, item.to_def_id()) || cx.tcx.sess.is_test_crate() && cx.tcx.local_parent(item) == CRATE_DEF_ID && cx.tcx.item_name(item) == sym::main
+}
 
 fn suggest<M, R>(cx: &LateContext<'_>, node: HirId, diag: &mut Diag<'_>, span: Span, help: M, replacement: R, applicability: Applicability)
 where

@@ -57,12 +57,14 @@ public sealed class DocumentsTests {
                  select outputs).Bracket())));
 
     [Fact]
-    public async Task StoredComponentDocumentReadsBackHoldingTheComponentInstance() =>
-        Assert.True(await RhinoHost.RunAsync((
-            from placed in Subtraction.Placed([5.0], [2.0])
+    public async Task StoredComponentDocumentReadsBackAsTheComponentAndSolvesAlike() =>
+        Assert.Equal(Seq(3.0, 9.25), await RhinoHost.RunAsync((
+            from placed in Subtraction.Placed([5.0, 9.5], [2.0, 0.25])
             from bytes in DocumentFiles.Store(placed.Document, FileContents.Objects)
             from read in use(DocumentFiles.Read(bytes), static held => IO.lift(held.Close))
-            select read.Objects.Find(placed.Component.InstanceId) is not null).Bracket()));
+            from copy in IO.lift(Optional(read.Objects.Find(placed.Component.InstanceId) as Subtraction).ToFin(new GrasshopperFault(placed.Component.InstanceId, GrasshopperReason.Missing)))
+            from solved in Solutions.Run(read, SolutionMode.Headless)
+            select Subtraction.Solved(copy)).Bracket()));
 
     // --- [GENERATORS]
 

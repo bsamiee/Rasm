@@ -1,7 +1,0 @@
-[
-    {
-        "name": "apps",
-        "command": "watch-apps watch",
-        "description": "App changes of this session"
-    }
-]

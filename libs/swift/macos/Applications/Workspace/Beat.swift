@@ -1,4 +1,4 @@
-public import AppKit
+import AppKit
 import ApplicationServices
 import AsyncAlgorithms
 import CasePathsCore
@@ -26,7 +26,7 @@ struct Beat: Sendable {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension NSRunningApplication {
-    public var isDialogHelper: Bool {
+    var isDialogHelper: Bool {
         bundleIdentifier.map(dialogHelpers.contains) == true
             || activationPolicy == .accessory && bundleURL?.deletingLastPathComponent().pathComponents.contains { component in component.hasSuffix(".app") } == true
     }
@@ -170,8 +170,12 @@ extension Instance {
 
     func beats(walking walked: @escaping @Sendable (Element) -> Bool, clock: some Clock<Duration> & Sendable) -> some AsyncSequence<InstanceState, Never> & Sendable {
         let (ticks, tick) = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
+        let helper = application.isDialogHelper
         return merge(chain([()].async, ticks).map { _ in false }, AsyncStream { (try? await clock.sleep(for: messagingTimeout)).map { true } })
-            .reductions(Beat()) { last, heartbeat in await self.beat(after: last, walking: walked, heartbeat: heartbeat, ticks: tick) }
+            .reductions(Beat()) { last, heartbeat in
+                heartbeat && helper && last.state?[case: \.running]?.status == .responding
+                    ? last : await self.beat(after: last, walking: walked, heartbeat: heartbeat, ticks: tick)
+            }
             .compactMap(\.state)
             .prefix { state in state[case: \.failed]?.reason.is(\.noProcess) != true }
     }

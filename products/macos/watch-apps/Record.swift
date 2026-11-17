@@ -17,7 +17,10 @@ import UniformTypeIdentifiers
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 private let framesPerSecond: CMTimeScale = 10
+private let logTime = Date.ISO8601FormatStyle(includingFractionalSeconds: true).year().month().day().dateTimeSeparator(.space).time(includingFractionalSeconds: true)
+    .timeZone(separator: .omitted)
 private let fileTime = Date.ISO8601FormatStyle(includingFractionalSeconds: true).dateSeparator(.omitted).timeSeparator(.omitted)
+private let unifiedLog: FilePath = "/usr/bin/log"
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -30,7 +33,7 @@ func footageFile(in folder: URL, window: CGWindowID, _ type: UTType) -> URL {
 struct Moment: Encodable {
     enum Event: CaseKeyed {
         case line(any Encodable)
-        case log(LogEntry)
+        case log(LogEvent.Fields)
         case host(HostLine)
         case movie(Footage)
         case clip(Footage)
@@ -49,6 +52,28 @@ struct Moment: Encodable {
         var fields = encoder.container(keyedBy: CodingKeys.self)
         try fields.encode(at, forKey: .at)
         try event.encode(to: encoder)
+    }
+}
+
+struct LogEvent: Decodable {
+    struct Fields: Codable {
+        let processID: pid_t?
+        let messageType: String?
+        let subsystem: String?
+        let category: String?
+        let eventMessage: String?
+        let senderImagePath: String?
+    }
+
+    private enum CodingKeys: CodingKey {
+        case timestamp
+    }
+
+    let timestamp: Date
+    let fields: Fields
+
+    init(from decoder: any Decoder) throws {
+        (timestamp, fields) = (try Date(decoder.container(keyedBy: CodingKeys.self).decode(String.self, forKey: .timestamp), strategy: logTime), try Fields(from: decoder))
     }
 }
 
@@ -160,7 +185,7 @@ actor Recorder {
                     case .failure(let failure): append(.fail(failure))
                 }
             }
-            held[instance] = (recordings, held[instance]?.logging ?? Task { await logging(instance.process) })
+            held[instance] = (recordings, held[instance]?.logging ?? Task { await logging(pid) })
         }
         for instance in last.keys where states[instance] == nil { await release(instance) }
     }
@@ -182,13 +207,23 @@ actor Recorder {
         _ = await tailing?.value
     }
 
-    private nonisolated func logging(_ process: ProcessInstance) async {
-        for await entry in process.logEntries() {
-            switch entry {
-                case .success(let entry): append(.log(entry), at: entry.timestamp)
-                case .failure(let failure): append(.fail(ApplicationFailure(subject: failure.subject, reason: .host(failure as NSError))))
+    private nonisolated func logging(_ pid: pid_t) async {
+        let decoder = JSONDecoder()
+        do {
+            let stream = Configuration(executable: .path(unifiedLog), arguments: ["stream", "--process", String(pid), "--style", "ndjson"])
+            _ = try await Subprocess.run(stream, input: .none, output: .sequence, error: .discarded) { execution in
+                for try await line in execution.standardOutput.strings(separatedBy: .unicodeScalarSequence(["\n"])) where line.hasPrefix("{") {
+                    do {
+                        let event = try decoder.decode(LogEvent.self, from: Data(line.utf8))
+                        append(.log(event.fields), at: event.timestamp)
+                    } catch {
+                        append(.fail(ApplicationFailure(subject: line, reason: .host(error as NSError))))
+                    }
+                }
             }
-        }
+        } catch  where !Task.isCancelled {
+            append(.fail(ApplicationFailure(subject: "log stream --process \(pid)", reason: .host(error as NSError))))
+        } catch {}
     }
 
     private nonisolated func tail() async {

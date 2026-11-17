@@ -95,6 +95,12 @@
         "resolved": "10.0.14",
         "contentHash": "8BIrKDOh97v8uXl1dQb1cLh7EJaWX8Cg3wnG4xwQFz3Kr3rCyLlA2dInl3Uz2h47TbXgDrzZlSxWmVQr9r543w=="
       },
+      "NodaTime": {
+        "type": "Direct",
+        "requested": "[3.3.7, )",
+        "resolved": "3.3.7",
+        "contentHash": "4Rc3zup1sZqtlcgkWZOsjoVbhm+RkDvxrFDJfIxi7nr32ZgzVW+zCTBr827+KG/4r5owpchUjqx8tO4K2ZtpOw=="
+      },
       "RhinoCommon": {
         "type": "Direct",
         "requested": "[9.0.26300.9401, )",
@@ -711,12 +717,6 @@
         "dependencies": {
           "NLog": "6.2.2"
         }
-      },
-      "NodaTime": {
-        "type": "CentralTransitive",
-        "requested": "[3.3.7, )",
-        "resolved": "3.3.7",
-        "contentHash": "4Rc3zup1sZqtlcgkWZOsjoVbhm+RkDvxrFDJfIxi7nr32ZgzVW+zCTBr827+KG/4r5owpchUjqx8tO4K2ZtpOw=="
       },
       "NodaTime.Serialization.SystemTextJson": {
         "type": "CentralTransitive",

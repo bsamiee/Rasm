@@ -25,11 +25,11 @@ final class Run: Sendable {
     private let services: Task<Void, any Error>
     private let logger: Logger
     private let records = RotatingFile(journal)
-    private let held: Mutex<(status: ExitCode, shown: [ProcessInstance: Data], journaling: Bool, owned: OrderedSet<Instance>)>
+    private let held: Mutex<(status: ExitCode, shown: [ProcessInstance: Data], journaling: Bool)>
     private let closed: (stream: AsyncStream<Int32?>, continuation: AsyncStream<Int32?>.Continuation) = AsyncStream.makeStream()
     private let failures: (stream: AsyncStream<ApplicationFailure>, continuation: AsyncStream<ApplicationFailure>.Continuation)
-    private let launches: (stream: AsyncStream<Void>, continuation: AsyncStream<Void>.Continuation)?
-    let recorder: Recorder?
+    private let claims: (stream: AsyncStream<Instance?>, continuation: AsyncStream<Instance?>.Continuation)?
+    private let recorder: Recorder?
 
     init(lineLength: Int? = nil, waiting: Bool = false, recording: (folder: URL, longestSide: Int?)? = nil) {
         let failures = AsyncStream<ApplicationFailure>.makeStream()
@@ -40,8 +40,8 @@ final class Run: Sendable {
         (self.lineLength, self.failures) = (lineLength, failures)
         services = Task(name: "Telemetry") { [telemetry] in try await telemetry.run() }
         logger = Logger(label: String(reflecting: Run.self))
-        held = Mutex((waiting ? .failure : .success, [:], true, []))
-        launches = waiting ? AsyncStream.makeStream(bufferingPolicy: .bufferingNewest(1)) : nil
+        held = Mutex((waiting ? .failure : .success, [:], true))
+        claims = waiting ? AsyncStream.makeStream(bufferingPolicy: .bufferingNewest(1)) : nil
         recorder = recorded[case: \.success]
         journaled(encoded(Record<JSONValue>(argv: CommandLine.arguments)))
         if case .failure(let failure) = recorded { fail(Program.current.name, failure) }
@@ -102,7 +102,16 @@ final class Run: Sendable {
         if case .running(let running) = state, !whole {
             let outline = Outline(
                 active: running.active,
-                asking: running.asking.map(Outline.Row.init),
+                asking: running.asking.map { window in
+                    let element = window.description[case: \.element]
+                    return Outline.Row(
+                        kind: window.description,
+                        number: window.number,
+                        options: element?.answers?.buttons.compactMap(\.label) ?? [],
+                        text: element?.detail?.text ?? [],
+                        title: element?.title ?? window.title,
+                    )
+                },
                 menus: running.menus.filter { menu in menu.role == kAXMenuRole }.compactMap(\.title),
                 process: running.status[case: \.unresponsive],
                 status: running.status,
@@ -127,27 +136,33 @@ final class Run: Sendable {
         }
     }
 
-    func own(_ instance: Instance) { held.withLock { held in _ = held.owned.append(instance) } }
+    func follow(_ feed: some AsyncSequence<OrderedDictionary<Instance, InstanceState>, Never> & Sendable) async {
+        _ = await feed.reduce(OrderedDictionary<Instance, InstanceState>()) { last, next in
+            for (instance, state) in next { show(instance, state) }
+            for (instance, state) in last where next[instance] == nil {
+                held.withLock { held in held.shown[instance.process] = nil }
+                if !state.is(\.exited) { emit(instance.key, [String: String]()) }
+            }
+            await recorder?.observe(next, after: last)
+            return next
+        }
+    }
 
     func follow(launching steps: some AsyncSequence<Launching, Never> & Sendable, as key: String) async {
         for await step in steps {
             show(step, as: key)
             switch step {
-                case .launched(let launched):
-                    if launches != nil, launched.created { own(launched.instance) }
-                    launches?.continuation.yield()
-                case .failed: launches?.continuation.yield()
-                case .state(let row): settle(row.instance, row.state)
-                case .prompts: break
+                case .launched(let launched): claims?.continuation.yield(launched.created ? launched.instance : nil)
+                case .failed: claims?.continuation.yield(nil)
+                case .state(let row) where claims != nil: settle(row.state)
+                case .state, .prompts: break
             }
         }
     }
 
-    func settle(_ instance: Instance, _ state: InstanceState) {
+    func settle(_ state: InstanceState) {
         guard case .exited(let ended, _) = state else { return }
-        held.withLock { held in _ = held.owned.remove(instance) }
-        guard let launches else { return }
-        launches.continuation.yield()
+        claims?.continuation.yield(nil)
         switch ended.map(\.status) {
             case .success(.exited(let code)): set(ExitCode(code))
             case .success(.signaled(let signal)): set(ExitCode(128 + signal))
@@ -169,16 +184,19 @@ final class Run: Sendable {
     }
 
     func release() async {
-        _ = await launches?.stream.first { _ in true }
-        await withDiscardingTaskGroup { group in
-            for instance in held.withLock({ held in held.owned }) {
-                group.addTask {
-                    let saved = await self.quit(instance, instance.quit(saving: true))
-                    let ended = saved?.is(\.exited) == true ? saved : await self.quit(instance, instance.quit(force: true))
-                    if let ended { self.settle(instance, ended) }
-                }
-            }
-        }
+        guard case .some(.some(let instance)) = await claims?.stream.first(where: { _ in true }) else { return }
+        let saved = await quit(instance, instance.quit(saving: true))
+        let ended = saved?.is(\.exited) == true ? saved : await quit(instance, instance.quit(force: true))
+        if let ended { settle(ended) }
+    }
+
+    func restart(into executable: URL) async -> Never {
+        await recorder?.finish()
+        await telemetry.triggerGracefulShutdown()
+        _ = await services.result
+        _ = unsafe execv(executable.path(percentEncoded: false), CommandLine.unsafeArgv)
+        fail(Program.current.name, ApplicationFailure(subject: executable.path(percentEncoded: false), reason: .system(Errno(rawValue: errno))))
+        await finish()
     }
 
     func finish(signal: Int32? = nil, draining: Bool = true) async -> Never {

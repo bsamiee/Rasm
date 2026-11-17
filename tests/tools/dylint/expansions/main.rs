@@ -1,6 +1,13 @@
 use core::future::ready;
+use core::hint::black_box;
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+fn started() -> u8 { black_box(1) }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
+
+fn main() { black_box(started()); }
 
 #[tokio::test]
 async fn generated_pin() { ready(()).await }

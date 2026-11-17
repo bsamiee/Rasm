@@ -98,15 +98,13 @@ struct Find: AsyncParsableCommand {
 
 struct Watch: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
-        abstract: """
-            Prints one line per change of each instance a run of this session names and of each named app: status, window or dialog opened or closed, exit and crash report, \
-            new error or fault log message, sustained load, and system pressure, and one line per repeated read of this session. Quits instances this session's runs created when it ends. \
-            Records standard windows and asking rows with --record
-            """
+        abstract: "Prints one line per instance change, per system prompt naming an instance, and per system pressure change above nominal. Records standard windows and asking rows with --record"
     )
 
     @Argument(help: installedNames)
-    var names: [String] = []
+    var names: [String]
+
+    @OptionGroup var outline: OutlineOptions
 
     @Option(
         help: ArgumentHelp(
@@ -126,14 +124,13 @@ struct Watch: AsyncParsableCommand {
     }
 
     func run() async {
-        await Run.execute(Self.self, recording: record.map { folder in (folder, longestSide) }) { [names] run in
+        await Run.execute(Self.self, lineLength: outline.lineLength, recording: record.map { folder in (folder, longestSide) }) { run in
             let applications = await installed(names, run).flatMap(\.installations)
-            guard names.isEmpty || !applications.isEmpty else { return }
+            guard !applications.isEmpty else { return }
             for identifier in OrderedSet(applications.map(\.identifier)) where NSWorkspace.shared.instances(of: { instance in instance.bundleIdentifier == identifier }).isEmpty {
                 run.emit(identifier, [String: String]())
             }
             let matching: @Sendable (NSRunningApplication) -> Bool = { [applications] instance in applications.contains { installation in installation.runs(instance) } }
-            let session = Session(run, named: matching)
             await withDiscardingTaskGroup { group in
                 group.addTask {
                     var calm = true
@@ -148,11 +145,17 @@ struct Watch: AsyncParsableCommand {
                         }
                     }
                 }
-                if !applications.isEmpty { group.addTask { await session.follow(NSWorkspace.shared.instanceStates(of: matching)) } }
-                group.addTask { await session.follow(NSWorkspace.shared.systemPrompts(naming: { session.names })) }
-                group.addTask { await session.readJournal() }
-                group.addTask { await session.followAdopted() }
-                group.addTask { await session.sample() }
+                group.addTask { await run.follow(NSWorkspace.shared.instanceStates(of: matching)) }
+                group.addTask { await run.follow(NSWorkspace.shared.systemPrompts(naming: applications.flatMap { installation in [installation.name, installation.bundleName].compactMap(\.self) })) }
+                if let executable = Bundle.main.executableURL {
+                    group.addTask {
+                        switch await FileEvent.events(of: executable).first(where: { batch in batch[case: \.success]?.isEmpty != true }) {
+                            case .success: await run.restart(into: executable)
+                            case .failure(let failure): run.fail(Program.current.name, ApplicationFailure(subject: executable.path(percentEncoded: false), reason: .unwatched(failure)))
+                            case nil: break
+                        }
+                    }
+                }
             }
         }
     }

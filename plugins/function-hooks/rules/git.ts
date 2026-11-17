@@ -37,6 +37,12 @@ const inRepository =
         return Option.exists(folder, (repository) => !call.host.inside(repository, call.host.root)) ? [] : Effect.map(all(...rules)(invocation, call), (verdicts) => (verdicts.length > 0 && Option.isNone(folder) ? unresolved(invocation) : verdicts));
     };
 
+const dirty = (host: Host['Service'], invocation: Invocation, paths: readonly string[]) =>
+    Effect.orElseSucceed(
+        Effect.map(host.output(['git', '-C', Option.getOrElse(folderOf(host, invocation, '-C'), () => host.root), 'status', '--porcelain', '--', ...paths]), (listed) => listed.trim() !== ''),
+        () => true,
+    );
+
 const checkoutPaths: Rule = Effect.fnUntraced(function* (invocation, { host }) {
     const { operands } = invocation;
     const [first, ...more] = operands;
@@ -44,8 +50,37 @@ const checkoutPaths: Rule = Effect.fnUntraced(function* (invocation, { host }) {
         return [];
     }
     const paths = invocation.tail.length > 0 || more.length > 0 || first.text === '.' || first.text.startsWith(':') || (first.text !== '-' && (yield* present(host, invocation, first.text)));
-    const uncommitted = paths && (!operands.every(({ known }) => known) || (yield* Effect.orElseSucceed(host.output(['git', '-C', Option.getOrElse(folderOf(host, invocation, '-C'), () => host.root), 'status', '--porcelain', '--', ...operands.map(({ text }) => text)]), () => 'unknown')).trim() !== '');
+    const uncommitted =
+        paths &&
+        (!operands.every(({ known }) => known) ||
+            (yield* dirty(
+                host,
+                invocation,
+                operands.map(({ text }) => text),
+            )));
     return uncommitted ? refusal(`${commandOf(invocation)} ${first.text} ${OVERWRITES.join(', ')}`) : [];
+});
+
+const restoredPaths: Rule = Effect.fnUntraced(function* (invocation, { host }) {
+    const { operands } = invocation;
+    const uncommitted =
+        !operands.every(({ known }) => known) ||
+        (yield* dirty(
+            host,
+            invocation,
+            operands.map(({ text }) => text),
+        ));
+    return uncommitted ? refusal(`${commandOf(invocation)} ${OVERWRITES.join(', ')}`) : [];
+});
+
+const appliedPatch: Rule = Effect.fnUntraced(function* (invocation, { host }) {
+    const { operands } = invocation;
+    if (operands.length === 0 || !operands.every(({ known }) => known)) {
+        return refusal(`${commandOf(invocation)} reads a patch no check can list before it runs, pass the patch file`);
+    }
+    const listed = yield* Effect.orElseSucceed(host.output(['git', '-C', Option.getOrElse(folderOf(host, invocation, '-C'), () => host.root), 'apply', '--numstat', ...operands.map(({ text }) => text)]), () => '');
+    const paths = listed.split('\n').flatMap((line) => Option.toArray(Array.get(line.split('\t'), 2)));
+    return paths.length === 0 || (yield* dirty(host, invocation, paths)) ? refusal(`${commandOf(invocation)} ${OVERWRITES.join(', ')}`) : [];
 });
 
 const resetTarget: Rule = Effect.fnUntraced(function* (invocation, { host }) {
@@ -61,12 +96,7 @@ const showOverwrite: Rule = (invocation, { host }) =>
     Effect.map(
         Effect.filter(Array.getSomes(redirected(invocation, RedirOperator.RdrOut).map(({ target }) => target)), ({ text, known }) => {
             const file = Option.getOrUndefined(Option.filter(host.resolve(text, invocation.command.cwd), (candidate) => host.inside(candidate, host.root)));
-            return file === undefined || !known
-                ? Effect.succeed(file !== undefined)
-                : Effect.orElseSucceed(
-                      Effect.map(host.output(['git', 'status', '--porcelain', '--', file]), (listed) => listed.trim() !== ''),
-                      () => true,
-                  );
+            return file === undefined || !known ? Effect.succeed(file !== undefined) : dirty(host, invocation, [file]);
         }),
         ([file]) => (file === undefined ? [] : refusal(`${commandOf(invocation)} > ${file.text} ${OVERWRITES.join(', ')}`)),
     );
@@ -120,7 +150,8 @@ const GIT: Ruleset = {
                         rebase: [when(({ has }) => !has(...UNWINDS), refuse('rewrites shared commits', 'merge or commit forward'))],
                         reflog: [when(nested('delete', 'drop', 'expire'), refuse('deletes entries', 'leave the reflog intact'))],
                         reset: [refuse(...OVERWRITES, ...RESET_DISCARDS), when(({ has }) => !has(...RESET_DISCARDS), resetTarget)],
-                        restore: [when(({ has }) => !has('--staged') || has('--worktree'), refuse(...OVERWRITES))],
+                        apply: [when(({ has }) => !has('--cached') && (has('--apply') || !has('--check', '--stat', '--numstat', '--summary')), appliedPatch)],
+                        restore: [when(({ has }) => !has('--staged') || has('--worktree'), restoredPaths)],
                         revert: [when(({ has }) => !has(...UNWINDS), refuse('reverses committed history', 'commit a forward fix'))],
                         show: [when(holds(REVISION_PATH), showOverwrite)],
                         stash: [when(Predicate.not(nested('list', 'show')), refuse('hides work', 'leave the work in the tree'))],
@@ -129,6 +160,10 @@ const GIT: Ruleset = {
                 ),
                 perSubcommand({ worktree: [exportedTree] }),
             ],
+        },
+        patch: {
+            flags: ['-d=', '--directory='],
+            rules: [(invocation, { host }) => (Option.exists(folderOf(host, invocation, '-d', '--directory'), (folder) => host.inside(folder, host.root)) ? refusal('patch applies a diff outside git, run git apply') : [])],
         },
     },
 };

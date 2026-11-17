@@ -3,9 +3,9 @@ source: tests/tools/dylint/ui/main.rs
 input_file: tests/tools/dylint/expansions/main.rs
 ---
 error: `tokio::pin!` duplicates standard pinning
-  --> tests/tools/dylint/expansions/main.rs:11:5
+  --> tests/tools/dylint/expansions/main.rs:18:5
    |
-11 |     tokio::pin!(future);
+18 |     tokio::pin!(future);
    |     ^^^^^^^^^^^^^^^^^^^
    |
    = help: bind pinned values with `core::pin::pin!`
@@ -168,108 +168,100 @@ error: assertion tests a pattern through a boolean
     = help: assert `core::option::Option::None` through `core::assert_matches!`, retaining custom messages
 
 error: error `Box<dyn Error>` is an erased `dyn Error` callers cannot match
-  --> tests/tools/dylint/expansions/main.rs:51:26
+  --> tests/tools/dylint/expansions/main.rs:58:26
    |
-51 |     fn boxed_helper() -> Result<(), Box<dyn Error>> { Ok(()) }
+58 |     fn boxed_helper() -> Result<(), Box<dyn Error>> { Ok(()) }
    |                          ^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
    = help: return the concrete source error, or add a domain error for context or distinct failures
    = note: `#[deny(untyped_error)]` on by default
 
 error: error `anyhow::Error` is a report that erases each failure's type
-  --> tests/tools/dylint/expansions/main.rs:53:27
+  --> tests/tools/dylint/expansions/main.rs:60:27
    |
-53 |     fn report_helper() -> anyhow::Result<()> { Ok(()) }
+60 |     fn report_helper() -> anyhow::Result<()> { Ok(()) }
    |                           ^^^^^^^^^^^^^^^^^^
    |
    = help: return the concrete source error, or add a domain error for context or distinct failures
 
 error: text of error `std::fmt::Error` is stored
-  --> tests/tools/dylint/expansions/main.rs:65:20
+  --> tests/tools/dylint/expansions/main.rs:72:20
    |
-65 |         assert_eq!(error.to_string(), "an error occurred when formatting an argument");
+72 |         assert_eq!(error.to_string(), "an error occurred when formatting an argument");
    |                    ^^^^^^^^^^^^^^^^^
    |
    = help: hold `std::fmt::Error` as `#[source]` of a `thiserror` variant
    = note: `#[deny(stringified_error)]` on by default
 
 error: text of error `std::fmt::Error` is compared
-  --> tests/tools/dylint/expansions/main.rs:85:12
+  --> tests/tools/dylint/expansions/main.rs:92:12
    |
-85 |         if error.to_string().contains("argument") {
+92 |         if error.to_string().contains("argument") {
    |            ^^^^^^^^^^^^^^^^^
    |
    = help: match the error's variant, `kind()`, or `downcast_ref` in place of its text
 
 error: text of error `std::fmt::Error` is compared
-  --> tests/tools/dylint/expansions/main.rs:88:25
+  --> tests/tools/dylint/expansions/main.rs:95:25
    |
-88 |         black_box(match error.to_string().contains("formatting") {
+95 |         black_box(match error.to_string().contains("formatting") {
    |                         ^^^^^^^^^^^^^^^^^
    |
    = help: match the error's variant, `kind()`, or `downcast_ref` in place of its text
 
 error: text of error `std::fmt::Error` is compared
-  --> tests/tools/dylint/expansions/main.rs:92:20
+  --> tests/tools/dylint/expansions/main.rs:99:20
    |
-92 |         assert!(if error.to_string().contains("argument") { true } else { false });
+99 |         assert!(if error.to_string().contains("argument") { true } else { false });
    |                    ^^^^^^^^^^^^^^^^^
    |
    = help: match the error's variant, `kind()`, or `downcast_ref` in place of its text
 
 error: text of error `std::fmt::Error` is compared
-  --> tests/tools/dylint/expansions/main.rs:93:23
-   |
-93 |         let message = error.to_string();
-   |                       ^^^^^^^^^^^^^^^^^
-   |
-   = help: match the error's variant, `kind()`, or `downcast_ref` in place of its text
+   --> tests/tools/dylint/expansions/main.rs:100:23
+    |
+100 |         let message = error.to_string();
+    |                       ^^^^^^^^^^^^^^^^^
+    |
+    = help: match the error's variant, `kind()`, or `downcast_ref` in place of its text
 
 error: text of error `std::fmt::Error` is compared
-   --> tests/tools/dylint/expansions/main.rs:108:17
+   --> tests/tools/dylint/expansions/main.rs:115:17
     |
-108 |         assert!(error.to_string().contains("formatting"));
+115 |         assert!(error.to_string().contains("formatting"));
     |                 ^^^^^^^^^^^^^^^^^
     |
     = help: match the error's variant, `kind()`, or `downcast_ref` in place of its text
 
 error: text of `error_assertions::Mode` is compared
-   --> tests/tools/dylint/expansions/main.rs:137:20
+   --> tests/tools/dylint/expansions/main.rs:144:20
     |
-137 |                 if mode.to_string().contains("Ready") {
+144 |                 if mode.to_string().contains("Ready") {
     |                    ^^^^^^^^^^^^^^^^
     |
     = help: compare or match `error_assertions::Mode` in place of its text
 
 error: text of error `std::fmt::Error` is compared
-   --> tests/tools/dylint/expansions/main.rs:141:27
+   --> tests/tools/dylint/expansions/main.rs:148:27
     |
-141 |                 black_box(format!("{error:?}").contains("Error"));
+148 |                 black_box(format!("{error:?}").contains("Error"));
     |                           ^^^^^^^^^^^^^^^^^^^^
     |
     = help: match the error's variant, `kind()`, or `downcast_ref` in place of its text
 
 error: error `anyhow::Error` is a report that erases each failure's type
-   --> tests/tools/dylint/expansions/main.rs:162:38
+   --> tests/tools/dylint/expansions/main.rs:169:38
     |
-162 |         fn nested_report_helper() -> anyhow::Result<()> { Ok(()) }
+169 |         fn nested_report_helper() -> anyhow::Result<()> { Ok(()) }
     |                                      ^^^^^^^^^^^^^^^^^^
     |
     = help: return the concrete source error, or add a domain error for context or distinct failures
 
 error: error `String` is text callers cannot match
-   --> tests/tools/dylint/expansions/main.rs:167:31
+   --> tests/tools/dylint/expansions/main.rs:174:31
     |
-167 |     fn string_test_error() -> Result<(), String> { Ok(()) }
+174 |     fn string_test_error() -> Result<(), String> { Ok(()) }
     |                               ^^^^^^^^^^^^^^^^^^
-    |
-    = help: return the concrete source error, or add a domain error for context or distinct failures
-
-error: error `anyhow::Error` is a report that erases each failure's type
-   --> tests/tools/dylint/expansions/main.rs:171:19
-    |
-171 |         black_box(anyhow::Error::from(fmt::Error));
-    |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: return the concrete source error, or add a domain error for context or distinct failures
 
@@ -282,9 +274,17 @@ error: error `anyhow::Error` is a report that erases each failure's type
     = help: return the concrete source error, or add a domain error for context or distinct failures
 
 error: error `anyhow::Error` is a report that erases each failure's type
-   --> tests/tools/dylint/expansions/main.rs:184:9
+   --> tests/tools/dylint/expansions/main.rs:185:19
     |
-184 |         Err::<(), _>(fmt::Error).context("rendering")?;
+185 |         black_box(anyhow::Error::from(fmt::Error));
+    |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: return the concrete source error, or add a domain error for context or distinct failures
+
+error: error `anyhow::Error` is a report that erases each failure's type
+   --> tests/tools/dylint/expansions/main.rs:191:9
+    |
+191 |         Err::<(), _>(fmt::Error).context("rendering")?;
     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: return the concrete source error, or add a domain error for context or distinct failures
@@ -307,9 +307,9 @@ error: `matches` renamed to `fits` with no other `matches` in scope
     = help: remove `as fits` and name `matches` at each use
 
 error: `assert` renamed to `require` with no other `assert` in scope
-  --> tests/tools/dylint/expansions/main.rs:70:13
+  --> tests/tools/dylint/expansions/main.rs:77:13
    |
-70 |         use core::assert as require;
+77 |         use core::assert as require;
    |             ^^^^^^^^^^^^^^^^^^^^^^^
    |
    = help: remove `as require` and name `assert` at each use

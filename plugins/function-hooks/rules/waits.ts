@@ -25,6 +25,21 @@ const WAITERS: ReadonlySet<string> = new Set(['sleep', 'timeout', 'caffeinate', 
 
 // --- [WATCH_APPS]
 
+const reading = (names: readonly string[]) => `run ${WATCH_APPS} read ${(names.length === 0 ? ['<app>'] : names.map((name) => quote(name))).join(' ')}`;
+
+const polling = (names: readonly string[]) => refusal(`Loop polls ${names.join(' ') || WATCH_APPS}, ${reading(names)}`);
+
+const watch: Rule = (invocation, call) => {
+    const { operands, path } = invocation;
+    const names = path[0] === 'perform' || path[0] === 'set' ? [] : operands.map(({ text }) => text);
+    if (invocation.repeated && path[0] === 'read' && operands.every(({ known }) => known)) {
+        return polling(names);
+    }
+    return path[0] === 'watch' && !(invocation.has('--record') && call.request.kind === 'background')
+        ? refusal(`${WATCH_APPS} watch streams every state into the session, which hook context already gives for dialogs, hangs, and crashes of each launched app, ${reading(names)}, and a recording runs watch --record in the background`)
+        : [];
+};
+
 const polledApp: Rule = (invocation, call) => {
     const pids = [...invocation.operands.map(({ text }) => text), ...invocation.values('-p')].flatMap((value) => value.split(',')).filter((pid) => DIGITS.test(pid));
     return !invocation.repeated || pids.length === 0
@@ -32,7 +47,7 @@ const polledApp: Rule = (invocation, call) => {
         : Effect.orElseSucceed(
               Effect.map(call.host.installations(pids), (running) => {
                   const bundles = running.filter(({ activationPolicy }) => activationPolicy !== 'prohibited').map(({ identifier }) => identifier);
-                  return bundles.length === 0 ? [] : refusal(`Loop polls ${bundles.join(' ')}, the session's ${WATCH_APPS} watch prints each change of their instances`);
+                  return bundles.length === 0 ? [] : polling(bundles);
               }),
               () => [],
           );
@@ -57,7 +72,7 @@ const polledRun: Rule = (invocation, { analysis, request }) =>
             onSome: ({ run, follow }) => {
                 const own = analysis.invocations.filter((other) => other.command.origin === 'call');
                 const polls = own.every((other) => other.repeated && (RUN_POLLS.has(other.program) || Option.exists(viewedRun(other), (viewed) => viewed.run === run)));
-                const background = request.kind === 'foreground' ? [Verdict.Background({})] : [];
+                const background = request.kind === 'foreground' ? [Verdict.Background()] : [];
                 return invocation.command.origin === 'call' && polls ? [Verdict.Edit({ start: 0, end: invocation.command.source.length, text: Option.some(follow), subject: Option.some('gh run view loop') }), ...background] : refusal(`Loop polls gh run view, run ${follow}`);
             },
         },
@@ -72,7 +87,7 @@ const watchedRun: Rule = (invocation, { analysis, request }) => {
         Option.filter(viewedRun(invocation), () => !invocation.repeated && read && slept && (request.kind === 'foreground' || request.kind === 'background')),
         {
             onNone: () => [],
-            onSome: ({ follow }) => [...(waited === undefined ? [] : edited(waited, waited.command, ':')), ...whole(invocation, follow, 'sleep before gh run view'), ...(request.kind === 'foreground' ? [Verdict.Background({})] : [])],
+            onSome: ({ follow }) => [...(waited === undefined ? [] : edited(waited, waited.command, ':')), ...whole(invocation, follow, 'sleep before gh run view'), ...(request.kind === 'foreground' ? [Verdict.Background()] : [])],
         },
     );
 };
@@ -85,7 +100,7 @@ const taskNotice = (ids: readonly string[]) => refusal(`Task ${ids.join(' ')} no
 
 const closesInput = ({ row: { closesInput: closes }, has }: Invocation): boolean => closes === true || (closes !== undefined && has(...closes));
 
-const timer = (invocation: Invocation, { request }: Call): readonly Verdict[] => (request.kind === 'foreground' && invocation.last ? [Verdict.Background({})] : []);
+const timer = (invocation: Invocation, { request }: Call): readonly Verdict[] => (request.kind === 'foreground' && invocation.last ? [Verdict.Background()] : []);
 
 const sleep: Rule = (invocation, call) => {
     const { command, operands } = invocation;
@@ -206,7 +221,7 @@ const backgroundJob = (call: Call): readonly Verdict[] => {
     if (!trailing) {
         return refusal(`& job outlives the call, ${request.kind === 'plain' ? 'run it as its own call' : 'set run_in_background'}`);
     }
-    return [Verdict.Edit({ start: job.start, end: job.end, text: Option.none(), subject: Option.none() }), ...(request.kind === 'foreground' ? [Verdict.Background({})] : [])];
+    return [Verdict.Edit({ start: job.start, end: job.end, text: Option.none(), subject: Option.none() }), ...(request.kind === 'foreground' ? [Verdict.Background()] : [])];
 };
 
 const pipedStatus = (call: Call): readonly Verdict[] => {
@@ -258,6 +273,7 @@ const WAITS: Ruleset = {
         kill: { rules: [polledApp] },
         ps: { rules: [polledApp] },
         tail: { flags: ['-F', '-b='], reads: true, rules: [when(({ has }) => has('-f', '-F'), tailedTask, neverExits('run it in Monitor'))] },
+        [WATCH_APPS]: { dumpsHelp: true, rules: [watch] },
     },
     every: [(invocation) => (invocation.command.busy ? refusal('Loop body never waits and spins a core, put sleep <seconds> in it') : [])],
     calls: [backgroundJob, pipedStatus, zshParameter, idleCall, polledTask],

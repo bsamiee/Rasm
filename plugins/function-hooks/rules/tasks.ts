@@ -2,9 +2,9 @@ import { devNull } from 'node:os';
 import { matchesGlob } from 'node:path';
 import process from 'node:process';
 import type { ProjectGraphProjectNode, TargetConfiguration } from '@nx/devkit';
-import { Array, Effect, Match, Option, Predicate, pipe, Record, Result, Schedule, Schema, String, Struct } from 'effect';
+import { Array, Effect, Match, Option, Predicate, pipe, Record, Result, Schema, String, Struct } from 'effect';
 import { RedirOperator } from 'sh-syntax/sync';
-import { Host, type HostError } from '#/host';
+import type { Host, HostError } from '#/host';
 import { Verdict } from '#/rules/decision';
 import { all, type Call, commandOf, cut, edited, ensure, erased, feedsJq, holds, inserted, perSubcommand, quote, type Rule, type Ruleset, redirected, refusal, refuse, respell, silent, spelled, unassign, when, whole } from '#/rules/rule';
 import { analyzed, type Invocation, type Parser, WRITES } from '#/shell/invocation';
@@ -29,11 +29,6 @@ const ADDOPTS_VARIABLE = 'PYTEST_ADDOPTS=';
 const DEPLOY = 'deploy--pulumi';
 const PULUMI_OPERATIONS: Record.ReadonlyRecord<string, string> = { up: 'up', preview: 'preview', refresh: 'preview', destroy: 'destroy' };
 const PULUMI_FLAGS: ReadonlySet<string> = new Set(['--stack', '--yes', '--skip-preview', '--non-interactive', '--cwd']);
-const READINESS = [
-    ['is not ready yet', 'use its server once ready'],
-    ['is ready', 'use that server'],
-    ['failed its readiness check', 'stop that process before another run'],
-] as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -415,51 +410,6 @@ const askedTargets = (invocation: Invocation, graph: Graph) => {
     return Array.cartesian(nodes, targets).filter(([node, target]) => targetsOf(node)[target] !== undefined);
 };
 
-const continuousRun: Rule = Effect.fnUntraced(function* (invocation, { host, request }) {
-    const [verb] = [...invocation.path, ...invocation.operands.map(({ text }) => text)];
-    const configured = invocation.values('--configuration').at(-1);
-    const continuous = Option.match(yield* host.graph, {
-        onNone: () => [],
-        onSome: (graph) =>
-            askedTargets(invocation, graph).flatMap(([node, asked]) =>
-                [asked, ...members(targetsOf(node), asked)].flatMap((name) => {
-                    const target = targetsOf(node)[name];
-                    const configuration = configured ?? target?.defaultConfiguration;
-                    return target?.continuous === true ? [{ id: [node.name, name, ...(configuration === undefined ? [] : [configuration])].join(':'), signals: target.readyWhen !== undefined && target.readyWhen !== null }] : [];
-                }),
-            ),
-    });
-    const ids = continuous.map(({ id }) => id);
-    if (ids.length === 0 || verb === 'affected') {
-        return [];
-    }
-    const running = yield* host.running(ids);
-    if (running.length > 0) {
-        return running.flatMap(({ id, readiness, url }) => {
-            const [state, action] = READINESS[Option.getOrElse(readiness, () => 0)] ?? READINESS[0];
-            const task = request.owned?.[id];
-            const owner = task === undefined ? 'an nx process' : `your background task ${task}`;
-            return refusal(`${id} already runs in ${owner}${Option.match(url, { onNone: () => '', onSome: (at) => ` at ${at}` })} and ${state}, ${action}, it stops when that run ends, start your own run then, a second run now only waits on it`);
-        });
-    }
-    const signaled = continuous.filter(({ signals }) => signals).map(({ id }) => id);
-    const reported = signaled.length === ids.length ? 'a note brings its ready URL when Nx reports it' : 'read its output once for its URL';
-    const backgrounded = [Verdict.Background({ note: `${ids.join(', ')} runs until stopped in the background, ${reported}, stop it with TaskStop when done`, tasks: signaled })];
-    return Match.value(request.kind).pipe(
-        Match.whenOr('foreground', 'background', () => backgrounded),
-        Match.when('monitor', () => refusal(`${commandOf(invocation)} runs ${ids.join(', ')} until stopped and Monitor ends it at its deadline, run it with run_in_background`)),
-        Match.orElse(() => []),
-    );
-});
-
-const readiness = (ids: readonly string[]) =>
-    Host.use((host) => host.running(ids)).pipe(
-        Effect.repeat({ schedule: Schedule.spaced('500 millis'), until: (rows) => rows.length < ids.length || rows.some(({ readiness: state }) => Option.exists(state, (value) => value > 0)) }),
-        Effect.timeoutOption('20 seconds'),
-        Effect.flatMap(Option.match({ onNone: () => Host.use((host) => host.running(ids)), onSome: Effect.succeed })),
-        Effect.map(Array.map(({ id, readiness: state, url }) => ({ id, ...Record.getSomes({ readiness: state }), ...Record.getSomes({ url }) }))),
-    );
-
 const aggregateArgs: Rule = Effect.fnUntraced(function* (invocation, { host }) {
     const asked = Option.match(yield* host.graph, { onNone: () => [], onSome: (graph) => askedTargets(invocation, graph) });
     const aggregated = asked.find(([asking, target]) => patternsOf(targetsOf(asking)[target] ?? {}).length > 0);
@@ -580,7 +530,6 @@ const TASKS: Ruleset = {
                     reset: [(invocation, { host }) => (!invocation.has('--only-cache', '--only-daemon', '--only-cloud') && Option.exists(invocation.command.cwd, (folder) => host.inside(folder, host.root)) ? refuse('drops the graph', 'fix the inputs or pass --only-cache')(invocation) : [])],
                 }),
                 when((invocation) => !invocation.has('--graph'), loopedRun('Loop reruns nx tasks, use one nx run-many', runMany)),
-                continuousRun,
                 skippedCache,
             ],
         },
@@ -673,4 +622,4 @@ const TASKS: Ruleset = {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { readiness, TASKS };
+export { TASKS };

@@ -22,7 +22,6 @@
     },
     "enabledPlugins": {
         "function-hooks@rasm": true,
-        "watch-apps@rasm": false,
         "astral@astral-sh": true,
         "rust-analyzer-lsp@claude-plugins-official": true,
         "swift-lsp@claude-plugins-official": true

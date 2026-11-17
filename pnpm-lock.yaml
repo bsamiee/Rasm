@@ -1423,9 +1423,6 @@ importers:
       effect:
         specifier: 'catalog:'
         version: 4.1.4
-      nx:
-        specifier: 'catalog:'
-        version: 24.1.0-beta.1
       sh-syntax:
         specifier: 'catalog:'
         version: 0.8.7

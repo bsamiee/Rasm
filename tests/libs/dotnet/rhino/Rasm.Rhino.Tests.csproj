@@ -63,6 +63,10 @@
         <PackageReference Include="LanguageExt.Core" />
     </ItemGroup>
 
+    <ItemGroup Label="Time">
+        <PackageReference Include="NodaTime" />
+    </ItemGroup>
+
     <ItemGroup Label="Property Testing">
         <PackageReference Include="CsCheck" />
         <RuntimeEnvironmentVariable Include="CsCheck_Threads" Value="1" /> <!-- RhinoCommon and its documents run on one thread, so samples run one at a time -->

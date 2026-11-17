@@ -8,7 +8,7 @@ use std::sync::Arc;
 use cargo_metadata::MetadataCommand;
 use clippy_utils::diagnostics::{span_lint, span_lint_hir_and_then};
 use clippy_utils::res::MaybeResPath as _;
-use clippy_utils::{desugar_await, get_async_fn_body, is_entrypoint_fn, peel_blocks_with_stmt, peel_hir_expr_refs, tokenize_with_text};
+use clippy_utils::{desugar_await, get_async_fn_body, peel_blocks_with_stmt, peel_hir_expr_refs, tokenize_with_text};
 use itertools::{Either, Itertools as _};
 use rustc_ast::visit;
 use rustc_attr_ir::find_attr;
@@ -29,7 +29,7 @@ use rustc_parse::{new_parser_from_source_str, unwrap_or_emit_fatal};
 use rustc_session::parse::ParseSess;
 use rustc_span::{BytePos, FileName, Ident, Pos as _, RelativeBytePos, SourceFile, Span, Symbol, kw, sym};
 
-use crate::{accessed_field, awaited_output, constructed, expanded_externally, exported, fn_item_value, generated, in_test, item_path, parameter, pattern_fields, signature};
+use crate::{accessed_field, awaited_output, constructed, entry, expanded_externally, exported, fn_item_value, generated, in_test, item_path, parameter, pattern_fields, signature};
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -266,7 +266,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
         if !span.from_expansion()
             && tcx.trait_impl_of_assoc(function.to_def_id()).is_none()
             && tcx.trait_of_assoc(function.to_def_id()).is_none()
-            && !is_entrypoint_fn(cx, function.to_def_id())
+            && !entry(cx, function)
             && !tcx.codegen_fn_attrs(function).contains_extern_indicator()
             && !generated(cx, node)
             && !in_test(tcx, node)
@@ -451,11 +451,11 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
         for (&target, sites) in &self.sites {
             let outside = || sites.iter().filter(move |&&(caller, _)| caller != target);
             if let Ok(caller) = outside().map(|&(caller, _)| caller).all_equal_value()
-                && !is_entrypoint_fn(cx, caller.to_def_id())
+                && !entry(cx, caller)
                 && !self.pinned.contains(&target)
                 && !tcx.def_span(target).from_expansion()
                 && !exported(cx, target)
-                && !is_entrypoint_fn(cx, target.to_def_id())
+                && !entry(cx, target)
                 && !find_attr!(tcx, target, Used { .. })
                 && let name = tcx.item_name(target)
                 && !unseen.contains(&name)

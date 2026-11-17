@@ -136,11 +136,16 @@ public static class Motions {
     private static CameraLens Lens(CameraLens from, CameraLens to, double progress) =>
         from.Switch(
             (To: to, Progress: progress),
-            parallel: static (at, near) => at.To is CameraLens.Parallel far ? new CameraLens.Parallel(double.Lerp(near.Extent, far.Extent, at.Progress)) : at.Progress < 1d ? near : at.To,
-            perspective: static (at, near) => at.To is CameraLens.Perspective far ? new CameraLens.Perspective(Turned(near.Angle, far.Angle, at.Progress)) : at.Progress < 1d ? near : at.To,
+            parallel: static (at, near) => at.To is CameraLens.Parallel far ? Some<CameraLens>(new CameraLens.Parallel(double.Lerp(near.Extent, far.Extent, at.Progress))) : None,
+            perspective: static (at, near) => at.To is CameraLens.Perspective far ? Some<CameraLens>(new CameraLens.Perspective(Turned(near.Angle, far.Angle, at.Progress))) : None,
             twoPoint: static (at, near) => at.To is CameraLens.TwoPoint far
-                ? new CameraLens.TwoPoint(Turned(near.Angle, far.Angle, at.Progress), at.Progress < 1d ? near.Up : far.Up)
-                : at.Progress < 1d ? near : at.To);
+                ? Some<CameraLens>(new CameraLens.TwoPoint(
+                    Turned(near.Angle, far.Angle, at.Progress),
+                    Transform.Rotation(at.Progress * Vector3d.VectorAngle(near.Up, far.Up), Vector3d.CrossProduct(near.Up, far.Up) switch {
+                        var axis => axis.IsTiny() ? new Plane(Point3d.Origin, near.Up).XAxis : axis,
+                    }, Point3d.Origin) * near.Up))
+                : None)
+        .IfNone(progress > 0d ? to : from);
 
     private static Angle Turned(Angle from, Angle to, double progress) =>
         Angle.FromRadians(Quantities.Exact(double.Lerp(from.Radians.ToDouble(), to.Radians.ToDouble(), progress)));

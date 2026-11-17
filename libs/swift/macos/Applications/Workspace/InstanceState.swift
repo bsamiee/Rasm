@@ -83,15 +83,6 @@ public enum InstanceState: Equatable, Sendable {
     case exited(Result<ProcessExit, Errno>, report: Result<CrashReport, ApplicationFailure>?)
 }
 
-@CasePathable
-public enum InstanceChange: Equatable, Sendable {
-    case status(InstanceState.Running.Status)
-    case closed(InstanceState.Window)
-    case opened(InstanceState.Window)
-    case failed(ApplicationFailure)
-    case exited(Result<ProcessExit, Errno>, report: Result<CrashReport, ApplicationFailure>?)
-}
-
 extension InstanceState.Window {
     init?(_ row: [String: Any]) {
         guard let number = row[kCGWindowNumber as String] as? CGWindowID, let layer = row[kCGWindowLayer as String] as? Int, layer >= 0,
@@ -194,23 +185,6 @@ extension InstanceState.Window: Encodable {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension InstanceState {
-    public static func changes(from last: Self?, to next: Self?) -> [InstanceChange] {
-        let (before, after) = (last?.presented ?? [:], next?.presented ?? [:])
-        let state: [InstanceChange] =
-            switch next {
-                case .running(let running) where last?[case: \.running]?.status != running.status: [.status(running.status)]
-                case .failed(let failure) where last != next: [.failed(failure)]
-                case .exited(let exit, let report) where last != next: [.exited(exit, report: report)]
-                case .running, .failed, .exited, .none: []
-            }
-        let closed = next?.is(\.exited) == true ? [] : before.values.filter { window in after[window.number] == nil }.map(InstanceChange.closed)
-        return state + closed + after.values.filter { window in before[window.number].map { held in window.asking && !held.asking } ?? true }.map(InstanceChange.opened)
-    }
-
-    private var presented: OrderedDictionary<CGWindowID, Window> {
-        OrderedDictionary(((self[case: \.running]).map { running in running.windows + running.prompts } ?? []).filter { window in window.presented && (window.onScreen || window.description != .undescribed) }.map { window in (window.number, window) }) { first, _ in first }
-    }
-
     fileprivate func prompted(_ rows: [Window]) -> Self {
         self[case: \.running].map { running in .running(Running(status: running.status, active: running.active, windows: running.windows, prompts: rows, menus: running.menus, usage: running.usage)) }
             ?? self

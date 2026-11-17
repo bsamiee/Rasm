@@ -99,7 +99,7 @@ public static class Layers {
     private static Fin<Seq<string>> Preorder(Seq<string> keys) =>
         Products.Each(toSeq((keys.Bind(Lineage) + keys).Distinct(StringComparer.OrdinalIgnoreCase)), static (key, index) =>
                 RhinoFault.Unless(ModelComponent.IsValidComponentName(Layer.GetLeafName(key)), RhinoReason.Unqualified, key, index).Map(_ => key))
-            .Map(static names => names.ToLookup(Layer.GetParentName, StringComparer.OrdinalIgnoreCase))
+            .Map(static names => names.Choose(Conversions.Present).ToLookup(Layer.GetParentName, StringComparer.OrdinalIgnoreCase))
             .Map(static children => toSeq(SuperEnumerable.TraverseDepthFirst("", parent => children[parent]).Skip(1)));
 
     private static Seq<string> Lineage(string key) =>

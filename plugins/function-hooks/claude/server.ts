@@ -5,14 +5,14 @@ import process from 'node:process';
 import { layer, layerHttpServices } from '@effect/platform-node/NodeHttpServer';
 import { runMain } from '@effect/platform-node/NodeRuntime';
 import { layerNodeFromConfig, teardown } from '@rasm/telemetry/node';
-import { Array, Cause, Console, Effect, Layer, Option, Schedule, type Schema, Stdio, String } from 'effect';
+import { Array, Cause, Console, Effect, Function, Layer, Option, Schedule, type Schema, Stdio, String } from 'effect';
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from 'effect/http';
+import { observed, quit, watched } from '#/claude/instances';
 import { paused } from '#/claude/owner';
 import { Routes } from '#/claude/routes';
 import { Host } from '#/host';
 import manifest from '#/manifest' with { type: 'json' };
 import { decide, Engine } from '#/rules/decide';
-import { readiness } from '#/rules/tasks';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -28,7 +28,7 @@ const answering = <I, O, E, R>(route: keyof Routes, [input, output]: readonly [S
         ),
     );
 
-const Router = Layer.mergeAll(answering('decide', Routes.decide, decide), answering('paused', Routes.paused, paused), answering('ready', Routes.ready, readiness));
+const Router = Layer.mergeAll(answering('decide', Routes.decide, decide), answering('observe', Routes.observe, Function.flow(observed, Effect.succeed)), answering('paused', Routes.paused, paused), answering('quit', Routes.quit, quit), answering('watched', Routes.watched, Function.flow(watched, Effect.succeed)));
 
 const Server = Layer.unwrap(
     Effect.gen(function* () {

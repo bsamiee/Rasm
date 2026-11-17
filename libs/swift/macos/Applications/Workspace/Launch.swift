@@ -141,7 +141,7 @@ extension NSWorkspace {
                 await withDiscardingTaskGroup { group in
                     defer { group.cancelAll() }
                     group.addTask {
-                        for await held in Self.shared.systemPrompts(naming: { [installation.name] }, clock: clock) {
+                        for await held in Self.shared.systemPrompts(naming: [installation.name], clock: clock) {
                             output.yield(.prompts(held.compactMap { instance, state in RunningInstance(instance, state: state) }))
                         }
                     }

@@ -1,6 +1,7 @@
 using Eto.Drawing;
 using Grasshopper2.Components;
 using Grasshopper2.Data;
+using Grasshopper2.Diagnostics;
 using Grasshopper2.Doc;
 using Grasshopper2.Framework;
 using Grasshopper2.Parameters;
@@ -79,7 +80,8 @@ public static class DocumentEdits {
     // --- [OBJECTS]
 
     public static IO<T> Add<T>(Document document, T target) where T : IDocumentObject =>
-        IO.lift(() => GrasshopperFault.Unless(document.Objects.Add(target), GrasshopperReason.Declined, target.Nomen.Name).Map(_ => target));
+        IO.lift(() => GrasshopperFault.Unless(document.Objects.Add(target), GrasshopperReason.Declined, target.Nomen.Name).Map(_ => target))
+        | @catch(static error => error.HasException<LoggedException>(), error => IO.fail<T>(new GrasshopperFault(target.Nomen.Name, GrasshopperReason.Declined, Inner: error)));
 
     // --- [GRAPHS]
 
