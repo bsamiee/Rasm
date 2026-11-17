@@ -46,6 +46,15 @@
             }
         },
         {
+            "name": "media",
+            "source": "./plugins/shared/media",
+            "version": "0.2.0",
+            "description": "Audio and media work, starting with the Voicebox voice studio server",
+            "author": {
+                "name": "Bardia Samiee"
+            }
+        },
+        {
             "name": "msbuild",
             "source": "./plugins/shared/msbuild",
             "version": "0.3.0",
@@ -66,7 +75,7 @@
         {
             "name": "rhino",
             "source": "./plugins/shared/rhino",
-            "version": "0.2.0",
+            "version": "0.3.0",
             "description": "Rhino sessions, Grasshopper 2 canvases, and tests of code over RhinoCommon and Grasshopper",
             "author": {
                 "name": "Bardia Samiee"
@@ -102,7 +111,7 @@
         {
             "name": "terminal",
             "source": "./plugins/shared/terminal",
-            "version": "0.2.0",
+            "version": "0.3.0",
             "description": "Agent session hooks: atuin records shell commands, zellij-agent-resume saves and restores sessions, and git-ai checkpoints authorship",
             "author": {
                 "name": "Bardia Samiee"
@@ -129,8 +138,8 @@
         {
             "name": "uxp",
             "source": "./plugins/shared/uxp",
-            "version": "0.2.0",
-            "description": "Code that runs in an Adobe UXP host",
+            "version": "0.3.0",
+            "description": "Code that runs in an Adobe UXP host, and the Atelier and Illustrator servers that drive Adobe apps",
             "author": {
                 "name": "Bardia Samiee"
             }

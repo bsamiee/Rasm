@@ -165,6 +165,15 @@ def _sliced(geom: shapely.Geometry, point: _Point, angle: float, shift: _Point, 
     return [shapely.affinity.translate(shapely.intersection(geom, half), *shift), shapely.difference(geom, half)]
 
 
+def _arc(cx: float, cy: float, r: float, start: float, sweep: float, /) -> shapely.Geometry:
+    at = np.radians([start, start + sweep])
+    k = 4 / 3 * np.tan((at[1] - at[0]) / 4) * r
+    p0, p3 = (cx + r * np.cos(at[0]), cy - r * np.sin(at[0])), (cx + r * np.cos(at[1]), cy - r * np.sin(at[1]))
+    return _stroke(
+        [p0, (p0[0] - k * np.sin(at[0]), p0[1] - k * np.cos(at[0])), (p3[0] + k * np.sin(at[1]), p3[1] + k * np.cos(at[1])), p3], width=((0, 0.05), (0.5, 1.0), (1, 0.05)), edge=((0, 24), (1, 24))
+    )
+
+
 # --- [REGISTRY] -------------------------------------------------------------------------
 
 _ICONS: frozendict[str, Callable[[], list[shapely.Geometry]]] = frozendict({
@@ -242,6 +251,7 @@ _ICONS: frozendict[str, Callable[[], list[shapely.Geometry]]] = frozendict({
         _stroke([(290, 220), (200, 290), (90, 370), (0, 440)], width=((0, 0.4), (0.4, 0.9), (1, 0.04)), edge=((0, 130), (1, 112))),
         _brick(390, 440, 3.6),
     ],
+    "media": lambda: [_nuqta(0, 0, scale=1.3), *(_arc(0, 0, r, side + sweep / 2, -sweep) for r, sweep in ((190, 88), (330, 96)) for side in (0, 180))],
 })
 
 # --- [COMPOSITION] ----------------------------------------------------------------------

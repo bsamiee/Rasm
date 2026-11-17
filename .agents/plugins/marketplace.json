@@ -119,6 +119,34 @@
             }
         },
         {
+            "name": "media",
+            "source": {
+                "source": "local",
+                "path": "./plugins/shared/media"
+            },
+            "policy": {
+                "installation": "AVAILABLE",
+                "authentication": "ON_INSTALL"
+            },
+            "category": "Coding",
+            "version": "0.2.0",
+            "description": "Audio and media work, starting with the Voicebox voice studio server",
+            "author": {
+                "name": "Bardia Samiee"
+            },
+            "mcpServers": "./.mcp.json",
+            "interface": {
+                "displayName": "Media",
+                "shortDescription": "Audio and media work, starting with the Voicebox voice studio server",
+                "developerName": "Bardia Samiee",
+                "category": "Coding",
+                "composerIcon": "./assets/icon.png",
+                "logo": "./assets/icon.png",
+                "logoDark": "./assets/icon-dark.png",
+                "brandColor": "#090909"
+            }
+        },
+        {
             "name": "msbuild",
             "source": {
                 "source": "local",
@@ -186,7 +214,7 @@
                 "authentication": "ON_INSTALL"
             },
             "category": "Coding",
-            "version": "0.2.0",
+            "version": "0.3.0",
             "description": "Rhino sessions, Grasshopper 2 canvases, and tests of code over RhinoCommon and Grasshopper",
             "author": {
                 "name": "Bardia Samiee"
@@ -301,7 +329,7 @@
                 "authentication": "ON_INSTALL"
             },
             "category": "Coding",
-            "version": "0.2.0",
+            "version": "0.3.0",
             "description": "Agent session hooks: atuin records shell commands, zellij-agent-resume saves and restores sessions, and git-ai checkpoints authorship",
             "author": {
                 "name": "Bardia Samiee"
@@ -385,22 +413,23 @@
                 "authentication": "ON_INSTALL"
             },
             "category": "Coding",
-            "version": "0.2.0",
-            "description": "Code that runs in an Adobe UXP host",
+            "version": "0.3.0",
+            "description": "Code that runs in an Adobe UXP host, and the Atelier and Illustrator servers that drive Adobe apps",
             "author": {
                 "name": "Bardia Samiee"
             },
             "skills": "./skills/",
             "interface": {
                 "displayName": "UXP",
-                "shortDescription": "Code that runs in an Adobe UXP host",
+                "shortDescription": "Code that runs in an Adobe UXP host, and the Atelier and Illustrator servers that drive Adobe apps",
                 "developerName": "Bardia Samiee",
                 "category": "Coding",
                 "composerIcon": "./assets/icon.png",
                 "logo": "./assets/icon.png",
                 "logoDark": "./assets/icon-dark.png",
                 "brandColor": "#090909"
-            }
+            },
+            "mcpServers": "./.mcp.json"
         },
         {
             "name": "web",

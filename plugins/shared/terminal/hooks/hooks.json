@@ -5,6 +5,14 @@
                 "hooks": [
                     {
                         "type": "command",
+                        "command": "[ -n \"$CLAUDE_ENV_FILE\" ] && { grep -qsF 'mise hook-env' \"$CLAUDE_ENV_FILE\" || printf '%s\\n' 'eval \"$(mise hook-env -s bash)\"' \"export TMPDIR=/private/tmp/claude-$(id -u)/\" >> \"$CLAUDE_ENV_FILE\"; }; true"
+                    }
+                ]
+            },
+            {
+                "hooks": [
+                    {
+                        "type": "command",
                         "command": "/etc/profiles/per-user/bardiasamiee/bin/zellij-agent-resume claude",
                         "async": true
                     }

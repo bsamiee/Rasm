@@ -110,7 +110,7 @@ internal sealed record Refused(string Text) : Expected(Text, 0);
 
 internal static class Program {
     private const string Server = "rhino-mcp-platform";
-    private static readonly Refused Unrouted = new($"no {Server} row in a .mcp.json above the working directory");
+    private static readonly Refused Unrouted = new($"no {Server} row in the .mcp.json of the plugin holding this script");
 
     public static async Task<int> Main(string[] args) => args switch {
         [] or [nameof(Listing)] => await RunAsync().ConfigureAwait(false),
@@ -134,19 +134,15 @@ internal static class Program {
         Console.Write(Wire.Write(new Reply(RhinoApp.ExeVersion, RhinoApp.IsPreRelease, Environment.ProcessId, Listing.Query(slots))));
 
     private static IO<Func<IClientTransport>> Router() =>
-        from found in IO.lift(static () => Project(new DirectoryInfo(Environment.CurrentDirectory)))
-        from file in IO.lift(found.ToFin(Unrouted))
+        from file in IO.lift(static () => Optional(AppContext.GetData("EntryPointFileDirectoryPath") as string)
+            .Map(static scripts => Path.GetFullPath(Path.Combine(scripts, "..", "..", "..", ".mcp.json")))
+            .Filter(File.Exists)
+            .ToFin(Unrouted))
         from text in IO.liftAsync(env => File.ReadAllTextAsync(file, env.Token))
         from rows in Wire.Read(text, Wire.Default.Rows)
         from entry in IO.lift(Optional(rows.McpServers.GetValueOrDefault(Server)).ToFin(Unrouted))
         from row in Wire.Read(entry.GetRawText(), Wire.Default.Row)
         select (Func<IClientTransport>)(() => new StdioClientTransport(new() { Name = Server, Command = row.Command, Arguments = row.Args, EnvironmentVariables = row.Env }));
-
-    private static Option<string> Project(DirectoryInfo? folder) => folder switch {
-        null => None,
-        _ when File.Exists(Path.Combine(folder.FullName, ".mcp.json")) => Path.Combine(folder.FullName, ".mcp.json"),
-        _ => Project(folder.Parent),
-    };
 
     private static IO<string> List(HttpClient http, Func<IClientTransport> router) =>
         from reply in Call(router, "list_slots", ReadOnlyDictionary<string, object?>.Empty).Map(static result => result.Content.OfType<TextContentBlock>().Single().Text)

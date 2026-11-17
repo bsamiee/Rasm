@@ -49,7 +49,7 @@
         ".clang-tidy": ".clang-format, gersemi.yaml",
         ".gitignore": ".gitattributes, .gitmodules",
         "Cargo.toml": "build.rs, Cargo.lock, rust-toolchain.toml",
-        "CLAUDE.md": ".mcp.json, AGENTS.md",
+        "CLAUDE.md": "AGENTS.md",
         "clippy.toml": "nextest.toml, rustfmt.toml",
         "CMakeLists.txt": "*.cmake, CMakePresets.json, vcpkg.json",
         "Directory.Build.props": "Directory.Build.targets, Directory.Packages.props, global.json, NuGet.config, Workspace.slnx",
