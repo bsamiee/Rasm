@@ -40,7 +40,7 @@ catalog:
     plist: 5.1.1 # Property-list parser and builder
     ssh-config: 5.3.0 # OpenSSH client configuration parser and writer
     yaml: 3.0.0-2
-    '@decimalturn/toml-patch': 3.3.2 # TOML edits keeping layout and comments
+    '@decimalturn/toml-patch': 3.3.3 # TOML edits keeping layout and comments
     jsonc-parser: 4.0.0-next.2 # JSON edits keeping layout
     json5: 2.2.3 # Xcode project file parser
     chevrotain: 13.2.0
@@ -51,8 +51,8 @@ catalog:
 
     # --- [MARKUP]
 
-    fast-xml-builder: 1.3.1
-    fast-xml-parser: 5.12.0
+    fast-xml-builder: 1.3.2
+    fast-xml-parser: 5.12.1
     '@xmldom/xmldom': 0.9.12 # Namespace-preserving XMP document updates
     '@xml-tools/parser': 1.0.12 # XML syntax tree with token offsets
     '@xml-tools/ast': 5.0.6 # XML elements and attributes over parser tokens, for edits keeping layout
@@ -75,7 +75,7 @@ catalog:
     chokidar: 6.0.0
     '@parcel/watcher': 2.6.0
     jszip: 3.10.2
-    minimatch: 11.0.5
+    minimatch: 11.0.9
     package-directory: 8.2.0 # Nearest package directory from existing or generated paths
     env-paths: 4.0.0 # Per-user data, config, cache, log, and temp folders of each platform
     which: 7.0.0 # Executable lookup over PATH and PATHEXT
@@ -114,10 +114,10 @@ catalog:
 
     # --- [TRANSFER]
 
-    '@aws-sdk/client-s3': 3.1165.0
+    '@aws-sdk/client-s3': 3.1170.0
     '@aws-sdk/client-sts': 3.1165.0 # AssumeRole credentials scoped to one bucket
     '@smithy/core': 3.39.0 # Request type AWS SDK middleware narrows before setting a header
-    '@aws-sdk/s3-request-presigner': 3.1165.0
+    '@aws-sdk/s3-request-presigner': 3.1170.0
     '@aws-sdk/lib-storage': 3.1165.0
     '@effect-aws/client-s3': 2.0.0 # S3 commands as Effects with tagged service errors, paginator streams, and scoped client release
     '@effect-aws/client-sts': 2.0.0 # STS commands as Effects with tagged service errors and scoped client release
@@ -125,11 +125,11 @@ catalog:
     '@tus/s3-store': 2.1.0
     webdav: 5.11.0
     basic-ftp: 6.2.6
-    partial-content: 5.0.0
+    partial-content: 6.0.0
     '@uppy/core': 6.3.1
     '@uppy/dashboard': 6.0.3
     '@uppy/react': 6.1.1
-    '@uppy/xhr-upload': 6.0.1
+    '@uppy/aws-s3': 6.3.1
     tus-js-client: 5.0.0-pre3
 
     # --- [MESSAGING]
@@ -162,18 +162,18 @@ catalog:
     '@opentelemetry/sdk-logs': 3.1.1
     '@opentelemetry/sdk-metrics': 3.1.1
     '@opentelemetry/sdk-trace': 3.1.1
-    '@opentelemetry/sdk-node': 0.301.1 # Providers, exporters, propagators, and resource detectors built from `OTEL_*` variables
-    '@opentelemetry/propagator-env-carrier': 0.301.1 # Getter and setter carrying trace context and baggage through process environment variables
+    '@opentelemetry/sdk-node': 0.301.2 # Providers, exporters, propagators, and resource detectors built from `OTEL_*` variables
+    '@opentelemetry/propagator-env-carrier': 0.301.2 # Getter and setter carrying trace context and baggage through process environment variables
     '@opentelemetry/instrumentation-host-metrics': 0.8.0
     '@opentelemetry/baggage-span-processor': 0.6.1
-    '@opentelemetry/exporter-metrics-otlp-grpc': 0.301.1
-    '@opentelemetry/exporter-metrics-otlp-http': 0.301.1
-    '@opentelemetry/exporter-metrics-otlp-proto': 0.301.1
+    '@opentelemetry/exporter-metrics-otlp-grpc': 0.301.2
+    '@opentelemetry/exporter-metrics-otlp-http': 0.301.2
+    '@opentelemetry/exporter-metrics-otlp-proto': 0.301.2
     '@opentelemetry/exporter-trace-otlp-http': 0.301.1
     '@opentelemetry/exporter-trace-otlp-proto': 0.301.1
     '@opentelemetry/exporter-logs-otlp-http': 0.301.1
     '@opentelemetry/exporter-logs-otlp-proto': 0.301.1
-    '@opentelemetry/instrumentation': 0.301.1
+    '@opentelemetry/instrumentation': 0.301.2
     '@opentelemetry/instrumentation-http': 0.301.1
     '@opentelemetry/instrumentation-pg': 0.78.0
     '@opentelemetry/instrumentation-undici': 0.35.0
@@ -186,7 +186,7 @@ catalog:
     web-vitals: 6.2.3
     '@opentelemetry/instrumentation-aws-sdk': 0.80.0 # Spans for AWS SDK calls, recorded by a registered OpenTelemetry tracer provider
     '@opentelemetry/instrumentation-redis': 0.73.0 # Spans for `redis` commands against Valkey
-    rotating-file-stream: 3.2.10 # Log file stream rotated by size and interval, kept by count and total size, compressed with gzip
+    rotating-file-stream: 4.0.0 # Log file stream rotated by size and interval, kept by count and total size, compressed with gzip
 
     # --- [LANGUAGE_MODELS]
 
@@ -238,12 +238,12 @@ catalog:
 
     # --- [ICONS]
 
-    lucide-react: 1.70.0
+    lucide-react: 1.73.0
     bootstrap-icons: 1.13.2 # Brand marks a Mac asset catalog links by Git symlink
 
     # --- [ANIMATION]
 
-    motion: 14.11.1
+    motion: 14.14.0
 
     # --- [RICH_TEXT]
 
@@ -278,9 +278,9 @@ catalog:
     '@effect/sql-sqlite-do': 4.1.4
     '@clickhouse/client': 1.25.0 # ClickHouse HTTP client with row streams, typed settings, and query parameters
     '@clickhouse/client-web': 1.25.0 # ClickHouse HTTP client over `fetch` for browsers and Workers
-    '@pgsql/traverse': 18.8.4
+    '@pgsql/traverse': 18.8.6
     '@pgsql/types': 18.0.0
-    pgsql-parser: 18.3.3
+    pgsql-parser: 18.3.5
     pgvector: 0.3.1 # pgvector, halfvec, and sparsevec values encoded to and from SQL text
     sqlite-vec: 0.1.10-alpha.4 # Loadable SQLite extension for `vec0` vector tables
     idb-keyval: 6.3.0
@@ -364,7 +364,7 @@ catalog:
 
     icu: 2.4.0 # ICU4X Unicode properties, joining types, and scripts compiled to WebAssembly
     harfbuzzjs: 1.6.4 # HarfBuzz text shaping and glyph extents compiled to WebAssembly
-    fontkit: 2.0.4
+    fontkit: 3.0.0
     '@types/fontkit': 2.0.9
     '@capsizecss/unpack': 4.0.1 # Font metrics and weighted width from font bytes
     '@capsizecss/core': 4.1.3 # Leading trim and fallback metric overrides
@@ -425,7 +425,7 @@ catalog:
     '@adobe-uxp-types/photoshop': 0.1.8
     '@types/photoshop': 27.11.0
     '@adobe/premierepro': 27.1.0-beta.16
-    indesign-uxp-types: 1.0.0
+    indesign-uxp-types: 2.0.0
     '@exodus/bytes': 1.16.0 # WHATWG TextEncoder and TextDecoder for hosts without them
     es5-shim: 4.6.7 # ECMAScript 5 built-ins for the ES3 ExtendScript engine that swc helpers call
     core-js: 3.51.0 # Web APIs CEP Chromium and UXP lack, URL.canParse that Effect's URL schemas call
@@ -434,7 +434,7 @@ catalog:
 
     '@pulumi/pulumi': '3.277.0-alpha.xba20e30'
     '@pulumi/kubernetes': '4.35.0-alpha.1794380153'
-    '@pulumi/aws': '7.55.0-alpha.1794552106'
+    '@pulumi/aws': '7.55.0-alpha.1794564513'
     '@pulumi/awsx': '3.14.0-alpha.1794550163'
     '@pulumi/gcp': 10.3.0
     '@pulumi/postgresql': '3.19.0-alpha.1794552961'
@@ -442,7 +442,6 @@ catalog:
     '@pulumi/random': '4.22.0-alpha.1794553339'
     '@pulumi/docker': '5.4.0-alpha.1794549571'
     '@pulumi/docker-build': '0.1.0-alpha.1794549978'
-    '@pulumi/minio': '1.0.0-alpha.1789107308'
     '@pulumi/policy': '1.22.0-alpha.1787747072'
     '@pulumi/github': '6.16.0-alpha.1794550154'
     '@pulumi/synced-folder': 0.13.0
@@ -484,22 +483,22 @@ catalog:
     # --- [BUILD]
 
     babel-plugin-react-compiler: 1.0.0
-    '@cloudflare/vite-plugin': 2.0.0-beta.v.17
-    '@cloudflare/workers-types': 5.20261110.1
-    '@openai/sites-vite-plugin': 0.2.0
-    '@cloudflare/build-output-utils': 0.9.14 # Build Output tree reader for hosting programs
+    '@cloudflare/vite-plugin': 2.0.0-rc.0
+    '@cloudflare/workers-types': 5.20261116.1
+    '@cloudflare/build-output-utils': 1.0.0-rc.0 # Build Output tree reader for hosting programs
     '@cloudflare/config': 0.32.1 # `cloudflare.config.ts` uncached loader and parser for hosting programs
-    cf: 1.0.0-beta.32 # `cloudflare.config.ts` definitions, Worker types, and local resource commands against Vite plugin state
+    miniflare: 5.20261116.0-beta # Local Workers runtime the Vite plugin runs, its `CorePaths` naming each local service route
+    cf: 1.0.0-rc.0 # `cloudflare.config.ts` definitions, Worker types, and local resource commands against Vite plugin state
     signal-exit: 4.1.0 # Handler run when the process ends by exit or by signal
     vite-plugin-static-copy: 4.1.1
-    vite: 8.3.7
+    vite: 8.3.8
     '@vitejs/plugin-react': 6.3.0
     oxc-transform-react: 0.158.0
     '@tailwindcss/vite': 4.3.5
     '@rolldown/plugin-babel': 0.3.1
     rollup-plugin-visualizer: 7.1.3
     lightningcss: 1.33.0
-    postcss: 8.5.32
+    postcss: 8.5.33
     rolldown: 1.3.1
     vite-plugin-pwa: 2.0.0
     '@vite-pwa/assets-generator': 2.0.0 # Favicon, Apple touch icon and head links from one painted master
@@ -521,13 +520,13 @@ catalog:
 
     # --- [LINTING]
 
-    oxlint: 1.93.0
+    oxlint: 1.94.0
     oxlint-tsgolint: 7.0.2007 # Type-aware oxlint rules over the native TypeScript program
-    oxfmt: 0.78.0
+    oxfmt: 0.79.0
     eslint: 10.15.0 # Runs the JSON rules oxlint lacks
     jsonc-eslint-parser: 3.3.0
     publint: 0.3.25 # Published package layout checked over the tarball its package manager packs
-    knip: 6.45.0 # Unused files, internal exports, and dependencies per package, catalog rows never reported
+    knip: 6.45.1 # Unused files, internal exports, and dependencies per package, catalog rows never reported
     refa: 0.12.1 # Regular expression character classes the ast-grep catalogs compare
 
     # --- [GRAMMARS]
@@ -565,8 +564,8 @@ catalog:
     '@vitest/browser': 5.1.0
     '@vitest/ui': 5.1.0
     vitest-browser-react: 2.3.0
-    '@playwright/test': 1.66.0-alpha-2026-11-14
-    playwright: 1.66.0-alpha-2026-11-14
+    '@playwright/test': 1.66.0-alpha-2026-11-16
+    playwright: 1.66.0-alpha-2026-11-16
     '@axe-core/playwright': 4.14.1-d1531a9.0.sha-d1531a9
     axe-core: 4.14.0
     storybook: 11.0.0-beta.1
@@ -574,7 +573,7 @@ catalog:
     '@storybook/addon-vitest': 11.0.0-beta.1
     '@storybook/addon-a11y': 11.0.0-beta.1
     '@storybook/addon-docs': 11.0.0-beta.1
-    '@cloudflare/vitest-plugin': 1.7.0
+    '@cloudflare/vitest-plugin': 1.8.3
     svix: 2.10.0 # Svix reference signer and verifier a webhook suite exchanges signatures with
     stripe: 23.1.0 # Stripe reference test header and event construction a webhook suite exchanges signatures with
     '@octokit/webhooks-methods': 6.0.0 # GitHub reference sign and verify a webhook suite exchanges signatures with
@@ -617,17 +616,18 @@ catalogs:
         '@pulumi/pulumi': ^3.274.0-0
         '@pulumi/cloudflare': ^6.0.0-0
         '@pulumi/command': ^1.0.0-0
-        '@cloudflare/build-output-utils': ^0.9.0
+        '@cloudflare/build-output-utils': ^1.0.0-0
         '@effect/platform-node': ^4.0.0
         '@aws-sdk/client-s3': ^3.0.0
         '@aws-sdk/client-sts': ^3.0.0
         '@smithy/core': ^3.0.0
         cf: ^1.0.0-0
+        miniflare: ^5.0.0-0
         '@vite-pwa/assets-generator': ^2.0.0
         culori: ^4.0.0
         postcss: ^8.0.0
         cheerio: ^1.0.0
-        rotating-file-stream: ^3.0.0
+        rotating-file-stream: ^4.0.0
         env-paths: ^4.0.0
         '@effect/opentelemetry': ^4.0.0
         '@opentelemetry/api': ^1.10.0
@@ -655,6 +655,7 @@ overrides:
     vite>yaml: 'catalog:'
     '@vitejs/plugin-react>oxc-transform-react': 'catalog:'
     '@types/ssh2>@types/node': 'catalog:'
+    '@pulumi/minio>typescript': 'catalog:' # Generated SDK requires TypeScript 4, a second `@pulumi/pulumi` peer variant splits its `Output` type
     '@effect/opentelemetry>@opentelemetry/resources': 'catalog:'
     '@effect/opentelemetry>@opentelemetry/sdk-logs': 'catalog:'
     '@effect/opentelemetry>@opentelemetry/sdk-metrics': 'catalog:'
@@ -670,6 +671,7 @@ allowBuilds:
     '@pulumi/command': false
     '@pulumi/docker': false
     '@pulumi/docker-build': false
+    '@pulumi/minio@file:infra/sdks/minio': true
     '@tree-sitter-grammars/tree-sitter-toml': false
     '@tree-sitter-grammars/tree-sitter-xml': false
     '@tree-sitter-grammars/tree-sitter-yaml': false

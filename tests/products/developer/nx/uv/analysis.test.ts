@@ -81,7 +81,10 @@ describe('uv analysis', { timeout: 60_000 }, () => {
     it('should handle spawn error', async ({ context, spawn }) => {
         spawn.mockReturnValueOnce(ChildProcess.make('rasm-uv-absent', analysis));
 
-        await expect(createNodes[1](['uv.lock'], undefined, context)).rejects.toHaveProperty(['errors', 0, 1, 'message'], 'NotFound: ChildProcess.spawn (rasm-uv-absent workspace metadata --frozen --preview-features workspace-metadata --output-version preview --quiet)');
+        await expect(createNodes[1](['uv.lock'], undefined, context)).rejects.toHaveProperty(
+            ['errors', 0, 1, 'message'],
+            'uv workspace metadata --frozen --preview-features workspace-metadata --output-version preview --quiet cannot start: NotFound: ChildProcess.spawn (rasm-uv-absent workspace metadata --frozen --preview-features workspace-metadata --output-version preview --quiet)',
+        );
     });
 
     it('should handle a reply in another metadata schema', async ({ context, spawn }) => {

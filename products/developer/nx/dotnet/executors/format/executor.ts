@@ -1,9 +1,10 @@
 import type { ExecutorContext } from '@nx/devkit';
 import type { TaskResult } from '@nx/devkit/internal';
+import { ran } from '@rasm/nx-distribution/inference';
 import { Array, Console, Effect, FileSystem, flow, Option, Order, Path, Record, Schema, Stream, Struct } from 'effect';
 import { Xml } from 'effect/encoding';
 import { grouped } from '#/executors/build/executor';
-import { ran, run, streamed } from '#/targets';
+import { run, streamed } from '#/targets';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -50,7 +51,7 @@ const formatted = Effect.fnUntraced(function* (root: string, group: Array.NonEmp
         commands,
         Effect.fnUntraced(function* (command, index) {
             const report = path.join(folder, `${index}.json`);
-            const { invoked, stdout, said: stderr, code } = yield* ran('dotnet', [...command, target, '--report', report, ...words], { cwd: root });
+            const { invoked, stdout, said: stderr, code } = yield* ran(['dotnet', ...command, target, '--report', report, ...words], { cwd: root });
             const changed = yield* Effect.option(Effect.flatMap(fs.readFileString(report), Schema.decodeEffect(Report)));
             const owners = Option.flatMap(
                 Option.filter(changed, () => code === UNFORMATTED),

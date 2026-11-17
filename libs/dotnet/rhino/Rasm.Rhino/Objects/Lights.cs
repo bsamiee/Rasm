@@ -165,8 +165,8 @@ public static class Lights {
     public static IO<Option<float>> PostProcessGamma(RhinoDoc doc) =>
         (from settings in use(() => doc.RenderSettings)
          from flow in use(() => settings.LinearWorkflow)
-         from effects in Products.Of(() => settings.PostEffects)
-         from held in Products.Many(() => effects, required: false)
+         from effects in use(Products.Of(() => settings.PostEffects))
+         from held in Products.Many(() => effects, required: false).Bind(static rows => rows.TraverseM(static row => use(IO.pure(row))).As())
          select Some(flow.PostProcessGamma).Filter(_ => held.Exists(static data => data.Id == PostEffectUuids.Gamma && data.On && data.Shown))).Bracket();
 
     // --- [STAGES]

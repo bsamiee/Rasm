@@ -1,0 +1,13 @@
+{
+    "name": "@rasm/test-object-model",
+    "private": true,
+    "description": "Object model suites: the error a host refusal or a thrown script raises keeps its message across structured clone and Nx plugin worker serialization",
+    "type": "module",
+    "devDependencies": {
+        "@rasm/object-model": "workspace:*",
+        "@rasm/testing": "workspace:*",
+        "@types/node": "catalog:",
+        "effect": "catalog:",
+        "vitest": "catalog:"
+    }
+}

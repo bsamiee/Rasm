@@ -123,7 +123,7 @@ internal sealed class BatchPipeline : RenderPipeline {
                 window,
                 from view in start.Switch(
                     document,
-                    full: static (doc, _) => from source in use(() => new RenderSourceView(doc)) from view in Products.Of(source.GetViewInfo) select view,
+                    full: static (doc, _) => from source in use(() => new RenderSourceView(doc)) from view in use(Products.Of(source.GetViewInfo)) select view,
                     region: static (_, region) => use(() => new ViewInfo(region.View.ActiveViewport)))
                 from feed in Scene(window, view)
                 from work in engine.Open(start, quiet, window, feed)

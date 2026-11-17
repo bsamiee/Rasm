@@ -53,7 +53,7 @@ const search = Effect.fnUntraced(function* ({ mode, find, change, options }: { r
         Array.ensure(located),
         flow(
             Option.liftPredicate(searched),
-            Effect.fromOption(() => Unmatched.make({ subject: `${mode} search target`, query: model.domObject(located) ? Option.some(located.toSpecifier()) : Option.none() })),
+            Effect.fromOption(() => Unmatched.of({ subject: `${mode} search target`, query: model.domObject(located) ? Option.some(located.toSpecifier()) : Option.none() })),
         ),
     );
     yield* pipe(
@@ -121,7 +121,7 @@ const readings = Effect.fn('readings')(function* (found: InDesignDOMObject<unkno
     const { fields } = yield* Cache.get(declarations, found.constructorName);
     const readable = pipe(Array.flatMap(Uxp.members(Object.getPrototypeOf(found)), Struct.get('fields')), Array.dedupeWith(Equivalence.mapInput(Equivalence.String, Struct.get('name')))).filter(({ name }) => name !== AGGREGATE_FIELD);
     const [named, missing] = Option.match(wanted, { onNone: () => [readable, []] as const, onSome: Array.partition(Filter.fromPredicateOption((each: string) => Array.findFirst(readable, ({ name }) => Unmatched.named(name, each)))) });
-    yield* Array.isReadonlyArrayEmpty(missing) ? Effect.void : Unmatched.make({ subject: `field of ${found.toSpecifier()}`, query: Option.some(missing.join(', ')), candidates: Array.map(readable, Struct.get('name')) });
+    yield* Array.isReadonlyArrayEmpty(missing) ? Effect.void : Unmatched.of({ subject: `field of ${found.toSpecifier()}`, query: Option.some(missing.join(', ')), candidates: Array.map(readable, Struct.get('name')) });
     return yield* Effect.forEach(
         named,
         Effect.fnUntraced(function* (accessor) {
@@ -382,7 +382,7 @@ const call = Effect.fn('call')(function* (payload: { readonly label: string; rea
         onNone: () => Effect.succeed({ receiver: found, kind: before.type }),
         onSome: (field) => {
             const member: unknown = Reflect.get(found, field);
-            return model.collection(member) ? Effect.succeed({ receiver: member, kind: member.constructor.name }) : Unmatched.make({ subject: `collection of ${before.specifier}`, query: Option.some(field), candidates: Record.keys(Record.filter(fields, model.collectionField)) });
+            return model.collection(member) ? Effect.succeed({ receiver: member, kind: member.constructor.name }) : Unmatched.of({ subject: `collection of ${before.specifier}`, query: Option.some(field), candidates: Record.keys(Record.filter(fields, model.collectionField)) });
         },
     });
     const { methods } = yield* Cache.get(model.declarations, kind);
@@ -417,7 +417,10 @@ const font = Effect.fn('font')(function* ({ name, text, file }: { readonly name:
     const source = face.status.equals(model.FontStatus.INSTALLED)
         ? yield* Effect.try({ try: () => fs.lstatSync(face.location), catch: HostError.refused(face.location) }).pipe(
               Effect.as(Option.some({ file: face.location, postscriptName: Option.some(face.postscriptName) })),
-              Effect.catchIf((error) => Schema.is(MissingFile)(error.cause), () => subset),
+              Effect.catchIf(
+                  (error) => Schema.is(MissingFile)(error.cause),
+                  () => subset,
+              ),
           )
         : Option.none();
     return { font: yield* fontView(face), source };
@@ -440,7 +443,7 @@ const preflight = Effect.fn('preflight')(function* ({ document, profile }: { rea
         onNone: () => Effect.succeed(open.filter((each) => !each.preflightOptions.preflightOff)),
         onSome: (specifier) =>
             Effect.map(
-                Effect.filterOrElse(Model.resolve(specifier), model.document, () => Unmatched.make({ subject: 'open document', query: Option.some(specifier.path), candidates: Array.map(open, (each) => each.toSpecifier()) })),
+                Effect.filterOrElse(Model.resolve(specifier), model.document, () => Unmatched.of({ subject: 'open document', query: Option.some(specifier.path), candidates: Array.map(open, (each) => each.toSpecifier()) })),
                 Array.of,
             ),
     });
@@ -463,7 +466,7 @@ const rasterize = Effect.fn('rasterize')(function* ({ target, longestSide, optio
     const found = yield* Effect.filterOrFail(
         Model.resolve(specifier),
         (value): value is Page | Spread | PageItem => (model.page(value) && model.spread(value.parent)) || model.spread(value) || model.item(value),
-        () => Unmatched.make({ subject: 'document page, spread, or page item', query: Option.some(target) }),
+        () => Unmatched.of({ subject: 'document page, spread, or page item', query: Option.some(target) }),
     );
     const { source, placed, range } = Match.value(found).pipe(
         Match.when(model.page, (each) => ({ source: each.parent.parent, placed: [each], range: { pageString: `+${each.documentOffset + 1}`, exportingSpread: false } })),

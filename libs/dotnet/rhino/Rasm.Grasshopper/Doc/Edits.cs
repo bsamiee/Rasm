@@ -76,6 +76,11 @@ public static class DocumentEdits {
             if (record.Response.HasFlag(Effects.ExpireDisplay) || record.Response.HasFlag(Effects.InvalidateDisplay)) document.Display.UpdateDisplay();
         }));
 
+    // --- [OBJECTS]
+
+    public static IO<T> Add<T>(Document document, T target) where T : IDocumentObject =>
+        IO.lift(() => GrasshopperFault.Unless(document.Objects.Add(target), GrasshopperReason.Declined, target.Nomen.Name).Map(_ => target));
+
     // --- [GRAPHS]
 
     public static IO<Unit> Connect(IParameter source, IParameter target, ActionList actions, int atSource = int.MaxValue, int atTarget = int.MaxValue) =>

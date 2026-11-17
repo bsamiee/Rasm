@@ -10,9 +10,15 @@
         <PackageReference Include="RhinoCommon" />
     </ItemGroup>
 
-    <ItemGroup Label="Core">
+    <ItemGroup Label="Functional Programming">
         <PackageReference Include="LanguageExt.Core" />
+    </ItemGroup>
+
+    <ItemGroup Label="Domain Modeling">
         <PackageReference Include="Thinktecture.Runtime.Extensions" />
+    </ItemGroup>
+
+    <ItemGroup Label="Identifiers and Hashing">
         <PackageReference Include="UUIDNext" />
     </ItemGroup>
 

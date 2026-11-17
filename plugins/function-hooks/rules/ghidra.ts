@@ -109,7 +109,7 @@ const concurrentRuns: Rule = (invocation, { analysis: { invocations, jobs } }) =
     return refusal(invocation.has('-import') ? `${HEADLESS} runs concurrently, chain each -import with &&` : `${HEADLESS} runs concurrently, send runs to nc -U "$${PROJECT_VARIABLE}/${socket}.sock"`);
 };
 
-const longRun: Rule = (invocation, { request, host }) => (request.kind === 'foreground' && (invocation.has('-import') || invocation.values('-postScript').some((script) => host.path.basename(script) === SERVE)) ? [Verdict.Background()] : []);
+const longRun: Rule = (invocation, { request, host }) => (request.kind === 'foreground' && (invocation.has('-import') || invocation.values('-postScript').some((script) => host.path.basename(script) === SERVE)) ? [Verdict.Background({})] : []);
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

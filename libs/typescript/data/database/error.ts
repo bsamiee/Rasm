@@ -35,11 +35,8 @@ const described = Reason.match({
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-class ReconcileError extends Schema.TaggedError<ReconcileError, { readonly brand: unique symbol }>()('ReconcileError', { findings: Schema.NonEmptyArray(Finding) }) {
-    static readonly raise = (findings: readonly (typeof Finding.Type)[]) => (Array.isReadonlyArrayNonEmpty(findings) ? ReconcileError.make({ findings }) : Effect.void);
-    override get message() {
-        return this.findings.map(({ table, columns, reason }) => `${table} (${columns.join(', ')}) ${described(reason)}`).join('\n');
-    }
+class ReconcileError extends Schema.TaggedError<ReconcileError, { readonly brand: unique symbol }>()('ReconcileError', { findings: Schema.NonEmptyArray(Finding), message: Schema.String }) {
+    static readonly raise = (findings: readonly (typeof Finding.Type)[]) => (Array.isReadonlyArrayNonEmpty(findings) ? ReconcileError.make({ findings, message: findings.map(({ table, columns, reason }) => `${table} (${columns.join(', ')}) ${described(reason)}`).join('\n') }) : Effect.void);
 }
 
 // --- [EXPORTS] -------------------------------------------------------------------------

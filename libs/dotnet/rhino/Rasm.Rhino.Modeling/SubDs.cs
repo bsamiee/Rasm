@@ -74,10 +74,10 @@ public static class SubDs {
             subd,
             sorted: static (at, of) => IO.lift(() => Held(at, of.Edges))
                 .Bind(_ => Products.Each(toSeq(SubDEdgeChain.SortEdgesIntoEdgeChains(at, of.Edges.Map(edge => at.Edges.Find(edge))))
-                    .Map(links => Products.Of(() => Linked(at, links)).Bind(Read)))),
+                    .Map(links => use(() => Linked(at, links)).Bind(Read)))),
             grown: static (at, of) => IO.lift(() => Held(at, [of.Edge]))
                 .Bind(_ =>
-                    from chain in Products.Of(() => new SubDEdgeChain(at, at.Edges.Find(of.Edge)))
+                    from chain in use(() => new SubDEdgeChain(at, at.Edges.Find(of.Edge)))
                     from grown in IO.lift(() => chain.AddAllNeighbors(of.Direction, of.Type))
                     from read in Read(chain)
                     select Seq(read)));

@@ -22,13 +22,9 @@ struct Log: ParsableCommand {
     var pid: pid_t?
 
     func run() throws {
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .custom { decoder in try Date.ISO8601FormatStyle(includingFractionalSeconds: true).parse(decoder.singleValueContainer().decode(String.self)) }
         let text: Data
         do {
-            let files: [Data] = try RotatingFile(journal).urls.compactMap { file in try ifPresent { try Data(contentsOf: file) } }
-            let lines: [Data] = files.flatMap { text in text.split(separator: UInt8(ascii: "\n")).map { line in Data(line) } }
-            let entries: [(text: Data, record: Record<[String: JSONValue]>)] = try lines.map { line in (line + [UInt8(ascii: "\n")], try decoder.decode(Record<[String: JSONValue]>.self, from: line)) }
+            let entries = try RotatingFile(journal).urls.compactMap { file in try ifPresent { try Data(contentsOf: file) } }.flatMap(Record.journaled)
             let runs = entries.reduce(into: (runs: [[(text: Data, record: Record<[String: JSONValue]>)]](), open: [pid_t: Int]())) { held, entry in
                 switch (entry.record.argv, held.open[entry.record.pid]) {
                     case (nil, let index?): held.runs[index].append(entry)

@@ -68,7 +68,7 @@ public static class Selections {
     public static IO<Seq<PickCapture>> Pick(RhinoDoc doc, PickRequest request, Option<Func<ObjRef, int>> selection = default) =>
         Frustum(doc, request, context =>
             from picked in IO.lift(() => toSeq(doc.Objects.PickObjects(context)).Strict())
-            from references in picked.TraverseM(static reference => Products.Of(() => reference)).As()
+            from references in picked.TraverseM(static reference => use(Products.Of(() => reference))).As()
             from captured in Capture(references, selection)
             select captured);
 

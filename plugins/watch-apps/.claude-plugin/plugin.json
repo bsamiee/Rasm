@@ -1,0 +1,8 @@
+{
+    "name": "watch-apps",
+    "version": "1.0.0",
+    "description": "Runs watch-apps watch for the whole session, so each app change of the session reaches Claude",
+    "author": {
+        "name": "Bardia Samiee"
+    }
+}

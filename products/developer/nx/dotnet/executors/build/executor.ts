@@ -1,8 +1,9 @@
 import type { ExecutorContext, TaskGraph } from '@nx/devkit';
 import type { TaskResult } from '@nx/devkit/internal';
+import { ran } from '@rasm/nx-distribution/inference';
 import { Array, Console, Effect, Equal, FileSystem, Option, Path, Predicate, Record, Schema, Stream, String, Struct } from 'effect';
 import { Xml } from 'effect/encoding';
-import { ran, run, streamed } from '#/targets';
+import { run, streamed } from '#/targets';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -20,6 +21,9 @@ const Build = Schema.Struct({
     project: Schema.String.annotate({ description: 'Project file to build' }),
     command: Schema.NonEmptyArray(Schema.String).annotate({ description: 'dotnet verb and its switches for the configuration, which the plugin infers' }),
     outputs: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: "Folders and files the configuration writes, which the target's outputs name through {options.outputs.<n>}" }),
+    solution: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)).annotate({
+        description: 'Configuration|Platform of each project file the build reaches, passed as CurrentSolutionConfigurationContents, which the plugin infers where a reached project lacks the configuration',
+    }),
     __unparsed__: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Words after -- of the run, appended after the configured arguments', $default: { $source: 'unparsed' }, hidden: true, 'x-priority': 'internal' }),
 }).annotate({
     title: 'Build',
@@ -63,12 +67,13 @@ const traversal = (projects: readonly string[], target: string) => {
 
 const built = Effect.fnUntraced(function* (root: string, group: Array.NonEmptyReadonlyArray<Planned>) {
     const [path, fs] = yield* Effect.all([Path.Path, FileSystem.FileSystem]);
-    const [[, { command, __unparsed__: words = [] }]] = group;
+    const [[, { command, solution = {}, __unparsed__: words = [] }]] = group;
+    const assigned = Record.collect(solution, (file, configuration) => `<ProjectConfiguration Project='${file}' AbsolutePath='${path.resolve(root, file)}'>${configuration}</ProjectConfiguration>`);
     const projects = Array.map(group, ([, { project }]) => path.resolve(root, project));
     const folder = yield* fs.makeTempDirectoryScoped();
     const file = path.join(folder, 'batch.proj');
     yield* fs.writeFileString(file, yield* traversal(projects, String.capitalize(Array.headNonEmpty(command))));
-    const { invoked, stdout, said: stderr } = yield* ran('dotnet', [Array.headNonEmpty(command), file, ...Array.tailNonEmpty(command), ...words], { cwd: root });
+    const { invoked, stdout, said: stderr } = yield* ran(['dotnet', Array.headNonEmpty(command), file, ...Array.tailNonEmpty(command), ...(assigned.length > 0 ? [`-p:CurrentSolutionConfigurationContents=<SolutionConfiguration>${assigned.join('')}</SolutionConfiguration>`] : []), ...words], { cwd: root });
     const succeeded = Option.map(yield* Effect.option(fs.readFileString(path.join(folder, BUILT))), (text) => new Set(text.split('\n')));
     const lines = stdout.split('\n');
     return Array.map(Array.zip(group, projects), ([[task], project]) => {

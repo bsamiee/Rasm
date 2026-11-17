@@ -1,11 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Description>Per-test resources as xUnit v3 fixtures settled by test result: SQLite databases</Description>
+        <Description>xUnit v3 fixtures that open a resource per test and release it by test result</Description>
         <IsTestProject>false</IsTestProject>
         <OutputType>Library</OutputType>
     </PropertyGroup>
 
-    <ItemGroup Label="Core">
+    <ItemGroup Label="Functional Programming">
         <PackageReference Include="LanguageExt.Core" />
     </ItemGroup>
 

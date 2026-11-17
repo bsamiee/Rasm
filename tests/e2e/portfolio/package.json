@@ -5,8 +5,10 @@
     "type": "module",
     "devDependencies": {
         "@playwright/test": "catalog:",
+        "@rasm/hosting": "workspace:*",
         "@rasm/portfolio": "workspace:*",
         "@rasm/testing": "workspace:*",
-        "@types/node": "catalog:"
+        "@types/node": "catalog:",
+        "effect": "catalog:"
     }
 }

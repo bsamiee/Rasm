@@ -82,7 +82,7 @@ const modal = Effect.fnUntraced(function* <A, E, R>(commandName: string, body: (
     const services = yield* Effect.context<R>();
     return yield* yield* Effect.tryPromise({
         try: (signal) => photoshop.core.executeAsModal((context) => Effect.runPromiseExitWith(services)(Effect.raceFirst(body(context), cancelled(context)), { signal }), { commandName }),
-        catch: (cause) => Option.match(Schema.decodeUnknownOption(Rejected)(cause), { onNone: () => HostError.refused(commandName)(cause), onSome: ({ number: _tag }) => HostError.make({ reason: { _tag }, subject: commandName, cause }) }),
+        catch: (cause) => Option.match(Schema.decodeUnknownOption(Rejected)(cause), { onNone: () => HostError.refused(commandName)(cause), onSome: ({ number: _tag }) => HostError.of({ _tag }, commandName)(cause) }),
     });
 });
 const history = <A, E, R>(label: string, { hostControl }: photoshop.ExecutionContext, body: Effect.Effect<A, E, R>) =>

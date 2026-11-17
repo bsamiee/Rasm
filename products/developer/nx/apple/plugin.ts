@@ -1,10 +1,9 @@
 import { basename, dirname, extname, join, matchesGlob, relative, resolve } from 'node:path';
 import process from 'node:process';
-import { layer } from '@effect/platform-node/NodeServices';
 import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, DependencyType, getOutputsForTargetAndConfiguration, hashArray, type ProjectConfiguration, type RawProjectGraphDependency } from '@nx/devkit';
 import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, emitPluginWorkerLog, hashFile, hashObject, hashWithWorkspaceContext, mergeTargetConfigurations, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
-import { aggregated, fingerprinted, manifested, spawned, type Verbs } from '@rasm/nx-distribution/inference';
-import { Array, Cause, Context, Effect, FileSystem, flow, Layer, ManagedRuntime, Option, Record, Result, Schema, Stream } from 'effect';
+import { aggregated, fingerprinted, manifested, runner, spawned, type Verbs } from '@rasm/nx-distribution/inference';
+import { Array, Cause, Context, Effect, FileSystem, flow, Layer, Option, Record, Result, Schema, Stream } from 'effect';
 import { Described, ENTITLEMENTS, INFO, MANIFEST, type Package, packageEdges, packageParts, RESOLVED, sources } from '#/swift-package';
 import { analyzer, Options, type Part, PLUGIN, tokened } from '#/targets';
 import { Analyzed, evaluated, xcodeParts } from '#/xcode-project';
@@ -139,12 +138,12 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: typ
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const runtime = ManagedRuntime.make(Layer.merge(Graphs.layer, layer));
+const run = runner(Graphs.layer);
 
 const createNodes: CreateNodes<typeof Options.Encoded> = [
     FILES,
     (matched, options, { workspaceRoot }) =>
-        runtime.runPromise(
+        run(
             Effect.gen(function* () {
                 const [files, fs] = [process.platform === HOST ? matched.toSorted() : [], yield* FileSystem.FileSystem];
                 const [settings, hashed, developer, swift, compiled] = yield* Effect.all(
@@ -201,7 +200,7 @@ const createNodes: CreateNodes<typeof Options.Encoded> = [
 ];
 
 const createDependencies: CreateDependencies = (_, { projects, workspaceRoot }) =>
-    runtime.runPromise(
+    run(
         Effect.map(Graphs, (graphs) => {
             const { edges = [], buildFiles = {} } = graphs.get(workspaceRoot) ?? {};
             const names = createProjectRootMappingsFromProjectConfigurations(projects);

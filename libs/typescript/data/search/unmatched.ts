@@ -22,13 +22,28 @@ const FUZZY = new UFuzzy({
 
 class Unmatched extends Schema.TaggedError<Unmatched, { readonly brand: unique symbol }>()('Unmatched', {
     subject: Schema.String,
-    query: Schema.OptionFromOptionalKey(Schema.String).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
-    candidates: Schema.Array(Schema.String).pipe(Schema.withConstructorDefault(Effect.succeed([]))),
+    query: Schema.OptionFromOptionalKey(Schema.String),
+    candidates: Schema.Array(Schema.String),
+    message: Schema.String,
 }) {
     static readonly named = Equivalence.make((left: string, right: string) => COLLATOR.compare(left, right) === 0);
     static readonly rank = (query: string, candidates: readonly string[]): readonly string[] => {
         const [matches, info, order] = FUZZY.search(candidates.map(Digits.fold), Digits.fold(query), 0, Number.POSITIVE_INFINITY);
         return matches === null ? candidates : (info === null ? matches : order.map((position) => Array.getUnsafe(info.idx, position))).map((index) => Array.getUnsafe(candidates, index));
+    };
+    static readonly of = ({ subject, query = Option.none(), candidates = [] }: { readonly subject: string; readonly query?: Option.Option<string>; readonly candidates?: readonly string[] }) => {
+        const limit = 100;
+        const refused = ['No', subject, ...Option.toArray(Option.map(query, (wanted) => `matching ${wanted}`))].join(' ');
+        const displayed = pipe(
+            query,
+            Option.map((wanted) => Unmatched.rank(wanted, candidates)),
+            Option.filter(Array.isReadonlyArrayNonEmpty),
+            Option.getOrElse(() => candidates),
+            Array.take(limit),
+        );
+        const rest = candidates.length - displayed.length;
+        const listed = rest === 0 ? displayed : [...displayed, `${rest} more`];
+        return Unmatched.make({ subject, query, candidates, message: Array.isReadonlyArrayEmpty(candidates) ? refused : `${refused}, candidates: ${LISTING.format(listed)}` });
     };
     static readonly #candidateNames = <A>(candidates: readonly A[], names: (candidate: A) => Array.NonEmptyReadonlyArray<string>): readonly string[] => Array.dedupe(Array.map(candidates, flow(names, Array.headNonEmpty)));
     static readonly matching: {
@@ -40,7 +55,7 @@ class Unmatched extends Schema.TaggedError<Unmatched, { readonly brand: unique s
             const all = Array.fromIterable(candidates);
             return Option.match(query, {
                 onNone: () => Effect.succeed(all),
-                onSome: (wanted) => Effect.succeed(all.filter((candidate) => Array.containsWith(Unmatched.named)(names(candidate), wanted))).pipe(Effect.filterOrFail(Array.isReadonlyArrayNonEmpty, () => Unmatched.make({ subject, query, candidates: Unmatched.#candidateNames(all, names) }))),
+                onSome: (wanted) => Effect.succeed(all.filter((candidate) => Array.containsWith(Unmatched.named)(names(candidate), wanted))).pipe(Effect.filterOrFail(Array.isReadonlyArrayNonEmpty, () => Unmatched.of({ subject, query, candidates: Unmatched.#candidateNames(all, names) }))),
             });
         },
     );
@@ -51,25 +66,10 @@ class Unmatched extends Schema.TaggedError<Unmatched, { readonly brand: unique s
         (args) => !Predicate.isString(args[0]),
         <A>(candidates: Iterable<A>, subject: string, query: Option.Option<string>, names: (candidate: A) => Array.NonEmptyReadonlyArray<string>) =>
             Unmatched.matching(candidates, subject, query, names).pipe(
-                Effect.filterOrFail(Predicate.isTupleOf(1), (matched) => Unmatched.make({ subject: Array.isReadonlyArrayEmpty(matched) ? subject : `single ${subject}`, query, candidates: Unmatched.#candidateNames(matched, names) })),
+                Effect.filterOrFail(Predicate.isTupleOf(1), (matched) => Unmatched.of({ subject: Array.isReadonlyArrayEmpty(matched) ? subject : `single ${subject}`, query, candidates: Unmatched.#candidateNames(matched, names) })),
                 Effect.map(Array.headNonEmpty),
             ),
     );
-
-    override get message() {
-        const limit = 100;
-        const refused = ['No', this.subject, ...Option.toArray(Option.map(this.query, (query) => `matching ${query}`))].join(' ');
-        const displayed = pipe(
-            this.query,
-            Option.map((query) => Unmatched.rank(query, this.candidates)),
-            Option.filter(Array.isReadonlyArrayNonEmpty),
-            Option.getOrElse(() => this.candidates),
-            Array.take(limit),
-        );
-        const rest = this.candidates.length - displayed.length;
-        const candidates = rest === 0 ? displayed : [...displayed, `${rest} more`];
-        return Array.isReadonlyArrayEmpty(this.candidates) ? refused : `${refused}, candidates: ${LISTING.format(candidates)}`;
-    }
 }
 
 // --- [EXPORTS] -------------------------------------------------------------------------

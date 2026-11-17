@@ -44,8 +44,8 @@ public static class Plans {
             .Map(kept => Conversions.Present(kept, step))).As()
         select pending.Somes().Strict();
 
-    public static IO<Committed<Seq<RowPlan<InstanceDefinition, PlannedDefinition>>>> Reconcile(RhinoDoc doc, Seq<PlannedDefinition> planned, Prune prune, string name, RedrawPolicy redraw) =>
-        Commits.Commit(doc, name, redraw,
+    public static IO<Committed<Seq<RowPlan<InstanceDefinition, PlannedDefinition>>>> Reconcile(RhinoDoc doc, Seq<PlannedDefinition> planned, Prune prune, RedrawPolicy redraw) =>
+        Commits.Commit(doc, $"{nameof(Reconcile)} {nameof(ModelComponentType.InstanceDefinition)}", redraw,
             from plan in Plan(doc, planned, prune)
             from applied in plan.TraverseM(step => Applied(doc, step)).As()
             select plan);
@@ -74,7 +74,9 @@ public static class Plans {
                 from named in when(DefinitionMetadata.Of(change.Row) != metadata, Products.Accepted(() => document.InstanceDefinitions.Modify(
                     change.Row, metadata.Name, Conversions.Unset(metadata.Description), metadata.Url, metadata.UrlTag, quiet: true))).As()
                 select unit,
-            remove: static (document, remove) => Products.Accepted(() => document.InstanceDefinitions.Delete(remove.Row.Index, deleteReferences: false, quiet: true)),
+            remove: static (document, remove) => Products.Accepted(() => remove.Prune == Prune.Purge
+                ? document.InstanceDefinitions.Purge(remove.Row.Index)
+                : document.InstanceDefinitions.Delete(remove.Row.Index, deleteReferences: false, quiet: true)),
             order: static (_, _) => IO.pure(unit));
 
     private static IO<Unit> Added(RhinoDoc doc, PlannedDefinition planned, bool overrideExisting) =>

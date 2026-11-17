@@ -11,43 +11,58 @@
         <IsPackable>false</IsPackable>
         <IsPublishable>false</IsPublishable>
         <DeterministicTimestamp>2000-01-01T00:00:00Z</DeterministicTimestamp> <!-- One instant for every entry of a package: NuGet otherwise stamps each entry with its file time, and two packs of one input differ -->
+        <NoWarn>$(NoWarn);NU5104</NoWarn> <!-- Stable packages pin prerelease dependencies such as LanguageExt.Core -->
     </PropertyGroup>
 
-    <PropertyGroup Label="Build Defaults">
+    <PropertyGroup Label="Package Licenses">
+        <SixLaborsLicenseFile>$(MSBuildThisFileDirectory).config/licenses/sixlabors.lic</SixLaborsLicenseFile>
+    </PropertyGroup>
+
+    <PropertyGroup Label="Target Framework">
         <RepoTargetFramework>net10.0</RepoTargetFramework>
         <TargetFramework>$(RepoTargetFramework)</TargetFramework>
         <RollForward>Major</RollForward>
-        <SixLaborsLicenseFile>$(MSBuildThisFileDirectory).config/licenses/sixlabors.lic</SixLaborsLicenseFile>
         <LangVersion>preview</LangVersion>
+    </PropertyGroup>
+
+    <PropertyGroup Label="Compiler">
         <Nullable>enable</Nullable>
-        <WarningsAsErrors>$(WarningsAsErrors);nullable</WarningsAsErrors>
-        <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-        <MSBuildTreatWarningsAsErrors>true</MSBuildTreatWarningsAsErrors>
         <ImplicitUsings>enable</ImplicitUsings>
         <CheckForOverflowUnderflow>true</CheckForOverflowUnderflow>
-        <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
-        <CreateHardLinksForCopyLocalIfPossible>true</CreateHardLinksForCopyLocalIfPossible>
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    </PropertyGroup>
+
+    <PropertyGroup Label="Diagnostics">
+        <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+        <MSBuildTreatWarningsAsErrors>true</MSBuildTreatWarningsAsErrors>
         <AnalysisLevel>latest-all</AnalysisLevel>
         <CodeAnalysisTreatWarningsAsErrors>true</CodeAnalysisTreatWarningsAsErrors>
         <MeziantouAnalysisMode>all-errors</MeziantouAnalysisMode>
         <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
-        <GenerateDocumentationFile>true</GenerateDocumentationFile>
-        <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
-        <Configurations>Release</Configurations>
-        <Configuration>Release</Configuration>
-        <NoWarn>$(NoWarn);NU5104</NoWarn> <!-- Stable packages pin prerelease dependencies such as LanguageExt.Core -->
     </PropertyGroup>
 
-    <ItemGroup Label="Analyzer Configuration">
+    <ItemGroup Label="Diagnostics">
         <GlobalAnalyzerConfigFiles Include="$(MSBuildThisFileDirectory).config/.globalconfig" />
     </ItemGroup>
+
+    <PropertyGroup Label="Configurations">
+        <Configurations>Release</Configurations>
+        <Configuration>Release</Configuration>
+    </PropertyGroup>
+
+    <PropertyGroup Label="Restore">
+        <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+        <DisableImplicitAssetTargetFallback>true</DisableImplicitAssetTargetFallback>
+    </PropertyGroup>
+
+    <PropertyGroup Label="Build Output">
+        <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+        <CreateHardLinksForCopyLocalIfPossible>true</CreateHardLinksForCopyLocalIfPossible>
+    </PropertyGroup>
 
     <PropertyGroup Label="Rhino Host" Condition="'$(RhinoHost)' != ''">
         <RhinoTargetFramework>net10.0</RhinoTargetFramework>
         <TargetFramework>$(RhinoTargetFramework)</TargetFramework>
-        <PlatformTarget>AnyCPU</PlatformTarget>
-        <PublishDocumentationFiles>false</PublishDocumentationFiles>
-        <PublishReferencesSymbols>false</PublishReferencesSymbols>
     </PropertyGroup>
 
     <Import Project="libs/dotnet/rhino/Rasm.Rhino/buildTransitive/Rasm.Rhino.props" Condition="'$(RhinoHost)' != ''" />

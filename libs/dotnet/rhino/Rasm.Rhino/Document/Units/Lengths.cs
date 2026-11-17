@@ -1,3 +1,4 @@
+using System.Globalization;
 using Rhino;
 using Rhino.Geometry.Intersect;
 using Rhino.UI;
@@ -7,8 +8,17 @@ namespace Rasm.Rhino.Document.Units;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public sealed record Tolerances(double Absolute, double Relative, double Angle) {
+[ComplexValueObject]
+[ValidationError<RhinoFault>]
+public sealed partial class Tolerances {
+    public double Absolute { get; }
+    public double Relative { get; }
+    public double Angle { get; }
+
     public double MeshIntersection => Absolute * Intersection.MeshIntersectionsTolerancesCoefficient;
+
+    public static Fin<Tolerances> Validated(double absolute, double relative, double angle) =>
+        TryCreate(absolute, relative, angle, out Tolerances? tolerances, out RhinoFault? fault) ? tolerances : fault;
 
     public static IO<Tolerances> Read(RhinoDoc doc, Space space) => IO.lift(() => space.Read(doc).Tolerances);
 
@@ -16,10 +26,32 @@ public sealed record Tolerances(double Absolute, double Relative, double Angle) 
         left.Origin.DistanceTo(right.Origin) <= Absolute
         && Vector3d.VectorAngle(left.XAxis, right.XAxis) <= Angle
         && Vector3d.VectorAngle(left.YAxis, right.YAxis) <= Angle;
+
+    static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref double absolute, ref double relative, ref double angle) =>
+        validationError = double.IsFinite(absolute) && absolute > 0d && relative is > 0d and < 1d && angle is > 0d and <= Math.PI
+            ? null
+            : new RhinoFault((absolute, relative, angle), RhinoReason.Outside);
 }
 
-public sealed record UnitsAndTolerances(LengthUnit Unit, Tolerances Tolerances, DistanceDisplayMode Display, int Precision) {
-    public Length Resolution => Quantities.Resolution(Display, Precision, Unit);
+[ComplexValueObject(SkipToString = true)]
+[ValidationError<RhinoFault>]
+public sealed partial class UnitsAndTolerances {
+    public LengthUnit LengthUnit { get; }
+    public Tolerances Tolerances { get; }
+    public DistanceDisplayMode Display { get; }
+    public int Precision { get; }
+
+    public Length Resolution => Quantities.Resolution(Display, Precision, LengthUnit);
+
+    public override string ToString() => string.Create(CultureInfo.InvariantCulture, $"{LengthUnit.Symbol} {Tolerances} {Display} {Precision}");
+
+    public static Fin<UnitsAndTolerances> Validated(LengthUnit lengthUnit, Tolerances tolerances, DistanceDisplayMode display, int precision) =>
+        TryCreate(lengthUnit, tolerances, display, precision, out UnitsAndTolerances? units, out RhinoFault? fault) ? units : fault;
+
+    static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref LengthUnit lengthUnit, ref Tolerances tolerances, ref DistanceDisplayMode display, ref int precision) =>
+        validationError = Enum.IsDefined(display) && precision is >= 0 and <= 8
+            ? null
+            : new RhinoFault((display, precision), RhinoReason.Outside);
 
     public IO<Unit> Write(RhinoDoc doc, Space space) =>
         Commits.Undoable(doc, $"{space.Name} {nameof(UnitsAndTolerances)}", IO.lift(() => space.Read(doc)), value => Assigned(doc, space, value), this);
@@ -28,10 +60,10 @@ public sealed record UnitsAndTolerances(LengthUnit Unit, Tolerances Tolerances, 
         Products.Accepted(() => doc.AdjustLengthUnits(space == Space.Model, units, scale));
 
     public string Format(Length length, bool appendUnitSystemName) =>
-        Localization.FormatNumber(Quantities.As(length, Unit), Unit, Display, Precision, appendUnitSystemName);
+        Localization.FormatNumber(Quantities.As(length, LengthUnit), LengthUnit, Display, Precision, appendUnitSystemName);
 
     private static IO<Unit> Assigned(RhinoDoc doc, Space space, UnitsAndTolerances value) =>
-        from adjusted in IO.lift(() => space.Read(doc).Unit == value.Unit).Bind(same => unless(same, Adjust(doc, space, value.Unit, scale: false)).As())
+        from adjusted in IO.lift(() => space.Read(doc).LengthUnit == value.LengthUnit).Bind(same => unless(same, Adjust(doc, space, value.LengthUnit, scale: false)).As())
         from written in IO.lift(() => space.Write(doc, value))
         select written;
 }
@@ -40,9 +72,9 @@ public sealed record UnitsAndTolerances(LengthUnit Unit, Tolerances Tolerances, 
 public sealed partial class Space {
     public static readonly Space Model = new(
         nameof(Model),
-        static doc => new UnitsAndTolerances(
+        static doc => UnitsAndTolerances.Create(
             doc.ModelUnits,
-            new Tolerances(doc.ModelAbsoluteTolerance, doc.ModelRelativeTolerance, doc.ModelAngleToleranceRadians),
+            Tolerances.Create(doc.ModelAbsoluteTolerance, doc.ModelRelativeTolerance, doc.ModelAngleToleranceRadians),
             doc.ModelDistanceDisplayMode,
             doc.ModelDistanceDisplayPrecision),
         static (doc, value) => (doc.ModelAbsoluteTolerance, doc.ModelRelativeTolerance, doc.ModelAngleToleranceRadians, doc.ModelDistanceDisplayMode, doc.ModelDistanceDisplayPrecision) =
@@ -50,9 +82,9 @@ public sealed partial class Space {
 
     public static readonly Space Page = new(
         nameof(Page),
-        static doc => new UnitsAndTolerances(
+        static doc => UnitsAndTolerances.Create(
             doc.PageUnits,
-            new Tolerances(doc.PageAbsoluteTolerance, doc.PageRelativeTolerance, doc.PageAngleToleranceRadians),
+            Tolerances.Create(doc.PageAbsoluteTolerance, doc.PageRelativeTolerance, doc.PageAngleToleranceRadians),
             doc.PageDistanceDisplayMode,
             doc.PageDistanceDisplayPrecision),
         static (doc, value) => (doc.PageAbsoluteTolerance, doc.PageRelativeTolerance, doc.PageAngleToleranceRadians, doc.PageDistanceDisplayMode, doc.PageDistanceDisplayPrecision) =

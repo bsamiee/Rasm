@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Description>Code fixes that rewrite analyzer findings into the form each rule requires</Description>
+        <Description>Code fixes that rewrite each analyzer finding into the form its rule requires</Description>
     </PropertyGroup>
 
     <ItemGroup Label="Analyzer Authoring">

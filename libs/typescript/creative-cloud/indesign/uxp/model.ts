@@ -206,7 +206,7 @@ class Model extends Context.Service<Model>()('@rasm/indesign/uxp/model', {
             Array.head(open),
             Option.filter(() => open.length === 1),
             Option.orElse(() => shown),
-            Effect.fromOption(() => Unmatched.make({ subject: 'document', candidates })),
+            Effect.fromOption(() => Unmatched.of({ subject: 'document', candidates })),
         );
     });
     static readonly selection = Model.use(({ app }) => Effect.try({ try: () => app.selection, catch: HostError.refused('selection') }).pipe(Effect.flatMap(Unmatched.single('selection', Option.none(), (item) => [item.toSpecifier()]))));
@@ -216,7 +216,7 @@ class Model extends Context.Service<Model>()('@rasm/indesign/uxp/model', {
         );
     static readonly member = Effect.fnUntraced(function* (kind: string, name: string) {
         const { enumeration, members, enumerations } = yield* Model;
-        const found = yield* Effect.fromOption(enumeration(kind), () => Unmatched.make({ subject: 'enumeration', query: Option.some(kind), candidates: enumerations }));
+        const found = yield* Effect.fromOption(enumeration(kind), () => Unmatched.of({ subject: 'enumeration', query: Option.some(kind), candidates: enumerations }));
         return yield* Unmatched.single(members(found), `${kind} member`, Option.some(name), (member) => [member.toString()]);
     });
     static readonly object = Effect.fnUntraced(function* (type: string, name: string, scope: Option.Option<object>) {
@@ -280,19 +280,17 @@ class Model extends Context.Service<Model>()('@rasm/indesign/uxp/model', {
                     (every) => every.getElements(),
                 ),
                 () =>
-                    Option.exists(specifier.selector, Selector.guards.Index)
-                        ? Unmatched.make({ subject: Array.isReadonlyArrayNonEmpty(siblings) ? `object among indexes 0 to ${siblings.length - 1}` : 'object', query: Option.some(written) })
-                        : Unmatched.make({ subject: 'object', query: Option.some(written), candidates }),
+                    Option.exists(specifier.selector, Selector.guards.Index) ? Unmatched.of({ subject: Array.isReadonlyArrayNonEmpty(siblings) ? `object among indexes 0 to ${siblings.length - 1}` : 'object', query: Option.some(written) }) : Unmatched.of({ subject: 'object', query: Option.some(written), candidates }),
             );
         };
-        const absent = specifier.end === undefined ? Effect.gen(nearest) : Effect.fail(Unmatched.make({ subject: 'range', query: Option.some(written) }));
+        const absent = specifier.end === undefined ? Effect.gen(nearest) : Effect.fail(Unmatched.of({ subject: 'range', query: Option.some(written) }));
         return yield* Option.match(located(written), { onSome: (resolved) => Effect.succeed(specifier.root || Option.isSome(specifier.selector) || specifier.property ? resolved : Array.ensure(resolved)), onNone: () => absent });
     });
     static readonly located = (specifier: Specifier) =>
         Model.use(
             Effect.fnUntraced(function* (model: Context.Service.Shape<typeof Model>) {
                 const found = yield* Model.resolve(specifier);
-                return model.domObject(found) ? found : yield* Unmatched.make({ subject: 'object', query: Option.some(specifier.path) });
+                return model.domObject(found) ? found : yield* Unmatched.of({ subject: 'object', query: Option.some(specifier.path) });
             }),
         );
     static readonly referenceUnsafe = (object: InDesignDOMObject<unknown>): Reference => {
@@ -463,7 +461,7 @@ const joined =
         if (!Schema.is(Unmatched)(later)) {
             return later;
         }
-        return Schema.is(Unmatched)(failed) ? Unmatched.make({ subject: `${failed.subject} or ${later.subject}`, query: failed.query, candidates: [...failed.candidates, ...later.candidates] }) : failed;
+        return Schema.is(Unmatched)(failed) ? Unmatched.of({ subject: `${failed.subject} or ${later.subject}`, query: failed.query, candidates: [...failed.candidates, ...later.candidates] }) : failed;
     };
 const firstOf = <A, E, R>([head, ...rest]: Array.NonEmptyReadonlyArray<Effect.Effect<A, E, R>>) => rest.reduce<Effect.Effect<A, E | Unmatched, R>>((chosen, fallback) => Effect.catch(chosen, (failed) => Effect.mapError(fallback, joined(failed))), head);
 const writer = (target: InDesignDOMObject<unknown>, specifier: string, fonts: Parameters<typeof Model.decoder>[1]) => {

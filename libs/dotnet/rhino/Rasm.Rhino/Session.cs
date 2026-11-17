@@ -36,6 +36,8 @@ public static class Session {
 
     private static readonly Ref<Option<Bound>> State = Ref(Option<Bound>.None);
 
+    public static Option<PlugIn> BoundPlugIn => State.Value.Bind(static bound => bound.Host.ToOption());
+
     public static PlugIn PlugIn => Read(static bound => bound.Host.IfLeft(static skin => throw new InvalidOperationException($"{skin.GetType().FullName} binds a skin session, not a plug-in")));
 
     public static Assembly Assembly => Read(static bound => bound.Assembly);

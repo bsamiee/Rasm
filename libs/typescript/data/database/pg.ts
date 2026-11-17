@@ -432,7 +432,7 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
             const { observed: live } = yield* observed(undefined);
             const resolved = diff(sql, Pg, catalog, ddl, live.tables);
             const populated = yield* resolved.populated;
-            yield* Effect.promise(loadModule);
+            yield* Effect.promise(() => loadModule());
             const grantees = [...Option.toArray(runtime).map((grantee) => ({ grantee, all: privileges.runtime })), ...Option.toArray(catalog.reader).map((grantee) => ({ grantee, all: privileges.reader }))].filter(({ grantee }) => grantee !== environment.migrator);
             const drifted = environment.configurations.filter(({ drift }) => Array.isReadonlyArrayNonEmpty(drift)).map(({ name }) => name);
             return yield* live.#reconcile({ sql, role, resolved, grantees, drifted }, environment, { populated, preamble }, [...timeouts, { name: 'search_path', value: path }]);

@@ -1,6 +1,5 @@
 import type { Body, Meta, State, Uppy, UppyEventMap, UppyFile } from '@uppy/core';
 import { Cause, Effect, FiberSet, type Types } from 'effect';
-import { HttpClient, HttpClientError, HttpClientRequest, HttpClientResponse } from 'effect/http';
 import { Atom } from 'effect/reactivity';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -11,14 +10,9 @@ const selectUploadState = <M extends Meta, B extends Body, A>(uploader: Atom.Ato
         get.addFinalizer(current.store.subscribe((_, next) => get.setSelf(select(next))));
         return select(current.getState());
     });
-const isTransientUpload = (xhr: XMLHttpRequest) => {
-    const request = HttpClientRequest.post(xhr.responseURL);
-    const reason = xhr.status === 0 ? new HttpClientError.TransportError({ request }) : new HttpClientError.StatusCodeError({ request, response: HttpClientResponse.fromWeb(request, new Response(null, { status: xhr.status, statusText: xhr.statusText })) });
-    return HttpClient.isTransientError(new HttpClientError.HttpClientError({ reason }));
-};
-const preprocessUploads = Effect.fn('preprocessUploads')(function* <M extends Meta, B extends Body, E extends Parameters<UppyEventMap<M, B>['upload-error']>[1], R>(
+const processUploads = Effect.fn('processUploads')(function* <M extends Meta, B extends Body, E extends Parameters<UppyEventMap<M, B>['upload-error']>[1], R>(
     uploader: Uppy<M, B>,
-    prepare: (file: UppyFile<M, B>, data: Blob) => Effect.Effect<Partial<M>, E, R>,
+    { prepare, finish }: { readonly prepare: (file: UppyFile<M, B>, data: Blob) => Effect.Effect<Partial<M>, E, R>; readonly finish: (file: UppyFile<M, B>) => Effect.Effect<void, E, R> },
     { concurrency, message }: { readonly concurrency: Types.Concurrency; readonly message: string },
 ) {
     const run = yield* FiberSet.makeRuntimePromise<R>();
@@ -48,13 +42,23 @@ const preprocessUploads = Effect.fn('preprocessUploads')(function* <M extends Me
                   Effect.ensuring(Effect.sync(() => uploader.emit('preprocess-complete', file))),
               )
             : Effect.void;
-    const processor = (ids: string[]) => run(Effect.forEach(ids, (id) => prepared(uploader.getState().files[id]), { concurrency, discard: true }));
-    yield* Effect.acquireRelease(
-        Effect.sync(() => uploader.addPreProcessor(processor)),
-        () => Effect.sync(uploader.removePreProcessor.bind(uploader, processor)),
-    );
+    const finished = (file: UppyFile<M, B> | undefined) =>
+        file?.progress.uploadComplete === true && file.error === undefined
+            ? Effect.sync(() => uploader.emit('postprocess-progress', file, { mode: 'indeterminate', message })).pipe(
+                  Effect.andThen(finish(file)),
+                  Effect.catchDefect((defect) => new Cause.UnknownError(defect)),
+                  Effect.catch((error) => Effect.sync(() => uploader.emit('upload-error', file, error))),
+                  Effect.ensuring(Effect.sync(() => uploader.emit('postprocess-complete', file))),
+              )
+            : Effect.void;
+    const across = (each: typeof prepared) => (ids: string[]) => run(Effect.forEach(ids, (id) => each(uploader.getState().files[id]), { concurrency, discard: true }));
+    const processors = [
+        [uploader.addPreProcessor, uploader.removePreProcessor, across(prepared)],
+        [uploader.addPostProcessor, uploader.removePostProcessor, across(finished)],
+    ] as const;
+    yield* Effect.forEach(processors, ([add, remove, processor]) => Effect.acquireRelease(Effect.sync(add.bind(uploader, processor)), () => Effect.sync(remove.bind(uploader, processor))));
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { isTransientUpload, preprocessUploads, selectUploadState };
+export { processUploads, selectUploadState };

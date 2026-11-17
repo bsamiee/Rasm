@@ -16,9 +16,9 @@
       },
       "Meziantou.Analyzer": {
         "type": "Direct",
-        "requested": "[3.0.322, )",
-        "resolved": "3.0.322",
-        "contentHash": "aaynUqEHHeD0v1/RDW/Rq3d/gRkF8bRKJcvblhvuvyTAB+hGuzgFl4pBD9g6jGu+VqMWPinEGqu4hzG12TtnqQ=="
+        "requested": "[3.0.341, )",
+        "resolved": "3.0.341",
+        "contentHash": "zpogT6IwYBgNRa9+oETzs7aTU6Te3M/Osdkk/HN1TlJTDjz9dZwoUgh/yWqovT3jTofQGGLB1JqEK8I4uA6+yA=="
       },
       "Microsoft.macOS.Ref.net10.0_26.0": {
         "type": "Direct",
@@ -163,6 +163,7 @@
           "QuikGraph": "[2.5.0, )",
           "Rasm.Geometry": "[0.1.0, )",
           "Rasm.Rhino": "[0.1.0, )",
+          "Silk.NET.Maths": "[2.23.0, )",
           "SuperLinq": "[6.4.1, )",
           "Thinktecture.Runtime.Extensions": "[10.6.0, )"
         }
@@ -503,6 +504,12 @@
         "requested": "[2.5.0, )",
         "resolved": "2.5.0",
         "contentHash": "sG+mrPpXwxlXknRK5VqWUGiOmDACa9X+3ftlkQIMgOZUqxVOQSe0+HIU9PTjwqazy0pqSf8MPDXYFGl0GYWcKw=="
+      },
+      "Silk.NET.Maths": {
+        "type": "CentralTransitive",
+        "requested": "[2.23.0, )",
+        "resolved": "2.23.0",
+        "contentHash": "r8PdIVzME8EH0qAgbmRPO87I4GfgR2j8TofT7EMuRJDf1QluoQwnVypDoFJjQ2ZBSRsGYk5unYxxogI05Ogsmw=="
       },
       "SuperLinq": {
         "type": "CentralTransitive",

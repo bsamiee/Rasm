@@ -83,12 +83,12 @@ public static class Contents {
         Products.Accepted(() => ByKind(content, doc.RenderMaterials.Add, doc.RenderEnvironments.Add, doc.RenderTextures.Add));
 
     public static IO<RenderContent> Detach(RhinoDoc doc, RenderContent content) =>
-        Products.Accepted(() => ByKind(content, doc.RenderMaterials.Remove, doc.RenderEnvironments.Remove, doc.RenderTextures.Remove)) >> use(() => content);
+        Products.Accepted(() => ByKind(content, doc.RenderMaterials.Remove, doc.RenderEnvironments.Remove, doc.RenderTextures.Remove)).Map(_ => content);
 
     public static IO<Seq<Guid>> Purge(RhinoDoc doc, RenderContentKind kinds) =>
         Rows(doc, kinds).Bind(rows => Products.Each(rows
             .Filter(static content => content.UseCount() is 0 && !content.IsDefaultInstance && !content.IsHiddenByAutoDelete)
-            .Map(content => Detach(doc, content).Map(static detached => detached.Id).Bracket())));
+            .Map(content => use(Detach(doc, content)).Map(static detached => detached.Id).Bracket())));
 
     public static IO<T> WithinTableChange<T>(RhinoDoc doc, RenderContent.ChangeContexts cc, IO<T> body) =>
         IO.lift(() => doc.RenderMaterials.BeginChange(cc)) >> body.Finally(IO.lift(doc.RenderMaterials.EndChange));

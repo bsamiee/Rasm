@@ -69,5 +69,5 @@ public static class HistoryKeys {
          select written).Bracket();
 
     private static IO<PickCapture> Captured(ReplayHistoryData data, int slot) =>
-        Products.Of(() => data.GetRhinoObjRef(slot)).Bind(PickCapture.Of).Bracket();
+        use(Products.Of(() => data.GetRhinoObjRef(slot))).Bind(PickCapture.Of).Bracket();
 }

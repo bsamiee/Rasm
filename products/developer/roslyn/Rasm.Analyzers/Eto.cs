@@ -328,7 +328,7 @@ public sealed class NativeCallbackAnalyzer : DiagnosticAnalyzer {
         Categories.Eto,
         DiagnosticSeverity.Error,
         isEnabledByDefault: true,
-        "Nonempty native callbacks (Objective-C, `AddMethod`, `[UnmanagedFunctionPointer]`, `[Export]`, `[UnmanagedCallersOnly]`, `NSObject`) are one `Session` call or a constant return, Eto overrides read host members inside `Session`.",
+        "Nonempty native callbacks (Objective-C, `AddMethod`, `[UnmanagedFunctionPointer]`, `[Export]`, `[UnmanagedCallersOnly]`, `NSObject`) are one `Session` call or a constant return, Eto overrides read host members inside `Session`, and the type declaring the entry point starts Rhino before any `Session` exists.",
         Link("RASM2204"),
         WellKnownDiagnosticTags.CompilationEnd);
 
@@ -340,13 +340,13 @@ public sealed class NativeCallbackAnalyzer : DiagnosticAnalyzer {
         context.RegisterCompilationStartAction(static start => {
             WellKnownTypeProvider types = WellKnownTypeProvider.GetOrCreate(start.Compilation);
             if (types.GetOrCreateTypeByMetadataName("Rasm.Rhino.Session") is not { } callbacks) return;
-            Natives(start, new SemanticModels(start), ControlFlow.For(start.Compilation), types, callbacks);
+            Natives(start, new SemanticModels(start), ControlFlow.For(start.Compilation), types, callbacks, start.Compilation.GetEntryPoint(start.CancellationToken)?.ContainingType);
         });
     }
 
     // --- [ANALYSIS]
 
-    private static void Natives(CompilationStartAnalysisContext context, SemanticModels models, ControlFlow flow, WellKnownTypeProvider types, INamedTypeSymbol callbacks) {
+    private static void Natives(CompilationStartAnalysisContext context, SemanticModels models, ControlFlow flow, WellKnownTypeProvider types, INamedTypeSymbol callbacks, INamedTypeSymbol? entry) {
         (INamedTypeSymbol? register, INamedTypeSymbol? export, INamedTypeSymbol? pointer, INamedTypeSymbol? callers, INamedTypeSymbol? widget) = (
             types.GetOrCreateTypeByMetadataName("Foundation.RegisterAttribute"), types.GetOrCreateTypeByMetadataName("Foundation.ExportAttribute"),
             types.GetOrCreateTypeByMetadataName("System.Runtime.InteropServices.UnmanagedFunctionPointerAttribute"), types.GetOrCreateTypeByMetadataName("System.Runtime.InteropServices.UnmanagedCallersOnlyAttribute"),
@@ -411,7 +411,7 @@ public sealed class NativeCallbackAnalyzer : DiagnosticAnalyzer {
                 _ => [],
             };
         models.Report<IOperation>([OperationKind.DelegateCreation, OperationKind.Invocation], (operation, owner, reading) =>
-            !Within(owner, callbacks)
+            !Within(owner, callbacks) && !Within(owner, entry)
                 ? from handed in Handed(operation)
                   from method in flow.Targets(ControlFlow.At(handed.Value), reading.Token).OfType<IMethodSymbol>()
                   from escape in Checked(Bodied(method, reading), reading)
@@ -419,7 +419,7 @@ public sealed class NativeCallbackAnalyzer : DiagnosticAnalyzer {
                 : []);
         ConcurrentQueue<(IMethodSymbol Method, IOperation Root, Func<IOperation?, Reading, IEnumerable<(IOperation Site, string Run)>> Check)> blocks = new();
         context.RegisterOperationBlockAction(block => {
-            if (block.OwningSymbol is not IMethodSymbol method || Within(method, callbacks)) return;
+            if (block.OwningSymbol is not IMethodSymbol method || Within(method, callbacks) || Within(method, entry)) return;
             Func<IOperation?, Reading, IEnumerable<(IOperation Site, string Run)>>? check =
                 Marked(method, export) is not null || Marked(method, callers) is not null || Wrapped(method) ? Checked : Overriding(method, widget) ? Eager : null;
             if (check is not null && block.OperationBlocks.FirstOrDefault() is { } root) blocks.Enqueue((method, root, check));

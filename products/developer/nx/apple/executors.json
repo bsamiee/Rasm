@@ -13,7 +13,9 @@
         "run": {
             "implementation": "./dist/executors/run/executor#execute",
             "schema": "./executors/run/schema.json",
-            "description": "Runs swift and xcodebuild invocations in order with Nx's per-task environment removed and git status.branch off after the caller's GIT_CONFIG_<n> entries, stopping at the first failure, then writes the lcov report a coverage configuration states"
+            "description": "Runs swift and xcodebuild invocations in order with Nx's per-task environment removed and git status.branch off after the caller's GIT_CONFIG_<n> entries, stopping at the first failure, then writes the lcov report a coverage configuration states",
+            "batchImplementation": "./dist/executors/run/executor#batch",
+            "preferBatch": true
         },
         "release-publish": {
             "implementation": "./dist/executors/release-publish/executor#execute",

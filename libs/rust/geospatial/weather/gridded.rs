@@ -5,7 +5,8 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::io;
 
 use grib::codetables::grib2::Table4_4;
-use grib::def::grib2::template::param_set::{DateTime, EarthShape, EnsembleForecast, GaussianGrid, LatLonGrid, ScanningMode, Statistical, StatisticalProcess, TimeRange};
+use grib::def::grib2::table::{ScanningMode, StatisticalProcessType};
+use grib::def::grib2::template::param_set::{DateTime, EarthShape, EnsembleForecast, GaussianGrid, LatLonGrid, Statistical, StatisticalProcess, TimeRange};
 use grib::def::grib2::template::{Template3_0, Template3_1, Template3_10, Template3_20, Template3_30, Template3_40, Template3_41, Template4_0, Template4_1, Template4_8, Template4_11};
 use grib::def::grib2::{GridDefinitionTemplate, ProductDefinitionTemplate};
 use grib::projection::{self, Lcc, LccParams, Merc, MercParams, Project, Stere, StereParams};
@@ -113,8 +114,8 @@ where
     where R: Grib2Read {
         let product = || -> Result<Option<Product>, Malformed> {
             const METEOROLOGY: u8 = 0;
-            const AVERAGE: u8 = 0;
-            const ACCUMULATION: u8 = 1;
+            const AVERAGE: StatisticalProcessType = StatisticalProcessType(0);
+            const ACCUMULATION: StatisticalProcessType = StatisticalProcessType(1);
             const GEOPOTENTIAL: (u8, Option<u8>, Option<u8>) = (METEOROLOGY, Some(3), Some(4));
             const PARAMETERS: [(u8, u8, u8, Option<f64>, Field); 24] = {
                 const GROUND: u8 = 1;
@@ -156,7 +157,7 @@ where
             }
             let span = |time: &TimeRange<i32>| -> Result<Span, Malformed> {
                 let length = i64::from(time.len);
-                Ok(match Table4_4::try_from(time.unit).ok() {
+                Ok(match Table4_4::try_from(time.unit.0).ok() {
                     Some(Table4_4::Second) => Span::new().try_seconds(length),
                     Some(Table4_4::Minute) => Span::new().try_minutes(length),
                     Some(Table4_4::Hour) => Span::new().try_hours(length),

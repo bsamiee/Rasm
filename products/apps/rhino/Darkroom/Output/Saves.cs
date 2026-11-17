@@ -89,7 +89,7 @@ internal sealed record SaveSource(RenderWindow Rendering, ChainScene Scene, Over
 
     public IO<(PixelFrame Frame, Option<ColorEncoding> Encoding)> Formed(OutputDepth depth) =>
         depth.Levels.IsSome
-            ? (from bitmap in Products.Of(Rendering.GetBitmap)
+            ? (from bitmap in use(Products.Of(Rendering.GetBitmap))
                from frame in IO.lift(() => {
                    using Bitmap pixels = bitmap.Clone(new Rectangle(0, 0, bitmap.Width, bitmap.Height), PixelFormat.Format32bppArgb);
                    BitmapData data = pixels.LockBits(new(0, 0, pixels.Width, pixels.Height), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);

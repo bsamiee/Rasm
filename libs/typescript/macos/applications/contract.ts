@@ -66,7 +66,7 @@ class Terms extends Schema.Class<Terms, { readonly brand: unique symbol }>('Term
     static readonly script = Effect.fnUntraced(function* ({ command }: Terms, { events, direct, declared = {} }: { readonly events: Array.NonEmptyReadonlyArray<string>; readonly direct: AppleEventValue; readonly declared?: Readonly<Record<string, AppleEventValue>> }) {
         const { name, parameters } = yield* Effect.fromOption(
             Array.findFirst(events, (event) => Array.findFirst(command, flow(Struct.get('code'), String.endsWith(event)))),
-            () => Unmatched.make({ subject: `command with event ${events.join(' or ')}`, candidates: Array.map(command, Struct.get('name')) }),
+            () => Unmatched.of({ subject: `command with event ${events.join(' or ')}`, candidates: Array.map(command, Struct.get('name')) }),
         );
         const codes = new Set(Array.map(parameters, Struct.get('code')));
         return Execute.make({ command: name, arguments: { direct, ...Record.filter(declared, (_, code) => codes.has(code)) } });

@@ -194,7 +194,7 @@ internal static partial class Dispatch {
 
     public static IO<Unit> InstallCompiler(string scripts) =>
         (from path in IO.lift(() => OutputPath.Of(Path.Join(scripts, CompilerFile)))
-         from source in Products.Of(static () => typeof(Dispatch).Assembly.GetManifestResourceStream(CompilerFile))
+         from source in use(Products.Of(static () => typeof(Dispatch).Assembly.GetManifestResourceStream(CompilerFile)))
          from written in FilePublication.Write(path, overwrite: true, target => IO.liftAsync(environment => source.CopyToAsync(target, environment.Token).ToUnit()))
          select written).Bracket();
 
@@ -240,7 +240,7 @@ internal static partial class Dispatch {
          from moved in resumed.Traverse(record => QueueProgress.Write(
              context.Record, record with { Job = Some((string)paths[PackageFile.Job]), Ended = record.Ended | Some(RunEnd.Stopped) })).As()
          from start in IO.lift(Launch(paths[PackageFile.Job]))
-         from relayed in Products.Of(() => Process.Start(start))
+         from relayed in use(Products.Of(() => Process.Start(start)))
          from quit in Quit.OnUiThread()
          select unit).Bracket();
 
@@ -278,7 +278,7 @@ internal static partial class Dispatch {
             .Traverse(static text => int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out int id) ? Fin.Succ(id) : new DarkroomFault(text, DarkroomReason.Invalid)).As())
         from started in IO.lift(Unit () => ignore(Session.StartOperationAsync($"{nameof(Dispatch)}.{nameof(Job)}", Launched(
             from exited in parent.Traverse(static id =>
-                (from process in Products.Of(() => Process.GetProcessById(id))
+                (from process in use(Products.Of(() => Process.GetProcessById(id)))
                  from waited in IO.liftAsync(environment => process.WaitForExitAsync(environment.Token).ToUnit())
                  select waited).Bracket()
                     | @catch(static error => error.HasException<ArgumentException>(), IO.pure(unit))).As()

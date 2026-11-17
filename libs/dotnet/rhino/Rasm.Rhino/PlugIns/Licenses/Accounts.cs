@@ -24,7 +24,7 @@ public static class Accounts {
 
     public static IO<Option<T>> LoggedInUser<T>(Func<string, Image, T> read) =>
         IO.lift(static () => Conversions.Present(RhinoApp.LoggedInUserName))
-            .Bind(name => name.TraverseM(present => Products.Of(static () => RhinoApp.LoggedInUserAvatar).Map(avatar => read(present, avatar)).Bracket()).As());
+            .Bind(name => name.TraverseM(present => use(Products.Of(static () => RhinoApp.LoggedInUserAvatar)).Map(avatar => read(present, avatar)).Bracket()).As());
 
     // --- [TOKENS]
 

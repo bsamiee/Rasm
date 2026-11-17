@@ -44,7 +44,7 @@
 
     "explorer.fileNesting.enabled": true,
     "explorer.fileNesting.patterns": {
-        "*.csproj": "AnalyzerReleases.*.md, packages.lock.json",
+        "*.csproj": "AnalyzerReleases.*.md, packages*.lock.json",
         "*.py": "${capture}.py.lock",
         ".clang-tidy": ".clang-format, gersemi.yaml",
         ".gitignore": ".gitattributes, .gitmodules",
@@ -73,7 +73,6 @@
         ".nx": true,
         ".pixi": true,
         "docs/research": true,
-        "tests/.tmp": true,
         "**/.archive/**": true,
         "**/.build/**": true,
         "**/.cloudflare/**": true,
@@ -98,8 +97,6 @@
     // --- [SOURCE_CONTROL]
 
     "git.autoRepositoryDetection": false,
-    "git.decorations.enabled": false,
-    "scm.diffDecorations": "gutter",
 
     // --- [VISIBILITY]
 
@@ -169,7 +166,6 @@
 
     // --- [PYTHON] ----------------------------------------------------------------------
 
-    "python.languageServer": "None",
     "ruff.configurationPreference": "filesystemFirst",
     "ty.experimental.useUv": "on",
 

@@ -34,14 +34,14 @@ extension InstanceState {
 
 extension NSWorkspace {
     public func systemPrompts(
-        naming names: [String],
+        naming names: @escaping @Sendable () -> [String],
         clock: some Clock<Duration> & Sendable = ContinuousClock(),
     ) -> some AsyncSequence<OrderedDictionary<Instance, InstanceState>, Never> & Sendable {
         tracked(of: \.isDialogHelper, walking: \.asking, clock: clock)
             .map { held in
                 held.compactMapValues { state in
                     guard case .running(let running) = state else { return nil }
-                    let rows = state.prompting(names)
+                    let rows = state.prompting(names())
                     return rows.isEmpty ? nil : .running(InstanceState.Running(status: running.status, active: running.active, windows: rows, prompts: [], menus: [], usage: running.usage))
                 }
             }

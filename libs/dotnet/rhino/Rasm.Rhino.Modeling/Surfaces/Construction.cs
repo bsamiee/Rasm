@@ -76,7 +76,7 @@ public static class SurfaceConstruction {
     // --- [HERMITE]
 
     public static IO<NurbsSurface> Hermite(HermiteGrid grid) =>
-        from hermite in Products.Of(() => new HermiteSurface(grid.U.Values.Count, grid.V.Values.Count))
+        from hermite in use(() => new HermiteSurface(grid.U.Values.Count, grid.V.Values.Count))
         from filled in IO.lift(() => Filled(hermite, grid))
         from surface in Products.Of(hermite.ToNurbsSurface)
         select surface;

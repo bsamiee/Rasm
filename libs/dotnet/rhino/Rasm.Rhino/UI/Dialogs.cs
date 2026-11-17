@@ -100,8 +100,8 @@ public static class HostDialogs {
 
     public static IO<(Length Min, Length Max)> ShowRangeDialog(RhinoDoc doc, LocalizeStringPair title, (Length Min, Length Max) range, (bool Min, bool Max) editable) =>
         from units in IO.lift(() => Space.Model.Read(doc))
-        from chosen in ShowRangeDialog(doc, title, (Quantities.As(range.Min, units.Unit), Quantities.As(range.Max, units.Unit)), editable, units.Precision)
-        select (Quantities.From(chosen.Min, units.Unit), Quantities.From(chosen.Max, units.Unit));
+        from chosen in ShowRangeDialog(doc, title, (Quantities.As(range.Min, units.LengthUnit), Quantities.As(range.Max, units.LengthUnit)), editable, units.Precision)
+        select (Quantities.From(chosen.Min, units.LengthUnit), Quantities.From(chosen.Max, units.LengthUnit));
 
     public static IO<(double Min, double Max)> ShowRangeDialog(RhinoDoc doc, LocalizeStringPair title, (double Min, double Max) range, (bool Min, bool Max) editable, int decimals) =>
         (from dialog in use(() => new RangeDialog(range.Min, range.Max, decimals, decimals, editable.Min, editable.Max) { Title = title.Local })

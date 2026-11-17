@@ -101,9 +101,11 @@ public static class Diagnostics {
                 (Count: counts.InvalidNgonCount, Locate: () => Located<T, Mesh>(DefectKind.InvalidNgons, counts.InvalidNgonCount, Components(ComponentIndexType.MeshNgon, Ngons(mesh)),
                     [Steps.Of<Mesh>(static held => Ngons(held) switch { var invalid => held.Ngons.RemoveNgons(invalid) == invalid.Count })])),
                 (Count: manifold is MeshManifold.Solid { Outward: false } ? 1 : 0, Locate: static () => Located<T, Mesh>(DefectKind.InwardSolid, 1, [],
-                    [Steps.Of<Mesh>(static held => {
-                        held.Flip(vertexNormals: true, faceNormals: true, faceOrientation: true);
-                        return true;
+                    [Steps.Then<Mesh>(static held => {
+                        Mesh rebuilt = new();
+                        rebuilt.Append(held);
+                        rebuilt.Flip(vertexNormals: true, faceNormals: true, faceOrientation: true);
+                        return rebuilt;
                     })])))
             .Filter(static row => row.Count > 0)
             .Map(static row => row.Locate())

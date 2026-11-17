@@ -46,5 +46,5 @@ public static class RenderWindows {
         select unit;
 
     private static IO<T> Opened<T>(RenderWindow window, RenderWindow.StandardChannels channel, Func<RenderWindow.Channel, IO<T>> body) =>
-        Products.Of(() => window.OpenChannel(channel)).Bind(body).Bracket();
+        use(Products.Of(() => window.OpenChannel(channel))).Bind(body).Bracket();
 }

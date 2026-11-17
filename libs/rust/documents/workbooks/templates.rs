@@ -6,7 +6,6 @@ use ironcalc::base::expressions::token::TokenType;
 use ironcalc::base::language::get_default_language;
 use ironcalc::base::locale::get_default_locale;
 use jiff::{SignedDuration, civil};
-use rust_xlsxwriter::IntoExcelDateTime as _;
 use umya_spreadsheet::helper::address::{is_address, join_address};
 use umya_spreadsheet::helper::coordinate::coordinate_from_index_with_lock;
 use umya_spreadsheet::{DefinedName, Workbook};
@@ -63,7 +62,7 @@ pub fn fill(book: &mut Workbook, name: &str, block: &Range<Data>) -> Result<(), 
         }
         grown
     });
-    let epoch = if book.date1904() { civil::date(1904, 1, 1).to_excel_serial_date() } else { 0.0 };
+    let epoch = book.date1904().then(|| civil::date(1904, 1, 1).at(0, 0, 0, 0));
     let sheet = book.sheet_by_name_mut(&sheet_name)?;
     sheet.insert_new_row(last_row, extra);
     for row in last_row..bottom {
@@ -81,7 +80,10 @@ pub fn fill(book: &mut Workbook, name: &str, block: &Range<Data>) -> Result<(), 
             Value::Number(number) => cell.set_value_number(number),
             Value::Text(text) => cell.set_value_string(text),
             Value::Boolean(boolean) => cell.set_value_bool(boolean),
-            Value::DateTime(datetime) => cell.set_value_number(datetime.to_excel_serial_date() - epoch),
+            Value::DateTime(datetime) => {
+                let serial = |at| crate::excel(at).map(|moment| moment.to_excel()).map_err(|source| WorkbooksError::Write { cell: (row, column), source });
+                cell.set_value_number(serial(datetime)? - epoch.map(serial).transpose()?.unwrap_or_default())
+            }
             Value::Duration(duration) => cell.set_value_number(duration.div_duration_f64(SignedDuration::from_hours(24))),
             Value::Error(error) => cell.set_error(error.to_string()),
             Value::Empty => cell.set_blank(),

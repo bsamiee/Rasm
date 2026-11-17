@@ -2,6 +2,8 @@ import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import type { CreateNodesContext } from '@nx/devkit';
 import { createNodes } from '@rasm/nx-uv';
+import { refused } from '@rasm/testing/errors';
+import { pathed, refusing } from '@rasm/testing/nx';
 import { TempFs } from '@rasm/testing/temp-fs';
 import { describe, expect, test, vi } from 'vitest';
 
@@ -170,5 +172,12 @@ describe('@rasm/nx-uv/plugin/nodes', { timeout: 120_000 }, () => {
 
         expect(results[0]?.[1].projects?.['proj/library']?.targets).not.toHaveProperty('check--ty');
         expect(results[0]?.[1].projects?.['proj/library']?.targets?.['test--pytest']).not.toHaveProperty('configurations');
+    });
+
+    it.for(refusing('uv'))('should report the command and $case of uv as the error of the lock', async ({ scripts, refusal }, { tempFs, locked, context }) => {
+        await locked('.', ['pytest>=8']);
+        pathed(join(tempFs.tempDir, '.bin'), scripts);
+
+        await expect(createNodesFunction(['uv.lock'], {}, context)).rejects.toSatisfy(refused(refusal));
     });
 });

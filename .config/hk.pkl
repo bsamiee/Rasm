@@ -5,6 +5,7 @@ import "package://github.com/jdx/hk/releases/download/v2.12.0/hk@2.12.0#/Builtin
 // --- [SETTINGS] -------------------------------------------------------------------------
 
 fail_fast = false
+exclude = "infra/sdks/**"
 
 // --- [STEPS] ----------------------------------------------------------------------------
 

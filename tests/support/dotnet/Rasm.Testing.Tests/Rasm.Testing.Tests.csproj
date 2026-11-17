@@ -1,9 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Description>Suite of Rasm.Testing: SQLite and settlement by test result</Description>
+        <Description>Tests of Rasm.Testing fixtures</Description>
     </PropertyGroup>
 
-    <ItemGroup Label="Core">
+    <ItemGroup Label="Functional Programming">
         <PackageReference Include="LanguageExt.Core" />
     </ItemGroup>
 

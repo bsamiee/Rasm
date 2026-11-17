@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <Version>0.1.0</Version>
-        <Description>Roslyn analyzers, code fixes, and source generators holding C# to functional form over LanguageExt, Thinktecture, Microsoft.Extensions.Logging, RhinoCommon, and Eto, every rule an error</Description>
+        <Description>Roslyn analyzers, code fixes, and source generators that keep C# functional over LanguageExt, Thinktecture, Microsoft.Extensions.Logging, RhinoCommon, and Eto</Description>
         <PackageTags>roslyn;analyzers;languageext;thinktecture;logging;rhinocommon;eto</PackageTags>
         <IsPackable>true</IsPackable>
         <IncludeBuildOutput>false</IncludeBuildOutput>

@@ -1,12 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <Version>0.1.0</Version>
-        <Description>Program entry composing settings named for the program, per-user folders, and telemetry, for a console process and for a generic host application</Description>
+        <Description>Program startup for console and generic host applications: configuration, per-user folders, and telemetry</Description>
         <IsPackable>true</IsPackable>
     </PropertyGroup>
 
-    <ItemGroup Label="Core">
+    <ItemGroup Label="Functional Programming">
         <PackageReference Include="LanguageExt.Core" />
+    </ItemGroup>
+
+    <ItemGroup Label="Domain Modeling">
         <PackageReference Include="Thinktecture.Runtime.Extensions" />
     </ItemGroup>
 

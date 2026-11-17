@@ -4,7 +4,7 @@ use core::range::Range;
 
 use gauss_quad::GaussLegendre;
 use itertools::{Either, Itertools as _};
-use jiff::{SignedDuration, Span, Timestamp, Zoned};
+use jiff::{SignedDuration, Span, Timestamp, ZonedDateTime};
 use nalgebra::{UnitQuaternion, UnitVector3};
 use nonempty_collections::nev;
 use solar_positioning::time::JulianDate;
@@ -22,9 +22,9 @@ const DAY: SignedDuration = SignedDuration::from_hours(24);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub fn events(sun: &Sun, interval: Range<Timestamp>, elevation: Angle) -> Result<Events<Zoned>, SolarError> {
+pub fn events(sun: &Sun, interval: Range<Timestamp>, elevation: Angle) -> Result<Events<ZonedDateTime>, SolarError> {
     let (start, end) = julian_interval(sun, interval)?;
-    let zoned = |at: Timestamp| at.to_zoned(sun.place.zone.clone());
+    let zoned = |at: Timestamp| at.to_zoned_datetime(sun.place.zone.clone());
     let searched = positioning(Operation::Search(interval));
     let (lit, crossings) = crossings(sun, interval, elevation)?;
     let next = |date: f64| SolarEvents::new().next_transit_from_julian(date, end, location(sun).longitude, start.delta_t());

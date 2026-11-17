@@ -103,7 +103,7 @@ public static class Booleans {
             difference: static at => PerFirst(at.Operation.First, first => Products.Many(() => Curve.CreateBooleanDifference(first, at.Operation.Second, at.Absolute), required: false)));
 
     public static IO<Seq<Grouped<Seq<Curve>, int>>> Regions(Tolerances tolerances, Seq<Curve> curves, Plane plane, Seq<Point3d> points, bool combineRegions) =>
-        from regions in Products.Of(() => Curve.CreateBooleanRegions(curves, plane, points, combineRegions, tolerances.Absolute))
+        from regions in use(Products.Of(() => Curve.CreateBooleanRegions(curves, plane, points, combineRegions, tolerances.Absolute)))
         from shapes in Products.Each(toSeq(Range(0, regions.RegionCount)).Map(index => Products.Many(() => regions.RegionCurves(index), required: false)))
         let owners = Enumerable.Range(0, regions.PointCount).ToLookup(regions.RegionPointIndex)
         select shapes.Map((shape, index) => new Grouped<Seq<Curve>, int>(shape, toSeq(owners[index]))).Strict();

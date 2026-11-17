@@ -1,6 +1,7 @@
 import { Rows } from '@rasm/database';
 import { Enrollment } from '@rasm/hosting/identity';
 import { Template } from '@rasm/hosting/template';
+import { ObjectStorage } from '@rasm/object-storage';
 import { Array, Effect, Function, Match, Schema, SchemaGetter, Struct } from 'effect';
 import { HttpRouter } from 'effect/http';
 import { HttpApiBuilder, HttpApiSchema } from 'effect/http-api';
@@ -98,7 +99,7 @@ const page = HttpRouter.add(
     '/',
     Effect.fn('page')(
         () => Effect.all({ published: Effect.map(readDocument('published'), Struct.get('data')), session: OwnerAccount.session }, { concurrency: 'unbounded' }),
-        Effect.flatMap((bootstrap) => Template.render(shell, bootstrap)),
+        Effect.flatMap((bootstrap) => ObjectStorage.use(({ origin }) => Template.render(shell, bootstrap, { 'connect-src': [origin] }))),
         Effect.map(Enrollment.unshared),
     ),
 );

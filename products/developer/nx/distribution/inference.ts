@@ -2,10 +2,10 @@ import { existsSync } from 'node:fs';
 import { findPackageJSON } from 'node:module';
 import { dirname, isAbsolute, join, relative, sep } from 'node:path';
 import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
-import { type CreateNodesContext, hashArray, normalizePath, type NxJsonConfiguration, readJsonFile, type TargetConfiguration } from '@nx/devkit';
+import { AggregateCreateNodesError, type CreateNodesContext, hashArray, normalizePath, type NxJsonConfiguration, readJsonFile, type TargetConfiguration } from '@nx/devkit';
 import { buildPackageJsonPatterns, buildPackageJsonWorkspacesMatcher, getNamedInputs, hashFile, hashWithWorkspaceContext, mergeTargetConfigurations, type PackageJson, type PluginCache } from '@nx/devkit/internal';
 import { walkTsconfigExtendsChain } from '@nx/js/internal';
-import { Array, Cause, Effect, Equal, FileSystem, identity, Option, Predicate, Record, Result, Schema, Stream, String } from 'effect';
+import { Array, Cause, Effect, Equal, FileSystem, Formatter, identity, Layer, ManagedRuntime, Match, Option, Predicate, Record, Result, Schema, type Scope, Stream, String } from 'effect';
 import { ChildProcess, CommandLine } from 'effect/process';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -30,7 +30,30 @@ const Named = Schema.fromJsonString(Schema.Struct({ name: Schema.String })).anno
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const run = <A, E>(effect: Effect.Effect<A, E, NodeServices>) => Effect.runPromise(Effect.provide(effect, layer));
+const legible = (error: unknown): Error =>
+    Match.value(error).pipe(
+        Match.when(
+            Match.instanceOf(AggregateCreateNodesError),
+            (aggregate) =>
+                new AggregateCreateNodesError(
+                    aggregate.errors.map(([file, each]) => [file, legible(each)]),
+                    aggregate.partialResults,
+                ),
+        ),
+        Match.when(
+            (each: unknown): each is Error => Predicate.isError(each) && Object.hasOwn(each, 'message'),
+            (kept): Error => kept,
+        ),
+        Match.when(Predicate.isError, (each) => new Cause.UnknownError(each, each.message)),
+        Match.orElse((each) => new Cause.UnknownError(each, Formatter.format(each))),
+    );
+
+const runner = <R>(services: Layer.Layer<R>) => {
+    const runtime = ManagedRuntime.make(Layer.merge(services, layer));
+    return <A, E>(effect: Effect.Effect<A, E, R | NodeServices | Scope.Scope>) => runtime.runPromise(Effect.scoped(Effect.mapError(effect, legible)));
+};
+
+const run = runner(Layer.empty);
 
 const fingerprinted = (folder: string) =>
     Effect.runSync(
@@ -42,11 +65,15 @@ const fingerprinted = (folder: string) =>
         ),
     );
 
-const spawned = Effect.fnUntraced(function* (argv: Array.NonEmptyReadonlyArray<string>, options: ChildProcess.CommandOptions = {}) {
-    const handle = yield* ChildProcess.make(Array.headNonEmpty(argv), Array.tailNonEmpty(argv), { stdin: 'ignore', ...options, extendEnv: true, detached: false });
-    const [stdout, stderr, code] = yield* Effect.all([Stream.mkString(Stream.decodeText(handle.stdout)), Stream.mkString(Stream.decodeText(handle.stderr)), handle.exitCode], { concurrency: 'unbounded' });
-    return code === 0 ? stdout : yield* new Cause.UnknownError(code, [`${CommandLine.display(argv)} exits ${code}`, ...[stderr.trim()].filter(String.isNonEmpty)].join(': '));
+const ran = Effect.fnUntraced(function* (argv: Array.NonEmptyReadonlyArray<string>, options: ChildProcess.CommandOptions = {}) {
+    const invoked = CommandLine.display(argv);
+    const handle = yield* Effect.mapError(ChildProcess.make(Array.headNonEmpty(argv), Array.tailNonEmpty(argv), { stdin: 'ignore', ...options, extendEnv: true, detached: false }), (error) => new Cause.UnknownError(error, `${invoked} cannot start: ${error.message}`));
+    const [stdout, said, code] = yield* Effect.all([Stream.mkString(Stream.decodeText(handle.stdout)), Stream.mkString(Stream.decodeText(handle.stderr)), handle.exitCode], { concurrency: 'unbounded' });
+    return { invoked, stdout, said, code };
 }, Effect.scoped);
+
+const spawned = (argv: Array.NonEmptyReadonlyArray<string>, options: ChildProcess.CommandOptions = {}) =>
+    Effect.flatMap(ran(argv, options), ({ invoked, stdout, said, code }) => (code === 0 ? Effect.succeed(stdout) : Effect.fail(new Cause.UnknownError(code, [`${invoked} exits ${code}`, ...Option.toArray(Array.findFirst([said.trim(), stdout.trim()], String.isNonEmpty))].join(': ')))));
 
 const within = (at: string) => !(at.startsWith('..') || at.split('/').includes('node_modules'));
 
@@ -132,4 +159,4 @@ const aggregated = (verbs: Verbs, stated: Stated, technology: string): Record<st
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { above, aggregated, anchored, extended, fingerprinted, Folder, Input, manifested, namedInput, packaged, parsed, PLATFORM, recalled, run, spawned, type Stated, stamped, tagged, Targets, tokened, type Verbs, within };
+export { above, aggregated, anchored, extended, fingerprinted, Folder, Input, manifested, namedInput, packaged, parsed, PLATFORM, ran, recalled, run, runner, spawned, type Stated, stamped, tagged, Targets, tokened, type Verbs, within };

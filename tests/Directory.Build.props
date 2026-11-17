@@ -7,7 +7,7 @@
         <TestingPlatformCommandLineArguments>--report-trx --hangdump --hangdump-type None --hangdump-timeout 10m --crash-report-if-supported</TestingPlatformCommandLineArguments>
     </PropertyGroup>
 
-    <ItemGroup Label="Testing" Condition="'$(IsTestProject)' == 'true'">
+    <ItemGroup Label="Testing" Condition="'$(OutputType)' == 'Exe'">
         <PackageReference Include="coverlet.MTP" />
         <PackageReference Include="Microsoft.Testing.Extensions.CrashDump" />
         <PackageReference Include="Microsoft.Testing.Extensions.HangDump" />

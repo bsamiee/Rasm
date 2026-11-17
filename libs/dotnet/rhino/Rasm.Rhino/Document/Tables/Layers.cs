@@ -140,7 +140,8 @@ public static class Layers {
 
     // --- [MERGE]
 
-    public static IO<Unit> Merge(RhinoDoc doc, LayerRef source, LayerRef target) =>
+    public static IO<Committed<Unit>> Merge(RhinoDoc doc, LayerRef source, LayerRef target, string name, RedrawPolicy redraw) =>
+        Commits.Commit(doc, name, redraw,
         from merged in Resolve(doc, source)
         from kept in Resolve(doc, target)
         from acyclic in IO.lift(RhinoFault.Unless(merged.Id != kept.Id && !Below(merged, kept.Id), RhinoReason.Invalid, (merged.FullPath, kept.FullPath)))
@@ -154,5 +155,5 @@ public static class Layers {
             .TraverseM(child => Rows.Edit(doc, Kind, new ComponentRef<Layer>.ById(child.Id), [Rows.Set<Layer, Guid>(static row => row.ParentLayerId, static (row, id) => row.ParentLayerId = id, kept.Id)]))
             .As()
         from removed in Rows.Remove(doc, Kind, merged, Prune.Delete)
-        select unit;
+        select unit);
 }

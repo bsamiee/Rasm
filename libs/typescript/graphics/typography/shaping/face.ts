@@ -80,7 +80,7 @@ class Face extends Schema.Class<Face, { readonly brand: unique symbol }>('Face')
             onSome: (wanted) =>
                 Effect.fromOption(namedRow).pipe(
                     Effect.catch(() => Member.generated(members, wanted)),
-                    Effect.mapError(() => Unmatched.make({ subject: 'face or instance', query: selection, candidates: Array.getSomes(rows.map(flow(Struct.get('names'), Struct.get('postscriptName')))) })),
+                    Effect.mapError(() => Unmatched.of({ subject: 'face or instance', query: selection, candidates: Array.getSomes(rows.map(flow(Struct.get('names'), Struct.get('postscriptName')))) })),
                 ),
         });
         const tables = yield* Schema.decodeUnknownEffect(Tables)(chosen.sfnt, { errors: 'all' });

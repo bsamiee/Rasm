@@ -30,7 +30,7 @@ Restore reports `NU1xxx` codes and `dotnet pack` reports `NU5xxx` codes, `TreatW
 |  [22]   | `NU1602` | Dependency declares no lower bound                            | Reference the dependency directly at an exact version        |
 |  [23]   | `NU1603` | Declared lower bound absent, a higher version resolved        | Reference the resolved version directly in `PackageVersion`  |
 |  [24]   | `NU1605` | Direct reference resolved below a dependency's demand         | Raise the `PackageVersion` to the demanded version           |
-|  [25]   | `NU1701` | `AssetTargetFallback` picked assets of an older framework     | Framework-built version, else `NoWarn` on the reference      |
+|  [25]   | `NU1701` | `AssetTargetFallback` picked assets of an older framework     | Framework build, else `DisableImplicitAssetTargetFallback`   |
 |  [26]   | `NU1702` | `AssetTargetFallback` picked a project of an older framework  | Multi-target the referenced project or align the frameworks  |
 |  [27]   | `NU1900` | Vulnerability data unreachable from a source                  | `dotnet restore --force`, a no-op restore audits nothing     |
 |  [28]   | `NU1901` | Advisory on a resolved package, `NU1902`-`NU1904` by severity | Pin a patched release in `PackageVersion`                    |

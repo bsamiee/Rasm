@@ -22,6 +22,7 @@ internal sealed record Node(
     string File,
     string Name,
     string Language,
+    string Platform,
     bool Test,
     bool Packable,
     bool Publishable,
@@ -38,6 +39,7 @@ internal sealed record Node(
     ImmutableArray<string> Results,
     ImmutableArray<string> Platforms,
     ImmutableArray<string> Implicit,
+    ImmutableArray<string> External,
     Tracking? Releases);
 
 internal sealed record Failure(string File, string Message);
@@ -115,11 +117,13 @@ internal static partial class Workspace {
             .Map(static instance => Path.GetFullPath(Path.Combine(instance.Directory, instance.GetPropertyValue("NuGetLockFilePath") is { Length: > 0 } named ? named : PackagesLockFileFormat.LockFileName)))
             .Distinct()
             .Filter(File.Exists);
+        Seq<string> hosted = instances.Bind(static instance => Seq(instance.GetPropertyValue("NuGetPackageRoot"), instance.GetPropertyValue("NetCoreRoot"))).Filter(static at => at.Length > 0).Distinct();
         return pushes.Map(pushed => (
             new Node(
                 file.Replace('\\', '/'),
                 outer.GetPropertyValue(Flag(outer, "IsPackable") ? "PackageId" : "MSBuildProjectName"),
                 outer.GetPropertyValue("Language"),
+                outer.GetPropertyValue("Platform"),
                 instances.Exists(static instance =>
                     Flag(instance, "IsTestProject") || Flag(instance, "IsTestingPlatformApplication") || (instance.GetPropertyValue("IsTestProject").Length is 0
                         && toSeq(instance.GetItems("PackageReference")).Exists(static item => item.EvaluatedInclude.Equals("Microsoft.NET.Test.Sdk", StringComparison.OrdinalIgnoreCase) || item.EvaluatedInclude.StartsWith("Microsoft.Testing.", StringComparison.OrdinalIgnoreCase)))),
@@ -162,6 +166,10 @@ internal static partial class Workspace {
                     .Order(StringComparer.Ordinal)],
                 [.. evaluated.Map(static instance => instance.GetPropertyValue("TargetPlatformIdentifier")).Distinct().Order(StringComparer.Ordinal)],
                 [.. toSeq(outer.GetItems("NxImplicitDependency")).Map(static item => item.EvaluatedInclude).Distinct().Order(StringComparer.Ordinal)],
+                [.. (from instance in instances from type in Seq("UpToDateCheckInput", "Reference") from item in toSeq(instance.GetItems(type)) select item.GetMetadataValue("HintPath") is { Length: > 0 } hinted ? hinted : item.GetMetadataValue("FullPath"))
+                    .Filter(input => File.Exists(input) && !Under(input, root) && !hosted.Exists(at => Under(input, at)))
+                    .Distinct()
+                    .Order(StringComparer.Ordinal)],
                 Tracked(root, instances)),
             Seq(file.Replace('\\', '/')) + inside + walked));
     }

@@ -57,6 +57,7 @@ Slash commands opening a `-p` prompt start a turn without `--disable-slash-comma
 - Answer form: a table of timecodes, `path:line` findings, a file written to a named path, a verdict with its evidence and doubts
 - Answers this session reads as data take a `--json-schema` in place of a described form
 - For a visual judge, the artifact and the reference alone, never the plan or the code that produced it
+- For video holding small text (terminal, code, hashes), a copy cropped to that region and upscaled 2x: characters read wrong at 720p
 - For a grind, the done condition, a minimum number of passes, and a state file it rewrites each pass with the open problems
 - Headless runs ask nothing: `agy` decides each open choice itself, so the brief states every choice that matters
 

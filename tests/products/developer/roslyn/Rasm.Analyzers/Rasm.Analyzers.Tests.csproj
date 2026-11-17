@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Description>Tests of analyzer rules and their code fixes, one class per analyzer over inline sources</Description>
+        <Description>Tests of Rasm.Analyzers rules and code fixes, one class per rule over inline sources</Description>
     </PropertyGroup>
 
     <ItemGroup Label="Compiler Fixtures">
@@ -33,6 +33,12 @@
         <ProjectReference Include="../../../../../products/developer/roslyn/Rasm.Analyzers/Rasm.Analyzers.csproj" />
         <ProjectReference Include="../../../../../products/developer/roslyn/Rasm.Analyzers.CodeFixes/Rasm.Analyzers.CodeFixes.csproj" />
     </ItemGroup>
+
+    <Target Name="ReferenceSuppressedAnalyzers" BeforeTargets="ResolveAssemblyReferences" DependsOnTargets="ResolveLockFileAnalyzers">
+        <ItemGroup>
+            <Reference Include="@(Analyzer)" Condition="'%(Filename)' == 'Microsoft.CodeAnalysis.NetAnalyzers' or '%(Filename)' == 'Microsoft.CodeAnalysis.CSharp.NetAnalyzers' or '%(Filename)' == 'Meziantou.Analyzer'" />
+        </ItemGroup>
+    </Target>
 
     <Target Name="StateCompilerFixtures" BeforeTargets="GetAssemblyAttributes" DependsOnTargets="ResolvePackageAssets;ResolveTargetingPackAssets">
         <JoinItems Left="@(ResolvedCompileFileDefinitions)" LeftKey="NuGetPackageId" Right="@(PackageReference->WithMetadataValue('AdditionalReference', 'true'))" ItemSpecToUse="Left">

@@ -20,6 +20,7 @@ interface Invocation extends Arguments {
     readonly repeated: boolean;
     readonly last: boolean;
     readonly readsStdin: boolean;
+    readonly sources: readonly Word[];
     readonly script: Option.Option<string>;
 }
 interface Analysis extends Script {
@@ -104,6 +105,7 @@ const invocationOf = (command: Command, head: Word, args: readonly Word[], assig
         repeated: command.looping || outer.some((outside) => outside.row.wraps !== undefined && outside.row.reads === true),
         last: inner.length === 0,
         readsStdin: reads && ((row.stopsAtOperand === true ? inputs.slice(0, 1) : inputs).some(({ text }) => text === '-') || (inputs.length === 0 && roots.length === 0)),
+        sources: [],
         script: Option.none(),
     };
 };
@@ -167,15 +169,15 @@ const contentOf = Effect.fnUntraced(function* (invocation: Invocation, text: str
     return Option.map(read, (body) => ({ text: body, visited: visiting }));
 });
 
-const interpreted = (invocation: Invocation, found: readonly Invocation[], visited: ReadonlySet<string>) => {
-    const [first] = invocation.operands;
-    const runs = invocation.row.code !== undefined && !invocation.has(...invocation.row.code) && (invocation.row.module === undefined || !invocation.has(invocation.row.module)) && first?.known === true && first.text !== '-';
-    return runs
-        ? Effect.map(
-              contentOf(invocation, first.text, found, visited),
-              Option.map(({ text }) => text),
-          )
-        : Effect.succeed(Option.none<string>());
+const interpreted = (invocation: Invocation, found: readonly Invocation[], visited: ReadonlySet<string>): Effect.Effect<Invocation, HostError, Host> => {
+    const { row, has, operands, supplied } = invocation;
+    const inline = row.code === undefined || has(...row.code, ...Option.toArray(Option.fromNullishOr(row.module)));
+    const named = Option.match(Option.fromNullishOr(row.scripts), { onNone: () => operands.slice(0, 1), onSome: (flags) => supplied(...flags) });
+    const sources = (inline ? [] : named).filter(({ known, text }) => known && text !== '-');
+    return Effect.map(
+        Effect.forEach(sources, ({ text }) => contentOf(invocation, text, found, visited)),
+        (read) => ({ ...invocation, sources, script: Option.map(Option.filter(Option.all(read), Array.isReadonlyArrayNonEmpty), (held) => held.map(({ text }) => text).join('\n')) }),
+    );
 };
 
 const bodyAnalyzed = Effect.fnUntraced(function* ({ invocation, text, file }: Body, origin: Command['origin'], visited: ReadonlySet<string>, enclosing: 'bash' | 'zsh', found: readonly Invocation[]): Effect.fn.Return<Option.Option<Analysis>, HostError, Parser | Host> {
@@ -193,7 +195,7 @@ const analysisOf = Effect.fnUntraced(function* (stmts: readonly Stmt[], text: st
     const environment = new Map(Array.zip(names, yield* Effect.forEach(names, host.environment)));
     const script = scriptOf(stmts, text, { ...start, dialect, home: host.home, environment, resolve: host.resolve });
     const listed = (yield* Effect.forEach(script.commands, (command) => invocations(command, command.words, []))).flat();
-    const found = yield* Effect.forEach(listed, (invocation) => Effect.map(interpreted(invocation, listed, visited), (held) => ({ ...invocation, script: held })), { concurrency: 'unbounded' });
+    const found = yield* Effect.forEach(listed, (invocation) => interpreted(invocation, listed, visited), { concurrency: 'unbounded' });
     const nested = yield* Effect.forEach(found.filter(({ last, informational }) => last && !informational).flatMap(bodies), (body) => bodyAnalyzed(body, start.origin, visited, dialect, found), { concurrency: 'unbounded' });
     const scripts = Array.getSomes(nested);
     return { ...concat([script, ...scripts]), invocations: [...found, ...scripts.flatMap((analysis) => analysis.invocations)] };

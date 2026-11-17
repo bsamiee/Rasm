@@ -105,7 +105,7 @@ public static class Channels {
         Available(open, channel, body).Bind(found => IO.lift(found.ToFin(new RhinoFault(channel, RhinoReason.Missing))));
 
     public static IO<Option<T>> Available<T>(Func<Guid, PostEffectChannel?> open, Guid channel, Func<PostEffectChannel, RenderWindow.Channel, IO<T>> body) =>
-        (from opened in Products.Maybe(() => open(channel))
+        (from opened in Products.Maybe(() => open(channel)).Bind(static found => found.Traverse(static held => use(IO.pure(held))).As())
          from value in opened.Traverse(held => IO.lift(() => Conversions.Required(held.CPU())).Bind(cpu => body(held, cpu))).As()
          select value).Bracket();
 }

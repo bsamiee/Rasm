@@ -11,7 +11,7 @@ import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic
 import { ATTR_PROCESS_PID } from '@opentelemetry/semantic-conventions/incubating';
 import { Array, Cause, Config, Context, Effect, ErrorReporter, Exit, Formatter, Function, flow, Layer, Logger, LogLevel, Match, Metric, MutableRef, Option, Predicate, Record, Ref, Runtime, Schema, SchemaTransformation, String, Struct, Tracer, UndefinedOr } from 'effect';
 import envPaths from 'env-paths';
-import { createStream, type FileSize, type Interval, type Options } from 'rotating-file-stream';
+import { createStream, type FileSize, type Interval, type OptionsWithoutRotate } from 'rotating-file-stream';
 import { errorReporter, exporters, formatLogRecord, layerMinimumLogLevels, layerWithoutDefaultLogger } from '#/otlp';
 
 // --- [TABLES] --------------------------------------------------------------------------
@@ -67,7 +67,7 @@ const toEnvironment = Effect.map(Effect.all([Effect.serviceOption(Tracer.ParentS
     propagator.inject(Option.match(spanContext, { onNone: () => carried, onSome: (current) => trace.setSpanContext(carried, current) }), undefined, new EnvironmentSetter(environment));
     return environment;
 });
-const toRotatingFile = Effect.fnUntraced(function* <Message>(self: Logger.Logger<Message, string>, filename: string, options: Options<Interval, FileSize, FileSize>) {
+const toRotatingFile = Effect.fnUntraced(function* <Message>(self: Logger.Logger<Message, string>, filename: string, options: OptionsWithoutRotate<Interval, FileSize, FileSize>) {
     const opened = MutableRef.make(Option.none<string>());
     const stream = yield* Effect.acquireRelease(
         Effect.try({

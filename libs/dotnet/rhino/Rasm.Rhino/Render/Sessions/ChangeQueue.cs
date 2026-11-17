@@ -104,7 +104,7 @@ public sealed class DefinedChangeFeed : ChangeQueue.ChangeQueue {
 
     protected override void ApplyLightChanges(List<ChangeQueue.Light> lightChanges) =>
         Collect(
-            from view in Products.Maybe(GetQueueView)
+            from view in Products.Maybe(GetQueueView).Bind(static found => found.Traverse(static held => use(IO.pure(held))).As())
             from rows in toSeq(lightChanges).TraverseM(light => light.ChangeType is ChangeQueue.Light.Event.Deleted
                 ? IO.pure((light.Id, Option<SceneLight>.None))
                 : from data in Products.Of(() => light.Data)

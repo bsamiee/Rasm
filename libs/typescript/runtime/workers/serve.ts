@@ -9,7 +9,7 @@ import { Worker } from '#/worker';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Served = Pick<Exclude<Binding, { readonly _tag: 'bucket' }>, '_tag'> | Pick<Extract<Binding, { readonly _tag: 'bucket' }>, '_tag' | 'uploads'>;
+type Served = Pick<Exclude<Binding, { readonly _tag: 'bucket' }>, '_tag'> | (Pick<Extract<Binding, { readonly _tag: 'bucket' }>, '_tag'> & { readonly name: string });
 interface Read extends Struct.Lambda {
     (served: Served): ReturnType<(typeof read)[Served['_tag']]>;
     readonly '~lambda.out': this['~lambda.in'] extends { readonly _tag: infer T extends Served['_tag'] } ? ReturnType<(typeof read)[T]> : never;
@@ -21,11 +21,11 @@ const D1 = Schema.declare((value): value is D1Database => Predicate.isObject(val
 const R2 = Schema.declare((value): value is R2Bucket => Predicate.isObject(value));
 const Assets = Schema.declare((value): value is Fetcher => Predicate.isObject(value));
 const Pooled = Schema.declare((value): value is Hyperdrive => Predicate.isObject(value));
-const Uploads = Schema.Struct({ bucket: R2, uploadPrefix: Schema.String });
+const Bucket = Schema.Struct({ bucket: R2, name: Schema.String });
 const read = {
     sqlite: () => D1,
     postgres: () => Pooled.pipe(Schema.decodeTo(Schema.Redacted(Schema.String), { decode: SchemaGetter.transform(({ connectionString }) => Redacted.make(connectionString)), encode: SchemaGetter.forbiddenEncoding })),
-    bucket: ({ uploads }: { readonly uploads: string }) => R2.pipe(Schema.decodeTo(Uploads, SchemaTransformation.transform({ decode: (bucket) => ({ bucket, uploadPrefix: uploads }), encode: ({ bucket }) => bucket }))),
+    bucket: ({ name }: { readonly name: string }) => R2.pipe(Schema.decodeTo(Bucket, SchemaTransformation.transform({ decode: (bucket) => ({ bucket, name }), encode: ({ bucket }) => bucket }))),
     secret: () => Schema.String.pipe(Schema.decodeTo(Schema.Redacted(Schema.String), SchemaTransformation.transform({ decode: Redacted.make, encode: Redacted.value }))),
     text: () => Schema.String,
     json: () => Schema.Json,

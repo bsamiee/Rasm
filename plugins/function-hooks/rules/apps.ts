@@ -3,7 +3,6 @@ import { basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Installation } from '@rasm/applications';
 import { Array, Effect, Option, Predicate, Record, String } from 'effect';
-import { Verdict } from '#/rules/decision';
 import { type Call, edited, ensure, inserted, quote, respell, type Rule, type Ruleset, refusal, refuse, settled, spelled, stages, when, whole, within } from '#/rules/rule';
 import type { Invocation } from '#/shell/invocation';
 import { WATCH_APPS } from '#/shell/programs';
@@ -24,7 +23,6 @@ const SIGNAL_PREFIX = /^-?(?:SIG)?/u;
 const SIGNAL = /^-(?:\d+|(?:SIG)?[A-Z]{2,}\d*)$/u;
 const PIDS = /^\d+/gmu;
 const ENDING = new Set(['TERM', 'KILL', `${constants.signals.SIGTERM}`, `${constants.signals.SIGKILL}`]);
-const OBSERVED: readonly Verdict[] = [Verdict.Observe()];
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -84,8 +82,8 @@ const opens = (named: readonly string[], waits: readonly string[], allowed: read
             return [];
         }
         return Option.match(headless, {
-            onNone: () => [
-                ...whole(
+            onNone: () =>
+                whole(
                     invocation,
                     launchLine(
                         [...subjects, ...(invocation.has('--new') ? ['--new'] : [])],
@@ -95,8 +93,6 @@ const opens = (named: readonly string[], waits: readonly string[], allowed: read
                     ),
                     program,
                 ),
-                ...OBSERVED,
-            ],
             onSome: (executable) => whole(invocation, [...environment, quote(executable), ...rest.map(({ raw }) => raw)].join(' '), program),
         });
     });
@@ -167,7 +163,7 @@ const statementsOf = (invocation: Invocation, call: Call, lines: readonly string
         return refusal('osascript runs a shell command, run it directly');
     }
     if (statements.length > 0 && statements.every(({ app, launches }) => app !== undefined && launches) && (documents.length === 0 || named.length === 1)) {
-        return Effect.map(installed(call, named), (found) => [...whole(invocation, launchLine(quoted, documents, [], switchesOf(found, [], call)), 'osascript'), ...OBSERVED]);
+        return Effect.map(installed(call, named), (found) => whole(invocation, launchLine(quoted, documents, [], switchesOf(found, [], call)), 'osascript'));
     }
     return lines.some((line) => FOCUS.test(line)) ? refusal(`osascript takes focus, use ${WATCH_APPS} capture or perform`) : [];
 };
@@ -199,20 +195,17 @@ const bundleExecutable: Rule = (invocation, call) => {
                     call,
                 );
                 return runs
-                    ? [
-                          ...whole(
-                              invocation,
-                              launchLine(
-                                  [quote(bundle)],
-                                  [],
-                                  invocation.assigned.map(({ raw }) => raw),
-                                  [...args.map(({ raw }) => raw), ...switches],
-                              ),
-                              invocation.program,
-                              invocation.assigned[0],
+                    ? whole(
+                          invocation,
+                          launchLine(
+                              [quote(bundle)],
+                              [],
+                              invocation.assigned.map(({ raw }) => raw),
+                              [...args.map(({ raw }) => raw), ...switches],
                           ),
-                          ...OBSERVED,
-                      ]
+                          invocation.program,
+                          invocation.assigned[0],
+                      )
                     : [];
             }),
         },
@@ -313,7 +306,7 @@ const APPS: Ruleset = {
         },
         Rhinoceros: { switches: ['-nosplash'] },
         playwright: { flags: ['-s, --session=', '--cdp=', '--extension='], rules: [browserSession, when(({ operands: [cli, verb] }) => cli?.text === 'cli' && verb?.text === 'attach', respell({ renames: { '--cdp': '--extension' }, only: BROWSER_NAME, notify: true }))] },
-        [WATCH_APPS]: { restAfter: ['--arguments'], rules: [() => OBSERVED, launchSwitches] },
+        [WATCH_APPS]: { dumpsHelp: true, restAfter: ['--arguments'], rules: [launchSwitches] },
     },
     every: [bundleExecutable],
 };

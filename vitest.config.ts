@@ -115,6 +115,7 @@ export default defineConfig(() =>
         Effect.map(projects, (declared): ViteUserConfig => ({
             test: {
                 ...reporting,
+                attachmentsDir: '.artifacts/vitest/attachments',
                 coverage: { allowExternal: true, reportOnFailure: true },
                 silent: 'passed-only',
                 projects: declared,

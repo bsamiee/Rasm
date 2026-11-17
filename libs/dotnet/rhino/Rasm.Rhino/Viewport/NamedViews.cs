@@ -116,12 +116,12 @@ public static class NamedViews {
 
     internal static IO<Unit> Applied(RhinoDoc doc, int index, RhinoViewport viewport, RestorePacing pacing) =>
         from restored in IO.lift(() => Restored(doc.NamedViews, index, viewport, pacing))
-        from stored in Products.Of(() => doc.NamedViews[index]).Map(static view => view.DisplayModeId).Bracket()
+        from stored in use(Products.Of(() => doc.NamedViews[index])).Map(static view => view.DisplayModeId).Bracket()
         from moded in when(ViewSettings.DefinedViewSetDisplayMode, Moded(viewport, stored)).As()
         select moded;
 
     private static IO<Unit> Moded(RhinoViewport viewport, Guid id) =>
-        Conversions.Present(id).Traverse(found => Products.Of(() => DisplayModeDescription.GetDisplayMode(found)).Bind(mode => IO.lift(() => { viewport.DisplayMode = mode; })).Bracket())
+        Conversions.Present(id).Traverse(found => use(Products.Of(() => DisplayModeDescription.GetDisplayMode(found))).Bind(mode => IO.lift(() => { viewport.DisplayMode = mode; })).Bracket())
             .As().Map(static _ => unit);
 
     private static Fin<Unit> Restored(NamedViewTable table, int index, RhinoViewport viewport, RestorePacing pacing) =>
@@ -191,7 +191,7 @@ public static class NamedViews {
     // --- [STORED]
 
     public static IO<TValue> Read<TValue>(RhinoDoc doc, string name, Func<ViewInfo, IO<TValue>> read) =>
-        Find(doc, name).Bind(index => Products.Of(() => doc.NamedViews[index]).Bind(read).Bracket());
+        Find(doc, name).Bind(index => use(Products.Of(() => doc.NamedViews[index])).Bind(read).Bracket());
 
     internal static IO<Unit> Reassigned(RhinoDoc doc, HashMap<Guid, Guid> moves) =>
         Rows(doc, view => moves.Find(view.DisplayModeId).Traverse(target => IO.lift(() => {
@@ -201,7 +201,7 @@ public static class NamedViews {
 
     private static IO<Option<RhinoViewport>> Stored(RhinoDoc doc, string name) =>
         IO.lift(() => Conversions.Present(doc.NamedViews.FindByName(name))).Bind(found => found.Traverse(index =>
-            Products.Of(() => doc.NamedViews[index]).Bind(Held).Bracket()).As());
+            use(Products.Of(() => doc.NamedViews[index])).Bind(Held).Bracket()).As());
 
     private static IO<RhinoViewport> Held(ViewInfo view) =>
         Products.Transfer(static () => new RhinoViewport(), held =>
@@ -218,7 +218,7 @@ public static class NamedViews {
 
     private static IO<Seq<T>> Rows<T>(RhinoDoc doc, Func<ViewInfo, IO<T>> read) =>
         IO.lift(() => toSeq(Range(0, doc.NamedViews.Count))).Bind(indices => indices.TraverseM(index =>
-            Products.Of(() => doc.NamedViews[index]).Bind(read).Bracket()).As());
+            use(Products.Of(() => doc.NamedViews[index])).Bind(read).Bracket()).As());
 
     private static NamedEntry Entry(ViewInfo view) =>
         new(Table, view.Name, Conversions.Present(view.NamedViewId));

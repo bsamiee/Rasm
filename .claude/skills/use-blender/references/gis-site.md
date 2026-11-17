@@ -306,7 +306,7 @@ for index, scan in enumerate(sorted((obj for obj in bpy.data.objects if obj not 
 ```
 
 - XYZ, PTS, PLY, and PCD imports cast coordinates to float32 uncentered
-- Projected text clouds shift to site-local meters before import (`awk -v CONVFMT='%.4f' 'NF >= 3 { $1 -= <crs x>; $2 -= <crs y>; $3 -= <site elevation> } { print }' <cloud> > <local cloud>`)
+- Projected text clouds shift to site-local meters in Blender's Python before import (`cloud = numpy.loadtxt("<cloud>", skiprows=<header lines>)`, `cloud[:, :3] -= (<crs x>, <crs y>, <site elevation>)`, `numpy.savetxt("<local cloud>", cloud, fmt="%.4f", header=<PTS point count, else "">, comments="")`)
 - With `merge_scans` joining scans before any pose applies, posed E57 files import per scan
 - Airborne LiDAR takes `auto_radius=False` with half the point spacing
 - With `scale_factor` leaving `las_origin_offset` in file units, feet clouds scale offset by the unit

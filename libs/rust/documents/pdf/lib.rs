@@ -13,7 +13,7 @@ use hayro::hayro_interpret::TransformExt as _;
 use hayro_syntax::object::dict::keys::{ID, KIDS, LAST_MODIFIED, PIECE_INFO, PRIVATE, STD_CF, USER_UNIT};
 use hayro_syntax::page::Page;
 use hayro_syntax::{DecryptionError, LoadPdfError, Pdf};
-use jiff::Zoned;
+use jiff::Timestamp;
 use krilla::configure::{Accessibility, Archival, ConfigurationError, Validators};
 use krilla::error::KrillaError;
 use krilla::icc::ICCProfile;
@@ -303,7 +303,7 @@ pub fn fields(document: &Document, application: &str) -> Result<Vec<Fields>, Pdf
         .map_err(PdfError::Refused)
 }
 
-pub fn set_fields<I, F>(document: &Document, application: &str, pages: I, modified: &Zoned) -> Result<Document, PdfError>
+pub fn set_fields<I, F>(document: &Document, application: &str, pages: I, modified: Timestamp) -> Result<Document, PdfError>
 where
     I: IntoIterator<Item = (usize, F)>,
     F: Borrow<Fields>,
@@ -445,9 +445,9 @@ where F: Fn(&Object) -> Result<K, lopdf::Error> {
     Ok(found)
 }
 
-fn write_fields(structure: &mut lopdf::Document, application: &str, page: ObjectId, fields: &Fields, modified: &Zoned) -> Result<(), lopdf::Error> {
+fn write_fields(structure: &mut lopdf::Document, application: &str, page: ObjectId, fields: &Fields, modified: Timestamp) -> Result<(), lopdf::Error> {
     let application = application.as_bytes();
-    let stamp = || Object::from(modified.clone());
+    let stamp = || Object::string_literal(modified.strftime("D:%Y%m%d%H%M%SZ").to_string());
     let mut pieces = nested(structure, structure.get_dictionary(page)?, &[PIECE_INFO])?.cloned().unwrap_or_default();
     let written = (!fields.is_empty()).then(|| dictionary! { LAST_MODIFIED => stamp(), PRIVATE => fields.iter().map(|(key, value)| (key.as_bytes(), text_string(value))).collect::<Dictionary>() });
     if pieces.remove(application).is_none() && written.is_none() {

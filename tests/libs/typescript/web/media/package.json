@@ -1,0 +1,12 @@
+{
+    "name": "@rasm/test-media",
+    "private": true,
+    "description": "Media suites: the error a protected, missing, unreadable, or unsupported file raises keeps its message across structured clone and Nx plugin worker serialization",
+    "type": "module",
+    "devDependencies": {
+        "@rasm/media": "workspace:*",
+        "@rasm/testing": "workspace:*",
+        "@types/node": "catalog:",
+        "vitest": "catalog:"
+    }
+}

@@ -13,7 +13,7 @@
 [build]
 target-dir = ".artifacts/cargo"
 build-dir  = "{workspace-root}/.cache/cargo"             # Cargo workspaces this file reaches outside the repository's (uv sdist builds under .cache) keep their own build folder
-rustflags  = ["-Zunstable-options", "--jobs-frontend=0"] # 0 is every core the host reports
+rustflags  = ["-Zunstable-options", "--jobs-frontend=0"] # 0 is every core, each thread past the first waiting on a token of the jobserver cargo shares with every rustc
 
 # --- [CACHE] ----------------------------------------------------------------------------
 

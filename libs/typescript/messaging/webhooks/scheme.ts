@@ -112,15 +112,13 @@ class WebhookError extends Schema.TaggedError<WebhookError, { readonly brand: un
     reason: Schema.TaggedUnion({ Unsigned: {}, Mismatch: {}, Stale: { skew: Schema.Duration } }),
     subject: Schema.String,
     cause: Schema.optionalKey(Schema.Defect()),
+    message: Schema.String,
 }) {
-    static readonly of = (reason: WebhookError['reason'], subject: string) => (cause?: unknown) => WebhookError.make({ reason, subject, ...(cause === undefined ? {} : { cause }) });
+    static readonly of = (reason: WebhookError['reason'], subject: string) => (cause?: unknown) => WebhookError.make({ reason, subject, ...(cause === undefined ? {} : { cause }), message: [`${reason._tag}: ${subject}`, ...(cause === undefined ? [] : [Formatter.format(cause)])].join(': ') });
     override readonly [ErrorReporter.ignore] = true;
 
     [HttpServerRespondable.symbol]() {
         return Effect.succeed(HttpServerResponse.text(this.message, { status: HttpStatus.fromLiteral('Unauthorized') }));
-    }
-    override get message() {
-        return [`${this.reason._tag}: ${this.subject}`, ...(this.cause === undefined ? [] : [Formatter.format(this.cause)])].join(': ');
     }
 }
 

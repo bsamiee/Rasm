@@ -1,0 +1,55 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "version": 2,
+    "type": "object",
+    "properties": {
+        "config": {
+            "type": "string",
+            "description": "Vitest configuration file the run loads, relative to the workspace root, whose folder the run starts from"
+        },
+        "projects": {
+            "type": "array",
+            "description": "Vitest projects the task runs, passed as --project, every project the configuration resolves where empty",
+            "items": {
+                "type": "string"
+            }
+        },
+        "attachmentsDir": {
+            "type": "string",
+            "description": "Folder the task's projects write attachments to, relative to the workspace root, the run's attachmentsDir where the task runs alone"
+        },
+        "coverage": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean"
+                },
+                "reporter": {
+                    "type": "string"
+                },
+                "reportsDirectory": {
+                    "type": "string"
+                }
+            },
+            "required": ["enabled", "reporter"],
+            "additionalProperties": true,
+            "description": "Coverage options of the run, reportsDirectory relative to the workspace root, which the coverage configuration of the target sets"
+        },
+        "__unparsed__": {
+            "type": "array",
+            "description": "Words after -- of the run, parsed as vitest run arguments",
+            "$default": {
+                "$source": "unparsed"
+            },
+            "hidden": true,
+            "x-priority": "internal",
+            "items": {
+                "type": "string"
+            }
+        }
+    },
+    "required": ["config", "projects"],
+    "additionalProperties": true,
+    "title": "Test",
+    "description": "Runs vitest run once over the projects of every batched task sharing a configuration and its options, one Vite server and one worker pool the configuration's maxWorkers sizes, and decides each task from the test modules of its own projects"
+}

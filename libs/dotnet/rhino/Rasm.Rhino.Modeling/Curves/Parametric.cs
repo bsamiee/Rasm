@@ -64,7 +64,7 @@ public static class CurveLowerings {
 
     extension(RationalQuadratic conic) {
         public IO<NurbsCurve> ToNurbs(Plane frame) =>
-            from bezier in Products.Of(() => new BezierCurve([new Point4d(conic.Start.ToPoint3d(frame)), new Point4d(conic.Apex.ToPoint3d(frame)) * conic.Weight, new Point4d(conic.End.ToPoint3d(frame))]))
+            from bezier in use(() => new BezierCurve([new Point4d(conic.Start.ToPoint3d(frame)), new Point4d(conic.Apex.ToPoint3d(frame)) * conic.Weight, new Point4d(conic.End.ToPoint3d(frame))]))
             from nurbs in Products.Of(() => bezier.ToNurbsCurve())
             select nurbs;
     }
@@ -72,7 +72,7 @@ public static class CurveLowerings {
     extension(HermiteSpline spline) {
         public IO<NurbsCurve> ToNurbs(Plane frame) =>
             from pieces in Products.Each(spline.Spans.Map(span =>
-                from bezier in Products.Of(() => new BezierCurve([span.Start.ToPoint3d(frame), span.StartControl.ToPoint3d(frame), span.EndControl.ToPoint3d(frame), span.End.ToPoint3d(frame)]))
+                from bezier in use(() => new BezierCurve([span.Start.ToPoint3d(frame), span.StartControl.ToPoint3d(frame), span.EndControl.ToPoint3d(frame), span.End.ToPoint3d(frame)]))
                 from nurbs in Products.Of(() => bezier.ToNurbsCurve())
                 select nurbs))
             from joined in Appended(pieces)

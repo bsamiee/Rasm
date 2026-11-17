@@ -27,6 +27,13 @@
                 "type": "string"
             }
         },
+        "solution": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "string"
+            },
+            "description": "Configuration|Platform of each project file the build reaches, passed as CurrentSolutionConfigurationContents, which the plugin infers where a reached project lacks the configuration"
+        },
         "__unparsed__": {
             "type": "array",
             "description": "Words after -- of the run, appended after the configured arguments",

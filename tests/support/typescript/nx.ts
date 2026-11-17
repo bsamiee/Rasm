@@ -1,4 +1,5 @@
 import { Buffer } from 'node:buffer';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { constants } from 'node:http2';
 import { findPackageJSON } from 'node:module';
@@ -11,6 +12,7 @@ import { run } from '@rasm/process';
 import { Array, Context, Effect, FileSystem, Function, Layer, Match, Option, Path, Predicate, Record, Schema } from 'effect';
 import type { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import type { NxJsonConfiguration } from 'nx/src/config/nx-json';
+import { onTestFinished, vi } from 'vitest';
 import { Reading } from '#/reading';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -236,6 +238,20 @@ const environment = (root: string, set: Record.ReadonlyRecord<string, string> = 
     ...set,
 });
 
+const refusing = (tool: string) => [
+    { case: 'a missing executable', scripts: {}, refusal: new RegExp(`^${RegExp.escape(tool)} .*cannot start: `, 'u') },
+    { case: 'a non-zero exit', scripts: { [tool]: 'echo refused >&2\nexit 3' }, refusal: new RegExp(`^${RegExp.escape(tool)} .*exits 3: refused$`, 'u') },
+];
+
+const pathed = (folder: string, scripts: Record.ReadonlyRecord<string, string>) => {
+    mkdirSync(folder, { recursive: true });
+    Record.toEntries(scripts).forEach(([name, body]) => writeFileSync(join(folder, name), `#!/bin/sh\n${body}\n`, { mode: 0o755 }));
+    vi.stubEnv('PATH', folder);
+    onTestFinished(() => {
+        vi.unstubAllEnvs();
+    });
+};
+
 const rows = ({ plugins = [] }: Pick<NxJsonConfiguration, 'plugins'>): readonly ExpandedPluginConfiguration[] => plugins.map((row) => (Predicate.isString(row) ? { plugin: row } : row));
 
 const recorded = Effect.fnUntraced(function* (folder: string) {
@@ -308,4 +324,4 @@ const remote = Effect.fnUntraced(function* (token: string, answer: (asked: Asked
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { answered, Consumer, environment, exited, type Graph, kept, Packed, recorded, remote, rows };
+export { answered, Consumer, environment, exited, type Graph, kept, Packed, pathed, recorded, refusing, remote, rows };

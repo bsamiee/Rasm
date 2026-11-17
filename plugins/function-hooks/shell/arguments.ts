@@ -124,7 +124,7 @@ const usageOf = Effect.fnUntraced(function* (program: string, row: Program, prim
     const own = yield* exported(row.completer ?? program);
     const { stdout } = row.completer === undefined && program !== primary && String.isEmpty(String.trim(own.stdout)) ? yield* exported(primary) : own;
     const declared = new Map(
-        [...(row.flags ?? []), ...[...(row.recursive?.names ?? []), ...(row.code ?? [])].map((name) => `${name}=`)].flatMap((flag) => {
+        [...(row.flags ?? []), ...[...(row.recursive?.names ?? []), ...(row.code ?? []), ...(row.scripts ?? [])].map((name) => `${name}=`)].flatMap((flag) => {
             const { short, long = flag, arity } = NOTATION.exec(flag)?.groups ?? {};
             return flagsOf([long, ...(short === undefined ? [] : [short])], arity === undefined ? 0 : Number(arity || 1));
         }),

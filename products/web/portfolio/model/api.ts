@@ -1,12 +1,9 @@
 import { Enrollment } from '@rasm/hosting/identity';
+import { Presignable, Presigned } from '@rasm/object-storage';
 import { Array, Option, Result, Schema, SchemaTransformation } from 'effect';
 import { HttpApi, HttpApiClient, HttpApiEndpoint, HttpApiError, HttpApiGroup, HttpApiMiddleware, HttpApiSchema } from 'effect/http-api';
-import { type Asset, AssetId, uploadLimit } from '#/model/asset';
+import { Asset, AssetId } from '#/model/asset';
 import { PortfolioData, StoredPortfolio } from '#/model/portfolio';
-
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const uploadField = { asset: 'asset', renditions: 'renditions', file: 'file' } as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -14,14 +11,8 @@ const Recovery = Schema.Struct({ id: AssetId, name: Schema.NonEmptyString, statu
 const Revision = Schema.TemplateLiteralParser(['"', Schema.Natural, '"']).pipe(Schema.decodeTo(Schema.Natural, SchemaTransformation.transform({ decode: ([, revision]) => revision, encode: (revision) => ['"', revision, '"'] as const })));
 const draftEtag = { 'draft-etag': Revision };
 const Bootstrap = Schema.Struct({ published: PortfolioData, session: Enrollment.Session });
-const Refusal = Schema.TaggedUnion({
-    Order: {},
-    Metadata: Schema.StandardSchemaV1FailureResult.fields,
-    Part: { index: Schema.Int, field: Schema.String, mime: Schema.String },
-    Count: { expected: Schema.Int, received: Schema.Int },
-    Size: { index: Schema.Int },
-    Multipart: { cause: Schema.Literals(['FileTooLarge', 'FieldTooLarge', 'BodyTooLarge', 'TooManyParts', 'InternalError', 'Parse']) },
-});
+const Upload = Schema.Struct({ attempt: Schema.String, objects: Schema.Array(Schema.Struct({ key: Schema.String, width: Schema.optionalKey(Schema.Int) })) });
+const Refusal = Schema.TaggedUnion({ Unknown: { key: Schema.String }, Size: { key: Schema.String }, Missing: { keys: Schema.NonEmptyArray(Schema.String) } });
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
@@ -38,12 +29,9 @@ class PlacementConflict extends Schema.TaggedError<PlacementConflict, { readonly
 class UploadRefused extends Schema.TaggedError<UploadRefused, { readonly brand: unique symbol }>()('UploadRefused', { reason: Refusal }, { httpApiStatus: 400 }) {
     override get message() {
         return Refusal.match(this.reason, {
-            Order: () => `First part must be field ${uploadField.asset}`,
-            Metadata: ({ issues }) => `Field ${uploadField.asset} refused: ${issues.map(({ message }) => message).join('; ')}`,
-            Part: ({ index, field, mime }) => `File part ${index + 1} must be ${field} of ${mime}`,
-            Count: ({ expected, received }) => `Upload sent ${received} parts, asset declares ${expected}`,
-            Size: ({ index }) => `File part ${index + 1} exceeds its declared size`,
-            Multipart: ({ cause }) => `Multipart body refused: ${cause}`,
+            Unknown: ({ key }) => `Object ${key} belongs to no open upload`,
+            Size: ({ key }) => `Object ${key} differs from its declared size or type`,
+            Missing: ({ keys }) => `Objects ${keys.join(', ')} are not uploaded`,
         });
     }
 }
@@ -71,11 +59,9 @@ const Api = HttpApi.make('portfolio')
             .add(
                 HttpApiEndpoint.get('recovery', '/assets/recovery', { success: Schema.Array(Recovery) }),
                 HttpApiEndpoint.post('discard', '/assets/:id/discard', { params: { id: AssetId }, error: [HttpApiError.NotFoundNoContent] }),
-                HttpApiEndpoint.post('upload', '/assets', {
-                    payload: Schema.Unknown.pipe(HttpApiSchema.asMultipartStream({ maxFileSize: uploadLimit })),
-                    success: Schema.Struct({ id: AssetId }),
-                    error: [UploadRefused, HttpApiError.ConflictNoContent],
-                }),
+                HttpApiEndpoint.post('begin', '/assets', { payload: Asset, success: Upload, error: [HttpApiError.ConflictNoContent] }),
+                HttpApiEndpoint.post('sign', '/assets/signatures', { payload: Presignable, success: Presigned, error: [UploadRefused] }),
+                HttpApiEndpoint.post('complete', '/assets/:id/uploads/:attempt', { params: { id: AssetId, attempt: Schema.String }, error: [UploadRefused, HttpApiError.ConflictNoContent] }),
                 HttpApiEndpoint.delete('delete', '/assets/:id', { params: { id: AssetId }, error: [HttpApiError.ConflictNoContent] }),
             )
             .middleware(Owner)
@@ -92,4 +78,4 @@ const assetUrl = (asset: typeof Asset.Type, width?: number) => urls.assets.read(
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Api, assetUrl, Bootstrap, Owner, PlacementConflict, PreconditionFailed, Recovery, UploadRefused, uploadField };
+export { Api, assetUrl, Bootstrap, Owner, PlacementConflict, PreconditionFailed, Recovery, Upload, UploadRefused };

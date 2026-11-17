@@ -1,11 +1,10 @@
 import { Rows } from '@rasm/database';
 import { ObjectStorage } from '@rasm/object-storage';
-import { Array, ByteSize, Cause, Duration, Effect, Exit, Function, Option, Record, Schema, SchemaIssue, Sink, Stream, Struct } from 'effect';
+import { Array, ByteSize, Cause, Duration, Effect, Function, Option, Record, Schema, Struct } from 'effect';
 import { SecureRandom } from 'effect/crypto';
-import { Multipart } from 'effect/http';
 import { HttpApiBuilder, HttpApiError } from 'effect/http-api';
 import { SqlClient, type SqlError, SqlSchema, type Statement } from 'effect/sql';
-import { Api, Recovery, UploadRefused, uploadField } from '#/model/api';
+import { Api, Recovery, UploadRefused } from '#/model/api';
 import { Asset, type AssetId } from '#/model/asset';
 import { assets, projectedPaths, references, UploadAttempt, unavailable } from '#/server/catalog';
 import { OwnerAccount } from '#/server/owner';
@@ -16,6 +15,8 @@ const Release = Schema.Struct({ assetId: assets.schema.fields.id, action: Schema
 const AssetRead = Schema.Struct({ id: assets.schema.fields.id, width: Schema.OptionFromNullOr(Schema.Int) });
 const AssetObject = Schema.Struct({ mime: Schema.String, name: Schema.OptionFromNullOr(Schema.String), published: Schema.BooleanFromBit, objectKey: Schema.String });
 const Released = Schema.Struct({ objects: Schema.fromJsonString(UploadAttempt.fields.objects) });
+const Declared = Schema.Struct({ key: Schema.NullOr(Schema.String), attempt: Schema.NullOr(Schema.String) });
+const DeclaredObject = Schema.Struct({ assetId: assets.schema.fields.id, attempt: Schema.String, key: Schema.String, size: Schema.Int, mime: Schema.String, uploadId: Schema.OptionFromNullOr(Schema.String) });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -52,10 +53,19 @@ const readRecovery = SqlSchema.findAll({
 
 // --- [UPLOADS]
 
-const objects = (asset: typeof Asset.Type, attempt: string) => [
-    ...Asset.matchOrElse(asset, { image: ({ renditions = [] }) => renditions }, () => []).map(({ width, size, mime }) => ({ key: `${attempt}/${width}`, width: Option.some(width), size: ByteSize.bytes(size), mime, field: uploadField.renditions })),
-    { key: attempt, width: Option.none<number>(), size: ByteSize.bytes(asset.size), mime: asset.mime, field: uploadField.file },
-];
+const objects = (asset: typeof Asset.Type, attempt: string) => [...Asset.matchOrElse(asset, { image: ({ renditions = [] }) => renditions }, () => []).map(({ width }) => ({ key: `${attempt}/${width}`, width })), { key: attempt }];
+const declared = SqlSchema.findAll({
+    Request: Declared,
+    Result: DeclaredObject,
+    execute: ({ key, attempt }) =>
+        SqlClient.SqlClient.use(
+            (sql) => sql`SELECT a.id AS ${sql('assetId')}, u.value ->> '$.id' AS attempt, o.value ->> '$.key' AS key, COALESCE(r.value ->> '$.size', a.body ->> '$.size') AS size,
+            COALESCE(r.value ->> '$.mime', a.body ->> '$.mime') AS mime, o.value ->> '$.uploadId' AS ${sql('uploadId')}
+            FROM assets a, json_each(a.uploads) u, json_each(u.value, '$.objects') o LEFT JOIN json_each(a.body, '$.renditions') r ON r.value ->> '$.width' = o.value ->> '$.width'
+            WHERE u.value ->> '$.discard' = 0 AND a.removing IS NOT TRUE AND a.${sql('objectKey')} IS NULL
+            AND (${key} IS NULL OR o.value ->> '$.key' = ${key}) AND (${attempt} IS NULL OR u.value ->> '$.id' = ${attempt})`,
+        ),
+});
 const beginUpload = Effect.fn('beginUpload')(
     Function.flow(
         SqlSchema.findOne({
@@ -99,20 +109,6 @@ const completeUpload = Effect.fn('completeUpload')(
         ),
     claimed,
 );
-const receive = Effect.fnUntraced(function* (assetId: typeof AssetId.Type, stored: boolean, expected: ReturnType<typeof objects>, index: number, part: Multipart.Part) {
-    const object = yield* Effect.fromOption(Array.get(expected, index), () => UploadRefused.make({ reason: { _tag: 'Count', expected: expected.length, received: index + 1 } }));
-    const file = yield* Option.liftPredicate(part, Multipart.isFile).pipe(
-        Option.filter((sent) => sent.key === object.field && sent.contentType === object.mime && Option.match(object.width, { onNone: () => true, onSome: (width) => sent.name === String(width) })),
-        Effect.fromOption(() => UploadRefused.make({ reason: { _tag: 'Part', index, field: object.field, mime: object.mime } })),
-    );
-    yield* stored
-        ? Stream.runDrain(file.content)
-        : ObjectStorage.upload(object).pipe(
-              Effect.tap(({ uploadToken }) => attachUpload(assetId, object.key, uploadToken)),
-              Effect.flatMap(({ write }) => write(file.content)),
-              Effect.catchReason('ObjectStorageError', 'Refused', () => UploadRefused.make({ reason: { _tag: 'Size', index } })),
-          );
-});
 
 // --- [REMOVALS]
 
@@ -170,45 +166,55 @@ const releaseObjects = Effect.fnUntraced(function* (release: typeof Release.Type
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const upload = HttpApiBuilder.handler(
+const begin = HttpApiBuilder.handler(
     Api,
     'assets',
-    'upload',
-    Effect.fn('upload')(
+    'begin',
+    Effect.fn('begin')(function* ({ payload }) {
+        const attempt = yield* SecureRandom.SecureRandom.use((random) => random.uuidV7());
+        const { id, ...metadata } = payload;
+        const expected = objects(payload, attempt);
+        const stored = yield* beginUpload({ id, body: { ...metadata, uploads: [{ id: attempt, discard: false, objects: expected } satisfies typeof UploadAttempt.Encoded] } });
+        return { attempt, objects: stored ? [] : expected };
+    }),
+);
+const sign = HttpApiBuilder.handler(
+    Api,
+    'assets',
+    'sign',
+    Effect.fn('sign')(
         function* ({ payload }) {
-            const [head, parts] = yield* Stream.peel(payload, Sink.head());
-            const asset = yield* head.pipe(
-                Option.filter(Multipart.isField),
-                Option.filter(({ key }) => key === uploadField.asset),
-                Effect.fromOption(() => UploadRefused.make({ reason: { _tag: 'Order' } })),
-                Effect.flatMap(({ value }) => Schema.decodeEffect(Asset.json)(value)),
-                Effect.catchTag('SchemaError', ({ issue }) => UploadRefused.make({ reason: { _tag: 'Metadata', ...SchemaIssue.makeFormatterStandardSchemaV1()(issue) } })),
-            );
-            const attempt = yield* SecureRandom.SecureRandom.use((random) => random.uuidV7());
-            const expected = objects(asset, attempt);
-            const { id, ...metadata } = asset;
-            const stored = yield* Effect.acquireRelease(beginUpload({ id, body: { ...metadata, uploads: [{ id: attempt, discard: false, objects: expected.map(({ key, width }) => ({ key, ...Record.getSomes({ width }) })) } satisfies typeof UploadAttempt.Encoded] } }), (_, exit) =>
-                Exit.isFailure(exit) ? releaseObjects({ assetId: id, action: { _tag: 'Abandon', attemptId: attempt } }).pipe(Effect.ignore({ log: 'Error', message: 'abandoned upload release failed' })) : Effect.void,
-            );
-            yield* parts.pipe(
-                Stream.mapEffect((part, index) => receive(asset.id, stored, expected, index, part)),
-                Stream.runCount,
-                Effect.filterOrFail(
-                    (received) => received === expected.length,
-                    (received) => UploadRefused.make({ reason: { _tag: 'Count', expected: expected.length, received } }),
-                ),
-            );
-            yield* stored ? Effect.void : completeUpload(asset.id, attempt);
-            return { id: asset.id };
+            const unknown = () => UploadRefused.make({ reason: { _tag: 'Unknown', key: payload.key } });
+            const object = yield* Effect.flatMap(declared({ key: payload.key, attempt: null }), (found) => Effect.fromOption(Array.head(found), unknown));
+            yield* 'uploadId' in payload && Option.isNone(object.uploadId) ? Effect.catchTag(attachUpload(object.assetId, payload.key, payload.uploadId), 'Conflict', unknown) : Effect.void;
+            return yield* ObjectStorage.use((storage) => storage.sign(payload, { size: ByteSize.bytes(object.size), mime: object.mime }));
         },
-        Effect.scoped,
-        Effect.catchTag('MultipartError', ({ reason }) => UploadRefused.make({ reason: { _tag: 'Multipart', cause: reason._tag } })),
-        Effect.catchReason(
-            'ObjectStorageError',
-            'Conflict',
-            () => HttpApiError.Conflict.make(),
-            (_, error) => unavailable(error),
-        ),
+        Effect.catchTag(['SqlError', 'SchemaError', 'ObjectStorageError'], unavailable),
+    ),
+);
+const complete = HttpApiBuilder.handler(
+    Api,
+    'assets',
+    'complete',
+    Effect.fn('complete')(
+        function* ({ params: { id, attempt } }) {
+            const expected = (yield* declared({ key: null, attempt })).filter(({ assetId }) => assetId === id);
+            const held = yield* Effect.forEach(
+                expected,
+                (object) =>
+                    Effect.map(
+                        ObjectStorage.use((storage) => storage.stat(object.key)),
+                        (stat) => ({ object, stat }),
+                    ),
+                { concurrency: 'unbounded' },
+            );
+            const missing = held.filter(({ stat }) => Option.isNone(stat)).map(({ object }) => object.key);
+            yield* Array.isReadonlyArrayNonEmpty(missing) ? UploadRefused.make({ reason: { _tag: 'Missing', keys: missing } }) : Effect.void;
+            const differing = held.find(({ object, stat }) => Option.exists(stat, ({ size, mime }) => ByteSize.toNumberUnsafe(size) !== object.size || mime !== object.mime));
+            yield* differing === undefined ? Effect.void : UploadRefused.make({ reason: { _tag: 'Size', key: differing.object.key } });
+            yield* completeUpload(id, attempt);
+        },
+        Effect.catchTag(['SqlError', 'SchemaError', 'ObjectStorageError'], unavailable),
     ),
 );
 const read = HttpApiBuilder.handler(
@@ -225,7 +231,9 @@ const read = HttpApiBuilder.handler(
 );
 const assetGroup = HttpApiBuilder.group(Api, 'assets', (handlers) =>
     handlers.handleAll({
-        upload,
+        begin,
+        sign,
+        complete,
         recovery: () => readRecovery,
         discard: ({ params }) => releaseObjects({ assetId: params.id, action: { _tag: 'Discard' } }).pipe(Effect.catchTag('NoSuchElementError', () => HttpApiError.NotFound.make())),
         delete: ({ params }) => releaseObjects({ assetId: params.id, action: { _tag: 'Delete' } }).pipe(Effect.catchTag('NoSuchElementError', () => HttpApiError.Conflict.make())),

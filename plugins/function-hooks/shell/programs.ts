@@ -18,6 +18,8 @@ interface Program {
     readonly shell?: readonly string[];
     readonly concatenates?: true;
     readonly code?: readonly string[];
+    readonly scripts?: readonly string[];
+    readonly rewrites?: readonly string[];
     readonly reads?: true;
     readonly readsUnless?: readonly string[];
     readonly readsNothing?: RegExp;
@@ -28,7 +30,7 @@ interface Program {
     readonly toolchain?: true;
     readonly headless?: readonly string[];
     readonly switches?: readonly string[];
-    readonly nx?: { readonly selects?: readonly string[]; readonly targets?: Readonly<Record<string, string>>; readonly ignores?: readonly string[]; readonly narrows?: true };
+    readonly nx?: { readonly selects?: readonly string[]; readonly reads?: string; readonly targets?: Readonly<Record<string, string>>; readonly ignores?: readonly string[]; readonly narrows?: true };
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -61,17 +63,17 @@ const PROGRAMS: Readonly<Record<string, Program>> = {
     tr: { leading: 2, reads: true },
     tee: { aliases: ['pbcopy'], leading: Number.POSITIVE_INFINITY, reads: true },
     sed: { leading: 1, leadingUnless: ['-e', '-f'], reads: true, readsUnless: ['-i'] },
-    awk: { leading: 1, leadingUnless: ['-f'], reads: true, readsNothing: /^\s*BEGIN\s*\{(?:[^{}]|\{[^{}]*\})*\}\s*$/u },
+    awk: { leading: 1, leadingUnless: ['-f', '-e'], reads: true, readsNothing: /^\s*BEGIN\s*\{(?:[^{}]|\{[^{}]*\})*\}\s*$/u, code: ['-e'], scripts: ['-f'] },
     yq: { flags: ['-o, --output-format=', '-p, --input-format=', '-I, --indent=', '--from-file=', '-n, --null-input'], leading: 1, leadingUnless: ['--from-file'], reads: true, readsUnless: ['--null-input'] },
     node: { flags: ['--inspect', '--inspect-brk', '--inspect-wait'], stopsAtOperand: true, reads: true, readsUnless: ['--test', '--run'], code: ['--eval', '--print'], informational: ['-v', '--v8-options', '--check'] },
-    perl: { flags: ['-I=', '-M=', '-m='], stopsAtOperand: true, reads: true, code: ['-e', '-E'], informational: ['-v'] },
-    ruby: { flags: ['-I=', '-r=', '-C=', '-E='], stopsAtOperand: true, reads: true, code: ['-e'], informational: ['-v', '--copyright'] },
+    perl: { flags: ['-I=', '-M=', '-m='], stopsAtOperand: true, reads: true, code: ['-e', '-E'], rewrites: ['-i'], informational: ['-v'] },
+    ruby: { flags: ['-I=', '-r=', '-C=', '-E='], stopsAtOperand: true, reads: true, code: ['-e'], rewrites: ['-i'], informational: ['-v', '--copyright'] },
     eval: { concatenates: true },
     set: {},
     python: { aliases: ['python3'], stopsAtOperand: true, module: '-m', reads: true, readsUnless: ['-m'], code: ['-c'] },
     bash: { aliases: ['sh', 'zsh', 'dash', 'ksh'], stopsAtOperand: true, reads: true, shell: ['-c'], informational: ['-n', '--noexec'] },
     sqlite3: { leading: 1, reads: true, readsUnless: ['-c', '-s', '-f', '-no-stdin'] },
-    duckdb: { flags: ['-cmd=', '-init=', '-storage-version='], leading: 1, reads: true, readsUnless: ['-c', '-s', '-f', '-no-stdin'] },
+    duckdb: { flags: ['-c=', '-s=', '-f=', '-cmd=', '-init=', '-storage-version='], leading: 1, reads: true, readsUnless: ['-c', '-s', '-f', '-no-stdin'] },
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------

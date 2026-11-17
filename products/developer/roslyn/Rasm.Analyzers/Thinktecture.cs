@@ -298,3 +298,64 @@ public sealed class HostPickingUnionAnalyzer : DiagnosticAnalyzer {
         });
     }
 }
+
+[DiagnosticAnalyzer(LanguageNames.CSharp)]
+public sealed class OneSidedBoundAnalyzer : DiagnosticAnalyzer {
+
+    // --- [RULES]
+
+    private static readonly DiagnosticDescriptor Rule = new(
+        "RASM1107",
+        "Validation bounds a floating value from one side, add the other side or a finiteness test",
+        "`{0}` is bounded from {1} alone in `ValidateFactoryArguments`, so {2} passes, add `double.IsFinite({0})` or a bound from {3}",
+        Categories.Thinktecture,
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true,
+        "Relational tests on a floating value hold for the infinity past their open side, a validated value takes a bound on each side or a finiteness test.",
+        Link("RASM1107"));
+
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Rule];
+
+    public override void Initialize(AnalysisContext context) {
+        context.EnableConcurrentExecution();
+        context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
+        context.RegisterOperationBlockAction(static block => {
+            if (block.OwningSymbol is not IMethodSymbol { Name: "ValidateFactoryArguments" } hook) return;
+            ImmutableArray<IOperation> operations = [.. block.OperationBlocks.SelectMany(static root => root.DescendantsAndSelf())];
+            foreach (Diagnostic found in hook.Parameters
+                .Where(static value => value.Type.SpecialType is SpecialType.System_Double or SpecialType.System_Single || value.Type is { Name: "Half", ContainingNamespace.Name: "System" })
+                .Where(value => !operations.OfType<IInvocationOperation>().Any(call => call.TargetMethod.Name is "IsFinite" or "IsNormal" or "IsInfinity" or "IsPositiveInfinity" or "IsNegativeInfinity" && call.Arguments.Any(argument => Refers(argument.Value, value))))
+                .Select(value => (Value: value, Sides: operations.SelectMany(operation => Sides(operation, value)).Distinct().ToImmutableArray()))
+                .Where(static bounded => bounded.Sides.Length is 1)
+                .Select(static bounded => bounded.Sides[0] switch {
+                    true => Diagnostic.Create(Rule, bounded.Value.Locations.FirstOrDefault(), bounded.Value.Name, "below", "+∞", "above"),
+                    false => Diagnostic.Create(Rule, bounded.Value.Locations.FirstOrDefault(), bounded.Value.Name, "above", "-∞", "below"),
+                }))
+                block.ReportDiagnostic(found);
+        });
+
+        static bool Refers(IOperation operation, IParameterSymbol value) =>
+            operation switch {
+                IConversionOperation conversion => Refers(conversion.Operand, value),
+                IParameterReferenceOperation read => SymbolEqualityComparer.Default.Equals(read.Parameter, value),
+                _ => false,
+            };
+
+        static bool Lower(BinaryOperatorKind kind) => kind is BinaryOperatorKind.GreaterThan or BinaryOperatorKind.GreaterThanOrEqual;
+
+        static IOperation? Tested(IOperation pattern) =>
+            pattern.Parent switch {
+                IBinaryPatternOperation combined => Tested(combined),
+                IIsPatternOperation test => test.Value,
+                _ => null,
+            };
+
+        static IEnumerable<bool> Sides(IOperation operation, IParameterSymbol value) =>
+            operation switch {
+                IBinaryOperation { OperatorKind: BinaryOperatorKind.LessThan or BinaryOperatorKind.LessThanOrEqual or BinaryOperatorKind.GreaterThan or BinaryOperatorKind.GreaterThanOrEqual } compared when Refers(compared.LeftOperand, value) => [Lower(compared.OperatorKind)],
+                IBinaryOperation { OperatorKind: BinaryOperatorKind.LessThan or BinaryOperatorKind.LessThanOrEqual or BinaryOperatorKind.GreaterThan or BinaryOperatorKind.GreaterThanOrEqual } compared when Refers(compared.RightOperand, value) => [!Lower(compared.OperatorKind)],
+                IRelationalPatternOperation pattern when Tested(pattern) is { } tested && Refers(tested, value) => [Lower(pattern.OperatorKind)],
+                _ => [],
+            };
+    }
+}

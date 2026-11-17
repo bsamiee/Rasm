@@ -141,16 +141,15 @@ class StoreError extends Schema.TaggedError<StoreError, { readonly brand: unique
     reason: Schema.TaggedUnion({ Conflict: { version: Schema.Int }, Denied: {}, Unavailable: {} }),
     subject: Schema.String,
     cause: Schema.optionalKey(Schema.Defect()),
+    message: Schema.String,
 }) {
-    static readonly of = (reason: StoreError['reason'], subject: string) => (cause?: unknown) => StoreError.make({ reason, subject, ...(cause === undefined ? {} : { cause }) });
-
-    override get message() {
-        return [`${this.reason._tag}: ${this.subject}`, ...(this.cause === undefined ? [] : [Formatter.format(this.cause)])].join(': ');
-    }
+    static readonly of = (reason: StoreError['reason'], subject: string) => (cause?: unknown) =>
+        StoreError.make({ reason, subject, ...(cause === undefined ? {} : { cause }), message: [`${reason._tag}: ${subject}`, ...(cause === undefined ? [] : [Formatter.format(cause)])].join(': ') });
 }
 ```
 
 `StoreError.of({ _tag: 'Unavailable' }, key)` is the `catch` of every host call reaching the store. `of` omits an absent `cause`, a `cause: undefined` key decoding as `null` across a JSON wire, and `Formatter.format` renders a foreign cause with its nested chain:
+- `message` is a field the constructing static computes, an own property `structuredClone` and a plugin worker's serializer carry, a `get message()` on the class reaches neither
 - Instances are effects failing with themselves, `return yield*` raises one in a generator and a handler returning one fails with it
 - Errors a package member types (`SchemaError`, `HttpClientError`, `Cause.TimeoutError`) stay in `E` unchanged
 - Codecs over a value the program built die through `Effect.orDie`

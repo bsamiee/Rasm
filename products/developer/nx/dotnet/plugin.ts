@@ -3,10 +3,10 @@ import { platform } from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesContext, type CreateNodesResult, DependencyType, hashArray, type ProjectGraphExternalNode, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
 import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, globWithWorkspaceContext, hashFile, hashWithWorkspaceContext, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
-import { aggregated, fingerprinted, manifested } from '@rasm/nx-distribution/inference';
+import { aggregated, fingerprinted, manifested, spawned } from '@rasm/nx-distribution/inference';
 import { Array, Cause, Effect, Equivalence, FileSystem, Option, Record, Ref, Result, Schema, Stream, Struct } from 'effect';
 import { CommandLine } from 'effect/process';
-import { Edges, Node, PLUGIN, publishing, run, spawned, targets } from '#/targets';
+import { Edges, Node, PLUGIN, publishing, run, targets } from '#/targets';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -85,15 +85,20 @@ const related = ({ nodes }: Report): readonly RawProjectGraphDependency[] => {
 
 const releasable = (node: Node) => node.packable || node.publishable;
 
-const projected = (nodes: readonly Node[], settings: typeof Options.Type, manifests: readonly Readonly<Record<string, Pick<TargetConfiguration, 'inputs'>>>[]) => {
+const projected = (nodes: readonly Node[], settings: typeof Options.Type, manifests: readonly Readonly<Record<string, Pick<TargetConfiguration, 'inputs'>>>[], listed: (node: Node) => Option.Option<string>) => {
     const folders = Record.fromIterableWith(nodes, (node) => [dirname(node.file), node] as const);
+    const closure = (node: Node): readonly Node[] => [node, ...Array.getSomes(node.references.map(({ root }) => Record.get(folders, root))).flatMap(closure)];
+    const solution = (node: Node) => (configuration: string) => {
+        const assigned = closure(node).map((each) => [each.file, [each.evaluated, ...each.declared].find((mode) => mode.configuration.toLowerCase() === configuration.toLowerCase())?.configuration ?? each.evaluated.configuration, each.platform] as const);
+        return assigned.every(([, held]) => held === configuration) ? Option.none() : Option.some(Record.fromIterableWith(assigned, ([file, held, pair]) => [file, `${held}|${pair}`] as const));
+    };
     const carried = (node: Node): readonly NonNullable<Node['releases']>[] => [
         ...Option.toArray(Option.fromNullOr(node.releases)),
         ...Array.getSomes(node.references.map(({ root }) => Record.get(folders, root)))
             .filter((reference) => !releasable(reference))
             .flatMap(carried),
     ];
-    const evaluated = (node: Node): readonly string[] => [...node.inputs, ...Array.getSomes(node.references.map(({ root }) => Record.get(folders, root))).flatMap(evaluated)];
+    const evaluated = (node: Node): readonly string[] => closure(node).flatMap(({ inputs }) => inputs);
     return Array.zip(nodes, manifests).map(([node, manifest]): [string, CreateNodesResult] => {
         const mapped = Array.getSomes(node.platforms.map((identifier) => Record.get(PLATFORMS, identifier.toLowerCase())));
         const supported = Array.dedupe(mapped);
@@ -104,7 +109,7 @@ const projected = (nodes: readonly Node[], settings: typeof Options.Type, manife
             name: node.name,
             metadata: { technologies: ['dotnet', node.language] },
             targets: {
-                ...aggregated(targets({ ...node, inputs: Array.dedupe(evaluated(node)), test: limited ? supported.some((held) => held === platform) : node.test }, Option.fromUndefinedOr(settings.coveragePath)), manifest, 'dotnet'),
+                ...aggregated(targets({ ...node, inputs: Array.dedupe(evaluated(node)), test: limited ? supported.some((held) => held === platform) : node.test }, Option.fromUndefinedOr(settings.coveragePath), solution(node), listed(node)), manifest, 'dotnet'),
                 ...publishing(node),
             },
             ...(releasable(node) && { release: { version: { versionActions: `${PLUGIN}/release/version-actions`, versionActionsOptions: { manifest: basename(node.file), releases: Array.dedupeWith(carried(node), Equivalence.mapInput(Equivalence.String, Struct.get('unshipped'))) } } } }),
@@ -126,6 +131,12 @@ const inferred = Effect.fnUntraced(function* (matched: readonly string[], option
     const report = Result.getOrElse(read, (): Report => ({ nodes: [], failures: [], evaluated: [] }));
     yield* Option.isNone(held) && Result.isSuccess(read) && report.failures.length === 0 ? Effect.flatMap(stamped(workspaceRoot, source, report), (stamp) => Effect.sync(() => cache.set(key, { report, stamp }))).pipe(Effect.andThen(Effect.sync(() => cache.writeToDisk()))) : Effect.void;
     yield* Ref.set(edges, related(report));
+    const listing = (node: Node) => join(workspaceDataDirectory, 'dotnet-external', `${hashArray([node.file])}.json`);
+    yield* Effect.forEach(
+        report.nodes.filter((node) => node.external.length > 0),
+        (node) => Effect.andThen(fs.makeDirectory(dirname(listing(node)), { recursive: true }), fs.writeFileString(listing(node), JSON.stringify(node.external))),
+        { discard: true },
+    );
     const declared = Array.dedupe(report.nodes.flatMap((node) => [node.file, ...node.inputs, ...node.locks])).map((at) => join('{workspaceRoot}', at));
     const manifests = yield* Effect.forEach(report.nodes, (node) => manifested(workspaceRoot, dirname(node.file)));
     const solutions = yield* Effect.forEach(
@@ -142,7 +153,7 @@ const inferred = Effect.fnUntraced(function* (matched: readonly string[], option
                 return [file, { projects: { [dirname(file)]: { root: dirname(file), ...(named ? {} : { name: basename(file, extname(file)) }), metadata: { technologies: ['dotnet'] }, targets: aggregated({ upgrade: { dotnet: upgrade } }, manifest, 'dotnet') } } }];
             }),
     );
-    const results = [...projected(report.nodes, settings, manifests), ...solutions];
+    const results = [...projected(report.nodes, settings, manifests, (node) => Option.map(Option.liftPredicate(node, (held) => held.external.length > 0), (held) => relative(workspaceRoot, listing(held)))), ...solutions];
     const failures = [...Option.toArray(Option.map(Result.getFailure(read), (error): [null, Error] => [null, error])), ...report.failures.map(({ file, message }): [string, Error] => [file, new Cause.UnknownError(file, message)])];
     return yield* failures.length === 0 ? Effect.succeed(results) : Effect.fail(new AggregateCreateNodesError(failures, results));
 });

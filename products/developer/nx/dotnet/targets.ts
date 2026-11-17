@@ -3,10 +3,9 @@ import { fileURLToPath } from 'node:url';
 import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
 import { type RawProjectGraphDependency, readJsonFile, type TargetConfiguration } from '@nx/devkit';
 import { type PackageJson, quoteShellArg } from '@nx/devkit/internal';
-import { PLATFORM, type Verbs } from '@rasm/nx-distribution/inference';
+import { PLATFORM, runner, type Verbs } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
-import { Array, Cause, Context, Effect, Layer, ManagedRuntime, Option, Record, Ref, Schema, type Scope, Stream, String } from 'effect';
-import { ChildProcess, CommandLine } from 'effect/process';
+import { Array, Context, Layer, Option, Record, Ref, Schema, Stream } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -24,6 +23,7 @@ const Node = Schema.Struct({
     file: Schema.String,
     name: Schema.String,
     language: Schema.String,
+    platform: Schema.String,
     test: Schema.Boolean,
     packable: Schema.Boolean,
     publishable: Schema.Boolean,
@@ -40,6 +40,7 @@ const Node = Schema.Struct({
     results: Schema.Array(Schema.String),
     platforms: Schema.Array(Schema.String),
     implicit: Schema.Array(Schema.String),
+    external: Schema.Array(Schema.String),
     releases: Schema.NullOr(Schema.Struct({ shipped: Schema.String, unshipped: Schema.String })),
 });
 
@@ -51,22 +52,13 @@ class Edges extends Context.Service<Edges, Ref.Ref<readonly RawProjectGraphDepen
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const ran = Effect.fnUntraced(function* (command: string, args: readonly string[], options: ChildProcess.CommandOptions) {
-    const handle = yield* ChildProcess.make(command, args, { extendEnv: true, detached: false, stdin: 'ignore', ...options });
-    const [stdout, said, code] = yield* Effect.all([Stream.mkString(Stream.decodeText(handle.stdout)), Stream.mkString(Stream.decodeText(handle.stderr)), handle.exitCode], { concurrency: 'unbounded' });
-    return { invoked: CommandLine.display([command, ...args]), stdout, said, code };
-}, Effect.scoped);
-
-const spawned = (argv: Array.NonEmptyReadonlyArray<string>, options: ChildProcess.CommandOptions = {}) =>
-    Effect.flatMap(ran(Array.headNonEmpty(argv), Array.tailNonEmpty(argv), options), ({ invoked, stdout, said, code }) => (code === 0 ? Effect.succeed(stdout) : Effect.fail(new Cause.UnknownError(code, [`${invoked} exits ${code}`, ...[stdout.trim(), said.trim()].filter(String.isNonEmpty)].join(': ')))));
-
 const line = (argv: readonly string[]) => argv.map(quoteShellArg).join(' ');
 
 const metadata = (verb: string, description: string) => ({ description, help: { command: `dotnet ${verb} --help`, example: { args: ['--verbosity', 'detailed'] } } });
 
 const written = (...modes: readonly { readonly outputs: readonly string[] }[]) => Array.makeBy(Math.max(0, ...modes.map(({ outputs }) => outputs.length)), (index) => `{options.outputs.${index}}`);
 
-const targets = (node: Node, coverage: Option.Option<string>): Verbs => {
+const targets = (node: Node, coverage: Option.Option<string>, solution: (configuration: string) => Option.Option<Readonly<Record<string, string>>>, listed: Option.Option<string>): Verbs => {
     const root = dirname(node.file);
     const project = join('{projectRoot}', basename(node.file));
     const inputs: NonNullable<TargetConfiguration['inputs']> = [
@@ -76,10 +68,16 @@ const targets = (node: Node, coverage: Option.Option<string>): Verbs => {
         { env: 'NUGET_PACKAGES' },
         { externalDependencies: [] },
         ...node.inputs.map((input) => join('{workspaceRoot}', input)),
+        ...Option.toArray(listed).map((at) => ({ runtime: line(['node', '-e', 'for (const file of JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8"))) { try { console.log(require("node:crypto").createHash("sha256").update(require("node:fs").readFileSync(file)).digest("hex")); } catch { console.log("absent"); } }', at]) })),
     ];
     const moded = <A extends object>(each: (mode: Node['evaluated']) => A) => ({ options: each(node.evaluated), configurations: Record.fromIterableWith(node.declared, (mode) => [mode.configuration.toLowerCase(), each(mode)] as const) });
     const verb = node.publishable ? 'publish' : 'build';
-    const built = moded(({ configuration, outputs, published, reports, documents }) => ({ project, command: [verb, '--configuration', configuration], outputs: [...outputs, ...published, ...reports, ...documents, ...node.restored] }));
+    const built = moded(({ configuration, outputs, published, reports, documents }) => ({
+        project,
+        command: [verb, '--configuration', configuration],
+        outputs: [...outputs, ...published, ...reports, ...documents, ...node.restored],
+        ...Record.getSomes({ solution: solution(configuration) }),
+    }));
     const packed = moded(({ configuration, packed: folder }) => ({ project, command: ['pack', '--no-build', '-restore', '--configuration', configuration], outputs: [join(folder, '*.nupkg')] }));
     const tested = ({ configuration }: Node['evaluated'], ...flags: readonly string[]) => ({ commands: [{ command: line(['dotnet', 'restore', `-p:Configuration=${configuration}`]), forwardAllArgs: false }, line(['dotnet', 'test', '--no-build', '--configuration', configuration, ...flags])] });
     const coverable = node.referenced.some((id) => id.toLowerCase() === 'coverlet.mtp');
@@ -195,12 +193,10 @@ const publishing = (node: Node): Readonly<Record<string, TargetConfiguration>> =
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const runtime = ManagedRuntime.make(Layer.merge(Edges.layer, layer));
-
-const run = <A, E>(effect: Effect.Effect<A, E, Edges | NodeServices | Scope.Scope>) => runtime.runPromise(Effect.scoped(effect));
+const run = runner(Edges.layer);
 
 const streamed = <A, E>(results: Stream.Stream<A, E, NodeServices>) => Stream.toReadableStream(Stream.provide(results, layer)).values();
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Edges, Node, PLUGIN, publishing, ran, run, spawned, streamed, targets };
+export { Edges, Node, PLUGIN, publishing, run, streamed, targets };

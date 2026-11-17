@@ -9,12 +9,6 @@
         <OutputPath>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', 'dist'))</OutputPath>
     </PropertyGroup>
 
-    <ItemGroup Label="Build Engine">
-        <PackageReference Include="Microsoft.Build" ExcludeAssets="runtime" />
-        <PackageReference Include="Microsoft.Build.Framework" ExcludeAssets="runtime" />
-        <PackageReference Include="Microsoft.Build.Locator" />
-    </ItemGroup>
-
     <ItemGroup Label="Package Management">
         <PackageReference Include="NuGet.Common" ExcludeAssets="runtime" />
         <PackageReference Include="NuGet.Configuration" ExcludeAssets="runtime" />
@@ -24,7 +18,13 @@
         <PackageReference Include="NuGet.Versioning" ExcludeAssets="runtime" />
     </ItemGroup>
 
-    <ItemGroup Label="Core">
+    <ItemGroup Label="Build Engine">
+        <PackageReference Include="Microsoft.Build" ExcludeAssets="runtime" />
+        <PackageReference Include="Microsoft.Build.Framework" ExcludeAssets="runtime" />
+        <PackageReference Include="Microsoft.Build.Locator" />
+    </ItemGroup>
+
+    <ItemGroup Label="Functional Programming">
         <PackageReference Include="LanguageExt.Core" />
     </ItemGroup>
 </Project>

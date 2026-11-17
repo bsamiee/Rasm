@@ -27,6 +27,9 @@ const PREFIXES: ReadonlySet<string> = new Set(['builtin', 'command']);
 const DECODER = new TextDecoder();
 const SUBSTITUTION = /^s(?<delimiter>[^\w\s\\])(?:\\.|(?!\k<delimiter>).)*\k<delimiter>(?:\\.|(?!\k<delimiter>).)*\k<delimiter>[gpiI\d]*$/su;
 const JSON_PARSE = /\bjson\.loads?\(|\bJSON\.parse\(/u;
+const STDIN_FILE = /\/dev\/stdin\b/u;
+const DUCKDB_MODES = ['-no-agent', '-ascii', '-box', '-column', '-csv', '-html', '-json', '-jsonlines', '-line', '-list', '-quote', '-table'];
+const SD_AS_RG: Record.ReadonlyRecord<string, string> = { i: '--ignore-case', c: '--case-sensitive', w: '--word-regexp', s: '--multiline-dotall' };
 const INLINE_LOOKUPS = [
     [/^(?:console\.log\()?require\(['"](?<name>[^'"./][^'"]*)\/package\.json['"]\)\.(?<field>\w+)\)?;?$/u, 'jq -r .$<field> node_modules/$<name>/package.json'],
     [/^(?:console\.log\()?require\.resolve\(['"](?<name>[^'"./][^'"]*)\/package\.json['"](?:,\s*\{\s*paths:\s*\[\s*process\.cwd\(\)\s*\]\s*\})?\)\)?;?$/u, 'realpath node_modules/$<name>/package.json'],
@@ -186,15 +189,18 @@ const emptyStdin: Rule = (invocation) => {
 };
 
 const inlineCode: Rule = (invocation, { analysis, host }) => {
-    const { row, script, command, operands } = invocation;
-    const code = row.code ?? [];
-    const file = Option.flatMap(Option.fromNullishOr(operands[0]), ({ text }) => host.resolve(text, command.cwd));
-    const written = analysis.invocations.some(({ command: writer, program, operands: targets }) =>
-        [...Array.getSomes(writer.redirects.filter(({ op }) => WRITES.has(op)).map(({ target }) => target)), ...(program === 'tee' ? targets : [])].some(({ text }) => Option.isSome(file) && Option.contains(host.resolve(text, writer.cwd), file.value)),
+    const { row, script, command, sources, program } = invocation;
+    if (row.code === undefined) {
+        return [];
+    }
+    const inline = [...invocation.values(...row.code), ...invocation.leading.map(({ text }) => text)];
+    const files = Array.getSomes(sources.map(({ text }) => host.resolve(text, command.cwd)));
+    const written = analysis.invocations.some(({ command: writer, program: named, operands: targets }) =>
+        [...Array.getSomes(writer.redirects.filter(({ op }) => WRITES.has(op)).map(({ target }) => target)), ...(named === 'tee' ? targets : [])].some(({ text }) => files.some((file) => Option.contains(host.resolve(text, writer.cwd), file))),
     );
-    const probed = written && code.length > 0 && !invocation.has(...code) ? Option.orElse(script, () => Option.some('')) : Option.filter(script, () => !Option.exists(file, (path) => host.inside(path, host.root)));
-    const stated = Option.orElse(probed, () => Option.liftPredicate(invocation.values(...code).join('\n'), () => code.length > 0 && invocation.has(...code)));
-    if (Option.isNone(stated) && !(code.length > 0 && command.fed && invocation.readsStdin)) {
+    const probed = written ? Option.orElse(script, () => Option.some('')) : Option.filter(script, () => files.length < sources.length || files.some((path) => !host.inside(path, host.root)));
+    const stated = Option.orElse(probed, () => Option.liftPredicate(inline.join('\n'), () => inline.length > 0));
+    if (Option.isNone(stated) && !(sources.length === 0 && command.fed && invocation.readsStdin)) {
         return [];
     }
     const source = Option.getOrElse(
@@ -203,9 +209,16 @@ const inlineCode: Rule = (invocation, { analysis, host }) => {
     );
     const [lookup] = INLINE_LOOKUPS.filter(([pattern]) => pattern.test(source)).map(([pattern, answer]) => source.replace(pattern, answer));
     if (lookup !== undefined) {
-        return silent(whole(invocation, lookup, `${invocation.program} inline code`));
+        return silent(whole(invocation, lookup, `${program} inline code`));
     }
-    return refusal(JSON_PARSE.test(source) ? `${invocation.program} parses JSON inline, use jq` : `${invocation.program} runs inline code, answer it with a CLI (rg, ast-grep, jq, yq) or an nx target`);
+    const writes = invocation.has(...(row.rewrites ?? [])) || command.redirects.some(({ op, target }) => WRITES.has(op) && Option.exists(target, ({ text }) => !text.startsWith('/dev/')));
+    return refusal(
+        `${program} ${Match.value({ json: JSON_PARSE.test(source), writes }).pipe(
+            Match.when({ json: true }, () => 'parses JSON inline, use jq'),
+            Match.when({ writes: true }, () => 'writes files from inline code, edit them with sd where one pattern covers every change, else with your file edit tool'),
+            Match.orElse(() => 'runs inline code, answer it with a CLI (rg, ast-grep, jq, yq, duckdb) or an nx target'),
+        )}`,
+    );
 };
 
 // --- [REPLACEMENTS]
@@ -223,6 +236,25 @@ const dashedOperand: Rule = (invocation) => {
     }
     return invocation.has('--across') ? cut(invocation, [dashed], `sd ${dashed.text}`) : edited(invocation, dashed, '-A', `sd ${dashed.text}`);
 };
+
+const unmatched: Rule = Effect.fnUntraced(function* (invocation, { analysis, host }) {
+    const {
+        leading: [find],
+        inputs,
+        command,
+    } = invocation;
+    const files = Array.getSomes(inputs.map(({ text }) => host.resolve(text, command.cwd)));
+    const letters = Array.fromIterable(invocation.values('--flags').join(''));
+    const named = new Set(
+        analysis.invocations.filter(({ command: other }) => other.source === command.source && other.start < command.start).flatMap(({ command: other, operands }) => Array.getSomes([...operands, ...Array.getSomes(other.redirects.map(({ target }) => target))].map(({ text }) => host.resolve(text, other.cwd)))),
+    );
+    if (find?.known !== true || inputs.length === 0 || files.length < inputs.length || inputs.some(({ known }) => !known) || files.some((file) => named.has(file)) || invocation.has('--preview') || !letters.every((letter) => Record.has(SD_AS_RG, letter))) {
+        return [];
+    }
+    const flags = [...(invocation.has('--fixed-strings') ? ['--fixed-strings'] : []), ...(invocation.has('--across') ? ['--multiline'] : []), ...Array.getSomes(letters.map((letter) => Record.get(SD_AS_RG, letter)))];
+    const { code } = yield* host.run(['rg', '--no-config', '--quiet', '--text', ...flags, '--regexp', find.text, '--', ...files]);
+    return code === 1 ? refusal(`sd pattern matches nothing in ${spelled(inputs)}, read the current text`) : [];
+});
 
 const sameTexts: Rule = (invocation) => {
     const [find, replaced] = invocation.leading;
@@ -452,8 +484,10 @@ const FILES: Ruleset = {
             strict: true,
             leading: 2,
             reads: true,
-            rules: [dashedOperand, emptyPattern, sameTexts, when(({ leading: [find], has }) => find !== undefined && (find.text.includes('\n') || (!has('--fixed-strings') && ESCAPED_NEWLINE.test(find.text))), ensure(['-A']))],
+            rules: [dashedOperand, emptyPattern, sameTexts, when(({ leading: [find], has }) => find !== undefined && (find.text.includes('\n') || (!has('--fixed-strings') && ESCAPED_NEWLINE.test(find.text))), ensure(['-A'])), unmatched],
         },
+        curl: { pipefail: true, rules: [ensure(['--fail-with-body'], '--fail', '--write-out')] },
+        duckdb: { rules: [when(Predicate.or(holds(STDIN_FILE, '-c', '-s'), holds(STDIN_FILE)), ensure(['-markdown'], ...DUCKDB_MODES))] },
         cd: { rules: [redundantCd, cdOutsideRoot] },
         jq: { flags: ['--arg=2', '--argjson=2', '--slurpfile=2', '--rawfile=2'], leading: 1, leadingUnless: ['--from-file'], restAfter: ['--args', '--jsonargs'], reads: true, readsUnless: ['--null-input'], rules: [readsItsOwnFile] },
         hyperfine: {

@@ -26,17 +26,3 @@ ENABLE_POINTER_AUTHENTICATION = NO
 // --- [SPARKLE] -------------------------------------------------------------------------
 SPARKLE_FEED_URL = https:/$()/updates.parametric-arsenal.cloud/$(PRODUCT_NAME)/appcast.xml
 SPARKLE_PUBLIC_KEY = G+D8EhYh31mwjGKL88W2ft9PRIPMSgt6t8zV6lIBa3Y=
-
-// --- [SWIFT] ---------------------------------------------------------------------------
-OTHER_SWIFT_FLAGS = -enable-upcoming-feature ImmutableWeakCaptures -warn-soft-deprecated -Xfrontend -warn-long-expression-type-checking-scopes -Xfrontend 200
-SWIFT_COMPILATION_MODE[config=Release] = wholemodule
-SWIFT_OPTIMIZATION_LEVEL[config=Debug] = -Onone
-SWIFT_STRICT_MEMORY_SAFETY = YES
-SWIFT_TREAT_WARNINGS_AS_ERRORS = YES
-SWIFT_UPCOMING_FEATURE_EXISTENTIAL_ANY = YES
-SWIFT_UPCOMING_FEATURE_INFER_ISOLATED_CONFORMANCES = YES
-SWIFT_UPCOMING_FEATURE_INTERNAL_IMPORTS_BY_DEFAULT = YES
-SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES
-SWIFT_UPCOMING_FEATURE_NONISOLATED_NONSENDING_BY_DEFAULT = YES
-SWIFT_VERSION = 6.0
-SWIFT_WARNINGS_AS_ERRORS_GROUPS = ExplicitSendable StrictLanguageFeatures

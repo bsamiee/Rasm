@@ -11,13 +11,22 @@
         <PackageReference Include="RhinoCommon" />
     </ItemGroup>
 
-    <ItemGroup Label="Core">
-        <PackageReference Include="CommunityToolkit.HighPerformance" />
+    <ItemGroup Label="Functional Programming">
         <PackageReference Include="LanguageExt.Core" />
-        <PackageReference Include="Microsoft.VisualStudio.Threading" />
-        <PackageReference Include="NodaTime" />
+    </ItemGroup>
+
+    <ItemGroup Label="Domain Modeling">
         <PackageReference Include="Thinktecture.Runtime.Extensions" />
         <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
+    </ItemGroup>
+
+    <ItemGroup Label="Time">
+        <PackageReference Include="NodaTime" />
+    </ItemGroup>
+
+    <ItemGroup Label="Memory and Concurrency">
+        <PackageReference Include="CommunityToolkit.HighPerformance" />
+        <PackageReference Include="Microsoft.VisualStudio.Threading" />
     </ItemGroup>
 
     <ItemGroup Label="Quantities">
@@ -35,8 +44,7 @@
     <ItemGroup Label="Imaging">
         <PackageReference Include="Emgu.CV" />
         <PackageReference Include="Emgu.CV.runtime.mini.macos" />
-        <PackageReference Include="Emgu.CV.runtime.mini.windows" ExcludeAssets="build;buildTransitive" NoWarn="NU1701" />
-        <PackageReference Include="Emgu.runtime.windows.msvc.rt.arm64;Emgu.runtime.windows.msvc.rt.x64;Emgu.runtime.windows.msvc.rt.x86" ExcludeAssets="build;buildTransitive" NoWarn="NU1701" />
+        <PackageReference Include="Emgu.CV.runtime.mini.windows" />
         <PackageReference Include="SixLabors.ImageSharp" />
         <PackageReference Include="TinyEXR.NET" />
     </ItemGroup>

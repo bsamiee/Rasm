@@ -195,7 +195,7 @@ public sealed class UiMarshalAnalyzer : DiagnosticAnalyzer {
         Categories.RhinoCommon,
         DiagnosticSeverity.Error,
         isEnabledByDefault: true,
-        "Compose UI-thread calls into one `OnUiThread()` `IO` over `RhinoApp.InvokeOnUiThread` and `InvokeAndWait`, delegate-taking Eto `Application`, main `DispatchQueue`, or `NSObject` main-thread calls outside `Session`.",
+        "Libraries and plug-ins compose UI-thread calls into one `OnUiThread()` `IO` over `RhinoApp.InvokeOnUiThread` and `InvokeAndWait`, delegate-taking Eto `Application`, main `DispatchQueue`, or `NSObject` main-thread calls outside `Session`, and the type declaring the entry point owns the process main thread.",
         Link("RASM2006"));
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Rule];
@@ -204,6 +204,7 @@ public sealed class UiMarshalAnalyzer : DiagnosticAnalyzer {
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
         context.RegisterCompilationStartAction(static start => {
+            INamedTypeSymbol? entry = start.Compilation.GetEntryPoint(start.CancellationToken)?.ContainingType;
             WellKnownTypeProvider types = WellKnownTypeProvider.GetOrCreate(start.Compilation);
             INamedTypeSymbol? callbacks = types.GetOrCreateTypeByMetadataName("Rasm.Rhino.Session");
             INamedTypeSymbol? application = types.GetOrCreateTypeByMetadataName("Eto.Forms.Application");
@@ -221,7 +222,7 @@ public sealed class UiMarshalAnalyzer : DiagnosticAnalyzer {
                     IInvocationOperation invocation => (invocation.TargetMethod, invocation.Instance, invocation.Arguments),
                     IMethodReferenceOperation reference => (reference.Method, reference.Instance, ImmutableArray<IArgumentOperation>.Empty),
                     _ => default,
-                } is ( { } method, var instance, var arguments) && !Inside<INameOfOperation>(operation) && !Within(analysis.ContainingSymbol, callbacks)
+                } is ( { } method, var instance, var arguments) && !Inside<INameOfOperation>(operation) && !Within(analysis.ContainingSymbol, callbacks) && !Within(analysis.ContainingSymbol, entry)
                 && (Among(method, marshals)
                     || (Same(method.ContainingType, application) && Delegated(method))
                     || (Same(method.ContainingType, queue) && Delegated(method) && Main(instance))

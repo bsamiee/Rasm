@@ -85,7 +85,7 @@ class Relation<const Shape extends Fields = Fields, const Options extends Relati
         const scoped = yield* Effect.orDie(Effect.fromNullishOr(tenant));
         return yield* sql.withTransaction(Effect.andThen(scoped(sql, setting, encoded), effect));
     });
-    static readonly #stored = Function.memoize((relation: Relation) => Function.memoize((rename: (name: string) => string): Relation => relation.#renamed(rename)));
+    readonly #named = Function.memoize((rename: (name: string) => string) => this.#renamed(rename));
     #renamed(rename: (name: string) => string) {
         return new Relation<Shape, Options>({
             ...this,
@@ -98,7 +98,7 @@ class Relation<const Shape extends Fields = Fields, const Options extends Relati
         });
     }
     named(rename: (name: string) => string) {
-        return Relation.#stored(this)(rename);
+        return this.#named(rename);
     }
 }
 

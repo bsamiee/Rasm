@@ -10,6 +10,7 @@
         "#/*.tsx": "./*.tsx"
     },
     "exports": {
+        "./hosting.config": "./hosting.config.ts",
         "./server": "./server/main.ts",
         "./worker": "./server/worker.ts"
     },
@@ -26,10 +27,10 @@
         "@rasm/telemetry": "workspace:*",
         "@rasm/ui": "workspace:*",
         "@rasm/workers": "workspace:*",
+        "@uppy/aws-s3": "catalog:",
         "@uppy/core": "catalog:",
         "@uppy/dashboard": "catalog:",
         "@uppy/react": "catalog:",
-        "@uppy/xhr-upload": "catalog:",
         "effect": "catalog:",
         "embla-carousel-react": "catalog:",
         "lucide-react": "catalog:",
@@ -47,7 +48,6 @@
     "devDependencies": {
         "@cloudflare/vite-plugin": "catalog:",
         "@nx/vite": "catalog:",
-        "@openai/sites-vite-plugin": "catalog:",
         "@rasm/mark": "workspace:*",
         "@rasm/testing": "workspace:*",
         "@storybook/addon-a11y": "catalog:",

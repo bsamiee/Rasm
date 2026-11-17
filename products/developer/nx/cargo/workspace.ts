@@ -1,11 +1,10 @@
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse } from '@decimalturn/toml-patch';
-import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
 import { readJsonFile } from '@nx/devkit';
 import type { PackageJson } from '@nx/devkit/internal';
-import { spawned } from '@rasm/nx-distribution/inference';
-import { Array, Cause, Context, Effect, Equivalence, FileSystem, Layer, ManagedRuntime, Option, Predicate, Record, Result, Schema, type Scope, String, UndefinedOr } from 'effect';
+import { runner, spawned } from '@rasm/nx-distribution/inference';
+import { Array, Cause, Context, Effect, Equivalence, FileSystem, Layer, Option, Predicate, Record, Result, Schema, String, UndefinedOr } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -207,9 +206,7 @@ const workspaces = (workspaceRoot: string, manifests: readonly string[], files: 
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const runtime = ManagedRuntime.make(Layer.merge(Links.layer, layer));
-
-const run = <A, E>(effect: Effect.Effect<A, E, Links | NodeServices | Scope.Scope>) => runtime.runPromise(Effect.scoped(effect));
+const run = runner(Links.layer);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

@@ -33,10 +33,10 @@ public static class SolidAssembly {
     // --- [TOPOLOGY]
 
     public static IO<Brep> Build(BrepTopology topology) =>
-        from brep in use(static () => new Brep())
-        from declared in IO.lift(Declared(brep, topology))
-        from valid in IO.lift(RhinoFault.Unless(brep.IsValidTopology(out string log), RhinoReason.Invalid, log))
-        select brep;
+        (from brep in use(static () => new Brep())
+         from declared in IO.lift(Declared(brep, topology))
+         from valid in IO.lift(RhinoFault.Unless(brep.IsValidTopology(out string log), RhinoReason.Invalid, log))
+         select brep).BracketFail();
 
     private static Fin<Unit> Declared(Brep brep, BrepTopology topology) =>
         from surfaces in Products.Each(topology.Surfaces, (surface, at) => Conversions.Required(Conversions.Present(brep.AddSurface(surface)), at))
@@ -99,10 +99,10 @@ public static class SolidAssembly {
     // --- [EXTRUSIONS]
 
     public static IO<Extrusion> ProfiledExtrusion(Line path, Vector3d up, Curve outerProfile, Seq<Curve> innerProfiles, bool cap) =>
-        from made in use(static () => new Extrusion())
-        from pathed in Products.Accepted(() => made.SetPathAndUp(path.From, path.To, up))
-        from outer in Products.Accepted(() => made.SetOuterProfile(outerProfile, cap))
-        from inner in innerProfiles.TraverseM(profile => Products.Accepted(() => made.AddInnerProfile(profile))).As()
-        from valid in IO.lift(RhinoFault.Unless(made.IsValidWithLog(out string log), RhinoReason.Invalid, log))
-        select made;
+        (from made in use(static () => new Extrusion())
+         from pathed in Products.Accepted(() => made.SetPathAndUp(path.From, path.To, up))
+         from outer in Products.Accepted(() => made.SetOuterProfile(outerProfile, cap))
+         from inner in innerProfiles.TraverseM(profile => Products.Accepted(() => made.AddInnerProfile(profile))).As()
+         from valid in IO.lift(RhinoFault.Unless(made.IsValidWithLog(out string log), RhinoReason.Invalid, log))
+         select made).BracketFail();
 }

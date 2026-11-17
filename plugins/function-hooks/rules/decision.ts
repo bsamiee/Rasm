@@ -6,8 +6,7 @@ import type { Span } from '#/shell/script';
 type Verdict = Data.TaggedEnum<{
     Refuse: { readonly reason: string };
     Edit: Pick<Span, 'start' | 'end' | 'field'> & { readonly text: Option.Option<string>; readonly subject: Option.Option<string> };
-    Background: Record<never, never>;
-    Observe: Record<never, never>;
+    Background: { readonly note?: string; readonly tasks?: readonly string[] };
 }>;
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -20,16 +19,17 @@ const Request = Schema.Struct({
     agent: Schema.optionalKey(Schema.String),
     session: Schema.optionalKey(Schema.String),
     call: Schema.optionalKey(Schema.String),
+    owned: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)),
 });
 
 const Decision = Schema.TaggedUnion({
-    Allow: { observes: Schema.Boolean },
+    Allow: {},
     Deny: { reason: Schema.String },
     Rewrite: {
         command: Schema.String,
-        observes: Schema.Boolean,
         background: Schema.Boolean,
         note: Schema.optionalKey(Schema.String),
+        tasks: Schema.optionalKey(Schema.Array(Schema.String)),
     },
 });
 
@@ -57,26 +57,27 @@ const editsOf = (verdicts: readonly Verdict[]) => {
 
 const decisionOf = Effect.fnUntraced(function* <E, R>(command: string, verdicts: readonly Verdict[], due: (notes: ReadonlyMap<string, string>) => Effect.Effect<readonly string[], E, R>) {
     const edits = editsOf(verdicts);
-    const observes = verdicts.some(Verdict.$is('Observe'));
-    const background = verdicts.some(Verdict.$is('Background'));
+    const backgrounds = verdicts.filter(Verdict.$is('Background'));
+    const background = backgrounds.length > 0;
+    const tasks = Array.dedupe(backgrounds.flatMap(({ tasks: watched = [] }) => watched));
     const refused = Array.dedupe(verdicts.filter(Verdict.$is('Refuse')).map(({ reason }) => reason));
     if (refused.length > 0) {
         return Decision.cases.Deny.make({ reason: refused.join('; ') });
     }
     if (edits.length === 0 && !background) {
-        return Decision.cases.Allow.make({ observes });
+        return Decision.cases.Allow.make({});
     }
     const source = new TextEncoder().encode(command);
     const decoder = new TextDecoder();
     const between = (start: number, end?: number) => decoder.decode(source.subarray(start, end));
     const ordered = edits.toSorted((left, right) => left.start - right.start || left.end - right.end);
     const subjects = new Map(Array.getSomes(edits.map(({ subject, text }) => Option.map(subject, (word) => [word, Option.match(text, { onNone: () => `${word} removed`, onSome: (replacement) => `${word} became ${replacement}` })] as const))));
-    const notes = [...(subjects.size === 0 ? [] : yield* due(subjects)), ...(background ? ['Call runs in the background and notifies on completion, never poll it'] : [])];
+    const notes = [...(subjects.size === 0 ? [] : yield* due(subjects)), ...Array.dedupe(backgrounds.map(({ note = 'Call runs in the background and notifies on completion, never poll it' }) => note))];
     return Decision.cases.Rewrite.make({
         command: [...ordered.flatMap(({ start, text }, at) => [between(ordered[at - 1]?.end ?? 0, start), ...Option.toArray(text)]), between(ordered.at(-1)?.end ?? 0)].join(''),
-        observes,
         background,
         ...(notes.length > 0 && { note: notes.join('. ') }),
+        ...(tasks.length > 0 && { tasks }),
     });
 });
 

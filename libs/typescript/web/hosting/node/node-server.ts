@@ -3,7 +3,7 @@ import { dirname, join } from 'node:path';
 import process from 'node:process';
 import { layerConfig } from '@effect/platform-node/NodeHttpServer';
 import { layerNodeFromConfig } from '@rasm/telemetry/node';
-import { Config, ConfigProvider, Effect, Layer, Match, Record, Schema, SchemaTransformation, Struct } from 'effect';
+import { Config, ConfigProvider, Effect, Layer, Match, Record, Schema, Struct } from 'effect';
 import { HttpEffect, HttpMiddleware, HttpRouter, HttpServerResponse, HttpStaticServer } from 'effect/http';
 import { App, type Binding } from '#/app/app';
 import { Access, Enrollment, Identity } from '#/app/identity';
@@ -18,12 +18,11 @@ interface Read extends Struct.Lambda {
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Uploads = Schema.Struct({ bucket: Schema.String, uploadPrefix: Schema.String });
 const JsonText = Schema.fromJsonString(Schema.Json);
 const read = {
     sqlite: () => Schema.String,
     postgres: () => Schema.Redacted(Schema.String),
-    bucket: ({ uploads }: { readonly uploads: string }) => Schema.String.pipe(Schema.decodeTo(Uploads, SchemaTransformation.transform({ decode: (bucket) => ({ bucket, uploadPrefix: uploads }), encode: ({ bucket }) => bucket }))),
+    bucket: () => Schema.String,
     secret: () => Schema.Redacted(Schema.String),
     text: () => Schema.String,
     json: () => JsonText,

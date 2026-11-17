@@ -5,7 +5,7 @@ use std::path::Path;
 
 use cap_std::fs::Dir;
 use indexmap::IndexMap;
-use jiff::Zoned;
+use jiff::ZonedDateTime;
 use jiff::tz::TimeZone;
 use png::{ColorType, Compression, Encoder, PixelDimensions, SrgbRenderingIntent, Unit};
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator as _, ParallelIterator as _};
@@ -175,7 +175,7 @@ where I: IntoParallelIterator<Item = Result<File, TypesetError>> {
 }
 
 #[must_use]
-pub fn timestamp(now: &Zoned) -> Option<Timestamp> {
+pub fn timestamp(now: &ZonedDateTime) -> Option<Timestamp> {
     let now = now.with_time_zone(TimeZone::UTC);
     Datetime::from_ymd_hms(i32::from(now.year()), now.month().cast_unsigned(), now.day().cast_unsigned(), now.hour().cast_unsigned(), now.minute().cast_unsigned(), now.second().cast_unsigned())
         .map(Timestamp::new_utc)

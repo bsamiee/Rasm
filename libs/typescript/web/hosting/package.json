@@ -72,6 +72,7 @@
         "cheerio": "catalog:",
         "culori": "catalog:",
         "effect": "catalog:",
+        "miniflare": "catalog:",
         "postcss": "catalog:",
         "react": "catalog:",
         "react-dom": "catalog:",
@@ -90,6 +91,7 @@
         "cheerio": "catalog:peers",
         "culori": "catalog:peers",
         "effect": "catalog:peers",
+        "miniflare": "catalog:peers",
         "postcss": "catalog:peers",
         "react": "catalog:peers",
         "react-dom": "catalog:peers",
@@ -127,6 +129,9 @@
             "optional": true
         },
         "culori": {
+            "optional": true
+        },
+        "miniflare": {
             "optional": true
         },
         "postcss": {

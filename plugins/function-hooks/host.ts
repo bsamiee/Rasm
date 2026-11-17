@@ -17,6 +17,7 @@ const KEEP_SUCCESSES = { timeToLive: (exit: Exit.Exit<unknown, unknown>) => (Exi
 const Run = Schema.Struct({ command: Schema.Union([Schema.String, Schema.Struct({ argv: Schema.Array(Schema.String) })]) });
 const Steps = Schema.fromJsonString(Schema.Struct({ steps: Schema.Record(Schema.String, Schema.Record(Schema.String, Schema.Unknown)) }));
 const Installations = Schema.fromJsonString(Schema.toCodecJson(Schema.Record(Schema.String, Schema.Array(Installation))));
+const Readiness = Schema.Literals([0, 1, 2]);
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
@@ -37,6 +38,9 @@ class Machine extends Context.Service<Machine>()('@rasm/function-hooks/host/Mach
     make: Effect.gen(function* () {
         const [fs, path, spawner, home] = yield* Effect.all([FileSystem.FileSystem, Path.Path, ChildProcessSpawner.ChildProcessSpawner, Config.option(Config.String('HOME'))]);
         const nx = Effect.promise(() => Promise.all([import('@nx/devkit'), import('@nx/devkit/internal')]));
+        const registry = yield* Effect.cached(
+            Effect.flatMap(Effect.all([Effect.promise(() => import('nx/src/native')), nx]), ([{ RunningTasksService, connectToNxDb }, [, { workspaceDataDirectory }]]) => Effect.try({ try: () => new RunningTasksService(connectToNxDb(workspaceDataDirectory)), catch: HostError.of('nx') })),
+        );
         const slots = yield* Semaphore.make(availableParallelism());
         const run = Effect.fnUntraced(
             function* ([program, ...args]: Array.NonEmptyReadonlyArray<string>, { cwd, env = {}, stdin }: { readonly cwd: string; readonly env?: Readonly<Record<string, string>>; readonly stdin?: string }) {
@@ -106,6 +110,13 @@ class Machine extends Context.Service<Machine>()('@rasm/function-hooks/host/Mach
                 const [{ workspaceRoot }, { workspaceDataDirectory }] = yield* nx;
                 return root === workspaceRoot ? yield* Cache.get(graphs, yield* modified(path.join(workspaceDataDirectory, 'project-graph.json'))) : Option.none();
             }),
+            running: (ids: readonly string[]) =>
+                Effect.flatMap(registry, (service) =>
+                    Effect.try({
+                        try: () => service.getRunningTasks([...ids]).map((id) => ({ id, readiness: Schema.decodeUnknownOption(Readiness)(service.getTaskReadiness(id)), url: Option.fromNullishOr(service.getTaskReadyUrl(id)) })),
+                        catch: HostError.of('nx'),
+                    }),
+                ),
             steps: (root: string) => {
                 const hooks = path.join(root, '.config/hk.pkl');
                 return Effect.flatMap(modified(hooks), (at) => Cache.get(steps, [hooks, at]));
@@ -143,6 +154,7 @@ class Host extends Context.Service<Host>()('@rasm/function-hooks/host', {
             tracked: (file: string) => (inside(file, root) ? machine.tracked(root, file) : Effect.succeed(false)),
             installations: (names: readonly string[]) => Effect.map(output([WATCH_APPS, 'find', ...names]), (text) => Array.getSomes(text.split('\n').map((line) => Schema.decodeOption(Installations)(line))).flatMap((found) => Object.values(found).flat())),
             graph: machine.graph(root),
+            running: machine.running,
             steps: Effect.map(
                 machine.steps(root),
                 Function.flow(

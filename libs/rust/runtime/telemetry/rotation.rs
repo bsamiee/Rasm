@@ -74,7 +74,7 @@ impl RotatingFile {
             if self.file.metadata()?.len() > 0 {
                 fs_err::rename(&self.path, archived(&now.as_microsecond().to_string()))?;
             }
-            lock.set_modified(SystemTime::from(now))?;
+            lock.set_modified(SystemTime::try_from(now).map_err(io::Error::other)?)?;
             fs_err::read_dir(directory)?
                 .map(|entry| Ok(entry?.file_name().to_str().and_then(stamped)))
                 .filter_map(Result::transpose)

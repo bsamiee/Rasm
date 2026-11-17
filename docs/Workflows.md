@@ -4,7 +4,7 @@
 
 - Workflow `CI` runs on pull requests, pushes to `main`, and dispatch
 - Newer pushes to a pull request cancel its running CI
-- Jobs run `nx affected` over `check`, `test`, and `build`, as many tasks at once as their machine has cores (mise `[env]` `NX_PARALLEL`)
+- Jobs run `nx affected` over `check`, `test`, and `build`
 - Job `affected` runs `nx sync:check`, as CI task runs skip sync
 - Job `affected` runs `nx conformance:check`, as no Nx task runs the `nx.json` `conformance` rules
 - Job `affected` lists affected projects of technology `unreal` and the engines every tracked `.uproject` names
@@ -14,6 +14,9 @@
 - Job `linux` removes earlier runs' reports first, as the kept checkout holds them
 - Job `linux` starts daemon `playwright` before `nx affected` and stops it after, as the runner leaves a job's container holding its port
 - Job `macos` runs on GitHub-hosted runner `xcode-27` and selects `os:darwin` and `os:all` projects itself, as no Linux graph holds an Apple project
+- Job `windows` tests affected `os:win32` projects on GitHub-hosted Windows Server, under core-hour billing token `RHINO_TOKEN`
+- Job `windows` installs the newest Rhino of RhinoCommon's pinned major through `mcneel/setup-rhino3d` before `nx affected`, only when its own graph lists an affected `os:win32` project, as no Linux graph holds the tag
+- Job `windows` installs only the mise tools its steps and its Nx graph call, through `MISE_ENABLE_TOOLS`
 - Job `unreal` runs the projects `affected` lists in Epic's `dev-slim` image of each engine on instance `container`, where both lists hold one
 - Job containers install only the mise rows graph creation and Unreal targets read, under `.cache` of the checkout
 - CI and Release checkouts fetch full history, as `nx affected` and `nx release` compare commits a partial clone fetches one at a time

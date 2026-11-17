@@ -249,9 +249,9 @@ public static class Rows {
             .As()
             .Map(static touched => touched.Somes().Strict());
 
-    public static IO<Committed<Seq<RowPlan<T, RowSpec<T>>>>> Reconcile<T>(RhinoDoc doc, TableKind<T> kind, Seq<RowSpec<T>> specs, Prune prune, string name, RedrawPolicy redraw)
+    public static IO<Committed<Seq<RowPlan<T, RowSpec<T>>>>> Reconcile<T>(RhinoDoc doc, TableKind<T> kind, Seq<RowSpec<T>> specs, Prune prune, RedrawPolicy redraw)
         where T : ModelComponent =>
-        Commits.Commit(doc, name, redraw,
+        Commits.Commit(doc, $"{nameof(Reconcile)} {ManifestTable.GetModelComponentTypeFromGenericType<T>()}", redraw,
             from plan in Plan(doc, kind, specs, prune)
             from applied in Apply(doc, kind, plan)
             select plan);

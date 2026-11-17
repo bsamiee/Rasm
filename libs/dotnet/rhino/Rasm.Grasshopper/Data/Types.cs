@@ -342,6 +342,9 @@ public static class DataTypes {
 
     internal static Guid IoId(Type type) =>
         Uuid.NewNameBased(
-            Optional(type.Assembly.GetCustomAttribute<GuidAttribute>()).Bind(static declared => parseGuid(declared.Value)).IfNone(static () => Session.PlugIn.Id),
+            (Optional(type.Assembly.GetCustomAttribute<GuidAttribute>()).Bind(static declared => parseGuid(declared.Value))
+                | Optional(Grasshopper2.Framework.PluginServer.FindPluginForObject(type)).Map(static plugin => plugin.Id)
+                | Session.BoundPlugIn.Map(static plugIn => plugIn.Id))
+            .IfNone(() => throw new GrasshopperFault(type, GrasshopperReason.Missing).ToException()),
             type.ToString());
 }

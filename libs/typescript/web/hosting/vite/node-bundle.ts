@@ -1,4 +1,4 @@
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { layer } from '@effect/platform-node/NodeServices';
 import { Array, Cause, Effect, FileSystem, Formatter, Function, Option, Record } from 'effect';
 import type { Plugin } from 'vite';
@@ -15,7 +15,12 @@ const STARTED = { id: new RegExp(`^${RegExp.escape(START)}$`, 'u') };
 const sites = Effect.fnUntraced(function* (app: App, root: string, project: string) {
     const [fs, folder] = [yield* FileSystem.FileSystem, join(root, '.openai')];
     const [d1, r2] = [Record.keys(Record.filter(app.env, App.Binding.$is('sqlite'))), Record.keys(Record.filter(app.env, App.Binding.$is('bucket')))];
-    yield* d1.length > 1 || r2.length > 1 ? Effect.fail(new Cause.IllegalArgumentError(`${app.name} binds sqlite stores ${d1.join(', ')} and bucket stores ${r2.join(', ')}, OpenAI Sites binds at most one of each`)) : Effect.void;
+    const browsed = Record.keys(Record.filter(app.env, (binding) => App.Binding.$is('bucket')(binding) && Array.isReadonlyArrayNonEmpty(binding.cors)));
+    const refusals = [
+        ...(d1.length > 1 || r2.length > 1 ? [`binds sqlite stores ${d1.join(', ')} and bucket stores ${r2.join(', ')}, OpenAI Sites binds at most one of each`] : []),
+        ...(Array.isArrayNonEmpty(browsed) ? [`opens buckets ${browsed.join(', ')} to presigned browser requests, OpenAI Sites serves R2 as a Worker binding alone with no S3 endpoint or signing key`] : []),
+    ];
+    yield* Array.isArrayNonEmpty(refusals) ? Effect.fail(new Cause.IllegalArgumentError(`${app.name} ${refusals.join('; ')}`)) : Effect.void;
     yield* fs.makeDirectory(folder, { recursive: true });
     yield* fs.writeFileString(join(folder, 'hosting.json'), `${Formatter.formatJson({ ...Record.getSomes({ d1: Array.head(d1), r2: Array.head(r2) }), project_id: project }, { space: 4 })}\n`);
 }, Effect.provide(layer));
@@ -57,6 +62,16 @@ const nodeBundle = (app: App, entry: string): Plugin => ({
                 Effect.asVoid,
                 Effect.runPromise,
             ),
+    },
+    closeBundle: {
+        order: 'post',
+        handler() {
+            const { config } = this.environment;
+            const target = this.environment.getTopLevelConfig().environments[App.bundle.environment];
+            return config.consumer === 'client' && config.command === 'build' && target !== undefined
+                ? FileSystem.FileSystem.use((fs) => fs.copy(resolve(config.root, config.build.outDir), join(resolve(config.root, target.build.outDir), App.bundle.assets), { overwrite: true })).pipe(Effect.provide(layer), Effect.runPromise)
+                : undefined;
+        },
     },
 });
 

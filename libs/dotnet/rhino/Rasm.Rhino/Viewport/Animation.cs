@@ -63,16 +63,16 @@ public sealed record AnimationSequence(AnimationKind Kind, int Frames, string Vi
 
 public static class Animations {
     public static IO<Option<AnimationSequence>> Read(RhinoDoc doc) =>
-        Products.Of(() => doc.AnimationProperties).Bind(static held => IO.lift(Kind(held).Bind(found => found.Traverse(kind => Sequence(held, kind)).As()))).Bracket();
+        use(Products.Of(() => doc.AnimationProperties)).Bind(static held => IO.lift(Kind(held).Bind(found => found.Traverse(kind => Sequence(held, kind)).As()))).Bracket();
 
     public static IO<Unit> Write(RhinoDoc doc, AnimationSequence sequence) =>
-        Products.Of(() => doc.AnimationProperties).Bind(held => IO.lift(() => {
+        use(Products.Of(() => doc.AnimationProperties)).Bind(held => IO.lift(() => {
             Written(sequence).Iter(write => write(held));
             doc.AnimationProperties = held;
         })).Bracket();
 
     internal static IO<Unit> Reassigned(RhinoDoc doc, HashMap<Guid, Guid> moves) =>
-        Products.Of(() => doc.AnimationProperties).Bind(held => IO.lift(() => moves.Find(held.DisplayMode).Iter(target => {
+        use(Products.Of(() => doc.AnimationProperties)).Bind(held => IO.lift(() => moves.Find(held.DisplayMode).Iter(target => {
             held.DisplayMode = target;
             doc.AnimationProperties = held;
         }))).Bracket();

@@ -13,7 +13,8 @@ public static class CurveCrossings {
 
     public static IO<Seq<IntersectionEvent>> Of(Func<CurveIntersections?> host, [CallerArgumentExpression(nameof(host))] string member = "") =>
         (from events in Products.Maybe(host, member)
-         select events.Map(static found => Conversions.Rows(found)).IfNone(Seq<IntersectionEvent>())).Bracket();
+         from rows in events.Traverse(static found => use(IO.pure(found)).Map(static held => Conversions.Rows(held))).As()
+         select rows.IfNone(Seq<IntersectionEvent>())).Bracket();
 
     public static IO<(Seq<IntersectionEvent> Events, Seq<int> Invalid, string Log)> Validated(
         Func<(CurveIntersections? Events, int[] Invalid, TextLog Log)> host, [CallerArgumentExpression(nameof(host))] string member = "") =>

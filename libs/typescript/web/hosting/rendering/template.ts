@@ -1,5 +1,5 @@
 import { load } from 'cheerio/slim';
-import { Cause, Context, Duration, Effect, Exit, Function, Layer, Option, Record, Schema, UndefinedOr } from 'effect';
+import { Array, Cause, Context, Duration, Effect, Exit, Function, Layer, Option, Record, Schema, UndefinedOr } from 'effect';
 import { HttpServerResponse } from 'effect/http';
 import { renderToReadableStream } from 'react-dom/server';
 import { HostingError } from '#/app/error';
@@ -20,7 +20,7 @@ class Template extends Context.Service<Template, Effect.Effect<string, HostingEr
                 Effect.cachedWithTTL((exit) => (Exit.isSuccess(exit) ? Duration.infinity : Duration.zero)),
             ),
         );
-    static readonly render = Effect.fn('Template.render')(function* <S extends Schema.Codec<unknown, unknown>>(shell: Shell<S>, value: S['Type']) {
+    static readonly render = Effect.fn('Template.render')(function* <S extends Schema.Codec<unknown, unknown>>(shell: Shell<S>, value: S['Type'], sources: Record.ReadonlyRecord<string, readonly string[]> = {}) {
         const [template, context] = yield* Effect.all([Effect.flatten(Template), Effect.context<never>()]);
         const onError = (error: unknown) => Effect.runSyncWith(context)(Effect.logError(Cause.die(error)));
         const [serialized, markup] = yield* Effect.all(
@@ -42,7 +42,19 @@ class Template extends Context.Service<Template, Effect.Effect<string, HostingEr
         upsert('title', '<title>').text((_, current) => Option.getOrElse(title, Function.constant(current)));
         const tagged = (attribute: string, contents: Record.ReadonlyRecord<string, string>) => Record.collect(contents, (key, content) => upsert(`meta[${attribute}="${key}"]`, '<meta>').attr({ [attribute]: key, content }));
         Record.collect(Record.map(meta, Record.getSomes), tagged);
-        return HttpServerResponse.html(document.html()).pipe(UndefinedOr.match(shell.policy, { onUndefined: () => Function.identity, onDefined: (policy) => HttpServerResponse.setHeader('Content-Security-Policy', Record.collect(policy, (directive, sources) => `${directive} ${sources.join(' ')}`).join('; ')) }));
+        return HttpServerResponse.html(document.html()).pipe(
+            UndefinedOr.match(shell.policy, {
+                onUndefined: () => Function.identity,
+                onDefined: (policy) =>
+                    HttpServerResponse.setHeader(
+                        'Content-Security-Policy',
+                        Record.collect(
+                            Record.union(policy, sources, (stated: readonly string[], added: readonly string[]) => [...stated, ...added]),
+                            (directive, allowed) => `${directive} ${Array.dedupe(allowed).join(' ')}`,
+                        ).join('; '),
+                    ),
+            }),
+        );
     });
 }
 

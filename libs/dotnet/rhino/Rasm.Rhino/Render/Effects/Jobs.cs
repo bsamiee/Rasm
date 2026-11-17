@@ -25,7 +25,7 @@ internal sealed class EffectJob(Func<Rectangle, PostEffectJobChannels, IO<Unit>>
             definition.Execute(state, new EffectFrame(area, held.Extent, held.Rendering, inputs, rgba)))
         from ran in held.Parallel
             ? (from job in use(() => new EffectJob((area, access) => Pass(access.GetChannel, access.GetChannel, area, held.Channels, execute, commit: false)))
-               from engine in Products.Of(pipeline.ThreadEngine)
+               from engine in use(Products.Of(pipeline.ThreadEngine))
                from ran in Products.Accepted(() => engine.RunPostEffect(job, pipeline, effect, held.Area, Channels.Required(held.Channels)))
                select ran).Bracket()
             : Pass(pipeline.GetChannelForRead, pipeline.GetChannelForWrite, held.Area, held.Channels, execute, commit: true)

@@ -36,9 +36,7 @@ public abstract partial record CurvatureSource {
         IO.lift(() => RhinoFault.Unless(mesh.ComputeCurvatureApproximation((int)style, out double[] values), RhinoReason.Declined, style).Map(_ => values));
 
     private static IO<Seq<Option<SurfaceCurvature>>> Sampled(Func<Seq<SurfaceCurvature?>> samples) =>
-        from slots in IO.lift(() => samples().Map(static sample => Optional(sample)).Strict())
-        from owned in Products.Many(() => slots.Somes(), required: false)
-        select slots;
+        IO.lift(() => samples().Map(static sample => Optional(sample)).Strict());
 
     private static SurfaceCurvature? Regular(Surface surface, Point2d uv) =>
         surface.IsAtSingularity(uv.X, uv.Y, exact: false) ? null : surface.CurvatureAt(uv.X, uv.Y);

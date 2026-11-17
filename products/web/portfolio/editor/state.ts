@@ -69,4 +69,4 @@ const updateEntry = (id: typeof EntryId.Type, update: (entry: typeof Entry.Type)
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { assets, deleteRequest, discardRequest, draft, hero, portfolio, recoveryRequest, reloadRequest, saveRequest, updateEntry };
+export { assets, deleteRequest, discardRequest, draft, hero, PortfolioClient, portfolio, recoveryRequest, reloadRequest, saveRequest, updateEntry };

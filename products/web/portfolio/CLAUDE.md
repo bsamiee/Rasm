@@ -31,7 +31,7 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 - `Owner` refuses a request with a body when its `Sec-Fetch-Site` is not `same-origin`
 - Asset `read` types its path and failures in `Api` and answers with the ranged `HttpServerResponse` from `ObjectStorage.serve`
 - Rendered page is the only `HttpRouter` route
-- Multipart field names are `uploadField` in `model/api.ts`, editor and Worker read them, refused parts fail with an `UploadRefused` reason
+- Asset `begin` records an upload attempt and its object keys, `sign` presigns each storage request for a key of an open attempt, `complete` checks every object and publishes the asset
 
 ## [03]-[WORKER]
 
@@ -47,7 +47,7 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 - Draft saves, their publish, and the stored revision read share one `atomic` batch, as do each release sweep and its object list
 - Drafts placing a missing, mistyped, or out-of-range file fail with `PlacementConflict` naming each placement path
 - `ObjectStorage.serve` evaluates HTTP preconditions and ranges for media reads, inline with `nosniff`, an original under its asset name
-- Upload bodies send the asset field, then each rendition named by its width in asset order, then the original, each typed with its media type
+- Browsers write media bytes straight to the bucket through `ObjectStorage.sign`, which states each object's type and size and completes a key once through `If-None-Match`
 - Uploads are idempotent per asset id, a repeat with equal metadata succeeds and differing metadata conflicts
 - Asset JSON holds upload attempts and object keys, interrupted uploads and removals remain available for owner cleanup
 - Asset reads serve assets placed in published work to anyone with a one-day browser cache lifetime
@@ -106,21 +106,22 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 
 [UPLOADS]: Uppy owns the upload queue from one instance in an `Atom.keepAlive` atom with a finalizer:
 - Preprocessing measures each file and renders image renditions through `Inspection`, then decodes an `Asset` before upload
-- `preprocessUploads` runs in a `SecureRandom` runtime atom the uploads view mounts, its scope removes the preprocessor
+- `processUploads` runs in the `PortfolioClient` runtime atom the uploads view mounts: preprocessing begins the attempt and puts each rendition, postprocessing completes it, and its scope removes both processors
 - Preprocessing failures name their remedy: an unlocked export for a protected PDF, a new export for a refused file, a retry for a failed load
 - Each file's destination stays editable until its processing starts, PDF sheets are chosen after upload
 - Success places compositions at their destination in queue order under concurrent uploads
 - Upload recovery lists incomplete uploads and removals, each with one discard action the owner confirms
-- Uppy retries a request `isTransientUpload` accepts, an `UploadRefused` body fails it with its reason
+- `@uppy/aws-s3` uploads each original as a multipart upload under its attempt key, an `UploadRefused` from `sign` fails it with its reason
 - Until Dashboard renders one Informer, the view passes `disableInformer` and renders Uppy `info` state as one alert per message
 
 ## [07]-[HOSTING]
 
 [DECLARATION]: `hosting.config.ts` declares the app once as an `App`, and every runtime, projection, and deployment reads it:
-- `DB` is a `sqlite` store and `BUCKET` a `bucket` with its upload prefix and lifecycle rules
+- `DB` is a `sqlite` store and `BUCKET` a `bucket` with its lifecycle rules and the CORS rule direct uploads need
 - `allowed` holds the addresses a sign-in accepts, `limits` the CPU count and memory of a container
-- `targets` holds `Cloudflare` and `Sites`, the OpenAI Sites project whose `.openai/hosting.json` `nodeBundle` writes at build
-- `cloudflare.config.ts` projects the `App` through `worker(hosting, config)`, which adds the assets binding, `OTEL_SERVICE_NAME`, and JSON binding `HOSTING`
+- `targets` holds `Cloudflare` alone
+- `cloudflare.config.ts` projects the `App` through `worker(hosting, config)`, which adds the assets binding, `OTEL_SERVICE_NAME`, JSON binding `HOSTING`, and the `AWS_*` secrets a bucket signs with
+- `worker.plugin(hosting)` before `cloudflare()` in `vite.config.ts` sets those secrets for `vite dev` and `vite preview` to the local S3 endpoint of the declared `server.port` or `preview.port`, and deploy mints them
 - Worker and browser modules import no module `cloudflare.config.ts` loads, as the Cloudflare Vite plugin refuses to serve each in `vite dev`
 - Worker binding types are the global `Env` that `cf workers types` generates from `cloudflare.config.ts`
 - `tsconfig.json` references one program per runtime: `tsconfig.app.json` browser code, `tsconfig.node.json` Node entry and tool configs
@@ -131,7 +132,7 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 - Row `cloudflare` creates each D1 database and R2 bucket a binding names, bucket lifecycle rules, and an Access application on the sign-in path
 - `--destroy` on a disposable row empties its bucket and removes every resource, reading the Build Output `build--vite` wrote
 
-[SERVERS]: `server/app.ts` composes routes over passed services, D1 and `r2Storage` from the Worker, SQLite and path-style `s3Storage` from Node:
+[SERVERS]: `server/app.ts` composes routes over passed services, D1 and `r2Storage` from the Worker, SQLite and path-style `s3Storage` from Node, each signing through the `AWS_*` variables of its bucket for the origin `S3_PUBLIC_ENDPOINT_URL` names where browsers reach it elsewhere:
 - `server/worker.ts` passes `env.HOSTING` and its routes to `serveWorker`, which decodes each binding `HOSTING` names and serves `Template` from the assets binding
 - `server/main.ts` passes the `App` and its routes to `serveNode`, which decodes each binding and serves the HTTP server on `PORT`
 - `serveWorker` writes one JSON log record per console line, records each span in the Workers trace, and exports at invocation end
@@ -139,16 +140,16 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 - Each server exports each signal its `OTEL_<SIGNAL>_EXPORTER` variable names
 - `.storybook/main.ts` sets `viteConfigPath: null` and states the React and Tailwind plugins its stories read, so no `vite.config.ts` plugin runs
 - `siteHead` takes `favicon.svg` and `site/theme.css` tokens, emitting the ICO, Apple touch icon, painted SVG, `theme-color`, and `color-scheme`
-- `site/shell.tsx` states the whole content security policy of a production build, and `Template.render` sets no header without one
+- `site/shell.tsx` states the content security policy of a production build, the page adds the storage origin to `connect-src`, and `Template.render` sets no header without one
 
 [IDENTITY]: Views and handlers read `Identity.sites` headers, which each server sets from one trusted source after removing any a client sent:
-- OpenAI Sites signs users in at its own boundary, a Worker with no `ACCESS` variable serving its headers unchanged
+- `vite dev` runs the Worker with no `ACCESS` variable, which serves the identity headers a request carries, as the Playwright suite sends them
 - `ACCESS` holds one `Access` as JSON, source `Forwarded` reading headers a proxy sets
 - `Access` source `Cloudflare` verifies a Cloudflare Access token from its header or `CF_Authorization` cookie
 - `serveNode` fails at start without `ACCESS`
 - Pages are public, the trusted source guards the sign-in path of `Identity.sites.paths`, and owner endpoints refuse every other session
 - `Enrollment.session` answers `signedOut`, `signedIn`, or `allowed`, enrolling the first user id an `allowed` address signs in with
-- `ALLOWED` replaces `allowed` with a JSON list, and `vite dev` sets it to the `sites()` local sign-in address
+- `ALLOWED` replaces `allowed` with a JSON list, and `nx install` sets it to the owner address of the local sign-in service
 - `hosting.config.ts` states the owner address, the commit author address and no secret
 
 [STORAGE]: `server/catalog.ts` declares document, asset, and owner tables as `Relation` values:

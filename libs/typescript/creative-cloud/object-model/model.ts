@@ -91,16 +91,20 @@ class HostError extends Schema.TaggedError<HostError, { readonly brand: unique s
     }),
     subject: Schema.String,
     cause: Schema.optionalKey(Schema.Defect()),
+    message: Schema.String,
 }) {
-    static readonly refused = (subject: string) => (cause?: unknown) => HostError.make({ reason: { _tag: 'Refused' }, subject, ...(cause === undefined ? {} : { cause }) });
-    static readonly thrown = (subject: string, line: Option.Option<number>) => (cause: unknown) => HostError.make({ reason: { _tag: 'Thrown', line }, subject, cause });
-
-    override get message(): string {
-        return Match.value(this.reason).pipe(
-            Match.tag('Thrown', ({ line }) => [...Option.toArray(line).map((at) => `line ${at}`), this.subject].join(': ')),
-            Match.orElse(({ _tag }) => [`${this.subject} ${String.toLowerCase(_tag)}`, ...(this.cause === undefined ? [] : [Formatter.format(this.cause)])].join(': ')),
-        );
-    }
+    static readonly of = (reason: HostError['reason'], subject: string) => (cause?: unknown) =>
+        HostError.make({
+            reason,
+            subject,
+            ...(cause === undefined ? {} : { cause }),
+            message: Match.value(reason).pipe(
+                Match.tag('Thrown', ({ line }) => [...Option.toArray(line).map((at) => `line ${at}`), subject].join(': ')),
+                Match.orElse(({ _tag }) => [`${subject} ${String.toLowerCase(_tag)}`, ...(cause === undefined ? [] : [Formatter.format(cause)])].join(': ')),
+            ),
+        });
+    static readonly refused = (subject: string) => HostError.of({ _tag: 'Refused' }, subject);
+    static readonly thrown = (subject: string, line: Option.Option<number>) => HostError.of({ _tag: 'Thrown', line }, subject);
 }
 
 // --- [EXPORTS] -------------------------------------------------------------------------

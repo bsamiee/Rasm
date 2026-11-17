@@ -1,4 +1,5 @@
 import { isIPv4 } from 'node:net';
+import aws from '@pulumi/aws';
 import { DnsRecord, getZoneOutput } from '@pulumi/cloudflare';
 import command, { remote } from '@pulumi/command';
 import { Container, type ContainerArgs, Network, Provider, type ProviderArgs, RemoteImage, Volume } from '@pulumi/docker';
@@ -8,6 +9,7 @@ import { all, type CustomResourceOptions, getOrganization, getProject, type Inpu
 import { RandomPassword } from '@pulumi/random';
 import { getDeviceOutput } from '@pulumi/tailscale';
 import { Secret } from '@pulumiverse/doppler';
+import type { container } from '@rasm/hosting/container';
 import { Access, Identity } from '@rasm/hosting/identity';
 import { Array, Data, Duration, Effect, Function, Option, Record, Schema, Struct } from 'effect';
 import type { configs } from '#/repository-stack';
@@ -45,7 +47,7 @@ const local = { host: 'local.rasm.localhost', owner: 'owner@rasm.localhost' } as
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Role = Data.taggedEnum<Role>();
-const Stored = Schema.Struct(Struct.Record(['server', 'within', 'region', 'user', 'key'], Schema.String));
+const Stored = Schema.Struct(Struct.Record(['server', 'within', 'origin', 'region', 'user', 'key'], Schema.String));
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -107,7 +109,7 @@ class Machine extends Data.Class<{
     }
 
     imaged(image: string, inline: string, args: Pick<dockerBuild.ImageArgs, 'context'> = {}) {
-        return new dockerBuild.Image(`${this.name}-${image}`, { dockerfile: { inline }, context: { location: '-' }, tags: [image], load: true, push: false, ...args }, { provider: this.builder }).ref;
+        return new dockerBuild.Image(`${this.name}-${image}`, { dockerfile: { inline }, context: { location: '-' }, tags: [image], load: true, push: false, ...args }, { provider: this.builder }).digest;
     }
 
     kept(volume: string) {
@@ -157,31 +159,51 @@ const stored = (machine: Machine) => {
         onNone: () => ({ ips: output(['127.0.0.1']), address: '127.0.0.1' }),
         onSome: () => ({ ips: getDeviceOutput({ hostname: machine.name }).addresses.apply(Array.filter(isIPv4)), address: machine.name }),
     });
-    const serving = machine.contained('storage', ['CMD', 'curl', '--fail', '--silent', `http://127.0.0.1:${ports.internal}${ports.health}`], {
-        image: machine.pulled('rustfs/rustfs:1.0.5'),
-        envs: [interpolate`RUSTFS_ACCESS_KEY=${user}`, interpolate`RUSTFS_SECRET_KEY=${key}`, 'RUSTFS_CONSOLE_ENABLE=false', 'RUSTFS_OBS_LOG_DIRECTORY='],
-        ports: published.ips.apply(Array.map((ip) => ({ internal: ports.internal, external: ports.external, ip }))),
-        ulimits: [{ name: 'nofile', soft: 1_048_576, hard: 1_048_576 }],
-        mounts: [{ type: 'volume', source: machine.kept('storage'), target: '/data' }],
-    });
-    return output({ server: serving.urn.apply(() => `${published.address}:${ports.external}`), within: `http://storage:${ports.internal}`, region: 'us-east-1', user, key });
+    const { address, named, labels } = machine.routed('storage', ports.internal);
+    const serving = machine.contained(
+        'storage',
+        ['CMD', 'curl', '--fail', '--silent', `http://127.0.0.1:${ports.internal}${ports.health}`],
+        {
+            image: machine.pulled('rustfs/rustfs:1.0.6'),
+            envs: [interpolate`RUSTFS_ACCESS_KEY=${user}`, interpolate`RUSTFS_SECRET_KEY=${key}`, 'RUSTFS_CONSOLE_ENABLE=false', 'RUSTFS_OBS_LOG_DIRECTORY='],
+            ports: published.ips.apply(Array.map((ip) => ({ internal: ports.internal, external: ports.external, ip }))),
+            ulimits: [{ name: 'nofile', soft: 1_048_576, hard: 1_048_576 }],
+            mounts: [{ type: 'volume', source: machine.kept('storage'), target: '/data' }],
+            labels,
+        },
+        { dependsOn: [proxied(machine), ...named] },
+    );
+    return output({ server: serving.urn.apply(() => `${published.address}:${ports.external}`), within: `http://storage:${ports.internal}`, origin: `https://${address}`, region: 'us-east-1', user, key });
 };
 
-const bucketed = (name: string, storage: Output<typeof Stored.Type>, buckets: Readonly<Record<string, { readonly kept: boolean; readonly expire: Readonly<Record<string, Duration.Duration>> }>>) => {
+const bucketed = (name: string, storage: Output<typeof Stored.Type>, buckets: Effect.Success<ReturnType<typeof container>>['buckets']) => {
     const provider = new minio.Provider(name, { minioServer: storage.server, minioUser: storage.user, minioPassword: storage.key });
-    const created = Record.collect(buckets, (bucket, { kept, expire }) => {
+    const s3 = new aws.Provider(name, {
+        region: storage.region,
+        accessKey: storage.user,
+        secretKey: storage.key,
+        endpoints: [{ s3: interpolate`http://${storage.server}` }],
+        s3UsePathStyle: true,
+        skipCredentialsValidation: true,
+        skipMetadataApiCheck: true,
+        skipRegionValidation: true,
+        skipRequestingAccountId: true,
+    });
+    const created = Record.collect(buckets, (bucket, { kept, abort, expire, cors }) => {
         const made = new minio.S3Bucket(bucket, { bucket, forceDestroy: !kept }, { provider, protect: kept });
-        const rules = Record.collect(expire, (filter, age) => ({ id: `expire ${filter}*`, filter, expiration: `${Math.ceil(Duration.toDays(age))}d` }));
-        return { arn: made.arn, expiry: new minio.IlmPolicy(bucket, { bucket: made.bucket, rules }, { provider }).id };
+        const rules = [{ id: 'abort', abortIncompleteMultipartUpload: { daysAfterInitiation: Math.ceil(Duration.toDays(abort)) } }, ...Record.collect(expire, (prefix, age) => ({ id: `expire ${prefix}*`, ...(prefix === '' ? {} : { filter: { prefix } }), expiration: { days: Math.ceil(Duration.toDays(age)) } }))];
+        const allowed = cors.map(({ origins, methods, headers, exposed, age }) => ({ allowedOrigins: [...origins], allowedMethods: [...methods], allowedHeaders: [...headers], exposeHeaders: [...exposed], maxAgeSeconds: Duration.toSeconds(age) }));
+        const configured = [new minio.S3BucketLifecycle(bucket, { bucket: made.bucket, rules }, { provider }), ...(Array.isArrayNonEmpty(allowed) ? [new aws.s3.BucketCorsConfiguration(bucket, { bucket: made.bucket, corsRules: allowed }, { provider: s3 })] : [])];
+        return { arn: made.arn, configured: configured.map(({ id }) => id) };
     });
     const policy = jsonStringify({ Version: '2012-10-17', Statement: [{ Effect: 'Allow', Action: ['s3:*'], Resource: created.flatMap(({ arn }) => [arn, interpolate`${arn}/*`]) }] });
     const account = new minio.IamServiceAccount(name, { targetUser: storage.user, policy }, { provider });
-    return { AWS_ENDPOINT_URL_S3: storage.within, AWS_REGION: storage.region, AWS_ACCESS_KEY_ID: all([account.accessKey, ...created.map(({ expiry }) => expiry)]).apply(([id]) => id), AWS_SECRET_ACCESS_KEY: account.secretKey };
+    return { AWS_ENDPOINT_URL_S3: storage.within, AWS_REGION: storage.region, AWS_ACCESS_KEY_ID: all([account.accessKey, ...created.flatMap(({ configured }) => configured)]).apply(([id]) => id), AWS_SECRET_ACCESS_KEY: account.secretKey };
 };
 
 const cached = (machine: Machine, { name, kept }: Data.TaggedEnum.Value<Role, 'Cache'>, project: string) => {
     const { port, health } = { port: 3000, health: '/health' };
-    const [proxy, scoped] = [proxied(machine), bucketed(name, stored(machine), { [name]: { kept: false, expire: { '': kept } } })];
+    const [proxy, scoped] = [proxied(machine), bucketed(name, stored(machine), { [name]: { kept: false, abort: kept, expire: { '': kept }, cors: [] } })];
     const tokens = Record.map({ NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN: 'READ_ONLY_ACCESS_TOKEN', NX_CACHE_WRITE_TOKEN: 'SERVICE_ACCESS_TOKEN' }, (variable, row) => ({ variable, value: new RandomPassword(`${machine.name}-${row}`, { length: 48, special: false }).result }));
     const { address, named, labels } = machine.routed(name, port, { [`traefik.http.services.${name}.loadbalancer.healthcheck.path`]: health });
     const image = machine.imaged(

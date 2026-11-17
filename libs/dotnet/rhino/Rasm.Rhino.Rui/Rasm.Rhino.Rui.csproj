@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Description>Plug-in RUI files derived from code at build time</Description>
+        <Description>Build-time writer of Rhino toolbar files from plug-in code</Description>
         <OutputType>Exe</OutputType>
     </PropertyGroup>
 
@@ -8,8 +8,11 @@
         <PackageReference Include="RhinoCommon" />
     </ItemGroup>
 
-    <ItemGroup Label="Core">
+    <ItemGroup Label="Functional Programming">
         <PackageReference Include="LanguageExt.Core" />
+    </ItemGroup>
+
+    <ItemGroup Label="Identifiers and Hashing">
         <PackageReference Include="UUIDNext" />
     </ItemGroup>
 

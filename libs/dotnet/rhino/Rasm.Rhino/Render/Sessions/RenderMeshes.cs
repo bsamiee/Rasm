@@ -93,9 +93,9 @@ public static class Meshing {
     public static IO<RenderMeshes> RenderMeshes(RhinoObject rhinoObject, MeshRequest request, Seq<InstanceObject> ancestry) =>
         Products.Of(() => Rendered(rhinoObject, request, ancestry))
             .Bind(static read => read.Out.HasFlag(RenderMeshProvider.Flags.Canceled)
-                ? release(read.Value) >> IO.fail<(RenderMeshes Value, RenderMeshProvider.Flags Out)>(Errors.Cancelled)
+                ? IO.lift(read.Value.Dispose) >> IO.fail<(RenderMeshes Value, RenderMeshProvider.Flags Out)>(Errors.Cancelled)
                 : read.Out.HasFlag(RenderMeshProvider.Flags.Incomplete)
-                    ? release(read.Value) >> IO.lift(static () => RhinoApp.Wait()) >> IO.pure(read)
+                    ? IO.lift(read.Value.Dispose) >> IO.lift(static () => RhinoApp.Wait()) >> IO.pure(read)
                     : IO.pure(read))
             .RepeatUntil(static read => !read.Out.HasFlag(RenderMeshProvider.Flags.Incomplete))
             .Map(static read => read.Value);

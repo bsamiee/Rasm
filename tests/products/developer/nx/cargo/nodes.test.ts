@@ -1,6 +1,9 @@
+import { join } from 'node:path';
 import type { CreateNodesContext } from '@nx/devkit';
 import { resetWorkspaceContext } from '@nx/devkit/internal';
 import { createNodes } from '@rasm/nx-cargo';
+import { refused } from '@rasm/testing/errors';
+import { pathed, refusing } from '@rasm/testing/nx';
 import { TempFs } from '@rasm/testing/temp-fs';
 import { Array, Predicate } from 'effect';
 import { describe, expect, test, vi } from 'vitest';
@@ -173,5 +176,11 @@ describe('@rasm/nx-cargo/plugin/nodes', { timeout: 60_000 }, () => {
                 },
             },
         });
+    });
+
+    it.for(refusing('cargo'))('should report the command and $case of cargo as the error of the manifest', async ({ scripts, refusal }, { tempFs, context }) => {
+        pathed(join(tempFs.tempDir, '.bin'), scripts);
+
+        await expect(createNodesFunction(['proj/Cargo.toml'], {}, context)).rejects.toSatisfy(refused(refusal));
     });
 });

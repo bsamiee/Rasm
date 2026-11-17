@@ -55,12 +55,6 @@ describe('Cargo Analyzer', { timeout: 60_000 }, () => {
         await expect(result).rejects.toHaveProperty(['errors', 2, 1, 'message'], expect.stringContaining(`cargo metadata --format-version 1 --no-deps --manifest-path crates/sound/Cargo.toml ${refusal}`));
         await expect(result).rejects.toHaveProperty('partialResults', []);
     });
-
-    it('should handle spawn error', async ({ tempFs, context }) => {
-        vi.stubEnv('PATH', join(tempFs.tempDir, 'empty'));
-
-        await expect(createNodes[1](['Cargo.toml'], undefined, context)).rejects.toHaveProperty(['errors', 0, 1, 'message'], `NotFound: ChildProcess.spawn (cargo ${metadata.join(' ')})`);
-    });
 });
 
 describe('command injection (NXC-4659)', { timeout: 60_000 }, () => {

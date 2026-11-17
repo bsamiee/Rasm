@@ -100,11 +100,7 @@ public static class RhinoObjects {
             from cut in Products.Of(() => thickness.Match(
                 Some: value => (o.CreateSlices(plane, name, value, tolerances.Absolute, out ObjectAttributes[] rows), rows),
                 None: () => (o.CreateSections(plane, name, tolerances.Absolute, out ObjectAttributes[] rows), rows)))
-            from rows in toSeq(cut.Value).Zip(toSeq(cut.Out)).TraverseM(static pair =>
-                from geometry in use(() => pair.First)
-                from attributes in use(() => pair.Second)
-                select (Geometry: geometry, Attributes: attributes)).As()
-            select rows;
+            select toSeq(cut.Value).Zip(toSeq(cut.Out)).Map(static pair => (Geometry: pair.First, Attributes: pair.Second)).Strict();
     }
 
     // --- [INTERFERENCES]

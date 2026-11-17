@@ -28,7 +28,7 @@ public sealed class Fixtures : INotifyTestLifecycleAsync {
 
     public ValueTask<T> TakeAsync<T>(IO<Fixture<T>> open) =>
         (from scope in IO.lift(() =>
-             TestContext.Current.Test is { } test && scopes.TryGetValue(test, out Atom<Seq<Func<TestResult, IO<Unit>>>>? held) ? held : throw new InvalidOperationException(typeof(T).FullName))
+             TestContext.Current.Test is { } test && scopes.TryGetValue(test, out Atom<Seq<Func<TestResult, IO<Unit>>>>? held) ? held : throw new InvalidOperationException($"{typeof(T).Name} fixture taken outside a running test: register [assembly: AssemblyFixture(typeof(Fixtures))] and take it inside the test body"))
          from opened in open
          from taken in IO.lift(() => scope.Swap(settles => opened.Settle.Cons(settles)))
          select opened.Value).RunAsync(TestContext.Current.CancellationToken);
@@ -40,6 +40,9 @@ public sealed class Fixtures : INotifyTestLifecycleAsync {
                select settled).RunAsync(CancellationToken.None).ConfigureAwait(false);
 
     // --- [LOCAL]
+
+    public static IO<Fixture<DirectoryInfo>> Folder { get; } =
+        IO.lift(static () => Directory.CreateTempSubdirectory()).Map(static folder => new Fixture<DirectoryInfo>(folder, _ => IO.lift(() => folder.Delete(recursive: true))));
 
     public static IO<Fixture<SqliteConnection>> Sqlite { get; } =
         from connection in IO.lift(static () => new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = ":memory:" }.ConnectionString))

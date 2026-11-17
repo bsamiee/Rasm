@@ -53,7 +53,7 @@ public static class DisplayModes {
         from package in IO.lift(FolderPath.Installed(Session.Assembly))
         from declared in spec.Modes
         let rows = declared.Map(mode => (Id: Id(owner, mode), Mode: mode)).Strict()
-        from present in Products.Many(static () => DisplayModeDescription.GetDisplayModes()).Map(static modes => modes.Map(static mode => (mode.Id, mode.EnglishName)).Strict()).Bracket()
+        from present in Products.Many(static () => DisplayModeDescription.GetDisplayModes()).Bind(static modes => modes.TraverseM(static mode => use(IO.pure(mode))).As()).Map(static modes => modes.Map(static mode => (mode.Id, mode.EnglishName)).Strict()).Bracket()
         let ids = toHashSet(rows.Map(static row => row.Id))
         let retired = present.Filter(mode => mode.Id == Uuid.NewNameBased(owner, mode.EnglishName) && !ids.Contains(mode.Id))
             .Map(mode => (mode.Id, Successor: spec.Successors.Find(mode.EnglishName).Map(successor => Id(owner, successor)))).Strict()
@@ -225,7 +225,7 @@ public static class DisplayModes {
     // --- [TABLES]
 
     public static IO<TValue> With<TValue>(Guid id, Func<DisplayModeDescription, IO<TValue>> body) =>
-        Products.Of(() => DisplayModeDescription.GetDisplayMode(id)).Bind(body).Bracket();
+        use(Products.Of(() => DisplayModeDescription.GetDisplayMode(id))).Bind(body).Bracket();
 
     // --- [MATERIALS]
 

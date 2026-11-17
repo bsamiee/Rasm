@@ -275,7 +275,7 @@ public static partial class PlugInShell {
                 Seq(type.Extension),
                 LocalText.Of(type.Description).Local,
                 (fileName, includeAlpha, window) => Session.Run(type.Write(window, fileName, includeAlpha).Map(value: true), failed: false))))),
-            inherited => [.. inherited, .. Session.Run(Products.Many(RenderContentType.GetAllAvailableTypes).Map(types => types.Filter(type => type.PlugInId == host.Id).Map(static type => type.Id).Strict()), Seq<Guid>())],
+            inherited => [.. inherited, .. Session.Run(Products.Many(RenderContentType.GetAllAvailableTypes).Bind(static types => types.TraverseM(static type => use(IO.pure(type))).As()).Map(types => types.Filter(type => type.PlugInId == host.Id).Map(static type => type.Id).Strict()), Seq<Guid>())],
             definition.Preview.Map<RenderPlugIn.PreviewRenderTypes?>(static row => row.Type).ValueUnsafe(),
             args => Session.Run(definition.Preview.Traverse(row => row.Content(args).Bind(image => IO.lift(() => image.Iter(bitmap => args.PreviewImage = bitmap)))).As()),
             args => Session.Run(definition.Preview.Traverse(row => row.Texture(args).Bind(image => IO.lift(() => image.Iter(bitmap => args.PreviewImage = bitmap)))).As()));

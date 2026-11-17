@@ -39,7 +39,7 @@ internal sealed record ChainScene {
 
     public static IO<ChainScene> Sourced(RhinoDoc doc, PixelExtent extent, Option<Duration> time) =>
         (from source in use(() => new Rhino.Render.RenderSourceView(doc))
-         from view in Products.Of(source.GetViewInfo)
+         from view in use(Products.Of(source.GetViewInfo))
          from meters in IO.lift(() => Quantities.From(1d, doc.ModelUnits).Meters.ToDouble())
          from viewport in use(() => new ViewportInfo(view.Viewport) { FrustumAspect = (double)extent.Width / extent.Height })
          from sun in use(() => doc.Lights.Sun)

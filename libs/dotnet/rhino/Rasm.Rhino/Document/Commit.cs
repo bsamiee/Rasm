@@ -33,8 +33,7 @@ public static class Commits {
             view: static (state, view) => state.Body.Finally(IO.lift(view.Target.Redraw)),
             allViews: static (state, all) => state.Body.Finally(IO.lift(() => state.Document.Views.Redraw(all.Deferred))),
             suppressed: static (state, suppressed) => IO.lift(() => state.Document.Views.RedrawEnabled).Bind(prior =>
-                IO.lift(() => state.Document.Views.EnableRedraw(enable: false, redrawDocument: false, redrawLayers: false))
-                >> state.Body.Finally(Products.Each(Seq(
+                (IO.lift(() => state.Document.Views.EnableRedraw(enable: false, redrawDocument: false, redrawLayers: false)) >> state.Body).Finally(Products.Each(Seq(
                     IO.lift(() => state.Document.Views.EnableRedraw(prior, redrawDocument: false, suppressed.RepaintLayers)),
                     when(prior, IO.lift(() => state.Document.Views.Redraw(suppressed.Deferred))).As())))));
 
@@ -43,7 +42,7 @@ public static class Commits {
     public static IO<Committed<T>> Commit<T>(RhinoDoc doc, string name, RedrawPolicy redraw, IO<T> body) =>
         WithinRedraw(doc, redraw,
             from begun in IO.lift(() =>
-                RhinoFault.Unless(!Command.InCommand() || !doc.UndoRecordingEnabled || doc.UndoRecordingIsActive, RhinoReason.Unavailable, doc.UndoRecordingIsActive)
+                RhinoFault.Unless(doc.UndoRecordingEnabled && (!Command.InCommand() || doc.UndoRecordingIsActive), RhinoReason.Unavailable, (doc.UndoRecordingEnabled, doc.UndoRecordingIsActive))
                     .Map(_ => Conversions.Present(doc.BeginUndoRecord(name))))
             from value in body.Catch(error =>
                 Ended(doc, begun).Bind(kept => when(kept.IsSome, Products.Each(Seq(Step(doc, doc.Undo), IO.lift(doc.ClearRedoRecords))).Map(unit)).As())

@@ -1,0 +1,11 @@
+{
+    "executors": {
+        "test": {
+            "implementation": "./dist/executors/test/executor#execute",
+            "batchImplementation": "./dist/executors/test/executor#batch",
+            "schema": "./executors/test/schema.json",
+            "preferBatch": true,
+            "description": "Runs vitest run once over the projects of every batched task sharing a configuration and its options, one Vite server and one worker pool the configuration's maxWorkers sizes, and decides each task from the test modules of its own projects"
+        }
+    }
+}

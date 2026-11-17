@@ -6,6 +6,9 @@
         },
         {
             "path": "../../../products/web/portfolio"
+        },
+        {
+            "path": "../../../libs/typescript/web/hosting"
         }
     ]
 }

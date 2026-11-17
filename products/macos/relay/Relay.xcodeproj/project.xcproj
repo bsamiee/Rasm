@@ -18,23 +18,8 @@
   ],
   "files": [
     { "path": "<PROJECT>/../../../Xcode.xcconfig" },
+    { "path": "Resources/AppIcon.icon", "target-membership": [ "Relay/resources" ] },
     {
-      "kind": "folder",
-      "path": ".",
-      "target-membership": [
-        "Relay",
-      ],
-      "membership-exceptions": [
-        {
-          "target": "Relay",
-          "exclusions": [
-            "AGENTS.md",
-            "CLAUDE.md",
-            "Info.plist",
-          ],
-        },
-      ],
-    }, {
       "kind": "group",
       "name": "Products",
       "children": [
@@ -56,71 +41,7 @@
       "package-product-members": [
         {
           "package": "..",
-          "product-name": "AsyncAlgorithms",
-          "build-phase": { "build-phase": "frameworks" },
-        }, {
-          "package": "..",
-          "product-name": "CasePaths",
-          "build-phase": { "build-phase": "frameworks" },
-        }, {
-          "package": "..",
-          "product-name": "CasePathsCore",
-          "build-phase": { "build-phase": "frameworks" },
-        }, {
-          "package": "..",
-          "product-name": "Configuration",
-          "build-phase": { "build-phase": "frameworks" },
-        }, {
-          "package": "..",
-          "product-name": "CurrentProcess",
-          "build-phase": { "build-phase": "frameworks" },
-        }, {
-          "package": "..",
-          "product-name": "Encoding",
-          "build-phase": { "build-phase": "frameworks" },
-        }, {
-          "package": "..",
-          "product-name": "Files",
-          "build-phase": { "build-phase": "frameworks" },
-        }, {
-          "package": "..",
-          "product-name": "JSONRPC",
-          "build-phase": { "build-phase": "frameworks" },
-        }, {
-          "package": "..",
-          "product-name": "Logging",
-          "build-phase": { "build-phase": "frameworks" },
-        }, {
-          "package": "..",
-          "product-name": "Processes",
-          "build-phase": { "build-phase": "frameworks" },
-        }, {
-          "package": "..",
-          "product-name": "Results",
-          "build-phase": { "build-phase": "frameworks" },
-        }, {
-          "package": "..",
-          "product-name": "ServiceLifecycle",
-          "build-phase": { "build-phase": "frameworks" },
-        }, {
-          "package": "..",
-          "product-name": "Sparkle",
-          "build-phase": { "build-phase": "frameworks" },
-        }, {
-          "package": "..",
-          "product-name": "Subprocess",
-          "build-phase": { "build-phase": "frameworks" },
-        }, {
-          "package": "..",
-          "product-name": "Telemetry",
-          "build-phase": { "build-phase": "frameworks" },
-        }, {
-          "package": "..",
-          "product-name": "Tracing",
-          "build-phase": { "build-phase": "frameworks" },
-        }, {
-          "package": "..",
-          "product-name": "Updater",
+          "product-name": "Relay",
           "build-phase": { "build-phase": "frameworks" },
         },
       ],
@@ -129,7 +50,6 @@
         "INFOPLIST_FILE": "Info.plist",
         "INFOPLIST_KEY_LSUIElement": "YES",
         "PRODUCT_BUNDLE_IDENTIFIER": "app.rasm.relay",
-        "SWIFT_DEFAULT_ACTOR_ISOLATION": "MainActor",
       },
     },
   ],

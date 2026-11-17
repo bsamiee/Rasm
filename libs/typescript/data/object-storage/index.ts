@@ -1,3 +1,3 @@
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { ObjectStorage, ObjectStorageError } from '#/storage';
+export { ObjectStorage, ObjectStorageError, Presignable, Presigned } from '#/storage';

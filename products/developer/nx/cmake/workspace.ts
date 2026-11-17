@@ -2,11 +2,10 @@ import { type } from 'node:os';
 import { basename, delimiter, dirname, join, relative, resolve } from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
-import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
 import { readJsonFile } from '@nx/devkit';
 import { globWithWorkspaceContext, type PackageJson } from '@nx/devkit/internal';
-import { spawned } from '@rasm/nx-distribution/inference';
-import { Array, Cause, Config, Context, Effect, FileSystem, Function, Layer, ManagedRuntime, Match, Option, pipe, Record, Result, Schema, type Scope, SemVer } from 'effect';
+import { runner, spawned } from '@rasm/nx-distribution/inference';
+import { Array, Cause, Config, Context, Effect, FileSystem, Function, Layer, Match, Option, pipe, Record, Result, Schema, SemVer } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -342,9 +341,7 @@ const resolved = Effect.fnUntraced(function* (workspaceRoot: string, presets: st
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const runtime = ManagedRuntime.make(Layer.merge(Linked.layer, layer));
-
-const run = <A, E>(effect: Effect.Effect<A, E, Linked | NodeServices | Scope.Scope>) => runtime.runPromise(Effect.scoped(effect));
+const run = runner(Linked.layer);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

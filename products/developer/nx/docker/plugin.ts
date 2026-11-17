@@ -1,10 +1,9 @@
 import { dirname, isAbsolute, join, matchesGlob, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { layer } from '@effect/platform-node/NodeServices';
 import { type CreateDependencies, type CreateDependenciesContext, type CreateNodes, type CreateNodesContext, createNodesFromFiles, DependencyType, getOutputsForTargetAndConfiguration, hashArray, type ProjectConfiguration, type RawProjectGraphDependency, readJsonFile, type TargetConfiguration } from '@nx/devkit';
 import { getReadyCheckReadyWhen, hashWithWorkspaceContext, type PackageJson, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
-import { aggregated, anchored, fingerprinted, manifested, spawned, type Verbs } from '@rasm/nx-distribution/inference';
-import { Array, Context, Effect, Equal, FileSystem, Function, Layer, ManagedRuntime, MutableRef, Option, Order, Predicate, Record, Result, Schema } from 'effect';
+import { aggregated, anchored, fingerprinted, manifested, runner, spawned, type Verbs } from '@rasm/nx-distribution/inference';
+import { Array, Context, Effect, Equal, FileSystem, Function, Layer, MutableRef, Option, Order, Predicate, Record, Result, Schema } from 'effect';
 import { Yaml } from 'effect/encoding';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -169,7 +168,7 @@ const edges = (analyses: ReadonlyMap<string, Composed>, { projects, workspaceRoo
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const runtime = ManagedRuntime.make(Layer.merge(Analyses.layer, layer));
+const run = runner(Analyses.layer);
 
 const createNodes: CreateNodes = [
     '**/{compose,docker-compose}{,.override}.{yaml,yml}',
@@ -183,8 +182,8 @@ const createNodes: CreateNodes = [
         );
         const cache = new PluginCache<{ readonly project: Composed; readonly stamp: string }>(join(workspaceDataDirectory, 'docker.hash'));
         const stored = MutableRef.make(false);
-        const read = (file: string) => runtime.runPromise(Effect.flatMap(Effect.fromNullishOr(folders.get(file)), ({ root, matched }) => inferred(cache, stored, context, rooted, root, matched)));
-        return runtime.runPromise(
+        const read = (file: string) => run(Effect.flatMap(Effect.fromNullishOr(folders.get(file)), ({ root, matched }) => inferred(cache, stored, context, rooted, root, matched)));
+        return run(
             Effect.ensuring(
                 Effect.promise(() => createNodesFromFiles(read, [...folders.keys()], options, context)),
                 Effect.when(
@@ -196,7 +195,7 @@ const createNodes: CreateNodes = [
     },
 ];
 
-const createDependencies: CreateDependencies = (_, context) => runtime.runPromise(Effect.map(Analyses, (analyses) => edges(analyses, context)));
+const createDependencies: CreateDependencies = (_, context) => run(Effect.map(Analyses, (analyses) => edges(analyses, context)));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

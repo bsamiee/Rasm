@@ -49,7 +49,7 @@ public static class Solutions {
                where member.State?.RelevantId == solution.Id
                from message in toSeq(member.IterateOverAllMessages())
                where message.Level is MessageLevel.Error
-               select (Error)new GrasshopperFault($"{member.DisplayName}: {message.Text}", GrasshopperReason.Unfinished, Inner: Optional(message.Info).Filter(static info => info.Length > 0).Map(static info => Error.New(info))))) switch {
+               select (Error)new GrasshopperFault($"{Conversions.Present(member.DisplayName).IfNone(member.Nomen.Name)}: {message.Text}", GrasshopperReason.Unfinished, Inner: Optional(message.Info).Filter(static info => info.Length > 0).Map(static info => Error.New(info))))) switch {
                    (SolutionPhase.Cancelled, _) => Cancellation(solution.Id.ToString(), token),
                    (SolutionPhase.Completed, { IsEmpty: true }) => solution,
                    (var phase, var messages) => new GrasshopperFault($"solution {solution.Id} in {phase}", GrasshopperReason.Unfinished, Inner: messages.IsEmpty ? None : Some(Error.Many(messages))),
@@ -131,8 +131,7 @@ public static class DocumentFiles {
     public static IO<Map<string, ITree>> Evaluate(Document document, Map<string, ITree> inputs) =>
         (from inner in use(() => GrasshopperIO.IO.Duplicate(document), static held => held.Close())
          from host in use(static () => Document.NewInertDocument(), static held => held.Close())
-         from cluster in IO.lift(() => new Cluster { InnerDocument = inner, RelayMessages = true })
-         from added in IO.lift(GrasshopperFault.Unless(host.Objects.Add(cluster), GrasshopperReason.Declined, cluster.Nomen.Name))
+         from cluster in DocumentEdits.Add(host, new Cluster { InnerDocument = inner, RelayMessages = true })
          from boundary in IO.lift(Boundary(cluster))
          from fed in IO.lift(inputs.ToSeq()
              .Traverse(input => boundary.Inputs.Find(input.Key).ToFin(new GrasshopperFault(input.Key, GrasshopperReason.Missing)).Map(parameter => (Parameter: parameter, Tree: input.Value)))

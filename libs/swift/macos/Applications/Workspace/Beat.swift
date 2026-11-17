@@ -1,4 +1,4 @@
-import AppKit
+public import AppKit
 import ApplicationServices
 import AsyncAlgorithms
 import CasePathsCore
@@ -26,7 +26,7 @@ struct Beat: Sendable {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension NSRunningApplication {
-    var isDialogHelper: Bool {
+    public var isDialogHelper: Bool {
         bundleIdentifier.map(dialogHelpers.contains) == true
             || activationPolicy == .accessory && bundleURL?.deletingLastPathComponent().pathComponents.contains { component in component.hasSuffix(".app") } == true
     }

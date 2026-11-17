@@ -136,20 +136,14 @@ public static class Motions {
     private static CameraLens Lens(CameraLens from, CameraLens to, double progress) =>
         from.Switch(
             (To: to, Progress: progress),
-            parallel: static (at, held) => at.To.Switch(
-                (Held: held, at.Progress),
-                parallel: static (state, goal) => new CameraLens.Parallel(double.Lerp(state.Held.Extent, goal.Extent, state.Progress)),
-                perspective: static (_, goal) => goal,
-                twoPoint: static (_, goal) => (CameraLens)goal),
-            perspective: static (at, held) => Turned(at.To, held.Angle, at.Progress),
-            twoPoint: static (at, held) => Turned(at.To, held.Angle, at.Progress));
+            parallel: static (at, near) => at.To is CameraLens.Parallel far ? new CameraLens.Parallel(double.Lerp(near.Extent, far.Extent, at.Progress)) : at.Progress < 1d ? near : at.To,
+            perspective: static (at, near) => at.To is CameraLens.Perspective far ? new CameraLens.Perspective(Turned(near.Angle, far.Angle, at.Progress)) : at.Progress < 1d ? near : at.To,
+            twoPoint: static (at, near) => at.To is CameraLens.TwoPoint far
+                ? new CameraLens.TwoPoint(Turned(near.Angle, far.Angle, at.Progress), at.Progress < 1d ? near.Up : far.Up)
+                : at.Progress < 1d ? near : at.To);
 
-    private static CameraLens Turned(CameraLens to, Angle held, double progress) =>
-        to.Switch(
-            (Held: held, Progress: progress),
-            parallel: static (_, goal) => goal,
-            perspective: static (at, goal) => new CameraLens.Perspective(Angle.FromRadians(Quantities.Exact(double.Lerp(at.Held.Radians.ToDouble(), goal.Angle.Radians.ToDouble(), at.Progress)))),
-            twoPoint: static (at, goal) => (CameraLens)(goal with { Angle = Angle.FromRadians(Quantities.Exact(double.Lerp(at.Held.Radians.ToDouble(), goal.Angle.Radians.ToDouble(), at.Progress))) }));
+    private static Angle Turned(Angle from, Angle to, double progress) =>
+        Angle.FromRadians(Quantities.Exact(double.Lerp(from.Radians.ToDouble(), to.Radians.ToDouble(), progress)));
 
     // --- [DRIVING]
 

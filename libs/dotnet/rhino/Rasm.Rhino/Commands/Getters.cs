@@ -267,7 +267,7 @@ public static class Getters {
             getter => Seq(answered(getter)));
 
     private static IO<T> World<T>(GetPoint getter, RhinoDoc doc, Func<WorldPick, IO<T>> picked) =>
-        from reference in Products.Maybe(() => getter.PointOnObject())
+        from reference in Products.Maybe(() => getter.PointOnObject()).Bind(static found => found.Traverse(static held => use(IO.pure(held))).As())
         from pick in Pick(getter, doc)
         from value in picked(new WorldPick(pick, getter.GotDefault(), getter.OsnapEventType, Conversions.Present(getter.TryGetBasePoint(out Point3d start), start), reference))
         select value;
@@ -285,7 +285,7 @@ public static class Getters {
             request,
             doc,
             getter => Selected(getter, request),
-            getter => Seq(new Route<T>(GetResult.Object, Products.Many(() => getter.Objects()).Bind(selected))));
+            getter => Seq(new Route<T>(GetResult.Object, Products.Many(() => getter.Objects()).Bind(static rows => rows.TraverseM(static row => use(IO.pure(row))).As()).Bind(selected))));
 
     private static IO<GetResult> Selected<T>(GetObject getter, ObjectRequest<T> request) =>
         IO.lift(() => {

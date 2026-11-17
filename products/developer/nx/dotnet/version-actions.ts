@@ -1,10 +1,11 @@
 import { join } from 'node:path';
 import type { Tree } from '@nx/devkit';
+import { spawned } from '@rasm/nx-distribution/inference';
 import ast from '@xml-tools/ast';
 import xml, { type DocumentCstNode } from '@xml-tools/parser';
 import { Array, Cause, Effect, identity, Option, Result, Schema, SemVer, String, Struct } from 'effect';
 import { VersionActions } from 'nx/release';
-import { run, spawned } from '#/targets';
+import { run } from '#/targets';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

@@ -1,6 +1,7 @@
 {
     "extends": "../tsconfig.base.json",
     "include": ["**/*", "package.json"],
+    "exclude": ["dist", "sdks"],
     "references": [
         {
             "path": "../libs/typescript/runtime/process"

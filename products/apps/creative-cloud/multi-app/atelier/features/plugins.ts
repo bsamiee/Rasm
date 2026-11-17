@@ -86,7 +86,7 @@ const plugins = Effect.fnUntraced(function* ({ serving, script }: Effect.Success
     const opener = Effect.fnUntraced(function* (file: URL) {
         const [rows, peers] = yield* Effect.all([server.opening(file), links.peers]);
         const candidates = rows.filter((installation) => opened.serves({ installation }));
-        const first = yield* Effect.fromOption(Array.head(candidates), () => Unmatched.make({ subject: 'linked application opening file', query: Option.some(file.href), candidates: Array.map(rows, Struct.get('name')) }));
+        const first = yield* Effect.fromOption(Array.head(candidates), () => Unmatched.of({ subject: 'linked application opening file', query: Option.some(file.href), candidates: Array.map(rows, Struct.get('name')) }));
         const relinked = Stream.runHead(Stream.filter(links.changes, Array.some(Peer.serves(first))));
         const launching = Launching.launched(server.launch({ url: first.url })).pipe(
             Effect.tap(() => relinked),

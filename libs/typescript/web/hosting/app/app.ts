@@ -6,7 +6,6 @@ type Binding = Data.TaggedEnum<{
     sqlite: object;
     postgres: object;
     bucket: {
-        readonly uploads: string;
         readonly abort: Duration.Duration;
         readonly expire: Record.ReadonlyRecord<keyof typeof App.modes, Record.ReadonlyRecord<string, Duration.Duration>>;
         readonly infrequentAccess: Record.ReadonlyRecord<string, Duration.Duration>;
@@ -31,7 +30,7 @@ class App<const E extends Record.ReadonlyRecord<string, Binding> = Record.Readon
     static readonly Binding = Data.taggedEnum<Binding>();
     static readonly Target = Data.taggedEnum<Target>();
     static readonly modes = { production: { suffix: '', kept: true }, disposable: { suffix: '-disposable', kept: false } } as const;
-    static readonly bundle = { environment: 'node', entry: 'index', assets: 'assets', fetcher: 'ASSETS', portVariable: 'PORT', readiness: '/readyz' } as const;
+    static readonly bundle = { environment: 'node', entry: 'index', assets: 'assets', fetcher: 'ASSETS', hosting: 'HOSTING', portVariable: 'PORT', readiness: '/readyz', signing: { endpoint: 'AWS_ENDPOINT_URL_S3', region: 'AWS_REGION', key: 'AWS_ACCESS_KEY_ID', secret: 'AWS_SECRET_ACCESS_KEY' } } as const;
     static readonly resource = (app: App, mode: keyof typeof App.modes, ...variables: readonly string[]) => `${[app.name, ...variables.map((variable) => String.snakeToKebab(variable.toLowerCase()))].join('-')}${App.modes[mode].suffix}`;
 }
 

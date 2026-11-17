@@ -1,10 +1,11 @@
-import { execFileSync } from 'node:child_process';
-import { readdirSync } from 'node:fs';
+import { execFileSync, execSync } from 'node:child_process';
+import { mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 import { resolveNxTokensInOptions } from '@nx/devkit/internal';
 import { createNodes } from '@rasm/nx-dotnet';
 import { TempFs } from '@rasm/testing/temp-fs';
-import { Effect, Schema } from 'effect';
+import { Effect, Record, Schema } from 'effect';
 import { minimatch } from 'minimatch';
 import { describe, expect, test, vi } from 'vitest';
 
@@ -23,7 +24,11 @@ const listed = (root: string) =>
             .map((entry) => relative(root, join(entry.parentPath, entry.name))),
     );
 
-const Build = Schema.Struct({ project: Schema.String, command: Schema.NonEmptyArray(Schema.String), outputs: Schema.Array(Schema.String) });
+const runtimes = (inputs: readonly unknown[] = []) => inputs.flatMap((input) => (typeof input === 'object' && input !== null && 'runtime' in input && typeof input.runtime === 'string' ? [input.runtime] : []));
+
+const Build = Schema.Struct({ project: Schema.String, command: Schema.NonEmptyArray(Schema.String), outputs: Schema.Array(Schema.String), solution: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)) });
+
+const Configured = Schema.Record(Schema.String, Build);
 
 const it = test
     .extend('tempFs', ({}, { onCleanup }) => {
@@ -34,6 +39,11 @@ const it = test
             tempFs.cleanup();
         });
         return tempFs;
+    })
+    .extend('outside', ({}, { onCleanup }) => {
+        const folder = mkdtempSync(join(tmpdir(), 'dotnet-host-'));
+        onCleanup(() => rmSync(folder, { recursive: true, force: true }));
+        return folder;
     })
     .extend('projectsOf', ({ tempFs }) => async (files: Readonly<Record<string, string>>) => {
         await tempFs.createFiles(files);
@@ -191,11 +201,64 @@ describe('@rasm/nx-dotnet - createNodes', { timeout: 30_000 }, () => {
         outputs.forEach((output) => expect(written).toContainEqual(expect.stringMatching(new RegExp(`^${RegExp.escape(output)}/`, 'u'))));
     });
 
+    it.for([
+        { shape: 'an extra declared configuration', properties: '<Configurations>Debug;Release;Interface</Configurations>', configuration: 'interface' },
+        { shape: 'a default configuration the reference lacks', properties: '<Configurations>Debug;Release;Interface</Configurations>\n    <Configuration>Interface</Configuration>', configuration: undefined },
+    ])('should build a reference that leaves the configuration undeclared in its own default under $shape', async ({ properties, configuration }, { tempFs, projectsOf }) => {
+        const projects = await projectsOf({
+            'libs/Core/Core.csproj': project(),
+            'libs/Core/Core.cs': 'namespace Core;\n\npublic static class Shapes;\n',
+            'apps/App/App.csproj': `<Project Sdk="Microsoft.NET.Sdk">\n  <PropertyGroup>\n    <TargetFramework>net10.0</TargetFramework>\n    ${properties}\n  </PropertyGroup>\n  <ItemGroup>\n    <ProjectReference Include="../../libs/Core/Core.csproj" />\n  </ItemGroup>\n</Project>\n`,
+            'apps/App/App.cs': 'namespace App;\n\npublic static class Views;\n',
+        });
+        const target = projects['apps/App']?.targets?.['build--dotnet'];
+        const { project: file, command, solution = {} } = resolveNxTokensInOptions(await Effect.runPromise(Schema.decodeUnknownEffect(Build)(configuration === undefined ? target?.options : target?.configurations?.[configuration])), { root: 'apps/App' }, 'App:build--dotnet');
+        const assigned = Record.collect(solution, (at, held) => `<ProjectConfiguration Project='${at}' AbsolutePath='${join(tempFs.tempDir, at)}'>${held}</ProjectConfiguration>`);
+
+        execFileSync('dotnet', [command[0], file, ...command.slice(1), `-p:CurrentSolutionConfigurationContents=<SolutionConfiguration>${assigned.join('')}</SolutionConfiguration>`], { cwd: tempFs.tempDir });
+
+        expect(solution).toStrictEqual({ 'apps/App/App.csproj': 'Interface|AnyCPU', 'libs/Core/Core.csproj': 'Debug|AnyCPU' });
+        expect(new Set([...listed(join(tempFs.tempDir, 'libs/Core/bin')), ...listed(join(tempFs.tempDir, 'apps/App/bin'))].map((path) => path.split('/')[0]))).toStrictEqual(new Set(['Debug', 'Interface']));
+    });
+
+    it('should name no solution mapping where every reference declares the configuration', async ({ projectsOf }) => {
+        const projects = await projectsOf({ 'libs/Core/Core.csproj': project(), 'apps/App/App.csproj': project('</PropertyGroup>\n  <ItemGroup>\n    <ProjectReference Include="../../libs/Core/Core.csproj" />\n  </ItemGroup>\n  <PropertyGroup>') });
+        const target = projects['apps/App']?.targets?.['build--dotnet'];
+
+        const [options, configurations] = await Effect.runPromise(Effect.all([Schema.decodeUnknownEffect(Build)(target?.options), Schema.decodeUnknownEffect(Configured)(target?.configurations)]));
+
+        expect([options, ...Object.values(configurations)].filter(({ solution }) => solution !== undefined)).toHaveLength(0);
+    });
+
     describe('NUGET_PACKAGES env input', () => {
         it.for(['build--dotnet', 'pack--dotnet', 'test--dotnet'])('should hash NUGET_PACKAGES in %s', async (target, { projectsOf }) => {
             const projects = await projectsOf({ 'apps/MyProj/MyProj.csproj': project('<IsTestProject>true</IsTestProject>\n    <IsPackable>true</IsPackable>') });
 
             expect(projects['apps/MyProj']?.targets?.[target]?.inputs).toContainEqual({ env: 'NUGET_PACKAGES' });
+        });
+    });
+
+    describe('files outside the workspace', () => {
+        it('should hash the content of an up-to-date check input outside the workspace as a runtime input that follows the file', async ({ projectsOf, outside }) => {
+            const host = join(outside, 'Info.plist');
+            writeFileSync(host, 'first');
+            const projects = await projectsOf({ 'apps/MyProj.Tests/MyProj.Tests.csproj': project(`<IsTestProject>true</IsTestProject>\n  </PropertyGroup>\n  <ItemGroup>\n    <UpToDateCheckInput Include="${host}" />\n  </ItemGroup>\n  <PropertyGroup>`) });
+            const [hashed] = runtimes(projects['apps/MyProj.Tests']?.targets?.['test--dotnet']?.inputs);
+            const first = execSync(hashed ?? '', { encoding: 'utf-8' });
+            writeFileSync(host, 'second');
+
+            expect(runtimes(projects['apps/MyProj.Tests']?.targets?.['build--dotnet']?.inputs)).toContain(hashed);
+            expect(hashed).not.toContain(outside);
+            expect(execSync(hashed ?? '', { encoding: 'utf-8' })).not.toBe(first);
+        });
+
+        it('should leave inputs inside the workspace to file inputs alone', async ({ projectsOf }) => {
+            const projects = await projectsOf({
+                'shared/Info.plist': 'held',
+                'apps/MyProj.Tests/MyProj.Tests.csproj': project('<IsTestProject>true</IsTestProject>\n  </PropertyGroup>\n  <ItemGroup>\n    <UpToDateCheckInput Include="../../shared/Info.plist" />\n  </ItemGroup>\n  <PropertyGroup>'),
+            });
+
+            expect(runtimes(projects['apps/MyProj.Tests']?.targets?.['test--dotnet']?.inputs)).toStrictEqual(['node -p process.platform+process.arch']);
         });
     });
 

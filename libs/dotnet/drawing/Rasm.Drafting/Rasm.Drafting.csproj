@@ -5,10 +5,16 @@
         <IsPackable>true</IsPackable>
     </PropertyGroup>
 
-    <ItemGroup Label="Core">
+    <ItemGroup Label="Functional Programming">
         <PackageReference Include="LanguageExt.Core" />
-        <PackageReference Include="NodaTime" />
+    </ItemGroup>
+
+    <ItemGroup Label="Domain Modeling">
         <PackageReference Include="Thinktecture.Runtime.Extensions" />
+    </ItemGroup>
+
+    <ItemGroup Label="Time">
+        <PackageReference Include="NodaTime" />
     </ItemGroup>
 
     <ItemGroup Label="Quantities">

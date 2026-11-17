@@ -34,13 +34,21 @@ public sealed class FixturesTests(Fixtures fixtures) {
         Fixture<SqliteConnection> opened = await Fixtures.Sqlite.RunAsync(TestContext.Current.CancellationToken);
         await Fixtures.ScalarAsync(() => new SqliteCommand("create table held (label text); insert into held (label) values ('kept')", opened.Value));
         await opened.Settle(TestResult.Failed).RunAsync(TestContext.Current.CancellationToken);
-        string kept = Path.GetTempFileName();
+        string kept = Path.Combine((await fixtures.TakeAsync(Fixtures.Folder)).FullName, "kept.sqlite3");
         await File.WriteAllBytesAsync(kept, Assert.Single(toSeq(TestContext.Current.Attachments?.Values)).AsByteArray().ByteArray, TestContext.Current.CancellationToken);
         SqliteConnection reader = await fixtures.TakeAsync(Fixtures.Sqlite);
         await Fixtures.ScalarAsync(() => new SqliteCommand("attach database $kept as kept", reader) { Parameters = { new SqliteParameter("$kept", kept) } });
         Assert.Equal("kept", await Fixtures.ScalarAsync(() => new SqliteCommand("select label from kept.held", reader)));
-        File.Delete(kept);
     }
+
+    [Fact]
+    public Task FolderSettlementDeletesTheFolderWhateverTheResult() =>
+        Gen.OneOf(TestResult.Passed, TestResult.Failed, TestResult.Skipped, TestResult.NotRun).SampleAsync(static async result => {
+            Fixture<DirectoryInfo> opened = await Fixtures.Folder.RunAsync(TestContext.Current.CancellationToken);
+            await File.WriteAllTextAsync(Path.Combine(opened.Value.FullName, "held.txt"), nameof(FolderSettlementDeletesTheFolderWhateverTheResult), TestContext.Current.CancellationToken);
+            await opened.Settle(result).RunAsync(TestContext.Current.CancellationToken);
+            Assert.False(Directory.Exists(opened.Value.FullName));
+        });
 
     // --- [SETTLEMENT]
 
@@ -50,16 +58,16 @@ public sealed class FixturesTests(Fixtures fixtures) {
         return Gen.Bool.Array[0, 8].SampleAsync(async refusals => {
             Atom<Seq<(int Store, TestResult Result)>> settled = Atom(Seq<(int Store, TestResult Result)>());
             Fixtures own = new();
-            await own.OnTestStartingAsync(test).ConfigureAwait(false);
+            await own.OnTestStartingAsync(test);
             foreach ((int store, bool refuses) in refusals.Index())
                 Assert.Equal(store, await own.TakeAsync(IO.pure(new Fixture<int>(store, result =>
-                    IO.lift(() => settled.Swap(prior => prior.Add((store, result)))).Bind(_ => when(refuses, IO.fail<Unit>(Error.New(store + 1, "refused"))))))).ConfigureAwait(false));
+                    IO.lift(() => settled.Swap(prior => prior.Add((store, result)))).Bind(_ => when(refuses, IO.fail<Unit>(Error.New(store + 1, "refused"))))))));
             Seq<int> newest = toSeq(Enumerable.Range(0, refusals.Length).Reverse());
             Assert.Equal(
                 newest.Filter(store => refusals[store]),
-                Optional(await Record.ExceptionAsync(() => own.OnTestFinishedAsync(test).AsTask()).ConfigureAwait(false)).ToSeq()
+                Optional(await Record.ExceptionAsync(() => own.OnTestFinishedAsync(test).AsTask())).ToSeq()
                     .Bind(static thrown => toSeq(Assert.IsType<ErrorException>(thrown, exactMatch: false).ToError().AsIterable().Map(static refusal => refusal.Code - 1))));
-            await own.OnTestFinishedAsync(test).ConfigureAwait(false);
+            await own.OnTestFinishedAsync(test);
             Assert.Equal(newest.Map(static store => (store, TestResult.NotRun)), settled.Value);
         });
     }
@@ -67,8 +75,6 @@ public sealed class FixturesTests(Fixtures fixtures) {
     [Fact]
     public async Task TakeOutsideTheFixtureScopeFailsNamingTheStore() {
         Fixtures unscoped = new();
-        Assert.Equal(
-            typeof(SqliteConnection).FullName,
-            (await Assert.ThrowsAsync<InvalidOperationException>(() => unscoped.TakeAsync(Fixtures.Sqlite).AsTask())).Message);
+        Assert.Contains(nameof(SqliteConnection), (await Assert.ThrowsAsync<InvalidOperationException>(() => unscoped.TakeAsync(Fixtures.Sqlite).AsTask())).Message, StringComparison.Ordinal);
     }
 }

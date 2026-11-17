@@ -10,18 +10,33 @@
         <PackageReference Include="RhinoCommon" />
     </ItemGroup>
 
-    <ItemGroup Label="Core">
-        <PackageReference Include="CommunityToolkit.HighPerformance" />
+    <ItemGroup Label="Functional Programming">
         <PackageReference Include="LanguageExt.Core" />
         <PackageReference Include="LanguageExt.Streaming" />
-        <PackageReference Include="Microsoft.VisualStudio.Threading" />
-        <PackageReference Include="Mono.Unix" />
-        <PackageReference Include="NodaTime" />
-        <PackageReference Include="NodaTime.Serialization.SystemTextJson" />
-        <PackageReference Include="System.IO.Hashing" />
+    </ItemGroup>
+
+    <ItemGroup Label="Domain Modeling">
         <PackageReference Include="Thinktecture.Runtime.Extensions" />
         <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
+    </ItemGroup>
+
+    <ItemGroup Label="Time">
+        <PackageReference Include="NodaTime" />
+        <PackageReference Include="NodaTime.Serialization.SystemTextJson" />
+    </ItemGroup>
+
+    <ItemGroup Label="Identifiers and Hashing">
+        <PackageReference Include="System.IO.Hashing" />
         <PackageReference Include="UUIDNext" />
+    </ItemGroup>
+
+    <ItemGroup Label="Memory and Concurrency">
+        <PackageReference Include="CommunityToolkit.HighPerformance" />
+        <PackageReference Include="Microsoft.VisualStudio.Threading" />
+    </ItemGroup>
+
+    <ItemGroup Label="Processes and Platform">
+        <PackageReference Include="Mono.Unix" />
     </ItemGroup>
 
     <ItemGroup Label="Quantities">

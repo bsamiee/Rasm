@@ -94,7 +94,7 @@ public static class EffectList {
     // --- [EDITS]
 
     public static IO<Unit> Edit(RenderSettings settings, Seq<Step<PostEffectCollection>> steps) =>
-        (from effects in Products.Of(() => settings.PostEffects)
+        (from effects in use(Products.Of(() => settings.PostEffects))
          from edited in Edits.Apply(Stages.InPlace<PostEffectCollection>(), effects, steps)
          select unit).Bracket();
 
@@ -168,13 +168,13 @@ public static class EffectList {
         toSeq(Enum.GetValues<PostEffectType>()).Bind(type => toSeq(host.GetPostEffects(type))).Strict();
 
     private static IO<A> Within<A>(RenderSettings settings, Func<PostEffectCollection, Seq<PostEffectData>, IO<A>> body) =>
-        (from effects in Products.Of(() => settings.PostEffects)
-         from held in Products.Many(() => effects, required: false)
+        (from effects in use(Products.Of(() => settings.PostEffects))
+         from held in Products.Many(() => effects, required: false).Bind(static rows => rows.TraverseM(static row => use(IO.pure(row))).As())
          from value in body(effects, held)
          select value).Bracket();
 
     private static IO<PostEffectData> Found(PostEffectCollection effects, Guid id) =>
-        Products.Many(() => effects, required: false).Bind(held => IO.lift(held.Find(data => data.Id == id).ToFin(Missing(id))));
+        Products.Many(() => effects, required: false).Bind(static rows => rows.TraverseM(static row => use(IO.pure(row))).As()).Bind(held => IO.lift(held.Find(data => data.Id == id).ToFin(Missing(id))));
 
     private static RhinoFault Missing(Guid id) => new($"post effect {id}", RhinoReason.Missing);
 }

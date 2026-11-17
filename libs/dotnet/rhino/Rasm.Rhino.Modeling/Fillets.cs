@@ -169,7 +169,7 @@ public static class Fillets {
         select result;
 
     public static IO<FilletResult> Engine(Tolerances tolerances, FilletContact contact, FilletSection section, int railDegree, bool extend, bool trim) =>
-        from engine in contact.Engine(tolerances)
+        from engine in use(contact.Engine(tolerances))
         from answered in IO.lift(() => (Fillets: new List<Brep>(), First: new List<Brep>(), Second: new List<Brep>()) switch {
             var lists => (Accepted: section.Emit(engine, railDegree, extend, lists.Fillets) && (!trim || engine.TrimBreps(extend, lists.First, lists.Second)), Lists: lists),
         })

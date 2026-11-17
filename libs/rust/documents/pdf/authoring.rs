@@ -3,7 +3,7 @@ use core::iter;
 use std::sync::Arc;
 
 use fontdb::Database;
-use jiff::Zoned;
+use jiff::ZonedDateTime;
 use jiff::tz::TimeZone;
 use krilla::SerializeSettings;
 use krilla::action::LinkAction;
@@ -38,7 +38,7 @@ use crate::{Document, PdfError, Refusal, Resolution, Subject, measurement};
 pub struct Options {
     pub application: Arc<str>,
     pub metadata: Metadata,
-    pub created: Zoned,
+    pub created: ZonedDateTime,
     pub standards: Standards = Standards { .. },
     pub navigation: Navigation = Navigation { .. },
     pub attachments: Vec<EmbeddedFile> = Vec::new(),
@@ -176,7 +176,7 @@ fn closed(authored: krilla::Document, sheets: &[&Page], groups: &[Vec<Group>], o
     measurement::write(&mut structure, sheets.iter().copied())?;
     navigation::write(&mut structure, &options.navigation)?;
     let identifiers = structure.page_iter().collect::<Vec<_>>();
-    iter::zip(identifiers, sheets).try_for_each(|(identifier, sheet)| crate::write_fields(&mut structure, &options.application, identifier, &sheet.fields, &options.created))?;
+    iter::zip(identifiers, sheets).try_for_each(|(identifier, sheet)| crate::write_fields(&mut structure, &options.application, identifier, &sheet.fields, options.created.timestamp()))?;
     let document = crate::saved(structure)?;
     let Some(press) = &options.standards.press else {
         return Ok(document);

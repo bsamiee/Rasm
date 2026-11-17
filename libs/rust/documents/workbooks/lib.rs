@@ -7,6 +7,7 @@ use calamine::{CellErrorType, Data, DataType as _, Range};
 use ironcalc::base::expressions::token::Error;
 use ironcalc::error::XlsxError;
 use jiff::{SignedDuration, civil};
+use rust_xlsxwriter::ExcelDateTime;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -54,7 +55,7 @@ pub enum WorkbooksError {
     #[error("cannot decode record {index}")]
     Record { index: usize, source: calamine::DeError },
     #[error("cannot write worksheet cell at row {}, column {}", cell.0, cell.1)]
-    Write { cell: (rust_xlsxwriter::RowNum, rust_xlsxwriter::ColNum), source: rust_xlsxwriter::XlsxError },
+    Write { cell: (u32, u32), source: rust_xlsxwriter::XlsxError },
     #[error("worksheet cell at row {}, column {} exceeds supported coordinates", cell.0, cell.1)]
     Coordinate { cell: (u64, u64), source: TryFromIntError },
     #[error("template name {name} {refusal}")]
@@ -95,6 +96,15 @@ pub fn value(at: (u32, u32), cell: &Data) -> Result<Value<'_>, WorkbooksError> {
         Data::Empty => Ok(Value::Empty),
     }
     .map_err(|source| WorkbooksError::Moment { cell: at, source })
+}
+
+fn excel(datetime: civil::DateTime) -> Result<ExcelDateTime, rust_xlsxwriter::XlsxError> {
+    ExcelDateTime::from_ymd(datetime.year().cast_unsigned(), datetime.month().cast_unsigned(), datetime.day().cast_unsigned())?.and_hms_milli(
+        u16::from(datetime.hour().cast_unsigned()),
+        datetime.minute().cast_unsigned(),
+        datetime.second().cast_unsigned(),
+        datetime.millisecond().cast_unsigned(),
+    )
 }
 
 fn cells(block: &Range<Data>) -> impl Iterator<Item = ((u32, u32), (u32, u32), &Data)> {

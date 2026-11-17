@@ -19,6 +19,7 @@ const shell = new Shell({
     ...(import.meta.env.PROD && {
         policy: {
             'default-src': ["'self'"],
+            'connect-src': ["'self'"],
             'object-src': ["'none'"],
             'base-uri': ["'self'"],
             'form-action': ["'self'"],

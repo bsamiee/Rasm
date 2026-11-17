@@ -232,6 +232,24 @@
         },
         {
             "path": "./products/apps/creative-cloud/photoshop/atelier"
+        },
+        {
+            "path": "./tests/libs/typescript/runtime/process"
+        },
+        {
+            "path": "./tests/libs/typescript/creative-cloud/object-model"
+        },
+        {
+            "path": "./tests/libs/typescript/graphics/typography"
+        },
+        {
+            "path": "./tests/libs/typescript/data/search"
+        },
+        {
+            "path": "./tests/libs/typescript/data/quran"
+        },
+        {
+            "path": "./tests/libs/typescript/web/media"
         }
     ]
 }

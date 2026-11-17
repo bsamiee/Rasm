@@ -10,20 +10,31 @@
     },
     "files": [
         "dist/**/*.js",
-        "dist/**/*.d.ts"
+        "dist/**/*.d.ts",
+        "executors.json",
+        "executors/*/schema.json"
     ],
     "type": "module",
     "imports": {
+        "#/*": "./*.ts",
         "#package": "./package.json"
     },
     "exports": {
         ".": "./plugin.ts",
-        "./package.json": "./package.json"
+        "./package.json": "./package.json",
+        "./executors.json": "./executors.json",
+        "./executors/*": "./executors/*/executor.ts"
     },
     "publishConfig": {
+        "imports": {
+            "#/*": "./dist/*.js",
+            "#package": "./package.json"
+        },
         "exports": {
             ".": "./dist/plugin.js",
-            "./package.json": "./package.json"
+            "./package.json": "./package.json",
+            "./executors.json": "./executors.json",
+            "./executors/*": "./dist/executors/*/executor.js"
         },
         "access": "public"
     },
@@ -46,5 +57,6 @@
     },
     "engines": {
         "node": ">=26"
-    }
+    },
+    "executors": "./executors.json"
 }

@@ -34,7 +34,7 @@ public static class Mappings {
             TextureMappingType.SphereMapping => Products.Accepted(() =>
                 (mapping.TryGetMappingSphere(out Sphere sphere), (MappingPrimitive)new MappingPrimitive.Spherical(sphere))).Map(static primitive => Some(primitive)),
             TextureMappingType.MeshMappingPrimitive => Products.Accepted(() => (mapping.TryGetMappingMesh(out Mesh mesh), mesh))
-                .Bind(static mesh => use(() => mesh)).Map(static mesh => Some<MappingPrimitive>(new MappingPrimitive.CustomMesh(mesh))),
+                .Map(static mesh => Some<MappingPrimitive>(new MappingPrimitive.CustomMesh(mesh))),
             TextureMappingType.None or TextureMappingType.SurfaceParameters or TextureMappingType.SurfaceMappingPrimitive
                 or TextureMappingType.BrepMappingPrimitive or TextureMappingType.FalseColors => IO.pure(Option<MappingPrimitive>.None),
         });

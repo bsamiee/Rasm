@@ -273,7 +273,7 @@ internal static partial class QueueRuns {
         from began in IO.lift(heard.Began.ToFin(lost))
         from saved in IO.lift(heard.Saved.ToFin(lost))
         from metadata in SaveSource.Metadata(scope.Doc, scope.Context.Clock)
-        from written in (from window in Products.Of(() => RenderWindow.FromSessionId(saved.Session))
+        from written in (from window in use(Products.Of(() => RenderWindow.FromSessionId(saved.Session)))
                          let source = new SaveSource(window, framing, rendered, entry.Queued.Region)
                          from outputs in entry.Outputs.Filter(output => output.Name.Number.IfNone(SequenceNumber.MinValue) == frame)
                              .TraverseM(output => output.Target.FileFormat.Write(scope.Doc, source, output.Target, metadata, output.Path, entry.Overwrite)).As()

@@ -13,15 +13,18 @@ const errored = 255;
 class SshError extends Schema.TaggedError<SshError, { readonly brand: unique symbol }>()('SshError', {
     reason: Schema.TaggedUnion({ Exit: { exit: ExitError }, Unreachable: { stderr: Schema.String }, Refused: { stderr: Schema.String } }),
     subject: Schema.String,
+    message: Schema.String,
 }) {
-    override get message() {
-        const outcome = SshError.fields.reason.match(this.reason, {
-            Exit: ({ exit }) => `remote command exited ${exit.code}, read its output: ${exit.stderr}`,
-            Unreachable: ({ stderr }) => `OpenSSH exited ${errored} with no shared connection (no connection, a lost connection, or a command exiting ${errored} on its own connection), check the host, its dials, and its identity: ${stderr}`,
-            Refused: ({ stderr }) => `OpenSSH refused the forward, free its bind end: ${stderr}`,
+    static readonly of = (reason: SshError['reason'], subject: string) =>
+        SshError.make({
+            reason,
+            subject,
+            message: `${subject} ${SshError.fields.reason.match(reason, {
+                Exit: ({ exit }) => `remote command exited ${exit.code}, read its output: ${exit.stderr}`,
+                Unreachable: ({ stderr }) => `OpenSSH exited ${errored} with no shared connection (no connection, a lost connection, or a command exiting ${errored} on its own connection), check the host, its dials, and its identity: ${stderr}`,
+                Refused: ({ stderr }) => `OpenSSH refused the forward, free its bind end: ${stderr}`,
+            })}`,
         });
-        return `${this.subject} ${outcome}`;
-    }
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -39,7 +42,7 @@ class Ssh extends Context.Service<Ssh>()('@rasm/ssh/client/Ssh', {
         const settled = (host: Host) =>
             Effect.fnUntraced(function* (exit: ExitError) {
                 const reached = exit.code !== errored || (yield* checked(host));
-                return yield* SshError.make({ reason: reached ? { _tag: 'Exit', exit } : { _tag: 'Unreachable', stderr: exit.stderr }, subject: host.name });
+                return yield* SshError.of(reached ? { _tag: 'Exit', exit } : { _tag: 'Unreachable', stderr: exit.stderr }, host.name);
             });
         const written = Effect.fnUntraced(function* (host: Host, beside: Readonly<Record<string, string>> = {}) {
             const files = Record.toEntries({ ...(yield* Effect.fromResult(host.files(path, root))), ...beside });
@@ -80,9 +83,9 @@ class Ssh extends Context.Service<Ssh>()('@rasm/ssh/client/Ssh', {
                 yield* Cache.get(placed, host);
                 const socket = path.join(yield* fs.makeTempDirectoryScoped(), 'control');
                 const holder = yield* started(yield* Effect.fromResult(host.command(path, root, ['sh', '-c', 'echo && exec cat'], [], Option.some(socket))), { stdin: 'pipe' });
-                const refused = Effect.flatMap(Stream.mkString(Stream.decodeText(holder.stderr)), (printed) => SshError.make({ reason: { _tag: 'Unreachable', stderr: printed }, subject: host.name }));
+                const refused = Effect.flatMap(Stream.mkString(Stream.decodeText(holder.stderr)), (printed) => SshError.of({ _tag: 'Unreachable', stderr: printed }, host.name));
                 yield* Effect.flatMap(Stream.runHead(holder.stdout), Option.match({ onSome: () => Effect.void, onNone: () => refused }));
-                const { stdout } = yield* captured(host.request(socket, 'forward', ...Forward.argv(wanted))).pipe(Effect.catchTag('ExitError', ({ stderr }) => SshError.make({ reason: { _tag: 'Refused', stderr }, subject: host.name })));
+                const { stdout } = yield* captured(host.request(socket, 'forward', ...Forward.argv(wanted))).pipe(Effect.catchTag('ExitError', ({ stderr }) => SshError.of({ _tag: 'Refused', stderr }, host.name)));
                 return yield* Forward.bound(wanted, stdout);
             }),
         };

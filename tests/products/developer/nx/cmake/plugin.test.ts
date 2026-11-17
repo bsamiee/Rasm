@@ -4,9 +4,11 @@ import { join, matchesGlob } from 'node:path';
 import process from 'node:process';
 import { type CreateNodesContext, readJsonFile } from '@nx/devkit';
 import { createNodes } from '@rasm/nx-cmake';
+import { refused } from '@rasm/testing/errors';
+import { pathed, refusing } from '@rasm/testing/nx';
 import { TempFs } from '@rasm/testing/temp-fs';
 import { Array, Effect, Record, Schema } from 'effect';
-import { describe, expect, onTestFinished, test, vi } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
 
 vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
 
@@ -739,15 +741,10 @@ describe('CMake Analyzer', { timeout: 60_000 }, () => {
         });
     });
 
-    it('should handle spawn error', async ({ tempFs, context }) => {
-        vi.stubEnv('PATH', join(tempFs.tempDir, 'apps'));
-        onTestFinished(() => {
-            vi.unstubAllEnvs();
-        });
+    it.for(refusing('cmake'))('should report the command and $case of cmake as the error of the presets', async ({ scripts, refusal }, { tempFs, context }) => {
+        pathed(join(tempFs.tempDir, '.bin'), scripts);
 
-        await expect(createNodesFunction(Object.keys(files), undefined, context)).rejects.toMatchObject({
-            errors: [['CMakePresets.json', expect.objectContaining({ message: 'NotFound: ChildProcess.spawn (cmake --preset default -S .)' })]],
-        });
+        await expect(createNodesFunction(Object.keys(files), undefined, context)).rejects.toSatisfy(refused(refusal));
     });
 });
 

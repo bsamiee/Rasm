@@ -1,0 +1,12 @@
+{
+    "name": "@rasm/test-quran",
+    "private": true,
+    "description": "Quran suites: the error an unreadable mushaf raises keeps its message across structured clone and Nx plugin worker serialization",
+    "type": "module",
+    "devDependencies": {
+        "@rasm/quran": "workspace:*",
+        "@rasm/testing": "workspace:*",
+        "@types/node": "catalog:",
+        "vitest": "catalog:"
+    }
+}

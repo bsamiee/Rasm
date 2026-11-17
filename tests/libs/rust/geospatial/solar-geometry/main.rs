@@ -25,7 +25,7 @@ fn position_matches_nrel_spa_reference() {
         zone: zone.clone(),
     };
     let sun = assert_ok!(Sun::new(place, Some(Refraction::Stated(assert_ok!(RefractionCorrection::new(820.0, 11.0)))), Some(SignedDuration::from_secs(67))));
-    let at = assert_ok!(date(2003, 10, 17).at(12, 30, 30, 0).to_zoned(zone)).timestamp();
+    let at = assert_ok!(date(2003, 10, 17).at(12, 30, 30, 0).to_zoned_datetime(zone)).timestamp();
     let (_, sun) = assert_ok!(position(&sun, at));
     assert_abs_diff_eq!(sun.azimuth(), 194.340_241, epsilon = 1.0e-6);
     assert_abs_diff_eq!(sun.zenith_angle(), 50.111_622, epsilon = 1.0e-6);

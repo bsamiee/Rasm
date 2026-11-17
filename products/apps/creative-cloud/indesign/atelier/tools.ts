@@ -51,7 +51,7 @@ const faced = <E, R>(font: Font<E, R>, located: readonly Placed[], extra: readon
             const { font: name, axes } = first;
             const group = located.filter((span) => SAME_FACE(first, span));
             const { source } = yield* font(name, [...group.map(Struct.get('text')), ...extra]);
-            const subset = yield* Effect.fromOption(source, () => Unmatched.make({ subject: 'font file', query: Option.some(name) }));
+            const subset = yield* Effect.fromOption(source, () => Unmatched.of({ subject: 'font file', query: Option.some(name) }));
             const face = yield* Face.open(subset, Face.Instance.make({ coordinates: axes }));
             return { font: name, face, placed: group.map((span) => ({ span, face })) };
         }),

@@ -1,9 +1,11 @@
 import { glob } from 'node:fs/promises';
 import { basename, dirname, join, resolve, sep } from 'node:path';
 import { env } from 'node:process';
-import type { ExecutorContext } from '@nx/devkit';
+import { layer } from '@effect/platform-node/NodeServices';
+import type { ExecutorContext, TaskGraph } from '@nx/devkit';
+import type { TaskResult } from '@nx/devkit/internal';
 import { spawned } from '@rasm/nx-distribution/inference';
-import { Array, Cause, Config, Effect, FileSystem, Function, Option, Record, Schema } from 'effect';
+import { Array, Cause, Config, Effect, FileSystem, Function, HashSet, Option, Predicate, Record, Schema, Stream } from 'effect';
 import { ran, run } from '#/targets';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -66,10 +68,29 @@ const commands = Effect.fnUntraced(function* ({ runs, applications = [], report,
     return { success };
 });
 
+const ordered = (graph: TaskGraph, inputs: Readonly<Record<string, typeof Run.Type>>, root: string) =>
+    Stream.paginate({ pending: Record.keys(inputs), failed: HashSet.empty<string>() }, ({ pending, failed }) => {
+        const waits = (id: string) => (graph.dependencies[id] ?? []).some((edge) => pending.includes(edge.id) && edge.id !== id);
+        return Option.match(
+            Option.flatMap(Array.findFirst(pending, Predicate.not(waits)), (id) => Option.map(Option.fromUndefinedOr(inputs[id]), (options) => [id, options] as const)),
+            {
+                onNone: () => Effect.succeed([[], Option.none()] as const),
+                onSome: ([task, options]) => {
+                    const rest = pending.filter((id) => id !== task);
+                    const blocked = (graph.dependencies[task] ?? []).some((edge) => HashSet.has(failed, edge.id));
+                    const outcome = blocked ? Effect.succeed<TaskResult>({ success: false, status: 'skipped', terminalOutput: '' }) : Effect.map(commands(options, root), ({ success }): TaskResult => ({ success, terminalOutput: '' }));
+                    return Effect.map(outcome, (result) => [[{ task, result }], Option.some({ pending: rest, failed: result.success ? failed : HashSet.add(failed, task) })] as const);
+                },
+            },
+        );
+    });
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const execute = (options: typeof Run.Type, context: ExecutorContext) => run(commands(options, context.root));
 
+const batch = (graph: TaskGraph, inputs: Readonly<Record<string, typeof Run.Type>>, _: unknown, context: ExecutorContext) => Stream.toReadableStream(Stream.provide(ordered(graph, inputs, context.root), layer)).values();
+
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { commands, configured, execute, Run };
+export { batch, commands, configured, execute, Run };

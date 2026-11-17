@@ -56,7 +56,8 @@ interface Script {
 }
 interface Scope extends Pick<Command, 'variables'> {
     readonly opaque: boolean;
-    readonly functions: ReadonlySet<string>;
+    readonly wiped: boolean;
+    readonly functions: ReadonlyMap<string, Option.Option<ReadonlySet<string>>>;
 }
 type Walk = readonly [Scope, Script];
 
@@ -254,7 +255,8 @@ const zshAssignments = (assigns: readonly Assign[], names: readonly string[], { 
 const joined = (left: Scope, right: Scope): Scope => ({
     variables: new Map(Array.map([...left.variables.keys(), ...right.variables.keys()], (name) => [name, Equal.equals(left.variables.get(name), right.variables.get(name)) ? (left.variables.get(name) ?? Option.none()) : Option.none<string>()] as const)),
     opaque: left.opaque || right.opaque,
-    functions: left.functions.union(right.functions),
+    wiped: left.wiped || right.wiped,
+    functions: new Map([...left.functions, ...right.functions]),
 });
 
 const bound = (scope: Scope, entries: readonly (readonly [string, Option.Option<string>])[]): Scope => ({ ...scope, variables: new Map([...scope.variables, ...entries]) });
@@ -271,18 +273,27 @@ const entered = (scope: Scope, [program, ...args]: readonly Word[], context: Con
 
 const effects = (scope: Scope, peeled: readonly Word[], context: Context): Scope => {
     const head = peeled[0]?.text;
-    if (head !== undefined && ENTERING.has(head)) {
+    if (head === undefined) {
+        return scope;
+    }
+    if (ENTERING.has(head)) {
         return entered(scope, peeled, context);
     }
-    if (head !== undefined && (OPAQUE.has(head) || scope.functions.has(head))) {
-        return { ...scope, variables: new Map(), opaque: true };
-    }
-    return head !== undefined && ASSIGNING.has(head)
-        ? bound(
-              scope,
-              Array.filterMap(peeled.slice(1), ({ text }) => (NAME.test(text) ? Result.succeed([text, Option.none<string>()] as const) : Result.failVoid)),
-          )
-        : scope;
+    const assigned = ASSIGNING.has(head)
+        ? peeled
+              .slice(1)
+              .map(({ text }) => text)
+              .filter((text) => NAME.test(text))
+        : [];
+    const forgets = OPAQUE.has(head) ? Option.none<ReadonlySet<string>>() : (scope.functions.get(head) ?? Option.some<ReadonlySet<string>>(new Set(assigned)));
+    return Option.match(forgets, {
+        onNone: () => ({ ...scope, variables: new Map(), opaque: true, wiped: true }),
+        onSome: (names) =>
+            bound(
+                scope,
+                [...names].map((name) => [name, Option.none<string>()] as const),
+            ),
+    });
 };
 
 // --- [SYNTAX]
@@ -339,8 +350,10 @@ const commanded = (stmt: Stmt, scope: Scope, context: Context): Walk => {
                   return [arms.reduce((all, [arm]) => joined(all, arm), tested), concat([testing, ...arms.map(([, script]) => script)])];
               }),
               Match.when({ type: 'FuncDecl' }, ({ name, body }) => {
-                  const functions = scope.functions.union(new Set(Option.toArray(Option.fromNullishOr(name?.value))));
-                  return [{ ...scope, functions }, nested(body, { variables: new Map(), opaque: true, functions }, { ...inner, fed: true })[1]];
+                  const own = Option.toArray(Option.fromNullishOr(name?.value));
+                  const [walked, script] = nested(body, { variables: new Map(), opaque: true, wiped: false, functions: new Map([...scope.functions, ...own.map((named) => [named, Option.none()] as const)]) }, { ...inner, fed: true });
+                  const assigned = walked.wiped ? Option.none() : Option.some<ReadonlySet<string>>(new Set(walked.variables.keys()));
+                  return [{ ...scope, functions: new Map([...scope.functions, ...own.map((named) => [named, assigned] as const)]) }, script];
               }),
               Match.when({ type: 'DeclClause' }, ({ args }) => exported(args, stmt, scope, inner)),
               Match.orElse((other) => nested(other, scope, inner)),
@@ -418,7 +431,7 @@ const referenced = (text: string): readonly string[] => [...new Set(text.match(R
 const parsed = (text: string, dialect: Context['dialect']) => Effect.try({ try: () => parse(text, { variant: VARIANTS[dialect] }).stmts, catch: HostError.of('sh-syntax') });
 
 const scriptOf = (stmts: readonly Stmt[], text: string, { cwd, ...start }: Pick<Command, 'cwd'> & Pick<Context, 'origin' | 'dialect' | 'home' | 'environment' | 'resolve'> & Partial<Pick<Context, 'fed' | 'looping'>>): Script =>
-    nested(stmts, { variables: new Map([[PWD, cwd]]), opaque: false, functions: new Set() }, { fed: false, looping: false, pipes: false, stage: Option.none(), busy: false, substituted: false, captured: false, job: false, dry: false, ...start, source: new TextEncoder().encode(text) })[1];
+    nested(stmts, { variables: new Map([[PWD, cwd]]), opaque: false, wiped: false, functions: new Map() }, { fed: false, looping: false, pipes: false, stage: Option.none(), busy: false, substituted: false, captured: false, job: false, dry: false, ...start, source: new TextEncoder().encode(text) })[1];
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

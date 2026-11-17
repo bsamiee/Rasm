@@ -52,20 +52,22 @@ public abstract partial record Decomposition {
         let start = ends.Start
         let end = ends.End
         from oriented in RhinoFault.Unless(start.Orientation == end.Orientation, RhinoReason.Mismatched, (start.Orientation, end.Orientation))
-        from turns in (Turn(start.Rotation), Turn(end.Rotation)).Apply(static (first, last) => (First: first, Last: last)).As()
-        let startTurn = turns.First
-        let endTurn = turns.Last
-        let nearest = (startTurn.Scalar * endTurn.Scalar) + (startTurn.Vector * endTurn.Vector) >= 0d ? endTurn : endTurn * -1d
-        from turn in Quaternion.Slerp(startTurn, nearest, t) switch {
-            var slerped => RhinoFault.Unless(slerped.GetRotation(out Transform rotation), RhinoReason.Declined, slerped).Map(_ => rotation),
-        }
         select Transform.Translation(start.Translation + (t * (end.Translation - start.Translation)))
-            * turn
+            * Turned(Silk.NET.Maths.Quaternion<double>.Slerp(Turn(start.Rotation), Turn(end.Rotation), t))
             * Transform.Diagonal(start.Orientation, start.Orientation, start.Orientation)
             * Blend(start.Stretch, end.Stretch, t);
 
-    private static Fin<Quaternion> Turn(Transform rotation) =>
-        RhinoFault.Unless(rotation.GetQuaternion(out Quaternion quaternion), RhinoReason.Declined, rotation).Map(_ => quaternion);
+    private static Silk.NET.Maths.Quaternion<double> Turn(Transform rotation) =>
+        Silk.NET.Maths.Quaternion<double>.CreateFromRotationMatrix(new Silk.NET.Maths.Matrix3X3<double>(rotation.M00, rotation.M01, rotation.M02, rotation.M10, rotation.M11, rotation.M12, rotation.M20, rotation.M21, rotation.M22));
+
+    private static Transform Turned(Silk.NET.Maths.Quaternion<double> turn) =>
+        Silk.NET.Maths.Matrix4X4.CreateFromQuaternion(turn) switch {
+            var rotation => new Transform(1d) {
+                M00 = rotation.M11, M01 = rotation.M12, M02 = rotation.M13,
+                M10 = rotation.M21, M11 = rotation.M22, M12 = rotation.M23,
+                M20 = rotation.M31, M21 = rotation.M32, M22 = rotation.M33,
+            },
+        };
 
     private static Transform Blend(Transform start, Transform end, double t) =>
         new() {

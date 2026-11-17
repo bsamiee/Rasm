@@ -20,6 +20,7 @@ RASM1103 | Thinktecture | Error | ValidationMessageAnalyzer
 RASM1104 | Thinktecture | Error | ThrowingFactoryAnalyzer
 RASM1105 | Thinktecture | Error | DataFreeSmartEnumAnalyzer
 RASM1106 | Thinktecture | Error | HostPickingUnionAnalyzer
+RASM1107 | Thinktecture | Error | OneSidedBoundAnalyzer
 RASM1202 | Microsoft.Extensions.Logging | Error | HandWrittenLogAnalyzer
 RASM1203 | Microsoft.Extensions.Logging | Error | DoubleReportAnalyzer
 RASM1204 | Microsoft.Extensions.Logging | Error | StaticSinkAnalyzer

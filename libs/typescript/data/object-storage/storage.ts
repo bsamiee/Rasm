@@ -1,65 +1,90 @@
-import { ByteSize, Cause, Clock, Context, Effect, Formatter, Match, Option, Schema, Stream } from 'effect';
+import { AbortMultipartUploadCommand, CompleteMultipartUploadCommand, CreateMultipartUploadCommand, DeleteObjectCommand, HeadObjectCommand, ListPartsCommand, NoSuchUpload, NotFound, PutObjectCommand, type S3Client, S3ServiceException, UploadPartCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { ByteSize, Cause, Context, Effect, Formatter, Match, Option, Schema } from 'effect';
 import { HttpServerRequest, HttpServerResponse } from 'effect/http';
 import type { ObjectStore } from 'partial-content';
-import { createUploadHandler, isUploadDestinationConflictError, isUploadOffsetConflictError, isUploadOverrunError, type PrefixedUploadStore, type UploadHandlerOptions } from 'partial-content/upload';
 import { type ServeContext, type ServeObjectOptions, serveObject } from 'partial-content/web';
+
+// --- [MODELS] --------------------------------------------------------------------------
+
+const Presignable = Schema.Union([
+    Schema.Struct({ method: Schema.Literal('PUT'), key: Schema.String, uploadId: Schema.String, partNumber: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 10_000 })) }),
+    Schema.Struct({ method: Schema.Literal('PUT'), key: Schema.String }),
+    Schema.Struct({ method: Schema.Literal('POST'), key: Schema.String, uploadId: Schema.String }),
+    Schema.Struct({ method: Schema.Literal('POST'), key: Schema.String }),
+    Schema.Struct({ method: Schema.Literal('GET'), key: Schema.String, uploadId: Schema.String }),
+    Schema.Struct({ method: Schema.Literal('DELETE'), key: Schema.String, uploadId: Schema.String }),
+]);
+const Presigned = Schema.Struct({ url: Schema.String, headers: Schema.Record(Schema.String, Schema.String) });
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
 class ObjectStorageError extends Schema.TaggedError<ObjectStorageError, { readonly brand: unique symbol }>()('ObjectStorageError', {
-    reason: Schema.TaggedUnion({ Refused: {}, Conflict: {}, Unavailable: {} }),
+    reason: Schema.TaggedUnion({ Unavailable: {} }),
     subject: Schema.String,
     cause: Schema.optionalKey(Schema.Defect()),
+    message: Schema.String,
 }) {
-    static readonly of = (reason: ObjectStorageError['reason']['_tag'], subject: string) => (cause?: unknown) => ObjectStorageError.make({ reason: { _tag: reason }, subject, ...(cause === undefined ? {} : { cause }) });
-    static readonly written = (subject: string) => (cause: unknown) =>
-        Match.value(cause).pipe(Match.whenOr(isUploadOverrunError, isUploadOffsetConflictError, ObjectStorageError.of('Refused', subject)), Match.when(isUploadDestinationConflictError, ObjectStorageError.of('Conflict', subject)), Match.orElse(ObjectStorageError.of('Unavailable', subject)));
-
-    override get message() {
-        return [`${this.reason._tag}: ${this.subject}`, ...(this.cause === undefined ? [] : [Formatter.format(this.cause)])].join(': ');
-    }
+    static readonly of = (reason: ObjectStorageError['reason']['_tag'], subject: string) => (cause?: unknown) =>
+        ObjectStorageError.make({ reason: { _tag: reason }, subject, ...(cause === undefined ? {} : { cause }), message: [`${reason}: ${subject}`, ...(cause === undefined ? [] : [Formatter.format(cause)])].join(': ') });
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class ObjectStorage extends Context.Service<ObjectStorage, { readonly objects: ObjectStore; readonly uploads: PrefixedUploadStore; readonly delete: (key: string) => Effect.Effect<void, ObjectStorageError> }>()('@rasm/object-storage/storage/ObjectStorage') {
-    static readonly upload = Effect.fn('ObjectStorage.upload')(function* (object: { readonly key: string; readonly size: ByteSize.ByteSize }) {
-        const [{ uploads }, created] = yield* Effect.all([ObjectStorage, Clock.currentTimeMillis]);
-        const length = ByteSize.toNumberUnsafe(object.size);
-        const { uploadToken } = yield* Effect.acquireRelease(Effect.tryPromise({ try: (signal) => uploads.createUpload({ key: object.key, length, now: created, signal }), catch: ObjectStorageError.of('Unavailable', object.key) }), (upload) =>
-            Effect.tryPromise({ try: () => uploads.abortUpload(upload.uploadToken), catch: ObjectStorageError.of('Unavailable', object.key) }).pipe(Effect.ignore({ log: 'Error', message: 'upload abort failed' })),
-        );
+class ObjectStorage extends Context.Service<
+    ObjectStorage,
+    {
+        readonly objects: ObjectStore;
+        readonly origin: string;
+        readonly sign: (request: typeof Presignable.Type, stated: { readonly size: ByteSize.ByteSize; readonly mime: string }) => Effect.Effect<typeof Presigned.Type, ObjectStorageError>;
+        readonly stat: (key: string) => Effect.Effect<Option.Option<{ readonly size: ByteSize.ByteSize; readonly mime: string }>, ObjectStorageError>;
+        readonly remove: (key: string, uploadId: Option.Option<string>) => Effect.Effect<void, ObjectStorageError>;
+    }
+>()('@rasm/object-storage/storage/ObjectStorage') {
+    static readonly make = ({ client, signer, origin }: { readonly client: S3Client; readonly signer: S3Client; readonly origin: string }, bucket: string, objects: ObjectStore): ObjectStorage['Service'] => {
+        const created = { 'If-None-Match': '*' };
         return {
-            uploadToken,
-            write: Effect.fn('ObjectStorage.write')(function* (content: Stream.Stream<Uint8Array, unknown>) {
-                const [body, now] = yield* Effect.all([Stream.toReadableStreamEffect(content), Clock.currentTimeMillis]);
-                yield* Effect.tryPromise({ try: (signal) => uploads.appendChunk(uploadToken, 0, body, { now, maxBytes: length, maxBytesFatal: true, signal }), catch: ObjectStorageError.written(object.key) }).pipe(
-                    Effect.filterOrFail(
-                        ({ interrupted }) => !interrupted,
-                        () => ObjectStorageError.of('Refused', object.key)(),
+            objects,
+            origin,
+            sign: (request, { size, mime }) =>
+                Match.value(request).pipe(
+                    Match.when({ method: 'PUT', uploadId: Schema.is(Schema.String) }, ({ key, uploadId, partNumber }) => presigned(key, () => getSignedUrl(signer, new UploadPartCommand({ Bucket: bucket, Key: key, UploadId: uploadId, PartNumber: partNumber })))),
+                    Match.when({ method: 'PUT' }, ({ key }) => presigned(key, () => getSignedUrl(signer, new PutObjectCommand({ Bucket: bucket, Key: key, ContentType: mime, ContentLength: ByteSize.toNumberUnsafe(size), IfNoneMatch: '*' })), { 'Content-Type': mime, ...created })),
+                    Match.when({ method: 'POST', uploadId: Schema.is(Schema.String) }, ({ key, uploadId }) => presigned(key, () => getSignedUrl(signer, new CompleteMultipartUploadCommand({ Bucket: bucket, Key: key, UploadId: uploadId, IfNoneMatch: '*' })), created)),
+                    Match.when({ method: 'POST' }, ({ key }) => presigned(key, () => getSignedUrl(signer, new CreateMultipartUploadCommand({ Bucket: bucket, Key: key, ContentType: mime })), { 'Content-Type': mime })),
+                    Match.when({ method: 'GET' }, ({ key, uploadId }) => presigned(key, () => getSignedUrl(signer, new ListPartsCommand({ Bucket: bucket, Key: key, UploadId: uploadId })))),
+                    Match.when({ method: 'DELETE' }, ({ key, uploadId }) => presigned(key, () => getSignedUrl(signer, new AbortMultipartUploadCommand({ Bucket: bucket, Key: key, UploadId: uploadId })))),
+                    Match.exhaustive,
+                ),
+            stat: (key) =>
+                sent(key, (abortSignal) => client.send(new HeadObjectCommand({ Bucket: bucket, Key: key }), { abortSignal })).pipe(
+                    Effect.map(({ ContentLength = 0, ContentType = '' }) => Option.some({ size: ByteSize.bytes(ContentLength), mime: ContentType })),
+                    Effect.catchIf(
+                        ({ cause }) => cause instanceof NotFound || (cause instanceof S3ServiceException && cause.$metadata.httpStatusCode === 404),
+                        () => Effect.succeedNone,
                     ),
-                );
-                yield* Effect.tryPromise({ try: (signal) => uploads.completeUpload(uploadToken, { now, expectedLength: length, signal }), catch: ObjectStorageError.written(object.key) });
-            }),
+                ),
+            remove: (key, uploadId) =>
+                Option.match(uploadId, { onNone: () => Effect.void, onSome: (UploadId) => sent(key, (abortSignal) => client.send(new AbortMultipartUploadCommand({ Bucket: bucket, Key: key, UploadId }), { abortSignal })).pipe(Effect.catch(absent)) }).pipe(
+                    Effect.andThen(sent(key, (abortSignal) => client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }), { abortSignal }))),
+                    Effect.asVoid,
+                ),
         };
-    });
-    static readonly remove = Effect.fn('ObjectStorage.remove')(function* (key: string, uploadToken: Option.Option<string>) {
-        const storage = yield* ObjectStorage;
-        yield* Option.match(uploadToken, { onNone: () => Effect.void, onSome: (token) => Effect.tryPromise({ try: (signal) => storage.uploads.abortUpload(token, { signal }), catch: ObjectStorageError.of('Unavailable', key) }) });
-        yield* storage.delete(key);
-    });
+    };
+    static readonly remove = (key: string, uploadId: Option.Option<string>) => ObjectStorage.use((storage) => storage.remove(key, uploadId));
     static readonly serve = Effect.fn('ObjectStorage.serve')(function* (object: ServeContext, options: Omit<ServeObjectOptions, 'onError'> = {}) {
         const [{ objects }, request, context] = yield* Effect.all([ObjectStorage, Effect.flatMap(HttpServerRequest.HttpServerRequest, HttpServerRequest.toWeb).pipe(Effect.orDie), Effect.context<never>()]);
         const served = serveObject(objects, { ...options, onError: (error, { operation, key }) => Effect.runSyncWith(context)(Effect.logError(Cause.fail(ObjectStorageError.of('Unavailable', `${operation} ${key}`)(error)))) });
         return HttpServerResponse.fromWeb(yield* Effect.promise(() => served(request, object)));
     });
-    static readonly receive = Effect.fn('ObjectStorage.receive')(function* (options: Omit<UploadHandlerOptions, 'onError'>) {
-        const [{ uploads }, request, context] = yield* Effect.all([ObjectStorage, Effect.flatMap(HttpServerRequest.HttpServerRequest, HttpServerRequest.toWeb).pipe(Effect.orDie), Effect.context<never>()]);
-        const received = createUploadHandler(uploads, { ...options, onError: (error, { operation }) => Effect.runSyncWith(context)(Effect.logError(Cause.fail(ObjectStorageError.of('Unavailable', operation)(error)))) });
-        return HttpServerResponse.fromWeb(yield* Effect.promise(() => received(request)));
-    });
 }
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+const sent = <A>(key: string, send: (signal: AbortSignal) => Promise<A>) => Effect.tryPromise({ try: send, catch: ObjectStorageError.of('Unavailable', key) });
+const presigned = (key: string, sign: () => Promise<string>, headers: Readonly<Record<string, string>> = {}) => Effect.map(sent(key, sign), (url) => ({ url, headers }));
+const absent = (error: ObjectStorageError) => (error.cause instanceof NotFound || error.cause instanceof NoSuchUpload ? Effect.void : Effect.fail(error));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { ObjectStorage, ObjectStorageError };
+export { ObjectStorage, ObjectStorageError, Presignable, Presigned };

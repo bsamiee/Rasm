@@ -2,15 +2,23 @@ import { globSync, symlinkSync } from 'node:fs';
 import { findPackageJSON } from 'node:module';
 import { basename, dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { type CreateNodesContext, type ExecutorContext, runExecutor } from '@nx/devkit';
-import { getOutputs, resolveCommandSyntacticSugar } from '@nx/devkit/internal';
+import type { CreateNodesContext, ExecutorContext, TaskGraph } from '@nx/devkit';
+import { getOutputs } from '@nx/devkit/internal';
 import { createNodes } from '@rasm/nx-vitest';
+import { batch, execute, Test } from '@rasm/nx-vitest/executors/test';
 import { TempFs } from '@rasm/testing/temp-fs';
-import { Record } from 'effect';
-import { describe, expect, test, vi } from 'vitest';
-import manifest from 'vitest/package.json' with { type: 'json' };
+import { Effect, Record, Schema } from 'effect';
+import { describe, expect, onTestFinished, test, vi } from 'vitest';
 
 vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
+
+// --- [MODELS] --------------------------------------------------------------------------
+
+const Inputs = Schema.Record(Schema.String, Test);
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+const queued = (name: string) => ({ id: `${name}:test--vitest`, target: { project: name, target: 'test--vitest' }, outputs: [], overrides: {}, projectRoot: `packages/${name}`, parallelism: true, cache: true });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -62,16 +70,16 @@ describe('@rasm/nx-vitest', () => {
                                     test: { dependsOn: ['test--*'] },
                                     'test--vitest': {
                                         cache: true,
-                                        command: 'vitest run',
+                                        executor: '@rasm/nx-vitest:test',
                                         inputs: ['default', '^production', { externalDependencies: ['vitest'] }, { env: 'CI' }, { dependentTasksOutputFiles: '**/*.{js,mjs,cjs,ts,mts,cts,jsx,tsx}', transitive: true }],
                                         metadata: {
-                                            description: 'Runs every Vitest project of the suite with vitest run',
-                                            help: { command: 'npx vitest run --help', example: { args: ['--project', '<name>'] } },
+                                            description: 'Runs every Vitest project of the suite with vitest run, in one run with every other suite of the configuration the same nx run tests',
+                                            help: { command: 'npx vitest run --help', example: { args: ['--reporter', 'verbose'] } },
                                             technologies: ['vitest'],
                                         },
-                                        options: { cwd: '.' },
+                                        options: { config: 'vitest.config.ts', projects: [] },
                                         outputs: ['{projectRoot}/.vitest/attachments', '{projectRoot}/coverage/lcov.info'],
-                                        configurations: { coverage: { 'coverage.enabled': true, 'coverage.reporter': 'lcovonly' } },
+                                        configurations: { coverage: { coverage: { enabled: true, reporter: 'lcovonly' } } },
                                     },
                                 },
                             },
@@ -95,15 +103,9 @@ describe('@rasm/nx-vitest', () => {
             const nodes = await createNodesFunction(['vitest.config.ts'], { outputPath: '.artifacts/vitest/{projectName}', coveragePath: '.artifacts/coverage/{projectName}' }, context);
 
             expect(nodes[0]?.[1].projects?.['.']?.targets?.['test--vitest']).toMatchObject({
-                command: "vitest run {args} --attachmentsDir '.artifacts/vitest/{projectName}/attachments'",
+                options: { config: 'vitest.config.ts', projects: [], attachmentsDir: '.artifacts/vitest/{projectName}/attachments' },
                 outputs: ['{projectRoot}/.artifacts/vitest/{projectName}', '{projectRoot}/.artifacts/coverage/{projectName}/lcov.info'],
-                configurations: {
-                    coverage: {
-                        'coverage.enabled': true,
-                        'coverage.reporter': 'lcovonly',
-                        'coverage.reportsDirectory': '.artifacts/coverage/{projectName}',
-                    },
-                },
+                configurations: { coverage: { coverage: { enabled: true, reporter: 'lcovonly', reportsDirectory: '.artifacts/coverage/{projectName}' } } },
             });
         });
     });
@@ -149,7 +151,7 @@ describe('@rasm/nx-vitest', () => {
             const nodes = await createNodesFunction(['vitest.config.ts'], {}, context);
 
             expect(nodes[0]?.[1].projects).not.toHaveProperty(['.']);
-            expect(nodes[0]?.[1].projects?.['packages/a']?.targets?.['test--vitest']?.command).toBe('vitest run --project a');
+            expect(nodes[0]?.[1].projects?.['packages/a']?.targets?.['test--vitest']?.options).toStrictEqual({ config: 'vitest.config.ts', projects: ['a'] });
             expect(nodes[0]?.[1].projects?.['packages/a']?.targets?.['test--vitest']?.inputs).toContainEqual('{workspaceRoot}/vitest.config.ts');
             expect(nodes[0]?.[1].projects?.['packages/a']?.targets?.['test--vitest']?.outputs).toContain('{workspaceRoot}/coverage/lcov.info');
         });
@@ -259,14 +261,12 @@ describe('@rasm/nx-vitest real run', () => {
             'sum.test.ts': "import { expect, test } from 'vitest';\n\ntest('adds', () => expect(1 + 1).toBe(2));\n",
         });
         temp.createDirSync('node_modules/@vitest');
-        temp.createDirSync('node_modules/.bin');
         symlinkSync(dirname(`${findPackageJSON(import.meta.resolve('@vitest/coverage-v8'))}`), join(temp.tempDir, 'node_modules/@vitest/coverage-v8'), 'dir');
-        symlinkSync(join(temp.tempDir, 'node_modules/vitest', manifest.bin.vitest), join(temp.tempDir, 'node_modules/.bin/vitest'));
-        symlinkSync(dirname(fileURLToPath(import.meta.resolve('nx/package.json'))), join(temp.tempDir, 'node_modules/nx'), 'dir');
 
         const nodes = await createNodesFunction(['vitest.config.ts'], {}, context);
         const before = new Set(listed());
-        const node = { name: 'repo', type: 'lib' as const, data: { root: '.', targets: Record.map({ ...nodes[0]?.[1].projects?.['.']?.targets }, resolveCommandSyntacticSugar) } };
+        const targets = { ...nodes[0]?.[1].projects?.['.']?.targets };
+        const node = { name: 'repo', type: 'lib' as const, data: { root: '.', targets } };
         const executor: ExecutorContext = {
             root: temp.tempDir,
             cwd: temp.tempDir,
@@ -277,19 +277,60 @@ describe('@rasm/nx-vitest real run', () => {
             projectGraph: { nodes: { repo: node }, dependencies: {} },
             nxJsonConfiguration: {},
         };
-        const plain = await Array.fromAsync(await runExecutor({ project: 'repo', target: 'test--vitest' }, {}, executor));
+        const options = await Effect.runPromise(Schema.decodeUnknownEffect(Test)(targets['test--vitest']?.options));
+        const plain = await execute(options, executor);
         const ran = listed().filter((file) => !before.has(file));
         const seen = new Set([...before, ...ran]);
-        const covered = await Array.fromAsync(await runExecutor({ project: 'repo', target: 'test--vitest', configuration: 'coverage' }, {}, { ...executor, configurationName: 'coverage' }));
+        const covered = await execute(await Effect.runPromise(Schema.decodeUnknownEffect(Test)({ ...targets['test--vitest']?.options, ...targets['test--vitest']?.configurations?.['coverage'] })), { ...executor, configurationName: 'coverage' });
         const written = listed().filter((file) => !seen.has(file));
         const caches = [...ran, ...written].filter((file) => basename(file) === 'CACHEDIR.TAG').map(dirname);
         const [declared, reported] = [getOutputs({ repo: node }, { project: 'repo', target: 'test--vitest' }, {}), getOutputs({ repo: node }, { project: 'repo', target: 'test--vitest', configuration: 'coverage' }, {})];
         const [plainUnder, coveredUnder] = [declared, reported].map((outputs) => new RegExp(`^(?:${[...outputs, ...caches].map(RegExp.escape).join('|')})(?:/|$)`, 'u'));
 
-        expect([...plain, ...covered]).toMatchObject([{ success: true }, { success: true }]);
+        expect([plain, covered]).toStrictEqual([{ success: true }, { success: true }]);
         expect(ran.filter((file) => plainUnder?.test(file) !== true)).toStrictEqual([]);
         expect(written.filter((file) => coveredUnder?.test(file) !== true)).toStrictEqual([]);
         expect(reported).toContain('coverage/lcov.info');
         expect(written).toContain('coverage/lcov.info');
+    });
+
+    it('should run every batched task in one Vitest run, deciding each from the test modules of its own projects and writing attachments to its own folder', async ({ temp, context }) => {
+        await temp.createFiles({
+            'vitest.config.ts': "export default { test: { projects: process.env.VITEST === 'true' ? ['packages/*'] : [], reporters: ['default', './counted.ts'] } };\n",
+            'counted.ts': "import { appendFileSync } from 'node:fs';\n\nexport default class { onInit() { appendFileSync('runs.log', 'run\\n'); } }\n",
+            'packages/a/package.json': '{"name":"a","type":"module"}',
+            'packages/a/note.txt': 'a',
+            'packages/a/a.test.ts': "import { expect, test } from 'vitest';\n\ntest('holds', async ({ annotate }) => { await annotate('kept', { path: 'note.txt' }); expect(1).toBe(1); });\n",
+            'packages/b/package.json': '{"name":"b","type":"module"}',
+            'packages/b/b.test.ts': "import { expect, test } from 'vitest';\n\ntest('breaks', () => expect(1).toBe(2));\n",
+        });
+
+        const nodes = await createNodesFunction(['vitest.config.ts'], { outputPath: '.artifacts/vitest/{projectName}' }, context);
+        const names = ['a', 'b'] as const;
+        const nodesByName = Record.fromIterableWith(names, (name) => [name, { name, type: 'lib' as const, data: { ...nodes[0]?.[1].projects?.[`packages/${name}`], root: `packages/${name}` } }] as const);
+        const graph: TaskGraph = { tasks: Record.fromIterableWith(names, (name) => [`${name}:test--vitest`, queued(name)]), dependencies: Record.fromIterableWith(names, (name) => [`${name}:test--vitest`, []]), continuousDependencies: {}, roots: names.map((name) => `${name}:test--vitest`) };
+        const inputs = await Effect.runPromise(Schema.decodeEffect(Inputs)(Record.fromIterableWith(names, (name) => [`${name}:test--vitest`, JSON.parse(JSON.stringify(nodesByName[name]?.data.targets?.['test--vitest']?.options).replaceAll('{projectName}', name))])));
+        const executor: ExecutorContext = {
+            root: temp.tempDir,
+            cwd: temp.tempDir,
+            isVerbose: false,
+            projectsConfigurations: { version: 2, projects: Record.map(nodesByName, ({ data }) => data) },
+            projectGraph: { nodes: nodesByName, dependencies: {} },
+            nxJsonConfiguration: {},
+        };
+
+        vi.stubEnv('VITEST', 'false');
+        onTestFinished(() => {
+            vi.unstubAllEnvs();
+        });
+        const results = await Array.fromAsync(batch(graph, inputs, {}, executor));
+
+        expect(results.map(({ task: id, result: { success } }) => [id, success])).toStrictEqual([
+            ['a:test--vitest', true],
+            ['b:test--vitest', false],
+        ]);
+        expect(results[1]?.result.terminalOutput).toContain('FAIL b b.test.ts > breaks');
+        await expect(temp.readFile('runs.log')).resolves.toBe('run\n');
+        expect(globSync('.artifacts/vitest/a/attachments/*', { cwd: temp.tempDir })).toHaveLength(1);
     });
 });

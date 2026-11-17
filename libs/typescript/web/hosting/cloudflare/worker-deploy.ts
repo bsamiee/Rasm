@@ -1,7 +1,28 @@
+import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { type BuildOutputWorker, DEFAULT_WORKER_DIRECTORY_NAME, readBuildOutput } from '@cloudflare/build-output-utils';
-import { D1Database, getZeroTrustOrganizationOutput, HyperdriveConfig, Provider, Queue, QueueConsumer, R2Bucket, R2BucketCors, R2BucketLifecycle, type types, Worker, WorkersCronTrigger, WorkersCustomDomain, WorkerVersion, Workflow, ZeroTrustAccessApplication, ZeroTrustAccessPolicy } from '@pulumi/cloudflare';
+import {
+    AccountToken,
+    D1Database,
+    getAccountApiTokenPermissionGroupsListOutput,
+    getZeroTrustOrganizationOutput,
+    HyperdriveConfig,
+    Provider,
+    Queue,
+    QueueConsumer,
+    R2Bucket,
+    R2BucketCors,
+    R2BucketLifecycle,
+    type types,
+    Worker,
+    WorkersCronTrigger,
+    WorkersCustomDomain,
+    WorkerVersion,
+    Workflow,
+    ZeroTrustAccessApplication,
+    ZeroTrustAccessPolicy,
+} from '@pulumi/cloudflare';
 import { local } from '@pulumi/command';
 import { type CustomResourceOptions, jsonStringify, type Output, output, type Resource, secret } from '@pulumi/pulumi';
 import { Array, Cause, Config, Duration, Effect, flow, Match, Option, Predicate, Record, Redacted, Result, Schema, String, Struct, UndefinedOr } from 'effect';
@@ -34,6 +55,8 @@ const UNNAMED: ReadonlySet<string> = new Set(['assets', 'ai', 'browser', 'images
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const aged = (age: Duration.Duration) => ({ condition: { type: 'Age', maxAge: Duration.toSeconds(age) } });
+const deployedBuckets = (hosting: unknown, named: (configured: string) => string) =>
+    Predicate.hasProperty(hosting, 'env') && Predicate.isObject(hosting.env) ? { ...hosting, env: Record.map(hosting.env, (entry: unknown) => (Predicate.isTagged(entry, 'bucket') && Predicate.hasProperty(entry, 'name') && Predicate.isString(entry.name) ? { ...entry, name: named(entry.name) } : entry)) } : hosting;
 const pointed = <B extends { readonly name?: string | undefined }>(held: readonly B[]) => Record.fromEntries(Array.filterMap(held, (binding) => (binding.name === undefined ? Result.failVoid : Result.succeed([binding.name, binding] as const))));
 const deployed = Effect.fnUntraced(function* (
     {
@@ -79,10 +102,11 @@ const deployed = Effect.fnUntraced(function* (
     const domains = hostnames.map((hostname) => new WorkersCustomDomain(hostname, { accountId, hostname, service: worker.name }, options));
     const address = worker.subdomain.apply(({ enabled, url }) => (enabled ? url : undefined));
     const hosts = address.apply((url) => [...hostnames, ...Array.fromNullishOr(url).map((live) => new URL(live).host)]);
-    const stated = yield* Effect.forEach(Record.toEntries(config.env ?? {}), ([variable, binding]) =>
+    const provided = directory === DEFAULT_WORKER_DIRECTORY_NAME ? bindings(hosts) : {};
+    const stated = yield* Effect.forEach(Record.toEntries(Record.filter(config.env ?? {}, (_, variable) => !Record.has(provided, variable))), ([variable, binding]) =>
         Match.value(binding).pipe(
             Match.when({ type: 'text' }, ({ value }) => Effect.succeed({ type: 'plain_text', text: value })),
-            Match.when({ type: 'json' }, ({ type, value }) => Effect.succeed({ type, json: jsonStringify(value) })),
+            Match.when({ type: 'json' }, ({ type, value }) => Effect.succeed({ type, json: jsonStringify(variable === App.bundle.hosting ? deployedBuckets(value, named) : value) })),
             Match.when({ type: 'secret' }, () => Effect.all({ type: Effect.succeed('secret_text'), text: Effect.map(Config.Redacted(variable), flow(Redacted.value, secret)) })),
             Match.when({ type: 'd1', id: Predicate.isString }, ({ type, id }) => Effect.succeed({ type, id })),
             Match.when({ type: 'd1', name: Predicate.isString }, ({ type, name: database }) => Effect.succeed({ type, id: stores.d1[database]?.id })),
@@ -107,7 +131,7 @@ const deployed = Effect.fnUntraced(function* (
             mainModule: config.manifest?.mainModule,
             modules: Array.fromNullishOr(bundleDir).flatMap((bundle) => Record.collect(config.manifest?.modules ?? {}, (module, { type }) => ({ name: module, contentType: CONTENT[type], contentFile: join(bundle, module) }))),
             assets: UndefinedOr.map(assetsDir, (assets) => ({ directory: assets, config: config.assets })),
-            bindings: [...stated, ...Record.collect(directory === DEFAULT_WORKER_DIRECTORY_NAME ? bindings(hosts) : {}, (variable, binding) => ({ ...binding, name: variable }))],
+            bindings: [...stated, ...Record.collect(provided, (variable, binding) => ({ ...binding, name: variable }))],
             exports: Record.filter(exported, (entry) => entry.type !== 'workflow'),
         },
         { ...options, dependsOn: Record.values<keyof Stores, Stores[keyof Stores]>(stores).flatMap(Object.values<Resource>) },
@@ -139,8 +163,26 @@ const deployApp = Effect.fn('deployApp')(function* ({ app, mode, root }: { reado
             return [variable, { type: 'hyperdrive', id: new HyperdriveConfig(store, { accountId, name: store, origin }, options).id }] as const;
         }),
     );
+    const built = yield* Effect.tryPromise({ try: () => readBuildOutput(root), catch: (cause) => new Cause.UnknownError(cause, `${root} holds no Build Output tree`) });
+    const configs = Object.values(built.workers).map(({ config }) => config);
+    const bound = configs.flatMap(({ env = {} }) => Object.values(env));
+    const buckets = Record.toEntries(pointed(bound.filter((binding) => binding.type === 'r2')));
+    const [place, ...places] = Array.dedupe(buckets.map(([, { jurisdiction }]) => jurisdiction ?? 'default'));
+    yield* Array.isArrayNonEmpty(places) ? Effect.fail(new Cause.IllegalArgumentError(`${app.name} binds buckets in jurisdictions ${[place, ...places].join(', ')}, one S3 endpoint serves one jurisdiction`)) : Effect.void;
+    const signing = UndefinedOr.map(place, (jurisdiction) => {
+        const writing = getAccountApiTokenPermissionGroupsListOutput({ accountId, name: encodeURIComponent('Workers R2 Storage Bucket Item Write'), scope: 'com.cloudflare.edge.r2.bucket' }, options).results;
+        const resources = JSON.stringify(Record.fromIterableWith(buckets, ([bucket]) => [`com.cloudflare.edge.r2.bucket.${accountId}_${jurisdiction}_${named(bucket)}`, '*']));
+        const granted = new AccountToken(name, { accountId, name, policies: [{ effect: 'allow', permissionGroups: writing.apply(Array.map(({ id }) => ({ id }))), resources }] }, options);
+        return {
+            [App.bundle.signing.endpoint]: { type: 'plain_text', text: `https://${accountId}${jurisdiction === 'default' ? '' : `.${jurisdiction}`}.r2.cloudflarestorage.com` },
+            [App.bundle.signing.region]: { type: 'plain_text', text: 'auto' },
+            [App.bundle.signing.key]: { type: 'secret_text', text: granted.id },
+            [App.bundle.signing.secret]: { type: 'secret_text', text: secret(granted.value.apply((value) => createHash('sha256').update(value).digest('hex'))) },
+        };
+    });
     const bindings = (hosts: Output<readonly string[]>) => ({
         ...Record.fromEntries(pooled),
+        ...signing,
         ...Option.match(Option.liftPredicate(app.allowed, Array.isReadonlyArrayNonEmpty), {
             onNone: () => ({}),
             onSome: (addresses) => {
@@ -152,9 +194,6 @@ const deployApp = Effect.fn('deployApp')(function* ({ app, mode, root }: { reado
             },
         }),
     });
-    const built = yield* Effect.tryPromise({ try: () => readBuildOutput(root), catch: (cause) => new Cause.UnknownError(cause, `${root} holds no Build Output tree`) });
-    const configs = Object.values(built.workers).map(({ config }) => config);
-    const bound = configs.flatMap(({ env = {} }) => Object.values(env));
     const consumed = configs.flatMap(({ triggers = [] }) => triggers.filter((trigger) => trigger.type === 'queue').flatMap(({ name: queue, deadLetterQueue }) => [queue, ...Array.fromNullishOr(deadLetterQueue)]));
     const produced = pointed(bound.filter((binding) => binding.type === 'queue'));
     const protect = { ...options, protect: kept };
@@ -163,18 +202,18 @@ const deployApp = Effect.fn('deployApp')(function* ({ app, mode, root }: { reado
             Record.filter(pointed(bound.filter((binding) => binding.type === 'd1')), ({ id }) => id === undefined),
             ({ jurisdiction }, database) => new D1Database(named(database), { accountId, name: named(database), jurisdiction }, protect),
         ),
-        r2: Record.map(pointed(bound.filter((binding) => binding.type === 'r2')), ({ jurisdiction }, bucket) => new R2Bucket(named(bucket), { accountId, name: named(bucket), jurisdiction }, protect)),
+        r2: Record.map(Record.fromEntries(buckets), ({ jurisdiction }, bucket) => new R2Bucket(named(bucket), { accountId, name: named(bucket), jurisdiction }, protect)),
         queue: Record.fromIterableWith(Array.dedupe([...consumed, ...Record.keys(produced)]), (queue) => [queue, new Queue(named(queue), { accountId, queueName: named(queue), settings: UndefinedOr.map(produced[queue]?.deliveryDelay, (deliveryDelay) => ({ deliveryDelay })) }, options)]),
     };
     const workers = yield* Effect.all(Record.map(built.workers, (worker, directory) => deployed({ accountId, production: kept, named, bindings, options }, stores, worker, directory)));
     yield* Effect.forEach(
         Record.toEntries(Record.filter(app.env, App.Binding.$is('bucket'))),
-        Effect.fnUntraced(function* ([variable, { uploads, abort, expire, infrequentAccess, cors }]) {
+        Effect.fnUntraced(function* ([variable, { abort, expire, infrequentAccess, cors }]) {
             const [stated, store] = [App.resource(app, 'production', variable), App.resource(app, mode, variable)];
             const bucket = yield* Effect.fromOption(Record.get(stores.r2, stated), () => new Cause.NoSuchElementError(`Build Output of ${root} binds no bucket ${stated}, the store ${variable} of ${app.name}`));
             const rules = [
                 { id: 'abort', enabled: true, conditions: { prefix: '' }, abortMultipartUploadsTransition: aged(abort) },
-                ...Record.collect({ [uploads]: abort, ...expire[mode] }, (prefix, age) => ({ id: `expire ${prefix}*`, enabled: true, conditions: { prefix }, deleteObjectsTransition: aged(age) })),
+                ...Record.collect(expire[mode], (prefix, age) => ({ id: `expire ${prefix}*`, enabled: true, conditions: { prefix }, deleteObjectsTransition: aged(age) })),
                 ...Record.collect(infrequentAccess, (prefix, age) => ({ id: `infrequent access ${prefix}*`, enabled: true, conditions: { prefix }, storageClassTransitions: [{ storageClass: 'InfrequentAccess', ...aged(age) }] })),
             ];
             const allowed = cors.map(({ origins, methods, headers, exposed, age }) => ({ allowed: { origins: [...origins], methods: [...methods], headers: [...headers] }, exposeHeaders: [...exposed], maxAgeSeconds: Duration.toSeconds(age) }));

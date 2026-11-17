@@ -26,8 +26,8 @@ public static class HatchPatterns {
     // --- [COMPARISON]
 
     public static IO<bool> Unchanged(HatchPattern live, HatchPattern staged) =>
-        (from held in Products.Many(() => live.HatchLines, required: false)
-         from wanted in Products.Many(() => staged.HatchLines, required: false)
+        (from held in Products.Many(() => live.HatchLines, required: false).Bind(static rows => rows.TraverseM(static row => use(IO.pure(row))).As())
+         from wanted in Products.Many(() => staged.HatchLines, required: false).Bind(static rows => rows.TraverseM(static row => use(IO.pure(row))).As())
          select (live.FillType, live.PatternUnitSystem, live.AlwaysModelDistances, live.Description) == (staged.FillType, staged.PatternUnitSystem, staged.AlwaysModelDistances, staged.Description)
              && UserStrings.Of(live.GetUserStrings()) == UserStrings.Of(staged.GetUserStrings())
              && held.Count == wanted.Count

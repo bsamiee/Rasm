@@ -11,11 +11,12 @@ let swiftSettings: [SwiftSetting] = [
     .enableUpcomingFeature("MemberImportVisibility"),
     .enableUpcomingFeature("NonisolatedNonsendingByDefault"),
     .strictMemorySafety(),
-    .unsafeFlags(["-warn-soft-deprecated", "-Xfrontend", "-warn-long-expression-type-checking-scopes", "-Xfrontend", "200"]),
+    .unsafeFlags(["-Xfrontend", "-warn-long-expression-type-checking-scopes", "-Xfrontend", "200"]),
     .treatAllWarnings(as: .error),
     .treatWarning("ExplicitSendable", as: .error),
     .treatWarning("StrictLanguageFeatures", as: .error),
 ]
+let softDeprecations: SwiftSetting = .unsafeFlags(["-warn-soft-deprecated"])
 let linkerSettings: [LinkerSetting] = [.unsafeFlags(["-Xlinker", "-fatal_warnings"])]
 let embeddedInfo: (String) -> [LinkerSetting] = { folder in
     [.unsafeFlags(["-Xlinker", "-sectcreate", "-Xlinker", "__TEXT", "-Xlinker", "__info_plist", "-Xlinker", "\(Context.packageDirectory)/\(folder)/Info.plist"])]
@@ -110,6 +111,31 @@ let modules: [Target] = [
         path: "libs/swift/macos/ApplicationServer",
     ),
 ]
+let applications: [Target] = [
+    .target(
+        name: "Atelier",
+        dependencies: [
+            "AppleEvents", "ApplicationServer", "Applications", "CurrentProcess", "Encoding", "Fonts", "JSONRPC", "Results", "ScreenCapture", "Telemetry", "Updater",
+            .product(name: "Logging", package: "swift-log"), .product(name: "ServiceLifecycle", package: "swift-service-lifecycle"),
+            .product(name: "Tracing", package: "swift-distributed-tracing"), .product(name: "UnixSignals", package: "swift-service-lifecycle"),
+        ],
+        path: "products/apps/creative-cloud/multi-app/atelier/macos",
+        exclude: ["Atelier.entitlements", "Atelier.xcodeproj", "Info.plist", "Resources"],
+    ),
+    .target(
+        name: "Relay",
+        dependencies: [
+            "CurrentProcess", "Encoding", "Files", "JSONRPC", "Processes", "Results", "Telemetry", "Updater", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
+            .product(name: "CasePaths", package: "swift-case-paths"), .product(name: "CasePathsCore", package: "swift-case-paths"), .product(name: "Logging", package: "swift-log"),
+            .product(name: "ServiceLifecycle", package: "swift-service-lifecycle"), .product(name: "Sparkle", package: "Sparkle"),
+            .product(name: "Subprocess", package: "swift-subprocess"), .product(name: "Tracing", package: "swift-distributed-tracing"),
+        ],
+        path: "products/macos/relay",
+        exclude: ["AGENTS.md", "CLAUDE.md", "Info.plist", "Relay.entitlements", "Relay.xcodeproj", "Resources/AppIcon.icon"],
+        resources: [.process("Resources/Assets.xcassets")],
+        swiftSettings: [.defaultIsolation(MainActor.self)],
+    ),
+]
 let executables: [Target] = [
     .executableTarget(
         name: "watch-apps",
@@ -151,7 +177,7 @@ let tests: [Target] = [
 let package = Package(
     name: "Rasm",
     platforms: [.macOS(.v27)],
-    products: modules.map { module in .library(name: module.name, targets: [module.name]) },
+    products: (modules + applications).map { module in .library(name: module.name, targets: [module.name]) },
     dependencies: [
 
         // --- [LANGUAGE]
@@ -184,11 +210,11 @@ let package = Package(
         .package(url: "https://github.com/pointfreeco/swift-issue-reporting", from: "2.1.2"),
         .package(url: "https://github.com/x-sheep/swift-property-based", from: "2.0.1"),
     ],
-    targets: modules + executables + tests,
+    targets: modules + applications + executables + tests,
 )
 
 for target: Target in package.targets {
-    target.swiftSettings = swiftSettings
+    target.swiftSettings = swiftSettings + (target.resources == nil ? [softDeprecations] : []) + (target.swiftSettings ?? [])
     target.linkerSettings = linkerSettings + (target.type == .executable ? target.path.map(embeddedInfo) ?? [] : [])
     target.dependencies += target.type == .test ? [.product(name: "IssueReportingTestSupport", package: "swift-issue-reporting")] : []
 }

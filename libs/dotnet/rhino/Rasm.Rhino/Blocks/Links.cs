@@ -88,7 +88,7 @@ public static class Links {
         (from folder in IO.lift(() => relative
              ? Conversions.Present(doc.Path).Bind(static held => Optional(Path.GetDirectoryName(held))).ToFin(new RhinoFault(doc.Name, RhinoReason.Unqualified)).Map(Some)
              : Option<string>.None)
-         from reference in Products.Of(() => FileReference.CreateFromFullAndRelativePaths(path, folder.Map(held => Path.GetRelativePath(held, path)).ValueUnsafe()))
+         from reference in use(Products.Of(() => FileReference.CreateFromFullAndRelativePaths(path, folder.Map(held => Path.GetRelativePath(held, path)).ValueUnsafe())))
          from modified in Products.Accepted(() => doc.InstanceDefinitions.ModifySourceArchive(definition.Index, reference, definition.UpdateType, definition.LayerStyle, quiet: true))
          select modified).Bracket();
 

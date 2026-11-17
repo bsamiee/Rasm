@@ -1,7 +1,9 @@
-import { matchesGlob } from 'node:path';
+import { join, matchesGlob } from 'node:path';
 import type { CreateNodesContext } from '@nx/devkit';
 import { setupWorkspaceContext } from '@nx/devkit/internal';
 import { createNodes } from '@rasm/nx-typescript';
+import { refused } from '@rasm/testing/errors';
+import { pathed, refusing } from '@rasm/testing/nx';
 import { TempFs } from '@rasm/testing/temp-fs';
 import { describe, expect, test, vi } from 'vitest';
 
@@ -78,6 +80,12 @@ describe('workspace root checks', () => {
         ['package.json', { 'package.json': JSON.stringify({ workspaces: ['**'], jscpd: {} }) }],
     ] as const)('should hash every file when %s, the configuration jscpd reads first, states no pattern', async ([config, files], { tempFs, context }) => {
         await expect(workspaceTargets(tempFs, context, files).then((targets) => targets?.['check--jscpd'])).resolves.toStrictEqual(duplicated(config, '**/*'));
+    });
+
+    it.for(refusing('jscpd'))('should report the command and $case of jscpd as the error of the workspace manifest', async ({ scripts, refusal }, { tempFs, context }) => {
+        pathed(join(tempFs.tempDir, '.bin'), scripts);
+
+        await expect(workspaceTargets(tempFs, context, { '.jscpd.json': '{}' })).rejects.toSatisfy(refused(refusal));
     });
 
     it('should create a check--knip target where knip resolves from the workspace root', async ({ tempFs, context }) => {

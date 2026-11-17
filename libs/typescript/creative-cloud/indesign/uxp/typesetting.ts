@@ -29,9 +29,9 @@ const textTarget = Effect.fnUntraced(function* (path: string) {
     const [{ app, textContainer, text, textDefault }, specifier] = yield* Effect.all([Model, Schema.decodeEffect(Specifier.Path)(path)]);
     const found = specifier.root ? app.textDefaults : yield* Model.located(specifier);
     const target = text(found) || textDefault(found) || !textContainer(found) ? found : found.texts.item(0);
-    return yield* text(target) || textDefault(target) ? Effect.succeed(target) : Unmatched.make({ subject: 'text', query: Option.some(path) });
+    return yield* text(target) || textDefault(target) ? Effect.succeed(target) : Unmatched.of({ subject: 'text', query: Option.some(path) });
 });
-const textRange = (target: Text | TextDefault) => Model.use(({ text }) => Effect.filterOrFail(Effect.succeed(target), text, () => Unmatched.make({ subject: 'text range', query: Option.some(target.toSpecifier()) })));
+const textRange = (target: Text | TextDefault) => Model.use(({ text }) => Effect.filterOrFail(Effect.succeed(target), text, () => Unmatched.of({ subject: 'text range', query: Option.some(target.toSpecifier()) })));
 const kerningMethod = (method: 'Manual' | 'Metrics') => Model.use(({ app }) => Effect.try({ try: () => app.translateKeyString(`$ID/${method}`), catch: HostError.refused(`$ID/${method}`) }));
 const pointAfterBase = (text: Text) =>
     Effect.try({
@@ -42,7 +42,7 @@ const pointAfterBase = (text: Text) =>
             return last.index > marks.length ? Option.some(container.insertionPoints.item(last.index - marks.length)) : Option.none();
         },
         catch: HostError.refused(`base letter before ${text.toSpecifier()}`),
-    }).pipe(Effect.flatMap(Effect.fromOption(() => Unmatched.make({ subject: 'base letter', query: Option.some(text.toSpecifier()) }))));
+    }).pipe(Effect.flatMap(Effect.fromOption(() => Unmatched.of({ subject: 'base letter', query: Option.some(text.toSpecifier()) }))));
 const adjust = Effect.fn('adjust')(function* ({ label, target: path, deltas }: { readonly label: string; readonly target: string; readonly deltas: Partial<Omit<typeof Deltas.Type, 'marks'>> & { readonly marks?: Partial<typeof Deltas.Type.marks> } }) {
     const { kerning = 0, tracking = 0, baselineShift = 0, marks = {} } = deltas;
     const [{ text }, target, manual, encoded] = yield* Effect.all([Model, textTarget(path), kerningMethod('Manual'), Effect.orDie(Schema.encodeEffect(Deltas)({ kerning, tracking, baselineShift, marks: { x: 0, y: 0, ...marks } }))]);
@@ -57,7 +57,7 @@ const kerns = Effect.fn('kerns')(function* (payload: { readonly label: string; r
     const refused = HostError.refused(`insertion points of ${text.toSpecifier()}`);
     const count = yield* Effect.try({ try: () => text.insertionPoints.length, catch: refused });
     const outOfRange = [...Option.toArray(payload.restore), ...rows].filter(({ index, length }) => index + length >= count);
-    yield* Array.isReadonlyArrayEmpty(outOfRange) ? Effect.void : Unmatched.make({ subject: `run in characters 0 to ${count - 2}`, query: Option.some(outOfRange.map(({ index, length }) => `${index} to ${index + length - 1}`).join(', ')) });
+    yield* Array.isReadonlyArrayEmpty(outOfRange) ? Effect.void : Unmatched.of({ subject: `run in characters 0 to ${count - 2}`, query: Option.some(outOfRange.map(({ index, length }) => `${index} to ${index + length - 1}`).join(', ')) });
     const characters = ({ index, length }: Run) => text.characters.itemByRange(index, index + length - 1);
     const restored = Effect.transposeOption(Option.map(payload.restore, (run) => Effect.flatMap(Effect.try({ try: () => characters(run).getElements(), catch: refused }), Effect.forEach(Model.write({ kerningMethod: metrics }), { discard: true }))));
     const shifted = (row: (typeof rows)[number]) =>
@@ -89,7 +89,7 @@ const runs = Effect.fn('runs')(function* ({ target: path }: { readonly target: s
         return yield* Effect.try({ try: () => ({ ...Struct.pick(Model.referenceUnsafe(target), REFERENCED), start: 0, length: 0, runs: [{ text: '', font: target.appliedFont.name, axes: target.designAxes }] }), catch: HostError.refused(`applied font of ${target.toSpecifier()}`) });
     }
     const container = target.parent;
-    const whole = yield* textContainer(container) ? Effect.succeed(container.texts.item(0)) : Unmatched.make({ subject: 'text container', query: Option.some(path) });
+    const whole = yield* textContainer(container) ? Effect.succeed(container.texts.item(0)) : Unmatched.of({ subject: 'text container', query: Option.some(path) });
     const ranges = yield* Effect.try({
         try: () => Array.map(whole.textStyleRanges.everyItem().getElements(), (run) => ({ text: Predicate.isString(run.contents) ? run.contents : '\n'.repeat(run.length), font: run.appliedFont.name, axes: run.designAxes })),
         catch: HostError.refused(`style ranges of ${whole.toSpecifier()}`),

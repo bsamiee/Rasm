@@ -6,8 +6,8 @@
     </PropertyGroup>
 
     <ItemGroup Label="Rhino Icons">
-        <EmbeddedResource Include="**/EmbeddedResources/**" Exclude="**/*.svg" LogicalName="%(Filename)%(Extension)" WithCulture="false" />
-        <_IconMaster Include="**/EmbeddedResources/**/*.svg" Exclude="$(PlugInIcon)" IconStem="%(Filename)" />
+        <EmbeddedResource Include="**/EmbeddedResources/**" Exclude="$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder);**/*.svg" LogicalName="%(Filename)%(Extension)" WithCulture="false" />
+        <_IconMaster Include="**/EmbeddedResources/**/*.svg" Exclude="$(DefaultItemExcludes);$(DefaultExcludesInProjectFolder);$(PlugInIcon)" IconStem="%(Filename)" />
         <_IconMaster Include="$(PlugInIcon)" IconStem="icon" Condition="Exists('$(PlugInIcon)')" />
         <_IconMaster Update="@(_IconMaster)" Master="%(FullPath)" />
         <_ThemedIcon Include="@(_IconMaster->'$(_IconDir)%(IconStem)%(Extension)')" Stylesheet="$(IconLightStylesheet)" />

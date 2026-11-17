@@ -33,7 +33,7 @@ class Ayah extends Schema.Class<Ayah, { readonly brand: unique symbol }>('Ayah')
         return Effect.map(
             Effect.fromOption(
                 Array.findFirst(forms, (form) => face.draws(form)),
-                () => Unmatched.make({ subject: 'ayah mark the face draws', query: Option.some(String(this.number)), candidates: forms }),
+                () => Unmatched.of({ subject: 'ayah mark the face draws', query: Option.some(String(this.number)), candidates: forms }),
             ),
             (form) =>
                 Array.append(Option.toArray(this.basmalah), `${this.text}\u{A0}${form}`)
@@ -73,7 +73,7 @@ class Quran extends Schema.Class<Quran, { readonly brand: unique symbol }>('Qura
         const ayahsBySurah = Map.groupBy(ayahs, Struct.get('surah'));
         const named = Array.dedupeWith(surahs, sameNumber);
         const numbers = named.map(Struct.get('number'));
-        yield* Array.match(Array.difference(Array.fromIterable(ayahsBySurah.keys()), numbers), { onEmpty: () => Effect.void, onNonEmpty: (keys) => Unmatched.make({ subject: 'surah', query: Option.some(keys.join(', ')), candidates: numbers.map(String) }) });
+        yield* Array.match(Array.difference(Array.fromIterable(ayahsBySurah.keys()), numbers), { onEmpty: () => Effect.void, onNonEmpty: (keys) => Unmatched.of({ subject: 'surah', query: Option.some(keys.join(', ')), candidates: numbers.map(String) }) });
         return yield* Schema.decodeEffect(Quran)({
             ...Record.getSomes({ riwayah }),
             surahs: Array.sortWith(
@@ -89,8 +89,8 @@ class Quran extends Schema.Class<Quran, { readonly brand: unique symbol }>('Qura
     }).annotate({ description: 'Signs and line breaks written into mushaf ayah text' });
     static readonly mushaf = Effect.fn('Quran.mushaf')(function* (json: Option.Option<string> = Option.none(), render: typeof Quran.Render.Type = {}, tables: readonly SurahNames[] = NAMES) {
         const mushaf = yield* Option.match(json, {
-            onNone: () => Effect.tryPromise({ try: () => Mushaf.hafs(), catch: (cause) => QuranError.make({ subject: 'bundled Hafs mushaf', cause }) }),
-            onSome: (text) => Effect.try({ try: () => Mushaf.fromJson(text), catch: (cause) => QuranError.make({ subject: 'mushaf JSON', cause }) }),
+            onNone: () => Effect.tryPromise({ try: () => Mushaf.hafs(), catch: QuranError.of('bundled Hafs mushaf') }),
+            onSome: (text) => Effect.try({ try: () => Mushaf.fromJson(text), catch: QuranError.of('mushaf JSON') }),
         });
         const keys = { bazzi: 'Bazzi', duri: 'Douri', hafs: 'Hafs', qalun: 'Qalun', shubah: 'Shuba', susi: 'Sousi', warsh: 'Warsh' } as const satisfies Record.ReadonlyRecord<string, RiwayaName>;
         const [, riwayah] = yield* Unmatched.single(Record.toEntries(keys), 'mushaf key', Option.some(mushaf.key), ([key]) => Array.of(key));
@@ -111,7 +111,7 @@ class Quran extends Schema.Class<Quran, { readonly brand: unique symbol }>('Qura
                 Array.findFirst(this.surahs, (candidate) => candidate.number === surah),
                 ({ ayahs }) => Array.findFirst(ayahs, (ayah) => ayah.number === number),
             ),
-            () => Unmatched.make({ subject: 'ayah text', query: Option.some(formatSurahAyah(reference)) }),
+            () => Unmatched.of({ subject: 'ayah text', query: Option.some(formatSurahAyah(reference)) }),
         );
     }
     select(selection: typeof Quran.Selection.Type): Effect.Effect<readonly Ayah[], Unmatched> {
@@ -130,10 +130,9 @@ class Quran extends Schema.Class<Quran, { readonly brand: unique symbol }>('Qura
 class QuranError extends Schema.TaggedError<QuranError, { readonly brand: unique symbol }>()('QuranError', {
     subject: Schema.String.annotate({ description: 'Source the text was read from' }),
     cause: Schema.Defect(),
+    message: Schema.String,
 }) {
-    override get message() {
-        return `Unreadable ${this.subject}: ${Formatter.format(this.cause)}`;
-    }
+    static readonly of = (subject: string) => (cause: unknown) => QuranError.make({ subject, cause, message: `Unreadable ${subject}: ${Formatter.format(cause)}` });
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -153,18 +152,18 @@ const uncounted =
 const spanned = (subject: string, { from, to }: typeof Bounds.Type, numbers: readonly number[]) => {
     const end = Option.getOrElse(Array.last(numbers), () => 0);
     const range = { minimum: Option.getOrElse(from, () => 1), maximum: Option.getOrElse(to, () => end) };
-    return range.maximum <= end && numbers.some(Number.between(range)) ? Effect.succeed(range) : Unmatched.make({ subject, query: Option.some(`${range.minimum}-${range.maximum}`), candidates: numbers.map(String) });
+    return range.maximum <= end && numbers.some(Number.between(range)) ? Effect.succeed(range) : Unmatched.of({ subject, query: Option.some(`${range.minimum}-${range.maximum}`), candidates: numbers.map(String) });
 };
 const within = (surah: Surah, bounds: typeof Bounds.Type) => Effect.map(spanned(`ayah in surah ${surah.number}`, bounds, surah.ayahs.map(Struct.get('number'))), (range) => surah.ayahs.filter(({ number }) => Number.between(number, range)));
 const counted = Effect.fnUntraced(function* (quran: Quran, { part, number, from, to }: typeof Quran.Selection.cases.Part.Type) {
-    const data = getListsOfRiwaya(yield* Effect.fromOption(quran.riwayah, () => Unmatched.make({ subject: `riwayah counting ${part}`, candidates: Riwayah.literals })));
+    const data = getListsOfRiwaya(yield* Effect.fromOption(quran.riwayah, () => Unmatched.of({ subject: `riwayah counting ${part}`, candidates: Riwayah.literals })));
     const quarters = data.meta.numRubAlHizbs / data.meta.numHizbs;
     const references = yield* Effect.try({
         try: () => (part === 'hizb' ? Array.range((number - 1) * quarters + 1, number * quarters).flatMap((quarter) => Array.fromIterable(ayahsInPart('rubAlHizb', quarter, data))) : Array.fromIterable(ayahsInPart(part, number, data))),
-        catch: () => Unmatched.make({ subject: `${part} in ${data.meta.riwayaName}`, query: Option.some(String(number)), candidates: (part === 'hizb' ? Array.range(1, data.meta.numHizbs) : (generatePartBlocks(part, data) ?? []).map((_, index) => index + 1)).map(String) }),
+        catch: () => Unmatched.of({ subject: `${part} in ${data.meta.riwayaName}`, query: Option.some(String(number)), candidates: (part === 'hizb' ? Array.range(1, data.meta.numHizbs) : (generatePartBlocks(part, data) ?? []).map((_, index) => index + 1)).map(String) }),
     });
     const { minimum, maximum } = yield* spanned(`ayah in ${part} ${number}`, { from, to }, Array.range(1, references.length));
-    return yield* Effect.validate(references.slice(minimum - 1, maximum), (reference) => quran.ayah(reference)).pipe(Effect.mapError((missing) => Unmatched.make({ subject: 'ayah text', query: Option.some(Array.getSomes(missing.map(Struct.get('query'))).join(', ')) })));
+    return yield* Effect.validate(references.slice(minimum - 1, maximum), (reference) => quran.ayah(reference)).pipe(Effect.mapError((missing) => Unmatched.of({ subject: 'ayah text', query: Option.some(Array.getSomes(missing.map(Struct.get('query'))).join(', ')) })));
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------

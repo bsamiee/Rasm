@@ -14,7 +14,7 @@ use std::sync::Arc;
 use cap_std::ambient_authority;
 use cap_std::fs::Dir;
 use jiff::tz::Offset;
-use jiff::{SignedDuration, Zoned};
+use jiff::{SignedDuration, ZonedDateTime};
 use merman::RenderError;
 use merman::svg::export::NativeFontError;
 use opentelemetry_semantic_conventions::attribute::{ERROR_TYPE, EXCEPTION_MESSAGE, HTTP_REQUEST_METHOD, HTTP_RESPONSE_STATUS_CODE, OTEL_STATUS_CODE, URL_FULL};
@@ -240,13 +240,13 @@ pub struct Project<F = Box<FileStore<Files>>> {
     #[debug(skip)]
     pub files: F,
     pub main: FileId,
-    pub now: Zoned,
+    pub now: ZonedDateTime,
 }
 
 impl<L> Project<Box<FileStore<L>>>
 where L: FileLoader
 {
-    pub fn new<I>(inputs: &I, features: Features, fonts: Arc<FontStore>, files: L, main: VirtualPath, now: Zoned) -> Result<Self, TypesetError>
+    pub fn new<I>(inputs: &I, features: Features, fonts: Arc<FontStore>, files: L, main: VirtualPath, now: ZonedDateTime) -> Result<Self, TypesetError>
     where I: Serialize + ?Sized {
         library(inputs, features, &mut Vec::new()).map(|library| Self { library, fonts, files: Box::new(FileStore::new(files)), main: RootedPath::new(VirtualRoot::Project, main).intern(), now })
     }

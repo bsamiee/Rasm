@@ -109,7 +109,7 @@ public static class Outputs {
             : IO.pure(Option<RhinoObject>.None);
 
     private static IO<ViewCaptureSettings> Projected(RhinoDoc doc, ViewportRef row, int index, PageSource.Named named) =>
-        from mode in Products.Of(() => row.Viewport.DisplayMode)
+        from mode in use(Products.Of(() => row.Viewport.DisplayMode))
         from free in use(() => new ViewportRef(row.View, new RhinoViewport(), None))
         from framed in IO.lift(() => {
             free.Viewport.Size = named.Request.Media.IfNone(() => row.Viewport.Size);
@@ -123,7 +123,7 @@ public static class Outputs {
         sources.TraverseM(source => Planned(doc, source)).As().Map(static planned => planned.Flatten()).Bind(body).Bracket();
 
     private static IO<ViewCaptureSettings> Decorated(RhinoDoc doc, (IO<ViewCaptureSettings> Settings, Option<RhinoObject> Context) page, PageText text) =>
-        from settings in page.Settings
+        from settings in use(page.Settings)
         from decorated in Products.Each(Seq(
             FieldFormulas.Format(doc, FieldFormulas.Text(text.Header), obj: page.Context, topParent: page.Context).Bind(header => IO.lift(() => { settings.HeaderText = header; })),
             FieldFormulas.Format(doc, FieldFormulas.Text(text.Footer), obj: page.Context, topParent: page.Context).Bind(footer => IO.lift(() => { settings.FooterText = footer; }))))
@@ -135,21 +135,21 @@ public static class Outputs {
         sources.TraverseM(source => source.Switch(
                 doc,
                 printed: static (document, printed) => Planned(document, printed.Source).Map(static pages => pages.Map(static page =>
-                    from settings in page.Settings
-                    from bitmap in Products.Of(() => ViewCapture.CaptureToBitmap(settings))
+                    from settings in use(page.Settings)
+                    from bitmap in use(Products.Of(() => ViewCapture.CaptureToBitmap(settings)))
                     select (bitmap, Some(settings.Resolution)))),
                 screen: static (document, screen) => Views(document, screen.Set).Map(views => views.Map(view =>
-                    Products.Of(() => screen.Capture.CaptureToBitmap(view)).Map(static bitmap => (bitmap, Option<double>.None)))),
+                    use(Products.Of(() => screen.Capture.CaptureToBitmap(view))).Map(static bitmap => (bitmap, Option<double>.None)))),
                 mode: static (document, mode) => Views(document, mode.Set).Map(views => views.Map(view =>
-                    (from description in Products.Of(() => DisplayModeDescription.GetDisplayMode(mode.Id))
-                     from edited in IO.lift(() => mode.Edits.Iter(edit => edit(description.DisplayAttributes)))
-                     from bitmap in Products.Of(() => view.CaptureToBitmap(mode.Pixels.IfNone(() => view.ActiveViewport.Size), description.DisplayAttributes))
-                     select (bitmap, Option<double>.None)).Bracket())),
+                    use((from description in use(Products.Of(() => DisplayModeDescription.GetDisplayMode(mode.Id)))
+                         from edited in IO.lift(() => mode.Edits.Iter(edit => edit(description.DisplayAttributes)))
+                         from bitmap in Products.Of(() => view.CaptureToBitmap(mode.Pixels.IfNone(() => view.ActiveViewport.Size), description.DisplayAttributes))
+                         select bitmap).Bracket()).Map(static bitmap => (bitmap, Option<double>.None)))),
                 posed: static (document, posed) => IO.pure(posed.Poses.Map(pose =>
-                    Viewports.With(document, posed.Viewport, row => Cameras.Within(row.Viewport, camera => IO.lift(() => Cameras.Pose(camera, pose)).Map(unit),
-                        Products.Of(() => row.View.CaptureToBitmap(posed.Pixels.IfNone(() => row.Viewport.Size))).Map(static bitmap => (bitmap, Option<double>.None)))))),
+                    use(Viewports.With(document, posed.Viewport, row => Cameras.Within(row.Viewport, camera => IO.lift(() => Cameras.Pose(camera, pose)).Map(unit),
+                        Products.Of(() => row.View.CaptureToBitmap(posed.Pixels.IfNone(() => row.Viewport.Size)))))).Map(static bitmap => (bitmap, Option<double>.None)))),
                 depth: static (document, depth) => IO.pure(Seq(
-                    Viewports.With(document, depth.Viewport, row => ZBuffer.Capture(row.Viewport, depth.Setup, static buffer => buffer.Grayscale))
+                    use(Viewports.With(document, depth.Viewport, row => ZBuffer.Capture(row.Viewport, depth.Setup, static buffer => buffer.Grayscale)))
                         .Map(static bitmap => (bitmap, Option<double>.None)))))).As()
             .Map(static planned => planned.Flatten()).Bind(body).Bracket();
 

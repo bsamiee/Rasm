@@ -1,11 +1,10 @@
 import { dirname, extname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
 import { type RawProjectGraphDependency, readJsonFile, type TargetConfiguration } from '@nx/devkit';
 import { type PackageJson, quoteShellArg } from '@nx/devkit/internal';
-import { aggregated, PLATFORM, type Verbs } from '@rasm/nx-distribution/inference';
+import { aggregated, PLATFORM, runner, type Verbs } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
-import { Array, Cause, Context, Effect, FileSystem, identity, Layer, ManagedRuntime, Option, pipe, Record, Result, Schema, SchemaTransformation, type Scope, String, Struct, UndefinedOr } from 'effect';
+import { Array, Cause, Context, Effect, FileSystem, identity, Layer, Option, pipe, Record, Result, Schema, SchemaTransformation, String, Struct, UndefinedOr } from 'effect';
 import { Ini, Toml } from 'effect/encoding';
 import type { Member } from '#/workspace';
 
@@ -348,9 +347,7 @@ const targets = (member: Member, { outputPath, coveragePath }: typeof Options.Ty
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const runtime = ManagedRuntime.make(Layer.merge(Linked.layer, layer));
-
-const run = <A, E>(effect: Effect.Effect<A, E, Linked | NodeServices | Scope.Scope>) => runtime.runPromise(Effect.scoped(effect));
+const run = runner(Linked.layer);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

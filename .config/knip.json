@@ -3,11 +3,23 @@
     "exclude": ["catalog"],
     "treatConfigHintsAsErrors": true,
     "ignoreBinaries": ["rustc", "swift", "uv"],
-    "ignoreDependencies": ["@effect/language-service", "@rasm/portfolio", "adobe", "claude-code", "indesign-uxp-types"],
-    "ignoreIssues": { "package.json": ["dependencies", "devDependencies", "optionalPeerDependencies"] },
-    "wrangler": { "entry": ["cloudflare.config.ts"] },
+    "ignoreDependencies": ["@effect/language-service", "adobe", "claude-code", "indesign-uxp-types"],
+    "ignoreIssues": {
+        "package.json": ["dependencies", "devDependencies", "optionalPeerDependencies"]
+    },
+    "wrangler": {
+        "entry": ["cloudflare.config.ts"]
+    },
     "workspaces": {
-        ".": { "entry": [], "project": [] },
-        "products/developer/nx/*": { "entry": ["executors/*/executor.ts", "generators/*/generator.ts"] }
+        ".": {
+            "entry": [],
+            "project": []
+        },
+        "products/developer/nx/*": {
+            "entry": ["executors/*/executor.ts", "generators/*/generator.ts"]
+        },
+        "infra": {
+            "project": ["**/*.ts", "!sdks/**"]
+        }
     }
 }

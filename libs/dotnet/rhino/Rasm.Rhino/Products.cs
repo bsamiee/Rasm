@@ -29,7 +29,7 @@ public static class Products {
         Maybe(call, member).Bind(found => IO.lift(found.ToFin(new RhinoFault(member, RhinoReason.Missing))));
 
     public static IO<Option<T>> Maybe<T>(Func<T?> call, [CallerArgumentExpression(nameof(call))] string member = "") where T : class =>
-        IO.lift(call).Bind(product => Optional(product).Traverse(held => Owning(held, member, None)).As());
+        IO.lift(call).Bind(product => Optional(product).Traverse(held => Validated(held, member, None)).As());
 
     public static IO<Seq<T>> Many<T>(Func<IEnumerable<T?>?> call, bool required = true, [CallerArgumentExpression(nameof(call))] string member = "") where T : class =>
         IO.lift(call).Bind(products => Listed(products, member, required));
@@ -39,7 +39,7 @@ public static class Products {
 
     public static IO<(T Value, TOut Out)> Of<T, TOut>(Func<(T? Value, TOut Out)> call, [CallerArgumentExpression(nameof(call))] string member = "") where T : class =>
         IO.lift(call).Bind(answered => Optional(answered.Value).Match(
-            Some: held => Owning(held, member, None).Map(owned => (owned, answered.Out)),
+            Some: held => Validated(held, member, None).Map(valid => (valid, answered.Out)),
             None: () => IO.fail<(T, TOut)>(new RhinoFault(member, RhinoReason.Missing))));
 
     public static IO<TOut> Accepted<TOut>(Func<(bool Accepted, TOut Out)> call, [CallerArgumentExpression(nameof(call))] string member = "") =>
@@ -57,12 +57,12 @@ public static class Products {
     private static IO<Seq<T>> Listed<T>(IEnumerable<T?>? products, string label, bool required) where T : class =>
         Optional(products).Map(static rows => toSeq(rows).Strict()).Filter(rows => !required || !rows.IsEmpty).Match(
             Some: rows => Each(rows.Map((row, index) => Optional(row).Match(
-                Some: held => Owning(held, label, index),
+                Some: held => Validated(held, label, index),
                 None: () => IO.fail<T>(new RhinoFault(label, RhinoReason.Missing, index))))),
             None: () => IO.fail<Seq<T>>(new RhinoFault(label, RhinoReason.Missing)));
 
-    private static IO<T> Owning<T>(T product, string label, Option<int> index) where T : class =>
-        when(product is IDisposable and not CommonObject, use(() => (IDisposable)product).Map(unit)).As() >> IO.lift(() => product switch {
+    private static IO<T> Validated<T>(T product, string label, Option<int> index) where T : class =>
+        IO.lift(() => product switch {
             CommonObject geometry when !geometry.IsValidWithLog(out string log) => Fin.Fail<T>(new RhinoFault(label, RhinoReason.Invalid, index, Error.New(log))),
             var held => held,
         });

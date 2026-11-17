@@ -20,21 +20,8 @@
     { "path": "../../../../../../.artifacts/vite/@rasm/atelier/atelier", "target-membership": [ { "build-phase": "Atelier/copy/Embed Server", "code-sign-on-copy": true } ] },
     { "path": "../../../../../../.artifacts/vite/@rasm/atelier/LaunchAgents", "target-membership": [ "Atelier/copy/Embed Server Agent" ] },
     { "path": "<PROJECT>/../../../../../../Xcode.xcconfig" },
+    { "path": "Resources/AppIcon.icon", "target-membership": [ "Atelier/resources" ] },
     {
-      "kind": "folder",
-      "path": ".",
-      "target-membership": [
-        "Atelier",
-      ],
-      "membership-exceptions": [
-        {
-          "target": "Atelier",
-          "exclusions": [
-            "Info.plist",
-          ],
-        },
-      ],
-    }, {
       "kind": "group",
       "name": "Products",
       "children": [
@@ -67,67 +54,7 @@
       "package-product-members": [
         {
           "package": "..",
-          "product-name": "AppleEvents",
-          "build-phase": { "build-phase": "frameworks" },
-        }, {
-          "package": "..",
-          "product-name": "ApplicationServer",
-          "build-phase": { "build-phase": "frameworks" },
-        }, {
-          "package": "..",
-          "product-name": "Applications",
-          "build-phase": { "build-phase": "frameworks" },
-        }, {
-          "package": "..",
-          "product-name": "Configuration",
-          "build-phase": { "build-phase": "frameworks" },
-        }, {
-          "package": "..",
-          "product-name": "CurrentProcess",
-          "build-phase": { "build-phase": "frameworks" },
-        }, {
-          "package": "..",
-          "product-name": "Encoding",
-          "build-phase": { "build-phase": "frameworks" },
-        }, {
-          "package": "..",
-          "product-name": "Fonts",
-          "build-phase": { "build-phase": "frameworks" },
-        }, {
-          "package": "..",
-          "product-name": "JSONRPC",
-          "build-phase": { "build-phase": "frameworks" },
-        }, {
-          "package": "..",
-          "product-name": "Logging",
-          "build-phase": { "build-phase": "frameworks" },
-        }, {
-          "package": "..",
-          "product-name": "Results",
-          "build-phase": { "build-phase": "frameworks" },
-        }, {
-          "package": "..",
-          "product-name": "ScreenCapture",
-          "build-phase": { "build-phase": "frameworks" },
-        }, {
-          "package": "..",
-          "product-name": "ServiceLifecycle",
-          "build-phase": { "build-phase": "frameworks" },
-        }, {
-          "package": "..",
-          "product-name": "Telemetry",
-          "build-phase": { "build-phase": "frameworks" },
-        }, {
-          "package": "..",
-          "product-name": "Tracing",
-          "build-phase": { "build-phase": "frameworks" },
-        }, {
-          "package": "..",
-          "product-name": "UnixSignals",
-          "build-phase": { "build-phase": "frameworks" },
-        }, {
-          "package": "..",
-          "product-name": "Updater",
+          "product-name": "Atelier",
           "build-phase": { "build-phase": "frameworks" },
         },
       ],

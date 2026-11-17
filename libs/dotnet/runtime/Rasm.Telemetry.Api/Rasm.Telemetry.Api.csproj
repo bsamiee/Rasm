@@ -1,11 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <Version>0.1.0</Version>
-        <Description>LanguageExt failures as log records and span status, for a library emitting through ILogger and ActivitySource alone</Description>
+        <Description>LanguageExt failures as log records and span status, for libraries that emit through ILogger and ActivitySource</Description>
         <IsPackable>true</IsPackable>
     </PropertyGroup>
 
-    <ItemGroup Label="Core">
+    <ItemGroup Label="Functional Programming">
         <PackageReference Include="LanguageExt.Core" />
     </ItemGroup>
 

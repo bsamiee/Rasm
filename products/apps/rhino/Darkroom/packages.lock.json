@@ -35,24 +35,6 @@
           "Emgu.runtime.windows.msvc.rt.x86": "19.51.36257"
         }
       },
-      "Emgu.runtime.windows.msvc.rt.arm64": {
-        "type": "Direct",
-        "requested": "[19.51.36257, )",
-        "resolved": "19.51.36257",
-        "contentHash": "VWjz+GKS/to3npExX1ICZkFsvzatTAwKksQxDf5T4TL7dSymd//rbPV7KMxGdUdFap066ncLb4e4kPumNKjHfg=="
-      },
-      "Emgu.runtime.windows.msvc.rt.x64": {
-        "type": "Direct",
-        "requested": "[19.51.36257, )",
-        "resolved": "19.51.36257",
-        "contentHash": "erukNuc6Zwwy1xyxdM5tuI/NGXVO5h/sH2LRadwElmD1iEhTJUIvpg0z9sgqSaFgecew+kpfesjNehh2jHZWkw=="
-      },
-      "Emgu.runtime.windows.msvc.rt.x86": {
-        "type": "Direct",
-        "requested": "[19.51.36257, )",
-        "resolved": "19.51.36257",
-        "contentHash": "jsNd3m9vsXDSUCLyRxnoO0vipKaJdjXPODslJmefVCWW7nwLMBDRwSzNHUX6624rF2xDE7ALXkXVCxNpO3Dt8w=="
-      },
       "ErrorProne.NET.CoreAnalyzers": {
         "type": "Direct",
         "requested": "[0.9.0-beta.4, )",
@@ -73,9 +55,9 @@
       },
       "Meziantou.Analyzer": {
         "type": "Direct",
-        "requested": "[3.0.322, )",
-        "resolved": "3.0.322",
-        "contentHash": "aaynUqEHHeD0v1/RDW/Rq3d/gRkF8bRKJcvblhvuvyTAB+hGuzgFl4pBD9g6jGu+VqMWPinEGqu4hzG12TtnqQ=="
+        "requested": "[3.0.341, )",
+        "resolved": "3.0.341",
+        "contentHash": "zpogT6IwYBgNRa9+oETzs7aTU6Te3M/Osdkk/HN1TlJTDjz9dZwoUgh/yWqovT3jTofQGGLB1JqEK8I4uA6+yA=="
       },
       "Microsoft.Extensions.Logging.Abstractions": {
         "type": "Direct",
@@ -200,6 +182,21 @@
         "requested": "[8.0.0, )",
         "resolved": "8.0.0",
         "contentHash": "BOTEJsSzwVGM4ovknAtOwY0SlfHQ2C4rjEhVPX6JeshVYzxr3iJiDHH4e+jX0iSujgqHuByOudIrXiHMgQabWA=="
+      },
+      "Emgu.runtime.windows.msvc.rt.arm64": {
+        "type": "Transitive",
+        "resolved": "19.51.36257",
+        "contentHash": "VWjz+GKS/to3npExX1ICZkFsvzatTAwKksQxDf5T4TL7dSymd//rbPV7KMxGdUdFap066ncLb4e4kPumNKjHfg=="
+      },
+      "Emgu.runtime.windows.msvc.rt.x64": {
+        "type": "Transitive",
+        "resolved": "19.51.36257",
+        "contentHash": "erukNuc6Zwwy1xyxdM5tuI/NGXVO5h/sH2LRadwElmD1iEhTJUIvpg0z9sgqSaFgecew+kpfesjNehh2jHZWkw=="
+      },
+      "Emgu.runtime.windows.msvc.rt.x86": {
+        "type": "Transitive",
+        "resolved": "19.51.36257",
+        "contentHash": "jsNd3m9vsXDSUCLyRxnoO0vipKaJdjXPODslJmefVCWW7nwLMBDRwSzNHUX6624rF2xDE7ALXkXVCxNpO3Dt8w=="
       },
       "Microsoft.VisualStudio.Threading.Only": {
         "type": "Transitive",

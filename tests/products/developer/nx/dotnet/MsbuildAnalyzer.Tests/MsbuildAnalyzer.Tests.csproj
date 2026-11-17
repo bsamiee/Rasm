@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Description>Suite of MsbuildAnalyzer: Nx's own .NET analyzer specs ported to temporary workspaces each evaluated by the analyzer process</Description>
+        <Description>Tests of MsbuildAnalyzer over temporary workspaces, ported from the specs of Nx's own .NET analyzer</Description>
     </PropertyGroup>
 
     <ItemGroup Label="Workspace Projects">

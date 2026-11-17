@@ -221,8 +221,7 @@ impl Typesetter {
         }
         builder.build_into(layout, &text.content);
         let max_advance = text.max_advance.map(|advance| advance.into_inner().cast::<f32>());
-        layout.break_all_lines(max_advance);
-        layout.align(
+        layout.set_alignment(
             match text.anchor {
                 Anchor::Start => Alignment::Start,
                 Anchor::Middle => Alignment::Center,
@@ -230,6 +229,7 @@ impl Typesetter {
             },
             AlignmentOptions { align_when_overflowing: true, ..AlignmentOptions::default() },
         );
+        layout.break_all_lines(max_advance);
         let rtl = layout.is_rtl();
         let line_length = f64::from(max_advance.unwrap_or_else(|| layout.width()));
         let along = if rtl { 1.0 - fraction(text.anchor) } else { fraction(text.anchor) };

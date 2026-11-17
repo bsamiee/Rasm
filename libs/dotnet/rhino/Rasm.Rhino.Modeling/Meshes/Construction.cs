@@ -117,7 +117,7 @@ public static class MeshConstruction {
 
     public static IO<(Mesh Mesh, Seq<ComponentIndex> Components, Seq<int> WallFaces)> Extrude(Mesh source, Seq<ComponentIndex> components, Action<MeshExtruder> configure) =>
         from held in IO.lift(() => source.Within(components))
-        from extruder in Products.Of(() => new MeshExtruder(source, held))
+        from extruder in use(() => new MeshExtruder(source, held))
         from configured in IO.lift(() => configure(extruder))
         from answered in IO.lift(() => (Accepted: extruder.ExtrudedMesh(out Mesh mesh, out List<ComponentIndex> map), Mesh: mesh, Map: map))
         from extruded in Products.Of(() => answered.Mesh, nameof(MeshExtruder.ExtrudedMesh))

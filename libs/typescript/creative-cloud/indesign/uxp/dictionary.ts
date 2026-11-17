@@ -81,7 +81,7 @@ const unavailableReason = (kind: string, field: string, observed: Option.Option<
 const readDeclaration = (kind: string, candidates: readonly string[]) =>
     Effect.try({ try: (): unknown => app.doScript(READER, ScriptLanguage.JAVASCRIPT, [kind]), catch: HostError.refused(`dictionary class ${kind}`) }).pipe(
         Effect.flatMap(flow(Schema.decodeUnknownEffect(Schema.OptionFromNullOr(Declared)), Effect.orDie)),
-        Effect.flatMap(Effect.fromOption(() => Unmatched.make({ subject: 'class', query: Option.some(kind), candidates }))),
+        Effect.flatMap(Effect.fromOption(() => Unmatched.of({ subject: 'class', query: Option.some(kind), candidates }))),
         Effect.map(Struct.evolve({ fields: Record.map((row: (typeof Dictionary.Type.fields)[string]) => ({ ...row, unavailable: unavailableReason(kind, row.name, Option.none(), false) })) })),
     );
 

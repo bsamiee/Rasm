@@ -5,11 +5,10 @@ import type { loadConfig } from '@cloudflare/config';
 import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, detectPackageManager, getPackageManagerCommand, hashArray, normalizePath, type PackageManager, type ProjectConfiguration, readJsonFile, type TargetConfiguration } from '@nx/devkit';
 import { buildPackageJsonPatterns, buildPackageJsonWorkspacesMatcher, getFilesInDirectoryUsingContext, getLockFileName, hashObject, hashWithWorkspaceContext, type PackageJson, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
 import { createTypecheckTarget } from '@nx/js/internal';
-import { aggregated, fingerprinted, Folder, namedInput, recalled, run, type Stated, stamped, tagged, Targets, tokened, type Verbs, within } from '@rasm/nx-distribution/inference';
+import { aggregated, fingerprinted, Folder, namedInput, recalled, run, spawned, type Stated, stamped, tagged, Targets, tokened, type Verbs, within } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import type { API, ParsedCommandLine } from '@typescript/native/sync';
-import { Array, Cause, Effect, FileSystem, Filter, Match, Option, Order, Record, Result, Schema, type Scope, Stream, UndefinedOr } from 'effect';
-import { ChildProcess } from 'effect/process';
+import { Array, Cause, Effect, FileSystem, Filter, Match, Option, Order, Record, Result, Schema, type Scope, UndefinedOr } from 'effect';
 import type { ESLint } from 'eslint';
 import { getRootTsConfigFileName } from 'nx/src/plugins/js/utils/typescript';
 
@@ -256,16 +255,7 @@ const workspace = Effect.fnUntraced(function* (workspaceRoot: string, manager: P
     const command = upgrade.map(quoteShellArg).join(' ');
     const knip = ['knip', ...UndefinedOr.match(knipConfig, { onUndefined: () => [], onDefined: (at) => ['--config', at] })].map(quoteShellArg).join(' ');
     const configured = Option.orElse(yield* Effect.findFirst(DUPLICATES, (at) => FileSystem.FileSystem.use((fs) => fs.exists(join(workspaceRoot, at)))), () => Option.liftPredicate(MANIFEST, () => jscpd !== undefined));
-    const debugged = Effect.flatMap(ChildProcess.make('jscpd', ['--debug', '.'], { cwd: workspaceRoot, stdin: 'ignore' }), (handle) =>
-        Effect.all({ stdout: Stream.mkString(Stream.decodeText(handle.stdout)), stderr: Stream.mkString(Stream.decodeText(handle.stderr)), code: handle.exitCode }, { concurrency: 'unbounded' }),
-    );
-    const decoded = debugged.pipe(
-        Effect.filterOrFail(
-            ({ code }) => code === 0,
-            ({ stderr, code }) => new Cause.UnknownError(code, `jscpd --debug . exits ${code} in ${workspaceRoot}: ${stderr.trim()}`),
-        ),
-        Effect.flatMap(({ stdout }) => Schema.decodeEffect(Scanned)(stdout)),
-    );
+    const decoded = Effect.flatMap(spawned(['jscpd', '--debug', '.'], { cwd: workspaceRoot }), Schema.decodeEffect(Scanned));
     const scanned = yield* Effect.transposeOption(Option.as(configured, decoded));
     const duplicated = Option.zipWith(configured, scanned, (config, { pattern }) => ({
         command: 'jscpd .',
