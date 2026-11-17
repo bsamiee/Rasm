@@ -15,7 +15,7 @@
                 "authentication": "ON_INSTALL"
             },
             "category": "Coding",
-            "version": "0.2.0",
+            "version": "0.3.0",
             "description": "Blender sessions and Python inside Blender: bpy data, extensions, interface, node trees, and render output",
             "author": {
                 "name": "Bardia Samiee"
@@ -26,7 +26,11 @@
                 "displayName": "Blender",
                 "shortDescription": "Blender sessions and Python inside Blender: bpy data, extensions, interface, node trees, and render output",
                 "developerName": "Bardia Samiee",
-                "category": "Coding"
+                "category": "Coding",
+                "composerIcon": "./assets/icon.png",
+                "logo": "./assets/icon.png",
+                "logoDark": "./assets/icon-dark.png",
+                "brandColor": "#090909"
             }
         },
         {
@@ -88,7 +92,7 @@
                 "authentication": "ON_INSTALL"
             },
             "category": "Coding",
-            "version": "0.2.0",
+            "version": "0.3.0",
             "description": "C# design with result and effect types, LanguageExt, Mapperly, memory, Thinktecture, UI, and Roslyn code navigation",
             "author": {
                 "name": "Bardia Samiee"
@@ -99,7 +103,11 @@
                 "displayName": ".NET",
                 "shortDescription": "C# design with result and effect types, LanguageExt, Mapperly, memory, Thinktecture, UI, and Roslyn code navigation",
                 "developerName": "Bardia Samiee",
-                "category": "Coding"
+                "category": "Coding",
+                "composerIcon": "./assets/icon.png",
+                "logo": "./assets/icon.png",
+                "logoDark": "./assets/icon-dark.png",
+                "brandColor": "#090909"
             }
         },
         {
@@ -113,7 +121,7 @@
                 "authentication": "ON_INSTALL"
             },
             "category": "Coding",
-            "version": "0.2.0",
+            "version": "0.3.0",
             "description": "MSBuild evaluation, execution, packaging, binary-log diagnostics, and antipatterns",
             "author": {
                 "name": "Bardia Samiee"
@@ -124,7 +132,11 @@
                 "displayName": "MSBuild",
                 "shortDescription": "MSBuild evaluation, execution, packaging, binary-log diagnostics, and antipatterns",
                 "developerName": "Bardia Samiee",
-                "category": "Coding"
+                "category": "Coding",
+                "composerIcon": "./assets/icon.png",
+                "logo": "./assets/icon.png",
+                "logoDark": "./assets/icon-dark.png",
+                "brandColor": "#090909"
             }
         },
         {
@@ -138,7 +150,7 @@
                 "authentication": "ON_INSTALL"
             },
             "category": "Coding",
-            "version": "0.2.0",
+            "version": "0.3.0",
             "description": "Python design with result and record types, cyclopts, expression, msgspec, pydantic, telemetry, and docstrings",
             "author": {
                 "name": "Bardia Samiee"
@@ -148,7 +160,11 @@
                 "displayName": "Python",
                 "shortDescription": "Python design with result and record types, cyclopts, expression, msgspec, pydantic, telemetry, and docstrings",
                 "developerName": "Bardia Samiee",
-                "category": "Coding"
+                "category": "Coding",
+                "composerIcon": "./assets/icon.png",
+                "logo": "./assets/icon.png",
+                "logoDark": "./assets/icon-dark.png",
+                "brandColor": "#090909"
             }
         },
         {
@@ -211,7 +227,7 @@
                 "authentication": "ON_INSTALL"
             },
             "category": "Coding",
-            "version": "0.6.0",
+            "version": "0.7.0",
             "description": "Dependency source, web, Are.na, and shell-history research, and structural code search with ast-grep",
             "author": {
                 "name": "Bardia Samiee"
@@ -309,7 +325,7 @@
                 "authentication": "ON_INSTALL"
             },
             "category": "Coding",
-            "version": "0.1.0",
+            "version": "0.2.0",
             "description": "Code that runs in an Adobe UXP host",
             "author": {
                 "name": "Bardia Samiee"
@@ -319,7 +335,11 @@
                 "displayName": "UXP",
                 "shortDescription": "Code that runs in an Adobe UXP host",
                 "developerName": "Bardia Samiee",
-                "category": "Coding"
+                "category": "Coding",
+                "composerIcon": "./assets/icon.png",
+                "logo": "./assets/icon.png",
+                "logoDark": "./assets/icon-dark.png",
+                "brandColor": "#090909"
             }
         },
         {
@@ -357,7 +377,7 @@
                 "authentication": "ON_INSTALL"
             },
             "category": "Coding",
-            "version": "0.1.0",
+            "version": "0.2.0",
             "description": "Codex app threads and parallel agent tasks",
             "author": {
                 "name": "Bardia Samiee"
@@ -367,7 +387,11 @@
                 "displayName": "Orchestration",
                 "shortDescription": "Codex app threads and parallel agent tasks",
                 "developerName": "Bardia Samiee",
-                "category": "Coding"
+                "category": "Coding",
+                "composerIcon": "./assets/icon.png",
+                "logo": "./assets/icon.png",
+                "logoDark": "./assets/icon-dark.png",
+                "brandColor": "#090909"
             }
         }
     ]

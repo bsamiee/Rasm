@@ -51,7 +51,6 @@
         "jsonc-eslint-parser": "catalog:",
         "knip": "catalog:",
         "nx": "catalog:",
-        "nx-mcp": "catalog:",
         "oxc-transform-react": "catalog:",
         "oxfmt": "catalog:",
         "oxlint": "catalog:",

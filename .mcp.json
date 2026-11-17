@@ -11,23 +11,10 @@
                 "X-Voicebox-Client-Id": "claude-code"
             }
         },
-        "openaiDeveloperDocs": {
-            "type": "http",
-            "url": "https://developers.openai.com/mcp"
-        },
-        "claudeCodeDocs": {
-            "type": "http",
-            "url": "https://code.claude.com/docs/mcp"
-        },
         "illustrator": {
             "type": "http",
             "url": "http://localhost:18412/v1/mcp",
             "headersHelper": "prefs=$(jq -r --arg version \"$(watch-app find com.adobe.illustratorBeta | jq -r 'first(.[][]).version')\" 'select(has($version)) | input_filename | sub(\"\\\\.runConfig$\"; \"Adobe Illustrator Prefs\")' \"$HOME\"/Library/Preferences/Adobe\\ Illustrator*Settings/*/.runConfig) && rg -o '/AuthToken \\[ [0-9]+[[:space:]]+([0-9a-f[:space:]]+)\\]' -r '$1' \"$prefs\" | tr -d ' \\t\\n' | xxd -r -p | jq -R '{Authorization: \"Bearer \\(.)\"}'"
-        },
-        "nx": {
-            "type": "stdio",
-            "command": "mcp-muxer",
-            "args": ["--", "nx-mcp", "--disableTelemetry"]
         }
     }
 }

@@ -12,7 +12,7 @@
         {
             "name": "blender",
             "source": "./plugins/shared/blender",
-            "version": "0.2.0",
+            "version": "0.3.0",
             "description": "Blender sessions and Python inside Blender: bpy data, extensions, interface, node trees, and render output",
             "author": {
                 "name": "Bardia Samiee"
@@ -39,7 +39,7 @@
         {
             "name": "dotnet",
             "source": "./plugins/shared/dotnet",
-            "version": "0.2.0",
+            "version": "0.3.0",
             "description": "C# design with result and effect types, LanguageExt, Mapperly, memory, Thinktecture, UI, and Roslyn code navigation",
             "author": {
                 "name": "Bardia Samiee"
@@ -48,7 +48,7 @@
         {
             "name": "msbuild",
             "source": "./plugins/shared/msbuild",
-            "version": "0.2.0",
+            "version": "0.3.0",
             "description": "MSBuild evaluation, execution, packaging, binary-log diagnostics, and antipatterns",
             "author": {
                 "name": "Bardia Samiee"
@@ -57,7 +57,7 @@
         {
             "name": "python",
             "source": "./plugins/shared/python",
-            "version": "0.2.0",
+            "version": "0.3.0",
             "description": "Python design with result and record types, cyclopts, expression, msgspec, pydantic, telemetry, and docstrings",
             "author": {
                 "name": "Bardia Samiee"
@@ -84,7 +84,7 @@
         {
             "name": "search",
             "source": "./plugins/shared/search",
-            "version": "0.6.0",
+            "version": "0.7.0",
             "description": "Dependency source, web, Are.na, and shell-history research, and structural code search with ast-grep",
             "author": {
                 "name": "Bardia Samiee"
@@ -120,7 +120,7 @@
         {
             "name": "uxp",
             "source": "./plugins/shared/uxp",
-            "version": "0.1.0",
+            "version": "0.2.0",
             "description": "Code that runs in an Adobe UXP host",
             "author": {
                 "name": "Bardia Samiee"

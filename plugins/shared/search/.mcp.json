@@ -18,7 +18,19 @@
         "atuin": {
             "type": "stdio",
             "command": "atuin",
-            "args": ["mcp"],
+            "args": [
+                "mcp"
+            ],
+            "default_tools_approval_mode": "approve"
+        },
+        "claudeCodeDocs": {
+            "type": "http",
+            "url": "https://code.claude.com/docs/mcp",
+            "default_tools_approval_mode": "approve"
+        },
+        "openaiDeveloperDocs": {
+            "type": "http",
+            "url": "https://developers.openai.com/mcp",
             "default_tools_approval_mode": "approve"
         }
     }

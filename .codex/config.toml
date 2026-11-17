@@ -7,9 +7,6 @@ notice = { hide_full_access_warning = true }
 
 [mcp_servers]
 atelier             = { default_tools_approval_mode = "approve", url = "http://localhost:7490/" }
-claudeCodeDocs      = { default_tools_approval_mode = "approve", url = "https://code.claude.com/docs/mcp" }
-nx                  = { default_tools_approval_mode = "approve", command = "mcp-muxer", args = ["--", "nx-mcp", "--disableTelemetry"], supports_parallel_tool_calls = true }
-openaiDeveloperDocs = { default_tools_approval_mode = "approve", url = "https://developers.openai.com/mcp" }
 voicebox            = { default_tools_approval_mode = "approve", url = "http://127.0.0.1:17493/mcp/", http_headers = { X-Voicebox-Client-Id = "codex" } }
 
 [mcp_servers.illustrator]

@@ -480,7 +480,6 @@ catalog:
     '@nx/workspace': 24.1.0-beta.1 # `move`, `remove`, and `infer-targets` generators
     '@nx/eslint-plugin': 24.1.0-beta.1 # `nx-plugin-checks` rule over plugin package, executor, generator, and migration manifests
     '@nx/conformance': 24.1.0-beta.1 # `nx conformance` rules over the project graph and files, npm `latest` holding the commercial 5.x
-    nx-mcp: 0.25.3 # Nx MCP server answering workspace, project, and task questions for agents
 
     # --- [BUILD]
 

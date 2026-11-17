@@ -363,9 +363,6 @@ catalogs:
     nx:
       specifier: 24.1.0-beta.1
       version: 24.1.0-beta.1
-    nx-mcp:
-      specifier: 0.25.3
-      version: 0.25.3
     oxc-transform-react:
       specifier: 0.158.0
       version: 0.158.0
@@ -646,9 +643,6 @@ importers:
       nx:
         specifier: 'catalog:'
         version: 24.1.0-beta.1
-      nx-mcp:
-        specifier: 'catalog:'
-        version: 0.25.3
       oxc-transform-react:
         specifier: 'catalog:'
         version: 0.158.0
@@ -8150,10 +8144,6 @@ packages:
   nth-check@2.1.1:
     resolution: {integrity: sha512-lqjrjmaOoAnWfMmBPL+XNnynZh2+swxiX3WUE0s4yEHI6m+AwrK2UZOimIRl3X/4QctVqS8AiZjFqyOGrMXb/w==}
 
-  nx-mcp@0.25.3:
-    resolution: {integrity: sha512-dMofFlK2VgSc2ME1NqcrkxRRCoqUWnX3BZWEO3W9BgRWP/HJuVuFjjLP3G3bsaAJBptpviaovZSn4V/NNu3X0A==}
-    hasBin: true
-
   nx@24.1.0-beta.1:
     resolution: {integrity: sha512-Dd6qDHh9NQtcAaXri23PYhBEDIJoLXKEb8bsksQ/kOttMwAStd9yWrnDhK7IUuyk7U6VJR9k6t8n++BDaCteCQ==}
     hasBin: true
@@ -14217,8 +14207,6 @@ snapshots:
   nth-check@2.1.1:
     dependencies:
       boolbase: 1.0.0
-
-  nx-mcp@0.25.3: {}
 
   nx@24.1.0-beta.1:
     dependencies:
