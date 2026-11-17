@@ -37,7 +37,7 @@ const tools = Link.serve(InDesign).pipe(
             Effect.map(Effect.context<Uxp>(), (services) => {
                 const hosted = <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.provideContext(scripted(effect), services);
                 return {
-                    inspect: flow(inspect, hosted),
+                    read: flow(inspect, hosted),
                     change: flow(change, hosted),
                     call: flow(call, hosted),
                     find_change: flow(findChange, hosted),

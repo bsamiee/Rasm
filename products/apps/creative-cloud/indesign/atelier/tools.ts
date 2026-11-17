@@ -66,7 +66,7 @@ class Preflight extends Schema.Class<Preflight, { readonly brand: unique symbol 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const InDesign = Toolkit.make(
-    Tool.make('inspect', { description: 'Reads object fields with declarations and typed view, or collection members, / for application. File fields read as paths', parameters: Inspect, success: Inspection, failure: Failure }).annotate(Tool.Readonly, true),
+    Tool.make('read', { description: 'Reads object fields with declarations and typed view, or collection members, / for application. File fields read as paths', parameters: Inspect, success: Inspection, failure: Failure }).annotate(Tool.Readonly, true),
     Tool.make('change', { description: 'Writes object fields in one undo step, failures name every refused field by path', parameters: Change, success: Written, failure: Failure }),
     Tool.make('call', { description: 'Calls object or collection method in one undo step, object_model lists parameters', parameters: Call, success: Called, failure: Failure }),
     Tool.make('find_change', { description: 'Finds or changes matches in one undo step and restores search preferences, values take change forms', parameters: FindChange, success: FindChange.Result, failure: Failure }),

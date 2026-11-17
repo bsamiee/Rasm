@@ -1,6 +1,6 @@
 import { dial, listen } from '@rasm/rpc';
 import type { Unmatched } from '@rasm/search';
-import { Array, Context, Duration, Effect, Layer, Option, Record, Ref, Schema, Stream, Struct } from 'effect';
+import { Array, Context, Duration, Effect, Layer, Option, Record, Ref, Result, Schema, Stream, Struct } from 'effect';
 import { McpSchema, McpServer, Tool, type Toolkit } from 'effect/ai';
 import { type Rpc, type RpcClient, type RpcClientError, RpcGroup } from 'effect/rpc';
 import { Server } from '#/server';
@@ -85,8 +85,13 @@ class Link extends Schema.Class<Link, { readonly brand: unique symbol }>('Link')
         const registered = Effect.fnUntraced(function* (peers: readonly Link[]) {
             const [served, failed] = yield* Effect.partition(peers, offered, { concurrency: 'unbounded' });
             yield* Effect.forEach(failed, (cause) => Effect.logError('Linked extension listed no tools', cause), { discard: true });
-            const byName = Array.groupBy(Array.flatten(served), ({ tool }) => tool.name);
             const previous = yield* Ref.get(shown);
+            const owned = new Set(server.tools.map(({ tool }) => tool.name).filter((toolName) => !Record.has(previous, toolName)));
+            const [byName, shadowed] = Record.partition(
+                Array.groupBy(Array.flatten(served), ({ tool }) => tool.name),
+                (rows, toolName) => (owned.has(toolName) ? Result.fail(rows) : Result.succeed(rows)),
+            );
+            yield* Record.isEmptyRecord(shadowed) ? Effect.void : Effect.logError(`Linked tools ${Record.keys(shadowed).join(', ')} share a name with the server's own tools and stay unregistered`);
             const fresh = Record.filter(
                 Record.map(byName, (rows) => Array.headNonEmpty(rows).tool),
                 (tool, toolName) => !Option.containsWith(same)(Record.get(previous, toolName), tool),

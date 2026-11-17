@@ -98,8 +98,14 @@ class Inventory extends Context.Service<Inventory>()('@rasm/atelier/applications
             );
         });
         const current = Effect.gen(function* () {
-            const [held, rows] = yield* Effect.all([target, SubscriptionRef.get(running)]);
-            const { row, instance } = yield* Effect.fromOption(held, () => new Cause.NoSuchElementError('No application is the target of this handle, applications open makes one the target'));
+            const [held, rows, listed] = yield* Effect.all([target, SubscriptionRef.get(running), SubscriptionRef.get(catalog)]);
+            const byBundle = Record.fromIterableBy(listed, (each) => each.url.href);
+            const runningRows = Array.getSomes(rows.filter((each) => summary(each).windows > 0).map((each) => Option.all({ row: Record.get(byBundle, each.url.href), instance: Option.some(each.instance) })));
+            const names = runningRows.map((each) => each.row.name);
+            const { row, instance } = yield* Effect.fromOption(
+                Option.orElse(held, () => (runningRows.length === 1 ? Array.head(runningRows) : Option.none())),
+                () => new Cause.NoSuchElementError(`No application is the target of this handle and ${names.length === 0 ? 'none runs' : `${names.join(', ')} run`}, applications open makes one the target`),
+            );
             const live = yield* Effect.fromOption(
                 Array.findFirst(rows, (each) => each.instance === instance && !State.isAnyOf(['exited'])(each.state)),
                 () => new Cause.NoSuchElementError(`${row.name} instance ${instance} no longer runs, applications open starts or targets it again`),

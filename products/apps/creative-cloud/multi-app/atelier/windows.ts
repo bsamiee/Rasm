@@ -101,7 +101,8 @@ const windows = Effect.gen(function* () {
     });
     const all = Effect.gen(function* () {
         const rows = yield* everyone;
-        const taken = yield* Effect.forEach(rows, ({ each, name }) => shots(name, each, Option.none()), { concurrency: 'unbounded' });
+        const shown = Array.getSomes(rows.map(({ each, name }) => Option.all({ each: Option.some(each), name: Option.some(name), numbers: Array.match(presented(each.state).map(Struct.get('number')), { onEmpty: Option.none, onNonEmpty: Option.some }) })));
+        const taken = yield* Effect.forEach(shown, ({ each, name, numbers }) => shots(name, each, Option.some({ windows: { numbers } })), { concurrency: 'unbounded' });
         return Array.flatten(taken);
     });
     const element = Effect.fnUntraced(function* (id: string) {
