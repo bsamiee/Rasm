@@ -7,15 +7,15 @@ description: "Use when a task needs a fact about a dependency, covering source s
 
 Dependency declarations come from installed files, usage from Context7, DeepWiki, and public code, source and wiki from the repository at its installed tag, and versions from registries.
 
-- Version: Context7 and DeepWiki index the default branch, an installed version's fact comes from its files, its tag, or a Context7 snapshot
+- Version: Context7 indexes the default branch, an installed version's fact comes from its files, its tag, or a Context7 snapshot
 - Path: package metadata names repository and commit, Context7 IDs are the repository's `/owner/repo` lowercased, a tag list spells each tag
 - Prose: Context7 descriptions and DeepWiki answers are generated, code quotes come from their Source URL, member names from their declaration
 - Ignore: an ignore file inside the searched tree (`.venv/.gitignore`) hides its files, `--no-ignore` reads them, a listed path needs no flag
-- Size: `get_file_contents`, `get_package_context`, and `read_wiki_contents` return whole content, `rg` cites a line
+- Size: `get_file_contents`, `get_package_context`, and DeepWiki `read_wiki_contents` return whole content, `rg` cites a line
 - Index: `search_code` reads default branches in files under 384 KB, `get_repository_tree` finds a path at a tag
 - Quota: clients on one GitHub account share 10 `search_code` calls per minute, the next answers HTTP 403, reads at a tag spend none
-- Caps: Context7 tool descriptions cap each tool at 3 calls per question, an ID from a repository URL skips `resolve-library-id`
-- Preview: server URL `research_preview=1` adds Context7 `query-code` and `get-upgrade-guide`
+- Context7: `ctx7` sends `CONTEXT7_API_KEY`, each command spends one call of its monthly quota, an ID from a repository URL skips `ctx7 library`
+- Wait: `ctx7` exits 75 while a tag or upgrade guide is indexed, the same command reruns after the wait it prints
 
 ## [01]-[DECLARATION]
 
@@ -144,31 +144,44 @@ carapace <tool> export | jq -c '.. | objects | select(.Name? == "<subcommand>") 
 How a member composes, from the repository's code examples, source, wiki, and README and from public code, one concept per query naming its symbol.
 
 Context7 reads:
-- Candidates with snippet count, reputation, benchmark score, and Versions
-- Code examples and source with a Source URL per snippet, wiki pages can describe an older major, `not found` means unindexed
-- Snapshot from the Versions list, `__branch__<name>` snapshots an older major
+- Answer across libraries in one step, up to four `--library` names or IDs, `--library-version` reads that version's snapshot
+- Candidates with snippet count, reputation, benchmark score, Versions, and `Source code` on IDs `ctx7 code` reads
+- Code examples and source with a Source URL per snippet, `--language` ranks one language first, wiki pages can describe an older major
+- Snapshot from the Versions list, `__branch__<name>` snapshots an older major, `not found` means unindexed
 - Rendered docs site with API reference pages, Source URL names the docs version, a code fence can lose line breaks
 - Declaration of one symbol in repository source at the commit its docs describe, `/websites/` and `/llmstxt/` IDs hold no source
-- Source lines matching a regex at a git tag, `output_mode` `files_with_matches` names files alone, an unindexed tag answers with a wait
-- Callers of a symbol, symbols of one file, a file's lines, and repository paths through `references`, `outline`, `read`, and `list`
+- Source lines matching a regex at a `/<owner>/<repo>/<tag>` ID, `-F` reads an error message literally, `-l` names files alone, `-c` counts per file
+- Callers of a symbol, symbols of one file, a file's lines, and repository paths through `--op references`, `outline`, `read`, and `list`
+- Next page, read, or count from an output's `Next:` line, `offset` as `--offset`, `version` as `--tag`, other fields by their flag name
 
-```text
-resolve-library-id {"libraryName": "<repository name>", "query": "<task sentence naming the symbol>"}
-query-docs {"libraryId": "/<owner>/<repo>", "query": "<one concept naming the symbol>"}
-query-docs {"libraryId": "/<owner>/<repo>/<version>", "query": "<one concept>"}
-query-docs {"libraryId": "/websites/<site>", "query": "<one concept>"}
-query-code {"libraryId": "/<owner>/<repo>", "operation": "definition", "pattern": "<Symbol>"}
-query-code {"libraryId": "/<owner>/<repo>", "version": "<tag>", "pattern": "<regex>", "glob": "<glob>", "context": 3}
-query-code {"libraryId": "/<owner>/<repo>", "operation": "read", "path": "<path>#L<n>-L<n>"}
+```bash
+ctx7 search '<question naming the symbol>' --library /<owner>/<repo> --language <language>
+ctx7 library '<repository name>' '<task sentence naming the symbol>'
+ctx7 docs /<owner>/<repo> '<one concept naming the symbol>' --language <language>
+ctx7 docs /<owner>/<repo>/<version> '<one concept>'
+ctx7 docs /websites/<site> '<one concept>'
+ctx7 code /<owner>/<repo> '<Symbol>' --op definition
+ctx7 code /<owner>/<repo>/<tag> '<regex>' -g '<glob>' -g '!<glob>' -C 3
+ctx7 code /<owner>/<repo> '<regex>' -c
+ctx7 code /<owner>/<repo>/<tag> --op read --path '<path>#L<n>-L<n>'
 ```
 
-DeepWiki reads:
-1. Page index per repository, what its parts are, `Repository not found` routes the repository to its tree and files
-2. Answer with quoted signatures over repositories step 1 indexed, up to 10 per call
+Context7 stars, trust score, and last update per candidate:
 
-```text
-read_wiki_structure {"repoName": "<owner>/<repo>"}
-ask_wiki_question {"repoName": ["<owner>/<repo>", "<owner>/<repo>"], "question": "<question naming the members>"}
+```bash
+ctx7 library '<repository name>' '<task sentence>' --json | jq -r '.[] | [.id, .benchmarkScore, .trustScore, .stars, .totalSnippets, .lastUpdateDate[:10], (.versions // [] | join(","))] | @tsv'
+```
+
+DeepWiki reads one default-branch commit that can trail the branch by months, one stateless JSON-RPC call each to `https://mcp.deepwiki.com/mcp`:
+1. Page index per repository, what its parts are, `Repository not found` routes the repository to its tree and files
+2. Answer with quoted signatures and wiki page links over repositories step 1 indexed, one `repoName[]` per repository, up to 10 per call
+3. Whole wiki under `.artifacts/search/deepwiki`, a `# Page: <title>` heading per page and `**Sources:**` lines naming `path:start-end`
+
+```bash
+xh -b POST https://mcp.deepwiki.com/mcp 'Accept:application/json, text/event-stream' jsonrpc=2.0 id:=1 method=tools/call 'params[name]=read_wiki_structure' 'params[arguments][repoName]=<owner>/<repo>' | rg -r '$1' '^data: (.*)' | jq -r '.result.content[0].text'
+xh -b POST https://mcp.deepwiki.com/mcp 'Accept:application/json, text/event-stream' jsonrpc=2.0 id:=1 method=tools/call 'params[name]=ask_wiki_question' 'params[arguments][repoName][]=<owner>/<repo>' 'params[arguments][repoName][]=<owner>/<repo>' 'params[arguments][question]=<question naming the members>' | rg -r '$1' '^data: (.*)' | jq -r '.result.content[0].text'
+mkdir -p .artifacts/search/deepwiki/<owner> && xh -b POST https://mcp.deepwiki.com/mcp 'Accept:application/json, text/event-stream' jsonrpc=2.0 id:=1 method=tools/call 'params[name]=read_wiki_contents' 'params[arguments][repoName]=<owner>/<repo>' | rg -r '$1' '^data: (.*)' | jq -r '.result.content[0].text' > .artifacts/search/deepwiki/<owner>/<repo>.md
+rg -n '^# Page: |<term>' .artifacts/search/deepwiki/<owner>/<repo>.md
 ```
 
 GitHub public code composing members, repository and commit per fragment:
@@ -181,12 +194,6 @@ search_code {"query": "\"<Member>\" \"<Member>\" language:<language>", "perPage"
 
 ```text
 get_package_context {"solutionDirectory": "<main>", "packageName": "<id>", "packageVersion": "<version>"}
-```
-
-Context7 stars, trust score, and last update per candidate, MCP results omit them, `libraryName` is the repository name:
-
-```bash
-xh https://context7.com/api/v2/libs/search libraryName=='<repository name>' "Authorization:Bearer $CONTEXT7_API_KEY" | jq -r '.results[:8][] | [.id, .benchmarkScore, .trustScore, .stars, .totalSnippets, .lastUpdateDate[:10], (.versions|join(","))] | @tsv'
 ```
 
 Cited README lines of an installed .NET or TypeScript package:
@@ -254,12 +261,14 @@ search_code {"query": "\"<phrase>\" repo:<owner>/<repo> path:<dir>", "perPage": 
 Newest version and its date come from the registry, notes from each tag's release, changes across versions from a Context7 guide, and advisories name patched versions.
 
 Context7 breaking changes, deprecations, codemods, and public API diff across a version range, a library without a guide answers `not prepared yet`:
-1. Page 1 with its header naming each page a migration needs, `fromVersion` exact, a major alone reads as its newest release
-2. Later pages by `page`, behavior, configuration, and remaining API changes after the migration pages
+1. Page into a file, page 1's header names each page a migration needs, `fromVersion` exact, a major alone reads as its newest release
+2. Section and note titles with line numbers
+3. One section by its title
 
-```text
-get-upgrade-guide {"libraryId": "/<owner>/<repo>", "fromVersion": "<installed version>", "toVersion": "<target version>"}
-get-upgrade-guide {"libraryId": "/<owner>/<repo>", "fromVersion": "<installed version>", "toVersion": "<target version>", "page": 2}
+```bash
+mkdir -p .artifacts/search && ctx7 get-upgrade-guide /<owner>/<repo> <installed version> <target version> --page <n> > .artifacts/search/<repo>@<installed>-<target>.<n>.md
+rg -n '^#{2,3} ' .artifacts/search/<repo>@<installed>-<target>.<n>.md
+mq -A 'import "section" | section::section(self, "<section title>", 2) | map(section::all_nodes) | flatten' .artifacts/search/<repo>@<installed>-<target>.<n>.md
 ```
 
 .NET newest NuGet version with its publish date:

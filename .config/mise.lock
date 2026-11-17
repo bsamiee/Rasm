@@ -1905,33 +1905,32 @@ url = "https://github.com/taiki-e/cargo-llvm-cov/releases/download/v0.9.1/cargo-
 url_api = "https://api.github.com/repos/taiki-e/cargo-llvm-cov/releases/assets/547404213"
 
 [[tools.ast-grep]]
-version = "0.51.2"
+version = "0.51.3"
 backend = "aqua:ast-grep/ast-grep"
 specifiers = ["latest"]
 
 [tools.ast-grep."platforms.linux-arm64"]
-checksum = "sha256:c3ab2bd43959db28621dc1551c13ea5fe5db4c1fc7b18086dade6b65042c78d0"
+checksum = "sha256:5b44fd68e78744934b359b07badce347d4197ed50b341d50f1f99d056ecedb08"
 checksum_source = "mise-versions"
-url = "https://github.com/ast-grep/ast-grep/releases/download/0.51.2/app-aarch64-unknown-linux-gnu.zip"
-url_api = "https://api.github.com/repos/ast-grep/ast-grep/releases/assets/734228024"
+url = "https://github.com/ast-grep/ast-grep/releases/download/0.51.3/app-aarch64-unknown-linux-gnu.zip"
+url_api = "https://api.github.com/repos/ast-grep/ast-grep/releases/assets/753397190"
 
 [tools.ast-grep."platforms.linux-x64"]
-checksum = "sha256:40604c21c38d4c7581c56bdddeef277c56bf3c0113620aa96e78ae87e82366df"
+checksum = "sha256:22803eb0c5bf83164fb7fd76d4721d355ecf0c8466ef47342c1ec7d80897ca47"
 checksum_source = "mise-versions"
-url = "https://github.com/ast-grep/ast-grep/releases/download/0.51.2/app-x86_64-unknown-linux-gnu.zip"
-url_api = "https://api.github.com/repos/ast-grep/ast-grep/releases/assets/734234607"
+url = "https://github.com/ast-grep/ast-grep/releases/download/0.51.3/app-x86_64-unknown-linux-gnu.zip"
+url_api = "https://api.github.com/repos/ast-grep/ast-grep/releases/assets/753396224"
 
 [tools.ast-grep."platforms.macos-arm64"]
-checksum = "sha256:ea4f4082d25e5f8e0450add6fd488dd008a373c90483cc2031759c8431f1dcfb"
-checksum_source = "mise-versions"
-url = "https://github.com/ast-grep/ast-grep/releases/download/0.51.2/app-aarch64-apple-darwin.zip"
-url_api = "https://api.github.com/repos/ast-grep/ast-grep/releases/assets/734229272"
+checksum = "sha256:7954eab1e2803d1485f263377be7f359db6d3915312b5d773cd575eb009330b1"
+url = "https://github.com/ast-grep/ast-grep/releases/download/0.51.3/app-aarch64-apple-darwin.zip"
+url_api = "https://api.github.com/repos/ast-grep/ast-grep/releases/assets/753396910"
 
 [tools.ast-grep."platforms.windows-x64"]
-checksum = "sha256:7d5a83bf2f9a4020dc529df371537c860e7a665e52789ac67ef231123a6b4a7e"
+checksum = "sha256:1f27ff60ee033bdfe5d7ea781a869e410b2d882d6c84a6afea8280fc4bbf0716"
 checksum_source = "mise-versions"
-url = "https://github.com/ast-grep/ast-grep/releases/download/0.51.2/app-x86_64-pc-windows-msvc.zip"
-url_api = "https://api.github.com/repos/ast-grep/ast-grep/releases/assets/734239161"
+url = "https://github.com/ast-grep/ast-grep/releases/download/0.51.3/app-x86_64-pc-windows-msvc.zip"
+url_api = "https://api.github.com/repos/ast-grep/ast-grep/releases/assets/753401129"
 
 [[tools.carapace]]
 version = "1.8.2"
@@ -3737,6 +3736,12 @@ specifiers = ["latest"]
 [tools."npm:@tavily/cli".options]
 allow_low_downloads = "true"
 
+[[tools."npm:ctx7"]]
+version = "0.12.1"
+aube = { path = "mise/locks/npm-ctx7/0.12.1", digest = "sha256:b5091d55cca456349102c5de63d5803c1edd80368447aee65192d940a5a8383c" }
+backend = "npm:ctx7"
+specifiers = ["latest"]
+
 [[tools.pitchfork]]
 version = "2.34.0"
 backend = "packslip:github.com/jdx/pitchfork"
@@ -3863,11 +3868,6 @@ url_api = "https://api.github.com/repos/pulumi/pulumi/releases/assets/713535320"
 checksum = "sha256:5dde4799d366ffe25eb6f6ca3f552a5c1e8ea570953b39e99bbc436b7fbb0df0"
 url = "https://github.com/pulumi/pulumi/releases/download/v3.274.1/pulumi-v3.274.1-windows-x64.zip"
 url_api = "https://api.github.com/repos/pulumi/pulumi/releases/assets/713536762"
-
-[[tools."pypi:ast-grep/ast-grep-mcp"]]
-version = "latest"
-backend = "pypi:ast-grep/ast-grep-mcp"
-specifiers = ["latest"]
 
 [[tools."pypi:git+https://projects.blender.org/lab/blender_mcp.git#subdirectory=mcp"]]
 version = "v1.0.3"

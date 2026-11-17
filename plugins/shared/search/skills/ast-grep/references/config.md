@@ -57,7 +57,7 @@ File-to-language resolution:
 - `languageGlobs` reads the basename alone (`src/*.foo` matches nothing, `*.baz` and `exact.name` match at any depth) and beats extension detection
 - Overlaps change winner per process, `customLanguages` and `languageGlobs` load from `HashMap`s, one extension or glob owns one language
 - `-l` never forces a parser in path mode, it selects files already resolved to that language, `languageGlobs` or `--stdin` changes the parser
-- `-l` and MCP `language` take configured names, a built-in name misses files mapped to a custom replacement
+- `-l` takes configured names, a built-in name misses files mapped to a custom replacement
 - Custom languages replacing a built-in take their own name, under the built-in's name rules resolve to the built-in and report `appliedRuleCount=0`
 - Rule languages widen the walk to every host injecting them, through `languageGlobs` hosts as well
 

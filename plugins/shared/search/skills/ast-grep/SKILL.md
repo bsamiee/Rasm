@@ -5,7 +5,7 @@ description: "Use when outlining, searching, or rewriting code with ast-grep or 
 
 # [SEARCH_AST_GREP]
 
-MCP tools answer one-off matches and syntax trees, the CLI runs project scans, outlines, rewrites, and execution limits. Search rules stay inline, durable rules sit under `ruleDirs`. Rules take no test folder or `testConfigs` row, the repository scan checks each one.
+Search rules stay inline, durable rules sit under `ruleDirs`. Rules take no test folder or `testConfigs` row, the repository scan checks each one.
 
 [REFERENCES]:
 - [01]-[RULE_BUILDING](references/rule-building.md): Rule diagnostics and rewrites
@@ -52,7 +52,7 @@ Strictness decides which nodes matching skips, the levels hold no total order:
 - `run` filters files by the pattern's longest literal whatever the strictness, `--strictness signature` misses files lacking it where `scan` finds them
 
 Patterns debug through `--debug-query`, `pattern` prints the compiled pattern with its peeled root, `cst` and `ast` a tree, `sexp` an S-expression:
-- MCP `dump_syntax_tree` errors on multi-statement snippets, `ast-grep run -l <lang> -p '<code>' --debug-query=cst` prints their tree on stderr before exit 8
+- Multi-statement snippets print their tree on stderr before exit 8
 
 `regex` is a Rust regex with Unicode `\w`, `\s`, `\d`, `\b`, no look-around or back-reference, and `(?i)` flags inline, a class over source characters restates a grammar token a `kind` test states:
 - Identifier classes come from the grammar's `word` rule, else the rule `name` fields hold most often (Swift `simple_identifier`)
@@ -309,20 +309,37 @@ Labels:
 - Trailing comments cover their sibling's start line, a node inside a multi-line statement stays reported
 - First-line comments followed by a blank line or nothing cover the file
 
-## [06]-[MCP]
+## [06]-[CLI]
 
-ast-grep-mcp runs one CLI process per tool call and hands the rule or pattern through unchanged:
+Patterns and inline rules sit in single quotes, keeping `$VAR` from the shell, and `$'...'` reads `\n` as a newline and `\\` as one backslash.
 
-| [INDEX] | [TOOL]              | [COMMAND]                                                  | [RETURNS]                     |
-| :-----: | :------------------ | :--------------------------------------------------------- | :---------------------------- |
-|  [01]   | `dump_syntax_tree`  | `run --pattern <code> --lang <l> --debug-query=<format>`   | Tree the CLI prints on stderr |
-|  [02]   | `find_code`         | `run --pattern <code> [--lang <l>] --json=stream <folder>` | Text or match objects         |
-|  [03]   | `find_code_by_rule` | `scan --inline-rules <yaml> --json=stream <folder>`        | Text or match objects         |
+Syntax trees and compiled patterns on stderr:
 
-- `severity: error` in a rule's YAML fails `scan`-backed tools on any match, the CLI exits 1 and the server raises it
-- `format` takes `pattern`, `cst`, or `ast`, `pattern` finds a metavariable that parsed as a different node
-- `AST_GREP_PATH` holds an executable or a command prefix split without a shell, the server appends the subcommand after it
-- Trusted configs load `customLanguages` in every server call with no flag, a host that cannot record trust (CI) passes `--custom-languages allow` to the CLI
-- `AST_GREP_CONFIG` or `--config` passes one `sgconfig.yml` to every call, custom names in the `language` description come from that file
-- Nonzero exits other than `1` raise the CLI's stderr, `run` treats exit `1` as no match, a missing path reports `No matches found`
-- `max_results` limits returned matches after the process finishes, each call's new process reloads config and grammar content without a restart
+```bash
+ast-grep run -l <lang> -p '<code>' --debug-query=cst
+ast-grep run -l <lang> -p '<pattern>' --selector <kind> --debug-query=pattern
+```
+
+Matches with file, line, and capture, `--json=stream` objects holding `file`, `text`, `lines`, `range`, and `metaVariables`:
+
+```bash
+ast-grep run -p '<pattern>' --json=stream <paths> | jq -r '"\(.file):\(.range.start.line+1) \(.metaVariables.single.<VAR>.text)"'
+ast-grep run -p '<pattern>' --files-with-matches <paths>
+ast-grep run -p '<pattern>' --globs '<glob>' -C <n> <paths>
+```
+
+Rule matches over a snippet, paths, or project rules, `--max-results` on `scan` alone:
+
+```bash
+printf '%s' '<code>' | ast-grep scan --stdin --inline-rules $'<rule>' --json=stream
+ast-grep scan --inline-rules $'<rule>' --report-style short --max-results <n> <paths>
+ast-grep scan --filter '<id regex>' --json=stream <paths> | jq -r .ruleId | sort | uniq -c
+ast-grep scan -r <rule.yml> --report-style short <paths>
+```
+
+Rewrites print a diff, `-U` writes it:
+
+```bash
+ast-grep run -p '<pattern>' -r '<template>' <paths>
+ast-grep scan -r <rule.yml> -U <paths>
+```
