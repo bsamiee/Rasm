@@ -266,6 +266,7 @@ jq                                                                           = "
 lima                                                                         = { os = ["macos"], version = "latest" }
 ninja                                                                        = "latest"
 node                                                                         = "26"
+"npm:@aredotna/cli"                                                          = "latest"
 "npm:@modelcontextprotocol/conformance"                                      = "0.2.0-alpha.12"
 "npm:@tavily/cli"                                                            = { allow_low_downloads = true, os = ["macos"], version = "latest" }
 "npm:ctx7"                                                                   = "latest"

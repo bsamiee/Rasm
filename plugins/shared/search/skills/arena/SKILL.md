@@ -6,14 +6,13 @@ argument-hint: "[query or channel]"
 
 # [SEARCH_ARENA]
 
-`arena` (`@aredotna/cli`) calls Are.na's v3 API with `ARENA_TOKEN` from the environment, and `arena` MCP tools call the same API.
+`arena` (`@aredotna/cli`) calls Are.na's v3 API with `ARENA_TOKEN` from the environment.
 
 - Output: pass `--json` to every call and project fields with `jq`, each block holds every image size, link, and user object
 - Paging: `--per` accepts 1–100, `meta.has_more_pages` and `meta.next_page` decide the next `--page`
 - Identity: channels, users, and groups take a slug or ID, blocks, connections, and comments take a numeric ID
 - Failure: `--json` writes `{"error","code","type"}` to stderr, exit `2` unauthorized, `3` not found, `4` invalid, `5` rate limited, `6` forbidden
-- Version: Nix pins the release `arena` runs, `arena update` changes nothing it runs
-- Routing: MCP tools serve writes into many channels at once and channel summaries, the CLI serves every other task
+- Version: mise installs the newest release inside the repository, `arena update` changes nothing it runs
 
 | [INDEX] | [TASK]                                  | [OPERATION]                                                 |
 | :-----: | :-------------------------------------- | :---------------------------------------------------------- |
@@ -26,11 +25,9 @@ argument-hint: "[query or channel]"
 |  [07]   | Channels holding a block or channel     | `arena block connections <id>`, `arena channel connections` |
 |  [08]   | User or group content                   | `arena user contents <slug>`, `arena group contents <slug>` |
 |  [09]   | Channel files on disk                   | `arena download <slug> <dir> --json`                        |
-|  [10]   | Channel summary from a sample           | `channelDigest`                                             |
-|  [11]   | Text or URL block                       | `arena add <channel> '<value>' --json`                      |
-|  [12]   | Local file or directory as blocks       | `arena upload <file> --channel <channel>`, `arena import`   |
-|  [13]   | Existing block or channel in a channel  | `arena connect <id> <channel> --json`                       |
-|  [14]   | Block or connection in many channels    | `createBlock`, `createConnection`, `batchCreateBlocks`      |
+|  [10]   | Text or URL block                       | `arena add <channel> '<value>' --json`                      |
+|  [11]   | Local file or directory as blocks       | `arena upload <file> --channel <channel>`, `arena import`   |
+|  [12]   | Existing block or channel in a channel  | `arena connect <id> <channel> --json`                       |
 
 ## [01]-[SEARCH]
 
@@ -87,10 +84,12 @@ arena download <slug> '.artifacts/search/arena/<slug>' --type Image --size mediu
     | jq -c 'select(.type == "completed") | .summary'
 ```
 
-`channelDigest` returns channel counts, a type breakdown from up to 100 recent items, and active contributors in one call, and fits a large channel before a full `channel contents` read.
+One recent page summarizes a large channel before a full read: item total, type breakdown, and contributor count.
 
-```text
-channelDigest {"channel_id": "<slug>", "sample_size": 100}
+```bash
+# Channel summary from the newest 100 items
+arena channel contents <slug> --sort created_at_desc --per 100 --json \
+    | jq -c '{total: .meta.total_count, types: (.data | group_by(.type) | map({(.[0].type): length}) | add), contributors: (.data | map(.user.slug) | unique | length)}'
 ```
 
 ## [03]-[WRITING]
@@ -114,10 +113,10 @@ arena connect <channel-id> <channel> --type Channel --json
 arena connection move <connection-id> --movement move_to_top --json
 ```
 
-MCP writes take up to 20 channels in one call, each entry in `channels` with its own `position` and `metadata`. `batchCreateBlocks` takes per-block `title`, `description`, and source fields, where `arena batch` applies one title to every block.
+One block enters many channels through one `add`, then one `connect` per further channel, and per-block titles take one `add` per block where `arena batch` applies one title to every block.
 
-```text
-createBlock {"value": "<url>", "title": "<title>", "channels": [{"id": "<slug>", "position": 1}, {"id": "<slug>"}]}
-createConnection {"connectable_id": <id>, "connectable_type": "Block", "channel_ids": ["<slug>", "<slug>"]}
-batchCreateBlocks {"channel_ids": ["<slug>"], "blocks": [{"value": "<url>", "title": "<title>"}]}
+```bash
+# Block in a first channel, then connected into the rest
+id=$(arena add <channel> '<url>' --title '<title>' --json | jq -r '.id')
+for channel in <channel> <channel>; do arena connect "$id" "$channel" --json; done
 ```

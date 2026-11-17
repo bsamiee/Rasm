@@ -84,7 +84,7 @@
         {
             "name": "search",
             "source": "./plugins/shared/search",
-            "version": "0.5.0",
+            "version": "0.6.0",
             "description": "Dependency source, web, Are.na, and shell-history research, and structural code search with ast-grep",
             "author": {
                 "name": "Bardia Samiee"

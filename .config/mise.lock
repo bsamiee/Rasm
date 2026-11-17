@@ -3721,6 +3721,12 @@ url = "https://nodejs.org/dist/v26.13.1/node-v26.13.1-darwin-arm64.tar.gz"
 checksum = "sha256:e2edda75bfb089654705cf65a13b58933bfd5f57148e8ebda916f58a2474f1f7"
 url = "https://nodejs.org/dist/v26.13.1/node-v26.13.1-win-x64.zip"
 
+[[tools."npm:@aredotna/cli"]]
+version = "0.12.0"
+aube = { path = "mise/locks/npm-aredotna-cli/0.12.0", digest = "sha256:e3c51e3875e06bad0cc41f83e95f9f3e0c807ee33e4e8339ebc5fdae7dcfd46a" }
+backend = "npm:@aredotna/cli"
+specifiers = ["latest"]
+
 [[tools."npm:@modelcontextprotocol/conformance"]]
 version = "0.2.0-alpha.12"
 aube = { path = "mise/locks/npm-modelcontextprotocol-conformance/0.2.0-alpha.12", digest = "sha256:ef97da802f2a13ce4748e2d1aa5c970127faeda4284a1c326c7828ca86d42df1" }

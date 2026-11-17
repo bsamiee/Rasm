@@ -18,18 +18,7 @@
         "atuin": {
             "type": "stdio",
             "command": "atuin",
-            "args": [
-                "mcp"
-            ],
-            "default_tools_approval_mode": "approve"
-        },
-        "arena": {
-            "type": "http",
-            "url": "https://mcp.are.na/mcp",
-            "headers": {
-                "Authorization": "Bearer ${ARENA_TOKEN}"
-            },
-            "bearer_token_env_var": "ARENA_TOKEN",
+            "args": ["mcp"],
             "default_tools_approval_mode": "approve"
         }
     }
