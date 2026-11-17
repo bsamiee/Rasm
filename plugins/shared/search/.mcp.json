@@ -57,7 +57,11 @@
         "arena": {
             "type": "http",
             "url": "https://mcp.are.na/mcp",
-            "enabled": false
+            "headers": {
+                "Authorization": "Bearer ${ARENA_TOKEN}"
+            },
+            "bearer_token_env_var": "ARENA_TOKEN",
+            "default_tools_approval_mode": "approve"
         }
     }
 }

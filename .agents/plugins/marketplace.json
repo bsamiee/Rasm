@@ -64,7 +64,7 @@
                 "authentication": "ON_INSTALL"
             },
             "category": "Coding",
-            "version": "0.1.0",
+            "version": "0.2.0",
             "description": "Work handed to other agents: headless Antigravity runs and a council of models",
             "author": {
                 "name": "Bardia Samiee"
@@ -211,7 +211,7 @@
                 "authentication": "ON_INSTALL"
             },
             "category": "Coding",
-            "version": "0.2.0",
+            "version": "0.4.0",
             "description": "Dependency source, web, Are.na, and shell-history research, and structural code search with ast-grep",
             "author": {
                 "name": "Bardia Samiee"

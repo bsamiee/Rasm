@@ -1445,7 +1445,7 @@ importers:
         specifier: 'catalog:'
         version: 5.1.0(@opentelemetry/api@1.10.0)(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/coverage-v8@5.1.0)(@vitest/ui@5.1.0)(vite@8.3.8(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))
 
-  plugins/function-hooks:
+  plugins/claude/function-hooks:
     dependencies:
       '@effect/platform-node':
         specifier: 'catalog:'
@@ -1455,10 +1455,10 @@ importers:
         version: 24.1.0-beta.1(nx@24.1.0-beta.1)
       '@rasm/applications':
         specifier: workspace:*
-        version: link:../../libs/typescript/macos/applications
+        version: link:../../../libs/typescript/macos/applications
       '@rasm/telemetry':
         specifier: workspace:*
-        version: link:../../libs/typescript/runtime/telemetry
+        version: link:../../../libs/typescript/runtime/telemetry
       effect:
         specifier: 'catalog:'
         version: 4.1.4

@@ -84,7 +84,7 @@ flowchart LR
     shell(["Shell and child processes"])
     claude(["Claude Code session"])
     ci(["CI job"])
-    hooks["plugins/function-hooks"]
+    hooks["plugins/claude/function-hooks"]
 
     subgraph file["File level, takes paths"]
         hk(["hk check, hk fix"])

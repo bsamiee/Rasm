@@ -162,7 +162,7 @@
         },
         { "files": ["products/developer/nx/**"], "rules": { "unicorn/require-post-message-target-origin": "off" } },
         { "files": ["**/*.tsx"], "rules": { "react/rules-of-hooks": "error" } },
-        { "files": ["plugins/*/hooks/**"], "rules": { "node/callback-return": "off", "promise/no-callback-in-promise": "off", "unicorn/catch-error-name": "off" } },
+        { "files": ["plugins/*/*/hooks/**"], "rules": { "node/callback-return": "off", "promise/no-callback-in-promise": "off", "unicorn/catch-error-name": "off" } },
         {
             "files": ["tests/**/*.test.{ts,tsx}"],
             "plugins": ["vitest"],

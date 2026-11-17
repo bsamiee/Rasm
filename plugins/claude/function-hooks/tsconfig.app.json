@@ -1,5 +1,5 @@
 {
-    "extends": "../../tsconfig.base.json",
+    "extends": "../../../tsconfig.base.json",
     "compilerOptions": {
         "composite": false,
         "declarationMap": false,
@@ -10,10 +10,10 @@
     "exclude": ["hooks", "node_modules"],
     "references": [
         {
-            "path": "../../libs/typescript/macos/applications"
+            "path": "../../../libs/typescript/macos/applications"
         },
         {
-            "path": "../../libs/typescript/runtime/telemetry"
+            "path": "../../../libs/typescript/runtime/telemetry"
         }
     ]
 }

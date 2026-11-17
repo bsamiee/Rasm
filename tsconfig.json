@@ -54,7 +54,7 @@
             "path": "./libs/typescript/web/media"
         },
         {
-            "path": "./plugins/function-hooks"
+            "path": "./plugins/claude/function-hooks"
         },
         {
             "path": "./libs/typescript/ai/mcp"

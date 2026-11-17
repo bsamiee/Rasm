@@ -4,7 +4,7 @@ packages:
     - 'libs/typescript/*/*'
     - 'products/**'
     - 'tests/**'
-    - 'plugins/*'
+    - 'plugins/*/*'
     - 'infra'
     - 'tools/*'
 catalogMode: strict
