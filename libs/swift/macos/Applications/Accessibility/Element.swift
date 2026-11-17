@@ -138,10 +138,13 @@ public struct Element: Encodable, Hashable, Sendable {
     public var answers: Answers? {
         guard let controls = detail?.controls else { return nil }
         let attributed: (String) -> Control? = { attribute in controls.first { control in control.attribute == attribute } }
+        let identified: (String) -> Control? = { identifier in controls.first { control in control.identifier == identifier } }
+        let accept: Control? = attributed(kAXDefaultButtonAttribute) ?? identified("OKButton")
+        let cancel: Control? = attributed(kAXCancelButtonAttribute) ?? identified("CancelButton") ?? attributed(kAXCloseButtonAttribute)
         let answers = Answers(
-            accept: attributed(kAXDefaultButtonAttribute),
-            discard: controls.first { control in control.identifier == "DontSaveButton" },
-            cancel: attributed(kAXCancelButtonAttribute) ?? attributed(kAXCloseButtonAttribute),
+            accept: accept,
+            discard: identified("DontSaveButton"),
+            cancel: cancel,
             buttons: controls.filter { control in control.role == kAXButtonRole && control.label != nil },
         )
         return answers.accept == nil && answers.discard == nil && answers.cancel == nil && answers.buttons.isEmpty ? nil : answers
