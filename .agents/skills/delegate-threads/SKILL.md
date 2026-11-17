@@ -5,7 +5,7 @@ description: "Use when work splits into pieces that each end in their own delive
 
 # [DELEGATE_THREADS]
 
-A sub-agent answers a question this turn consumes. A thread is a separate chat with its own context and lifetime: it owns one deliverable, the owner can open and steer it, and it outlives this turn. This skill is the owner's standing request to create threads and to message the threads this chat created, so the thread tools' "only when the user asks" condition is met whenever it applies
+Send an agent a task whose result this turn needs. Start a separate chat for a deliverable the owner can open and steer beyond this turn. This skill is the owner's standing request to create threads and to message the threads this chat created, so the thread tools' "only when the user asks" condition is met whenever it applies
 
 ## [01]-[BEFORE_DISPATCH]
 

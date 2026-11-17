@@ -1,17 +1,19 @@
 ---
 name: watch-apps
-description: "Use when opening, driving, observing, or quitting a desktop app, covering background control through Accessibility"
+description: "Use for desktop app lifecycle, process monitoring, hangs, and diagnostic recording, with background Accessibility actions when needed"
 ---
 
 # [WATCH_APPS]
 
 ## [01]-[SEQUENCE]
 
+Interactive UI uses a host's MCP or app-managed Computer Use when available, with observations through that interface.
+
 Each command prints the states its action reaches:
 1. Open the app with `launch` and read its `pid` from the `launched` line
 2. Act on each last line by the state table, on the `pid` of the instance work drives
 3. Run `read` for element ids a line leaves out, then `perform` or `set` on one id
-4. After a call outside `watch-apps` changes the app (a script, a plug-in, an MCP tool), run `read` on the app
+4. During a `watch-apps` diagnostic session, run `read` after an external call changes the app
 
 ```bash
 watch-apps find <app-or-pid>...

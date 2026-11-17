@@ -135,7 +135,7 @@
             }
         },
         {
-            "files": ["**/*.config.ts", "**/server/worker.ts", "**/version-actions.ts", "**/.storybook/*.{ts,tsx}", "**/extendscript.ts", "tools/ast-grep/grammars/*/grammar.js", "tools/conformance/*/rule.ts"],
+            "files": ["**/*.config.ts", "**/server/main.ts", "**/version-actions.ts", "**/.storybook/*.{ts,tsx}", "**/extendscript.ts", "tools/ast-grep/grammars/*/grammar.js", "tools/conformance/*/rule.ts"],
             "rules": {
                 "import/no-default-export": "off"
             }

@@ -15,7 +15,6 @@ node_modules/
 /.cargo/rustc-source
 dist/
 .cloudflare/
-.openai/
 __traces__/
 coverage/
 .playwright-cli/

@@ -222,6 +222,6 @@ mise installs every tool and holds every variable and machine's OS state, and `i
 - Machines take a `hosts` row in `infra/platform-stack.ts` and a `[bootstrap.remote.hosts]` row, accounts and tailnet addresses staying in services
 - `[bootstrap]` holds what a machine's OS keeps across boots, and Pulumi stacks hold what runs on the machine and how it is reached
 - Roles in a `hosts` row decide a machine's services, and a role's OS state sits in the mise environment its bootstrap row loads
-- App `hosting.config.ts` targets name Cloudflare, Sites, or a machine with role `Apps`, which `nx install @rasm/infra` runs under `rasm.localhost`
+- App `hosting.config.ts` targets name Cloudflare or a machine with role `Apps`, which `nx install @rasm/infra` runs under `rasm.localhost`
 - Container engines run under systemd on machines and in a Colima VM on this Mac, which pitchfork supervises and `DOCKER_HOST` names
 - Daemons are mise `[daemons]` rows pitchfork supervises, started by name or with the agent sessions that enter the project

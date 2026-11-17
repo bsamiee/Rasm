@@ -1,5 +1,6 @@
-using System.Collections.Concurrent;
 using System.Drawing;
+using System.Globalization;
+using System.Threading.Channels;
 using CsCheck;
 using Rasm.Rhino.Document;
 using Rasm.Rhino.Document.Units;
@@ -50,22 +51,31 @@ public sealed class MotionTests(Fixtures fixtures) {
     [InlineData(0, new[] { 3 }, new[] { 1d })]
     public async Task MoveHandsItsCurveEachTicksShareOfTheSpanAndEndsWhereTheCurveIsAtOne(int span, int[] ticks, double[] asked) {
         RhinoDoc doc = await fixtures.TakeAsync(RhinoHost.Document);
-        ConcurrentQueue<double> shares = new();
+        Channel<double> sampled = Channel.CreateUnbounded<double>();
+        Atom<Seq<double>> shares = Atom(Seq<double>());
         Vector3d offset = new(10, -4, 3);
         (CameraPose opening, CameraPose ended) = await RhinoHost.RunAsync((
             from view in IO.lift(() => doc.Views.Add(nameof(MotionTests), DefinedViewportProjection.Perspective, new Rectangle(0, 0, 300, 200), floating: true))
             from start in Cameras.Read(view.MainViewport)
             let move = new CameraMove(new ViewportSet.One(new ViewportTarget.Serial(view.RuntimeSerialNumber)), Moved(start, offset), Duration.FromSeconds(span), share => {
-                shares.Enqueue(share);
+                sampled.Writer.TryWrite(share);
                 return share * share / 2d;
             }, new RedrawPolicy.Silent())
-            from handle in Motions.Drive(doc, move, sink => toSeq(ticks).TraverseM(tick => sink.Post(Duration.FromSeconds(tick))).As().Map(static _ => unit))
-            from completed in handle.Completed
+            from handle in Motions.Drive(doc, move, sink => toSeq(ticks).TraverseM(tick => sink.Post(Duration.FromSeconds(tick)) >> Paced(sampled.Reader, tick).Bind(share => IO.lift(() => shares.Swap(held => held.Add(share))))).As().Map(static _ => unit))
+            from completed in Ended(handle)
             from shown in Cameras.Read(view.MainViewport)
             select (start, shown)).OnUiThread());
-        Assert.Equal(asked, shares);
+        Assert.Equal(asked, shares.Value);
         Assert.True(ended.Matches(Moved(opening, offset / 2d), Close), $"{ended} against {Moved(opening, offset / 2d)}");
     }
+
+    private static IO<Unit> Ended(MotionHandle handle) =>
+        IO.liftAsync(environment => handle.Completed.RunAsync(environment).AsTask().WaitAsync(TimeSpan.FromSeconds(30), TimeProvider.System, environment.Token))
+            .MapFail(static error => error.Is(Errors.TimedOut) ? Error.New("the move never ended", error) : error);
+
+    private static IO<double> Paced(ChannelReader<double> sampled, int tick) =>
+        IO.liftAsync(environment => sampled.ReadAsync(environment.Token).AsTask().WaitAsync(TimeSpan.FromSeconds(30), TimeProvider.System, environment.Token))
+            .MapFail(error => error.Is(Errors.TimedOut) ? Error.New(string.Create(CultureInfo.InvariantCulture, $"the move never sampled the tick at {tick} s"), error) : error);
 
     private static CameraPose Moved(CameraPose pose, Vector3d offset) {
         Plane frame = pose.Frame;

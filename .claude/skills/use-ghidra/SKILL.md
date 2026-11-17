@@ -73,8 +73,10 @@ mkdir -p "$GHIDRA_PROJECT_DIR" && fd -d 1 -e gpr --format '{/.}' . "$GHIDRA_PROJ
 
 `<headless>` opens project `<name>` with the scripts bundle:
 
+`<skill-dir>` is this skill's directory, resolved from its loaded `SKILL.md` path.
+
 ```bash
-analyzeHeadless "$GHIDRA_PROJECT_DIR" <name> -scriptPath ${CLAUDE_SKILL_DIR}/scripts
+analyzeHeadless "$GHIDRA_PROJECT_DIR" <name> -scriptPath "<skill-dir>/scripts"
 ```
 
 Program paths of project `<name>`, index files under `<name>.rep` belong to Ghidra alone:

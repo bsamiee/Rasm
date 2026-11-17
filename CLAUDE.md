@@ -14,8 +14,10 @@
 
 [TOOL_ROUTING]:
 - ALWAYS load the coding skill of each language a change writes or reviews
+- ALWAYS use `claudeCodeDocs`/`openaiDeveloperDocs` MCP for any fact about Claude Code or Codex, their configuration included
 - ALWAYS use `ast-grep outline <path>` to choose what to read in an unread file or folder
-- ALWAYS use `watch-apps` skill whenever work touches a desktop app's process or windows
+- ALWAYS use `watch-apps` for desktop process lifecycle, monitoring, hangs, and diagnostic recording
+- Use a host's MCP or app-managed Computer Use for interactive UI and its observation API after actions
 - ALWAYS use `refactor-code` skill whenever code or configuration is written, reduced, rebuilt, or judged for quality
 - ALWAYS use `search-web` skill for any fact outside the repository and its installed packages, never answered from memory
 - ALWAYS use `search-code` skill before writing or judging code over a dependency, and before hand-writing what a package could supply
@@ -23,7 +25,6 @@
 - ALWAYS use `dotnet-roslyn-codelens` skill to read, trace, or change any file in a .NET solution
 - ALWAYS use `LSP` tool for references, implementations, call hierarchy, and type of a Python, Rust, or Swift symbol before changing or removing it
 - ALWAYS use `xcode` MCP for any Apple platform fact or Xcode build, `lldb` MCP for a debug session `xcode` MCP did not start
-- ALWAYS use `claudeCodeDocs`/`openaiDeveloperDocs` MCP for any fact about Claude Code or Codex, their configuration included
 - ALWAYS use `use-rhino` skill for any work against a live Rhino document, `.3dm` file, or Grasshopper 2 canvas
 - ALWAYS use `use-rhino` skill to debug a plug-in in a running Rhino, which refuses `lldb`
 - ALWAYS use `use-blender` skill for any work against a live Blender or a `bpy` member of the installed build

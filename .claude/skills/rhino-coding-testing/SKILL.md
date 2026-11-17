@@ -166,6 +166,7 @@ Each boot writes Rhino's profile under `HOME`: cloned `settings-*.xml`, RhinoCyc
 - `keypairs` decrypts the cached Cloud Zoo lease, and a profile lacking it deadlocks boot in `GetCloudZooLease` on the main thread
 - `cfprefsd` ignores both, and the background library moves the host process's domain and `com.mcneel.rhinoceros` domains into the scratch profile
 - Background library (`Background.m`, injected through `DYLD_INSERT_LIBRARIES`) keeps windows unordered and activation prohibited, and Rhino never takes focus
+- Unordered windows never paint: `DisplayPipeline` draw events stay silent, a view redraw leaves nothing a test reads, and `CaptureToBitmap` renders on its own
 - It answers `NSAlert.runModal` and `runModalForWindow:` with abort and logs their text to `RHINO_TEST_ALERTS`, and the host fails the test that raised one
 - One Rhino runs per machine, as Rhino processes sharing one Cloud Zoo license raise a license prompt in each, failing the test
 - Hosts wait for other test processes on Rhino's .NET host before booting, and a Rhino app open beside them raises the prompt

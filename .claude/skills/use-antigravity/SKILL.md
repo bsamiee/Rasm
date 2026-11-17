@@ -46,9 +46,8 @@ One process answers many prompts with `--input-format stream-json --output-forma
 
 Slash commands opening a `-p` prompt start a turn without `--disable-slash-commands`:
 - `/goal <objective>` re-prompts the agent to audit its work until it answers `<!-- GOAL_COMPLETE -->`, with no turn limit
-- `/boost <task>` hands a coding or investigation task to one DeepCoder or DeepInvestigator subagent and returns it until its work checks out
-- `/teamwork <task>` hands a large project to a coordinator running planner, worker, synthesizer, and reviewer agents
-- `/swarm <task>` runs worker agents on the run's model, each in its own conversation, over a shared message board
+- `/boost <task>` sends a coding or investigation task to an agent until its work checks out
+- `/swarm <task>` runs agents on the run's model, each in its own conversation, over a shared message board
 - `/run-workflow <task>` has the agent write a Python script that runs agents in parallel or in stages and merges results
 
 ## [03]-[BRIEF]

@@ -10,9 +10,7 @@ namespace Rasm.Rhino.Viewport;
 
 public sealed record CameraMove(ViewportSet Viewports, CameraPose To, Duration Span, Func<double, double> Progress, RedrawPolicy Redraw) {
     internal Reduced<double> Sample(Duration elapsed) =>
-        (Span > Duration.Zero ? double.Min(elapsed / Span, 1d) : 1d) switch {
-            var at => at < 1d ? Reduced.Continue(Progress(at)) : Reduced.Done(Progress(1d)),
-        };
+        elapsed < Span ? Reduced.Continue(Progress(elapsed / Span)) : Reduced.Done(Progress(1d));
 }
 
 internal sealed record ViewportMotion(ViewportRef Row, CameraPose Opening) {

@@ -76,14 +76,14 @@ TypeScript package under `<project>/node_modules/<pkg>` of a project declaring i
 2. Declaration with file and line, following overloads and its preceding doc comment read through `Read` at the line
 
 ```bash
-rg -n '^export ' ${CLAUDE_PROJECT_DIR}/<project>/node_modules/<pkg>/<file>.d.ts
-rg -n --no-ignore -A8 '^export (declare )?(abstract )?(const|function|class|interface|type|enum|namespace) <Symbol>\b' ${CLAUDE_PROJECT_DIR}/<project>/node_modules/<pkg> --glob '*.d.ts'
+rg -n '^export ' <main>/<project>/node_modules/<pkg>/<file>.d.ts
+rg -n --no-ignore -A8 '^export (declare )?(abstract )?(const|function|class|interface|type|enum|namespace) <Symbol>\b' <main>/<project>/node_modules/<pkg> --glob '*.d.ts'
 ```
 
 TypeScript type and enum values of one configuration schema definition:
 
 ```bash
-jq -c '(.["$defs"] // .definitions).<Def>' ${CLAUDE_PROJECT_DIR}/node_modules/<pkg>/<schema>.json
+jq -c '(.["$defs"] // .definitions).<Def>' <main>/node_modules/<pkg>/<schema>.json
 ```
 
 TypeScript catalog package no project declares, read its tarball at the catalog release:
@@ -104,7 +104,7 @@ pixi run --locked python -m inspect <mod>:<qualname>
 Python typed signature per overload from a package's `.pyi` or its `-stubs` package where the runtime declares no types:
 
 ```bash
-rg -nU --no-ignore 'def <fn>\([^)]*\)[^:]*:' ${CLAUDE_PROJECT_DIR}/.venv/lib/python*/site-packages/<pkg>* --glob '*.pyi'
+rg -nU --no-ignore 'def <fn>\([^)]*\)[^:]*:' <main>/.venv/lib/python*/site-packages/<pkg>* --glob '*.pyi'
 ```
 
 Rust public declaration with file and line from crate source under `$CARGO_HOME/registry/src`:
@@ -118,7 +118,7 @@ Rust compiler, standard library, Cargo, Clippy, rustfmt, and rust-analyzer decla
 
 ```bash
 rg -n -A8 '^\s*pub (\w+ )*(fn|struct|enum|trait|type|const|static|macro) <Symbol>\b' \
-    ${CLAUDE_PROJECT_DIR}/.cargo/rustc-source/<folder> --glob '*.rs'
+    <main>/.cargo/rustc-source/<folder> --glob '*.rs'
 ```
 
 MSBuild target with `Condition`, `Inputs`, and `DependsOnTargets` across the SDK `global.json` resolves, package targets under `build/` or `buildTransitive/`:
@@ -184,7 +184,7 @@ mcp__github__search_code {"query": "\"<Member>\" \"<Member>\" language:<language
 
 ```text
 ToolSearch {"query": "select:mcp__nuget__get_package_context", "max_results": 1}
-mcp__nuget__get_package_context {"solutionDirectory": "${CLAUDE_PROJECT_DIR}", "packageName": "<id>", "packageVersion": "<version>"}
+mcp__nuget__get_package_context {"solutionDirectory": "<main>", "packageName": "<id>", "packageVersion": "<version>"}
 ```
 
 Context7 stars, trust score, and last update per candidate, MCP results omit them, `libraryName` is the repository name:
@@ -197,7 +197,7 @@ Cited README lines of an installed .NET or TypeScript package:
 
 ```bash
 rg -n -A6 '<term>' ~/.nuget/packages/<id>/<version> --glob '*.md'
-rg -n --no-ignore -A6 '<term>' ${CLAUDE_PROJECT_DIR}/<project>/node_modules/<pkg> --glob '*.md'
+rg -n --no-ignore -A6 '<term>' <main>/<project>/node_modules/<pkg> --glob '*.md'
 ```
 
 Python cited lines of a package's long description at one version, case sensitive:
@@ -273,7 +273,7 @@ mcp__context7__get-upgrade-guide {"libraryId": "/<owner>/<repo>", "fromVersion":
 
 ```text
 ToolSearch {"query": "select:mcp__nuget__get_latest_package_version", "max_results": 1}
-mcp__nuget__get_latest_package_version {"solutionDirectory": "${CLAUDE_PROJECT_DIR}", "packageName": "<id>", "includePrerelease": true}
+mcp__nuget__get_latest_package_version {"solutionDirectory": "<main>", "packageName": "<id>", "includePrerelease": true}
 ```
 
 GitHub advisories on pinned versions with each patched version, one call across ecosystems, owner and repo name the current repository:

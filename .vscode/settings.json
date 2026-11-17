@@ -116,7 +116,6 @@
         "**/node_modules": true,
         "**/xcuserdata": true
     },
-    "search.exclude": { ".codex/skills": true },
     "search.experimental.useIgnoreFilesInFindFiles": true,
     "search.followSymlinks": false,
 
@@ -146,7 +145,7 @@
     // --- [JAVA] ------------------------------------------------------------------------
 
     "java.configuration.runtimes": [{ "default": true, "name": "JavaSE-27", "path": "${JAVA_HOME}" }],
-    "java.import.exclusions": ["**/.cache/**", "**/.codex/skills", "**/.metadata/**", "**/archetype-resources/**", "**/META-INF/maven/**", "**/node_modules/**"],
+    "java.import.exclusions": ["**/.cache/**", "**/.metadata/**", "**/archetype-resources/**", "**/META-INF/maven/**", "**/node_modules/**"],
     "java.import.gradle.enabled": false,
     "java.import.maven.enabled": false,
     "java.project.referencedLibraries": ["${GHIDRA_INSTALL_DIR}/Ghidra/**/lib/*.jar"],

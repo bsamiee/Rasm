@@ -48,8 +48,10 @@ Covers Rhino and Grasshopper 2 work through the `rhino-mcp-platform` server, wit
 
 - Inspect UI, logs, and crash reports, resolve dialogs and errors, discard untitled and scratch work, save named files in place, decline submission
 
+`<skill-dir>` is this skill's directory, resolved from its loaded `SKILL.md` path.
+
 Sessions open in order:
-1. `dotnet run ${CLAUDE_SKILL_DIR}/scripts/Instances.cs` lists each Rhino visible to the router with its documents, slots, and Grasshopper definitions
+1. `dotnet run "<skill-dir>/scripts/Instances.cs"` lists each Rhino visible to the router with its documents, slots, and Grasshopper definitions
 2. New work takes an open untitled, unmodified document
 3. `list_slots` adopts the announced listeners, then `get_context` reads the target slot's selection, viewport, document, and canvas state
 
