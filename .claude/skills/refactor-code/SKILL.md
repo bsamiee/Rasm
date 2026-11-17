@@ -23,7 +23,7 @@ Read before one line changes, a change from memory of an API, a summary, or an o
 3. Read every consumer to its effect: `ast-grep outline --items exports <file>` names exports, `LSP`, `ast-grep run`, and `rg -F` find call sites
 4. List every entry point reaching the code: Nx target and its `--args`, CLI switch, `dotnet publish -o`, host launch, hook rewrite, served product
 5. Run each entry point once on repository input for its normal output
-6. Read dependency and host source at installed release through `search-code` per member called, job hand-written, and behavior performed
+6. Read dependency and host source at installed release through `search:code` per member called, job hand-written, and behavior performed
 7. Read `git log -S '<literal>'` for why a guard, flag, or form exists, a form with no cause in history, source, or a repository input goes
 8. Count lines and code lines (`loc`), declared types, exports, parameters, flags, files, dependency rows, nesting depth, and branches per member
 
@@ -47,10 +47,10 @@ Hosts (applications, runtimes, build systems, checkers, generators) perform beha
 - Dialog: a host dialog is read and answered through the host, never silenced by hiding, a host event is awaited, never polled or waited out
 
 Finding the member and the case the host lacks it:
-- Source: read the host's installed source (decompiled assembly, scripting dictionary, interpreter reference, typings) through `search-code`
+- Source: read the host's installed source (decompiled assembly, scripting dictionary, interpreter reference, typings) through `search:code`
 - Reference: read the newest release's reference for a member the installed source lacks, then drive the running host for the proving run
-- Driving: `use-rhino`, `use-blender`, a host's MCP, or app-managed Computer Use, on the running instance
-- Processes: `watch-apps` handles desktop lifecycle, monitoring, hangs, and diagnostic recording
+- Driving: `rhino:host`, `blender:host`, a host's MCP, or app-managed Computer Use, on the running instance
+- Processes: `watch-app` handles desktop lifecycle, monitoring, hangs, and diagnostic recording
 - Absent value: a value no host declaration states enters as caller data at the boundary, stated once, the library derives, defaults, and composes
 - Absent value outcome: library code holds no product name, style name, palette, sheet size, margin, path, or tuned value
 - Absent behavior: a behavior no host member performs composes host kinds and package members over caller data, never a copy of a host member
@@ -68,11 +68,11 @@ Depth of package use is co-equal with reduction, a pass that deletes alone is ha
 - Source outcome: a split respecting a measured limit stays, a semantic no source read or run settled writes no code
 - Row: a package row leaves with the last code importing it, a row removed with a folder while its capability is wanted is over-removal
 - Port: a library copying another language's library in the tree is a hand copy, each language holds its own ecosystem's package for the job
-- Release: a form from memory of an older release takes the installed release's form, newest per `CLAUDE.md` `[03]-[DEPENDENCY_POLICY]`
+- Release: a form from memory of an older release takes the installed release's form, newest per `[03]-[DEPENDENCY_POLICY]` of the project instructions
 
 ## [04]-[REMOVING]
 
-Surface is every declaration a reader must know, internal (helpers, fields, locals, nesting, parameters) and external (exports, public parameters, flags, files, entry points, dependency rows), and both reduce by deletion and folding, never by nesting or hiding. Deletions come first, each consumer is rebuilt in the same change, a file whose deletions reshape it is rewritten whole, and findings a removed guard reveals are fixed at their sites in the same change. Declarations are junk by default per `CLAUDE.md` `[04]-[CODE_QUALITY]`, one stays when no owner states its fact and keeping it removes more logic than it adds.
+Surface is every declaration a reader must know, internal (helpers, fields, locals, nesting, parameters) and external (exports, public parameters, flags, files, entry points, dependency rows), and both reduce by deletion and folding, never by nesting or hiding. Deletions come first, each consumer is rebuilt in the same change, a file whose deletions reshape it is rewritten whole, and findings a removed guard reveals are fixed at their sites in the same change. Declarations are junk by default per `[04]-[CODE_QUALITY]` of the project instructions, one stays when no owner states its fact and keeping it removes more logic than it adds.
 
 Each kind goes on its criterion and takes its replacement:
 
@@ -121,7 +121,7 @@ Removal is total across the tree: every mention, consumer path, manifest row, sk
 
 ## [05]-[STRUCTURE]
 
-Inside each member, flat spam (near-identical statements, arms, or rows) and stacked decisions collapse into one structure stating each decision once, `CLAUDE.md` `[04]-[CODE_QUALITY]` names the forms. Extraction is the forbidden form everywhere: a helper, a closure bound to a name, or a type born of the pass keeps the shape and adds a name.
+Inside each member, flat spam (near-identical statements, arms, or rows) and stacked decisions collapse into one structure stating each decision once, `[04]-[CODE_QUALITY]` of the project instructions names the forms. Extraction is the forbidden form everywhere: a helper, a closure bound to a name, or a type born of the pass keeps the shape and adds a name.
 
 Each shape replaces one spam or nesting form:
 

@@ -1,0 +1,374 @@
+{
+    "name": "rasm",
+    "interface": {
+        "displayName": "Rasm"
+    },
+    "plugins": [
+        {
+            "name": "blender",
+            "source": {
+                "source": "local",
+                "path": "./plugins/shared/blender"
+            },
+            "policy": {
+                "installation": "AVAILABLE",
+                "authentication": "ON_INSTALL"
+            },
+            "category": "Coding",
+            "version": "0.2.0",
+            "description": "Blender sessions and Python inside Blender: bpy data, extensions, interface, node trees, and render output",
+            "author": {
+                "name": "Bardia Samiee"
+            },
+            "skills": "./skills/",
+            "mcpServers": "./.mcp.json",
+            "interface": {
+                "displayName": "Blender",
+                "shortDescription": "Blender sessions and Python inside Blender: bpy data, extensions, interface, node trees, and render output",
+                "developerName": "Bardia Samiee",
+                "category": "Coding"
+            }
+        },
+        {
+            "name": "cpp",
+            "source": {
+                "source": "local",
+                "path": "./plugins/shared/cpp"
+            },
+            "policy": {
+                "installation": "AVAILABLE",
+                "authentication": "ON_INSTALL"
+            },
+            "category": "Coding",
+            "version": "0.1.0",
+            "description": "C++ and Objective-C++ design: types, ownership, failure as values, compile-time evaluation, memory layout, and concurrency",
+            "author": {
+                "name": "Bardia Samiee"
+            },
+            "skills": "./skills/",
+            "interface": {
+                "displayName": "C++",
+                "shortDescription": "C++ and Objective-C++ design: types, ownership, failure as values, compile-time evaluation, memory layout, and concurrency",
+                "developerName": "Bardia Samiee",
+                "category": "Coding"
+            }
+        },
+        {
+            "name": "delegate",
+            "source": {
+                "source": "local",
+                "path": "./plugins/shared/delegate"
+            },
+            "policy": {
+                "installation": "AVAILABLE",
+                "authentication": "ON_INSTALL"
+            },
+            "category": "Coding",
+            "version": "0.1.0",
+            "description": "Work handed to other agents: headless Antigravity runs and a council of models",
+            "author": {
+                "name": "Bardia Samiee"
+            },
+            "skills": "./skills/",
+            "interface": {
+                "displayName": "Delegate",
+                "shortDescription": "Work handed to other agents: headless Antigravity runs and a council of models",
+                "developerName": "Bardia Samiee",
+                "category": "Coding"
+            }
+        },
+        {
+            "name": "dotnet",
+            "source": {
+                "source": "local",
+                "path": "./plugins/shared/dotnet"
+            },
+            "policy": {
+                "installation": "AVAILABLE",
+                "authentication": "ON_INSTALL"
+            },
+            "category": "Coding",
+            "version": "0.2.0",
+            "description": "C# design with result and effect types, LanguageExt, Mapperly, memory, Thinktecture, UI, and Roslyn code navigation",
+            "author": {
+                "name": "Bardia Samiee"
+            },
+            "skills": "./skills/",
+            "mcpServers": "./.mcp.json",
+            "interface": {
+                "displayName": ".NET",
+                "shortDescription": "C# design with result and effect types, LanguageExt, Mapperly, memory, Thinktecture, UI, and Roslyn code navigation",
+                "developerName": "Bardia Samiee",
+                "category": "Coding"
+            }
+        },
+        {
+            "name": "msbuild",
+            "source": {
+                "source": "local",
+                "path": "./plugins/shared/msbuild"
+            },
+            "policy": {
+                "installation": "AVAILABLE",
+                "authentication": "ON_INSTALL"
+            },
+            "category": "Coding",
+            "version": "0.2.0",
+            "description": "MSBuild evaluation, execution, packaging, binary-log diagnostics, and antipatterns",
+            "author": {
+                "name": "Bardia Samiee"
+            },
+            "skills": "./skills/",
+            "mcpServers": "./.mcp.json",
+            "interface": {
+                "displayName": "MSBuild",
+                "shortDescription": "MSBuild evaluation, execution, packaging, binary-log diagnostics, and antipatterns",
+                "developerName": "Bardia Samiee",
+                "category": "Coding"
+            }
+        },
+        {
+            "name": "python",
+            "source": {
+                "source": "local",
+                "path": "./plugins/shared/python"
+            },
+            "policy": {
+                "installation": "AVAILABLE",
+                "authentication": "ON_INSTALL"
+            },
+            "category": "Coding",
+            "version": "0.2.0",
+            "description": "Python design with result and record types, cyclopts, expression, msgspec, pydantic, telemetry, and docstrings",
+            "author": {
+                "name": "Bardia Samiee"
+            },
+            "skills": "./skills/",
+            "interface": {
+                "displayName": "Python",
+                "shortDescription": "Python design with result and record types, cyclopts, expression, msgspec, pydantic, telemetry, and docstrings",
+                "developerName": "Bardia Samiee",
+                "category": "Coding"
+            }
+        },
+        {
+            "name": "rhino",
+            "source": {
+                "source": "local",
+                "path": "./plugins/shared/rhino"
+            },
+            "policy": {
+                "installation": "AVAILABLE",
+                "authentication": "ON_INSTALL"
+            },
+            "category": "Coding",
+            "version": "0.1.0",
+            "description": "Rhino sessions, Grasshopper 2 canvases, and tests of code over RhinoCommon and Grasshopper",
+            "author": {
+                "name": "Bardia Samiee"
+            },
+            "skills": "./skills/",
+            "mcpServers": "./.mcp.json",
+            "interface": {
+                "displayName": "Rhino",
+                "shortDescription": "Rhino sessions, Grasshopper 2 canvases, and tests of code over RhinoCommon and Grasshopper",
+                "developerName": "Bardia Samiee",
+                "category": "Coding"
+            }
+        },
+        {
+            "name": "rust",
+            "source": {
+                "source": "local",
+                "path": "./plugins/shared/rust"
+            },
+            "policy": {
+                "installation": "AVAILABLE",
+                "authentication": "ON_INSTALL"
+            },
+            "category": "Coding",
+            "version": "0.1.0",
+            "description": "Rust design with algebraic types, results, traits, and async effects",
+            "author": {
+                "name": "Bardia Samiee"
+            },
+            "skills": "./skills/",
+            "interface": {
+                "displayName": "Rust",
+                "shortDescription": "Rust design with algebraic types, results, traits, and async effects",
+                "developerName": "Bardia Samiee",
+                "category": "Coding"
+            }
+        },
+        {
+            "name": "search",
+            "source": {
+                "source": "local",
+                "path": "./plugins/shared/search"
+            },
+            "policy": {
+                "installation": "AVAILABLE",
+                "authentication": "ON_INSTALL"
+            },
+            "category": "Coding",
+            "version": "0.2.0",
+            "description": "Dependency source, web, Are.na, and shell-history research, and structural code search with ast-grep",
+            "author": {
+                "name": "Bardia Samiee"
+            },
+            "skills": "./skills/",
+            "mcpServers": "./.mcp.json",
+            "interface": {
+                "displayName": "Search",
+                "shortDescription": "Dependency source, web, Are.na, and shell-history research, and structural code search with ast-grep",
+                "developerName": "Bardia Samiee",
+                "category": "Coding"
+            }
+        },
+        {
+            "name": "swift",
+            "source": {
+                "source": "local",
+                "path": "./plugins/shared/swift"
+            },
+            "policy": {
+                "installation": "AVAILABLE",
+                "authentication": "ON_INSTALL"
+            },
+            "category": "Coding",
+            "version": "0.1.0",
+            "description": "Swift design with typed throws, value types, and structured concurrency, Xcode builds, and LLDB sessions",
+            "author": {
+                "name": "Bardia Samiee"
+            },
+            "skills": "./skills/",
+            "mcpServers": "./.mcp.json",
+            "interface": {
+                "displayName": "Swift",
+                "shortDescription": "Swift design with typed throws, value types, and structured concurrency, Xcode builds, and LLDB sessions",
+                "developerName": "Bardia Samiee",
+                "category": "Coding"
+            }
+        },
+        {
+            "name": "tool",
+            "source": {
+                "source": "local",
+                "path": "./plugins/shared/tool"
+            },
+            "policy": {
+                "installation": "AVAILABLE",
+                "authentication": "ON_INSTALL"
+            },
+            "category": "Coding",
+            "version": "0.1.0",
+            "description": "Binary analysis in Ghidra and desktop app lifecycle, monitoring, and recording through watch-app",
+            "author": {
+                "name": "Bardia Samiee"
+            },
+            "skills": "./skills/",
+            "interface": {
+                "displayName": "Tool",
+                "shortDescription": "Binary analysis in Ghidra and desktop app lifecycle, monitoring, and recording through watch-app",
+                "developerName": "Bardia Samiee",
+                "category": "Coding"
+            }
+        },
+        {
+            "name": "typescript",
+            "source": {
+                "source": "local",
+                "path": "./plugins/shared/typescript"
+            },
+            "policy": {
+                "installation": "AVAILABLE",
+                "authentication": "ON_INSTALL"
+            },
+            "category": "Coding",
+            "version": "0.1.0",
+            "description": "Functional TypeScript on Effect, Schema, and algebraic data types, with Effect module families",
+            "author": {
+                "name": "Bardia Samiee"
+            },
+            "skills": "./skills/",
+            "interface": {
+                "displayName": "TypeScript",
+                "shortDescription": "Functional TypeScript on Effect, Schema, and algebraic data types, with Effect module families",
+                "developerName": "Bardia Samiee",
+                "category": "Coding"
+            }
+        },
+        {
+            "name": "uxp",
+            "source": {
+                "source": "local",
+                "path": "./plugins/shared/uxp"
+            },
+            "policy": {
+                "installation": "AVAILABLE",
+                "authentication": "ON_INSTALL"
+            },
+            "category": "Coding",
+            "version": "0.1.0",
+            "description": "Code that runs in an Adobe UXP host",
+            "author": {
+                "name": "Bardia Samiee"
+            },
+            "skills": "./skills/",
+            "interface": {
+                "displayName": "UXP",
+                "shortDescription": "Code that runs in an Adobe UXP host",
+                "developerName": "Bardia Samiee",
+                "category": "Coding"
+            }
+        },
+        {
+            "name": "web",
+            "source": {
+                "source": "local",
+                "path": "./plugins/shared/web"
+            },
+            "policy": {
+                "installation": "AVAILABLE",
+                "authentication": "ON_INSTALL"
+            },
+            "category": "Coding",
+            "version": "0.1.0",
+            "description": "Google Workspace through the gog CLI and Gemini Notebook through notebooklm-py",
+            "author": {
+                "name": "Bardia Samiee"
+            },
+            "skills": "./skills/",
+            "interface": {
+                "displayName": "Web",
+                "shortDescription": "Google Workspace through the gog CLI and Gemini Notebook through notebooklm-py",
+                "developerName": "Bardia Samiee",
+                "category": "Coding"
+            }
+        },
+        {
+            "name": "orchestration",
+            "source": {
+                "source": "local",
+                "path": "./plugins/codex/orchestration"
+            },
+            "policy": {
+                "installation": "AVAILABLE",
+                "authentication": "ON_INSTALL"
+            },
+            "category": "Coding",
+            "version": "0.1.0",
+            "description": "Codex app threads and parallel agent tasks",
+            "author": {
+                "name": "Bardia Samiee"
+            },
+            "skills": "./skills/",
+            "interface": {
+                "displayName": "Orchestration",
+                "shortDescription": "Codex app threads and parallel agent tasks",
+                "developerName": "Bardia Samiee",
+                "category": "Coding"
+            }
+        }
+    ]
+}

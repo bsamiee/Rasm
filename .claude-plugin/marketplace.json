@@ -1,0 +1,139 @@
+{
+    "name": "rasm",
+    "description": "Plugins of the Rasm monorepo",
+    "owner": {
+        "name": "Bardia Samiee"
+    },
+    "plugins": [
+        {
+            "name": "function-hooks",
+            "source": "./plugins/function-hooks"
+        },
+        {
+            "name": "blender",
+            "source": "./plugins/shared/blender",
+            "version": "0.2.0",
+            "description": "Blender sessions and Python inside Blender: bpy data, extensions, interface, node trees, and render output",
+            "author": {
+                "name": "Bardia Samiee"
+            }
+        },
+        {
+            "name": "cpp",
+            "source": "./plugins/shared/cpp",
+            "version": "0.1.0",
+            "description": "C++ and Objective-C++ design: types, ownership, failure as values, compile-time evaluation, memory layout, and concurrency",
+            "author": {
+                "name": "Bardia Samiee"
+            }
+        },
+        {
+            "name": "delegate",
+            "source": "./plugins/shared/delegate",
+            "version": "0.1.0",
+            "description": "Work handed to other agents: headless Antigravity runs and a council of models",
+            "author": {
+                "name": "Bardia Samiee"
+            }
+        },
+        {
+            "name": "dotnet",
+            "source": "./plugins/shared/dotnet",
+            "version": "0.2.0",
+            "description": "C# design with result and effect types, LanguageExt, Mapperly, memory, Thinktecture, UI, and Roslyn code navigation",
+            "author": {
+                "name": "Bardia Samiee"
+            }
+        },
+        {
+            "name": "msbuild",
+            "source": "./plugins/shared/msbuild",
+            "version": "0.2.0",
+            "description": "MSBuild evaluation, execution, packaging, binary-log diagnostics, and antipatterns",
+            "author": {
+                "name": "Bardia Samiee"
+            }
+        },
+        {
+            "name": "python",
+            "source": "./plugins/shared/python",
+            "version": "0.2.0",
+            "description": "Python design with result and record types, cyclopts, expression, msgspec, pydantic, telemetry, and docstrings",
+            "author": {
+                "name": "Bardia Samiee"
+            }
+        },
+        {
+            "name": "rhino",
+            "source": "./plugins/shared/rhino",
+            "version": "0.1.0",
+            "description": "Rhino sessions, Grasshopper 2 canvases, and tests of code over RhinoCommon and Grasshopper",
+            "author": {
+                "name": "Bardia Samiee"
+            }
+        },
+        {
+            "name": "rust",
+            "source": "./plugins/shared/rust",
+            "version": "0.1.0",
+            "description": "Rust design with algebraic types, results, traits, and async effects",
+            "author": {
+                "name": "Bardia Samiee"
+            }
+        },
+        {
+            "name": "search",
+            "source": "./plugins/shared/search",
+            "version": "0.2.0",
+            "description": "Dependency source, web, Are.na, and shell-history research, and structural code search with ast-grep",
+            "author": {
+                "name": "Bardia Samiee"
+            }
+        },
+        {
+            "name": "swift",
+            "source": "./plugins/shared/swift",
+            "version": "0.1.0",
+            "description": "Swift design with typed throws, value types, and structured concurrency, Xcode builds, and LLDB sessions",
+            "author": {
+                "name": "Bardia Samiee"
+            }
+        },
+        {
+            "name": "tool",
+            "source": "./plugins/shared/tool",
+            "version": "0.1.0",
+            "description": "Binary analysis in Ghidra and desktop app lifecycle, monitoring, and recording through watch-app",
+            "author": {
+                "name": "Bardia Samiee"
+            }
+        },
+        {
+            "name": "typescript",
+            "source": "./plugins/shared/typescript",
+            "version": "0.1.0",
+            "description": "Functional TypeScript on Effect, Schema, and algebraic data types, with Effect module families",
+            "author": {
+                "name": "Bardia Samiee"
+            }
+        },
+        {
+            "name": "uxp",
+            "source": "./plugins/shared/uxp",
+            "version": "0.1.0",
+            "description": "Code that runs in an Adobe UXP host",
+            "author": {
+                "name": "Bardia Samiee"
+            }
+        },
+        {
+            "name": "web",
+            "source": "./plugins/shared/web",
+            "version": "0.1.0",
+            "description": "Google Workspace through the gog CLI and Gemini Notebook through notebooklm-py",
+            "author": {
+                "name": "Bardia Samiee"
+            }
+        }
+    ]
+}

@@ -4,7 +4,7 @@ import { aggregated, type Verbs } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Option, Record, Schema } from 'effect';
 import type { Cargo, Command } from '#/executors/cargo/executor';
-import { binary, LOCK, MANIFEST, type Member, own, PLUGIN, tokened, type Workspace } from '#/workspace';
+import { binary, library, LOCK, MANIFEST, type Member, own, PLUGIN, tokened, type Workspace } from '#/workspace';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -18,7 +18,6 @@ const HOST = { runtime: 'rustc --print host-tuple' } as const;
 const MESSAGES = ['--message-format', 'json-diagnostic-rendered-ansi'] as const;
 const SUITES = { args: ['--cargo-message-format', 'json-diagnostic-rendered-ansi', '--message-format', 'libtest-json-plus', '--message-format-version', '0.1'], env: { NEXTEST_EXPERIMENTAL_LIBTEST_JSON: '1' } } as const;
 const LOCKED = '--locked';
-const SELECTED = ['--all-targets', '--all-features'] as const;
 const SOURCES: NonNullable<TargetConfiguration['inputs']> = ['default', '^default', { externalDependencies: [] }];
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -58,6 +57,7 @@ const crateInputs = (workspace: Workspace, { crate, root }: Member, stated: Targ
 
 const crateTargets = (workspace: Workspace, coverage: Option.Option<string>, { crate, root, packages, linted }: Member): Verbs => {
     const selected = { cwd: workspace.root, package: crate.name };
+    const kinds = [...(crate.targets.some(library) ? ['--lib'] : []), '--bins', '--tests', '--benches', '--all-features'];
     const plain = Option.isNone(workspace.nextest);
     const tested = crate.targets.some(({ test }) => test);
     const documented = crate.targets.some(({ doctest }) => doctest);
@@ -77,7 +77,7 @@ const crateTargets = (workspace: Workspace, coverage: Option.Option<string>, { c
                 workspace.strategies.map((profile) => ['--profile', profile]),
                 [],
             ),
-            (profile) => placed([...SELECTED, ...profile, LOCKED, '--keep-going', ...MESSAGES]),
+            (profile) => placed([...kinds, ...profile, LOCKED, '--keep-going', ...MESSAGES]),
         );
     const covered = (run: (exported: readonly string[]) => Command): Partial<TargetConfiguration> => {
         const report = Option.toArray(coverage);
@@ -100,7 +100,7 @@ const crateTargets = (workspace: Workspace, coverage: Option.Option<string>, { c
                           { cache: true, inputs: [...SOURCES, ...workspace.libraries, { env: 'DYLINT_RUSTFLAGS' }, version('dylint')] },
                       ),
                   },
-                  fix: { dylint: cargoTarget('dylint', `Applies the Dylint suggestions for ${crate.name} with cargo dylint --fix`, { ...selected, commands: [{ args: ['dylint', '--all', '--fail-on-no-libraries', '--fix'], trailing: ['--allow-dirty', ...SELECTED, '--keep-going', ...MESSAGES] }] }, {}) },
+                  fix: { dylint: cargoTarget('dylint', `Applies the Dylint suggestions for ${crate.name} with cargo dylint --fix`, { ...selected, commands: [{ args: ['dylint', '--all', '--fail-on-no-libraries', '--fix'], trailing: ['--allow-dirty', ...kinds, '--keep-going', ...MESSAGES] }] }, {}) },
               }
             : {};
     return joined(linting, {
@@ -148,7 +148,7 @@ const crateTargets = (workspace: Workspace, coverage: Option.Option<string>, { c
             clippy: cargoTarget('clippy', `Reports the clippy findings of ${crate.name} with cargo clippy`, { ...selected, commands: checked((selection) => ({ args: ['clippy', ...selection] })) }, { cache: true, inputs: [...SOURCES, ...linted, { env: 'CLIPPY_CONF_DIR' }] }),
         },
         fix: {
-            clippy: cargoTarget('clippy --fix', `Applies the clippy suggestions for ${crate.name} with cargo clippy --fix`, { ...selected, commands: [{ args: ['clippy', '--fix', '--allow-dirty', ...SELECTED, '--keep-going', ...MESSAGES] }] }, {}),
+            clippy: cargoTarget('clippy --fix', `Applies the clippy suggestions for ${crate.name} with cargo clippy --fix`, { ...selected, commands: [{ args: ['clippy', '--fix', '--allow-dirty', ...kinds, '--keep-going', ...MESSAGES] }] }, {}),
         },
         install: {
             ...(crate.targets.some(binary) && {

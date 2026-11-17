@@ -6,7 +6,7 @@ import { Array, Effect, Option, Predicate, Record, String } from 'effect';
 import { Verdict } from '#/rules/decision';
 import { type Call, edited, ensure, inserted, quote, respell, type Rule, type Ruleset, refusal, refuse, settled, spelled, stages, when, whole, within } from '#/rules/rule';
 import type { Invocation } from '#/shell/invocation';
-import { WATCH_APPS } from '#/shell/programs';
+import { WATCH_APP } from '#/shell/programs';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -43,7 +43,7 @@ const switchesOf = (installations: readonly Installation[], given: readonly stri
 };
 
 const launchLine = (subjects: readonly string[], documents: readonly string[], environment: readonly string[], args: readonly string[]): string =>
-    [WATCH_APPS, 'launch', ...subjects, ...(documents.length > 0 ? ['--document', ...documents] : []), ...(environment.length > 0 ? ['--environment', ...environment] : []), ...(args.length > 0 ? ['--arguments', ...args] : [])].join(' ');
+    [WATCH_APP, 'launch', ...subjects, ...(documents.length > 0 ? ['--document', ...documents] : []), ...(environment.length > 0 ? ['--environment', ...environment] : []), ...(args.length > 0 ? ['--arguments', ...args] : [])].join(' ');
 
 const opens = (named: readonly string[], waits: readonly string[], allowed: readonly string[]): Rule =>
     Effect.fnUntraced(function* (invocation, call) {
@@ -66,10 +66,10 @@ const opens = (named: readonly string[], waits: readonly string[], allowed: read
             return [];
         }
         if (waited !== undefined) {
-            return refusal(`${program} ${waited} waits, use ${WATCH_APPS} launch --wait ${target}`);
+            return refusal(`${program} ${waited} waits, use ${WATCH_APP} launch --wait ${target}`);
         }
         if (foreign.size > 0) {
-            return refusal(`${program} ${[...foreign].join(' ')} opens ${target}, use ${WATCH_APPS} launch ${target}`);
+            return refusal(`${program} ${[...foreign].join(' ')} opens ${target}, use ${WATCH_APP} launch ${target}`);
         }
         const found = app === undefined ? [] : yield* installed(call, [Option.getOrElse(bundle, () => app.text)]);
         const environment = invocation.supplied('--env').map(({ raw }) => raw);
@@ -158,7 +158,7 @@ const statementsOf = (invocation: Invocation, call: Call, lines: readonly string
         return refusal('osascript stdin hides its statements, pass -e lines');
     }
     if (lines.some((line) => SYSTEM_EVENTS.test(line))) {
-        return refusal(`System Events posts to the frontmost app, use ${WATCH_APPS} perform`);
+        return refusal(`System Events posts to the frontmost app, use ${WATCH_APP} perform`);
     }
     if (Option.isSome(shell) && invocation.command.origin === 'call' && invocation.outer.length === 0) {
         return whole(invocation, shell.value.replaceAll(APPLESCRIPT_ESCAPE, '$<escaped>'), 'osascript do shell script');
@@ -169,7 +169,7 @@ const statementsOf = (invocation: Invocation, call: Call, lines: readonly string
     if (statements.length > 0 && statements.every(({ app, launches }) => app !== undefined && launches) && (documents.length === 0 || named.length === 1)) {
         return Effect.map(installed(call, named), (found) => [...whole(invocation, launchLine(quoted, documents, [], switchesOf(found, [], call)), 'osascript'), ...OBSERVED]);
     }
-    return lines.some((line) => FOCUS.test(line)) ? refusal(`osascript takes focus, use ${WATCH_APPS} capture or perform`) : [];
+    return lines.some((line) => FOCUS.test(line)) ? refusal(`osascript takes focus, use ${WATCH_APP} capture or perform`) : [];
 };
 
 const bundleExecutable: Rule = (invocation, call) => {
@@ -313,7 +313,7 @@ const APPS: Ruleset = {
         },
         Rhinoceros: { switches: ['-nosplash'] },
         playwright: { flags: ['-s, --session=', '--cdp=', '--extension='], rules: [browserSession, when(({ operands: [cli, verb] }) => cli?.text === 'cli' && verb?.text === 'attach', respell({ renames: { '--cdp': '--extension' }, only: BROWSER_NAME, notify: true }))] },
-        [WATCH_APPS]: { restAfter: ['--arguments'], rules: [() => OBSERVED, launchSwitches] },
+        [WATCH_APP]: { restAfter: ['--arguments'], rules: [() => OBSERVED, launchSwitches] },
     },
     every: [bundleExecutable],
 };

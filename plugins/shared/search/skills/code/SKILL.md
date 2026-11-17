@@ -1,0 +1,302 @@
+---
+name: code
+description: "Use when a task needs a fact about a dependency, covering source selection by fact kind"
+---
+
+# [SEARCH_CODE]
+
+Dependency declarations come from installed files, usage from Context7, DeepWiki, and public code, source and wiki from the repository at its installed tag, and versions from registries.
+
+- Version: Context7 and DeepWiki index the default branch, an installed version's fact comes from its files, its tag, or a Context7 snapshot
+- Path: package metadata names repository and commit, Context7 IDs are the repository's `/owner/repo` lowercased, a tag list spells each tag
+- Prose: Context7 descriptions and DeepWiki answers are generated, code quotes come from their Source URL, member names from their declaration
+- Ignore: an ignore file inside the searched tree (`.venv/.gitignore`) hides its files, `--no-ignore` reads them, a listed path needs no flag
+- Size: `get_file_contents`, `get_package_context`, and `read_wiki_contents` return whole content, `rg` cites a line
+- Index: `search_code` reads default branches in files under 384 KB, `get_repository_tree` finds a path at a tag
+- Quota: clients on one GitHub account share 10 `search_code` calls per minute, the next answers HTTP 403, reads at a tag spend none
+- Caps: Context7 tool descriptions cap each tool at 3 calls per question, an ID from a repository URL skips `resolve-library-id`
+- Preview: server URL `research_preview=1` adds Context7 `query-code` and `get-upgrade-guide`
+
+## [01]-[DECLARATION]
+
+One member's signature and doc, a type's members, a module's exports, or a configuration option, read from installed files at the pinned version.
+
+Installed version of a direct or transitive package and the package that depends on it, one line per ecosystem:
+- .NET: resolved version at each node of the graph from a restored project
+- TypeScript: version per dependent, transitive packages sit under `node_modules/.pnpm/<pkg>@<version>*/node_modules/<pkg>`, scope `/` spelled `+`
+- Python: version with every direct dependent from `uv.lock`, an extra or group in parentheses
+- Rust: version with every direct dependent from `Cargo.lock`
+- Swift: resolved tree of root `Package.swift`
+
+```bash
+dotnet nuget why <project>.csproj <id>
+pnpm why <pkg> --depth 1
+uv tree --frozen --invert --package <pkg> --depth 1
+cargo tree --locked --invert <crate> --depth 1
+swift package show-dependencies --format json
+```
+
+Swift interface of a Clang SDK module (`ApplicationServices`, `CoreFoundation`) at the selected Xcode's SDK:
+
+```bash
+xcrun swift-synthesize-interface -module-name <Module> -sdk "$(xcrun --show-sdk-path)" -target "arm64-apple-macos$(xcrun --show-sdk-version)" -include-submodules | rg -n '<Member>'
+```
+
+.NET types declaring a member as `.xml` doc ids, ` ``N ` follows a generic method name, without decompiling:
+- Installed version, `<lib>` is `~/.nuget/packages/<id>/<version>/lib/<tfm>`
+- Version missing from the packages folder, its nupkg streamed through `tar`, id lowercase
+
+```bash
+rg -oI 'M:[\w.`]+\.<Member>(``\d)?\([^"]*' <lib>/*.xml
+xh -F "https://api.nuget.org/v3-flatcontainer/<id>/<version>/<id>.<version>.nupkg" | tar -xOf - 'lib/*.xml' | rg -oI 'M:[\w.`]+\.<Member>(``\d)?\([^"]*'
+```
+
+.NET decompiled source on stdout with doc comments and nested types, `<dll>` is `<lib>/<assembly>.dll` of an installed version:
+1. Full name of a type with its `` `N `` arity, entity types `c`, `i`, `s`, `d`, `e` as one word
+2. Type line and public members of the type step 1 named
+3. Doc comment, attributes, and signature per overload with line, `-A<n>` on its `rg` reads the body
+
+```bash
+ilspycmd -l cisde <dll> | rg '<Type>'
+ilspycmd -t '<Namespace.Type`N>' <dll> | rg -n '^\s*public '
+ilspycmd -t '<Namespace.Type`N>' <dll> | rg -nU '(^[ \t]*///.*\n)*([ \t]*\[.*\]\n)*[ \t]*public .*\b<Member>(<[^>]*>)?\(.*'
+```
+
+.NET decompiled files under `<main>/.artifacts/ilspy`, `<main>` the repository root:
+1. Assembly name and version as `<Name>/<Version>`, an existing `<main>/.artifacts/ilspy/<Name>/<Version>` skips step 2
+2. Project with one file per type, without `-p` the whole assembly as one `<Name>.decompiled.cs`
+
+```bash
+ilspycmd --dump-table Assembly --json <dll> | jq -r '.rows[0] | "\(.Name)/\(.Version)"'
+ilspycmd -p -o <main>/.artifacts/ilspy/<Name>/<Version> <dll>
+```
+
+TypeScript package under `<project>/node_modules/<pkg>` of a project declaring it, `package.json` `exports` naming each entry file:
+1. Exports of one declaration file, `export * as <Module>` names the module file step 2 searches
+2. Declaration with file and line, following overloads and its preceding doc comment read from the file at the line
+
+```bash
+rg -n '^export ' <main>/<project>/node_modules/<pkg>/<file>.d.ts
+rg -n --no-ignore -A8 '^export (declare )?(abstract )?(const|function|class|interface|type|enum|namespace) <Symbol>\b' <main>/<project>/node_modules/<pkg> --glob '*.d.ts'
+```
+
+TypeScript type and enum values of one configuration schema definition:
+
+```bash
+jq -c '(.["$defs"] // .definitions).<Def>' <main>/node_modules/<pkg>/<schema>.json
+```
+
+TypeScript catalog package no project declares, read its tarball at the catalog release:
+
+```bash
+mkdir -p .artifacts/search/<pkg>@<version> && xh -F "$(pnpm view <pkg>@<version> dist.tarball)" | tar -xz --strip-components 1 -C .artifacts/search/<pkg>@<version>
+```
+
+Python package in `uv.lock`, `uv run --no-sync --with <pkg> python` resolves one outside the lock:
+1. Docs, signatures, and visible members; dotted names select members, module source holds declared `__all__` and imports
+2. Module source with `<mod>`, member source with `<mod>:<qualname>`; `-d` replaces source with origin and cache details
+
+```bash
+pixi run --locked python -m pydoc <mod>
+pixi run --locked python -m inspect <mod>:<qualname>
+```
+
+Python typed signature per overload from a package's `.pyi` or its `-stubs` package where the runtime declares no types:
+
+```bash
+rg -nU --no-ignore 'def <fn>\([^)]*\)[^:]*:' <main>/.venv/lib/python*/site-packages/<pkg>* --glob '*.pyi'
+```
+
+Rust public declaration with file and line from crate source under `$CARGO_HOME/registry/src`:
+
+```bash
+rg -n -A8 '^\s*pub (\w+ )*(fn|struct|enum|trait|type|const|static|macro) <Symbol>\b' \
+    $CARGO_HOME/registry/src/index.crates.io-*/<crate>-<version> --glob '*.rs'
+```
+
+Rust compiler, standard library, Cargo, Clippy, rustfmt, and rust-analyzer declaration at the pinned nightly's commit, from the source archive mise links at `.cargo/rustc-source`, `<folder>` being `compiler`, `library`, or `src/tools/<tool>`:
+
+```bash
+rg -n -A8 '^\s*pub (\w+ )*(fn|struct|enum|trait|type|const|static|macro) <Symbol>\b' \
+    <main>/.cargo/rustc-source/<folder> --glob '*.rs'
+```
+
+MSBuild target with `Condition`, `Inputs`, and `DependsOnTargets` across the SDK `global.json` resolves, package targets under `build/` or `buildTransitive/`:
+
+```bash
+rg -n -A3 '<Target Name="<target>"' "$(dotnet msbuild <project>.csproj -getProperty:MSBuildToolsPath)"
+```
+
+Java members and signatures of classes from jars on a classpath, more than one class per call:
+
+```bash
+javap -cp '<jar>:<jar>' <package.Class> <package.Class>
+```
+
+CLI flags of each subcommand of one name from the tool's carapace completer as JSON (`Longhand`, `Shorthand`, `Usage`), `Short` telling same-named subcommands apart and a tool without a completer printing nothing:
+
+```bash
+carapace <tool> export | jq -c '.. | objects | select(.Name? == "<subcommand>") | {Short, LocalFlags}'
+```
+
+## [02]-[USAGE]
+
+How a member composes, from the repository's code examples, source, wiki, and README and from public code, one concept per query naming its symbol.
+
+Context7 reads:
+- Candidates with snippet count, reputation, benchmark score, and Versions
+- Code examples and source with a Source URL per snippet, wiki pages can describe an older major, `not found` means unindexed
+- Snapshot from the Versions list, `__branch__<name>` snapshots an older major
+- Rendered docs site with API reference pages, Source URL names the docs version, a code fence can lose line breaks
+- Declaration of one symbol in repository source at the commit its docs describe, `/websites/` and `/llmstxt/` IDs hold no source
+- Source lines matching a regex at a git tag, `output_mode` `files_with_matches` names files alone, an unindexed tag answers with a wait
+- Callers of a symbol, symbols of one file, a file's lines, and repository paths through `references`, `outline`, `read`, and `list`
+
+```text
+resolve-library-id {"libraryName": "<repository name>", "query": "<task sentence naming the symbol>"}
+query-docs {"libraryId": "/<owner>/<repo>", "query": "<one concept naming the symbol>"}
+query-docs {"libraryId": "/<owner>/<repo>/<version>", "query": "<one concept>"}
+query-docs {"libraryId": "/websites/<site>", "query": "<one concept>"}
+query-code {"libraryId": "/<owner>/<repo>", "operation": "definition", "pattern": "<Symbol>"}
+query-code {"libraryId": "/<owner>/<repo>", "version": "<tag>", "pattern": "<regex>", "glob": "<glob>", "context": 3}
+query-code {"libraryId": "/<owner>/<repo>", "operation": "read", "path": "<path>#L<n>-L<n>"}
+```
+
+DeepWiki reads:
+1. Page index per repository, what its parts are, `Repository not found` routes the repository to its tree and files
+2. Answer with quoted signatures over repositories step 1 indexed, up to 10 per call
+
+```text
+read_wiki_structure {"repoName": "<owner>/<repo>"}
+ask_wiki_question {"repoName": ["<owner>/<repo>", "<owner>/<repo>"], "question": "<question naming the members>"}
+```
+
+GitHub public code composing members, repository and commit per fragment:
+
+```text
+search_code {"query": "\"<Member>\" \"<Member>\" language:<language>", "perPage": 5, "fields": ["repository", "path", "text_matches"]}
+```
+
+.NET `AGENTS.md` of an installed NuGet package, its README otherwise, from the packages folder or source:
+
+```text
+get_package_context {"solutionDirectory": "<main>", "packageName": "<id>", "packageVersion": "<version>"}
+```
+
+Context7 stars, trust score, and last update per candidate, MCP results omit them, `libraryName` is the repository name:
+
+```bash
+xh https://context7.com/api/v2/libs/search libraryName=='<repository name>' "Authorization:Bearer $CONTEXT7_API_KEY" | jq -r '.results[:8][] | [.id, .benchmarkScore, .trustScore, .stars, .totalSnippets, .lastUpdateDate[:10], (.versions|join(","))] | @tsv'
+```
+
+Cited README lines of an installed .NET or TypeScript package:
+
+```bash
+rg -n -A6 '<term>' ~/.nuget/packages/<id>/<version> --glob '*.md'
+rg -n --no-ignore -A6 '<term>' <main>/<project>/node_modules/<pkg> --glob '*.md'
+```
+
+Python cited lines of a package's long description at one version, case sensitive:
+
+```bash
+xh https://pypi.org/pypi/<pkg>/<version>/json | jq -r '.info.description' | rg -n -A6 '<term>'
+```
+
+## [03]-[REPOSITORY]
+
+Repository, commit, and tag behind an installed version, then its tree, files, blame, and wiki at the tag:
+1. Repository URL and build commit from package metadata, one line per ecosystem:
+    - .NET: `projectUrl` holds the repository when a `repository` element holds a commit alone
+    - TypeScript: repository URL, package directory in a monorepo, and commit when the publisher recorded one
+    - Python: source, documentation, and changelog URLs of the installed version
+    - Rust: repository URL, then commit and package directory from the crate's `.cargo_vcs_info.json`
+2. Tag spelling for a version (`v1.5.0`, `8.7.0`, `effect@3.22.1`, `4.0.0a6`), a nuspec commit matches column one, no filter lists every tag
+3. Cited lines of a file at the tag, any size
+
+```bash
+rg -o '<(repository|projectUrl)[^<]*' ~/.nuget/packages/<id>/<version>/<id>.nuspec
+pnpm view <pkg>@<version> repository.url repository.directory gitHead --json
+xh https://pypi.org/pypi/<pkg>/<version>/json | jq -c '.info.project_urls'
+cargo info <crate>@<version> | rg '^repository:'
+jq -c '{sha1: .git.sha1, path_in_vcs}' $CARGO_HOME/registry/src/index.crates.io-*/<crate>-<version>/.cargo_vcs_info.json
+git ls-remote --tags https://github.com/<owner>/<repo> | rg 'refs/tags/\S*<version>$'
+gh api "repos/<owner>/<repo>/contents/<path>?ref=<tag>" -H "Accept: application/vnd.github.raw+json" | rg -n -A3 '\b<term>\b'
+```
+
+GitHub wiki pages served raw, a repository without a wiki prints no page name and answers 404 to a page:
+1. Page names from the wiki's page list, Home stays unlisted
+2. Cited lines of one page
+
+```bash
+xh -F https://github.com/<owner>/<repo>/wiki/_pages | rg -o 'href="/<owner>/<repo>/wiki/[^"#/_][^"#/]*"' | sort -u
+xh -F https://raw.githubusercontent.com/wiki/<owner>/<repo>/<Page>.md | rg -n -A8 '\b<term>\b'
+```
+
+GitHub reads at the tag:
+1. Paths with sizes under one directory
+2. Whole file into the window, `fields` applies to a directory listing alone
+3. Commit, author, and date that last changed each line range
+
+```text
+get_repository_tree {"owner": "<owner>", "repo": "<repo>", "tree_sha": "<tag>", "recursive": true, "path_filter": "<dir>/"}
+get_file_contents {"owner": "<owner>", "repo": "<repo>", "path": "<file>", "ref": "refs/tags/<tag>"}
+get_file_blame {"owner": "<owner>", "repo": "<repo>", "path": "<file>", "ref": "<tag>", "start_line": <n>, "end_line": <n>}
+```
+
+GitHub paths and fragments in one repository:
+
+```text
+search_code {"query": "\"<phrase>\" repo:<owner>/<repo> path:<dir>", "perPage": 5, "fields": ["path", "text_matches"]}
+```
+
+## [04]-[RELEASE]
+
+Newest version and its date come from the registry, notes from each tag's release, changes across versions from a Context7 guide, and advisories name patched versions.
+
+Context7 breaking changes, deprecations, codemods, and public API diff across a version range, a library without a guide answers `not prepared yet`:
+1. Page 1 with its header naming each page a migration needs, `fromVersion` exact, a major alone reads as its newest release
+2. Later pages by `page`, behavior, configuration, and remaining API changes after the migration pages
+
+```text
+get-upgrade-guide {"libraryId": "/<owner>/<repo>", "fromVersion": "<installed version>", "toVersion": "<target version>"}
+get-upgrade-guide {"libraryId": "/<owner>/<repo>", "fromVersion": "<installed version>", "toVersion": "<target version>", "page": 2}
+```
+
+.NET newest NuGet version with its publish date:
+
+```text
+get_latest_package_version {"solutionDirectory": "<main>", "packageName": "<id>", "includePrerelease": true}
+```
+
+GitHub advisories on pinned versions with each patched version, one call across ecosystems, owner and repo name the current repository:
+
+```text
+check_dependency_vulnerabilities {"owner": "<owner>", "repo": "<repo>", "dependencies": [{"ecosystem": "nuget", "name": "<id>", "version": "<version>"}, {"ecosystem": "npm", "name": "<pkg>", "version": "<version>"}, {"ecosystem": "pip", "name": "<pkg>", "version": "<version>"}]}
+```
+
+TypeScript newest version per dist-tag (`latest`, `next`, `beta`, `rc`) and publish date of one version:
+
+```bash
+pnpm view <pkg> dist-tags time --json | jq -c '{tags: .["dist-tags"], published: .time["<version>"][:10]}'
+```
+
+Python versions:
+- Lock version beside the newest, prereleases per `pyproject`
+- Newest stable version, its upload time, and its requirements from the registry, a versionless URL describes newest stable
+
+```bash
+uv tree --frozen --outdated --package <pkg> --depth 0
+xh https://pypi.org/pypi/<pkg>/json | jq -r '.info.version, .urls[0].upload_time, .info.requires_dist[]?'
+```
+
+Rust newest version on crates.io:
+
+```bash
+cargo search <crate> --limit 1
+```
+
+GitHub release notes body alone, `Not Found` means no release exists for the tag and its changelog holds release notes:
+
+```bash
+gh api "repos/<owner>/<repo>/releases/tags/<tag>" --jq '.body'
+```

@@ -4,7 +4,7 @@ import { RedirOperator } from 'sh-syntax/sync';
 import { Verdict } from '#/rules/decision';
 import { type Call, edited, erased, inserted, quote, type Rule, type Ruleset, redirected, refusal, spelled, stages, when, whole, within } from '#/rules/rule';
 import type { Invocation } from '#/shell/invocation';
-import { WATCH_APPS } from '#/shell/programs';
+import { WATCH_APP } from '#/shell/programs';
 import type { Word } from '#/shell/script';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -23,11 +23,11 @@ const WAITERS: ReadonlySet<string> = new Set(['sleep', 'timeout', 'caffeinate', 
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-// --- [WATCH_APPS]
+// --- [WATCH_APP]
 
-const reading = (names: readonly string[]) => `run ${WATCH_APPS} read ${(names.length === 0 ? ['<app>'] : names.map((name) => quote(name))).join(' ')}`;
+const reading = (names: readonly string[]) => `run ${WATCH_APP} read ${(names.length === 0 ? ['<app>'] : names.map((name) => quote(name))).join(' ')}`;
 
-const polling = (names: readonly string[]) => refusal(`Loop polls ${names.join(' ') || WATCH_APPS}, ${reading(names)}`);
+const polling = (names: readonly string[]) => refusal(`Loop polls ${names.join(' ') || WATCH_APP}, ${reading(names)}`);
 
 const watch: Rule = (invocation, call) => {
     const { operands, path } = invocation;
@@ -36,7 +36,7 @@ const watch: Rule = (invocation, call) => {
         return polling(names);
     }
     return path[0] === 'watch' && !(invocation.has('--record') && call.request.kind === 'background')
-        ? refusal(`${WATCH_APPS} watch streams every state into the session, which hook context already gives for dialogs, hangs, and crashes of each launched app, ${reading(names)}, and a recording runs watch --record in the background`)
+        ? refusal(`${WATCH_APP} watch streams every state into the session, which hook context already gives for dialogs, hangs, and crashes of each launched app, ${reading(names)}, and a recording runs watch --record in the background`)
         : [];
 };
 
@@ -106,7 +106,7 @@ const sleep: Rule = (invocation, call) => {
     const { command, operands } = invocation;
     const { kind } = call.request;
     const alone = command.origin === 'call' && invocation.outer.length === 0 && !command.looping && !command.fed && !command.pipes;
-    const driving = call.analysis.invocations.some(({ program, command: other }) => [WATCH_APPS, 'open', 'xed'].includes(program) && !other.looping && !other.job);
+    const driving = call.analysis.invocations.some(({ program, command: other }) => [WATCH_APP, 'open', 'xed'].includes(program) && !other.looping && !other.job);
     const instant = operands.every(({ text }) => Number(text) === 0);
     if (alone && (instant || (driving && (kind === 'foreground' || kind === 'plain')))) {
         return edited(invocation, command, ':', spelled(invocation.words));
@@ -273,7 +273,7 @@ const WAITS: Ruleset = {
         kill: { rules: [polledApp] },
         ps: { rules: [polledApp] },
         tail: { flags: ['-F', '-b='], reads: true, rules: [when(({ has }) => has('-f', '-F'), tailedTask, neverExits('run it in Monitor'))] },
-        [WATCH_APPS]: { dumpsHelp: true, rules: [watch] },
+        [WATCH_APP]: { dumpsHelp: true, rules: [watch] },
     },
     every: [(invocation) => (invocation.command.busy ? refusal('Loop body never waits and spins a core, put sleep <seconds> in it') : [])],
     calls: [backgroundJob, pipedStatus, zshParameter, idleCall, polledTask],

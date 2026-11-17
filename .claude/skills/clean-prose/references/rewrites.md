@@ -178,11 +178,11 @@ Identifier and file renames update every reference:
 
 ## [09]-[CONTEXT]
 
-- BEFORE: `` `dotnet-roslyn-codelens` owns trust `` (step in a procedure)
-- AFTER: `` Use `dotnet-roslyn-codelens` for solution trust `` (longer, step was an ownership statement)
+- BEFORE: `` `dotnet:codelens` owns trust `` (step in a procedure)
+- AFTER: `` Use `dotnet:codelens` for solution trust `` (longer, step was an ownership statement)
 
-- BEFORE: `` See `dotnet-msbuild-packaging` for the pack items, the `PackagePath` metadata, and the deterministic pack properties ``
-- AFTER: `` Use `dotnet-msbuild-packaging` for packing `` (contents stay in skill)
+- BEFORE: `` See `msbuild:packaging` for the pack items, the `PackagePath` metadata, and the deterministic pack properties ``
+- AFTER: `` Use `msbuild:packaging` for packing `` (contents stay in skill)
 
 - BEFORE: `# Nx plugin that infers the packaging projects, their stage and pack targets, and their edges` (tree comment)
 - AFTER: `# Nx plugin that adds packaging projects to task graph`

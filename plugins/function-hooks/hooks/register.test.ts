@@ -32,12 +32,12 @@ const UNJUDGED = 'function-hooks did not judge this command: ';
 const ALLOWED = { _tag: 'Allow', observes: false } as const satisfies Decision;
 const OBSERVED = { _tag: 'Allow', observes: true } as const satisfies Decision;
 const LIST = { tool: 'Bash', command: 'ls' } as const;
-const LAUNCH = { tool: 'Bash', command: 'watch-apps launch com.example.app', agentId: 'a1' } as const;
+const LAUNCH = { tool: 'Bash', command: 'watch-app launch com.example.app', agentId: 'a1' } as const;
 const APP = { pid: 41, instance: '41@7', bundle: 'com.example.app' } as const;
 const NONE = { created: [], reused: [], exited: [] } as const satisfies Given['observe'];
 const CREATED = { ...NONE, created: [APP] } as const satisfies Given['observe'];
 const CONDITION = 'com.example.app 41 shows sheet window';
-const NOTE = `${CONDITION}, run watch-apps read 41@7 --window 3`;
+const NOTE = `${CONDITION}, run watch-app read 41@7 --window 3`;
 const ASKING = {
     absent: [],
     states: [
@@ -45,7 +45,7 @@ const ASKING = {
         { ...APP, pid: 77, instance: '77@3', ended: false, status: 'responding', asks: true, conditions: ['com.example.app 77 shows alert window'], notes: ['com.example.app 77 shows alert window'] },
     ],
 } as const satisfies Given['watched'];
-const PRINTED: NonNullable<Given['printed']> = { 'watch-apps': [{ stream: 'stdout', text: '{}\n' }] };
+const PRINTED: NonNullable<Given['printed']> = { 'watch-app': [{ stream: 'stdout', text: '{}\n' }] };
 const DECIDED = { session: ENDING.sessionId, call: expect.any(String) } as const;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -203,8 +203,8 @@ test('Command runs as written with the run error noted when the watched server f
 
 (
     [
-        ['mcp__rhino-mcp-platform__get_context', 'com.mcneel.rhinoceros'],
-        ['mcp__blender__get_objects_summary', 'org.blenderfoundation.blender'],
+        ['mcp__plugin_rhino_rhino-mcp-platform__get_context', 'com.mcneel.rhinoceros'],
+        ['mcp__plugin_blender_blender__get_objects_summary', 'org.blenderfoundation.blender'],
     ] as const
 ).forEach(([tool, bundle]) => {
     test(`${tool} call starts one watch of ${bundle}`, async ($, on) => {
@@ -213,7 +213,7 @@ test('Command runs as written with the run error noted when the watched server f
         await $.tool.call({ tool });
         await $.tool.call({ tool });
         await world.clock.settle();
-        expect(world.spawned.slice(1)).toEqual([['watch-apps', 'watch', bundle]]);
+        expect(world.spawned.slice(1)).toEqual([['watch-app', 'watch', bundle]]);
     });
 });
 
@@ -234,7 +234,7 @@ test('Note of a launched app reaches its launching agent once and status line sh
     await world.clock.settle();
     const [other, owner, again] = [await $.tool.call({ ...LIST, agentId: 'a2' }), await $.tool.call({ ...LIST, agentId: 'a1' }), await $.tool.call({ ...LIST, agentId: 'a1' })];
     expect([other, owner, again]).toEqual([RAN, { ...RAN, context: [NOTE] }, RAN]);
-    expect([world.status.at(-1), world.spawned.at(-1)]).toEqual([CONDITION, ['watch-apps', 'watch', APP.bundle]]);
+    expect([world.status.at(-1), world.spawned.at(-1)]).toEqual([CONDITION, ['watch-app', 'watch', APP.bundle]]);
 });
 
 test('Note of an ended agent app reaches the next main-loop prompt', async ($, on) => {
@@ -267,5 +267,5 @@ test('Session end quits apps of the ending session in one detached process, once
     await $.tool.call(LAUNCH);
     await $.session.end(ENDING);
     await $.session.end(ENDING);
-    expect(world.runs).toEqual([expect.arrayContaining([expect.stringContaining('watch-apps quit'), APP.instance])]);
+    expect(world.runs).toEqual([expect.arrayContaining([expect.stringContaining('watch-app quit'), APP.instance])]);
 });

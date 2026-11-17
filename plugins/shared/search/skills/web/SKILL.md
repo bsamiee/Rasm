@@ -1,0 +1,216 @@
+---
+name: web
+description: "Use when a task needs an answer from the open web, covering tool selection by source and evidence"
+argument-hint: "[question]"
+---
+
+# [SEARCH_WEB]
+
+Choose retrieval by source location and required evidence.
+
+- Evidence: cite returned source passages with dates and versions matching the question
+- Coverage: missing search results leave a claim unresolved
+- Selection: stop when source passages resolve the question
+- Composition: use another index for missing evidence
+- Output: pass `--json` for structured responses, `-o .artifacts/search/<name>.json` keeps a response
+- Failure: `failed_results` records extraction failures, not page absence
+- Syntax: read complete source passages when code, table cells, or surrounding qualifications decide a claim
+
+| [INDEX] | [TASK]                               | [OPERATION]                                                |
+| :-----: | :----------------------------------- | :--------------------------------------------------------- |
+|  [01]   | Web discovery with passages          | `tvly search` or `web_search_advanced_exa`       |
+|  [02]   | Search by source category            | `web_search_advanced_exa` with `category`        |
+|  [03]   | News with publication metadata       | `tvly search --topic news`                                 |
+|  [04]   | Question across selected URLs        | `tvly extract --query`                                     |
+|  [05]   | Page text with a character limit     | `web_fetch_exa`                                  |
+|  [06]   | Complex page extraction              | `tvly extract --extract-depth advanced`                    |
+|  [07]   | Site URL selection                   | `tvly map`                                                 |
+|  [08]   | Site content selected by topic       | `tvly crawl --instructions`                                |
+|  [09]   | Cited research synthesis             | `tvly research` or `agent_run`                   |
+|  [10]   | Row enrichment or continued research | `agent_run` with `input.data` or `previousRunId` |
+|  [11]   | Page refusing Exa and Tavily fetches | `curl_chrome146 -fsSL '<url>' \| defuddle parse - -m -f`   |
+|  [12]   | Page gone from its URL               | `trafilatura -u '<url>' --archived --markdown`             |
+
+## [01]-[DISCOVERY]
+
+Queries name the question, source type, and constraints that distinguish relevant pages. Tavily `content` and Exa `highlights` provide query-directed passages. Keep passages with URLs during selection.
+
+Use domain paths for documentation sections and publication filters for dated sources. Release dates come from source text, search metadata holds a page's publication date.
+
+Depth follows what decides the answer: `advanced` (2 credits) returns passages from inside long pages, `basic` (1 credit) finds which pages exist and takes no `--chunks-per-source`.
+
+```bash
+# Passage inside a long page decides the answer: advanced
+tvly search '<question>' --depth advanced --chunks-per-source 3 --max-results 5 --json
+
+# Passage inside a documentation section, version hosts excluded: advanced
+tvly search '<question>' --include-domains '<domain/path>' --exclude-domains '<version-host>' \
+    --depth advanced --chunks-per-source 3 --max-results 5 --json
+
+# Which dated pages exist, with publication metadata: basic
+tvly search '<topic>' --topic news --include-domains '<domain/path>' \
+    --start-date '<YYYY-MM-DD>' --end-date '<YYYY-MM-DD>' \
+    --depth basic --max-results 5 --json
+
+# Full text from every result, raw content arriving whole at either depth: basic
+tvly search '<question>' --include-domains '<domain/path>' \
+    --depth basic --include-raw-content markdown --max-results 3 --json
+```
+
+`highlightsMaxCharacters` limits excerpts per result. `textMaxCharacters: 1` limits accompanying page text. For changed page content, `maxAgeHours: 0` requests a fresh fetch.
+
+```text
+# Sources describing a symptom or an unfamiliar concept
+web_search_advanced_exa {
+    "query": "<description of pages explaining the question>",
+    "enableHighlights": true, "highlightsMaxCharacters": 1500,
+    "textMaxCharacters": 1, "numResults": 5
+}
+
+# PDF discovery with excerpts directed to a section
+web_search_advanced_exa {
+    "query": "<document title or subject>", "category": "pdf",
+    "enableHighlights": true, "highlightsQuery": "<section or table>",
+    "highlightsMaxCharacters": 1500, "textMaxCharacters": 1, "numResults": 5
+}
+
+# Source section within a publication window
+web_search_advanced_exa {
+    "query": "<question>", "includeDomains": ["<domain/path>"],
+    "startPublishedDate": "<YYYY-MM-DD>", "endPublishedDate": "<YYYY-MM-DD>",
+    "enableHighlights": true, "highlightsMaxCharacters": 1500,
+    "textMaxCharacters": 1, "numResults": 5
+}
+```
+
+## [02]-[READING]
+
+Read source-provided Markdown URLs for complete text and code. For selected HTML pages, choose query-directed passages or full extraction. `tvly extract` accepts up to 20 URLs per call. `--chunks-per-source` accepts 1–5 with `--query`.
+
+```bash
+# Literal in source Markdown
+xh -F '<markdown-url>' | rg -nF -C3 -- '<literal>'
+
+# Unique selected URLs when search passages leave a gap
+tvly extract '<url>' '<url>' --query '<question>' --chunks-per-source 3 --extract-depth advanced --json
+
+# Full extraction for complex markup, tables, or JavaScript-rendered pages
+tvly extract '<url>' --extract-depth advanced --json
+```
+
+`web_fetch_exa` limits text per URL with `maxCharacters`. Increase the limit when a required passage ends at truncation.
+
+```text
+# Page context beyond search excerpts
+web_fetch_exa {"urls": ["<url>", "<url>"], "maxCharacters": 20000}
+```
+
+Use published documentation indexes to select page URLs. Use `tvly map` for URLs and `tvly crawl` for page content. Choose path filters from observed URLs and inspect returned paths before extraction.
+
+```bash
+# Documentation page index at the published root
+xh -F '<docs-root>/llms.txt' | rg -n -- '<section>'
+
+# URL selection before content retrieval
+tvly map '<root>' --select-paths '<path-regex>' --max-depth 2 --limit 20 --no-external --json
+
+# Content selected by topic within known site paths
+tvly crawl '<root>' --select-paths '<path-regex>' --max-depth 2 --limit 20 --no-external \
+    --instructions '<question>' --chunks-per-source 3 --extract-depth advanced --json
+```
+
+PDF page numbers differ from printed page labels. Inspect rendered pages when extraction omits a figure, table structure, or searchable text.
+
+```bash
+# Local PDF every later step reads
+curl -fsSL --create-dirs -o '.artifacts/search/<name>.pdf' '<pdf-url>'
+
+# PDF pages containing a heading or literal
+mutool draw -q -F stext.json -o - '.artifacts/search/<name>.pdf' \
+    | jq -r --arg lit '<literal>' '.pages | to_entries[] | select([.value.blocks[] | .lines[]?.text] | join("\n") | contains($lit)) | .key + 1'
+
+# Table text from a selected PDF page, columns kept by layout
+pdftotext -layout -f <page> -l <page> '.artifacts/search/<name>.pdf' -
+
+# Outline entries with PDF page numbers
+mutool show '.artifacts/search/<name>.pdf' outline | rg -- '<heading>'
+```
+
+```text
+# Rendered pages from a downloaded PDF, up to 20 pages per call
+Read {"file_path": ".artifacts/search/<name>.pdf", "pages": "<page>-<page>"}
+```
+
+## [03]-[RESEARCH]
+
+Use research when discovery and synthesis require repeated searches. Read selected sources directly when pages answer the question. Scope names known facts, source constraints, dates, and required output.
+
+Tavily research passes `--model pro`. Schema `properties` entries require `type` and `description`. Optional `required` selects mandatory fields. Reports return `content` and `sources`.
+
+```bash
+# Detached report while reading independent sources
+tvly research run '<scope>' --model pro --no-wait --json
+
+# Schema for findings with supporting URLs
+cat > '.artifacts/search/<schema>.json' <<'JSON'
+{
+    "properties": {
+        "claims": {
+            "type": "array", "description": "Findings required by the scope",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "claim": {"type": "string", "description": "Claim stated in cited source"},
+                    "source_url": {"type": "string", "description": "URL supporting the claim"}
+                },
+                "required": ["claim", "source_url"]
+            }
+        }
+    },
+    "required": ["claims"]
+}
+JSON
+
+# Structured report with claim and source fields defined in the schema
+tvly research run '<scope>' --model pro --output-schema '.artifacts/search/<schema>.json' --no-wait --json
+
+# Collect by request_id after independent reading
+tvly research poll '<request_id>' -o '.artifacts/search/<name>.json' --json
+```
+
+Exa `input.data` supplies rows for enrichment. Set `maxItems` to the requested row count. `output.structured` holds results with citations in `output.grounding`. `previousRunId` starts a new run from completed research. `runId` retrieves an existing run.
+
+```text
+# Enrichment of known rows with source URLs
+agent_run {
+    "query": "<scope>", "effort": "medium",
+    "input": {"data": [{"name": "<name>"}]},
+    "outputSchema": {
+        "type": "object", "required": ["rows"],
+        "properties": {
+            "rows": {
+                "type": "array", "maxItems": 1,
+                "items": {
+                    "type": "object", "required": ["name", "claim", "source_url"],
+                    "properties": {
+                        "name": {"type": "string"},
+                        "claim": {"type": ["string", "null"]},
+                        "source_url": {"type": ["string", "null"], "format": "uri"}
+                    }
+                }
+            }
+        }
+    }
+}
+
+# Follow-up with previously covered rows excluded
+agent_run {
+    "query": "<follow-up>", "previousRunId": "<id>", "effort": "medium",
+    "input": {"exclusion": [{"name": "<name>"}]}
+}
+
+# Collect by runId
+agent_run {"runId": "<id>"}
+```
+
+Research output proposes claims. Versions come from registries, releases from tags, issue state from repository APIs, and other facts from source text. Reports state conclusions with supporting URLs and unresolved questions with sources examined.

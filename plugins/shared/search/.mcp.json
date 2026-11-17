@@ -1,0 +1,63 @@
+{
+    "mcpServers": {
+        "context7": {
+            "type": "http",
+            "url": "https://mcp.context7.com/mcp?research_preview=1",
+            "headers": {
+                "Authorization": "Bearer ${CONTEXT7_API_KEY}"
+            },
+            "default_tools_approval_mode": "approve",
+            "bearer_token_env_var": "CONTEXT7_API_KEY"
+        },
+        "deepwiki": {
+            "type": "http",
+            "url": "https://mcp.deepwiki.com/mcp",
+            "default_tools_approval_mode": "approve",
+            "supports_parallel_tool_calls": true
+        },
+        "github": {
+            "type": "http",
+            "url": "https://api.githubcopilot.com/mcp/",
+            "headers": {
+                "Authorization": "Bearer ${GH_PROJECTS_TOKEN}",
+                "X-MCP-Toolsets": "context,repos,issues,pull_requests,actions,git,dependabot,code_security,projects,labels,users,github_support_docs_search",
+                "X-MCP-Features": "file_blame,issue_dependencies,csv_output,mcp_apps_disable_form_deferral,duplicate_detection"
+            },
+            "default_tools_approval_mode": "approve",
+            "bearer_token_env_var": "GH_PROJECTS_TOKEN",
+            "http_headers": {
+                "X-MCP-Toolsets": "context,repos,issues,pull_requests,actions,git,dependabot,code_security,projects,labels,users,github_support_docs_search",
+                "X-MCP-Features": "file_blame,issue_dependencies,csv_output,mcp_apps_disable_form_deferral,duplicate_detection"
+            }
+        },
+        "exa": {
+            "type": "http",
+            "url": "https://mcp.exa.ai/mcp?tools=web_fetch_exa,web_search_advanced_exa,agent_run",
+            "headers": {
+                "x-api-key": "${EXA_API_KEY}"
+            },
+            "default_tools_approval_mode": "approve",
+            "env_http_headers": {
+                "x-api-key": "EXA_API_KEY"
+            }
+        },
+        "ast-grep": {
+            "type": "stdio",
+            "command": "mcp-muxer",
+            "args": ["--env", "AST_GREP_PATH=ast-grep --custom-languages allow", "--", "ast-grep-server", "--config", "sgconfig.yml"],
+            "default_tools_approval_mode": "approve",
+            "supports_parallel_tool_calls": true
+        },
+        "atuin": {
+            "type": "stdio",
+            "command": "atuin",
+            "args": ["mcp"],
+            "default_tools_approval_mode": "approve"
+        },
+        "arena": {
+            "type": "http",
+            "url": "https://mcp.are.na/mcp",
+            "enabled": false
+        }
+    }
+}

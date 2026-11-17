@@ -3,7 +3,7 @@ import process from 'node:process';
 import { Installation } from '@rasm/applications';
 import { Array, Cache, Config, Context, Duration, Effect, Exit, FileSystem, Formatter, Function, Layer, Option, Path, Predicate, Record, Schema, Semaphore, Stream, String } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
-import { WATCH_APPS } from '#/shell/programs';
+import { WATCH_APP } from '#/shell/programs';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -141,7 +141,7 @@ class Host extends Context.Service<Host>()('@rasm/function-hooks/host', {
             onPath: machine.onPath,
             ignored: (files: readonly string[]) => machine.ignored(root, files),
             tracked: (file: string) => (inside(file, root) ? machine.tracked(root, file) : Effect.succeed(false)),
-            installations: (names: readonly string[]) => Effect.map(output([WATCH_APPS, 'find', ...names]), (text) => Array.getSomes(text.split('\n').map((line) => Schema.decodeOption(Installations)(line))).flatMap((found) => Object.values(found).flat())),
+            installations: (names: readonly string[]) => Effect.map(output([WATCH_APP, 'find', ...names]), (text) => Array.getSomes(text.split('\n').map((line) => Schema.decodeOption(Installations)(line))).flatMap((found) => Object.values(found).flat())),
             graph: machine.graph(root),
             steps: Effect.map(
                 machine.steps(root),

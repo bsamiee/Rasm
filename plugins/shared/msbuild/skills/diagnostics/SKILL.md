@@ -1,0 +1,292 @@
+---
+name: diagnostics
+description: "Use when diagnosing a .NET build, covering binary log capture and analysis"
+argument-hint: "[binlog or request]"
+---
+
+# [MSBUILD_DIAGNOSTICS]
+
+Diagnosing a build from its binary log, from capture through the `binlog` MCP server (`Microsoft.AITools.BinlogMcp`) to build performance. `.binlog` files are binary, the MCP tools read them.
+
+[REFERENCES]:
+- [01]-[EXECUTION_PERFORMANCE](references/execution-performance.md): Scheduling and task cost measured as a delta between comparable captures
+- [02]-[EVALUATION_AND_INCREMENTALITY](references/evaluation-and-incrementality.md): Evaluation cost, repeat evaluations, and no-change build work
+
+## [01]-[CAPTURE]
+
+Nx targets write no binlog, `nx run <project>:build--dotnet -- -bl:<dir>/<purpose>-{}.binlog` captures one run:
+- Words after `--` reach `dotnet` as written, an `--args=<switch>` word reaches it unparsed and fails
+- `-- --artifacts-path=<dir>/artifacts` builds into an empty folder, `-t:Rebuild` rebuilds every batched project
+- `dotnet msbuild` runs evaluation reads and replays, `-bl` captures one
+- MSBuild replaces `{}` in a `-bl` path with a UTC date, time, process id, and random string
+
+| [INDEX] | [SWITCH]                                             | [EFFECT]                                                             |
+| :-----: | :--------------------------------------------------- | :------------------------------------------------------------------- |
+|  [01]   | `-bl:<dir>/<purpose>-{}.binlog`                      | One file per invocation, imports embedded                            |
+|  [02]   | `-bl`                                                | Writes and overwrites `msbuild.binlog` in the current directory      |
+|  [03]   | `-bl:LogFile=<path>.binlog;ProjectImports=ZipFile`   | Imports go to `<name>.ProjectImports.zip` beside the log             |
+|  [04]   | `-bl:<path>.binlog;ProjectImports=None`              | No imports                                                           |
+|  [05]   | `-check`                                             | BuildCheck reports as build diagnostics                              |
+|  [06]   | `--no-restore -graph -isolate`                       | Static graph build, `MSB4252` on an undeclared project instance      |
+|  [07]   | `-p:Name=Value`                                      | Global property for restore and build passes                         |
+|  [08]   | `-restoreProperty:Name=Value`                        | Restore-pass global property in place of every `-p:` value           |
+|  [09]   | `-pp:<file>.xml`                                     | Every import expanded in place with file boundaries, no build        |
+|  [10]   | `-getProperty:A,B -getItem:C -getResultOutputFile:f` | Evaluated values as JSON in `f`, no build, one project file per call |
+|  [11]   | `-t:X -getTargetResult:X`                            | Runs `X` and prints its returned items as JSON                       |
+|  [12]   | `-profileEvaluation:<file>.md`                       | Evaluation time per element, `.md` gives a markdown table            |
+|  [13]   | `MSBuildDebugEngine=1` with `MSBUILDDEBUGPATH=<dir>` | Every MSBuild process writes a binlog under `<dir>/.MSBuild_Logs/`   |
+
+- `-bl` values without a `.binlog` extension fail `MSB1029` before the build
+- `ProjectImports=None` leaves `binlog_files` and `binlog_search_files` empty
+- `-f` and `-p:TargetFramework=` run restore as a separate invocation with its own log, a fixed name keeps the last one
+- `--no-restore` needs an assets file, `NETSDK1004` without one
+- Failed builds keep the log
+- `MSBuildDebugEngine` covers a build a tool starts without `-bl`
+- `MSBuildDebugEngine` and `MSBUILDDEBUGPATH` are case-sensitive on macOS
+- Without `MSBUILDDEBUGPATH`, logs go under `.MSBuild_Logs/` in the current directory
+- Central node's log file name starts with `CentralNode_`
+- `-check` and `-profileEvaluation` write no binlog of their own, `-bl` beside them captures the run
+- `-getProperty`, `-getItem`, `-getTargetResult`, and `-pp` take one project or `.props` file, a solution path fails `MSB1063` or refuses the switch
+- `Directory.Build.props` evaluates the root values without a project
+
+```bash
+nx run <project>:build--dotnet --skip-nx-cache -- --artifacts-path=<dir>/artifacts -check
+nx run-many -t build--dotnet --skip-nx-cache -- -check
+dotnet msbuild <log>.binlog -check
+dotnet msbuild Item/Item.csproj -getProperty:OutputPath -getItem:Compile -getResultOutputFile:<dir>/item.json
+```
+
+## [02]-[BINLOG_TOOLS]
+
+Run in order, `binlog_diagnose` on a failed build, then the drill-down tool the finding names:
+
+```text
+binlog_overview {"binlog_file": "<log>.binlog"}
+binlog_diagnose {"binlog_file": "<log>.binlog"}
+binlog_errors {"binlog_file": "<log>.binlog"}
+binlog_warnings {"binlog_file": "<log>.binlog"}
+```
+
+- `<log>.binlog` is the requested log, else the newest log in `<dir>`
+- Tool schemas state each tool's purpose and arguments
+- Binlog reader drops records a newer MSBuild wrote, `binlog_warnings` reports the loss as `Skipped some data unknown to this version of Viewer`
+- `binlog_extract` refuses a log with dropped records unless `allow_unsupported_records=true`, the extract omits them
+- `binlog_analyzer_summary` accepts no size limit and returns the whole result
+- `binlog_task_details` clips oversized parameter values, `offset` pages output messages and `parameter_offset` parameters
+- `binlog_search` marks a project, target, or task `[id]` and a message `[in id]` with its owner
+- `binlog_explore_node` takes a `binlog_search` `[id]` or a `binlog_search_targets` `id` as `node_id`
+- `binlog_tasks_in_target` prints task `id` values unique within one project execution, no `node_id`
+- `binlog_target_reasons` sums duration, executions, and skips across every target of one name
+- `binlog_double_writes` reads performed copies, a `Copy` that skipped an unchanged file is no write
+- `binlog_double_writes` misses a second instance of one project and a copy-local file projects share, `BC0102` reports both
+- Solution node adds one synthetic `Build failed.` error to every failed count and matches the requested name in `binlog_search_targets`
+- `binlog_files` reads the embedded copy of a file, the file as the build saw it
+- `binlog_properties` prints one block per `project_id` and `evaluation_id`, `Context=` names the pass when recorded
+- `binlog_evaluation_properties` on the build-pass evaluation id reads a value that differs between passes
+- Stale server instances hold binlogs in memory until `stop_instance` on each `isOrphaned` entry of `list_mcp_instances`
+- `binlog_incremental_analysis` returns `{kind, schemaVersion, data}`, `data.summary` counts the whole build
+- `offset` pages one `data.targets[]` row per target, `deletion_offset` pages `data.incrementalCleanDeletions`
+- `binlog_task_details` returns `{id, name, projectFile, targetName, durationMs, parameters, outputMessages}`
+- `binlog_task_details` by names prints nothing when `target_name` is not the target holding the task
+- `project` of `binlog_task_details` takes a framework suffix (`App.csproj net10.0`) to pick one inner build
+- `binlog_search` with `$target` names the holding target and the `[id]` the `task_id` form takes
+- `binlog_explain_property` prints `Evaluation snapshot`, `Execution global input`, and assignment observations per context
+- `binlog_search_files` names the file declaring a value, a `-p:` value has none
+- `binlog_compare_property` marks a global property `global`
+- `binlog_diagnose` counts an error with no file and line once across every project reporting it
+
+### [02.1]-[SEARCH_SYNTAX]
+
+`binlog_search` matches nodes, a target or task match includes child messages up to `context` levels. Child messages hold task output, copy details, and up-to-date reasons.
+
+| [INDEX] | [QUERY]                       | [MATCHES]                                                |
+| :-----: | :---------------------------- | :------------------------------------------------------- |
+|  [01]   | `$error`, `$warning`          | Every error or warning node                              |
+|  [02]   | `$task Csc`                   | Every invocation of that task                            |
+|  [03]   | `$target Build`               | Every target with that name                              |
+|  [04]   | `$project Item`               | Every project with the text in its name                  |
+|  [05]   | `under($project Item) CS1234` | Nodes under that project containing the text             |
+|  [06]   | `$task $time`                 | Tasks with timing, slowest first                         |
+|  [07]   | `"exact phrase"`              | Message text, a phrase with an inner `"` matches nothing |
+|  [08]   | `name=value`                  | Field match, a property assignment                       |
+
+- Text matches print the matched line alone, `$target` queries reach the reason line under it
+
+### [02.2]-[LARGE_LOGS]
+
+Start with `binlog_overview`, `binlog_errors`, `binlog_warnings`, and `binlog_projects` on the original log. Their streaming index answers whole-build queries without loading the structured tree. Read each response's scope notice, a query can use a substituted subtree when the index cannot answer it. An extract supplied as input limits the scope with no notice.
+
+Above 200 MB the server answers tree queries from an automatically extracted subtree, error-seeded projects for diagnostic tools and the heaviest projects for performance tools, and caches the extract beside the index for 7 days. `BINLOG_MCP_AUTO_EXTRACT_MB` sets the threshold, `0` forces a full load. `binlog_double_writes`, `binlog_diagnose`, `binlog_compare`, and `binlog_compare_property` answer about the whole build, they load the full log when process memory allows and refuse with the reason otherwise.
+
+For a targeted investigation:
+1. Select projects from the original log's diagnostics
+2. Run `binlog_extract_preview` with the error, warning, project, or project-context selection
+3. Run `binlog_extract` with the same selection, an `output_file`, and the returned `plan_token`
+4. Add `include_descendants=true` for referenced projects and `include_ancestors=true` for callers
+5. Read `skippedUnsupportedRecords` and state the selected scope with the result
+
+Preview tokens stay valid for 10 minutes in the same server process. Defects in an extract are evidence for its selected projects, an empty result excludes no defect elsewhere. When investigating a cross-project relationship, keep every participating project in the selection.
+
+Original logs serve `binlog_files`, `binlog_search_files`, `binlog_preprocess`, and `binlog_assets`. Extracts omit the embedded source archive. When the original query cannot run, report its refusal and the available evidence.
+
+## [03]-[FAILED_BUILD_TRIAGE]
+
+Failed restores stop every project, failed references block their dependents. Start at `binlog_diagnose`, fix the first error before the next capture, and route each error class by its entry:
+- `CS*` or `FS*` compiler error → `binlog_errors`, `binlog_compiler`, then `get_diagnostics` on `roslyn-codelens`
+- `CA*`, `IDE*`, or `RS*` analyzer error → `binlog_errors`, then `get_diagnostics` on `roslyn-codelens` with `includeAnalyzers=true`
+- `MSB3073`, reason in task output → `binlog_errors` with `include_task_output=true`, then the tool input the output names
+- `MSB4019` import not found → `binlog_imports`, then the import path
+- `MSB4057` target does not exist → `binlog_project_targets` on that project, then the target name
+- `MSB4092` or `MSB4113` condition → file and line from `binlog_errors`, then the condition form
+- `MSB4252` under `-isolate` → both global-property sets in the message, then declare the edge or remove the extra property
+- `MSB3026` copy retry or file lock → `binlog_double_writes`, then shared output paths
+- `NU1*` restore → `binlog_nuget`, `binlog_assets`, then the version graph
+- `NETSDK1004` assets file missing → command line, then remove `--no-restore` or restore first
+- `NETSDK1005` no target for framework → `binlog_evaluations` and global properties, then duplicate evaluations
+- Other `NETSDK*` → `binlog_explain_property` on the named property, then its assignment
+- `MSB3277` assembly version conflict → `binlog_assembly_conflicts`, then `binlog_assets` with `package` on both chains
+- One target ran twice → `binlog_search_targets` on the target, then shared output paths and duplicate evaluations
+- Projects writing one file → `BC0102` from `-check`, then shared output paths
+- One property has the wrong value → `binlog_explain_property`, then assignment order
+- One target never ran in a successful build → `binlog_search` for the `BeforeTargets` text, then the target name
+- Failed status with no error record → failing project in `binlog_overview`, then `binlog_project_targets`
+- Native asset missing at run time → `binlog_assets` with `package`, then `binlog_items` on `NativeCopyLocalItems`
+- Slow build → `binlog_expensive_projects`, then `references/execution-performance.md`
+- One analyzer dominates the build → capture with `-p:ReportAnalyzer=true`, then `binlog_analyzer_summary`
+
+[EVIDENCE]:
+- `MSB3073` reports the exit code alone, the tool's reason is a plain message under the task that no error list holds
+- Tool lines in canonical `error:` form are error records
+- Missing `BeforeTargets` names log `does not exist in the project, and will be ignored` with the file and line, neither a warning nor an error
+- `binlog_overview` status decides failure, a target can fail without an error record and leave `binlog_errors` empty
+- `binlog_diagnose` counts distinct root causes by code, file, and line, one error repeating per target framework is one cause
+- `binlog_compare_property` compares a wrong value across every project and names the projects the solution passed no `Configuration` to
+- Native assets a package holds under `build/` alone reach direct consumers through the package `.targets`, transitive consumers receive none
+
+## [04]-[BUILDCHECK]
+
+`-check` runs every inbox check and reports each finding as a build diagnostic with a `BC` code. Checks belong to MSBuild. A build target, `dotnet msbuild`, and a replay run one set.
+
+| [INDEX] | [CODE]   | [REPORTS]                                                            | [DEFAULT]           |
+| :-----: | :------- | :------------------------------------------------------------------- | :------------------ |
+|  [01]   | `BC0101` | Projects sharing one `OutputPath` or `IntermediateOutputPath`        | Warning             |
+|  [02]   | `BC0102` | Tasks writing one file, across projects or instances                 | Warning             |
+|  [03]   | `BC0103` | Property values read from an environment variable                    | Suggestion, project |
+|  [04]   | `BC0104` | `Reference` to a project output in place of `ProjectReference`       | Warning             |
+|  [05]   | `BC0105` | `EmbeddedResource` without `Culture` or `WithCulture=false` metadata | Warning             |
+|  [06]   | `BC0106` | `CopyToOutputDirectory="Always"` on an item                          | Warning             |
+|  [07]   | `BC0107` | `TargetFramework` and `TargetFrameworks` both set                    | Warning             |
+|  [08]   | `BC0108` | `TargetFramework` or `TargetFrameworks` in a project without the SDK | Warning             |
+|  [09]   | `BC0201` | Property reads no declaration precedes                               | Warning, project    |
+|  [10]   | `BC0202` | Property reads before the declaration that follows them              | Warning, project    |
+|  [11]   | `BC0203` | Properties declared in the project and never read                    | None, project       |
+|  [12]   | `BC0301` | Project under the Downloads folder or another untrusted directory    | Error, project      |
+|  [13]   | `BC0302` | `Exec` that runs `dotnet`, `msbuild`, or `nuget` to build a project  | Warning             |
+
+- `BC0201` and `BC0202` accept a self-reference and an emptiness check, and report a read inside a `Condition` under every `AllowUninitializedPropertiesInConditions` value
+- `BC0201`, `BC0202`, and `BC0203` report project-file reads alone under every `scope` value
+- `-check` on a replay, `dotnet msbuild <log>.binlog -check`, reruns checks over stored events and writes no file
+- Replays print the original `BinaryLogger wrote to:` line and double every count
+- `binlog_warnings` with `category=BuildCheck` lists the reports of a `-check` capture with the console counts
+- Under `MSBuildTreatWarningsAsErrors` the reports print as `error BC`, fail the build, and appear in `binlog_errors`
+- `-check` reports on an incremental build, the checks read declared paths and task inputs
+
+`.editorconfig` configures each code under a section header, MSBuild ignores a key outside a section:
+
+```ini
+[*.csproj]
+build_check.BC0101.severity = error
+```
+
+- `severity` takes `default`, `none`, `suggestion`, `warning`, or `error`, `scope` takes `project_file`, `work_tree_imports`, or `all`
+
+### [04.1]-[WORKFLOW]
+
+1. Run `nx run <project>:build--dotnet -- -check`, BuildCheck reporting through the one-run argument the tool-named target receives
+2. Read each `BC` line on the console, or run `binlog_errors` then `binlog_warnings` with `category=BuildCheck`
+3. Fix the file the report names, `BC0201` and `BC0202` name `file(line,col)`, `BC0101` and `BC0102` name the path and both projects
+
+## [05]-[SHARED_OUTPUT_PATHS]
+
+MSBuild creates one project instance per project path and global-property set. Instances sharing one `OutputPath` or `IntermediateOutputPath`, or projects sharing one directory, fail by build order: one project consumes another's `project.assets.json`, `MSB3026` copy retries and file locks appear in parallel builds, outputs come from the wrong instance. A successful build's console reports none of them without `-check`, the steps detect them:
+1. Run the BuildCheck workflow, read `BC0101` per shared directory and `BC0102` per double-written file
+2. Run `binlog_compare_property` on `IntermediateOutputPath` and `OutputPath`, an absolute value grouping projects is a shared directory
+3. Run `binlog_double_writes` for directories more than one project copied into, `NOT SET` projects included
+4. Run `binlog_search_targets` on `CoreCompile`, `skipped: false` rows repeating one project file are separate instances
+5. Run `binlog_evaluations` with the `project` filter, then `binlog_evaluation_global_properties` per evaluation
+6. Compare the build-pass evaluations by the table, the global property differing between them names the extra instance
+7. Run `dotnet restore <project>.csproj --artifacts-path <dir>/artifacts`, then the same `dotnet build` with `--no-restore -graph -isolate`, an instance the graph did not declare fails `MSB4252`
+
+- `BC0101` naming `Library.csproj and Library.csproj` reports a second instance of one project
+- Relative SDK defaults group every project in `binlog_compare_property` and mean nothing, one project's second instance shows no group
+
+| [INDEX] | [GLOBAL_PROPERTY]                      | [IN_THE_PATH] | [MEANING]                                                                |
+| :-----: | :------------------------------------- | :------------ | :----------------------------------------------------------------------- |
+|  [01]   | `Configuration`                        | Always        | One path per configuration                                               |
+|  [02]   | `TargetFramework`                      | Conditional   | Appended while `AppendTargetFrameworkToOutputPath` is `true`             |
+|  [03]   | `RuntimeIdentifier`                    | Conditional   | Appended while `AppendRuntimeIdentifierToOutputPath` is `true`           |
+|  [04]   | `Platform`                             | Conditional   | Non-default platforms add a segment, none under the artifacts layout     |
+|  [05]   | `SolutionFileName`, `SolutionPath`     | No            | Different values mark one project built from separate solutions          |
+|  [06]   | `CurrentSolutionConfigurationContents` | No            | Project entries of the solution, the entry count tells solutions apart   |
+|  [07]   | `MSBuildIsRestoring`                   | No            | Restore pass, expected and discarded                                     |
+|  [08]   | `BuildProjectReferences`               | No            | Reference queries where `Get*` targets alone ran, or `--no-dependencies` |
+|  [09]   | `_IsPublishing`                        | No            | Set by `dotnet publish`, an `<MSBuild>` call passing it builds twice     |
+|  [10]   | `PublishReadyToRun`                    | No            | Publish setting adding an instance without a path change                 |
+
+| [INDEX] | [SIGNAL]                                    | [CAUSE]                                   | [FIX]                                        |
+| :-----: | :------------------------------------------ | :---------------------------------------- | :------------------------------------------- |
+|  [01]   | `BC0102` names `Csc` twice from one project | `AppendTargetFrameworkToOutputPath=false` | Remove the append property                   |
+|  [02]   | Projects at one absolute `obj` or `bin`     | One `Base*OutputPath` for every project   | One directory per project                    |
+|  [03]   | `SolutionFileName` is the one difference    | One project across solutions of one build | One solution per build, or a filter          |
+|  [04]   | `_IsPublishing` is the one difference       | `<MSBuild>` passes `_IsPublishing=true`   | `DependsOnTargets="Publish"` in one instance |
+|  [05]   | `TargetFramework` differs, single-targeting | `SetTargetFramework` on the reference     | Remove `SetTargetFramework`                  |
+|  [06]   | Properties outside the path differ          | Extra `Properties` on an `<MSBuild>` call | `GlobalPropertiesToRemove` on the edge       |
+
+- `binlog_search` with `$task MSBuild` lists each call under the project making it
+- `GlobalPropertiesToRemove` on a `ProjectReference` strips a property from the referenced build, none a project passes to itself
+
+BAD:
+
+```xml
+<TargetFrameworks>net10.0;netstandard2.0</TargetFrameworks>
+<AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+<OutputPath>bin/$(Configuration)/</OutputPath>
+```
+
+GOOD:
+
+```xml
+<TargetFrameworks>net10.0;netstandard2.0</TargetFrameworks>
+```
+
+- `AppendTargetFrameworkToOutputPath=false` drops the framework from `IntermediateOutputPath` and `OutputPath` both
+- `OutputPath` values containing `$(TargetFramework)` still share `obj/`, and reading `$(TargetFramework)` in the project body adds `BC0202`
+
+### [05.1]-[SHARED_DIRECTORY_ACROSS_PROJECTS]
+
+Restore writes `project.assets.json` under `MSBuildProjectExtensionsPath`, by default `BaseIntermediateOutputPath` with no framework segment. Projects with one `obj` share one assets file the last restore overwrites. One shared `bin` lets the second project's copy of a common dependency skip as unchanged, the build succeeds with `BC0102` as the one report.
+
+BAD in `Directory.Build.props`:
+
+```xml
+<BaseOutputPath>../SharedOutput/</BaseOutputPath>
+<BaseIntermediateOutputPath>../SharedObj/</BaseIntermediateOutputPath>
+```
+
+GOOD in `Directory.Build.props`:
+
+```xml
+<BaseIntermediateOutputPath>$(MSBuildThisFileDirectory)obj/$(MSBuildProjectName)/</BaseIntermediateOutputPath>
+<BaseOutputPath>$(MSBuildThisFileDirectory)bin/$(MSBuildProjectName)/</BaseOutputPath>
+```
+
+Each project takes its own output directory, or `ArtifactsPath` lays out the whole tree. Use `msbuild:packaging` for the artifacts layout.
+
+## [06]-[BUILD_PERFORMANCE]
+
+Compare captures under the capture conditions of `references/execution-performance.md`:
+1. Run `binlog_overview` on each capture, record status, duration, and project count
+2. Run `binlog_expensive_projects`, `binlog_expensive_targets`, and `binlog_expensive_tasks` on the slower one
+3. For a slow project chain, target, or task, follow `references/execution-performance.md`
+4. For slow evaluation or a target running in a no-change build, follow `references/evaluation-and-incrementality.md`
+5. When both contribute, follow both references

@@ -1,0 +1,22 @@
+{
+    "mcpServers": {
+        "blender": {
+            "type": "stdio",
+            "command": "mcp-muxer",
+            "args": ["--per", "user", "--env", "BLENDER_MCP_PORT=9877", "--", "blender-mcp"],
+            "timeout": 600000,
+            "default_tools_approval_mode": "approve",
+            "tool_timeout_sec": 600,
+            "disabled_tools": ["execute_blender_code_for_cli", "get_blendfile_summary_datablocks_for_cli", "get_blendfile_summary_missing_files_for_cli", "get_blendfile_summary_of_linked_libraries_for_cli", "get_blendfile_summary_path_info_for_cli", "get_blendfile_summary_usage_guess_for_cli"]
+        },
+        "mcp-for-blender": {
+            "type": "stdio",
+            "command": "mcp-muxer",
+            "args": ["--per", "user", "--env", "BLENDER_MCP_DISABLE_TELEMETRY=true", "--env", "MCP_FOR_BLENDER_PORT", "--env", "BLENDERMCP_SKETCHFAB_API_KEY", "--env", "BLENDERMCP_POLYPIZZA_API_KEY", "--", "mcp-for-blender"],
+            "timeout": 600000,
+            "default_tools_approval_mode": "approve",
+            "env_vars": ["MCP_FOR_BLENDER_PORT", "BLENDERMCP_SKETCHFAB_API_KEY", "BLENDERMCP_POLYPIZZA_API_KEY"],
+            "tool_timeout_sec": 600
+        }
+    }
+}

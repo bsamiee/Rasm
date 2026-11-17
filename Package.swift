@@ -138,7 +138,7 @@ let applications: [Target] = [
 ]
 let executables: [Target] = [
     .executableTarget(
-        name: "watch-apps",
+        name: "watch-app",
         dependencies: [
             "Applications", "CurrentProcess", "Encoding", "Files", "Processes", "ScreenCapture", "Telemetry",
             .product(name: "ArgumentParser", package: "swift-argument-parser"), .product(name: "Configuration", package: "swift-configuration"),
@@ -147,8 +147,8 @@ let executables: [Target] = [
             .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"), .product(name: "CasePaths", package: "swift-case-paths"),
             .product(name: "OrderedCollections", package: "swift-collections"), .product(name: "Subprocess", package: "swift-subprocess"),
         ],
-        path: "products/macos/watch-apps",
-        exclude: ["Info.plist", "watch-apps.entitlements"],
+        path: "products/macos/watch-app",
+        exclude: ["Info.plist", "watch-app.entitlements"],
     )
 ]
 let tests: [Target] = [

@@ -6,17 +6,110 @@
         "BASH_DEFAULT_TIMEOUT_MS": "300000"
     },
     "permissions": {
-        "deny": ["mcp__rhino-mcp-platform__run_python", "mcp__rhino-mcp-platform__g1_*", "mcp__blender__*_for_cli", "mcp__binlog__stop", "mcp__binlog__stop_instance", "mcp__roslyn-codelens__load_solution", "mcp__roslyn-codelens__unload_solution", "mcp__roslyn-codelens__set_active_solution"]
-    },
-    "hooks": {
-        "SessionStart": [
-            {
-                "hooks": [{ "type": "command", "command": "mise daemons register && mise exec -- pitchfork project enter --pid \"$PPID\"" }]
-            }
+        "deny": [
+            "mcp__plugin_rhino_rhino-mcp-platform__run_python",
+            "mcp__plugin_rhino_rhino-mcp-platform__g1_*",
+            "mcp__plugin_blender_blender__*_for_cli",
+            "mcp__plugin_msbuild_binlog__stop",
+            "mcp__plugin_msbuild_binlog__stop_instance",
+            "mcp__plugin_dotnet_roslyn-codelens__load_solution",
+            "mcp__plugin_dotnet_roslyn-codelens__unload_solution",
+            "mcp__plugin_dotnet_roslyn-codelens__set_active_solution"
         ]
     },
     "enableAllProjectMcpServers": true,
-    "disabledMcpjsonServers": ["arena"],
+    "hooks": {
+        "SessionStart": [
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "[ -n \"$CLAUDE_ENV_FILE\" ] && { grep -qsF 'mise hook-env' \"$CLAUDE_ENV_FILE\" || printf '%s\\n' 'eval \"$(mise hook-env -s bash)\"' \"export TMPDIR=/private/tmp/claude-$(id -u)/\" >> \"$CLAUDE_ENV_FILE\"; }; true"
+                    },
+                    {
+                        "type": "command",
+                        "command": "mise daemons register && mise exec -- pitchfork project enter --pid \"$PPID\""
+                    },
+                    {
+                        "type": "command",
+                        "command": "/etc/profiles/per-user/bardiasamiee/bin/zellij-agent-resume claude",
+                        "async": true
+                    },
+                    {
+                        "type": "command",
+                        "command": "cur=$(basename \"$(readlink \"$HOME/.local/bin/claude\")\"); new=$(/usr/bin/curl -fsS --max-time 10 https://registry.npmjs.org/-/package/@anthropic-ai/claude-code/dist-tags | /usr/bin/jq -r --arg cur \"$cur\" 'def n: split(\".\") | map(tonumber); [.next, .latest] | map(n) | max | select(. > ($cur | n)) | join(\".\")'); [ -n \"$new\" ] && \"$HOME/.local/bin/claude\" install \"$new\"; true",
+                        "async": true
+                    }
+                ]
+            }
+        ],
+        "PostToolUse": [
+            {
+                "matcher": "^Bash$",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "/etc/profiles/per-user/bardiasamiee/bin/atuin hook claude-code",
+                        "async": true
+                    }
+                ]
+            },
+            {
+                "matcher": "*",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "/Users/bardiasamiee/.git-ai/bin/git-ai checkpoint claude --hook-input stdin"
+                    }
+                ]
+            }
+        ],
+        "PostToolUseFailure": [
+            {
+                "matcher": "^Bash$",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "/etc/profiles/per-user/bardiasamiee/bin/atuin hook claude-code",
+                        "async": true
+                    }
+                ]
+            }
+        ],
+        "PreToolUse": [
+            {
+                "matcher": "Bash|Monitor",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "/etc/profiles/per-user/bardiasamiee/bin/atuin hook claude-code",
+                        "timeout": 10,
+                        "onFailure": "continue"
+                    }
+                ]
+            },
+            {
+                "matcher": "*",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "/Users/bardiasamiee/.git-ai/bin/git-ai checkpoint claude --hook-input stdin"
+                    }
+                ]
+            }
+        ],
+        "SessionEnd": [
+            {
+                "matcher": "prompt_input_exit",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "/etc/profiles/per-user/bardiasamiee/bin/zellij-agent-resume claude"
+                    }
+                ]
+            }
+        ]
+    },
     "worktree": {
         "bgIsolation": "none"
     },
@@ -24,13 +117,27 @@
         "function-hooks@rasm": true,
         "astral@astral-sh": true,
         "rust-analyzer-lsp@claude-plugins-official": true,
-        "swift-lsp@claude-plugins-official": true
+        "swift-lsp@claude-plugins-official": true,
+        "blender@rasm": true,
+        "dotnet@rasm": true,
+        "msbuild@rasm": true,
+        "python@rasm": true,
+        "uxp@rasm": true,
+        "swift@rasm": true,
+        "search@rasm": true,
+        "rhino@rasm": true,
+        "typescript@rasm": true,
+        "rust@rasm": true,
+        "cpp@rasm": true,
+        "delegate@rasm": true,
+        "web@rasm": true,
+        "tool@rasm": true
     },
     "extraKnownMarketplaces": {
         "rasm": {
             "source": {
                 "source": "directory",
-                "path": "./plugins"
+                "path": "./"
             },
             "autoUpdate": true
         },

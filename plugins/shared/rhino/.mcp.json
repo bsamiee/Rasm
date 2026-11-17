@@ -1,0 +1,13 @@
+{
+    "mcpServers": {
+        "rhino-mcp-platform": {
+            "type": "stdio",
+            "command": "mcp-muxer",
+            "args": ["--per", "user", "--env", "RHINO_MCP_DEFAULT_VERSION=9", "--", "rhino-mcp-router"],
+            "timeout": 600000,
+            "default_tools_approval_mode": "approve",
+            "tool_timeout_sec": 600,
+            "disabled_tools": ["run_python", "g1_apply_graph", "g1_clear_canvas", "g1_connect", "g1_connect_many", "g1_delete_component", "g1_describe_component", "g1_get_canvas_graph", "g1_place_component", "g1_place_slider", "g1_search_components", "g1_solve_graph", "g1_start"]
+        }
+    }
+}

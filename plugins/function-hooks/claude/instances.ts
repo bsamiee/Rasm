@@ -3,7 +3,7 @@ import { Launched, State } from '@rasm/applications';
 import { Array, Effect, Match, Option, Record, Result, Schema } from 'effect';
 import { Instance } from '#/claude/routes';
 import { Host } from '#/host';
-import { WATCH_APPS } from '#/shell/programs';
+import { WATCH_APP } from '#/shell/programs';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -41,12 +41,12 @@ const observed = (text: string) => {
 };
 
 const runningAs = ({ pid, instance }: Pick<typeof Instance.Type, 'pid' | 'instance'>, { process, asking }: typeof Outline.Type) => {
-    const asked = asking.map(({ kind, number, title }): Note => [title === undefined ? `shows ${kind} window` : `shows ${kind} window "${title}"`, `run ${WATCH_APPS} ${kind === 'blocking' ? 'capture' : 'read'} ${instance} --window ${number}`]);
+    const asked = asking.map(({ kind, number, title }): Note => [title === undefined ? `shows ${kind} window` : `shows ${kind} window "${title}"`, `run ${WATCH_APP} ${kind === 'blocking' ? 'capture' : 'read'} ${instance} --window ${number}`]);
     return Match.value({ process, asks: Array.isReadonlyArrayNonEmpty(asked) }).pipe(
         Match.withReturnType<readonly Note[]>(),
         Match.when({ asks: true }, () => asked),
         Match.when({ process: 'stopped' }, () => [['is stopped', `run kill -CONT ${pid}`]]),
-        Match.when({ process: 'sleeping' }, () => [['is blocked', `run ${WATCH_APPS} capture ${instance}`]]),
+        Match.when({ process: 'sleeping' }, () => [['is blocked', `run ${WATCH_APP} capture ${instance}`]]),
         Match.when({ process: 'running' }, () => [['is busy']]),
         Match.orElse(() => []),
     );
@@ -88,7 +88,7 @@ const watched = (text: string) => {
 
 const quit = (instances: readonly (typeof Instance.Type)[]) =>
     Effect.map(
-        Host.use((host) => host.output([WATCH_APPS, 'quit', ...instances.map(({ instance }) => instance)])),
+        Host.use((host) => host.output([WATCH_APP, 'quit', ...instances.map(({ instance }) => instance)])),
         (text) => [...text.split('\n').flatMap((line) => Option.match(Schema.decodeOption(Missing)(line), { onNone: () => [], onSome: Record.keys })), ...exitedOf(text)],
     );
 

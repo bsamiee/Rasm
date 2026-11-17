@@ -56,7 +56,7 @@ For the problem P:
    tags when the problem is code-shaped. Always include at least one wild
    frame to keep range.
 
-2. Spawn 5 **parallel** Agent/Task tool calls. One per frame. Each Agent
+2. Dispatch 5 **parallel** subagents. One per frame. Each subagent
    gets only:
    - the problem P
    - any context the user provided
@@ -172,8 +172,8 @@ These are how this skill goes wrong. Watch for them.
   Generate wide, but converge with a real opinion.
 - **Skipping the isolation invariant.** If you simulate parallel branches
   by writing them sequentially in one context, you have not done ADHD. You
-  have done a wider single thought. The Agent/Task tool gives each branch a
-  fresh context. Use it.
+  have done a wider single thought. A subagent gives each branch a fresh
+  context. Use one per branch.
 
 ## Calibration
 
@@ -195,15 +195,15 @@ points where the cost of the obvious answer is high.
 ## Companion library and CLI
 
 There is a Node/TS implementation that does the same loop with structured
-JSON parsing, score weighting, and a CLI. Use it when running outside
-Claude Code or in batch.
+JSON parsing, score weighting, and a CLI. Use it when running outside an
+agent host or in batch.
 
     npm install -g adhd-agent
     adhd "your problem here"
 
 Code, paper, evals, and contributing guide at
 https://github.com/UditAkhourii/adhd. The skill above gives you the same
-loop inside Claude with no install required.
+loop inside any agent host with no install required.
 
 ## Source spec
 

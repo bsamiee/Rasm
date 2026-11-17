@@ -78,8 +78,8 @@ VCPKG_DISABLE_METRICS                         = "1"
 VCPKG_DOWNLOADS                               = "{{config_root}}/.cache/vcpkg/downloads"
 VCPKG_FORCE_SYSTEM_BINARIES                   = "1"
 VCPKG_ROOT                                    = { tools = true, value = '{{ tools["github:microsoft/vcpkg-tool"]?.path or "" }}' }
-WATCH_APPS_LOG_DIR                            = "{{config_root}}/.artifacts/logs"
-WATCH_APPS_SESSION                            = "{{ env.PLAYWRIGHT_CLI_SESSION }}"
+WATCH_APP_LOG_DIR                             = "{{config_root}}/.artifacts/logs"
+WATCH_APP_SESSION                             = "{{ env.PLAYWRIGHT_CLI_SESSION }}"
 X_VCPKG_REGISTRIES_CACHE                      = "{{config_root}}/.cache/vcpkg/registries"
 
 # --- [DEPS] -----------------------------------------------------------------------------

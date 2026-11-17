@@ -35,7 +35,7 @@ interface Program {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const WATCH_APPS = 'watch-apps';
+const WATCH_APP = 'watch-app';
 const PROGRAMS: Readonly<Record<string, Program>> = {
     sudo: { aliases: ['doas'], wraps: [[]] },
     env: { wraps: [[]] },
@@ -78,4 +78,4 @@ const PROGRAMS: Readonly<Record<string, Program>> = {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { PROGRAMS, type Program, WATCH_APPS };
+export { PROGRAMS, type Program, WATCH_APP };

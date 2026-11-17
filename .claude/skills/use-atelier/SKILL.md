@@ -5,20 +5,20 @@ description: "Use when driving an Adobe app or reading its host state, covering 
 
 # [USE_ATELIER]
 
-Covers Adobe apps driven in the background: `watch-apps` opens, reads, captures, answers, and quits them, and the `atelier` MCP server runs scripts inside them. Use `uxp-coding` for code a plug-in holds.
+Covers Adobe apps driven in the background: `watch-app` opens, reads, captures, answers, and quits them, and the `atelier` MCP server runs scripts inside them. Use `uxp:coding` for code a plug-in holds.
 
 ## [01]-[SEQUENCE]
 
 One Adobe app runs at a time, its Beta build first:
 
 ```bash
-watch-apps processes "<app>"                                # crash reports and leftovers before a launch
-watch-apps launch "<app>"                                   # no activation, no document, prints the pid
-watch-apps read <pid> | jq -c '.[][] | .running | {status, asking}'
-watch-apps capture <pid> --window <number> --longest-side 1100
-watch-apps read <pid> --window <number>                     # ids of an asking row's answers
-watch-apps perform <id> AXPress                             # the row's accept id
-watch-apps quit <pid>
+watch-app processes "<app>"                                # crash reports and leftovers before a launch
+watch-app launch "<app>"                                   # no activation, no document, prints the pid
+watch-app read <pid> | jq -c '.[][] | .running | {status, asking}'
+watch-app capture <pid> --window <number> --longest-side 1100
+watch-app read <pid> --window <number>                     # ids of an asking row's answers
+watch-app perform <id> AXPress                             # the row's accept id
+watch-app quit <pid>
 ```
 
 1. Run `processes` first, and read each report under `reports` before launching
@@ -29,7 +29,7 @@ watch-apps quit <pid>
 6. `quit` once the app reads `responding`, and `processes` again to confirm no instance or helper stays
 
 - After Effects ignores a quit sent while `launching`, so wait for `responding` first
-- Crash dialogs ("quit unexpectedly", Adobe Crash Reporter "Error Report") belong to the crash reporter processes, read with `watch-apps read <reporter pid>` as `kind` `system` with nothing asking
+- Crash dialogs ("quit unexpectedly", Adobe Crash Reporter "Error Report") belong to the crash reporter processes, read with `watch-app read <reporter pid>` as `kind` `system` with nothing asking
 - Dialogs and crash windows the owner did not ask an agent to answer stay for the owner
 
 ## [02]-[SCRIPTS]

@@ -35,7 +35,7 @@ Rasm/
 │   └── refurb/               # Python
 ├── assets/                   # Repo submodule with reusable assets no product owns
 ├── infra/                    # Pulumi programs for the repository, machines, and hosting
-├── plugins/                  # Agent harness marketplace
+├── plugins/                  # Agent harness plugins, shared or per host
 ├── docs/
 ├── nx.json                   # Nx plugins, release, and conformance
 ├── package.json              # TypeScript
@@ -64,8 +64,9 @@ Rasm/
 ├── .github/
 ├── .config/                  # Tool configuration
 ├── .claude/
+├── .claude-plugin/           # Claude Code marketplace of plugins/
 ├── .codex/
-├── .agents/
+├── .agents/                  # Codex marketplace of plugins/
 ├── .vscode/
 ├── CLAUDE.md                 # Agent standards, linked as AGENTS.md
 ├── LICENSE

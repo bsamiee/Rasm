@@ -1,7 +1,7 @@
 import { type AgentStatus, atom, type EngineInterface, type HookStream, type ProcessSpawnChunk, type ProcessSpawnResult, type Register, read, update } from 'claude-code';
 import type { Routes } from '#/claude/routes';
 import type { Row } from '#/hooks/state';
-import type { WATCH_APPS } from '#/shell/programs';
+import type { WATCH_APP } from '#/shell/programs';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -18,14 +18,14 @@ interface State {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const WATCH_APPS_CLI = 'watch-apps' satisfies typeof WATCH_APPS;
+const WATCH_APP_CLI = 'watch-app' satisfies typeof WATCH_APP;
 const ROWS = atom({ plugin: 'function-hooks', key: 'rows' } as const, [], { shape: 'rows-1' });
 const TRAILING_SLASHES = /\/+$/u;
 const ERROR_LINE = /Error\b/u;
 const STDERR_HELD = 65_536;
 const WATCHED_TOOLS: readonly (readonly [tool: RegExp, bundle: string])[] = [
-    [/^mcp__rhino-mcp-platform__/u, 'com.mcneel.rhinoceros'],
-    [/^mcp__(?:mcp-for-)?blender__/u, 'org.blenderfoundation.blender'],
+    [/^mcp__plugin_rhino_rhino-mcp-platform__/u, 'com.mcneel.rhinoceros'],
+    [/^mcp__plugin_blender_(?:mcp-for-)?blender__/u, 'org.blenderfoundation.blender'],
 ];
 const TASK_OUTPUT = /\/tasks\/(?<id>[^/]+)\.output$/u;
 const ENDED: ReadonlySet<AgentStatus> = new Set(['completed', 'failed', 'killed']);
@@ -168,7 +168,7 @@ const watching = async ($: EngineInterface, state: State, bundle: string, agent:
     const seen = new Map<string, Watched>();
     state.watches.set(key, seen);
     const buffer = { partial: '' };
-    const child = $.process.spawn({ argv: [WATCH_APPS_CLI, 'watch', bundle] });
+    const child = $.process.spawn({ argv: [WATCH_APP_CLI, 'watch', bundle] });
     try {
         for await (const { stream, text } of child) {
             const lines = stream === 'stdout' ? `${buffer.partial}${text}` : buffer.partial;
@@ -192,7 +192,7 @@ const watching = async ($: EngineInterface, state: State, bundle: string, agent:
         }
         const { code } = await child.result;
         if (code !== null && code !== 0) {
-            watchFailed($)(new Error(`${WATCH_APPS_CLI} watch ${bundle} exited ${code}`));
+            watchFailed($)(new Error(`${WATCH_APP_CLI} watch ${bundle} exited ${code}`));
         }
     } finally {
         state.watches.delete(key);
@@ -359,7 +359,7 @@ const register: Register = (on) => {
         state.unjudged.clear();
         shown($, state.tracked);
         if (rows.length > 0) {
-            await $.process.run(['sh', '-c', `${WATCH_APPS_CLI} quit "$@" </dev/null >/dev/null 2>&1 &`, 'sh', ...rows.map(({ instance }) => instance)], { stdin: '' });
+            await $.process.run(['sh', '-c', `${WATCH_APP_CLI} quit "$@" </dev/null >/dev/null 2>&1 &`, 'sh', ...rows.map(({ instance }) => instance)], { stdin: '' });
         }
         await update($, ROWS, () => []);
         await $.store.delete(e.sessionId);

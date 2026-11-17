@@ -6,95 +6,72 @@ apps   = { _default = { default_tools_approval_mode = "approve" } }
 notice = { hide_full_access_warning = true }
 
 [mcp_servers]
-arena               = { url = "https://mcp.are.na/mcp", enabled = false }
 atelier             = { default_tools_approval_mode = "approve", url = "http://localhost:7490/" }
-atuin               = { default_tools_approval_mode = "approve", command = "atuin", args = ["mcp"] }
 claudeCodeDocs      = { default_tools_approval_mode = "approve", url = "https://code.claude.com/docs/mcp" }
-context7            = { default_tools_approval_mode = "approve", url = "https://mcp.context7.com/mcp?research_preview=1", bearer_token_env_var = "CONTEXT7_API_KEY" }
-deepwiki            = { default_tools_approval_mode = "approve", url = "https://mcp.deepwiki.com/mcp", supports_parallel_tool_calls = true }
-exa                 = { default_tools_approval_mode = "approve", url = "https://mcp.exa.ai/mcp?tools=web_fetch_exa,web_search_advanced_exa,agent_run", env_http_headers = { x-api-key = "EXA_API_KEY" } }
-lldb                = { default_tools_approval_mode = "approve", command = "xcrun", args = ["lldb-mcp"], startup_timeout_sec = 20, tool_timeout_sec = 120 }
 nx                  = { default_tools_approval_mode = "approve", command = "mcp-muxer", args = ["--", "nx-mcp", "--disableTelemetry"], supports_parallel_tool_calls = true }
 openaiDeveloperDocs = { default_tools_approval_mode = "approve", url = "https://developers.openai.com/mcp" }
 voicebox            = { default_tools_approval_mode = "approve", url = "http://127.0.0.1:17493/mcp/", http_headers = { X-Voicebox-Client-Id = "codex" } }
-xcode               = { default_tools_approval_mode = "approve", command = "xcrun", args = ["mcpbridge"] }
-
-[mcp_servers.ast-grep]
-default_tools_approval_mode  = "approve"
-command                      = "mcp-muxer"
-args                         = ["--env", "AST_GREP_PATH=ast-grep --custom-languages allow", "--", "ast-grep-server", "--config", "sgconfig.yml"]
-supports_parallel_tool_calls = true
-
-[mcp_servers.binlog]
-default_tools_approval_mode  = "approve"
-command                      = "mcp-muxer"
-args                         = ["--per", "user", "--env", "DOTNET_GCConserveMemory=5", "--env", "DOTNET_CLI_TELEMETRY_OPTOUT=1", "--", "binlog-mcp"]
-disabled_tools               = ["stop", "stop_instance"]
-supports_parallel_tool_calls = true
-
-[mcp_servers.nuget]
-default_tools_approval_mode = "approve"
-command                     = "mcp-muxer"
-args                        = ["--per", "user", "--env", "DOTNET_GCConserveMemory=5", "--env", "DOTNET_CLI_TELEMETRY_OPTOUT=1", "--", "nuget-mcp-server"]
-
-[mcp_servers.roslyn-codelens]
-default_tools_approval_mode = "approve"
-command                     = "mcp-muxer"
-args                        = ["--env", "DOTNET_GCConserveMemory=5", "--env", "DOTNET_CLI_TELEMETRY_OPTOUT=1", "--env", "DOTNET_ROLL_FORWARD=Major", "--", "roslyn-codelens-mcp"]
-disabled_tools              = ["load_solution", "unload_solution", "set_active_solution"]
-
-[mcp_servers.github]
-default_tools_approval_mode = "approve"
-url                         = "https://api.githubcopilot.com/mcp/"
-bearer_token_env_var        = "GH_PROJECTS_TOKEN"
-http_headers                = { X-MCP-Toolsets = "context,repos,issues,pull_requests,actions,git,dependabot,code_security,projects,labels,users,github_support_docs_search", X-MCP-Features = "file_blame,issue_dependencies,csv_output,mcp_apps_disable_form_deferral,duplicate_detection" }
 
 [mcp_servers.illustrator]
 url                 = "http://localhost:18412/v1/mcp"
-http_headers_helper = '''prefs=$(jq -r --arg version "$(watch-apps find com.adobe.illustratorBeta | jq -r 'first(.[][]).version')" 'select(has($version)) | input_filename | sub("\\.runConfig$"; "Adobe Illustrator Prefs")' "$HOME"/Library/Preferences/Adobe\ Illustrator*Settings/*/.runConfig) && rg -o '/AuthToken \[ [0-9]+[[:space:]]+([0-9a-f[:space:]]+)\]' -r '$1' "$prefs" | tr -d ' \t\n' | xxd -r -p | jq -R '{Authorization: "Bearer \(.)"}' '''
-
-[mcp_servers.blender]
-default_tools_approval_mode = "approve"
-command                     = "mcp-muxer"
-args                        = ["--per", "user", "--env", "BLENDER_MCP_PORT=9877", "--", "blender-mcp"]
-tool_timeout_sec            = 600
-disabled_tools              = [
-    "execute_blender_code_for_cli",
-    "get_blendfile_summary_datablocks_for_cli",
-    "get_blendfile_summary_missing_files_for_cli",
-    "get_blendfile_summary_of_linked_libraries_for_cli",
-    "get_blendfile_summary_path_info_for_cli",
-    "get_blendfile_summary_usage_guess_for_cli",
-]
-
-[mcp_servers.mcp-for-blender]
-default_tools_approval_mode = "approve"
-command                     = "mcp-muxer"
-args                        = ["--per", "user", "--env", "BLENDER_MCP_DISABLE_TELEMETRY=true", "--env", "MCP_FOR_BLENDER_PORT", "--env", "BLENDERMCP_SKETCHFAB_API_KEY", "--env", "BLENDERMCP_POLYPIZZA_API_KEY", "--", "mcp-for-blender"]
-env_vars                    = ["MCP_FOR_BLENDER_PORT", "BLENDERMCP_SKETCHFAB_API_KEY", "BLENDERMCP_POLYPIZZA_API_KEY"]
-tool_timeout_sec            = 600
-
-[mcp_servers.rhino-mcp-platform]
-default_tools_approval_mode = "approve"
-command                     = "mcp-muxer"
-args                        = ["--per", "user", "--env", "RHINO_MCP_DEFAULT_VERSION=9", "--", "rhino-mcp-router"]
-tool_timeout_sec            = 600
-disabled_tools              = [
-    "run_python",
-    "g1_apply_graph",
-    "g1_clear_canvas",
-    "g1_connect",
-    "g1_connect_many",
-    "g1_delete_component",
-    "g1_describe_component",
-    "g1_get_canvas_graph",
-    "g1_place_component",
-    "g1_place_slider",
-    "g1_search_components",
-    "g1_solve_graph",
-    "g1_start",
-]
+http_headers_helper = '''prefs=$(jq -r --arg version "$(watch-app find com.adobe.illustratorBeta | jq -r 'first(.[][]).version')" 'select(has($version)) | input_filename | sub("\\.runConfig$"; "Adobe Illustrator Prefs")' "$HOME"/Library/Preferences/Adobe\ Illustrator*Settings/*/.runConfig) && rg -o '/AuthToken \[ [0-9]+[[:space:]]+([0-9a-f[:space:]]+)\]' -r '$1' "$prefs" | tr -d ' \t\n' | xxd -r -p | jq -R '{Authorization: "Bearer \(.)"}' '''
 
 [hooks]
-SessionStart = [{ hooks = [{ type = "command", command = "mise daemons register && mise exec -- pitchfork project enter --pid \"$PPID\"" }] }]
-PreToolUse = [{ matcher = "^Bash$", hooks = [{ type = "command", command = "mise exec -- node \"$(git rev-parse --show-toplevel)/plugins/function-hooks/hook.ts\" codex", timeout = 30 }] }]
+SessionStart = [
+    { hooks = [{ type = "command", command = "mise daemons register && mise exec -- pitchfork project enter --pid \"$PPID\"" }] },
+    { hooks = [{ async = true, command = "/etc/profiles/per-user/bardiasamiee/bin/zellij-agent-resume codex", timeout = 10, type = "command" }] },
+]
+PreToolUse   = [
+    { matcher = "collaborationspawn_agent|collaborationfollowup_task|collaborationsend_message", hooks = [{ command = '''bash -euo pipefail -c '
+input="$(cat)"
+jq --slurpfile meta <(head -n 1 "$(jq -r ".transcript_path // \"/dev/null\"" <<<"$input")") "$1" <<<"$input"
+' -- '
+    def parent: sub("/[^/]+$"; "");
+    (first($meta[].payload.source | objects | .subagent | objects | .thread_spawn | objects)
+        // {agent_path: "/root"}) as $self
+    | ((.tool_input | objects) // {}) as $call
+    | (($call.target // "") | if startswith("/") then . else "\($self.agent_path)/\(.)" end) as $target
+    | first(
+        (select(.tool_name | endswith("spawn_agent"))
+            | select(($call.fork_turns // "") | tostring | test("^\\s*none\\s*$"; "i") | not)
+            | "Set `fork_turns` to \"none\" and put necessary context in the brief"),
+        (select(.tool_name | endswith("followup_task"))
+            | select(($target | parent) != $self.agent_path)
+            | "`followup_task` reaches only an agent you spawned: a result returns to the spawning agent"),
+        (select(.tool_name | endswith("send_message"))
+            | select(($target | parent) != $self.agent_path and ($self.agent_path | startswith($target + "/") | not))
+            | "`send_message` reaches only your ancestors and the agents you spawned. Report boundary crossings upward")
+    )
+    | {hookSpecificOutput: {hookEventName: "PreToolUse", permissionDecision: "deny", permissionDecisionReason: .}}
+'
+''', timeout = 10, type = "command" }] },
+    { matcher = "^Bash$", hooks = [{ type = "command", command = "mise exec -- node \"$(git rev-parse --show-toplevel)/plugins/function-hooks/hook.ts\" codex", timeout = 30 }] },
+    { matcher = "^Bash$", hooks = [{ command = "/etc/profiles/per-user/bardiasamiee/bin/atuin hook codex", timeout = 10, type = "command" }] },
+    { hooks = [{ command = "/Users/bardiasamiee/.git-ai/bin/git-ai checkpoint codex --hook-input stdin", type = "command" }] },
+]
+PostToolUse  = [
+    { matcher = "^Bash$", hooks = [{ command = "/etc/profiles/per-user/bardiasamiee/bin/atuin hook codex", timeout = 10, type = "command" }] },
+    { hooks = [{ command = "/Users/bardiasamiee/.git-ai/bin/git-ai checkpoint codex --hook-input stdin", type = "command" }] },
+]
+Stop         = [{ hooks = [{ command = "/Users/bardiasamiee/.git-ai/bin/git-ai checkpoint codex --hook-input stdin", type = "command" }] }]
+SessionEnd   = [{ hooks = [{ command = "/etc/profiles/per-user/bardiasamiee/bin/zellij-agent-resume codex", timeout = 3, type = "command" }] }]
+
+[plugins]
+"blender@rasm"       = { enabled = true }
+"dotnet@rasm"        = { enabled = true }
+"msbuild@rasm"       = { enabled = true }
+"python@rasm"        = { enabled = true }
+"uxp@rasm"           = { enabled = true }
+"orchestration@rasm" = { enabled = true }
+"swift@rasm"         = { enabled = true }
+"search@rasm"        = { enabled = true }
+"rhino@rasm"         = { enabled = true }
+"typescript@rasm"    = { enabled = true }
+"rust@rasm"          = { enabled = true }
+"cpp@rasm"           = { enabled = true }
+"delegate@rasm"      = { enabled = true }
+"web@rasm"           = { enabled = true }
+"tool@rasm"          = { enabled = true }
+
+[marketplaces]
+rasm = { source = "./", source_type = "local" }

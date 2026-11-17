@@ -1,0 +1,184 @@
+---
+name: host
+description: "Use when driving Blender or reading bpy members from the installed build, covering host control and installed-extension workflows"
+---
+
+# [BLENDER_HOST]
+
+Covers MCP-driven GUI sessions, background runs, extension installs, logs, and evaluation runs of the `blender` executable on `PATH`, with workflows installed extensions serve. Use `blender:coding` for code a session or run executes.
+
+[REFERENCES]:
+- [01]-[GIS_SITE](references/gis-site.md): Georeferenced scenes, terrain, imagery, OSM, point clouds, and sun placement
+- [02]-[DRAFTING](references/drafting.md): Sketches, profiles, sheet cameras, linework, dimensions, and drawing output
+- [03]-[BIM](references/bim.md): IFC projects, elements, properties, queries, drawings, and exchange through Bonsai
+- [04]-[PARAMETRIC](references/parametric.md): Sverchok trees, formula nodes, tree code, VI-Suite analyses, topology optimization, and pin solves
+- [05]-[INTERCHANGE](references/interchange.md): Rhino, STEP, DXF, 3ds Max, mesh, and SVG imports, Rhino exports, and attribute tables
+
+## [01]-[TOOL_INDEX]
+
+Server `blender` reaches the GUI through extension `bl_ext.blender_lab.mcp` on port 9877 and holds every tool not marked `on mcp-for-blender`, and server `mcp-for-blender` through add-on `blender_mcp` on port 9876:
+
+| [INDEX] | [TOOL]                                                    | [USE_WHEN]                                                    |
+| :-----: | :-------------------------------------------------------- | :------------------------------------------------------------ |
+|  [01]   | `get_blendfile_summary_path_info`           | "Which file is open?" / "Does it hold unsaved changes?"       |
+|  [02]   | `get_blendfile_summary_datablocks`          | "How many data-blocks of each type does the file hold?"       |
+|  [03]   | `get_blendfile_summary_missing_files`       | "Which external files fail to resolve?"                       |
+|  [04]   | `get_blendfile_summary_of_linked_libraries` | "Which libraries does the file link?"                         |
+|  [05]   | `get_objects_summary`                       | "What does the collection tree hold?"                         |
+|  [06]   | `get_object_detail_summary`                 | "What modifiers, constraints, and materials does it hold?"    |
+|  [07]   | `get_screenshot_of_window_as_json`          | "Which areas, mode, and selection does the main window show?" |
+|  [08]   | `get_screenshot_of_window_as_image`         | "Is a popup, prompt, or splash screen open?"                  |
+|  [09]   | `get_screenshot_of_area_as_image`           | "What does this one editor show?"                             |
+|  [10]   | `look` on `mcp-for-blender`                              | "What do these objects look like now?"                        |
+|  [11]   | `jump_to_tab_by_name`                       | "Show the user this workspace"                                |
+|  [12]   | `jump_to_tab_by_space_type`                 | "Show the user this editor"                                   |
+|  [13]   | `jump_to_view3d_object_by_name`             | "Frame this object in the viewport"                           |
+|  [14]   | `search_manual_docs`                        | "How does this feature or workflow work?"                     |
+|  [15]   | `execute_blender_code`                      | "Read or edit live state no other tool covers"                |
+|  [16]   | `get_addon_status` on `mcp-for-blender`                  | "Which asset and model sources are on?"                       |
+|  [17]   | `search_assets` on `mcp-for-blender`                     | "Find an HDRI, texture, or model in an online library"        |
+|  [18]   | `import_asset` on `mcp-for-blender`                      | "Bring a found asset into the scene"                          |
+|  [19]   | `generate_3d` on `mcp-for-blender`                       | "Generate a model from a prompt or image"                     |
+
+Pictures come from the source that draws current state:
+- `look` draws offscreen at call time with `target` naming objects, else startup file's 1828.8 m `Ground` fills the frame
+- `look` `mode` `frames` frames target at its current-frame position, and `view` `camera` on a camera covering the path reads motion
+- Window and area images show the last drawn frame, for popups and layout
+- State reads come from data or `look`
+- Node trees read as data (`nodes`, `links`, `interface.items_tree`)
+- `jump_to_view3d_object_by_name` sets Object Mode, replaces selection and active object, and leaves camera view
+- Writing `region_3d.view_location` and `view_distance` on a 3D view frames an object with selection and mode kept
+
+## [02]-[SESSION]
+
+- Inspect UI, logs, and crash reports, resolve dialogs and errors, discard untitled and scratch work, save named files in place, decline submission
+
+Sessions open in order:
+1. `lsof -a -nP -iTCP:9876-9877 -sTCP:LISTEN` names the GUI pid
+2. With no listener, open Blender with `PYTHONPYCACHEPREFIX` and `--python-use-system-env`
+3. `get_blendfile_summary_path_info` names the open file and its `is_dirty` state
+4. `get_addon_status` on `mcp-for-blender` answers `"source": "native"`, or `"error"` while replacing a quit GUI's socket, `native` on its next call
+
+- Files outside the task close through `bpy.ops.wm.read_homefile()`, after `bpy.ops.wm.save_mainfile()` for a named file
+
+Quitting saves preferences, the last GUI to quit overwriting what others saved. Restore preferences a task GUI changed before quitting it. Blender draws menus and dialogs inside its windows, its Accessibility menu bar holding the Blender and Window menus alone. Quitting an edited file prints `refused` under a save prompt only `capture` shows, and `bpy.ops.wm.read_homefile()` before the quit discards a task GUI's edits.
+
+Script-driven task GUIs run a runner script:
+- `watch-app launch org.blenderfoundation.blender --wait --environment BLENDER_USER_RESOURCES=<folder> TMPDIR=<folder> --arguments --no-window-focus --python-use-system-env --python <runner.py>` runs one on a fresh profile without focus and returns its exit status once it quits
+- Runners register a persistent `bpy.app.timers` function that runs one step per call, modal jobs and drawing advancing between steps
+- `--enable-event-simulate` enables `window.event_simulate` and discards real keyboard and mouse input, the call otherwise raising `RuntimeError`
+- Runners end with `bpy.ops.wm.quit_blender()` under a `temp_override` naming the first window
+
+Configured startup files open with:
+- Data in meters under an imperial feet display
+- Unselectable `Ground` plane
+- Working directory `<repo>/.artifacts/blender/`
+- AgX exposure of -5.3, under which `render.opengl` and Workbench render near black and Cycles and EEVEE render daylight
+- Load UI off, under which `wm.read_homefile()` keeps session workspaces and screens and `wm.open_mainfile()` repeats the previous load's `load_ui`
+
+## [03]-[CALLS]
+
+`execute_blender_code` runs Python inside the GUI process:
+- Calls on either server run one at a time on the GUI main thread
+- With each call's namespace holding `result = {}` alone, code imports `bpy` and every module it uses
+- `result` returns a dict of names, numbers, and lists, IDs and `mathutils` values returning as their `repr`
+- Each call sets `window` and `screen` and leaves `area` and `region` None
+- Operators reading an area, space, node, or material run under a `temp_override` naming them
+- Calls push no undo step and leave `is_dirty` as it was
+- Answers hold prints and every operator report line in `stdout` and an `ERROR` report's traceback in `message`
+- Python warnings reach an answer through `warnings.catch_warnings(record=True)` with `simplefilter("always")`
+- File paths are absolute, relative paths resolving under the working directory
+- Operators run in default exec form
+- Operators returning `RUNNING_MODAL` (invoked tools, timer-driven jobs) run on after the call, and later calls read progress from their data
+- Python operators with a raising `execute` finish as `FINISHED` to window manager, the call raising `RuntimeError`
+
+## [04]-[MODAL_STATE]
+
+Window reads name what Blender shows before a call that depends on it:
+- `get_screenshot_of_window_as_json` excludes popups
+- `bpy.context.window_manager.windows` lists each window's areas and `modal_operators`
+
+| [INDEX] | [STATE]         | [READS_AS]                                        | [RESOLUTION]                                       |
+| :-----: | :-------------- | :------------------------------------------------ | :------------------------------------------------- |
+|  [01]   | File browser    | Window with one `FILE_BROWSER` area, opener modal | `file.cancel()` under its window, area, and region |
+|  [02]   | Running tool    | `modal_operators` non-empty                       | Complete or cancel through UI                      |
+|  [03]   | Prompt or popup | Window image                                      | Read dialog and select action                      |
+|  [04]   | Running job     | `window_manager.is_interface_locked` true         | Data writes after it reads false                   |
+
+## [05]-[BACKGROUND_RUNS]
+
+Arguments apply left to right, `--python-exit-code` and the `.blend` before `--python`, and `-o`, `-F`, `-E` before `-f`:
+
+```bash
+blender --python-use-system-env --background <file.blend> -o <absolute path> -E <engine> --python-exit-code 1 --python <absolute script.py> -- <args>
+```
+
+Background runs follow host rules:
+- Runs using installed extensions start `blender` on the user's profile, every other run on a fresh profile ([09])
+- Tracebacks exit 0 without `--python-exit-code`, and `sys.exit(<n>)` exits `<n>`
+- Background runs hold no event loop, and `bpy.app.timers` and msgbus callbacks never run
+- Modal operators return `RUNNING_MODAL` without stepping, and invoke-only operators return `PASS_THROUGH`
+- Handlers (render and frame handlers included) and update callbacks run on the main thread and accept data writes
+- `load_post` reaches an extension at startup when preferences enable it, or when a `.blend` argument follows `--addons`
+- Sculpt mode entry and sculpt edits (brush strokes, masks, face sets, filters) crash until `bpy.ops.ed.undo_push()` creates an undo stack
+- `render.opengl` raises `RuntimeError`
+- `wm.read_homefile(use_empty=True)` empties the scene and keeps loaded extensions
+
+Background renders use named files saved in place, untitled and scratch scenes render in GUI without saving:
+1. `bpy.ops.wm.save_mainfile()` in the GUI
+2. `blender --background <file.blend> -o <absolute dir>/<stem>_#### -f <frame>` as a background command logs `Saved: '<path>'`
+
+## [06]-[MEMBERS]
+
+Member, signature, enum, and operator property facts come from the installed build, each printed by `blender --background --factory-startup --python-expr "import bpy; print(<expr>)"`, extension members by the same run without `--factory-startup`:
+- `<Type>.bl_rna.properties["<name>"]` reads `type`, `fixed_type`, `is_readonly`, `enum_items`, and `array_dimensions`
+- `<Type>.bl_rna.functions["<name>"].parameters` lists a method's parameters, `bpy.ops.<module>.<op>.get_rna_type().properties` an operator's
+- `<function>.__doc__` prints the signature of a Python-level function (`bpy.app.timers.register`, `bpy.utils.*`)
+
+Searches find code using a member:
+- `rg <member> <scripts>` finds stock code, `bpy.utils.system_resource("SCRIPTS")` printing `<scripts>`
+- `rg` over `~/Library/Application Support/Blender/<version>/extensions` and `scripts/addons` finds extension code
+
+## [07]-[EXTENSIONS]
+
+`nx build <project>` writes an extension project's archives under `.artifacts/distribution/<project>`, and `nx install <project>` installs the one for this platform through `install-file`.
+
+Repository `user_default` holds extensions installed from a file, remote repositories the rest:
+- `install-file` over an installed extension replaces its folder and modules whatever the archive version
+- `blender --command extension remove user_default.<id>` uninstalls with no GUI running
+- `install-file` exits 0 on install and on a platform or version refusal, and 1 on a failed `--enable`
+- `install-file` output's `STATUS Installed "<id>"`, `STATUS Reinstalled "<id>"`, or `ERROR <id>: <reason>` line states the result
+- `install` and `install-file` save preferences an enable or asset library changed, and `remove`, `repo-add`, and `repo-remove` always save
+- `--no-prefs` skips preference saves for a command that changes extension files and leaves the enabled set as found
+- Calls reach extension modules through `importlib.import_module("bl_ext.<repository>.<id>.<module>")`
+- Calls reach legacy add-ons (`sverchok`, `vi_suite`, `BlenderGIS`) by package name
+
+## [08]-[LOGS]
+
+Each source writes its log to one place:
+
+| [INDEX] | [SOURCE]           | [OUTPUT]                                                                                               |
+| :-----: | :----------------- | :----------------------------------------------------------------------------------------------------- |
+|  [01]   | Background run     | Calling shell                                                                                          |
+|  [02]   | `build`, `install` | Nx task output, native install output forwarded from the GUI                                           |
+|  [03]   | Task GUI           | `execute_blender_code` answers, Info editor lines in `window_manager.reports`                          |
+|  [04]   | Crash, Blender     | `blender.crash.txt` in `filepaths.temporary_directory`, else process `TMPDIR`                          |
+|  [05]   | Extension logger   | `logs/<extension id>.log`, `logs/<command id>.log` per background command, under `extension_path_user` |
+|  [06]   | Queue run          | `runs/<key>.log` under `extension_path_user`, output of render and farm programs as JSON records       |
+
+Log reads follow host rules:
+- Blender Python reads Python variables (`PYTHONUNBUFFERED`, `PYTHONPYCACHEPREFIX`) under `--python-use-system-env` alone, prints reaching the log per line and bytecode `.cache/pycache`
+- `--log "<categories>"` selects log categories, and `--log-level trace` prints every level
+- `--log-level trace --log "context"` prints each context member an operator read, tagged with the calling script line
+- `--log operator --log-level debug --log-file <file>` logs operator calls, `rg -o 'Finished (bpy\.ops\..*)' -r '$1' <file>` printing each runnable
+- Operator logs at `<folder>/host/blender.log` join the timeline of `watch-app watch --record <folder>`
+- Crash reports read before the next run starts, concurrent Blenders sharing one file
+- `Cannot connect to Blender` answers mean no GUI listens on the answering server's port
+
+## [09]-[EVALUATION]
+
+Blender resolves user folders through `BLENDER_USER_CONFIG|SCRIPTS|EXTENSIONS|DATAFILES`, then `BLENDER_USER_RESOURCES` naming an existing base folder; unresolved lookups have no profile fallback. A fresh profile is an empty folder those variables name:
+- `folder=$(mktemp -d) && BLENDER_USER_RESOURCES=$folder TMPDIR=$folder blender --python-use-system-env <arguments>` runs Blender on an empty profile and prints its output
+- `--python-use-system-env` before other arguments reads `PYTHONPYCACHEPREFIX` and `PYTHONUSERBASE` from the process
+- Fresh profiles load Blender's bundled interpreter alone, and repository packages reach a run as an extension `nx install <project>` installed on the user's profile ([07])
+- Crash reports sit in the folder's root

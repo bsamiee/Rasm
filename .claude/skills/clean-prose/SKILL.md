@@ -188,7 +188,7 @@ Tables use bracket headers and an `[INDEX]` column:
 
 ## [05]-[COMMENTS]
 
-Code files hold section dividers and tool directives alone, laid out by `CLAUDE.md` file organization. Comments in config files and Markdown state intent or constraint their content cannot show:
+Code files hold section dividers and tool directives alone, laid out by the file organization of the project instructions. Comments in config files and Markdown state intent or constraint their content cannot show:
 - Sentences stay whole within language line length; intent needing another line goes
 - Consecutive full-line comments merge into one, a comment that repeats its content goes
 - Inline comments stay and get the same removals
@@ -214,13 +214,11 @@ Rewrite of an existing file:
 
 Guidance and message edits rewrite or delete owning lines and widen categories for new cases. Appended restatements are regressions. New text uses direct positive statements without framing or validation language.
 
-`scripts/prose.py` fixes format Markdown blocks and tables, normalize dividers, delete empty sections and lone subsections, and set one blank line beside each divider except gaps the file's formatter owns. Reports cover code comments outside dividers and directives, sections out of `CLAUDE.md` table order, and wording.
+`scripts/prose.py` fixes format Markdown blocks and tables, normalize dividers, delete empty sections and lone subsections, and set one blank line beside each divider except gaps the file's formatter owns. Reports cover code comments outside dividers and directives, sections out of the section order the project instructions set, and wording.
 
 Run `scripts/prose.py`: `check` reports findings at their lines on disk, `fix` writes fixes and reports remaining findings:
 
-`<skill-dir>` is this skill's directory, resolved from its loaded `SKILL.md` path.
-
 ```bash
-uv run --locked --script "<skill-dir>/scripts/prose.py" check <path>...
-uv run --locked --script "<skill-dir>/scripts/prose.py" fix <path>...
+uv run --locked --script scripts/prose.py check <path>...
+uv run --locked --script scripts/prose.py fix <path>...
 ```
