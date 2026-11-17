@@ -42,7 +42,7 @@ async fn sessions_share_one_server_per_key() {
         let state = assert_ok!(isolated.state(&[]).await);
         assert_eq!(state.cache, isolated.folder("cache"), "the state report names the overridden cache folder");
         assert!(entries(isolated.folder("cache")) >= 1, "stored handshakes sit in the overridden cache folder");
-        assert!(entries(isolated.folder("logs")) >= 1, "log files sit in the overridden log folder");
+        assert!(entries(isolated.folder("logs")) >= 1, "per-process log files sit in the overridden output folder");
         assert!(entries(isolated.folder("r")) >= 2, "socket and lock sit in the overridden runtime folder");
     });
     assert_ok!(passed.await, "a failed test keeps its folder");

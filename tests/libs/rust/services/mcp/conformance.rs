@@ -11,7 +11,7 @@ use rstest::rstest;
 async fn conforms(scenario: &str, revision: &str) {
     let passed = Folder::scoped(Path::new(env!("CARGO_TARGET_TMPDIR")), async |folder: &Folder| {
         let (shared, _app) = assert_ok!(everything().await);
-        let (url, _stop) = assert_ok!(served(move || shared.connection()).await);
+        let (url, _stop) = assert_ok!(served(&shared).await);
         let baseline = Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/expected-failures.yaml"));
         let outcome = assert_ok!(conformed(&url, scenario, revision, baseline, folder.path()).await);
         assert_eq!((outcome.code, outcome.checks.is_empty()), (Some(0), false), "{scenario} at {revision}:\n{}", outcome.output);

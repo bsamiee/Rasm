@@ -1,6 +1,5 @@
 #![expect(deprecated, reason = "initialize sessions set and filter logging levels, which SEP-2577 deprecates")]
 
-use core::cmp;
 use core::sync::atomic::{AtomicUsize, Ordering};
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::error::Report;
@@ -10,8 +9,9 @@ use bytes::Bytes;
 use futures::FutureExt as _;
 use futures::future::BoxFuture;
 use futures::stream::FuturesUnordered;
+use itertools::Itertools as _;
 use opentelemetry_semantic_conventions::attribute::EXCEPTION_MESSAGE;
-use rmcp::model::{JsonRpcVersion2_0, LoggingLevel};
+use rmcp::model::{ClientCapabilities, JsonRpcVersion2_0, LoggingLevel};
 use serde::{Deserialize, Serialize};
 use serde_json::value::RawValue;
 use tokio::sync::mpsc;
@@ -19,7 +19,7 @@ use tokio_util::sync::CancellationToken;
 use tokio_util::time::delay_queue;
 
 use super::Key;
-use super::jsonrpc::{Message, decode, encoded};
+use super::jsonrpc::{Message, Method, decode, encoded};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -35,12 +35,19 @@ pub(super) enum Effect {
 // --- [MODELS] --------------------------------------------------------------------------
 
 #[derive(Debug)]
+pub(super) struct Client {
+    pub(super) capabilities: Arc<ClientCapabilities>,
+    pub(super) context: Bytes,
+}
+
+#[derive(Debug)]
 pub(super) struct Call {
     pub(super) session: u64,
     pub(super) id: Bytes,
     pub(super) token: Option<Bytes>,
     pub(super) key: Key,
     pub(super) effect: Effect,
+    pub(super) capabilities: Option<Arc<ClientCapabilities>>,
     pub(super) asked: bool,
 }
 
@@ -58,12 +65,14 @@ pub(super) struct Session {
     pub(super) cut: CancellationToken,
     pub(super) initialized: bool,
     pub(super) level: Option<LoggingLevel>,
+    pub(super) client: Option<Client>,
 }
 
 #[derive(Debug)]
 pub(super) struct Held {
     pub(super) id: Bytes,
     pub(super) line: Bytes,
+    pub(super) method: Method,
     pub(super) candidates: BTreeSet<u64>,
 }
 
@@ -80,7 +89,7 @@ impl Sessions {
     pub(super) fn join(&mut self, session: u64, out: mpsc::Sender<Bytes>, cut: CancellationToken) {
         let gone = out.clone();
         self.left.push(async move { gone.closed().map(|()| session).await }.boxed());
-        self.joined.insert(session, Session { out, cut, initialized: false, level: None });
+        self.joined.insert(session, Session { out, cut, initialized: false, level: None, client: None });
     }
 
     pub(super) fn deliver(&self, session: u64, chunks: impl IntoIterator<Item = Bytes>) {
@@ -182,8 +191,7 @@ impl Subscribers {
         match effect {
             Effect::Subscribe(uri) => self.resources.get_mut(uri).map(|held| held.insert(session)).is_some(),
             Effect::Unsubscribe(uri) => self.resources.get_mut(uri).filter(|held| held.len() > 1 || !held.contains(&session)).map(|held| held.remove(&session)).is_some(),
-            Effect::Level(level) => self.level.is_some_and(|held| held as u8 <= *level as u8),
-            Effect::Plain | Effect::Listen => false,
+            Effect::Plain | Effect::Level(_) | Effect::Listen => false,
         }
     }
 
@@ -191,9 +199,19 @@ impl Subscribers {
         match (effect, answered) {
             (Effect::Subscribe(uri), true) => drop(self.resources.entry(uri).or_default().insert(session)),
             (Effect::Unsubscribe(uri), _) => drop(self.resources.extract_if(.., |held, sessions| *held == uri && sessions.remove(&session) && sessions.is_empty()).count()),
-            (Effect::Level(level), true) => self.level = Some(self.level.map_or(level, |held| cmp::min_by_key(held, level, |held| *held as u8))),
-            (Effect::Subscribe(_) | Effect::Level(_), false) | (Effect::Plain | Effect::Listen, _) => {}
+            (Effect::Subscribe(_), false) | (Effect::Plain | Effect::Level(_) | Effect::Listen, _) => {}
         }
+    }
+
+    pub(super) fn leveled(&mut self, sessions: &BTreeMap<u64, Session>) -> Option<LoggingLevel> {
+        let least = sessions.values().filter_map(|session| session.level).min_by_key(|level| *level as u8);
+        let target = match (least, self.level) {
+            (Some(least), held) if held != Some(least) => Some(least),
+            (None, Some(held)) if held != LoggingLevel::Emergency => Some(LoggingLevel::Emergency),
+            (Some(_) | None, _) => None,
+        };
+        self.level = target.or(self.level);
+        target
     }
 
     pub(super) fn leave(&mut self, session: u64) -> Vec<String> { self.resources.extract_if(.., |_, held| held.remove(&session) && held.is_empty()).map(|(uri, _)| uri).collect() }
@@ -222,18 +240,12 @@ where T: Deserialize<'de> {
     }
 }
 
-pub(super) fn splice(line: &Bytes, first: (&[u8], Bytes), second: Option<(&[u8], Bytes)>) -> impl Iterator<Item = Bytes> + use<> {
-    let span = |part: &[u8]| line.subslice_range(part).map(|range| (range.start, range.end));
-    let whole = || [Some(line.clone()), None, None, None, None];
-    let chunks = match (span(first.0), second.as_ref().map(|(part, _)| span(part))) {
-        (Some((start, end)), None) => [Some(line.slice(..start)), Some(first.1), Some(line.slice(end..)), None, None],
-        (Some(one), Some(Some(two))) => {
-            let (replacing, replaced) = second.map_or_else(|| (first.1.clone(), first.1.clone()), |(_, replacement)| (first.1.clone(), replacement));
-            let [(start, end, earlier), (next, last, later)] =
-                if one.0 <= two.0 { [(one.0, one.1, replacing), (two.0, two.1, replaced)] } else { [(two.0, two.1, replaced), (one.0, one.1, replacing)] };
-            if end <= next { [Some(line.slice(..start)), Some(earlier), Some(line.slice(end..next)), Some(later), Some(line.slice(last..))] } else { whole() }
-        }
-        (None, _) | (_, Some(None)) => whole(),
-    };
-    chunks.into_iter().flatten()
+pub(super) fn splice<'part>(line: &Bytes, edits: impl IntoIterator<Item = (&'part [u8], Bytes)>) -> Vec<Bytes> {
+    let located = edits.into_iter().filter_map(|(part, replacement)| line.subslice_range(part).map(|range| (range, replacement))).sorted_unstable_by_key(|(range, _)| range.start);
+    let (mut chunks, end) = located.fold((Vec::new(), 0), |(mut chunks, at), (range, replacement)| {
+        chunks.extend([line.slice(at..range.start), replacement].into_iter().filter(|chunk| !chunk.is_empty()));
+        (chunks, range.end)
+    });
+    chunks.extend(Some(line.slice(end..)).filter(|tail| !tail.is_empty()));
+    chunks
 }

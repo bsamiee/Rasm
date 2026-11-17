@@ -9,7 +9,7 @@ use std::process::Stdio;
 use std::sync::Arc;
 
 use futures::{FutureExt as _, StreamExt as _, stream};
-use rasm_mcp::{CompletionRouter, Elicitation, Logging, McpError, Progress, ResourceRouter, Router, Routers, Server, Settings, Shared, decode};
+use rasm_mcp::{CompletionRouter, Elicitation, Handle, Logging, McpError, Progress, ResourceRouter, Router, Routers, Server, Settings, Shared, Subscribe, decode};
 use rmcp::handler::server::common::Extension;
 use rmcp::handler::server::wrapper::{Json, Parameters};
 use rmcp::model::{
@@ -18,8 +18,8 @@ use rmcp::model::{
     ResourceTemplate, ResourceUpdatedNotificationParam, Role, SamplingMessage, ServerNotification,
 };
 use rmcp::service::{ClientLifecycleMode, ClientServiceExt as _, NotificationContext, RequestContext, RunningService, ServiceExt as _};
+use rmcp::transport::StreamableHttpServerConfig;
 use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
-use rmcp::transport::{StreamableHttpServerConfig, StreamableHttpService};
 use rmcp::{ClientHandler, ErrorData, RoleClient, RoleServer, ServerHandler, Service, prompt, prompt_router, tool, tool_router};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -286,12 +286,15 @@ pub struct Everything {
     pub routers: Routers<Self>,
     pub entered: Arc<Semaphore>,
     pub cancelled: Arc<Semaphore>,
+    pub kept: Arc<Semaphore>,
     pub watched: watch::Sender<u64>,
 }
 
-impl Server for Everything {}
+impl Server for Everything {
+    type State = u64;
+}
 
-#[tool_router]
+#[tool_router(vis = "pub")]
 #[prompt_router]
 impl Everything {
     #[tool(description = "Tests simple text response")]
@@ -398,6 +401,9 @@ impl Everything {
 
     #[tool(description = "Changes the prompt list")]
     fn test_trigger_prompt_change(&self) -> String {
+        let mut toggled = Self::prompt_router();
+        toggled.remove_route("test_simple_prompt");
+        self.routers.prompts(toggled);
         self.routers.prompts(Self::prompt_router());
         "prompts changed".to_owned()
     }
@@ -415,6 +421,23 @@ impl Everything {
         context.ct.run_until_cancelled(pending::<()>()).await;
         Err(ErrorData::internal_error("cancelled", None))
     }
+
+    #[tool(description = "Keeps running after the client cancels it, until the suite releases it")]
+    async fn test_kept(&self, context: RequestContext<RoleServer>) -> Result<String, ErrorData> {
+        self.entered.add_permits(1);
+        context.ct.cancelled().await;
+        self.cancelled.add_permits(1);
+        let _left = Left(Arc::clone(&self.cancelled));
+        let _released = self.kept.acquire().await.map_err(|error| ErrorData::internal_error(error.to_string(), None))?;
+        Ok("kept".to_owned())
+    }
+
+    #[tool(description = "Names the handle its call resolved and counts the calls made under that handle")]
+    fn test_handle(Extension(handle): Extension<Handle>, Extension(calls): Extension<watch::Sender<u64>>) -> String {
+        calls.send_modify(|count| *count = count.saturating_add(1));
+        format!("{handle} {}", *calls.borrow())
+    }
+
     #[prompt(name = "test_simple_prompt", description = "A simple prompt without arguments")]
     async fn test_simple_prompt(&self) -> Vec<PromptMessage> { vec![PromptMessage::new_text(Role::User, "This is a simple prompt for testing.")] }
 
@@ -530,7 +553,7 @@ pub async fn routed(notifier: broadcast::Sender<ServerNotification>) -> Result<(
         routers.prompts(Everything::prompt_router());
         routers.resources(resources)?;
         routers.completions(completions)?;
-        let app = Everything { routers, entered: Arc::new(Semaphore::new(0)), cancelled: Arc::new(Semaphore::new(0)), watched: watch::Sender::new(0) };
+        let app = Everything { routers, entered: Arc::new(Semaphore::new(0)), cancelled: Arc::new(Semaphore::new(0)), kept: Arc::new(Semaphore::new(0)), watched: watch::Sender::new(0) };
         built = Some(app.clone());
         Ok(app)
     };
@@ -578,12 +601,11 @@ where S: Service<RoleServer> + Send + 'static {
     (Wire::new(reader, writer), serving)
 }
 
-pub async fn served<S>(factory: impl Fn() -> S + Send + Sync + 'static) -> io::Result<(String, AbortOnDropHandle<io::Result<()>>)>
-where S: ServerHandler + Send + 'static {
+pub async fn served<S>(shared: &Arc<Shared<S>>) -> io::Result<(String, AbortOnDropHandle<io::Result<()>>)>
+where S: ServerHandler + Subscribe + Send + Sync + 'static {
     let listener = TcpListener::bind("127.0.0.1:0").await?;
     let address = listener.local_addr()?;
-    let config = StreamableHttpServerConfig::default().with_allowed_origins([format!("http://{address}")]).enforce_origin_validation();
-    let service = StreamableHttpService::new(move || Ok(factory()), LocalSessionManager::default().into(), config);
+    let service = shared.http(address, LocalSessionManager::default().into(), StreamableHttpServerConfig::default());
     let serving = axum::serve(listener, axum::Router::new().nest_service("/mcp", service)).into_future();
     Ok((format!("http://{address}/mcp"), AbortOnDropHandle::new(tokio::spawn(serving))))
 }

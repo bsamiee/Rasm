@@ -129,7 +129,7 @@ where
             Err(error) => return tracing::trace!({ EXCEPTION_MESSAGE } = %Report::new(&error), "line unreadable, passed through"),
         };
         let id = envelope.id.map(|id| line.slice_ref(id.get().as_bytes()));
-        if let (Some(id), Some(_)) = (&id, envelope.method) {
+        if let (Some(id), Some(_)) = (&id, &envelope.method) {
             self.pending.insert(id.clone());
         }
         match envelope.method {
@@ -151,7 +151,10 @@ where
                 | Method::Listen
                 | Method::SetLevel
                 | Method::Logged
-                | Method::Other,
+                | Method::CreateMessage
+                | Method::Elicit
+                | Method::ListRoots
+                | Method::Other(_),
             )
             | None => {}
         }

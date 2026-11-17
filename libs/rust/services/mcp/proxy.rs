@@ -84,7 +84,7 @@ pub struct Link<R, W, C> {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Key {
     pub method: Method,
-    pub name: Option<Box<str>>,
+    pub target: Option<Box<str>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

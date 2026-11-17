@@ -7,9 +7,9 @@ use bytes::{Buf as _, Bytes, BytesMut};
 use opentelemetry_semantic_conventions::attribute::EXCEPTION_MESSAGE;
 use rmcp::ErrorData;
 use rmcp::model::{
-    CallToolRequestMethod, CancelledNotificationMethod, ConstString as _, DiscoverRequestMethod, GetPromptRequestMethod, InitializeResultMethod, InitializedNotificationMethod, JsonRpcVersion2_0,
-    LoggingMessageNotificationMethod, PingRequestMethod, ProgressNotificationMethod, ResourceUpdatedNotificationMethod, SetLevelRequestMethod, SubscribeRequestMethod,
-    SubscriptionsListenRequestMethod, UnsubscribeRequestMethod,
+    CallToolRequestMethod, CancelledNotificationMethod, ConstString as _, CreateMessageRequestMethod, DiscoverRequestMethod, ElicitationCreateRequestMethod, GetPromptRequestMethod,
+    InitializeResultMethod, InitializedNotificationMethod, JsonRpcVersion2_0, ListRootsRequestMethod, LoggingMessageNotificationMethod, PingRequestMethod, ProgressNotificationMethod,
+    ResourceUpdatedNotificationMethod, SetLevelRequestMethod, SubscribeRequestMethod, SubscriptionsListenRequestMethod, UnsubscribeRequestMethod,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::value::RawValue;
@@ -21,17 +21,17 @@ use tokio_util::codec::Decoder;
 
 macro_rules! methods {
     ($($variant:ident = $name:ty,)*) => {
-        #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, SerializeDisplay, DeserializeFromStr, derive_more::IsVariant)]
+        #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, SerializeDisplay, DeserializeFromStr, derive_more::IsVariant)]
         pub enum Method {
             $($variant,)*
-            Other,
+            Other(Box<str>),
         }
 
         impl fmt::Display for Method {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 f.write_str(match self {
                     $(Self::$variant => <$name>::VALUE,)*
-                    Self::Other => "Other",
+                    Self::Other(method) => method,
                 })
             }
         }
@@ -42,7 +42,7 @@ macro_rules! methods {
             fn from_str(s: &str) -> Result<Self, !> {
                 Ok(match s {
                     $(<$name>::VALUE => Self::$variant,)*
-                    _ => Self::Other,
+                    other => Self::Other(other.into()),
                 })
             }
         }
@@ -64,6 +64,9 @@ methods! {
     Listen = SubscriptionsListenRequestMethod,
     SetLevel = SetLevelRequestMethod,
     Logged = LoggingMessageNotificationMethod,
+    CreateMessage = CreateMessageRequestMethod,
+    Elicit = ElicitationCreateRequestMethod,
+    ListRoots = ListRootsRequestMethod,
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -80,6 +83,8 @@ pub struct Meta<'line> {
     pub progress_token: Option<&'line RawValue>,
     #[serde(borrow, rename = "io.modelcontextprotocol/subscriptionId")]
     pub subscription_id: Option<&'line RawValue>,
+    #[serde(borrow, rename = "io.modelcontextprotocol/clientCapabilities")]
+    pub client_capabilities: Option<&'line RawValue>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -96,8 +101,14 @@ pub struct Params<'line> {
     pub uri: Option<&'line RawValue>,
     #[serde(borrow)]
     pub name: Option<&'line RawValue>,
+    #[serde(borrow, rename = "ref")]
+    pub reference: Option<&'line RawValue>,
     #[serde(borrow)]
     pub level: Option<&'line RawValue>,
+    #[serde(borrow)]
+    pub capabilities: Option<&'line RawValue>,
+    #[serde(borrow, rename = "clientInfo")]
+    pub client_info: Option<&'line RawValue>,
 }
 
 #[derive(Debug, Deserialize)]

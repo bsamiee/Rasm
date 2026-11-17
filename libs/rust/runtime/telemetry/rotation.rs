@@ -6,7 +6,7 @@ use std::io::{self, Write};
 use std::os::unix::fs::MetadataExt as _;
 #[cfg(windows)]
 use std::os::windows::fs::MetadataExt as _;
-use std::time::SystemTime;
+use std::process;
 
 use camino::{Utf8Path, Utf8PathBuf};
 use fs_err::{File, OpenOptions};
@@ -36,6 +36,8 @@ pub struct Rotation {
 
 #[derive(Debug)]
 pub struct RotatingFile {
+    directory: Utf8PathBuf,
+    program: String,
     path: Utf8PathBuf,
     rotation: Rotation,
     identity: Identity,
@@ -44,48 +46,40 @@ pub struct RotatingFile {
 }
 
 impl RotatingFile {
-    pub fn open(path: Utf8PathBuf, rotation: Rotation) -> io::Result<Self> {
-        path.parent().map_or(Ok(()), fs_err::create_dir_all)?;
-        let (identity, file, born) = Self::opened(&path)?;
-        Ok(Self { path, rotation, identity, file, born })
+    pub fn open(directory: Utf8PathBuf, program: String, rotation: Rotation) -> io::Result<Self> {
+        fs_err::create_dir_all(&directory)?;
+        let path = directory.join(format!("{program}.{}.log", process::id()));
+        let (identity, file) = Self::opened(&path)?;
+        Ok(Self { directory, program, path, rotation, identity, file, born: Timestamp::now() })
     }
 
-    fn lock(path: &Utf8Path) -> io::Result<File> { OpenOptions::new().create(true).append(true).open(format!("{path}.lock")) }
-
-    fn opened(path: &Utf8Path) -> io::Result<(Identity, File, Timestamp)> {
+    fn opened(path: &Utf8Path) -> io::Result<(Identity, File)> {
         let file = OpenOptions::new().create(true).append(true).open(path)?;
-        let (held, stamped) = (file.metadata()?, Self::lock(path)?.metadata()?.modified()?);
-        Ok((identity(&held), file, Timestamp::try_from(stamped).map_err(io::Error::other)?))
+        Ok((identity(&file.metadata()?), file))
     }
 
     fn rotated(&mut self, now: Timestamp) -> io::Result<()> {
-        let (Some(directory), Some(stem), extension) = (self.path.parent(), self.path.file_stem(), self.path.extension()) else { return Err(io::ErrorKind::InvalidInput.into()) };
-        let archived = |stamp: &str| self.path.with_extension(extension.map_or_else(|| stamp.to_owned(), |extension| format!("{stamp}.{extension}")));
-        let stamped = |name: &str| {
-            let rotated = match extension {
-                Some(extension) => name.strip_suffix(extension)?.strip_suffix('.')?,
-                None => name,
-            };
-            rotated.strip_prefix(stem)?.strip_prefix('.').filter(|stamp| !stamp.is_empty() && stamp.bytes().all(|digit| digit.is_ascii_digit())).map(str::to_owned)
-        };
-        let lock = Self::lock(&self.path)?;
-        lock.lock()?;
-        if Timestamp::try_from(lock.metadata()?.modified()?).map_err(io::Error::other)? == self.born {
-            if self.file.metadata()?.len() > 0 {
-                fs_err::rename(&self.path, archived(&now.as_microsecond().to_string()))?;
-            }
-            lock.set_modified(SystemTime::try_from(now).map_err(io::Error::other)?)?;
-            fs_err::read_dir(directory)?
-                .map(|entry| Ok(entry?.file_name().to_str().and_then(stamped)))
-                .filter_map(Result::transpose)
-                .collect::<io::Result<Vec<_>>>()?
-                .into_iter()
-                .sorted_unstable_by_key(|stamp| Reverse((stamp.len(), stamp.clone())))
-                .skip(self.rotation.files.get())
-                .try_for_each(|stamp| fs_err::remove_file(archived(&stamp)).or_else(|error| (error.kind() == io::ErrorKind::NotFound).ok_or(error)))?;
+        if self.file.metadata()?.len() > 0 {
+            fs_err::rename(&self.path, self.path.with_extension(format!("{}.log", now.as_microsecond())))?;
         }
-        (self.identity, self.file, self.born) = Self::opened(&self.path)?;
-        Ok(())
+        (self.identity, self.file, self.born) = Self::opened(&self.path).map(|(identity, file)| (identity, file, now))?;
+        let digits = |part: &str| !part.is_empty() && part.bytes().all(|digit| digit.is_ascii_digit());
+        let owned = |name: &str| {
+            let numbered = name.strip_prefix(self.program.as_str()).and_then(|rest| rest.strip_prefix('.')?.strip_suffix(".log"));
+            numbered.is_some_and(|numbers| numbers.split('.').count() <= 2 && numbers.split('.').all(digits))
+        };
+        let absent = |error: io::Error| (error.kind() == io::ErrorKind::NotFound).then_some(None).ok_or(error);
+        fs_err::read_dir(&self.directory)?
+            .map(|entry| {
+                let entry = entry?;
+                if entry.file_name().to_str().is_some_and(owned) { entry.metadata().and_then(|held| held.modified()).map(|modified| Some((modified, entry.path()))) } else { Ok(None) }
+            })
+            .filter_map(|held| held.or_else(absent).transpose())
+            .collect::<io::Result<Vec<_>>>()?
+            .into_iter()
+            .sorted_unstable_by_key(|(modified, _)| Reverse(*modified))
+            .skip(self.rotation.files.get())
+            .try_for_each(|(_, path)| fs_err::remove_file(path).or_else(|error| (error.kind() == io::ErrorKind::NotFound).ok_or(error)))
     }
 }
 
@@ -96,7 +90,7 @@ impl Write for RotatingFile {
         let length = match held {
             Some(held) if identity(&held) == self.identity => held.len(),
             Some(_) | None => {
-                (self.identity, self.file, self.born) = Self::opened(&self.path)?;
+                (self.identity, self.file, self.born) = Self::opened(&self.path).map(|(identity, file)| (identity, file, now))?;
                 self.file.metadata()?.len()
             }
         };

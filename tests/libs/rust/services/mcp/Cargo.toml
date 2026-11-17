@@ -41,7 +41,7 @@ rmcp                               = { workspace = true, features = ["client", "
 tracing-subscriber                 = { workspace = true }
 clap                               = { workspace = true }
 rasm-cli                           = { workspace = true }
-rasm-mcp                           = { workspace = true, features = ["proxy", "app", "telemetry"] }
+rasm-mcp                           = { workspace = true, features = ["proxy", "app", "telemetry", "http"] }
 rasm-telemetry                     = { workspace = true, features = ["process"] }
 
 [dev-dependencies]

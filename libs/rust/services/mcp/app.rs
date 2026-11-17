@@ -14,6 +14,7 @@ use derive_where::derive_where;
 use futures::future::{self, BoxFuture};
 use futures::{FutureExt as _, StreamExt as _, TryFuture, TryFutureExt as _};
 use itertools::Itertools as _;
+use moka::sync::Cache;
 use rmcp::handler::server::prompt::PromptContext;
 use rmcp::handler::server::router::prompt::PromptRouter;
 use rmcp::handler::server::tool::ToolRouter;
@@ -27,20 +28,21 @@ use rmcp::model::{
 use rmcp::service::RequestContext;
 use rmcp::task_manager::TaskManager;
 use rmcp::{ErrorData, RoleServer, ServerHandler};
-use tokio::sync::{broadcast, watch};
+use tokio::sync::broadcast;
 use tokio_util::sync::CancellationToken;
 use tokio_util::task::TaskTracker;
 use validated::Validated;
 
 use self::resources::{ResourceRouter, Resources};
-use self::tools::{Executions, Paused};
+use self::tools::{Paused, Record};
 use crate::error::internal;
-use crate::{McpError, Subscribe};
+use crate::{Handle, McpError, Subscribe};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 pub trait Server: Clone + Send + Sync + 'static {
     type Error: Error + Send + Sync + From<McpError> + 'static = McpError;
+    type State: Default + Send + Sync + 'static = ();
 
     fn serve(self, _: Routers<Self>, stopping: CancellationToken) -> impl Future<Output = Result<(), Self::Error>> + Send { stopping.cancelled_owned().map(Ok) }
 }
@@ -79,7 +81,6 @@ where A: 'static
 #[derive_where(Clone, Debug)]
 pub struct Routers<A> {
     notifier: broadcast::Sender<ServerNotification>,
-    executions: Executions,
     #[derive_where(skip(Debug))]
     tools: Arc<ArcSwapOption<ToolRouter<A>>>,
     #[derive_where(skip(Debug))]
@@ -96,8 +97,10 @@ where A: Server
     pub fn tools(&self, mut router: ToolRouter<A>) -> Result<(), McpError> {
         router.map = mem::take(&mut router.map).into_values().map(tools::validated).collect::<Validated<_, _>>().ok().map_err(|errors| McpError::Declarations { errors })?;
         router.clear_notifier();
-        self.tools.store(Some(Arc::new(router)));
-        drop(self.notifier.send(ToolListChangedNotification::default().into()));
+        let listed = router.list_all();
+        if self.tools.swap(Some(Arc::new(router))).as_deref().map_or_default(ToolRouter::list_all) != listed {
+            drop(self.notifier.send(ToolListChangedNotification::default().into()));
+        }
         Ok(())
     }
 
@@ -126,8 +129,10 @@ where A: Server
     }
 
     pub fn prompts(&self, router: PromptRouter<A>) {
-        self.prompts.store(Some(Arc::new(router)));
-        drop(self.notifier.send(PromptListChangedNotification::default().into()));
+        let listed = router.list_all();
+        if self.prompts.swap(Some(Arc::new(router))).as_deref().map_or_default(PromptRouter::list_all) != listed {
+            drop(self.notifier.send(PromptListChangedNotification::default().into()));
+        }
     }
 
     pub fn resources(&self, router: ResourceRouter<A>) -> Result<(), McpError> {
@@ -155,7 +160,9 @@ where A: Server
 }
 
 #[derive_where(Debug)]
-pub struct Router<A> {
+pub struct Router<A>
+where A: Server
+{
     #[derive_where(skip)]
     app: A,
     info: ServerConfig,
@@ -165,6 +172,8 @@ pub struct Router<A> {
     versions: &'static [ProtocolVersion],
     #[derive_where(skip)]
     paused: Arc<Mutex<Paused>>,
+    #[derive_where(skip)]
+    records: Cache<Handle, Record<A::State>>,
     tracker: TaskTracker,
     halted: CancellationToken,
     #[derive_where(skip)]
@@ -182,7 +191,7 @@ where A: Server
         build: impl AsyncFnOnce(Routers<A>) -> Result<A, A::Error>,
     ) -> Result<Self, A::Error> {
         let Settings { instructions, page, retention, versions } = settings;
-        let routers = Routers { notifier, executions: watch::Sender::default(), tools: Arc::default(), prompts: Arc::default(), resources: Arc::default(), completions: Arc::default() };
+        let routers = Routers { notifier, tools: Arc::default(), prompts: Arc::default(), resources: Arc::default(), completions: Arc::default() };
         let app = build(routers.clone()).await?;
         let (tools, resources) = (routers.tools.load().is_some(), routers.resources.load().is_some());
         let mut capabilities = ServerCapabilities::builder()
@@ -201,7 +210,8 @@ where A: Server
         capabilities.resources = capabilities.resources.filter(|_| resources);
         let capabilities = if tools { capabilities.enable_tasks() } else { capabilities }.build();
         let info = instructions.into_iter().fold(ServerConfig::new(capabilities).with_server_info(identity), ServerConfig::with_instructions);
-        Ok(Self { app, info, routers, page, retention, versions, paused: Arc::default(), tracker: TaskTracker::new(), halted: CancellationToken::new(), tasks: TaskManager::default() })
+        let records = Cache::builder().time_to_idle(retention).build();
+        Ok(Self { app, info, routers, page, retention, versions, paused: Arc::default(), records, tracker: TaskTracker::new(), halted: CancellationToken::new(), tasks: TaskManager::default() })
     }
 
     pub fn serve(&self, stopping: CancellationToken) -> impl Future<Output = Result<(), A::Error>> + Send {

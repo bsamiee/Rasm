@@ -108,6 +108,6 @@ pub use proxy::{
     pool::{Pool, Store},
     session::{Ended, Resumable},
 };
-pub use shared::{Connection, Logging, Shared};
+pub use shared::{Connection, Handle, Logging, Shared};
 #[cfg(feature = "telemetry")]
 pub use telemetry::Traced;

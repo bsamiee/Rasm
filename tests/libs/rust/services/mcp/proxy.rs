@@ -10,8 +10,8 @@ use futures::future::{self, BoxFuture};
 use rasm_mcp::{History, IdleTimeout, Line, Lines, Link, Liveness, Policy, Proxy, decode, identity};
 use rmcp::model::{ClientCapabilities, DiscoverResult, Implementation, InitializeRequestParams, JsonRpcVersion2_0, ProtocolVersion, ServerCapabilities};
 use serde::{Deserialize, Serialize};
-use serde_json::Number;
 use serde_json::value::RawValue;
+use serde_json::{Number, Value, json};
 use tokio::io::{AsyncBufReadExt as _, AsyncWriteExt as _, BufReader, DuplexStream, ReadHalf, WriteHalf};
 use tokio::sync::{mpsc, oneshot};
 use tokio::task::JoinHandle;
@@ -21,7 +21,7 @@ use tokio_util::sync::CancellationToken;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const INITIALIZE: &str = r#"{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"t","version":"0"}}}"#;
+const INITIALIZE: &str = r#"{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{"elicitation":{}},"clientInfo":{"name":"t","version":"0"}}}"#;
 const INITIALIZED: &str = r#"{"jsonrpc":"2.0","method":"notifications/initialized"}"#;
 const SERVED: &str = r#"{"protocolVersion":"2025-06-18","capabilities":{"tools":{"listChanged":true},"resources":{"subscribe":true},"logging":{}},"serverInfo":{"name":"s","version":"0"}}"#;
 const GRACE: Duration = Duration::from_secs(30);
@@ -41,6 +41,10 @@ enum Id {
 struct Tagged {
     #[serde(rename = "progressToken")]
     progress_token: Option<Id>,
+    #[serde(rename = "io.modelcontextprotocol/clientCapabilities")]
+    client_capabilities: Option<Value>,
+    #[serde(rename = "io.modelcontextprotocol/clientInfo")]
+    client_info: Option<Named>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
@@ -183,9 +187,11 @@ fn session(proxy: &Proxy) -> (Wire, JoinHandle<io::Result<()>>) {
     (Wire::new(near), tokio::spawn(async move { proxy.serve(reader, writer).await }))
 }
 
-async fn joined(proxy: &Proxy) -> Wire {
+async fn joined(proxy: &Proxy) -> Wire { declared(proxy, INITIALIZE).await }
+
+async fn declared(proxy: &Proxy, initialize: &str) -> Wire {
     let (mut wire, _) = session(proxy);
-    wire.send(INITIALIZE).await;
+    wire.send(initialize).await;
     assert_eq!(wire.next().await.result.server_info.map(|info| info.name).as_deref(), Some("s"), "initialize is answered from the server handshake");
     wire.send(INITIALIZED).await;
     wire
@@ -457,6 +463,94 @@ async fn server_requests_reach_the_session_whose_call_caused_them() {
     assert_eq!(waited.method.as_deref(), Some("tools/call"), "a tool seen to ask with two calls open runs alone from then on, as the tool first seen asking does");
     server.wire.send(&waited.answered("{}")).await;
     assert_eq!(second.next().await.id, Some(Id::Number(4)));
+}
+
+#[tokio::test(start_paused = true)]
+async fn server_request_a_session_declares_no_capability_for_is_refused_to_the_server() {
+    let (proxy, mut starts, _actor) = proxy(16, 1 << 20);
+    let mut server = assert_some!(starts.recv().await).linked().await;
+    let mut bare = declared(&proxy, &INITIALIZE.replace(r#""capabilities":{"elicitation":{}}"#, r#""capabilities":{}"#)).await;
+    let _capable = joined(&proxy).await;
+    bare.send(r#"{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"sample"}}"#).await;
+    let call = server.wire.next().await;
+    assert_eq!(call.params.meta.and_then(|meta| meta.client_capabilities), Some(json!({})), "the call holds the capabilities its own session declared");
+    server.wire.send(r#"{"jsonrpc":"2.0","id":"s1","method":"sampling/createMessage","params":{"messages":[],"maxTokens":1}}"#).await;
+    let refused = server.wire.next().await;
+    assert_eq!(refused.id, Some(Id::Text("s1".to_owned())), "the server learns at once that the calling session cannot sample");
+    assert!(refused.error.message.as_deref().is_some_and(|message| message.contains("sampling/createMessage")), "the refusal names the request: {refused:?}");
+    bare.silent(Duration::from_millis(100)).await;
+}
+
+#[tokio::test(start_paused = true)]
+async fn requests_carry_their_session_client_context_whatever_their_params() {
+    let (proxy, mut starts, _actor) = proxy(16, 1 << 20);
+    let mut server = assert_some!(starts.recv().await).linked().await;
+    let mut client = joined(&proxy).await;
+    for (id, line) in [
+        (1, r#"{"jsonrpc":"2.0","id":1,"method":"tools/list"}"#),
+        (2, r#"{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}"#),
+        (3, r#"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"echo","arguments":{"text":"x"}}}"#),
+        (4, r#"{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"_meta":{"progressToken":"p"},"name":"echo"}}"#),
+        (5, r#"{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"_meta":{},"name":"echo"}}"#),
+    ] {
+        client.send(line).await;
+        let forwarded = server.wire.next().await;
+        let meta = assert_some!(forwarded.params.meta.clone(), "request {id} reaches the server with _meta: {forwarded:?}");
+        assert_eq!((meta.client_capabilities, meta.client_info.map(|info| info.name)), (Some(json!({"elicitation": {}})), Some("t".to_owned())), "request {id}");
+        server.wire.send(&forwarded.answered("{}")).await;
+        assert_eq!(client.next().await.id, Some(Id::Number(id)));
+    }
+}
+
+#[tokio::test(start_paused = true)]
+async fn calls_of_other_methods_run_concurrently_once_a_resource_read_asked() {
+    let (proxy, mut starts, _actor) = proxy(16, 1 << 20);
+    let mut server = assert_some!(starts.recv().await).linked().await;
+    let (mut first, mut second) = (joined(&proxy).await, joined(&proxy).await);
+    first.send(r#"{"jsonrpc":"2.0","id":1,"method":"resources/read","params":{"uri":"memo://asks"}}"#).await;
+    let read = server.wire.next().await;
+    server.wire.send(r#"{"jsonrpc":"2.0","id":"e1","method":"elicitation/create","params":{"message":"which"}}"#).await;
+    assert_eq!(first.next().await.id, Some(Id::Text("e1".to_owned())));
+    first.send(r#"{"jsonrpc":"2.0","id":"e1","result":{"action":"decline"}}"#).await;
+    assert_eq!(server.wire.next().await.id, Some(Id::Text("e1".to_owned())));
+    server.wire.send(&read.answered(r#"{"contents":[]}"#)).await;
+    assert_eq!(first.next().await.id, Some(Id::Number(1)));
+    first.send(r#"{"jsonrpc":"2.0","id":2,"method":"tools/list"}"#).await;
+    let listed = server.wire.next().await;
+    server.wire.send(&listed.answered(r#"{"tools":[]}"#)).await;
+    assert_eq!(first.next().await.id, Some(Id::Number(2)));
+    let sent = Instant::now();
+    first.send(r#"{"jsonrpc":"2.0","id":3,"method":"tools/list"}"#).await;
+    second.send(r#"{"jsonrpc":"2.0","id":1,"method":"tools/list"}"#).await;
+    let (earlier, later) = (server.wire.next().await, server.wire.next().await);
+    assert_eq!((earlier.method.as_deref(), later.method.as_deref()), (Some("tools/list"), Some("tools/list")));
+    assert!(sent.elapsed() < Duration::from_secs(1), "a quiet method runs concurrently though a resource read asked, never waiting out the probation: {:?}", sent.elapsed());
+    server.wire.send(&earlier.answered(r#"{"tools":[]}"#)).await;
+    server.wire.send(&later.answered(r#"{"tools":[]}"#)).await;
+    assert_eq!((first.next().await.id, second.next().await.id), (Some(Id::Number(3)), Some(Id::Number(1))));
+}
+
+#[tokio::test(start_paused = true)]
+async fn server_log_level_follows_the_most_verbose_session_present() {
+    let (proxy, mut starts, _actor) = proxy(16, 1 << 20);
+    let mut server = assert_some!(starts.recv().await).linked().await;
+    let (verbose, verbose_serving) = session(&proxy);
+    let mut verbose = verbose;
+    verbose.send(INITIALIZE).await;
+    assert_some!(verbose.next().await.result.server_info);
+    verbose.send(INITIALIZED).await;
+    let mut terse = joined(&proxy).await;
+    verbose.send(r#"{"jsonrpc":"2.0","id":1,"method":"logging/setLevel","params":{"level":"debug"}}"#).await;
+    assert_eq!(verbose.next().await.id, Some(Id::Number(1)));
+    assert_eq!(server.wire.next().await.params.level.as_deref(), Some("debug"));
+    terse.send(r#"{"jsonrpc":"2.0","id":1,"method":"logging/setLevel","params":{"level":"error"}}"#).await;
+    assert_eq!(terse.next().await.id, Some(Id::Number(1)));
+    server.wire.silent(Duration::from_millis(100)).await;
+    drop(verbose);
+    assert_ok!(assert_ok!(verbose_serving.await));
+    assert_eq!(server.wire.next().await.params.level.as_deref(), Some("error"), "the level rises to the least verbose session left");
+    drop(terse);
+    assert_eq!(server.wire.next().await.params.level.as_deref(), Some("emergency"), "with no session asking for messages the server sends the fewest");
 }
 
 #[tokio::test(start_paused = true)]

@@ -1,6 +1,10 @@
 #![expect(deprecated, reason = "the initialize-era revisions keep resources/subscribe and logging, which SEP-2577 deprecates")]
 
 use core::future::ready;
+#[cfg(feature = "http")]
+use core::iter;
+#[cfg(feature = "http")]
+use core::net::{AddrParseError, IpAddr, SocketAddr};
 use std::borrow::Cow;
 use std::collections::{BTreeMap, HashSet};
 use std::error::Report;
@@ -9,6 +13,8 @@ use std::sync::{Arc, OnceLock, Weak};
 
 use futures::{FutureExt as _, Stream, StreamExt as _, TryFutureExt as _, TryStreamExt as _, stream};
 use itertools::Either;
+#[cfg(feature = "http")]
+use itertools::Itertools as _;
 use opentelemetry_semantic_conventions::attribute::EXCEPTION_MESSAGE;
 use rmcp::model::{
     CallToolRequestParams, CallToolResponse, CancelTaskParams, CancelledNotificationParam, CompleteRequestParams, CompleteResult, CreateTaskResult, CustomNotification, CustomRequest, CustomResult,
@@ -18,8 +24,14 @@ use rmcp::model::{
     ResourceUpdatedNotification, ResourceUpdatedNotificationParam, ResourcesCapability, ServerCapabilities, ServerConfig, ServerNotification, SetLevelRequestMethod, SetLevelRequestParams,
     SubscribeRequestMethod, SubscribeRequestParams, SubscriptionFilter, Task, Tool, ToolListChangedNotification, UnsubscribeRequestParams, UpdateTaskParams,
 };
+use rmcp::schemars::JsonSchema;
 use rmcp::service::{NotificationContext, RequestContext, SubscriptionContext};
+#[cfg(feature = "http")]
+use rmcp::transport::streamable_http_server::SessionManager;
+#[cfg(feature = "http")]
+use rmcp::transport::{StreamableHttpServerConfig, StreamableHttpService};
 use rmcp::{ErrorData, RoleServer, ServerHandler, ServiceError};
+use serde::{Deserialize, Serialize};
 use tokio::sync::{broadcast, watch};
 use tokio_stream::wrappers::BroadcastStream;
 use tokio_stream::wrappers::errors::BroadcastStreamRecvError;
@@ -27,12 +39,21 @@ use tokio_util::sync::CancellationToken;
 use tokio_util::task::task_tracker::TaskTrackerToken;
 use tokio_util::task::{AbortOnDropHandle, TaskTracker};
 use tracing::Instrument as _;
+use uuid::Uuid;
 
 use crate::{McpError, Subscribe};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Held = BTreeMap<String, Arc<AbortOnDropHandle<()>>>;
+
+// --- [MODELS] --------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema, derive_more::Display)]
+#[serde(transparent)]
+#[schemars(crate = "rmcp::schemars", inline, extend("format" = "uuid"))]
+#[schemars(description = "Handle an earlier result of this server named, keeping this agent's state across calls, omitted on the first call")]
+pub struct Handle(#[schemars(with = "String")] pub(crate) Uuid);
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -69,7 +90,23 @@ where S: Subscribe
     pub const fn service(&self) -> &S { &self.service }
 
     #[must_use]
-    pub fn connection(self: &Arc<Self>) -> Connection<S> { Connection { subscriptions: self.subscriptions(), tasks: Mutex::default(), logging: Logging::default() } }
+    pub fn connection(self: &Arc<Self>) -> Connection<S> { Connection { subscriptions: self.subscriptions(), tasks: Mutex::default(), logging: Logging::default(), handle: Handle(Uuid::new_v4()) } }
+
+    #[cfg(feature = "http")]
+    pub fn http<M>(self: &Arc<Self>, bound: SocketAddr, sessions: Arc<M>, config: StreamableHttpServerConfig) -> StreamableHttpService<Connection<S>, M>
+    where
+        S: ServerHandler + Send + Sync + 'static,
+        M: SessionManager,
+    {
+        let hosts = Vec::from_iter(iter::chain(config.allowed_hosts.iter().cloned(), [bound.ip().to_string()]).unique());
+        let authorities = hosts.iter().map(|host| match host.parse::<IpAddr>() {
+            Ok(ip) => SocketAddr::new(ip, bound.port()).to_string(),
+            Err(AddrParseError { .. }) => format!("{host}:{}", bound.port()),
+        });
+        let origins = Vec::from_iter(authorities.cartesian_product(["http", "https"]).map(|(authority, scheme)| format!("{scheme}://{authority}")));
+        let shared = Arc::clone(self);
+        StreamableHttpService::new(move || Ok(shared.connection()), sessions, config.with_allowed_hosts(hosts).with_allowed_origins(origins).enforce_origin_validation())
+    }
 
     pub(crate) fn subscriptions(self: &Arc<Self>) -> Subscriptions<S> {
         Subscriptions { shared: Arc::clone(self), subscribed: watch::Sender::default(), accepted: Mutex::default(), broadcast: OnceLock::new() }
@@ -186,6 +223,7 @@ pub struct Connection<S> {
     subscriptions: Subscriptions<S>,
     tasks: Mutex<HashSet<String>>,
     logging: Logging,
+    handle: Handle,
 }
 
 impl<S> Connection<S>
@@ -195,6 +233,7 @@ where S: ServerHandler + Subscribe
         let requests = &self.subscriptions.shared.requests;
         let held = requests.token();
         context.extensions.insert(self.logging.clone());
+        context.extensions.insert(self.handle);
         (!requests.is_closed()).then_some(held).ok_or_else(|| McpError::Stopping.into())
     }
 

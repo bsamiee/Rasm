@@ -41,8 +41,19 @@ pub type Signals = stream::SelectAll<cfg_select! { unix => { SignalStream } wind
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, derive_more::Display, enum_map::Enum)]
 #[display(rename_all = "lowercase")]
-pub enum Folder {
+pub enum Artifact {
     Log,
+    Image,
+    Video,
+    Audio,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, derive_more::Display, enum_map::Enum, strum::EnumDiscriminants)]
+#[display(rename_all = "lowercase")]
+#[strum_discriminants(name(Root), derive(derive_more::Display, enum_map::Enum), display(rename_all = "lowercase"))]
+pub enum Folder {
+    #[display("{_0}")]
+    Output(Artifact),
     Cache,
     State,
     Runtime,
@@ -78,8 +89,8 @@ struct Manual {
 #[command(next_help_heading = "Process")]
 struct Named {
     #[arg(long, global = true, value_name = "DIRECTORY", value_hint = ValueHint::DirPath, value_parser = Lenient(Utf8PathBuf::from_str))]
-    #[arg(help = "Folder of the log file, default the per-user log folder")]
-    log_dir: Option<Stated<Utf8PathBuf>>,
+    #[arg(help = "Folder of logs, images, video, and audio, default the per-user folder of each kind")]
+    output_dir: Option<Stated<Utf8PathBuf>>,
     #[arg(long, global = true, value_name = "DIRECTORY", value_hint = ValueHint::DirPath, value_parser = Lenient(Utf8PathBuf::from_str))]
     #[arg(help = "Folder of cached files, default the per-user cache folder")]
     cache_dir: Option<Stated<Utf8PathBuf>>,
@@ -164,7 +175,7 @@ pub enum CommandError {
     Io { operation: CommandOperation, source: io::Error },
     #[error(transparent)]
     File(#[from] io::Error),
-    #[error("platform names no per-user {folder} folder, set --{folder}-dir")]
+    #[error("platform names no per-user {folder} folder, set --{}-dir", Root::from(.folder))]
     Folder { folder: Folder },
     #[error("{}", fmt::from_fn(|formatter| match phase {
         settings::Phase::Parse(origin) | settings::Phase::Decode { path: _, origin: Some(origin) } => formatter.write_str(&origin.excerpt(&phase.to_string())),
@@ -264,7 +275,7 @@ where
         }
         .map_or_else(reported, |()| ExitCode::SUCCESS)
     };
-    let (Augmented { options: Options { manual: Manual { manual: _ }, color, named: Named { log_dir, cache_dir, state_dir, runtime_dir, telemetry } }, args }, rows) = match parsed {
+    let (Augmented { options: Options { manual: Manual { manual: _ }, color, named: Named { output_dir, cache_dir, state_dir, runtime_dir, telemetry } }, args }, rows) = match parsed {
         Ok((Augmented { options: Options { manual: Manual { manual: Some(directory) }, color: _, named: _ }, args: _ }, _)) => return written(directory),
         Ok(parsed) => parsed,
         Err(error) => {
@@ -285,21 +296,32 @@ where
         Ok(runtime) => runtime,
         Err(source) => return reported(CommandError::Io { operation: CommandOperation::Runtime, source }),
     };
-    let chosen = EnumMap::<Folder, _>::from_array([log_dir, cache_dir, state_dir, runtime_dir].map(|row| row.transpose().map(Option::flatten)));
+    let chosen = EnumMap::<Root, _>::from_array([output_dir, cache_dir, state_dir, runtime_dir].map(|row| row.transpose().map(Option::flatten)));
+    let owned = |shared: PathBuf| shared.join(command.get_name());
     let folders = EnumMap::from_fn(|folder| {
         let shared = || match folder {
-            Folder::Log => cfg_select! {
+            Folder::Output(Artifact::Log) => cfg_select! {
                 target_vendor = "apple" => dirs::home_dir().map(|home| home.join("Library").join("Logs")),
                 windows => dirs::data_local_dir().map(|data| data.join("logs")),
                 _ => dirs::state_dir(),
             },
-            Folder::Cache => dirs::cache_dir(),
-            Folder::State => dirs::state_dir().or_else(dirs::data_local_dir),
-            Folder::Runtime => dirs::runtime_dir().or_else(dirs::cache_dir),
+            Folder::Output(Artifact::Image | Artifact::Video | Artifact::Audio) => dirs::cache_dir().map(|cache| owned(cache).join(folder.to_string())),
+            Folder::Cache => dirs::cache_dir().map(owned),
+            Folder::State => dirs::state_dir().or_else(dirs::data_local_dir).map(owned),
+            Folder::Runtime => dirs::runtime_dir().or_else(dirs::cache_dir).map(owned),
         };
-        chosen[folder].as_ref().ok().cloned().flatten().or_else(|| Utf8PathBuf::from_path_buf(shared()?.join(command.get_name())).ok())
+        chosen[Root::from(folder)]
+            .as_ref()
+            .ok()
+            .cloned()
+            .flatten()
+            .map(|root| match folder {
+                Folder::Output(_) => root.join(folder.to_string()),
+                Folder::Cache | Folder::State | Folder::Runtime => root,
+            })
+            .or_else(|| Utf8PathBuf::from_path_buf(shared()?).ok())
     });
-    let (log, styles) = (folders[Folder::Log].clone(), command.get_styles().clone());
+    let (log, styles) = (folders[Folder::Output(Artifact::Log)].clone(), command.get_styles().clone());
     let program = Program { refused: program.refused.into_iter().chain(chosen.into_values().filter_map(Result::err)).collect(), ..program };
     let instrumented = telemetry.instrumented(&command, program, log, stderr, layer, async |filter, parent| {
         let carried = global::get_text_map_propagator(|propagator| Vec::from_iter(propagator.fields().map(str::to_owned)));

@@ -18,7 +18,7 @@ use jiff::fmt::friendly::SpanParser;
 use nonempty_collections::NEVec;
 use opentelemetry::global;
 use opentelemetry_semantic_conventions::attribute::EXCEPTION_MESSAGE;
-use rasm_cli::{CommandError, Folder, Invocation};
+use rasm_cli::{Artifact, CommandError, Folder, Invocation, Root};
 use rasm_ipc::{Endpoint, Hello, IpcError, Limits, Opened};
 use rasm_mcp::{Ended, Phase, Resumable};
 use rasm_process::{Failure, ProcessError};
@@ -78,7 +78,8 @@ const BUFFER: usize = 256 << 10;
 #[command(after_help = "With a COMMAND, serves that stdio MCP server to this session through the shared daemon. With none, prints the daemon state as JSON.\n\
 Environment: a shared server starts with the variables of the session that started it, without trace context; a --per session server and an unshared run receive the whole session environment.\n\
 The daemon exports telemetry under the OTEL_ variables of the session that started it.\n\
-Requests from a server opened with initialize: calls of a tool not yet seen to finish without asking run one at a time, so a request reaches the session that called; other calls run concurrently.")]
+Requests to a server opened with initialize carry their session's client capabilities and identity in _meta.\n\
+Calls of a method and target not yet seen to finish without asking run one at a time, so a server request reaches the calling session or is refused when that session lacks its capability.")]
 struct Cli {
     #[arg(long, value_enum, default_value_t, help = "Sessions that share one server process")]
     per: Per,
@@ -289,7 +290,13 @@ async fn run(invocation: Invocation<Cli>) -> Result<ExitCode, MuxerError> {
     let shared = environment.iter().filter(|(name, _)| per == Per::Session || !carried.iter().any(|field| field.eq_ignore_ascii_case(name)));
     let request = hello(Request::Serve(Box::new(Launch { command: command.clone(), per, environment: shared.cloned().collect() })));
     let start = || {
-        let located = folders.iter().filter_map(|(name, path)| Some([format!("--{name}-dir"), path.as_ref()?.to_string()])).flatten();
+        let located = folders
+            .iter()
+            .filter_map(|(kind, path)| match kind {
+                Folder::Output(Artifact::Image | Artifact::Video | Artifact::Audio) => None,
+                Folder::Output(Artifact::Log) | Folder::Cache | Folder::State | Folder::Runtime => Some([format!("--{}-dir", Root::from(kind)), path.as_ref()?.to_string()]),
+            })
+            .flatten();
         let mut daemon = tokio::process::Command::new(&executable);
         daemon.args(["--daemon", &instance]).args(located).env_clear().envs(environment.iter().filter(|(name, _)| Options::exported(name)).map(|(name, value)| (name, value)));
         daemon.envs(iter::chain(&settings, &export).map(|(name, value)| (name, value)));

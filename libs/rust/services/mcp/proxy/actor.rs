@@ -1,7 +1,7 @@
 #![expect(deprecated, reason = "initialize sessions set and filter logging levels, which SEP-2577 deprecates")]
 
-use core::mem;
 use core::time::Duration;
+use core::{iter, mem};
 use std::collections::{BTreeMap, BTreeSet};
 use std::error::Report;
 use std::io;
@@ -13,9 +13,9 @@ use futures::StreamExt as _;
 use opentelemetry_semantic_conventions::attribute::EXCEPTION_MESSAGE;
 use rmcp::ErrorData;
 use rmcp::model::{
-    CancelledNotificationMethod, CancelledNotificationParam, ConstString as _, DiscoverRequestMethod, EmptyResult, ErrorCode, InitializeRequestParams, InitializeResultMethod,
-    InitializedNotificationMethod, JsonRpcVersion2_0, LoggingLevel, PingRequestMethod, ProtocolVersion, RequestId, RequestMetaObject, SetLevelRequestMethod, SubscribeRequestMethod,
-    SubscribeRequestParams, UnsubscribeRequestMethod, UnsubscribeRequestParams,
+    CancelledNotificationMethod, CancelledNotificationParam, ClientCapabilities, ConstString as _, DiscoverRequestMethod, EmptyResult, ErrorCode, InitializeRequestParams, InitializeResultMethod,
+    InitializedNotificationMethod, JsonRpcVersion2_0, LoggingLevel, PingRequestMethod, ProtocolVersion, RequestId, RequestMetaObject, ServerCapabilities, SetLevelRequestMethod,
+    SubscribeRequestMethod, SubscribeRequestParams, UnsubscribeRequestMethod, UnsubscribeRequestParams,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::value::RawValue;
@@ -27,7 +27,7 @@ use tokio_util::sync::CancellationToken;
 use tokio_util::time::{DelayQueue, delay_queue};
 
 use super::jsonrpc::{Envelope, Line, Message, Method, Params, decode, encoded, identity, refusal};
-use super::routing::{Call, Calls, Effect, Held, Origin, Session, Sessions, Subscribers, issued, read, splice};
+use super::routing::{Call, Calls, Client, Effect, Held, Origin, Session, Sessions, Subscribers, issued, read, splice};
 use super::upstream::{Next, Upstream, Wake};
 use super::{IdleTimeout, Key, Lifecycle, Link, Liveness, Phase, Policy, Profile, Status, announced};
 
@@ -125,6 +125,7 @@ pub(super) struct Actor<F, A, R, W, C> {
     hint: Option<Lifecycle>,
     reprobe: bool,
     profile: Option<Arc<Profile>>,
+    logging: bool,
     asking: Vec<oneshot::Sender<Option<Lifecycle>>>,
     sessions: Sessions,
     calls: Calls,
@@ -167,6 +168,7 @@ where
             hint: None,
             reprobe: false,
             profile,
+            logging: false,
             asking: Vec::new(),
             sessions: Sessions::default(),
             calls,
@@ -277,7 +279,18 @@ where
     }
 
     fn linked(&mut self, lifecycle: Lifecycle, handshake: Box<RawValue>) {
+        #[derive(Deserialize)]
+        struct Declared {
+            capabilities: ServerCapabilities,
+        }
         let Some(cost) = self.upstream.linked() else { return };
+        self.logging = match decode::<Declared>(handshake.get().as_bytes()) {
+            Ok(Declared { capabilities }) => capabilities.logging.is_some(),
+            Err(error) => {
+                tracing::debug!({ EXCEPTION_MESSAGE } = %Report::new(&error), "server capabilities unreadable, log levels pass through");
+                false
+            }
+        };
         let held = self.profile.take().map(Arc::unwrap_or_clone);
         let (changed, flipped) = held.as_ref().map_or((false, false), |held| (held.handshake.get() != handshake.get(), held.lifecycle != lifecycle));
         let (askers, quiet) = held.map_or_default(|Profile { lifecycle: _, handshake: _, cost: _, askers, quiet }| (askers, if changed { BTreeSet::new() } else { quiet }));
@@ -449,7 +462,7 @@ where
     }
 
     fn leave(&mut self, session: u64) {
-        let Some(Session { out: _, cut, initialized: _, level: _ }) = self.sessions.joined.remove(&session) else { return };
+        let Some(Session { out: _, cut, initialized: _, level: _, client: _ }) = self.sessions.joined.remove(&session) else { return };
         cut.cancel();
         self.calls.backlog.retain(|(parked, _)| *parked != session);
         for request in self.calls.of(session) {
@@ -464,6 +477,7 @@ where
         for uri in self.subscribers.leave(session) {
             self.upstream.send(message(Some(self.calls.issue(Origin::Internal)), UnsubscribeRequestMethod::VALUE, Some(UnsubscribeRequestParams::new(uri))));
         }
+        self.relevel();
         self.status.send_modify(|status| status.sessions = self.sessions.joined.len());
     }
 
@@ -474,7 +488,7 @@ where
         };
         let params = envelope.params.as_ref();
         match (envelope.id, envelope.method) {
-            (Some(id), Some(method)) if self.dispatch(session, line, id, method, params) => {}
+            (Some(id), Some(method)) if self.dispatch(session, line, id, &method, params) => {}
             (Some(_), Some(_)) if !self.upstream.is_down() && self.calls.backlog.len() < self.policy.queue => self.calls.backlog.push_back((session, line.clone())),
             (Some(id), Some(_)) => {
                 let cause = self.status.borrow().cause.clone();
@@ -500,7 +514,7 @@ where
         let request = cancelled.and_then(|id| self.calls.named(session, id.get().as_bytes()).map(|request| (id, request)));
         match (request, cancelled) {
             (Some((id, request)), _) => {
-                self.upstream.forward(splice(line, (id.get().as_bytes(), Bytes::from(request.to_string())), None));
+                self.upstream.forward(splice(line, [(id.get().as_bytes(), Bytes::from(request.to_string()))]));
                 if self.calls.take(request).is_some() {
                     self.settled(request, None);
                 }
@@ -513,7 +527,7 @@ where
     fn replay(&mut self) {
         for (session, line) in mem::take(&mut self.calls.backlog) {
             let admitted = match decode::<Envelope<'_>>(&line) {
-                Ok(Envelope { id: Some(id), method: Some(method), params, result: _, error: _ }) => self.dispatch(session, &line, id, method, params.as_ref()),
+                Ok(Envelope { id: Some(id), method: Some(method), params, result: _, error: _ }) => self.dispatch(session, &line, id, &method, params.as_ref()),
                 Ok(Envelope { id: _, method: _, params: _, result: _, error: _ }) => true,
                 Err(error) => {
                     tracing::debug!({ EXCEPTION_MESSAGE } = %Report::new(&error), session, "client line unreadable");
@@ -526,7 +540,7 @@ where
         }
     }
 
-    fn dispatch(&mut self, session: u64, line: &Bytes, id: &RawValue, method: Method, params: Option<&Params<'_>>) -> bool {
+    fn dispatch(&mut self, session: u64, line: &Bytes, id: &RawValue, method: &Method, params: Option<&Params<'_>>) -> bool {
         let uri = || read::<String>(params.and_then(|params| params.uri));
         let effect = match method {
             Method::Ping => {
@@ -539,7 +553,17 @@ where
             Method::Unsubscribe => uri().map_or(Effect::Plain, Effect::Unsubscribe),
             Method::SetLevel => read::<LoggingLevel>(params.and_then(|params| params.level)).map_or(Effect::Plain, Effect::Level),
             Method::Listen => Effect::Listen,
-            Method::Initialized | Method::Cancelled | Method::Progress | Method::CallTool | Method::GetPrompt | Method::ResourceUpdated | Method::Logged | Method::Other => Effect::Plain,
+            Method::Initialized
+            | Method::Cancelled
+            | Method::Progress
+            | Method::CallTool
+            | Method::GetPrompt
+            | Method::ResourceUpdated
+            | Method::Logged
+            | Method::CreateMessage
+            | Method::Elicit
+            | Method::ListRoots
+            | Method::Other(_) => Effect::Plain,
         };
         self.call(session, line, id, method, params, effect)
     }
@@ -555,6 +579,12 @@ where
         self.wake();
         let Some(profile) = &self.profile else { return false };
         let requested = read::<ProtocolVersion>(params.and_then(|params| params.protocol_version));
+        let declared = params.and_then(|params| params.capabilities.zip(read::<ClientCapabilities>(params.capabilities)).map(|(raw, capabilities)| (raw, capabilities, params.client_info)));
+        if let (Lifecycle::Initialize, Some((raw, capabilities, named)), Some(joined)) = (asked, declared, self.sessions.joined.get_mut(&session)) {
+            let named = named.map_or_default(|named| [&br#","io.modelcontextprotocol/clientInfo":"#[..], named.get().as_bytes()].concat());
+            let context = Bytes::from([&br#""io.modelcontextprotocol/clientCapabilities":"#[..], raw.get().as_bytes(), &named].concat());
+            joined.client = Some(Client { capabilities: Arc::new(capabilities), context });
+        }
         let refused = |error: &ErrorData| self.sessions.reply(session, refusal(id.get().as_bytes(), error));
         match (asked, profile.lifecycle) {
             (Lifecycle::Discover, Lifecycle::Discover) => self.sessions.answer(session, id, &profile.handshake),
@@ -580,30 +610,41 @@ where
         true
     }
 
-    fn call(&mut self, session: u64, line: &Bytes, id: &RawValue, method: Method, params: Option<&Params<'_>>, effect: Effect) -> bool {
+    fn call(&mut self, session: u64, line: &Bytes, id: &RawValue, method: &Method, params: Option<&Params<'_>>, effect: Effect) -> bool {
         if !self.clock.drain.is_serving() {
             self.sessions.reply(session, refusal(id.get().as_bytes(), &ErrorData::internal_error("server is stopping; call again", None)));
             return true;
         }
         self.wake();
-        let Some(profile) = self.profile.as_ref().filter(|_| self.upstream.ready()) else { return false };
-        let joined = self.sessions.joined.get_mut(&session);
-        match (&effect, joined) {
-            (Effect::Level(level), Some(joined)) => joined.level = Some(*level),
-            (Effect::Plain | Effect::Subscribe(_) | Effect::Unsubscribe(_) | Effect::Level(_) | Effect::Listen, _) => {}
+        if self.profile.is_none() || !self.upstream.ready() {
+            return false;
+        }
+        match (&effect, self.logging, self.sessions.joined.get_mut(&session)) {
+            (Effect::Level(level), true, Some(joined)) => {
+                joined.level = Some(*level);
+                self.relevel();
+                self.sessions.answer(session, id, &EmptyResult {});
+                return true;
+            }
+            (Effect::Plain | Effect::Subscribe(_) | Effect::Unsubscribe(_) | Effect::Level(_) | Effect::Listen, _, _) => {}
         }
         if self.subscribers.local(&effect, session) {
             self.sessions.answer(session, id, &EmptyResult {});
             return true;
         }
-        let key = Key { method, name: params.and_then(|params| params.name).map(|name| name.get().into()) };
+        let Some(profile) = &self.profile else { return false };
+        let key = Key { method: method.clone(), target: params.and_then(|params| params.name.or(params.uri).or(params.reference)).map(|target| target.get().into()) };
         let exclusive = profile.lifecycle.is_initialize() && !profile.quiet.contains(&key);
         if exclusive && self.calls.writer.is_some() {
             return false;
         }
-        let token = params.and_then(|params| params.meta.as_ref()).and_then(|meta| meta.progress_token);
-        let (held, stated) = (Bytes::copy_from_slice(id.get().as_bytes()), token.map(|token| Bytes::copy_from_slice(token.get().as_bytes())));
-        let request = self.calls.issue(Origin::Session(Call { session, id: held, token: stated, key, effect, asked: false }));
+        let meta = params.and_then(|params| params.meta.as_ref());
+        let (token, stated) = (meta.and_then(|meta| meta.progress_token), meta.and_then(|meta| meta.client_capabilities));
+        let client = self.sessions.joined.get(&session).and_then(|joined| joined.client.as_ref());
+        let capabilities = read::<ClientCapabilities>(stated).map(Arc::new).or_else(|| client.map(|client| Arc::clone(&client.capabilities)));
+        let context = client.filter(|_| stated.is_none()).and_then(|client| contextualized(line, &client.context));
+        let (held, named) = (Bytes::copy_from_slice(id.get().as_bytes()), token.map(|token| Bytes::copy_from_slice(token.get().as_bytes())));
+        let request = self.calls.issue(Origin::Session(Call { session, id: held, token: named, key, effect, capabilities, asked: false }));
         if exclusive {
             self.calls.writer = Some((request, self.clock.timers.insert(Timer::Probation, self.policy.probation)));
         }
@@ -612,8 +653,15 @@ where
         if self.calls.waiting() == 1 {
             self.rearm();
         }
-        self.upstream.forward(splice(line, (id.get().as_bytes(), number.clone()), token.map(|token| (token.get().as_bytes(), number))));
+        let edits = iter::chain([(id.get().as_bytes(), number.clone())], token.map(|token| (token.get().as_bytes(), number))).chain(context);
+        self.upstream.forward(splice(line, edits));
         true
+    }
+
+    fn relevel(&mut self) {
+        if let Some(level) = self.subscribers.leveled(&self.sessions.joined) {
+            self.upstream.send(message(Some(self.calls.issue(Origin::Internal)), SetLevelRequestMethod::VALUE, Some(BTreeMap::from([("level", level)]))));
+        }
     }
 
     // --- [ATTRIBUTION]
@@ -624,18 +672,18 @@ where
         if let Some((_, probation)) = self.calls.writer.take_if(|(writer, _)| *writer == request) {
             self.clock.timers.try_remove(&probation);
         }
-        for Held { id, line, candidates } in Vec::from_iter(self.calls.held.extract_if(.., |held| {
+        for Held { id, line, method, candidates } in Vec::from_iter(self.calls.held.extract_if(.., |held| {
             held.candidates.remove(&request);
             held.candidates.len() < 2
         })) {
             match candidates.first() {
-                Some(caller) => self.ask(*caller, id, line),
+                Some(caller) => self.ask(*caller, id, line, &method),
                 None => self.decline(&id, ENDED),
             }
         }
         let blocked = BTreeSet::from_iter(self.calls.held.iter().flat_map(|held| held.candidates.iter().copied()));
         if !self.calls.held.is_empty() && blocked.len() <= self.calls.held.len() {
-            for Held { id, line: _, candidates: _ } in mem::take(&mut self.calls.held) {
+            for Held { id, line: _, method: _, candidates: _ } in mem::take(&mut self.calls.held) {
                 self.decline(&id, "more than one call was waiting on a request and none states its caller; ask again");
             }
             for key in Vec::from_iter(self.calls.callers().filter(|(caller, _)| blocked.contains(caller)).map(|(_, call)| call.key.clone())) {
@@ -654,12 +702,16 @@ where
         }
     }
 
-    fn ask(&mut self, caller: u64, id: Bytes, line: Bytes) {
+    fn ask(&mut self, caller: u64, id: Bytes, line: Bytes, method: &Method) {
         let Some(Origin::Session(call)) = self.calls.pending.get_mut(&caller) else { return self.decline(&id, ENDED) };
         call.asked = true;
-        let (session, key) = (call.session, call.key.clone());
-        self.calls.asked.insert(id, session);
-        self.sessions.deliver(session, [line]);
+        let (session, key, declared) = (call.session, call.key.clone(), call.capabilities.as_deref().is_none_or(|capabilities| declares(capabilities, method)));
+        if declared {
+            self.calls.asked.insert(id, session);
+            self.sessions.deliver(session, [line]);
+        } else {
+            self.decline(&id, &format!("the client session whose call caused {method} declares no capability for it"));
+        }
         self.learn(key, true);
     }
 
@@ -688,7 +740,7 @@ where
         match (envelope.id, envelope.method) {
             (Some(id), None) => self.on_response(line, id, envelope.result, envelope.error),
             (Some(id), Some(method)) => self.on_ask(line, id, method),
-            (None, Some(method)) => self.on_notice(line, method, envelope.params.as_ref()),
+            (None, Some(method)) => self.on_notice(line, &method, envelope.params.as_ref()),
             (None, None) => {}
         }
     }
@@ -719,10 +771,10 @@ where
     fn on_response(&mut self, line: &Bytes, id: &RawValue, result: Option<&RawValue>, error: Option<&RawValue>) {
         let Some((request, origin)) = issued(id.get().as_bytes()).and_then(|request| self.calls.take(request).map(|origin| (request, origin))) else { return };
         match origin {
-            Origin::Session(Call { session, id: held, token: _, key, effect, asked }) => {
+            Origin::Session(Call { session, id: held, token: _, key, effect, capabilities: _, asked }) => {
                 self.failures = 0;
                 self.subscribers.applied(effect, result.is_some(), session);
-                self.sessions.deliver(session, splice(line, (id.get().as_bytes(), held), None));
+                self.sessions.deliver(session, splice(line, [(id.get().as_bytes(), held)]));
                 self.settled(request, (!asked).then_some(key));
             }
             Origin::Discover => self.negotiated(Lifecycle::Discover, result, error),
@@ -742,24 +794,30 @@ where
         let unknown = BTreeSet::from_iter(self.calls.callers().filter(|(_, call)| !quiet.contains(&call.key)).map(|(request, _)| request));
         let candidates = if unknown.is_empty() { BTreeSet::from_iter(self.calls.callers().map(|(request, _)| request)) } else { unknown };
         let asked = Bytes::copy_from_slice(id.get().as_bytes());
-        match (candidates.first().copied(), candidates.len()) {
-            (None, _) => self.decline(&asked, "no client session has a call in flight"),
-            (Some(caller), 1) => self.ask(caller, asked, line.clone()),
-            (Some(_), _) => self.calls.held.push(Held { id: asked, line: line.clone(), candidates }),
+        let rooted =
+            || self.sessions.joined.iter().find(|(_, held)| held.initialized && held.client.as_ref().is_some_and(|client| declares(&client.capabilities, &method))).map(|(session, _)| *session);
+        match (candidates.first().copied(), candidates.len(), method.is_list_roots().then(rooted).flatten()) {
+            (None, _, Some(session)) => {
+                self.calls.asked.insert(asked, session);
+                self.sessions.deliver(session, [line.clone()]);
+            }
+            (None, _, None) => self.decline(&asked, "no client session has a call in flight"),
+            (Some(caller), 1, _) => self.ask(caller, asked, line.clone(), &method),
+            (Some(_), _, _) => self.calls.held.push(Held { id: asked, line: line.clone(), method, candidates }),
         }
     }
 
-    fn on_notice(&mut self, line: &Bytes, method: Method, params: Option<&Params<'_>>) {
+    fn on_notice(&mut self, line: &Bytes, method: &Method, params: Option<&Params<'_>>) {
         let routed = |raw: Option<&RawValue>| raw.and_then(|raw| issued(raw.get().as_bytes())).and_then(|request| self.calls.pending.get(&request));
         let subscription = params.and_then(|params| params.meta.as_ref()).and_then(|meta| meta.subscription_id);
         if let (Some(subscription), Some(Origin::Session(call))) = (subscription, routed(subscription)) {
-            return self.sessions.deliver(call.session, splice(line, (subscription.get().as_bytes(), call.id.clone()), None));
+            return self.sessions.deliver(call.session, splice(line, [(subscription.get().as_bytes(), call.id.clone())]));
         }
         match method {
             Method::Progress => {
                 let token = params.and_then(|params| params.progress_token);
-                if let (Some(token), Some(Origin::Session(Call { session, id: _, token: Some(stated), key: _, effect: _, asked: _ }))) = (token, routed(token)) {
-                    self.sessions.deliver(*session, splice(line, (token.get().as_bytes(), stated.clone()), None));
+                if let (Some(token), Some(Origin::Session(Call { session, id: _, token: Some(stated), key: _, effect: _, capabilities: _, asked: _ }))) = (token, routed(token)) {
+                    self.sessions.deliver(*session, splice(line, [(token.get().as_bytes(), stated.clone())]));
                 }
             }
             Method::Cancelled =>
@@ -789,7 +847,10 @@ where
             | Method::Unsubscribe
             | Method::Listen
             | Method::SetLevel
-            | Method::Other =>
+            | Method::CreateMessage
+            | Method::Elicit
+            | Method::ListRoots
+            | Method::Other(_) =>
                 if self.profile.as_ref().is_some_and(|profile| profile.lifecycle.is_initialize()) {
                     self.sessions.broadcast(line);
                 },
@@ -798,6 +859,51 @@ where
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
+const fn declares(capabilities: &ClientCapabilities, method: &Method) -> bool {
+    match method {
+        Method::CreateMessage => capabilities.sampling.is_some(),
+        Method::Elicit => capabilities.elicitation.is_some(),
+        Method::ListRoots => capabilities.roots.is_some(),
+        Method::Initialize
+        | Method::Initialized
+        | Method::Discover
+        | Method::Ping
+        | Method::Cancelled
+        | Method::Progress
+        | Method::CallTool
+        | Method::GetPrompt
+        | Method::Subscribe
+        | Method::Unsubscribe
+        | Method::ResourceUpdated
+        | Method::Listen
+        | Method::SetLevel
+        | Method::Logged
+        | Method::Other(_) => true,
+    }
+}
+
+fn contextualized<'line>(line: &'line [u8], context: &[u8]) -> Option<(&'line [u8], Bytes)> {
+    #[derive(Deserialize)]
+    struct Located<'line> {
+        #[serde(borrow)]
+        params: Option<&'line RawValue>,
+        #[serde(borrow, rename = "_meta")]
+        meta: Option<&'line RawValue>,
+    }
+    let located = |text: &'line [u8]| decode::<Located<'line>>(text).inspect_err(|error| tracing::trace!({ EXCEPTION_MESSAGE } = %Report::new(error), "message params unlocated")).ok();
+    let opened = |raw: &'line RawValue| {
+        let text = raw.get().as_bytes();
+        let filled = text.get(1..).is_some_and(|rest| rest.trim_ascii_start().first() != Some(&b'}'));
+        text.starts_with(b"{").then(|| text.get(1..1).map(|at| (at, if filled { &b","[..] } else { &b""[..] }))).flatten()
+    };
+    let params = located(line)?.params;
+    match (params, params.and_then(|params| located(params.get().as_bytes())?.meta)) {
+        (_, Some(meta)) => opened(meta).map(|(at, separator)| (at, Bytes::from([context, separator].concat()))),
+        (Some(params), None) => opened(params).map(|(at, separator)| (at, Bytes::from([&br#""_meta":{"#[..], context, b"}", separator].concat()))),
+        (None, None) => line.iter().rposition(|byte| *byte == b'}').and_then(|end| line.get(end..end)).map(|at| (at, Bytes::from([&br#","params":{"_meta":{"#[..], context, b"}}"].concat()))),
+    }
+}
 
 fn message(id: Option<u64>, method: &str, params: Option<impl Serialize>) -> Result<Bytes, serde_json::Error> {
     encoded(&Message::<u64, _, ()> { jsonrpc: JsonRpcVersion2_0, id, method: Some(method), params, result: None, error: None })

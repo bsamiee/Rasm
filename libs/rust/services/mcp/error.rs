@@ -19,6 +19,9 @@ use serde::de::value;
 #[cfg(feature = "app")]
 use serde_json::Value;
 
+#[cfg(feature = "app")]
+use crate::Handle;
+
 // --- [MODELS] --------------------------------------------------------------------------
 
 #[derive(Debug, derive_more::From)]
@@ -86,6 +89,22 @@ pub enum McpError {
     #[cfg(feature = "app")]
     #[error("requestState matches no paused call, call again without requestState")]
     RequestState,
+    #[cfg(feature = "app")]
+    #[error("handle {handle} names no live agent state, call again without handle")]
+    Handle { handle: Handle },
+    #[cfg(feature = "app")]
+    #[error("handle argument is no handle this server issued, pass one an earlier result named or none")]
+    HandleArgument {
+        #[serde(skip)]
+        source: serde_path_to_error::Error<serde_json::Error>,
+    },
+    #[cfg(feature = "app")]
+    #[error("tool {tool} input schema properties are no object")]
+    Properties {
+        tool: Cow<'static, str>,
+        #[serde(skip)]
+        source: serde_path_to_error::Error<serde_json::Error>,
+    },
     #[error("server is shutting down, call again after restart")]
     Stopping,
     #[error("task {task} belongs to another connection")]
@@ -130,12 +149,18 @@ impl From<McpError> for ErrorData {
             McpError::ResourceNotFound { uri: _ } => ErrorCode::RESOURCE_NOT_FOUND,
             McpError::Task { task: _ } => ErrorCode::INVALID_PARAMS,
             #[cfg(feature = "app")]
-            McpError::Arguments { tool: _, violations: _ } | McpError::Encoding { uri: _, source: _ } | McpError::Variables { uri: _, source: _ } | McpError::RequestState => ErrorCode::INVALID_PARAMS,
+            McpError::Arguments { tool: _, violations: _ }
+            | McpError::Encoding { uri: _, source: _ }
+            | McpError::Variables { uri: _, source: _ }
+            | McpError::RequestState
+            | McpError::Handle { handle: _ }
+            | McpError::HandleArgument { source: _ } => ErrorCode::INVALID_PARAMS,
             McpError::Stopping => ErrorCode::INTERNAL_ERROR,
             #[cfg(feature = "app")]
             McpError::Route { pattern: _, source: _ }
             | McpError::Template { template: _, expression: _ }
             | McpError::Schema { tool: _, source: _ }
+            | McpError::Properties { tool: _, source: _ }
             | McpError::ToolName { tool: _ }
             | McpError::Completion { prompt: _ }
             | McpError::Declarations { errors: _ }

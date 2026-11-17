@@ -125,7 +125,7 @@ pub struct Options {
     #[arg(help = format!("Age at which the log file rotates, default {:#}", *Rotation { .. }.age))]
     log_age: Option<Stated<Age>>,
     #[arg(long, global = true, value_name = "COUNT", value_parser = Lenient(NonZero::<usize>::from_str))]
-    #[arg(help = format!("Rotated log files kept, oldest removed first, default {}", Rotation { .. }.files))]
+    #[arg(help = format!("Log files of the program kept across its processes, oldest removed first, default {}", Rotation { .. }.files))]
     log_files: Option<Stated<NonZero<usize>>>,
     #[arg(long, global = true, env = "OTEL_SERVICE_NAME", value_name = "NAME", help = "Service name over program defaults and OTEL_RESOURCE_ATTRIBUTES")]
     service_name: Option<String>,
@@ -224,7 +224,7 @@ impl Options {
         let file = match (stated(self.log_target, &mut refused).unwrap_or_default(), directory) {
             (Target::Stderr, Some(_) | None) => Ok(None),
             (Target::File, None) => Err(ObservabilityError::Folder),
-            (Target::File, Some(directory)) => Ok(Some(Arc::new(Appender { path: directory.join(format!("{}.log", command.get_name())), rotation, lines: OnceLock::new(), worker: Mutex::new(None) }))),
+            (Target::File, Some(directory)) => Ok(Some(Arc::new(Appender { directory, program: command.get_name().to_owned(), rotation, lines: OnceLock::new(), worker: Mutex::new(None) }))),
         };
         let fields = [(stringify!(traceparent), self.traceparent), (stringify!(tracestate), self.tracestate), (stringify!(baggage), self.baggage)];
         let carrier = HashMap::<_, _>::from_iter(fields.into_iter().filter_map(|(name, value)| Some((name.to_owned(), value?))));
@@ -284,7 +284,8 @@ impl Options {
 
 #[derive(Debug)]
 struct Appender {
-    path: Utf8PathBuf,
+    directory: Utf8PathBuf,
+    program: String,
     rotation: Rotation,
     lines: OnceLock<Result<NonBlocking, Arc<io::Error>>>,
     worker: Mutex<Option<WorkerGuard>>,
@@ -301,7 +302,8 @@ impl io::Write for &Appender {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         const QUEUE: usize = 1_024;
         let opened = self.lines.get_or_init(|| {
-            let (lines, worker) = NonBlockingBuilder::default().lossy(false).buffered_lines_limit(QUEUE).finish(RotatingFile::open(self.path.clone(), self.rotation).map_err(Arc::new)?);
+            let (lines, worker) =
+                NonBlockingBuilder::default().lossy(false).buffered_lines_limit(QUEUE).finish(RotatingFile::open(self.directory.clone(), self.program.clone(), self.rotation).map_err(Arc::new)?);
             *self.worker.lock() = Some(worker);
             Ok(lines)
         });

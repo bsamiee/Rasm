@@ -1,4 +1,3 @@
-use core::future::ready;
 use core::iter;
 use core::num::NonZero;
 
@@ -15,10 +14,9 @@ use rmcp::{ErrorData, Json};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use serde_urlencoded::Deserializer;
-use tokio_stream::wrappers::WatchStream;
 use validated::Validated;
 
-use super::{Completer, Routers, completer};
+use super::{Completer, completer};
 use crate::McpError;
 use crate::error::internal;
 
@@ -110,16 +108,6 @@ where A: 'static
         let routed = route(resource.mime_type.clone(), |_, _| Ok(()), move |app, ()| read(app), move |app, ()| subscribe(app));
         self.resources.push((resource, routed));
         self
-    }
-
-    #[must_use]
-    pub fn executions(self, resource: Resource, routers: &Routers<A>) -> Self {
-        let (executions, watched) = (routers.executions.clone(), routers.executions.clone());
-        self.resource(
-            resource.with_mime_type(JSON_MIME_TYPE),
-            move |_| ready(serde_json::to_string(&*executions.borrow()).map_err(internal)),
-            move |_| WatchStream::from_changes(watched.subscribe()).map(drop),
-        )
     }
 
     #[must_use]

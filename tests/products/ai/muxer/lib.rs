@@ -111,7 +111,7 @@ impl Isolated {
             .env("HOME", &self.root)
             .env("MCP_MUXER_RUNTIME_DIR", "r")
             .env("MCP_MUXER_CACHE_DIR", self.folder("cache"))
-            .env("MCP_MUXER_LOG_DIR", self.folder("logs"))
+            .env("MCP_MUXER_OUTPUT_DIR", self.folder("logs"))
             .env("MCP_MUXER_LOG_LEVEL", self.level)
             .current_dir(&self.root);
         command
