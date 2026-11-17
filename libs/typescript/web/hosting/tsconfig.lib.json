@@ -1,0 +1,22 @@
+{
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "types": ["node", "vite/types/importMeta.d.ts"]
+    },
+    "include": ["**/*"],
+    "exclude": ["dist", "server/workerd.ts", "rendering/hydrate.ts"],
+    "references": [
+        {
+            "path": "../../runtime/telemetry"
+        },
+        {
+            "path": "../../graphics/mark"
+        },
+        {
+            "path": "../../data/database"
+        },
+        {
+            "path": "../../data/object-storage/tsconfig.lib.json"
+        }
+    ]
+}

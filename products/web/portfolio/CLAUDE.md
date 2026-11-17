@@ -35,7 +35,7 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 
 ## [03]-[WORKER]
 
-[HANDLERS]: Worker is one Effect `Layer` graph, `Worker` of `@rasm/workers` builds it once per isolate on its first invocation:
+[HANDLERS]: Worker is one Effect `Layer` graph, `serve` of `@rasm/hosting/server` under the `workerd` condition builds it once per isolate on its first invocation:
 - Operations are `Effect.fn` spans, `Effect.catchTag` turns SQL, schema, and platform failures into a logged `ServiceUnavailable`
 - `SqlClient` stores complete encoded documents and assets as JSON, object storage holds media bytes
 - Store reads decode joined JSON documents and asset collections through `PortfolioData` at store boundaries
@@ -120,34 +120,32 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 - `DB` is a `sqlite` store and `BUCKET` a `bucket` with its lifecycle rules and the CORS rule direct uploads need
 - `allowed` holds the addresses a sign-in accepts, `limits` the CPU count and memory of a container
 - `targets` holds `Cloudflare` alone
-- `cloudflare.config.ts` projects the `App` through `worker(hosting, config)`, which adds the assets binding, `OTEL_SERVICE_NAME`, JSON binding `HOSTING`, and the `AWS_*` secrets a bucket signs with
-- `worker.plugin(hosting)` before `cloudflare()` in `vite.config.ts` sets those secrets for `vite dev` and `vite preview` to the local S3 endpoint of the declared `server.port` or `preview.port`, and deploy mints them
-- Worker and browser modules import no module `cloudflare.config.ts` loads, as the Cloudflare Vite plugin refuses to serve each in `vite dev`
-- Worker binding types are the global `Env` that `cf workers types` generates from `cloudflare.config.ts`
-- `tsconfig.json` references one program per runtime: `tsconfig.app.json` browser code, `tsconfig.node.json` Node entry and tool configs
-- `tsconfig.worker.json` holds the Worker entry with `cloudflare.config.ts` and `.cloudflare/types`
-- `nx install @rasm/portfolio` applies the app on the local engine, `nx run @rasm/portfolio:deploy--pulumi --stack=<row>` on one hosting row
-- `-c release --stack=<row>` applies the production stack of that row, and no `--stack` applies every stack that exists
-- Row `cloudflare` deploys the built Worker with every binding its Build Output states
-- Row `cloudflare` creates each D1 database and R2 bucket a binding names, bucket lifecycle rules, and an Access application on the sign-in path
-- `--destroy` on a disposable row empties its bucket and removes every resource, reading the Build Output `build--vite` wrote
+- `cloudflare({ config: worker(hosting, config) })` in `vite.config.ts` projects the `App`, adding the assets binding and `MODE`
+- `AWS_*` text bindings sign against miniflare route `CorePaths.R2_S3`, and deploy replaces them with an issued R2 token
+- Worker and Node load the same `server/main.ts`, which imports `hosting.config.ts` directly
+- `tsconfig.json` references one program per runtime: `tsconfig.app.json` browser code, `tsconfig.node.json` tool configs
+- `tsconfig.worker.json` checks `server/main.ts` under the `workerd` condition with the server-rendered views it reaches
+- `nx install @rasm/portfolio` applies stack `portfolio-disposable.local.rasm.localhost` on the local engine
+- `nx run @rasm/portfolio:deploy--pulumi --stack=portfolio-disposable.cloudflare` applies one stack, `-c release` the production stack `portfolio.cloudflare`, and no `--stack` every stack
+- Stack `<app>.cloudflare` deploys the built Worker with every binding its Build Output states
+- Stack `<app>.cloudflare` creates each D1 database and R2 bucket a binding names, bucket lifecycle rules, and an Access application on the sign-in path
+- `--operation=destroy` on a disposable stack empties its bucket and removes every resource, reading the Build Output `build--vite` wrote
 
-[SERVERS]: `server/app.ts` composes routes over passed services, D1 and `r2Storage` from the Worker, SQLite and path-style `s3Storage` from Node, each signing through the `AWS_*` variables of its bucket for the origin `S3_PUBLIC_ENDPOINT_URL` names where browsers reach it elsewhere:
-- `server/worker.ts` passes `env.HOSTING` and its routes to `serveWorker`, which decodes each binding `HOSTING` names and serves `Template` from the assets binding
-- `server/main.ts` passes the `App` and its routes to `serveNode`, which decodes each binding and serves the HTTP server on `PORT`
-- `serveWorker` writes one JSON log record per console line, records each span in the Workers trace, and exports at invocation end
-- `serveNode` passes the app name to `layerNodeFromConfig`, which reads `<NAME>_LOG_{LEVEL,FILTER,TARGET,DIR,SIZE,AGE,FILES}`
+[SERVERS]: `server/main.ts` passes the `App` and its routes to `serve` of `@rasm/hosting/server`, whose `workerd` condition serves the Worker and default condition the Node bundle:
+- Routes receive each binding by name: `DB` a database engine layer over D1 or Node SQLite, `BUCKET` an `ObjectStorage` layer over the R2 binding or S3
+- `ObjectStorage.sign` presigns through the `AWS_*` variables, resolving the endpoint against the served request and `S3_PUBLIC_ENDPOINT_URL` where browsers reach the bucket elsewhere
+- Workers write one JSON log record per console line, record each span in the Workers trace, and export at invocation end
+- Node servers pass the app name to `layerNodeFromConfig`, which reads `<NAME>_LOG_{LEVEL,FILTER,TARGET,DIR,SIZE,AGE,FILES}`
 - Each server exports each signal its `OTEL_<SIGNAL>_EXPORTER` variable names
 - `.storybook/main.ts` sets `viteConfigPath: null` and states the React and Tailwind plugins its stories read, so no `vite.config.ts` plugin runs
 - `siteHead` takes `favicon.svg` and `site/theme.css` tokens, emitting the ICO, Apple touch icon, painted SVG, `theme-color`, and `color-scheme`
 - `site/shell.tsx` states the content security policy of a production build, the page adds the storage origin to `connect-src`, and `Template.render` sets no header without one
 
-[IDENTITY]: Views and handlers read `Identity.sites` headers, which each server sets from one trusted source after removing any a client sent:
-- `vite dev` runs the Worker with no `ACCESS` variable, which serves the identity headers a request carries, as the Playwright suite sends them
+[IDENTITY]: Views and handlers read the signed-in user of each request through `Identity` of `@rasm/hosting/identity`, which owns the sign-in and sign-out paths:
 - `ACCESS` holds one `Access` as JSON, source `Forwarded` reading headers a proxy sets
 - `Access` source `Cloudflare` verifies a Cloudflare Access token from its header or `CF_Authorization` cookie
-- `serveNode` fails at start without `ACCESS`
-- Pages are public, the trusted source guards the sign-in path of `Identity.sites.paths`, and owner endpoints refuse every other session
+- `vite dev` with no `ACCESS` serves a development sign-in page, and a production build with no `ACCESS` signs every request out
+- Pages are public, the access source guards `Identity.paths.signin`, and owner endpoints refuse every other session
 - `Enrollment.session` answers `signedOut`, `signedIn`, or `allowed`, enrolling the first user id an `allowed` address signs in with
 - `ALLOWED` replaces `allowed` with a JSON list, and `nx install` sets it to the owner address of the local sign-in service
 - `hosting.config.ts` states the owner address, the commit author address and no secret

@@ -99,7 +99,8 @@ const page = HttpRouter.add(
     '/',
     Effect.fn('page')(
         () => Effect.all({ published: Effect.map(readDocument('published'), Struct.get('data')), session: OwnerAccount.session }, { concurrency: 'unbounded' }),
-        Effect.flatMap((bootstrap) => ObjectStorage.use(({ origin }) => Template.render(shell, bootstrap, { 'connect-src': [origin] }))),
+        Effect.flatMap((bootstrap) => ObjectStorage.use(({ endpoint }) => Effect.flatMap(endpoint, ({ origin }) => Template.render(shell, bootstrap, { 'connect-src': [origin] })))),
+        Effect.catchTag('ObjectStorageError', unavailable),
         Effect.map(Enrollment.unshared),
     ),
 );

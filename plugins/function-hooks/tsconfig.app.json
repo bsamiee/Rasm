@@ -3,7 +3,8 @@
     "compilerOptions": {
         "composite": false,
         "declarationMap": false,
-        "noEmit": true
+        "noEmit": true,
+        "types": ["node"]
     },
     "include": ["**/*", ".claude-plugin/plugin.json"],
     "exclude": ["hooks", "node_modules"],

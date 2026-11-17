@@ -39,7 +39,7 @@ const Profile = ({ idPrefix, onChooseHero, ...state }: Pick<Atom.Success<typeof 
                     </PlacementFields>
                 </>
             )}
-            <a className="mt-8.75 text-sm underline" href={Identity.sites.href('signout', '/')} target="_top">
+            <a className="mt-8.75 text-sm underline" href={Identity.href('signout', '/')} target="_top">
                 Sign out
             </a>
         </>

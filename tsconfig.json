@@ -33,9 +33,6 @@
             "path": "./libs/typescript/runtime/process"
         },
         {
-            "path": "./libs/typescript/runtime/workers"
-        },
-        {
             "path": "./libs/typescript/data/database"
         },
         {
@@ -82,9 +79,6 @@
         },
         {
             "path": "./tests/libs/typescript/messaging/webhooks"
-        },
-        {
-            "path": "./tests/libs/typescript/runtime/workers"
         },
         {
             "path": "./tests/libs/typescript/data/database"

@@ -1,17 +1,13 @@
 {
     "name": "@rasm/test-hosting",
     "private": true,
-    "description": "Hosting suites: Cloudflare Access tokens verified against a served key set, forwarded identity headers, the Node server failing at start without its settings, and the Pulumi resources a Build Output tree deploys as",
+    "description": "Hosting suite: the template refusal message across structured clone and Nx serialization",
     "type": "module",
     "devDependencies": {
-        "@effect/platform-node": "catalog:",
-        "@effect/vitest": "catalog:",
-        "@pulumi/pulumi": "catalog:",
         "@rasm/hosting": "workspace:*",
         "@rasm/testing": "workspace:*",
         "@types/node": "catalog:",
         "effect": "catalog:",
-        "vite": "catalog:",
         "vitest": "catalog:"
     }
 }

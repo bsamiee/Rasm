@@ -5,10 +5,12 @@
     "type": "module",
     "devDependencies": {
         "@playwright/test": "catalog:",
-        "@rasm/hosting": "workspace:*",
-        "@rasm/portfolio": "workspace:*",
         "@rasm/testing": "workspace:*",
-        "@types/node": "catalog:",
-        "effect": "catalog:"
+        "@types/node": "catalog:"
+    },
+    "nx": {
+        "implicitDependencies": [
+            "@rasm/portfolio"
+        ]
     }
 }

@@ -1,25 +1,20 @@
 {
     "name": "@rasm/test-object-storage",
     "private": true,
-    "description": "Object storage suites over R2 reads and presigned S3 writes against RustFS",
+    "description": "Object storage suites over R2 reads and the storage error message",
     "type": "module",
     "imports": {
         "#/*": "./*.ts"
     },
     "devDependencies": {
-        "@aws-sdk/client-s3": "catalog:",
         "@cloudflare/vitest-plugin": "catalog:",
         "@cloudflare/workers-types": "catalog:",
-        "@effect/platform-node": "catalog:",
         "@effect/vitest": "catalog:",
         "@rasm/object-storage": "workspace:*",
         "@rasm/testing": "workspace:*",
         "@types/node": "catalog:",
         "cf": "catalog:",
         "effect": "catalog:",
-        "fast-xml-parser": "catalog:",
-        "partial-content": "catalog:",
-        "testcontainers": "catalog:",
         "vite": "catalog:",
         "vitest": "catalog:"
     }

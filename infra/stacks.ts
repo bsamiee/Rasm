@@ -51,7 +51,7 @@ const grouped = Effect.fnUntraced(function* ({ verb, production }: typeof Reques
             Record.findFirst(graph.nodes, ({ data }) => data.root === root),
             () => new Cause.NoSuchElementError(`No Nx project sits at ${root}`),
         );
-        return [yield* hostingStacks(workspaceRoot, node[1], deploy)];
+        return [yield* hostingStacks(node[1], deploy)];
     });
     const groups = own
         ? yield* Option.match(deploy, {

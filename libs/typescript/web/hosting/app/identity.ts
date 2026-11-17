@@ -1,13 +1,14 @@
-import { Array, Config, Context, Data, Effect, Layer, Option, Record, Schema, SchemaGetter, SchemaTransformation, Struct } from 'effect';
+import { Array, Cause, Config, Context, Effect, Layer, Option, Record, Schema, SchemaGetter, SchemaTransformation, Struct } from 'effect';
 import { SecureRandom, Signature } from 'effect/crypto';
 import { FetchHttpClient, Headers, HttpMethod, HttpRouter, HttpServerRequest, HttpServerResponse, UrlParams } from 'effect/http';
 import { HttpApiError } from 'effect/http-api';
-import { Jwks, Jwt } from 'effect/jose';
+import { Jwks, type JoseError, Jwt } from 'effect/jose';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const address = new Intl.Collator(undefined, { usage: 'search', sensitivity: 'accent' });
 const sameAddress = (self: string, that: string) => address.compare(self, that) === 0;
+const development = { cookie: 'development-user', page: '<!doctype html><title>Sign in</title><form method="post"><label>Email <input autofocus name="email" required type="email"></label> <button>Sign in</button></form>' } as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -17,20 +18,9 @@ const Addresses = Schema.fromJsonString(Schema.Array(Schema.String));
 class User extends Schema.Class<User, { readonly brand: unique symbol }>('User')({ id: Schema.NonEmptyString, email: Schema.OptionFromOptionalKey(Schema.String) }) {}
 
 const Claims = User.pipe(Schema.encodeKeys({ id: 'sub' }));
-const ReturnTo = Schema.Struct({ target: Schema.String });
-
-class Identity extends Data.Class<{
-    readonly headers: { readonly id: string; readonly email: string };
-    readonly paths: { readonly signin: HttpRouter.PathInput; readonly signout: HttpRouter.PathInput };
-    readonly returnTo: string;
-}> {
-    static readonly sites = new Identity({ headers: { id: 'oai-authenticated-user-id', email: 'oai-authenticated-user-email' }, paths: { signin: '/signin-with-chatgpt', signout: '/signout-with-chatgpt' }, returnTo: 'return_to' });
-    readonly user = User.pipe(Schema.encodeKeys(this.headers));
-    readonly current = HttpServerRequest.schemaHeaders(this.user).pipe(Effect.option);
-    href(action: keyof Identity['paths'], target: string) {
-        return `${this.paths[action]}?${UrlParams.toString(UrlParams.fromInput({ [this.returnTo]: target }))}`;
-    }
-}
+const Remembered = Schema.fromJsonString(User);
+const SignedIn = Schema.Struct({ email: Schema.NonEmptyString });
+const ReturnTo = Schema.Struct({ return_to: Schema.String });
 
 class Access extends Schema.Class<Access, { readonly brand: unique symbol }>('Access')({
     source: Schema.TaggedUnion({
@@ -49,75 +39,91 @@ class Access extends Schema.Class<Access, { readonly brand: unique symbol }>('Ac
 }) {
     static readonly variable = 'ACCESS';
     static readonly json = Schema.fromJsonString(Access);
-    static readonly config = Config.schema(Access.json, Access.variable);
     static readonly cloudflare = { header: 'cf-access-jwt-assertion', cookie: 'CF_Authorization', algorithm: 'RS256', certs: '/cdn-cgi/access/certs', logout: '/cdn-cgi/access/logout' } as const;
-    layer(identity: Identity) {
-        const returning = ReturnTo.pipe(Schema.encodeKeys({ target: identity.returnTo }));
-        const signin = Effect.fn('signin')(function* (request: HttpServerRequest.HttpServerRequest) {
-            const [url, returned] = yield* Effect.all([Effect.orDie(Effect.fromOption(HttpServerRequest.toURL(request))), Effect.option(HttpServerRequest.schemaSearchParams(returning))]);
-            return HttpServerResponse.redirect(
-                returned.pipe(
-                    Option.flatMap(({ target }) => Option.fromNullOr(URL.parse(target, url.origin))),
-                    Option.filter(({ origin }) => origin === url.origin),
-                    Option.getOrElse(() => new URL('/', url.origin)),
-                ),
-            );
-        });
-        const verified = Access.fields.source.match(this.source, {
-            Cloudflare: ({ teamDomain, audience }) =>
-                Effect.map(
-                    Layer.build(
-                        Layer.mergeAll(Jwks.layerRemote({ url: new URL(Access.cloudflare.certs, teamDomain).href }).pipe(Layer.provide(FetchHttpClient.layer), Layer.provide(Layer.succeed(FetchHttpClient.RequestInit, { redirect: 'manual' }))), Signature.layerWebCrypto.pipe(Layer.provide(SecureRandom.layerWebCrypto))),
-                    ),
-                    (keys) => (request: HttpServerRequest.HttpServerRequest) =>
-                        Effect.fromOption(Option.orElse(Headers.get(request.headers, Access.cloudflare.header), () => Record.get(request.cookies, Access.cloudflare.cookie))).pipe(
-                            Effect.flatMap((token) => Jwt.verifyWithKeySet(Claims, token, { issuer: teamDomain.origin, audience, algorithms: [Access.cloudflare.algorithm] })),
-                            Effect.map(Struct.get('claims')),
-                            Effect.provideContext(keys),
-                        ),
-                ),
-            Forwarded: (names) => Effect.succeed((request: HttpServerRequest.HttpServerRequest) => Schema.decodeEffect(User.pipe(Schema.encodeKeys(names)))(request.headers)),
-        });
-        const identify = Effect.fn('identify')(function* <E, R>(app: Effect.Effect<HttpServerResponse.HttpServerResponse, E, R>, read: Effect.Success<typeof verified>) {
-            const request = yield* HttpServerRequest.HttpServerRequest;
-            const anonymous = Headers.removeMany(request.headers, Object.values(identity.headers));
-            const headers = yield* read(request).pipe(
-                Effect.flatMap((user) => Effect.orDie(Schema.encodeEffect(identity.user)(user))),
-                Effect.map((signed) => Headers.setAll(anonymous, signed)),
-                Effect.catchTag(['NoSuchElementError', 'SchemaError'], () => Effect.succeed(anonymous)),
-                Effect.catchReason('JoseError', 'KeySetUnavailable', Effect.fail, () => Effect.succeed(anonymous)),
-                Effect.tapCause(Effect.logError),
-                Effect.mapError(() => HttpApiError.ServiceUnavailable.make()),
-            );
-            return yield* Effect.provideService(app, HttpServerRequest.HttpServerRequest, request.modify({ headers }));
-        });
-        return Layer.mergeAll(
-            HttpRouter.add('*', identity.paths.signin, signin),
-            HttpRouter.add('*', identity.paths.signout, HttpServerResponse.redirect(this.logout)),
-            HttpRouter.middleware(
-                Effect.map(verified, (read) => (app) => identify(app, read)),
-                { global: true },
-            ),
-        );
-    }
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class Enrollment extends Context.Service<Enrollment, { readonly identity: Identity; readonly allowed: readonly string[] }>()('@rasm/hosting/app/identity/Enrollment') {
+class Identity extends Context.Service<Identity, Effect.Effect<Option.Option<User>, HttpApiError.ServiceUnavailable, HttpServerRequest.HttpServerRequest>>()('@rasm/hosting/app/identity') {
+    static readonly paths = { signin: '/signin', signout: '/signout' } as const;
+    static readonly href = (action: keyof typeof Identity.paths, target: string) => `${Identity.paths[action]}?${UrlParams.toString(UrlParams.fromInput(ReturnTo.make({ return_to: target })))}`;
+    static readonly back = Effect.gen(function* () {
+        const request = yield* HttpServerRequest.HttpServerRequest;
+        const [url, returned] = yield* Effect.all([Effect.orDie(Effect.fromOption(HttpServerRequest.toURL(request))), Effect.option(HttpServerRequest.schemaSearchParams(ReturnTo))]);
+        return HttpServerResponse.redirect(
+            returned.pipe(
+                Option.flatMap(({ return_to }) => Option.fromNullOr(URL.parse(return_to, url.origin))),
+                Option.filter(({ origin }) => origin === url.origin),
+                Option.getOrElse(() => new URL('/', url.origin)),
+            ),
+        );
+    });
+    static readonly readers = {
+        Cloudflare: ({ teamDomain, audience }: Extract<Access['source'], { readonly _tag: 'Cloudflare' }>) =>
+            Effect.map(
+                Layer.build(
+                    Layer.mergeAll(Jwks.layerRemote({ url: new URL(Access.cloudflare.certs, teamDomain).href }).pipe(Layer.provide(FetchHttpClient.layer), Layer.provide(Layer.succeed(FetchHttpClient.RequestInit, { redirect: 'manual' }))), Signature.layerWebCrypto.pipe(Layer.provide(SecureRandom.layerWebCrypto))),
+                ),
+                (keys) => (request: HttpServerRequest.HttpServerRequest) =>
+                    Effect.fromOption(Option.orElse(Headers.get(request.headers, Access.cloudflare.header), () => Record.get(request.cookies, Access.cloudflare.cookie))).pipe(
+                        Effect.flatMap((token) => Jwt.verifyWithKeySet(Claims, token, { issuer: teamDomain.origin, audience, algorithms: [Access.cloudflare.algorithm] })),
+                        Effect.map(Struct.get('claims')),
+                        Effect.provideContext(keys),
+                    ),
+            ),
+        Forwarded: (names: Extract<Access['source'], { readonly _tag: 'Forwarded' }>) => Effect.succeed((request: HttpServerRequest.HttpServerRequest) => Schema.decodeEffect(User.pipe(Schema.encodeKeys(Struct.pick(names, ['id', 'email']))))(request.headers)),
+    };
+    static readonly source = Effect.map(
+        Config.option(Config.schema(Access.json, Access.variable)),
+        Option.match({
+            onNone: () =>
+                import.meta.env.DEV
+                    ? {
+                          reader: Effect.succeed((request: HttpServerRequest.HttpServerRequest) => Effect.flatMap(Effect.fromOption(Record.get(request.cookies, development.cookie)), Schema.decodeEffect(Remembered))),
+                          routes: Layer.mergeAll(
+                              HttpRouter.add('GET', Identity.paths.signin, HttpServerResponse.html(development.page)),
+                              HttpRouter.add(
+                                  'POST',
+                                  Identity.paths.signin,
+                                  Effect.gen(function* () {
+                                      const { email } = yield* HttpServerRequest.schemaBodyUrlParams(SignedIn);
+                                      const remembered = yield* Effect.orDie(Schema.encodeEffect(Remembered)(User.make({ id: email, email: Option.some(email) })));
+                                      return yield* HttpServerResponse.setCookie(yield* Identity.back, development.cookie, remembered, { path: '/', httpOnly: true, sameSite: 'lax' });
+                                  }),
+                              ),
+                              HttpRouter.add('*', Identity.paths.signout, Effect.flatMap(Identity.back, HttpServerResponse.expireCookie(development.cookie, { path: '/' }))),
+                          ),
+                      }
+                    : { reader: Effect.succeed(() => Effect.fail(new Cause.NoSuchElementError(`${Access.variable} names no access source`))), routes: Layer.empty },
+            onSome: ({ source, logout }) => ({
+                reader: Access.fields.source.match(source, Identity.readers),
+                routes: Layer.mergeAll(HttpRouter.add('*', Identity.paths.signin, Identity.back), HttpRouter.add('*', Identity.paths.signout, HttpServerResponse.redirect(logout))),
+            }),
+        }),
+    );
+    static readonly signed = (read: (request: HttpServerRequest.HttpServerRequest) => Effect.Effect<User, Cause.NoSuchElementError | Schema.SchemaError | JoseError.JoseError>) =>
+        HttpServerRequest.HttpServerRequest.pipe(
+            Effect.flatMap(read),
+            Effect.asSome,
+            Effect.catchTag(['NoSuchElementError', 'SchemaError'], () => Effect.succeedNone),
+            Effect.catchReason('JoseError', 'KeySetUnavailable', Effect.fail, () => Effect.succeedNone),
+            Effect.tapCause(Effect.logError),
+            Effect.mapError(() => HttpApiError.ServiceUnavailable.make()),
+        );
+    static readonly layer = Layer.effect(Identity, Identity.source.pipe(Effect.flatMap(Struct.get('reader')), Effect.map(Identity.signed)));
+    static readonly routes = Layer.unwrap(Effect.map(Identity.source, Struct.get('routes')));
+}
+
+class Enrollment extends Context.Service<Enrollment, readonly string[]>()('@rasm/hosting/app/identity/Enrollment') {
     static readonly variable = 'ALLOWED';
     static readonly Session = Schema.Literals(['signedOut', 'signedIn', 'allowed']);
-    static readonly layer = ({ identity, allowed }: Enrollment['Service']) =>
-        Layer.effect(
-            Enrollment,
-            Effect.map(Config.schema(Addresses, Enrollment.variable).pipe(Config.withDefault(allowed)), (enrolled) => ({ identity, allowed: enrolled })),
-        );
+    static readonly layer = (allowed: readonly string[]) => Layer.effect(Enrollment, Config.schema(Addresses, Enrollment.variable).pipe(Config.withDefault(allowed)));
     static readonly session = Effect.fn('Enrollment.session')(function* <E, R>(store: {
         readonly enrolled: (addresses: Array.NonEmptyReadonlyArray<string>) => Effect.Effect<readonly { readonly email: string; readonly userId: string }[], E, R>;
         readonly enroll: (entry: { readonly email: string; readonly userId: string }) => Effect.Effect<readonly { readonly userId: string }[], E, R>;
     }) {
-        const { identity, allowed } = yield* Enrollment;
-        return yield* Option.match(yield* identity.current, {
+        const [allowed, signed] = yield* Effect.all([Enrollment, Effect.flatten(Identity)]);
+        return yield* Option.match(signed, {
             onNone: () => Effect.succeed('signedOut' as const),
             onSome: Effect.fnUntraced(function* (user) {
                 const enrolled = yield* Array.match(allowed, { onEmpty: () => Effect.succeed([]), onNonEmpty: store.enrolled });

@@ -85,7 +85,7 @@ const Site = ({ published: served, session }: typeof Bootstrap.Type) => {
                         )}
                     </DialogTrigger>
                 ) : (
-                    <a className="quiet-link" href={session === 'signedIn' ? Identity.sites.href('signout', '/') : Identity.sites.href('signin', `/?${UrlParams.toString({ [edit.name]: edit.value })}`)} target="_top">
+                    <a className="quiet-link" href={session === 'signedIn' ? Identity.href('signout', '/') : Identity.href('signin', `/?${UrlParams.toString({ [edit.name]: edit.value })}`)} target="_top">
                         {session === 'signedIn' ? 'Sign out' : 'Owner sign-in'}
                     </a>
                 )}

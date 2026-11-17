@@ -3,7 +3,7 @@
     "compilerOptions": {
         "lib": ["es2022", "dom"],
         "module": "preserve",
-        "types": ["node", "@adobe-uxp-types/uxp/with-protocol", "@adobe-uxp-types/photoshop/with-protocol"]
+        "types": ["@adobe-uxp-types/uxp/with-protocol", "@adobe-uxp-types/photoshop/with-protocol"]
     },
     "references": [
         {

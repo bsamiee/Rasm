@@ -1,39 +1,44 @@
-import { S3Client, type S3ClientConfig } from '@aws-sdk/client-s3';
-import { Config, Effect, Layer, Option, Redacted } from 'effect';
+import { AbortMultipartUploadCommand, DeleteObjectCommand, HeadObjectCommand, NoSuchUpload, NotFound, S3Client, S3ServiceException } from '@aws-sdk/client-s3';
+import { ByteSize, Effect, Layer, Option, Redacted } from 'effect';
 import { s3Store } from 'partial-content/s3';
-import { ObjectStorage } from '#/storage';
-
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const access = Config.all({
-    endpoint: Config.String('AWS_ENDPOINT_URL_S3'),
-    published: Config.option(Config.String('S3_PUBLIC_ENDPOINT_URL')),
-    region: Config.String('AWS_REGION'),
-    accessKeyId: Config.Redacted('AWS_ACCESS_KEY_ID'),
-    secretAccessKey: Config.Redacted('AWS_SECRET_ACCESS_KEY'),
-});
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
-const s3Clients = Effect.fnUntraced(function* (config: Omit<S3ClientConfig, 'endpoint' | 'region' | 'credentials' | 'requestChecksumCalculation'>) {
-    const { endpoint, published, region, accessKeyId, secretAccessKey } = yield* access;
-    const opened = (at: string) =>
-        Effect.acquireRelease(
-            Effect.sync(() => new S3Client({ ...config, requestChecksumCalculation: 'WHEN_REQUIRED', endpoint: at, region, credentials: { accessKeyId: Redacted.value(accessKeyId), secretAccessKey: Redacted.value(secretAccessKey) } })),
-            (client) => Effect.sync(() => client.destroy()),
-        );
-    const client = yield* opened(endpoint);
-    return { client, signer: yield* Option.match(published, { onNone: () => Effect.succeed(client), onSome: opened }), origin: new URL(Option.getOrElse(published, () => endpoint)).origin };
-});
+import { access, ObjectStorage, sent } from '#/storage';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const s3Storage = (bucket: string, config: Omit<S3ClientConfig, 'endpoint' | 'region' | 'credentials' | 'requestChecksumCalculation'> = {}) =>
+const s3Storage = (bucket: string) =>
     Layer.effect(
         ObjectStorage,
-        Effect.map(s3Clients(config), (clients) => ObjectStorage.make(clients, bucket, s3Store({ client: clients.client, bucket, reservedPrefix: '' }))),
+        Effect.gen(function* () {
+            const { endpoint, region, accessKeyId, secretAccessKey } = yield* access;
+            const client = yield* Effect.acquireRelease(
+                Effect.sync(() => new S3Client({ forcePathStyle: true, requestChecksumCalculation: 'WHEN_REQUIRED', endpoint, region, credentials: { accessKeyId: Redacted.value(accessKeyId), secretAccessKey: Redacted.value(secretAccessKey) } })),
+                (opened) => Effect.sync(() => opened.destroy()),
+            );
+            return yield* ObjectStorage.make(bucket, {
+                objects: s3Store({ client, bucket, reservedPrefix: '' }),
+                stat: (key) =>
+                    sent(key, (abortSignal) => client.send(new HeadObjectCommand({ Bucket: bucket, Key: key }), { abortSignal })).pipe(
+                        Effect.map(({ ContentLength = 0, ContentType = '' }) => Option.some({ size: ByteSize.bytes(ContentLength), mime: ContentType })),
+                        Effect.catchIf(
+                            ({ cause }) => cause instanceof NotFound || (cause instanceof S3ServiceException && cause.$metadata.httpStatusCode === 404),
+                            () => Effect.succeedNone,
+                        ),
+                    ),
+                remove: (key, uploadId) =>
+                    Option.match(uploadId, {
+                        onNone: () => Effect.void,
+                        onSome: (UploadId) =>
+                            sent(key, (abortSignal) => client.send(new AbortMultipartUploadCommand({ Bucket: bucket, Key: key, UploadId }), { abortSignal })).pipe(
+                                Effect.catchIf(
+                                    ({ cause }) => cause instanceof NotFound || cause instanceof NoSuchUpload,
+                                    () => Effect.void,
+                                ),
+                            ),
+                    }).pipe(Effect.andThen(sent(key, (abortSignal) => client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }), { abortSignal }))), Effect.asVoid),
+            });
+        }),
     );
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { s3Clients, s3Storage };
+export { s3Storage };

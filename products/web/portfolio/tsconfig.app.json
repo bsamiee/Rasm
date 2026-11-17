@@ -4,13 +4,11 @@
         "composite": false,
         "declarationMap": false,
         "noEmit": true,
+        "lib": ["esnext", "dom"],
         "types": ["vite/client"]
     },
     "include": ["site", "editor", "media", "model", ".storybook/preview.ts"],
     "references": [
-        {
-            "path": "../../../libs/typescript/runtime/workers"
-        },
         {
             "path": "../../../libs/typescript/web/ui/tsconfig.lib.json"
         },
@@ -18,13 +16,13 @@
             "path": "../../../libs/typescript/runtime/telemetry"
         },
         {
-            "path": "../../../libs/typescript/data/object-storage"
+            "path": "../../../libs/typescript/data/object-storage/tsconfig.lib.json"
         },
         {
-            "path": "../../../libs/typescript/web/media"
+            "path": "../../../libs/typescript/web/media/tsconfig.lib.json"
         },
         {
-            "path": "../../../libs/typescript/web/hosting"
+            "path": "../../../libs/typescript/web/hosting/tsconfig.lib.json"
         },
         {
             "path": "../../../libs/typescript/data/database"

@@ -8,7 +8,8 @@
         "#/*": "./*.ts"
     },
     "exports": {
-        "./senders": "./senders.ts"
+        "./senders": "./server/senders.ts",
+        "./server": "./server/main.ts"
     },
     "dependencies": {
         "@effect/platform-node": "catalog:",

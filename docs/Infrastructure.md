@@ -42,7 +42,8 @@ Each place holding state changes through one action:
 
 - Traefik proxies publish ports 80 and 443 on every address, redirect 80 to 443, and issue ACME certificates by TLS challenge
 - Routed services publish no port: the proxy reaches each on the Docker network, under one CNAME `<service>.<zone>` to its machine
-- Apps on a machine get CNAME `<app>.<zone>` behind the sign-in of that machine
+- Apps on a machine get CNAME `<app>.<zone>`, and the machine's sign-in service requires a session on each app's sign-in path alone
+- Proxies strip `Remote-User` and `Remote-Email` from every app request and set them from the sign-in session, which app variable `ACCESS` names
 - Object storage publishes its port on the machine's tailnet IPv4 alone, `127.0.0.1` on a local install
 - `net.ipv4.ip_nonlocal_bind` lets Docker bind the tailnet address before `tailscaled` sets it at boot
 - Stacks dial object storage by tailnet name, and containers dial it inside their Docker network

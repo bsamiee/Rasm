@@ -3,8 +3,10 @@
     "compilerOptions": {
         "composite": false,
         "declarationMap": false,
-        "noEmit": true
+        "noEmit": true,
+        "lib": ["esnext", "dom"],
+        "types": ["vite/client"]
     },
-    "include": [".storybook/*", "*.stories.ts", "*.stories.tsx"],
+    "include": [".storybook/preview.ts", "*.stories.ts", "*.stories.tsx"],
     "references": [{ "path": "./tsconfig.lib.json" }, { "path": "../../../../tests/support/typescript" }]
 }

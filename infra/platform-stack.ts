@@ -9,7 +9,7 @@ import { all, type CustomResourceOptions, getOrganization, getProject, type Inpu
 import { RandomPassword } from '@pulumi/random';
 import { getDeviceOutput } from '@pulumi/tailscale';
 import { Secret } from '@pulumiverse/doppler';
-import type { container } from '@rasm/hosting/container';
+import type { deploy } from '@rasm/hosting/deploy';
 import { Access, Identity } from '@rasm/hosting/identity';
 import { Array, Data, Duration, Effect, Function, Option, Record, Schema, Struct } from 'effect';
 import type { configs } from '#/repository-stack';
@@ -176,7 +176,7 @@ const stored = (machine: Machine) => {
     return output({ server: serving.urn.apply(() => `${published.address}:${ports.external}`), within: `http://storage:${ports.internal}`, origin: `https://${address}`, region: 'us-east-1', user, key });
 };
 
-const bucketed = (name: string, storage: Output<typeof Stored.Type>, buckets: Effect.Success<ReturnType<typeof container>>['buckets']) => {
+const bucketed = (name: string, storage: Output<typeof Stored.Type>, buckets: Effect.Success<ReturnType<typeof deploy.Machine>>['buckets']) => {
     const provider = new minio.Provider(name, { minioServer: storage.server, minioUser: storage.user, minioPassword: storage.key });
     const s3 = new aws.Provider(name, {
         region: storage.region,
@@ -239,14 +239,7 @@ const hosted = (machine: Machine, { owner }: Data.TaggedEnum.Args<Role, 'Apps'>)
         [`traefik.http.middlewares.${guard}.chain.middlewares`]: `${guard}-strip,${guard}-check`,
     });
     const configuration = {
-        access_control: {
-            default_policy: 'one_factor',
-            rules: [
-                { domain: wildcard, methods: ['POST', 'PUT', 'PATCH', 'DELETE'], policy: 'one_factor' },
-                { domain: wildcard, resources: [`^${RegExp.escape(Identity.sites.paths.signin)}([?].*)?$`], policy: 'one_factor' },
-                { domain: wildcard, policy: 'bypass' },
-            ],
-        },
+        access_control: { default_policy: 'bypass', rules: [{ domain: wildcard, resources: [`^${RegExp.escape(Identity.paths.signin)}([?].*)?$`], policy: 'one_factor' }] },
         authentication_backend: { file: { path: '/config/users.yml' }, password_reset: { disable: true } },
         notifier: { filesystem: { filename: '/var/lib/authelia/notification.txt' } },
         ntp: { disable_startup_check: true },

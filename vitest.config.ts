@@ -1,4 +1,4 @@
-import { existsSync, globSync, readFileSync } from 'node:fs';
+import { globSync } from 'node:fs';
 import { findPackageJSON } from 'node:module';
 import { dirname, join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -9,18 +9,13 @@ import { reporting } from '@rasm/testing/vitest';
 import { storybookTest } from '@storybook/addon-vitest/vitest-plugin';
 import react from '@vitejs/plugin-react';
 import { type PlaywrightProviderOptions, playwright } from '@vitest/browser-playwright';
-import { Array, Cause, Config, Effect, Filter, Match, Option, Schema } from 'effect';
-import { parseSync } from 'vite';
-import { defineConfig, type Plugin, type TestProjectInlineConfiguration, type ViteUserConfig } from 'vitest/config';
+import { Array, Cause, Config, Effect, Match, Option, Schema } from 'effect';
+import { defaultExclude, defineConfig, type Plugin, type TestProjectInlineConfiguration, type ViteUserConfig } from 'vitest/config';
 import type { BrowserConfigOptions } from 'vitest/node';
 
-// --- [TYPES] ---------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 
-interface Hosted {
-    readonly suffix: Option.Option<string>;
-    readonly plugins: NonNullable<TestProjectInlineConfiguration['plugins']>;
-    readonly test: NonNullable<TestProjectInlineConfiguration['test']>;
-}
+const WORKERS = '**/*.workers.test.ts';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -51,26 +46,15 @@ const manifested = (root: string) =>
         ({ default: manifest }) => manifest,
     );
 
-const hosted = (root: string, { devDependencies = {} }: (typeof Manifest.Type)['default'], connect: Parameters<typeof browser>[0]): readonly Hosted[] => {
-    const at = join(import.meta.dirname, root);
-    const served = (file: string) => parseSync(file, readFileSync(join(at, file), 'utf-8')).module.staticImports.some(({ moduleRequest }) => moduleRequest.value.startsWith('@effect/platform-node'));
-    const [node, workers] = existsSync(join(at, 'cloudflare.config.ts')) ? Array.partition(globSync('**/*.test.ts', { cwd: at, exclude: ['node_modules/**'] }), Filter.fromPredicate(served)) : [[], []];
-    const runtimes = [
-        { files: node, suffix: 'node', plugins: [] },
-        { files: workers, suffix: 'workers', plugins: [cloudflareTest({ config: true })] },
-    ].filter(({ files }) => files.length > 0);
-    return Match.value(runtimes).pipe(
-        Match.when(
-            () => 'vitest-browser-react' in devDependencies,
-            (): readonly Hosted[] => [{ suffix: Option.none(), plugins: [react({ compiler: { panicThreshold: 'all_errors' } })], test: { browser: browser(connect) } }],
-        ),
-        Match.when(
-            (all) => all.length > 1,
-            (all) => all.map(({ files, suffix, plugins }) => ({ suffix: Option.some(suffix), plugins, test: { include: files } })),
-        ),
-        Match.orElse((all) => [{ suffix: Option.none(), plugins: all.flatMap(({ plugins }) => plugins), test: {} }]),
+const hosted = ({ name, devDependencies = {} }: (typeof Manifest.Type)['default'], connect: Parameters<typeof browser>[0]) =>
+    Match.value(devDependencies).pipe(
+        Match.when({ 'vitest-browser-react': Match.string }, () => [{ plugins: [react({ compiler: { panicThreshold: 'all_errors' } })], test: { name, browser: browser(connect) } }]),
+        Match.when({ '@cloudflare/vitest-plugin': Match.string }, () => [
+            { plugins: [], test: { name: `${name} node`, exclude: [...defaultExclude, WORKERS] } },
+            { plugins: [cloudflareTest({ config: true })], test: { name: `${name} workers`, include: [WORKERS] } },
+        ]),
+        Match.orElse(() => [{ plugins: [], test: { name } }]),
     );
-};
 
 const projects = Effect.gen(function* () {
     const patterns = buildPackageJsonPatterns(import.meta.dirname, (file: string) => readJsonFile<PackageJson>(join(import.meta.dirname, file)));
@@ -94,12 +78,11 @@ const projects = Effect.gen(function* () {
     const [endpoint, exposed] = yield* Config.all([Config.option(Config.String('PW_TEST_CONNECT_WS_ENDPOINT')), Config.option(Config.String('PW_TEST_CONNECT_EXPOSE_NETWORK'))]);
     const connect = Option.map(endpoint, (wsEndpoint) => ({ wsEndpoint, ...Option.getOrUndefined(Option.map(exposed, (exposeNetwork) => ({ exposeNetwork }))) }));
     const suites = Array.zipWith(roots, manifests, (root, manifest) =>
-        hosted(root, manifest, connect).map(({ suffix, plugins, test }): TestProjectInlineConfiguration => ({
+        hosted(manifest, connect).map(({ plugins, test }): TestProjectInlineConfiguration => ({
             root,
             plugins: [...plugins, placed()],
             test: {
                 ...test,
-                name: Option.match(suffix, { onNone: () => manifest.name, onSome: (part) => `${manifest.name} ${part}` }),
                 ...(Array.isReadonlyArrayNonEmpty(Array.intersection(Object.keys(manifest.devDependencies ?? {}), ['nx', '@nx/devkit'])) && { env: { NX_DAEMON: 'false', NX_WORKSPACE_DATA_DIRECTORY: '.nx/workspace-data', NO_COLOR: '1', FORCE_COLOR: '0' } }),
             },
         })),

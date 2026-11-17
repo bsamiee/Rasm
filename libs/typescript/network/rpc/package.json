@@ -36,6 +36,7 @@
         "@rasm/search": "workspace:*"
     },
     "devDependencies": {
+        "@types/node": "catalog:",
         "effect": "catalog:"
     },
     "peerDependencies": {

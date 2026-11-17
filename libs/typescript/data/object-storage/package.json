@@ -2,7 +2,7 @@
     "name": "@rasm/object-storage",
     "version": "0.1.0",
     "private": true,
-    "description": "Objects in an R2 or S3 bucket served with ranges and preconditions and written through presigned S3 requests",
+    "description": "Objects in an R2 or S3 bucket served with ranges and preconditions and written through SigV4 presigned S3 requests",
     "license": "MIT",
     "repository": {
         "type": "git",
@@ -37,17 +37,23 @@
         "access": "public"
     },
     "dependencies": {
-        "@aws-sdk/s3-request-presigner": "catalog:",
+        "aws4fetch": "catalog:",
         "partial-content": "catalog:"
     },
     "devDependencies": {
         "@aws-sdk/client-s3": "catalog:",
+        "@cloudflare/workers-types": "catalog:",
         "@types/node": "catalog:",
         "effect": "catalog:"
     },
     "peerDependencies": {
         "@aws-sdk/client-s3": "catalog:peers",
         "effect": "catalog:peers"
+    },
+    "peerDependenciesMeta": {
+        "@aws-sdk/client-s3": {
+            "optional": true
+        }
     },
     "engines": {
         "node": ">=26"

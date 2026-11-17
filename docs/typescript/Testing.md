@@ -27,17 +27,19 @@ Vitest facts that decide the layout:
 
 Nx facts that decide the layout:
 - `@rasm/nx-vitest` reads the resolved root config and infers one `test--vitest` target per Nx project holding an inline project's `root`
-- Each inferred target runs the inline projects rooted in its Nx project, and one `nx` run batches every target of one config into one `vitest run` with one worker pool, each target decided by its own projects' test modules
+- Each inferred target runs the inline projects rooted in its Nx project
+- One `nx` run batches every target of one config into one `vitest run` with one worker pool, and its own projects' test modules decide each target
 - Inferred targets take root `vitest.config.ts` as an input, so editing shared options invalidates every cached result
 
 Root `vitest.config.ts` derives its inline projects from the tree:
 - Workspace packages listing `vitest` in `devDependencies` and holding the nearest `package.json` of a `*.test.{ts,tsx}` file are one project each, rooted there and named by manifest `name`
-- Suites holding `cloudflare.config.ts` run test files importing no `@effect/platform-node` through `cloudflareTest`
-- Suites holding test files of both kinds are projects `<name> node` and `<name> workers`
+- Suites listing `@cloudflare/vitest-plugin` in `devDependencies` are projects `<name> workers` and `<name> node`, split by file name
+- Projects `<name> workers` run `*.workers.test.ts` files through `cloudflareTest` over the suite's `cloudflare.config.ts`, `<name> node` every other test file
 - Suites listing `vitest-browser-react` in `devDependencies` run in browser mode on Playwright Chromium
 - Each workspace package holding `.storybook/main` adds a browser project through `storybookTest`, named by its package
 - Suites listing `nx` or `@nx/devkit` in `devDependencies` run with the Nx daemon off, workspace data in `.nx/workspace-data`, and color off
-- Each project writes its HTML report and browser screenshots beside the resolved `attachmentsDir`, which the `@rasm/nx-vitest` target moves to its `outputPath` when it runs alone, and a batch of targets writes them once beside root `attachmentsDir` (`.artifacts/vitest/attachments`) and each project's attachments to its own target's `outputPath`
+- Each project writes its HTML report and browser screenshots beside the resolved `attachmentsDir`, which a lone `@rasm/nx-vitest` target moves to its `outputPath`
+- Target batches write them once beside root `attachmentsDir` (`.artifacts/vitest/attachments`), and each project's attachments to its own target's `outputPath`
 - Root `test` holds `attachmentsDir`, `coverage`, `reporters`, `silent`, and `projects`, one report for the whole run, and inline projects inherit its `chaiConfig`
 
 ## [03]-[ENVIRONMENTS]

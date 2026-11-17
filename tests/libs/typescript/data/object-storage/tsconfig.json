@@ -1,16 +1,21 @@
 {
     "extends": "../../../../../tsconfig.base.json",
+    "compilerOptions": {
+        "module": "preserve"
+    },
+    "files": [],
     "references": [
         {
             "path": "../../../../support/typescript"
         },
         {
             "path": "../../../../../libs/typescript/data/object-storage"
+        },
+        {
+            "path": "./tsconfig.node.json"
+        },
+        {
+            "path": "./tsconfig.worker.json"
         }
-    ],
-    "compilerOptions": {
-        "module": "preserve",
-        "types": ["node", "@cloudflare/workers-types/experimental", "@cloudflare/vitest-plugin/types"]
-    },
-    "include": ["**/*", ".cloudflare/types"]
+    ]
 }

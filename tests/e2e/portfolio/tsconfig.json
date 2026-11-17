@@ -1,14 +1,11 @@
 {
     "extends": "../../../tsconfig.base.json",
+    "compilerOptions": {
+        "types": ["node"]
+    },
     "references": [
         {
             "path": "../../support/typescript"
-        },
-        {
-            "path": "../../../products/web/portfolio"
-        },
-        {
-            "path": "../../../libs/typescript/web/hosting"
         }
     ]
 }

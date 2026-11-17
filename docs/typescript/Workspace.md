@@ -32,15 +32,15 @@ Root `package.json` holds workspace identity and tools that root configuration f
 }
 ```
 
-| [INDEX] | [FIELD]           | [VALUE]                           | [REASON]                                                              |
-| :-----: | :---------------- | :-------------------------------- | :-------------------------------------------------------------------- |
-|  [01]   | `private`         | `true`                            | Root is never published                                               |
-|  [02]   | `type`            | `"module"`                        | Node asks every package to state it                                   |
-|  [03]   | `packageManager`  | Absent                            | `.config/mise.toml` pins pnpm and Node                                |
-|  [04]   | `scripts`         | `prepare` alone                   | Install lifecycle step                                                |
-|  [05]   | `devDependencies` | `catalog:` and `workspace:*` rows | Tools, workspace Nx plugins, and base `types` packages the root loads |
-|  [06]   | `workspaces`      | Absent                            | pnpm reads members from `pnpm-workspace.yaml` alone                   |
-|  [07]   | `pnpm`            | Absent                            | pnpm reads no settings from a `pnpm` manifest key                     |
+| [INDEX] | [FIELD]           | [VALUE]                           | [REASON]                                                             |
+| :-----: | :---------------- | :-------------------------------- | :------------------------------------------------------------------- |
+|  [01]   | `private`         | `true`                            | Root is never published                                              |
+|  [02]   | `type`            | `"module"`                        | Node asks every package to state it                                  |
+|  [03]   | `packageManager`  | Absent                            | `.config/mise.toml` pins pnpm and Node                               |
+|  [04]   | `scripts`         | `prepare` alone                   | Install lifecycle step                                               |
+|  [05]   | `devDependencies` | `catalog:` and `workspace:*` rows | Tools, workspace Nx plugins, and `types` packages root programs load |
+|  [06]   | `workspaces`      | Absent                            | pnpm reads members from `pnpm-workspace.yaml` alone                  |
+|  [07]   | `pnpm`            | Absent                            | pnpm reads no settings from a `pnpm` manifest key                    |
 
 - Root `package.json` holding an `nx` key becomes an Nx project, and `"includedScripts": []` there keeps `prepare` from becoming a target
 - `nx.json` `plugins` names `@rasm/nx-typescript` for `build--tsc` and `check--tsc` targets, and `@rasm/nx-vitest` for `test--vitest` targets
@@ -146,6 +146,7 @@ Library manifest:
 
 - `.` resolves to `index.ts`, which forwards exports and holds no logic
 - Entries beyond `.` exist per runtime or optional dependency family (`./node`, `./browser`), each with an optional peer where it adds one
+- Entries callers import alike on every runtime take one key with a condition per runtime resolver (`workerd`), `default` serving Node
 - `"./package.json"` stays exported, since `exports` hides every path it omits from tools that read the manifest
 - Files inside a package import `#/<module>` with no extension, and the `./*.ts` target supplies one for Node, TypeScript, and Vite
 - TypeScript 6 resolves `#/` keys under `nodenext` and `bundler` resolution
@@ -169,5 +170,5 @@ Library manifest:
 - `npm:` aliases install one package at more than one version (TypeScript 6 and 7)
 - `link:` and `file:` specifiers stay in fixtures
 
-- `exports` to source give TypeScript, Vite, and Node one resolver answer with no condition, alias, or build step
+- `exports` to source give TypeScript, Vite, and Node one resolver answer per runtime with no alias or build step
 - Node strips types only outside `node_modules`, and a workspace link resolves to its real folder, so sibling source runs as written

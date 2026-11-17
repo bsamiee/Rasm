@@ -126,6 +126,7 @@ catalog:
     webdav: 5.11.0
     basic-ftp: 6.2.6
     partial-content: 6.0.0
+    aws4fetch: 1.0.20 # SigV4 signer over fetch and WebCrypto, presigning S3 requests in Workers and Node
     '@uppy/core': 6.3.1
     '@uppy/dashboard': 6.0.3
     '@uppy/react': 6.1.1
@@ -486,9 +487,9 @@ catalog:
     '@cloudflare/vite-plugin': 2.0.0-rc.0
     '@cloudflare/workers-types': 5.20261116.1
     '@cloudflare/build-output-utils': 1.0.0-rc.0 # Build Output tree reader for hosting programs
-    '@cloudflare/config': 0.32.1 # `cloudflare.config.ts` uncached loader and parser for hosting programs
+    '@cloudflare/config': 0.32.1 # `loadConfig` the TypeScript Nx plugin reaches through `cf` for the files a `cloudflare.config.ts` imports
     miniflare: 5.20261116.0-beta # Local Workers runtime the Vite plugin runs, its `CorePaths` naming each local service route
-    cf: 1.0.0-rc.0 # `cloudflare.config.ts` definitions, Worker types, and local resource commands against Vite plugin state
+    cf: 1.0.0-rc.0 # Worker configuration and binding definitions, Worker type generation, and R2 object commands
     signal-exit: 4.1.0 # Handler run when the process ends by exit or by signal
     vite-plugin-static-copy: 4.1.1
     vite: 8.3.8
@@ -604,6 +605,7 @@ catalogs:
         '@effect/atom-react': ^4.0.0
         '@effect/sql-pg': ^4.0.0
         '@effect/sql-d1': ^4.0.0
+        '@effect/sql-sqlite-node': ^4.0.0
         '@effect/sql-clickhouse': ^4.0.0
         redis: ^6.0.0-0
         '@playwright/test': ^1.66.0-0
@@ -622,6 +624,7 @@ catalogs:
         '@aws-sdk/client-sts': ^3.0.0
         '@smithy/core': ^3.0.0
         cf: ^1.0.0-0
+        '@cloudflare/vite-plugin': ^2.0.0-0
         miniflare: ^5.0.0-0
         '@vite-pwa/assets-generator': ^2.0.0
         culori: ^4.0.0

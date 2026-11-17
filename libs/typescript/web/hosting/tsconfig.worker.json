@@ -1,0 +1,21 @@
+{
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "types": ["@cloudflare/workers-types"]
+    },
+    "include": ["server/workerd.ts"],
+    "references": [
+        {
+            "path": "./tsconfig.lib.json"
+        },
+        {
+            "path": "../../runtime/telemetry"
+        },
+        {
+            "path": "../../data/database"
+        },
+        {
+            "path": "../../data/object-storage/tsconfig.worker.json"
+        }
+    ]
+}

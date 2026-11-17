@@ -1,0 +1,9 @@
+{
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "types": ["node"]
+    },
+    "include": ["**/*"],
+    "exclude": ["dist", "*.workers.test.ts"],
+    "references": [{ "path": "../../../../../libs/typescript/messaging/webhooks" }, { "path": "../../../../support/typescript" }]
+}

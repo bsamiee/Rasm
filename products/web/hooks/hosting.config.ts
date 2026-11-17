@@ -5,7 +5,7 @@ import { ByteSize } from 'effect';
 
 const hosting = new App({
     name: 'hooks',
-    env: { POSTGRES_URL: App.Binding.postgres() },
+    env: { POSTGRES_URL: App.Binding.postgres(), TAILSCALE_WEBHOOK_SECRET: App.Binding.secret() },
     allowed: [],
     targets: [],
     limits: { cpus: 1, memory: ByteSize.mebibytes(512) },

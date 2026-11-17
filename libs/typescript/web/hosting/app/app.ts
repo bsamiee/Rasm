@@ -15,11 +15,11 @@ type Binding = Data.TaggedEnum<{
     text: { readonly value: string };
     json: { readonly value: Schema.MutableJson };
 }>;
-type Target = Data.TaggedEnum<{ Cloudflare: object; Machine: { readonly host: string }; Sites: { readonly project: string } }>;
+type Target = Data.TaggedEnum<{ Cloudflare: object; Machine: { readonly host: string } }>;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-// oxlint-disable-next-line typescript/no-unnecessary-type-parameters -- `const E` keeps the literal env keys `worker()` and `serveNode()` recover through `App<E>`
+// oxlint-disable-next-line typescript/no-unnecessary-type-parameters -- `const E` keeps the literal env keys `serve()` recovers through `App<E>`
 class App<const E extends Record.ReadonlyRecord<string, Binding> = Record.ReadonlyRecord<string, Binding>> extends Data.Class<{
     readonly name: string;
     readonly env: E;
@@ -30,7 +30,7 @@ class App<const E extends Record.ReadonlyRecord<string, Binding> = Record.Readon
     static readonly Binding = Data.taggedEnum<Binding>();
     static readonly Target = Data.taggedEnum<Target>();
     static readonly modes = { production: { suffix: '', kept: true }, disposable: { suffix: '-disposable', kept: false } } as const;
-    static readonly bundle = { environment: 'node', entry: 'index', assets: 'assets', fetcher: 'ASSETS', hosting: 'HOSTING', portVariable: 'PORT', readiness: '/readyz', signing: { endpoint: 'AWS_ENDPOINT_URL_S3', region: 'AWS_REGION', key: 'AWS_ACCESS_KEY_ID', secret: 'AWS_SECRET_ACCESS_KEY' } } as const;
+    static readonly bundle = { environment: 'node', entry: 'index', assets: 'assets', fetcher: 'ASSETS', mode: 'MODE', portVariable: 'PORT', readiness: '/readyz', signing: { endpoint: 'AWS_ENDPOINT_URL_S3', region: 'AWS_REGION', key: 'AWS_ACCESS_KEY_ID', secret: 'AWS_SECRET_ACCESS_KEY' } } as const;
     static readonly resource = (app: App, mode: keyof typeof App.modes, ...variables: readonly string[]) => `${[app.name, ...variables.map((variable) => String.snakeToKebab(variable.toLowerCase()))].join('-')}${App.modes[mode].suffix}`;
 }
 

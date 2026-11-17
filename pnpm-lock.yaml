@@ -15,9 +15,6 @@ catalogs:
     '@aws-sdk/client-s3':
       specifier: 3.1170.0
       version: 3.1170.0
-    '@aws-sdk/s3-request-presigner':
-      specifier: 3.1170.0
-      version: 3.1170.0
     '@axe-core/playwright':
       specifier: 4.14.1-d1531a9.0.sha-d1531a9
       version: 4.14.1-d1531a9.0.sha-d1531a9
@@ -282,6 +279,9 @@ catalogs:
     ajv:
       specifier: 8.20.0
       version: 8.20.0
+    aws4fetch:
+      specifier: 1.0.20
+      version: 1.0.20
     bootstrap-icons:
       specifier: 1.13.2
       version: 1.13.2
@@ -993,9 +993,9 @@ importers:
 
   libs/typescript/data/object-storage:
     dependencies:
-      '@aws-sdk/s3-request-presigner':
+      aws4fetch:
         specifier: 'catalog:'
-        version: 3.1170.0
+        version: 1.0.20
       partial-content:
         specifier: 'catalog:'
         version: 6.0.0(@aws-sdk/client-s3@3.1170.0)(@aws-sdk/s3-request-presigner@3.1170.0)
@@ -1003,6 +1003,9 @@ importers:
       '@aws-sdk/client-s3':
         specifier: 'catalog:'
         version: 3.1170.0
+      '@cloudflare/workers-types':
+        specifier: 'catalog:'
+        version: 5.20261116.1
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6
@@ -1123,6 +1126,9 @@ importers:
         specifier: workspace:*
         version: link:../../data/search
     devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.6
       effect:
         specifier: 'catalog:'
         version: 4.1.4
@@ -1219,25 +1225,6 @@ importers:
         specifier: 'catalog:'
         version: 4.0.0
 
-  libs/typescript/runtime/workers:
-    dependencies:
-      '@rasm/telemetry':
-        specifier: workspace:*
-        version: link:../telemetry
-    devDependencies:
-      '@cloudflare/workers-types':
-        specifier: 'catalog:'
-        version: 5.20261116.1
-      '@rasm/hosting':
-        specifier: workspace:*
-        version: link:../../web/hosting
-      '@types/node':
-        specifier: 'catalog:'
-        version: 26.6.6
-      effect:
-        specifier: 'catalog:'
-        version: 4.1.4
-
   libs/typescript/web/hosting:
     dependencies:
       '@types/web-app-manifest':
@@ -1247,9 +1234,18 @@ importers:
       '@cloudflare/build-output-utils':
         specifier: 'catalog:'
         version: 1.0.0-rc.0
+      '@cloudflare/vite-plugin':
+        specifier: 'catalog:'
+        version: 2.0.0-rc.0(@types/node@26.6.6)(vite@8.3.8(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))(workerd@1.20261116.1)
+      '@cloudflare/workers-types':
+        specifier: 'catalog:'
+        version: 5.20261116.1
       '@effect/platform-node':
         specifier: 'catalog:'
         version: 4.1.4(effect@4.1.4)(redis@6.3.1(@opentelemetry/api@1.10.0))
+      '@effect/sql-sqlite-node':
+        specifier: 'catalog:'
+        version: 4.1.4(effect@4.1.4)
       '@pulumi/cloudflare':
         specifier: 'catalog:'
         version: 6.25.0-alpha.1794552096(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
@@ -1259,9 +1255,15 @@ importers:
       '@pulumi/pulumi':
         specifier: 3.277.0-alpha.xba20e30
         version: 3.277.0-alpha.xba20e30(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
+      '@rasm/database':
+        specifier: workspace:*
+        version: link:../../data/database
       '@rasm/mark':
         specifier: workspace:*
         version: link:../../graphics/mark
+      '@rasm/object-storage':
+        specifier: workspace:*
+        version: link:../../data/object-storage
       '@rasm/telemetry':
         specifier: workspace:*
         version: link:../../runtime/telemetry
@@ -2064,9 +2066,6 @@ importers:
       '@rasm/ui':
         specifier: workspace:*
         version: link:../../../libs/typescript/web/ui
-      '@rasm/workers':
-        specifier: workspace:*
-        version: link:../../../libs/typescript/runtime/workers
       '@uppy/aws-s3':
         specifier: 'catalog:'
         version: 6.3.1(@uppy/core@6.3.1)
@@ -2122,6 +2121,9 @@ importers:
       '@cloudflare/vite-plugin':
         specifier: 'catalog:'
         version: 2.0.0-rc.0(@types/node@26.6.6)(vite@8.3.8(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))(workerd@1.20261116.1)
+      '@cloudflare/workers-types':
+        specifier: 'catalog:'
+        version: 5.20261116.1
       '@nx/vite':
         specifier: 'catalog:'
         version: 24.1.0-beta.1(@babel/traverse@7.29.14(supports-color@10.2.2))(@nx/eslint@24.1.0-beta.1(@babel/traverse@7.29.14(supports-color@10.2.2))(@zkochan/js-yaml@0.0.7)(eslint@10.15.0(jiti@2.7.0)(supports-color@10.2.2))(nx@24.1.0-beta.1)(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0-beta.1)(supports-color@10.2.2)(vite@8.3.8(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))(vitest@5.1.0)
@@ -2191,21 +2193,12 @@ importers:
       '@playwright/test':
         specifier: 'catalog:'
         version: 1.66.0-alpha-2026-11-16
-      '@rasm/hosting':
-        specifier: workspace:*
-        version: link:../../../libs/typescript/web/hosting
-      '@rasm/portfolio':
-        specifier: workspace:*
-        version: link:../../../products/web/portfolio
       '@rasm/testing':
         specifier: workspace:*
         version: link:../../support/typescript
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6
-      effect:
-        specifier: 'catalog:'
-        version: 4.1.4
 
   tests/libs/typescript/ai/mcp:
     devDependencies:
@@ -2293,18 +2286,12 @@ importers:
 
   tests/libs/typescript/data/object-storage:
     devDependencies:
-      '@aws-sdk/client-s3':
-        specifier: 'catalog:'
-        version: 3.1170.0
       '@cloudflare/vitest-plugin':
         specifier: 'catalog:'
         version: 1.8.3(@cloudflare/workers-types@5.20261116.1)(@types/node@26.6.6)(vitest@5.1.0)
       '@cloudflare/workers-types':
         specifier: 'catalog:'
         version: 5.20261116.1
-      '@effect/platform-node':
-        specifier: 'catalog:'
-        version: 4.1.4(effect@4.1.4)(redis@6.3.1(@opentelemetry/api@1.10.0))
       '@effect/vitest':
         specifier: 'catalog:'
         version: 4.1.4(effect@4.1.4)(vitest@5.1.0)
@@ -2323,15 +2310,6 @@ importers:
       effect:
         specifier: 'catalog:'
         version: 4.1.4
-      fast-xml-parser:
-        specifier: 'catalog:'
-        version: 5.12.1
-      partial-content:
-        specifier: 'catalog:'
-        version: 6.0.0(@aws-sdk/client-s3@3.1170.0)(@aws-sdk/s3-request-presigner@3.1170.0)
-      testcontainers:
-        specifier: 'catalog:'
-        version: 12.2.1(bare-buffer@3.7.2)(supports-color@10.2.2)
       vite:
         specifier: 'catalog:'
         version: 8.3.8(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2)
@@ -2498,47 +2476,8 @@ importers:
         specifier: 'catalog:'
         version: 5.1.0(@opentelemetry/api@1.10.0)(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/coverage-v8@5.1.0)(@vitest/ui@5.1.0)(vite@8.3.8(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))
 
-  tests/libs/typescript/runtime/workers:
-    devDependencies:
-      '@cloudflare/vitest-plugin':
-        specifier: 'catalog:'
-        version: 1.8.3(@cloudflare/workers-types@5.20261116.1)(@types/node@26.6.6)(vitest@5.1.0)
-      '@cloudflare/workers-types':
-        specifier: 'catalog:'
-        version: 5.20261116.1
-      '@effect/vitest':
-        specifier: 'catalog:'
-        version: 4.1.4(effect@4.1.4)(vitest@5.1.0)
-      '@rasm/workers':
-        specifier: workspace:*
-        version: link:../../../../../libs/typescript/runtime/workers
-      '@types/node':
-        specifier: 'catalog:'
-        version: 26.6.6
-      cf:
-        specifier: 'catalog:'
-        version: 1.0.0-rc.0(@types/node@26.6.6)
-      effect:
-        specifier: 'catalog:'
-        version: 4.1.4
-      vite:
-        specifier: 'catalog:'
-        version: 8.3.8(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2)
-      vitest:
-        specifier: 'catalog:'
-        version: 5.1.0(@opentelemetry/api@1.10.0)(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/coverage-v8@5.1.0)(@vitest/ui@5.1.0)(vite@8.3.8(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))
-
   tests/libs/typescript/web/hosting:
     devDependencies:
-      '@effect/platform-node':
-        specifier: 'catalog:'
-        version: 4.1.4(effect@4.1.4)(redis@6.3.1(@opentelemetry/api@1.10.0))
-      '@effect/vitest':
-        specifier: 'catalog:'
-        version: 4.1.4(effect@4.1.4)(vitest@5.1.0)
-      '@pulumi/pulumi':
-        specifier: 3.277.0-alpha.xba20e30
-        version: 3.277.0-alpha.xba20e30(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
       '@rasm/hosting':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/web/hosting
@@ -2551,9 +2490,6 @@ importers:
       effect:
         specifier: 'catalog:'
         version: 4.1.4
-      vite:
-        specifier: 'catalog:'
-        version: 8.3.8(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2)
       vitest:
         specifier: 'catalog:'
         version: 5.1.0(@opentelemetry/api@1.10.0)(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/coverage-v8@5.1.0)(@vitest/ui@5.1.0)(vite@8.3.8(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))
@@ -2623,6 +2559,9 @@ importers:
       '@rasm/testing':
         specifier: workspace:*
         version: link:../../../../support/typescript
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.6
       effect:
         specifier: 'catalog:'
         version: 4.1.4
@@ -2644,6 +2583,9 @@ importers:
       '@rasm/testing':
         specifier: workspace:*
         version: link:../../../../support/typescript
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.6
       effect:
         specifier: 'catalog:'
         version: 4.1.4
@@ -2665,6 +2607,9 @@ importers:
       '@rasm/testing':
         specifier: workspace:*
         version: link:../../../../support/typescript
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.6
       effect:
         specifier: 'catalog:'
         version: 4.1.4
@@ -2737,6 +2682,9 @@ importers:
       '@rasm/testing':
         specifier: workspace:*
         version: link:../../../../support/typescript
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.6
       effect:
         specifier: 'catalog:'
         version: 4.1.4
@@ -2884,6 +2832,9 @@ importers:
       '@rasm/testing':
         specifier: workspace:*
         version: link:../../../../support/typescript
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.6
       effect:
         specifier: 'catalog:'
         version: 4.1.4
@@ -6885,6 +6836,9 @@ packages:
   async@3.2.6:
     resolution: {integrity: sha512-htCUDlxyyCLMgaM3xXg0C0LW2xqfuQ6p05pCEIsXuyQ+a1koYKTuBMzRNwmybfLgvJDMd0r1LTn4+E0Ti6C2AA==}
 
+  aws4fetch@1.0.20:
+    resolution: {integrity: sha512-/djoAN709iY65ETD6LKCtyyEI04XIBP5xVvfmNxsEP0uJB5tyaGBztSryRr4HqMStr9R06PisQE7m9zDTXKu6g==}
+
   axe-core@4.14.1:
     resolution: {integrity: sha512-FHfa+lmNjQZfJz1q8wKqIDwC6DExcHt/pkjNQb09a3NPjCKg2rhu5qb2S4r76ASyFNNtuFooJpZe37OgudVGtQ==}
     engines: {node: '>=4'}
@@ -9521,6 +9475,7 @@ snapshots:
       '@smithy/core': 3.41.0
       '@smithy/types': 4.20.0
       tslib: 2.9.1
+    optional: true
 
   '@aws-sdk/signature-v4-multi-region@3.996.52':
     dependencies:
@@ -12955,6 +12910,8 @@ snapshots:
   async-lock@1.5.0: {}
 
   async@3.2.6: {}
+
+  aws4fetch@1.0.20: {}
 
   axe-core@4.14.1: {}
 

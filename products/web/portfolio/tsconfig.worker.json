@@ -4,7 +4,9 @@
         "composite": false,
         "declarationMap": false,
         "noEmit": true,
-        "types": ["vite/client"]
+        "customConditions": ["workerd"],
+        "lib": ["esnext", "dom"],
+        "types": ["@cloudflare/workers-types", "vite/client"]
     },
-    "include": ["server/worker.ts", "cloudflare.config.ts", ".cloudflare/types"]
+    "include": ["server/main.ts"]
 }

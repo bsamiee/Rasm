@@ -25,7 +25,8 @@ TypeScript compiler configuration of an Effect-based pnpm and Nx monorepo.
 - Test suite programs `references` reach each package they import, else TS6307 refuses the files outside their `include`
 - Applications another project imports pair a composite `tsconfig.json` holding `"files": []` with a `noEmit` `tsconfig.app.json`, as TS6310 refuses a `noEmit` reference
 - `@rasm/nx-typescript` infers `check--tsc` for a `noEmit` program and `build--tsc` for an emitting one, its `check--tsc` running the build
-- Runtime differences (DOM `lib`, Workers `types`, `jsx`) sit in the package config that needs them
+- Runtime `types`, DOM `lib`, and `jsx` sit in the package config that needs them, and files a second runtime runs take a program of their own
+- Workerd test suites pair `tsconfig.node.json` with `tsconfig.worker.json` over `*.workers.test.ts`, files both runtimes import sitting in both
 
 ## [03]-[BASE]
 
@@ -48,7 +49,6 @@ TypeScript compiler configuration of an Effect-based pnpm and Nx monorepo.
         "noImplicitReturns": true,
         "noFallthroughCasesInSwitch": true,
         "skipLibCheck": true,
-        "types": ["node"],
         "plugins": [{ "name": "@effect/language-service" }]
     }
 }
@@ -64,7 +64,8 @@ Package config, source at the package root:
 ```
 
 - `include` defaults to `**/*` and `exclude` to `node_modules` and `outDir`, so the base writes neither
-- Packages with other globals replace `types` (`["@cloudflare/workers-types"]`), and a browser program sets `"lib": ["esnext", "dom"]`
+- Programs name the globals of the runtime running their files: Node `["node"]`, Workers `["@cloudflare/workers-types"]`, a browser `["vite/client"]` with `"lib": ["esnext", "dom"]`
+- Libraries reading no runtime global set no `types`
 
 ## [04]-[COMPILER_OPTIONS]
 
@@ -84,7 +85,7 @@ Package config, source at the package root:
 |  [12]   | `noUncheckedIndexedAccess`           | `true`                   | Index reads include `undefined`                                        |
 |  [13]   | `noPropertyAccessFromIndexSignature` | `true`                   | Index signature keys read through brackets alone                       |
 |  [14]   | `skipLibCheck`                       | `true`                   | Development programs skip `.d.ts` checks, a consumer check covers dist |
-|  [15]   | `types`                              | Explicit list            | Default `[]` loads no global types                                     |
+|  [15]   | `types`                              | Per program              | Default `[]` loads no globals, so each program names its runtime       |
 |  [16]   | `plugins`                            | Effect language service  | Patched `tsc` reports Effect diagnostics as compiler errors            |
 |  [17]   | `jsx`                                | `react-jsx`              | Packages holding `.tsx` alone                                          |
 |  [18]   | `noEmit`                             | `true`                   | Programs Vite, Storybook, or Node runs from source                     |
@@ -118,6 +119,7 @@ Options for one case alone:
 - `@rasm/nx-typescript` runs `tsc --build` on a package `tsconfig.json` with `references`, `tsc` on one without
 - `@nx/js` sync generator `typescript-sync` writes `references` from graph dependencies, run by `nx sync` and targets listing it in `syncGenerators`
 - `typescript-sync` reports a project missing from root `references` on every run while its `tsconfig.json` is not composite
+- `typescript-sync` writes dependency `references` into a `tsconfig.lib.json` or `tsconfig.app.json` the project holds, else into its `tsconfig.json`, a solution included
 - `nx.sync.ignoredDependencies` in a runtime config keeps `typescript-sync` from writing a dependency its program never imports there
 - `sync.applyChanges: true` syncs before a terminal task run, other shells exit naming `nx sync`, and CI skips sync, which `nx sync:check` guards
 - Without references, each package program type-checks its siblings' `.ts` source through `exports`, which costs time and needs no emit
