@@ -30,7 +30,6 @@ public struct ApplicationFailure: CustomNSError, Equatable, LocalizedError {
         case noImage
         case noExtension
         case noEncoder
-        case noReport(Duration)
         case event(AppleEventFailure)
         case system(Errno)
         case host(NSError)
@@ -71,7 +70,6 @@ public struct ApplicationFailure: CustomNSError, Equatable, LocalizedError {
             case .noImage: "\(subject) holds no SDR image"
             case .noExtension: "\(subject) has no filename extension"
             case .noEncoder: "No encoder writes \(subject)"
-            case .noReport(let limit): "Process \(subject) wrote no crash report within \(limit.formatted(.units(width: .wide)))"
             case .event(let failure): failure.errorDescription
             case .system(let error): "\(subject): \(error.description)"
             case .host(let error): "\(subject): \(error.localizedDescription)"
@@ -93,7 +91,7 @@ public struct ApplicationFailure: CustomNSError, Equatable, LocalizedError {
             case .unwatched(let failure): [NSUnderlyingErrorKey: failure]
             case .unmatched(let miss): [NSUnderlyingErrorKey: miss]
             case .untrusted, .noCaptureAccess, .unanswered, .unreadable, .unresolved, .foreign, .disabled, .notSettable, .refused, .noIdentifier, .noPath, .noHandler, .noWindow, .noImage,
-                .noExtension, .noEncoder, .noReport, .cancelled, .unnamed, .malformed:
+                .noExtension, .noEncoder, .cancelled, .unnamed, .malformed:
                 [:]
         }
     }
@@ -101,7 +99,7 @@ public struct ApplicationFailure: CustomNSError, Equatable, LocalizedError {
 
 extension ApplicationFailure: Encodable {
     private enum Key: CodingKey {
-        case reason, subject, message, pid, error, attribute, candidates, limit, status
+        case reason, subject, message, pid, error, attribute, candidates, status
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -116,7 +114,6 @@ extension ApplicationFailure: Encodable {
             case .unreadable(let read): try read.encode(to: encoder)
             case .unmatched(let miss): try fields.encode(miss.candidates, forKey: .candidates)
             case .unnamed(let candidates): try fields.encode(candidates, forKey: .candidates)
-            case .noReport(let limit): try fields.encode(limit / .seconds(1), forKey: .limit)
             case .event(let failure): try fields.encodeIfPresent(failure.status, forKey: .status)
             case .system(let error): try fields.encode(error.rawValue, forKey: .error)
             case .untrusted, .noCaptureAccess, .unanswered, .noProcess, .unresolved, .disabled, .refused(.none), .noIdentifier, .noPath, .noHandler, .noWindow, .noImage, .noExtension, .noEncoder,

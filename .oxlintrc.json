@@ -40,7 +40,7 @@
         "no-ternary": "off",
         "no-undef": "off",
         "no-undefined": "off",
-        "no-underscore-dangle": ["error", { "allow": ["__unparsed__", "_path", "_tag"] }],
+        "no-underscore-dangle": ["error", { "allow": ["__unparsed__", "_meta", "_path", "_tag"] }],
         "no-unused-vars": ["error", { "args": "all", "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }],
         "no-use-before-define": ["error", { "functions": false, "classes": false, "variables": false }],
         "one-var": ["error", "never"],

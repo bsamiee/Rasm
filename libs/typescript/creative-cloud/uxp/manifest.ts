@@ -83,6 +83,8 @@ class UxpManifest extends Schema.Class<UxpManifest, { readonly brand: unique sym
     static readonly file = 'manifest.json';
     static readonly target = 'es2022';
     static readonly scripts = { ID: 'idjs', PS: 'psjs' } as const satisfies Partial<Record<UxpManifest['host']['app'], string>>;
+    static readonly origin = 'file://';
+    static readonly logs = (folder: string) => ({ folder: `Library/Logs/Adobe/${folder}`, glob: 'UXPLogs_*.log' });
 }
 
 // --- [EXPORTS] -------------------------------------------------------------------------

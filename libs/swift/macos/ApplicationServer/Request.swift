@@ -2,13 +2,14 @@ public import AppKit
 public import AppleEvents
 public import Applications
 import CoreServices
+import CurrentProcess
+public import Files
 public import JSONRPC
 import Logging
 public import Processes
 import Results
 public import ScreenCapture
 import Telemetry
-import UniformTypeIdentifiers
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -17,18 +18,36 @@ private let identifierKey = kMDItemCFBundleIdentifier as String
 // --- [MODELS] --------------------------------------------------------------------------
 
 public enum Request: Decodable, Sendable {
+    public struct Subject: Decodable, Sendable {
+        public let identifier: String
+        public let instance: ProcessInstance?
+    }
+
     case installations(identifiers: [String]?, prefix: String?)
-    case instances(identifiers: [String]?, prefix: String?)
+    case instances(identifiers: [String])
+    case events(identifiers: [String])
     case pressure
-    case applications(toOpen: URL)
-    case read(instance: ProcessInstance, window: CGWindowID?)
+    case nodes(instance: ProcessInstance, root: Element.ID?, depth: Int)
     case launch(url: URL, documents: [URL], arguments: [String], environment: [String: String], new: Bool)
-    case perform(instance: ProcessInstance, actions: [ElementAction])
+    case act(instance: ProcessInstance, actions: [ElementAction])
     case quit(instance: ProcessInstance, force: Bool)
     case terms(url: URL)
     case definition(url: URL, kind: ScriptingDictionary.Kind, name: String)
     case execute(instance: ProcessInstance, command: String, arguments: [String: AppleEventValue], artifacts: [URL])
-    case capture(instance: ProcessInstance, source: Source?, longestSide: Int?, directory: URL)
+    case capture(instance: ProcessInstance, source: Source?, longestSide: Int?)
+    case diagnostics(application: Subject?, folders: [LogFolder], since: Double?, limit: Int)
+}
+
+private struct Acted: Encodable, Sendable {
+    let outcomes: [Outcome<CGWindowID?>]
+    let state: InstanceState
+}
+
+private struct Diagnosed: Encodable, Sendable {
+    let reports: [DiagnosticReport]
+    let logs: [LogLine]
+    let unified: Outcome<[Processes.LogEvent]>
+    let unreadable: [String]
 }
 
 private enum Served<Extra: Decodable & Sendable>: Decodable, Sendable {
@@ -42,23 +61,17 @@ private enum Served<Extra: Decodable & Sendable>: Decodable, Sendable {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-private func selecting(_ identifiers: [String]?, _ prefix: String?, within admitting: NSPredicate) -> NSPredicate {
-    let selected =
-        (identifiers ?? []).map { identifier in NSPredicate(format: "%K == %@", identifierKey, identifier) }
-        + [prefix].compactMap(\.self).map { prefix in NSPredicate(format: "%K BEGINSWITH %@", identifierKey, prefix) }
-    return selected.isEmpty ? admitting : NSCompoundPredicate(andPredicateWithSubpredicates: [admitting, NSCompoundPredicate(orPredicateWithSubpredicates: selected)])
-}
-
 private func admitted(_ identifier: String?, by admitting: NSPredicate) -> Bool {
     identifier.map { identifier in admitting.evaluate(with: [identifierKey: identifier]) } == true
 }
 
+private func unmatched(_ subject: String, _ admission: NSPredicate, _ identifier: String?) -> ApplicationFailure {
+    ApplicationFailure(subject: subject, reason: .unmatched(Unmatched(subject: admission.predicateFormat, query: identifier, candidates: [])))
+}
+
 private func installation(at url: URL, admitting: () -> NSPredicate) throws(ApplicationFailure) -> Installation {
-    let installation = try Installation(at: url)
-    let admission = admitting()
-    guard admitted(installation.identifier, by: admission) else {
-        throw ApplicationFailure(subject: url.path(percentEncoded: false), reason: .unmatched(Unmatched(subject: admission.predicateFormat, query: installation.identifier, candidates: [])))
-    }
+    let (installation, admission) = (try Installation(at: url), admitting())
+    guard admitted(installation.identifier, by: admission) else { throw unmatched(url.path(percentEncoded: false), admission, installation.identifier) }
     return installation
 }
 
@@ -67,42 +80,46 @@ private func running(_ process: ProcessInstance, admitting: () -> NSPredicate) t
     let instance = try Instance(application)
     guard instance.process == process else { throw ApplicationFailure(subject: process.rawValue, reason: .noProcess) }
     let admission = admitting()
-    guard admitted(application.bundleIdentifier, by: admission) else {
-        throw ApplicationFailure(subject: process.rawValue, reason: .unmatched(Unmatched(subject: admission.predicateFormat, query: application.bundleIdentifier, candidates: [])))
-    }
+    guard admitted(application.bundleIdentifier, by: admission) else { throw unmatched(process.rawValue, admission, application.bundleIdentifier) }
     return instance
+}
+
+private func selected(_ identifiers: [String], admitting: () -> NSPredicate) -> @Sendable (NSRunningApplication) -> Bool {
+    let admission = admitting()
+    let held = Set(identifiers.filter { identifier in admitted(identifier, by: admission) })
+    return { application in application.bundleIdentifier.map(held.contains) == true }
 }
 
 extension Request {
     func perform(admitting: @escaping @Sendable () -> NSPredicate, refusing: @Sendable (Installation) -> Set<UInt64>, definitions: ScriptingDefinitions) async throws -> Response {
         switch self {
             case .installations(let identifiers, let prefix):
+                let selected =
+                    (identifiers ?? []).map { identifier in NSPredicate(format: "%K == %@", identifierKey, identifier) }
+                    + [prefix].compactMap(\.self).map { prefix in NSPredicate(format: "%K BEGINSWITH %@", identifierKey, prefix) }
+                let predicate = selected.isEmpty ? admitting() : NSCompoundPredicate(andPredicateWithSubpredicates: [admitting(), NSCompoundPredicate(orPredicateWithSubpredicates: selected)])
                 return await .stream(
-                    Installation.search(selecting(identifiers, prefix, within: admitting()), in: FileManager.default.urls(for: .applicationDirectory, in: .allDomainsMask))
-                        .map { listing -> any Encodable & Sendable in Outcome(listing) }
+                    Installation.search(predicate, in: FileManager.default.urls(for: .applicationDirectory, in: .allDomainsMask)).map { listing -> any Encodable & Sendable in Outcome(listing) }
                 )
-            case .instances(let identifiers, let prefix):
+            case .instances(let identifiers):
                 return .stream(
-                    NSWorkspace.shared.instanceStates { instance in admitted(instance.bundleIdentifier, by: selecting(identifiers, prefix, within: admitting())) }
+                    NSWorkspace.shared.instanceStates(of: selected(identifiers, admitting: admitting))
                         .map { states -> any Encodable & Sendable in states.compactMap { instance, state in RunningInstance(instance, state: state) } }
                 )
+            case .events(let identifiers):
+                return .stream(NSWorkspace.shared.instanceEvents(of: selected(identifiers, admitting: admitting)).map(\.self))
             case .pressure:
                 return .stream(SystemPressure.changes().map { pressure -> any Encodable & Sendable in Outcome(pressure) })
-            case .applications(let file):
-                return .value(NSWorkspace.shared.urlsForApplications(toOpen: file))
-            case .read(let process, let window):
-                return try await .value(running(process, admitting: admitting).reading(window: window))
+            case .nodes(let process, let root, let depth):
+                return try await .value(running(process, admitting: admitting).nodes(from: root, depth: depth))
             case .launch(let url, let documents, let arguments, let environment, let new):
                 return try .stream(
                     NSWorkspace.shared.launching(installation(at: url, admitting: admitting), opening: documents, arguments: arguments, environment: environment, newInstance: new)
                         .map(\.self)
                 )
-            case .perform(let process, let actions):
-                let instance = try running(process, admitting: admitting)
-                var next: InstanceState?
-                for action in actions { next = try await action.perform(in: process.pid).state }
-                let settled = if let next { next } else { await instance.state() }
-                return .value(settled)
+            case .act(let process, let actions):
+                let acted = try await running(process, admitting: admitting).act(actions)
+                return .value(Acted(outcomes: acted.outcomes.map(Outcome.init), state: acted.state))
             case .quit(let process, let force):
                 var last: InstanceState?
                 for await outcome in try running(process, admitting: admitting).quit(force: force) { last = try outcome.get() }
@@ -118,13 +135,38 @@ extension Request {
                 let reply = try await definitions.dictionary(of: scripted)
                     .reply(to: command, arguments: arguments, target: NSAppleEventDescriptor(processIdentifier: process.pid), refusing: refusing(scripted))
                 return .value(Executed(reply: reply, reading: artifacts))
-            case .capture(let process, let source, let longestSide, let directory):
-                let stills = try await running(process, admitting: admitting)
-                    .capture(source, to: { number in directory.appending(component: String(number)).appendingPathExtension(for: .png) }, longestSide: longestSide)
-                let artifacts = stills.map { number, still in
-                    (String(number), Outcome(Result { try Artifact(reading: still.get().file, width: still.get().width, height: still.get().height) }))
+            case .capture(let process, let source, let longestSide):
+                let instance = try running(process, admitting: admitting)
+                let shots = try await instance.capture(source, to: Program.current.directory(.captures, of: instance.application.localizedName), preview: longestSide)
+                return .value(Dictionary(uniqueKeysWithValues: shots.map { number, shot in (String(number), Outcome(shot)) }))
+            case .diagnostics(let application, let folders, let since, let limit):
+                let instance = try application?.instance.map { process throws(ApplicationFailure) in try running(process, admitting: admitting) }
+                let identifier = instance?.application.bundleIdentifier ?? application?.identifier ?? Program.current.identifier
+                if application != nil, !admitted(identifier, by: admitting()) { throw unmatched(identifier, admitting(), identifier) }
+                let earliest = [since.map { since in Date.now.addingTimeInterval(-since) }, instance?.application.launchDate].compactMap(\.self).max()
+                let reports = DiagnosticReport.reports(since: earliest ?? .distantPast, limit: limit) { report in
+                    instance.map { instance in report.written(by: instance.process) } ?? (report.bundleIdentifier == identifier)
                 }
-                return .value(Dictionary(uniqueKeysWithValues: artifacts))
+                let logs = LogLine.newest(in: folders, since: earliest, limit: limit)
+                let process: Result<String, ApplicationFailure> =
+                    switch (instance, application) {
+                        case (.some(let instance), _): .success(String(instance.process.pid))
+                        case (.none, .some):
+                            Result { () throws(ApplicationFailure) in
+                                try NSWorkspace.shared.urlForApplication(withBundleIdentifier: identifier).flatMap(Installation.init(at:))?.executable?.lastPathComponent
+                            }
+                            .flatMap { name in name.map(Result.success) ?? .failure(ApplicationFailure(subject: identifier, reason: .noPath)) }
+                        case (.none, .none): .success(ProcessInfo.processInfo.processName)
+                    }
+                let unified = await Result { () async throws(any Error) in try await Processes.LogEvent.history(of: process.get(), since: earliest, limit: limit) }
+                return .value(
+                    Diagnosed(
+                        reports: reports.reports,
+                        logs: logs.lines,
+                        unified: Outcome(unified),
+                        unreadable: reports.failures.compactMap(\.errorDescription) + logs.failures.compactMap(\.errorDescription),
+                    )
+                )
         }
     }
 }

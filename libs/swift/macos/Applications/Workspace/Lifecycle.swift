@@ -32,7 +32,7 @@ public struct Lifecycle: Encodable, Sendable {
 
     public let agents: [LaunchAgent]
     public let processes: [Row]
-    public let reports: [CrashReport]
+    public let reports: [DiagnosticReport]
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -58,7 +58,7 @@ extension Lifecycle {
             throw ApplicationFailure(subject: name, reason: .system(error))
         }
         let scoped: (FilePath) -> Bool = { path in path == executable || bundles.contains(where: path.starts(with:)) }
-        let owned: (CrashReport) -> Bool = { report in
+        let owned: (DiagnosticReport) -> Bool = { report in
             report.executable.map { path in scoped(FilePath(path)) } == true || installations.contains { installation in installation.identifier == report.bundleIdentifier }
                 || agents.contains { agent in agent.label == report.service }
         }
@@ -78,7 +78,7 @@ extension Lifecycle {
             processes: running.map { instance in
                 Row(instance: instance, executable: Result { () throws(Errno) in try instance.executable() }, replaced: Result { () throws(Errno) in try !instance.runsInstalledCode() })
             },
-            reports: Array(CrashReport.reports { report in named.map { named in report.instance == named } ?? owned(report) }.reports.prefix(limit)),
+            reports: DiagnosticReport.reports(limit: limit) { report in named.map { named in report.instance == named } ?? owned(report) }.reports,
         )
     }
 }

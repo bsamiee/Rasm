@@ -9,11 +9,9 @@ public struct Artifact: Encodable, Sendable {
     public let uri: URL
     public let mimeType: String?
     public let data: Data
-    public let width: Int?
-    public let height: Int?
 
-    init(reading file: URL, width: Int? = nil, height: Int? = nil) throws {
-        (uri, mimeType, data, self.width, self.height) = (file, try file.resourceValues(forKeys: [.contentTypeKey]).contentType?.preferredMIMEType, try Data(contentsOf: file), width, height)
+    init(reading file: URL) throws {
+        (uri, mimeType, data) = (file, try file.resourceValues(forKeys: [.contentTypeKey]).contentType?.preferredMIMEType, try Data(contentsOf: file))
     }
 }
 

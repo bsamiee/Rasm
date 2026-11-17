@@ -70,7 +70,7 @@ extension Instance {
             }
             .compactMap(\.self)
             next.menus =
-                try barred + element.applicationMenus().map { menu throws(ApplicationFailure) in try menu.described(walking: walked, helper: helper, among: numbers)?.element }.compactMap(\.self)
+                try barred + element.menus().map { menu throws(ApplicationFailure) in try menu.described(walking: walked, helper: helper, among: numbers)?.element }.compactMap(\.self)
         }
         let status: InstanceState.Running.Status = application.isFinishedLaunching || next.described.values.contains(where: \.asking) ? .responding : .launching
         next.status = status

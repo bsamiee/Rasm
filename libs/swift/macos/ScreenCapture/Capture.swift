@@ -4,7 +4,7 @@ import CoreImage.CIFilterBuiltins
 import ImageIO
 import Processes
 import ScreenCaptureKit
-import UniformTypeIdentifiers
+public import UniformTypeIdentifiers
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -13,7 +13,20 @@ public enum Source: Codable, Hashable, Sendable {
     case element(id: Element.ID)
 }
 
+public struct Shot: Encodable, Sendable {
+    public let file: URL
+    public let width: Int
+    public let height: Int
+    public let document: URL?
+    public let preview: Data?
+}
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
+public func footageFile(in folder: URL, window: CGWindowID, _ type: UTType, at time: Date = .now) -> URL {
+    folder.appending(component: "\(window)-\(time.formatted(Date.ISO8601FormatStyle(includingFractionalSeconds: true).dateSeparator(.omitted).timeSeparator(.omitted)))")
+        .appendingPathExtension(for: type)
+}
 
 public func checkCaptureAccess(prompting: Bool = false) throws(ApplicationFailure) {
     guard prompting ? CGRequestScreenCaptureAccess() : CGPreflightScreenCaptureAccess() else {
@@ -71,18 +84,22 @@ extension Instance {
             }
         ) { first, _ in first }
     }
+
     public func capture(
-        _ source: Source? = nil,
-        to file: (CGWindowID) -> URL,
+        _ source: Source?,
+        to folder: URL,
         longestSide: Int? = nil,
-    ) async throws(ApplicationFailure) -> [CGWindowID: Result<(file: URL, width: Int, height: Int), ApplicationFailure>] {
-        var stills: [CGWindowID: Result<(file: URL, width: Int, height: Int), ApplicationFailure>] = [:]
-        for (number, target) in try await targets(source, longestSide: longestSide) {
-            let path = file(number)
-            let still = await Result { () async throws(ApplicationFailure) -> (file: URL, width: Int, height: Int)? in
+        preview: Int? = nil,
+    ) async throws(ApplicationFailure) -> [CGWindowID: Result<Shot, ApplicationFailure>] {
+        do { try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true) } catch {
+            throw ApplicationFailure(subject: folder.path(percentEncoded: false), reason: .host(error as NSError))
+        }
+        let (targets, documents) = (try await targets(source, longestSide: longestSide), try await documents())
+        var shots: [CGWindowID: Result<Shot, ApplicationFailure>] = [:]
+        for (number, target) in targets {
+            let path = footageFile(in: folder, window: number, .png)
+            let shot = await Result { () async throws(ApplicationFailure) -> Shot? in
                 let (filter, region, factor) = try target.get()
-                let subject = path.path(percentEncoded: false)
-                guard let type = UTType(filenameExtension: path.pathExtension) else { throw ApplicationFailure(subject: subject, reason: .noExtension) }
                 let configuration = SCScreenshotConfiguration()
                 (configuration.width, configuration.height) = (Int((filter.contentRect.width * factor).rounded()), Int((filter.contentRect.height * factor).rounded()))
                 (configuration.showsCursor, configuration.includeChildWindows) = (false, false)
@@ -93,19 +110,23 @@ extension Instance {
                 let pixels = region.map { region in region.applying(CGAffineTransform(scaleX: factor, y: factor)).integral }
                 guard let image = pixels.map({ pixels in output.sdrImage?.cropping(to: pixels) }) ?? output.sdrImage else { throw ApplicationFailure(subject: String(number), reason: .noImage) }
                 guard source != nil || !transparent(image) else { return nil }
-                let data: CFMutableData = CFDataCreateMutable(nil, 0)
-                guard let destination = CGImageDestinationCreateWithData(data, type.identifier as CFString, 1, nil) else { throw ApplicationFailure(subject: type.identifier, reason: .noEncoder) }
-                CGImageDestinationAddImage(destination, image, nil)
-                guard CGImageDestinationFinalize(destination) else { throw ApplicationFailure(subject: type.identifier, reason: .noEncoder) }
-                do { try (data as Data).write(to: path) } catch { throw ApplicationFailure(subject: subject, reason: .host(error as NSError)) }
-                return (path, image.width, image.height)
+                guard let whole = NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]) else { throw ApplicationFailure(subject: UTType.png.identifier, reason: .noEncoder) }
+                do { try whole.write(to: path) } catch { throw ApplicationFailure(subject: path.path(percentEncoded: false), reason: .host(error as NSError)) }
+                let thumbnail: CGImage? = preview.flatMap { limit in
+                    CGImageSourceCreateWithData(whole as CFData, nil).flatMap { read in
+                        CGImageSourceCreateThumbnailAtIndex(read, 0, [kCGImageSourceCreateThumbnailFromImageAlways: true, kCGImageSourceThumbnailMaxPixelSize: limit] as CFDictionary)
+                    }
+                }
+                let scaled = thumbnail.flatMap { thumbnail in NSBitmapImageRep(cgImage: thumbnail).representation(using: .png, properties: [:]) }
+                guard preview == nil || scaled != nil else { throw ApplicationFailure(subject: path.path(percentEncoded: false), reason: .noImage) }
+                return Shot(file: path, width: image.width, height: image.height, document: documents[number], preview: scaled)
             }
-            switch still {
-                case .success(.some(let written)): stills[number] = .success(written)
+            switch shot {
+                case .success(.some(let written)): shots[number] = .success(written)
                 case .success(.none): break
-                case .failure(let failure): stills[number] = .failure(failure)
+                case .failure(let failure): shots[number] = .failure(failure)
             }
         }
-        return stills
+        return shots
     }
 }

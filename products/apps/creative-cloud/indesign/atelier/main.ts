@@ -59,9 +59,7 @@ const linked = (extension: string, root: Effect.Effect<URL, HostError, Path.Path
         Typesetting,
         Layer.merge(tools, typesetting),
         ATELIER,
-        Effect.all([Effect.tryPromise({ try: () => model.app.fullName, catch: HostError.refused('application fullName') }).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Uxp.Entry))), root]).pipe(
-            Effect.map(([{ url }, folder]) => Link.make({ application: new URL(url), extension, root: Option.some(folder), runtime: Option.none() })),
-        ),
+        Effect.all([Effect.tryPromise({ try: () => model.app.fullName, catch: HostError.refused('application fullName') }).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Uxp.Application))), root]).pipe(Effect.map(([{ url }, folder]) => Link.make({ application: url, extension, root: Option.some(folder) }))),
     );
 const panel = Effect.fnUntraced(function* (root: HTMLElement, fork: <A, X>(work: Effect.Effect<A, X>) => void) {
     const { id } = yield* Plugin;

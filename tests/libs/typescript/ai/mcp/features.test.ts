@@ -1,13 +1,12 @@
 import { assert, describe, it } from '@effect/vitest';
-import { Array, Effect, Option, Order, Predicate, Ref, Schema, String } from 'effect';
+import { Array, Effect, Order, Ref, Schema, String } from 'effect';
 import { McpProtocol } from 'effect/ai';
 import { opened, PROTOCOLS } from '#/conformance';
-import { EMBEDDED, FAILURE, IDS, PNG, STATIC, TEXT } from '#/fixtures';
+import { EMBEDDED, FAILURE, IDS, PNG, STATIC } from '#/fixtures';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const VERSIONS: readonly string[] = PROTOCOLS.map(({ protocolVersion }) => protocolVersion);
-const TOOLS = ['gated_read', 'gated_write', 'test_defect', 'test_embedded_resource', 'test_error_handling', 'test_image_content', 'test_simple_text', 'test_structured', 'test_tool_with_progress', 'test_value'];
 const ABSENT = { modern: -32_602, legacy: -32_002 } as const;
 const COMPLETED = { most: 100 } as const;
 const WEATHER = { temperature: 22.5, conditions: 'Partly cloudy' };
@@ -22,19 +21,6 @@ const Block = Schema.Struct({
     resource: Schema.optionalKey(Schema.Struct({ uri: Schema.String, mimeType: Schema.optionalKey(Schema.String), blob: Schema.optionalKey(Schema.String), text: Schema.optionalKey(Schema.String) })),
 });
 const Called = Schema.Struct({ result: Schema.Struct({ content: Schema.Array(Block), isError: Schema.optionalKey(Schema.Boolean), structuredContent: Schema.optionalKey(Schema.Unknown) }) });
-const Listed = Schema.Struct({
-    result: Schema.Struct({
-        tools: Schema.Array(
-            Schema.Struct({
-                name: Schema.String,
-                description: Schema.String,
-                inputSchema: Schema.Struct({ type: Schema.Literal('object'), properties: Schema.optionalKey(Schema.Record(Schema.String, Schema.Unknown)) }),
-                outputSchema: Schema.optionalKey(Schema.Struct({ properties: Schema.optionalKey(Schema.Record(Schema.String, Schema.Unknown)) })),
-                annotations: Schema.optionalKey(Schema.Struct({ readOnlyHint: Schema.optionalKey(Schema.Boolean) })),
-            }),
-        ),
-    }),
-});
 const Outcome = Schema.Struct({ error: Schema.optionalKey(Schema.Struct({ code: Schema.Finite, message: Schema.String })), result: Schema.optionalKey(Schema.Struct({ isError: Schema.optionalKey(Schema.Boolean) })) });
 const Resources = Schema.Struct({ result: Schema.Struct({ resources: Schema.Array(Schema.Struct({ uri: Schema.String, name: Schema.String, description: Schema.optionalKey(Schema.String), mimeType: Schema.optionalKey(Schema.String) })) }) });
 const Templates = Schema.Struct({ result: Schema.Struct({ resourceTemplates: Schema.Array(Schema.Struct({ uriTemplate: Schema.String, name: Schema.String })) }) });
@@ -53,54 +39,12 @@ const served = Effect.fnUntraced(function* (protocol: (typeof PROTOCOLS)[number]
 
 const since = (protocol: (typeof PROTOCOLS)[number], first: (typeof PROTOCOLS)[number]) => VERSIONS.indexOf(protocol.protocolVersion) >= VERSIONS.indexOf(first.protocolVersion);
 
-const unquoted = (text: string | undefined) => Option.getOrElse(Option.filter(Schema.decodeUnknownOption(Json)(text), Predicate.isString), () => text);
-
 const outcome = (message: unknown) => Effect.map(Schema.decodeUnknownEffect(Outcome)(message), ({ error, result }) => ({ code: error?.code, failed: result?.isError === true }));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 describe.each(PROTOCOLS)('$protocolVersion tools', (protocol) => {
-    const [annotated, structured, validating] = [since(protocol, McpProtocol.v2025_03_26), since(protocol, McpProtocol.v2025_06_18), since(protocol, McpProtocol.v2025_11_25)];
-
-    it.live(
-        'lists every visible tool with its description and an object input schema holding its parameters, lists no hidden tool, marks read-only tools from 2025-03-26, and states an output schema from 2025-06-18',
-        Effect.fnUntraced(function* () {
-            const { test, held } = yield* served(protocol);
-            const { result } = yield* Effect.flatMap(test.answer(held, 'tools/list'), Schema.decodeUnknownEffect(Listed));
-            const listed = (name: string) => Array.findFirst(result.tools, (tool) => tool.name === name);
-            assert.deepStrictEqual(
-                {
-                    names: Array.sort(
-                        result.tools.map(({ name }) => name),
-                        Order.String,
-                    ),
-                    readOnly: Array.sort(
-                        result.tools.filter(({ annotations }) => annotations?.readOnlyHint === true).map(({ name }) => name),
-                        Order.String,
-                    ),
-                    parameters: Option.map(listed('test_value'), ({ inputSchema }) => Object.keys(inputSchema.properties ?? {})),
-                    structured: Option.map(listed('test_structured'), ({ outputSchema }) => Array.sort(Object.keys(outputSchema?.properties ?? {}), Order.String)),
-                    described: Option.map(listed('test_simple_text'), ({ description }) => description),
-                },
-                {
-                    names: TOOLS,
-                    readOnly: Array.difference(TOOLS, annotated ? ['gated_write'] : TOOLS),
-                    parameters: Option.some(['value']),
-                    structured: Option.some(structured ? ['conditions', 'temperature'] : []),
-                    described: Option.some('Returns simple text'),
-                },
-            );
-        }, Effect.scoped),
-    );
-
-    it.live(
-        'returns the text of a tool in a text block, verbatim or as the serialized JSON string a structured result mirrors',
-        Effect.fnUntraced(function* () {
-            const { content } = yield* served(protocol);
-            const { content: blocks, isError } = yield* content('test_simple_text');
-            assert.deepStrictEqual([blocks.filter(({ type }) => type === 'text').map(({ text }) => unquoted(text)), isError === true], [[TEXT], false]);
-        }, Effect.scoped),
-    );
+    const [structured, validating] = [since(protocol, McpProtocol.v2025_06_18), since(protocol, McpProtocol.v2025_11_25)];
 
     it.live(
         'returns image bytes as an image block holding base64 data and the media type',

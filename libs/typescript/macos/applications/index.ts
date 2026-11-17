@@ -1,3 +1,3 @@
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { AppleEventValue, Capture, Execute, Installation, Launch, Launched, Launching, Lifecycle, LongestSide, Perform, Pid, Pressure, ProcessInstance, RunningInstance, State, TermKind, Terms, WindowID } from '#/contract';
+export { Act, Acted, AppleEventValue, Capture, Diagnostics, ElementID, Event, Execute, Installation, Launch, Launched, Launching, LongestSide, Node, Pid, Pressure, ProcessInstance, RunningInstance, State, TermKind, Terms, WindowID } from '#/contract';

@@ -1,7 +1,6 @@
 import { Link } from '@rasm/mcp';
 import { type HostError, type Rasterize, Script } from '@rasm/object-model';
 import { application, execute, objectModel, open, rasterize, session } from '@rasm/photoshop/uxp';
-import { UxpManifest } from '@rasm/uxp';
 import { Plugin, Uxp } from '@rasm/uxp/plugin';
 import { Effect, Layer, Option, type Path, Semaphore } from 'effect';
 import { ATELIER, Photoshop } from '#/tools';
@@ -35,7 +34,6 @@ const script = Script.toLayer(
             ),
     })),
 );
-const linked = (extension: string, root: Effect.Effect<URL, HostError, Path.Path>) =>
-    Link.dial(Script, Layer.merge(tools, script), ATELIER, Effect.all([application, root]).pipe(Effect.map(([name, folder]) => Link.make({ application: name, extension, root: Option.some(folder), runtime: Option.some(UxpManifest.target) }))));
+const linked = (extension: string, root: Effect.Effect<URL, HostError, Path.Path>) => Link.dial(Script, Layer.merge(tools, script), ATELIER, Effect.all([application, root]).pipe(Effect.map(([name, folder]) => Link.make({ application: name, extension, root: Option.some(folder) }))));
 
 Plugin.serve({ link: linked });

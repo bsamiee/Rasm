@@ -6,8 +6,9 @@ import Processes
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-let journal: URL = Program.current.directory(.log).appending(path: Program.current.name, directoryHint: .isDirectory)
-    .appending(component: Program.current.settings.string(forKey: "session").flatMap { session in session.isEmpty ? nil : session } ?? Program.current.name).appendingPathExtension("jsonl")
+let journal: URL = Program.current.directory(.logs).appending(
+    component: Program.current.settings.string(forKey: "session").flatMap { session in session.isEmpty ? nil : session } ?? Program.current.name
+).appendingPathExtension("jsonl")
 
 // --- [MODELS] --------------------------------------------------------------------------
 

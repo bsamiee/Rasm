@@ -35,7 +35,7 @@ watch-app watch <app> [<helper>]... --record <folder>
 - `agents` hold each `Contents/Library/LaunchAgents` plist of the named apps with `label`, `program`, `plist`, and `keepAlive`
 - `processes` hold each process executing a file in the named bundles with `pid`, `instance`, `executable`, and `replaced`
 - `replaced` reads true for a process running other code than the file at `executable` holds, as after an install over a running app
-- `reports` hold the newest crash reports of the named instance, bundle id, or agent label, `--reports` many per name (3)
+- `reports` hold the newest crash, hang, diag, and spin reports from both DiagnosticReports folders of the named instance, bundle id, or agent label, `--reports` many per name (3)
 - Reports name executables under `/Users` and `/private/tmp` redacted, so an executable path there matches none, pass its `instance`
 - Agents with `keepAlive` and no process at `program` are not running: not registered, not approved, or failed to start with its cause in `reports`
 - Names resolving to no app print an `unnamed` `fail` line, `candidates` holding the `url` of each app with a display name containing it
@@ -81,7 +81,7 @@ watch-app log [<run pid>]
 ```
 
 - `read` prints the whole state with element ids, `--window` walks one row, so answering a dialog costs a fraction of a whole `read`
-- `capture` writes one PNG per presented window with no activation to `<window>-<time>.png` in the runtime folder, printing one `captured` line per file
+- `capture` writes one PNG per presented window with no activation to `<window>-<time>.png` in the captures folder, printing one `captured` line per file
 - `capture --element` writes the frame of one element id (a pane, panel, or canvas) cropped from its window
 - `capture` reads every window with a window-server number (inactive, covered, minimized, on another unmanaged Space) and needs the Screen Recording grant
 - `perform` runs one of the element's `actions` through `AXUIElementPerformAction`, `AXPress` presses a button or a menu item
@@ -106,8 +106,7 @@ watch-app log [<run pid>]
 
 Settings read `WATCH_APP_<KEY>` from the environment, then `<key>` of defaults domain `app.rasm.watch-app` (`defaults write app.rasm.watch-app <key> <value>`), and `watch-app --help` prints each folder:
 - `session` names the journal runs share, set per agent session so `log` reads that session's runs
-- `log.dir` holds journals and `watch-app.log`, `~/Library/Logs/app.rasm.watch-app` unset
-- `runtime.dir` holds captures, `$TMPDIR/app.rasm.watch-app` unset
+- `output.dir` holds `<application>/captures` and `watch-app/logs` (journals and `watch-app.log`) under it, unset `~/Library/Caches/watch-app/captures` and `~/Library/Logs/watch-app`
 - `log.level`, `log.filter`, `log.size`, `log.age`, and `log.files` set the failure log, and `OTEL_*` variables start OpenTelemetry export
 
 ## [03]-[STATES]
@@ -142,7 +141,7 @@ Lines read `{"<bundle id>": {"<pid>": {"instance": "<pid>@<start>", <state>}}}`,
 - `menus` hold the menu bar, the extras menu bar, and open application-level menus
 
 `element` holds `id`, `role`, `subrole`, `modal` (`AXModal`), `identifier` (`AXIdentifier`), `description` (`AXDescription`), `title`, `document` (`AXDocument` file URL), `edited` (close button `AXEdited`), `minimized`, `actions`, `kind`, `asking`, `answers`, and `detail`:
-- `answers` holds `accept` (`AXDefaultButton`, `OKButton`), `discard` (`DontSaveButton`), `cancel` (`AXCancelButton`, `CancelButton`, close button), and `buttons` (each labeled button, the choice where an app marks no answer control), absent with nothing to press
+- `answers` holds `accept` (`AXDefaultButton`), `discard` (`DontSaveButton`), `cancel` (`AXCancelButton`, close button), and `buttons` (each labeled button, the choice where an app marks no answer control), absent with nothing to press
 - `detail` holds `main`, `focused`, `text` (each static text holding a character beyond whitespace and private-use icon glyphs), `controls`, and `unreadable`
 - `unreadable` holds each refused read with `reads`, `role`, `label`, and AXError `error`, and a control keeps each field that answered
 - `controls` hold once each text field, text area, combo box, pop-up button, check box, radio button, and element or labeled menu item with `AXPress`

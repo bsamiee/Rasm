@@ -1,12 +1,13 @@
 public import CasePaths
+public import Encoding
 public import Foundation
 public import Subprocess
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-public struct ProcessFailure: CustomNSError, LocalizedError {
+public struct ProcessFailure: CustomNSError, Equatable, LocalizedError {
     @CasePathable
-    public enum Reason: Sendable {
+    public enum Reason: CaseLabeled, Sendable {
         case subprocess(SubprocessError)
         case io(any Error)
         case exit(TerminationStatus, standardError: String)
@@ -42,6 +43,8 @@ public struct ProcessFailure: CustomNSError, LocalizedError {
             case .exit, .timedOut, .cancelled, .unlisted, .markerNotFound: [:]
         }
     }
+
+    public static func == (left: Self, right: Self) -> Bool { (left.subject, left.errorDescription) == (right.subject, right.errorDescription) }
 }
 
 extension ProcessFailure {

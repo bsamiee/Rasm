@@ -737,6 +737,9 @@ importers:
       '@opentelemetry/semantic-conventions':
         specifier: 'catalog:'
         version: 1.45.0
+      '@rasm/process':
+        specifier: workspace:*
+        version: link:../../runtime/process
       '@rasm/rpc':
         specifier: workspace:*
         version: link:../../network/rpc
@@ -746,6 +749,12 @@ importers:
       '@rasm/telemetry':
         specifier: workspace:*
         version: link:../../runtime/telemetry
+      env-paths:
+        specifier: 'catalog:'
+        version: 4.0.0
+      plist:
+        specifier: 'catalog:'
+        version: 5.1.1
     devDependencies:
       '@types/node':
         specifier: 'catalog:'

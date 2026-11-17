@@ -41,7 +41,7 @@ import {
     Stream,
     Struct,
 } from 'effect';
-import { FetchHttpClient } from 'effect/http';
+import { FetchHttpClient, Url } from 'effect/http';
 import { RpcMessage, RpcSerialization, RpcServer } from 'effect/rpc';
 import { imageSize } from 'image-size';
 import { UxpManifest } from '#/manifest';
@@ -60,6 +60,7 @@ interface ThemeEvents {
 const EVALUATED = 'evaluated.js';
 const IDENTIFIER = /^(?!(?:await|break|case|catch|class|const|continue|debugger|default|delete|do|else|enum|export|extends|false|finally|for|function|if|import|in|instanceof|let|new|null|return|static|super|switch|this|throw|true|try|typeof|var|void|while|with|yield)$)[$_\p{ID_Start}](?:[$\p{ID_Continue}]|‌|‍)*$/u;
 const MANIFEST = `plugin:/${UxpManifest.file}`;
+const BUNDLE = /(?<=\.app)(?:\/.*)?$|(?<=[^/])$/u;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -78,6 +79,13 @@ const Themed = Schema.Struct({ theme: Schema.declare((value): value is ThemeEven
 
 class Uxp extends Context.Service<Uxp, { readonly uxp: typeof uxp; readonly fs: typeof fs }>()('@rasm/uxp/plugin/Uxp') {
     static readonly Entry = Schema.Struct({ isEntry: Schema.Literal(true), url: Schema.Union([Schema.String, Schema.URL]) });
+    static readonly Application = Uxp.Entry.mapFields(
+        Struct.assign({
+            url: Schema.Union([Schema.URLFromString, Schema.URL])
+                .pipe(Schema.decode({ decode: SchemaGetter.transform((url: URL) => Url.setPathname(url, url.pathname.replace(BUNDLE, '/'))), encode: SchemaGetter.passthrough() }))
+                .annotate({ description: 'Host application bundle URL with trailing slash' }),
+        }),
+    );
     static readonly layer = (modules: Uxp['Service']) =>
         Layer.mergeAll(
             Layer.effect(Clock.Clock)(

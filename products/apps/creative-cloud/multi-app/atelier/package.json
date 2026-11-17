@@ -1,7 +1,7 @@
 {
     "name": "@rasm/atelier",
     "private": true,
-    "description": "MCP server listing and opening installed Adobe applications, running scripts in each through its newest runtime, and serving the tools each linked Adobe extension adds",
+    "description": "MCP server driving installed Adobe applications through six universal tools, applications, view, inspect, act, execute_script, and diagnostics, with their events in every result, and serving the tools each linked Adobe extension adds",
     "os": [
         "darwin"
     ],

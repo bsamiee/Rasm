@@ -1,10 +1,10 @@
-import Applications
 import Configuration
 import Files
 import Foundation
 import Instrumentation
 import Logging
 public import OTel
+import Processes
 public import ServiceLifecycle
 import SystemMetrics
 import Telemetry
@@ -76,7 +76,7 @@ extension Program {
         ClosureService {
             let since = settings.double(forKey: "crashReports.since").map(Date.init(timeIntervalSince1970:)) ?? .now
             store(Date.now.timeIntervalSince1970, forKey: "crashReports.since")
-            let found = CrashReport.reports(since: since) { report in report.bundleIdentifier == identifier }
+            let found = DiagnosticReport.reports(since: since) { report in report.kind == .crash && report.bundleIdentifier == identifier }
             for report in found.reports {
                 let fields: [String: Logging.Logger.MetadataValue?] = [
                     "process.pid": .stringConvertible(report.pid), "file": .string(report.url.path(percentEncoded: false)),
@@ -113,7 +113,7 @@ extension Program {
             "service.version": configuration.resourceAttributes["service.version"].map(Logging.Logger.MetadataValue.string), "process.pid": .stringConvertible(process.processIdentifier),
         ]
         .compactMapValues(\.self)
-        var file = RotatingFile(directory(.log).appending(path: "\(name).log", directoryHint: .notDirectory))
+        var file = RotatingFile(directory(.logs).appending(path: "\(process.processName).log", directoryHint: .notDirectory))
         file.size = settings.int(forKey: "log.size", default: file.size)
         file.age = settings.int(forKey: "log.age", as: Duration.self, default: file.age)
         file.files = settings.int(forKey: "log.files", default: file.files)

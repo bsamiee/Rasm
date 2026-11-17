@@ -1,5 +1,5 @@
 import { Server } from '@rasm/mcp';
-import { Array, Duration, Effect, Option, Predicate, Record, Schema, String } from 'effect';
+import { Duration, Effect, Option, Predicate, Record, Schema, String } from 'effect';
 import { McpProtocol } from 'effect/ai';
 import { HttpRouter } from 'effect/http';
 import { Host } from 'effect/net';
@@ -31,7 +31,7 @@ const SESSION = 'Mcp-Session-Id';
 const VERSION = 'Mcp-Protocol-Version';
 const STATEFUL = [McpProtocol.v2024_11_05, McpProtocol.v2025_03_26, McpProtocol.v2025_06_18, McpProtocol.v2025_11_25] as const;
 const PROTOCOLS = [...STATEFUL, McpProtocol.v2026_07_28] as const;
-const EXECUTIONS = { name: 'executions', description: 'Refused state-changing calls that keep running', retention: Duration.minutes(1) };
+const SETTINGS = { retention: Duration.minutes(1), limit: 64 } as const;
 const ROUTED: Record.ReadonlyRecord<string, string> = { 'resources/read': 'uri', 'tools/call': 'name', 'prompts/get': 'name' };
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -43,7 +43,7 @@ const Meta = Schema.Struct({ _meta: Schema.Record(Schema.String, Schema.Unknown)
 
 const hosted = Effect.fnUntraced(function* (bound: string = BOUND) {
     const [probe, name, address] = yield* Effect.all([Probe.make, Schema.decodeEffect(Server.Scheme)(MANIFEST.name), Effect.fromResult(Host.hostPortFromString(bound))]);
-    return { probe, layer: Server.layerHttp({ ...MANIFEST, name }, { address, hosts: [ALLOWED], executions: EXECUTIONS, instructions: INSTRUCTIONS, protocols: Array.reverse(PROTOCOLS) }, app(probe)) };
+    return { probe, layer: Server.layerHttp({ ...MANIFEST, name }, { ...SETTINGS, address, hosts: [ALLOWED], instructions: INSTRUCTIONS }, app(probe)) };
 });
 const messages = (response: Response) =>
     Effect.flatMap(
@@ -98,4 +98,4 @@ const opened = Effect.fnUntraced(function* (protocol: (typeof PROTOCOLS)[number]
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { ALLOWED, BOUND, CLIENT, ENDPOINT, EXECUTIONS, hosted, INSTRUCTIONS, MANIFEST, opened, PROTOCOLS, SESSION, STATEFUL, VERSION };
+export { ALLOWED, BOUND, CLIENT, ENDPOINT, hosted, INSTRUCTIONS, MANIFEST, opened, PROTOCOLS, SESSION, SETTINGS, STATEFUL, VERSION };

@@ -52,6 +52,17 @@ extension JSONValue {
             default: return nil
         }
     }
+
+    var accessibility: CFTypeRef {
+        get throws(ApplicationFailure) {
+            switch self {
+                case .bool(let flag): NSNumber(value: flag)
+                case .number(let number): number as NSNumber
+                case .string(let text): text as CFString
+                case .null, .array, .object: throw ApplicationFailure(subject: "\(self)", reason: .malformed("\(self) is not a string, number, or boolean"))
+            }
+        }
+    }
 }
 
 extension AXValue {
@@ -74,15 +85,17 @@ extension AXUIElement {
         }
     }
 
-    static func element(_ id: Data) throws(ApplicationFailure) -> AXUIElement? {
-        guard id.starts(with: menuMark), id.count > menuMark.count + 4, (id.count - menuMark.count).isMultiple(of: 4) else {
-            return unsafe remoteElement(id as CFData)?.takeRetainedValue().timed
-        }
+    static func menuPath(_ id: Data) -> (process: pid_t, path: [Int])? {
+        guard id.starts(with: menuMark), id.count > menuMark.count + 4, (id.count - menuMark.count).isMultiple(of: 4) else { return nil }
         let words = stride(from: id.startIndex + menuMark.count, to: id.endIndex, by: 4).map { start in id[start..<(start + 4)].reduce(0) { word, byte in word << 8 | Int(byte) } }
-        guard menuBars.indices.contains(words[1]) else { return nil }
-        let bar = menuBars[words[1]]
-        var node = try (application(pid_t(truncatingIfNeeded: words[0])).value(bar) as CFTypeRef?).flatMap(checked)
-        for index in words.dropFirst(2) {
+        return (pid_t(truncatingIfNeeded: words[0]), Array(words.dropFirst()))
+    }
+
+    static func element(_ id: Data) throws(ApplicationFailure) -> AXUIElement? {
+        guard let menu = menuPath(id) else { return unsafe remoteElement(id as CFData)?.takeRetainedValue().timed }
+        guard let bar = menu.path.first, menuBars.indices.contains(bar) else { return nil }
+        var node = try (application(menu.process).value(menuBars[bar]) as CFTypeRef?).flatMap(checked)
+        for index in menu.path.dropFirst() {
             node = try node.flatMap { parent throws(ApplicationFailure) in try parent.elements(kAXChildrenAttribute).dropFirst(index).first }
         }
         return node
@@ -177,15 +190,20 @@ extension AXUIElement {
         }
     }
 
+    func settable(_ attribute: String) throws(ApplicationFailure) -> Bool {
+        var settable: DarwinBoolean = false
+        return switch unsafe AXUIElementIsAttributeSettable(self, attribute as CFString, &settable) {
+            case .success: settable.boolValue
+            case .noValue, .attributeUnsupported, .invalidUIElement: false
+            case let error: throw failure(error, reading: ["AXUIElementIsAttributeSettable"])
+        }
+    }
+
     // --- [WRITES]
 
     func write(_ value: CFTypeRef, to attribute: String) throws(ApplicationFailure) -> AXError {
-        var settable: DarwinBoolean = false
-        return switch unsafe AXUIElementIsAttributeSettable(self, attribute as CFString, &settable) {
-            case .success where settable.boolValue: AXUIElementSetAttributeValue(self, attribute as CFString, value)
-            case .success, .noValue, .attributeUnsupported: throw ApplicationFailure(subject: token.base64EncodedString(), reason: .notSettable(attribute))
-            case let error: error
-        }
+        guard try settable(attribute) else { throw ApplicationFailure(subject: token.base64EncodedString(), reason: .notSettable(attribute)) }
+        return AXUIElementSetAttributeValue(self, attribute as CFString, value)
     }
 }
 

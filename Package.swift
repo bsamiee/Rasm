@@ -60,7 +60,8 @@ let modules: [Target] = [
     .target(
         name: "Processes",
         dependencies: [
-            "Results", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"), .product(name: "CasePaths", package: "swift-case-paths"),
+            "Encoding", "Files", "Results", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"), .product(name: "CasePaths", package: "swift-case-paths"),
+            .product(name: "CasePathsCore", package: "swift-case-paths"), .product(name: "DequeModule", package: "swift-collections"),
             .product(name: "Subprocess", package: "swift-subprocess"),
         ],
         path: "libs/swift/runtime/Processes",
@@ -68,7 +69,7 @@ let modules: [Target] = [
     .target(
         name: "CurrentProcess",
         dependencies: [
-            "Applications", "Files", "Telemetry", .product(name: "CasePathsCore", package: "swift-case-paths"), .product(name: "Configuration", package: "swift-configuration"),
+            "Applications", "Files", "Processes", "Telemetry", .product(name: "CasePathsCore", package: "swift-case-paths"), .product(name: "Configuration", package: "swift-configuration"),
             .product(name: "Instrumentation", package: "swift-distributed-tracing"), .product(name: "Logging", package: "swift-log"), .product(name: "OTel", package: "swift-otel"),
             .product(name: "ServiceLifecycle", package: "swift-service-lifecycle"), .product(name: "SystemMetrics", package: "swift-system-metrics"),
         ],
@@ -106,7 +107,8 @@ let modules: [Target] = [
     .target(
         name: "ApplicationServer",
         dependencies: [
-            "AppleEvents", "Applications", "JSONRPC", "Processes", "Results", "ScreenCapture", "Telemetry", .product(name: "Logging", package: "swift-log"),
+            "AppleEvents", "Applications", "CurrentProcess", "Files", "JSONRPC", "Processes", "Results", "ScreenCapture", "Telemetry",
+            .product(name: "Logging", package: "swift-log"),
         ],
         path: "libs/swift/macos/ApplicationServer",
     ),

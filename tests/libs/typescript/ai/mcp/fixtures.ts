@@ -1,4 +1,4 @@
-import { Content, Resource, Server } from '@rasm/mcp';
+import { Content, registerResource, registerTemplate, Server } from '@rasm/mcp';
 import { Cause, Context, Effect, flow, Latch, Layer, Option, Queue, Ref, Schema, Stream, SubscriptionRef } from 'effect';
 import { McpSchema, Tool } from 'effect/ai';
 
@@ -63,10 +63,10 @@ const registered = Effect.fnUntraced(function* ({ calls, entered, interrupted, r
     );
     yield* Server.registerTool(Tool.make('gated_read', { description: 'Waits for release, reads only', success: Schema.String }).annotate(Tool.Readonly, true), () => gated('gated_read'));
     yield* Server.registerTool(Tool.make('gated_write', { description: 'Waits for release, changes state', success: Schema.String }), () => gated('gated_write'));
-    yield* Resource.register({ name: 'static-text', description: 'A static text resource for testing', mimeType: 'text/plain', schema: Schema.String, changes: Stream.empty, content: Effect.succeed(STATIC) });
-    yield* Resource.register({ name: 'static-binary', description: 'A static binary resource for testing', mimeType: 'image/png', schema: Schema.Uint8Array, changes: Stream.empty, content: Effect.succeed(Uint8Array.fromBase64(PNG)) });
-    yield* Resource.register({ name: 'watched-resource', description: 'A resource whose value changes', mimeType: 'text/plain', schema: Schema.String, changes: SubscriptionRef.changes(watched), content: SubscriptionRef.get(watched) });
-    yield* Resource.template`template/${McpSchema.param('id', Schema.String)}/data`({
+    yield* registerResource({ name: 'static-text', description: 'A static text resource for testing', mimeType: 'text/plain', schema: Schema.String, changes: Stream.empty, content: Effect.succeed(STATIC) });
+    yield* registerResource({ name: 'static-binary', description: 'A static binary resource for testing', mimeType: 'image/png', schema: Schema.Uint8Array, changes: Stream.empty, content: Effect.succeed(Uint8Array.fromBase64(PNG)) });
+    yield* registerResource({ name: 'watched-resource', description: 'A resource whose value changes', mimeType: 'text/plain', schema: Schema.String, changes: SubscriptionRef.changes(watched), content: SubscriptionRef.get(watched) });
+    yield* registerTemplate`template/${McpSchema.param('id', Schema.String)}/data`({
         name: 'template',
         description: 'A resource template with one variable',
         schema: Templated,

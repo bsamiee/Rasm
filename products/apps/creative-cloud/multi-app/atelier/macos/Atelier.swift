@@ -27,7 +27,7 @@ enum Atelier {
     static func main() async {
         let serving = Result { () throws(Errno) in try FileDescriptor.standardInput.stat() }.map { stat in [FileType.fifo, .socket].contains(stat.type) } == .success(true)
         let disclaimed = Result { () throws(Errno) in if serving { try disclaimResponsibility() } }
-        let telemetry = Program(name: Bundle.main.bundleIdentifier).telemetry(scopes: [Self.self])
+        let telemetry = Program.current.telemetry(scopes: [Self.self])
         let logger = Logger(label: String(reflecting: Self.self))
         let work = ClosureService { @MainActor in
             do {

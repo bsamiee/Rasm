@@ -5,6 +5,7 @@ import AsyncAlgorithms
 import Carbon.HIToolbox
 import CasePaths
 import CurrentProcess
+import Encoding
 import Files
 import OrderedCollections
 import Processes
@@ -36,11 +37,18 @@ private func installed(_ names: [String], _ run: Run) async -> [(name: String, i
     .reduce(into: []) { found, entry in found.append(entry) }
 }
 
-private func act(_ command: (some ParsableCommand).Type, _ action: ElementAction, key: String) async {
+private func act(
+    _ command: (some ParsableCommand).Type,
+    _ action: ElementAction,
+    on target: @escaping @Sendable () async throws(ApplicationFailure) -> Instance,
+    key: String,
+) async {
     await Run.execute(command) { run in
         do throws(ApplicationFailure) {
-            let (instance, state) = try await action.perform()
-            run.show(instance, state)
+            let instance = try await target()
+            let acted = try await instance.act([action])
+            if case .failure(let failure)? = acted.outcomes.first { throw failure }
+            run.show(instance, acted.state)
         } catch {
             run.fail(key, error)
         }
@@ -280,12 +288,8 @@ struct Capture: AsyncParsableCommand {
         let source: Source? = window.map { number in Source.windows(numbers: [number]) } ?? element.map(Source.element(id:))
         await Run.execute(Self.self) { run throws(ApplicationFailure) in
             try checkCaptureAccess(prompting: true)
-            let directory = Program.current.directory(.runtime)
-            do { try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true) } catch {
-                throw ApplicationFailure(subject: directory.path(percentEncoded: false), reason: .host(error as NSError))
-            }
             await running.each(run) { instance throws(ApplicationFailure) in
-                let stills = try await instance.capture(source, to: { number in footageFile(in: directory, window: number, .png) }, longestSide: longestSide)
+                let stills = try await instance.capture(source, to: Program.current.directory(.captures, of: instance.application.localizedName), longestSide: longestSide)
                 guard !stills.isEmpty else { throw ApplicationFailure(subject: instance.key, reason: .noWindow) }
                 for (number, still) in stills.sorted(by: { first, second in first.key < second.key }) {
                     do throws(ApplicationFailure) {
@@ -314,7 +318,10 @@ struct Perform: AsyncParsableCommand {
     @Argument(help: "Accessibility action from element actions")
     var action: String
 
-    func run() async { await act(Self.self, .perform(element: element.id, action: action), key: element.id.description) }
+    func run() async {
+        let id = element.id
+        await act(Self.self, .press(element: id, action: action), on: { () async throws(ApplicationFailure) in try await Instance.owning(id) }, key: id.description)
+    }
 }
 
 struct SetValue: AsyncParsableCommand {
@@ -325,7 +332,10 @@ struct SetValue: AsyncParsableCommand {
     @Argument(help: "Text for element \(kAXValueAttribute)")
     var value: String
 
-    func run() async { await act(Self.self, .set(element: element.id, value: value), key: element.id.description) }
+    func run() async {
+        let id = element.id
+        await act(Self.self, .set(element: id, value: .string(value)), on: { () async throws(ApplicationFailure) in try await Instance.owning(id) }, key: id.description)
+    }
 }
 
 struct Key: AsyncParsableCommand {
@@ -339,7 +349,18 @@ struct Key: AsyncParsableCommand {
     @Argument(help: "Virtual key code, \(kVK_Return) Return, \(kVK_Escape) Escape")
     var code: CGKeyCode
 
-    func run() async { await act(Self.self, .key(process: pid, code: code), key: String(pid)) }
+    func run() async {
+        let pid = pid
+        await act(
+            Self.self,
+            .key(key: .code(code), modifiers: []),
+            on: { () throws(ApplicationFailure) in
+                guard let application = NSRunningApplication(processIdentifier: pid) else { throw ApplicationFailure(subject: String(pid), reason: .noProcess) }
+                return try Instance(application)
+            },
+            key: String(pid),
+        )
+    }
 }
 
 struct Quit: AsyncParsableCommand {

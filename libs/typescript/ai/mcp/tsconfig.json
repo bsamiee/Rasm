@@ -12,6 +12,9 @@
         },
         {
             "path": "../../network/rpc"
+        },
+        {
+            "path": "../../runtime/process"
         }
     ]
 }

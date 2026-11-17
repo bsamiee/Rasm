@@ -85,7 +85,6 @@ final class Run: Sendable {
             case .event, .system, .host, .unwatched, .unreadable, .noEncoder, .noImage:
                 logger.error("Command failed in host", error: failure, metadata: ["key": "\(key, privacy: .public)"])
             case .untrusted, .noCaptureAccess, .unanswered, .noProcess, .unresolved, .foreign, .disabled, .notSettable, .refused, .noIdentifier, .noPath, .noHandler, .noWindow, .noExtension,
-                .noReport,
                 .cancelled, .unmatched, .unnamed, .malformed:
                 logger.warning("Command refused input", error: failure, metadata: ["key": "\(key, privacy: .public)"])
         }
@@ -143,7 +142,7 @@ final class Run: Sendable {
                 held.withLock { held in held.shown[instance.process] = nil }
                 if !state.is(\.exited) { emit(instance.key, [String: String]()) }
             }
-            await recorder?.observe(next, after: last)
+            await recorder?.observe(InstanceEvent.changes(from: last, to: next, at: .now))
             return next
         }
     }
@@ -161,9 +160,9 @@ final class Run: Sendable {
     }
 
     func settle(_ state: InstanceState) {
-        guard case .exited(let ended, _) = state else { return }
+        guard case .exited(let ended) = state else { return }
         claims?.continuation.yield(nil)
-        switch ended.map(\.status) {
+        switch ended.exit.map(\.status) {
             case .success(.exited(let code)): set(ExitCode(code))
             case .success(.signaled(let signal)): set(ExitCode(128 + signal))
             case .failure: break

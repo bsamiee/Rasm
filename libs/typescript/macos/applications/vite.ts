@@ -1,5 +1,5 @@
 import { globSync, readFileSync } from 'node:fs';
-import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
+import { dirname, isAbsolute, join, resolve } from 'node:path';
 import process from 'node:process';
 import { run } from '@rasm/process';
 import { Array, Effect, Record, Schema } from 'effect';
@@ -17,7 +17,7 @@ const Settings = Schema.fromJsonString(Schema.NonEmptyArray(Schema.Struct({ buil
 
 const helper = Effect.fnUntraced(function* (
     entry: string,
-    service: string,
+    name: string,
     agent: Readonly<
         Partial<
             Record<
@@ -65,12 +65,11 @@ const helper = Effect.fnUntraced(function* (
     >,
     xcode: { readonly project: string; readonly target: string },
 ) {
-    const name = basename(dirname(entry));
     const context = yield* Effect.context<ChildProcessSpawner.ChildProcessSpawner>();
     const signing = yield* Effect.cached(
         run(['xcodebuild', '-showBuildSettings', '-json', '-project', xcode.project, '-target', xcode.target]).pipe(
             Effect.flatMap(({ stdout }) => Schema.decodeEffect(Settings)(stdout)),
-            Effect.map(([{ buildSettings }]) => ({ ...buildSettings, label: `${buildSettings.PRODUCT_BUNDLE_IDENTIFIER}.${service}` })),
+            Effect.map(([{ buildSettings }]) => ({ ...buildSettings, label: `${buildSettings.PRODUCT_BUNDLE_IDENTIFIER}.${name}` })),
         ),
     );
     let outDir = '';

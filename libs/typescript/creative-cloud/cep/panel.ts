@@ -6,7 +6,7 @@ import type { Unmatched } from '@rasm/search';
 import { layer } from '@rasm/telemetry';
 import { wcagContrast } from 'culori';
 import { type Cause, Effect, FiberSet, Function, flow, Layer, Logger, Option, Predicate, Record, Schema, type Scope, Stream, Struct } from 'effect';
-import { FetchHttpClient } from 'effect/http';
+import { FetchHttpClient, Url } from 'effect/http';
 import { ExtensionManifest } from '#/manifest';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -23,6 +23,10 @@ interface Engine {
     readonly fs: { readonly readFile: (path: string, encoding: string) => unknown; readonly deleteFile: (path: string) => unknown };
     readonly encoding: { readonly Base64: string };
 }
+
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+const BUNDLE = /(?<=\.app)(?:\/.*)?$|(?<=[^/])$/u;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -106,7 +110,7 @@ const takeImage = Effect.fnUntraced(function* (path: string) {
 });
 const peer = (cep: Cep): Effect.Effect<Link> =>
     Effect.orDie(Effect.all([Schema.decodeEffect(Schema.URLFromString)(cep.getSystemPath('hostApplication')), Schema.decodeEffect(Schema.URLFromString)(cep.getSystemPath('extension'))])).pipe(
-        Effect.map(([application, root]) => Link.make({ application, extension: cep.getExtensionId(), root: Option.some(root), runtime: Option.none() })),
+        Effect.map(([application, root]) => Link.make({ application: Url.setPathname(application, application.pathname.replace(BUNDLE, '/')), extension: cep.getExtensionId(), root: Option.some(root) })),
     );
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

@@ -8,19 +8,10 @@ public import System
 // --- [TYPES] ---------------------------------------------------------------------------
 
 public enum Folder: Sendable {
-    case log
-    case cache
+    case logs
+    case captures
+    case media
     case state
-    case runtime
-
-    var parent: URL {
-        switch self {
-            case .log: .libraryDirectory.appending(path: "Logs", directoryHint: .isDirectory)
-            case .cache: .cachesDirectory
-            case .state: .applicationSupportDirectory
-            case .runtime: .temporaryDirectory
-        }
-    }
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -69,9 +60,9 @@ public struct Program: Sendable {
     let stored: MutableInMemoryProvider
     let unrecognized: UnrecognizedValues
 
-    public init(bundle: Bundle = .main, name: String? = nil, environment: [String: String] = ProcessInfo.processInfo.environment) {
+    public init(bundle: Bundle = .main, environment: [String: String] = ProcessInfo.processInfo.environment) {
         let identifier = bundle.bundleIdentifier ?? ProcessInfo.processInfo.processName
-        let name = name ?? identifier.split(separator: ".").last.map { component in String(component) } ?? identifier
+        let name = identifier.split(separator: ".").last.map { component in String(component) } ?? identifier
         (self.identifier, self.name, self.environment) = (identifier, name, environment)
         version = bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
         stored = MutableInMemoryProvider(name: identifier, initialValues: Self.values(UserDefaults.standard.persistentDomain(forName: identifier) ?? [:]))
@@ -80,9 +71,14 @@ public struct Program: Sendable {
         settings = ConfigReader(providers: providers, accessReporter: unrecognized)
     }
 
-    public func directory(_ folder: Folder, default stated: URL? = nil) -> URL {
-        settings.string(forKey: ConfigKey([String(describing: folder), "dir"])).map { path in URL(filePath: path, directoryHint: .isDirectory) }
-            ?? stated ?? folder.parent.appending(path: identifier, directoryHint: .isDirectory)
+    public func directory(_ folder: Folder, of application: String? = nil, default stated: URL? = nil) -> URL {
+        let setting: (ConfigKey) -> URL? = { key in settings.string(forKey: key).map { path in URL(filePath: path, directoryHint: .isDirectory) } }
+        return switch (folder, setting("output.dir")) {
+            case (.state, _): setting("state.dir") ?? stated ?? .applicationSupportDirectory.appending(path: identifier, directoryHint: .isDirectory)
+            case (_, .some(let output)): output.appending(components: application ?? name, String(describing: folder), directoryHint: .isDirectory)
+            case (.logs, .none): .libraryDirectory.appending(components: "Logs", name, directoryHint: .isDirectory)
+            case (_, .none): .cachesDirectory.appending(components: name, String(describing: folder), directoryHint: .isDirectory)
+        }
     }
 
     public func store(_ value: any Sendable?, forKey key: ConfigKey) {

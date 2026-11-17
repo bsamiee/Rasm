@@ -68,7 +68,7 @@ Panel and Settings use system controls, semantic colors, and fonts:
 
 ## [06]-[TELEMETRY]
 
-Relay logs through swift-log to `Library/Logs/app.rasm.relay/relay.log`, one logger label per owning type:
+Relay logs through swift-log to `~/Library/Logs/relay/Relay.log`, or `<output.dir>/relay/logs/Relay.log`, one logger label per owning type:
 - File records are OpenTelemetry log records as JSON lines, `info` and above for `Relay` scopes and `warn` and above for every other scope
 - Files rotate to `.1` through `.7` at 8 MiB or 1 day, and a rotated file older than 1 day is deleted
 - Records hold every value whole in a file readable by its owner alone, and OTLP log export writes `<private>` for each value not marked public
@@ -79,7 +79,7 @@ Relay logs through swift-log to `Library/Logs/app.rasm.relay/relay.log`, one log
 - Crash reports of `app.rasm.relay` written since the last launch log one `FATAL` record each at launch
 - `codex app-server` standard error logs at `debug` under `Relay.CodexClient`, drained after the connection ends to keep a failing server's last lines
 - Account state sits in `Application Support/Relay`, named by `CFBundleName`
-- Defaults keys `log.level`, `log.filter`, `log.target`, `log.dir`, `log.size`, `log.age`, `log.files`, and `state.dir` set each value
+- Defaults keys `log.level`, `log.filter`, `log.target`, `output.dir`, `log.size`, `log.age`, `log.files`, and `state.dir` set each value
 - `defaults write app.rasm.relay <key> <value>` or environment variable `RELAY_<KEY>` (`RELAY_LOG_LEVEL`) sets a key
 - `log.level` and `log.filter` apply while Relay runs
 - `OTEL_LOGS_EXPORTER`, `OTEL_METRICS_EXPORTER`, and `OTEL_TRACES_EXPORTER` in the environment or defaults each start one signal's OTLP export

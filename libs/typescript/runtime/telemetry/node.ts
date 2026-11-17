@@ -1,4 +1,5 @@
 import { appendFileSync } from 'node:fs';
+import { basename, dirname, join } from 'node:path';
 import process, { type ProcessEventMap } from 'node:process';
 import { finished } from 'node:stream/promises';
 import { layerGlobal, makeExternalSpan, OtelTraceState } from '@effect/opentelemetry/OtelTracer';
@@ -197,7 +198,17 @@ const layerNode = ({ resource, file, instrumentations }: { readonly resource: Pa
         ),
     );
 };
-const layerNodeFromConfig = Effect.fnUntraced(function* ({ resource, target, level }: { readonly resource: Parameters<typeof layerNode>[0]['resource']; readonly target: typeof Target.Type; readonly level?: LogLevel.LogLevel }) {
+const layerNodeFromConfig = Effect.fnUntraced(function* ({
+    resource,
+    target,
+    level,
+    file: log = join(envPaths(resource.serviceName, { suffix: '' }).log, `${resource.serviceName}.log`),
+}: {
+    readonly resource: Parameters<typeof layerNode>[0]['resource'];
+    readonly target: typeof Target.Type;
+    readonly level?: LogLevel.LogLevel;
+    readonly file?: string;
+}) {
     const refused = yield* Ref.make<readonly (readonly [setting: { readonly variable: string; readonly value: string }, error: Config.ConfigError])[]>([]);
     const prefix = String.constantCase(resource.serviceName);
     const read = <A>(variable: string, config: (variable: string) => Config.Config<A>) =>
@@ -213,7 +224,6 @@ const layerNodeFromConfig = Effect.fnUntraced(function* ({ resource, target, lev
         level: read('LOG_LEVEL', decoded(Level)),
         filter: read('LOG_FILTER', (variable) => Config.Record(Schema.String, Level, variable, { trim: true })),
         target: read('LOG_TARGET', decoded(Target)),
-        path: read('LOG_DIR', decoded(Schema.String)),
         size: read('LOG_SIZE', decoded(Rotation.fields.size)),
         interval: read('LOG_AGE', decoded(Rotation.fields.interval)),
         maxFiles: read('LOG_FILES', decoded(Rotation.fields.maxFiles)),
@@ -223,7 +233,7 @@ const layerNodeFromConfig = Effect.fnUntraced(function* ({ resource, target, lev
         ...Option.getOrUndefined(Option.map(stated.interval, (interval) => ({ interval }))),
         ...Option.getOrUndefined(Option.map(stated.maxFiles, (maxFiles) => ({ maxFiles }))),
     };
-    const file = [`${resource.serviceName}.log`, { path: Option.getOrElse(stated.path, () => envPaths(resource.serviceName, { suffix: '' }).log), ...rotation }] as const;
+    const file = [basename(log), { path: dirname(log), ...rotation }] as const;
     const minimum = Option.getOrElse(
         Option.orElse(Option.fromUndefinedOr(level), () => stated.level),
         () => 'Info' as const,

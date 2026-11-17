@@ -78,9 +78,14 @@ public enum InstanceState: Equatable, Sendable {
         }
     }
 
+    public struct Ended: Equatable, Sendable {
+        public let exit: Result<ProcessExit, Errno>
+        public let report: Result<DiagnosticReport, ProcessFailure>?
+    }
+
     case running(Running)
     case failed(ApplicationFailure)
-    case exited(Result<ProcessExit, Errno>, report: Result<CrashReport, ApplicationFailure>?)
+    case exited(Ended)
 }
 
 extension InstanceState.Window {
@@ -114,7 +119,7 @@ extension InstanceState.Window {
 
 extension InstanceState: Encodable {
     private enum Key: CodingKey {
-        case running, failed, exited, status, signal, detail, statusFailure, report, reportFailure, reporting
+        case running, failed, exited
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -122,23 +127,32 @@ extension InstanceState: Encodable {
         switch self {
             case .running(let running): try state.encode(running, forKey: .running)
             case .failed(let failure): try state.encode(failure, forKey: .failed)
-            case .exited(let termination, let report):
-                var fields = state.nestedContainer(keyedBy: Key.self, forKey: .exited)
-                switch termination {
-                    case .success(let ended):
-                        switch ended.status {
-                            case .exited(let status): try fields.encode(status, forKey: .status)
-                            case .signaled(let signal): try fields.encode(signal, forKey: .signal)
-                        }
-                        if !ended.detail.isEmpty { try fields.encode(ended.detail, forKey: .detail) }
-                        if report == nil, ended.reports { try fields.encode(true, forKey: .reporting) }
-                    case .failure(let error): try fields.encode(error.description, forKey: .statusFailure)
+            case .exited(let ended): try state.encode(ended, forKey: .exited)
+        }
+    }
+}
+
+extension InstanceState.Ended: Encodable {
+    private enum Key: CodingKey {
+        case status, signal, detail, statusFailure, report, reportFailure, reporting
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var fields = encoder.container(keyedBy: Key.self)
+        switch exit {
+            case .success(let ended):
+                switch ended.status {
+                    case .exited(let status): try fields.encode(status, forKey: .status)
+                    case .signaled(let signal): try fields.encode(signal, forKey: .signal)
                 }
-                switch report {
-                    case .some(.success(let report)): try fields.encode(report, forKey: .report)
-                    case .some(.failure(let failure)): try fields.encode(failure.reason, forKey: .reportFailure)
-                    case .none: break
-                }
+                if !ended.detail.isEmpty { try fields.encode(ended.detail, forKey: .detail) }
+                if report == nil, ended.reports { try fields.encode(true, forKey: .reporting) }
+            case .failure(let error): try fields.encode(error.description, forKey: .statusFailure)
+        }
+        switch report {
+            case .some(.success(let report)): try fields.encode(report, forKey: .report)
+            case .some(.failure(let failure)): try fields.encode(failure.reason, forKey: .reportFailure)
+            case .none: break
         }
     }
 }
@@ -241,9 +255,11 @@ extension Instance {
         [false, true].async.compactMap { reported -> InstanceState? in
             switch (exit, reported) {
                 case (.none, _): nil
-                case (.some(let exit), false): .exited(exit, report: nil)
+                case (.some(let exit), false): .exited(InstanceState.Ended(exit: exit, report: nil))
                 case (.some(.success(let ended)), true) where ended.reports:
-                    .exited(.success(ended), report: await CrashReport.written(by: self.process, since: self.application.launchDate ?? .distantPast, clock: clock))
+                    .exited(
+                        InstanceState.Ended(exit: .success(ended), report: await DiagnosticReport.written(by: self.process, since: self.application.launchDate ?? .distantPast, clock: clock))
+                    )
                 case (.some, true): nil
             }
         }
