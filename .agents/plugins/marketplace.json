@@ -44,7 +44,7 @@
                 "authentication": "ON_INSTALL"
             },
             "category": "Coding",
-            "version": "0.1.0",
+            "version": "0.2.0",
             "description": "C++ and Objective-C++ design: types, ownership, failure as values, compile-time evaluation, memory layout, and concurrency",
             "author": {
                 "name": "Bardia Samiee"
@@ -54,7 +54,11 @@
                 "displayName": "C++",
                 "shortDescription": "C++ and Objective-C++ design: types, ownership, failure as values, compile-time evaluation, memory layout, and concurrency",
                 "developerName": "Bardia Samiee",
-                "category": "Coding"
+                "category": "Coding",
+                "composerIcon": "./assets/icon.png",
+                "logo": "./assets/icon.png",
+                "logoDark": "./assets/icon-dark.png",
+                "brandColor": "#090909"
             }
         },
         {
@@ -68,7 +72,7 @@
                 "authentication": "ON_INSTALL"
             },
             "category": "Coding",
-            "version": "0.2.0",
+            "version": "0.3.0",
             "description": "Work handed to other agents: headless Antigravity runs and a council of models",
             "author": {
                 "name": "Bardia Samiee"
@@ -78,7 +82,11 @@
                 "displayName": "Delegate",
                 "shortDescription": "Work handed to other agents: headless Antigravity runs and a council of models",
                 "developerName": "Bardia Samiee",
-                "category": "Coding"
+                "category": "Coding",
+                "composerIcon": "./assets/icon.png",
+                "logo": "./assets/icon.png",
+                "logoDark": "./assets/icon-dark.png",
+                "brandColor": "#090909"
             }
         },
         {
@@ -178,7 +186,7 @@
                 "authentication": "ON_INSTALL"
             },
             "category": "Coding",
-            "version": "0.1.0",
+            "version": "0.2.0",
             "description": "Rhino sessions, Grasshopper 2 canvases, and tests of code over RhinoCommon and Grasshopper",
             "author": {
                 "name": "Bardia Samiee"
@@ -189,7 +197,11 @@
                 "displayName": "Rhino",
                 "shortDescription": "Rhino sessions, Grasshopper 2 canvases, and tests of code over RhinoCommon and Grasshopper",
                 "developerName": "Bardia Samiee",
-                "category": "Coding"
+                "category": "Coding",
+                "composerIcon": "./assets/icon.png",
+                "logo": "./assets/icon.png",
+                "logoDark": "./assets/icon-dark.png",
+                "brandColor": "#090909"
             }
         },
         {
@@ -203,7 +215,7 @@
                 "authentication": "ON_INSTALL"
             },
             "category": "Coding",
-            "version": "0.1.0",
+            "version": "0.2.0",
             "description": "Rust design with algebraic types, results, traits, and async effects",
             "author": {
                 "name": "Bardia Samiee"
@@ -213,7 +225,11 @@
                 "displayName": "Rust",
                 "shortDescription": "Rust design with algebraic types, results, traits, and async effects",
                 "developerName": "Bardia Samiee",
-                "category": "Coding"
+                "category": "Coding",
+                "composerIcon": "./assets/icon.png",
+                "logo": "./assets/icon.png",
+                "logoDark": "./assets/icon-dark.png",
+                "brandColor": "#090909"
             }
         },
         {
@@ -227,7 +243,7 @@
                 "authentication": "ON_INSTALL"
             },
             "category": "Coding",
-            "version": "0.7.0",
+            "version": "0.8.0",
             "description": "Dependency source, web, Are.na, and shell-history research, and structural code search with ast-grep",
             "author": {
                 "name": "Bardia Samiee"
@@ -238,7 +254,11 @@
                 "displayName": "Search",
                 "shortDescription": "Dependency source, web, Are.na, and shell-history research, and structural code search with ast-grep",
                 "developerName": "Bardia Samiee",
-                "category": "Coding"
+                "category": "Coding",
+                "composerIcon": "./assets/icon.png",
+                "logo": "./assets/icon.png",
+                "logoDark": "./assets/icon-dark.png",
+                "brandColor": "#090909"
             }
         },
         {
@@ -252,7 +272,7 @@
                 "authentication": "ON_INSTALL"
             },
             "category": "Coding",
-            "version": "0.1.0",
+            "version": "0.2.0",
             "description": "Swift design with typed throws, value types, and structured concurrency, Xcode builds, and LLDB sessions",
             "author": {
                 "name": "Bardia Samiee"
@@ -263,7 +283,39 @@
                 "displayName": "Swift",
                 "shortDescription": "Swift design with typed throws, value types, and structured concurrency, Xcode builds, and LLDB sessions",
                 "developerName": "Bardia Samiee",
-                "category": "Coding"
+                "category": "Coding",
+                "composerIcon": "./assets/icon.png",
+                "logo": "./assets/icon.png",
+                "logoDark": "./assets/icon-dark.png",
+                "brandColor": "#090909"
+            }
+        },
+        {
+            "name": "terminal",
+            "source": {
+                "source": "local",
+                "path": "./plugins/shared/terminal"
+            },
+            "policy": {
+                "installation": "AVAILABLE",
+                "authentication": "ON_INSTALL"
+            },
+            "category": "Coding",
+            "version": "0.2.0",
+            "description": "Agent session hooks: atuin records shell commands, zellij-agent-resume saves and restores sessions, and git-ai checkpoints authorship",
+            "author": {
+                "name": "Bardia Samiee"
+            },
+            "hooks": "./hooks/codex.json",
+            "interface": {
+                "displayName": "Terminal",
+                "shortDescription": "Agent session hooks: atuin records shell commands, zellij-agent-resume saves and restores sessions, and git-ai checkpoints authorship",
+                "developerName": "Bardia Samiee",
+                "category": "Coding",
+                "composerIcon": "./assets/icon.png",
+                "logo": "./assets/icon.png",
+                "logoDark": "./assets/icon-dark.png",
+                "brandColor": "#090909"
             }
         },
         {
@@ -277,7 +329,7 @@
                 "authentication": "ON_INSTALL"
             },
             "category": "Coding",
-            "version": "0.1.0",
+            "version": "0.2.0",
             "description": "Binary analysis in Ghidra and desktop app lifecycle, monitoring, and recording through watch-app",
             "author": {
                 "name": "Bardia Samiee"
@@ -287,7 +339,11 @@
                 "displayName": "Tool",
                 "shortDescription": "Binary analysis in Ghidra and desktop app lifecycle, monitoring, and recording through watch-app",
                 "developerName": "Bardia Samiee",
-                "category": "Coding"
+                "category": "Coding",
+                "composerIcon": "./assets/icon.png",
+                "logo": "./assets/icon.png",
+                "logoDark": "./assets/icon-dark.png",
+                "brandColor": "#090909"
             }
         },
         {
@@ -301,7 +357,7 @@
                 "authentication": "ON_INSTALL"
             },
             "category": "Coding",
-            "version": "0.1.0",
+            "version": "0.2.0",
             "description": "Functional TypeScript on Effect, Schema, and algebraic data types, with Effect module families",
             "author": {
                 "name": "Bardia Samiee"
@@ -311,7 +367,11 @@
                 "displayName": "TypeScript",
                 "shortDescription": "Functional TypeScript on Effect, Schema, and algebraic data types, with Effect module families",
                 "developerName": "Bardia Samiee",
-                "category": "Coding"
+                "category": "Coding",
+                "composerIcon": "./assets/icon.png",
+                "logo": "./assets/icon.png",
+                "logoDark": "./assets/icon-dark.png",
+                "brandColor": "#090909"
             }
         },
         {
@@ -353,7 +413,7 @@
                 "authentication": "ON_INSTALL"
             },
             "category": "Coding",
-            "version": "0.1.0",
+            "version": "0.2.0",
             "description": "Google Workspace through the gog CLI and Gemini Notebook through notebooklm-py",
             "author": {
                 "name": "Bardia Samiee"
@@ -363,7 +423,11 @@
                 "displayName": "Web",
                 "shortDescription": "Google Workspace through the gog CLI and Gemini Notebook through notebooklm-py",
                 "developerName": "Bardia Samiee",
-                "category": "Coding"
+                "category": "Coding",
+                "composerIcon": "./assets/icon.png",
+                "logo": "./assets/icon.png",
+                "logoDark": "./assets/icon-dark.png",
+                "brandColor": "#090909"
             }
         },
         {
@@ -377,7 +441,7 @@
                 "authentication": "ON_INSTALL"
             },
             "category": "Coding",
-            "version": "0.2.0",
+            "version": "0.3.0",
             "description": "Codex app threads and parallel agent tasks",
             "author": {
                 "name": "Bardia Samiee"

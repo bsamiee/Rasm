@@ -6,52 +6,16 @@ apps   = { _default = { default_tools_approval_mode = "approve" } }
 notice = { hide_full_access_warning = true }
 
 [mcp_servers]
-atelier             = { default_tools_approval_mode = "approve", url = "http://localhost:7490/" }
-voicebox            = { default_tools_approval_mode = "approve", url = "http://127.0.0.1:17493/mcp/", http_headers = { X-Voicebox-Client-Id = "codex" } }
+atelier  = { default_tools_approval_mode = "approve", url = "http://localhost:7490/" }
+voicebox = { default_tools_approval_mode = "approve", url = "http://127.0.0.1:17493/mcp/", http_headers = { X-Voicebox-Client-Id = "codex" } }
 
 [mcp_servers.illustrator]
 url                 = "http://localhost:18412/v1/mcp"
 http_headers_helper = '''prefs=$(jq -r --arg version "$(watch-app find com.adobe.illustratorBeta | jq -r 'first(.[][]).version')" 'select(has($version)) | input_filename | sub("\\.runConfig$"; "Adobe Illustrator Prefs")' "$HOME"/Library/Preferences/Adobe\ Illustrator*Settings/*/.runConfig) && rg -o '/AuthToken \[ [0-9]+[[:space:]]+([0-9a-f[:space:]]+)\]' -r '$1' "$prefs" | tr -d ' \t\n' | xxd -r -p | jq -R '{Authorization: "Bearer \(.)"}' '''
 
 [hooks]
-SessionStart = [
-    { hooks = [{ type = "command", command = "mise daemons register && mise exec -- pitchfork project enter --pid \"$PPID\"" }] },
-    { hooks = [{ async = true, command = "/etc/profiles/per-user/bardiasamiee/bin/zellij-agent-resume codex", timeout = 10, type = "command" }] },
-]
-PreToolUse   = [
-    { matcher = "collaborationspawn_agent|collaborationfollowup_task|collaborationsend_message", hooks = [{ command = '''bash -euo pipefail -c '
-input="$(cat)"
-jq --slurpfile meta <(head -n 1 "$(jq -r ".transcript_path // \"/dev/null\"" <<<"$input")") "$1" <<<"$input"
-' -- '
-    def parent: sub("/[^/]+$"; "");
-    (first($meta[].payload.source | objects | .subagent | objects | .thread_spawn | objects)
-        // {agent_path: "/root"}) as $self
-    | ((.tool_input | objects) // {}) as $call
-    | (($call.target // "") | if startswith("/") then . else "\($self.agent_path)/\(.)" end) as $target
-    | first(
-        (select(.tool_name | endswith("spawn_agent"))
-            | select(($call.fork_turns // "") | tostring | test("^\\s*none\\s*$"; "i") | not)
-            | "Set `fork_turns` to \"none\" and put necessary context in the brief"),
-        (select(.tool_name | endswith("followup_task"))
-            | select(($target | parent) != $self.agent_path)
-            | "`followup_task` reaches only an agent you spawned: a result returns to the spawning agent"),
-        (select(.tool_name | endswith("send_message"))
-            | select(($target | parent) != $self.agent_path and ($self.agent_path | startswith($target + "/") | not))
-            | "`send_message` reaches only your ancestors and the agents you spawned. Report boundary crossings upward")
-    )
-    | {hookSpecificOutput: {hookEventName: "PreToolUse", permissionDecision: "deny", permissionDecisionReason: .}}
-'
-''', timeout = 10, type = "command" }] },
-    { matcher = "^Bash$", hooks = [{ type = "command", command = "mise exec -- node \"$(git rev-parse --show-toplevel)/plugins/claude/function-hooks/hook.ts\" codex", timeout = 30 }] },
-    { matcher = "^Bash$", hooks = [{ command = "/etc/profiles/per-user/bardiasamiee/bin/atuin hook codex", timeout = 10, type = "command" }] },
-    { hooks = [{ command = "/Users/bardiasamiee/.git-ai/bin/git-ai checkpoint codex --hook-input stdin", type = "command" }] },
-]
-PostToolUse  = [
-    { matcher = "^Bash$", hooks = [{ command = "/etc/profiles/per-user/bardiasamiee/bin/atuin hook codex", timeout = 10, type = "command" }] },
-    { hooks = [{ command = "/Users/bardiasamiee/.git-ai/bin/git-ai checkpoint codex --hook-input stdin", type = "command" }] },
-]
-Stop         = [{ hooks = [{ command = "/Users/bardiasamiee/.git-ai/bin/git-ai checkpoint codex --hook-input stdin", type = "command" }] }]
-SessionEnd   = [{ hooks = [{ command = "/etc/profiles/per-user/bardiasamiee/bin/zellij-agent-resume codex", timeout = 3, type = "command" }] }]
+SessionStart = [{ hooks = [{ type = "command", command = "mise daemons register && mise exec -- pitchfork project enter --pid \"$PPID\"" }] }]
+PreToolUse   = [{ matcher = "^Bash$", hooks = [{ type = "command", command = "mise exec -- node \"$(git rev-parse --show-toplevel)/plugins/claude/function-hooks/hook.ts\" codex", timeout = 30 }] }]
 
 [plugins]
 "blender@rasm"       = { enabled = true }

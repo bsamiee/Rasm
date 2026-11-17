@@ -21,7 +21,7 @@
         {
             "name": "cpp",
             "source": "./plugins/shared/cpp",
-            "version": "0.1.0",
+            "version": "0.2.0",
             "description": "C++ and Objective-C++ design: types, ownership, failure as values, compile-time evaluation, memory layout, and concurrency",
             "author": {
                 "name": "Bardia Samiee"
@@ -30,7 +30,7 @@
         {
             "name": "delegate",
             "source": "./plugins/shared/delegate",
-            "version": "0.2.0",
+            "version": "0.3.0",
             "description": "Work handed to other agents: headless Antigravity runs and a council of models",
             "author": {
                 "name": "Bardia Samiee"
@@ -66,7 +66,7 @@
         {
             "name": "rhino",
             "source": "./plugins/shared/rhino",
-            "version": "0.1.0",
+            "version": "0.2.0",
             "description": "Rhino sessions, Grasshopper 2 canvases, and tests of code over RhinoCommon and Grasshopper",
             "author": {
                 "name": "Bardia Samiee"
@@ -75,7 +75,7 @@
         {
             "name": "rust",
             "source": "./plugins/shared/rust",
-            "version": "0.1.0",
+            "version": "0.2.0",
             "description": "Rust design with algebraic types, results, traits, and async effects",
             "author": {
                 "name": "Bardia Samiee"
@@ -84,7 +84,7 @@
         {
             "name": "search",
             "source": "./plugins/shared/search",
-            "version": "0.7.0",
+            "version": "0.8.0",
             "description": "Dependency source, web, Are.na, and shell-history research, and structural code search with ast-grep",
             "author": {
                 "name": "Bardia Samiee"
@@ -93,8 +93,17 @@
         {
             "name": "swift",
             "source": "./plugins/shared/swift",
-            "version": "0.1.0",
+            "version": "0.2.0",
             "description": "Swift design with typed throws, value types, and structured concurrency, Xcode builds, and LLDB sessions",
+            "author": {
+                "name": "Bardia Samiee"
+            }
+        },
+        {
+            "name": "terminal",
+            "source": "./plugins/shared/terminal",
+            "version": "0.2.0",
+            "description": "Agent session hooks: atuin records shell commands, zellij-agent-resume saves and restores sessions, and git-ai checkpoints authorship",
             "author": {
                 "name": "Bardia Samiee"
             }
@@ -102,7 +111,7 @@
         {
             "name": "tool",
             "source": "./plugins/shared/tool",
-            "version": "0.1.0",
+            "version": "0.2.0",
             "description": "Binary analysis in Ghidra and desktop app lifecycle, monitoring, and recording through watch-app",
             "author": {
                 "name": "Bardia Samiee"
@@ -111,7 +120,7 @@
         {
             "name": "typescript",
             "source": "./plugins/shared/typescript",
-            "version": "0.1.0",
+            "version": "0.2.0",
             "description": "Functional TypeScript on Effect, Schema, and algebraic data types, with Effect module families",
             "author": {
                 "name": "Bardia Samiee"
@@ -129,7 +138,7 @@
         {
             "name": "web",
             "source": "./plugins/shared/web",
-            "version": "0.1.0",
+            "version": "0.2.0",
             "description": "Google Workspace through the gog CLI and Gemini Notebook through notebooklm-py",
             "author": {
                 "name": "Bardia Samiee"
