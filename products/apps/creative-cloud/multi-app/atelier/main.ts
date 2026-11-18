@@ -10,6 +10,7 @@ import { UxpManifest } from '@rasm/uxp';
 import { Cause, Deferred, Effect, Layer, Option } from 'effect';
 import { Host } from 'effect/net';
 import { applications, Inventory } from '#/applications';
+import { Declarations, declarations } from '#/declarations';
 import { diagnostics } from '#/diagnostics';
 import manifest from '#/package.json' with { type: 'json' };
 import { scripts } from '#/scripts';
@@ -25,7 +26,7 @@ Effect.gen(function* () {
         yield* Deferred.succeed(started, server);
         const links = yield* Link.listen(Script.merge(Typesetting), UxpManifest.origin);
         yield* Upstream.serve([Upstream.linked(links)], { route });
-        yield* Effect.all([applications, windows, scripts(links), diagnostics, typography(links)], { discard: true });
+        yield* Effect.all([applications, windows, scripts(links), declarations, diagnostics, typography(links)], { discard: true });
     });
     return yield* serve(
         { name: manifest.name, description: manifest.description, version, domain: identifier },
@@ -37,12 +38,13 @@ Effect.gen(function* () {
                 'A call returns at once when a dialog needs an answer or its application exits or stops responding; the call keeps running, and the resource link in that result holds its result once it finishes.',
                 'Take element, window, and document ids from results and events, never compose them.',
                 "Change document content through scripts in the application's own object model, and drive the interface through its Accessibility tree only where scripts cannot reach, such as dialogs and panels.",
+                Declarations.instruction,
                 "Opening an application launches it in the background or targets its running instance, never a second one; closing it reports each unsaved document's save dialog as an event.",
                 'An Adobe extension linked from a running application adds tools of its own while that application runs.',
             ],
             settings: [Preview],
         },
-        Layer.effectDiscard(tools).pipe(Layer.provide(Inventory.layer), Layer.provideMerge(helper)),
+        Layer.effectDiscard(tools).pipe(Layer.provide(Layer.provideMerge(Declarations.layer, Inventory.layer)), Layer.provideMerge(helper)),
         Deferred.await(started).pipe(
             Effect.flatMap(({ exited }) => exited),
             Effect.flatMap((code) => Effect.fail(new Cause.UnknownError(code, `Atelier helper exited ${code}`))),

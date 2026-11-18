@@ -1,13 +1,5 @@
-import { assign, declaration, illegalArgument, preserve } from '@rasm/extendscript/host';
+import { assign, illegalArgument, preserve } from '@rasm/extendscript/host';
 import { type Containment, read } from '@rasm/object-model/host';
-
-// --- [TYPES] ---------------------------------------------------------------------------
-
-declare global {
-    interface XML {
-        readonly [index: number]: XML | undefined;
-    }
-}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -26,37 +18,6 @@ const containment: Containment = {
         artboard: { collection: 'artboards', keys: [], is: is('Artboard'), owner },
         layer: { collection: 'layers', keys: [], is: is('Layer'), owner: (value) => read(value, 'parent') },
     },
-};
-const named = (node: XML, name: string): XML[] => {
-    const list = node.descendants();
-    const items: XML[] = [];
-    for (let index = 0; index < list.length(); index += 1) {
-        const item = list[index];
-        if (item?.localName() === name) {
-            items.push(item);
-        }
-    }
-    return items;
-};
-const parsed = (path: string): XML | undefined => {
-    const file = new File(path);
-    file.encoding = 'utf-8';
-    const text = file.exists && file.open('r') ? file.read() : '';
-    file.close();
-    return text === '' ? undefined : new XML(text.slice(text.indexOf('<dictionary')));
-};
-const declared = (name: string | undefined): unknown => {
-    const library = `${app.name} ${app.version.split('.')[0]} Type Library`;
-    const found: Record<string, unknown> = {};
-    for (const folder of new Folder(`${Folder.appData.fsName}/Adobe/Scripting Dictionaries CC`).getFiles()) {
-        const dictionary = parsed(`${folder.fsName}/omv.xml`);
-        const held = dictionary !== undefined && named(dictionary, 'map').some((map) => String(map.attribute('title')) === library);
-        for (const definition of held ? named(dictionary, 'classdef').filter((each) => String(each.attribute('enumeration')) === 'true') : []) {
-            const enumeration = String(definition.attribute('name'));
-            found[enumeration] = { name: enumeration, properties: [], methods: [], staticProperties: named(definition, 'property').map((member) => ({ name: String(member.attribute('name')), description: String(named(member, 'shortdesc')[0] ?? '') })) };
-        }
-    }
-    return declaration($.global, app, 0, name, found);
 };
 const session = () => preserve(app, { userInteractionLevel: UserInteractionLevel.DONTDISPLAYALERTS });
 const open = (path: string): object => app.open(new File(path));
@@ -82,4 +43,4 @@ const rasterize = (found: object, longestSide: number, options: Readonly<Record<
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { containment, declared, open, rasterize, session };
+export { containment, open, rasterize, session };

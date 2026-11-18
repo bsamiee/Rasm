@@ -2,7 +2,7 @@
     "name": "@rasm/photoshop",
     "version": "0.1.0",
     "private": true,
-    "description": "Photoshop DOM for UXP plugins: its containment table, modal scopes with history suspension, dialog suppression, script evaluation, open, rasterize, declarations read from prototypes and constants, and the application name",
+    "description": "Photoshop DOM for UXP plugins: its containment table, modal scopes with history suspension, dialog suppression, script evaluation, open, rasterize, and the application name",
     "license": "MIT",
     "repository": {
         "type": "git",
@@ -32,9 +32,9 @@
         "@rasm/uxp": "workspace:*"
     },
     "devDependencies": {
-        "@adobe-uxp-types/photoshop": "catalog:",
         "@adobe-uxp-types/uxp": "catalog:",
         "@types/node": "catalog:",
+        "@types/photoshop": "catalog:",
         "effect": "catalog:"
     },
     "peerDependencies": {

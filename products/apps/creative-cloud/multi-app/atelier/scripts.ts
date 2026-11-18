@@ -14,6 +14,7 @@ import { Array, Cause, Context, Effect, Match, Option, Record, Ref, Schema, Stru
 import { Tool } from 'effect/ai';
 import type { RpcClient, RpcClientError, RpcGroup } from 'effect/rpc';
 import { Inventory } from '#/applications';
+import { Declarations } from '#/declarations';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -52,14 +53,9 @@ const planned = Match.typeTags<Runtime>()({
     }),
     Script: (): Plan => ({ program: (body: string) => `var body = ${Evaluation.expression(body, false)}`, target: ExtensionManifest.target, offset: 1, direct: extendscript, declared: {} }),
 });
-const compiled = Effect.fnUntraced(function* (body: string, reached: Runtime) {
-    const plan = planned(reached);
-    const { code, map } = yield* lower(plan.program(body), plan.target, 'typescript').pipe(
-        Effect.catchTag(
-            'HostError',
-            relined((line) => Option.liftPredicate(line - 1, (at) => at > 0)),
-        ),
-    );
+const opened = (line: number) => Option.liftPredicate(line - 1, (at) => at > 0);
+const compiled = Effect.fnUntraced(function* (body: string, plan: Plan) {
+    const { code, map } = yield* lower(plan.program(body), plan.target, 'typescript').pipe(Effect.catchTag('HostError', relined(opened)));
     const original = yield* traced(map);
     return { code, direct: plan.direct(code), declared: plan.declared, relined: relined((line) => Option.map(original(line - plan.offset), (entry) => entry.line - 1)) };
 });
@@ -92,7 +88,7 @@ const reached = (peers: readonly Link[], row: Application) =>
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const scripts = Effect.fnUntraced(function* (links: { readonly peers: Effect.Effect<readonly Link[]>; readonly call: (holds: (peer: Link) => boolean, subject: string) => Effect.Effect<RpcClient.RpcClient.Flat<RpcGroup.Rpcs<typeof Script>, RpcClientError.RpcClientError>, Unmatched> }) {
-    const [server, { current, ends }, dictionaries] = yield* Effect.all([ApplicationServer, Inventory, Ref.make<Record.ReadonlyRecord<string, Option.Option<Runtime>>>({})]);
+    const [server, { current, ends }, dictionaries, declarations] = yield* Effect.all([ApplicationServer, Inventory, Ref.make<Record.ReadonlyRecord<string, Option.Option<Runtime>>>({}), Declarations]);
     const read = Effect.fnUntraced(function* (row: Application) {
         const known = Record.get(yield* Ref.get(dictionaries), row.url.href);
         const fresh = Effect.tap(dictionary(server, row), (found) => Ref.update(dictionaries, Record.set(row.url.href, found)));
@@ -100,8 +96,7 @@ const scripts = Effect.fnUntraced(function* (links: { readonly peers: Effect.Eff
     });
     yield* Server.registerTool(
         Tool.make('execute_script', {
-            description:
-                'Runs TypeScript function body in the target application through its newest runtime: a linked extension, do script uxpscript, or ExtendScript; returns its result as JSON, failures name the body line, a dialog needing an answer, the application exiting, or it turning unresponsive returns the call at once',
+            description: `Runs TypeScript function body in the target application through its newest runtime: a linked extension, do script uxpscript, or ExtendScript; returns its result as JSON, failures name the body line, a dialog needing an answer, the application exiting, or it turning unresponsive returns the call at once. UXP bodies take their host module from require('<host>') (${Declarations.checked.join(', ')}), checked first against its declarations, which refuse a wrong member, type, read-only write, or enumeration value with a link to atelier://object-model/{host}/{name}`,
             parameters: Body,
             success: Evaluation.Result,
         }).annotateMerge(Context.add(ends, Tool.OpenWorld, false)),
@@ -109,7 +104,9 @@ const scripts = Effect.fnUntraced(function* (links: { readonly peers: Effect.Eff
             const [{ row, live }, peers] = yield* Effect.all([current, links.peers]);
             const declared = yield* Option.match(reached(peers, row), { onSome: Effect.succeedSome, onNone: () => read(row) });
             const found = yield* Effect.fromOption(declared, () => new Cause.NoSuchElementError(`${row.name} declares no script command and links no extension`));
-            const built = yield* compiled(code, found);
+            const plan = planned(found);
+            yield* declarations.check(row, plan.program(code), opened);
+            const built = yield* compiled(code, plan);
             const { label } = Evaluation.make({ code: Evaluation.expression(code, false) });
             const evaluated = Effect.flatMap(
                 links.call((peer) => Link.hosted(row)(peer) && Link.serves(Script.requests.keys())(peer), `linked extension of ${row.name}`),

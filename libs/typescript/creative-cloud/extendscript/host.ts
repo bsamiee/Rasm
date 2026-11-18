@@ -82,7 +82,7 @@ const assign = <T extends object>(target: T, ...layers: readonly (Fields | undef
         refused = refused.concat(refusals(target, values ?? {}, ''));
     }
     if (refused.length > 0) {
-        throw illegalArgument(`${String(read(read(target, 'reflect'), 'name') ?? Object.prototype.toString.call(target))} refused ${refused.join(', ')}`);
+        throw illegalArgument(`${Object.prototype.toString.call(target)} refused ${refused.join(', ')}`);
     }
     return target;
 };
@@ -95,93 +95,6 @@ const preserve = (target: object, values: Fields): (() => void) => {
     return () => {
         assign(target, held);
     };
-};
-const reflection = (value: unknown): unknown => {
-    const found = read(value, 'reflect');
-    return typeof read(found, 'name') === 'string' && isList(read(found, 'properties')) && isList(read(found, 'methods')) && isList(read(found, 'staticProperties')) ? found : undefined;
-};
-const enumerated = (found: unknown): boolean => Number(read(read(found, 'staticProperties'), 'length')) > 0 && Number(read(read(found, 'properties'), 'length')) === 0 && Number(read(read(found, 'methods'), 'length')) === 0;
-const infos = (found: unknown, list: 'properties' | 'methods' | 'staticProperties' | 'arguments'): unknown[] => {
-    const held = read(found, list);
-    return isList(held) ? held.slice(0) : [];
-};
-const described = (info: unknown) => ({ name: String(read(info, 'name')), description: read(info, 'description') === '' ? undefined : read(info, 'description') });
-const typed = (info: unknown, extra: Fields) => {
-    const [type, minimum, maximum] = [String(read(info, 'dataType')), read(info, 'min'), read(info, 'max')];
-    return assign(described(info), { type, types: [type], array: read(info, 'isCollection') === true, minimum: type === 'number' && typeof minimum === 'number' ? minimum : undefined, maximum: type === 'number' && typeof maximum === 'number' ? maximum : undefined }, extra);
-};
-const declared = (found: unknown) => {
-    const [name, fields, methods, members] = [String(read(found, 'name')), [] as unknown[], [] as unknown[], [] as unknown[]];
-    for (const info of infos(found, 'properties')) {
-        fields.push(typed(info, { settable: read(info, 'type') === 'readwrite' }));
-    }
-    for (const info of infos(found, 'methods')) {
-        const parameters: unknown[] = [];
-        for (const argument of infos(info, 'arguments')) {
-            parameters.push(typed(argument, { optional: read(argument, 'defaultValue') !== undefined, default: read(argument, 'defaultValue') }));
-        }
-        methods.push(assign(described(info), { parameters, returns: { type: String(read(info, 'dataType')) } }));
-    }
-    for (const info of infos(found, 'staticProperties')) {
-        members.push(described(info));
-    }
-    return enumerated(found) ? { _tag: 'Enumeration', name, members } : { _tag: 'Class', name, parents: [], fields, methods };
-};
-const declaration = (global: unknown, root: object, base: number, name: string | undefined, dictionary: Readonly<Record<string, unknown>> = {}): unknown => {
-    const found: Record<string, unknown> = {};
-    const named = (type: string): unknown => {
-        const constructor = read(global, type);
-        const held = typeof constructor === 'function' ? reflection(constructor) : undefined;
-        return read(held, 'name') === type ? held : undefined;
-    };
-    const followed = (item: unknown, held: unknown): void => {
-        const type = String(read(held, 'name'));
-        if (held === undefined || found[type] !== undefined) {
-            return;
-        }
-        found[type] = held;
-        for (const info of infos(held, 'properties')) {
-            const kind = String(read(info, 'dataType'));
-            const live = kind.charAt(0) !== kind.charAt(0).toLowerCase() && kind !== 'Object' && found[kind] === undefined ? read(item, String(read(info, 'name'))) : null;
-            if (live === undefined) {
-                followed(undefined, named(kind));
-            }
-            if (live !== undefined && live !== null) {
-                visit(live);
-            }
-        }
-    };
-    const visit = (value: unknown): void => {
-        const member = read(value, String(base));
-        const item = reflection(value) === undefined ? member : value;
-        const owner = reflection(read(item, 'constructor'));
-        followed(item, reflection(item));
-        followed(item, owner !== undefined && enumerated(owner) ? owner : undefined);
-        if (item === value && isRecord(member) && found[String(read(reflection(member), 'name'))] === undefined) {
-            visit(member);
-        }
-    };
-    visit(root);
-    for (const each in isRecord(global) ? global : {}) {
-        followed(undefined, named(each));
-    }
-    for (const info of infos(reflection(global), 'properties')) {
-        followed(undefined, named(String(read(info, 'name'))));
-    }
-    for (const key of keys(dictionary)) {
-        found[key] ??= dictionary[key];
-    }
-    const [classes, enumerations]: [string[], string[]] = [[], []];
-    for (const key of keys(found)) {
-        if (key.toLowerCase() === name?.toLowerCase()) {
-            return declared(found[key]);
-        }
-        (enumerated(found[key]) ? enumerations : classes).push(key);
-    }
-    if (name !== undefined) {
-        throw { _tag: 'Unmatched', subject: 'class or enumeration', query: name, candidates: classes.concat(enumerations) };
-    }
-    return { _tag: 'Index', classes, enumerations };
 };
 const serve = <Payloads extends Fields>({ containment, session, undo }: Host, requests: { readonly [Tag in keyof Payloads]: (payload: Payloads[Tag], scope: Scope) => unknown }) => {
     const encoder: Encoder = { reference: (value) => reference(containment, value) };
@@ -206,4 +119,4 @@ const serve = <Payloads extends Fields>({ containment, session, undo }: Host, re
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { assign, declaration, illegalArgument, keys, preserve, reply, serve, within, written };
+export { assign, illegalArgument, keys, preserve, reply, serve, within, written };

@@ -6,7 +6,7 @@
         "noEmit": true,
         "lib": ["es2022", "dom"],
         "module": "preserve",
-        "types": ["node", "@adobe-uxp-types/uxp/with-protocol", "@adobe-uxp-types/photoshop/with-protocol"]
+        "types": ["node", "@adobe-uxp-types/uxp/with-protocol"]
     },
     "include": ["**/*"],
     "exclude": ["dist", "vite.config.ts"],

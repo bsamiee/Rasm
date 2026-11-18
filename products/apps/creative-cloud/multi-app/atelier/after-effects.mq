@@ -1,0 +1,19 @@
+import "section" | import "table" | import "yaml" |
+def cell(v): join(map(to_markdown(v), to_text), "");
+def row(record): map_values(record, cell);
+def rows(held): flatten(map(table::tables(held), fn(t): map(table::to_array(t), row);));
+def at(n): to_string(n | .line);
+def prose(n): !is_table_cell(n) && !is_h(n);
+def joined(group): join(map(group, to_text), "");
+def lines(held): map(values(group_by(filter(held, prose), at)), joined);
+def labeled(texts, label): first(map(filter(texts, fn(t): starts_with(t, label);), fn(t): trim(slice(t, len(label), len(t)));));
+let sections = section::sections(self)
+| let matter = first(self | .yaml)
+| {
+    "name": section::title(first(section::by_level(sections, 1))),
+    "description": get(yaml::yaml_parse(to_text(matter)), "description"),
+    "properties": rows(flatten(map(section::title_is(section::by_level(sections, 2), "Properties"), section::body))),
+    "methods": map(section::by_level(sections, 3), fn(s):
+      let texts = lines(section::body(s))
+      | {"name": section::title(s), "returns": labeled(texts, "Returns:"), "since": labeled(texts, "Since:"), "description": first(filter(texts, fn(t): !starts_with(t, "Returns:") && !starts_with(t, "Since:") && t != "";)), "parameters": rows(section::body(s))};)
+  }

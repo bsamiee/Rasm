@@ -1,4 +1,4 @@
-import { declaration, illegalArgument, keys, preserve, within } from '@rasm/extendscript/host';
+import { illegalArgument, keys, preserve, within } from '@rasm/extendscript/host';
 import { type Containment, read } from '@rasm/object-model/host';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -6,7 +6,7 @@ import { type Containment, read } from '@rasm/object-model/host';
 const COARSEST = 99;
 const containment: Containment = {
     root: app,
-    type: (value) => String(read(read(value, 'reflect'), 'name')),
+    type: (value) => Object.prototype.toString.call(value).slice('[object '.length, -1),
     kinds: {
         project: { is: (value) => value === app.project },
         item: { collection: 'items', base: 1, is: (value) => value instanceof CompItem || value instanceof FolderItem || value instanceof FootageItem, owner: () => app.project },
@@ -28,7 +28,6 @@ const undo = (label: string) => {
         app.endUndoGroup();
     };
 };
-const declared = (name: string | undefined): unknown => declaration($.global, app, 1, name);
 const open = (path: string): object => {
     const project = app.open(new File(path));
     if (project === null) {
@@ -37,9 +36,9 @@ const open = (path: string): object => {
     return project;
 };
 const rasterize = (composition: object, longestSide: number, options: Readonly<Record<string, unknown>> | undefined, path: string): void => {
-    const accepted = String(read(read(CompItem, 'reflect'), 'name'));
+    const accepted = CompItem.name;
     if (!(composition instanceof CompItem)) {
-        throw illegalArgument(`${String(read(read(composition, 'reflect'), 'name'))} is no ${accepted}, rasterize takes a ${accepted}`);
+        throw illegalArgument(`${containment.type(composition)} is no ${accepted}, rasterize takes a ${accepted}`);
     }
     if (options !== undefined) {
         throw illegalArgument(`${accepted} ${composition.name} takes no PNG options, received ${keys(options).join(', ')}`);
@@ -65,4 +64,4 @@ const rasterize = (composition: object, longestSide: number, options: Readonly<R
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { containment, declared, open, rasterize, session, undo };
+export { containment, open, rasterize, session, undo };

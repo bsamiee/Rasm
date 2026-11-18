@@ -40,7 +40,7 @@ const sent = (body: string) => `(function (self) { var body = ${body}\n${encoder
 const Answer = Schema.StringFromUriComponent.pipe(Schema.decodeTo(Schema.fromJsonString(Reply)));
 ```
 
-`encoded` is the ES3 JSON writer `runtime` declares beside `reply`, and `body` a function expression the same transform lowered. `send` passes `sent(body)` as the `do javascript` direct parameter through an Apple event sender, and `Answer` decodes its reply. Host code throws `unmatched` and `illegal` records, `reply` writes them as their own cases, and `evaluated` decides which throws keep `line`. One `answered(success, subject)` folds every reply on both paths: `Value` decodes through the call's success schema, `Unmatched` fails as itself, `IllegalArgument` fails `IllegalArgumentError`, and `Thrown` fails `HostError` `Thrown` when it holds a line and `Refused` without one, its subject joined with `Error <number>`. `encoded` writes non-finite numbers as `null` and plain records by own keys, skipping a key holding `undefined`, and an unset field decodes through `Schema.optionalKey` and `OptionFromOptionalKey` as absent. Host objects a host specifier names encode as `{type, specifier, name, valid}` with `type` from `reflect.name`, and every other host object as its `String` form (`[Document Untitled-1]`).
+`encoded` is the ES3 JSON writer `runtime` declares beside `reply`, and `body` a function expression the same transform lowered. `send` passes `sent(body)` as the `do javascript` direct parameter through an Apple event sender, and `Answer` decodes its reply. Host code throws `unmatched` and `illegal` records, `reply` writes them as their own cases, and `evaluated` decides which throws keep `line`. One `answered(success, subject)` folds every reply on both paths: `Value` decodes through the call's success schema, `Unmatched` fails as itself, `IllegalArgument` fails `IllegalArgumentError`, and `Thrown` fails `HostError` `Thrown` when it holds a line and `Refused` without one, its subject joined with `Error <number>`. `encoded` writes non-finite numbers as `null` and plain records by own keys, skipping a key holding `undefined`, and an unset field decodes through `Schema.optionalKey` and `OptionFromOptionalKey` as absent. Host objects a host specifier names encode as `{type, specifier, name, valid}` with `type` from Illustrator `typename` or the After Effects `Object.prototype.toString` class, and every other host object as its `String` form (`[Document Untitled-1]`).
 
 - `with arguments` (`«class JArg»`) passes text, numbers, booleans, and lists, `null` and records as `undefined`, and `osascript` `argv` as text
 - ExtendScript reads U+2028 and U+2029 as line terminators, and a string literal holding one raw fails to compile, in source and in JSON alike
@@ -150,7 +150,7 @@ Caught `Error` values hold `number`, `message`, `line`, and `source`, the text o
 |  [13]   |    1     | `new Error(<message>)` from source                                        |
 
 - Four-character codes in 1200 messages read reversed (`MRAP` is `PARM`, a bad parameter)
-- Option object writes recurse into a plain value where the host holds a record, and one `IllegalArgument` names the class by `reflect.name` with every refused dotted path
+- Option object writes recurse into a plain value where the host holds a record, and one `IllegalArgument` names the class by its `Object.prototype.toString` tag with every refused dotted path
 
 ## [07]-[EXPORT]
 

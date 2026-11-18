@@ -2,7 +2,7 @@
     "name": "@rasm/object-model",
     "version": "0.1.0",
     "private": true,
-    "description": "Object model every scriptable Adobe host shares: specifiers addressing host objects, references to them, class and enumeration declarations, the error of a host call, and the plain JavaScript grammar, walker, reference producer, and value encoder ExtendScript and UXP both run",
+    "description": "Object model every scriptable Adobe host shares: specifiers addressing host objects, references to them, class and enumeration pages read from declared sources (vendor TypeScript declarations through the native compiler, which also checks scripts, omv XML dictionaries, scripting API manifests, reference table rows), the error of a host call, and the plain JavaScript grammar, walker, reference producer, and value encoder ExtendScript and UXP both run",
     "license": "MIT",
     "repository": {
         "type": "git",
@@ -21,6 +21,7 @@
     "exports": {
         ".": "./index.ts",
         "./host": "./host.ts",
+        "./node": "./node.ts",
         "./package.json": "./package.json"
     },
     "publishConfig": {
@@ -30,14 +31,18 @@
         "exports": {
             ".": "./dist/index.js",
             "./host": "./dist/host.js",
+            "./node": "./dist/node.js",
             "./package.json": "./package.json"
         },
         "access": "public"
     },
     "dependencies": {
-        "@rasm/search": "workspace:*"
+        "@rasm/search": "workspace:*",
+        "@typescript/native": "catalog:",
+        "fast-xml-parser": "catalog:"
     },
     "devDependencies": {
+        "@types/node": "catalog:",
         "effect": "catalog:"
     },
     "peerDependencies": {

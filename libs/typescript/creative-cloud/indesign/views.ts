@@ -1,4 +1,4 @@
-import { Declaration, Reference } from '@rasm/object-model';
+import { Reference } from '@rasm/object-model';
 import { Settings } from '@rasm/typography';
 import { Effect, Option, type Record, Schema, SchemaTransformation, Struct } from 'effect';
 
@@ -199,7 +199,7 @@ const MenuActions = Schema.Array(Schema.Struct({ id: Schema.Int, name: Schema.St
 
 // --- [INSPECTION]
 
-const Readings = Schema.Array(Declaration.Field.pipe(Schema.fieldsAssign({ value: Schema.Result(Schema.Json, Schema.Defect()) })));
+const Readings = Schema.Array(Schema.Struct({ name: Schema.String, value: Schema.Result(Schema.Json, Schema.Defect()) }));
 const View = Schema.Union([Application, Document, Page, Layer, Link, Story, Text, Font, PreflightProcess]).pipe(Schema.toTaggedUnion('_tag'));
 const Spread = Schema.TaggedUnion({ Spread: { ...spread, allowPageShuffle: Schema.Boolean }, MasterSpread: { ...spread, namePrefix: Schema.String, baseName: Schema.String } });
 const Style = Schema.TaggedUnion({ ParagraphStyle: { ...styled, nextStyle: Reference, ...ParagraphAttributes }, CharacterStyle: styled, ObjectStyle: styled, TableStyle: styled, CellStyle: styled });

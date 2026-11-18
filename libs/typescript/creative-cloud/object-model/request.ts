@@ -1,7 +1,7 @@
 import { Unmatched } from '@rasm/search';
 import { Array, Cause, Option, Schema, SchemaTransformation, String, Struct } from 'effect';
 import { Rpc, RpcGroup } from 'effect/rpc';
-import { Declaration, HostError, Reference } from '#/model';
+import { HostError, Reference } from '#/model';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -34,13 +34,6 @@ class Rasterize extends Schema.Class<Rasterize, { readonly brand: unique symbol 
         return `Rasterize ${this.target}`;
     }
 }
-class ObjectModel extends Schema.Class<ObjectModel, { readonly brand: unique symbol }>('ObjectModel')({ name: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'Name in any case, absent lists every name' })) }) {
-    static readonly Result = Declaration;
-
-    get label(): string {
-        return Option.match(this.name, { onNone: () => 'List classes and enumerations', onSome: (name) => `Describe ${name}` });
-    }
-}
 const Written = Reference.mapFields(Struct.assign({ written: Schema.Array(Schema.String).annotate({ description: 'Member names' }) }));
 
 // --- [ERRORS] --------------------------------------------------------------------------
@@ -61,4 +54,4 @@ const Script = RpcGroup.make(request('evaluate', Evaluation));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Evaluation, Failure, ObjectModel, Open, Rasterize, request, Script, Written };
+export { Evaluation, Failure, Open, Rasterize, request, Script, Written };

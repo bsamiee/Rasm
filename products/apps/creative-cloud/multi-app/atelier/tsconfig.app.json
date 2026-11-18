@@ -43,6 +43,9 @@
         },
         {
             "path": "../../../../../libs/typescript/macos/applications"
+        },
+        {
+            "path": "../../../../../libs/typescript/runtime/process"
         }
     ]
 }

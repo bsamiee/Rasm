@@ -1,9 +1,8 @@
-import { Declaration, HostError, Specifier } from '@rasm/object-model';
+import { HostError, Selector, Specifier } from '@rasm/object-model';
 import { Unmatched } from '@rasm/search';
 import { Uxp } from '@rasm/uxp/plugin';
-import type { Application, CellStyle, CharacterStyle, Document, Font, InDesignDOMObject, MasterSpread, ObjectStyle, Page, PageItem, ParagraphStyle, PreflightProcess, Spread, TableStyle, Text, TextFrame, TextPath, TextStyleRange } from 'adobe:indesign';
-import { Array, Cache, Cause, Effect, Equivalence, Filter, Formatter, Function, flow, identity, Match, Number, Option, Predicate, pipe, Record, Result, Schema, SchemaGetter, String, Struct } from 'effect';
-import { AGGREGATE_FIELD, unavailableReason } from '#/uxp/dictionary';
+import type { Application, CellStyle, CharacterStyle, Document, Font, InDesignDOMObject, MasterSpread, ObjectStyle, Page, PageItem, ParagraphStyle, PNGExportPreference, PreflightProcess, Spread, TableStyle, Text, TextFrame, TextPath, TextStyleRange } from 'adobe:indesign';
+import { Array, Cause, Effect, Formatter, Function, flow, identity, Match, Number, Option, Predicate, pipe, Record, Result, Schema, SchemaGetter, String, Struct } from 'effect';
 import { Model } from '#/uxp/model';
 import { InDesignSettings } from '#/uxp/settings';
 import type { Value } from '#/value';
@@ -17,18 +16,13 @@ type Values = Record.ReadonlyRecord<string, typeof Value.Type>;
 
 const Contents = Schema.Struct({ contents: Schema.Json });
 const Flat = Schema.Tuple([Schema.Int, Schema.String, Schema.String, Schema.String, Schema.Array(Schema.Tuple([Schema.String, Schema.String]))]);
-const MissingFile = Schema.Literal(-2).annotate({ description: 'Value UXP fs throws for a path it finds no entry at' });
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // --- [SEARCH]
 
 const preserved = Effect.fnUntraced(function* (member: ReturnType<typeof Search.members<typeof Search.Type>>['preferences'][number]) {
-    const model = yield* Model;
-    const { app, NothingEnum } = model;
-    const target = app[member];
-    const { fields } = yield* Cache.get(model.declarations, target.constructorName);
-    const current = Option.liftThrowable((name: string): unknown => Reflect.get(target, name));
-    const saved = Record.filterMap(fields, (row, name) => (row.settable && !model.collectionField(row) && Option.isNone(row.unavailable) && name !== AGGREGATE_FIELD ? Result.fromOption(Option.filter(current(name), Predicate.not(model.nothing)), Function.constVoid) : Result.failVoid));
+    const { app, NothingEnum } = yield* Model;
+    const saved = yield* Model.saved(app[member]);
     const reset = Effect.try({ try: () => Object.assign(app, { [member]: NothingEnum.NOTHING })[member], catch: HostError.refused(`reset of ${member}`) });
     return yield* Effect.acquireRelease(Effect.as(reset, saved), () => Effect.flatMap(Effect.orDie(reset), (cleared) => Uxp.restore(cleared, saved)));
 });
@@ -103,50 +97,41 @@ const overset = ({ stories }: Document): readonly string[] => Array.filterMap(Ar
 const savedPath = (document: Document) => Effect.flatMap(Effect.try({ try: () => document.saved, catch: HostError.refused(`saved of ${document.toSpecifier()}`) }), (saved) => (saved ? Model.file(document, 'fullName') : Effect.succeedNone));
 const overrides = (text: Pick<Text, 'textHasOverrides' | 'toSpecifier'>) =>
     Model.use(({ StyleType }) => Effect.try({ try: () => ({ paragraph: text.textHasOverrides(StyleType.PARAGRAPH_STYLE_TYPE), character: text.textHasOverrides(StyleType.CHARACTER_STYLE_TYPE) }), catch: HostError.refused(`overrides of ${text.toSpecifier()}`) }));
-const differing = Effect.fnUntraced(function* (object: InDesignDOMObject<unknown>, properties: object, baseValue: (name: string) => unknown, except: Schema.Struct.Fields) {
-    const [{ declarations, collectionField }, encoded] = yield* Effect.all([Model, Model.encoder]);
-    const { fields } = yield* Cache.get(declarations, object.constructorName);
-    return Record.filterMap(fields, (row, name) => {
-        if (!row.settable || collectionField(row) || Object.hasOwn(except, name)) {
-            return Result.failVoid;
-        }
-        const value: unknown = Reflect.get(properties, name);
-        return encoded(value) === encoded(baseValue(name)) ? Result.failVoid : Result.succeed(value);
+const differing = (object: InDesignDOMObject<unknown>, properties: Record.ReadonlyRecord<string, unknown>, baseValue: (name: string) => unknown, except: Schema.Struct.Fields) =>
+    Effect.map(Effect.all([Model, Model.encoder]), ([{ declaration }, encoded]) => {
+        const { fields } = declaration(object.constructorName);
+        return Record.filter(properties, (value, name) => Option.exists(Record.get(fields, name), Struct.get('settable')) && !Object.hasOwn(except, name) && encoded(value) !== encoded(baseValue(name)));
     });
-});
 const readings = Effect.fn('readings')(function* (found: InDesignDOMObject<unknown>, wanted: Option.Option<readonly string[]>) {
-    const { declarations } = yield* Model;
-    const { fields } = yield* Cache.get(declarations, found.constructorName);
-    const readable = pipe(Array.flatMap(Uxp.members(Object.getPrototypeOf(found)), Struct.get('fields')), Array.dedupeWith(Equivalence.mapInput(Equivalence.String, Struct.get('name')))).filter(({ name }) => name !== AGGREGATE_FIELD);
-    const [named, missing] = Option.match(wanted, { onNone: () => [readable, []] as const, onSome: Array.partition(Filter.fromPredicateOption((each: string) => Array.findFirst(readable, ({ name }) => Unmatched.named(name, each)))) });
-    yield* Array.isReadonlyArrayEmpty(missing) ? Effect.void : Unmatched.of({ subject: `field of ${found.toSpecifier()}`, query: Option.some(missing.join(', ')), candidates: Array.map(readable, Struct.get('name')) });
-    return yield* Effect.forEach(
-        named,
-        Effect.fnUntraced(function* (accessor) {
-            const subject = `${found.toSpecifier()} ${accessor.name}`;
-            const row = yield* Declaration.enrich(Declaration.Field, fields, accessor);
-            const refusal = Effect.transposeOption(Option.map(unavailableReason(found.constructorName, accessor.name, Option.some(found), false), HostError.refused(subject)));
-            const held = Option.contains(row.type, 'File') ? Model.file(found, accessor.name) : Effect.map(Effect.try({ try: (): unknown => Reflect.get(found, accessor.name), catch: HostError.refused(subject) }), Option.fromNullishOr);
-            const value = yield* Effect.result(Effect.andThen(refusal, Effect.map(held, Option.getOrNull)));
-            return { ...row, value };
-        }),
-    );
-});
-const declaration = Effect.fnUntraced(function* (name: string) {
-    const model = yield* Model;
-    const { enumeration, declarations, parents, members } = model;
-    const declared = yield* Effect.catchTag(Effect.asSome(Cache.get(declarations, name)), 'Unmatched', () => Effect.succeedNone);
-    const { fields, methods, statics } = Option.getOrElse(declared, () => ({ fields: {}, methods: {}, statics: {} }));
-    const type: unknown = Reflect.get(model, name);
-    const [live = { fields: [], methods: [] }] = Uxp.members(Predicate.isFunction(type) ? type.prototype : undefined);
-    return yield* Option.match(enumeration(name), {
-        onSome: (enumerated) => Effect.succeed(Declaration.cases.Enumeration.make({ name, members: Array.map(members(enumerated), (member) => ({ name: member.toString(), description: Record.get(statics, member.toString()) })) })),
+    const { declaration } = yield* Model;
+    const missing = Option.getOrElse(wanted, Array.empty<string>).filter((name) => !Predicate.hasProperty(found, name));
+    yield* Array.isReadonlyArrayEmpty(missing) ? Effect.void : Unmatched.of({ subject: `field of ${found.toSpecifier()}`, query: Option.some(missing.join(', ')), candidates: Record.keys(declaration(found.constructorName).fields) });
+    const entries = yield* Option.match(wanted, {
         onNone: () =>
             Effect.map(
-                Effect.all({ parents: Option.isSome(declared) ? parents(name) : Effect.succeed([]), fields: Effect.forEach(live.fields, (accessor) => Declaration.enrich(Declaration.Field, fields, accessor)), methods: Effect.forEach(live.methods, (method) => Declaration.enrich(Declaration.Method, methods, method)) }),
-                (described) => Declaration.cases.Class.make({ name, ...described }),
+                Model.properties(found),
+                Record.collect((name, held): readonly [string, Effect.Effect<unknown, HostError>] => [name, Effect.succeed(held)]),
+            ),
+        onSome: (names) =>
+            Effect.succeed(
+                Array.map(names, (name): readonly [string, Effect.Effect<unknown, HostError>] => {
+                    const refused = HostError.refused(`${found.toSpecifier()} ${name}`);
+                    return [name, Effect.andThen(Effect.transposeOption(Option.map(Model.unavailable(found.constructorName, name, Option.some(found), false), refused)), Effect.try({ try: (): unknown => Reflect.get(found, name), catch: refused }))];
+                }),
             ),
     });
+    return yield* Effect.forEach(
+        entries,
+        Effect.fnUntraced(function* ([name, read]) {
+            const value = yield* Effect.result(
+                Effect.gen(function* () {
+                    const held = yield* read;
+                    return Predicate.isPromise(held) ? Option.getOrNull(yield* Model.file(found, name)) : (held ?? null);
+                }),
+            );
+            return { name, value };
+        }),
+    );
 });
 const fontView = Effect.fnUntraced(function* (face: Font) {
     const model = yield* Model;
@@ -243,18 +228,18 @@ const view = (model: Model['Service'], found: unknown, slice: Slice) => {
                 model.style,
                 Effect.fnUntraced(function* (style: ParagraphStyle | CharacterStyle | ObjectStyle | TableStyle | CellStyle) {
                     const ancestors = model.ancestors(style.parent);
-                    const refused = HostError.refused(style.toSpecifier());
-                    const properties = yield* Effect.try({ try: () => style.properties, catch: refused });
+                    const properties = yield* Model.properties(style);
                     const { basedOn } = properties;
-                    const container = Option.orElse(Array.findFirst(ancestors, model.document), () => Option.some(model.app));
-                    const base = Predicate.isString(basedOn) ? yield* Model.object(style.constructorName, basedOn, container) : basedOn;
-                    const baseProperties = yield* Effect.try({ try: (): object => (model.domObject(base) ? base.properties : {}), catch: refused });
-                    const own = yield* differing(style, properties, (name): unknown => Reflect.get(baseProperties, name), Inspection.Style.cases.ParagraphStyle.fields);
+                    const container = Option.getOrElse(Array.findFirst(ancestors, model.document), (): Application => model.app);
+                    const [own, above] = yield* Effect.all([Schema.decodeEffect(Specifier.Path)(style.toSpecifier()), Schema.decodeEffect(Specifier.Path)(container.toSpecifier())]);
+                    const base: unknown = Predicate.isString(basedOn) ? yield* Model.resolve(Specifier.make({ steps: [...above.steps, ...Array.map(Array.takeRight(own.steps, 1), ({ kind }) => ({ separator: '/' as const, kind, selector: Selector.cases.Key.make({ key: 'name', value: basedOn }) }))] })) : basedOn;
+                    const baseProperties = model.domObject(base) ? yield* Model.properties(base) : Record.empty<string, unknown>();
+                    const differs = yield* differing(style, properties, (name): unknown => baseProperties[name], Inspection.Style.cases.ParagraphStyle.fields);
                     const settings = yield* Effect.transposeOption(Option.map(Option.liftPredicate(style, model.paragraphStyle), InDesignSettings.read));
                     return yield* Model.picked(
                         Inspection.Style,
                         style,
-                        flow(() => ({ group: ancestors, basedOn: model.ancestors(basedOn, 'basedOn'), differing: own, settings }), Struct.evolve({ group: Array.filterMap((ancestor) => (model.named(ancestor) && !model.document(ancestor) ? Result.succeed(ancestor.name) : Result.failVoid)) })),
+                        flow(() => ({ group: ancestors, basedOn: model.ancestors(basedOn, 'basedOn'), differing: differs, settings }), Struct.evolve({ group: Array.filterMap((ancestor) => (model.named(ancestor) && !model.document(ancestor) ? Result.succeed(ancestor.name) : Result.failVoid)) })),
                     );
                 }),
             ),
@@ -290,7 +275,7 @@ const view = (model: Model['Service'], found: unknown, slice: Slice) => {
                         ranges,
                         Effect.fnUntraced(function* (range: TextStyleRange) {
                             const refused = HostError.refused(range.toSpecifier());
-                            const [properties, paragraphStyle, characterStyle] = yield* Effect.try({ try: () => [range.properties, { ...styles[range.appliedParagraphStyle.toSpecifier()] }, { ...styles[range.appliedCharacterStyle.toSpecifier()] }] as const, catch: refused });
+                            const [properties, [paragraphStyle, characterStyle]] = yield* Effect.all([Model.properties(range), Effect.try({ try: () => [{ ...styles[range.appliedParagraphStyle.toSpecifier()] }, { ...styles[range.appliedCharacterStyle.toSpecifier()] }] as const, catch: refused })]);
                             const inherited = (name: string): unknown => {
                                 const value: unknown = Reflect.get(characterStyle, name);
                                 return value === null || value === '' || model.nothing(value) ? Reflect.get(paragraphStyle, name) : value;
@@ -357,10 +342,10 @@ const inspect = Effect.fn('inspect')(function* ({ target, fields, slice }: { rea
         const items = yield* Effect.forEach(slice.of(found), (item) => Effect.zipWith(Model.reference(item), readings(item, Option.orElseSome(fields, Array.empty)).pipe(Effect.bindTo('fields')), Struct.assign));
         return yield* Model.read(Inspection.Items, target.path, () => ({ _tag: 'Items', specifier: target.path, total: found.length, items }));
     }
-    const [declared, shown] = yield* Effect.all([Cache.get(model.declarations, found.constructorName), view(model, found, slice)]);
+    const shown = yield* view(model, found, slice);
     const entries = yield* readings(
         found,
-        Option.orElse(fields, () => Option.as(shown, Record.keys(Record.filter(declared.fields, model.collectionField)))),
+        Option.orElse(fields, () => Option.as(shown, Record.keys(Record.filter(model.declaration(found.constructorName).fields, ({ collection }, name) => Option.isSome(collection) && Predicate.hasProperty(found, name))))),
     );
     const [collections, scalars] = Array.partition(
         entries,
@@ -375,30 +360,25 @@ const change = ({ label, target, values }: { readonly label: string; readonly ta
 const call = Effect.fn('call')(function* (payload: { readonly label: string; readonly target: Specifier; readonly collection: Option.Option<string>; readonly method: string; readonly arguments: readonly (typeof Value.Type)[]; readonly properties: Option.Option<Values> }) {
     const [model, found] = yield* Effect.all([Model, Model.located(payload.target)]);
     const before = yield* Model.reference(found);
-    const { fields } = yield* Cache.get(model.declarations, before.type);
+    const { method } = payload;
     const { receiver, kind } = yield* Option.match(payload.collection, {
         onNone: () => Effect.succeed({ receiver: found, kind: before.type }),
         onSome: (field) => {
             const member: unknown = Reflect.get(found, field);
-            return model.collection(member) ? Effect.succeed({ receiver: member, kind: member.constructor.name }) : Unmatched.of({ subject: `collection of ${before.specifier}`, query: Option.some(field), candidates: Record.keys(Record.filter(fields, model.collectionField)) });
+            return model.collection(member)
+                ? Effect.succeed({ receiver: member, kind: member.constructor.name })
+                : Unmatched.of({ subject: `collection of ${before.specifier}`, query: Option.some(field), candidates: Record.keys(Record.filter(model.declaration(before.type).fields, ({ collection }) => Option.isSome(collection))) });
         },
     });
-    const { methods } = yield* Cache.get(model.declarations, kind);
-    const [method, { parameters, returns }] = yield* Unmatched.single(Record.toEntries(methods), `method of ${kind}`, Option.some(payload.method), ([name]) => [name]);
-    const required = parameters.filter(({ optional }) => !optional).length;
-    const positional = payload.arguments;
-    const arity = Array.dedupe([required, parameters.length]).join(' to ');
-    const signature = Array.map(parameters, ({ name, optional }) => (optional ? `${name}?` : name)).join(', ');
-    yield* positional.length < required || positional.length > parameters.length ? new Cause.IllegalArgumentError(`${kind} ${method} takes ${arity} arguments (${signature}), given ${positional.length}`) : Effect.void;
-    const decode = Model.decoder(found, yield* Effect.cached(Model.fonts));
-    const positioned = yield* Effect.forEach(Array.zip(positional, parameters), ([value, parameter]) => decode(Option.some(parameter), Option.map(returns, Struct.get('type')))(value));
-    const properties = Option.map(payload.properties, (supplied) => flow(Array.ensure<unknown>, Array.findFirst(model.domObject), Effect.fromOption(Function.constant(new Cause.IllegalArgumentError(`${kind} ${method} returned no object for properties`))), Effect.flatMap(Model.write(supplied))));
+    const { methods } = model.declaration(kind);
     const refused = HostError.refused(`${kind} ${method}`);
+    const invoked = yield* Effect.try({ try: (): unknown => Reflect.get(receiver, method), catch: refused }).pipe(Effect.filterOrFail(Predicate.isFunction, () => Unmatched.of({ subject: `method of ${kind}`, query: Option.some(method), candidates: Record.keys(methods) })));
+    const parameters = Option.getOrElse(Record.get(methods, method), Array.empty<readonly string[]>);
+    const positioned = yield* Effect.forEach(payload.arguments, (value, index) => Model.decode(found, Option.getOrElse(Array.get(parameters, index), Array.empty<string>))(value));
+    const properties = Option.map(payload.properties, (supplied) => flow(Array.ensure<unknown>, Array.findFirst(model.domObject), Effect.fromOption(Function.constant(new Cause.IllegalArgumentError(`${kind} ${method} returned no object for properties`))), Effect.flatMap(Model.write(supplied))));
     return yield* Model.commit(
         payload.label,
-        Effect.try({ try: (): unknown => Reflect.get(receiver, method), catch: refused }).pipe(
-            Effect.filterOrFail(Predicate.isFunction, refused),
-            Effect.flatMap((invoked) => Effect.try({ try: (): unknown => Reflect.apply(invoked, receiver, positioned), catch: refused })),
+        Effect.try({ try: (): unknown => Reflect.apply(invoked, receiver, positioned), catch: refused }).pipe(
             Effect.tap((returned) => Effect.transposeOption(Option.map(properties, Function.apply(returned)))),
             Effect.flatMap((returned) => Model.read(Called, payload.label, flow(Function.constant({ ...before, result: Option.fromUndefinedOr(returned) }), Struct.evolve({ valid: flow(Function.constant(found), Struct.get('isValid')) })))),
         ),
@@ -416,7 +396,7 @@ const font = Effect.fn('font')(function* ({ name, text, file }: { readonly name:
         ? yield* Effect.try({ try: () => fs.lstatSync(face.location), catch: HostError.refused(face.location) }).pipe(
               Effect.as(Option.some({ file: face.location, postscriptName: Option.some(face.postscriptName) })),
               Effect.catchIf(
-                  (error) => Schema.is(MissingFile)(error.cause),
+                  (error) => Schema.is(Uxp.Missing)(error.cause),
                   () => subset,
               ),
           )
@@ -465,11 +445,13 @@ const rasterize = Effect.fn('rasterize')(function* (target: string, longestSide:
         Match.orElse((each) => ({ source: each, placed: [each], range: {} })),
     );
     const { top, left, bottom, right } = yield* Model.extent(...placed);
-    const pointsPerInch = 72;
-    const preferences = app.pngExportPreferences;
-    const { fields } = yield* Cache.get(model.declarations, preferences.constructorName);
-    const { minimum, maximum } = yield* Effect.orDie(Effect.fromOption(Record.get(fields, 'exportResolution')));
-    const bounds = yield* Effect.orDie(Effect.fromOption(Option.all({ minimum, maximum })));
+    const [pointsPerInch, across, preferences] = [72, Math.max(right - left, bottom - top), app.pngExportPreferences];
+    const resolution = (longestSide * pointsPerInch) / across;
+    const declared = Record.get(model.declaration(preferences.constructorName).fields, 'exportResolution' satisfies keyof PNGExportPreference);
+    const { minimum, maximum } = yield* Effect.orDie(Effect.fromOption(Option.flatMap(declared, ({ minimum: low, maximum: high }) => Option.all({ minimum: low, maximum: high }))));
+    yield* resolution < minimum
+        ? new Cause.IllegalArgumentError(`longestSide ${longestSide} px of ${target}, ${across} pt across, needs ${resolution} ppi, under the declared exportResolution range ${minimum} to ${maximum} ppi, so longestSide takes ${Math.ceil((minimum * across) / pointsPerInch)} px or more`)
+        : Effect.void;
     const defaults = {
         pngColorSpace: PNGColorSpaceEnum.RGB,
         pngQuality: PNGQualityEnum.MAXIMUM,
@@ -479,7 +461,7 @@ const rasterize = Effect.fn('rasterize')(function* (target: string, longestSide:
         pngExportRange: PNGExportRangeEnum.EXPORT_RANGE,
         pngSuffix: '',
         exportingHiddenSpread: true,
-        exportResolution: Number.clamp((longestSide * pointsPerInch) / Math.max(right - left, bottom - top), bounds),
+        exportResolution: Math.min(resolution, maximum),
         ...range,
     };
     const given = Option.getOrElse(options, Record.empty);
@@ -487,7 +469,6 @@ const rasterize = Effect.fn('rasterize')(function* (target: string, longestSide:
     yield* Model.write(preferences, given);
     yield* Effect.try({ try: () => source.exportFile(ExportFormat.PNG_FORMAT, path), catch: HostError.refused(`PNG export of ${target} to ${path}`) });
 }, Effect.scoped);
-const objectModel = ({ name }: { readonly name: Option.Option<string> }) => Effect.flatMap(Model, (model) => Declaration.describe(name, model.classes, model.enumerations, declaration));
 const session = Effect.flatMap(Model, ({ app, MeasurementUnits, UserInteractionLevels }) => Uxp.preserve(app.scriptPreferences, { enableRedraw: false, measurementUnit: MeasurementUnits.POINTS, userInteractionLevel: UserInteractionLevels.NEVER_INTERACT }));
 const listened = Effect.fnUntraced(function* (events: readonly string[], name: string, handler: () => void) {
     const { app } = yield* Model;
@@ -513,4 +494,4 @@ const listened = Effect.fnUntraced(function* (events: readonly string[], name: s
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { call, change, findChange, font, inspect, invoke, listened, menu, objectModel, open, preflight, rasterize, session };
+export { call, change, findChange, font, inspect, invoke, listened, menu, open, preflight, rasterize, session };

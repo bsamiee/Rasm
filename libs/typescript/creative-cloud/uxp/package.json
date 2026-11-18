@@ -46,7 +46,6 @@
         "@rasm/mark": "workspace:*",
         "@rasm/object-model": "workspace:*",
         "@rasm/telemetry": "workspace:*",
-        "acorn": "catalog:",
         "core-js": "catalog:",
         "culori": "catalog:",
         "image-size": "catalog:",

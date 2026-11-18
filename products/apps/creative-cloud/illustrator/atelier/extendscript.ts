@@ -1,7 +1,7 @@
 import '@rasm/extendscript/shim';
 import { serve } from '@rasm/extendscript/host';
-import { containment, declared, open, rasterize, session } from '@rasm/illustrator/extendscript';
-import type { ObjectModel, Open, Rasterize } from '@rasm/object-model';
+import { containment, open, rasterize, session } from '@rasm/illustrator/extendscript';
+import type { Open, Rasterize } from '@rasm/object-model';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -16,6 +16,5 @@ export default serve(
             });
             return path;
         },
-        object_model: ({ name }: typeof ObjectModel.Encoded) => declared(name),
     },
 );

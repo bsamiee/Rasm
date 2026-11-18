@@ -1,7 +1,7 @@
 import '@rasm/extendscript/shim';
-import { containment, declared, open, rasterize, session, undo } from '@rasm/aftereffects/extendscript';
+import { containment, open, rasterize, session, undo } from '@rasm/aftereffects/extendscript';
 import { serve } from '@rasm/extendscript/host';
-import type { ObjectModel, Open, Rasterize } from '@rasm/object-model';
+import type { Open, Rasterize } from '@rasm/object-model';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -16,6 +16,5 @@ export default serve(
             });
             return path;
         },
-        object_model: ({ name }: typeof ObjectModel.Encoded) => declared(name),
     },
 );

@@ -1,41 +1,72 @@
 import { Unmatched } from '@rasm/search';
-import { Array, Effect, Formatter, Match, Option, Record, Schema, SchemaGetter, SchemaIssue, String, Struct } from 'effect';
+import { Array, Effect, Formatter, Match, Option, Order, Record, Schema, SchemaGetter, SchemaIssue, String, Struct } from 'effect';
 import { format, parse } from '#/host';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Member = Schema.Struct({
+const Unstated = Schema.Boolean.pipe(Schema.withConstructorDefault(Effect.succeed(false)));
+const Bounds = Struct.Record(['minimum', 'maximum'], Schema.OptionFromOptionalKey(Schema.Finite).pipe(Schema.withConstructorDefault(Effect.succeedNone)));
+const Typed = Schema.Struct({
     name: Schema.String,
-    type: Schema.OptionFromOptionalKey(Schema.String),
-    types: Schema.OptionFromOptionalKey(Schema.Array(Schema.String)),
-    description: Schema.OptionFromOptionalKey(Schema.String),
-    array: Schema.Boolean.pipe(Schema.withDecodingDefaultKey(Effect.succeed(false))),
-    ...Struct.Record(['minimum', 'maximum'], Schema.OptionFromOptionalKey(Schema.Finite)),
-    members: Schema.OptionFromOptionalKey(Schema.NonEmptyArray(Schema.String)),
-}).annotate({ identifier: 'Member' });
-const Described = Member.mapFields(Struct.pick(['name', 'description']));
-const Field = Member.pipe(Schema.fieldsAssign({ settable: Schema.Boolean, unavailable: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'Reason reading or writing crashes the host' })) })).annotate({ identifier: 'Field' });
-const Method = Described.pipe(
-    Schema.fieldsAssign({
-        parameters: Schema.Array(Member.pipe(Schema.fieldsAssign({ optional: Schema.Boolean, default: Schema.optionalKey(Schema.Json.annotate({ description: 'Value an omitted argument takes' })) }))),
-        returns: Schema.OptionFromOptionalKey(Schema.Struct({ type: Schema.String, array: Member.fields.array })),
-    }),
-).annotate({ identifier: 'Method' });
+    description: Schema.OptionFromOptionalKey(Schema.String).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
+    type: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'Type as the source spells it, a method its return type' })).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
+    ...Bounds,
+});
+const Tagged = { version: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'Host version the source tags the declaration with' })).pipe(Schema.withConstructorDefault(Effect.succeedNone)) };
+const Member = { ...Tagged, static: Unstated, async: Unstated.annotate({ description: 'Answers with a promise' }) };
+const Parameter = Typed.pipe(Schema.fieldsAssign({ optional: Unstated })).annotate({ identifier: 'Parameter' });
+const Field = Typed.pipe(Schema.fieldsAssign({ ...Member, readonly: Schema.Boolean, optional: Unstated })).annotate({ identifier: 'Field' });
+const Method = Typed.pipe(Schema.fieldsAssign({ ...Member, parameters: Schema.Array(Parameter) })).annotate({ identifier: 'Method' });
+const Named = Schema.Array(Schema.String).annotate({ description: 'Classes and enumerations a string names, empty where the value takes a string' });
+const Model = Schema.Struct({
+    classes: Schema.Record(
+        Schema.String,
+        Schema.Struct({
+            fields: Schema.Record(
+                Schema.String,
+                Schema.Struct({
+                    settable: Schema.Boolean,
+                    ...Struct.Record(['collection', 'array'], Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'Element class of a collection or array field' }))),
+                    classes: Named,
+                    ...Bounds,
+                }),
+            ),
+            methods: Schema.Record(Schema.String, Schema.Array(Named).annotate({ description: 'Per parameter' })),
+        }),
+    ),
+    enumerations: Schema.Array(Schema.String),
+}).annotate({ identifier: 'Model', description: 'Fields and methods per class and the enumerations a host object read or write takes from its declarations' });
 const Declared = Schema.TaggedUnion({
     Index: { classes: Schema.Array(Schema.String), enumerations: Schema.Array(Schema.String) },
-    Class: { name: Schema.String, parents: Schema.Array(Schema.String).annotate({ description: 'Superclasses, nearest first' }), fields: Schema.Array(Field), methods: Schema.Array(Method) },
-    Enumeration: { name: Schema.String, members: Schema.Array(Described) },
+    Class: {
+        name: Schema.String,
+        description: Typed.fields.description,
+        ...Tagged,
+        parents: Schema.Array(Schema.String).annotate({ description: 'Superclasses, nearest first' }),
+        constructible: Schema.Boolean,
+        fields: Schema.Array(Field),
+        methods: Schema.Array(Method),
+    },
+    Enumeration: { name: Schema.String, description: Typed.fields.description, ...Tagged, members: Schema.Array(Schema.Struct({ name: Schema.String, description: Typed.fields.description, value: Schema.OptionFromOptionalKey(Schema.Union([Schema.String, Schema.Finite])) })) },
 });
+const Page = Schema.Union([Declared.cases.Class, Declared.cases.Enumeration]);
 const Declaration = Object.assign(Declared, {
     Field,
     Method,
-    describe: <E, R>(name: Option.Option<string>, classes: readonly string[], enumerations: readonly string[], declared: (name: string) => Effect.Effect<typeof Declared.Type, E, R>): Effect.Effect<typeof Declared.Type, E | Unmatched, R> =>
-        Option.match(name, {
-            onNone: () => Effect.succeed(Declared.cases.Index.make({ classes, enumerations })),
-            onSome: (query) => Effect.flatMap(Unmatched.single([...classes, ...enumerations], 'class or enumeration', Option.some(query), Array.of), declared),
-        }),
-    enrich: <S extends typeof Field | typeof Method>(schema: S, declared: Record.ReadonlyRecord<string, S['Type']>, live: { readonly name: string; readonly settable?: boolean; readonly parameters?: readonly { readonly name: string; readonly optional: boolean }[] }) =>
-        Option.match(Record.get(declared, live.name), { onSome: Effect.succeed, onNone: () => Effect.orDie(Schema.decodeEffect(schema)({ settable: false, parameters: [], ...live })) }),
+    Parameter,
+    Page,
+    Model,
+    catalog: <A>(table: Record.ReadonlyRecord<string, A>, page: (entry: A) => typeof Page.Type, enumerated: (entry: A) => boolean) => {
+        const sorted = (enumerations: boolean) => Array.sort(Record.keys(Record.filter(table, (entry) => enumerated(entry) === enumerations)), Order.String);
+        return {
+            index: Declared.cases.Index.make({ classes: sorted(false), enumerations: sorted(true) }),
+            page: (name: string) =>
+                Effect.map(
+                    Unmatched.single(Record.toEntries(table), 'class or enumeration', Option.some(name), ([key]) => [key]),
+                    ([, found]) => page(found),
+                ),
+        };
+    },
 });
 const Selector = Schema.TaggedUnion({
     Index: { index: Schema.Int },

@@ -1,6 +1,6 @@
 import { Link } from '@rasm/mcp';
 import { type HostError, type Rasterize, Script } from '@rasm/object-model';
-import { application, execute, objectModel, open, rasterize, session } from '@rasm/photoshop/uxp';
+import { application, execute, open, rasterize, session } from '@rasm/photoshop/uxp';
 import { Plugin, Uxp } from '@rasm/uxp/plugin';
 import { Effect, Layer, Option, type Path, Semaphore } from 'effect';
 import { ATELIER, Photoshop } from '#/tools';
@@ -20,7 +20,6 @@ const tools = Link.serve(Photoshop).pipe(
             Effect.map(hosting, (hosted) => ({
                 open: ({ file, label }: { readonly file: string; readonly label: string }) => hosted(open(file, label)),
                 rasterize: ({ target, longestSide, options }: Rasterize) => hosted(Uxp.rendered((file) => rasterize(target, longestSide, options, file), 'rasterized.png')),
-                object_model: ({ name }: { readonly name: Option.Option<string> }) => hosted(objectModel(name)),
             })),
         ),
     ),

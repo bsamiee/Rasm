@@ -425,10 +425,11 @@ catalog:
 
     types-for-adobe: 7.2.6
     '@adobe-uxp-types/uxp': 0.1.4
-    '@adobe-uxp-types/photoshop': 0.1.8
+    '@adobe/cc-ext-uxp-types': 7.3.1 # UXP module and globals the InDesign, Photoshop, and Premiere Pro declarations read
     '@types/photoshop': 27.11.0
     '@adobe/premierepro': 27.1.0-beta.23
     indesign-uxp-types: 2.0.0
+    uxp-after-effects: github:AdobeDocs/uxp-after-effects#7d1cd01b4c69a9e02b77d48b3f919a6145a90841 # After Effects UXP reference tables, its only declared object model
     '@adobe/eslint-plugin-premierepro': 27.1.0-beta.23
     '@bubblydoo/vitest-pool-uxp': 0.0.15
     '@bubblydoo/vitest-pool-cdp': 0.0.15

@@ -75,16 +75,22 @@ const helper = Effect.fnUntraced(function* (
     let outDir = '';
     return {
         name: 'helper',
-        config: () => ({ define: { __dirname: 'import.meta.dirname', __filename: 'import.meta.filename' }, build: { ssr: true, rolldownOptions: { input: { [name]: entry }, output: { entryFileNames: '[name].mjs', codeSplitting: false } } }, ssr: { noExternal: true } }),
+        config: () => ({ define: { __dirname: 'import.meta.dirname', __filename: 'import.meta.filename' }, build: { ssr: true, emitAssets: true, rolldownOptions: { input: { [name]: entry }, output: { entryFileNames: '[name].mjs', codeSplitting: false } } }, ssr: { noExternal: true } }),
         configResolved({ root, build: options }): void {
             outDir = resolve(root, options.outDir);
         },
         generateBundle(this: Rolldown.PluginContext, _options, output): Promise<void> {
             const folders = Array.dedupe(Object.values(output).flatMap((file) => (file.type === 'chunk' ? file.moduleIds.filter(isAbsolute).map(dirname) : [])));
-            const assets = Record.fromIterableWith(
-                Array.flatMap(folders, (folder) => globSync('*.{wasm,trie}', { cwd: folder, withFileTypes: true })),
-                ({ name: file, parentPath }) => [file, join(parentPath, file)],
-            );
+            const assets = {
+                ...Record.fromIterableWith(
+                    Array.flatMap(folders, (folder) => globSync('*.{wasm,trie}', { cwd: folder, withFileTypes: true })),
+                    ({ name: file, parentPath }) => [file, join(parentPath, file)],
+                ),
+                ...Record.fromIterableWith(
+                    Object.values(output).filter((file) => file.type === 'asset'),
+                    ({ fileName }) => [fileName, join(outDir, fileName)],
+                ),
+            };
             const sea = JSON.stringify({ main: join(outDir, `${name}.mjs`), mainFormat: 'module', output: join(outDir, name), useVfs: true, disableExperimentalSEAWarning: true, assets });
             return signing.pipe(
                 Effect.map(({ CODE_SIGN_ENTITLEMENTS, DEVELOPMENT_TEAM, PROJECT_DIR, label }): readonly Rolldown.EmittedAsset[] => {

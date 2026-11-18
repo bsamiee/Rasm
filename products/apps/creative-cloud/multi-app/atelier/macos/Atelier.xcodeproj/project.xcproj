@@ -18,6 +18,9 @@
   ],
   "files": [
     { "path": "../../../../../../.artifacts/vite/@rasm/atelier/server", "target-membership": [ { "build-phase": "Atelier/copy/Embed Server", "code-sign-on-copy": true } ] },
+    { "path": "../../../../../../.artifacts/vite/@rasm/atelier/tsc", "target-membership": [ { "build-phase": "Atelier/copy/Embed Server", "code-sign-on-copy": true } ] },
+    { "path": "../../../../../../.artifacts/vite/@rasm/atelier/Helpers", "target-membership": [ "Atelier/copy/Embed Compiler Library" ] },
+    { "path": "../../../../../../.artifacts/vite/@rasm/atelier/typescript/lib.d.ts", "target-membership": [ "Atelier/resources" ] },
     { "path": "../../../../../../.artifacts/vite/@rasm/atelier/LaunchAgents", "target-membership": [ "Atelier/copy/Embed Server Agent" ] },
     { "path": "<PROJECT>/../../../../../../Xcode.xcconfig" },
     { "path": "Resources/AppIcon.icon", "target-membership": [ "Atelier/resources" ] },
@@ -40,6 +43,10 @@
         "frameworks",
         "resources",
         {
+          "kind": "copy",
+          "name": "Embed Compiler Library",
+          "bundle-base-path": "contents-directory",
+        }, {
           "kind": "copy",
           "name": "Embed Server",
           "bundle-base-path": "contents-directory",

@@ -17,6 +17,7 @@ import indesign, {
     type Layer,
     type Link,
     type MasterSpread,
+    type MenuAction,
     type ObjectStyle,
     type Page,
     type PageItem,
@@ -32,8 +33,7 @@ import indesign, {
     type TextPath,
     type XmlStory,
 } from 'adobe:indesign';
-import { Array, Cache, Cause, Context, Deferred, Duration, Effect, Equal, Equivalence, Exit, Function, flow, identity, Match, Number, Option, Predicate, pipe, Record, Result, Schema, SchemaAST, Struct, Tuple } from 'effect';
-import { readDeclaration, unavailableReason } from '#/uxp/dictionary';
+import { Array, Cause, Context, Deferred, Effect, Equal, Equivalence, Function, flow, identity, Match, Number, Option, Predicate, pipe, Record, Result, Schema, SchemaAST, Struct } from 'effect';
 import { Value } from '#/value';
 import { Extent, type Search } from '#/views';
 
@@ -67,135 +67,94 @@ type Owned = {
     readonly aggregatedResults: PreflightProcess;
 } & Readonly<Record<`change${typeof Search.Type}`, InDesignDOMObject<unknown> & Pick<Document, `${'find' | 'change'}${typeof Search.Type}`>>>;
 
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+const AGGREGATE_FIELD = 'properties';
+const STYLISTIC_SETS = 20;
+const STYLISTIC_SET_ACTION = 0x69_74;
+const STYLISTIC_SET_ACTIONS = { minimum: STYLISTIC_SET_ACTION, maximum: STYLISTIC_SET_ACTION + STYLISTIC_SETS - 1 };
+
 // --- [SERVICES] ------------------------------------------------------------------------
 
 class Model extends Context.Service<Model>()('@rasm/indesign/uxp/model', {
-    make: Effect.gen(function* () {
-        // oxlint-disable-next-line typescript/no-unsafe-assignment -- Object.create types its result any, the model inherits the live indesign host module as its prototype
-        const model: typeof indesign = Object.create(indesign);
-        const exported = Array.map(Object.getOwnPropertyNames(indesign), (name) => [name, Reflect.get(indesign, name)] as const);
-        const prototypes = Array.filterMap(exported, ([name, value]) => {
-            const prototype: unknown = Predicate.isFunction(value) ? value.prototype : undefined;
-            return Predicate.isObject(prototype) ? Result.succeed([name, prototype] as const) : Result.failVoid;
-        });
-        const classes = Array.map(prototypes, Tuple.get(0));
-        const enumerations = Array.filterMap(exported, ([name, value]) => (value instanceof indesign.Enumeration ? Result.succeed(name) : Result.failVoid));
-        const owning = <K extends keyof Owned>(member: K) => {
-            const owners = new Set<unknown>(Array.filterMap(prototypes, ([, prototype]) => (Object.hasOwn(prototype, member) ? Result.succeed(prototype) : Result.failVoid)));
-            return (value: unknown): value is Owned[K] => Predicate.isObject(value) && owners.has(Object.getPrototypeOf(value));
-        };
-        const domObject = owning('toSpecifier');
-        const document = owning('createTOC');
-        const application = owning('menuActions');
-        const ancestors = (object: unknown, link: 'parent' | 'basedOn' = 'parent'): readonly InDesignDOMObject<unknown>[] => Array.unfold(object, (above: unknown) => (domObject(above) && !application(above) ? Option.some([above, Reflect.get(above, link)] as const) : Option.none()));
-        const collection = owning('everyItem');
-        const fits =
-            (value: unknown) =>
-            (member: SchemaAST.AST): boolean =>
-                SchemaAST.isObjects(member) ? Predicate.isObject(value) && !Array.isArray(value) && Option.match(tagged(member), { onNone: () => true, onSome: (tag) => domObject(value) && value.constructorName === tag }) : SchemaAST.isArrays(member) && (Array.isArray(value) || collection(value));
-        const record = (node: SchemaAST.Objects, value: object, skipped: readonly PropertyKey[]) => {
-            const referenced = domObject(value) && node.propertySignatures.some(({ name }) => name === 'specifier');
-            const read = ({ name, type }: SchemaAST.PropertySignature) => {
-                if (name === '_tag' && SchemaAST.isLiteral(type)) {
-                    return Option.some([name, type.literal] as const);
-                }
-                if (skipped.includes(name) || (referenced && Object.hasOwn(Reference.fields, name))) {
-                    return Option.none();
-                }
-                return Option.liftThrowable((): unknown => Reflect.get(value, name))().pipe(
-                    Option.filter((property) => !(Predicate.isNullish(property) || nothing(property))),
-                    Option.map((property) => [name, picking(type, property)] as const),
-                );
+    make: (declared: typeof Declaration.Model.Type) =>
+        Effect.sync(() => {
+            // oxlint-disable-next-line typescript/no-unsafe-assignment -- Object.create types its result any, the model inherits the live indesign host module as its prototype
+            const model: typeof indesign = Object.create(indesign);
+            const domObject = owning('toSpecifier');
+            const document = owning('createTOC');
+            const application = owning('menuActions');
+            const ancestors = (object: unknown, link: 'parent' | 'basedOn' = 'parent'): readonly InDesignDOMObject<unknown>[] => Array.unfold(object, (above: unknown) => (domObject(above) && !application(above) ? Option.some([above, Reflect.get(above, link)] as const) : Option.none()));
+            const fits =
+                (value: unknown) =>
+                (member: SchemaAST.AST): boolean =>
+                    SchemaAST.isObjects(member) ? Predicate.isObject(value) && !Array.isArray(value) && Option.match(tagged(member), { onNone: () => true, onSome: (tag) => domObject(value) && value.constructorName === tag }) : SchemaAST.isArrays(member) && (Array.isArray(value) || collection(value));
+            const record = (node: SchemaAST.Objects, value: object, skipped: readonly PropertyKey[]) => {
+                const referenced = domObject(value) && node.propertySignatures.some(({ name }) => name === 'specifier');
+                const read = ({ name, type }: SchemaAST.PropertySignature) => {
+                    if (name === '_tag' && SchemaAST.isLiteral(type)) {
+                        return Option.some([name, type.literal] as const);
+                    }
+                    if (skipped.includes(name) || (referenced && Object.hasOwn(Reference.fields, name))) {
+                        return Option.none();
+                    }
+                    return Option.liftThrowable((): unknown => Reflect.get(value, name))().pipe(
+                        Option.filter((property) => !(Predicate.isNullish(property) || nothing(property))),
+                        Option.map((property) => [name, picking(type, property)] as const),
+                    );
+                };
+                return Object.fromEntries([...(referenced ? Object.entries(Model.referenceUnsafe(value)) : []), ...Array.getSomes(Array.map(node.propertySignatures, read))]);
             };
-            return Object.fromEntries([...(referenced ? Object.entries(Model.referenceUnsafe(value)) : []), ...Array.getSomes(Array.map(node.propertySignatures, read))]);
-        };
-        const list = (node: SchemaAST.Arrays, value: unknown) => {
-            const items: unknown = collection(value) ? value.everyItem().getElements() : value;
-            return Array.isArray(items) ? items.map((item: unknown, index) => picking(entry(node, index), item)) : value;
-        };
-        const picking = (ast: SchemaAST.AST, value: unknown, skipped: readonly PropertyKey[] = []): unknown =>
-            Match.value(ast).pipe(
-                Match.when(SchemaAST.isSuspend, (node) => picking(node.thunk(), value)),
-                Match.when(SchemaAST.isUnion, (node) => Option.match(Array.findFirst(node.types, fits(value)), { onNone: () => value, onSome: (member) => picking(member, value) })),
-                Match.when(SchemaAST.isArrays, (node) => list(node, value)),
-                Match.when(SchemaAST.isObjects, (node) =>
-                    Option.match(Option.all([Option.filter(Option.liftPredicate(value, Predicate.isObject), Predicate.not(collection)), Option.liftPredicate(node.propertySignatures, Array.isReadonlyArrayNonEmpty)]), { onNone: () => value, onSome: ([held]) => record(node, held, skipped) }),
-                ),
-                Match.orElse(() => value),
-            );
-        const plural = new Set(Array.filterMap(prototypes, ([name, prototype]) => (Object.hasOwn(prototype, 'everyItem') ? Result.succeed(name) : Result.failVoid)));
-        const collectionField = ({ type }: { readonly type: Option.Option<string> }): boolean => Option.exists(type, (kind) => plural.has(kind));
-        const filled = <R extends { readonly types: Option.Option<readonly string[]> }>(row: R) => ({
-            ...row,
-            members: pipe(
-                Option.getOrElse(row.types, Array.empty<string>),
-                Array.map(enumeration),
-                Array.getSomes,
-                Array.flatMap((enumerated) => Array.map(members(enumerated), (member) => member.toString())),
-                Array.dedupe,
-                Option.liftPredicate(Array.isArrayNonEmpty),
-            ),
-        });
-        const retried = { capacity: exported.length, timeToLive: (exit: Exit.Exit<unknown, unknown>) => (Exit.isFailure(exit) && Option.exists(Cause.findErrorOption(exit.cause), Schema.is(HostError)) ? Duration.zero : Duration.infinity) };
-        const declarations = yield* Cache.makeWith(
-            Effect.fnUntraced(function* (kind: string) {
-                const { fields, methods, ...declared } = yield* readDeclaration(kind, classes);
-                return { ...declared, fields: Record.map(fields, filled), methods: Record.map(methods, Struct.evolve({ parameters: Array.map(filled) })) };
-            }),
-            retried,
-        );
-        const parents = (name: string): Effect.Effect<readonly string[], Unmatched | HostError> =>
-            Cache.get(declarations, name).pipe(Effect.map(Struct.get('parent')), Effect.flatMap(Option.match({ onNone: () => Effect.succeed(Array.empty<string>()), onSome: (above) => Effect.map(parents(above), Array.prepend(above)) })));
-        const element = (kind: string) => Effect.map(Cache.get(declarations, kind), flow(Struct.get('methods'), Record.get('item'), Option.flatMap(Struct.get('returns')), Option.map(Struct.get('type'))));
-        const documentField = yield* Cache.makeWith(
-            Effect.fnUntraced(function* (kind: string) {
-                const { fields } = yield* Cache.get(declarations, 'Document');
-                const listed = Array.findFirst(Record.toEntries(fields), flow(Tuple.get(1), Predicate.Struct({ array: Predicate.isTruthy, type: Option.contains(kind) })));
-                const held = Effect.findFirst(Record.toEntries(Record.filter(fields, collectionField)), flow(Tuple.get(1), Struct.get('type'), Option.map(element), Effect.transposeOption, Effect.map(flow(Option.flatten, Option.contains(kind)))));
-                return Option.map(yield* Option.match(listed, { onNone: () => held, onSome: Effect.succeedSome }), Tuple.get(0));
-            }),
-            retried,
-        );
-        return Object.assign(model, {
-            classes,
-            enumerations,
-            owning,
-            domObject,
-            collection,
-            picked: (schema: Schema.Top, value: object, skipped: readonly PropertyKey[] = []): Record.ReadonlyRecord<string, unknown> => Option.getOrElse(Option.liftPredicate(picking(SchemaAST.toEncoded(schema.ast), value, skipped), isPlain), Record.empty),
-            named: owning('name'),
-            application,
-            document,
-            page: owning('documentOffset'),
-            spread: owning('spreadHidden'),
-            masterSpread: owning('namePrefix'),
-            layer: owning('layerColor'),
-            link: owning('linkResourceURI'),
-            swatch: owning('parentColorGroup'),
-            item: owning('itemLayer'),
-            story: owning('textContainers'),
-            textContainer: owning('texts'),
-            text: owning('parentTextFrames'),
-            textDefault: (value: unknown): value is TextDefault => domObject(value) && value.constructorName === 'TextDefault',
-            frame: owning('textFrameIndex'),
-            style: owning('basedOn'),
-            paragraphStyle: owning('nestedGrepStyles'),
-            overridable: owning('textHasOverrides'),
-            storied: owning('parentStory'),
-            font: owning('postscriptName'),
-            preflightProcess: owning('aggregatedResults'),
-            ancestors,
-            owner: (object: unknown): Option.Option<Document> => Array.findFirst(ancestors(object), document),
-            enumeration,
-            enumerator,
-            nothing,
-            members,
-            collectionField,
-            declarations,
-            parents,
-            documentField,
-        });
-    }),
+            const list = (node: SchemaAST.Arrays, value: unknown) => {
+                const items: unknown = collection(value) ? value.everyItem().getElements() : value;
+                return Array.isArray(items) ? items.map((item: unknown, index) => picking(entry(node, index), item)) : value;
+            };
+            const picking = (ast: SchemaAST.AST, value: unknown, skipped: readonly PropertyKey[] = []): unknown =>
+                Match.value(ast).pipe(
+                    Match.when(SchemaAST.isSuspend, (node) => picking(node.thunk(), value)),
+                    Match.when(SchemaAST.isUnion, (node) => Option.match(Array.findFirst(node.types, fits(value)), { onNone: () => value, onSome: (member) => picking(member, value) })),
+                    Match.when(SchemaAST.isArrays, (node) => list(node, value)),
+                    Match.when(SchemaAST.isObjects, (node) =>
+                        Option.match(Option.all([Option.filter(Option.liftPredicate(value, Predicate.isObjectOrArray), Predicate.not(collection)), Option.liftPredicate(node.propertySignatures, Array.isReadonlyArrayNonEmpty)]), { onNone: () => value, onSome: ([held]) => record(node, held, skipped) }),
+                    ),
+                    Match.orElse(() => value),
+                );
+            return Object.assign(model, {
+                owning,
+                domObject,
+                collection,
+                picked: (schema: Schema.Top, value: object, skipped: readonly PropertyKey[] = []): Record.ReadonlyRecord<string, unknown> => Option.getOrElse(Option.liftPredicate(picking(SchemaAST.toEncoded(schema.ast), value, skipped), isPlain), Record.empty),
+                named: owning('name'),
+                application,
+                document,
+                page: owning('documentOffset'),
+                spread: owning('spreadHidden'),
+                masterSpread: owning('namePrefix'),
+                layer: owning('layerColor'),
+                link: owning('linkResourceURI'),
+                swatch: owning('parentColorGroup'),
+                item: owning('itemLayer'),
+                story: owning('textContainers'),
+                textContainer: owning('texts'),
+                text: owning('parentTextFrames'),
+                textDefault: (value: unknown): value is TextDefault => domObject(value) && value.constructorName === 'TextDefault',
+                frame: owning('textFrameIndex'),
+                style: owning('basedOn'),
+                paragraphStyle: owning('nestedGrepStyles'),
+                overridable: owning('textHasOverrides'),
+                storied: owning('parentStory'),
+                font: owning('postscriptName'),
+                preflightProcess: owning('aggregatedResults'),
+                ancestors,
+                owner: (object: unknown): Option.Option<Document> => Array.findFirst(ancestors(object), document),
+                declared,
+                declaration: (kind: string) => Option.getOrElse(Record.get(declared.classes, kind), () => ({ fields: Record.empty<string, (typeof declared.classes)[string]['fields'][string]>(), methods: Record.empty<string, readonly (readonly string[])[]>() })),
+                enumeration,
+                enumerator,
+                nothing,
+                members,
+            });
+        }),
 }) {
     static readonly current = Model.use(({ app, document }) => {
         const open = app.documents.everyItem().getElements();
@@ -214,20 +173,52 @@ class Model extends Context.Service<Model>()('@rasm/indesign/uxp/model', {
             Effect.flatMap(flow(Schema.decodeUnknownEffect(Schema.OptionFromNullOr(Schema.String)), Effect.orDie)),
         );
     static readonly member = Effect.fnUntraced(function* (kind: string, name: string) {
-        const { enumeration, members, enumerations } = yield* Model;
-        const found = yield* Effect.fromOption(enumeration(kind), () => Unmatched.of({ subject: 'enumeration', query: Option.some(kind), candidates: enumerations }));
+        const { enumeration, members, declared } = yield* Model;
+        const found = yield* Effect.fromOption(enumeration(kind), () => Unmatched.of({ subject: 'enumeration', query: Option.some(kind), candidates: declared.enumerations }));
         return yield* Unmatched.single(members(found), `${kind} member`, Option.some(name), (member) => [member.toString()]);
     });
-    static readonly object = Effect.fnUntraced(function* (type: string, name: string, scope: Option.Option<object>) {
+    static readonly object = Effect.fnUntraced(function* (kind: string, name: string, target: unknown) {
         const model = yield* Model;
-        const { fields } = yield* Cache.get(model.declarations, type);
-        const field = Record.has(fields, 'name') ? yield* Cache.get(model.documentField, type) : Option.none();
-        const candidates = Option.zipWith(scope, field, (document, member) => {
-            const listed: unknown = Reflect.get(document, member);
-            return (model.collection(listed) ? listed.everyItem().getElements() : Array.ensure(listed)).filter(model.named);
+        const document = yield* Option.match(model.owner(target), { onSome: Effect.succeedSome, onNone: () => Effect.option(Model.current) });
+        const fields = Option.getOrElse(
+            Option.map(document, ({ constructorName }) => model.declaration(constructorName).fields),
+            Record.empty,
+        );
+        const field = Option.orElse(
+            Record.findFirst(fields, ({ array }) => Option.contains(array, kind)),
+            () => Record.findFirst(fields, ({ collection }) => Option.contains(collection, kind)),
+        );
+        const listed = Option.map(Option.all([document, field]), ([held, [named]]): readonly unknown[] => {
+            const members: unknown = Reflect.get(held, named);
+            return model.collection(members) ? members.everyItem().getElements() : Array.ensure(members);
         });
-        return yield* Option.match(candidates, { onNone: () => Effect.succeed<unknown>(name), onSome: Unmatched.single(type, Option.some(name), (each) => [each.toSpecifier(), each.name]) });
+        return yield* Option.match(listed, { onNone: () => Effect.succeed<unknown>(name), onSome: (members) => Unmatched.single(members.filter(model.named), kind, Option.some(name), (each) => [each.toSpecifier(), each.name]) });
     });
+    static readonly unavailable = (kind: string, field: string, observed: Option.Option<InDesignDOMObject<unknown>>, writing: boolean): Option.Option<string> =>
+        Match.value({ kind, field, writing, stylistic: !Option.filter(observed, (each): each is MenuAction => each.constructorName === 'MenuAction').pipe(Option.exists(({ id }) => !Number.between(id, STYLISTIC_SET_ACTIONS))) }).pipe(
+            Match.when({ kind: Match.is('FindChangeDropShadowSetting', 'FindChangeInnerShadowSetting'), field: Match.is('angle', 'distance', 'xOffset', 'yOffset', AGGREGATE_FIELD) }, () => 'Shadow fields crash native Transparency provider'),
+            Match.when({ kind: 'EventListener', field: Match.is('handler', AGGREGATE_FIELD), writing: false }, () => 'Ended UXP context handlers crash InDesign'),
+            Match.when({ kind: 'MenuAction', field: Match.is('enabled', 'checked', AGGREGATE_FIELD), writing: false, stylistic: true }, () => 'Stylistic Set state crashes native CharacterPanel provider'),
+            Match.option,
+        );
+    static readonly properties = Effect.fnUntraced(function* (object: InDesignDOMObject<unknown>) {
+        const [model, specifier] = [yield* Model, object.toSpecifier()];
+        return yield* Option.match(Model.unavailable(object.constructorName, AGGREGATE_FIELD, Option.some(object), false), {
+            onNone: () => Effect.try({ try: (): Record.ReadonlyRecord<string, unknown> => object.properties, catch: HostError.refused(`${specifier} ${AGGREGATE_FIELD}`) }),
+            onSome: () =>
+                Effect.all(
+                    Record.filterMap(model.declaration(object.constructorName).fields, ({ collection }, name) =>
+                        Option.isSome(collection) || Option.isSome(Model.unavailable(object.constructorName, name, Option.some(object), false)) ? Result.failVoid : Result.succeed(Effect.try({ try: (): unknown => Reflect.get(object, name), catch: HostError.refused(`${specifier} ${name}`) })),
+                    ),
+                ),
+        });
+    });
+    static readonly saved = (object: InDesignDOMObject<unknown>) =>
+        Effect.map(Model, ({ declaration, nothing }) =>
+            Record.filterMap(declaration(object.constructorName).fields, ({ settable }, name) =>
+                settable && name !== AGGREGATE_FIELD && Option.isNone(Model.unavailable(object.constructorName, name, Option.some(object), false)) ? Result.fromOption(Option.filter(Option.liftThrowable((): unknown => Reflect.get(object, name))(), Predicate.not(nothing)), Function.constVoid) : Result.failVoid,
+            ),
+        );
     static readonly fonts = Model.use(({ app, FontStatus }) => {
         const missing = (open: Document) => {
             const used = open.fonts.everyItem();
@@ -257,32 +248,36 @@ class Model extends Context.Service<Model>()('@rasm/indesign/uxp/model', {
                 Array.isArray(resolved) ? resolved.every(valid) : valid(resolved),
             );
         };
-        const nearest = function* (): Effect.fn.Return<readonly InDesignDOMObject<unknown>[], HostError | Unmatched> {
+        const nearest = Effect.suspend(() => {
             const listed = flow(located, Option.toArray, Array.flatMap(Array.ensure));
             const siblings = listed(specifier.unselected);
             const container = Array.head(listed(specifier.parent));
-            const fields = Option.toArray(yield* Effect.transposeOption(Option.map(container, (at) => Cache.get(model.declarations, at.constructorName)))).flatMap(flow(Struct.get('fields'), Record.toEntries));
+            const fields = Option.match(container, { onNone: Array.empty, onSome: (at) => Record.toEntries(model.declaration(at.constructorName).fields) });
             const value = (field: string): unknown => Option.getOrUndefined(Option.map(container, (at): unknown => Reflect.get(at, field)));
             const sibling = Option.map(Array.head(siblings), Struct.get('constructorName'));
-            const related = fields.flatMap(([field, { type, array }]) => (array && Option.isSome(sibling) && Equal.equals(type, sibling) ? Array.ensure<unknown>(value(field)) : [])).filter(model.named);
+            const related = fields.flatMap(([field, { array }]) => (Option.isSome(sibling) && Equal.equals(array, sibling) ? Array.ensure<unknown>(value(field)) : [])).filter(model.named);
             const collections = Array.getSomes(
                 fields
-                    .filter(([, row]) => model.collectionField(row))
+                    .filter(([, { collection }]) => Option.isSome(collection))
                     .map(([field]) => value(field))
                     .filter(model.collection)
                     .map((items) => Option.fromNullishOr(items.everyItem())),
             );
             const candidates = Array.dedupe(Array.map([...siblings, ...related.filter((each) => Option.contains(specifier.name, each.name))], (each) => each.toSpecifier()));
-            return yield* Effect.fromOption(
-                Option.map(
-                    Array.findFirst(collections, (every) => every.toSpecifier() === written),
-                    (every) => every.getElements(),
-                ),
-                () =>
-                    Option.exists(specifier.selector, Selector.guards.Index) ? Unmatched.of({ subject: Array.isReadonlyArrayNonEmpty(siblings) ? `object among indexes 0 to ${siblings.length - 1}` : 'object', query: Option.some(written) }) : Unmatched.of({ subject: 'object', query: Option.some(written), candidates }),
+            return Option.match(
+                Array.findFirst(collections, (every) => every.toSpecifier() === written),
+                {
+                    onSome: (every) => Effect.succeed(every.getElements()),
+                    onNone: () =>
+                        Effect.fail(
+                            Option.exists(specifier.selector, Selector.guards.Index)
+                                ? Unmatched.of({ subject: Array.isReadonlyArrayNonEmpty(siblings) ? `object among indexes 0 to ${siblings.length - 1}` : 'object', query: Option.some(written) })
+                                : Unmatched.of({ subject: 'object', query: Option.some(written), candidates }),
+                        ),
+                },
             );
-        };
-        const absent = specifier.end === undefined ? Effect.gen(nearest) : Effect.fail(Unmatched.of({ subject: 'range', query: Option.some(written) }));
+        });
+        const absent = specifier.end === undefined ? nearest : Effect.fail(Unmatched.of({ subject: 'range', query: Option.some(written) }));
         return yield* Option.match(located(written), { onSome: (resolved) => Effect.succeed(specifier.root || Option.isSome(specifier.selector) || specifier.property ? resolved : Array.ensure(resolved)), onNone: () => absent });
     });
     static readonly located = (specifier: Specifier) =>
@@ -335,62 +330,43 @@ class Model extends Context.Service<Model>()('@rasm/indesign/uxp/model', {
         };
         return (value: unknown): string | undefined => JSON.stringify(encode(value, host));
     });
-    static readonly decoder = (target: unknown, fonts: Effect.Effect<(name: string) => Effect.Effect<Font, Unmatched>, HostError, Model>) => {
-        const typed = (row: Option.Option<Pick<typeof Declaration.Field.Type, 'type' | 'types'>>) =>
-            Effect.fnUntraced(function* (text: string) {
-                const { enumeration, classes, owner } = yield* Model;
-                const types = Option.getOrElse(Option.flatMap(row, Struct.get('types')), Array.empty<string>);
-                const scope = Option.match(owner(target), { onSome: (document) => Effect.succeedSome<object>(document), onNone: () => Effect.option(Model.current) });
-                const named = types.includes('String')
-                    ? [Effect.succeed<unknown>(text)]
-                    : Array.map(
-                          types.filter((type) => type === 'Font' || classes.includes(type)),
-                          Effect.fnUntraced(function* (type) {
-                              return type === 'Font' ? yield* (yield* fonts)(text) : yield* Model.object(type, text, yield* scope);
-                          }),
-                      );
-                const enumerated = Array.map(types.filter(flow(enumeration, Option.isSome)), (type): Effect.Effect<unknown, Failure, Model> => Model.member(type, text));
-                return yield* firstOf(Array.isReadonlyArrayNonEmpty(named) ? Array.prependAll(named, enumerated) : Array.append(enumerated, Effect.succeed<unknown>(text)));
-            });
-        const decode =
-            (row: Parameters<typeof typed>[0], within: Option.Option<string>) =>
-            (value: unknown): Effect.Effect<unknown, Failure, Model> =>
-                Match.value(value).pipe(
-                    Match.when(Schema.is(Value.Located), ({ specifier }) => Model.resolve(specifier)),
-                    Match.when(Schema.is(Value.Enumerated), ({ type, member }) => Model.member(type, member)),
-                    Match.when(Predicate.isString, typed(row)),
-                    Match.when(Array.isArray, Effect.forEach(decode(row, within))),
-                    Match.when(
-                        isPlain,
-                        Effect.fnUntraced(function* (properties: Record.ReadonlyRecord<string, unknown>) {
-                            const { declarations } = yield* Model;
-                            const fields = yield* Effect.transposeOption(Option.map(within, (kind) => Effect.map(Cache.get(declarations, kind), Struct.get('fields'))));
-                            return yield* Effect.all(
-                                Record.map(properties, (each, key) => {
-                                    const field = Option.flatMap(fields, Record.get(key));
-                                    return decode(field, Option.flatMap(field, Struct.get('type')))(each);
-                                }),
-                            );
+    static readonly decode =
+        (target: unknown, named: readonly string[]) =>
+        (value: unknown): Effect.Effect<unknown, Failure, Model> =>
+            Match.value(value).pipe(
+                Match.when(Schema.is(Value.Located), ({ specifier }) => Model.resolve(specifier)),
+                Match.when(Schema.is(Value.Enumerated), ({ type, member }) => Model.member(type, member)),
+                Match.when(Predicate.isString, (text) =>
+                    Effect.flatMap(Model, ({ enumeration }) =>
+                        Array.match(named, {
+                            onEmpty: () => Effect.succeed<unknown>(text),
+                            onNonEmpty: (kinds) => firstOf(Array.map(kinds, (kind): Effect.Effect<unknown, Failure, Model> => (Option.isSome(enumeration(kind)) ? Model.member(kind, text) : Model.object(kind, text, target)))),
                         }),
                     ),
-                    Match.orElse(Effect.succeed),
-                );
-        return decode;
-    };
+                ),
+                Match.when(Array.isArray, Effect.forEach(Model.decode(target, named))),
+                Match.when(isPlain, (properties) => Effect.all(Record.map(properties, Model.decode(target, [])))),
+                Match.orElse(Effect.succeed),
+            );
     static readonly write: { (values: Record.ReadonlyRecord<string, unknown>): (target: InDesignDOMObject<unknown>) => Effect.Effect<readonly string[], Failure, Model>; (target: InDesignDOMObject<unknown>, values: Record.ReadonlyRecord<string, unknown>): Effect.Effect<readonly string[], Failure, Model> } =
         Function.dual(
             2,
             Effect.fnUntraced(function* (target: InDesignDOMObject<unknown>, values: Record.ReadonlyRecord<string, unknown>) {
-                const specifier = target.toSpecifier();
-                const write = writer(target, specifier, yield* Effect.cached(Model.fonts));
-                const { declarations, collectionField } = yield* Model;
-                const { fields } = yield* Cache.get(declarations, target.constructorName);
-                const writable = Record.toEntries(Record.filter(fields, Predicate.not(collectionField)));
+                const [specifier, { domObject, declaration }] = [target.toSpecifier(), yield* Model];
+                const { fields } = declaration(target.constructorName);
                 return yield* Effect.validate(
                     Object.entries(values),
-                    Effect.fnUntraced(function* ([wanted, value]: readonly [string, unknown]) {
-                        const [, row] = yield* Unmatched.single(writable, `field of ${specifier}`, Option.some(wanted), flow(Tuple.get(0), Array.of));
-                        return yield* write(row, value);
+                    Effect.fnUntraced(function* ([field, value]: readonly [string, unknown]) {
+                        const refused = HostError.refused(`${specifier} ${field}`);
+                        yield* Predicate.hasProperty(target, field) ? Effect.void : Unmatched.of({ subject: `field of ${specifier}`, query: Option.some(field), candidates: Record.keys(fields) });
+                        yield* Effect.transposeOption(Option.map(Model.unavailable(target.constructorName, field, Option.some(target), !isPlain(value)), refused));
+                        const inner: unknown = isPlain(value) ? yield* Effect.try({ try: (): unknown => Reflect.get(target, field), catch: refused }) : undefined;
+                        if (isPlain(value) && domObject(inner)) {
+                            return Array.map(yield* Model.write(inner, value), (name) => `${field}.${name}`);
+                        }
+                        const native = yield* Model.decode(target, Option.match(Record.get(fields, field), { onNone: Array.empty<string>, onSome: Struct.get('classes') }))(value);
+                        yield* Effect.try({ try: () => Object.assign(target, { [field]: native }), catch: refused });
+                        return [field];
                     }, Effect.sandbox),
                 ).pipe(
                     Effect.map(Array.flatten),
@@ -435,6 +411,11 @@ class Model extends Context.Service<Model>()('@rasm/indesign/uxp/model', {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+const owning =
+    <K extends keyof Owned>(member: K) =>
+    (value: unknown): value is Owned[K] =>
+        Predicate.hasProperty(value, 'toSpecifier') && Predicate.hasProperty(value, member);
+const collection = (value: unknown): value is Owned['everyItem'] => Predicate.hasProperty(value, 'everyItem');
 const enumerator = (value: unknown): value is Enumerator => value instanceof indesign.Enumerator;
 const enumeration = (name: string): Option.Option<Enumeration> => Option.liftPredicate(Reflect.get(indesign, name), (value): value is Enumeration => value instanceof indesign.Enumeration);
 const members = <E extends Enumeration>(found: E) => Array.filterMap(Object.getOwnPropertyNames(Object.getPrototypeOf(found)), (key) => Result.liftPredicate<unknown, void, Member<E>>(Reflect.get(found, key), (member): member is Member<E> => enumerator(member) && member.toString() === key, Function.constVoid));
@@ -463,24 +444,7 @@ const joined =
         return Schema.is(Unmatched)(failed) ? Unmatched.of({ subject: `${failed.subject} or ${later.subject}`, query: failed.query, candidates: [...failed.candidates, ...later.candidates] }) : failed;
     };
 const firstOf = <A, E, R>([head, ...rest]: Array.NonEmptyReadonlyArray<Effect.Effect<A, E, R>>) => rest.reduce<Effect.Effect<A, E | Unmatched, R>>((chosen, fallback) => Effect.catch(chosen, (failed) => Effect.mapError(fallback, joined(failed))), head);
-const writer = (target: InDesignDOMObject<unknown>, specifier: string, fonts: Parameters<typeof Model.decoder>[1]) => {
-    const decode = Model.decoder(target, fonts);
-    return Effect.fnUntraced(function* (row: typeof Declaration.Field.Type, value: unknown) {
-        const field = row.name;
-        const refused = HostError.refused(`${specifier} ${field}`);
-        const nested = isPlain(value) && !row.settable;
-        const { domObject } = yield* Model;
-        yield* Effect.transposeOption(Option.map(unavailableReason(target.constructorName, field, Option.some(target), !nested), refused));
-        const inner: unknown = nested ? yield* Effect.try({ try: (): unknown => Reflect.get(target, field), catch: refused }) : undefined;
-        if (isPlain(value) && domObject(inner)) {
-            return Array.map(yield* Model.write(inner, value), (name) => `${field}.${name}`);
-        }
-        const native = yield* decode(Option.some(row), row.type)(value);
-        yield* Effect.try({ try: () => Object.assign(target, { [field]: native }), catch: refused });
-        return [field];
-    });
-};
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Model };
+export { Model, STYLISTIC_SETS };

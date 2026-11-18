@@ -7,7 +7,8 @@ Photoshop's UXP DOM uses Action Manager descriptors. `action.batchPlay` plays ch
 `core.executeAsModal` holds Photoshop's one modal scope for a body, and a refused command resolves as an error descriptor in the reply array:
 
 ```ts
-import { type ActionDescriptor, action, app, core, type ExecutionContext } from 'photoshop';
+import { action, app, core } from 'photoshop';
+import type { ActionDescriptor, ExecutionContext } from 'photoshop/dom/CoreModules';
 
 const REJECTIONS = { Cancelled: 2, Unavailable: 9 } as const;
 const Rejected = Schema.Struct({ number: Schema.Union(Record.collect(REJECTIONS, (tag, code) => Schema.Literal(code).transform(tag))) });

@@ -1,7 +1,6 @@
 import 'core-js/modules/web.url.can-parse.js';
 import { HostError } from '@rasm/object-model';
 import { layer } from '@rasm/telemetry';
-import { parse } from 'acorn';
 import fs from 'adobe:fs';
 import uxp, { entrypoints } from 'adobe:uxp';
 import { formatHex8 } from 'culori/fn';
@@ -67,8 +66,6 @@ const BUNDLE = /(?<=\.app)(?:\/.*)?$|(?<=[^/])$/u;
 const Thrown = Schema.Struct({ message: Schema.Unknown });
 const Measured = Schema.Struct({ width: Schema.Int, height: Schema.Int }).annotate({ description: 'Image size in pixels' });
 const Chunk = Schema.Union([Schema.String, Schema.Uint8Array.pipe(Schema.decodeTo(Schema.String, { decode: SchemaGetter.transform((bytes) => new TextDecoder().decode(bytes)), encode: SchemaGetter.forbiddenEncoding }))]);
-const Parameter = Schema.Struct({ type: Schema.String, start: Schema.Int, end: Schema.Int, left: Schema.OptionFromOptionalKey(Schema.Struct({ start: Schema.Int, end: Schema.Int })) });
-const Declared = Schema.Struct({ body: Schema.Tuple([Schema.Struct({ expression: Schema.Struct({ body: Schema.Struct({ body: Schema.Tuple([Schema.Struct({ value: Schema.Struct({ params: Schema.Array(Parameter) }) })]) }) }) })]) });
 const Callable = Schema.declare((value): value is (...args: readonly unknown[]) => unknown => Predicate.isFunction(value));
 const Script = Schema.Struct({ script: Schema.declare(Schema.is(Schema.Struct({ args: Schema.Array(Schema.String), setResult: Callable }))) });
 const Entrypoints = Schema.Struct({ setup: Callable });
@@ -79,6 +76,7 @@ const Themed = Schema.Struct({ theme: Schema.declare((value): value is ThemeEven
 
 class Uxp extends Context.Service<Uxp, { readonly uxp: typeof uxp; readonly fs: typeof fs }>()('@rasm/uxp/plugin/Uxp') {
     static readonly Entry = Schema.Struct({ isEntry: Schema.Literal(true), url: Schema.Union([Schema.String, Schema.URL]) });
+    static readonly Missing = Schema.Literal(-2).annotate({ description: 'Value UXP fs throws for a path it finds no entry at' });
     static readonly Application = Uxp.Entry.mapFields(
         Struct.assign({
             url: Schema.Union([Schema.URLFromString, Schema.URL])
@@ -136,7 +134,14 @@ class Uxp extends Context.Service<Uxp, { readonly uxp: typeof uxp; readonly fs: 
         const { uxp: host, fs: files } = yield* Uxp;
         const folder = yield* Effect.tryPromise({ try: () => host.storage.localFileSystem.getTemporaryFolder(), catch: HostError.refused('temporary folder') });
         const file = yield* Effect.acquireRelease(Effect.tryPromise({ try: () => folder.createFile(name, { overwrite: true }), catch: HostError.refused(`${name} in ${folder.nativePath}`) }), (entry) =>
-            Effect.orDie(Effect.tryPromise({ try: () => entry.delete(), catch: HostError.refused(`delete of ${entry.nativePath}`) })),
+            Effect.try({ try: () => files.lstatSync(entry.nativePath), catch: HostError.refused(`stat of ${entry.nativePath}`) }).pipe(
+                Effect.andThen(Effect.tryPromise({ try: () => entry.delete(), catch: HostError.refused(`delete of ${entry.nativePath}`) })),
+                Effect.catchIf(
+                    (error) => Schema.is(Uxp.Missing)(error.cause),
+                    () => Effect.void,
+                ),
+                Effect.orDie,
+            ),
         );
         yield* write(file);
         const image = yield* Effect.try({ try: () => new Uint8Array(files.readFileSync(file.nativePath)), catch: HostError.refused(`read of ${file.nativePath}`) });
@@ -155,7 +160,6 @@ class Uxp extends Context.Service<Uxp, { readonly uxp: typeof uxp; readonly fs: 
         const current = (key: string): unknown => Reflect.get(target, key);
         return Effect.acquireRelease(Effect.try({ try: () => Record.fromIterableWith(keys, (key) => [key, current(key)] as const), catch: refused }), (saved) => Uxp.restore(target, saved)).pipe(Effect.tap(Effect.try({ try: () => Object.assign(target, replacements), catch: refused })));
     };
-    static readonly members = (prototype: unknown) => Array.unfold(prototype, (each) => (Predicate.isObject(each) && each !== Object.prototype ? Option.some([declared(each), Object.getPrototypeOf(each)] as const) : Option.none()));
     static readonly script = <E>(modules: Uxp['Service'], server: Layer.Layer<never, E, RpcServer.Protocol | Uxp>): void => {
         Effect.gen(function* () {
             const [{ script }, context, done] = yield* Effect.all([Schema.decodeUnknownEffect(Script)(modules.uxp), Effect.context<Uxp>(), Deferred.make<undefined>()]);
@@ -224,24 +228,6 @@ class Plugin extends Context.Service<Plugin, typeof UxpManifest.identity.Type>()
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const declared = (each: object) => {
-    const descriptors = Record.toEntries(Object.getOwnPropertyDescriptors(each));
-    return {
-        name: each.constructor.name,
-        fields: Array.filterMap(descriptors, ([name, descriptor]) => (descriptor.get === undefined ? Result.failVoid : Result.succeed({ name, settable: descriptor.set !== undefined }))),
-        methods: Array.filterMap(descriptors, ([name, { value }]: readonly [string, { readonly value?: unknown }]) => (Schema.is(Callable)(value) && name !== 'constructor' ? Result.succeed({ name, parameters: parameters(value) }) : Result.failVoid)),
-    };
-};
-const parameters = (method: { readonly length: number }) => {
-    const source = `(class { ${globalThis.Function.prototype.toString.call(method)} })`;
-    return Option.liftThrowable(parse)(source, { ecmaVersion: 'latest' }).pipe(
-        Option.flatMap(Schema.decodeUnknownOption(Declared)),
-        Option.match({
-            onNone: () => Array.makeBy(method.length, (at) => ({ name: `arguments[${at}]`, optional: false })),
-            onSome: ({ body }) => Array.map(body[0].expression.body.body[0].value.params, ({ type, start, end, left }) => ({ name: Option.match(left, { onNone: () => source.slice(start, end), onSome: (bound) => source.slice(bound.start, bound.end) }), optional: Option.isSome(left) || type === 'RestElement' })),
-        }),
-    );
-};
 const reported = <A, X, R>(effect: Effect.Effect<A, X, R>) => effect.pipe(Effect.tapCauseIf(Predicate.not(Cause.hasInterruptsOnly<X>), Effect.logError));
 const followed = <E>(theme: ThemeEvents, queue: Queue.Queue<unknown, E>) => {
     const listener = (current: unknown): void => {

@@ -1,11 +1,12 @@
 import { Adjust, Typeset, Typesetting } from '@rasm/indesign';
-import { adjust, call, change, findChange, font, inspect, invoke, KASHIDA_WIDTHS, kerns, listened, Model, menu, objectModel, open, preflight, rasterize, runs, STYLISTIC_TAGS, session, thousandths, typeset } from '@rasm/indesign/uxp';
+import { adjust, call, change, findChange, font, inspect, invoke, KASHIDA_WIDTHS, kerns, listened, Model, menu, open, preflight, rasterize, runs, STYLISTIC_TAGS, session, thousandths, typeset } from '@rasm/indesign/uxp';
 import { Link } from '@rasm/mcp';
-import { HostError, type Rasterize } from '@rasm/object-model';
+import { Declaration, HostError, type Rasterize } from '@rasm/object-model';
 import { Settings } from '@rasm/typography';
 import { Plugin, Uxp } from '@rasm/uxp/plugin';
 import { picker, widget } from '@rasm/uxp/spectrum';
 import { Array, Cause, Effect, Function, flow, Layer, Match, Number, Option, type Path, Record, Schema, Scope, Semaphore, Struct } from 'effect';
+import declared from 'indesign-uxp-types/flat?inline';
 import { ATELIER, InDesign } from '#/tools';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -29,7 +30,7 @@ const nudged = Effect.fnUntraced(function* (deltas: Option.Option<(steps: typeof
 });
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const [model, permit] = Effect.runSync(Effect.all([Model.make, Semaphore.make(1)]));
+const [model, permit] = Effect.runSync(Effect.all([Effect.flatMap(Schema.decodeEffect(Schema.fromJsonString(Declaration.Model))(declared), Model.make), Semaphore.make(1)]));
 const scripted = <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.scopedWith((scope) => Effect.andThen(Scope.provide(session, scope), effect)).pipe(Semaphore.withPermit(permit), Effect.provideService(Model, model));
 const tools = Link.serve(InDesign).pipe(
     Layer.provide(
@@ -45,7 +46,6 @@ const tools = Link.serve(InDesign).pipe(
                     adjust: flow(adjust, hosted),
                     menu: flow(menu, hosted),
                     preflight: flow(preflight, hosted),
-                    object_model: flow(objectModel, hosted),
                     open: flow(open, hosted),
                     rasterize: ({ target, longestSide, options }: Rasterize) => hosted(Uxp.rendered((file) => rasterize(target, longestSide, options, file.nativePath), 'rasterized.png')),
                 };

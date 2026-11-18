@@ -27,7 +27,14 @@
         "effect": "catalog:"
     },
     "devDependencies": {
+        "@adobe/cc-ext-uxp-types": "catalog:",
+        "@adobe/premierepro": "catalog:",
+        "@rasm/process": "workspace:*",
         "@types/node": "catalog:",
+        "@types/photoshop": "catalog:",
+        "@typescript/native": "catalog:",
+        "indesign-uxp-types": "catalog:",
+        "uxp-after-effects": "catalog:",
         "vite": "catalog:"
     },
     "nx": {

@@ -7,7 +7,7 @@ Typings declare DOM classes as interfaces, and `instanceof` holds for the exact 
 DOM members are native accessors on class prototypes:
 - `app.menuActions.everyItem().getElements()` lists every menu action with `name`, `area`, `id`, `enabled`, and `checked`
 - Prototypes hold `constructorName`, `equals`, `toSource`, `toSpecifier`, and `toString` beside object model members
-- Aggregate `.properties` invokes nested getters before a failure can be isolated, and code reads one getter at a time
+- Aggregate `.properties` invokes every getter before a failure can be isolated, and a class with a crashing getter reads its other declared fields one at a time
 - Find/Change drop-shadow and inner-shadow `angle`, `distance`, `xOffset`, and `yOffset` accessors crash without a native owner
 - Encoders refuse a promise a storage getter returns, and write an entry's `url` through `String`
 
@@ -22,11 +22,10 @@ class Model extends Context.Service<Model>()('@app/indesign/Model', {
     make: (indesign: typeof import('adobe:indesign')) =>
         Effect.sync(() => {
             const model: typeof indesign = Object.create(indesign);
-            const exported = Array.map(Object.getOwnPropertyNames(indesign), (name) => [name, Reflect.get(indesign, name)] as const);
-            const owning = <A>(member: keyof A & string) => {
-                const owners = new Set(Array.filterMap(exported, ([, type]) => (Predicate.isFunction(type) && Object.hasOwn(type.prototype, member) ? Result.succeed(type.prototype) : Result.failVoid)));
-                return <T>(value: T): value is T & A => Predicate.isObject(value) && owners.has(Object.getPrototypeOf(value));
-            };
+            const owning =
+                <A>(member: keyof A & string) =>
+                <T>(value: T): value is T & A =>
+                    Predicate.hasProperty(value, 'toSpecifier') && Predicate.hasProperty(value, member);
             return Object.assign(model, { owning, host: owning<InDesignDOMObject<unknown>>('toSpecifier') });
         }),
 }) {
@@ -87,7 +86,7 @@ class Specifier extends Schema.Class<Specifier, { readonly brand: unique symbol 
 }
 ```
 
-`getElements()` returns each member as its concrete class and throws on an invalid specifier. Reading a native getter (`constructorName`, `length`) with a class prototype as receiver crashes InDesign, and `owning` reads no getter and holds for an object whose own prototype is a module class prototype declaring the member, `toSpecifier` for a DOM object (`host`) and `everyItem` for a collection. `Predicate.hasProperty` holds wherever an ancestor prototype holds the name (`name` on any function or `Error`). Guards for one kind take a member only that kind's prototypes declare (`documentOffset` for `Page`, `itemLayer` for every `PageItem` class). `Specifier.Path` decodes a saved specifier into container, separator, and last step, or into a start and an end step for the `(<A> to <B>)` range that `findText` hits, `textStyleRanges` members, and `itemByRange` return, the application root `/` into an empty step `root` names, and refuses any other text. `Reference.Selector`, the tagged union every host's specifier steps share, decodes `[@id=<n>]`, `[<n>]`, and `[@name="<name>"]` into `Identified`, `Indexed`, and `Named`. `Model.resolve` passes the path to ExtendScript's `resolve` as an argument, compares the `kind` of a lone `[@id=<n>]` step, answers a collection step without a selector as an array, and fails `Unmatched` with sibling specifiers as candidates or, for a missed `[<n>]`, the index span. Empty collections resolve as `undefined`, and `everyItem().getElements()` on a known collection reads an empty array. Supplied source calls native collection methods without computed-member rewriting.
+`getElements()` returns each member as its concrete class and throws on an invalid specifier. Reading a native getter (`constructorName`, `length`) with a class prototype as receiver crashes InDesign, and `owning` reads no getter: `Predicate.hasProperty` tests membership through the prototype chain, `toSpecifier` for a DOM object (`host`) and `everyItem` for a collection. `Predicate.hasProperty` alone holds wherever an ancestor prototype holds the name (`name` on any function or `Error`), and `owning` pairs it with `toSpecifier`. Guards for one kind take a member only that kind's prototypes declare (`documentOffset` for `Page`, `itemLayer` for every `PageItem` class). `Specifier.Path` decodes a saved specifier into container, separator, and last step, or into a start and an end step for the `(<A> to <B>)` range that `findText` hits, `textStyleRanges` members, and `itemByRange` return, the application root `/` into an empty step `root` names, and refuses any other text. `Reference.Selector`, the tagged union every host's specifier steps share, decodes `[@id=<n>]`, `[<n>]`, and `[@name="<name>"]` into `Identified`, `Indexed`, and `Named`. `Model.resolve` passes the path to ExtendScript's `resolve` as an argument, compares the `kind` of a lone `[@id=<n>]` step, answers a collection step without a selector as an array, and fails `Unmatched` with sibling specifiers as candidates or, for a missed `[<n>]`, the index span. Empty collections resolve as `undefined`, and `everyItem().getElements()` on a known collection reads an empty array. Supplied source calls native collection methods without computed-member rewriting.
 
 | [INDEX] | [NEED]                     | [FORM]                                                 | [REASON]                                      |
 | :-----: | :------------------------- | :----------------------------------------------------- | :-------------------------------------------- |
@@ -110,10 +109,11 @@ class Specifier extends Schema.Class<Specifier, { readonly brand: unique symbol 
 
 ## [03]-[FIELDS]
 
-Enumerators are objects: `===` between reads of one member is false, `JSON.stringify` yields `{}`, and `String` yields the member name. Each `Enumeration` holds every member under upper snake, camel, and lowercase keys (`CENTER_ALIGN`, `centerAlign`, `centeralign`). Scripts pass native values. JSON inputs decode by the field's declared type. Enumeration fields take a member name or `{type, member}`, class fields `{type, specifier}` or a name in the document's collection of that class.
+Enumerators are objects: `===` between reads of one member is false, `JSON.stringify` yields `{}`, and `String` yields the member name. Each `Enumeration` holds every member under upper snake, camel, and lowercase keys (`CENTER_ALIGN`, `centerAlign`, `centeralign`). Scripts pass native values. JSON inputs decode `{type, member}` to an enumerator and `{specifier}` to the object it resolves, and a string written to a field whose `indesign-uxp-types` setter takes no string to a member of its enumeration or the named object in the document's collection of its class. Every other value passes to the host, which takes a name for a font, swatch, or style field.
 
-Refusals throw one field at a time with the host's expected type ("Expected Unit or Leading enumerator"). Writes assign each decoded value once, keeping literal strings, and records write field by field into a read-only member's object (preferences). `JSON.stringify` replacers write enumerators as name, collections as type, specifier, and length, DOM objects as type, specifier, name, and `valid`.
+Refusals throw one field at a time with the host's expected type ("Expected Unit or Leading enumerator"). Writes assign each decoded value once, keeping literal strings, and records write field by field into a field holding a DOM object (preferences). `JSON.stringify` replacers write enumerators as name, collections as type, specifier, and length, DOM objects as type, specifier, name, and `valid`.
 
+- `indesign-uxp-types` states a field's range as `(Range: <minimum> to <maximum>)` in its doc comment and a collection's element class as `@collection <class>`
 - Enumerators compare through `equals` (`Justification.CENTER_ALIGN.equals(value)`)
 - Members decoding to one value (`FARSI_DIGITS`, `FULL_FARSI_DIGITS`) keep the held member where its decode `Equal.equals` the written member's
 - New members take `add()` with required arguments, then field writes, and `properties` drops each key it refuses
@@ -281,6 +281,7 @@ const rendered = Effect.fn('rendered')(function* (found: Page | Spread | PageIte
 
 `model.page` and `model.spread` are `owning` guards (`documentOffset`, `spreadHidden`). `preserve` holds derived keys and every caller option key, and `written` then writes each option. `exportFile` takes the native path `fromFileUrl` returns, and `fs` the `file:` URL. Pixel size is points times `exportResolution` over 72.
 
+- `exportResolution` holds its declared range, a longest side above it clamps to the maximum, and one under it is refused with the side the minimum allows
 - Leftover `pageString` from another script makes a one-page export write nothing unless range and page are set together
 - `exportFile` on an item ignores the page range and writes nothing for a zero-area item, and `exportingSpread` true exports the whole spread
 - Export composes on its own and leaves out hidden, non-printing, and invisible items
