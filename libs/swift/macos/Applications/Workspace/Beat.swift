@@ -21,6 +21,7 @@ struct Beat: Sendable {
     var baseline: Set<CGWindowID>?
     var silent: Bool = false
     var usage: Result<ResourceUsage, Errno>?
+    var listening: Result<[in_port_t], Errno> = .success([])
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -130,6 +131,7 @@ extension Instance {
                 prompts: [],
                 menus: next.menus,
                 usage: next.usage,
+                listening: next.listening,
             )
         )
         return next
@@ -145,8 +147,10 @@ extension Instance {
         await withTaskExecutorPreference(accessibility) { () -> Beat in
             let listed = InstanceState.Window.owned(by: process.pid).filter { window in !window.frame.isEmpty }
             do throws(ApplicationFailure) {
+                var held = held
                 let before: MainThread
                 do throws(Errno) { before = try MainThread(of: process) } catch { throw ApplicationFailure(error, process: String(process.pid)) }
+                held.listening = Result { () throws(Errno) in try process.listening() }
                 guard !before.stopped else {
                     return concluded(held, status: .unresponsive(.stopped), listed: listed) { number in
                         held.described[number].map(InstanceState.Window.Description.element) ?? .undescribed

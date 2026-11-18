@@ -35,12 +35,19 @@ public enum Request: Decodable, Sendable {
     case definition(url: URL, kind: ScriptingDictionary.Kind, name: String)
     case execute(instance: ProcessInstance, command: String?, arguments: [String: AppleEventValue], artifacts: [URL])
     case capture(instance: ProcessInstance, source: Source?, longestSide: Int?)
+    case preview(file: URL, longestSide: Int)
     case diagnostics(application: Subject?, folders: [LogFolder], since: Double?, limit: Int)
 }
 
 private struct Acted: Encodable, Sendable {
     let outcomes: [Outcome<CGWindowID?>]
     let state: InstanceState
+}
+
+private struct Previewed: Encodable, Sendable {
+    let width: Int
+    let height: Int
+    let preview: Data
 }
 
 private struct Diagnosed: Encodable, Sendable {
@@ -139,6 +146,13 @@ extension Request {
                 let instance = try running(process, admitting: admitting)
                 let shots = try await instance.capture(source, to: Program.current.directory(.captures, of: instance.application.localizedName), preview: longestSide)
                 return .value(Dictionary(uniqueKeysWithValues: shots.map { number, shot in (String(number), Outcome(shot)) }))
+            case .preview(let file, let longestSide):
+                let data: Data
+                do { data = try Data(contentsOf: file) } catch { throw ApplicationFailure(subject: file.path(percentEncoded: false), reason: .host(error as NSError)) }
+                guard let image = CGImageSourceCreateWithData(data as CFData, nil).flatMap({ source in CGImageSourceCreateImageAtIndex(source, 0, nil) }) else {
+                    throw ApplicationFailure(subject: file.path(percentEncoded: false), reason: .noImage)
+                }
+                return try .value(Previewed(width: image.width, height: image.height, preview: image.preview(longestSide: longestSide, in: CIContext())))
             case .diagnostics(let application, let folders, let since, let limit):
                 let instance = try application?.instance.map { process throws(ApplicationFailure) in try running(process, admitting: admitting) }
                 let bundle = try application.map { application throws(ApplicationFailure) in Bundle(url: try installation(at: application.url, admitting: admitting).url) } ?? Bundle.main

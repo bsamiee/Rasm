@@ -119,7 +119,7 @@ let applications: [Target] = [
             .product(name: "Tracing", package: "swift-distributed-tracing"), .product(name: "UnixSignals", package: "swift-service-lifecycle"),
         ],
         path: "products/apps/creative-cloud/multi-app/atelier/macos",
-        exclude: ["Atelier.entitlements", "Atelier.xcodeproj", "Info.plist", "Resources"],
+        exclude: ["Atelier.entitlements", "Atelier.xcodeproj", "Info.plist"],
     ),
     .target(
         name: "Relay",
@@ -176,6 +176,11 @@ let tests: [Target] = [
         name: "ApplicationsTests",
         dependencies: ["AppleEvents", "Applications", "Encoding", .product(name: "CustomDump", package: "swift-custom-dump")],
         path: "tests/libs/swift/macos/Applications",
+    ),
+    .testTarget(
+        name: "ApplicationServerTests",
+        dependencies: ["ApplicationServer", "Applications", "JSONRPC", .product(name: "CustomDump", package: "swift-custom-dump")],
+        path: "tests/libs/swift/macos/ApplicationServer",
     ),
     .testTarget(name: "ProcessesTests", dependencies: ["Processes", .product(name: "CustomDump", package: "swift-custom-dump")], path: "tests/libs/swift/runtime/Processes"),
 ]

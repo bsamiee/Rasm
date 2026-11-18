@@ -249,6 +249,8 @@ class RunningInstance extends Schema.Class<RunningInstance, { readonly brand: un
     url: Schema.URL.annotate({ description: 'Bundle' }),
     activationPolicy: ActivationPolicy,
     state: State,
+    listening: Schema.Array(Schema.Int).annotate({ description: 'TCP ports the process listens on, read at each state, empty unless running or on a failed read' }),
+    listeningFailure: Schema.optionalKey(Schema.String.annotate({ description: 'Listening ports read failure' })),
 }) {}
 const Launchings = Schema.Union([keyed('launched', Launched), keyed('state', RunningInstance), keyed('prompts', Schema.Array(RunningInstance)), keyed('failed', Failed)])
     .annotate({ description: 'Launch events: launched first, then states and system prompts, ending settled or asking' })

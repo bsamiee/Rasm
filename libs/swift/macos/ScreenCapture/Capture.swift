@@ -36,6 +36,20 @@ private func transparent(_ image: CGImage) -> Bool {
     return alpha == 0
 }
 
+extension CGImage {
+    public func preview(longestSide: Int, in context: CIContext) throws(ApplicationFailure) -> Data {
+        let factor = min(1, CGFloat(longestSide) / CGFloat(max(width, height)))
+        guard let space = colorSpace,
+            let encoded = context.pngRepresentation(
+                of: CIImage(cgImage: self).transformed(by: CGAffineTransform(scaleX: factor, y: factor), highQualityDownsample: true),
+                format: .RGBA8,
+                colorSpace: space,
+            )
+        else { throw ApplicationFailure(subject: UTType.png.identifier, reason: .noEncoder) }
+        return encoded
+    }
+}
+
 extension Instance {
     func targets(
         _ source: Source?,
@@ -106,19 +120,13 @@ extension Instance {
                 guard source != nil || !transparent(image) else { return nil }
                 guard let encoded = NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]) else { throw ApplicationFailure(subject: UTType.png.identifier, reason: .noEncoder) }
                 do { try encoded.write(to: path) } catch { throw ApplicationFailure(subject: path.path(percentEncoded: false), reason: .host(error as NSError)) }
-                let factor = preview.map { limit in min(1, CGFloat(limit) / CGFloat(max(image.width, image.height))) }
-                let scaled: Data? =
-                    switch (factor, image.colorSpace) {
-                        case (.some(let factor), .some(let space)):
-                            context.pngRepresentation(
-                                of: CIImage(cgImage: image).transformed(by: CGAffineTransform(scaleX: factor, y: factor), highQualityDownsample: true),
-                                format: .RGBA8,
-                                colorSpace: space,
-                            )
-                        case (.none, _), (_, .none): nil
-                    }
-                guard preview == nil || scaled != nil else { throw ApplicationFailure(subject: UTType.png.identifier, reason: .noEncoder) }
-                return Shot(file: path, width: image.width, height: image.height, document: documents[number], preview: scaled)
+                return Shot(
+                    file: path,
+                    width: image.width,
+                    height: image.height,
+                    document: documents[number],
+                    preview: try preview.map { limit throws(ApplicationFailure) in try image.preview(longestSide: limit, in: context) },
+                )
             }
             switch shot {
                 case .success(.some(let written)): shots[number] = .success(written)

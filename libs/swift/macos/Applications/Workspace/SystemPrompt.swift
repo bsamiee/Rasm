@@ -42,7 +42,9 @@ extension NSWorkspace {
                 held.compactMapValues { state in
                     guard case .running(let running) = state else { return nil }
                     let rows = state.prompting(names)
-                    return rows.isEmpty ? nil : .running(InstanceState.Running(status: running.status, active: running.active, windows: rows, prompts: [], menus: [], usage: running.usage))
+                    return rows.isEmpty
+                        ? nil
+                        : .running(InstanceState.Running(status: running.status, active: running.active, windows: rows, prompts: [], menus: [], usage: running.usage, listening: running.listening))
                 }
             }
             .drop(while: \.isEmpty)

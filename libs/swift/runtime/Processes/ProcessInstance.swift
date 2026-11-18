@@ -126,6 +126,23 @@ extension ProcessInstance {
         guard status == 0 else { throw Errno(rawValue: status) }
     }
 
+    public func listening() throws(Errno) -> [in_port_t] {
+        let capacity = proc_pidinfo(pid, PROC_PIDLISTFDS, 0, nil, 0)
+        guard capacity > 0 else { throw Errno(rawValue: errno) }
+        let descriptors = unsafe [proc_fdinfo](unsafeUninitializedCapacity: Int(capacity) / MemoryLayout<proc_fdinfo>.stride) { buffer, count in
+            count = Int(max(unsafe proc_pidinfo(pid, PROC_PIDLISTFDS, 0, buffer.baseAddress, Int32(buffer.count * MemoryLayout<proc_fdinfo>.stride)), 0)) / MemoryLayout<proc_fdinfo>.stride
+        }
+        let ports = descriptors.filter { descriptor in descriptor.proc_fdtype == PROX_FDTYPE_SOCKET }.compactMap { descriptor -> in_port_t? in
+            var socket = socket_fdinfo()
+            let size = Int32(MemoryLayout<socket_fdinfo>.size)
+            let read = unsafe proc_pidfdinfo(pid, descriptor.proc_fd, PROC_PIDFDSOCKETINFO, &socket, size) == size
+            let tcp = unsafe socket.psi.soi_proto.pri_tcp
+            return read && socket.psi.soi_kind == SOCKINFO_TCP && tcp.tcpsi_state == TSI_S_LISTEN ? in_port_t(bigEndian: in_port_t(truncatingIfNeeded: tcp.tcpsi_ini.insi_lport)) : nil
+        }
+        guard !hasExited else { throw .noSuchProcess }
+        return Set(ports).sorted()
+    }
+
     public func runsInstalledCode() throws(Errno) -> Bool {
         let token = try auditToken()
         var code: SecCode?

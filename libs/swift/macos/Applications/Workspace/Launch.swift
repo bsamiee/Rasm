@@ -1,4 +1,5 @@
 public import AppKit
+import CasePathsCore
 public import Encoding
 import Files
 import Processes
@@ -8,7 +9,7 @@ import System
 
 public struct RunningInstance: Encodable, Sendable {
     private enum Key: CodingKey {
-        case pid, instance, identifier, url, activationPolicy, state
+        case pid, instance, identifier, url, activationPolicy, state, listening, listeningFailure
     }
 
     public let instance: Instance
@@ -29,6 +30,9 @@ public struct RunningInstance: Encodable, Sendable {
         try fields.encode(url, forKey: .url)
         try fields.encode(instance.application.activationPolicy.name, forKey: .activationPolicy)
         try fields.encode(state, forKey: .state)
+        let listening = state[case: \.running]?.listening
+        try fields.encode(listening?[case: \.success] ?? [], forKey: .listening)
+        if case .failure(let error) = listening { try fields.encode(error.description, forKey: .listeningFailure) }
     }
 }
 

@@ -35,6 +35,7 @@ public enum InstanceState: Equatable, Sendable {
         public let prompts: [Window]
         public let menus: [Element]
         public let usage: Result<ResourceUsage, Errno>?
+        public let listening: Result<[in_port_t], Errno>
 
         public var asking: [Window] { (windows + prompts).filter(\.asking) }
     }
@@ -200,7 +201,9 @@ extension InstanceState.Window: Encodable {
 
 extension InstanceState {
     fileprivate func prompted(_ rows: [Window]) -> Self {
-        self[case: \.running].map { running in .running(Running(status: running.status, active: running.active, windows: running.windows, prompts: rows, menus: running.menus, usage: running.usage)) }
+        self[case: \.running].map { running in
+            .running(Running(status: running.status, active: running.active, windows: running.windows, prompts: rows, menus: running.menus, usage: running.usage, listening: running.listening))
+        }
             ?? self
     }
 }

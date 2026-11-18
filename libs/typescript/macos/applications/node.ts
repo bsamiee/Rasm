@@ -6,7 +6,7 @@ import { Cause, Context, Effect, Fiber, FileSystem, Formatter, Layer, Path, Sche
 import type { ChildProcessSpawner } from 'effect/process';
 import { Rpc, RpcClient, RpcGroup } from 'effect/rpc';
 import { parse } from 'plist';
-import { Act, Acted, Capture, Diagnostics, ElementID, Event, Execute, Installation, Launch, Launching, Node, Pressure, ProcessInstance, RunningInstance, State, TermKind, Terms } from '#/contract';
+import { Act, Acted, Capture, Diagnostics, ElementID, Event, Execute, Installation, Launch, Launching, LongestSide, Node, Pressure, ProcessInstance, RunningInstance, State, TermKind, Terms } from '#/contract';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -41,6 +41,15 @@ const Contract = RpcGroup.make(
     Rpc.make('definition', { payload: { url: Schema.URL, kind: TermKind, name: Schema.String }, success: Schema.String, error: Failure }),
     Rpc.make('execute', { payload: { instance: ProcessInstance, ...Execute.fields }, success: Execute.Result, error: Failure }),
     Rpc.make('capture', { payload: { instance: ProcessInstance, ...Capture.fields }, success: Capture.Result, error: Failure }),
+    Rpc.make('preview', {
+        payload: { file: Schema.URL.annotate({ description: 'PNG file' }), longestSide: LongestSide.annotate({ description: 'Longest side in pixels of the preview, never upscaled' }) },
+        success: Schema.Struct({
+            width: Schema.Int.annotate({ description: 'File width in pixels' }),
+            height: Schema.Int.annotate({ description: 'File height in pixels' }),
+            preview: Schema.Uint8Array.annotate({ description: 'PNG scaled to the longest side' }),
+        }),
+        error: Failure,
+    }),
     Rpc.make('diagnostics', { payload: Diagnostics.fields, success: Diagnostics.Result, error: Failure }),
 );
 
