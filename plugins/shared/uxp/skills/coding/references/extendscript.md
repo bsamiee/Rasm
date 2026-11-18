@@ -1,6 +1,6 @@
 # [EXTENDSCRIPT]
 
-Illustrator and After Effects run ExtendScript, linked through a CEP extension and unlinked through their dictionary script command. Illustrator answers `do javascript` with its last expression as Unicode text (`utxt`), and `do script` executes an Actions panel action.
+Illustrator and After Effects run ExtendScript, linked through a CEP extension and unlinked through `do javascript` and `DoScript`. Illustrator answers `do javascript` with its last expression as Unicode text (`utxt`), and `do script` executes an Actions panel action.
 
 ## [01]-[CALLS]
 
@@ -84,10 +84,6 @@ Linked hosts serve requests from a headless CEP 12 extension, and its Chromium 9
 - `__adobe_cep__.getHostEnvironment()` answers JSON with `appSkinInfo`, and `com.adobe.csxs.events.ThemeColorChanged` fires on a host theme change
 - Panels paint `appSkinInfo` sRGB colors, and text takes the `ExtensionManifest.fills` icon fill with the higher WCAG contrast over the panel
 - Host `Version` of one number names that release and later, and `[min,max]` a range
-- Illustrator loads UXP plugins from `Contents/Required/UXP/extensions` alone
-- UXP logs hold no `upic::` line, and a row in `UXP/PluginsInfo/v1/AI.json` loads nothing
-- `XManConfig.xml` lists no `UxpHostCode` for `ILST`, and `UnifiedPluginInstallerAgent` installs no UXP plugin into Illustrator
-- `AIUXPExtensionHostAPI` registers module `illustrator` (`{ app }`, each member forwarded to ExtendScript) for third-party plugins none can load
 
 One `handle(envelope) => string` answers every request from a host record, each enter and leave pair run through one try/finally bracket, dialogs around the whole call and the undo step inside it:
 
@@ -105,9 +101,7 @@ One `handle(envelope) => string` answers every request from a host record, each 
 
 ## [04]-[OBJECT_MODEL]
 
-`reflect` states each class: `properties` rows hold `name`, `type` (`readonly`, `readwrite`), and `dataType`, and `methods` rows hold `arguments` rows (`dataType`, `defaultValue`, `min`, `max`, `isCollection`, `description`) with the return type as `dataType`. Enumerations are constructors whose `reflect` holds `staticProperties` and no `properties` or `methods`. `reflect.find(<property>)` reads one row, and `$.dictionary` reads `null`:
-- Class indexes join `$.global` names from `for...in` and from `$.global.reflect.properties`, each kept where its constructor's `reflect.name` equals the name
-- Classes reached from `app` join them, following each property whose `dataType` opens with a capital through its live value, a collection read at `indexBase`
+Illustrator values name their class and address through host members:
 
 | [INDEX] | [NEED]                 | [FORM]                                        | [REASON]                                              |
 | :-----: | :--------------------- | :-------------------------------------------- | :---------------------------------------------------- |
@@ -141,7 +135,7 @@ Caught `Error` values hold `number`, `message`, `line`, and `source`, the text o
 
 | [INDEX] | [NUMBER] | [RAISED_BY]                                                               |
 | :-----: | :------: | :------------------------------------------------------------------------ |
-|  [01]   |   1302   | Absent name, active document with none open, `reflect.find` of a method   |
+|  [01]   |   1302   | Absent name, active document with none open                               |
 |  [02]   |   1239   | Number past a property's range                                            |
 |  [03]   |   1226   | String written to an enumeration property                                 |
 |  [04]   |   1224   | Non-number written to a number property                                   |

@@ -7,33 +7,38 @@ description: "Use when writing or reviewing code that runs in an Adobe UXP host,
 
 UXP runs each plugin and script in one V8 context inside an Adobe host.
 
-Ranges, enumerations, and localized names come from the running host, extents from the measured item, unit ratios from their standard, names of created files from their target, and every other value from the caller.
+Ranges and enumerations come from the host's declared object model, localized names from the running host, extents from the measured item, unit ratios from their standard, names of created files from their target, and every other value from the caller.
 
 [REFERENCES]:
-- [01]-[INDESIGN](references/indesign.md): InDesign behavior its dictionary and typings leave unstated, for code calling its synchronous DOM
-- [02]-[PHOTOSHOP](references/photoshop.md): Photoshop behavior its prototypes and typings leave unstated, for descriptor and DOM calls
-- [03]-[PREMIERE](references/premiere.md): Premiere Pro and Media Encoder behavior their manifests and typings leave unstated, for edits as actions
-- [04]-[EXTENDSCRIPT](references/extendscript.md): Illustrator and After Effects behavior `reflect` and typings leave unstated, for their ES3 source
+- [01]-[INDESIGN](references/indesign.md): InDesign behavior its typings leave unstated, for code calling its synchronous DOM
+- [02]-[PHOTOSHOP](references/photoshop.md): Photoshop behavior its typings leave unstated, for descriptor and DOM calls
+- [03]-[PREMIERE](references/premiere.md): Premiere Pro and Media Encoder behavior their typings and manifests leave unstated, for edits as actions
+- [04]-[EXTENDSCRIPT](references/extendscript.md): Illustrator and After Effects behavior their declared sources leave unstated, for ES3 source
 
 ## [01]-[CONTEXTS]
 
-Host modules differ in DOM call form:
+Each host runs one newest runtime, and a dictionary command runs source with no linked plugin:
 
-| [INDEX] | [HOST]        | [MODULE]      | [DOM_CALLS]                                             |
-| :-----: | :------------ | :------------ | :------------------------------------------------------ |
-|  [01]   | InDesign      | `indesign`    | Synchronous, storage getters async                      |
-|  [02]   | Photoshop     | `photoshop`   | Promises inside a modal scope                           |
-|  [03]   | Premiere Pro  | `premierepro` | Async getters, action objects                           |
-|  [04]   | Illustrator   | None          | CEP ExtendScript until UXP public beta                  |
-|  [05]   | After Effects | None          | CEP ExtendScript until its release host installs `.ccx` |
-|  [06]   | Acrobat       | None          | Acrobat JavaScript through `do script`                  |
+| [INDEX] | [HOST]               | [RUNTIME]                           | [MODULE]       | [UNLINKED_SOURCE]                   |
+| :-----: | :------------------- | :---------------------------------- | :------------- | :---------------------------------- |
+|  [01]   | InDesign             | UXP                                 | `indesign`     | `do script` in `uxpscript`          |
+|  [02]   | Photoshop            | UXP                                 | `photoshop`    | `do javascript`, ExtendScript alone |
+|  [03]   | Premiere Pro         | UXP                                 | `premierepro`  | None                                |
+|  [04]   | Media Encoder (Beta) | UXP public beta                     | `mediaencoder` | None                                |
+|  [05]   | After Effects (Beta) | UXP public beta                     | `aftereffects` | `DoScript`, ExtendScript alone      |
+|  [06]   | Illustrator (Beta)   | UXP behind `EnableThirdPartyUXP`    | `illustrator`  | `do javascript`, ExtendScript alone |
+|  [07]   | Illustrator 2027     | ExtendScript                        | None           | `do javascript`                     |
+|  [08]   | Acrobat              | Acrobat JavaScript, SpiderMonkey 24 | None           | `do script`                         |
 
-- CEP turns off by default in December 2028 and leaves After Effects and Illustrator in December 2029
+- CEP turns off by default in December 2028 and leaves new host releases in December 2029
 - `require` resolves the running host's DOM module alone, `uxp.host.name` names that host, and cross-host code takes host calls as arguments
-- Illustrator, After Effects, and Acrobat with no linked plugin run source through the host's dictionary script command
+- Illustrator (Beta) loads a third-party plugin while `AIFeatures.cfg` beside its app holds `EnableThirdPartyUXP` with `enabled="1"` and `configurableInRelease="1"`
+- Illustrator 2027 holds no third-party UXP loader, and the Beta finds a plugin through a `UXPExtensionPath.json` marker or UXP developer mode
+- Illustrator serves `illustrator-dom.js` to third-party plugins: `require('illustrator')` returns `{ app }`, enumerations and creatable classes sit on `globalThis`, every call is synchronous, and enumeration values are strings, the specifier inferred from the string beside its registration
 - Acrobat source runs privileged with `this` naming the front document, and `global` members persist between calls
 - Acrobat JavaScript holds `JSON`, `util`, `eval`, `new Function`, and arrow functions, and no `let`, `$`, `File`, or `reflect`
-- Acrobat answers uncaught throws and syntax errors with -1708 and no text, and source catches its own throws with `lineNumber` as `line`
+- Acrobat answers an uncaught throw with an empty reply and no error, and source catches its own throws with `lineNumber` as `line`
+- Acrobat holds no global dialog switch, and a replaced `app.alert` still opens the host alert
 
 Context decides what code holds across calls:
 
@@ -70,16 +75,13 @@ Effect's default clock expects bigint nanoseconds, and UXP's `process.hrtime.big
 
 Typings declare a host module under its `require` name, under an `adobe:` scheme, or as a type with no module:
 
-| [INDEX] | [MODULES]                 | [PACKAGE]                    | [DECLARES]                                                       |
-| :-----: | :------------------------ | :--------------------------- | :--------------------------------------------------------------- |
-|  [01]   | `uxp`, `fs`, `os`, `path` | `@adobe-uxp-types/uxp`       | `uxp` by name, each module under `adobe:` from `with-protocol`   |
-|  [02]   | `photoshop`               | `@adobe-uxp-types/photoshop` | `photoshop` by name, `adobe:photoshop` from `with-protocol`      |
-|  [03]   | `photoshop`               | `@types/photoshop`           | Adobe's declarations, `photoshop` and `photoshop/dom/*` by name  |
-|  [04]   | `indesign`                | `indesign-uxp-types`         | `indesign` by name, `adobe:indesign` from `flat` through `paths` |
-|  [05]   | `premierepro`             | `@adobe/premierepro`         | Type `premierepro` of the module object, no module               |
-|  [06]   | ExtendScript              | `types-for-adobe`            | Global classes per host folder (`AfterEffects/26.0`), no module  |
+| [INDEX] | [MODULES]                 | [PACKAGE]              | [DECLARES]                                                       |
+| :-----: | :------------------------ | :--------------------- | :--------------------------------------------------------------- |
+|  [01]   | `uxp`, `fs`, `os`, `path` | `@adobe-uxp-types/uxp` | `uxp` by name, each module under `adobe:` from `with-protocol`   |
+|  [02]   | `photoshop`               | `@types/photoshop`     | `photoshop` and `photoshop/dom/*` by path, no `adobe:` module    |
+|  [03]   | `indesign`                | `indesign-uxp-types`   | `indesign` by name, `adobe:indesign` from `flat` through `paths` |
+|  [04]   | `premierepro`             | `@adobe/premierepro`   | Type `premierepro` of the module object, no module               |
 
-- `types-for-adobe` host folders load `shared/JavaScript.d.ts` beside the project `lib`, where ES5 built-ins ExtendScript lacks type-check
 - Diagnostics on a call the object model states name a typings gap, and every other diagnostic names a defect in the call
 - Typings can state another enumeration value than the host holds, and code reads enumeration members from the module
 
@@ -91,8 +93,6 @@ Each gap closes where its value is read, with types the package or a schema stat
 |  [02]   | Module object typed with no module                 | Module passed as an argument of the package's type                       |
 |  [03]   | Same gap in ExtendScript without `Schema`          | Assertion to the host's shape, suppression naming gap                    |
 |  [04]   | Global no package declares (`__adobe_cep__`)       | Interface, `globalThis` decoded through a struct of its function members |
-
-`types-for-adobe` declares `saveFrameToPng` `void` where hosts return a deferred call with `wait()`, and option-class fields (`ExportOptionsPNG24`) `static` where writes index each instance.
 
 Typings for `fs` declare bytes as `Buffer` and a failure's `code` as a string, where the host returns an `ArrayBuffer` and a numeric `code`:
 
@@ -107,23 +107,27 @@ const bytes = (path: string) =>
 
 ## [04]-[OBJECT_MODELS]
 
-Object model facts come from the owner that states them for the installed build:
+Object models come from each host's declared source, never from reflection over live objects or a hand list:
 
-| [INDEX] | [HOST]       | [OWNER]                                            | [READ]                                          |
-| :-----: | :----------- | :------------------------------------------------- | :---------------------------------------------- |
-|  [01]   | InDesign     | `$.dictionary` of the running host                 | `getClass(<name>).toXML()` rows                 |
-|  [02]   | Photoshop    | Prototypes of the running host, `@types/photoshop` | Prototype members, method source parameters     |
-|  [03]   | Premiere Pro | `ScriptingAPIManifest.json` and `api_config.json`  | `jq` read of the classes the allow-list exposes |
-|  [04]   | ExtendScript | `reflect` of the running host, `types-for-adobe`   | Fields, methods with arguments, enumerations    |
-|  [05]   | Acrobat      | `acrohelp` argument to a native method             | `HelpError.extMessage` per parameter            |
+| [INDEX] | [HOST]        | [SOURCE]                                                                                |
+| :-----: | :------------ | :-------------------------------------------------------------------------------------- |
+|  [01]   | InDesign      | `indesign-uxp-types`                                                                    |
+|  [02]   | Photoshop     | `@types/photoshop`                                                                      |
+|  [03]   | Premiere Pro  | `@adobe/premierepro`, installed `ScriptingAPIManifest.json` as cross-check              |
+|  [04]   | Media Encoder | Installed `ScriptingAPIManifest.json`, AdobeDocs `uxp-media-encoder`                    |
+|  [05]   | After Effects | AdobeDocs `uxp-after-effects`, which states no enumerations                             |
+|  [06]   | Illustrator   | `/Library/Application Support/Adobe/Scripting Dictionaries CC/Illustrator 2027/omv.xml` |
+|  [07]   | Acrobat       | AdobeDocs `acrobat-pdfl-sdk` `jsapiref`, `acrohelp` parameter help                      |
 
-- UXP prototype chains up to `Object.prototype` name each class by `constructor.name`, fields by getters (settable with a setter), methods by own functions
-- Acrobat's `extMessage` lists parameters as `name: type`, optional ones in brackets
+- InDesign's bundled assistant `indesign.d.ts` is internal and built from the 21.4 model, and After Effects' bundled `@dva/types` is confidential
+- Illustrator's `$.dictionary` reads `null`, and a Beta-only install holds no `omv.xml`
+- Media Encoder's `api_config.json` is empty, and its manifest names each member with type, optional parameters, and async flag
+- `acrohelp` as an argument to a native Acrobat method answers a `HelpError` with `extMessage` listing parameters as `name: type`, optional ones in brackets
 - Native scripting dictionaries declare Apple event commands and parameter types, and a script command's parameters select its language and undo mode
 - InDesign `show`, `reveal in system`, and `reveal in Bridge`, Acrobat `bring to front`, and Premiere Pro `editoriginal` dictionary commands activate their host
 - Typings can predate the installed build and rename parameters a host names by reserved words, and renamed parameters call correctly by position
-- Rejected calls complete each model: host errors name a parameter with its expected type and range, and whether a member applies now
-- `OSACopyScriptingDefinitionFromURL` returns XML that can contain XInclude references
+- Host errors name a refused parameter with its expected type and range, and whether a member applies now
+- `OSACopyScriptingDefinitionFromURL` launches an app with a dynamic dictionary (InDesign, Illustrator), and its XML can contain XInclude references
 
 ## [05]-[HOST_ERRORS]
 
@@ -203,7 +207,7 @@ Each host groups changes into one undo step through one call, and every state ch
 |  [01]   | InDesign      | `app.doScript` under `UndoModes.ENTIRE_SCRIPT`    | Synchronous function    | One step named by its argument |
 |  [02]   | Photoshop     | `core.executeAsModal` with `suspendHistory`       | Async function, awaited | One state per open document    |
 |  [03]   | Premiere Pro  | `project.lockedAccess`, then `executeTransaction` | Synchronous callbacks   | One entry named by transaction |
-|  [04]   | Illustrator   | One `do javascript` or `evalScript` call          | Synchronous source      | One step per call              |
+|  [04]   | Illustrator   | One `do javascript` call                          | Synchronous source      | One step per call              |
 |  [05]   | After Effects | `app.beginUndoGroup(label)`, `app.endUndoGroup()` | Synchronous source      | One step per script or render  |
 
 - One call holds one user-visible change, named in the undo menu
@@ -296,7 +300,7 @@ const serve = <E, F>({
 
 ## [09]-[MANIFESTS]
 
-One manifest serves one host, `host.app` naming `ID`, `PS`, `premierepro`, `ame`, or `aftereffects`, and `host.data.loadEvent` `startup` loads a plugin at host launch. Hosts enforce each `requiredPermissions` and `featureFlags` key:
+One manifest serves one host, `host.app` naming `ID`, `PS`, `premierepro`, `ame`, `aftereffects`, or `AI` (Illustrator, `minVersion` `31.1.0`), and `host.data.loadEvent` `startup` loads a plugin at host launch. Hosts enforce each `requiredPermissions` and `featureFlags` key:
 
 | [INDEX] | [KEY]                                   | [GRANTS]                                                 | [WITHOUT]                        |
 | :-----: | :-------------------------------------- | :------------------------------------------------------- | :------------------------------- |

@@ -7,7 +7,7 @@ Photoshop's UXP DOM uses Action Manager descriptors. `action.batchPlay` plays ch
 `core.executeAsModal` holds Photoshop's one modal scope for a body, and a refused command resolves as an error descriptor in the reply array:
 
 ```ts
-import { type ActionDescriptor, action, app, core, type ExecutionContext } from 'adobe:photoshop';
+import { type ActionDescriptor, action, app, core, type ExecutionContext } from 'photoshop';
 
 const REJECTIONS = { Cancelled: 2, Unavailable: 9 } as const;
 const Rejected = Schema.Struct({ number: Schema.Union(Record.collect(REJECTIONS, (tag, code) => Schema.Literal(code).transform(tag))) });
@@ -65,7 +65,7 @@ const committed = <A, E, R>(name: string, body: Effect.Effect<A, E | HostError, 
 - Plays outside a suspension record one state each under Photoshop's name (`New Layer`, `Master Opacity Change`) and stay when their body throws
 - `Document.suspendHistory(callback, name)` wraps both calls in `executeAsModal`, passes `document` for `hostControl`, and resolves `undefined`
 - `interactive: true` scopes open `display` dialogs and no progress window, which other scopes open after a delay and fill from `reportProgress`
-- `executeAsModal` resolves with its target's value, `@adobe-uxp-types/photoshop` types that value, and `@types/photoshop` types `Promise<void>`
+- `executeAsModal` resolves with its target's value, where `@types/photoshop` types `Promise<void>`
 
 ## [02]-[DESCRIPTORS]
 
@@ -103,7 +103,7 @@ const layers = (documentID: number) =>
 - Keys are string IDs, and `get` returns keys the Actions panel never records (`targetLayers`, `layerKind`, `documentID`)
 - Each `set` holds only the keys it changes, and keys one preference couples (a color enum and its custom color) go in one descriptor
 - `batchPlay(commands, { synchronousExecution: true })` returns the reply array in place of a promise
-- DOM members play with `app.displayDialogs` as `dialogOptions`, `DialogModes.ERROR` (`'silent'`) by default
+- DOM members play `app.displayDialogs` as `dialogOptions`, default `DialogModes.ERROR` (`'silent'`) returning an error with no alert, where `NONE` (`'dontDisplay'`) shows one
 
 ## [03]-[DOM]
 
@@ -155,7 +155,7 @@ Members answer failures in their own form:
 - `close()` opens a save dialog under default `SaveOptions.PROMPTTOSAVECHANGES`, and `closeWithoutSaving()` in a scope discards changes synchronously
 - `hostControl.registerAutoCloseDocument(documentID)` closes a working document unsaved when its scope ends
 - `save` descriptors take `in: { _path: localFileSystem.createSessionToken(file), _kind: 'local' }`, and plain paths reject "invalid file token used"
-- `exportmanager` serves any plugin outside a modal scope, and neither typing declares it
+- `exportmanager` serves any plugin outside a modal scope, and `@types/photoshop` omits it
 - `exportImageAsync({ documentID, exportPath, exportOptions, formatOptions, exportTaskID })` writes the file
 - `exportOptions` hold `scaleHorizontal` and `scaleVertical` in percent, and `formatOptions` `{ name: 'png', colorType: 'png24' }`
 - `imaging` calls other than `createImageDataFromBuffer` throw `number` 1000 outside a modal scope, and `putPixels` records one history state

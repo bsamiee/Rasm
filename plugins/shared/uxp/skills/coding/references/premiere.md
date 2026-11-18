@@ -4,12 +4,11 @@ Premiere Pro's module is a record of native classes and members its own JavaScri
 
 ## [01]-[MEMBERS]
 
-Installed builds bundle a manifest of native classes and an allow-list naming what the module exposes, and one `jq` read prints each class:
+`@adobe/premierepro` declares the module, and the installed manifest checks each member against the running build, one `jq` read printing a class:
 
 ```bash
-jq -r --arg c <Class> --slurpfile allow "<app>/Contents/Resources/json/api_config.json" '
-    ($allow[0].apis[] | select(has($c)) | .[$c]) as $names
-    | .[] | select(.name == $c) | (.properties[], .methods[]) | select(.name | IN($names[]))
+jq -r --arg c <Class> '
+    .[] | select(.name == $c) | (.properties[], .methods[])
     | (if has("params") then "(\([.params[] | "\(.name)\(if .optional == "true" then "?" else "" end): \(.dataType)"] | join(", ")))" else "" end)
         as $params
     | ["\(.name)\($params): \(.dataType)", .propKind, .propType // (if .async == "true" then "async" else "sync" end)]
@@ -22,10 +21,11 @@ createSetNameAction(inName: string): Action	instance	sync
 getProject(): Project	instance	async
 ```
 
-- `jq -r '.apis[] | keys[] | select(. != "hash")' "<app>/Contents/Resources/json/api_config.json"` lists every exposed class
 - `class` rows are static members and constants, typed `number` or `string` with no value, and `async` rows return promises
 - Members module JavaScript adds (`lockedAccess`, `executeTransaction`, `cast`, `EventManager`, `Constants`) sit in typings and not the manifest
-- `strings -n 3000 "<app>/Contents/MacOS/<executable>" | rg -F mediaCoreBackend` prints module JavaScript
+- Manifest entries hold own members alone under internal class names (`SourceMonitorAPI` for `SourceMonitor`)
+- `api_config.json` lacks members the manifest holds for the installed build (`isStill`), and reads take the manifest alone
+- Dialogs take per-call flags (`OpenProjectOptions.setShowWarningDialog`, `importFiles` `suppressUI`), and no published member suppresses every dialog
 
 ## [02]-[READS]
 
@@ -156,5 +156,5 @@ Files export through the encoder `EncoderManager.getManager()` returns, and fram
 ## [07]-[MEDIA_ENCODER]
 
 Media Encoder loads plugins with manifest host `ame` from an `ame.json` registry row. `uxp.host.name` reads `ame`, and `require` resolves `mediaencoder` with no `premierepro`:
-- Media Encoder's `api_config.json` allows no class, and `Object.keys(require('mediaencoder'))` lists its module (`RenderQueue`, `PresetManager`)
+- Media Encoder holds no dialog suppression member
 - Module JavaScript defines `Constants()` as a method returning `RenderQueueStatus`, `Result`, and `Workarea`

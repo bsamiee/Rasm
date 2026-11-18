@@ -4,16 +4,10 @@ Typings declare DOM classes as interfaces, and `instanceof` holds for the exact 
 
 ## [01]-[MEMBERS]
 
-InDesign holds its running object model as ExtendScript's `$.dictionary`, read through `app.doScript(<source>, ScriptLanguage.JAVASCRIPT, [<class>])`:
-- `$.dictionary.toXML().descendants("topicref").@href` lists every class and enumeration name, each equal to the `indesign` module's
-- `getClass(<name>).toXML()` rows include inherited members, and `@type == "class"` rows hold enumerators and class constants
-- Readers index each `XMLList`, where `for each` yields unnamed rows
-- `varies=any` rows state accepted types in English descriptions alone
-- "(Optional)" marks a parameter optional with no default, and reserved-word parameters are `in`, `with`, and `from`
-- `Object.getOwnPropertyDescriptors(indesign.<Class>.prototype)` lists the members the installed build exposes, getters as fields
+DOM members are native accessors on class prototypes:
 - `app.menuActions.everyItem().getElements()` lists every menu action with `name`, `area`, `id`, `enabled`, and `checked`
 - Prototypes hold `constructorName`, `equals`, `toSource`, `toSpecifier`, and `toString` beside object model members
-- Aggregate `.properties` invokes nested getters before a failure can be isolated, and readers read each getter with its metadata
+- Aggregate `.properties` invokes nested getters before a failure can be isolated, and code reads one getter at a time
 - Find/Change drop-shadow and inner-shadow `angle`, `distance`, `xOffset`, and `yOffset` accessors crash without a native owner
 - Encoders refuse a promise a storage getter returns, and write an entry's `url` through `String`
 
@@ -116,11 +110,10 @@ class Specifier extends Schema.Class<Specifier, { readonly brand: unique symbol 
 
 ## [03]-[FIELDS]
 
-Enumerators are objects: `===` between reads of one member is false, `JSON.stringify` yields `{}`, and `String` yields the member name. Each `Enumeration` holds every member under upper snake, camel, and lowercase keys (`CENTER_ALIGN`, `centerAlign`, `centeralign`). Scripts pass native values. JSON inputs decode by the type a field's dictionary row declares. Enumeration fields take a member name or `{type, member}`, class fields `{type, specifier}` or a name in the document's collection of that class.
+Enumerators are objects: `===` between reads of one member is false, `JSON.stringify` yields `{}`, and `String` yields the member name. Each `Enumeration` holds every member under upper snake, camel, and lowercase keys (`CENTER_ALIGN`, `centerAlign`, `centeralign`). Scripts pass native values. JSON inputs decode by the field's declared type. Enumeration fields take a member name or `{type, member}`, class fields `{type, specifier}` or a name in the document's collection of that class.
 
 Refusals throw one field at a time with the host's expected type ("Expected Unit or Leading enumerator"). Writes assign each decoded value once, keeping literal strings, and records write field by field into a read-only member's object (preferences). `JSON.stringify` replacers write enumerators as name, collections as type, specifier, and length, DOM objects as type, specifier, name, and `valid`.
 
-- Enumeration members are the prototype keys holding an `Enumerator` whose `String` equals the key
 - Enumerators compare through `equals` (`Justification.CENTER_ALIGN.equals(value)`)
 - Members decoding to one value (`FARSI_DIGITS`, `FULL_FARSI_DIGITS`) keep the held member where its decode `Equal.equals` the written member's
 - New members take `add()` with required arguments, then field writes, and `properties` drops each key it refuses
@@ -264,8 +257,7 @@ const rendered = Effect.fn('rendered')(function* (found: Page | Spread | PageIte
         Match.when(model.spread, (each) => ({ source: each.parent, placed: each.pages.everyItem().getElements(), range: { pageString: `+${each.pages.firstItem().documentOffset + 1}`, exportingSpread: true } })),
         Match.orElse((each) => ({ source: each, placed: [each], range: {} })),
     );
-    const [{ top, left, bottom, right }, { fields }] = yield* Effect.all([Extent.of(...placed), Cache.get(model.declarations, app.pngExportPreferences.constructorName)]);
-    const bounds = yield* Effect.orDie(Effect.fromOption(Option.flatMap(Record.get(fields, 'exportResolution'), ({ minimum, maximum }) => Option.all({ minimum, maximum }))));
+    const { top, left, bottom, right } = yield* Extent.of(...placed);
     const defaults = {
         pngColorSpace: PNGColorSpaceEnum.RGB,
         pngQuality: PNGQualityEnum.MAXIMUM,
@@ -275,19 +267,19 @@ const rendered = Effect.fn('rendered')(function* (found: Page | Spread | PageIte
         pngExportRange: PNGExportRangeEnum.EXPORT_RANGE,
         pngSuffix: '',
         exportingHiddenSpread: true,
-        exportResolution: Number.clamp((longestSide * 72) / Math.max(right - left, bottom - top), bounds),
+        exportResolution: (longestSide * 72) / Math.max(right - left, bottom - top),
         ...range,
     };
     const refused = HostError.refused(`export of ${found.toSpecifier()}`);
     yield* Uxp.preserve(app.pngExportPreferences, defaults, [...Struct.keys(defaults), ...Record.keys(given)]);
-    yield* Model.write(app.pngExportPreferences, given);
+    yield* written(app.pngExportPreferences, given);
     const native = yield* path.fromFileUrl(file);
     yield* Effect.try({ try: () => source.exportFile(ExportFormat.PNG_FORMAT, native), catch: refused });
     yield* Effect.filterOrFail(Effect.try({ try: () => fs.readFileSync(file.href).byteLength, catch: refused }), (size) => size > 0, refused);
 }, Effect.scoped);
 ```
 
-`model.page` and `model.spread` are `owning` guards (`documentOffset`, `spreadHidden`), and `model.declarations` caches each class's dictionary rows, where `exportResolution` holds the bounds stated for `PNGExportPreference`. `preserve` holds derived keys and every caller option key, and `Model.write` then writes each option decoded by its dictionary row. `exportFile` takes the native path `fromFileUrl` returns, and `fs` the `file:` URL. Pixel size is points times `exportResolution` over 72.
+`model.page` and `model.spread` are `owning` guards (`documentOffset`, `spreadHidden`). `preserve` holds derived keys and every caller option key, and `written` then writes each option. `exportFile` takes the native path `fromFileUrl` returns, and `fs` the `file:` URL. Pixel size is points times `exportResolution` over 72.
 
 - Leftover `pageString` from another script makes a one-page export write nothing unless range and page are set together
 - `exportFile` on an item ignores the page range and writes nothing for a zero-area item, and `exportingSpread` true exports the whole spread
