@@ -1,3 +1,4 @@
+import { posix } from 'node:path';
 import { type ExecutorContext, getOutputsForTargetAndConfiguration } from '@nx/devkit';
 import { globWithWorkspaceContext } from '@nx/devkit/internal';
 import { Array, Effect, FileSystem, Function, Glob, Path, Record, Result, Schema } from 'effect';
@@ -45,7 +46,7 @@ const execute = Effect.fnUntraced(function* ({ targets, commands, cwd, __unparse
         yield* Effect.promise(() =>
             globWithWorkspaceContext(
                 context.root,
-                outputs.flatMap((output) => [output, path.join(output, '**')]),
+                outputs.flatMap((output) => [output, posix.join(output, '**')]),
             ),
         ),
     );

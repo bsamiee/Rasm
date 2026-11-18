@@ -120,9 +120,13 @@ describe('@rasm/nx-uv', { timeout: 120_000 }, () => {
                                 upgrade: { dependsOn: [{ target: 'upgrade--*', params: 'forward' }], inputs: ['...', ...locking] },
                                 'upgrade--uv': {
                                     executor: '@rasm/nx-distribution:upgrade',
-                                    options: { cwd: '.', commands: [{ apply: ['uv', 'lock', '--upgrade'], preview: ['uv', 'lock', '--upgrade', '--dry-run'] }] },
+                                    options: { cwd: '.', commands: [{ apply: ['uv', 'lock', '--upgrade'], preview: ['uv', 'lock', '--upgrade', '--dry-run'] }, { apply: ['uv', 'cache', 'prune', '--force'] }] },
                                     inputs: locking,
-                                    metadata: { technologies, description: 'Moves every locked package to its newest allowed release with uv lock --upgrade', help: { command: 'uv lock --help', example: { options: { dryRun: true } } } },
+                                    metadata: {
+                                        technologies,
+                                        description: 'Moves every locked package to its newest allowed release with uv lock --upgrade, then removes dangling cache entries with uv cache prune --force, as a running uvx holds the cache lock for its whole run',
+                                        help: { command: 'uv lock --help', example: { options: { dryRun: true } } },
+                                    },
                                 },
                             },
                         },

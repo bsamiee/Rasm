@@ -1,6 +1,20 @@
-import { dirname, isAbsolute, join, matchesGlob, relative } from 'node:path';
+import { isAbsolute, join, posix, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { type CreateDependencies, type CreateDependenciesContext, type CreateNodes, type CreateNodesContext, createNodesFromFiles, DependencyType, getOutputsForTargetAndConfiguration, hashArray, type ProjectConfiguration, type RawProjectGraphDependency, readJsonFile, type TargetConfiguration } from '@nx/devkit';
+import {
+    type CreateDependencies,
+    type CreateDependenciesContext,
+    type CreateNodes,
+    type CreateNodesContext,
+    createNodesFromFiles,
+    DependencyType,
+    getOutputsForTargetAndConfiguration,
+    hashArray,
+    normalizePath,
+    type ProjectConfiguration,
+    type RawProjectGraphDependency,
+    readJsonFile,
+    type TargetConfiguration,
+} from '@nx/devkit';
 import { getReadyCheckReadyWhen, hashWithWorkspaceContext, type PackageJson, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
 import { aggregated, anchored, fingerprinted, manifested, runner, spawned, type Verbs } from '@rasm/nx-distribution/inference';
 import { Array, Context, Effect, Equal, FileSystem, Function, Layer, MutableRef, Option, Order, Predicate, Record, Result, Schema } from 'effect';
@@ -55,7 +69,7 @@ const merged = Effect.fnUntraced(function* (workspaceRoot: string, file: string,
         onSome: ({ include, services }) => [...include.flatMap((row) => Array.ensure(Predicate.isString(row) ? row : row.path)), ...Object.values(services ?? {}).flatMap((service) => (Predicate.isObject(service.extends) ? Array.fromNullishOr(service.extends.file) : []))],
     });
     return yield* Effect.reduce(
-        rows.map((to) => join(dirname(file), to)),
+        rows.map((to) => posix.join(posix.dirname(file), to)),
         (): ReadonlySet<string> => new Set([...seen, file]),
         (held, to) => (held.has(to) ? Effect.succeed(held) : merged(workspaceRoot, to, held)),
     );
@@ -68,7 +82,11 @@ const analyzed = Effect.fnUntraced(function* (workspaceRoot: string, root: strin
         (): ReadonlySet<string> => new Set(),
         (held, file) => merged(workspaceRoot, file, held),
     );
-    const local = (at: string) => Option.liftPredicate(relative(workspaceRoot, at), (to) => isAbsolute(at) && !(to.startsWith('..') || isAbsolute(to)));
+    const local = (at: string) =>
+        Option.map(
+            Option.liftPredicate(relative(workspaceRoot, at), (to) => isAbsolute(at) && !(to.startsWith('..') || isAbsolute(to))),
+            normalizePath,
+        );
     const services = Object.values(report.services);
     const builds = Array.getSomes(services.map(({ build }) => Option.fromUndefinedOr(build)));
     const dockerfiles = Record.collect(report.services, (service, { build }) => (build?.dockerfile === undefined ? [] : [{ service, file: isAbsolute(build.dockerfile) ? build.dockerfile : join(build.context, build.dockerfile) }])).flat();
@@ -76,11 +94,11 @@ const analyzed = Effect.fnUntraced(function* (workspaceRoot: string, root: strin
     return {
         name: report.name,
         file: Array.min(files, Order.String),
-        read: Array.sort(Array.dedupe([...[...sources].filter((file) => !file.startsWith('..')), join(root, '.env'), ...services.flatMap(({ env_file = [] }) => Array.getSomes(env_file.map((file) => local(file.path)))), ...recipes.map(({ recipe }) => recipe)]), Order.String),
+        read: Array.sort(Array.dedupe([...[...sources].filter((file) => !file.startsWith('..')), posix.join(root, '.env'), ...services.flatMap(({ env_file = [] }) => Array.getSomes(env_file.map((file) => local(file.path)))), ...recipes.map(({ recipe }) => recipe)]), Order.String),
         profiles: Array.sort(Array.dedupe(services.flatMap(({ profiles = [] }) => profiles)), Order.String),
         built: builds.length > 0,
         servers: Record.map(
-            Array.groupBy(recipes, ({ recipe }) => dirname(recipe)),
+            Array.groupBy(recipes, ({ recipe }) => posix.dirname(recipe)),
             Array.map(({ service }) => service),
         ),
         contexts: Array.dedupe(builds.flatMap(({ context, additional_contexts = {} }) => Array.getSomes([context, ...Object.values(additional_contexts)].map(local)))),
@@ -125,13 +143,13 @@ const targets = (root: string, project: Composed): Verbs => {
     };
 };
 
-const inferred = Effect.fnUntraced(function* (cache: PluginCache<{ readonly project: Composed; readonly stamp: string }>, stored: MutableRef.MutableRef<boolean>, context: CreateNodesContext, rooted: (folder: string) => boolean, root: string, matched: Array.NonEmptyReadonlyArray<string>) {
+const inferred = Effect.fnUntraced(function* (cache: PluginCache<{ readonly project: Composed; readonly stamp: string; readonly digest: string }>, stored: MutableRef.MutableRef<boolean>, context: CreateNodesContext, rooted: (folder: string) => boolean, root: string, matched: Array.NonEmptyReadonlyArray<string>) {
     const stamped = ({ read }: Composed) => Effect.promise(() => hashWithWorkspaceContext(context.workspaceRoot, [...read]));
-    const key = hashArray([yield* Effect.promise(() => hashWithWorkspaceContext(context.workspaceRoot, [...matched])), yield* OWN, root]);
-    const held = yield* Effect.findFirst(Option.toArray(Option.fromUndefinedOr(cache.get(key))), (entry) => Effect.map(stamped(entry.project), Equal.equals(entry.stamp)));
+    const digest = hashArray([yield* Effect.promise(() => hashWithWorkspaceContext(context.workspaceRoot, [...matched])), yield* OWN]);
+    const held = yield* Effect.findFirst(Option.toArray(Option.filter(Option.fromUndefinedOr(cache.get(root)), (entry) => entry.digest === digest)), (entry) => Effect.map(stamped(entry.project), Equal.equals(entry.stamp)));
     const missed = Effect.fnUntraced(function* () {
         const made = yield* analyzed(context.workspaceRoot, root, matched);
-        cache.set(key, { project: made, stamp: yield* stamped(made) });
+        cache.set(root, { project: made, stamp: yield* stamped(made), digest });
         MutableRef.set(stored, true);
         return made;
     });
@@ -163,7 +181,7 @@ const edges = (analyses: ReadonlyMap<string, Composed>, { projects, workspaceRoo
     ).flat();
     const outputs = selections.flatMap(({ name, data, target, selected }) => getOutputsForTargetAndConfiguration({ project: name, target, ...selected }, {}, { name, type: 'lib', data }).map((output) => ({ name, output })));
     const built = Record.collect(projects, (name, { root }) => Array.fromNullishOr(analyses.get(join(workspaceRoot, root))).flatMap(({ file, contexts }) => contexts.map((at) => ({ name, file, at })))).flat();
-    return built.flatMap(({ name, file, at }) => outputs.filter(({ output }) => !output.startsWith('!') && (matchesGlob(at, output) || matchesGlob(at, `${output}/**`))).map((made): RawProjectGraphDependency => ({ source: name, target: made.name, type: DependencyType.static, sourceFile: file })));
+    return built.flatMap(({ name, file, at }) => outputs.filter(({ output }) => !output.startsWith('!') && (posix.matchesGlob(at, output) || posix.matchesGlob(at, `${output}/**`))).map((made): RawProjectGraphDependency => ({ source: name, target: made.name, type: DependencyType.static, sourceFile: file })));
 };
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -176,11 +194,11 @@ const createNodes: CreateNodes = [
         const rooted = anchored(context.workspaceRoot);
         const folders = new Map(
             Record.collect(
-                Record.filter(Array.groupBy(files, dirname), (_, root) => rooted(root)),
+                Record.filter(Array.groupBy(files, posix.dirname), (_, root) => rooted(root)),
                 (root, matched) => [Array.min(matched, Order.String), { root, matched }] as const,
             ),
         );
-        const cache = new PluginCache<{ readonly project: Composed; readonly stamp: string }>(join(workspaceDataDirectory, 'docker.hash'));
+        const cache = new PluginCache<{ readonly project: Composed; readonly stamp: string; readonly digest: string }>(join(workspaceDataDirectory, 'docker.hash'));
         const stored = MutableRef.make(false);
         const read = (file: string) => run(Effect.flatMap(Effect.fromNullishOr(folders.get(file)), ({ root, matched }) => inferred(cache, stored, context, rooted, root, matched)));
         return run(

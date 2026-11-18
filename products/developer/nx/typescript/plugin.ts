@@ -81,12 +81,12 @@ const installed = (name: string, from: string) => Option.isSome(Option.flatMap(O
 
 const listing = (workspaceRoot: string) => (sources: readonly string[]) => stamped(workspaceRoot)(Array.dedupe(sources.flatMap((at) => [at, join(dirname(at), '*')])));
 
-const kept = Effect.fnUntraced(function* (cache: PluginCache<Program>, workspaceRoot: string, lock: string, config: string) {
+const kept = Effect.fnUntraced(function* (cache: PluginCache<Program & { readonly digest: string }>, workspaceRoot: string, lock: string, row: string, config: string) {
     const root = dirname(config);
     const [configured, listed] = yield* Effect.all([Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, [`${root}/*.json`, `${root}/**/tsconfig*.json`, lock])), Effect.promise(() => getFilesInDirectoryUsingContext(workspaceRoot, root))], { concurrency: 'unbounded' });
-    const key = hashArray([configured, ...listed, config]);
-    const program = yield* recalled(cache, key, listing(workspaceRoot));
-    return { config, key, program };
+    const digest = hashArray([row, configured, ...listed]);
+    const program = Option.filter(yield* recalled(cache, config, listing(workspaceRoot)), (held) => held.digest === digest);
+    return { config, digest, program };
 });
 
 const referenced = ({ projectReferences = [] }: ParsedCommandLine) => projectReferences.map(({ path: at }) => (extname(at) === '.json' ? at : join(at, CONFIG)));
@@ -141,11 +141,12 @@ const resolved = Effect.fnUntraced(function* (workspaceRoot: string, solution: E
     const built = checked.some(({ parsed }) => (parsed.projectReferences ?? []).length > 0);
     const outputs = holding
         .filter(({ parsed }) => parsed.options.noEmit !== true)
-        .flatMap(({ file, parsed: { options } }) => {
-            const emitted = options.resolveJsonModule === true ? '**/*.{js,cjs,mjs,jsx,json,d.ts,d.cts,d.mts}{,.map}' : '**/*.{js,cjs,mjs,jsx,d.ts,d.cts,d.mts}{,.map}';
-            const at = resolve(options.outDir ?? dirname(file), options.outDir === undefined || options.rootDir === undefined ? '.' : relative(options.rootDir, dirname(file)));
+        .flatMap(({ file, parsed: { options, fileNames } }) => {
+            const emitted = options.resolveJsonModule === true || fileNames.some((at) => extname(at) === '.json') ? '**/*.{js,cjs,mjs,jsx,json,d.ts,d.cts,d.mts}{,.map}' : '**/*.{js,cjs,mjs,jsx,d.ts,d.cts,d.mts}{,.map}';
+            const offset = options.outDir === undefined || options.rootDir === undefined ? '.' : relative(options.rootDir, dirname(file));
+            const at = resolve(options.outDir ?? dirname(file), offset);
             return [
-                join(options.outDir ?? dirname(file), emitted),
+                join(options.outDir ?? dirname(file), offset.startsWith('..') ? '.' : offset, emitted),
                 ...(options.declarationDir === undefined ? [] : [join(options.declarationDir, '**/*.{d.ts,d.cts,d.mts}{,.map}')]),
                 ...(built || options.incremental === true || options.composite === true ? [options.tsBuildInfoFile ?? join(at, `${basename(file, '.json')}.tsbuildinfo`)] : []),
             ].map(local);
@@ -402,7 +403,7 @@ const inspected = Effect.fnUntraced(function* (workspaceRoot: string, compiler: 
 });
 
 const linted = Effect.fnUntraced(function* (workspaceRoot: string, compiler: string, exec: string, roots: readonly { readonly root: string; readonly scope: string }[], hashed: string) {
-    const cache = new PluginCache<{ readonly targets: readonly TargetConfiguration[]; readonly read: readonly string[]; readonly digest: string }>(join(workspaceDataDirectory, `typescript-eslint-${hashed}.hash`));
+    const cache = new PluginCache<{ readonly targets: readonly TargetConfiguration[]; readonly read: readonly string[]; readonly stamp: string; readonly digest: string }>(join(workspaceDataDirectory, 'typescript-eslint.hash'));
     const lock = getLockFileName(detectPackageManager(workspaceRoot));
     const digested = stamped(workspaceRoot);
     const keyed = yield* Effect.forEach(
@@ -419,21 +420,36 @@ const linted = Effect.fnUntraced(function* (workspaceRoot: string, compiler: str
             const owned = listed.filter((file) => !nested.test(file));
             const parts = root.split('/');
             const ancestors = ['.', ...Array.makeBy(parts.length, (index) => parts.slice(0, index + 1).join('/'))];
-            const stamp = yield* Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, [lock, ...Array.cartesianWith(ancestors, LINTERS, join)]));
-            return { root, scope, owned, key: hashArray([stamp, root, ...owned]) };
+            const configured = yield* Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, [lock, ...Array.cartesianWith(ancestors, LINTERS, join)]));
+            return { root, scope, owned, digest: hashArray([hashed, configured, ...owned]) };
         }),
         { concurrency: 'unbounded' },
     );
-    const missed = yield* Effect.filter(keyed, ({ key }) =>
-        Option.match(Option.fromNullishOr(cache.get(key)), {
-            onNone: () => Effect.succeed(true),
-            onSome: ({ read, digest }) => Effect.map(digested(read), (now) => now !== digest),
-        }),
+    const missed = yield* Effect.filter(keyed, ({ root, digest }) =>
+        Option.match(
+            Option.filter(Option.fromNullishOr(cache.get(root)), (held) => held.digest === digest),
+            {
+                onNone: () => Effect.succeed(true),
+                onSome: ({ read, stamp }) => Effect.map(digested(read), (now) => now !== stamp),
+            },
+        ),
     );
     const fresh = yield* Array.match(missed, { onEmpty: () => Effect.succeed(new Map<string, { readonly read: readonly string[]; readonly targets: readonly TargetConfiguration[] }>()), onNonEmpty: (rows) => inspected(workspaceRoot, compiler, exec, rows) });
-    yield* Effect.forEach(Array.getSomes(missed.map(({ root, key }) => Option.map(Option.fromUndefinedOr(fresh.get(root)), (held) => [key, held] as const))), ([key, { read, targets }]) => Effect.map(digested(read), (digest) => cache.set(key, { targets, read, digest })));
+    yield* Effect.forEach(Array.getSomes(missed.map(({ root, digest }) => Option.map(Option.fromUndefinedOr(fresh.get(root)), (held) => [root, digest, held] as const))), ([root, digest, { read, targets }]) => Effect.map(digested(read), (stamp) => cache.set(root, { targets, read, stamp, digest })));
     yield* Array.isReadonlyArrayNonEmpty(missed) ? Effect.sync(() => cache.writeToDisk()) : Effect.void;
-    return new Map(Array.getSomes(keyed.map(({ root, key }) => Option.map(Array.head(cache.get(key)?.targets ?? []), (target) => [root, target] as const))));
+    return new Map(
+        Array.getSomes(
+            keyed.map(({ root, digest }) =>
+                Option.map(
+                    Option.flatMap(
+                        Option.filter(Option.fromNullishOr(cache.get(root)), (held) => held.digest === digest),
+                        ({ targets }) => Array.head(targets),
+                    ),
+                    (target) => [root, target] as const,
+                ),
+            ),
+        ),
+    );
 });
 
 const nodes = Effect.fnUntraced(function* (files: readonly string[], options: typeof Options.Encoded | undefined, context: CreateNodesContext) {
@@ -457,9 +473,9 @@ const nodes = Effect.fnUntraced(function* (files: readonly string[], options: ty
     const { exec } = pmc;
     const synced = installed('@nx/js', join(workspaceRoot, MANIFEST));
     const row = hashArray([hashed, hashObject(options ?? {})]);
-    const cache = new PluginCache<Program>(join(workspaceDataDirectory, `typescript-${row}.hash`));
+    const cache = new PluginCache<Program & { readonly digest: string }>(join(workspaceDataDirectory, 'typescript.hash'));
     const manifests = new Map(yield* Effect.forEach(Array.dedupe(nested.map(dirname)), (root) => manifested(workspaceRoot, root), { concurrency: 'unbounded' }));
-    const rows = yield* Effect.forEach(configs, (config) => kept(cache, workspaceRoot, getLockFileName(manager), config), { concurrency: 'unbounded' });
+    const rows = yield* Effect.forEach(configs, (config) => kept(cache, workspaceRoot, getLockFileName(manager), row, config), { concurrency: 'unbounded' });
     const unread = rows.filter(({ program }) => Option.isNone(program));
     const solutions = yield* Array.match(unread, {
         onEmpty: () => Effect.succeed([]),
@@ -471,8 +487,8 @@ const nodes = Effect.fnUntraced(function* (files: readonly string[], options: ty
             ),
     });
     const fresh = yield* Effect.forEach(solutions, ([, solution]) => Effect.result(resolved(workspaceRoot, solution)), { concurrency: 'unbounded' });
-    const stored = Array.getSuccesses(Array.zipWith(unread, fresh, ({ key }, program) => Result.map(program, (value) => [key, value] as const)));
-    yield* Effect.forEach(stored, ([key, value]) => Effect.sync(() => cache.set(key, value)));
+    const stored = Array.getSuccesses(Array.zipWith(unread, fresh, ({ config, digest }, program) => Result.map(program, (value) => [config, { ...value, digest }] as const)));
+    yield* Effect.forEach(stored, ([config, value]) => Effect.sync(() => cache.set(config, value)));
     yield* Array.isReadonlyArrayNonEmpty(stored) ? Effect.sync(() => cache.writeToDisk()) : Effect.void;
     const standalone = Option.filter(yield* Effect.findFirst(['src', 'lib'], (at) => FileSystem.FileSystem.use((fs) => fs.exists(join(workspaceRoot, at)))), () => listed.has(MANIFEST));
     const lints = installed('eslint', join(workspaceRoot, MANIFEST))

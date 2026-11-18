@@ -1,9 +1,9 @@
 import { createRequire } from 'node:module';
-import { basename, dirname, join, relative, resolve } from 'node:path';
+import { join, posix, relative, resolve } from 'node:path';
 import { env } from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, type CreateNodesResult, detectPackageManager, getPackageManagerCommand, hashArray, normalizePath, type ProjectConfiguration, type TargetConfiguration } from '@nx/devkit';
-import { calculateHashesForCreateNodes, getLockFileName, getReadyCheckReadyWhen, hashObject, PluginCache, quoteShellArg, retryOnRequireEsmRace, workspaceDataDirectory } from '@nx/devkit/internal';
+import { calculateHashesForCreateNodes, getLockFileName, getReadyCheckReadyWhen, PluginCache, quoteShellArg, retryOnRequireEsmRace, workspaceDataDirectory } from '@nx/devkit/internal';
 import { getRootTsConfigFileName } from '@nx/js';
 import { nxReadySignal } from '@nx/vite/plugins/nx-ready-signal.plugin';
 import { aggregated, anchored, extended, fingerprinted, Folder, manifested, namedInput, packaged, parsed, recalled, run, stamped, tokened, type Verbs, within } from '@rasm/nx-distribution/inference';
@@ -41,7 +41,7 @@ const secluded = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 
 const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, outDir: Option.Option<string>) {
     const fs = yield* FileSystem.FileSystem;
-    const [root, folder, at] = [dirname(file), join(workspaceRoot, dirname(file)), join(workspaceRoot, file)];
+    const [root, folder, at] = [posix.dirname(file), join(workspaceRoot, posix.dirname(file)), join(workspaceRoot, file)];
     const vite = yield* Effect.tryPromise({ try: (): Promise<{ readonly resolveConfig: typeof resolveConfig; readonly parseSync: typeof parseSync }> => import(pathToFileURL(createRequire(at).resolve('vite')).href), catch: (cause) => new Cause.UnknownError(cause, `${file} resolves no vite`) });
     const stated = MutableRef.make(false);
     const capture = { name: 'nx-vite-stated-server', enforce: 'post', config: { order: 'post', handler: (user: { readonly server?: unknown; readonly preview?: unknown }) => MutableRef.update(stated, (held) => held || user.server !== undefined || user.preview !== undefined) } } as const;
@@ -70,7 +70,7 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, o
         () => buildable,
     );
     const loaded = Array.dedupe(config.configFileDependencies.map((dependency) => normalizePath(relative(workspaceRoot, dependency)))).filter(within);
-    const sources = loaded.filter((dependency) => relative(root, dependency).startsWith('..'));
+    const sources = loaded.filter((dependency) => posix.relative(root, dependency).startsWith('..'));
     const { packages, linked } = yield* packaged(yield* parsed(vite.parseSync, workspaceRoot, loaded));
     return {
         type: library ? ('library' as const) : ('application' as const),
@@ -87,19 +87,19 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, o
 const targets = (file: string, { folders, signals, served, sources, packages, linked }: Resolved, chain: readonly string[], named: 'production' | 'default', outDir: Option.Option<string>, exec: string): Verbs => {
     const rooted = getRootTsConfigFileName();
     const needs = {
-        options: { cwd: dirname(file) },
+        options: { cwd: posix.dirname(file) },
         dependsOn: ['codegen--*', '^codegen'],
         inputs: [
             named,
             `^${named}`,
-            ...chain.filter((at) => at !== rooted).map((at) => ({ json: join('{workspaceRoot}', at), fields: ['compilerOptions'] })),
-            ...sources.map((at) => join('{workspaceRoot}', at)),
+            ...chain.filter((at) => at !== rooted).map((at) => ({ json: posix.join('{workspaceRoot}', at), fields: ['compilerOptions'] })),
+            ...sources.map((at) => posix.join('{workspaceRoot}', at)),
             ...Array.match(linked, { onEmpty: () => [], onNonEmpty: (owners) => [{ input: 'default', projects: [...owners] }] }),
             { dependentTasksOutputFiles: '**/*', transitive: true },
             { externalDependencies: Array.dedupe(['vite', ...packages]) },
         ],
     };
-    const ready = (command: 'serve' | 'preview') => (signals ? { signal: true as const } : getReadyCheckReadyWhen(CHECK, basename(file), command));
+    const ready = (command: 'serve' | 'preview') => (signals ? { signal: true as const } : getReadyCheckReadyWhen(CHECK, posix.basename(file), command));
     const built = Option.fromUndefinedOr(folders);
     const server = Option.liftPredicate({ ...needs, continuous: true }, () => served);
     const build = Record.getSomes<string, TargetConfiguration>({
@@ -108,7 +108,7 @@ const targets = (file: string, { folders, signals, served, sources, packages, li
             ...needs,
             dependsOn: [...needs.dependsOn, '^build'],
             cache: true,
-            outputs: written.map(tokened(dirname(file))),
+            outputs: written.map(tokened(posix.dirname(file))),
             metadata: { description: 'Builds every environment of the Vite config with vite build', help: { command: `${exec} vite build --help`, example: { args: ['--mode', 'production'] } } },
         })),
     });
@@ -141,16 +141,23 @@ const targets = (file: string, { folders, signals, served, sources, packages, li
     };
 };
 
-const inferred = Effect.fnUntraced(function* (cache: PluginCache<Resolved>, stored: MutableRef.MutableRef<boolean>, context: CreateNodesContext, at: Option.Option<string>, exec: string, { file, chain, key }: { readonly file: string; readonly chain: readonly string[]; readonly key: string }) {
-    const root = dirname(file);
-    const outDir = Option.map(at, (folder) => relative(root, folder));
-    const held = yield* recalled(cache, key, stamped(context.workspaceRoot));
+const inferred = Effect.fnUntraced(function* (
+    cache: PluginCache<Resolved & { readonly digest: string }>,
+    stored: MutableRef.MutableRef<boolean>,
+    context: CreateNodesContext,
+    at: Option.Option<string>,
+    exec: string,
+    { file, chain, digest }: { readonly file: string; readonly chain: readonly string[]; readonly digest: string },
+) {
+    const root = posix.dirname(file);
+    const outDir = Option.map(at, (folder) => posix.relative(root, folder));
+    const held = Option.filter(yield* recalled(cache, file, stamped(context.workspaceRoot)), (cached) => cached.digest === digest);
     const resolved = yield* Option.match(held, {
         onSome: Effect.succeed,
         onNone: () =>
             Effect.tap(read(context.workspaceRoot, file, outDir), (fresh) =>
                 Effect.sync(() => {
-                    cache.set(key, fresh);
+                    cache.set(file, { ...fresh, digest });
                     MutableRef.set(stored, true);
                 }),
             ),
@@ -164,7 +171,7 @@ const inferred = Effect.fnUntraced(function* (cache: PluginCache<Resolved>, stor
             targets(
                 file,
                 resolved,
-                chain.filter((config) => relative(root, config).startsWith('..')),
+                chain.filter((config) => posix.relative(root, config).startsWith('..')),
                 namedInput(root, context),
                 outDir,
                 exec,
@@ -179,22 +186,22 @@ const inferred = Effect.fnUntraced(function* (cache: PluginCache<Resolved>, stor
 const nodes = Effect.fnUntraced(function* (files: readonly string[], options: typeof Options.Encoded | undefined, context: CreateNodesContext) {
     const settings = yield* Schema.decodeEffect(Options)(options ?? {});
     const project = anchored(context.workspaceRoot);
-    const configs = files.filter((file) => project(dirname(file)));
-    const chains = configs.map((file) => extended(context.workspaceRoot, dirname(file)));
+    const configs = files.filter((file) => project(posix.dirname(file)));
+    const chains = configs.map((file) => extended(context.workspaceRoot, posix.dirname(file)));
     const manager = detectPackageManager(context.workspaceRoot);
     const { exec } = getPackageManagerCommand(manager);
     const own = yield* OWN;
     const hashes = yield* Effect.promise(() =>
         calculateHashesForCreateNodes(
-            configs.map(dirname),
+            configs.map(posix.dirname),
             settings,
             context,
             chains.map((chain) => [getLockFileName(manager), ...chain]),
         ),
     );
-    const cache = new PluginCache<Resolved>(join(workspaceDataDirectory, `vite-${hashObject(options ?? {})}.hash`));
+    const cache = new PluginCache<Resolved & { readonly digest: string }>(join(workspaceDataDirectory, 'vite.hash'));
     const stored = MutableRef.make(false);
-    const rows = new Map(Iterator.zip([configs, chains, hashes]).map(([file, chain, hash]) => [file, { file, chain, key: hashArray([hash, own, file]) }] as const));
+    const rows = new Map(Iterator.zip([configs, chains, hashes]).map(([file, chain, hash]) => [file, { file, chain, digest: hashArray([hash, own]) }] as const));
     const each = (file: string) => run(Effect.flatMap(Effect.fromNullishOr(rows.get(file)), (row) => inferred(cache, stored, context, Option.fromUndefinedOr(settings.outputPath), exec, row)));
     return yield* Effect.ensuring(
         Effect.promise(() => createNodesFromFiles(each, configs, options, context)),

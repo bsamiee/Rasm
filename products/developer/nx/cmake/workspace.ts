@@ -1,8 +1,8 @@
 import { type } from 'node:os';
-import { basename, delimiter, dirname, join, relative, resolve } from 'node:path';
+import { basename, delimiter, dirname, join, posix, relative, resolve } from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
-import { readJsonFile } from '@nx/devkit';
+import { normalizePath, readJsonFile } from '@nx/devkit';
 import { globWithWorkspaceContext, type PackageJson } from '@nx/devkit/internal';
 import { runner, spawned } from '@rasm/nx-distribution/inference';
 import { Array, Cause, Config, Context, Effect, FileSystem, Function, Layer, Match, Option, pipe, Record, Result, Schema, SemVer } from 'effect';
@@ -173,7 +173,7 @@ const configured = (configure: string, defines: Readonly<Record<string, string>>
 
 const replied = Effect.fnUntraced(function* (workspaceRoot: string, root: string, workflow: typeof Workflow.Type, located: string) {
     const fs = yield* FileSystem.FileSystem;
-    const inside = (at: string) => relative(workspaceRoot, resolve(workspaceRoot, root, at)) || '.';
+    const inside = (at: string) => normalizePath(relative(workspaceRoot, resolve(workspaceRoot, root, at))) || '.';
     const tree = join(workspaceRoot, located);
     const [query, reply] = [join(tree, ...API, 'query', CLIENT), join(tree, ...API, 'reply')];
     const read = <S extends Schema.Decoder<unknown>>(schema: S, file: string) => Effect.flatMap(fs.readFileString(join(reply, file)), Schema.decodeEffect(schema));
@@ -234,13 +234,13 @@ const replied = Effect.fnUntraced(function* (workspaceRoot: string, root: string
             }),
         ),
     );
-    const listed = loaded.flatMap(({ projectIndex, sources }) => sources.filter(({ isGenerated }) => isGenerated !== true).map((source) => ({ projectIndex, folder: dirname(inside(source.path)) })));
+    const listed = loaded.flatMap(({ projectIndex, sources }) => sources.filter(({ isGenerated }) => isGenerated !== true).map((source) => ({ projectIndex, folder: posix.dirname(inside(source.path)) })));
     const included = loaded.flatMap(({ projectIndex, compileGroups }) => compileGroups.flatMap(({ includes }) => includes).map((include) => ({ projectIndex, folder: inside(include.path) })));
-    const searched = [...listed, ...included].filter(({ folder }) => relative(located, folder).startsWith('..'));
+    const searched = [...listed, ...included].filter(({ folder }) => posix.relative(located, folder).startsWith('..'));
     const binaries = new Map(loaded.flatMap(({ id, link, nameOnDisk, artifacts }) => artifacts.filter(({ path: file }) => link !== undefined && basename(file) === nameOnDisk).map(({ path: file }) => [id, { binary: file }] as const)));
     const members = placed.map((member, at) => ({
         ...member,
-        folders: Array.dedupe(searched.filter(({ projectIndex, folder }) => projectIndex === at && !relative(member.root, folder).startsWith('..')).map(({ folder }) => folder)),
+        folders: Array.dedupe(searched.filter(({ projectIndex, folder }) => projectIndex === at && !posix.relative(member.root, folder).startsWith('..')).map(({ folder }) => folder)),
         targets: loaded.filter(({ projectIndex, artifacts }) => projectIndex === at && artifacts.length > 0).map(({ id, name, artifacts }) => ({ name, artifacts, ...binaries.get(id) })),
         links: Array.dedupe(linked.filter(({ from }) => from === at).map(({ link }) => link)),
     }));
@@ -255,7 +255,7 @@ const replied = Effect.fnUntraced(function* (workspaceRoot: string, root: string
 
 const resolved = Effect.fnUntraced(function* (workspaceRoot: string, presets: string, manifests: readonly string[]) {
     const fs = yield* FileSystem.FileSystem;
-    const root = dirname(presets);
+    const root = posix.dirname(presets);
     const source = join(workspaceRoot, root);
     const { configurePresets, packagePresets: packages, workflowPresets } = yield* Effect.flatMap(fs.readFileString(join(workspaceRoot, presets)), Schema.decodeEffect(Presets));
     type Steps = (typeof workflowPresets)[number]['steps'];
@@ -296,13 +296,15 @@ const resolved = Effect.fnUntraced(function* (workspaceRoot: string, presets: st
             (at) => stepped(listed.slice(at + 1), 'build'),
         );
     const rooted = (configure: string) =>
-        relative(
-            workspaceRoot,
-            resolve(
-                source,
-                Option.match(
-                    Array.findFirst(chain(configure), ({ binaryDir }) => Option.fromUndefinedOr(binaryDir)),
-                    { onNone: () => '.', onSome: macros(configure, source) },
+        normalizePath(
+            relative(
+                workspaceRoot,
+                resolve(
+                    source,
+                    Option.match(
+                        Array.findFirst(chain(configure), ({ binaryDir }) => Option.fromUndefinedOr(binaryDir)),
+                        { onNone: () => '.', onSome: macros(configure, source) },
+                    ),
                 ),
             ),
         ) || '.';
@@ -322,7 +324,7 @@ const resolved = Effect.fnUntraced(function* (workspaceRoot: string, presets: st
         workflowPresets.map(({ name, steps }) => Option.map(stepped(steps, 'configure'), (configure): typeof Workflow.Type => ({ ...Record.getSomes({ build: stepped(steps, 'build'), test: stepped(steps, 'test'), after: followed(steps) }), tree: rooted(configure), name, configure, tidy: launchers(configure) }))),
     );
     const declaring = yield* Effect.filter(
-        manifests.filter((file) => !relative(root, file).startsWith('..')),
+        manifests.filter((file) => !posix.relative(root, file).startsWith('..')),
         (file) => Effect.map(fs.readFileString(join(workspaceRoot, file)), (text) => CALL.test(text)),
         { concurrency: 'unbounded' },
     );

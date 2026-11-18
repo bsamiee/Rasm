@@ -1,5 +1,5 @@
-import { basename, dirname, join, normalize, relative } from 'node:path';
-import { DependencyType, type RawProjectGraphDependency } from '@nx/devkit';
+import { normalize, posix, relative } from 'node:path';
+import { DependencyType, normalizePath, type RawProjectGraphDependency } from '@nx/devkit';
 import { globWithWorkspaceContext } from '@nx/devkit/internal';
 import { Array, Cause, Effect, Equivalence, Option, Predicate, Record, Result, Schema, SchemaTransformation } from 'effect';
 import { CHECKERS, declared, PIXI } from '#/targets';
@@ -76,37 +76,37 @@ const normalized = (name: string) => name.toLowerCase().replaceAll(SEPARATORS, '
 const sited = (workspaceRoot: string) => (node: typeof Node.Type) =>
     Option.map(
         Record.findFirst(node.source, (at, key): at is string => Schema.is(Local)(key) && Predicate.isString(at)),
-        ([, at]) => relative(workspaceRoot, normalize(at)) || '.',
+        ([, at]) => normalizePath(relative(workspaceRoot, normalize(at))) || '.',
     );
 
 const packed = (stated: unknown): readonly string[] =>
     Option.match(Schema.decodeUnknownOption(Backend)(stated), {
-        onNone: () => [join('{projectRoot}', '**', '*')],
+        onNone: () => [posix.join('{projectRoot}', '**', '*')],
         onSome: ({ project, tool }) => {
             const backend = tool.uv['build-backend'];
-            const modules = Array.ensure(backend['module-name'] ?? normalized(project.name).replace(backend.namespace ? DASHED : UNDERSCORED, '_')).map((name) => join(backend['module-root'], ...name.split('.'), '**'));
+            const modules = Array.ensure(backend['module-name'] ?? normalized(project.name).replace(backend.namespace ? DASHED : UNDERSCORED, '_')).map((name) => posix.join(backend['module-root'], ...name.split('.'), '**'));
             const files = [...(Predicate.isString(project.readme) ? [project.readme] : []), ...Array.getSomes([project.readme, project.license].map((held) => Schema.decodeUnknownOption(Filed)(held))).map(({ file }) => file)];
-            const data = Object.values(backend.data).map((folder) => join(folder, '**'));
-            const excluded = [...(backend['default-excludes'] ? ['__pycache__', '*.pyc', '*.pyo'] : []), ...backend['source-exclude']].map((pattern) => (pattern.startsWith('/') ? pattern.slice(1) : join('**', pattern)));
-            return [...[MANIFEST, ...modules, ...backend['source-include'], ...files, ...project['license-files'], ...data].map((glob) => join('{projectRoot}', glob)), ...excluded.flatMap((glob) => [glob, join(glob, '**')]).map((glob) => `!${join('{projectRoot}', glob)}`)];
+            const data = Object.values(backend.data).map((folder) => posix.join(folder, '**'));
+            const excluded = [...(backend['default-excludes'] ? ['__pycache__', '*.pyc', '*.pyo'] : []), ...backend['source-exclude']].map((pattern) => (pattern.startsWith('/') ? pattern.slice(1) : posix.join('**', pattern)));
+            return [...[MANIFEST, ...modules, ...backend['source-include'], ...files, ...project['license-files'], ...data].map((glob) => posix.join('{projectRoot}', glob)), ...excluded.flatMap((glob) => [glob, posix.join(glob, '**')]).map((glob) => `!${posix.join('{projectRoot}', glob)}`)];
         },
     });
 
-const folders = (workspaceRoot: string, { workspace, resolution }: typeof Metadata.Type) => Array.dedupe([relative(workspaceRoot, workspace.path) || '.', ...Array.getSomes(Object.values(resolution).map(sited(workspaceRoot)))]);
+const folders = (workspaceRoot: string, { workspace, resolution }: typeof Metadata.Type) => Array.dedupe([normalizePath(relative(workspaceRoot, workspace.path)) || '.', ...Array.getSomes(Object.values(resolution).map(sited(workspaceRoot)))]);
 
 const report = (workspaceRoot: string, lock: string, metadata: typeof Metadata.Type, documented: ReadonlyMap<string, unknown>) => {
     const { resolution } = metadata;
     const local = sited(workspaceRoot);
-    const workspace = relative(workspaceRoot, metadata.workspace.path) || '.';
+    const workspace = normalizePath(relative(workspaceRoot, metadata.workspace.path)) || '.';
     const located = (id: string) => Option.flatMap(Option.fromUndefinedOr(resolution[id]), (node) => Option.all({ root: local(node), name: Option.fromUndefinedOr(node.name) }));
     const reach = (ids: ReadonlySet<string>): ReadonlySet<string> => {
         const next = ids.union(new Set(ids.values().flatMap((id) => resolution[id]?.dependencies ?? [])));
         return next.size === ids.size ? ids : reach(next);
     };
     const distributed = (name: string) => (id: string) => Option.exists(Option.fromUndefinedOr(resolution[id]), (node) => node.name === name && Option.isNone(local(node)));
-    const stated = (root: string) => documented.get(join(root, MANIFEST));
+    const stated = (root: string) => documented.get(posix.join(root, MANIFEST));
     const manifest = (root: string) => Option.map(Schema.decodeUnknownOption(Declared)(stated(root)), ({ project }) => project);
-    const members = metadata.members.map((member) => ({ ...member, root: relative(workspaceRoot, member.path) || '.' }));
+    const members = metadata.members.map((member) => ({ ...member, root: normalizePath(relative(workspaceRoot, member.path)) || '.' }));
     const workspaceGroups =
         resolution[
             Option.match(
@@ -115,13 +115,13 @@ const report = (workspaceRoot: string, lock: string, metadata: typeof Metadata.T
             )
         ]?.dependency_groups ?? [];
     const tables = members.map((member) => {
-        const file = join(member.root, MANIFEST);
+        const file = posix.join(member.root, MANIFEST);
         return [file, Result.flatMap(Schema.decodeUnknownResult(Tooled)(documented.get(file)), ({ tool }) => Schema.decodeUnknownResult(Nx, { onExcessProperty: 'error' })(tool.nx))] as const;
     });
     const index = Option.flatMap(Schema.decodeUnknownOption(Indexed)(stated(workspace)), ({ tool }) => Array.findFirst(tool.uv.index, (row) => row['publish-url'] !== undefined));
     const manifests = documented
         .keys()
-        .filter((file) => basename(file) === MANIFEST)
+        .filter((file) => posix.basename(file) === MANIFEST)
         .toArray();
     return {
         failures: Array.filterMap(tables, ([file, table]) => Result.map(Result.flip(table), (cause) => new Cause.UnknownError(cause, `${file} does not read as the nx table of tool`))),
@@ -135,9 +135,9 @@ const report = (workspaceRoot: string, lock: string, metadata: typeof Metadata.T
                 workspace,
                 packaged,
                 manifests,
-                sources: [...packed(stated(member.root)), join('{workspaceRoot}', workspace, MANIFEST)],
+                sources: [...packed(stated(member.root)), posix.join('{workspaceRoot}', workspace, MANIFEST)],
                 index: Option.getOrUndefined(Option.flatMap(index, ({ name }) => Option.fromUndefinedOr(name))),
-                pixi: documented.has(join(workspace, PIXI)) || Schema.is(Pixi)(stated(workspace)),
+                pixi: documented.has(posix.join(workspace, PIXI)) || Schema.is(Pixi)(stated(workspace)),
                 scripted: packaged && Option.exists(manifest(member.root), ({ scripts }) => !Record.isEmptyRecord(scripts)),
                 locals: Array.dedupe(
                     Array.getSomes(
@@ -166,7 +166,7 @@ const report = (workspaceRoot: string, lock: string, metadata: typeof Metadata.T
             };
         }),
         edges: members.flatMap((member) => {
-            const sourceFile = join(member.root, MANIFEST);
+            const sourceFile = posix.join(member.root, MANIFEST);
             const own = Record.keys(Record.filter(resolution, (node) => node.name === member.name && Option.contains(local(node), member.root)));
             const targeted = own.flatMap((id) => Array.getSomes((resolution[id]?.dependencies ?? []).map(located))).map(({ root }) => root);
             return targeted.map((target): RawProjectGraphDependency => ({ source: member.root, target, type: DependencyType.static, sourceFile }));
@@ -178,7 +178,7 @@ const located = Effect.fnUntraced(function* (workspaceRoot: string, { members, .
     const checked = members.flatMap(({ root, checks }) => Record.collect(checks, (key, check) => ({ root, key, check })));
     const matched = yield* Effect.forEach(checked, ({ check }) => Effect.promise(() => globWithWorkspaceContext(workspaceRoot, [...check.patterns])), { concurrency: 'unbounded' });
     const based = Array.groupBy(
-        Array.zipWith(checked, matched, ({ root, key, check }, files) => ({ root, key, check: { ...check, ...(Array.isReadonlyArrayNonEmpty(files) && { base: files.includes(join(root, '__init__.py')) ? dirname(root) : root }) } })),
+        Array.zipWith(checked, matched, ({ root, key, check }, files) => ({ root, key, check: { ...check, ...(Array.isReadonlyArrayNonEmpty(files) && { base: files.includes(posix.join(root, '__init__.py')) ? posix.dirname(root) : root }) } })),
         ({ root }) => root,
     );
     return { ...workspace, members: members.map((member) => ({ ...member, checks: Record.fromIterableWith(based[member.root] ?? [], ({ key, check }) => [key, check] as const) })) };

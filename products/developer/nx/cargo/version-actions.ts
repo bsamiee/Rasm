@@ -1,4 +1,4 @@
-import { basename, dirname, join } from 'node:path';
+import { basename, dirname, join, posix } from 'node:path';
 import { parse, patch } from '@decimalturn/toml-patch';
 import { type ProjectGraph, readCachedProjectGraph, type Tree } from '@nx/devkit';
 import { spawned } from '@rasm/nx-distribution/inference';
@@ -66,7 +66,7 @@ class CargoVersionActions extends VersionActions {
 
     get stated() {
         const manifest = `${this.projectGraphNode.data.root}/${MANIFEST}`;
-        return Effect.map(Schema.decodeUnknownEffect(Options)(this.finalConfigForProject.versionActionsOptions), ({ lock, registry }) => ({ manifest, registry, shared: join(dirname(lock), MANIFEST) }));
+        return Effect.map(Schema.decodeUnknownEffect(Options)(this.finalConfigForProject.versionActionsOptions), ({ lock, registry }) => ({ manifest, registry, shared: posix.join(posix.dirname(lock), MANIFEST) }));
     }
 
     override validate(tree: Tree) {

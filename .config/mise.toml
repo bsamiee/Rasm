@@ -28,61 +28,53 @@ use_versions_host_track             = false
 # --- [ENV] ------------------------------------------------------------------------------
 
 [env]
-_.path                                        = ["./node_modules/.bin", "{{ get_env(name='HOME', default='') }}/Library/Application Support/McNeel/Rhinoceros/ai/bin"]
-BUILDX_EXPERIMENTAL                           = "1"
-CARGO_LLVM_COV_DENY_WARNINGS                  = "1"
-CF_QUIET                                      = "1"
-CTX7_TELEMETRY_DISABLED                       = "1"
-CLOUDFLARE_DEV_REGISTRY_PATH                  = "{{config_root}}/.cache/cloudflare/registry"
-DOPPLER_CONFIG                                = "dev"
-DOPPLER_PROJECT                               = "rasm"
-DOTNET_NOLOGO                                 = "1"
-DOTNET_ROLL_FORWARD                           = "Major"
-FOUNDRY_CACHE_DIR                             = "{{config_root}}/.cache/foundry"
-FOUNDRY_OUTPUT_DIR                            = "{{config_root}}/.artifacts/foundry"
-FUNCTION_HOOKS_QUESTION_GATE                  = "true"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       # Holds an agent's question while the owner types, uses a full-screen app, or keeps a Focus on
-GHIDRA_CLASSPATH                              = { tools = true, value = '''{% set ghidra = tools["github:NationalSecurityAgency/ghidra"]?.path %}{% if ghidra %}{{ exec(command="fd --type f --full-path --glob '**/lib/*.jar' --absolute-path '" ~ ghidra ~ "/Ghidra' | paste -sd: -", cache_key="ghidra-classpath-" ~ ghidra, cache_duration="1d") }}{% endif %}''' }
-GHIDRA_INSTALL_DIR                            = { tools = true, value = '{{ tools["github:NationalSecurityAgency/ghidra"]?.path or "" }}' }
-GHIDRA_JAVA_OPTIONS                           = "-Dapplication.settingsdir={{config_root}}/.cache/ghidra/settings -Dapplication.cachedir={{config_root}}/.cache/ghidra/cache -Dapplication.tempdir={{config_root}}/.cache/ghidra/tmp"
-HK_CACHE_DIR                                  = "{{config_root}}/.cache/hk"
-HK_MISE                                       = "1"
-HK_PKL_CACHE_DIR                              = "{{config_root}}/.cache/pklr"
-HYPOTHESIS_STORAGE_DIRECTORY                  = "{{config_root}}/.cache/hypothesis"
-JAVAC_PLUGINS                                 = { tools = true, value = '{% for jar in ["dataflow-errorprone", "dataflow-nullaway", "error-prone", "jspecify", "nullaway"] %}{% set tool = tools["http:" ~ jar]?.path %}{% if tool %}{{ tool }}/{{ jar }}.jar{% if not loop.last %}:{% endif %}{% endif %}{% endfor %}' }
-NODE_COMPILE_CACHE                            = "{{config_root}}/.cache/node"
-NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN      = { default = '''{% if env?.CI != "true" %}{% set login = get_env(name="DOPPLER_CONFIG_DIR", default=get_env(name="HOME", default="") ~ "/.doppler") ~ "/.doppler.yaml" %}{% set key = env.DOPPLER_PROJECT ~ env.DOPPLER_CONFIG %}{% if login is file %}{% set key = key ~ (login | hash_file) %}{% endif %}{% set read = "doppler secrets get NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN --plain --attempts 1 --timeout 3s --dns-resolver-timeout 1s 2>/dev/null || true" %}{{ exec(command=read, cache_key=key, cache_duration="15m") or exec(command=read, cache_key=key ~ "-empty", cache_duration="1m") }}{% endif %}''', redact = true, tools = true }
-NX_SELF_HOSTED_REMOTE_CACHE_SERVER            = { tools = true, value = '''{% set probe = `server="${NX_SELF_HOSTED_REMOTE_CACHE_SERVER:-$(doppler secrets get NX_SELF_HOSTED_REMOTE_CACHE_SERVER --plain --attempts 1 --timeout 3s --dns-resolver-timeout 1s 2>/dev/null)}" pkl eval --timeout 5 --http-header "**=Authorization: Bearer ${NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN:-}" -x 'let (server = read?("env:server") ?? "") if (server.isEmpty || read?(server + "/v1/cache/0") is Resource?) server else ""' pkl:base 2>/dev/null || echo "::warning title=Nx remote cache::The cache server refused a read or gave no answer, Nx uses the local cache alone" >&2` %}{% set key = "nx-remote-cache-" ~ (env?.NX_SELF_HOSTED_REMOTE_CACHE_SERVER or "doppler") ~ (env?.NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN or "") %}{{ exec(command=probe, cache_key=key, cache_duration="15m") or exec(command=probe, cache_key=key ~ "-empty", cache_duration="1m") }}''' }
-NX_WORKSPACE_DATA_DIRECTORY                   = "{{config_root}}/.cache/nx/workspace-data"
-PLAYWRIGHT_CLI_SESSION                        = "{{ env?.CLAUDE_CODE_SESSION_ID or env?.CODEX_THREAD_ID or env?.ANTIGRAVITY_CONVERSATION_ID or '' }}"
-PLAYWRIGHT_MCP_ALLOW_UNRESTRICTED_FILE_ACCESS = "true"
-PLAYWRIGHT_MCP_BACKGROUND                     = "1"
-PLAYWRIGHT_MCP_BROWSER                        = "chromium"
-PLAYWRIGHT_MCP_FILE_PATHS                     = "absolute"
-PLAYWRIGHT_MCP_IDLE_TIMEOUT                   = "3600000"
-PLAYWRIGHT_MCP_OUTPUT_DIR                     = "{{config_root}}/.artifacts/playwright/cli"
-PLAYWRIGHT_MCP_OUTPUT_MAX_SIZE                = "268435456"
-PLAYWRIGHT_MCP_USER_AGENT                     = '''{% set browsers = config_root ~ "/node_modules/@playwright/test/../../playwright/../playwright-core/browsers.json" %}{% if browsers is file %}Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{{ [browser.browserVersion for browser in read_json(path=browsers)["browsers"] if browser.name == "chromium"] | first | split(pat=".") | first }}.0.0.0 Safari/537.36{% endif %}'''
-PLAYWRIGHT_TRANSFORM_CACHE_DIR                = "{{config_root}}/.cache/playwright/transform"
-PULUMI_HOME                                   = "{{config_root}}/.cache/pulumi"
-PYTEST_CACHE_DIR                              = "{{config_root}}/.cache/pytest"
-RUFF_CACHE_DIR                                = "{{config_root}}/.cache/ruff"
-RUSTUP_AUTO_INSTALL                           = "0"
-RUSTUP_TOOLCHAIN                              = false
-SHELLCHECK_OPTS                               = "--rcfile={{config_root}}/.config/shellcheckrc"
-SWIFT_BACKTRACE                               = "enable=yes,interactive=no,warnings=suppressed"
-TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE         = "/var/run/docker.sock"
-TOMBI_CACHE_HOME                              = "{{config_root}}/.cache/tombi"
-TY_UV                                         = "1"
-UV_CACHE_DIR                                  = "{{config_root}}/.cache/uv"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  # Wheels uv builds from sdists record this checkout's Pixi library path, so the cache stays per checkout
-UV_PYTHON_PREFERENCE                          = "only-managed"
-VCPKG_BINARY_SOURCES                          = "clear;files,{{config_root}}/.cache/vcpkg/archives,readwrite"
-VCPKG_DISABLE_METRICS                         = "1"
-VCPKG_DOWNLOADS                               = "{{config_root}}/.cache/vcpkg/downloads"
-VCPKG_FORCE_SYSTEM_BINARIES                   = "1"
-VCPKG_ROOT                                    = { tools = true, value = '{{ tools["github:microsoft/vcpkg-tool"]?.path or "" }}' }
-WATCH_APP_OUTPUT_DIR                          = "{{config_root}}/.artifacts"
-WATCH_APP_SESSION                             = "{{ env.PLAYWRIGHT_CLI_SESSION }}"
-X_VCPKG_REGISTRIES_CACHE                      = "{{config_root}}/.cache/vcpkg/registries"
+_.path                                   = ["./node_modules/.bin"]
+BUILDX_EXPERIMENTAL                      = "1"
+CARGO_LLVM_COV_DENY_WARNINGS             = "1"
+CF_QUIET                                 = "1"
+CTX7_TELEMETRY_DISABLED                  = "1"
+CLOUDFLARE_DEV_REGISTRY_PATH             = "{{config_root}}/.cache/cloudflare/registry"
+DOPPLER_CONFIG                           = "dev"
+DOPPLER_PROJECT                          = "rasm"
+DOTNET_NOLOGO                            = "1"
+FOUNDRY_CACHE_DIR                        = "{{config_root}}/.cache/foundry"
+FOUNDRY_OUTPUT_DIR                       = "{{config_root}}/.artifacts/foundry"
+FUNCTION_HOOKS_QUESTION_GATE             = "true"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    # Holds an agent's question while the owner types, uses a full-screen app, or keeps a Focus on
+GHIDRA_CLASSPATH                         = { tools = true, value = '''{% set ghidra = tools["github:NationalSecurityAgency/ghidra"]?.path %}{% if ghidra %}{{ exec(command="fd --type f --full-path --glob '**/lib/*.jar' --absolute-path '" ~ ghidra ~ "/Ghidra' | paste -sd: -", cache_key="ghidra-classpath-" ~ ghidra, cache_duration="1d") }}{% endif %}''' }
+GHIDRA_INSTALL_DIR                       = { tools = true, value = '{{ tools["github:NationalSecurityAgency/ghidra"]?.path or "" }}' }
+GHIDRA_JAVA_OPTIONS                      = "-Dapplication.settingsdir={{config_root}}/.cache/ghidra/settings -Dapplication.cachedir={{config_root}}/.cache/ghidra/cache -Dapplication.tempdir={{config_root}}/.cache/ghidra/tmp"
+HK_CACHE_DIR                             = "{{config_root}}/.cache/hk"
+HK_MISE                                  = "1"
+HK_PKL_CACHE_DIR                         = "{{config_root}}/.cache/pklr"
+HYPOTHESIS_STORAGE_DIRECTORY             = "{{config_root}}/.cache/hypothesis"
+JAVAC_PLUGINS                            = { tools = true, value = '{% for jar in ["dataflow-errorprone", "dataflow-nullaway", "error-prone", "jspecify", "nullaway"] %}{% set tool = tools["http:" ~ jar]?.path %}{% if tool %}{{ tool }}/{{ jar }}.jar{% if not loop.last %}:{% endif %}{% endif %}{% endfor %}' }
+NODE_COMPILE_CACHE                       = "{{config_root}}/.cache/node"
+NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN = { default = '''{% if env?.CI != "true" %}{% set login = get_env(name="DOPPLER_CONFIG_DIR", default=get_env(name="HOME", default="") ~ "/.doppler") ~ "/.doppler.yaml" %}{% set key = env.DOPPLER_PROJECT ~ env.DOPPLER_CONFIG %}{% if login is file %}{% set key = key ~ (login | hash_file) %}{% endif %}{% set read = "doppler secrets get NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN --plain --attempts 1 --timeout 3s --dns-resolver-timeout 1s 2>/dev/null || true" %}{{ exec(command=read, cache_key=key, cache_duration="15m") or exec(command=read, cache_key=key ~ "-empty", cache_duration="1m") }}{% endif %}''', redact = true, tools = true }
+NX_SELF_HOSTED_REMOTE_CACHE_SERVER       = { tools = true, value = '''{% set probe = `answer="$(server="${NX_SELF_HOSTED_REMOTE_CACHE_SERVER:-$(doppler secrets get NX_SELF_HOSTED_REMOTE_CACHE_SERVER --plain --attempts 1 --timeout 3s --dns-resolver-timeout 1s 2>/dev/null)}" pkl eval --timeout 5 --http-header "**=Authorization: Bearer ${NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN:-}" -x 'let (server = read?("env:server") ?? "") if (server.isEmpty || read?(server + "/v1/cache/0") is Resource?) server else ""' pkl:base 2>&1)" && printf %s "${answer}" || printf '::warning title=Nx remote cache::%s Nx uses the local cache alone\n' "$(printf %s "${answer}" | sed -n 2,3p | paste -sd ' ' -)" >&2` %}{% set key = "nx-remote-cache-" ~ (env?.NX_SELF_HOSTED_REMOTE_CACHE_SERVER or "doppler") ~ (env?.NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN or "") %}{{ exec(command=probe, cache_key=key, cache_duration="15m") or exec(command=probe, cache_key=key ~ "-empty", cache_duration="1m") }}''' }
+NX_WORKSPACE_DATA_DIRECTORY              = "{{config_root}}/.cache/nx/workspace-data"
+PLAYWRIGHT_CLI_SESSION                   = "{{ env?.CLAUDE_CODE_SESSION_ID or env?.CODEX_THREAD_ID or env?.ANTIGRAVITY_CONVERSATION_ID or '' }}"
+PLAYWRIGHT_TRANSFORM_CACHE_DIR           = "{{config_root}}/.cache/playwright/transform"
+PULUMI_HOME                              = "{{config_root}}/.cache/pulumi"
+PYTEST_CACHE_DIR                         = "{{config_root}}/.cache/pytest"
+PYTHONPYCACHEPREFIX                      = "{{config_root}}/.cache/python"
+RUFF_CACHE_DIR                           = "{{config_root}}/.cache/ruff"
+RUSTUP_AUTO_INSTALL                      = "0"
+RUSTUP_TOOLCHAIN                         = false
+SHELLCHECK_OPTS                          = "--rcfile={{config_root}}/.config/shellcheckrc"
+SWIFT_BACKTRACE                          = "enable=yes,interactive=no,warnings=suppressed"
+TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE    = "/var/run/docker.sock"
+TOMBI_CACHE_HOME                         = "{{config_root}}/.cache/tombi"
+TY_UV                                    = "1"
+UV_CACHE_DIR                             = "{{config_root}}/.cache/uv"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               # Wheels uv builds from sdists record this checkout's Pixi library path, so the cache stays per checkout
+UV_PYTHON_PREFERENCE                     = "only-managed"
+VCPKG_BINARY_SOURCES                     = "clear;files,{{config_root}}/.cache/vcpkg/archives,readwrite"
+VCPKG_DISABLE_METRICS                    = "1"
+VCPKG_DOWNLOADS                          = "{{config_root}}/.cache/vcpkg/downloads"
+VCPKG_FORCE_SYSTEM_BINARIES              = "1"
+VCPKG_ROOT                               = { tools = true, value = '{{ tools["github:microsoft/vcpkg-tool"]?.path or "" }}' }
+WATCH_APP_OUTPUT_DIR                     = "{{config_root}}/.artifacts"
+WATCH_APP_SESSION                        = "{{ env.PLAYWRIGHT_CLI_SESSION }}"
+X_VCPKG_REGISTRIES_CACHE                 = "{{config_root}}/.cache/vcpkg/registries"
 
 # --- [DEPS] -----------------------------------------------------------------------------
 
@@ -104,11 +96,23 @@ outputs = [".venv/"]
 run     = "uv sync --locked --all-packages"
 sources = ["pyproject.toml", "uv.lock"]
 
+[deps.msbuild-analyzer]
+dir     = "products/developer/nx/dotnet/analyzer"
+outputs = ["dist/"]
+run     = "dotnet publish MsbuildAnalyzer.csproj"
+sources = ["*.cs", "MsbuildAnalyzer.csproj", "packages.lock.json", "../../../../Directory.Build.props", "../../../../Directory.Build.targets", "../../../../Directory.Packages.props", "../../../../global.json", "../../../../NuGet.config"]
+
+# --- [HOOKS] ----------------------------------------------------------------------------
+
+[hooks.postinstall] # A Rust install means rust-toolchain.toml moved, so every build folder artifact is stale and the old toolchain is unpinned
+run         = '''printf %s "$MISE_INSTALLED_TOOLS" | jq -e 'any(.[]; .name == "rust")' >/dev/null || exit 0; cargo clean && mise prune --tools rust'''
+run_windows = '''echo %MISE_INSTALLED_TOOLS%| jq -e "any(.[]; .name == \"rust\")" >nul || exit /b 0 & cargo clean && mise prune --tools rust'''
+
 # --- [BOOTSTRAP] ------------------------------------------------------------------------
 
 [bootstrap.hooks]
 final      = "mise exec -- hk install"
-post-tools = "mise deps pnpm"
+post-tools = "mise deps pnpm && mise deps msbuild-analyzer"
 
 [bootstrap.remote]
 source = "."
@@ -252,7 +256,6 @@ doppler                                                                      = "
 dotnet                                                                       = "latest"
 "dotnet:dotnet-counters"                                                     = "latest"
 "dotnet:dotnet-dump"                                                         = "latest"
-"dotnet:dotnet-gcdump"                                                       = "latest"
 "dotnet:dotnet-stack"                                                        = "latest"
 "dotnet:dotnet-trace"                                                        = "latest"
 "dotnet:ilspycmd"                                                            = "latest"
@@ -273,6 +276,7 @@ git-lfs                                                                      = "
 "github:linebender/resvg"                                                    = { matching = "usvg", version = "latest" }
 "github:MobileNativeFoundation/XCLogParser"                                  = { matching = "macOS-arm64", os = ["macos"], version = "latest" }
 "github:rudrankriyam/App-Store-Connect-CLI"                                  = { bin = "asc", matching = "macOS_arm64", os = ["macos"], version = "latest" }
+"github:Samsung/netcoredbg"                                                  = "latest"
 "github:sbdchd/squawk"                                                       = "latest"
 "github:sparkle-project/Sparkle"                                             = { os = ["macos"], version = "latest" }
 google-java-format                                                           = "latest"
@@ -285,7 +289,7 @@ java                                                                         = "
 jq                                                                           = "latest"
 lima                                                                         = { os = ["macos"], version = "latest" }
 ninja                                                                        = "latest"
-node                                                                         = "latest"
+node                                                                         = { postinstall = '''node -e "require('node:fs').rmSync(process.env.NODE_COMPILE_CACHE, { recursive: true, force: true })"''', version = "latest" }
 "npm:@aredotna/cli"                                                          = "latest"
 "npm:@bubblydoo/uxp-cli"                                                     = { allow_builds = ["@adobe-fixed-uxp/uxp-devtools-helper"], allow_low_downloads = true, os = ["macos", "windows"], version = "latest" }
 "npm:@modelcontextprotocol/conformance"                                      = "0.2.0-alpha.12"
@@ -299,7 +303,7 @@ pulumi                                                                       = "
 "pypi:git+https://projects.blender.org/lab/blender_mcp.git#subdirectory=mcp" = "v1"
 "pypi:mcp-for-blender"                                                       = { os = ["macos"], version = "latest" }
 "pypi:yamllint"                                                              = { python = "3.14", version = "latest" }                                                                                                                                                                                                                                             # PyYAML publishes no CPython 3.15 wheel, and mise lock builds no sdist into a dependency graph
-resvg                                                                        = "latest"
+resvg                                                                        = { os = ["linux/x64", "macos/arm64"], version = "latest" }
 ripgrep                                                                      = "latest"
 ruff                                                                         = "latest"
 sd                                                                           = "latest"
@@ -416,17 +420,11 @@ version_list_url = "{{ vars.maven }}/com/uber/nullaway/nullaway/maven-metadata.x
 version_regex    = "<version>([^<]+)</version>"
 
 [tools."http:rustc-source"]
+os               = ["unix"]
 postinstall      = { run = 'rm -rf "$MISE_TOOL_INSTALL_PATH/src/llvm-project" && ln -sfn "$MISE_TOOL_INSTALL_PATH" "$MISE_CONFIG_ROOT/.cargo/rustc-source"', when = "always" }
 strip_components = 1
 url              = "https://static.rust-lang.org/dist/{{ version }}/rustc-nightly-src.tar.xz"
 version          = "{{ read_toml(path=config_root ~ '/rust-toolchain.toml')['toolchain']['channel'] | trim_start(pat='nightly-') }}"
-
-[tools."http:zxpsigncmd"]
-os               = ["macos", "windows"]
-url              = 'https://raw.githubusercontent.com/Adobe-CEP/CEP-Resources/master/ZXPSignCMD/{{ version }}/{{ os(macos="macOS/ZXPSignCmd", windows="x64/ZXPSignCmd.exe") }}'
-version          = "latest"
-version_list_url = "https://api.github.com/repos/Adobe-CEP/CEP-Resources/git/trees/master?recursive=1"
-version_regex    = '"path":"ZXPSignCMD/([^/"]+)/macOS/ZXPSignCmd"'
 
 [tools."http:yak"]
 bin              = "yak"

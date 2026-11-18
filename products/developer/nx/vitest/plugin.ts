@@ -4,7 +4,7 @@ import { basename, dirname, isAbsolute, join, matchesGlob, relative, resolve } f
 import { env } from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, detectPackageManager, getPackageManagerCommand, hashArray, normalizePath, type ProjectConfiguration, readJsonFile, type TargetConfiguration } from '@nx/devkit';
-import { buildPackageJsonPatterns, buildPackageJsonWorkspacesMatcher, calculateHashesForCreateNodes, getLockFileName, hashObject, type PackageJson, PluginCache, retryOnRequireEsmRace, workspaceDataDirectory } from '@nx/devkit/internal';
+import { buildPackageJsonPatterns, buildPackageJsonWorkspacesMatcher, calculateHashesForCreateNodes, getLockFileName, type PackageJson, PluginCache, retryOnRequireEsmRace, workspaceDataDirectory } from '@nx/devkit/internal';
 import { getRootTsConfigFileName } from '@nx/js';
 import { above, aggregated, extended, fingerprinted, Folder, type Input, manifested, namedInput, packaged, parsed, recalled, run, stamped, tokened, type Verbs, within } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
@@ -200,13 +200,13 @@ const targets = (file: string, { loaded: configs, packages, linked, triggers, fo
     };
 };
 
-const inferred = Effect.fnUntraced(function* (cache: PluginCache<Resolved>, context: CreateNodesContext, settings: typeof Options.Type, hash: string, file: string) {
-    const key = hashArray([hash, yield* OWN, file]);
+const inferred = Effect.fnUntraced(function* (cache: PluginCache<Resolved & { readonly digest: string }>, context: CreateNodesContext, settings: typeof Options.Type, hash: string, file: string) {
+    const digest = hashArray([hash, yield* OWN]);
     const manager = detectPackageManager(context.workspaceRoot);
     const flags = Array.fromNullishOr(settings.outputPath).flatMap((at) => directed(relative(dirname(file), at)));
-    const held = yield* recalled(cache, key, stamped(context.workspaceRoot));
+    const held = Option.filter(yield* recalled(cache, file, stamped(context.workspaceRoot)), (cached) => cached.digest === digest);
     const resolved = yield* Option.match(held, { onSome: Effect.succeed, onNone: () => read(context.workspaceRoot, file, flags, getLockFileName(manager)) });
-    cache.set(key, resolved);
+    cache.set(file, { ...resolved, digest });
     const projects = yield* Effect.forEach(
         resolved.suites,
         Effect.fnUntraced(function* (suite) {
@@ -228,7 +228,7 @@ const nodes = Effect.fnUntraced(function* (files: readonly string[], options: ty
     const settings = yield* Schema.decodeEffect(Options)(options ?? {});
     const configs = files.filter((file) => matchesGlob(basename(file), SUITE) || !files.some((other) => dirname(other) === dirname(file) && matchesGlob(basename(other), SUITE)));
     const lock = getLockFileName(detectPackageManager(context.workspaceRoot));
-    const cache = new PluginCache<Resolved>(join(workspaceDataDirectory, `vitest-${hashObject(options ?? {})}.hash`));
+    const cache = new PluginCache<Resolved & { readonly digest: string }>(join(workspaceDataDirectory, 'vitest.hash'));
     const hashes = yield* Effect.promise(() =>
         calculateHashesForCreateNodes(
             configs.map(dirname),

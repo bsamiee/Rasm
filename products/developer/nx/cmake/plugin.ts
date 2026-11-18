@@ -1,4 +1,4 @@
-import { basename, dirname, join, relative } from 'node:path';
+import { join, posix, relative } from 'node:path';
 import { type CreateDependencies, type CreateNodes, type CreateNodesContext, createNodesFromFiles, DependencyType, hashArray, type ProjectConfiguration, type RawProjectGraphDependency } from '@nx/devkit';
 import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, findProjectForPath, getNamedInputs, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
 import { fingerprinted, manifested } from '@rasm/nx-distribution/inference';
@@ -20,23 +20,23 @@ const Options = Schema.Struct({ outputPath: Schema.optionalKey(Schema.String), c
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const inferred = Effect.fnUntraced(function* (cache: PluginCache<{ readonly tree: Tree; readonly stamp: string }>, context: CreateNodesContext, settings: typeof Options.Type, matched: readonly string[], file: string) {
-    const near = matched.filter((other) => !relative(dirname(file), other).startsWith('..'));
+const inferred = Effect.fnUntraced(function* (cache: PluginCache<{ readonly tree: Tree; readonly stamp: string; readonly digest: string }>, context: CreateNodesContext, settings: typeof Options.Type, matched: readonly string[], file: string) {
+    const near = matched.filter((other) => !posix.relative(posix.dirname(file), other).startsWith('..'));
     const stamped = ({ inputs }: Tree) => Effect.promise(() => hashWithWorkspaceContext(context.workspaceRoot, [...inputs]));
-    const key = hashArray([yield* Effect.promise(() => hashWithWorkspaceContext(context.workspaceRoot, near)), yield* OWN, file]);
-    const held = yield* Effect.findFirst(Option.toArray(Option.fromUndefinedOr(cache.get(key))), (stored) => Effect.map(stamped(stored.tree), Equal.equals(stored.stamp)));
+    const digest = hashArray([yield* Effect.promise(() => hashWithWorkspaceContext(context.workspaceRoot, near)), yield* OWN]);
+    const held = yield* Effect.findFirst(Option.toArray(Option.filter(Option.fromUndefinedOr(cache.get(file)), (stored) => stored.digest === digest)), (stored) => Effect.map(stamped(stored.tree), Equal.equals(stored.stamp)));
     const tree = yield* Option.match(held, {
         onSome: (stored) => Effect.succeed(stored.tree),
         onNone: () =>
             resolved(
                 context.workspaceRoot,
                 file,
-                near.filter((other) => basename(other) === MANIFEST),
+                near.filter((other) => posix.basename(other) === MANIFEST),
             ),
     });
     yield* Option.isNone(held)
         ? Effect.map(stamped(tree), (stamp) => {
-              cache.set(key, { tree, stamp });
+              cache.set(file, { tree, stamp, digest });
               cache.writeToDisk();
           })
         : Effect.void;
@@ -44,12 +44,12 @@ const inferred = Effect.fnUntraced(function* (cache: PluginCache<{ readonly tree
     const owner = (folder: string) =>
         Array.min(
             Array.prepend(
-                tree.members.map(({ root }) => root).filter((root) => !relative(root, folder).startsWith('..')),
+                tree.members.map(({ root }) => root).filter((root) => !posix.relative(root, folder).startsWith('..')),
                 tree.root,
             ),
-            Order.mapInput(Order.Number, (root: string) => relative(root, folder).length),
+            Order.mapInput(Order.Number, (root: string) => posix.relative(root, folder).length),
         );
-    const registries = near.filter((other) => basename(other) === REGISTRY.manifest).map((manifest) => ({ owner: owner(dirname(manifest)), folder: dirname(manifest), inputs: Array.intersection([manifest, join(dirname(manifest), REGISTRY.configuration)], matched) }));
+    const registries = near.filter((other) => posix.basename(other) === REGISTRY.manifest).map((manifest) => ({ owner: owner(posix.dirname(manifest)), folder: posix.dirname(manifest), inputs: Array.intersection([manifest, posix.join(posix.dirname(manifest), REGISTRY.configuration)], matched) }));
     const claimed = Array.groupBy(registries, ({ owner: root }) => root);
     const built = Array.fromNullishOr(tree.workflows[0]).flatMap((head) => tree.members.map((member) => ({ member, head, compiled: member.targets.length > 0 || member.installs || member.tested, owned: claimed[member.root] ?? [] })).filter(({ compiled, owned }) => compiled || owned.length > 0));
     const manifests = yield* Effect.forEach(built, ({ member }) => manifested(context.workspaceRoot, member.root));
@@ -74,8 +74,8 @@ const inferred = Effect.fnUntraced(function* (cache: PluginCache<{ readonly tree
 const createNodes: CreateNodes<typeof Options.Encoded> = [
     combineGlobPatterns([PRESETS, MANIFEST, REGISTRY.manifest, REGISTRY.configuration].map((file) => `**/${file}`)),
     (matched, options, context) => {
-        const cache = new PluginCache<{ readonly tree: Tree; readonly stamp: string }>(join(workspaceDataDirectory, 'cmake.hash'));
-        const presets = matched.filter((file) => basename(file) === PRESETS && matched.includes(join(dirname(file), MANIFEST)));
+        const cache = new PluginCache<{ readonly tree: Tree; readonly stamp: string; readonly digest: string }>(join(workspaceDataDirectory, 'cmake.hash'));
+        const presets = matched.filter((file) => posix.basename(file) === PRESETS && matched.includes(posix.join(posix.dirname(file), MANIFEST)));
         return run(
             Effect.gen(function* () {
                 const settings = yield* Schema.decodeEffect(Options)(options ?? {});

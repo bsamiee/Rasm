@@ -1,0 +1,15 @@
+{
+    "name": "@rasm/test-function-hooks",
+    "private": true,
+    "description": "Decide route suite over a served function-hooks engine: a Monitor tail of a written task output bounded by its writer and stable on a second decision, and a repeated read refused while a process writes the output and allowed while only a reader holds it",
+    "type": "module",
+    "devDependencies": {
+        "@effect/platform-node": "catalog:",
+        "@effect/vitest": "catalog:",
+        "@rasm/function-hooks": "workspace:*",
+        "@types/node": "catalog:",
+        "effect": "catalog:",
+        "vite": "catalog:",
+        "vitest": "catalog:"
+    }
+}

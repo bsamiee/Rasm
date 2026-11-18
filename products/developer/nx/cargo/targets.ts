@@ -1,5 +1,5 @@
-import { dirname, join, parse, relative } from 'node:path';
-import type { TargetConfiguration } from '@nx/devkit';
+import { dirname, parse, posix, relative } from 'node:path';
+import { normalizePath, type TargetConfiguration } from '@nx/devkit';
 import { aggregated, type Verbs } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Option, Record, Schema } from 'effect';
@@ -43,12 +43,12 @@ const cargoTarget = (help: string, description: string, options: typeof Cargo.Ty
 const joined = (left: Verbs, right: Verbs): Verbs => Record.union(left, right, (held, added) => ({ ...held, ...added }));
 
 const crateInputs = (workspace: Workspace, { crate, root }: Member, stated: TargetConfiguration['inputs']): NonNullable<TargetConfiguration['inputs']> => {
-    const folders = Array.dedupe(crate.targets.map(({ src_path }) => relative(dirname(crate.manifest_path), dirname(src_path))));
-    const placed = (at: string) => (at.startsWith('..') ? tokened(join(root, at)) : join('{projectRoot}', at));
+    const folders = Array.dedupe(crate.targets.map(({ src_path }) => normalizePath(relative(dirname(crate.manifest_path), dirname(src_path)))));
+    const placed = (at: string) => (at.startsWith('..') ? tokened(posix.join(root, at)) : posix.join('{projectRoot}', at));
     return [
-        ...(stated ?? (folders.includes('') ? ['{projectRoot}/**/*'] : [join('{projectRoot}', MANIFEST), ...folders.map((at) => join(placed(at), '**/*')), ...Array.fromNullishOr(crate.readme).map(placed)])),
-        tokened(join(workspace.root, LOCK)),
-        tokened(join(workspace.root, MANIFEST)),
+        ...(stated ?? (folders.includes('') ? ['{projectRoot}/**/*'] : [posix.join('{projectRoot}', MANIFEST), ...folders.map((at) => posix.join(placed(at), '**/*')), ...Array.fromNullishOr(crate.readme).map(placed)])),
+        tokened(posix.join(workspace.root, LOCK)),
+        tokened(posix.join(workspace.root, MANIFEST)),
         ...workspace.configs,
         HOST,
         ...workspace.compiler.map((env) => ({ env })),
@@ -65,7 +65,7 @@ const crateTargets = (workspace: Workspace, coverage: Option.Option<string>, { c
     const outputs = (folder: string) =>
         Option.match(workspace.placed, {
             onNone: () => [],
-            onSome: (artifacts) => products.flatMap((file) => [file, `${parse(file).name}.d`]).map((file) => tokened(join(artifacts, folder, file))),
+            onSome: (artifacts) => products.flatMap((file) => [file, `${parse(file).name}.d`]).map((file) => tokened(posix.join(artifacts, folder, file))),
         });
     const debug = outputs('debug');
     const profiles = ['release', ...workspace.profiles];
@@ -85,7 +85,7 @@ const crateTargets = (workspace: Workspace, coverage: Option.Option<string>, { c
         const files = report.map(tokened);
         return {
             outputs: files.map((_, index) => `{options.outputs.${index}}`),
-            configurations: { coverage: { commands: [{ ...run(['--lcov', ...report.flatMap((file) => ['--output-path', relative(workspace.root, file)])]), packages: direct }], outputs: files } },
+            configurations: { coverage: { commands: [{ ...run(['--lcov', ...report.flatMap((file) => ['--output-path', posix.relative(workspace.root, file)])]), packages: direct }], outputs: files } },
         };
     };
     const libtest = (run: Array.NonEmptyReadonlyArray<string>): Command => ({ args: Array.appendAll(run, [...(plain ? [] : ['--doc']), LOCKED]) });
@@ -164,7 +164,7 @@ const crateTargets = (workspace: Workspace, coverage: Option.Option<string>, { c
 };
 
 const workspaceTargets = (workspace: Workspace): Verbs => {
-    const manifests = Array.dedupe([...workspace.members.map((member) => member.manifest), join(workspace.root, MANIFEST)]).map(tokened);
+    const manifests = Array.dedupe([...workspace.members.map((member) => member.manifest), posix.join(workspace.root, MANIFEST)]).map(tokened);
     const check = Record.fromIterableWith(
         Option.toArray(workspace.deny)
             .flatMap(({ files, tables }) => DENIED.map((row) => ({ ...row, files, selected: Array.intersection(row.checks, tables) })))
@@ -176,7 +176,7 @@ const workspaceTargets = (workspace: Workspace): Verbs => {
                     'deny',
                     `Reports the cargo-deny ${selected.join(', ')} findings of the workspace graph with cargo deny check, failing on any warning`,
                     { cwd: workspace.root, commands: [{ args: ['deny', LOCKED, '--workspace', 'check', '--deny', 'warnings', ...selected] }] },
-                    { ...extra, inputs: [...manifests, tokened(join(workspace.root, LOCK)), ...files.map(tokened), version('deny'), { externalDependencies: [] }] },
+                    { ...extra, inputs: [...manifests, tokened(posix.join(workspace.root, LOCK)), ...files.map(tokened), version('deny'), { externalDependencies: [] }] },
                 ),
             ] as const,
     );
@@ -185,7 +185,7 @@ const workspaceTargets = (workspace: Workspace): Verbs => {
         upgrade: {
             cargo: {
                 executor: `${PLUGIN}:upgrade`,
-                inputs: [...manifests, tokened(join(workspace.root, LOCK)), { externalDependencies: [] }],
+                inputs: [...manifests, tokened(posix.join(workspace.root, LOCK)), { externalDependencies: [] }],
                 options: { cwd: workspace.root },
                 metadata: { description: 'Moves every dependency requirement to its newest release, prereleases above a stable line included, with cargo upgrade, then the lock with cargo update', help: { command: 'cargo upgrade --help', example: { options: { dryRun: true } } } },
             },
@@ -200,7 +200,7 @@ const projectTargets = (workspace: Workspace, coverage: Option.Option<string>, m
             'package',
             `Packs ${crate.name} into a .crate archive with cargo package beside the workspace crates it depends on, without the verification build`,
             { cwd: workspace.root, package: crate.name, commands: [{ args: ['package', '--no-verify', LOCKED], packages }] },
-            { cache: true, outputs: [join(artifacts, 'package', `${crate.name}-${crate.version}.crate`)].map((at) => (relative(root, at).startsWith('..') ? tokened(at) : join('{projectRoot}', relative(root, at)))) },
+            { cache: true, outputs: [posix.join(artifacts, 'package', `${crate.name}-${crate.version}.crate`)].map((at) => (posix.relative(root, at).startsWith('..') ? tokened(at) : posix.join('{projectRoot}', posix.relative(root, at)))) },
         ),
     );
     const tools = [...Option.toArray(Option.map(member, (held) => crateTargets(workspace, coverage, held))), ...(Option.isNone(nested) ? [workspaceTargets(workspace)] : []), { pack: Option.match(packed, { onNone: (): Readonly<Record<string, TargetConfiguration>> => ({}), onSome: (cargo) => ({ cargo }) }) }].reduce(
@@ -257,7 +257,7 @@ const released = ({ crate, versioned, packages }: Member, cwd: string) => {
                       metadata: { technologies: ['rust'], description: `Publishes ${crate.name} with cargo publish at the version nx release tagged at the checked-out commit, skipping a version cargo info finds in its registry`, help: { command: 'cargo publish --help', example: { options: { dryRun: true } } } },
                   },
               };
-    return versioned ? { tags: ['release'], release: { version: { versionActions: `${PLUGIN}/release/version-actions`, versionActionsOptions: { lock: join(cwd, LOCK), ...named } } }, targets: published } : { targets: {} };
+    return versioned ? { tags: ['release'], release: { version: { versionActions: `${PLUGIN}/release/version-actions`, versionActionsOptions: { lock: posix.join(cwd, LOCK), ...named } } }, targets: published } : { targets: {} };
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------

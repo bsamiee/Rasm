@@ -153,16 +153,15 @@ const createNodes: CreateNodes<typeof Options.Encoded> = [
                     [Schema.decodeEffect(Options)(options ?? {}), own, Effect.option(spawned(['xcode-select', '--print-path'], { cwd: workspaceRoot })), Effect.option(spawned(['which', 'swift'], { cwd: workspaceRoot })), Effect.option(Effect.tap(analyzer, (at) => fs.stat(at)))],
                     { concurrency: 'unbounded' },
                 );
-                const name = `apple-${hashArray([hashObject(options ?? {}), hashed])}.hash`;
-                const cache = new PluginCache<Graph>(join(workspaceDataDirectory, name));
+                const cache = new PluginCache<Graph>(join(workspaceDataDirectory, 'apple.hash'));
                 const stamps = [
                     ...Option.toArray(developer),
                     ...Option.toArray(Option.flatMap(developer, (path) => Option.fromNullishOr(hashFile(join(path.trim(), '..', 'version.plist'))))),
                     ...[...Option.toArray(swift), ...Option.toArray(compiled)].flatMap((file) => [file, ...Array.fromNullishOr(hashFile(file.trim()))]),
                     ...Option.toArray(yield* Config.option(Config.String('TOOLCHAINS'))),
                 ];
-                const key = hashArray([yield* Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, READ)), ...stamps, ...files]);
-                const stored = Option.fromNullishOr(cache.get(key));
+                const digest = hashArray([hashObject(options ?? {}), hashed, yield* Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, READ)), ...stamps, ...files]);
+                const stored = Option.fromNullishOr(cache.get(digest));
                 const read = yield* Option.match(stored, {
                     onSome: (graph) => Effect.succeed({ graph, failures: [], partial: false }),
                     onNone: () =>
@@ -172,18 +171,9 @@ const createNodes: CreateNodes<typeof Options.Encoded> = [
                 });
                 yield* Option.isNone(stored) && read.failures.length === 0 && !read.partial
                     ? Effect.sync(() => {
-                          cache.set(key, read.graph);
+                          cache.set(digest, read.graph);
                           cache.writeToDisk();
-                      }).pipe(
-                          Effect.andThen(fs.readDirectory(workspaceDataDirectory)),
-                          Effect.flatMap((entries) =>
-                              Effect.forEach(
-                                  entries.filter((entry) => entry !== name && matchesGlob(entry, 'apple-*.hash')),
-                                  (entry) => fs.remove(join(workspaceDataDirectory, entry)),
-                                  { discard: true },
-                              ),
-                          ),
-                      )
+                      })
                     : Effect.void;
                 (yield* Graphs).set(workspaceRoot, read.graph);
                 const [placed, unread] = yield* Effect.partition(read.graph.projects, ({ file, technology, project, tools }) =>

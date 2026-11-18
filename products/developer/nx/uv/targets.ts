@@ -1,4 +1,4 @@
-import { dirname, extname, join, relative } from 'node:path';
+import { join, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { type RawProjectGraphDependency, readJsonFile, type TargetConfiguration } from '@nx/devkit';
 import { type PackageJson, quoteShellArg } from '@nx/devkit/internal';
@@ -132,12 +132,12 @@ class Linked extends Context.Service<Linked, Map<string, readonly RawProjectGrap
 
 const flagged = (flag: string, value: string | undefined): readonly string[] => (value === undefined ? [] : [flag, value]);
 
-const ancestors = (folder: string): readonly string[] => (folder === '.' ? [folder] : [folder, ...ancestors(dirname(folder))]);
+const ancestors = (folder: string): readonly string[] => (folder === '.' ? [folder] : [folder, ...ancestors(posix.dirname(folder))]);
 
 const documents = Effect.fnUntraced(function* (workspaceRoot: string, roots: readonly string[]) {
     const fs = yield* FileSystem.FileSystem;
-    const present = yield* Effect.filter(Array.cartesianWith(Array.dedupe(roots.flatMap(ancestors)), CONFIGS, join), (at) => fs.exists(join(workspaceRoot, at)), { concurrency: 'unbounded' });
-    const read = yield* Effect.forEach(present, (at) => Effect.map(fs.readFileString(join(workspaceRoot, at)), (text) => [at, extname(at) === '.toml' ? Toml.parse(text) : Result.succeed<unknown>(Ini.parse(text))] as const), { concurrency: 'unbounded' });
+    const present = yield* Effect.filter(Array.cartesianWith(Array.dedupe(roots.flatMap(ancestors)), CONFIGS, posix.join), (at) => fs.exists(join(workspaceRoot, at)), { concurrency: 'unbounded' });
+    const read = yield* Effect.forEach(present, (at) => Effect.map(fs.readFileString(join(workspaceRoot, at)), (text) => [at, posix.extname(at) === '.toml' ? Toml.parse(text) : Result.succeed<unknown>(Ini.parse(text))] as const), { concurrency: 'unbounded' });
     return {
         documented: new Map(read.map(([at, parsed]) => [at, Result.getOrElse(parsed, Record.empty)] as const)),
         unparsed: Array.filterMap(read, ([at, parsed]) => Result.map(Result.flip(parsed), (cause) => new Cause.UnknownError(cause, `${at} does not read as TOML or INI`))),
@@ -145,7 +145,7 @@ const documents = Effect.fnUntraced(function* (workspaceRoot: string, roots: rea
 });
 
 const declared = (documented: ReadonlyMap<string, unknown>, origin: string, root: string, checker: Checker) => {
-    const candidates = ancestors(origin).flatMap((folder) => CHECKERS[checker].files.map(([file, ...keys]) => [join(folder, file), keys] as const));
+    const candidates = ancestors(origin).flatMap((folder) => CHECKERS[checker].files.map(([file, ...keys]) => [posix.join(folder, file), keys] as const));
     const found = Array.findFirstWithIndex(candidates, ([at, keys]) =>
         Option.flatMap(
             keys.reduce<Option.Option<unknown>>((table, key) => table.pipe(Option.flatMap(Schema.decodeUnknownOption(Table)), Option.flatMap(Record.get(key))), Option.fromUndefinedOr(documented.get(at))),
@@ -163,10 +163,10 @@ const declared = (documented: ReadonlyMap<string, unknown>, origin: string, root
                     candidates
                         .slice(0, index + 1)
                         .filter(([at]) => documented.has(at))
-                        .map(([at]) => join('{workspaceRoot}', at)),
+                        .map(([at]) => posix.join('{workspaceRoot}', at)),
                 ),
         }),
-        patterns: (settings?.python_files ?? settings?.ini_options?.python_files ?? settings?.pytest?.python_files ?? CHECKERS[checker].matches).map((pattern) => join(root, '**', pattern)),
+        patterns: (settings?.python_files ?? settings?.ini_options?.python_files ?? settings?.pytest?.python_files ?? CHECKERS[checker].matches).map((pattern) => posix.join(root, '**', pattern)),
     };
 };
 
@@ -178,8 +178,8 @@ const targets = (member: Member, { outputPath, coveragePath }: typeof Options.Ty
     const named = (template: string) => template.replaceAll('{projectName}', member.name);
     const root = member.root === member.workspace;
     const distributions = Option.map(Option.fromUndefinedOr(outputPath), named);
-    const folder = Option.getOrElse(distributions, () => join(member.workspace, 'dist'));
-    const built = [relative(member.root, folder)].filter((held) => !held.startsWith('..')).map((held) => `!${join('{projectRoot}', held, '**', '*')}`);
+    const folder = Option.getOrElse(distributions, () => posix.join(member.workspace, 'dist'));
+    const built = [posix.relative(member.root, folder)].filter((held) => !held.startsWith('..')).map((held) => `!${posix.join('{projectRoot}', held, '**', '*')}`);
     const hashed = { platform: PLATFORM, python: { runtime: line(['uv', 'python', 'find', '--show-version', '--directory', member.workspace]) } };
     const checked = Array.getSomes(
         Record.collect(CHECKERS, (key, row) =>
@@ -193,37 +193,37 @@ const targets = (member: Member, { outputPath, coveragePath }: typeof Options.Ty
                     '--no-active',
                     '--locked',
                     ...row.run,
-                    ...(relative(member.workspace, base).startsWith('..') ? ['--project', relative(base, member.workspace)] : []),
+                    ...(posix.relative(member.workspace, base).startsWith('..') ? ['--project', posix.relative(base, member.workspace)] : []),
                     '--package',
                     member.name,
                     '--all-extras',
                     ...flagged('--group', stated.group),
                     ...row.command(
-                        relative(base, member.root) || '.',
-                        UndefinedOr.map(stated.config, (file) => relative(base, file)),
+                        posix.relative(base, member.root) || '.',
+                        UndefinedOr.map(stated.config, (file) => posix.relative(base, file)),
                         UndefinedOr.map(member.python, (range) => FLOOR.exec(range)?.groups?.['floor']),
                     ),
-                    ...(row.mypy === undefined ? [] : [...row.mypy, '--cache-dir', join(cache.replace('$MYPY_CONFIG_FILE_DIR', relative(base, config === undefined ? base : dirname(config)) || '.'), member.root, key)]),
+                    ...(row.mypy === undefined ? [] : [...row.mypy, '--cache-dir', posix.join(cache.replace('$MYPY_CONFIG_FILE_DIR', posix.relative(base, config === undefined ? base : posix.dirname(config)) || '.'), member.root, key)]),
                 ];
                 const reported = coveragePath ?? base;
                 const covered = {
-                    command: line([...argv, '--cov', `--cov-report=lcov:${join(relative(base, reported), 'lcov.info')}`]),
-                    env: { COVERAGE_FILE: join(relative(base, reported), '.coverage') },
-                    outputs: [join('{workspaceRoot}', reported, '{lcov.info,.coverage}')],
+                    command: line([...argv, '--cov', `--cov-report=lcov:${posix.join(posix.relative(base, reported), 'lcov.info')}`]),
+                    env: { COVERAGE_FILE: posix.join(posix.relative(base, reported), '.coverage') },
+                    outputs: [posix.join('{workspaceRoot}', reported, '{lcov.info,.coverage}')],
                 };
                 const target: TargetConfiguration = {
                     command: line(argv),
                     options: { cwd: base },
                     cache: true,
                     inputs: [
-                        ...row.sources.map((glob) => join('{projectRoot}', '**', glob)),
+                        ...row.sources.map((glob) => posix.join('{projectRoot}', '**', glob)),
                         ...built,
                         ...stated.inputs,
                         ...row.variables.map((env) => ({ env })),
                         ...row.hashes.map((hash) => hashed[hash]),
                         '^default',
-                        join('{workspaceRoot}', member.workspace, '.python-version'),
-                        join('{workspaceRoot}', member.lock),
+                        posix.join('{workspaceRoot}', member.workspace, '.python-version'),
+                        posix.join('{workspaceRoot}', member.lock),
                         ...Array.match(
                             stated.projects.filter((name) => name !== member.name),
                             { onEmpty: () => [], onNonEmpty: (projects) => [{ input: 'default', projects }] },
@@ -237,7 +237,7 @@ const targets = (member: Member, { outputPath, coveragePath }: typeof Options.Ty
             }),
         ),
     );
-    const locking: NonNullable<TargetConfiguration['inputs']> = [...member.manifests.map((file) => join('{workspaceRoot}', file)), join('{workspaceRoot}', member.lock), ...['uv.toml', '.python-version'].map((file) => join('{projectRoot}', file)), { externalDependencies: [] }];
+    const locking: NonNullable<TargetConfiguration['inputs']> = [...member.manifests.map((file) => posix.join('{workspaceRoot}', file)), posix.join('{workspaceRoot}', member.lock), ...['uv.toml', '.python-version'].map((file) => posix.join('{projectRoot}', file)), { externalDependencies: [] }];
     const rooted: Verbs = root
         ? {
               check: {
@@ -252,15 +252,18 @@ const targets = (member: Member, { outputPath, coveragePath }: typeof Options.Ty
               upgrade: {
                   uv: {
                       executor: `${distribution.name}:upgrade`,
-                      options: { cwd: member.root, commands: [{ apply: ['uv', 'lock', '--upgrade'], preview: ['uv', 'lock', '--upgrade', '--dry-run'] }] },
+                      options: { cwd: member.root, commands: [{ apply: ['uv', 'lock', '--upgrade'], preview: ['uv', 'lock', '--upgrade', '--dry-run'] }, { apply: ['uv', 'cache', 'prune', '--force'] }] },
                       inputs: locking,
-                      metadata: { description: 'Moves every locked package to its newest allowed release with uv lock --upgrade', help: { command: 'uv lock --help', example: { options: { dryRun: true } } } },
+                      metadata: {
+                          description: 'Moves every locked package to its newest allowed release with uv lock --upgrade, then removes dangling cache entries with uv cache prune --force, as a running uvx holds the cache lock for its whole run',
+                          help: { command: 'uv lock --help', example: { options: { dryRun: true } } },
+                      },
                   },
                   ...(member.pixi && {
                       pixi: {
                           executor: `${distribution.name}:upgrade`,
                           options: { cwd: member.root, commands: [{ apply: ['pixi', 'update'], preview: ['pixi', 'update', '--dry-run'] }] },
-                          inputs: [...[PIXI, 'pyproject.toml', 'pixi.lock'].map((file) => join('{projectRoot}', file)), { externalDependencies: [] }],
+                          inputs: [...[PIXI, 'pyproject.toml', 'pixi.lock'].map((file) => posix.join('{projectRoot}', file)), { externalDependencies: [] }],
                           metadata: { description: 'Moves every package of the Pixi environments to the newest release its requirement allows and rewrites pixi.lock with pixi update', help: { command: 'pixi update --help', example: { options: { dryRun: true } } } },
                       },
                   }),
@@ -276,13 +279,13 @@ const targets = (member: Member, { outputPath, coveragePath }: typeof Options.Ty
                 build: {
                     ...(member.packaged && {
                         uv: {
-                            command: line(['uv', 'build', '--package', member.name, '--no-sources', ...Option.match(distributions, { onNone: () => [], onSome: (at) => ['--out-dir', relative(member.workspace, at), '--clear', '--no-create-gitignore'] })]),
+                            command: line(['uv', 'build', '--package', member.name, '--no-sources', ...Option.match(distributions, { onNone: () => [], onSome: (at) => ['--out-dir', posix.relative(member.workspace, at), '--clear', '--no-create-gitignore'] })]),
                             options: { cwd: member.workspace },
                             cache: true,
                             inputs: [...member.sources, ...built, UV, { externalDependencies: [] }],
                             outputs: Option.match(distributions, {
-                                onNone: () => [...['.tar.gz', '-*.whl'].map((suffix) => join('{workspaceRoot}', folder, `${member.distribution}${suffix}`)), join('{workspaceRoot}', folder, '.gitignore')],
-                                onSome: (at) => [join('{workspaceRoot}', at)],
+                                onNone: () => [...['.tar.gz', '-*.whl'].map((suffix) => posix.join('{workspaceRoot}', folder, `${member.distribution}${suffix}`)), posix.join('{workspaceRoot}', folder, '.gitignore')],
+                                onSome: (at) => [posix.join('{workspaceRoot}', at)],
                             }),
                             metadata: { description: 'Builds the member sdist and wheel with uv build', help: { command: 'uv build --help', example: { args: ['--wheel'] } } },
                         },
@@ -293,7 +296,7 @@ const targets = (member: Member, { outputPath, coveragePath }: typeof Options.Ty
                         uv: {
                             command: `${line(['uv', 'export', '--locked', '--package', member.name, '--no-default-groups', '--no-emit-local', '--no-hashes', '--no-header', '--no-annotate', '--quiet'])} | ${line(['uv', 'tool', 'install', '--constraints', '-', ...member.locals.flatMap((name) => ['--reinstall-package', name]), ...flagged('--python', member.python), '.'])}`,
                             options: { cwd: member.root },
-                            inputs: [...member.sources, ...built, join('{workspaceRoot}', member.lock), { externalDependencies: [] }],
+                            inputs: [...member.sources, ...built, posix.join('{workspaceRoot}', member.lock), { externalDependencies: [] }],
                             metadata: {
                                 description: "Installs the member scripts from the checkout into uv's tool folder at the versions uv.lock pins, on an interpreter its requires-python accepts, with uv export piped to uv tool install --constraints",
                                 help: { command: 'uv tool install --help', example: { args: ['--editable'] } },
@@ -314,7 +317,7 @@ const targets = (member: Member, { outputPath, coveragePath }: typeof Options.Ty
                 uv: {
                     executor: `${distribution.name}:clean`,
                     options: { targets: labels },
-                    inputs: ['default', '^default', join('{workspaceRoot}', member.lock), { externalDependencies: [] }],
+                    inputs: ['default', '^default', posix.join('{workspaceRoot}', member.lock), { externalDependencies: [] }],
                     metadata: { description: `Removes the outputs ${labels.join(', ')} declare`, help: { command: 'nx run --help', example: { options: { targets: labels } } } },
                 },
             }),

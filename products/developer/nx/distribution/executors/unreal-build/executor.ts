@@ -1,3 +1,4 @@
+import { posix } from 'node:path';
 import { type ExecutorContext, runExecutor } from '@nx/devkit';
 import { globWithWorkspaceContext } from '@nx/devkit/internal';
 import { Array, Cause, Effect, Equivalence, FileSystem, Function, Option, Path, pipe, Record, Result, Schema, Stream, String, Struct } from 'effect';
@@ -145,7 +146,7 @@ const execute = Effect.fnUntraced(function* ({ outputPath, descriptor, hosts, de
     });
     const compiled = (analysis: readonly string[]) => (editor ? Effect.forEach(loading, (each) => edited(each, analysis, ['build', 'check']), { discard: true }) : Effect.forEach(engines, (each) => Effect.andThen(linked(each), packaged(each)), { discard: true }));
     const packed = Effect.gen(function* () {
-        const [text, tracked] = yield* Effect.all([fs.readFileString(absolute(descriptor)), Effect.promise(() => globWithWorkspaceContext(workspaceRoot, [path.join(path.dirname(descriptor), '**')])), fs.remove(placed('pack'), { recursive: true, force: true })]);
+        const [text, tracked] = yield* Effect.all([fs.readFileString(absolute(descriptor)), Effect.promise(() => globWithWorkspaceContext(workspaceRoot, [posix.join(posix.dirname(descriptor), '**')])), fs.remove(placed('pack'), { recursive: true, force: true })]);
         yield* fs.makeDirectory(placed('pack'), { recursive: true });
         yield* Effect.forEach(engines, (each) => archived(text, tracked, each), { discard: true });
     });

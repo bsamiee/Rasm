@@ -1,8 +1,8 @@
 import { homedir } from 'node:os';
-import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
+import { dirname, isAbsolute, join, posix, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse } from '@decimalturn/toml-patch';
-import { readJsonFile } from '@nx/devkit';
+import { normalizePath, readJsonFile } from '@nx/devkit';
 import type { PackageJson } from '@nx/devkit/internal';
 import { runner, spawned } from '@rasm/nx-distribution/inference';
 import { Array, Cause, Config, Context, Effect, Equivalence, FileSystem, Layer, Option, Predicate, Record, Result, Schema, String, UndefinedOr } from 'effect';
@@ -81,15 +81,15 @@ const binary = ({ kind }: Target) => kind.includes('bin');
 
 const library = (candidate: Target) => own(candidate) && !binary(candidate);
 
-const tokened = (file: string) => join('{workspaceRoot}', file);
+const tokened = (file: string) => posix.join('{workspaceRoot}', file);
 
 const ancestors = (folder: string): readonly string[] =>
     Array.unfold(
         Option.some(folder),
-        Option.map((at: string) => [at, Option.liftPredicate(dirname(at), () => at !== '.')] as const),
+        Option.map((at: string) => [at, Option.liftPredicate(posix.dirname(at), () => at !== '.')] as const),
     );
 
-const nearest = (files: ReadonlySet<string>, folder: string, names: readonly string[]) => Array.findFirst(ancestors(folder), (at) => Array.findFirst(names, (name) => files.has(join(at, name))).pipe(Option.map((name) => join(at, name))));
+const nearest = (files: ReadonlySet<string>, folder: string, names: readonly string[]) => Array.findFirst(ancestors(folder), (at) => Array.findFirst(names, (name) => files.has(posix.join(at, name))).pipe(Option.map((name) => posix.join(at, name))));
 
 const toml = <S extends Schema.Decoder<unknown>>(schema: S, file: string) =>
     FileSystem.FileSystem.pipe(
@@ -100,9 +100,9 @@ const toml = <S extends Schema.Decoder<unknown>>(schema: S, file: string) =>
 
 const read = Effect.fnUntraced(function* (workspaceRoot: string, manifest: string, files: ReadonlySet<string>) {
     const metadata = yield* Effect.flatMap(spawned(['cargo', 'metadata', '--format-version', '1', '--no-deps', '--manifest-path', manifest], { cwd: workspaceRoot }), Schema.decodeEffect(Metadata));
-    const root = relative(workspaceRoot, metadata.workspace_root) || '.';
+    const root = normalizePath(relative(workspaceRoot, metadata.workspace_root)) || '.';
     const types = Array.difference(Array.dedupe(metadata.packages.flatMap(({ targets }) => targets.flatMap((target) => target.crate_types))), ['lib', 'rlib']);
-    const found = (stems: readonly string[]) => ancestors(root).flatMap((at) => stems.map((stem) => join(at, stem)).filter((file) => files.has(file)));
+    const found = (stems: readonly string[]) => ancestors(root).flatMap((at) => stems.map((stem) => posix.join(at, stem)).filter((file) => files.has(file)));
     const settings = found(SETTINGS);
     const [{ profile }, [host, names], denied, layers] = yield* Effect.all(
         [
@@ -114,14 +114,14 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, manifest: strin
         { concurrency: 'unbounded' },
     );
     const clippy = Array.findFirst(Array.zip(settings, layers), ([file, { env }]) =>
-        Option.map(Record.get(env, 'CLIPPY_CONF_DIR'), (stated) => (Predicate.isString(stated) ? resolve(metadata.workspace_root, stated) : resolve(stated.relative === true ? join(workspaceRoot, dirname(dirname(file))) : metadata.workspace_root, stated.value))),
+        Option.map(Record.get(env, 'CLIPPY_CONF_DIR'), (stated) => (Predicate.isString(stated) ? resolve(metadata.workspace_root, stated) : resolve(stated.relative === true ? join(workspaceRoot, posix.dirname(posix.dirname(file))) : metadata.workspace_root, stated.value))),
     );
     return {
         metadata,
         profile,
         host,
         configs: found(CONFIG),
-        clippy: Option.toArray(Option.map(clippy, (at) => relative(workspaceRoot, at) || '.')),
+        clippy: Option.toArray(Option.map(clippy, (at) => normalizePath(relative(workspaceRoot, at)) || '.')),
         unstable: Array.dedupe(layers.flatMap(({ unstable }) => Record.keys(unstable))),
         uplifted: Record.fromEntries(Array.zip(types, names)),
         deny: Option.toArray(denied),
@@ -148,7 +148,7 @@ const placed = (workspaceRoot: string) => ({ stored: (reading: Reading) => moved
 const variable = (key: string) => key.toUpperCase().replaceAll(/[-.]/gu, '_');
 
 const resolved = (workspaceRoot: string, { metadata, profile, host, configs, clippy, unstable, uplifted, deny }: Reading, files: ReadonlySet<string>, installed: string) => {
-    const within = (at: string) => relative(workspaceRoot, at) || '.';
+    const within = (at: string) => normalizePath(relative(workspaceRoot, at)) || '.';
     const inside = (at: string) => Option.liftPredicate(within(at), (folder) => !(folder.startsWith('..') || isAbsolute(folder)));
     const root = within(metadata.workspace_root);
     const profiles = Record.keys(Record.filter(profile, ({ inherits }) => inherits !== undefined));
@@ -168,15 +168,15 @@ const resolved = (workspaceRoot: string, { metadata, profile, host, configs, cli
                 linted: Option.toArray(nearest(files, clippy[0] ?? member.root, CLIPPY)).map(tokened),
             };
         }),
-        libraries: Array.getSomes((metadata.metadata?.dylint?.libraries ?? []).map(({ path: at }) => Option.map(Option.fromUndefinedOr(at), (folder) => join(root, folder)))).flatMap((folder) => {
+        libraries: Array.getSomes((metadata.metadata?.dylint?.libraries ?? []).map(({ path: at }) => Option.map(Option.fromUndefinedOr(at), (folder) => posix.join(root, folder)))).flatMap((folder) => {
             const [sources, others] = Array.partition(
-                crates.filter((member) => member.root === folder).flatMap(({ crate }) => crate.targets.map((target) => [target, join(folder, relative(dirname(crate.manifest_path), dirname(target.src_path)))] as const)),
+                crates.filter((member) => member.root === folder).flatMap(({ crate }) => crate.targets.map((target) => [target, posix.join(folder, normalizePath(relative(dirname(crate.manifest_path), dirname(target.src_path))))] as const)),
                 ([target, at]) => (library(target) ? Result.succeed(at) : Result.fail(at)),
             );
             const found = Array.dedupe(sources);
             const included = Array.isReadonlyArrayNonEmpty(found) ? found : [folder];
             const excluded = Array.difference(Array.dedupe([...others, ...crates.map((member) => member.root).filter((nested) => nested.startsWith(`${folder}/`))]), included);
-            return [...included.map((at) => tokened(join(at, '**/*'))), ...excluded.map((at) => `!${tokened(join(at, '**/*'))}`)];
+            return [...included.map((at) => tokened(posix.join(at, '**/*'))), ...excluded.map((at) => `!${tokened(posix.join(at, '**/*'))}`)];
         }),
         configs: configs.map(tokened),
         compiler: [
@@ -190,7 +190,7 @@ const resolved = (workspaceRoot: string, { metadata, profile, host, configs, cli
                 ] as const
             ).flatMap(([scopes, keys]) => Array.cartesianWith(scopes, keys, (scope, key) => `CARGO_${scope}_${key}`)),
         ],
-        nextest: Option.liftPredicate(join(root, NEXTEST), (file) => files.has(file)),
+        nextest: Option.liftPredicate(posix.join(root, NEXTEST), (file) => files.has(file)),
         profiles,
         strategies: Array.dedupeWith(['release', ...profiles], (left, right) => strategy(left) === strategy(right)).filter((name) => strategy(name) !== strategy('dev')),
         deny: Array.head(deny),
@@ -205,7 +205,7 @@ const workspaces = (workspaceRoot: string, manifests: readonly string[], files: 
         manifests.toSorted((left, right) => left.split('/').length - right.split('/').length || left.localeCompare(right)),
         (): readonly (readonly [string, Result.Result<Reading, Effect.Error<ReturnType<typeof read>>>])[] => [],
         (done, manifest) =>
-            done.some(([, reading]) => Result.isSuccess(reading) && reading.success.metadata.packages.some(({ manifest_path }) => relative(workspaceRoot, manifest_path) === manifest))
+            done.some(([, reading]) => Result.isSuccess(reading) && reading.success.metadata.packages.some(({ manifest_path }) => normalizePath(relative(workspaceRoot, manifest_path)) === manifest))
                 ? Effect.succeed(done)
                 : Effect.map(Effect.result(read(workspaceRoot, manifest, files)), (reading) => [...done, [manifest, reading] as const]),
     );

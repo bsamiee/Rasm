@@ -1,4 +1,4 @@
-import { dirname, join } from 'node:path';
+import { dirname, join, posix } from 'node:path';
 import { parse, patch } from '@decimalturn/toml-patch';
 import { joinPathFragments, type ProjectGraph, readCachedProjectGraph, type Tree } from '@nx/devkit';
 import { spawned } from '@rasm/nx-distribution/inference';
@@ -176,7 +176,7 @@ const afterAllProjectsVersioned: AfterAllProjectsVersioned = (cwd, { dryRun, roo
             const nodes = dryRun === true || skipLockFileUpdate === true ? [] : Object.values((yield* Effect.sync(readCachedProjectGraph)).nodes);
             const folders = Array.dedupe(nodes.filter((node) => node.data.metadata?.technologies?.includes('python') === true).flatMap((node) => ancestors(node.data.root)));
             const locks = yield* Effect.filter(
-                folders.map((folder) => join(folder, LOCK)),
+                folders.map((folder) => posix.join(folder, LOCK)),
                 (lock) => fs.exists(join(cwd, lock)),
                 { concurrency: 'unbounded' },
             );

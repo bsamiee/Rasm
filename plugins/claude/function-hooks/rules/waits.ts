@@ -12,6 +12,8 @@ import type { Word } from '#/shell/script';
 const LETTER = /^\w/u;
 const DIGITS = /^\d+$/u;
 const TASK_OUTPUTS = /\/tasks\/(?<id>[^/\s'"]+)\.output(?![^\s'"])/gu;
+const PROCESS_FIELD = /^p/mu;
+const WRITE_ACCESS = /^a[uw]$/mu;
 const BLANK_LINE = /^\s*(?:#.*)?$/u;
 const LOWERCASE = /^\p{Ll}/u;
 const SPECIAL_KIND = /\b(?:tied|readonly|association)\b.*\bspecial\b/u;
@@ -149,27 +151,34 @@ const psFilter: Rule = (invocation, call) => {
 
 // --- [TASK_OUTPUT]
 
+const writers = ({ host }: Call, files: readonly string[]) =>
+    Effect.map(Effect.all([host.parents, Effect.forEach(files, (file) => host.output(['lsof', '-F', 'pa', file]), { concurrency: 'unbounded' })]), ([parents, listings]) =>
+        listings.map((listing) => {
+            const holders = listing
+                .split(PROCESS_FIELD)
+                .filter((held) => WRITE_ACCESS.test(held))
+                .map((held) => held.split('\n', 1).join(''));
+            return holders.filter((pid) => parents.has(pid) && !holders.includes(`${parents.get(pid)}`)).slice(0, 1);
+        }),
+    );
+
 const tailedTask: Rule = (invocation, call) => {
-    const { host, request } = call;
     const files = invocation.inputs.map(({ text }) => text).filter((file) => taskIds(file).length > 0);
-    if (request.kind !== 'monitor' || files.length === 0 || stages(invocation, call).later.some(closesInput)) {
+    if (call.request.kind !== 'monitor' || files.length === 0 || (invocation.command.job && reaped(call)) || stages(invocation, call).later.some(closesInput)) {
         return [];
     }
     const notice = taskNotice(taskIds(files.join(' ')));
-    return Effect.all([host.parents, Effect.forEach(files, (file) => host.output(['lsof', '-t', file]), { concurrency: 'unbounded' })]).pipe(
-        Effect.map(([parents, held]) => {
-            const writers = held.flatMap((pids) => {
-                const holders = pids.trim().split('\n');
-                return holders.filter((pid) => parents.has(pid) && !holders.includes(`${parents.get(pid)}`)).slice(0, 1);
-            });
-            const awake = writers.map((pid) => `caffeinate -w ${pid}`).join('; ');
-            return writers.length < files.length ? notice : [...inserted(invocation, invocation.head.start, '{ '), ...inserted(invocation, Array.lastNonEmpty(invocation.words).end, ` & ${awake}; kill $!; }`)];
+    return writers(call, files).pipe(
+        Effect.map((held) => {
+            const awake = held.flat().map((pid) => `caffeinate -w ${pid}`);
+            return awake.length < files.length ? notice : [...inserted(invocation, invocation.head.start, '{ '), ...inserted(invocation, Array.lastNonEmpty(invocation.words).end, ` & ${awake.join('; ')}; kill $!; }`)];
         }),
         Effect.orElseSucceed(() => notice),
     );
 };
 
-const polledTask = Effect.fnUntraced(function* ({ analysis, host, request }: Call) {
+const polledTask = Effect.fnUntraced(function* (call: Call) {
+    const { analysis, host, request } = call;
     const own = analysis.invocations.filter(({ command }) => command.origin === 'call');
     const readers = own.flatMap((invocation) => {
         const held = [...invocation.words, ...Array.getSomes(invocation.command.redirects.map(({ target }) => target))].filter(({ text }) => taskIds(text).length > 0);
@@ -180,17 +189,12 @@ const polledTask = Effect.fnUntraced(function* ({ analysis, host, request }: Cal
     if (ids.length === 0 || tailed) {
         return [];
     }
-    const held = yield* Effect.forEach(
-        Array.dedupe(readers.flatMap(({ files }) => files)),
-        (file) =>
-            Effect.match(host.output(['lsof', '-t', file]), {
-                onFailure: () => true,
-                onSuccess: (pids) => pids.trim() !== '',
-            }),
-        { concurrency: 'unbounded' },
-    );
+    const written = yield* Effect.match(writers(call, Array.dedupe(readers.flatMap(({ files }) => files))), {
+        onFailure: () => true,
+        onSuccess: (held) => held.some(Array.isReadonlyArrayNonEmpty),
+    });
     const waits = own.some(({ program, repeated, has }) => repeated || WAITERS.has(program) || (program === 'read' && has('-t')));
-    if (!held.some(Boolean)) {
+    if (!written) {
         return [];
     }
     const limiter = yield* RateLimiter.RateLimiter;

@@ -244,9 +244,10 @@ const customLanguages: Rule = (invocation) => {
     return invocation.has('--custom-languages') ? [] : inserted(invocation, (subcommand.text.startsWith('-') ? invocation.head : subcommand).end, ' --custom-languages allow');
 };
 
-const hiddenErrors: Rule = (invocation) => {
+const hiddenErrors: Rule = (invocation, call) => {
     const nulled = redirected(invocation, RedirOperator.RdrOut, undefined, '/dev/null');
-    return [...nulled, ...redirected(invocation, RedirOperator.RdrAll, undefined, '/dev/null'), ...(nulled.some(({ descriptor }) => Option.isNone(descriptor)) ? redirected(invocation, RedirOperator.DplOut, '2', '1') : [])].flatMap((redirect) => cut(invocation, [redirect]));
+    const merged = nulled.some(({ descriptor }) => Option.isNone(descriptor)) || feedsJq(invocation, call);
+    return [...nulled, ...redirected(invocation, RedirOperator.RdrAll, undefined, '/dev/null'), ...(merged ? redirected(invocation, RedirOperator.DplOut, '2', '1') : [])].flatMap((redirect) => cut(invocation, [redirect]));
 };
 
 const editedExecutor = Effect.fnUntraced(function* ({ host }: Call, graph: Graph, pairs: readonly (readonly [ProjectGraphProjectNode, string])[]) {

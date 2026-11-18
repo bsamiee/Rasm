@@ -10,6 +10,14 @@ concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
     cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+permissions:
+    contents: read
+    actions: read
+
+env:
+    MSBUILDDISABLENODEREUSE: '1'
+    NX_PARALLEL: 100%
+
 defaults:
     run:
         shell: bash
@@ -64,9 +72,14 @@ jobs:
             - *tools
             - id: playwright
               run: mise daemons start playwright
-            - run: nx affected --targets=check,test,build --exclude='tag:os:*,!tag:os:linux,!tag:os:all'
+            - run: nx affected --targets=check,test,build --exclude='tag:os:*,!tag:os:linux,!tag:os:all,tag:host:rhino'
             - if: ${{ always() && steps.playwright.outcome != 'skipped' }}
               run: mise daemons stop playwright
+            - &timed
+              if: always()
+              run: |
+                  stores=("${NX_WORKSPACE_DATA_DIRECTORY}"/*.db)
+                  sqlite3 -markdown "${stores[0]}" "select round((h.end - h.start) / 1000.0) as seconds, h.status, d.project || ':' || d.target as task from task_history h join task_details d on d.hash = h.hash where h.start >= ${NX_SINCE} order by seconds desc limit 30" >> "${GITHUB_STEP_SUMMARY}"
             - &reports
               if: always()
               uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -118,7 +131,7 @@ jobs:
                   path: ${{ env.PNPM_CONFIG_STORE_DIR }}
                   key: ${{ steps.pnpm.outputs.cache-primary-key }}
             - run: nx build @rasm/nx-apple-darwin-arm64
-            - run: nx affected --targets=check,test,build --exclude='*,!tag:os:darwin,!tag:os:all'
+            - run: nx affected --targets=check,test,build --exclude='*,!tag:os:darwin,!tag:os:all,tag:host:rhino'
               env:
                   APPLE_DEVELOPMENT_P12: ${{ secrets.APPLE_DEVELOPMENT_P12 }}
                   APPLE_DEVELOPMENT_P12_PASSWORD: ${{ secrets.APPLE_DEVELOPMENT_P12_PASSWORD }}
@@ -127,6 +140,7 @@ jobs:
               with:
                   path: *graph
                   key: ${{ steps.graph.outputs.cache-primary-key }}
+            - *timed
             - *reports
 
     windows:
@@ -134,7 +148,6 @@ jobs:
         runs-on: windows-2025
         timeout-minutes: 120
         env:
-            MISE_ENABLE_TOOLS: cmake,dotnet,github:kucherenko/jscpd,github:llvm/llvm-project,github:microsoft/vcpkg-tool,ninja,node,pnpm,rust,uv,yq
             GH_TOKEN: *github
             NX_BASE: *base
             NX_HEAD: *head
@@ -145,20 +158,19 @@ jobs:
             - *tools
             - id: listed
               run: |
-                  win32="$(nx show projects --affected --exclude='*,!tag:os:win32' --json)"
-                  printf "win32=%s\n" "${win32}" >> "${GITHUB_OUTPUT}"
+                  rhino="$(nx show projects --affected --exclude='*,!tag:host:rhino' --json)"
+                  printf "rhino=%s\n" "${rhino}" >> "${GITHUB_OUTPUT}"
             - id: rhino
-              if: ${{ steps.listed.outputs.win32 != '[]' }}
+              if: ${{ steps.listed.outputs.rhino != '[]' }}
               run: |
                   major="$(yq -p xml -oy '.Project.PropertyGroup[] | select(.+@Label == "Rhino") | .RhinoVersion | split(".") | .[0]' Directory.Packages.props)"
                   printf "major=%s\n" "${major}" >> "${GITHUB_OUTPUT}"
             - uses: mcneel/setup-rhino3d@095a5ff63cdb7dc8383e229fc40ffa779915b0af # v4.0.0
-              if: ${{ steps.listed.outputs.win32 != '[]' }}
+              if: ${{ steps.listed.outputs.rhino != '[]' }}
               with:
                   email-address: ${{ secrets.RHINO_EMAIL }}
                   major-version: ${{ steps.rhino.outputs.major }}
-            - if: ${{ steps.listed.outputs.win32 != '[]' }}
-              run: nx affected --targets=test --exclude='*,!tag:os:win32'
+            - run: nx affected --targets=test --configuration=headless --exclude='*,!tag:os:win32,!tag:host:rhino'
               env:
                   RHINO_TOKEN: ${{ secrets.RHINO_TOKEN }}
             - *reports

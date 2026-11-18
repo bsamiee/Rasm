@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { chmodSync, existsSync } from 'node:fs';
 import { delimiter, join } from 'node:path';
 import { env } from 'node:process';
-import type { ExecutorContext } from '@nx/devkit';
+import type { ExecutorContext, NxJsonConfiguration } from '@nx/devkit';
 import { TempFs } from '@rasm/testing/temp-fs';
 import { describe, expect, test, vi } from 'vitest';
 
@@ -180,6 +180,17 @@ describe('attach executor', () => {
 
         await expect(attach.execute({}, { ...context, targetName: 'attach', nxJsonConfiguration: { release: { projects: ['lib'], releaseTag: { pattern: 'v{version}' } } } })).resolves.toStrictEqual({ success: true });
         await expect(recorded('gh.txt')).resolves.toStrictEqual(['release', 'upload', 'v1.2.4', '.artifacts/distribution/lib/lib.tgz', '--clobber']);
+    });
+
+    it('reads a prerelease tag as release.releaseTag states, skipping it under the default strictPreid', async ({ context, git, log, recorded }) => {
+        git('tag', '--annotate', 'lib@1.2.4-alpha.0', '--message', 'lib@1.2.4-alpha.0');
+        const stated = (releaseTag: NonNullable<NonNullable<NxJsonConfiguration['release']>['releaseTag']>) => ({ ...context, targetName: 'attach', nxJsonConfiguration: { release: { projects: ['lib'], projectsRelationship: 'independent' as const, releaseTag } } });
+
+        await expect(attach.execute({}, stated({}))).resolves.toStrictEqual({ success: true });
+        expect(log).toHaveBeenCalledWith(expect.anything(), 'Skipped lib: HEAD holds no tag of lib, so nx release released no version of it at this commit');
+        await expect(recorded('gh.txt')).resolves.toStrictEqual([]);
+        await expect(attach.execute({}, stated({ strictPreid: false }))).resolves.toStrictEqual({ success: true });
+        await expect(recorded('gh.txt')).resolves.toStrictEqual(['release', 'upload', 'lib@1.2.4-alpha.0', '.artifacts/distribution/lib/lib.tgz', '--clobber']);
     });
 
     it('previews the upload and runs gh for none under a dry run', async ({ context, log, recorded }) => {

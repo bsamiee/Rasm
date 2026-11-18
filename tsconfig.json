@@ -235,6 +235,9 @@
         },
         {
             "path": "./libs/typescript/creative-cloud/desktop"
+        },
+        {
+            "path": "./tests/plugins/claude/function-hooks"
         }
     ]
 }

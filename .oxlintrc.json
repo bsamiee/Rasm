@@ -97,7 +97,7 @@
         "typescript/promise-function-async": "off",
         "typescript/strict-boolean-expressions": "off",
         "typescript/unbound-method": "off",
-        "unicorn/import-style": ["error", { "styles": { "node:path": { "named": true, "default": false } } }],
+        "unicorn/import-style": ["error", { "styles": { "node:path": { "named": true, "default": false } }, "checkDynamicImport": false }],
         "unicorn/max-nested-calls": "off",
         "unicorn/no-array-callback-reference": "off",
         "unicorn/no-array-for-each": "off",

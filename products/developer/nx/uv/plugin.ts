@@ -1,4 +1,4 @@
-import { basename, dirname, join } from 'node:path';
+import { join, posix } from 'node:path';
 import { type CreateDependencies, type CreateNodes, type CreateNodesContext, createNodesFromFiles, hashArray, type ProjectConfiguration } from '@nx/devkit';
 import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
 import { fingerprinted, manifested, spawned } from '@rasm/nx-distribution/inference';
@@ -25,14 +25,14 @@ const Quoted = Schema.fromJsonString(Schema.String);
 const inferred = Effect.fnUntraced(function* (cache: Read, { workspaceRoot }: CreateNodesContext, settings: typeof Options.Type, lock: string) {
     const token = '{workspaceRoot}';
     const placed = (yield* Schema.encodeEffect(Quoted)(workspaceRoot)).slice(1, -1);
-    const read = Array.cartesianWith([join(dirname(lock), '**'), ...ancestors(dirname(dirname(lock)))], READ, join);
+    const read = Array.cartesianWith([posix.join(posix.dirname(lock), '**'), ...ancestors(posix.dirname(posix.dirname(lock)))], READ, posix.join);
     const digest = hashArray([yield* Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, read)), yield* OWN]);
     const metadata = yield* Option.match(
         Option.filter(Option.fromNullishOr(cache.get(lock)), (held) => held.digest === digest),
         {
             onSome: (held) => Schema.decodeEffect(Metadata)(held.reply.replaceAll(token, placed)),
             onNone: Effect.fnUntraced(function* () {
-                const decoded = yield* Effect.flatMap(spawned(['uv', 'workspace', 'metadata', '--frozen', '--preview-features', 'workspace-metadata', '--output-version', SCHEMA, '--quiet'], { cwd: join(workspaceRoot, dirname(lock)) }), Schema.decodeEffect(Metadata));
+                const decoded = yield* Effect.flatMap(spawned(['uv', 'workspace', 'metadata', '--frozen', '--preview-features', 'workspace-metadata', '--output-version', SCHEMA, '--quiet'], { cwd: join(workspaceRoot, posix.dirname(lock)) }), Schema.decodeEffect(Metadata));
                 const reply = yield* Schema.encodeEffect(Metadata)(decoded);
                 cache.set(lock, { digest, reply: reply.replaceAll(placed, token) });
                 cache.writeToDisk();
@@ -66,7 +66,7 @@ const createNodes: CreateNodes<typeof Options.Encoded> = [
     FILES,
     (matched, options, context) => {
         const cache: Read = new PluginCache(join(workspaceDataDirectory, 'uv.hash'));
-        const locks = matched.filter((file) => basename(file) === LOCK);
+        const locks = matched.filter((file) => posix.basename(file) === LOCK);
         return run(
             Effect.gen(function* () {
                 const settings = yield* Schema.decodeEffect(Options)(options ?? {});

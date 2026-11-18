@@ -53,7 +53,7 @@ const released = Effect.fnUntraced(function* ({ root, projectName, projectGraph,
     const { error, nxReleaseConfig } = yield* Effect.promise(() => createNxReleaseConfig(projectGraph, files, nxJsonConfiguration.release));
     const groups = yield* error === null ? Effect.succeed(Record.toEntries(nxReleaseConfig?.groups ?? {})) : Effect.fail(new Cause.UnknownError(error, `nx.json release refuses its configuration with ${error.code}`));
     const tags = (yield* spawned(['git', 'tag', '--points-at', 'HEAD'], { cwd: root, stdout: 'pipe' })).split('\n').filter(String.isNonEmpty);
-    const found = (name: string, { pattern, requireSemver }: (typeof groups)[number][1]['releaseTag']) => Effect.promise(() => getLatestGitTagForPattern(pattern, { projectName: sanitizeProjectNameForGitTag(project), releaseGroupName: name }, () => Promise.resolve(tags), { requireSemver, strictPreid: false }));
+    const found = (name: string, releaseTag: (typeof groups)[number][1]['releaseTag']) => Effect.promise(() => getLatestGitTagForPattern(releaseTag.pattern, { projectName: sanitizeProjectNameForGitTag(project), releaseGroupName: name }, () => Promise.resolve(tags), releaseTag));
     return yield* Option.match(
         Array.findFirst(groups, ([, { projects }]) => projects.includes(project)),
         { onNone: () => Effect.succeed(Option.none<string>()), onSome: ([name, { releaseTag }]) => Effect.map(found(name, releaseTag), (held) => Option.map(Option.fromNullishOr(held), ({ tag }) => tag)) },

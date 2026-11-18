@@ -3,7 +3,7 @@ import { dirname, join, relative, resolve } from 'node:path';
 import { env } from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, detectPackageManager, getPackageManagerCommand, hashArray, normalizePath, type ProjectConfiguration, readJsonFile, type TargetConfiguration } from '@nx/devkit';
-import { applyDaemonEnvFromClient, calculateHashesForCreateNodes, emitPluginWorkerLog, getAppliedDaemonClientEnv, getDaemonClientEnvGeneration, getLockFileName, hashDaemonClientEnv, hashObject, type PackageJson, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
+import { applyDaemonEnvFromClient, calculateHashesForCreateNodes, emitPluginWorkerLog, getAppliedDaemonClientEnv, getDaemonClientEnvGeneration, getLockFileName, hashDaemonClientEnv, type PackageJson, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
 import { getRootTsConfigFileName } from '@nx/js';
 import { aggregated, anchored, extended, fingerprinted, Folder, type Input, manifested, namedInput, packaged, recalled, run, stamped, tokened, type Verbs, within } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
@@ -216,13 +216,13 @@ const targets = (home: string, { loaded: configs, packages, linked, servers, fol
     };
 };
 
-const inferred = Effect.fnUntraced(function* (cache: PluginCache<Resolved>, context: CreateNodesContext, settings: typeof Options.Type, hash: string, file: string) {
+const inferred = Effect.fnUntraced(function* (cache: PluginCache<Resolved & { readonly digest: string }>, context: CreateNodesContext, settings: typeof Options.Type, hash: string, file: string) {
     const home = dirname(file);
-    const key = hashArray([hash, yield* OWN, file]);
+    const digest = hashArray([hash, yield* OWN]);
     const manager = detectPackageManager(context.workspaceRoot);
-    const held = yield* recalled(cache, key, stamped(context.workspaceRoot));
+    const held = Option.filter(yield* recalled(cache, file, stamped(context.workspaceRoot)), (cached) => cached.digest === digest);
     const resolved = yield* Option.match(held, { onSome: Effect.succeed, onNone: () => read(context.workspaceRoot, file, Option.fromUndefinedOr(settings.outputPath), getLockFileName(manager)) });
-    cache.set(key, resolved);
+    cache.set(file, { ...resolved, digest });
     const stated = yield* manifested(context.workspaceRoot, home);
     const project: ProjectConfiguration = {
         root: home,
@@ -237,7 +237,7 @@ const nodes = Effect.fnUntraced(function* (files: readonly string[], options: ty
     const project = anchored(context.workspaceRoot);
     const configs = files.filter((file) => project(dirname(file)));
     const lock = getLockFileName(detectPackageManager(context.workspaceRoot));
-    const cache = new PluginCache<Resolved>(join(workspaceDataDirectory, `playwright-${hashObject(options ?? {})}.hash`));
+    const cache = new PluginCache<Resolved & { readonly digest: string }>(join(workspaceDataDirectory, 'playwright.hash'));
     const [ambient, generation] = [hashDaemonClientEnv(), getDaemonClientEnvGeneration()];
     const hashes = yield* Effect.promise(() =>
         calculateHashesForCreateNodes(

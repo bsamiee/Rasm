@@ -593,7 +593,7 @@ describe('typecheck target outputs', () => {
         });
         const fromParsedTsconfigs = await invokeCreateNodesOnMatchingFiles(configFiles, context, {});
 
-        expect(readdirSync(workspaceDataDirectory)).toContainEqual(expect.stringMatching(/^typescript-/u));
+        expect(readdirSync(workspaceDataDirectory)).toContain('typescript.hash');
 
         const fromPluginCache = await invokeCreateNodesOnMatchingFiles(configFiles, context, {});
         const outputs = fromParsedTsconfigs.projects['libs/my-lib']?.targets?.['build--tsc']?.outputs;

@@ -25,6 +25,7 @@ Rasm/
 ├── tests/                    # Suites by the category of what they test
 │   ├── products/
 │   ├── libs/
+│   ├── plugins/
 │   ├── tools/
 │   ├── e2e/                  # Suites against a served or installed product
 │   └── support/              # Test harnesses by language
@@ -158,9 +159,9 @@ Nx runs project-level work over a graph its plugins infer:
 
 Workspace commands, by tool:
 - `hk check <paths>` and `hk fix <paths>` run every file-level checker and writer over the named paths
-- `mise bootstrap` after a clone installs mise tools, pnpm packages, and hk's git hooks, and registers pitchfork as a Mac login agent
-- `mise deps` syncs pnpm packages, each uv root with the workspace root through Pixi, and the analyzer `@rasm/nx-dotnet` runs, where inputs changed
-- `mise upgrade`, after `nx run-many -t upgrade`, moves every `latest` tool row and its lock to the newest release
+- `mise bootstrap` after a clone installs mise tools, pnpm packages, the MSBuild analyzer, and hk's git hooks, and registers pitchfork as a Mac login agent
+- `mise deps` syncs pnpm packages and each uv root, the workspace root through Pixi, and publishes the MSBuild analyzer `@rasm/nx-dotnet` runs, where inputs changed or outputs are missing
+- `mise upgrade`, after `nx run-many -t upgrade`, moves every `latest` tool row and its lock to the newest release, then `mise prune` deletes each installed version no tracked config selects
 - `mise daemons start docker` starts the container engine and waits until Docker answers, `mise daemons stop docker` stops it until a session enters
 - `nx build @rasm/nx-apple-darwin-arm64` builds the core `@rasm/nx-apple` reads Xcode projects through, on a Mac after a clone
 - `nx sync` writes executor schemas and tsconfig `references`
@@ -185,7 +186,10 @@ Products deliver through the same targets in every ecosystem, development builds
 - `install` puts a development build where its host loads it, replacing the last and skipping packaging where allowed, or starts local services
 - `pack` writes the files a release holds where they differ from the build, in its host or ecosystem's form, a folder product in a `.zip` or `.dmg`
 - `doppler run --config release --command 'nx pack <app>'` packs a Mac app with release signing, notarized as a `.dmg` where `ASC_API_*` rows are set
-- `nx release --skip-publish` versions each `release` project alone from its conventional commits, tags `<project>@<version>`, and patches dependents
+- `nx release --skip-publish` versions each `release` project alone from commits after its last `<project>@<version>` tag, tags it, and patches dependents
+- New `release` projects take an annotated `<project>@<version>` tag by hand at their manifest version, in place of `--first-release`
+- `nx release <version> --projects=<projects> --skip-publish` moves projects to an exact version alone, as a prerelease line takes its stable release
+- Commit scopes name one project as `nx show projects` prints it, or none, as `nx release` refuses a scope matching more than one `release` project
 - `nx run-many -t attach -c release` uploads released files to the GitHub release of each tag, where stores with no upload API take them by hand
 - `nx release publish` sends the same files to each registry or store its ecosystem's publish setting allows, skipping until a credential is set
 - `deploy` applies a project's Pulumi stacks after the stacks of each project it depends on, `-c release` a released version's, and `deploy--pulumi --stack=<name>` one stack

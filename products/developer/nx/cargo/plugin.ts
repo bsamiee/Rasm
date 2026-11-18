@@ -1,5 +1,5 @@
-import { basename, dirname, join, relative } from 'node:path';
-import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesContext, DependencyType, hashArray, type ProjectConfiguration } from '@nx/devkit';
+import { dirname, join, posix, relative } from 'node:path';
+import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesContext, DependencyType, hashArray, normalizePath, type ProjectConfiguration } from '@nx/devkit';
 import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, getNamedInputs, globWithWorkspaceContext, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
 import { anchored, fingerprinted, manifested } from '@rasm/nx-distribution/inference';
 import { Array, Effect, Option, Record, Result, Schema, String } from 'effect';
@@ -17,7 +17,7 @@ const OWN = fingerprinted(import.meta.dirname);
 const inferred = Effect.fnUntraced(function* (context: CreateNodesContext, files: ReadonlySet<string>, settings: typeof Options.Type, listed: (root: string) => boolean, reading: Reading) {
     const links = yield* Links;
     const workspace = resolved(context.workspaceRoot, reading, files, yield* INSTALL);
-    const coverage = Option.map(Option.fromUndefinedOr(settings.coveragePath), (at) => join(at, 'lcov.info'));
+    const coverage = Option.map(Option.fromUndefinedOr(settings.coveragePath), (at) => posix.join(at, 'lcov.info'));
     workspace.members.forEach((member) => {
         links.set(dirname(member.crate.manifest_path), member);
     });
@@ -55,21 +55,21 @@ const createNodes: CreateNodes<typeof Options.Encoded> = [
                 const settings = yield* Schema.decodeEffect(Options)(options ?? {});
                 const files = new Set(matched);
                 const listed = anchored(workspaceRoot);
-                const manifests = matched.filter((file) => basename(file) === MANIFEST);
-                const cache = new PluginCache<readonly Reading[]>(join(workspaceDataDirectory, 'cargo.hash'));
+                const manifests = matched.filter((file) => posix.basename(file) === MANIFEST);
+                const cache = new PluginCache<{ readonly digest: string; readonly readings: readonly Reading[] }>(join(workspaceDataDirectory, 'cargo.hash'));
                 const { stored, loaded } = placed(workspaceRoot);
-                const [content, laid] = yield* Effect.promise(() => Promise.all([hashWithWorkspaceContext(workspaceRoot, [FILES]), globWithWorkspaceContext(workspaceRoot, Array.cartesianWith(manifests.map(dirname), LAYOUT, join))]));
-                const key = hashArray([content, ...laid, yield* OWN]);
-                const hit = Option.fromNullishOr(cache.get(key));
+                const [content, laid] = yield* Effect.promise(() => Promise.all([hashWithWorkspaceContext(workspaceRoot, [FILES]), globWithWorkspaceContext(workspaceRoot, Array.cartesianWith(manifests.map(posix.dirname), LAYOUT, posix.join))]));
+                const digest = hashArray([content, ...laid, yield* OWN]);
+                const hit = Option.filter(Option.fromNullishOr(cache.get(FILES)), (held) => held.digest === digest);
                 const read = yield* Option.match(hit, {
                     onNone: () => workspaces(workspaceRoot, manifests, files),
-                    onSome: (held) => Effect.succeed(held.map(loaded).map((reading) => [join(relative(workspaceRoot, reading.metadata.workspace_root), MANIFEST), Result.succeed(reading)] as const)),
+                    onSome: ({ readings }) => Effect.succeed(readings.map(loaded).map((reading) => [posix.join(normalizePath(relative(workspaceRoot, reading.metadata.workspace_root)), MANIFEST), Result.succeed(reading)] as const)),
                 });
                 const failures = Array.filterMap(read, ([file, reading]) => Result.map(Result.flip(reading), (error): [string, Error] => [file, error]));
                 yield* failures.length > 0 || Option.isSome(hit)
                     ? Effect.void
                     : Effect.sync(() => {
-                          cache.set(key, Array.getSuccesses(read.map(([, reading]) => reading)).map(stored));
+                          cache.set(FILES, { digest, readings: Array.getSuccesses(read.map(([, reading]) => reading)).map(stored) });
                           cache.writeToDisk();
                       });
                 const results = yield* Effect.forEach(

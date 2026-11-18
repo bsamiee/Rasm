@@ -101,7 +101,9 @@ const it = test
         const previous = process.cwd();
         const tempFs = new TempFs('apple-plugin');
         process.chdir(tempFs.tempDir);
+        vi.stubEnv('CFFIXED_USER_HOME', tempFs.tempDir);
         onCleanup(() => {
+            vi.unstubAllEnvs();
             process.chdir(previous);
             tempFs.cleanup();
         });

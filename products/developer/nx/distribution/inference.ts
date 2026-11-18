@@ -1,9 +1,10 @@
+import { ChildProcess as NodeChildProcess } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { findPackageJSON } from 'node:module';
-import { dirname, isAbsolute, join, relative, sep } from 'node:path';
+import { isAbsolute, join, posix, relative, sep } from 'node:path';
 import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
 import { AggregateCreateNodesError, type CreateNodesContext, hashArray, normalizePath, type NxJsonConfiguration, readJsonFile, type TargetConfiguration } from '@nx/devkit';
-import { buildPackageJsonPatterns, buildPackageJsonWorkspacesMatcher, getNamedInputs, hashFile, hashWithWorkspaceContext, mergeTargetConfigurations, type PackageJson, type PluginCache } from '@nx/devkit/internal';
+import { buildPackageJsonPatterns, buildPackageJsonWorkspacesMatcher, getNamedInputs, hashFile, hashWithWorkspaceContext, killChildOnHostExit, mergeTargetConfigurations, type PackageJson, type PluginCache } from '@nx/devkit/internal';
 import { walkTsconfigExtendsChain } from '@nx/js/internal';
 import { Array, Cause, Effect, Equal, FileSystem, Formatter, identity, Layer, ManagedRuntime, Match, Option, Predicate, Record, Result, Schema, type Scope, Stream, String } from 'effect';
 import { ChildProcess, CommandLine } from 'effect/process';
@@ -61,7 +62,7 @@ const fingerprinted = (folder: string) =>
         Effect.cached(
             Effect.map(
                 FileSystem.FileSystem.use((fs) => fs.readDirectory(folder)),
-                (names) => hashArray(names.toSorted().flatMap((name) => [name, ...Array.fromNullishOr(hashFile(join(folder, name)))])),
+                (names) => hashArray([...Array.fromNullishOr(hashFile(import.meta.filename)), ...names.toSorted().flatMap((name) => [name, ...Array.fromNullishOr(hashFile(join(folder, name)))])]),
             ),
         ),
     );
@@ -69,6 +70,11 @@ const fingerprinted = (folder: string) =>
 const ran = Effect.fnUntraced(function* (argv: Array.NonEmptyReadonlyArray<string>, options: ChildProcess.CommandOptions = {}) {
     const invoked = CommandLine.display(argv);
     const handle = yield* Effect.mapError(ChildProcess.make(Array.headNonEmpty(argv), Array.tailNonEmpty(argv), { stdin: 'ignore', ...options, extendEnv: true, detached: false }), (error) => new Cause.UnknownError(error, `${invoked} cannot start: ${error.message}`));
+    const tracked = Object.assign(new NodeChildProcess(), { pid: handle.pid });
+    yield* Effect.acquireRelease(
+        Effect.sync(() => killChildOnHostExit(tracked)),
+        () => Effect.sync(() => tracked.emit('exit')),
+    );
     const [stdout, said, code] = yield* Effect.all([Stream.mkString(Stream.decodeText(handle.stdout)), Stream.mkString(Stream.decodeText(handle.stderr)), handle.exitCode], { concurrency: 'unbounded' });
     return { invoked, stdout, said, code };
 }, Effect.scoped);
@@ -78,7 +84,7 @@ const spawned = (argv: Array.NonEmptyReadonlyArray<string>, options: ChildProces
 
 const within = (at: string) => !(at.startsWith('..') || at.split('/').includes('node_modules'));
 
-const tokened = (root: string) => (at: string) => (relative(root, at).startsWith('..') ? join('{workspaceRoot}', at) : join('{projectRoot}', relative(root, at)));
+const tokened = (root: string) => (at: string) => (posix.relative(root, at).startsWith('..') ? posix.join('{workspaceRoot}', at) : posix.join('{projectRoot}', posix.relative(root, at)));
 
 const namedInput = (root: string, context: CreateNodesContext) => ('production' in getNamedInputs(root, context) ? 'production' : 'default');
 
@@ -86,13 +92,13 @@ const tagged = ({ release }: NxJsonConfiguration) => Array.dedupe([...Array.ensu
 
 const anchored = (workspaceRoot: string) => {
     const member = buildPackageJsonWorkspacesMatcher(buildPackageJsonPatterns(workspaceRoot, (file: string) => readJsonFile<PackageJson>(join(workspaceRoot, file))));
-    return (root: string) => existsSync(join(workspaceRoot, root, 'project.json')) || (member(join(root, 'package.json')) && existsSync(join(workspaceRoot, root, 'package.json')));
+    return (root: string) => existsSync(join(workspaceRoot, root, 'project.json')) || (member(posix.join(root, 'package.json')) && existsSync(join(workspaceRoot, root, 'package.json')));
 };
 
 const above = (folder: string): readonly string[] =>
     Array.unfold(
         Option.some(folder),
-        Option.map((at: string) => [at, Option.liftPredicate(dirname(at), () => at !== '.')] as const),
+        Option.map((at: string) => [at, Option.liftPredicate(posix.dirname(at), () => at !== '.')] as const),
     );
 
 const extended = (workspaceRoot: string, root: string): readonly string[] => {

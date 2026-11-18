@@ -1,17 +1,19 @@
 name: Tools
-description: Removes untracked files, then mise bootstrap installs the mise tools, inside a job container the Unreal rows alone under .cache of the checkout, whose post-tools hook installs pnpm packages, and exports mise env, the remote cache row included
+description: Removes untracked files, points TMPDIR at the runner's per-job temp folder and NX_SINCE at the job start, then mise bootstrap installs the mise tools of the runner's platform, inside a job container under .cache of the checkout, whose post-tools hook installs pnpm packages, and exports mise env, the remote cache row included
 
 runs:
     using: composite
     steps:
         - shell: bash
-          run: git clean -ffd
+          run: |
+              git clean -ffd
+              since="$(date +%s)"
+              printf "%s\n" "TMPDIR=${RUNNER_TEMP}" "NX_SINCE=${since}000" >> "${GITHUB_ENV}"
         - if: ${{ job.container.id != '' }}
           shell: bash
           run: |
               kept="${GITHUB_WORKSPACE}/.cache"
-              tools="cmake,conda:pkgconf,dotnet,gh,github:llvm/llvm-project,github:microsoft/vcpkg-tool,hk,ninja,node,pkl,pnpm,rust,uv"
-              printf "%s\n" "MISE_DATA_DIR=${kept}/mise" "MISE_CACHE_DIR=${kept}/mise-cache" "RUSTUP_HOME=${kept}/mise/rustup" "CARGO_HOME=${kept}/mise/cargo" "PNPM_CONFIG_STORE_DIR=${kept}/pnpm" "MISE_ENABLE_TOOLS=${tools}" >> "${GITHUB_ENV}"
+              printf "%s\n" "MISE_DATA_DIR=${kept}/mise" "MISE_CACHE_DIR=${kept}/mise-cache" "RUSTUP_HOME=${kept}/mise/rustup" "CARGO_HOME=${kept}/mise/cargo" "PNPM_CONFIG_STORE_DIR=${kept}/pnpm" >> "${GITHUB_ENV}"
         - uses: jdx/mise-action@236a21c3b91f5db6d4e174b348674a0f0caac06d # v5.2.9
           with:
               bootstrap: true

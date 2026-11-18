@@ -4,7 +4,7 @@ import { dirname, join, relative } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { Worker } from 'node:worker_threads';
 import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, type CreateNodesResult, detectPackageManager, getPackageManagerCommand, hashArray, normalizePath, type ProjectConfiguration, type TargetConfiguration } from '@nx/devkit';
-import { calculateHashesForCreateNodes, getLockFileName, getReadyCheckReadyWhen, hashObject, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
+import { calculateHashesForCreateNodes, getLockFileName, getReadyCheckReadyWhen, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
 import { getRootTsConfigFileName } from '@nx/js';
 import web from '@nx/web/package.json' with { type: 'json' };
 import { aggregated, anchored, extended, fingerprinted, Folder, manifested, namedInput, packaged, recalled, run, stamped, tokened, type Verbs, within } from '@rasm/nx-distribution/inference';
@@ -127,15 +127,22 @@ const targets = (root: string, { packages, linked, sources, globs, runner }: Res
     };
 };
 
-const inferred = Effect.fnUntraced(function* (cache: PluginCache<Resolved>, stored: MutableRef.MutableRef<boolean>, context: CreateNodesContext, output: Option.Option<string>, exec: string, { file, chain, key }: { readonly file: string; readonly chain: readonly string[]; readonly key: string }) {
+const inferred = Effect.fnUntraced(function* (
+    cache: PluginCache<Resolved & { readonly digest: string }>,
+    stored: MutableRef.MutableRef<boolean>,
+    context: CreateNodesContext,
+    output: Option.Option<string>,
+    exec: string,
+    { file, chain, digest }: { readonly file: string; readonly chain: readonly string[]; readonly digest: string },
+) {
     const root = dirname(dirname(file));
-    const held = yield* recalled(cache, key, stamped(context.workspaceRoot));
+    const held = Option.filter(yield* recalled(cache, file, stamped(context.workspaceRoot)), (cached) => cached.digest === digest);
     const resolved = yield* Option.match(held, {
         onSome: Effect.succeed,
         onNone: () =>
             Effect.tap(read(context.workspaceRoot, file), (fresh) =>
                 Effect.sync(() => {
-                    cache.set(key, fresh);
+                    cache.set(file, { ...fresh, digest });
                     MutableRef.set(stored, true);
                 }),
             ),
@@ -162,9 +169,9 @@ const nodes = Effect.fnUntraced(function* (files: readonly string[], options: ty
             chains.map((chain) => [getLockFileName(manager), ...chain]),
         ),
     );
-    const cache = new PluginCache<Resolved>(join(workspaceDataDirectory, `storybook-${hashObject(options ?? {})}.hash`));
+    const cache = new PluginCache<Resolved & { readonly digest: string }>(join(workspaceDataDirectory, 'storybook.hash'));
     const stored = MutableRef.make(false);
-    const rows = new Map(Iterator.zip([mains, chains, hashes]).map(([file, chain, hash]) => [file, { file, chain, key: hashArray([hash, own, file]) }] as const));
+    const rows = new Map(Iterator.zip([mains, chains, hashes]).map(([file, chain, hash]) => [file, { file, chain, digest: hashArray([hash, own]) }] as const));
     const each = (file: string) => run(Effect.flatMap(Effect.fromNullishOr(rows.get(file)), (row) => inferred(cache, stored, context, Option.fromUndefinedOr(settings.outputPath), exec, row)));
     return yield* Effect.ensuring(
         Effect.promise(() => createNodesFromFiles(each, mains, options, context)),

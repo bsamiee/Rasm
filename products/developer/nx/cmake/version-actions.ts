@@ -1,5 +1,4 @@
-import { join } from 'node:path';
-import type { Tree } from '@nx/devkit';
+import { joinPathFragments, type Tree } from '@nx/devkit';
 import { Cause, Effect } from 'effect';
 import { VersionActions } from 'nx/release';
 import { MANIFEST, restated, run, versioned } from '#/workspace';
@@ -15,7 +14,7 @@ class CmakeVersionActions extends VersionActions {
     override readonly excludeManifestsFromFormatting = true;
 
     readCurrentVersionFromSourceManifest(tree: Tree) {
-        const manifestPath = join(this.projectGraphNode.data.root, MANIFEST);
+        const manifestPath = joinPathFragments(this.projectGraphNode.data.root, MANIFEST);
         return run(
             Effect.map(
                 Effect.flatMap(read(tree, manifestPath), (text) => versioned(text, manifestPath)),

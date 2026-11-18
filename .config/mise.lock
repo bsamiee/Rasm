@@ -2258,11 +2258,6 @@ version = "10.0.750501"
 backend = "dotnet:dotnet-dump"
 specifiers = ["latest"]
 
-[[tools."dotnet:dotnet-gcdump"]]
-version = "10.0.750501"
-backend = "dotnet:dotnet-gcdump"
-specifiers = ["latest"]
-
 [[tools."dotnet:dotnet-stack"]]
 version = "10.0.750501"
 backend = "dotnet:dotnet-stack"
@@ -2491,6 +2486,34 @@ checksum = "sha256:2c2cd776db3c1f6a097ba418922378ac3649cadd5e844a6f5f088ae628a7b
 checksum_source = "mise-versions"
 url = "https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_12.2_build/ghidra_12.2_PUBLIC_20261016.zip"
 url_api = "https://api.github.com/repos/NationalSecurityAgency/ghidra/releases/assets/665189215"
+
+[[tools."github:Samsung/netcoredbg"]]
+version = "3.2.0-1092"
+backend = "github:Samsung/netcoredbg"
+specifiers = ["latest"]
+
+[tools."github:Samsung/netcoredbg"."platforms.linux-arm64"]
+checksum = "sha256:065ff49badec8a695dbea2de6ab6a330c774a191e426a217ab8cc05250627ccb"
+checksum_source = "mise-versions"
+url = "https://github.com/Samsung/netcoredbg/releases/download/3.2.0-1092/netcoredbg-linux-arm64.tar.gz"
+url_api = "https://api.github.com/repos/Samsung/netcoredbg/releases/assets/457716392"
+
+[tools."github:Samsung/netcoredbg"."platforms.linux-x64"]
+checksum = "sha256:080eb3b2d2152465f599d3b33d1ee6e747794e11cc0a3773ec689f5e5f2c5afa"
+checksum_source = "mise-versions"
+url = "https://github.com/Samsung/netcoredbg/releases/download/3.2.0-1092/netcoredbg-linux-amd64.tar.gz"
+url_api = "https://api.github.com/repos/Samsung/netcoredbg/releases/assets/457716187"
+
+[tools."github:Samsung/netcoredbg"."platforms.macos-arm64"]
+checksum = "sha256:f4fa33b3ff874910cc184b4bb3b9c56d0abdf5c6521cee0b144d7c6e4a6e59ea"
+url = "https://github.com/Samsung/netcoredbg/releases/download/3.2.0-1092/netcoredbg-osx-arm64.zip"
+url_api = "https://api.github.com/repos/Samsung/netcoredbg/releases/assets/457716467"
+
+[tools."github:Samsung/netcoredbg"."platforms.windows-x64"]
+checksum = "sha256:3c410a45fa502415203a94fcb88654af65bf8e3dac158a5527a722e7a6b9274a"
+checksum_source = "mise-versions"
+url = "https://github.com/Samsung/netcoredbg/releases/download/3.2.0-1092/netcoredbg-win64.zip"
+url_api = "https://api.github.com/repos/Samsung/netcoredbg/releases/assets/457716570"
 
 [[tools."github:apple/pkl-vscode"]]
 version = "0.24.0"
@@ -3099,10 +3122,6 @@ url = "https://static.rust-lang.org/dist/2026-11-17/rustc-nightly-src.tar.xz"
 checksum = "sha256:f27b8ddf8ed3297d81961953910f912c45c567a040a05b1775932679e7c3c65a"
 url = "https://static.rust-lang.org/dist/2026-11-17/rustc-nightly-src.tar.xz"
 
-[tools."http:rustc-source"."platforms.windows-x64"]
-checksum = "sha256:f27b8ddf8ed3297d81961953910f912c45c567a040a05b1775932679e7c3c65a"
-url = "https://static.rust-lang.org/dist/2026-11-17/rustc-nightly-src.tar.xz"
-
 [[tools."http:yak"]]
 version = "0.19.1"
 backend = "http:yak"
@@ -3123,19 +3142,6 @@ url = "https://files.mcneel.com/yak/tools/0.19.1/osx-arm64/yak"
 [tools."http:yak"."platforms.windows-x64"]
 checksum = "sha256:656221a1e887a702191b9811a477517d02b5f663be2cc6528f5e0c815da37d12"
 url = "https://files.mcneel.com/yak/tools/0.19.1/win-x64/yak.exe"
-
-[[tools."http:zxpsigncmd"]]
-version = "4.1.3"
-backend = "http:zxpsigncmd"
-specifiers = ["latest"]
-
-[tools."http:zxpsigncmd"."platforms.macos-arm64"]
-checksum = "sha256:bc773fae0b97416fc7a462e7dadcc00270428a9913480c9b78b5606ff1cfb095"
-url = "https://raw.githubusercontent.com/Adobe-CEP/CEP-Resources/fcee8de5537d2dd2ed3d91d5a495b7041155b280/ZXPSignCMD/4.1.3/macOS/ZXPSignCmd"
-
-[tools."http:zxpsigncmd"."platforms.windows-x64"]
-checksum = "sha256:ffc2223167225ce61d024eb463fc5ad1a1be16133f99ef334a646f7311916c98"
-url = "https://raw.githubusercontent.com/Adobe-CEP/CEP-Resources/fcee8de5537d2dd2ed3d91d5a495b7041155b280/ZXPSignCMD/4.1.3/x64/ZXPSignCmd.exe"
 
 [[tools.hyperfine]]
 version = "2.0.0"
