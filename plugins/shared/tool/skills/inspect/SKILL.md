@@ -175,4 +175,3 @@ Pages, browsers, and browser extensions:
 - Same reads as MCP tools: `chrome-devtools`, `firefox-devtools`, and `safari` servers of the `browser` plugin
 - Firefox profile from a recording: `profiler-cli load <profile.json>`, then the queries `profiler-cli --help` lists
 - Chrome extension manifest: `jq . ~/Library/Application\ Support/Google/Chrome/Default/Extensions/<id>/<version>/manifest.json`
-- Browser builds for a check: `browsers list --path ~/.cache/puppeteer`, `browsers install chrome@stable --path <dir>`

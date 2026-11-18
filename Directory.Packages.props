@@ -425,7 +425,6 @@
         <PackageVersion Include="PDFsharp"                                                Version="7.0.0-preview-2" />                     <!-- PDF document creation and drawing API -->
         <PackageVersion Include="PDFsharp-MigraDoc"                                       Version="7.0.0-preview-2" />                     <!-- Document object model rendering to PDF and RTF -->
         <PackageVersion Include="PDFtoImage"                                              Version="6.0.0-preview.2" />                     <!-- PDF page rasterization through PDFium -->
-        <PackageVersion Include="PuppeteerSharp"                                          Version="25.17.1" />                             <!-- Headless Chromium automation over DevTools protocol -->
         <PackageVersion Include="ReverseMarkdown"                                         Version="6.3.0" />                               <!-- HTML to Markdown text conversion -->
         <PackageVersion Include="ShapeCrawler"                                            Version="0.82.0" />                              <!-- PowerPoint presentation reading, creation, and editing -->
     </ItemGroup>
