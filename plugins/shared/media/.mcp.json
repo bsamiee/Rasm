@@ -1,14 +1,5 @@
 {
     "mcpServers": {
-        "cavalry": {
-            "type": "sse",
-            "url": "http://localhost:6768/sse",
-            "headers": {
-                "X-Cavalry-MCP-Fingerprint": "rasm-claude-code",
-                "X-Cavalry-MCP-Client-Name": "Claude Code"
-            },
-            "default_tools_approval_mode": "approve"
-        },
         "voicebox": {
             "type": "http",
             "url": "http://127.0.0.1:17493/mcp/",

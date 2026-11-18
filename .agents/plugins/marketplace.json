@@ -222,15 +222,15 @@
                 "authentication": "ON_INSTALL"
             },
             "category": "Coding",
-            "version": "0.4.0",
-            "description": "Audio and media work through the Voicebox voice studio and Cavalry MCP servers",
+            "version": "0.5.0",
+            "description": "Audio work through the Voicebox voice studio MCP server",
             "author": {
                 "name": "Bardia Samiee"
             },
             "mcpServers": "./.mcp.json",
             "interface": {
                 "displayName": "Media",
-                "shortDescription": "Audio and media work through the Voicebox voice studio and Cavalry MCP servers",
+                "shortDescription": "Audio work through the Voicebox voice studio MCP server",
                 "developerName": "Bardia Samiee",
                 "category": "Coding",
                 "composerIcon": "./assets/icon.png",
