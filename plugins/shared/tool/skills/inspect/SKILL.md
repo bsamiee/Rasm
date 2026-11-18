@@ -168,7 +168,7 @@ iOS simulators on the installed runtime, booted headless with no window:
 ## [09]-[WEB]
 
 Pages, browsers, and browser extensions:
-- Page accessibility snapshot and refs: `playwright cli open <url>`, then `playwright cli snapshot`
+- Page accessibility snapshot and refs: `playwright cli -s=<name> open <url>`, `snapshot`, then `close`
 - Network requests, console, performance trace of a page: `chrome-devtools <command> --output-format json`, `chrome-devtools --help` lists commands
 - Lighthouse scores and failing audits of a page: `chrome-devtools lighthouse_audit <pageId> --output-format json`
 - Heap snapshot of a page: `chrome-devtools take_heapsnapshot <pageId> <file>`, then `get_heapsnapshot_summary <file>`

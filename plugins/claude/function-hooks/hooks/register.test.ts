@@ -247,25 +247,25 @@ test('Note of an ended agent app reaches the next main-loop prompt', async ($, o
 
 (
     [
-        ['running', []],
-        ['completed', [['quit', [expect.objectContaining(APP)]]]],
+        ['running', [], []],
+        ['completed', [['quit', [expect.objectContaining(APP)]]], [expect.arrayContaining([expect.stringContaining('detach --close-tabs'), 'a1'])]],
     ] as const
-).forEach(([status, quits]) => {
-    test(`Turn end posts ${quits.length} quit for apps of a ${status} agent over two turns`, async ($, on) => {
+).forEach(([status, quits, closes]) => {
+    test(`Turn end posts ${quits.length} quit and closes ${closes.length} browser session of a ${status} agent over two turns`, async ($, on) => {
         const world = worldOf(on, () => answered(OBSERVED), { observe: CREATED, quit: [APP.instance], agents: [agentOf(status)] });
         await $.session.start(SESSION);
         await $.tool.call(LAUNCH);
         await $.turn.complete(TURN);
         await $.turn.complete(TURN);
-        expect(world.sent.filter(([route]) => route === 'quit')).toEqual(quits);
+        expect([world.sent.filter(([route]) => route === 'quit'), world.runs]).toEqual([quits, closes]);
     });
 });
 
-test('Session end quits apps of the ending session in one detached process, once', async ($, on) => {
-    const world = worldOf(on, () => answered(OBSERVED), { observe: CREATED });
+test('Session end quits apps and closes browser sessions of the ending session and its agents, each in one detached process, once', async ($, on) => {
+    const world = worldOf(on, () => answered(OBSERVED), { observe: CREATED, agents: [agentOf('running')] });
     await $.session.start(SESSION);
     await $.tool.call(LAUNCH);
     await $.session.end(ENDING);
     await $.session.end(ENDING);
-    expect(world.runs).toEqual([expect.arrayContaining([expect.stringContaining('watch-app quit'), APP.instance])]);
+    expect(world.runs).toEqual([expect.arrayContaining([expect.stringContaining('watch-app quit'), APP.instance]), expect.arrayContaining([expect.stringContaining('playwright cli'), ENDING.sessionId, 'a1'])]);
 });

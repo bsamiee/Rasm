@@ -90,7 +90,7 @@ tmux -L gog-auth capture-pane -t auth -p -J -S - | rg -o 'https://accounts\.goog
 ```bash
 playwright cli -s=<session> attach --extension=chrome
 playwright cli -s=<session> tab-new "$(cat "$url_file")&login_hint=<email>"
-playwright cli -s=<session> tab-close
+playwright cli -s=<session> detach --close-tabs
 ```
 
 Unverified or testing OAuth clients show interstitials:

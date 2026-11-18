@@ -14,6 +14,7 @@ interface State {
     readonly tracked: Map<string, Tracked>;
     readonly read: Set<string>;
     readonly unjudged: Map<string | undefined, string>;
+    readonly closed: Set<string>;
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -213,10 +214,22 @@ const observed = async ($: EngineInterface, state: State, agent: string | undefi
     });
 };
 
+// --- [BROWSERS]
+
+const closed = async ($: EngineInterface, done: State['closed'], sessions: readonly string[]): Promise<void> => {
+    const open = sessions.filter((session) => !done.has(session));
+    open.forEach((session) => {
+        done.add(session);
+    });
+    if (open.length > 0) {
+        await $.process.run(['sh', '-c', 'for session; do playwright cli -s="$session" detach --close-tabs; playwright cli -s="$session" close; done </dev/null >/dev/null 2>&1 &', 'sh', ...open], { stdin: '' });
+    }
+};
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const register: Register = (on) => {
-    const state: State = { session: Promise.withResolvers(), servers: new Map(), watches: new Map(), tracked: new Map(), read: new Set(), unjudged: new Map() };
+    const state: State = { session: Promise.withResolvers(), servers: new Map(), watches: new Map(), tracked: new Map(), read: new Set(), unjudged: new Map(), closed: new Set() };
     on('session.start', async ($, e, next) => {
         const answer = await next(e);
         const stored = await $.store.get(await $.session.id());
@@ -349,10 +362,16 @@ const register: Register = (on) => {
         if (owned.length > 0) {
             await recorded($, undefined, { created: [], exited: await posted($, state, 'quit', owned, next.signal) });
         }
+        agents
+            .filter(({ status }) => !ENDED.has(status))
+            .forEach(({ id }) => {
+                state.closed.delete(id);
+            });
+        await closed($, state.closed, [...ended]);
         return answer;
     });
     on('session.end', async ($, e, next) => {
-        const rows = await read($, ROWS);
+        const [agents, rows] = await Promise.all([$.agent.list(), read($, ROWS)]);
         state.tracked.clear();
         state.read.clear();
         state.watches.forEach((seen) => seen.clear());
@@ -361,6 +380,7 @@ const register: Register = (on) => {
         if (rows.length > 0) {
             await $.process.run(['sh', '-c', `${WATCH_APP_CLI} quit "$@" </dev/null >/dev/null 2>&1 &`, 'sh', ...rows.map(({ instance }) => instance)], { stdin: '' });
         }
+        await closed($, state.closed, [e.sessionId, ...agents.map(({ id }) => id)]);
         await update($, ROWS, () => []);
         await $.store.delete(e.sessionId);
         return next(e);

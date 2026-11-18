@@ -20,7 +20,12 @@ const FOCUS = /\bactivate\b|\bset\s+frontmost\b|AXRaise/u;
 const SYSTEM_EVENTS = /System Events|com\.apple\.systemevents/u;
 const WEB_URL = /^https?:/iu;
 const BROWSER_NAME = /^[a-z][\w-]*$/u;
-const SESSIONLESS = new Set(['install', 'install-browser', 'list', 'close-all', 'kill-all']);
+const SESSIONLESS = new Set(['install-browser', 'list']);
+const BEYOND_SESSION: Record.ReadonlyRecord<string, string> = {
+    'close-all': "closes every agent's sessions, use playwright cli -s=<session> close",
+    'kill-all': "kills every agent's browsers, use playwright cli -s=<session> close",
+    install: 'writes a .playwright workspace in the working folder, use playwright cli install-browser <browser>',
+};
 const SIGNAL_PREFIX = /^-?(?:SIG)?/u;
 const SIGNAL = /^-(?:\d+|(?:SIG)?[A-Z]{2,}\d*)$/u;
 const PIDS = /^\d+/gmu;
@@ -58,9 +63,8 @@ const opens = (named: readonly string[], waits: readonly string[], allowed: read
         const [waited] = invocation.names.intersection(new Set(waits));
         const foreign = invocation.names.difference(new Set([...allowed, ...waits]));
         if (url !== undefined) {
-            const playwright = Option.exists(invocation.command.cwd, (folder) => call.host.inside(folder, call.host.root)) ? 'playwright' : `mise -C ${quote(call.host.root)} exec -- playwright`;
             const session = call.request.agent === undefined ? [] : [`-s=${quote(call.request.agent)}`];
-            const opened = [playwright, 'cli', ...session, 'open', url.raw].join(' ');
+            const opened = ['playwright', 'cli', ...session, 'open', url.raw].join(' ');
             return documents.length === 1 && waited === undefined ? whole(invocation, opened, `${program} ${url.raw}`) : refusal(`${program} ${url.raw} opens a browser, use ${opened}`);
         }
         if (subjects.length + documents.length === 0) {
@@ -244,6 +248,13 @@ const browserSession: Rule = (invocation, { request: { agent } }) => {
     return agent === undefined || cli?.text !== 'cli' || stated || SESSIONLESS.has(verb?.text ?? '') ? [] : inserted(invocation, cli.end, ` -s=${quote(agent)}`);
 };
 
+const beyondSession: Rule = ({ operands: [cli, verb] }) =>
+    Option.fromNullishOr(verb).pipe(
+        Option.filter(() => cli?.text === 'cli'),
+        Option.flatMap(({ text }) => Option.map(Record.get(BEYOND_SESSION, text), (reason) => `playwright cli ${text} ${reason}`)),
+        Option.match({ onNone: () => [], onSome: refusal }),
+    );
+
 // --- [KILLS]
 
 const ownPids = Effect.fnUntraced(
@@ -313,7 +324,7 @@ const APPS: Ruleset = {
             rules: [when(({ has }) => has('--python', '--python-expr'), ensure(['--python-use-system-env']))],
         },
         Rhinoceros: { switches: ['-nosplash'] },
-        playwright: { flags: ['-s, --session=', '--cdp=', '--extension='], rules: [browserSession, when(({ operands: [cli, verb] }) => cli?.text === 'cli' && verb?.text === 'attach', respell({ renames: { '--cdp': '--extension' }, only: BROWSER_NAME, notify: true }))] },
+        playwright: { flags: ['-s, --session=', '--cdp=', '--extension='], rules: [browserSession, beyondSession, when(({ operands: [cli, verb] }) => cli?.text === 'cli' && verb?.text === 'attach', respell({ renames: { '--cdp': '--extension' }, only: BROWSER_NAME, notify: true }))] },
         [WATCH_APP]: { restAfter: ['--arguments'], rules: [() => OBSERVED, launchSwitches] },
     },
     every: [bundleExecutable],
