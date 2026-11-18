@@ -19,6 +19,8 @@ Each place holding state changes through one action:
 - That script flushes its writes to disk before it joins, as `set-hostname` resets a machine with no shutdown and loses each write not yet on disk
 - `hostinger vps virtual-machines recreate <id> --template-id <id> --post-install-script-id <id>` reinstalls a machine, erasing its disk and resetting its hostname, which `set-hostname` restores once the machine joined the tailnet
 - Reinstalls follow `tscli delete device` of the machine, as a machine joining beside its old device takes a numbered name, and `mise bootstrap remote <name>` follows them
+- Reinstalls of a machine holding object storage follow `node stacks.ts deploy --operation=destroy --stack=<name>`, as the storage provider fails to refresh an account whose store is gone
+- File `99lock-timeout` of the Hostinger image holds the package lock wait, raised to 10 minutes, as a runner install on a reinstalled machine runs beside its first unattended upgrade
 - Machines losing the tailnet are reached through the provider's browser console as `root` with `<NAME>_ROOT_PASSWORD`
 - Table `hosts` holds one row per machine, keyed by DNS name, stating public IPv4 `address`, `tags`, and `roles`
 - `.config/mise.toml` `[bootstrap.remote.hosts]` holds one row per machine by tailnet name, and its `mise_env` loads a role file (`.config/mise.runner.toml`)

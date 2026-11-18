@@ -304,7 +304,11 @@ const provisioned = (host: keyof typeof hosts, { owner, repository, project, eng
                                 { onEmpty: Array.empty, onNonEmpty: (options) => [`systemctl set-property "$(cat .service)" ${options.join(' ')}`] },
                             ),
                         ].join('\n');
-                        const token = new command.local.Command(`${machine.name}-runner-${label}-token`, { create: `gh api --method POST repos/${owner}/${repository}/actions/runners/registration-token --jq .token`, triggers: [installation], logging: 'none' }, { additionalSecretOutputs: ['stdout'] });
+                        const token = new command.local.Command(
+                            `${machine.name}-runner-${label}-token`,
+                            { create: `gh api --method POST repos/${owner}/${repository}/actions/runners/registration-token --jq .token`, triggers: [installation, getDeviceOutput({ hostname: machine.name }).nodeId], logging: 'none' },
+                            { additionalSecretOutputs: ['stdout'] },
+                        );
                         const instance = new remote.Command(`${machine.name}-runner-${label}`, { connection: { host: machine.name }, addPreviousOutputInEnv: false, logging: 'stderr', create: installation, delete: removed, stdin: token.stdout }, { dependsOn: Option.toArray(before) });
                         return [Option.some(instance), [label, instance.id] as const];
                     });

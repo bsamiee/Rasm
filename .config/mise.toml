@@ -184,6 +184,12 @@ Unattended-Upgrade::Automatic-Reboot "true";
 '''
 os      = "linux"
 
+[bootstrap.files."/etc/apt/apt.conf.d/99lock-timeout"]
+content = '''
+DPkg::Lock::Timeout "600";
+'''
+os      = "linux"
+
 [bootstrap.files."/etc/systemd/system/apt-daily-upgrade.timer.d/90-platform.conf"]
 content = """
 [Timer]
