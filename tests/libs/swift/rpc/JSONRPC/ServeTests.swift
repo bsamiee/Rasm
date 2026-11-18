@@ -62,7 +62,8 @@ struct ServeTests {
             reasons,
             [
                 .object([
-                    "_tag": .string("Fail"), "error": .object(["_tag": .string("Unmatched"), "subject": .string("application"), "query": .string("Xcode"), "candidates": .array([.string("Finder")])]),
+                    "_tag": .string("Fail"),
+                    "error": .object(["_tag": .string("Unmatched"), "subject": .string("application"), "query": .string("Xcode"), "candidates": .array([.string("Finder")]), "message": .string("No application matching Xcode, candidates: Finder")]),
                 ])
             ],
         )
