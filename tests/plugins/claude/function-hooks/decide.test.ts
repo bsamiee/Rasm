@@ -3,9 +3,14 @@ import { fileURLToPath } from 'node:url';
 import { layerUndiciOptions } from '@effect/platform-node/NodeHttpClient';
 import { layer } from '@effect/platform-node/NodeServices';
 import { assert, it } from '@effect/vitest';
-import { Cause, Effect, FileSystem, Path, Stream } from 'effect';
+import { Cause, Effect, FileSystem, Layer, Path, Schema, Stream } from 'effect';
+import { SecureRandom } from 'effect/crypto';
 import { HttpClient, HttpClientRequest } from 'effect/http';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
+
+// --- [TYPES] ---------------------------------------------------------------------------
+
+type Decision = typeof Decision.Type;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -27,6 +32,10 @@ const BROWSERS = [
     ['playwright cli open https://example.com', { _tag: 'Rewrite', command: 'playwright cli -s=a1 open https://example.com', observes: false, background: false }],
 ] as const;
 
+// --- [MODELS] --------------------------------------------------------------------------
+
+const Decision = Schema.Union([Schema.TaggedStruct('Allow', { observes: Schema.Boolean }), Schema.TaggedStruct('Deny', { reason: Schema.String }), Schema.TaggedStruct('Rewrite', { command: Schema.String, observes: Schema.Boolean, background: Schema.Boolean })]);
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const served = Effect.fnUntraced(function* () {
@@ -39,8 +48,10 @@ const served = Effect.fnUntraced(function* () {
         Effect.flatMap(server.exitCode, (code) => Effect.fail(new Cause.UnknownError(code, `${SERVER} exits ${code} before it listens on ${socket}`))),
     );
     const decided = (command: string, kind: 'foreground' | 'monitor', stated: { readonly cwd?: string; readonly agent?: string } = {}) =>
-        HttpClient.execute(HttpClientRequest.bodyJsonUnsafe(HttpClientRequest.post('http://function-hooks/decide'), { command, cwd: folder, kind, session: 'session', call: crypto.randomUUID(), ...stated })).pipe(
+        SecureRandom.SecureRandom.use((random) => random.uuidV4()).pipe(
+            Effect.flatMap((call) => HttpClient.execute(HttpClientRequest.bodyJsonUnsafe(HttpClientRequest.post('http://function-hooks/decide'), { command, cwd: folder, kind, session: 'session', call, ...stated }))),
             Effect.flatMap(({ json }) => json),
+            Effect.flatMap(Schema.decodeUnknownEffect(Decision)),
             Effect.provide(layerUndiciOptions({ connect: { socketPath: socket } })),
         );
     return { folder, decided };
@@ -63,10 +74,10 @@ it.live(
         function* () {
             const { output, pid, decided } = yield* held('writer');
             const bounded = `{ tail -f ${output} & caffeinate -w ${pid}; kill $!; }`;
-            assert.deepStrictEqual([yield* decided(`tail -f ${output}`, 'monitor'), yield* decided(bounded, 'monitor')], [{ _tag: 'Rewrite', command: bounded, observes: false, background: false }, ALLOWED]);
+            assert.deepStrictEqual<readonly Decision[]>([yield* decided(`tail -f ${output}`, 'monitor'), yield* decided(bounded, 'monitor')], [{ _tag: 'Rewrite', command: bounded, observes: false, background: false }, ALLOWED]);
         },
         Effect.scoped,
-        Effect.provide(layer),
+        Effect.provide(Layer.merge(layer, SecureRandom.layerWebCrypto)),
     ),
     30_000,
 );
@@ -79,10 +90,10 @@ it.live.each([
     Effect.fnUntraced(
         function* ([holder, decisions]) {
             const { output, decided } = yield* held(holder);
-            assert.deepStrictEqual([yield* decided(`cat ${output}`, 'foreground'), yield* decided(`cat ${output}`, 'foreground')], decisions);
+            assert.deepStrictEqual<readonly Decision[]>([yield* decided(`cat ${output}`, 'foreground'), yield* decided(`cat ${output}`, 'foreground')], decisions);
         },
         Effect.scoped,
-        Effect.provide(layer),
+        Effect.provide(Layer.merge(layer, SecureRandom.layerWebCrypto)),
     ),
     30_000,
 );
@@ -93,13 +104,13 @@ it.live(
         function* () {
             const { decided } = yield* served();
             const decisions = yield* Effect.forEach(BROWSERS, ([command]) => decided(command, 'foreground', { cwd: '/private/tmp', agent: 'a1' }));
-            assert.deepStrictEqual(
+            assert.deepStrictEqual<readonly Decision[]>(
                 decisions,
                 BROWSERS.map(([, decision]) => decision),
             );
         },
         Effect.scoped,
-        Effect.provide(layer),
+        Effect.provide(Layer.merge(layer, SecureRandom.layerWebCrypto)),
     ),
     30_000,
 );
@@ -109,10 +120,10 @@ it.live(
     Effect.fnUntraced(
         function* () {
             const { decided } = yield* served();
-            assert.deepStrictEqual(yield* decided('nx show project rasm --json 2>&1 | jq .name', 'foreground'), { _tag: 'Rewrite', command: 'set -o pipefail; nx show project rasm --json | jq .name', observes: false, background: false });
+            assert.deepStrictEqual<Decision>(yield* decided('nx show project rasm --json 2>&1 | jq .name', 'foreground'), { _tag: 'Rewrite', command: 'set -o pipefail; nx show project rasm --json | jq .name', observes: false, background: false });
         },
         Effect.scoped,
-        Effect.provide(layer),
+        Effect.provide(Layer.merge(layer, SecureRandom.layerWebCrypto)),
     ),
     30_000,
 );
