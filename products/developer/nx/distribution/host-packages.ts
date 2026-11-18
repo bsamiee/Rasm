@@ -1,6 +1,6 @@
 import { constants, openAsBlob } from 'node:fs';
 import { homedir } from 'node:os';
-import { basename, join, matchesGlob } from 'node:path';
+import { basename, join, matchesGlob, posix } from 'node:path';
 import { arch, platform } from 'node:process';
 import { patch } from '@decimalturn/toml-patch';
 import type { ExecutorContext } from '@nx/devkit';
@@ -209,7 +209,7 @@ const located = Effect.fnUntraced(function* (context: ExecutorContext) {
     const node = yield* Effect.fromNullishOr(context.projectGraph.nodes[project]);
     const files = listed.map((file) => path.join(context.root, file));
     const rows = HOSTS.filter(({ technology }) => node.data.metadata?.technologies?.includes(technology) === true);
-    const sources = Array.isReadonlyArrayNonEmpty(outputs) ? files : (yield* Effect.promise(() => globWithWorkspaceContext(context.root, [path.join(node.data.root, '**')]))).map((file) => path.join(context.root, file));
+    const sources = Array.isReadonlyArrayNonEmpty(outputs) ? files : (yield* Effect.promise(() => globWithWorkspaceContext(context.root, [posix.join(node.data.root, '**')]))).map((file) => path.join(context.root, file));
     const packages = yield* Effect.forEach(
         files.flatMap((file) => rows.filter(({ archive }) => archive !== undefined && file.endsWith(archive)).map((host) => ({ file, host }))),
         ({ file, host }) => Effect.flatMap(entry(file, `{,*/}${host.manifest}`), Option.match({ onNone: () => Effect.succeedNone, onSome: ({ at, text }) => stated(host, file, text, path.join(file, at), []) })),
@@ -425,7 +425,7 @@ const HOSTS: readonly Host[] = [
                 onSuccess: ({ Plugins, AdditionalPluginDirectories }) => Option.some({ name: basename(file, '.uproject'), folders: ['Plugins', ...(AdditionalPluginDirectories ?? [])], references: (Plugins ?? []).map(({ Name, Enabled }) => ({ name: Name, enabled: Enabled === true })) }),
             }),
         engine: { fields: Struct.keys(Association.fields), stamp: (descriptor) => Effect.option(Effect.map(engine(descriptor), Struct.get('stamp'))) },
-        build: { executor: 'unreal-build', command: 'UnrealBuildTool', outputs: ({ folders = [] }) => ['Binaries', ...folders.map((folder) => join(folder, '**', 'Binaries'))] },
+        build: { executor: 'unreal-build', command: 'UnrealBuildTool', outputs: ({ folders = [] }) => ['Binaries', ...folders.map((folder) => posix.join(folder, '**', 'Binaries'))] },
         operations: { check: { command: ['UnrealBuildTool', ...ANALYSIS].join(' '), options: { operation: 'check' } } },
     },
     {

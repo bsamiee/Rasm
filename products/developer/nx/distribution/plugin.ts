@@ -1,4 +1,4 @@
-import { basename, join, matchesGlob, relative } from 'node:path';
+import { join, posix } from 'node:path';
 import { platform } from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { AggregateCreateNodesError, type CreateNodes, type CreateNodesContext, detectPackageManager, getPackageManagerCommand, type ProjectConfiguration, readJsonFile, type TargetConfiguration } from '@nx/devkit';
@@ -26,7 +26,7 @@ interface Declared {
 
 const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#package'))).name;
 const WORKFLOWS = '**/.github/workflows/*.{yml,yaml}';
-const FILES = combineGlobPatterns([...Array.dedupe(HOSTS.map(({ manifest }) => `**/${basename(manifest)}`)), WORKFLOWS]);
+const FILES = combineGlobPatterns([...Array.dedupe(HOSTS.map(({ manifest }) => `**/${posix.basename(manifest)}`)), WORKFLOWS]);
 const WITHHELD = ['archive', 'build', 'operations', 'publish'] as const;
 const UPSTREAM = { dependentTasksOutputFiles: '**/*' } as const;
 const RECEIVED: NonNullable<TargetConfiguration['inputs']> = [UPSTREAM, { externalDependencies: [] }];
@@ -36,7 +36,7 @@ const ACTIONS: Verbs = {
         jactionlint: {
             executor: `${PLUGIN}:upgrade`,
             options: { cwd: '{projectRoot}', commands: [{ apply: ['jactionlint', 'update', '--apply'], preview: ['jactionlint', 'update', '--diff'] }] },
-            inputs: [join('{projectRoot}', '.github', '**', '*'), join('{projectRoot}', '**', 'action.{yml,yaml}'), { externalDependencies: [] }],
+            inputs: [posix.join('{projectRoot}', '.github', '**', '*'), posix.join('{projectRoot}', '**', 'action.{yml,yaml}'), { externalDependencies: [] }],
             metadata: {
                 description: 'Moves every external action and reusable workflow the workflows and composite actions use to its newest release with jactionlint update --apply, keeping commit pins and their version comments',
                 help: { command: 'jactionlint update --help', example: { options: { dryRun: true } } },
@@ -62,9 +62,9 @@ const read = Effect.fnUntraced(function* (files: readonly string[], context: Cre
     const fs = yield* FileSystem.FileSystem;
     const { workspaceRoot } = context;
     const matched = Array.filterMap(files, (file) =>
-        Array.findFirst(HOSTS, (host) => matchesGlob(file, `**/${host.manifest}`)).pipe(
+        Array.findFirst(HOSTS, (host) => posix.matchesGlob(file, `**/${host.manifest}`)).pipe(
             Result.fromOption(Function.constVoid),
-            Result.map((host) => ({ file, host, root: join(file, relative(host.manifest, '.')) })),
+            Result.map((host) => ({ file, host, root: posix.join(file, posix.relative(host.manifest, '.')) })),
         ),
     );
     const local = Array.dedupe(matched.map(({ host }) => host)).filter(({ platforms = [platform] }) => platforms.includes(platform));
@@ -80,8 +80,8 @@ const read = Effect.fnUntraced(function* (files: readonly string[], context: Cre
     );
     const one = Effect.fnUntraced(function* ({ file, host, root }: (typeof matched)[number]) {
         const segments = root.split('/');
-        const above = Array.makeBy(segments.length + 1, (up) => join(...segments.slice(0, segments.length - up)));
-        const lock = Option.map(yield* Effect.findFirst(Array.cartesianWith(above, Array.fromNullishOr(host.build?.lock), join), (at) => fs.exists(join(workspaceRoot, at))), (at) => ({ lock: at }));
+        const above = Array.makeBy(segments.length + 1, (up) => posix.join(...segments.slice(0, segments.length - up)));
+        const lock = Option.map(yield* Effect.findFirst(Array.cartesianWith(above, Array.fromNullishOr(host.build?.lock), posix.join), (at) => fs.exists(join(workspaceRoot, at))), (at) => ({ lock: at }));
         const stamp = local.includes(host) && host.engine !== undefined ? yield* host.engine.stamp(join(workspaceRoot, file)) : Option.none<string>();
         const engined = local.includes(host) && (host.engine === undefined || Option.isSome(stamp));
         const fields = yield* Effect.flatMap(fs.readFileString(join(workspaceRoot, file)), (text) => host.read(text, file));
@@ -95,7 +95,7 @@ const read = Effect.fnUntraced(function* (files: readonly string[], context: Cre
 const placed = (operation: keyof typeof FOLDERS) => `{options.outputPath}/${FOLDERS[operation]}`;
 
 const projects = (declared: readonly Declared[], settings: typeof Options.Type, exec: string, release: readonly string[]) => {
-    const holds = (other: Declared, item: Declared) => (other.fields.folders ?? []).some((folder) => !relative(join(other.root, folder), item.root).startsWith('..')) && !(other.fields.references ?? []).some((reference) => reference.name === item.fields.name && !reference.enabled);
+    const holds = (other: Declared, item: Declared) => (other.fields.folders ?? []).some((folder) => !posix.relative(posix.join(other.root, folder), item.root).startsWith('..')) && !(other.fields.references ?? []).some((reference) => reference.name === item.fields.name && !reference.enabled);
     const hosts = Function.memoize((item: Declared) => (item.fields.folders === undefined ? declared.filter((other) => holds(other, item)) : [item]));
     const uses = (item: Declared) => declared.filter((other) => other !== item && (item.fields.references ?? []).some((reference) => reference.enabled && reference.name === other.fields.name));
     const users = (item: Declared) => declared.filter((other) => !hosts(item).includes(other) && uses(other).includes(item));
@@ -106,11 +106,11 @@ const projects = (declared: readonly Declared[], settings: typeof Options.Type, 
         const lone = item.fields.folders === undefined && item.host.standalone === true && !hosting.some((other) => other.host.build !== undefined);
         const offered: Host = lone ? Struct.omit(item.host, WITHHELD) : item.host;
         const { technology, archive, platforms = [], standalone = false, build, operations = {}, install, publish, write, output } = offered;
-        const manifest = relative(item.root, item.file);
+        const manifest = posix.relative(item.root, item.file);
         const signer = Option.orElse(Record.get(settings.signingIdentities ?? {}, technology), () => Option.fromUndefinedOr(build?.identity));
         const packages = item.fields.packages ?? {};
         const linked = Array.dedupe([...[...declared.filter((other) => other !== item && hosts(other).includes(item)), ...uses(item)].map((other) => other.fields.name), ...Object.values(packages).map(({ project }) => project)]);
-        const outputPath = settings.outputPath ?? join('{projectRoot}', output);
+        const outputPath = settings.outputPath ?? posix.join('{projectRoot}', output);
         const options = standalone ? { outputPath, descriptor: item.file, hosts: loading.map((other) => other.file), dependencies: uses(item).map((other) => other.file), ...(Record.isEmptyRecord(packages) ? {} : { packages }) } : { outputPath };
         const inputs: NonNullable<TargetConfiguration['inputs']> = [
             item.named,
@@ -143,10 +143,10 @@ const projects = (declared: readonly Declared[], settings: typeof Options.Type, 
             }));
         const written = [
             ...UndefinedOr.match(operations.pack, {
-                onUndefined: () => [...Array.fromNullishOr(archive).map((extension) => `{options.outputPath}/*${extension}`), ...(build?.outputs?.(item.fields) ?? []).map((at) => join('{projectRoot}', at))],
+                onUndefined: () => [...Array.fromNullishOr(archive).map((extension) => `{options.outputPath}/*${extension}`), ...(build?.outputs?.(item.fields) ?? []).map((at) => posix.join('{projectRoot}', at))],
                 onDefined: () => [placed('build')],
             }),
-            ...Record.keys(packages).map((folder) => join('{projectRoot}', folder, '*')),
+            ...Record.keys(packages).map((folder) => posix.join('{projectRoot}', folder, '*')),
         ];
         const installed = Option.firstSomeOf([
             Option.map(
@@ -234,7 +234,7 @@ const projects = (declared: readonly Declared[], settings: typeof Options.Type, 
 const workflows = (files: readonly string[], workspaceRoot: string) =>
     Effect.forEach(
         Array.dedupeWith(
-            files.filter((file) => matchesGlob(file, WORKFLOWS)).map((file) => ({ file, root: join(file, '..', '..', '..') })),
+            files.filter((file) => posix.matchesGlob(file, WORKFLOWS)).map((file) => ({ file, root: posix.join(file, '..', '..', '..') })),
             (left, right) => left.root === right.root,
         ),
         ({ file, root }) => Effect.map(manifested(workspaceRoot, root), (stated) => [file, { projects: { [root]: { root, targets: aggregated(ACTIONS, stated, 'github-actions') } } }] as const),

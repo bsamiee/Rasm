@@ -43,6 +43,16 @@ describe('package executor', () => {
         expect(execFileSync('unzip', ['-Z1', '.artifacts/distribution/panel/com.example.panel.ccx'], { cwd: tempFs.tempDir, encoding: 'utf-8' }).trim().split('\n')).toStrictEqual(['index.html', 'manifest.json', 'scripts/main.js']);
     });
 
+    it('removes every earlier archive of the packed kind, whatever name its host tool gave it', async ({ tempFs, context }) => {
+        await tempFs.createFile('panel/manifest.json', JSON.stringify({ manifestVersion: 5, id: 'com.example.panel', name: 'Panel', version: '1.2.3', host: { app: 'PS', minVersion: '24.0.0' } }));
+        await tempFs.createFile('.artifacts/distribution/panel/previous-0.0.0.ccx', 'stale');
+        await tempFs.createFile('.artifacts/distribution/panel/notes.txt', 'kept');
+
+        await expect(execute({ outputPath: '.artifacts/distribution/panel', timestampAuthority: 'http://timestamp.digicert.com' }, context)).resolves.toStrictEqual({ success: true });
+
+        expect(readdirSync(join(tempFs.tempDir, '.artifacts/distribution/panel')).toSorted()).toStrictEqual(['com.example.panel.ccx', 'notes.txt']);
+    });
+
     it('writes every output build--uxp declares and no file outside them', { timeout: 30_000 }, async ({ tempFs, context }) => {
         await tempFs.createFile('panel/manifest.json', JSON.stringify({ manifestVersion: 5, id: 'com.example.panel', name: 'Panel', version: '1.2.3', host: { app: 'PS', minVersion: '24.0.0' } }));
         const [, createNodesFunction] = createNodes;

@@ -24,15 +24,10 @@ const execute = Effect.fnUntraced(function* ({ outputPath, __unparsed__: words =
     const { project, folders } = yield* located(context);
     const packed = Array.getSomes(folders.map((found) => Option.map(Option.all({ pack: Option.fromUndefinedOr(found.host.build?.pack), archive: Option.fromUndefinedOr(found.host.archive) }), ({ pack, archive }) => ({ found, pack, file: path.join(context.root, outputPath, `${found.name}${archive}`) }))));
     yield* fs.makeDirectory(path.join(context.root, outputPath), { recursive: true });
-    const held = yield* fs.readDirectory(path.join(context.root, outputPath));
+    const archives = new Set(packed.map(({ file }) => path.extname(file)));
     yield* Effect.forEach(
-        packed,
-        ({ found, file }) =>
-            Effect.forEach(
-                held.filter((name) => name.startsWith(found.name) && path.extname(name) === path.extname(file)),
-                (name) => fs.remove(path.join(context.root, outputPath, name)),
-                { discard: true },
-            ),
+        (yield* fs.readDirectory(path.join(context.root, outputPath))).filter((name) => archives.has(path.extname(name))),
+        (name) => fs.remove(path.join(context.root, outputPath, name)),
         { discard: true },
     );
     yield* Array.match(packed, {
