@@ -34,7 +34,7 @@ const diagnostics = Effect.gen(function* () {
     const folder = ({ folder: relative, glob }: { readonly folder: string; readonly glob: string }) => ({ url: pathToFileURL(`${path.join(home, relative)}/`), glob });
     const longest = Order.flip(Order.mapInput(Order.Number, String.length));
     const own = { folders: [{ url: pathToFileURL(`${logs}/`), glob: '*.log' }] };
-    const vendored = files.readDirectory(path.join(home, 'Library/Logs/Adobe')).pipe(Effect.catchIf((error) => error.reason._tag === 'NotFound', Function.constant(Effect.succeed(Array.empty<string>()))));
+    const vendored = files.readDirectory(path.join(home, 'Library/Logs/Adobe')).pipe(Effect.catchReason('PlatformError', 'NotFound', Function.constant(Effect.succeed(Array.empty<string>()))));
     const application = Effect.fnUntraced(function* (given: string) {
         const [row, instances, adobe] = yield* Effect.all([located(given), SubscriptionRef.get(running), vendored]);
         const uxp = Option.map(

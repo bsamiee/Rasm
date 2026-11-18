@@ -133,7 +133,6 @@ class Inventory extends Context.Service<Inventory>()('@rasm/atelier/applications
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const live = (rows: readonly RunningInstance[], row: Application) => rows.filter(Installation.runs(row));
 const shown = ({ number, title, document }: { readonly number: number; readonly title?: string; readonly document?: string }) => [`window ${number}`, ...(title === undefined ? [] : [`"${title}"`]), ...(document === undefined ? [] : [`of ${document}`])].join(' ');
 const ended = Match.type<Extract<typeof Event.Type, { readonly _tag: 'exited' }>['exited']>().pipe(
     Match.when({ _tag: 'Status' }, ({ status }) => `with status ${status}`),
@@ -157,8 +156,8 @@ const summary = (each: RunningInstance) => ({
     status: State.match(each.state, { running: ({ running }) => running.status, failed: () => 'failed', exited: () => 'exited' }),
     windows: State.matchOrElse(each.state, { running: ({ running }) => running.windows.filter(Struct.get('presented')).length }, () => 0),
 });
-const listing = (instances: readonly RunningInstance[]) => (row: Application) => ({ ...Struct.omit(row, ['identifier', 'documents', 'url']), ...Option.getOrUndefined(Option.map(Array.head(live(instances, row)), (each) => ({ running: summary(each) }))) });
-const quitting = (instances: readonly RunningInstance[]) => (row: Application) => live(instances, row).map((each) => ({ application: row.name, instance: each.instance }));
+const listing = (instances: readonly RunningInstance[]) => (row: Application) => ({ ...Struct.omit(row, ['identifier', 'documents', 'url']), ...Option.getOrUndefined(Option.map(Array.findFirst(instances, Installation.runs(row)), (each) => ({ running: summary(each) }))) });
+const quitting = (instances: readonly RunningInstance[]) => (row: Application) => instances.filter(Installation.runs(row)).map((each) => ({ application: row.name, instance: each.instance }));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -171,7 +170,7 @@ const applications = Effect.gen(function* () {
     const open = Effect.fnUntraced(function* (given: string) {
         const [row, instances, handle] = yield* Effect.all([located(given), SubscriptionRef.get(running), Handle]);
         const launched = Effect.map(Launching.launched(server.launch({ url: row.url })), ({ instance, created }) => ({ instance, created }));
-        const { instance, created } = yield* Option.match(Array.head(live(instances, row)), { onSome: ({ instance: reused }) => Effect.succeed({ instance: reused, created: false }), onNone: () => launched });
+        const { instance, created } = yield* Option.match(Array.findFirst(instances, Installation.runs(row)), { onSome: ({ instance: reused }) => Effect.succeed({ instance: reused, created: false }), onNone: () => launched });
         yield* handle.set(Target, Option.some({ row, instance }));
         return { application: row.name, instance, created };
     });

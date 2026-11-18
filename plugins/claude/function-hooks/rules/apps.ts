@@ -20,12 +20,13 @@ const FOCUS = /\bactivate\b|\bset\s+frontmost\b|AXRaise/u;
 const SYSTEM_EVENTS = /System Events|com\.apple\.systemevents/u;
 const WEB_URL = /^https?:/iu;
 const BROWSER_NAME = /^[a-z][\w-]*$/u;
-const SESSIONLESS = new Set(['install-browser', 'list']);
-const BEYOND_SESSION: Record.ReadonlyRecord<string, string> = {
+const VERBS = {
+    'install-browser': undefined,
+    list: undefined,
     'close-all': "closes every agent's sessions, use playwright cli -s=<session> close",
     'kill-all': "kills every agent's browsers, use playwright cli -s=<session> close",
     install: 'writes a .playwright workspace in the working folder, use playwright cli install-browser <browser>',
-};
+} as const;
 const SIGNAL_PREFIX = /^-?(?:SIG)?/u;
 const SIGNAL = /^-(?:\d+|(?:SIG)?[A-Z]{2,}\d*)$/u;
 const PIDS = /^\d+/gmu;
@@ -242,18 +243,13 @@ const launchSwitches: Rule = Effect.fnUntraced(function* (invocation, call) {
 
 // --- [BROWSERS]
 
-const browserSession: Rule = (invocation, { request: { agent } }) => {
+const browserCli: Rule = (invocation, { request: { agent } }) => {
     const [cli, verb] = invocation.operands;
-    const stated = invocation.has('-s', '--session') || [...invocation.outer, invocation].some(({ assigned }) => assigned.some(({ text }) => text.startsWith('PLAYWRIGHT_CLI_SESSION=')));
-    return agent === undefined || cli?.text !== 'cli' || stated || SESSIONLESS.has(verb?.text ?? '') ? [] : inserted(invocation, cli.end, ` -s=${quote(agent)}`);
+    const named = verb?.text ?? '';
+    const stated = agent === undefined || cli === undefined || invocation.has('-s', '--session') || [...invocation.outer, invocation].some(({ assigned }) => assigned.some(({ text }) => text.startsWith('PLAYWRIGHT_CLI_SESSION=')));
+    const unlisted = [...(stated ? [] : inserted(invocation, cli.end, ` -s=${quote(agent)}`)), ...(named === 'attach' ? respell({ renames: { '--cdp': '--extension' }, only: BROWSER_NAME, notify: true })(invocation) : [])];
+    return cli?.text === 'cli' ? Option.match(Record.get(named)(VERBS), { onNone: () => unlisted, onSome: (reason) => (reason === undefined ? [] : refusal(`playwright cli ${named} ${reason}`)) }) : [];
 };
-
-const beyondSession: Rule = ({ operands: [cli, verb] }) =>
-    Option.fromNullishOr(verb).pipe(
-        Option.filter(() => cli?.text === 'cli'),
-        Option.flatMap(({ text }) => Option.map(Record.get(BEYOND_SESSION, text), (reason) => `playwright cli ${text} ${reason}`)),
-        Option.match({ onNone: () => [], onSome: refusal }),
-    );
 
 // --- [KILLS]
 
@@ -324,7 +320,7 @@ const APPS: Ruleset = {
             rules: [when(({ has }) => has('--python', '--python-expr'), ensure(['--python-use-system-env']))],
         },
         Rhinoceros: { switches: ['-nosplash'] },
-        playwright: { flags: ['-s, --session=', '--cdp=', '--extension='], rules: [browserSession, beyondSession, when(({ operands: [cli, verb] }) => cli?.text === 'cli' && verb?.text === 'attach', respell({ renames: { '--cdp': '--extension' }, only: BROWSER_NAME, notify: true }))] },
+        playwright: { flags: ['-s, --session=', '--cdp=', '--extension='], rules: [browserCli] },
         [WATCH_APP]: { restAfter: ['--arguments'], rules: [() => OBSERVED, launchSwitches] },
     },
     every: [bundleExecutable],

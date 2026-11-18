@@ -222,7 +222,7 @@ const closed = async ($: EngineInterface, done: State['closed'], sessions: reado
         done.add(session);
     });
     if (open.length > 0) {
-        await $.process.run(['sh', '-c', 'for session; do playwright cli -s="$session" detach --close-tabs; playwright cli -s="$session" close; done </dev/null >/dev/null 2>&1 &', 'sh', ...open], { stdin: '' });
+        await $.process.run(['sh', '-c', `{ playwright cli list --json | jq -r --args '.browsers[] | select(.name | IN($ARGS.positional[])) | "-s=\\(.name) \\(if .attached then "detach --close-tabs" else "close" end)"' "$@" | xargs -L1 playwright cli; } </dev/null >/dev/null 2>&1 &`, 'sh', ...open], { stdin: '' });
     }
 };
 
@@ -357,16 +357,15 @@ const register: Register = (on) => {
     on('turn.complete', async ($, e, next) => {
         const answer = await next(e);
         const [agents, rows] = await Promise.all([$.agent.list(), read($, ROWS)]);
-        const ended = new Set(agents.filter(({ status }) => ENDED.has(status)).map(({ id }) => id));
+        const split = Map.groupBy(agents, ({ status }) => ENDED.has(status));
+        const ended = new Set((split.get(true) ?? []).map(({ id }) => id));
         const owned = rows.filter(({ agent }) => agent !== undefined && ended.has(agent));
         if (owned.length > 0) {
             await recorded($, undefined, { created: [], exited: await posted($, state, 'quit', owned, next.signal) });
         }
-        agents
-            .filter(({ status }) => !ENDED.has(status))
-            .forEach(({ id }) => {
-                state.closed.delete(id);
-            });
+        (split.get(false) ?? []).forEach(({ id }) => {
+            state.closed.delete(id);
+        });
         await closed($, state.closed, [...ended]);
         return answer;
     });

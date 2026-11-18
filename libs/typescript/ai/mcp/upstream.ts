@@ -1,5 +1,5 @@
 import manifest from '@rasm/mcp/package.json' with { type: 'json' };
-import { Array, Cause, Context, Data, type Duration, Effect, Function, flow, Match, Option, Pool, Predicate, Record, Ref, Result, Schedule, Schema, Stream, Struct, Tuple } from 'effect';
+import { Array, Cause, Context, Data, type Duration, Effect, Function, flow, Match, Option, Order, Pool, Predicate, Record, Ref, Result, Schedule, Schema, Stream, Struct, Tuple } from 'effect';
 import { McpClient, McpClientError, McpProtocol, McpSchema, McpServer } from 'effect/ai';
 import { SecureRandom } from 'effect/crypto';
 import type { HttpClient } from 'effect/http';
@@ -28,7 +28,7 @@ interface Kind<A> {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const IDENTITY = { name: manifest.name, version: manifest.version } as const;
-const PROTOCOLS: Array.NonEmptyReadonlyArray<McpProtocol.ProtocolAdapter<McpClient.ProtocolVersion>> = [McpProtocol.v2026_07_28, McpProtocol.v2025_11_25, McpProtocol.v2025_06_18, McpProtocol.v2025_03_26];
+const PROTOCOLS = Array.sort(Object.values(McpProtocol), Order.flip(Order.mapInput(Order.String, (adapter: McpProtocol.ProtocolAdapter) => adapter.protocolVersion))).filter((adapter) => adapter.protocolVersion !== McpProtocol.v2024_11_05.protocolVersion);
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -177,57 +177,41 @@ class Upstream extends Data.Class<
             }, Effect.scoped);
             const run = <A, E2>(use: (connection: Parameters<typeof listed>[0]) => Effect.Effect<A, E2, SecureRandom.SecureRandom>) =>
                 Effect.catchIf(attempt(use), flow(lost, Option.contains(true)), Function.constant(attempt(use))).pipe(Effect.updateContext((request: Context.Context<never>) => Context.merge(services, request)));
+            const served = (listing: typeof Listing.Type) => {
+                const [tools, prompts] = [
+                    Record.fromIterableBy(
+                        Array.filter(listing.tools, ({ name }) => admits(name, filters.tools)),
+                        (tool) => named(tool.name),
+                    ),
+                    Record.fromIterableBy(
+                        Array.filter(listing.prompts, ({ name }) => admits(name, filters.prompts)),
+                        (prompt) => named(prompt.name),
+                    ),
+                ];
+                const found = <A>(rows: Record.ReadonlyRecord<string, A>, name: string) => Effect.fromOption(Record.get(rows, name), () => McpSchema.InvalidParams.make({ message: `${Link.key(peer)} lists no ${name}` }));
+                return new Upstream({
+                    peer,
+                    annotations,
+                    tools: Record.collect(tools, (name, tool) => McpSchema.Tool.make({ ...tool, name })),
+                    resources: Array.filter(listing.resources, ({ uri }) => admits(uri, filters.resources)),
+                    templates: Array.filter(listing.templates, ({ uriTemplate }) => admits(uriTemplate, filters.templates)),
+                    prompts: Record.collect(prompts, (name, prompt) => McpSchema.Prompt.make({ ...prompt, name })),
+                    call: (name, given) => Effect.flatMap(found(tools, name), (tool) => run(({ client }) => client.callTool({ tool, arguments: given })).pipe(Effect.mapError(failed))),
+                    read: (uri) => run(({ client }) => client.readResource({ uri })).pipe(Effect.mapError(failed)),
+                    get: (name, given) => Effect.flatMap(found(prompts, name), (prompt) => run(({ client }) => client.getPrompt({ prompt, arguments: given })).pipe(Effect.mapError(failed))),
+                    complete: (payload) => Server.orInternalError(run(({ client, transport }) => (client.capabilities.completions === undefined ? Effect.succeed(McpSchema.CompleteResult.empty) : ask(transport, McpSchema.Complete, payload)))),
+                });
+            };
             return Stream.fromEffectSchedule(Effect.result(Effect.sandbox(run(listed))), Schedule.spaced(poll)).pipe(
                 Stream.changesWith(Result.makeEquivalence(Schema.toEquivalence(Listing), Function.constTrue)),
                 Stream.mapEffect(
                     Result.match({
                         onFailure: (cause) => Effect.as(Effect.logInfo(`${Link.key(peer)} is unreachable`, cause), []),
-                        onSuccess: (listing) => Effect.as(Effect.logInfo(`${Link.key(peer)} is reachable`), [served(listing, run)]),
+                        onSuccess: (listing) => Effect.as(Effect.logInfo(`${Link.key(peer)} is reachable`), [served(listing)]),
                     }),
                 ),
             );
         });
-        const served = (listing: typeof Listing.Type, run: <A, E2>(use: (connection: Parameters<typeof listed>[0]) => Effect.Effect<A, E2, SecureRandom.SecureRandom>) => Effect.Effect<A, E2 | E | Cause.UnknownError>) => {
-            const [tools, prompts] = [
-                Record.fromIterableBy(
-                    Array.filter(listing.tools, ({ name }) => admits(name, filters.tools)),
-                    (tool) => named(tool.name),
-                ),
-                Record.fromIterableBy(
-                    Array.filter(listing.prompts, ({ name }) => admits(name, filters.prompts)),
-                    (prompt) => named(prompt.name),
-                ),
-            ];
-            const found = <A>(rows: Record.ReadonlyRecord<string, A>, name: string) => Effect.fromOption(Record.get(rows, name), () => McpSchema.InvalidParams.make({ message: `${Link.key(peer)} lists no ${name}` }));
-            return new Upstream({
-                peer,
-                annotations,
-                tools: Record.collect(tools, (name, tool) => McpSchema.Tool.make({ ...tool, name })),
-                resources: Array.filter(listing.resources, ({ uri }) => admits(uri, filters.resources)),
-                templates: Array.filter(listing.templates, ({ uriTemplate }) => admits(uriTemplate, filters.templates)),
-                prompts: Record.collect(prompts, (name, prompt) => McpSchema.Prompt.make({ ...prompt, name })),
-                call: (name, given) =>
-                    Effect.flatMap(found(tools, name), (tool) =>
-                        Effect.mapError(
-                            run(({ client }) => client.callTool({ tool, arguments: given })),
-                            failed,
-                        ),
-                    ),
-                read: (uri) =>
-                    Effect.mapError(
-                        run(({ client }) => client.readResource({ uri })),
-                        failed,
-                    ),
-                get: (name, given) =>
-                    Effect.flatMap(found(prompts, name), (prompt) =>
-                        Effect.mapError(
-                            run(({ client }) => client.getPrompt({ prompt, arguments: given })),
-                            failed,
-                        ),
-                    ),
-                complete: (payload) => Server.orInternalError(run(({ client, transport }) => (client.capabilities.completions === undefined ? Effect.succeed(McpSchema.CompleteResult.empty) : ask(transport, McpSchema.Complete, payload)))),
-            });
-        };
         return enabled
             ? presence.pipe(
                   Stream.changes,
