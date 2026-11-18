@@ -119,7 +119,7 @@ const it = test
         return { log, warn };
     })
     .extend('cache', ({}, { onCleanup }) => {
-        const scope = Effect.runSync(Scope.make());
+        const scope = Scope.makeUnsafe();
         onCleanup(() => Effect.runPromise(Scope.close(scope, Exit.void)));
         vi.stubEnv(cached.token, 'held-token');
         return (answer: Parameters<typeof remote>[1]) => Effect.runPromise(Effect.provideService(remote('held-token', answer), Scope.Scope, scope));

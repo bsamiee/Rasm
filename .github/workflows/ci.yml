@@ -82,6 +82,7 @@ jobs:
                   name: ${{ github.job }}-reports
                   if-no-files-found: ignore
                   path: |
+                      .artifacts/cmake/*/*.log
                       .artifacts/dotnet/test
                       .artifacts/nx/runs
                       .artifacts/playwright
