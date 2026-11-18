@@ -5,6 +5,5 @@
     "author": {
         "name": "Bardia Samiee"
     },
-    "types": "./hooks/state.d.ts",
-    "icon": "./assets/icon.png"
+    "types": "./hooks/state.d.ts"
 }
