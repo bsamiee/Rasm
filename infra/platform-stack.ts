@@ -203,7 +203,8 @@ const bucketed = (name: string, storage: Output<typeof Stored.Type>, buckets: Ef
 
 const cached = (machine: Machine, { name, kept }: Data.TaggedEnum.Value<Role, 'Cache'>, project: string) => {
     const { port, health } = { port: 3000, health: '/health' };
-    const [proxy, scoped] = [proxied(machine), bucketed(name, stored(machine), { [name]: { kept: false, abort: kept, expire: { '': kept }, cors: [] } })];
+    const storage = stored(machine);
+    const [proxy, scoped] = [proxied(machine), bucketed(name, storage, { [name]: { kept: false, abort: kept, expire: { '': kept }, cors: [] } })];
     const tokens = Record.map({ NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN: 'READ_ONLY_ACCESS_TOKEN', NX_CACHE_WRITE_TOKEN: 'SERVICE_ACCESS_TOKEN' }, (variable, row) => ({ variable, value: new RandomPassword(`${machine.name}-${row}`, { length: 48, special: false }).result }));
     const { address, named, labels } = machine.routed(name, port, { [`traefik.http.services.${name}.loadbalancer.healthcheck.path`]: health });
     const image = machine.imaged(
@@ -225,7 +226,8 @@ ENTRYPOINT ["/nx-cache-aws"]
     const held = { ...Record.map(tokens, Struct.get('value')), NX_SELF_HOSTED_REMOTE_CACHE_SERVER: serving.id.apply(() => `https://${address}`) };
     const ci = Record.map(held, (value, row) => new Secret(`${machine.name}-${row}`, { project, config: 'ci' satisfies (typeof configs)[number], name: row, value }));
     const dev = Record.map(Struct.omit(ci, ['NX_CACHE_WRITE_TOKEN']), ({ config, name: secret }, row) => new Secret(`${machine.name}-dev-${row}`, { project, config: 'dev' satisfies (typeof configs)[number], name: row, value: interpolate`\${${config}.${secret}}` }).name);
-    return { ...Record.map(ci, Struct.get('name')), dev };
+    const root = Record.map({ RUSTFS_ACCESS_KEY: storage.user, RUSTFS_SECRET_KEY: storage.key }, (value, row) => new Secret(`${machine.name}-${row}`, { project, config: 'deploy' satisfies (typeof configs)[number], name: row, value }).name);
+    return { ...Record.map(ci, Struct.get('name')), dev, root };
 };
 
 const hosted = (machine: Machine, { owner }: Data.TaggedEnum.Args<Role, 'Apps'>) => {
