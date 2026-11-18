@@ -244,12 +244,15 @@ extension AXUIElement {
         .flatMap(\.self)
     }
 
-    func menus() throws(ApplicationFailure) -> [AXUIElement] {
-        try elements(kAXChildrenAttribute).map { child throws(ApplicationFailure) -> AXUIElement? in
-            let role: String? = try child.value(kAXRoleAttribute)
-            return role == kAXMenuRole ? child : nil
+    func menus(_ roles: Set<String>) throws(ApplicationFailure) -> [AXUIElement] {
+        try elements(kAXChildrenAttribute).map { child throws(ApplicationFailure) -> [AXUIElement] in
+            switch try child.value(kAXRoleAttribute) as String? {
+                case .some(let role) where roles.contains(role): [child]
+                case .some(kAXScrollAreaRole): try child.menus(roles)
+                case .some, .none: []
+            }
         }
-        .compactMap(\.self)
+        .flatMap(\.self)
     }
 
     private static func children(_ read: Attributes) -> [(offset: Int, element: AXUIElement)] {

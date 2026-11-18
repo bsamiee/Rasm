@@ -29,7 +29,7 @@ watch-app watch <app> [<helper>]... --record <folder>
 - Process IDs read as `<pid>`, or as a line's `instance` (`<pid>@<start>`), which names one process and never a later process reusing its pid, `key` taking `<pid>` alone
 - `find`, `watch`, and `launch` resolve the process ID of a helper executing inside an app bundle to that app, `processes` reads that process alone
 - `find` prints `{"<name>": [<installation>...]}` per name, launching nothing and needing no Accessibility grant
-- Installations hold `url`, `executable`, `identifier`, `name`, `bundleName` (`CFBundleName`), `version`, `build`, `scriptable`, `scriptingDefinitionFile`, and `activationPolicy` (`prohibited` for `LSBackgroundOnly`, `accessory` for `LSUIElement`, else `regular`)
+- Installations hold `url`, `executable`, `identifier`, `name`, `bundleName` (`CFBundleName`), `version`, `build`, `scriptable`, `scriptingDefinitionFile`, `scriptingDefinitionIsDynamic` (`OSAScriptingDefinitionIsDynamic`, a dictionary only a running instance answers), and `activationPolicy` (`prohibited` for `LSBackgroundOnly`, `accessory` for `LSUIElement`, else `regular`)
 - `processes` prints `{"<name>": {"agents": [...], "processes": [...], "reports": [...]}}` per name, launching nothing and needing no Accessibility grant
 - `processes` takes names as `find` does, an executable path, a process ID, or an `instance`, an exited one included
 - `agents` hold each `Contents/Library/LaunchAgents` plist of the named apps with `label`, `program`, `plist`, and `keepAlive`
@@ -86,7 +86,7 @@ watch-app log [<run pid>]
 - `capture` reads every window with a window-server number (inactive, covered, minimized, on another unmanaged Space) and needs the Screen Recording grant
 - `perform` runs one of the element's `actions` through `AXUIElementPerformAction`, `AXPress` presses a button or a menu item
 - `AXRaise` is listed in `actions` as the host states it and refused, since it takes focus
-- `set` writes text to an element's settable `AXValue`, every other element prints a `fail` line
+- `set` writes text to an element's `AXValue` and reads it back, an unchanged value falling through to the element's menu or list, `AXIncrement` and `AXDecrement` for a number, then focus and keys posted to its process, `unchanged` failing when none takes
 - `key` posts one virtual key to a process holding a `blocking` row, frontmost app and cursor unchanged
 - Only a `blocking` row leaving proves a key answered, busy hosts run the key when their loop resumes, and no answer leaves the row for a person
 - `perform`, `set`, and `key` print the next state of the process once the acted window leaves, bounded at 2 heartbeats

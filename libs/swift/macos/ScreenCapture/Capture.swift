@@ -47,7 +47,7 @@ extension Instance {
     func targets(
         _ source: Source?,
         longestSide: Int?,
-    ) async throws(ApplicationFailure) -> [CGWindowID: Result<(filter: SCContentFilter, region: CGRect?, factor: CGFloat), ApplicationFailure>] {
+    ) async throws(ApplicationFailure) -> [CGWindowID: Result<(filter: SCContentFilter, region: CGRect?, width: Int, height: Int), ApplicationFailure>] {
         try checkCaptureAccess()
         let element: (window: CGWindowID, frame: CGRect)? = if case .element(let id) = source { try await id.framed() } else { nil }
         let windows: [CGWindowID] =
@@ -76,9 +76,9 @@ extension Instance {
                         let filter = SCContentFilter(desktopIndependentWindow: window)
                         let region = element.map { element in element.frame.offsetBy(dx: -window.frame.minX, dy: -window.frame.minY).intersection(CGRect(origin: .zero, size: window.frame.size)) }
                         guard region?.isEmpty != true else { throw ApplicationFailure(subject: String(number), reason: .noWindow) }
-                        let size = region?.size ?? filter.contentRect.size
-                        let scale = CGFloat(filter.pointPixelScale)
-                        return (filter, region, scale * (longestSide.map { limit in min(1, CGFloat(limit) / (max(size.width, size.height) * scale)) } ?? 1))
+                        let (size, scale) = (region?.size ?? filter.contentRect.size, CGFloat(filter.pointPixelScale))
+                        let factor = scale * (longestSide.map { limit in min(1, CGFloat(limit) / (max(size.width, size.height) * scale)) } ?? 1)
+                        return (filter, region, Int((size.width * factor).rounded()), Int((size.height * factor).rounded()))
                     },
                 )
             }
@@ -99,21 +99,24 @@ extension Instance {
         for (number, target) in targets {
             let path = footageFile(in: folder, window: number, .png)
             let shot = await Result { () async throws(ApplicationFailure) -> Shot? in
-                let (filter, region, factor) = try target.get()
+                let (filter, region, width, height) = try target.get()
                 let configuration = SCScreenshotConfiguration()
-                (configuration.width, configuration.height) = (Int((filter.contentRect.width * factor).rounded()), Int((filter.contentRect.height * factor).rounded()))
-                (configuration.showsCursor, configuration.includeChildWindows) = (false, false)
+                (configuration.showsCursor, configuration.includeChildWindows) = (false, region == nil)
+                if region != nil || longestSide != nil { (configuration.width, configuration.height) = (width, height) }
+                if let region { configuration.sourceRect = region }
                 let output: SCScreenshotOutput
                 do { output = try await SCScreenshotManager.captureScreenshot(contentFilter: filter, configuration: configuration) } catch {
                     throw ApplicationFailure(subject: String(number), reason: .host(error as NSError))
                 }
-                let pixels = region.map { region in region.applying(CGAffineTransform(scaleX: factor, y: factor)).integral }
-                guard let image = pixels.map({ pixels in output.sdrImage?.cropping(to: pixels) }) ?? output.sdrImage else { throw ApplicationFailure(subject: String(number), reason: .noImage) }
+                guard let image = output.sdrImage else { throw ApplicationFailure(subject: String(number), reason: .noImage) }
                 guard source != nil || !transparent(image) else { return nil }
-                guard let whole = NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]) else { throw ApplicationFailure(subject: UTType.png.identifier, reason: .noEncoder) }
-                do { try whole.write(to: path) } catch { throw ApplicationFailure(subject: path.path(percentEncoded: false), reason: .host(error as NSError)) }
+                guard let destination = CGImageDestinationCreateWithURL(path as CFURL, UTType.png.identifier as CFString, 1, nil) else {
+                    throw ApplicationFailure(subject: UTType.png.identifier, reason: .noEncoder)
+                }
+                CGImageDestinationAddImage(destination, image, nil)
+                guard CGImageDestinationFinalize(destination) else { throw ApplicationFailure(subject: path.path(percentEncoded: false), reason: .noEncoder) }
                 let thumbnail: CGImage? = preview.flatMap { limit in
-                    CGImageSourceCreateWithData(whole as CFData, nil).flatMap { read in
+                    CGImageSourceCreateWithURL(path as CFURL, nil).flatMap { read in
                         CGImageSourceCreateThumbnailAtIndex(read, 0, [kCGImageSourceCreateThumbnailFromImageAlways: true, kCGImageSourceThumbnailMaxPixelSize: limit] as CFDictionary)
                     }
                 }

@@ -53,6 +53,26 @@ extension JSONValue {
         }
     }
 
+    var number: Double? {
+        switch self {
+            case .number(let number): number
+            case .string(let text): Double(text.trimmingCharacters(in: .whitespaces))
+            case .null, .bool, .array, .object: nil
+        }
+    }
+
+    var text: String? {
+        switch self {
+            case .string(let text): text
+            case .number(let number): number.formatted(.number.grouping(.never))
+            case .null, .bool, .array, .object: nil
+        }
+    }
+
+    func reached(by value: Self?) -> Bool {
+        value == self || number.map { number in value?.number == number } == true
+    }
+
     var accessibility: CFTypeRef {
         get throws(ApplicationFailure) {
             switch self {
@@ -199,11 +219,12 @@ extension AXUIElement {
         }
     }
 
-    // --- [WRITES]
+    // --- [ACTIONS]
 
-    func write(_ value: CFTypeRef, to attribute: String) throws(ApplicationFailure) -> AXError {
-        guard try settable(attribute) else { throw ApplicationFailure(subject: token.base64EncodedString(), reason: .notSettable(attribute)) }
-        return AXUIElementSetAttributeValue(self, attribute as CFString, value)
+    func perform(_ action: String, within timeout: Duration) -> AXError {
+        AXUIElementSetMessagingTimeout(self, Float(timeout / .seconds(1)))
+        defer { AXUIElementSetMessagingTimeout(self, Float(messagingTimeout / .seconds(1))) }
+        return AXUIElementPerformAction(self, action as CFString)
     }
 }
 

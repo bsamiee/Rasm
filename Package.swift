@@ -172,6 +172,16 @@ let tests: [Target] = [
         dependencies: ["Encoding", "JSONRPC", "Results", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"), .product(name: "CustomDump", package: "swift-custom-dump")],
         path: "tests/libs/swift/rpc/JSONRPC",
     ),
+    .testTarget(
+        name: "AppleEventsTests",
+        dependencies: ["AppleEvents", "Encoding", "Results", .product(name: "CasePathsCore", package: "swift-case-paths"), .product(name: "CustomDump", package: "swift-custom-dump")],
+        path: "tests/libs/swift/macos/AppleEvents",
+    ),
+    .testTarget(
+        name: "ApplicationsTests",
+        dependencies: ["AppleEvents", "Applications", "Encoding", .product(name: "CustomDump", package: "swift-custom-dump")],
+        path: "tests/libs/swift/macos/Applications",
+    ),
 ]
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -198,13 +208,13 @@ let package = Package(
         // --- [TELEMETRY]
 
         .package(url: "https://github.com/apple/swift-distributed-tracing", from: "1.7.4"),
-        .package(url: "https://github.com/apple/swift-log", from: "1.17.0"),
+        .package(url: "https://github.com/apple/swift-log", from: "1.17.2"),
         .package(url: "https://github.com/swift-otel/swift-otel", from: "1.6.0", traits: ["OTLPHTTP"]),
-        .package(url: "https://github.com/apple/swift-system-metrics", from: "1.3.0"),
+        .package(url: "https://github.com/apple/swift-system-metrics", from: "1.3.1"),
 
         // --- [DISTRIBUTION]
 
-        .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.10.1"),
+        .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.11.0-beta.1"),
 
         // --- [TESTING]
 

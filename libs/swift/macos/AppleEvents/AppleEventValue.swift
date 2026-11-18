@@ -276,7 +276,7 @@ extension AppleEventValue {
                         default:
                             encoded(seld, as: ["integer"])
                     }
-                let (desired, data, container) = try combine(ScriptingDictionary.resolve(want, in: [dictionary.types, dictionary.properties]), key, encoded(from)).get()
+                let (desired, data, container) = try combine(ScriptingDictionary.resolve(want, in: dictionary.classes(in: dictionary.classCode(of: from))), key, encoded(from)).get()
                 let fields: KeyValuePairs<Int, NSAppleEventDescriptor> = [
                     keyAEDesiredClass: NSAppleEventDescriptor(typeCode: desired.code), keyAEContainer: container, keyAEKeyForm: NSAppleEventDescriptor(enumCode: form.code), keyAEKeyData: data,
                 ]

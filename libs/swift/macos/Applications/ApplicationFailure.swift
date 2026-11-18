@@ -21,7 +21,7 @@ public struct ApplicationFailure: CustomNSError, Equatable, LocalizedError {
         case unresolved
         case foreign(pid_t)
         case disabled
-        case notSettable(String)
+        case unchanged(JSONValue?)
         case refused(AXError?)
         case noIdentifier
         case noPath
@@ -60,7 +60,7 @@ public struct ApplicationFailure: CustomNSError, Equatable, LocalizedError {
             case .unresolved: "\(subject) no longer exists in its app, read the app again for a current id"
             case .foreign(let process): "\(subject) belongs to a process other than \(process)"
             case .disabled: "Element \(subject) is disabled"
-            case .notSettable(let attribute): "\(subject) has no settable \(attribute)"
+            case .unchanged(let value): "\(subject) kept \(kAXValueAttribute) \(value.map { value in "\(value)" } ?? "unset") through a write, menu or list, and steps, and refused focus for keys"
             case .refused(.some(let error)): "\(subject) refused with AXError \(error.rawValue)"
             case .refused(.none): "\(subject) refused"
             case .noIdentifier: "\(subject) has no \(kCFBundleIdentifierKey as String)"
@@ -90,7 +90,7 @@ public struct ApplicationFailure: CustomNSError, Equatable, LocalizedError {
             case .host(let error): [NSUnderlyingErrorKey: error]
             case .unwatched(let failure): [NSUnderlyingErrorKey: failure]
             case .unmatched(let miss): [NSUnderlyingErrorKey: miss]
-            case .untrusted, .noCaptureAccess, .unanswered, .unreadable, .unresolved, .foreign, .disabled, .notSettable, .refused, .noIdentifier, .noPath, .noHandler, .noWindow, .noImage,
+            case .untrusted, .noCaptureAccess, .unanswered, .unreadable, .unresolved, .foreign, .disabled, .unchanged, .refused, .noIdentifier, .noPath, .noHandler, .noWindow, .noImage,
                 .noExtension, .noEncoder, .cancelled, .unnamed, .malformed:
                 [:]
         }
@@ -99,7 +99,7 @@ public struct ApplicationFailure: CustomNSError, Equatable, LocalizedError {
 
 extension ApplicationFailure: Encodable {
     private enum Key: CodingKey {
-        case reason, subject, message, pid, error, attribute, candidates, status
+        case reason, subject, message, pid, error, value, candidates, status
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -110,7 +110,7 @@ extension ApplicationFailure: Encodable {
         switch reason {
             case .foreign(let process): try fields.encode(process, forKey: .pid)
             case .refused(.some(let error)): try fields.encode(error.rawValue, forKey: .error)
-            case .notSettable(let attribute): try fields.encode(attribute, forKey: .attribute)
+            case .unchanged(let value): try fields.encodeIfPresent(value, forKey: .value)
             case .unreadable(let read): try read.encode(to: encoder)
             case .unmatched(let miss): try fields.encode(miss.candidates, forKey: .candidates)
             case .unnamed(let candidates): try fields.encode(candidates, forKey: .candidates)

@@ -8,6 +8,11 @@ public import Encoding
 import Processes
 import Results
 
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+private let openingRoles: Set<String> = [kAXPopUpButtonRole, kAXComboBoxRole, kAXMenuButtonRole]
+private let choosingRoles: Set<String> = [kAXMenuRole, kAXListRole]
+
 // --- [MODELS] --------------------------------------------------------------------------
 
 public enum Modifier: String, CaseIterable, Codable, Sendable {
@@ -155,44 +160,56 @@ public enum ElementAction: Codable, Hashable, Sendable, CustomStringConvertible 
             case .key: nil
         }
     }
+
+    @MainActor
+    var strokes: [(code: CGKeyCode, flags: CGEventFlags, text: String?)] {
+        let typing = { (text: String) -> [(key: Key, modifiers: Set<Modifier>)] in
+            let selecting: (key: Key, modifiers: Set<Modifier>) = (Key.character("a"), [.command])
+            let entering: (key: Key, modifiers: Set<Modifier>) = (Key.named(.return), [])
+            let characters: [(key: Key, modifiers: Set<Modifier>)] = text.map { character in (Key.character(String(character)), []) }
+            return [selecting] + characters + [entering]
+        }
+        let keys: [(key: Key, modifiers: Set<Modifier>)] =
+            switch self {
+                case .press: []
+                case .key(let key, let modifiers): [(key, modifiers)]
+                case .set(_, let value): value.text.map { text in typing(text) } ?? []
+                case .choose(_, let item): typing(item)
+            }
+        return keys.map { key, modifiers in
+            let stroke = key.stroke
+            return (stroke.code, CGEventFlags(modifiers.map(\.flag)).union(stroke.shift ? .maskShift : []), stroke.text)
+        }
+    }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension ElementAction {
-    fileprivate func run(in process: pid_t, stroke: (code: CGKeyCode, shift: Bool, text: String?)?) throws(ApplicationFailure) -> CGWindowID? {
+    fileprivate func run(in process: pid_t, strokes: [(code: CGKeyCode, flags: CGEventFlags, text: String?)]) throws(ApplicationFailure) -> CGWindowID? {
         if case .press(_, kAXRaiseAction) = self {
             throw ApplicationFailure(subject: "\(self), raising a window takes focus from the frontmost application", reason: .refused(nil))
         }
         guard let id = element else {
-            guard case .key(_, let modifiers) = self, let stroke else { return nil }
             let focused: CGWindowID?
             do throws(ApplicationFailure) {
                 focused = try (AXUIElement.application(process).value(kAXFocusedWindowAttribute) as CFTypeRef?).flatMap(AXUIElement.checked)?.window
             } catch  where error.reason.is(\.unanswered) {
                 focused = nil
             }
-            let (source, flags) = (CGEventSource(stateID: .privateState), CGEventFlags(modifiers.map(\.flag)).union(stroke.shift ? .maskShift : []))
-            for down in [true, false] {
-                guard let event = CGEvent(keyboardEventSource: source, virtualKey: stroke.code, keyDown: down) else { throw ApplicationFailure(subject: description, reason: .refused(nil)) }
-                event.flags = flags
-                let units = Array(stroke.text?.utf16 ?? "".utf16)
-                if !units.isEmpty { units.withUnsafeBufferPointer { units in unsafe event.keyboardSetUnicodeString(stringLength: units.count, unicodeString: units.baseAddress) } }
-                event.postToPid(process)
-            }
+            for stroke in strokes { try Self.post(stroke.code, stroke.flags, stroke.text, to: process) }
             return focused
         }
         guard let node = try AXUIElement.element(id.token), let owner = node.process else { throw ApplicationFailure(subject: id.description, reason: .unresolved) }
         if owner != process, NSRunningApplication(processIdentifier: owner)?.isDialogHelper != true { throw ApplicationFailure(subject: id.description, reason: .foreign(process)) }
         let read = try node.values([kAXEnabledAttribute, kAXWindowAttribute, kAXRoleAttribute])
         let outcome: AXError =
-            switch (self, read.values[kAXEnabledAttribute] as? Bool, read.values[kAXRoleAttribute] as? String) {
-                case (.press, false, _), (.choose, false, _): throw ApplicationFailure(subject: description, reason: .disabled)
-                case (.press(_, let action), _, _): AXUIElementPerformAction(node, action as CFString)
-                case (.set(_, let value), _, _): try node.write(value.accessibility, to: kAXValueAttribute)
-                case (.choose(_, let item), _, kAXComboBoxRole): try node.write(item as CFString, to: kAXValueAttribute)
-                case (.choose(_, let item), _, _): try choose(item, on: node)
-                case (.key, _, _): .success
+            switch (self, read.values[kAXEnabledAttribute] as? Bool) {
+                case (.press, false), (.choose, false): throw ApplicationFailure(subject: description, reason: .disabled)
+                case (.press(_, let action), _): AXUIElementPerformAction(node, action as CFString)
+                case (.set(_, let value), _): try assign(value, to: node, role: read.values[kAXRoleAttribute] as? String, in: owner, typing: strokes)
+                case (.choose(_, let item), _): try assign(.string(item), to: node, role: read.values[kAXRoleAttribute] as? String, in: owner, typing: strokes)
+                case (.key, _): .success
             }
         guard outcome != .success else { return read.values[kAXWindowAttribute].flatMap(AXUIElement.checked)?.window }
         throw ApplicationFailure(outcome, subject: description, process: owner, answering: self) {
@@ -200,22 +217,80 @@ extension ElementAction {
         }
     }
 
-    private func choose(_ item: String, on node: AXUIElement) throws(ApplicationFailure) -> AXError {
-        let items = { () throws(ApplicationFailure) -> [(element: AXUIElement, label: String?)] in
-            try node.menus().map { menu throws(ApplicationFailure) in
-                try menu.elements(kAXChildrenAttribute).map { entry throws(ApplicationFailure) in
-                    (entry, try entry.label(entry.values([kAXTitleAttribute, kAXDescriptionAttribute, kAXTitleUIElementAttribute])))
-                }
-            }
-            .flatMap(\.self)
+    private static func post(_ code: CGKeyCode, _ flags: CGEventFlags, _ text: String?, to process: pid_t) throws(ApplicationFailure) {
+        let (source, units) = (CGEventSource(stateID: .privateState), Array(text?.utf16 ?? "".utf16))
+        for down in [true, false] {
+            guard let event = CGEvent(keyboardEventSource: source, virtualKey: code, keyDown: down) else { throw ApplicationFailure(subject: "key \(code)", reason: .refused(nil)) }
+            event.flags = flags
+            if !units.isEmpty { units.withUnsafeBufferPointer { units in unsafe event.keyboardSetUnicodeString(stringLength: units.count, unicodeString: units.baseAddress) } }
+            event.postToPid(process)
         }
-        if let listed = try items().first(where: { entry in entry.label == item }) { return AXUIElementPerformAction(listed.element, kAXPressAction as CFString) }
-        let opened = AXUIElementPerformAction(node, (try node.actionNames().contains(kAXShowMenuAction) ? kAXShowMenuAction : kAXPressAction) as CFString)
-        guard opened == .success else { return opened }
-        let shown = try items()
+    }
+
+    private func assign(
+        _ target: JSONValue,
+        to node: AXUIElement,
+        role: String?,
+        in process: pid_t,
+        typing strokes: [(code: CGKeyCode, flags: CGEventFlags, text: String?)],
+    ) throws(ApplicationFailure) -> AXError {
+        let current = { () throws(ApplicationFailure) -> JSONValue? in (try node.value(kAXValueAttribute) as CFTypeRef?).flatMap(JSONValue.init(accessibility:)) }
+        let written = AXUIElementSetAttributeValue(node, kAXValueAttribute as CFString, try target.accessibility)
+        guard ![.cannotComplete, .invalidUIElement, .apiDisabled].contains(written) else { return written }
+        if written == .success, target.reached(by: try current()) { return .success }
+        let actions = try node.actionNames()
+        let opening: String? =
+            switch (actions.contains(kAXShowMenuAction), role.map(openingRoles.contains)) {
+                case (true, _): kAXShowMenuAction
+                case (false, true?): kAXPressAction
+                case (false, _): nil
+            }
+        if let text = target.text, let chosen = try choose(text, on: node, opening: opening, in: process) { return chosen }
+        let stepping = target.number.flatMap { goal in actions.contains(kAXIncrementAction) && actions.contains(kAXDecrementAction) ? goal : nil }
+        var last = try current()?.number
+        while let goal = stepping, let value = last, value != goal {
+            guard AXUIElementPerformAction(node, (value < goal ? kAXIncrementAction : kAXDecrementAction) as CFString) == .success,
+                let next = try current()?.number, abs(goal - next) < abs(goal - value)
+            else { break }
+            last = next
+        }
+        if let goal = stepping, last == goal { return .success }
+        guard !strokes.isEmpty, AXUIElementSetAttributeValue(node, kAXFocusedAttribute as CFString, kCFBooleanTrue) == .success else {
+            throw ApplicationFailure(subject: description, reason: .unchanged(try current()))
+        }
+        for stroke in strokes { try Self.post(stroke.code, stroke.flags, stroke.text, to: process) }
+        return .success
+    }
+
+    private func choose(_ item: String, on node: AXUIElement, opening action: String?, in process: pid_t) throws(ApplicationFailure) -> AXError? {
+        let labeled = { (entries: [AXUIElement]) throws(ApplicationFailure) -> [(element: AXUIElement, label: String?)] in
+            try entries.map { entry throws(ApplicationFailure) in
+                let read = try entry.values([kAXTitleAttribute, kAXDescriptionAttribute, kAXTitleUIElementAttribute, kAXValueAttribute])
+                return (entry, try entry.label(read) ?? read.values[kAXValueAttribute] as? String)
+            }
+        }
+        let items = { () throws(ApplicationFailure) in try labeled(node.menus(choosingRoles).map { menu throws(ApplicationFailure) in try menu.elements(kAXChildrenAttribute) }.flatMap(\.self)) }
+        let listed = try items()
+        let opened = listed.isEmpty && action.map { action in [.success, .cannotComplete].contains(node.perform(action, within: messagingTimeout / 2)) } == true
+        let shown = opened ? try items() : listed
+        let owned = opened && shown.isEmpty ? try labeled(node.elements(kAXChildrenAttribute)).filter { entry in entry.label != nil } : []
+        let selected = try owned.isEmpty ? [] : node.elements(kAXSelectedChildrenAttribute)
+        let value: String? = try owned.isEmpty ? nil : node.value(kAXValueAttribute)
+        let from = owned.firstIndex { entry in selected.contains { chosen in CFEqual(chosen, entry.element) } } ?? owned.firstIndex { entry in entry.label == value }
+        switch (shown.isEmpty, owned.isEmpty, owned.firstIndex { entry in entry.label == item }, from) {
+            case (true, false, .some(let goal), .some(let from)):
+                let step = goal > from ? Key.Named.down.code : Key.Named.up.code
+                for code in repeatElement(step, count: abs(goal - from)) + [Key.Named.return.code] { try Self.post(code, [], nil, to: process) }
+                return .success
+            case (true, true, _, _): return nil
+            case (true, false, _, _):
+                try Self.post(Key.Named.escape.code, [], nil, to: process)
+                throw ApplicationFailure(subject: description, reason: .unmatched(Unmatched(subject: "item of \(description)", query: item, candidates: owned.compactMap(\.label))))
+            case (false, _, _, _): break
+        }
         guard let match = shown.first(where: { entry in entry.label == item }) else {
-            for menu in try node.menus() { _ = AXUIElementPerformAction(menu, kAXCancelAction as CFString) }
-            throw ApplicationFailure(subject: description, reason: .unmatched(Unmatched(subject: "menu item of \(description)", query: item, candidates: shown.compactMap(\.label))))
+            for menu in try node.menus(choosingRoles) { _ = AXUIElementPerformAction(menu, kAXCancelAction as CFString) }
+            throw ApplicationFailure(subject: description, reason: .unmatched(Unmatched(subject: "item of \(description)", query: item, candidates: shown.compactMap(\.label))))
         }
         return AXUIElementPerformAction(match.element, kAXPressAction as CFString)
     }
@@ -239,9 +314,9 @@ extension Instance {
         let states = states(clock: clock)
         var (outcomes, acted, blind): ([Result<CGWindowID?, ApplicationFailure>], Set<CGWindowID>, Bool) = ([], [], false)
         for action in actions where outcomes.last?.is(\.failure) != true {
-            let stroke: (code: CGKeyCode, shift: Bool, text: String?)? = if case .key(let key, _) = action { await MainActor.run { key.stroke } } else { nil }
+            let strokes = await MainActor.run { action.strokes }
             let outcome = await Result { () async throws(ApplicationFailure) in
-                try await withTaskExecutorPreference(accessibility) { () throws(ApplicationFailure) in try action.run(in: process.pid, stroke: stroke) }
+                try await withTaskExecutorPreference(accessibility) { () throws(ApplicationFailure) in try action.run(in: process.pid, strokes: strokes) }
             }
             let settled: Result<CGWindowID?, ApplicationFailure> =
                 switch outcome {

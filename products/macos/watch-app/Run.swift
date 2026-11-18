@@ -84,7 +84,7 @@ final class Run: Sendable {
         switch failure.reason {
             case .event, .system, .host, .unwatched, .unreadable, .noEncoder, .noImage:
                 logger.error("Command failed in host", error: failure, metadata: ["key": "\(key, privacy: .public)"])
-            case .untrusted, .noCaptureAccess, .unanswered, .noProcess, .unresolved, .foreign, .disabled, .notSettable, .refused, .noIdentifier, .noPath, .noHandler, .noWindow, .noExtension,
+            case .untrusted, .noCaptureAccess, .unanswered, .noProcess, .unresolved, .foreign, .disabled, .unchanged, .refused, .noIdentifier, .noPath, .noHandler, .noWindow, .noExtension,
                 .cancelled, .unmatched, .unnamed, .malformed:
                 logger.warning("Command refused input", error: failure, metadata: ["key": "\(key, privacy: .public)"])
         }

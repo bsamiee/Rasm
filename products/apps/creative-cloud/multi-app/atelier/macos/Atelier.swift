@@ -24,6 +24,18 @@ private let adobePrefix: String = "com.adobe."
 
 @main
 enum Atelier {
+    // --- [DICTIONARIES]
+
+    @Sendable
+    private static func cachedDictionary(of installation: Installation) -> URL? {
+        let version = installation.version.map { version in version.split(separator: ".").prefix(2).joined(separator: ".") }
+        let caches = URL.cachesDirectory.appending(component: "Adobe \(installation.bundleName ?? installation.name)", directoryHint: .isDirectory)
+        return FileManager.default.enumerator(at: caches, includingPropertiesForKeys: nil)?.lazy.compactMap { item in item as? URL }
+            .first { file in file.pathExtension == "sdef" && file.deletingLastPathComponent().lastPathComponent == version }
+    }
+
+    // --- [ENTRY]
+
     static func main() async {
         let serving = Result { () throws(Errno) in try FileDescriptor.standardInput.stat() }.map { stat in [FileType.fifo, .socket].contains(stat.type) } == .success(true)
         let disclaimed = Result { () throws(Errno) in if serving { try disclaimResponsibility() } }
@@ -54,6 +66,7 @@ enum Atelier {
                             writing: { line in try FileDescriptor.standardOutput.writeAll(line) },
                             admitting: { NSPredicate(format: "%K BEGINSWITH %@", kMDItemCFBundleIdentifier as String, adobePrefix) },
                             refusing: { _ in [] },
+                            cached: cachedDictionary,
                         )
                     }
                 }

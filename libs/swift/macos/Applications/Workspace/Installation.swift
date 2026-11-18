@@ -21,6 +21,7 @@ private struct BundleInfo: Decodable {
         case version = "CFBundleShortVersionString"
         case build = "CFBundleVersion"
         case scriptingDefinitionFile = "OSAScriptingDefinition"
+        case scriptingDefinitionIsDynamic = "OSAScriptingDefinitionIsDynamic"
         case agent = "LSUIElement"
         case backgroundOnly = "LSBackgroundOnly"
     }
@@ -30,6 +31,7 @@ private struct BundleInfo: Decodable {
     let version: String?
     let build: String?
     let scriptingDefinitionFile: String?
+    let scriptingDefinitionIsDynamic: InfoFlag?
     let agent: InfoFlag?
     let backgroundOnly: InfoFlag?
 
@@ -52,6 +54,7 @@ public struct Installation: Encodable, Hashable, Sendable {
     public let build: String?
     public let scriptable: Bool
     public let scriptingDefinitionFile: String?
+    public let scriptingDefinitionIsDynamic: Bool
     public let activationPolicy: String
 }
 
@@ -90,6 +93,7 @@ extension Installation {
             build: info?.build,
             scriptable: values.applicationIsScriptable == true,
             scriptingDefinitionFile: info?.scriptingDefinitionFile,
+            scriptingDefinitionIsDynamic: info?.scriptingDefinitionIsDynamic?.value == true,
             activationPolicy: (info?.activationPolicy ?? .regular).name,
         )
     }

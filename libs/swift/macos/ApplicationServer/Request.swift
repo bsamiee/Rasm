@@ -178,10 +178,11 @@ public func serve<Extra: Decodable & Sendable>(
     writing write: @escaping @Sendable (Data) throws -> Void,
     admitting: @escaping @Sendable () -> NSPredicate,
     refusing: @escaping @Sendable (Installation) -> Set<UInt64>,
+    cached: @escaping @Sendable (Installation) -> URL?,
     extending: @escaping @Sendable (Extra) async throws -> Response = { (_: Never) -> Response in },
 ) async throws(JSONRPCFailure) {
     let logger = Logger(label: String(reflecting: Request.self))
-    let definitions = ScriptingDefinitions()
+    let definitions = ScriptingDefinitions(cached: cached)
     let calls = DispatchQueue(label: "\(Request.self).calls", attributes: .concurrent)
     let output = DispatchSerialQueue(label: "\(Request.self).output")
     try await JSONRPC.serve(

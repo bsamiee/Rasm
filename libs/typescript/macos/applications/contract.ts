@@ -212,8 +212,8 @@ const Act = Schema.Struct({
     actions: Schema.NonEmptyArray(
         Schema.Union([
             Schema.Struct({ press: Schema.Struct({ element: ElementID, action: defaulted(Schema.String, 'AXPress').annotate({ description: 'Element action, AXPress unless named, AXRaise refused' }) }) }),
-            Schema.Struct({ set: Schema.Struct({ element: ElementID, value: Value.annotate({ description: 'Written to a settable AXValue as CFString, CFNumber, or CFBoolean' }) }) }),
-            Schema.Struct({ choose: Schema.Struct({ element: ElementID, item: Schema.String.annotate({ description: 'Menu item title of a pop-up or menu button, the value of a combo box' }) }) }),
+            Schema.Struct({ set: Schema.Struct({ element: ElementID, value: Value.annotate({ description: 'Written to AXValue as CFString, CFNumber, or CFBoolean and read back, an unchanged value falling through to the element menu or list, AXIncrement or AXDecrement, then focus and typed keys' }) }) }),
+            Schema.Struct({ choose: Schema.Struct({ element: ElementID, item: Schema.String.annotate({ description: 'Title of a menu or list item, or value of a combo box, written and read back before its menu, list, or keys are tried' }) }) }),
             Schema.Struct({
                 key: Schema.Struct({
                     key: Schema.Union([KeyName, Schema.String.annotate({ description: 'One character, posted with the key that types it on the current layout' })]),
