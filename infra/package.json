@@ -17,6 +17,7 @@
         "@pulumi/docker": "catalog:",
         "@pulumi/docker-build": "catalog:",
         "@pulumi/github": "catalog:",
+        "@pulumi/hostinger": "file:sdks/hostinger",
         "@pulumi/minio": "file:sdks/minio",
         "@pulumi/pulumi": "catalog:",
         "@pulumi/random": "catalog:",

@@ -664,7 +664,8 @@ overrides:
     vite>yaml: 'catalog:'
     '@vitejs/plugin-react>oxc-transform-react': 'catalog:'
     '@types/ssh2>@types/node': 'catalog:'
-    '@pulumi/minio>typescript': 'catalog:' # Generated SDK requires TypeScript 4, a second `@pulumi/pulumi` peer variant splits its `Output` type
+    '@pulumi/hostinger>typescript': 'catalog:' # Generated SDKs require TypeScript 4, a second `@pulumi/pulumi` peer variant splits its `Output` type
+    '@pulumi/minio>typescript': 'catalog:'
     '@effect/opentelemetry>@opentelemetry/resources': 'catalog:'
     '@effect/opentelemetry>@opentelemetry/sdk-logs': 'catalog:'
     '@effect/opentelemetry>@opentelemetry/sdk-metrics': 'catalog:'
@@ -679,6 +680,7 @@ allowBuilds:
     '@pulumi/command': false
     '@pulumi/docker': false
     '@pulumi/docker-build': false
+    '@pulumi/hostinger@file:infra/sdks/hostinger': true
     '@pulumi/minio@file:infra/sdks/minio': true
     '@tree-sitter-grammars/tree-sitter-toml': false
     '@tree-sitter-grammars/tree-sitter-xml': false

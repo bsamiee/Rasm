@@ -20,7 +20,7 @@ const OPERATIONS = { up: 'was not applied', preview: 'was not previewed', destro
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Deployed = Schema.fromJsonString(Schema.Struct(Struct.Record(['CLOUDFLARE_ACCOUNT_ID', 'CLOUDFLARE_API_TOKEN', 'DOPPLER_IAC_TOKEN', 'EPIC_GHCR_TOKEN', 'GITHUB_TOKEN', 'PULUMI_ACCESS_TOKEN', 'TAILSCALE_OAUTH_CLIENT_ID', 'TAILSCALE_OAUTH_CLIENT_SECRET'], Schema.NonEmptyString)));
+const Deployed = Schema.fromJsonString(Schema.Struct(Struct.Record(['CLOUDFLARE_ACCOUNT_ID', 'CLOUDFLARE_API_TOKEN', 'DOPPLER_IAC_TOKEN', 'EPIC_GHCR_TOKEN', 'GITHUB_TOKEN', 'HOSTINGER_API_TOKEN', 'PULUMI_ACCESS_TOKEN', 'TAILSCALE_OAUTH_CLIENT_ID', 'TAILSCALE_OAUTH_CLIENT_SECRET'], Schema.NonEmptyString)));
 const Request = Schema.Struct({
     verb: Schema.Literals(['install', 'deploy']).annotate({ description: 'install applies the stacks of this machine in a local backend, deploy the stacks of the repository, its machines, and the hosted apps' }),
     operation: Schema.Literals(Struct.keys(OPERATIONS)).annotate({ description: 'up applies each stack, preview prints the changes an apply makes and makes none, destroy destroys and removes it' }),

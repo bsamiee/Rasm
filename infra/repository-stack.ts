@@ -1,7 +1,8 @@
 import { getZeroTrustOrganization, getZoneOutput, R2Bucket, R2CustomDomain, ZeroTrustAccessIdentityProvider, ZeroTrustOrganization } from '@pulumi/cloudflare';
 import { ActionsEnvironmentSecret, ActionsEnvironmentVariable, IssueLabels, Repository, RepositoryEnvironment, RepositoryVulnerabilityAlerts, WorkflowRepositoryPermissions } from '@pulumi/github';
+import { VpsPostInstallScript } from '@pulumi/hostinger';
 import { interpolate, jsonStringify, secret } from '@pulumi/pulumi';
-import { Acl, DnsPreferences, OauthClient, TailnetSettings } from '@pulumi/tailscale';
+import { Acl, DnsPreferences, OauthClient, TailnetKey, TailnetSettings } from '@pulumi/tailscale';
 import { Environment, Project, ServiceToken, secretssync, Webhook } from '@pulumiverse/doppler';
 import { run } from '@rasm/process';
 import { Array, Cause, Effect, FileSystem, Path, Record, Schema, SchemaGetter, SchemaIssue, String, Struct } from 'effect';
@@ -84,6 +85,7 @@ const repositoryStack = Effect.fnUntraced(function* (root: string, { repository:
     };
     const tailnet = new Acl('tailnet', { acl: interpolate`${jsonStringify(policy, undefined, '\t')}\n`, overwriteExistingContent: true });
     const joining = new OauthClient(`${name}-deploy`, { description: 'Deploy', scopes: ['auth_keys'], tags: [deployer] }, { dependsOn: tailnet });
+    const enrolling = new TailnetKey(`${name}-machines`, { description: 'Machines', reusable: true, preauthorized: true, tags, recreateIfInvalid: 'always' }, { dependsOn: tailnet });
     const machines = Record.keys(hosts).map((host) => host.split('.', 1).join(''));
     return {
         repository: fullName,
@@ -107,6 +109,7 @@ const repositoryStack = Effect.fnUntraced(function* (root: string, { repository:
         },
         updates: new TailnetSettings('tailnet', { devicesAutoUpdatesOn: true, httpsEnabled: true, usersApprovalOn: false, aclsExternallyManagedOn: true, aclsExternalLink: interpolate`https://github.com/${fullName}/blob/HEAD/${path.relative(root, import.meta.filename)}` }).devicesAutoUpdatesOn,
         magicDns: new DnsPreferences('tailnet', { magicDns: true }).magicDns,
+        enrolment: new VpsPostInstallScript(`${name}-enrolment`, { name: `${name} enrolment`, content: interpolate`#!/bin/sh\nset -eu\ncurl -fsSL https://tailscale.com/install.sh | sh\nrm /etc/apt/sources.list.d/tailscale.list\ntailscale up --auth-key=${enrolling.key} --ssh\n` }).vpsPostInstallScriptId,
         assets: new Repository(`${name}-Assets`, { name: `${name}-Assets`, description: `Binary assets ${name} holds as a private submodule`, visibility: 'private', allowMergeCommit: false, deleteBranchOnMerge: true }, { protect: true }).fullName,
         access: new ZeroTrustOrganization(organization.name, { accountId, name: organization.name, authDomain: organization.authDomain, strictServiceTokenAuth: true }, { protect: true }).authDomain,
         identityProvider: new ZeroTrustAccessIdentityProvider(`${organization.name}-onetimepin`, { accountId, name: 'One-time PIN', type: 'onetimepin', config: {} }, { protect: true }).id,

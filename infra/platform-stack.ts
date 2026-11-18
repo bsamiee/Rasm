@@ -33,12 +33,15 @@ const hosts = {
     'lucky.parametric-arsenal.cloud': {
         address: '31.97.131.41',
         tags: ['tag:server'],
-        roles: [{ _tag: 'Cache', name: 'nx-cache', kept: Duration.weeks(1) }],
+        roles: [],
     },
     'derby.parametric-arsenal.cloud': {
         address: '45.90.223.193',
         tags: ['tag:server'],
-        roles: [{ _tag: 'Runner', instances: { host: { MemoryHigh: '18G', MemoryMax: '20G' }, container: {} } }],
+        roles: [
+            { _tag: 'Cache', name: 'nx-cache', kept: Duration.weeks(1) },
+            { _tag: 'Runner', instances: { host: { MemoryHigh: '18G', MemoryMax: '20G' }, container: {} } },
+        ],
     },
 } as const satisfies Record.ReadonlyRecord<string, Row>;
 const entrypoints = { web: 80, websecure: 443 } as const;
@@ -146,7 +149,7 @@ const proxied = Function.memoize((machine: Machine) => {
         ],
         ports: Object.values(entrypoints).map((port) => ({ internal: port, external: port })),
         mounts: [
-            { type: 'bind', source: '/var/run/docker.sock', target: '/var/run/docker.sock', readOnly: true },
+            { type: 'bind', source: '/var/run', target: '/var/run', readOnly: true },
             { type: 'volume', source: machine.kept('traefik'), target: '/var/lib/traefik' },
         ],
     });
@@ -226,7 +229,7 @@ ENTRYPOINT ["/nx-cache-aws"]
     const held = { ...Record.map(tokens, Struct.get('value')), NX_SELF_HOSTED_REMOTE_CACHE_SERVER: serving.id.apply(() => `https://${address}`) };
     const ci = Record.map(held, (value, row) => new Secret(`${machine.name}-${row}`, { project, config: 'ci' satisfies (typeof configs)[number], name: row, value }));
     const dev = Record.map(Struct.omit(ci, ['NX_CACHE_WRITE_TOKEN']), ({ config, name: secret }, row) => new Secret(`${machine.name}-dev-${row}`, { project, config: 'dev' satisfies (typeof configs)[number], name: row, value: interpolate`\${${config}.${secret}}` }).name);
-    const root = Record.map({ RUSTFS_ACCESS_KEY: storage.user, RUSTFS_SECRET_KEY: storage.key }, (value, row) => new Secret(`${machine.name}-${row}`, { project, config: 'deploy' satisfies (typeof configs)[number], name: row, value }).name);
+    const root = Record.map({ RUSTFS_ACCESS_KEY: storage.user, RUSTFS_SECRET_KEY: storage.key }, (value, row) => new Secret(`${machine.name}-${row}`, { project, config: 'dev' satisfies (typeof configs)[number], name: row, value }).name);
     return { ...Record.map(ci, Struct.get('name')), dev, root };
 };
 

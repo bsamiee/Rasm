@@ -529,6 +529,7 @@ overrides:
   vite>yaml: 3.0.0-2
   '@vitejs/plugin-react>oxc-transform-react': 0.158.0
   '@types/ssh2>@types/node': 26.6.6
+  '@pulumi/hostinger>typescript': npm:@typescript/typescript6@6.0.2
   '@pulumi/minio>typescript': npm:@typescript/typescript6@6.0.2
   '@effect/opentelemetry>@opentelemetry/resources': 3.1.1
   '@effect/opentelemetry>@opentelemetry/sdk-logs': 3.1.1
@@ -713,6 +714,9 @@ importers:
       '@pulumi/github':
         specifier: 'catalog:'
         version: 6.16.0-alpha.1794895658(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
+      '@pulumi/hostinger':
+        specifier: file:sdks/hostinger
+        version: file:infra/sdks/hostinger(supports-color@10.2.2)
       '@pulumi/minio':
         specifier: file:sdks/minio
         version: file:infra/sdks/minio(supports-color@10.2.2)
@@ -5962,6 +5966,9 @@ packages:
 
   '@pulumi/github@6.16.0-alpha.1794895658':
     resolution: {integrity: sha512-Wzh0YyprT/FaNA3unjL45kZONzuF7ZbJbNJdqMUWRJRsNwk3xvd715hdXlsXOF2KSL8m/rkVqXG0XIA1xHRRBg==}
+
+  '@pulumi/hostinger@file:infra/sdks/hostinger':
+    resolution: {directory: infra/sdks/hostinger, type: directory}
 
   '@pulumi/minio@file:infra/sdks/minio':
     resolution: {directory: infra/sdks/minio, type: directory}
@@ -12205,6 +12212,15 @@ snapshots:
       - supports-color
       - ts-node
       - typescript
+
+  '@pulumi/hostinger@file:infra/sdks/hostinger(supports-color@10.2.2)':
+    dependencies:
+      '@pulumi/pulumi': 3.277.0-alpha.x00c0044(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
+      '@types/node': 20.19.43
+      typescript: '@typescript/typescript6@6.0.2'
+    transitivePeerDependencies:
+      - supports-color
+      - ts-node
 
   '@pulumi/minio@file:infra/sdks/minio(supports-color@10.2.2)':
     dependencies:

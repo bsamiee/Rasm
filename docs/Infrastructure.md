@@ -15,7 +15,8 @@ Each place holding state changes through one action:
 
 - Machine names state no role, provider, or location: roles sit in field `roles` and in the DNS alias of each service a role runs
 - Each machine holds DNS record `<name>.<zone>`, tailnet name `<name>`, and a Pulumi stack named by its DNS name
-- New machines get a Tailscale SSH login under a tag of their row by hand
+- Stack `rasm` holds one Hostinger post-install script, which joins a reinstalled machine to the tailnet with Tailscale SSH under key `machines` and its tags
+- `hostinger vps virtual-machines recreate <id> --template-id <id> --post-install-script-id <id>` reinstalls a machine, erasing its disk
 - Machines losing the tailnet are reached through the provider's browser console as `root` with `<NAME>_ROOT_PASSWORD`
 - Table `hosts` holds one row per machine, keyed by DNS name, stating public IPv4 `address`, `tags`, and `roles`
 - `.config/mise.toml` `[bootstrap.remote.hosts]` holds one row per machine by tailnet name, and its `mise_env` loads a role file (`.config/mise.runner.toml`)
@@ -41,6 +42,7 @@ Each place holding state changes through one action:
 ## [04]-[NETWORK]
 
 - Traefik proxies publish ports 80 and 443 on every address, redirect 80 to 443, and issue ACME certificates by TLS challenge
+- Proxies mount folder `/var/run` to read the Docker socket, as a Docker package update replaces the socket file under containers it keeps running
 - Routed services publish no port: the proxy reaches each on the Docker network, under one CNAME `<service>.<zone>` to its machine
 - Apps on a machine get CNAME `<app>.<zone>`, and the machine's sign-in service requires a session on each app's sign-in path alone
 - Proxies strip `Remote-User` and `Remote-Email` from every app request and set them from the sign-in session, which app variable `ACCESS` names
@@ -55,6 +57,7 @@ Each place holding state changes through one action:
 - Nx cache server `nxcite/nx-cache-server` answers at HTTPS name `<name>.<zone>` of role field `name`, taking a read-only and a write token
 - Runners reach the cache over public HTTPS through the proxy, and only object storage sits on the tailnet
 - Cache stacks write the server URL and both tokens to Doppler `ci`, synced to repository secrets, and reference URL and read token from `dev`
+- Cache stacks write the object storage root keys to Doppler `dev`
 - Cache objects expire 7 days after their write (role field `kept`), and a read refreshes none
 - Deploys recreate a cache container only on its changed definition, and a CI run reading the cache in that moment stops
 
@@ -74,6 +77,7 @@ Each place holding state changes through one action:
 - Config `ci` syncs to repository Actions secrets and `release` to GitHub environment `release`, each deleting names removed from Doppler
 - GitHub environment `deploy` holds a read-only Doppler service token of `deploy` as `DOPPLER_TOKEN`, with the Tailscale OAuth client of job `deploy`
 - Doppler `deploy` rows hold the name of the variable their provider reads, and each stack's Pulumi process receives them as its environment
+- Stacks write no `deploy` row, as a change to `deploy` starts workflow `Deploy`
 - Row `DOPPLER_IAC_TOKEN` reaches that process as `DOPPLER_TOKEN`, and row `GITHUB_TOKEN` authorizes the GitHub provider and the deploy webhook
 - Pulumi state sits in Pulumi Cloud for `deploy` and in local backend `file://~` for `install`
 
