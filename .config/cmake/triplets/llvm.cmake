@@ -12,4 +12,5 @@ set(VCPKG_BUILD_TYPE release)
 
 # --- [TOOLCHAIN] ------------------------------------------------------------------------
 
+set(VCPKG_ENV_PASSTHROUGH_UNTRACKED PATH)
 set(VCPKG_CHAINLOAD_TOOLCHAIN_FILE "${CMAKE_CURRENT_LIST_DIR}/../toolchains/llvm.cmake")
