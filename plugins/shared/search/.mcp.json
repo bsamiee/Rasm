@@ -15,14 +15,6 @@
                 "X-MCP-Features": "file_blame,issue_dependencies,csv_output,mcp_apps_disable_form_deferral,duplicate_detection"
             }
         },
-        "atuin": {
-            "type": "stdio",
-            "command": "atuin",
-            "args": [
-                "mcp"
-            ],
-            "default_tools_approval_mode": "approve"
-        },
         "claudeCodeDocs": {
             "type": "http",
             "url": "https://code.claude.com/docs/mcp",

@@ -21,6 +21,7 @@
 - ALWAYS use `refactor-code` skill whenever code or configuration is written, reduced, rebuilt, or judged for quality
 - ALWAYS use `search:web` skill for any fact outside the repository and its installed packages, never answered from memory
 - ALWAYS use `search:code` skill before writing or judging code over a dependency, and before hand-writing what a package could supply
+- ALWAYS use `terminal:history` skill for a past command, its output, or an agent session transcript, never a transcript file or a rerun
 - ALWAYS use `clean-prose` skill for any English a change writes, names and agent-facing text included
 - ALWAYS use `dotnet:codelens` skill to read, trace, or change any file in a .NET solution
 - ALWAYS use `LSP` tool for references, implementations, call hierarchy, and type of a Python, Rust, or Swift symbol before changing or removing it

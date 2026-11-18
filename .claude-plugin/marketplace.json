@@ -93,8 +93,8 @@
         {
             "name": "search",
             "source": "./plugins/shared/search",
-            "version": "0.8.0",
-            "description": "Dependency source, web, Are.na, and shell-history research, and structural code search with ast-grep",
+            "version": "0.9.0",
+            "description": "Dependency source, web, and Are.na research, and structural code search with ast-grep",
             "author": {
                 "name": "Bardia Samiee"
             }
@@ -111,8 +111,8 @@
         {
             "name": "terminal",
             "source": "./plugins/shared/terminal",
-            "version": "0.3.0",
-            "description": "Agent session hooks: atuin records shell commands, zellij-agent-resume saves and restores sessions, and git-ai checkpoints authorship",
+            "version": "0.4.0",
+            "description": "Shell history and agent session search through atuin hooks, MCP server, and skill, with zellij-agent-resume session hooks and git-ai authorship checkpoints",
             "author": {
                 "name": "Bardia Samiee"
             }
