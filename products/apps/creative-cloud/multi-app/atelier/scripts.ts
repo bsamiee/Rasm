@@ -93,7 +93,7 @@ const scripts = Effect.fnUntraced(function* (links: { readonly peers: Effect.Eff
     const read = Effect.fnUntraced(function* (row: Application) {
         const known = Record.get(yield* Ref.get(dictionaries), row.url.href);
         const fresh = Effect.tap(dictionary(server, row), (found) => Ref.update(dictionaries, Record.set(row.url.href, found)));
-        return yield* Option.match(known, { onSome: Effect.succeed, onNone: () => Effect.orElseSucceed(fresh, Option.none<Runtime>) });
+        return yield* Option.match(known, { onSome: Effect.succeed, onNone: () => fresh });
     });
     yield* Server.registerTool(
         Tool.make('execute_script', {
