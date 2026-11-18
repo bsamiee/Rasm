@@ -1,9 +1,9 @@
 import { join, posix } from 'node:path';
 import { platform } from 'node:process';
 import { fileURLToPath } from 'node:url';
-import { AggregateCreateNodesError, type CreateNodes, type CreateNodesContext, detectPackageManager, getPackageManagerCommand, type ProjectConfiguration, readJsonFile, type TargetConfiguration } from '@nx/devkit';
-import { combineGlobPatterns, type PackageJson, quoteShellArg } from '@nx/devkit/internal';
-import { Array, Effect, FileSystem, Function, Option, Predicate, Record, Result, Schema, String, Struct, UndefinedOr } from 'effect';
+import { AggregateCreateNodesError, type CreateNodes, type CreateNodesContext, detectPackageManager, getPackageManagerCommand, type PostTasksExecution, type ProjectConfiguration, readJsonFile, type TargetConfiguration, writeJsonFile } from '@nx/devkit';
+import { combineGlobPatterns, emitPluginWorkerLog, isCI, type PackageJson, quoteShellArg } from '@nx/devkit/internal';
+import { Array, Cause, Config, ConfigProvider, Effect, FileSystem, Formatter, Function, Option, Predicate, Record, Result, Schema, String, Struct, UndefinedOr } from 'effect';
 import which from 'which';
 import { run } from '#/executor';
 import { type Fields, FOLDERS, HOSTS, type Host } from '#/host-packages';
@@ -50,9 +50,10 @@ const ACTIONS: Verbs = {
 const Options = Schema.Struct({
     outputPath: Folder,
     storeCredentials: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)),
+    taskResultsPath: Folder,
 }).annotate({
     description:
-        'outputPath: workspace folder each host package is written to, {projectName} naming the project, absent writes where the host tool writes in the project. storeCredentials: environment variable holding the store credential per technology, absent naming the variable of the host row (Blender: BLENDER_EXTENSIONS_TOKEN, Yak: YAK_TOKEN), a publish whose variable is unset naming it and succeeding',
+        'outputPath: workspace folder each host package is written to, {projectName} naming the project, absent writes where the host tool writes in the project. storeCredentials: environment variable holding the store credential per technology, absent naming the variable of the host row (Blender: BLENDER_EXTENSIONS_TOKEN, Yak: YAK_TOKEN), a publish whose variable is unset naming it and succeeding. taskResultsPath: workspace folder each nx run on CI that no task started writes <run id>.json to, holding its argv and times and the target, hash, hash inputs, status, exit code, and times of each task, absent writes no record',
 });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -261,6 +262,24 @@ const createNodes: CreateNodes<typeof Options.Encoded> = [
         ),
 ];
 
+const postTasksExecution: PostTasksExecution<typeof Options.Encoded> = (options, context) =>
+    run(
+        Effect.gen(function* () {
+            const [{ taskResultsPath }, outer, annotated, ci] = yield* Effect.all([Schema.decodeEffect(Options)(options ?? {}), Config.map(Config.option(Config.String('NX_TASK_TARGET_PROJECT')), Option.isNone), Config.withDefault(Config.Boolean('GITHUB_ACTIONS'), false), Effect.sync(isCI)]);
+            const results = Object.values(context.taskResults);
+            const tasks = results.map(({ task: { id, target, hash, hashDetails, startTime, endTime }, status, code }) => ({ id, ...target, hash, status, code, startTime, endTime, hashDetails: UndefinedOr.map(hashDetails, Struct.pick(['command', 'nodes'])) }));
+            const records = Array.fromNullishOr(taskResultsPath)
+                .filter(() => outer && Boolean(ci))
+                .map((folder) => posix.join(folder, `${context.id}.json`));
+            const [written, refused] = yield* Effect.partition(records, (file) =>
+                Effect.as(Effect.try({ try: () => writeJsonFile(join(context.workspaceRoot, file), { ...Struct.pick(context, ['id', 'argv', 'startTime', 'endTime']), tasks }), catch: (cause) => new Cause.UnknownError(cause, `Run ${context.id} writes no record to ${file}: ${Formatter.format(cause)}`) }), file),
+            );
+            const warnings = refused.map(({ message }) => ['warn', annotated ? `::warning::${message}` : message] as const);
+            const errors = results.filter(({ status }) => outer && annotated && status === 'failure').map(({ task: { id }, code }) => ['log', `::error title=${id}::${[`${id} exits ${code}`, ...written.map((file) => `recorded in ${file}`)].join(', ')}`] as const);
+            yield* Effect.forEach([...warnings, ...errors], ([level, line]) => Effect.sync(() => emitPluginWorkerLog(level, line)), { discard: true });
+        }).pipe(Effect.provide(ConfigProvider.layer(ConfigProvider.fromEnv()))),
+    );
+
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { createNodes };
+export { createNodes, postTasksExecution };

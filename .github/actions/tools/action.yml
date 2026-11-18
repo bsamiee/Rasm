@@ -1,5 +1,5 @@
 name: Tools
-description: Removes untracked files, points TMPDIR at the runner's per-job temp folder and NX_SINCE at the job start, then mise bootstrap installs the mise tools of the runner's platform, inside a job container under .cache of the checkout, whose post-tools hook installs pnpm packages, and exports mise env, the remote cache row included
+description: Removes untracked files, points TMPDIR at the runner's per-job temp folder, then mise bootstrap installs the mise tools of the runner's platform, inside a job container under .cache of the checkout, whose post-tools hook installs pnpm packages, and exports mise env, the remote cache row included
 
 runs:
     using: composite
@@ -7,8 +7,7 @@ runs:
         - shell: bash
           run: |
               git clean -ffd
-              since="$(date +%s)"
-              printf "%s\n" "TMPDIR=${RUNNER_TEMP}" "NX_SINCE=${since}000" >> "${GITHUB_ENV}"
+              printf "%s\n" "TMPDIR=${RUNNER_TEMP}" >> "${GITHUB_ENV}"
         - if: ${{ job.container.id != '' }}
           shell: bash
           run: |

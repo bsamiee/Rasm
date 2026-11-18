@@ -1,7 +1,7 @@
-import { chmodSync } from 'node:fs';
+import { chmodSync, globSync } from 'node:fs';
 import { join } from 'node:path';
-import type { CreateNodesContext } from '@nx/devkit';
-import { createNodes } from '@rasm/nx-distribution';
+import { type CreateNodesContext, type PostTasksExecutionContext, readJsonFile } from '@nx/devkit';
+import { createNodes, postTasksExecution } from '@rasm/nx-distribution';
 import { TempFs } from '@rasm/testing/temp-fs';
 import { describe, expect, test, vi } from 'vitest';
 
@@ -60,6 +60,59 @@ const it = test
         return (platform: NodeJS.Platform) => {
             host.platform = platform;
         };
+    })
+    .extend('run', ({ tempFs }): PostTasksExecutionContext => {
+        vi.stubEnv('NX_TASK_TARGET_PROJECT', undefined);
+        vi.stubEnv('GITHUB_ACTIONS', undefined);
+        vi.stubEnv('CI', 'false');
+        return {
+            id: 'run-7f3a',
+            workspaceRoot: tempFs.tempDir,
+            nxJsonConfiguration: {},
+            argv: ['node', 'nx', 'run-many', '--targets=build,check,test,e2e'],
+            startTime: 1000,
+            endTime: 9000,
+            taskResults: {
+                'app:build:release': {
+                    task: {
+                        id: 'app:build:release',
+                        target: { project: 'app', target: 'build', configuration: 'release' },
+                        overrides: {},
+                        outputs: ['dist/app'],
+                        cache: true,
+                        hash: 'hash-app-build',
+                        hashDetails: { command: 'command-app-build', nodes: { 'app:{projectRoot}/**/*': 'node-1', 'env:CI': 'node-2' }, implicitDeps: { 'nx.json': 'implicit-1' }, runtime: { 'node -v': 'runtime-1' } },
+                        startTime: 1100,
+                        endTime: 4100,
+                    },
+                    status: 'failure',
+                    code: 2,
+                    terminalOutput: 'error TS2322',
+                },
+                'app:test': { task: { id: 'app:test', target: { project: 'app', target: 'test' }, overrides: {}, outputs: [], cache: true, hash: 'hash-app-test', hashDetails: { command: 'command-app-test', nodes: { 'app:{projectRoot}/**/*': 'node-1' } }, startTime: 1200, endTime: 5200 }, status: 'failure', code: 1 },
+                'app:e2e': { task: { id: 'app:e2e', target: { project: 'app', target: 'e2e' }, overrides: {}, outputs: [], cache: false }, status: 'skipped', code: 1 },
+                'lib:build': {
+                    task: { id: 'lib:build', target: { project: 'lib', target: 'build' }, overrides: {}, outputs: ['dist/lib'], cache: true, hash: 'hash-lib-build', hashDetails: { command: 'command-lib-build', nodes: { 'lib:{projectRoot}/**/*': 'node-3' } }, startTime: 1300, endTime: 1310 },
+                    status: 'remote-cache',
+                    code: 0,
+                },
+                'lib:check': {
+                    task: { id: 'lib:check', target: { project: 'lib', target: 'check' }, overrides: {}, outputs: [], cache: true, hash: 'hash-lib-check', hashDetails: { command: 'command-lib-check', nodes: { 'lib:{projectRoot}/**/*': 'node-3' } }, startTime: 1400, endTime: 1405 },
+                    status: 'local-cache',
+                    code: 0,
+                },
+                'lib:test': { task: { id: 'lib:test', target: { project: 'lib', target: 'test' }, overrides: {}, outputs: [], cache: true, hash: 'hash-lib-test', hashDetails: { command: 'command-lib-test', nodes: { 'lib:{projectRoot}/**/*': 'node-3' } }, startTime: 1500, endTime: 8500 }, status: 'success', code: 0 },
+            },
+        };
+    })
+    .extend('printed', ({}, { onCleanup }) => {
+        const log = vi.spyOn(console, 'log').mockReturnValue(undefined);
+        const warn = vi.spyOn(console, 'warn').mockReturnValue(undefined);
+        onCleanup(() => {
+            log.mockRestore();
+            warn.mockRestore();
+        });
+        return { log, warn };
     });
 
 describe('@rasm/nx-distribution', () => {
@@ -557,6 +610,82 @@ describe('@rasm/nx-distribution', () => {
             const results = await createNodesFunction(['proj/blender_manifest.toml'], {}, context);
 
             expect(results[0]?.[1].projects?.['proj']?.targets?.['install--blender']?.dependsOn).toStrictEqual(['build--blender']);
+        });
+    });
+
+    describe('postTasksExecution', () => {
+        it('should write the run and each task result with its hash inputs to <id>.json under taskResultsPath on a CI run', async ({ tempFs, run }) => {
+            vi.stubEnv('CI', 'true');
+
+            await postTasksExecution({ taskResultsPath: 'records/runs' }, run);
+
+            expect(readJsonFile(join(tempFs.tempDir, 'records/runs/run-7f3a.json'))).toStrictEqual({
+                id: 'run-7f3a',
+                argv: ['node', 'nx', 'run-many', '--targets=build,check,test,e2e'],
+                startTime: 1000,
+                endTime: 9000,
+                tasks: [
+                    { id: 'app:build:release', project: 'app', target: 'build', configuration: 'release', hash: 'hash-app-build', status: 'failure', code: 2, startTime: 1100, endTime: 4100, hashDetails: { command: 'command-app-build', nodes: { 'app:{projectRoot}/**/*': 'node-1', 'env:CI': 'node-2' } } },
+                    { id: 'app:test', project: 'app', target: 'test', hash: 'hash-app-test', status: 'failure', code: 1, startTime: 1200, endTime: 5200, hashDetails: { command: 'command-app-test', nodes: { 'app:{projectRoot}/**/*': 'node-1' } } },
+                    { id: 'app:e2e', project: 'app', target: 'e2e', status: 'skipped', code: 1 },
+                    { id: 'lib:build', project: 'lib', target: 'build', hash: 'hash-lib-build', status: 'remote-cache', code: 0, startTime: 1300, endTime: 1310, hashDetails: { command: 'command-lib-build', nodes: { 'lib:{projectRoot}/**/*': 'node-3' } } },
+                    { id: 'lib:check', project: 'lib', target: 'check', hash: 'hash-lib-check', status: 'local-cache', code: 0, startTime: 1400, endTime: 1405, hashDetails: { command: 'command-lib-check', nodes: { 'lib:{projectRoot}/**/*': 'node-3' } } },
+                    { id: 'lib:test', project: 'lib', target: 'test', hash: 'hash-lib-test', status: 'success', code: 0, startTime: 1500, endTime: 8500, hashDetails: { command: 'command-lib-test', nodes: { 'lib:{projectRoot}/**/*': 'node-3' } } },
+                ],
+            });
+        });
+
+        it.for([
+            ['true', undefined],
+            ['true', {}],
+            ['false', { taskResultsPath: 'records/runs' }],
+        ] as const)('should write no record where CI is %s and options are %o', async ([ci, options], { tempFs, run }) => {
+            vi.stubEnv('CI', ci);
+
+            await postTasksExecution(options, run);
+
+            expect(globSync('**/*.json', { cwd: tempFs.tempDir })).toStrictEqual([]);
+        });
+
+        it('should write no record and print nothing for a run nested in a task', async ({ tempFs, run, printed }) => {
+            vi.stubEnv('CI', 'true');
+            vi.stubEnv('NX_TASK_TARGET_PROJECT', 'app');
+            vi.stubEnv('GITHUB_ACTIONS', 'true');
+
+            await postTasksExecution({ taskResultsPath: 'records/runs' }, run);
+
+            expect(globSync('**/*.json', { cwd: tempFs.tempDir })).toStrictEqual([]);
+            expect(printed.log).not.toHaveBeenCalled();
+            expect(printed.warn).not.toHaveBeenCalled();
+        });
+
+        it.for([
+            ['true', 'true', { taskResultsPath: 'records/runs' }, ['::error title=app:build:release::app:build:release exits 2, recorded in records/runs/run-7f3a.json', '::error title=app:test::app:test exits 1, recorded in records/runs/run-7f3a.json']],
+            ['true', 'true', {}, ['::error title=app:build:release::app:build:release exits 2', '::error title=app:test::app:test exits 1']],
+            ['false', 'true', { taskResultsPath: 'records/runs' }, ['::error title=app:build:release::app:build:release exits 2', '::error title=app:test::app:test exits 1']],
+            ['true', undefined, { taskResultsPath: 'records/runs' }, []],
+        ] as const)('should print one error annotation per failed task where CI is %s, GITHUB_ACTIONS is %s, and options are %o', async ([ci, actions, options, lines], { run, printed }) => {
+            vi.stubEnv('CI', ci);
+            vi.stubEnv('GITHUB_ACTIONS', actions);
+
+            await postTasksExecution(options, run);
+
+            expect(printed.log.mock.calls.flat().map(String).toSorted()).toStrictEqual(lines);
+            expect(printed.warn).not.toHaveBeenCalled();
+        });
+
+        it.for([
+            [undefined, /^Run run-7f3a writes no record to records\/runs\/run-7f3a\.json: \S/u, []],
+            ['true', /^::warning::Run run-7f3a writes no record to records\/runs\/run-7f3a\.json: \S/u, ['::error title=app:build:release::app:build:release exits 2', '::error title=app:test::app:test exits 1']],
+        ] as const)('should resolve with one warning and no record named where a file occupies the record folder and GITHUB_ACTIONS is %s', async ([actions, warning, lines], { tempFs, run, printed }) => {
+            vi.stubEnv('CI', 'true');
+            vi.stubEnv('GITHUB_ACTIONS', actions);
+            await tempFs.createFiles({ records: '' });
+
+            await expect(postTasksExecution({ taskResultsPath: 'records/runs' }, run)).resolves.toBeUndefined();
+
+            expect(printed.warn.mock.calls).toStrictEqual([[expect.stringMatching(warning)]]);
+            expect(printed.log.mock.calls.flat().map(String).toSorted()).toStrictEqual(lines);
         });
     });
 });

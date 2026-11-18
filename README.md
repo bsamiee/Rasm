@@ -142,6 +142,7 @@ Nx runs project-level work over a graph its plugins infer:
 - Plugins infer every project, target, and dependency from manifests and tool output, manifest `nx` tables adding only facts no tool reports
 - `nx affected` runs only the tasks a change reaches, as each target's inputs name exactly what its tools read, aggregate targets included
 - Tools keep their own incremental state, and Nx caches results around it in one remote cache every runner shares, so hashes hold no machine path
+- On CI, `nx` runs outside a task write task statuses, times, and hash inputs to `.artifacts/nx/runs/<id>.json`, and annotate failed tasks on GitHub
 - `nx conformance:check` runs the `nx.json` conformance rules, which hold the graph and every target to these principles
 
 `nx <target> <project>` runs one project and `nx affected -t <target>` a change's reach, each target one operation in every ecosystem:
