@@ -31,6 +31,10 @@ const BROWSERS = [
     ['playwright cli snapshot', { _tag: 'Rewrite', command: 'playwright cli -s=a1 snapshot', observes: false, background: false }],
     ['playwright cli open https://example.com', { _tag: 'Rewrite', command: 'playwright cli -s=a1 open https://example.com', observes: false, background: false }],
 ] as const;
+const AGGREGATES = [
+    ['nx test @rasm/test-function-hooks -- -t decide', { _tag: 'Rewrite', command: 'nx run @rasm/test-function-hooks:test--vitest -- -t decide', observes: false, background: false }],
+    ['nx clean @rasm/test-function-hooks -- --verbose', { _tag: 'Rewrite', command: 'nx run @rasm/test-function-hooks:clean--vitest -- --verbose', observes: false, background: false }],
+] as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -108,6 +112,37 @@ it.live(
                 decisions,
                 BROWSERS.map(([, decision]) => decision),
             );
+        },
+        Effect.scoped,
+        Effect.provide(Layer.merge(layer, SecureRandom.layerWebCrypto)),
+    ),
+    30_000,
+);
+
+it.live(
+    'Leading cd into the folder the request names keeps a later redirect in that folder wherever the shell starts',
+    Effect.fnUntraced(
+        function* () {
+            const [fs, path, spawner, { folder, decided }] = yield* Effect.all([FileSystem.FileSystem, Path.Path, ChildProcessSpawner.ChildProcessSpawner, served()]);
+            const elsewhere = yield* fs.makeTempDirectoryScoped();
+            const command = `cd ${folder} && echo decided > decided.txt`;
+            const decision = yield* decided(command, 'foreground');
+            assert.notStrictEqual(decision._tag, 'Deny');
+            yield* spawner.exitCode(ChildProcess.make('sh', ['-c', decision._tag === 'Rewrite' ? decision.command : command], { cwd: elsewhere }));
+            assert.deepStrictEqual(yield* Effect.all([fs.exists(path.join(folder, 'decided.txt')), fs.exists(path.join(elsewhere, 'decided.txt'))]), [true, false]);
+        },
+        Effect.scoped,
+        Effect.provide(Layer.merge(layer, SecureRandom.layerWebCrypto)),
+    ),
+    30_000,
+);
+
+it.live.each(AGGREGATES)(
+    'Nx aggregate call %s with one-run arguments runs the one target its <verb>--* glob matches, %j',
+    Effect.fnUntraced(
+        function* ([command, decision]) {
+            const { decided } = yield* served();
+            assert.deepStrictEqual<Decision>(yield* decided(command, 'foreground', { cwd: import.meta.dirname }), decision);
         },
         Effect.scoped,
         Effect.provide(Layer.merge(layer, SecureRandom.layerWebCrypto)),

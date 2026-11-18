@@ -163,29 +163,19 @@ const fedRemoval =
 
 // --- [STDIN]
 
-const withoutCommand = (invocation: Invocation, before: string, alone: string): readonly Verdict[] => {
-    const { command, outer } = invocation;
-    if (command.origin !== 'call' || Option.isSome(command.stage) || !outer.every(({ program }) => PREFIXES.has(program))) {
-        return [];
-    }
-    if ([command.source.subarray(0, command.start), command.source.subarray(command.end)].every((part) => DECODER.decode(part).trim() === '')) {
-        return refusal(alone);
-    }
-    return Option.match(listed(command.source, command), { onNone: () => [], onSome: (span) => erased(invocation, span, before) });
-};
-
 const emptyStdin: Rule = (invocation) => {
-    const { command, program } = invocation;
-    if (command.fed || invocation.outer.some(({ row }) => row.execs !== undefined) || !invocation.readsStdin) {
+    const { command, program, outer } = invocation;
+    if (command.fed || outer.some(({ row }) => row.execs !== undefined) || !invocation.readsStdin) {
         return [];
     }
     const subject = `${program} reading empty stdin`;
     const refused = `${program} reads empty stdin, name its file`;
-    const without = command.redirects.length > 0 ? [] : withoutCommand(invocation, subject, refused);
-    if (command.origin !== 'call') {
+    const removable = command.redirects.length === 0 && Option.isNone(command.stage) && outer.every(({ program: wrapper }) => PREFIXES.has(wrapper));
+    const alone = [command.source.subarray(0, command.start), command.source.subarray(command.end)].every((part) => DECODER.decode(part).trim() === '');
+    if (command.origin !== 'call' || (removable && alone)) {
         return refusal(refused);
     }
-    return without.length > 0 ? without : whole(invocation, ':', subject);
+    return Option.match(removable ? listed(command.source, command) : Option.none(), { onNone: () => whole(invocation, ':', subject), onSome: (span) => erased(invocation, span, subject) });
 };
 
 const inlineCode: Rule = (invocation, { analysis, host }) => {
@@ -355,12 +345,6 @@ const silenced: Rule = (invocation) => {
     return quieted.length >= 2 || quieted.some(({ op }) => op === RedirOperator.RdrAll) ? [...ensure(['--style', 'none'])(invocation), ...quieted.flatMap((redirect) => cut(invocation, [redirect]))] : [];
 };
 
-const redundantCd: Rule = (invocation, { host }) => {
-    const [target] = invocation.operands;
-    const { cwd } = invocation.command;
-    return target?.known === true && Option.exists(host.resolve(target.text, cwd), (folder) => Option.contains(cwd, folder)) ? withoutCommand(invocation, `cd ${target.raw}`, `cd ${target.raw} enters the working folder already, run the command it was for`) : [];
-};
-
 const cdOutsideRoot: Rule = Effect.fnUntraced(function* (invocation, { host, analysis }) {
     const [target] = invocation.operands;
     const { command } = invocation;
@@ -488,7 +472,7 @@ const FILES: Ruleset = {
         },
         curl: { pipefail: true, rules: [ensure(['--fail-with-body'], '--fail', '--write-out')] },
         duckdb: { rules: [when(Predicate.or(holds(STDIN_FILE, '-c', '-s'), holds(STDIN_FILE)), ensure(['-markdown'], ...DUCKDB_MODES))] },
-        cd: { rules: [redundantCd, cdOutsideRoot] },
+        cd: { rules: [cdOutsideRoot] },
         jq: { flags: ['--arg=2', '--argjson=2', '--slurpfile=2', '--rawfile=2'], leading: 1, leadingUnless: ['--from-file'], restAfter: ['--args', '--jsonargs'], reads: true, readsUnless: ['--null-input'], rules: [readsItsOwnFile] },
         hyperfine: {
             flags: ['-P, --parameter-scan=3', '-L, --parameter-list=2'],

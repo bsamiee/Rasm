@@ -1,8 +1,7 @@
 import { devNull } from 'node:os';
-import { matchesGlob } from 'node:path';
 import process from 'node:process';
 import type { ProjectGraphProjectNode, TargetConfiguration } from '@nx/devkit';
-import { Array, Effect, Match, Option, Predicate, pipe, Record, Result, Schema, String, Struct } from 'effect';
+import { Array, Effect, Glob, Match, Option, Predicate, pipe, Record, Result, Schema, String, Struct } from 'effect';
 import { RedirOperator } from 'sh-syntax/sync';
 import type { Host, HostError } from '#/host';
 import { Verdict } from '#/rules/decision';
@@ -53,8 +52,8 @@ const patternsOf = ({ executor, dependsOn = [] }: Targets[string]): readonly str
     (executor === 'nx:noop' ? dependsOn : []).flatMap((entry) => (typeof entry === 'string' ? [entry] : Option.toArray(Option.liftPredicate(entry.target, () => entry.projects === undefined && entry.dependencies !== true)))).filter((pattern) => !pattern.startsWith('^'));
 
 const members = (targets: Targets, aggregate: string): readonly string[] => {
-    const patterns = Option.match(Record.get(targets, aggregate), { onNone: () => [], onSome: patternsOf });
-    return Object.keys(targets).filter((name) => name !== aggregate && patterns.some((pattern) => pattern !== name && matchesGlob(name, pattern)));
+    const globs = Option.match(Record.get(targets, aggregate), { onNone: () => [], onSome: patternsOf }).map((pattern) => Glob.make(pattern));
+    return Object.keys(targets).filter((name) => name !== aggregate && globs.some((glob) => glob.pattern !== name && Glob.match(glob, name)));
 };
 
 const aggregateOf = (targets: Targets, target: string): string =>
