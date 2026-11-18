@@ -47,7 +47,7 @@ pub enum Refusal {
 #[derive(Debug, thiserror::Error)]
 pub enum WorkbooksError {
     #[error(transparent)]
-    Decrypt(#[from] office_crypto::DecryptError),
+    Decrypt(#[from] msoffice_crypto::Error),
     #[error(transparent)]
     Read(#[from] calamine::Error),
     #[error("cannot convert date-time or duration cell at row {}, column {}", cell.0, cell.1)]
@@ -70,10 +70,6 @@ pub enum WorkbooksError {
     Load(#[from] XlsxError),
     #[error("cannot build ironcalc model: {0}")]
     Model(String),
-    #[error("duration cell at row {}, column {} exceeds the ODS duration range", cell.0, cell.1)]
-    Interval { cell: (u32, u32) },
-    #[error("cannot convert ODS cell at row {}, column {}", cell.0, cell.1)]
-    Ods { cell: (u32, u32), source: spreadsheet_ods::OdsError },
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -129,7 +125,6 @@ where
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 mod evaluation;
-pub mod ods;
 mod reading;
 mod templates;
 pub mod writing;

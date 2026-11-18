@@ -21,7 +21,7 @@ pub fn fill(book: &mut Workbook, name: &str, block: &Range<Data>) -> Result<(), 
         .iter()
         .enumerate()
         .map(|(index, defined)| (None, index, defined))
-        .chain(book.sheet_collection().iter().enumerate().flat_map(|(sheet, worksheet)| worksheet.defined_names().iter().enumerate().map(move |(index, defined)| (Some(sheet), index, defined))))
+        .chain(book.sheet_collection()?.iter().enumerate().flat_map(|(sheet, worksheet)| worksheet.defined_names().iter().enumerate().map(move |(index, defined)| (Some(sheet), index, defined))))
         .find(|&(_, _, defined)| defined.name().chars().flat_map(char::to_lowercase).eq(name.chars().flat_map(char::to_lowercase)))
         .ok_or_else(|| refused(Refusal::Missing))?;
     let (sheet_name, (start_column, start_row), (end_column, end_row)) = {
@@ -91,7 +91,7 @@ pub fn fill(book: &mut Workbook, name: &str, block: &Range<Data>) -> Result<(), 
     }
     if let Some(grown) = grown {
         let slot = match scope {
-            Some(local_sheet) => book.sheet_collection_mut().get_mut(local_sheet).and_then(|worksheet| worksheet.defined_names_mut().get_mut(index)),
+            Some(local_sheet) => book.sheet_collection_mut()?.get_mut(local_sheet).and_then(|worksheet| worksheet.defined_names_mut().get_mut(index)),
             None => book.defined_names_mut().get_mut(index),
         };
         *slot.ok_or_else(|| refused(Refusal::Missing))? = grown;

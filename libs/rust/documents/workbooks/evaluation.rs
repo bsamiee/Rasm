@@ -86,7 +86,7 @@ pub fn recalculate(book: &mut Workbook, locale: &str, timezone: &str) -> Result<
         .map(|worksheet| worksheet.sheet_data.cells().filter_map(|(row, column, cell)| result(&cell).map(|outcome| ((row.cast_unsigned(), column.cast_unsigned()), outcome))).collect::<Vec<_>>())
         .collect::<Vec<_>>();
     drop(model);
-    Ok(iter::zip(book.sheet_collection_mut(), iter::zip(results, 0_u32..))
+    Ok(iter::zip(book.sheet_collection_mut()?, iter::zip(results, 0_u32..))
         .flat_map(|(worksheet, (cells, sheet))| {
             cells.into_iter().filter_map(move |((row, column), outcome)| {
                 let cell = worksheet.cell_mut((column, row));

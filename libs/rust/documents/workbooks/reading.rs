@@ -1,6 +1,7 @@
 use std::io::Cursor;
 
 use calamine::{Data, Range, RangeDeserializerBuilder, Sheets, open_workbook_auto_from_rs};
+use msoffice_crypto::Document;
 use secrecy::{ExposeSecret as _, SecretString};
 use serde::de::DeserializeOwned;
 
@@ -11,7 +12,10 @@ use crate::{Value, WorkbooksError, value};
 pub fn open(bytes: Vec<u8>, password: Option<&SecretString>) -> Result<Sheets<Cursor<Vec<u8>>>, WorkbooksError> {
     password
         .into_iter()
-        .try_fold(bytes, |bytes, secret| office_crypto::decrypt_from_bytes(bytes, secret.expose_secret()))
+        .try_fold(bytes, |bytes, secret| match msoffice_crypto::classify(&bytes).document {
+            Document::ExcelBinary | Document::Excel95Binary => msoffice_crypto::decrypt_binary_office(&bytes, secret.expose_secret()),
+            _ => msoffice_crypto::decrypt_ooxml(&bytes, secret.expose_secret()),
+        })
         .map_err(WorkbooksError::Decrypt)
         .and_then(|decrypted| open_workbook_auto_from_rs(Cursor::new(decrypted)).map_err(WorkbooksError::Read))
 }

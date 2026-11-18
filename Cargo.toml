@@ -466,14 +466,14 @@ rustfft      = "6.4.1"                                     # FFT of any length
 
 # --- [SOLVERS]
 
-basin    = "3.3.0"                                                                      # Scalar roots and minimization, bounded robust least squares over nalgebra
-clarabel = { version = "0.11.1", features = ["sdp", "blas-src", "lapack-src"] }         # Conic interior-point solves over typed cone blocks, `SolverError` names serde_json under default `serde` alone, `sdp` names `blas_src` and `lapack_src`, which compile empty until the final binary picks one implementation through its own `blas-src` and `lapack-src` rows (Clarabel's `sdp-*` features restate them and exclude each other), adds thiserror 1, itertools 0.11, derive_builder's darling 0.14 with strsim 0.10 on syn 1 and a wasm web-time 0.2 beside the catalog
-diffsol  = "0.20.0"                                                                     # ODE and DAE solves under BDF, SDIRK and explicit Runge-Kutta with forward sensitivities and adjoint gradients over faer sparse and dense backends
-fmi      = { version = "0.8.0", default-features = false, features = ["fmi2", "fmi3"] } # FMI 2 and 3 Co-Simulation imports and instances, default `ls-bus` adds the FMI 3 bus layer and bytes; fmi-sys builds its FMI 2, FMI 3 and default `ls-bus` bindings through bindgen on libclang whatever features fmi takes, and fmi adds zip 8 with its default `time` beside zip 9
-good_lp  = { version = "1.15.3", default-features = false, features = ["highs"] }       # LP and MIP models over HiGHS (CMake, bindgen on libclang), reached through `rasm-optimization`'s default `linear` feature, which a consumer turns off to skip the native build; `allocation` takes any good_lp `Solver` a caller enables
-kasuari  = "0.4.13"                                                                     # Cassowary constraint solving of layouts
-nlopt    = "0.8.1"                                                                      # Bounded, constrained, local and global optimization over NLopt 2.9.1 linked static, its Luksan algorithms under LGPL
-nuts-rs  = "0.19.1"                                                                     # No-U-Turn sampling chains over a `CpuLogpFunc`
+basin    = "3.3.0"                                                                                                                                                    # Scalar roots and minimization, bounded robust least squares over nalgebra
+clarabel = { version = "0.11.1", features = ["sdp", "blas-src", "lapack-src"] }                                                                                       # Conic interior-point solves over typed cone blocks, `SolverError` names serde_json under default `serde` alone, `sdp` names `blas_src` and `lapack_src`, which compile empty until the final binary picks one implementation through its own `blas-src` and `lapack-src` rows (Clarabel's `sdp-*` features restate them and exclude each other), adds thiserror 1, itertools 0.11, derive_builder's darling 0.14 with strsim 0.10 on syn 1 and a wasm web-time 0.2 beside the catalog
+diffsol  = "0.20.0"                                                                                                                                                   # ODE and DAE solves under BDF, SDIRK and explicit Runge-Kutta with forward sensitivities and adjoint gradients over faer sparse and dense backends
+fmi      = { git = "https://github.com/jondo2010/rust-fmi", rev = "2ffb3e69a15f442f64817eb9129b614236a1f85b", default-features = false, features = ["fmi2", "fmi3"] } # FMI 2 and 3 Co-Simulation imports and instances at the commit moving zip 8 to 9 past the 0.8.0 release, default `ls-bus` adds the FMI 3 bus layer and bytes; fmi-sys builds its FMI 2, FMI 3 and default `ls-bus` bindings through bindgen on libclang whatever features fmi takes
+good_lp  = { version = "1.15.3", default-features = false, features = ["highs"] }                                                                                     # LP and MIP models over HiGHS (CMake, bindgen on libclang), reached through `rasm-optimization`'s default `linear` feature, which a consumer turns off to skip the native build; `allocation` takes any good_lp `Solver` a caller enables
+kasuari  = "0.4.13"                                                                                                                                                   # Cassowary constraint solving of layouts
+nlopt    = "0.8.1"                                                                                                                                                    # Bounded, constrained, local and global optimization over NLopt 2.9.1 linked static, its Luksan algorithms under LGPL
+nuts-rs  = "0.19.1"                                                                                                                                                   # No-U-Turn sampling chains over a `CpuLogpFunc`
 
 # --- [GRAPHS]
 
@@ -602,8 +602,7 @@ plotly = "0.14.1"                                                               
 
 # --- [DOCUMENTS]
 
-calamine         = "0.38.0"                                                                                                    # XLSX, XLSB, XLS, and ODS reading, `dates` adds chrono beside jiff
-chrono           = { version = "0.4.45", default-features = false }                                                            # Durations spreadsheet-ods cells hold as `TimeDelta`, the type its `Value::TimeDuration` names beside jiff
+calamine         = "0.38.0"                                                                                                    # XLSX, XLSB, XLS, and ODS reading, `dates` adds chrono beside jiff; ODS writing waits on a spreadsheet-ods release past 1.0.4, which links zip 6 and names chrono `TimeDelta` in its cell values
 chromiumoxide    = "0.9.1"                                                                                                     # HTML printed to PDF through Chromium
 docx-rs          = "0.4.22"                                                                                                    # DOCX reading and writing
 hayro            = "0.9.0"                                                                                                     # PDF pages rasterized into caller render contexts
@@ -613,10 +612,9 @@ ironcalc         = "0.9.1"                                                      
 krilla           = { version = "0.8.2", features = ["pdf", "rayon"] }                                                          # PDF creation with subsetting, tagging, PDF/A and PDF/UA export, and embedded PDF pages, defaults stay since krilla-svg asks for them
 krilla-svg       = "0.8.1"                                                                                                     # SVG drawn onto krilla surfaces, links krilla defaults (rustybuzz) and usvg and fontdb defaults (system-font code)
 lopdf            = { version = "0.47.0", default-features = false, features = ["rayon"] }                                      # PDF structure edits, merges, and splits, default `chrono-clock` adds chrono beside jiff
-office-crypto    = "0.4.0"                                                                                                     # Encrypted Office documents decrypted, adds RustCrypto aes 0.8, cbc 0.1, ecb 0.1, md-5 0.10, sha1 0.10 and sha2 0.10 beside the 0.9, 0.2, 0.2, 0.11, 0.11 and 0.11 copies lopdf, pdf_oxide and umya-spreadsheet link, and quick-xml 0.38 beside 0.42
+msoffice-crypto  = { version = "0.1.0", features = ["legacy-binary"] }                                                         # Encrypted Office documents classified and decrypted, ECMA-376 agile and standard packages, and under `legacy-binary` the RC4 and XOR 97-2003 binaries
 pdf_oxide        = { version = "0.3.78", default-features = false, features = ["icc", "signatures", "jpeg2000", "ocr-tract"] } # PDF text, path, table, image and form extraction, editing, PAdES signing, OCR, and PDF/A, UA and X validation; adds chrono and env_logger beside jiff and tracing, and qcms beside moxcms under `icc`
 rust_xlsxwriter  = "0.102.0"                                                                                                   # XLSX writing with formats, tables, charts and constant-memory worksheets, `jiff` feature converting jiff 0.2 values alone
-spreadsheet-ods  = { version = "1.0.4", default-features = false, features = ["all_locales"] }                                 # ODS spreadsheets, default `rust_decimal` adds decimals beside f64 cells, adds chrono beside jiff, quick-xml 0.38 beside 0.42, and zip 6, which turns on `time`, beside 9
 typst            = "0.15.1"                                                                                                    # Typst typesetting, typst-library adds `time` 0.3 beside jiff, toml 0.8 beside 1, syntect, and hayagriva with biblatex, and turns on image `gif` and `webp`
 typst-bundle     = "0.15.1"                                                                                                    # Typst bundle export and the per-format options record paged export reads
 typst-html       = "0.15.1"                                                                                                    # Typst documents exported to HTML
@@ -625,7 +623,7 @@ typst-layout     = "0.15.1"                                                     
 typst-pdf        = "0.15.1"                                                                                                    # Typst documents exported to PDF
 typst-render     = "0.15.1"                                                                                                    # Typst pages rendered to PNG
 typst-svg        = "0.15.1"                                                                                                    # Typst pages exported to SVG
-umya-spreadsheet = "3.1.1"                                                                                                     # XLSX read-modify-write with styles at the release joining the jiff 0.2 that croner and serde_with resolve (4.0.0-beta.1 caps jiff below 0.2.29), adds chrono beside jiff, zip 8 beside 9, quick-xml 0.41 beside 0.42, and imagesize 0.14 beside 0.15
+umya-spreadsheet = { git = "https://github.com/MathNya/umya-spreadsheet", rev = "e14032bc282a6d0707f704d2d70f1e1677583458" }   # XLSX read-modify-write with styles at the 4.0.0 commit moving zip 8 to 9 past the 3.1.1 release, ahead of the 4.0.0-beta.1 release capping jiff 0.2 below 0.2.29; adds chrono beside jiff, quick-xml 0.41 beside 0.42, and imagesize 0.14 beside 0.15
 
 # --- [MEDIA]
 
@@ -926,11 +924,12 @@ unused_workspace_dependencies = "allow"                           # Flags catalo
 # --- [PATCHES] --------------------------------------------------------------------------
 
 [patch.crates-io]
-sqlx             = { git = "https://github.com/launchbadge/sqlx", rev = "6ead2994b59ebaa8b4a354d1b2918fe8fcb15c1a" } # Database pools on tokio with rustls, each member adds the databases and column types it reads
-sqlx-core        = { git = "https://github.com/launchbadge/sqlx", rev = "6ead2994b59ebaa8b4a354d1b2918fe8fcb15c1a" } # Same commit as `sqlx`, one `sqlx-core` under `jiff-sqlx`, `pgvector`, `sea-schema`, and `oxtel-sql`
-sqlx-macros      = { git = "https://github.com/launchbadge/sqlx", rev = "6ead2994b59ebaa8b4a354d1b2918fe8fcb15c1a" } # Same commit as `sqlx`
-sqlx-macros-core = { git = "https://github.com/launchbadge/sqlx", rev = "6ead2994b59ebaa8b4a354d1b2918fe8fcb15c1a" } # Same commit as `sqlx`
-sqlx-sqlite      = { git = "https://github.com/launchbadge/sqlx", rev = "6ead2994b59ebaa8b4a354d1b2918fe8fcb15c1a" } # Same commit as `sqlx`, its `libsqlite3-sys` bound below 0.41
+citationberg     = { git = "https://github.com/typst/citationberg", rev = "8966cf7c178b38b621d297c9eb6d0bb81e14be5e" } # CSL styles under hayagriva at the commit moving quick-xml to 0.41, past the 0.38 the 0.7.0 release links
+sqlx             = { git = "https://github.com/launchbadge/sqlx", rev = "6ead2994b59ebaa8b4a354d1b2918fe8fcb15c1a" }   # Database pools on tokio with rustls, each member adds the databases and column types it reads
+sqlx-core        = { git = "https://github.com/launchbadge/sqlx", rev = "6ead2994b59ebaa8b4a354d1b2918fe8fcb15c1a" }   # Same commit as `sqlx`, one `sqlx-core` under `jiff-sqlx`, `pgvector`, `sea-schema`, and `oxtel-sql`
+sqlx-macros      = { git = "https://github.com/launchbadge/sqlx", rev = "6ead2994b59ebaa8b4a354d1b2918fe8fcb15c1a" }   # Same commit as `sqlx`
+sqlx-macros-core = { git = "https://github.com/launchbadge/sqlx", rev = "6ead2994b59ebaa8b4a354d1b2918fe8fcb15c1a" }   # Same commit as `sqlx`
+sqlx-sqlite      = { git = "https://github.com/launchbadge/sqlx", rev = "6ead2994b59ebaa8b4a354d1b2918fe8fcb15c1a" }   # Same commit as `sqlx`, its `libsqlite3-sys` bound below 0.41
 
 # --- [PROFILES] -------------------------------------------------------------------------
 
