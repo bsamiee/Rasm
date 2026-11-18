@@ -5,7 +5,11 @@ description: "Use when building, packaging, profiling, or driving an Unreal Engi
 
 # [CPP_UNREAL]
 
-Covers the installed engine through its own command lines and servers, with every editor left in the background. `<engine>` is `/Users/Shared/Epic Games/UE_5.8/Engine`, `<ubt>` is `<engine>/Binaries/DotNET/UnrealBuildTool/UnrealBuildTool`, and `UnrealPak`, `UnrealEditor-Cmd`, and `zen` sit on `PATH`. Use `cpp:coding` for the C++ a project compiles, `unreal-engine-skills-for-claude-code:unreal-mcp` for tool calls inside a live editor.
+Covers the installed engine through its own command lines and servers, with every editor left in the background. `<engine>` is `/Users/Shared/Epic Games/UE_5.8/Engine`, `<ubt>` is `<engine>/Binaries/DotNET/UnrealBuildTool/UnrealBuildTool`, and `UnrealPak`, `UnrealEditor-Cmd`, and `zen` sit on `PATH`. Use `cpp:coding` for the C++ a project compiles.
+
+[REFERENCES]:
+- [01]-[TOOLSETS](references/toolsets.md): Toolset authoring in C++ or Python, registration, errors, and tests
+- [02]-[AGENT_SKILLS](references/agent-skills.md): Unreal Agent Skill authoring as Python classes or assets
 
 ## [01]-[ROUTES]
 
@@ -55,12 +59,38 @@ Plug-ins enabled in the `.uproject` serve a running editor:
 - MCP with no toolset plug-in enabled starts with no toolset, single toolset plug-ins under `<engine>/Plugins/Experimental/Toolsets` narrow the set
 - MCP answers `tools/list` with `list_toolsets`, `describe_toolset`, and `call_tool` while `bEnableToolSearch` stays true, toolset tools dispatching through `call_tool`
 - MCP starts with an interactive editor when `bAutoStartServer` is true, in a commandlet only under `-ModelContextProtocolStartServer`, and on demand through console command `ModelContextProtocol.StartServer`
-- `ModelContextProtocol.GenerateClientConfig ClaudeCode|Codex|All` writes server `unreal-mcp` beside the `.uproject`, which Claude Code joins with the `cpp` row by URL
+- `ModelContextProtocol.GenerateClientConfig ClaudeCode|Codex|Cursor|VSCode|Gemini|All` merges server `unreal-mcp` into `.mcp.json` beside the `.uproject`, at the workspace root for a source build, which Claude Code joins with the `cpp` row by URL
+- `GenerateClientConfig Codex` refuses to overwrite an existing `.codex/config.toml`
+- `ModelContextProtocol.StopServer` stops the server, `ModelContextProtocol.RefreshTools` re-registers every toolset after a toolset plug-in is enabled
+- Editors on one machine each take a fixed `ServerPortNumber` per workspace, as a client talks to whatever answers on its configured port
 - Remote Control `GET /remote/info` lists routes, `PUT /remote/object/call` calls a `UFUNCTION`, `PUT /remote/object/property` reads or writes a property
 - Remote Control serves inside the editor, outside it under `-RCWebControlEnable`, and never under `-nullrhi`
 - Remote Control runs Python and console commands only with `bRestrictServerAccess`, `bEnableRemotePythonExecution`, and `bAllowConsoleCommandRemoteExecution` set
 
-## [03]-[SETTINGS]
+## [03]-[EDITOR_MCP]
+
+Tool calls inside a live editor go through server `unreal-mcp`, or `unreal-mcp-proxy` where the engine's proxy is installed:
+1. `list_toolsets`, then `describe_toolset` on a candidate, reads tool schemas, and a known toolset skips the listing
+2. `call_tool` with `toolset_name`, `tool_name`, and `arguments` matching the schema runs the tool, `toolset_name` omitted only for tools the server registers itself
+3. `AgentSkillToolset.ListSkills`, then `GetSkills` on a matching entry, loads a project's Agent Skills, which take precedence over generic defaults
+
+- Toolset tools (`BlueprintTools.create`) stay out of `tools/list`, and `bEnableToolSearch=False` registers each one natively at startup
+- Bulk changes take a save before and after, as MCP edits across a compile boundary can be irreversible
+- C++ rebuilds go through `LiveCodingToolset.CompileLiveCoding`, which returns when the compile finishes with its diagnostics, and other calls during a compile hang or fail
+- Dependent calls and mutations of one asset run in sequence, as request order sets no execution order
+- Results report failure as a status with no wire error, so anything short of explicit success stops the work
+- Play-in-Editor changes editor-only tools, asset creation included, so a wrong result checks for a running PIE
+- Instance metadata under `_meta["com.epicgames.unrealengine/instance"]` in the `initialize` result names `processId`, `projectDirectory`, and `engineDirectory` of the answering editor
+- `AIAssistantToolset.GetDockedContext` returns empty unless the Claude Code tab is docked inside an asset editor
+
+Proxy binaries under `<engine>/Plugins/Experimental/ModelContextProtocol/Extras/Proxy/Bin/<platform>` keep the client session open across editor restarts:
+- `unreal_mcp_proxy --mcp-json <path> install` replaces the HTTP entry with a stdio `unreal-mcp-proxy` entry and keeps the old one under `_upstreamEntry`, `uninstall` restores it
+- `unreal_mcp_status` reports the proxy's upstream session, never reachability, so a read-only tool call proves access past a stored catalog
+- Proxy recovery sends `notifications/tools/list_changed`, and a client ignoring it keeps a stale catalog until a reconnect or restart
+- Killing the proxy closes the client's stdio connection, which only a client reconnect restores
+- Missing tools prove no stopped editor, the client configuration, editor MCP startup log, and endpoint come first, then `RefreshTools` and the `.uproject` toolset plug-ins
+
+## [04]-[SETTINGS]
 
 Per-user settings reach every project through the user layer `~/Library/Application Support/Epic/Unreal Engine/Engine/Config/UserEditorPerProjectUserSettings.ini`, and a project's own `Saved/Config/MacEditor/EditorPerProjectUserSettings.ini` overrides it:
 

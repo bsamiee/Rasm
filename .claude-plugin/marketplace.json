@@ -30,18 +30,36 @@
         {
             "name": "cpp",
             "source": "./plugins/shared/cpp",
-            "version": "0.3.0",
-            "description": "C++ and Objective-C++ design with types, ownership, failure as values, compile-time evaluation, memory layout, and concurrency, and Unreal Engine builds, containers, traces, and editor servers",
+            "version": "0.4.0",
+            "description": "C++ and Objective-C++ design with types, ownership, failure as values, compile-time evaluation, memory layout, and concurrency, and Unreal Engine builds, containers, traces, editor servers, toolsets, and Agent Skills",
             "author": {
                 "name": "Bardia Samiee"
             },
             "keywords": ["c++", "objective-c++", "unreal-engine", "unrealbuildtool", "unreal-mcp"]
         },
         {
+            "name": "data",
+            "source": "./plugins/shared/data",
+            "version": "0.1.0",
+            "description": "DuckDB over data files and databases: reading, querying, converting, attaching, docs search, S3 and spatial data, and the DuckDB 2.0 SQL and Python dialect",
+            "author": {
+                "name": "Bardia Samiee"
+            }
+        },
+        {
             "name": "delegate",
             "source": "./plugins/shared/delegate",
             "version": "0.3.0",
             "description": "Work handed to other agents: headless Antigravity runs and a council of models",
+            "author": {
+                "name": "Bardia Samiee"
+            }
+        },
+        {
+            "name": "documents",
+            "source": "./plugins/shared/documents",
+            "version": "0.1.0",
+            "description": "Word, Excel, and PowerPoint files through officecli: documents, forms, papers, workbooks, dashboards, financial models, decks, and Morph animations",
             "author": {
                 "name": "Bardia Samiee"
             }
@@ -76,8 +94,8 @@
         {
             "name": "python",
             "source": "./plugins/shared/python",
-            "version": "0.3.0",
-            "description": "Python design with result and record types, cyclopts, expression, msgspec, pydantic, telemetry, and docstrings",
+            "version": "0.4.0",
+            "description": "Python design with result and record types, cyclopts, expression, msgspec, pydantic, telemetry, docstrings, ruff, ty, and uv, with the ty language server",
             "author": {
                 "name": "Bardia Samiee"
             }
@@ -94,8 +112,8 @@
         {
             "name": "rust",
             "source": "./plugins/shared/rust",
-            "version": "0.2.0",
-            "description": "Rust design with algebraic types, results, traits, and async effects",
+            "version": "0.3.0",
+            "description": "Rust design with algebraic types, results, traits, and async effects, with the rust-analyzer language server",
             "author": {
                 "name": "Bardia Samiee"
             }
@@ -112,8 +130,8 @@
         {
             "name": "swift",
             "source": "./plugins/shared/swift",
-            "version": "0.3.0",
-            "description": "Swift design with typed throws, value types, and structured concurrency, Xcode builds, LLDB sessions, and the Xcode skills for SwiftUI, App Intents, accessibility, translation, tests, xctrace, and devices",
+            "version": "0.4.0",
+            "description": "Swift design with typed throws, value types, and structured concurrency, Xcode builds, LLDB sessions, the Xcode skills for SwiftUI, App Intents, accessibility, translation, tests, xctrace, and devices, iPhone and iPad operation through pymobiledevice3, and the SourceKit-LSP language server",
             "author": {
                 "name": "Bardia Samiee"
             }

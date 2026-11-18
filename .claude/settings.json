@@ -34,10 +34,6 @@
   },
   "enabledPlugins": {
     "function-hooks@rasm": true,
-    "astral@astral-sh": true,
-    "rust-analyzer-lsp@claude-plugins-official": true,
-    "swift-lsp@claude-plugins-official": true,
-    "unreal-engine-skills-for-claude-code@claude-plugins-official": true,
     "blender@rasm": true,
     "dotnet@rasm": true,
     "msbuild@rasm": true,
@@ -53,20 +49,15 @@
     "web@rasm": true,
     "browser@rasm": true,
     "tool@rasm": true,
-    "media@rasm": true
+    "media@rasm": true,
+    "data@rasm": true,
+    "documents@rasm": true
   },
   "extraKnownMarketplaces": {
     "rasm": {
       "source": {
         "source": "directory",
         "path": "./"
-      },
-      "autoUpdate": true
-    },
-    "astral-sh": {
-      "source": {
-        "source": "github",
-        "repo": "astral-sh/agent-plugins"
       },
       "autoUpdate": true
     }

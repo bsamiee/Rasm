@@ -75,8 +75,8 @@
                 "authentication": "ON_INSTALL"
             },
             "category": "Coding",
-            "version": "0.3.0",
-            "description": "C++ and Objective-C++ design with types, ownership, failure as values, compile-time evaluation, memory layout, and concurrency, and Unreal Engine builds, containers, traces, and editor servers",
+            "version": "0.4.0",
+            "description": "C++ and Objective-C++ design with types, ownership, failure as values, compile-time evaluation, memory layout, and concurrency, and Unreal Engine builds, containers, traces, editor servers, toolsets, and Agent Skills",
             "author": {
                 "name": "Bardia Samiee"
             },
@@ -84,7 +84,36 @@
             "mcpServers": "./.mcp.json",
             "interface": {
                 "displayName": "C++",
-                "shortDescription": "C++ and Objective-C++ design with types, ownership, failure as values, compile-time evaluation, memory layout, and concurrency, and Unreal Engine builds, containers, traces, and editor servers",
+                "shortDescription": "C++ and Objective-C++ design with types, ownership, failure as values, compile-time evaluation, memory layout, and concurrency, and Unreal Engine builds, containers, traces, editor servers, toolsets, and Agent Skills",
+                "developerName": "Bardia Samiee",
+                "category": "Coding",
+                "composerIcon": "./assets/icon.png",
+                "composerIconDark": "./assets/icon-dark.png",
+                "logo": "./assets/icon.png",
+                "logoDark": "./assets/icon-dark.png",
+                "brandColor": "#090909"
+            }
+        },
+        {
+            "name": "data",
+            "source": {
+                "source": "local",
+                "path": "./plugins/shared/data"
+            },
+            "policy": {
+                "installation": "AVAILABLE",
+                "authentication": "ON_INSTALL"
+            },
+            "category": "Coding",
+            "version": "0.1.0",
+            "description": "DuckDB over data files and databases: reading, querying, converting, attaching, docs search, S3 and spatial data, and the DuckDB 2.0 SQL and Python dialect",
+            "author": {
+                "name": "Bardia Samiee"
+            },
+            "skills": "./skills/",
+            "interface": {
+                "displayName": "Data",
+                "shortDescription": "DuckDB over data files and databases: reading, querying, converting, attaching, docs search, S3 and spatial data, and the DuckDB 2.0 SQL and Python dialect",
                 "developerName": "Bardia Samiee",
                 "category": "Coding",
                 "composerIcon": "./assets/icon.png",
@@ -114,6 +143,35 @@
             "interface": {
                 "displayName": "Delegate",
                 "shortDescription": "Work handed to other agents: headless Antigravity runs and a council of models",
+                "developerName": "Bardia Samiee",
+                "category": "Coding",
+                "composerIcon": "./assets/icon.png",
+                "composerIconDark": "./assets/icon-dark.png",
+                "logo": "./assets/icon.png",
+                "logoDark": "./assets/icon-dark.png",
+                "brandColor": "#090909"
+            }
+        },
+        {
+            "name": "documents",
+            "source": {
+                "source": "local",
+                "path": "./plugins/shared/documents"
+            },
+            "policy": {
+                "installation": "AVAILABLE",
+                "authentication": "ON_INSTALL"
+            },
+            "category": "Coding",
+            "version": "0.1.0",
+            "description": "Word, Excel, and PowerPoint files through officecli: documents, forms, papers, workbooks, dashboards, financial models, decks, and Morph animations",
+            "author": {
+                "name": "Bardia Samiee"
+            },
+            "skills": "./skills/",
+            "interface": {
+                "displayName": "Documents",
+                "shortDescription": "Word, Excel, and PowerPoint files through officecli: documents, forms, papers, workbooks, dashboards, financial models, decks, and Morph animations",
                 "developerName": "Bardia Samiee",
                 "category": "Coding",
                 "composerIcon": "./assets/icon.png",
@@ -223,15 +281,15 @@
                 "authentication": "ON_INSTALL"
             },
             "category": "Coding",
-            "version": "0.3.0",
-            "description": "Python design with result and record types, cyclopts, expression, msgspec, pydantic, telemetry, and docstrings",
+            "version": "0.4.0",
+            "description": "Python design with result and record types, cyclopts, expression, msgspec, pydantic, telemetry, docstrings, ruff, ty, and uv, with the ty language server",
             "author": {
                 "name": "Bardia Samiee"
             },
             "skills": "./skills/",
             "interface": {
                 "displayName": "Python",
-                "shortDescription": "Python design with result and record types, cyclopts, expression, msgspec, pydantic, telemetry, and docstrings",
+                "shortDescription": "Python design with result and record types, cyclopts, expression, msgspec, pydantic, telemetry, docstrings, ruff, ty, and uv, with the ty language server",
                 "developerName": "Bardia Samiee",
                 "category": "Coding",
                 "composerIcon": "./assets/icon.png",
@@ -282,15 +340,15 @@
                 "authentication": "ON_INSTALL"
             },
             "category": "Coding",
-            "version": "0.2.0",
-            "description": "Rust design with algebraic types, results, traits, and async effects",
+            "version": "0.3.0",
+            "description": "Rust design with algebraic types, results, traits, and async effects, with the rust-analyzer language server",
             "author": {
                 "name": "Bardia Samiee"
             },
             "skills": "./skills/",
             "interface": {
                 "displayName": "Rust",
-                "shortDescription": "Rust design with algebraic types, results, traits, and async effects",
+                "shortDescription": "Rust design with algebraic types, results, traits, and async effects, with the rust-analyzer language server",
                 "developerName": "Bardia Samiee",
                 "category": "Coding",
                 "composerIcon": "./assets/icon.png",
@@ -341,8 +399,8 @@
                 "authentication": "ON_INSTALL"
             },
             "category": "Coding",
-            "version": "0.3.0",
-            "description": "Swift design with typed throws, value types, and structured concurrency, Xcode builds, LLDB sessions, and the Xcode skills for SwiftUI, App Intents, accessibility, translation, tests, xctrace, and devices",
+            "version": "0.4.0",
+            "description": "Swift design with typed throws, value types, and structured concurrency, Xcode builds, LLDB sessions, the Xcode skills for SwiftUI, App Intents, accessibility, translation, tests, xctrace, and devices, iPhone and iPad operation through pymobiledevice3, and the SourceKit-LSP language server",
             "author": {
                 "name": "Bardia Samiee"
             },
@@ -350,7 +408,7 @@
             "mcpServers": "./.mcp.json",
             "interface": {
                 "displayName": "Swift",
-                "shortDescription": "Swift design with typed throws, value types, and structured concurrency, Xcode builds, LLDB sessions, and the Xcode skills for SwiftUI, App Intents, accessibility, translation, tests, xctrace, and devices",
+                "shortDescription": "Swift design with typed throws, value types, and structured concurrency, Xcode builds, LLDB sessions, the Xcode skills for SwiftUI, App Intents, accessibility, translation, tests, xctrace, and devices, iPhone and iPad operation through pymobiledevice3, and the SourceKit-LSP language server",
                 "developerName": "Bardia Samiee",
                 "category": "Coding",
                 "composerIcon": "./assets/icon.png",
@@ -403,14 +461,15 @@
             },
             "category": "Coding",
             "version": "0.3.0",
-            "description": "Binary analysis in Ghidra, app, binary, process, and file inspection, and desktop app lifecycle, monitoring, and recording through watch-app",
+            "description": "Binary analysis in Ghidra, app, binary, process, and file inspection, desktop app lifecycle, monitoring, and recording through watch-app, and Parallels Desktop VMs through its MCP server",
             "author": {
                 "name": "Bardia Samiee"
             },
             "skills": "./skills/",
+            "mcpServers": "./.mcp.json",
             "interface": {
                 "displayName": "Tool",
-                "shortDescription": "Binary analysis in Ghidra, app, binary, process, and file inspection, and desktop app lifecycle, monitoring, and recording through watch-app",
+                "shortDescription": "Binary analysis in Ghidra, app, binary, process, and file inspection, desktop app lifecycle, monitoring, and recording through watch-app, and Parallels Desktop VMs through its MCP server",
                 "developerName": "Bardia Samiee",
                 "category": "Coding",
                 "composerIcon": "./assets/icon.png",

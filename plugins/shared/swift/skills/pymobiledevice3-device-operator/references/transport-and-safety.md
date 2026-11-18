@@ -1,0 +1,130 @@
+# Transport And Safety
+
+## Use This File
+
+Read this file when the request touches transport selection, iOS 17+ developer services, or actions that can mutate device state.
+
+## Transport Selection
+
+- USB lockdown is the default path for most commands.
+- `ServiceProviderDep` already resolves USB, `--rsd`, `--tunnel`, `--userspace`, and `--native` flows for repo-native CLI commands.
+- When a command requires an RSD tunnel and no transport flag is given, a **no-root tunnel** is
+  established automatically — the in-process userspace tunnel, on every host — no `sudo`,
+  no `start-tunnel`, no `tunneld`. This is the preferred path for agents.
+- `--userspace` forces the userspace tunnel explicitly (`PYMOBILEDEVICE3_USERSPACE=1` is
+  equivalent).
+- `--remotepairing` builds that userspace tunnel over RemotePairing, found over bonjour, for a
+  device paired with `remote pair` and not attached by USB, e.g. an Apple TV on Wi-Fi or Ethernet
+  (`PYMOBILEDEVICE3_REMOTEPAIRING=1` is equivalent). `--udid` names the identifier its
+  RemotePairing record is stored under (`remote_<id>.plist`), required when there are several
+  records. Never implicit.
+- `--native` (**macOS only, opt-in**) forces the no-root native tunnel that piggybacks
+  Apple's `remoted` (`PYMOBILEDEVICE3_NATIVE=1` is equivalent): no `sudo`, no entitlement, no Xcode,
+  faster host->device and lower latency than the userspace stack. It shares a single device-side RSD
+  connection with `remoted`, so the two evict each other: expect intermittent resets, and it can
+  leave Xcode/`devicectl` without the device. Don't use it while the user is working in Xcode.
+- `--rsd`, `--tunnel`, `--userspace`, and `--native` are mutually exclusive. `--remotepairing` may
+  be combined only with `--userspace`.
+- `--mobdev2` / `--mobdev2-host HOSTNAME` run classic lockdown services over the network (TCP
+  62078) instead of USB: `--mobdev2` finds the device over bonjour, `--mobdev2-host` connects to a
+  known address. The device must already be paired with this host (over USB, or with
+  `lockdown pair-wireless` for a device that displays a PIN, such as an Apple TV); an Apple TV only
+  answers while Settings > Remotes and Devices > Remote App and Devices is open. Opt-in only, and
+  mutually exclusive with the RSD options. Developer/DVT services still need an RSD tunnel
+  (`--remotepairing` for a device with no USB connection).
+- Over network lockdown, run **one service-holding command per device at a time**. The device keeps
+  a host's services alive by a heartbeat and judges the host as a whole: when one command that held a
+  service finishes, the services of every other network connection to that device are dropped about
+  ten seconds later (including a `tunneld` network tunnel). Commands that only read values
+  (`lockdown info`, `lockdown date`) are safe to run alongside.
+- `--rsd HOST PORT` is for a specific RemoteServiceDiscovery endpoint.
+- `--tunnel ''` or `--tunnel <UDID>` targets a device already exposed by `tunneld`.
+- With multiple devices attached, always pass `--udid <UDID>` (or set
+  `PYMOBILEDEVICE3_UDID`). Without a TTY the interactive device chooser does not prompt —
+  it exits 1 and prints the candidate devices on stderr.
+
+Use `uvx --from . pymobiledevice3 usbmux list` first for direct USB discovery.
+
+## iOS 17+ Developer Service Checklist
+
+Developer commands need the following. On iOS 17+ `developer dvt` needs only step 1 (the DDI
+is required for DVT only below iOS 17), while `developer core-device` always needs step 2 as well:
+
+1. Developer Mode enabled:
+   `uvx --from . pymobiledevice3 amfi enable-developer-mode`
+2. Developer image mounted:
+   `uvx --from . pymobiledevice3 mounter auto-mount`
+   From iOS 27 the image is the Cryptex1 DDI, installed through `cryptexd`. Devices newer
+   than the DDI (e.g. the iPhone 18 series) can only use this variant: the `PersonalizedDMG`
+   manifest does not list them (`NoSuchBuildIdentityError`); the command needs RSD for it and retries over a no-root tunnel
+   by itself. On iOS 17.0-26.x it mounts the `PersonalizedDMG`. To install the cryptex
+   directly on iOS 27+: `uvx --from . pymobiledevice3 cryptex auto-install` (needs RSD
+   and iOS 26.4+, the first to install the DDI as a cryptex). All cache the download under `~/.pymobiledevice3` — `$XDG_DATA_HOME/pymobiledevice3`
+   on new Linux installs — and end up mounted at `/System/Developer`. Both refuse while a DDI
+   is already present; remove it with `cryptex uninstall com.apple.MobileAsset.DDI` or
+   `mounter umount-personalized`, depending on which front-end mounted it. `mounter auto-mount
+   --replace` does both steps (remove, then mount the right image); it cuts off whatever is using
+   the mounted image's services, so use it only when the user asked to replace the image.
+3. A CoreDevice transport path. On iOS 17.4+ this needs **no setup**: a no-root tunnel is
+   established automatically when the command runs — the in-process userspace tunnel.
+   iOS 17.0-17.3 devices (which predate
+   CoreDeviceProxy) route automatically to the no-root `--native` tunnel on macOS; on other
+   hosts they route to `tunneld`, which needs a privileged daemon:
+   `sudo uvx --from . pymobiledevice3 remote tunneld` in the background, then pass
+   `--tunnel ''` or `--tunnel <UDID>`.
+
+If a developer command fails with service-availability errors, verify Developer Mode and
+the mounted image before assuming the code is broken.
+
+## Tunnel Notes
+
+- You almost never need to set up a tunnel. Run the command with no transport flag and the
+  userspace tunnel is built in-process for it, with no root. Don't reach for `--native`,
+  `start-tunnel` or `tunneld` unless one of the exceptions below applies.
+- Exceptions that need a kernel-routable tunnel: a tool outside pymobiledevice3 must reach the
+  device (`debugserver lldb`, `debugserver start-server` without `--local-port`), one tunnel must
+  be shared across processes, non-macOS iOS 17.0-17.3, or the userspace stack is too slow for the
+  job (bulk transfers, latency-sensitive streams).
+- For performance, `--native` (macOS) is the fastest but the least stable; a privileged tunnel is
+  next. For everything else, prefer an already-running `tunneld` (`--tunnel`). A one-off privileged tunnel is
+  `lockdown start-tunnel` (iOS 17.4+) / `remote start-tunnel` (iOS 17.0-17.3.1); it needs `sudo`
+  because it creates a TUN/TAP interface. On macOS, `remote start-tunnel --native` publishes
+  Apple's own tunnel instead, with no sudo, but competes with `remoted` for the device.
+- For agent-driven `start-tunnel`, use `--script-mode`, read the RSD host and port from
+  stdout, and reuse those exact values in later commands via `--rsd HOST PORT`.
+- `remote browse` lists the devices `remotepairingd` sees with no root on macOS by default.
+- `PYMOBILEDEVICE3_DEFAULT_FALLBACK=native|userspace|tunneld` overrides which transport the automatic
+  selection prefers (the required-RSD default and the CLI retry). Built-in default: `userspace`.
+  Set `native` to prefer the macOS native tunnel, or `tunneld` to opt out of the no-root default
+  entirely.
+
+See `docs/guides/ios17-tunnels.md` for the repo’s detailed guidance.
+
+## Safety Gates
+
+Ask before running commands that can:
+
+- erase, restore, reboot, or move the device into or out of recovery
+- install or remove apps, profiles, provisioning data, or activation state
+- write or delete files on AFC or app containers
+- add, modify or delete contacts, calendar events, bookmarks or mail accounts (`mobilesync push`/`delete`)
+- toggle Developer Mode, mount developer images, simulate location, or signal/kill processes
+- drive the UI through WDA or automation sessions in ways that change app/device state
+
+If the user only asked to inspect or debug, stay read-only unless the task cannot progress without a change and the user approves it.
+
+## Troubleshooting Order
+
+The device often logs the real reason for a failure in its own syslog. When an error is
+opaque, reproduce it while watching `syslog live -m <term>` (or
+`--process-name <daemon>`) — see `references/quick-recipes.md` — and read the
+device-side message before guessing.
+
+When a command fails, check in this order:
+
+1. Device presence and pairing: `usbmux list`, `lockdown info`
+2. Correct transport: USB vs `--rsd` vs `--tunnel`
+3. Developer prerequisites: Developer Mode, mounted image, and — only on non-macOS iOS 17.0-17.3 or when a privileged tunnel is explicitly used — a running `tunneld` / sufficient privileges for `start-tunnel` such as `sudo`
+4. Capability location: existing CLI command vs service method vs unsupported feature
+
+Only after those checks should you consider implementing new code.
