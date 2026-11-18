@@ -1,0 +1,9 @@
+{
+    "mcpServers": {
+        "parallels": {
+            "type": "stdio",
+            "command": "pdfm-mcp",
+            "default_tools_approval_mode": "approve"
+        }
+    }
+}

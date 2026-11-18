@@ -149,7 +149,7 @@
             "name": "tool",
             "source": "./plugins/shared/tool",
             "version": "0.3.0",
-            "description": "Binary analysis in Ghidra, app, binary, process, and file inspection, and desktop app lifecycle, monitoring, and recording through watch-app",
+            "description": "Binary analysis in Ghidra, app, binary, process, and file inspection, desktop app lifecycle, monitoring, and recording through watch-app, and Parallels Desktop VMs through its MCP server",
             "author": {
                 "name": "Bardia Samiee"
             }
