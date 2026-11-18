@@ -75,9 +75,6 @@
             "path": "./tests/libs/typescript/data/object-storage"
         },
         {
-            "path": "./tests/libs/typescript/macos/applications"
-        },
-        {
             "path": "./tests/libs/typescript/messaging/webhooks"
         },
         {
