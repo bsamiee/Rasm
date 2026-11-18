@@ -49,7 +49,7 @@ const Answer = Schema.StringFromUriComponent.pipe(Schema.decodeTo(Schema.fromJso
 - Top-level `var` and `$.global` members persist between calls, and a source holds its state inside one function
 - `do javascript` runs a file passed as direct parameter (`POSIX file "<path>"`) with the same `arguments`
 - Events sent before Illustrator finishes launching fail -600 or get no reply, and a `launch` event to it returns once it accepts them
-- `AIAgenticSystem.aip` serves MCP at `http://127.0.0.1:18412/v1/mcp` with bearer token `plugin/AIMCPServer/AuthToken` of `Adobe Illustrator Prefs`
+- `AIAgenticSystem.aip` serves MCP protocol `2025-03-26` at `/v1/mcp` on the first free port of `127.0.0.1:18412`-`18422`, by launch order across builds, with bearer token `plugin/AIMCPServer/AuthToken` of that build's `Adobe Illustrator Prefs`, refusing any `Origin` header
 
 ## [02]-[RUNTIME]
 
