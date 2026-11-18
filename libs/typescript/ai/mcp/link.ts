@@ -1,7 +1,7 @@
 import { dial, listen } from '@rasm/rpc';
 import type { Unmatched } from '@rasm/search';
 import { Array, Context, Duration, Effect, Layer, Option, Record, Ref, Result, Schema, Stream, Struct } from 'effect';
-import { McpSchema, McpServer, Tool, type Toolkit } from 'effect/ai';
+import { McpSchema, McpServer, type Tool, type Toolkit } from 'effect/ai';
 import { type Rpc, type RpcClient, type RpcClientError, RpcGroup } from 'effect/rpc';
 import { Server } from '#/server';
 
@@ -36,7 +36,7 @@ class Link extends Schema.Class<Link, { readonly brand: unique symbol }>('Link')
         ({ application }: Link) =>
             typeof application === 'string' ? application === name : application.href === url.href;
     static readonly dial = <Rpcs extends Rpc.Any, H, EH, RH, E, R>(group: RpcGroup.RpcGroup<Rpcs>, handlers: Layer.Layer<H, EH, RH>, url: URL, peer: Effect.Effect<Link, E, R>) =>
-        dial(Link.Tools.merge(group), handlers, { url: new URL(PATH, url), redial: REDIAL, peer: Effect.flatMap(peer, (identity) => Effect.orDie(Schema.encodeEffect(Link)(Link.make({ ...identity, requests: [...group.requests.keys()] })))) });
+        dial(Link.Tools.merge(group), handlers, { url: new URL(PATH, url), redial: REDIAL, peer: Effect.flatMap(peer, (identity) => Effect.orDie(Schema.encodeEffect(Link)(Link.make({ ...identity, requests: group.requests.keys().toArray() })))) });
     static readonly listen = <Rpcs extends Rpc.Any>(group: RpcGroup.RpcGroup<Rpcs>, origin: string) => listen(Link.Tools.merge(group), { path: PATH, origin, peer: Link, key: Link.key, middleware: Layer.empty });
     static readonly serve = <Served extends Record.ReadonlyRecord<string, Tool.Any>>(toolkit: Toolkit.Toolkit<Served>) =>
         Link.Tools.toLayer(
@@ -49,8 +49,9 @@ class Link extends Schema.Class<Link, { readonly brand: unique symbol }>('Link')
                     'tools/call': Effect.fnUntraced(function* ({ name, arguments: given, context, _meta }: typeof Call.Type) {
                         const [{ handle, services = Context.empty() }, blocks] = yield* Effect.all([Effect.fromOption(Record.get(rows, name), () => McpSchema.InvalidParams.make({ message: `Tool '${name}' not found among ${Record.keys(rows).join(', ')}` })), Ref.make(Array.empty<McpSchema.ContentBlock>())]);
                         const result = yield* handle(given).pipe(
-                            Effect.provideContext(Context.add(services, McpSchema.McpRequestContext, McpSchema.McpRequestContext.of({ ...context, requestMetadata: _meta }))),
-                            Effect.provideService(Server.ToolCall, { add: (block) => Ref.update(blocks, Array.append(block)) }),
+                            Effect.provideService(McpSchema.McpRequestContext, McpSchema.McpRequestContext.of({ ...context, requestMetadata: _meta })),
+                            Effect.updateContext((request: Context.Context<never>) => Context.merge(services, request)),
+                            Effect.provideService(Server.ToolCall, { ...Server.ToolCall.defaultValue(), add: (block) => Ref.update(blocks, Array.append(block)) }),
                             Effect.filterOrFail(Schema.is(McpSchema.CallToolResult), () => McpSchema.InternalError.make({ message: `${name} asked for client input, which a link does not carry` })),
                         );
                         return McpSchema.CallToolResult.make(Struct.evolve(result, { content: Array.appendAll(yield* Ref.get(blocks)) }));
@@ -67,8 +68,17 @@ class Link extends Schema.Class<Link, { readonly brand: unique symbol }>('Link')
             const { tools } = yield* client('tools/list', undefined);
             return Array.map(tools, (tool) => ({ tool, peer, client }));
         });
-        const [server, shown, routes] = yield* Effect.all([McpServer.McpServer, Ref.make<Record.ReadonlyRecord<string, McpSchema.Tool>>({}), Ref.make<Record.ReadonlyRecord<string, Array.NonEmptyReadonlyArray<Effect.Success<ReturnType<typeof offered>>[number]>>>({})]);
+        const [server, shown, routes, visible] = yield* Effect.all([
+            McpServer.McpServer,
+            Ref.make<Record.ReadonlyRecord<string, McpSchema.Tool>>({}),
+            Ref.make<Record.ReadonlyRecord<string, Array.NonEmptyReadonlyArray<Effect.Success<ReturnType<typeof offered>>[number]>>>({}),
+            Ref.make<Record.ReadonlyRecord<string, boolean>>({}),
+        ]);
         const same = Schema.toEquivalence(McpSchema.Tool);
+        const visibility = Effect.map(
+            Effect.forEach(server.tools, ({ tool, annotations }) => Effect.map(Context.get(annotations, Server.Visible), (listed) => [tool.name, listed] as const)),
+            Record.fromEntries,
+        );
         const forwarding = Effect.fnUntraced(function* (toolName: string, payload: Record.ReadonlyRecord<string, unknown>) {
             const [request, known] = yield* Effect.all([McpSchema.McpRequestContext, Ref.get(routes)]);
             const rows = yield* Effect.fromOption(Record.get(known, toolName), () => McpSchema.InternalError.make({ message: `${toolName} has no linked application` }));
@@ -102,11 +112,15 @@ class Link extends Schema.Class<Link, { readonly brand: unique symbol }>('Link')
                 ([toolName, tool]) =>
                     server.addTool({
                         tool,
-                        annotations: Context.make(Tool.Readonly, tool.annotations?.readOnlyHint ?? false).pipe(Context.add(Tool.Destructive, tool.annotations?.destructiveHint ?? true), Context.add(Server.Visible, Effect.map(Ref.get(routes), Record.has(toolName)))),
+                        annotations: Context.make(Server.Visible, Effect.map(Ref.get(routes), Record.has(toolName))),
                         handle: (payload: Record.ReadonlyRecord<string, unknown>) => forwarding(toolName, payload),
                     }),
                 { discard: true },
             );
+            const after = yield* visibility;
+            const before = yield* Ref.getAndSet(visible, after);
+            const flipped = Record.some(after, (listed, toolName) => Option.contains(Record.get(before, toolName), !listed));
+            yield* flipped ? server.notifications['notifications/tools/list_changed']({}) : Effect.void;
         });
         yield* Effect.forkScoped(Stream.runForEach(links.changes, (peers) => Effect.catchCause(registered(peers), (cause) => Effect.logError('Linked tool registration failed', cause))));
     });

@@ -1,5 +1,5 @@
 import { Content, registerResource, registerTemplate, Server } from '@rasm/mcp';
-import { Cause, Context, Effect, flow, Latch, Layer, Option, Queue, Ref, Schema, Stream, SubscriptionRef } from 'effect';
+import { Cause, Context, Effect, flow, Latch, Layer, Option, Queue, Ref, Schema, Stream, SubscriptionRef, UndefinedOr } from 'effect';
 import { McpSchema, Tool } from 'effect/ai';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -12,6 +12,7 @@ const FAILURE = 'This tool intentionally returns an error for testing';
 const INTERNAL = 'connection string postgres://owner:secret@db.internal';
 const STEPS = Object.values({ started: 0, halfway: 50, finished: 100 });
 const IDS = ['beta', 'alpine', 'alpha'] as const;
+const STATE = 'asked once';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -24,14 +25,14 @@ const Valued = Schema.Struct({ value: Schema.String });
 
 class Probe extends Context.Service<Probe>()('@rasm/test-mcp/fixtures/Probe', {
     make: Effect.gen(function* () {
-        const [calls, entered, interrupted, release, watched] = yield* Effect.all([Ref.make<readonly string[]>([]), Queue.unbounded<string>(), Queue.unbounded<string>(), Latch.make(), SubscriptionRef.make('open')]);
-        return { calls, entered, interrupted, release, watched };
+        const [calls, entered, interrupted, released, release, watched] = yield* Effect.all([Ref.make<readonly string[]>([]), Queue.unbounded<string>(), Queue.unbounded<string>(), Queue.unbounded<string>(), Latch.make(), SubscriptionRef.make('open')]);
+        return { calls, entered, interrupted, released, release, watched };
     }),
 }) {}
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const registered = Effect.fnUntraced(function* ({ calls, entered, interrupted, release, watched }: Probe['Service']) {
+const registered = Effect.fnUntraced(function* ({ calls, entered, interrupted, released, release, watched }: Probe['Service']) {
     const called = <A, E, R>(name: string, answer: Effect.Effect<A, E, R>) => Ref.update(calls, (held) => [...held, name]).pipe(Effect.andThen(Queue.offer(entered, name)), Effect.andThen(answer));
     const gated = (name: string) =>
         called(
@@ -61,6 +62,22 @@ const registered = Effect.fnUntraced(function* ({ calls, entered, interrupted, r
             ),
         ),
     );
+    yield* Server.registerTool(Tool.make('test_scoped', { description: 'Holds a scoped resource while it runs', success: Schema.String }).annotate(Tool.Readonly, true), () =>
+        called(
+            'test_scoped',
+            Effect.as(
+                Effect.acquireRelease(Effect.void, () => Queue.offer(released, 'test_scoped')),
+                'held',
+            ),
+        ),
+    );
+    yield* Server.registerTool(
+        Tool.make('test_input', { description: 'Asks for client input, then answers with the state it sealed', success: Schema.String }).annotate(Tool.Readonly, true),
+        Effect.fnUntraced(function* () {
+            const [{ requestState }, { input }] = yield* Effect.all([McpSchema.McpRequestContext, Server.ToolCall]);
+            return yield* called('test_input', UndefinedOr.match(requestState, { onUndefined: () => input(new McpSchema.InputRequired({ requestState: STATE })), onDefined: Effect.succeed }));
+        }),
+    );
     yield* Server.registerTool(Tool.make('gated_read', { description: 'Waits for release, reads only', success: Schema.String }).annotate(Tool.Readonly, true), () => gated('gated_read'));
     yield* Server.registerTool(Tool.make('gated_write', { description: 'Waits for release, changes state', success: Schema.String }), () => gated('gated_write'));
     yield* registerResource({ name: 'static-text', description: 'A static text resource for testing', mimeType: 'text/plain', schema: Schema.String, changes: Stream.empty, content: Effect.succeed(STATIC) });
@@ -80,4 +97,4 @@ const app = flow(registered, Layer.effectDiscard);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { app, EMBEDDED, FAILURE, IDS, INTERNAL, PNG, Probe, STATIC, STEPS, TEXT };
+export { app, EMBEDDED, FAILURE, IDS, INTERNAL, PNG, Probe, STATE, STATIC, STEPS, TEXT };

@@ -1,5 +1,6 @@
+import { layerAead, layerSecureRandom } from '@effect/platform-node/NodeCrypto';
 import { Server } from '@rasm/mcp';
-import { Duration, Effect, Option, Predicate, Record, Schema, String } from 'effect';
+import { Duration, Effect, Layer, Option, Predicate, Record, Schema, String } from 'effect';
 import { McpProtocol } from 'effect/ai';
 import { HttpRouter } from 'effect/http';
 import { Host } from 'effect/net';
@@ -43,7 +44,7 @@ const Meta = Schema.Struct({ _meta: Schema.Record(Schema.String, Schema.Unknown)
 
 const hosted = Effect.fnUntraced(function* (bound: string = BOUND) {
     const [probe, name, address] = yield* Effect.all([Probe.make, Schema.decodeEffect(Server.Scheme)(MANIFEST.name), Effect.fromResult(Host.hostPortFromString(bound))]);
-    return { probe, layer: Server.layerHttp({ ...MANIFEST, name }, { ...SETTINGS, address, hosts: [ALLOWED], instructions: INSTRUCTIONS }, app(probe)) };
+    return { probe, layer: Server.layerHttp({ ...MANIFEST, name }, { ...SETTINGS, address, hosts: [ALLOWED], instructions: INSTRUCTIONS }, app(probe)).pipe(Layer.provide([layerAead, layerSecureRandom])) };
 });
 const messages = (response: Response) =>
     Effect.flatMap(

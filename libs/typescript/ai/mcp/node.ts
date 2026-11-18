@@ -2,11 +2,13 @@ import { createServer } from 'node:http';
 import { join, parse } from 'node:path';
 import process from 'node:process';
 import { layer } from '@effect/platform-node/NodeAddressResolver';
+import { layerAead, layerSecureRandom } from '@effect/platform-node/NodeCrypto';
 import { layerConfig } from '@effect/platform-node/NodeDns';
 import { layerServer } from '@effect/platform-node/NodeHttpServer';
 import { run } from '@rasm/process';
 import { layerNodeFromConfig } from '@rasm/telemetry/node';
 import { Cause, Config, ConfigProvider, Context, Duration, Effect, Layer, Option, Record, Schema, SchemaGetter, String } from 'effect';
+import type { McpServer } from 'effect/ai';
 import { Command, Flag, GlobalFlag } from 'effect/cli';
 import { HttpRouter, HttpServer } from 'effect/http';
 import { AddressResolver, type Host, NetAddress } from 'effect/net';
@@ -38,7 +40,7 @@ class Output extends Context.Service<Output, { readonly folder: (app: string, ki
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const serve = Effect.fnUntraced(function* <E, R, E2, R2, const Declared extends Parameters<typeof Command.withGlobalFlags>[1]>(
-    { domain, ...manifest }: { readonly name: string; readonly version: string; readonly description: string; readonly domain: string },
+    { domain, ...manifest }: Pick<Parameters<typeof McpServer.layerHttp>[0], 'name' | 'version' | 'description' | 'websiteUrl' | 'icons' | 'extensions' | 'cacheHints'> & { readonly domain: string },
     { listen, instructions, settings }: { readonly listen: Option.Option<Host.HostPort>; readonly instructions: readonly string[]; readonly settings: Declared },
     app: Layer.Layer<never, E, R>,
     ending: Effect.Effect<never, E2, R2>,
@@ -78,7 +80,7 @@ const serve = Effect.fnUntraced(function* <E, R, E2, R2, const Declared extends 
                 });
             },
             Effect.raceFirst(ending),
-            Effect.provide(Layer.unwrap(telemetry)),
+            Effect.provide([Layer.unwrap(telemetry), layerAead, layerSecureRandom]),
         ),
     ).pipe(Command.withGlobalFlags([Listen, ...Object.values(Settings), ...settings]), Command.run({ version: manifest.version }), Effect.provideService(ConfigProvider.ConfigProvider, provider));
 });

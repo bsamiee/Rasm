@@ -1,4 +1,4 @@
-import { Array, Cause, Effect, Equal, flow, HashMap, HashSet, Option, Predicate, Record, Schema, SchemaAST, Stream, Struct, SubscriptionRef } from 'effect';
+import { Array, Cause, Context, Effect, Equal, flow, HashMap, HashSet, Option, Predicate, Record, Schema, SchemaAST, Stream, Struct, SubscriptionRef } from 'effect';
 import { McpSchema, McpServer } from 'effect/ai';
 import { Server } from '#/server';
 
@@ -87,7 +87,7 @@ const registerResource = Effect.fnUntraced(function* <A, I, E extends Error, R>(
     readonly changes: Stream.Stream<unknown, never, R>;
 }) {
     const [server, services] = yield* Effect.all([Server, Effect.context<R>()]);
-    const [uri, read] = [server.uri(descriptor.name), Effect.provideContext(content, services)];
+    const [uri, read] = [server.uri(descriptor.name), Effect.updateContext(content, (request: Context.Context<never>) => Context.merge(services, request))];
     const store = yield* make({ ...descriptor, uri, schema, changes });
     yield* McpServer.registerResource({ ...store.descriptor, uri, content: store.read(uri, uri, read) });
 });
@@ -110,14 +110,15 @@ const registerTemplate = <const Schemas extends readonly Schema.Codec<unknown, u
         const interleaved = <B>(values: readonly B[]) => Array.flatMap(segments, (segment, index) => [segment, ...Option.toArray(Array.get(values, index))]);
         const canonical = Schema.encodeUnknownEffect(Schema.TemplateLiteralParser(interleaved(Array.map(schemas, (each) => Schema.StringFromUriComponent.pipe(Schema.decodeTo(Schema.toCodecStringTree(each)))))));
         const keyed = (params: Params<Schemas>) => Effect.orDie(canonical(interleaved(params)));
-        const reading = (params: Params<Schemas>, at: string) => Effect.provideContext(content(at, ...params), services);
+        const merged = (request: Context.Context<never>) => Context.merge(services, request);
+        const reading = (params: Params<Schemas>, at: string) => Effect.updateContext(content(at, ...params), merged);
         const completing = complete<Record<string, Schemas[number]>, Named<Schemas>>(Record.fromEntries(Array.map(schemas, (each, index) => [McpSchema.isParam(each) ? each.name : `param${index}`, each] as const)));
         yield* McpServer.registerResource(
             segments,
             ...schemas,
         )({
             ...store.descriptor,
-            completion: Record.map({ ...completion }, (handle) => flow(completing(handle), Effect.provideContext(services))),
+            completion: Record.map({ ...completion }, (handle) => flow(completing<Named<Schemas>[keyof Named<Schemas>][], R>(handle), Effect.updateContext(merged))),
             content: (at, ...params) => Effect.flatMap(keyed(params), (key) => store.read(key, at, reading(params, at))),
         });
     });

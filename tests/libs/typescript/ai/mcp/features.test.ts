@@ -1,8 +1,8 @@
 import { assert, describe, it } from '@effect/vitest';
-import { Array, Effect, Order, Ref, Schema, String } from 'effect';
+import { Array, Effect, Option, Order, Queue, Ref, Schema, String, Struct } from 'effect';
 import { McpProtocol } from 'effect/ai';
 import { opened, PROTOCOLS } from '#/conformance';
-import { EMBEDDED, FAILURE, IDS, PNG, STATIC } from '#/fixtures';
+import { EMBEDDED, FAILURE, IDS, PNG, STATE, STATIC } from '#/fixtures';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -27,6 +27,8 @@ const Templates = Schema.Struct({ result: Schema.Struct({ resourceTemplates: Sch
 const Read = Schema.Struct({ result: Schema.Struct({ contents: Schema.Tuple([Schema.Struct({ uri: Schema.String, mimeType: Schema.optionalKey(Schema.String), text: Schema.optionalKey(Schema.String), blob: Schema.optionalKey(Schema.String) })]) }) });
 const Completed = Schema.Struct({ result: Schema.Struct({ completion: Schema.Struct({ values: Schema.Array(Schema.String), total: Schema.optionalKey(Schema.Finite) }) }) });
 const Json = Schema.fromJsonString(Schema.Unknown);
+const Trailer = Schema.Struct({ result: Schema.optionalKey(Schema.Unknown), handle: Schema.String, events: Schema.Array(Schema.Unknown) });
+const Asked = Schema.Struct({ result: Schema.Struct({ resultType: Schema.Literal('input_required'), requestState: Schema.String }) });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -34,7 +36,7 @@ const served = Effect.fnUntraced(function* (protocol: (typeof PROTOCOLS)[number]
     const test = yield* opened(protocol);
     const held = yield* test.session;
     const tool = (name: string, given: Record<string, unknown> = {}) => test.answer(held, 'tools/call', { name, arguments: given });
-    return { test, held, tool, content: (name: string) => Effect.map(Effect.flatMap(tool(name), Schema.decodeUnknownEffect(Called)), ({ result }) => result) };
+    return { test, held, tool, content: (name: string, given?: Record<string, unknown>) => Effect.map(Effect.flatMap(tool(name, given), Schema.decodeUnknownEffect(Called)), ({ result }) => result) };
 });
 
 const since = (protocol: (typeof PROTOCOLS)[number], first: (typeof PROTOCOLS)[number]) => VERSIONS.indexOf(protocol.protocolVersion) >= VERSIONS.indexOf(first.protocolVersion);
@@ -75,7 +77,35 @@ describe.each(PROTOCOLS)('$protocolVersion tools', (protocol) => {
         Effect.fnUntraced(function* () {
             const { content } = yield* served(protocol);
             const { content: blocks, structuredContent } = yield* content('test_structured');
-            assert.deepStrictEqual([structuredContent, Array.getSomes(blocks.map(({ text }) => Schema.decodeUnknownOption(Json)(text)))], [structured ? WEATHER : undefined, [WEATHER]]);
+            assert.deepStrictEqual([Option.getOrUndefined(Option.map(Schema.decodeUnknownOption(Trailer)(structuredContent), Struct.get('result'))), Array.getSomes(blocks.map(({ text }) => Schema.decodeUnknownOption(Json)(text)))], [structured ? WEATHER : undefined, [WEATHER]]);
+        }, Effect.scoped),
+    );
+
+    it.live.runIf(structured)(
+        'returns the handle and the events since the last call as structured content beside the result, and the handle a call passes back unchanged',
+        Effect.fnUntraced(function* () {
+            const { tool } = yield* served(protocol);
+            const first = yield* Effect.flatMap(Effect.flatMap(tool('test_structured'), Schema.decodeUnknownEffect(Called)), ({ result }) => Schema.decodeUnknownEffect(Trailer)(result.structuredContent));
+            const again = yield* Effect.flatMap(Effect.flatMap(tool('test_structured', { handle: first.handle }), Schema.decodeUnknownEffect(Called)), ({ result }) => Schema.decodeUnknownEffect(Trailer)(result.structuredContent));
+            assert.deepStrictEqual([first.result, first.events, again.handle], [WEATHER, [], first.handle]);
+        }, Effect.scoped),
+    );
+
+    it.live(
+        'answers a handle it never issued with an error result naming expiry and starting a new one by omitting it',
+        Effect.fnUntraced(function* () {
+            const { content } = yield* served(protocol);
+            const { content: blocks, isError } = yield* content('test_value', { value: 'kept', handle: 'no-such-handle' });
+            assert.deepStrictEqual([isError, blocks.some(({ text }) => text?.includes('unknown or expired') === true && text.includes('without handle'))], [true, true]);
+        }, Effect.scoped),
+    );
+
+    it.live(
+        'releases a scoped resource the tool acquires when the call ends',
+        Effect.fnUntraced(function* () {
+            const { test, content } = yield* served(protocol);
+            const { isError } = yield* content('test_scoped');
+            assert.deepStrictEqual([isError, yield* Effect.timeoutOption(Queue.take(test.probe.released), '2 seconds')], [false, Option.some('test_scoped')]);
         }, Effect.scoped),
     );
 
@@ -181,6 +211,20 @@ describe.each(PROTOCOLS)('$protocolVersion resources', (protocol) => {
             const { result } = yield* Effect.flatMap(test.answer(held, 'completion/complete', { ref: { type: 'ref/resource', uri: 'test://template/{id}/data' }, argument: { name: 'id', value: 'al' } }), Schema.decodeUnknownEffect(Completed));
             const [{ values, total }, nearest] = [result.completion, IDS.filter(String.startsWith('al'))];
             assert.deepStrictEqual({ nearest: Array.sort(values.slice(0, nearest.length), Order.String), bounded: values.length <= COMPLETED.most, total }, { nearest: Array.sort(nearest, Order.String), bounded: true, total: values.length });
+        }, Effect.scoped),
+    );
+});
+
+describe('2026-07-28 client input', () => {
+    it.live(
+        'seals the state of an input request so the client cannot read it, opens it on the retry for the tool, and refuses a state it did not seal',
+        Effect.fnUntraced(function* () {
+            const { test, held, tool } = yield* served(McpProtocol.v2026_07_28);
+            const { result: asked } = yield* Effect.flatMap(tool('test_input'), Schema.decodeUnknownEffect(Asked));
+            const retried = (requestState: string) => test.answer(held, 'tools/call', { name: 'test_input', arguments: {}, requestState });
+            const { result: answered } = yield* Effect.flatMap(retried(asked.requestState), Schema.decodeUnknownEffect(Called));
+            const forged = yield* Effect.flatMap(retried(`${asked.requestState}x`), outcome);
+            assert.deepStrictEqual([asked.requestState.includes(STATE), answered.isError, answered.content.some(({ text }) => text?.includes(STATE) === true), forged.code !== undefined || forged.failed], [false, false, true, true]);
         }, Effect.scoped),
     );
 });

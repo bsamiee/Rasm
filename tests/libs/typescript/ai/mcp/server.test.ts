@@ -1,3 +1,4 @@
+import { layerAead, layerSecureRandom } from '@effect/platform-node/NodeCrypto';
 import { assert, describe, it } from '@effect/vitest';
 import { Client, Server } from '@rasm/mcp';
 import { Array, Effect, Layer, MutableRef, Option, Queue, Schema, SubscriptionRef } from 'effect';
@@ -10,7 +11,7 @@ import { app, Probe } from '#/fixtures';
 
 const connected = Effect.fnUntraced(function* (protocol: (typeof STATEFUL)[number]) {
     const [probe, scheme] = yield* Effect.all([Probe.make, Schema.decodeEffect(Server.Scheme)(MANIFEST.name)]);
-    const client = yield* McpTest.makeClient(Layer.provide(app(probe), Server.layer({ ...SETTINGS, scheme })), { protocols: [protocol] });
+    const client = yield* McpTest.makeClient(Layer.provide(app(probe), Server.layer({ ...SETTINGS, scheme }).pipe(Layer.provide([layerAead, layerSecureRandom]))), { protocols: [protocol] });
     yield* Effect.addFinalizer(() => probe.release.open);
     const updated = Queue.take(client.notifications).pipe(
         Effect.repeat({ until: ({ method }) => method === 'notifications/resources/updated' }),

@@ -18,16 +18,16 @@ const Listed = Schema.Struct({
     ),
     current: Schema.optionalKey(Schema.String.annotate({ description: 'Application the handle targets' })),
 });
-const Opened = Schema.Struct({ handle: Schema.String.annotate({ description: 'Pass on each later call' }), application: Schema.String, instance: RunningInstance.fields.instance, created: Schema.Boolean.annotate({ description: 'False when the running instance became the target' }) });
+const Opened = Schema.Struct({ application: Schema.String, instance: RunningInstance.fields.instance, created: Schema.Boolean.annotate({ description: 'False when the running instance became the target' }) });
 const Closed = Schema.Struct({ closed: Schema.Array(Schema.Struct({ application: Schema.String, instance: RunningInstance.fields.instance, state: State })) });
 const Applications = Tool.make('applications', {
-    description: 'Lists installed Adobe applications grouped by product, newest form first, with the running instance of each; open launches one in the background, or makes its running instance the target, and returns the handle; close quits one, or every running one, each save dialog arriving as an event act answers',
+    description: 'Lists installed Adobe applications grouped by product, newest form first, with the running instance of each; open launches one in the background, or makes its running instance the target of the handle; close quits one, or every running one, each save dialog arriving as an event act answers',
     parameters: Schema.Struct({
         action: Schema.optionalKey(Schema.Literals(['list', 'open', 'close']).annotate({ description: 'list when absent' })),
         application: Schema.optionalKey(Schema.String.annotate({ description: 'Listed name, or product code for its first listed form; close without one quits every running listed application' })),
     }),
     success: Schema.Union([Listed, Opened, Closed]),
-}).annotateMerge(Context.make(Tool.Destructive, false).pipe(Context.add(Tool.OpenWorld, false)));
+}).annotateMerge(Context.make(Tool.Destructive, false).pipe(Context.add(Tool.Idempotent, true), Context.add(Tool.OpenWorld, false), Context.add(Tool.Meta, { 'anthropic/alwaysLoad': true })));
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -173,7 +173,7 @@ const applications = Effect.gen(function* () {
         const launched = Effect.map(Launching.launched(server.launch({ url: row.url })), ({ instance, created }) => ({ instance, created }));
         const { instance, created } = yield* Option.match(Array.head(live(instances, row)), { onSome: ({ instance: reused }) => Effect.succeed({ instance: reused, created: false }), onNone: () => launched });
         yield* handle.set(Target, Option.some({ row, instance }));
-        return { handle: handle.id, application: row.name, instance, created };
+        return { application: row.name, instance, created };
     });
     const close = Effect.fnUntraced(function* (given: string | undefined) {
         const [rows, instances] = yield* Effect.all([UndefinedOr.match(given, { onUndefined: () => SubscriptionRef.get(catalog), onDefined: (name) => Effect.map(located(name), Array.of) }), SubscriptionRef.get(running)]);

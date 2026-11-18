@@ -29,7 +29,19 @@ Effect.gen(function* () {
     });
     return yield* serve(
         { name: manifest.name, description: manifest.description, version, domain: identifier },
-        { listen: Option.some(Host.hostPortFromStringUnsafe('localhost:7490')), instructions: ['applications open targets an application and returns the handle each later call passes', 'Ids come from results', 'Linked extensions add tools while their application runs'], settings: [Preview] },
+        {
+            listen: Option.some(Host.hostPortFromStringUnsafe('localhost:7490')),
+            instructions: [
+                'Atelier drives the Adobe applications installed on this Mac (InDesign, Photoshop, Illustrator, After Effects, Premiere Pro, Media Encoder, Acrobat): their documents, windows, dialogs, scripts, and typography. Search for its tools for any task in one of those applications. Start with applications, which lists what is installed and running, and whose open makes one application the target. Every result returns a handle: pass it on each later call, since it holds your target and your place in the events.',
+                'Each result lists the events since your last call: a dialog asking for an answer, a window opening or closing, an application exiting, crashing, or turning unresponsive, and memory or thermal pressure. Answer a dialog before other work in its application.',
+                'A call returns at once when a dialog needs an answer or its application exits or stops responding; the call keeps running, and the resource link in that result holds its result once it finishes.',
+                'Take element, window, and document ids from results and events, never compose them.',
+                "Change document content through scripts in the application's own object model, and drive the interface through its Accessibility tree only where scripts cannot reach, such as dialogs and panels.",
+                "Opening an application launches it in the background or targets its running instance, never a second one; closing it reports each unsaved document's save dialog as an event.",
+                'An Adobe extension linked from a running application adds tools of its own while that application runs.',
+            ],
+            settings: [Preview],
+        },
         Layer.effectDiscard(tools).pipe(Layer.provide(Inventory.layer), Layer.provideMerge(helper)),
         Deferred.await(started).pipe(
             Effect.flatMap(({ exited }) => exited),
