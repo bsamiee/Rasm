@@ -201,6 +201,16 @@ os      = "linux"
 [bootstrap.services.docker]
 on_change = "restart"
 
+[bootstrap.services.ssh]
+enabled = false
+masked  = true
+state   = "stopped"
+
+[bootstrap.services."ssh.socket"]
+enabled = false
+masked  = true
+state   = "stopped"
+
 [bootstrap.services.systemd-journald]
 enabled = false
 
