@@ -1,6 +1,7 @@
 {
     "$schema": "./node_modules/nx/schemas/nx-schema.json",
     "cacheDirectory": ".cache/nx/workspace-data/cache",
+    "maxCacheSize": "20GB",
     "useDaemonProcess": false,
     "analytics": false,
     "neverConnectToCloud": true,
@@ -48,7 +49,6 @@
         {
             "plugin": "@rasm/nx-dotnet",
             "options": {
-                "analyzer": "products/developer/nx/dotnet/analyzer/MsbuildAnalyzer.csproj",
                 "coveragePath": ".artifacts/coverage/{projectName}"
             }
         },
@@ -176,12 +176,9 @@
     "release": {
         "projects": ["tag:release"],
         "projectsRelationship": "independent",
-        "version": {
-            "conventionalCommits": true,
-            "fallbackCurrentVersionResolver": "disk"
-        },
+        "releaseTag": { "strictPreid": false },
+        "version": { "conventionalCommits": true },
         "changelog": {
-            "automaticFromRef": true,
             "projectChangelogs": {
                 "createRelease": "github",
                 "file": false

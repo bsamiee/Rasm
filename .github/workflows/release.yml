@@ -4,7 +4,10 @@ on:
     workflow_dispatch:
         inputs:
             specifier:
-                description: Version or semver keyword every release project takes, empty reads each project's conventional commits
+                description: Version or semver keyword the selected projects move to, as alpha to stable, empty reads commits after each project's last tag
+                type: string
+            projects:
+                description: Projects the release selects in nx release --projects form, empty selects every release project
                 type: string
             dry-run:
                 description: Previews each project's version, tag, and GitHub release, changes nothing and skips attach and publish
@@ -69,9 +72,10 @@ jobs:
                   security set-key-partition-list -S apple-tool:,apple: -k "${password}" "${keychain}"
                   security list-keychains -d user | xargs security list-keychains -d user -s "${keychain}"
             - run: nx build @rasm/nx-apple-darwin-arm64
-            - run: nx release ${SPECIFIER:+"${SPECIFIER}"} --skip-publish --dry-run=${{ inputs.dry-run }}
+            - run: nx release ${SPECIFIER:+"${SPECIFIER}"} ${PROJECTS:+--projects="${PROJECTS}"} --skip-publish --dry-run=${{ inputs.dry-run }}
               env:
                   SPECIFIER: ${{ inputs.specifier }}
+                  PROJECTS: ${{ inputs.projects }}
                   GIT_AUTHOR_NAME: github-actions[bot]
                   GIT_AUTHOR_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
                   GIT_COMMITTER_NAME: github-actions[bot]
