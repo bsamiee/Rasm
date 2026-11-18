@@ -310,16 +310,7 @@ where
             Folder::State => dirs::state_dir().or_else(dirs::data_local_dir).map(owned),
             Folder::Runtime => dirs::runtime_dir().or_else(dirs::cache_dir).map(owned),
         };
-        chosen[Root::from(folder)]
-            .as_ref()
-            .ok()
-            .cloned()
-            .flatten()
-            .map(|root| match folder {
-                Folder::Output(_) => root.join(folder.to_string()),
-                Folder::Cache | Folder::State | Folder::Runtime => root,
-            })
-            .or_else(|| Utf8PathBuf::from_path_buf(shared()?).ok())
+        chosen[Root::from(folder)].as_ref().ok().cloned().flatten().or_else(|| Utf8PathBuf::from_path_buf(shared()?).ok())
     });
     let (log, styles) = (folders[Folder::Output(Artifact::Log)].clone(), command.get_styles().clone());
     let program = Program { refused: program.refused.into_iter().chain(chosen.into_values().filter_map(Result::err)).collect(), ..program };
