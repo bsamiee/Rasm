@@ -95,7 +95,7 @@
             "name": "python",
             "source": "./plugins/shared/python",
             "version": "0.4.0",
-            "description": "Python design with result and record types, cyclopts, expression, msgspec, pydantic, telemetry, docstrings, ruff, ty, and uv, with the ty language server",
+            "description": "Python design with result and record types, cyclopts, expression, msgspec, pydantic, telemetry, and docstrings, with the ty language server",
             "author": {
                 "name": "Bardia Samiee"
             }
