@@ -7,7 +7,6 @@ import { Jwks, type JoseError, Jwt } from 'effect/jose';
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const address = new Intl.Collator(undefined, { usage: 'search', sensitivity: 'accent' });
-const sameAddress = (self: string, that: string) => address.compare(self, that) === 0;
 const development = { cookie: 'development-user', page: '<!doctype html><title>Sign in</title><form method="post"><label>Email <input autofocus name="email" required type="email"></label> <button>Sign in</button></form>' } as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -118,25 +117,15 @@ class Enrollment extends Context.Service<Enrollment, readonly string[]>()('@rasm
     static readonly variable = 'ALLOWED';
     static readonly Session = Schema.Literals(['signedOut', 'signedIn', 'allowed']);
     static readonly layer = (allowed: readonly string[]) => Layer.effect(Enrollment, Config.schema(Addresses, Enrollment.variable).pipe(Config.withDefault(allowed)));
-    static readonly session = Effect.fn('Enrollment.session')(function* <E, R>(store: {
-        readonly enrolled: (addresses: Array.NonEmptyReadonlyArray<string>) => Effect.Effect<readonly { readonly email: string; readonly userId: string }[], E, R>;
-        readonly enroll: (entry: { readonly email: string; readonly userId: string }) => Effect.Effect<readonly { readonly userId: string }[], E, R>;
-    }) {
-        const [allowed, signed] = yield* Effect.all([Enrollment, Effect.flatten(Identity)]);
-        return yield* Option.match(signed, {
-            onNone: () => Effect.succeed('signedOut' as const),
-            onSome: Effect.fnUntraced(function* (user) {
-                const enrolled = yield* Array.match(allowed, { onEmpty: () => Effect.succeed([]), onNonEmpty: store.enrolled });
-                const open = Array.differenceWith(sameAddress)(
-                    allowed,
-                    enrolled.map(({ email }) => email),
-                );
-                const unclaimed = Array.head(Array.intersectionWith(sameAddress)(open, Option.toArray(user.email)));
-                const claimed = yield* Option.match(unclaimed, { onNone: () => Effect.succeed(enrolled), onSome: (email) => store.enroll({ email, userId: user.id }) });
-                return claimed.some((entry) => entry.userId === user.id) ? ('allowed' as const) : ('signedIn' as const);
+    static readonly session = Effect.all([Enrollment, Effect.flatten(Identity)]).pipe(
+        Effect.map(([allowed, signed]) =>
+            Option.match(signed, {
+                onNone: () => 'signedOut' as const,
+                onSome: ({ email }) => (Option.exists(email, (signedIn) => Array.containsWith((self: string, that: string) => address.compare(self, that) === 0)(allowed, signedIn)) ? ('allowed' as const) : ('signedIn' as const)),
             }),
-        });
-    });
+        ),
+        Effect.withSpan('Enrollment.session'),
+    );
     static readonly sameOrigin = Effect.filterOrFail(
         HttpServerRequest.HttpServerRequest,
         ({ method, headers }) => !HttpMethod.hasBody(method) || headers['sec-fetch-site'] === 'same-origin',

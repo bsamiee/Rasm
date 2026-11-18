@@ -21,8 +21,7 @@ const assets = Relation.make(
         },
     },
 );
-const owner = Relation.make('owner', { email: Schema.String, userId: Schema.String }, { key: ['email'], withoutRowid: true });
-const catalog = Catalog.make({ tables: [documents, assets, owner], retired: ['reconcile_revision'] });
+const catalog = Catalog.make({ tables: [documents, assets], retired: ['reconcile_revision', 'owner'] });
 const projectedPaths = Statement.csv(assets.paths.map((path) => Statement.fragment([Statement.parameter(path)])));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -33,4 +32,4 @@ const references = (sql: SqlClient.SqlClient, source: Statement.Fragment = sql`$
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { assets, catalog, documents, owner, projectedPaths, references, UploadAttempt, unavailable };
+export { assets, catalog, documents, projectedPaths, references, UploadAttempt, unavailable };

@@ -1,16 +1,13 @@
-import { Relation } from '@rasm/database';
 import { Enrollment } from '@rasm/hosting/identity';
 import { Effect, Layer } from 'effect';
 import type { HttpServerRequest } from 'effect/http';
 import { HttpApiError } from 'effect/http-api';
 import { Owner } from '#/model/api';
-import { owner, unavailable } from '#/server/catalog';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const session = Enrollment.session({ enrolled: (addresses) => Relation.select(owner, { email: addresses }), enroll: (entry) => Relation.ensure(owner, [entry]) }).pipe(Effect.catchTag(['SqlError', 'SchemaError'], unavailable));
 const authorize = Effect.filterOrFail(
-    session,
+    Enrollment.session,
     (current) => current === 'allowed',
     () => HttpApiError.Forbidden.make(),
 );
@@ -18,7 +15,6 @@ const authorize = Effect.filterOrFail(
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const OwnerAccount = {
-    session,
     authorize,
     middleware: Layer.effect(
         Owner,

@@ -146,11 +146,11 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 - `Access` source `Cloudflare` verifies a Cloudflare Access token from its header or `CF_Authorization` cookie
 - `vite dev` with no `ACCESS` serves a development sign-in page, and a production build with no `ACCESS` signs every request out
 - Pages are public, the access source guards `Identity.paths.signin`, and owner endpoints refuse every other session
-- `Enrollment.session` answers `signedOut`, `signedIn`, or `allowed`, enrolling the first user id an `allowed` address signs in with
+- `Enrollment.session` answers `signedOut`, `signedIn`, or `allowed`, `allowed` when the verified email of the signed-in user is an `allowed` address, whatever user id the access source states
 - `ALLOWED` replaces `allowed` with a JSON list, and `nx install` sets it to the owner address of the local sign-in service
 - `hosting.config.ts` states the owner address, the commit author address and no secret
 
-[STORAGE]: `server/catalog.ts` declares document, asset, and owner tables as `Relation` values:
+[STORAGE]: `server/catalog.ts` declares document and asset tables as `Relation` values:
 - Statements over the tables sit beside their handlers in `server/<aggregate>.ts`
 - `Catalog.layer` builds each entry's client with snake-case identifiers and reconciles tables once per isolate or process start
 - Queries name a multi-word column through `sql('objectKey')` or a `Relation` static

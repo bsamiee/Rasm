@@ -10,7 +10,6 @@ import { Api, PlacementConflict, PreconditionFailed } from '#/model/api';
 import { AssetId, type ImageAsset } from '#/model/asset';
 import { Portfolio, PortfolioData, type StoredPortfolio } from '#/model/portfolio';
 import { documents, projectedPaths, references, unavailable } from '#/server/catalog';
-import { OwnerAccount } from '#/server/owner';
 import { shell } from '#/site/shell.tsx';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -98,7 +97,7 @@ const page = HttpRouter.add(
     'GET',
     '/',
     Effect.fn('page')(
-        () => Effect.all({ published: Effect.map(readDocument('published'), Struct.get('data')), session: OwnerAccount.session }, { concurrency: 'unbounded' }),
+        () => Effect.all({ published: Effect.map(readDocument('published'), Struct.get('data')), session: Enrollment.session }, { concurrency: 'unbounded' }),
         Effect.flatMap((bootstrap) => ObjectStorage.use(({ endpoint }) => Effect.flatMap(endpoint, ({ origin }) => Template.render(shell, bootstrap, { 'connect-src': [origin] })))),
         Effect.catchTag('ObjectStorageError', unavailable),
         Effect.map(Enrollment.unshared),
