@@ -60,11 +60,11 @@ const line = (argv: readonly string[]) => argv.map(quoteShellArg).join(' ');
 
 const launched = (analyzer: string) => ['dotnet', '--roll-forward', 'LatestMajor', analyzer] as const;
 
-const environment = (workspaceRoot: string) => ({
+const environment = (root: string) => ({
     DOTNET_ROLL_FORWARD_TO_PRERELEASE: '1',
     DOTNET_DbgEnableMiniDump: '1',
     DOTNET_DbgMiniDumpType: '1',
-    DOTNET_DbgMiniDumpName: join(workspaceRoot, '.artifacts', 'dotnet', 'dumps', '%e-%p.dmp'),
+    DOTNET_DbgMiniDumpName: join(root, '.artifacts', 'dotnet', 'dumps', '%e-%p.dmp'),
     DOTNET_EnableCrashReport: '1',
 });
 

@@ -140,7 +140,7 @@ const inferred = Effect.fnUntraced(function* (matched: readonly string[], option
                 const upgrade: TargetConfiguration = {
                     executor: `${distribution.name}:upgrade`,
                     ...building,
-                    options: { cwd: dirname(file), commands: [{ apply: moved, preview: [...moved, '--dry-run'] }, { apply: cleared }, { apply: locked }] },
+                    options: { cwd: dirname(file), commands: [{ apply: moved, preview: [...moved, '--dry-run'], env: environment('{root}') }, { apply: cleared }, { apply: locked }] },
                     inputs: [join('{workspaceRoot}', file), ...declared, { externalDependencies: [] }],
                     metadata: {
                         description: `Moves each central package version ${basename(file)} projects read to the newest release its version range admits and its consumers' frameworks support with ${line(moved)}, then empties the global packages folder with ${line(cleared)} so the restore fetches only what the new lock files name, and rewrites lock files with ${line(locked)}`,

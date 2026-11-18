@@ -5,7 +5,7 @@ import { join, relative } from 'node:path';
 import { resolveNxTokensInOptions } from '@nx/devkit/internal';
 import { createNodes } from '@rasm/nx-dotnet';
 import { TempFs } from '@rasm/testing/temp-fs';
-import { Effect, Record, Schema } from 'effect';
+import { Effect, Record, Schema, Struct } from 'effect';
 import { minimatch } from 'minimatch';
 import { describe, expect, test, vi } from 'vitest';
 
@@ -29,6 +29,8 @@ const runtimes = (inputs: readonly unknown[] = []) => inputs.flatMap((input) => 
 const Build = Schema.Struct({ project: Schema.String, command: Schema.NonEmptyArray(Schema.String), outputs: Schema.Array(Schema.String), solution: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)) });
 
 const Configured = Schema.Record(Schema.String, Build);
+
+const Upgrade = Schema.Struct({ commands: Schema.Array(Schema.Struct({ env: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)) })) });
 
 const it = test
     .extend('tempFs', ({}, { onCleanup }) => {
@@ -347,6 +349,17 @@ describe('@rasm/nx-dotnet - createNodes', { timeout: 30_000 }, () => {
             const projects = await projectsOf({ 'apps/MyApp/MyApp.csproj': project(properties) });
 
             expect(projects['apps/MyApp']?.tags ?? []).toStrictEqual(tags);
+        });
+    });
+
+    describe('solution upgrade', () => {
+        it('should give the analyzer command alone prerelease roll forward and crash dumps under .artifacts/dotnet/dumps, spelled with no machine path', async ({ tempFs, projectsOf }) => {
+            const projects = await projectsOf({ 'apps/MyLib/MyLib.csproj': project(), 'Workspace.slnx': '<Solution>\n  <Project Path="apps/MyLib/MyLib.csproj" />\n</Solution>\n' });
+            const upgrade = projects['.']?.targets?.['upgrade--dotnet'];
+            const { commands } = await Effect.runPromise(Schema.decodeUnknownEffect(Upgrade)(upgrade?.options));
+
+            expect(commands.map(Struct.get('env'))).toStrictEqual([{ DOTNET_ROLL_FORWARD_TO_PRERELEASE: '1', DOTNET_DbgEnableMiniDump: '1', DOTNET_DbgMiniDumpType: '1', DOTNET_DbgMiniDumpName: join('{root}', '.artifacts', 'dotnet', 'dumps', '%e-%p.dmp'), DOTNET_EnableCrashReport: '1' }, undefined, undefined]);
+            expect(JSON.stringify(upgrade)).not.toContain(tempFs.tempDir);
         });
     });
 
