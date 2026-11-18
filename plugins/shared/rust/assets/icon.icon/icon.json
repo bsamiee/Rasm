@@ -16,9 +16,9 @@
               }
             }
           ],
-          "image-name" : "gearshape.fill.pdf",
+          "image-name" : "gear-bold.svg",
           "position" : {
-            "scale" : 2,
+            "scale" : 2.5,
             "translation-in-points" : [
               0,
               0

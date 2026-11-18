@@ -16,9 +16,9 @@
               }
             }
           ],
-          "image-name" : "wrench.and.screwdriver.fill.pdf",
+          "image-name" : "wrench-bold.svg",
           "position" : {
-            "scale" : 2,
+            "scale" : 2.5,
             "translation-in-points" : [
               0,
               0

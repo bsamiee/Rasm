@@ -16,9 +16,9 @@
               }
             }
           ],
-          "image-name" : "paintbrush.pointed.fill.pdf",
+          "image-name" : "paint-brush-bold.svg",
           "position" : {
-            "scale" : 2,
+            "scale" : 2.5,
             "translation-in-points" : [
               0,
               0

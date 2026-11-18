@@ -16,9 +16,9 @@
               }
             }
           ],
-          "image-name" : "hammer.fill.pdf",
+          "image-name" : "hammer-bold.svg",
           "position" : {
-            "scale" : 2,
+            "scale" : 2.5,
             "translation-in-points" : [
               0,
               0
