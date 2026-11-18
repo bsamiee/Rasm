@@ -1,3 +1,3 @@
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { MANIFEST_VERSIONS, THEMES, UxpManifest } from '#/manifest';
+export { HOSTS, MANIFEST_VERSIONS, THEMES, UxpManifest } from '#/manifest';

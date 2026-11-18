@@ -1,0 +1,14 @@
+{
+    "manifestVersion": 5,
+    "id": "app.rasm.atelier.aftereffects",
+    "name": "Atelier After Effects",
+    "version": "0.1.0",
+    "main": "main.js",
+    "host": { "app": "aftereffects", "data": { "loadEvent": "startup" } },
+    "icons": [
+        { "width": 24, "height": 24, "path": "icons/plugin-light.svg", "scale": [1], "theme": ["lightest", "light"], "species": ["pluginList"] },
+        { "width": 24, "height": 24, "path": "icons/plugin-dark.svg", "scale": [1], "theme": ["medium", "dark", "darkest"], "species": ["pluginList"] }
+    ],
+    "entrypoints": [],
+    "requiredPermissions": { "localFileSystem": "fullAccess", "allowCodeGenerationFromStrings": true }
+}

@@ -104,9 +104,9 @@ class Server extends Context.Service<
         yield* McpServer.registerToolkit(toolkit).pipe(Effect.provide(toolkit.toLayer({ [tool.name]: Function.identity })));
     });
     static readonly layer = Effect.fnUntraced(function* ({ scheme, retention, limit }: { readonly scheme: typeof Server.Scheme.Type; readonly retention: Duration.Duration; readonly limit: number }) {
-        const [server, scope, journal, aead, random] = yield* Effect.all([McpServer.McpServer, Effect.scope, Ref.make<Effect.Effect<readonly Line[]>>(Effect.succeed([])), Aead.Aead, SecureRandom.SecureRandom]);
+        const [server, scope, journal, aead, random] = yield* Effect.all([McpServer.McpServer, Effect.scope, Ref.make<readonly Line[]>([]), Aead.Aead, SecureRandom.SecureRandom]);
         const [key, trailer] = yield* Effect.orDie(Effect.all([aead.generateKey(SEALING), Schema.decodeUnknownEffect(McpSchema.ToolJson)(Schema.toJsonSchemaDocument(Trailer).schema)]));
-        const latest = Effect.map(Effect.flatten(Ref.get(journal)), (lines) => Option.match(Array.last(lines), { onNone: () => 0, onSome: Struct.get('sequence') }));
+        const latest = Effect.map(Ref.get(journal), (lines) => Option.match(Array.last(lines), { onNone: () => 0, onSome: Struct.get('sequence') }));
         const handles = yield* RcMap.make({
             lookup: (_: string): Effect.Effect<Holder> => Effect.map(Effect.all([Ref.make(Context.empty()), Effect.flatMap(latest, Ref.make), Ref.make<readonly Effect.Effect<(typeof Executions.Type)[number]>[]>([])]), ([state, cursor, executions]) => ({ handle: held(state), cursor, executions })),
             idleTimeToLive: retention,
@@ -155,6 +155,21 @@ class Server extends Context.Service<
             const before = yield* Ref.getAndSet(listed, now);
             yield* Effect.forEach(Record.keys(now), (kind) => (Record.some(now[kind], flipped(before[kind])) ? server.notifications[`notifications/${kind}/list_changed`]({}) : Effect.void), { discard: true });
         });
+        const root = uri(`${EXECUTIONS.name}/`);
+        yield* McpServer.registerResource(
+            Object.assign([root, ''], { raw: [root, ''] }),
+            McpSchema.param('handle', Schema.String),
+        )({
+            ...EXECUTIONS,
+            content: Effect.fnUntraced(function* (_: string, id: string) {
+                const [found, missing] = [yield* RcMap.getOption(handles, id), Function.constant(new Cause.NoSuchElementError(`Handle ${id} is unknown or expired`))];
+                const { executions } = yield* Effect.fromOption(found, missing);
+                const rows = yield* Ref.get(executions);
+                const read = yield* Effect.all(rows);
+                yield* Ref.update(executions, Array.difference(Array.getSomes(Array.zipWith(rows, read, (row, { result }) => Option.as(result, row)))));
+                return yield* Effect.orDie(Schema.encodeEffect(Executions)(read));
+            }, Effect.scoped),
+        });
         yield* Layer.build(metered.layerGlobal);
         return Context.make(
             McpServer.McpServer,
@@ -171,7 +186,7 @@ class Server extends Context.Service<
                         server.addPrompt({ ...options, services, prompt: McpSchema.Prompt.make({ ...options.prompt, icons: iconed(options.annotations, options.prompt.icons) }), completions: Record.map(options.completions, ranking) }),
                     ),
             }),
-        ).pipe(Context.add(Server, Server.of({ uri, events: events({ ...calls, uri, limit }), relist })));
+        ).pipe(Context.add(Server, Server.of({ uri, events: events({ journal, limit }), relist })));
     }, Layer.effectContext);
     static readonly layerStdio = <E, R>(manifest: Parameters<typeof served>[0], settings: Parameters<typeof served>[1], app: Layer.Layer<never, E, R>) => Layer.unwrap(Effect.map(served(manifest, settings, app), (options) => McpServer.layerStdio(options))).pipe(Layer.provideMerge(McpServer.McpServer.layer));
     static readonly layerHttp = <E, R>(manifest: Parameters<typeof served>[0], { address, hosts, ...settings }: Parameters<typeof served>[1] & { readonly address: Host.HostPort; readonly hosts: readonly string[] }, app: Layer.Layer<never, E, R>) => {
@@ -245,29 +260,21 @@ const ranking =
             return McpSchema.CompleteResult.make({ ...rest, completion: { values: ordered, total: ordered.length } });
         });
 
-const events = ({ server, handles, journal, limit, uri }: Pick<Parameters<typeof addTool>[0], 'server' | 'handles' | 'journal'> & { readonly limit: number; readonly uri: (path: string) => string }) =>
+const events = ({ journal, limit }: Pick<Parameters<typeof addTool>[0], 'journal'> & { readonly limit: number }) =>
     Effect.fnUntraced(function* <A, I>({ schema, text, stream }: { readonly schema: Schema.Codec<A, I>; readonly text: (event: A) => string; readonly stream: Stream.Stream<A> }) {
         const lines = yield* SubscriptionRef.make<readonly (Line & { readonly value: A })[]>([]);
         const encoded = Schema.encodeEffect(Schema.toCodecJson(schema));
-        const root = uri(`${EXECUTIONS.name}/`);
-        yield* Ref.set(journal, SubscriptionRef.get(lines));
-        yield* McpServer.registerResource(
-            Object.assign([root, ''], { raw: [root, ''] }),
-            McpSchema.param('handle', Schema.String),
-        )({
-            ...EXECUTIONS,
-            content: Effect.fnUntraced(function* (_: string, id: string) {
-                const [found, missing] = [yield* RcMap.getOption(handles, id), Function.constant(new Cause.NoSuchElementError(`Handle ${id} is unknown or expired`))];
-                const { executions } = yield* Effect.fromOption(found, missing);
-                const rows = yield* Ref.get(executions);
-                const read = yield* Effect.all(rows);
-                yield* Ref.update(executions, Array.difference(Array.getSomes(Array.zipWith(rows, read, (row, { result }) => Option.as(result, row)))));
-                return yield* Effect.orDie(Schema.encodeEffect(Executions)(read));
-            }, Effect.scoped),
-        }).pipe(Effect.provideService(McpServer.McpServer, server));
         yield* stream.pipe(
-            Stream.mapEffect((value) => Effect.map(Effect.orDie(encoded(value)), (event) => ({ value, event, text: text(value) }))),
-            Stream.runForEach((entry) => SubscriptionRef.update(lines, (kept) => Array.takeRight(Array.append(kept, { ...entry, sequence: Option.match(Array.last(kept), { onNone: () => 1, onSome: ({ sequence }) => sequence + 1 }) }), limit))),
+            Stream.mapEffect(
+                Effect.fnUntraced(function* (value) {
+                    const event = yield* Effect.orDie(encoded(value));
+                    return yield* Ref.modify(journal, (kept) => {
+                        const line = { event, text: text(value), sequence: Option.match(Array.last(kept), { onNone: () => 1, onSome: ({ sequence }) => sequence + 1 }) };
+                        return [{ ...line, value }, Array.takeRight(Array.append(kept, line), limit)] as const;
+                    });
+                }),
+            ),
+            Stream.runForEach((line) => SubscriptionRef.update(lines, (kept) => Array.takeRight(Array.append(kept, line), limit))),
             Effect.forkScoped,
         );
         return { ends: (holds: (event: A) => Effect.Effect<boolean>) => Context.make(Server.Ends, (after: number) => SubscriptionRef.changes(lines).pipe(Stream.mapAccum(Function.constant(after), since), Stream.filterEffect(flow(Struct.get('value'), holds)))) };
@@ -292,7 +299,7 @@ const addTool =
         readonly gate: (subject: Readonly<Record<string, string>>, options: Gated) => Effect.Effect<Context.Context<never>>;
         readonly retention: Duration.Duration;
         readonly handles: RcMap.RcMap<string, Holder>;
-        readonly journal: Ref.Ref<Effect.Effect<readonly Line[]>>;
+        readonly journal: Ref.Ref<readonly Line[]>;
         readonly latest: Effect.Effect<number>;
         readonly trailer: McpSchema.ToolJson;
         readonly early: (id: string, text: string) => McpSchema.CallToolResult;
@@ -362,7 +369,7 @@ const addTool =
             );
             const kept = Effect.scoped(RcMap.get(handles, id).pipe(Effect.andThen(Effect.exit(Deferred.await(done))), Effect.andThen(Effect.sleep(retention)), Effect.andThen(Ref.update(executions, Array.difference([entry])))));
             yield* ended ? Effect.andThen(Ref.update(executions, Array.append(entry)), Effect.forkIn(kept, scope)) : Effect.void;
-            const lines = yield* Effect.flatten(Ref.get(journal));
+            const lines = yield* Ref.get(journal);
             const [from, fresh] = yield* Ref.modify(cursor, (at) => {
                 const [next, unseen] = since(at, lines);
                 return [[at, unseen] as const, next];

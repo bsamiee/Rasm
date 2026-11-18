@@ -2,7 +2,7 @@
     "name": "@rasm/aftereffects",
     "version": "0.1.0",
     "private": true,
-    "description": "After Effects DOM for ExtendScript: its containment table from 1, dialog suppression, undo groups, project open, and rasterize of a composition frame",
+    "description": "After Effects DOM for UXP plugins: its containment table from 1, dialog suppression, undo groups, script evaluation, a composition frame rendered as PNG, and the application bundle URL",
     "license": "MIT",
     "repository": {
         "type": "git",
@@ -16,22 +16,28 @@
     "type": "module",
     "sideEffects": false,
     "exports": {
-        "./extendscript": "./extendscript.ts",
+        "./uxp": "./uxp.ts",
         "./package.json": "./package.json"
     },
     "publishConfig": {
         "exports": {
-            "./extendscript": "./dist/extendscript.js",
+            "./uxp": "./dist/uxp.js",
             "./package.json": "./package.json"
         },
         "access": "public"
     },
     "dependencies": {
-        "@rasm/extendscript": "workspace:*",
-        "@rasm/object-model": "workspace:*"
+        "@rasm/object-model": "workspace:*",
+        "@rasm/search": "workspace:*",
+        "@rasm/uxp": "workspace:*"
     },
     "devDependencies": {
-        "types-for-adobe": "catalog:"
+        "@adobe-uxp-types/uxp": "catalog:",
+        "@types/node": "catalog:",
+        "effect": "catalog:"
+    },
+    "peerDependencies": {
+        "effect": "catalog:peers"
     },
     "engines": {
         "node": ">=27"

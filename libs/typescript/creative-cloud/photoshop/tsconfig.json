@@ -11,10 +11,13 @@
             "path": "../uxp"
         },
         {
+            "path": "../../data/search"
+        },
+        {
             "path": "../object-model"
         },
         {
-            "path": "../../data/search"
+            "path": "../../ai/mcp"
         }
     ]
 }

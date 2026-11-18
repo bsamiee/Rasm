@@ -5,15 +5,14 @@ import { arch, platform } from 'node:process';
 import { patch } from '@decimalturn/toml-patch';
 import type { ExecutorContext } from '@nx/devkit';
 import { globWithWorkspaceContext, quoteShellArg } from '@nx/devkit/internal';
-import ast from '@xml-tools/ast';
-import xml, { type DocumentCstNode } from '@xml-tools/parser';
-import { Array, Cause, Config, Effect, FileSystem, Option, Path, pipe, Record, Result, Schema, SemVer, Stream, String, Struct, UndefinedOr } from 'effect';
+import { HOSTS as UXP } from '@rasm/uxp';
+import { Array, Cause, Config, Effect, FileSystem, Option, Path, pipe, Record, Schema, SemVer, Stream, String, Struct, UndefinedOr } from 'effect';
 import { Ini, Toml, Yaml, Zip } from 'effect/encoding';
 import { HttpClient, HttpClientRequest, HttpClientResponse } from 'effect/http';
 import type { ChildProcessSpawner } from 'effect/process';
 import { applyEdits, modify, parse } from 'jsonc-parser';
 import { parseDocument, Scalar } from 'yaml';
-import { credentialed, packaged } from '#/executor';
+import { packaged } from '#/executor';
 import { PLATFORM, spawned } from '#/inference';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -62,8 +61,7 @@ interface Host {
         readonly lock?: string;
         readonly runtime?: readonly string[];
         readonly outputs?: (fields: Fields) => readonly string[];
-        readonly identity?: typeof Identity.Type;
-        readonly pack?: (folder: Found, file: string, signing: { readonly timestampAuthority: string; readonly identity?: typeof Identity.Type }, words: readonly string[]) => Step;
+        readonly pack?: (folder: Found, file: string, words: readonly string[]) => Step;
     };
     readonly install?: { readonly command: string; readonly help?: string; readonly executable?: string; readonly platforms?: readonly string[]; readonly unpacked?: true; readonly run: (found: Found, words: readonly string[]) => Step };
     readonly publish?: { readonly store: string; readonly command: string; readonly credential: string; readonly held: (found: Found, store: string) => Stored<boolean>; readonly push: (found: Found, store: string, token: string, words: readonly string[]) => Stored<Option.Option<string>> };
@@ -72,7 +70,6 @@ interface Host {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const EXTENSION = 'blender_manifest.toml';
-const SIGNER = { command: 'ZXPSignCmd', platforms: ['darwin', 'win32'] } as const;
 const PYTHON = ['run', '--no-project', 'python', '-c'] as const;
 const LOCATED = "shutil.which('blender_ext.py', os.F_OK)";
 const BUILDER = [...PYTHON, `import os, runpy, shutil, sys; sys.argv[0] = ${LOCATED}; runpy.run_path(sys.argv[0], run_name='__main__')`] as const;
@@ -97,10 +94,8 @@ const Extension = Schema.Struct({ schema_version: Schema.String, id: Schema.Stri
 const Listed = Schema.Struct({ data: Schema.Array(Schema.Struct({ id: Schema.String, version: Schema.String, platforms: Platforms })) });
 const Yak = Schema.Struct({ name: Schema.String, version: Schema.String, authors: Schema.Array(Schema.String), description: Schema.String });
 const Pushed = Schema.Struct({ distributions: Schema.Array(Schema.Struct({ filename: Schema.String })) });
-const Uxp = Schema.fromJsonString(Schema.Struct({ manifestVersion: Schema.Finite, id: Schema.String, name: Schema.String, version: Schema.String, host: Schema.Struct({ app: Schema.String, minVersion: Schema.String }) }));
+const Uxp = Schema.fromJsonString(Schema.Struct({ manifestVersion: Schema.Finite, id: Schema.String, name: Schema.String, version: Schema.String, host: Schema.Struct({ app: Schema.Literals(Struct.keys(UXP)) }) }));
 const Registry = Schema.Struct({ plugins: Schema.Array(Schema.StructWithRest(Schema.Struct({ pluginId: Schema.String, path: Schema.optionalKey(Schema.String) }), [Schema.Record(Schema.String, Schema.Unknown)])) });
-const Cep = Schema.Struct({ ExtensionBundleId: Schema.String, ExtensionBundleVersion: Schema.String });
-const Identity = Schema.Struct({ certificate: Schema.String, password: Schema.String });
 const References = Schema.optionalKey(Schema.Array(Schema.Struct({ Name: Schema.String, Enabled: Schema.optionalKey(Schema.Boolean) })));
 const Project = Schema.fromJsonString(Schema.Struct({ FileVersion: Schema.Int, Plugins: References, AdditionalPluginDirectories: Schema.optionalKey(Schema.Array(Schema.String)) }));
 const Linked = Schema.Record(Schema.String, Schema.Struct({ project: Schema.String, target: Schema.String, configuration: Schema.optionalKey(Schema.String) })).annotate({
@@ -120,14 +115,6 @@ const exact = (subject: string, version: string) =>
         Effect.filterOrFail((parsed) => !(SemVer.isPrerelease(parsed) || SemVer.hasBuild(parsed))),
         Effect.mapError((cause) => new Cause.UnknownError(cause, `${subject} takes a major.minor.patch version alone, which ${version} is not`)),
     );
-
-const extension = (text: string) => {
-    const { cst, tokenVector, lexErrors, parseErrors } = xml.parse(text);
-    return pipe(
-        Option.liftPredicate(cst, (node): node is DocumentCstNode => node.name === 'document' && lexErrors.length + parseErrors.length === 0),
-        Option.flatMap((document) => Option.fromNullOr(ast.buildAst(document, tokenVector).rootElement)),
-    );
-};
 
 const adobe = Effect.mapError(Effect.flatten(Effect.fromNullishOr(ADOBE[platform])), (cause) => new Cause.UnknownError(cause, `${platform} holds no per-user Adobe folder`));
 
@@ -293,7 +280,7 @@ const HOSTS: readonly Host[] = [
             executor: 'package',
             command: 'yak build',
             help: 'yak build --help',
-            pack: Effect.fnUntraced(function* ({ at }, file, _, words) {
+            pack: Effect.fnUntraced(function* ({ at }, file, words) {
                 const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
                 const stage = yield* fs.makeTempDirectoryScoped();
                 yield* fs.copy(at, stage);
@@ -330,86 +317,23 @@ const HOSTS: readonly Host[] = [
         write: (text, version, file) => Effect.as(exact(file, version), applyEdits(text, modify(text, ['version'], version, {}))),
         build: { executor: 'package', command: 'a zip archive named .ccx', pack: ({ at, names }, file) => zipped(at, names, file) },
         install: {
-            command: "a copy into the per-user UXP plug-in folder and the plug-in's row in its host's PluginsInfo registry",
+            command: "a copy into the per-user UXP plug-in folder in place of its earlier folders and CEP extension, and the plug-in's row in the PluginsInfo registry of a host that reads one",
             platforms: Object.keys(ADOBE),
             unpacked: true,
             run: Effect.fnUntraced(function* (found) {
                 const [fs, path, root] = yield* Effect.all([FileSystem.FileSystem, Path.Path, adobe]);
                 const { id, name, version, host } = yield* Effect.mapError(Schema.decodeEffect(Uxp)(found.text), (cause) => new Cause.UnknownError(cause, `${found.at} holds no UXP manifest`));
-                const [registry, local, placed] = [path.join(root, 'UXP', 'PluginsInfo', 'v1', `${host.app}.json`), (at: string) => at.replace('$localPlugins', path.join(root, 'UXP', 'Plugins')), `$localPlugins/External/${id}_${version}`];
+                const [registry, external, placed] = [path.join(root, 'UXP', 'PluginsInfo', 'v1', `${host.app}.json`), path.join(root, 'UXP', 'Plugins', 'External'), `$localPlugins/External/${id}_${version}`];
+                const local = (at: string) => at.replace('$localPlugins', path.dirname(external));
                 const before = yield* fs.readFileString(registry).pipe(Effect.catchReason('PlatformError', 'NotFound', () => Effect.succeed('{"plugins":[]}')));
+                const folders = yield* fs.readDirectory(external).pipe(Effect.catchReason('PlatformError', 'NotFound', () => Effect.succeed(Array.empty<string>())));
                 const rows = (yield* Effect.mapError(Schema.decodeUnknownEffect(Registry)(parse(before)), (cause) => new Cause.UnknownError(cause, `${registry} holds no plugins array`))).plugins;
                 const held = rows.findIndex(({ pluginId }) => pluginId === id);
-                const row = { ...rows[held], hostMinVersion: host.minVersion, name, path: placed, pluginId: id, status: 'enabled', type: 'uxp', versionString: version };
-                yield* Effect.forEach(Array.dedupe([...Array.fromNullishOr(rows[held]?.path), placed]), (at) => fs.remove(local(at), { recursive: true, force: true }), { discard: true });
+                const row = { ...rows[held], hostMinVersion: SemVer.format(UXP[host.app].since), name, path: placed, pluginId: id, status: 'enabled', type: 'uxp', versionString: version };
+                const earlier = [...folders.filter((folder) => folder.startsWith(`${id}_`)).map((folder) => path.join(external, folder)), ...Array.fromNullishOr(rows[held]?.path).map(local), path.join(root, 'CEP', 'extensions', id)];
+                yield* Effect.forEach(Array.dedupe(earlier), (at) => fs.remove(at, { recursive: true, force: true }), { discard: true });
                 yield* copied(found, local(placed));
-                yield* fs.makeDirectory(path.dirname(registry), { recursive: true });
-                yield* fs.writeFileString(registry, applyEdits(before, modify(before, ['plugins', held === -1 ? rows.length : held], row, {})));
-            }),
-        },
-    },
-    {
-        manifest: 'CSXS/manifest.xml',
-        technology: 'cep',
-        archive: '.zxp',
-        output: '.',
-        platforms: SIGNER.platforms,
-        read: (text) =>
-            Effect.succeed(
-                pipe(
-                    extension(text),
-                    Option.flatMap((root) => Schema.decodeUnknownOption(Cep)(Record.fromEntries(Array.filterMap(root.attributes, ({ key, value }) => (key === null ? Result.failVoid : Result.succeed([key, value] as const)))))),
-                    Option.map(({ ExtensionBundleId, ExtensionBundleVersion }) => ({ name: ExtensionBundleId, version: ExtensionBundleVersion })),
-                ),
-            ),
-        write: (text, version, file) =>
-            Effect.andThen(
-                exact(file, version),
-                pipe(
-                    extension(text),
-                    Option.flatMap((root) => Array.findFirst(root.attributes, ({ key }) => key === 'ExtensionBundleVersion')),
-                    Option.flatMap(({ syntax }) => Option.fromUndefinedOr(syntax.value)),
-                    Effect.fromOption,
-                    Effect.mapBoth({ onFailure: (cause) => new Cause.UnknownError(cause, `${file} states no ExtensionBundleVersion`), onSuccess: (value) => `${text.slice(0, value.startOffset + 1)}${version}${text.slice(value.endOffset)}` }),
-                ),
-            ),
-        build: {
-            executor: 'package',
-            command: `${SIGNER.command} -sign with the certificate its identity variables hold, else with one ${SIGNER.command} -selfSignedCert creates for the pack`,
-            identity: { certificate: 'ZXP_CERTIFICATE', password: 'ZXP_CERTIFICATE_PASSWORD' },
-            pack: Effect.fnUntraced(function* (found, file, { timestampAuthority, identity }, words) {
-                const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-                const stage = yield* fs.makeTempDirectoryScoped();
-                const [staged, certificate] = [path.join(stage, found.name), path.join(stage, 'certificate.p12')];
-                yield* copied(found, staged);
-                const named = Option.fromUndefinedOr(identity);
-                const encoded = Option.flatten(yield* Effect.transposeOption(Option.map(named, ({ certificate: held }) => credentialed(held))));
-                const stored = yield* Effect.transposeOption(
-                    Option.map(Option.all({ text: encoded, variables: named }), ({ text, variables }) =>
-                        Effect.mapError(Effect.all({ p12: Schema.decodeEffect(Schema.Uint8ArrayFromBase64)(text), passphrase: Config.String(variables.password) }), (cause) => new Cause.UnknownError(cause, `${variables.certificate} holds no base64 PKCS#12 certificate whose password ${variables.password} holds`)),
-                    ),
-                );
-                const passphrase = yield* Option.match(stored, {
-                    onNone: () => Effect.as(spawned([SIGNER.command, '-selfSignedCert', '', '', '', found.name, found.name, certificate]), found.name),
-                    onSome: ({ p12, passphrase: held }) => Effect.as(fs.writeFile(certificate, p12), held),
-                });
-                yield* spawned([SIGNER.command, '-sign', staged, file, certificate, passphrase, '-tsa', timestampAuthority, ...words]);
-            }, Effect.scoped),
-        },
-        install: {
-            command: 'an unpack of the signed package into the per-user CEP extensions folder',
-            platforms: Object.keys(ADOBE),
-            run: Effect.fnUntraced(function* ({ at, name }) {
-                const [fs, path, root] = yield* Effect.all([FileSystem.FileSystem, Path.Path, adobe]);
-                const target = path.join(root, 'CEP', 'extensions', name);
-                yield* fs.remove(target, { recursive: true, force: true });
-                yield* fs.stream(at).pipe(
-                    Stream.pipeThroughChannel(Zip.decode()),
-                    Stream.filter(({ header }) => header.type === 'File'),
-                    Stream.mapEffect(({ header, body }) => Effect.andThen(fs.makeDirectory(path.dirname(path.join(target, header.path)), { recursive: true }), Stream.run(body, fs.sink(path.join(target, header.path))))),
-                    Stream.runDrain,
-                    Effect.mapError((cause) => new Cause.UnknownError(cause, `${at} does not unpack`)),
-                );
+                yield* UXP[host.app].registry ? Effect.andThen(fs.makeDirectory(path.dirname(registry), { recursive: true }), fs.writeFileString(registry, applyEdits(before, modify(before, ['plugins', held === -1 ? rows.length : held], row, {})))) : Effect.void;
             }),
         },
     },
@@ -463,4 +387,4 @@ const HOSTS: readonly Host[] = [
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { ANALYSIS, BUILDER, EXTENSION, engine, type Fields, FOLDERS, type Found, HOSTS, type Host, Identity, Linked, located, zipped };
+export { ANALYSIS, BUILDER, EXTENSION, engine, type Fields, FOLDERS, type Found, HOSTS, type Host, Linked, located, zipped };

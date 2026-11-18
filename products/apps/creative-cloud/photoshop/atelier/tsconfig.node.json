@@ -6,6 +6,16 @@
         "noEmit": true,
         "types": ["node"]
     },
-    "include": ["vite.config.ts", "tools.ts"],
-    "references": [{ "path": "../../../../../libs/typescript/creative-cloud/uxp/tsconfig.node.json" }, { "path": "../../../../../libs/typescript/creative-cloud/object-model" }, { "path": "../../../../../libs/typescript/ai/mcp" }]
+    "include": ["vite.config.ts"],
+    "references": [
+        {
+            "path": "../../../../../libs/typescript/creative-cloud/uxp/tsconfig.node.json"
+        },
+        {
+            "path": "../../../../../libs/typescript/creative-cloud/object-model"
+        },
+        {
+            "path": "../../../../../libs/typescript/ai/mcp"
+        }
+    ]
 }

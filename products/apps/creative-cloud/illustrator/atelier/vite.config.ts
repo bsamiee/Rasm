@@ -1,9 +1,9 @@
-import { cep } from '@rasm/cep/vite';
+import { uxp } from '@rasm/uxp/vite';
 import type { UserConfigFnPromise } from 'vite';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const config: UserConfigFnPromise = cep(import.meta.dirname, { script: './extendscript.ts', panel: './panel.ts' });
+const config: UserConfigFnPromise = uxp(import.meta.dirname);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

@@ -18,7 +18,7 @@ import { Server } from '#/server';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const FOLDERS = { logs: ['log', ''], captures: ['cache', 'captures'], media: ['cache', 'media'] } as const satisfies Readonly<Record<string, readonly [keyof Paths, string]>>;
+const FOLDERS = { logs: ['log', ''], captures: ['cache', 'captures'], media: ['cache', 'media'], declarations: ['cache', 'declarations'] } as const satisfies Readonly<Record<string, readonly [keyof Paths, string]>>;
 const OUTPUT = 'output.dir';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -27,7 +27,7 @@ const present = <A>(schema: Schema.Codec<A, string>) => schema.pipe(Schema.decod
 const setting = <const Name extends string, A>(name: Name, key: string, schema: Schema.Codec<A, string>, fallback: A, description: string) =>
     GlobalFlag.Setting(name)({ flag: Flag.String(name).pipe(Flag.withSchema(schema), Flag.withFallbackConfig(Config.schema(schema, key.split('.'))), Flag.withDefault(fallback), Flag.withDescription(description)) });
 const Settings = {
-    output: setting('output', OUTPUT, present(Schema.String), Option.none(), 'Folder holding logs, captures, and media per application, the platform log and cache folders when absent'),
+    output: setting('output', OUTPUT, present(Schema.String), Option.none(), 'Folder holding logs, captures, media, and fetched declarations per application, the platform log and cache folders when absent'),
     hosts: setting('allowed-hosts', 'allowed.hosts', Schema.String.pipe(Schema.decodeTo(Schema.Array(Schema.String), { decode: SchemaGetter.split(), encode: SchemaGetter.forbiddenEncoding })), [], 'Comma-separated Host headers accepted beyond loopback and the bound address'),
     retention: setting('retention', 'retention', Schema.DurationFromString, Duration.hours(1), 'How long an idle handle and a finished execution stay'),
     limit: setting('events', 'events', Schema.FiniteFromString.pipe(Schema.decodeTo(Schema.Int.check(Schema.isGreaterThan(0)))), 256, 'Events a handle can fall behind by before the oldest drop'),

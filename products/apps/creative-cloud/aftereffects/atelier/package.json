@@ -5,16 +5,11 @@
     "type": "module",
     "dependencies": {
         "@rasm/aftereffects": "workspace:*",
-        "@rasm/cep": "workspace:*",
-        "@rasm/extendscript": "workspace:*",
-        "@rasm/mcp": "workspace:*",
-        "@rasm/object-model": "workspace:*",
-        "effect": "catalog:",
-        "es5-shim": "catalog:"
+        "@rasm/uxp": "workspace:*"
     },
     "devDependencies": {
+        "@adobe-uxp-types/uxp": "catalog:",
         "@types/node": "catalog:",
-        "types-for-adobe": "catalog:",
         "vite": "catalog:"
     }
 }

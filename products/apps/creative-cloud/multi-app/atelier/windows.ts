@@ -1,10 +1,14 @@
 import { Act, Acted, type Capture, ElementID, Node, type RunningInstance, State, WindowID } from '@rasm/applications';
 import { ApplicationServer } from '@rasm/applications/node';
 import type { Application } from '@rasm/creative-cloud-desktop';
-import { Content, Server } from '@rasm/mcp';
-import { setting } from '@rasm/mcp/node';
-import { Array, Cause, Context, Effect, Match, Option, Record, Result, Schema, Struct, SubscriptionRef } from 'effect';
+import { Content, Link, Server } from '@rasm/mcp';
+import { Output, setting } from '@rasm/mcp/node';
+import { Rendering, Specifier } from '@rasm/object-model';
+import type { Unmatched } from '@rasm/search';
+import { Array, Cause, Context, Effect, FileSystem, Match, Option, Path, Record, Result, Schema, Struct, SubscriptionRef } from 'effect';
 import { Tool } from 'effect/ai';
+import { SecureRandom } from 'effect/crypto';
+import type { RpcClient, RpcClientError, RpcGroup } from 'effect/rpc';
 import { Inventory } from '#/applications';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -12,17 +16,18 @@ import { Inventory } from '#/applications';
 const Preview = setting('preview', 'preview', Schema.FiniteFromString.pipe(Schema.decodeTo(Schema.Int.check(Schema.isGreaterThan(0)))), 1568, 'Longest side in pixels of the image a view returns inline, its file keeping full resolution');
 const Shot = Schema.Struct({
     application: Schema.String,
-    window: WindowID,
+    window: Schema.OptionFromOptionalKey(WindowID.annotate({ description: 'Absent for an object an extension rendered' })),
     title: Schema.OptionFromOptionalKey(Schema.String),
     document: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'Document id, its file URL' })),
     image: Schema.OptionFromOptionalKey(Content.preview),
     failure: Schema.OptionFromOptionalKey(Schema.String),
 });
 const View = Tool.make('view', {
-    description: 'Shows windows as images, each with its file at full resolution: the front window of the target application, every window of every running Adobe application, one element cropped from its window, or the windows showing one document',
+    description:
+        'Shows windows as images, each with its file at full resolution: the front window of the target application, every window of every running Adobe application, one element cropped from its window, or the windows showing one document; object shows one document, page, spread, artboard, layer, composition, or sequence the linked extension of the target application renders, with no window needed',
     parameters: Schema.Struct({
-        of: Schema.optionalKey(Schema.Literals(['front', 'all', 'element', 'document']).annotate({ description: 'front when absent' })),
-        id: Schema.optionalKey(Schema.String.annotate({ description: 'Element id from inspect or an event for element, document id from a result for document' })),
+        of: Schema.optionalKey(Schema.Literals(['front', 'all', 'element', 'document', 'object']).annotate({ description: 'front when absent' })),
+        id: Schema.optionalKey(Schema.String.annotate({ description: 'Element id from inspect or an event for element, document id from a result for document, object specifier from a script result for object' })),
     }),
     success: Schema.Array(Shot),
 }).annotate(Tool.Readonly, true);
@@ -62,7 +67,7 @@ const framed = (taken: Result.Result.Success<(typeof Capture.Result.Type)[string
 });
 const shot = (application: string, state: typeof State.Type) => (number: string, outcome: (typeof Capture.Result.Type)[string]) => ({
     application,
-    window: Number(number),
+    window: Option.some(Number(number)),
     title: titled(state, Number(number)),
     ...Result.match(outcome, { onFailure: ({ message }) => ({ document: Option.none<string>(), image: Option.none(), failure: Option.some(message) }), onSuccess: framed }),
 });
@@ -84,8 +89,8 @@ const showing = (document: string) => (row: { readonly each: RunningInstance; re
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const windows = Effect.gen(function* () {
-    const [server, { current, running, catalog }, side] = yield* Effect.all([ApplicationServer, Inventory, Preview]);
+const windows = Effect.fnUntraced(function* (links: { readonly call: (holds: (peer: Link) => boolean, subject: string) => Effect.Effect<RpcClient.RpcClient.Flat<RpcGroup.Rpcs<typeof Rendering>, RpcClientError.RpcClientError>, Unmatched> }) {
+    const [server, { current, running, catalog }, side, { folder }, files, path, random] = yield* Effect.all([ApplicationServer, Inventory, Preview, Output, FileSystem.FileSystem, Path.Path, SecureRandom.SecureRandom]);
     const shots = Effect.fnUntraced(function* (application: string, each: RunningInstance, source: Capture['source']) {
         const taken = yield* server.capture({ instance: each.instance, source, longestSide: Option.some(side) });
         return Record.collect(taken, shot(application, each.state));
@@ -114,6 +119,16 @@ const windows = Effect.gen(function* () {
         const taken = yield* Effect.forEach(rows.flatMap(showing(id)), ({ each, name, numbers }) => shots(name, each, Option.some({ windows: { numbers } })), { concurrency: 'unbounded' });
         return Array.flatten(taken);
     });
+    const object = Effect.fnUntraced(function* (id: string) {
+        const [{ row }, target] = yield* Effect.all([current, Schema.decodeEffect(Specifier.Path)(id)]);
+        const client = yield* links.call((peer) => Link.hosted(row)(peer) && Link.serves(Rendering.requests.keys())(peer), `linked extension of ${row.name} rendering objects`);
+        const [{ image }, name] = yield* Effect.all([client('render', { target }), random.uuidV7()]);
+        const written = path.join(folder(row.name, 'captures'), `${name}.png`);
+        yield* Effect.andThen(files.makeDirectory(path.dirname(written), { recursive: true }), files.writeFile(written, image));
+        const file = yield* path.toFileUrl(written);
+        const { width, height, preview } = yield* server.preview({ file, longestSide: side });
+        return [{ application: row.name, window: Option.none(), title: Option.some(target.leaf), document: Option.none(), image: Option.some({ data: preview, mimeType: 'image/png', file, width, height }), failure: Option.none() }];
+    });
     yield* Server.registerTool(
         View,
         Effect.fnUntraced(function* ({ of = 'front', id }) {
@@ -124,9 +139,10 @@ const windows = Effect.gen(function* () {
                 Match.when('all', () => all),
                 Match.when('element', () => Effect.flatMap(identified, element)),
                 Match.when('document', () => Effect.flatMap(identified, document)),
+                Match.when('object', () => Effect.flatMap(identified, object)),
                 Match.exhaustive,
             );
-            return yield* Effect.fromOption(Option.liftPredicate(taken, Array.isReadonlyArrayNonEmpty), () => new Cause.NoSuchElementError(`No window to view for ${asked}`));
+            return yield* Effect.fromOption(Option.liftPredicate(taken, Array.isReadonlyArrayNonEmpty), () => new Cause.NoSuchElementError(`Nothing to view for ${asked}`));
         }),
     );
     yield* Server.registerTool(

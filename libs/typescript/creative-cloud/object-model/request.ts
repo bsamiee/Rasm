@@ -1,7 +1,7 @@
 import { Unmatched } from '@rasm/search';
 import { Array, Cause, Option, Schema, SchemaTransformation, String, Struct } from 'effect';
 import { Rpc, RpcGroup } from 'effect/rpc';
-import { HostError, Reference } from '#/model';
+import { HostError, Reference, Specifier } from '#/model';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -18,20 +18,13 @@ class Evaluation extends Schema.Class<Evaluation, { readonly brand: unique symbo
         return `Run ${Option.getOrElse(Array.findFirst(Array.map(body.join(BODY).split('\n'), String.trim), String.isNonEmpty), () => 'script')}`;
     }
 }
-class Open extends Schema.Class<Open, { readonly brand: unique symbol }>('Open')({ file: Schema.String.check(Schema.isStartingWith('/')).annotate({ description: 'Document path' }) }) {
-    static readonly Result = Reference;
+class Render extends Schema.Class<Render, { readonly brand: unique symbol }>('Render')({
+    target: Specifier.Path.annotate({ description: 'Document, page, spread, artboard, layer, composition, or sequence specifier' }),
+}) {
+    static readonly Result = Schema.Struct({ image: Schema.Uint8Array, width: Schema.Int, height: Schema.Int });
 
     get label(): string {
-        return `Open ${this.file.slice(this.file.lastIndexOf('/') + 1)}`;
-    }
-}
-class Rasterize extends Schema.Class<Rasterize, { readonly brand: unique symbol }>('Rasterize')({
-    target: Schema.String.annotate({ description: 'Document, page, spread, artboard, layer, composition, or page item specifier' }),
-    longestSide: Schema.Int.check(Schema.isGreaterThan(0)).annotate({ description: 'Limit in pixels' }),
-    options: Schema.OptionFromOptionalKey(Schema.Record(Schema.String, Schema.Json).annotate({ description: 'Option fields of the host exporter the target selects' })),
-}) {
-    get label(): string {
-        return `Rasterize ${this.target}`;
+        return `Render ${this.target.leaf}`;
     }
 }
 const Written = Reference.mapFields(Struct.assign({ written: Schema.Array(Schema.String).annotate({ description: 'Member names' }) }));
@@ -51,7 +44,8 @@ const request = <const Tag extends string, Payload extends Schema.Top & { readon
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const Script = RpcGroup.make(request('evaluate', Evaluation));
+const Rendering = RpcGroup.make(request('render', Render));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Evaluation, Failure, Open, Rasterize, request, Script, Written };
+export { Evaluation, Failure, Render, Rendering, request, Script, Written };

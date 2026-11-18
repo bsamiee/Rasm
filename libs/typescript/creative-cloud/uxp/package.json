@@ -2,7 +2,7 @@
     "name": "@rasm/uxp",
     "version": "0.1.0",
     "private": true,
-    "description": "UXP manifests, plugin and script runtimes, Spectrum panel controls, and Vite plugin builds",
+    "description": "UXP manifests and the hosts that load them, plugin and script runtimes, Spectrum panel controls, and Vite plugin builds",
     "license": "MIT",
     "repository": {
         "type": "git",
@@ -44,7 +44,9 @@
         "@effect/platform-node": "catalog:",
         "@exodus/bytes": "catalog:",
         "@rasm/mark": "workspace:*",
+        "@rasm/mcp": "workspace:*",
         "@rasm/object-model": "workspace:*",
+        "@rasm/search": "workspace:*",
         "@rasm/telemetry": "workspace:*",
         "core-js": "catalog:",
         "culori": "catalog:",
@@ -69,5 +71,13 @@
     },
     "engines": {
         "node": ">=27"
+    },
+    "nx": {
+        "namedInputs": {
+            "default": [
+                "{projectRoot}/**/*",
+                "{workspaceRoot}/products/apps/creative-cloud/multi-app/atelier/icons/**/*"
+            ]
+        }
     }
 }

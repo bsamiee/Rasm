@@ -1,7 +1,7 @@
 import { dial, listen } from '@rasm/rpc';
-import { Array, Context, Duration, Effect, Layer, Record, Ref, Schema, Struct } from 'effect';
+import { Array, Context, Duration, Effect, Layer, Record, Ref, Schema, Stream, Struct } from 'effect';
 import { McpSchema, McpServer, type Tool, type Toolkit } from 'effect/ai';
-import { type Rpc, RpcGroup } from 'effect/rpc';
+import { Rpc, RpcGroup } from 'effect/rpc';
 import { Server } from '#/server';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -24,7 +24,12 @@ class Link extends Schema.Class<Link, { readonly brand: unique symbol }>('Link')
         .annotate({ description: 'Requests the extension serves beside tool calls' })
         .pipe(Schema.withDecodingDefaultKey(Effect.succeed('[]')), Schema.withConstructorDefault(Effect.succeed([]))),
 }) {
-    static readonly Tools = RpcGroup.make(McpSchema.ListTools, McpSchema.CallTool.setPayload(Call));
+    static readonly Notice = Schema.Struct({
+        name: Schema.String.annotate({ description: 'Host event name as the host API states it' }),
+        target: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'Specifier of the object the event concerns' })),
+        detail: Schema.OptionFromOptionalKey(Schema.Json),
+    });
+    static readonly Rpcs = RpcGroup.make(McpSchema.ListTools, McpSchema.CallTool.setPayload(Call), Rpc.make('notices', { success: Link.Notice, stream: true }));
     static readonly key = ({ application, extension }: Link) => `${extension} in ${String(application)}`;
     static readonly serves = (tags: Iterable<string>) => {
         const wanted = [...tags];
@@ -35,10 +40,10 @@ class Link extends Schema.Class<Link, { readonly brand: unique symbol }>('Link')
         ({ application }: Link) =>
             typeof application === 'string' ? application === name : application.href === url.href;
     static readonly dial = <Rpcs extends Rpc.Any, H, EH, RH, E, R>(group: RpcGroup.RpcGroup<Rpcs>, handlers: Layer.Layer<H, EH, RH>, url: URL, peer: Effect.Effect<Link, E, R>) =>
-        dial(Link.Tools.merge(group), handlers, { url: new URL(PATH, url), redial: REDIAL, peer: Effect.flatMap(peer, (identity) => Effect.orDie(Schema.encodeEffect(Link)(Link.make({ ...identity, requests: group.requests.keys().toArray() })))) });
-    static readonly listen = <Rpcs extends Rpc.Any>(group: RpcGroup.RpcGroup<Rpcs>, origin: string) => listen(Link.Tools.merge(group), { path: PATH, origin, peer: Link, key: Link.key, middleware: Layer.empty });
-    static readonly serve = <Served extends Record.ReadonlyRecord<string, Tool.Any>>(toolkit: Toolkit.Toolkit<Served>) =>
-        Link.Tools.toLayer(
+        dial(Link.Rpcs.merge(group), handlers, { url: new URL(PATH, url), redial: REDIAL, peer: Effect.flatMap(peer, (identity) => Effect.orDie(Schema.encodeEffect(Link)(Link.make({ ...identity, requests: group.requests.keys().toArray() })))) });
+    static readonly listen = <Rpcs extends Rpc.Any>(group: RpcGroup.RpcGroup<Rpcs>, origin: string) => listen(Link.Rpcs.merge(group), { path: PATH, origin, peer: Link, key: Link.key, middleware: Layer.empty });
+    static readonly serve = <Served extends Record.ReadonlyRecord<string, Tool.Any>, R = never>(toolkit: Toolkit.Toolkit<Served>, { notices = Stream.empty }: { readonly notices?: Stream.Stream<typeof Link.Notice.Type, never, R> } = {}) =>
+        Link.Rpcs.toLayer(
             Effect.gen(function* () {
                 const [made, registered] = yield* Effect.all([McpServer.McpServer.make, Ref.make<Record.ReadonlyRecord<string, Parameters<McpServer.McpServer['Service']['addTool']>[0]>>({})]);
                 yield* McpServer.registerToolkit(toolkit).pipe(Effect.provideService(McpServer.McpServer, McpServer.McpServer.of({ ...made, addTool: (options) => Ref.update(registered, Record.set(options.tool.name, options)) })));
@@ -55,6 +60,7 @@ class Link extends Schema.Class<Link, { readonly brand: unique symbol }>('Link')
                         );
                         return McpSchema.CallToolResult.make(Struct.evolve(result, { content: Array.appendAll(yield* Ref.get(blocks)) }));
                     }),
+                    notices: () => Rpc.fork(notices),
                 };
             }),
         );

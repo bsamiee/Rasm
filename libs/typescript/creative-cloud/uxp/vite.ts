@@ -5,25 +5,24 @@ import { layer } from '@effect/platform-node/NodeServices';
 import { paint } from '@rasm/mark';
 import { HostError } from '@rasm/object-model';
 import { formatHex } from 'culori/fn';
-import { Array, Effect, FileSystem, Option, Record, Schema, String } from 'effect';
+import { Array, Effect, FileSystem, Option, Record, Schema, SemVer, String } from 'effect';
 import { applyEdits, modify } from 'jsonc-parser';
 import { defaultClientConditions, defaultServerConditions, mergeConfig, type Rolldown, type UserConfig, type UserConfigFnPromise } from 'vite';
-import { UxpManifest } from '#/manifest';
+import { HOSTS, UxpManifest } from '#/manifest';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Icon = NonNullable<UxpManifest['icons']>[number];
 
-interface Plugin {
-    readonly masters?: { readonly plugin?: string; readonly panels?: Record.ReadonlyRecord<string, string> };
-    readonly network?: readonly string[];
-    readonly config?: UserConfig;
-}
-
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const HOSTED = /^adobe:/u;
 const RASTER = /\.png$/u;
+const MARKS = fileURLToPath(new URL('../../../../products/apps/creative-cloud/multi-app/atelier/icons/', import.meta.url));
+
+// --- [MODELS] --------------------------------------------------------------------------
+
+const Composed = Schema.fromJsonString(Schema.Struct({ groups: Schema.NonEmptyArray(Schema.Struct({ layers: Schema.NonEmptyArray(Schema.Struct({ 'image-name': Schema.String })) })) })).annotate({ description: 'Icon Composer document by the image of its first layer' });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -77,15 +76,21 @@ const pluginBundle = (directory: string, exported: readonly string[], config: Us
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const uxp = (directory: string, { masters = {}, network = [], config = {} }: Plugin = {}): UserConfigFnPromise =>
+const uxp = (directory: string, config: UserConfig = {}): UserConfigFnPromise =>
     Effect.fnUntraced(
         function* () {
-            const source = yield* FileSystem.FileSystem.use((fs) => fs.readFileString(join(directory, UxpManifest.file)));
+            const fs = yield* FileSystem.FileSystem;
+            const [source, composed] = yield* Effect.all([fs.readFileString(join(directory, UxpManifest.file)), Effect.flatMap(fs.readFileString(join(MARKS, 'AppIcon.icon', 'icon.json')), Schema.decodeEffect(Composed))]);
             const manifest = yield* Schema.decodeEffect(UxpManifest.json)(source);
+            const plugin = join(MARKS, 'AppIcon.icon', 'Assets', composed.groups[0].layers[0]['image-name']);
+            const marks = new Set(yield* fs.readDirectory(MARKS));
+            const marked = (panel: string) => Option.liftPredicate(join(MARKS, `${panel}.svg`), () => marks.has(`${panel}.svg`));
             const [context, lite] = yield* Effect.all([Effect.context<Effect.Services<ReturnType<typeof emitted>>>(), Effect.promise(() => import('@exodus/bytes/encoding-lite.js'))]);
             const domains = manifest.requiredPermissions.network?.domains ?? [];
-            const permitted = domains === 'all' || Array.isReadonlyArrayEmpty(network) ? source : applyEdits(source, modify(source, ['requiredPermissions', 'network', 'domains'], Array.dedupe([...domains, ...network]), { formattingOptions: { insertSpaces: true, tabSize: 4 } }));
-            const icons = [...Array.map(manifest.icons ?? [], (icon) => [icon, Option.fromUndefinedOr(masters.plugin)] as const), ...manifest.entrypoints.flatMap((entry) => (entry.type === 'panel' ? Array.map(entry.icons ?? [], (icon) => [icon, Option.fromUndefinedOr(masters.panels?.[entry.id])] as const) : []))];
+            const formatting = { formattingOptions: { insertSpaces: true, tabSize: 4 } };
+            const floored = applyEdits(source, modify(source, ['host', 'minVersion'], SemVer.format(HOSTS[manifest.host.app].since), formatting));
+            const permitted = domains === 'all' ? floored : applyEdits(floored, modify(floored, ['requiredPermissions', 'network', 'domains'], Array.dedupe([...domains, UxpManifest.link.origin]), formatting));
+            const icons = [...Array.map(manifest.icons ?? [], (icon) => [icon, Option.some(plugin)] as const), ...manifest.entrypoints.flatMap((entry) => (entry.type === 'panel' ? Array.map(entry.icons ?? [], (icon) => [icon, marked(entry.id)] as const) : []))];
             return pluginBundle(
                 directory,
                 Object.keys(lite),

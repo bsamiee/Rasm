@@ -10,6 +10,9 @@
             "path": "../../data/search"
         },
         {
+            "path": "../../runtime/process"
+        },
+        {
             "path": "../object-model"
         }
     ]

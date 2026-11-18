@@ -1,13 +1,15 @@
 import { Adjust, Typeset, Typesetting } from '@rasm/indesign';
-import { adjust, call, change, findChange, font, inspect, invoke, KASHIDA_WIDTHS, kerns, listened, Model, menu, open, preflight, rasterize, runs, STYLISTIC_TAGS, session, thousandths, typeset } from '@rasm/indesign/uxp';
+import { adjust, call, change, findChange, font, inspect, KASHIDA_WIDTHS, kerns, listened, Model, preflight, render, runs, STYLISTIC_TAGS, session, thousandths, typeset } from '@rasm/indesign/uxp';
 import { Link } from '@rasm/mcp';
-import { Declaration, HostError, type Rasterize } from '@rasm/object-model';
+import { Declaration, HostError, Rendering } from '@rasm/object-model';
+import { read } from '@rasm/object-model/host';
 import { Settings } from '@rasm/typography';
+import { UxpManifest } from '@rasm/uxp';
 import { Plugin, Uxp } from '@rasm/uxp/plugin';
 import { picker, widget } from '@rasm/uxp/spectrum';
-import { Array, Cause, Effect, Function, flow, Layer, Match, Number, Option, type Path, Record, Schema, Scope, Semaphore, Struct } from 'effect';
+import { Array, Cause, Effect, Function, flow, Layer, Match, Number, Option, type Path, Predicate, Queue, Record, Schema, Scope, Semaphore, Stream, Struct } from 'effect';
 import declared from 'indesign-uxp-types/flat?inline';
-import { ATELIER, InDesign } from '#/tools';
+import { InDesign } from '#/tools';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -32,33 +34,24 @@ const nudged = Effect.fnUntraced(function* (deltas: Option.Option<(steps: typeof
 
 const [model, permit] = Effect.runSync(Effect.all([Effect.flatMap(Schema.decodeEffect(Schema.fromJsonString(Declaration.Model))(declared), Model.make), Semaphore.make(1)]));
 const scripted = <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.scopedWith((scope) => Effect.andThen(Scope.provide(session, scope), effect)).pipe(Semaphore.withPermit(permit), Effect.provideService(Model, model));
-const tools = Link.serve(InDesign).pipe(
-    Layer.provide(
-        InDesign.toLayer(
-            Effect.map(Effect.context<Uxp>(), (services) => {
-                const hosted = <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.provideContext(scripted(effect), services);
-                return {
-                    read: flow(inspect, hosted),
-                    change: flow(change, hosted),
-                    call: flow(call, hosted),
-                    find_change: flow(findChange, hosted),
-                    invoke: flow(invoke, hosted),
-                    adjust: flow(adjust, hosted),
-                    menu: flow(menu, hosted),
-                    preflight: flow(preflight, hosted),
-                    open: flow(open, hosted),
-                    rasterize: ({ target, longestSide, options }: Rasterize) => hosted(Uxp.rendered((file) => rasterize(target, longestSide, options, file.nativePath), 'rasterized.png')),
-                };
-            }),
-        ),
-    ),
-);
-const typesetting = Typesetting.toLayer({ runs: flow(runs, scripted), kerns: flow(kerns, scripted), typeset: flow(typeset, scripted), font: flow(font, scripted) });
+const notices = (extension: string) =>
+    Stream.callback<typeof Link.Notice.Type>((queue) =>
+        listened([model.Document.AFTER_OPEN, model.Document.AFTER_SAVE, model.Document.BEFORE_CLOSE], extension, (event) => {
+            const [name, target] = [read(event, 'eventType'), read(event, 'target')];
+            if (Predicate.isString(name) && model.document(target)) {
+                Queue.offerUnsafe(queue, { name, target: Option.some(target.toSpecifier()), detail: Option.none() });
+            }
+        }).pipe(Effect.provideService(Model, model)),
+    );
 const linked = (extension: string, root: Effect.Effect<URL, HostError, Path.Path>) =>
     Link.dial(
-        Typesetting,
-        Layer.merge(tools, typesetting),
-        ATELIER,
+        Rendering.merge(Typesetting),
+        Layer.mergeAll(
+            Link.serve(InDesign, { notices: notices(extension) }).pipe(Layer.provide(InDesign.toLayer({ read: flow(inspect, scripted), change: flow(change, scripted), call: flow(call, scripted), find_change: flow(findChange, scripted), adjust: flow(adjust, scripted), preflight: flow(preflight, scripted) }))),
+            Rendering.toLayer({ render: ({ target }) => scripted(Uxp.rendered((file) => render(target, file.nativePath), 'rendered.png')) }),
+            Typesetting.toLayer({ runs: flow(runs, scripted), kerns: flow(kerns, scripted), typeset: flow(typeset, scripted), font: flow(font, scripted) }),
+        ),
+        UxpManifest.link,
         Effect.all([Effect.tryPromise({ try: () => model.app.fullName, catch: HostError.refused('application fullName') }).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Uxp.Application))), root]).pipe(Effect.map(([{ url }, folder]) => Link.make({ application: url, extension, root: Option.some(folder) }))),
     );
 const panel = Effect.fnUntraced(function* (root: HTMLElement, fork: <A, X>(work: Effect.Effect<A, X>) => void) {

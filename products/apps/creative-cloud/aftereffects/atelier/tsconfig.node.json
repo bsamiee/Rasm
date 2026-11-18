@@ -7,5 +7,9 @@
         "types": ["node"]
     },
     "include": ["vite.config.ts"],
-    "references": [{ "path": "../../../../../libs/typescript/creative-cloud/cep/tsconfig.node.json" }]
+    "references": [
+        {
+            "path": "../../../../../libs/typescript/creative-cloud/uxp/tsconfig.node.json"
+        }
+    ]
 }

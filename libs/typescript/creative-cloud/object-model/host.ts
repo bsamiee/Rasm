@@ -167,7 +167,7 @@ const identified = (row: Contained, owner: unknown, value: object): Selector | u
 const specified = (containment: Containment, value: unknown): Step[] | undefined => {
     for (const kind in isRecord(value) && value !== containment.root ? containment.kinds : {}) {
         const row = containment.kinds[kind];
-        const owner = isRecord(value) && row?.is(value) === true ? (row.owner?.(value) ?? containment.root) : undefined;
+        const owner = isRecord(value) && row?.is(value) === true ? (row.owner === undefined ? containment.root : row.owner(value)) : undefined;
         const above = owner === undefined ? undefined : specified(containment, owner);
         const chosen = row?.collection === undefined || !isRecord(value) ? undefined : identified(row, owner, value);
         if (above !== undefined && (row?.collection === undefined || chosen !== undefined)) {

@@ -155,8 +155,6 @@
                         "APPLE_DEVELOPMENT_P12_PASSWORD",
                         "DEVELOPER_ID_P12",
                         "DEVELOPER_ID_P12_PASSWORD",
-                        "ZXP_CERTIFICATE",
-                        "ZXP_CERTIFICATE_PASSWORD",
                         "CLOUDFLARE_API_TOKEN",
                         "DOPPLER_TOKEN",
                         "DOPPLER_IAC_TOKEN",

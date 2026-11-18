@@ -9,19 +9,13 @@
         "types": ["node", "@adobe-uxp-types/uxp/with-protocol"]
     },
     "include": ["**/*"],
-    "exclude": ["dist", "vite.config.ts"],
+    "exclude": ["vite.config.ts"],
     "references": [
         {
             "path": "../../../../../libs/typescript/creative-cloud/uxp/tsconfig.lib.json"
         },
         {
             "path": "../../../../../libs/typescript/creative-cloud/photoshop"
-        },
-        {
-            "path": "../../../../../libs/typescript/creative-cloud/object-model"
-        },
-        {
-            "path": "../../../../../libs/typescript/ai/mcp"
         }
     ]
 }

@@ -4,19 +4,18 @@
         "composite": false,
         "declarationMap": false,
         "noEmit": true,
-        "lib": ["es2022", "dom"]
+        "lib": ["es2022", "dom"],
+        "module": "preserve",
+        "types": ["node", "@adobe-uxp-types/uxp/with-protocol"]
     },
-    "include": ["panel.ts"],
+    "include": ["**/*"],
+    "exclude": ["vite.config.ts"],
     "references": [
         {
-            "path": "../../../../../libs/typescript/creative-cloud/object-model"
+            "path": "../../../../../libs/typescript/creative-cloud/uxp/tsconfig.lib.json"
         },
         {
-            "path": "../../../../../libs/typescript/ai/mcp"
-        },
-        {
-            "path": "../../../../../libs/typescript/creative-cloud/cep/tsconfig.lib.json"
+            "path": "../../../../../libs/typescript/creative-cloud/illustrator"
         }
-    ],
-    "nx": { "sync": { "ignoredDependencies": ["@rasm/illustrator", "@rasm/extendscript"] } }
+    ]
 }

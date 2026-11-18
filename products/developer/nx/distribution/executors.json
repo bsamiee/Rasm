@@ -8,7 +8,7 @@
         "package": {
             "implementation": "./dist/executors/package/executor#execute",
             "schema": "./executors/package/schema.json",
-            "description": "Packs the Adobe UXP plugin or CEP extension the project's other builds wrote, else its tracked source folder: a .ccx zip for a manifest.json, a .zxp ZXPSignCmd signs for a CSXS/manifest.xml with the certificate its identity variables hold, else with one it creates for the pack"
+            "description": "Packs each host package the project's other builds wrote, else its tracked source folder: a .ccx zip for an Adobe UXP manifest.json, a .yak through yak build for a manifest.yml"
         },
         "install": {
             "implementation": "./dist/executors/install/executor#execute",

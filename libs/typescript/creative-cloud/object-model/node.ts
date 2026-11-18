@@ -3,7 +3,7 @@ import { dirname, join } from 'node:path';
 import { getTouchingPropertyName, isParameterDeclaration, isPropertyAccessExpression, isSetAccessorDeclaration, isTypeAliasDeclaration } from '@typescript/native/ast';
 import { createFileSystemLayer, createFileSystemWithLib, type FileSystemCallbacks, serverFS } from '@typescript/native/fs';
 import { API, type Checker, type Snapshot, type Diagnostic, DiagnosticCategory, type Program, type Signature, SymbolFlags, type Symbol as TypeScriptSymbol, type Type, TypeFlags, TypeFormatFlags } from '@typescript/native/sync';
-import { Array, Effect, Equal, Function, flow, Match, Option, Record, Result, Schema, SchemaTransformation, Stream, Struct } from 'effect';
+import { Array, Effect, Equal, Function, flow, Match, Option, Predicate, Record, Result, Schema, SchemaTransformation, Stream, Struct } from 'effect';
 import { Ndjson } from 'effect/encoding';
 import { XMLParser } from 'fast-xml-parser';
 import { Declaration } from '#/model';
@@ -23,7 +23,7 @@ const SCRIPT = '/script.ts';
 const VERSIONS = ['minVersion', 'since'] as const;
 const OPTIONS = ['--target', 'es2022', '--module', 'esnext', '--moduleResolution', 'bundler', '--lib', 'es2022', '--strict', 'false', '--skipLibCheck', '--noEmit'] as const;
 const RANGE = /\(Range: [^)]*\)/u;
-const LISTED = new Set(['classdef', 'elements', 'property', 'method', 'parameter']);
+const LISTED = new Set(['classdef', 'elements', 'property', 'method', 'parameter', 'datatype']);
 const PARSER = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '', textNodeName: 'text', parseTagValue: false, parseAttributeValue: false, isArray: (name) => LISTED.has(name) });
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -31,12 +31,12 @@ const PARSER = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '',
 const Flag = <const T extends string, const F extends string>(truthy: T, falsy: F) => Schema.Union([Schema.Literal(truthy).transform(true), Schema.Literal(falsy).transform(false)]);
 const Ranged = Schema.TemplateLiteralParser(['(Range: ', Schema.Finite, ' to ', Schema.Finite, ')']);
 const Text = Schema.Union([Schema.String, Schema.Struct({ text: Schema.String }).pipe(Schema.decodeTo(Schema.String, SchemaTransformation.transform({ decode: Struct.get('text'), encode: (text) => ({ text }) })))]);
-const Datatype = Schema.Struct({ type: Text, array: Schema.optionalKey(Schema.String), value: Schema.optionalKey(Text), ...Struct.Record(['min', 'max'], Schema.optionalKey(Schema.FiniteFromString)) });
-const Described = { name: Schema.String, shortdesc: Schema.optionalKey(Text), datatype: Schema.optionalKey(Datatype) };
+const Datatype = Schema.Struct({ type: Text, array: Schema.optionalKey(Schema.Union([Schema.String, Schema.Struct({ size: Schema.String })])), value: Schema.optionalKey(Text), ...Struct.Record(['min', 'max'], Schema.optionalKey(Schema.FiniteFromString)) });
+const Described = { name: Schema.String, shortdesc: Schema.optionalKey(Text), datatype: Schema.optionalKey(Schema.NonEmptyArray(Datatype).annotate({ description: 'Alternatives where a value takes more than one type' })) };
 const Argued = Schema.Struct({ ...Described, optional: Schema.optionalKey(Schema.Literal('true').transform(true)) });
 const Property = Schema.Struct({ ...Described, rwaccess: Schema.optionalKey(Schema.Literal('readonly').transform(true)) });
 const Called = Schema.Struct({ ...Described, parameters: Schema.optionalKey(Schema.Struct({ parameter: Schema.Array(Argued) })) });
-const Elements = Schema.Struct({ type: Flag('instance', 'class'), property: Schema.optionalKey(Schema.Array(Property)), method: Schema.optionalKey(Schema.Array(Called)) });
+const Elements = Schema.Struct({ type: Schema.Literals(['instance', 'class', 'constructor', 'event']), property: Schema.optionalKey(Schema.Array(Property)), method: Schema.optionalKey(Schema.Array(Called)) });
 const Classdef = Schema.Struct({ ...Described, enumeration: Schema.optionalKey(Schema.Literal('true').transform(true)), superclass: Schema.optionalKey(Text), elements: Schema.Array(Elements).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))) });
 const Omv = Schema.Struct({ dictionary: Schema.Struct({ package: Schema.Struct({ classdef: Schema.Array(Classdef) }) }) });
 const Stated = Flag('true', 'false');
@@ -289,31 +289,45 @@ const declared = Effect.fnUntraced(function* (compiler: Option.Option<{ readonly
 
 const nonEmpty = (text: string) => Option.liftPredicate(text.trim(), (trimmed) => trimmed !== '');
 const summary = (shortdesc: string | undefined) => Option.flatMap(Option.fromUndefinedOr(shortdesc), nonEmpty);
-const datatyped = (datatype: typeof Datatype.Type | undefined) => ({
-    type: Option.map(Option.fromUndefinedOr(datatype), ({ type, array }) => (array === undefined ? type : `${type}[]`)),
-    minimum: Option.fromUndefinedOr(datatype?.min),
-    maximum: Option.fromUndefinedOr(datatype?.max),
+const datatyped = (datatypes: Array.NonEmptyReadonlyArray<typeof Datatype.Type> | undefined) => ({
+    type: Option.map(Option.fromUndefinedOr(datatypes), (alternatives) => Array.map(alternatives, ({ type, array }) => (array === undefined ? type : `${type}[]`)).join(' | ')),
+    minimum: Array.findFirst(datatypes ?? [], ({ min }) => Option.fromUndefinedOr(min)),
+    maximum: Array.findFirst(datatypes ?? [], ({ max }) => Option.fromUndefinedOr(max)),
 });
 const parameter = (each: typeof Argued.Type) => Declaration.Parameter.make({ name: each.name, description: summary(each.shortdesc), ...datatyped(each.datatype), optional: each.optional ?? false });
-const classdef = ({ name, shortdesc, enumeration, superclass, elements }: typeof Classdef.Type): readonly [string, typeof Declaration.Page.Type] => {
-    const description = summary(shortdesc);
-    const properties = Array.flatMap(elements, (group) => group.property ?? []);
-    return [
-        name,
-        (enumeration ?? false)
-            ? Declaration.cases.Enumeration.make({ name, description, members: Array.map(properties, (each) => ({ name: each.name, description: summary(each.shortdesc), value: Option.fromUndefinedOr(each.datatype?.value) })) })
-            : Declaration.cases.Class.make({
-                  name,
-                  description,
-                  parents: Option.toArray(Option.fromUndefinedOr(superclass)),
-                  constructible: !elements.some(Struct.get('type')),
-                  fields: Array.map(properties, (each) => Declaration.Field.make({ name: each.name, description: summary(each.shortdesc), ...datatyped(each.datatype), readonly: each.rwaccess ?? false })),
-                  methods: Array.flatMap(elements, (group) => Array.map(group.method ?? [], (each) => Declaration.Method.make({ name: each.name, description: summary(each.shortdesc), ...datatyped(each.datatype), parameters: Array.map(each.parameters?.parameter ?? [], parameter) }))),
-              }),
-    ];
-};
+const grouped =
+    (type: (typeof Elements.Type)['type']) =>
+    ({ elements }: typeof Classdef.Type) =>
+        elements.some((group) => group.type === type);
+const classdef =
+    (constructible: Predicate.Predicate<typeof Classdef.Type>) =>
+    (definition: typeof Classdef.Type): readonly [string, typeof Declaration.Page.Type] => {
+        const { name, shortdesc, enumeration, superclass, elements } = definition;
+        const description = summary(shortdesc);
+        const properties = Array.flatMap(elements, (group) => group.property ?? []);
+        return [
+            name,
+            (enumeration ?? false)
+                ? Declaration.cases.Enumeration.make({ name, description, members: Array.map(properties, (each) => ({ name: each.name, description: summary(each.shortdesc), value: Array.findFirst(each.datatype ?? [], ({ value }) => Option.fromUndefinedOr(value)) })) })
+                : Declaration.cases.Class.make({
+                      name,
+                      description,
+                      parents: Option.toArray(Option.fromUndefinedOr(superclass)),
+                      constructible: constructible(definition),
+                      fields: Array.map(properties, (each) => Declaration.Field.make({ name: each.name, description: summary(each.shortdesc), ...datatyped(each.datatype), readonly: each.rwaccess ?? false })),
+                      methods: Array.flatMap(elements, (group) =>
+                          Array.map(group.type === 'constructor' ? [] : (group.method ?? []), (each) => Declaration.Method.make({ name: each.name, description: summary(each.shortdesc), ...datatyped(each.datatype), parameters: Array.map(each.parameters?.parameter ?? [], parameter) })),
+                      ),
+                  }),
+        ];
+    };
+const classdefs = ({ dictionary }: typeof Omv.Type) => Array.map(dictionary.package.classdef, classdef(dictionary.package.classdef.some(grouped('constructor')) ? grouped('constructor') : Predicate.not(grouped('instance'))));
 const paged = (pages: Record.ReadonlyRecord<string, typeof Declaration.Page.Type>) => Declaration.catalog(pages, Function.identity, Declaration.guards.Enumeration);
-const omv = (text: string) => Effect.map(Schema.decodeUnknownEffect(Omv)(PARSER.parse(text)), ({ dictionary }) => paged(Record.fromIterableWith(dictionary.package.classdef, classdef)));
+const omv = (texts: Array.NonEmptyReadonlyArray<string>) =>
+    Effect.map(
+        Effect.forEach(texts, (text) => Schema.decodeUnknownEffect(Omv)(PARSER.parse(text))),
+        (decoded) => paged(Record.fromEntries(Array.flatMap(decoded, classdefs))),
+    );
 const entry = ({ name, properties, methods }: typeof Entry.Type): readonly [string, typeof Declaration.Page.Type] => {
     const [callable, constructors] = Array.partition(methods ?? [], Result.liftPredicate(Schema.is(Callable), Function.identity));
     return [

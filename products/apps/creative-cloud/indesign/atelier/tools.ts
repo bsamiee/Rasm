@@ -1,12 +1,7 @@
-import { Adjust, Called, Inspection, MenuActions, Search, Slice, Value } from '@rasm/indesign';
-import { Content } from '@rasm/mcp';
-import { Failure, Open, Rasterize, Reference, Specifier, Written } from '@rasm/object-model';
+import { Adjust, Called, Inspection, Search, Slice, Value } from '@rasm/indesign';
+import { Failure, Reference, Specifier, Written } from '@rasm/object-model';
 import { Effect, Option, Record, Schema } from 'effect';
 import { Tool, Toolkit } from 'effect/ai';
-
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const ATELIER = new URL('ws://localhost:7490');
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -50,12 +45,6 @@ class FindChange extends Schema.Class<FindChange, { readonly brand: unique symbo
         return `${Option.isSome(this.change) ? 'Change' : 'Find'} ${this.mode}`;
     }
 }
-class Invoke extends Schema.Class<Invoke, { readonly brand: unique symbol }>('Invoke')({ action: Schema.Union([Schema.Int, Schema.String]).annotate({ description: 'Menu action id or name' }) }) {
-    get label(): string {
-        return `Invoke ${this.action}`;
-    }
-}
-class Menu extends Schema.Class<Menu, { readonly brand: unique symbol }>('Menu')({ area: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'Area in any case' })) }) {}
 class Preflight extends Schema.Class<Preflight, { readonly brand: unique symbol }>('Preflight')({
     document: Schema.OptionFromOptionalKey(Specifier.Path.annotate({ description: 'Open document, every document with live preflight when absent' })),
     profile: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'Profile name in any case, panel profile when absent' })),
@@ -70,14 +59,10 @@ const InDesign = Toolkit.make(
     Tool.make('change', { description: 'Writes object fields in one undo step, failures name every refused field by path', parameters: Change, success: Written, failure: Failure }),
     Tool.make('call', { description: 'Calls object or collection method in one undo step, atelier://object-model/indesign/{name} lists its parameters', parameters: Call, success: Called, failure: Failure }),
     Tool.make('find_change', { description: 'Finds or changes matches in one undo step and restores search preferences, values take change forms', parameters: FindChange, success: FindChange.Result, failure: Failure }),
-    Tool.make('invoke', { description: 'Invokes menu action in one undo step, menu lists actions by id, name, and area', parameters: Invoke, success: MenuActions.value, failure: Failure }),
     Tool.make('adjust', { description: 'Adds kerning, tracking, baseline shift or mark offsets to target text in one undo step, / for text defaults', parameters: Adjust, success: Adjust.Result, failure: Failure }),
-    Tool.make('menu', { description: 'Lists menu actions of one area or every area', parameters: Menu, success: MenuActions, failure: Failure }).annotate(Tool.Readonly, true),
     Tool.make('preflight', { description: 'Reads preflight rows per document, the finished live results when no profile is given, each read waiting for the preflight process every live check restarts', parameters: Preflight, success: Preflight.Result, failure: Failure }).annotate(Tool.Readonly, true),
-    Tool.make('open', { description: 'Opens document without dialogs or window and returns its reference', parameters: Open, success: Open.Result, failure: Failure }),
-    Tool.make('rasterize', { description: 'Rasterizes page, spread, or page item as PNG, a page item without the rest of its page', parameters: Rasterize, success: Schema.Struct({ image: Content.image('image/png'), width: Schema.Int, height: Schema.Int }), failure: Failure }).annotate(Tool.Readonly, true),
 );
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { ATELIER, InDesign };
+export { InDesign };

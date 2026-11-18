@@ -1,15 +1,16 @@
+import type { Terms } from '@rasm/applications';
 import { ApplicationServer } from '@rasm/applications/node';
-import { ExtensionManifest } from '@rasm/cep';
 import type { Application } from '@rasm/creative-cloud-desktop';
 import { Completion } from '@rasm/extendscript';
 import runtime from '@rasm/extendscript/host?inline';
 import { lower, traced } from '@rasm/extendscript/node';
-import { ScriptHost } from '@rasm/indesign';
+import { ScriptHost as Illustrator } from '@rasm/illustrator';
+import { ScriptHost as InDesign } from '@rasm/indesign';
 import { Link, Server } from '@rasm/mcp';
 import { Evaluation, HostError, Script } from '@rasm/object-model';
 import type { Unmatched } from '@rasm/search';
-import { UxpManifest } from '@rasm/uxp';
-import { Array, Cause, Context, Effect, Match, Option, Record, Ref, Schema, Struct } from 'effect';
+import { HOSTS, UxpManifest } from '@rasm/uxp';
+import { Array, Cause, Context, Effect, Match, Option, Record, Ref, Schema, SemVer, Struct } from 'effect';
 import { Tool } from 'effect/ai';
 import type { RpcClient, RpcClientError, RpcGroup } from 'effect/rpc';
 import shim from 'es5-shim?inline';
@@ -21,16 +22,18 @@ import { Declarations } from '#/declarations';
 
 interface Plan {
     readonly program: (body: string) => string;
-    readonly target: typeof UxpManifest.target | typeof ExtensionManifest.target;
+    readonly target: typeof UxpManifest.target | typeof lower.extendscript;
     readonly offset: number;
     readonly direct: (source: string) => string;
     readonly declared: Record.ReadonlyRecord<string, { readonly _tag: 'enumerator'; readonly name: string }>;
 }
-type Runtime = { readonly _tag: 'Linked' } | { readonly _tag: 'Uxp'; readonly parameter: string; readonly host: typeof ScriptHost } | { readonly _tag: 'Script' } | { readonly _tag: 'Unlinked' };
+type Runtime = { readonly _tag: 'Linked' } | { readonly _tag: 'Uxp'; readonly parameter: string; readonly host: typeof InDesign } | { readonly _tag: 'Unlinked' } | { readonly _tag: 'Script'; readonly around: string };
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const HOSTS: Partial<Record<keyof typeof UxpManifest.scripts, typeof ScriptHost>> = { ID: ScriptHost };
+const UXP: Record.ReadonlyRecord<string, typeof InDesign> = { [HOSTS.ID.product]: InDesign };
+const EXTENDSCRIPT: Record.ReadonlyRecord<string, typeof Illustrator> = { [HOSTS.AI.product]: Illustrator };
+const RELEASE = /^\d+\.\d+\.\d+/u;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -40,7 +43,7 @@ const Body = Schema.Struct({ code: Evaluation.fields.code.annotate({ description
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const extendscript = (source: string) => `(function (self) {\n${source}\nif (typeof Object.keys !== 'function') {\n${shim}\n${sham}\n}\n${runtime}\nreturn encodeURIComponent(runtime.reply(function () { return { result: body.call(self) }; }));\n})(this)`;
+const extendscript = (source: string) => `(function (self) {\n${source}\nif (typeof Object.keys !== 'function') {\n${shim}\n${sham}\n}\n${runtime}\nreturn encodeURIComponent(runtime.reply(function () { return around(self, function () { return { result: body.call(self) }; }, runtime); }));\n})(this)`;
 const relined = (line: (at: number) => Option.Option<number>) => (error: HostError) => Effect.fail(HostError.fields.reason.isAnyOf(['Thrown'])(error.reason) ? HostError.thrown(error.subject, Option.flatMap(error.reason.line, line))(error.cause) : error);
 const planned = Match.typeTags<Runtime>()({
     Linked: (): Plan => ({ program: (body: string) => Evaluation.expression(body, true), target: UxpManifest.target, offset: 0, direct: (source: string) => source, declared: {} }),
@@ -52,7 +55,7 @@ const planned = Match.typeTags<Runtime>()({
         direct: (source: string) => UxpManifest.script(source, { runtime, host }),
         declared: { [parameter]: { _tag: 'enumerator' as const, name: UxpManifest.scriptLanguage } },
     }),
-    Script: (): Plan => ({ program: (body: string) => `var body = ${Evaluation.expression(body, false)}`, target: ExtensionManifest.target, offset: 1, direct: extendscript, declared: {} }),
+    Script: ({ around }): Plan => ({ program: (body: string) => `var body = ${Evaluation.expression(body, false)};\nvar around = ${around};`, target: lower.extendscript, offset: 1, direct: extendscript, declared: {} }),
 });
 const opened = (line: number) => Option.liftPredicate(line - 1, (at) => at > 0);
 const compiled = Effect.fnUntraced(function* (body: string, plan: Plan) {
@@ -60,22 +63,21 @@ const compiled = Effect.fnUntraced(function* (body: string, plan: Plan) {
     const original = yield* traced(map);
     return { code, direct: plan.direct(code), declared: plan.declared, relined: relined((line) => Option.map(original(line - plan.offset), (entry) => entry.line - 1)) };
 });
-const dictionary = Effect.fnUntraced(
-    function* (server: ApplicationServer['Service'], { url, documents }: Application) {
-        const { script } = yield* server.terms({ url });
+const routed = Effect.fnUntraced(
+    function* <E, R>(terms: (target: Pick<Application, 'url'>) => Effect.Effect<Pick<Terms, 'script'>, E, R>, { url, product, version }: Pick<Application, 'url' | 'product' | 'version'>) {
+        const released = Option.flatMap(Option.fromNullishOr(RELEASE.exec(version)?.[0]), Schema.decodeOption(Schema.SemVerFromString));
+        const plugged = Record.some(HOSTS, (host) => host.runs && host.product === product && Option.exists(released, (at) => SemVer.isGreaterThanOrEqualTo(at, host.since)));
+        const unlinked = Option.liftPredicate<Runtime>({ _tag: 'Unlinked' }, () => plugged);
+        const host = Record.get(UXP, product);
+        if (plugged && Option.isNone(host)) {
+            return unlinked;
+        }
+        const { script } = yield* terms({ url });
         const language = Option.flatMap(script, ({ parameters }) => Array.findFirst(parameters, ({ enumerators }) => Array.contains(Array.map(enumerators, Struct.get('code')), UxpManifest.scriptLanguage)));
-        return Option.match(
-            Record.findFirst(UxpManifest.scripts, (extension) => documents.includes(extension)),
-            {
-                onNone: (): Option.Option<Runtime> => Option.as(script, { _tag: 'Script' } as const),
-                onSome: ([app]): Option.Option<Runtime> =>
-                    Option.some(
-                        Option.match(Option.all({ parameter: language, host: Option.fromUndefinedOr(HOSTS[app]) }), {
-                            onNone: (): Runtime => ({ _tag: 'Unlinked' }),
-                            onSome: ({ parameter: { name }, host }): Runtime => ({ _tag: 'Uxp', parameter: name, host }),
-                        }),
-                    ),
-            },
+        const around = Option.getOrElse(Option.map(Record.get(EXTENDSCRIPT, product), Struct.get('around')), () => String(<A>(_: unknown, body: () => A): A => body()));
+        return Option.map(Option.all({ parameter: language, host }), ({ parameter: { name }, host: scripted }): Runtime => ({ _tag: 'Uxp', parameter: name, host: scripted })).pipe(
+            Option.orElse(() => unlinked),
+            Option.orElse(() => Option.as(script, { _tag: 'Script', around } as const)),
         );
     },
     Effect.tapError((cause) => Effect.logDebug('Scripting dictionary unread', cause)),
@@ -92,7 +94,7 @@ const scripts = Effect.fnUntraced(function* (links: { readonly peers: Effect.Eff
     const [server, { current, ends }, dictionaries, declarations] = yield* Effect.all([ApplicationServer, Inventory, Ref.make<Record.ReadonlyRecord<string, Option.Option<Runtime>>>({}), Declarations]);
     const read = Effect.fnUntraced(function* (row: Application) {
         const known = Record.get(yield* Ref.get(dictionaries), row.url.href);
-        const fresh = Effect.tap(dictionary(server, row), (found) => Ref.update(dictionaries, Record.set(row.url.href, found)));
+        const fresh = Effect.tap(routed(server.terms, row), (found) => Ref.update(dictionaries, Record.set(row.url.href, found)));
         return yield* Option.match(known, { onSome: Effect.succeed, onNone: () => fresh });
     });
     yield* Server.registerTool(
@@ -126,4 +128,4 @@ const scripts = Effect.fnUntraced(function* (links: { readonly peers: Effect.Eff
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { scripts };
+export { routed, scripts };

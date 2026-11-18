@@ -1,0 +1,15 @@
+{
+    "name": "@rasm/test-atelier",
+    "private": true,
+    "description": "Atelier suites: the runtime execute_script picks per application and version, the port a native MCP server of a running application listens on, and the bearer token Illustrator preferences hold",
+    "type": "module",
+    "devDependencies": {
+        "@effect/vitest": "catalog:",
+        "@rasm/applications": "workspace:*",
+        "@rasm/atelier": "workspace:*",
+        "@types/node": "catalog:",
+        "effect": "catalog:",
+        "vite": "catalog:",
+        "vitest": "catalog:"
+    }
+}

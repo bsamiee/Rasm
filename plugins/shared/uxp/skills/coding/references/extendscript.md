@@ -1,6 +1,6 @@
 # [EXTENDSCRIPT]
 
-Illustrator and After Effects run ExtendScript, linked through a CEP extension and unlinked through `do javascript` and `DoScript`. Illustrator answers `do javascript` with its last expression as Unicode text (`utxt`), and `do script` executes an Actions panel action.
+Illustrator 2027 runs ExtendScript through `do javascript`, and After Effects `DoScript` replies with `app.exitCode` alone, reset to 0 per script. Illustrator answers `do javascript` with its last expression as Unicode text (`utxt`), and `do script` executes an Actions panel action.
 
 ## [01]-[CALLS]
 
@@ -40,7 +40,7 @@ const sent = (body: string) => `(function (self) { var body = ${body}\n${encoder
 const Answer = Schema.StringFromUriComponent.pipe(Schema.decodeTo(Schema.fromJsonString(Reply)));
 ```
 
-`encoded` is the ES3 JSON writer `runtime` declares beside `reply`, and `body` a function expression the same transform lowered. `send` passes `sent(body)` as the `do javascript` direct parameter through an Apple event sender, and `Answer` decodes its reply. Host code throws `unmatched` and `illegal` records, `reply` writes them as their own cases, and `evaluated` decides which throws keep `line`. One `answered(success, subject)` folds every reply on both paths: `Value` decodes through the call's success schema, `Unmatched` fails as itself, `IllegalArgument` fails `IllegalArgumentError`, and `Thrown` fails `HostError` `Thrown` when it holds a line and `Refused` without one, its subject joined with `Error <number>`. `encoded` writes non-finite numbers as `null` and plain records by own keys, skipping a key holding `undefined`, and an unset field decodes through `Schema.optionalKey` and `OptionFromOptionalKey` as absent. Host objects a host specifier names encode as `{type, specifier, name, valid}` with `type` from Illustrator `typename` or the After Effects `Object.prototype.toString` class, and every other host object as its `String` form (`[Document Untitled-1]`).
+`encoded` is the ES3 JSON writer `runtime` declares beside `reply`, and `body` a function expression the same transform lowered. `send` passes `sent(body)` as the `do javascript` direct parameter through an Apple event sender, and `Answer` decodes its reply. Host code throws `unmatched` and `illegal` records, `reply` writes them as their own cases, and `evaluated` decides which throws keep `line`. One `answered(success, subject)` folds every reply on both paths: `Value` decodes through the call's success schema, `Unmatched` fails as itself, `IllegalArgument` fails `IllegalArgumentError`, and `Thrown` fails `HostError` `Thrown` when it holds a line and `Refused` without one, its subject joined with `Error <number>`. `encoded` writes non-finite numbers as `null` and plain records by own keys, skipping a key holding `undefined`, and an unset field decodes through `Schema.optionalKey` and `OptionFromOptionalKey` as absent. Host objects a host specifier names encode as `{type, specifier, name, valid}` with `type` from Illustrator `typename`, and every other host object as its `String` form (`[Document Untitled-1]`).
 
 - `with arguments` (`«class JArg»`) passes text, numbers, booleans, and lists, `null` and records as `undefined`, and `osascript` `argv` as text
 - ExtendScript reads U+2028 and U+2029 as line terminators, and a string literal holding one raw fails to compile, in source and in JSON alike
@@ -59,7 +59,7 @@ ExtendScript is ES3 with `const`, `toSource`, and `uneval`:
 - `Array.prototype` holds no `map`, `forEach`, `filter`, `reduce`, or `indexOf`
 - ExtendScript reads `a || b && c` as `(a || b) && c`, and swc removes the parentheses protecting it, so `lower` restores them at `es3`
 - `toSource()` writes JavaScript source (unquoted keys, `undefined`, `NaN`), never JSON
-- `File.name` reads the URI-encoded name (`My%20File.aep`), and `displayName` the decoded name a reply holds
+- `File.name` reads the URI-encoded name (`My%20File.ai`), and `displayName` the decoded name a reply holds
 - `$.hiresTimer` readings disagree with wall time (negative values, minutes for a call returning in seconds), and timing reads `Date` differences
 
 Host code and bodies are TypeScript that swc lowers under `jsc.target: 'es3'`, where `assumptions.iterableIsArray` turns `for...of` into an index loop alone. Other forms emit helpers calling members ExtendScript lacks, and host code holds plain functions over literal tuples:
@@ -73,33 +73,7 @@ Host code and bodies are TypeScript that swc lowers under `jsc.target: 'es3'`, w
 
 - Array patterns over an array literal (`const [a, b] = [x, y]`) lower to index reads, declarations, parameters, and assignments alike
 
-## [03]-[CEP]
-
-Linked hosts serve requests from a headless CEP 12 extension, and its Chromium 99 page dials the link and calls `evalScript`:
-- `ScriptPath` loads into the host's ExtendScript engine and defines the global the panel calls
-- `__adobe_cep__.evalScript(source, callback)` answers text, `EvalScript error.` for an uncaught throw or a missing global
-- `__adobe_cep__.getSystemPath('hostApplication')` returns the application URL, and `getExtensionId()` the extension id
-- `Custom` UI of 1x1 with `AutoVisible` false, started on `applicationActivate` and `com.adobe.csxs.events.ApplicationActivate`, runs headless
-- Bundled CEP icons are 23 pixels and hold `#000000A6` for `Normal` and `#FFFFFFA6` for `DarkNormal` with a 46-pixel `@2X` sibling in every host, Photoshop's `_x2` an alternative it also reads
-- `__adobe_cep__.getHostEnvironment()` answers JSON with `appSkinInfo`, and `com.adobe.csxs.events.ThemeColorChanged` fires on a host theme change
-- Panels paint `appSkinInfo` sRGB colors, and text takes the `ExtensionManifest.fills` icon fill with the higher WCAG contrast over the panel
-- Host `Version` of one number names that release and later, and `[min,max]` a range
-
-One `handle(envelope) => string` answers every request from a host record, each enter and leave pair run through one try/finally bracket, dialogs around the whole call and the undo step inside it:
-
-| [INDEX] | [FIELD]     | [ILLUSTRATOR]                                      | [AFTER_EFFECTS]                                              |
-| :-----: | :---------- | :------------------------------------------------- | :----------------------------------------------------------- |
-|  [01]   | `indexBase` | `0`                                                | `1`                                                          |
-|  [02]   | `dialogs`   | `userInteractionLevel` held at `DONTDISPLAYALERTS` | `beginSuppressDialogs()`, `endSuppressDialogs(false)`        |
-|  [03]   | `undoGroup` | None, one `evalScript` call is one step            | `beginUndoGroup(label)`, `endUndoGroup()` for script, render |
-|  [04]   | `specifier` | Document `fullName`, `uuid`, artboard, layer index | `/project`, item and layer `[@id=<n>]`                       |
-|  [05]   | `open`      | `app.open(file)`                                   | `app.open(file)`, `null` when no project opens               |
-|  [06]   | `render`    | Added artboard, PNG24 `exportFile`                 | `resolutionFactor`, `saveFrameToPng(time, file).wait()`      |
-
-- `dialogs` state outlasts the call, and the bracket restores it whether the body returns or throws
-- `execute_script` passes `resolve(specifier)` as one more `new Function` parameter, and a direct `eval` result other than a function fails `IllegalArgument`
-
-## [04]-[OBJECT_MODEL]
+## [03]-[OBJECT_MODEL]
 
 Illustrator values name their class and address through host members:
 
@@ -114,22 +88,20 @@ Illustrator values name their class and address through host members:
 Handlers return host objects, and one host `specifier` function builds every reply's specifier from the object:
 - Illustrator names a document by `fullName`, unique where `name` repeats and `/Untitled-1` untitled, and a page item by `uuid` under its document
 - Illustrator names artboards and layers by position in `document.artboards` or their parent's `layers`, the parent's specifier built through `parent`
-- After Effects names the project `/project`, an item `/project/item[@id=<n>]`, and a layer `/layer[@id=<n>]` under its `containingComp`
-- Handlers tell After Effects items apart through `instanceof CompItem`, `FolderItem`, or `FootageItem`
 - Geometry is in points under `app.coordinateSystem` `DOCUMENTCOORDINATESYSTEM`, y growing upward from the first artboard's bottom edge
 - `pathItems.rectangle(top, left, width, height)` places an item with `position` `[left, top]` and `geometricBounds` `[left, top, right, bottom]`
 - ExtendScript holds no listener API (`app.addEventListener` reads `undefined`), and a script reads state when it runs
 - `app.preferences` getters of an unregistered key return a varying value and store the key, where `preferenceExists(key)` stores none
 - Illustrator rewrites `Adobe Illustrator Prefs` whole at quit, and edits to the file while it runs are lost
 
-## [05]-[UNDO_STEPS]
+## [04]-[UNDO_STEPS]
 
 `app.undo()` in a later call reverts every change one Illustrator call made:
 - Throws keep the changes made before them, and their step stays on the undo stack
 - `app.undo()` inside a call reverts that call's changes and the previous call's step together, and code undoes through a call of its own
 - `document.close(SaveOptions.DONOTSAVECHANGES)` closes a document with no dialog
 
-## [06]-[HOST_ERRORS]
+## [05]-[HOST_ERRORS]
 
 Caught `Error` values hold `number`, `message`, `line`, and `source`, the text of the script that threw, and code branches on `number`. Replies name `line` where `source` equals the evaluated body alone, and a host-script throw holds a host-script line:
 
@@ -152,7 +124,7 @@ Caught `Error` values hold `number`, `message`, `line`, and `source`, the text o
 - Four-character codes in 1200 messages read reversed (`MRAP` is `PARM`, a bad parameter)
 - Option object writes recurse into a plain value where the host holds a record, and one `IllegalArgument` names the class by its `Object.prototype.toString` tag with every refused dotted path
 
-## [07]-[EXPORT]
+## [06]-[EXPORT]
 
 | [INDEX] | [OUTPUT]                              | [CALL]                                                                        |
 | :-----: | :------------------------------------ | :---------------------------------------------------------------------------- |
@@ -168,11 +140,8 @@ Caught `Error` values hold `number`, `message`, `line`, and `source`, the text o
 - `saveAs` renames the open document to the written file and marks it saved
 - `exportForScreens` writes `<factor>x/<artboard name>.png`, into target's parent when target folder is missing
 - Image capture, raster, and export resolutions take 72 to 2400, and PNG option ranges refuse a scale the host refuses
-- After Effects `CompItem.resolutionFactor` takes an integer downsample `[x, y]` from 1 to 99, set to `ceil(longest / longestSide)` and restored in `finally`
-- After Effects refuses a factor above 99, naming `ceil(longest / 99)` as the smallest `longestSide`
-- After Effects `saveFrameToPng(composition.time, file)` writes asynchronously, and `.wait()` on its return blocks until the PNG is written
 
-## [08]-[TEXT_AND_FONTS]
+## [07]-[TEXT_AND_FONTS]
 
 `app.textFonts` lists every installed face, and `getByName(<PostScript name>)` reads one. Each `TextFont` holds `name` (PostScript), `family`, and `style`:
 - `textFrames.add()` takes text through `contents`, set in `MyriadPro-Regular` by default

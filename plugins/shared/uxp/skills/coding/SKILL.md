@@ -13,7 +13,7 @@ Ranges and enumerations come from the host's declared object model, localized na
 - [01]-[INDESIGN](references/indesign.md): InDesign behavior its typings leave unstated, for code calling its synchronous DOM
 - [02]-[PHOTOSHOP](references/photoshop.md): Photoshop behavior its typings leave unstated, for descriptor and DOM calls
 - [03]-[PREMIERE](references/premiere.md): Premiere Pro and Media Encoder behavior their typings and manifests leave unstated, for edits as actions
-- [04]-[EXTENDSCRIPT](references/extendscript.md): Illustrator and After Effects behavior their declared sources leave unstated, for ES3 source
+- [04]-[EXTENDSCRIPT](references/extendscript.md): Illustrator behavior its declared sources leave unstated, for ES3 source `do javascript` runs
 
 ## [01]-[CONTEXTS]
 
@@ -32,10 +32,15 @@ Each host runs one newest runtime, and a dictionary command runs source with no 
 
 - CEP turns off by default in December 2028 and leaves new host releases in December 2029
 - `require` resolves the running host's DOM module alone, `uxp.host.name` names that host, and cross-host code takes host calls as arguments
-- Illustrator (Beta) loads a third-party plugin while `AIFeatures.cfg` beside its app holds `EnableThirdPartyUXP` with `enabled="1"` and `configurableInRelease="1"`
-- Illustrator 2027 holds no third-party UXP loader, and the Beta finds a plugin through a `UXPExtensionPath.json` marker or UXP developer mode
-- Illustrator serves `illustrator-dom.js` to third-party plugins: `require('illustrator')` returns `{ app }`, enumerations and creatable classes sit on `globalThis`, every call is synchronous, and enumeration values are strings, the specifier inferred from the string beside its registration
-- Acrobat source runs privileged with `this` naming the front document, and `global` members persist between calls
+- Illustrator (Beta) checks `EnableThirdPartyUXP` of `AIFeatures.cfg` beside its app (`enabled="1"`, `configurableInRelease="1"`) for plugins UXP developer mode loads
+- Illustrator reads `UXPExtensionPath.json` beside its app, each string value naming a folder it scans as `<folder>/<plugin>/manifest.json`
+- Illustrator (Beta) 31.1.0 parses a plugin that marker finds and runs no `main` of it at launch, and Illustrator reads no `PluginsInfo` registry
+- Illustrator serves `illustrator-dom.js` to plugins: `require('illustrator')` returns `{ app }`, the specifier inferred from the string beside its registration
+- Illustrator enumerations and creatable classes sit on `globalThis`, every call is synchronous, and enumeration values are strings
+- After Effects `require('aftereffects')` holds `app` and the DOM constructors, every call is synchronous, collections index from 1 with `length`, and `constructor.name` names each class (`Project`, `CompItem`)
+- After Effects `saveFrameToPng(seconds, path)` returns a `DeferredCall` holding `wait()`, `onComplete`, and `onError` and no `then`, and the PNG exists when the call returns
+- After Effects `resolutionFactor` takes an integer downsample `[x, y]` from 1 to 99, and `uxp.host.applicationPath` names the running bundle
+- Acrobat source runs privileged with `this` naming the front document, or the `Root` object when none is open, and `global` members persist between calls
 - Acrobat JavaScript holds `JSON`, `util`, `eval`, `new Function`, and arrow functions, and no `let`, `$`, `File`, or `reflect`
 - Acrobat answers an uncaught throw or syntax error with -1708 and no text, and source catches its own throws with `lineNumber` as `line`
 - Acrobat holds no global dialog switch, and a replaced `app.alert` still opens the host alert
@@ -92,7 +97,7 @@ Each gap closes where its value is read, with types the package or a schema stat
 |  [01]   | Member, value, or failure typings omit or misstate | Host value decoded through a `Schema` at its read                        |
 |  [02]   | Module object typed with no module                 | Module passed as an argument of the package's type                       |
 |  [03]   | Same gap in ExtendScript without `Schema`          | Assertion to the host's shape, suppression naming gap                    |
-|  [04]   | Global no package declares (`__adobe_cep__`)       | Interface, `globalThis` decoded through a struct of its function members |
+|  [04]   | Global no package declares (`ExportOptionsPNG24`)  | Interface, `globalThis` decoded through a struct of its function members |
 
 Typings for `fs` declare bytes as `Buffer` and a failure's `code` as a string, where the host returns an `ArrayBuffer` and a numeric `code`:
 
@@ -138,7 +143,7 @@ Hosts throw `Error` values with text in the user's locale, and return some failu
 | [INDEX] | [REASON]      | [HOST_OUTCOME]                                                     |
 | :-----: | :------------ | :----------------------------------------------------------------- |
 |  [01]   | `Refused`     | Call refused or failure returned as a value                        |
-|  [02]   | `Unavailable` | Host or bridge serves no call (modal scope held, no CEP reply)     |
+|  [02]   | `Unavailable` | Host or bridge serves no call (modal scope held, no linked plugin) |
 |  [03]   | `Cancelled`   | User cancelled the call's progress window                          |
 |  [04]   | `Thrown`      | Evaluated source threw, `line` holding the body line a frame names |
 
@@ -340,9 +345,10 @@ CDP and UXP Debugger routes need UXP developer mode, `{"developer": true}` in `/
 |  [01]   | Photoshop               | `uxp-cli create-cdp-url`, Atelier `execute_script` | `@bubblydoo/vitest-pool-uxp` `uxpPool` |
 |  [02]   | InDesign                | Atelier `execute_script`, `diagnostics`            | Atelier `execute_script`               |
 |  [03]   | Premiere, Media Encoder | UXP Debugger, Atelier `diagnostics`                | None                                   |
-|  [04]   | After Effects (Beta)    | UXP Developer Tool                                 | None                                   |
+|  [04]   | After Effects (Beta)    | Atelier `execute_script`, UXP Developer Tool       | Atelier `execute_script`               |
 
-- Atelier `execute_script` reaches Photoshop and InDesign through linked Atelier plug-ins, and Premiere and Media Encoder declare no script command
+- Atelier `execute_script` reaches Photoshop and After Effects through linked Atelier plug-ins, and InDesign through `do script` with `language uxpscript`
+- Atelier `execute_script` reaches Illustrator through `do javascript`, and Premiere and Media Encoder declare no script command
 - Atelier `diagnostics` reads a host's reports and UXP logs whether the host runs or not
 - `uxp-cli` and `vitest-pool-uxp` find Photoshop alone and throw `Photoshop is not open` without it
 - `uxp-cli create-cdp-url` loads the folder as a plug-in session and prints a `ws://` URL for any CDP client, `@bubblydoo/vitest-pool-cdp` included

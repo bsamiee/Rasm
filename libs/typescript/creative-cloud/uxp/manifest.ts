@@ -4,6 +4,14 @@ import { Record, Schema, SemVer, Struct } from 'effect';
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const MANIFEST_VERSIONS = { current: 5, addon: 6 } as const;
+const HOSTS = {
+    ID: { product: 'IDSN', since: SemVer.make({ major: 20, minor: 0, patch: 0 }), registry: true, runs: true },
+    PS: { product: 'PHSP', since: SemVer.make({ major: 27, minor: 11, patch: 0 }), registry: true, runs: true },
+    aftereffects: { product: 'AEFT', since: SemVer.make({ major: 27, minor: 1, patch: 0 }), registry: true, runs: true },
+    premierepro: { product: 'PPRO', since: SemVer.make({ major: 27, minor: 1, patch: 0 }), registry: true, runs: true },
+    ame: { product: 'AME', since: SemVer.make({ major: 27, minor: 0, patch: 0 }), registry: true, runs: true },
+    AI: { product: 'ILST', since: SemVer.make({ major: 31, minor: 1, patch: 0 }), registry: false, runs: false },
+} as const;
 const THEMES = { lightest: 'light', light: 'light', medium: 'dark', dark: 'dark', darkest: 'dark' } as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -35,8 +43,7 @@ class UxpManifest extends Schema.Class<UxpManifest, { readonly brand: unique sym
         version: Version,
         main: Schema.optionalKey(Schema.String),
         host: Schema.Struct({
-            app: Schema.Literals(['ID', 'PS', 'premierepro', 'ame', 'aftereffects']),
-            minVersion: Version,
+            app: Schema.Literals(Struct.keys(HOSTS)),
             maxVersion: Schema.optionalKey(Version),
             data: Schema.optionalKey(Schema.Struct({ apiVersion: Schema.optionalKey(Schema.Literals([1, 2])), loadEvent: Schema.optionalKey(Schema.Literals(['use', 'startup'])), enableMenuRecording: Flag })),
         }),
@@ -82,7 +89,6 @@ class UxpManifest extends Schema.Class<UxpManifest, { readonly brand: unique sym
     static readonly identity = Schema.fromJsonString(Schema.Struct({ id: Schema.String })).annotate({ description: 'Plugin id, the one manifest field a running plugin reads' });
     static readonly file = 'manifest.json';
     static readonly target = 'es2022';
-    static readonly scripts = { ID: 'idjs', PS: 'psjs' } as const satisfies Partial<Record<UxpManifest['host']['app'], string>>;
     static readonly scriptLanguage = 'USLg';
     static readonly script = Object.assign(
         (body: string, { runtime, host }: { readonly runtime: string; readonly host: { readonly module: string; readonly around: string } }) =>
@@ -98,9 +104,10 @@ class UxpManifest extends Schema.Class<UxpManifest, { readonly brand: unique sym
         { offset: 2 },
     );
     static readonly origin = 'file://';
+    static readonly link = new URL('ws://localhost:7490');
     static readonly logs = (folder: string) => ({ folder: `Library/Logs/Adobe/${folder}`, glob: 'UXPLogs_*.log' });
 }
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { MANIFEST_VERSIONS, THEMES, UxpManifest };
+export { HOSTS, MANIFEST_VERSIONS, THEMES, UxpManifest };

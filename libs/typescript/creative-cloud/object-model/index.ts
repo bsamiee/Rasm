@@ -1,4 +1,4 @@
 // --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Declaration, HostError, Reference, Selector, Specifier } from '#/model';
-export { Evaluation, Failure, Open, Rasterize, request, Script, Written } from '#/request';
+export { Evaluation, Failure, Render, Rendering, request, Script, Written } from '#/request';

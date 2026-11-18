@@ -21,9 +21,6 @@
             "path": "./libs/typescript/macos/applications"
         },
         {
-            "path": "./libs/typescript/creative-cloud/cep"
-        },
-        {
             "path": "./libs/typescript/creative-cloud/uxp"
         },
         {
@@ -216,9 +213,6 @@
             "path": "./products/apps/creative-cloud/aftereffects/atelier"
         },
         {
-            "path": "./products/apps/creative-cloud/illustrator/atelier"
-        },
-        {
             "path": "./products/apps/creative-cloud/photoshop/atelier"
         },
         {
@@ -241,6 +235,15 @@
         },
         {
             "path": "./tests/plugins/claude/function-hooks"
+        },
+        {
+            "path": "./tests/products/apps/creative-cloud/multi-app/atelier"
+        },
+        {
+            "path": "./tests/libs/typescript/creative-cloud/extendscript"
+        },
+        {
+            "path": "./products/apps/creative-cloud/illustrator/atelier"
         }
     ]
 }

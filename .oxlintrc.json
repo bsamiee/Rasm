@@ -52,7 +52,7 @@
         "import/no-nodejs-modules": "off",
         "import/no-relative-parent-imports": "off",
         "import/no-namespace": ["error", { "ignore": ["adobe:*"] }],
-        "import/no-unassigned-import": ["error", { "allow": ["**/*.css", "pdfjs-dist", "es5-shim", "es5-shim/*", "@rasm/extendscript/shim", "core-js/modules/*"] }],
+        "import/no-unassigned-import": ["error", { "allow": ["**/*.css", "pdfjs-dist", "core-js/modules/*"] }],
         "import/prefer-default-export": "off",
         "jsx-a11y/no-autofocus": ["error", { "ignoreNonDOM": true }],
         "node/no-sync": "off",
@@ -134,13 +134,13 @@
             }
         },
         {
-            "files": ["**/*.config.ts", "**/server/main.ts", "**/version-actions.ts", "**/.storybook/*.{ts,tsx}", "**/extendscript.ts", "tools/ast-grep/grammars/*/grammar.js", "tools/conformance/*/rule.ts"],
+            "files": ["**/*.config.ts", "**/server/main.ts", "**/version-actions.ts", "**/.storybook/*.{ts,tsx}", "tools/ast-grep/grammars/*/grammar.js", "tools/conformance/*/rule.ts"],
             "rules": {
                 "import/no-default-export": "off"
             }
         },
         {
-            "files": ["**/extendscript.ts", "**/creative-cloud/*/host.ts"],
+            "files": ["**/creative-cloud/*/host.ts"],
             "rules": {
                 "guard-for-in": "off",
                 "complexity": "off",

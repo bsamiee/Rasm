@@ -1,0 +1,11 @@
+{
+    "extends": "../../../../../tsconfig.unpublished.json",
+    "compilerOptions": {
+        "types": ["node"]
+    },
+    "references": [
+        {
+            "path": "../../../../../libs/typescript/creative-cloud/extendscript"
+        }
+    ]
+}

@@ -16,7 +16,6 @@ const manifests = {
     blender: '# Marks points\nschema_version = "1.0.0"\nid = "marker_tools"\nversion = "1.2.3"\nname = "Marker Tools"\ntagline = "Marks points"\nmaintainer = "Suite <suite@example.com>"\ntype = "add-on"\nblender_version_min = "4.2.0"\nlicense = ["SPDX:MIT"]\n',
     yak: '# Marks points\nname: marker\nversion: 1.2.3\nauthors:\n    - Suite\ndescription: Marks points\nurl: https://example.com\n',
     uxp: '{\n    "manifestVersion": 5,\n    "id": "com.example.panel",\n    "name": "Panel",\n    "version": "1.2.3",\n    "main": "index.html",\n    "host": { "app": "PS", "minVersion": "24.0.0" }\n}\n',
-    cep: '<?xml version="1.0" encoding="UTF-8"?>\n<ExtensionManifest Version="11.0" ExtensionBundleId="com.example.bridge" ExtensionBundleVersion="1.2.3" ExtensionBundleName="Bridge" />\n',
 } as const;
 
 vi.mock(import('node:process'), async (actual) => ({
@@ -231,7 +230,11 @@ describe('@rasm/nx-distribution', () => {
                                     executor: '@rasm/nx-distribution:install',
                                     dependsOn: ['build--!(uxp)'],
                                     inputs: received,
-                                    metadata: { technologies, description: "Installs what build wrote in the run's configuration where its host loads it with a copy into the per-user UXP plug-in folder and the plug-in's row in its host's PluginsInfo registry", help: { command: ran, example: { args: [] } } },
+                                    metadata: {
+                                        technologies,
+                                        description: "Installs what build wrote in the run's configuration where its host loads it with a copy into the per-user UXP plug-in folder in place of its earlier folders and CEP extension, and the plug-in's row in the PluginsInfo registry of a host that reads one",
+                                        help: { command: ran, example: { args: [] } },
+                                    },
                                 },
                                 clean: { dependsOn: [{ target: 'clean--*', params: 'forward' }], inputs: ['...', ...unstated] },
                                 'clean--uxp': { executor: '@rasm/nx-distribution:clean', options: { targets: ['build--uxp'] }, inputs: unstated, metadata: { technologies, description: 'Removes the outputs build--uxp declare', help: { command: ran, example: { options: { targets: ['build--uxp'] } } } } },
@@ -241,63 +244,6 @@ describe('@rasm/nx-distribution', () => {
                                     dependsOn: ['build--uxp'],
                                     inputs: received,
                                     metadata: { technologies, description: 'Uploads the files build--uxp wrote to the GitHub release of the tag nx release made for the project at the checked-out commit with gh release upload', help: uploaded },
-                                },
-                            },
-                        },
-                    },
-                },
-            ],
-        ]);
-    });
-
-    it('should create nodes based on CSXS/manifest.xml', async ({ tempFs, context }) => {
-        await tempFs.createFiles({ 'proj/CSXS/manifest.xml': manifests.cep, 'proj/index.html': '<!doctype html><title>Bridge</title>\n' });
-
-        const results = await createNodesFunction(['proj/CSXS/manifest.xml'], {}, context);
-
-        const technologies = ['cep'];
-        const inputs = ['production', '^production', { dependentTasksOutputFiles: '**/*' }, { externalDependencies: [] }];
-        expect(results).toStrictEqual([
-            [
-                'proj/CSXS/manifest.xml',
-                {
-                    projects: {
-                        proj: {
-                            root: 'proj',
-                            name: 'com.example.bridge',
-                            metadata: { technologies },
-                            tags: ['release', 'os:darwin', 'os:win32'],
-                            release: released('CSXS/manifest.xml'),
-                            targets: {
-                                build: { dependsOn: [{ target: 'build--*', params: 'forward' }], inputs: ['...', 'production', '^production', { dependentTasksOutputFiles: '**/*', transitive: true }, { externalDependencies: [] }] },
-                                'build--cep': {
-                                    executor: '@rasm/nx-distribution:package',
-                                    dependsOn: ['build--*'],
-                                    options: { outputPath: '{projectRoot}', identity: { certificate: 'ZXP_CERTIFICATE', password: 'ZXP_CERTIFICATE_PASSWORD' } },
-                                    cache: true,
-                                    inputs,
-                                    outputs: ['{options.outputPath}/*.zxp'],
-                                    metadata: {
-                                        technologies,
-                                        description: 'Builds the cep project its CSXS/manifest.xml declares with ZXPSignCmd -sign with the certificate its identity variables hold, else with one ZXPSignCmd -selfSignedCert creates for the pack',
-                                        help: { command: ran, example: { options: { outputPath: '{projectRoot}' } } },
-                                    },
-                                },
-                                install: { dependsOn: [{ target: 'install--*', params: 'forward' }], inputs: transitive },
-                                'install--cep': {
-                                    executor: '@rasm/nx-distribution:install',
-                                    dependsOn: ['build--cep'],
-                                    inputs: received,
-                                    metadata: { technologies, description: "Installs what build wrote in the run's configuration where its host loads it with an unpack of the signed package into the per-user CEP extensions folder", help: { command: ran, example: { args: [] } } },
-                                },
-                                clean: { dependsOn: [{ target: 'clean--*', params: 'forward' }], inputs: ['...', ...unstated] },
-                                'clean--cep': { executor: '@rasm/nx-distribution:clean', options: { targets: ['build--cep'] }, inputs: unstated, metadata: { technologies, description: 'Removes the outputs build--cep declare', help: { command: ran, example: { options: { targets: ['build--cep'] } } } } },
-                                attach: { dependsOn: [{ target: 'attach--*', params: 'forward' }], inputs: transitive },
-                                'attach--gh': {
-                                    executor: '@rasm/nx-distribution:attach',
-                                    dependsOn: ['build--cep'],
-                                    inputs: received,
-                                    metadata: { technologies, description: 'Uploads the files build--cep wrote to the GitHub release of the tag nx release made for the project at the checked-out commit with gh release upload', help: uploaded },
                                 },
                             },
                         },
@@ -563,14 +509,6 @@ describe('@rasm/nx-distribution', () => {
 
             expect(results[0]?.[1].projects?.['proj']?.targets?.['nx-release-publish']?.options).toStrictEqual({ credential: 'EXTENSIONS_TOKEN' });
         });
-
-        it('should accept an object for signingIdentities', async ({ tempFs, context }) => {
-            await tempFs.createFiles({ 'proj/CSXS/manifest.xml': manifests.cep });
-
-            const results = await createNodesFunction(['proj/CSXS/manifest.xml'], { signingIdentities: { cep: { certificate: 'CEP_CERTIFICATE', password: 'CEP_PASSWORD' } } }, context);
-
-            expect(results[0]?.[1].projects?.['proj']?.targets?.['build--cep']?.options).toStrictEqual({ outputPath: '{projectRoot}', identity: { certificate: 'CEP_CERTIFICATE', password: 'CEP_PASSWORD' } });
-        });
     });
 
     describe('dependency handling', () => {
@@ -587,14 +525,13 @@ describe('@rasm/nx-distribution', () => {
         });
 
         it('should give nx-release-publish only to a host whose store takes uploads, under the variable that store reads', async ({ tempFs, context }) => {
-            await tempFs.createFiles({ 'blender/blender_manifest.toml': manifests.blender, 'yak/manifest.yml': manifests.yak, 'uxp/manifest.json': manifests.uxp, 'cep/CSXS/manifest.xml': manifests.cep });
+            await tempFs.createFiles({ 'blender/blender_manifest.toml': manifests.blender, 'yak/manifest.yml': manifests.yak, 'uxp/manifest.json': manifests.uxp });
 
-            const results = await createNodesFunction(['blender/blender_manifest.toml', 'yak/manifest.yml', 'uxp/manifest.json', 'cep/CSXS/manifest.xml'], {}, context);
+            const results = await createNodesFunction(['blender/blender_manifest.toml', 'yak/manifest.yml', 'uxp/manifest.json'], {}, context);
 
             expect(results[0]?.[1].projects?.['blender']?.targets?.['nx-release-publish']?.options).toStrictEqual({ credential: 'BLENDER_EXTENSIONS_TOKEN' });
             expect(results[1]?.[1].projects?.['yak']?.targets?.['nx-release-publish']?.options).toStrictEqual({ credential: 'YAK_TOKEN' });
             expect(results[2]?.[1].projects?.['uxp']?.targets).not.toHaveProperty('nx-release-publish');
-            expect(results[3]?.[1].projects?.['cep']?.targets).not.toHaveProperty('nx-release-publish');
         });
     });
 
@@ -605,14 +542,12 @@ describe('@rasm/nx-distribution', () => {
             ['linux', 'undefined'],
         ] as const)('should infer the targets a host runs or needs on %s alone', async ([platform, inferred], { tempFs, context, hosted }) => {
             hosted(platform);
-            await tempFs.createFiles({ 'yak/manifest.yml': manifests.yak, 'uxp/manifest.json': manifests.uxp, 'cep/CSXS/manifest.xml': manifests.cep });
+            await tempFs.createFiles({ 'yak/manifest.yml': manifests.yak, 'uxp/manifest.json': manifests.uxp });
 
-            const results = await createNodesFunction(['yak/manifest.yml', 'uxp/manifest.json', 'cep/CSXS/manifest.xml'], {}, context);
+            const results = await createNodesFunction(['yak/manifest.yml', 'uxp/manifest.json'], {}, context);
 
             expect(results[0]?.[1].projects?.['yak']?.targets?.['install--yak']).toBeTypeOf(inferred);
             expect(results[1]?.[1].projects?.['uxp']?.targets?.['install--uxp']).toBeTypeOf(inferred);
-            expect(results[2]?.[1].projects?.['cep']?.targets?.['build--cep']).toBeTypeOf(inferred);
-            expect(results[2]?.[1].projects?.['cep']?.targets?.['install--cep']).toBeTypeOf(inferred);
         });
 
         it('should infer install--blender where blender is on PATH alone', async ({ tempFs, context }) => {

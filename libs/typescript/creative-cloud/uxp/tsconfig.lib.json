@@ -12,10 +12,16 @@
             "path": "../../runtime/telemetry"
         },
         {
-            "path": "../../graphics/mark"
+            "path": "../../data/search"
         },
         {
             "path": "../object-model"
+        },
+        {
+            "path": "../../ai/mcp"
+        },
+        {
+            "path": "../../graphics/mark"
         }
     ]
 }

@@ -2,10 +2,12 @@ import { dirname, join } from 'node:path';
 import process from 'node:process';
 import { isSea } from 'node:sea';
 import type { Application } from '@rasm/creative-cloud-desktop';
+import { core } from '@rasm/extendscript/node';
 import { registerTemplate, Server } from '@rasm/mcp';
+import { Output } from '@rasm/mcp/node';
 import { Declaration } from '@rasm/object-model';
 import { declared, documents, manifest, omv } from '@rasm/object-model/node';
-import { Array, Cause, Context, Effect, FileSystem, Layer, Option, Order, Path, Record, Schema, Scope, Stream, Struct, SubscriptionRef, UndefinedOr } from 'effect';
+import { Array, Cause, Context, Duration, Effect, Exit, FileSystem, Layer, Option, Order, Path, Record, Schema, Scope, Stream, Struct, SubscriptionRef, UndefinedOr } from 'effect';
 import { McpSchema } from 'effect/ai';
 import { Inventory } from '#/applications';
 
@@ -32,10 +34,11 @@ const Host = Schema.Literals([...Record.keys(CHECKED), ...Record.keys(PAGED)]).a
 
 class Declarations extends Context.Service<Declarations>()('@rasm/atelier/declarations', {
     make: Effect.gen(function* () {
-        const [{ catalog }, server, files, posix, scope] = yield* Effect.all([Inventory, Server, FileSystem.FileSystem, Path.Path, Effect.scope]);
+        const [{ catalog }, server, { folder: stored }, files, posix, scope] = yield* Effect.all([Inventory, Server, Output, FileSystem.FileSystem, Path.Path, Effect.scope]);
+        const shared = Effect.provideContext(core(stored('ExtendScript', 'declarations')), yield* Effect.context<Effect.Services<ReturnType<typeof core>>>());
         const opened = yield* Effect.cached(Scope.provide(declared(Option.liftPredicate({ executable: join(dirname(process.execPath), 'tsc'), library: join(import.meta.dirname, 'typescript') }, isSea), join(import.meta.dirname, 'node_modules')), scope));
         const compiled = yield* Effect.all(Record.map(CHECKED, (row) => Effect.cached(Effect.flatMap(opened, (open) => open(Struct.omit(row, ['product']))))));
-        const illustrator = Effect.gen(function* () {
+        const installed = Effect.gen(function* () {
             const dictionaries = '/Library/Application Support/Adobe/Scripting Dictionaries CC';
             const folders = yield* files.readDirectory(dictionaries);
             const folder = yield* Effect.fromOption(
@@ -45,8 +48,20 @@ class Declarations extends Context.Service<Declarations>()('@rasm/atelier/declar
                 ),
                 () => new Cause.NoSuchElementError(`No Illustrator folder under ${dictionaries}, which the release installer writes`),
             );
-            return yield* omv(yield* files.readFileString(join(dictionaries, folder, 'omv.xml')));
+            return yield* files.readFileString(join(dictionaries, folder, 'omv.xml'));
         });
+        const [whole, partial] = yield* Effect.all([
+            Effect.cachedWithTTL(
+                Effect.flatMap(Effect.all([installed, shared]), ([text, { javascript, scriptui }]) => omv([javascript, scriptui, text])),
+                (exit) => (Exit.isSuccess(exit) ? Duration.infinity : Duration.zero),
+            ),
+            Effect.cached(Effect.flatMap(installed, (text) => omv([text]))),
+        ]);
+        const illustrator = whole.pipe(
+            Effect.tapCause((cause) => Effect.logWarning('Illustrator pages lack the core ExtendScript classes', cause)),
+            Effect.catchCause(() => partial),
+        );
+        yield* Effect.forkScoped(Effect.ignore(illustrator));
         const mediaencoder = Effect.gen(function* () {
             const { url } = yield* Effect.fromOption(
                 Array.findFirst(yield* SubscriptionRef.get(catalog), (row) => row.product === PAGED.mediaencoder),
@@ -54,7 +69,7 @@ class Declarations extends Context.Service<Declarations>()('@rasm/atelier/declar
             );
             return yield* manifest(yield* files.readFileString(yield* posix.fromFileUrl(new URL('Contents/Resources/json/ScriptingAPIManifest.json', url))));
         });
-        const paged = yield* Effect.all({ illustrator: Effect.cached(illustrator), mediaencoder: Effect.cached(mediaencoder), aftereffects: Effect.cached(documents(files.stream(join(import.meta.dirname, 'after-effects.jsonl')))) });
+        const paged = { illustrator, ...(yield* Effect.all({ mediaencoder: Effect.cached(mediaencoder), aftereffects: Effect.cached(documents(files.stream(join(import.meta.dirname, 'after-effects.jsonl')))) })) };
         const resolved: Record.ReadonlyRecord<typeof Host.Type, Effect.Effect<Effect.Success<typeof paged.illustrator>, Effect.Error<(typeof paged)[keyof typeof paged]>>> = { ...Record.map(compiled, Effect.flatMap(Struct.get('catalog'))), ...paged };
         const refused = Effect.fnUntraced(function* (row: Application, line: (at: number) => Option.Option<number>, { host, listed }: { readonly host: keyof typeof CHECKED; readonly listed: Array.NonEmptyReadonlyArray<Finding> }) {
             const { index } = yield* resolved[host];
@@ -92,7 +107,7 @@ const declarations = Effect.gen(function* () {
         });
     yield* registerTemplate`object-model/${McpSchema.param('host', Host)}`({
         name: 'object-model',
-        description: 'Class and enumeration names one host declares, read from its vendor declarations, installed omv.xml, scripting API manifest (Media Encoder lists internal classes too, as only its binary names the public set), or UXP reference pages',
+        description: 'Class and enumeration names one host declares, read from its vendor declarations, installed omv.xml with the core classes of the ExtendScript Toolkit, scripting API manifest (Media Encoder lists internal classes too, as only its binary names the public set), or UXP reference pages',
         schema: Declaration,
         changes: Stream.empty,
         completion: { host: () => Effect.succeed([...Host.literals]) },

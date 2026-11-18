@@ -44,8 +44,6 @@ jobs:
             ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
             ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
             ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
-            ZXP_CERTIFICATE: ${{ secrets.ZXP_CERTIFICATE }}
-            ZXP_CERTIFICATE_PASSWORD: ${{ secrets.ZXP_CERTIFICATE_PASSWORD }}
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:

@@ -1,3 +1,3 @@
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Completion, Envelope } from '#/completion';
+export { Completion } from '#/completion';

@@ -1,0 +1,14 @@
+{
+    "extends": "../../../../../../tsconfig.unpublished.json",
+    "compilerOptions": {
+        "types": ["node"]
+    },
+    "references": [
+        {
+            "path": "../../../../../../products/apps/creative-cloud/multi-app/atelier"
+        },
+        {
+            "path": "../../../../../../libs/typescript/macos/applications"
+        }
+    ]
+}

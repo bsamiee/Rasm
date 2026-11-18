@@ -1,7 +1,7 @@
 {
     "name": "@rasm/atelier",
     "private": true,
-    "description": "MCP server driving installed Adobe applications through six universal tools, applications, view, inspect, act, execute_script, and diagnostics, with their events in every result, and serving the tools each linked Adobe extension adds",
+    "description": "MCP server driving installed Adobe applications through six universal tools, applications, view, inspect, act, execute_script, and diagnostics, with their events in every result, and serving the tools each linked Adobe extension and each application's own MCP server adds",
     "os": [
         "darwin"
     ],
@@ -10,12 +10,16 @@
         "#/*": "./*.ts",
         "#/*.json": "./*.json"
     },
+    "exports": {
+        "./native": "./native.ts",
+        "./scripts": "./scripts.ts"
+    },
     "dependencies": {
         "@effect/platform-node": "catalog:",
         "@rasm/applications": "workspace:*",
-        "@rasm/cep": "workspace:*",
         "@rasm/creative-cloud-desktop": "workspace:*",
         "@rasm/extendscript": "workspace:*",
+        "@rasm/illustrator": "workspace:*",
         "@rasm/indesign": "workspace:*",
         "@rasm/mcp": "workspace:*",
         "@rasm/object-model": "workspace:*",

@@ -1,15 +1,22 @@
 {
     "extends": "../../../../tsconfig.base.json",
     "compilerOptions": {
-        "lib": ["es2022"],
-        "types": ["types-for-adobe/Illustrator/2022"]
+        "lib": ["es2022", "dom"],
+        "module": "preserve",
+        "types": ["@adobe-uxp-types/uxp/with-protocol"]
     },
     "references": [
         {
-            "path": "../extendscript"
+            "path": "../uxp"
+        },
+        {
+            "path": "../../data/search"
         },
         {
             "path": "../object-model"
+        },
+        {
+            "path": "../extendscript"
         }
     ]
 }

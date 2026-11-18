@@ -195,7 +195,6 @@ class PreflightProcess extends Schema.TaggedClass<PreflightProcess, { readonly b
 // --- [RESULTS]
 
 const Called = Reference.mapFields(Struct.assign({ result: Schema.OptionFromOptionalKey(Schema.Json) }));
-const MenuActions = Schema.Array(Schema.Struct({ id: Schema.Int, name: Schema.String, area: Schema.String }));
 
 // --- [INSPECTION]
 
@@ -217,4 +216,4 @@ const Inspection = Object.assign(Schema.Union([Viewed, Items]), { Readings, View
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Application, Called, Document, Extent, Font, Inspection, type Issue, Layer, Link, MenuActions, Page, PreflightProcess, Search, Slice, Story, Text };
+export { Application, Called, Document, Extent, Font, Inspection, type Issue, Layer, Link, Page, PreflightProcess, Search, Slice, Story, Text };

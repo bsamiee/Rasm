@@ -6,7 +6,7 @@ import { combineGlobPatterns, type PackageJson, quoteShellArg } from '@nx/devkit
 import { Array, Effect, FileSystem, Function, Option, Predicate, Record, Result, Schema, String, Struct, UndefinedOr } from 'effect';
 import which from 'which';
 import { run } from '#/executor';
-import { type Fields, FOLDERS, HOSTS, type Host, Identity } from '#/host-packages';
+import { type Fields, FOLDERS, HOSTS, type Host } from '#/host-packages';
 import { aggregated, Folder, manifested, namedInput, type Stated, tagged, type Verbs } from '#/inference';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -50,10 +50,9 @@ const ACTIONS: Verbs = {
 const Options = Schema.Struct({
     outputPath: Folder,
     storeCredentials: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)),
-    signingIdentities: Schema.optionalKey(Schema.Record(Schema.String, Identity)),
 }).annotate({
     description:
-        'outputPath: workspace folder each host package is written to, {projectName} naming the project, absent writes where the host tool writes in the project. storeCredentials: environment variable holding the store credential per technology, absent naming the variable of the host row (Blender: BLENDER_EXTENSIONS_TOKEN, Yak: YAK_TOKEN), a publish whose variable is unset naming it and succeeding. signingIdentities: per technology, certificate is the environment variable holding the base64 PKCS#12 certificate its packages sign with and password the variable holding its password, absent naming the variables of the host row (CEP: ZXP_CERTIFICATE, ZXP_CERTIFICATE_PASSWORD), a package whose certificate variable is unset signing with a certificate made for the pack',
+        'outputPath: workspace folder each host package is written to, {projectName} naming the project, absent writes where the host tool writes in the project. storeCredentials: environment variable holding the store credential per technology, absent naming the variable of the host row (Blender: BLENDER_EXTENSIONS_TOKEN, Yak: YAK_TOKEN), a publish whose variable is unset naming it and succeeding',
 });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -107,7 +106,6 @@ const projects = (declared: readonly Declared[], settings: typeof Options.Type, 
         const offered: Host = lone ? Struct.omit(item.host, WITHHELD) : item.host;
         const { technology, archive, platforms = [], standalone = false, build, operations = {}, install, publish, write, output } = offered;
         const manifest = posix.relative(item.root, item.file);
-        const signer = Option.orElse(Record.get(settings.signingIdentities ?? {}, technology), () => Option.fromUndefinedOr(build?.identity));
         const packages = item.fields.packages ?? {};
         const linked = Array.dedupe([...[...declared.filter((other) => other !== item && hosts(other).includes(item)), ...uses(item)].map((other) => other.fields.name), ...Object.values(packages).map(({ project }) => project)]);
         const outputPath = settings.outputPath ?? posix.join('{projectRoot}', output);
@@ -166,7 +164,7 @@ const projects = (declared: readonly Declared[], settings: typeof Options.Type, 
                 build: Option.map(Option.fromUndefinedOr(build), ({ executor, command, help = ran, pack }): TargetConfiguration => ({
                     executor: `${PLUGIN}:${executor}`,
                     ...Array.match([...Array.fromNullishOr(pack).map(() => 'build--*'), ...required], { onEmpty: () => ({}), onNonEmpty: (dependsOn) => ({ dependsOn }) }),
-                    options: { ...options, ...Option.getOrUndefined(Option.map(signer, (identity) => ({ identity }))) },
+                    options,
                     ...(standalone && { parallelism: false }),
                     ...(written.length > 0 && { cache: true }),
                     inputs: engined,

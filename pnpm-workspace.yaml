@@ -424,7 +424,6 @@ catalog:
 
     # --- [ADOBE_HOSTS]
 
-    types-for-adobe: 7.2.6
     '@adobe-uxp-types/uxp': 0.1.4
     '@adobe/cc-ext-uxp-types': 7.3.1 # UXP module and globals the InDesign, Photoshop, and Premiere Pro declarations read
     '@types/photoshop': 27.11.0
@@ -436,7 +435,7 @@ catalog:
     '@bubblydoo/vitest-pool-cdp': 0.0.15
     '@exodus/bytes': 1.16.0 # WHATWG TextEncoder and TextDecoder for hosts without them
     es5-shim: 4.6.7 # ECMAScript 5 built-ins for the ES3 ExtendScript engine that swc helpers call
-    core-js: 3.51.0 # Web APIs CEP Chromium and UXP lack, URL.canParse that Effect's URL schemas call
+    core-js: 3.51.0 # Web APIs UXP lacks, URL.canParse that Effect's URL schemas call
 
     # --- [INFRASTRUCTURE]
 

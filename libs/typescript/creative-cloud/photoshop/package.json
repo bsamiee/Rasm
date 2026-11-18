@@ -2,7 +2,7 @@
     "name": "@rasm/photoshop",
     "version": "0.1.0",
     "private": true,
-    "description": "Photoshop DOM for UXP plugins: its containment table, modal scopes with history suspension, dialog suppression, script evaluation, open, rasterize, and the application name",
+    "description": "Photoshop DOM for UXP plugins: its containment table, modal scopes with history suspension, script evaluation, rendering, document event notices, and the application name",
     "license": "MIT",
     "repository": {
         "type": "git",
@@ -27,6 +27,7 @@
         "access": "public"
     },
     "dependencies": {
+        "@rasm/mcp": "workspace:*",
         "@rasm/object-model": "workspace:*",
         "@rasm/search": "workspace:*",
         "@rasm/uxp": "workspace:*"

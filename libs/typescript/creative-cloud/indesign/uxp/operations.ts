@@ -1,12 +1,12 @@
 import { HostError, Selector, Specifier } from '@rasm/object-model';
 import { Unmatched } from '@rasm/search';
 import { Uxp } from '@rasm/uxp/plugin';
-import type { Application, CellStyle, CharacterStyle, Document, Font, InDesignDOMObject, MasterSpread, ObjectStyle, Page, PageItem, ParagraphStyle, PNGExportPreference, PreflightProcess, Spread, TableStyle, Text, TextFrame, TextPath, TextStyleRange } from 'adobe:indesign';
+import type { Application, CellStyle, CharacterStyle, Document, Event, Font, InDesignDOMObject, MasterSpread, ObjectStyle, Page, PageItem, ParagraphStyle, PreflightProcess, Spread, TableStyle, Text, TextFrame, TextPath, TextStyleRange } from 'adobe:indesign';
 import { Array, Cause, Effect, Formatter, Function, flow, identity, Match, Number, Option, Predicate, pipe, Record, Result, Schema, SchemaGetter, String, Struct } from 'effect';
 import { Model } from '#/uxp/model';
 import { InDesignSettings } from '#/uxp/settings';
 import type { Value } from '#/value';
-import { Called, Inspection, MenuActions, Search, type Slice } from '#/views';
+import { Called, Inspection, Search, type Slice } from '#/views';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -320,20 +320,6 @@ const checked = Effect.fn('checked')(function* (document: Document, named: Optio
     );
     return yield* Effect.all({ targetObject: Model.reference(document), appliedProfile: Model.reference(chosen), aggregatedResults: Option.match(finished, { onSome: Effect.succeed, onNone: () => waited }) });
 });
-const actions = Model.use(({ app }) =>
-    Model.read(
-        MenuActions,
-        'menu actions',
-        flow(
-            () => {
-                const every = app.menuActions.everyItem();
-                return Array.zip(Array.zip(every.id, every.name), every.area);
-            },
-            Array.map(([[id, name], area]) => ({ id, name, area })),
-        ),
-    ),
-);
-
 // --- [REQUESTS]
 
 const inspect = Effect.fn('inspect')(function* ({ target, fields, slice }: { readonly target: Specifier; readonly fields: Option.Option<readonly string[]>; readonly slice: Slice }) {
@@ -403,17 +389,6 @@ const font = Effect.fn('font')(function* ({ name, text, file }: { readonly name:
         : Option.none();
     return { font: yield* fontView(face), source };
 });
-const menu = ({ area }: { readonly area: Option.Option<string> }) =>
-    Effect.flatMap(
-        actions,
-        Unmatched.matching('menu area', area, (row) => [row.area]),
-    );
-const invoke = Effect.fn('invoke')(function* ({ label, action }: { readonly label: string; readonly action: number | string }) {
-    const [{ app }, listed] = yield* Effect.all([Model, actions]);
-    const chosen = yield* Unmatched.single(listed, 'menu action', Option.some(action.toString()), ({ id, name, area }) => [`${id} ${name} (${area})`, id.toString(), name]);
-    yield* Model.commit(label, Effect.try({ try: () => app.menuActions.itemByID(chosen.id).invoke(), catch: HostError.refused(chosen.name) }));
-    return chosen;
-});
 const preflight = Effect.fn('preflight')(function* ({ document, profile }: { readonly document: Option.Option<Specifier>; readonly profile: Option.Option<string> }) {
     const model = yield* Model;
     const open = model.app.documents.everyItem().getElements();
@@ -427,31 +402,19 @@ const preflight = Effect.fn('preflight')(function* ({ document, profile }: { rea
     });
     return yield* Effect.forEach(targets, (target) => checked(target, profile));
 });
-const open = Effect.fn('open')(function* ({ label, file }: { readonly label: string; readonly file: string }) {
-    const { app } = yield* Model;
-    return yield* Model.reference(yield* Effect.try({ try: () => app.open(file, false), catch: HostError.refused(label) }));
-});
-const rasterize = Effect.fn('rasterize')(function* (target: string, longestSide: number, options: Option.Option<Values>, path: string) {
-    const [model, specifier] = yield* Effect.all([Model, Schema.decodeEffect(Specifier.Path)(target)]);
+const render = Effect.fn('render')(function* (target: Specifier, path: string) {
+    const model = yield* Model;
     const { app, ExportFormat, PNGExportRangeEnum, PNGColorSpaceEnum, PNGQualityEnum } = model;
     const found = yield* Effect.filterOrFail(
-        Model.resolve(specifier),
+        Model.resolve(target),
         (value): value is Page | Spread | PageItem => (model.page(value) && model.spread(value.parent)) || model.spread(value) || model.item(value),
-        () => Unmatched.of({ subject: 'document page, spread, or page item', query: Option.some(target) }),
+        () => Unmatched.of({ subject: 'document page, spread, or page item', query: Option.some(target.path) }),
     );
-    const { source, placed, range } = Match.value(found).pipe(
-        Match.when(model.page, (each) => ({ source: each.parent.parent, placed: [each], range: { pageString: `+${each.documentOffset + 1}`, exportingSpread: false } })),
-        Match.when(model.spread, (each) => ({ source: each.parent, placed: each.pages.everyItem().getElements(), range: { pageString: `+${each.pages.firstItem().documentOffset + 1}`, exportingSpread: true } })),
-        Match.orElse((each) => ({ source: each, placed: [each], range: {} })),
+    const { source, range } = Match.value(found).pipe(
+        Match.when(model.page, (each) => ({ source: each.parent.parent, range: { pageString: `+${each.documentOffset + 1}`, exportingSpread: false } })),
+        Match.when(model.spread, (each) => ({ source: each.parent, range: { pageString: `+${each.pages.firstItem().documentOffset + 1}`, exportingSpread: true } })),
+        Match.orElse((each) => ({ source: each, range: {} })),
     );
-    const { top, left, bottom, right } = yield* Model.extent(...placed);
-    const [pointsPerInch, across, preferences] = [72, Math.max(right - left, bottom - top), app.pngExportPreferences];
-    const resolution = (longestSide * pointsPerInch) / across;
-    const declared = Record.get(model.declaration(preferences.constructorName).fields, 'exportResolution' satisfies keyof PNGExportPreference);
-    const { minimum, maximum } = yield* Effect.orDie(Effect.fromOption(Option.flatMap(declared, ({ minimum: low, maximum: high }) => Option.all({ minimum: low, maximum: high }))));
-    yield* resolution < minimum
-        ? new Cause.IllegalArgumentError(`longestSide ${longestSide} px of ${target}, ${across} pt across, needs ${resolution} ppi, under the declared exportResolution range ${minimum} to ${maximum} ppi, so longestSide takes ${Math.ceil((minimum * across) / pointsPerInch)} px or more`)
-        : Effect.void;
     const defaults = {
         pngColorSpace: PNGColorSpaceEnum.RGB,
         pngQuality: PNGQualityEnum.MAXIMUM,
@@ -461,16 +424,13 @@ const rasterize = Effect.fn('rasterize')(function* (target: string, longestSide:
         pngExportRange: PNGExportRangeEnum.EXPORT_RANGE,
         pngSuffix: '',
         exportingHiddenSpread: true,
-        exportResolution: Math.min(resolution, maximum),
         ...range,
     };
-    const given = Option.getOrElse(options, Record.empty);
-    yield* Uxp.preserve(preferences, defaults, [...Struct.keys(defaults), ...Record.keys(given)]);
-    yield* Model.write(preferences, given);
-    yield* Effect.try({ try: () => source.exportFile(ExportFormat.PNG_FORMAT, path), catch: HostError.refused(`PNG export of ${target} to ${path}`) });
+    yield* Uxp.preserve(app.pngExportPreferences, defaults);
+    yield* Effect.try({ try: () => source.exportFile(ExportFormat.PNG_FORMAT, path), catch: HostError.refused(`PNG export of ${target.path} to ${path}`) });
 }, Effect.scoped);
 const session = Effect.flatMap(Model, ({ app, MeasurementUnits, UserInteractionLevels }) => Uxp.preserve(app.scriptPreferences, { enableRedraw: false, measurementUnit: MeasurementUnits.POINTS, userInteractionLevel: UserInteractionLevels.NEVER_INTERACT }));
-const listened = Effect.fnUntraced(function* (events: readonly string[], name: string, handler: () => void) {
+const listened = Effect.fnUntraced(function* (events: readonly string[], name: string, handler: (event: Event) => void) {
     const { app } = yield* Model;
     const added = (event: string) => {
         const named = `${name}:${event}`;
@@ -494,4 +454,4 @@ const listened = Effect.fnUntraced(function* (events: readonly string[], name: s
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { call, change, findChange, font, inspect, invoke, listened, menu, open, preflight, rasterize, session };
+export { call, change, findChange, font, inspect, listened, preflight, render, session };

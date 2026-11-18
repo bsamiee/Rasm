@@ -38,7 +38,7 @@ describe('package executor', () => {
     it('packs the tracked source of a UXP plugin into one .ccx with no host installed', async ({ tempFs, context }) => {
         await tempFs.createFile('panel/manifest.json', JSON.stringify({ manifestVersion: 5, id: 'com.example.panel', name: 'Panel', version: '1.2.3', host: { app: 'PS', minVersion: '24.0.0' } }));
 
-        await expect(execute({ outputPath: '.artifacts/distribution/panel', timestampAuthority: 'http://timestamp.digicert.com' }, context)).resolves.toStrictEqual({ success: true });
+        await expect(execute({ outputPath: '.artifacts/distribution/panel' }, context)).resolves.toStrictEqual({ success: true });
 
         expect(execFileSync('unzip', ['-Z1', '.artifacts/distribution/panel/com.example.panel.ccx'], { cwd: tempFs.tempDir, encoding: 'utf-8' }).trim().split('\n')).toStrictEqual(['index.html', 'manifest.json', 'scripts/main.js']);
     });
@@ -48,7 +48,7 @@ describe('package executor', () => {
         await tempFs.createFile('.artifacts/distribution/panel/previous-0.0.0.ccx', 'stale');
         await tempFs.createFile('.artifacts/distribution/panel/notes.txt', 'kept');
 
-        await expect(execute({ outputPath: '.artifacts/distribution/panel', timestampAuthority: 'http://timestamp.digicert.com' }, context)).resolves.toStrictEqual({ success: true });
+        await expect(execute({ outputPath: '.artifacts/distribution/panel' }, context)).resolves.toStrictEqual({ success: true });
 
         expect(readdirSync(join(tempFs.tempDir, '.artifacts/distribution/panel')).toSorted()).toStrictEqual(['com.example.panel.ccx', 'notes.txt']);
     });
@@ -62,7 +62,7 @@ describe('package executor', () => {
         const before = new Set(readdirSync(tempFs.tempDir, { recursive: true, encoding: 'utf-8' }));
 
         expect(node.data.targets?.['build--uxp']?.options).toStrictEqual({ outputPath: '.artifacts/distribution/panel' });
-        await expect(execute({ outputPath: '.artifacts/distribution/panel', timestampAuthority: 'http://timestamp.digicert.com' }, { ...context, projectGraph: { nodes: { panel: node }, dependencies: {} } })).resolves.toStrictEqual({ success: true });
+        await expect(execute({ outputPath: '.artifacts/distribution/panel' }, { ...context, projectGraph: { nodes: { panel: node }, dependencies: {} } })).resolves.toStrictEqual({ success: true });
 
         const written = readdirSync(tempFs.tempDir, { recursive: true, encoding: 'utf-8' })
             .filter((file) => !before.has(file))
@@ -73,6 +73,6 @@ describe('package executor', () => {
     });
 
     it('fails naming the manifests it looked for where the project holds no host manifest', async ({ context }) => {
-        await expect(execute({ outputPath: '.artifacts/distribution/panel', timestampAuthority: 'http://timestamp.digicert.com' }, context)).rejects.toThrow('panel finds no manifest.json, CSXS/manifest.xml, or manifest.yml in what its builds wrote');
+        await expect(execute({ outputPath: '.artifacts/distribution/panel' }, context)).rejects.toThrow('panel finds no manifest.json or manifest.yml in what its builds wrote');
     });
 });

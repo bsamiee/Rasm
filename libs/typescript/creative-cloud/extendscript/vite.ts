@@ -14,7 +14,7 @@ const Quoted = Schema.fromJsonString(Schema.String);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const extendscript = (): Rolldown.Plugin => ({ name: 'extendscript', renderChunk: (code) => Effect.runPromise(lower(code, 'es3')) });
+const extendscript = (): Rolldown.Plugin => ({ name: 'extendscript', renderChunk: (code) => Effect.runPromise(lower(code, lower.extendscript)) });
 const script = (entry: string, name: string): Plugin => {
     const refused = HostError.refused(`Build of ${entry}`);
     const compiled = Effect.tryPromise({
@@ -28,7 +28,7 @@ const script = (entry: string, name: string): Plugin => {
                         input: entry,
                         platform: 'neutral',
                         preserveEntrySignatures: 'exports-only',
-                        output: { format: 'iife', name, exports: 'named', esModule: false, strict: false, generatedCode: { symbols: false }, codeSplitting: false, minify: false, plugins: extendscript() },
+                        output: { format: 'iife', name, exports: 'auto', esModule: false, strict: false, generatedCode: { symbols: false }, codeSplitting: false, minify: false, plugins: extendscript() },
                     },
                 },
             }),

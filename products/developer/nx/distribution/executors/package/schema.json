@@ -7,25 +7,6 @@
             "type": "string",
             "description": "Folder, relative to the workspace root, receiving the package, each earlier package of the project in it removed first"
         },
-        "timestampAuthority": {
-            "type": "string",
-            "description": "Timestamp server ZXPSignCmd -tsa signs against, so a CEP package outlives its certificate",
-            "default": "http://timestamp.digicert.com"
-        },
-        "identity": {
-            "type": "object",
-            "properties": {
-                "certificate": {
-                    "type": "string"
-                },
-                "password": {
-                    "type": "string"
-                }
-            },
-            "required": ["certificate", "password"],
-            "additionalProperties": true,
-            "description": "certificate: environment variable holding the base64 PKCS#12 certificate ZXPSignCmd signs a CEP package with; password: the variable holding its password; absent, or certificate unset or empty, signs with a certificate ZXPSignCmd -selfSignedCert creates for the pack"
-        },
         "__unparsed__": {
             "type": "array",
             "description": "Words after -- of the run, appended after the configured arguments",
@@ -39,8 +20,8 @@
             }
         }
     },
-    "required": ["outputPath", "timestampAuthority"],
+    "required": ["outputPath"],
     "additionalProperties": true,
     "title": "Package",
-    "description": "Packs the Adobe UXP plugin or CEP extension the project's other builds wrote, else its tracked source folder: a .ccx zip for a manifest.json, a .zxp ZXPSignCmd signs for a CSXS/manifest.xml with the certificate its identity variables hold, else with one it creates for the pack"
+    "description": "Packs each host package the project's other builds wrote, else its tracked source folder: a .ccx zip for an Adobe UXP manifest.json, a .yak through yak build for a manifest.yml"
 }

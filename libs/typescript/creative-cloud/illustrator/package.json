@@ -2,7 +2,7 @@
     "name": "@rasm/illustrator",
     "version": "0.1.0",
     "private": true,
-    "description": "Illustrator DOM for ExtendScript: its containment table, alert suppression, open, and rasterize of a document, artboard, or page item through a temporary artboard",
+    "description": "Illustrator DOM: the alert-suppressing script host for do javascript, and for UXP plugins its containment table, alert suppression, script evaluation, and a document, artboard, or page item rendered as PNG through a temporary artboard",
     "license": "MIT",
     "repository": {
         "type": "git",
@@ -16,22 +16,31 @@
     "type": "module",
     "sideEffects": false,
     "exports": {
-        "./extendscript": "./extendscript.ts",
+        ".": "./script.ts",
+        "./uxp": "./uxp.ts",
         "./package.json": "./package.json"
     },
     "publishConfig": {
         "exports": {
-            "./extendscript": "./dist/extendscript.js",
+            ".": "./dist/script.js",
+            "./uxp": "./dist/uxp.js",
             "./package.json": "./package.json"
         },
         "access": "public"
     },
     "dependencies": {
         "@rasm/extendscript": "workspace:*",
-        "@rasm/object-model": "workspace:*"
+        "@rasm/object-model": "workspace:*",
+        "@rasm/search": "workspace:*",
+        "@rasm/uxp": "workspace:*"
     },
     "devDependencies": {
-        "types-for-adobe": "catalog:"
+        "@adobe-uxp-types/uxp": "catalog:",
+        "@types/node": "catalog:",
+        "effect": "catalog:"
+    },
+    "peerDependencies": {
+        "effect": "catalog:peers"
     },
     "engines": {
         "node": ">=27"

@@ -19,15 +19,5 @@
         "@types/node": "catalog:",
         "indesign-uxp-types": "catalog:",
         "vite": "catalog:"
-    },
-    "nx": {
-        "targets": {
-            "build--vite": {
-                "inputs": [
-                    "...",
-                    "{workspaceRoot}/products/apps/creative-cloud/multi-app/atelier/macos/Resources/AppIcon.icon/Assets/Atelier.svg"
-                ]
-            }
-        }
     }
 }

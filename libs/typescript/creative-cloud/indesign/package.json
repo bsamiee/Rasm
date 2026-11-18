@@ -2,7 +2,7 @@
     "name": "@rasm/indesign",
     "version": "0.1.0",
     "private": true,
-    "description": "InDesign object model for UXP plugins and scripts: the dialog-free host part of a do script UXP run, values, find/change kinds, extents, and object views, the Model guarding and reading host objects, operations reading, writing, calling, searching, and rasterizing them, and typesetting settings over it",
+    "description": "InDesign object model for UXP plugins and scripts: the dialog-free host part of a do script UXP run, values, find/change kinds, extents, and object views, the Model guarding and reading host objects, operations reading, writing, calling, searching, and rendering them, and typesetting settings over it",
     "license": "MIT",
     "repository": {
         "type": "git",

@@ -1,12 +1,25 @@
 import { SourceMap } from 'node:module';
 import { HostError } from '@rasm/object-model';
+import { run } from '@rasm/process';
 import { type JscTarget, transformSync } from '@swc/wasm';
 import { parse } from 'acorn';
 import { simple } from 'acorn-walk';
-import { Array, Effect, Option, Order, Schema } from 'effect';
+import { Array, Cause, Effect, FileSystem, Option, Order, Path, Record, Schema, Stream } from 'effect';
+import { Digest } from 'effect/crypto';
+import { Zip } from 'effect/encoding';
+import { HttpClient, HttpClientResponse } from 'effect/http';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
+const CORE = {
+    image: 'https://raw.githubusercontent.com/Adobe-CEP/CEP-Resources/b748e7cc41f9e682da4cb4eb8b37b2eca2281486/ExtendScript-Toolkit/AdobeExtendScriptToolkit_4_LS22.dmg',
+    payload: 'payloads/AdobeExtendScriptToolkit_4_LS22/AdobeExtendScriptToolkit_4_LS22.zip',
+    members: {
+        javascript: { path: 'Assets2/xplat/CommonOMV/javascript.xml', sha256: 'fe1dbf4641b8caafe332915cdebf454e165c030d7529692629138a807596cab7' },
+        scriptui: { path: 'Assets2/xplat/CommonOMV/scriptui.xml', sha256: '468e4dbbf9a5ef84ea0695d607d8771ea3706a64f1d9d42b46f25102cd0f85ec' },
+    },
+} as const;
+const TARGET = 'es3' satisfies JscTarget;
 const ASSUMED = { assumptions: { iterableIsArray: true } };
 const ES3 = { targets: { ie: '6' }, exclude: ['transform-typeof-symbol'] };
 const RESERVED =
@@ -64,24 +77,57 @@ const grouped = (code: string): string => {
         Order.mapInput(Order.flip(Order.Number), ([at]: readonly [number, number, string]) => at),
     ).reduce((text, [start, end, mark]) => `${text.slice(0, start)}${mark}${text.slice(end)}`, code);
 };
-const lower = (code: string, target: JscTarget, syntax: 'typescript' | 'ecmascript' = 'ecmascript') =>
-    Effect.try({
-        try: () => {
-            const lowered = transformSync(code, { isModule: false, ...(target === 'es3' ? { env: ES3, jsc: { parser: { syntax }, ...ASSUMED } } : { jsc: { target, parser: { syntax }, ...ASSUMED } }), sourceMaps: true });
-            return target === 'es3' ? { ...lowered, code: grouped(lowered.code) } : lowered;
-        },
-        catch: (cause) =>
-            Option.match(Schema.decodeUnknownOption(Diagnostic)(cause), {
-                onNone: () => HostError.refused(`${syntax} transform to ${target}`)(cause),
-                onSome: ([, text, , line]) => HostError.thrown(text, Option.some(line))(cause),
-            }),
-    });
+const lower = Object.assign(
+    (code: string, target: JscTarget, syntax: 'typescript' | 'ecmascript' = 'ecmascript') =>
+        Effect.try({
+            try: () => {
+                const lowered = transformSync(code, { isModule: false, ...(target === TARGET ? { env: ES3, jsc: { parser: { syntax }, ...ASSUMED } } : { jsc: { target, parser: { syntax }, ...ASSUMED } }), sourceMaps: true });
+                return target === TARGET ? { ...lowered, code: grouped(lowered.code) } : lowered;
+            },
+            catch: (cause) =>
+                Option.match(Schema.decodeUnknownOption(Diagnostic)(cause), {
+                    onNone: () => HostError.refused(`${syntax} transform to ${target}`)(cause),
+                    onSome: ([, text, , line]) => HostError.thrown(text, Option.some(line))(cause),
+                }),
+        }),
+    { extendscript: TARGET } as const,
+);
 const traced = (map: string | undefined) =>
     Effect.map(Effect.orDie(Schema.decodeUnknownEffect(Mapping)(map)), (mapping) => {
         const source = new SourceMap({ file: '', sourceRoot: '', ...mapping });
         return (line: number) => Option.map(Schema.decodeUnknownOption(Entry)(source.findEntry(line - 1, Number.MAX_SAFE_INTEGER)), ({ originalSource, originalLine }) => ({ file: originalSource, line: originalLine + 1 }));
     });
+const core = Effect.fn('core')(function* (folder: string) {
+    const [fs, path, digest, client] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Digest.Digest, HttpClient.HttpClient]);
+    const files = Record.map(CORE.members, (member) => path.join(folder, path.basename(member.path)));
+    const verified = Effect.fnUntraced(function* <E, R>(member: (typeof CORE.members)[keyof typeof CORE.members], read: Effect.Effect<Uint8Array, E, R>) {
+        const bytes = yield* read;
+        const received = yield* digest.digestHex(Digest.sha256, bytes);
+        return received === member.sha256 ? bytes : yield* new Cause.UnknownError(received, `${member.path} hashes to sha256 ${received} in place of ${member.sha256}`);
+    });
+    const fetched = Effect.gen(function* () {
+        const [image, mount] = yield* Effect.all([fs.makeTempFileScoped({ suffix: '.dmg' }), fs.makeTempDirectoryScoped()]);
+        const response = yield* Effect.flatMap(client.get(CORE.image), HttpClientResponse.filterStatusOk);
+        yield* Stream.run(response.stream, fs.sink(image));
+        yield* Effect.acquireRelease(run(['hdiutil', 'attach', '-readonly', '-nobrowse', '-noautoopen', '-mountpoint', mount, image]), () => Effect.orDie(run(['hdiutil', 'detach', mount])));
+        const paths = new Set<string>(Record.collect(CORE.members, (_, member) => member.path));
+        const held = yield* fs.stream(path.join(mount, CORE.payload)).pipe(
+            Stream.pipeThroughChannel(Zip.decode()),
+            Stream.filter(({ header }) => paths.has(header.path)),
+            Stream.mapEffect(({ header, body }) => Effect.all([Effect.succeed(header.path), Stream.mkUint8Array(body)])),
+            Stream.take(paths.size),
+            Stream.runCollect,
+            Effect.map(Record.fromEntries),
+        );
+        const bytes = yield* Effect.all(Record.map(CORE.members, (member) => verified(member, Effect.fromOption(Record.get(held, member.path)))));
+        yield* fs.makeDirectory(folder, { recursive: true });
+        yield* Effect.forEach(Record.toEntries(bytes), ([key, each]) => fs.writeFile(files[key], each), { discard: true });
+        return bytes;
+    }).pipe(Effect.scoped);
+    const bytes = yield* Effect.catch(Effect.all(Record.map(CORE.members, (member, key) => verified(member, fs.readFile(files[key])))), () => fetched);
+    return Record.map(bytes, (each) => new TextDecoder().decode(each));
+});
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { lower, traced };
+export { core, lower, traced };

@@ -30,13 +30,6 @@ const manifests = [
         shadowed: '{\n  "manifestVersion": 5,\n  "id": "com.example.panel",\n  "name": "Panel",\n  "version": "1.0.0",\n  "version": "5.5.5",\n  "host": { "app": "PS", "minVersion": "24.0.0" }\n}\n',
     },
     {
-        manifest: 'CSXS/manifest.xml',
-        input: '<?xml version="1.0" encoding="UTF-8"?>\n<!-- Marks points -->\n<ExtensionManifest Version="11.0" ExtensionBundleId="com.example.bridge" ExtensionBundleVersion="1.0.0" ExtensionBundleName="Bridge">\n    <ExtensionList />\n</ExtensionManifest>\n',
-        expected: '<?xml version="1.0" encoding="UTF-8"?>\n<!-- Marks points -->\n<ExtensionManifest Version="11.0" ExtensionBundleId="com.example.bridge" ExtensionBundleVersion="1.1.0" ExtensionBundleName="Bridge">\n    <ExtensionList />\n</ExtensionManifest>\n',
-        malformed: '<ExtensionManifest Version="11.0" ExtensionBundleId="com.example.bridge" ExtensionBundleVersion="1.0.0"\n',
-        shadowed: '<ExtensionManifest Version="11.0" ExtensionBundleId="com.example.bridge" ExtensionBundleVersion="1.0.0" ExtensionBundleVersion="5.5.5" />\n',
-    },
-    {
         manifest: 'Marker.uplugin',
         input: '{\n    "FileVersion": 3,\n    "Version": 1,\n    "VersionName": "1.0.0",\n    "FriendlyName": "Marker"\n}\n',
         expected: '{\n    "FileVersion": 3,\n    "Version": 2,\n    "VersionName": "1.1.0",\n    "FriendlyName": "Marker"\n}\n',

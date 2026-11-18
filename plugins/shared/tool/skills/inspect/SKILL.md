@@ -139,7 +139,7 @@ Adobe, Rhino, Unreal, and Blender projects and plug-ins:
 - Extensions Creative Cloud records per release host: `UnifiedPluginInstallerAgent --list all`, which fails with Creative Cloud quit
 - Adobe host scripting classes and enumerations: Atelier MCP resources `atelier://object-model/<host>` and `.../<host>/<name>`
 - Live values, window image, Accessibility tree of the app `applications` `open` targets: Atelier MCP `execute_script`, `view`, `inspect`
-- Adobe host crash reports, UXP and CEP logs, unified log, running or quit: Atelier MCP `diagnostics` with `application`
+- Adobe host crash reports, UXP logs, unified log, running or quit: Atelier MCP `diagnostics` with `application`
 - Rhino packages installed: `yak list`
 - Rhino package versions with platform and Rhino target per release: `xh -b https://yak.rhino3d.com/versions/<package>`
 - Rhino settings folders and versions: `rh-transfer list`
