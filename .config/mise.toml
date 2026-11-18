@@ -36,10 +36,6 @@ CTX7_TELEMETRY_DISABLED                       = "1"
 CLOUDFLARE_DEV_REGISTRY_PATH                  = "{{config_root}}/.cache/cloudflare/registry"
 DOPPLER_CONFIG                                = "dev"
 DOPPLER_PROJECT                               = "rasm"
-DOTNET_DbgEnableMiniDump                      = "1"
-DOTNET_DbgMiniDumpName                        = "{{config_root}}/.artifacts/dotnet/%e-%p.dmp"
-DOTNET_DbgMiniDumpType                        = "1"
-DOTNET_EnableCrashReport                      = "1"
 DOTNET_NOLOGO                                 = "1"
 DOTNET_ROLL_FORWARD                           = "Major"
 FOUNDRY_CACHE_DIR                             = "{{config_root}}/.cache/foundry"
@@ -291,7 +287,7 @@ lima                                                                         = {
 ninja                                                                        = "latest"
 node                                                                         = "latest"
 "npm:@aredotna/cli"                                                          = "latest"
-"npm:@bubblydoo/uxp-cli"                                                     = { allow_low_downloads = true, os = ["macos", "windows"], version = "latest" }
+"npm:@bubblydoo/uxp-cli"                                                     = { allow_builds = ["@adobe-fixed-uxp/uxp-devtools-helper"], allow_low_downloads = true, os = ["macos", "windows"], version = "latest" }
 "npm:@modelcontextprotocol/conformance"                                      = "0.2.0-alpha.12"
 "npm:@tavily/cli"                                                            = { allow_low_downloads = true, os = ["macos"], version = "latest" }
 "npm:ctx7"                                                                   = "latest"

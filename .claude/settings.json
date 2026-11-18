@@ -37,6 +37,7 @@
     "astral@astral-sh": true,
     "rust-analyzer-lsp@claude-plugins-official": true,
     "swift-lsp@claude-plugins-official": true,
+    "unreal-engine-skills-for-claude-code@claude-plugins-official": true,
     "blender@rasm": true,
     "dotnet@rasm": true,
     "msbuild@rasm": true,

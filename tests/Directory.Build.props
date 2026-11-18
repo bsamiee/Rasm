@@ -4,7 +4,7 @@
     <PropertyGroup Label="Test Applications">
         <IsTestProject>true</IsTestProject>
         <OutputType>Exe</OutputType>
-        <TestingPlatformCommandLineArguments>--report-trx --hangdump --hangdump-type None --hangdump-timeout 10m --crash-report-if-supported</TestingPlatformCommandLineArguments>
+        <TestingPlatformCommandLineArguments>--report-trx --hangdump --hangdump-type None --hangdump-timeout 10m --crashdump --crashdump-type Mini --crash-report-if-supported</TestingPlatformCommandLineArguments>
     </PropertyGroup>
 
     <ItemGroup Label="Testing" Condition="'$(OutputType)' == 'Exe'">

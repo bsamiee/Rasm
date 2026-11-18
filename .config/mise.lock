@@ -3793,11 +3793,12 @@ specifiers = ["latest"]
 
 [[tools."npm:@bubblydoo/uxp-cli"]]
 version = "0.0.14"
-aube = { path = "mise/locks/npm-bubblydoo-uxp-cli/0.0.14~8accf311", digest = "sha256:e7ca7beb3ca7bf8b99a112bd916dc26721f4aa6314e7576f89939ce1de5074de" }
+aube = { path = "mise/locks/npm-bubblydoo-uxp-cli/0.0.14~cc36fd0a", digest = "sha256:e7ca7beb3ca7bf8b99a112bd916dc26721f4aa6314e7576f89939ce1de5074de" }
 backend = "npm:@bubblydoo/uxp-cli"
 specifiers = ["latest"]
 
 [tools."npm:@bubblydoo/uxp-cli".options]
+allow_builds = '["@adobe-fixed-uxp/uxp-devtools-helper"]'
 allow_low_downloads = "true"
 
 [[tools."npm:@modelcontextprotocol/conformance"]]

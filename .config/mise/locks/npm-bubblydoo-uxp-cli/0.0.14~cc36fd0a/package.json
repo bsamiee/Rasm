@@ -1,6 +1,11 @@
 {
   "name": "mise-npm-install",
   "private": true,
+  "aube": {
+    "allowBuilds": {
+      "@adobe-fixed-uxp/uxp-devtools-helper": true
+    }
+  },
   "dependencies": {
     "@bubblydoo/uxp-cli": "0.0.14"
   }
