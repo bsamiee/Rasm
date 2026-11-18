@@ -167,6 +167,7 @@ Workspace commands, by tool:
 - `nx sync` writes executor schemas and tsconfig `references`
 - `nx migrate <version>`, then `nx migrate --run-migrations`, applies a new Nx release's migrations, and `pnpm dedupe` moves peer ranges the lock held
 - `pixi run --locked python` supplies the library search path for `magic` and `weasyprint`
+- `ictool <plugin>/assets/icon.icon --export-image --output-file <plugin>/assets/icon.png --platform macOS --rendition Default --width 256 --height 256 --scale 1` renders a plugin icon over its `@phosphor-icons/core` 2.1.1 bold SVG layer, `--rendition Dark` to `icon-dark.png`
 
 ## [06]-[TESTING]
 
