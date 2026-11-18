@@ -1,5 +1,4 @@
-import { Unmatched } from '@rasm/search';
-import { Array, Cause, Effect, Function, flow, Record, Result, Schema, Stream, String, Struct } from 'effect';
+import { Array, Cause, Effect, Function, Result, Schema, Stream, Struct } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -59,8 +58,13 @@ const AppleEventValue: Schema.Codec<AppleEventValue> = Schema.Union([
 ]);
 const TermKind = Schema.Literals(['suite', 'command', 'class', 'record-type', 'value-type', 'enumeration']).annotate({ description: 'Scripting definition element kind' });
 const Term = Schema.Struct({ name: Schema.String, code: Schema.String.annotate({ description: 'Code as scripting definition spells it' }) });
+const Command = Term.mapFields(
+    Struct.assign({
+        parameters: Schema.Array(Term.mapFields(Struct.assign({ list: Schema.Boolean.annotate({ description: 'Takes a list' }), enumerators: Schema.Array(Term).annotate({ description: 'Enumerators of the enumeration typing it' }) }))),
+    }),
+);
 class Execute extends Schema.Class<Execute, { readonly brand: unique symbol }>('Execute')({
-    command: Schema.String.annotate({ description: 'Dictionary command name or code, get and set included' }),
+    command: Schema.optionalKey(Schema.String.annotate({ description: 'Dictionary command name or code, get and set included, absent for the script command of the dictionary' })),
     arguments: Schema.Record(Schema.String, AppleEventValue)
         .annotate({ description: 'Parameters by name or code, direct for direct parameter, accepts reply values' })
         .pipe(Schema.withDecodingDefaultKey(Effect.succeed({})), Schema.withConstructorDefault(Effect.succeed({}))),
@@ -75,18 +79,13 @@ class Execute extends Schema.Class<Execute, { readonly brand: unique symbol }>('
     });
 }
 class Terms extends Schema.Class<Terms, { readonly brand: unique symbol }>('Terms')(
-    { ...Struct.Record(TermKind.literals, Schema.Array(Term)), command: Schema.Array(Term.mapFields(Struct.assign({ parameters: Schema.Array(Term) }))) },
-    { description: 'Every declaration by kind, name, and code, commands with their parameters' },
-) {
-    static readonly script = Effect.fnUntraced(function* ({ command }: Terms, { events, direct, declared = {} }: { readonly events: Array.NonEmptyReadonlyArray<string>; readonly direct: AppleEventValue; readonly declared?: Readonly<Record<string, AppleEventValue>> }) {
-        const { name, parameters } = yield* Effect.fromOption(
-            Array.findFirst(events, (event) => Array.findFirst(command, flow(Struct.get('code'), String.endsWith(event)))),
-            () => Unmatched.of({ subject: `command with event ${events.join(' or ')}`, candidates: Array.map(command, Struct.get('name')) }),
-        );
-        const codes = new Set(Array.map(parameters, Struct.get('code')));
-        return Execute.make({ command: name, arguments: { direct, ...Record.filter(declared, (_, code) => codes.has(code)) } });
-    });
-}
+    {
+        ...Struct.Record(TermKind.literals, Schema.Array(Term)),
+        command: Schema.Array(Command),
+        script: Schema.OptionFromOptionalKey(Command.annotate({ description: 'Command a direct text parameter runs as source: the one taking a list of text arguments, else the do script event' })),
+    },
+    { description: 'Every declaration by kind, name, and code, commands with their parameters, and the script command' },
+) {}
 
 const Undeclared = Schema.Record(Schema.String, Schema.Json);
 const open = <const Fields extends Schema.Struct.Fields>(fields: Fields) => Schema.StructWithRest(Schema.Struct(fields), [Undeclared]);

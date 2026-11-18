@@ -83,6 +83,20 @@ class UxpManifest extends Schema.Class<UxpManifest, { readonly brand: unique sym
     static readonly file = 'manifest.json';
     static readonly target = 'es2022';
     static readonly scripts = { ID: 'idjs', PS: 'psjs' } as const satisfies Partial<Record<UxpManifest['host']['app'], string>>;
+    static readonly scriptLanguage = 'USLg';
+    static readonly script = Object.assign(
+        (body: string, { runtime, host }: { readonly runtime: string; readonly host: { readonly module: string; readonly around: string } }) =>
+            [
+                `(() => { const { script } = require('uxp'); const answer = (reply) => script.setResult(encodeURIComponent(reply)); try {`,
+                `const around = ${host.around}; const hosted = require(${JSON.stringify(host.module)}); const prepare = Error.prepareStackTrace; const lines = [];`,
+                runtime,
+                `Error.prepareStackTrace = (error, frames) => { lines.push(...frames.filter((frame) => frame.getScriptNameOrSourceURL() === 'body.js').map((frame) => frame.getLineNumber())); return String(error); };`,
+                `try { answer(runtime.reply(() => around(hosted, () => { let value; try { value = new Function(${JSON.stringify(`return ${body}\n//# sourceURL=body.js`)})()(); } catch (error) { void error?.stack; throw { message: String(error?.message ?? error), line: lines[0] }; }`,
+                `if (typeof value?.then === 'function') { value.then(undefined, () => undefined); throw { _tag: 'IllegalArgument', message: 'body returned a promise, a do script body runs synchronously' }; } return { result: value }; })));`,
+                `} finally { Error.prepareStackTrace = prepare; } } catch (error) { answer(JSON.stringify({ _tag: 'Thrown', message: String(error?.message ?? error) })); } })();`,
+            ].join('\n'),
+        { offset: 2 },
+    );
     static readonly origin = 'file://';
     static readonly logs = (folder: string) => ({ folder: `Library/Logs/Adobe/${folder}`, glob: 'UXPLogs_*.log' });
 }

@@ -1613,9 +1613,6 @@ importers:
       effect:
         specifier: 'catalog:'
         version: 4.1.4
-      fast-xml-parser:
-        specifier: 'catalog:'
-        version: 5.12.1
     devDependencies:
       '@types/node':
         specifier: 'catalog:'

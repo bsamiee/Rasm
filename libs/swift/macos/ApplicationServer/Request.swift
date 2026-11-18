@@ -33,7 +33,7 @@ public enum Request: Decodable, Sendable {
     case quit(instance: ProcessInstance, force: Bool)
     case terms(url: URL)
     case definition(url: URL, kind: ScriptingDictionary.Kind, name: String)
-    case execute(instance: ProcessInstance, command: String, arguments: [String: AppleEventValue], artifacts: [URL])
+    case execute(instance: ProcessInstance, command: String?, arguments: [String: AppleEventValue], artifacts: [URL])
     case capture(instance: ProcessInstance, source: Source?, longestSide: Int?)
     case diagnostics(application: Subject?, folders: [LogFolder], since: Double?, limit: Int)
 }

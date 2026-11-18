@@ -2,7 +2,7 @@ import process from 'node:process';
 import { spawn } from '@rasm/process';
 import { child } from '@rasm/rpc';
 import { Unmatched } from '@rasm/search';
-import { Cause, Context, Effect, Fiber, FileSystem, Layer, Path, Schema, Sink, Stream, Struct, SubscriptionRef } from 'effect';
+import { Cause, Context, Effect, Fiber, FileSystem, Layer, Path, Schema, Sink, Stream, SubscriptionRef } from 'effect';
 import type { ChildProcessSpawner } from 'effect/process';
 import { Rpc, RpcClient, RpcGroup } from 'effect/rpc';
 import { parse } from 'plist';
@@ -60,10 +60,6 @@ class ApplicationServer extends Context.Service<ApplicationServer>()('@rasm/appl
             installations,
             installed: Effect.flatMap(SubscriptionRef.get(installations), Effect.fromResult),
             exited: Effect.raceFirst(handle.exitCode, Effect.andThen(Fiber.join(discovering), handle.exitCode)),
-            script: Effect.fn('ApplicationServer.script')(function* ({ instance, url, ...script }: Pick<RunningInstance, 'instance' | 'url'> & Parameters<typeof Terms.script>[1]) {
-                const execute = yield* Terms.script(yield* client.terms({ url }), script);
-                return yield* client.execute(Struct.assign(execute, { instance }));
-            }),
         };
     }),
 }) {

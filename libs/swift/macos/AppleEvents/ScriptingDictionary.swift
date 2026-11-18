@@ -23,11 +23,16 @@ public final class ScriptingDictionary: Encodable, Sendable {
         public let name: String
         public let code: FourCharCode
         public let types: Set<String>
+        public let list: Bool
         public let members: [Self]
 
-        static func direct(_ types: Set<String>) -> Self {
-            Self(name: "direct", code: AEKeyword(keyDirectObject), types: types, members: [])
+        static func direct(_ type: (types: Set<String>, list: Bool)) -> Self {
+            Self(name: "direct", code: AEKeyword(keyDirectObject), types: type.types, list: type.list, members: [])
         }
+
+        var isDirect: Bool { code == AEKeyword(keyDirectObject) }
+
+        var acceptsText: Bool { !types.isDisjoint(with: ["text", "any"]) }
 
         private enum Key: CodingKey {
             case name, code
@@ -42,12 +47,12 @@ public final class ScriptingDictionary: Encodable, Sendable {
 
     public struct Command: Encodable, Hashable, Sendable {
         static let language: [Self] = [
-            Self(name: "get", eventClass: AEEventClass(kAECoreSuite), eventID: AEEventID(kAEGetData), parameters: [.direct(["specifier"])]),
+            Self(name: "get", eventClass: AEEventClass(kAECoreSuite), eventID: AEEventID(kAEGetData), parameters: [.direct((["specifier"], false))]),
             Self(
                 name: "set",
                 eventClass: AEEventClass(kAECoreSuite),
                 eventID: AEEventID(kAESetData),
-                parameters: [.direct(["specifier"]), Term(name: "to", code: AEKeyword(keyAEData), types: ["any"], members: [])],
+                parameters: [.direct((["specifier"], false)), Term(name: "to", code: AEKeyword(keyAEData), types: ["any"], list: false, members: [])],
             ),
         ]
 
@@ -57,7 +62,7 @@ public final class ScriptingDictionary: Encodable, Sendable {
         public let parameters: [Term]
 
         private enum Key: CodingKey {
-            case name, code, parameters
+            case name, code, parameters, list, enumerators
         }
 
         public var code: UInt64 { UInt64(eventClass) << 32 | UInt64(eventID) }
@@ -66,7 +71,14 @@ public final class ScriptingDictionary: Encodable, Sendable {
             var row = encoder.container(keyedBy: Key.self)
             try row.encode(name, forKey: .name)
             try row.encode(code.sdef, forKey: .code)
-            try row.encode(parameters, forKey: .parameters)
+            var listed = row.nestedUnkeyedContainer(forKey: .parameters)
+            for parameter in parameters {
+                var fields = listed.nestedContainer(keyedBy: Key.self)
+                try fields.encode(parameter.name, forKey: .name)
+                try fields.encode(parameter.code.sdef, forKey: .code)
+                try fields.encode(parameter.list, forKey: .list)
+                try fields.encode(parameter.members, forKey: .enumerators)
+            }
         }
     }
 
@@ -80,7 +92,12 @@ public final class ScriptingDictionary: Encodable, Sendable {
         }
     }
 
+    private enum Key: CodingKey {
+        case script
+    }
+
     public let commands: [Command]
+    public let script: Command?
     public let declarations: [Kind: [Term]]
     let types: Scope
     let members: [FourCharCode: Scope]
@@ -100,6 +117,7 @@ public final class ScriptingDictionary: Encodable, Sendable {
             element.attribute(forName: "name")?.stringValue
         }
         let extensions = try Dictionary(grouping: elements("//class-extension")) { element in element.attribute(forName: "extends")?.stringValue }
+        let enumerations = try Dictionary(grouping: elements("//\(Kind.enumeration.rawValue)")) { element in element.attribute(forName: "name")?.stringValue }
         func lineage(_ level: OrderedSet<XMLElement>, _ seen: OrderedSet<XMLElement>) -> OrderedSet<XMLElement> {
             let parents = level.flatMap { (child: XMLElement) -> [XMLElement] in child.attribute(forName: "inherits")?.stringValue.flatMap { name in named[name] } ?? [] }
             let unseen = OrderedSet(parents).subtracting(seen)
@@ -111,26 +129,29 @@ public final class ScriptingDictionary: Encodable, Sendable {
                 return ancestor.elements(forName: "property") + extended.flatMap { element in element.elements(forName: "property") }
             }
         }
-        func sdefTypes(_ element: XMLElement) -> Set<String> {
-            Set(([element.attribute(forName: "type")] + element.elements(forName: "type").map { type in type.attribute(forName: "type") }).compactMap { attribute in attribute?.stringValue })
+        func sdefType(_ element: XMLElement) -> (types: Set<String>, list: Bool) {
+            let declared = [element] + element.elements(forName: "type")
+            return (Set(declared.compactMap { type in type.attribute(forName: "type")?.stringValue }), declared.contains { type in type.attribute(forName: "list")?.stringValue == "yes" })
         }
         func terms(_ elements: [XMLElement]) -> [Term] {
             OrderedSet(
                 elements.compactMap { element in
+                    let (types, list) = sdefType(element)
                     let members: [XMLElement] =
-                        switch element.name.flatMap(Kind.init(rawValue:)) {
-                            case .class, .recordType, .valueType: inherited(element)
-                            case .enumeration: element.elements(forName: "enumerator")
-                            case .suite, .command, .none: []
+                        switch (element.name.flatMap(Kind.init(rawValue:)), element.name) {
+                            case (.class, _), (.recordType, _), (.valueType, _): inherited(element)
+                            case (.enumeration, _): element.elements(forName: "enumerator")
+                            case (.none, "parameter"): types.flatMap { type in enumerations[type] ?? [] }.flatMap { enumeration in enumeration.elements(forName: "enumerator") }
+                            case (.suite, _), (.command, _), (.none, _): []
                         }
                     return switch (element.attribute(forName: "name")?.stringValue, element.attribute(forName: "code")?.stringValue.flatMap(FourCharCode.init(sdef:))) {
-                        case (.some(let name), .some(let code)): Term(name: name, code: code, types: sdefTypes(element), members: terms(members))
+                        case (.some(let name), .some(let code)): Term(name: name, code: code, types: types, list: list, members: terms(members))
                         default: nil
                     }
                 }
             ).elements
         }
-        commands = try OrderedSet(
+        let commands = try OrderedSet(
             elements("//\(Kind.command.rawValue)").compactMap { element in
                 switch (element.attribute(forName: "name")?.stringValue, element.attribute(forName: "code")?.stringValue.flatMap(UInt64.init(sdef:))) {
                     case (.some(let name), .some(let code)):
@@ -139,16 +160,21 @@ public final class ScriptingDictionary: Encodable, Sendable {
                             eventClass: AEEventClass(truncatingIfNeeded: code >> 32),
                             eventID: AEEventID(truncatingIfNeeded: code),
                             parameters: terms(element.elements(forName: "parameter"))
-                                + element.elements(forName: "direct-parameter").map { parameter in Term.direct(sdefTypes(parameter)) },
+                                + element.elements(forName: "direct-parameter").map { parameter in Term.direct(sdefType(parameter)) },
                         )
                     default: nil
                 }
             }
         ).elements
+        let scripting = commands.filter { command in command.parameters.contains { term in term.isDirect && term.acceptsText } }
+        script =
+            scripting.first { command in command.parameters.contains { term in !term.isDirect && term.list && term.acceptsText } }
+            ?? scripting.first { command in command.eventID == AEEventID(kAEDoScript) }
         let declared = try Dictionary(
             uniqueKeysWithValues: Kind.allCases.filter { kind in kind != .command }.map { kind throws(AppleEventFailure) in (kind, terms(try elements("//\(kind.rawValue)"))) }
         )
         let typed = typedKinds.flatMap { kind in declared[kind, default: []] }
+        self.commands = commands
         declarations = declared
         types = Scope(typed)
         members = Dictionary(grouping: typed, by: \.code).mapValues { terms in Scope(terms.flatMap(\.members)) }
@@ -161,6 +187,8 @@ public final class ScriptingDictionary: Encodable, Sendable {
         var listing = encoder.container(keyedBy: Kind.self)
         try listing.encode(commands, forKey: .command)
         for kind in Kind.allCases where kind != .command { try listing.encode(declarations[kind, default: []], forKey: kind) }
+        var derived = encoder.container(keyedBy: Key.self)
+        try derived.encodeIfPresent(script, forKey: .script)
     }
 
     public func text(of kind: Kind, named name: String) throws(AppleEventFailure) -> String {
@@ -201,23 +229,20 @@ extension ScriptingDictionary {
 
     // --- [COMMANDS]
 
-    public func command(_ query: String, taking arguments: Set<String>) throws(Unmatched) -> Command {
-        let code = UInt64(sdef: query)
-        let matching: (Command) -> Bool = { command in command.name == query || command.code == code }
+    public func command(_ query: String?, taking arguments: Set<String>) throws(Unmatched) -> Command {
+        let matching: (Command) -> Bool =
+            switch query {
+                case .some(let query): { command in command.name == query || command.code == UInt64(sdef: query) }
+                case .none: { command in command == self.script }
+            }
         let takes: (Command) -> Bool = { command in
             arguments.allSatisfy { argument in command.parameters.contains { term in term.name == argument || term.code == FourCharCode(sdef: argument) } }
         }
         let scopes = [Command.language, commands].map { scope in scope.filter(takes) }
         let found = scopes.first { scope in scope.contains(where: matching) }?.filter(matching) ?? []
-        let subject = arguments.isEmpty ? "command" : "command taking \(arguments.sorted().joined(separator: ", "))"
+        let kind = query == nil ? "script command" : "command"
+        let subject = arguments.isEmpty ? kind : "\(kind) taking \(arguments.sorted().joined(separator: ", "))"
         return try Unmatched.single(found, subject: subject, query: query, candidates: OrderedSet(scopes.joined().map(\.name)).elements, named: \.code.sdef).get()
-    }
-
-    public func command(handling codes: [UInt64]) throws(Unmatched) -> Command {
-        guard let handler = codes.lazy.compactMap({ code in self.commands.first { command in command.code == code } }).first else {
-            throw Unmatched(subject: "command handling \(codes.map(\.sdef).joined(separator: ", "))", query: nil, candidates: OrderedSet(commands.map(\.name)).elements)
-        }
-        return handler
     }
 
     // --- [EVENTS]
@@ -255,13 +280,13 @@ extension ScriptingDictionary {
     }
 
     public func reply(
-        to query: String,
+        to query: String?,
         arguments: [String: AppleEventValue],
         target: sending NSAppleEventDescriptor,
         refusing activating: Set<UInt64> = [],
     ) async throws(AggregateError<AppleEventFailure>) -> AppleEventValue {
         let command = try Result { () throws(Unmatched) in try command(query, taking: Set(arguments.keys)) }
-            .aggregated { miss in AppleEventFailure(subject: query, reason: .unmatched(miss)) }.get()
+            .aggregated { miss in AppleEventFailure(subject: query ?? miss.subject, reason: .unmatched(miss)) }.get()
         let event = try event(command, arguments: arguments, target: target, refusing: activating)
         do { return AppleEventValue(try await event.send(), in: self) } catch { throw AggregateError(first: error) }
     }
@@ -283,14 +308,14 @@ extension ScriptingDictionary {
         let named = scopes.lazy.compactMap { scope in scope.named[name] }.first ?? []
         let codes = named.isEmpty ? [FourCharCode(sdef: name)].compactMap(\.self) : OrderedSet(named.map(\.code)).elements
         return Unmatched.single(codes, subject: "term", query: name, candidates: OrderedSet(scopes.flatMap(\.named.keys)).elements, named: \.sdef)
-            .map { code in Term(name: name, code: code, types: Set(named.flatMap(\.types)), members: []) }
+            .map { code in Term(name: name, code: code, types: Set(named.flatMap(\.types)), list: named.contains(where: \.list), members: []) }
             .aggregated { miss in AppleEventFailure(subject: name, reason: .unmatched(miss)) }
     }
 
     static func term(_ code: FourCharCode, in scopes: [Scope]) -> Term {
         let found = scopes.lazy.compactMap { scope in scope.coded[code] }.first ?? []
         let name = found.first { term in resolve(term.name, in: scopes)[case: \.success]?.code == code }?.name
-        return Term(name: name ?? code.sdef, code: code, types: Set(found.flatMap(\.types)), members: [])
+        return Term(name: name ?? code.sdef, code: code, types: Set(found.flatMap(\.types)), list: found.contains(where: \.list), members: [])
     }
 
     func scope(_ code: FourCharCode?) -> [Scope] {
