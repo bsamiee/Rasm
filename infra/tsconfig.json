@@ -1,10 +1,10 @@
 {
-    "extends": "../tsconfig.base.json",
+    "extends": "../tsconfig.unpublished.json",
     "compilerOptions": {
         "types": ["node"]
     },
     "include": ["**/*", "package.json"],
-    "exclude": ["dist", "sdks"],
+    "exclude": ["sdks"],
     "references": [
         {
             "path": "../libs/typescript/runtime/process"

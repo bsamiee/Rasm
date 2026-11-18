@@ -4,7 +4,7 @@
         "types": ["node"]
     },
     "include": ["**/*"],
-    "exclude": ["dist", "server/main.ts"],
+    "exclude": ["server/main.ts"],
     "references": [
         {
             "path": "../../../libs/typescript/messaging/webhooks"

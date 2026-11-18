@@ -4,6 +4,6 @@
         "types": ["node"]
     },
     "include": ["**/*"],
-    "exclude": ["dist", "*.workers.test.ts"],
+    "exclude": ["*.workers.test.ts"],
     "references": [{ "path": "../../../../support/typescript" }, { "path": "../../../../../libs/typescript/data/object-storage/tsconfig.lib.json" }]
 }

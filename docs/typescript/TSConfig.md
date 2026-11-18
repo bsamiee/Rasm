@@ -15,13 +15,16 @@ TypeScript compiler configuration of an Effect-based pnpm and Nx monorepo.
 
 ## [02]-[LAYOUT]
 
-| [INDEX] | [FILE]                     | [HOLDS]                                                                   |
-| :-----: | :------------------------- | :------------------------------------------------------------------------ |
-|  [01]   | Root `tsconfig.base.json`  | Every shared compiler option, no `include`, no `files`                    |
-|  [02]   | Root `tsconfig.json`       | `extends` the base, `"include": []`, `references` to each project         |
-|  [03]   | Package `tsconfig.json`    | `extends` the base, `references`, runtime `types` and `lib`               |
-|  [04]   | Root `tsconfig.tests.json` | `noEmit: true` over root `vitest.config.ts`, `references` to test support |
+| [INDEX] | [FILE]                           | [HOLDS]                                                                                 |
+| :-----: | :------------------------------- | :-------------------------------------------------------------------------------------- |
+|  [01]   | Root `tsconfig.base.json`        | Every shared compiler option, no `include`, no `files`                                  |
+|  [02]   | Root `tsconfig.json`             | `extends` the base, `"include": []`, `references` to each project                       |
+|  [03]   | Package `tsconfig.json`          | `extends` the base, `references`, runtime `types` and `lib`                             |
+|  [04]   | Root `tsconfig.unpublished.json` | `extends` the base, sets `rootDir` and `outDir` for every program publishing no package |
+|  [05]   | Root `tsconfig.tests.json`       | `noEmit: true` over root `vitest.config.ts`, `references` to test support               |
 
+- Release packages emit into their own `dist`, the folder `pnpm pack` reads, and apps, test suites, and tools write under `.artifacts/tsc/<projectRoot>`
+- Root `tsconfig.json` and `tsconfig.tests.json` emit nothing and write their `.tsbuildinfo` to `.cache/tsc`
 - Test suite programs `references` reach each package they import, else TS6307 refuses the files outside their `include`
 - Applications another project imports pair a composite `tsconfig.json` holding `"files": []` with a `noEmit` `tsconfig.app.json`, as TS6310 refuses a `noEmit` reference
 - `@rasm/nx-typescript` infers `check--tsc` for a `noEmit` program and `build--tsc` for an emitting one, its `check--tsc` running the build
