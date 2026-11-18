@@ -5,7 +5,7 @@ import { layer } from '@effect/platform-node/NodeServices';
 import { assert, it } from '@effect/vitest';
 import { Cause, Effect, FileSystem, Layer, Path, Schema, Stream } from 'effect';
 import { SecureRandom } from 'effect/crypto';
-import { HttpClient, HttpClientRequest } from 'effect/http';
+import { HttpClient, HttpClientRequest, HttpClientResponse } from 'effect/http';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -54,7 +54,7 @@ const served = Effect.fnUntraced(function* () {
     const decided = (command: string, kind: 'foreground' | 'monitor', stated: { readonly cwd?: string; readonly agent?: string } = {}) =>
         SecureRandom.SecureRandom.use((random) => random.uuidV4()).pipe(
             Effect.flatMap((call) => HttpClient.execute(HttpClientRequest.bodyJsonUnsafe(HttpClientRequest.post('http://function-hooks/decide'), { command, cwd: folder, kind, session: 'session', call, ...stated }))),
-            Effect.flatMap(({ json }) => json),
+            Effect.flatMap(HttpClientResponse.matchStatus({ '2xx': ({ json }) => json, orElse: ({ status, text }) => Effect.flatMap(text, (body) => Effect.fail(new Cause.UnknownError(body, `decide answers ${status}, ${body}`))) })),
             Effect.flatMap(Schema.decodeUnknownEffect(Decision)),
             Effect.provide(layerUndiciOptions({ connect: { socketPath: socket } })),
         );
@@ -66,8 +66,7 @@ const held = Effect.fnUntraced(function* (holder: keyof typeof HOLDERS) {
     const output = path.join(folder, 'tasks', 'b7k2.output');
     yield* fs.makeDirectory(path.dirname(output));
     yield* fs.writeFileString(output, '');
-    const { pid } = yield* spawner.spawn(HOLDERS[holder](output));
-    return { output, pid, decided };
+    return { output, holding: yield* spawner.spawn(HOLDERS[holder](output)), decided };
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -76,9 +75,14 @@ it.live(
     'Monitor tail of a written task output waits on its writer, and the rewrite decides to itself',
     Effect.fnUntraced(
         function* () {
-            const { output, pid, decided } = yield* held('writer');
-            const bounded = `{ tail -f ${output} & caffeinate -w ${pid}; kill $!; }`;
-            assert.deepStrictEqual<readonly Decision[]>([yield* decided(`tail -f ${output}`, 'monitor'), yield* decided(bounded, 'monitor')], [{ _tag: 'Rewrite', command: bounded, observes: false, background: false }, ALLOWED]);
+            const [fs, spawner, { output, holding, decided }] = yield* Effect.all([FileSystem.FileSystem, ChildProcessSpawner.ChildProcessSpawner, held('writer')]);
+            const bounded = yield* decided(`tail -f ${output}`, 'monitor');
+            assert(bounded._tag === 'Rewrite', `tail -f ${output} decides ${bounded._tag}`);
+            assert.deepStrictEqual<readonly Decision[]>([bounded, yield* decided(bounded.command, 'monitor')], [{ _tag: 'Rewrite', command: bounded.command, observes: false, background: false }, ALLOWED]);
+            yield* fs.writeFileString(output, 'first\n', { flag: 'a' });
+            const monitor = yield* spawner.spawn(ChildProcess.make('sh', ['-c', bounded.command]));
+            const tailed = Stream.runCollect(Stream.tap(Stream.splitLines(Stream.decodeText(monitor.stdout)), (line) => (line === 'first' ? fs.writeFileString(output, 'second\n', { flag: 'a' }) : holding.kill())));
+            assert.deepStrictEqual<readonly [readonly string[], number]>(yield* Effect.all([tailed, monitor.exitCode]), [['first', 'second'], 0]);
         },
         Effect.scoped,
         Effect.provide(Layer.merge(layer, SecureRandom.layerWebCrypto)),
@@ -107,7 +111,7 @@ it.live(
     Effect.fnUntraced(
         function* () {
             const { decided } = yield* served();
-            const decisions = yield* Effect.forEach(BROWSERS, ([command]) => decided(command, 'foreground', { cwd: '/private/tmp', agent: 'a1' }));
+            const decisions = yield* Effect.forEach(BROWSERS, ([command]) => decided(command, 'foreground', { agent: 'a1' }));
             assert.deepStrictEqual<readonly Decision[]>(
                 decisions,
                 BROWSERS.map(([, decision]) => decision),

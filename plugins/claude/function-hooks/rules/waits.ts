@@ -1,3 +1,4 @@
+import process from 'node:process';
 import { Array, Effect, Option, Record } from 'effect';
 import { RateLimiter } from 'effect/persistence';
 import { RedirOperator } from 'sh-syntax/sync';
@@ -22,6 +23,10 @@ const IDLE: ReadonlySet<string> = new Set(['echo', 'printf', ':', 'true']);
 const CAPTURE = /^(?:\$\(|`)/u;
 const RUN_POLLS: ReadonlySet<string> = new Set(['sleep', 'jq', 'grep', 'rg', 'echo', 'printf', 'test', '[', 'true', ':', 'date', 'read']);
 const WAITERS: ReadonlySet<string> = new Set(['sleep', 'timeout', 'caffeinate', 'wait4path', 'watch']);
+const EXIT_WAITERS: Partial<Record<NodeJS.Platform, (pid: string) => string>> = {
+    darwin: (pid) => `caffeinate -w ${pid}`,
+    linux: (pid) => `tail --pid=${pid} -f /dev/null`,
+};
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -170,8 +175,8 @@ const tailedTask: Rule = (invocation, call) => {
     const notice = taskNotice(taskIds(files.join(' ')));
     return writers(call, files).pipe(
         Effect.map((held) => {
-            const awake = held.flat().map((pid) => `caffeinate -w ${pid}`);
-            return awake.length < files.length ? notice : [...inserted(invocation, invocation.head.start, '{ '), ...inserted(invocation, Array.lastNonEmpty(invocation.words).end, ` & ${awake.join('; ')}; kill $!; }`)];
+            const exits = Option.toArray(Option.fromNullishOr(EXIT_WAITERS[process.platform])).flatMap((waiter) => held.flat().map(waiter));
+            return exits.length < files.length ? notice : [...inserted(invocation, invocation.head.start, '{ '), ...inserted(invocation, Array.lastNonEmpty(invocation.words).end, ` & ${exits.join('; ')}; kill $!; }`)];
         }),
         Effect.orElseSucceed(() => notice),
     );
