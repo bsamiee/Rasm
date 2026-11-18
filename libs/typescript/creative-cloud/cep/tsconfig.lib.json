@@ -1,0 +1,25 @@
+{
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "lib": ["es2022", "dom"]
+    },
+    "include": ["**/*"],
+    "exclude": ["dist", "vite.ts"],
+    "references": [
+        {
+            "path": "../../runtime/telemetry"
+        },
+        {
+            "path": "../../data/search"
+        },
+        {
+            "path": "../object-model"
+        },
+        {
+            "path": "../../ai/mcp"
+        },
+        {
+            "path": "../extendscript/tsconfig.lib.json"
+        }
+    ]
+}

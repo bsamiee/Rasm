@@ -9,7 +9,7 @@
     "include": ["**/*", "package.json"],
     "references": [
         {
-            "path": "../../../../../libs/typescript/creative-cloud/uxp"
+            "path": "../../../../../libs/typescript/creative-cloud/uxp/tsconfig.lib.json"
         },
         {
             "path": "../../../../../libs/typescript/graphics/typography"
@@ -33,13 +33,13 @@
             "path": "../../../../../libs/typescript/creative-cloud/indesign"
         },
         {
-            "path": "../../../../../libs/typescript/creative-cloud/extendscript"
+            "path": "../../../../../libs/typescript/creative-cloud/extendscript/tsconfig.lib.json"
         },
         {
             "path": "../../../../../libs/typescript/creative-cloud/desktop"
         },
         {
-            "path": "../../../../../libs/typescript/creative-cloud/cep"
+            "path": "../../../../../libs/typescript/creative-cloud/cep/tsconfig.lib.json"
         },
         {
             "path": "../../../../../libs/typescript/macos/applications"

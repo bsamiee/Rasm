@@ -1,0 +1,16 @@
+{
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "lib": ["es2022"]
+    },
+    "include": ["**/*"],
+    "exclude": ["dist", "node.ts", "vite.ts"],
+    "references": [
+        {
+            "path": "../../data/search"
+        },
+        {
+            "path": "../object-model"
+        }
+    ]
+}

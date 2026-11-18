@@ -1,0 +1,8 @@
+{
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "types": ["node"]
+    },
+    "include": ["vite.ts"],
+    "references": [{ "path": "./tsconfig.lib.json" }, { "path": "../../graphics/mark" }, { "path": "../object-model" }]
+}

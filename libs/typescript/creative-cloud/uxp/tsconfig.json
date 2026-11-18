@@ -1,19 +1,5 @@
 {
     "extends": "../../../../tsconfig.base.json",
-    "compilerOptions": {
-        "lib": ["es2022", "dom"],
-        "module": "preserve",
-        "types": ["node", "@adobe-uxp-types/uxp/with-protocol"]
-    },
-    "references": [
-        {
-            "path": "../../runtime/telemetry"
-        },
-        {
-            "path": "../../graphics/mark"
-        },
-        {
-            "path": "../object-model"
-        }
-    ]
+    "files": [],
+    "references": [{ "path": "./tsconfig.lib.json" }, { "path": "./tsconfig.node.json" }]
 }

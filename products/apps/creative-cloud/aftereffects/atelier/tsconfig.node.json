@@ -1,0 +1,11 @@
+{
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "composite": false,
+        "declarationMap": false,
+        "noEmit": true,
+        "types": ["node"]
+    },
+    "include": ["vite.config.ts"],
+    "references": [{ "path": "../../../../../libs/typescript/creative-cloud/cep/tsconfig.node.json" }]
+}

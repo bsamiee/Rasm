@@ -1,0 +1,8 @@
+{
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "types": ["node"]
+    },
+    "include": ["vite.ts"],
+    "references": [{ "path": "./tsconfig.lib.json" }, { "path": "../extendscript/tsconfig.node.json" }, { "path": "../object-model" }]
+}

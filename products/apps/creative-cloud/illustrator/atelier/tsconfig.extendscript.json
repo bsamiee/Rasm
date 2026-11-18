@@ -1,0 +1,12 @@
+{
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "composite": false,
+        "declarationMap": false,
+        "noEmit": true,
+        "lib": ["es2022"],
+        "types": ["types-for-adobe/Illustrator/2022"]
+    },
+    "include": ["extendscript.ts"],
+    "references": [{ "path": "../../../../../libs/typescript/creative-cloud/illustrator" }, { "path": "../../../../../libs/typescript/creative-cloud/extendscript/tsconfig.lib.json" }, { "path": "../../../../../libs/typescript/creative-cloud/object-model" }]
+}

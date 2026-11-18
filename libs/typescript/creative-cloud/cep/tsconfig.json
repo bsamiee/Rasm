@@ -1,24 +1,5 @@
 {
     "extends": "../../../../tsconfig.base.json",
-    "compilerOptions": {
-        "lib": ["es2022", "dom"],
-        "types": ["node"]
-    },
-    "references": [
-        {
-            "path": "../../runtime/telemetry"
-        },
-        {
-            "path": "../object-model"
-        },
-        {
-            "path": "../extendscript"
-        },
-        {
-            "path": "../../data/search"
-        },
-        {
-            "path": "../../ai/mcp"
-        }
-    ]
+    "files": [],
+    "references": [{ "path": "./tsconfig.lib.json" }, { "path": "./tsconfig.node.json" }]
 }

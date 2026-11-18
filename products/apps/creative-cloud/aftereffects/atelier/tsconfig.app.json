@@ -1,18 +1,13 @@
 {
-    "extends": "../../../../../tsconfig.base.json",
+    "extends": "./tsconfig.json",
     "compilerOptions": {
         "composite": false,
         "declarationMap": false,
         "noEmit": true,
-        "types": ["node", "types-for-adobe/AfterEffects/26.0"]
+        "lib": ["es2022", "dom"]
     },
+    "include": ["panel.ts"],
     "references": [
-        {
-            "path": "../../../../../libs/typescript/creative-cloud/extendscript"
-        },
-        {
-            "path": "../../../../../libs/typescript/creative-cloud/cep"
-        },
         {
             "path": "../../../../../libs/typescript/creative-cloud/object-model"
         },
@@ -20,7 +15,8 @@
             "path": "../../../../../libs/typescript/ai/mcp"
         },
         {
-            "path": "../../../../../libs/typescript/creative-cloud/aftereffects"
+            "path": "../../../../../libs/typescript/creative-cloud/cep/tsconfig.lib.json"
         }
-    ]
+    ],
+    "nx": { "sync": { "ignoredDependencies": ["@rasm/aftereffects", "@rasm/extendscript"] } }
 }

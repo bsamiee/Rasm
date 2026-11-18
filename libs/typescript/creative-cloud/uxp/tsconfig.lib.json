@@ -1,0 +1,21 @@
+{
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "lib": ["es2022", "dom"],
+        "module": "preserve",
+        "types": ["node", "@adobe-uxp-types/uxp/with-protocol"]
+    },
+    "include": ["**/*"],
+    "exclude": ["dist", "vite.ts"],
+    "references": [
+        {
+            "path": "../../runtime/telemetry"
+        },
+        {
+            "path": "../../graphics/mark"
+        },
+        {
+            "path": "../object-model"
+        }
+    ]
+}

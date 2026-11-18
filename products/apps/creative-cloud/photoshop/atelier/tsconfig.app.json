@@ -1,5 +1,5 @@
 {
-    "extends": "../../../../../tsconfig.base.json",
+    "extends": "./tsconfig.json",
     "compilerOptions": {
         "composite": false,
         "declarationMap": false,
@@ -8,9 +8,11 @@
         "module": "preserve",
         "types": ["node", "@adobe-uxp-types/uxp/with-protocol", "@adobe-uxp-types/photoshop/with-protocol"]
     },
+    "include": ["**/*"],
+    "exclude": ["dist", "vite.config.ts"],
     "references": [
         {
-            "path": "../../../../../libs/typescript/creative-cloud/uxp"
+            "path": "../../../../../libs/typescript/creative-cloud/uxp/tsconfig.lib.json"
         },
         {
             "path": "../../../../../libs/typescript/creative-cloud/photoshop"

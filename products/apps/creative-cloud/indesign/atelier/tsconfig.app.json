@@ -1,5 +1,5 @@
 {
-    "extends": "../../../../../tsconfig.base.json",
+    "extends": "./tsconfig.json",
     "compilerOptions": {
         "composite": false,
         "declarationMap": false,
@@ -11,21 +11,23 @@
             "adobe:indesign": ["${configDir}/node_modules/indesign-uxp-types/flat/module.d.ts"]
         }
     },
+    "include": ["**/*"],
+    "exclude": ["dist", "vite.config.ts"],
     "references": [
         {
-            "path": "../../../../../libs/typescript/creative-cloud/uxp"
+            "path": "../../../../../libs/typescript/creative-cloud/uxp/tsconfig.lib.json"
         },
         {
             "path": "../../../../../libs/typescript/graphics/typography"
-        },
-        {
-            "path": "../../../../../libs/typescript/creative-cloud/indesign"
         },
         {
             "path": "../../../../../libs/typescript/creative-cloud/object-model"
         },
         {
             "path": "../../../../../libs/typescript/ai/mcp"
+        },
+        {
+            "path": "../../../../../libs/typescript/creative-cloud/indesign"
         }
     ]
 }
