@@ -68,6 +68,11 @@ class DotnetVersionActions extends VersionActions {
         return run(Effect.map(listed, ({ searchResult }) => Option.getOrNull(Array.findLast(searchResult, ({ packages }) => Array.last(packages)).pipe(Option.map(({ version }) => ({ currentVersion: version, logText: `dotnet ${search.join(' ')}` }))))));
     }
 
+    override calculateNewVersion(currentVersion: string | null, newVersionInput: string, newVersionInputReason: string, newVersionInputReasonData: Record<string, unknown>, preid: string) {
+        const held = Option.exists(Option.flatMap(Option.fromNullOr(currentVersion), (current) => Result.getSuccess(SemVer.parse(current))), SemVer.isPrerelease);
+        return super.calculateNewVersion(currentVersion, held && newVersionInputReason === 'DEPENDENCY_WAS_BUMPED' ? 'prerelease' : newVersionInput, newVersionInputReason, newVersionInputReasonData, preid);
+    }
+
     override readCurrentVersionOfDependency() {
         return Promise.resolve({ currentVersion: null, dependencyCollection: null });
     }

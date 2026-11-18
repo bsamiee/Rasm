@@ -13,8 +13,10 @@ type Node = typeof Node.Type;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#package'))).name;
+const { name: PLUGIN, version: VERSION } = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#package')));
 const CREDENTIAL = 'NUGET_API_KEY';
+const SDK = ['dotnet', '--version'] as const;
+const ANALYZER = fileURLToPath(import.meta.resolve('#analyzer'));
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -28,6 +30,7 @@ const Node = Schema.Struct({
     packable: Schema.Boolean,
     publishable: Schema.Boolean,
     pushed: Schema.Boolean,
+    versioned: Schema.Boolean,
     evaluated: Mode,
     declared: Schema.Array(Mode),
     references: Schema.Array(Schema.Struct({ root: Schema.String, declared: Schema.String })),
@@ -40,6 +43,7 @@ const Node = Schema.Struct({
     results: Schema.Array(Schema.String),
     platforms: Schema.Array(Schema.String),
     implicit: Schema.Array(Schema.String),
+    tags: Schema.Array(Schema.String),
     external: Schema.Array(Schema.String),
     releases: Schema.NullOr(Schema.Struct({ shipped: Schema.String, unshipped: Schema.String })),
 });
@@ -54,6 +58,16 @@ class Edges extends Context.Service<Edges, Ref.Ref<readonly RawProjectGraphDepen
 
 const line = (argv: readonly string[]) => argv.map(quoteShellArg).join(' ');
 
+const launched = (analyzer: string) => ['dotnet', '--roll-forward', 'LatestMajor', analyzer] as const;
+
+const environment = (workspaceRoot: string) => ({
+    DOTNET_ROLL_FORWARD_TO_PRERELEASE: '1',
+    DOTNET_DbgEnableMiniDump: '1',
+    DOTNET_DbgMiniDumpType: '1',
+    DOTNET_DbgMiniDumpName: join(workspaceRoot, '.artifacts', 'dotnet', 'dumps', '%e-%p.dmp'),
+    DOTNET_EnableCrashReport: '1',
+});
+
 const metadata = (verb: string, description: string) => ({ description, help: { command: `dotnet ${verb} --help`, example: { args: ['--verbosity', 'detailed'] } } });
 
 const written = (...modes: readonly { readonly outputs: readonly string[] }[]) => Array.makeBy(Math.max(0, ...modes.map(({ outputs }) => outputs.length)), (index) => `{options.outputs.${index}}`);
@@ -61,27 +75,29 @@ const written = (...modes: readonly { readonly outputs: readonly string[] }[]) =
 const targets = (node: Node, coverage: Option.Option<string>, solution: (configuration: string) => Option.Option<Readonly<Record<string, string>>>, listed: Option.Option<string>): Verbs => {
     const root = dirname(node.file);
     const project = join('{projectRoot}', basename(node.file));
-    const inputs: NonNullable<TargetConfiguration['inputs']> = [
+    const hashed = (...hosts: readonly { readonly runtime: string }[]): NonNullable<TargetConfiguration['inputs']> => [
         'default',
         '^default',
         ...node.bases.filter((base) => base.startsWith(`${root}/`)).map((base) => `!${join('{projectRoot}', relative(root, base), '**')}`),
-        { env: 'NUGET_PACKAGES' },
+        { runtime: line(SDK) },
+        ...hosts,
         { externalDependencies: [] },
         ...node.inputs.map((input) => join('{workspaceRoot}', input)),
-        ...Option.toArray(listed).map((at) => ({
-            runtime: line(['node', '-e', 'for (const file of JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8"))) { try { console.log(require("node:crypto").createHash("sha256").update(require("node:fs").readFileSync(file)).digest("hex")); } catch { console.log("absent"); } }', at]),
-        })),
+        ...Option.toArray(listed).map((at) => ({ runtime: `${line(['git', 'hash-object', '--no-filters', '--stdin-paths'])} < ${quoteShellArg(at)}` })),
     ];
+    const [inputs, compiled] = [hashed(), hashed(PLATFORM)];
     const moded = <A extends object>(each: (mode: Node['evaluated']) => A) => ({ options: each(node.evaluated), configurations: Record.fromIterableWith(node.declared, (mode) => [mode.configuration.toLowerCase(), each(mode)] as const) });
     const verb = node.publishable ? 'publish' : 'build';
     const built = moded(({ configuration, outputs, published, reports, documents }) => ({
         project,
         command: [verb, '--configuration', configuration],
-        outputs: [...outputs, ...published, ...reports, ...documents, ...node.restored],
+        outputs: [...outputs, ...published, ...reports, ...documents],
         ...Record.getSomes({ solution: solution(configuration) }),
     }));
     const packed = moded(({ configuration, packed: folder }) => ({ project, command: ['pack', '--no-build', '-restore', '--configuration', configuration], outputs: [join(folder, '*.nupkg')] }));
-    const tested = ({ configuration }: Node['evaluated'], ...flags: readonly string[]) => ({ commands: [{ command: line(['dotnet', 'restore', `-p:Configuration=${configuration}`]), forwardAllArgs: false }, line(['dotnet', 'test', '--no-build', '--configuration', configuration, ...flags])] });
+    const tested = ({ configuration }: Node['evaluated'], ...flags: readonly string[]) => ({
+        commands: [{ command: line(['dotnet', 'restore', '--no-dependencies', ...(node.locks.length > 0 ? ['--locked-mode'] : []), `-p:Configuration=${configuration}`]), forwardAllArgs: false }, line(['dotnet', 'test', '--no-build', '--configuration', configuration, ...flags])],
+    });
     const coverable = node.referenced.some((id) => id.toLowerCase() === 'coverlet.mtp');
     const covered = { ...tested(node.evaluated, '--coverlet', '--coverlet-output-format', 'lcov', ...Option.toArray(coverage).flatMap((at) => ['--results-directory', relative(root, at)])), outputs: Option.toArray(coverage).map((at) => join('{workspaceRoot}', at)) };
     const cleaned = moded(({ configuration }) => ({ commands: [['dotnet', 'clean', node.file, '--configuration', configuration, '-p:BuildProjectReferences=false']] }));
@@ -100,7 +116,7 @@ const targets = (node: Node, coverage: Option.Option<string>, solution: (configu
                 outputs: written(built.options, ...Object.values(built.configurations)),
                 dependsOn: ['^build--dotnet'],
                 cache: true,
-                inputs,
+                inputs: compiled,
                 metadata: metadata(verb, `${node.publishable ? 'Builds and publishes' : 'Builds'} ${node.name} and its references in one MSBuild run with dotnet ${verb}, in configuration ${node.evaluated.configuration} unless the run names another the project declares`),
             },
         },
@@ -112,7 +128,7 @@ const targets = (node: Node, coverage: Option.Option<string>, solution: (configu
                     outputs: written(packed.options, ...Object.values(packed.configurations)),
                     dependsOn: ['build--dotnet'],
                     cache: true,
-                    inputs,
+                    inputs: compiled,
                     metadata: metadata('pack', `Packs the build build--dotnet wrote for ${node.name} into its PackageOutputPath with dotnet pack --no-build, which compiles nothing`),
                 },
             }),
@@ -123,8 +139,8 @@ const targets = (node: Node, coverage: Option.Option<string>, solution: (configu
                 ...moded(({ reports }) => ({ reports })),
                 dependsOn: ['build--dotnet'],
                 cache: true,
-                inputs: [{ dependentTasksOutputFiles: '**/*.sarif', transitive: false }, { externalDependencies: [] }],
-                metadata: metadata('build', `Fails on each warning or error in the SARIF report dotnet build wrote for ${node.name}, printed as file(line,col): level id: text`),
+                inputs: compiled,
+                metadata: metadata('build', `Fails on each warning or error in the SARIF report dotnet build wrote for ${node.name}, printed as file(line,col): level id: text, cached under the inputs of build--dotnet, as the report holds analyzer timing no input decides`),
             },
             'dotnet-format': { ...formatted([['format', 'style', '--verify-no-changes']], `Fails on any code style finding in ${node.name}, the IDE rules no build runs included, with dotnet format style --verify-no-changes`), cache: true },
         },
@@ -136,9 +152,15 @@ const targets = (node: Node, coverage: Option.Option<string>, solution: (configu
                     configurations: { ...moded(tested).configurations, ...(coverable && { coverage: covered }) },
                     dependsOn: ['build--dotnet'],
                     cache: true,
-                    inputs: [...inputs, { dependentTasksOutputFiles: '**/*.runtimeconfig.json' }, PLATFORM],
+                    inputs: [...compiled, { dependentTasksOutputFiles: '**/*.runtimeconfig.json' }],
                     outputs: [...node.results.map((results) => (relative(root, results).startsWith('..') ? join('{workspaceRoot}', results) : join('{projectRoot}', relative(root, results)))), join('{projectRoot}', '{options.results-directory}'), ...(coverable ? written(covered) : [])],
-                    metadata: metadata('test', [`Tests the build build--dotnet wrote for ${node.name} with dotnet test --no-build, after a restore that fetches only packages the machine lacks`, ...(coverable ? ['configuration coverage adds --coverlet with an lcov report from coverlet.MTP'] : [])].join(', and ')),
+                    metadata: metadata(
+                        'test',
+                        [
+                            `Tests the build build--dotnet wrote for ${node.name} with dotnet test --no-build, after a locked restore of the project alone that fetches only packages the machine lacks and writes no lock file`,
+                            ...(coverable ? ['configuration coverage adds --coverlet with an lcov report from coverlet.MTP'] : []),
+                        ].join(', and '),
+                    ),
                 },
             }),
         },
@@ -157,7 +179,7 @@ const targets = (node: Node, coverage: Option.Option<string>, solution: (configu
         clean: {
             dotnet: {
                 executor: `${distribution.name}:clean`,
-                inputs,
+                inputs: compiled,
                 options: { ...cleaned.options, targets: Record.collect(tools, (named, held) => Record.keys(Record.filter(held, ({ outputs = [] }) => outputs.length > 0)).map((tool) => `${named}--${tool}`)).flat() },
                 configurations: cleaned.configurations,
                 metadata: metadata('clean', `Removes the build outputs of ${node.name} with dotnet clean`),
@@ -201,4 +223,4 @@ const streamed = <A, E>(results: Stream.Stream<A, E, NodeServices>) => Stream.to
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Edges, line, Node, PLUGIN, publishing, run, streamed, targets };
+export { ANALYZER, Edges, environment, launched, line, Node, PLUGIN, publishing, run, SDK, streamed, targets, VERSION };

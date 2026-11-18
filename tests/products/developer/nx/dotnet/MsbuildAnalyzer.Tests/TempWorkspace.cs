@@ -31,24 +31,23 @@ public sealed class TempWorkspace : IDisposable {
 
     // --- [ANALYSIS]
 
-    public JsonElement Analyze(params ReadOnlySpan<string> files) {
-        using Process process = new() {
-            StartInfo = new ProcessStartInfo("dotnet") {
-                ArgumentList = { Path.Combine(AppContext.BaseDirectory, "MsbuildAnalyzer.dll"), root.FullName },
-                UseShellExecute = false,
-                RedirectStandardInput = true,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-            },
-        };
+    public string Located(string path) => Path.Combine(root.FullName, path);
+
+    public string Read(string path) => File.ReadAllText(Located(path));
+
+    public JsonElement Analyze(params ReadOnlySpan<string> files) => JsonElement.Parse(Run(string.Join('\n', files.ToArray()), root.FullName));
+
+    public static string Run(string input, params ReadOnlySpan<string> arguments) {
+        using Process process = new() { StartInfo = new ProcessStartInfo("dotnet") { UseShellExecute = false, RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true } };
+        foreach (string argument in (ReadOnlySpan<string>)[Path.Combine(AppContext.BaseDirectory, "MsbuildAnalyzer.dll"), .. arguments]) process.StartInfo.ArgumentList.Add(argument);
         process.Start();
-        process.StandardInput.Write(string.Join('\n', files));
+        process.StandardInput.Write(input);
         process.StandardInput.Close();
         string stdout = process.StandardOutput.ReadToEnd();
         string stderr = process.StandardError.ReadToEnd();
         Assert.True(process.WaitForExit(TimeSpan.FromMinutes(3)), "Analyzer timed out");
         Assert.True(process.ExitCode is 0, string.Create(CultureInfo.InvariantCulture, $"Analyzer exited {process.ExitCode}. stderr:\n{stderr}"));
-        return JsonElement.Parse(stdout);
+        return stdout;
     }
 
     public JsonElement Node(string project) =>

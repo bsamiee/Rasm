@@ -46,7 +46,7 @@
     </ItemGroup>
 
     <Target Name="FetchResources" BeforeTargets="CoreCompile" Condition="'@(FetchedResource)' != '' and '$(DesignTimeBuild)' != 'true'">
-        <DownloadFile SourceUrl="%(FetchedResource.Identity)" DestinationFolder="$(IntermediateOutputPath)" DestinationFileName="%(FetchedResource.Sha256)" Condition="!Exists('$(_FetchedStore)%(FetchedResource.Sha256)')" />
+        <DownloadFile SourceUrl="%(FetchedResource.Identity)" DestinationFolder="$(IntermediateOutputPath)" DestinationFileName="%(FetchedResource.Sha256)" Retries="3" Condition="!Exists('$(_FetchedStore)%(FetchedResource.Sha256)')" />
         <VerifyFileHash File="$(IntermediateOutputPath)%(FetchedResource.Sha256)" Hash="%(FetchedResource.Sha256)" Condition="!Exists('$(_FetchedStore)%(FetchedResource.Sha256)')" />
         <Move SourceFiles="$(IntermediateOutputPath)%(FetchedResource.Sha256)" DestinationFiles="$(_FetchedStore)%(FetchedResource.Sha256)" Condition="!Exists('$(_FetchedStore)%(FetchedResource.Sha256)')" />
     </Target>
@@ -63,11 +63,15 @@
         <Using Include="Rhino.Geometry.Interval" Alias="Interval" />
     </ItemGroup>
 
+    <PropertyGroup Label="Rhino Platform References" Condition="'$(RhinoHost)' != ''">
+        <_RhinoReferenceFramework>net$([MSBuild]::GetTargetFrameworkVersion('$(TargetFramework)', 2))</_RhinoReferenceFramework>
+    </PropertyGroup>
+
     <ItemGroup Label="Rhino Platform References" Condition="'$(RhinoHost)' != ''">
         <PackageReference Include="System.Drawing.Common" ExcludeAssets="runtime" PrivateAssets="all" />
         <PackageReference Include="Microsoft.macOS.Ref.net10.0_26.0;Microsoft.WindowsDesktop.App.Ref" ExcludeAssets="all" PrivateAssets="all" GeneratePathProperty="true" />
-        <Reference Include="$(PkgMicrosoft_macOS_Ref_net10_0_26_0)/ref/net10.0/Microsoft.macOS.dll" Private="false" />
-        <Reference Include="$(PkgMicrosoft_WindowsDesktop_App_Ref)/ref/$(RhinoTargetFramework)/PresentationCore.dll;$(PkgMicrosoft_WindowsDesktop_App_Ref)/ref/$(RhinoTargetFramework)/PresentationFramework.dll;$(PkgMicrosoft_WindowsDesktop_App_Ref)/ref/$(RhinoTargetFramework)/WindowsBase.dll" Private="false" />
+        <Reference Include="$(PkgMicrosoft_macOS_Ref_net10_0_26_0)/ref/$(_RhinoReferenceFramework)/Microsoft.macOS.dll" Private="false" />
+        <Reference Include="$(PkgMicrosoft_WindowsDesktop_App_Ref)/ref/$(_RhinoReferenceFramework)/PresentationCore.dll;$(PkgMicrosoft_WindowsDesktop_App_Ref)/ref/$(_RhinoReferenceFramework)/PresentationFramework.dll;$(PkgMicrosoft_WindowsDesktop_App_Ref)/ref/$(_RhinoReferenceFramework)/WindowsBase.dll" Private="false" />
     </ItemGroup>
 
     <Import Project="libs/dotnet/rhino/Rasm.Rhino/buildTransitive/Rasm.Rhino.targets" Condition="'$(RhinoHost)' != ''" />

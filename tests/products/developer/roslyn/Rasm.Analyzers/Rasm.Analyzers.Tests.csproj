@@ -34,12 +34,6 @@
         <ProjectReference Include="../../../../../products/developer/roslyn/Rasm.Analyzers.CodeFixes/Rasm.Analyzers.CodeFixes.csproj" />
     </ItemGroup>
 
-    <Target Name="ReferenceSuppressedAnalyzers" BeforeTargets="ResolveAssemblyReferences" DependsOnTargets="ResolveLockFileAnalyzers">
-        <ItemGroup>
-            <Reference Include="@(Analyzer)" Condition="'%(Filename)' == 'Microsoft.CodeAnalysis.NetAnalyzers' or '%(Filename)' == 'Microsoft.CodeAnalysis.CSharp.NetAnalyzers' or '%(Filename)' == 'Meziantou.Analyzer'" />
-        </ItemGroup>
-    </Target>
-
     <Target Name="StateCompilerFixtures" BeforeTargets="GetAssemblyAttributes" DependsOnTargets="ResolvePackageAssets;ResolveTargetingPackAssets">
         <JoinItems Left="@(ResolvedCompileFileDefinitions)" LeftKey="NuGetPackageId" Right="@(PackageReference->WithMetadataValue('AdditionalReference', 'true'))" ItemSpecToUse="Left">
             <Output TaskParameter="JoinResult" ItemName="_AdditionalReference" />

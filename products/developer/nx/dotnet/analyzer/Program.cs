@@ -1,7 +1,15 @@
+using System.Globalization;
+using System.Reflection;
 using System.Text.Json;
+using Microsoft.Build.Framework;
 using Microsoft.Build.Locator;
+using Microsoft.Build.Logging;
 
 namespace MsbuildAnalyzer;
+
+// --- [MODELS] ---------------------------------------------------------------------------
+
+internal sealed record Outcome(bool Succeeded, ImmutableArray<string> Lines);
 
 // --- [COMPOSITION] ----------------------------------------------------------------------
 
@@ -12,8 +20,9 @@ internal static class Program {
         (args switch {
             ["upgrade", var solution] => Upgraded(solution, dry: false),
             ["upgrade", var solution, "--dry-run"] => Upgraded(solution, dry: true),
-            [var root] => Registered(Path.GetFullPath(root), () => IO.lift(() => Write(Path.GetFullPath(root)))),
-            _ => IO.fail<int>(Error.New("Usage: MsbuildAnalyzer <workspace-root>, with workspace-relative files on stdin, one per line, or MsbuildAnalyzer upgrade <solution> [--dry-run]")),
+            ["results", var root, var log] => Registered(Path.GetFullPath(root), () => IO.lift(() => Results(Path.GetFullPath(log)))),
+            [var root] => Registered(Path.GetFullPath(root), () => Stamped.Match(Succ: version => IO.lift(() => Write(Path.GetFullPath(root), version)), Fail: static error => IO.fail<int>(error))),
+            _ => IO.fail<int>(Error.New("Usage: MsbuildAnalyzer <workspace-root>, with workspace-relative files on stdin, one per line, or MsbuildAnalyzer upgrade <solution> [--dry-run], or MsbuildAnalyzer results <workspace-root> <binlog>")),
         }).RunSafe().IfFail(static error => {
             Console.Error.WriteLine(error.Message);
             return 1;
@@ -30,8 +39,31 @@ internal static class Program {
         from code in run()
         select code;
 
-    private static int Write(string root) {
-        Console.Out.Write(JsonSerializer.Serialize(Workspace.Analyze(root, Listed()), Json));
+    private static Fin<string> Stamped =>
+        Optional(typeof(Program).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()).Map(static attribute => attribute.InformationalVersion).ToFin(Error.New("MsbuildAnalyzer carries no informational version, rebuild it with mise deps msbuild-analyzer"));
+
+    private static int Write(string root, string version) {
+        Console.Out.Write(JsonSerializer.Serialize(Workspace.Analyze(root, version, Listed()), Json));
+        return 0;
+    }
+
+    private static int Results(string log) {
+        using BuildEventArgsReader reader = BinaryLogReplayEventSource.OpenBuildEventsReader(log);
+        Seq<BuildEventArgs> raised = toSeq(LanguageExt.List.unfold(reader, static held => Optional(held.Read()).Map(read => (read, held)))).Strict();
+        ILookup<string, string> lines = raised
+            .Choose(static read => read switch {
+                BuildErrorEventArgs { ProjectFile: { } project } error => Some((Project: project, Line: string.Create(CultureInfo.InvariantCulture, $"{error.File}({error.LineNumber},{error.ColumnNumber}): error {error.Code}: {error.Message}"))),
+                BuildWarningEventArgs { ProjectFile: { } project } warning => Some((Project: project, Line: string.Create(CultureInfo.InvariantCulture, $"{warning.File}({warning.LineNumber},{warning.ColumnNumber}): warning {warning.Code}: {warning.Message}"))),
+                _ => None,
+            })
+            .AsEnumerable()
+            .ToLookup(static line => line.Project, static line => line.Line, StringComparer.Ordinal);
+        Console.Out.Write(JsonSerializer.Serialize(
+            raised.Choose(static read => read is ProjectFinishedEventArgs { ProjectFile: { } project } finished ? Some((Project: project, finished.Succeeded)) : None).AsEnumerable().GroupBy(static finished => finished.Project, StringComparer.Ordinal).ToDictionary(
+                static finished => finished.Key,
+                finished => new Outcome(finished.All(static each => each.Succeeded), [.. lines[finished.Key].Distinct(StringComparer.Ordinal)]),
+                StringComparer.Ordinal),
+            Json));
         return 0;
     }
 

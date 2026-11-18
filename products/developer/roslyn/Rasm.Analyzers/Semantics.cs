@@ -162,6 +162,11 @@ internal static class Semantics {
 
     internal static bool Derives(ITypeSymbol? type, INamedTypeSymbol root) => Bases(type).Any(held => Same(held, root));
 
+    internal static bool Raises(ITypeSymbol? owner, INamedTypeSymbol carried) =>
+        Bases(owner).SelectMany(static held => held.GetMembers()).OfType<IEventSymbol>()
+            .SelectMany(static raised => raised.Type is INamedTypeSymbol { DelegateInvokeMethod: { } invoke } ? invoke.Parameters : [])
+            .Any(parameter => Derives(parameter.Type, carried) || Bases(parameter.Type).SelectMany(static held => held.GetMembers()).OfType<IPropertySymbol>().Any(property => Derives(property.Type, carried)));
+
     internal static IEnumerable<INamedTypeSymbol> Faces(ITypeSymbol type, ISymbol? face) => type.AllInterfaces.Where(held => Same(held, face));
 
     internal static AttributeData? Marked(ISymbol symbol, INamedTypeSymbol? attribute) => symbol.GetAttributes().FirstOrDefault(data => attribute is not null && Same(data.AttributeClass, attribute));

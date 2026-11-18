@@ -24,7 +24,7 @@ public sealed class TypeNameTextAnalyzer : DiagnosticAnalyzer {
         Categories.CSharp,
         DiagnosticSeverity.Error,
         isEnabledByDefault: true,
-        "Records and errors hold a `Type` or value in place of a CLR type name, rendered where a person reads it, `RASM3101.exempt` naming types that render names.",
+        "Records and errors hold a `Type` or value in place of a CLR type name, rendered where a person reads it, and a type converting implicitly from `string` holds text by design.",
         Link("RASM3101"),
         WellKnownDiagnosticTags.CompilationEnd);
 
@@ -41,16 +41,14 @@ public sealed class TypeNameTextAnalyzer : DiagnosticAnalyzer {
             SemanticModels semantics = new(start);
             ConcurrentBag<IOperation> sources = [];
             INamedTypeSymbol? error = types.GetOrCreateTypeByMetadataName("LanguageExt.Common.Error");
-            ImmutableArray<INamedTypeSymbol> rendered = [
-                .. new[] { types.GetOrCreateTypeByMetadataName("System.Exception"), error }.OfType<INamedTypeSymbol>(),
-                .. Option(start.Options, "RASM3101.exempt").SelectMany(id => Declared(compilation, id)).OfType<INamedTypeSymbol>(),
-            ];
+            ImmutableArray<INamedTypeSymbol> rendered = [.. new[] { types.GetOrCreateTypeByMetadataName("System.Exception"), error }.OfType<INamedTypeSymbol>()];
             ImmutableArray<ISymbol> names = [
                 .. Bases(type).OfType<INamedTypeSymbol>().SelectMany(static owner => owner.GetMembers()).Where(static member => member is IPropertySymbol { Name: nameof(Type.Name) or nameof(Type.FullName) or nameof(Type.AssemblyQualifiedName) }),
                 .. Members(type, nameof(object.ToString)).Where(static method => method.Parameters.IsEmpty),
             ];
             ImmutableArray<IMethodSymbol> transforms = Members(compilation.GetSpecialType(SpecialType.System_String), nameof(string.ToUpperInvariant), nameof(string.ToLowerInvariant), nameof(string.Trim), nameof(string.TrimEnd), nameof(string.TrimStart));
-            bool Rendered(ITypeSymbol made) => rendered.Any(root => Derives(made, root));
+            bool Rendered(ITypeSymbol made) => rendered.Any(root => Derives(made, root))
+                || made.GetMembers(WellKnownMemberNames.ImplicitConversionName).OfType<IMethodSymbol>().Any(static conversion => conversion.Parameters is { Length: 1 } held && held[0].Type.SpecialType is SpecialType.System_String);
             bool Failure(IOperation value) => Inside<IThrowOperation>(value) || Ancestor<IArgumentOperation>(value, argument =>
                 argument.Parent is IInvocationOperation call && Same(call.TargetMethod.ContainingAssembly, error?.ContainingAssembly)
                 && call.TargetMethod.Name is "ToFin" or "ToValidation" or "ToEither" or "Fail" or "fail" or "guard" or "guardnot") is not null;
@@ -341,27 +339,4 @@ public sealed class NullForgivingAnalyzer : DiagnosticAnalyzer {
     private static bool Hosted(ISymbol? member) => member is IMethodSymbol { IsOverride: true } or IMethodSymbol { ExplicitInterfaceImplementations.IsEmpty: false }
         || (member is IMethodSymbol method && method.ContainingType.AllInterfaces.SelectMany(static contract => contract.GetMembers())
             .Any(contract => SymbolEqualityComparer.Default.Equals(method.ContainingType.FindImplementationForInterfaceMember(contract), method)));
-}
-
-[DiagnosticAnalyzer(LanguageNames.CSharp)]
-public sealed class HostInstantiatedSuppressor : DiagnosticSuppressor {
-
-    // --- [RULES]
-
-    private static readonly ImmutableDictionary<string, SuppressionDescriptor> Rules = new SuppressionDescriptor[] {
-        new("RASM3114", "CA1812", "A host constructs types deriving from a `RASM3114.instantiated` type through reflection"),
-        new("RASM3115", "MA0182", "A host constructs types deriving from a `RASM3114.instantiated` type through reflection"),
-    }.ToImmutableDictionary(static rule => rule.SuppressedDiagnosticId, StringComparer.Ordinal);
-
-    public override ImmutableArray<SuppressionDescriptor> SupportedSuppressions => [.. Rules.Values];
-
-    public override void ReportSuppressions(SuppressionAnalysisContext context) {
-        ImmutableArray<INamedTypeSymbol> roots = [.. Declared(context.Compilation, [.. Option(context.Options, "RASM3114.instantiated")]).OfType<INamedTypeSymbol>()];
-        foreach (Diagnostic diagnostic in context.ReportedDiagnostics) {
-            if (diagnostic.Location.SourceTree is { } tree
-                && context.GetSemanticModel(tree).GetDeclaredSymbol(tree.GetRoot(context.CancellationToken).FindNode(diagnostic.Location.SourceSpan), context.CancellationToken) is INamedTypeSymbol type
-                && roots.Any(root => Derives(type, root) || type.AllInterfaces.Contains(root, SymbolEqualityComparer.Default)))
-                context.ReportSuppression(Suppression.Create(Rules[diagnostic.Id], diagnostic));
-        }
-    }
 }

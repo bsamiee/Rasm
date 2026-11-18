@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Version>0.1.0</Version>
+        <Version>0.1.0-alpha.0</Version>
         <Description>Program startup for console and generic host applications: configuration, per-user folders, and telemetry</Description>
         <IsPackable>true</IsPackable>
     </PropertyGroup>

@@ -15,6 +15,7 @@ public sealed class DoubleReportTests : CSharpCodeFixVerifier<DoubleReportAnalyz
         TestCode = """
             using System;
             using System.Collections.Generic;
+            using System.Threading.Tasks;
             using LanguageExt;
             using LanguageExt.Common;
             using Microsoft.Extensions.Logging;
@@ -75,6 +76,8 @@ public sealed class DoubleReportTests : CSharpCodeFixVerifier<DoubleReportAnalyz
 
                 internal static Unit Reported(Sink sink, Error error) => sink.Report(error).IfFail(static _ => unit);
 
+                internal static Unit Completed(Sink sink, Error error, TaskCompletionSource<Unit> completion) => sink.Report(error).IfFail(fault => completion.SetException(fault.ToException()));
+
                 internal static Unit Crashed(Fin<Unit> result) => result.IfFail(fault => HostUtils.ExceptionReport(fault.ToException()));
 
                 internal static Unit Recursive(Error error) => First(error).IfFail(fault => HostUtils.ExceptionReport(fault.ToException()));
@@ -129,10 +132,6 @@ public sealed class DoubleReportTests : CSharpCodeFixVerifier<DoubleReportAnalyz
                 internal static void Failed(ILogger logger, string failure) { }
             }
             """,
-        TestState = { AnalyzerConfigFiles = { ("/.globalconfig", """
-            is_global = true
-            RASM1203.reporters = M:Rhino.Runtime.HostUtils.ExceptionReport(System.Exception)|M:Rhino.Runtime.HostUtils.ExceptionReport(System.String,System.Exception)
-            """), }, },
         ExpectedDiagnostics = {
             Diagnostic().WithLocation(0).WithArguments("HostUtils.ExceptionReport", "Sink.Report"),
             Diagnostic().WithLocation(1).WithArguments("HostUtils.ExceptionReport", "ReportedTwice.Forward"),
@@ -169,10 +168,6 @@ public sealed class DoubleReportTests : CSharpCodeFixVerifier<DoubleReportAnalyz
                     private static void Failed(ILogger logger, string failure) { }
                 }
                 """,
-            TestState = { AnalyzerConfigFiles = { ("/.globalconfig", """
-                is_global = true
-                RASM1203.reporters = M:Rhino.Runtime.HostUtils.ExceptionReport(System.Exception)|M:Rhino.Runtime.HostUtils.ExceptionReport(System.String,System.Exception)
-                """), }, },
         };
         test.TestState.AdditionalReferences.Add((await AdditionalMetadataReferences.CompiledAsync($"{test.TestState.Name}.Callbacks", """
             using System;

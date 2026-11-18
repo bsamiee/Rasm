@@ -43,7 +43,8 @@ public sealed class TypeNameTextTests : CSharpCodeFixVerifier<TypeNameTextAnalyz
                 internal static Label MethodName(MethodInfo method) => new(method.Name);
                 internal static Exception Thrown(Alias type) => new InvalidOperationException(type.Name);
                 internal static Error Failure(Alias type) => new Expected(type.Name, 0, default);
-                internal static Grasshopper2.UI.Nomen DisplayName(Alias type) => new(type.Name);
+                internal static Caption DisplayName(Alias type) => new(type.Name);
+                internal static Tag Tagged(Alias type) => new({|#17:type.Name|});
                 internal static Label Unstored(Alias type) => Ignore(type.Name);
                 internal static Label Cyclic(Alias type) => Cycle(type.Name);
                 internal static Label AliasValue(Alias type) {
@@ -131,16 +132,18 @@ public sealed class TypeNameTextTests : CSharpCodeFixVerifier<TypeNameTextAnalyz
                 }
             }
 
-            namespace Grasshopper2.UI {
-                internal sealed class Nomen(string text) {
-                    internal string Text { get; } = text;
-                }
+            internal sealed class Caption(string text) {
+                internal string Text { get; } = text;
+
+                public static implicit operator Caption(string text) => new(text);
+            }
+
+            internal sealed class Tag(string text) {
+                internal string Text { get; } = text;
+
+                public static implicit operator string(Tag tag) => tag.Text;
             }
             """,
-        TestState = { AnalyzerConfigFiles = { ("/.globalconfig", """
-            is_global = true
-            RASM3101.exempt = T:Grasshopper2.UI.Nomen
-            """), }, },
         ExpectedDiagnostics = {
             Diagnostic().WithLocation(0).WithArguments("type.Name", "Label"),
             Diagnostic().WithLocation(1).WithArguments("type.AssemblyQualifiedName", "Label"),
@@ -159,6 +162,7 @@ public sealed class TypeNameTextTests : CSharpCodeFixVerifier<TypeNameTextAnalyz
             Diagnostic().WithLocation(14).WithArguments("type.Name", "Label"),
             Diagnostic().WithLocation(15).WithArguments("type.ToString()", "Label"),
             Diagnostic().WithLocation(16).WithArguments("typeof(T).Name", "Label"),
+            Diagnostic().WithLocation(17).WithArguments("type.Name", "Tag"),
         },
     }.RunAsync(TestContext.Current.CancellationToken);
 

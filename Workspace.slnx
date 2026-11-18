@@ -49,7 +49,7 @@
     <Folder Name="/tests/libs/dotnet/" />
     <Folder Name="/tests/libs/dotnet/rhino/">
         <Project Path="tests/libs/dotnet/rhino/Rasm.Rhino.Tests.csproj">
-            <BuildType Solution="Release|*" Project="Headless" />
+            <BuildType Solution="Release|*" Project="Interface" />
         </Project>
     </Folder>
     <Folder Name="/tests/products/" />

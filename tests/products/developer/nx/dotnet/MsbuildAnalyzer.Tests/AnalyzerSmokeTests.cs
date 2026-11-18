@@ -17,7 +17,8 @@ public sealed class AnalyzerSmokeTests : IDisposable {
         JsonElement node = workspace.Write("apps/MyLib/MyLib.csproj", TempWorkspace.Project()).Node("apps/MyLib/MyLib.csproj");
 
         Assert.Equal(["apps/MyLib/bin", "apps/MyLib/obj"], node.Strings("bases"));
-        Assert.Equal(["apps/MyLib/obj"], node.Strings("restored"));
+        Assert.Equal(["apps/MyLib/obj/project.assets.json"], node.Strings("restored"));
+        Assert.Equal(["apps/MyLib/bin/Debug/net10.0", "apps/MyLib/obj/Debug/net10.0"], node.Strings("evaluated", "outputs"));
     }
 
     [Fact]
@@ -119,10 +120,30 @@ public sealed class AnalyzerSmokeTests : IDisposable {
             .Write("apps/MyLib/obj/MyLib.csproj.nuget.g.props", "<Project />")
             .Analyze("apps/MyLib/MyLib.csproj");
         string?[] evaluated = report.Strings("evaluated");
-        string?[] inputs = Assert.Single(report.GetProperty("nodes").EnumerateArray()).Strings("inputs");
+        JsonElement node = Assert.Single(report.GetProperty("nodes").EnumerateArray());
+        string?[] inputs = node.Strings("inputs");
 
         Assert.Contains("apps/MyLib/MyLib.csproj", evaluated, StringComparer.Ordinal);
         Assert.DoesNotContain(evaluated, static input => input?.Contains("nuget.g.props", StringComparison.Ordinal) ?? false);
         Assert.DoesNotContain(inputs, static input => input?.Contains("nuget.g.props", StringComparison.Ordinal) ?? false);
+        Assert.Equal(["apps/MyLib/obj/MyLib.csproj.nuget.g.props", "apps/MyLib/obj/project.assets.json"], node.Strings("restored"));
     }
+
+    [Fact]
+    public void NuGetConfigFilesNuGetReadsAreInputsSpelledAsOnDisk() =>
+        Assert.Contains(
+            "NuGet.Config",
+            workspace.Write("NuGet.Config", "<configuration />").Write("apps/MyLib/MyLib.csproj", TempWorkspace.Project()).Node("apps/MyLib/MyLib.csproj").Strings("inputs"),
+            StringComparer.Ordinal);
+
+    // --- [TAGS]
+
+    [Fact]
+    public void NxTagItemsOfEveryEvaluationBecomeTags() =>
+        Assert.Equal(
+            ["host:rhino", "os:any"],
+            workspace
+                .Write("apps/MyLib/MyLib.csproj", TempWorkspace.Project("""<ItemGroup><NxTag Include="host:rhino" /></ItemGroup><ItemGroup Condition="'$(TargetFramework)' == 'net10.0'"><NxTag Include="os:any" /></ItemGroup>"""))
+                .Node("apps/MyLib/MyLib.csproj")
+                .Strings("tags"));
 }

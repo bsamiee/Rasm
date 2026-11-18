@@ -1,12 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <Description>Evaluates every MSBuild project of a workspace in one process and reports the facts the Nx plugin derives targets from, or moves the central package versions of a solution to their newest releases</Description>
+        <VersionPrefix>$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('$(MSBuildProjectDirectory)/../package.json')), '"version":\s*"(?&lt;version&gt;[^"]+)"').Groups['version'].Value)</VersionPrefix>
+        <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
         <OutputType>Exe</OutputType>
         <RollForward>LatestMajor</RollForward>
         <ServerGarbageCollection>true</ServerGarbageCollection>
         <UseAppHost>false</UseAppHost>
         <DebugType>embedded</DebugType>
-        <OutputPath>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', 'dist'))</OutputPath>
+        <IsPublishable>true</IsPublishable>
+        <PublishDir>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', 'dist'))</PublishDir>
     </PropertyGroup>
 
     <ItemGroup Label="Package Management">

@@ -50,5 +50,5 @@
     "required": ["project", "command"],
     "additionalProperties": true,
     "title": "Build",
-    "description": "Runs dotnet build, publish, or pack once over a generated traversal project of every batched project, as the MSBuild target named for the verb or the -t a run passes, restoring inside the run, letting MSBuild order the projects, and reporting each project's own result"
+    "description": "Runs dotnet build, publish, or pack once over a generated traversal project of every batched project, as the MSBuild target named for the verb or the -t a run passes, restoring inside the run, letting MSBuild order the projects, and reporting each project's own result from the run's binary log"
 }

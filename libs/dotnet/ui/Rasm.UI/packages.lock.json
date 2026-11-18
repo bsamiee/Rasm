@@ -24,6 +24,12 @@
           "HarfBuzzSharp.NativeAssets.macOS": "15.0.0.100-rc.1.26567.13"
         }
       },
+      "HarfBuzzSharp.NativeAssets.Linux": {
+        "type": "Direct",
+        "requested": "[15.0.0.100-rc.1.26567.13, )",
+        "resolved": "15.0.0.100-rc.1.26567.13",
+        "contentHash": "cyNVbj+sLzEANKtBrBFLv7ohyb3MbeDaHNm1X49P1gWRdKPUVPRoCV8Q9KuIy0Da2CeCBzHeJZg4t5jPxXcDcg=="
+      },
       "IconPacks.Lucide": {
         "type": "Direct",
         "requested": "[1.0.9768.17-build, )",
@@ -132,6 +138,12 @@
           "HarfBuzzSharp": "15.0.0.100-rc.1.26567.13",
           "SkiaSharp": "4.159.0-rc.1.26567.13"
         }
+      },
+      "SkiaSharp.NativeAssets.Linux": {
+        "type": "Direct",
+        "requested": "[4.159.0-rc.1.26567.13, )",
+        "resolved": "4.159.0-rc.1.26567.13",
+        "contentHash": "qQDZEE1/h6eYCTdRfd1Oglx93IKovSDyHj0wCs1YKtSD18P4AM+PvCXibyChcyJnF9TQUe22KgcpX3FPjcrWGg=="
       },
       "SkiaSharp.Resources": {
         "type": "Direct",
@@ -307,12 +319,6 @@
         "resolved": "10.6.0",
         "contentHash": "aOLMNhuUO8DMYkZntJFMrhvsn91Ai51+9YFhj8cOy9/XAg2iewkdmrjkE9sVXZm+QCzjDnlImhOKZOP1h4un6A=="
       },
-      "HarfBuzzSharp.NativeAssets.Linux": {
-        "type": "CentralTransitive",
-        "requested": "[15.0.0.100-rc.1.26567.13, )",
-        "resolved": "14.2.1.301",
-        "contentHash": "z9+VeNETkwp+raqhEfS+6aAfDl1MLxZxmE9GE/edhTIIwkXhZbPn0JUfhpqqjNy1Q0rQrZCzaJ2VNgVbQR+2MQ=="
-      },
       "HarfBuzzSharp.NativeAssets.macOS": {
         "type": "CentralTransitive",
         "requested": "[15.0.0.100-rc.1.26567.13, )",
@@ -349,19 +355,19 @@
       },
       "Microsoft.Extensions.DependencyInjection.Abstractions": {
         "type": "CentralTransitive",
-        "requested": "[10.0.15, )",
+        "requested": "[10.0.15, 11.0.0)",
         "resolved": "6.0.0",
         "contentHash": "xlzi2IYREJH3/m6+lUrQlujzX8wDitm4QGnUu6kUXTQAWPuZY8i+ticFJbzfqaetLA6KR/rO6Ew/HuYD+bxifg=="
       },
       "Microsoft.Extensions.Logging.Abstractions": {
         "type": "CentralTransitive",
-        "requested": "[10.0.15, )",
+        "requested": "[10.0.15, 11.0.0)",
         "resolved": "6.0.4",
         "contentHash": "K14wYgwOfKVELrUh5eBqlC8Wvo9vvhS3ZhIvcswV2uS/ubkTRPSQsN557EZiYUSSoZNxizG+alN4wjtdyLdcyw=="
       },
       "Microsoft.Extensions.Options": {
         "type": "CentralTransitive",
-        "requested": "[10.0.15, )",
+        "requested": "[10.0.15, 11.0.0)",
         "resolved": "6.0.0",
         "contentHash": "dzXN0+V1AyjOe2xcJ86Qbo233KHuLEY0njf/P2Kw8SfJU+d45HNS2ctJdnEnrWbM9Ye2eFgaC5Mj9otRMU6IsQ==",
         "dependencies": {
@@ -371,15 +377,9 @@
       },
       "Microsoft.Extensions.Primitives": {
         "type": "CentralTransitive",
-        "requested": "[10.0.15, )",
+        "requested": "[10.0.15, 11.0.0)",
         "resolved": "6.0.0",
         "contentHash": "9+PnzmQFfEFNR9J2aDTfJGGupShHjOuGw4VUv+JB044biSHrnmCIMD+mJHmb2H7YryrfBEXDurxQ47gJZdCKNQ=="
-      },
-      "SkiaSharp.NativeAssets.Linux": {
-        "type": "CentralTransitive",
-        "requested": "[4.159.0-rc.1.26567.13, )",
-        "resolved": "4.153.1",
-        "contentHash": "DlBk91MARPfARK5kqd1K6+u6UuUQx+8Rsc+Pwi2dVO7X+S3LsLwqJq1gULLdpIgW2zmcqZ87O6TMfdWkwBXfkQ=="
       },
       "SkiaSharp.NativeAssets.macOS": {
         "type": "CentralTransitive",

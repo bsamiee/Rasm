@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Xml;
 using LanguageExt.ClassInstances;
 using Microsoft.Build.Construction;
 using Microsoft.Build.Definition;
@@ -20,11 +22,12 @@ namespace MsbuildAnalyzer;
 internal sealed record Consumer(NuGetFramework Framework, HashMap<EqStringOrdinalIgnoreCase, string, ProjectElement> Pinned, HashMap<EqStringOrdinalIgnoreCase, string, NuGetVersion> Supplied);
 
 internal sealed record Pin(ProjectElement Element, string Written, VersionRange Range, Seq<string> Ids, Seq<Consumer> Consumers) {
-    public bool Exact => Range is { IsMinInclusive: true, IsMaxInclusive: true, MinVersion: { } min, MaxVersion: { } max } && min == max;
+    public string Spelled(NuGetVersion version) => new VersionRange(version, Range.IsMinInclusive, Range.MaxVersion, Range.IsMaxInclusive).ToShortString();
 
-    public string Spelled(NuGetVersion version) => Exact ? $"[{version.ToNormalizedString()}]" : version.ToNormalizedString();
-
-    public (string Old, string New) Tokens(string spelled) => Element is ProjectPropertyElement ? ($">{Written}<", $">{spelled}<") : ($"\"{Written}\"", $"\"{spelled}\"");
+    public (int Line, string Name, bool Attribute) Located => Element switch {
+        ProjectMetadataElement { ExpressedAsAttribute: true, Parent: { } item } metadata => (item.Location.Line, metadata.Name, true),
+        _ => (Element.Location.Line, Element.ElementName, false),
+    };
 }
 
 // --- [OPERATIONS] -----------------------------------------------------------------------
@@ -119,7 +122,6 @@ internal static class Catalog {
         };
 
     private static Seq<NuGetVersion> Ranked(Pin pin, HashMap<string, HashMap<NuGetVersion, IPackageSearchMetadata>> released) {
-        bool held = pin.Exact || pin.Element is { Condition.Length: > 0 } or ProjectMetadataElement { Parent: ProjectItemElement { Update.Length: > 0 } } || pin.Element.AllParents.Any(static parent => parent is { Condition.Length: > 0 });
         bool Usable(NuGetVersion current, NuGetVersion version) =>
             (from id in pin.Ids
              let prior = Release(released, id, current).Bind(static found => Optional(found.Published))
@@ -127,7 +129,7 @@ internal static class Catalog {
                  (!version.IsPrerelease || prior.ForAll(published => found.Published >= published)) && pin.Consumers.ForAll(consumer => Dependencies(found, consumer.Framework).IsSome && consumer.Supplied.Find(id).ForAll(supplied => (version.Major, version.Minor).CompareTo((supplied.Major, supplied.Minor)) <= 0))))
             .ForAll(identity);
         return Optional(pin.Range.MinVersion).ToSeq().Bind(current => toSeq(pin.Ids.Bind(id => released.Find(id).ToSeq()).Bind(static versions => versions.Keys.ToSeq()).Distinct().OrderDescending())
-            .Filter(version => version > current && (!held || version.Major == current.Major) && Usable(current, version))
+            .Filter(version => version > current && pin.Range.Satisfies(version) && Usable(current, version))
             .Add(current));
     }
 
@@ -149,17 +151,26 @@ internal static class Catalog {
     }
 
     private static int Written(Seq<(Pin Pin, string Spelled)> moves, bool dry) {
-        toSeq(moves.AsEnumerable().GroupBy(static move => move.Pin.Element.ContainingProject.FullPath, StringComparer.Ordinal)).Filter(_ => !dry).Iter(static file => {
-            FrozenDictionary<int, (string Old, string New)> edits = file.ToFrozenDictionary(static move => move.Pin.Element.Location.Line - 1, static move => move.Pin.Tokens(move.Spelled));
-            File.WriteAllText(file.Key, string.Join('\n', File.ReadAllText(file.Key).Split('\n').Select((line, index) => edits.TryGetValue(index, out (string Old, string New) edit) ? Padded(line, line.Replace(edit.Old, edit.New, StringComparison.Ordinal)) : line)));
-        });
+        toSeq(moves.AsEnumerable().GroupBy(static move => move.Pin.Element.ContainingProject.FullPath, StringComparer.Ordinal)).Filter(_ => !dry).Iter(static file => File.WriteAllText(file.Key, Edited(File.ReadAllText(file.Key), file.ToFrozenDictionary(static move => move.Pin.Located, static move => move.Spelled))));
         moves.Iter(static move => Console.Out.WriteLine($"{string.Join(", ", move.Pin.Ids)}: {move.Pin.Written} -> {move.Spelled}"));
         return 0;
     }
 
-    private static string Padded(string before, string after) =>
-        (before.IndexOf("<!--", StringComparison.Ordinal), after.IndexOf("<!--", StringComparison.Ordinal), after) switch {
-            ( > 0 and var was, > 0 and var now, var line) when line[..now].TrimEnd() is var code => code + new string(' ', Math.Max(1, was - code.Length)) + line[now..],
-            _ => after,
-        };
+    private static string Edited(string text, FrozenDictionary<(int Line, string Name, bool Attribute), string> spelled) {
+        int[] lines = [0, .. text.Index().Where(static at => at.Item is '\n').Select(static at => at.Index + 1)];
+        using XmlReader reader = XmlReader.Create(new StringReader(text));
+        IXmlLineInfo position = (IXmlLineInfo)reader;
+        int Offset() => lines[position.LineNumber - 1] + position.LinePosition - 1;
+        IEnumerable<(int Start, int End, string Value)> Edits() {
+            while (reader.Read()) {
+                if (reader.NodeType is not XmlNodeType.Element) continue;
+                (int line, string name) = (position.LineNumber, reader.Name);
+                while (reader.MoveToNextAttribute())
+                    if (spelled.TryGetValue((line, reader.Name, true), out string? value) && reader.ReadAttributeValue()) yield return (Offset(), text.IndexOf(reader.QuoteChar, Offset()), value);
+                reader.MoveToElement();
+                if (spelled.TryGetValue((line, name, false), out string? inner) && reader.Read() && reader.NodeType is XmlNodeType.Text) yield return (Offset(), text.IndexOf('<', Offset()), inner);
+            }
+        }
+        return Edits().ToArray().Reverse().Aggregate(text, static (held, edit) => string.Concat(held.AsSpan(0, edit.Start), edit.Value, held.AsSpan(edit.End)));
+    }
 }

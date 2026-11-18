@@ -84,7 +84,7 @@ public sealed class OutputPathsTests : IDisposable {
         JsonElement node = Props(Artifacts).Node("apps/foo/Foo.csproj", "<ArtifactsPublishOutputName>published</ArtifactsPublishOutputName>");
 
         Assert.Equal(["artifacts/published/Foo/debug"], node.Strings("evaluated", "published"));
-        Assert.Equal(["artifacts/obj/Foo"], node.Strings("restored"));
+        Assert.Equal(["artifacts/obj/Foo/project.assets.json"], node.Strings("restored"));
     }
 
     // --- [PUBLISH]
@@ -124,7 +124,7 @@ public sealed class OutputPathsTests : IDisposable {
         JsonElement node = Props(Artifacts).Node("libs/foo/foo.csproj");
 
         Assert.Equal("artifacts/package/debug", Packed(node.GetProperty("evaluated")));
-        Assert.Equal(["artifacts/obj/foo"], node.Strings("restored"));
+        Assert.Equal(["artifacts/obj/foo/project.assets.json"], node.Strings("restored"));
     }
 
     [Fact]

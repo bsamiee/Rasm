@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Version>0.1.0</Version>
+        <Version>0.1.0-alpha.0</Version>
         <Description>JSON Lines logging, OpenTelemetry exporters chosen by configuration, and trace context passed to child processes</Description>
         <IsPackable>true</IsPackable>
     </PropertyGroup>

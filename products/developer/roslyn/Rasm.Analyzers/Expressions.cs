@@ -23,7 +23,7 @@ public sealed class DiscardedAwaitableAnalyzer : DiagnosticAnalyzer {
         Categories.CSharp,
         DiagnosticSeverity.Error,
         isEnabledByDefault: true,
-        "Await each awaitable value or return it to an awaiting caller in place of a `_ =` discard, outside `RASM3003.exempt` start requests with a task that only reports completion.",
+        "Await each awaitable value or return it to an awaiting caller in place of a `_ =` discard, outside a call whose declaring type raises an event carrying the awaited result.",
         Link("RASM3003"));
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Rule];
@@ -32,20 +32,21 @@ public sealed class DiscardedAwaitableAnalyzer : DiagnosticAnalyzer {
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
         context.RegisterCompilationStartAction(static start => {
-            static bool Awaitable(IOperation value, OperationAnalysisContext analysis) {
-                if (value.Type is not { } type || analysis.Operation.SemanticModel is not { } source) return false;
+            static ITypeSymbol? Result(IOperation value, OperationAnalysisContext analysis) {
+                if (value.Type is not { } type || analysis.Operation.SemanticModel is not { } source) return null;
                 int position = analysis.Operation.Syntax.SpanStart;
                 SyntaxAnnotation mark = new();
                 ExpressionStatementSyntax statement = SyntaxFactory.ExpressionStatement(
                     SyntaxFactory.AwaitExpression(SyntaxFactory.DefaultExpression(SyntaxFactory.ParseTypeName(type.ToMinimalDisplayString(source, position)))).WithAdditionalAnnotations(mark));
                 return source.TryGetSpeculativeSemanticModel(position, statement, out SemanticModel? model)
                     && model.GetAwaitExpressionInfo(model.SyntaxTree.GetRoot(analysis.CancellationToken).GetAnnotatedNodes(mark).OfType<AwaitExpressionSyntax>().Single())
-                        is { GetAwaiterMethod: not null, IsCompletedProperty: not null, GetResultMethod: not null };
+                        is { GetAwaiterMethod: not null, IsCompletedProperty: not null, GetResultMethod: { } result }
+                    ? result.ReturnType
+                    : null;
             }
-            ImmutableArray<ISymbol> requests = [.. Option(start.Options, "RASM3003.exempt").SelectMany(id => Declared(start.Compilation, id))];
-            Report<ISimpleAssignmentOperation>(start, [OperationKind.SimpleAssignment], (assignment, analysis) =>
-                assignment is { Target: IDiscardOperation, Value: var value } && Stripped(value) is var awaited && Awaitable(awaited, analysis)
-                && !(awaited is IInvocationOperation { TargetMethod: var requested } && requests.Any(request => Same(request, requested)))
+            Report<ISimpleAssignmentOperation>(start, [OperationKind.SimpleAssignment], static (assignment, analysis) =>
+                assignment is { Target: IDiscardOperation, Value: var value } && Stripped(value) is var awaited && Result(awaited, analysis) is { } result
+                && !(result is INamedTypeSymbol { SpecialType: SpecialType.None } carried && awaited is IInvocationOperation { TargetMethod.ContainingType: var owner } && Raises(owner, carried))
                     ? [Diagnostic.Create(Rule, assignment.Syntax.GetLocation(), awaited.Syntax)]
                     : []);
         });

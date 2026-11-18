@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Version>0.1.0</Version>
+        <Version>0.1.0-alpha.0</Version>
         <Description>Interfaces as pure state transitions, drawn and driven by any host</Description>
         <IsPackable>true</IsPackable>
     </PropertyGroup>
@@ -45,6 +45,7 @@
 
     <ItemGroup Label="Typography">
         <PackageReference Include="HarfBuzzSharp" />
+        <PackageReference Include="HarfBuzzSharp.NativeAssets.Linux" />
         <PackageReference Include="ICU4N" />
         <PackageReference Include="SkiaSharp.HarfBuzz" />
         <PackageReference Include="Topten.RichTextKit" />
@@ -58,6 +59,7 @@
     <ItemGroup Label="User Interface">
         <PackageReference Include="IconPacks.Lucide" />
         <PackageReference Include="SkiaSharp" />
+        <PackageReference Include="SkiaSharp.NativeAssets.Linux" />
         <PackageReference Include="SkiaSharp.Resources" />
         <PackageReference Include="SkiaSharp.Skottie" />
         <PackageReference Include="Svg.Custom" />

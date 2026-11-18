@@ -132,7 +132,7 @@
       },
       "System.Collections.Immutable": {
         "type": "Direct",
-        "requested": "[10.0.15, 10.0.15]",
+        "requested": "[10.0.15, 11.0.0)",
         "resolved": "10.0.15",
         "contentHash": "pfmwjvSb2GWhvGuFTYoa3b1XvrzM53jEHg95mYoCVh5eww/FxDupyX86sF6QM8gp5/n4sRglICCFFCbHDXXWcQ==",
         "dependencies": {

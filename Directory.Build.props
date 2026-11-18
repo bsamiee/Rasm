@@ -11,7 +11,12 @@
         <IsPackable>false</IsPackable>
         <IsPublishable>false</IsPublishable>
         <DeterministicTimestamp>2000-01-01T00:00:00Z</DeterministicTimestamp> <!-- One instant for every entry of a package: NuGet otherwise stamps each entry with its file time, and two packs of one input differ -->
-        <NoWarn>$(NoWarn);NU5104</NoWarn> <!-- Stable packages pin prerelease dependencies such as LanguageExt.Core -->
+    </PropertyGroup>
+
+    <PropertyGroup Label="Source Control">
+        <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion> <!-- Compiled output follows its hashed inputs, a commit alone recompiles nothing -->
+        <EnableSourceLink>false</EnableSourceLink>
+        <EmbedAllSources>true</EmbedAllSources> <!-- Debuggers read sources from the PDB in place of commit-pinned SourceLink URLs -->
     </PropertyGroup>
 
     <PropertyGroup Label="Package Licenses">
@@ -19,7 +24,7 @@
     </PropertyGroup>
 
     <PropertyGroup Label="Target Framework">
-        <RepoTargetFramework>net10.0</RepoTargetFramework>
+        <RepoTargetFramework>net10.0</RepoTargetFramework> <!-- Runtime Rhino 9 ships, which every library a Rhino product loads targets -->
         <TargetFramework>$(RepoTargetFramework)</TargetFramework>
         <RollForward>Major</RollForward>
         <LangVersion>preview</LangVersion>
@@ -60,15 +65,11 @@
         <CreateHardLinksForCopyLocalIfPossible>true</CreateHardLinksForCopyLocalIfPossible>
     </PropertyGroup>
 
-    <PropertyGroup Label="Rhino Host" Condition="'$(RhinoHost)' != ''">
-        <RhinoTargetFramework>net10.0</RhinoTargetFramework>
-        <TargetFramework>$(RhinoTargetFramework)</TargetFramework>
-    </PropertyGroup>
-
     <Import Project="libs/dotnet/rhino/Rasm.Rhino/buildTransitive/Rasm.Rhino.props" Condition="'$(RhinoHost)' != ''" />
 
     <PropertyGroup Label="Continuous Integration" Condition="'$(CI)' == 'true'">
         <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
         <RestoreLockedMode>true</RestoreLockedMode>
+        <UseSharedCompilation>false</UseSharedCompilation>
     </PropertyGroup>
 </Project>

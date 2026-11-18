@@ -48,7 +48,7 @@
 
     <Target Name="BuildPlugInRui" AfterTargets="CoreCompile" Condition="'$(DesignTimeBuild)' != 'true' and '$(TargetExt)' == '.rhp'" Inputs="@(IntermediateAssembly);@(ReferenceCopyLocalPaths);@(ReferencePath);@(RuiWriter);$(MSBuildAllProjects)" Outputs="$(_PlugInRuiStamp)">
         <WriteLinesToFile File="$(_PlugInRuiReferences)" Lines="@(ReferenceCopyLocalPaths->WithMetadataValue('Extension', '.dll')->'%(FullPath)');@(ReferencePath->'%(FullPath)')" Overwrite="true" WriteOnlyWhenDifferent="true" />
-        <Exec Command="&quot;$(DOTNET_HOST_PATH)&quot; &quot;@(RuiWriter->'%(FullPath)')&quot; &quot;@(IntermediateAssembly->'%(FullPath)')&quot; &quot;$(_PlugInRui)&quot; &quot;@$(_PlugInRuiReferences)&quot;" StandardOutputImportance="low" LogStandardErrorAsError="true" />
+        <Exec Command="&quot;$(DOTNET_HOST_PATH)&quot; &quot;@(RuiWriter->'%(FullPath)')&quot; &quot;@(IntermediateAssembly->'%(FullPath)')&quot; &quot;$(_PlugInRui)&quot; &quot;@$(_PlugInRuiReferences)&quot;" EnvironmentVariables="DOTNET_DbgEnableMiniDump=1;DOTNET_DbgMiniDumpType=1;DOTNET_DbgMiniDumpName=$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', '$(IntermediateOutputPath)', '$(TargetName).rui.%25p.dmp'));DOTNET_EnableCrashReport=1" StandardOutputImportance="low" LogStandardErrorAsError="true" />
         <Touch Files="$(_PlugInRuiStamp)" AlwaysCreate="true" />
         <ItemGroup>
             <FileWrites Include="$(_PlugInRui);$(_PlugInRuiReferences);$(_PlugInRuiStamp)" />

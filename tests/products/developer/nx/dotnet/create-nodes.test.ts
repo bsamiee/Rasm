@@ -1,4 +1,4 @@
-import { execFileSync, execSync } from 'node:child_process';
+import { execFileSync, execSync, spawnSync } from 'node:child_process';
 import { mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
@@ -122,13 +122,40 @@ describe('@rasm/nx-dotnet - createNodes', { timeout: 30_000 }, () => {
 
             expect(projects['apps/MyProj']?.targets?.['build--dotnet']?.inputs?.at(-1)).toBe('{workspaceRoot}/Directory.Build.props');
         });
+
+        it('should hash the NuGet config files NuGet reads inside the workspace, spelled as on disk', async ({ projectsOf }) => {
+            const projects = await projectsOf({ 'NuGet.Config': '<configuration />\n', 'apps/MyProj/MyProj.csproj': project() });
+
+            expect(projects['apps/MyProj']?.targets?.['build--dotnet']?.inputs).toContain('{workspaceRoot}/NuGet.Config');
+        });
+    });
+
+    describe('toolchain inputs', () => {
+        it.for(['build--dotnet', 'pack--dotnet', 'check--dotnet-build', 'test--dotnet', 'clean--dotnet'])('should hash the SDK global.json resolves and the platform in %s, as their outputs differ by both', async (target, { projectsOf }) => {
+            const projects = await projectsOf({ 'apps/MyProj/MyProj.csproj': project('<IsTestProject>true</IsTestProject>\n    <IsPackable>true</IsPackable>') });
+
+            expect(runtimes(projects['apps/MyProj']?.targets?.[target]?.inputs)).toStrictEqual(['dotnet --version', 'node -p process.platform+process.arch']);
+        });
+
+        it.for(['check--dotnet-format', 'fix--dotnet-format'])('should hash the SDK alone in %s, as code style findings hold on every platform', async (target, { projectsOf }) => {
+            const projects = await projectsOf({ 'apps/MyProj/MyProj.csproj': project() });
+
+            expect(runtimes(projects['apps/MyProj']?.targets?.[target]?.inputs)).toStrictEqual(['dotnet --version']);
+        });
+
+        it('should cache check--dotnet-build under the inputs of build--dotnet, as each SARIF report holds an analyzer timing no input decides', async ({ projectsOf }) => {
+            const projects = await projectsOf({ 'apps/MyProj/MyProj.csproj': project() });
+
+            expect(projects['apps/MyProj']?.targets?.['check--dotnet-build']?.inputs).toStrictEqual(projects['apps/MyProj']?.targets?.['build--dotnet']?.inputs);
+        });
     });
 
     describe('output paths', () => {
-        it('should declare the output, publish, and obj folders of the configuration as build outputs, as a build writes exactly those', async ({ projectsOf }) => {
+        it('should declare the output, intermediate, and publish folders of the configuration as build outputs, as a build writes exactly those', async ({ projectsOf }) => {
             const projects = await projectsOf({ 'apps/MyLib/MyLib.csproj': project() });
 
-            expect(projects['apps/MyLib']?.targets?.['build--dotnet']?.options).toHaveProperty('outputs', ['apps/MyLib/bin/Debug/net10.0', 'apps/MyLib/bin/Debug/net10.0/publish', 'apps/MyLib/obj']);
+            expect(projects['apps/MyLib']?.targets?.['build--dotnet']?.options).toHaveProperty('outputs', ['apps/MyLib/bin/Debug/net10.0', 'apps/MyLib/obj/Debug/net10.0', 'apps/MyLib/bin/Debug/net10.0/publish']);
+            expect(projects['apps/MyLib']?.targets?.['build--dotnet']?.configurations).toHaveProperty(['release', 'outputs'], ['apps/MyLib/bin/Release/net10.0', 'apps/MyLib/obj/Release/net10.0', 'apps/MyLib/bin/Release/net10.0/publish']);
         });
 
         it('should declare the nupkg glob as the pack output, as obj is MSBuild state', async ({ projectsOf }) => {
@@ -137,10 +164,10 @@ describe('@rasm/nx-dotnet - createNodes', { timeout: 30_000 }, () => {
             expect(projects['apps/MyLib']?.targets?.['pack--dotnet']?.options).toHaveProperty('outputs', ['apps/MyLib/bin/Debug/*.nupkg']);
         });
 
-        it.for(['build--dotnet', 'pack--dotnet'])('should exclude no restore file from the outputs of %s, as every task reading obj restores first', async (target, { projectsOf }) => {
+        it.for(['build--dotnet', 'pack--dotnet'])('should leave the restore files at the obj root out of the outputs of %s, as a replay of them carries another machine paths', async (target, { projectsOf }) => {
             const projects = await projectsOf({ 'apps/MyLib/MyLib.csproj': project() });
 
-            expect(projects['apps/MyLib']?.targets?.[target]?.options).toHaveProperty('outputs', expect.not.arrayContaining([expect.stringMatching(/^!/u)]));
+            expect(projects['apps/MyLib']?.targets?.[target]?.options).toHaveProperty('outputs', expect.not.arrayContaining(['apps/MyLib/obj', expect.stringMatching(/^!/u)]));
         });
     });
 
@@ -187,10 +214,11 @@ describe('@rasm/nx-dotnet - createNodes', { timeout: 30_000 }, () => {
         });
     });
 
-    it('should write every declared output of build--dotnet and nothing outside them', async ({ tempFs, projectsOf }) => {
+    it('should write every declared output of build--dotnet and nothing outside them once the project is restored', async ({ tempFs, projectsOf }) => {
         const projects = await projectsOf({ 'apps/MyLib/MyLib.csproj': project(), 'apps/MyLib/Lib.cs': 'namespace MyLib;\n\npublic static class Lib;\n' });
-        const before = listed(tempFs.tempDir);
         const { project: file, command, outputs } = resolveNxTokensInOptions(await Effect.runPromise(Schema.decodeUnknownEffect(Build)(projects['apps/MyLib']?.targets?.['build--dotnet']?.options)), { root: 'apps/MyLib' }, 'MyLib:build--dotnet');
+        execFileSync('dotnet', ['restore', file], { cwd: tempFs.tempDir });
+        const before = listed(tempFs.tempDir);
 
         execFileSync('dotnet', [command[0], file, ...command.slice(1)], { cwd: tempFs.tempDir });
         const written = [...listed(tempFs.tempDir).difference(before)];
@@ -230,26 +258,20 @@ describe('@rasm/nx-dotnet - createNodes', { timeout: 30_000 }, () => {
         expect([options, ...Object.values(configurations)].filter(({ solution }) => solution !== undefined)).toHaveLength(0);
     });
 
-    describe('NUGET_PACKAGES env input', () => {
-        it.for(['build--dotnet', 'pack--dotnet', 'test--dotnet'])('should hash NUGET_PACKAGES in %s', async (target, { projectsOf }) => {
-            const projects = await projectsOf({ 'apps/MyProj/MyProj.csproj': project('<IsTestProject>true</IsTestProject>\n    <IsPackable>true</IsPackable>') });
-
-            expect(projects['apps/MyProj']?.targets?.[target]?.inputs).toContainEqual({ env: 'NUGET_PACKAGES' });
-        });
-    });
-
     describe('files outside the workspace', () => {
         it('should hash the content of an up-to-date check input outside the workspace as a runtime input that follows the file', async ({ projectsOf, outside }) => {
             const host = join(outside, 'Info.plist');
             writeFileSync(host, 'first');
             const projects = await projectsOf({ 'apps/MyProj.Tests/MyProj.Tests.csproj': project(`<IsTestProject>true</IsTestProject>\n  </PropertyGroup>\n  <ItemGroup>\n    <UpToDateCheckInput Include="${host}" />\n  </ItemGroup>\n  <PropertyGroup>`) });
-            const [hashed] = runtimes(projects['apps/MyProj.Tests']?.targets?.['test--dotnet']?.inputs);
-            const first = execSync(hashed ?? '', { encoding: 'utf-8' });
+            const hashed = runtimes(projects['apps/MyProj.Tests']?.targets?.['test--dotnet']?.inputs).at(-1) ?? '';
+            const first = execSync(hashed, { encoding: 'utf-8' });
             writeFileSync(host, 'second');
 
             expect(runtimes(projects['apps/MyProj.Tests']?.targets?.['build--dotnet']?.inputs)).toContain(hashed);
             expect(hashed).not.toContain(outside);
-            expect(execSync(hashed ?? '', { encoding: 'utf-8' })).not.toBe(first);
+            expect(execSync(hashed, { encoding: 'utf-8' })).not.toBe(first);
+            rmSync(host);
+            expect(spawnSync(hashed, { shell: true, encoding: 'utf-8' }).stderr).toMatch(/could not open/u);
         });
 
         it('should leave inputs inside the workspace to file inputs alone', async ({ projectsOf }) => {
@@ -258,7 +280,21 @@ describe('@rasm/nx-dotnet - createNodes', { timeout: 30_000 }, () => {
                 'apps/MyProj.Tests/MyProj.Tests.csproj': project('<IsTestProject>true</IsTestProject>\n  </PropertyGroup>\n  <ItemGroup>\n    <UpToDateCheckInput Include="../../shared/Info.plist" />\n  </ItemGroup>\n  <PropertyGroup>'),
             });
 
-            expect(runtimes(projects['apps/MyProj.Tests']?.targets?.['test--dotnet']?.inputs)).toStrictEqual(['node -p process.platform+process.arch']);
+            expect(runtimes(projects['apps/MyProj.Tests']?.targets?.['test--dotnet']?.inputs)).toStrictEqual(['dotnet --version', 'node -p process.platform+process.arch']);
+        });
+    });
+
+    describe('test restore', () => {
+        it('should restore the test project alone in locked mode before dotnet test, so a configuration writes no lock file', async ({ projectsOf }) => {
+            const projects = await projectsOf({ 'apps/MyProj.Tests/MyProj.Tests.csproj': project('<IsTestProject>true</IsTestProject>'), 'apps/MyProj.Tests/packages.lock.json': '{\n  "version": 2,\n  "dependencies": {}\n}\n' });
+
+            expect(projects['apps/MyProj.Tests']?.targets?.['test--dotnet']?.options).toHaveProperty(['commands', 0, 'command'], 'dotnet restore --no-dependencies --locked-mode -p:Configuration=Debug');
+        });
+
+        it('should restore without locked mode where the project keeps no lock file', async ({ projectsOf }) => {
+            const projects = await projectsOf({ 'apps/MyProj.Tests/MyProj.Tests.csproj': project('<IsTestProject>true</IsTestProject>') });
+
+            expect(projects['apps/MyProj.Tests']?.targets?.['test--dotnet']?.options).toHaveProperty(['commands', 0, 'command'], 'dotnet restore --no-dependencies -p:Configuration=Debug');
         });
     });
 
@@ -276,9 +312,17 @@ describe('@rasm/nx-dotnet - createNodes', { timeout: 30_000 }, () => {
         });
     });
 
+    describe('tags', () => {
+        it('should tag a project with each NxTag item its evaluations declare', async ({ projectsOf }) => {
+            const projects = await projectsOf({ 'apps/MyProj.Tests/MyProj.Tests.csproj': project('<IsTestProject>true</IsTestProject>\n  </PropertyGroup>\n  <ItemGroup>\n    <NxTag Include="host:rhino" />\n  </ItemGroup>\n  <PropertyGroup>') });
+
+            expect(projects['apps/MyProj.Tests']?.tags).toContain('host:rhino');
+        });
+    });
+
     describe('release', () => {
-        it('should give a packable project the release tag, pack, and attach, and no publish target where NuGet resolves no default push source', async ({ projectsOf }) => {
-            const projects = await projectsOf({ 'apps/MyLib/MyLib.csproj': project(), 'nuget.config': '<configuration />\n' });
+        it('should give a packable project stating its Version the release tag, pack, and attach, and no publish target where NuGet resolves no default push source', async ({ projectsOf }) => {
+            const projects = await projectsOf({ 'apps/MyLib/MyLib.csproj': project('<Version>1.0.0</Version>'), 'nuget.config': '<configuration />\n' });
 
             expect(projects['apps/MyLib']?.tags).toStrictEqual(['release']);
             expect(projects['apps/MyLib']?.targets).toHaveProperty('pack--dotnet');
@@ -293,6 +337,16 @@ describe('@rasm/nx-dotnet - createNodes', { timeout: 30_000 }, () => {
             });
 
             expect(projects['apps/MyLib']?.targets?.['nx-release-publish']).toMatchObject({ dependsOn: ['pack--dotnet', '^nx-release-publish'] });
+        });
+
+        it.for([
+            ['a publishable project stating its Version', '<OutputType>Exe</OutputType>\n    <IsPackable>false</IsPackable>\n    <IsPublishable>true</IsPublishable>\n    <Version>1.0.0</Version>', ['release']],
+            ['a project publishing to a folder alone, with no Version of its own', '<OutputType>Exe</OutputType>\n    <IsPackable>false</IsPackable>\n    <IsPublishable>true</IsPublishable>', []],
+            ['a packable project with no Version of its own, which nx release cannot version', '', []],
+        ] as const)('should tag %s accordingly', async ([, properties, tags], { projectsOf }) => {
+            const projects = await projectsOf({ 'apps/MyApp/MyApp.csproj': project(properties) });
+
+            expect(projects['apps/MyApp']?.tags ?? []).toStrictEqual(tags);
         });
     });
 

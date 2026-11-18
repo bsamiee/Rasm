@@ -1,9 +1,9 @@
 import type { ExecutorContext, TaskGraph } from '@nx/devkit';
 import type { TaskResult } from '@nx/devkit/internal';
-import { ran } from '@rasm/nx-distribution/inference';
-import { Array, Console, Effect, Equal, FileSystem, Option, Path, Predicate, Record, Schema, Stream, String, Struct } from 'effect';
+import { ran, spawned } from '@rasm/nx-distribution/inference';
+import { Array, Console, Effect, Equal, FileSystem, Option, Path, Record, Schema, Stream, String, Struct } from 'effect';
 import { Xml } from 'effect/encoding';
-import { run, streamed } from '#/targets';
+import { ANALYZER, environment, launched, run, streamed } from '#/targets';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -12,7 +12,6 @@ type Planned = readonly [string, typeof Build.Type];
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const HEX = 16;
-const BUILT = 'built.txt';
 const ENTRY_TARGETS = ['Build', 'Rebuild', 'Clean', 'Publish', 'Pack'] as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -27,7 +26,10 @@ const Build = Schema.Struct({
     __unparsed__: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Words after -- of the run, appended after the configured arguments', $default: { $source: 'unparsed' }, hidden: true, 'x-priority': 'internal' }),
 }).annotate({
     title: 'Build',
-    description: "Runs dotnet build, publish, or pack once over a generated traversal project of every batched project, as the MSBuild target named for the verb or the -t a run passes, restoring inside the run, letting MSBuild order the projects, and reporting each project's own result",
+    description: "Runs dotnet build, publish, or pack once over a generated traversal project of every batched project, as the MSBuild target named for the verb or the -t a run passes, restoring inside the run, letting MSBuild order the projects, and reporting each project's own result from the run's binary log",
+});
+const Outcomes = Schema.fromJsonString(Schema.Record(Schema.String, Schema.Struct({ succeeded: Schema.Boolean, lines: Schema.Array(Schema.String) }))).annotate({
+    description: 'Success and diagnostics per project file the binary log of a run records, which MsbuildAnalyzer results prints',
 });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -36,34 +38,16 @@ const element = (name: string, attributes: Readonly<Record<string, string>>, ...
 
 const escaped = (project: string) => project.replaceAll(/[%*?@$();']/gu, (character) => `%${character.codePointAt(0)?.toString(HEX)}`);
 
-const traversal = (projects: readonly string[], target: string) => {
-    const [outer, inner] = ["'$(Selected)' == ''", "'$(Selected)' != ''"];
-    return Stream.fromIterable(
+const traversal = (projects: readonly string[], target: string) =>
+    Stream.fromIterable(
         element(
             'Project',
             { DefaultTargets: target },
             element('Import', { Project: '$(MSBuildToolsPath)/NuGet.targets' }),
-            element(
-                'ItemGroup',
-                { Condition: outer },
-                ...projects.flatMap((project) => [element('RestoreGraphProjectInputItems', { Include: escaped(project) }), element('Selected', { Include: '$(MSBuildThisFileFullPath)', AdditionalProperties: `Selected=${escaped(project)}` })]),
-                element('ProjectReference', { Include: '@(Selected)' }),
-            ),
-            element('ItemGroup', { Condition: inner }, element('ProjectReference', { Include: '$(Selected)', GlobalPropertiesToRemove: 'Selected' })),
-            element('ItemGroup', {}, ...ENTRY_TARGETS.map((name) => element('ProjectReferenceTargets', { Include: name, Targets: name }))),
-            ...ENTRY_TARGETS.map((name) =>
-                element(
-                    'Target',
-                    { Name: name, Returns: '@(Built)' },
-                    element('MSBuild', { Condition: outer, Projects: '@(Selected)', Targets: name, BuildInParallel: 'true' }, element('Output', { TaskParameter: 'TargetOutputs', ItemName: 'Built' })),
-                    element('WriteLinesToFile', { Condition: outer, File: `$(MSBuildThisFileDirectory)${BUILT}`, Lines: '@(Built)', Overwrite: 'true' }),
-                    element('MSBuild', { Condition: inner, Projects: '@(ProjectReference)', Targets: name, RemoveProperties: 'Selected', ContinueOnError: 'true' }),
-                    element('ItemGroup', { Condition: inner }, element('Built', { Include: '$(Selected)', Condition: "'$(MSBuildLastTaskResult)' == 'true'" })),
-                ),
-            ),
+            element('ItemGroup', {}, ...projects.flatMap((project) => [element('RestoreGraphProjectInputItems', { Include: escaped(project) }), element('ProjectReference', { Include: escaped(project) })]), ...ENTRY_TARGETS.map((name) => element('ProjectReferenceTargets', { Include: name, Targets: name }))),
+            ...ENTRY_TARGETS.map((name) => element('Target', { Name: name }, element('MSBuild', { Projects: '@(ProjectReference)', Targets: name, BuildInParallel: 'true' }))),
         ),
     ).pipe(Stream.pipeThroughChannel(Xml.encodeString()), Stream.mkString);
-};
 
 const built = Effect.fnUntraced(function* (root: string, group: Array.NonEmptyReadonlyArray<Planned>) {
     const [path, fs] = yield* Effect.all([Path.Path, FileSystem.FileSystem]);
@@ -71,33 +55,18 @@ const built = Effect.fnUntraced(function* (root: string, group: Array.NonEmptyRe
     const assigned = Record.collect(solution, (file, configuration) => `<ProjectConfiguration Project='${file}' AbsolutePath='${path.resolve(root, file)}'>${configuration}</ProjectConfiguration>`);
     const projects = Array.map(group, ([, { project }]) => path.resolve(root, project));
     const folder = yield* fs.makeTempDirectoryScoped();
-    const file = path.join(folder, 'batch.proj');
+    const [file, log] = [path.join(folder, 'batch.proj'), path.join(folder, 'batch.binlog')];
     yield* fs.writeFileString(file, yield* traversal(projects, String.capitalize(Array.headNonEmpty(command))));
-    const { invoked, stdout, said: stderr } = yield* ran(['dotnet', Array.headNonEmpty(command), file, ...Array.tailNonEmpty(command), ...(assigned.length > 0 ? [`-p:CurrentSolutionConfigurationContents=<SolutionConfiguration>${assigned.join('')}</SolutionConfiguration>`] : []), ...words], { cwd: root });
-    const succeeded = Option.map(yield* Effect.option(fs.readFileString(path.join(folder, BUILT))), (text) => new Set(text.split('\n')));
-    const lines = stdout.split('\n');
+    const { invoked, stdout, said } = yield* ran(['dotnet', Array.headNonEmpty(command), file, ...Array.tailNonEmpty(command), ...(assigned.length > 0 ? [`-p:CurrentSolutionConfigurationContents=<SolutionConfiguration>${assigned.join('')}</SolutionConfiguration>`] : []), `-bl:${log}`, ...words], { cwd: root });
+    const outcomes = yield* Effect.flatMap(spawned([...launched(ANALYZER), 'results', root, log], { cwd: root, env: environment(root) }), Schema.decodeEffect(Outcomes));
     return Array.map(Array.zip(group, projects), ([[task], project]) => {
-        const success = Option.exists(succeeded, (set) => set.has(project));
-        const own = lines.filter((text) => text.includes(` [${project}`));
-        const result: TaskResult = { success, terminalOutput: (success ? own : [invoked, ...(own.length > 0 ? own : [stderr, stdout])]).join('\n') };
+        const outcome = Record.get(outcomes, project);
+        const success = Option.exists(outcome, Struct.get('succeeded'));
+        const own = Option.match(outcome, { onNone: () => [], onSome: ({ lines }) => lines });
+        const result: TaskResult = { success, terminalOutput: (success ? own : [invoked, ...(own.length > 0 ? own : [said, stdout])]).join('\n') };
         return { task, result };
     });
 });
-
-const ordered = (graph: TaskGraph, root: string, groups: readonly Array.NonEmptyReadonlyArray<Planned>[]) =>
-    Stream.paginate(groups, (pending) => {
-        const waiting = (group: readonly Planned[]) => {
-            const elsewhere = new Set(pending.filter((other) => other !== group).flatMap((other) => other.map(([id]) => id)));
-            return group.some(([task]) => (graph.dependencies[task] ?? []).some(({ id }) => elsewhere.has(id)));
-        };
-        return Option.match(Array.head(pending), {
-            onNone: () => Effect.succeed([[], Option.none()] as const),
-            onSome: (first) => {
-                const next = Option.getOrElse(Array.findFirst(pending, Predicate.not(waiting)), () => first);
-                return Effect.map(Effect.scoped(built(root, next)), (results) => [results, Option.some(pending.filter((group) => group !== next))] as const);
-            },
-        });
-    });
 
 const grouped = <A extends { readonly project: string; readonly outputs?: readonly string[] }>(planned: readonly (readonly [string, A])[]) => {
     const keyed = ([, options]: readonly [string, A]) => Struct.omit(options, ['project', 'outputs']);
@@ -109,6 +78,30 @@ const grouped = <A extends { readonly project: string; readonly outputs?: readon
     );
 };
 
+const ordered = (graph: TaskGraph, root: string, planned: readonly Planned[]) =>
+    Stream.paginate(
+        planned,
+        Effect.fnUntraced(function* (pending: readonly Planned[]) {
+            const waiting = new Set(pending.map(([id]) => id));
+            const runnable = (group: readonly Planned[]): readonly Planned[] => {
+                const held = new Set(group.map(([id]) => id));
+                const ready = group.filter(([task]) => (graph.dependencies[task] ?? []).every(({ id }) => !waiting.has(id) || held.has(id)));
+                return ready.length === group.length ? group : runnable(ready);
+            };
+            const next = Array.findFirst(grouped(pending).map(runnable), Array.isReadonlyArrayNonEmpty);
+            const cycled: TaskResult = { success: false, terminalOutput: `Task cycle among ${[...waiting].join(', ')}, as each waits on a task of another batch, drop one dependsOn entry of it` };
+            const results = yield* Option.match(next, { onNone: () => Effect.succeed(pending.map(([task]) => ({ task, result: cycled }))), onSome: (group) => Effect.scoped(built(root, group)) });
+            const done = new Set(Option.match(next, { onNone: () => waiting, onSome: (group) => group.map(([id]) => id) }));
+            return [
+                results,
+                Option.liftPredicate(
+                    pending.filter(([task]) => !done.has(task)),
+                    Array.isReadonlyArrayNonEmpty,
+                ),
+            ] as const;
+        }),
+    );
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const execute = Effect.fnUntraced(function* (build: typeof Build.Type, context: ExecutorContext) {
@@ -117,7 +110,7 @@ const execute = Effect.fnUntraced(function* (build: typeof Build.Type, context: 
     return { success: result.success };
 }, run);
 
-const batch = (graph: TaskGraph, inputs: Readonly<Record<string, typeof Build.Type>>, _: unknown, context: ExecutorContext) => streamed(ordered(graph, context.root, grouped(Record.toEntries(inputs))));
+const batch = (graph: TaskGraph, inputs: Readonly<Record<string, typeof Build.Type>>, _: unknown, context: ExecutorContext) => streamed(ordered(graph, context.root, Record.toEntries(inputs)));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

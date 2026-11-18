@@ -11,7 +11,9 @@
     "files": [
         "dist/**/*.js",
         "dist/**/*.d.ts",
-        "analyzer/dist",
+        "analyzer/dist/*.dll",
+        "analyzer/dist/*.deps.json",
+        "analyzer/dist/*.runtimeconfig.json",
         "executors.json",
         "executors/*/schema.json"
     ],
@@ -25,7 +27,8 @@
         ".": "./plugin.ts",
         "./release/version-actions": "./version-actions.ts",
         "./package.json": "./package.json",
-        "./executors.json": "./executors.json"
+        "./executors.json": "./executors.json",
+        "./executors/*": "./executors/*/executor.ts"
     },
     "publishConfig": {
         "imports": {
@@ -37,7 +40,8 @@
             ".": "./dist/plugin.js",
             "./release/version-actions": "./dist/version-actions.js",
             "./package.json": "./package.json",
-            "./executors.json": "./executors.json"
+            "./executors.json": "./executors.json",
+            "./executors/*": "./dist/executors/*/executor.js"
         },
         "access": "public"
     },

@@ -55,7 +55,7 @@
       },
       "Microsoft.Extensions.Configuration": {
         "type": "Direct",
-        "requested": "[10.0.15, )",
+        "requested": "[10.0.15, 11.0.0)",
         "resolved": "10.0.15",
         "contentHash": "XwGgzRlryUvICZbY/oNlR1MbFDYg6gePDoW38RyUis8vEAVKIHvMy9di5dujK6dObbUOQJpHtrjUZ2rU0V7RvQ==",
         "dependencies": {
@@ -65,7 +65,7 @@
       },
       "Microsoft.Extensions.Configuration.Abstractions": {
         "type": "Direct",
-        "requested": "[10.0.15, )",
+        "requested": "[10.0.15, 11.0.0)",
         "resolved": "10.0.15",
         "contentHash": "0vztB/x4zuR/KT82cgTiiw9DqigfT1FjBgq9FjEFvJUgeacjTG4e7hWD2PCRXzL2kWWl/vBAwtXddIRV3AIU6Q==",
         "dependencies": {
@@ -74,7 +74,7 @@
       },
       "Microsoft.Extensions.Configuration.EnvironmentVariables": {
         "type": "Direct",
-        "requested": "[10.0.15, )",
+        "requested": "[10.0.15, 11.0.0)",
         "resolved": "10.0.15",
         "contentHash": "Acq0muvpN1QfTGV5eJiuutef5Gd1nWxa9aE6CzlmAGJdgPooR/glwkjY4cTWWZgXSVpfaOEe8AQjRO6xdDrDyQ==",
         "dependencies": {
@@ -84,13 +84,13 @@
       },
       "Microsoft.Extensions.DependencyInjection.Abstractions": {
         "type": "Direct",
-        "requested": "[10.0.15, )",
+        "requested": "[10.0.15, 11.0.0)",
         "resolved": "10.0.15",
         "contentHash": "KczR2nV7ooeimtZxAawPht/FJUHnX+uoWy7y4pba+iaRQBwUM2NwtiqZg+/FpZDHUf2RkkzveGkhMTWDNzmDUA=="
       },
       "Microsoft.Extensions.Logging": {
         "type": "Direct",
-        "requested": "[10.0.15, )",
+        "requested": "[10.0.15, 11.0.0)",
         "resolved": "10.0.15",
         "contentHash": "Vya6t+hqCLeoZsbsJo5FzrEoOTK7syIeuaxLl3F8QagD3sXVxAQgmVEq5+jaA4gQ4yreg27fZ8gJH96bWtxoBQ==",
         "dependencies": {
@@ -101,7 +101,7 @@
       },
       "Microsoft.Extensions.Logging.Abstractions": {
         "type": "Direct",
-        "requested": "[10.0.15, )",
+        "requested": "[10.0.15, 11.0.0)",
         "resolved": "10.0.15",
         "contentHash": "s5xzXGWqqlmmThMnQ1rnmL7QLwbluB2JqX9NaK8C9HPuHzN7kfmiddTRbwts5rQssATkh2B18RrofjeUD8g14A==",
         "dependencies": {
@@ -133,7 +133,7 @@
       },
       "Microsoft.WindowsDesktop.App.Ref": {
         "type": "Direct",
-        "requested": "[10.0.15, 10.0.15]",
+        "requested": "[10.0.15, 11.0.0)",
         "resolved": "10.0.15",
         "contentHash": "/78k1To7zLnTjJx7OMMBKYYxQp3I7lm06TMiKL6p8b2AnIewEQo6o8UBIaZYLCCP7MmxXK5hrp9i+dG4L8+Gbg=="
       },
@@ -160,7 +160,7 @@
       },
       "OpenTelemetry": {
         "type": "Direct",
-        "requested": "[1.20.1, )",
+        "requested": "[1.20.1, 1.21.0)",
         "resolved": "1.20.1",
         "contentHash": "+XDw3fYbiv1a40aFnDJSQleeuUJciXuhoIA19XmcGhT47Hy/xZRqk8NCjHUDKrg72Ixjthicecp8ygBDNeH/Jw==",
         "dependencies": {
@@ -172,7 +172,7 @@
       },
       "OpenTelemetry.Api.ProviderBuilderExtensions": {
         "type": "Direct",
-        "requested": "[1.20.1, )",
+        "requested": "[1.20.1, 1.21.0)",
         "resolved": "1.20.1",
         "contentHash": "eDzDY/jTBqRytkYECmVKF7ZP5sKmCIqv1SSnA5BSWltIIvc3931TOMRyCW1qCGNIgmtldtJhISnsmFNxOCfauQ==",
         "dependencies": {
@@ -182,7 +182,7 @@
       },
       "OpenTelemetry.Resources.OperatingSystem": {
         "type": "Direct",
-        "requested": "[1.20.1-beta.1, )",
+        "requested": "[1.20.1-beta.1, 1.21.0)",
         "resolved": "1.20.1-beta.1",
         "contentHash": "LkLr8Y+boszPbwMupUD9WdVuToexlvkkFLjWOssB+Csqbo5eFaAQ55MoZmPxXW0e8scrAwhzOa9wUCcFfD0dwA==",
         "dependencies": {
@@ -191,7 +191,7 @@
       },
       "OpenTelemetry.Resources.Process": {
         "type": "Direct",
-        "requested": "[1.20.1-rc.1, )",
+        "requested": "[1.20.1-rc.1, 1.21.0)",
         "resolved": "1.20.1-rc.1",
         "contentHash": "JZ8jzXrwa001FEKFovRs9V2/97sXbd00/FuenoJBFbPyATj8RluUSAKb7OsZ2JummF1hLL09blZj8ebG4N78Wg==",
         "dependencies": {
@@ -200,7 +200,7 @@
       },
       "OpenTelemetry.Resources.ProcessRuntime": {
         "type": "Direct",
-        "requested": "[1.20.1-beta.1, )",
+        "requested": "[1.20.1-beta.1, 1.21.0)",
         "resolved": "1.20.1-beta.1",
         "contentHash": "N7VhUrI3T54HuBlrVUD8+jTHr9XbWIK0xCYxz9nseRCxNXbYrfTRdnMmS77RacLpxTaOrJrZ6r7cFnyABR8DGw==",
         "dependencies": {
@@ -236,7 +236,7 @@
       },
       "System.Drawing.Common": {
         "type": "Direct",
-        "requested": "[10.0.15, )",
+        "requested": "[10.0.15, 11.0.0)",
         "resolved": "10.0.15",
         "contentHash": "ecd2daLWqjQSGoMnvfITWsJkZWyUbrHyVwwVElLjcAO+POirHOVoM/ITrvj8UrdPXlY6Gb8IV3ZQARbEi4brCg==",
         "dependencies": {
@@ -323,20 +323,20 @@
         "type": "Project",
         "dependencies": {
           "LanguageExt.Core": "[5.0.0-beta-78, )",
-          "Microsoft.Extensions.Configuration": "[10.0.15, )",
-          "Microsoft.Extensions.Configuration.Abstractions": "[10.0.15, )",
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.15, )",
-          "Microsoft.Extensions.Logging": "[10.0.15, )",
-          "Microsoft.Extensions.Logging.Abstractions": "[10.0.15, )",
-          "Microsoft.Extensions.Options": "[10.0.15, )",
-          "Microsoft.Extensions.Options.ConfigurationExtensions": "[10.0.15, )",
-          "Microsoft.Extensions.Primitives": "[10.0.15, )",
+          "Microsoft.Extensions.Configuration": "[10.0.15, 11.0.0)",
+          "Microsoft.Extensions.Configuration.Abstractions": "[10.0.15, 11.0.0)",
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.15, 11.0.0)",
+          "Microsoft.Extensions.Logging": "[10.0.15, 11.0.0)",
+          "Microsoft.Extensions.Logging.Abstractions": "[10.0.15, 11.0.0)",
+          "Microsoft.Extensions.Options": "[10.0.15, 11.0.0)",
+          "Microsoft.Extensions.Options.ConfigurationExtensions": "[10.0.15, 11.0.0)",
+          "Microsoft.Extensions.Primitives": "[10.0.15, 11.0.0)",
           "NLog": "[6.2.2, )",
           "NLog.Extensions.Logging": "[6.3.0, )",
-          "OpenTelemetry": "[1.20.1, )",
-          "OpenTelemetry.Api": "[1.20.1, )",
-          "OpenTelemetry.Api.ProviderBuilderExtensions": "[1.20.1, )",
-          "OpenTelemetry.Exporter.OpenTelemetryProtocol": "[1.20.1, )",
+          "OpenTelemetry": "[1.20.1, 1.21.0)",
+          "OpenTelemetry.Api": "[1.20.1, 1.21.0)",
+          "OpenTelemetry.Api.ProviderBuilderExtensions": "[1.20.1, 1.21.0)",
+          "OpenTelemetry.Exporter.OpenTelemetryProtocol": "[1.20.1, 1.21.0)",
           "Thinktecture.Runtime.Extensions": "[10.6.0, )"
         }
       },
@@ -344,12 +344,12 @@
         "type": "Project",
         "dependencies": {
           "LanguageExt.Core": "[5.0.0-beta-78, )",
-          "Microsoft.Extensions.Logging.Abstractions": "[10.0.15, )"
+          "Microsoft.Extensions.Logging.Abstractions": "[10.0.15, 11.0.0)"
         }
       },
       "Microsoft.Extensions.Configuration.Binder": {
         "type": "CentralTransitive",
-        "requested": "[10.0.15, )",
+        "requested": "[10.0.15, 11.0.0)",
         "resolved": "10.0.15",
         "contentHash": "VOjlZlv9b3woS1TcI8Ts1r2IsmsT7hqkx7o2sMSNzE5fPBGKfhJszlEIhtQVzUz4H8Uw/7Jtuj9x7wGlCUsi2A==",
         "dependencies": {
@@ -359,7 +359,7 @@
       },
       "Microsoft.Extensions.DependencyInjection": {
         "type": "CentralTransitive",
-        "requested": "[10.0.15, )",
+        "requested": "[10.0.15, 11.0.0)",
         "resolved": "10.0.15",
         "contentHash": "7DUIgHeJpBs1RG0hYwWDOImXP03+uPrV5KtyUPxrZsiWadlg95aYijNKCZ2j2UmufQAmN6XEQfx4B/J6TuE7lg==",
         "dependencies": {
@@ -368,7 +368,7 @@
       },
       "Microsoft.Extensions.Diagnostics.Abstractions": {
         "type": "CentralTransitive",
-        "requested": "[10.0.15, )",
+        "requested": "[10.0.15, 11.0.0)",
         "resolved": "10.0.0",
         "contentHash": "SfK89ytD61S7DgzorFljSkUeluC1ncn6dtZgwc0ot39f/BEYWBl5jpgvodxduoYAs1d9HG8faCDRZxE95UMo2A==",
         "dependencies": {
@@ -378,7 +378,7 @@
       },
       "Microsoft.Extensions.Logging.Configuration": {
         "type": "CentralTransitive",
-        "requested": "[10.0.15, )",
+        "requested": "[10.0.15, 11.0.0)",
         "resolved": "10.0.0",
         "contentHash": "j8zcwhS6bYB6FEfaY3nYSgHdpiL2T+/V3xjpHtslVAegyI1JUbB9yAt/BFdvZdsNbY0Udm4xFtvfT/hUwcOOOg==",
         "dependencies": {
@@ -394,7 +394,7 @@
       },
       "Microsoft.Extensions.Options": {
         "type": "CentralTransitive",
-        "requested": "[10.0.15, )",
+        "requested": "[10.0.15, 11.0.0)",
         "resolved": "10.0.15",
         "contentHash": "vF3ghTChyyX3BDqRFUurk+fn8vZySFmWHm4vIeeOQbBrjnPqWrr5ceyCb1jrGpMasYdcK9IuJskLVQZWBfNxCg==",
         "dependencies": {
@@ -404,7 +404,7 @@
       },
       "Microsoft.Extensions.Options.ConfigurationExtensions": {
         "type": "CentralTransitive",
-        "requested": "[10.0.15, )",
+        "requested": "[10.0.15, 11.0.0)",
         "resolved": "10.0.15",
         "contentHash": "yQX7dFAHm9xKBh2TLiA3aTrmOkgEeMRoS7UM/XuVy3CpddaluUXDIMiM8na5q6JMesH8zt3bKIDu/3hkEhVo7Q==",
         "dependencies": {
@@ -417,13 +417,13 @@
       },
       "Microsoft.Extensions.Primitives": {
         "type": "CentralTransitive",
-        "requested": "[10.0.15, )",
+        "requested": "[10.0.15, 11.0.0)",
         "resolved": "10.0.15",
         "contentHash": "NjzLiZ1/bYx8VwLqHxNnCfDTQQbCY7P1dwT7JM5FiANiaSfI6UKHi0/sla+jyRbOIbPAMJkhWQ/9pH3tMf+IrQ=="
       },
       "Microsoft.Win32.SystemEvents": {
         "type": "CentralTransitive",
-        "requested": "[10.0.15, )",
+        "requested": "[10.0.15, 11.0.0)",
         "resolved": "10.0.15",
         "contentHash": "kisX7LaeY4exvIgeyRfIp+xUmz2JoL+2n7pZv4W6na115P8659zw6vfB7IxD4sk6g9YZHwJ+vMzgS3Y5GMJqkA=="
       },
@@ -446,13 +446,13 @@
       },
       "OpenTelemetry.Api": {
         "type": "CentralTransitive",
-        "requested": "[1.20.1, )",
+        "requested": "[1.20.1, 1.21.0)",
         "resolved": "1.20.1",
         "contentHash": "QO9hlwadOdJGR4vDpJyDnl9B62v7epIBSTIHUA4C+bCtrRaB4TWmYSnu3QVOIe7caH8dt7NaHRei6zebESJJyw=="
       },
       "OpenTelemetry.Exporter.OpenTelemetryProtocol": {
         "type": "CentralTransitive",
-        "requested": "[1.20.1, )",
+        "requested": "[1.20.1, 1.21.0)",
         "resolved": "1.20.1",
         "contentHash": "IlO8F0Y01ki0N5hJaeFJ5j3MVYJdbyNpDF9g7goU8wA3o8r/+ir9WJNnmte7QlUzM3iSV/aIuev1fqwF1CZOqg==",
         "dependencies": {

@@ -58,7 +58,7 @@ public sealed class DoubleReportAnalyzer : DiagnosticAnalyzer {
         Categories.Logging,
         DiagnosticSeverity.Error,
         isEnabledByDefault: true,
-        "`IfFail`, `Catch`, and `|` fallbacks report through `ILogger`, `[LoggerMessage]`, or a `RASM1203.reporters` member on receiver or handler side alone.",
+        "`IfFail`, `Catch`, and `|` fallbacks report through `ILogger`, `[LoggerMessage]`, or a member handing an exception to an event its type raises, on receiver or handler side alone.",
         Link("RASM1203"),
         WellKnownDiagnosticTags.CompilationEnd);
 
@@ -74,13 +74,15 @@ public sealed class DoubleReportAnalyzer : DiagnosticAnalyzer {
             INamedTypeSymbol? extensions = types.GetOrCreateTypeByMetadataName("Microsoft.Extensions.Logging.LoggerExtensions");
             INamedTypeSymbol? message = types.GetOrCreateTypeByMetadataName("Microsoft.Extensions.Logging.LoggerMessageAttribute");
             ImmutableArray<IMethodSymbol> logs = Members(logger, "Log", "BeginScope");
-            ImmutableArray<IMethodSymbol> crashes = [.. Option(start.Options, "RASM1203.reporters").SelectMany(id => Declared(start.Compilation, id)).OfType<IMethodSymbol>()];
+            INamedTypeSymbol? exception = types.GetOrCreateTypeByMetadataName("System.Exception");
             ImmutableArray<IMethodSymbol> callbacks = Members(io, "lift", "liftAsync", "liftVAsync", "pure");
             ControlFlow flow = ControlFlow.For(start.Compilation);
             ConcurrentDictionary<IMethodSymbol, ImmutableArray<IMethodSymbol>> calls = new(SymbolEqualityComparer.Default);
             ConcurrentDictionary<IMethodSymbol, bool> reports = new(SymbolEqualityComparer.Default);
             bool Logs(IMethodSymbol method) =>
                 method.ReturnsVoid && (logs.Any(member => Implements(method, member)) || Same(method.ContainingType, extensions));
+            bool Crashes(IMethodSymbol method) =>
+                exception is not null && method.ReturnsVoid && method.Parameters.Any(parameter => Derives(parameter.Type, exception)) && Raises(method.ContainingType, exception);
             bool Reports(IMethodSymbol method, Reading reading) {
                 HashSet<IMethodSymbol> seen = [with(SymbolEqualityComparer.Default)];
                 Stack<IMethodSymbol> pending = new([method.OriginalDefinition]);
@@ -92,7 +94,7 @@ public sealed class DoubleReportAnalyzer : DiagnosticAnalyzer {
                         if (reported) return true;
                         continue;
                     }
-                    if (Logs(current) || Marked(current, message) is not null || Among(current, crashes)) return true;
+                    if (Logs(current) || Marked(current, message) is not null || Crashes(current)) return true;
                     foreach (IMethodSymbol called in calls.GetOrAdd(current, held => [
                         .. Declarations(held, reading).SelectMany(body => ControlFlow.Operations(body, reading.Token)).OfType<IInvocationOperation>()
                             .SelectMany(call => Calls(call, reading, flow, callbacks)).Select(static target => target.OriginalDefinition),
