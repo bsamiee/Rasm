@@ -109,7 +109,7 @@ const repositoryStack = Effect.fnUntraced(function* (root: string, { repository:
         },
         updates: new TailnetSettings('tailnet', { devicesAutoUpdatesOn: true, httpsEnabled: true, usersApprovalOn: false, aclsExternallyManagedOn: true, aclsExternalLink: interpolate`https://github.com/${fullName}/blob/HEAD/${path.relative(root, import.meta.filename)}` }).devicesAutoUpdatesOn,
         magicDns: new DnsPreferences('tailnet', { magicDns: true }).magicDns,
-        enrolment: new VpsPostInstallScript(`${name}-enrolment`, { name: `${name} enrolment`, content: interpolate`#!/bin/sh\nset -eu\ncurl -fsSL https://tailscale.com/install.sh | sh\nrm /etc/apt/sources.list.d/tailscale.list\ntailscale up --auth-key=${enrolling.key} --ssh\n` }).vpsPostInstallScriptId,
+        enrolment: new VpsPostInstallScript(`${name}-enrolment`, { name: `${name} enrolment`, content: interpolate`#!/bin/sh\nset -eu\ncurl -fsSL https://tailscale.com/install.sh | sh\nrm /etc/apt/sources.list.d/tailscale.list\nsync\ntailscale up --auth-key=${enrolling.key} --ssh\n` }).vpsPostInstallScriptId,
         assets: new Repository(`${name}-Assets`, { name: `${name}-Assets`, description: `Binary assets ${name} holds as a private submodule`, visibility: 'private', allowMergeCommit: false, deleteBranchOnMerge: true }, { protect: true }).fullName,
         access: new ZeroTrustOrganization(organization.name, { accountId, name: organization.name, authDomain: organization.authDomain, strictServiceTokenAuth: true }, { protect: true }).authDomain,
         identityProvider: new ZeroTrustAccessIdentityProvider(`${organization.name}-onetimepin`, { accountId, name: 'One-time PIN', type: 'onetimepin', config: {} }, { protect: true }).id,

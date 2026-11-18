@@ -16,7 +16,9 @@ Each place holding state changes through one action:
 - Machine names state no role, provider, or location: roles sit in field `roles` and in the DNS alias of each service a role runs
 - Each machine holds DNS record `<name>.<zone>`, tailnet name `<name>`, and a Pulumi stack named by its DNS name
 - Stack `rasm` holds one Hostinger post-install script, which joins a reinstalled machine to the tailnet with Tailscale SSH under key `machines` and its tags
-- `hostinger vps virtual-machines recreate <id> --template-id <id> --post-install-script-id <id>` reinstalls a machine, erasing its disk
+- That script flushes its writes to disk before it joins, as `set-hostname` resets a machine with no shutdown and loses each write not yet on disk
+- `hostinger vps virtual-machines recreate <id> --template-id <id> --post-install-script-id <id>` reinstalls a machine, erasing its disk and resetting its hostname, which `set-hostname` restores once the machine joined the tailnet
+- Reinstalls follow `tscli delete device` of the machine, as a machine joining beside its old device takes a numbered name, and `mise bootstrap remote <name>` follows them
 - Machines losing the tailnet are reached through the provider's browser console as `root` with `<NAME>_ROOT_PASSWORD`
 - Table `hosts` holds one row per machine, keyed by DNS name, stating public IPv4 `address`, `tags`, and `roles`
 - `.config/mise.toml` `[bootstrap.remote.hosts]` holds one row per machine by tailnet name, and its `mise_env` loads a role file (`.config/mise.runner.toml`)

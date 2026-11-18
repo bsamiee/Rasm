@@ -162,15 +162,6 @@ content = """
 notify  = ["docker"]
 os      = "linux"
 
-[bootstrap.files."/etc/systemd/zram-generator.conf"]
-content = """
-[zram0]
-zram-size = ram / 4
-compression-algorithm = zstd
-"""
-notify  = ["systemd-zram-setup@zram0"]
-os      = "linux"
-
 [bootstrap.files."/etc/systemd/journald.conf.d/90-platform.conf"]
 content = """
 [Journal]
@@ -221,9 +212,6 @@ state   = "stopped"
 enabled = false
 
 [bootstrap.services.systemd-sysctl]
-enabled = false
-
-[bootstrap.services."systemd-zram-setup@zram0"]
 enabled = false
 
 # --- [DAEMONS] --------------------------------------------------------------------------
