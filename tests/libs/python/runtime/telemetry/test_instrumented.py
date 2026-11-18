@@ -35,8 +35,8 @@ _OTLP_HTTP_TRACES = {OTEL_TRACES_EXPORTER: "otlp_proto_http", OTEL_METRICS_EXPOR
 
 @pytest.fixture
 def configure(tmp_path: Path) -> Configure:
-    """Returns the call making the process scope over a log file, as rasm-cli enters it, standing where an exemplar calls its configurator's `_configure`."""
-    return lambda: instrumented(tmp_path / "scope.log", service="rasm-telemetry-tests", version="0", settings=LogSettings(), scopes=())
+    """Returns the call making the process scope over a log folder, as rasm-cli enters it, standing where an exemplar calls its configurator's `_configure`."""
+    return lambda: instrumented(tmp_path, service="rasm-telemetry-tests", version="0", settings=LogSettings(), scopes=())
 
 
 @patch.dict("os.environ", {OTEL_CONFIG_FILE: "/tmp/otel.yaml"})
@@ -121,7 +121,7 @@ def test_get_tracer_with_sdk_disabled(configure: Configure) -> None:
 
 def test_config_9_ok(tmp_path: Path) -> None:
     """The call the scope yields applies another settings record's level to a scope logger while the scope runs (CPython `Lib/test/test_logging.py:3576-3593`)."""
-    output = tmp_path / "scope.log"
+    output = tmp_path / f"rasm-telemetry-tests.{os.getpid()}.log"
     next_message = map(str, itertools.count(1)).__next__
 
     def log_lines() -> list[tuple[object, object]]:
@@ -133,7 +133,7 @@ def test_config_9_ok(tmp_path: Path) -> None:
 
     with (
         patch.dict(os.environ, {OTEL_TRACES_EXPORTER: "none", OTEL_METRICS_EXPORTER: "none", OTEL_LOGS_EXPORTER: "none"}, clear=True),
-        instrumented(output, service="rasm-telemetry-tests", version="0", settings=LogSettings(level="warning"), scopes=("compiler.parser",)) as apply_config,
+        instrumented(tmp_path, service="rasm-telemetry-tests", version="0", settings=LogSettings(level="warning"), scopes=("compiler.parser",)) as apply_config,
     ):
         logger = logging.getLogger("compiler.parser")
         logger.info(next_message())
@@ -147,8 +147,7 @@ def test_config_9_ok(tmp_path: Path) -> None:
 
 
 def test_crash_log_survives_another_process_exit(tmp_path: Path) -> None:
-    """A process dumping a fatal error into the scope's crash log keeps its dump after a second process on the same log exits first (CPython `Lib/test/test_faulthandler.py` `test_enable_file`)."""
-    sink = tmp_path / "shared.log"
+    """A process dumping a fatal error into the scope's crash log keeps its dump after a second process of the same service and log folder exits first (CPython `Lib/test/test_faulthandler.py` `test_enable_file`)."""
     env = {key: value for key, value in os.environ.items() if not key.startswith(("OTEL_", "PYTHONFAULTHANDLER"))}
     env.update(OTEL_TRACES_EXPORTER="none", OTEL_METRICS_EXPORTER="none", OTEL_LOGS_EXPORTER="none", OTEL_PYTHON_DISABLED_INSTRUMENTATIONS="system_metrics")
     entered = (
@@ -156,12 +155,12 @@ def test_crash_log_survives_another_process_exit(tmp_path: Path) -> None:
         "scope = instrumented(Path(sys.argv[1]), service='crash-test', version='0', settings=LogSettings(), scopes=()); scope.__enter__(); "
     )
     with subprocess.Popen(
-        [sys.executable, "-c", f"{entered}print(flush=True); sys.stdin.readline(); faulthandler._sigsegv()", str(sink)], env=env, stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True
+        [sys.executable, "-c", f"{entered}print(flush=True); sys.stdin.readline(); faulthandler._sigsegv()", str(tmp_path)], env=env, stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True
     ) as crashing:
         assert crashing.stdout is not None
         crashing.stdout.readline()
-        clean = subprocess.run([sys.executable, "-c", f"{entered}scope.__exit__(None, None, None)", str(sink)], env=env, capture_output=True, text=True, check=False)
+        clean = subprocess.run([sys.executable, "-c", f"{entered}scope.__exit__(None, None, None)", str(tmp_path)], env=env, capture_output=True, text=True, check=False)
         crashing.communicate("\n")
     assert clean.returncode == 0, clean.stderr
-    assert [path.name for path in tmp_path.glob("*.crash.log")] == [f"shared.{crashing.pid}.crash.log"]
-    assert "Fatal Python error" in (tmp_path / f"shared.{crashing.pid}.crash.log").read_text(encoding="utf-8")
+    assert [path.name for path in tmp_path.glob("*.crash.log")] == [f"crash-test.{crashing.pid}.crash.log"]
+    assert "Fatal Python error" in (tmp_path / f"crash-test.{crashing.pid}.crash.log").read_text(encoding="utf-8")

@@ -104,15 +104,12 @@ def make_span(in_memory: InMemorySpanExporter) -> MakeSpan:
 
 @pytest.fixture
 def left(tmp_path: Path) -> Left:
-    """Returns the call making the process scope over a log file with one processor joined and no exporter named, left where the exemplar calls `exporter.shutdown()`."""
+    """Returns the call making the process scope over a log folder with one processor joined and no exporter named, left where the exemplar calls `exporter.shutdown()`."""
     environ = {"OTEL_TRACES_EXPORTER": "none", "OTEL_METRICS_EXPORTER": "none", "OTEL_LOGS_EXPORTER": "none", "no_proxy": "*"}
 
     @contextmanager
     def leaving(processor: SpanProcessor) -> Generator[object]:
-        with (
-            patch.dict(os.environ, environ, clear=True),
-            instrumented(tmp_path / "scope.log", service="rasm-telemetry-tests", version="0", settings=LogSettings(), scopes=(), span_processors=(processor,)) as scope,
-        ):
+        with patch.dict(os.environ, environ, clear=True), instrumented(tmp_path, service="rasm-telemetry-tests", version="0", settings=LogSettings(), scopes=(), span_processors=(processor,)) as scope:
             yield scope
 
     return leaving

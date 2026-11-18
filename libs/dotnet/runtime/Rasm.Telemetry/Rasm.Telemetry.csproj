@@ -16,7 +16,6 @@
     <ItemGroup Label="Observability">
         <PackageReference Include="NLog" />
         <PackageReference Include="NLog.Extensions.Logging" />
-        <PackageReference Include="NLog.Targets.ConcurrentFile" />
         <PackageReference Include="OpenTelemetry" />
         <PackageReference Include="OpenTelemetry.Api" />
         <PackageReference Include="OpenTelemetry.Api.ProviderBuilderExtensions" />

@@ -95,6 +95,12 @@
         "resolved": "10.0.14",
         "contentHash": "8BIrKDOh97v8uXl1dQb1cLh7EJaWX8Cg3wnG4xwQFz3Kr3rCyLlA2dInl3Uz2h47TbXgDrzZlSxWmVQr9r543w=="
       },
+      "NodaTime": {
+        "type": "Direct",
+        "requested": "[3.3.7, )",
+        "resolved": "3.3.7",
+        "contentHash": "4Rc3zup1sZqtlcgkWZOsjoVbhm+RkDvxrFDJfIxi7nr32ZgzVW+zCTBr827+KG/4r5owpchUjqx8tO4K2ZtpOw=="
+      },
       "Rhino.Inside": {
         "type": "Direct",
         "requested": "[9.0.26084.13070-beta, )",
@@ -396,7 +402,6 @@
           "Microsoft.Extensions.Primitives": "[10.0.14, )",
           "NLog": "[6.2.2, )",
           "NLog.Extensions.Logging": "[6.2.2, )",
-          "NLog.Targets.ConcurrentFile": "[6.2.2, )",
           "OpenTelemetry": "[1.20.1, )",
           "OpenTelemetry.Api": "[1.20.1, )",
           "OpenTelemetry.Api.ProviderBuilderExtensions": "[1.20.1, )",
@@ -721,21 +726,6 @@
           "Microsoft.Extensions.Logging": "10.0.0",
           "NLog": "6.2.2"
         }
-      },
-      "NLog.Targets.ConcurrentFile": {
-        "type": "CentralTransitive",
-        "requested": "[6.2.2, )",
-        "resolved": "6.2.2",
-        "contentHash": "iIoQF/Br63RYP0/cdy3eJGr+pha7KRIE3fNNSe9xhIiPtiP0lv5VgYeOckF3ZkYVUxrBiTjybnzcG0mqXQCWWw==",
-        "dependencies": {
-          "NLog": "6.2.2"
-        }
-      },
-      "NodaTime": {
-        "type": "CentralTransitive",
-        "requested": "[3.3.7, )",
-        "resolved": "3.3.7",
-        "contentHash": "4Rc3zup1sZqtlcgkWZOsjoVbhm+RkDvxrFDJfIxi7nr32ZgzVW+zCTBr827+KG/4r5owpchUjqx8tO4K2ZtpOw=="
       },
       "NodaTime.Serialization.SystemTextJson": {
         "type": "CentralTransitive",

@@ -17,15 +17,11 @@ namespace Rasm.Telemetry;
 
 [SmartEnum<string>]
 public sealed partial class LogTarget {
-    public static readonly LogTarget File = new("file", static (file, name, record) => new ConcurrentFileTarget {
-        FileName = Layout.FromLiteral(Path.Join(file.Directory, $"{name}.log")),
-        ArchiveFileName = Layout.FromLiteral(Path.Join(file.Directory, $"{name}.{{#}}.log")),
-        ArchiveNumbering = ArchiveNumberingMode.Rolling,
+    public static readonly LogTarget File = new("file", static (file, name, record) => new FileTarget {
+        FileName = Layout.FromLiteral(Path.Join(file.Directory, string.Create(CultureInfo.InvariantCulture, $"{name}.{Environment.ProcessId}.log"))),
         ArchiveAboveSize = file.Size,
         ArchiveEvery = file.Age,
-        MaxArchiveFiles = file.Files,
-        ConcurrentWrites = true,
-        KeepFileOpen = true,
+        MaxArchiveFiles = file.Files - 1,
         Layout = record,
     });
     public static readonly LogTarget Stderr = new("stderr", static (_, _, record) => new ConsoleTarget { StdErr = true, Layout = record });
@@ -34,13 +30,15 @@ public sealed partial class LogTarget {
     internal partial Target Open(LogFile file, string name, Layout record);
 }
 
-public sealed record LogFile(LogTarget Target, string Directory, long Size, FileArchiveEveryPeriod Age, int Files) {
-    public static LogFile Of(string name) => new(LogTarget.File, UserDirectory(name), 8L << 20, FileArchiveEveryPeriod.Day, 7);
+public sealed record LogFile(LogTarget Target, string Directory, long Size, FileArchivePeriod Age, int Files) {
+    public const string OutputSetting = "OUTPUT_DIR";
 
-    public static string UserDirectory(string name) =>
-        OperatingSystem.IsMacOS() ? Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Library", "Logs", name)
-        : OperatingSystem.IsWindows() ? Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), name, "Logs")
-        : Path.Join(Environment.GetEnvironmentVariable("XDG_STATE_HOME") ?? Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local", "state"), name, "log");
+    public static LogFile Default => new(LogTarget.File, UserDirectory, 8L << 20, FileArchivePeriod.Day, 7);
+
+    public static string UserDirectory =>
+        OperatingSystem.IsMacOS() ? Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Library", "Logs")
+        : OperatingSystem.IsWindows() ? Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "logs")
+        : Environment.GetEnvironmentVariable("XDG_STATE_HOME") ?? Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local", "state");
 }
 
 public sealed record SettingRejection(string Setting, string Value, string Accepted);
@@ -54,9 +52,9 @@ public sealed record LogSettings(LogFile File, Seq<LoggerFilterRule> Rules, Seq<
 
     private static readonly Seq<(string Setting, Func<string, LogFile, Option<LogFile>> Parsed, string Accepted)> Rows = [
         ("LOG_TARGET", static (text, file) => LogTarget.TryGet(text, out LogTarget? target) ? Some(file with { Target = target }) : None, string.Join(", ", LogTarget.Items.Select(static target => target.Key))),
-        ("LOG_DIR", static (text, file) => Path.IsPathFullyQualified(text) ? Some(file with { Directory = text }) : None, "a fully qualified folder path"),
+        (LogFile.OutputSetting, static (text, file) => Path.IsPathFullyQualified(text) ? Some(file with { Directory = Path.Join(text, "log") }) : None, "a fully qualified folder path"),
         ("LOG_SIZE", static (text, file) => long.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out long size) && size > 0 ? Some(file with { Size = size }) : None, "a positive byte count"),
-        ("LOG_AGE", static (text, file) => Enum.TryParse(text, ignoreCase: true, out FileArchiveEveryPeriod age) && Enum.IsDefined(age) ? Some(file with { Age = age }) : None, string.Join(", ", Enum.GetNames<FileArchiveEveryPeriod>())),
+        ("LOG_AGE", static (text, file) => Enum.TryParse(text, ignoreCase: true, out FileArchivePeriod age) && Enum.IsDefined(age) ? Some(file with { Age = age }) : None, string.Join(", ", Enum.GetNames<FileArchivePeriod>())),
         ("LOG_FILES", static (text, file) => int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out int files) && files > 0 ? Some(file with { Files = files }) : None, "a positive file count"),
     ];
 
@@ -68,7 +66,7 @@ public sealed record LogSettings(LogFile File, Seq<LoggerFilterRule> Rules, Seq<
     // --- [READS]
 
     public static LogSettings Read(IConfiguration settings, string name, Seq<string> roots) {
-        (LogFile file, Seq<SettingRejection> refused) = Rows.Fold((File: LogFile.Of(name), Refused: Seq<SettingRejection>()), (read, row) =>
+        (LogFile file, Seq<SettingRejection> refused) = Rows.Fold((File: LogFile.Default, Refused: Seq<SettingRejection>()), (read, row) =>
             Optional(settings[row.Setting]).Match(
                 Some: text => row.Parsed(text, read.File).Match(Some: file => (file, read.Refused), None: () => (read.File, read.Refused.Add(new SettingRejection(row.Setting, text, row.Accepted)))),
                 None: () => read));

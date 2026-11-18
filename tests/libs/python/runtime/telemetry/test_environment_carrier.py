@@ -34,7 +34,7 @@ def extract_with_env(tmp_path: Path) -> Extract:
 
     def extracting(env_vars: dict[str, str], /) -> Context:
         environ = {"OTEL_TRACES_EXPORTER": "none", "OTEL_METRICS_EXPORTER": "none", "OTEL_LOGS_EXPORTER": "none"} | env_vars
-        with patch.dict(os.environ, environ, clear=True), instrumented(tmp_path / "scope.log", service="rasm-telemetry-tests", version="0", settings=LogSettings(), scopes=()):
+        with patch.dict(os.environ, environ, clear=True), instrumented(tmp_path, service="rasm-telemetry-tests", version="0", settings=LogSettings(), scopes=()):
             return context.get_current()
 
     return extracting

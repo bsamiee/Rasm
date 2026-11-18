@@ -117,15 +117,6 @@
           "NLog": "6.2.2"
         }
       },
-      "NLog.Targets.ConcurrentFile": {
-        "type": "Direct",
-        "requested": "[6.2.2, )",
-        "resolved": "6.2.2",
-        "contentHash": "iIoQF/Br63RYP0/cdy3eJGr+pha7KRIE3fNNSe9xhIiPtiP0lv5VgYeOckF3ZkYVUxrBiTjybnzcG0mqXQCWWw==",
-        "dependencies": {
-          "NLog": "6.2.2"
-        }
-      },
       "OpenTelemetry": {
         "type": "Direct",
         "requested": "[1.20.1, )",

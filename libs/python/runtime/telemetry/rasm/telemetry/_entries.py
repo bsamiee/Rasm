@@ -57,7 +57,7 @@ class LogSettings(BaseSettings, frozen=True, env_prefix="LOG_"):
     filter: dict[str, _Level] = Field(default={}, description="Level of each named logger, over the program's level and the `warning` every other logger passes.")
     size: PositiveInt = Field(default=8 << 20, description="Bytes the log file reaches before it rotates.")
     age: timedelta = Field(default=timedelta(days=1), ge=timedelta(seconds=1), description="Age the log file reaches before it rotates, in whole seconds.")
-    files: PositiveInt = Field(default=7, description="Rotated log files kept, and crash logs of exited processes holding a dump.")
+    files: PositiveInt = Field(default=7, description="Rotated files kept of one log file, log files kept across a program's processes, and crash logs of exited processes holding a dump.")
     gzip: bool = Field(default=False, description="Whether each rotated log file is compressed.")
 
     @property

@@ -24,13 +24,13 @@ public sealed record ProcessServices(string Name, IConfigurationRoot Settings, I
 
 [SmartEnum<string>]
 public sealed partial class UserFolder {
-    public static readonly UserFolder Log = new("LOG_DIR", LogFile.UserDirectory);
-    public static readonly UserFolder Cache = new("CACHE_DIR", static name =>
-        OperatingSystem.IsMacOS() ? Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.InternetCache), name)
-        : OperatingSystem.IsWindows() ? Path.Join(Local, name, "Cache")
-        : Path.Join(Environment.GetEnvironmentVariable("XDG_CACHE_HOME") ?? Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".cache"), name));
-    public static readonly UserFolder State = new("STATE_DIR", static name => Path.Join(OperatingSystem.IsLinux() ? LinuxState : Local, name));
-    public static readonly UserFolder Runtime = new("RUNTIME_DIR", static name => Path.Join(
+    public static readonly UserFolder Log = new("log", static (settings, name, _) => LogSettings.Read(settings, name, []).File.Directory);
+    public static readonly UserFolder Image = new("image", Output);
+    public static readonly UserFolder Video = new("video", Output);
+    public static readonly UserFolder Audio = new("audio", Output);
+    public static readonly UserFolder Cache = new("cache", static (settings, name, _) => settings["CACHE_DIR"] ?? Cached(name));
+    public static readonly UserFolder State = new("state", static (settings, name, _) => settings["STATE_DIR"] ?? Path.Join(OperatingSystem.IsLinux() ? LinuxState : Local, name));
+    public static readonly UserFolder Runtime = new("runtime", static (settings, name, _) => settings["RUNTIME_DIR"] ?? Path.Join(
         OperatingSystem.IsLinux() ? Environment.GetEnvironmentVariable("XDG_RUNTIME_DIR") ?? Path.Join(Path.GetTempPath(), Environment.UserName) : Path.GetTempPath(), name));
 
     private static string Local => Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
@@ -39,9 +39,16 @@ public sealed partial class UserFolder {
         Environment.GetEnvironmentVariable("XDG_STATE_HOME") ?? Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local", "state");
 
     [UseDelegateFromConstructor]
-    private partial string Default(string name);
+    private partial string Resolved(IConfiguration settings, string name, string kind);
 
-    public string Of(IConfiguration settings, string name) => settings[Key] ?? Default(name);
+    public string Of(IConfiguration settings, string name) => Resolved(settings, name, Key);
+
+    private static string Output(IConfiguration settings, string name, string kind) => Path.Join(settings[LogFile.OutputSetting] ?? Cached(name), kind);
+
+    private static string Cached(string name) =>
+        OperatingSystem.IsMacOS() ? Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.InternetCache), name)
+        : OperatingSystem.IsWindows() ? Path.Join(Local, name, "Cache")
+        : Path.Join(Environment.GetEnvironmentVariable("XDG_CACHE_HOME") ?? Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".cache"), name);
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

@@ -1,4 +1,4 @@
-"""Invocations of a command-line tool: the settings every tool reads from flags and its own variables, its per-user folders, and one command line run inside the process telemetry scope."""
+"""Invocations of a command-line tool: the settings every tool reads from flags and its own variables, its output and per-user folders, and one command line run inside the process telemetry scope."""
 
 from collections.abc import Callable, Generator
 from contextlib import contextmanager, ExitStack
@@ -28,12 +28,15 @@ lazy from rasm.telemetry.process import instrumented
 
 
 class Folder(StrEnum):
-    """Kinds of per-user folder a tool writes, each the name of the command parameter an invocation supplies it to."""
+    """Kinds of folder a tool writes, each the name of the command parameter an invocation supplies it to and of its subfolder under the output folder."""
 
-    CACHE = auto()
     LOG = auto()
-    RUNTIME = auto()
+    IMAGE = auto()
+    VIDEO = auto()
+    AUDIO = auto()
+    CACHE = auto()
     STATE = auto()
+    RUNTIME = auto()
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -46,8 +49,8 @@ class Settings:
 
     Attributes:
         log: Levels and rotation of the log, each field the flag `--log-<field>`, one logger's level `--log-filter.<logger>`, a size, age, or count outside its bounds refused as a usage error.
-        log_target: Destination of the log: `file` for the rotated file `<log folder>/<tool>.log`, `stderr` for the standard error a container collects.
-        log_dir: Folder of the log file, the per-user log folder when omitted.
+        log_target: Destination of the log: `file` for the process's rotated file `<log folder>/<tool>.<pid>.log`, `stderr` for the standard error a container collects.
+        output_dir: Folder of logs, images, video, and audio, each kind in its own subfolder, the per-user log folder and the tool's cache folder by kind when omitted.
         cache_dir: Folder of files the tool can make again, the per-user cache folder when omitted.
         state_dir: Folder of files kept between runs, the per-user state folder when omitted.
         runtime_dir: Folder of sockets and locks of running processes, the per-user runtime folder when omitted.
@@ -55,20 +58,27 @@ class Settings:
 
     log: Annotated[LogSettings, Parameter(name="*", name_transform="log-{}".format)] = field(default_factory=LogSettings)
     log_target: str = "file"
-    log_dir: Path | None = None
+    output_dir: Path | None = None
     cache_dir: Path | None = None
     state_dir: Path | None = None
     runtime_dir: Path | None = None
 
     def folder(self, kind: Folder, tool: str, /) -> Path:
-        """Returns the folder of a kind: its flag or variable, else the platform's per-user folder of a tool, neither created."""
+        """Returns the folder of a kind, not created: its flag or variable, the output kinds a subfolder of the output folder, else the platform's per-user log folder and the tool's per-user folders."""
         platform = PlatformDirs(tool, appauthor=False)
-        return {
-            Folder.CACHE: self.cache_dir or platform.user_cache_path,
-            Folder.LOG: self.log_dir or platform.user_log_path,
-            Folder.RUNTIME: self.runtime_dir or platform.user_runtime_path,
-            Folder.STATE: self.state_dir or platform.user_state_path,
-        }[kind].expanduser()
+        match kind, self.output_dir:
+            case Folder.CACHE, _:
+                return (self.cache_dir or platform.user_cache_path).expanduser()
+            case Folder.STATE, _:
+                return (self.state_dir or platform.user_state_path).expanduser()
+            case Folder.RUNTIME, _:
+                return (self.runtime_dir or platform.user_runtime_path).expanduser()
+            case _, Path() as output:
+                return output.expanduser() / kind
+            case Folder.LOG, _:
+                return PlatformDirs(appauthor=False).user_log_path
+            case _:
+                return platform.user_cache_path / kind
 
 
 DEFAULTS: Final = Settings()
@@ -118,7 +128,7 @@ class Invocation:
 def invoked(app: App, tokens: tuple[str, ...], settings: Settings, /) -> Generator[Invocation]:
     """Holds the telemetry scope of one command line: the process instrumented under the app's name, and one span named by the tool and its command.
 
-    The log is the file `<log folder>/<tool>.log` or the process's standard error, as the log target names, and the service version is the app's `version` string, empty where the app states none.
+    The log is the file `<log folder>/<tool>.<pid>.log` or the process's standard error, as the log target names, and the service version is the app's `version` string, empty where the app states none.
     The log level applies to the loggers named for the tool and for the package of its meta command, the log filter to the loggers it names, every other logger passing warnings and above.
     A log target or level name outside its accepted values logs one warning naming its variable, its value, and the accepted values, the target leaving its default in effect and the level name reading as `NOTSET`.
     The tool's meta command awaits `Invocation.run` or hands a result to `Invocation.ended`.
@@ -129,7 +139,7 @@ def invoked(app: App, tokens: tuple[str, ...], settings: Settings, /) -> Generat
         Invocation of the command line.
     """
     tool, module = app.name[0], inspect.getmodule(app.meta.default_command)
-    sinks = {"file": settings.folder(Folder.LOG, tool) / f"{tool}.log", "stderr": sys.stderr}
+    sinks = {"file": settings.folder(Folder.LOG, tool), "stderr": sys.stderr}
     unrecognized = (*((("target", settings.log_target, " ".join(sinks)),) if settings.log_target not in sinks else ()), *settings.log.unrecognized)
     with ExitStack() as stack:
         try:

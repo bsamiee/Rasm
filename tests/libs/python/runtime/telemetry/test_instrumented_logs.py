@@ -31,12 +31,7 @@ def exporter(tmp_path: Path) -> Iterator[InMemoryLogRecordExporter]:
     with (
         patch.dict(os.environ, {"OTEL_TRACES_EXPORTER": "none", "OTEL_METRICS_EXPORTER": "none", "OTEL_LOGS_EXPORTER": "none"}, clear=True),
         instrumented(
-            tmp_path / "scope.log",
-            service="rasm-telemetry-tests",
-            version="0",
-            settings=telemetry.LogSettings(level="debug"),
-            scopes=(__name__,),
-            log_record_processors=(SimpleLogRecordProcessor(exporting),),
+            tmp_path, service="rasm-telemetry-tests", version="0", settings=telemetry.LogSettings(level="debug"), scopes=(__name__,), log_record_processors=(SimpleLogRecordProcessor(exporting),)
         ),
     ):
         yield exporting
