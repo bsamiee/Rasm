@@ -123,19 +123,25 @@ const piecesOf = (part: WordPart, scope: Scope, context: Context, quote?: readon
     Match.value(part).pipe(
         Match.withReturnType<readonly Part[]>(),
         Match.when({ type: 'Lit' }, ({ value }) =>
-            [...value.matchAll(quote === undefined ? UNQUOTED_PIECE : QUOTED_PIECE)].map(([raw]) => ({
-                raw,
-                text: raw.replaceAll(quote === undefined ? UNQUOTED_ESCAPE : QUOTED_ESCAPE, '$<code>'),
-                known: true,
-                glob: quote === undefined && GLOB.test(raw) && !raw.startsWith('\\'),
-                spread: false,
-                ...(quote === undefined ? {} : { quote }),
-            })),
+            value
+                .matchAll(quote === undefined ? UNQUOTED_PIECE : QUOTED_PIECE)
+                .map(([raw]): Part => ({
+                    raw,
+                    text: raw.replaceAll(quote === undefined ? UNQUOTED_ESCAPE : QUOTED_ESCAPE, '$<code>'),
+                    known: true,
+                    glob: quote === undefined && GLOB.test(raw) && !raw.startsWith('\\'),
+                    spread: false,
+                    ...(quote === undefined ? {} : { quote }),
+                }))
+                .toArray(),
         ),
         Match.when({ type: 'SglQuoted' }, ({ dollar, value }) => {
             const quoted = [dollar ? "$'" : "'", "'"] as const;
-            const characters = [...value.matchAll(dollar ? ANSI_PIECE : CHARACTER)];
-            return (characters.length === 0 ? [''] : characters.map(([raw]) => raw)).map((raw) => ({ raw, text: dollar ? raw.replaceAll(ANSI_ESCAPE, ansiDecoded) : raw, known: true, glob: false, spread: false, quote: quoted }));
+            const characters = value
+                .matchAll(dollar ? ANSI_PIECE : CHARACTER)
+                .map(([raw]) => raw)
+                .toArray();
+            return (characters.length === 0 ? [''] : characters).map((raw) => ({ raw, text: dollar ? raw.replaceAll(ANSI_ESCAPE, ansiDecoded) : raw, known: true, glob: false, spread: false, quote: quoted }));
         }),
         Match.when({ type: 'DblQuoted' }, ({ dollar, parts }) => {
             const quoted = [dollar ? '$"' : '"', '"'] as const;
@@ -215,15 +221,17 @@ const fields = (word: Word): readonly Word[] => {
     if (splitting === undefined) {
         return [word];
     }
-    const matches = [...word.text.matchAll(FIELD)];
-    const parts = matches.map((match): Part => {
-        const [text] = match;
-        const parameter = { name: splitting.parameter.name, offset: splitting.parameter.offset + Array.fromIterable(word.text.slice(0, match.index)).length, length: Array.fromIterable(text).length };
-        const raw = `\${${parameter.name}:${parameter.offset}:${parameter.length}}`;
-        return { ...splitting, raw, text, glob: GLOB.test(text), spread: false, parameter };
-    });
+    const parts = word.text
+        .matchAll(FIELD)
+        .map((match): Part => {
+            const [text] = match;
+            const parameter = { name: splitting.parameter.name, offset: splitting.parameter.offset + Array.fromIterable(word.text.slice(0, match.index)).length, length: Array.fromIterable(text).length };
+            const raw = `\${${parameter.name}:${parameter.offset}:${parameter.length}}`;
+            return { ...splitting, raw, text, glob: GLOB.test(text), spread: false, parameter };
+        })
+        .toArray();
     const words = parts.map(({ raw }) => raw);
-    return parts.map((part, index) => ({ ...word, raw: part.raw, text: part.text, glob: part.glob, spread: matches.length > 1, parts: [part], field: { index, words } }));
+    return parts.map((part, index) => ({ ...word, raw: part.raw, text: part.text, glob: part.glob, spread: parts.length > 1, parts: [part], field: { index, words } }));
 };
 
 const scalar = ({ array, index, append }: Assign): boolean => array === null && index === null && !append;

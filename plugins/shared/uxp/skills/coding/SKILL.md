@@ -330,3 +330,23 @@ One manifest serves one host, `host.app` naming `ID`, `PS`, `premierepro`, `ame`
 - `shell.openPath` and `shell.openExternal` open a path or URL behind a consent dialog, with no arguments or process output
 - Plugin data sits under `UXP/PluginsStorage/<product>/<major>/External/<pluginId>/PluginData`
 - Native addons load in Photoshop and Premiere alone
+
+## [10]-[DEBUGGING]
+
+CDP and UXP Debugger routes need UXP developer mode, `{"developer": true}` in `/Library/Application Support/Adobe/UXP/Developer/settings.json`, and a running host:
+
+| [INDEX] | [HOST]                  | [DEBUG]                                            | [TEST]                                 |
+| :-----: | :---------------------- | :------------------------------------------------- | :------------------------------------- |
+|  [01]   | Photoshop               | `uxp-cli create-cdp-url`, Atelier `execute_script` | `@bubblydoo/vitest-pool-uxp` `uxpPool` |
+|  [02]   | InDesign                | Atelier `execute_script`, `diagnostics`            | Atelier `execute_script`               |
+|  [03]   | Premiere, Media Encoder | UXP Debugger, Atelier `diagnostics`                | None                                   |
+|  [04]   | After Effects (Beta)    | UXP Developer Tool                                 | None                                   |
+
+- Atelier `execute_script` reaches Photoshop and InDesign through linked Atelier plug-ins, and Premiere and Media Encoder declare no script command
+- Atelier `diagnostics` reads a host's reports and UXP logs whether the host runs or not
+- `uxp-cli` and `vitest-pool-uxp` find Photoshop alone and throw `Photoshop is not open` without it
+- `uxp-cli create-cdp-url` loads the folder as a plug-in session and prints a `ws://` URL for any CDP client, `@bubblydoo/vitest-pool-cdp` included
+- `uxp-cli open-devtools` brings Chrome forward through `open -a`, and agents take `create-cdp-url`
+- `vitest-pool-uxp` runs with `maxWorkers: 1`, `isolate: false`, `fileParallelism: false`, the settings its README requires
+- UXP Debugger in VS Code loads and breaks in Photoshop, InDesign, Premiere, and Media Encoder, with tools VS Code alone calls
+- `nx install` writes the plug-in folder and its `PluginsInfo` row, and a running host loads the new code at its next launch

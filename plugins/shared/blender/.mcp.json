@@ -12,10 +12,9 @@
         "mcp-for-blender": {
             "type": "stdio",
             "command": "mcp-muxer",
-            "args": ["--per", "user", "--env", "BLENDER_MCP_DISABLE_TELEMETRY=true", "--env", "MCP_FOR_BLENDER_PORT", "--env", "BLENDERMCP_SKETCHFAB_API_KEY", "--env", "BLENDERMCP_POLYPIZZA_API_KEY", "--", "mcp-for-blender"],
+            "args": ["--per", "user", "--env", "BLENDER_MCP_DISABLE_TELEMETRY=true", "--", "mcp-for-blender"],
             "timeout": 600000,
             "default_tools_approval_mode": "approve",
-            "env_vars": ["MCP_FOR_BLENDER_PORT", "BLENDERMCP_SKETCHFAB_API_KEY", "BLENDERMCP_POLYPIZZA_API_KEY"],
             "tool_timeout_sec": 600
         }
     }

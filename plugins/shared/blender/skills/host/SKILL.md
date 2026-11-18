@@ -18,8 +18,8 @@ Covers MCP-driven GUI sessions, background runs, extension installs, logs, and e
 
 Server `blender` reaches the GUI through extension `bl_ext.blender_lab.mcp` on port 9877 and holds every tool not marked `on mcp-for-blender`, and server `mcp-for-blender` through add-on `blender_mcp` on port 9876:
 
-| [INDEX] | [TOOL]                                                    | [USE_WHEN]                                                    |
-| :-----: | :-------------------------------------------------------- | :------------------------------------------------------------ |
+| [INDEX] | [TOOL]                                      | [USE_WHEN]                                                    |
+| :-----: | :------------------------------------------ | :------------------------------------------------------------ |
 |  [01]   | `get_blendfile_summary_path_info`           | "Which file is open?" / "Does it hold unsaved changes?"       |
 |  [02]   | `get_blendfile_summary_datablocks`          | "How many data-blocks of each type does the file hold?"       |
 |  [03]   | `get_blendfile_summary_missing_files`       | "Which external files fail to resolve?"                       |
@@ -29,16 +29,16 @@ Server `blender` reaches the GUI through extension `bl_ext.blender_lab.mcp` on p
 |  [07]   | `get_screenshot_of_window_as_json`          | "Which areas, mode, and selection does the main window show?" |
 |  [08]   | `get_screenshot_of_window_as_image`         | "Is a popup, prompt, or splash screen open?"                  |
 |  [09]   | `get_screenshot_of_area_as_image`           | "What does this one editor show?"                             |
-|  [10]   | `look` on `mcp-for-blender`                              | "What do these objects look like now?"                        |
+|  [10]   | `look` on `mcp-for-blender`                 | "What do these objects look like now?"                        |
 |  [11]   | `jump_to_tab_by_name`                       | "Show the user this workspace"                                |
 |  [12]   | `jump_to_tab_by_space_type`                 | "Show the user this editor"                                   |
 |  [13]   | `jump_to_view3d_object_by_name`             | "Frame this object in the viewport"                           |
 |  [14]   | `search_manual_docs`                        | "How does this feature or workflow work?"                     |
 |  [15]   | `execute_blender_code`                      | "Read or edit live state no other tool covers"                |
-|  [16]   | `get_addon_status` on `mcp-for-blender`                  | "Which asset and model sources are on?"                       |
-|  [17]   | `search_assets` on `mcp-for-blender`                     | "Find an HDRI, texture, or model in an online library"        |
-|  [18]   | `import_asset` on `mcp-for-blender`                      | "Bring a found asset into the scene"                          |
-|  [19]   | `generate_3d` on `mcp-for-blender`                       | "Generate a model from a prompt or image"                     |
+|  [16]   | `get_addon_status` on `mcp-for-blender`     | "Which asset and model sources are on?"                       |
+|  [17]   | `search_assets` on `mcp-for-blender`        | "Find an HDRI, texture, or model in an online library"        |
+|  [18]   | `import_asset` on `mcp-for-blender`         | "Bring a found asset into the scene"                          |
+|  [19]   | `generate_3d` on `mcp-for-blender`          | "Generate a model from a prompt or image"                     |
 
 Pictures come from the source that draws current state:
 - `look` draws offscreen at call time with `target` naming objects, else startup file's 1828.8 m `Ground` fills the frame
@@ -60,6 +60,8 @@ Sessions open in order:
 4. `get_addon_status` on `mcp-for-blender` answers `"source": "native"`, or `"error"` while replacing a quit GUI's socket, `native` on its next call
 
 - Files outside the task close through `bpy.ops.wm.read_homefile()`, after `bpy.ops.wm.save_mainfile()` for a named file
+- With no GUI on 9877, `blender --background <file.blend> --command blender_mcp --port 9877` run in the background serves the file to server `blender`
+- Background servers answer data and summary tools, window and area images and deferred replies excepted
 
 Quitting saves preferences, the last GUI to quit overwriting what others saved. Restore preferences a task GUI changed before quitting it. Blender draws menus and dialogs inside its windows, its Accessibility menu bar holding the Blender and Window menus alone. Quitting an edited file prints `refused` under a save prompt only `capture` shows, and `bpy.ops.wm.read_homefile()` before the quit discards a task GUI's edits.
 

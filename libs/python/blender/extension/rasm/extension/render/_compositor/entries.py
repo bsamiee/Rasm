@@ -58,7 +58,7 @@ class Toward(Enum):
         return min(max(index + self.value, 0), count - 1)
 
 
-# --- [CONSTANTS]------------------------------------------------------------------------
+# --- [CONSTANTS] ------------------------------------------------------------------------
 
 EXECUTING: Final = Resource[set[int]](made=lambda _identity: nullcontext(set()))
 composites: Final = Setting(descriptor=Descriptor(root=bpy.types.Scene, owner=("render",), prop=bpy.types.RenderSettings.bl_rna.properties["use_compositing"]))

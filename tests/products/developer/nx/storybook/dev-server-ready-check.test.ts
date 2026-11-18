@@ -3,7 +3,7 @@ import { once } from 'node:events';
 import { createServer } from 'node:net';
 import { createNodes } from '@rasm/nx-storybook';
 import { TempFs } from '@rasm/testing/temp-fs';
-import { type Cause, Effect, Option, Predicate, type Scope } from 'effect';
+import { Cause, Effect, Option, Predicate, type Scope } from 'effect';
 import { assert, describe, expect, test, vi } from 'vitest';
 
 vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
@@ -16,10 +16,13 @@ const [, createNodesFunction] = createNodes;
 
 const bound = (port: number, host: string) =>
     Effect.acquireRelease(
-        Effect.tryPromise(async () => {
-            const server = createServer().listen(port, host);
-            await once(server, 'listening');
-            return server;
+        Effect.tryPromise({
+            try: async () => {
+                const server = createServer().listen(port, host);
+                await once(server, 'listening');
+                return server;
+            },
+            catch: (cause) => new Cause.UnknownError(cause, `listen on ${host} port ${port} refused`),
         }),
         (server) => Effect.sync(() => server.close()),
     );

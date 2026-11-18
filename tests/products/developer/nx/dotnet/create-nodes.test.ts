@@ -300,7 +300,7 @@ describe('@rasm/nx-dotnet - createNodes', { timeout: 30_000 }, () => {
         it('should run each verb through its <verb>--dotnet targets and declare their inputs', async ({ projectsOf }) => {
             const projects = await projectsOf({ 'apps/MyLib/MyLib.csproj': project() });
 
-            expect(projects['apps/MyLib']?.targets?.['build']?.dependsOn).toStrictEqual(['build--*']);
+            expect(projects['apps/MyLib']?.targets?.['build']?.dependsOn).toStrictEqual([{ target: 'build--*', params: 'forward' }]);
             expect(projects['apps/MyLib']?.targets?.['build']?.inputs?.[0]).toBe('...');
             expect(projects['apps/MyLib']?.targets?.['build']?.inputs?.slice(1)).toStrictEqual(projects['apps/MyLib']?.targets?.['build--dotnet']?.inputs);
         });

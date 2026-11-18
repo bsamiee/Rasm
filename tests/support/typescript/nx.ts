@@ -92,8 +92,8 @@ class Packed extends Context.Service<Packed, Record.ReadonlyRecord<string, strin
                           )
                         : held;
                 };
-                const packages = [...reached(plugins, new Set())];
-                yield* run(['nx', 'run-many', '--targets=pack', `--projects=${packages.join(',')}`], { cwd: workspaceRoot, extendEnv: true, env: { NX_TUI: 'false' } });
+                const packages = reached(plugins, new Set());
+                yield* run(['nx', 'run-many', '--targets=pack', `--projects=${packages.values().join(',')}`], { cwd: workspaceRoot, extendEnv: true, env: { NX_TUI: 'false' } });
                 return yield* Effect.all(Record.fromIterableWith(packages, (name) => [name, tarball(name, archives[name] ?? [])]));
             }).pipe(Effect.orDie),
         );

@@ -118,14 +118,15 @@ const xcodeParts = (
     { archives, coverage }: Pick<Effect.Success<ReturnType<typeof evaluated>>, 'archives' | 'coverage'>,
     built: string,
     destinations: (roots: readonly string[]) => readonly string[],
-    packaged: (at: string) => boolean,
+    packaged: (at: string) => Option.Option<string>,
     data: string,
 ): Part => {
     const { lock, flags } = invocation(options, built);
     const name = basename(container.path, extname(container.path));
     const cloned = join(data, 'xcode-packages', container.path);
     const invoke = (action: string, scheme: string, extra: readonly string[]) => ['xcodebuild', action, ...flags, '-onlyUsePackageVersionsFromResolvedFile', '-scheme', scheme, ...extra] as const;
-    const schemes = container.schemes.filter(({ containers }) => containers.length > 0).map((scheme) => ({ ...scheme, packages: scheme.containers.every(packaged) }));
+    const schemes = container.schemes.filter(({ containers }) => containers.length > 0).map((scheme) => ({ ...scheme, packages: scheme.containers.every((at) => Option.isSome(packaged(at))) }));
+    const locals = Array.dedupe(Array.getSomes(container.projects.map(packaged)));
     const output = (scheme: string) => Option.map(Option.fromUndefinedOr(options.outputPath), (at) => join(at, scheme));
     const archived = Array.getSomes(
         archives.map(({ scheme, configuration }) => Option.map(output(scheme), (folder) => ({ configuration, folder, archive: join(folder, `${scheme}.xcarchive`), run: [...invoke('archive', scheme, ['-archivePath', join(folder, `${scheme}.xcarchive`)]), '-configuration', configuration] }))),
@@ -192,10 +193,10 @@ const xcodeParts = (
                     [['rm', '-rf', join(cloned, 'workspace-state.json'), join(cloned, 'checkouts'), lock] as const, ...schemes.slice(0, 1).map((scheme) => ['xcodebuild', '-resolvePackageDependencies', ...flags, '-clonedSourcePackagesDirPath', cloned, '-scheme', scheme.name] as const)],
                     {
                         technologies: ['xcode'],
-                        description: `Removes ${name}'s Package.resolved and the checkouts and state of its upgrade package folder, keeping that folder's git mirrors, then resolves its package references to the newest releases their requirements and the local packages they name allow with xcodebuild -resolvePackageDependencies`,
+                        description: `Removes ${name}'s Package.resolved and the checkouts and state of its upgrade package folder, keeping that folder's git mirrors, then resolves its package references to the newest releases their requirements and the local packages they name allow with xcodebuild -resolvePackageDependencies, after upgrade--swift-package of each local package moves its requirements`,
                         help: { command: 'xcodebuild -help', example: { args: ['-quiet'] } },
                     },
-                    { inputs: read },
+                    { inputs: read, ...(locals.length > 0 && { dependsOn: [{ projects: locals, target: 'upgrade--swift-package', params: 'forward' }] }) },
                 ),
             },
         }),

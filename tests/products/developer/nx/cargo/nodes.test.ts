@@ -165,19 +165,19 @@ describe('@rasm/nx-cargo/plugin/nodes', { timeout: 60_000 }, () => {
             root: '.',
             metadata: { technologies },
             targets: {
-                clean: { dependsOn: ['clean--*'], inputs: ['...', ...sources] },
+                clean: { dependsOn: [{ target: 'clean--*', params: 'forward' }], inputs: ['...', ...sources] },
                 'clean--cargo': {
                     executor: '@rasm/nx-distribution:clean',
                     inputs: sources,
                     metadata: { description: 'Removes the build folder of the workspace with cargo clean', help: { command: 'cargo clean --help', example: { args: ['--dry-run'] } }, technologies },
                     options: { commands: [['cargo', 'clean']], cwd: '.', targets: [] },
                 },
-                upgrade: { dependsOn: ['upgrade--*'], inputs: ['...', ...manifests] },
+                upgrade: { dependsOn: [{ target: 'upgrade--*', params: 'forward' }], inputs: ['...', ...manifests] },
                 'upgrade--cargo': {
-                    executor: 'nx:run-commands',
+                    executor: '@rasm/nx-cargo:upgrade',
                     inputs: manifests,
-                    metadata: { description: 'Moves every dependency requirement to its newest release with cargo upgrade, then the lock with cargo update', help: { command: 'cargo upgrade --help', example: { args: ['--dry-run'] } }, technologies },
-                    options: { commands: ['cargo upgrade --incompatible allow', 'cargo update'], cwd: '.', parallel: false },
+                    metadata: { description: 'Moves every dependency requirement to its newest release, prereleases above a stable line included, with cargo upgrade, then the lock with cargo update', help: { command: 'cargo upgrade --help', example: { options: { dryRun: true } } }, technologies },
+                    options: { cwd: '.' },
                 },
             },
         });

@@ -195,10 +195,13 @@ const memberTargets = (
             onEmpty: () => ({}),
             onNonEmpty: (held) => ({
                 vcpkg: {
-                    executor: 'nx:run-commands',
-                    options: { cwd: member.root, parallel: false, commands: held.map(({ folder }) => line(['vcpkg', 'x-update-baseline', `--x-manifest-root=${relative(member.root, folder) || '.'}`, `--x-install-root=${join(relative(member.root, head.tree), 'vcpkg_installed')}`])) },
+                    executor: `${distribution.name}:upgrade`,
+                    options: {
+                        cwd: member.root,
+                        commands: held.map(({ folder }) => ['vcpkg', 'x-update-baseline', `--x-manifest-root=${relative(member.root, folder) || '.'}`, `--x-install-root=${join(relative(member.root, head.tree), 'vcpkg_installed')}`] as const).map((apply) => ({ apply, preview: [...apply, '--dry-run'] })),
+                    },
                     inputs: [...held.flatMap(({ inputs }) => inputs).map((file) => tokened(file)), { externalDependencies: [] }],
-                    metadata: { description: `Moves the baselines ${held.map(({ folder }) => join(folder, 'vcpkg.json')).join(', ')} state to the newest commit of each registry with vcpkg x-update-baseline`, help: { command: 'vcpkg help x-update-baseline', example: { args: ['--dry-run'] } } },
+                    metadata: { description: `Moves the baselines ${held.map(({ folder }) => join(folder, 'vcpkg.json')).join(', ')} state to the newest commit of each registry with vcpkg x-update-baseline`, help: { command: 'vcpkg help x-update-baseline', example: { options: { dryRun: true } } } },
                 },
             }),
         }),

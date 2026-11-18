@@ -12,7 +12,7 @@ runs:
               kept="${GITHUB_WORKSPACE}/.cache"
               tools="cmake,conda:pkgconf,dotnet,gh,github:llvm/llvm-project,github:microsoft/vcpkg-tool,hk,ninja,node,pkl,pnpm,rust,uv"
               printf "%s\n" "MISE_DATA_DIR=${kept}/mise" "MISE_CACHE_DIR=${kept}/mise-cache" "RUSTUP_HOME=${kept}/mise/rustup" "CARGO_HOME=${kept}/mise/cargo" "PNPM_CONFIG_STORE_DIR=${kept}/pnpm" "MISE_ENABLE_TOOLS=${tools}" >> "${GITHUB_ENV}"
-        - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
+        - uses: jdx/mise-action@236a21c3b91f5db6d4e174b348674a0f0caac06d # v5.2.9
           with:
               bootstrap: true
               bootstrap_args: --only tools

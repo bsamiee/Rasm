@@ -49,7 +49,12 @@ const strings = (nodes: readonly unknown[]) =>
     reached(nodes)
         .filter((node): node is Scalar<string> => node instanceof Scalar && typeof node.value === 'string')
         .map(({ value }) => value);
-const matched = (nodes: readonly unknown[], pattern: RegExp, group: string) => Array.getSomes(strings(nodes).flatMap((text) => [...text.matchAll(pattern)].map(({ groups }) => Option.fromNullishOr(groups?.[group]))));
+const matched = (nodes: readonly unknown[], pattern: RegExp, group: string) =>
+    Array.getSomes(
+        strings(nodes)
+            .values()
+            .flatMap((text) => text.matchAll(pattern).map(({ groups }) => Option.fromNullishOr(groups?.[group]))),
+    );
 const keyed = (nodes: readonly unknown[], key: string) => reached(nodes).filter((node): node is Pair => node instanceof Pair && Option.contains(named(node.key), key));
 const listed = (nodes: readonly unknown[]) => [
     ...keyed(nodes, 'rewriters')

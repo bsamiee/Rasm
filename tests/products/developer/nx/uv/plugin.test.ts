@@ -22,7 +22,7 @@ const pytest = ['{projectRoot}/**/*', { runtime: 'node -p process.platform+proce
 
 const packed = (name: string) => ['{projectRoot}/pyproject.toml', `{projectRoot}/src/${name}/**`, '!{projectRoot}/**/__pycache__', '!{projectRoot}/**/__pycache__/**', '!{projectRoot}/**/*.pyc', '!{projectRoot}/**/*.pyc/**', '!{projectRoot}/**/*.pyo', '!{projectRoot}/**/*.pyo/**', '{workspaceRoot}/pyproject.toml'];
 const released = (name: string, sources: readonly string[]) => ({
-    build: { dependsOn: ['build--*'], inputs: ['...', ...sources, uv, { externalDependencies: [] }] },
+    build: { dependsOn: [{ target: 'build--*', params: 'forward' }], inputs: ['...', ...sources, uv, { externalDependencies: [] }] },
     'build--uv': {
         command: `uv build --package ${name} --no-sources`,
         options: { cwd: '.' },
@@ -31,14 +31,14 @@ const released = (name: string, sources: readonly string[]) => ({
         outputs: [`{workspaceRoot}/dist/${name}-0.1.0.tar.gz`, `{workspaceRoot}/dist/${name}-0.1.0-*.whl`, '{workspaceRoot}/dist/.gitignore'],
         metadata: { technologies, description: 'Builds the member sdist and wheel with uv build', help: { command: 'uv build --help', example: { args: ['--wheel'] } } },
     },
-    clean: { dependsOn: ['clean--*'], inputs: ['...', 'default', '^default', lock, { externalDependencies: [] }] },
+    clean: { dependsOn: [{ target: 'clean--*', params: 'forward' }], inputs: ['...', 'default', '^default', lock, { externalDependencies: [] }] },
     'clean--uv': {
         executor: '@rasm/nx-distribution:clean',
         options: { targets: ['build--uv'] },
         inputs: ['default', '^default', lock, { externalDependencies: [] }],
         metadata: { technologies, description: 'Removes the outputs build--uv declare', help: { command: 'nx run --help', example: { options: { targets: ['build--uv'] } } } },
     },
-    attach: { dependsOn: ['attach--*'], inputs: ['...', { dependentTasksOutputFiles: '**/*', transitive: true }, { externalDependencies: [] }] },
+    attach: { dependsOn: [{ target: 'attach--*', params: 'forward' }], inputs: ['...', { dependentTasksOutputFiles: '**/*', transitive: true }, { externalDependencies: [] }] },
     'attach--gh': {
         executor: '@rasm/nx-distribution:attach',
         dependsOn: ['build--uv'],
@@ -109,7 +109,7 @@ describe('@rasm/nx-uv', { timeout: 120_000 }, () => {
                             name: 'uv-tutorial',
                             metadata: { technologies },
                             targets: {
-                                check: { dependsOn: ['check--*'], inputs: ['...', ...locking, uv, { env: 'UV_PREVIEW_FEATURES' }] },
+                                check: { dependsOn: [{ target: 'check--*', params: 'forward' }], inputs: ['...', ...locking, uv, { env: 'UV_PREVIEW_FEATURES' }] },
                                 'check--uv': {
                                     command: 'uv lock --check',
                                     options: { cwd: '.' },
@@ -117,12 +117,12 @@ describe('@rasm/nx-uv', { timeout: 120_000 }, () => {
                                     inputs: [...locking, uv, { env: 'UV_PREVIEW_FEATURES' }],
                                     metadata: { technologies, description: 'Checks that uv.lock holds every change the manifests state with uv lock --check, writing nothing', help: { command: 'uv lock --help', example: { args: ['--offline'] } } },
                                 },
-                                upgrade: { dependsOn: ['upgrade--*'], inputs: ['...', ...locking] },
+                                upgrade: { dependsOn: [{ target: 'upgrade--*', params: 'forward' }], inputs: ['...', ...locking] },
                                 'upgrade--uv': {
-                                    command: 'uv lock --upgrade',
-                                    options: { cwd: '.' },
+                                    executor: '@rasm/nx-distribution:upgrade',
+                                    options: { cwd: '.', commands: [{ apply: ['uv', 'lock', '--upgrade'], preview: ['uv', 'lock', '--upgrade', '--dry-run'] }] },
                                     inputs: locking,
-                                    metadata: { technologies, description: 'Moves every locked package to its newest allowed release with uv lock --upgrade', help: { command: 'uv lock --help', example: { args: ['--upgrade-package', '<package>'] } } },
+                                    metadata: { technologies, description: 'Moves every locked package to its newest allowed release with uv lock --upgrade', help: { command: 'uv lock --help', example: { options: { dryRun: true } } } },
                                 },
                             },
                         },
@@ -134,7 +134,7 @@ describe('@rasm/nx-uv', { timeout: 120_000 }, () => {
                             release,
                             targets: {
                                 ...released('library', packed('library')),
-                                test: { dependsOn: ['test--*'], inputs: ['...', ...pytest] },
+                                test: { dependsOn: [{ target: 'test--*', params: 'forward' }], inputs: ['...', ...pytest] },
                                 'test--pytest': {
                                     command: 'uv run --no-active --locked --isolated --package library --all-extras --group dev pytest proj/library',
                                     options: { cwd: '.' },
@@ -152,7 +152,7 @@ describe('@rasm/nx-uv', { timeout: 120_000 }, () => {
                             release,
                             targets: {
                                 ...released('application', packed('application')),
-                                install: { dependsOn: ['install--*'], inputs: ['...', ...packed('application'), lock, { externalDependencies: [] }] },
+                                install: { dependsOn: [{ target: 'install--*', params: 'forward' }], inputs: ['...', ...packed('application'), lock, { externalDependencies: [] }] },
                                 'install--uv': {
                                     command: "uv export --locked --package application --no-default-groups --no-emit-local --no-hashes --no-header --no-annotate --quiet | uv tool install --constraints - --reinstall-package application --reinstall-package library --python '>=3.13' .",
                                     options: { cwd: 'proj/application' },
@@ -190,7 +190,11 @@ describe('@rasm/nx-uv', { timeout: 120_000 }, () => {
         expect(target).toMatchObject({ command: 'uv build --package library --no-sources', options: { cwd: '.' } });
         execFileSync('uv', ['build', '--package', 'library', '--no-sources', '--quiet'], { cwd: tempFs.tempDir });
 
-        const written = [...files().difference(before)].filter((file) => !file.startsWith('tmp/'));
+        const written = files()
+            .difference(before)
+            .values()
+            .filter((file) => !file.startsWith('tmp/'))
+            .toArray();
         const outputs = target?.outputs?.map((output) => output.replace('{workspaceRoot}/', ''));
         const declared = new Set(outputs?.flatMap((output) => minimatch.match(written, output)));
         expect(written.filter((file) => !declared.has(file))).toStrictEqual([]);

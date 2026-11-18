@@ -1,3 +1,3 @@
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { paint } from '#/paint';
+export { MarkError, paint } from '#/paint';

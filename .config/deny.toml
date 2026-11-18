@@ -1,0 +1,9 @@
+# --- [ADVISORIES] -----------------------------------------------------------------------
+
+[advisories]
+unmaintained = "workspace"
+
+# --- [SOURCES] --------------------------------------------------------------------------
+
+[sources]
+allow-org = { github = ["jondo2010", "MathNya", "rust-lang", "typst"] }

@@ -86,7 +86,7 @@ describe('@rasm/nx-distribution', () => {
                             tags: ['release'],
                             release: released('blender_manifest.toml'),
                             targets: {
-                                build: { dependsOn: ['build--*'], inputs: ['...', ...inputs] },
+                                build: { dependsOn: [{ target: 'build--*', params: 'forward' }], inputs: ['...', ...inputs] },
                                 'build--blender': {
                                     executor: '@rasm/nx-distribution:extension-build',
                                     options: { outputPath: '{projectRoot}' },
@@ -99,7 +99,7 @@ describe('@rasm/nx-distribution', () => {
                                         help: { command: String.raw`uv run --no-project python -c 'import os, runpy, shutil, sys; sys.argv[0] = shutil.which('\''blender_ext.py'\'', os.F_OK); runpy.run_path(sys.argv[0], run_name='\''__main__'\'')' build --help`, example: { options: { outputPath: '{projectRoot}' } } },
                                     },
                                 },
-                                check: { dependsOn: ['check--*'], inputs: ['...', ...inputs] },
+                                check: { dependsOn: [{ target: 'check--*', params: 'forward' }], inputs: ['...', ...inputs] },
                                 'check--blender': {
                                     executor: '@rasm/nx-distribution:extension-build',
                                     parallelism: false,
@@ -109,9 +109,9 @@ describe('@rasm/nx-distribution', () => {
                                     options: { outputPath: '{projectRoot}', operation: 'check' },
                                     metadata: { technologies, description: 'Checks the blender project its blender_manifest.toml declares with blender_ext.py validate', help: { command: ran, example: { options: { operation: 'check' } } } },
                                 },
-                                clean: { dependsOn: ['clean--*'], inputs: ['...', ...unstated] },
+                                clean: { dependsOn: [{ target: 'clean--*', params: 'forward' }], inputs: ['...', ...unstated] },
                                 'clean--blender': { executor: '@rasm/nx-distribution:clean', options: { targets: ['build--blender'] }, inputs: unstated, metadata: { technologies, description: 'Removes the outputs build--blender declare', help: { command: ran, example: { options: { targets: ['build--blender'] } } } } },
-                                attach: { dependsOn: ['attach--*'], inputs: transitive },
+                                attach: { dependsOn: [{ target: 'attach--*', params: 'forward' }], inputs: transitive },
                                 'attach--gh': {
                                     executor: '@rasm/nx-distribution:attach',
                                     dependsOn: ['build--blender'],
@@ -156,7 +156,7 @@ describe('@rasm/nx-distribution', () => {
                             tags: ['release'],
                             release: released('manifest.yml'),
                             targets: {
-                                build: { dependsOn: ['build--*'], inputs: ['...', 'production', '^production', { dependentTasksOutputFiles: '**/*', transitive: true }, { externalDependencies: [] }] },
+                                build: { dependsOn: [{ target: 'build--*', params: 'forward' }], inputs: ['...', 'production', '^production', { dependentTasksOutputFiles: '**/*', transitive: true }, { externalDependencies: [] }] },
                                 'build--yak': {
                                     executor: '@rasm/nx-distribution:package',
                                     dependsOn: ['build--*'],
@@ -166,16 +166,16 @@ describe('@rasm/nx-distribution', () => {
                                     outputs: ['{options.outputPath}/*.yak'],
                                     metadata: { technologies, description: 'Builds the yak project its manifest.yml declares with yak build', help: { command: 'yak build --help', example: { options: { outputPath: '{projectRoot}' } } } },
                                 },
-                                install: { dependsOn: ['install--*'], inputs: transitive },
+                                install: { dependsOn: [{ target: 'install--*', params: 'forward' }], inputs: transitive },
                                 'install--yak': {
                                     executor: '@rasm/nx-distribution:install',
                                     dependsOn: ['build--yak'],
                                     inputs: received,
                                     metadata: { technologies, description: "Installs what build wrote in the run's configuration where its host loads it with yak install", help: { command: 'yak install --help', example: { args: [] } } },
                                 },
-                                clean: { dependsOn: ['clean--*'], inputs: ['...', ...unstated] },
+                                clean: { dependsOn: [{ target: 'clean--*', params: 'forward' }], inputs: ['...', ...unstated] },
                                 'clean--yak': { executor: '@rasm/nx-distribution:clean', options: { targets: ['build--yak'] }, inputs: unstated, metadata: { technologies, description: 'Removes the outputs build--yak declare', help: { command: ran, example: { options: { targets: ['build--yak'] } } } } },
-                                attach: { dependsOn: ['attach--*'], inputs: transitive },
+                                attach: { dependsOn: [{ target: 'attach--*', params: 'forward' }], inputs: transitive },
                                 'attach--gh': {
                                     executor: '@rasm/nx-distribution:attach',
                                     dependsOn: ['build--yak'],
@@ -216,7 +216,7 @@ describe('@rasm/nx-distribution', () => {
                             tags: ['release'],
                             release: released('manifest.json'),
                             targets: {
-                                build: { dependsOn: ['build--*'], inputs: ['...', 'production', '^production', { dependentTasksOutputFiles: '**/*', transitive: true }, { externalDependencies: [] }] },
+                                build: { dependsOn: [{ target: 'build--*', params: 'forward' }], inputs: ['...', 'production', '^production', { dependentTasksOutputFiles: '**/*', transitive: true }, { externalDependencies: [] }] },
                                 'build--uxp': {
                                     executor: '@rasm/nx-distribution:package',
                                     dependsOn: ['build--*'],
@@ -226,16 +226,16 @@ describe('@rasm/nx-distribution', () => {
                                     outputs: ['{options.outputPath}/*.ccx'],
                                     metadata: { technologies, description: 'Builds the uxp project its manifest.json declares with a zip archive named .ccx', help: { command: ran, example: { options: { outputPath: '{projectRoot}' } } } },
                                 },
-                                install: { dependsOn: ['install--*'], inputs: transitive },
+                                install: { dependsOn: [{ target: 'install--*', params: 'forward' }], inputs: transitive },
                                 'install--uxp': {
                                     executor: '@rasm/nx-distribution:install',
                                     dependsOn: ['build--!(uxp)'],
                                     inputs: received,
                                     metadata: { technologies, description: "Installs what build wrote in the run's configuration where its host loads it with a copy into the per-user UXP plug-in folder and the plug-in's row in its host's PluginsInfo registry", help: { command: ran, example: { args: [] } } },
                                 },
-                                clean: { dependsOn: ['clean--*'], inputs: ['...', ...unstated] },
+                                clean: { dependsOn: [{ target: 'clean--*', params: 'forward' }], inputs: ['...', ...unstated] },
                                 'clean--uxp': { executor: '@rasm/nx-distribution:clean', options: { targets: ['build--uxp'] }, inputs: unstated, metadata: { technologies, description: 'Removes the outputs build--uxp declare', help: { command: ran, example: { options: { targets: ['build--uxp'] } } } } },
-                                attach: { dependsOn: ['attach--*'], inputs: transitive },
+                                attach: { dependsOn: [{ target: 'attach--*', params: 'forward' }], inputs: transitive },
                                 'attach--gh': {
                                     executor: '@rasm/nx-distribution:attach',
                                     dependsOn: ['build--uxp'],
@@ -269,7 +269,7 @@ describe('@rasm/nx-distribution', () => {
                             tags: ['release', 'os:darwin', 'os:win32'],
                             release: released('CSXS/manifest.xml'),
                             targets: {
-                                build: { dependsOn: ['build--*'], inputs: ['...', 'production', '^production', { dependentTasksOutputFiles: '**/*', transitive: true }, { externalDependencies: [] }] },
+                                build: { dependsOn: [{ target: 'build--*', params: 'forward' }], inputs: ['...', 'production', '^production', { dependentTasksOutputFiles: '**/*', transitive: true }, { externalDependencies: [] }] },
                                 'build--cep': {
                                     executor: '@rasm/nx-distribution:package',
                                     dependsOn: ['build--*'],
@@ -283,16 +283,16 @@ describe('@rasm/nx-distribution', () => {
                                         help: { command: ran, example: { options: { outputPath: '{projectRoot}' } } },
                                     },
                                 },
-                                install: { dependsOn: ['install--*'], inputs: transitive },
+                                install: { dependsOn: [{ target: 'install--*', params: 'forward' }], inputs: transitive },
                                 'install--cep': {
                                     executor: '@rasm/nx-distribution:install',
                                     dependsOn: ['build--cep'],
                                     inputs: received,
                                     metadata: { technologies, description: "Installs what build wrote in the run's configuration where its host loads it with an unpack of the signed package into the per-user CEP extensions folder", help: { command: ran, example: { args: [] } } },
                                 },
-                                clean: { dependsOn: ['clean--*'], inputs: ['...', ...unstated] },
+                                clean: { dependsOn: [{ target: 'clean--*', params: 'forward' }], inputs: ['...', ...unstated] },
                                 'clean--cep': { executor: '@rasm/nx-distribution:clean', options: { targets: ['build--cep'] }, inputs: unstated, metadata: { technologies, description: 'Removes the outputs build--cep declare', help: { command: ran, example: { options: { targets: ['build--cep'] } } } } },
-                                attach: { dependsOn: ['attach--*'], inputs: transitive },
+                                attach: { dependsOn: [{ target: 'attach--*', params: 'forward' }], inputs: transitive },
                                 'attach--gh': {
                                     executor: '@rasm/nx-distribution:attach',
                                     dependsOn: ['build--cep'],
@@ -335,7 +335,7 @@ describe('@rasm/nx-distribution', () => {
                         tags: ['os:darwin', 'os:linux'],
                         implicitDependencies: ['Marker'],
                         targets: {
-                            build: { dependsOn: ['build--*'], inputs: ['...', ...game] },
+                            build: { dependsOn: [{ target: 'build--*', params: 'forward' }], inputs: ['...', ...game] },
                             'build--unreal': {
                                 executor: '@rasm/nx-distribution:unreal-build',
                                 options: project,
@@ -345,7 +345,7 @@ describe('@rasm/nx-distribution', () => {
                                 outputs: ['{projectRoot}/Binaries', '{projectRoot}/Plugins/**/Binaries'],
                                 metadata: { technologies, description: 'Builds the unreal project its Game.uproject declares with UnrealBuildTool', help: { command: ran, example: { options: { outputPath: '{projectRoot}/Saved' } } } },
                             },
-                            check: { dependsOn: ['check--*'], inputs: ['...', ...game] },
+                            check: { dependsOn: [{ target: 'check--*', params: 'forward' }], inputs: ['...', ...game] },
                             'check--unreal': {
                                 executor: '@rasm/nx-distribution:unreal-build',
                                 parallelism: false,
@@ -355,9 +355,9 @@ describe('@rasm/nx-distribution', () => {
                                 options: { ...project, operation: 'check' },
                                 metadata: { technologies, description: 'Checks the unreal project its Game.uproject declares with UnrealBuildTool -StaticAnalyzer=Default -StaticAnalyzerProjectOnly -DisableUnity -NoPCH', help: { command: ran, example: { options: { operation: 'check' } } } },
                             },
-                            install: { dependsOn: ['install--*'], inputs: ['...', ...unstated] },
+                            install: { dependsOn: [{ target: 'install--*', params: 'forward' }], inputs: ['...', ...unstated] },
                             'install--unreal': loaded,
-                            clean: { dependsOn: ['clean--*'], inputs: ['...', ...unstated] },
+                            clean: { dependsOn: [{ target: 'clean--*', params: 'forward' }], inputs: ['...', ...unstated] },
                             'clean--unreal': { executor: '@rasm/nx-distribution:clean', options: { targets: ['build--unreal'] }, inputs: unstated, metadata: { technologies, description: 'Removes the outputs build--unreal declare', help: { command: ran, example: { options: { targets: ['build--unreal'] } } } } },
                         },
                     },
@@ -375,7 +375,7 @@ describe('@rasm/nx-distribution', () => {
                         tags: ['release', 'os:darwin', 'os:linux'],
                         release: released('Marker.uplugin'),
                         targets: {
-                            build: { dependsOn: ['build--*'], inputs: ['...', ...hosted] },
+                            build: { dependsOn: [{ target: 'build--*', params: 'forward' }], inputs: ['...', ...hosted] },
                             'build--unreal': {
                                 executor: '@rasm/nx-distribution:unreal-build',
                                 options: plugin,
@@ -385,9 +385,9 @@ describe('@rasm/nx-distribution', () => {
                                 outputs: ['{options.outputPath}/package'],
                                 metadata: { technologies, description: 'Builds the unreal project its Marker.uplugin declares with AutomationTool BuildPlugin -StrictIncludes', help: { command: ran, example: { options: { outputPath: '{projectRoot}/Saved' } } } },
                             },
-                            check: { dependsOn: ['check--*'], inputs: ['...', ...hosted] },
+                            check: { dependsOn: [{ target: 'check--*', params: 'forward' }], inputs: ['...', ...hosted] },
                             'check--unreal': { executor: 'nx:noop', dependsOn: ['build--unreal'], inputs: hosted, metadata: { technologies, description: 'Checks the unreal project with its build--unreal compile', help: { command: ran, example: { options: {} } } } },
-                            test: { dependsOn: ['test--*'], inputs: ['...', ...marker, '{workspaceRoot}/Game/Game.uproject'] },
+                            test: { dependsOn: [{ target: 'test--*', params: 'forward' }], inputs: ['...', ...marker, '{workspaceRoot}/Game/Game.uproject'] },
                             'test--unreal': {
                                 executor: '@rasm/nx-distribution:unreal-build',
                                 parallelism: false,
@@ -402,7 +402,7 @@ describe('@rasm/nx-distribution', () => {
                                     help: { command: ran, example: { options: { operation: 'test' } } },
                                 },
                             },
-                            pack: { dependsOn: ['pack--*'], inputs: ['...', ...hosted] },
+                            pack: { dependsOn: [{ target: 'pack--*', params: 'forward' }], inputs: ['...', ...hosted] },
                             'pack--unreal': {
                                 executor: '@rasm/nx-distribution:unreal-build',
                                 parallelism: false,
@@ -417,16 +417,16 @@ describe('@rasm/nx-distribution', () => {
                                     help: { command: ran, example: { options: { operation: 'pack' } } },
                                 },
                             },
-                            install: { dependsOn: ['install--*'], inputs: ['...', ...unstated] },
+                            install: { dependsOn: [{ target: 'install--*', params: 'forward' }], inputs: ['...', ...unstated] },
                             'install--unreal': loaded,
-                            clean: { dependsOn: ['clean--*'], inputs: ['...', ...unstated] },
+                            clean: { dependsOn: [{ target: 'clean--*', params: 'forward' }], inputs: ['...', ...unstated] },
                             'clean--unreal': {
                                 executor: '@rasm/nx-distribution:clean',
                                 options: { targets: ['build--unreal', 'test--unreal', 'pack--unreal'] },
                                 inputs: unstated,
                                 metadata: { technologies, description: 'Removes the outputs build--unreal, test--unreal, pack--unreal declare', help: { command: ran, example: { options: { targets: ['build--unreal', 'test--unreal', 'pack--unreal'] } } } },
                             },
-                            attach: { dependsOn: ['attach--*'], inputs: transitive },
+                            attach: { dependsOn: [{ target: 'attach--*', params: 'forward' }], inputs: transitive },
                             'attach--gh': {
                                 executor: '@rasm/nx-distribution:attach',
                                 dependsOn: ['pack--unreal'],
@@ -485,6 +485,39 @@ describe('@rasm/nx-distribution', () => {
         const results = await createNodesFunction(['manifest.yml'], {}, context);
 
         expect(results[0]?.[1].projects?.['.']?.root).toBe('.');
+    });
+
+    it('should give the folder holding .github/workflows one jactionlint upgrade over its workflows and composite actions', async ({ tempFs, context }) => {
+        await tempFs.createFiles({ '.github/workflows/ci.yml': 'on: push\n', '.github/workflows/release.yaml': 'on: push\n' });
+
+        const results = await createNodesFunction(['.github/workflows/ci.yml', '.github/workflows/release.yaml'], {}, context);
+
+        const inputs = ['{projectRoot}/.github/**/*', '{projectRoot}/**/action.{yml,yaml}', { externalDependencies: [] }];
+        expect(results).toStrictEqual([
+            [
+                '.github/workflows/ci.yml',
+                {
+                    projects: {
+                        '.': {
+                            root: '.',
+                            targets: {
+                                upgrade: { dependsOn: [{ target: 'upgrade--*', params: 'forward' }], inputs: ['...', ...inputs] },
+                                'upgrade--jactionlint': {
+                                    executor: '@rasm/nx-distribution:upgrade',
+                                    options: { cwd: '{projectRoot}', commands: [{ apply: ['jactionlint', 'update', '--apply'], preview: ['jactionlint', 'update', '--diff'] }] },
+                                    inputs,
+                                    metadata: {
+                                        technologies: ['github-actions'],
+                                        description: 'Moves every external action and reusable workflow the workflows and composite actions use to its newest release with jactionlint update --apply, keeping commit pins and their version comments',
+                                        help: { command: 'jactionlint update --help', example: { options: { dryRun: true } } },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            ],
+        ]);
     });
 
     it('should not create nodes for a manifest.json that is no UXP manifest', async ({ tempFs, context }) => {
@@ -550,7 +583,7 @@ describe('@rasm/nx-distribution', () => {
 
             const results = await createNodesFunction([file], {}, context);
 
-            expect(results[0]?.[1].projects?.['proj']?.targets).toMatchObject({ attach: { dependsOn: ['attach--*'] }, 'attach--gh': { dependsOn: [packer] } });
+            expect(results[0]?.[1].projects?.['proj']?.targets).toMatchObject({ attach: { dependsOn: [{ target: 'attach--*', params: 'forward' }] }, 'attach--gh': { dependsOn: [packer] } });
         });
 
         it('should give nx-release-publish only to a host whose store takes uploads, under the variable that store reads', async ({ tempFs, context }) => {

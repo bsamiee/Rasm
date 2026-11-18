@@ -54,7 +54,7 @@ describe('cloudflare.config.ts', () => {
         const projects = Object.fromEntries(results.flatMap(([, nodes]) => Object.entries({ ...nodes.projects })));
 
         expect(projects['apps/edge']?.targets).toStrictEqual({
-            codegen: { dependsOn: ['codegen--*'], inputs: ['...', 'default', '^production', '{workspaceRoot}/shared/dates.ts', { externalDependencies: ['cf'] }] },
+            codegen: { dependsOn: [{ target: 'codegen--*', params: 'forward' }], inputs: ['...', 'default', '^production', '{workspaceRoot}/shared/dates.ts', { externalDependencies: ['cf'] }] },
             'codegen--cf': {
                 command: 'cf workers types',
                 options: { cwd: 'apps/edge' },
@@ -64,7 +64,7 @@ describe('cloudflare.config.ts', () => {
                 outputs: ['{projectRoot}/.cloudflare/types'],
                 metadata: { technologies: ['cloudflare'], description: 'Generates the Worker binding and runtime types from cloudflare.config.ts with cf workers types', help: { command: 'npx cf workers types --help', example: { args: ['--mode', 'production'] } } },
             },
-            clean: { dependsOn: ['clean--*'], inputs: ['...', 'default', '^default', { externalDependencies: [] }] },
+            clean: { dependsOn: [{ target: 'clean--*', params: 'forward' }], inputs: ['...', 'default', '^default', { externalDependencies: [] }] },
             'clean--cf': {
                 executor: '@rasm/nx-distribution:clean',
                 options: { targets: ['codegen--cf'] },

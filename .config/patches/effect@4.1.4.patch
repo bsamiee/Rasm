@@ -1,0 +1,13 @@
+diff --git a/dist/ai/McpClient.d.ts b/dist/ai/McpClient.d.ts
+index 60e9e3c..663e43f 100644
+--- a/dist/ai/McpClient.d.ts
++++ b/dist/ai/McpClient.d.ts
+@@ -32,7 +32,7 @@ import * as Toolkit from "./Toolkit.ts";
+  * @category models
+  * @since 4.0.6
+  */
+-export type ProtocolVersion = "2025-11-25" | "2026-07-28";
++export type ProtocolVersion = "2025-03-26" | "2025-06-18" | "2025-11-25" | "2026-07-28";
+ /**
+  * Service tag for applications that provide one default MCP connection.
+  *

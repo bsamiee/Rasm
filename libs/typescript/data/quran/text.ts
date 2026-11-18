@@ -73,7 +73,7 @@ class Quran extends Schema.Class<Quran, { readonly brand: unique symbol }>('Qura
         const ayahsBySurah = Map.groupBy(ayahs, Struct.get('surah'));
         const named = Array.dedupeWith(surahs, sameNumber);
         const numbers = named.map(Struct.get('number'));
-        yield* Array.match(Array.difference(Array.fromIterable(ayahsBySurah.keys()), numbers), { onEmpty: () => Effect.void, onNonEmpty: (keys) => Unmatched.of({ subject: 'surah', query: Option.some(keys.join(', ')), candidates: numbers.map(String) }) });
+        yield* Array.match(Array.difference(ayahsBySurah.keys(), numbers), { onEmpty: () => Effect.void, onNonEmpty: (keys) => Unmatched.of({ subject: 'surah', query: Option.some(keys.join(', ')), candidates: numbers.map(String) }) });
         return yield* Schema.decodeEffect(Quran)({
             ...Record.getSomes({ riwayah }),
             surahs: Array.sortWith(

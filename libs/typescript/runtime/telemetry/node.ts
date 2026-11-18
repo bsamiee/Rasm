@@ -48,6 +48,17 @@ const ROTATION = { size: '8M', interval: '1d', maxFiles: 7 } as const satisfies 
 const Level = Schema.String.pipe(Schema.decode(SchemaTransformation.toLowerCase()), Schema.decode(SchemaTransformation.capitalize()), Schema.decodeTo(Schema.Literals(LogLevel.values)));
 const Target = Schema.Literals(['file', 'stderr']);
 
+// --- [ERRORS] --------------------------------------------------------------------------
+
+class TelemetryError extends Schema.TaggedError<TelemetryError, { readonly brand: unique symbol }>()('TelemetryError', {
+    reason: Schema.TaggedUnion({ Refused: {}, Unavailable: {} }),
+    subject: Schema.String,
+    cause: Schema.optionalKey(Schema.Defect()),
+    message: Schema.String,
+}) {
+    static readonly of = (reason: TelemetryError['reason']['_tag'], subject: string) => (cause?: unknown) => TelemetryError.make({ reason: { _tag: reason }, subject, ...(cause === undefined ? {} : { cause }), message: [`${reason}: ${subject}`, ...(cause === undefined ? [] : [Formatter.format(cause)])].join(': ') });
+}
+
 // --- [SERVICES] ------------------------------------------------------------------------
 
 const Baggage = Context.Reference<ReturnType<typeof propagation.getBaggage>>('@rasm/telemetry/node/Baggage', { defaultValue: Function.constUndefined });
@@ -80,9 +91,9 @@ const toRotatingFile = Effect.fnUntraced(function* <Message>(self: Logger.Logger
                     .on('error', (error) => {
                         process.stderr.write(`${Formatter.format(error)}\n`);
                     }),
-            catch: (cause) => new Cause.UnknownError(cause, `Rotation options of ${filename} refused`),
+            catch: TelemetryError.of('Refused', `rotation options of ${filename}`),
         }),
-        (rotated) => Effect.ignore(Effect.tryPromise(() => finished(rotated.end()))),
+        (rotated) => Effect.ignore(Effect.tryPromise({ try: () => finished(rotated.end()), catch: TelemetryError.of('Unavailable', `log flush of ${filename}`) })),
     );
     return Logger.make((entry: Logger.Options<Message>) => {
         const line = `${self.log(entry)}\n`;
@@ -138,7 +149,7 @@ const started = Effect.fnUntraced(function* (named: Config.Success<typeof export
                 ...(Array.isReadonlyArrayEmpty(named.logs) ? { logRecordProcessors: [] } : {}),
             }),
         ).pipe(Effect.tap(() => Effect.sync(() => diag.setLogger(diagnostics, { logLevel: level, suppressOverrideMessage: true })))),
-        (sdk) => Effect.tryPromise(() => sdk.shutdown()).pipe(Effect.ignore({ log: 'Warn', message: 'OpenTelemetry SDK shutdown' }), Effect.andThen(Effect.sync(() => diag.disable()))),
+        (sdk) => Effect.tryPromise({ try: () => sdk.shutdown(), catch: TelemetryError.of('Unavailable', 'OpenTelemetry SDK shutdown') }).pipe(Effect.ignore({ log: 'Warn' }), Effect.andThen(Effect.sync(() => diag.disable()))),
     );
 });
 
@@ -257,4 +268,4 @@ const teardown: Runtime.Teardown = (exit, onExit) => (interrupted(exit) ? onExit
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Baggage, layerErrorReported, layerFromEnvironment, layerNode, layerNodeFromConfig, layerNodeSdk, layerUncaughtExceptionMonitor, Rotation, teardown, toEnvironment, toRotatingFile };
+export { Baggage, layerErrorReported, layerFromEnvironment, layerNode, layerNodeFromConfig, layerNodeSdk, layerUncaughtExceptionMonitor, Rotation, TelemetryError, teardown, toEnvironment, toRotatingFile };

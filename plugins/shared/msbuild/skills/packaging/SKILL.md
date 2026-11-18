@@ -297,7 +297,7 @@ Every CI property sits in one `PropertyGroup` in root `Directory.Build.props` un
 - `SatelliteResourceLanguages=en` keeps named satellite assemblies, `GenerateDocumentationFile=true` writes the XML file and enables `CS1591`
 - Warning, satellite, and documentation properties belong to the unconditioned group
 - Projects a non-Windows runner builds for a `-windows` framework set `EnableWindowsTargeting`, any other project leaves it unset and fails `NETSDK1100` on one
-- `global.json` `rollForward: disable` pins the SDK on runners, `DOTNET_ROLL_FORWARD` governs which runtime an application host selects
+- `global.json` without `sdk.version` selects the newest installed SDK, `DOTNET_ROLL_FORWARD` governs which runtime an application host selects
 - Use `msbuild:diagnostics` for BuildCheck on the pipeline build
 
 ```bash

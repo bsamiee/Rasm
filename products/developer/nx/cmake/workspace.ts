@@ -164,7 +164,7 @@ const expanded = (named: Readonly<Record<string, string>>, environment: Readonly
     );
 
 const filled = Effect.fnUntraced(function* (folder: string) {
-    const names = Array.dedupe([...folder.matchAll(ENVIRONMENT)].map(([, name = '']) => name));
+    const names = Array.dedupe(folder.matchAll(ENVIRONMENT).map(([, name = '']) => name));
     const values = yield* Effect.forEach(names, (name) => Config.withDefault(Config.String(name), ''));
     return Array.zip(names, values).reduce((text, [name, value]) => text.replaceAll(`$env{${name}}`, value), folder);
 });

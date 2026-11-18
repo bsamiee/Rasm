@@ -25,7 +25,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
         if let ImplItemKind::Fn(_, _) = item.kind
             && let Some(implementation) = cx.tcx.trait_impl_of_assoc(item.owner_id.to_def_id())
             && cx.tcx.impl_trait_id(implementation).is_lang_item(cx, LangItem::Drop)
-            && let ty::Adt(guard, arguments) = cx.tcx.type_of(implementation).instantiate_identity().skip_normalization().kind()
+            && let &ty::Adt(guard, arguments) = cx.tcx.type_of(implementation).instantiate_identity().skip_normalization().kind()
             && guard.is_struct()
             && let [field] = &guard.non_enum_variant().fields.raw
             && let held = field.ty(cx.tcx, arguments).skip_normalization()

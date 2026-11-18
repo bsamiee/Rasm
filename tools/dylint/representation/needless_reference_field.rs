@@ -79,7 +79,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             let ty = cx.tcx.type_of(subfield).instantiate(cx.tcx, args).skip_normalization();
             let typing_env = ty::TypingEnv::non_body_analysis(cx.tcx, item.owner_id);
             let [Ok(value), Ok(pointer)] = [ty, reference].map(|measured| cx.tcx.layout_of(typing_env.as_query_input(measured))) else { continue };
-            if value.size > pointer.size || value.align.abi > pointer.align.abi {
+            if value.size > pointer.size || value.align > pointer.align {
                 continue;
             }
             let (field_name, name) = (field_def.ident, cx.tcx.item_name(subfield));

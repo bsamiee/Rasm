@@ -1,13 +1,17 @@
 {
-    "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
-    "builtin-baseline": "9add85b86439e3ffdb920b96b890fb782eff0824",
-    "features": {
-        "tests": {
-            "description": "Libraries test executables link",
-            "dependencies": ["catch2"]
-        }
-    },
-    "vcpkg-configuration": {
-        "overlay-triplets": [".config/cmake/triplets"]
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+  "builtin-baseline": "de36db04550a8625e3154b1a758c60035901f244",
+  "features": {
+    "tests": {
+      "description": "Libraries test executables link",
+      "dependencies": [
+        "catch2"
+      ]
     }
+  },
+  "vcpkg-configuration": {
+    "overlay-triplets": [
+      ".config/cmake/triplets"
+    ]
+  }
 }

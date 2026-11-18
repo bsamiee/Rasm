@@ -149,17 +149,14 @@ jobs:
                   printf "win32=%s\n" "${win32}" >> "${GITHUB_OUTPUT}"
             - id: rhino
               if: ${{ steps.listed.outputs.win32 != '[]' }}
-              env:
-                  RHINO_EMAIL: ${{ secrets.RHINO_EMAIL }}
               run: |
                   major="$(yq -p xml -oy '.Project.PropertyGroup[] | select(.+@Label == "Rhino") | .RhinoVersion | split(".") | .[0]' Directory.Packages.props)"
-                  url="$(curl -fsS -o /dev/null -w '%{redirect_url}' --get --data-urlencode "slug=rhino-for-windows/${major}/latest" --data-urlencode "email=${RHINO_EMAIL}" https://www.rhino3d.com/www-api/download/direct)"
-                  printf "url=%s\n" "${url}" >> "${GITHUB_OUTPUT}"
-            - uses: mcneel/setup-rhino3d@b3faf87453962c0742ab2a5e72d3494505f660df # v3.0.0
+                  printf "major=%s\n" "${major}" >> "${GITHUB_OUTPUT}"
+            - uses: mcneel/setup-rhino3d@095a5ff63cdb7dc8383e229fc40ffa779915b0af # v4.0.0
               if: ${{ steps.listed.outputs.win32 != '[]' }}
               with:
                   email-address: ${{ secrets.RHINO_EMAIL }}
-                  download-url: ${{ steps.rhino.outputs.url }}
+                  major-version: ${{ steps.rhino.outputs.major }}
             - if: ${{ steps.listed.outputs.win32 != '[]' }}
               run: nx affected --targets=test --exclude='*,!tag:os:win32'
               env:

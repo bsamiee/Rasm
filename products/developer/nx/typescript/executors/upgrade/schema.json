@@ -1,0 +1,50 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "version": 2,
+    "type": "object",
+    "properties": {
+        "catalogs": {
+            "type": "array",
+            "description": "Workspace files holding catalogs beside the package manifests, relative to the workspace root",
+            "default": [],
+            "items": {
+                "type": "string"
+            }
+        },
+        "supported": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "object",
+                "properties": {
+                    "package": {
+                        "type": "string",
+                        "description": "Installed package listing the versions it supports, resolved from the workspace root"
+                    },
+                    "file": {
+                        "type": "string",
+                        "description": "JSON file inside that package, or inside its optional dependency installed for this platform"
+                    },
+                    "path": {
+                        "type": "array",
+                        "description": "Keys from the file root to the object holding one key per supported version",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "required": ["package", "file", "path"],
+                "additionalProperties": true
+            },
+            "description": "Pinned names, as a catalog or manifest spells them, whose moves stay among the versions an installed package lists in place of the dist-tag heads",
+            "default": {}
+        },
+        "dryRun": {
+            "type": "boolean",
+            "description": "Prints each move and makes none, as NX_DRY_RUN=true does"
+        }
+    },
+    "required": ["catalogs", "supported"],
+    "additionalProperties": true,
+    "title": "Upgrade",
+    "description": "Moves every exact version a catalog or a package manifest of the workspace pins, npm: aliases included, to the newest of the package's undeprecated dist-tag heads, or of the versions an installed package lists for a supported name, among those published at or after the pinned version, ranked by release, then stable before prerelease, then publish time, ranges staying as floors, then installs to move the lockfile"
+}

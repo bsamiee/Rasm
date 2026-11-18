@@ -1,6 +1,6 @@
-amends "package://github.com/jdx/hk/releases/download/v2.12.0/hk@2.12.0#/Config.pkl"
+amends "package://github.com/jdx/hk/releases/download/v2.13.0/hk@2.13.0#/Config.pkl"
 
-import "package://github.com/jdx/hk/releases/download/v2.12.0/hk@2.12.0#/Builtins.pkl"
+import "package://github.com/jdx/hk/releases/download/v2.13.0/hk@2.13.0#/Builtins.pkl"
 
 // --- [SETTINGS] -------------------------------------------------------------------------
 
@@ -132,7 +132,7 @@ steps {
     glob = "**/*.java"
     check = new CommandSpec {
       command =
-        "javac -J--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED -J--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED -J--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED -XDcompilePolicy=simple --should-stop=ifError=FLOW -processorpath \"${JAVAC_PLUGINS:?error prone is not installed}\" \"-Xplugin:ErrorProne -XepAllSuggestionsAsWarnings -Xep:DefaultPackage:OFF -Xep:RequireExplicitNullMarking:OFF -XepOpt:NullAway:AnnotatedPackages=rasm\" -Xlint:all,-path -Werror -d .cache/javac -cp \"${GHIDRA_CLASSPATH:?ghidra is not installed}\" -sourcepath .claude/skills/use-ghidra/scripts {{files}}"
+        "javac -J--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED -J--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED -J--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED -XDcompilePolicy=simple --should-stop=ifError=FLOW -processorpath \"${JAVAC_PLUGINS:?error prone is not installed}\" \"-Xplugin:ErrorProne -XepAllSuggestionsAsWarnings -Xep:DefaultPackage:OFF -Xep:RequireExplicitNullMarking:OFF -XepOpt:NullAway:AnnotatedPackages=rasm\" -Xlint:all,-path -Werror -d .cache/javac -cp \"${GHIDRA_CLASSPATH:?ghidra is not installed}\" -sourcepath plugins/shared/tool/skills/ghidra/scripts {{files}}"
       effect = "write"
     }
     diagnostic_format = "gcc"
@@ -182,7 +182,16 @@ steps {
     glob = "**/*.pgsql"
     check = new CommandSpec {
       command = new Command {
-        argv = List("squawk", "--config", ".config/squawk.toml", "--reporter", "gcc", "{{files}}")
+        argv =
+          List(
+            "squawk",
+            "check",
+            "--config",
+            ".config/squawk.toml",
+            "--reporter",
+            "gcc",
+            "{{files}}",
+          )
       }
       effect = "read"
     }

@@ -34,6 +34,35 @@
             }
         },
         {
+            "name": "browser",
+            "source": {
+                "source": "local",
+                "path": "./plugins/shared/browser"
+            },
+            "policy": {
+                "installation": "AVAILABLE",
+                "authentication": "ON_INSTALL"
+            },
+            "category": "Coding",
+            "version": "0.1.0",
+            "description": "Browser automation through Playwright CLI, the signed-in Chrome, and the Chrome, Firefox, and Safari DevTools MCP servers",
+            "author": {
+                "name": "Bardia Samiee"
+            },
+            "skills": "./skills/",
+            "mcpServers": "./.mcp.json",
+            "interface": {
+                "displayName": "Browser",
+                "shortDescription": "Browser automation through Playwright CLI, the signed-in Chrome, and the Chrome, Firefox, and Safari DevTools MCP servers",
+                "developerName": "Bardia Samiee",
+                "category": "Coding",
+                "composerIcon": "./assets/icon.png",
+                "logo": "./assets/icon.png",
+                "logoDark": "./assets/icon-dark.png",
+                "brandColor": "#090909"
+            }
+        },
+        {
             "name": "cpp",
             "source": {
                 "source": "local",
@@ -44,15 +73,16 @@
                 "authentication": "ON_INSTALL"
             },
             "category": "Coding",
-            "version": "0.2.0",
-            "description": "C++ and Objective-C++ design: types, ownership, failure as values, compile-time evaluation, memory layout, and concurrency",
+            "version": "0.3.0",
+            "description": "C++ and Objective-C++ design with types, ownership, failure as values, compile-time evaluation, memory layout, and concurrency, and Unreal Engine builds, containers, traces, and editor servers",
             "author": {
                 "name": "Bardia Samiee"
             },
             "skills": "./skills/",
+            "mcpServers": "./.mcp.json",
             "interface": {
                 "displayName": "C++",
-                "shortDescription": "C++ and Objective-C++ design: types, ownership, failure as values, compile-time evaluation, memory layout, and concurrency",
+                "shortDescription": "C++ and Objective-C++ design with types, ownership, failure as values, compile-time evaluation, memory layout, and concurrency, and Unreal Engine builds, containers, traces, and editor servers",
                 "developerName": "Bardia Samiee",
                 "category": "Coding",
                 "composerIcon": "./assets/icon.png",
@@ -129,15 +159,15 @@
                 "authentication": "ON_INSTALL"
             },
             "category": "Coding",
-            "version": "0.2.0",
-            "description": "Audio and media work, starting with the Voicebox voice studio server",
+            "version": "0.4.0",
+            "description": "Audio and media work through the Voicebox voice studio and Cavalry MCP servers",
             "author": {
                 "name": "Bardia Samiee"
             },
             "mcpServers": "./.mcp.json",
             "interface": {
                 "displayName": "Media",
-                "shortDescription": "Audio and media work, starting with the Voicebox voice studio server",
+                "shortDescription": "Audio and media work through the Voicebox voice studio and Cavalry MCP servers",
                 "developerName": "Bardia Samiee",
                 "category": "Coding",
                 "composerIcon": "./assets/icon.png",
@@ -300,8 +330,8 @@
                 "authentication": "ON_INSTALL"
             },
             "category": "Coding",
-            "version": "0.2.0",
-            "description": "Swift design with typed throws, value types, and structured concurrency, Xcode builds, and LLDB sessions",
+            "version": "0.3.0",
+            "description": "Swift design with typed throws, value types, and structured concurrency, Xcode builds, LLDB sessions, and the Xcode skills for SwiftUI, App Intents, accessibility, translation, tests, xctrace, and devices",
             "author": {
                 "name": "Bardia Samiee"
             },
@@ -309,7 +339,7 @@
             "mcpServers": "./.mcp.json",
             "interface": {
                 "displayName": "Swift",
-                "shortDescription": "Swift design with typed throws, value types, and structured concurrency, Xcode builds, and LLDB sessions",
+                "shortDescription": "Swift design with typed throws, value types, and structured concurrency, Xcode builds, LLDB sessions, and the Xcode skills for SwiftUI, App Intents, accessibility, translation, tests, xctrace, and devices",
                 "developerName": "Bardia Samiee",
                 "category": "Coding",
                 "composerIcon": "./assets/icon.png",
@@ -359,15 +389,15 @@
                 "authentication": "ON_INSTALL"
             },
             "category": "Coding",
-            "version": "0.2.0",
-            "description": "Binary analysis in Ghidra and desktop app lifecycle, monitoring, and recording through watch-app",
+            "version": "0.3.0",
+            "description": "Binary analysis in Ghidra, app, binary, process, and file inspection, and desktop app lifecycle, monitoring, and recording through watch-app",
             "author": {
                 "name": "Bardia Samiee"
             },
             "skills": "./skills/",
             "interface": {
                 "displayName": "Tool",
-                "shortDescription": "Binary analysis in Ghidra and desktop app lifecycle, monitoring, and recording through watch-app",
+                "shortDescription": "Binary analysis in Ghidra, app, binary, process, and file inspection, and desktop app lifecycle, monitoring, and recording through watch-app",
                 "developerName": "Bardia Samiee",
                 "category": "Coding",
                 "composerIcon": "./assets/icon.png",
@@ -415,15 +445,15 @@
                 "authentication": "ON_INSTALL"
             },
             "category": "Coding",
-            "version": "0.3.0",
-            "description": "Code that runs in an Adobe UXP host, and the Atelier and Illustrator servers that drive Adobe apps",
+            "version": "0.4.0",
+            "description": "Code that runs in an Adobe UXP host, and the Atelier, After Effects, Media Encoder, Premiere, and Illustrator servers that drive Adobe apps",
             "author": {
                 "name": "Bardia Samiee"
             },
             "skills": "./skills/",
             "interface": {
                 "displayName": "UXP",
-                "shortDescription": "Code that runs in an Adobe UXP host, and the Atelier and Illustrator servers that drive Adobe apps",
+                "shortDescription": "Code that runs in an Adobe UXP host, and the Atelier, After Effects, Media Encoder, Premiere, and Illustrator servers that drive Adobe apps",
                 "developerName": "Bardia Samiee",
                 "category": "Coding",
                 "composerIcon": "./assets/icon.png",

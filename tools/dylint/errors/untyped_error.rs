@@ -15,7 +15,7 @@ use rustc_hir::intravisit::{self, Visitor};
 use rustc_hir::{AmbigArg, Body, ClosureKind, CoroutineKind, CoroutineSource, Expr, ExprKind, FnRetTy, HirId, ImplItem, ImplItemKind, Item, ItemKind, MatchSource, Node, TraitItem, TyKind};
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::ty::print::with_forced_trimmed_paths;
-use rustc_middle::ty::{self, Binder, Clause, GenericArg, Ty, TypeVisitableExt as _};
+use rustc_middle::ty::{self, Binder, CallerBoundsIterator as _, Clause, GenericArg, Ty, TypeVisitableExt as _};
 use rustc_span::{DesugaringKind, Span, Symbol};
 
 use super::{UntypedKind, body_output, text_source, untyped_kind};
@@ -152,6 +152,8 @@ fn retained_report<'tcx>(cx: &LateContext<'tcx>, body: &Body<'tcx>, report: Ty<'
                     .tcx
                     .param_env(callee)
                     .caller_bounds()
+                    .non_trait_clauses()
+                    .iter()
                     .filter_map(Clause::as_projection_clause)
                     .map(Binder::skip_binder)
                     .filter(|bound| cx.tcx.is_lang_item(bound.trait_def_id(cx.tcx), LangItem::FnOnce))
@@ -210,7 +212,7 @@ fn fixed(cx: &LateContext<'_>, closure: &Expr<'_>) -> bool {
     let tcx = cx.tcx;
     get_parent_expr(cx, closure).and_then(|call| parameter_of(cx, call, closure)).filter(|&(callee, _)| !workspace_def(cx, callee)).is_some_and(|(callee, parameter)| {
         let inherited = tcx.generics_of(callee).parent_count;
-        tcx.param_env(callee).caller_bounds().filter_map(Clause::as_projection_clause).map(Binder::skip_binder).any(|bound| {
+        tcx.param_env(callee).caller_bounds().non_trait_clauses().iter().filter_map(Clause::as_projection_clause).map(Binder::skip_binder).any(|bound| {
             bound.self_ty() == parameter
                 && tcx.is_lang_item(bound.trait_def_id(tcx), LangItem::FnOnce)
                 && bound.term.as_type().and_then(|output| result_parts(cx, output)).is_some_and(|(_, error)| {

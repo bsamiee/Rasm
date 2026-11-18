@@ -20,8 +20,7 @@ use rustc_hir::{Arm, Expr, ExprKind, ImplItemImplKind, MatchSource, PatExpr, Pat
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::middle::privacy::Level;
 use rustc_middle::ty::{
-    self, AdtDef, AdtKind, AssocKind, EarlyBinder, GenericArg, GenericArgKind, GenericArgs, GenericArgsRef, Ty, TyCtxt, TypeFoldable, TypeVisitableExt as _, TypeckResults, TypingEnv, Unnormalized,
-    VariantDef,
+    self, AdtDef, AdtKind, AssocKind, EarlyBinder, GenericArg, GenericArgKind, GenericArgs, Ty, TyCtxt, TypeFoldable, TypeVisitableExt as _, TypeckResults, TypingEnv, Unnormalized, VariantDef,
 };
 use rustc_span::{ExpnKind, MacroKind, Span, Symbol};
 use rustc_trait_selection::regions::test_region_obligations;
@@ -240,10 +239,10 @@ impl<'tcx> LateLintPass<'tcx> for Pass<'tcx> {
         fn substituted<'tcx, T, W>(tcx: TyCtxt<'tcx>, value: T, item: DefId, with: W) -> T
         where
             T: TypeFoldable<TyCtxt<'tcx>>,
-            W: Fn(GenericArgsRef<'tcx>) -> Ty<'tcx>,
+            W: Fn(GenericArgs<'tcx>) -> Ty<'tcx>,
         {
             substitute_types(tcx, value, |held| match held.kind() {
-                ty::Adt(adt, args) if adt.did() == item => Some(with(args)),
+                &ty::Adt(adt, args) if adt.did() == item => Some(with(args)),
                 _ => None,
             })
         }

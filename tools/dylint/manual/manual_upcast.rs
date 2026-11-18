@@ -9,7 +9,7 @@ use rustc_hir::{TraitItem, TraitItemKind};
 use rustc_infer::infer::TyCtxtInferExt as _;
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::ty::adjustment::{Adjust, PointerCoercion};
-use rustc_middle::ty::{self, Clause, ExistentialPredicateStableCmpExt as _, Interner as _, Ty, TypingEnv, Unnormalized};
+use rustc_middle::ty::{self, CallerBoundsIterator as _, Clause, ExistentialPredicateStableCmpExt as _, Interner as _, Ty, TypingEnv, Unnormalized};
 use rustc_trait_selection::traits::{Obligation, ObligationCause, ObligationCtxt};
 use rustc_type_ir::elaborate::{elaborate, supertraits};
 
@@ -85,7 +85,7 @@ fn upcast(cx: &LateContext<'_>, method: LocalDefId) -> Option<DefId> {
                     ty::ProjectionClause { projection_term: alias, term: alias.to_term(tcx, ty::IsRigid::No) },
                 )))
             });
-        let auto_traits = elaborate(tcx, param_env.caller_bounds())
+        let auto_traits = elaborate(tcx, param_env.caller_bounds().all_clauses(tcx).iter())
             .filter_only_self()
             .filter_map(Clause::as_trait_clause)
             .filter(|bound| bound.skip_binder().polarity == ty::ClausePolarity::Positive && bound.self_ty().skip_binder().is_self_param() && tcx.trait_is_auto(bound.def_id()))

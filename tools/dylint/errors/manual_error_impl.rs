@@ -47,7 +47,7 @@ lint!(Pass; MANUAL_ERROR_IMPL: "hand-written `core::error::Error` impls with def
 impl Pass {
     pub(crate) fn new(tcx: TyCtxt<'_>) -> Self { Self { source: path(tcx, PathNS::Value, "core::error::Error::source") } }
 
-    fn sourced<'tcx>(&mut self, cx: &LateContext<'tcx>, adt: ty::AdtDef<'tcx>, arguments: ty::GenericArgsRef<'tcx>, local: LocalDefId, implementation: DefId) -> Option<Source<'tcx>> {
+    fn sourced<'tcx>(&mut self, cx: &LateContext<'tcx>, adt: ty::AdtDef<'tcx>, arguments: ty::GenericArgs<'tcx>, local: LocalDefId, implementation: DefId) -> Option<Source<'tcx>> {
         let owner = implementation.as_local()?;
         let (body, typeck) = (cx.tcx.hir_body_owned_by(owner), cx.tcx.typeck(owner));
         let returned = peel_blocks(body.value);
@@ -102,13 +102,13 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             && let Some(error_trait) = cx.tcx.impl_opt_trait_id(item.owner_id).filter(|&implemented| cx.tcx.is_diagnostic_item(sym::Error, implemented))
             && !expanded_externally(cx, item.span)
             && let implementor = cx.tcx.type_of(item.owner_id).instantiate_identity().skip_normalization()
-            && let ty::Adt(adt, arguments) = implementor.kind()
+            && let &ty::Adt(adt, arguments) = implementor.kind()
             && let Some(local) = adt.did().as_local()
             && !adt.is_union()
-            && *arguments == ty::GenericArgs::identity_for_item(cx.tcx, item.owner_id.to_def_id())
+            && arguments == ty::GenericArgs::identity_for_item(cx.tcx, item.owner_id.to_def_id())
             && let implementations = cx.tcx.impl_item_implementor_ids(item.owner_id.to_def_id())
             && implementations.items().all(|(&declared, _)| Some(declared) == self.source)
-            && let Some(sourced) = self.source.and_then(|source| implementations.get(&source)).map_or(Some(Source::Default), |&implementation| self.sourced(cx, *adt, arguments, local, implementation))
+            && let Some(sourced) = self.source.and_then(|source| implementations.get(&source)).map_or(Some(Source::Default), |&implementation| self.sourced(cx, adt, arguments, local, implementation))
             && {
                 let tcx = cx.tcx;
                 let owner_bounds = arguments

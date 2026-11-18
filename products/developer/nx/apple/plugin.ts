@@ -3,7 +3,7 @@ import process from 'node:process';
 import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, DependencyType, getOutputsForTargetAndConfiguration, hashArray, type ProjectConfiguration, type RawProjectGraphDependency } from '@nx/devkit';
 import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, emitPluginWorkerLog, hashFile, hashObject, hashWithWorkspaceContext, mergeTargetConfigurations, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
 import { aggregated, fingerprinted, manifested, runner, spawned, type Verbs } from '@rasm/nx-distribution/inference';
-import { Array, Cause, Context, Effect, FileSystem, flow, Layer, Option, Record, Result, Schema, Stream } from 'effect';
+import { Array, Cause, Config, Context, Effect, FileSystem, flow, Layer, Option, Record, Result, Schema, Stream } from 'effect';
 import { Described, ENTITLEMENTS, INFO, MANIFEST, type Package, packageEdges, packageParts, RESOLVED, sources } from '#/swift-package';
 import { analyzer, Options, type Part, PLUGIN, tokened } from '#/targets';
 import { Analyzed, evaluated, xcodeParts } from '#/xcode-project';
@@ -94,7 +94,10 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: typ
         ...unsupported.map((file): [string, Error] => [file, new Cause.UnknownError(file, `${file} has no reader, and no project.xcproj sits beside it`)]),
     ];
     yield* Effect.forEach(unread, ({ file, reason }) => Effect.sync(() => emitPluginWorkerLog('warn', `${file} presents no project: ${reason}`)));
-    const packaged = flow(local, Option.isSome);
+    const packaged = flow(
+        local,
+        Option.map((swiftPackage) => swiftPackage.manifest.name),
+    );
     const platforms = (at: string) => Option.match(local(at), { onNone: () => [], onSome: (swiftPackage) => swiftPackage.manifest.platforms.map((platform) => platform.name) });
     const destinations = (folders: readonly string[]) => Array.dedupe(folders.flatMap((folder) => (platforms(folder).length === 0 ? Option.toArray(host) : platforms(folder))));
     const nested = packages.flatMap((owner) => owner.manifest.targets.map((module) => ({ owner: owner.file, folder: `${join(owner.root, module.path)}/` }))).flatMap(({ owner, folder }) => manifests.filter((other) => other !== owner && `${dirname(other)}/`.startsWith(folder)).map((inner) => ({ owner, inner })));
@@ -156,7 +159,7 @@ const createNodes: CreateNodes<typeof Options.Encoded> = [
                     ...Option.toArray(developer),
                     ...Option.toArray(Option.flatMap(developer, (path) => Option.fromNullishOr(hashFile(join(path.trim(), '..', 'version.plist'))))),
                     ...[...Option.toArray(swift), ...Option.toArray(compiled)].flatMap((file) => [file, ...Array.fromNullishOr(hashFile(file.trim()))]),
-                    process.env['TOOLCHAINS'] ?? '',
+                    ...Option.toArray(yield* Config.option(Config.String('TOOLCHAINS'))),
                 ];
                 const key = hashArray([yield* Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, READ)), ...stamps, ...files]);
                 const stored = Option.fromNullishOr(cache.get(key));

@@ -16,7 +16,7 @@ use rustc_hir::{AnonConst, BodyId, Expr, ExprKind, HirId, ItemId};
 use rustc_infer::infer::TyCtxtInferExt as _;
 use rustc_lint::LateContext;
 use rustc_middle::ty::{
-    self, Binder, BottomUpFolder, Clauses, FnSig, GenericArgKind, GenericArgsRef, PolyFnSig, Ty, TyCtxt, TypeFoldable, TypeFolder, TypeSuperFoldable as _, TypeVisitableExt as _, TypeckResults,
+    self, Binder, BottomUpFolder, Clauses, FnSig, GenericArgKind, GenericArgs, PolyFnSig, Ty, TyCtxt, TypeFoldable, TypeFolder, TypeSuperFoldable as _, TypeVisitableExt as _, TypeckResults,
     TypingEnv, Unnormalized,
 };
 use rustc_span::{SyntaxContext, kw};
@@ -27,7 +27,7 @@ use crate::{awaited_output, impl_owner, parameters_match};
 // --- [MODELS] --------------------------------------------------------------------------
 
 enum Resolved<'tcx> {
-    Item(DefId, GenericArgsRef<'tcx>),
+    Item(DefId, GenericArgs<'tcx>),
     Type(Ty<'tcx>),
     Body(LocalDefId),
 }
@@ -246,7 +246,7 @@ fn owner(tcx: TyCtxt<'_>, function: LocalDefId) -> Option<Ty<'_>> {
     }
 }
 
-fn resolved_item<'tcx>(tcx: TyCtxt<'tcx>, called: DefId, arguments: GenericArgsRef<'tcx>) -> Option<(DefId, GenericArgsRef<'tcx>)> {
+fn resolved_item<'tcx>(tcx: TyCtxt<'tcx>, called: DefId, arguments: GenericArgs<'tcx>) -> Option<(DefId, GenericArgs<'tcx>)> {
     match tcx.opt_associated_item(called).map(|item| item.container) {
         Some(ty::AssocContainer::TraitImpl(declared)) => {
             let owner = tcx.parent(called);

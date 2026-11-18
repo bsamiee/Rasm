@@ -148,7 +148,7 @@ describe('@rasm/nx-apple - createNodes', () => {
             expect(Object.keys({ ...results[0]?.[1].projects })).toHaveLength(4);
             expect(Object.keys({ ...results[0]?.[1].projects?.['.']?.targets })).toStrictEqual(['build', 'build--swift-build', 'check', 'check--swift-build', 'test', 'test--swift', 'upgrade', 'upgrade--swift-package', 'clean', 'clean--swift-package']);
             expect(results[0]?.[1].projects?.['.']?.targets).toMatchObject({
-                build: { dependsOn: ['build--*'] },
+                build: { dependsOn: [{ target: 'build--*', params: 'forward' }] },
                 'build--swift-build': {
                     executor: '@rasm/nx-apple:run',
                     cache: true,

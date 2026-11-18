@@ -30,6 +30,11 @@
             "schema": "./executors/clean/schema.json",
             "description": "Runs the tool's own clean commands when given, then removes the outputs the named targets of the project declare, keeping any the workspace tracks as source"
         },
+        "upgrade": {
+            "implementation": "./dist/executors/upgrade/executor#execute",
+            "schema": "./executors/upgrade/schema.json",
+            "description": "Runs a tool's upgrade commands in order, and under a dry run each command's own dry run in its place, printing a command without one"
+        },
         "publish": {
             "implementation": "./dist/executors/publish/executor#execute",
             "schema": "./executors/publish/schema.json",

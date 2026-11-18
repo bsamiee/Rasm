@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Description>Evaluates every MSBuild project of a workspace in one process and reports the facts the Nx plugin derives targets from</Description>
+        <Description>Evaluates every MSBuild project of a workspace in one process and reports the facts the Nx plugin derives targets from, or moves the central package versions of a solution to their newest releases</Description>
         <OutputType>Exe</OutputType>
         <RollForward>LatestMajor</RollForward>
         <ServerGarbageCollection>true</ServerGarbageCollection>
@@ -15,6 +15,7 @@
         <PackageReference Include="NuGet.Frameworks" ExcludeAssets="runtime" />
         <PackageReference Include="NuGet.Packaging" ExcludeAssets="runtime" />
         <PackageReference Include="NuGet.ProjectModel" ExcludeAssets="runtime" />
+        <PackageReference Include="NuGet.Protocol" ExcludeAssets="runtime" />
         <PackageReference Include="NuGet.Versioning" ExcludeAssets="runtime" />
     </ItemGroup>
 
@@ -26,5 +27,9 @@
 
     <ItemGroup Label="Functional Programming">
         <PackageReference Include="LanguageExt.Core" />
+    </ItemGroup>
+
+    <ItemGroup Label="Runtime Diagnostics">
+        <PackageReference Include="Microsoft.Extensions.DependencyModel" ExcludeAssets="runtime" />
     </ItemGroup>
 </Project>

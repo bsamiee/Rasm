@@ -10,7 +10,7 @@ import { HttpRouter, HttpServerRequest, HttpServerResponse } from 'effect/http';
 import { observed, quit, watched } from '#/claude/instances';
 import { paused } from '#/claude/owner';
 import { Routes } from '#/claude/routes';
-import { Host } from '#/host';
+import { Host, HostError } from '#/host';
 import manifest from '#/manifest' with { type: 'json' };
 import { decide, Engine } from '#/rules/decide';
 
@@ -44,12 +44,7 @@ const Server = Layer.unwrap(
 const orphaned = Effect.gen(function* () {
     const watching = process.channel !== undefined;
     const owner = watching ? Number(String.trim(yield* Host.use((host) => host.output(['ps', '-o', 'ppid=', '-p', `${process.ppid}`])))) : process.ppid;
-    yield* Effect.ignore(
-        Effect.repeat(
-            Effect.try(() => process.kill(owner, 0)),
-            Schedule.spaced('2 seconds'),
-        ),
-    );
+    yield* Effect.ignore(Effect.repeat(Effect.try({ try: () => process.kill(owner, 0), catch: HostError.of('kill') }), Schedule.spaced('2 seconds')));
     yield* Effect.sync(() => watching && process.kill(process.ppid, 'SIGTERM'));
 });
 

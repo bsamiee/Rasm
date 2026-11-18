@@ -17,6 +17,11 @@
             "batchImplementation": "./dist/executors/run/executor#batch",
             "preferBatch": true
         },
+        "upgrade": {
+            "implementation": "./dist/executors/upgrade/executor#execute",
+            "schema": "./executors/upgrade/schema.json",
+            "description": "Moves the lower bound of each remote requirement of Package.swift whose range ends at the next major, the range from: states, to the highest semver tag git ls-remote lists for its repository, prereleases included, among the tags published at or after the bound's own tag, as SwiftPM admits a prerelease only into a range with a prerelease bound, then moves Package.resolved with swift package update"
+        },
         "release-publish": {
             "implementation": "./dist/executors/release-publish/executor#execute",
             "schema": "./executors/release-publish/schema.json",

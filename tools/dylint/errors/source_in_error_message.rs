@@ -3,7 +3,6 @@ use core::iter;
 use clippy_utils::diagnostics::span_lint_hir_and_then;
 use clippy_utils::sym;
 use rustc_ast::LitKind;
-use rustc_ast::attr::AttributeExt as _;
 use rustc_ast::token::{self, TokenKind};
 use rustc_ast::tokenstream::TokenTree;
 use rustc_attr_ir::{AttrArgs, Attribute};
@@ -28,8 +27,10 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             let tcx = cx.tcx;
             let [error, source] = ["error", "source"].map(Symbol::intern);
             let node = tcx.local_def_id_to_hir_id(variant.def_id.as_local()?);
-            let attribute = tcx.hir_attrs(node).iter().find(|attribute| attribute.has_name(error))?;
-            let Attribute::DeriveHelper(parsed) = attribute else { return None };
+            let parsed = tcx.hir_attrs(node).iter().find_map(|attribute| match attribute {
+                Attribute::DeriveHelper(parsed) if *parsed.path.segments == [error] => Some(parsed),
+                Attribute::DeriveHelper(_) | Attribute::Tool(_) | Attribute::Parsed(_) => None,
+            })?;
             let AttrArgs::Delimited(delimited) = &parsed.args else { return None };
             let tokens = delimited.tokens.iter().map(|tree| if let TokenTree::Token(token, _) = tree { Some(&token.kind) } else { None }).collect::<Vec<_>>();
             let mut groups = tokens.split(|kind| matches!(kind, Some(TokenKind::Comma)));
@@ -49,7 +50,12 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                     (name, field)
                 })
                 .collect::<Vec<_>>();
-            let marked = |field: &FieldDef| field.did.as_local().is_some_and(|local| tcx.hir_attrs(tcx.local_def_id_to_hir_id(local)).iter().any(|marker| marker.has_any_name(&[source, sym::from])));
+            let marked = |field: &FieldDef| {
+                field.did.as_local().into_iter().flat_map(|local| tcx.hir_attrs(tcx.local_def_id_to_hir_id(local))).any(|marker| match marker {
+                    Attribute::DeriveHelper(helper) => [[source], [sym::from]].iter().any(|name| *helper.path.segments == *name),
+                    Attribute::Tool(_) | Attribute::Parsed(_) => false,
+                })
+            };
             let named = |name: Symbol| variant.fields.iter().find(|field| field.name == name).filter(|field| field.name == source || marked(field)).map(|_| name.to_string());
             let mut pieces = Parser::new(text.as_str(), None, None, false, ParseMode::Format).peekable();
             let first = pieces.next()?;

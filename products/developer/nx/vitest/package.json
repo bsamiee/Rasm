@@ -56,7 +56,7 @@
         "vitest": "catalog:peers"
     },
     "engines": {
-        "node": ">=26"
+        "node": ">=27"
     },
     "executors": "./executors.json"
 }

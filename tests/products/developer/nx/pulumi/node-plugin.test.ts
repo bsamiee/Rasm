@@ -48,7 +48,7 @@ describe('@rasm/nx-pulumi', () => {
 
         await expect(targetsFor(files, 'packages/tool')).resolves.toBeUndefined();
         await expect(targetsFor(files, 'packages/infra')).resolves.toStrictEqual({
-            install: { dependsOn: ['install--*'], inputs: ['...', 'default', '^default', { externalDependencies: [] }] },
+            install: { dependsOn: [{ target: 'install--*', params: 'forward' }], inputs: ['...', 'default', '^default', { externalDependencies: [] }] },
             'install--pulumi': {
                 command: 'node bin/stacks.ts install',
                 options: { cwd: 'packages/infra' },
@@ -57,7 +57,7 @@ describe('@rasm/nx-pulumi', () => {
                 inputs: ['default', '^default', { externalDependencies: [] }],
                 metadata: { technologies: ['pulumi'], description: 'Runs the Pulumi Automation API program of the project with node bin/stacks.ts install' },
             },
-            deploy: { dependsOn: ['deploy--*'], inputs: ['...', 'default', '^default', { externalDependencies: [] }] },
+            deploy: { dependsOn: [{ target: 'deploy--*', params: 'forward' }], inputs: ['...', 'default', '^default', { externalDependencies: [] }] },
             'deploy--pulumi': {
                 command: 'node bin/stacks.ts deploy',
                 options: { cwd: 'packages/infra' },
@@ -66,7 +66,7 @@ describe('@rasm/nx-pulumi', () => {
                 inputs: ['default', '^default', { externalDependencies: [] }],
                 metadata: { technologies: ['pulumi'], description: 'Runs the Pulumi Automation API program of the project with node bin/stacks.ts deploy' },
             },
-            'dry-run': { dependsOn: ['dry-run--*'], inputs: ['...', 'default', '^default', { externalDependencies: [] }] },
+            'dry-run': { dependsOn: [{ target: 'dry-run--*', params: 'forward' }], inputs: ['...', 'default', '^default', { externalDependencies: [] }] },
             'dry-run--pulumi': {
                 command: 'node bin/stacks.ts deploy --operation=preview',
                 options: { cwd: 'packages/infra' },

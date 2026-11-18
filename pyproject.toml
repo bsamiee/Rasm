@@ -102,7 +102,7 @@ data-exchange         = [
     "boto3",                                                                      # AWS SDK S3 client, the one Python S3 client an OpenTelemetry instrumentation patches
     "brotli",                                                                     # Brotli compression
     "cloudevents",                                                                # CloudEvents attribute validation and protocol bindings
-    "confluent-kafka[avro,json,protobuf,schemaregistry]<4",                       # Kafka client over librdkafka with Schema Registry serdes, built against Pixi `librdkafka` where no cp315 wheel exists, the Rust-core 4.x prerelease under the same name omits serializers, an sdist, and Windows wheels
+    "confluent-kafka[avro,json,protobuf,schemaregistry]<4",                       # Kafka client over librdkafka with Schema Registry serdes, the Rust-core 4.x prerelease under the same name omits serializers, an sdist, and Windows wheels
     "connectrpc",                                                                 # Connect, gRPC, and gRPC-Web ASGI services and typed clients
     "detools",                                                                    # Binary-delta engine
     "fastavro",                                                                   # Avro codec and .avsc validation
@@ -421,7 +421,6 @@ no-default-feature = true
 hdf5               = "2.2.*"
 icu                = "78.*"   # 79 fails the solve: every libxml2 build libpdal-core 2.10 requires links ICU below 79
 libpdal-core       = "2.10.*"
-librdkafka         = "2.16.*" # Headers and library the `confluent-kafka` sdist builds against on CPython 3.15
 llvm-openmp        = "*"
 libmagic           = "*"
 libpango           = "*"

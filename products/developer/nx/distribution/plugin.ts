@@ -25,11 +25,25 @@ interface Declared {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#package'))).name;
-const FILES = combineGlobPatterns(Array.dedupe(HOSTS.map(({ manifest }) => `**/${basename(manifest)}`)));
+const WORKFLOWS = '**/.github/workflows/*.{yml,yaml}';
+const FILES = combineGlobPatterns([...Array.dedupe(HOSTS.map(({ manifest }) => `**/${basename(manifest)}`)), WORKFLOWS]);
 const WITHHELD = ['archive', 'build', 'operations', 'publish'] as const;
 const UPSTREAM = { dependentTasksOutputFiles: '**/*' } as const;
 const RECEIVED: NonNullable<TargetConfiguration['inputs']> = [UPSTREAM, { externalDependencies: [] }];
 const UNSTATED: NonNullable<TargetConfiguration['inputs']> = ['default', '^default', { externalDependencies: [] }];
+const ACTIONS: Verbs = {
+    upgrade: {
+        jactionlint: {
+            executor: `${PLUGIN}:upgrade`,
+            options: { cwd: '{projectRoot}', commands: [{ apply: ['jactionlint', 'update', '--apply'], preview: ['jactionlint', 'update', '--diff'] }] },
+            inputs: [join('{projectRoot}', '.github', '**', '*'), join('{projectRoot}', '**', 'action.{yml,yaml}'), { externalDependencies: [] }],
+            metadata: {
+                description: 'Moves every external action and reusable workflow the workflows and composite actions use to its newest release with jactionlint update --apply, keeping commit pins and their version comments',
+                help: { command: 'jactionlint update --help', example: { options: { dryRun: true } } },
+            },
+        },
+    },
+};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -217,6 +231,15 @@ const projects = (declared: readonly Declared[], settings: typeof Options.Type, 
     });
 };
 
+const workflows = (files: readonly string[], workspaceRoot: string) =>
+    Effect.forEach(
+        Array.dedupeWith(
+            files.filter((file) => matchesGlob(file, WORKFLOWS)).map((file) => ({ file, root: join(file, '..', '..', '..') })),
+            (left, right) => left.root === right.root,
+        ),
+        ({ file, root }) => Effect.map(manifested(workspaceRoot, root), (stated) => [file, { projects: { [root]: { root, targets: aggregated(ACTIONS, stated, 'github-actions') } } }] as const),
+    );
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const createNodes: CreateNodes<typeof Options.Encoded> = [
@@ -225,13 +248,16 @@ const createNodes: CreateNodes<typeof Options.Encoded> = [
         run(
             Effect.gen(function* () {
                 const settings = yield* Schema.decodeEffect(Options)(options ?? {});
-                const [held, failures] = yield* read(files, context);
-                const results = projects(
-                    Array.getSomes(held).filter(({ fields }) => fields.installed !== true),
-                    settings,
-                    getPackageManagerCommand(detectPackageManager(context.workspaceRoot)).exec,
-                    tagged(context.nxJsonConfiguration),
-                );
+                const [[held, failures], actions] = yield* Effect.all([read(files, context), workflows(files, context.workspaceRoot)]);
+                const results = [
+                    ...projects(
+                        Array.getSomes(held).filter(({ fields }) => fields.installed !== true),
+                        settings,
+                        getPackageManagerCommand(detectPackageManager(context.workspaceRoot)).exec,
+                        tagged(context.nxJsonConfiguration),
+                    ),
+                    ...actions,
+                ];
                 return yield* Array.match(failures, { onEmpty: () => Effect.succeed(results), onNonEmpty: (refused) => Effect.fail(new AggregateCreateNodesError(refused, results)) });
             }),
         ),

@@ -3,7 +3,6 @@
     "plugins": ["eslint", "typescript", "unicorn", "oxc", "import", "promise", "node", "react", "jsx-a11y"],
     "categories": { "correctness": "error", "suspicious": "error", "pedantic": "error", "perf": "error", "style": "error", "restriction": "error", "nursery": "error" },
     "options": { "typeAware": true, "reportUnusedDisableDirectives": "error" },
-    "ignorePatterns": [".claude/workflows/**"],
     "rules": {
         "class-methods-use-this": ["error", { "ignoreOverrideMethods": true }],
         "func-names": ["error", "as-needed", { "generators": "never" }],
@@ -203,8 +202,7 @@
                 "typescript/no-unsafe-call": "off",
                 "typescript/no-unsafe-member-access": "off",
                 "typescript/no-unsafe-return": "off",
-                "typescript/prefer-nullish-coalescing": "off",
-                "typescript/strict-boolean-expressions": "off"
+                "typescript/prefer-nullish-coalescing": "off"
             }
         }
     ]

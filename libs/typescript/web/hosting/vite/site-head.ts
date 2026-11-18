@@ -57,16 +57,16 @@ const computed = (declared: ReadonlyMap<string, string>, scheme: Scheme, value: 
     const referenced = call === 'var' ? (UndefinedOr.map(first, (name) => declared.get(name)) ?? second) : schemed;
     return call === undefined ? Option.some(token) : Option.flatMap(Option.fromUndefinedOr(referenced), (next) => computed(declared, scheme, next));
 };
-const headAssets = Effect.fnUntraced(
-    function* ({ root, base }: ResolvedConfig, { master, stylesheet, fill, background, manifest }: Head) {
-        const fs = yield* FileSystem.FileSystem;
-        const { nodes } = parse(yield* fs.readFileString(join(root, stylesheet)), { from: stylesheet });
-        const color = (scheme: Scheme, token: string) => Effect.fromOption(Option.flatMapNullishOr(computed(new Map(cascade(nodes, scheme)), scheme, `var(${token})`), formatRgb), () => new Cause.NoSuchElementError(`${stylesheet} holds no ${scheme} color at ${token}`));
-        const [iconColor, chrome, darkChrome] = yield* Effect.all([color('light', fill), color('light', background), color('dark', background)]);
-        const painted = yield* paint(join(root, master), { color: iconColor });
-        const installed = <A extends { readonly sizes: unknown }>(asset: A) => (manifest === undefined ? { ...asset, sizes: [] } : asset);
-        const resizeOptions = { background: chrome, fit: 'contain' as const };
-        const generated = yield* Effect.tryPromise(() =>
+const headAssets = Effect.fnUntraced(function* ({ root, base }: ResolvedConfig, { master, stylesheet, fill, background, manifest }: Head) {
+    const fs = yield* FileSystem.FileSystem;
+    const { nodes } = parse(yield* fs.readFileString(join(root, stylesheet)), { from: stylesheet });
+    const color = (scheme: Scheme, token: string) => Effect.fromOption(Option.flatMapNullishOr(computed(new Map(cascade(nodes, scheme)), scheme, `var(${token})`), formatRgb), () => new Cause.NoSuchElementError(`${stylesheet} holds no ${scheme} color at ${token}`));
+    const [iconColor, chrome, darkChrome] = yield* Effect.all([color('light', fill), color('light', background), color('dark', background)]);
+    const painted = yield* paint(join(root, master), { color: iconColor });
+    const installed = <A extends { readonly sizes: unknown }>(asset: A) => (manifest === undefined ? { ...asset, sizes: [] } : asset);
+    const resizeOptions = { background: chrome, fit: 'contain' as const };
+    const generated = yield* Effect.tryPromise({
+        try: () =>
             instructions({
                 imageResolver: Function.constant(Buffer.from(painted)),
                 imageName: basename(master),
@@ -76,40 +76,39 @@ const headAssets = Effect.fnUntraced(
                 basePath: base,
                 resolveSvgName: Function.identity,
             }),
-        );
-        const webManifest = 'manifest.webmanifest';
-        const href = `${base}${webManifest}`;
-        const icons = yield* Effect.all(
-            Record.map(
-                { ...generated.favicon, ...generated.apple, ...generated.transparent, ...generated.maskable },
-                Effect.fnUntraced(function* ({ name, mimeType, buffer }) {
-                    return { name, mimeType, source: yield* Effect.tryPromise(buffer) };
-                }),
-            ),
-            { concurrency: 'unbounded' },
-        );
-        const links = Array.filterMap(Object.values({ ...generated.favicon, ...generated.apple }), ({ linkObject }) => (linkObject === undefined ? Result.failVoid : Result.succeed(headTag('link', Struct.omit(linkObject, ['id'])))));
-        const themed =
-            chrome === darkChrome
-                ? [headTag('meta', { name: 'theme-color', content: chrome }), headTag('meta', { name: 'color-scheme', content: 'only light' })]
-                : [headTag('meta', { name: 'theme-color', content: chrome, media: '(prefers-color-scheme: light)' }), headTag('meta', { name: 'theme-color', content: darkChrome, media: '(prefers-color-scheme: dark)' }), headTag('meta', { name: 'color-scheme', content: 'light dark' })];
-        const listed =
-            manifest === undefined
-                ? { assets: {}, tags: [] }
-                : {
-                      assets: {
-                          [href]: {
-                              name: webManifest,
-                              mimeType: 'application/manifest+json',
-                              source: Buffer.from(yield* Effect.orDie(Schema.encodeEffect(WebManifest)({ short_name: manifest.name, display: 'standalone', start_url: base, theme_color: chrome, background_color: chrome, ...manifest, ...generateManifestIconsEntry('object', generated) }))),
-                          },
+        catch: HostingError.of('Build', `icon instructions of ${master}`),
+    });
+    const webManifest = 'manifest.webmanifest';
+    const href = `${base}${webManifest}`;
+    const icons = yield* Effect.all(
+        Record.map(
+            { ...generated.favicon, ...generated.apple, ...generated.transparent, ...generated.maskable },
+            Effect.fnUntraced(function* ({ name, mimeType, buffer }) {
+                return { name, mimeType, source: yield* Effect.tryPromise({ try: buffer, catch: HostingError.of('Build', `icon ${name} of ${master}`) }) };
+            }),
+        ),
+        { concurrency: 'unbounded' },
+    );
+    const links = Array.filterMap(Object.values({ ...generated.favicon, ...generated.apple }), ({ linkObject }) => (linkObject === undefined ? Result.failVoid : Result.succeed(headTag('link', Struct.omit(linkObject, ['id'])))));
+    const themed =
+        chrome === darkChrome
+            ? [headTag('meta', { name: 'theme-color', content: chrome }), headTag('meta', { name: 'color-scheme', content: 'only light' })]
+            : [headTag('meta', { name: 'theme-color', content: chrome, media: '(prefers-color-scheme: light)' }), headTag('meta', { name: 'theme-color', content: darkChrome, media: '(prefers-color-scheme: dark)' }), headTag('meta', { name: 'color-scheme', content: 'light dark' })];
+    const listed =
+        manifest === undefined
+            ? { assets: {}, tags: [] }
+            : {
+                  assets: {
+                      [href]: {
+                          name: webManifest,
+                          mimeType: 'application/manifest+json',
+                          source: Buffer.from(yield* Effect.orDie(Schema.encodeEffect(WebManifest)({ short_name: manifest.name, display: 'standalone', start_url: base, theme_color: chrome, background_color: chrome, ...manifest, ...generateManifestIconsEntry('object', generated) }))),
                       },
-                      tags: [headTag('link', { rel: 'manifest', href })],
-                  };
-        return { assets: { ...icons, ...listed.assets }, tags: [...links, ...listed.tags, ...themed] };
-    },
-    (effect, _, { master }) => effect.pipe(Effect.mapError(HostingError.of('Build', `client environment of ${master}`)), Effect.provide(layer)),
-);
+                  },
+                  tags: [headTag('link', { rel: 'manifest', href })],
+              };
+    return { assets: { ...icons, ...listed.assets }, tags: [...links, ...listed.tags, ...themed] };
+}, Effect.provide(layer));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

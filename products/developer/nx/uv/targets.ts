@@ -238,12 +238,6 @@ const targets = (member: Member, { outputPath, coveragePath }: typeof Options.Ty
         ),
     );
     const locking: NonNullable<TargetConfiguration['inputs']> = [...member.manifests.map((file) => join('{workspaceRoot}', file)), join('{workspaceRoot}', member.lock), ...['uv.toml', '.python-version'].map((file) => join('{projectRoot}', file)), { externalDependencies: [] }];
-    const upgrading = {
-        command: 'uv lock --upgrade',
-        options: { cwd: member.root },
-        inputs: locking,
-        metadata: { description: 'Moves every locked package to its newest allowed release with uv lock --upgrade', help: { command: 'uv lock --help', example: { args: ['--upgrade-package', '<package>'] } } },
-    };
     const rooted: Verbs = root
         ? {
               check: {
@@ -256,13 +250,18 @@ const targets = (member: Member, { outputPath, coveragePath }: typeof Options.Ty
                   },
               },
               upgrade: {
-                  uv: upgrading,
+                  uv: {
+                      executor: `${distribution.name}:upgrade`,
+                      options: { cwd: member.root, commands: [{ apply: ['uv', 'lock', '--upgrade'], preview: ['uv', 'lock', '--upgrade', '--dry-run'] }] },
+                      inputs: locking,
+                      metadata: { description: 'Moves every locked package to its newest allowed release with uv lock --upgrade', help: { command: 'uv lock --help', example: { options: { dryRun: true } } } },
+                  },
                   ...(member.pixi && {
                       pixi: {
-                          command: 'pixi update',
-                          options: { cwd: member.root },
+                          executor: `${distribution.name}:upgrade`,
+                          options: { cwd: member.root, commands: [{ apply: ['pixi', 'update'], preview: ['pixi', 'update', '--dry-run'] }] },
                           inputs: [...[PIXI, 'pyproject.toml', 'pixi.lock'].map((file) => join('{projectRoot}', file)), { externalDependencies: [] }],
-                          metadata: { description: 'Moves every package of the Pixi environments to the newest release its requirement allows and rewrites pixi.lock with pixi update', help: { command: 'pixi update --help', example: { args: ['--dry-run'] } } },
+                          metadata: { description: 'Moves every package of the Pixi environments to the newest release its requirement allows and rewrites pixi.lock with pixi update', help: { command: 'pixi update --help', example: { options: { dryRun: true } } } },
                       },
                   }),
               },

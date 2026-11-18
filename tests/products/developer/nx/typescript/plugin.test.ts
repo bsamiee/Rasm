@@ -103,7 +103,7 @@ describe('typecheck target', () => {
                     root: 'libs/my-lib',
                     metadata: { technologies: ['typescript'] },
                     targets: {
-                        build: { dependsOn: ['build--*'], inputs: ['...', ...inputs] },
+                        build: { dependsOn: [{ target: 'build--*', params: 'forward' }], inputs: ['...', ...inputs] },
                         'build--tsc': {
                             executor: 'nx:run-commands',
                             options: { commands: ['tsc'], cwd: 'libs/my-lib' },
@@ -113,14 +113,14 @@ describe('typecheck target', () => {
                             outputs: [`{projectRoot}/${EMITTED}`],
                             metadata: { technologies: ['typescript'], description: 'Emits JavaScript and declarations with tsc, type-checking every program it builds', help: { command: 'npx tsc --help', example: { args: ['--listEmittedFiles'] } } },
                         },
-                        check: { dependsOn: ['check--*'], inputs: ['...', ...inputs] },
+                        check: { dependsOn: [{ target: 'check--*', params: 'forward' }], inputs: ['...', ...inputs] },
                         'check--tsc': {
                             executor: 'nx:noop',
                             dependsOn: ['build--tsc'],
                             inputs,
                             metadata: { technologies: ['typescript'], description: 'Type-checks through the build--tsc compile with tsc', help: { command: 'npx tsc --help', example: { args: ['--extendedDiagnostics'] } } },
                         },
-                        clean: { dependsOn: ['clean--*'], inputs: ['...', 'default', '^default', { externalDependencies: ['typescript'] }] },
+                        clean: { dependsOn: [{ target: 'clean--*', params: 'forward' }], inputs: ['...', 'default', '^default', { externalDependencies: ['typescript'] }] },
                         'clean--tsc': {
                             executor: '@rasm/nx-distribution:clean',
                             options: { targets: ['build--tsc'], commands: [['tsc', '--build', '--clean', 'tsconfig.json']], cwd: 'libs/my-lib' },

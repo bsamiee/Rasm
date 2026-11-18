@@ -157,14 +157,26 @@ const states = (grammar, start, closed) => {
         return kernel.length > 0 && !seen.has(key) && seen.add(key);
     };
     const moved = (kernel) => {
-        const open = new Set(kernel.filter(([head]) => head.type === 'SYMBOL').flatMap(([head]) => [...closureOf(head.name)]));
+        const open = new Set(
+            kernel
+                .values()
+                .filter(([head]) => head.type === 'SYMBOL')
+                .flatMap(([head]) => closureOf(head.name)),
+        );
         const moves = Map.groupBy(kernel, headOf);
         open.forEach((name) => {
             productionsOf(name).forEach((tails, head) => {
                 moves.set(head, [...(moves.get(head) ?? []), ...tails]);
             });
         });
-        return { open, next: [...moves.values()].map((tails) => tails.flatMap(successorsOf)).filter(fresh) };
+        return {
+            open,
+            next: moves
+                .values()
+                .map((tails) => tails.flatMap(successorsOf))
+                .filter(fresh)
+                .toArray(),
+        };
     };
     const explored = (frontier) => {
         const steps = frontier.map(moved);

@@ -74,13 +74,15 @@ const read = Effect.gen(function* () {
     );
     const tasks = Object.values(planned.tasks);
     const hashed = yield* Effect.result(
-        Effect.tryPromise(() =>
-            hasher.createTaskHasher(projectGraph, settings.readNxJson()).hashTasks(
-                tasks,
-                planned,
-                Record.fromIterableWith(tasks, (task) => [task.id, environment.getTaskSpecificEnv(task, projectGraph)]),
-            ),
-        ),
+        Effect.tryPromise({
+            try: () =>
+                hasher.createTaskHasher(projectGraph, settings.readNxJson()).hashTasks(
+                    tasks,
+                    planned,
+                    Record.fromIterableWith(tasks, (task) => [task.id, environment.getTaskSpecificEnv(task, projectGraph)]),
+                ),
+            catch: (cause) => new Cause.UnknownError(cause, 'Nx task hasher refused the task graph'),
+        }),
     );
     const taken = Result.match(hashed, {
         onSuccess: (hashes) => ({ hashes: Record.fromIterableWith(Array.zip(tasks, hashes), ([task, hash]) => [task.id, { value: hash.value, inputs: hash.details.nodes }]), failures }),

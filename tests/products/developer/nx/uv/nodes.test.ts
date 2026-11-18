@@ -139,7 +139,7 @@ describe('@rasm/nx-uv/plugin/nodes', { timeout: 120_000 }, () => {
                     projects: {
                         'proj/library': {
                             targets: {
-                                check: { dependsOn: ['check--*'] },
+                                check: { dependsOn: [{ target: 'check--*', params: 'forward' }] },
                                 'check--ty': {
                                     command: 'uv run --no-active --locked --package library --all-extras --group dev ty check proj/library',
                                     options: { cwd: '.' },

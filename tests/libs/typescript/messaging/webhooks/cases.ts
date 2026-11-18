@@ -97,10 +97,7 @@ const references = {
         secret: standard.secret,
         exchanged: Effect.fnUntraced(function* (ours: Headers.Headers, now: DateTime.Utc) {
             const reference = new standardwebhooks.Webhook(standard.secret);
-            const accepted = yield* Effect.as(
-                Effect.try(() => reference.verify(standard.body, { ...ours })),
-                true,
-            );
+            const accepted = yield* Effect.as(Effect.try({ try: () => reference.verify(standard.body, { ...ours }), catch: WebhookError.of({ _tag: 'Mismatch' }, 'standardwebhooks reference') }), true);
             return { accepted, theirs: { 'webhook-id': standard.id, 'webhook-timestamp': `${DateTime.toEpochSeconds(now)}`, 'webhook-signature': reference.sign(standard.id, DateTime.toDate(now), standard.body) } };
         }),
     },
@@ -109,10 +106,7 @@ const references = {
         secret: vectors.svix.secret,
         exchanged: Effect.fnUntraced(function* (ours: Headers.Headers, now: DateTime.Utc) {
             const reference = new svix.Webhook(vectors.svix.secret);
-            const accepted = yield* Effect.as(
-                Effect.try(() => reference.verify(standard.body, { ...ours })),
-                true,
-            );
+            const accepted = yield* Effect.as(Effect.try({ try: () => reference.verify(standard.body, { ...ours }), catch: WebhookError.of({ _tag: 'Mismatch' }, 'svix reference') }), true);
             return { accepted, theirs: { 'svix-id': standard.id, 'svix-timestamp': `${DateTime.toEpochSeconds(now)}`, 'svix-signature': reference.sign(standard.id, DateTime.toDate(now), standard.body) } };
         }),
     },
@@ -121,10 +115,7 @@ const references = {
         secret: vectors.stripe.secret,
         exchanged: Effect.fnUntraced(function* (ours: Headers.Headers, now: DateTime.Utc) {
             const header = yield* Effect.fromOption(Headers.get(ours, Scheme.stripe.signature));
-            const accepted = yield* Effect.as(
-                Effect.tryPromise(() => Stripe.webhooks.constructEventAsync(standard.body, header, vectors.stripe.secret)),
-                true,
-            );
+            const accepted = yield* Effect.as(Effect.tryPromise({ try: () => Stripe.webhooks.constructEventAsync(standard.body, header, vectors.stripe.secret), catch: WebhookError.of({ _tag: 'Mismatch' }, 'stripe reference') }), true);
             return { accepted, theirs: { [Scheme.stripe.signature]: yield* Effect.promise(() => Stripe.webhooks.generateTestHeaderStringAsync({ payload: standard.body, secret: vectors.stripe.secret, timestamp: DateTime.toEpochSeconds(now) })) } };
         }),
     },

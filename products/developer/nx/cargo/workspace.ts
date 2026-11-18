@@ -31,7 +31,7 @@ const KEYS = {
     PROFILE: ['INHERITS', 'OPT_LEVEL', 'DEBUG', 'SPLIT_DEBUGINFO', 'STRIP', 'DEBUG_ASSERTIONS', 'OVERFLOW_CHECKS', 'LTO', 'PANIC', 'CODEGEN_UNITS', 'RPATH', 'TRIM_PATHS', 'CODEGEN_BACKEND'],
 } as const;
 const NEXTEST = '.config/nextest.toml';
-const DENY = Record.map({ config: 'deny', exceptions: 'deny.exceptions' }, (stem) => [`${stem}.toml`, `.${stem}.toml`, `.cargo/${stem}.toml`]);
+const DENY = Record.map({ config: 'deny', exceptions: 'deny.exceptions' }, (stem) => [`${stem}.toml`, `.${stem}.toml`, `.cargo/${stem}.toml`, `.config/${stem}.toml`]);
 const INSTALL = Config.String('CARGO_INSTALL_ROOT').pipe(
     Config.orElse(() => Config.String('CARGO_HOME')),
     Config.withDefault(join(homedir(), '.cargo')),

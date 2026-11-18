@@ -119,7 +119,10 @@ describe('@rasm/nx-cmake/plugin', { timeout: 60_000 }, () => {
         expect(targets?.['build']).toMatchInlineSnapshot(`
           {
             "dependsOn": [
-              "build--*",
+              {
+                "params": "forward",
+                "target": "build--*",
+              },
             ],
             "inputs": [
               "...",
@@ -182,7 +185,10 @@ describe('@rasm/nx-cmake/plugin', { timeout: 60_000 }, () => {
         expect(targets?.['attach']).toMatchInlineSnapshot(`
           {
             "dependsOn": [
-              "attach--*",
+              {
+                "params": "forward",
+                "target": "attach--*",
+              },
             ],
             "inputs": [
               "...",
@@ -235,7 +241,10 @@ describe('@rasm/nx-cmake/plugin', { timeout: 60_000 }, () => {
         expect(targets?.['pack']).toMatchInlineSnapshot(`
           {
             "dependsOn": [
-              "pack--*",
+              {
+                "params": "forward",
+                "target": "pack--*",
+              },
             ],
             "inputs": [
               "...",
@@ -279,7 +288,10 @@ describe('@rasm/nx-cmake/plugin', { timeout: 60_000 }, () => {
         expect(targets?.['install']).toMatchInlineSnapshot(`
           {
             "dependsOn": [
-              "install--*",
+              {
+                "params": "forward",
+                "target": "install--*",
+              },
             ],
             "inputs": [
               "...",
@@ -345,7 +357,10 @@ describe('@rasm/nx-cmake/plugin', { timeout: 60_000 }, () => {
         expect(targets?.['clean']).toMatchInlineSnapshot(`
           {
             "dependsOn": [
-              "clean--*",
+              {
+                "params": "forward",
+                "target": "clean--*",
+              },
             ],
             "inputs": [
               "...",

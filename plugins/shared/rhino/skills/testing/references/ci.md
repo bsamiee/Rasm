@@ -10,7 +10,7 @@ Rhino tests need Rhino installed and licensed on the runner, and only some runne
 |  [02]   | Self-hosted macOS           | Machine owner                   | Signed-in Rhino | Template host, runner in the signed-in session |
 |  [03]   | Self-hosted Windows desktop | Machine owner                   | Signed-in Rhino | Rhino processes and plug-in files persist      |
 |  [04]   | Linux container             | `rhino3d` apt package           | `RHINO_TOKEN`   | Headless Rhino with defects, no Grasshopper 2  |
-|  [05]   | GitHub-hosted macOS         | `setup-rhino3d@v3.0.0` dmg copy | None            | No license route for an ephemeral Mac          |
+|  [05]   | GitHub-hosted macOS         | `setup-rhino3d@v4` dmg copy     | None            | No license route for an ephemeral Mac          |
 |  [06]   | GitHub-hosted Linux         | None                            | None            | Rhino-free projects                            |
 
 - Self-hosted macOS runners run as a LaunchAgent (`svc.sh install`) of the user signed in to Rhino, a LaunchDaemon has no user session for Rhino
@@ -30,9 +30,10 @@ Rhino tests need Rhino installed and licensed on the runner, and only some runne
 
 ## [03]-[INSTALL]
 
-`mcneel/setup-rhino3d@v3.0.0` installs Rhino on Windows and macOS runners, without cache, Linux support, or licensing:
-- Inputs: `email-address`, `release-version` (`latest` installs Rhino 8, `rc`, `wip` installs the Rhino 9 WIP), `download-url` (file name must hold `rhino_<major>.`)
-- `v2` fails on macOS with `Unsupported platform`, and no moving `v3` tag exists
+`mcneel/setup-rhino3d@v4` installs Rhino on Windows and macOS runners, without cache, Linux support, or licensing:
+- Inputs: `email-address`, `major-version` (`9` default, or `8`), `release-version` (`latest` default, or `rc`, `wip` refused while no WIP exists), `download-url`
+- `download-url` overrides both versions and installs one build, its file name holding `rhino_<major>.`
+- `v2` fails on macOS with `Unsupported platform`
 - Windows runs the installer with `-passive -norestart`, installs to `C:\Program Files\Rhino <major>`, and records `HKLM:\SOFTWARE\McNeel\Rhinoceros\<major>.0\Install`
 - On macOS it mounts the dmg with `hdiutil attach -nobrowse` and copies the `.app` to `/Applications`
 
@@ -44,7 +45,6 @@ curl -fsS -o /dev/null -w '%{redirect_url}' --get --data-urlencode 'slug=rhino-f
 ```
 
 - Slugs take `latest`, `wip`, and `latest/rc` after the major
-- Rhino 9 releases install through `download-url` set to the slug's redirect, as no `release-version` names them
 
 Linux installs from McNeel's apt repository:
 
@@ -61,7 +61,7 @@ apt-get update && apt-get install -y "rhino3d=<version>" && apt-mark hold rhino3
 ## [04]-[SEQUENCE]
 
 1. Checkout without persisted credentials
-2. `actions/setup-dotnet` from `global.json`, which selects Microsoft.Testing.Platform for `dotnet test`
+2. .NET SDK install, `global.json` selecting Microsoft.Testing.Platform for `dotnet test`
 3. Rhino install, before any build or graph: the install gate reads the install at evaluation, and without Rhino the project holds no test
 4. NuGet cache keyed on project files
 5. Build once in Release
@@ -96,7 +96,7 @@ Job settings:
 |  [01]   | Zero tests ran, exit code 8                 | Rhino absent when the project evaluated             |
 |  [02]   | `NotLicensedException`, `PAL_SEHException`  | `RHINO_TOKEN` absent from the test step             |
 |  [03]   | `Unsupported platform` on macOS             | `setup-rhino3d@v2`                                  |
-|  [04]   | Rhino 8 installed for a Rhino 9 project     | `setup-rhino3d` `release-version: latest`           |
+|  [04]   | Rhino 8 installed for a Rhino 9 project     | `setup-rhino3d` `major-version: 8`                  |
 |  [05]   | Job killed at timeout without dumps         | Job timeout below hang dump timeout                 |
 |  [06]   | Locked `.rhp` or `.gha` on self-hosted runs | Rhino process left from an earlier run              |
 |  [07]   | Linux tests break after an image rebuild    | Unpinned `rhino3d` package moved to a newer nightly |

@@ -120,7 +120,10 @@ describe("should create nodes, inputs derived from the config's stories, no buil
         expect(myApp[0]?.[1].projects?.['my-app']?.targets?.['build']).toMatchInlineSnapshot(`
           {
             "dependsOn": [
-              "build--*",
+              {
+                "params": "forward",
+                "target": "build--*",
+              },
             ],
             "inputs": [
               "...",

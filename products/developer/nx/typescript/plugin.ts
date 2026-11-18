@@ -1,6 +1,6 @@
 import { createRequire, findPackageJSON } from 'node:module';
 import { basename, dirname, extname, join, matchesGlob, relative, resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import type { loadConfig } from '@cloudflare/config';
 import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, detectPackageManager, getPackageManagerCommand, hashArray, normalizePath, type PackageManager, type ProjectConfiguration, readJsonFile, type TargetConfiguration } from '@nx/devkit';
 import { buildPackageJsonPatterns, buildPackageJsonWorkspacesMatcher, getFilesInDirectoryUsingContext, getLockFileName, hashObject, hashWithWorkspaceContext, type PackageJson, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
@@ -22,16 +22,17 @@ const CONFIG = 'tsconfig.json';
 const MANIFEST = 'package.json';
 const WORKER = 'cloudflare.config.ts';
 const PROJECT = 'project.json';
+const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#package'))).name;
 const LINTERS = ['eslint.config.js', 'eslint.config.mjs', 'eslint.config.cjs', 'eslint.config.ts', 'eslint.config.mts', 'eslint.config.cts'];
 const DUPLICATES = ['.jscpd.json', '.config/jscpd.json', '.config/.jscpd.json'];
 const PACKAGE = /^(?![./]|node:)(?<name>(?:@[^/]+\/)?[^/]+)/u;
 const UNPACKAGED: NonNullable<TargetConfiguration['inputs']> = ['default', '^default', { externalDependencies: [] }];
 const MANAGERS = {
-    npm: { argv: ['npm', 'pack'], to: (at: string) => ['--pack-destination', at], workspace: { json: join('{workspaceRoot}', MANIFEST), fields: ['workspaces'] }, upgrade: ['npm', 'update', '--save', '--workspaces', '--include-workspace-root'], example: ['--dry-run'] },
-    pnpm: { argv: ['pnpm', 'pack'], to: (at: string) => ['--out', join(at, '%s.tgz')], workspace: join('{workspaceRoot}', 'pnpm-workspace.yaml'), upgrade: ['pnpm', 'update', '--recursive', '--latest'], example: ['--interactive'] },
-    yarn: { argv: ['yarn', 'pack'], to: (at: string) => ['--out', join(at, '%s.tgz')], workspace: join('{workspaceRoot}', '.yarnrc.yml'), upgrade: ['yarn', 'up', '*'], example: ['--interactive'] },
-    bun: { argv: ['bun', 'pm', 'pack'], to: (at: string) => ['--destination', at], workspace: { json: join('{workspaceRoot}', MANIFEST), fields: ['workspaces'] }, upgrade: ['bun', 'update', '--recursive', '--latest'], example: ['--dry-run'] },
-} as const satisfies Record<PackageManager, { readonly argv: readonly string[]; readonly to: (at: string) => readonly string[]; readonly workspace: NonNullable<TargetConfiguration['inputs']>[number]; readonly upgrade: readonly string[]; readonly example: readonly string[] }>;
+    npm: { argv: ['npm', 'pack'], to: (at: string) => ['--pack-destination', at], workspace: { json: join('{workspaceRoot}', MANIFEST), fields: ['workspaces'] }, catalogs: [] },
+    pnpm: { argv: ['pnpm', 'pack'], to: (at: string) => ['--out', join(at, '%s.tgz')], workspace: join('{workspaceRoot}', 'pnpm-workspace.yaml'), catalogs: ['pnpm-workspace.yaml'] },
+    yarn: { argv: ['yarn', 'pack'], to: (at: string) => ['--out', join(at, '%s.tgz')], workspace: join('{workspaceRoot}', '.yarnrc.yml'), catalogs: ['.yarnrc.yml'] },
+    bun: { argv: ['bun', 'pm', 'pack'], to: (at: string) => ['--destination', at], workspace: { json: join('{workspaceRoot}', MANIFEST), fields: ['workspaces'] }, catalogs: [] },
+} as const satisfies Record<PackageManager, { readonly argv: readonly string[]; readonly to: (at: string) => readonly string[]; readonly workspace: NonNullable<TargetConfiguration['inputs']>[number]; readonly catalogs: readonly string[] }>;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -251,8 +252,7 @@ const tarball = (manager: PackageManager, exec: string, { outputPath }: typeof O
 };
 
 const workspace = Effect.fnUntraced(function* (workspaceRoot: string, manager: PackageManager, exec: string, { knipConfig }: typeof Options.Type, { nx, jscpd }: typeof Manifest.Type) {
-    const { upgrade, example } = MANAGERS[manager];
-    const command = upgrade.map(quoteShellArg).join(' ');
+    const { catalogs } = MANAGERS[manager];
     const knip = ['knip', ...UndefinedOr.match(knipConfig, { onUndefined: () => [], onDefined: (at) => ['--config', at] })].map(quoteShellArg).join(' ');
     const configured = Option.orElse(yield* Effect.findFirst(DUPLICATES, (at) => FileSystem.FileSystem.use((fs) => fs.exists(join(workspaceRoot, at)))), () => Option.liftPredicate(MANIFEST, () => jscpd !== undefined));
     const decoded = Effect.flatMap(spawned(['jscpd', '--debug', '.'], { cwd: workspaceRoot }), Schema.decodeEffect(Scanned));
@@ -271,7 +271,12 @@ const workspace = Effect.fnUntraced(function* (workspaceRoot: string, manager: P
             manager,
             {
                 upgrade: {
-                    [manager]: { command, inputs: [{ externalDependencies: [] }], metadata: { description: `Moves the dependency requirements of every workspace package and the lockfile to newer releases with ${command}`, help: { command: `${upgrade.slice(0, 2).join(' ')} --help`, example: { args: [...example] } } } },
+                    [manager]: {
+                        executor: `${PLUGIN}:upgrade`,
+                        options: { catalogs },
+                        inputs: [{ externalDependencies: [] }],
+                        metadata: { description: `Moves every exact version of the catalogs and package manifests to the newest dist-tag head published since, then the lockfile with ${manager} install`, help: { command: `${exec} nx run --help`, example: { options: { dryRun: true } } } },
+                    },
                 },
                 check: {
                     ...Record.getSomes({ jscpd: duplicated }),

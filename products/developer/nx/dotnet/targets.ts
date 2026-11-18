@@ -68,7 +68,9 @@ const targets = (node: Node, coverage: Option.Option<string>, solution: (configu
         { env: 'NUGET_PACKAGES' },
         { externalDependencies: [] },
         ...node.inputs.map((input) => join('{workspaceRoot}', input)),
-        ...Option.toArray(listed).map((at) => ({ runtime: line(['node', '-e', 'for (const file of JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8"))) { try { console.log(require("node:crypto").createHash("sha256").update(require("node:fs").readFileSync(file)).digest("hex")); } catch { console.log("absent"); } }', at]) })),
+        ...Option.toArray(listed).map((at) => ({
+            runtime: line(['node', '-e', 'for (const file of JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8"))) { try { console.log(require("node:crypto").createHash("sha256").update(require("node:fs").readFileSync(file)).digest("hex")); } catch { console.log("absent"); } }', at]),
+        })),
     ];
     const moded = <A extends object>(each: (mode: Node['evaluated']) => A) => ({ options: each(node.evaluated), configurations: Record.fromIterableWith(node.declared, (mode) => [mode.configuration.toLowerCase(), each(mode)] as const) });
     const verb = node.publishable ? 'publish' : 'build';
@@ -199,4 +201,4 @@ const streamed = <A, E>(results: Stream.Stream<A, E, NodeServices>) => Stream.to
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Edges, Node, PLUGIN, publishing, run, streamed, targets };
+export { Edges, line, Node, PLUGIN, publishing, run, streamed, targets };

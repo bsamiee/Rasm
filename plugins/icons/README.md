@@ -50,6 +50,7 @@ The light slate changed from `#AFBDC2`, which sat at 1.61:1 on the ground: half 
 | `delegate` | Five nuqtas set evenly on a circle | A council: one task handed to several agents and models at once |
 | `terminal` | A chevron of two strokes, one turned heavy against the reed, beside a brick cursor on its baseline | The agent's shell prompt: every command recorded, the session resumable where its cursor stopped |
 | `media` | A nuqta between two pairs of arcs, the reed turned so each arc swells at its middle | One source sounding outward: voice first, then audio, video, and images |
+| `browser` | Three small nuqtas and a heavy kashida as a header, over a frame of hairline sides and a light kashida base | A browser window, its controls and address bar above the page each engine draws |
 
 None of the arrangements occurs in Perso-Arabic script. Crossings (dotnet, cpp, function-hooks) never happen inside a letter. Dots appear only beside strokes or at their ends, never in diacritic positions above or below a stroke. Bowls are shallow and repeated, so none stands alone as a noon. The alif in rasm appears only as the measure diagram.
 

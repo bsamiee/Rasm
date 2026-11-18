@@ -134,7 +134,7 @@ Library manifest:
 |  [06]   | `imports`       | One `#/*` row                     | Files inside a package reach each other without relative paths |
 |  [07]   | `files`         | `dist` `.js` and `.d.ts` globs    | Tarball allowlist                                              |
 |  [08]   | `publishConfig` | `exports` and `imports` to `dist` | pnpm hoists both over the source maps at pack                  |
-|  [09]   | `engines.node`  | `>=26`                            | Node release mise installs                                     |
+|  [09]   | `engines.node`  | `>=27`                            | Node release mise installs                                     |
 |  [10]   | `nx`            | Facts no manifest row states      | Holds tags and target options in place of `project.json`       |
 
 - `main`, `module`, and top-level `types` serve resolvers older than `exports`, which Node, TypeScript, and bundlers read in their place

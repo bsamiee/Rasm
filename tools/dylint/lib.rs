@@ -44,7 +44,7 @@ use rustc_hir::pat_util::EnumerateAndAdjustIterator as _;
 use rustc_hir::{Body, BodyId, Expr, ExprKind, HirId, HirIdMap, HirIdSet, Mutability, Node, Pat, PatExpr, PatKind, UnOp};
 use rustc_lint::{EarlyContext, EarlyLintPass, LateContext, LateLintPass, LintId, LintPass, LintVec};
 use rustc_middle::ty::adjustment::{Adjust, AutoBorrow, DerefAdjustKind};
-use rustc_middle::ty::{self, Clause, FieldDef, FnSig, PolyTraitClause, Ty, TyCtxt, TypeckResults, TypingEnv, Unnormalized, VariantDef};
+use rustc_middle::ty::{self, CallerBoundsIterator as _, FieldDef, FnSig, PolyTraitClause, Ty, TyCtxt, TypeckResults, TypingEnv, Unnormalized, VariantDef};
 use rustc_span::{ExpnKind, FileName, MacroKind, RemapPathScopeComponents, Span, Symbol};
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -247,9 +247,7 @@ fn awaited_output(tcx: TyCtxt<'_>, item: DefId) -> Ty<'_> {
     tcx.get_impl_future_output_ty(output).map_or(output, |future| tcx.normalize_erasing_regions(TypingEnv::non_body_analysis(tcx, item), Unnormalized::new(future)))
 }
 
-fn bounds_of<'tcx>(tcx: TyCtxt<'tcx>, item: DefId, param: Ty<'tcx>) -> impl Iterator<Item = PolyTraitClause<'tcx>> {
-    tcx.param_env(item).caller_bounds().filter_map(Clause::as_trait_clause).filter(move |bound| bound.self_ty().skip_binder() == param)
-}
+fn bounds_of<'tcx>(tcx: TyCtxt<'tcx>, item: DefId, param: Ty<'tcx>) -> impl Iterator<Item = PolyTraitClause<'tcx>> { tcx.param_env(item).caller_bounds().trait_clauses(tcx).with_self_ty(param).iter() }
 
 // --- [PLACES]
 

@@ -1,0 +1,22 @@
+{
+    "mcpServers": {
+        "chrome-devtools": {
+            "type": "stdio",
+            "command": "chrome-devtools-mcp",
+            "args": ["--headless", "--isolated", "--workspace=/"],
+            "default_tools_approval_mode": "approve"
+        },
+        "firefox-devtools": {
+            "type": "stdio",
+            "command": "firefox-devtools-mcp",
+            "args": ["--headless", "--toolPreset=developer", "--unrestrictedSavePaths"],
+            "default_tools_approval_mode": "approve"
+        },
+        "safari": {
+            "type": "stdio",
+            "command": "/usr/bin/safaridriver",
+            "args": ["--mcp"],
+            "default_tools_approval_mode": "approve"
+        }
+    }
+}

@@ -1,6 +1,7 @@
 import type { Body, Meta, State, Uppy, UppyEventMap, UppyFile } from '@uppy/core';
-import { Cause, Effect, FiberSet, type Types } from 'effect';
+import { Effect, FiberSet, type Types } from 'effect';
 import { Atom } from 'effect/reactivity';
+import { MediaError } from '#/error';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -33,7 +34,7 @@ const processUploads = Effect.fn('processUploads')(function* <M extends Meta, B 
         file?.data instanceof Blob && file.progress.uploadStarted === null
             ? Effect.sync(() => uploader.emit('preprocess-progress', file, { mode: 'indeterminate', message })).pipe(
                   Effect.andThen(prepare(file, file.data)),
-                  Effect.catchDefect((defect) => new Cause.UnknownError(defect)),
+                  Effect.catchDefect(MediaError.of('Unreadable', file.name)),
                   Effect.matchEffect({
                       onSuccess: (meta) => Effect.sync(() => uploader.setFileMeta(file.id, { ...file.meta, ...meta })),
                       onFailure: (error) => Effect.sync(() => uploader.emit('upload-error', file, error)),
@@ -46,7 +47,7 @@ const processUploads = Effect.fn('processUploads')(function* <M extends Meta, B 
         file?.progress.uploadComplete === true && file.error === undefined
             ? Effect.sync(() => uploader.emit('postprocess-progress', file, { mode: 'indeterminate', message })).pipe(
                   Effect.andThen(finish(file)),
-                  Effect.catchDefect((defect) => new Cause.UnknownError(defect)),
+                  Effect.catchDefect(MediaError.of('Unavailable', file.name)),
                   Effect.catch((error) => Effect.sync(() => uploader.emit('upload-error', file, error))),
                   Effect.ensuring(Effect.sync(() => uploader.emit('postprocess-complete', file))),
               )

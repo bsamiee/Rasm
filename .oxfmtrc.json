@@ -3,6 +3,6 @@
     "printWidth": 320,
     "singleQuote": true,
     "sortImports": { "newlinesBetween": false },
-    "ignorePatterns": ["assets/**", ".claude/workflows/**", ".config/mise/locks/**", "**/packages*.lock.json", "**/*.md", "**/*.toml", "**/*.xcassets", "**/*.icon"],
+    "ignorePatterns": ["assets/**", ".claude/settings.json", ".config/mise/locks/**", "**/packages*.lock.json", "vcpkg.json", "**/*.md", "**/*.toml", "**/*.xcassets", "**/*.icon"],
     "overrides": [{ "files": ["products/web/portfolio/**"], "options": { "sortTailwindcss": { "stylesheet": "./products/web/portfolio/site/theme.css" } } }]
 }

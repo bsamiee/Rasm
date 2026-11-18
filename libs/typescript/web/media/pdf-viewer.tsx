@@ -7,6 +7,7 @@ import type { DEFAULT_SCALE, DEFAULT_SCALE_VALUE, MAX_SCALE, MIN_SCALE, TextLaye
 import { EventBus, FindState, PDFFindController, PDFLinkService, PDFViewer, ScrollMode, SpreadMode } from 'pdfjs-dist/web/pdf_viewer.mjs';
 import { type ComponentProps, useEffect, useEffectEvent, useState } from 'react';
 import { Button, Group, Input, SearchField, ToggleButton, Toolbar, VisuallyHidden } from 'react-aria-components';
+import { MediaError } from '#/error';
 import { ZoomControls } from '#/zoom-controls.tsx';
 import 'pdfjs-dist/web/pdf_viewer.css';
 
@@ -36,7 +37,7 @@ const Found = Schema.Struct({ matchesCount: Schema.Struct({ current: Schema.Int,
 const Rendered = Schema.Struct({ pageNumber: Schema.Int, error: Schema.Unknown });
 const useViewer = (document: NonNullable<Parameters<PDFViewer['setDocument']>[0]>, { pinch, ...options }: Options & { readonly pinch?: { readonly drawingDelay: Duration.Input } }) => {
     const [container, setContainer] = useState<HTMLDivElement | null>(null);
-    const [state, setState] = useState<AsyncResult.AsyncResult<PdfViewer, Cause.UnknownError>>(AsyncResult.initial());
+    const [state, setState] = useState<AsyncResult.AsyncResult<PdfViewer, MediaError>>(AsyncResult.initial());
     const [pan, setPan] = useState(false);
     const [query, setQuery] = useState('');
     const initial = useEffectEvent(() => options);
@@ -45,12 +46,12 @@ const useViewer = (document: NonNullable<Parameters<PDFViewer['setDocument']>[0]
     const panning = Option.filter(live, () => pan);
     useEffect(() => {
         const controller = new AbortController();
-        const publish = (result: AsyncResult.AsyncResult<PdfViewer, Cause.UnknownError>) => Effect.sync(() => setState(result));
+        const publish = (result: AsyncResult.AsyncResult<PdfViewer, MediaError>) => Effect.sync(() => setState(result));
         if (container !== null) {
             Effect.runFork(
                 PdfViewer.mount(container, document, initial()).pipe(
                     Stream.runForEach(flow(AsyncResult.success, publish)),
-                    Effect.catchCause(flow(AsyncResult.failure<PdfViewer, Cause.UnknownError>, publish)),
+                    Effect.catchCause(flow(AsyncResult.failure<PdfViewer, MediaError>, publish)),
                     Effect.onInterrupt(() => publish(AsyncResult.initial())),
                 ),
                 { signal: controller.signal },
@@ -170,7 +171,7 @@ class PdfViewer extends Data.Class<typeof View.Type & Status & { readonly pdfVie
     static readonly useViewer = useViewer;
     static readonly mount = flow(
         Effect.fn('PdfViewer.mount')(function* (container: HTMLDivElement, document: NonNullable<Parameters<PDFViewer['setDocument']>[0]>, { link, find, view: { currentScaleValue = 'auto' satisfies typeof DEFAULT_SCALE_VALUE, ...view } = {}, ...options }: Options) {
-            const labels = yield* Effect.tryPromise(() => document.getPageLabels());
+            const labels = yield* Effect.tryPromise({ try: () => document.getPageLabels(), catch: MediaError.of('Unreadable', 'PDF page labels') });
             const eventBus = new EventBus();
             const linkService = new PDFLinkService({ ...link, eventBus });
             const signal = yield* Effect.abortSignal;
@@ -188,11 +189,11 @@ class PdfViewer extends Data.Class<typeof View.Type & Status & { readonly pdfVie
                 Object.assign(pdfViewer, { ...view, currentScaleValue });
                 observer.observe(container);
             };
-            const updates = yield* Effect.acquireRelease(Queue.make<(status: Status) => Status, Cause.UnknownError | Cause.Done>(), Queue.shutdown);
+            const updates = yield* Effect.acquireRelease(Queue.make<(status: Status) => Status, MediaError | Cause.Done>(), Queue.shutdown);
             const viewed = () => Queue.offerUnsafe(updates, identity);
             const found = (event: unknown) => Option.map(Schema.decodeUnknownOption(Found)(event), (update) => Queue.offerUnsafe(updates, Struct.assign(update)));
             const rendered = (event: unknown) => Option.map(Schema.decodeUnknownOption(Rendered)(event), ({ pageNumber, error }) => Queue.offerUnsafe(updates, Struct.evolve({ failedPages: Predicate.isNullish(error) ? HashSet.remove(pageNumber) : HashSet.add(pageNumber) })));
-            eventBus.on('pagesinit', () => Result.match(Result.try(initialized), { onSuccess: viewed, onFailure: (error) => Queue.failCauseUnsafe(updates, Cause.fail(new Cause.UnknownError(error))) }), { signal });
+            eventBus.on('pagesinit', () => Result.match(Result.try({ try: initialized, catch: MediaError.of('Unsupported', 'PDF viewer view') }), { onSuccess: viewed, onFailure: (error) => Queue.failCauseUnsafe(updates, Cause.fail(error)) }), { signal });
             ['pagechanging', 'scalechanging', 'rotationchanging', 'scrollmodechanged', 'spreadmodechanged'].forEach((name) => eventBus.on(name, viewed, { signal }));
             ['updatefindmatchescount', 'updatefindcontrolstate'].forEach((name) => eventBus.on(name, found, { signal }));
             eventBus.on('pagerendered', rendered, { signal });

@@ -16,7 +16,7 @@ use rustc_hir::{Block, ClosureKind, CoroutineKind, CoroutineSource, Expr, ExprKi
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::ty::adjustment::{Adjust, DerefAdjustKind, PointerCoercion};
 use rustc_middle::ty::print::{PrintTraitRefExt as _, with_forced_trimmed_paths};
-use rustc_middle::ty::{self, EarlyBinder, GenericArg, GenericArgs, GenericArgsRef, TraitRef, Ty, TyCtxt, TypeFoldable, TypeVisitableExt as _, TypeckResults};
+use rustc_middle::ty::{self, EarlyBinder, GenericArg, GenericArgs, TraitRef, Ty, TyCtxt, TypeFoldable, TypeVisitableExt as _, TypeckResults};
 use rustc_span::Symbol;
 use rustc_trait_selection::regions::test_region_obligations;
 use rustc_trait_selection::traits::{Obligation, ObligationCause, ObligationCtxt};
@@ -77,7 +77,7 @@ fn substantive(tcx: TyCtxt<'_>, function: LocalDefId) -> bool {
 }
 
 fn bound_to_trait<'tcx>(cx: &LateContext<'tcx>, function: LocalDefId, implemented: DefId) -> bool {
-    fn rebased<'tcx, T>(tcx: TyCtxt<'tcx>, value: T, arguments: GenericArgsRef<'tcx>, owner: Ty<'tcx>) -> T
+    fn rebased<'tcx, T>(tcx: TyCtxt<'tcx>, value: T, arguments: GenericArgs<'tcx>, owner: Ty<'tcx>) -> T
     where T: TypeFoldable<TyCtxt<'tcx>> {
         substitute_types(tcx, EarlyBinder::bind(tcx, value).instantiate(tcx, arguments).skip_normalization(), |held| (held == owner).then_some(tcx.types.self_param))
     }
@@ -95,7 +95,7 @@ fn bound_to_trait<'tcx>(cx: &LateContext<'tcx>, function: LocalDefId, implemente
         .enumerate()
         .map(|(index, argument)| {
             if index >= inherited {
-                declared.get(tcx.generics_of(declaration).parent_count + (index - inherited)).copied()
+                declared.get(tcx.generics_of(declaration).parent_count + (index - inherited))
             } else {
                 implementation.args.iter().zip(declared).find_map(|(held, target)| (held == argument).then_some(target))
             }

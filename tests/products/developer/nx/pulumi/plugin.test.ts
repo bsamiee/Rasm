@@ -58,7 +58,7 @@ describe('@rasm/nx-pulumi', () => {
                             root: 'proj',
                             metadata: { technologies },
                             targets: {
-                                install: { dependsOn: ['install--*'], inputs: ['...', ...inputs] },
+                                install: { dependsOn: [{ target: 'install--*', params: 'forward' }], inputs: ['...', ...inputs] },
                                 'install--pulumi': {
                                     command: 'node stacks.ts install',
                                     options: { cwd: 'proj' },
@@ -67,7 +67,7 @@ describe('@rasm/nx-pulumi', () => {
                                     inputs,
                                     metadata: { technologies, description: 'Runs the Pulumi Automation API program of the project with node stacks.ts install' },
                                 },
-                                deploy: { dependsOn: ['deploy--*'], inputs: ['...', ...inputs] },
+                                deploy: { dependsOn: [{ target: 'deploy--*', params: 'forward' }], inputs: ['...', ...inputs] },
                                 'deploy--pulumi': {
                                     command: 'node stacks.ts deploy',
                                     options: { cwd: 'proj' },
@@ -76,7 +76,7 @@ describe('@rasm/nx-pulumi', () => {
                                     inputs,
                                     metadata: { technologies, description: 'Runs the Pulumi Automation API program of the project with node stacks.ts deploy' },
                                 },
-                                'dry-run': { dependsOn: ['dry-run--*'], inputs: ['...', ...inputs] },
+                                'dry-run': { dependsOn: [{ target: 'dry-run--*', params: 'forward' }], inputs: ['...', ...inputs] },
                                 'dry-run--pulumi': {
                                     command: 'node stacks.ts deploy --operation=preview',
                                     options: { cwd: 'proj' },
@@ -175,8 +175,8 @@ describe('@rasm/nx-pulumi', () => {
 
             const results = await createNodesFunction(['proj/package.json'], {}, context);
 
-            expect(results[0]?.[1].projects?.['proj']?.targets?.['deploy']?.dependsOn).toStrictEqual(['deploy--*']);
-            expect(results[0]?.[1].projects?.['proj']?.targets?.['install']?.dependsOn).toStrictEqual(['install--*']);
+            expect(results[0]?.[1].projects?.['proj']?.targets?.['deploy']?.dependsOn).toStrictEqual([{ target: 'deploy--*', params: 'forward' }]);
+            expect(results[0]?.[1].projects?.['proj']?.targets?.['install']?.dependsOn).toStrictEqual([{ target: 'install--*', params: 'forward' }]);
         });
 
         it('should set each tool target to wait for the same verb of the projects it depends on', async ({ tempFs, context }) => {

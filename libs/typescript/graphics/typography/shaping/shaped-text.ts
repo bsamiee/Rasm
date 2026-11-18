@@ -111,7 +111,7 @@ class ShapedText extends Schema.Class<ShapedText, { readonly brand: unique symbo
     };
 
     get advance() {
-        return Math.hypot(Number.sumAll(this.glyphs.map(Struct.get('xAdvance'))), Number.sumAll(this.glyphs.map(Struct.get('yAdvance'))));
+        return Math.hypot(Math.sumPrecise(this.glyphs.map(Struct.get('xAdvance'))), Math.sumPrecise(this.glyphs.map(Struct.get('yAdvance'))));
     }
     get extents(): Option.Option<typeof Bounds.Type> {
         const [, boxes] = Array.mapAccum(this.glyphs, { x: 0, y: 0 }, (pen, { xAdvance, yAdvance, xOffset, yOffset, extents }) => [

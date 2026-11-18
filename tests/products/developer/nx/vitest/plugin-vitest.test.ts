@@ -67,7 +67,7 @@ describe('@rasm/nx-vitest', () => {
                                 metadata: {},
                                 root: '.',
                                 targets: {
-                                    test: { dependsOn: ['test--*'] },
+                                    test: { dependsOn: [{ target: 'test--*', params: 'forward' }] },
                                     'test--vitest': {
                                         cache: true,
                                         executor: '@rasm/nx-vitest:test',

@@ -100,7 +100,7 @@ const report = (workspaceRoot: string, lock: string, metadata: typeof Metadata.T
     const workspace = relative(workspaceRoot, metadata.workspace.path) || '.';
     const located = (id: string) => Option.flatMap(Option.fromUndefinedOr(resolution[id]), (node) => Option.all({ root: local(node), name: Option.fromUndefinedOr(node.name) }));
     const reach = (ids: ReadonlySet<string>): ReadonlySet<string> => {
-        const next = new Set([...ids, ...[...ids].flatMap((id) => resolution[id]?.dependencies ?? [])]);
+        const next = ids.union(new Set(ids.values().flatMap((id) => resolution[id]?.dependencies ?? [])));
         return next.size === ids.size ? ids : reach(next);
     };
     const distributed = (name: string) => (id: string) => Option.exists(Option.fromUndefinedOr(resolution[id]), (node) => node.name === name && Option.isNone(local(node)));
@@ -119,7 +119,10 @@ const report = (workspaceRoot: string, lock: string, metadata: typeof Metadata.T
         return [file, Result.flatMap(Schema.decodeUnknownResult(Tooled)(documented.get(file)), ({ tool }) => Schema.decodeUnknownResult(Nx, { onExcessProperty: 'error' })(tool.nx))] as const;
     });
     const index = Option.flatMap(Schema.decodeUnknownOption(Indexed)(stated(workspace)), ({ tool }) => Array.findFirst(tool.uv.index, (row) => row['publish-url'] !== undefined));
-    const manifests = [...documented.keys()].filter((file) => basename(file) === MANIFEST);
+    const manifests = documented
+        .keys()
+        .filter((file) => basename(file) === MANIFEST)
+        .toArray();
     return {
         failures: Array.filterMap(tables, ([file, table]) => Result.map(Result.flip(table), (cause) => new Cause.UnknownError(cause, `${file} does not read as the nx table of tool`))),
         members: Array.zipWith(members, tables, (member, [, table]) => {
@@ -136,7 +139,13 @@ const report = (workspaceRoot: string, lock: string, metadata: typeof Metadata.T
                 index: Option.getOrUndefined(Option.flatMap(index, ({ name }) => Option.fromUndefinedOr(name))),
                 pixi: documented.has(join(workspace, PIXI)) || Schema.is(Pixi)(stated(workspace)),
                 scripted: packaged && Option.exists(manifest(member.root), ({ scripts }) => !Record.isEmptyRecord(scripts)),
-                locals: Array.dedupe(Array.getSomes([...reach(new Set([member.id]))].map(located)).map(({ name }) => name)).toSorted(),
+                locals: Array.dedupe(
+                    Array.getSomes(
+                        reach(new Set([member.id]))
+                            .values()
+                            .map(located),
+                    ).map(({ name }) => name),
+                ).toSorted(),
                 python: Option.getOrUndefined(Option.flatMap(manifest(member.root), (project) => Option.fromUndefinedOr(project['requires-python']))),
                 implicit: Result.getOrUndefined(table)?.implicitDependencies,
                 published: packaged && Option.exists(manifest(member.root), ({ classifiers, dynamic }) => !(dynamic.includes('classifiers') || classifiers.some((classifier) => classifier.startsWith(PRIVATE)))),
@@ -145,13 +154,13 @@ const report = (workspaceRoot: string, lock: string, metadata: typeof Metadata.T
                 checks: Record.map(CHECKERS, (row, key) => {
                     const group = Array.findFirst(groups, ({ id }) => (resolution[id]?.dependencies ?? []).some(distributed(key)));
                     const from = Option.match(group, { onNone: () => [], onSome: ({ id }) => resolution[id]?.dependencies ?? [] });
-                    const installed = [...reach(new Set([member.id, ...from]))];
+                    const installed = reach(new Set([member.id, ...from]));
                     return {
                         ...declared(documented, row.origin(workspace, member.root), member.root, key),
                         group: Option.getOrUndefined(group)?.name,
                         projects: Array.dedupe(Array.getSomes(from.map(located)).map(({ name }) => name)).toSorted(),
-                        locked: installed.some(distributed(key)),
-                        covered: row.coverage !== undefined && installed.some(distributed(row.coverage)),
+                        locked: installed.values().some(distributed(key)),
+                        covered: row.coverage !== undefined && installed.values().some(distributed(row.coverage)),
                     };
                 }),
             };

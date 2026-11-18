@@ -64,7 +64,10 @@ describe('@rasm/nx-docker', () => {
         expect(results[0]?.[1].projects?.['proj']?.targets?.['check']).toMatchInlineSnapshot(`
           {
             dependsOn: [
-              check--*,
+              {
+                params: forward,
+                target: check--*,
+              },
             ],
             inputs: [
               ...,
@@ -163,7 +166,10 @@ describe('@rasm/nx-docker', () => {
         expect(results[0]?.[1].projects?.['proj']?.targets?.['build']).toMatchInlineSnapshot(`
           {
             dependsOn: [
-              build--*,
+              {
+                params: forward,
+                target: build--*,
+              },
             ],
             inputs: [
               ...,
@@ -217,7 +223,10 @@ describe('@rasm/nx-docker', () => {
         expect(results[0]?.[1].projects?.['proj']?.targets?.['serve']).toMatchInlineSnapshot(`
           {
             dependsOn: [
-              serve--*,
+              {
+                params: forward,
+                target: serve--*,
+              },
             ],
             inputs: [
               ...,
@@ -234,7 +243,7 @@ describe('@rasm/nx-docker', () => {
         `);
         expect(results[0]?.[1].projects?.['proj']?.targets?.['serve--compose']).toMatchInlineSnapshot(`
           {
-            command: docker compose up --wait --no-build app && docker compose logs --follow app,
+            command: docker compose up --detach --wait --no-build app && docker compose logs --follow app,
             continuous: true,
             dependsOn: [
               build--*,
@@ -250,7 +259,7 @@ describe('@rasm/nx-docker', () => {
               },
             ],
             metadata: {
-              description: Starts app of proj with the services each depends on from built images and follows their logs with docker compose up, the services staying up after the run,
+              description: Starts app of proj with the services each depends on from built images with docker compose up and follows their logs with docker compose logs, the services staying up after the run,
               help: {
                 command: docker compose up --help,
                 example: {
@@ -286,7 +295,10 @@ describe('@rasm/nx-docker', () => {
         expect(results[0]?.[1].projects?.['proj']?.targets?.['install']).toMatchInlineSnapshot(`
           {
             dependsOn: [
-              install--*,
+              {
+                params: forward,
+                target: install--*,
+              },
             ],
             inputs: [
               ...,
@@ -303,7 +315,7 @@ describe('@rasm/nx-docker', () => {
         `);
         expect(results[0]?.[1].projects?.['proj']?.targets?.['install--compose']).toMatchInlineSnapshot(`
           {
-            command: docker compose up --wait --no-build --remove-orphans,
+            command: docker compose up --detach --wait --no-build --remove-orphans,
             dependsOn: [
               build--*,
             ],
@@ -433,7 +445,7 @@ describe('@rasm/nx-docker', () => {
         `);
         expect(results[0]?.[1].projects?.['apps/api']?.targets?.['serve--compose']).toMatchInlineSnapshot(`
           {
-            command: docker compose up --wait --no-build app && docker compose logs --follow app,
+            command: docker compose up --detach --wait --no-build app && docker compose logs --follow app,
             continuous: true,
             dependsOn: [
               build--*,
@@ -449,7 +461,7 @@ describe('@rasm/nx-docker', () => {
               },
             ],
             metadata: {
-              description: Starts app of api with the services each depends on from built images and follows their logs with docker compose up, the services staying up after the run,
+              description: Starts app of api with the services each depends on from built images with docker compose up and follows their logs with docker compose logs, the services staying up after the run,
               help: {
                 command: docker compose up --help,
                 example: {
@@ -473,7 +485,7 @@ describe('@rasm/nx-docker', () => {
         `);
         expect(results[0]?.[1].projects?.['apps/api']?.targets?.['install--compose']).toMatchInlineSnapshot(`
           {
-            command: docker compose up --wait --no-build --remove-orphans,
+            command: docker compose up --detach --wait --no-build --remove-orphans,
             dependsOn: [
               build--*,
             ],
@@ -650,7 +662,7 @@ describe('@rasm/nx-docker', () => {
         `);
         expect(results[0]?.[1].projects?.['.']?.targets?.['serve--compose']).toMatchInlineSnapshot(`
           {
-            command: docker compose up --wait --no-build app && docker compose logs --follow app,
+            command: docker compose up --detach --wait --no-build app && docker compose logs --follow app,
             continuous: true,
             dependsOn: [
               build--*,
@@ -666,7 +678,7 @@ describe('@rasm/nx-docker', () => {
               },
             ],
             metadata: {
-              description: Starts app of {rootName} with the services each depends on from built images and follows their logs with docker compose up, the services staying up after the run,
+              description: Starts app of {rootName} with the services each depends on from built images with docker compose up and follows their logs with docker compose logs, the services staying up after the run,
               help: {
                 command: docker compose up --help,
                 example: {
@@ -690,7 +702,7 @@ describe('@rasm/nx-docker', () => {
         `);
         expect(results[0]?.[1].projects?.['.']?.targets?.['install--compose']).toMatchInlineSnapshot(`
           {
-            command: docker compose up --wait --no-build --remove-orphans,
+            command: docker compose up --detach --wait --no-build --remove-orphans,
             dependsOn: [
               build--*,
             ],
@@ -822,7 +834,7 @@ describe('@rasm/nx-docker', () => {
 
             expect(results[0]?.[1].projects?.['a;touch pwned;$(id)']?.targets).toMatchObject({
                 'build--compose': { command: 'docker compose build', options: { cwd: 'a;touch pwned;$(id)' }, metadata: { description: 'Builds the images of atouchpwnedid into the engine with docker compose build' } },
-                'serve--compose': { command: 'docker compose up --wait --no-build app && docker compose logs --follow app', options: { cwd: 'a;touch pwned;$(id)' } },
+                'serve--compose': { command: 'docker compose up --detach --wait --no-build app && docker compose logs --follow app', options: { cwd: 'a;touch pwned;$(id)' } },
             });
         });
     });

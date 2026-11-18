@@ -113,7 +113,7 @@ const deployed = Effect.fnUntraced(function* (
             Match.when({ type: 'r2', name: Predicate.isString }, ({ name: bucket, jurisdiction }) => Effect.succeed({ type: 'r2_bucket', bucketName: named(bucket), jurisdiction })),
             Match.when({ type: 'queue', name: Predicate.isString }, ({ type, name: queue }) => Effect.succeed({ type, queueName: named(queue) })),
             Match.when({ type: (type: string) => UNNAMED.has(type) }, ({ type }) => Effect.succeed({ type: String.kebabToSnake(type) })),
-            Match.orElse(({ type }) => Effect.fail(new Cause.IllegalArgumentError(`Binding ${variable} of Worker ${name} is ${type}, expected text, json, secret, a d1 with an id or a name, a named r2 or queue, or one of ${[...UNNAMED].join(', ')}`))),
+            Match.orElse(({ type }) => Effect.fail(new Cause.IllegalArgumentError(`Binding ${variable} of Worker ${name} is ${type}, expected text, json, secret, a d1 with an id or a name, a named r2 or queue, or one of ${UNNAMED.values().join(', ')}`))),
             Effect.map((fields) => ({ ...fields, name: variable })),
         ),
     );
@@ -241,7 +241,7 @@ const deploy = {
         const volumes = Record.collect(Record.filter(app.env, App.Binding.$is('sqlite')), (variable) => ({ name: App.resource(app, mode, variable), target: join(MOUNT, variable) }));
         return {
             image: {
-                dockerfile: `# syntax=docker/dockerfile:1\nFROM node:${process.versions.node}-slim\nRUN install -d -o node -g node ${[MOUNT, ...volumes.map(({ target }) => target)].join(' ')}\nUSER node\nWORKDIR /app\nCOPY . .\nENTRYPOINT ["node"]\nCMD ["${App.bundle.entry}.js"]\n`,
+                dockerfile: `# syntax=docker/dockerfile:1\nFROM node:${process.versions.node}-trixie-slim\nRUN install -d -o node -g node ${[MOUNT, ...volumes.map(({ target }) => target)].join(' ')}\nUSER node\nWORKDIR /app\nCOPY . .\nENTRYPOINT ["node"]\nCMD ["${App.bundle.entry}.js"]\n`,
                 context: { location: bundle },
             },
             healthcheck: ['CMD', 'node', '--input-type=module', '--eval', `const response = await fetch('http://127.0.0.1:${port}${App.bundle.readiness}'); if (response.status !== 204) throw new Error('HTTP ' + response.status);`],

@@ -79,7 +79,7 @@ describe('@rasm/nx-vite', () => {
                                 projectType: 'application',
                                 metadata: { technologies: ['vite'] },
                                 targets: {
-                                    build: { dependsOn: ['build--*'], inputs: ['...', ...needs.inputs] },
+                                    build: { dependsOn: [{ target: 'build--*', params: 'forward' }], inputs: ['...', ...needs.inputs] },
                                     'build--vite': {
                                         ...needs,
                                         command: 'vite build',
@@ -88,14 +88,14 @@ describe('@rasm/nx-vite', () => {
                                         outputs: ['{projectRoot}/dist'],
                                         metadata: { technologies: ['vite'], description: 'Builds every environment of the Vite config with vite build', help: { command: 'npx vite build --help', example: { args: ['--mode', 'production'] } } },
                                     },
-                                    clean: { dependsOn: ['clean--*'], inputs: ['...', 'default', '^default', { externalDependencies: [] }] },
+                                    clean: { dependsOn: [{ target: 'clean--*', params: 'forward' }], inputs: ['...', 'default', '^default', { externalDependencies: [] }] },
                                     'clean--vite': {
                                         executor: '@rasm/nx-distribution:clean',
                                         options: { targets: ['build--vite'] },
                                         inputs: ['default', '^default', { externalDependencies: [] }],
                                         metadata: { technologies: ['vite'], description: 'Removes the outputs build--vite declare', help: { command: 'npx nx run --help', example: { options: { targets: ['build--vite'] } } } },
                                     },
-                                    serve: { dependsOn: ['serve--*'], inputs: ['...', ...needs.inputs] },
+                                    serve: { dependsOn: [{ target: 'serve--*', params: 'forward' }], inputs: ['...', ...needs.inputs] },
                                     'serve--vite': {
                                         ...needs,
                                         command: 'vite',
@@ -104,7 +104,7 @@ describe('@rasm/nx-vite', () => {
                                         readyWhen: getReadyCheckReadyWhen(check, 'vite.config.ts', 'serve'),
                                         metadata: { technologies: ['vite'], description: 'Serves every environment of the Vite config with vite', help: { command: 'npx vite --help', example: { args: ['--port', '<port>'] } } },
                                     },
-                                    preview: { dependsOn: ['preview--*'], inputs: ['...', ...needs.inputs] },
+                                    preview: { dependsOn: [{ target: 'preview--*', params: 'forward' }], inputs: ['...', ...needs.inputs] },
                                     'preview--vite': {
                                         ...needs,
                                         command: 'vite preview',
@@ -161,7 +161,7 @@ describe('@rasm/nx-vite', () => {
                                 projectType: 'application',
                                 metadata: { technologies: ['vite'] },
                                 targets: {
-                                    build: { dependsOn: ['build--*'], inputs: ['...', ...needs.inputs] },
+                                    build: { dependsOn: [{ target: 'build--*', params: 'forward' }], inputs: ['...', ...needs.inputs] },
                                     'build--vite': {
                                         ...needs,
                                         command: "vite build --outDir '../.artifacts/vite/{projectName}' --emptyOutDir",
@@ -170,14 +170,14 @@ describe('@rasm/nx-vite', () => {
                                         outputs: ['{workspaceRoot}/.artifacts/vite/{projectName}'],
                                         metadata: { technologies: ['vite'], description: 'Builds every environment of the Vite config with vite build', help: { command: 'npx vite build --help', example: { args: ['--mode', 'production'] } } },
                                     },
-                                    clean: { dependsOn: ['clean--*'], inputs: ['...', 'default', '^default', { externalDependencies: [] }] },
+                                    clean: { dependsOn: [{ target: 'clean--*', params: 'forward' }], inputs: ['...', 'default', '^default', { externalDependencies: [] }] },
                                     'clean--vite': {
                                         executor: '@rasm/nx-distribution:clean',
                                         options: { targets: ['build--vite'] },
                                         inputs: ['default', '^default', { externalDependencies: [] }],
                                         metadata: { technologies: ['vite'], description: 'Removes the outputs build--vite declare', help: { command: 'npx nx run --help', example: { options: { targets: ['build--vite'] } } } },
                                     },
-                                    serve: { dependsOn: ['serve--*'], inputs: ['...', ...needs.inputs] },
+                                    serve: { dependsOn: [{ target: 'serve--*', params: 'forward' }], inputs: ['...', ...needs.inputs] },
                                     'serve--vite': {
                                         ...needs,
                                         command: 'vite',
@@ -186,7 +186,7 @@ describe('@rasm/nx-vite', () => {
                                         readyWhen: getReadyCheckReadyWhen(check, 'vite.config.ts', 'serve'),
                                         metadata: { technologies: ['vite'], description: 'Serves every environment of the Vite config with vite', help: { command: 'npx vite --help', example: { args: ['--port', '<port>'] } } },
                                     },
-                                    preview: { dependsOn: ['preview--*'], inputs: ['...', ...needs.inputs] },
+                                    preview: { dependsOn: [{ target: 'preview--*', params: 'forward' }], inputs: ['...', ...needs.inputs] },
                                     'preview--vite': {
                                         ...needs,
                                         command: "vite preview --outDir '../.artifacts/vite/{projectName}'",
@@ -341,7 +341,7 @@ describe('@rasm/nx-vite', () => {
     it('writes every declared output and no file outside them', async ({ tempFs, inferProject }) => {
         tempFs.createFileSync('my-lib/index.ts', 'export const value = 1;\n');
         const { targets } = await inferProject('my-lib', "export default { build: { lib: { entry: 'index.ts', formats: ['es'] } } };");
-        const listed = () => globSync('**', { cwd: tempFs.tempDir, exclude: ['node_modules', '.nx', 'tmp'] });
+        const listed = () => globSync('**', { cwd: tempFs.tempDir, exclude: ['**/node_modules', '.nx', 'tmp'] });
         const before = new Set(listed());
 
         expect(targets['build--vite']).toMatchObject({ command: 'vite build', options: { cwd: 'my-lib' }, outputs: ['{projectRoot}/dist'] });

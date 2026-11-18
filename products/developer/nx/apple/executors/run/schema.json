@@ -64,6 +64,10 @@
             "additionalProperties": true,
             "description": "lcov report written once every invocation passes: the profiles matching profiles merge with xcrun llvm-profdata merge, then export over objects with xcrun llvm-cov export"
         },
+        "dryRun": {
+            "type": "boolean",
+            "description": "Prints each invocation and runs none"
+        },
         "__unparsed__": {
             "type": "array",
             "description": "Words after -- of the run, appended after the configured arguments",

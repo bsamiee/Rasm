@@ -126,8 +126,8 @@
       },
       "Microsoft.NET.StringTools": {
         "type": "Transitive",
-        "resolved": "18.6.3",
-        "contentHash": "meWX/k62HeaQ+7zxcJBcGo2EccmLZiaHYwJJ9wAO6ZX3Ujeht5XNetVZWU7nW2vKbDB+88X1lQkLafVkOUrtgQ=="
+        "resolved": "18.9.6",
+        "contentHash": "CNZfh4P65tHm1Wh/uuIbYfvHlPnb0dJ9SCaIZbXRzOMn+8JEorSqSdXdGRsrDbKBDJfNG6nmgleYhnfL2pd1oQ=="
       },
       "Microsoft.Testing.Extensions.TrxReport.Abstractions": {
         "type": "Transitive",
@@ -178,8 +178,8 @@
       },
       "System.Reflection.MetadataLoadContext": {
         "type": "Transitive",
-        "resolved": "10.0.3",
-        "contentHash": "rlWB/1Phq2mKv3Sbr33K41pyNpP7L7OGL8zEFrGoj32gLopbPmbCOxfcV2NCh5cCVXFVtdI4w3XK0W2b2jcrOA=="
+        "resolved": "10.0.8",
+        "contentHash": "w9sjhVDe4AKkyswUctVK3oCmZHaA7g+ZUG/xDmzgbsOGxmeRQA6lCQeAh6r75K0lcsLlfBzZXmsNblndyNJhxw=="
       },
       "System.Security.AccessControl": {
         "type": "Transitive",
@@ -244,14 +244,16 @@
         "type": "Project",
         "dependencies": {
           "LanguageExt.Core": "[5.0.0-beta-78, )",
-          "Microsoft.Build": "[18.6.3, 18.6.3]",
-          "Microsoft.Build.Framework": "[18.6.3, )",
+          "Microsoft.Build": "[18.9.6, 18.9.6]",
+          "Microsoft.Build.Framework": "[18.9.6, )",
           "Microsoft.Build.Locator": "[1.11.2, )",
+          "Microsoft.Extensions.DependencyModel": "[11.0.0, )",
           "NuGet.Common": "[8.0.0, )",
           "NuGet.Configuration": "[8.0.0, )",
           "NuGet.Frameworks": "[8.0.0, )",
           "NuGet.Packaging": "[8.0.0, )",
           "NuGet.ProjectModel": "[8.0.0, )",
+          "NuGet.Protocol": "[8.0.0, )",
           "NuGet.Versioning": "[8.0.0, )"
         }
       },
@@ -263,24 +265,24 @@
       },
       "Microsoft.Build": {
         "type": "CentralTransitive",
-        "requested": "[18.6.3, 18.6.3]",
-        "resolved": "18.6.3",
-        "contentHash": "7tQw0EnI5f0actJAOJdZJTpJXoJtJlDzDh1ecTJMOcaFXr5t2mnL29ea7Pn6VeTWf1R5pnzbZTvdorBsSZBodA==",
+        "requested": "[18.9.6, 18.9.6]",
+        "resolved": "18.9.6",
+        "contentHash": "RBgF5w+fN1FZ1ltQr2FYFLYWP13UjFTZXXG/H30B9FlXgBqdLJl1zTj1X9G03q4hDAQ8K3DUoSBE8Q/5G05F4w==",
         "dependencies": {
-          "Microsoft.Build.Framework": "18.6.3",
-          "System.Configuration.ConfigurationManager": "10.0.3",
-          "System.Diagnostics.EventLog": "10.0.3",
-          "System.Reflection.MetadataLoadContext": "10.0.3",
-          "System.Security.Cryptography.ProtectedData": "10.0.3"
+          "Microsoft.Build.Framework": "18.9.6",
+          "System.Configuration.ConfigurationManager": "10.0.8",
+          "System.Diagnostics.EventLog": "10.0.8",
+          "System.Reflection.MetadataLoadContext": "10.0.8",
+          "System.Security.Cryptography.ProtectedData": "10.0.8"
         }
       },
       "Microsoft.Build.Framework": {
         "type": "CentralTransitive",
-        "requested": "[18.6.3, )",
-        "resolved": "18.6.3",
-        "contentHash": "jywLHZK1Skb+kVO9Q2Drz0h3p0MnUDsMudYcXNKq1vYXPiYDXHbWJZlMxhyt2dp0T3IYiTQPb+6FMnWRwt3Kiw==",
+        "requested": "[18.9.6, )",
+        "resolved": "18.9.6",
+        "contentHash": "P5y8IAhu6UyN6FtzfN4sCNZEQGyV6S4kSTBYldtzB9bzvgdCBBKjsS6epH5aJVFM0q1yJqa8RaTzr1iEJBwIMA==",
         "dependencies": {
-          "Microsoft.NET.StringTools": "18.6.3"
+          "Microsoft.NET.StringTools": "18.9.6"
         }
       },
       "Microsoft.Build.Locator": {
@@ -344,6 +346,16 @@
         "requested": "[11.0.0, )",
         "resolved": "11.0.0",
         "contentHash": "a2c4Kp55miXT6G+DSb75pczXQJHgNMzPyZEyMxrrKxuQrgvctcDWJWD9fVe/uGbQdu4Z0c3B7AVKp1DXmD64nQ=="
+      },
+      "Microsoft.Extensions.DependencyModel": {
+        "type": "CentralTransitive",
+        "requested": "[11.0.0, )",
+        "resolved": "11.0.0",
+        "contentHash": "K6M9zulTQ3OU0myKAcBb/Gbfw/aTKa3wlxyDhwfOmT7Wavoxe0lzAkeDjS5+/1dqcgGDUZtIykJIo3T4W7zKbQ==",
+        "dependencies": {
+          "System.Text.Encodings.Web": "11.0.0",
+          "System.Text.Json": "11.0.0"
+        }
       },
       "Microsoft.Extensions.Logging.Abstractions": {
         "type": "CentralTransitive",

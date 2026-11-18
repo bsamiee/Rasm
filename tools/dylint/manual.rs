@@ -8,7 +8,7 @@ use clippy_utils::{fn_def_id, sym};
 use rustc_attr_ir::lang_items::LangItem;
 use rustc_hir::{Expr, ExprKind};
 use rustc_lint::LateContext;
-use rustc_middle::ty::{self, AdtDef, GenericArgsRef, Ty};
+use rustc_middle::ty::{self, AdtDef, GenericArgs, Ty};
 
 use crate::associated_trait;
 
@@ -20,7 +20,7 @@ fn iterator_method(cx: &LateContext<'_>, call: &Expr<'_>) -> bool {
     matches!(fn_def_id(cx, call).and_then(|method| associated_trait(cx.tcx, method)).opt_diag_name(cx), Some(sym::Iterator | sym::DoubleEndedIterator))
 }
 
-fn uses_global_allocator<'tcx>(cx: &LateContext<'tcx>, owner: AdtDef<'tcx>, arguments: GenericArgsRef<'tcx>) -> bool {
+fn uses_global_allocator<'tcx>(cx: &LateContext<'tcx>, owner: AdtDef<'tcx>, arguments: GenericArgs<'tcx>) -> bool {
     iter::zip(&cx.tcx.generics_of(owner.did()).own_params, arguments).any(|(parameter, argument)| {
         if let ty::GenericParamDefKind::Type { has_default: true, .. } = parameter.kind {
             let declared = cx.tcx.type_of(parameter.def_id).instantiate_identity().skip_normalization();
@@ -32,8 +32,8 @@ fn uses_global_allocator<'tcx>(cx: &LateContext<'tcx>, owner: AdtDef<'tcx>, argu
 }
 
 fn collects_vec<'tcx>(cx: &LateContext<'tcx>, item: Ty<'tcx>, collected: Ty<'tcx>) -> bool {
-    matches!(collected.kind(), ty::Adt(owner, arguments) if owner.is_diag_item(cx, sym::Vec)
-        && uses_global_allocator(cx, *owner, arguments)
+    matches!(collected.kind(), &ty::Adt(owner, arguments) if owner.is_diag_item(cx, sym::Vec)
+        && uses_global_allocator(cx, owner, arguments)
         && cx.tcx.erase_and_anonymize_regions(item) == cx.tcx.erase_and_anonymize_regions(arguments.type_at(0)))
 }
 

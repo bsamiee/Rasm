@@ -146,7 +146,7 @@ const optionOf = ({ text }: Word, usage: Usage, row: Program): Option.Option<rea
     if (row.strict === true && !given.startsWith('--') && Array.fromIterable(given.slice(1)).some((letter) => !usage.flags.has(`-${letter}`))) {
         return Option.none();
     }
-    if (given.startsWith('--') || ![...usage.flags.keys()].every((spelling) => spelling.startsWith('--') || spelling.length === 2)) {
+    if (given.startsWith('--') || !usage.flags.keys().every((spelling) => spelling.startsWith('--') || spelling.length === 2)) {
         return row.strict === true ? Option.none() : Option.some([[{ name: head, arity: 0 }], attached]);
     }
     const letters = Array.fromIterable(text.slice(1));

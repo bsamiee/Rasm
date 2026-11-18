@@ -2,11 +2,12 @@ import { basename, dirname, extname, join, relative } from 'node:path';
 import { platform } from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesContext, type CreateNodesResult, DependencyType, hashArray, type ProjectGraphExternalNode, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
-import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, globWithWorkspaceContext, hashFile, hashWithWorkspaceContext, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
+import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, globWithWorkspaceContext, hashFile, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
 import { aggregated, fingerprinted, manifested, spawned } from '@rasm/nx-distribution/inference';
+import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Cause, Effect, Equivalence, FileSystem, Option, Record, Ref, Result, Schema, Stream, Struct } from 'effect';
 import { CommandLine } from 'effect/process';
-import { Edges, Node, PLUGIN, publishing, run, targets } from '#/targets';
+import { Edges, line, Node, PLUGIN, publishing, run, targets } from '#/targets';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -85,6 +86,8 @@ const related = ({ nodes }: Report): readonly RawProjectGraphDependency[] => {
 
 const releasable = (node: Node) => node.packable || node.publishable;
 
+const listing = (node: Node) => join(workspaceDataDirectory, 'dotnet-external', `${hashArray([node.file])}.json`);
+
 const projected = (nodes: readonly Node[], settings: typeof Options.Type, manifests: readonly Readonly<Record<string, Pick<TargetConfiguration, 'inputs'>>>[], listed: (node: Node) => Option.Option<string>) => {
     const folders = Record.fromIterableWith(nodes, (node) => [dirname(node.file), node] as const);
     const closure = (node: Node): readonly Node[] => [node, ...Array.getSomes(node.references.map(({ root }) => Record.get(folders, root))).flatMap(closure)];
@@ -126,12 +129,11 @@ const inferred = Effect.fnUntraced(function* (matched: readonly string[], option
     const source = Option.fromUndefinedOr(settings.analyzer);
     const cache = new PluginCache<{ readonly report: Report; readonly stamp: string }>(join(workspaceDataDirectory, `dotnet-${hashed}.hash`));
     const key = yield* Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, [...matched]));
-    const held = yield* Effect.findFirst(Array.fromNullishOr(cache.get(key)), (stored) => Effect.map(stamped(workspaceRoot, source, stored.report), (now) => now === stored.stamp));
-    const read = yield* Effect.result(Option.match(held, { onSome: (stored) => Effect.succeed(stored.report), onNone: () => analyzed(workspaceRoot, source, matched) }));
+    const cached = yield* Effect.findFirst(Array.fromNullishOr(cache.get(key)), (stored) => Effect.map(stamped(workspaceRoot, source, stored.report), (now) => now === stored.stamp));
+    const read = yield* Effect.result(Option.match(cached, { onSome: (stored) => Effect.succeed(stored.report), onNone: () => analyzed(workspaceRoot, source, matched) }));
     const report = Result.getOrElse(read, (): Report => ({ nodes: [], failures: [], evaluated: [] }));
-    yield* Option.isNone(held) && Result.isSuccess(read) && report.failures.length === 0 ? Effect.flatMap(stamped(workspaceRoot, source, report), (stamp) => Effect.sync(() => cache.set(key, { report, stamp }))).pipe(Effect.andThen(Effect.sync(() => cache.writeToDisk()))) : Effect.void;
+    yield* Option.isNone(cached) && Result.isSuccess(read) && report.failures.length === 0 ? Effect.flatMap(stamped(workspaceRoot, source, report), (stamp) => Effect.sync(() => cache.set(key, { report, stamp }))).pipe(Effect.andThen(Effect.sync(() => cache.writeToDisk()))) : Effect.void;
     yield* Ref.set(edges, related(report));
-    const listing = (node: Node) => join(workspaceDataDirectory, 'dotnet-external', `${hashArray([node.file])}.json`);
     yield* Effect.forEach(
         report.nodes.filter((node) => node.external.length > 0),
         (node) => Effect.andThen(fs.makeDirectory(dirname(listing(node)), { recursive: true }), fs.writeFileString(listing(node), JSON.stringify(node.external))),
@@ -139,21 +141,40 @@ const inferred = Effect.fnUntraced(function* (matched: readonly string[], option
     );
     const declared = Array.dedupe(report.nodes.flatMap((node) => [node.file, ...node.inputs, ...node.locks])).map((at) => join('{workspaceRoot}', at));
     const manifests = yield* Effect.forEach(report.nodes, (node) => manifested(workspaceRoot, dirname(node.file)));
+    const building = Record.getSomes({
+        dependsOn: Option.map(
+            Option.flatMap(source, (project) => Array.findFirst(report.nodes, (node) => node.file === project)),
+            (node) => [{ projects: [node.name], target: 'build--dotnet' }],
+        ),
+    });
     const solutions = yield* Effect.forEach(
         matched.filter((file) => SOLUTIONS.includes(extname(file))),
         (file) =>
             Effect.map(Effect.all([fs.exists(join(workspaceRoot, dirname(file), 'package.json')), manifested(workspaceRoot, dirname(file))]), ([named, manifest]): [string, CreateNodesResult] => {
-                const command = ['dotnet', 'package', 'update', '--project', basename(file)].map(quoteShellArg).join(' ');
+                const moved = ['dotnet', relative(join(workspaceRoot, dirname(file)), ANALYZER), 'upgrade', basename(file)] as const;
+                const locked = ['dotnet', 'restore', basename(file), '--force-evaluate'] as const;
                 const upgrade: TargetConfiguration = {
-                    command,
-                    options: { cwd: dirname(file) },
+                    executor: `${distribution.name}:upgrade`,
+                    ...building,
+                    options: { cwd: dirname(file), commands: [{ apply: moved, preview: [...moved, '--dry-run'] }, { apply: locked }] },
                     inputs: [join('{workspaceRoot}', file), ...declared, { externalDependencies: [] }],
-                    metadata: { description: `Moves every package reference of ${basename(file)} to its newest release with ${command}`, help: { command: 'dotnet package update --help', example: { args: ['--vulnerable'] } } },
+                    metadata: {
+                        description: `Moves each central package version ${basename(file)} projects read to the newest release their frameworks support, conditional, Update, and exact-range rows within their major, with ${line(moved)}, then rewrites lock files with ${line(locked)}`,
+                        help: { command: 'dotnet restore --help', example: { options: { dryRun: true } } },
+                    },
                 };
                 return [file, { projects: { [dirname(file)]: { root: dirname(file), ...(named ? {} : { name: basename(file, extname(file)) }), metadata: { technologies: ['dotnet'] }, targets: aggregated({ upgrade: { dotnet: upgrade } }, manifest, 'dotnet') } } }];
             }),
     );
-    const results = [...projected(report.nodes, settings, manifests, (node) => Option.map(Option.liftPredicate(node, (held) => held.external.length > 0), (held) => relative(workspaceRoot, listing(held)))), ...solutions];
+    const results = [
+        ...projected(report.nodes, settings, manifests, (node) =>
+            Option.map(
+                Option.liftPredicate(node, (held) => held.external.length > 0),
+                (held) => relative(workspaceRoot, listing(held)),
+            ),
+        ),
+        ...solutions,
+    ];
     const failures = [...Option.toArray(Option.map(Result.getFailure(read), (error): [null, Error] => [null, error])), ...report.failures.map(({ file, message }): [string, Error] => [file, new Cause.UnknownError(file, message)])];
     return yield* failures.length === 0 ? Effect.succeed(results) : Effect.fail(new AggregateCreateNodesError(failures, results));
 });

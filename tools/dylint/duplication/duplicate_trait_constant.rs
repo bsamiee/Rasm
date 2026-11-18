@@ -16,7 +16,7 @@ use rustc_hir::{HirId, Lifetime, LifetimeKind, QPath};
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::hir::nested_filter;
 use rustc_middle::mir;
-use rustc_middle::ty::{self, AssocKind, Binder, Clause, EarlyBinder, TraitRef, Ty, TyCtxt};
+use rustc_middle::ty::{self, AssocKind, Binder, CallerBoundsIterator as _, Clause, EarlyBinder, TraitRef, Ty, TyCtxt};
 use rustc_span::{Span, Symbol};
 use rustc_trait_selection::regions::test_region_obligations;
 use rustc_trait_selection::traits::{ObligationCause, ObligationCtxt};
@@ -136,7 +136,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass<'tcx> {
             let owner = tcx.parent(declared.to_def_id());
             let implemented = tcx.impl_trait_header(implementation).trait_ref.instantiate_identity().skip_normalization();
             let identity: Clause<'tcx> = Binder::dummy(TraitRef::identity(tcx, owner)).upcast(tcx);
-            let available = elaborate(tcx, tcx.param_env(declared).caller_bounds().chain([identity])).collect::<FxHashSet<_>>();
+            let available = elaborate(tcx, tcx.param_env(declared).caller_bounds().all_clauses(tcx).iter().chain([identity])).collect::<FxHashSet<_>>();
             let parameters = iter::zip(&tcx.generics_of(owner).own_params, implemented.args)
                 .cartesian_product(&tcx.generics_of(implementation).own_params)
                 .filter(|&((declaration, argument), source)| source.name == declaration.name && tcx.mk_param_from_def(source) == argument)

@@ -184,10 +184,10 @@ const workspaceTargets = (workspace: Workspace): Verbs => {
         check,
         upgrade: {
             cargo: {
-                executor: 'nx:run-commands',
+                executor: `${PLUGIN}:upgrade`,
                 inputs: [...manifests, tokened(join(workspace.root, LOCK)), { externalDependencies: [] }],
-                options: { commands: ['cargo upgrade --incompatible allow', 'cargo update'], parallel: false, cwd: workspace.root },
-                metadata: { description: 'Moves every dependency requirement to its newest release with cargo upgrade, then the lock with cargo update', help: { command: 'cargo upgrade --help', example: { args: ['--dry-run'] } } },
+                options: { cwd: workspace.root },
+                metadata: { description: 'Moves every dependency requirement to its newest release, prereleases above a stable line included, with cargo upgrade, then the lock with cargo update', help: { command: 'cargo upgrade --help', example: { options: { dryRun: true } } } },
             },
         },
     };

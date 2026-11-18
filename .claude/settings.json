@@ -50,6 +50,7 @@
     "cpp@rasm": true,
     "delegate@rasm": true,
     "web@rasm": true,
+    "browser@rasm": true,
     "tool@rasm": true,
     "media@rasm": true
   },

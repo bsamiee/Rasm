@@ -1,0 +1,19 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "version": 2,
+    "type": "object",
+    "properties": {
+        "package": {
+            "type": "string",
+            "description": "Package folder the plugin infers, passed as --package-path"
+        },
+        "dryRun": {
+            "type": "boolean",
+            "description": "Prints each move and makes none, passing --dry-run to swift package update, as NX_DRY_RUN=true does"
+        }
+    },
+    "required": ["package"],
+    "additionalProperties": true,
+    "title": "Upgrade",
+    "description": "Moves the lower bound of each remote requirement of Package.swift whose range ends at the next major, the range from: states, to the highest semver tag git ls-remote lists for its repository, prereleases included, among the tags published at or after the bound's own tag, as SwiftPM admits a prerelease only into a range with a prerelease bound, then moves Package.resolved with swift package update"
+}

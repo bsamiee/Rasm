@@ -1,8 +1,8 @@
-import { processUploads, selectUploadState } from '@rasm/media';
+import { MediaError, processUploads, selectUploadState } from '@rasm/media';
 import { Presignable } from '@rasm/object-storage';
 import AwsS3 from '@uppy/aws-s3';
-import Uppy, { type Body, type Meta, type UppyFile } from '@uppy/core';
-import { Array, ByteSize, Cause, Data, Effect, Equal, Equivalence, Function, Layer, Match, Optic, Predicate, Record, Result, Schema, Struct } from 'effect';
+import Uppy, { type Body, type Meta, type UppyEventMap, type UppyFile } from '@uppy/core';
+import { Array, ByteSize, Data, Effect, Equal, Equivalence, Function, Layer, Match, Optic, Predicate, Record, Result, Schema, Struct } from 'effect';
 import { SecureRandom } from 'effect/crypto';
 import { FetchHttpClient, HttpClient, HttpClientRequest, HttpClientResponse } from 'effect/http';
 import { HttpApiClient } from 'effect/http-api';
@@ -20,6 +20,7 @@ interface UploadMeta extends Meta {
     readonly destination: Destination;
     readonly prepared?: { readonly asset: typeof Asset.Type; readonly compositions: readonly (typeof Composition.Type)[]; readonly attempt: string; readonly key: string };
 }
+type UploadFailure = Parameters<UppyEventMap<UploadMeta, Body>['upload-error']>[1];
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -64,7 +65,7 @@ const refused = {
 } as const;
 const prepare = Effect.fnUntraced(
     function* ({ meta: { destination }, name, type }: UppyFile<UploadMeta, Body>, data: Blob) {
-        const { inspectFile } = yield* Effect.tryPromise(() => import('#/editor/inspect-file'));
+        const { inspectFile } = yield* Effect.tryPromise({ try: () => import('#/editor/inspect-file'), catch: MediaError.of('Unavailable', name) });
         const [random, api, http] = yield* Effect.all([SecureRandom.SecureRandom, PortfolioClient, HttpClient.HttpClient]);
         const { asset, renditions } = yield* inspectFile(new File([data], name, { type }), yield* random.uuidV7());
         const { attempt, objects } = yield* api.assets.begin({ payload: asset });
@@ -72,7 +73,7 @@ const prepare = Effect.fnUntraced(
             Array.zip(objects, renditions),
             Effect.fnUntraced(function* ([{ key }, rendition]) {
                 const { url, headers } = yield* api.assets.sign({ payload: { method: 'PUT', key } });
-                const body = yield* Effect.promise(() => rendition.bytes());
+                const body = yield* Effect.tryPromise({ try: () => rendition.bytes(), catch: MediaError.of('Unreadable', `${name} rendition ${rendition.name}`) });
                 yield* Effect.flatMap(http.execute(HttpClientRequest.put(url, { headers }).pipe(HttpClientRequest.bodyUint8Array(body, rendition.type))), HttpClientResponse.filterStatusOk).pipe(Effect.provideService(HttpClient.TracerPropagationEnabled, false));
             }),
             { concurrency: 'unbounded', discard: true },
@@ -88,25 +89,21 @@ const prepare = Effect.fnUntraced(
         return { prepared: { asset, compositions, attempt, key: attempt } };
     },
     (effect, { type }) =>
-        Effect.mapError(
-            effect,
-            (error) =>
-                new Cause.UnknownError(
-                    error,
-                    Match.valueTags(error, {
-                        MediaError: ({ reason }) =>
-                            Match.valueTags(reason, {
-                                Protected: () => 'PDF is password protected. Remove it and add unlocked export',
-                                Unsupported: () => 'Browser cannot resize image. Retry in another browser',
-                                Unreadable: () => unreadableMessage(type),
-                                Missing: () => unreadableMessage(type),
-                            }),
-                        SchemaError: ({ message }) => `${message}. Remove it and add new export`,
-                        UnknownError: () => 'Browser cannot read file. Retry or add it again',
-                        ...refused,
+        Effect.mapError(effect, (error): UploadFailure => ({
+            name: error._tag,
+            message: Match.valueTags(error, {
+                MediaError: ({ reason }) =>
+                    Match.valueTags(reason, {
+                        Protected: () => 'PDF is password protected. Remove it and add unlocked export',
+                        Unsupported: () => 'Browser cannot resize image. Retry in another browser',
+                        Unreadable: () => unreadableMessage(type),
+                        Missing: () => unreadableMessage(type),
+                        Unavailable: () => 'Browser cannot read file. Retry or add it again',
                     }),
-                ),
-        ),
+                SchemaError: ({ message }) => `${message}. Remove it and add new export`,
+                ...refused,
+            }),
+        })),
 );
 const placed = Effect.fnUntraced(
     function* (file: UppyFile<UploadMeta, Body>) {
@@ -136,7 +133,7 @@ const placed = Effect.fnUntraced(
             }),
         );
     },
-    Effect.mapError((error) => new Cause.UnknownError(error, Match.valueTags(error, { ...refused, NoSuchElementError: () => 'File lost its prepared details. Remove it and add it again', SchemaError: () => 'Server answered in an unknown form. Retry' }))),
+    Effect.mapError((error): UploadFailure => ({ name: error._tag, message: Match.valueTags(error, { ...refused, NoSuchElementError: () => 'File lost its prepared details. Remove it and add it again', SchemaError: () => 'Server answered in an unknown form. Retry' }) })),
 );
 const preprocessing = PortfolioClient.runtime.atom((get) => processUploads(get(uppy), { prepare, finish: placed }, { concurrency: 2, message: 'Reading file' }).pipe(Effect.provide(Layer.merge(SecureRandom.layerWebCrypto, FetchHttpClient.layer)))).pipe(Atom.keepAlive);
 const queue = selectUploadState(uppy, Struct.get('files'));

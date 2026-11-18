@@ -100,11 +100,16 @@ const packageParts = (options: typeof Options.Type, local: Package, described: R
     const owned: Verbs = {
         ...work,
         upgrade: {
-            'swift-package': sequenced(
-                [['swift', 'package', '--package-path', root, 'update']],
-                { technologies: ['swift'], description: `Moves ${manifest.name}'s remote dependencies to the newest versions its requirements allow and rewrites Package.resolved with swift package update`, help: { command: 'swift package update --help', example: { args: ['--dry-run'] } } },
-                { inputs },
-            ),
+            'swift-package': {
+                executor: `${PLUGIN}:upgrade`,
+                inputs,
+                options: { package: root },
+                metadata: {
+                    technologies: ['swift'],
+                    description: `Moves the lower bound of each remote from: requirement of ${manifest.name} to the newest semver tag of its repository, prereleases included, published at or after the bound's tag, then rewrites Package.resolved with swift package update`,
+                    help: { command: 'swift package update --help', example: { options: { dryRun: true } } },
+                },
+            },
         },
     };
     const cleaning: TargetConfiguration<Readonly<Record<string, unknown>>> = {

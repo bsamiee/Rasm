@@ -69,7 +69,7 @@ describe('workspace root checks', () => {
         const jscpd = duplicated('.config/jscpd.json', '**/*.ts');
 
         await expect(workspaceTargets(tempFs, context, { '.config/jscpd.json': JSON.stringify({ pattern: '**/*.ts' }) })).resolves.toMatchObject({
-            check: { dependsOn: ['check--*'], inputs: ['...', ...jscpd.inputs] },
+            check: { dependsOn: [{ target: 'check--*', params: 'forward' }], inputs: ['...', ...jscpd.inputs] },
             'check--jscpd': jscpd,
         });
     });
@@ -89,7 +89,7 @@ describe('workspace root checks', () => {
     });
 
     it('should create a check--knip target where knip resolves from the workspace root', async ({ tempFs, context }) => {
-        await expect(workspaceTargets(tempFs, context, KNIP)).resolves.toMatchObject({ check: { dependsOn: ['check--*'], inputs: ['...', '{workspaceRoot}/**/*', { externalDependencies: ['knip'] }] }, 'check--knip': unused('knip') });
+        await expect(workspaceTargets(tempFs, context, KNIP)).resolves.toMatchObject({ check: { dependsOn: [{ target: 'check--*', params: 'forward' }], inputs: ['...', '{workspaceRoot}/**/*', { externalDependencies: ['knip'] }] }, 'check--knip': unused('knip') });
     });
 
     it('should pass the knipConfig option to knip through --config', async ({ tempFs, context }) => {

@@ -96,7 +96,7 @@ const inserted = (measured: Measured, chosen: readonly number[], tatweels: numbe
     const shifted = (offset: number, precedes: (cluster: number, offset: number) => boolean) => offset + tatweels * chosen.filter((cluster) => precedes(cluster, offset)).length;
     const { run } = measured;
     const text = chosen.reduceRight((inserting, cluster) => `${inserting.slice(0, cluster)}${String.fromCodePoint(TATWEEL).repeat(tatweels)}${inserting.slice(cluster)}`, measured.shaped.text);
-    const scales = [...Array.fromIterable(measured.scales).map(([cluster, ratio]) => [shifted(cluster, Number.isLessThanOrEqualTo), ratio] as const), ...chosen.flatMap((cluster) => Array.makeBy(tatweels, (index) => [shifted(cluster, Number.isLessThan) + index, scale] as const))];
+    const scales = [...measured.scales.entries().map(([cluster, ratio]) => [shifted(cluster, Number.isLessThanOrEqualTo), ratio] as const), ...chosen.flatMap((cluster) => Array.makeBy(tatweels, (index) => [shifted(cluster, Number.isLessThan) + index, scale] as const))];
     const features = run.features.map(({ tag, value, start, end }) => new Feature(tag, value, shifted(start, Number.isLessThanOrEqualTo), Math.min(shifted(end, Number.isLessThan), Feature.GLOBAL_END)));
     const elongated = measured.reshaped({ ...run, text, item: Option.map(run.item, ({ start, end }) => Span.make({ start: shifted(start, Number.isLessThanOrEqualTo), end: shifted(end, Number.isLessThan) })), features }, new Map(scales));
     return elongated.gained('kashida', elongated.shaped.advance - measured.shaped.advance);

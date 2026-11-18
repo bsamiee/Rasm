@@ -9,7 +9,7 @@ from typing import Annotated, Final, Protocol, Self, TYPE_CHECKING
 from uuid import NAMESPACE_URL, uuid5
 
 from _bpy_internal.assets.remote_library.blender_asset_library_openapi import AssetLibraryMeta, CatalogV1  # ruff: ignore[import-private-name]
-from _bpy_internal.assets.remote_library.listing_asset_catalogs import _parse_catalog, write  # ty: ignore[import-not-found]  # ruff: ignore[import-private-name]
+from _bpy_internal.assets.remote_library.listing_asset_catalogs import _parse_catalog, write  # ty: ignore[missing-module-member]  # ruff: ignore[import-private-name]
 import bpy
 from expression import Error, NOTHING, Nothing, Ok, Option, option, Result, Some, try_downcast
 from expression.collections import Block

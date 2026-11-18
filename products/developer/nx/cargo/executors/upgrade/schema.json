@@ -1,0 +1,19 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "version": 2,
+    "type": "object",
+    "properties": {
+        "cwd": {
+            "type": "string",
+            "description": "Cargo workspace root, relative to the Nx workspace root"
+        },
+        "dryRun": {
+            "type": "boolean",
+            "description": "Prints each move and makes none, passing --dry-run to cargo upgrade and cargo update, as NX_DRY_RUN=true does"
+        }
+    },
+    "required": ["cwd"],
+    "additionalProperties": true,
+    "title": "Upgrade",
+    "description": "Moves every dependency requirement of a Cargo workspace to its newest release with cargo upgrade --incompatible allow, then each crates.io requirement on a stable release to the newest prerelease above it with cargo upgrade --package <crate>@<version>, then the lock with cargo update; a prerelease counts where it names no commit build and its line opened after the newest stable line, as cargo upgrade follows prereleases only from a requirement already on one"
+}

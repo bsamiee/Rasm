@@ -25,6 +25,7 @@ PreToolUse   = [{ matcher = "^Bash$", hooks = [{ type = "command", command = "mi
 "media@rasm"         = { enabled = true }
 "delegate@rasm"      = { enabled = true }
 "web@rasm"           = { enabled = true }
+"browser@rasm"       = { enabled = true }
 "tool@rasm"          = { enabled = true }
 
 [marketplaces]

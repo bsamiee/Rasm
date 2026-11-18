@@ -4,10 +4,13 @@
     "recommendations": [
         "astral-sh.ty",
         "charliermarsh.ruff",
+        "adobe.extendscript-debug",
         "ctcuff.font-preview",
         "dbaeumer.vscode-eslint",
         "github.vscode-github-actions",
         "hverlin.mise-vscode",
+        "jaroslavbereza.uxpdebugger",
+        "jaroslavbereza.uxpvalidator",
         "llvm-vs-code-extensions.vscode-clangd",
         "mads-hartmann.bash-ide-vscode",
         "ms-dotnettools.csharp",

@@ -277,7 +277,10 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
         const relabeled = (constraint: string) => renames.get(constraint) ?? constraint;
         return {
             relabeled,
-            relabels: Array.fromIterable(renames).map(([from, to]) => sql`ALTER TABLE ${ddl.relation} RENAME CONSTRAINT ${sql(from)} TO ${sql(to)}`),
+            relabels: renames
+                .entries()
+                .map(([from, to]) => sql`ALTER TABLE ${ddl.relation} RENAME CONSTRAINT ${sql(from)} TO ${sql(to)}`)
+                .toArray(),
             dropped: links.placed.flatMap(({ dropped }) => dropped),
             added: links.placed.filter(({ missing }) => missing).map(({ item }) => item),
             enforced: Array.intersection(live.unenforced.map(relabeled), [...checks, ...ddl.links].map(Struct.get('name'))),

@@ -335,12 +335,12 @@ fn averaged<T>(items: &[T], interval: Range<Timestamp>, span: impl Fn(&T) -> Ran
         })
         .filter_map(|(item, part)| value(item).map(|(value, divisor)| (value / divisor, length(part).as_secs_f64())))
         .fold((0.0, 0.0), |(sum, covered), (value, weight)| (weight.mul_add(value, sum), covered + weight));
-    (covered > 0.0 && length(interval).as_secs_f64() - covered <= gap.as_secs_f64()).then(|| sum / covered)
+    (covered > 0.0 && length(interval).as_secs_f64() - covered <= gap.as_secs_f64()).then_some(sum / covered)
 }
 
 fn weighted(readings: impl IntoIterator<Item = (f64, f64)>) -> Option<f64> {
     let (sum, total) = readings.into_iter().fold((0.0, 0.0), |(sum, total), (value, weight)| (weight.mul_add(value, sum), total + weight));
-    (total > 0.0).then(|| sum / total)
+    (total > 0.0).then_some(sum / total)
 }
 
 fn runs(records: &[Hour]) -> impl Iterator<Item = (&[Hour], Range<Timestamp>)> {

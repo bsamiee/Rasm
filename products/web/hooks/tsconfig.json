@@ -1,14 +1,5 @@
 {
     "extends": "../../../tsconfig.base.json",
-    "compilerOptions": {
-        "types": ["node"]
-    },
-    "references": [
-        {
-            "path": "../../../libs/typescript/messaging/webhooks"
-        },
-        {
-            "path": "../../../libs/typescript/web/hosting"
-        }
-    ]
+    "files": [],
+    "references": [{ "path": "./tsconfig.lib.json" }, { "path": "./tsconfig.server.json" }]
 }

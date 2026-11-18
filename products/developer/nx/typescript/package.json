@@ -10,17 +10,29 @@
     },
     "files": [
         "dist/**/*.js",
-        "dist/**/*.d.ts"
+        "dist/**/*.d.ts",
+        "executors.json",
+        "executors/*/schema.json"
     ],
     "type": "module",
+    "imports": {
+        "#package": "./package.json"
+    },
     "exports": {
         ".": "./plugin.ts",
-        "./package.json": "./package.json"
+        "./package.json": "./package.json",
+        "./executors.json": "./executors.json",
+        "./executors/*": "./executors/*/executor.ts"
     },
     "publishConfig": {
+        "imports": {
+            "#package": "./package.json"
+        },
         "exports": {
             ".": "./dist/plugin.js",
-            "./package.json": "./package.json"
+            "./package.json": "./package.json",
+            "./executors.json": "./executors.json",
+            "./executors/*": "./dist/executors/*/executor.js"
         },
         "access": "public"
     },
@@ -28,11 +40,14 @@
         "@nx/devkit": "catalog:",
         "@nx/js": "catalog:",
         "@rasm/nx-distribution": "workspace:*",
-        "effect": "catalog:"
+        "effect": "catalog:",
+        "npm-package-arg": "catalog:",
+        "yaml": "catalog:"
     },
     "devDependencies": {
         "@cloudflare/config": "catalog:",
         "@types/node": "catalog:",
+        "@types/npm-package-arg": "catalog:",
         "@typescript/native": "catalog:",
         "eslint": "catalog:",
         "nx": "catalog:"
@@ -41,6 +56,7 @@
         "nx": "catalog:peers"
     },
     "engines": {
-        "node": ">=26"
-    }
+        "node": ">=27"
+    },
+    "executors": "./executors.json"
 }

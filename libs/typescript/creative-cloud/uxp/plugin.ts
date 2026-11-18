@@ -201,10 +201,8 @@ class Plugin extends Context.Service<Plugin, typeof UxpManifest.identity.Type>()
                 Effect.try({ try: () => fs.readFileSync(MANIFEST, 'utf-8'), catch: (cause) => PlatformError.systemError({ _tag: 'Unknown', module: 'FileSystem', method: 'readFileString', pathOrDescriptor: MANIFEST, cause }) }).pipe(Effect.flatMap(Schema.decodeEffect(UxpManifest.identity))),
                 Schema.decodeUnknownEffect(Entrypoints)(entrypoints),
             ]);
-            const root = Effect.all([Effect.tryPromise(() => uxp.storage.localFileSystem.getPluginFolder()), Path.Path]).pipe(
-                Effect.flatMap(([{ nativePath }, path]) => path.toFileUrl(nativePath)),
-                Effect.mapError(HostError.refused('UXP plugin folder')),
-            );
+            const refused = HostError.refused('UXP plugin folder');
+            const root = Effect.all([Effect.tryPromise({ try: () => uxp.storage.localFileSystem.getPluginFolder(), catch: refused }), Path.Path]).pipe(Effect.flatMap(([{ nativePath }, path]) => Effect.mapError(path.toFileUrl(nativePath), refused)));
             const linked = link === undefined ? Layer.empty : Layer.launch(link(manifest.id, root)).pipe(reported, Effect.forkScoped, Layer.effectDiscard);
             const runtime = ManagedRuntime.make(linked.pipe(Layer.provideMerge(Layer.succeed(Plugin)(manifest)), Layer.provideMerge(Layer.provide(layer({ serviceName: manifest.id }), FetchHttpClient.layer)), Layer.provideMerge(hosted)));
             const [handled, shown] = yield* Effect.all([

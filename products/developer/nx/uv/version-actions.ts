@@ -82,7 +82,7 @@ const released = Effect.fnUntraced(function* (tree: Tree, manifest: string, opti
     const [{ lock }, { project: stated }] = yield* Effect.all([Schema.decodeUnknownEffect(Options)(options), project(tree, manifest)]);
     const compile = ['uv', 'pip', 'compile', '-', '--no-deps', '--no-header', '--no-annotate', '--color', 'never', '--quiet'] as const;
     const stdout = yield* spawned(compile, { cwd: join(tree.root, dirname(lock)), stdin: Stream.encodeText(Stream.make(stated.name)) });
-    const found = Array.findFirst([...stdout.matchAll(PINNED)], ({ groups }) => Option.flatMap(Option.fromNullishOr(groups), ({ name, version }) => (name !== undefined && normalized(name) === normalized(stated.name) ? Option.fromUndefinedOr(version) : Option.none())));
+    const found = Array.findFirst(stdout.matchAll(PINNED), ({ groups }) => Option.flatMap(Option.fromNullishOr(groups), ({ name, version }) => (name !== undefined && normalized(name) === normalized(stated.name) ? Option.fromUndefinedOr(version) : Option.none())));
     const latest = yield* Effect.fromOption(found, () => new Cause.NoSuchElementError(`${compile.join(' ')} prints no row for ${stated.name}`));
     return { currentVersion: yield* semver(latest), logText: compile.join(' ') };
 }, run);

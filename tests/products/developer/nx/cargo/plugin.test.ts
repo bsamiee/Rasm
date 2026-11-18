@@ -86,7 +86,7 @@ describe('@rasm/nx-cargo', { timeout: 120_000 }, () => {
         const library = { root: 'proj/library', name: 'cargo-tutorial' };
         const cleaned = { command: 'cargo clean --help', example: { args: ['--dry-run'] } };
         const crate = (name: string, packages: readonly (typeof library)[]) => ({
-            attach: { dependsOn: ['attach--*'], inputs: ['...', { dependentTasksOutputFiles: '**/*', transitive: true }, { externalDependencies: [] }] },
+            attach: { dependsOn: [{ target: 'attach--*', params: 'forward' }], inputs: ['...', { dependentTasksOutputFiles: '**/*', transitive: true }, { externalDependencies: [] }] },
             'attach--gh': {
                 dependsOn: ['pack--cargo'],
                 executor: '@rasm/nx-distribution:attach',
@@ -97,22 +97,22 @@ describe('@rasm/nx-cargo', { timeout: 120_000 }, () => {
                     technologies,
                 },
             },
-            build: { dependsOn: ['build--*'], inputs: ['...', ...sources] },
-            check: { dependsOn: ['check--*'], inputs: ['...', ...sources, { env: 'CLIPPY_CONF_DIR' }] },
+            build: { dependsOn: [{ target: 'build--*', params: 'forward' }], inputs: ['...', ...sources] },
+            check: { dependsOn: [{ target: 'check--*', params: 'forward' }], inputs: ['...', ...sources, { env: 'CLIPPY_CONF_DIR' }] },
             'check--clippy': {
                 cache: true,
                 executor: '@rasm/nx-cargo:cargo',
                 inputs: [...sources, { env: 'CLIPPY_CONF_DIR' }],
                 metadata: { description: `Reports the clippy findings of ${name} with cargo clippy`, help: help('cargo clippy'), technologies },
             },
-            clean: { dependsOn: ['clean--*'], inputs: ['...', ...sources] },
-            fix: { dependsOn: ['fix--*'], inputs: ['...', ...sources] },
+            clean: { dependsOn: [{ target: 'clean--*', params: 'forward' }], inputs: ['...', ...sources] },
+            fix: { dependsOn: [{ target: 'fix--*', params: 'forward' }], inputs: ['...', ...sources] },
             'fix--clippy': {
                 executor: '@rasm/nx-cargo:cargo',
                 inputs: sources,
                 metadata: { description: `Applies the clippy suggestions for ${name} with cargo clippy --fix`, help: help('cargo clippy --fix'), technologies },
             },
-            pack: { dependsOn: ['pack--*'], inputs: ['...', ...sources] },
+            pack: { dependsOn: [{ target: 'pack--*', params: 'forward' }], inputs: ['...', ...sources] },
             'pack--cargo': {
                 cache: true,
                 executor: '@rasm/nx-cargo:cargo',
@@ -121,7 +121,7 @@ describe('@rasm/nx-cargo', { timeout: 120_000 }, () => {
                 options: { commands: [{ args: ['package', '--no-verify', '--locked'], packages }], cwd: '.', package: name },
                 outputs: [`{workspaceRoot}/target/package/${name}-0.1.0.crate`],
             },
-            test: { dependsOn: ['test--*'], inputs: ['...', ...sources, { runtime: 'cargo llvm-cov --version' }] },
+            test: { dependsOn: [{ target: 'test--*', params: 'forward' }], inputs: ['...', ...sources, { runtime: 'cargo llvm-cov --version' }] },
             'test--cargo': {
                 cache: true,
                 configurations: { coverage: { commands: [{ args: ['llvm-cov', 'test', '--lcov', '--locked'], packages }], outputs: [] } },
@@ -186,7 +186,7 @@ describe('@rasm/nx-cargo', { timeout: 120_000 }, () => {
                                     },
                                 },
                                 'fix--clippy': { ...application['fix--clippy'], options: { commands: [{ args: ['clippy', '--fix', '--allow-dirty', '--bins', '--tests', '--benches', '--all-features', ...messages] }], cwd: '.', package: 'application' } },
-                                install: { dependsOn: ['install--*'], inputs: ['...', ...sources] },
+                                install: { dependsOn: [{ target: 'install--*', params: 'forward' }], inputs: ['...', ...sources] },
                                 'install--cargo': {
                                     executor: '@rasm/nx-cargo:cargo',
                                     inputs: sources,

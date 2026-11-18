@@ -76,7 +76,7 @@ const nodes = Effect.fnUntraced(function* (files: readonly string[], context: Cr
     const handed = files.filter((file) => posix.basename(file) === 'package.json' && (member(file) || roots.has(posix.dirname(file))));
     const rows = Array.zip(handed, yield* Effect.forEach(handed, (file) => Effect.result(Effect.flatMap(fs.readFileString(posix.join(context.workspaceRoot, file)), Schema.decodeEffect(Manifest))), { concurrency: 'unbounded' }));
     const programs = new Map(Array.getSomes(rows.map(([file, read]) => Option.flatMap(Option.getSuccess(read), (manifest) => programmed(manifest, file)))));
-    const tracked = new Set(yield* Effect.promise(() => globWithWorkspaceContext(context.workspaceRoot, [...programs.values()])));
+    const tracked = new Set(yield* Effect.promise(() => globWithWorkspaceContext(context.workspaceRoot, programs.values().toArray())));
     const results = Array.getSomes(rows.map(([file, read]) => Option.flatMap(Option.getSuccess(read), (manifest) => inferred(programs, tracked, manifest, file, context))));
     const failures = Array.filterMap(rows, ([file, read]) => Result.map(Result.flip(read), (error): [string, Error] => [file, error]));
     return yield* Array.match(failures, { onEmpty: () => Effect.succeed(results), onNonEmpty: (refused) => Effect.fail(new AggregateCreateNodesError(refused, results)) });

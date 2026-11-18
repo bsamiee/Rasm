@@ -68,7 +68,7 @@ const heapAssigned: Rule = (_invocation, { analysis: { commands, declarations } 
     const removed = new Set(removals.flatMap(({ heap }) => heap.map(({ name }) => name)));
     return [
         ...removals.flatMap(({ heap, spans }) => spans.map(({ start, end }) => Verdict.Edit({ start, end, text: Option.none(), subject: Option.some(heap.map(({ name }) => name).join(' ')) }))),
-        ...Array.dedupe(commands.flatMap(({ variables }) => [...variables.keys()])).flatMap((name) => (HEAP.test(name) && !removed.has(name) ? refusal(`${name} overrides the ${HEADLESS} heap, remove it`) : [])),
+        ...Array.dedupe(commands.values().flatMap(({ variables }) => variables.keys())).flatMap((name) => (HEAP.test(name) && !removed.has(name) ? refusal(`${name} overrides the ${HEADLESS} heap, remove it`) : [])),
     ];
 };
 

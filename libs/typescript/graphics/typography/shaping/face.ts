@@ -135,7 +135,7 @@ class Face extends Schema.Class<Face, { readonly brand: unique symbol }>('Face')
         return Option.fromUndefinedOr(this.font.nominalGlyph(codePoint));
     }
     draws(text: string) {
-        return Array.fromIterable(text).every((character) => Option.isSome(this.glyph(character.codePointAt(0) ?? 0)));
+        return Iterator.from(text).every((character) => Option.isSome(this.glyph(character.codePointAt(0) ?? 0)));
     }
     advance(codePoint: number) {
         return Option.map(this.glyph(codePoint), (glyph) => this.em(this.font.glyphHAdvance(glyph)));

@@ -68,13 +68,14 @@ const summary = (lines: Array.NonEmptyReadonlyArray<Line>) => ({
 ```
 
 Non-empty `lines` give `Array.max` an element, and `largest` is a `Line` with no absent case:
-- Native methods state a direct `filter`, `every`, `join`, `reduce`, or `Set` relation (`isSupersetOf`), other traversals Effect modules
+- Native methods state a direct `filter`, `every`, `join`, `reduce`, or `Set` relation (`isSupersetOf`), iterator helpers (`map`, `toArray`, `join`) a `Map`, `Set`, or `matchAll` result without a spread, other traversals Effect modules
 - `Record.collect` maps entries to an array and `Record.keys` lists keys, a `Record.filter` selecting entries first, `Object.entries` pairs restating them
 - `Record.filterMap` maps through a `Result`: `Result.failVoid` drops an entry, `Result.fromOption` enters a lookup, `Schema.decodeResult` validates
 - Dictionaries use `Record.getSomes`, which widens keys; closed optional fields spread `Option.map` field objects through `Option.getOrUndefined`
 - Resources shared across cases build once as an `Option` over the non-empty set of cases needing them, each case joining through `Option.toArray`
 - `Struct.renameKeys` maps keys to the spelling a host reads, `Struct.evolveKeys` computes them, a destructure rebuilding the object restating both
-- Named reductions (`Number.sumAll`, `BigDecimal.sumAll`, `Array.max`, `Array.groupBy`) state their fold, and sequences zip through `Array.zip`
+- Named reductions (`Number.sumAll`, `BigDecimal.sumAll`, `Array.max`, `Array.groupBy`) state their fold, `Math.sumPrecise` a Node float sum
+- Sequences zip through `Array.zip` in pairs and `Iterator.zip` in larger sets, browser and Adobe host code keeping `Array.zip`
 - `reduce` with a seed folds a reduction no member names, `Array.mapAccum(xs, seed, (state, x) => [next, y])` maps under a running state
 - `Array.makeBy` and `Array.range` generate sequences from a length or bounds
 - Relations between neighbors map the adjacent pairs `Array.window(values, 2)` returns, a gap filling from `Array.range` over its pair

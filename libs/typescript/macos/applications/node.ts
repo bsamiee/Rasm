@@ -2,7 +2,7 @@ import process from 'node:process';
 import { spawn } from '@rasm/process';
 import { child } from '@rasm/rpc';
 import { Unmatched } from '@rasm/search';
-import { Cause, Context, Effect, Fiber, FileSystem, Layer, Path, Schema, Sink, Stream, SubscriptionRef } from 'effect';
+import { Cause, Context, Effect, Fiber, FileSystem, Formatter, Layer, Path, Schema, SchemaIssue, Sink, Stream, SubscriptionRef } from 'effect';
 import type { ChildProcessSpawner } from 'effect/process';
 import { Rpc, RpcClient, RpcGroup } from 'effect/rpc';
 import { parse } from 'plist';
@@ -68,7 +68,7 @@ class ApplicationServer extends Context.Service<ApplicationServer>()('@rasm/appl
         const [path, files] = yield* Effect.all([Path.Path, FileSystem.FileSystem]);
         const contents = path.join(path.dirname(process.execPath), '..');
         const { CFBundleExecutable, CFBundleIdentifier, CFBundleShortVersionString } = yield* files.readFileString(path.join(contents, 'Info.plist')).pipe(
-            Effect.flatMap((text) => Effect.try(() => parse(text))),
+            Effect.flatMap((text) => Effect.try({ try: () => parse(text), catch: (cause) => new Schema.SchemaError(new SchemaIssue.InvalidValue({ message: `Info.plist holds no property list: ${Formatter.format(cause)}` }, text)) })),
             Effect.flatMap(Schema.decodeUnknownEffect(Bundle)),
         );
         return { version: CFBundleShortVersionString, identifier: CFBundleIdentifier, layer: ApplicationServer.layer(spawn([path.join(contents, 'MacOS', CFBundleExecutable)], { stderr: 'inherit' })) };

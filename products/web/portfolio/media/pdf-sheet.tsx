@@ -16,7 +16,16 @@ import type { Placement } from '#/model/placement';
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const sheet = (currentPageNumber: number) => ({ removePageBorders: true, annotationEditorMode: AnnotationEditorType.DISABLE, view: { currentPageNumber, currentScaleValue: 'page-fit', scrollMode: ScrollMode.PAGE, spreadMode: SpreadMode.NONE } }) satisfies Parameters<typeof PdfViewer.useViewer>[1];
-const pdfFailure = Match.type<MediaError['reason']>().pipe(Match.tagsExhaustive({ Protected: () => 'PDF is password protected', Missing: () => 'PDF not found', Unreadable: () => 'Browser cannot read PDF', Unsupported: () => 'Browser cannot read PDF' }));
+const pdfFailure = (retry: () => void) =>
+    Match.type<MediaError['reason']>().pipe(
+        Match.tagsExhaustive({
+            Protected: () => ({ message: 'PDF is password protected' }),
+            Missing: () => ({ message: 'PDF not found' }),
+            Unreadable: () => ({ message: 'Browser cannot read PDF' }),
+            Unsupported: () => ({ message: 'Browser cannot read PDF' }),
+            Unavailable: () => ({ message: 'PDF failed to load', onRetry: retry }),
+        }),
+    );
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -66,7 +75,7 @@ const PdfSheet = ({ placement, layoutId }: { placement: Extract<typeof Placement
     return AsyncResult.builder(useAtomValue(source))
         .onInitialOrWaiting(() => <MediaLoading />)
         .onSuccess((document) => (layoutId === undefined ? <SheetPreview asset={placement.asset} document={document} page={placement.page.number} /> : <SheetViewer document={document} layoutId={layoutId} placement={placement} url={url} />))
-        .onErrorTag('MediaError', ({ reason }) => <MediaFailure asset={placement.asset} message={pdfFailure(reason)} />)
+        .onErrorTag('MediaError', ({ reason }) => <MediaFailure asset={placement.asset} {...pdfFailure(retry)(reason)} />)
         .onFailure(() => <MediaFailure asset={placement.asset} message="PDF failed to load" onRetry={retry} />)
         .exhaustive();
 };

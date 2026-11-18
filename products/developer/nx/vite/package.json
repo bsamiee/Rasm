@@ -41,6 +41,6 @@
         "vite": "catalog:peers"
     },
     "engines": {
-        "node": ">=26"
+        "node": ">=27"
     }
 }

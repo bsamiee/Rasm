@@ -74,9 +74,9 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             }
             && !expanded_externally(cx, expr.span)
             && let ExprKind::AddrOf(BorrowKind::Ref, Mutability::Not, bytes) = borrowed.kind
-            && let ty::Adt(vector, arguments) = typeck.expr_ty(bytes).kind()
+            && let &ty::Adt(vector, arguments) = typeck.expr_ty(bytes).kind()
             && vector.is_diag_item(cx, sym::Vec)
-            && uses_global_allocator(cx, *vector, arguments)
+            && uses_global_allocator(cx, vector, arguments)
             && let Some(root) = iter::successors(Some(bytes), |place| if let ExprKind::Field(base, _) = place.kind { Some(base) } else { None })
                 .skip(1)
                 .try_fold(bytes, |_, base| (typeck.expr_adjustments(base).is_empty() && typeck.expr_ty(base).ty_adt_def().is_some_and(|owner| owner.destructor(cx.tcx).is_none())).then_some(base))

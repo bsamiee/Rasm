@@ -1,5 +1,5 @@
 import { assert, type Vitest } from '@effect/vitest';
-import { ObjectStorage } from '@rasm/object-storage';
+import { ObjectStorage, ObjectStorageError } from '@rasm/object-storage';
 import { Array, ByteSize, Bytes, Duration, Effect, Record, Struct } from 'effect';
 import { type HttpClient, HttpServerRequest, HttpServerResponse } from 'effect/http';
 
@@ -16,7 +16,7 @@ const fill = (size: number, seed: number) => Uint8Array.from({ length: size }, (
 const content = fill(2 * part + 7, 0);
 const read = Effect.fn('read')(function* (key: string, init: RequestInit = {}) {
     const response = HttpServerResponse.toWeb(yield* ObjectStorage.serve({ key, mime: media.mime }, media.options).pipe(Effect.provideService(HttpServerRequest.HttpServerRequest, HttpServerRequest.fromWeb(new Request(`https://storage.test/${key}`, init)))));
-    return { status: response.status, headers: response.headers, body: yield* Effect.tryPromise(() => response.bytes()) };
+    return { status: response.status, headers: response.headers, body: yield* Effect.tryPromise({ try: () => response.bytes(), catch: ObjectStorageError.of('Unavailable', key) }) };
 });
 const status = (key: string) => Effect.map(read(key), Struct.get('status'));
 const reads = <E>(it: Vitest.MethodsNonLive<ObjectStorage | HttpClient.HttpClient>, stored: (key: string, bytes: Uint8Array) => Effect.Effect<unknown, E, ObjectStorage | HttpClient.HttpClient>) => {

@@ -1,0 +1,18 @@
+{
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "composite": false,
+        "declarationMap": false,
+        "noEmit": true,
+        "types": ["node"]
+    },
+    "include": ["server/main.ts"],
+    "references": [
+        {
+            "path": "./tsconfig.lib.json"
+        },
+        {
+            "path": "../../../libs/typescript/web/hosting"
+        }
+    ]
+}

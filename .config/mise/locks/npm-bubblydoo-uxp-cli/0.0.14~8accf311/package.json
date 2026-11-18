@@ -1,0 +1,7 @@
+{
+  "name": "mise-npm-install",
+  "private": true,
+  "dependencies": {
+    "@bubblydoo/uxp-cli": "0.0.14"
+  }
+}

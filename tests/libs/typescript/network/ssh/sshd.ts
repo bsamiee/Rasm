@@ -88,13 +88,18 @@ class Sshd extends Context.Service<Sshd>()('@rasm/test-ssh/sshd', {
             { source: `${files.authority}.pub`, target: '/keys/authority.pub' },
         ];
         const started = [`{ busybox nc -ll -p ${greeting.port} -e echo ${greeting.text} & }`, ...restricted.map(({ command }) => command), listening].join(' && ');
-        const [network, runtime] = yield* Effect.all([Effect.acquireDisposable(Effect.tryPromise(() => new Network().start())), Effect.tryPromise(() => getContainerRuntimeClient())]);
+        const [network, runtime] = yield* Effect.all([
+            Effect.acquireDisposable(Effect.tryPromise({ try: () => new Network().start(), catch: (cause) => new Cause.UnknownError(cause, 'container runtime refused the test network') })),
+            Effect.tryPromise({ try: () => getContainerRuntimeClient(), catch: (cause) => new Cause.UnknownError(cause, 'no container runtime answered') }),
+        ]);
         const serving = Effect.fnUntraced(function* (alias: string) {
-            const image = yield* Effect.tryPromise(() =>
-                GenericContainer.fromDockerfile(import.meta.dirname)
-                    .withBuildkit()
-                    .build('rasm/test-ssh', { deleteOnExit: false }),
-            );
+            const image = yield* Effect.tryPromise({
+                try: () =>
+                    GenericContainer.fromDockerfile(import.meta.dirname)
+                        .withBuildkit()
+                        .build('rasm/test-ssh', { deleteOnExit: false }),
+                catch: (cause) => new Cause.UnknownError(cause, `rasm/test-ssh image for ${alias} failed to build`),
+            });
             const defined = image
                 .withNetwork(network)
                 .withNetworkAliases(alias)
@@ -102,11 +107,11 @@ class Sshd extends Context.Service<Sshd>()('@rasm/test-ssh/sshd', {
                 .withCopyContentToContainer(restricted.map(({ authorized }) => authorized))
                 .withExposedPorts(served, ...restricted.map(({ port }) => port))
                 .withLogConsumer(logged(alias));
-            const container = yield* Effect.acquireDisposable(Effect.tryPromise(() => defined.withCommand(['sh', '-c', started]).start()));
+            const container = yield* Effect.acquireDisposable(Effect.tryPromise({ try: () => defined.withCommand(['sh', '-c', started]).start(), catch: (cause) => new Cause.UnknownError(cause, `${alias} container failed to start`) }));
             const engine = runtime.container.getById(container.getId());
             const paused = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
                 Effect.andThen(
-                    Effect.tryPromise(() => engine.pause()),
+                    Effect.tryPromise({ try: () => engine.pause(), catch: (cause) => new Cause.UnknownError(cause, `${alias} container refused pause`) }),
                     Effect.ensuring(
                         effect,
                         Effect.promise(() => engine.unpause()),

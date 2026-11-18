@@ -20,6 +20,7 @@ const FOCUS = /\bactivate\b|\bset\s+frontmost\b|AXRaise/u;
 const SYSTEM_EVENTS = /System Events|com\.apple\.systemevents/u;
 const WEB_URL = /^https?:/iu;
 const BROWSER_NAME = /^[a-z][\w-]*$/u;
+const SESSIONLESS = new Set(['install', 'install-browser', 'list', 'close-all', 'kill-all']);
 const SIGNAL_PREFIX = /^-?(?:SIG)?/u;
 const SIGNAL = /^-(?:\d+|(?:SIG)?[A-Z]{2,}\d*)$/u;
 const PIDS = /^\d+/gmu;
@@ -238,9 +239,9 @@ const launchSwitches: Rule = Effect.fnUntraced(function* (invocation, call) {
 // --- [BROWSERS]
 
 const browserSession: Rule = (invocation, { request: { agent } }) => {
-    const [cli] = invocation.operands;
+    const [cli, verb] = invocation.operands;
     const stated = invocation.has('-s', '--session') || [...invocation.outer, invocation].some(({ assigned }) => assigned.some(({ text }) => text.startsWith('PLAYWRIGHT_CLI_SESSION=')));
-    return agent === undefined || cli?.text !== 'cli' || stated ? [] : inserted(invocation, cli.end, ` -s=${quote(agent)}`);
+    return agent === undefined || cli?.text !== 'cli' || stated || SESSIONLESS.has(verb?.text ?? '') ? [] : inserted(invocation, cli.end, ` -s=${quote(agent)}`);
 };
 
 // --- [KILLS]

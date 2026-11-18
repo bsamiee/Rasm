@@ -12,6 +12,7 @@ import { ChildProcess, CommandLine } from 'effect/process';
 
 type Verbs = Readonly<Record<string, Readonly<Record<string, TargetConfiguration>>>>;
 type Stated = Readonly<Record<string, Pick<TargetConfiguration, 'inputs'>>>;
+type Run<R> = <A, E>(effect: Effect.Effect<A, E, R | NodeServices | Scope.Scope>) => Promise<A>;
 type Parse = (file: string, text: string) => { readonly module: { readonly staticImports: readonly { readonly moduleRequest: { readonly value: string }; readonly entries: readonly { readonly isType: boolean }[] }[] } };
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -48,7 +49,7 @@ const legible = (error: unknown): Error =>
         Match.orElse((each) => new Cause.UnknownError(each, Formatter.format(each))),
     );
 
-const runner = <R>(services: Layer.Layer<R>) => {
+const runner = <R>(services: Layer.Layer<R>): Run<R> => {
     const runtime = ManagedRuntime.make(Layer.merge(services, layer));
     return <A, E>(effect: Effect.Effect<A, E, R | NodeServices | Scope.Scope>) => runtime.runPromise(Effect.scoped(Effect.mapError(effect, legible)));
 };
@@ -142,7 +143,7 @@ const aggregated = (verbs: Verbs, stated: Stated, technology: string): Record<st
             [
                 verb,
                 {
-                    dependsOn: [`${verb}--*`],
+                    dependsOn: [{ target: `${verb}--*`, params: 'forward' }],
                     inputs: [
                         '...',
                         ...Array.dedupe(
@@ -159,4 +160,4 @@ const aggregated = (verbs: Verbs, stated: Stated, technology: string): Record<st
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { above, aggregated, anchored, extended, fingerprinted, Folder, Input, manifested, namedInput, packaged, parsed, PLATFORM, ran, recalled, run, runner, spawned, type Stated, stamped, tagged, Targets, tokened, type Verbs, within };
+export { above, aggregated, anchored, extended, fingerprinted, Folder, Input, manifested, namedInput, packaged, parsed, PLATFORM, ran, recalled, type Run, run, runner, spawned, type Stated, stamped, tagged, Targets, tokened, type Verbs, within };

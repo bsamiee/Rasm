@@ -252,6 +252,13 @@ _ICONS: frozendict[str, Callable[[], list[shapely.Geometry]]] = frozendict({
         _brick(390, 440, 3.6),
     ],
     "media": lambda: [_nuqta(0, 0, scale=1.3), *(_arc(0, 0, r, side + sweep / 2, -sweep) for r, sweep in ((190, 88), (330, 96)) for side in (0, 180))],
+    "browser": lambda: [
+        *(_nuqta(x, 0, scale=0.8) for x in (0, 96, 192)),
+        _mad(270, 10, 380, sag=8, lift=0, body=1.1),
+        _hairline((-40, 90), (-40, 520), 0.15),
+        _hairline((660, 90), (660, 520), 0.15),
+        _mad(-40, 520, 700, sag=6, lift=0, body=0.34),
+    ],
 })
 
 # --- [COMPOSITION] ----------------------------------------------------------------------

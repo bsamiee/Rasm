@@ -8,6 +8,7 @@ using Grasshopper2.Parameters;
 using Grasshopper2.Parameters.Special;
 using Grasshopper2.UI.Canvas;
 using Rasm.Rhino;
+using SuperLinq;
 
 namespace Rasm.Grasshopper.Doc;
 
@@ -150,8 +151,8 @@ public static class DocumentFiles {
             toSeq(members).Map(static (member, index) => (Member: Optional(member), Index: index)).Choose(slot => slot.Member.Map(found => (found.UserName, parameter(slot.Index)))).Strict();
 
         static Fin<Seq<(string Name, IParameter Parameter)>> Unique(Seq<(string Name, IParameter Parameter)> ports) =>
-            toSeq(ports.GroupBy(static port => port.Name, StringComparer.Ordinal).Where(static named => named.Skip(1).Any()))
-                .Traverse(static named => Fin.Fail<Unit>(new GrasshopperFault(named.Key, GrasshopperReason.Invalid)))
+            toSeq(ports.DuplicatesBy(static port => port.Name, StringComparer.Ordinal))
+                .Traverse(static repeated => Fin.Fail<Unit>(new GrasshopperFault(repeated.Name, GrasshopperReason.Invalid)))
                 .As()
                 .Map(_ => ports);
     }

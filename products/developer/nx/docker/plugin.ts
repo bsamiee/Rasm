@@ -98,7 +98,7 @@ const consumed = ({ read }: Composed): NonNullable<TargetConfiguration['inputs']
 
 const served = (root: string, project: Composed, services: Array.NonEmptyReadonlyArray<string>): Verbs => {
     const inputs = consumed(project);
-    const up = compose(root, ['up', '--wait', '--no-build', ...services], `Starts ${services.join(', ')} of ${project.name} with the services each depends on from built images and follows their logs with docker compose up, the services staying up after the run`, {
+    const up = compose(root, ['up', '--detach', '--wait', '--no-build', ...services], `Starts ${services.join(', ')} of ${project.name} with the services each depends on from built images with docker compose up and follows their logs with docker compose logs, the services staying up after the run`, {
         continuous: true,
         dependsOn: ['build--*'],
         readyWhen: getReadyCheckReadyWhen(`${PLUGIN}/ready-check`, undefined, ...services),
@@ -121,7 +121,7 @@ const targets = (root: string, project: Composed): Verbs => {
             ...Record.getSomes({ buildx: Option.map(built, () => compose(root, ['build', '--check'], `Lints every image ${project.name} builds, failing on any warning, with docker compose build --check`, { ...checked, dependsOn: PRODUCERS })) }),
         },
         build: Record.getSomes({ compose: Option.map(built, () => compose(root, ['build'], `Builds the images of ${project.name} into the engine with docker compose build`, { dependsOn: PRODUCERS, inputs, ...profiled })) }),
-        install: { compose: compose(root, ['up', '--wait', '--no-build', '--remove-orphans'], `Starts the services of ${project.name} from built images and waits until each is healthy with docker compose up`, { dependsOn: ['build--*'], inputs, ...profiled }) },
+        install: { compose: compose(root, ['up', '--detach', '--wait', '--no-build', '--remove-orphans'], `Starts the services of ${project.name} from built images and waits until each is healthy with docker compose up`, { dependsOn: ['build--*'], inputs, ...profiled }) },
     };
 };
 
@@ -185,7 +185,7 @@ const createNodes: CreateNodes = [
         const read = (file: string) => run(Effect.flatMap(Effect.fromNullishOr(folders.get(file)), ({ root, matched }) => inferred(cache, stored, context, rooted, root, matched)));
         return run(
             Effect.ensuring(
-                Effect.promise(() => createNodesFromFiles(read, [...folders.keys()], options, context)),
+                Effect.promise(() => createNodesFromFiles(read, folders.keys().toArray(), options, context)),
                 Effect.when(
                     Effect.sync(() => cache.writeToDisk()),
                     Effect.sync(() => MutableRef.get(stored)),

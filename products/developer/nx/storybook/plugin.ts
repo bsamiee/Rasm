@@ -164,7 +164,7 @@ const nodes = Effect.fnUntraced(function* (files: readonly string[], options: ty
     );
     const cache = new PluginCache<Resolved>(join(workspaceDataDirectory, `storybook-${hashObject(options ?? {})}.hash`));
     const stored = MutableRef.make(false);
-    const rows = new Map(Array.zipWith(Array.zip(mains, chains), hashes, ([file, chain], hash) => [file, { file, chain, key: hashArray([hash, own, file]) }] as const));
+    const rows = new Map(Iterator.zip([mains, chains, hashes]).map(([file, chain, hash]) => [file, { file, chain, key: hashArray([hash, own, file]) }] as const));
     const each = (file: string) => run(Effect.flatMap(Effect.fromNullishOr(rows.get(file)), (row) => inferred(cache, stored, context, Option.fromUndefinedOr(settings.outputPath), exec, row)));
     return yield* Effect.ensuring(
         Effect.promise(() => createNodesFromFiles(each, mains, options, context)),

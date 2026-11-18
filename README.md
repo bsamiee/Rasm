@@ -79,7 +79,7 @@ Thick arrows supply tools and variables, solid arrows run, read, or write, and d
 
 ```mermaid
 flowchart LR
-    versions["global.json<br/>rust-toolchain.toml"]
+    versions["rust-toolchain.toml"]
     mise["mise<br/>.config/mise.toml [tools] [env]"]
     shell(["Shell and child processes"])
     claude(["Claude Code session"])
@@ -199,7 +199,7 @@ Each ecosystem pins versions and holds settings at its root, and its projects in
 | :-----: | :---------- | :--------------------------------------------------------- | :-------------------------------------------------------- |
 |  [01]   | TypeScript  | `pnpm-workspace.yaml` `catalog`, manifests name `catalog:` | `tsconfig.base.json`, project `types`, `lib`, and `jsx`   |
 |  [02]   | Python      | `requires-python`, root group catalog, member floors       | Root `[tool.*]`, `[tool.uv]` and `[tool.ty]` per uv root  |
-|  [03]   | .NET        | `global.json`, `Directory.Packages.props`                  | Root and folder `Directory.Build.props`, folder sets kind |
+|  [03]   | .NET        | `dotnet` row of mise, `Directory.Packages.props`           | Root and folder `Directory.Build.props`, folder sets kind |
 |  [04]   | Rust        | `rust-toolchain.toml`, `[workspace.dependencies]`          | `Cargo.toml` `[workspace.*]`, `.cargo/config.toml`        |
 |  [05]   | Swift       | `xcode-select`, root `Package.swift` `dependencies`        | `Package.swift` `swiftSettings`                           |
 |  [06]   | C++         | LLVM row of mise, `vcpkg.json` `builtin-baseline`          | `CMakeLists.txt` flags, `CMakePresets.json` presets       |

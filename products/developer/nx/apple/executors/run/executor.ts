@@ -6,6 +6,7 @@ import type { ExecutorContext, TaskGraph } from '@nx/devkit';
 import type { TaskResult } from '@nx/devkit/internal';
 import { spawned } from '@rasm/nx-distribution/inference';
 import { Array, Cause, Config, Effect, FileSystem, Function, HashSet, Option, Predicate, Record, Schema, Stream } from 'effect';
+import { CommandLine } from 'effect/process';
 import { ran, run } from '#/targets';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -19,6 +20,7 @@ const Run = Schema.Struct({
     runs: Schema.Array(Schema.NonEmptyArray(Schema.String)).annotate({ description: 'Invocations the plugin infers, each a program and its arguments' }),
     applications: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Application bundles the invocations install, a running one named in the last line as needing a relaunch' }),
     report: Schema.optionalKey(Report),
+    dryRun: Schema.optionalKey(Schema.Boolean).annotate({ description: 'Prints each invocation and runs none' }),
     __unparsed__: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Words after -- of the run, appended after the configured arguments', $default: { $source: 'unparsed' }, hidden: true, 'x-priority': 'internal' }),
     outputs: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: "Files the configuration writes, which the target's outputs name through {options.outputs.<n>}" }),
 }).annotate({ title: 'Run', description: "Runs swift and xcodebuild invocations in order with Nx's per-task environment removed and git status.branch off after the caller's GIT_CONFIG_<n> entries, stopping at the first failure, then writes the lcov report a coverage configuration states" });
@@ -37,10 +39,10 @@ const lcov = Effect.fnUntraced(function* ({ profiles, objects }: typeof Report.T
     return yield* spawned(['xcrun', 'llvm-cov', 'export', '--format=lcov', `--instr-profile=${merged}`, ...objects.flatMap((object) => ['--object', object])], { cwd: root });
 }, Effect.scoped);
 
-const commands = Effect.fnUntraced(function* ({ runs, applications = [], report, __unparsed__: words = [] }: typeof Run.Type, root: string) {
+const commands = Effect.fnUntraced(function* ({ runs, applications = [], report, dryRun: dry = false, __unparsed__: words = [] }: typeof Run.Type, root: string) {
     const fs = yield* FileSystem.FileSystem;
     const stated = yield* configured;
-    const reported = Option.fromUndefinedOr(report);
+    const reported = Option.filter(Option.fromUndefinedOr(report), () => !dry);
     const cleared = Record.map(
         Record.filter(env, (_, name) => name.startsWith('NX_') || name === 'LERNA_PACKAGE_NAME'),
         Function.constUndefined,
@@ -50,7 +52,7 @@ const commands = Effect.fnUntraced(function* ({ runs, applications = [], report,
     const success = yield* Effect.reduce(
         runs,
         (): boolean => true,
-        (passed, invocation) => (passed ? Effect.map(ran(Array.appendAll(invocation, words), { cwd: root, env: { ...cleared, ...stated } }), (code) => code === 0) : Effect.succeed(false)),
+        (passed, invocation) => (passed && !dry ? Effect.map(ran(Array.appendAll(invocation, words), { cwd: root, env: { ...cleared, ...stated } }), (code) => code === 0) : Effect.as(dry ? Effect.logInfo(`Would run ${CommandLine.display(invocation)}`) : Effect.void, passed)),
     );
     yield* Effect.transposeOption(
         Option.map(
@@ -62,7 +64,7 @@ const commands = Effect.fnUntraced(function* ({ runs, applications = [], report,
             }),
         ),
     );
-    const running = !success || applications.length === 0 ? [] : (yield* spawned(['ps', '-Ao', 'comm='], { cwd: root })).split('\n');
+    const running = !success || dry || applications.length === 0 ? [] : (yield* spawned(['ps', '-Ao', 'comm='], { cwd: root })).split('\n');
     const stale = applications.filter((application) => running.some((executable) => executable.startsWith(join(application, 'Contents', 'MacOS', sep))));
     yield* stale.length === 0 ? Effect.void : Effect.logInfo(`${stale.map((application) => basename(application, '.app')).join(', ')} runs the build it launched from, relaunch it to run this one`);
     return { success };

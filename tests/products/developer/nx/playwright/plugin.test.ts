@@ -96,7 +96,7 @@ describe('@rasm/nx-playwright', () => {
                             root: '.',
                             metadata: { technologies: ['playwright'] },
                             targets: {
-                                test: { dependsOn: ['test--*'], inputs: ['...', ...inputs] },
+                                test: { dependsOn: [{ target: 'test--*', params: 'forward' }], inputs: ['...', ...inputs] },
                                 'test--playwright': {
                                     command: 'playwright test',
                                     options: { cwd: '.' },
@@ -106,7 +106,7 @@ describe('@rasm/nx-playwright', () => {
                                     outputs: ['{projectRoot}/test-results'],
                                     metadata,
                                 },
-                                clean: { dependsOn: ['clean--*'], inputs: ['...', 'default', '^default', { externalDependencies: ['@playwright/test'] }] },
+                                clean: { dependsOn: [{ target: 'clean--*', params: 'forward' }], inputs: ['...', 'default', '^default', { externalDependencies: ['@playwright/test'] }] },
                                 'clean--playwright': {
                                     executor: '@rasm/nx-distribution:clean',
                                     options: { targets: ['test--playwright'], commands: [['playwright', 'clear-cache']], cwd: '.' },

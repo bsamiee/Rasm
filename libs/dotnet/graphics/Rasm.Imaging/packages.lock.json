@@ -67,9 +67,9 @@
       },
       "SuperLinq": {
         "type": "Direct",
-        "requested": "[6.4.1, )",
-        "resolved": "6.4.1",
-        "contentHash": "LIcjQnTKbAeLNEB8sTQ7Z1J136qWWKCXn1YUWdM0J7JmNZiGwBf1o/4wIKh8ip7Of00IpcjdSEwJnd0sibuc5Q=="
+        "requested": "[6.5.0, )",
+        "resolved": "6.5.0",
+        "contentHash": "/HEDn6VqCAI7LTuDFLubNBzKIm758tmpFfRIRD7eFZjhBmWHSzGB4ga1Iq2W6ZsnZv8LcuVBIrA+hOE+zJkFHA=="
       },
       "System.Numerics.Tensors": {
         "type": "Direct",

@@ -5,11 +5,11 @@ use clippy_utils::higher::{ForLoop, Range, RangeTy, While};
 use clippy_utils::res::MaybeDef as _;
 use clippy_utils::sugg::Sugg;
 use clippy_utils::visitors::for_each_expr_without_closures;
-use clippy_utils::{eq_expr_value, fn_def_id, is_integer_literal, peel_blocks, peel_hir_expr_while, std_or_core, sym};
+use clippy_utils::{eq_expr_value, fn_def_id, is_integer_literal, peel_blocks, peel_hir_expr_while, sym};
 use rustc_ast::BinOpKind;
 use rustc_errors::Applicability;
 use rustc_hir::{Block, Expr, ExprKind, LetStmt, LoopSource, Node, Pat, PatKind, PathSegment, Stmt, StmtKind};
-use rustc_lint::{LateContext, LateLintPass};
+use rustc_lint::{LateContext, LateLintPass, std_or_core};
 use rustc_span::{Ident, Spanned, Symbol, SyntaxContext};
 
 use super::repeatable;
