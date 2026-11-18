@@ -4,7 +4,7 @@ import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations
 import { anchored, fingerprinted, manifested } from '@rasm/nx-distribution/inference';
 import { Array, Effect, Option, Record, Result, Schema, String } from 'effect';
 import { crateInputs, Options, projectTargets, released } from '#/targets';
-import { CLIPPY, CONFIG, DENY, Links, MANIFEST, type Member, NEXTEST, placed, type Reading, resolved, run, workspaces } from '#/workspace';
+import { CLIPPY, CONFIG, DENY, INSTALL, Links, MANIFEST, type Member, NEXTEST, placed, type Reading, resolved, run, workspaces } from '#/workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -16,7 +16,7 @@ const OWN = fingerprinted(import.meta.dirname);
 
 const inferred = Effect.fnUntraced(function* (context: CreateNodesContext, files: ReadonlySet<string>, settings: typeof Options.Type, listed: (root: string) => boolean, reading: Reading) {
     const links = yield* Links;
-    const workspace = resolved(context.workspaceRoot, reading, files);
+    const workspace = resolved(context.workspaceRoot, reading, files, yield* INSTALL);
     const coverage = Option.map(Option.fromUndefinedOr(settings.coveragePath), (at) => join(at, 'lcov.info'));
     workspace.members.forEach((member) => {
         links.set(dirname(member.crate.manifest_path), member);

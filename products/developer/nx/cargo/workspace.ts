@@ -1,10 +1,11 @@
+import { homedir } from 'node:os';
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse } from '@decimalturn/toml-patch';
 import { readJsonFile } from '@nx/devkit';
 import type { PackageJson } from '@nx/devkit/internal';
 import { runner, spawned } from '@rasm/nx-distribution/inference';
-import { Array, Cause, Context, Effect, Equivalence, FileSystem, Layer, Option, Predicate, Record, Result, Schema, String, UndefinedOr } from 'effect';
+import { Array, Cause, Config, Context, Effect, Equivalence, FileSystem, Layer, Option, Predicate, Record, Result, Schema, String, UndefinedOr } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -31,6 +32,10 @@ const KEYS = {
 } as const;
 const NEXTEST = '.config/nextest.toml';
 const DENY = Record.map({ config: 'deny', exceptions: 'deny.exceptions' }, (stem) => [`${stem}.toml`, `.${stem}.toml`, `.cargo/${stem}.toml`]);
+const INSTALL = Config.String('CARGO_INSTALL_ROOT').pipe(
+    Config.orElse(() => Config.String('CARGO_HOME')),
+    Config.withDefault(join(homedir(), '.cargo')),
+);
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -142,7 +147,7 @@ const placed = (workspaceRoot: string) => ({ stored: (reading: Reading) => moved
 
 const variable = (key: string) => key.toUpperCase().replaceAll(/[-.]/gu, '_');
 
-const resolved = (workspaceRoot: string, { metadata, profile, host, configs, clippy, unstable, uplifted, deny }: Reading, files: ReadonlySet<string>) => {
+const resolved = (workspaceRoot: string, { metadata, profile, host, configs, clippy, unstable, uplifted, deny }: Reading, files: ReadonlySet<string>, installed: string) => {
     const within = (at: string) => relative(workspaceRoot, at) || '.';
     const inside = (at: string) => Option.liftPredicate(within(at), (folder) => !(folder.startsWith('..') || isAbsolute(folder)));
     const root = within(metadata.workspace_root);
@@ -190,6 +195,7 @@ const resolved = (workspaceRoot: string, { metadata, profile, host, configs, cli
         strategies: Array.dedupeWith(['release', ...profiles], (left, right) => strategy(left) === strategy(right)).filter((name) => strategy(name) !== strategy('dev')),
         deny: Array.head(deny),
         placed: inside(metadata.target_directory),
+        installed: join(installed, 'bin'),
         uplifted: (target: Target) => Array.getSomes(target.crate_types.map((type) => Option.map(Record.get(uplifted, type), (file) => file.replace(CRATE, target.name)))),
     };
 };
@@ -210,4 +216,4 @@ const run = runner(Links.layer);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { binary, CLIPPY, CONFIG, Crate, DENY, Links, LOCK, library, MANIFEST, type Member, NEXTEST, own, PLUGIN, placed, type Reading, resolved, run, type Target, tokened, type Workspace, workspaces };
+export { binary, CLIPPY, CONFIG, Crate, DENY, INSTALL, Links, LOCK, library, MANIFEST, type Member, NEXTEST, own, PLUGIN, placed, type Reading, resolved, run, type Target, tokened, type Workspace, workspaces };

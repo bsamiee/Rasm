@@ -9,6 +9,7 @@ import { Array, Predicate } from 'effect';
 import { describe, expect, test, vi } from 'vitest';
 
 vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
+vi.stubEnv('CARGO_INSTALL_ROOT', '/opt/cargo');
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -123,7 +124,11 @@ describe('@rasm/nx-cargo/plugin/nodes', { timeout: 60_000 }, () => {
         const after = await createNodesFunction(['lib/Cargo.toml'], {}, context);
 
         expect(before[0]?.[1].projects?.['lib']?.targets).not.toHaveProperty('install--cargo');
-        expect(after[0]?.[1].projects?.['lib']?.targets?.['install--cargo']?.options).toStrictEqual({ commands: [{ args: ['install', '--path', '.', '--locked'] }], cwd: 'lib' });
+        expect(after[0]?.[1].projects?.['lib']?.targets?.['install--cargo']?.options).toStrictEqual({
+            commands: [{ args: ['build', '--bins', '--profile', 'release', '--locked', '--keep-going', '--message-format', 'json-diagnostic-rendered-ansi', '-Zunstable-options', '--artifact-dir', '/opt/cargo/bin'] }],
+            cwd: 'lib',
+            package: 'lib',
+        });
     });
 
     it.for([

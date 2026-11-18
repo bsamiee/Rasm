@@ -55,7 +55,7 @@ const crateInputs = (workspace: Workspace, { crate, root }: Member, stated: Targ
     ];
 };
 
-const crateTargets = (workspace: Workspace, coverage: Option.Option<string>, { crate, root, packages, linted }: Member): Verbs => {
+const crateTargets = (workspace: Workspace, coverage: Option.Option<string>, { crate, packages, linted }: Member): Verbs => {
     const selected = { cwd: workspace.root, package: crate.name };
     const kinds = [...(crate.targets.some(library) ? ['--lib'] : []), '--bins', '--tests', '--benches', '--all-features'];
     const plain = Option.isNone(workspace.nextest);
@@ -70,7 +70,7 @@ const crateTargets = (workspace: Workspace, coverage: Option.Option<string>, { c
     const debug = outputs('debug');
     const profiles = ['release', ...workspace.profiles];
     const built = (profile: readonly string[]): Array.NonEmptyReadonlyArray<Command> => [{ args: ['build', ...profile, '--keep-going', ...MESSAGES] }];
-    const installed = (profile: readonly string[]): Array.NonEmptyReadonlyArray<Command> => [{ args: ['install', '--path', relative(workspace.root, root) || '.', ...profile, LOCKED] }];
+    const installed = (profile: string): Array.NonEmptyReadonlyArray<Command> => [{ args: ['build', '--bins', '--profile', profile, LOCKED, '--keep-going', ...MESSAGES, '-Zunstable-options', '--artifact-dir', workspace.installed] }];
     const checked = (placed: (selection: readonly string[]) => Command): Array.NonEmptyReadonlyArray<Command> =>
         Array.map(
             Array.prepend(
@@ -153,10 +153,10 @@ const crateTargets = (workspace: Workspace, coverage: Option.Option<string>, { c
         install: {
             ...(crate.targets.some(binary) && {
                 cargo: cargoTarget(
-                    'install',
-                    `Installs the binaries of ${crate.name} into Cargo's install root with cargo install, in release unless a configuration names a profile`,
-                    { cwd: workspace.root, commands: installed([]) },
-                    Array.match(workspace.profiles, { onEmpty: () => ({}), onNonEmpty: (named) => ({ configurations: Record.fromIterableWith(named, (profile) => [profile, { commands: installed(['--profile', profile]) }] as const) }) }),
+                    'build',
+                    `Builds the binaries of ${crate.name} in the workspace with cargo build and places them in the bin folder of Cargo's install root through --artifact-dir, in release unless a configuration names a profile`,
+                    { ...selected, commands: installed('release') },
+                    Array.match(workspace.profiles, { onEmpty: () => ({}), onNonEmpty: (named) => ({ configurations: Record.fromIterableWith(named, (profile) => [profile, { commands: installed(profile) }] as const) }) }),
                 ),
             }),
         },

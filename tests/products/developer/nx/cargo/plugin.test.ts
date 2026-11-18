@@ -9,6 +9,7 @@ import { Array, Effect, Schema, String } from 'effect';
 import { describe, expect, test, vi } from 'vitest';
 
 vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
+vi.stubEnv('CARGO_INSTALL_ROOT', '/opt/cargo');
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -189,8 +190,12 @@ describe('@rasm/nx-cargo', { timeout: 120_000 }, () => {
                                 'install--cargo': {
                                     executor: '@rasm/nx-cargo:cargo',
                                     inputs: sources,
-                                    metadata: { description: "Installs the binaries of application into Cargo's install root with cargo install, in release unless a configuration names a profile", help: help('cargo install'), technologies },
-                                    options: { commands: [{ args: ['install', '--path', 'proj/application', '--locked'] }], cwd: '.' },
+                                    metadata: {
+                                        description: "Builds the binaries of application in the workspace with cargo build and places them in the bin folder of Cargo's install root through --artifact-dir, in release unless a configuration names a profile",
+                                        help: help('cargo build'),
+                                        technologies,
+                                    },
+                                    options: { commands: [{ args: ['build', '--bins', '--profile', 'release', '--locked', ...messages, '-Zunstable-options', '--artifact-dir', '/opt/cargo/bin'] }], cwd: '.', package: 'application' },
                                 },
                             },
                         },
