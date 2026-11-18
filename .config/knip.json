@@ -5,7 +5,8 @@
     "ignoreBinaries": ["rustc", "swift", "uv"],
     "ignoreDependencies": ["@effect/language-service", "@rasm/search", "adobe", "claude-code", "indesign-uxp-types"],
     "ignoreIssues": {
-        "package.json": ["dependencies", "devDependencies", "optionalPeerDependencies"]
+        "package.json": ["dependencies", "devDependencies", "optionalPeerDependencies"],
+        "products/developer/nx/apple/targets.ts": ["unresolved"]
     },
     "wrangler": {
         "entry": ["cloudflare.config.ts"]

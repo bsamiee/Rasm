@@ -50,25 +50,10 @@ jobs:
                   fetch-depth: 0
             - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
               with:
-                  xcode-version: latest
+                  xcode-version: latest-stable
             - &tools
               uses: ./.github/actions/tools
-            - id: signing
-              if: ${{ env.APPLE_DEVELOPMENT_P12 != '' || env.DEVELOPER_ID_P12 != '' }}
-              run: |
-                  keychain="${RUNNER_TEMP}/app-signing.keychain-db"
-                  password="$(uuidgen)"
-                  security create-keychain -p "${password}" "${keychain}"
-                  security set-keychain-settings -lut 21600 "${keychain}"
-                  security unlock-keychain -p "${password}" "${keychain}"
-                  for identity in APPLE_DEVELOPMENT_P12 DEVELOPER_ID_P12; do
-                      passphrase="${identity}_PASSWORD"
-                      [[ -n "${!identity}" ]] || continue
-                      printf "%s" "${!identity}" | base64 --decode -o "${RUNNER_TEMP}/${identity}.p12"
-                      security import "${RUNNER_TEMP}/${identity}.p12" -P "${!passphrase}" -A -t cert -f pkcs12 -k "${keychain}"
-                  done
-                  security set-key-partition-list -S apple-tool:,apple: -k "${password}" "${keychain}"
-                  security list-keychains -d user | xargs security list-keychains -d user -s "${keychain}"
+            - uses: ./.github/actions/signing
             - run: nx build @rasm/nx-apple-darwin-arm64
             - run: nx release ${SPECIFIER:+"${SPECIFIER}"} ${PROJECTS:+--projects="${PROJECTS}"} --skip-publish --dry-run=${{ inputs.dry-run }}
               env:
@@ -100,8 +85,6 @@ jobs:
                   SPARKLE_FEED_BUCKET: ${{ vars.SPARKLE_FEED_BUCKET }}
                   CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
                   CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-            - if: ${{ always() && steps.signing.outcome != 'skipped' }}
-              run: security delete-keychain "${RUNNER_TEMP}/app-signing.keychain-db"
 
     unreal:
         needs: release

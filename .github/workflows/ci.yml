@@ -98,6 +98,8 @@ jobs:
             NX_SELF_HOSTED_REMOTE_CACHE_SERVER: *server
             NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN: *token
             PNPM_CONFIG_STORE_DIR: ${{ github.workspace }}/.cache/pnpm
+            APPLE_DEVELOPMENT_P12: ${{ secrets.APPLE_DEVELOPMENT_P12 }}
+            APPLE_DEVELOPMENT_P12_PASSWORD: ${{ secrets.APPLE_DEVELOPMENT_P12_PASSWORD }}
         steps:
             - *checkout
             - id: pnpm
@@ -117,7 +119,7 @@ jobs:
                   restore-keys: nx-${{ runner.os }}-
             - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
               with:
-                  xcode-version: latest
+                  xcode-version: latest-stable
             - *tools
             - if: ${{ steps.pnpm.outputs.cache-hit != 'true' }}
               run: pnpm store prune
@@ -126,11 +128,9 @@ jobs:
               with:
                   path: ${{ env.PNPM_CONFIG_STORE_DIR }}
                   key: ${{ steps.pnpm.outputs.cache-primary-key }}
+            - uses: ./.github/actions/signing
             - run: nx build @rasm/nx-apple-darwin-arm64
             - run: nx affected --targets=check,test,build --exclude='*,!tag:os:darwin,!tag:os:all,tag:host:rhino'
-              env:
-                  APPLE_DEVELOPMENT_P12: ${{ secrets.APPLE_DEVELOPMENT_P12 }}
-                  APPLE_DEVELOPMENT_P12_PASSWORD: ${{ secrets.APPLE_DEVELOPMENT_P12_PASSWORD }}
             - if: ${{ !cancelled() && steps.graph.outcome == 'success' && steps.graph.outputs.cache-hit != 'true' }}
               uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
               with:
