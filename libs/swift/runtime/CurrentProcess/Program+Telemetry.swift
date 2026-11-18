@@ -6,6 +6,7 @@ import Logging
 public import OTel
 import Processes
 public import ServiceLifecycle
+import System
 import SystemMetrics
 import Telemetry
 
@@ -76,7 +77,10 @@ extension Program {
         ClosureService {
             let since = settings.double(forKey: "crashReports.since").map(Date.init(timeIntervalSince1970:)) ?? .now
             store(Date.now.timeIntervalSince1970, forKey: "crashReports.since")
-            let found = DiagnosticReport.reports(since: since) { report in report.kind == .crash && report.bundleIdentifier == identifier }
+            let executable = Bundle.main.executableURL.map { url in FilePath(url.path(percentEncoded: false)) }
+            let found = DiagnosticReport.reports(since: since) { report in
+                report.kind == .crash && executable.map { path in report.written(by: path, identifier: Bundle.main.bundleIdentifier) } == true
+            }
             for report in found.reports {
                 let fields: [String: Logging.Logger.MetadataValue?] = [
                     "process.pid": .stringConvertible(report.pid), "file": .string(report.url.path(percentEncoded: false)),

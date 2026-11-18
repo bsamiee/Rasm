@@ -3,6 +3,11 @@ import Encoding
 import Files
 public import Foundation
 import Results
+public import System
+
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+private let redaction: FilePath.Component = "*"
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -166,6 +171,15 @@ public struct DiagnosticReport: Encodable, Hashable, Sendable {
 
 extension DiagnosticReport {
     public func written(by process: ProcessInstance) -> Bool { instance.map { instance in instance == process } ?? (pid == process.pid) }
+
+    public func written(by executable: FilePath, identifier: String?) -> Bool {
+        self.executable.map { path in FilePath(path) }.map { reported in
+            switch reported.components.firstIndex(of: redaction) {
+                case .some(let marker): bundleIdentifier == identifier && executable.ends(with: FilePath(root: nil, reported.components[marker...].dropFirst()))
+                case .none: reported == executable
+            }
+        } == true
+    }
 
     public static func reports(
         since earliest: Date = .distantPast,

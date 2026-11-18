@@ -9,6 +9,7 @@ import Logging
 public import Processes
 import Results
 public import ScreenCapture
+import System
 import Telemetry
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -19,7 +20,7 @@ private let identifierKey = kMDItemCFBundleIdentifier as String
 
 public enum Request: Decodable, Sendable {
     public struct Subject: Decodable, Sendable {
-        public let identifier: String
+        public let url: URL
         public let instance: ProcessInstance?
     }
 
@@ -141,24 +142,27 @@ extension Request {
                 return .value(Dictionary(uniqueKeysWithValues: shots.map { number, shot in (String(number), Outcome(shot)) }))
             case .diagnostics(let application, let folders, let since, let limit):
                 let instance = try application?.instance.map { process throws(ApplicationFailure) in try running(process, admitting: admitting) }
-                let identifier = instance?.application.bundleIdentifier ?? application?.identifier ?? Program.current.identifier
-                if application != nil, !admitted(identifier, by: admitting()) { throw unmatched(identifier, admitting(), identifier) }
+                let installed = try application.map { application throws(ApplicationFailure) in try installation(at: application.url, admitting: admitting) }
+                let (executable, identifier) = installed.map { installed in (installed.executable, Optional(installed.identifier)) } ?? (Bundle.main.executableURL, Bundle.main.bundleIdentifier)
+                let (path, process) = (executable.map { executable in FilePath(executable.path(percentEncoded: false)) }, instance?.process)
                 let earliest = [since.map { since in Date.now.addingTimeInterval(-since) }, instance?.application.launchDate].compactMap(\.self).max()
                 let reports = DiagnosticReport.reports(since: earliest ?? .distantPast, limit: limit) { report in
-                    instance.map { instance in report.written(by: instance.process) } ?? (report.bundleIdentifier == identifier)
+                    switch (process, path) {
+                        case (.some(let process), _): report.written(by: process)
+                        case (.none, .some(let path)): report.written(by: path, identifier: identifier)
+                        case (.none, .none): false
+                    }
                 }
                 let logs = LogLine.newest(in: folders, since: earliest, limit: limit)
-                let process: Result<String, ApplicationFailure> =
-                    switch (instance, application) {
-                        case (.some(let instance), _): .success(String(instance.process.pid))
-                        case (.none, .some):
-                            Result { () throws(ApplicationFailure) in
-                                try NSWorkspace.shared.urlForApplication(withBundleIdentifier: identifier).flatMap(Installation.init(at:))?.executable?.lastPathComponent
-                            }
-                            .flatMap { name in name.map(Result.success) ?? .failure(ApplicationFailure(subject: identifier, reason: .noPath)) }
-                        case (.none, .none): .success(ProcessInfo.processInfo.processName)
-                    }
-                let unified = await Result { () async throws(any Error) in try await Processes.LogEvent.history(of: process.get(), since: earliest, limit: limit) }
+                let unified = await Result { () async throws(any Error) in
+                    let predicate =
+                        switch (process, path) {
+                            case (.some(let process), _): NSPredicate(format: "processID == %d", process.pid)
+                            case (.none, .some(let path)): NSPredicate(format: "processImagePath == %@", path.string)
+                            case (.none, .none): throw ApplicationFailure(subject: application?.url.path(percentEncoded: false) ?? Program.current.identifier, reason: .noPath)
+                        }
+                    return try await Processes.LogEvent.history(matching: predicate, since: earliest, limit: limit)
+                }
                 return .value(
                     Diagnosed(
                         reports: reports.reports,

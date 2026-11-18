@@ -166,7 +166,7 @@ const ProcessInstance = Schema.String.check(Schema.isPattern(/^\d+@\d+$/u))
     .pipe(Schema.brand('ProcessInstance'))
     .annotate({ description: 'Process ID and kernel start time as <pid>@<start>, unequal for a later process reusing the ID' });
 const DiagnosticReport = open({
-    url: Schema.URLFromString.annotate({ description: 'Report file in ~/Library/Logs/DiagnosticReports or /Library/Logs/DiagnosticReports' }),
+    url: Schema.String.annotate({ description: 'Report file URL in ~/Library/Logs/DiagnosticReports or /Library/Logs/DiagnosticReports' }),
     kind: Schema.Literals(['crash', 'hang', 'diag', 'spin']).annotate({ description: 'crash for an .ips crash or .crash file, else the text report extension' }),
     date: Schema.String.annotate({ description: 'ISO 8601 file modification time' }),
     pid: Pid,
@@ -313,7 +313,10 @@ class Installation extends Schema.Class<Installation, { readonly brand: unique s
     scriptingDefinitionFile: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'OSAScriptingDefinition file in bundle Resources' })),
     activationPolicy: ActivationPolicy.annotate({ description: 'From LSBackgroundOnly and LSUIElement' }),
 }) {
-    static readonly runs = (installation: Installation) => (instance: RunningInstance) => instance.url.href === installation.url.href && !State.isAnyOf(['exited'])(instance.state);
+    static readonly runs =
+        ({ url }: Pick<Installation, 'url'>) =>
+        (instance: RunningInstance) =>
+            instance.url.href === url.href && !State.isAnyOf(['exited'])(instance.state);
 }
 class Capture extends Schema.Class<Capture, { readonly brand: unique symbol }>('Capture')({
     source: Schema.OptionFromOptionalKey(
@@ -338,7 +341,7 @@ class Capture extends Schema.Class<Capture, { readonly brand: unique symbol }>('
     );
 }
 class Diagnostics extends Schema.Class<Diagnostics, { readonly brand: unique symbol }>('Diagnostics')({
-    application: Schema.optionalKey(Schema.Struct({ identifier: Launched.fields.identifier, instance: Schema.optionalKey(ProcessInstance) }).annotate({ description: 'Reports and unified log of the instance, else of the bundle identifier; absent reads the server itself' })),
+    application: Schema.optionalKey(Schema.Struct({ url: Schema.URL.annotate({ description: 'Bundle of the installation' }), instance: Schema.optionalKey(ProcessInstance) }).annotate({ description: 'Reports and unified log of the instance, else of the installation executable; absent reads the server itself' })),
     folders: defaulted(Schema.Array(Schema.Struct({ url: Schema.URL.annotate({ description: 'Folder of log files' }), glob: Schema.optionalKey(Schema.String.annotate({ description: 'fnmatch pattern of file names, every file when absent' })) })), []),
     since: Schema.optionalKey(Schema.Finite.check(Schema.isGreaterThan(0)).annotate({ description: 'Seconds back from now, else since the instance launched' })),
     limit: Schema.Int.check(Schema.isGreaterThan(0)).annotate({ description: 'Most reports, log lines, and unified log events returned' }),

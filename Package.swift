@@ -182,6 +182,7 @@ let tests: [Target] = [
         dependencies: ["AppleEvents", "Applications", "Encoding", .product(name: "CustomDump", package: "swift-custom-dump")],
         path: "tests/libs/swift/macos/Applications",
     ),
+    .testTarget(name: "ProcessesTests", dependencies: ["Processes", .product(name: "CustomDump", package: "swift-custom-dump")], path: "tests/libs/swift/runtime/Processes"),
 ]
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

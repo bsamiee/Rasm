@@ -203,7 +203,7 @@ actor Recorder {
     }
 
     private nonisolated func logging(_ pid: pid_t) async {
-        for await outcome in LogEvent.stream(of: String(pid)) {
+        for await outcome in LogEvent.stream(matching: NSPredicate(format: "processID == %d", pid)) {
             switch outcome {
                 case .success(let event): append(.log(event), at: event.timestamp)
                 case .failure(let failure): append(.fail(ApplicationFailure(subject: failure.subject, reason: .host(failure as NSError))))

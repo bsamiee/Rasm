@@ -135,10 +135,11 @@ struct Watch: AsyncParsableCommand {
         await Run.execute(Self.self, lineLength: outline.lineLength, recording: record.map { folder in (folder, longestSide) }) { run in
             let applications = await installed(names, run).flatMap(\.installations)
             guard !applications.isEmpty else { return }
-            for identifier in OrderedSet(applications.map(\.identifier)) where NSWorkspace.shared.instances(of: { instance in instance.bundleIdentifier == identifier }).isEmpty {
+            let matching: @Sendable (NSRunningApplication) -> Bool = { [applications] instance in applications.contains { installation in installation.runs(instance) } }
+            let running = Set(NSWorkspace.shared.instances(of: matching).compactMap(\.application.bundleIdentifier))
+            for identifier in OrderedSet(applications.map(\.identifier)) where !running.contains(identifier) {
                 run.emit(identifier, [String: String]())
             }
-            let matching: @Sendable (NSRunningApplication) -> Bool = { [applications] instance in applications.contains { installation in installation.runs(instance) } }
             await withDiscardingTaskGroup { group in
                 group.addTask {
                     var calm = true

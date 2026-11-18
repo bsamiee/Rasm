@@ -1,4 +1,4 @@
-import { Event, Launching, Pressure, type ProcessInstance, RunningInstance, State } from '@rasm/applications';
+import { Event, Installation, Launching, Pressure, type ProcessInstance, RunningInstance, State } from '@rasm/applications';
 import { ApplicationServer } from '@rasm/applications/node';
 import { Application } from '@rasm/creative-cloud-desktop';
 import { Handle, Link, Server } from '@rasm/mcp';
@@ -133,7 +133,7 @@ class Inventory extends Context.Service<Inventory>()('@rasm/atelier/applications
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const live = (rows: readonly RunningInstance[], row: Application) => rows.filter((each) => each.url.href === row.url.href && !State.isAnyOf(['exited'])(each.state));
+const live = (rows: readonly RunningInstance[], row: Application) => rows.filter(Installation.runs(row));
 const shown = ({ number, title, document }: { readonly number: number; readonly title?: string; readonly document?: string }) => [`window ${number}`, ...(title === undefined ? [] : [`"${title}"`]), ...(document === undefined ? [] : [`of ${document}`])].join(' ');
 const ended = Match.type<Extract<typeof Event.Type, { readonly _tag: 'exited' }>['exited']>().pipe(
     Match.when({ _tag: 'Status' }, ({ status }) => `with status ${status}`),
@@ -150,7 +150,7 @@ const rendered = (happened: typeof Happened.Type) =>
               asking: ({ asking }) => `${asking.kind} in window ${asking.window} asks${UndefinedOr.match(asking.title, { onUndefined: () => '', onDefined: (title) => ` "${title}"` })}: ${asking.text.join(' ')}, answers ${asking.answers.join(', ')}`,
               answered: ({ answered }) => `${answered.kind} in window ${answered.window} answered`,
               status: ({ status, process }) => UndefinedOr.match(process, { onUndefined: () => status, onDefined: (thread) => `${status}, main thread ${thread}` }),
-              exited: ({ exited }) => `exited ${ended(exited)}${UndefinedOr.match(exited.report, { onUndefined: () => '', onDefined: (report) => `, ${report.kind} report ${report.url.href}` })}`,
+              exited: ({ exited }) => `exited ${ended(exited)}${UndefinedOr.match(exited.report, { onUndefined: () => '', onDefined: (report) => `, ${report.kind} report ${report.url}` })}`,
           })}`;
 const summary = (each: RunningInstance) => ({
     instance: each.instance,

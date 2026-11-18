@@ -1,6 +1,6 @@
 import { homedir } from 'node:os';
 import { pathToFileURL } from 'node:url';
-import { Diagnostics, State } from '@rasm/applications';
+import { Diagnostics, Installation } from '@rasm/applications';
 import { ApplicationServer } from '@rasm/applications/node';
 import { ExtensionManifest } from '@rasm/cep';
 import { Server } from '@rasm/mcp';
@@ -36,12 +36,9 @@ const diagnostics = Effect.gen(function* () {
             Array.findFirst(Array.sort(adobe, longest), (name) => row.name.startsWith(name)),
             (name) => folder(UxpManifest.logs(name)),
         );
-        const cep = Option.map(Schema.decodeUnknownOption(ExtensionManifest.fields.host.fields.app)(row.product), (code) => folder(ExtensionManifest.logs(code)));
-        const instance = Option.map(
-            Array.findFirst(instances, (each) => each.url.href === row.url.href && !State.isAnyOf(['exited'])(each.state)),
-            Struct.get('instance'),
-        );
-        return { application: { identifier: row.identifier, ...Option.getOrUndefined(Option.map(instance, (named) => ({ instance: named }))) }, folders: [...Option.toArray(uxp), ...Option.toArray(cep)] };
+        const cep = Option.map(Schema.decodeUnknownOption(ExtensionManifest.fields.host.fields.app)(row.product), (code) => folder(ExtensionManifest.logs(code, row.version)));
+        const instance = Option.map(Array.findFirst(instances, Installation.runs(row)), Struct.get('instance'));
+        return { application: { url: row.url, ...Option.getOrUndefined(Option.map(instance, (named) => ({ instance: named }))) }, folders: [...Option.toArray(uxp), ...Option.toArray(cep)] };
     });
     yield* Server.registerTool(
         Diagnosing,

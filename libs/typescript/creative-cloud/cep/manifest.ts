@@ -40,7 +40,7 @@ class ExtensionManifest extends Schema.Class<ExtensionManifest, { readonly brand
     static readonly debugFile = '.debug';
     static readonly debugPort = 8000;
     static readonly origin = 'file://';
-    static readonly logs = (app: (typeof HOSTS)[number]) => ({ folder: 'Library/Logs/CSXS', glob: `CEP*-${app}*.log` });
+    static readonly logs = (app: (typeof HOSTS)[number], version: string) => ({ folder: 'Library/Logs/CSXS', glob: `CEP*-${app}-${version.split('.').slice(0, 2).join('.')}[.-]*.log` });
     static readonly fromXml: Schema.Codec<ExtensionManifest, string> = Schema.String.pipe(
         Schema.decodeTo(Schema.Unknown, { decode: SchemaGetter.transform((xml): unknown => PARSER.parse(xml)), encode: SchemaGetter.forbiddenEncoding }),
         Schema.decodeTo(Document),

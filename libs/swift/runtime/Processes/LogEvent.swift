@@ -63,14 +63,15 @@ private struct Printed: Decodable {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension LogEvent {
-    public static func history(of process: String, since start: Date?, limit: Int) async throws(ProcessFailure) -> [Self] {
+    public static func history(matching predicate: NSPredicate, since start: Date?, limit: Int) async throws(ProcessFailure) -> [Self] {
         let window = start.map { start in ["--start", "@\(Int(start.timeIntervalSince1970))"] } ?? ["--last", "boot"]
-        let subject = "log show --process \(process)"
+        let format = predicate.predicateFormat
+        let subject = "log show --predicate \(format)"
         let decoder = JSONDecoder()
         let shown: ExecutionResult<Deque<Self>, SequenceOutput, StringOutput<UTF8>>
         do {
             shown = try await Subprocess.run(
-                Configuration(executable: .name("log"), arguments: Arguments(["show", "--process", process, "--style", "ndjson"] + window)),
+                Configuration(executable: .name("log"), arguments: Arguments(["show", "--predicate", format, "--style", "ndjson"] + window)),
                 input: .none,
                 output: .sequence,
                 error: .string(limit: 1 << 16),
@@ -88,14 +89,15 @@ extension LogEvent {
         return shown.closureResult.reversed()
     }
 
-    public static func stream(of process: String) -> AsyncStream<Result<Self, ProcessFailure>> {
-        AsyncStream { continuation in
+    public static func stream(matching predicate: NSPredicate) -> AsyncStream<Result<Self, ProcessFailure>> {
+        let format = predicate.predicateFormat
+        return AsyncStream { continuation in
             let following = Task {
                 let decoder = JSONDecoder()
-                let subject = "log stream --process \(process)"
+                let subject = "log stream --predicate \(format)"
                 do {
                     _ = try await Subprocess.run(
-                        Configuration(executable: .name("log"), arguments: ["stream", "--process", process, "--style", "ndjson"]),
+                        Configuration(executable: .name("log"), arguments: ["stream", "--predicate", format, "--style", "ndjson"]),
                         input: .none,
                         output: .sequence,
                         error: .discarded,

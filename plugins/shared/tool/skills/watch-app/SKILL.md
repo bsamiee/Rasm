@@ -35,8 +35,9 @@ watch-app watch <app> [<helper>]... --record <folder>
 - `agents` hold each `Contents/Library/LaunchAgents` plist of the named apps with `label`, `program`, `plist`, and `keepAlive`
 - `processes` hold each process executing a file in the named bundles with `pid`, `instance`, `executable`, and `replaced`
 - `replaced` reads true for a process running other code than the file at `executable` holds, as after an install over a running app
-- `reports` hold the newest crash, hang, diag, and spin reports from both DiagnosticReports folders of the named instance, bundle id, or agent label, `--reports` many per name (3)
-- Reports name executables under `/Users` and `/private/tmp` redacted, so an executable path there matches none, pass its `instance`
+- `reports` hold the newest crash, hang, diag, and spin reports from both DiagnosticReports folders, `--reports` many per name (3)
+- Reports match the named instance, an executable inside the named bundles, or an agent label, so installations sharing a bundle id keep their own
+- Redacted executables (`/Users/USER/*/<tail>`) match an installation by bundle id and tail, a named executable path matches none, pass its `instance`
 - Agents with `keepAlive` and no process at `program` are not running: not registered, not approved, or failed to start with its cause in `reports`
 - Names resolving to no app print an `unnamed` `fail` line, `candidates` holding the `url` of each app with a display name containing it
 - `watch` follows every installation its names resolve to and exits when no name resolves
