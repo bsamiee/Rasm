@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Reflection;
 using System.Text.Json;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Locator;
@@ -21,7 +20,7 @@ internal static class Program {
             ["upgrade", var solution] => Upgraded(solution, dry: false),
             ["upgrade", var solution, "--dry-run"] => Upgraded(solution, dry: true),
             ["results", var root, var log] => Registered(Path.GetFullPath(root), () => IO.lift(() => Results(Path.GetFullPath(log)))),
-            [var root] => Registered(Path.GetFullPath(root), () => Stamped.Match(Succ: version => IO.lift(() => Write(Path.GetFullPath(root), version)), Fail: static error => IO.fail<int>(error))),
+            [var root] => Registered(Path.GetFullPath(root), () => IO.lift(() => Write(Path.GetFullPath(root)))),
             _ => IO.fail<int>(Error.New("Usage: MsbuildAnalyzer <workspace-root>, with workspace-relative files on stdin, one per line, or MsbuildAnalyzer upgrade <solution> [--dry-run], or MsbuildAnalyzer results <workspace-root> <binlog>")),
         }).RunSafe().IfFail(static error => {
             Console.Error.WriteLine(error.Message);
@@ -39,11 +38,8 @@ internal static class Program {
         from code in run()
         select code;
 
-    private static Fin<string> Stamped =>
-        Optional(typeof(Program).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()).Map(static attribute => attribute.InformationalVersion).ToFin(Error.New("MsbuildAnalyzer carries no informational version, rebuild it with mise deps msbuild-analyzer"));
-
-    private static int Write(string root, string version) {
-        Console.Out.Write(JsonSerializer.Serialize(Workspace.Analyze(root, version, Listed()), Json));
+    private static int Write(string root) {
+        Console.Out.Write(JsonSerializer.Serialize(Workspace.Analyze(root, Listed()), Json));
         return 0;
     }
 

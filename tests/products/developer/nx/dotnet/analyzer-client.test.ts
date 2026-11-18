@@ -98,14 +98,8 @@ describe('MsbuildAnalyzer', { timeout: 30_000 }, () => {
 
         const failure = analyzeProjects(['a/a.csproj']);
 
-        await expect(failure).rejects.toHaveProperty(['errors', 0, 1, 'message'], expect.stringMatching(/run mise deps msbuild-analyzer .*version/su));
+        await expect(failure).rejects.toHaveProperty(['errors', 0, 1, 'message'], expect.stringMatching(/run mise deps msbuild-analyzer .*evaluated/su));
         await expect(failure).rejects.toHaveProperty(['errors', 0, 1, 'message'], expect.not.stringContaining('"failures"'));
-    });
-
-    it('should refuse a report from an analyzer built at another version than the plugin, and name the command rebuilding it', async ({ analyzeProjects, dotnet }) => {
-        await dotnet(`[ "$1" = --version ] && ${forwarded}\nprintf '{"version":"0.0.0-stale","nodes":[],"failures":[],"evaluated":[]}'`);
-
-        await expect(analyzeProjects(['a/a.csproj'])).rejects.toHaveProperty(['errors', 0, 1, 'message'], expect.stringMatching(/run mise deps msbuild-analyzer .*\["version"\]/su));
     });
 
     it('should not cache a run that reports a failure', async ({ tempFs, analyzeProjects, dotnet, analyses }) => {

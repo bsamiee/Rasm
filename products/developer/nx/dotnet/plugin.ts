@@ -6,7 +6,7 @@ import { aggregated, fingerprinted, manifested, spawned } from '@rasm/nx-distrib
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Cause, Config, Duration, Effect, Equal, Equivalence, FileSystem, Option, Record, Ref, Result, Schema, Stream, Struct } from 'effect';
 import { CommandLine } from 'effect/process';
-import { ANALYZER, Edges, environment, launched, line, Node, PLUGIN, publishing, run, SDK, targets, VERSION } from '#/targets';
+import { ANALYZER, Edges, environment, launched, line, Node, PLUGIN, publishing, run, SDK, targets } from '#/targets';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -22,7 +22,7 @@ const TAGS = { release: 'release', platform: 'os:' } as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Report = Schema.Struct({ version: Schema.Literal(VERSION), nodes: Schema.Array(Node), failures: Schema.Array(Schema.Struct({ file: Schema.String, message: Schema.String })), evaluated: Schema.Array(Schema.String) });
+const Report = Schema.Struct({ nodes: Schema.Array(Node), failures: Schema.Array(Schema.Struct({ file: Schema.String, message: Schema.String })), evaluated: Schema.Array(Schema.String) });
 const Reported = Schema.fromJsonString(Report);
 const Options = Schema.Struct({
     coveragePath: Schema.optionalKey(Schema.String),
@@ -114,7 +114,7 @@ const inferred = Effect.fnUntraced(function* (matched: readonly string[], option
     const key = hashArray([hashObject(settings), hashed, yield* Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, [...matched]))]);
     const cached = yield* Effect.findFirst(Array.fromNullishOr(new PluginCache<{ readonly report: Report; readonly stamp: string }>(slot).get(key)), (stored) => Effect.map(stamped(workspaceRoot, stored.report), Equal.equals(stored.stamp)));
     const read = yield* Effect.result(Option.match(cached, { onSome: (stored) => Effect.succeed(stored.report), onNone: () => analyzed(workspaceRoot, matched) }));
-    const report = Result.getOrElse(read, (): Report => ({ version: VERSION, nodes: [], failures: [], evaluated: [] }));
+    const report = Result.getOrElse(read, (): Report => ({ nodes: [], failures: [], evaluated: [] }));
     yield* Option.isNone(cached) && Result.isSuccess(read) && report.failures.length === 0 ? Effect.flatMap(stamped(workspaceRoot, report), (stamp) => Effect.sync(() => new PluginCache(slot, { [key]: { report, stamp } }).writeToDisk())) : Effect.void;
     yield* Ref.set(edges, related(report));
     yield* Effect.forEach(

@@ -13,7 +13,7 @@ type Node = typeof Node.Type;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const { name: PLUGIN, version: VERSION } = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#package')));
+const { name: PLUGIN } = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#package')));
 const CREDENTIAL = 'NUGET_API_KEY';
 const SDK = ['dotnet', '--version'] as const;
 const ANALYZER = fileURLToPath(import.meta.resolve('#analyzer'));
@@ -223,4 +223,4 @@ const streamed = <A, E>(results: Stream.Stream<A, E, NodeServices>) => Stream.to
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { ANALYZER, Edges, environment, launched, line, Node, PLUGIN, publishing, run, SDK, streamed, targets, VERSION };
+export { ANALYZER, Edges, environment, launched, line, Node, PLUGIN, publishing, run, SDK, streamed, targets };

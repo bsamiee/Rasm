@@ -47,7 +47,7 @@ internal sealed record Node(
 
 internal sealed record Failure(string File, string Message);
 
-internal sealed record Report(string Version, ImmutableArray<Node> Nodes, ImmutableArray<Failure> Failures, ImmutableArray<string> Evaluated);
+internal sealed record Report(ImmutableArray<Node> Nodes, ImmutableArray<Failure> Failures, ImmutableArray<string> Evaluated);
 
 // --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -60,7 +60,7 @@ internal static partial class Workspace {
     [GeneratedRegex("""--file-name[=:\s]\s*"?(?<name>[^\s"]+)"?""", RegexOptions.None, matchTimeoutMilliseconds: 1000)]
     private static partial Regex FileName { get; }
 
-    public static Report Analyze(string root, string version, Seq<string> files) {
+    public static Report Analyze(string root, Seq<string> files) {
         EvaluationContext context = EvaluationContext.Create(EvaluationContext.SharingPolicy.Shared);
         using ProjectCollection collection = new();
         Seq<string> projects = files.Filter(static file => Projects.Contains(Path.GetExtension(file)));
@@ -72,7 +72,6 @@ internal static partial class Workspace {
             folder => Try.lift(() => Settings.LoadDefaultSettings(folder, configFileName: null, new XPlatMachineWideSetting(), loading)).Run().Map(settings => (Walk(root, folder, listed, settings), !string.IsNullOrEmpty(SettingsUtility.GetDefaultPushSource(settings)))));
         Seq<(string File, Fin<(Node Node, Seq<string> Evaluated)> Result)> read = projects.Map(file => (file, Try.lift(() => Evaluate(root, file, located, context, collection)).Run()));
         return new Report(
-            version,
             [.. read.Choose(static held => held.Result.ToOption().Map(static evaluated => evaluated.Node))],
             [.. read.Choose(static held => held.Result.Match(Succ: static _ => None, Fail: error => Some(new Failure(held.File, error.Message))))],
             [.. read.Bind(static held => held.Result.Match(Succ: static evaluated => evaluated.Evaluated, Fail: static _ => Seq<string>())).Distinct().Order(StringComparer.Ordinal)]);
