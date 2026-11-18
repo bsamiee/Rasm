@@ -1,9 +1,8 @@
 import { Inspection, Kerns, Typeset, Typesetting } from '@rasm/indesign';
 import { Link, Server } from '@rasm/mcp';
-import { Quran, Symbols } from '@rasm/quran';
 import { Unmatched } from '@rasm/search';
 import { Settings, type Source } from '@rasm/typography';
-import { drawsKashida, Kerning, TATWEEL } from '@rasm/typography/arabic';
+import { drawsKashida, Kerning, Quran, Symbols, TATWEEL } from '@rasm/typography/arabic';
 import { expandToWords, Face, Justification, ShapedText, Span } from '@rasm/typography/shaping';
 import { Array, Cause, Context, Effect, Equivalence, FileSystem, Number, Option, Order, Predicate, Record, Schema, Stream, Struct } from 'effect';
 import { Tool } from 'effect/ai';

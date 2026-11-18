@@ -1069,28 +1069,6 @@ importers:
         specifier: 'catalog:'
         version: 4.1.4(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2)
 
-  libs/typescript/data/quran:
-    dependencies:
-      '@quran.ws/text':
-        specifier: 'catalog:'
-        version: 0.1.0
-      '@rasm/search':
-        specifier: workspace:*
-        version: link:../search
-      '@rasm/typography':
-        specifier: workspace:*
-        version: link:../../graphics/typography
-      quran-meta:
-        specifier: 'catalog:'
-        version: 7.0.0
-    devDependencies:
-      '@types/node':
-        specifier: 'catalog:'
-        version: 26.6.6
-      effect:
-        specifier: 'catalog:'
-        version: 4.1.4(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2)
-
   libs/typescript/data/search:
     dependencies:
       '@leeoniya/ufuzzy':
@@ -1122,6 +1100,9 @@ importers:
       '@noble/hashes':
         specifier: 'catalog:'
         version: 2.4.0
+      '@quran.ws/text':
+        specifier: 'catalog:'
+        version: 0.1.0
       '@rasm/search':
         specifier: workspace:*
         version: link:../../data/search
@@ -1134,6 +1115,9 @@ importers:
       icu:
         specifier: 'catalog:'
         version: 2.4.0
+      quran-meta:
+        specifier: 'catalog:'
+        version: 7.0.0
     devDependencies:
       '@types/fontkit':
         specifier: 'catalog:'
@@ -1620,9 +1604,6 @@ importers:
       '@rasm/object-model':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/creative-cloud/object-model
-      '@rasm/quran':
-        specifier: workspace:*
-        version: link:../../../../../libs/typescript/data/quran
       '@rasm/search':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/data/search
@@ -2372,21 +2353,6 @@ importers:
       vite:
         specifier: 'catalog:'
         version: 8.4.0-beta.1(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2)
-      vitest:
-        specifier: 'catalog:'
-        version: 5.1.0(@opentelemetry/api@1.10.0)(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/coverage-v8@5.1.0)(@vitest/ui@5.1.0)(vite@8.4.0-beta.1(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))
-
-  tests/libs/typescript/data/quran:
-    devDependencies:
-      '@rasm/quran':
-        specifier: workspace:*
-        version: link:../../../../../libs/typescript/data/quran
-      '@rasm/testing':
-        specifier: workspace:*
-        version: link:../../../../support/typescript
-      '@types/node':
-        specifier: 'catalog:'
-        version: 26.6.6
       vitest:
         specifier: 'catalog:'
         version: 5.1.0(@opentelemetry/api@1.10.0)(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/coverage-v8@5.1.0)(@vitest/ui@5.1.0)(vite@8.4.0-beta.1(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))

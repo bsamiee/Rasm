@@ -1,11 +1,15 @@
-import { globSync, readFileSync } from 'node:fs';
-import { dirname, isAbsolute, join, resolve } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { dirname, isAbsolute, join, normalize, resolve } from 'node:path';
 import process from 'node:process';
 import { run } from '@rasm/process';
 import { Array, Effect, Record, Schema } from 'effect';
 import type { ChildProcessSpawner } from 'effect/process';
 import { build, type PlistValue, parse } from 'plist';
 import type { Plugin, Rolldown } from 'vite';
+
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+const READ = /\bnew\s+URL\s*\(\s*(?<path>"[^"]+"|'[^']+'|`[^`$]+`)\s*,\s*import\.meta\.url\s*\)|\.join\s*\(\s*import\.meta\.dirname\s*,\s*(?<path>"[^"]+"|'[^']+'|`[^`$]+`)\s*\)/gu;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -80,17 +84,21 @@ const helper = Effect.fnUntraced(function* (
             outDir = resolve(root, options.outDir);
         },
         generateBundle(this: Rolldown.PluginContext, _options, output): Promise<void> {
-            const folders = Array.dedupe(Object.values(output).flatMap((file) => (file.type === 'chunk' ? file.moduleIds.filter(isAbsolute).map(dirname) : [])));
-            const assets = {
-                ...Record.fromIterableWith(
-                    Array.flatMap(folders, (folder) => globSync('*.{wasm,trie}', { cwd: folder, withFileTypes: true })),
-                    ({ name: file, parentPath }) => [file, join(parentPath, file)],
-                ),
-                ...Record.fromIterableWith(
-                    Object.values(output).filter((file) => file.type === 'asset'),
-                    ({ fileName }) => [fileName, join(outDir, fileName)],
-                ),
-            };
+            const read = Record.fromEntries(
+                Object.values(output)
+                    .flatMap((file) => (file.type === 'chunk' ? Object.entries(file.modules).filter(([id]) => isAbsolute(id)) : []))
+                    .flatMap(([id, { code }]) =>
+                        (code ?? '')
+                            .matchAll(READ)
+                            .map(({ groups: { path = '' } = {} }) => path.slice(1, -1))
+                            .map((path) => [normalize(path), resolve(dirname(id), path)] as const)
+                            .toArray(),
+                    ),
+            );
+            Record.toEntries(read).forEach(([fileName, file]) => {
+                this.emitFile({ type: 'asset', fileName, source: readFileSync(file) });
+            });
+            const assets = Record.fromIterableWith([...Record.keys(read), ...Object.values(output).flatMap((file) => (file.type === 'asset' ? [file.fileName] : []))], (fileName) => [fileName, join(outDir, fileName)]);
             const sea = JSON.stringify({ main: join(outDir, `${name}.mjs`), mainFormat: 'module', output: join(outDir, name), useVfs: true, disableExperimentalSEAWarning: true, assets });
             return signing.pipe(
                 Effect.map(({ CODE_SIGN_ENTITLEMENTS, DEVELOPMENT_TEAM, PROJECT_DIR, label }): readonly Rolldown.EmittedAsset[] => {

@@ -1,10 +1,11 @@
 import { AYAH_MARK, ayahMark, type MarkKind, Mushaf } from '@quran.ws/text';
 import { Digits, Unmatched } from '@rasm/search';
-import type { Settings } from '@rasm/typography';
-import type { Face } from '@rasm/typography/shaping';
-import { Array, Effect, Equivalence, Formatter, Number, Option, Order, Record, Schema, Stream, Struct } from 'effect';
+import { Array, Effect, Equivalence, Number, Option, Order, Record, Schema, Stream, Struct } from 'effect';
 import { Csv } from 'effect/encoding';
 import { ayahsInPart, formatSurahAyah, generatePartBlocks, getListsOfRiwaya, isValidSurah, isValidSurahAyah, partNames, type RiwayaData, type RiwayaName, type RiwayasNames, type SurahAyah, type SurahNames, surahNamesAr, surahNamesEn } from 'quran-meta';
+import { TypographyError } from '#/error';
+import type { Settings } from '#/settings';
+import type { Face } from '#/shaping/face';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -89,8 +90,8 @@ class Quran extends Schema.Class<Quran, { readonly brand: unique symbol }>('Qura
     }).annotate({ description: 'Signs and line breaks written into mushaf ayah text' });
     static readonly mushaf = Effect.fn('Quran.mushaf')(function* (json: Option.Option<string> = Option.none(), render: typeof Quran.Render.Type = {}, tables: readonly SurahNames[] = NAMES) {
         const mushaf = yield* Option.match(json, {
-            onNone: () => Effect.tryPromise({ try: () => Mushaf.hafs(), catch: QuranError.of('bundled Hafs mushaf') }),
-            onSome: (text) => Effect.try({ try: () => Mushaf.fromJson(text), catch: QuranError.of('mushaf JSON') }),
+            onNone: () => Effect.tryPromise({ try: () => Mushaf.hafs(), catch: TypographyError.unreadable('bundled Hafs mushaf') }),
+            onSome: (text) => Effect.try({ try: () => Mushaf.fromJson(text), catch: TypographyError.unreadable('mushaf JSON') }),
         });
         const keys = { bazzi: 'Bazzi', duri: 'Douri', hafs: 'Hafs', qalun: 'Qalun', shubah: 'Shuba', susi: 'Sousi', warsh: 'Warsh' } as const satisfies Record.ReadonlyRecord<string, RiwayaName>;
         const [, riwayah] = yield* Unmatched.single(Record.toEntries(keys), 'mushaf key', Option.some(mushaf.key), ([key]) => Array.of(key));
@@ -123,16 +124,6 @@ class Quran extends Schema.Class<Quran, { readonly brand: unique symbol }>('Qura
     text(selection: typeof Quran.Selection.Type, separator: string, face: Pick<Face, 'draws'>, settings: Pick<Settings, 'digits'>) {
         return this.select(selection).pipe(Effect.flatMap(Effect.forEach((ayah) => ayah.marked(separator, face, settings))), Effect.map(Array.join('')));
     }
-}
-
-// --- [ERRORS] --------------------------------------------------------------------------
-
-class QuranError extends Schema.TaggedError<QuranError, { readonly brand: unique symbol }>()('QuranError', {
-    subject: Schema.String.annotate({ description: 'Source the text was read from' }),
-    cause: Schema.Defect(),
-    message: Schema.String,
-}) {
-    static readonly of = (subject: string) => (cause: unknown) => QuranError.make({ subject, cause, message: `Unreadable ${subject}: ${Formatter.format(cause)}` });
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -168,4 +159,4 @@ const counted = Effect.fnUntraced(function* (quran: Quran, { part, number, from,
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Quran, QuranError };
+export { Quran };

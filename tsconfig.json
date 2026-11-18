@@ -48,9 +48,6 @@
             "path": "./libs/typescript/network/ssh"
         },
         {
-            "path": "./libs/typescript/data/quran"
-        },
-        {
             "path": "./libs/typescript/web/media"
         },
         {
@@ -232,9 +229,6 @@
         },
         {
             "path": "./tests/libs/typescript/data/search"
-        },
-        {
-            "path": "./tests/libs/typescript/data/quran"
         },
         {
             "path": "./tests/libs/typescript/web/media"

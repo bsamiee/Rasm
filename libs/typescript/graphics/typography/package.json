@@ -2,7 +2,7 @@
     "name": "@rasm/typography",
     "version": "0.1.0",
     "private": true,
-    "description": "OpenType typesetting from font faces to composed text, with Arabic-script joining, kashida, kerning, and verse",
+    "description": "OpenType typesetting from font faces to composed text, with Arabic-script joining, kashida, kerning, verse, and Quran text with the signs a face draws",
     "license": "MIT",
     "repository": {
         "type": "git",
@@ -38,10 +38,12 @@
     },
     "dependencies": {
         "@noble/hashes": "catalog:",
+        "@quran.ws/text": "catalog:",
         "@rasm/search": "workspace:*",
         "fontkit": "catalog:",
         "harfbuzzjs": "catalog:",
-        "icu": "catalog:"
+        "icu": "catalog:",
+        "quran-meta": "catalog:"
     },
     "devDependencies": {
         "@types/fontkit": "catalog:",
