@@ -150,7 +150,7 @@ const rendered = (happened: typeof Happened.Type) =>
               asking: ({ asking }) => `${asking.kind} in window ${asking.window} asks${UndefinedOr.match(asking.title, { onUndefined: () => '', onDefined: (title) => ` "${title}"` })}: ${asking.text.join(' ')}, answers ${asking.answers.join(', ')}`,
               answered: ({ answered }) => `${answered.kind} in window ${answered.window} answered`,
               status: ({ status, process }) => UndefinedOr.match(process, { onUndefined: () => status, onDefined: (thread) => `${status}, main thread ${thread}` }),
-              exited: ({ exited }) => `exited ${ended(exited)}${UndefinedOr.match(exited.report, { onUndefined: () => '', onDefined: (report) => `, ${report.kind} report ${report.url}` })}`,
+              exited: ({ exited }) => `exited ${ended(exited)}${UndefinedOr.match(exited.report, { onUndefined: () => '', onDefined: (report) => `, ${report.kind} report ${report.url.href}` })}`,
           })}`;
 const summary = (each: RunningInstance) => ({
     instance: each.instance,

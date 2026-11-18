@@ -1,4 +1,4 @@
-import { Schema, SchemaGetter } from 'effect';
+import { Option, Schema, SchemaGetter } from 'effect';
 import Builder from 'fast-xml-builder';
 import { XMLParser } from 'fast-xml-parser';
 
@@ -13,6 +13,8 @@ const PROLOG = { '@_version': '1.0', '@_encoding': 'utf-8' };
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Version = Schema.String.check(Schema.isPattern(/^\d+(?:\.\d+){0,2}$/u)).annotate({ description: 'major[.minor[.patch]]' });
+const Digits = Schema.String.check(Schema.isPattern(/^\d+$/u));
+const Bundled = Schema.TemplateLiteralParser([Digits, '.', Digits, Schema.Union([Schema.Literal(''), Schema.TemplateLiteral(['.', Schema.String])])]).annotate({ description: 'CFBundleShortVersionString, major.minor and any later components' });
 const Range = Schema.Union([Schema.TemplateLiteralParser(['[', Version, ',', Version, ']']), Version]).annotate({ description: 'Host version attribute, a floor or a bracketed range' });
 const Relative = Schema.TemplateLiteralParser(['./', Schema.String]).pipe(Schema.decodeTo(Schema.String, { decode: SchemaGetter.transform(([, file]) => file), encode: SchemaGetter.forbiddenEncoding }));
 const Document = Schema.Struct({
@@ -40,7 +42,7 @@ class ExtensionManifest extends Schema.Class<ExtensionManifest, { readonly brand
     static readonly debugFile = '.debug';
     static readonly debugPort = 8000;
     static readonly origin = 'file://';
-    static readonly logs = (app: (typeof HOSTS)[number], version: string) => ({ folder: 'Library/Logs/CSXS', glob: `CEP*-${app}-${version.split('.').slice(0, 2).join('.')}[.-]*.log` });
+    static readonly logs = (app: (typeof HOSTS)[number], version: string) => Option.map(Schema.decodeUnknownOption(Bundled)(version), ([major, , minor]) => ({ folder: 'Library/Logs/CSXS', glob: `CEP*-${app}-${major}.${minor}[.-]*.log` }));
     static readonly fromXml: Schema.Codec<ExtensionManifest, string> = Schema.String.pipe(
         Schema.decodeTo(Schema.Unknown, { decode: SchemaGetter.transform((xml): unknown => PARSER.parse(xml)), encode: SchemaGetter.forbiddenEncoding }),
         Schema.decodeTo(Document),

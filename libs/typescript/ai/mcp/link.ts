@@ -1,8 +1,7 @@
 import { dial, listen } from '@rasm/rpc';
-import type { Unmatched } from '@rasm/search';
-import { Array, Context, Duration, Effect, Layer, Option, Record, Ref, Result, Schema, Stream, Struct } from 'effect';
+import { Array, Context, Duration, Effect, Layer, Record, Ref, Schema, Struct } from 'effect';
 import { McpSchema, McpServer, type Tool, type Toolkit } from 'effect/ai';
-import { type Rpc, type RpcClient, type RpcClientError, RpcGroup } from 'effect/rpc';
+import { type Rpc, RpcGroup } from 'effect/rpc';
 import { Server } from '#/server';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -59,71 +58,6 @@ class Link extends Schema.Class<Link, { readonly brand: unique symbol }>('Link')
                 };
             }),
         );
-    static readonly host = Effect.fnUntraced(function* (
-        links: { readonly changes: Stream.Stream<readonly Link[]>; readonly call: (holds: (peer: Link) => boolean, subject: string) => Effect.Effect<RpcClient.RpcClient.Flat<RpcGroup.Rpcs<typeof Link.Tools>, RpcClientError.RpcClientError>, Unmatched> },
-        { route }: { readonly route: (peers: Array.NonEmptyReadonlyArray<Link>, given: Record.ReadonlyRecord<string, unknown>) => Effect.Effect<Link, McpSchema.InvalidParams> },
-    ) {
-        const offered = Effect.fnUntraced(function* (peer: Link) {
-            const client = yield* links.call((each) => Link.key(each) === Link.key(peer), Link.key(peer));
-            const { tools } = yield* client('tools/list', undefined);
-            return Array.map(tools, (tool) => ({ tool, peer, client }));
-        });
-        const [server, shown, routes, visible] = yield* Effect.all([
-            McpServer.McpServer,
-            Ref.make<Record.ReadonlyRecord<string, McpSchema.Tool>>({}),
-            Ref.make<Record.ReadonlyRecord<string, Array.NonEmptyReadonlyArray<Effect.Success<ReturnType<typeof offered>>[number]>>>({}),
-            Ref.make<Record.ReadonlyRecord<string, boolean>>({}),
-        ]);
-        const same = Schema.toEquivalence(McpSchema.Tool);
-        const visibility = Effect.map(
-            Effect.forEach(server.tools, ({ tool, annotations }) => Effect.map(Context.get(annotations, Server.Visible), (listed) => [tool.name, listed] as const)),
-            Record.fromEntries,
-        );
-        const forwarding = Effect.fnUntraced(function* (toolName: string, payload: Record.ReadonlyRecord<string, unknown>) {
-            const [request, known] = yield* Effect.all([McpSchema.McpRequestContext, Ref.get(routes)]);
-            const rows = yield* Effect.fromOption(Record.get(known, toolName), () => McpSchema.InternalError.make({ message: `${toolName} has no linked application` }));
-            const peers = Array.map(rows, Struct.get('peer'));
-            const chosen = yield* Array.isReadonlyArrayNonEmpty(Array.tailNonEmpty(peers)) ? route(peers, payload) : Effect.succeed(Array.headNonEmpty(peers));
-            const row = yield* Effect.fromOption(
-                Array.findFirst(rows, ({ peer }) => Link.key(peer) === Link.key(chosen)),
-                () => McpSchema.InvalidParams.make({ message: `${Link.key(chosen)} serves no ${toolName}, ${Array.map(peers, Link.key).join(', ')} do` }),
-            );
-            return yield* row
-                .client('tools/call', { name: toolName, arguments: payload, context: Struct.pick(request, ['clientId', 'protocolVersion', 'clientCapabilities']), _meta: request.requestMetadata })
-                .pipe(Effect.mapError((error) => (Schema.is(McpSchema.InvalidParams)(error) ? error : McpSchema.InternalError.make({ message: error.message }))));
-        });
-        const registered = Effect.fnUntraced(function* (peers: readonly Link[]) {
-            const [served, failed] = yield* Effect.partition(peers, offered, { concurrency: 'unbounded' });
-            yield* Effect.forEach(failed, (cause) => Effect.logError('Linked extension listed no tools', cause), { discard: true });
-            const previous = yield* Ref.get(shown);
-            const owned = new Set(server.tools.map(({ tool }) => tool.name).filter((toolName) => !Record.has(previous, toolName)));
-            const [byName, shadowed] = Record.partition(
-                Array.groupBy(Array.flatten(served), ({ tool }) => tool.name),
-                (rows, toolName) => (owned.has(toolName) ? Result.fail(rows) : Result.succeed(rows)),
-            );
-            yield* Record.isEmptyRecord(shadowed) ? Effect.void : Effect.logError(`Linked tools ${Record.keys(shadowed).join(', ')} share a name with the server's own tools and stay unregistered`);
-            const fresh = Record.filter(
-                Record.map(byName, (rows) => Array.headNonEmpty(rows).tool),
-                (tool, toolName) => !Option.containsWith(same)(Record.get(previous, toolName), tool),
-            );
-            yield* Effect.all([Ref.set(routes, byName), Ref.update(shown, (kept) => ({ ...kept, ...fresh }))]);
-            yield* Effect.forEach(
-                Record.toEntries(fresh),
-                ([toolName, tool]) =>
-                    server.addTool({
-                        tool,
-                        annotations: Context.make(Server.Visible, Effect.map(Ref.get(routes), Record.has(toolName))),
-                        handle: (payload: Record.ReadonlyRecord<string, unknown>) => forwarding(toolName, payload),
-                    }),
-                { discard: true },
-            );
-            const after = yield* visibility;
-            const before = yield* Ref.getAndSet(visible, after);
-            const flipped = Record.some(after, (listed, toolName) => Option.contains(Record.get(before, toolName), !listed));
-            yield* flipped ? server.notifications['notifications/tools/list_changed']({}) : Effect.void;
-        });
-        yield* Effect.forkScoped(Stream.runForEach(links.changes, (peers) => Effect.catchCause(registered(peers), (cause) => Effect.logError('Linked tool registration failed', cause))));
-    });
 }
 
 // --- [EXPORTS] -------------------------------------------------------------------------

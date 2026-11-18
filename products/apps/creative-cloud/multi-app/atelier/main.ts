@@ -2,7 +2,7 @@ import { runMain } from '@effect/platform-node/NodeRuntime';
 import { layer } from '@effect/platform-node/NodeServices';
 import { ApplicationServer } from '@rasm/applications/node';
 import { Typesetting } from '@rasm/indesign';
-import { Link } from '@rasm/mcp';
+import { Link, Upstream } from '@rasm/mcp';
 import { serve } from '@rasm/mcp/node';
 import { Script } from '@rasm/object-model';
 import { teardown } from '@rasm/telemetry/node';
@@ -24,7 +24,7 @@ Effect.gen(function* () {
         const [server, { route }] = yield* Effect.all([ApplicationServer, Inventory]);
         yield* Deferred.succeed(started, server);
         const links = yield* Link.listen(Script.merge(Typesetting), UxpManifest.origin);
-        yield* Link.host(links, { route });
+        yield* Upstream.serve([Upstream.linked(links)], { route });
         yield* Effect.all([applications, windows, scripts(links), diagnostics, typography(links)], { discard: true });
     });
     return yield* serve(

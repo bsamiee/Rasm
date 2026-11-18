@@ -87,8 +87,7 @@ class Terms extends Schema.Class<Terms, { readonly brand: unique symbol }>('Term
     { description: 'Every declaration by kind, name, and code, commands with their parameters, and the script command' },
 ) {}
 
-const Undeclared = Schema.Record(Schema.String, Schema.Json);
-const open = <const Fields extends Schema.Struct.Fields>(fields: Fields) => Schema.StructWithRest(Schema.Struct(fields), [Undeclared]);
+const open = <const Fields extends Schema.Struct.Fields>(fields: Fields) => Schema.StructWithRest(Schema.Struct(fields), [Schema.Record(Schema.String.check(Schema.makeFilter((key: string) => !Object.hasOwn(fields, key))), Schema.Json)]);
 const keyed = <const Key extends string, S extends Schema.Top>(key: Key, schema: S) => Schema.Struct({ _tag: Schema.tagDefaultOmit(key), ...Struct.Record([key], schema) });
 const defaulted = <S extends Schema.Constraint & Schema.WithoutConstructorDefault>(schema: S, value: S['Encoded'] & S['~type.make.in']) => Schema.withConstructorDefault<Schema.withDecodingDefaultKey<S>>(Effect.succeed(value))(Schema.withDecodingDefaultKey<S>(Effect.succeed(value))(schema));
 const Pid = Schema.Int.check(Schema.isGreaterThan(0)).annotate({ description: 'Running process ID' });
@@ -166,7 +165,7 @@ const ProcessInstance = Schema.String.check(Schema.isPattern(/^\d+@\d+$/u))
     .pipe(Schema.brand('ProcessInstance'))
     .annotate({ description: 'Process ID and kernel start time as <pid>@<start>, unequal for a later process reusing the ID' });
 const DiagnosticReport = open({
-    url: Schema.String.annotate({ description: 'Report file URL in ~/Library/Logs/DiagnosticReports or /Library/Logs/DiagnosticReports' }),
+    url: Schema.URLFromString.annotate({ description: 'Report file in ~/Library/Logs/DiagnosticReports or /Library/Logs/DiagnosticReports' }),
     kind: Schema.Literals(['crash', 'hang', 'diag', 'spin']).annotate({ description: 'crash for an .ips crash or .crash file, else the text report extension' }),
     date: Schema.String.annotate({ description: 'ISO 8601 file modification time' }),
     pid: Pid,

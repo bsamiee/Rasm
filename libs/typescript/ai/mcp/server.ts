@@ -20,6 +20,7 @@ interface Holder {
     readonly executions: Ref.Ref<readonly Effect.Effect<(typeof Executions.Type)[number]>[]>;
 }
 type Progressed = Omit<typeof McpSchema.ProgressNotification.payloadSchema.Type, 'progressToken' | '_meta'>;
+type Gated = Pick<Parameters<McpServer.McpServer['Service']['addResource']>[0], 'annotations' | 'services'>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -55,6 +56,7 @@ class Server extends Context.Service<
     {
         readonly uri: (path: string) => string;
         readonly events: <A, I>(source: { readonly schema: Schema.Codec<A, I>; readonly text: (event: A) => string; readonly stream: Stream.Stream<A> }) => Effect.Effect<{ readonly ends: (holds: (event: A) => Effect.Effect<boolean>) => Context.Context<never> }, never, Scope.Scope>;
+        readonly relist: Effect.Effect<void, Error>;
     }
 >()('@rasm/mcp/server') {
     static readonly Scheme = Schema.String.pipe(
@@ -124,18 +126,52 @@ class Server extends Context.Service<
             Effect.mapError(() => McpSchema.InvalidParams.make({ message: 'requestState came from no input request of this server and tool, call again without it' })),
         );
         const early = (id: string, text: string) => McpSchema.CallToolResult.make({ content: [McpSchema.ResourceLink.make({ ...EXECUTIONS, uri: uri(`${EXECUTIONS.name}/${id}`), description: `${text}, the call keeps running and its result goes here` })] });
-        const calls = { server, scope, retention, handles, journal, latest, trailer, early, seal, open, mint: random.uuidV4() };
+        const gate = (subject: Readonly<Record<string, string>>, { annotations, services = Context.empty() }: Gated) =>
+            Effect.map(
+                Layer.buildWithScope(
+                    McpServer.visibility(() =>
+                        Context.get(annotations, Server.Visible).pipe(
+                            Effect.tapCause((cause) => Effect.annotateLogs(Effect.logError('Visibility check failed', cause), subject)),
+                            Server.orInternalError,
+                        ),
+                    ).layer,
+                    scope,
+                ),
+                (gated) => Context.merge(services, gated),
+            );
+        const calls = { server, scope, gate, retention, handles, journal, latest, trailer, early, seal, open, mint: random.uuidV7() };
+        const listed = yield* Ref.make<Record.ReadonlyRecord<'tools' | 'resources' | 'prompts', Record.ReadonlyRecord<string, boolean>>>({ tools: {}, resources: {}, prompts: {} });
+        const visible = (entries: readonly (readonly [string, Context.Context<never>])[]) =>
+            Effect.map(
+                Effect.forEach(entries, ([at, annotations]) => Effect.map(Context.get(annotations, Server.Visible), (shown) => [at, shown] as const)),
+                Record.fromEntries,
+            );
+        const relist = Effect.gen(function* () {
+            const now = yield* Effect.all({
+                tools: visible(Array.map(server.tools, ({ tool, annotations }) => [tool.name, annotations] as const)),
+                resources: visible([...Array.map(server.resources, ({ resource, annotations }) => [resource.uri, annotations] as const), ...Array.map(server.resourceTemplates, ({ template, annotations }) => [template.uriTemplate, annotations] as const)]),
+                prompts: visible(Array.map(server.prompts, ({ prompt, annotations }) => [prompt.name, annotations] as const)),
+            });
+            const before = yield* Ref.getAndSet(listed, now);
+            yield* Effect.forEach(Record.keys(now), (kind) => (Record.some(now[kind], flipped(before[kind])) ? server.notifications[`notifications/${kind}/list_changed`]({}) : Effect.void), { discard: true });
+        });
         yield* Layer.build(metered.layerGlobal);
         return Context.make(
             McpServer.McpServer,
             McpServer.McpServer.of({
                 ...server,
                 addTool: addTool(calls),
-                addResource: (options) => server.addResource({ ...options, resource: McpSchema.Resource.make({ ...options.resource, icons: iconed(options.annotations, options.resource.icons) }) }),
-                addResourceTemplate: (options) => server.addResourceTemplate({ ...options, template: McpSchema.ResourceTemplate.make({ ...options.template, icons: iconed(options.annotations, options.template.icons) }), completions: Record.map(options.completions, ranking) }),
-                addPrompt: (options) => server.addPrompt({ ...options, prompt: McpSchema.Prompt.make({ ...options.prompt, icons: iconed(options.annotations, options.prompt.icons) }), completions: Record.map(options.completions, ranking) }),
+                addResource: (options) => Effect.flatMap(gate({ [ATTR_MCP_RESOURCE_URI]: options.resource.uri }, options), (services) => server.addResource({ ...options, services, resource: McpSchema.Resource.make({ ...options.resource, icons: iconed(options.annotations, options.resource.icons) }) })),
+                addResourceTemplate: (options) =>
+                    Effect.flatMap(gate({ [ATTR_MCP_RESOURCE_URI]: options.template.uriTemplate }, options), (services) =>
+                        server.addResourceTemplate({ ...options, services, template: McpSchema.ResourceTemplate.make({ ...options.template, icons: iconed(options.annotations, options.template.icons) }), completions: Record.map(options.completions, ranking) }),
+                    ),
+                addPrompt: (options) =>
+                    Effect.flatMap(gate({ [ATTR_GEN_AI_PROMPT_NAME]: options.prompt.name }, options), (services) =>
+                        server.addPrompt({ ...options, services, prompt: McpSchema.Prompt.make({ ...options.prompt, icons: iconed(options.annotations, options.prompt.icons) }), completions: Record.map(options.completions, ranking) }),
+                    ),
             }),
-        ).pipe(Context.add(Server, Server.of({ uri, events: events({ ...calls, uri, limit }) })));
+        ).pipe(Context.add(Server, Server.of({ uri, events: events({ ...calls, uri, limit }), relist })));
     }, Layer.effectContext);
     static readonly layerStdio = <E, R>(manifest: Parameters<typeof served>[0], settings: Parameters<typeof served>[1], app: Layer.Layer<never, E, R>) => Layer.unwrap(Effect.map(served(manifest, settings, app), (options) => McpServer.layerStdio(options))).pipe(Layer.provideMerge(McpServer.McpServer.layer));
     static readonly layerHttp = <E, R>(manifest: Parameters<typeof served>[0], { address, hosts, ...settings }: Parameters<typeof served>[1] & { readonly address: Host.HostPort; readonly hosts: readonly string[] }, app: Layer.Layer<never, E, R>) => {
@@ -170,6 +206,7 @@ const served = Effect.fnUntraced(function* <E, R>(
     const shown = yield* Effect.filter([...server.tools, ...server.resources, ...server.resourceTemplates, ...server.prompts], ({ annotations }) => Context.get(annotations, Server.Visible));
     return { ...manifest, protocols: PROTOCOLS, instructions: Array.dedupe([...instructions, ...Array.flatMap(shown, ({ annotations }) => Context.get(annotations, Server.Instructions))]).join('\n') };
 });
+const flipped = (before: Record.ReadonlyRecord<string, boolean>) => (shown: boolean, at: string) => before[at] === !shown;
 const iconed = (annotations: Context.Context<never>, own: readonly McpSchema.Icon[] | undefined) => Array.match(Context.get(annotations, Server.Icons), { onEmpty: () => own, onNonEmpty: Function.identity });
 const operationDuration = Metric.mapInput(
     Metric.histogram(METRIC_MCP_SERVER_OPERATION_DURATION, {
@@ -207,6 +244,7 @@ const ranking =
             const ordered = Unmatched.rank(input, values);
             return McpSchema.CompleteResult.make({ ...rest, completion: { values: ordered, total: ordered.length } });
         });
+
 const events = ({ server, handles, journal, limit, uri }: Pick<Parameters<typeof addTool>[0], 'server' | 'handles' | 'journal'> & { readonly limit: number; readonly uri: (path: string) => string }) =>
     Effect.fnUntraced(function* <A, I>({ schema, text, stream }: { readonly schema: Schema.Codec<A, I>; readonly text: (event: A) => string; readonly stream: Stream.Stream<A> }) {
         const lines = yield* SubscriptionRef.make<readonly (Line & { readonly value: A })[]>([]);
@@ -238,6 +276,7 @@ const addTool =
     ({
         server,
         scope,
+        gate,
         retention,
         handles,
         journal,
@@ -250,6 +289,7 @@ const addTool =
     }: {
         readonly server: McpServer.McpServer['Service'];
         readonly scope: Scope.Scope;
+        readonly gate: (subject: Readonly<Record<string, string>>, options: Gated) => Effect.Effect<Context.Context<never>>;
         readonly retention: Duration.Duration;
         readonly handles: RcMap.RcMap<string, Holder>;
         readonly journal: Ref.Ref<Effect.Effect<readonly Line[]>>;
@@ -262,10 +302,6 @@ const addTool =
     }) =>
     (options: Parameters<McpServer.McpServer['Service']['addTool']>[0]) => {
         const ends = Context.get(options.annotations, Server.Ends);
-        const visible = Context.get(options.annotations, Server.Visible).pipe(
-            Effect.tapCause((cause) => Effect.annotateLogs(Effect.logError('Tool visibility check failed', cause), { [ATTR_GEN_AI_TOOL_NAME]: options.tool.name })),
-            Server.orInternalError,
-        );
         const Named = Schema.String.annotate({ description: `Handle from an earlier result, holding your state and your place in the events; omit it to start one; it expires after ${Duration.format(retention)} without a call` });
         const { $defs, ...output } = options.tool.outputSchema ?? {};
         const tool = McpSchema.Tool.make({
@@ -371,9 +407,14 @@ const addTool =
             Effect.uninterruptible,
             Effect.scoped,
         );
-        return Effect.flatMap(Layer.buildWithScope(McpServer.visibility(() => visible).layer, scope), (gate) => server.addTool({ ...options, tool, handle, services: Context.merge(options.services ?? Context.empty(), gate) }));
+        return Array.match(
+            Array.filter(Record.keys(Given.fields), (key) => Record.has(options.tool.inputSchema.properties ?? {}, key)),
+            {
+                onEmpty: () => Effect.flatMap(gate({ [ATTR_GEN_AI_TOOL_NAME]: options.tool.name }, options), (services) => server.addTool({ ...options, tool, handle, services })),
+                onNonEmpty: (taken) => Effect.annotateLogs(Effect.logError(`Tool ${options.tool.name} takes ${taken.join(', ')}, which the server adds to every tool, and stays unregistered`), { [ATTR_GEN_AI_TOOL_NAME]: options.tool.name }),
+            },
+        );
     };
-
 // --- [EXPORTS] -------------------------------------------------------------------------
 
 export { Handle, Server };
