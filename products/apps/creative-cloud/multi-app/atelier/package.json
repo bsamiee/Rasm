@@ -24,7 +24,8 @@
         "@rasm/telemetry": "workspace:*",
         "@rasm/typography": "workspace:*",
         "@rasm/uxp": "workspace:*",
-        "effect": "catalog:"
+        "effect": "catalog:",
+        "es5-shim": "catalog:"
     },
     "devDependencies": {
         "@adobe/cc-ext-uxp-types": "catalog:",

@@ -9,7 +9,8 @@
         "@rasm/illustrator": "workspace:*",
         "@rasm/mcp": "workspace:*",
         "@rasm/object-model": "workspace:*",
-        "effect": "catalog:"
+        "effect": "catalog:",
+        "es5-shim": "catalog:"
     },
     "devDependencies": {
         "@types/node": "catalog:",

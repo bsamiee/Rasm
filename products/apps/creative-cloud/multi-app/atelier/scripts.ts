@@ -4,7 +4,6 @@ import type { Application } from '@rasm/creative-cloud-desktop';
 import { Completion } from '@rasm/extendscript';
 import runtime from '@rasm/extendscript/host?inline';
 import { lower, traced } from '@rasm/extendscript/node';
-import shim from '@rasm/extendscript/shim?inline';
 import { ScriptHost } from '@rasm/indesign';
 import { Link, Server } from '@rasm/mcp';
 import { Evaluation, HostError, Script } from '@rasm/object-model';
@@ -13,6 +12,8 @@ import { UxpManifest } from '@rasm/uxp';
 import { Array, Cause, Context, Effect, Match, Option, Record, Ref, Schema, Struct } from 'effect';
 import { Tool } from 'effect/ai';
 import type { RpcClient, RpcClientError, RpcGroup } from 'effect/rpc';
+import shim from 'es5-shim?inline';
+import sham from 'es5-shim/es5-sham.js?inline';
 import { Inventory } from '#/applications';
 import { Declarations } from '#/declarations';
 
@@ -39,7 +40,7 @@ const Body = Schema.Struct({ code: Evaluation.fields.code.annotate({ description
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const extendscript = (source: string) => `(function (self) {\n${source}\nif (typeof Object.keys !== 'function') {\n${shim}\n}\n${runtime}\nreturn encodeURIComponent(runtime.reply(function () { return { result: body.call(self) }; }));\n})(this)`;
+const extendscript = (source: string) => `(function (self) {\n${source}\nif (typeof Object.keys !== 'function') {\n${shim}\n${sham}\n}\n${runtime}\nreturn encodeURIComponent(runtime.reply(function () { return { result: body.call(self) }; }));\n})(this)`;
 const relined = (line: (at: number) => Option.Option<number>) => (error: HostError) => Effect.fail(HostError.fields.reason.isAnyOf(['Thrown'])(error.reason) ? HostError.thrown(error.subject, Option.flatMap(error.reason.line, line))(error.cause) : error);
 const planned = Match.typeTags<Runtime>()({
     Linked: (): Plan => ({ program: (body: string) => Evaluation.expression(body, true), target: UxpManifest.target, offset: 0, direct: (source: string) => source, declared: {} }),

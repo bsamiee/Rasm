@@ -1,4 +1,5 @@
-import '@rasm/extendscript/shim';
+import 'es5-shim';
+import 'es5-shim/es5-sham.js';
 import { serve } from '@rasm/extendscript/host';
 import { containment, open, rasterize, session } from '@rasm/illustrator/extendscript';
 import type { Open, Rasterize } from '@rasm/object-model';

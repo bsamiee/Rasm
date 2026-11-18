@@ -50,11 +50,24 @@ export default Effect.fnUntraced(
                     Effect.forEach((asset) => Effect.sync(() => this.emitFile({ type: 'asset', ...asset })), { discard: true }),
                 ).pipe(Effect.runPromiseWith(context));
             },
-            writeBundle: ({ dir = directory }) => Effect.runPromiseWith(context)(Effect.flatMap(compiler, (root) => Effect.all([fs.copyFile(join(root, 'tsc.original'), join(dir, 'tsc')), Effect.andThen(fs.makeDirectory(join(dir, 'Helpers')), fs.symlink(join('..', 'Resources', 'lib.d.ts'), join(dir, 'Helpers', 'lib.d.ts')))], { discard: true }))),
+            writeBundle: ({ dir = directory }) =>
+                Effect.runPromiseWith(context)(
+                    Effect.gen(function* () {
+                        const root = yield* compiler;
+                        yield* Effect.all([fs.copyFile(join(root, 'tsc.original'), join(dir, 'tsc')), fs.makeDirectory(join(dir, 'Helpers'))], { discard: true });
+                        yield* fs.symlink(join('..', 'Resources', 'lib.d.ts'), join(dir, 'Helpers', 'lib.d.ts'));
+                    }),
+                ),
         } satisfies Plugin;
         return {
             build: { rolldownOptions: { experimental: { lazyBarrel: true }, output: { codeSplitting: false } } },
-            plugins: [declarations, script(resolved('@rasm/extendscript/host'), 'runtime'), script(resolved('@rasm/extendscript/shim'), 'shim'), yield* helper(join(directory, 'main.ts'), 'server', { KeepAlive: true }, { project: join(directory, 'macos', 'Atelier.xcodeproj'), target: 'Atelier' })],
+            plugins: [
+                declarations,
+                script(resolved('@rasm/extendscript/host'), 'runtime'),
+                script(resolved('es5-shim'), 'shim'),
+                script(resolved('es5-shim/es5-sham.js'), 'sham'),
+                yield* helper(join(directory, 'main.ts'), 'server', { KeepAlive: true }, { project: join(directory, 'macos', 'Atelier.xcodeproj'), target: 'Atelier' }),
+            ],
         };
     },
     Effect.provide(layer),

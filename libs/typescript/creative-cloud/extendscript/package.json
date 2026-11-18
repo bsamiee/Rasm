@@ -14,16 +14,13 @@
         "dist/**/*.d.ts"
     ],
     "type": "module",
-    "sideEffects": [
-        "shim.*"
-    ],
+    "sideEffects": false,
     "imports": {
         "#/*": "./*.ts"
     },
     "exports": {
         ".": "./index.ts",
         "./host": "./host.ts",
-        "./shim": "./shim.ts",
         "./node": "./node.ts",
         "./vite": "./vite.ts",
         "./package.json": "./package.json"
@@ -35,7 +32,6 @@
         "exports": {
             ".": "./dist/index.js",
             "./host": "./dist/host.js",
-            "./shim": "./dist/shim.js",
             "./node": "./dist/node.js",
             "./vite": "./dist/vite.js",
             "./package.json": "./package.json"
@@ -47,8 +43,7 @@
         "@rasm/search": "workspace:*",
         "@swc/wasm": "catalog:",
         "acorn": "catalog:",
-        "acorn-walk": "catalog:",
-        "es5-shim": "catalog:"
+        "acorn-walk": "catalog:"
     },
     "devDependencies": {
         "@types/node": "catalog:",
