@@ -270,7 +270,7 @@ describe('@rasm/nx-vite', () => {
 
             expect(targets['build--vite']?.command).toBe('vite build');
             expect(inferredApplicationTargets).toStrictEqual([]);
-            expect(resolveConfig).toHaveBeenLastCalledWith(expect.objectContaining({ logLevel: 'silent' }), 'serve', 'development', 'development');
+            expect(resolveConfig).toHaveBeenLastCalledWith(expect.objectContaining({ logLevel: 'silent' }), 'serve', 'development', 'development', false, undefined, expect.any(Function));
         });
 
         it('should keep the application targets for an explicit empty server block', async ({ inferProject }) => {
@@ -309,6 +309,15 @@ describe('@rasm/nx-vite', () => {
 
         expect(targets['build--vite']?.inputs).toContainEqual({ json: '{workspaceRoot}/tsconfig.shared.json', fields: ['compilerOptions'] });
         expect(targets['build--vite']?.inputs).not.toContainEqual(expect.objectContaining({ json: '{workspaceRoot}/tsconfig.base.json' }));
+    });
+
+    it('should read the outDir a plugin sets in configEnvironment while running no configResolved hook, where a build plugin removes its last output', async ({ tempFs, inferProject }) => {
+        tempFs.createFilesSync({ 'my-app/.output/kept.json': '{}' });
+        const plugin = "{ name: 'output-plugin', configEnvironment: () => ({ build: { outDir: '.output/client' } }), configResolved: ({ command, root }) => command === 'build' && rmSync(join(root, '.output'), { recursive: true }) }";
+        const { targets } = await inferProject('my-app', `import { rmSync } from 'node:fs';\nimport { join } from 'node:path';\nexport default { plugins: [${plugin}] };`, ['my-app/index.html']);
+
+        expect(targets['build--vite']?.outputs).toContain('{projectRoot}/.output/client');
+        expect(existsSync(join(tempFs.tempDir, 'my-app/.output/kept.json'))).toBe(true);
     });
 
     it('should create nodes only where a package.json is in the package manager workspaces or beside a project.json', async ({ tempFs }) => {

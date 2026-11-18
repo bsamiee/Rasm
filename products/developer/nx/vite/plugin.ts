@@ -8,8 +8,8 @@ import { getRootTsConfigFileName } from '@nx/js';
 import { nxReadySignal } from '@nx/vite/plugins/nx-ready-signal.plugin';
 import { aggregated, anchored, extended, fingerprinted, Folder, manifested, namedInput, packaged, parsed, recalled, run, stamped, tokened, type Verbs, within } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
-import { Array, Cause, Effect, FileSystem, MutableRef, Option, Record, Schema } from 'effect';
-import type { InlineConfig, parseSync, resolveConfig } from 'vite';
+import { Array, Cause, Effect, FileSystem, MutableRef, Option, Record, Schema, Struct } from 'effect';
+import type { InlineConfig, parseSync, Plugin, resolveConfig } from 'vite';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -48,7 +48,12 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, o
     const resolved = (command: 'build' | 'serve', mode: string, inline: Pick<InlineConfig, 'build' | 'logLevel'>) =>
         secluded(
             Effect.tryPromise({
-                try: () => retryOnRequireEsmRace(() => vite.resolveConfig({ configFile: at, root: folder, plugins: [capture], ...inline }, command, mode, mode)),
+                try: () =>
+                    retryOnRequireEsmRace(() =>
+                        vite.resolveConfig({ configFile: at, root: folder, plugins: [capture], ...inline }, command, mode, mode, false, undefined, (plugins) => {
+                            plugins.splice(0, plugins.length, ...plugins.map(Struct.omit<Plugin, ['configResolved']>(['configResolved'])));
+                        }),
+                    ),
                 catch: (cause) => new Cause.UnknownError(cause, `${file} does not load for vite ${command}`),
             }),
         );

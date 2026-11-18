@@ -6,6 +6,7 @@ import { App } from '@rasm/hosting';
 import { deploy } from '@rasm/hosting/deploy';
 import { Access, Enrollment } from '@rasm/hosting/identity';
 import { Array, ByteSize, Cause, ConfigProvider, Effect, Option, Record, Redacted, Schema, Struct } from 'effect';
+import type { Plugin } from 'vite';
 import { bucketed, hosts, local, Machine, Role } from '#/platform-stack';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -18,7 +19,10 @@ const placed = Effect.fnUntraced(function* (node: ProjectGraphProjectNode, app: 
     ]);
     const outDir = yield* Effect.fromOption(Array.head(outputs), () => new Cause.NoSuchElementError(`${project} build--vite declares no output`));
     const { root, environments } = yield* Effect.tryPromise({
-        try: () => resolveConfig({ root: join(workspaceRoot, node.data.root), logLevel: 'silent', build: { outDir: join(workspaceRoot, outDir) } }, 'build', 'production', 'production'),
+        try: () =>
+            resolveConfig({ root: join(workspaceRoot, node.data.root), logLevel: 'silent', build: { outDir: join(workspaceRoot, outDir) } }, 'build', 'production', 'production', false, undefined, (plugins) => {
+                plugins.splice(0, plugins.length, ...plugins.map(Struct.omit<Plugin, ['configResolved']>(['configResolved'])));
+            }),
         catch: (cause) => new Cause.UnknownError(cause, `${project} holds no Vite config that resolves`),
     });
     const server = yield* Effect.fromOption(Record.get(environments, App.bundle.environment), () => new Cause.NoSuchElementError(`${project} builds no ${App.bundle.environment} environment`));
