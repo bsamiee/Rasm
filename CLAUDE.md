@@ -8,7 +8,6 @@
 - Removals delete every mention and adjust each consumer to the absence, nothing stands in for removed content
 - Apps and windows an agent opens take no focus and stay behind the user's work, inside or outside the project unless requested
 - Settings differing by project, platform, or build mode use the tool's own switch (profile, condition, glob, per-OS file), never a script or flag
-- Remove all session created temporary files after relevant task is completed, and no upcoming one will re-use it, remove all tree copies made
 
 ## [01]-[TOOLING]
 
