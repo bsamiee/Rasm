@@ -30,7 +30,8 @@ const faults = (name: string, aggregate: string, separator: string, held: Target
 export default createConformanceRule<{ readonly separator: string }>({
     name: 'aggregate-targets',
     category: 'consistency',
-    description: 'Gives a project target `<name>` exactly where it holds a `<name><separator><tool>` target, as an nx:noop depending on those targets alone with its parameters forwarded and stating each of their inputs, so nx affected selects it by them',
+    description:
+        'Gives a project target `<name>` exactly where it holds a `<name><separator><tool>` target, as an nx:noop depending on those targets alone with its parameters forwarded and stating each of their inputs, so nx affected selects it by them, and keeps every other target from depending on it, as Nx forwards the parameters of the run, not of the dependent, to its tool targets',
     implementation: ({ projectGraph: { nodes }, ruleOptions: { separator } }) => {
         const aggregates = Array.dedupe(
             Object.values(nodes).flatMap(({ data }) =>
@@ -40,15 +41,23 @@ export default createConformanceRule<{ readonly separator: string }>({
             ),
         );
         const violations = Object.values(nodes).flatMap(({ name, data: { targets = {} } }) =>
-            aggregates.flatMap((aggregate) =>
-                faults(
-                    name,
-                    aggregate,
-                    separator,
-                    targets[aggregate],
-                    Record.filter(targets, (_, target) => target.startsWith(`${aggregate}${separator}`)),
-                ).map((fault) => ({ sourceProject: name, message: `${name} ${fault}` })),
-            ),
+            [
+                ...aggregates.flatMap((aggregate) =>
+                    faults(
+                        name,
+                        aggregate,
+                        separator,
+                        targets[aggregate],
+                        Record.filter(targets, (_, target) => target.startsWith(`${aggregate}${separator}`)),
+                    ),
+                ),
+                ...Record.collect(targets, (target, { dependsOn = [] }) =>
+                    Array.intersection(
+                        dependsOn.map((entry) => (Predicate.isString(entry) ? entry.replace(/^\^|^.*:/u, '') : entry.target)),
+                        aggregates,
+                    ).map((aggregate) => `${target} depends on ${aggregate}, which forwards the parameters of the run to its tool targets, depend on ${aggregate}${separator}* in its place`),
+                ).flat(),
+            ].map((fault) => ({ sourceProject: name, message: `${name} ${fault}` })),
         );
         return Promise.resolve({ severity: 'medium' as const, details: { violations } });
     },

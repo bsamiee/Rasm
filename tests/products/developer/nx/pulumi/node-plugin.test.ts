@@ -52,7 +52,7 @@ describe('@rasm/nx-pulumi', () => {
             'install--pulumi': {
                 command: 'node bin/stacks.ts install',
                 options: { cwd: 'packages/infra' },
-                dependsOn: ['^build', '^install'],
+                dependsOn: ['^build--*', '^install--*'],
                 parallelism: false,
                 inputs: ['default', '^default', { externalDependencies: [] }],
                 metadata: { technologies: ['pulumi'], description: 'Runs the Pulumi Automation API program of the project with node bin/stacks.ts install' },
@@ -61,7 +61,7 @@ describe('@rasm/nx-pulumi', () => {
             'deploy--pulumi': {
                 command: 'node bin/stacks.ts deploy',
                 options: { cwd: 'packages/infra' },
-                dependsOn: ['^build', '^deploy'],
+                dependsOn: ['^build--*', '^deploy--*'],
                 parallelism: false,
                 inputs: ['default', '^default', { externalDependencies: [] }],
                 metadata: { technologies: ['pulumi'], description: 'Runs the Pulumi Automation API program of the project with node bin/stacks.ts deploy' },
@@ -88,7 +88,7 @@ describe('@rasm/nx-pulumi', () => {
         );
 
         expect(targets?.['deploy--pulumi']?.command).toBe('node dist/stacks.js deploy');
-        expect(targets?.['deploy--pulumi']?.dependsOn).toStrictEqual(['build--*', '^build', '^deploy']);
+        expect(targets?.['deploy--pulumi']?.dependsOn).toStrictEqual(['build--*', '^build--*', '^deploy--*']);
     });
 
     it('should wait for the build of a depended program package whose bin is build output', async ({ targetsFor }) => {
@@ -102,6 +102,6 @@ describe('@rasm/nx-pulumi', () => {
         );
 
         expect(targets?.['deploy--pulumi']?.command).toBe('node ../infra/dist/stacks.js deploy');
-        expect(targets?.['deploy--pulumi']?.dependsOn).toStrictEqual(['build--*', '^build', '^deploy']);
+        expect(targets?.['deploy--pulumi']?.dependsOn).toStrictEqual(['build--*', '^build--*', '^deploy--*']);
     });
 });

@@ -50,7 +50,7 @@ const targets = (root: string, entry: string, hosted: boolean, built: boolean, c
             pulumi: {
                 command,
                 options: { cwd: root },
-                dependsOn: ordered ? [...(hosted || built ? ['build--*'] : []), ...(hosted && !built ? [] : ['^build']), `^${verb}`] : [],
+                dependsOn: ordered ? [...(hosted || built ? ['build--*'] : []), ...(hosted && !built ? [] : ['^build--*']), `^${verb}--*`] : [],
                 parallelism: false,
                 inputs: [named, `^${named}`, { externalDependencies: [] }],
                 metadata: { description: `Runs the Pulumi Automation API program ${hosted ? 'the project depends on' : 'of the project'} with ${command}` },

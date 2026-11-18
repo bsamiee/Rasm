@@ -107,7 +107,7 @@ describe('typecheck target', () => {
                         'build--tsc': {
                             executor: 'nx:run-commands',
                             options: { commands: ['tsc'], cwd: 'libs/my-lib' },
-                            dependsOn: ['codegen--*', '^codegen', '^build--tsc'],
+                            dependsOn: ['codegen--*', '^codegen--*', '^build--tsc'],
                             cache: true,
                             inputs,
                             outputs: [`{projectRoot}/${EMITTED}`],

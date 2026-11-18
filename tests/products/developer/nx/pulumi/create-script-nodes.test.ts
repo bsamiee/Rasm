@@ -44,7 +44,7 @@ describe('@rasm/nx-pulumi createNodes', () => {
         expect(results[1]?.[1].projects?.['packages/site']?.targets?.['deploy--pulumi']).toStrictEqual({
             command: 'node ../infra/stacks.ts deploy',
             options: { cwd: 'packages/site' },
-            dependsOn: ['build--*', '^deploy'],
+            dependsOn: ['build--*', '^deploy--*'],
             parallelism: false,
             inputs: ['default', '^default', { externalDependencies: [] }],
             metadata: { technologies: ['pulumi'], description: 'Runs the Pulumi Automation API program the project depends on with node ../infra/stacks.ts deploy' },
@@ -81,7 +81,7 @@ describe('@rasm/nx-pulumi createNodes', () => {
         const after = await createNodesFunction(['package.json', 'packages/infra/package.json'], {}, context);
 
         expect(before[0]?.[1].projects?.['packages/infra']?.targets?.['deploy--pulumi']?.command).toBe('node stacks.ts deploy');
-        expect(after[0]?.[1].projects?.['packages/infra']?.targets?.['deploy--pulumi']).toMatchObject({ command: 'node apply.ts deploy', dependsOn: ['^build', '^deploy'] });
+        expect(after[0]?.[1].projects?.['packages/infra']?.targets?.['deploy--pulumi']).toMatchObject({ command: 'node apply.ts deploy', dependsOn: ['^build--*', '^deploy--*'] });
     });
 
     it("should treat a package.json as a project root only where core's default package-json plugin does", async ({ run }) => {

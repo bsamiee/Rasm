@@ -58,7 +58,7 @@ describe('cloudflare.config.ts', () => {
             'codegen--cf': {
                 command: 'cf workers types',
                 options: { cwd: 'apps/edge' },
-                dependsOn: ['^codegen'],
+                dependsOn: ['^codegen--*'],
                 cache: true,
                 inputs: ['default', '^production', '{workspaceRoot}/shared/dates.ts', { externalDependencies: ['cf'] }],
                 outputs: ['{projectRoot}/.cloudflare/types'],

@@ -148,7 +148,7 @@ describe("should create nodes, inputs derived from the config's stories, no buil
             "command": "storybook build",
             "dependsOn": [
               "codegen--*",
-              "^codegen",
+              "^codegen--*",
             ],
             "inputs": [
               "production",
@@ -195,7 +195,7 @@ describe("should create nodes, inputs derived from the config's stories, no buil
             "continuous": true,
             "dependsOn": [
               "codegen--*",
-              "^codegen",
+              "^codegen--*",
             ],
             "inputs": [
               "production",
@@ -338,7 +338,7 @@ describe("should support main.js, inputs derived from the config's stories, no b
             "command": "storybook build",
             "dependsOn": [
               "codegen--*",
-              "^codegen",
+              "^codegen--*",
             ],
             "inputs": [
               "production",
@@ -385,7 +385,7 @@ describe("should support main.js, inputs derived from the config's stories, no b
             "continuous": true,
             "dependsOn": [
               "codegen--*",
-              "^codegen",
+              "^codegen--*",
             ],
             "inputs": [
               "production",

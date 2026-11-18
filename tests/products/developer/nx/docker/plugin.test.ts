@@ -120,7 +120,7 @@ describe('@rasm/nx-docker', () => {
             command: docker compose build --check,
             dependsOn: [
               build--!(compose|buildx),
-              ^build,
+              ^build--*,
             ],
             inputs: [
               {workspaceRoot}/proj/.env,
@@ -189,7 +189,7 @@ describe('@rasm/nx-docker', () => {
             command: docker compose build,
             dependsOn: [
               build--!(compose|buildx),
-              ^build,
+              ^build--*,
             ],
             inputs: [
               default,
@@ -412,7 +412,7 @@ describe('@rasm/nx-docker', () => {
             command: docker compose build,
             dependsOn: [
               build--!(compose|buildx),
-              ^build,
+              ^build--*,
             ],
             inputs: [
               default,
@@ -629,7 +629,7 @@ describe('@rasm/nx-docker', () => {
             command: docker compose build,
             dependsOn: [
               build--!(compose|buildx),
-              ^build,
+              ^build--*,
             ],
             inputs: [
               default,
@@ -929,7 +929,7 @@ describe('@rasm/nx-docker', () => {
             } satisfies CreateDependenciesContext);
 
             expect(dependencies).toStrictEqual([{ source: 'ops', target: 'site', type: DependencyType.static, sourceFile: 'ops/compose.yaml' }]);
-            expect(results[0]?.[1].projects?.['ops']?.targets?.['build--compose']?.dependsOn).toStrictEqual(['build--!(compose|buildx)', '^build']);
+            expect(results[0]?.[1].projects?.['ops']?.targets?.['build--compose']?.dependsOn).toStrictEqual(['build--!(compose|buildx)', '^build--*']);
         });
     });
 

@@ -74,7 +74,7 @@ describe('createTypecheckTarget', () => {
             });
 
             expect(targets?.['check--tsc']).toMatchObject({ executor: 'nx:noop', dependsOn: ['build--tsc'] });
-            expect(targets?.['build--tsc']).toMatchObject({ options: { commands: ['tsc --build'] }, dependsOn: ['codegen--*', '^codegen', '^build--tsc'], syncGenerators: ['@nx/js:typescript-sync'] });
+            expect(targets?.['build--tsc']).toMatchObject({ options: { commands: ['tsc --build'] }, dependsOn: ['codegen--*', '^codegen--*', '^build--tsc'], syncGenerators: ['@nx/js:typescript-sync'] });
         });
     });
 
@@ -92,7 +92,7 @@ describe('createTypecheckTarget', () => {
             });
 
             expect(targets?.['check--tsc']).toMatchObject({ options: { commands: ['tsc -p tsconfig.app.json'], cwd: 'libs/my-lib' }, outputs: [] });
-            expect(targets?.['check--tsc']?.dependsOn).toStrictEqual(['codegen--*', '^codegen', '^build--tsc']);
+            expect(targets?.['check--tsc']?.dependsOn).toStrictEqual(['codegen--*', '^codegen--*', '^build--tsc']);
             expect(targets?.['build--tsc']).toBeUndefined();
         });
 

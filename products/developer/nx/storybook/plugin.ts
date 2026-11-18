@@ -72,7 +72,7 @@ const targets = (root: string, { packages, linked, sources, globs, runner }: Res
         { externalDependencies: Array.dedupe(['storybook', ...packages]) },
     ];
     const written = Option.getOrElse(output, () => join(root, 'storybook-static'));
-    const needs = { options: { cwd: root }, dependsOn: ['codegen--*', '^codegen'], inputs };
+    const needs = { options: { cwd: root }, dependsOn: ['codegen--*', '^codegen--*'], inputs };
     const build = {
         storybook: {
             command: ['storybook', 'build', ...Option.match(output, { onNone: () => [], onSome: (at) => ['--output-dir', relative(root, at)] })].map(quoteShellArg).join(' '),

@@ -88,7 +88,7 @@ const targets = (file: string, { folders, signals, served, sources, packages, li
     const rooted = getRootTsConfigFileName();
     const needs = {
         options: { cwd: posix.dirname(file) },
-        dependsOn: ['codegen--*', '^codegen'],
+        dependsOn: ['codegen--*', '^codegen--*'],
         inputs: [
             named,
             `^${named}`,
@@ -106,7 +106,7 @@ const targets = (file: string, { folders, signals, served, sources, packages, li
         vite: Option.map(built, (written) => ({
             command: ['vite', 'build', ...Option.match(outDir, { onNone: () => [], onSome: (at) => ['--outDir', at, '--emptyOutDir'] })].map(quoteShellArg).join(' '),
             ...needs,
-            dependsOn: [...needs.dependsOn, '^build'],
+            dependsOn: [...needs.dependsOn, '^build--*'],
             cache: true,
             outputs: written.map(tokened(posix.dirname(file))),
             metadata: { description: 'Builds every environment of the Vite config with vite build', help: { command: `${exec} vite build --help`, example: { args: ['--mode', 'production'] } } },

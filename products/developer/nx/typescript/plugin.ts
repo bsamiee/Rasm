@@ -171,7 +171,7 @@ const compiled = (root: string, { commands, configs, outputs, sources }: Program
     const tsc = {
         executor: 'nx:run-commands',
         options: { commands, cwd: root },
-        dependsOn: ['codegen--*', '^codegen', '^build--tsc'],
+        dependsOn: ['codegen--*', '^codegen--*', '^build--tsc'],
         cache: true,
         inputs: [...Array.dedupe([join(root, MANIFEST), ...sources].map(token)), upstream, { dependentTasksOutputFiles: '**/*.{d.ts,d.cts,d.mts,tsbuildinfo}', transitive: true }, { externalDependencies: [...packages] }],
         outputs: [],
@@ -312,7 +312,7 @@ const worker = Effect.fnUntraced(function* (context: CreateNodesContext, exec: s
         cf: {
             command: typed ? 'cf workers types --include-runtime=false' : 'cf workers types',
             options: { cwd: root },
-            dependsOn: ['^codegen'],
+            dependsOn: ['^codegen--*'],
             cache: true,
             inputs: ['default', `^${namedInput(root, context)}`, ...sources.map((dependency) => join('{workspaceRoot}', dependency)), { externalDependencies: ['cf'] }],
             outputs: ['{projectRoot}/.cloudflare/types'],

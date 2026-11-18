@@ -164,7 +164,7 @@ const targets = (file: string, { loaded: configs, packages, linked, triggers, fo
         vitest: {
             executor: `${PLUGIN}:test`,
             options: { config: file, projects, ...Option.getOrUndefined(Option.map(Option.fromUndefinedOr(outputPath), (at) => ({ attachmentsDir: join(at, ATTACHMENTS) }))) },
-            dependsOn: ['codegen--*', '^codegen'],
+            dependsOn: ['codegen--*', '^codegen--*'],
             cache: true,
             inputs: [
                 'default',

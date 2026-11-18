@@ -83,7 +83,7 @@ describe('@rasm/nx-vite', () => {
                                     'build--vite': {
                                         ...needs,
                                         command: 'vite build',
-                                        dependsOn: ['codegen--*', '^codegen', '^build'],
+                                        dependsOn: ['codegen--*', '^codegen--*', '^build--*'],
                                         cache: true,
                                         outputs: ['{projectRoot}/dist'],
                                         metadata: { technologies: ['vite'], description: 'Builds every environment of the Vite config with vite build', help: { command: 'npx vite build --help', example: { args: ['--mode', 'production'] } } },
@@ -99,7 +99,7 @@ describe('@rasm/nx-vite', () => {
                                     'serve--vite': {
                                         ...needs,
                                         command: 'vite',
-                                        dependsOn: ['codegen--*', '^codegen'],
+                                        dependsOn: ['codegen--*', '^codegen--*'],
                                         continuous: true,
                                         readyWhen: getReadyCheckReadyWhen(check, 'vite.config.ts', 'serve'),
                                         metadata: { technologies: ['vite'], description: 'Serves every environment of the Vite config with vite', help: { command: 'npx vite --help', example: { args: ['--port', '<port>'] } } },
@@ -165,7 +165,7 @@ describe('@rasm/nx-vite', () => {
                                     'build--vite': {
                                         ...needs,
                                         command: "vite build --outDir '../.artifacts/vite/{projectName}' --emptyOutDir",
-                                        dependsOn: ['codegen--*', '^codegen', '^build'],
+                                        dependsOn: ['codegen--*', '^codegen--*', '^build--*'],
                                         cache: true,
                                         outputs: ['{workspaceRoot}/.artifacts/vite/{projectName}'],
                                         metadata: { technologies: ['vite'], description: 'Builds every environment of the Vite config with vite build', help: { command: 'npx vite build --help', example: { args: ['--mode', 'production'] } } },
@@ -181,7 +181,7 @@ describe('@rasm/nx-vite', () => {
                                     'serve--vite': {
                                         ...needs,
                                         command: 'vite',
-                                        dependsOn: ['codegen--*', '^codegen'],
+                                        dependsOn: ['codegen--*', '^codegen--*'],
                                         continuous: true,
                                         readyWhen: getReadyCheckReadyWhen(check, 'vite.config.ts', 'serve'),
                                         metadata: { technologies: ['vite'], description: 'Serves every environment of the Vite config with vite', help: { command: 'npx vite --help', example: { args: ['--port', '<port>'] } } },
@@ -216,7 +216,7 @@ describe('@rasm/nx-vite', () => {
             expect(targets['build--vite']).toStrictEqual({
                 ...needs,
                 command: 'vite build',
-                dependsOn: ['codegen--*', '^codegen', '^build'],
+                dependsOn: ['codegen--*', '^codegen--*', '^build--*'],
                 cache: true,
                 outputs: ['{projectRoot}/dist'],
                 metadata: { technologies: ['vite'], description: 'Builds every environment of the Vite config with vite build', help: { command: 'npx vite build --help', example: { args: ['--mode', 'production'] } } },
@@ -231,7 +231,7 @@ describe('@rasm/nx-vite', () => {
             expect(targets['serve--vite']).toStrictEqual({
                 ...needs,
                 command: 'vite',
-                dependsOn: ['codegen--*', '^codegen'],
+                dependsOn: ['codegen--*', '^codegen--*'],
                 continuous: true,
                 readyWhen: getReadyCheckReadyWhen(check, 'vite.config.ts', 'serve'),
                 metadata: { technologies: ['vite'], description: 'Serves every environment of the Vite config with vite', help: { command: 'npx vite --help', example: { args: ['--port', '<port>'] } } },

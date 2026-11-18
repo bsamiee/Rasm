@@ -176,7 +176,7 @@ const targets = (home: string, { loaded: configs, packages, linked, servers, fol
             options: { cwd: home, ...(Record.isEmptyRecord(routed.env) ? {} : { env: routed.env }) },
             dependsOn: [
                 'codegen--*',
-                '^codegen',
+                '^codegen--*',
                 ...Record.collect(
                     Array.groupBy(servers, ({ target }) => target),
                     (target, rows) => ({ projects: rows.map(({ project }) => project), target, waitFor: 'ready' as const }),

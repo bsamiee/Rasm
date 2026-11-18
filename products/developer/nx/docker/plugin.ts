@@ -29,7 +29,7 @@ type Composed = Effect.Success<ReturnType<typeof analyzed>>;
 const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#package'))).name;
 const OWN = fingerprinted(import.meta.dirname);
 const EVERY_PROFILE = { COMPOSE_PROFILES: '*' };
-const PRODUCERS = ['build--!(compose|buildx)', '^build'];
+const PRODUCERS = ['build--!(compose|buildx)', '^build--*'];
 
 // --- [MODELS] --------------------------------------------------------------------------
 

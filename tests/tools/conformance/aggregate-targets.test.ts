@@ -37,6 +37,20 @@ describe('aggregate-targets', () => {
         await expect(checked({ build: { executor: 'nx:run-commands', dependsOn: ['^build'], inputs: ['default'] }, 'build--tsc': { executor: 'nx:run-commands', inputs: ['default', '^production'] } })).resolves.toStrictEqual([
             'lib build runs nx:run-commands after ["^build"], make it nx:noop depending on build--* with its parameters forwarded',
             'lib build lacks input "^production" of build--tsc, add it',
+            'lib build depends on build, which forwards the parameters of the run to its tool targets, depend on build--* in its place',
+        ]);
+    });
+
+    it('reports a target depending on an aggregate of its own project, a dependency, or a named project', async () => {
+        await expect(
+            checked({
+                check: { executor: 'nx:noop', dependsOn: [{ target: 'check--*', params: 'forward' }] },
+                'check--tsc': { executor: 'nx:run-commands', dependsOn: ['^test', { target: 'check', params: 'ignore' }, 'app:test', '^test--*'] },
+            }),
+        ).resolves.toStrictEqual([
+            'lib check--tsc depends on test, which forwards the parameters of the run to its tool targets, depend on test--* in its place',
+            'lib check--tsc depends on check, which forwards the parameters of the run to its tool targets, depend on check--* in its place',
+            'lib check--tsc depends on test, which forwards the parameters of the run to its tool targets, depend on test--* in its place',
         ]);
     });
 });

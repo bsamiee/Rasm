@@ -231,7 +231,7 @@ describe('@rasm/nx-apple - createNodes', () => {
             expect(results[0]?.[1].projects?.['apps/Viewer']?.targets).toMatchObject({
                 'build--xcodebuild': {
                     cache: true,
-                    dependsOn: ['^build'],
+                    dependsOn: ['^build--*'],
                     options: { runs: [['xcodebuild', 'build', '-project', 'apps/Viewer/Viewer.xcodeproj', '-onlyUsePackageVersionsFromResolvedFile', '-scheme', 'Viewer']] },
                     configurations: {
                         debug: { runs: [['xcodebuild', 'build', '-project', 'apps/Viewer/Viewer.xcodeproj', '-onlyUsePackageVersionsFromResolvedFile', '-scheme', 'Viewer', '-configuration', 'Debug']] },

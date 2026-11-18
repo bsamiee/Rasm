@@ -184,7 +184,7 @@ const xcodeParts = (
                 xcodebuild: sequenced(
                     builds(Option.none()),
                     { technologies: ['xcode'], description: 'Builds each shared scheme with xcodebuild, archiving each scheme with installed products in its archive configuration', help: { command: 'xcodebuild -help', example: { args: ['-quiet'] } } },
-                    { cache: true, dependsOn: ['^build'], inputs: read, ...modes(builds) },
+                    { cache: true, dependsOn: ['^build--*'], inputs: read, ...modes(builds) },
                 ),
             },
             check: { xcodebuild: { dependsOn: ['build--xcodebuild'], inputs: read, metadata: { technologies: ['xcode'], description: 'Type-checks each shared scheme with xcodebuild build', help: { command: 'xcodebuild -help', example: { args: ['-quiet'] } } } } },
@@ -245,7 +245,7 @@ const xcodeParts = (
                         description: "Builds each shared scheme whose targets install, under -configuration set to the scheme's archive configuration, and installs the products at INSTALL_PATH on this Mac with xcodebuild's install action",
                         help: { command: 'xcodebuild -help', example: { args: ['-jobs', '4'] } },
                     },
-                    { dependsOn: ['^build'], inputs: read, options: { applications: archives.flatMap(({ places, bundles }) => bundles.map((bundle) => join(Array.headNonEmpty(places), bundle))) } },
+                    { dependsOn: ['^build--*'], inputs: read, options: { applications: archives.flatMap(({ places, bundles }) => bundles.map((bundle) => join(Array.headNonEmpty(places), bundle))) } },
                 ),
             },
         }),

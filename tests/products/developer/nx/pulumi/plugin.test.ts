@@ -62,7 +62,7 @@ describe('@rasm/nx-pulumi', () => {
                                 'install--pulumi': {
                                     command: 'node stacks.ts install',
                                     options: { cwd: 'proj' },
-                                    dependsOn: ['^build', '^install'],
+                                    dependsOn: ['^build--*', '^install--*'],
                                     parallelism: false,
                                     inputs,
                                     metadata: { technologies, description: 'Runs the Pulumi Automation API program of the project with node stacks.ts install' },
@@ -71,7 +71,7 @@ describe('@rasm/nx-pulumi', () => {
                                 'deploy--pulumi': {
                                     command: 'node stacks.ts deploy',
                                     options: { cwd: 'proj' },
-                                    dependsOn: ['^build', '^deploy'],
+                                    dependsOn: ['^build--*', '^deploy--*'],
                                     parallelism: false,
                                     inputs,
                                     metadata: { technologies, description: 'Runs the Pulumi Automation API program of the project with node stacks.ts deploy' },
@@ -188,8 +188,8 @@ describe('@rasm/nx-pulumi', () => {
 
             const results = await createNodesFunction(['proj/package.json'], {}, context);
 
-            expect(results[0]?.[1].projects?.['proj']?.targets?.['deploy--pulumi']?.dependsOn).toContain('^deploy');
-            expect(results[0]?.[1].projects?.['proj']?.targets?.['install--pulumi']?.dependsOn).toContain('^install');
+            expect(results[0]?.[1].projects?.['proj']?.targets?.['deploy--pulumi']?.dependsOn).toContain('^deploy--*');
+            expect(results[0]?.[1].projects?.['proj']?.targets?.['install--pulumi']?.dependsOn).toContain('^install--*');
         });
 
         it('should run the dry-run target with no task before it, so a preview applies no dependency stack', async ({ tempFs, context }) => {
@@ -203,7 +203,7 @@ describe('@rasm/nx-pulumi', () => {
             const results = await createNodesFunction(['proj/package.json', 'site/package.json'], {}, context);
 
             expect(results[1]?.[1].projects?.['site']?.targets?.['dry-run--pulumi']).toMatchObject({ command: 'node ../proj/stacks.ts deploy --operation=preview', dependsOn: [] });
-            expect(results[1]?.[1].projects?.['site']?.targets?.['deploy--pulumi']?.dependsOn).toStrictEqual(['build--*', '^deploy']);
+            expect(results[1]?.[1].projects?.['site']?.targets?.['deploy--pulumi']?.dependsOn).toStrictEqual(['build--*', '^deploy--*']);
         });
     });
 
