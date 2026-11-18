@@ -13,8 +13,7 @@ public import System
 public struct ApplicationFailure: CustomNSError, Equatable, LocalizedError {
     @CasePathable
     public enum Reason: CaseLabeled, Equatable, Sendable {
-        case untrusted
-        case noCaptureAccess
+        case noGrant(Grant)
         case unanswered(ElementAction?)
         case noProcess
         case unreadable(FailedRead)
@@ -50,8 +49,7 @@ public struct ApplicationFailure: CustomNSError, Equatable, LocalizedError {
 
     public var errorDescription: String? {
         switch reason {
-            case .untrusted: "\(subject) lacks Accessibility access, grant it in System Settings > Privacy & Security > Accessibility"
-            case .noCaptureAccess: "\(subject) lacks Screen Recording access, grant it in System Settings > Privacy & Security > Screen & System Audio Recording"
+            case .noGrant(let grant): "\(subject) lacks the \(grant.rawValue) grant, allow it in System Settings > Privacy & Security"
             case .unanswered(.none): "\(subject) did not answer within messaging timeout"
             case .unanswered(.some): "\(subject) got no answer within messaging timeout, the action may have run"
             case .noProcess: "Process \(subject) exited"
@@ -90,7 +88,7 @@ public struct ApplicationFailure: CustomNSError, Equatable, LocalizedError {
             case .host(let error): [NSUnderlyingErrorKey: error]
             case .unwatched(let failure): [NSUnderlyingErrorKey: failure]
             case .unmatched(let miss): [NSUnderlyingErrorKey: miss]
-            case .untrusted, .noCaptureAccess, .unanswered, .unreadable, .unresolved, .foreign, .disabled, .unchanged, .refused, .noIdentifier, .noPath, .noHandler, .noWindow, .noImage,
+            case .noGrant, .unanswered, .unreadable, .unresolved, .foreign, .disabled, .unchanged, .refused, .noIdentifier, .noPath, .noHandler, .noWindow, .noImage,
                 .noExtension, .noEncoder, .cancelled, .unnamed, .malformed:
                 [:]
         }
@@ -99,7 +97,7 @@ public struct ApplicationFailure: CustomNSError, Equatable, LocalizedError {
 
 extension ApplicationFailure: Encodable {
     private enum Key: CodingKey {
-        case reason, subject, message, pid, error, value, candidates, status
+        case reason, subject, message, grant, pid, error, value, candidates, status
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -108,6 +106,7 @@ extension ApplicationFailure: Encodable {
         try fields.encode(subject, forKey: .subject)
         try fields.encodeIfPresent(errorDescription, forKey: .message)
         switch reason {
+            case .noGrant(let grant): try fields.encode(grant, forKey: .grant)
             case .foreign(let process): try fields.encode(process, forKey: .pid)
             case .refused(.some(let error)): try fields.encode(error.rawValue, forKey: .error)
             case .unchanged(let value): try fields.encodeIfPresent(value, forKey: .value)
@@ -116,7 +115,7 @@ extension ApplicationFailure: Encodable {
             case .unnamed(let candidates): try fields.encode(candidates, forKey: .candidates)
             case .event(let failure): try fields.encodeIfPresent(failure.status, forKey: .status)
             case .system(let error): try fields.encode(error.rawValue, forKey: .error)
-            case .untrusted, .noCaptureAccess, .unanswered, .noProcess, .unresolved, .disabled, .refused(.none), .noIdentifier, .noPath, .noHandler, .noWindow, .noImage, .noExtension, .noEncoder,
+            case .unanswered, .noProcess, .unresolved, .disabled, .refused(.none), .noIdentifier, .noPath, .noHandler, .noWindow, .noImage, .noExtension, .noEncoder,
                 .host,
                 .cancelled, .unwatched, .malformed:
                 break
@@ -129,7 +128,7 @@ extension ApplicationFailure {
         let exited = process.flatMap { process in Result(catching: { () throws(Errno) in try ProcessInstance(of: process) }).is(\.failure) ? process : nil }
         self =
             switch (error, exited) {
-                case (.apiDisabled, _) where !AXIsProcessTrusted(): Self(subject: ProcessInfo.processInfo.processName, reason: .untrusted)
+                case (.apiDisabled, _) where !Grant.accessibility.held: Self(subject: ProcessInfo.processInfo.processName, reason: .noGrant(.accessibility))
                 case (.cannotComplete, .some(let process)), (.invalidUIElement, .some(let process)): Self(subject: String(process), reason: .noProcess)
                 case (.cannotComplete, .none): Self(subject: subject, reason: .unanswered(action))
                 case (_, _): otherwise()

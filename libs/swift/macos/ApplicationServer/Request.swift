@@ -142,16 +142,20 @@ extension Request {
             case .diagnostics(let application, let folders, let since, let limit):
                 let instance = try application?.instance.map { process throws(ApplicationFailure) in try running(process, admitting: admitting) }
                 let bundle = try application.map { application throws(ApplicationFailure) in Bundle(url: try installation(at: application.url, admitting: admitting).url) } ?? Bundle.main
-                let (owns, source): ((DiagnosticReport) -> Bool, Processes.LogEvent.Source) =
+                let (owns, source): ((DiagnosticReport) -> Bool, Processes.LogEvent.Source?) =
                     switch (instance?.process, bundle, bundle?.executableURL) {
                         case (.some(let process), _, _): ({ report in report.written(by: process) }, .process(process.pid))
                         case (.none, .some(let bundle), .some(let executable)): ({ report in report.written(by: bundle) }, .executable(executable))
-                        case (.none, _, _): throw ApplicationFailure(subject: application?.url.path(percentEncoded: false) ?? Program.current.identifier, reason: .noPath)
+                        case (.none, .some(let bundle), .none): ({ report in report.written(by: bundle) }, nil)
+                        case (.none, .none, _): ({ _ in false }, nil)
                     }
                 let earliest = [since.map { since in Date.now.addingTimeInterval(-since) }, instance?.application.launchDate].compactMap(\.self).max()
                 let reports = DiagnosticReport.reports(since: earliest ?? .distantPast, limit: limit, where: owns)
                 let logs = LogLine.newest(in: folders, since: earliest, limit: limit)
-                let unified = await Result { () async throws(ProcessFailure) in try await Processes.LogEvent.history(of: source, since: earliest, limit: limit) }
+                let unified = await Result { () async throws(any Error) in
+                    guard let source else { throw ApplicationFailure(subject: application?.url.path(percentEncoded: false) ?? Program.current.identifier, reason: .noPath) }
+                    return try await Processes.LogEvent.history(of: source, since: earliest, limit: limit)
+                }
                 return .value(
                     Diagnosed(
                         reports: reports.reports,

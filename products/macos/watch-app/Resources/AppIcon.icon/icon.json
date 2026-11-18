@@ -1,0 +1,18 @@
+{
+  "groups" : [
+    {
+      "layers" : [
+        {
+          "image-name" : "watch-app.svg",
+          "position" : {
+            "scale" : 22,
+            "translation-in-points" : [
+              0,
+              0
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

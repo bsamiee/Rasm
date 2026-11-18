@@ -1,0 +1,62 @@
+{
+  "default-configuration": "Release",
+  "configurations": [
+    { "name": "Debug", "file": "Xcode.xcconfig" },
+    { "name": "Release", "file": "Xcode.xcconfig" },
+  ],
+  "localizations": {
+    "development": "en",
+    "supported": [
+      "Base",
+    ],
+  },
+  "packages": [
+    {
+      "kind": "local",
+      "path": "../../..",
+    },
+  ],
+  "files": [
+    { "path": "<PROJECT>/../../../Xcode.xcconfig" },
+    { "path": "Resources/AppIcon.icon", "target-membership": [ "watch-app/resources" ] },
+    {
+      "kind": "group",
+      "name": "Products",
+      "children": [
+        { "path": "<PRODUCTS>/watch-app.app", "id": "0242207610F3F1C0ED7B4216", "type": "wrapper.application", "index": false },
+      ],
+    },
+  ],
+  "targets": [
+    {
+      "name": "watch-app",
+      "id": "B158CBC0756D3517706F0FB7",
+      "product": "Products/watch-app.app",
+      "product-type": "application",
+      "build-phases": [
+        "compile-sources",
+        "frameworks",
+        "resources",
+      ],
+      "package-product-members": [
+        {
+          "package": "..",
+          "product-name": "watch-app",
+          "build-phase": { "build-phase": "frameworks" },
+        },
+      ],
+      "build-settings": {
+        "AUTOMATION_APPLE_EVENTS": "YES",
+        "CODE_SIGN_ENTITLEMENTS": "watch-app.entitlements",
+        "INFOPLIST_KEY_LSUIElement": "YES",
+        "INFOPLIST_KEY_NSAppleEventsUsageDescription": "watch-app sends the quit event to applications an agent asks it to quit.",
+        "PRODUCT_BUNDLE_IDENTIFIER": "app.rasm.watch-app",
+      },
+    },
+  ],
+  "build-settings": {
+    "MARKETING_VERSION": "0.1.0",
+  },
+  "last-upgrade": "27.2",
+  "last-swift-update": "27.2",
+}

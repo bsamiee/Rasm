@@ -27,12 +27,6 @@ public func footageFile(in folder: URL, window: CGWindowID, _ type: UTType, at t
         .appendingPathExtension(for: type)
 }
 
-public func checkCaptureAccess(prompting: Bool = false) throws(ApplicationFailure) {
-    guard prompting ? CGRequestScreenCaptureAccess() : CGPreflightScreenCaptureAccess() else {
-        throw ApplicationFailure(subject: ProcessInfo.processInfo.processName, reason: .noCaptureAccess)
-    }
-}
-
 private func transparent(_ image: CGImage) -> Bool {
     let maximum = CIFilter.areaMaximumAlpha()
     (maximum.inputImage, maximum.extent) = (CIImage(cgImage: image), CGRect(x: 0, y: 0, width: image.width, height: image.height))
@@ -47,7 +41,7 @@ extension Instance {
         _ source: Source?,
         longestSide: Int?,
     ) async throws(ApplicationFailure) -> [CGWindowID: Result<(filter: SCContentFilter, region: CGRect?, width: Int, height: Int), ApplicationFailure>] {
-        try checkCaptureAccess()
+        try Grant.screenCapture.check()
         let element: (window: CGWindowID, frame: CGRect)? = if case .element(let id) = source { try await id.framed() } else { nil }
         let windows: [CGWindowID] =
             switch (source, element) {
@@ -95,6 +89,7 @@ extension Instance {
         }
         let (targets, documents) = (try await targets(source, longestSide: longestSide), try await documents())
         var shots: [CGWindowID: Result<Shot, ApplicationFailure>] = [:]
+        let context = CIContext()
         for (number, target) in targets {
             let path = footageFile(in: folder, window: number, .png)
             let shot = await Result { () async throws(ApplicationFailure) -> Shot? in
@@ -115,14 +110,14 @@ extension Instance {
                 let scaled: Data? =
                     switch (factor, image.colorSpace) {
                         case (.some(let factor), .some(let space)):
-                            CIContext().pngRepresentation(
+                            context.pngRepresentation(
                                 of: CIImage(cgImage: image).transformed(by: CGAffineTransform(scaleX: factor, y: factor), highQualityDownsample: true),
                                 format: .RGBA8,
                                 colorSpace: space,
                             )
                         case (.none, _), (_, .none): nil
                     }
-                guard preview == nil || scaled != nil else { throw ApplicationFailure(subject: path.path(percentEncoded: false), reason: .noImage) }
+                guard preview == nil || scaled != nil else { throw ApplicationFailure(subject: UTType.png.identifier, reason: .noEncoder) }
                 return Shot(file: path, width: image.width, height: image.height, document: documents[number], preview: scaled)
             }
             switch shot {

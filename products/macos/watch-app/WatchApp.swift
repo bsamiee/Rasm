@@ -11,8 +11,9 @@ struct WatchApp: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         abstract: "Observes and drives installed applications in the background. Exits 1 after printing any fail line",
         discussion: """
-            \(Program.current.name) holds its own Accessibility grant, needed by every command but find, processes, and log, and its own Screen Recording grant, needed by capture \
-            and watch --record, whatever process starts it. A missing grant opens the system prompt and prints a fail line.
+            \(Program.current.name) holds its own grants whatever process starts it: Accessibility for every command but find, processes, and log, Screen & System Audio \
+            Recording for capture and watch --record, and event posting for key and set. The first command needing a grant opens its system prompt once, and a missing grant \
+            prints a fail line.
 
             Settings read \(Program.current.name.uppercased().replacing("-", with: "_"))_<KEY> from the environment, then key <key> of defaults domain \(Program.current.identifier) \
             (defaults write \(Program.current.identifier) <key> <value>): session names the journal runs share, output.dir the folder holding <application>/logs and \

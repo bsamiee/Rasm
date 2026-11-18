@@ -1,3 +1,4 @@
+public import Applications
 import CasePathsCore
 public import Configuration
 public import Foundation
@@ -84,6 +85,17 @@ public struct Program: Sendable {
     public func store(_ value: any Sendable?, forKey key: ConfigKey) {
         UserDefaults.standard.set(value, forKey: key.description)
         stored.setValue(value.flatMap { value in Self.values([key.description: value]).values.first }, forKey: AbsoluteConfigKey(key))
+    }
+
+    public func require(_ grants: [Grant]) throws(ApplicationFailure) {
+        for grant in grants where !grant.held {
+            let requested = ConfigKey("grants.requested.\(grant.rawValue)")
+            if settings.bool(forKey: requested) != true {
+                grant.request()
+                store(true, forKey: requested)
+            }
+            try grant.check()
+        }
     }
 
     static func values(_ domain: [String: Any]) -> [AbsoluteConfigKey: ConfigValue] {

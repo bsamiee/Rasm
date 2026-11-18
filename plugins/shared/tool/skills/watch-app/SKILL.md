@@ -85,9 +85,12 @@ watch-app log [<run pid>]
 - `capture` writes one PNG per presented window with no activation to `<window>-<time>.png` in the captures folder, printing one `captured` line per file
 - `capture --element` writes the frame of one element id (a pane, panel, or canvas) cropped from its window
 - `capture` reads every window with a window-server number (inactive, covered, minimized, on another unmanaged Space) and needs the Screen Recording grant
+- Grants belong to bundle `app.rasm.watch-app`, each prompt showing once at the first command needing its grant
+- `key` and `set` need event posting, and `quit` Automation per target app
 - `perform` runs one of the element's `actions` through `AXUIElementPerformAction`, `AXPress` presses a button or a menu item
 - `AXRaise` is listed in `actions` as the host states it and refused, since it takes focus
-- `set` writes text to an element's `AXValue` and reads it back, an unchanged value falling through to the element's menu or list, `AXIncrement` and `AXDecrement` for a number, then focus and keys posted to its process, `unchanged` failing when none takes
+- `set` writes an element's `AXValue` in the type it holds and reads it back, then tries its menu or list, `AXIncrement` or `AXDecrement`, then focus and posted keys, `unchanged` failing
+- `set <row id> -- true` selects a table or outline row through `AXSelected`, and a number moves a slider or a scroll bar (0 to 1)
 - `key` posts one virtual key to a process holding a `blocking` row, frontmost app and cursor unchanged
 - Only a `blocking` row leaving proves a key answered, busy hosts run the key when their loop resumes, and no answer leaves the row for a person
 - `perform`, `set`, and `key` print the next state of the process once the acted window leaves, bounded at 2 heartbeats
@@ -145,27 +148,29 @@ Lines read `{"<bundle id>": {"<pid>": {"instance": "<pid>@<start>", <state>}}}`,
 - `answers` holds `accept` (`AXDefaultButton`), `discard` (`DontSaveButton`), `cancel` (`AXCancelButton`, close button), and `buttons` (each labeled button, the choice where an app marks no answer control), absent with nothing to press
 - `detail` holds `main`, `focused`, `text` (each static text holding a character beyond whitespace and private-use icon glyphs), `controls`, and `unreadable`
 - `unreadable` holds each refused read with `reads`, `role`, `label`, and AXError `error`, and a control keeps each field that answered
-- `controls` hold once each text field, text area, combo box, pop-up button, check box, radio button, and element or labeled menu item with `AXPress`
+- `controls` hold once each text field, text area, combo box, pop-up button, check box, radio button, and table or outline row
+- `controls` hold each other element or labeled menu item with `AXPress`
+- Rows hold their selection as `value` and the first text or control label inside them as `label`
 - Each control holds `id`, `role`, `subrole`, `label`, `identifier`, `value`, `enabled`, `actions`, `attribute`, and `items`
 - Walks descend into scroll areas and visible table rows, outline rows, and list children, and reach menus only on explicit walks running the app's `menuWillOpen`
 - Alert button `identifier` reads `action-button-<n>` in the order the buttons were added, panel buttons `OKButton` and `CancelButton` on save and open, `PDPrint` and `PSOK` on print and page setup
 
 Instances are read at insertion and after each window, sheet, title, focus, menu, minimize, or destruction notification they post. A heartbeat reads each instance's open and focused windows and window-server rows once per 1-second messaging timeout, and reads the instance again when either changes. A stopped process reads `unresponsive` with no message sent. One silent heartbeat keeps the last status, and the second in a row reads `unresponsive`, `process` holding what the main thread did during it. With no earlier answer (`read`, a new `watch`), the first silent heartbeat reads `unresponsive`. A main thread awaiting a processor (an idle app under App Nap on a loaded machine) keeps its last status, and with no earlier answer reads `runnable` after a second message. `launching` holds until the app finishes launching unless a row asks first or its main thread sleeps with no processor time through a second silent heartbeat in a row, which reads `unresponsive`. `exited` reads `status` for an exit or `signal` for a kill with `detail` naming a `memory`, `codeSigning`, or `decryption` kill and `reporting` while a crash report is due, then a second line adds `report` (`url`, `pid`, `instance`, `executable`, `service` launchd label, `bundleIdentifier`, Mach `exception`, `signal`, and `termination` with `namespace`, `code`, and `indicator`, `CODESIGNING` with `Launch Constraint Violation` for a refused launch) once ReportCrash writes it, or `reportFailure` after 60 seconds without one. `statusFailure` holds the cause of a failed exit status read.
 
-| [INDEX] | [STATE]                                 | [ACTION]                                              |
-| :-----: | :-------------------------------------- | :---------------------------------------------------- |
-|  [01]   | `launching`, `unresponsive`             | Wait for the next line                                |
-|  [02]   | `responding`, `asking` empty            | `read`, then `perform`, `set`, or `capture --window`  |
-|  [03]   | Row in `asking` with `options` or text  | `read --window <number>`, then `perform <id> AXPress` |
-|  [04]   | Row with `kind` `undescribed`           | `capture --window <number>`, read the image           |
-|  [05]   | Row with `kind` `blocking`              | `capture --window <number>`, then `key <pid> <code>`  |
-|  [06]   | `unresponsive`, `process` `stopped`     | `kill -CONT <pid>`                                    |
-|  [07]   | `unresponsive`, `sleeping`, none asks   | `capture <pid>`, read each image for a dialog         |
-|  [08]   | `unresponsive` after quit, no answer    | `quit <pid> --force`                                  |
-|  [09]   | `fail` `untrusted` or `noCaptureAccess` | Ask the person to allow `watch-app` in the prompt    |
-|  [10]   | `exited` with `report`                  | Read the report at `url` before a launch              |
-|  [11]   | `fail` `host` or `noProcess` at launch  | `processes <app>`, read `reports` for the cause       |
-|  [12]   | `launched` with `replaced`              | `quit <pid>`, then `launch`, or `launch --new`        |
+| [INDEX] | [STATE]                                | [ACTION]                                                 |
+| :-----: | :------------------------------------- | :------------------------------------------------------- |
+|  [01]   | `launching`, `unresponsive`            | Wait for the next line                                   |
+|  [02]   | `responding`, `asking` empty           | `read`, then `perform`, `set`, or `capture --window`     |
+|  [03]   | Row in `asking` with `options` or text | `read --window <number>`, then `perform <id> AXPress`    |
+|  [04]   | Row with `kind` `undescribed`          | `capture --window <number>`, read the image              |
+|  [05]   | Row with `kind` `blocking`             | `capture --window <number>`, then `key <pid> <code>`     |
+|  [06]   | `unresponsive`, `process` `stopped`    | `kill -CONT <pid>`                                       |
+|  [07]   | `unresponsive`, `sleeping`, none asks  | `capture <pid>`, read each image for a dialog            |
+|  [08]   | `unresponsive` after quit, no answer   | `quit <pid> --force`                                     |
+|  [09]   | `fail` `noGrant`                       | Ask the person to allow the `grant` pane `message` names |
+|  [10]   | `exited` with `report`                 | Read the report at `url` before a launch                 |
+|  [11]   | `fail` `host` or `noProcess` at launch | `processes <app>`, read `reports` for the cause          |
+|  [12]   | `launched` with `replaced`             | `quit <pid>`, then `launch`, or `launch --new`           |
 
 Hold script calls while a `blocking` row stands, calls sent before get no answer or an error (-29). `sample <pid> 1 -file <path>` reads an instance's stacks without touching it, `sudo spindump <pid> 2 10 -onlyTarget -onlyBlocked -noBinary -o <out>` the blocked threads of a hung one, and `spindump -i /Library/Logs/DiagnosticReports/<app>_<date>.hang -timeline -noBinary -o <out>` a past hang without `sudo`, `-timeline` refusing `-onlyBlocked`.
 

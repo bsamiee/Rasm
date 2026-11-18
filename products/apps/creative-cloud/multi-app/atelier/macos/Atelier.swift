@@ -54,7 +54,7 @@ enum Atelier {
                     if agents.contains(where: { agent in agent.service.status == .requiresApproval }) { SMAppService.openSystemSettingsLoginItems() }
                     return
                 }
-                do { try checkAccessibilityTrust(prompting: true) } catch { logger.notice("Started without Accessibility trust", error: error) }
+                do { try Program.current.require([.accessibility]) } catch { logger.notice("Started without Accessibility trust", error: error) }
                 let updater = Updater(resting: .prohibited)
                 defer { extendLifetime(updater) }
                 var context = InstrumentationContext.topLevel

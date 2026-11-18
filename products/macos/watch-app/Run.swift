@@ -84,7 +84,7 @@ final class Run: Sendable {
         switch failure.reason {
             case .event, .system, .host, .unwatched, .unreadable, .noEncoder, .noImage:
                 logger.error("Command failed in host", error: failure, metadata: ["key": "\(key, privacy: .public)"])
-            case .untrusted, .noCaptureAccess, .unanswered, .noProcess, .unresolved, .foreign, .disabled, .unchanged, .refused, .noIdentifier, .noPath, .noHandler, .noWindow, .noExtension,
+            case .noGrant, .unanswered, .noProcess, .unresolved, .foreign, .disabled, .unchanged, .refused, .noIdentifier, .noPath, .noHandler, .noWindow, .noExtension,
                 .cancelled, .unmatched, .unnamed, .malformed:
                 logger.warning("Command refused input", error: failure, metadata: ["key": "\(key, privacy: .public)"])
         }
@@ -212,7 +212,7 @@ final class Run: Sendable {
     static func execute(
         _ command: (some ParsableCommand).Type,
         lineLength: Int? = nil,
-        accessibility: Bool = true,
+        grants: [Grant] = [.accessibility],
         waiting: Bool = false,
         recording: (folder: URL, longestSide: Int?)? = nil,
         _ work: @escaping @Sendable (Run) async throws(ApplicationFailure) -> Void,
@@ -236,7 +236,7 @@ final class Run: Sendable {
                 InstrumentationSystem.instrument.extract(ProcessInfo.processInfo.environment, into: &context, using: EnvironmentCarrier())
                 await withSpan(operation, context: context) { span in
                     do throws(ApplicationFailure) {
-                        if accessibility { try checkAccessibilityTrust(prompting: true) }
+                        try Program.current.require(grants)
                         try await work(run)
                     } catch {
                         span.recordError(error)

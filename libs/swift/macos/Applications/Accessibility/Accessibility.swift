@@ -37,11 +37,7 @@ let accessibility: DispatchQueue = .init(label: "Applications.accessibility", at
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-public func checkAccessibilityTrust(prompting: Bool = false) throws(ApplicationFailure) {
-    guard unsafe AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt.takeUnretainedValue(): prompting] as CFDictionary) else {
-        throw ApplicationFailure(subject: ProcessInfo.processInfo.processName, reason: .untrusted)
-    }
-}
+func valueAttribute(of role: String?) -> String { role == kAXRowRole ? kAXSelectedAttribute : kAXValueAttribute }
 
 extension JSONValue {
     init?(accessibility value: CFTypeRef) {

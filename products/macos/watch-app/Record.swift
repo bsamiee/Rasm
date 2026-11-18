@@ -70,7 +70,6 @@ actor Recorder {
     private var open: Bool = true
 
     init(folder: URL, longestSide: Int?, failed: @escaping @Sendable (ApplicationFailure) -> Void) throws(ApplicationFailure) {
-        try checkCaptureAccess(prompting: true)
         let hostLogs = LogFolder(url: folder.appending(component: "host", directoryHint: .isDirectory), glob: "*.log")
         (self.folder, self.hostLogs, self.longestSide, self.failed) = (folder, hostLogs, longestSide, failed)
         do {

@@ -18,9 +18,6 @@ let swiftSettings: [SwiftSetting] = [
 ]
 let softDeprecations: SwiftSetting = .unsafeFlags(["-warn-soft-deprecated"])
 let linkerSettings: [LinkerSetting] = [.unsafeFlags(["-Xlinker", "-fatal_warnings"])]
-let embeddedInfo: (String) -> [LinkerSetting] = { folder in
-    [.unsafeFlags(["-Xlinker", "-sectcreate", "-Xlinker", "__TEXT", "-Xlinker", "__info_plist", "-Xlinker", "\(Context.packageDirectory)/\(folder)/Info.plist"])]
-}
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -137,9 +134,7 @@ let applications: [Target] = [
         resources: [.process("Resources/Assets.xcassets")],
         swiftSettings: [.defaultIsolation(MainActor.self)],
     ),
-]
-let executables: [Target] = [
-    .executableTarget(
+    .target(
         name: "watch-app",
         dependencies: [
             "Applications", "CurrentProcess", "Encoding", "Files", "Processes", "ScreenCapture", "Telemetry",
@@ -150,8 +145,8 @@ let executables: [Target] = [
             .product(name: "OrderedCollections", package: "swift-collections"), .product(name: "Subprocess", package: "swift-subprocess"),
         ],
         path: "products/macos/watch-app",
-        exclude: ["Info.plist", "watch-app.entitlements"],
-    )
+        exclude: ["Resources", "watch-app.entitlements", "watch-app.xcodeproj"],
+    ),
 ]
 let tests: [Target] = [
     .testTarget(
@@ -223,11 +218,11 @@ let package = Package(
         .package(url: "https://github.com/pointfreeco/swift-issue-reporting", from: "2.1.2"),
         .package(url: "https://github.com/x-sheep/swift-property-based", from: "2.0.1"),
     ],
-    targets: modules + applications + executables + tests,
+    targets: modules + applications + tests,
 )
 
 for target: Target in package.targets {
     target.swiftSettings = swiftSettings + (target.resources == nil ? [softDeprecations] : []) + (target.swiftSettings ?? [])
-    target.linkerSettings = linkerSettings + (target.type == .executable ? target.path.map(embeddedInfo) ?? [] : [])
+    target.linkerSettings = linkerSettings
     target.dependencies += target.type == .test ? [.product(name: "IssueReportingTestSupport", package: "swift-issue-reporting")] : []
 }

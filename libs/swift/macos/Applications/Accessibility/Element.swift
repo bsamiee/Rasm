@@ -10,7 +10,10 @@ import Processes
 private let buttonAttributes: [String] = [kAXCloseButtonAttribute, kAXDefaultButtonAttribute, kAXCancelButtonAttribute]
 private let childAttributes: [String] = [kAXChildrenAttribute, kAXVisibleRowsAttribute, kAXVisibleChildrenAttribute]
 private let nodeAttributes: [String] =
-    [kAXRoleAttribute, kAXSubroleAttribute, kAXEnabledAttribute, kAXIdentifierAttribute, kAXTitleAttribute, kAXDescriptionAttribute, kAXTitleUIElementAttribute, kAXValueAttribute]
+    [
+        kAXRoleAttribute, kAXSubroleAttribute, kAXEnabledAttribute, kAXIdentifierAttribute, kAXTitleAttribute, kAXDescriptionAttribute, kAXTitleUIElementAttribute, kAXValueAttribute,
+        kAXSelectedAttribute,
+    ]
     + frameAttributes + childAttributes
 private let menuRoles: Set<String> = [kAXMenuRole, kAXMenuBarRole]
 private let boundedRoles: Set<String> = [kAXSheetRole, kAXPopoverRole]
@@ -205,6 +208,14 @@ extension Node {
         let rest = nested.filter { child in child.role != kAXMenuRole }.flatMap { child in child.parts(marking: marked) }
         let controlled = role != kAXStaticTextRole && (value != nil || actions.contains(kAXPressAction))
         let items = menus.compactMap(\.control)
+        let captions = rest.lazy.compactMap { (part: Part) -> String? in
+            switch part {
+                case .text(let text): text
+                case .control(let control): control.label
+                case .unreadable: nil
+            }
+        }
+        let named = label ?? (role == kAXRowRole ? captions.first : nil)
         let own: Part? =
             switch (role, value) {
                 case (kAXStaticTextRole, .string(let text)) where !text.unicodeScalars.allSatisfy({ scalar in scalar.properties.isWhitespace || scalar.properties.generalCategory == .privateUse }):
@@ -216,7 +227,7 @@ extension Node {
                             id: id,
                             role: role,
                             subrole: subrole,
-                            label: label,
+                            label: named,
                             identifier: identifier,
                             attribute: marked[id.token],
                             value: value,
@@ -301,9 +312,11 @@ extension AXUIElement {
         }
         let context: (process: pid_t, path: [Int])? = menu ?? bars.flatMap { (process: pid_t, _: Attributes) in index.map { index in (process: process, path: [index]) } }
         let acted = try Self.attempt { () throws(ApplicationFailure) in try actionNames() }
-        let valued = try Self.attempt { () throws(ApplicationFailure) -> CFTypeRef? in try role == kAXTextAreaRole ? visibleText().map { text in text as CFString } : read.values[kAXValueAttribute] }
+        let valued = try Self.attempt { () throws(ApplicationFailure) -> CFTypeRef? in
+            try role == kAXTextAreaRole ? visibleText().map { text in text as CFString } : read.values[valueAttribute(of: role)]
+        }
         let labeled = try Self.attempt { () throws(ApplicationFailure) in try label(read) }
-        let writable = try Self.attempt { () throws(ApplicationFailure) in try settable(kAXValueAttribute) }
+        let writable = try Self.attempt { () throws(ApplicationFailure) in try settable(valueAttribute(of: role)) }
         let nested = Self.children(read)
         let children =
             try depth > 0

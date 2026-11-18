@@ -198,7 +198,7 @@ extension DiagnosticReport {
         by process: ProcessInstance,
         since launch: Date,
         within limit: Duration = .seconds(60),
-        in directory: URL = .libraryDirectory.appending(components: "Logs", "DiagnosticReports", directoryHint: .isDirectory),
+        in directory: URL = directories[0],
         clock: some Clock<Duration> = ContinuousClock(),
     ) async -> Result<Self, ProcessFailure> {
         let subject = "Crash report of process \(process.pid)"

@@ -233,7 +233,8 @@ extension ElementAction {
         in process: pid_t,
         typing strokes: [(code: CGKeyCode, flags: CGEventFlags, text: String?)],
     ) throws(ApplicationFailure) -> AXError {
-        let current = { () throws(ApplicationFailure) -> JSONValue? in (try node.value(kAXValueAttribute) as CFTypeRef?).flatMap(JSONValue.init(accessibility:)) }
+        let attribute = valueAttribute(of: role)
+        let current = { () throws(ApplicationFailure) -> JSONValue? in (try node.value(attribute) as CFTypeRef?).flatMap(JSONValue.init(accessibility:)) }
         let (actions, menus) = (try node.actionNames(), try node.menus(choosingRoles))
         let opening: String? =
             switch (actions.contains(kAXShowMenuAction), role) {
@@ -242,11 +243,17 @@ extension ElementAction {
                 case (false, _): nil
             }
         let stepping = actions.contains(kAXIncrementAction) && actions.contains(kAXDecrementAction) ? target.number : nil
-        switch (try node.settable(kAXValueAttribute), target.text, !menus.isEmpty || opening != nil, stepping) {
+        switch (try node.settable(attribute), target.text, !menus.isEmpty || opening != nil, stepping) {
             case (true, _, _, _):
-                let written = AXUIElementSetAttributeValue(node, kAXValueAttribute as CFString, try target.accessibility)
+                let typed: JSONValue =
+                    switch (try current(), target.number, target.text.flatMap(Bool.init)) {
+                        case (.bool, _, .some(let flag)): .bool(flag)
+                        case (.number, .some(let number), _): .number(number)
+                        case (_, _, _): target
+                    }
+                let written = AXUIElementSetAttributeValue(node, attribute as CFString, try typed.accessibility)
                 let read = try written == .success ? current() : nil
-                guard written != .success || read == target || target.number.map({ number in read?.number == number }) == true else {
+                guard written != .success || read == typed || typed.number.map({ number in read?.number == number }) == true else {
                     throw ApplicationFailure(subject: description, reason: .unchanged(read))
                 }
                 return written
@@ -284,10 +291,11 @@ extension ElementAction {
             AXUIElementSetMessagingTimeout(node, Float(messagingTimeout / .seconds(1)))
             guard [.success, .cannotComplete].contains(opened) else { return opened }
         }
-        let shown = try listed.isEmpty ? items(node.menus(choosingRoles)) : listed
+        let opened = try listed.isEmpty ? node.menus(choosingRoles) : menus
+        let shown = try listed.isEmpty ? items(opened) : listed
         guard shown.isEmpty else {
             guard let match = shown.first(where: { entry in entry.label == item }) else {
-                for menu in try node.menus(choosingRoles) { _ = AXUIElementPerformAction(menu, kAXCancelAction as CFString) }
+                for menu in opened { _ = AXUIElementPerformAction(menu, kAXCancelAction as CFString) }
                 throw ApplicationFailure(subject: description, reason: .unmatched(Unmatched(subject: "item of \(description)", query: item, candidates: shown.compactMap(\.label))))
             }
             return AXUIElementPerformAction(match.element, kAXPressAction as CFString)

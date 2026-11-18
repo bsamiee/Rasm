@@ -42,8 +42,9 @@ private func act(
     _ action: ElementAction,
     on target: @escaping @Sendable () async throws(ApplicationFailure) -> Instance,
     key: String,
+    grants: [Grant],
 ) async {
-    await Run.execute(command) { run in
+    await Run.execute(command, grants: grants) { run in
         do throws(ApplicationFailure) {
             let instance = try await target()
             let acted = try await instance.act([action])
@@ -98,7 +99,7 @@ struct Find: AsyncParsableCommand {
     var names: [String]
 
     func run() async {
-        await Run.execute(Self.self, accessibility: false) { run in
+        await Run.execute(Self.self, grants: []) { run in
             for (name, installations) in await installed(names, run) { run.emit(name, installations) }
         }
     }
@@ -132,7 +133,8 @@ struct Watch: AsyncParsableCommand {
     }
 
     func run() async {
-        await Run.execute(Self.self, lineLength: outline.lineLength, recording: record.map { folder in (folder, longestSide) }) { run in
+        await Run.execute(Self.self, lineLength: outline.lineLength, grants: [.accessibility] + (record == nil ? [] : [.screenCapture]), recording: record.map { folder in (folder, longestSide) }) {
+            run in
             let applications = await installed(names, run).flatMap(\.installations)
             guard !applications.isEmpty else { return }
             let matching: @Sendable (NSRunningApplication) -> Bool = { [applications] instance in applications.contains { installation in installation.runs(instance) } }
@@ -287,8 +289,7 @@ struct Capture: AsyncParsableCommand {
 
     func run() async {
         let source: Source? = window.map { number in Source.windows(numbers: [number]) } ?? element.map(Source.element(id:))
-        await Run.execute(Self.self) { run throws(ApplicationFailure) in
-            try checkCaptureAccess(prompting: true)
+        await Run.execute(Self.self, grants: [.accessibility, .screenCapture]) { run in
             await running.each(run) { instance throws(ApplicationFailure) in
                 let stills = try await instance.capture(source, to: Program.current.directory(.captures, of: instance.application.localizedName), longestSide: longestSide)
                 guard !stills.isEmpty else { throw ApplicationFailure(subject: instance.key, reason: .noWindow) }
@@ -321,7 +322,7 @@ struct Perform: AsyncParsableCommand {
 
     func run() async {
         let id = element.id
-        await act(Self.self, .press(element: id, action: action), on: { () async throws(ApplicationFailure) in try await Instance.owning(id) }, key: id.description)
+        await act(Self.self, .press(element: id, action: action), on: { () async throws(ApplicationFailure) in try await Instance.owning(id) }, key: id.description, grants: [.accessibility])
     }
 }
 
@@ -335,7 +336,13 @@ struct SetValue: AsyncParsableCommand {
 
     func run() async {
         let id = element.id
-        await act(Self.self, .set(element: id, value: .string(value)), on: { () async throws(ApplicationFailure) in try await Instance.owning(id) }, key: id.description)
+        await act(
+            Self.self,
+            .set(element: id, value: .string(value)),
+            on: { () async throws(ApplicationFailure) in try await Instance.owning(id) },
+            key: id.description,
+            grants: [.accessibility, .postEvent],
+        )
     }
 }
 
@@ -360,6 +367,7 @@ struct Key: AsyncParsableCommand {
                 return try Instance(application)
             },
             key: String(pid),
+            grants: [.accessibility, .postEvent],
         )
     }
 }
@@ -395,7 +403,7 @@ struct ProcessTable: AsyncParsableCommand {
     }
 
     func run() async {
-        await Run.execute(Self.self, accessibility: false) { run in
+        await Run.execute(Self.self, grants: []) { run in
             for name in OrderedSet(names) {
                 do throws(ApplicationFailure) { run.emit(name, try await Lifecycle(of: name, reports: reports)) } catch { run.fail(name, error) }
             }
