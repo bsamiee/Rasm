@@ -10,6 +10,7 @@
 - Job `affected` lists affected projects of technology `unreal` and the engines every tracked `.uproject` names
 - Unreal projects hold no target on a runner outside their engine image
 - Job `affected` runs `nrwl/nx-set-shas` once and passes base and head to jobs `linux` and `macos`, as a CI run finishing between jobs moves the base `nx-set-shas` finds
+- `nx-set-shas` takes the first commit as base where the latest 100 commits hold no successful run, so every task runs, as its own fallback `HEAD~1` checks one commit alone
 - Job `linux` runs the affected projects tagged `os:linux`, `os:all`, or no `os:` tag on runner instance `host`
 - Job `linux` removes earlier runs' reports first, as the kept checkout holds them
 - Job `linux` starts daemon `playwright` before `nx affected` and stops it after, as the runner leaves a job's container holding its port

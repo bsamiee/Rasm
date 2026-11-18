@@ -41,8 +41,14 @@ jobs:
               with:
                   fetch-depth: 0
                   clean: false
+            - id: root
+              run: |
+                  root="$(git rev-list --max-parents=0 HEAD)"
+                  printf "sha=%s\n" "${root}" >> "${GITHUB_OUTPUT}"
             - id: shas
               uses: nrwl/nx-set-shas@e602fada7ad5987b0f7b1905e7a99ea1c661514c # v5.1.0
+              with:
+                  fallback-sha: ${{ steps.root.outputs.sha }}
             - &tools
               uses: ./.github/actions/tools
             - run: nx sync:check
