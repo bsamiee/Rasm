@@ -64,19 +64,23 @@ class Settings:
     runtime_dir: Path | None = None
 
     def folder(self, kind: Folder, tool: str, /) -> Path:
-        """Returns the folder of a kind, not created: its flag or variable, the output kinds a subfolder of the output folder, else the platform's per-user log folder and the tool's per-user folders."""
-        platform = PlatformDirs(tool, appauthor=False)
-        match kind, self.output_dir:
-            case Folder.CACHE, _:
+        """Returns the folder of a kind, not created: its flag or variable, the output kinds a subfolder of the output folder, else the tool's per-user folders and the log folder: `~/Library/Logs` on macOS, `logs` in local application data on Windows, the state folder elsewhere."""
+        platform, shared = PlatformDirs(tool, appauthor=False), PlatformDirs(appauthor=False)
+        match kind, self.output_dir, sys.platform:
+            case Folder.CACHE, _, _:
                 return (self.cache_dir or platform.user_cache_path).expanduser()
-            case Folder.STATE, _:
+            case Folder.STATE, _, _:
                 return (self.state_dir or platform.user_state_path).expanduser()
-            case Folder.RUNTIME, _:
+            case Folder.RUNTIME, _, _:
                 return (self.runtime_dir or platform.user_runtime_path).expanduser()
-            case _, Path() as output:
+            case _, Path() as output, _:
                 return output.expanduser() / kind
-            case Folder.LOG, _:
-                return PlatformDirs(appauthor=False).user_log_path
+            case Folder.LOG, None, "darwin":
+                return shared.user_log_path
+            case Folder.LOG, None, "win32":
+                return shared.user_data_path / "logs"
+            case Folder.LOG, None, _:
+                return shared.user_state_path
             case _:
                 return platform.user_cache_path / kind
 

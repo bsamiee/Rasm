@@ -50,6 +50,7 @@ impl RotatingFile {
         fs_err::create_dir_all(&directory)?;
         let path = directory.join(format!("{program}.{}.log", process::id()));
         let (identity, file) = Self::opened(&path)?;
+        pruned(&directory, &program, rotation.files)?;
         Ok(Self { directory, program, path, rotation, identity, file, born: Timestamp::now() })
     }
 
@@ -63,23 +64,7 @@ impl RotatingFile {
             fs_err::rename(&self.path, self.path.with_extension(format!("{}.log", now.as_microsecond())))?;
         }
         (self.identity, self.file, self.born) = Self::opened(&self.path).map(|(identity, file)| (identity, file, now))?;
-        let digits = |part: &str| !part.is_empty() && part.bytes().all(|digit| digit.is_ascii_digit());
-        let owned = |name: &str| {
-            let numbered = name.strip_prefix(self.program.as_str()).and_then(|rest| rest.strip_prefix('.')?.strip_suffix(".log"));
-            numbered.is_some_and(|numbers| numbers.split('.').count() <= 2 && numbers.split('.').all(digits))
-        };
-        let absent = |error: io::Error| (error.kind() == io::ErrorKind::NotFound).then_some(None).ok_or(error);
-        fs_err::read_dir(&self.directory)?
-            .map(|entry| {
-                let entry = entry?;
-                if entry.file_name().to_str().is_some_and(owned) { entry.metadata().and_then(|held| held.modified()).map(|modified| Some((modified, entry.path()))) } else { Ok(None) }
-            })
-            .filter_map(|held| held.or_else(absent).transpose())
-            .collect::<io::Result<Vec<_>>>()?
-            .into_iter()
-            .sorted_unstable_by_key(|(modified, _)| Reverse(*modified))
-            .skip(self.rotation.files.get())
-            .try_for_each(|(_, path)| fs_err::remove_file(path).or_else(|error| (error.kind() == io::ErrorKind::NotFound).ok_or(error)))
+        pruned(&self.directory, &self.program, self.rotation.files)
     }
 }
 
@@ -104,6 +89,26 @@ impl Write for RotatingFile {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
+fn pruned(directory: &Utf8Path, program: &str, files: NonZero<usize>) -> io::Result<()> {
+    let digits = |part: &str| !part.is_empty() && part.bytes().all(|digit| digit.is_ascii_digit());
+    let owned = |name: &str| {
+        let numbered = name.strip_prefix(program).and_then(|rest| rest.strip_prefix('.')?.strip_suffix(".log"));
+        numbered.is_some_and(|numbers| numbers.split('.').count() <= 2 && numbers.split('.').all(digits))
+    };
+    let absent = |error: io::Error| (error.kind() == io::ErrorKind::NotFound).then_some(None).ok_or(error);
+    fs_err::read_dir(directory)?
+        .map(|entry| {
+            let entry = entry?;
+            if entry.file_name().to_str().is_some_and(owned) { entry.metadata().and_then(|held| held.modified()).map(|modified| Some((modified, entry.path()))) } else { Ok(None) }
+        })
+        .filter_map(|held| held.or_else(absent).transpose())
+        .collect::<io::Result<Vec<_>>>()?
+        .into_iter()
+        .sorted_unstable_by_key(|(modified, _)| Reverse(*modified))
+        .skip(files.get())
+        .try_for_each(|(_, path)| fs_err::remove_file(path).or_else(|error| (error.kind() == io::ErrorKind::NotFound).ok_or(error)))
+}
 
 fn identity(file: &Metadata) -> Identity {
     cfg_select! {

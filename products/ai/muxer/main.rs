@@ -18,7 +18,7 @@ use jiff::fmt::friendly::SpanParser;
 use nonempty_collections::NEVec;
 use opentelemetry::global;
 use opentelemetry_semantic_conventions::attribute::EXCEPTION_MESSAGE;
-use rasm_cli::{Artifact, CommandError, Folder, Invocation, Root};
+use rasm_cli::{CommandError, Folder, Invocation, Root};
 use rasm_ipc::{Endpoint, Hello, IpcError, Limits, Opened};
 use rasm_mcp::{Ended, Phase, Resumable};
 use rasm_process::{Failure, ProcessError};
@@ -293,8 +293,8 @@ async fn run(invocation: Invocation<Cli>) -> Result<ExitCode, MuxerError> {
         let located = folders
             .iter()
             .filter_map(|(kind, path)| match kind {
-                Folder::Output(Artifact::Image | Artifact::Video | Artifact::Audio) => None,
-                Folder::Output(Artifact::Log) | Folder::Cache | Folder::State | Folder::Runtime => Some([format!("--{}-dir", Root::from(kind)), path.as_ref()?.to_string()]),
+                Folder::Output(_) => None,
+                Folder::Cache | Folder::State | Folder::Runtime => Some([format!("--{}-dir", Root::from(kind)), path.as_ref()?.to_string()]),
             })
             .flatten();
         let mut daemon = tokio::process::Command::new(&executable);
