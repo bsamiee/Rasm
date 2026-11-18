@@ -37,7 +37,7 @@ Each host runs one newest runtime, and a dictionary command runs source with no 
 - Illustrator serves `illustrator-dom.js` to third-party plugins: `require('illustrator')` returns `{ app }`, enumerations and creatable classes sit on `globalThis`, every call is synchronous, and enumeration values are strings, the specifier inferred from the string beside its registration
 - Acrobat source runs privileged with `this` naming the front document, and `global` members persist between calls
 - Acrobat JavaScript holds `JSON`, `util`, `eval`, `new Function`, and arrow functions, and no `let`, `$`, `File`, or `reflect`
-- Acrobat answers an uncaught throw with an empty reply and no error, and source catches its own throws with `lineNumber` as `line`
+- Acrobat answers an uncaught throw or syntax error with -1708 and no text, and source catches its own throws with `lineNumber` as `line`
 - Acrobat holds no global dialog switch, and a replaced `app.alert` still opens the host alert
 
 Context decides what code holds across calls:
