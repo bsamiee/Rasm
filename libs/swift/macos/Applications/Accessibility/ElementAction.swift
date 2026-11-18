@@ -10,7 +10,6 @@ import Results
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-private let openingRoles: Set<String> = [kAXPopUpButtonRole, kAXComboBoxRole, kAXMenuButtonRole]
 private let choosingRoles: Set<String> = [kAXMenuRole, kAXListRole]
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -235,64 +234,73 @@ extension ElementAction {
         typing strokes: [(code: CGKeyCode, flags: CGEventFlags, text: String?)],
     ) throws(ApplicationFailure) -> AXError {
         let current = { () throws(ApplicationFailure) -> JSONValue? in (try node.value(kAXValueAttribute) as CFTypeRef?).flatMap(JSONValue.init(accessibility:)) }
-        let written = AXUIElementSetAttributeValue(node, kAXValueAttribute as CFString, try target.accessibility)
-        guard ![.cannotComplete, .invalidUIElement, .apiDisabled].contains(written) else { return written }
-        if written == .success, target.reached(by: try current()) { return .success }
-        let actions = try node.actionNames()
+        let (actions, menus) = (try node.actionNames(), try node.menus(choosingRoles))
         let opening: String? =
-            switch (actions.contains(kAXShowMenuAction), role.map(openingRoles.contains)) {
+            switch (actions.contains(kAXShowMenuAction), role) {
                 case (true, _): kAXShowMenuAction
-                case (false, true?): kAXPressAction
+                case (false, kAXPopUpButtonRole), (false, kAXComboBoxRole), (false, kAXMenuButtonRole): kAXPressAction
                 case (false, _): nil
             }
-        if let text = target.text, let chosen = try choose(text, on: node, opening: opening, in: process) { return chosen }
-        let stepping = target.number.flatMap { goal in actions.contains(kAXIncrementAction) && actions.contains(kAXDecrementAction) ? goal : nil }
-        var last = try current()?.number
-        while let goal = stepping, let value = last, value != goal {
-            guard AXUIElementPerformAction(node, (value < goal ? kAXIncrementAction : kAXDecrementAction) as CFString) == .success,
-                let next = try current()?.number, abs(goal - next) < abs(goal - value)
-            else { break }
-            last = next
+        let stepping = actions.contains(kAXIncrementAction) && actions.contains(kAXDecrementAction) ? target.number : nil
+        switch (try node.settable(kAXValueAttribute), target.text, !menus.isEmpty || opening != nil, stepping) {
+            case (true, _, _, _):
+                let written = AXUIElementSetAttributeValue(node, kAXValueAttribute as CFString, try target.accessibility)
+                let read = try written == .success ? current() : nil
+                guard written != .success || read == target || target.number.map({ number in read?.number == number }) == true else {
+                    throw ApplicationFailure(subject: description, reason: .unchanged(read))
+                }
+                return written
+            case (false, .some(let item), true, _): return try choose(item, on: node, listing: menus, opening: opening, in: process)
+            case (false, _, _, .some(let goal)):
+                var (value, answer) = (try current()?.number, AXError.success)
+                while let reached = value, reached != goal, answer == .success {
+                    answer = AXUIElementPerformAction(node, (reached < goal ? kAXIncrementAction : kAXDecrementAction) as CFString)
+                    let next = try answer == .success ? current()?.number ?? reached : reached
+                    value = answer != .success || abs(goal - next) < abs(goal - reached) ? next : nil
+                }
+                guard answer != .success || value == goal else { throw ApplicationFailure(subject: description, reason: .unchanged(try current())) }
+                return answer
+            case (false, .some, false, .none):
+                let focused = AXUIElementSetAttributeValue(node, kAXFocusedAttribute as CFString, kCFBooleanTrue)
+                guard focused == .success else { return focused }
+                for stroke in strokes { try Self.post(stroke.code, stroke.flags, stroke.text, to: process) }
+                return .success
+            case (false, .none, _, .none): throw ApplicationFailure(subject: description, reason: .unchanged(try current()))
         }
-        if let goal = stepping, last == goal { return .success }
-        guard !strokes.isEmpty, AXUIElementSetAttributeValue(node, kAXFocusedAttribute as CFString, kCFBooleanTrue) == .success else {
-            throw ApplicationFailure(subject: description, reason: .unchanged(try current()))
-        }
-        for stroke in strokes { try Self.post(stroke.code, stroke.flags, stroke.text, to: process) }
-        return .success
     }
 
-    private func choose(_ item: String, on node: AXUIElement, opening action: String?, in process: pid_t) throws(ApplicationFailure) -> AXError? {
+    private func choose(_ item: String, on node: AXUIElement, listing menus: [AXUIElement], opening action: String?, in process: pid_t) throws(ApplicationFailure) -> AXError {
         let labeled = { (entries: [AXUIElement]) throws(ApplicationFailure) -> [(element: AXUIElement, label: String?)] in
             try entries.map { entry throws(ApplicationFailure) in
                 let read = try entry.values([kAXTitleAttribute, kAXDescriptionAttribute, kAXTitleUIElementAttribute, kAXValueAttribute])
                 return (entry, try entry.label(read) ?? read.values[kAXValueAttribute] as? String)
             }
         }
-        let items = { () throws(ApplicationFailure) in try labeled(node.menus(choosingRoles).map { menu throws(ApplicationFailure) in try menu.elements(kAXChildrenAttribute) }.flatMap(\.self)) }
-        let listed = try items()
-        let opened = listed.isEmpty && action.map { action in [.success, .cannotComplete].contains(node.perform(action, within: messagingTimeout / 2)) } == true
-        let shown = opened ? try items() : listed
-        let owned = opened && shown.isEmpty ? try labeled(node.elements(kAXChildrenAttribute)).filter { entry in entry.label != nil } : []
-        let selected = try owned.isEmpty ? [] : node.elements(kAXSelectedChildrenAttribute)
-        let value: String? = try owned.isEmpty ? nil : node.value(kAXValueAttribute)
+        let items = { (menus: [AXUIElement]) throws(ApplicationFailure) in try labeled(menus.map { menu throws(ApplicationFailure) in try menu.elements(kAXChildrenAttribute) }.flatMap(\.self)) }
+        let listed = try items(menus)
+        if listed.isEmpty, let action {
+            AXUIElementSetMessagingTimeout(node, Float(messagingTimeout / 2 / .seconds(1)))
+            let opened = AXUIElementPerformAction(node, action as CFString)
+            AXUIElementSetMessagingTimeout(node, Float(messagingTimeout / .seconds(1)))
+            guard [.success, .cannotComplete].contains(opened) else { return opened }
+        }
+        let shown = try listed.isEmpty ? items(node.menus(choosingRoles)) : listed
+        guard shown.isEmpty else {
+            guard let match = shown.first(where: { entry in entry.label == item }) else {
+                for menu in try node.menus(choosingRoles) { _ = AXUIElementPerformAction(menu, kAXCancelAction as CFString) }
+                throw ApplicationFailure(subject: description, reason: .unmatched(Unmatched(subject: "item of \(description)", query: item, candidates: shown.compactMap(\.label))))
+            }
+            return AXUIElementPerformAction(match.element, kAXPressAction as CFString)
+        }
+        let owned = try labeled(node.elements(kAXChildrenAttribute)).filter { entry in entry.label != nil }
+        let (selected, value): ([AXUIElement], String?) = (try node.elements(kAXSelectedChildrenAttribute), try node.value(kAXValueAttribute))
         let from = owned.firstIndex { entry in selected.contains { chosen in CFEqual(chosen, entry.element) } } ?? owned.firstIndex { entry in entry.label == value }
-        switch (shown.isEmpty, owned.isEmpty, owned.firstIndex { entry in entry.label == item }, from) {
-            case (true, false, .some(let goal), .some(let from)):
-                let step = goal > from ? Key.Named.down.code : Key.Named.up.code
-                for code in repeatElement(step, count: abs(goal - from)) + [Key.Named.return.code] { try Self.post(code, [], nil, to: process) }
-                return .success
-            case (true, true, _, _): return nil
-            case (true, false, _, _):
-                try Self.post(Key.Named.escape.code, [], nil, to: process)
-                throw ApplicationFailure(subject: description, reason: .unmatched(Unmatched(subject: "item of \(description)", query: item, candidates: owned.compactMap(\.label))))
-            case (false, _, _, _): break
+        guard let goal = owned.firstIndex(where: { entry in entry.label == item }), let from else {
+            try Self.post(Key.Named.escape.code, [], nil, to: process)
+            throw ApplicationFailure(subject: description, reason: .unmatched(Unmatched(subject: "item of \(description)", query: item, candidates: owned.compactMap(\.label))))
         }
-        guard let match = shown.first(where: { entry in entry.label == item }) else {
-            for menu in try node.menus(choosingRoles) { _ = AXUIElementPerformAction(menu, kAXCancelAction as CFString) }
-            throw ApplicationFailure(subject: description, reason: .unmatched(Unmatched(subject: "item of \(description)", query: item, candidates: shown.compactMap(\.label))))
-        }
-        return AXUIElementPerformAction(match.element, kAXPressAction as CFString)
+        for code in repeatElement(goal > from ? Key.Named.down.code : Key.Named.up.code, count: abs(goal - from)) + [Key.Named.return.code] { try Self.post(code, [], nil, to: process) }
+        return .success
     }
 }
 

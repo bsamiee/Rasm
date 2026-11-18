@@ -1,7 +1,6 @@
 public import AppKit
 public import Applications
 import CoreImage.CIFilterBuiltins
-import ImageIO
 import Processes
 import ScreenCaptureKit
 public import UniformTypeIdentifiers
@@ -110,17 +109,19 @@ extension Instance {
                 }
                 guard let image = output.sdrImage else { throw ApplicationFailure(subject: String(number), reason: .noImage) }
                 guard source != nil || !transparent(image) else { return nil }
-                guard let destination = CGImageDestinationCreateWithURL(path as CFURL, UTType.png.identifier as CFString, 1, nil) else {
-                    throw ApplicationFailure(subject: UTType.png.identifier, reason: .noEncoder)
-                }
-                CGImageDestinationAddImage(destination, image, nil)
-                guard CGImageDestinationFinalize(destination) else { throw ApplicationFailure(subject: path.path(percentEncoded: false), reason: .noEncoder) }
-                let thumbnail: CGImage? = preview.flatMap { limit in
-                    CGImageSourceCreateWithURL(path as CFURL, nil).flatMap { read in
-                        CGImageSourceCreateThumbnailAtIndex(read, 0, [kCGImageSourceCreateThumbnailFromImageAlways: true, kCGImageSourceThumbnailMaxPixelSize: limit] as CFDictionary)
+                guard let encoded = NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]) else { throw ApplicationFailure(subject: UTType.png.identifier, reason: .noEncoder) }
+                do { try encoded.write(to: path) } catch { throw ApplicationFailure(subject: path.path(percentEncoded: false), reason: .host(error as NSError)) }
+                let factor = preview.map { limit in min(1, CGFloat(limit) / CGFloat(max(image.width, image.height))) }
+                let scaled: Data? =
+                    switch (factor, image.colorSpace) {
+                        case (.some(let factor), .some(let space)):
+                            CIContext().pngRepresentation(
+                                of: CIImage(cgImage: image).transformed(by: CGAffineTransform(scaleX: factor, y: factor), highQualityDownsample: true),
+                                format: .RGBA8,
+                                colorSpace: space,
+                            )
+                        case (.none, _), (_, .none): nil
                     }
-                }
-                let scaled = thumbnail.flatMap { thumbnail in NSBitmapImageRep(cgImage: thumbnail).representation(using: .png, properties: [:]) }
                 guard preview == nil || scaled != nil else { throw ApplicationFailure(subject: path.path(percentEncoded: false), reason: .noImage) }
                 return Shot(file: path, width: image.width, height: image.height, document: documents[number], preview: scaled)
             }

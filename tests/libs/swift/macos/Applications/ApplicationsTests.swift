@@ -31,10 +31,10 @@ private struct Fixture: ~Copyable {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-private func absence(of bundle: borrowing Fixture, cached: URL? = nil) async throws -> AppleEventFailure.Reason? {
+private func absence(of bundle: borrowing Fixture) async throws -> AppleEventFailure.Reason? {
     let installation = try Installation(at: bundle.url)
     do {
-        _ = try await installation.scriptingDefinition(running: false, cached: cached)
+        _ = try await installation.scriptingDefinition(cached: nil)
         return nil
     } catch {
         return error.reason
@@ -46,7 +46,7 @@ struct ScriptingDefinitionTests {
     @Test
     func readsStaticDefinitionWithoutExtension() async throws {
         let bundle = try Fixture(["OSAScriptingDefinition": "Fixture"], resources: ["Fixture.sdef": definition])
-        let read = try await Installation(at: bundle.url).scriptingDefinition(running: false)
+        let read = try await Installation(at: bundle.url).scriptingDefinition(cached: nil)
         expectNoDifference(read, definition)
     }
 
@@ -54,14 +54,14 @@ struct ScriptingDefinitionTests {
     func refusesDynamicDefinitionWithoutInstance() async throws {
         let bundle = try Fixture(["OSAScriptingDefinition": "Fixture.sdef", "OSAScriptingDefinitionIsDynamic": true], resources: ["Fixture.sdef": definition])
         let (dynamic, undeclared) = (try await absence(of: bundle), try await absence(of: Fixture([:])))
-        expectNoDifference([dynamic, undeclared], [.dynamic, .undeclared])
+        expectNoDifference([dynamic, undeclared], [.undeclared, .undeclared])
     }
 
     @Test
     func readsCachedDefinitionWithoutInstance() async throws {
         let bundle = try Fixture(["OSAScriptingDefinitionIsDynamic": true], resources: ["Cached.sdef": definition])
         let cached = bundle.url.appending(components: "Contents", "Resources", "Cached.sdef")
-        let read = try await Installation(at: bundle.url).scriptingDefinition(running: false, cached: cached)
+        let read = try await Installation(at: bundle.url).scriptingDefinition(cached: cached)
         expectNoDifference(read, definition)
     }
 }
@@ -69,21 +69,9 @@ struct ScriptingDefinitionTests {
 @Suite
 struct ValueTests {
     @Test
-    func reachesTargetByValueOrNumber() {
-        let cases: [(target: JSONValue, read: JSONValue?, reached: Bool)] = [
-            (.string("Letter"), .string("Letter"), true),
-            (.string("Letter"), .string("A4"), false),
-            (.number(12), .string(" 12 "), true),
-            (.string("12"), .number(12), true),
-            (.number(12), .string("12 pt"), false),
-            (.bool(true), .bool(true), true),
-            (.number(3), nil, false),
-        ]
-        expectNoDifference(cases.map { row in row.target.reached(by: row.read) }, cases.map(\.reached))
-    }
-
-    @Test
     func spellsTextOfStringsAndNumbers() {
-        expectNoDifference([JSONValue.string("A4"), .number(12), .number(0.5), .bool(true)].map(\.text), ["A4", "12", 0.5.formatted(.number.grouping(.never)), nil])
+        let values: [JSONValue] = [.string("A4"), .number(12), .number(0.5), .number(0.123456789), .bool(true)]
+        expectNoDifference(values.map(\.text), ["A4", "12", "0.5", "0.123456789", nil])
+        expectNoDifference(values.map { value in value.text.flatMap { text in JSONValue.string(text).number } }, [nil, 12, 0.5, 0.123456789, nil])
     }
 }

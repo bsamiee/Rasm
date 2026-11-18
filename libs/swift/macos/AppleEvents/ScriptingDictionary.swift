@@ -111,6 +111,7 @@ public final class ScriptingDictionary: Encodable, Sendable {
     public let commands: [Command]
     public let script: Command?
     public let declarations: [Kind: [Term]]
+    let shown: (commands: [Command], declarations: [Kind: [Term]])
     let types: Scope
     let members: [FourCharCode: Scope]
     let contained: [FourCharCode: Scope]
@@ -205,6 +206,7 @@ public final class ScriptingDictionary: Encodable, Sendable {
         let (coded, types) = (Dictionary(grouping: typed, by: \.code), Scope(typed))
         self.commands = commands
         declarations = declared
+        shown = (commands.filter { command in !command.hidden }, declared.mapValues { terms in terms.filter { term in !term.hidden } })
         self.types = types
         members = coded.mapValues { terms in Scope(terms.flatMap(\.members)) }
         contained = coded.mapValues { terms in Scope(terms.flatMap(\.elements).flatMap { name in types.named[name] ?? [] }) }
@@ -215,8 +217,8 @@ public final class ScriptingDictionary: Encodable, Sendable {
 
     public func encode(to encoder: any Encoder) throws {
         var listing = encoder.container(keyedBy: Kind.self)
-        try listing.encode(commands.filter { command in !command.hidden }, forKey: .command)
-        for kind in Kind.allCases where kind != .command { try listing.encode(declarations[kind, default: []].filter { term in !term.hidden }, forKey: kind) }
+        try listing.encode(shown.commands, forKey: .command)
+        for kind in Kind.allCases where kind != .command { try listing.encode(shown.declarations[kind, default: []], forKey: kind) }
         var derived = encoder.container(keyedBy: Key.self)
         try derived.encodeIfPresent(script, forKey: .script)
     }
@@ -235,8 +237,8 @@ public final class ScriptingDictionary: Encodable, Sendable {
                 .compactMap { node in (node as? XMLNode)?.xmlString }
         }
         guard !selected.isEmpty else {
-            let listed = kind == .command ? OrderedSet(commands.filter { command in !command.hidden }.map(\.name)).elements : Scope(declarations[kind, default: []]).listed
-            throw AppleEventFailure(subject: name, reason: .unmatched(Unmatched(subject: kind.rawValue, query: name, candidates: listed)))
+            let listed = kind == .command ? shown.commands.map(\.name) : shown.declarations[kind, default: []].map(\.name)
+            throw AppleEventFailure(subject: name, reason: .unmatched(Unmatched(subject: kind.rawValue, query: name, candidates: OrderedSet(listed).elements)))
         }
         return selected.joined()
     }

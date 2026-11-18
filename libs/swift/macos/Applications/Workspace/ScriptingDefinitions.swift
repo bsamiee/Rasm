@@ -10,7 +10,7 @@ public actor ScriptingDefinitions {
     private let cached: @Sendable (Installation) -> URL?
     private var held: [URL: (processes: Set<ProcessInstance>, reading: Task<Result<ScriptingDictionary, AppleEventFailure>, Never>)] = [:]
 
-    public init(cached: @escaping @Sendable (Installation) -> URL? = { _ in nil }) {
+    public init(cached: @escaping @Sendable (Installation) -> URL?) {
         self.cached = cached
     }
 
@@ -22,7 +22,7 @@ public actor ScriptingDefinitions {
                 case .some, .none:
                     Task { [cached] in
                         await Result { () async throws(AppleEventFailure) in
-                            try ScriptingDictionary(definition: await installation.scriptingDefinition(running: !processes.isEmpty, cached: cached(installation)))
+                            try ScriptingDictionary(definition: await installation.scriptingDefinition(cached: cached(installation)))
                         }
                     }
             }
@@ -36,7 +36,7 @@ public actor ScriptingDefinitions {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension Installation {
-    public func scriptingDefinition(running: Bool, cached: URL? = nil) async throws(AppleEventFailure) -> Data {
+    public func scriptingDefinition(cached: URL?) async throws(AppleEventFailure) -> Data {
         let path = url.path(percentEncoded: false)
         func read(_ file: URL?, named name: String) throws(AppleEventFailure) -> Data {
             do {
@@ -46,11 +46,11 @@ extension Installation {
                 throw AppleEventFailure(subject: "\(name) of \(path)", reason: .host(error as NSError))
             }
         }
-        return switch (scriptingDefinitionIsDynamic ? nil : scriptingDefinitionFile, running, cached) {
+        return switch (scriptingDefinitionIsDynamic ? nil : scriptingDefinitionFile, NSWorkspace.shared.runningApplications.contains(where: runs), cached) {
             case (.some(let name), _, _): try read(Bundle(url: url)?.url(forResource: name, withExtension: URL(filePath: name).pathExtension.isEmpty ? "sdef" : nil), named: name)
             case (.none, true, _): try await ScriptingDictionary.definition(of: url)
             case (.none, false, .some(let cached)): try read(cached, named: cached.path(percentEncoded: false))
-            case (.none, false, .none): throw AppleEventFailure(subject: path, reason: scriptingDefinitionIsDynamic ? .dynamic : .undeclared)
+            case (.none, false, .none): throw AppleEventFailure(subject: path, reason: .undeclared)
         }
     }
 }

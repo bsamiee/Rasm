@@ -64,13 +64,9 @@ extension JSONValue {
     var text: String? {
         switch self {
             case .string(let text): text
-            case .number(let number): number.formatted(.number.grouping(.never))
+            case .number(let number): number.formatted(FloatingPointFormatStyle<Double>(locale: Locale(identifier: "en_US_POSIX")).grouping(.never).precision(.significantDigits(1...17)))
             case .null, .bool, .array, .object: nil
         }
-    }
-
-    func reached(by value: Self?) -> Bool {
-        value == self || number.map { number in value?.number == number } == true
     }
 
     var accessibility: CFTypeRef {
@@ -217,14 +213,6 @@ extension AXUIElement {
             case .noValue, .attributeUnsupported, .invalidUIElement: false
             case let error: throw failure(error, reading: ["AXUIElementIsAttributeSettable"])
         }
-    }
-
-    // --- [ACTIONS]
-
-    func perform(_ action: String, within timeout: Duration) -> AXError {
-        AXUIElementSetMessagingTimeout(self, Float(timeout / .seconds(1)))
-        defer { AXUIElementSetMessagingTimeout(self, Float(messagingTimeout / .seconds(1))) }
-        return AXUIElementPerformAction(self, action as CFString)
     }
 }
 

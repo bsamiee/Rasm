@@ -60,7 +60,7 @@ public struct ApplicationFailure: CustomNSError, Equatable, LocalizedError {
             case .unresolved: "\(subject) no longer exists in its app, read the app again for a current id"
             case .foreign(let process): "\(subject) belongs to a process other than \(process)"
             case .disabled: "Element \(subject) is disabled"
-            case .unchanged(let value): "\(subject) kept \(kAXValueAttribute) \(value.map { value in "\(value)" } ?? "unset") through a write, menu or list, and steps, and refused focus for keys"
+            case .unchanged(let value): "\(subject) left \(kAXValueAttribute) at \(value.map { value in "\(value)" } ?? "unset")"
             case .refused(.some(let error)): "\(subject) refused with AXError \(error.rawValue)"
             case .refused(.none): "\(subject) refused"
             case .noIdentifier: "\(subject) has no \(kCFBundleIdentifierKey as String)"

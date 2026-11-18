@@ -10,6 +10,18 @@ private let logTime = Date.ISO8601FormatStyle(includingFractionalSeconds: true).
 // --- [MODELS] --------------------------------------------------------------------------
 
 public struct LogEvent: Codable, Sendable {
+    public enum Source: Sendable {
+        case process(pid_t)
+        case executable(URL)
+
+        var predicate: String {
+            switch self {
+                case .process(let pid): NSPredicate(format: "%K == %d", CodingKeys.processID.stringValue, pid).predicateFormat
+                case .executable(let url): NSPredicate(format: "%K == %@", CodingKeys.processImagePath.stringValue, url.path(percentEncoded: false)).predicateFormat
+            }
+        }
+    }
+
     private enum CodingKeys: CodingKey {
         case timestamp, processID, processImagePath, messageType, subsystem, category, eventMessage, senderImagePath
     }
@@ -63,9 +75,9 @@ private struct Printed: Decodable {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension LogEvent {
-    public static func history(matching predicate: NSPredicate, since start: Date?, limit: Int) async throws(ProcessFailure) -> [Self] {
+    public static func history(of source: Source, since start: Date?, limit: Int) async throws(ProcessFailure) -> [Self] {
         let window = start.map { start in ["--start", "@\(Int(start.timeIntervalSince1970))"] } ?? ["--last", "boot"]
-        let format = predicate.predicateFormat
+        let format = source.predicate
         let subject = "log show --predicate \(format)"
         let decoder = JSONDecoder()
         let shown: ExecutionResult<Deque<Self>, SequenceOutput, StringOutput<UTF8>>
@@ -89,8 +101,8 @@ extension LogEvent {
         return shown.closureResult.reversed()
     }
 
-    public static func stream(matching predicate: NSPredicate) -> AsyncStream<Result<Self, ProcessFailure>> {
-        let format = predicate.predicateFormat
+    public static func stream(of source: Source) -> AsyncStream<Result<Self, ProcessFailure>> {
+        let format = source.predicate
         return AsyncStream { continuation in
             let following = Task {
                 let decoder = JSONDecoder()

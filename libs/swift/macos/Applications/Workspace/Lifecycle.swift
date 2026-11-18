@@ -58,9 +58,9 @@ extension Lifecycle {
             throw ApplicationFailure(subject: name, reason: .system(error))
         }
         let scoped: (FilePath) -> Bool = { path in path == executable || bundles.contains(where: path.starts(with:)) }
-        let executables = installations.compactMap { installation in installation.executable.map { url in (path: FilePath(url.path(percentEncoded: false)), identifier: installation.identifier) } }
+        let installed = installations.compactMap { installation in Bundle(url: installation.url) }
         let owned: (DiagnosticReport) -> Bool = { report in
-            report.executable.map { path in scoped(FilePath(path)) } == true || executables.contains { installed in report.written(by: installed.path, identifier: installed.identifier) }
+            report.executable.map { path in scoped(FilePath(path)) } == true || installed.contains { bundle in report.written(by: bundle) }
                 || agents.contains { agent in agent.label == report.service }
         }
         let running: [ProcessInstance]

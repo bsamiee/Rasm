@@ -9,7 +9,6 @@ import Logging
 public import Processes
 import Results
 public import ScreenCapture
-import System
 import Telemetry
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -142,27 +141,17 @@ extension Request {
                 return .value(Dictionary(uniqueKeysWithValues: shots.map { number, shot in (String(number), Outcome(shot)) }))
             case .diagnostics(let application, let folders, let since, let limit):
                 let instance = try application?.instance.map { process throws(ApplicationFailure) in try running(process, admitting: admitting) }
-                let installed = try application.map { application throws(ApplicationFailure) in try installation(at: application.url, admitting: admitting) }
-                let (executable, identifier) = installed.map { installed in (installed.executable, Optional(installed.identifier)) } ?? (Bundle.main.executableURL, Bundle.main.bundleIdentifier)
-                let (path, process) = (executable.map { executable in FilePath(executable.path(percentEncoded: false)) }, instance?.process)
-                let earliest = [since.map { since in Date.now.addingTimeInterval(-since) }, instance?.application.launchDate].compactMap(\.self).max()
-                let reports = DiagnosticReport.reports(since: earliest ?? .distantPast, limit: limit) { report in
-                    switch (process, path) {
-                        case (.some(let process), _): report.written(by: process)
-                        case (.none, .some(let path)): report.written(by: path, identifier: identifier)
-                        case (.none, .none): false
+                let bundle = try application.map { application throws(ApplicationFailure) in Bundle(url: try installation(at: application.url, admitting: admitting).url) } ?? Bundle.main
+                let (owns, source): ((DiagnosticReport) -> Bool, Processes.LogEvent.Source) =
+                    switch (instance?.process, bundle, bundle?.executableURL) {
+                        case (.some(let process), _, _): ({ report in report.written(by: process) }, .process(process.pid))
+                        case (.none, .some(let bundle), .some(let executable)): ({ report in report.written(by: bundle) }, .executable(executable))
+                        case (.none, _, _): throw ApplicationFailure(subject: application?.url.path(percentEncoded: false) ?? Program.current.identifier, reason: .noPath)
                     }
-                }
+                let earliest = [since.map { since in Date.now.addingTimeInterval(-since) }, instance?.application.launchDate].compactMap(\.self).max()
+                let reports = DiagnosticReport.reports(since: earliest ?? .distantPast, limit: limit, where: owns)
                 let logs = LogLine.newest(in: folders, since: earliest, limit: limit)
-                let unified = await Result { () async throws(any Error) in
-                    let predicate =
-                        switch (process, path) {
-                            case (.some(let process), _): NSPredicate(format: "processID == %d", process.pid)
-                            case (.none, .some(let path)): NSPredicate(format: "processImagePath == %@", path.string)
-                            case (.none, .none): throw ApplicationFailure(subject: application?.url.path(percentEncoded: false) ?? Program.current.identifier, reason: .noPath)
-                        }
-                    return try await Processes.LogEvent.history(matching: predicate, since: earliest, limit: limit)
-                }
+                let unified = await Result { () async throws(ProcessFailure) in try await Processes.LogEvent.history(of: source, since: earliest, limit: limit) }
                 return .value(
                     Diagnosed(
                         reports: reports.reports,
