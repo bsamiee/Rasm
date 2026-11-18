@@ -15,7 +15,7 @@
 - Job `linux` starts daemon `playwright` before `nx affected` and stops it after, as the runner leaves a job's container holding its port
 - Job `macos` runs on GitHub-hosted runner `xcode-27` and selects `os:darwin` and `os:all` projects itself, as no Linux graph holds an Apple project
 - Job `windows` tests affected `os:win32` projects on GitHub-hosted Windows Server, under core-hour billing token `RHINO_TOKEN`
-- Job `windows` installs the newest Rhino of RhinoCommon's pinned major through `mcneel/setup-rhino3d` before `nx affected`, only when its own graph lists an affected `os:win32` project, as no Linux graph holds the tag
+- Job `windows` installs the newest Rhino of RhinoCommon's major through `mcneel/setup-rhino3d` where its graph lists an affected `os:win32` project
 - Job `windows` installs only the mise tools its steps and its Nx graph call, through `MISE_ENABLE_TOOLS`
 - Job `unreal` runs the projects `affected` lists in Epic's `dev-slim` image of each engine on instance `container`, where both lists hold one
 - Job containers install only the mise rows graph creation and Unreal targets read, under `.cache` of the checkout
@@ -56,8 +56,8 @@
 
 ## [04]-[RELEASE]
 
-- Workflow `Release` runs by dispatch with inputs `specifier` (empty reads conventional commits), `dry-run` (default on), `publish`
-- First releases state `specifier`, as Nx refuses a commit in the history it reads whose scope matches more than one release project
+- Workflow `Release` runs by dispatch with inputs `specifier`, `projects`, `dry-run` (default on), `publish`
+- Empty `specifier` reads conventional commits after each project's last tag, a version moves the `projects` input names, as alpha to stable
 - Job `release` runs on `xcode-27`, attaches with `dry-run` off, and publishes with `dry-run` off and input `publish`
 - Job `release` imports codesign identities into a temporary keychain only where their secrets are set
 - Job `unreal` then attaches the projects of technology `unreal` from each engine image at the released commit

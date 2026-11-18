@@ -52,7 +52,7 @@ Wheel and source distribution builds of the Python packages Nx releases.
 ## [05]-[VERSIONING]
 
 - `nx-uv` tags every packaged member `release` and versions it through its own `version-actions`
-- Darkroom's version sits in `blender_manifest.toml`, which hatchling reads as its dynamic version and nx release writes
+- Darkroom is a Blender extension, versioned by `@rasm/nx-distribution` in `blender_manifest.toml`, which hatchling reads as its dynamic version
 
 ## [06]-[PUBLISH]
 

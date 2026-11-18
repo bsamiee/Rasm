@@ -87,9 +87,9 @@ Manifest a consumer installs, after `pnpm pack` applies `publishConfig` and repl
 
 ## [05]-[VERSIONING]
 
-- Nx Release groups projects with `projectsRelationship: "fixed"` by default, one bump versioning every package, and `"independent"` each alone
+- `nx.json` sets `projectsRelationship: "independent"`, so each package takes its own version and `<project>@<version>` tag, where Nx's default `"fixed"` would version every package with one bump
 - `release.version.preserveLocalDependencyProtocols` defaults to `true`, so `workspace:` references stay in committed manifests
-- Conventional commits or version plan files decide each bump and its changelog text
+- Conventional commits after a package's last tag decide its bump and changelog text
 
 ## [06]-[PUBLISH]
 
