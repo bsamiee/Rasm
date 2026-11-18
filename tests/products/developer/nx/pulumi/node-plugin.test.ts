@@ -34,7 +34,7 @@ describe('@rasm/nx-pulumi', () => {
             'packages/cli/cli.ts': 'export {};\n',
         };
 
-        expect(Object.keys({ ...(await targetsFor(files, 'packages/infra')) })).toStrictEqual(['install', 'install--pulumi', 'deploy', 'deploy--pulumi']);
+        expect(Object.keys({ ...(await targetsFor(files, 'packages/infra')) })).toStrictEqual(['install', 'install--pulumi', 'deploy', 'deploy--pulumi', 'dry-run', 'dry-run--pulumi']);
         await expect(targetsFor(files, 'packages/cli')).resolves.toBeUndefined();
     });
 
@@ -65,6 +65,15 @@ describe('@rasm/nx-pulumi', () => {
                 parallelism: false,
                 inputs: ['default', '^default', { externalDependencies: [] }],
                 metadata: { technologies: ['pulumi'], description: 'Runs the Pulumi Automation API program of the project with node bin/stacks.ts deploy' },
+            },
+            'dry-run': { dependsOn: ['dry-run--*'], inputs: ['...', 'default', '^default', { externalDependencies: [] }] },
+            'dry-run--pulumi': {
+                command: 'node bin/stacks.ts deploy --operation=preview',
+                options: { cwd: 'packages/infra' },
+                dependsOn: [],
+                parallelism: false,
+                inputs: ['default', '^default', { externalDependencies: [] }],
+                metadata: { technologies: ['pulumi'], description: 'Runs the Pulumi Automation API program of the project with node bin/stacks.ts deploy --operation=preview' },
             },
         });
     });

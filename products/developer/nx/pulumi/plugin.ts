@@ -7,7 +7,7 @@ import { Array, Effect, FileSystem, Option, Predicate, Record, Result, Schema } 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const PULUMI = '@pulumi/pulumi';
-const VERBS = ['install', 'deploy'] as const;
+const VERBS = { install: { args: ['install'], ordered: true }, deploy: { args: ['deploy'], ordered: true }, 'dry-run': { args: ['deploy', '--operation=preview'], ordered: false } } as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -44,21 +44,18 @@ const programmed = ({ name, bin, dependencies, devDependencies }: typeof Manifes
 
 const targets = (root: string, entry: string, hosted: boolean, built: boolean, context: CreateNodesContext): Verbs => {
     const named = namedInput(root, context);
-    return Record.fromIterableWith(VERBS, (verb): [string, Readonly<Record<string, TargetConfiguration>>] => {
-        const command = ['node', posix.relative(root, entry), verb].map(quoteShellArg).join(' ');
-        return [
-            verb,
-            {
-                pulumi: {
-                    command,
-                    options: { cwd: root },
-                    dependsOn: [...(hosted || built ? ['build--*'] : []), ...(hosted && !built ? [] : ['^build']), `^${verb}`],
-                    parallelism: false,
-                    inputs: [named, `^${named}`, { externalDependencies: [] }],
-                    metadata: { description: `Runs the Pulumi Automation API program ${hosted ? 'the project depends on' : 'of the project'} with ${command}` },
-                },
+    return Record.map(VERBS, ({ args, ordered }, verb): Readonly<Record<string, TargetConfiguration>> => {
+        const command = ['node', posix.relative(root, entry), ...args].map(quoteShellArg).join(' ');
+        return {
+            pulumi: {
+                command,
+                options: { cwd: root },
+                dependsOn: ordered ? [...(hosted || built ? ['build--*'] : []), ...(hosted && !built ? [] : ['^build']), `^${verb}`] : [],
+                parallelism: false,
+                inputs: [named, `^${named}`, { externalDependencies: [] }],
+                metadata: { description: `Runs the Pulumi Automation API program ${hosted ? 'the project depends on' : 'of the project'} with ${command}` },
             },
-        ];
+        };
     });
 };
 

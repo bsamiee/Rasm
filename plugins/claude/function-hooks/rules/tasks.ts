@@ -26,8 +26,13 @@ const FORMAT_FLAGS = ['-p, --package=', '--manifest-path=', '--message-format=']
 const LOOP_READS: ReadonlySet<string> = new Set(['show', 'graph']);
 const ADDOPTS = /^addopts=/u;
 const ADDOPTS_VARIABLE = 'PYTEST_ADDOPTS=';
-const DEPLOY = 'deploy--pulumi';
-const PULUMI_OPERATIONS: Record.ReadonlyRecord<string, string> = { up: 'up', preview: 'preview', refresh: 'preview', destroy: 'destroy' };
+const PREVIEW = { aggregate: 'dry-run', args: [], applies: false } as const;
+const PULUMI_OPERATIONS: Record.ReadonlyRecord<string, { readonly aggregate: string; readonly args: readonly string[]; readonly applies: boolean }> = {
+    up: { aggregate: 'deploy', args: [], applies: true },
+    preview: PREVIEW,
+    refresh: PREVIEW,
+    destroy: { aggregate: 'deploy', args: ['--operation=destroy'], applies: true },
+};
 const PULUMI_FLAGS: ReadonlySet<string> = new Set(['--stack', '--yes', '--skip-preview', '--non-interactive', '--cwd']);
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -332,9 +337,10 @@ const pulumiDeploy: Rule = Effect.fnUntraced(function* (invocation, { host }) {
     if (operation === undefined) {
         return [];
     }
+    const target = `${operation.aggregate}--pulumi`;
     const graph = yield* host.graph;
-    const deployable = Option.match(graph, { onNone: () => [], onSome: ({ nodes }) => Object.values(nodes).filter((node) => targetsOf(node)[DEPLOY] !== undefined) });
-    const owned = Option.flatMap(graph, ({ owner }) => Option.filter(Option.flatMap(invocation.command.cwd, owner), (node) => targetsOf(node)[DEPLOY] !== undefined));
+    const deployable = Option.match(graph, { onNone: () => [], onSome: ({ nodes }) => Object.values(nodes).filter((node) => targetsOf(node)[target] !== undefined) });
+    const owned = Option.flatMap(graph, ({ owner }) => Option.filter(Option.flatMap(invocation.command.cwd, owner), (node) => targetsOf(node)[target] !== undefined));
     const project = Option.getOrElse(
         Option.map(
             Option.orElse(owned, () => Option.filter(Array.head(deployable), () => deployable.length === 1)),
@@ -345,8 +351,8 @@ const pulumiDeploy: Rule = Effect.fnUntraced(function* (invocation, { host }) {
     const [stack] = invocation.values('--stack');
     const foreign = invocation.args.filter(({ names }) => names.length > 0 && !names.every((name) => PULUMI_FLAGS.has(name)));
     const confirmed = invocation.has('--yes', '--skip-preview');
-    const text = operation === 'up' && stack === undefined ? `nx deploy ${project}` : [`nx run ${project}:${DEPLOY}`, ...(operation === 'up' ? [] : [`--operation=${operation}`]), ...(stack === undefined ? [] : [`--stack=${quote(stack)}`])].join(' ');
-    const derived = !project.startsWith('<') && foreign.length === 0 && (operation === 'preview' || (confirmed && stack !== undefined));
+    const text = Array.isReadonlyArrayEmpty(operation.args) && stack === undefined ? `nx ${operation.aggregate} ${project}` : [`nx run ${project}:${target}`, ...operation.args, ...(stack === undefined ? [] : [`--stack=${quote(stack)}`])].join(' ');
+    const derived = !project.startsWith('<') && foreign.length === 0 && (!operation.applies || (confirmed && stack !== undefined));
     return derived ? whole(invocation, text, `pulumi ${verb}`) : refusal(`pulumi ${verb} skips stack programs, run ${text}`);
 });
 

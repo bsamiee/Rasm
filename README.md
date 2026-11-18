@@ -188,7 +188,8 @@ Products deliver through the same targets in every ecosystem, development builds
 - `nx release --skip-publish` versions each `release` project alone from its conventional commits, tags `<project>@<version>`, and patches dependents
 - `nx run-many -t attach -c release` uploads released files to the GitHub release of each tag, where stores with no upload API take them by hand
 - `nx release publish` sends the same files to each registry or store its ecosystem's publish setting allows, skipping until a credential is set
-- `deploy` applies a project's Pulumi stacks, `-c release` a released version's, and `deploy--pulumi --stack=<name> --operation=preview` previews one
+- `deploy` applies a project's Pulumi stacks after the stacks of each project it depends on, `-c release` a released version's, and `deploy--pulumi --stack=<name>` one stack
+- `dry-run` previews what `deploy` applies over the build output on disk, running no other task and applying nothing, `dry-run--pulumi --stack=<name>` one stack
 
 ## [08]-[WORKSPACES]
 

@@ -76,6 +76,15 @@ describe('@rasm/nx-pulumi', () => {
                                     inputs,
                                     metadata: { technologies, description: 'Runs the Pulumi Automation API program of the project with node stacks.ts deploy' },
                                 },
+                                'dry-run': { dependsOn: ['dry-run--*'], inputs: ['...', ...inputs] },
+                                'dry-run--pulumi': {
+                                    command: 'node stacks.ts deploy --operation=preview',
+                                    options: { cwd: 'proj' },
+                                    dependsOn: [],
+                                    parallelism: false,
+                                    inputs,
+                                    metadata: { technologies, description: 'Runs the Pulumi Automation API program of the project with node stacks.ts deploy --operation=preview' },
+                                },
                             },
                         },
                     },
@@ -182,9 +191,23 @@ describe('@rasm/nx-pulumi', () => {
             expect(results[0]?.[1].projects?.['proj']?.targets?.['deploy--pulumi']?.dependsOn).toContain('^deploy');
             expect(results[0]?.[1].projects?.['proj']?.targets?.['install--pulumi']?.dependsOn).toContain('^install');
         });
+
+        it('should run the dry-run target with no task before it, so a preview applies no dependency stack', async ({ tempFs, context }) => {
+            await tempFs.createFiles({
+                'package.json': '{ "name": "root", "workspaces": ["proj", "site"] }',
+                'proj/package.json': program,
+                'proj/stacks.ts': 'export {};\n',
+                'site/package.json': JSON.stringify({ name: '@proj/site', dependencies: { '@proj/infra': 'workspace:*' } }),
+            });
+
+            const results = await createNodesFunction(['proj/package.json', 'site/package.json'], {}, context);
+
+            expect(results[1]?.[1].projects?.['site']?.targets?.['dry-run--pulumi']).toMatchObject({ command: 'node ../proj/stacks.ts deploy --operation=preview', dependsOn: [] });
+            expect(results[1]?.[1].projects?.['site']?.targets?.['deploy--pulumi']?.dependsOn).toStrictEqual(['build--*', '^deploy']);
+        });
     });
 
-    it('should preview a program for real through nx run deploy--pulumi, writing no file and applying no stack', { timeout: 120_000 }, async ({ tempFs, backend }) => {
+    it('should preview a program for real through nx run dry-run--pulumi, writing no file and applying no stack', { timeout: 120_000 }, async ({ tempFs, backend }) => {
         symlinkSync(join(import.meta.dirname, 'node_modules'), join(tempFs.tempDir, 'node_modules'), 'dir');
         await tempFs.createFiles({
             'nx.json': JSON.stringify({ plugins: ['@rasm/nx-pulumi'] }),
@@ -203,7 +226,7 @@ describe('@rasm/nx-pulumi', () => {
         const listed = () => globSync('**', { cwd: tempFs.tempDir, exclude: ['node_modules', '.nx'] }).toSorted();
         const before = listed();
 
-        execFileSync('nx', ['run', '@proj/infra:deploy--pulumi', '--operation=preview', '--outputStyle=static'], {
+        execFileSync('nx', ['run', '@proj/infra:dry-run--pulumi', '--outputStyle=static'], {
             cwd: tempFs.tempDir,
             env: environment(tempFs.tempDir, { NX_WORKSPACE_DATA_DIRECTORY: '.nx/workspace-data', ...envVars }),
             stdio: 'pipe',

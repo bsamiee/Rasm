@@ -127,6 +127,7 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 - `tsconfig.worker.json` checks `server/main.ts` under the `workerd` condition with the server-rendered views it reaches
 - `nx install @rasm/portfolio` applies stack `portfolio-disposable.local.rasm.localhost` on the local engine
 - `nx run @rasm/portfolio:deploy--pulumi --stack=portfolio-disposable.cloudflare` applies one stack, `-c release` the production stack `portfolio.cloudflare`, and no `--stack` every stack
+- `nx run @rasm/portfolio:dry-run--pulumi --stack=portfolio-disposable.cloudflare` previews one stack over the Build Output on disk, running no build and no `@rasm/infra` stack
 - Stack `<app>.cloudflare` deploys the built Worker with every binding its Build Output states
 - Stack `<app>.cloudflare` creates each D1 database and R2 bucket a binding names, bucket lifecycle rules, and an Access application on the sign-in path
 - `--operation=destroy` on a disposable stack empties its bucket and removes every resource, reading the Build Output `build--vite` wrote
