@@ -1,9 +1,10 @@
 import { join, posix } from 'node:path';
-import { platform } from 'node:process';
+import process, { platform } from 'node:process';
 import { fileURLToPath } from 'node:url';
-import { AggregateCreateNodesError, type CreateNodes, type CreateNodesContext, detectPackageManager, getPackageManagerCommand, type PostTasksExecution, type ProjectConfiguration, readJsonFile, type TargetConfiguration, writeJsonFile } from '@nx/devkit';
+import { AggregateCreateNodesError, type CreateNodes, type CreateNodesContext, detectPackageManager, getPackageManagerCommand, type PostTasksExecution, type PreTasksExecution, type ProjectConfiguration, readJsonFile, type TargetConfiguration, writeJsonFile } from '@nx/devkit';
 import { combineGlobPatterns, emitPluginWorkerLog, isCI, type PackageJson, quoteShellArg } from '@nx/devkit/internal';
-import { Array, Cause, Config, ConfigProvider, Effect, FileSystem, Formatter, Function, Option, Predicate, Record, Result, Schema, String, Struct, UndefinedOr } from 'effect';
+import { Array, Cause, Config, ConfigProvider, Duration, Effect, FileSystem, Formatter, Function, Option, Predicate, Record, Result, Schema, String, Struct, UndefinedOr } from 'effect';
+import { FetchHttpClient, HttpClient, HttpClientRequest, HttpClientResponse } from 'effect/http';
 import which from 'which';
 import { run } from '#/executor';
 import { type Fields, FOLDERS, HOSTS, type Host } from '#/host-packages';
@@ -25,6 +26,7 @@ interface Declared {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#package'))).name;
+const ENVIRONMENT = Config.all({ outer: Config.map(Config.option(Config.String('NX_TASK_TARGET_PROJECT')), Option.isNone), annotated: Config.withDefault(Config.Boolean('GITHUB_ACTIONS'), false) });
 const WORKFLOWS = '**/.github/workflows/*.{yml,yaml}';
 const FILES = combineGlobPatterns([...Array.dedupe(HOSTS.map(({ manifest }) => `**/${posix.basename(manifest)}`)), WORKFLOWS]);
 const WITHHELD = ['archive', 'build', 'operations', 'publish'] as const;
@@ -51,9 +53,10 @@ const Options = Schema.Struct({
     outputPath: Folder,
     storeCredentials: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)),
     taskResultsPath: Folder,
+    remoteCacheTimeout: Schema.optionalKey(Schema.DurationFromString),
 }).annotate({
     description:
-        'outputPath: workspace folder each host package is written to, {projectName} naming the project, absent writes where the host tool writes in the project. storeCredentials: environment variable holding the store credential per technology, absent naming the variable of the host row (Blender: BLENDER_EXTENSIONS_TOKEN, Yak: YAK_TOKEN), a publish whose variable is unset naming it and succeeding. taskResultsPath: workspace folder each nx run on CI that no task started writes <run id>.json to, holding its argv and times and the target, hash, hash inputs, status, exit code, and times of each task, absent writes no record',
+        'outputPath: workspace folder each host package is written to, {projectName} naming the project, absent writes where the host tool writes in the project. storeCredentials: environment variable holding the store credential per technology, absent naming the variable of the host row (Blender: BLENDER_EXTENSIONS_TOKEN, Yak: YAK_TOKEN), a publish whose variable is unset naming it and succeeding. taskResultsPath: workspace folder each nx run on CI that no task started writes <run id>.json to, holding its argv and times and the target, hash, hash inputs, status, exit code, and times of each task, absent writes no record. remoteCacheTimeout: longest wait, as a number and a unit (5 seconds), for the answer to the one read each nx run no task started sends the remote cache server before its tasks, a read answered other than 200 or 404, refused, or unanswered that long printing one warning and emptying NX_SELF_HOSTED_REMOTE_CACHE_SERVER for that run, absent waits without bound',
 });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -262,10 +265,37 @@ const createNodes: CreateNodes<typeof Options.Encoded> = [
         ),
 ];
 
+const preTasksExecution: PreTasksExecution<typeof Options.Encoded> = (options, context) =>
+    run(
+        Effect.gen(function* () {
+            const variable = 'NX_SELF_HOSTED_REMOTE_CACHE_SERVER';
+            const [{ remoteCacheTimeout = Duration.infinity }, { outer, annotated }, server, token] = yield* Effect.all([Schema.decodeEffect(Options)(options ?? {}), ENVIRONMENT, Config.option(Config.String(variable)), Config.option(Config.Redacted('NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN'))]);
+            const authorized = Option.match(token, { onNone: () => Function.identity<HttpClientRequest.HttpClientRequest>, onSome: (held) => HttpClientRequest.bearerToken(held) });
+            const [, refused] = yield* Effect.partition(
+                Option.toArray(server).filter(() => outer),
+                (url) =>
+                    HttpClient.execute(authorized(HttpClientRequest.get(`${url}/v1/cache/${context.id}`, { accept: 'application/octet-stream' }))).pipe(
+                        Effect.flatMap(HttpClientResponse.filterStatus((status) => status === 200 || status === 404)),
+                        Effect.timeout(remoteCacheTimeout),
+                        Effect.mapError((error) => `Remote cache ${url} serves no read, so this run uses the local cache alone: ${Formatter.format(error)}`),
+                    ),
+            );
+            yield* Effect.forEach(
+                refused,
+                (text) =>
+                    Effect.sync(() => {
+                        Object.assign(process.env, { [variable]: '' });
+                        emitPluginWorkerLog('warn', annotated ? `::warning title=Nx remote cache::${text}` : text);
+                    }),
+                { discard: true },
+            );
+        }).pipe(Effect.provide([FetchHttpClient.layer, ConfigProvider.layer(ConfigProvider.fromEnv())])),
+    );
+
 const postTasksExecution: PostTasksExecution<typeof Options.Encoded> = (options, context) =>
     run(
         Effect.gen(function* () {
-            const [{ taskResultsPath }, outer, annotated, ci] = yield* Effect.all([Schema.decodeEffect(Options)(options ?? {}), Config.map(Config.option(Config.String('NX_TASK_TARGET_PROJECT')), Option.isNone), Config.withDefault(Config.Boolean('GITHUB_ACTIONS'), false), Effect.sync(isCI)]);
+            const [{ taskResultsPath }, { outer, annotated }, ci] = yield* Effect.all([Schema.decodeEffect(Options)(options ?? {}), ENVIRONMENT, Effect.sync(isCI)]);
             const results = Object.values(context.taskResults);
             const tasks = results.map(({ task: { id, target, hash, hashDetails, startTime, endTime }, status, code }) => ({ id, ...target, hash, status, code, startTime, endTime, hashDetails: UndefinedOr.map(hashDetails, Struct.pick(['command', 'nodes'])) }));
             const records = Array.fromNullishOr(taskResultsPath)
@@ -282,4 +312,4 @@ const postTasksExecution: PostTasksExecution<typeof Options.Encoded> = (options,
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { createNodes, postTasksExecution };
+export { createNodes, postTasksExecution, preTasksExecution };

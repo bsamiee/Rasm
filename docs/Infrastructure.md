@@ -63,7 +63,7 @@ Each place holding state changes through one action:
 - Cache stacks write the server URL and both tokens to Doppler `ci`, synced to repository secrets, and reference URL and read token from `dev`
 - Cache stacks write the object storage root keys to Doppler `dev`
 - Cache objects expire 7 days after their write (role field `kept`), and a read refreshes none
-- Deploys recreate a cache container only on its changed definition, and a CI run reading the cache in that moment stops
+- Deploys recreate a cache container only on its changed definition, an `nx` run starting in that moment warns and uses its local cache alone, and one past its first read stops
 
 ## [06]-[RUNNERS]
 

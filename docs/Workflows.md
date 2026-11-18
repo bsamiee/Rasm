@@ -33,8 +33,8 @@
 - GitHub-hosted macOS jobs save a missed store after install and `pnpm store prune`, and a missed `workspace-data` after `nx affected` passes or fails
 - Pushes to `main` read and write with the write token, and other runs read with the read-only token, as Nx documents for protected branches
 - This Mac reads the server and read-only token from Doppler `dev` through mise `[env]`, and uses its local cache while `dev` holds no row
-- `.config/mise.toml` row `NX_SELF_HOSTED_REMOTE_CACHE_SERVER` reads the server with its token, once per 15 minutes, and `jdx/mise-action` exports the result to every later step
-- Reads answered other than 200 or 404, or unanswered in 5 seconds, print one warning and empty `NX_SELF_HOSTED_REMOTE_CACHE_SERVER`
+- `@rasm/nx-distribution` reads the server with its token once before the tasks of each `nx` run outside a task
+- Reads answered other than 200 or 404, refused, or unanswered within `nx.json` option `remoteCacheTimeout` print one warning and empty `NX_SELF_HOSTED_REMOTE_CACHE_SERVER` for that run
 - Nx builds no remote cache where `NX_SELF_HOSTED_REMOTE_CACHE_SERVER` is empty
 - Nx sets no timeout on a remote cache request
 - Nx stops a run on a read answered other than 200 or 404 or left unconnected, and no Nx setting continues past the error

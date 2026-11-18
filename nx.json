@@ -14,7 +14,8 @@
             "plugin": "@rasm/nx-distribution",
             "options": {
                 "outputPath": ".artifacts/distribution/{projectName}",
-                "taskResultsPath": ".artifacts/nx/runs"
+                "taskResultsPath": ".artifacts/nx/runs",
+                "remoteCacheTimeout": "5 seconds"
             }
         },
         {

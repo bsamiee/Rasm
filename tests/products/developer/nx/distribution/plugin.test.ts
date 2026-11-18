@@ -1,13 +1,17 @@
 import { chmodSync, globSync } from 'node:fs';
 import { join } from 'node:path';
+import { env } from 'node:process';
 import { type CreateNodesContext, type PostTasksExecutionContext, readJsonFile } from '@nx/devkit';
-import { createNodes, postTasksExecution } from '@rasm/nx-distribution';
+import { createNodes, postTasksExecution, preTasksExecution } from '@rasm/nx-distribution';
+import { answered, remote } from '@rasm/testing/nx';
 import { TempFs } from '@rasm/testing/temp-fs';
+import { Effect, Exit, Function, Option, Scope } from 'effect';
 import { describe, expect, test, vi } from 'vitest';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const host = vi.hoisted((): { platform: NodeJS.Platform; arch: NodeJS.Architecture } => ({ platform: 'darwin', arch: 'arm64' }));
+const cached = { server: 'NX_SELF_HOSTED_REMOTE_CACHE_SERVER', token: 'NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN' } as const;
 const uploaded = { command: 'gh release upload --help', example: { options: { dryRun: true } } };
 const received = [{ dependentTasksOutputFiles: '**/*' }, { externalDependencies: [] }];
 const transitive = ['...', { dependentTasksOutputFiles: '**/*', transitive: true }, { externalDependencies: [] }];
@@ -113,6 +117,12 @@ const it = test
             warn.mockRestore();
         });
         return { log, warn };
+    })
+    .extend('cache', ({}, { onCleanup }) => {
+        const scope = Effect.runSync(Scope.make());
+        onCleanup(() => Effect.runPromise(Scope.close(scope, Exit.void)));
+        vi.stubEnv(cached.token, 'held-token');
+        return (answer: Parameters<typeof remote>[1]) => Effect.runPromise(Effect.provideService(remote('held-token', answer), Scope.Scope, scope));
     });
 
 describe('@rasm/nx-distribution', () => {
@@ -610,6 +620,77 @@ describe('@rasm/nx-distribution', () => {
             const results = await createNodesFunction(['proj/blender_manifest.toml'], {}, context);
 
             expect(results[0]?.[1].projects?.['proj']?.targets?.['install--blender']?.dependsOn).toStrictEqual(['build--blender']);
+        });
+    });
+
+    describe('preTasksExecution', () => {
+        it.for([
+            ['404 to the held token', Function.flow(answered, Option.some)],
+            ['200', Function.constant(Option.some(200))],
+        ] as const)('should keep the server variable and print nothing where one read of the run is answered %s', async ([, answer], { run, cache, printed }) => {
+            const { address, requests } = await cache(answer);
+            vi.stubEnv(cached.server, address);
+
+            await preTasksExecution({}, run);
+
+            expect(env[cached.server]).toBe(address);
+            expect(requests).toStrictEqual(['GET /v1/cache/run-7f3a']);
+            expect(printed.warn).not.toHaveBeenCalled();
+        });
+
+        it.for([
+            ['answered 401', Function.constant(Option.some(401)), '10 seconds', String.raw`\b401\b`],
+            ['answered 500', Function.constant(Option.some(500)), '10 seconds', String.raw`\b500\b`],
+            ['unanswered within remoteCacheTimeout', Function.constant(Option.none()), '50 millis', String.raw`\S`],
+        ] as const)('should empty the server variable and print one warning where the read is %s', async ([, answer, remoteCacheTimeout, cause], { run, cache, printed }) => {
+            const { address } = await cache(answer);
+            vi.stubEnv(cached.server, address);
+
+            await preTasksExecution({ remoteCacheTimeout }, run);
+
+            expect(env[cached.server]).toBe('');
+            expect(printed.warn.mock.calls).toStrictEqual([[expect.stringMatching(new RegExp(`^${RegExp.escape(`Remote cache ${address} serves no read, so this run uses the local cache alone: `)}.*${cause}`, 'u'))]]);
+        });
+
+        it('should empty the server variable and print one warning where the connection is refused', async ({ run, printed }) => {
+            const { address } = await Effect.runPromise(Effect.scoped(remote('held-token', Function.constant(Option.none()))));
+            vi.stubEnv(cached.server, address);
+
+            await preTasksExecution({ remoteCacheTimeout: '10 seconds' }, run);
+
+            expect(env[cached.server]).toBe('');
+            expect(printed.warn.mock.calls).toStrictEqual([[expect.stringMatching(new RegExp(`^${RegExp.escape(`Remote cache ${address} serves no read, so this run uses the local cache alone: `)}\\S`, 'u'))]]);
+        });
+
+        it('should print the warning as a workflow command under GITHUB_ACTIONS', async ({ run, cache, printed }) => {
+            const { address } = await cache(Function.constant(Option.some(500)));
+            vi.stubEnv(cached.server, address);
+            vi.stubEnv('GITHUB_ACTIONS', 'true');
+
+            await preTasksExecution({ remoteCacheTimeout: '10 seconds' }, run);
+
+            expect(printed.warn.mock.calls).toStrictEqual([[expect.stringMatching(new RegExp(`^${RegExp.escape(`::warning title=Nx remote cache::Remote cache ${address} serves no read, so this run uses the local cache alone: `)}.*\\b500\\b`, 'u'))]]);
+        });
+
+        it.for([undefined, ''] as const)('should resolve and print nothing where the server variable is %o', async (stated, { run, printed }) => {
+            vi.stubEnv(cached.server, stated);
+
+            await expect(preTasksExecution({ remoteCacheTimeout: '10 seconds' }, run)).resolves.toBeUndefined();
+
+            expect(env[cached.server]).toBe(stated);
+            expect(printed.warn).not.toHaveBeenCalled();
+        });
+
+        it('should send no request for a run nested in a task', async ({ run, cache, printed }) => {
+            const { address, requests } = await cache(Function.constant(Option.some(500)));
+            vi.stubEnv(cached.server, address);
+            vi.stubEnv('NX_TASK_TARGET_PROJECT', 'app');
+
+            await preTasksExecution({ remoteCacheTimeout: '10 seconds' }, run);
+
+            expect(requests).toStrictEqual([]);
+            expect(env[cached.server]).toBe(address);
+            expect(printed.warn).not.toHaveBeenCalled();
         });
     });
 
