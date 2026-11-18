@@ -26,7 +26,7 @@ final class AccountModel: Codable {
         try self.init(
             account: Account(from: decoder),
             authentication: fields.decode(AuthenticationState.self, forKey: .authentication),
-            usage: fields.decodeIfPresent(AccountUsage.self, forKey: .usage).map(UsageState.stale) ?? .unavailable,
+            usage: fields.decodeIfPresent(AccountUsage.self, forKey: .usage).map(UsageState.current) ?? .unavailable,
         )
     }
 

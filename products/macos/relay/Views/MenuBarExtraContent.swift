@@ -91,7 +91,7 @@ struct MenuBarExtraContent: View {
     }
 
     private func accounts(at now: Date) -> some View {
-        VStack(spacing: 24) {
+        Group {
             switch store {
                 case .success(let store) where store.storageState != .loading:
                     VStack(spacing: 24) {
@@ -156,7 +156,7 @@ private struct AccountCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline) {
-                Text(model.account.identity.email)
+                Text("\(model.account.identity.email) \(Text(model.account.provider.name).foregroundStyle(.secondary))")
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 12)
                 if let expiry = model.usage.usage?.signInExpiresAt, expiry > now {

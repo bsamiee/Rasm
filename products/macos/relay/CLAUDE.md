@@ -63,6 +63,8 @@ Relay spawns one login shell at launch, `claude`, `codex app-server`, and `secur
 ## [05]-[INTERFACE]
 
 Panel and Settings use system controls, semantic colors, and fonts:
+- Cards name their provider after the email, as one email can hold a Claude and an OpenAI account
+- Readings dim after a failed read alone, a reading `accounts.json` holds loads as current
 - Windows past their reset show no reading and block nothing until the next read
 - Past sign-in expiry shows as the card note, a future one as the card date
 

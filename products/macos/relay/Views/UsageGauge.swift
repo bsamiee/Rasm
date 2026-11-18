@@ -85,13 +85,12 @@ struct UsageGauge: View {
                     Text(reading)
                 }
             }
-            .help(detail)
             .font(.subheadline)
 
             ProgressView(value: fraction)
                 .tint(isCurrent ? Color.accentColor : .secondary)
                 .accessibilityHidden(true)
-                .help(detail)
         }
+        .help(detail)
     }
 }
