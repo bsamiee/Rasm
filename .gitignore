@@ -21,6 +21,7 @@ storybook-static/
 .vs/
 *.pending-snap
 *.snap.new
+/plugins/**/evals/results/
 
 # --- [HOST_WRITES] ----------------------------------------------------------------------
 
