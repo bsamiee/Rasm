@@ -18,6 +18,7 @@
 - Use `Atelier` app built by this repo to drive all work inside Adobe applications (InDesign, Illustrator, Photoshop, Acrobat, etc)
 - Use `blender:host` skill for any work against a live Blender or a `bpy` member of the installed build
 - Use `rhino:host` skill for any work against a live Rhino document, `.3dm` file, or Grasshopper 2 canvas
+- Use `tool:inspect` skill for a vendor host fact its docs lack or contradict, read from installed files, logs, and binaries before any launch
 - Use `refactor-code` skill whenever code or configuration is written, reduced, rebuilt, or judged for quality
 - Use `search:web` skill for any fact outside the repository
 - Use `search:code` skill for any fact regarding an external dependency
