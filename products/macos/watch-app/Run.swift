@@ -184,8 +184,8 @@ final class Run: Sendable {
 
     func release() async {
         guard case .some(.some(let instance)) = await claims?.stream.first(where: { _ in true }) else { return }
-        let saved = await quit(instance, instance.quit(saving: true))
-        let ended = saved?.is(\.exited) == true ? saved : await quit(instance, instance.quit(force: true))
+        let saved = await quit(instance, instance.quit(.saving))
+        let ended = saved?.is(\.exited) == true ? saved : await quit(instance, instance.quit(.discarding))
         if let ended { settle(ended) }
     }
 

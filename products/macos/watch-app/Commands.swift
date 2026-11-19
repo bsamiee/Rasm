@@ -383,7 +383,7 @@ struct Quit: AsyncParsableCommand {
     func run() async {
         await Run.execute(Self.self) { run in
             await running.each(run) { instance in
-                if await run.quit(instance, instance.quit(force: force))?.is(\.exited) != true { run.fail() }
+                if await run.quit(instance, instance.quit(force ? .forcing : .asking))?.is(\.exited) != true { run.fail() }
             }
         }
     }

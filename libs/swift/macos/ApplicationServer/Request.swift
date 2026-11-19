@@ -129,7 +129,7 @@ extension Request {
                 return .value(Acted(outcomes: acted.outcomes.map(Outcome.init), state: acted.state))
             case .quit(let process, let force):
                 var last: InstanceState?
-                for await outcome in try running(process, admitting: admitting).quit(force: force) { last = try outcome.get() }
+                for await outcome in try running(process, admitting: admitting).quit(force ? .forcing : .asking) { last = try outcome.get() }
                 return .value(last)
             case .terms(let url):
                 return try await .value(definitions.dictionary(of: installation(at: url, admitting: admitting)))

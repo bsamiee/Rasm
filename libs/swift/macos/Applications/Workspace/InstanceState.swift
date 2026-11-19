@@ -13,6 +13,22 @@ public import System
 // --- [MODELS] --------------------------------------------------------------------------
 
 public struct Instance: Hashable, Sendable {
+    public enum Quit: Sendable {
+        case asking
+        case saving
+        case discarding
+        case forcing
+
+        var saveOptions: OSType? {
+            switch self {
+                case .asking: kAEAsk
+                case .saving: kAEYes
+                case .discarding: kAENo
+                case .forcing: nil
+            }
+        }
+    }
+
     public let application: NSRunningApplication
     public let process: ProcessInstance
 }
@@ -269,12 +285,11 @@ extension Instance {
     }
 
     public func quit(
-        saving: Bool = false,
-        force: Bool = false,
+        _ ending: Quit = .asking,
         clock: some Clock<Duration> & Sendable = ContinuousClock(),
     ) -> any AsyncSequence<Result<InstanceState, ApplicationFailure>, Never> & Sendable {
         let states = states(clock: clock)
-        guard !force else {
+        guard let saving = ending.saveOptions else {
             return if application.forceTerminate() {
                 states.map(Result<InstanceState, ApplicationFailure>.success)
             } else {
@@ -310,7 +325,7 @@ extension Instance {
         return await state { element in element.id == id }
     }
 
-    private func requestQuit(saving: Bool, answering reply: AsyncStream<Result<InstanceState, ApplicationFailure>>.Continuation, clock: some Clock<Duration> & Sendable) async {
+    private func requestQuit(saving: OSType, answering reply: AsyncStream<Result<InstanceState, ApplicationFailure>>.Continuation, clock: some Clock<Duration> & Sendable) async {
         defer { reply.finish() }
         let request = NSAppleEventDescriptor(
             eventClass: AEEventClass(kCoreEventClass),
@@ -319,7 +334,7 @@ extension Instance {
             returnID: AEReturnID(kAutoGenerateReturnID),
             transactionID: AETransactionID(kAnyTransactionID),
         )
-        if saving { request.setParam(NSAppleEventDescriptor(enumCode: kAEYes), forKeyword: keyAESaveOptions) }
+        request.setParam(NSAppleEventDescriptor(enumCode: saving), forKeyword: keyAESaveOptions)
         let subject = String(process.pid)
         let outcome: Result<InstanceState, ApplicationFailure>?
         do throws(AppleEventFailure) {
