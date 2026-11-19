@@ -4,8 +4,8 @@ project(grammars LANGUAGES C)
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-find_program(TREE_SITTER tree-sitter REQUIRED)
-find_program(NODE node REQUIRED)
+find_program(TREE_SITTER tree-sitter NO_CACHE REQUIRED)
+find_program(NODE node NO_CACHE REQUIRED)
 cmake_path(GET CMAKE_CURRENT_SOURCE_DIR PARENT_PATH package_dir)
 cmake_path(GET package_dir PARENT_PATH tools_dir)
 cmake_path(GET tools_dir PARENT_PATH workspace_dir)
