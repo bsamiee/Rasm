@@ -461,7 +461,7 @@ WEASYPRINT_DLL_DIRECTORIES = "%CONDA_PREFIX%\\Library\\bin"
 preview            = true
 line-length        = 200
 src                = ["products/cli/*", "libs/python/*/*", "tests/support/python", "tools/refurb"]
-namespace-packages = ["products/cli/*/rasm", "libs/python/*/*/rasm", "tools/refurb/rasm"]                   # PEP 420 `rasm` folders, read as packages so each module resolves under `rasm.<name>`
+namespace-packages = ["products/cli/*/rasm", "libs/python/*/*/rasm", "tools/refurb/rasm", "tests/support/python/rasm"] # PEP 420 `rasm` folders, read as packages so each module resolves under `rasm.<name>`
 format             = { exclude = ["*.md"], docstring-code-format = true, skip-magic-trailing-comma = true }
 
 [tool.ruff.lint]

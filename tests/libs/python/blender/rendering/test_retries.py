@@ -1,4 +1,4 @@
-"""The library's Manager reads under failures, each case from httpx2 `test_client.py`, `test_timeouts.py`, or `test_exceptions.py` at v2.16.0, opentelemetry-python `test_proto_span_exporter.py` at v1.45.2, the Flamenco Manager OpenAPI `Error` schema, or RFC 9110."""
+"""Manager reads under failures, each case from httpx2 `test_client.py`, `test_timeouts.py`, or `test_exceptions.py`, opentelemetry-python `test_proto_span_exporter.py`, the Flamenco Manager OpenAPI `Error` schema, or RFC 9110."""
 
 from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
@@ -8,9 +8,9 @@ import socket
 import httpx2
 import pytest
 
+from rasm.rendering import Endpoint, Manager
 from rasm.testing import raised
 from rasm.testing.hosting import Received
-from rasm.rendering import Endpoint, Manager
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -25,7 +25,7 @@ ALWAYS = 10_000
 
 
 def test_a_manager_answers_its_reads(manager: tuple[str, Sequence[Received]], queried: Queried) -> None:
-    """OpenAPI read operations: every read of a stock Manager is a GET the document names, each sent once and answered 200."""
+    """OpenAPI read operations: each read of a stock Manager is a GET the document names, sent once and answered 200."""
     url, received = manager
     queried(Endpoint(url=url))
     assert {request.method for request in received} == {"GET"}
@@ -45,7 +45,7 @@ def test_a_failure_status_raises_its_status_error(busy: Busy, queried: Queried, 
 
 @pytest.mark.parametrize("status", [400, 401, 403, 404, 412])
 def test_a_client_error_is_sent_once(busy: Busy, queried: Queried, status: int) -> None:
-    """`test_export_non_retryable_status_codes`: a request the Manager refuses as the client's error is not sent again."""
+    """`test_export_non_retryable_status_codes`: a request the Manager refuses with a 4xx status is sent once."""
     url, received = busy(ALWAYS, status, {})
     with pytest.raises(httpx2.HTTPStatusError):
         queried(Endpoint(url=url))
@@ -53,7 +53,7 @@ def test_a_client_error_is_sent_once(busy: Busy, queried: Queried, status: int) 
 
 
 def test_a_busy_manager_is_asked_again_after_its_retry_after(busy: Busy, queried: Queried) -> None:
-    """`test_export_retry_after_header`, OpenAPI `Error` code 503, RFC 9110 "Retry-After": one 503 of a busy database is followed by the same request no sooner than its `Retry-After` second, and the read succeeds."""
+    """`test_export_retry_after_header`, OpenAPI `Error` code 503, RFC 9110 "Retry-After": one 503 for a busy database repeats the request no sooner than its `Retry-After` delay, and the read succeeds."""
     url, received = busy(1, 503, {"retry-after": "1"})
     queried(Endpoint(url=url))
     first, second, *_ = received
@@ -62,7 +62,7 @@ def test_a_busy_manager_is_asked_again_after_its_retry_after(busy: Busy, queried
 
 
 def test_retries_of_a_manager_that_stays_busy_end(busy: Busy, queried: Queried) -> None:
-    """`test_export_max_retries`: a Manager answering 503 without end is asked six times for each read, and the read raises its 503."""
+    """`test_export_max_retries`: a Manager answering only 503 gets each read six times, and the read raises its 503."""
     url, received = busy(ALWAYS, 503, {"retry-after": "0"})
     with pytest.raises(httpx2.HTTPStatusError) as refused:
         queried(Endpoint(url=url))
@@ -71,7 +71,7 @@ def test_retries_of_a_manager_that_stays_busy_end(busy: Busy, queried: Queried) 
 
 
 def test_a_retry_past_the_deadline_is_not_made(busy: Busy, queried: Queried) -> None:
-    """`test_export_retry_after_header` under a deadline: a 503 whose `Retry-After` ends past the deadline is not asked again, and the read raises it."""
+    """`test_export_retry_after_header` under a deadline: a 503 with a `Retry-After` past the deadline gets no retry, and the read raises it."""
     url, received = busy(ALWAYS, 503, {"retry-after": "5"})
     with pytest.raises(httpx2.HTTPStatusError):
         queried(Endpoint(url=url, deadline=timedelta(seconds=1)))
@@ -100,5 +100,5 @@ def test_a_closed_port_raises_a_connect_error(queried: Queried) -> None:
 
 @pytest.fixture
 def queried() -> Queried:
-    """Returns the library's read of a Manager's storage location, job type, and worker tags through one client scope of a server, raising the exception a refused read holds."""
+    """Returns a Manager's storage location, job type, and worker tags read through one client scope, raising the exception a refused read holds."""
     return lambda server: raised(server.opened(Manager.queried))
