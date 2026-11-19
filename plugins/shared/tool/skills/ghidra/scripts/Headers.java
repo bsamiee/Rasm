@@ -13,9 +13,9 @@ import ghidra.program.model.listing.Function;
 import ghidra.program.model.symbol.SourceType;
 import ghidra.program.model.symbol.Symbol;
 
-import rasm.Arguments;
-import rasm.Functions;
-import rasm.Report;
+import headless.Arguments;
+import headless.Functions;
+import headless.Report;
 
 import util.CollectionUtils;
 

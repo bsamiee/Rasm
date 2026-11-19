@@ -54,7 +54,7 @@
         ],
         "PreToolUse": [
             {
-                "matcher": "Bash|Monitor",
+                "matcher": "^Bash$",
                 "hooks": [
                     {
                         "type": "command",

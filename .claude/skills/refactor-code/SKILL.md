@@ -20,12 +20,12 @@ Scope names what one pass edits:
 Read before one line changes, a change from memory of an API, a summary, or an outline standing in for a file restates what a package or host holds and misses a consumer's shape:
 1. Run `git status --short` and `git log -5 --stat`, the live tree with uncommitted edits is the base
 2. Choose files with `ast-grep outline <path>`, then read each file to edit line by line whole
-3. Read every consumer to its effect: `ast-grep outline --items exports <file>` names exports, `LSP`, `ast-grep run`, and `rg -F` find call sites
+3. Read every consumer to its effect: `ast-grep outline --items exports <file>` names exports, `ast-grep run` and `rg -F` find readers, implementations, and callers, `nx check` confirms types
 4. List every entry point reaching the code: Nx target and its `--args`, CLI switch, `dotnet publish -o`, host launch, hook rewrite, served product
 5. Run each entry point once on repository input for its normal output
 6. Read dependency and host source at installed release through `search:code` per member called, job hand-written, and behavior performed
 7. Read `git log -S '<literal>'` for why a guard, flag, or form exists, a form with no cause in history, source, or a repository input goes
-8. Count lines and code lines (`loc`), declared types, exports, parameters, flags, files, dependency rows, nesting depth, and branches per member
+8. Count lines and code lines, declared types, exports, parameters, flags, files, dependency rows, nesting depth, and branches per member
 
 Reading ends in a statement of purpose: what the file is for, who calls it, how it runs, the input it serves, each behavior with the host or package member performing it, and the fact each declaration states, a declaration stating none is the first removal of `[04]`.
 
@@ -97,7 +97,6 @@ Each kind goes on its criterion and takes its replacement:
 
 Criteria deciding a row:
 - Reader: one reader folds a declaration into that reader
-- Symbol: `LSP` names references, implementations, call hierarchy, and type before a symbol changes or goes, a server still indexing answers empty
 - Re-export: each consumer use of a re-export becomes library capability, a type a signature exposes, or a direct import of the dependency
 - Library: a library choosing a caller's entry point, runtime, transport, or configuration becomes parts callers compose over dependency types
 - Entry: a guard, flag, arm, or default goes when no entry point of `[01]` step 4 reaches it, a named entry keeps it until it derives the value

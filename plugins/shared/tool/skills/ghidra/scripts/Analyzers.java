@@ -2,8 +2,8 @@ import ghidra.app.script.GhidraScript;
 import ghidra.app.services.Analyzer;
 import ghidra.util.classfinder.ClassSearcher;
 
-import rasm.Arguments;
-import rasm.Report;
+import headless.Arguments;
+import headless.Report;
 
 import java.util.Arrays;
 import java.util.List;

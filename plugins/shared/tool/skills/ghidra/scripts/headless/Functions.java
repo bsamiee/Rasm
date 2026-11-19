@@ -1,4 +1,4 @@
-package rasm;
+package headless;
 
 import ghidra.app.decompiler.DecompileOptions;
 import ghidra.app.decompiler.DecompileResults;

@@ -51,7 +51,7 @@ Pictures come from the source that draws current state:
 
 ## [02]-[SESSION]
 
-- Inspect UI, logs, and crash reports, resolve dialogs and errors, discard untitled and scratch work, save named files in place, decline submission
+- Inspect UI, logs, and crash reports, resolve dialogs and errors, decline submission
 
 Sessions open in order:
 1. `lsof -a -nP -iTCP:9876-9877 -sTCP:LISTEN` names the GUI pid

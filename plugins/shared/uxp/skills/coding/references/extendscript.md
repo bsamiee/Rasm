@@ -1,6 +1,6 @@
 # [EXTENDSCRIPT]
 
-Illustrator 2027 runs ExtendScript through `do javascript`, and After Effects `DoScript` replies with `app.exitCode` alone, reset to 0 per script. Illustrator answers `do javascript` with its last expression as Unicode text (`utxt`), and `do script` executes an Actions panel action.
+Illustrator runs ExtendScript through `do javascript`, and After Effects `DoScript` replies with `app.exitCode` alone, reset to 0 per script. Illustrator answers `do javascript` with its last expression as Unicode text (`utxt`), and `do script` executes an Actions panel action.
 
 ## [01]-[CALLS]
 

@@ -37,21 +37,18 @@
     "blender@rasm": true,
     "dotnet@rasm": true,
     "msbuild@rasm": true,
-    "python@rasm": true,
     "uxp@rasm": true,
-    "swift@rasm": true,
-    "search@rasm": true,
     "rhino@rasm": true,
     "typescript@rasm": true,
     "rust@rasm": true,
-    "cpp@rasm": true,
     "delegate@rasm": true,
-    "web@rasm": true,
-    "browser@rasm": true,
-    "tool@rasm": true,
     "media@rasm": true,
-    "data@rasm": true,
-    "documents@rasm": true
+    "duckdb@rasm": true,
+    "cpp@rasm": true,
+    "swift@rasm": true,
+    "search@rasm": true,
+    "tool@rasm": true,
+    "python@rasm": true
   },
   "extraKnownMarketplaces": {
     "rasm": {

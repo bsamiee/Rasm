@@ -148,7 +148,7 @@ Adobe, Rhino, Unreal, and Blender projects and plug-ins:
 - Unreal pak header and index: `repak info <file.pak>`, `repak list <file.pak>`
 - Unreal pak files on disk, Oodle compression included: `UnrealPak <file.pak> -Extract <dir> -Filter=<glob>`
 - Unreal IoStore container: `retoc info <file.utoc>`, `retoc list <file.utoc>`
-- Unreal trace session, threads, and event types: `zen trace inspect <file.utrace>`, timer CSV export in `cpp:unreal`
+- Unreal trace session, threads, and event types: `zen trace inspect <file.utrace>`
 - Unreal `.uasset` contents: script over UAssetAPI or CUE4Parse, or a `UnrealEditor-Cmd <project> -run=pythonscript -Script=<py>` run
 - Blender file dependencies: `blender-asset-tracer list <file.blend>`
 - Blender datablocks of a running Blender: Blender MCP `get_blendfile_summary_datablocks`, a file on disk served first by `blender --background <file.blend> --command blender_mcp --port 9877`
@@ -163,15 +163,12 @@ iOS simulators on the installed runtime, booted headless with no window:
 - App bundle or data container: `xcrun simctl get_app_container <udid> <bundle-id> app`, `data` for the container
 - Device unified log as NDJSON: `xcrun simctl spawn <udid> log show --style ndjson --last <span>`
 - Screen image: `xcrun simctl io <udid> screenshot <out.png>`
-- UI hierarchy with frames: Xcode MCP `DeviceInteractionStartSession`, then `DeviceInteractionSynthesize` with no command, `DeviceInteractionEndSession` after
 
 ## [09]-[WEB]
 
 Pages, browsers, and browser extensions:
 - Page accessibility snapshot and refs: `playwright cli -s=<name> open <url>`, `snapshot`, then `close`
-- Network requests, console, performance trace of a page: `chrome-devtools <command> --output-format json`, `chrome-devtools --help` lists commands
-- Lighthouse scores and failing audits of a page: `chrome-devtools lighthouse_audit <pageId> --output-format json`
-- Heap snapshot of a page: `chrome-devtools take_heapsnapshot <pageId> <file>`, then `get_heapsnapshot_summary <file>`
-- Same reads as MCP tools: `chrome-devtools`, `firefox-devtools`, and `safari` servers of the `browser` plugin
+- Console messages and network requests of a page: `playwright cli -s=<name> console`, `requests`, then `request <index>` for one request
+- Heap snapshot or performance trace of a page: `playwright cli -s=<name> run-code` over `page.context().newCDPSession(page)`
 - Firefox profile from a recording: `profiler-cli load <profile.json>`, then the queries `profiler-cli --help` lists
 - Chrome extension manifest: `jq . ~/Library/Application\ Support/Google/Chrome/Default/Extensions/<id>/<version>/manifest.json`

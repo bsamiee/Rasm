@@ -13,41 +13,35 @@
 
 [TOOL_ROUTING]:
 - ALWAYS load the coding skill of each language a change writes or reviews
-- ALWAYS use `claudeCodeDocs`/`openaiDeveloperDocs` MCP for any fact about Claude Code or Codex, their configuration included
-- ALWAYS use `ast-grep outline <path>` to choose what to read in an unread file or folder
-- ALWAYS use `tool:watch-app` skill for desktop process lifecycle, monitoring, hangs, and diagnostic recording
-- Use a host's MCP or app-managed Computer Use for interactive UI and its observation API after actions
-- ALWAYS use `refactor-code` skill whenever code or configuration is written, reduced, rebuilt, or judged for quality
-- ALWAYS use `search:web` skill for any fact outside the repository and its installed packages, never answered from memory
-- ALWAYS use `search:code` skill before writing or judging code over a dependency, and before hand-writing what a package could supply
-- ALWAYS use `terminal:history` skill for a past command, its output, or an agent session transcript, never a transcript file or a rerun
-- ALWAYS use `clean-prose` skill for any English a change writes, names and agent-facing text included
-- ALWAYS use `dotnet:codelens` skill to read, trace, or change any file in a .NET solution
-- ALWAYS use `LSP` tool for references, implementations, call hierarchy, and type of a Python, Rust, or Swift symbol before changing or removing it
-- ALWAYS use `xcode` MCP for any Apple platform fact or Xcode build, `lldb` MCP for a debug session `xcode` MCP did not start
-- ALWAYS use `rhino:host` skill for any work against a live Rhino document, `.3dm` file, or Grasshopper 2 canvas
-- ALWAYS use `rhino:host` skill to debug a plug-in in a running Rhino, which refuses `lldb`
-- ALWAYS use `blender:host` skill for any work against a live Blender or a `bpy` member of the installed build
+- Use `claudeCodeDocs`/`openaiDeveloperDocs` MCP for any fact about Claude Code or Codex, their configuration included
+- Use `tool:watch-app` skill to open, interface, and interact with apps, (except Adobe apps), always open an app as 1 step, visually check to clear modal dialogue windows
+- Use `Atelier` app built by this repo to drive all work inside Adobe applications (InDesign, Illustrator, Photoshop, Acrobat, etc)
+- Use `blender:host` skill for any work against a live Blender or a `bpy` member of the installed build
+- Use `rhino:host` skill for any work against a live Rhino document, `.3dm` file, or Grasshopper 2 canvas
+- Use `refactor-code` skill whenever code or configuration is written, reduced, rebuilt, or judged for quality
+- Use `search:web` skill for any fact outside the repository
+- Use `search:code` skill for any fact regarding an external dependency
+- Use `terminal:history` skill for a past command, its output, or an agent session transcript
+- Use `clean-prose` skill for when writing, editing, or reviewing prose of any kind
+- Use `dotnet:codelens` skill to read, trace, or change any file in a .NET solution
+- Use `nx build`/`nx test` for Xcode builds and tests, `xcrun simctl`, `devicectl`, and `xcresulttool` for simulators, devices, and results, `lldb` MCP for a debug session
 
 [CLI_TOOLING]:
+
+- Use `playwright-cli` when determined appropriate
 
 | [INDEX] | [TOOL]       | [GUIDANCE]                                                                                                                |
 | :-----: | :----------- | :------------------------------------------------------------------------------------------------------------------------ |
 |  [01]   | `outline`    | `ast-grep outline <paths> --view expanded` lists signatures and members, `--items exports` the public API                 |
-|  [02]   | `tree`       | `tree --gitignore <dir>` lists unignored directories and files, `-d` only directories, `-a -I .git` dot entries           |
-|  [03]   | `loc`        | `loc <dir>` counts code lines with complexity score per file and folder, `--json` for machine output                      |
-|  [04]   | `fd`         | `fd <pattern> <path>` finds files and directories, a skill or MCP covering that area supersedes it                        |
-|  [05]   | `rg`         | `rg <pattern> <paths>` for literals, comments, and prose, code structure goes to `ast-grep`                               |
-|  [06]   | `jq`/`yq`    | `yq '.expr' f`, `yq` has no `r` subcommand, `jq` needs `-r` for shell values and `[]?` on optional arrays                 |
-|  [07]   | `sd`         | `sd '<regex>' '<replacement>' <files>` by line, `-A` for a find across lines, `-F` fixed, `--` before a `-`               |
-|  [08]   | `difft`      | `difft <before> <after>` for a syntax-tree diff, `GIT_EXTERNAL_DIFF=difft git diff` over a change                         |
-|  [09]   | `hyperfine`  | `hyperfine -r <runs> '<command>'` times runs, `-S` runs each in `sh`, `--metrics time_wall_clock,instructions` counts     |
-|  [10]   | `duckdb`     | `duckdb -c '<sql>'` queries CSV, Parquet, and JSON files in place, `-json` for machine output                             |
-|  [11]   | `xh`         | `xh <url>` prints body, exits 4 or 5 on 4xx or 5xx, `Name:value` header, `k==v` query, `k=v` JSON by POST                 |
-|  [12]   | `playwright` | `playwright cli -s=<n> open <url>`, `snapshot`, `click <ref>`, `--json`, then `-s=<n> close` ends the headless session    |
-|  [13]   | `attach`     | `playwright cli -s=<n> attach --extension=chrome` drives signed-in Chrome unfocused, `-s=<n> detach --close-tabs` ends it |
-|  [14]   | `gh`         | `gh run watch <id> --exit-status` waits for a workflow run and exits with its result, hooks refuse a `gh run view` loop   |
-|  [15]   | `mq`         | `mq '.h2' <file.md>` reads Markdown nodes by selector, `.code("<lang>")` code blocks, `-F json` with positions            |
+|  [02]   | `fd`         | `fd <pattern> <path>` finds files and directories, a skill or MCP covering that area supersedes it                        |
+|  [03]   | `rg`         | `rg <pattern> <paths>` for literals, comments, and prose, code structure goes to `ast-grep`                               |
+|  [04]   | `jq`/`yq`    | `yq '.expr' f`, `yq` has no `r` subcommand, `jq` needs `-r` for shell values and `[]?` on optional arrays                 |
+|  [05]   | `sd`         | `sd '<regex>' '<replacement>' <files>` by line, `-A` for a find across lines, `-F` fixed, `--` before a `-`               |
+|  [06]   | `hyperfine`  | `hyperfine -r <runs> '<command>'` times runs, `-S` runs each in `sh`, `--metrics time_wall_clock,instructions` counts     |
+|  [07]   | `duckdb`     | `duckdb -c '<sql>'` queries CSV, Parquet, and JSON files in place, `-json` for machine output                             |
+|  [08]   | `xh`         | `xh <url>` prints body, exits 4 or 5 on 4xx or 5xx, `Name:value` header, `k==v` query, `k=v` JSON by POST                 |
+|  [09]   | `gh`         | `gh run watch <id> --exit-status` waits for a workflow run and exits with its result, hooks refuse a `gh run view` loop   |
+|  [10]   | `mq`         | `mq '.h2' <file.md>` reads Markdown nodes by selector, `.code("<lang>")` code blocks, `-F json` with positions            |
 
 ## [02]-[IMPLEMENTATION_STANDARDS]
 

@@ -7,9 +7,9 @@ import ghidra.app.script.GhidraScript;
 import ghidra.program.model.address.Address;
 import ghidra.program.model.listing.Function;
 
-import rasm.Arguments;
-import rasm.Functions;
-import rasm.Report;
+import headless.Arguments;
+import headless.Functions;
+import headless.Report;
 
 import util.CollectionUtils;
 

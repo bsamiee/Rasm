@@ -1,8 +1,8 @@
 import ghidra.app.script.GhidraScript;
 import ghidra.program.model.data.DataTypeManager;
 
-import rasm.Arguments;
-import rasm.Report;
+import headless.Arguments;
+import headless.Report;
 
 import java.nio.file.Path;
 import java.util.List;

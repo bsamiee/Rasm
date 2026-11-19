@@ -1,11 +1,11 @@
 ---
 name: clean-prose
-description: "Use when writing, rewriting, or reviewing any English text in a project, names and comments included"
+description: "Use when writing, rewriting, or reviewing any project text, names and comments included, covering automatic checks and fixes of Markdown and source comments"
 ---
 
 # [CLEAN_PROSE]
 
-Applies to project English, including Markdown, comments, messages, identifiers, and file names. Corrections remove whole problem categories through deletion before replacement. Rewrites preserve facts and stated uncertainty without adding unstated causes or frequencies. Rewrites reduce words and bytes unless a fact is wrong or missing.
+Applies to project text, including Markdown, comments, messages, identifiers, and file names. Corrections remove whole problem categories through deletion before replacement. Rewrites preserve facts and stated uncertainty without adding unstated causes or frequencies. Rewrites reduce words and bytes unless a fact is wrong or missing.
 
 [REFERENCES]:
 - [01]-[WORD_MAP](references/word-map.md): Word choice
@@ -13,7 +13,7 @@ Applies to project English, including Markdown, comments, messages, identifiers,
 - [03]-[ACTIONS](references/actions.md): Reader action verbs
 
 [SCRIPTS]:
-- [01]-[PROSE](scripts/prose.py): Markdown and source comment corrections
+- [01]-[PROSE](scripts/prose.py): Automatic checks and fixes of Markdown and source comments, run over every file an edit touches
 
 ## [01]-[TERMINOLOGY]
 
@@ -216,7 +216,7 @@ Guidance and message edits rewrite or delete owning lines and widen categories f
 
 `scripts/prose.py` fixes format Markdown blocks and tables, normalize dividers, delete empty sections and lone subsections, and set one blank line beside each divider except gaps the file's formatter owns. Reports cover code comments outside dividers and directives, sections out of the section order the project instructions set, and wording.
 
-Run `scripts/prose.py`: `check` reports findings at their lines on disk, `fix` writes fixes and reports remaining findings:
+Run `scripts/prose.py` inside the repository holding the paths (`git ls-files` lists them): `check` reports findings at their lines on disk, `fix` writes fixes and reports remaining findings:
 
 ```bash
 uv run --locked --script scripts/prose.py check <path>...

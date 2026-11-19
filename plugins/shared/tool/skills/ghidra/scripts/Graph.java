@@ -2,9 +2,9 @@ import ghidra.app.script.GhidraScript;
 import ghidra.program.model.listing.Function;
 import ghidra.program.model.symbol.Reference;
 
-import rasm.Arguments;
-import rasm.Functions;
-import rasm.Report;
+import headless.Arguments;
+import headless.Functions;
+import headless.Report;
 
 import util.CollectionUtils;
 

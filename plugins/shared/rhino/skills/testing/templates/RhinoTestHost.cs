@@ -80,7 +80,7 @@ public static partial class RhinoProcess {
     internal const string Alerts = "RHINO_TEST_ALERTS";
 
     private static readonly TimeSpan Startup = TimeSpan.FromMinutes(2);
-    private static volatile TaskCompletionSource? started;
+    private static readonly TaskCompletionSource Booted = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     public static RhinoMode Mode { get; } = Enum.Parse<RhinoMode>(AppContext.GetData(nameof(RhinoMode)) as string ?? nameof(RhinoMode.Headless));
 
@@ -88,10 +88,8 @@ public static partial class RhinoProcess {
     private static void Captured() => RhinoApp.CommandWindowCaptureEnabled = true;
 
     internal static async Task BootAsync() {
-        TaskCompletionSource booted = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        started = booted;
         await RequestedAsync().ConfigureAwait(false);
-        await booted.Task.WaitAsync(Startup, TimeProvider.System, TestContext.Current.CancellationToken).ConfigureAwait(false);
+        await Booted.Task.WaitAsync(Startup, TimeProvider.System, TestContext.Current.CancellationToken).ConfigureAwait(false);
     }
 
     private static partial Task RequestedAsync();

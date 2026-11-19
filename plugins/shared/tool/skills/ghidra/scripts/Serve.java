@@ -9,9 +9,9 @@ import ghidra.util.exception.CancelledException;
 import ghidra.util.exception.VersionException;
 import ghidra.util.task.CancelledListener;
 
-import org.apache.commons.io.input.BoundedInputStream;
+import headless.Report;
 
-import rasm.Report;
+import org.apache.commons.io.input.BoundedInputStream;
 
 import java.io.BufferedReader;
 import java.io.IOException;

@@ -80,15 +80,13 @@ public static partial class RhinoProcess {
 
     [UnmanagedCallersOnly]
     private static void Booting(nint _) {
-        if (started is not { } booted)
-            return;
         try {
             Boot();
         } catch (Exception exception) {
-            booted.SetException(exception);
+            Booted.SetException(exception);
             return;
         }
-        booted.SetResult();
+        Booted.SetResult();
         Looped();
     }
 

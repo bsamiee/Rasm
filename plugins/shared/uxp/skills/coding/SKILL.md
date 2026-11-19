@@ -19,25 +19,24 @@ Ranges and enumerations come from the host's declared object model, localized na
 
 Each host runs one newest runtime, and a dictionary command runs source with no linked plugin:
 
-| [INDEX] | [HOST]               | [RUNTIME]                           | [MODULE]       | [UNLINKED_SOURCE]                   |
-| :-----: | :------------------- | :---------------------------------- | :------------- | :---------------------------------- |
-|  [01]   | InDesign             | UXP                                 | `indesign`     | `do script` in `uxpscript`          |
-|  [02]   | Photoshop            | UXP                                 | `photoshop`    | `do javascript`, ExtendScript alone |
-|  [03]   | Premiere Pro         | UXP                                 | `premierepro`  | None                                |
-|  [04]   | Media Encoder (Beta) | UXP public beta                     | `mediaencoder` | None                                |
-|  [05]   | After Effects (Beta) | UXP public beta                     | `aftereffects` | `DoScript`, ExtendScript alone      |
-|  [06]   | Illustrator (Beta)   | UXP behind `EnableThirdPartyUXP`    | `illustrator`  | `do javascript`, ExtendScript alone |
-|  [07]   | Illustrator 2027     | ExtendScript                        | None           | `do javascript`                     |
-|  [08]   | Acrobat              | Acrobat JavaScript, SpiderMonkey 24 | None           | `do script`                         |
+| [INDEX] | [HOST]        | [RUNTIME]                           | [MODULE]       | [UNLINKED_SOURCE]                   |
+| :-----: | :------------ | :---------------------------------- | :------------- | :---------------------------------- |
+|  [01]   | InDesign      | UXP                                 | `indesign`     | `do script` in `uxpscript`          |
+|  [02]   | Photoshop     | UXP                                 | `photoshop`    | `do javascript`, ExtendScript alone |
+|  [03]   | Premiere Pro  | UXP                                 | `premierepro`  | None                                |
+|  [04]   | Media Encoder | UXP                                 | `mediaencoder` | None                                |
+|  [05]   | After Effects | UXP                                 | `aftereffects` | `DoScript`, ExtendScript alone      |
+|  [06]   | Illustrator   | UXP behind `EnableThirdPartyUXP`    | `illustrator`  | `do javascript`, ExtendScript alone |
+|  [07]   | Acrobat       | Acrobat JavaScript, SpiderMonkey 24 | None           | `do script`                         |
 
 - CEP turns off by default in December 2028 and leaves new host releases in December 2029
 - `require` resolves the running host's DOM module alone, `uxp.host.name` names that host, and cross-host code takes host calls as arguments
-- Illustrator (Beta) checks `EnableThirdPartyUXP` of `AIFeatures.cfg` beside its app (`enabled="1"`, `configurableInRelease="1"`) for plugins UXP developer mode loads
+- Illustrator checks `EnableThirdPartyUXP` of `AIFeatures.cfg` beside its app (`enabled="1"`, `configurableInRelease="1"`) for plugins UXP developer mode loads
 - Illustrator reads `UXPExtensionPath.json` beside its app, each string value naming a folder it scans as `<folder>/<plugin>/manifest.json`
-- Illustrator (Beta) 31.1.0 parses a plugin that marker finds and runs no `main` of it at launch, and Illustrator reads no `PluginsInfo` registry
+- Illustrator parses a plugin that marker finds and runs no `main` of it at launch, and reads no `PluginsInfo` registry
 - Illustrator serves `illustrator-dom.js` to plugins: `require('illustrator')` returns `{ app }`, the specifier inferred from the string beside its registration
-- Illustrator enumerations and creatable classes sit on `globalThis`, every call is synchronous, and enumeration values are strings
-- After Effects `require('aftereffects')` holds `app` and the DOM constructors, every call is synchronous, collections index from 1 with `length`, and `constructor.name` names each class (`Project`, `CompItem`)
+- Illustrator enums and creatable classes sit on `globalThis`, every call is synchronous, and enum values are strings
+- After Effects module holds `app` and DOM classes, calls are synchronous, collections run 1 to `length`, `constructor.name` names an object's class
 - After Effects `saveFrameToPng(seconds, path)` returns a `DeferredCall` holding `wait()`, `onComplete`, and `onError` and no `then`, and the PNG exists when the call returns
 - After Effects `resolutionFactor` takes an integer downsample `[x, y]` from 1 to 99, and `uxp.host.applicationPath` names the running bundle
 - Acrobat source runs privileged with `this` naming the front document, or the `Root` object when none is open, and `global` members persist between calls
@@ -114,18 +113,18 @@ const bytes = (path: string) =>
 
 Object models come from each host's declared source, never from reflection over live objects or a hand list:
 
-| [INDEX] | [HOST]        | [SOURCE]                                                                                |
-| :-----: | :------------ | :-------------------------------------------------------------------------------------- |
-|  [01]   | InDesign      | `indesign-uxp-types`                                                                    |
-|  [02]   | Photoshop     | `@types/photoshop`                                                                      |
-|  [03]   | Premiere Pro  | `@adobe/premierepro`, installed `ScriptingAPIManifest.json` as cross-check              |
-|  [04]   | Media Encoder | Installed `ScriptingAPIManifest.json`, AdobeDocs `uxp-media-encoder`                    |
-|  [05]   | After Effects | AdobeDocs `uxp-after-effects`, which states no enumerations                             |
-|  [06]   | Illustrator   | `/Library/Application Support/Adobe/Scripting Dictionaries CC/Illustrator 2027/omv.xml` |
-|  [07]   | Acrobat       | AdobeDocs `acrobat-pdfl-sdk` `jsapiref`, `acrohelp` parameter help                      |
+| [INDEX] | [HOST]        | [SOURCE]                                                                                           |
+| :-----: | :------------ | :------------------------------------------------------------------------------------------------- |
+|  [01]   | InDesign      | `indesign-uxp-types`                                                                               |
+|  [02]   | Photoshop     | `@types/photoshop`                                                                                 |
+|  [03]   | Premiere Pro  | `@adobe/premierepro`, installed `ScriptingAPIManifest.json` as cross-check                         |
+|  [04]   | Media Encoder | Installed `ScriptingAPIManifest.json`, AdobeDocs `uxp-media-encoder`                               |
+|  [05]   | After Effects | AdobeDocs `uxp-after-effects`, which states no enumerations                                        |
+|  [06]   | Illustrator   | Newest `Illustrator*/omv.xml` under `/Library/Application Support/Adobe/Scripting Dictionaries CC` |
+|  [07]   | Acrobat       | AdobeDocs `acrobat-pdfl-sdk` `jsapiref`, `acrohelp` parameter help                                 |
 
-- InDesign's bundled assistant `indesign.d.ts` is internal and built from the 21.4 model, and After Effects' bundled `@dva/types` is confidential
-- Illustrator's `$.dictionary` reads `null`, and a Beta-only install holds no `omv.xml`
+- InDesign's bundled assistant `indesign.d.ts` is internal, and After Effects' bundled `@dva/types` is confidential
+- Illustrator's `$.dictionary` reads `null`
 - Media Encoder's `api_config.json` is empty, and its manifest names each member with type, optional parameters, and async flag
 - `acrohelp` as an argument to a native Acrobat method answers a `HelpError` with `extMessage` listing parameters as `name: type`, optional ones in brackets
 - Native scripting dictionaries declare Apple event commands and parameter types, and a script command's parameters select its language and undo mode
@@ -305,7 +304,7 @@ const serve = <E, F>({
 
 ## [09]-[MANIFESTS]
 
-One manifest serves one host, `host.app` naming `ID`, `PS`, `premierepro`, `ame`, `aftereffects`, or `AI` (Illustrator, `minVersion` `31.1.0`), and `host.data.loadEvent` `startup` loads a plugin at host launch. Hosts enforce each `requiredPermissions` and `featureFlags` key:
+One manifest serves one host, `host.app` naming `ID`, `PS`, `premierepro`, `ame`, `aftereffects`, or `AI`, and `host.data.loadEvent` `startup` loads a plugin at host launch. Hosts enforce each `requiredPermissions` and `featureFlags` key:
 
 | [INDEX] | [KEY]                                   | [GRANTS]                                                 | [WITHOUT]                        |
 | :-----: | :-------------------------------------- | :------------------------------------------------------- | :------------------------------- |
@@ -345,7 +344,7 @@ CDP and UXP Debugger routes need UXP developer mode, `{"developer": true}` in `/
 |  [01]   | Photoshop               | `uxp-cli create-cdp-url`, Atelier `execute_script` | `@bubblydoo/vitest-pool-uxp` `uxpPool` |
 |  [02]   | InDesign                | Atelier `execute_script`, `diagnostics`            | Atelier `execute_script`               |
 |  [03]   | Premiere, Media Encoder | UXP Debugger, Atelier `diagnostics`                | None                                   |
-|  [04]   | After Effects (Beta)    | Atelier `execute_script`, UXP Developer Tool       | Atelier `execute_script`               |
+|  [04]   | After Effects           | Atelier `execute_script`, UXP Developer Tool       | Atelier `execute_script`               |
 
 - Atelier `execute_script` reaches Photoshop and After Effects through linked Atelier plug-ins, and InDesign through `do script` with `language uxpscript`
 - Atelier `execute_script` reaches Illustrator through `do javascript`, and Premiere and Media Encoder declare no script command

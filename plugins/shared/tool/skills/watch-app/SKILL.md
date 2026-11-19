@@ -53,7 +53,7 @@ watch-app watch <app> [<helper>]... --record <folder>
 - `launch --wait` returns the app's exit status, or 128 plus its signal
 - `launch --wait` quits an instance it created when the run ends first (signal, reader closing, starting process exiting), and exits with its status
 - Runs ending during startup wait for the launch request to return before quitting
-- Early-end quits save each document with a file, autosaving apps keep untitled ones, and only an untitled document without autosave takes a kill
+- Early-end quits save each document with a file, then quit discarding unsaved documents when the instance still runs, and kill nothing
 - `quit` prints lines until the instance exits, a row asks (save sheet, left for an agent), it stops answering, or a read fails
 - `quit` stops printing when its quit event goes unanswered past the Apple Event default timeout while reads answer, and exits 1 unless each instance exited
 - `quit --force` kills the instance, for one no answer or quit frees, and the killed app asks about its previous session at the next launch
@@ -64,6 +64,8 @@ watch-app watch <app> [<helper>]... --record <folder>
 - App switches pass after `--arguments`, `launch` adding none of its own
 - `launch` captures neither the app's output nor error stream
 - `launch` takes the place of `open`, `xed`, and a launching `osascript`, which activate the app they open
+- `launch` takes the place of running an app's executable, which registers the app among the caller's processes
+- Force Quit of a later instance of an app registered that way kills every process of the caller's terminal
 - Running `watch` processes restart into a newly installed `watch-app` with their own arguments
 
 Every command exits 1 after printing a `fail` line and 0 otherwise, and ends when the process that started it exits, its reader closes, or SIGTERM, SIGINT, or SIGHUP arrives. A second signal ends a run still quitting the instance it created. Malformed arguments print a `fail` line keyed by `watch-app`.

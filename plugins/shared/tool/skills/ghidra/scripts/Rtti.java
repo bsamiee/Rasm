@@ -10,8 +10,8 @@ import ghidra.program.model.mem.MemoryBlock;
 import ghidra.program.model.symbol.Reference;
 import ghidra.program.model.symbol.Symbol;
 
-import rasm.Arguments;
-import rasm.Report;
+import headless.Arguments;
+import headless.Report;
 
 import util.CollectionUtils;
 

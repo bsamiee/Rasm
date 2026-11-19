@@ -34,9 +34,9 @@ import ghidra.program.model.pcode.PcodeOp;
 import ghidra.program.model.symbol.Reference;
 import ghidra.util.NumericUtilities;
 
-import rasm.Arguments;
-import rasm.Functions;
-import rasm.Report;
+import headless.Arguments;
+import headless.Functions;
+import headless.Report;
 
 import util.CollectionUtils;
 

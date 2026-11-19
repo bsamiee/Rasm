@@ -20,9 +20,9 @@ import ghidra.program.model.pcode.HighSymbol;
 import ghidra.program.model.pcode.PcodeOp;
 import ghidra.program.model.pcode.Varnode;
 
-import rasm.Arguments;
-import rasm.Functions;
-import rasm.Report;
+import headless.Arguments;
+import headless.Functions;
+import headless.Report;
 
 import util.CollectionUtils;
 

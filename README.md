@@ -84,6 +84,7 @@ flowchart LR
     mise["mise<br/>.config/mise.toml [tools] [env]"]
     shell(["Shell and child processes"])
     claude(["Claude Code session"])
+    codex(["Codex session"])
     ci(["CI job"])
     hooks["plugins/claude/function-hooks"]
 
@@ -116,6 +117,7 @@ flowchart LR
     shell -->|runs| hk & nx
     ci -->|runs| nx
     claude -->|tool call| hooks
+    codex -->|tool call through plugins/codex/policy| hooks
     hooks -->|runs, direct checker and build calls rewritten| hk & nx
     hk -->|runs| steps
     nx -->|runs targets of| plugins
@@ -168,7 +170,6 @@ Workspace commands, by tool:
 - `nx sync` writes executor schemas and tsconfig `references`
 - `nx migrate <version>`, then `nx migrate --run-migrations`, applies a new Nx release's migrations, and `pnpm dedupe` moves peer ranges the lock held
 - `pixi run --locked python` supplies the library search path for `magic` and `weasyprint`
-- `ictool <plugin>/assets/icon.icon --export-image --output-file <plugin>/assets/icon.png --platform macOS --rendition Default --width 256 --height 256 --scale 1` renders a plugin icon over its `@phosphor-icons/core` 2.1.1 bold SVG layer, `--rendition Dark` to `icon-dark.png`
 
 ## [06]-[TESTING]
 

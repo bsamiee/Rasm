@@ -20,9 +20,9 @@ description: "Use when reading, annotating, or emulating a binary through Ghidra
 - [10]-[APPLY](scripts/Apply.java): Postscript applying names, labels, comments, prototypes, and locals from row files
 - [11]-[HEADERS](scripts/Headers.java): Postscript applying C header types and prototypes
 - [12]-[DROP](scripts/Drop.java): Postscript removing data types by path
-- [13]-[ARGUMENTS](scripts/rasm/Arguments.java): Usage text, seeds, and settings every postscript shares
-- [14]-[FUNCTIONS](scripts/rasm/Functions.java): Call graph and decompile operations every postscript shares
-- [15]-[REPORT](scripts/rasm/Report.java): Result type, sections, and file writer every postscript shares
+- [13]-[ARGUMENTS](scripts/headless/Arguments.java): Usage text, seeds, and settings every postscript shares
+- [14]-[FUNCTIONS](scripts/headless/Functions.java): Call graph and decompile operations every postscript shares
+- [15]-[REPORT](scripts/headless/Report.java): Result type, sections, and file writer every postscript shares
 
 [FACTS]:
 - Run: Postscripts take the output path as their first argument after the script name

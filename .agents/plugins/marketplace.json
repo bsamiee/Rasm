@@ -27,40 +27,6 @@
                 "shortDescription": "Blender sessions and Python inside Blender: bpy data, extensions, interface, node trees, and render output",
                 "developerName": "Bardia Samiee",
                 "category": "Coding",
-                "composerIcon": "./assets/icon.png",
-                "composerIconDark": "./assets/icon-dark.png",
-                "logo": "./assets/icon.png",
-                "logoDark": "./assets/icon-dark.png",
-                "brandColor": "#090909"
-            }
-        },
-        {
-            "name": "browser",
-            "source": {
-                "source": "local",
-                "path": "./plugins/shared/browser"
-            },
-            "policy": {
-                "installation": "AVAILABLE",
-                "authentication": "ON_INSTALL"
-            },
-            "category": "Coding",
-            "version": "0.1.0",
-            "description": "Browser automation through Playwright CLI, the signed-in Chrome, and the Chrome, Firefox, and Safari DevTools MCP servers",
-            "author": {
-                "name": "Bardia Samiee"
-            },
-            "skills": "./skills/",
-            "mcpServers": "./.mcp.json",
-            "interface": {
-                "displayName": "Browser",
-                "shortDescription": "Browser automation through Playwright CLI, the signed-in Chrome, and the Chrome, Firefox, and Safari DevTools MCP servers",
-                "developerName": "Bardia Samiee",
-                "category": "Coding",
-                "composerIcon": "./assets/icon.png",
-                "composerIconDark": "./assets/icon-dark.png",
-                "logo": "./assets/icon.png",
-                "logoDark": "./assets/icon-dark.png",
                 "brandColor": "#090909"
             }
         },
@@ -76,7 +42,7 @@
             },
             "category": "Coding",
             "version": "0.4.0",
-            "description": "C++ and Objective-C++ design with types, ownership, failure as values, compile-time evaluation, memory layout, and concurrency, and Unreal Engine builds, containers, traces, editor servers, toolsets, and Agent Skills",
+            "description": "C++ and Objective-C++ design with types, ownership, failure as values, compile-time evaluation, memory layout, and concurrency, and the Unreal Engine editor MCP server",
             "author": {
                 "name": "Bardia Samiee"
             },
@@ -84,42 +50,9 @@
             "mcpServers": "./.mcp.json",
             "interface": {
                 "displayName": "C++",
-                "shortDescription": "C++ and Objective-C++ design with types, ownership, failure as values, compile-time evaluation, memory layout, and concurrency, and Unreal Engine builds, containers, traces, editor servers, toolsets, and Agent Skills",
+                "shortDescription": "C++ and Objective-C++ design with types, ownership, failure as values, compile-time evaluation, memory layout, and concurrency, and the Unreal Engine editor MCP server",
                 "developerName": "Bardia Samiee",
                 "category": "Coding",
-                "composerIcon": "./assets/icon.png",
-                "composerIconDark": "./assets/icon-dark.png",
-                "logo": "./assets/icon.png",
-                "logoDark": "./assets/icon-dark.png",
-                "brandColor": "#090909"
-            }
-        },
-        {
-            "name": "data",
-            "source": {
-                "source": "local",
-                "path": "./plugins/shared/data"
-            },
-            "policy": {
-                "installation": "AVAILABLE",
-                "authentication": "ON_INSTALL"
-            },
-            "category": "Coding",
-            "version": "0.1.0",
-            "description": "DuckDB over data files and databases: reading, querying, converting, attaching, docs search, S3 and spatial data, and the DuckDB 2.0 SQL and Python dialect",
-            "author": {
-                "name": "Bardia Samiee"
-            },
-            "skills": "./skills/",
-            "interface": {
-                "displayName": "Data",
-                "shortDescription": "DuckDB over data files and databases: reading, querying, converting, attaching, docs search, S3 and spatial data, and the DuckDB 2.0 SQL and Python dialect",
-                "developerName": "Bardia Samiee",
-                "category": "Coding",
-                "composerIcon": "./assets/icon.png",
-                "composerIconDark": "./assets/icon-dark.png",
-                "logo": "./assets/icon.png",
-                "logoDark": "./assets/icon-dark.png",
                 "brandColor": "#090909"
             }
         },
@@ -145,39 +78,6 @@
                 "shortDescription": "Work handed to other agents: headless Antigravity runs and a council of models",
                 "developerName": "Bardia Samiee",
                 "category": "Coding",
-                "composerIcon": "./assets/icon.png",
-                "composerIconDark": "./assets/icon-dark.png",
-                "logo": "./assets/icon.png",
-                "logoDark": "./assets/icon-dark.png",
-                "brandColor": "#090909"
-            }
-        },
-        {
-            "name": "documents",
-            "source": {
-                "source": "local",
-                "path": "./plugins/shared/documents"
-            },
-            "policy": {
-                "installation": "AVAILABLE",
-                "authentication": "ON_INSTALL"
-            },
-            "category": "Coding",
-            "version": "0.1.0",
-            "description": "Word, Excel, and PowerPoint files through officecli: documents, forms, papers, workbooks, dashboards, financial models, decks, and Morph animations",
-            "author": {
-                "name": "Bardia Samiee"
-            },
-            "skills": "./skills/",
-            "interface": {
-                "displayName": "Documents",
-                "shortDescription": "Word, Excel, and PowerPoint files through officecli: documents, forms, papers, workbooks, dashboards, financial models, decks, and Morph animations",
-                "developerName": "Bardia Samiee",
-                "category": "Coding",
-                "composerIcon": "./assets/icon.png",
-                "composerIconDark": "./assets/icon-dark.png",
-                "logo": "./assets/icon.png",
-                "logoDark": "./assets/icon-dark.png",
                 "brandColor": "#090909"
             }
         },
@@ -204,10 +104,31 @@
                 "shortDescription": "C# design with result and effect types, LanguageExt, Mapperly, memory, Thinktecture, UI, and Roslyn code navigation",
                 "developerName": "Bardia Samiee",
                 "category": "Coding",
-                "composerIcon": "./assets/icon.png",
-                "composerIconDark": "./assets/icon-dark.png",
-                "logo": "./assets/icon.png",
-                "logoDark": "./assets/icon-dark.png",
+                "brandColor": "#090909"
+            }
+        },
+        {
+            "name": "duckdb",
+            "source": {
+                "source": "local",
+                "path": "./plugins/shared/duckdb"
+            },
+            "policy": {
+                "installation": "AVAILABLE",
+                "authentication": "ON_INSTALL"
+            },
+            "category": "Coding",
+            "version": "0.1.0",
+            "description": "DuckDB over data files and databases: reading, querying, attaching, docs search, S3 and spatial data, and the DuckDB 2.0 SQL and Python dialect",
+            "author": {
+                "name": "Bardia Samiee"
+            },
+            "skills": "./skills/",
+            "interface": {
+                "displayName": "DuckDB",
+                "shortDescription": "DuckDB over data files and databases: reading, querying, attaching, docs search, S3 and spatial data, and the DuckDB 2.0 SQL and Python dialect",
+                "developerName": "Bardia Samiee",
+                "category": "Coding",
                 "brandColor": "#090909"
             }
         },
@@ -233,10 +154,6 @@
                 "shortDescription": "Audio work through the Voicebox voice studio MCP server",
                 "developerName": "Bardia Samiee",
                 "category": "Coding",
-                "composerIcon": "./assets/icon.png",
-                "composerIconDark": "./assets/icon-dark.png",
-                "logo": "./assets/icon.png",
-                "logoDark": "./assets/icon-dark.png",
                 "brandColor": "#090909"
             }
         },
@@ -263,10 +180,6 @@
                 "shortDescription": "MSBuild evaluation, execution, packaging, binary-log diagnostics, and antipatterns",
                 "developerName": "Bardia Samiee",
                 "category": "Coding",
-                "composerIcon": "./assets/icon.png",
-                "composerIconDark": "./assets/icon-dark.png",
-                "logo": "./assets/icon.png",
-                "logoDark": "./assets/icon-dark.png",
                 "brandColor": "#090909"
             }
         },
@@ -281,21 +194,17 @@
                 "authentication": "ON_INSTALL"
             },
             "category": "Coding",
-            "version": "0.4.0",
-            "description": "Python design with result and record types, cyclopts, expression, msgspec, pydantic, telemetry, and docstrings, with the ty language server",
+            "version": "0.4.1",
+            "description": "Python design with result and record types, cyclopts, expression, msgspec, pydantic, telemetry, and docstrings",
             "author": {
                 "name": "Bardia Samiee"
             },
             "skills": "./skills/",
             "interface": {
                 "displayName": "Python",
-                "shortDescription": "Python design with result and record types, cyclopts, expression, msgspec, pydantic, telemetry, and docstrings, with the ty language server",
+                "shortDescription": "Python design with result and record types, cyclopts, expression, msgspec, pydantic, telemetry, and docstrings",
                 "developerName": "Bardia Samiee",
                 "category": "Coding",
-                "composerIcon": "./assets/icon.png",
-                "composerIconDark": "./assets/icon-dark.png",
-                "logo": "./assets/icon.png",
-                "logoDark": "./assets/icon-dark.png",
                 "brandColor": "#090909"
             }
         },
@@ -322,10 +231,6 @@
                 "shortDescription": "Rhino sessions, Grasshopper 2 canvases, and tests of code over RhinoCommon and Grasshopper",
                 "developerName": "Bardia Samiee",
                 "category": "Coding",
-                "composerIcon": "./assets/icon.png",
-                "composerIconDark": "./assets/icon-dark.png",
-                "logo": "./assets/icon.png",
-                "logoDark": "./assets/icon-dark.png",
                 "brandColor": "#090909"
             }
         },
@@ -340,21 +245,17 @@
                 "authentication": "ON_INSTALL"
             },
             "category": "Coding",
-            "version": "0.3.0",
-            "description": "Rust design with algebraic types, results, traits, and async effects, with the rust-analyzer language server",
+            "version": "0.3.2",
+            "description": "Rust design with algebraic types, results, traits, and async effects",
             "author": {
                 "name": "Bardia Samiee"
             },
             "skills": "./skills/",
             "interface": {
                 "displayName": "Rust",
-                "shortDescription": "Rust design with algebraic types, results, traits, and async effects, with the rust-analyzer language server",
+                "shortDescription": "Rust design with algebraic types, results, traits, and async effects",
                 "developerName": "Bardia Samiee",
                 "category": "Coding",
-                "composerIcon": "./assets/icon.png",
-                "composerIconDark": "./assets/icon-dark.png",
-                "logo": "./assets/icon.png",
-                "logoDark": "./assets/icon-dark.png",
                 "brandColor": "#090909"
             }
         },
@@ -370,7 +271,7 @@
             },
             "category": "Coding",
             "version": "0.9.0",
-            "description": "Dependency source, web, and Are.na research, and structural code search with ast-grep",
+            "description": "Dependency source, web, Are.na, and Gemini Notebook research, and structural code search with ast-grep",
             "author": {
                 "name": "Bardia Samiee"
             },
@@ -378,13 +279,9 @@
             "mcpServers": "./.mcp.json",
             "interface": {
                 "displayName": "Search",
-                "shortDescription": "Dependency source, web, and Are.na research, and structural code search with ast-grep",
+                "shortDescription": "Dependency source, web, Are.na, and Gemini Notebook research, and structural code search with ast-grep",
                 "developerName": "Bardia Samiee",
                 "category": "Coding",
-                "composerIcon": "./assets/icon.png",
-                "composerIconDark": "./assets/icon-dark.png",
-                "logo": "./assets/icon.png",
-                "logoDark": "./assets/icon-dark.png",
                 "brandColor": "#090909"
             }
         },
@@ -399,8 +296,8 @@
                 "authentication": "ON_INSTALL"
             },
             "category": "Coding",
-            "version": "0.4.0",
-            "description": "Swift design with typed throws, value types, and structured concurrency, Xcode builds, LLDB sessions, the Xcode skills for SwiftUI, App Intents, accessibility, translation, tests, xctrace, and devices, iPhone and iPad operation through pymobiledevice3, and the SourceKit-LSP language server",
+            "version": "0.4.1",
+            "description": "Swift design with typed throws, value types, and structured concurrency, and LLDB sessions",
             "author": {
                 "name": "Bardia Samiee"
             },
@@ -408,13 +305,9 @@
             "mcpServers": "./.mcp.json",
             "interface": {
                 "displayName": "Swift",
-                "shortDescription": "Swift design with typed throws, value types, and structured concurrency, Xcode builds, LLDB sessions, the Xcode skills for SwiftUI, App Intents, accessibility, translation, tests, xctrace, and devices, iPhone and iPad operation through pymobiledevice3, and the SourceKit-LSP language server",
+                "shortDescription": "Swift design with typed throws, value types, and structured concurrency, and LLDB sessions",
                 "developerName": "Bardia Samiee",
                 "category": "Coding",
-                "composerIcon": "./assets/icon.png",
-                "composerIconDark": "./assets/icon-dark.png",
-                "logo": "./assets/icon.png",
-                "logoDark": "./assets/icon-dark.png",
                 "brandColor": "#090909"
             }
         },
@@ -429,7 +322,7 @@
                 "authentication": "ON_INSTALL"
             },
             "category": "Coding",
-            "version": "0.4.0",
+            "version": "0.4.1",
             "description": "Shell history and agent session search through atuin hooks, MCP server, and skill, with zellij-agent-resume session hooks and git-ai authorship checkpoints",
             "author": {
                 "name": "Bardia Samiee"
@@ -442,10 +335,6 @@
                 "shortDescription": "Shell history and agent session search through atuin hooks, MCP server, and skill, with zellij-agent-resume session hooks and git-ai authorship checkpoints",
                 "developerName": "Bardia Samiee",
                 "category": "Coding",
-                "composerIcon": "./assets/icon.png",
-                "composerIconDark": "./assets/icon-dark.png",
-                "logo": "./assets/icon.png",
-                "logoDark": "./assets/icon-dark.png",
                 "brandColor": "#090909"
             }
         },
@@ -461,7 +350,7 @@
             },
             "category": "Coding",
             "version": "0.4.0",
-            "description": "Binary analysis in Ghidra, app, binary, process, and file inspection, desktop app lifecycle, monitoring, and recording through watch-app, and Parallels Desktop VMs through its MCP server",
+            "description": "Binary analysis in Ghidra, app, binary, process, and file inspection, desktop app lifecycle, monitoring, and recording through watch-app, Parallels Desktop VMs through its MCP server, and Google Workspace through the gog CLI",
             "author": {
                 "name": "Bardia Samiee"
             },
@@ -469,13 +358,9 @@
             "mcpServers": "./.mcp.json",
             "interface": {
                 "displayName": "Tool",
-                "shortDescription": "Binary analysis in Ghidra, app, binary, process, and file inspection, desktop app lifecycle, monitoring, and recording through watch-app, and Parallels Desktop VMs through its MCP server",
+                "shortDescription": "Binary analysis in Ghidra, app, binary, process, and file inspection, desktop app lifecycle, monitoring, and recording through watch-app, Parallels Desktop VMs through its MCP server, and Google Workspace through the gog CLI",
                 "developerName": "Bardia Samiee",
                 "category": "Coding",
-                "composerIcon": "./assets/icon.png",
-                "composerIconDark": "./assets/icon-dark.png",
-                "logo": "./assets/icon.png",
-                "logoDark": "./assets/icon-dark.png",
                 "brandColor": "#090909"
             }
         },
@@ -501,10 +386,6 @@
                 "shortDescription": "Functional TypeScript on Effect, Schema, and algebraic data types, with Effect module families",
                 "developerName": "Bardia Samiee",
                 "category": "Coding",
-                "composerIcon": "./assets/icon.png",
-                "composerIconDark": "./assets/icon-dark.png",
-                "logo": "./assets/icon.png",
-                "logoDark": "./assets/icon-dark.png",
                 "brandColor": "#090909"
             }
         },
@@ -530,42 +411,9 @@
                 "shortDescription": "Code that runs in an Adobe UXP host, and the Atelier, After Effects, Media Encoder, Premiere, and Illustrator servers that drive Adobe apps",
                 "developerName": "Bardia Samiee",
                 "category": "Coding",
-                "composerIcon": "./assets/icon.png",
-                "composerIconDark": "./assets/icon-dark.png",
-                "logo": "./assets/icon.png",
-                "logoDark": "./assets/icon-dark.png",
                 "brandColor": "#090909"
             },
             "mcpServers": "./.mcp.json"
-        },
-        {
-            "name": "web",
-            "source": {
-                "source": "local",
-                "path": "./plugins/shared/web"
-            },
-            "policy": {
-                "installation": "AVAILABLE",
-                "authentication": "ON_INSTALL"
-            },
-            "category": "Coding",
-            "version": "0.2.0",
-            "description": "Google Workspace through the gog CLI and Gemini Notebook through notebooklm-py",
-            "author": {
-                "name": "Bardia Samiee"
-            },
-            "skills": "./skills/",
-            "interface": {
-                "displayName": "Web",
-                "shortDescription": "Google Workspace through the gog CLI and Gemini Notebook through notebooklm-py",
-                "developerName": "Bardia Samiee",
-                "category": "Coding",
-                "composerIcon": "./assets/icon.png",
-                "composerIconDark": "./assets/icon-dark.png",
-                "logo": "./assets/icon.png",
-                "logoDark": "./assets/icon-dark.png",
-                "brandColor": "#090909"
-            }
         },
         {
             "name": "orchestration",
@@ -589,10 +437,30 @@
                 "shortDescription": "Codex app threads and parallel agent tasks",
                 "developerName": "Bardia Samiee",
                 "category": "Coding",
-                "composerIcon": "./assets/icon.png",
-                "composerIconDark": "./assets/icon-dark.png",
-                "logo": "./assets/icon.png",
-                "logoDark": "./assets/icon-dark.png",
+                "brandColor": "#090909"
+            }
+        },
+        {
+            "name": "policy",
+            "source": {
+                "source": "local",
+                "path": "./plugins/codex/policy"
+            },
+            "policy": {
+                "installation": "AVAILABLE",
+                "authentication": "ON_INSTALL"
+            },
+            "category": "Coding",
+            "version": "0.1.0",
+            "description": "Shell, patch, sleep, and Node REPL calls judged by the function-hooks command rules",
+            "author": {
+                "name": "Bardia Samiee"
+            },
+            "interface": {
+                "displayName": "Policy",
+                "shortDescription": "Shell, patch, sleep, and Node REPL calls judged by the function-hooks command rules",
+                "developerName": "Bardia Samiee",
+                "category": "Coding",
                 "brandColor": "#090909"
             }
         }

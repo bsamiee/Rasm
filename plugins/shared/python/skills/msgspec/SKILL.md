@@ -5,9 +5,6 @@ description: "Use when declaring msgspec records or codecs, covering struct opti
 
 # [PYTHON_MSGSPEC]
 
-[REFERENCES]:
-- [01]-[MESSAGEPACK](references/messagepack.md): Extension types for out-of-band references, values MessagePack encodes unlike JSON
-
 ## [01]-[STRUCT_OPTIONS]
 
 Subclasses inherit every struct option, one base class declares encoding options every union member shares:
@@ -138,7 +135,43 @@ def schema(kind: type, /) -> dict[str, object]:
 - Natively decoded types (`Decimal`, `datetime`, `UUID`) never reach `dec_hook`
 - Custom types share a union with `None` alone
 
-## [07]-[CONVERSION]
+## [07]-[MESSAGEPACK]
+
+Records holding live handles (host objects, open resources) encode each as an extension value naming its side-table index, and decode resolves it. `linked` adds one entry per distinct handle during one encode and returns the table as a tuple beside the bytes:
+
+```python
+LINK = 1
+
+
+def linked[H: Hashable](kind: type[H], record: msgspec.Struct, /) -> tuple[bytes, tuple[H, ...]]:
+    table: dict[H, int] = {}
+
+    def referenced(value: object, /) -> msgspec.msgpack.Ext:
+        if not isinstance(value, kind):
+            raise NotImplementedError(type(value))
+        return msgspec.msgpack.Ext(LINK, table.setdefault(value, len(table)).to_bytes(4))
+
+    return msgspec.msgpack.encode(record, enc_hook=referenced, order="deterministic"), tuple(table)
+
+
+def resolved[H: Hashable](handles: tuple[H, ...], code: int, data: memoryview, /) -> H | msgspec.msgpack.Ext:
+    return handles[int.from_bytes(data)] if code == LINK else msgspec.msgpack.Ext(code, bytes(data))
+```
+
+On `linked` output, `msgspec.msgpack.decode(data, type=<Record>, ext_hook=partial(resolved, handles))` returns a record holding the same handles. A second table of equal length rebinds every field to its handles:
+- Codes 0 to 127 belong to applications, and negative codes to MessagePack (`-1` for timestamps)
+- Fields typed as the handle class refuse an `ext_hook` result of another class at their path (`` Expected `Handle`, got `Other` - at `$.handle` ``)
+- `ext_hook` raises propagate raw, and a table shorter than its indexes raises `IndexError` past a `DecodeError` catch
+- Codes other than `LINK` decode as `msgspec.msgpack.Ext` values, as in a decode with no `ext_hook`
+
+MessagePack differs from JSON on integers, binary, datetimes, UUIDs, and non-finite floats:
+- Integers outside `-2**63` to `2**64 - 1` raise `OverflowError`, and JSON writes them whole
+- `bytes` fields refuse `str` items, and a `memoryview` target views `bin` data in the input buffer, which the view keeps alive
+- Aware `datetime` encodes as the timestamp extension, and naive `datetime` as ISO text
+- `Encoder(uuid_format="bytes")` writes a `UUID` as its 16 bytes, an option the JSON encoder lacks
+- `NaN` and infinities encode as floats and decode back unchanged
+
+## [08]-[CONVERSION]
 
 `convert` and every decoder coerce by input and target, and `strict=False` on either adds the text and number coercions a text source needs:
 
@@ -160,7 +193,7 @@ Lax unions holding `str` keep text (`"1"` into `int | str` stays `"1"`), and `Fi
 - `to_builtins` applies renames, tags, omitted defaults, and `UNSET`, and writes `Decimal`, `datetime`, `UUID`, `bytes` as text strict `convert` reads
 - `structs.asdict` copies Python names one level deep
 
-## [08]-[INSPECTION]
+## [09]-[INSPECTION]
 
 `msgspec.inspect.type_info` resolves a type once into a node tree holding wire names, defaults, tags, and expanded `Meta` constraints. One walk over the tree derives what each shape consumer reads (environment names, flags, columns). `leaves` lists every field path by wire name with its node:
 
@@ -180,7 +213,7 @@ Under `rename="camel"`, `leaves(msgspec.inspect.type_info(<Record>))` yields `((
 - Optional fields arrive as `UnionType` holding `NoneType()`, and a tagged union as `UnionType` of `StructType` nodes holding `tag_field` and `tag`
 - `multi_type_info((A, B))` analyzes types together and shares one node per record
 
-## [09]-[SCHEMAS]
+## [10]-[SCHEMAS]
 
 `msgspec.json.schema(T)` and `schema_components(types, ref_template=)` emit JSON Schema 2020-12 from the declarations decode reads. `schema_hook` supplies the node of each type `dec_hook` serves:
 
@@ -194,7 +227,7 @@ Over `Host` with `address: IPv4Address` and `port` bounded by `Meta(ge=1, le=655
 - `__post_init__` rules and hook logic stay out of the schema
 - Custom types without a `schema_hook` raise `TypeError`, and `Meta(extra_json_schema=...)` on an alias supplies one type's node
 
-## [10]-[TYPING]
+## [11]-[TYPING]
 
 Decoders expand `type` aliases, PEP 695 parameters, and unquoted forward references at first use, and unparametrized parameters decode as their bound. Forms msgspec reads in part take a replacement:
 

@@ -1,4 +1,4 @@
-package rasm;
+package headless;
 
 import ghidra.program.model.listing.Program;
 

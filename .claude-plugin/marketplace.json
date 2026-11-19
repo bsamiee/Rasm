@@ -19,32 +19,14 @@
             }
         },
         {
-            "name": "browser",
-            "source": "./plugins/shared/browser",
-            "version": "0.1.0",
-            "description": "Browser automation through Playwright CLI, the signed-in Chrome, and the Chrome, Firefox, and Safari DevTools MCP servers",
-            "author": {
-                "name": "Bardia Samiee"
-            }
-        },
-        {
             "name": "cpp",
             "source": "./plugins/shared/cpp",
             "version": "0.4.0",
-            "description": "C++ and Objective-C++ design with types, ownership, failure as values, compile-time evaluation, memory layout, and concurrency, and Unreal Engine builds, containers, traces, editor servers, toolsets, and Agent Skills",
+            "description": "C++ and Objective-C++ design with types, ownership, failure as values, compile-time evaluation, memory layout, and concurrency, and the Unreal Engine editor MCP server",
             "author": {
                 "name": "Bardia Samiee"
             },
-            "keywords": ["c++", "objective-c++", "unreal-engine", "unrealbuildtool", "unreal-mcp"]
-        },
-        {
-            "name": "data",
-            "source": "./plugins/shared/data",
-            "version": "0.1.0",
-            "description": "DuckDB over data files and databases: reading, querying, converting, attaching, docs search, S3 and spatial data, and the DuckDB 2.0 SQL and Python dialect",
-            "author": {
-                "name": "Bardia Samiee"
-            }
+            "keywords": ["c++", "objective-c++", "unreal-mcp"]
         },
         {
             "name": "delegate",
@@ -56,19 +38,19 @@
             }
         },
         {
-            "name": "documents",
-            "source": "./plugins/shared/documents",
-            "version": "0.1.0",
-            "description": "Word, Excel, and PowerPoint files through officecli: documents, forms, papers, workbooks, dashboards, financial models, decks, and Morph animations",
+            "name": "dotnet",
+            "source": "./plugins/shared/dotnet",
+            "version": "0.3.0",
+            "description": "C# design with result and effect types, LanguageExt, Mapperly, memory, Thinktecture, UI, and Roslyn code navigation",
             "author": {
                 "name": "Bardia Samiee"
             }
         },
         {
-            "name": "dotnet",
-            "source": "./plugins/shared/dotnet",
-            "version": "0.3.0",
-            "description": "C# design with result and effect types, LanguageExt, Mapperly, memory, Thinktecture, UI, and Roslyn code navigation",
+            "name": "duckdb",
+            "source": "./plugins/shared/duckdb",
+            "version": "0.1.0",
+            "description": "DuckDB over data files and databases: reading, querying, attaching, docs search, S3 and spatial data, and the DuckDB 2.0 SQL and Python dialect",
             "author": {
                 "name": "Bardia Samiee"
             }
@@ -94,8 +76,8 @@
         {
             "name": "python",
             "source": "./plugins/shared/python",
-            "version": "0.4.0",
-            "description": "Python design with result and record types, cyclopts, expression, msgspec, pydantic, telemetry, and docstrings, with the ty language server",
+            "version": "0.4.1",
+            "description": "Python design with result and record types, cyclopts, expression, msgspec, pydantic, telemetry, and docstrings",
             "author": {
                 "name": "Bardia Samiee"
             }
@@ -112,8 +94,8 @@
         {
             "name": "rust",
             "source": "./plugins/shared/rust",
-            "version": "0.3.0",
-            "description": "Rust design with algebraic types, results, traits, and async effects, with the rust-analyzer language server",
+            "version": "0.3.2",
+            "description": "Rust design with algebraic types, results, traits, and async effects",
             "author": {
                 "name": "Bardia Samiee"
             }
@@ -122,7 +104,7 @@
             "name": "search",
             "source": "./plugins/shared/search",
             "version": "0.9.0",
-            "description": "Dependency source, web, and Are.na research, and structural code search with ast-grep",
+            "description": "Dependency source, web, Are.na, and Gemini Notebook research, and structural code search with ast-grep",
             "author": {
                 "name": "Bardia Samiee"
             }
@@ -130,8 +112,8 @@
         {
             "name": "swift",
             "source": "./plugins/shared/swift",
-            "version": "0.4.0",
-            "description": "Swift design with typed throws, value types, and structured concurrency, Xcode builds, LLDB sessions, the Xcode skills for SwiftUI, App Intents, accessibility, translation, tests, xctrace, and devices, iPhone and iPad operation through pymobiledevice3, and the SourceKit-LSP language server",
+            "version": "0.4.1",
+            "description": "Swift design with typed throws, value types, and structured concurrency, and LLDB sessions",
             "author": {
                 "name": "Bardia Samiee"
             }
@@ -139,7 +121,7 @@
         {
             "name": "terminal",
             "source": "./plugins/shared/terminal",
-            "version": "0.4.0",
+            "version": "0.4.1",
             "description": "Shell history and agent session search through atuin hooks, MCP server, and skill, with zellij-agent-resume session hooks and git-ai authorship checkpoints",
             "author": {
                 "name": "Bardia Samiee"
@@ -149,7 +131,7 @@
             "name": "tool",
             "source": "./plugins/shared/tool",
             "version": "0.4.0",
-            "description": "Binary analysis in Ghidra, app, binary, process, and file inspection, desktop app lifecycle, monitoring, and recording through watch-app, and Parallels Desktop VMs through its MCP server",
+            "description": "Binary analysis in Ghidra, app, binary, process, and file inspection, desktop app lifecycle, monitoring, and recording through watch-app, Parallels Desktop VMs through its MCP server, and Google Workspace through the gog CLI",
             "author": {
                 "name": "Bardia Samiee"
             }
@@ -168,15 +150,6 @@
             "source": "./plugins/shared/uxp",
             "version": "0.5.0",
             "description": "Code that runs in an Adobe UXP host, and the Atelier server that drives Adobe apps and proxies their own servers",
-            "author": {
-                "name": "Bardia Samiee"
-            }
-        },
-        {
-            "name": "web",
-            "source": "./plugins/shared/web",
-            "version": "0.2.0",
-            "description": "Google Workspace through the gog CLI and Gemini Notebook through notebooklm-py",
             "author": {
                 "name": "Bardia Samiee"
             }
