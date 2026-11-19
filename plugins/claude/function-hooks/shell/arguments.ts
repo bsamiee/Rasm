@@ -93,7 +93,7 @@ const carapaceUsage = (command: CarapaceCommand, inherited: Usage['flags'], decl
     const persistent = new Map([...inherited, ...(command.PersistentFlags ?? []).flatMap(carapaceFlags)]);
     return {
         flags: new Map([...persistent, ...(command.LocalFlags ?? []).flatMap(carapaceFlags), ...declared]),
-        subcommands: new Map((command.Commands ?? []).flatMap((sub) => [sub.Name, ...(sub.Aliases ?? [])].map((name) => [name, carapaceUsage(sub, persistent, declared)] as const))),
+        subcommands: new Map((command.Commands ?? []).flatMap((sub) => [sub.Name, ...(sub.Aliases ?? [])].map((name) => [name, carapaceUsage(sub, new Map([...persistent, ...declared]), new Map())] as const))),
     };
 };
 
@@ -217,10 +217,10 @@ const parseArguments = (words: readonly Word[], usage: Usage, row: Program): Arg
     const rest = steps.flatMap(({ rest: found = [] }) => found);
     const names = new Set(args.flatMap((argument) => argument.names));
     const reached = path.reduce((deeper, name) => deeper.subcommands.get(name) ?? deeper, usage);
-    const canonical = (name: string): string => reached.flags.get(name)?.name ?? usage.flags.get(name)?.name ?? name;
-    const has = (...listed: readonly string[]): boolean => listed.some((name) => names.has(canonical(name)));
+    const spellings = (name: string): readonly string[] => [reached.flags.get(name)?.name ?? name, usage.flags.get(name)?.name ?? name];
+    const has = (...listed: readonly string[]): boolean => listed.some((name) => spellings(name).some((spelling) => names.has(spelling)));
     const supplied = (...listed: readonly string[]): readonly Word[] => {
-        const wanted = new Set(listed.map(canonical));
+        const wanted = new Set(listed.flatMap(spellings));
         return args.filter((argument) => argument.names.some((name) => wanted.has(name))).flatMap(({ values }) => values);
     };
     const operands = [...args.filter((argument) => argument.names.length === 0).flatMap((argument) => argument.words), ...tail, ...(row.wraps !== undefined || row.module !== undefined || row.restAfter !== undefined ? [] : rest)];

@@ -1,22 +1,19 @@
 {
     "name": "@rasm/function-hooks",
     "private": true,
-    "description": "Hooks that correct agent commands and track app instances each session owns",
+    "description": "Hooks that correct agent commands",
     "type": "module",
     "imports": {
-        "#/hooks/state": "./hooks/state.d.ts",
         "#/manifest": "./.claude-plugin/plugin.json",
         "#/*": "./*.ts"
     },
     "exports": {
         "./register": "./hooks/register.ts",
-        "./hook": "./hook.ts",
         "./server": "./claude/server.ts"
     },
     "dependencies": {
         "@effect/platform-node": "catalog:",
         "@nx/devkit": "catalog:",
-        "@rasm/applications": "workspace:*",
         "@rasm/telemetry": "workspace:*",
         "effect": "catalog:",
         "sh-syntax": "catalog:"

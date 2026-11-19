@@ -32,6 +32,7 @@ interface Context {
     readonly pipes: boolean;
     readonly stage: Option.Option<{ readonly pipeline: object; readonly at: number }>;
     readonly looping: boolean;
+    readonly loop: Option.Option<Span & { readonly condition: boolean }>;
     readonly busy: boolean;
     readonly substituted: boolean;
     readonly captured: boolean;
@@ -350,8 +351,8 @@ const commanded = (stmt: Stmt, scope: Scope, context: Context): Walk => {
               }),
               Match.when({ type: 'Subshell' }, ({ stmts }) => [scope, nested(stmts, scope, inner)[1]]),
               Match.when({ type: 'IfClause' }, (clause) => branched(clause, scope, inner)),
-              Match.when({ type: 'WhileClause' }, ({ cond, do: body }) => loop([cond, body], scope, { ...inner, looping: true, busy: !context.fed && body.every(idle) }, Option.none())),
-              Match.when({ type: 'ForClause' }, ({ loop: head, do: body }) => loop([head, body], scope, { ...inner, looping: true }, Option.fromNullishOr(head?.type === 'WordIter' ? head.name?.value : undefined))),
+              Match.when({ type: 'WhileClause' }, (clause) => loop(clause, [clause.cond, clause.do], true, scope, { ...inner, busy: !context.fed && clause.do.every(idle) }, Option.none())),
+              Match.when({ type: 'ForClause' }, (clause) => loop(clause, [clause.loop, clause.do], false, scope, inner, Option.fromNullishOr(clause.loop?.type === 'WordIter' ? clause.loop.name?.value : undefined))),
               Match.when({ type: 'CaseClause' }, ({ word, items }) => {
                   const [tested, testing] = nested(word, scope, inner);
                   const arms = items.map(({ patterns, stmts }) => nested([patterns, stmts], tested, inner));
@@ -370,10 +371,24 @@ const commanded = (stmt: Stmt, scope: Scope, context: Context): Walk => {
 
 const idle = ({ cmd }: Stmt): boolean => cmd?.type === 'CallExpr' && Option.exists(Option.all(cmd.args.map(literal)), ([head, ...operands]) => IDLE.has(head) || (head === 'sleep' && Array.isReadonlyArrayNonEmpty(operands) && operands.every((operand) => INSTANT.test(operand))));
 
-const loop = (body: unknown, scope: Scope, context: Context, variable: Option.Option<string>): Walk => {
+const loop = (clause: BaseNode, [head, body]: readonly [unknown, unknown], tested: boolean, scope: Scope, context: Context, variable: Option.Option<string>): Walk => {
     const entry = bound(scope, Option.toArray(Option.map(variable, (name) => [name, Option.none<string>()] as const)));
-    const widened = joined(entry, nested(body, entry, { ...context, dry: true })[0]);
-    return [widened, context.dry ? NOTHING : concat([zshAssignments([], Option.toArray(variable), context), nested(body, widened, context)[1]])];
+    const walked = (start: Scope, dry: boolean) =>
+        chained(
+            start,
+            ...(
+                [
+                    [head, tested],
+                    [body, false],
+                ] as const
+            ).map(
+                ([part, condition]) =>
+                    (current: Scope) =>
+                        nested(part, current, { ...context, dry, looping: true, loop: Option.some({ ...spanOf(clause), condition }) }),
+            ),
+        );
+    const widened = joined(entry, walked(entry, true)[0]);
+    return [widened, context.dry ? NOTHING : concat([zshAssignments([], Option.toArray(variable), context), walked(widened, false)[1]])];
 };
 
 const branched = ({ cond, then, else: other }: IfClause, scope: Scope, context: Context): Walk => {
@@ -439,7 +454,11 @@ const referenced = (text: string): readonly string[] => [...new Set(text.match(R
 const parsed = (text: string, dialect: Context['dialect']) => Effect.try({ try: () => parse(text, { variant: VARIANTS[dialect] }).stmts, catch: HostError.of('sh-syntax') });
 
 const scriptOf = (stmts: readonly Stmt[], text: string, { cwd, ...start }: Pick<Command, 'cwd'> & Pick<Context, 'origin' | 'dialect' | 'home' | 'environment' | 'resolve'> & Partial<Pick<Context, 'fed' | 'looping'>>): Script =>
-    nested(stmts, { variables: new Map([[PWD, cwd]]), opaque: false, wiped: false, functions: new Map() }, { fed: false, looping: false, pipes: false, stage: Option.none(), busy: false, substituted: false, captured: false, job: false, dry: false, ...start, source: new TextEncoder().encode(text) })[1];
+    nested(
+        stmts,
+        { variables: new Map([[PWD, cwd]]), opaque: false, wiped: false, functions: new Map() },
+        { fed: false, looping: false, loop: Option.none(), pipes: false, stage: Option.none(), busy: false, substituted: false, captured: false, job: false, dry: false, ...start, source: new TextEncoder().encode(text) },
+    )[1];
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

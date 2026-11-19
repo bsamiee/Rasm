@@ -1,22 +1,19 @@
-import { ProcessInstance, State } from '@rasm/applications';
-import { Schema, Struct } from 'effect';
+import { Schema } from 'effect';
 import { Decision, Request } from '#/rules/decision';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Instance = Schema.Struct({ pid: Schema.Int, instance: ProcessInstance, bundle: Schema.String.check(Schema.isPattern(/^[\w.-]+$/u)) });
-const Exited = Schema.Array(Instance.fields.instance);
-const Watched = Instance.mapFields(Struct.assign({ ended: Schema.Boolean, status: Schema.optionalKey(State.Running.schema.fields.status), asks: Schema.Boolean, conditions: Schema.Array(Schema.String), notes: Schema.Array(Schema.String) }));
-
 const Routes = {
     decide: [Request, Decision],
-    observe: [Schema.String, Schema.Struct({ created: Schema.Array(Instance), reused: Schema.Array(Instance), exited: Exited })],
-    paused: [Schema.Struct({ since: Schema.Finite, first: Schema.Array(Schema.String) }), Schema.Struct({ holds: Schema.Array(Schema.String), notes: Schema.Array(Schema.String) })],
-    quit: [Schema.Array(Instance), Exited],
-    watched: [Schema.String, Schema.Struct({ absent: Schema.Array(Instance.fields.bundle), states: Schema.Array(Watched) })],
+    tasks: [
+        Schema.Struct({ files: Schema.Array(Schema.String) }),
+        Schema.Array(Schema.Struct({ file: Schema.String, live: Schema.Boolean, stuck: Schema.optionalKey(Schema.Struct({ key: Schema.String, text: Schema.String })) })).annotate({
+            description: 'Each background task output file in request order: whether a process still writes it, and the evidence it hangs or loops, keyed so one notice goes per kind',
+        }),
+    ],
 } as const;
 type Routes = { readonly [Route in keyof typeof Routes]: { readonly [At in 0 | 1]: (typeof Routes)[Route][At]['Encoded'] } };
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Instance, Routes };
+export { Routes };

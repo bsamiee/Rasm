@@ -1,9 +1,7 @@
 import { availableParallelism } from 'node:os';
 import process from 'node:process';
-import { Installation } from '@rasm/applications';
 import { Array, Cache, Config, Context, Duration, Effect, Exit, FileSystem, Formatter, Function, Layer, Option, Path, Predicate, Record, Schema, Semaphore, Stream, String } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
-import { WATCH_APP } from '#/shell/programs';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -16,7 +14,6 @@ const KEEP_SUCCESSES = { timeToLive: (exit: Exit.Exit<unknown, unknown>) => (Exi
 
 const Run = Schema.Struct({ command: Schema.Union([Schema.String, Schema.Struct({ argv: Schema.Array(Schema.String) })]) });
 const Steps = Schema.fromJsonString(Schema.Struct({ steps: Schema.Record(Schema.String, Schema.Record(Schema.String, Schema.Unknown)) }));
-const Installations = Schema.fromJsonString(Schema.toCodecJson(Schema.Record(Schema.String, Schema.Array(Installation))));
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
@@ -54,13 +51,9 @@ class Machine extends Context.Service<Machine>()('@rasm/function-hooks/host/Mach
             );
         const inside = (file: string, folder: string) => !ASCENDING.test(path.relative(folder, file));
         const real = (file: string) => Effect.orElseSucceed(fs.realPath(file), () => file);
-        const toplevels = yield* Cache.makeWith(
-            Effect.fnUntraced(function* (cwd: string) {
-                const ancestors = Array.reverse(Array.scan(cwd.split(path.sep).filter(String.isNonEmpty), path.sep, (folder, segment) => path.join(folder, segment)));
-                return Option.getOrElse(yield* Effect.findFirst(ancestors, (folder) => Effect.orElseSucceed(fs.exists(path.join(folder, '.git')), Function.constFalse)), () => cwd);
-            }),
-            { capacity: 64 },
-        );
+        const repositories = yield* Cache.makeWith((start: string) => Effect.findFirst(Array.reverse(Array.scan(start.split(path.sep).filter(String.isNonEmpty), path.sep, (folder, segment) => path.join(folder, segment))), (folder) => Effect.orElseSucceed(fs.exists(path.join(folder, '.git')), Function.constFalse)), {
+            capacity: 1024,
+        });
         const graphs = yield* Cache.make({
             capacity: 1,
             lookup: Effect.fnUntraced(function* (_modified: number) {
@@ -87,21 +80,26 @@ class Machine extends Context.Service<Machine>()('@rasm/function-hooks/host/Mach
             timeToLive: Exit.match({ onSuccess: (found: boolean) => (found ? Duration.infinity : Duration.minutes(1)), onFailure: () => Duration.zero }),
         });
         const ignored = yield* Cache.makeWith(
-            Effect.fnUntraced(function* ([root, , files]: readonly [root: string, modified: number, files: readonly string[]]) {
-                const reals = yield* Effect.forEach(files, real, { concurrency: 'unbounded' });
-                const owned = reals.filter((file) => inside(file, root));
-                return owned.length > 0 && (yield* run(['git', 'check-ignore', '--no-index', '--stdin', '-z'], { cwd: root, stdin: owned.join('\0') })).code === 0;
+            Effect.fnUntraced(function* ([root, , file]: readonly [root: string, modified: number, file: string]) {
+                const [owned, base] = yield* Effect.all([real(file), real(root)]);
+                return inside(owned, base) && (yield* run(['git', 'check-ignore', '--no-index', '--quiet', '--', path.relative(base, owned)], { cwd: root })).code === 0;
             }),
             { capacity: 1024, ...KEEP_SUCCESSES },
         );
-        const tracked = yield* Cache.makeWith(([root, , file]: readonly [root: string, modified: number, file: string]) => Effect.map(run(['git', 'ls-files', '--error-unmatch', '--', file], { cwd: root }), ({ code }) => code === 0), { capacity: 1024, ...KEEP_SUCCESSES });
+        const tracked = yield* Cache.makeWith(([root, , file]: readonly [root: string, modified: number, file: string]) => Effect.map(run(['git', 'ls-files', '--error-unmatch', '--', path.relative(root, file)], { cwd: root }), ({ code }) => code === 0), { capacity: 1024, ...KEEP_SUCCESSES });
+        const changed = yield* Cache.makeWith(([root, file]: readonly [root: string, file: string, indexed: number, written: number]) => Effect.map(run(['git', 'diff', '--quiet', 'HEAD', '--', path.relative(root, file)], { cwd: root }), ({ code }) => code === 1), { capacity: 1024, ...KEEP_SUCCESSES });
+        const repositoryHolds = (judged: (root: string, file: string) => Effect.Effect<boolean, HostError>) => (file: string) => Effect.flatMap(Cache.get(repositories, file), Option.match({ onNone: () => Effect.succeed(false), onSome: (root) => judged(root, file) }));
         return {
             fs,
             path,
             home,
             run,
             inside,
-            toplevel: (cwd: string) => Cache.get(toplevels, cwd),
+            toplevel: (cwd: string) =>
+                Effect.map(
+                    Cache.get(repositories, cwd),
+                    Option.getOrElse(() => cwd),
+                ),
             graph: Effect.fnUntraced(function* (root: string) {
                 const [{ workspaceRoot }, { workspaceDataDirectory }] = yield* nx;
                 return root === workspaceRoot ? yield* Cache.get(graphs, yield* modified(path.join(workspaceDataDirectory, 'project-graph.json'))) : Option.none();
@@ -111,8 +109,16 @@ class Machine extends Context.Service<Machine>()('@rasm/function-hooks/host/Mach
                 return Effect.flatMap(modified(hooks), (at) => Cache.get(steps, [hooks, at]));
             },
             onPath: (program: string) => Cache.get(onPath, program),
-            ignored: (root: string, files: readonly string[]) => Effect.flatMap(modified(path.join(root, '.gitignore')), (at) => Cache.get(ignored, [root, at, files])),
-            tracked: (root: string, file: string) => Effect.flatMap(modified(path.join(root, '.git/index')), (at) => Cache.get(tracked, [root, at, file])),
+            ignored: (files: readonly string[]) =>
+                Effect.map(
+                    Effect.findFirst(
+                        files,
+                        repositoryHolds((root, file) => Effect.flatMap(modified(path.join(root, '.gitignore')), (at) => Cache.get(ignored, [root, at, file]))),
+                    ),
+                    Option.isSome,
+                ),
+            tracked: repositoryHolds((root, file) => Effect.flatMap(modified(path.join(root, '.git/index')), (at) => Cache.get(tracked, [root, at, file]))),
+            changed: repositoryHolds((root, file) => Effect.flatMap(Effect.all([modified(path.join(root, '.git/index')), modified(file)]), ([indexed, written]) => Cache.get(changed, [root, file, indexed, written]))),
         };
     }),
 }) {
@@ -139,9 +145,9 @@ class Host extends Context.Service<Host>()('@rasm/function-hooks/host', {
             environment: (name: string) => Effect.orElseSucceed(Config.option(Config.String(name)), Option.none),
             exists: (file: string) => Effect.orElseSucceed(fs.exists(file), () => false),
             onPath: machine.onPath,
-            ignored: (files: readonly string[]) => machine.ignored(root, files),
-            tracked: (file: string) => (inside(file, root) ? machine.tracked(root, file) : Effect.succeed(false)),
-            installations: (names: readonly string[]) => Effect.map(output([WATCH_APP, 'find', ...names]), (text) => Array.getSomes(text.split('\n').map((line) => Schema.decodeOption(Installations)(line))).flatMap((found) => Object.values(found).flat())),
+            ignored: machine.ignored,
+            tracked: machine.tracked,
+            changed: machine.changed,
             graph: machine.graph(root),
             steps: Effect.map(
                 machine.steps(root),

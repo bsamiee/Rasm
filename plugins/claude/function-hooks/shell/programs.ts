@@ -19,7 +19,10 @@ interface Program {
     readonly concatenates?: true;
     readonly code?: readonly string[];
     readonly scripts?: readonly string[];
+    readonly extensions?: readonly string[];
+    readonly hosted?: RegExp;
     readonly rewrites?: readonly string[];
+    readonly effects?: RegExp;
     readonly reads?: true;
     readonly readsUnless?: readonly string[];
     readonly readsNothing?: RegExp;
@@ -28,14 +31,11 @@ interface Program {
     readonly pipefail?: true;
     readonly launcher?: true;
     readonly toolchain?: true;
-    readonly headless?: readonly string[];
-    readonly switches?: readonly string[];
     readonly nx?: { readonly selects?: readonly string[]; readonly reads?: string; readonly targets?: Readonly<Record<string, string>>; readonly ignores?: readonly string[]; readonly narrows?: true };
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const WATCH_APP = 'watch-app';
 const PROGRAMS: Readonly<Record<string, Program>> = {
     sudo: { aliases: ['doas'], wraps: [[]] },
     env: { wraps: [[]] },
@@ -50,8 +50,9 @@ const PROGRAMS: Readonly<Record<string, Program>> = {
     npm: { wraps: [['exec'], ['x']] },
     pnpm: { wraps: [[], ['exec'], ['dlx']] },
     'effect-tsgo': { flags: ['--completions=', '--log-level='], wraps: [[]] },
-    swift: { completer: 'swift@common', flags: ['--configuration='] },
+    swift: { completer: 'swift@common', flags: ['--configuration='], code: ['-e'], extensions: ['.swift'] },
     uv: { wraps: [['run'], ['tool', 'run']] },
+    uvx: { flags: ['--from=', '-w, --with=', '-p, --python='], wraps: [[]] },
     poetry: { aliases: ['hatch'], wraps: [['run']] },
     pixi: { flags: ['-e, --environment=', '--manifest-path=', '--locked', '--frozen'], wraps: [['run'], ['exec']] },
     mise: { wraps: '--' },
@@ -63,19 +64,23 @@ const PROGRAMS: Readonly<Record<string, Program>> = {
     tr: { leading: 2, reads: true },
     tee: { aliases: ['pbcopy'], leading: Number.POSITIVE_INFINITY, reads: true },
     sed: { leading: 1, leadingUnless: ['-e', '-f'], reads: true, readsUnless: ['-i'] },
-    awk: { leading: 1, leadingUnless: ['-f', '-e'], reads: true, readsNothing: /^\s*BEGIN\s*\{(?:[^{}]|\{[^{}]*\})*\}\s*$/u, code: ['-e'], scripts: ['-f'] },
+    awk: { leading: 1, leadingUnless: ['-f', '-e'], reads: true, readsNothing: /^\s*BEGIN\s*\{(?:[^{}]|\{[^{}]*\})*\}\s*$/u, code: ['-e'], scripts: ['-f'], rewrites: ['-i'], effects: /\bprintf?\b[^;}\n]*[>|]|\|\s*getline\b|\bsystem\s*\(/u },
     yq: { flags: ['-o, --output-format=', '-p, --input-format=', '-I, --indent=', '--from-file=', '-n, --null-input'], leading: 1, leadingUnless: ['--from-file'], reads: true, readsUnless: ['--null-input'] },
-    node: { flags: ['--inspect', '--inspect-brk', '--inspect-wait'], stopsAtOperand: true, reads: true, readsUnless: ['--test', '--run'], code: ['--eval', '--print'], informational: ['-v', '--v8-options', '--check'] },
-    perl: { flags: ['-I=', '-M=', '-m='], stopsAtOperand: true, reads: true, code: ['-e', '-E'], rewrites: ['-i'], informational: ['-v'] },
-    ruby: { flags: ['-I=', '-r=', '-C=', '-E='], stopsAtOperand: true, reads: true, code: ['-e'], rewrites: ['-i'], informational: ['-v', '--copyright'] },
+    node: { flags: ['--inspect', '--inspect-brk', '--inspect-wait'], stopsAtOperand: true, reads: true, readsUnless: ['--test', '--run'], code: ['--eval', '--print'], extensions: ['.js', '.mjs', '.cjs', '.ts', '.mts', '.cts'], informational: ['-v', '--v8-options', '--check'] },
+    bun: { aliases: ['deno', 'tsx'], stopsAtOperand: true, code: ['-e', '--eval', '-p', '--print'] },
+    perl: { flags: ['-I=', '-M=', '-m='], stopsAtOperand: true, reads: true, code: ['-e', '-E'], rewrites: ['-i'], extensions: ['.pl'], informational: ['-v'] },
+    ruby: { flags: ['-I=', '-r=', '-C=', '-E='], stopsAtOperand: true, reads: true, code: ['-e'], rewrites: ['-i'], extensions: ['.rb'], informational: ['-v', '--copyright'] },
+    osascript: { stopsAtOperand: true, reads: true, code: ['--evaluate'], hosted: /\S/u },
+    Blender: { aliases: ['blender'], flags: ['-P, --python=', '--python-expr='], informational: ['-v', '--log-list-categories'], code: ['--python-expr'], scripts: ['--python'], hosted: /\bbpy\b/u },
     eval: { concatenates: true },
     set: {},
-    python: { aliases: ['python3'], stopsAtOperand: true, module: '-m', reads: true, readsUnless: ['-m'], code: ['-c'] },
-    bash: { aliases: ['sh', 'zsh', 'dash', 'ksh'], stopsAtOperand: true, reads: true, shell: ['-c'], informational: ['-n', '--noexec'] },
+    python: { aliases: ['python3'], stopsAtOperand: true, module: '-m', reads: true, readsUnless: ['-m'], code: ['-c'], extensions: ['.py'] },
+    bash: { aliases: ['sh', 'zsh', 'dash', 'ksh'], stopsAtOperand: true, reads: true, shell: ['-c'], extensions: ['.sh', '.bash', '.zsh'], informational: ['-n', '--noexec'] },
+    source: { aliases: ['.'], shell: [] },
     sqlite3: { leading: 1, reads: true, readsUnless: ['-c', '-s', '-f', '-no-stdin'] },
     duckdb: { flags: ['-c=', '-s=', '-f=', '-cmd=', '-init=', '-storage-version='], leading: 1, reads: true, readsUnless: ['-c', '-s', '-f', '-no-stdin'] },
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { PROGRAMS, type Program, WATCH_APP };
+export { PROGRAMS, type Program };

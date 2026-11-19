@@ -1,24 +1,23 @@
-import type { AgentInfo, HttpResponse, On, ProcessSpawnChunk } from 'claude-code';
+import type { AgentInfo, HttpResponse, On, ProcessSpawnChunk, ToolCallResult } from 'claude-code';
 import { expect, mock, test } from 'claude-code/testing';
 import type { Routes } from '#/claude/routes';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Decision = Routes['decide'][1];
+type Watched = Routes['tasks'][1][number];
 interface Given {
-    readonly observe?: Routes['observe'][1];
-    readonly watched?: Routes['watched'][1];
-    readonly quit?: Routes['quit'][1];
     readonly agents?: readonly AgentInfo[];
     readonly printed?: Readonly<Record<string, readonly ProcessSpawnChunk[]>>;
-    readonly held?: readonly string[];
+    readonly watched?: Iterator<Watched>;
+    readonly browsers?: readonly object[];
+    readonly result?: ToolCallResult;
 }
 interface Seen {
     readonly sent: (readonly [route: string, body: unknown])[];
     readonly ran: object[];
     readonly spawned: (readonly string[])[];
     readonly runs: (readonly string[])[];
-    readonly status: (string | undefined)[];
     readonly stopped: (readonly string[])[];
 }
 
@@ -28,25 +27,20 @@ const SESSION = { cwd: '/work', surface: 'terminal', isInteractive: true } as co
 const ENDING = { reason: 'clear', sessionId: 'session', resume: { id: 'session' } } as const;
 const TURN = { turnId: 't1', answer: '', durationMs: 1, isAborted: false, reason: 'answer' } as const;
 const RAN = { result: { stdout: 'ran', stderr: '', interrupted: false }, text: 'ran' } as const;
-const UNJUDGED = 'function-hooks did not judge this command: ';
-const ALLOWED = { _tag: 'Allow', observes: false } as const satisfies Decision;
-const OBSERVED = { _tag: 'Allow', observes: true } as const satisfies Decision;
+const UNJUDGED = 'function-hooks did not judge this command: Error: ';
+const ALLOWED = { _tag: 'Allow' } as const satisfies Decision;
 const LIST = { tool: 'Bash', command: 'ls' } as const;
-const LAUNCH = { tool: 'Bash', command: 'watch-app launch com.example.app', agentId: 'a1' } as const;
-const APP = { pid: 41, instance: '41@7', bundle: 'com.example.app' } as const;
-const NONE = { created: [], reused: [], exited: [] } as const satisfies Given['observe'];
-const CREATED = { ...NONE, created: [APP] } as const satisfies Given['observe'];
-const CONDITION = 'com.example.app 41 shows sheet window';
-const NOTE = `${CONDITION}, run watch-app read 41@7 --window 3`;
-const ASKING = {
-    absent: [],
-    states: [
-        { ...APP, ended: false, status: 'responding', asks: true, conditions: [CONDITION], notes: [NOTE] },
-        { ...APP, pid: 77, instance: '77@3', ended: false, status: 'responding', asks: true, conditions: ['com.example.app 77 shows alert window'], notes: ['com.example.app 77 shows alert window'] },
-    ],
-} as const satisfies Given['watched'];
-const PRINTED: NonNullable<Given['printed']> = { 'watch-app': [{ stream: 'stdout', text: '{}\n' }] };
 const DECIDED = { session: ENDING.sessionId, call: expect.any(String) } as const;
+const OUTPUT = '/tmp/claude-501/x/tasks/b7k2.output';
+const BACKGROUND = { result: { result: { stdout: '', stderr: '', interrupted: false, backgroundTaskId: 'b7k2' }, text: `Command running in background with ID: b7k2. Output is being written to: ${OUTPUT}` } } as const;
+const REPEATING = { file: OUTPUT, live: true, stuck: { key: 'repeats retry #', text: 'repeats "retry #"' } } as const satisfies Watched;
+const QUIET = { file: OUTPUT, live: true, stuck: { key: 'quiet', text: 'wrote nothing for 12m' } } as const satisfies Watched;
+const RUNNING = { file: OUTPUT, live: true } as const satisfies Watched;
+const BROWSERS = [
+    { name: 'a1', workspace: '/work', attached: true },
+    { name: `${ENDING.sessionId}-docs`, workspace: 'relative' },
+    { name: 'other', workspace: '/work' },
+] as const;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -54,12 +48,12 @@ const answered = (answer: unknown): HttpResponse => ({ status: 200, ok: true, he
 
 const agentOf = (status: Exclude<AgentInfo['status'], 'waiting' | 'idle'>): AgentInfo => ({
     id: 'a1',
-    description: 'launch',
+    description: 'browse',
     type: 'general-purpose',
     status,
     kind: 'local_agent',
     taskStatus: status,
-    label: 'launch',
+    label: 'browse',
     startTime: 0,
     cwd: SESSION.cwd,
     tokenCount: 0,
@@ -68,28 +62,21 @@ const agentOf = (status: Exclude<AgentInfo['status'], 'waiting' | 'idle'>): Agen
 });
 
 const worldOf = (on: On, decide: () => HttpResponse | Error, given: Given = {}) => {
-    const seen: Seen = { sent: [], ran: [], spawned: [], runs: [], status: [], stopped: [] };
+    const seen: Seen = { sent: [], ran: [], spawned: [], runs: [], stopped: [] };
     const clock = mock.clock(on);
-    mock.store(on);
-    const replies = new Map<string, unknown>(Object.entries({ observe: NONE, quit: NONE, watched: { absent: [], states: [] }, ...given }));
-    const printed = new Map(Object.entries({ ...PRINTED, ...given.printed }));
+    const printed = new Map(Object.entries(given.printed ?? {}));
     on('session.start', (_, e) => ({ cwd: e.cwd }));
     on('session.end', (_, e) => ({ sessionId: e.sessionId }));
     on('session.id', () => ({ value: ENDING.sessionId }));
     on('session.cwd', () => ({ value: SESSION.cwd }));
-    on('prompt.submit', (_, e) => ({ text: e.text, ...(e.context !== undefined && { context: e.context }) }));
+    on('turn.start', (_, e) => ({ turnId: e.turnId }));
     on('turn.complete', () => ({ text: '' }));
     on('agent.list', () => ({ value: [...(given.agents ?? [])] }));
     on('env.get', () => ({ value: '/tmp/' }));
     on('ui.log', () => ({ value: undefined }));
-    on('ui.status', (_, e) => {
-        seen.status.push(e.text);
-        return { value: undefined };
-    });
     on('process.run', (_, e) => {
-        seen.runs.push(e.argv);
-        const holding = e.argv[0] === 'lsof' && given.held?.includes(e.argv.at(-1) ?? '') === true;
-        return { value: { exitCode: 0, stdout: holding ? '4242\n' : '', stderr: '', isStdoutTruncated: false, isStderrTruncated: false } };
+        seen.runs.push([...(e.init?.cwd === undefined ? [] : [`cwd=${e.init.cwd}`]), ...e.argv]);
+        return { value: { exitCode: 0, stdout: e.argv.includes('list') ? JSON.stringify({ browsers: given.browsers ?? [] }) : '', stderr: '', isStdoutTruncated: false, isStderrTruncated: false } };
     });
     on('process.spawn', async function* (_, e, next) {
         next.signal.addEventListener(
@@ -109,13 +96,18 @@ const worldOf = (on: On, decide: () => HttpResponse | Error, given: Given = {}) 
     on('http.fetch', (_, e) => {
         const route = new URL(e.url).pathname.slice(1);
         seen.sent.push([route, typeof e.init?.body === 'string' ? JSON.parse(e.init.body) : e.init?.body]);
-        const reply = route === 'decide' ? decide() : answered(replies.get(route));
+        const step = route === 'tasks' ? given.watched?.next() : undefined;
+        const reply = route === 'tasks' ? answered(step === undefined || step.done === true ? [] : [step.value]) : decide();
         return Error.isError(reply) ? { deny: reply.message } : { value: reply };
     });
     on('tool.call', (_, e) => {
         const { tool_use_id: _id, ...input } = e;
         seen.ran.push(input);
-        return RAN;
+        return given.result ?? RAN;
+    });
+    on('agent.call', (_, e) => {
+        seen.ran.push(e);
+        return { value: given.result ?? RAN };
     });
     return { ...seen, clock };
 };
@@ -127,13 +119,14 @@ const worldOf = (on: On, decide: () => HttpResponse | Error, given: Given = {}) 
         { decision: ALLOWED, ran: [LIST], resolved: RAN },
         { decision: { _tag: 'Deny', reason: 'git stash hides work, commit it' }, ran: [], resolved: { deny: 'git stash hides work, commit it' } },
         {
-            decision: { _tag: 'Rewrite', command: 'rg -n x', observes: false, background: true, note: 'grep became rg' },
+            decision: { _tag: 'Rewrite', command: 'rg -n x', background: true, note: 'grep became rg' },
             ran: [{ tool: 'Bash', command: 'rg -n x', run_in_background: true }],
             resolved: { ...RAN, context: ['grep became rg'] },
         },
+        { decision: { _tag: 'Allow', note: 'Task b1 still runs' }, ran: [LIST], resolved: { ...RAN, context: ['Task b1 still runs'] } },
     ] satisfies readonly { readonly decision: Decision; readonly ran: readonly object[]; readonly resolved: object }[]
 ).forEach(({ decision, ran, resolved }) => {
-    test(`Bash call resolves by ${decision._tag} decision`, async ($, on) => {
+    test(`Bash call resolves by ${decision._tag} decision${'note' in decision ? ' with its note as context' : ''}`, async ($, on) => {
         const world = worldOf(on, () => answered(decision));
         await $.session.start(SESSION);
         expect(await $.tool.call(LIST)).toEqual(resolved);
@@ -143,11 +136,92 @@ const worldOf = (on: On, decide: () => HttpResponse | Error, given: Given = {}) 
 });
 
 test('Rewrite sets only Monitor input fields on a Monitor call', async ($, on) => {
-    const world = worldOf(on, () => answered({ _tag: 'Rewrite', command: 'tail -F b.log', observes: false, background: true } satisfies Decision));
+    const world = worldOf(on, () => answered({ _tag: 'Rewrite', command: 'tail -F b.log', background: true } satisfies Decision));
     await $.session.start(SESSION);
     await $.tool.call({ tool: 'Monitor', description: 'log', timeout_ms: 1000, command: 'tail -f a.log' });
     expect(world.ran).toEqual([{ tool: 'Monitor', description: 'log', timeout_ms: 1000, command: 'tail -F b.log' }]);
     expect(world.sent).toEqual([['decide', { command: 'tail -f a.log', cwd: SESSION.cwd, kind: 'monitor', ...DECIDED }]]);
+});
+
+test('Monitor decision answers a Bash wait with a Monitor the calling agent runs, bounded by its timeout', async ($, on) => {
+    const wait = 'until rg -q done b.log; do sleep 5; done';
+    const world = worldOf(on, () => answered({ _tag: 'Monitor', command: wait } satisfies Decision));
+    await $.session.start(SESSION);
+    const answer = await $.tool.call({ tool: 'Bash', command: wait, description: 'Wait for done', timeout: 600_000, agentId: 'a1' });
+    expect(world.ran).toEqual([{ tool: 'Monitor', input: { command: wait, description: 'Wait for done', timeout_ms: 600_000 }, agentId: 'a1' }]);
+    expect(answer).toEqual({ result: { stdout: 'ran', stderr: '', interrupted: false }, context: [expect.stringContaining('ran this wait as a Monitor')] });
+});
+
+test('Monitor decision passes the Monitor error and a timeout past half an hour through to the Bash call', async ($, on) => {
+    const wait = 'until rg -q done b.log; do sleep 5; done';
+    const failed = { isError: true, result: 'Monitor failed', text: 'Monitor failed' } as const;
+    const world = worldOf(on, () => answered({ _tag: 'Monitor', command: wait } satisfies Decision), { result: failed });
+    await $.session.start(SESSION);
+    const answers = [await $.tool.call({ tool: 'Bash', command: wait, description: 'Wait for done', timeout: 3_600_000 }), await $.tool.call({ tool: 'Bash', command: wait, description: 'Wait for done' })];
+    expect(world.ran).toEqual([3_600_000, 300_000].map((timeout_ms) => ({ tool: 'Monitor', input: { command: wait, description: 'Wait for done', timeout_ms } })));
+    expect(answers).toEqual(answers.map(() => ({ result: { stdout: 'Monitor failed', stderr: '', interrupted: false }, isError: true, context: [expect.stringContaining('ran this wait as a Monitor')] })));
+});
+
+test('Watchdog wakes the agent that owns a background task repeating one line, and drops the task once nothing writes it', async ($, on) => {
+    const world = worldOf(on, () => answered(ALLOWED), { watched: [REPEATING, { file: OUTPUT, live: false }].values(), agents: [agentOf('completed')], ...BACKGROUND });
+    const sent: unknown[] = [];
+    on('session.send', (_, e) => {
+        sent.push(e);
+        return { isDelivered: true };
+    });
+    await $.session.start(SESSION);
+    await $.tool.call({ tool: 'Bash', command: 'fetch.sh', run_in_background: true, agentId: 'a1' });
+    await Array.from({ length: 3 }).reduce<Promise<void>>(async (scanned) => {
+        await scanned;
+        await world.clock.advance(300_000);
+        await world.clock.settle();
+    }, Promise.resolve());
+    expect(sent).toEqual([expect.objectContaining({ to: 'a1', text: expect.stringContaining('b7k2 repeats "retry #"') })]);
+    expect(world.sent.filter(([route]) => route === 'tasks')).toEqual([
+        ['tasks', { files: [OUTPUT] }],
+        ['tasks', { files: [OUTPUT] }],
+    ]);
+});
+
+test('Watchdog tells the owner once per stuck spell, again after the task moves and stalls anew', async ($, on) => {
+    const spells = [RUNNING, QUIET, QUIET, QUIET, RUNNING, QUIET] as const;
+    const world = worldOf(on, () => answered(ALLOWED), { watched: spells.values(), agents: [agentOf('completed')], ...BACKGROUND });
+    const sent: unknown[] = [];
+    on('session.send', (_, e) => {
+        sent.push(e);
+        return { isDelivered: true };
+    });
+    await $.session.start(SESSION);
+    await $.tool.call({ tool: 'Bash', command: 'nx serve web', run_in_background: true, agentId: 'a1' });
+    const counts = await spells.reduce<Promise<readonly number[]>>(async (scanned) => {
+        const before = await scanned;
+        await world.clock.advance(300_000);
+        await world.clock.settle();
+        return [...before, sent.length];
+    }, Promise.resolve([]));
+    expect(counts).toEqual([0, 1, 1, 1, 1, 2]);
+    expect(sent).toEqual([expect.objectContaining({ to: 'a1', text: expect.stringContaining('b7k2 wrote nothing for 12m') }), expect.objectContaining({ to: 'a1' })]);
+});
+
+test('Watchdog prompts the main conversation about its stuck task only while the conversation is idle, once', async ($, on) => {
+    const world = worldOf(on, () => answered(ALLOWED), { watched: [REPEATING, REPEATING, REPEATING, REPEATING].values(), ...BACKGROUND });
+    const submitted: string[] = [];
+    on('prompt.submit', (_, e) => {
+        submitted.push(e.text);
+        return { text: e.text };
+    });
+    const scanned = async () => {
+        await world.clock.advance(300_000);
+        await world.clock.settle();
+        return submitted.length;
+    };
+    await $.session.start(SESSION);
+    await $.turn.start({ text: 'fetch', turnId: 't1' });
+    await $.tool.call({ tool: 'Bash', command: 'fetch.sh', run_in_background: true });
+    const busy = [await scanned(), await scanned()];
+    await $.turn.complete(TURN);
+    expect([...busy, await scanned(), await scanned()]).toEqual([0, 0, 1, 1]);
+    expect(submitted).toEqual([expect.stringContaining('b7k2 repeats "retry #"')]);
 });
 
 test('Decide request states run kind and calling agent, and both calls use one server process', async ($, on) => {
@@ -201,71 +275,40 @@ test('Command runs as written with the run error noted when the watched server f
     expect(world.sent).toEqual([]);
 });
 
+test('Read of a task output always runs, and a Read of an agent transcript is refused with the route to the agent', async ($, on) => {
+    const world = worldOf(on, () => answered(ALLOWED), { agents: [agentOf('running')] });
+    const shell = { tool: 'Read', file_path: OUTPUT } as const;
+    const transcripts = ['/tmp/claude-501/x/tasks/a46c9759cea20d51a.output', '/Users/u/.claude/projects/-x/5f1e.jsonl'] as const;
+    await $.session.start(SESSION);
+    const reads = [await $.tool.call(shell), await $.tool.call(shell), ...(await Promise.all(transcripts.map((file_path) => $.tool.call({ tool: 'Read', file_path }))))];
+    expect(reads).toEqual([RAN, RAN, ...transcripts.map((file) => ({ deny: `${file} is an agent transcript: the agent reports to you when it ends, SendMessage asks it for status, and atuin threads show <session or agent id> --style ndjson | jq reads a transcript` }))]);
+    expect(world.ran).toEqual([shell, shell]);
+});
+
 (
     [
-        ['mcp__plugin_rhino_rhino-mcp-platform__get_context', 'com.mcneel.rhinoceros'],
-        ['mcp__plugin_blender_blender__get_objects_summary', 'org.blenderfoundation.blender'],
+        ['running', []],
+        ['completed', [['cwd=/work', 'playwright', 'cli', '-s=a1', 'detach', '--close-tabs']]],
     ] as const
-).forEach(([tool, bundle]) => {
-    test(`${tool} call starts one watch of ${bundle}`, async ($, on) => {
-        const world = worldOf(on, () => answered(ALLOWED));
+).forEach(([status, closes]) => {
+    test(`Turn end closes ${closes.length} browser session of a ${status} agent over two turns`, async ($, on) => {
+        const world = worldOf(on, () => answered(ALLOWED), { agents: [agentOf(status)], browsers: BROWSERS });
         await $.session.start(SESSION);
-        await $.tool.call({ tool });
-        await $.tool.call({ tool });
+        await $.turn.complete(TURN);
+        await $.turn.complete(TURN);
         await world.clock.settle();
-        expect(world.spawned.slice(1)).toEqual([['watch-app', 'watch', bundle]]);
+        expect(world.runs.filter((argv) => !argv.includes('list'))).toEqual(closes);
     });
 });
 
-test('Read of a running task output runs once per agent, a running agent output never, and an ended task output always', async ($, on) => {
-    const world = worldOf(on, () => answered(ALLOWED), { agents: [agentOf('running')], held: ['/tmp/claude-501/x/tasks/b7k2.output'] });
-    const shell = { tool: 'Read', file_path: '/tmp/claude-501/x/tasks/b7k2.output' } as const;
-    const ended = { tool: 'Read', file_path: '/tmp/claude-501/x/tasks/b9z1.output' } as const;
+test('Session end closes each browser session of the ending session and its agents, once, in its own workspace', async ($, on) => {
+    const world = worldOf(on, () => answered(ALLOWED), { agents: [agentOf('running')], browsers: BROWSERS });
     await $.session.start(SESSION);
-    const reads = [await $.tool.call(shell), await $.tool.call(shell), await $.tool.call({ ...shell, agentId: 'a2' }), await $.tool.call({ tool: 'Read', file_path: '/tmp/claude-501/x/tasks/a1.output' }), await $.tool.call(ended), await $.tool.call(ended)];
-    expect(reads).toEqual([RAN, { deny: 'Task b7k2 notifies on completion, never poll its output' }, RAN, { deny: 'Task a1 notifies on completion, never poll its output' }, RAN, RAN]);
-    expect(world.ran).toEqual([shell, { ...shell, agentId: 'a2' }, ended, ended]);
-});
-
-test('Note of a launched app reaches its launching agent once and status line shows its condition', async ($, on) => {
-    const world = worldOf(on, () => answered(world.sent.length === 1 ? OBSERVED : ALLOWED), { observe: CREATED, watched: ASKING });
-    await $.session.start(SESSION);
-    await $.tool.call(LAUNCH);
-    await world.clock.settle();
-    const [other, owner, again] = [await $.tool.call({ ...LIST, agentId: 'a2' }), await $.tool.call({ ...LIST, agentId: 'a1' }), await $.tool.call({ ...LIST, agentId: 'a1' })];
-    expect([other, owner, again]).toEqual([RAN, { ...RAN, context: [NOTE] }, RAN]);
-    expect([world.status.at(-1), world.spawned.at(-1)]).toEqual([CONDITION, ['watch-app', 'watch', APP.bundle]]);
-});
-
-test('Note of an ended agent app reaches the next main-loop prompt', async ($, on) => {
-    const world = worldOf(on, () => answered(OBSERVED), { observe: CREATED, watched: ASKING, agents: [agentOf('completed')] });
-    await $.session.start(SESSION);
-    await $.tool.call(LAUNCH);
-    await world.clock.settle();
-    expect(await $.prompt.submit({ text: 'next', wait: false, origin: { kind: 'composer' } })).toEqual({ text: 'next', context: [NOTE] });
-});
-
-(
-    [
-        ['running', [], []],
-        ['completed', [['quit', [expect.objectContaining(APP)]]], [expect.arrayContaining([expect.stringContaining('detach --close-tabs'), 'a1'])]],
-    ] as const
-).forEach(([status, quits, closes]) => {
-    test(`Turn end posts ${quits.length} quit and closes ${closes.length} browser session of a ${status} agent over two turns`, async ($, on) => {
-        const world = worldOf(on, () => answered(OBSERVED), { observe: CREATED, quit: [APP.instance], agents: [agentOf(status)] });
-        await $.session.start(SESSION);
-        await $.tool.call(LAUNCH);
-        await $.turn.complete(TURN);
-        await $.turn.complete(TURN);
-        expect([world.sent.filter(([route]) => route === 'quit'), world.runs]).toEqual([quits, closes]);
-    });
-});
-
-test('Session end quits apps and closes browser sessions of the ending session and its agents, each in one detached process, once', async ($, on) => {
-    const world = worldOf(on, () => answered(OBSERVED), { observe: CREATED, agents: [agentOf('running')] });
-    await $.session.start(SESSION);
-    await $.tool.call(LAUNCH);
     await $.session.end(ENDING);
     await $.session.end(ENDING);
-    expect(world.runs).toEqual([expect.arrayContaining([expect.stringContaining('watch-app quit'), APP.instance]), expect.arrayContaining([expect.stringContaining('playwright cli'), ENDING.sessionId, 'a1'])]);
+    expect(world.runs).toEqual([
+        ['playwright', 'cli', 'list', '--all', '--json'],
+        ['cwd=/work', 'playwright', 'cli', '-s=a1', 'detach', '--close-tabs'],
+        ['cwd=/', 'playwright', 'cli', `-s=${ENDING.sessionId}-docs`, 'close'],
+    ]);
 });

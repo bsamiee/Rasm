@@ -1,11 +1,11 @@
-import { devNull } from 'node:os';
+import { availableParallelism, devNull } from 'node:os';
 import process from 'node:process';
 import type { ProjectGraphProjectNode, TargetConfiguration } from '@nx/devkit';
 import { Array, Effect, Glob, Match, Option, Predicate, pipe, Record, Result, Schema, String, Struct } from 'effect';
 import { RedirOperator } from 'sh-syntax/sync';
 import type { Host, HostError } from '#/host';
 import { Verdict } from '#/rules/decision';
-import { all, type Call, commandOf, cut, edited, ensure, erased, feedsJq, holds, inserted, perSubcommand, quote, type Rule, type Ruleset, redirected, refusal, refuse, respell, silent, spelled, unassign, when, whole } from '#/rules/rule';
+import { all, type Call, commandOf, cut, edited, ensure, erased, feedsJq, holds, inserted, listed, perSubcommand, quote, type Rule, type Ruleset, redirected, refusal, refuse, respell, silent, spelled, unassign, when, whole } from '#/rules/rule';
 import { analyzed, type Invocation, type Parser, WRITES } from '#/shell/invocation';
 import { parsed, type Word } from '#/shell/script';
 
@@ -33,6 +33,7 @@ const PULUMI_OPERATIONS: Record.ReadonlyRecord<string, { readonly aggregate: str
     destroy: { aggregate: 'deploy', args: ['--operation=destroy'], applies: true },
 };
 const PULUMI_FLAGS: ReadonlySet<string> = new Set(['--stack', '--yes', '--skip-preview', '--non-interactive', '--cwd']);
+const CORES = `${availableParallelism()}`;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -138,15 +139,16 @@ const runnersOf = Effect.fnUntraced(function* (node: ProjectGraphProjectNode, in
     const eligible = Array.zip(helps, ran).flatMap(([[target], helped], slot) => {
         const stated = helped === undefined ? [] : argued(helped).split(' ').filter(String.isNonEmpty);
         const aggregate = aggregateOf(targets, target);
-        const listed = selected.every((file) => executed[slot]?.has(file) === true);
-        const fits = !narrowed && listed && helped !== undefined && programOf(helped, call) === programOf(invocation, call) && stated.every((word, at) => words[at] === word) && words.slice(stated.length).every((word) => word === aggregate);
+        const covered = selected.every((file) => executed[slot]?.has(file) === true);
+        const fits = !narrowed && covered && helped !== undefined && programOf(helped, call) === programOf(invocation, call) && stated.every((word, at) => words[at] === word) && words.slice(stated.length).every((word) => word === aggregate);
         return fits ? [{ node, target, aggregate, cached: targets[target]?.cache === true, noop: targets[target]?.executor === 'nx:noop' }] : [];
     });
     const flagged = Record.toEntries(invocation.row.nx?.targets ?? {});
-    const named = new Set([...flagged.filter(([flag]) => invocation.has(flag)).map(([, aggregate]) => aggregate), ...words.filter((word) => Record.has(targets, word))]);
+    const asked = flagged.filter(([flag]) => invocation.has(flag)).map(([, aggregate]) => aggregate);
+    const named = new Set([...asked, ...words.filter((word) => Record.has(targets, word))]);
     const selectable = new Set(flagged.map(([, aggregate]) => aggregate));
     const picked = eligible.filter(({ aggregate }) => named.has(aggregate));
-    const pool = picked.length > 0 ? picked : eligible.filter(({ aggregate, cached }) => cached && !selectable.has(aggregate));
+    const pool = picked.length > 0 || asked.length > 0 ? picked : eligible.filter(({ aggregate, cached }) => cached && !selectable.has(aggregate));
     const cached = pool.filter((runner) => runner.cached);
     return { eligible, chosen: cached.length > 0 ? cached : pool.filter(({ noop }) => !noop) };
 });
@@ -154,10 +156,10 @@ const runnersOf = Effect.fnUntraced(function* (node: ProjectGraphProjectNode, in
 const launcherStart = ({ head, outer }: Invocation): Word => outer[outer.findLastIndex(({ row, path, has }) => has('-C', '--cd') || !(row.launcher === true || row.module !== undefined || (row.wraps !== '--' && path.length > 0))) + 1]?.head ?? head;
 
 const routed = (invocation: Invocation, [first, ...others]: Array.NonEmptyReadonlyArray<Runner>, foreign: { readonly words: readonly string[]; readonly located: boolean }, widened: boolean, everywhere: boolean): readonly Verdict[] => {
-    const listed = everywhere && widened ? '' : ` -p ${[first, ...others].map(({ node }) => quote(node.name)).join(',')}`;
-    const tool = others.length === 0 ? `nx run ${quote(`${first.node.name}:${first.target}`)}` : `nx run-many -t ${first.target}${listed}`;
+    const projects = everywhere && widened ? '' : ` -p ${[first, ...others].map(({ node }) => quote(node.name)).join(',')}`;
+    const tool = others.length === 0 ? `nx run ${quote(`${first.node.name}:${first.target}`)}` : `nx run-many -t ${first.target}${projects}`;
     const forwarded = [tool, '--', ...foreign.words].join(' ');
-    if (!others.every(({ target, aggregate }) => target === first.target && aggregate === first.aggregate)) {
+    if (!others.every(({ target, aggregate }) => target === first.target && aggregate === first.aggregate) || (widened && foreign.words.length > 0)) {
         return [];
     }
     if (foreign.words.length > 0) {
@@ -166,7 +168,7 @@ const routed = (invocation: Invocation, [first, ...others]: Array.NonEmptyReadon
     const named = Match.value({ widened, many: others.length > 0, cached: first.cached }).pipe(
         Match.when({ widened: true }, () => tool),
         Match.when({ cached: false }, () => tool),
-        Match.when({ many: true }, () => `nx run-many -t ${first.aggregate}${listed}`),
+        Match.when({ many: true }, () => `nx run-many -t ${first.aggregate}${projects}`),
         Match.orElse(() => `nx ${first.aggregate} ${quote(first.node.name)}`),
     );
     return whole(invocation, named, invocation.program, launcherStart(invocation));
@@ -253,7 +255,7 @@ const editedExecutor = Effect.fnUntraced(function* ({ host }: Call, graph: Graph
     const executors = pairs.flatMap(([node, target]) => [target, ...members(targetsOf(node), target)].flatMap((name) => Option.toArray(Option.fromNullishOr(targetsOf(node)[name]?.executor))));
     const roots = Array.dedupe(Array.getSomes(executors.map((executor) => Option.map(Record.get(graph.nodes, executor.slice(0, executor.lastIndexOf(':'))), ({ data }) => data.root))));
     const changed = Array.isReadonlyArrayNonEmpty(roots) ? yield* Effect.option(host.output(['git', 'status', '--porcelain', '--', ...roots])) : Option.some('');
-    return Option.match(changed, { onNone: () => true, onSome: (listed) => listed.trim() !== '' });
+    return Option.match(changed, { onNone: () => true, onSome: (changes) => changes.trim() !== '' });
 });
 
 const skippedCache: Rule = Effect.fnUntraced(function* (invocation, call) {
@@ -279,7 +281,7 @@ const forLoop = Effect.fnUntraced(function* ({ request }: Call) {
 const loopedRun = (refused: string, form: (invocation: Invocation, loop: Loop, call: Call) => Effect.Effect<Option.Option<string>, HostError, Host | Parser>): Rule =>
     Effect.fnUntraced(function* (invocation, call) {
         const { command, operands } = invocation;
-        if (!invocation.repeated || Option.exists(Array.head(operands), ({ text }) => LOOP_READS.has(text))) {
+        if (!invocation.repeated || Option.isNone(command.cwd) || Option.exists(Array.head(operands), ({ text }) => LOOP_READS.has(text))) {
             return [];
         }
         const loop = Option.filter(yield* forLoop(call), () => command.origin === 'call');
@@ -407,9 +409,9 @@ const addressOf = ({ operands }: Invocation, { nodes }: Graph): Option.Option<re
 };
 
 const askedTargets = (invocation: Invocation, graph: Graph) => {
-    const listed = (...names: readonly string[]) => invocation.values(...names).flatMap((value) => value.split(','));
+    const named = (...names: readonly string[]) => invocation.values(...names).flatMap((value) => value.split(','));
     const { projects, targets } = Option.match(addressOf(invocation, graph), {
-        onNone: () => ({ projects: listed('--projects'), targets: listed('--targets', '--target') }),
+        onNone: () => ({ projects: named('--projects'), targets: named('--targets', '--target') }),
         onSome: ([project, target]) => ({ projects: [project], targets: [target] }),
     });
     const nodes = projects.length === 0 ? Object.values(graph.nodes) : Array.getSomes(projects.map((project) => Option.fromNullishOr(graph.nodes[project])));
@@ -456,6 +458,32 @@ const forwardedOptions: Rule = Effect.fnUntraced(function* (invocation, call) {
     ];
 });
 
+// --- [CONCURRENCY]
+
+const sharedDaemon: Rule = (invocation, call) => {
+    const { command, words } = invocation;
+    const stopped = spelled(words);
+    const next = call.analysis.invocations.find((other) => other.program === 'nx' && other.command.source === command.source && other.command.start >= command.end && !['daemon', 'reset'].includes(other.path[0] ?? ''));
+    return Option.match(
+        Option.filter(listed(command.source, command), () => next !== undefined),
+        {
+            onNone: () => refusal(`${stopped} stops the daemon every session shares, leave it running`),
+            onSome: (span) => [...silent(erased(invocation, span, stopped)), Verdict.Note({ subject: stopped, text: `${stopped} removed, the daemon is shared by every session` })],
+        },
+    );
+};
+
+const cores =
+    (counts: RegExp, ...flags: readonly string[]): Rule =>
+    (invocation) =>
+        invocation.args
+            .filter(({ names, values }) => names.some((name) => flags.includes(name)) && values.every(({ known, text }) => known && (text === '0' || !counts.test(text))))
+            .flatMap(({ words, values: [value] }) => {
+                const [flag] = words;
+                const before = `${invocation.program} ${spelled(words)}`;
+                return value?.text === '0' ? edited(invocation, value, CORES, before) : edited(invocation, flag, `${flag.text}${flag.text.startsWith('--') ? '=' : ''}${CORES}`, before);
+            });
+
 // --- [PYTHON]
 
 const projectOptions =
@@ -484,7 +512,7 @@ const outsideScript: Rule = Effect.fnUntraced(function* (invocation, { host }) {
         .flatMap(({ values }) => values('-C'))
         .reduce((folder, value) => host.resolve(value, folder), command.cwd);
     const file = script?.known === true && !invocation.has(...(row.code ?? [])) ? Option.filter(host.resolve(script.text, cwd), (outside) => !host.inside(outside, host.root)) : Option.none();
-    if (script === undefined || Option.isNone(file) || !Option.exists(cwd, (folder) => host.inside(folder, host.root))) {
+    if (script === undefined || script === head || !invocation.outer.every(({ program }) => program === 'env') || Option.isNone(file) || !Option.exists(cwd, (folder) => host.inside(folder, host.root))) {
         return [];
     }
     const entries = Option.map(
@@ -533,7 +561,11 @@ const TASKS: Ruleset = {
                 perSubcommand({
                     show: [hiddenErrors],
                     graph: [hiddenErrors],
-                    reset: [(invocation, { host }) => (!invocation.has('--only-cache', '--only-daemon', '--only-cloud') && Option.exists(invocation.command.cwd, (folder) => host.inside(folder, host.root)) ? refuse('drops the graph', 'fix the inputs or pass --only-cache')(invocation) : [])],
+                    daemon: [when(({ has }) => has('--stop'), sharedDaemon)],
+                    reset: [
+                        when(({ has }) => has('--only-daemon'), sharedDaemon),
+                        (invocation, { host }) => (!invocation.has('--only-cache', '--only-daemon', '--only-cloud') && Option.exists(invocation.command.cwd, (folder) => host.inside(folder, host.root)) ? refuse('drops the graph', 'fix the inputs or pass --only-cache')(invocation) : []),
+                    ],
                 }),
                 when((invocation) => !invocation.has('--graph'), loopedRun('Loop reruns nx tasks, use one nx run-many', runMany)),
                 skippedCache,
@@ -543,7 +575,7 @@ const TASKS: Ruleset = {
             aliases: ['tsgo'],
             flags: ['--pretty=', '--incremental'],
             informational: ['-v', '--init', '--showConfig'],
-            nx: { selects: ['--project'], reads: 'tsconfig.json', ignores: ['--noEmit', '--pretty', '--incremental', '--watch', '-w', '--build', '-b'] },
+            nx: { selects: ['--project'], reads: 'tsconfig.json', targets: { '--noEmit': 'check' }, ignores: ['--pretty', '--incremental', '--watch', '-w', '--build', '-b'] },
         },
         cargo: { toolchain: true, flags: [...FORMAT_FLAGS, '--profile='], nx: { selects: ['--package'], targets: { '--fix': 'fix' }, ignores: ['--workspace', '--all'] }, rules: [perSubcommand({ fmt: [cargoFormat] })] },
         'cargo-fmt': { toolchain: true, flags: FORMAT_FLAGS, rules: [cargoFormat] },
@@ -607,13 +639,19 @@ const TASKS: Ruleset = {
         },
         ty: { flags: ['--python-version=', '--exclude='], nx: {} },
         python: { rules: [outsideScript] },
+        Blender: { rules: [when(({ has }) => has('--python', '--python-expr'), ensure(['--python-use-system-env']))] },
         pnpm: { pipefail: true, launcher: true, rules: [perSubcommand(Record.fromIterableWith(['patch', 'patch-commit'], (subcommand) => [subcommand, [refuse('copies a package into the tree', 'set the package option, a newer release, or the consumer tsconfig')]]))] },
         pulumi: { flags: ['-s, --stack=', '-y, --yes', '-C, --cwd='], rules: [pulumiDeploy] },
         vitest: {
-            flags: ['--exclude=', '--mode=', '--repeats='],
+            flags: ['--exclude=', '--mode=', '--repeats=', '-r, --root=', '--dir=', '--config='],
             nx: { ignores: ['--run'], narrows: true },
             rules: [loopedRun('Loop reruns vitest, use --repeats', repeated)],
         },
+        xargs: { rules: [cores(/./u, '-P')] },
+        parallel: { flags: ['-j, --jobs=', '-P, --max-procs='], rules: [cores(/./u, '--jobs', '--max-procs')] },
+        make: { aliases: ['gmake'], rules: [cores(/^\d+$/u, '--jobs')] },
+        ninja: { flags: ['-j='], rules: [cores(/./u, '-j')] },
+        claude: { rules: [(invocation, { request }) => (request.agent !== undefined && invocation.has('--print') ? refusal('claude --print nests a session inside an agent, spawn an agent with the Agent tool') : [])] },
         pitchfork: {
             flags: ['-f, --force'],
             rules: [

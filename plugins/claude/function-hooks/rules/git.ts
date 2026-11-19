@@ -1,19 +1,22 @@
-import { Array, Effect, Option, Predicate, Struct } from 'effect';
-import { RedirOperator } from 'sh-syntax/sync';
+import { Array, Effect, Function, Option, Predicate, Result, Struct } from 'effect';
 import type { Host } from '#/host';
-import { all, commandOf, edited, folderOf, holds, inserted, perSubcommand, quote, type Rule, type Ruleset, redirected, refusal, refuse, relocated, respell, unresolved, when, whole } from '#/rules/rule';
+import { all, commandOf, edited, folderOf, holds, inserted, perSubcommand, quote, type Rule, type Ruleset, refusal, refuse, relocated, respell, unresolved, when, whole } from '#/rules/rule';
+import type { Argument } from '#/shell/arguments';
 import type { Invocation } from '#/shell/invocation';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const BRANCHES = ['changes branches', 'stay on this branch'] as const;
-const OVERWRITES = ['overwrites edits', 'use Edit'] as const;
+const OVERWRITES = ['overwrites uncommitted edits another session may own', 'read git diff and undo only your own hunks with your file edit tool'] as const;
+const HOOKS = ['skips the commit hooks', 'fix what they report'] as const;
+const HISTORY = ['rewrites shared history', 'commit forward'] as const;
+const HOOKS_PATH = /^core\.hookspath=/iu;
 const REMOTE = ['rewrites remote history', 'push plain refs'] as const;
 const ALIASES = ['aliases hide subcommands', 'run them directly'] as const;
 const TAG = /^[+:]?refs\/tags\//u;
 const ALIAS = /^alias\./u;
-const REVISION_PATH = /^[^:]+:.+/u;
 const BRANCH_WRITES = ['--delete', '-D', '-M', '--force', '--copy', '-C', '--move'];
+const BRANCH_READS = ['--list', '--all', '--remotes', '--verbose', '--show-current', '--contains', '--no-contains', '--merged', '--no-merged', '--points-at', '-u'];
 const RESET_DISCARDS = ['--hard', '--merge', '--keep'];
 const UNWINDS = ['--abort', '--quit'];
 
@@ -24,22 +27,39 @@ const nested =
     ({ path, operands }) =>
         Option.exists(Option.firstSomeOf([Array.get(path, 1), Option.map(Array.head(operands), Struct.get('text'))]), (name) => names.includes(name));
 
+const scoped = ({ args, words, path: [subcommand] }: Invocation) => {
+    const at = words.find((word) => word.text === subcommand && !args.some(({ values }) => values.includes(word)))?.start ?? Number.POSITIVE_INFINITY;
+    return Array.partition(
+        args,
+        Result.liftPredicate(({ words: [flag] }: Argument) => flag.start > at, Function.identity),
+    );
+};
+
+const repositoryOf = (host: Host['Service'], invocation: Invocation) =>
+    scoped(invocation)[1]
+        .filter(({ names }) => names.includes('-C'))
+        .flatMap(({ values }) => values)
+        .reduce((folder, { text }) => host.resolve(text, folder), invocation.command.cwd);
+
 const present = (host: Host['Service'], invocation: Invocation, word: string) =>
-    Option.match(host.resolve(word, folderOf(host, invocation, '-C')), {
+    Option.match(host.resolve(word, repositoryOf(host, invocation)), {
         onNone: () => Effect.succeed(false),
         onSome: host.exists,
     });
 
 const inRepository =
     (...rules: readonly Rule[]): Rule =>
-    (invocation, call) => {
-        const folder = folderOf(call.host, invocation, '-C');
-        return Option.exists(folder, (repository) => !call.host.inside(repository, call.host.root)) ? [] : Effect.map(all(...rules)(invocation, call), (verdicts) => (verdicts.length > 0 && Option.isNone(folder) ? unresolved(invocation) : verdicts));
-    };
+    (invocation, call) =>
+        Effect.map(all(...rules)(invocation, call), (verdicts) => (verdicts.length > 0 && Option.isNone(repositoryOf(call.host, invocation)) ? unresolved(invocation) : verdicts));
+
+const inSession =
+    (...rules: readonly Rule[]): Rule =>
+    (invocation, call) =>
+        Option.exists(repositoryOf(call.host, invocation), (repository) => !call.host.inside(repository, call.host.root)) ? [] : all(...rules)(invocation, call);
 
 const dirty = (host: Host['Service'], invocation: Invocation, paths: readonly string[]) =>
     Effect.orElseSucceed(
-        Effect.map(host.output(['git', '-C', Option.getOrElse(folderOf(host, invocation, '-C'), () => host.root), 'status', '--porcelain', '--', ...paths]), (listed) => listed.trim() !== ''),
+        Effect.map(host.output(['git', '-C', Option.getOrElse(repositoryOf(host, invocation), () => host.root), 'status', '--porcelain', '--', ...paths]), (listed) => listed.trim() !== ''),
         () => true,
     );
 
@@ -78,7 +98,7 @@ const appliedPatch: Rule = Effect.fnUntraced(function* (invocation, { host }) {
     if (operands.length === 0 || !operands.every(({ known }) => known)) {
         return refusal(`${commandOf(invocation)} reads a patch no check can list before it runs, pass the patch file`);
     }
-    const listed = yield* Effect.orElseSucceed(host.output(['git', '-C', Option.getOrElse(folderOf(host, invocation, '-C'), () => host.root), 'apply', '--numstat', ...operands.map(({ text }) => text)]), () => '');
+    const listed = yield* Effect.orElseSucceed(host.output(['git', '-C', Option.getOrElse(repositoryOf(host, invocation), () => host.root), 'apply', '--numstat', ...operands.map(({ text }) => text)]), () => '');
     const paths = listed.split('\n').flatMap((line) => Option.toArray(Array.get(line.split('\t'), 2)));
     return paths.length === 0 || (yield* dirty(host, invocation, paths)) ? refusal(`${commandOf(invocation)} ${OVERWRITES.join(', ')}`) : [];
 });
@@ -92,15 +112,6 @@ const resetTarget: Rule = Effect.fnUntraced(function* (invocation, { host }) {
     return !target.known && invocation.command.origin === 'call' ? inserted(invocation, target.start, '-- ') : refusal(`${commandOf(invocation)} ${target.text} moves HEAD, commit forward`);
 });
 
-const showOverwrite: Rule = (invocation, { host }) =>
-    Effect.map(
-        Effect.filter(Array.getSomes(redirected(invocation, RedirOperator.RdrOut).map(({ target }) => target)), ({ text, known }) => {
-            const file = Option.getOrUndefined(Option.filter(host.resolve(text, invocation.command.cwd), (candidate) => host.inside(candidate, host.root)));
-            return file === undefined || !known ? Effect.succeed(file !== undefined) : dirty(host, invocation, [file]);
-        }),
-        ([file]) => (file === undefined ? [] : refusal(`${commandOf(invocation)} > ${file.text} ${OVERWRITES.join(', ')}`)),
-    );
-
 const exportedTree: Rule = Effect.fnUntraced(function* (invocation, { host }) {
     const { path, operands } = invocation;
     const [folder, revision] = path[1] === undefined ? operands.slice(1) : operands;
@@ -111,7 +122,7 @@ const exportedTree: Rule = Effect.fnUntraced(function* (invocation, { host }) {
         return refusal(`${commandOf(invocation)} ${BRANCHES.join(', ')}`);
     }
     const temporary = Option.getOrElse(yield* host.environment('TMPDIR'), () => '/tmp');
-    const target = Option.getOrUndefined(Option.filter(host.resolve(relocated(folder.text, temporary), folderOf(host, invocation, '-C')), () => folder.known));
+    const target = Option.getOrUndefined(Option.filter(host.resolve(relocated(folder.text, temporary), repositoryOf(host, invocation)), () => folder.known));
     const found = target !== undefined && (yield* host.exists(target));
     const occupied = target === undefined || (found && (yield* Effect.match(host.fs.readDirectory(target), { onFailure: () => true, onSuccess: Array.isReadonlyArrayNonEmpty })));
     if (occupied) {
@@ -121,6 +132,15 @@ const exportedTree: Rule = Effect.fnUntraced(function* (invocation, { host }) {
     const exported = relocated(folder.raw);
     return whole(invocation, `mkdir -p ${exported} && ${git} archive ${revision?.raw ?? 'HEAD'} | tar -x -C ${exported}`, 'git worktree add');
 });
+
+const branchWrites: Rule = (invocation) => {
+    const named = new Set(scoped(invocation)[0].flatMap(({ names }) => names));
+    const written = BRANCH_WRITES.find((name) => named.has(name));
+    if (written !== undefined) {
+        return refusal(`${commandOf(invocation)} ${written} ${BRANCHES.join(', ')}`);
+    }
+    return invocation.operands.length > 0 && !BRANCH_READS.some((name) => named.has(name)) ? refusal(`${commandOf(invocation)} ${BRANCHES.join(', ')}`) : [];
+};
 
 const forcedRefs: Rule = (invocation) =>
     invocation.operands.flatMap((word) => {
@@ -140,23 +160,37 @@ const GIT: Ruleset = {
             stopsAtOperand: ['stash', 'grep', 'config'],
             rules: [
                 inRepository(
-                    when(holds(ALIAS, '-c'), refuse(...ALIASES, '-c')),
                     perSubcommand({
-                        branch: [refuse(...BRANCHES, ...BRANCH_WRITES), when(({ operands, has }) => operands.length > 0 && !has('--list', '--all', '--remotes', '--verbose', '--show-current', '--contains', '--no-contains', '--merged', '--no-merged', '--points-at', '-u', ...BRANCH_WRITES), refuse(...BRANCHES))],
-                        checkout: [UNFORCED, refuse(...OVERWRITES, '-B', '--patch', '--ours', '--theirs'), refuse(...BRANCHES, '-b', '--orphan', '--track'), checkoutPaths],
+                        checkout: [UNFORCED, refuse(...OVERWRITES, '-B', '--patch', '--ours', '--theirs'), checkoutPaths],
                         clean: [when(({ has }) => !has('--dry-run'), refuse("deletes other sessions' untracked files", 'rm the paths you created by name'))],
-                        config: [when(({ operands }) => operands.slice(0, -1).some(({ text }) => text.startsWith('alias.')), refuse(...ALIASES))],
-                        push: [when(Predicate.not(holds(TAG)), UNFORCED, refuse(...REMOTE, '--delete', '--mirror', '--prune'), forcedRefs)],
-                        rebase: [when(({ has }) => !has(...UNWINDS), refuse('rewrites shared commits', 'merge or commit forward'))],
-                        reflog: [when(nested('delete', 'drop', 'expire'), refuse('deletes entries', 'leave the reflog intact'))],
-                        reset: [refuse(...OVERWRITES, ...RESET_DISCARDS), when(({ has }) => !has(...RESET_DISCARDS), resetTarget)],
+                        reset: [refuse(...OVERWRITES, ...RESET_DISCARDS)],
                         apply: [when(({ has }) => !has('--cached') && (has('--apply') || !has('--check', '--stat', '--numstat', '--summary')), appliedPatch)],
                         restore: [when(({ has }) => !has('--staged') || has('--worktree'), restoredPaths)],
-                        revert: [when(({ has }) => !has(...UNWINDS), refuse('reverses committed history', 'commit a forward fix'))],
-                        show: [when(holds(REVISION_PATH), showOverwrite)],
                         stash: [when(Predicate.not(nested('list', 'show')), refuse('hides work', 'leave the work in the tree'))],
-                        switch: [UNFORCED, refuse(...OVERWRITES, '-C'), refuse(...BRANCHES, '--create', '--orphan')],
+                        switch: [UNFORCED, refuse(...OVERWRITES, '-C')],
+                        'checkout-index': [refuse(...OVERWRITES, '-f', '--force', '-a', '--all')],
+                        'update-index': [refuse('hides edits from git status', 'leave the index flags alone', '--assume-unchanged', '--skip-worktree')],
                     }),
+                    inSession(
+                        when(holds(ALIAS, '-c'), refuse(...ALIASES, '-c')),
+                        when(holds(HOOKS_PATH, '-c'), refuse(...HOOKS, '-c')),
+                        perSubcommand({
+                            branch: [branchWrites],
+                            commit: [refuse(...HOOKS, '--no-verify', '-n'), refuse('rewrites the last commit another session may own', 'commit forward', '--amend')],
+                            'filter-branch': [refuse(...HISTORY)],
+                            'filter-repo': [refuse(...HISTORY)],
+                            tag: [refuse('deletes a tag', 'leave published tags in place', '-d', '--delete')],
+                            'update-ref': [refuse('deletes a ref', 'leave the ref in place', '-d')],
+                            checkout: [refuse(...BRANCHES, '-b', '--orphan', '--track')],
+                            config: [when(({ operands }) => operands.slice(0, -1).some(({ text }) => text.startsWith('alias.')), refuse(...ALIASES))],
+                            push: [when(Predicate.not(holds(TAG)), UNFORCED, refuse(...REMOTE, '--delete', '--mirror', '--prune'), forcedRefs)],
+                            rebase: [when(({ has }) => !has(...UNWINDS), refuse('rewrites shared commits', 'merge or commit forward'))],
+                            reflog: [when(nested('delete', 'drop', 'expire'), refuse('deletes entries', 'leave the reflog intact'))],
+                            reset: [when(({ has }) => !has(...RESET_DISCARDS), resetTarget)],
+                            revert: [when(({ has }) => !has(...UNWINDS), refuse('reverses committed history', 'commit a forward fix'))],
+                            switch: [refuse(...BRANCHES, '--create', '--orphan')],
+                        }),
+                    ),
                 ),
                 perSubcommand({ worktree: [exportedTree] }),
             ],

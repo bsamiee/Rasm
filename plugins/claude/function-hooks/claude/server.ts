@@ -5,30 +5,31 @@ import process from 'node:process';
 import { layer, layerHttpServices } from '@effect/platform-node/NodeHttpServer';
 import { runMain } from '@effect/platform-node/NodeRuntime';
 import { layerNodeFromConfig, teardown } from '@rasm/telemetry/node';
-import { Array, Cause, Console, Effect, Function, Layer, Option, Schedule, type Schema, Stdio, String } from 'effect';
+import { Array, Cause, Console, Effect, Layer, Option, Schedule, type Schema, Stdio, String } from 'effect';
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from 'effect/http';
-import { observed, quit, watched } from '#/claude/instances';
-import { paused } from '#/claude/owner';
 import { Routes } from '#/claude/routes';
 import { Host, HostError } from '#/host';
 import manifest from '#/manifest' with { type: 'json' };
 import { decide, Engine } from '#/rules/decide';
+import { watched } from '#/rules/waits';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const answering = <I, O, E, R>(route: keyof Routes, [input, output]: readonly [Schema.Decoder<I>, Schema.Codec<O, unknown>], respond: (value: I) => Effect.Effect<O, E, R>) =>
-    HttpRouter.add(
+const routed = <K extends keyof typeof Routes, E, R>(route: K, answer: (body: (typeof Routes)[K][0]['Type']) => Effect.Effect<(typeof Routes)[K][1]['Type'], E, R>) => {
+    const [asked, answered]: readonly [Schema.Codec<(typeof Routes)[K][0]['Type'], (typeof Routes)[K][0]['Encoded']>, Schema.Codec<(typeof Routes)[K][1]['Type'], (typeof Routes)[K][1]['Encoded']>] = Routes[route];
+    return HttpRouter.route(
         'POST',
         `/${route}`,
-        HttpServerRequest.schemaBodyJson(input).pipe(
-            Effect.flatMap(respond),
-            Effect.flatMap(HttpServerResponse.schemaJson(output)),
+        HttpServerRequest.schemaBodyJson(asked).pipe(
+            Effect.flatMap(answer),
+            Effect.flatMap(HttpServerResponse.schemaJson(answered)),
             Effect.tapCause(Effect.logError),
             Effect.catchCause((cause) => Effect.succeed(HttpServerResponse.text(Cause.pretty(cause), { status: 500 }))),
         ),
     );
+};
 
-const Router = Layer.mergeAll(answering('decide', Routes.decide, decide), answering('observe', Routes.observe, Function.flow(observed, Effect.succeed)), answering('paused', Routes.paused, paused), answering('quit', Routes.quit, quit), answering('watched', Routes.watched, Function.flow(watched, Effect.succeed)));
+const Router = HttpRouter.addAll([routed('decide', decide), routed('tasks', ({ files }) => watched(files))]);
 
 const Server = Layer.unwrap(
     Effect.gen(function* () {

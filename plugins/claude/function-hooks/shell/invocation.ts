@@ -1,3 +1,4 @@
+import { tmpdir } from 'node:os';
 import { Array, Cache, Context, Effect, Layer, Option, Result } from 'effect';
 import { RedirOperator, type Stmt } from 'sh-syntax/sync';
 import { Host, type HostError, KEEP_SUCCESSES } from '#/host';
@@ -37,10 +38,10 @@ type Start = Pick<Command, 'cwd' | 'origin'> & Partial<Pick<Command, 'fed' | 'lo
 
 const ASSIGNMENT = /^[A-Za-z_]\w*=/u;
 const VERSIONED = /(?:@.*|\d[\d.]*)$/u;
-const SCRIPT_FILE = /\.(?:sh|bash|zsh)$/u;
 const LEADING_OPTION = /^-[A-Za-z]$/u;
 const TOOLCHAIN = /^\+./u;
-const HELP: readonly string[] = ['--help', '--version', '-h', '-V', '-help', '-version'];
+const HELP: ReadonlySet<string> = new Set(['--help', '--version', '-h', '-V', '-help', '-version']);
+const SCRATCH: readonly string[] = [tmpdir(), '/tmp', '/private/tmp', '/var/folders', '/private/var/folders'];
 const WRITES: ReadonlySet<RedirOperator> = new Set([RedirOperator.RdrOut, RedirOperator.AppOut, RedirOperator.RdrClob, RedirOperator.AppClob, RedirOperator.RdrAll, RedirOperator.AppAll, RedirOperator.RdrAllClob, RedirOperator.AppAllClob]);
 const COPIES: ReadonlySet<string> = new Set(['cat', 'tee']);
 const ZSH_FEATURE = /\bzsh feature\b/u;
@@ -58,7 +59,7 @@ class Parser extends Context.Service<Parser>()('@rasm/function-hooks/shell/invoc
                 },
                 { capacity: programs.size, ...KEEP_SUCCESSES },
             ),
-            (usages) => ({ usages, programs }),
+            (usages) => ({ usages, programs, interpreters: new Map(Array.reverse(Array.fromIterable(programs).flatMap(([name, { extensions = [] }]) => extensions.map((extension) => [extension, name] as const)))) }),
         ),
 }) {
     static readonly layer = (programs: ReadonlyMap<string, Program>) => Layer.effect(this, this.make(programs));
@@ -70,7 +71,7 @@ const invocationOf = (command: Command, head: Word, args: readonly Word[], assig
     const parsedArguments = parseArguments(row.toolchain === true && Option.exists(Array.head(args), ({ text }) => TOOLCHAIN.test(text)) ? args.slice(1) : args, usage, row);
     const { names, leading, inputs, has, supplied } = parsedArguments;
     const { informational = [], readsUnless = [], code = [], shell = [] } = row;
-    const inner = row.wraps === undefined && row.module === undefined ? [] : parsedArguments.rest;
+    const inner = row.wraps === undefined && !has(...Option.toArray(Option.fromNullishOr(row.module))) ? [] : parsedArguments.rest;
     const own = args.slice(0, args.length - inner.length);
     const roots = Option.match(
         Option.filter(Option.fromNullishOr(row.recursive), ({ when }) => when === undefined || has(...when)),
@@ -98,10 +99,10 @@ const invocationOf = (command: Command, head: Word, args: readonly Word[], assig
         row,
         head,
         assigned,
-        words: [head, ...own],
+        words: [head, ...own.filter((word) => word !== head)],
         outer,
         roots,
-        informational: HELP.some((name) => names.has(name)) || has(...informational),
+        informational: names.values().some((name) => HELP.has(name) || name.startsWith('--help-')) || has(...informational),
         repeated: command.looping || outer.some((outside) => outside.row.wraps !== undefined && outside.row.reads === true),
         last: inner.length === 0,
         readsStdin: reads && ((row.stopsAtOperand === true ? inputs.slice(0, 1) : inputs).some(({ text }) => text === '-') || (inputs.length === 0 && roots.length === 0)),
@@ -120,20 +121,22 @@ const wrappedWords = ({ row, args, rest, informational, last }: Invocation): rea
 };
 
 const invocations = Effect.fnUntraced(function* (command: Command, words: readonly Word[], outer: readonly Invocation[]): Effect.fn.Return<readonly Invocation[], HostError, Parser | Host> {
-    const { usages, programs } = yield* Parser;
+    const [{ usages, programs, interpreters }, { path }] = yield* Effect.all([Parser, Host]);
     const assigned = Array.takeWhile(words, ({ text }) => ASSIGNMENT.test(text));
     const [head, ...args] = words.slice(assigned.length);
     if (head === undefined) {
         return [];
     }
-    const leaf = head.text.slice(head.text.lastIndexOf('/') + 1);
-    const program = [leaf, leaf.replace(VERSIONED, '')].find((candidate) => programs.has(candidate)) ?? leaf;
-    const invocation = invocationOf(command, head, args, assigned, outer, program, programs.get(program) ?? {}, programs.has(program) ? yield* Cache.get(usages, program) : NO_USAGE);
+    const leaf = path.basename(head.text);
+    const named = [leaf, leaf.replace(VERSIONED, '')].find((candidate) => programs.has(candidate));
+    const interpreter = Option.filter(Option.fromUndefinedOr(interpreters.get(path.extname(leaf))), () => named === undefined && head.known);
+    const program = named ?? Option.getOrElse(interpreter, () => leaf);
+    const invocation = invocationOf(command, head, Option.isSome(interpreter) ? [head, ...args] : args, assigned, outer, program, programs.get(program) ?? {}, programs.has(program) ? yield* Cache.get(usages, program) : NO_USAGE);
     return [invocation, ...(yield* Effect.forEach(wrappedWords(invocation), (inner) => invocations(command, inner, [...outer, invocation]))).flat()];
 });
 
 const bodies = (invocation: Invocation): readonly Body[] => {
-    const { row, has, operands, command, head, program } = invocation;
+    const { row, has, operands, command } = invocation;
     if (row.concatenates === true) {
         return [{ invocation, text: operands.map(({ text }) => text).join(' '), file: false }];
     }
@@ -144,7 +147,6 @@ const bodies = (invocation: Invocation): readonly Body[] => {
         ...(inline && first !== undefined ? [{ invocation, text: first.text, file: false }] : []),
         ...(shell && !inline && first === undefined ? Option.toArray(Option.map(command.input, (text) => ({ invocation, text, file: false }))) : []),
         ...(shell && !inline && first?.known === true ? [{ invocation, text: first.text, file: true }] : []),
-        ...(!shell && head.known && program === head.text.slice(head.text.lastIndexOf('/') + 1) && head.text.includes('/') && SCRIPT_FILE.test(head.text) ? [{ invocation, text: head.text, file: true }] : []),
     ];
 };
 
@@ -165,7 +167,8 @@ const contentOf = Effect.fnUntraced(function* (invocation: Invocation, text: str
     }
     const visiting = visited.union(new Set([file]));
     const writes = written(host, file, invocation, found);
-    const read = Option.isSome(writes) || (yield* host.tracked(file)) ? Option.flatten(writes) : yield* Effect.option(host.fs.readFileString(file));
+    const authored = [host.root, ...SCRATCH].some((folder) => host.inside(file, folder));
+    const read = Option.isSome(writes) || !authored || (yield* host.tracked(file)) ? Option.flatten(writes) : yield* Effect.option(host.fs.readFileString(file));
     return Option.map(read, (body) => ({ text: body, visited: visiting }));
 });
 

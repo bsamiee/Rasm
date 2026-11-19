@@ -1,0 +1,16 @@
+{
+    "hooks": {
+        "PreToolUse": [
+            {
+                "matcher": "^(Bash|apply_patch|clocksleep|mcp__node_repl__js)$",
+                "hooks": [
+                    {
+                        "command": "root=\"$(codex plugin marketplace list --json | jq -r '.marketplaces[] | select(.name == \"rasm\") | .root')\" && mise exec -C \"$root\" -- node \"$root/plugins/claude/function-hooks/hook.ts\" codex",
+                        "timeout": 30,
+                        "type": "command"
+                    }
+                ]
+            }
+        ]
+    }
+}

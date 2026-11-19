@@ -1,12 +1,12 @@
-import { Array, Combiner, Effect, Layer, Option, Predicate, Record } from 'effect';
+import { Array, Combiner, Effect, Layer, Match, Option, Predicate, Record } from 'effect';
 import { RateLimiter } from 'effect/persistence';
 import { Host, type HostError } from '#/host';
-import { APPS } from '#/rules/apps';
+import { BROWSERS } from '#/rules/browsers';
 import { Decision, decisionOf, type Request } from '#/rules/decision';
 import { FILES } from '#/rules/files';
 import { GHIDRA } from '#/rules/ghidra';
 import { GIT } from '#/rules/git';
-import { all, type Call, type Ruleset, settled } from '#/rules/rule';
+import { all, type Call, once, type Ruleset, settled } from '#/rules/rule';
 import { TASKS } from '#/rules/tasks';
 import { WAITS } from '#/rules/waits';
 import { analyzed, Parser } from '#/shell/invocation';
@@ -14,7 +14,7 @@ import { PROGRAMS } from '#/shell/programs';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const RULESETS: readonly Ruleset[] = [APPS, FILES, WAITS, GIT, GHIDRA, TASKS, { programs: PROGRAMS }];
+const RULESETS: readonly Ruleset[] = [BROWSERS, FILES, WAITS, GIT, GHIDRA, TASKS, { programs: PROGRAMS }];
 const EVERY = RULESETS.flatMap(({ every = [] }) => every);
 const CALLS = RULESETS.flatMap(({ calls = [] }) => calls);
 const BY_NAME = new Map(
@@ -25,42 +25,49 @@ const BY_NAME = new Map(
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const due = Effect.fnUntraced(function* ({ session, agent }: Pick<typeof Request.Type, 'session' | 'agent'>, notes: ReadonlyMap<string, string>) {
-    const [host, limiter] = yield* Effect.all([Host, RateLimiter.RateLimiter]);
-    const reader = `${session ?? host.parent} ${agent ?? 'main'}`;
-    const fresh = yield* Effect.filter([...notes], ([subject]) => Effect.isSuccess(limiter.consume({ key: `${reader} ${subject}`, limit: 1, window: '10 minutes', algorithm: 'fixed-window', onExceeded: 'fail' })));
-    return fresh.map(([, note]) => note);
-});
+const due = (reader: Pick<typeof Request.Type, 'session' | 'agent'>, notes: ReadonlyMap<string, string>) =>
+    Effect.map(
+        Effect.filter([...notes], ([subject]) => once(reader, subject)),
+        Array.map(([, note]) => note),
+    );
 
-const judged = Effect.fnUntraced(function* (request: typeof Request.Type, noted: (notes: ReadonlyMap<string, string>) => Effect.Effect<readonly string[], never, Host | RateLimiter.RateLimiter>) {
+const judged = Effect.fnUntraced(function* (request: typeof Request.Type) {
     const host = yield* Host;
     const analysis = yield* analyzed(request.command, { cwd: host.resolve(request.cwd, Option.none()), origin: 'call' }, request.shell);
     const call: Call = { request, analysis, host, programs: BY_NAME };
     const verdicts = yield* Effect.all([...analysis.invocations.map((invocation) => all(...(invocation.informational ? [] : [...(BY_NAME.get(invocation.program)?.rules ?? []), ...EVERY]))(invocation, call)), ...CALLS.map((rule) => settled(rule(call)))], { concurrency: 'unbounded' });
-    return yield* decisionOf(request.command, verdicts.flat(), noted);
+    return yield* decisionOf(request.command, verdicts.flat(), (notes) => due(request, notes));
 });
 
-const converged = Effect.fnUntraced(function* (request: typeof Request.Type, rewrite: typeof Decision.cases.Rewrite.Type, seen: ReadonlySet<string>): Effect.fn.Return<typeof Decision.Type, HostError, Host | Parser | RateLimiter.RateLimiter> {
-    const again = yield* judged({ ...request, command: rewrite.command, kind: rewrite.background ? 'background' : request.kind }, (notes) => due(request, notes));
-    if (again._tag !== 'Rewrite') {
-        return Decision.match(again, { Allow: ({ observes }) => Decision.cases.Rewrite.make({ ...rewrite, observes: rewrite.observes || observes }), Deny: (denied) => denied, Rewrite: () => rewrite });
+const converged = Effect.fnUntraced(function* (request: typeof Request.Type, current: typeof Decision.cases.Rewrite.Type | typeof Decision.cases.Monitor.Type, seen: ReadonlySet<string>): Effect.fn.Return<typeof Decision.Type, HostError, Host | Parser | RateLimiter.RateLimiter> {
+    const kind = Match.valueTags(current, { Monitor: () => 'monitor' as const, Rewrite: ({ background }) => (background ? 'background' : request.kind) });
+    const again = yield* judged({ ...request, command: current.command, kind });
+    if (again._tag === 'Deny') {
+        return again;
     }
-    const notes = Array.dedupe([rewrite.note, again.note].filter(Predicate.isNotUndefined));
-    const merged = Decision.cases.Rewrite.make({ command: again.command, observes: rewrite.observes || again.observes, background: rewrite.background || again.background, ...(notes.length === 0 ? {} : { note: notes.join('. ') }) });
-    if (again.command === rewrite.command) {
+    const notes = Array.dedupe([current.note, again.note].filter(Predicate.isNotUndefined));
+    const shared = { command: again._tag === 'Allow' ? current.command : again.command, ...(notes.length === 0 ? {} : { note: notes.join('. ') }) };
+    const merged = current._tag === 'Monitor' || again._tag === 'Monitor' ? Decision.cases.Monitor.make(shared) : Decision.cases.Rewrite.make({ ...shared, background: current.background || (again._tag === 'Rewrite' && again.background) });
+    const key = `${merged._tag} ${merged.command}`;
+    if (merged.command === current.command && merged._tag === current._tag) {
         return merged;
     }
-    if (seen.has(again.command) || seen.size > RULESETS.length) {
-        return Decision.cases.Deny.make({ reason: `Rules undo each other's rewrite, ${rewrite.command} then ${again.command}, fix the rule at its cause` });
+    if (seen.has(key) || seen.size > RULESETS.length) {
+        return Decision.cases.Deny.make({ reason: `Rules undo each other's rewrite, ${current.command} then ${merged.command}, fix the rule at its cause` });
     }
-    return yield* converged(request, merged, seen.union(new Set([again.command])));
+    return yield* converged(request, merged, seen.union(new Set([key])));
 });
 
 const decide = Effect.fn('decide')(
     function* (request: typeof Request.Type) {
-        const first = yield* judged(request, (notes) => due(request, notes));
-        const decision = first._tag === 'Rewrite' ? yield* converged(request, first, new Set([request.command, first.command])) : first;
-        const outcome = Decision.match(decision, { Allow: () => ({}), Deny: ({ reason }) => ({ reason }), Rewrite: ({ command }) => ({ rewritten: command }) });
+        const first = yield* judged(request);
+        const decision = first._tag === 'Rewrite' || first._tag === 'Monitor' ? yield* converged(request, first, new Set([`Rewrite ${request.command}`, `${first._tag} ${first.command}`])) : first;
+        const outcome = Decision.match(decision, {
+            Allow: ({ note }) => Record.getSomes({ note: Option.fromNullishOr(note) }),
+            Deny: ({ reason }) => ({ reason }),
+            Rewrite: ({ command, background, note }) => ({ rewritten: command, background, ...Record.getSomes({ note: Option.fromNullishOr(note) }) }),
+            Monitor: ({ command, note }) => ({ monitored: command, ...Record.getSomes({ note: Option.fromNullishOr(note) }) }),
+        });
         yield* Effect.annotateCurrentSpan({ decision: decision._tag, kind: request.kind, command: request.command, ...outcome, ...Record.getSomes({ tool_use_id: Option.fromNullishOr(request.call), session: Option.fromNullishOr(request.session), agent: Option.fromNullishOr(request.agent) }) });
         yield* Effect.logInfo(decision._tag).pipe(Effect.annotateLogs({ kind: request.kind, command: request.command, ...outcome, session: request.session ?? 'unknown', agent: request.agent ?? 'main', call: request.call ?? 'unknown' }));
         return decision;

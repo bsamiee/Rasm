@@ -1,9 +1,13 @@
 import { Array, Effect, Function, Match, Option, Predicate, Record, String } from 'effect';
 import { RedirOperator } from 'sh-syntax/sync';
 import { Verdict } from '#/rules/decision';
-import { absent, type Call, commandOf, cut, deleted, edited, ensure, erased, folderOf, holds, inserted, listed, NUL, perSubcommand, quote, type Rule, type Ruleset, redirected, refusal, relocated, respell, silent, spelled, stages, unresolved, when, whole } from '#/rules/rule';
+import { absent, type Call, commandOf, cut, deleted, edited, ensure, erased, folderOf, holds, inserted, listed, NUL, perSubcommand, quote, type Rule, type Ruleset, redirected, refusal, refuse, relocated, respell, silent, spelled, stages, unresolved, when, whole } from '#/rules/rule';
 import { type Invocation, WRITES } from '#/shell/invocation';
-import type { Word } from '#/shell/script';
+import { slicedWord, type Word } from '#/shell/script';
+
+// --- [TYPES] ---------------------------------------------------------------------------
+
+type Form = readonly [RegExp, (found: Readonly<Partial<Record<string, string>>>, invocation: Invocation) => Option.Option<string>];
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -13,7 +17,12 @@ const IGNORED_PATH = /^[.*/]*node_modules[*/]*$/u;
 const NEGATED_IGNORED = new RegExp(`^!${ONLY_IGNORED.source.slice(1)}`, 'u');
 const BASIC_REGEX_SWAPS = /\\\\|\\(?<escaped>[(){}+?|])|(?<unescaped>^\*|[(){}+?|])/gu;
 const BACK_REFERENCE = /\\[1-9]/u;
+const LISTING_DEPTH = 2;
 const PNPM_STORE_DEPTH = 3;
+const SCRATCHPAD = /\/claude-\d+(?:\/-[^/]*(?:\/[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}(?:\/scratchpad)?)?)?$/u;
+const SESSIONS = /\/claude-\d+(?:\/-[^/]*)?$/u;
+const SINGLE_SEPARATOR = /^[^\s\\]$/u;
+const REPLACING: ReadonlySet<RedirOperator> = new Set([RedirOperator.RdrOut, RedirOperator.RdrClob, RedirOperator.RdrAll, RedirOperator.RdrAllClob]);
 const NO_IGNORE = ['--no-ignore', '--no-ignore-vcs', '--unrestricted'];
 const GLOB_START = /[*?[{(]/u;
 const NAME_CHARACTER = /[\p{L}\p{N}]/u;
@@ -30,13 +39,32 @@ const JSON_PARSE = /\bjson\.loads?\(|\bJSON\.parse\(/u;
 const STDIN_FILE = /\/dev\/stdin\b/u;
 const DUCKDB_MODES = ['-no-agent', '-ascii', '-box', '-column', '-csv', '-html', '-json', '-jsonlines', '-line', '-list', '-quote', '-table'];
 const SD_AS_RG: Record.ReadonlyRecord<string, string> = { i: '--ignore-case', c: '--case-sensitive', w: '--word-regexp', s: '--multiline-dotall' };
-const INLINE_LOOKUPS = [
-    [/^(?:console\.log\()?require\(['"](?<name>[^'"./][^'"]*)\/package\.json['"]\)\.(?<field>\w+)\)?;?$/u, 'jq -r .$<field> node_modules/$<name>/package.json'],
-    [/^(?:console\.log\()?require\.resolve\(['"](?<name>[^'"./][^'"]*)\/package\.json['"](?:,\s*\{\s*paths:\s*\[\s*process\.cwd\(\)\s*\]\s*\})?\)\)?;?$/u, 'realpath node_modules/$<name>/package.json'],
-    [/^(?:console\.log\()?require\(['"](?:node:)?path['"]\)\.dirname\(require\.resolve\(['"](?<name>[^'"./][^'"]*)\/package\.json['"](?:,\s*\{\s*paths:\s*\[\s*process\.cwd\(\)\s*\]\s*\})?\)\)\)?;?$/u, 'realpath node_modules/$<name>'],
-    [/^\s*(?:import time\s*[;\n]\s*time|__import__\(['"]time['"]\))\.sleep\(\s*(?<seconds>\d+(?:\.\d+)?)\s*\)\s*;?\s*$/u, 'sleep $<seconds>'],
-    [/^\s*(?:select\(\s*undef\s*,\s*undef\s*,\s*undef\s*,\s*|sleep\(?\s*)(?<seconds>\d+(?:\.\d+)?)\s*\)?\s*;?\s*$/u, 'sleep $<seconds>'],
-] as const;
+const INLINE_LOOKUPS: readonly Form[] = [
+    [/^(?:console\.log\()?require\(['"](?<name>[^'"./][^'"]*)\/package\.json['"]\)\.(?<field>\w+)\)?;?$/u, ({ name, field }) => Option.some(`jq -r .${field} node_modules/${name}/package.json`)],
+    [/^(?:console\.log\()?require\.resolve\(['"](?<name>[^'"./][^'"]*)\/package\.json['"](?:,\s*\{\s*paths:\s*\[\s*process\.cwd\(\)\s*\]\s*\})?\)\)?;?$/u, ({ name }) => Option.some(`realpath node_modules/${name}/package.json`)],
+    [/^(?:console\.log\()?require\(['"](?:node:)?path['"]\)\.dirname\(require\.resolve\(['"](?<name>[^'"./][^'"]*)\/package\.json['"](?:,\s*\{\s*paths:\s*\[\s*process\.cwd\(\)\s*\]\s*\})?\)\)\)?;?$/u, ({ name }) => Option.some(`realpath node_modules/${name}`)],
+    [/^\s*(?:import time\s*[;\n]\s*time|__import__\(['"]time['"]\))\.sleep\(\s*(?<seconds>\d+(?:\.\d+)?)\s*\)\s*;?\s*$/u, ({ seconds }) => Option.some(`sleep ${seconds}`)],
+    [/^\s*(?:select\(\s*undef\s*,\s*undef\s*,\s*undef\s*,\s*|sleep\(?\s*)(?<seconds>\d+(?:\.\d+)?)\s*\)?\s*;?\s*$/u, ({ seconds }) => Option.some(`sleep ${seconds}`)],
+    [/^\s*(?:import\s+(?:Foundation|Darwin)\s*[;\n]\s*)?(?:Thread\.sleep\(\s*forTimeInterval:\s*|sleep\(\s*)(?<seconds>\d+(?:\.\d+)?)\s*\)\s*;?\s*$/u, ({ seconds }) => Option.some(`sleep ${seconds}`)],
+    [/^\s*delay\s+(?<seconds>\d+(?:\.\d+)?)\s*$/u, ({ seconds }) => Option.some(`sleep ${seconds}`)],
+];
+const OVER_INPUTS = (head: string, { inputs }: Invocation) => [head, ...inputs.map(({ raw }) => raw)].join(' ');
+const FORMS: Record.ReadonlyRecord<string, readonly Form[]> = {
+    awk: [
+        [/^\s*NR\s*(?:==\s*(?<line>\d+)|>=\s*(?<first>\d+)\s*&&\s*NR\s*<=\s*(?<last>\d+))\s*(?:\{\s*print(?:\s+\$0)?\s*;?\s*\})?\s*$/u, ({ line, first, last }, invocation) => Option.some(OVER_INPUTS(`sed -n '${line ?? `${first},${last}`}p'`, invocation))],
+        [/^\s*(?:1|\{\s*print(?:\s+\$0)?\s*;?\s*\})\s*$/u, (_found, invocation) => Option.some(OVER_INPUTS('cat', invocation))],
+        [/^\s*length(?:\(\s*(?:\$0)?\s*\))?\s*(?<operator>>=?)\s*(?<count>\d+)\s*$/u, ({ operator, count }, invocation) => Option.some(OVER_INPUTS(`rg -n ${quote(`^.{${Number(count) + (operator === '>' ? 1 : 0)},}$`)}`, invocation))],
+        [/^\s*\/(?<from>[^/\\]*)\/\s*,\s*\/(?<to>[^/\\]*)\/\s*$/u, ({ from, to }, invocation) => Option.some(OVER_INPUTS(`sed -En ${quote(`/${from}/,/${to}/p`)}`, invocation))],
+        [
+            /^\s*\{\s*print\s+\$(?<first>[1-9]\d*)(?:\s*,\s*\$(?<second>[1-9]\d*))?\s*;?\s*\}\s*$/u,
+            ({ first = '', second }, invocation) =>
+                Option.map(
+                    Option.filter(Array.head(invocation.values('-F')), (separator) => SINGLE_SEPARATOR.test(separator) && (second === undefined || Number(second) > Number(first))),
+                    (separator) => OVER_INPUTS(`cut -d${quote(separator)} -f${[first, ...(second === undefined ? [] : [second])].join(',')}`, invocation),
+                ),
+        ],
+    ],
+};
 const GREP_AS_RG: { readonly drops: readonly string[]; readonly renames: Record.ReadonlyRecord<string, string> } = {
     drops: ['--recursive', '--dereference-recursive', '--extended-regexp', '--with-filename', '--exclude-dir'],
     renames: {
@@ -62,9 +90,22 @@ const PRINT0: ReadonlySet<string> = new Set(['--print0', '-print0']);
 const BATCHED = (removal: string) => `-X ${removal}`;
 const EXECUTED = (removal: string) => `-exec ${removal} {} +`;
 const WALKERS: Record.ReadonlyRecord<string, (removal: string) => string> = { fd: BATCHED, fdfind: BATCHED, find: EXECUTED, gfind: EXECUTED };
-const EVERY_OPERAND = (operands: readonly Word[]) => operands;
-const LAST_OPERAND = (operands: readonly Word[]) => operands.slice(-1);
-const TEMP_WRITERS: Record.ReadonlyRecord<string, (operands: readonly Word[]) => readonly Word[]> = { tee: EVERY_OPERAND, mkdir: EVERY_OPERAND, touch: EVERY_OPERAND, cp: LAST_OPERAND, mv: LAST_OPERAND, ln: LAST_OPERAND };
+const DD_OUTPUT = 'of=';
+const EVERY_OPERAND = (operands: readonly Word[]) => [operands, []] as const;
+const LAST_OPERAND = (operands: readonly Word[]) => [operands.slice(-1), operands.slice(0, -1)] as const;
+const WRITERS: Record.ReadonlyRecord<string, { readonly written: (operands: readonly Word[]) => readonly [targets: readonly Word[], sources: readonly Word[]]; readonly replaces: Predicate.Predicate<Invocation> }> = {
+    tee: { written: EVERY_OPERAND, replaces: ({ has }) => !has('-a', '--append') },
+    mkdir: { written: EVERY_OPERAND, replaces: Function.constFalse },
+    touch: { written: EVERY_OPERAND, replaces: Function.constFalse },
+    cp: { written: LAST_OPERAND, replaces: Function.constTrue },
+    mv: { written: LAST_OPERAND, replaces: Function.constTrue },
+    ln: { written: LAST_OPERAND, replaces: Function.constTrue },
+    ditto: { written: LAST_OPERAND, replaces: Function.constTrue },
+    install: { written: LAST_OPERAND, replaces: Function.constTrue },
+    rsync: { written: LAST_OPERAND, replaces: Function.constTrue },
+    truncate: { written: EVERY_OPERAND, replaces: Function.constTrue },
+    dd: { written: (operands) => [Array.getSomes(operands.filter(({ text }) => text.startsWith(DD_OUTPUT)).map((word) => slicedWord(word, DD_OUTPUT.length))), []], replaces: Function.constTrue },
+};
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -81,8 +122,8 @@ const wideRoot: Rule = (invocation, call) => {
     const depth = invocation.values('--max-depth', '-maxdepth', '-L').map(Number);
     const bounded = (levels: number) => !stats && depth.length > 0 && depth.every((given) => given <= levels);
     return rootFolders(invocation, call)
-        .filter((folder) => (!bounded(1) && (host.path.dirname(folder) === '/' || Option.exists(host.home, (home) => host.inside(home, folder)) || (host.root !== folder && host.inside(host.root, folder)))) || (!stats && !bounded(PNPM_STORE_DEPTH) && folder.endsWith('/node_modules/.pnpm')))
-        .flatMap((folder) => refusal(`${invocation.program} root ${folder} too wide, pass a package folder`));
+        .filter((folder) => (!bounded(LISTING_DEPTH) && (host.path.dirname(folder) === '/' || Option.exists(host.home, (home) => host.inside(home, folder)) || (host.root !== folder && host.inside(host.root, folder)))) || (!stats && !bounded(PNPM_STORE_DEPTH) && folder.endsWith('/node_modules/.pnpm')))
+        .flatMap((folder) => refusal(`${invocation.program} root ${folder} too wide, pass a package folder or a depth of at most ${LISTING_DEPTH}`));
 };
 
 const unignored =
@@ -103,15 +144,18 @@ const removes =
             const fixed = wild < 0 ? text.length : text.lastIndexOf('/', wild) + 1;
             const prefix = text.slice(0, text.lastIndexOf('/', text.search(EXPANSION)) + 1);
             const folder = host.resolve(text.slice(0, fixed), start);
+            const unnamed = ![text.slice(fixed), ...patterns].some((pattern) => NAME_CHARACTER.test(pattern));
             return Match.value({
                 known,
                 walks: walker !== undefined,
                 skipped: invocation.command.origin === 'file' || (prefix !== '' && Option.exists(host.resolve(prefix, start), (outside) => !(host.inside(outside, host.root) || host.inside(host.root, outside)))),
                 placed: Option.isSome(folder),
-                covers: Option.exists(folder, (target) => host.inside(host.root, target)) && ![text.slice(fixed), ...patterns].some((pattern) => NAME_CHARACTER.test(pattern)),
+                shared: Option.exists(folder, (target) => SCRATCHPAD.test(target) && (unnamed || (wild >= 0 && SESSIONS.test(target)))),
+                covers: Option.exists(folder, (target) => host.inside(host.root, target)) && unnamed,
                 vague: ASCENDS.test(text) || !NAME_CHARACTER.test(text),
             }).pipe(
                 Match.when({ known: false, skipped: false }, () => refusal(`${subject} ${raw} expands later, pass a literal path`)),
+                Match.when({ known: true, shared: true }, () => refusal(`${subject} ${text} empties the scratchpad the session and every subagent share, delete only the subfolder you made by name`)),
                 Match.when({ known: true, covers: true, walks: false }, () => refusal(`${subject} ${text} covers root, name each folder`)),
                 Match.when({ known: true, covers: true }, () => refusal(`${subject} deletes everything under ${text}, add a name pattern`)),
                 Match.when({ known: true, placed: false, vague: true }, () => unresolved(invocation)),
@@ -178,17 +222,19 @@ const emptyStdin: Rule = (invocation) => {
     return Option.match(removable ? listed(command.source, command) : Option.none(), { onNone: () => whole(invocation, ':', subject), onSome: (span) => erased(invocation, span, subject) });
 };
 
-const inlineCode: Rule = (invocation, { analysis, host }) => {
+const inlineCode: Rule = Effect.fnUntraced(function* (invocation, { analysis, host }) {
     const { row, script, command, sources, program } = invocation;
     if (row.code === undefined) {
         return [];
     }
     const inline = [...invocation.values(...row.code), ...invocation.leading.map(({ text }) => text)];
     const files = Array.getSomes(sources.map(({ text }) => host.resolve(text, command.cwd)));
-    const written = analysis.invocations.some(({ command: writer, program: named, operands: targets }) =>
-        [...Array.getSomes(writer.redirects.filter(({ op }) => WRITES.has(op)).map(({ target }) => target)), ...(named === 'tee' ? targets : [])].some(({ text }) => files.some((file) => Option.contains(host.resolve(text, writer.cwd), file))),
+    const reached = new Set(
+        analysis.invocations.flatMap(({ command: writer, program: named, operands: targets }) => Array.getSomes([...Array.getSomes(writer.redirects.filter(({ op }) => WRITES.has(op)).map(({ target }) => target)), ...(named === 'tee' ? targets : [])].map(({ text }) => host.resolve(text, writer.cwd)))),
     );
-    const probed = written ? Option.orElse(script, () => Option.some('')) : Option.filter(script, () => files.length < sources.length || files.some((path) => !host.inside(path, host.root)));
+    const written = files.some((file) => reached.has(file));
+    const ignored = !written && Option.isSome(script) && (yield* host.ignored(files));
+    const probed = written ? Option.orElse(script, () => Option.some('')) : Option.filter(script, () => !ignored);
     const stated = Option.orElse(probed, () => Option.liftPredicate(inline.join('\n'), () => inline.length > 0));
     if (Option.isNone(stated) && !(sources.length === 0 && command.fed && invocation.readsStdin)) {
         return [];
@@ -197,19 +243,25 @@ const inlineCode: Rule = (invocation, { analysis, host }) => {
         Option.orElse(stated, () => command.input),
         () => '',
     );
-    const [lookup] = INLINE_LOOKUPS.filter(([pattern]) => pattern.test(source)).map(([pattern, answer]) => source.replace(pattern, answer));
-    if (lookup !== undefined) {
-        return silent(whole(invocation, lookup, `${program} inline code`));
-    }
-    const writes = invocation.has(...(row.rewrites ?? [])) || command.redirects.some(({ op, target }) => WRITES.has(op) && Option.exists(target, ({ text }) => !text.startsWith('/dev/')));
-    return refusal(
-        `${program} ${Match.value({ json: JSON_PARSE.test(source), writes }).pipe(
-            Match.when({ json: true }, () => 'parses JSON inline, use jq'),
-            Match.when({ writes: true }, () => 'writes files from inline code, edit them with sd where one pattern covers every change, else with your file edit tool'),
-            Match.orElse(() => 'runs inline code, answer it with a CLI (rg, ast-grep, jq, yq, duckdb) or an nx target'),
-        )}`,
-    );
-};
+    const form = Array.findFirst([...Option.getOrElse(Record.get(FORMS, program), () => []), ...INLINE_LOOKUPS], ([pattern, answer]) => Option.flatMap(Option.fromNullishOr(pattern.exec(source.trim())), ({ groups = {} }) => answer(groups, invocation)));
+    const inPlace = invocation.has(...(row.rewrites ?? []));
+    const effects = row.effects?.test(source);
+    const where = sources.length > 0 ? spelled(sources) : 'inline code';
+    return Option.match(form, {
+        onSome: (rewrite) => silent(whole(invocation, rewrite, `${program} inline code`)),
+        onNone: () =>
+            row.hosted?.test(source) === true || (effects === false && !inPlace)
+                ? []
+                : refusal(
+                      Match.value({ json: JSON_PARSE.test(source), inPlace, effects }).pipe(
+                          Match.when({ json: true }, () => `${program} ${where} parses JSON, use jq`),
+                          Match.when({ inPlace: true }, () => `${program} ${where} edits files in place, edit them with sd where one pattern covers every change, else with your file edit tool`),
+                          Match.when({ effects: true }, () => `${program} ${where} writes files or runs commands, run each command directly and edit files with sd or your file edit tool`),
+                          Match.orElse(() => `${program} runs ${where} no rule reads, answer it with a CLI (rg, ast-grep, jq, yq, duckdb) or an nx target, as a script file written for it is judged the same`),
+                      ),
+                  ),
+    });
+});
 
 // --- [REPLACEMENTS]
 
@@ -287,7 +339,7 @@ const findsAsFd: Predicate.Predicate<Invocation> = ({ row, last, values, args, o
 };
 
 const skipsIgnored = (invocation: Invocation, call: Call) =>
-    (['rg', 'fd', 'fdfind'].includes(invocation.program) || grepsAsRg(invocation) || findsAsFd(invocation)) && !invocation.has(...NO_IGNORE) && invocation.roots.every(({ known, text }) => known && Option.exists(call.host.resolve(text, invocation.command.cwd), (folder) => call.host.inside(folder, call.host.root)))
+    ['rg', 'fd', 'fdfind'].includes(invocation.program) && !invocation.has(...NO_IGNORE) && invocation.roots.every(({ known, text }) => known && Option.exists(call.host.resolve(text, invocation.command.cwd), (folder) => call.host.inside(folder, call.host.root)))
         ? Effect.map(call.host.ignored(rootFolders(invocation, call)), (ignored) => !ignored)
         : Effect.succeed(false);
 
@@ -312,7 +364,7 @@ const excludedStage: Rule = (invocation, call) => {
           );
 };
 
-const findAsFd: Rule = Effect.fnUntraced(function* (invocation, call) {
+const findAsFd: Rule = (invocation) => {
     const options = Array.getSomes(
         invocation.args.map(({ names: [name], values }) =>
             Option.fromUndefinedOr(name).pipe(
@@ -322,17 +374,12 @@ const findAsFd: Rule = Effect.fnUntraced(function* (invocation, call) {
         ),
     );
     const roots = invocation.roots.map(({ raw }) => raw).filter((raw) => raw !== '.');
-    if (invocation.has('-path') && !(yield* skipsIgnored(invocation, call))) {
-        return [];
-    }
-    return whole(invocation, ['fd --hidden', ...((yield* call.host.ignored(rootFolders(invocation, call))) ? ['--no-ignore'] : []), ...options, ...(invocation.has('-name', '-iname') ? [] : ["-g '*'"]), ...roots].join(' '), 'find');
-});
+    return whole(invocation, ['fd --hidden --no-ignore', ...(invocation.has('-path') ? ['-E node_modules'] : []), ...options, ...(invocation.has('-name', '-iname') ? [] : ["-g '*'"]), ...roots].join(' '), 'find');
+};
 
-const grepAsRg: Rule = (invocation, call) => Effect.map(call.host.ignored(rootFolders(invocation, call)), (ignored) => edited(invocation, invocation.head, ignored ? 'rg --no-ignore' : 'rg', invocation.head.raw));
+const grepAsRg: Rule = (invocation) => edited(invocation, invocation.head, invocation.has('--exclude-dir') ? 'rg' : 'rg --no-ignore', invocation.head.raw);
 
 const misreadSuffix = (suffix: string): boolean => suffix.startsWith('-') || SUBSTITUTION.test(suffix);
-
-const treeOnly: Predicate.Predicate<Invocation> = ({ has, names }) => has('-R') && names.size === 1;
 
 const optionsFirst: Rule = (invocation) => {
     const [first] = invocation.operands;
@@ -344,16 +391,6 @@ const silenced: Rule = (invocation) => {
     const quieted = [...redirected(invocation, RedirOperator.RdrAll), ...redirected(invocation, RedirOperator.RdrOut, undefined, '/dev/null'), ...redirected(invocation, RedirOperator.DplOut, '2')];
     return quieted.length >= 2 || quieted.some(({ op }) => op === RedirOperator.RdrAll) ? [...ensure(['--style', 'none'])(invocation), ...quieted.flatMap((redirect) => cut(invocation, [redirect]))] : [];
 };
-
-const cdOutsideRoot: Rule = Effect.fnUntraced(function* (invocation, { host, analysis }) {
-    const [target] = invocation.operands;
-    const { command } = invocation;
-    const outside = Option.filter((folder: string) => !host.inside(folder, host.root));
-    const left = target?.known === true && invocation.outer.length === 0 && command.origin === 'call' ? outside(host.resolve(target.text, command.cwd)) : Option.none();
-    const later = Array.dedupe(analysis.invocations.filter((other) => other.command.source === command.source && other.command.start > command.start && Option.isSome(outside(other.command.cwd))).map(({ program }) => program));
-    const found = yield* Effect.forEach(Array.cartesian(Option.toArray(left), later), ([folder, program]) => Effect.all([host.onPath(program), Effect.orElseSucceed(Effect.map(host.output(['mise', '-C', folder, 'exec', '--', 'which', program]), String.isNonEmpty), () => true)]), { concurrency: 'unbounded' });
-    return found.some(([here, away]) => here && !away) && !found.some(([here, away]) => away && !here) ? edited(invocation, invocation.head, 'builtin cd', invocation.head.raw) : [];
-});
 
 const readsItsOwnFile: Rule = (invocation, call) => {
     const [source, ...others] = stages(invocation, call).earlier;
@@ -415,7 +452,7 @@ const systemTemp = ({ analysis }: Call): readonly Verdict[] => {
         ...Array.dedupe(own.map(({ command }) => command)).flatMap(({ redirects }) => Array.getSomes(redirects.filter(({ op }) => WRITES.has(op)).map(({ target }) => target))),
         ...own.flatMap(({ program, operands }) =>
             Option.getOrElse(
-                Option.map(Record.get(TEMP_WRITERS, program), (written) => written(operands)),
+                Option.map(Record.get(WRITERS, program), ({ written }) => written(operands)[0]),
                 () => [],
             ),
         ),
@@ -424,6 +461,35 @@ const systemTemp = ({ analysis }: Call): readonly Verdict[] => {
     const words = Array.dedupe(own.map(({ command }) => command)).flatMap(({ words: held, redirects }) => [...held, ...Array.getSomes(redirects.map(({ target }) => target))]);
     return words.filter(({ raw, field, prefix }) => written.has(raw) && field === undefined && prefix === undefined).map(({ start, end, raw }) => Verdict.Edit({ start, end, text: Option.some(relocated(raw)), subject: Option.some(raw) }));
 };
+
+const uncommitted = Effect.fnUntraced(function* ({ analysis, host }: Call) {
+    const writes = [
+        ...Array.dedupe(analysis.invocations.map(({ command }) => command)).map(({ redirects, cwd }) => ({ cwd, targets: Array.getSomes(redirects.filter(({ op }) => REPLACING.has(op)).map(({ target }) => target)), sources: [] })),
+        ...analysis.invocations.flatMap((invocation) =>
+            Option.toArray(
+                Option.map(
+                    Option.filter(Record.get(WRITERS, invocation.program), ({ replaces }) => replaces(invocation)),
+                    ({ written }) => {
+                        const [targets, sources] = written(invocation.operands);
+                        return { cwd: invocation.command.cwd, targets, sources };
+                    },
+                ),
+            ),
+        ),
+    ];
+    const named = writes.flatMap(({ cwd, targets, sources }) => Array.getSomes(targets.filter(({ known }) => known).map(({ text }) => host.resolve(text, cwd))).map((file) => ({ file, sources })));
+    const folders = yield* Effect.forEach(named, ({ file }) =>
+        Effect.orElseSucceed(
+            Effect.map(host.fs.stat(file), ({ type }) => type === 'Directory'),
+            Function.constFalse,
+        ),
+    );
+    const held = yield* Effect.filter(Array.dedupe(Array.zipWith(named, folders, ({ file, sources }, folder) => (folder ? sources.map(({ text }) => host.path.join(file, host.path.basename(text))) : [file])).flat()), host.changed);
+    const expanding = writes.flatMap(({ cwd, targets }) => targets.filter(({ known }) => !known).map((word) => ({ word, folder: host.resolve(word.text.slice(0, word.text.lastIndexOf('/', word.text.search(EXPANSION)) + 1) || '.', cwd) })));
+    const inside = expanding.flatMap(({ word, folder }) => (Option.exists(folder, (base) => host.inside(base, host.root)) ? [{ ...word, folder: Option.toArray(folder) }] : []));
+    const unchecked = yield* Effect.filter(inside, ({ folder }) => Effect.map(host.ignored(folder), (ignored) => !ignored));
+    return [...held.flatMap((file) => refusal(`${file} holds uncommitted edits another session may own, change it with your file edit tool`)), ...unchecked.flatMap(({ raw }) => refusal(`${raw} expands later, so no check can see whether it holds uncommitted edits, write each file by its literal path`))];
+});
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -445,7 +511,6 @@ const FILES: Ruleset = {
         },
         rm: { aliases: ['rimraf', 'trash', 'unlink', 'shred'], rules: [fedRemoval()] },
         git: { rules: [perSubcommand({ rm: [when(({ has }) => !has('--cached'), fedRemoval('-C'))] })] },
-        tree: { recursive: {} },
         du: { flags: ['-I='], recursive: { stats: true } },
         grep: {
             flags: ['--include-dir='],
@@ -463,7 +528,7 @@ const FILES: Ruleset = {
         },
         sed: { rules: [backupSuffix] },
         cat: { reads: true, rules: [respell({ renames: { '-A': '-vet' } })] },
-        ls: { rules: [when(treeOnly, (invocation) => edited(invocation, invocation.head, 'tree'), respell({ drops: ['-R'] })), when(Predicate.not(treeOnly), optionsFirst)] },
+        ls: { recursive: { when: ['-R'] }, rules: [optionsFirst] },
         sd: {
             strict: true,
             leading: 2,
@@ -472,18 +537,18 @@ const FILES: Ruleset = {
         },
         curl: { pipefail: true, rules: [ensure(['--fail-with-body'], '--fail', '--write-out')] },
         duckdb: { rules: [when(Predicate.or(holds(STDIN_FILE, '-c', '-s'), holds(STDIN_FILE)), ensure(['-markdown'], ...DUCKDB_MODES))] },
-        cd: { rules: [cdOutsideRoot] },
         jq: { flags: ['--arg=2', '--argjson=2', '--slurpfile=2', '--rawfile=2'], leading: 1, leadingUnless: ['--from-file'], restAfter: ['--args', '--jsonargs'], reads: true, readsUnless: ['--null-input'], rules: [readsItsOwnFile] },
         hyperfine: {
             flags: ['-P, --parameter-scan=3', '-L, --parameter-list=2'],
-            rules: [ensure(['-i']), shellBodies, silenced, substitutedInput],
+            rules: [shellBodies, silenced, substitutedInput],
         },
         nproc: { rules: [absent((invocation) => whole(invocation, 'sysctl -n hw.ncpu'))] },
         shuf: { flags: ['-n='], rules: [absent(shuffled)] },
         base64: { flags: ['-i=', '-o=', '-b='], reads: true, readsUnless: ['-i'], rules: [inputFlagged] },
+        screencapture: { rules: [respell({ drops: ['--interactive', '--screen', '--window', '-W', '--style', '-U', '--ui', '-P', '-M', '--bundleid', '--defaults', '--display-errors'], notify: true }), refuse("replaces the owner's clipboard", 'pass a file', '-c')] },
     },
     every: [wideRoot, emptyStdin, inlineCode],
-    calls: [systemTemp],
+    calls: [systemTemp, uncommitted],
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------

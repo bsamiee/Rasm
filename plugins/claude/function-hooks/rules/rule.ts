@@ -1,8 +1,8 @@
 import { Array, Effect, Option, type Predicate, Record, Result, String, Struct } from 'effect';
-import type { RateLimiter } from 'effect/persistence';
+import { RateLimiter } from 'effect/persistence';
 import { CommandLine } from 'effect/process';
 import type { RedirOperator } from 'sh-syntax/sync';
-import type { Host, HostError } from '#/host';
+import { Host, type HostError } from '#/host';
 import { type Request, Verdict } from '#/rules/decision';
 import type { Argument } from '#/shell/arguments';
 import type { Analysis, Invocation, Parser } from '#/shell/invocation';
@@ -31,7 +31,7 @@ const LIST_BEFORE = /[ \t]*(?<!;)(?<separator>;|&&)[ \t]*$/u;
 const LIST_AFTER = /^[ \t]*(?<separator>;(?!;)|&&|\n)[ \t]*/u;
 const DECODER = new TextDecoder();
 const ENCODER = new TextEncoder();
-const SYSTEM_TEMP = /^(?<quote>['"]?)\/tmp(?=\/(?!claude-))/u;
+const SYSTEM_TEMP = /^(?<quote>['"]?)\/tmp(?=\/(?!claude-|\.\.(?:\/|$)))/u;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -129,6 +129,11 @@ const cut = (invocation: Invocation, parts: Array.NonEmptyReadonlyArray<Span>, b
 
 // --- [RULES]
 
+const once = Effect.fnUntraced(function* ({ session, agent }: Pick<typeof Request.Type, 'session' | 'agent'>, subject: string) {
+    const [host, limiter] = yield* Effect.all([Host, RateLimiter.RateLimiter]);
+    return yield* Effect.isSuccess(limiter.consume({ key: `${session ?? host.parent} ${agent ?? 'main'} ${subject}`, limit: 1, window: '10 minutes', algorithm: 'fixed-window', onExceeded: 'fail' }));
+});
+
 const settled = (verdicts: ReturnType<Rule>) => (Effect.isEffect(verdicts) ? verdicts : Effect.succeed(verdicts));
 
 const all =
@@ -219,4 +224,4 @@ const respell =
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { absent, all, type Call, commandOf, cut, deleted, edited, ensure, erased, feedsJq, folderOf, holds, inserted, listed, NUL, perSubcommand, quote, type Rule, type Ruleset, redirected, refusal, refuse, relocated, respell, settled, silent, spelled, stages, unassign, unresolved, when, whole, within };
+export { absent, all, type Call, commandOf, cut, deleted, edited, ensure, erased, feedsJq, folderOf, holds, inserted, listed, NUL, once, perSubcommand, quote, type Rule, type Ruleset, redirected, refusal, refuse, relocated, respell, settled, silent, spelled, stages, unassign, unresolved, when, whole, within };
