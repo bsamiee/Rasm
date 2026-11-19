@@ -1850,34 +1850,6 @@ checksum = "sha256:5a0b55df66ff07b4342e04967cef69f8bf348f6a0fb1cc1eca741c7b015df
 url = "https://conda.anaconda.org/conda-forge/win-64/zstd-1.5.7-h534d264_7.conda"
 checksum = "sha256:ca7daae4f218a11fab82cc2857f0ea518ec3f46acec60490485347a4c22c6b3e"
 
-[[tools."aqua:nextest-rs/nextest/cargo-nextest"]]
-version = "0.9.152"
-backend = "aqua:nextest-rs/nextest/cargo-nextest"
-specifiers = ["latest"]
-
-[tools."aqua:nextest-rs/nextest/cargo-nextest"."platforms.linux-arm64"]
-checksum = "sha256:ca1f81a5b86533eb45ab97e0064aa88e925e53aab9a698ca6331a7cad1f85f07"
-checksum_source = "mise-versions"
-url = "https://github.com/nextest-rs/nextest/releases/download/cargo-nextest-0.9.152/cargo-nextest-0.9.152-aarch64-unknown-linux-gnu.tar.gz"
-url_api = "https://api.github.com/repos/nextest-rs/nextest/releases/assets/745394722"
-
-[tools."aqua:nextest-rs/nextest/cargo-nextest"."platforms.linux-x64"]
-checksum = "sha256:d039b43c3e0958441b6ad0a39c8884d018b3d2e8fb9928f209074b1100b5e17a"
-checksum_source = "mise-versions"
-url = "https://github.com/nextest-rs/nextest/releases/download/cargo-nextest-0.9.152/cargo-nextest-0.9.152-x86_64-unknown-linux-gnu.tar.gz"
-url_api = "https://api.github.com/repos/nextest-rs/nextest/releases/assets/745393873"
-
-[tools."aqua:nextest-rs/nextest/cargo-nextest"."platforms.macos-arm64"]
-checksum = "sha256:2fadf57df4243e691f088ee3bff4f4ab9af16da0c95a1db84b5cb1685e098a76"
-url = "https://github.com/nextest-rs/nextest/releases/download/cargo-nextest-0.9.152/cargo-nextest-0.9.152-universal-apple-darwin.tar.gz"
-url_api = "https://api.github.com/repos/nextest-rs/nextest/releases/assets/745423352"
-
-[tools."aqua:nextest-rs/nextest/cargo-nextest"."platforms.windows-x64"]
-checksum = "sha256:0384fc89a5a547d4fd5e183fcc101d31dba2837feafd8e64d5ea003a0ddb1941"
-checksum_source = "mise-versions"
-url = "https://github.com/nextest-rs/nextest/releases/download/cargo-nextest-0.9.152/cargo-nextest-0.9.152-x86_64-pc-windows-msvc.tar.gz"
-url_api = "https://api.github.com/repos/nextest-rs/nextest/releases/assets/745407479"
-
 [[tools."aqua:taiki-e/cargo-llvm-cov"]]
 version = "0.9.1"
 backend = "aqua:taiki-e/cargo-llvm-cov"
@@ -2010,6 +1982,35 @@ checksum = "sha256:bf6374b054f596d75b5bb203010394a340cdb44d4150cd03560564fbc35d8
 checksum_source = "mise-versions"
 url = "https://github.com/mitsuhiko/insta/releases/download/1.49.0/cargo-insta-x86_64-pc-windows-msvc.zip"
 url_api = "https://api.github.com/repos/mitsuhiko/insta/releases/assets/606859993"
+
+[[tools.cargo-nextest]]
+version = "0.9.152"
+backend = "aqua:nextest-rs/nextest/cargo-nextest"
+specifiers = ["latest"]
+
+[tools.cargo-nextest."platforms.linux-arm64"]
+checksum = "sha256:ca1f81a5b86533eb45ab97e0064aa88e925e53aab9a698ca6331a7cad1f85f07"
+checksum_source = "mise-versions"
+url = "https://github.com/nextest-rs/nextest/releases/download/cargo-nextest-0.9.152/cargo-nextest-0.9.152-aarch64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/nextest-rs/nextest/releases/assets/745394722"
+
+[tools.cargo-nextest."platforms.linux-x64"]
+checksum = "sha256:d039b43c3e0958441b6ad0a39c8884d018b3d2e8fb9928f209074b1100b5e17a"
+checksum_source = "mise-versions"
+url = "https://github.com/nextest-rs/nextest/releases/download/cargo-nextest-0.9.152/cargo-nextest-0.9.152-x86_64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/nextest-rs/nextest/releases/assets/745393873"
+
+[tools.cargo-nextest."platforms.macos-arm64"]
+checksum = "sha256:2fadf57df4243e691f088ee3bff4f4ab9af16da0c95a1db84b5cb1685e098a76"
+checksum_source = "mise-versions"
+url = "https://github.com/nextest-rs/nextest/releases/download/cargo-nextest-0.9.152/cargo-nextest-0.9.152-universal-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/nextest-rs/nextest/releases/assets/745423352"
+
+[tools.cargo-nextest."platforms.windows-x64"]
+checksum = "sha256:0384fc89a5a547d4fd5e183fcc101d31dba2837feafd8e64d5ea003a0ddb1941"
+checksum_source = "mise-versions"
+url = "https://github.com/nextest-rs/nextest/releases/download/cargo-nextest-0.9.152/cargo-nextest-0.9.152-x86_64-pc-windows-msvc.tar.gz"
+url_api = "https://api.github.com/repos/nextest-rs/nextest/releases/assets/745407479"
 
 [[tools."cargo:cargo-edit"]]
 version = "0.13.14"
@@ -2614,31 +2615,6 @@ url_api = "https://api.github.com/repos/harehare/mq/releases/assets/720894847"
 checksum = "sha256:3c2a1ea8bc27af55178045a4d5e1a987a380c2972477456303ac0a9a5d51801f"
 url = "https://github.com/harehare/mq/releases/download/v0.10.1/mq-x86_64-pc-windows-msvc.exe"
 url_api = "https://api.github.com/repos/harehare/mq/releases/assets/720895286"
-
-[[tools."github:kucherenko/jscpd"]]
-version = "5.4.3"
-backend = "github:kucherenko/jscpd"
-specifiers = ["latest"]
-
-[tools."github:kucherenko/jscpd"."platforms.linux-arm64"]
-checksum = "sha256:221a62a254ab4cc42f26e076943ca79ecd311ae41646a76a08e4b790ed8c5fbe"
-url = "https://github.com/kucherenko/jscpd/releases/download/v5.4.3/jscpd-linux-arm64-gnu.tar.gz"
-url_api = "https://api.github.com/repos/kucherenko/jscpd/releases/assets/723169094"
-
-[tools."github:kucherenko/jscpd"."platforms.linux-x64"]
-checksum = "sha256:a19d719331b21a047a7537f982566dabcf6d6e5f51581c3b80d9c420979cc92c"
-url = "https://github.com/kucherenko/jscpd/releases/download/v5.4.3/jscpd-linux-x64-gnu.tar.gz"
-url_api = "https://api.github.com/repos/kucherenko/jscpd/releases/assets/723169098"
-
-[tools."github:kucherenko/jscpd"."platforms.macos-arm64"]
-checksum = "sha256:e119c4c5388118ad348a799c478589f7ad0fa707c0b7c819d6febc94f6f98522"
-url = "https://github.com/kucherenko/jscpd/releases/download/v5.4.3/jscpd-darwin-arm64.tar.gz"
-url_api = "https://api.github.com/repos/kucherenko/jscpd/releases/assets/723169096"
-
-[tools."github:kucherenko/jscpd"."platforms.windows-x64"]
-checksum = "sha256:1e9416d179c54cbaf1f8854c764b2bc774a1a15850043160b7e58e63948ffb9d"
-url = "https://github.com/kucherenko/jscpd/releases/download/v5.4.3/jscpd-windows-x64-msvc.tar.gz"
-url_api = "https://api.github.com/repos/kucherenko/jscpd/releases/assets/723169167"
 
 [[tools."github:linebender/resvg"]]
 version = "0.50.0"
@@ -3701,6 +3677,35 @@ url_api = "https://api.github.com/repos/jqlang/jq/releases/assets/453012783"
 checksum = "sha256:a6fc67fedaf9128a3309a1e2ebb8b986aeccf70122ee46d2cb4849e423f0c627"
 url = "https://github.com/jqlang/jq/releases/download/jq-1.8.2/jq-windows-amd64.exe"
 url_api = "https://api.github.com/repos/jqlang/jq/releases/assets/453012788"
+
+[[tools.jscpd]]
+version = "5.4.3"
+backend = "github:kucherenko/jscpd"
+specifiers = ["latest"]
+
+[tools.jscpd."platforms.linux-arm64"]
+checksum = "sha256:221a62a254ab4cc42f26e076943ca79ecd311ae41646a76a08e4b790ed8c5fbe"
+checksum_source = "mise-versions"
+url = "https://github.com/kucherenko/jscpd/releases/download/v5.4.3/jscpd-linux-arm64-gnu.tar.gz"
+url_api = "https://api.github.com/repos/kucherenko/jscpd/releases/assets/723169094"
+
+[tools.jscpd."platforms.linux-x64"]
+checksum = "sha256:a19d719331b21a047a7537f982566dabcf6d6e5f51581c3b80d9c420979cc92c"
+checksum_source = "mise-versions"
+url = "https://github.com/kucherenko/jscpd/releases/download/v5.4.3/jscpd-linux-x64-gnu.tar.gz"
+url_api = "https://api.github.com/repos/kucherenko/jscpd/releases/assets/723169098"
+
+[tools.jscpd."platforms.macos-arm64"]
+checksum = "sha256:e119c4c5388118ad348a799c478589f7ad0fa707c0b7c819d6febc94f6f98522"
+checksum_source = "mise-versions"
+url = "https://github.com/kucherenko/jscpd/releases/download/v5.4.3/jscpd-darwin-arm64.tar.gz"
+url_api = "https://api.github.com/repos/kucherenko/jscpd/releases/assets/723169096"
+
+[tools.jscpd."platforms.windows-x64"]
+checksum = "sha256:1e9416d179c54cbaf1f8854c764b2bc774a1a15850043160b7e58e63948ffb9d"
+checksum_source = "mise-versions"
+url = "https://github.com/kucherenko/jscpd/releases/download/v5.4.3/jscpd-windows-x64-msvc.tar.gz"
+url_api = "https://api.github.com/repos/kucherenko/jscpd/releases/assets/723169167"
 
 [[tools.lima]]
 version = "2.3.0"

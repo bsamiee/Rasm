@@ -23,8 +23,8 @@ Each place holding state changes through one action:
 - File `99lock-timeout` of the Hostinger image holds the package lock wait, raised to 10 minutes, as a runner install on a reinstalled machine runs beside its first unattended upgrade
 - Machines losing the tailnet are reached through the provider's browser console as `root` with `<NAME>_ROOT_PASSWORD`
 - Table `hosts` holds one row per machine, keyed by DNS name, stating public IPv4 `address`, `tags`, and `roles`
-- `.config/mise.toml` `[bootstrap.remote.hosts]` holds one row per machine by tailnet name, and its `mise_env` loads a role file (`.config/mise.runner.toml`)
-- `[bootstrap]` declares the Docker and Tailscale apt sources and packages, each settings file every machine gets, and the system service the file restarts
+- `.config/mise.toml` `[bootstrap.remote.hosts]` holds one row per machine by tailnet name, and its `mise_env` loads `linux` and a role file (`.config/mise.runner.toml`), as the folder sent holds no `.miserc.toml` to select platform files
+- `.config/mise.linux.toml` `[bootstrap]` declares the Docker and Tailscale apt sources and packages, each settings file every machine gets, and the system service the file restarts
 - `mise bootstrap remote` sends folder `.config` and applies parts `accounts`, `packages`, `files`, and `services` as `root@<name>` over Tailscale SSH
 - Role `Cache` runs the Nx cache server with its proxy and object storage
 - Role `Runner` runs GitHub Actions runner services and pulls an Unreal image per engine release a tracked `.uproject` names

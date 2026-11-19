@@ -31,12 +31,3 @@ mode    = "0440"
 content = '''
 $nrconf{override_rc}{qr(^actions\.runner\..+\.service$)} = 0;
 '''
-
-[bootstrap.files."/etc/systemd/system/runner-prune.service"]
-state = "absent"
-
-[bootstrap.files."/etc/systemd/system/runner-prune.timer"]
-state = "absent"
-
-[bootstrap.files."/etc/systemd/system/timers.target.wants/runner-prune.timer"]
-state = "absent"
