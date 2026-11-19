@@ -23,8 +23,8 @@ Before reading a `.cs` file, the wanted view decides:
 
 ## [02]-[TOOL_INDEX]
 
-| [INDEX] | [TOOL]                                             | [USE_WHEN]                                                                   |
-| :-----: | :------------------------------------------------- | :--------------------------------------------------------------------------- |
+| [INDEX] | [TOOL]                       | [USE_WHEN]                                                                   |
+| :-----: | :--------------------------- | :--------------------------------------------------------------------------- |
 |  [01]   | `find_implementations`       | "What implements this interface?" / "What extends this class?"               |
 |  [02]   | `find_callers`               | "Who calls this method?" / "What depends on this?"                           |
 |  [03]   | `find_event_subscribers`     | "Who subscribes to this event?"                                              |
@@ -351,14 +351,14 @@ Tools that add a `summary` aggregate:
 
 When a tool cannot proceed, the response has `isError: true` and a JSON body of `{ code, message, details? }`. Switch on `code`:
 
-| [INDEX] | [CODE]               | [MEANING]                                                             |
-| :-----: | :------------------- | :-------------------------------------------------------------------- |
-|  [01]   | `SymbolNotFound`     | Type, method, or property did not resolve                             |
+| [INDEX] | [CODE]               | [MEANING]                                       |
+| :-----: | :------------------- | :---------------------------------------------- |
+|  [01]   | `SymbolNotFound`     | Type, method, or property did not resolve       |
 |  [02]   | `SolutionNotTrusted` | Analyzers requested before `trust_solution` ran |
-|  [03]   | `AmbiguousMatch`     | Many matches, listed in `details.matches`                             |
-|  [04]   | `FileNotFound`       | File path or baseline does not exist                                  |
-|  [05]   | `ProjectNotFound`    | Solution name did not match                                           |
-|  [06]   | `InvalidArgument`    | Malformed or unsupported caller input                                 |
-|  [07]   | `Internal`           | Unexpected, `message` has the exception text                          |
+|  [03]   | `AmbiguousMatch`     | Many matches, listed in `details.matches`       |
+|  [04]   | `FileNotFound`       | File path or baseline does not exist            |
+|  [05]   | `ProjectNotFound`    | Solution name did not match                     |
+|  [06]   | `InvalidArgument`    | Malformed or unsupported caller input           |
+|  [07]   | `Internal`           | Unexpected, `message` has the exception text    |
 
 Fix the cause `code` names before the next call.

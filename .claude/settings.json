@@ -41,14 +41,13 @@
     "rhino@rasm": true,
     "typescript@rasm": true,
     "rust@rasm": true,
-    "delegate@rasm": true,
     "media@rasm": true,
-    "duckdb@rasm": true,
     "cpp@rasm": true,
     "swift@rasm": true,
     "search@rasm": true,
     "tool@rasm": true,
-    "python@rasm": true
+    "python@rasm": true,
+    "delegate@rasm": true
   },
   "extraKnownMarketplaces": {
     "rasm": {

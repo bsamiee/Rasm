@@ -120,6 +120,7 @@ Sentences state one instruction or fact in active voice and simple present or pa
 - One word names one concept across a file and every file of its area, identifiers included
 - Contractions expand, present perfect becomes simple past or present, spelling is American
 - Em dashes appear as `value — description` in a list item or table cell alone
+- Case lists map each condition to its action as `<condition> -> <action>`, one case per item
 - Parentheses hold a phrase, a sentence inside them folds into its sentence or goes
 - Tail clauses (participle or relative clause after a comma) fold into their sentence or go
 - `such as` becomes a parenthetical or list, `whose` becomes `with` or `that`

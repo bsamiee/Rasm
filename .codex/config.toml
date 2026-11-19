@@ -22,7 +22,6 @@ SessionStart = [{ hooks = [{ type = "command", command = "mise daemons register 
 "typescript@rasm"    = { enabled = true }
 "rust@rasm"          = { enabled = true }
 "cpp@rasm"           = { enabled = true }
-"duckdb@rasm"        = { enabled = true }
 "media@rasm"         = { enabled = true }
 "delegate@rasm"      = { enabled = true }
 "tool@rasm"          = { enabled = true }

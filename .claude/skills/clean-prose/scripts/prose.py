@@ -481,6 +481,7 @@ _MARKDOWN: _Language[SyntaxTreeNode] = _Language(
         _block_spacing,
     ),
     frozendict({
+        "File holds no `# [TOKEN]` H1{}": lambda doc: [] if any(node.tag == "h1" for node, _ in _mapped(doc.nodes[0].children, "heading")) else [(0, "")],
         "H1 `{}` is extra or not a `[TOKEN]` label": lambda doc: [
             (n, doc.lines[n])
             for index, (n, title) in enumerate((span[0], inline.content) for node, span in _mapped(doc.nodes[0].children, "heading") if node.tag == "h1" for inline in node.children)

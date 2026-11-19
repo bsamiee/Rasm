@@ -47,15 +47,6 @@
             }
         },
         {
-            "name": "duckdb",
-            "source": "./plugins/shared/duckdb",
-            "version": "0.1.0",
-            "description": "DuckDB over data files and databases: reading, querying, attaching, docs search, S3 and spatial data, and the DuckDB 2.0 SQL and Python dialect",
-            "author": {
-                "name": "Bardia Samiee"
-            }
-        },
-        {
             "name": "media",
             "source": "./plugins/shared/media",
             "version": "0.5.0",

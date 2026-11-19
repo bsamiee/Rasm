@@ -3,50 +3,29 @@ name: council
 description: Trigger this if the user says 'council'.
 ---
 
-# Council
+# [DELEGATE_COUNCIL]
 
-Before an audit, address outstanding PR comments, fix known issues, and run
-relevant checks. Give council the updated implementation; do not defer known
-fixes until reviews return. If the user wants to discard the implementation
-and explore new ideas, skip fixes to code being replaced.
+Before an audit, address outstanding PR comments, fix known issues, and run relevant checks. Give council the updated implementation; do not defer known fixes until reviews return. If the user wants to discard the implementation and explore new ideas, skip fixes to code being replaced.
 
-Bring in three delegates to help with the user's request, usually for review
-or feedback. Use one strong model from each of three different providers, at
-high reasoning effort. If the user's instructions name council members, use
-those. Otherwise pick the latest flagship model from each provider, for
-example Claude Opus, GPT Sol, and Gemini Pro.
+Bring in three delegates to help with the user's request, usually for review or feedback. Use one strong model from each of three different providers, at high reasoning effort. If the user's instructions name council members, use those. Otherwise pick the latest flagship model from each provider, for example Claude Opus, GPT Sol, and Gemini Pro.
 
-Your own provider's delegate is a fresh subagent. Reach the other two through
-their own harness as background commands run from the checkout, with the brief
-written to a file:
+Your own provider's delegate is a fresh subagent. Reach the other two through their own harness as background commands run from the checkout, with the brief written to a file:
 
-| Provider | Command |
-| --- | --- |
-| Anthropic | `claude -p "$(cat <brief>)" --model fable --effort high --permission-mode plan` |
-| OpenAI | `codex exec --sandbox read-only -o <answer> "$(cat <brief>)"` |
-| Google | `agy -p "$(cat <brief>)" --model gemini-4-carbon-high --settings '{"permissions":{"deny":["write_file(*)"]}}' --output-format json` |
+| [INDEX] | [PROVIDER] | [COMMAND]                                                                                                                           |
+| :-----: | :--------- | :---------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | Anthropic  | `claude -p "$(cat <brief>)" --model fable --effort high --permission-mode plan`                                                     |
+|  [02]   | OpenAI     | `codex exec --sandbox read-only -o <answer> "$(cat <brief>)"`                                                                       |
+|  [03]   | Google     | `agy -p "$(cat <brief>)" --model gemini-4-carbon-high --settings '{"permissions":{"deny":["write_file(*)"]}}' --output-format json` |
 
-`agy` prints JSON: the answer is `.response`, and an empty one is a failed
-delegate whatever the exit code. If you cannot
-reach three providers, or a named member is unavailable, report it instead of
-substituting.
+`agy` prints JSON: the answer is `.response`, and an empty one is a failed delegate whatever the exit code. If you cannot reach three providers, or a named member is unavailable, report it instead of substituting.
 
-Give each delegate the request and relevant context. For review or feedback,
-keep their work read-only. Collect their responses and summarize the useful
-findings, disagreements, and recommended next steps.
+Give each delegate the request and relevant context. For review or feedback, keep their work read-only. Collect their responses and summarize the useful findings, disagreements, and recommended next steps.
 
-Do not wait idle. When a result arrives, check its findings against the code
-at once and decide what to fix while the other delegates run. Do not edit
-files while a delegate still reviews the same checkout. If the user's
-instructions mark a delegate as non-blocking, do not wait for it; treat a
-late result as feedback and do not record its score.
+Do not wait idle. When a result arrives, check its findings against the code at once and decide what to fix while the other delegates run. Do not edit files while a delegate still reviews the same checkout. If the user's instructions mark a delegate as non-blocking, do not wait for it; treat a late result as feedback and do not record its score.
 
-For a code review, ask each delegate for a score out of 10.
-Count each full review pass as one round.
-A fresh review after fixes starts a new round.
+For a code review, ask each delegate for a score out of 10. Count each full review pass as one round. A fresh review after fixes starts a new round.
 
-If the work ends in a pull request, put the results in the PR description.
-Put this section before the model and harness line at the end:
+If the work ends in a pull request, put the results in the PR description. Put this section before the model and harness line at the end:
 
 ```markdown
 ## Council review
@@ -60,13 +39,8 @@ Rounds: 2
 | Gemini Pro | 7/10 | 9/10 |
 ```
 
-If a delegate gives no score, write `no score`. Do not invent one.
-If the PR is open, edit the description. Do not post a comment for this.
-If there is no PR, put the same results in the final reply only.
+If a delegate gives no score, write `no score`. Do not invent one. If the PR is open, edit the description. Do not post a comment for this. If there is no PR, put the same results in the final reply only.
 
-If you agree with their recommendations, make the changes and request a fresh
-review after. Continue this process until all delegates are satisfied with the
-outcome.
+If you agree with their recommendations, make the changes and request a fresh review after. Continue this process until all delegates are satisfied with the outcome.
 
-Do not let repeated reviews result in scope creep. It is your job to fight to
-keep scope limited.
+Do not let repeated reviews result in scope creep. It is your job to fight to keep scope limited.
