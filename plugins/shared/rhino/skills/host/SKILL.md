@@ -8,63 +8,42 @@ description: "Use when driving a Rhino document, .3dm file, or Grasshopper 2 can
 Covers Rhino and Grasshopper 2 work through the `rhino-mcp-platform` server, with every application left in the background.
 
 [SCRIPTS]:
-- [01]-[INSTANCES](scripts/Instances.cs): Session-opening read of every Rhino the router reaches
+- [01]-[INSTANCES](scripts/Instances.cs): Documents, slots, and Grasshopper definitions of each Rhino the router reaches
 
-## [01]-[TOOL_INDEX]
+## [01]-[TOOLS]
 
-| [INDEX] | [TOOL]                  | [USE_WHEN]                                                       |
-| :-----: | :---------------------- | :--------------------------------------------------------------- |
-|  [01]   | `list_slots`            | "Which Rhino slots does the router run or adopt?"                |
-|  [02]   | `spawn_slot`            | "Start a Rhino the router owns"                                  |
-|  [03]   | `close_slot`            | "Close a Rhino the router started, saving nothing"               |
-|  [04]   | `get_context`           | "What selection, viewport, document, and canvas state is live?"  |
-|  [05]   | `list_objects`          | "Which objects match this name, layer, or geometry type?"        |
-|  [06]   | `get_selection`         | "What is selected?"                                              |
-|  [07]   | `set_selection`         | "Select these ids, names, layer, or geometry type"               |
-|  [08]   | `get_viewport_image`    | "What does the viewport show?" / "Frame this box and capture it" |
-|  [09]   | `set_camera`            | "Place the active viewport camera"                               |
-|  [10]   | `zoom_to_layer`         | "Fit the view to this layer"                                     |
-|  [11]   | `zoom_to_object`        | "Fit the view to these objects"                                  |
-|  [12]   | `set_layer_material`    | "Set this layer's render material and display color"             |
-|  [13]   | `get_commands`          | "Which command name does this need?"                             |
-|  [14]   | `run_command`           | "Run this Rhino command string"                                  |
-|  [15]   | `run_csharp`            | "Read or edit the document where no tool or command covers it"   |
-|  [16]   | `open_doc`              | "Import a file into the current document"                        |
-|  [17]   | `save_doc`              | "Write the document to this .3dm path"                           |
-|  [18]   | `close_doc`             | "Close the document, saving to a path or discarding"             |
-|  [19]   | `ask_user`              | "Ask the user a decision only they can make"                     |
-|  [20]   | `g2_start`              | "Open Grasshopper 2"                                             |
-|  [21]   | `g2_search_components`  | "Which component matches these words?"                           |
-|  [22]   | `g2_describe_component` | "What inputs and outputs does this component take?"              |
-|  [23]   | `g2_apply_graph`        | "Place sliders and components, wire them, and solve in one call" |
-|  [24]   | `g2_place_component`    | "Place one component"                                            |
-|  [25]   | `g2_place_slider`       | "Place one number slider"                                        |
-|  [26]   | `g2_connect`            | "Wire one output to one input"                                   |
-|  [27]   | `g2_connect_many`       | "Wire a batch of outputs to inputs"                              |
-|  [28]   | `g2_delete_component`   | "Delete one component"                                           |
-|  [29]   | `g2_get_canvas_graph`   | "What does the canvas hold, and what data flows on each wire?"   |
-|  [30]   | `g2_solve_canvas`       | "Did the canvas solve, and which components failed?"             |
-|  [31]   | `g2_clear_canvas`       | "Remove every object from the canvas"                            |
+Tools load through ToolSearch as `mcp__plugin_rhino_rhino-mcp-platform__<tool>` and take an optional `slot`, the Rhino last used when omitted:
+- Slots: `list_slots`, `spawn_slot`, `close_slot`
+- Reads: `get_context`, `list_objects`, `get_selection`, `get_viewport_image`, `get_commands`
+- Edits: `run_command`, `run_csharp`, `set_selection`, `set_camera`, `zoom_to_layer`, `zoom_to_object`, `set_layer_material`
+- Documents: `open_doc` (imports into the current document), `save_doc`, `close_doc`
+- Grasshopper 2: `g2_start`, `g2_search_components`, `g2_describe_component`, `g2_apply_graph`, `g2_place_component`, `g2_place_slider`, `g2_connect`, `g2_connect_many`, `g2_delete_component`, `g2_get_canvas_graph`, `g2_solve_canvas`, `g2_clear_canvas`
 
 ## [02]-[SESSION]
 
-- Inspect UI, logs, and crash reports, resolve dialogs and errors, decline submission
+Sessions run in order:
+1. `list_slots` lists each Rhino serving a document listener, and `dotnet run scripts/Instances.cs` lists the documents of each
+2. With none listed, `watch-app launch com.mcneel.rhinoceros.9 --arguments -nosplash` opens Rhino in the background on an untitled document the router adopts, as `-nosplash` skips the Start window
+3. `get_context` reads the slot's selection, viewport, document, and canvas state before the first edit
+4. `g2_start` opens the Grasshopper 2 editor on an empty definition, and `g2_apply_graph` places, wires, and solves it in one call
+5. `close_doc` discards the task's document, or saves it first with `path`, then `watch-app quit <pid>` exits Rhino with no prompt
 
-Sessions open in order:
-1. `dotnet run scripts/Instances.cs` lists each Rhino visible to the router with its documents, slots, and Grasshopper definitions
-2. New work takes an open untitled, unmodified document
-3. `list_slots` adopts the announced listeners, then `get_context` reads the target slot's selection, viewport, document, and canvas state
+Rhino and the router follow host rules:
+- Rhinos started without `-nosplash` (Dock, Finder) open the Start window, holding no document and no listener, so the router lists none
+- Launch arguments reach only a new instance, so a Rhino already at its Start window keeps it
+- Tool calls with no Rhino listening spawn one with `-nosplash -runscript=_MCPSpawn`, taking focus while it launches, and `close_slot` closes it saving nothing
+- Spawns while a Rhino sits at its Start window run `_MCPSpawn` in that Rhino behind a "Please Wait..." panel, failing `startup_timeout` after 120 seconds
+- Start windows clear through File > New with `watch-app perform`, or a quit and the launch above
+- Rhino's Start window, progress, Settings, and About panels hide while Rhino is inactive, reading off screen and `presented` false in `watch-app read`, where `capture --window` still shows them
+- `close_slot` refuses an adopted slot with `cannot_close_adopted`, and `watch-app quit` closes it
+- Quitting with an edited document asks in a file panel whose `discard` answer reads Delete
+- User-started Rhinos announce a listener per document while `RHINO_MCP_AUTOSTART_PORT` holds a value or RhinoAI's MCP auto-load option is on
+- `run_csharp` runs C# 10 against `__rhino_doc__`, one call per application at a time on its main-thread queue, with `#r "<assembly>"` below line 1
 
-- `Instances.cs` prints `Rhino not running` and `list_slots` an empty `payload` with no Rhino up, while `get_context` and every tool taking `slot` start one
-- `close_slot` refuses an adopted slot with `cannot_close_adopted`, as Rhinos the owner started stay open
-- RhinoAI announces each document's listener while `RHINO_MCP_AUTOSTART_PORT` holds a value or its MCP auto-load option is on
-- Rhino Settings and About float as panels that stay off screen while Rhino runs in the background, listed in `windows` and absent from `elements`
-- Documents outside the task close through `close_doc` with `path` set to a named document's file, untitled and scratch documents with none
-- Grasshopper 2 keeps definitions as tabs of one editor: `g2_start`, then `Editor.Instance.Documents.Queue(Document.NewActiveDocument(), null)`
-- `run_csharp` runs C# 10, one call per application at a time on its main-thread queue, with `#r "<assembly>"` below line 1
-- `inspect_external_assembly` on `roslyn-codelens` lists members of the RhinoCommon build Rasm compiles against by `assemblyName` (no path), `mode` `namespace`, and one `namespaceFilter`
-- `ilspycmd -t <Namespace.Type> <rhcore>/RhinoCommon.dll` prints members of the installed Rhino build with generics and `out` parameters, `<rhcore>` being `/Applications/Rhino 9.app/Contents/Frameworks/RhCore.framework/Versions/A/Resources`
-- Grasshopper 2 members read the same way from `<rhcore>/ManagedPlugIns/Grasshopper2Plugin.rhp/Grasshopper2.dll`
+Members of RhinoCommon and Grasshopper 2 read from their assemblies:
+- `inspect_external_assembly` on `roslyn-codelens` lists the build Rasm compiles against by `assemblyName`, `mode` `namespace`, and one `namespaceFilter`
+- `ilspycmd -t <Namespace.Type> <rhcore>/RhinoCommon.dll` prints the installed build with generics and `out` parameters, Grasshopper 2 from `<rhcore>/ManagedPlugIns/Grasshopper2Plugin.rhp/Grasshopper2.dll`
+- `<rhcore>` is `/Applications/Rhino 9.app/Contents/Frameworks/RhCore.framework/Versions/A/Resources`
 
 ## [03]-[DEBUGGING]
 
@@ -80,15 +59,14 @@ Rhino runs plug-ins on its bundled .NET under the hardened runtime, and each rou
 |  [06]   | Commands run and lines printed   | Command log below                                                    |
 
 - `lldb -p <pid>` and `dotnet-dump collect` are refused (`task_for_pid`), since Rhino holds no `get-task-allow` entitlement
-    - Rhino command `TestKeepDebuggable` sets `MRKeepDebuggableAfterUpdate`, so Rhino re-signs itself ad hoc with `get-task-allow` once per build
-    - Ad hoc signatures drop Rhino's TCC grants, so `defaults delete com.mcneel.rhinoceros.9 MRKeepDebuggableAfterUpdate` follows the session
+- Rhino command `TestKeepDebuggable` sets `MRKeepDebuggableAfterUpdate`, and Rhino re-signs itself ad hoc with `get-task-allow` once per build
+- Ad hoc signatures drop Rhino's TCC grants, so `defaults delete com.mcneel.rhinoceros.9 MRKeepDebuggableAfterUpdate` follows the session
 - `netcoredbg` reads `interrupt`, `info threads`, `backtrace`, `break <file>:<line>`, `print <expression>`, `continue`, `detach`, and `quit`, one per line
-- `interrupt` stops every thread, so `continue` or `detach` precedes the next MCP call, and Rhino answers again after `detach`
-- Breakpoints in Rhino's own optimized assemblies stay pending
-- `--duration <dd:hh:mm:ss>` bounds a `collect` of either tool
+- `interrupt` stops every thread, so `continue` or `detach` precedes the next MCP call
+- Breakpoints in Rhino's own optimized assemblies stay pending, and `--duration <dd:hh:mm:ss>` bounds a `collect`
 - People debug in VS Code through the `coreclr` launch configuration `dotnet new rhino` writes
 
-One `run_csharp` call registers a command log until Rhino quits, each command appending its English name, its result, and the lines it wrote to the command window to the `host` timeline of `watch-app watch --record <folder>`:
+One `run_csharp` call registers a command log until Rhino quits, each command appending its English name, its result, and its command window lines to the `host` timeline of `watch-app watch --record <folder>`:
 
 ```csharp
 Rhino.RhinoApp.CommandWindowCaptureEnabled = true;
