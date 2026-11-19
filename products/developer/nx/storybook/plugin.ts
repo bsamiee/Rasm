@@ -1,6 +1,6 @@
 import { once } from 'node:events';
 import { findPackageJSON } from 'node:module';
-import { dirname, join, relative } from 'node:path';
+import { dirname, join, posix, relative } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { Worker } from 'node:worker_threads';
 import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, type CreateNodesResult, detectPackageManager, getPackageManagerCommand, hashArray, normalizePath, type ProjectConfiguration, type TargetConfiguration } from '@nx/devkit';
@@ -59,9 +59,9 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string) {
 const targets = (root: string, { packages, linked, sources, globs, runner }: Resolved, chain: readonly string[], production: boolean, output: Option.Option<string>, exec: string): Verbs => {
     const rooted = getRootTsConfigFileName();
     const inputs = [
-        ...(production ? ['production', '{workspaceRoot}/{projectRoot}/.storybook/**/*', ...globs.map((at) => join('{workspaceRoot}', at)), '^production'] : ['default', '^default']),
-        ...chain.filter((at) => at !== rooted).map((at) => ({ json: join('{workspaceRoot}', at), fields: ['compilerOptions'] })),
-        ...sources.map((at) => join('{workspaceRoot}', at)),
+        ...(production ? ['production', '{workspaceRoot}/{projectRoot}/.storybook/**/*', ...globs.map((at) => posix.join('{workspaceRoot}', at)), '^production'] : ['default', '^default']),
+        ...chain.filter((at) => at !== rooted).map((at) => ({ json: posix.join('{workspaceRoot}', at), fields: ['compilerOptions'] })),
+        ...sources.map((at) => posix.join('{workspaceRoot}', at)),
         ...Array.match(linked, {
             onEmpty: () => [],
             onNonEmpty: (owners) => [
@@ -71,11 +71,11 @@ const targets = (root: string, { packages, linked, sources, globs, runner }: Res
         }),
         { externalDependencies: Array.dedupe(['storybook', ...packages]) },
     ];
-    const written = Option.getOrElse(output, () => join(root, 'storybook-static'));
+    const written = Option.getOrElse(output, () => posix.join(root, 'storybook-static'));
     const needs = { options: { cwd: root }, dependsOn: ['codegen--*', '^codegen--*'], inputs };
     const build = {
         storybook: {
-            command: ['storybook', 'build', ...Option.match(output, { onNone: () => [], onSome: (at) => ['--output-dir', relative(root, at)] })].map(quoteShellArg).join(' '),
+            command: ['storybook', 'build', ...Option.match(output, { onNone: () => [], onSome: (at) => ['--output-dir', posix.relative(root, at)] })].map(quoteShellArg).join(' '),
             ...needs,
             cache: true,
             outputs: [...Option.match(output, { onNone: () => ['{projectRoot}/storybook-static'], onSome: (at) => [tokened(root)(at)] }), ...['output-dir', 'outputDir', 'o'].map((option) => `{projectRoot}/{options.${option}}`)],

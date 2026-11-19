@@ -1,5 +1,5 @@
 import { createRequire, findPackageJSON } from 'node:module';
-import { basename, dirname, extname, join, matchesGlob, relative, resolve } from 'node:path';
+import { basename, dirname, extname, join, matchesGlob, posix, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import type { loadConfig } from '@cloudflare/config';
 import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, detectPackageManager, getPackageManagerCommand, hashArray, normalizePath, type PackageManager, type ProjectConfiguration, readJsonFile, type TargetConfiguration } from '@nx/devkit';
@@ -28,10 +28,10 @@ const DUPLICATES = ['.jscpd.json', '.config/jscpd.json', '.config/.jscpd.json'];
 const PACKAGE = /^(?![./]|node:)(?<name>(?:@[^/]+\/)?[^/]+)/u;
 const UNPACKAGED: NonNullable<TargetConfiguration['inputs']> = ['default', '^default', { externalDependencies: [] }];
 const MANAGERS = {
-    npm: { argv: ['npm', 'pack'], to: (at: string) => ['--pack-destination', at], workspace: { json: join('{workspaceRoot}', MANIFEST), fields: ['workspaces'] }, catalogs: [] },
-    pnpm: { argv: ['pnpm', 'pack'], to: (at: string) => ['--out', join(at, '%s.tgz')], workspace: join('{workspaceRoot}', 'pnpm-workspace.yaml'), catalogs: ['pnpm-workspace.yaml'] },
-    yarn: { argv: ['yarn', 'pack'], to: (at: string) => ['--out', join(at, '%s.tgz')], workspace: join('{workspaceRoot}', '.yarnrc.yml'), catalogs: ['.yarnrc.yml'] },
-    bun: { argv: ['bun', 'pm', 'pack'], to: (at: string) => ['--destination', at], workspace: { json: join('{workspaceRoot}', MANIFEST), fields: ['workspaces'] }, catalogs: [] },
+    npm: { argv: ['npm', 'pack'], to: (at: string) => ['--pack-destination', at], workspace: { json: posix.join('{workspaceRoot}', MANIFEST), fields: ['workspaces'] }, catalogs: [] },
+    pnpm: { argv: ['pnpm', 'pack'], to: (at: string) => ['--out', posix.join(at, '%s.tgz')], workspace: posix.join('{workspaceRoot}', 'pnpm-workspace.yaml'), catalogs: ['pnpm-workspace.yaml'] },
+    yarn: { argv: ['yarn', 'pack'], to: (at: string) => ['--out', posix.join(at, '%s.tgz')], workspace: posix.join('{workspaceRoot}', '.yarnrc.yml'), catalogs: ['.yarnrc.yml'] },
+    bun: { argv: ['bun', 'pm', 'pack'], to: (at: string) => ['--destination', at], workspace: { json: posix.join('{workspaceRoot}', MANIFEST), fields: ['workspaces'] }, catalogs: [] },
 } as const satisfies Record<PackageManager, { readonly argv: readonly string[]; readonly to: (at: string) => readonly string[]; readonly workspace: NonNullable<TargetConfiguration['inputs']>[number]; readonly catalogs: readonly string[] }>;
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -79,7 +79,7 @@ const projected = (root: string, technology: string, verbs: Verbs, stated: State
 
 const installed = (name: string, from: string) => Option.isSome(Option.flatMap(Option.liftThrowable(findPackageJSON)(name, pathToFileURL(from)), Option.fromUndefinedOr));
 
-const listing = (workspaceRoot: string) => (sources: readonly string[]) => stamped(workspaceRoot)(Array.dedupe(sources.flatMap((at) => [at, join(dirname(at), '*')])));
+const listing = (workspaceRoot: string) => (sources: readonly string[]) => stamped(workspaceRoot)(Array.dedupe(sources.flatMap((at) => [at, posix.join(dirname(at), '*')])));
 
 const kept = Effect.fnUntraced(function* (cache: PluginCache<Program & { readonly digest: string }>, workspaceRoot: string, lock: string, row: string, config: string) {
     const root = dirname(config);
@@ -173,7 +173,7 @@ const compiled = (root: string, { commands, configs, outputs, sources }: Program
         options: { commands, cwd: root },
         dependsOn: ['codegen--*', '^codegen--*', '^build--tsc'],
         cache: true,
-        inputs: [...Array.dedupe([join(root, MANIFEST), ...sources].map(token)), upstream, { dependentTasksOutputFiles: '**/*.{d.ts,d.cts,d.mts,tsbuildinfo}', transitive: true }, { externalDependencies: [...packages] }],
+        inputs: [...Array.dedupe([posix.join(root, MANIFEST), ...sources].map(token)), upstream, { dependentTasksOutputFiles: '**/*.{d.ts,d.cts,d.mts,tsbuildinfo}', transitive: true }, { externalDependencies: [...packages] }],
         outputs: [],
         ...(synced && { syncGenerators: ['@nx/js:typescript-sync'] }),
     } satisfies TargetConfiguration;
@@ -216,14 +216,14 @@ const tarball = (manager: PackageManager, exec: string, { outputPath }: typeof O
     const folder = Option.fromUndefinedOr(outputPath);
     const pack = {
         [manager]: {
-            command: [...argv, ...Option.match(folder, { onNone: () => [], onSome: (at) => to(relative(root, at)) })].map(quoteShellArg).join(' '),
+            command: [...argv, ...Option.match(folder, { onNone: () => [], onSome: (at) => to(posix.relative(root, at)) })].map(quoteShellArg).join(' '),
             options: { cwd: root },
             dependsOn: ['build--*'],
             cache: true,
             inputs: ['default', '^{projectRoot}/package.json', workspace, { dependentTasksOutputFiles: '**/*' }, { externalDependencies: [] }],
             outputs: [
                 tokened(root)(
-                    join(
+                    posix.join(
                         Option.getOrElse(folder, () => root),
                         '*.tgz',
                     ),
@@ -262,7 +262,7 @@ const workspace = Effect.fnUntraced(function* (workspaceRoot: string, manager: P
         command: 'jscpd .',
         options: { cwd: '.' },
         cache: true,
-        inputs: [join('{workspaceRoot}', pattern ?? '**/*'), join('{workspaceRoot}', config), { runtime: 'jscpd --version' }, { externalDependencies: [] }],
+        inputs: [posix.join('{workspaceRoot}', pattern ?? '**/*'), posix.join('{workspaceRoot}', config), { runtime: 'jscpd --version' }, { externalDependencies: [] }],
         outputs: [],
         metadata: { technologies: ['jscpd'], description: `Reports code duplicated across the workspace files ${config} selects with jscpd`, help: { command: 'jscpd --help', example: { args: ['--changed'] } } },
     }));
@@ -286,7 +286,7 @@ const workspace = Effect.fnUntraced(function* (workspaceRoot: string, manager: P
                             command: knip,
                             options: { cwd: '.' },
                             cache: true,
-                            inputs: [join('{workspaceRoot}', '**/*'), { externalDependencies: ['knip'] }],
+                            inputs: [posix.join('{workspaceRoot}', '**/*'), { externalDependencies: ['knip'] }],
                             outputs: [],
                             metadata: { technologies: ['knip'], description: `Reports unused files, exports, and dependencies of every workspace package with ${knip}`, help: { command: `${exec} knip --help`, example: { args: ['--production'] } } },
                         },
@@ -314,7 +314,7 @@ const worker = Effect.fnUntraced(function* (context: CreateNodesContext, exec: s
             options: { cwd: root },
             dependsOn: ['^codegen--*'],
             cache: true,
-            inputs: ['default', `^${namedInput(root, context)}`, ...sources.map((dependency) => join('{workspaceRoot}', dependency)), { externalDependencies: ['cf'] }],
+            inputs: ['default', `^${namedInput(root, context)}`, ...sources.map((dependency) => posix.join('{workspaceRoot}', dependency)), { externalDependencies: ['cf'] }],
             outputs: ['{projectRoot}/.cloudflare/types'],
             metadata: {
                 description: typed ? `Generates the Worker binding types from ${WORKER} with cf workers types, runtime types coming from @cloudflare/workers-types` : `Generates the Worker binding and runtime types from ${WORKER} with cf workers types`,
@@ -343,7 +343,7 @@ const imported = Effect.fnUntraced(function* (workspaceRoot: string, compiler: s
     const specified = (file: string) =>
         Effect.map(Effect.acquireDisposable(Effect.try({ try: () => api.createSourceFileFromFile(file), catch: (cause) => new Cause.UnknownError(cause, `${compiler}/sync parses no ${file}`) })), ({ sourceFile }) => {
             const texts = Array.getSomes(sourceFile.imports.map((node) => Schema.decodeUnknownOption(Literal)(node))).map(({ text }) => text);
-            return { locals: texts.filter((text) => text.startsWith('.')).map((text) => join(dirname(file), text)), packages: Array.getSomes(texts.map((text) => Option.fromNullishOr(PACKAGE.exec(text)?.groups?.['name']))) };
+            return { locals: texts.filter((text) => text.startsWith('.')).map((text) => posix.join(dirname(file), text)), packages: Array.getSomes(texts.map((text) => Option.fromNullishOr(PACKAGE.exec(text)?.groups?.['name']))) };
         });
     const reached = (pending: readonly string[], files: ReadonlySet<string>, packages: ReadonlySet<string>): Effect.Effect<{ readonly files: readonly string[]; readonly packages: readonly string[] }, Cause.UnknownError, Scope.Scope> =>
         Array.match(
@@ -420,7 +420,7 @@ const linted = Effect.fnUntraced(function* (workspaceRoot: string, compiler: str
             const owned = listed.filter((file) => !nested.test(file));
             const parts = root.split('/');
             const ancestors = ['.', ...Array.makeBy(parts.length, (index) => parts.slice(0, index + 1).join('/'))];
-            const configured = yield* Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, [lock, ...Array.cartesianWith(ancestors, LINTERS, join)]));
+            const configured = yield* Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, [lock, ...Array.cartesianWith(ancestors, LINTERS, posix.join)]));
             return { root, scope, owned, digest: hashArray([hashed, configured, ...owned]) };
         }),
         { concurrency: 'unbounded' },
@@ -457,7 +457,7 @@ const nodes = Effect.fnUntraced(function* (files: readonly string[], options: ty
     const [settings, hashed] = yield* Effect.all([Schema.decodeEffect(Options)(options ?? {}), own]);
     const listed = new Set(files);
     const member = buildPackageJsonWorkspacesMatcher(buildPackageJsonPatterns(workspaceRoot, (file: string) => readJsonFile<PackageJson>(join(workspaceRoot, file))));
-    const held = new Set(Array.dedupe(files.map(dirname)).filter((root) => root !== '.' && ((listed.has(join(root, MANIFEST)) && member(join(root, MANIFEST))) || listed.has(join(root, PROJECT)))));
+    const held = new Set(Array.dedupe(files.map(dirname)).filter((root) => root !== '.' && ((listed.has(posix.join(root, MANIFEST)) && member(posix.join(root, MANIFEST))) || listed.has(posix.join(root, PROJECT)))));
     const nested = files.filter((file) => file === MANIFEST || held.has(dirname(file)));
     const anchors = new Set(
         Object.values(
@@ -498,7 +498,7 @@ const nodes = Effect.fnUntraced(function* (files: readonly string[], options: ty
     const checked = (file: string, program: Program): Program =>
         settings.noEmit.some((glob) => matchesGlob(file, glob)) ? { ...program, commands: program.configs.flatMap((config) => Array.fromNullishOr(createTypecheckTarget({ mode: 'noEmit', projectRoot: dirname(file), pmc, tsConfig: config }).command)), outputs: [] } : program;
     const programs = new Map<string, Result.Result<Program, Cause.UnknownError>>([...Array.getSomes(rows.map(({ config, program }) => Option.map(program, (cached) => [config, Result.succeed(cached)] as const))), ...Array.zipWith(unread, fresh, ({ config }, program) => [config, program] as const)]);
-    const chained = (root: string) => Option.match(Option.flatMap(Option.fromUndefinedOr(programs.get(join(root, CONFIG))), Option.getSuccess), { onNone: () => [], onSome: ({ chain }) => chain.filter((at) => relative(root, at).startsWith('..') && at !== rooted).map(tokened(root)) });
+    const chained = (root: string) => Option.match(Option.flatMap(Option.fromUndefinedOr(programs.get(posix.join(root, CONFIG))), Option.getSuccess), { onNone: () => [], onSome: ({ chain }) => chain.filter((at) => posix.relative(root, at).startsWith('..') && at !== rooted).map(tokened(root)) });
     const read = Effect.fnUntraced(function* (file: string) {
         const root = dirname(file);
         const manifest = yield* looked(manifests, root);

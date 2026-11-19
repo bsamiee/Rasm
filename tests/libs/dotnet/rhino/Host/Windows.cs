@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices;
+using System.Runtime.Loader;
 using Rhino;
 using Rhino.Runtime.InProcess;
 using RhinoInside;
@@ -19,6 +20,13 @@ public static partial class RhinoProcess {
     [STAThread]
     private static void Main(string[] args) {
         Resolver.Initialize();
+        ImmutableArray<string> runtimes = [.. Directory.EnumerateDirectories(Path.GetFullPath(Path.Join(Resolver.RhinoSystemDirectory, "..", "Plug-ins")), "net*.*", new EnumerationOptions { RecurseSubdirectories = true, MatchType = MatchType.Simple })];
+        AssemblyLoadContext.Default.Resolving += (context, name) =>
+            runtimes
+                .Select(folder => Path.Combine(folder, $"{name.Name}.dll"))
+                .Where(File.Exists)
+                .Select(context.LoadFromAssemblyPath)
+                .FirstOrDefault();
         Task tests = Task.Run(async () => TerminateProcess(GetCurrentProcess(), (uint)await TestPlatformTestFramework.RunAsync(args, SelfRegisteredExtensions.AddSelfRegisteredExtensions).ConfigureAwait(false)), CancellationToken.None);
         WaitHandle.WaitAny([Requesting.WaitHandle, ((IAsyncResult)tests).AsyncWaitHandle]);
         Started.Value.Iter(booted => Try.lift(Cored).Run().Match(

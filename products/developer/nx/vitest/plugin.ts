@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { basename, dirname, isAbsolute, join, matchesGlob, relative, resolve } from 'node:path';
+import { basename, dirname, isAbsolute, join, matchesGlob, posix, relative, resolve } from 'node:path';
 import { env } from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, detectPackageManager, getPackageManagerCommand, hashArray, normalizePath, type ProjectConfiguration, readJsonFile, type TargetConfiguration } from '@nx/devkit';
@@ -37,7 +37,7 @@ const Reported = Schema.Struct({ outputFile: Schema.optionalKey(Schema.String), 
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const directed = (to: string) => ['--attachmentsDir', join(to, ATTACHMENTS)];
+const directed = (to: string) => ['--attachmentsDir', posix.join(to, ATTACHMENTS)];
 
 const testMode = Effect.acquireRelease(
     Effect.sync(() => {
@@ -83,7 +83,7 @@ const surveyed = Effect.fnUntraced(function* (workspaceRoot: string, file: strin
     const probes = yield* Effect.forEach(
         declared.filter(({ hidden }) => hidden !== true),
         Effect.fnUntraced(function* ({ viteConfig, projectConfig: { name, root: base, setupFiles, globalSetup, browser } }) {
-            const manifests = (lists ? above(join(local(base), '.')) : [dirname(file)]).flatMap((at) => [join(at, 'package.json'), join(at, 'project.json')]);
+            const manifests = (lists ? above(posix.join(local(base), '.')) : [dirname(file)]).flatMap((at) => [posix.join(at, 'package.json'), posix.join(at, 'project.json')]);
             const manifest = yield* Effect.findFirst(
                 manifests.filter((at) => basename(at) === 'project.json' || member(at)),
                 (at) => fs.exists(join(workspaceRoot, at)),
@@ -157,13 +157,13 @@ const targets = (file: string, { loaded: configs, packages, linked, triggers, fo
     const [home, held] = [dirname(file), Array.fromNullishOr(outputPath)];
     const rooted = getRootTsConfigFileName();
     const outside = Record.filter(
-        Record.fromEntries([...chain.map((at): readonly [string, typeof Input.Type] => [at, { json: join('{workspaceRoot}', at), fields: ['compilerOptions'] }]), ...[...configs, ...setup].map((at): readonly [string, typeof Input.Type] => [at, join('{workspaceRoot}', at)])]),
+        Record.fromEntries([...chain.map((at): readonly [string, typeof Input.Type] => [at, { json: posix.join('{workspaceRoot}', at), fields: ['compilerOptions'] }]), ...[...configs, ...setup].map((at): readonly [string, typeof Input.Type] => [at, posix.join('{workspaceRoot}', at)])]),
         (_input, at) => root !== '.' && !at.startsWith(`${root}/`) && at !== rooted,
     );
     const test = {
         vitest: {
             executor: `${PLUGIN}:test`,
-            options: { config: file, projects, ...Option.getOrUndefined(Option.map(Option.fromUndefinedOr(outputPath), (at) => ({ attachmentsDir: join(at, ATTACHMENTS) }))) },
+            options: { config: file, projects, ...Option.getOrUndefined(Option.map(Option.fromUndefinedOr(outputPath), (at) => ({ attachmentsDir: posix.join(at, ATTACHMENTS) }))) },
             dependsOn: ['codegen--*', '^codegen--*'],
             cache: true,
             inputs: [
@@ -174,12 +174,12 @@ const targets = (file: string, { loaded: configs, packages, linked, triggers, fo
                     onNonEmpty: (owners) => [{ input: 'default', projects: [...owners] }],
                 }),
                 ...Object.values(outside),
-                ...triggers.map((at) => join('{workspaceRoot}', at)),
+                ...triggers.map((at) => posix.join('{workspaceRoot}', at)),
                 { externalDependencies: Array.dedupe(['vitest', ...packages]) },
                 { env: 'CI' },
                 { dependentTasksOutputFiles: '**/*.{js,mjs,cjs,ts,mts,cts,jsx,tsx}', transitive: true },
             ],
-            outputs: [...Array.dedupe([...held, ...folders]).filter((at, _index, all) => !all.some((folder) => at.startsWith(`${folder}/`))), join(coveragePath ?? coverage, 'lcov.info')].map(tokened(root)),
+            outputs: [...Array.dedupe([...held, ...folders]).filter((at, _index, all) => !all.some((folder) => at.startsWith(`${folder}/`))), posix.join(coveragePath ?? coverage, 'lcov.info')].map(tokened(root)),
             configurations: {
                 coverage: { coverage: { enabled: true, reporter: 'lcovonly', ...(coveragePath === undefined ? {} : { reportsDirectory: coveragePath }) } },
             },
@@ -203,7 +203,7 @@ const targets = (file: string, { loaded: configs, packages, linked, triggers, fo
 const inferred = Effect.fnUntraced(function* (cache: PluginCache<Resolved & { readonly digest: string }>, context: CreateNodesContext, settings: typeof Options.Type, hash: string, file: string) {
     const digest = hashArray([hash, yield* OWN]);
     const manager = detectPackageManager(context.workspaceRoot);
-    const flags = Array.fromNullishOr(settings.outputPath).flatMap((at) => directed(relative(dirname(file), at)));
+    const flags = Array.fromNullishOr(settings.outputPath).flatMap((at) => directed(posix.relative(dirname(file), at)));
     const held = Option.filter(yield* recalled(cache, file, stamped(context.workspaceRoot)), (cached) => cached.digest === digest);
     const resolved = yield* Option.match(held, { onSome: Effect.succeed, onNone: () => read(context.workspaceRoot, file, flags, getLockFileName(manager)) });
     cache.set(file, { ...resolved, digest });

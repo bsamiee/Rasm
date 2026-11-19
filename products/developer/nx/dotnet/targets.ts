@@ -1,9 +1,9 @@
-import { basename, dirname, join, relative } from 'node:path';
+import { basename, dirname, join, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
 import { type RawProjectGraphDependency, readJsonFile, type TargetConfiguration } from '@nx/devkit';
 import { type PackageJson, quoteShellArg } from '@nx/devkit/internal';
-import { PLATFORM, runner, type Verbs } from '@rasm/nx-distribution/inference';
+import { PLATFORM, runner, tokened, type Verbs } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Context, Layer, Option, Record, Ref, Schema, Stream } from 'effect';
 
@@ -74,15 +74,15 @@ const written = (...modes: readonly { readonly outputs: readonly string[] }[]) =
 
 const targets = (node: Node, coverage: Option.Option<string>, solution: (configuration: string) => Option.Option<Readonly<Record<string, string>>>, listed: Option.Option<string>): Verbs => {
     const root = dirname(node.file);
-    const project = join('{projectRoot}', basename(node.file));
+    const project = posix.join('{projectRoot}', basename(node.file));
     const hashed = (...hosts: readonly { readonly runtime: string }[]): NonNullable<TargetConfiguration['inputs']> => [
         'default',
         '^default',
-        ...node.bases.filter((base) => base.startsWith(`${root}/`)).map((base) => `!${join('{projectRoot}', relative(root, base), '**')}`),
+        ...node.bases.filter((base) => base.startsWith(`${root}/`)).map((base) => `!${posix.join('{projectRoot}', posix.relative(root, base), '**')}`),
         { runtime: line(SDK) },
         ...hosts,
         { externalDependencies: [] },
-        ...node.inputs.map((input) => join('{workspaceRoot}', input)),
+        ...node.inputs.map((input) => posix.join('{workspaceRoot}', input)),
         ...Option.toArray(listed).map((at) => ({ runtime: `${line(['git', 'hash-object', '--no-filters', '--stdin-paths'])} < ${quoteShellArg(at)}` })),
     ];
     const [inputs, compiled] = [hashed(), hashed(PLATFORM)];
@@ -94,12 +94,12 @@ const targets = (node: Node, coverage: Option.Option<string>, solution: (configu
         outputs: [...outputs, ...published, ...reports, ...documents],
         ...Record.getSomes({ solution: solution(configuration) }),
     }));
-    const packed = moded(({ configuration, packed: folder }) => ({ project, command: ['pack', '--no-build', '-restore', '--configuration', configuration], outputs: [join(folder, '*.nupkg')] }));
+    const packed = moded(({ configuration, packed: folder }) => ({ project, command: ['pack', '--no-build', '-restore', '--configuration', configuration], outputs: [posix.join(folder, '*.nupkg')] }));
     const tested = ({ configuration }: Node['evaluated'], ...flags: readonly string[]) => ({
         commands: [{ command: line(['dotnet', 'restore', '--no-dependencies', ...(node.locks.length > 0 ? ['--locked-mode'] : []), `-p:Configuration=${configuration}`]), forwardAllArgs: false }, line(['dotnet', 'test', '--no-build', '--configuration', configuration, ...flags])],
     });
     const coverable = node.referenced.some((id) => id.toLowerCase() === 'coverlet.mtp');
-    const covered = { ...tested(node.evaluated, '--coverlet', '--coverlet-output-format', 'lcov', ...Option.toArray(coverage).flatMap((at) => ['--results-directory', relative(root, at)])), outputs: Option.toArray(coverage).map((at) => join('{workspaceRoot}', at)) };
+    const covered = { ...tested(node.evaluated, '--coverlet', '--coverlet-output-format', 'lcov', ...Option.toArray(coverage).flatMap((at) => ['--results-directory', posix.relative(root, at)])), outputs: Option.toArray(coverage).map((at) => posix.join('{workspaceRoot}', at)) };
     const cleaned = moded(({ configuration }) => ({ commands: [['dotnet', 'clean', node.file, '--configuration', configuration, '-p:BuildProjectReferences=false']] }));
     const formatted = (commands: Array.NonEmptyReadonlyArray<Array.NonEmptyReadonlyArray<string>>, description: string): TargetConfiguration => ({
         executor: `${PLUGIN}:format`,
@@ -153,7 +153,7 @@ const targets = (node: Node, coverage: Option.Option<string>, solution: (configu
                     dependsOn: ['build--dotnet'],
                     cache: true,
                     inputs: [...compiled, { dependentTasksOutputFiles: '**/*.runtimeconfig.json' }],
-                    outputs: [...node.results.map((results) => (relative(root, results).startsWith('..') ? join('{workspaceRoot}', results) : join('{projectRoot}', relative(root, results)))), join('{projectRoot}', '{options.results-directory}'), ...(coverable ? written(covered) : [])],
+                    outputs: [...node.results.map(tokened(root)), posix.join('{projectRoot}', '{options.results-directory}'), ...(coverable ? written(covered) : [])],
                     metadata: metadata(
                         'test',
                         [

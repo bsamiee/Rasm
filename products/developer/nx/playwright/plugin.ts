@@ -1,5 +1,5 @@
 import { createRequire, registerHooks } from 'node:module';
-import { dirname, join, relative, resolve } from 'node:path';
+import { dirname, join, posix, relative, resolve } from 'node:path';
 import { env } from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, detectPackageManager, getPackageManagerCommand, hashArray, normalizePath, type ProjectConfiguration, readJsonFile, type TargetConfiguration } from '@nx/devkit';
@@ -52,7 +52,7 @@ const Task = Schema.Struct({ project: Schema.String, target: Schema.String }).an
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const directed = (to: string, reporters: readonly string[]) => ({ flags: [`--output=${join(to, 'test-results')}`], env: Record.fromIterableWith(reporters, (name) => [`PLAYWRIGHT_${name.toUpperCase()}_OUTPUT_DIR`, join(to, name)]) });
+const directed = (to: string, reporters: readonly string[]) => ({ flags: [`--output=${posix.join(to, 'test-results')}`], env: Record.fromIterableWith(reporters, (name) => [`PLAYWRIGHT_${name.toUpperCase()}_OUTPUT_DIR`, posix.join(to, name)]) });
 
 const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, output: Option.Option<string>, lock: string) {
     const entry = join(workspaceRoot, file);
@@ -165,9 +165,9 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, o
 const targets = (home: string, { loaded: configs, packages, linked, servers, folders, reporters }: Resolved, chain: readonly string[], upstream: readonly string[], { outputPath }: typeof Options.Type, exec: string): Verbs => {
     const held = Array.fromNullishOr(outputPath);
     const rooted = getRootTsConfigFileName();
-    const routed = outputPath === undefined ? { flags: [], env: {} } : directed(relative(home, outputPath), reporters);
+    const routed = outputPath === undefined ? { flags: [], env: {} } : directed(posix.relative(home, outputPath), reporters);
     const outside = Record.filter(
-        Record.fromEntries([...chain.map((at): readonly [string, typeof Input.Type] => [at, { json: join('{workspaceRoot}', at), fields: ['compilerOptions', 'extends'] }]), ...configs.map((at): readonly [string, typeof Input.Type] => [at, join('{workspaceRoot}', at)])]),
+        Record.fromEntries([...chain.map((at): readonly [string, typeof Input.Type] => [at, { json: posix.join('{workspaceRoot}', at), fields: ['compilerOptions', 'extends'] }]), ...configs.map((at): readonly [string, typeof Input.Type] => [at, posix.join('{workspaceRoot}', at)])]),
         (_input, at) => home !== '.' && !at.startsWith(`${home}/`) && at !== rooted,
     );
     const test = {

@@ -1441,9 +1441,6 @@ importers:
       '@nx/devkit':
         specifier: 'catalog:'
         version: 24.1.0-beta.1(nx@24.1.0-beta.1)
-      '@rasm/applications':
-        specifier: workspace:*
-        version: link:../../../libs/typescript/macos/applications
       '@rasm/telemetry':
         specifier: workspace:*
         version: link:../../../libs/typescript/runtime/telemetry
@@ -2965,9 +2962,6 @@ importers:
       '@effect/vitest':
         specifier: 'catalog:'
         version: 4.1.4(effect@4.1.4(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2))(vitest@5.1.0)
-      '@rasm/process':
-        specifier: workspace:*
-        version: link:../../../libs/typescript/runtime/process
     devDependencies:
       '@nx/devkit':
         specifier: 'catalog:'

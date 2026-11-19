@@ -1,5 +1,4 @@
-import { join } from 'node:path';
-import type { Tree } from '@nx/devkit';
+import { joinPathFragments, type Tree } from '@nx/devkit';
 import { spawned } from '@rasm/nx-distribution/inference';
 import ast from '@xml-tools/ast';
 import xml, { type DocumentCstNode } from '@xml-tools/parser';
@@ -58,7 +57,7 @@ class DotnetVersionActions extends VersionActions {
     override readonly excludeManifestsFromFormatting = true;
 
     readCurrentVersionFromSourceManifest(tree: Tree) {
-        const manifestPath = join(this.projectGraphNode.data.root, ...this.validManifestFilenames);
+        const manifestPath = joinPathFragments(this.projectGraphNode.data.root, ...this.validManifestFilenames);
         return run(Effect.map(versioned(tree, manifestPath), ({ version }) => ({ currentVersion: version, manifestPath })));
     }
 
@@ -69,7 +68,10 @@ class DotnetVersionActions extends VersionActions {
     }
 
     override calculateNewVersion(currentVersion: string | null, newVersionInput: string, newVersionInputReason: string, newVersionInputReasonData: Record<string, unknown>, preid: string) {
-        const held = Option.exists(Option.flatMap(Option.fromNullOr(currentVersion), (current) => Result.getSuccess(SemVer.parse(current))), SemVer.isPrerelease);
+        const held = Option.exists(
+            Option.flatMap(Option.fromNullOr(currentVersion), (current) => Result.getSuccess(SemVer.parse(current))),
+            SemVer.isPrerelease,
+        );
         return super.calculateNewVersion(currentVersion, held && newVersionInputReason === 'DEPENDENCY_WAS_BUMPED' ? 'prerelease' : newVersionInput, newVersionInputReason, newVersionInputReasonData, preid);
     }
 

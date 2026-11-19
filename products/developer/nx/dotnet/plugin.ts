@@ -1,6 +1,6 @@
-import { basename, dirname, extname, join, relative } from 'node:path';
+import { basename, dirname, extname, join, posix, relative } from 'node:path';
 import { platform } from 'node:process';
-import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesContext, type CreateNodesResult, DependencyType, hashArray, type ProjectGraphExternalNode, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
+import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesContext, type CreateNodesResult, DependencyType, hashArray, normalizePath, type ProjectGraphExternalNode, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
 import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, globWithWorkspaceContext, hashFile, hashObject, hashWithWorkspaceContext, isCI, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
 import { aggregated, fingerprinted, manifested, spawned } from '@rasm/nx-distribution/inference';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
@@ -122,11 +122,11 @@ const inferred = Effect.fnUntraced(function* (matched: readonly string[], option
         (node) => Effect.andThen(fs.makeDirectory(dirname(listing(node)), { recursive: true }), fs.writeFileString(listing(node), node.external.join('\n'))),
         { discard: true },
     );
-    const declared = Array.dedupe(report.nodes.flatMap((node) => [node.file, ...node.inputs, ...node.locks])).map((at) => join('{workspaceRoot}', at));
+    const declared = Array.dedupe(report.nodes.flatMap((node) => [node.file, ...node.inputs, ...node.locks])).map((at) => posix.join('{workspaceRoot}', at));
     const manifests = yield* Effect.forEach(report.nodes, (node) => manifested(workspaceRoot, dirname(node.file)));
     const building = Record.getSomes({
         dependsOn: Option.map(
-            Array.findFirst(report.nodes, ({ evaluated: { outputs, published } }) => [...outputs, ...published].includes(relative(workspaceRoot, dirname(ANALYZER)))),
+            Array.findFirst(report.nodes, ({ evaluated: { outputs, published } }) => [...outputs, ...published].includes(normalizePath(relative(workspaceRoot, dirname(ANALYZER))))),
             (node) => [{ projects: [node.name], target: 'build--dotnet' }],
         ),
     });
@@ -141,7 +141,7 @@ const inferred = Effect.fnUntraced(function* (matched: readonly string[], option
                     executor: `${distribution.name}:upgrade`,
                     ...building,
                     options: { cwd: dirname(file), commands: [{ apply: moved, preview: [...moved, '--dry-run'], env: environment('{root}') }, { apply: cleared }, { apply: locked }] },
-                    inputs: [join('{workspaceRoot}', file), ...declared, { externalDependencies: [] }],
+                    inputs: [posix.join('{workspaceRoot}', file), ...declared, { externalDependencies: [] }],
                     metadata: {
                         description: `Moves each central package version ${basename(file)} projects read to the newest release its version range admits and its consumers' frameworks support with ${line(moved)}, then empties the global packages folder with ${line(cleared)} so the restore fetches only what the new lock files name, and rewrites lock files with ${line(locked)}`,
                         help: { command: 'dotnet restore --help', example: { options: { dryRun: true } } },
