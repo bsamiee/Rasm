@@ -17,6 +17,7 @@ public struct AppleEventFailure: CustomNSError, Equatable, LocalizedError {
         case undelivered(OSStatus)
         case unanswered(OSStatus)
         case replied(OSStatus, String?)
+        case cancelled
     }
 
     public let subject: String
@@ -39,13 +40,14 @@ public struct AppleEventFailure: CustomNSError, Equatable, LocalizedError {
             case .undelivered(let status): "Apple Event \(subject) undelivered (\(status))"
             case .unanswered(let status): "Application sent no reply to \(subject) (\(status)), event may have run"
             case .replied(let status, let message): "\(message ?? "Application replied to \(subject) with error") (\(status))"
+            case .cancelled: "Stopped waiting for the reply to \(subject), event may still run"
         }
     }
 
     public var status: OSStatus? {
         switch reason {
             case .osa(let status), .undelivered(let status), .unanswered(let status), .replied(let status, _): status
-            case .undeclared, .host, .unmatched, .unencodable, .activating: nil
+            case .undeclared, .host, .unmatched, .unencodable, .activating, .cancelled: nil
         }
     }
 
@@ -53,7 +55,7 @@ public struct AppleEventFailure: CustomNSError, Equatable, LocalizedError {
         switch reason {
             case .host(let error): [NSUnderlyingErrorKey: error]
             case .unmatched(let miss): [NSUnderlyingErrorKey: miss]
-            case .undeclared, .osa, .unencodable, .activating, .undelivered, .unanswered, .replied: [:]
+            case .undeclared, .osa, .unencodable, .activating, .undelivered, .unanswered, .replied, .cancelled: [:]
         }
     }
 }

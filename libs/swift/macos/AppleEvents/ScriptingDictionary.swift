@@ -321,7 +321,7 @@ extension ScriptingDictionary {
         let command = try Result { () throws(Unmatched) in try command(query, taking: Set(arguments.keys)) }
             .aggregated { miss in AppleEventFailure(subject: query ?? miss.subject, reason: .unmatched(miss)) }.get()
         let event = try event(command, arguments: arguments, target: target, refusing: activating)
-        do { return AppleEventValue(try await event.send(), in: self) } catch { throw AggregateError(first: error) }
+        do { return try await NSAppleEventDescriptor.send(event) { reply in AppleEventValue(reply, in: self) } } catch { throw AggregateError(first: error) }
     }
 
     func record(_ fields: [String: AppleEventValue], in scopes: [Scope], into descriptor: NSAppleEventDescriptor) throws(AggregateError<AppleEventFailure>) -> NSAppleEventDescriptor {

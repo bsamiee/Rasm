@@ -1,8 +1,8 @@
 import { assert, describe, it } from '@effect/vitest';
-import { Array, Effect, Option, Order, Queue, Ref, Schema, String, Struct } from 'effect';
+import { Array, Effect, Fiber, Option, Order, Queue, Ref, Schema, String, Struct, SubscriptionRef } from 'effect';
 import { McpProtocol } from 'effect/ai';
 import { opened, PROTOCOLS } from '#/conformance';
-import { EMBEDDED, FAILURE, IDS, PNG, STATE, STATIC } from '#/fixtures';
+import { ASKED, EMBEDDED, FAILURE, IDS, PNG, STATE, STATIC } from '#/fixtures';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -29,6 +29,12 @@ const Completed = Schema.Struct({ result: Schema.Struct({ completion: Schema.Str
 const Json = Schema.fromJsonString(Schema.Unknown);
 const Trailer = Schema.Struct({ result: Schema.optionalKey(Schema.Unknown), handle: Schema.String, events: Schema.Array(Schema.Unknown) });
 const Asked = Schema.Struct({ result: Schema.Struct({ resultType: Schema.Literal('input_required'), requestState: Schema.String }) });
+const Owed = Schema.Struct({
+    handle: Schema.String,
+    early: Schema.optionalKey(Schema.Struct({ call: Schema.Int, reason: Schema.String })),
+    pending: Schema.optionalKey(Schema.Array(Schema.Int)),
+    finished: Schema.optionalKey(Schema.Array(Schema.Struct({ call: Schema.Int, tool: Schema.String, result: Schema.optionalKey(Schema.Unknown), error: Schema.optionalKey(Schema.String) }))),
+});
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -88,6 +94,21 @@ describe.each(PROTOCOLS)('$protocolVersion tools', (protocol) => {
             const first = yield* Effect.flatMap(Effect.flatMap(tool('test_structured'), Schema.decodeUnknownEffect(Called)), ({ result }) => Schema.decodeUnknownEffect(Trailer)(result.structuredContent));
             const again = yield* Effect.flatMap(Effect.flatMap(tool('test_structured', { handle: first.handle }), Schema.decodeUnknownEffect(Called)), ({ result }) => Schema.decodeUnknownEffect(Trailer)(result.structuredContent));
             assert.deepStrictEqual([first.result, first.events, again.handle], [WEATHER, [], first.handle]);
+        }, Effect.scoped),
+    );
+
+    it.live.runIf(structured)(
+        'returns a call at once while its ends stream holds, keeps it running, and delivers its result once in finished of the call that settles it',
+        Effect.fnUntraced(function* () {
+            const { test, tool } = yield* served(protocol);
+            const owed = (name: string, given: Record<string, unknown> = {}) => Effect.flatMap(Effect.flatMap(tool(name, given), Schema.decodeUnknownEffect(Called)), ({ result }) => Schema.decodeUnknownEffect(Owed)(result.structuredContent));
+            yield* SubscriptionRef.set(test.probe.blocked, true);
+            const early = yield* owed('gated_early');
+            yield* SubscriptionRef.set(test.probe.blocked, false);
+            const settling = yield* Effect.forkScoped(owed('test_settle', { handle: early.handle }));
+            yield* test.probe.release.open;
+            const [settled, after] = [yield* Fiber.join(settling), yield* owed('test_simple_text', { handle: early.handle })];
+            assert.deepStrictEqual([early.early, early.pending, settled.finished, after.pending, after.finished], [{ call: 1, reason: ASKED }, [1], [{ call: 1, tool: 'gated_early', result: 'released' }], undefined, undefined]);
         }, Effect.scoped),
     );
 

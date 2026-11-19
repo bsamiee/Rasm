@@ -10,6 +10,7 @@ import { Server } from '#/server';
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Pattern = string | RegExp;
+type Noticed = typeof Link.Notice.Type & { readonly peer: string };
 interface Filter {
     readonly allow?: readonly Pattern[];
     readonly deny?: readonly Pattern[];
@@ -33,7 +34,6 @@ const PROTOCOLS = Array.sort(Object.values(McpProtocol), Order.flip(Order.mapInp
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Listing = Schema.Struct({ tools: Schema.Array(McpSchema.Tool), resources: Schema.Array(McpSchema.Resource), templates: Schema.Array(McpSchema.ResourceTemplate), prompts: Schema.Array(McpSchema.Prompt) });
-const Noticed = Schema.Struct({ peer: Schema.String.annotate({ description: 'Extension and the host application it runs in' }), ...Link.Notice.fields }).annotate({ description: 'Host event a linked extension reports' });
 
 class Upstream extends Data.Class<
     typeof Listing.Type & {
@@ -106,7 +106,7 @@ class Upstream extends Data.Class<
                         }),
             }),
         ]);
-        const [noticed, following] = yield* Effect.all([Queue.unbounded<typeof Noticed.Type>(), FiberMap.make<string>()]);
+        const [noticed, following] = yield* Effect.all([Queue.unbounded<Noticed>(), FiberMap.make<string>()]);
         const follow = (current: readonly Upstream[]) => {
             const peers = Record.fromIterableWith(current, ({ peer, notices }) => [Link.key(peer), notices] as const);
             return Effect.andThen(
@@ -135,7 +135,7 @@ class Upstream extends Data.Class<
             Effect.provideContext(services),
             Effect.forkScoped,
         );
-        yield* events({ schema: Noticed, text: ({ peer, name, target }) => [peer, name, ...Option.toArray(target)].join(' '), stream: Stream.fromQueue(noticed) });
+        yield* events({ text: ({ peer, name, target, detail }) => [peer, name, ...Option.toArray(target), ...Option.toArray(Option.map(detail, (json) => JSON.stringify(json)))].join(' '), stream: Stream.fromQueue(noticed) });
     });
     static readonly linked = (links: Pick<Effect.Success<ReturnType<typeof Link.listen<never>>>, 'changes' | 'call'>) => {
         const offered = Effect.fnUntraced(function* (peer: Link) {

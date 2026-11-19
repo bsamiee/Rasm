@@ -328,7 +328,7 @@ extension Instance {
         clock: some Clock<Duration> & Sendable = ContinuousClock(),
     ) async throws(ApplicationFailure) -> (outcomes: [Result<CGWindowID?, ApplicationFailure>], state: InstanceState) {
         let states = states(clock: clock)
-        var (outcomes, acted, blind): ([Result<CGWindowID?, ApplicationFailure>], Set<CGWindowID>, Bool) = ([], [], false)
+        var (outcomes, acted, blind, deferred): ([Result<CGWindowID?, ApplicationFailure>], Set<CGWindowID>, Bool, Bool) = ([], [], false, false)
         for action in actions where outcomes.last?.is(\.failure) != true {
             let strokes = await MainActor.run { action.strokes }
             let outcome = await Result { () async throws(ApplicationFailure) in
@@ -342,10 +342,11 @@ extension Instance {
             outcomes.append(settled)
             acted.formUnion([settled[case: \.success].flatMap(\.self)].compactMap(\.self))
             blind = blind || (action.element == nil && settled == .success(nil))
+            deferred = deferred || (action.element != nil && settled == .success(nil))
         }
         var last: InstanceState?
         for await next in merge(states.map(Optional.some), AsyncTimerSequence(interval: messagingTimeout * 2, clock: clock).map { _ in InstanceState?.none }) {
-            if let next, !Self.settled(next, acting: acted, blind: blind) {
+            if let next, !Self.settled(next, acting: acted, blind: blind, deferred: deferred && last == nil) {
                 last = next
                 continue
             }
@@ -354,11 +355,13 @@ extension Instance {
         throw ApplicationFailure(subject: actions.map(\.description).joined(separator: ", "), reason: .cancelled)
     }
 
-    private static func settled(_ state: InstanceState, acting windows: Set<CGWindowID>, blind: Bool) -> Bool {
+    private static func settled(_ state: InstanceState, acting windows: Set<CGWindowID>, blind: Bool, deferred: Bool) -> Bool {
         switch state {
             case .exited, .failed: true
+            case .running(let running) where !running.status.settled: false
             case .running(let running) where running.status.is(\.unresponsive): true
-            case .running(let running): !running.asking.contains { row in windows.contains(row.number) } && !(blind && !running.asking.isEmpty)
+            case .running(let running):
+                !running.asking.contains { row in windows.contains(row.number) } && !(blind && !running.asking.isEmpty) && !(deferred && running.asking.isEmpty)
         }
     }
 }

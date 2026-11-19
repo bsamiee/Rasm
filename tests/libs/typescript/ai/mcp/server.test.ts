@@ -25,7 +25,7 @@ const SETTLED = Duration.seconds(5);
 
 const Echoing = Schema.Struct({ echoed: Schema.String });
 const Handled = Schema.Struct({ handle: Schema.String });
-const Trailed = Schema.Struct({ handle: Schema.String, events: Schema.Array(Schema.Struct({ sequence: Schema.Int, text: Schema.String, event: Schema.Unknown })) });
+const Trailed = Schema.Struct({ handle: Schema.String, events: Schema.Array(Schema.Struct({ sequence: Schema.Int, text: Schema.String })) });
 const Extension = Toolkit.make(Tool.make('unique', { description: 'Tool of the extension alone', success: Schema.String }));
 const Joined = Toolkit.make(Tool.make('late', { description: 'Tool of the extension joining later', success: Schema.String }));
 const Text = Schema.fromJsonString(Echoing);
@@ -129,7 +129,7 @@ const linked = Effect.fnUntraced(function* (silent: readonly Stream.Stream<reado
     const links = { changes: Stream.concat(Stream.succeed([LINKED]), Stream.fromQueue(lists)), call: (holds: (peer: Link) => boolean) => Effect.succeed(holds(JOINED) ? joined : extension) };
     const proxy = Layer.effectDiscard(
         Effect.andThen(
-            Server.use((server) => server.events({ schema: Schema.String, text: Function.identity, stream: Stream.fromQueue(own) })),
+            Server.use((server) => server.events({ text: Function.identity, stream: Stream.fromQueue(own) })),
             Upstream.serve(Array.append(silent, Upstream.linked(links)), { route: (peers) => Effect.succeed(Array.headNonEmpty(peers)) }),
         ),
     );
@@ -240,7 +240,7 @@ describe('linked extension', () => {
         Effect.fnUntraced(function* () {
             const { notices, events } = yield* linked();
             yield* Queue.offer(notices, NOTICE);
-            assert.deepStrictEqual(yield* events(1), [{ sequence: 1, text: 'ext in Host documentOpened /document[1]', event: { peer: 'ext in Host', name: 'documentOpened', target: '/document[1]' } }]);
+            assert.deepStrictEqual(yield* events(1), [{ sequence: 1, text: 'ext in Host documentOpened /document[1]' }]);
         }, Effect.scoped),
     );
 

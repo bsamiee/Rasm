@@ -252,16 +252,29 @@ struct Launch: AsyncParsableCommand {
 }
 
 struct Read: AsyncParsableCommand {
-    static let configuration = CommandConfiguration(abstract: "Prints each instance's whole state with element ids once, --window walks one window")
+    static let configuration = CommandConfiguration(
+        abstract: "Prints each instance's whole state with element ids and menu bar items once, --window walks one window, --element one element's subtree"
+    )
 
     @OptionGroup var running: Running
 
     @Option(help: "Window number from a line")
     var window: CGWindowID?
 
+    @Option(help: "Element ID from a read line, a menu bar item, menu, pane, or panel", transform: elementID)
+    var element: Element.ID?
+
+    func validate() throws(ValidationError) {
+        if window != nil, element != nil { throw ValidationError("Pass --window or --element") }
+    }
+
     func run() async {
         await Run.execute(Self.self) { run in
-            await running.each(run) { instance in run.show(instance, await instance.reading(window: window), whole: true) }
+            await running.each(run) { instance throws(ApplicationFailure) in
+                guard let element else { return run.show(instance, await instance.reading(window: window), whole: true) }
+                let node = try await instance.nodes(from: element)
+                run.emit(instance.key, [String(instance.process.pid): Tagged(instance: instance.process, value: Event.node(node))])
+            }
         }
     }
 }

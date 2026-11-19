@@ -17,7 +17,7 @@ private let nodeAttributes: [String] =
     + frameAttributes + childAttributes
 private let menuRoles: Set<String> = [kAXMenuRole, kAXMenuBarRole]
 private let boundedRoles: Set<String> = [kAXSheetRole, kAXPopoverRole]
-private let detailDepth: Int = 16
+@usableFromInline let detailDepth: Int = 16
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -380,7 +380,7 @@ extension AXUIElement {
         guard walked(element(nil)) else { return (window, element(nil)) }
         let tokens = Dictionary(marked.map { mark in (mark.node.token, mark.attribute) }) { first, _ in first }
         let walk = try Self.children(read).map { child throws(ApplicationFailure) in
-            try child.element.node(menu: bar.flatMap { bar in process.map { process in (process, [bar, child.offset]) } }, depth: detailDepth).parts(marking: tokens)
+            try child.element.node(menu: bar.flatMap { bar in process.map { process in (process, [bar, child.offset]) } }, depth: bar == nil ? detailDepth : 0).parts(marking: tokens)
         }
         .flatMap(\.self)
         let parts =
@@ -419,7 +419,7 @@ extension Element.ID {
 
 extension Instance {
     @concurrent
-    public func nodes(from root: Element.ID?, depth: Int) async throws(ApplicationFailure) -> Node {
+    public func nodes(from root: Element.ID?, depth: Int = detailDepth) async throws(ApplicationFailure) -> Node {
         try await withTaskExecutorPreference(accessibility) { () throws(ApplicationFailure) in
             guard let root else { return try AXUIElement.application(process.pid).node(menu: nil, depth: depth) }
             guard let node = try AXUIElement.element(root.token), let owner = node.process else { throw ApplicationFailure(subject: root.description, reason: .unresolved) }

@@ -98,10 +98,12 @@ extension Instance {
         guard let status else { return next }
         next.status = status
         let modal = Int(CGWindowLevelForKey(.modalPanelWindow))
-        let tagged = Set(listed.filter { window in window.layer == modal && window.onScreen }.map(\.number))
-        let parked = application.isFinishedLaunching && held.silent && thread == .sleeping
+        let shown: [InstanceState.Window] = thread == .sleeping ? listed.filter(\.onScreen) : []
+        let tagged = Set(shown.filter { window in window.layer == modal }.map(\.number))
+        let parked = application.isFinishedLaunching && held.silent
+        let fresh: Set<CGWindowID> = parked ? Set(shown.filter { window in held.answered?.contains(window.number) == false }.map(\.number)) : []
         return concluded(next, status: status, listed: listed) { number in
-            switch (held.described[number], tagged.contains(number), parked && held.answered.map { answered in !answered.contains(number) } == true) {
+            switch (held.described[number], tagged.contains(number), fresh.contains(number)) {
                 case (.some(let element), let isTagged, _) where element.asking || !isTagged: .element(element)
                 case (_, true, _), (.none, false, true): .blocking
                 case (_, false, _): .undescribed

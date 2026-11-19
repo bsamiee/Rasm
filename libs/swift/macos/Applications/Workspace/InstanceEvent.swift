@@ -27,14 +27,11 @@ public struct InstanceEvent: Encodable, Sendable {
         public let kind: InstanceState.Window.Description
         public let title: String?
         public let text: [String]
-        public let answers: [Element.ID]
+        public let answers: Element.Answers?
 
         init(_ row: InstanceState.Window) {
             let element = row.description[case: \.element]
-            let marked: [Control] = [element?.answers?.accept, element?.answers?.discard, element?.answers?.cancel].compactMap(\.self)
-            let answers: [Control] = marked + (element?.answers?.buttons ?? [])
-            (window, self.element, kind, title, text) = (row.number, element?.id, row.description, element?.title ?? row.title, element?.detail?.text ?? [])
-            self.answers = Array(OrderedSet(answers.map(\.id)))
+            (window, self.element, kind, title, text, answers) = (row.number, element?.id, row.description, element?.title ?? row.title, element?.detail?.text ?? [], element?.answers)
         }
     }
 

@@ -99,7 +99,7 @@ const scripts = Effect.fnUntraced(function* (links: { readonly peers: Effect.Eff
     });
     yield* Server.registerTool(
         Tool.make('execute_script', {
-            description: `Runs TypeScript function body in the target application through its newest runtime: a linked extension, do script uxpscript, or ExtendScript; returns its result as JSON, failures name the body line, a dialog needing an answer, the application exiting, or it turning unresponsive returns the call at once. UXP bodies take their host module from require('<host>') (${Declarations.checked.join(', ')}), checked first against its declarations, which refuse a wrong member, type, read-only write, or enumeration value with a link to atelier://object-model/{host}/{name}`,
+            description: `Runs TypeScript function body in the target application through its newest runtime: a linked extension, do script uxpscript, or ExtendScript; returns its result as JSON, failures name the body line; a dialog needing an answer, open before the call or raised by it, the application exiting, or it turning unresponsive returns the call at once, its result arriving in finished of a later result. UXP bodies take their host module from require('<host>') (${Declarations.checked.join(', ')}), checked first against its declarations, which refuse a wrong member, type, read-only write, or enumeration value with a link to atelier://object-model/{host}/{name}`,
             parameters: Body,
             success: Evaluation.Result,
         }).annotateMerge(Context.add(ends, Tool.OpenWorld, false)),

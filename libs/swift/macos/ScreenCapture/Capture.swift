@@ -109,7 +109,7 @@ extension Instance {
             let shot = await Result { () async throws(ApplicationFailure) -> Shot? in
                 let (filter, region, width, height) = try target.get()
                 let configuration = SCScreenshotConfiguration()
-                (configuration.showsCursor, configuration.includeChildWindows) = (false, region == nil)
+                (configuration.showsCursor, configuration.includeChildWindows) = (false, false)
                 if region != nil || longestSide != nil { (configuration.width, configuration.height) = (width, height) }
                 if let region { configuration.sourceRect = region }
                 let output: SCScreenshotOutput

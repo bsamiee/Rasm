@@ -94,7 +94,7 @@ extension Recording: Sendable {}
 extension SCStreamConfiguration {
     public static var background: SCStreamConfiguration {
         let configuration = SCStreamConfiguration()
-        configuration.showsCursor = false
+        (configuration.showsCursor, configuration.includeChildWindows) = (false, false)
         return configuration
     }
 }

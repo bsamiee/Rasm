@@ -42,7 +42,12 @@ public enum InstanceState: Equatable, Sendable {
             case responding
             case unresponsive(ProcessStatus)
 
-            public var settled: Bool { self != .launching }
+            public var settled: Bool {
+                switch self {
+                    case .launching, .unresponsive(.running), .unresponsive(.runnable): false
+                    case .responding, .unresponsive(.sleeping), .unresponsive(.stopped): true
+                }
+            }
         }
 
         public let status: Status
@@ -90,7 +95,7 @@ public enum InstanceState: Equatable, Sendable {
         public var presented: Bool {
             switch description {
                 case .element, .blocking: true
-                case .undescribed: arrived
+                case .undescribed: arrived && onScreen
             }
         }
     }
@@ -299,20 +304,18 @@ extension Instance {
         return AsyncStream { output in
             let following = Task {
                 let (replies, reply) = AsyncStream<Result<InstanceState, ApplicationFailure>>.makeStream()
-                await withDiscardingTaskGroup { group in
-                    var sending = false
-                    for await event in merge(states.map(Result.success), replies) {
-                        output.yield(event)
-                        switch event {
-                            case .success(.exited): if !sending { reply.finish() }
-                            case .success(.running(let running)) where running.asking.isEmpty && (running.status == .responding || running.status == .unresponsive(.runnable)):
-                                guard !sending else { continue }
-                                sending = true
-                                group.addTask { await requestQuit(saving: saving, answering: reply, clock: clock) }
-                            case .failure, .success(.running), .success(.failed): return group.cancelAll()
-                        }
+                var request: Task<Void, Never>?
+                events: for await event in merge(states.map(Result.success), replies) {
+                    output.yield(event)
+                    switch event {
+                        case .success(.exited): if request == nil { reply.finish() }
+                        case .success(.running(let running)) where running.asking.isEmpty && (running.status == .responding || running.status == .unresponsive(.runnable)):
+                            request = request ?? Task { await requestQuit(saving: saving, answering: reply, clock: clock) }
+                        case .success(.running(let running)) where running.asking.isEmpty && !running.status.settled: continue
+                        case .failure, .success(.running), .success(.failed): break events
                     }
                 }
+                request?.cancel()
                 output.finish()
             }
             output.onTermination = { _ in following.cancel() }
@@ -338,13 +341,13 @@ extension Instance {
         let subject = String(process.pid)
         let outcome: Result<InstanceState, ApplicationFailure>?
         do throws(AppleEventFailure) {
-            _ = try await request.send(timeout: NSAppleEventTimeOutDefault)
+            try await NSAppleEventDescriptor.send(request, timeout: NSAppleEventTimeOutDefault) { _ in }
             outcome = nil
         } catch  where error.status == OSStatus(userCanceledErr) {
             _ = await Result { () async throws(any Error) in try await clock.sleep(for: messagingTimeout) }
             outcome =
                 switch await state() {
-                    case .running(let running) where !running.asking.isEmpty || running.status.is(\.unresponsive): .success(.running(running))
+                    case .running(let running) where !running.asking.isEmpty || running.status.settled && running.status.is(\.unresponsive): .success(.running(running))
                     case .failed: nil
                     case .running, .exited: .failure(ApplicationFailure(subject: subject, reason: .refused(nil)))
                 }

@@ -1,4 +1,4 @@
-import { Act, Acted, type Capture, ElementID, Node, type RunningInstance, State, WindowID } from '@rasm/applications';
+import { Act, Acted, type Capture, ElementID, Node, RunningInstance, State, WindowID } from '@rasm/applications';
 import { ApplicationServer } from '@rasm/applications/node';
 import type { Application } from '@rasm/creative-cloud-desktop';
 import { Content, Link, Server } from '@rasm/mcp';
@@ -40,7 +40,8 @@ const Inspect = Tool.make('inspect', {
     success: Node,
 }).annotate(Tool.Readonly, true);
 const Acting = Tool.make('act', {
-    description: 'Runs Accessibility actions on element ids of the target application in order, without focus: press, set a value, choose a menu item, or post a key with modifiers, then returns each outcome and the settled state',
+    description:
+        'Runs Accessibility actions on element ids of the target application in order, without focus: press, set a value, choose a menu item, or post a key with modifiers, then returns each outcome and the settled state, after each call that returned early finishes or its application asks again or stops responding',
     parameters: Act,
     success: Acted,
 }).annotateMerge(Context.make(Tool.Destructive, false).pipe(Context.add(Tool.OpenWorld, false)));
@@ -156,7 +157,13 @@ const windows = Effect.fnUntraced(function* (links: { readonly call: (holds: (pe
         Acting,
         Effect.fnUntraced(function* ({ actions }) {
             const { live } = yield* current;
-            return yield* server.act({ instance: live.instance, actions });
+            const acted = yield* server.act({ instance: live.instance, actions });
+            yield* SubscriptionRef.update(
+                running,
+                Array.map((each) => (each.instance === live.instance ? RunningInstance.make({ ...each, state: acted.state }) : each)),
+            );
+            yield* Server.ToolCall.use(Struct.get('settle'));
+            return acted;
         }),
     );
 });

@@ -125,6 +125,9 @@ const Control = open({
     value: Schema.optionalKey(Value),
     enabled: Schema.Boolean,
 });
+const Answers = open({ accept: Schema.optionalKey(Control), discard: Schema.optionalKey(Control), cancel: Schema.optionalKey(Control), buttons: Schema.Array(Control) }).annotate({
+    description: 'Controls answering the element, absent with nothing to press: accept, discard, and cancel as the element marks them, buttons every labeled one, each pressed through act',
+});
 const Element = open({
     id: ElementID,
     role: Schema.String,
@@ -135,7 +138,7 @@ const Element = open({
     document: Schema.optionalKey(Schema.String.annotate({ description: 'AXDocument file URL' })),
     edited: Schema.optionalKey(Schema.Boolean.annotate({ description: 'AXEdited of close button' })),
     detail: Schema.optionalKey(open({ text: Schema.Array(Schema.String), controls: Schema.Array(Control) }).annotate({ description: 'Walked element contents' })),
-    answers: Schema.optionalKey(open({ accept: Schema.optionalKey(Control), discard: Schema.optionalKey(Control), cancel: Schema.optionalKey(Control), buttons: Schema.Array(Control) }).annotate({ description: 'Controls answering the element, absent with nothing to press' })),
+    answers: Schema.optionalKey(Answers),
 });
 const Kind = Schema.Literals(['filePanel', 'sheet', 'alert', 'modal', 'system', 'menu', 'window', 'undescribed', 'blocking']).annotate({ description: 'Element kind, undescribed with no element, blocking for a new window on a blocked main thread' });
 const Window = open({
@@ -289,7 +292,7 @@ const Dialog = open({
     kind: Kind,
     title: Schema.optionalKey(Schema.String),
     text: Schema.Array(Schema.String),
-    answers: Schema.Array(ElementID).annotate({ description: 'Accept, discard, cancel, then labeled buttons, each pressed through act' }),
+    answers: Schema.optionalKey(Answers),
 });
 const Event = Schema.Union([
     open({ _tag: Schema.tagDefaultOmit('started'), ...happened, started: Schema.Literal(true), identifier: Schema.optionalKey(Launched.fields.identifier), name: Schema.optionalKey(Schema.String) }),

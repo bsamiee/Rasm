@@ -34,13 +34,17 @@ extension Installation {
             if let failure = listed.failures.first, listed.installations.isEmpty { throw failure }
             return listed.installations
         }
-        func listing(_ key: String, _ comparison: NSComparisonPredicate.Operator, _ value: String) async throws(ApplicationFailure) -> [Self] {
-            let matching = NSComparisonPredicate(
-                leftExpression: NSExpression(forKeyPath: key),
-                rightExpression: NSExpression(forConstantValue: value),
-                modifier: .direct,
-                type: comparison,
-                options: [.caseInsensitive, .diacriticInsensitive],
+        func listing(_ key: String, _ comparison: NSComparisonPredicate.Operator, _ values: [String]) async throws(ApplicationFailure) -> [Self] {
+            let matching = NSCompoundPredicate(
+                andPredicateWithSubpredicates: values.map { value in
+                    NSComparisonPredicate(
+                        leftExpression: NSExpression(forKeyPath: key),
+                        rightExpression: NSExpression(forConstantValue: value),
+                        modifier: .direct,
+                        type: comparison,
+                        options: [.caseInsensitive, .diacriticInsensitive],
+                    )
+                }
             )
             guard let listed = await listings(matching, in: directories).first(where: { @Sendable _ in true }) else {
                 throw ApplicationFailure(subject: "Spotlight query for \(name)", reason: .cancelled)
@@ -69,10 +73,12 @@ extension Installation {
         }
         let registered = try readable(await listed(NSWorkspace.shared.urlsForApplications(withBundleIdentifier: name).map { url in url.path(percentEncoded: false) }))
         guard registered.isEmpty else { return registered }
-        let filed = try await listing(NSMetadataItemFSNameKey, .equalTo, URL(filePath: name).appendingPathExtension(for: .applicationBundle).lastPathComponent)
-        let named = try await filed.isEmpty ? listing(NSMetadataItemDisplayNameKey, .equalTo, name) : filed
+        let filed = try await listing(NSMetadataItemFSNameKey, .equalTo, [URL(filePath: name).appendingPathExtension(for: .applicationBundle).lastPathComponent])
+        let named = try await filed.isEmpty ? listing(NSMetadataItemDisplayNameKey, .equalTo, [name]) : filed
         guard named.isEmpty else { return named }
-        throw ApplicationFailure(subject: name, reason: .unnamed(try await listing(NSMetadataItemDisplayNameKey, .contains, name).map(\.url)))
+        var words: [String] = []
+        name.enumerateSubstrings(in: name.startIndex..., options: [.byWords, .substringNotRequired]) { _, range, _, _ in words.append(String(name[range])) }
+        throw ApplicationFailure(subject: name, reason: .unnamed(try await words.isEmpty ? [] : listing(NSMetadataItemDisplayNameKey, .contains, words).map(\.url)))
     }
 
     private static func metadataForm(of predicate: NSPredicate) -> NSPredicate? {

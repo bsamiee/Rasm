@@ -1,4 +1,5 @@
 public import AppKit
+import AsyncAlgorithms
 import CasePathsCore
 public import Encoding
 import Files
@@ -154,12 +155,20 @@ extension NSWorkspace {
                         group.cancelAll()
                         let replaced = !created && Result(catching: { () throws(Errno) in try instance.process.runsInstalledCode() }) == .success(false)
                         output.yield(.launched(Launched(instance: instance, identifier: installation.identifier, created: created, replaced: replaced)))
-                        for await state in instance.states(clock: clock) {
-                            if let running = RunningInstance(instance, state: state) { output.yield(.state(running)) }
-                            switch state {
-                                case .running(let running) where !waiting && (!created || running.status.settled || !running.asking.isEmpty): return
-                                case .failed where !waiting: return
-                                case .running, .failed, .exited: continue
+                        var grace: Int?
+                        for await next in merge(instance.states(clock: clock).map(Optional.some), AsyncTimerSequence(interval: messagingTimeout, clock: clock).map { _ in InstanceState?.none }) {
+                            if let next, let running = RunningInstance(instance, state: next) { output.yield(.state(running)) }
+                            switch next {
+                                case .some(.exited(let ended)) where ended.report != nil || ended.exit[case: \.success]?.reports != true: return
+                                case .some(.running(let running)) where !waiting && (!created || !running.asking.isEmpty): return
+                                case .some(.running(let running))
+                                where !waiting && running.status.settled && (running.status != .unresponsive(.sleeping) || instance.application.isFinishedLaunching):
+                                    if running.windows.contains(where: \.presented) { return }
+                                    grace = grace ?? 0
+                                case .some(.failed) where !waiting: return
+                                case .some: grace = nil
+                                case .none where grace == 1: return
+                                case .none: grace = grace.map { ticks in ticks + 1 }
                             }
                         }
                     } catch {

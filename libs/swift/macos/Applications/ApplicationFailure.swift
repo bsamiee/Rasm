@@ -74,6 +74,7 @@ public struct ApplicationFailure: CustomNSError, Equatable, LocalizedError {
             case .cancelled: "Canceled \(subject)"
             case .unmatched(let miss): miss.errorDescription
             case .unnamed(let candidates) where candidates.isEmpty: "\(subject) names no application"
+            case .unnamed(let candidates) where candidates.count == 1: "\(subject) names no application whole, pass the candidate holding its words"
             case .unnamed: "\(subject) names no single application, pass one candidate"
             case .unwatched(let failure): failure.errorDescription
             case .malformed(let message): message

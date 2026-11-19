@@ -37,9 +37,10 @@ enum Event: Encodable {
     case launched(Launched)
     case running(Outline)
     case captured(Footage)
+    case node(Node)
 
     private enum Key: CodingKey {
-        case fail, launched, running, captured, created, replaced
+        case fail, launched, running, captured, node, created, replaced, url
     }
 
     func encode(to encoder: any Encoder) throws {
@@ -50,8 +51,10 @@ enum Event: Encodable {
                 var row = fields.nestedContainer(keyedBy: Key.self, forKey: .launched)
                 try row.encode(launched.created, forKey: .created)
                 if launched.replaced { try row.encode(true, forKey: .replaced) }
+                try row.encodeIfPresent(launched.instance.application.bundleURL, forKey: .url)
             case .running(let outline): try fields.encode(outline, forKey: .running)
             case .captured(let footage): try fields.encode(footage, forKey: .captured)
+            case .node(let node): try fields.encode(node, forKey: .node)
         }
     }
 }

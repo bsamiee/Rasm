@@ -1,5 +1,5 @@
 import { Content, registerResource, registerTemplate, Server } from '@rasm/mcp';
-import { Cause, Context, Effect, flow, Latch, Layer, Option, Queue, Ref, Schema, Stream, SubscriptionRef, UndefinedOr } from 'effect';
+import { Cause, Context, Effect, flow, Latch, Layer, Option, Queue, Ref, Result, Schema, Stream, Struct, SubscriptionRef, UndefinedOr } from 'effect';
 import { McpSchema, Tool } from 'effect/ai';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -13,6 +13,7 @@ const INTERNAL = 'connection string postgres://owner:secret@db.internal';
 const STEPS = Object.values({ started: 0, halfway: 50, finished: 100 });
 const IDS = ['beta', 'alpine', 'alpha'] as const;
 const STATE = 'asked once';
+const ASKED = 'a dialog asks';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -25,14 +26,14 @@ const Valued = Schema.Struct({ value: Schema.String });
 
 class Probe extends Context.Service<Probe>()('@rasm/test-mcp/fixtures/Probe', {
     make: Effect.gen(function* () {
-        const [calls, entered, interrupted, released, release, watched] = yield* Effect.all([Ref.make<readonly string[]>([]), Queue.unbounded<string>(), Queue.unbounded<string>(), Queue.unbounded<string>(), Latch.make(), SubscriptionRef.make('open')]);
-        return { calls, entered, interrupted, released, release, watched };
+        const [calls, entered, interrupted, released, release, watched, blocked] = yield* Effect.all([Ref.make<readonly string[]>([]), Queue.unbounded<string>(), Queue.unbounded<string>(), Queue.unbounded<string>(), Latch.make(), SubscriptionRef.make('open'), SubscriptionRef.make(false)]);
+        return { calls, entered, interrupted, released, release, watched, blocked };
     }),
 }) {}
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const registered = Effect.fnUntraced(function* ({ calls, entered, interrupted, released, release, watched }: Probe['Service']) {
+const registered = Effect.fnUntraced(function* ({ calls, entered, interrupted, released, release, watched, blocked }: Probe['Service']) {
     const called = <A, E, R>(name: string, answer: Effect.Effect<A, E, R>) => Ref.update(calls, (held) => [...held, name]).pipe(Effect.andThen(Queue.offer(entered, name)), Effect.andThen(answer));
     const gated = (name: string) =>
         called(
@@ -80,6 +81,14 @@ const registered = Effect.fnUntraced(function* ({ calls, entered, interrupted, r
     );
     yield* Server.registerTool(Tool.make('gated_read', { description: 'Waits for release, reads only', success: Schema.String }).annotate(Tool.Readonly, true), () => gated('gated_read'));
     yield* Server.registerTool(Tool.make('gated_write', { description: 'Waits for release, changes state', success: Schema.String }), () => gated('gated_write'));
+    yield* Server.registerTool(
+        Tool.make('gated_early', { description: 'Waits for release, returning early while blocked', success: Schema.String }).annotate(
+            Server.Ends,
+            Stream.filterMap(SubscriptionRef.changes(blocked), (held) => (held ? Result.succeed(ASKED) : Result.failVoid)),
+        ),
+        () => gated('gated_early'),
+    );
+    yield* Server.registerTool(Tool.make('test_settle', { description: 'Settles the calls of its handle that returned early', success: Schema.String }), () => called('test_settle', Effect.as(Server.ToolCall.use(Struct.get('settle')), 'settled')));
     yield* registerResource({ name: 'static-text', description: 'A static text resource for testing', mimeType: 'text/plain', schema: Schema.String, changes: Stream.empty, content: Effect.succeed(STATIC) });
     yield* registerResource({ name: 'static-binary', description: 'A static binary resource for testing', mimeType: 'image/png', schema: Schema.Uint8Array, changes: Stream.empty, content: Effect.succeed(Uint8Array.fromBase64(PNG)) });
     yield* registerResource({ name: 'watched-resource', description: 'A resource whose value changes', mimeType: 'text/plain', schema: Schema.String, changes: SubscriptionRef.changes(watched), content: SubscriptionRef.get(watched) });
@@ -97,4 +106,4 @@ const app = flow(registered, Layer.effectDiscard);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { app, EMBEDDED, FAILURE, IDS, INTERNAL, PNG, Probe, STATE, STATIC, STEPS, TEXT };
+export { app, ASKED, EMBEDDED, FAILURE, IDS, INTERNAL, PNG, Probe, STATE, STATIC, STEPS, TEXT };
