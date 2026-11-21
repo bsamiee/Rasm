@@ -59,8 +59,7 @@
                     {
                         "type": "command",
                         "command": "/etc/profiles/per-user/bardiasamiee/bin/atuin hook claude-code",
-                        "timeout": 10,
-                        "onFailure": "continue"
+                        "timeout": 10
                     }
                 ]
             },

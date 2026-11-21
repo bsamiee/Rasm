@@ -1,85 +1,56 @@
 ---
 name: history
-description: "Use when a task needs a past command, its output, or an agent session transcript, covering this session, its subagents, and earlier sessions through atuin history and threads by MCP and CLI"
+description: "Use before answering any question about earlier work (what a command printed, returned, or took, what a session or subagent found, what the owner decided), after a compaction, and before rerunning a slow command or asking the owner something already settled, covering atuin history and threads by MCP and CLI"
 ---
 
 # [TERMINAL_HISTORY]
 
-Atuin records each shell command of the owner and of every agent as history, and each Claude Code and Codex session as a thread. Its MCP tools find commands and sessions by words, and the `atuin` CLI reads by time window, exit code, session id, and whole tool input and output.
+Atuin records each shell command of the owner and of every agent as history, and each Claude Code and Codex session with its tool calls as a thread, so earlier work is read back in place of rerun, re-derived, or asked.
 
-- Source: files under `~/.claude/projects` and `~/.codex/sessions` are threads, a thread read replaces every read of a transcript file
-- Expiry: Claude Code deletes transcripts after `cleanupPeriodDays` (14 in `~/.claude/settings.json`), threads outlive them
-- Session: `$CLAUDE_CODE_SESSION_ID` and `$CODEX_THREAD_ID` hold the running session's id, a Claude Code subagent holds its parent's
-- Id: a harness session id matches by unique prefix, an atuin id by its last 8 digits, its first digits are a time many threads share
-- Scope: `atuin search` follows the configured filter and fuzzy mode, `--filter-mode global --search-mode fulltext` reads all history literally
-- Author: `--author` takes `claude-code`, `codex`, `$all-agent`, or `$all-user`, a Claude Code row holds its Bash `description` as intent
-- Gap: history holds no Claude Code background Bash or Monitor command and no Codex command left running, a thread holds each as a tool call
-- Output: `atuin_output` reads what the owner's interactive shell printed, output of an agent command is its thread tool result
-- Search: thread search matches messages, tool names, and tool inputs, a word a command printed matches no thread
-- Subagents: thread search and list leave out subagents, which hold most findings, so a search for a finding or result sets `include_subagents: true`
-- Roles: `roles: ["user"]` on thread search and read keeps the owner's requests and decisions
-- Size: `atuin threads show` prints a whole thread, so `--style ndjson` goes through a `jq` filter
+## [01]-[MOMENTS]
 
-| [INDEX] | [TASK]                                            | [OPERATION]                                               |
-| :-----: | :------------------------------------------------ | :-------------------------------------------------------- |
-|  [01]   | Command by words, author, or failure              | `atuin_history`                                           |
-|  [02]   | Command by time window, exit code, or directory   | `atuin search` with `--after`, `--exit`, `--cwd`          |
-|  [03]   | Command by intent, duration, or count             | `atuin search -f '{intent}'`, `sqlite3` on the history db |
-|  [04]   | Session by topic, file, or error it met           | `atuin_threads_search`                                    |
-|  [05]   | Sessions of a directory or since a time           | `atuin_threads_list` with `cwd`, `since`                  |
-|  [06]   | Sessions by tokens, model, or kind                | `atuin threads list --style ndjson \| jq`                 |
-|  [07]   | Conversation of one session                       | `atuin_threads_read`, `query` or `start: -<n>` when long  |
-|  [08]   | Tool inputs and outputs of one session            | `atuin threads show <id> --style ndjson`                  |
-|  [09]   | This session before a compaction                  | `atuin threads show "$CLAUDE_CODE_SESSION_ID"`            |
-|  [10]   | Subagents of a session                            | `children_atuin_ids` of its session line                  |
-|  [11]   | Session continued, forked, handed off, or expired | `atuin resume <id> --print`                               |
-|  [12]   | Commands or messages as another session runs      | `atuin history tail`, `atuin threads tail --style ndjson` |
+History reads come before these steps:
+- Task naming earlier work (`again`, `still`, `continue`, `last time`, `we decided`) -> owner requests of earlier threads through `roles: ["user"]`
+- Session after a compaction or resume -> this session's thread
+- Rerun of a slow or side-effecting command to see its output again -> earlier tool result in this session's thread
+- Question to the owner an earlier session can answer -> thread search before asking
+- Failure that looks familiar -> failed history rows, then the thread that fixed it
+- Findings of an ended subagent -> its thread through the parent's `children_atuin_ids`
 
-## [01]-[HISTORY]
+## [02]-[RECORDS]
 
-`atuin search` prints one row per command, a multiline command across rows, and `--limit` keeps its newest rows. `-f` takes `{time}`, `{exit}`, `{duration}`, `{author}`, `{intent}`, `{session}`, `{directory}`, `{uuid}`, and `{command}`, and `{uuid}` is the history id `atuin_output` reads.
+What each store holds decides where a fact sits:
+- Thread tool results hold what the agent received, after a `| tail` and clipped to 64 KiB, so output worth recalling goes to a file
+- `history_filter` and `cwd_filter` matches keep a call's tool name alone, so an empty input and result mean a filter dropped them
+- `atuin_output` and `atuin_output_search` read the owner's interactive panes alone, agent output sits in thread tool results
+- History lacks Claude Code background and Monitor commands, running Codex commands, and commands spanning a daemon restart, threads hold each
+- Claude Code deletes transcripts after `cleanupPeriodDays`, threads outlive them and `atuin resume <id> --print` restores one
+- Live capture lags seconds behind a running call
 
-- Window: `--after` and `--before` take a date, a time, or a phrase (`'yesterday 3pm'`), `--reverse` makes `--limit` keep oldest rows
-- Exit: `--exit <code>` keeps one code, `--exclude-exit 0` keeps every failure
-- Place: `--cwd <dir>` keeps one directory, `--filter-mode workspace` keeps commands run inside the current repository
-- Query: an empty query `''` matches every command of the other filters
-- Count: `--include-duplicates` keeps each run of a repeated command, which a count needs
-- Stats: `atuin stats` takes no author filter and counts agent commands with the owner's, a count per author goes through `--author`
+## [03]-[FINDING]
 
-```bash
-atuin search --filter-mode global --search-mode fulltext --author '$all-agent' --after '<time>' --before '<time>' --exclude-exit 0 \
-    -f '{time}\t{exit}\t{duration}\t{author}\t{directory}\t{command}' '<words>'
-atuin search --filter-mode global --search-mode fulltext --author claude-code --after '<time>' -f '{uuid}\t{intent}\t{command}' '' | rg -i '<intent words>'
-```
+Search and read match different text:
+- Thread search matches messages, tool names, and inputs, never output -> search a command word, then `atuin_threads_read` `query` matches output
+- Thread search and list leave out subagents, which hold most findings, unless `include_subagents: true`
+- MCP tools read global history, the CLI follows configuration (`workspace` scope, fuzzy match), so CLI reads pass `--filter-mode global --search-mode fulltext`
+- `atuin_history` pads few hits with fuzzy matches, `'<word>` asks for an exact word and `^<text>` a prefix
+- Ids: a harness session id or its unique prefix, exactly the last 8 digits of an atuin id, `agent-<id>`, or `latest`, the leading digits being a time many threads share
+- `$CLAUDE_CODE_SESSION_ID` in a subagent and Codex hook ids name the parent, whose id a subagent thread holds as `parent.session_id`
+- MCP tools take no time window, exit code, folder, or intent, `atuin search` takes `--after`, `--exit`, `--cwd`, and `-f` fields `{author}`, `{intent}`, `{session}`, `{uuid}` its help omits
+- `-f '{duration}'` rounds to whole units, the history database below holds nanoseconds for an exact duration
 
-History database of `atuin info` `client db path`, `timestamp` and `duration` in nanoseconds, for a sort or count no flag gives:
+## [04]-[READS]
+
+`atuin threads show <id> --style ndjson` prints one `session` line, then one line per message with `content` items `text`, `tool_call`, and `tool_result`. A Claude Code `tool_call` holds `input` as a JSON string, a Codex one as script source, and a `tool_result` names its call in `tool_use_id`.
+
+Reads, in order: failed agent commands in a window, every tool call of one session, output of calls whose input holds `<words>`, subagent ids of a session, longest commands of a day:
 
 ```bash
-sqlite3 -readonly ~/.local/share/atuin/history.db "select datetime(timestamp / 1e9, 'unixepoch', 'localtime'), duration / 1e9, exit, author, command
-    from history where timestamp > unixepoch('now', '-1 day') * 1e9 order by duration desc limit 10"
-```
-
-## [02]-[THREADS]
-
-`atuin threads show <id> --style ndjson` prints one `session` line, then one line per message with `role`, `timestamp`, and `content` items, `text`, `tool_call`, and `tool_result` among them. A Claude Code `tool_call` holds `input` as a JSON string, a Codex one as script source, and a `tool_result` names its call in `tool_use_id`. `atuin threads list --style ndjson` prints one line per session with `model`, `tokens`, `parent_kind` (`subagent`, `continuation`), and `root_atuin_id`.
-
-Thread reads, `<id>` a session id, an atuin id, or `latest`:
-1. Every tool call of a session with its time and input, background and Monitor commands among them
-2. Output of each call with input containing `<words>`, as the agent received it
-3. Atuin ids of a session's subagents, each a thread `atuin_threads_read` and `atuin threads show` take
-4. Output tokens and session count of each session with its subagents, largest first
-
-```bash
+atuin search --filter-mode global --search-mode fulltext --author '$all-agent' --after '<time>' --exclude-exit 0 -f '{time}\t{exit}\t{author}\t{directory}\t{command}' '<words>'
 atuin threads show <id> --style ndjson | jq -c 'select(.kind == "message") | .timestamp as $at | .content[]? | select(.type == "tool_call") | {$at, name, input: (.input | fromjson? // .)}'
 atuin threads show <id> --style ndjson | jq -rn --arg words '<words>' '[inputs | .content[]?] | (map(select(.type == "tool_call" and (.input | contains($words))) | .id)) as $ids | .[] | select(.type == "tool_result" and (.tool_use_id | IN($ids[]))) | .content'
 atuin threads show <id> --style ndjson | jq -r 'select(.kind == "session") | .children_atuin_ids[]'
-atuin threads list --style ndjson | jq -sc 'group_by(.root_atuin_id // .atuin_id) | map({root: (.[0].root_atuin_id // .[0].atuin_id), sessions: length, output: (map(.tokens.output // 0) | add)}) | sort_by(-.output) | .[:10][]'
+sqlite3 -readonly "$HOME/.local/share/atuin/history.db" "select datetime(timestamp / 1e9, 'unixepoch', 'localtime'), duration / 1e9, exit, author, command from history where timestamp > unixepoch('now', '-1 day') * 1e9 order by duration desc limit 10"
 ```
 
-## [03]-[RESUME]
-
-`atuin resume <id>` replaces its shell with the harness, so an agent shell passes `--print` and receives the `cd` and resume command.
-
-- Same harness: `atuin resume <id> --print` continues a session, `--fork` writes a copy to continue while its original stays open elsewhere
-- Other harness: `--in <harness>` writes the thread as a new session there on every call, `--print` included
-- Expired: `--print` writes back a transcript Claude Code deleted, without images, with reasoning as a marker and tool inputs and outputs clipped to 64 KiB
+`atuin resume <id> --print` prints the folder change and resume command an agent shell runs, `--fork` continues a copy, and `--in <harness>` writes the thread into another harness as a new session.

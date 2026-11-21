@@ -122,7 +122,7 @@
             "name": "tool",
             "source": "./plugins/shared/tool",
             "version": "0.4.0",
-            "description": "Binary analysis in Ghidra, app, binary, process, and file inspection, desktop app lifecycle, monitoring, and recording through watch-app, Parallels Desktop VMs through its MCP server, and Google Workspace through the gog CLI",
+            "description": "Binary analysis in Ghidra, app, binary, process, and file inspection, desktop app lifecycle, monitoring, and recording through watch-app, Parallels Desktop VMs through its MCP server, and every Google account and service through gog and GAM",
             "author": {
                 "name": "Bardia Samiee"
             }
