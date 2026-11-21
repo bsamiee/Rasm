@@ -1,4 +1,4 @@
-import type { AgentStatus, EngineInterface, HookStream, ProcessSpawnChunk, ProcessSpawnResult, Register, Timer } from 'claude-code';
+import type { EngineInterface, HookStream, ProcessSpawnChunk, ProcessSpawnResult, Register, Timer } from 'claude-code';
 import type { Routes } from '#/claude/routes';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -8,16 +8,12 @@ interface Task {
     readonly file: string;
     readonly told: string | undefined;
 }
-interface Listed {
-    readonly browsers?: readonly { readonly name: string; readonly workspace?: string; readonly attached?: boolean }[];
-}
 interface State {
     readonly served: PromiseWithResolvers<() => Promise<string>>;
     readonly servers: Map<Promise<string>, HookStream<ProcessSpawnChunk, ProcessSpawnResult>>;
     readonly tasks: Map<string, Task>;
     readonly scans: Set<Timer>;
     readonly unjudged: Map<string | undefined, string>;
-    readonly closed: Set<string>;
     readonly turns: Set<string>;
 }
 
@@ -30,7 +26,6 @@ const TASK_OUTPUT = /\/tasks\/(?<id>[^/]+)\.output$/u;
 const AGENT_TASK = /^a[0-9a-f]{16}$/u;
 const TRANSCRIPT = /\/\.claude\/projects(?:\/[^/]+)?\/?$|\/\.claude\/projects\/.+\.jsonl$|\/\.codex\/(?:archived_)?sessions(?:\/|$)/u;
 const SHELL_HISTORY = /\/\.(?:zsh|bash)_history$|\/\.zsh_sessions(?:\/|$)/u;
-const ENDED: ReadonlySet<AgentStatus> = new Set(['completed', 'failed', 'killed']);
 const MONITOR_MS = 300_000;
 const WATCHDOG_MS = 300_000;
 
@@ -140,30 +135,10 @@ const scanned = async ($: EngineInterface, state: State, idle: boolean): Promise
 
 const settled = <A extends { readonly deny?: unknown; readonly context?: readonly string[] | undefined }>(answer: A, note?: string) => (note !== undefined && answer.deny === undefined ? { ...answer, context: [...(answer.context ?? []), note] } : answer);
 
-// --- [BROWSERS]
-
-const closed = async ($: EngineInterface, done: State['closed'], sessions: readonly string[]): Promise<void> => {
-    const open = sessions.filter((session) => !done.has(session));
-    open.forEach((session) => {
-        done.add(session);
-    });
-    if (open.length === 0) {
-        return;
-    }
-    const { exitCode, stdout } = await $.process.run(['playwright', 'cli', 'list', '--all', '--json'], { stdin: '' });
-    // oxlint-disable-next-line typescript/no-unsafe-assignment -- hooks modules import no package to decode with, and playwright cli list --json prints this shape
-    const { browsers = [] }: Listed = exitCode === 0 ? JSON.parse(stdout) : {};
-    await Promise.all(
-        browsers
-            .filter(({ name }) => open.some((owner) => name === owner || name.startsWith(`${owner}-`)))
-            .map(({ name, workspace = '/', attached }) => $.process.run(['playwright', 'cli', `-s=${name}`, ...(attached === true ? ['detach', '--close-tabs'] : ['close'])], { cwd: workspace.startsWith('/') ? workspace : '/', stdin: '' })),
-    );
-};
-
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const register: Register = (on) => {
-    const state: State = { served: Promise.withResolvers(), servers: new Map(), tasks: new Map(), scans: new Set(), unjudged: new Map(), closed: new Set(), turns: new Set() };
+    const state: State = { served: Promise.withResolvers(), servers: new Map(), tasks: new Map(), scans: new Set(), unjudged: new Map(), turns: new Set() };
     on('session.start', async ($, e, next) => {
         const answer = await next(e);
         state.scans.forEach((timer) => timer.cancel());
@@ -263,28 +238,17 @@ const register: Register = (on) => {
         }
         return next(e);
     });
-    on('turn.complete', async ($, e, next) => {
+    on('turn.complete', async (_$, e, next) => {
         const answer = await next(e);
         state.turns.delete(e.turnId);
-        const split = Map.groupBy(await $.agent.list(), ({ status }) => ENDED.has(status));
-        (split.get(false) ?? []).forEach(({ id }) => {
-            state.closed.delete(id);
-        });
-        closed(
-            $,
-            state.closed,
-            (split.get(true) ?? []).map(({ id }) => id),
-        ).catch((cause: unknown) => $.ui.log(`${$.plugin.name} browser close failed, ${Error.isError(cause) ? cause.message : JSON.stringify(cause)}`, { to: 'debug' }));
         return answer;
     });
-    on('session.end', async ($, e, next) => {
-        const agents = await $.agent.list();
+    on('session.end', (_$, e, next) => {
         state.tasks.clear();
         state.scans.forEach((timer) => timer.cancel());
         state.scans.clear();
         state.unjudged.clear();
         state.turns.clear();
-        await closed($, state.closed, [e.sessionId, ...agents.map(({ id }) => id)]).catch((cause: unknown) => $.ui.log(`${$.plugin.name} browser close failed, ${Error.isError(cause) ? cause.message : JSON.stringify(cause)}`, { to: 'debug' }));
         return next(e);
     });
 };

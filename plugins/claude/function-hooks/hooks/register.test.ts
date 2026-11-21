@@ -10,14 +10,12 @@ interface Given {
     readonly agents?: readonly AgentInfo[];
     readonly printed?: Readonly<Record<string, readonly ProcessSpawnChunk[]>>;
     readonly watched?: Iterator<Watched>;
-    readonly browsers?: readonly object[];
     readonly result?: ToolCallResult;
 }
 interface Seen {
     readonly sent: (readonly [route: string, body: unknown])[];
     readonly ran: object[];
     readonly spawned: (readonly string[])[];
-    readonly runs: (readonly string[])[];
     readonly stopped: (readonly string[])[];
 }
 
@@ -36,11 +34,6 @@ const BACKGROUND = { result: { result: { stdout: '', stderr: '', interrupted: fa
 const REPEATING = { file: OUTPUT, live: true, stuck: { key: 'repeats retry #', text: 'repeats "retry #"' } } as const satisfies Watched;
 const QUIET = { file: OUTPUT, live: true, stuck: { key: 'quiet', text: 'wrote nothing for 12m' } } as const satisfies Watched;
 const RUNNING = { file: OUTPUT, live: true } as const satisfies Watched;
-const BROWSERS = [
-    { name: 'a1', workspace: '/work', attached: true },
-    { name: `${ENDING.sessionId}-docs`, workspace: 'relative' },
-    { name: 'other', workspace: '/work' },
-] as const;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -62,7 +55,7 @@ const agentOf = (status: Exclude<AgentInfo['status'], 'waiting' | 'idle'>): Agen
 });
 
 const worldOf = (on: On, decide: () => HttpResponse | Error, given: Given = {}) => {
-    const seen: Seen = { sent: [], ran: [], spawned: [], runs: [], stopped: [] };
+    const seen: Seen = { sent: [], ran: [], spawned: [], stopped: [] };
     const clock = mock.clock(on);
     const printed = new Map(Object.entries(given.printed ?? {}));
     on('session.start', (_, e) => ({ cwd: e.cwd }));
@@ -74,10 +67,6 @@ const worldOf = (on: On, decide: () => HttpResponse | Error, given: Given = {}) 
     on('agent.list', () => ({ value: [...(given.agents ?? [])] }));
     on('env.get', () => ({ value: '/tmp/' }));
     on('ui.log', () => ({ value: undefined }));
-    on('process.run', (_, e) => {
-        seen.runs.push([...(e.init?.cwd === undefined ? [] : [`cwd=${e.init.cwd}`]), ...e.argv]);
-        return { value: { exitCode: 0, stdout: e.argv.includes('list') ? JSON.stringify({ browsers: given.browsers ?? [] }) : '', stderr: '', isStdoutTruncated: false, isStderrTruncated: false } };
-    });
     on('process.spawn', async function* (_, e, next) {
         next.signal.addEventListener(
             'abort',
@@ -289,32 +278,4 @@ test('Read of a task output always runs, and Read or Grep of an agent output, tr
     expect(reads).toEqual([RAN, RAN, ...records.map(([file, route]) => ({ deny: `${file} ${route}` }))]);
     expect(greps).toEqual({ deny: '/Users/u/.claude/projects/-x is a session transcript, atuin threads show <session id> --style ndjson reads it' });
     expect(world.ran).toEqual([shell, shell]);
-});
-
-(
-    [
-        ['running', []],
-        ['completed', [['cwd=/work', 'playwright', 'cli', '-s=a1', 'detach', '--close-tabs']]],
-    ] as const
-).forEach(([status, closes]) => {
-    test(`Turn end closes ${closes.length} browser session of a ${status} agent over two turns`, async ($, on) => {
-        const world = worldOf(on, () => answered(ALLOWED), { agents: [agentOf(status)], browsers: BROWSERS });
-        await $.session.start(SESSION);
-        await $.turn.complete(TURN);
-        await $.turn.complete(TURN);
-        await world.clock.settle();
-        expect(world.runs.filter((argv) => !argv.includes('list'))).toEqual(closes);
-    });
-});
-
-test('Session end closes each browser session of the ending session and its agents, once, in its own workspace', async ($, on) => {
-    const world = worldOf(on, () => answered(ALLOWED), { agents: [agentOf('running')], browsers: BROWSERS });
-    await $.session.start(SESSION);
-    await $.session.end(ENDING);
-    await $.session.end(ENDING);
-    expect(world.runs).toEqual([
-        ['playwright', 'cli', 'list', '--all', '--json'],
-        ['cwd=/work', 'playwright', 'cli', '-s=a1', 'detach', '--close-tabs'],
-        ['cwd=/', 'playwright', 'cli', `-s=${ENDING.sessionId}-docs`, 'close'],
-    ]);
 });

@@ -1,7 +1,6 @@
 import { Array, Combiner, Effect, Layer, Match, Option, Predicate, Record } from 'effect';
 import { RateLimiter } from 'effect/persistence';
 import { Host, type HostError } from '#/host';
-import { BROWSERS } from '#/rules/browsers';
 import { Decision, decisionOf, type Request } from '#/rules/decision';
 import { FILES } from '#/rules/files';
 import { GHIDRA } from '#/rules/ghidra';
@@ -14,7 +13,7 @@ import { PROGRAMS } from '#/shell/programs';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const RULESETS: readonly Ruleset[] = [BROWSERS, FILES, WAITS, GIT, GHIDRA, TASKS, { programs: PROGRAMS }];
+const RULESETS: readonly Ruleset[] = [FILES, WAITS, GIT, GHIDRA, TASKS, { programs: PROGRAMS }];
 const EVERY = RULESETS.flatMap(({ every = [] }) => every);
 const CALLS = RULESETS.flatMap(({ calls = [] }) => calls);
 const BY_NAME = new Map(

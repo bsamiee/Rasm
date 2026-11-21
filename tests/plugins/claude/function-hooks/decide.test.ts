@@ -55,38 +55,15 @@ const HOLDERS = {
     writer: (output: string) => ChildProcess.make('sh', ['-c', 'exec sleep 60 >> "$0"', output]),
     reader: (output: string) => ChildProcess.make('tail', ['-f', output], { stdout: 'ignore' }),
 } as const;
-const BROWSERS = [
-    ['playwright cli close-all', { _tag: 'Deny', reason: "playwright cli close-all closes every agent's sessions, use playwright cli -s=<session> close" }],
-    ['playwright cli kill-all', { _tag: 'Deny', reason: "playwright cli kill-all kills every agent's browsers, use playwright cli -s=<session> close" }],
-    ['playwright cli install', { _tag: 'Deny', reason: 'playwright cli install writes a .playwright workspace in the working folder, use playwright cli install-browser <browser>' }],
-    ['playwright cli install-browser webkit', ALLOWED],
-    ['playwright cli list', ALLOWED],
-    ['playwright install chromium', ALLOWED],
-    ['playwright cli snapshot', { _tag: 'Rewrite', command: 'playwright cli -s=a1 snapshot', background: false }],
-    ['playwright cli open https://example.com', { _tag: 'Rewrite', command: 'playwright cli -s=a1 open https://example.com', background: false }],
-    ['playwright cli -s=a1 snapshot', ALLOWED],
-    ['playwright cli -s=gha snapshot', { _tag: 'Rewrite', command: 'playwright cli -s=a1-gha snapshot', background: false, note: 'playwright -s=gha became -s=a1-gha' }],
-    ['playwright cli -s=a1-gha snapshot', ALLOWED],
-    ['playwright cli -s=a1 attach --config other.json --extension=chrome', ALLOWED],
-    ['playwright cli -s=a1 attach --cdp=http://127.0.0.1:9222', ALLOWED],
-    ['PLAYWRIGHT_CLI_SESSION=gha playwright cli snapshot', { _tag: 'Rewrite', command: 'PLAYWRIGHT_CLI_SESSION=gha playwright cli -s=a1 snapshot', background: false }],
-] as const;
-const ROOT_BROWSERS = [
-    ['playwright cli snapshot', { _tag: 'Rewrite', command: 'playwright cli -s=session snapshot', background: false }],
-    ['open https://example.com', { _tag: 'Rewrite', command: 'playwright cli -s=session open https://example.com', background: false, note: 'open https://example.com became playwright cli -s=session open https://example.com' }],
-] as const;
 const AGGREGATES = [
     ['nx test @rasm/test-function-hooks -- -t decide', { _tag: 'Rewrite', command: 'nx run @rasm/test-function-hooks:test--vitest -- -t decide', background: false, note: 'nx test became nx run @rasm/test-function-hooks:test--vitest -- -t decide' }],
     ['nx clean @rasm/test-function-hooks -- --verbose', { _tag: 'Rewrite', command: 'nx run @rasm/test-function-hooks:clean--vitest -- --verbose', background: false, note: 'nx clean became nx run @rasm/test-function-hooks:clean--vitest -- --verbose' }],
 ] as const;
 const CORES = availableParallelism();
-const EXTENSION_CONFIG = '.playwright/extension.config.json';
 const REWRITTEN = (command: string, note?: string) => ({ _tag: 'Rewrite', command, background: false, ...(note === undefined ? {} : { note }) }) as const;
 const SESSION_CALLS = [
     ['launchctl submit -l probe -- /bin/sleep 9', { _tag: 'Deny', reason: 'launchctl submit detached jobs outlive the session; use run_in_background and TaskStop, or a mise [daemons] row' }],
     ['claude -p hi', { _tag: 'Deny', reason: 'claude --print nests a session inside an agent, spawn an agent with the Agent tool' }],
-    ['P="playwright cli -s=creds"; $P goto https://example.com', { _tag: 'Deny', reason: '$P expands later, pass playwright literally so its session is named for you' }],
-    ['PW=$(command -v playwright); $PW cli goto https://example.com', { _tag: 'Deny', reason: '$PW expands later, pass playwright literally so its session is named for you' }],
     ['seq 3 | xargs -P 0 echo', REWRITTEN(`seq 3 | xargs -P ${CORES} echo`, `xargs -P 0 became ${CORES}`)],
     ['parallel -j0 echo ::: a', REWRITTEN(`parallel -j${CORES} echo ::: a`, `parallel -j0 became -j${CORES}`)],
     ['parallel -j 100% echo ::: a', ALLOWED],
@@ -97,12 +74,6 @@ const SESSION_CALLS = [
     ['nx daemon --stop; nx show projects', REWRITTEN('nx show projects', 'nx daemon --stop removed, the daemon is shared by every session')],
     ['nx reset --onlyDaemon && nx show projects', REWRITTEN('nx show projects', 'nx reset --onlyDaemon removed, the daemon is shared by every session')],
     ['nx daemon --stop', { _tag: 'Deny', reason: 'nx daemon --stop stops the daemon every session shares, leave it running' }],
-] as const;
-const UNCONFIGURED = { _tag: 'Deny', reason: `playwright cli attach --extension reads ~/${EXTENSION_CONFIG}, run Forge's redeploy switch first, it writes the extension config` } as const;
-const EXTENSIONS = [
-    ['playwright cli --session gha attach --extension=chrome', REWRITTEN(`playwright cli -s=a1-gha attach --config ~/${EXTENSION_CONFIG} --extension=chrome`, 'playwright --session became -s=a1-gha'), { agent: 'a1' }],
-    ['playwright cli -s=a1 attach --cdp=chrome', REWRITTEN(`playwright cli -s=a1 attach --config ~/${EXTENSION_CONFIG} --extension=chrome`, 'playwright --cdp=chrome became --extension=chrome'), { agent: 'a1' }],
-    ['playwright cli -s=gha attach --extension=chrome', REWRITTEN(`playwright cli -s=session-gha attach --config ~/${EXTENSION_CONFIG} --extension=chrome`, 'playwright -s=gha became -s=session-gha'), {}],
 ] as const;
 
 const INLINE = (program: string, where = 'inline code') => ({ _tag: 'Deny', reason: `${program} runs ${where} no rule reads, answer it with a CLI (rg, ast-grep, jq, yq, duckdb) or an nx target, as a script file written for it is judged the same` }) as const;
@@ -261,40 +232,6 @@ it.live.each([
 );
 
 it.live(
-    'Playwright CLI calls of an agent outside the root stay in its session',
-    Effect.fnUntraced(
-        function* () {
-            const { decided } = yield* served();
-            const decisions = yield* Effect.forEach(BROWSERS, ([command]) => decided(command, 'foreground', { agent: 'a1' }));
-            assert.deepStrictEqual<readonly Decision[]>(
-                decisions,
-                BROWSERS.map(([, decision]) => decision),
-            );
-        },
-        Effect.scoped,
-        Effect.provide(Layer.merge(layer, SecureRandom.layerWebCrypto)),
-    ),
-    30_000,
-);
-
-it.live(
-    'Playwright CLI calls of the root conversation stay in the session named for it',
-    Effect.fnUntraced(
-        function* () {
-            const { decided } = yield* served();
-            const decisions = yield* Effect.forEach(ROOT_BROWSERS, ([command]) => decided(command, 'foreground'));
-            assert.deepStrictEqual<readonly Decision[]>(
-                decisions,
-                ROOT_BROWSERS.map(([, decision]) => decision),
-            );
-        },
-        Effect.scoped,
-        Effect.provide(Layer.merge(layer, SecureRandom.layerWebCrypto)),
-    ),
-    30_000,
-);
-
-it.live(
     'Leading cd into the folder the request names keeps a later redirect in that folder wherever the shell starts',
     Effect.fnUntraced(
         function* () {
@@ -400,29 +337,6 @@ it.live(
         Effect.provide(Layer.merge(layer, SecureRandom.layerWebCrypto)),
     ),
     60_000,
-);
-
-it.live(
-    'Playwright extension attach takes the extension config only where it exists in the home folder',
-    Effect.fnUntraced(
-        function* () {
-            const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-            const [bare, configured] = yield* Effect.all([fs.makeTempDirectoryScoped(), fs.makeTempDirectoryScoped()]);
-            yield* fs.makeDirectory(path.join(configured, path.dirname(EXTENSION_CONFIG)));
-            yield* fs.writeFileString(path.join(configured, EXTENSION_CONFIG), '{}\n');
-            const decisions = yield* Effect.forEach(
-                [bare, configured],
-                Effect.fnUntraced(function* (home) {
-                    const { decided } = yield* served({ HOME: home });
-                    return yield* Effect.forEach(EXTENSIONS, ([command, , stated]) => decided(command, 'foreground', stated));
-                }),
-            );
-            assert.deepStrictEqual<readonly (readonly Decision[])[]>(decisions, [EXTENSIONS.map(() => UNCONFIGURED), EXTENSIONS.map(([, decision]) => decision)]);
-        },
-        Effect.scoped,
-        Effect.provide(Layer.merge(layer, SecureRandom.layerWebCrypto)),
-    ),
-    30_000,
 );
 
 it.live(
