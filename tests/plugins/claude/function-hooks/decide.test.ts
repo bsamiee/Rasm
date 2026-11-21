@@ -45,9 +45,11 @@ const WAITS = [
         'foreground',
         {
             _tag: 'Deny',
-            reason: '/tmp/claude-501/x/tasks/a46c9759cea20d51a.output is an agent transcript: the agent reports to you when it ends, SendMessage asks it for status, and atuin threads show <session or agent id> --style ndjson | jq reads a transcript',
+            reason: "/tmp/claude-501/x/tasks/a46c9759cea20d51a.output is a running agent's output that the agent reports when it ends, SendMessage asks it for status",
         },
     ],
+    ['rg -c error /Users/u/.claude/projects/-x/5f1e.jsonl', 'foreground', { _tag: 'Deny', reason: '/Users/u/.claude/projects/-x/5f1e.jsonl is a session transcript, atuin threads show <session id> --style ndjson reads it' }],
+    ['tail -n 50 /Users/u/.zsh_history', 'foreground', { _tag: 'Deny', reason: "/Users/u/.zsh_history is shell history, atuin search --filter-mode global --search-mode fulltext '<words>' reads it" }],
 ] as const;
 const HOLDERS = {
     writer: (output: string) => ChildProcess.make('sh', ['-c', 'exec sleep 60 >> "$0"', output]),

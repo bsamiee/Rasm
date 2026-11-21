@@ -28,7 +28,8 @@ const ERROR_LINE = /Error\b/u;
 const STDERR_HELD = 65_536;
 const TASK_OUTPUT = /\/tasks\/(?<id>[^/]+)\.output$/u;
 const AGENT_TASK = /^a[0-9a-f]{16}$/u;
-const TRANSCRIPT = /\/\.claude\/projects\/.+\.jsonl$|\/\.codex\/(?:archived_)?sessions\//u;
+const TRANSCRIPT = /\/\.claude\/projects(?:\/[^/]+)?\/?$|\/\.claude\/projects\/.+\.jsonl$|\/\.codex\/(?:archived_)?sessions(?:\/|$)/u;
+const SHELL_HISTORY = /\/\.(?:zsh|bash)_history$|\/\.zsh_sessions(?:\/|$)/u;
 const ENDED: ReadonlySet<AgentStatus> = new Set(['completed', 'failed', 'killed']);
 const MONITOR_MS = 300_000;
 const WATCHDOG_MS = 300_000;
@@ -179,11 +180,17 @@ const register: Register = (on) => {
         }
         return answer;
     });
-    on('tool.call', { tool: 'Read' }, (_$, e, next) =>
-        TRANSCRIPT.test(e.file_path) || AGENT_TASK.test(TASK_OUTPUT.exec(e.file_path)?.groups?.['id'] ?? '')
-            ? { deny: `${e.file_path} is an agent transcript: the agent reports to you when it ends, SendMessage asks it for status, and atuin threads show <session or agent id> --style ndjson | jq reads a transcript` }
-            : next(e),
-    );
+    on('tool.call', { tool: ['Read', 'Grep'] }, (_$, e, next) => {
+        const file = (e.tool === 'Read' ? e.file_path : e.path) ?? '';
+        const deny = (
+            [
+                [AGENT_TASK.test(TASK_OUTPUT.exec(file)?.groups?.['id'] ?? ''), "is a running agent's output that the agent reports when it ends, SendMessage asks it for status"],
+                [TRANSCRIPT.test(file), 'is a session transcript, atuin threads show <session id> --style ndjson reads it'],
+                [SHELL_HISTORY.test(file), "is shell history, atuin search --filter-mode global --search-mode fulltext '<words>' reads it"],
+            ] as const
+        ).find(([held]) => held);
+        return deny === undefined ? next(e) : { deny: `${file} ${deny[1]}` };
+    });
     on('classic.WorktreeCreate', () => ({ block: 'A worktree makes a second checkout, work in place' }));
     on('tool.call', { tool: ['Bash', 'Monitor'] }, async ($, e, next) => {
         if (e.command === undefined) {

@@ -31,12 +31,12 @@ const WAITERS: ReadonlySet<string> = new Set(['sleep', 'timeout', 'caffeinate', 
 const AGENT_TASK = /^a[0-9a-f]{16}$/u;
 const PATH_WORD = /^\S+$/u;
 const TRANSCRIPT = /\/\.claude\/projects(?:\/[^/]+)?\/?$|\/\.claude\/projects\/.+\.jsonl$|\/\.codex\/(?:archived_)?sessions(?:\/|$)/u;
+const SHELL_HISTORY = /\/\.(?:zsh|bash)_history$|\/\.zsh_sessions(?:\/|$)/u;
 const LOOPBACK: ReadonlySet<string> = new Set(['127.0.0.1', 'localhost', '::1']);
 const SILENT_SOURCE = /^a?nullsrc\b/u;
 const STUCK_LINES = 10;
 const STUCK_REPEATS = 5;
 const QUIET = Duration.minutes(10);
-const TRANSCRIPT_READ = (subject: string) => `${subject} is an agent transcript: the agent reports to you when it ends, SendMessage asks it for status, and atuin threads show <session or agent id> --style ndjson | jq reads a transcript`;
 const EXIT_WAITERS: Partial<Record<NodeJS.Platform, (pid: string) => string>> = {
     darwin: (pid) => `caffeinate -w ${pid}`,
     linux: (pid) => `tail --pid=${pid} -f /dev/null`,
@@ -236,17 +236,25 @@ const watched = Effect.fnUntraced(function* (files: readonly string[]) {
     return files.map((file, at) => ({ file, live: Array.isReadonlyArrayNonEmpty(held[at] ?? []), ...Option.getOrUndefined(Option.map(stuck[at] ?? Option.none(), (found) => ({ stuck: found }))) }));
 });
 
+const RECORDS = [
+    { held: (file: string) => taskIds(file).some((id) => AGENT_TASK.test(id)), route: "is a running agent's output that the agent reports when it ends, SendMessage asks it for status" },
+    { held: (file: string) => TRANSCRIPT.test(file), route: 'is a session transcript, atuin threads show <session id> --style ndjson reads it' },
+    { held: (file: string) => SHELL_HISTORY.test(file), route: "is shell history, atuin search --filter-mode global --search-mode fulltext '<words>' reads it" },
+] as const;
+
 const polledTask = Effect.fnUntraced(function* (call: Call) {
     const { analysis, host, request } = call;
     const own = analysis.invocations.filter(({ command }) => command.origin === 'call');
     const files = Array.dedupe(
-        own.flatMap((invocation) => Array.getSomes([...invocation.words, ...Array.getSomes(invocation.command.redirects.map(({ target }) => target))].filter(({ text }) => PATH_WORD.test(text) && (taskIds(text).length > 0 || TRANSCRIPT.test(text))).map(({ text }) => host.resolve(text, invocation.command.cwd)))),
+        own.flatMap((invocation) =>
+            Array.getSomes([...invocation.words, ...Array.getSomes(invocation.command.redirects.map(({ target }) => target))].filter(({ text }) => PATH_WORD.test(text) && (taskIds(text).length > 0 || TRANSCRIPT.test(text) || SHELL_HISTORY.test(text))).map(({ text }) => host.resolve(text, invocation.command.cwd))),
+        ),
     );
-    const transcripts = files.filter((file) => TRANSCRIPT.test(file) || taskIds(file).some((id) => AGENT_TASK.test(id)));
+    const routes = RECORDS.flatMap(({ held, route }) => Array.match(files.filter(held), { onEmpty: () => [], onNonEmpty: (read) => [`${read.join(' ')} ${route}`] }));
     const ids = taskIds(files.join(' '));
     const waits = own.some(({ program, repeated, has }) => repeated || WAITERS.has(program) || (program === 'read' && has('-t')));
-    if (transcripts.length > 0) {
-        return refusal(TRANSCRIPT_READ(transcripts.join(' ')));
+    if (routes.length > 0) {
+        return refusal(routes.join('; '));
     }
     if (ids.length === 0 || waits || request.kind === 'monitor') {
         return [];

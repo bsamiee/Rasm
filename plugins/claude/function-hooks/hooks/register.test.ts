@@ -275,13 +275,19 @@ test('Command runs as written with the run error noted when the watched server f
     expect(world.sent).toEqual([]);
 });
 
-test('Read of a task output always runs, and a Read of an agent transcript is refused with the route to the agent', async ($, on) => {
+test('Read of a task output always runs, and Read or Grep of an agent output, transcript, or shell history is refused with its route', async ($, on) => {
     const world = worldOf(on, () => answered(ALLOWED), { agents: [agentOf('running')] });
     const shell = { tool: 'Read', file_path: OUTPUT } as const;
-    const transcripts = ['/tmp/claude-501/x/tasks/a46c9759cea20d51a.output', '/Users/u/.claude/projects/-x/5f1e.jsonl'] as const;
+    const records = [
+        ['/tmp/claude-501/x/tasks/a46c9759cea20d51a.output', "is a running agent's output that the agent reports when it ends, SendMessage asks it for status"],
+        ['/Users/u/.claude/projects/-x/5f1e.jsonl', 'is a session transcript, atuin threads show <session id> --style ndjson reads it'],
+        ['/Users/u/.zsh_history', "is shell history, atuin search --filter-mode global --search-mode fulltext '<words>' reads it"],
+    ] as const;
     await $.session.start(SESSION);
-    const reads = [await $.tool.call(shell), await $.tool.call(shell), ...(await Promise.all(transcripts.map((file_path) => $.tool.call({ tool: 'Read', file_path }))))];
-    expect(reads).toEqual([RAN, RAN, ...transcripts.map((file) => ({ deny: `${file} is an agent transcript: the agent reports to you when it ends, SendMessage asks it for status, and atuin threads show <session or agent id> --style ndjson | jq reads a transcript` }))]);
+    const reads = [await $.tool.call(shell), await $.tool.call(shell), ...(await Promise.all(records.map(([file_path]) => $.tool.call({ tool: 'Read', file_path }))))];
+    const greps = await $.tool.call({ tool: 'Grep', pattern: 'error', path: '/Users/u/.claude/projects/-x' });
+    expect(reads).toEqual([RAN, RAN, ...records.map(([file, route]) => ({ deny: `${file} ${route}` }))]);
+    expect(greps).toEqual({ deny: '/Users/u/.claude/projects/-x is a session transcript, atuin threads show <session id> --style ndjson reads it' });
     expect(world.ran).toEqual([shell, shell]);
 });
 
