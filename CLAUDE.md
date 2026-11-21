@@ -29,7 +29,6 @@
 - Use `nx build`/`nx test` for Xcode builds and tests, `xcrun simctl`, `devicectl`, and `xcresulttool` for simulators, devices, and results, `lldb` MCP for a debug session
 
 [CLI_TOOLING]:
-- Use `playwright-cli` when determined appropriate
 
 | [INDEX] | [TOOL]      | [GUIDANCE]                                                                                                              |
 | :-----: | :---------- | :---------------------------------------------------------------------------------------------------------------------- |

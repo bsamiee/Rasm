@@ -4,6 +4,11 @@
             "type": "stdio",
             "command": "pdfm-mcp",
             "default_tools_approval_mode": "approve"
+        },
+        "superhuman-mail": {
+            "type": "http",
+            "url": "https://mcp.mail.superhuman.com/mcp",
+            "default_tools_approval_mode": "approve"
         }
     }
 }

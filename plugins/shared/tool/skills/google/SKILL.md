@@ -34,6 +34,7 @@ Errors naming a missing token or `gog auth add` have causes other than an expire
 |  [07]   | Reading a Drive file's bytes                                  | CloudStorage mount         | No API call                             |
 |  [08]   | Visual check of a slide                                       | Slides connector thumbnail | Personal account files alone            |
 |  [09]   | YouTube download, transcript                                  | `yt-dlp`, NotebookLM       | `gog youtube` holds no media            |
+|  [10]   | Read status, Split Inbox, snippets, reminders, shared threads | `superhuman-mail` MCP      | Superhuman state Gmail lacks            |
 
 ## [03]-[DISCOVERY]
 
@@ -72,8 +73,7 @@ Personal OAuth reauth keeps every service, consent completing in the signed-in C
 tmux -L gog-auth new-session -d -s auth -x 200 -y 50
 tmux -L gog-auth send-keys -t auth "gog auth add b.samiee93@gmail.com --services all-user --force-consent --timeout 15m" Enter
 tmux -L gog-auth capture-pane -t auth -p -J -S - | rg -o 'https://accounts\.google\.com[^ ]+' | tail -n 1 > "$url_file"
-playwright cli -s=<session> attach --extension=chrome --config ~/.playwright/extension.config.json
-playwright cli -s=<session> tab-new "$(cat "$url_file")&login_hint=b.samiee93@gmail.com"
+open -g -b com.google.Chrome "$(cat "$url_file")&login_hint=b.samiee93@gmail.com"
 ```
 
 - `capture-pane` without `-J` wraps the URL at pane width, and Google answers a URL missing `response_type` with `Invalid OAuth Request`
