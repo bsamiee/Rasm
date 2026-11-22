@@ -53,11 +53,11 @@ jobs:
               with:
                   fallback-sha: ${{ steps.root.outputs.sha }}
             - &tools
-              uses: $/.github/actions/tools
+              uses: ./.github/actions/tools
             - run: nx sync:check
             - run: nx conformance:check
             - id: unreal
-              uses: $/.github/actions/unreal
+              uses: ./.github/actions/unreal
             - id: listed
               run: |-
                   unreal="$(nx show projects --affected --exclude='*,!tag:host:unreal' --json)"
@@ -151,7 +151,7 @@ jobs:
               with:
                   xcode-version: latest-stable
             - *tools
-            - uses: $/.github/actions/signing
+            - uses: ./.github/actions/signing
             - run: nx build @rasm/nx-apple-darwin-arm64
             - run: nx affected --targets=check,test,build --exclude='*,!tag:os:darwin,!tag:os:all,tag:host:rhino'
             - if: ${{ !cancelled() && steps.graph.outcome == 'success' && steps.graph.outputs.cache-hit != 'true' }}

@@ -31,7 +31,7 @@ jobs:
               with:
                   fetch-depth: 0
                   clean: false
-            - uses: $/.github/actions/tools
+            - uses: ./.github/actions/tools
             - run: pnpm store prune
             - run: uv cache prune
             - run: mise prune --yes

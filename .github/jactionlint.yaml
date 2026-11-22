@@ -43,7 +43,6 @@ rules:
     mutable-runner-label: error
     require-expression-wrapping: error
     require-shell: error
-    self-repository: error
     unmatched-paths-filter: error
     unused-ignore: error
     unused-needs: error

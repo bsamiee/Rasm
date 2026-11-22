@@ -57,8 +57,8 @@ jobs:
               with:
                   xcode-version: latest-stable
             - &tools
-              uses: $/.github/actions/tools
-            - uses: $/.github/actions/signing
+              uses: ./.github/actions/tools
+            - uses: ./.github/actions/signing
             - run: nx build @rasm/nx-apple-darwin-arm64
             - run: nx release ${SPECIFIER:+"${SPECIFIER}"} ${PROJECTS:+--projects="${PROJECTS}"} --skip-publish --dry-run=${{ inputs.dry-run }}
               env:
@@ -73,7 +73,7 @@ jobs:
                   commit="$(git rev-parse HEAD)"
                   printf "commit=%s\n" "${commit}" >> "${GITHUB_OUTPUT}"
             - id: unreal
-              uses: $/.github/actions/unreal
+              uses: ./.github/actions/unreal
             - if: ${{ !inputs.dry-run }}
               run: nx run-many --targets=attach --configuration=release --exclude='tag:host:unreal'
             - id: google
